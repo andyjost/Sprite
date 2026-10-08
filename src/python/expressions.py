@@ -69,12 +69,104 @@ del _nilcls
 
 class unboxed(object):
   '''
-  Used with :func:`expr` to place an unboxed argument into a Curry expression.
+  Used with :func:`expr` to place the unboxed payload of a primitive into a
+  Curry expression: ``[Prelude.Int, curry.unboxed(3)]`` is the node ``<Int
+  3>``, and ``Prelude.Char`` and ``Prelude.Float`` take the marker the same
+  way.  A plain Python value builds the same node, so the marker is seldom
+  needed.  The payload must fit the primitive: a Python ``int`` under
+  ``Int``, a ``str`` of length one under ``Char``, a ``float`` under
+  ``Float``; another value is a ``CurryTypeError`` from both builders
+  (:func:`unboxed_payload`).  Anywhere else the marker is a
+  ``CurryTypeError`` at construction, from both builders: alone, in a list
+  or a tuple, or as the argument of another symbol, a node is expected, and
+  an unboxed value in its place is an ill-formed node, which ended the
+  process on the C++ backend (issue #107).  An item of an iterator is
+  converted when the list is demanded, so the marker there is an
+  ``EvaluationError`` at that time.
   '''
   def __init__(self, value):
     if not isinstance(value, icurry.IUnboxedLiteral):
       raise CurryTypeError('expected an unboxed literal, got %r' % value)
     self.value = value
+
+  def __repr__(self):
+    return 'curry.unboxed(%r)' % (self.value,)
+
+# The primitive of a payload: its name, the Python type the payload must
+# have, and the example of the messages.
+_PRIMITIVES = {
+    'Int': (int, 'a Python int', 3)
+  , 'Char': (str, 'a str of length one', 'a')
+  , 'Float': (float, 'a Python float', 2.5)
+  }
+
+def primitive_name(info):
+  '''The type name of a primitive info table: Int, Char or Float.'''
+  return 'Int' if info.is_int else 'Char' if info.is_char else 'Float'
+
+def unboxed_fits(primitive, value):
+  '''
+  Whether ``value`` is the payload of the primitive named ``primitive``: a
+  Python ``int`` under ``Int`` (a ``bool`` is not one), a ``str`` of length
+  one under ``Char``, a ``float`` under ``Float``.  Another value makes a
+  node whose bits mean another value on the C++ backend, and a node the
+  Python backend cannot evaluate.
+  '''
+  pytype = _PRIMITIVES[primitive][0]
+  if not isinstance(value, pytype) or isinstance(value, bool):
+    return False
+  return primitive != 'Char' or len(value) == 1
+
+def unboxed_payload(info, value, where=None):
+  '''
+  The payload of ``curry.unboxed`` under the primitive ``info``, checked:
+  the value itself, or a ``CurryTypeError`` when it does not fit
+  (:func:`unboxed_fits`).  ``where`` is the text of the position in the
+  typed builder, or None in the untyped builder.
+  '''
+  primitive = primitive_name(info)
+  if not unboxed_fits(primitive, value):
+    raise CurryTypeError(unboxed_message(value, where, primitive))
+  return value
+
+def unboxed_message(value, where=None, primitive=None):
+  '''
+  The message of an :class:`unboxed` marker outside the payload of a
+  primitive, or, with ``primitive`` given, of a payload that does not fit
+  that primitive.  ``where`` is the text of the position in the typed
+  builder (``'the expression'`` for the marker alone), or None in the
+  untyped builder, which does not know the position.
+  '''
+  if primitive is not None:
+    _, pytype, example = _PRIMITIVES[primitive]
+    place = '' if where is None else ' at ' + where
+    return (
+        'curry.unboxed(%r) is not the payload of %s %s%s; the payload of '
+        '%s %s is %s, as in [Prelude.%s, curry.unboxed(%r)]'
+            % ( value, _article(primitive), primitive, place
+              , _article(primitive), primitive, pytype, primitive, example
+              )
+      )
+  if isinstance(value, str):
+    primitive = 'Char'
+  elif isinstance(value, float):
+    primitive = 'Float'
+  else:
+    primitive = 'Int'
+  if where is None:
+    place = 'outside a primitive'
+  elif where == 'the expression':
+    place = 'alone'
+  else:
+    place = 'at ' + where
+  return (
+      'curry.unboxed(%r) stands %s; the marker is the payload of an Int, '
+      'Char or Float, as in [Prelude.%s, curry.unboxed(%r)]'
+          % (value, place, primitive, value)
+    )
+
+def _article(primitive):
+  return 'an' if primitive == 'Int' else 'a'
 
 class _setgrd(object):
   '''Used with :func:`expr` to place a set guard into a Curry expression.'''
@@ -248,7 +340,10 @@ def expr(interp, *args, **kwds):
   :class:`typed`, and :class:`unboxed`.  A :class:`free` marker becomes a
   call of ``Prelude.unknown``, one node per marker, and a :class:`choice`
   marker a call of ``Prelude.?``, so the runtime assigns the ids.
-  ``raw_expr`` builds the raw ``Free`` and ``Choice`` nodes instead.
+  ``raw_expr`` builds the raw ``Free`` and ``Choice`` nodes instead.  An
+  :class:`unboxed` marker stands only as the payload of a primitive,
+  ``[Prelude.Int, curry.unboxed(3)]``; anywhere else it is a
+  ``CurryTypeError``.
 
   Args:
     interp:
@@ -527,6 +622,12 @@ class ExpressionBuilder(object):
   def __call__(self, ti, *args):
     info = getattr(ti, 'info', ti)
     arity = info.arity
+    if info.is_primitive and len(args) == 1 and isinstance(args[0], unboxed):
+      # A boxed literal over its unboxed payload, [Int, unboxed(3)]: the one
+      # place of the marker.  The payload must fit the primitive.  See the
+      # handler of unboxed below.
+      payload = unboxed_payload(info, args[0].value)
+      return self._mknode(ti, payload, target=self.target)
     if len(args) <= arity:
       partial_info = self.fsyms.PartApplic if len(args) < arity else None
       return self._mknode(
@@ -566,9 +667,12 @@ class ExpressionBuilder(object):
   def __call__(self, arg, *trailing):
     if trailing:
       raise CurryTypeError('invalid arguments after unboxed %r' % arg.value)
-    if self.target is not None:
-      raise ValueError("cannot rewrite a node to an unboxed value")
-    return arg.value
+    # The symbol handler takes the marker under a primitive before it gets
+    # here, so this marker stands alone, in a list or a tuple, or as the
+    # argument of another symbol: a node is expected there, and the raw
+    # value in its place is an ill-formed node, which the C++ backend
+    # dereferenced at construction (issue #107).
+    raise CurryTypeError(unboxed_message(arg.value))
 
   @__call__.when(typed)
   def __call__(self, arg, *trailing):

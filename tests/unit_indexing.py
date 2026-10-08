@@ -43,7 +43,6 @@ class IndexingTests(object):
     yield 1, [-1], 1
     yield 1, 1, out_of_range
     yield 1, -2, out_of_range
-    yield curry.unboxed(1), 0, out_of_range
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
@@ -54,7 +53,6 @@ class IndexingTests(object):
     yield 'a', [-1], 'a'
     yield 'a', 1, out_of_range
     yield 'a', -2, out_of_range
-    yield curry.unboxed('a'), 0, out_of_range
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
@@ -65,7 +63,18 @@ class IndexingTests(object):
     yield 1.0, [-1], 1.0
     yield 1.0, 1, out_of_range
     yield 1.0, -2, out_of_range
-    yield curry.unboxed(1.0), 0, out_of_range
+
+  def test_index_unboxed(self):
+    '''
+    An unboxed value has no successors.  (The rows went through
+    curry.unboxed before; the builders refuse the marker outside a
+    primitive since issue #107.)
+    '''
+    for value in (1, 'a', 1.0):
+      self.assertRaisesRegex(
+          curry.CurryIndexError, str(out_of_range)
+        , lambda: self.INDEXER(value, 0)
+        )
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing

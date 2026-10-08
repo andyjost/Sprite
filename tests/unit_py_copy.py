@@ -181,9 +181,11 @@ class TestPyCopy(cytest.TestCase):
     # A built-in value and an unboxed successor copy as themselves.
     self.assertEqual(copygraph(5), 5)
     self.assertEqual(copygraph('a'), 'a')
-    node = curry.raw_expr((curry.unboxed(2), 3))
+    # A choice holds its id unboxed.  (curry.unboxed stands only under a
+    # primitive since issue #107.)
+    node = curry.raw_expr(curry.choice(2, 3, 4))
     dup = copygraph(node)
-    self.assertEqual(str(dup), '(2, 3)')
+    self.assertEqual(str(dup), '_Choice 2 3 4')
     self.assertEqual(dup.successors[0], 2)
     self.assertIsNot(dup.successors[1], node.successors[1])
 

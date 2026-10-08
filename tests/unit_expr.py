@@ -5,7 +5,8 @@ from curry.expressions import (
   , free, fwd, choice, unboxed, cons, nil
   )
 from curry import inspect
-from curry.exceptions import CurryTypeError
+from curry.exceptions import CurryTypeError, EvaluationError
+from curry.typecheck.errors import ConversionError
 
 listiterator_name = type(iter([])).__name__
 
@@ -58,17 +59,14 @@ class TestExpr(cytest.TestCase):
   @cytest.check_expressions()
   def test_int(self):
     yield 1, '1', '<Int 1>', 1
-    yield curry.unboxed(1), '1', '1', 1
 
   @cytest.check_expressions()
   def test_char(self):
     yield 'a', "'a'", "<Char 'a'>", 'a'
-    yield curry.unboxed('a'), 'a', "'a'", 'a'
 
   @cytest.check_expressions(cleaner=FLOAT_CLEANER)
   def test_float(self):
     yield 1.2, '1.2', "<Float 1.2>", 1.2
-    yield curry.unboxed(1.0), '1.0', '1.0', 1.0
 
   @cytest.check_expressions()
   def test_nodeinfo(self):
@@ -163,12 +161,10 @@ class TestExpr(cytest.TestCase):
 
   @cytest.check_expressions()
   def test_unboxed(self):
-    yield curry.unboxed(2), '2', '2'
-
-  @unittest.skipIf(CXX, 'No support for heterogeneous Nodes.')
-  @cytest.check_expressions()
-  def test_unboxed_nested(self):
-    yield (curry.unboxed(2), 3), '(2, 3)', '<(,) 2 <Int 3>>'
+    # The marker is the payload of a primitive; see TestUnboxedMarker.
+    prelude = curry.import_('Prelude')
+    yield [prelude.Int, curry.unboxed(2)], '2', '<Int 2>', 2
+    yield [prelude.Char, curry.unboxed('a')], "'a'", "<Char 'a'>", 'a'
 
   @cytest.check_expressions()
   def test_var(self):
@@ -253,6 +249,180 @@ class TestExpr(cytest.TestCase):
            , '<(,,) <Int 5> <: <Int 5> <[]>> <Just <[]>>>'
 
 
+
+
+class TestUnboxedMarker(cytest.TestCase):
+  '''
+  The place of curry.unboxed (issue #107).  The marker is the payload of a
+  primitive, [Int, unboxed(3)].  Anywhere else both builders raise a
+  CurryTypeError at construction, on both backends: the C++ backend
+  dereferenced the raw value as a node and ended the process, and the
+  Python backend built an ill-formed node.
+  '''
+  PLACE = (
+      r'the marker is the payload of an Int, Char or Float, as in '
+      r'\[Prelude\.Int, curry\.unboxed\(1\)\]'
+    )
+
+  def test_payload(self):
+    '''As the payload of a primitive the marker works through both builders.'''
+    P = curry.import_('Prelude')
+    for build in (curry.expr, curry.raw_expr):
+      e = build([P.Int, curry.unboxed(3)])
+      self.assertEqual(repr(e), '<Int 3>')
+      self.assertEqual(curry.topython(e), 3)
+      self.assertEqual(repr(build(P.Char, curry.unboxed('a'))), "<Char 'a'>")
+      self.assertEqual(curry.topython(build([P.Float, curry.unboxed(2.5)])), 2.5)
+    self.assertEqual(curry.typeof(curry.expr([P.Int, curry.unboxed(3)])), 'Int')
+    self.assertEqual(
+        list(curry.eval([P.Int, curry.unboxed(3)], converter='topython')), [3]
+      )
+
+  def test_typed_builder(self):
+    '''Alone, as an argument, in a list, in a tuple: an error that names the position.'''
+    P = curry.import_('Prelude')
+    cases = [
+        ( (curry.unboxed(1),)
+        , r'^curry\.unboxed\(1\) stands alone; ' + self.PLACE + '$'
+        )
+      , ( (P.id, curry.unboxed(1))
+        , r'^curry\.unboxed\(1\) stands at argument 1 of Prelude\.id :: a -> a; '
+          + self.PLACE + '$'
+        )
+      , ( ([curry.unboxed(1)],)
+        , r'^curry\.unboxed\(1\) stands at element 1 of the list in the '
+          r'expression; ' + self.PLACE + '$'
+        )
+      , ( ((curry.unboxed(1), 2),)
+        , r'^curry\.unboxed\(1\) stands at component 1 of the tuple in the '
+          r'expression; ' + self.PLACE + '$'
+        )
+      ]
+    for args, regex in cases:
+      with self.assertRaisesRegex(CurryTypeError, regex):
+        curry.expr(*args)
+      with self.assertRaisesRegex(CurryTypeError, regex):
+        curry.typeof(curry.describe(*args))
+      with self.assertRaisesRegex(CurryTypeError, regex):
+        list(curry.eval(*args))
+    # The message names the primitive of the payload.
+    with self.assertRaisesRegex(
+        CurryTypeError, r"as in \[Prelude\.Char, curry\.unboxed\('a'\)\]$"
+      ):
+      curry.expr(P.id, curry.unboxed('a'))
+    with self.assertRaisesRegex(
+        CurryTypeError, r'as in \[Prelude\.Float, curry\.unboxed\(2\.5\)\]$'
+      ):
+      curry.expr(P.Just, curry.unboxed(2.5))
+    # The error is one of the catalogue and carries the position.
+    with self.assertRaises(ConversionError) as cm:
+      curry.expr(P.id, curry.unboxed(1))
+    self.assertEqual(cm.exception.where, 'argument 1 of Prelude.id :: a -> a')
+    self.assertEqual(cm.exception.value, 1)
+    # A description holds the marker and prints it; typing it is the error.
+    d = curry.describe(P.id, curry.unboxed(1))
+    self.assertEqual(str(d), 'id 1')
+    with self.assertRaisesRegex(CurryTypeError, 'stands at argument 1 of'):
+      d.typeof()
+    # Nothing is built: a target stays as it is.
+    target = curry.expr(P.id, 0)
+    with self.assertRaisesRegex(CurryTypeError, 'stands alone'):
+      curry.expr(curry.unboxed(1), target=target)
+    self.assertEqual(str(target), 'id 0')
+
+  def test_untyped_builder(self):
+    '''raw_expr, and expr with the typing off, raise too, without a position.'''
+    P = curry.import_('Prelude')
+    interp = curry.getInterpreter()
+    regex = r'^curry\.unboxed\(1\) stands outside a primitive; ' + self.PLACE + '$'
+    for args in [
+        (curry.unboxed(1),), (P.id, curry.unboxed(1)), ([curry.unboxed(1)],)
+      , ((curry.unboxed(1), 2),), (P.Just, [1, curry.unboxed(1)])
+      ]:
+      with self.assertRaisesRegex(CurryTypeError, regex):
+        curry.raw_expr(*args)
+      with self.assertRaisesRegex(CurryTypeError, regex):
+        curry.expressions.untyped_expr(interp, *args)
+    # The marker alone with a target is the same error, and the target stays.
+    target = curry.raw_expr(P.id, 0)
+    with self.assertRaisesRegex(CurryTypeError, regex):
+      curry.raw_expr(curry.unboxed(1), target=target)
+    self.assertEqual(str(target), 'id 0')
+    # Trailing arguments are reported first, as for every marker.
+    with self.assertRaisesRegex(CurryTypeError, 'invalid arguments after unboxed 1'):
+      curry.raw_expr(curry.unboxed(1), True)
+
+  def test_payload_type(self):
+    '''A payload that does not fit its primitive is refused by both builders.'''
+    P = curry.import_('Prelude')
+    interp = curry.getInterpreter()
+    cases = [
+        ( P.Int, 2.5
+        , r"curry\.unboxed\(2\.5\) is not the payload of an Int%s; the payload "
+          r"of an Int is a Python int, as in \[Prelude\.Int, curry\.unboxed\(3\)\]$"
+        )
+      , (P.Int, 'a', r"curry\.unboxed\('a'\) is not the payload of an Int%s; ")
+      , (P.Int, True, r"curry\.unboxed\(True\) is not the payload of an Int%s; ")
+      , ( P.Float, 1
+        , r"curry\.unboxed\(1\) is not the payload of a Float%s; the payload of "
+          r"a Float is a Python float, as in \[Prelude\.Float, curry\.unboxed\(2\.5\)\]$"
+        )
+      , (P.Float, 'a', r"curry\.unboxed\('a'\) is not the payload of a Float%s; ")
+      , ( P.Char, 1
+        , r"curry\.unboxed\(1\) is not the payload of a Char%s; the payload of "
+          r"a Char is a str of length one, as in \[Prelude\.Char, curry\.unboxed\('a'\)\]$"
+        )
+      , (P.Char, 'ab', r"curry\.unboxed\('ab'\) is not the payload of a Char%s; ")
+      , (P.Char, 2.5, r"curry\.unboxed\(2\.5\) is not the payload of a Char%s; ")
+      ]
+    for prim, value, regex in cases:
+      # The typed builder names the position of the primitive.
+      with self.assertRaisesRegex(ConversionError, '^' + regex % ' at the expression'):
+        curry.expr([prim, curry.unboxed(value)])
+      with self.assertRaisesRegex(
+          ConversionError, '^' + regex % r' at argument 1 of Prelude\.id :: a -> a'
+        ):
+        curry.expr(P.id, [prim, curry.unboxed(value)])
+      with self.assertRaisesRegex(
+          ConversionError
+        , '^' + regex % r' at element 1 of the list in the expression'
+        ):
+        curry.typeof(curry.describe([[prim, curry.unboxed(value)]]))
+      # The untyped builder has no position.
+      with self.assertRaisesRegex(CurryTypeError, '^' + regex % ''):
+        curry.raw_expr([prim, curry.unboxed(value)])
+      with self.assertRaisesRegex(CurryTypeError, '^' + regex % ''):
+        curry.expressions.untyped_expr(interp, P.id, [prim, curry.unboxed(value)])
+    with self.assertRaises(ConversionError) as cm:
+      curry.expr(P.Just, [P.Int, curry.unboxed(2.5)])
+    self.assertEqual(cm.exception.where, 'argument 1 of Prelude.Just :: a -> Maybe a')
+    self.assertEqual(cm.exception.value, 2.5)
+    # A description prints the payload; typing it is the error.
+    d = curry.describe([P.Int, curry.unboxed(2.5)])
+    self.assertEqual(str(d), '2.5')
+    with self.assertRaisesRegex(ConversionError, 'is not the payload of an Int'):
+      d.typeof()
+    # The range of Int is checked where the node is made, on both backends.
+    with self.assertRaisesRegex(CurryTypeError, 'outside the range of Int'):
+      curry.expr([P.Int, curry.unboxed(2 ** 64)])
+    with self.assertRaisesRegex(CurryTypeError, 'outside the range of Int'):
+      curry.raw_expr([P.Int, curry.unboxed(2 ** 64)])
+
+  def test_iterator(self):
+    '''An item of an iterator converts when the list is demanded: the error names the marker.'''
+    P = curry.import_('Prelude')
+    self.assertEqual(repr(curry.unboxed(1)), 'curry.unboxed(1)')
+    self.assertEqual(repr(curry.unboxed('a')), "curry.unboxed('a')")
+    # The construction passes: the items are not read yet.
+    e = curry.expr(P.length, iter([curry.unboxed(1), curry.unboxed(2)]))
+    with self.assertRaisesRegex(
+        EvaluationError
+      , r'^cannot convert item curry\.unboxed\(1\) of the iterator at argument 1 '
+        r'of Prelude\.length :: \[a\] -> Int to a$'
+      ):
+      list(curry.eval(e))
+    with self.assertRaisesRegex(EvaluationError, r'cannot convert item curry\.unboxed\(1\)'):
+      list(curry.eval(P.length, iter([curry.unboxed(1)])))
 
 
 class TestSurplusArguments(cytest.TestCase):

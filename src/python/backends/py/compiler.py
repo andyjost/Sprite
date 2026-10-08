@@ -22,8 +22,12 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # calls of small non-recursive functions and calls of a single-case function
 # on a known constructor (interpreter.optimize.inline_calls), and records the
 # body of such a function in its metadata; a file of format 5 is correct but
-# slower, and it tells the modules that import it no bodies.
-FORMAT_VERSION = 6
+# slower, and it tells the modules that import it no bodies.  Format 7: the
+# arithmetic of Int, the integer divisions and the conversions of a Float to
+# Int are the checked primitives of currylib.prelude.math (issues #105 and
+# #106); a file of format 6 binds the operators of Python, which wrap no
+# value but raise ZeroDivisionError and give a wider integer.
+FORMAT_VERSION = 7
 
 def source_file_expr(filename):
   '''

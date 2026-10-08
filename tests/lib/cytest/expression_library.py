@@ -1,8 +1,7 @@
 import curry
 from . import testcase
 from curry.expressions import (
-    unboxed
-  , _setgrd, fail, _strictconstr, _nonstrictconstr, _valuebinding, free, fwd
+    _setgrd, fail, _strictconstr, _nonstrictconstr, _valuebinding, free, fwd
   , choice
   )
 
@@ -41,7 +40,7 @@ expressions = {
   , 'nonstrict_constraint': curry.raw_expr(_nonstrictconstr(True, (free(vid()), False)))
   , 'setgrd': curry.raw_expr(_setgrd(sid(), True))
   , 'strict_constraint': curry.raw_expr(_strictconstr(True, (free(1), free(2))))
-  , 'value_binding': curry.raw_expr(_valuebinding(True, (free(1), unboxed(2))))
+  , 'value_binding': curry.raw_expr(_valuebinding(True, (free(1), 2)))
   , 'func': curry.raw_expr(prelude.head, getattr(prelude, '[]'))
   }
 

@@ -6,6 +6,7 @@ Functions for parsing literals.
 from ... import graph
 from ..... import inspect
 from . import string
+from .math import INT_MAX, INT_MIN
 
 __all__ = [
     'readCharLiteral', 'readFloatLiteral', 'readNatLiteral'
@@ -120,6 +121,11 @@ def readNatLiteral(rts, s):
     yield rts.Failure
     return
   value = int(''.join(num))
+  # A numeral outside the range of Int fails the parse, as the C++ step does
+  # when strtol reports ERANGE (issue #105).
+  if not INT_MIN <= value <= INT_MAX:
+    yield rts.Failure
+    return
   yield rts.prelude.Cons
   yield graph.Node(
       rts.prelude.Pair

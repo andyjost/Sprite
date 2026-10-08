@@ -1,4 +1,6 @@
 from ....common import T_SETGRD, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
+from ....common import F_INT_TYPE
+from ....exceptions import CurryTypeError
 from .... import backends, icurry, utility
 from .... import inspect, show
 from .infotable import InfoTable
@@ -158,5 +160,20 @@ def new_node(cls, info, *args, target=None, partial=False):
   self.info = info
   successors = [getattr(arg, 'rvalue', arg) for arg in args]
   assert all(map(inspect.isa_curry_expr_or_none, successors))
+  if (info.flags & 0xf) == F_INT_TYPE and successors:
+    check_int_range(successors[0])
   self.successors = successors
   return self
+
+# The range of Int: 64 bits, as on the C++ backend (issue #105).  An Int
+# node never holds a wider integer, so the two backends agree on every
+# value.  The message is the one the C++ backend raises
+# (backends/cxx/cyrtbindings/graph.cpp).
+INT_MIN = -(1 << 63)
+INT_MAX = (1 << 63) - 1
+
+def check_int_range(value):
+  if type(value) is int and not INT_MIN <= value <= INT_MAX:
+    raise CurryTypeError(
+        '%d is outside the range of Int (%d to %d)' % (value, INT_MIN, INT_MAX)
+      )
