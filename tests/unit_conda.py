@@ -466,8 +466,9 @@ class TestCondaRecipe(cytest.TestCase):
 
   def test_overlay_rules(self):
     '''
-    make overlay extracts the test products; make overlay-archive packs the
-    five product kinds with fixed metadata and the library interfaces.
+    make overlay extracts the test products, and lists them under V=1 alone;
+    make overlay-archive packs the five product kinds with fixed metadata and
+    the library interfaces.
     '''
     if not os.path.isfile(os.path.join(ROOT, 'Make.config')):
       raise unittest.SkipTest('Make.config is absent')
@@ -485,7 +486,13 @@ class TestCondaRecipe(cytest.TestCase):
     result = run(['make', '-C', ROOT, '-n', 'overlay'])
     self.assertEqual(result.returncode, 0, result.stdout)
     if os.path.isfile(os.path.join(ROOT, archive)):
-      self.assertIn("tar xvzf %s -m --wildcards 'tests/*'" % archive, result.stdout)
+      # The extraction names no member: the list of about six thousand would
+      # fill the log of every CI job.  V=1 lists them.
+      self.assertIn("tar xzf %s -m --wildcards 'tests/*'" % archive, result.stdout)
+      self.assertNotIn('tar xvzf', result.stdout)
+      verbose = run(['make', '-C', ROOT, '-n', 'overlay', 'V=1'])
+      self.assertEqual(verbose.returncode, 0, verbose.stdout)
+      self.assertIn("tar xvzf %s -m --wildcards 'tests/*'" % archive, verbose.stdout)
       # The extraction is followed by the prune and the interface copies.
       self.assertIn('overlay-prune', result.stdout)
       self.assertLess(
@@ -493,6 +500,66 @@ class TestCondaRecipe(cytest.TestCase):
         )
     else:
       self.assertNotIn('tar', result.stdout)
+
+  def test_default_goal_order(self):
+    '''
+    A plain make stages first and extracts the overlay archive after the
+    stage, in the order of the CI jobs: a product extracted before the stage
+    is older than the interfaces of the installed library, and the front end
+    would compile its module again at its first use.
+    '''
+    if not os.path.isfile(os.path.join(ROOT, 'Make.config')):
+      raise unittest.SkipTest('Make.config is absent')
+    result = run(['make', '-C', ROOT, '-n', 'default-goal'])
+    self.assertEqual(result.returncode, 0, result.stdout)
+    lines = result.stdout.split('\n')
+    def index(goal):
+      found = [
+          i for i, line in enumerate(lines)
+            if re.fullmatch(r'\S*make %s' % goal, line)
+        ]
+      self.assertEqual(len(found), 1, (goal, found))
+      return found[0]
+    self.assertLess(lines.index('git submodule update'), index('stage'))
+    self.assertLess(index('stage'), index('overlay'))
+
+  def test_overlay_in_a_shallow_clone(self):
+    '''
+    make overlay in a shallow clone extracts the products, prunes nothing
+    and warns: the history ends before the commit that packed the archive,
+    and the warning names fetch-depth 0.  The build files of this tree are
+    copied into the clone, so the test sees the Makefile of the working
+    tree.  One run: the copies of the interfaces take most of its time.
+    '''
+    if not os.path.isfile(os.path.join(ROOT, 'Make.config')):
+      raise unittest.SkipTest('Make.config is absent')
+    archive = 'overlay-%s.tgz' % config.frontend_subdir()
+    if not os.path.isfile(os.path.join(ROOT, archive)):
+      raise unittest.SkipTest('%s is absent' % archive)
+    git = shutil.which('git', path=ENV['PATH'])
+    if git is None:
+      raise unittest.SkipTest('git is absent')
+    inside = run([git, '-C', ROOT, 'rev-parse', '--is-inside-work-tree'])
+    if inside.returncode != 0 or inside.stdout.strip() != 'true':
+      raise unittest.SkipTest('not a git work tree')
+    with tempfile.TemporaryDirectory() as tmpdir:
+      clone = os.path.join(tmpdir, 'clone')
+      result = run([git, 'clone', '--quiet', '--depth', '1', 'file://' + ROOT, clone])
+      self.assertEqual(result.returncode, 0, result.stdout)
+      for name in ['Makefile', 'Make.include', 'Make.rules', 'Make.validate', 'Make.config']:
+        shutil.copy(os.path.join(ROOT, name), clone)
+      result = run(['make', '-C', clone, 'overlay'])
+      self.assertEqual(result.returncode, 0, result.stdout)
+      self.assertIn('overlay-prune: WARNING: this is a shallow clone', result.stdout)
+      self.assertIn('fetch-depth 0', result.stdout)
+      # No member is listed, and the products are in place.
+      self.assertNotRegex(result.stdout, r'(?m)^tests/')
+      self.assertLess(len(result.stdout.split('\n')), 20)
+      product = os.path.join(
+          clone, 'tests', 'data', 'curry', 'smap', '.curry', config.frontend_subdir()
+        , 'poker_four_of_a_kind.fcy'
+        )
+      self.assertTrue(os.path.isfile(product), product)
 
   def test_sprite_home_default(self):
     '''

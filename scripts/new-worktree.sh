@@ -15,7 +15,10 @@
 # of the original (tar -m): the sources of the fresh checkout are newer
 # than the originals, and a copy with the old time would count as stale
 # and send every module through the front end again.  The JSON files are
-# touched after the copy, so each one is newer than its ICurry file.
+# touched after the copy, so each one is newer than its ICurry file.  The
+# copy follows the stage for the reason the root Makefile gives at its
+# default goal: the front end compiles a module again when the interfaces
+# of the installed library are newer than its products.
 #
 # The generated code of both backends is not copied.  The generated Python
 # (and its bytecode) names the source of the tree it was made in, and the

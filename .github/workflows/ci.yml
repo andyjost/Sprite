@@ -136,7 +136,8 @@ jobs:
       # archived FlatCurry; extracted before the stage, the front end would
       # compile the module again and fail.  The prepare pass and the
       # functional suites need it; the checkout fetches the history for
-      # its prune.
+      # its prune, and overlay-prune warns in a shallow clone.  The
+      # extraction lists its members under make overlay V=1 alone.
       - name: Extract the test products of the overlay archive
         run: make overlay
       - name: Unit tests

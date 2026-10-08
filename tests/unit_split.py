@@ -15,9 +15,15 @@ SPLITDIR = os.path.join(BENCHMARKS, 'split')
 CURRYPATH = [SPLITDIR, BENCHMARKS] + curry.path
 PARTS = (2, 4, 8)
 # The sizes of the checks.  The permutations are n! in number.  The Python
-# backend narrows slowly, so it checks the solutions at a smaller size.
+# backend narrows slowly, so it checks the solutions at a smaller size, and
+# so does the stress mode of the collector on the C++ backend
+# (SPRITE_GC_STRESS=1; cytest.GC_STRESS): the whole and every part of a
+# split are searches over a live state that the collector walks at every
+# step there, and at six the file takes about 400 s, 320 s of them in
+# test_searchqueens; at five it takes about 15 s, and the partition is
+# checked at ten solutions of the queens programs.
 PERMS_SIZE = 5
-SOLUTIONS_SIZE = 6 if curry.flags['backend'] == 'cxx' else 5
+SOLUTIONS_SIZE = 6 if curry.flags['backend'] == 'cxx' and not cytest.GC_STRESS else 5
 # The split module of each program, and the function of the original
 # program that takes the size.
 PROGRAMS = (

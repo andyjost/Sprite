@@ -634,6 +634,13 @@ step_stage() {
   if [ "$dry_run" = 0 ] && [ ! -r "$prefix/install/lib/libcyrt.so" ]; then
     die "make stage did not produce $prefix/install/lib/libcyrt.so"
   fi
+  # The archived products of the test programs, after the stage: they must
+  # be newer than the installed library interfaces, or the front end makes
+  # them again at the first test run, and one test program needs a
+  # preprocessor that the PAKCS distribution lacks (tests/README, section
+  # 10).
+  note "extracts the archived products of the test programs (make overlay)"
+  run_in "$repo" "${clean_env[@]}" make overlay
 }
 
 # ----------------------------------------------------------------------------

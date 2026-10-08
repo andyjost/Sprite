@@ -265,6 +265,10 @@ class TestDryRun(SetupScriptTestCase):
     # make stage in the clean environment, after configure.
     self.assertInOrder(out, './configure', '(cd %s && %s' % (repo, CLEAN_ENV), ' make stage)')
     self.assertRegex(out, r'CCACHE_DIR=%s/ccache make stage\)' % re.escape(prefix))
+    # make overlay after make stage, in the same environment: the archived
+    # products must be newer than the installed library interfaces.
+    self.assertInOrder(out, ' make stage)', '(cd %s && %s' % (repo, CLEAN_ENV), ' make overlay)')
+    self.assertRegex(out, r'CCACHE_DIR=%s/ccache make overlay\)' % re.escape(prefix))
     self.assertIn('the flags are recorded in %s/configure-args' % prefix, out)
     # The smoke test: one file on each backend, capped and timed.
     for backend in ['py', 'cxx']:
@@ -284,7 +288,7 @@ class TestDryRun(SetupScriptTestCase):
               % (prefix, repo)
         , line
         )
-    self.assertInOrder(out, ' make stage)', 'backend:py', 'backend:cxx', 'next steps')
+    self.assertInOrder(out, ' make stage)', ' make overlay)', 'backend:py', 'backend:cxx', 'next steps')
     # The next steps name the calibration, the baseline, and the rules file.
     self.assertIn('Calibrate the test manifest', out)
     self.assertIn('./run_tests -j 1 --backend both --update-manifest', out)

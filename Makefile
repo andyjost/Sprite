@@ -98,6 +98,7 @@ endif
 	@echo "Targets to overlay prebuilt test products (improves test speed):"
 	@echo "-----------------------------------------------------------------"
 	@echo "    overlay         : extract the prebuilt products of the test programs"
+	@echo "                      (V=1 lists the extracted files)"
 	@echo "    overlay-archive : build a new archive of the test products"
 	@echo ""
 	@echo "Targets for debugging the build:"
@@ -129,6 +130,9 @@ OVERLAY_PRODUCTS := -name '*.fcy' -o -name '*.fint' -o -name '*.icurry' \
                     -o -name '*.icy' -o -name '*.json.z'
 OVERLAY_TAR_FLAGS := --sort=name --owner=0 --group=0 --numeric-owner \
                      --mtime='2000-01-01 00:00:00Z'
+# The extraction lists its members under V=1 alone.  The archive holds about
+# six thousand, and the list would fill the log of every CI job.
+OVERLAY_TAR_VERBOSE := $(if $(filter 1,$(V)),v)
 .PHONY: overlay overlay-archive overlay-interfaces overlay-prune \
         $(OVERLAY_ARCHIVE) $(OVERLAY_LIST_FILE)
 $(OVERLAY_LIST_FILE):
@@ -155,7 +159,7 @@ else
 # made again at its first import (see icurry_is_stale in
 # curry.toolchain._curry2icurry).
 overlay:
-	tar xvzf $(OVERLAY_ARCHIVE) -m --wildcards 'tests/*'
+	tar x$(OVERLAY_TAR_VERBOSE)zf $(OVERLAY_ARCHIVE) -m --wildcards 'tests/*'
 	$(MAKE) overlay-prune
 	$(MAKE) overlay-interfaces OVERLAY_DIR=tests
 endif
@@ -169,14 +173,31 @@ endif
 # a stale product would be read.  The products of a source lie beside it
 # (D/.curry/*/M.*) or under an enclosing directory (R/.curry/*/Sub/M.*);
 # both layouts are searched.  Without a git history nothing is pruned, and
-# the rule says so.  OVERLAY_ROOT is the directory that holds the extracted
-# tests/ tree.
+# the rule says so.  In a shallow clone whose history ends before the commit
+# that packed the archive (a checkout of depth 1, the default of
+# actions/checkout), git names the last commit of the history instead, the
+# diff from it shows no change, and nothing is pruned: the rule warns and
+# names fetch-depth 0.  A shallow clone that reaches the commit prunes as a
+# full clone does, without the warning.  The rule cannot tell a history that
+# ends before the commit from one that ends at it (the boundary commit shows
+# every file as added, so git names it for the archive either way); a clone
+# whose boundary is the packing commit prunes as a full clone does and warns
+# all the same, so the sentence is conditional.  OVERLAY_ROOT is the
+# directory that holds the extracted tests/ tree.
 OVERLAY_ROOT ?= .
 overlay-prune:
 	@commit=$$(git log -1 --format=%H -- $(OVERLAY_ARCHIVE) 2>/dev/null); \
 	if [ -z "$$commit" ]; then \
 	  echo "overlay-prune: no git history of $(OVERLAY_ARCHIVE); nothing pruned"; \
 	  exit 0; \
+	fi; \
+	if [ "$$(git rev-parse --is-shallow-repository 2>/dev/null)" = true ] \
+	   && ! git rev-parse --verify --quiet "$$commit^" >/dev/null 2>&1; then \
+	  echo "overlay-prune: WARNING: this is a shallow clone, and its history" \
+	       "ends at $$commit, the commit git names for $(OVERLAY_ARCHIVE).  If" \
+	       "the archive was packed earlier, the products of the sources that" \
+	       "changed since then are not pruned.  Clone the whole history:" \
+	       "fetch-depth 0 in actions/checkout, or git fetch --unshallow." >&2; \
 	fi; \
 	git diff --name-only "$$commit" -- 'tests/*.curry' | while read -r src; do \
 	  dir=$$(dirname "$$src"); rel=$$(basename "$$src" .curry); \
@@ -239,10 +260,22 @@ docs:
 	$(MAKE) -C docs html
 	$(MAKE) -C docs latexpdf
 
+# The default goal: the submodules, the stage, then the overlay.  The
+# overlay follows the stage.  The stage writes the interfaces of the
+# installed Curry library, and the front end compiles a test program again
+# when the interfaces of its imports are newer than its FlatCurry; a
+# product extracted before the stage is older than them (tar -m gives it
+# the time of the extraction), so the front end would run on every test
+# program at its first use.  One of them, poker_four_of_a_kind under
+# tests/data/curry/smap, names the preprocessor currypp, which a machine
+# without the Curry Package Manager lacks, and its import then fails.  CI
+# runs make overlay after make stage for the same reason
+# (.github/workflows/ci.yml), and scripts/new-worktree.sh copies the
+# products after its make stage.
 .PHONY: default-goal
 default-goal:
 	git submodule init
 	git submodule update
-	$(MAKE) overlay
 	$(MAKE) stage
+	$(MAKE) overlay
 
