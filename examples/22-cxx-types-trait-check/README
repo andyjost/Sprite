@@ -122,12 +122,6 @@ Run "make stage" from the root of the repository first.  Then run
 
     ./run
 
-The run script uses the C++ backend by default.  To pick a backend, set
-SPRITE_INTERPRETER_FLAGS in the environment:
-
-    SPRITE_INTERPRETER_FLAGS=backend:py ./run
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
-
 The first run also compiles the shared modules and CxxCheck.curry.  The
 build products go to .curry/ next to the sources, under ../cxx.
 
@@ -175,11 +169,6 @@ shared modules as well, when they are not compiled yet.  The time goes to
 the traits: each one normalizes its argument, and a property calls up to 33
 of them for each of the 1245 types.  The generator itself is cheap.  It
 took 0.01 s to count the types of depth at most 2.
-
-The Python backend is too slow for the depth of the run script.  At depth
-2 the whole check took 114 s on it, with the same output.  The run script
-uses depth 2, so the test runs this example on the C++ backend only.  To
-try the Python backend, pass the depth 1 to go.py.
 
 Depth 3 has 7330 types.  On the C++ backend the count took 0.06 s, and the
 properties scalar and wrong_scalar together took 3.9 s at that depth, with

@@ -120,14 +120,12 @@ depend on it.  To share one cache between several copies of the source
 tree, set ``base_dir`` in the ccache configuration to a common parent
 directory.
 
-``configure --with-default-backend py|cxx`` names the backend Sprite uses
+``configure --with-default-backend NAME`` names the backend Sprite uses
 when no flag names one.  ``cxx``, the C++ backend, is the default.
 ``configure`` writes the value to ``Make.config`` as ``DEFAULT_BACKEND``,
 and ``make stage`` writes it to the installation as
 ``sysconfig/default_backend``, where the interpreter flag ``backend`` reads
-its default.  ``SPRITE_INTERPRETER_FLAGS=backend:py`` and ``sprite-exec -b
-py`` select the other backend for one run; the Python backend suits small
-programs.  See :doc:`/CommandLineInterface/EnvironmentVariables` and
+its default.  See :doc:`/CommandLineInterface/EnvironmentVariables` and
 :doc:`WithoutCompiler`.
 
 The setting for development work is::

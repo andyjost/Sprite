@@ -20,7 +20,7 @@ ICurry file (extension: ``.icy``).  Modules are located by searching the
 CURRYPATH environment variable.  An ICurry file can only be converted to JSON;
 the JSON file is written beside it.
 
-Three target formats are supported.  Curry-formatted ICurry (extension:
+The target formats follow.  Curry-formatted ICurry (extension:
 ``.icy``) is generated with the ``-i,--icy`` option.  These files can be read
 into Curry programs using the standard module ICurry.Files.readICurry.
 
@@ -29,20 +29,12 @@ JSON-formatted ICurry (extension: ``.json``) is generated with the
 not available.  Sprite only reads the JSON format.  Note that an ICY file is
 the prerequisite of JSON, meaning that ``--json`` implies ``--icy``.
 
-Python (extension: ``.py``) is generated with the ``-p,--py,--python`` option.
-This implies both ``--json`` and ``--icy``.  The generated file can be imported
-as a regular Python module, loaded via the Python API with
-:func:`{python_package_name}.load` or executed from the command line.  By default,
-running the file imports the module but does nothing else.  Supply ``-g`` to name a
-goal.  The bytecode cache of the generated file is written beside it, under
-``__pycache__``, so that the first load does not compile the source.
-
 C++ (extension: ``.cpp``) is generated with the ``--cxx`` option, which implies
 ``--json`` and ``--icy``.  The shared object of the C++ backend (extension:
 ``.so``) is generated with the ``--so`` option, which implies ``--cxx`` and
 needs the C++ compiler that Sprite was configured with.  The installation
-procedure uses ``--py`` and ``--so`` to build the Curry library for both
-backends.
+procedure uses ``--so`` to compile the Curry library.  The ``-g,--goal``
+option names the goal of a generated program.
 
 Following the conventions of other Curry systems, output files are by default
 written to ``<dir>/.curry/{intermediate_subdir}``, where ``<dir>`` is the
@@ -84,7 +76,7 @@ The ``--jobs N`` option makes up to ``N`` modules at once.  Each module is
 made by a child process that runs this program on that module alone;
 ``auto`` is one child per processor.  The imports of a module are made
 before the module, so no two children write the files that this program
-makes for one module (the ICurry, JSON, Python, C++ and shared-object
+makes for one module (the ICurry, JSON, C++ and shared-object
 files).  A module whose files are current gets no child.  The order does
 not cover the interface files of the Curry front end (``.fint``, ``.fcy``):
 the front end writes those of an import on its own when they are missing,
@@ -169,11 +161,6 @@ The output is written to ``/path/to/.curry/{intermediate_subdir}/A.json.z``.
 The intermediate file ``/path/to/.curry/{intermediate_subdir}/A.icy`` will be
 removed unless it was up-to-date prior to the command running.
 
-The following compiles the Curry code in ``A.curry`` to a Python script named
-``A.py`` that evaluates ``'A.main'``::
-
-    % sprite-make --py A.curry -g main -o A.py
-
 '''.format(
     intermediate_subdir=config.intermediate_subdir()
   , python_package_name=config.python_package_name()
@@ -195,7 +182,7 @@ def main(program_name, argv):
   parser.add_argument(      '--cxx'    , action='store_true', help='make C++ files')
   parser.add_argument(      '--so'     , action='store_true'
     , help='make shared objects for the C++ backend (implies --cxx)')
-  parser.add_argument('-g', '--goal'   , default=None, help='specifies the goal in --python mode')
+  parser.add_argument('-g', '--goal'   , default=None, help='specifies the goal of a generated program')
   parser.add_argument('-i', '--icy'    , action='store_true', help='make ICY files')
   parser.add_argument('-j', '--json'   , action='store_true', help='make JSON files')
   parser.add_argument(      '--jobs'   , default='1', metavar='N'
@@ -204,7 +191,9 @@ def main(program_name, argv):
   parser.add_argument('-k', '--keep-going', action='store_true', help='keep working after an error')
   parser.add_argument('-M', '--man'    , action='store_true', help='show detailed usage')
   parser.add_argument('-o', '--output' , action='store', type=str, help='specify the output file')
-  parser.add_argument('-p', '--py', '--python', action='store_true', help='make Python files')
+  # The target of the reference backend (issue #82).  The help omits it;
+  # the developer notes name it.
+  parser.add_argument('-p', '--py', '--python', action='store_true', help=argparse.SUPPRESS)
   parser.add_argument('-q', '--quiet'  , action='store_true', help='work quietly')
   parser.add_argument(      '--rewrite-flat', action='store_true'
     , help='run the step from Curry to ICurry again, current or not: the '
@@ -262,7 +251,7 @@ def main(program_name, argv):
   if not any([args.icy, args.json, args.py, args.cxx, args.so]):
     sys.stderr.write(
         program_name + ': at least one of (-i,--icy) or (-j,--json) or --cxx or '
-                       '--so or (-p,--py,--python) must be supplied.\n'
+                       '--so must be supplied.\n'
       )
     sys.exit(1)
   if args.so:
@@ -276,14 +265,12 @@ def main(program_name, argv):
   num_codegens = sum(getattr(args, opt) for opt in CODEGEN_OPTIONS)
   if args.goal is not None and num_codegens == 0:
     sys.stderr.write(
-        program_name + ': (-g,--goal) is only allowed when at least one of '
-                       '(-p,--py,--python) or --cxx is supplied.\n'
+        program_name + ': (-g,--goal) is only allowed when --cxx is supplied.\n'
       )
     sys.exit(1)
   elif num_codegens > 1:
     sys.stderr.write(
-        program_name + ': at most one of (-p,--py,--python) or --cxx can be '
-                       'supplied.\n'
+        program_name + ': at most one of the code generators can be supplied.\n'
       )
     sys.exit(1)
   args.backend_name = 'py' if args.py else 'cxx' if args.cxx else None

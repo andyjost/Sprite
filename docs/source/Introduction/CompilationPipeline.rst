@@ -205,25 +205,15 @@ manipulate it from Python scripts.
 Sprite IR to Target IR
 ----------------------
 
-The target IR depends on the backend selected.  The C++ backend generates
-C++, and the Python backend generates Python.  This stage performs a
+The target IR of the C++ backend is C++.  This stage performs a
 straight-line translation of Sprite IR to target IR.
 
 
 Target IR to Executable Code
 ----------------------------
 
-Depending on the backend, additional conversions may be performed to produce
-executable code.  The C++ backend compiles the generated C++ into a shared
-object (below).  The Python backend requires nothing because Python can be
-run directly under an interpreter.
-Sprite writes the bytecode cache of a generated Python file beside it, under
-``__pycache__``, when it writes the file, and loads the file through
-``importlib``.  A file without a current cache, such as one from an older
-installation, gets its cache when it is first loaded, whether or not Python
-runs with ``-B``.  So CPython compiles a generated module once per change, not
-in every process.  Even so, a package such as `PyPy`_ could in principle be
-used to post-process Python code into a more efficient form.
+The C++ backend compiles the generated C++ into a shared object (below), or
+interprets the ICurry of the module until the object is ready.
 
 The C++ backend compiles each generated module with ``g++`` into a shared
 object the first time the module is used, and again when the runtime headers
@@ -246,9 +236,9 @@ backend precompiles the header once per set of compiler flags and keeps the
 result beside the installed headers.  See ``SPRITE_CXX_PCH_ROOT`` under
 :ref:`CommandLineInterface/EnvironmentVariables:Development Variables`.
 
-``make stage`` and ``make install`` compile the Curry library for both
-backends into the installation, with ``sprite-make --py`` and ``sprite-make
---so`` (see :ref:`sprite-make`).  So the first import after an installation
+``make stage`` and ``make install`` compile the Curry library into the
+installation with ``sprite-make --so`` (see :ref:`sprite-make`).  So the
+first import after an installation
 compiles nothing of the library.  Under the default of the interpreter flag
 ``interpret``, ``tiered``, a module without a current object runs
 interpreted from its ICurry at once, a child process compiles it in the
@@ -264,4 +254,3 @@ compiler the module stays interpreted and no object is written; see
 .. _zlib: https://zlib.net/
 .. _ICurry package: https://cpm.curry-lang.org/pkgs/icurry.html
 .. _Curry Package Manager: https://www.curry-lang.org/tools/cpm/
-.. _PyPy: https://pypy.org/

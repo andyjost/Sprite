@@ -48,38 +48,24 @@ Important characteristics of this API include the following:
   (as strings) or generated on the fly.
 
 
-Multiple Backends
------------------
+The Backend
+-----------
 
-Sprite is designed to support a variety of backend programming environments.
-These can be found under ``src/python/backends``.  Each one comprises a
-compiler and runtime library.  The compiler translates Sprite Intermediate
-Representation (IR) to backend IR.  The runtime library supports running Curry
-programs.
-
-The backend influences characteristics of the compilation process and generated
-code.  The compilation speed, execution speed, resource usage, and the ease
-with which one can inspect and debug the generated code are all affected by
-this choice.
-
-Sprite supports the following backends:
+A backend of Sprite comprises a compiler and a runtime library.  The
+compiler translates Sprite Intermediate Representation (IR) to the IR of
+the backend.  The runtime library runs Curry programs.  The backends live
+under ``src/python/backends``, behind the interface
+:class:`IBackend <curry.backends.IBackend>`.
 
 **C++ Backend**
-    The default.  The C++ backend compiles each Curry module to C++ and
-    links it against a runtime written in C++ with efficiency as the goal.
-    A module whose object is not ready runs interpreted from its ICurry by
-    the interpreter of the same runtime, and the compile runs in the
-    background (the interpreter flag ``interpret``; see
-    :mod:`curry.interpreter.flags`).  So a program starts at once, and an
-    installation without a C++ compiler runs every program interpreted; see
+    The C++ backend compiles each Curry module to C++ and links it against
+    a runtime written in C++ with efficiency as the goal.  A module whose
+    object is not ready runs interpreted from its ICurry by the interpreter
+    of the same runtime, and the compile runs in the background (the
+    interpreter flag ``interpret``; see :mod:`curry.interpreter.flags`).
+    So a program starts at once, and an installation without a C++
+    compiler runs every program interpreted; see
     :doc:`/Installation/WithoutCompiler`.
-
-**Python Backend**
-    The Python backend generates Python.  It emphasizes the inspection and
-    the debugging of Curry computations and of the compilation process, and
-    it suits small programs.  The interpreter flag ``backend:py`` selects
-    it; ``configure --with-default-backend`` sets the default of an
-    installation.
 
 
 Command-Line Tools

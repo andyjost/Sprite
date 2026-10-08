@@ -10,13 +10,10 @@ example, run its script:
 
     ./run
 
-A run script uses the C++ backend by default.  The scripts of 03-inspect and
-04-static-compile set the Python backend, because those examples run on it
-only.  To pick a backend for the others, set SPRITE_INTERPRETER_FLAGS in the
-environment:
-
-    SPRITE_INTERPRETER_FLAGS=backend:py ./run
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
+A run script uses the installed Sprite with the flags of
+SPRITE_INTERPRETER_FLAGS.  The scripts of 03-inspect and 04-static-compile
+select the reference backend of the developer notes of the documentation,
+because those examples run on it only.
 
 The first run of an example also compiles its Curry module, which takes
 about a second per module.  The build products go to .curry/ next to the
@@ -58,8 +55,8 @@ tour the API, 10 to 19 and 24 are programs with a Python driver, and 20 to
     ICurry files, generated code.
 
 04-static-compile (py)
-    Compile a Curry module to a Python script.  curry.save with a goal, and
-    running the saved script.
+    Save a compiled Curry module.  curry.save with a goal, and running the
+    saved script.
 
 10-queens-set-functions (py, cxx)
     N queens with set functions.  Non-determinism as values, functional

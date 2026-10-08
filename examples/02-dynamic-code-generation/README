@@ -52,12 +52,6 @@ Run "make stage" from the root of the repository first.  Then run
 
     ./run
 
-The run script uses the C++ backend by default.  To pick a backend, set
-SPRITE_INTERPRETER_FLAGS in the environment:
-
-    SPRITE_INTERPRETER_FLAGS=backend:py ./run
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
-
 
 4. Expected output
 ------------------

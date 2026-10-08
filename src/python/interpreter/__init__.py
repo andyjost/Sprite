@@ -74,7 +74,11 @@ class Interpreter(object):
           's' if len(bad_flags) > 1 else ''
         , ', '.join(map(repr, bad_flags))
         ))
-    self._flags.update(flags)
+    # The flags start from the environment, as the flags of the global
+    # interpreter do: SPRITE_ROTATION, then SPRITE_INTERPRETER_FLAGS, then
+    # the argument (flags.getflags).  So a fresh interpreter runs as the
+    # process does unless its argument says otherwise.
+    self._flags.update(_flagmod.getflags(flags))
     _flagmod.check_flags(self._flags)
     self._backend = backends.IBackend(self._flags['backend'])
     self._modules = {}

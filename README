@@ -57,13 +57,10 @@ root:
 
         install/bin/sprite-exec examples/Peano.curry
 
-The C++ backend is the default.  It runs a module interpreted until the
-compiled code is ready, so an installation without a C++ compiler runs
-every program (see the page "Installing and running without a C++
-compiler" of the documentation).  The Python backend suits small programs.
-To select it, set SPRITE_INTERPRETER_FLAGS in the environment:
-
-        SPRITE_INTERPRETER_FLAGS=backend:py install/bin/sprite-exec examples/Peano.curry
+The C++ backend runs a module interpreted until the compiled code is
+ready, so an installation without a C++ compiler runs every program (see
+the page "Installing and running without a C++ compiler" of the
+documentation).
 
 The examples/ directory holds runnable examples of Curry programs and of
 Curry called from Python.  Each has a run script, a README, and its expected

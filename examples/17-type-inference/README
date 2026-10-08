@@ -85,12 +85,6 @@ Run "make stage" from the root of the repository first.  Then run
 
     ./run
 
-The run script uses the C++ backend by default.  To pick a backend, set
-SPRITE_INTERPRETER_FLAGS in the environment:
-
-    SPRITE_INTERPRETER_FLAGS=backend:py ./run
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
-
 To infer other terms, pass them to go.py as Python literals.  Use the
 Python of the staged install.  For example, on the C++ backend:
 
@@ -120,21 +114,16 @@ function, so it has no type.  The output is identical on both backends.
 ---------
 
 Inference does not search.  Each term has at most one type, and the cost
-grows with the size of the term.  A warm run of ./run took 0.15 s on the
-C++ backend and 0.4 s on the Python backend.  The first run also compiles
-the module.  It took about a second on each backend.
+grows with the size of the term.  A warm run of ./run took 0.15 s.  The
+first run also compiles the module.  It took about a second.
 
 Larger terms: a chain of applications f (f (... x)) of length 150 took
-0.03 s on the C++ backend and 1.3 s on the Python backend.  A chain of 500
-took 0.3 s and 17 s.  The cost on the Python backend grows faster than the
-length.  Keep that backend at about 500 applications or fewer to stay under
-30 s.  A chain of 700 took 0.5 s on the C++ backend and hit the recursion
-limit of Python on the Python backend.  A chain of 1000 hit the recursion
-limit inside curry.expr on both backends.  A term on the command line has
+0.03 s, a chain of 500 took 0.3 s, and a chain of 700 took 0.5 s.  A chain
+of 1000 hit the recursion limit inside curry.expr.  A term on the command
+line has
 a lower limit.  A literal of 200 nested applications overflowed the parser
 of Python.
 
 There is no occurs check.  The term \x -> x x needs a type a equal to
-Fun a r, and no finite type satisfies that.  On the C++ backend the run
-exhausted a 2 GB address space cap after 7 s.  On the Python backend it did
-not finish in 30 s.  Do not pass this term.
+Fun a r, and no finite type satisfies that.  The run exhausted a 2 GB
+address space cap after 7 s.  Do not pass this term.

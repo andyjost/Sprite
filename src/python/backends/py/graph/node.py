@@ -75,12 +75,22 @@ class Node(object):
   def __iter__(self):
     raise TypeError('Node does not support iteration')
 
-  from .equality import logically_equal as __eq__
+  def __eq__(self, rhs):
+    # A value that is not a Curry expression is never equal to a node.
+    # NotImplemented lets Python answer False for == and True for !=
+    # against a foreign object, as its data model expects; the C++ backend
+    # answers the same way (py::is_operator in the bindings).
+    if not inspect.isa_curry_expr(rhs):
+      return NotImplemented
+    from .equality import logically_equal
+    return logically_equal(self, rhs)
 
   def __hash__(self):
     return hash(id(self)) # for testing
 
   def __ne__(self, rhs):
+    if not inspect.isa_curry_expr(rhs):
+      return NotImplemented
     return not (self == rhs)
 
   def id(self):

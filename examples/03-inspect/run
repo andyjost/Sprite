@@ -1,6 +1,7 @@
 #!/bin/bash
-# Runs the example on the Python backend, which is not the default of
-# Sprite.  The example runs on that backend only; the README says why.
+# Runs the example on the reference backend (backend:py; the developer
+# notes of the documentation).  The example runs on that backend only; the
+# README says why.
 set -euo pipefail
 cd "$(dirname "$0")"
 : "${SPRITE_HOME:=$(cd ../.. && pwd)/install}"

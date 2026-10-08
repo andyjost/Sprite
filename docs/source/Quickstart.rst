@@ -71,16 +71,9 @@ directory.  If ``install/bin`` is not on your PATH, give the relative path:
 Sprite runs goal ``main`` by default.  You can use ``-g`` to specify a
 different one.
 
-The C++ backend is the default.  It runs a module interpreted until the
-compiled code is ready, so an installation without a C++ compiler runs
-every program (see :doc:`Installation/WithoutCompiler`).  The Python
-backend suits small programs.  To select it, set
-``SPRITE_INTERPRETER_FLAGS`` in the environment:
-
-.. code-block:: bash
-
-    % SPRITE_INTERPRETER_FLAGS=backend:py ../install/bin/sprite-exec Peano.curry
-    S (S O)
+The C++ backend runs a module interpreted until the compiled code is
+ready, so an installation without a C++ compiler runs every program (see
+:doc:`Installation/WithoutCompiler`).
 
 The other subdirectories of ``examples/`` hold larger examples.  Each has a
 run script, a README, and its expected output.  See :doc:`Examples`.
@@ -299,48 +292,30 @@ generated:
 Saving Compiled Curry
 ---------------------
 
-:func:`curry.save` writes the generated code of a module in the form of
-the backend.  On the Python backend the form is a Python file.  Start
-Python with ``SPRITE_INTERPRETER_FLAGS=backend:py install/bin/python`` and
-say:
+:func:`curry.save` writes the generated C++ of a module:
 
-    >>> curry.save(Peano, 'Peano.py', goal='main')
+    >>> curry.save(Peano, 'Peano.cpp', module_main=False)
 
-Use this to see how Sprite compiles Curry into Python.  On the C++
-backend the same call writes C++ source, which :func:`curry.load` cannot
-load; the C++ backend loads the shared object that ``sprite-make --so``
-writes (see :ref:`sprite-make`).
+Use this to see how Sprite compiles Curry.  ``module_main=False`` saves
+the module alone.  Without it the file is a program, and ``goal=`` must
+name the goal it evaluates; a call with neither raises ``ValueError``.
+The entry point of the C++ program is a stub today: ``sprite-exec`` runs
+programs.
 
-The file is a program that evaluates the goal, so a goal is required.  A
-goal without a type signature keeps its class constraints; the file records
-its type, and the program defaults the constraints as the REPL of PAKCS
-does, in whatever directory it runs.  To save a module without a program,
-for :func:`curry.load`, pass ``module_main=False``.
-
-The file runs under the Python of the installation:
+:func:`curry.load` loads the shared object of a module, which
+``sprite-make --so`` writes beside the source (see :ref:`sprite-make`):
 
 .. code-block:: bash
 
-    % install/bin/python Peano.py
-    S (S O)
+    % install/bin/sprite-make --so Peano.curry
 
-The program reads its command line as ``sprite-exec`` does: ``-g NAME``
-evaluates another goal of the module, ``-g ''`` runs nothing, and
-``--help`` lists the switches.
+Then, in Python:
 
-To import the compiled module into Python on the Python backend, either
-import it as a regular Python module or use :func:`curry.load`:
+    >>> Peano = curry.load('.curry/sprite-pakcs-3.4.1/Peano.so')
 
-    >>> import sys
-    >>> sys.path.insert(0, '.')
-    >>> import Peano
-
-or
-
-    >>> Peano = curry.load('Peano.py')
-
-Both methods add ``Peano`` to :data:`curry.modules`.  Example 04 of
-:doc:`Examples` runs the whole round trip.
+The call adds ``Peano`` to :data:`curry.modules`.  A module whose library
+is loaded already from another file is refused: the runtime keeps one
+library per module name for the life of the process.
 
 .. _Python Tutorial: https://docs.python.org/3/tutorial/
 

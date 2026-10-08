@@ -5,15 +5,25 @@ logger = logging.getLogger(__name__)
 
 __doc__ =\
 '''
-Defines the flags used to configure a Curry interpreter.  The following flags
-are available:
+Defines the flags used to configure a Curry interpreter.
+
+The flags of an interpreter start from the environment.  The base is the
+defaults below; SPRITE_ROTATION sets the flag ``rotation`` over them;
+SPRITE_INTERPRETER_FLAGS sets any flag over that; and the argument of
+``Interpreter(flags=...)`` or of ``curry.reload(flags)`` wins (see getflags).
+So an interpreter built directly runs as the process does, on the backend
+and in the mode of the environment, unless its argument says otherwise.
+
+The following flags are available:
 
   * ``backend`` ({0!r})
 
     The name of the backend used to compile and run Curry: 'cxx', the C++
-    backend, or 'py', the Python backend, which suits small programs.  The
-    default is the one configure recorded (--with-default-backend;
-    sysconfig/default_backend of the installation).
+    backend.  The default is the one configure recorded
+    (--with-default-backend; sysconfig/default_backend of the
+    installation).  The value 'py' selects the Python backend, the
+    reference implementation kept behind this flag until its removal
+    (issue #82); the developer notes of the documentation describe it.
 
   * ``debug`` (True | **False**)
 
@@ -333,12 +343,15 @@ def _flagval(flag, given, currentflags): # pragma: no cover
 
 def getflags(flags={}, weakflags={}):
   '''
-  Merges flags specified in the environement with those supplied.
+  Merges flags specified in the environment with those supplied.
 
   Reads flags from the environment variable SPRITE_INTERPRETER_FLAGS,
   interprets them as Python values, and then combines them with the ones
   supplied to this function.  The environment variable SPRITE_ROTATION sets
-  the flag ``rotation`` alone; an empty value counts as unset.
+  the flag ``rotation`` alone; an empty value counts as unset.  The global
+  interpreter, ``curry.reload`` and ``Interpreter(flags)`` all start from
+  this merge, so every interpreter follows the environment of the process
+  below the flags it was given.
 
   The precedence order is as follows:
 

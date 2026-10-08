@@ -72,12 +72,6 @@ Run "make stage" from the root of the repository first.  Then run
 
     ./run
 
-The run script uses the C++ backend by default.  To pick a backend, set
-SPRITE_INTERPRETER_FLAGS in the environment:
-
-    SPRITE_INTERPRETER_FLAGS=backend:py ./run
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
-
 To plan other problems, pass a start world and a goal world to go.py.  Use
 the Python of the staged install.  For example, on the C++ backend:
 
@@ -98,12 +92,11 @@ most five moves for the first problem of the run script.  There is one
 plan, so the command prints one line:
 
     ../../install/bin/sprite-exec Blocks.curry
-    [([A, B, C], [], []), ([B, C], [A], []), ([C], [B, A], []), ([], [B, A], [C]), ([], [A], [B, C]), ([], [], [A, B, C])]
+    [([A, B, C], [], []), ([B, C], [A], []), ([C], [B, ...], []), ([], ..., [C]), ([], ..., [B, C]), ([], [], [A, B, C])]
 
-That is the output of the Python backend.  The worlds of a trace share
-their stacks, and the C++ backend prints ... in place of a list that it has
-printed before.  For example, [B, ...] stands for [B, A].  The plan is the
-same; only the printer differs.
+The worlds of a trace share their stacks, and the printer prints ... in
+place of a list that it has printed before.  For example, [B, ...] stands
+for [B, A], and a bare ... stands for a whole list printed before.
 
 
 4. Expected output
@@ -153,13 +146,10 @@ first one found may differ between the backends.
 ---------
 
 The work grows with the bound.  Each world has up to six moves, and the
-runtime keeps the open alternatives in memory.  Three blocks are cheap on
-both backends: a warm run of ./run took 1.9 s on the Python backend and
-0.4 s on the C++ backend.  Four blocks, ABCD// to //ABCD, need 7 moves.
-That took 1.9 s on the C++ backend and 33 s on the Python backend.  Five
-blocks, ABCDE// to //ABCDE, ran out of memory under a 2 GB cap on the C++
-backend after 16 s.  So keep the Python backend at three blocks and the
-C++ backend at four.
+runtime keeps the open alternatives in memory.  Three blocks are cheap: a
+warm run of ./run took 0.4 s.  Four blocks, ABCD// to //ABCD, need 7
+moves.  That took 1.9 s.  Five blocks, ABCDE// to //ABCDE, ran out of
+memory under a 2 GB cap after 16 s.  So keep to four blocks.
 
 The first run also compiles the module, which took about half a second
 more.

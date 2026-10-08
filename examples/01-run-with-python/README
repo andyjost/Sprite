@@ -48,12 +48,6 @@ Run "make stage" from the root of the repository first.  Then run
 
     ./run
 
-The run script uses the C++ backend by default.  To pick a backend, set
-SPRITE_INTERPRETER_FLAGS in the environment:
-
-    SPRITE_INTERPRETER_FLAGS=backend:py ./run
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
-
 
 4. Expected output
 ------------------
@@ -69,6 +63,6 @@ The output is identical on both backends.
 5. Limits
 ---------
 
-A warm run of ./run took 0.4 s on the Python backend and 0.2 s on the C++
-backend.  The first run also compiles the module with the Curry front end,
+A warm run of ./run took 0.2 s.  The first run also compiles the module
+with the Curry front end,
 which takes about half a second more.

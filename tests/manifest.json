@@ -488,20 +488,20 @@
     },
     "unit_conda.py": {
       "cxx": {
-        "duration_s": 8.0,
+        "duration_s": 33.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 78,
-        "tests": 11
+        "peak_rss_mb": 82,
+        "tests": 23
       },
       "py": {
-        "duration_s": 7.0,
+        "duration_s": 36.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 74,
-        "tests": 11
+        "peak_rss_mb": 85,
+        "tests": 23
       }
     },
     "unit_configure.py": {
@@ -1612,7 +1612,7 @@
         "tests": 4
       },
       "py": {
-        "duration_s": 7.5,
+        "duration_s": 13.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,

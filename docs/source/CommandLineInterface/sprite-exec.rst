@@ -75,40 +75,27 @@ The option ``-t`` or ``--time`` suppresses the output of the program and
 prints the seconds of the evaluation instead, with no newline; ``--stats``
 (below) prints the counters of the whole run.
 
-Selecting a Backend
-===================
+The Backend
+===========
 
-Sprite has two backends.  The C++ backend is the default.  It runs a
-module interpreted until the compiled code is ready (the interpreter flag
-``interpret``), so a program starts at once, and an installation without a
-C++ compiler runs every program; see :doc:`/Installation/WithoutCompiler`.
-The Python backend suits small programs; its flag ``recursion_limit``
-bounds the depth of one value (see :ref:`the flags
-<sprite-interpreter-flags>`).  To select the Python backend, set
-``SPRITE_INTERPRETER_FLAGS`` in the environment::
-
-    SPRITE_INTERPRETER_FLAGS=backend:py sprite-exec prog.curry
-
-The ``--backend`` option selects the backend without the environment variable
-and overrides a ``backend`` flag set there::
-
-    sprite-exec --backend py prog.curry
-
-The help of ``sprite-exec -h`` names the default of the installation, which
-``configure --with-default-backend`` sets.
+The C++ backend runs a module interpreted until the compiled code is
+ready (the interpreter flag ``interpret``), so a program starts at once,
+and an installation without a C++ compiler runs every program; see
+:doc:`/Installation/WithoutCompiler`.  The ``--backend`` option names the
+backend of a run and overrides a ``backend`` flag of
+``SPRITE_INTERPRETER_FLAGS``.  The help of ``sprite-exec -h`` names the
+default of the installation, which ``configure --with-default-backend``
+sets.
 
 See
 :ref:`Environment Variables <CommandLineInterface/EnvironmentVariables:Environment Variables>`
-for the other flags.
+for the flags.
 
 Bounding One Alternative
 ========================
 
-Four interpreter flags bound one alternative, so that a diverging
-alternative cannot starve the others.  On the Python backend,
-``step_budget`` is the number of rewrite steps one alternative gets before
-the next one runs, and ``recursion_limit`` the number of Python frames one
-value may nest.  On the C++ backend, ``stack_limit`` is the number of
+Two interpreter flags bound one alternative, so that a diverging
+alternative cannot starve the others.  ``stack_limit`` is the number of
 bytes of C stack one evaluation may use.  ``rotation`` is the pace of the
 rotation of the queue: time mode, the default, or step mode, in which the
 order of the values of a search reproduces between runs.  :ref:`The entry
@@ -116,12 +103,12 @@ SPRITE_INTERPRETER_FLAGS <sprite-interpreter-flags>` gives each flag with
 its default and its rule, and :ref:`interpreter-flags` tabulates them.
 Each flag is set in the environment::
 
-    SPRITE_INTERPRETER_FLAGS=step_budget:65536 sprite-exec prog.curry
+    SPRITE_INTERPRETER_FLAGS=stack_limit:16777216 sprite-exec prog.curry
 
 To pin the order of the values of a search goal, set step mode with the
 flag or with ``SPRITE_ROTATION``::
 
-    SPRITE_ROTATION=steps:65536 sprite-exec --backend cxx prog.curry
+    SPRITE_ROTATION=steps:65536 sprite-exec prog.curry
 
 The test runner and the benchmark harness set step mode themselves, so
 the counters of ``--stats`` reproduce exactly between their runs.
@@ -154,8 +141,7 @@ The fields are:
     The number of times a configuration forked at a choice.
 
 ``collections``
-    The number of collections run by the node collector of the C++ backend.
-    The Python backend reports 0.
+    The number of collections run by the node collector.
 
 ``peak_rss``
     The peak resident set size of the process, in bytes.
@@ -166,19 +152,17 @@ The fields are:
     field is 0 when every file was up to date.
 
 ``gc_seconds``
-    Seconds the node collector of the C++ backend spent in its collections.
-    The Python backend reports 0.
+    Seconds the node collector spent in its collections.
 
 ``swapped``
-    The functions that tiered execution of the C++ backend swapped from the
-    interpreter to compiled code (the interpreter flag ``interpret``, by
-    default ``tiered``: a module without a compiled object is interpreted at
-    once and compiled in the background).  The Python backend reports 0.
+    The functions that tiered execution swapped from the interpreter to
+    compiled code (the interpreter flag ``interpret``, by default
+    ``tiered``: a module without a compiled object is interpreted at once
+    and compiled in the background).
 
 ``failed_compiles``
     The background compiles of tiered execution that failed; their modules
-    stay interpreted, and the failure is logged once per module.  The Python
-    backend reports 0.
+    stay interpreted, and the failure is logged once per module.
 
 ``gc_roots_seconds``, ``gc_trace_seconds``, ``gc_sweep_seconds``, ``gc_registries_seconds``
     Seconds the collections of the node collector spent in each phase: the
@@ -186,8 +170,7 @@ The fields are:
     the trace from the roots, the block sweep, and the registries (the
     free-variable tables, the generator nodes, the queues and the sets).
     The sum is below ``gc_seconds`` by the small fixed costs of a
-    collection and, in the stress mode, by the verifier.  The Python
-    backend reports 0.
+    collection and, in the stress mode, by the verifier.
 
 ``gc_marked``, ``gc_marked_old``, ``gc_marked_young``
     The nodes the collections marked: all of them, those that the collection
@@ -214,7 +197,7 @@ The fields are:
     a write barrier that does not exist yet.  Only a runtime built with
     them (``make GC_WRITE_COUNTERS=1``; they cost a tenth of the
     instructions of a deterministic program) counts them; the default
-    build reports 0, as the Python backend does.  The setting changes the
+    build reports 0.  The setting changes the
     runtime headers that generated code includes, so a module is compiled
     with the setting of the installed runtime and compiled again when it
     changes (the ABI stamp): touch ``Make.config`` before ``make
@@ -287,17 +270,12 @@ benchmark harness keeps the fields of every run and tabulates them with
 Profiling
 =========
 
-The option ``-p`` or ``--profile`` runs a Curry program under Python's
-``cProfile`` profiler.  It is meaningful on the Python backend alone, where
-the rewrite steps are Python functions.  On the C++ backend the steps run
-outside Python, so the profile shows the driver and not the program;
-``--stats`` reports the counters of that backend.  To change the sort key,
-use ``--psort``.  The available keys are listed by ``sprite-exec -h``.
-
-To run ``Peano.curry`` on the Python backend under the profiler and sort
-the results by the number of calls, say::
-
-    sprite-exec -b py Peano.curry --profile --psort=calls
+The option ``-p`` or ``--profile`` runs the driver under Python's
+``cProfile`` profiler.  The rewrite steps of the C++ backend run outside
+Python, so the profile shows the driver and not the program; ``--stats``
+(above) reports the counters of the program.  To change the sort key, use
+``--psort``; the available keys are listed by ``sprite-exec -h``.  The
+:doc:`developer notes </DeveloperNotes>` name the use of the option.
 
 Generating Traces
 =================

@@ -19,21 +19,20 @@ library of that release under ``curry/lib``, with Sprite's own
 ``Control.SetFunctions``.  See
 :ref:`Introduction/CompilationPipeline:Curry to ICurry`.
 
-The two backends
-================
+The backend
+===========
 
-The C++ backend is the default (``configure --with-default-backend``).  It
-compiles each module to C++ and links it against the runtime library
-``libcyrt``, and its runtime also interprets the ICurry of a module from a
-bytecode.  The Python backend generates Python and runs the same scheduler
-in Python.  It suits small programs.  It is the reference for the
-debugging aids of the Python API: the generated code of a function and
-the saved form of a module.  Issue #82 plans its retirement.  The C++
-backend became the default, and a compiler-free mode exists.  The removal
-gate is a month of green nightly runs under the interpreter modes, and it
-starts with the first nightly run after the merge.  :func:`curry.save` and
-:func:`curry.load` in the Python form, and the examples 03 and 04, belong
-to the Python backend until that decision.
+The C++ backend is the backend (``configure --with-default-backend``
+records the default).  It compiles each module to C++ and links it against
+the runtime library ``libcyrt``, and its runtime also interprets the
+ICurry of a module from a bytecode.  A reference implementation of the
+same scheduler in Python stays in the tree behind a flag until the removal
+gate of issue #82, a month of green nightly runs under the interpreter
+modes; the :doc:`developer notes <DeveloperNotes>` name the flag, what the
+implementation is for, and its limits.  :func:`curry.save` writes C++
+source, and :func:`curry.load` reads the shared object of
+``sprite-make --so``; the form of a saved program on the C++ backend is
+an open decision of that issue.
 
 The interpreter modes
 =====================
@@ -72,7 +71,7 @@ after Phase 2 of the performance program is the label
 ``phase2-2026-10-04``, in the files ``phase2-2026-10-04-throughput.jsonl``
 and ``phase2-2026-10-04-memory.jsonl``: the nightly set of ten programs,
 three repetitions.  The baseline before the program is the label
-``baseline-2026-10-03`` (four suites, both backends and PAKCS).
+``baseline-2026-10-03`` (four suites, Sprite and PAKCS).
 :doc:`Performance` tabulates the records and names the harness commands.
 Two measured facts.  In the memory record of that label ``Tak1`` peaks at
 68 MB with the collector and 1009 MB without it.  The rotation check of
@@ -82,19 +81,13 @@ before the ticker (the ``TODO`` entry on K1 and K2).
 Known limits
 ============
 
-* Arithmetic on a free variable of a built-in type suspends the evaluation
-  on both backends; ``==`` on such a variable in a required position binds
-  it through the binding optimization, and ``=:=`` always does (issue
-  #37).
-* The Python backend bounds the Python frames of one value with the flag
-  ``recursion_limit``, so ``length`` or ``sort`` of a long list ends with
-  ``RecursionError`` there; :ref:`the entry of the flag
-  <sprite-interpreter-flags>` gives the default and the rule.  The C++
-  backend has no such limit below ``stack_limit``.
+* Arithmetic on a free variable of a built-in type suspends the
+  evaluation; ``==`` on such a variable in a required position binds it
+  through the binding optimization, and ``=:=`` always does (issue #37).
 * There is no debugger for a non-deterministic computation.  The aids are
-  the trace flag, ``sprite-exec --stats``, the counters of ``make
-  COUNTERS=1``, and the generated code of a function
-  (``curry.inspect.getimpl``).
+  ``sprite-exec --stats``, the counters of ``make COUNTERS=1``, the
+  generated code of a function (``curry.inspect.getimpl``), and the
+  reference implementation of the :doc:`developer notes <DeveloperNotes>`.
 * A name produced by a functional pattern stays narrowed, and every later
   comparison of it resolves the narrowing again; read such a result
   through a set function (issue #86; the note in
@@ -105,11 +98,7 @@ Known limits
   its registry entry for the life of the process, so a later load of the
   same name from another directory is refused.  A program shorter than its
   compile ends interpreted with no object written.
-* The Python backend asserts on a set guard of an enclosing set at the
-  root of a configuration (one known failure of the set-function corpus);
-  the C++ backend passes it.
-* ``show`` of a ``Float`` follows PAKCS on both backends; the ``repr`` of
-  a negative ``Float`` node differs between them.
+* ``show`` of a ``Float`` follows PAKCS.
 
 What is experimental
 ====================
@@ -138,7 +127,8 @@ epics are these issues:
 * #19, throughput of the C++ runtime.
 * #24, memory management.
 * #28, parallel evaluation, behind a gate.
-* #30, the future of the Python backend.
+* #30, the future of the reference implementation (its retirement is
+  #82).
 * #40, developer velocity.
 * #48, the typed boundary between Python and Curry.
 * #67, Phase 3: optimizer passes, native workers, ticker rotation, pointer

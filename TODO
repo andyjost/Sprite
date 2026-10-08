@@ -7337,3 +7337,323 @@
   (the #101 entry).  (6) unit_split.py costs 466 s under stress on this
   host and about 470 s on the CI runner; a smaller board under the
   variable would cut the stress job by seven minutes.
+
+2026-10-08: the reference flag of the Python backend, curry.save and the stepper on the C++ backend, and two findings of the audit (#82 stage 5; worktree wt/refflag)
+- Stage 5, the flag.  The name does not change: backend:py stays the one
+  mechanism, and the hiding is a matter of documentation and help texts.
+  A second name that says "reference" would add an alias to the value set
+  of the flag, to the help of sprite-exec -b, to the REPL, to the test
+  runner, to the CI matrix, to the conda recipe and to the run scripts of
+  the examples (7 test files name the flag in 24 lines and 36 lines
+  compare its value; 12 lines under .github, 41 under examples, 5 under
+  conda), for the month before the removal, which deletes every call site
+  either way.  What changed: the user guide names no Python backend;
+  docs/source/DeveloperNotes.rst (new, in the toctree after Developer
+  Setup) names the flag through every surface (SPRITE_INTERPRETER_FLAGS,
+  sprite-exec -b, python -m curry -b, :set backend, Interpreter(flags),
+  curry.reload, configure --with-default-backend, run_tests --backend and
+  run-tests.sh), what the backend is for (the oracle of the values of the
+  C++ backend in the suite and in CI; the debugging aids: getimpl as
+  Python source, PDB under the flag debug, the trace flag, the profiler of
+  sprite-exec -p, the saved .py form with curry.load and sprite-make --py,
+  the stepper cytest.step, the white-box tests), its limits (the speed and
+  the baseline rows, recursion_limit, step_budget, no collector, #60, #62,
+  the set-guard assertion, _biString, the repr of a negative Float) and
+  the removal gate.  The sentences moved there from Quickstart (the
+  selection and "Saving Compiled Curry", now the C++ forms), Examples (the
+  choice paragraph and the "Backends:" lines; 03 and 04 "run on the
+  reference backend"), MajorFeatures ("The Backend", one entry),
+  CompilationPipeline (the Python target and the bytecode cache),
+  sprite-exec ("The Backend", "Bounding One Alternative" with two flags,
+  the stats fields, the profiler), sprite-make (the targets list, the
+  section "Generating Python", the library sentence), EnvironmentVariables
+  (the backend paragraph, step_budget, recursion_limit, the two collector
+  examples, the rotation note), ConfiguringSprite (NAME for py|cxx), REPL
+  (the option backend, the transcript), CurryPackage (the rows backend,
+  interpret and rotation; the rows step_budget and recursion_limit go and
+  the footnote points to the notes; curry.load; curry.backends),
+  UsingTheAPI (getimpl, the info text, "Writing Compiled Code to Disk" in
+  the C++ forms with the note on the registry of libraries, the string
+  note, the limits), Architecture (one backend), Performance (the baseline
+  rows), Status ("The backend", the limits, the epic list), and the
+  phrases "both backends" of StepByStepBuild, Semantics, UsingTheAPI and
+  Status.  The README of the repository, examples/README, the READMEs of
+  examples 00 to 24 (the block "To pick a backend", the timings and the
+  advice of the Python backend in the Limits sections; example 19 shows
+  the plan as the C++ backend prints it) and the comment line of every run
+  script follow; examples 03 and 04 keep backend:py in their run scripts
+  and say that they run on the reference backend.  The help texts:
+  sprite-exec -b shows BACKEND, not {py,cxx} (a metavar; the value is still
+  checked), and the :set listing of the REPL says "The backend of the
+  session" without the values; the docstring of the flag backend in
+  curry.interpreter.flags names 'py' as the reference implementation and
+  points to the notes.  Not changed: sprite-make --py and its help, the
+  runner's --backend, run-tests.sh, ci.yml, the conda recipe and
+  conda/README.md (the hygiene item owns the recipe tests), and the two
+  source comments that name the backend (examples/03-inspect/go.py,
+  examples/cxx/CxxType.curry).  unit_reference_backend.py (new): a grep
+  over docs/source outside the two developer pages (DeveloperSetup names
+  run_benchmarks -b py) and the generated pages, for the words and flags
+  of the Python backend; the needles of the developer notes and the
+  toctree; and the flag through Interpreter(flags), the environment,
+  sprite-exec -b py with its help, and the :set listing.
+- Stage 5, curry.save, curry.load and the stepper on the C++ backend.
+  Probes: curry.save writes C++ source (format 12, an IMPORTS line); the
+  step of the toolchain that sprite-make --so runs
+  (backends.cxx.toolchain.Cpp2So) compiles it into a shared object when
+  the file lies under the product directory of its source
+  (_filenames.curryfilename refuses another path, "bad path for"); and
+  curry.load reads the object.  For a module whose library is not loaded
+  (hello of the pool, interpreted; a fresh module under interpret:new)
+  the load returns the module in the same session, again after
+  curry.reset(), and in a fresh Interpreter.  For a module loaded from its
+  installed object (Data.Either) the loader refuses the file in all three
+  cases ("it is already loaded from .../Data/.curry/sprite-pakcs-3.4.1/
+  Either.so"): the runtime keeps one library per module name for the life
+  of the process.  The saved program of the C++ backend is a stub:
+  _generate_main writes an entry() that prints "Entry for 'M'" and exits.
+  The stepper: cytest.step calls Evaluator.set_global_step_limit, which
+  reads rts.stepcounter, and the C++ RuntimeState has none
+  (AttributeError).  The C++ runtime counts the nested steps through
+  procS (check_interrupts increments stepcount), so a step limit would be
+  a field of the RuntimeState checked in check_interrupts with a
+  terminate status that procD hands out: a change of the runtime,
+  proposed, not made.  evaluator.single_step takes one step at the root on
+  both backends (one step of goal gives f (g (g 0))).  Tests:
+  unit_loadsave.py runs on both backends.  LoadSaveTestCase saves the four
+  library modules in the form of the backend and loads the file: a known
+  failure on the C++ backend (curry.load reads a .so), so its four tests
+  are expected failures there.  TestRoundTrip (new) runs the round trip of
+  each backend in a child: the .py form on the Python backend; on the C++
+  backend the C++ source compiled by Cpp2So under the product directory
+  and loaded with curry.load, in the session and after a reset, under
+  interpret:new so that the fresh module stays interpreted (skipped
+  without a C++ compiler).  TestSave of unit_goals.py runs on both
+  backends: the four tests that run the saved program are expected
+  failures on the C++ backend (SAVED_PROGRAM), test_library checks both
+  forms (no moduleMain, no entry()), test_goal_from_scheme runs on both.
+  test_interp_step of unit_py_runtime.py and test_apply_nf of
+  unit_prelude.py are expected failures on the C++ backend instead of
+  skips.  cytest.expectedFailureIf(condition, reason) is the decorator
+  (tests/lib/cytest/__init__.py; a conditional expectedFailure, so a fix
+  shows as an unexpected success).  The decision on a C++ form of
+  curry.save (a main that evaluates the goal; a plan step that compiles a
+  saved file) and on a step limit of the runtime stays with the owner;
+  example 04 and the Python form follow it.
+- Finding (a) of the audit: Interpreter(flags) started from the defaults.
+  Probe: with SPRITE_INTERPRETER_FLAGS=backend:py,inline_budget:7 and
+  SPRITE_ROTATION=steps:100 the global interpreter had py 7 steps:100 and
+  Interpreter() had cxx 4 time:10ms.  The rule now: the flags of every
+  interpreter start from the environment (flags.getflags: the defaults,
+  SPRITE_ROTATION, SPRITE_INTERPRETER_FLAGS, the argument on top), as the
+  global interpreter and curry.reload did already; Interpreter.__new__
+  merges getflags(flags) over the defaults.  So a fresh interpreter of a
+  test runs on the backend and in the mode of the session; test_04_cxx of
+  unit_plan.py pins interpret:off, because under all the skeleton of the
+  C++ backend ends at the JSON.  The docstrings of curry.interpreter.flags
+  and of getflags state the rule; CurryPackage.rst and the note of
+  UsingTheAPI.rst say that a new interpreter starts from the environment.
+  TestFreshInterpreterFlags of unit_api.py pins it in a child: the
+  environment is the base, the argument wins, an unknown flag is refused.
+- Finding (b) of the audit: a cyrt Node compared with a Python value.
+  Probe on the C++ backend: == and != against 1, True, None, object(),
+  'a', 1.0 and [] raised TypeError (pybind11: incompatible function
+  arguments), in both directions and in a containment test; on the Python
+  backend == gave False for the unboxed primitives and raised TypeError
+  ("not a Curry expression") for None, object() and [].  Fix: the bindings
+  define __eq__ and __ne__ with py::is_operator(), so a failed cast returns
+  NotImplemented and Python answers False and True; the Node of the Python
+  backend returns NotImplemented for a value that is not a Curry
+  expression.  Both backends answer False for == and True for != against
+  every foreign object, in both directions and in a containment test.
+  TestForeignObjects of unit_equality.py pins it on both backends.  Hash
+  and ordering: neither backend defines an order (TypeError from Python
+  itself, no gap); both hash by identity (Node::hash is std::hash of the
+  pointer; the Python Node hashes id(self)), so two logically equal nodes
+  hash differently and a set of two equal nodes has size 2 on both
+  backends: a gap against the contract of __hash__, reported, not fixed
+  (the test pins hash(node) == hash(node) alone).
+- Results on this machine (the other item of the lane edits the same
+  worktree; its files are not in these runs).  make stage after the
+  change of the bindings: finished (the bindings relinked; the library
+  objects stayed current).  Single files on the C++ backend:
+  unit_equality 25 ok (2 skipped), unit_api 12, unit_plan 9, unit_loadsave
+  5 (4 expected failures), unit_goals 48 (4 expected failures),
+  unit_py_runtime 12 (7 skipped, 2 expected failures), unit_prelude 17 (1
+  expected failure), unit_importer 2, unit_reference_backend 6.  On the
+  Python backend: the same files with unit_py_conversions 10 and
+  unit_py_interp 6, all ok (unit_goals 1 skipped, unit_py_runtime 1
+  skipped and 1 expected failure, unit_prelude 1 skipped).  Under
+  interpret:all: unit_loadsave, unit_plan, unit_api, unit_equality,
+  unit_goals, unit_importer, unit_cxx_runtime (5) and
+  unit_reference_backend, all ok; under interpret:off: unit_loadsave,
+  unit_plan, unit_goals, unit_api, unit_equality, unit_py_runtime and
+  unit_prelude, all ok; under SPRITE_GC_STRESS=1: unit_equality,
+  unit_loadsave, unit_prelude and unit_api, all ok.  The runner at -j 2
+  --mem 4 --backend both over 22 files (the changed files, the fresh
+  interpreters of unit_make, unit_cxx_rotation and unit_prebuild,
+  unit_inspect, unit_cxx_interp, the py-only files and the expected
+  failures of the Python backend): 44 of 44 run, 1 failed, wall 142.7 s;
+  the failure was unit_inspect.py on cxx, testGetICurry and testGetImpl
+  with Peano interpreted, the fresh worktree without the objects of the
+  pool; after --prepare (43 modules, 26 s) 27 of 27 ok.  unit_examples.py
+  on both backends: 22 and 22 ok, 136.6 s on py and 26.5 s on cxx.  The
+  unit suite on both backends in two halves at -j 2 --mem 4: unit_c*.py 60
+  of 60 run, 3 failed, wall 249.8 s, the failures unit_cxx_heap (2),
+  unit_cxx_passthrough (1) and unit_cxx_variable (1), each on cxx for the
+  missing Tak1.so of the benchmarks corpus in the fresh worktree, and 0
+  failed after --prepare (40 s for the corpus); the other 89 files, 120 of
+  120 run, 0 failed, wall 339.5 s.  make -C docs html: status 0, no
+  WARNING line in the log, DeveloperNotes.html rendered.  Not run here:
+  the functional suites, and the unit suite under interpret:all, off and
+  the stress mode as whole runs (the single files above cover the changed
+  tests under each).
+- Left to the owner.  (1) The C++ form of curry.save: a main that
+  evaluates the goal and a step that compiles a saved file, or the
+  retirement of the saved program with the Python form; example 04 and
+  the Quickstart follow.  (2) A step limit of the C++ RuntimeState for the
+  stepper, or the acceptance of evaluator.single_step and the bytecode of
+  getimpl as the aids; the two expected failures then flip.  (3) The hash
+  of a node is by identity on both backends while equality is structural.
+  (4) Example 03 could run on the C++ backend under interpret:off: the
+  first line of getimpl is the banner /****** Nat.natToInt ******/ of the
+  generated C++, stable across compilers; under tiered the fresh module is
+  interpreted and the first line counts bytecode units.  (5) The
+  developer notes name the sentences the user guide dropped; the second
+  half of stage 4 and stage 6 remove the notes' section with the backend.
+- Review follow-up (four findings).  (1) The generated manual of
+  sprite-make (sprite-make-man.rst and -usage.rst, written from -h and
+  --man by the docs build) still named the Python target: "-p, --py,
+  --python make Python files", "-g in --python mode", the paragraph on the
+  Python target with its example, and "--py and --so ... for both
+  backends".  Now the help of -p,--py,--python is argparse.SUPPRESS (the
+  option works as before: make stage, the runner, unit_make and example 04
+  use it), -g says "specifies the goal of a generated program", the manual
+  names the C++ targets and --so for the library, and the three error
+  messages of the target checks name no --py.  The developer notes name
+  the hidden option.  (2) CompilationPipeline.rst said the library is
+  compiled "for both backends ... with sprite-make --py and --so" over a
+  line break: now "into the installation with sprite-make --so".  (3)
+  Examples.rst and the READMEs of 03 and 04 taught the Python form
+  ("Compile a Curry module to a Python script", "generated Python",
+  "Python script"): the section of 04 is "Save a compiled Curry module",
+  both say "the saved form of the reference backend" and point to the
+  developer notes, and the C++ form stays the open decision above.  (4)
+  The errors printed the hidden value: sprite-exec -b foo said "invalid
+  choice: 'foo' (choose from 'py', 'cxx')" and the REPL said "Expected one
+  of 'py', 'cxx'".  Now -b takes a type function (backend_name in
+  curry.__main__) that says "unknown backend 'foo'", and the REPL says
+  "Invalid backend: 'foo'." alone; the developer notes say so.  The test
+  unit_reference_backend.py grows: the grep matches a phrase over a line
+  break (a space in a pattern matches white space), which found two more
+  sentences ("The Python backend does not use it" of SPRITE_GC_REPORT in
+  EnvironmentVariables.rst and the note of UsingTheAPI.rst, both dropped);
+  the patterns add --py, --python, "both backends", "Python form",
+  "generated Python", "Python mode" and "Python target";
+  test_sprite_make_option pins the help and the manual of sprite-make
+  against the patterns, the error of a missing target, and that -p, --py
+  and --python still parse (with -S); test_sprite_exec_option and
+  test_repl_option pin the two error texts.  unit_make.py keeps its
+  assertion "at most one of" on the third message.
+- Suite stage, after make stage and make overlay (the prune removed 209
+  products of the changed sources; ./run_tests --prepare-only on both
+  backends compiled them again in 422 s).  ./run_tests --changed selects
+  the whole suite (199 of the file-backend pairs: the Makefile and the
+  tool sources count as unknown paths).  Through the runner at -j 2
+  --mem 4 on both backends: the 14 new and changed test files 28 of 28
+  ok (137 s); --fast 134 of 134 ok (183 s); func_*.py 42 of 42 ok
+  (99 s); unit_[a-b]*.py and unit_[d-z]*.py 120 of 120 ok (343 s);
+  unit_c*.py 60 of 60 ok (195 s, after one run with the conda toolchain's
+  CXXFLAGS in the environment, under which the two header tests of
+  unit_cxx_toolchain.py see a member named O3O2-...: an effect of the
+  shell, not of the diff; the file passes in a clean environment and
+  under env -i through the runner).  On the C++ backend, whole runs of
+  unit_*.py: interpret:all 90 of 90 ok (659 s), interpret:off 90 of 90
+  ok (310 s), SPRITE_GC_STRESS=1 90 of 90 ok (737 s).  unit_split.py
+  alone under stress 4 ok in 14.7 s.  make -C docs html: status 0, no
+  WARNING line; no page of the user guide outside the two developer
+  pages and the generated listings names the Python backend.
+
+2026-10-08: the build and CI hygiene items of the nightly lane (worktree wt/refflag)
+- The default goal of the root Makefile runs the stage and then the
+  overlay, the order of the CI jobs.  The order is load-bearing: a probe
+  with the sources of the smap corpus copied to a scratch directory and
+  dated 2001, their archived products dated 2002, and the interfaces of
+  the installation dated today ran the front end at the import of
+  poker_four_of_a_kind (the command of curry-frontend in the debug log,
+  then "currypp: not found"); with the products dated after the
+  installation, the module imported from them.  The comment at the goal
+  says why; scripts/new-worktree.sh copied the products after its make
+  stage already, and its header names the reason.  test_default_goal_order
+  of unit_conda.py dry-runs the goal.  The step-by-step build page
+  (docs/source/Installation/StepByStepBuild.rst) listed the overlay as
+  step 2, before the stage; the overlay is step 4 now, after the stage,
+  with the reason.
+- make overlay lists the members it extracts under V=1 alone
+  (OVERLAY_TAR_VERBOSE; make help names the variable).  A run in a clone
+  printed 5946 lines before (tar xvzf) and prints seven lines of make now.
+  test_overlay_rules of unit_conda.py pins tar xzf by default and tar
+  xvzf under V=1.
+- overlay-prune warns in a shallow clone whose history ends before the
+  commit that packed the archive: git log -1 names the last commit of
+  the history (the boundary commit shows every file as added), the diff
+  from it is empty, and nothing is pruned.  The rule checks git
+  rev-parse --is-shallow-repository and whether the parent of that
+  commit resolves, so a shallow clone that reaches the commit prunes as
+  a full clone does, without the warning.  The warning names fetch-depth
+  0 and git fetch --unshallow.  test_overlay_in_a_shallow_clone of
+  unit_conda.py clones the tree at depth 1 under TMPDIR (file://), copies
+  the build files of the working tree in, runs make overlay once (the
+  copies of the interfaces take most of its 14 s), and checks the
+  warning, the quiet output and the product of poker_four_of_a_kind.
+  tests/README section 10 says the same.  Review: the rule cannot tell a
+  history that ends before the packing commit from one that ends at it
+  (a clone with --shallow-since at the committer date of 64f715d1 names
+  64f715d1 for the archive, its parent does not resolve, and the run
+  printed the warning and the five rm lines of CxxGc that a full clone
+  prints), so the sentence is conditional now: "its history ends at
+  COMMIT, the commit git names for the archive.  If the archive was
+  packed earlier, the products of the sources that changed since then
+  are not pruned."  The Makefile comment says why.  Checked again in a
+  depth-1 clone (the warning, no rm line) and in the boundary clone (the
+  warning, five rm lines).
+- unit_split.py checks the solutions of the split programs at a size of
+  five under SPRITE_GC_STRESS=1 on the C++ backend (six otherwise; five
+  on the Python backend as before); the permutations stay at five.  The
+  profile under stress at six, one process alone on this host:
+  test_searchqueens 323 s (whole 6 82 s, queens 6 84 s, the parts 82, 45
+  and 30 s for k = 2, 4 and 8; the permutations at five about 1 s),
+  test_queensset 21.6 s, test_permsort 0.4 s; the file 400.8 s.  At
+  five: SearchQueens 12.9 s, QueensSet 1.4 s, PermSort 0.1 s; the file
+  13.5 s.  The default mode is unchanged: the file 0.9 s on cxx (3.1 s
+  at the first run, which compiled the split corpus) and 6.9 s on py
+  (11.6 s at the first run, which wrote the Python products), and the
+  queens programs give 10 solutions at five.  tests/README section 4
+  names the file in the list of the stress mode.
+- Results, one process at a time: unit_split.py under stress 4 ok in
+  13.5 s; unit_conda.py 23 ok in 36 to 42 s; unit_configure.py 17 ok in
+  10 s;
+  the three files through run_tests -j 2 --mem 4 --backend both, 6 of 6
+  ok, wall 69 s.  ci.yml parses.  No CI run has confirmed the quiet log
+  or the warning yet.
+- Review follow-ups.  scripts/setup-dev-machine.sh runs make overlay
+  after make stage in its step 7, in the clean environment: the PAKCS
+  distribution it installs has no currypp, so the first test run of a
+  new machine made poker_four_of_a_kind through the front end and
+  failed.  test_plan of unit_setup_script.py pins the order (a file of
+  the other item, reported), and the Developer Setup page names the step
+  (also reported).  The comment of unit_split.py says 15 s for the
+  stress mode at five (measured 13.5 to 16.4 s; it said 20 s).  The
+  manifest rows of unit_conda.py and unit_split.py were refreshed with
+  ./run_tests -j 1 --backend both --update-manifest while the other
+  item ran its tests on the same host: unit_conda.py 33 s cxx and 36 s
+  py with 23 tests (8 and 7 s with 11 before), unit_split.py 13 s on py
+  (7.5 s before; 1 s on cxx as before).
+- Suite stage: make stage (7.7 s, nothing to rebuild) and then make
+  overlay (11.2 s; 209 rm lines of the products whose sources changed
+  since the archive) in the order of the default goal; unit_conda.py 23
+  ok and unit_configure.py 17 ok on both backends through the runner;
+  unit_split.py 4 ok on both backends and 4 ok in 14.7 s alone under
+  SPRITE_GC_STRESS=1; the whole unit suite under the stress mode 90 of
+  90 ok in 737 s.  The results of the whole suite are in the entry
+  above.

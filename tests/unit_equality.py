@@ -3,7 +3,7 @@ import cytest.expression_library
 import curry
 from curry import inspect
 from curry.backends.py.graph.equality import equal
-import itertools, unittest
+import itertools, operator, unittest
 
 not_equal = lambda *args: not equal(*args)
 
@@ -239,3 +239,50 @@ class TestGraphComparison(cytest.expression_library.ExpressionLibTestCase):
       return Node(prelude.Cons, Node(prelude.Int, head), None)
     self.assertFalse(equal(cons(1), cons(2)))
     self.assertRaises(TypeError, equal, cons(1), cons(1))
+
+
+class TestForeignObjects(cytest.TestCase):
+  '''
+  A node compared with a value that is not a node: == answers False and !=
+  answers True, in both directions and through the containment test, as
+  Python's data model expects of a comparison the type does not support.
+  The C++ bindings raised TypeError (pybind11 refused the argument), and
+  the Python backend raised for a value that is not a Curry expression
+  (issue #82, found in stage 3).  Both backends answer the same way now.
+  '''
+
+  def test_equality_with_a_foreign_object(self):
+    node = curry.raw_expr(1)
+    same = curry.raw_expr(1)
+    self.assertTrue(node == same)
+    self.assertFalse(node != same)
+    for foreign in [1, True, None, object(), 'a', 1.0, [], (), {}]:
+      with self.subTest(foreign=foreign):
+        self.assertFalse(node == foreign)
+        self.assertTrue(node != foreign)
+        self.assertFalse(foreign == node)
+        self.assertTrue(foreign != node)
+    self.assertNotIn(node, [1, True, None])
+    self.assertNotIn(1, [node])
+    self.assertIn(node, [1, node])
+    self.assertIn(node, [1, same])
+
+  def test_no_order(self):
+    '''A node has no order, against a node or a foreign object.'''
+    node = curry.raw_expr(1)
+    for rhs in [curry.raw_expr(1), 1]:
+      for op in [operator.lt, operator.le, operator.gt, operator.ge]:
+        with self.subTest(op=op.__name__, rhs=rhs):
+          with self.assertRaises(TypeError):
+            op(node, rhs)
+
+  def test_hash(self):
+    '''
+    A node hashes, by identity on both backends: two equal nodes may hash
+    differently, which a dict or a set keyed by nodes must allow for (the
+    entry of 2026-10-08 on issue #82 records the gap; equality alone was
+    fixed).
+    '''
+    node = curry.raw_expr(1)
+    self.assertEqual(hash(node), hash(node))
+    self.assertEqual(len({node, node}), 1)

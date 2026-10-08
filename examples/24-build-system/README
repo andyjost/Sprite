@@ -268,12 +268,6 @@ Run "make stage" from the root of the repository first.  Then run
 
     ./run
 
-The run script uses the C++ backend by default.  To pick a backend, set
-SPRITE_INTERPRETER_FLAGS in the environment:
-
-    SPRITE_INTERPRETER_FLAGS=backend:py ./run
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
-
 The script copies the sources of project/ into four temporary directories,
 one of them without vec.c, and links the makefiles into each copy.  So Sprite
 compiles each makefile once, into project/.curry, and the build leaves
@@ -402,9 +396,8 @@ The output is identical on both backends.
 9. Limits
 ---------
 
-Warm runs of ./run took 4.8 s and 6.9 s on the C++ backend and 15.5 s and
-16.8 s on the Python backend.  A first run took 10.3 s on the C++ backend and
-19.4 s on the Python backend.  It also converts the library, the five
+Warm runs of ./run took 4.8 s and 6.9 s.  A first run took 10.3 s.  It
+also converts the library, the five
 makefiles and the three substituted copies to ICurry.  The run starts eleven
 make.py processes.
 

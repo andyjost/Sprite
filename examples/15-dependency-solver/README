@@ -158,12 +158,6 @@ Run "make stage" from the root of the repository first.  Then run
 
     ./run
 
-The run script uses the C++ backend by default.  To pick a backend, set
-SPRITE_INTERPRETER_FLAGS in the environment:
-
-    SPRITE_INTERPRETER_FLAGS=backend:py ./run
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
-
 To ask other questions, pass them to go.py.  Use the Python of the staged
 install.  A root is NAME=V or NAME=LO..HI, --yank NAME=V marks a version of
 the index as yanked, --lock FILE prefers the versions of a lockfile that an
@@ -241,8 +235,8 @@ The output is identical on both backends.
 5. Limits
 ---------
 
-A warm run of ./run, seven processes, took 1.7 s on the C++ backend and
-3.3 s on the Python backend.  The first run also compiles the module, which
+A warm run of ./run, seven processes, took 1.7 s.  The first run also
+compiles the module, which
 adds about a second.
 
 The cost is the fair search.  The scheduler advances the branches of solve
@@ -254,9 +248,8 @@ lazily, and notEmpty stops at the first value, so the lookahead of preferred
 costs one such search per candidate it tries, over the branches below that
 candidate alone.  preferred took 0.3 s on that chain, and 5 s with 255 MB on
 a chain of eight packages with five versions, 390625 plans, where the first
-value of solve took 13 s.  On the Python backend the chain of six packages
-with four versions took 25 s for the first value of solve and 13 s for
-preferred.  A measurement of this cost against another resolver belongs
+value of solve took 13 s.  A measurement of this cost against another
+resolver belongs
 in the benchmark harness, not here: an example runs in seconds and is
 pinned by its expected.out.  The applications suite of the harness
 (tests/README, section 9) asks this solver and resolvelib, the resolver

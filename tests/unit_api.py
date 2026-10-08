@@ -1,5 +1,6 @@
 import cytest # from ./lib; must be first
 from curry import config
+from curry.interpreter import Interpreter
 from curry.interpreter import stats as statsmod
 import curry, gc, os, re, shutil, subprocess, tempfile, zlib
 
@@ -239,3 +240,52 @@ class TestStats(cytest.TestCase):
     proc = subprocess.run(cmd, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertNotIn('wall=', proc.stderr)
+
+
+class TestFreshInterpreterFlags(cytest.TestCase):
+  '''
+  Interpreter(flags) starts from the environment, as the global interpreter
+  does: the defaults, SPRITE_ROTATION, SPRITE_INTERPRETER_FLAGS, and the
+  argument on top (curry.interpreter.flags).  Before, a fresh interpreter
+  started from the defaults, so one built by a test ran on the default
+  backend in the default mode whatever the session ran (the entry of
+  2026-10-06 on issue #82 found it; the entry of 2026-10-08 fixed it).
+  '''
+  TIMEOUT = 120
+
+  def test_environment_is_the_base(self):
+    backend = curry.flags['backend']
+    code = '''
+import os
+os.environ['SPRITE_INTERPRETER_FLAGS'] = 'backend:%s,inline_budget:7,interpret:new'
+os.environ['SPRITE_ROTATION'] = 'steps:100'
+from curry.interpreter import Interpreter
+import curry
+def show(interp):
+  flags = interp.flags
+  print(flags['backend'], flags['inline_budget'], flags['interpret'], flags['rotation'])
+show(Interpreter())
+show(Interpreter(flags={'inline_budget': 0, 'rotation': 'steps:7'}))
+show(curry.getInterpreter())
+''' % backend
+    proc = cytest.run_in_subprocess(code, self.TIMEOUT)
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    self.assertEqual(
+        proc.stdout.splitlines()
+      , [ '%s 7 new steps:100' % backend
+        , '%s 0 new steps:7' % backend
+        , '%s 7 new steps:100' % backend
+        ]
+      )
+
+  def test_argument_wins(self):
+    '''The argument sets the backend over the environment of the session.'''
+    other = 'py' if curry.flags['backend'] == 'cxx' else 'cxx'
+    interp = Interpreter(flags={'backend': other})
+    self.assertEqual(interp.flags['backend'], other)
+    self.assertEqual(interp.backend.backend_name, other)
+    self.assertEqual(Interpreter().flags['backend'], curry.flags['backend'])
+
+  def test_unknown_flag(self):
+    with self.assertRaisesRegex(ValueError, "unknown flag: 'bogus'"):
+      Interpreter(flags={'bogus': 1})

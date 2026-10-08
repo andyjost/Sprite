@@ -69,7 +69,9 @@ The script runs nine steps in this order.
    ``PREFIX/configure-args`` and skips the step while ``Make.config``
    exists and the flags are the same.  ``--reconfigure`` forces it.
 7. ``make stage``.  Builds the runtime and compiles the Curry library for
-   both backends.
+   both backends.  Then ``make overlay`` extracts the archived products of
+   the test programs, after the stage so that they are newer than the
+   installed library interfaces.
 8. Smoke test.  Runs one fast unit test file on each backend under the
    address-space cap and the time limit of the test drivers.
 9. Next steps.  Prints the paths for the personal rules file and the runs

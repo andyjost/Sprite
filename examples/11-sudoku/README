@@ -46,12 +46,6 @@ directory:
 
     ./run
 
-The script uses the C++ backend by default.  To choose a backend, set
-SPRITE_INTERPRETER_FLAGS:
-
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
-    SPRITE_INTERPRETER_FLAGS=backend:py ./run
-
 To solve other puzzles, pass their files to go.py.  A file holds nine lines
 of nine characters, with a dot for a blank cell:
 
