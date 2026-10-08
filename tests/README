@@ -50,9 +50,11 @@ stamp and the generated C++ there, keyed by the stamp and by the texts of
 the module (its source, its ICurry and its JSON) and of its imports, and a
 later compile of the same module places them from there instead of running
 g++: a pool whose compiled products were removed comes back in under a
-second (section 10).  The key names the installation and the directory of
-the source, which an object names in its NEEDED entries and in its record,
-so the cache serves one tree.  Under interpret:new nothing is placed (the
+second (section 10).  No part of the key names a tree, and an object names
+no path (it names the objects of its imports by SONAME, and its record
+names the source relative to the object), so a cache that two trees share
+serves the second tree the products of the first.  Under interpret:new
+nothing is placed (the
 mode never compiles).  After its prepare pass the runner prunes this cache
 and no other: the digest directories of other runtimes go, so the directory
 does not grow with every change to the runtime headers (the CI cache entry
@@ -993,8 +995,8 @@ file for a third to read.  The ICurry cache (SQLite, busy timeout 30 s),
 the bytecode cache, the ABI stamp, and the precompiled header are written
 atomically.  The ABI stamp of a shared object names the runtime headers,
 the flavor and the installation it was compiled under, so a product
-compiled under another SPRITE_HOME is compiled again here instead of
-loading the Prelude of that installation beside this one.  --prepare runs
+compiled under another SPRITE_HOME is compiled again here (the object
+itself names no path: its imports enter it by SONAME).  --prepare runs
 sprite-make over the shared pool (data/curry)
 and the corpus of each selected functional test, one directory and one
 process at a time, for each backend of the run, before any file starts.

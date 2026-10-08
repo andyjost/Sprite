@@ -7657,3 +7657,257 @@
   SPRITE_GC_STRESS=1; the whole unit suite under the stress mode 90 of
   90 ok in 737 s.  The results of the whole suite are in the entry
   above.
+
+2026-10-08: compiled objects portable between trees (format 13; worktree wt/objfmt; the decision of 2026-10-08 under issue #100)
+- The decision.  An object of the C++ backend names no path, so an object
+  compiled in one tree serves another: a copy of the tree at another
+  path, a relocated installation, and the product cache of a second
+  worktree.  The link line, the stamp, the cache key and the loader
+  changed; the runtime (node layout, info tables, bom.hpp) did not.
+- The SONAME.  Every object carries the SONAME "sprite-<module>.so.<format>"
+  (toolchain.soname; module_of_soname is the inverse): the full module
+  name, dots included, and compiler.FORMAT_VERSION.  The first form tried,
+  "<module>.so.<format>", matched the names of the system libraries
+  (libgcc_s.so.1 parsed as the module libgcc_s, and the stage failed with
+  "Curry module 'libgcc_s' not found"); the prefix holds a character no
+  module name holds, so the two kinds of name never meet.  The compile
+  step reads the module name from a new header line of the generated file,
+  "// MODULE: N", after the IMPORTS and FORMAT lines (vEmitHeader; a file
+  of the current format without the line is a PrerequisiteError), and
+  passes -Wl,-soname.  The objects of the imports stand on the link line
+  by their files as before; the linker records their SONAMEs as the NEEDED
+  entries, so readelf -d of every installed object shows no path
+  (sprite-Prelude.so.13, sprite-Data.Maybe.so.13, libcyrt.so and the
+  system libraries).  The link line pins -Wl,--no-as-needed (LINK_FLAGS,
+  after the review below), so the NEEDED entries name every import of the
+  module in the order of the IMPORTS line, whatever the default of the
+  toolchain; the imports of a module stay in its record as well.
+- The loader.  The dynamic linker satisfies a NEEDED entry with an object
+  of that SONAME the process has mapped, whatever its path, RTLD_LOCAL or
+  RTLD_GLOBAL, and no search path leads to the file (the probe: two small
+  objects outside Sprite, A.so with a SONAME and B.so linked against it;
+  B alone fails with "ProbeA.so.13: cannot open shared object file", A
+  then B gives 42 under both modes, A from another directory then B too,
+  and a directory on LD_LIBRARY_PATH that holds a link named like the
+  SONAME serves as well; glibc 2.39).  So loader.load_module reads the
+  NEEDED entries of the object before it opens it (backends/cxx/elf.py, a
+  reader of the dynamic section of a 64-bit ELF file, checked against
+  readelf in the tests), imports the modules they name
+  (loader.needed_modules), and raises DynloadError when one of them runs
+  without an object ("its import X runs without a compiled object")
+  instead of the message of the dynamic linker.  The plan path imported
+  them already (Cpp2So.import_lacks_an_object, from the IMPORTS line);
+  the loader's own pass covers curry.load and an object without its
+  generated file.  The tiered swap (cyrt/tiered.cpp) is unchanged: a job
+  runs after the jobs of its imports and the swap maps the import's
+  object before the importer's; a failed import swap now leaves the
+  importer interpreted with "cannot open shared object file" in the log,
+  where the path-based entry mapped the import's file from disk.  A
+  program that dlopens an object without the loader must open the objects
+  of its imports first, in dependency order, with libcyrt.so loaded or on
+  the search path, or name on LD_LIBRARY_PATH a directory that holds each
+  import under its SONAME (Cpp2So documents it).  bin/sprite-invoke
+  exports LD_LIBRARY_PATH=$SPRITE_HOME/lib, which is why the extension
+  module and the objects find libcyrt.so by name; a test of a relocated
+  copy must set the variable to the copy, as the launcher of the copy
+  would.
+- The record.  compiler._source_file_name names a source under the
+  installation relative to it, as before, and any other source relative
+  to the directory where the toolchain places the object of that source,
+  "../../M.curry" (the product directory beside the source).  The reader,
+  loader.source_file, tells the forms apart by the prefix: a record that
+  begins with "../" or "./" is relative to the directory of the object,
+  another relative record is relative to the installation, an absolute
+  record is a path.  The C++ side stores the string and reads it nowhere
+  (dynload.cpp); the one other reader, unit_cxx_bom.py, checks the suffix.
+  A module from text (curry.compile, str2module) keeps its temporary
+  directory in the metadata entry all.tmpd, as before; such a module is
+  never cached.  The record of the Python backend is unchanged (an
+  absolute path for a source outside the installation): the backend has
+  no objects and writes its files again in a moment.
+- The format and the key.  compiler.FORMAT_VERSION is 13; the digest of
+  the stamp covers it (object_digest, "format %d"; TestFlavor.test_digest
+  asserts it), so every object was compiled once more: make stage
+  recompiled the 13 library objects, and the prepare pass of the pool (43
+  modules) took 35.5 s cold.  Cpp2So.product_facts dropped 'installation'
+  and 'source'; nothing else in the key names a tree (the generator digest
+  and cache.frontend_digest digest contents, 'subdir' is a name, the chain
+  digests the texts of the module and of its imports, and the .icy and
+  the JSON of the library hold no path), and _productcache.KEY_FORMAT is 3
+  (the parts of the key changed).  Measured: a second tree made of the
+  pool (tests/data/curry copied without its C++ products, under the build
+  root, outside TMPDIR, which the cache excludes) with the cache of the
+  runner: sprite-make -k -c -z --so over the 43 modules in 0.7 s,
+  "product cache: 43 restored, 0 stored", the restored object one inode
+  with the first tree's, its record "../../CxxBom.curry", and CxxBom
+  imported from the copy in a child with the compiler counted: the value
+  9, no command, compile 0.0 s.  The first attempt under TMPDIR compiled
+  all 43 in 32 s: _productcache.excluded leaves the temporary directory
+  of the system out, by design.
+- Tests.  unit_cxx_toolchain.py (42 on cxx; the TestPortableObjects
+  class): the SONAME form and the names that are not one; the SONAME and
+  the NEEDED entries of a compiled module, read by elf.read_dynamic and
+  checked against readelf, no path in any entry, the MODULE line and the
+  record "../../M.curry" in the generated file, no path of the tree in it,
+  and the module object that names the source beside the product
+  directory; the two forms of the record and their resolution; every
+  current object of the installed library (SONAME of its module, no path,
+  Data.List names sprite-Prelude.so.13); a copy of a tree with its
+  products at another path, the stamp rewritten through a build prefix as
+  conda would, imported in a child with the compiler counted (no command,
+  the value, the source and the object of the copy); curry.load of an
+  object whose import is not loaded (the import comes from its object
+  first, under interpret:new) and the error when the import runs without
+  an object.  The hand-written JSON modules of those tests call a
+  recursive function (Prelude.foldr, or themselves) so that the object
+  takes a symbol of the import; the inliner would fold a call of a small
+  function away, and --as-needed would drop the library.
+  TestFormatStamp follows the new header line.  unit_product_cache.py (28
+  on both): the facts without the two paths and without any path,
+  KEY_FORMAT 3, and test_hit_in_another_tree in place of
+  test_miss_in_another_directory (the same key in both trees, a restore
+  without a compiler, one inode with the first tree, the module run in
+  the second tree in a child).  unit_conda.py (24 on both):
+  test_generated_files_name_no_prefix expects the record "../../CondaProbe.curry"
+  on cxx, and test_relocated_installation_loads_its_objects copies the
+  staged installation (without the precompiled header, the bytecode
+  caches and the static archive; links as links), rewrites the 13 stamps
+  as conda would, and runs a child under the copy (SPRITE_HOME,
+  PYTHONPATH and LD_LIBRARY_PATH of the copy): the Prelude and Data.List
+  load from the objects of the copy, no command runs, compile 0.0 s, no
+  object of the original is mapped (/proc/self/maps), and no file of the
+  copy changes.  tests/manifest.json rows of the three files refreshed
+  (the counts changed) while the other lane ran on the host.
+- Results, env -i, one process at a time: unit_cxx_toolchain.py 42 OK
+  (34 s), unit_product_cache.py 28 OK, unit_conda.py 24 OK, unit_loadsave.py
+  5 OK, unit_cxx_tiered.py 20 OK, unit_cxx_bom.py 10 OK, unit_cxx_emit.py
+  5 OK, unit_cxx_partial.py 18 OK on cxx (the last two files found their
+  pool modules interpreted until the prepare pass of the pool ran, as
+  section 4 of tests/README says); unit_cxx_bom.py and unit_loadsave.py
+  OK under interpret:new.  Through the runner at -j 2 --mem 4: the six
+  files of the item on both backends 12 of 12 OK (84 s); 'unit_cxx_*.py'
+  on cxx 20 of 20 OK (113 s); the toolchain and loader files (unit_cache,
+  unit_compile*, unit_curry2icurry*, unit_make, unit_findcurry,
+  unit_prebuild, unit_plan, unit_currylib, unit_loadsave, unit_inspect,
+  unit_api) on both 28 of 28 OK (194 s; unit_currylib remade the library
+  under the new format).  make -C docs html built without a warning.
+  --changed selects everything (scripts/new-worktree.sh is an unknown
+  path); the full suite is the long run of the suite stage.
+- Docs and notes.  conda/README.md: step 9, "Relocation", open question 2
+  (the stamp and the objects closed; open: the split) and "What remains";
+  the next package build must show 13 text entries and no binary entry in
+  info/has_prefix, readelf -d of Data/List.so with sprite-Prelude.so.13
+  and no path, the first import of the Prelude from the shipped object,
+  sprite-make --so of a program without a recompile of the library, and
+  no file of the package changed after the runs.  meta.yaml keeps
+  detect_binary_files_with_prefix spelled out so that a binary file that
+  holds the prefix again shows up.  EnvironmentVariables.rst (the product
+  cache serves every tree of one runtime; the sentence that said the
+  cache is on by default is gone, config says off), CompilationPipeline.rst,
+  sprite-make.rst, tests/README sections 1 and 10, scripts/new-worktree.sh.
+- What remains, for the owner.  (1) The second line of the stamp is now
+  the one tie between an object and an installation: the object names
+  libcyrt.so and its imports by name, so an object compiled under another
+  installation of the same runtime (same digest) would load; the line
+  keeps a copy made by hand stale, as decided under #100.  Dropping it
+  would make a hand copy keep its objects too and remove the one
+  has_prefix entry of the package.  (2) The record of the Python backend
+  still names a source outside the installation by absolute path.  (3)
+  The conda build with the two changes has not been made.  (4) A failed
+  swap of an import under tiered leaves the importer with the message of
+  the dynamic linker in its log (above); the swap could map the imports'
+  objects itself, a change in tiered.cpp.  (5) The hand-written JSON
+  modules of the tests are typed loosely (foldr over three literals, never
+  evaluated).
+- Review of the item (the same day), five findings.  (a) An object
+  without its generated file (sprite-make --tidy removes the .cpp) whose
+  import lost its object: the plan trusted the object and the loader
+  raised DynloadError for the interpreted import.  Now
+  Cpp2So.import_lacks_an_object reads the imports from the NEEDED entries
+  of the object (loader.needed_modules) when the file is gone, so the
+  importer is interpreted as with the file; the DynloadError stays for
+  curry.load alone.  (b) The NEEDED entries followed the --as-needed
+  default of the toolchain (g++ of Debian and Ubuntu pass it; conda
+  compilers and other distributions do not): LINK_FLAGS pins
+  -Wl,--no-as-needed, so the entries are the imports of the IMPORTS line
+  in order on every toolchain, and the loader's pre-import covers every
+  import of an object without its file.  The flag enters the digest, so
+  make stage relinked the 13 library objects once more (43 s); every one
+  names each of its imports now (Data.Function names sprite-Prelude.so.13,
+  Control.Monad names libc.so.6).  (c) elf.read_dynamic read the dynamic
+  section through the section headers and returned an empty result for
+  an object without them; it finds the section through the program
+  headers (PT_DYNAMIC) and the string table through the PT_LOAD that maps
+  it, as the dynamic linker does, reads with seeks, and raises ValueError
+  for a file without program headers or without a dynamic section (a
+  relocatable object).  Checked against readelf on an installed object
+  and on a copy after strip --strip-section-headers (binutils 2.42).  (d)
+  An object-relative record counts on the layout of the toolchain; an
+  object compiled elsewhere (a file of curry.save compiled in another
+  directory, as TestRoundTrip does not) resolved it to a file that does
+  not exist ("/M.curry" for /out/M.so).  loader.source_file now resolves
+  such a record only for an object under a product directory
+  (_filenames.curryfilename) and gives None otherwise, so the module has
+  no source file rather than a wrong one; curry.save says where to
+  compile the file.  (e) A docstring of 118 columns in the tests, wrapped.
+  Tests: unit_cxx_toolchain.py (46 on cxx) test_needed_entries_are_the_imports
+  (a module that imports a module and never calls it names it), the
+  installed library check that the NEEDED modules equal the IMPORTS line,
+  test_object_without_its_generated_file (both .cpp files removed: the
+  modules load from their objects with nothing compiled; the import's
+  stamp removed: both interpreted under interpret:new, no error),
+  test_elf_reader (the stripped copy, the file without program headers,
+  a file that is not ELF), test_object_compiled_elsewhere_has_no_source
+  (the object in another directory loads and __file__ is None; the
+  product cache off in the child, as the step keys by the source of a
+  product directory), test_record_forms with the records of an object
+  outside a product directory.  Through the runner at -j 2 --mem 4 on
+  both backends: unit_cxx_toolchain.py, unit_product_cache.py,
+  unit_cxx_tiered.py, unit_loadsave.py, unit_conda.py 10 of 10 OK
+  (115 s).
+- The suite stage (the same day), every run under env -i through the
+  runner at -j 2 --mem 4 unless said, one command at a time, the other
+  lane on the host.  make stage found the install current (7 s) and make
+  overlay took 9 s.  The cxx prepare pass of every corpus with the
+  product cache of the runner, cold for format 13 under the link flags
+  of the review: 578.4 s wall for the 1,239 modules of the 12 directories
+  (eqconstr 352.2 s, math 84.6 s, benchmarks 40.5 s), 38 from the
+  product cache (the pool after its relink), one pre-rewrite pair
+  translated again, every product present.  The six files of the item
+  (unit_cxx_toolchain, unit_product_cache, unit_cxx_tiered, unit_loadsave,
+  unit_conda, unit_examples) on both backends: 12 of 12 OK (216.8 s).
+  --fast on both: 134 of 134 OK (208.4 s).  --changed selects every file,
+  so the full suite ran in four chunks on both backends: unit_[a-c] 64 of
+  64 OK (233.7 s), unit_[d-o] 50 of 50 OK (162.2 s), unit_[p-z] 66 of 66
+  OK (160.8 s), func_* 42 of 42 OK (107.9 s, the sandbox off for the
+  oracle); 356 of 356 in all.  The unit suite under
+  SPRITE_INTERPRETER_FLAGS=backend:cxx,interpret:all on cxx in three
+  ranges: 32 of 32 OK (405.5 s), 25 of 25 OK (107.6 s), 33 of 33 OK
+  (132.1 s).
+- The acceptance of #100, measured (the same day).  A second worktree
+  made with scripts/new-worktree.sh from this branch at another path,
+  with SPRITE_PRODUCT_CACHE naming the cache of the runner of this tree
+  (warm from the prepare pass above): the script, from the committed
+  base, took 66 s (the stage of its library stored 13 under the digest of
+  the base); the uncommitted diff applied (git diff | git apply, elf.py
+  copied) and make stage again: 37 s, "0 restored, 13 stored", because
+  the library of this tree was compiled by make stage without the
+  variable and so never entered the cache, not because the keys differ:
+  Cpp2So.product_key of the Prelude is one and the same string in both
+  trees (the facts: format 13, the generator digest, the optimizers, the
+  inline budget, the subdir, the frontend digest).  Its prepare pass of
+  every corpus on cxx: 17.0 s wall, 1,240 of the 1,239 modules from the
+  product cache, every directory "N of N from the product cache", nothing
+  compiled (the line of kiel says 33 of 32: one more restore than modules
+  listed, a module an import of the corpus names).  So the acceptance of
+  #100, the prepare pass of a second worktree in under a minute with a
+  warm cache, is met: 17 s against 578 s cold here and 231 s for the
+  partial hits of 2026-10-07.  The restored CxxBom.so of the second tree
+  is one inode with the object of this tree, its NEEDED entries are the
+  SONAMEs and the system libraries, its generated file holds the record
+  "../../CxxBom.curry" and no path of either tree; CxxBom imported in a
+  child of each tree with the compiler counted gave 9 with no command,
+  and /proc/self/maps of each child showed no object of the other tree.
+  The worktree, its branch and its build root were removed afterwards;
+  the 13 entries of the base's digest and the 13 library entries of this
+  format stay in tests/.cache/products.

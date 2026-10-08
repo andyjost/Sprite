@@ -225,7 +225,13 @@ stamp).  An
 object whose digest differs from the installed headers, or whose path is not
 this installation, is compiled again; a new copy of the same runtime keeps
 every object, and a package whose manager rewrote the path at install time
-keeps its objects.  A compile also stores the object, the generated C++ and
+keeps its objects.  The object itself names no path: it carries the
+``SONAME`` ``sprite-<module>.so.<format>`` and names the objects of its
+imports by their ``SONAME``, which the dynamic linker satisfies with the
+objects the loader has opened before it (the loader opens the imports of
+an object first), and its record names the source relative to the
+installation or to the object.  So an object compiled in one tree loads in
+a copy of the tree at another path.  A compile also stores the object, the generated C++ and
 the stamp in the product cache, and a later compile of the same module under
 the same conditions places them from there instead of running the compiler;
 see ``SPRITE_PRODUCT_CACHE`` under

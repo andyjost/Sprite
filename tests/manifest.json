@@ -488,20 +488,20 @@
     },
     "unit_conda.py": {
       "cxx": {
-        "duration_s": 33.0,
+        "duration_s": 42.1,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 82,
-        "tests": 23
+        "peak_rss_mb": 103,
+        "tests": 24
       },
       "py": {
-        "duration_s": 36.0,
+        "duration_s": 34.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 85,
-        "tests": 23
+        "tests": 24
       }
     },
     "unit_configure.py": {
@@ -830,20 +830,20 @@
     },
     "unit_cxx_toolchain.py": {
       "cxx": {
-        "duration_s": 22.0,
+        "duration_s": 33.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 281,
-        "tests": 32
+        "peak_rss_mb": 290,
+        "tests": 46
       },
       "py": {
         "duration_s": 0.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 36,
-        "tests": 32
+        "peak_rss_mb": 37,
+        "tests": 46
       }
     },
     "unit_cxx_variable.py": {
@@ -1280,7 +1280,7 @@
     },
     "unit_product_cache.py": {
       "cxx": {
-        "duration_s": 10.5,
+        "duration_s": 10.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,

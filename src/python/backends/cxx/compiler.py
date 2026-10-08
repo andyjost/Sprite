@@ -5,6 +5,7 @@ from . import cyrtbindings as cyrt
 from . import passthrough
 from ...utility import formatDocstring, strings, visitation
 from ...utility.showflags import showflags
+import os
 
 __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 
@@ -39,7 +40,16 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # function on a known constructor (interpreter.optimize.inline_calls), and
 # records the body of such a function in its metadata; a file of format 11
 # is correct but slower, and it tells the modules that import it no bodies.
-FORMAT_VERSION = 12
+# Format 13: an object names no path.  The header carries the full name of
+# the module ("// MODULE: N"), from which the compile step forms the SONAME
+# of the object (toolchain.soname); the object names the objects of its
+# imports by their SONAMEs, and the loader imports those modules before it
+# opens the object (loader.load_module).  The record names a source outside
+# the installation relative to the directory of the object, "../../N.curry"
+# (_source_file_name), as it names a source under the installation relative
+# to it since format 12.  A file of format 12 names the objects of its
+# imports and its source by absolute path, so it serves one tree.
+FORMAT_VERSION = 13
 
 def compile(interp, imodule):
   compileM = CxxCompiler(interp, imodule)
@@ -109,8 +119,11 @@ class CxxCompiler(compiler.CompilerBase):
     assert False
 
   def vEmitHeader(self):
+    # The compile step reads the three lines: the imports it links against,
+    # the format it accepts, and the module name of the SONAME (Cpp2So).
     yield '// IMPORTS: ' + ' '.join(str(mod) for mod in self.iroot.imports)
     yield '// FORMAT: %d' % FORMAT_VERSION
+    yield '// MODULE: ' + self.iroot.fullname
     yield '#include "cyrt/cyrt.hpp"'
     yield ''
     yield 'using namespace cyrt;'
@@ -292,8 +305,9 @@ class CxxCompiler(compiler.CompilerBase):
         'bom::Function const', 'functions'
       , 'functions of %r' % imodule.fullname, function_rows
       )
-    # A source under the installation is named relative to SPRITE_HOME; the
-    # loader resolves the name (see toolchain._filenames.installed_relpath).
+    # A source under the installation is named relative to SPRITE_HOME, and
+    # another source relative to the directory of the object; the loader
+    # resolves the name (see _source_file_name and loader.source_file).
     filename = 'nullptr' if imodule.filename is None \
           else _dquote(_source_file_name(imodule.filename))
     # A const object at namespace scope has internal linkage unless it is
@@ -598,13 +612,25 @@ _CXX_ESCAPES = {
 
 def _source_file_name(filename):
   '''
-  The name of the source file of a module for the record of the module: the
-  path relative to the installation for a file under it, else the path as
-  it is.
+  The name of the source file of a module for the record of the module.  A
+  file under the installation is named relative to it (SPRITE_HOME;
+  toolchain._filenames.installed_relpath), as "curry/Prelude.curry".  Any
+  other file is named relative to the directory where the toolchain places
+  the object of that source, the product directory beside the source
+  (".curry/<subdir>/"), so the name is "../../M.curry" and begins with a
+  parent reference.  The loader tells the two forms apart by that prefix
+  (loader.source_file).  So the record names no tree, and an object loaded
+  from a copy of its tree names the source of the copy.
   '''
   from ...toolchain import _filenames
   relpath = _filenames.installed_relpath(filename)
-  return filename if relpath is None else relpath
+  if relpath is not None:
+    return relpath
+  objdir = os.path.dirname(_filenames.icurryfilename(filename))
+  relpath = os.path.relpath(filename, objdir)
+  if not relpath.startswith((os.pardir + os.sep, os.curdir + os.sep)):
+    relpath = os.path.join(os.curdir, relpath)
+  return relpath
 
 def _dquote(string):
   '''

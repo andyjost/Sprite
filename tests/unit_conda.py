@@ -2,8 +2,8 @@ import cytest # from ./lib; must be first
 from curry import config, exceptions
 from curry.utility.binding import binding, del_
 from unittest import mock
-import curry, hashlib, os, re, shutil, struct, subprocess, sys, tempfile
-import unittest
+import curry, hashlib, json, os, re, shutil, struct, subprocess, sys
+import tempfile, unittest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 CONDA = os.path.join(ROOT, 'conda')
@@ -848,6 +848,116 @@ class TestPackageRules(cytest.TestCase):
       # The stamp of a stale object is left as it is: nothing was written.
       self.assertEqual(step.read_stamp(sofile), '0123456789abcdef')
 
+  def test_relocated_installation_loads_its_objects(self):
+    '''
+    A copy of the installation at another path, its stamps rewritten as a
+    package manager rewrites the text files that hold the prefix: a process
+    under the copy loads the library from the objects of the copy, compiles
+    nothing, and maps no object of the original.  The objects name their
+    imports by SONAME (format 13 of the generated code), so the copy of
+    Data.List finds the copy of the Prelude; before, the NEEDED entries
+    named the objects of the original by absolute path.  The precompiled
+    header, the bytecode caches and the static archive stay out of the
+    copy; the links of the tree are copied as links.
+    '''
+    if curry.flags['backend'] != 'cxx':
+      raise unittest.SkipTest('the objects belong to the C++ backend')
+    from curry.backends.cxx import toolchain
+    from curry.objects.handle import getHandle
+    original = toolchain.installation_path()
+    subdir = os.path.join('curry', '.curry', config.intermediate_subdir())
+    prelude_so = os.path.join(original, subdir, 'Prelude.so')
+    step = toolchain.Cpp2So(curry.getInterpreter())
+    if not os.path.isfile(prelude_so) or not step.stamp_is_current(prelude_so):
+      raise unittest.SkipTest('the installed library has no current object')
+    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
+      copy = os.path.join(os.path.realpath(tmpdir), 'env', 'opt', 'sprite')
+      shutil.copytree(
+          original, copy, symlinks=True
+        , ignore=shutil.ignore_patterns('*.gch', '__pycache__', 'libcyrt.a')
+        )
+      # The rewrite of the manager: the prefix of the environment in place
+      # of the prefix of the build, in every stamp.
+      rewritten = 0
+      for dirpath, dirnames, filenames in os.walk(os.path.join(copy, 'curry')):
+        for filename in filenames:
+          if not filename.endswith('.so.abi'):
+            continue
+          path = os.path.join(dirpath, filename)
+          lines = readfile(path).splitlines()
+          if len(lines) == 2 and lines[1] == original:
+            with open(path, 'w') as ostream:
+              ostream.write('%s\n%s\n' % (lines[0], copy))
+            rewritten += 1
+      self.assertGreater(rewritten, 0)
+      code = '\n'.join([
+          'import curry, json, os'
+        , 'from curry.objects.handle import getHandle'
+        , 'from curry.toolchain import _system'
+        , 'commands = []'
+        , 'pexec = _system.pexec'
+        , 'def counting_pexec(cmd, *args, **kwds):'
+        , '  commands.append(cmd)'
+        , '  return pexec(cmd, *args, **kwds)'
+        , '_system.pexec = counting_pexec'
+        , 'from curry.lib import Prelude'
+        , 'L = curry.import_("Data.List")'
+        , 'value = list(curry.eval(curry.expr(L.last, [1, 2, 3]), converter="topython"))'
+        , 'with open("/proc/self/maps") as stream:'
+        , '  maps = stream.read()'
+        , 'print(json.dumps({'
+        , '    "commands": commands, "value": value'
+        , '  , "package": os.path.realpath(curry.__file__)'
+        , '  , "prefix": curry.config.prefix()'
+        , '  , "prelude_file": Prelude.__file__'
+        , '  , "prelude_object": getHandle(Prelude).sofilename'
+        , '  , "list_object": getHandle(L).sofilename'
+        , '  , "compile": curry.stats()["compile"]'
+        , '  , "original_mapped": %r in maps' % (original + os.sep)
+        , '  , "copy_mapped": %r in maps' % (copy + os.sep)
+        , '  }))'
+        ])
+      def snapshot():
+        files = {}
+        for dirpath, dirnames, filenames in os.walk(os.path.join(copy, 'curry')):
+          for filename in filenames:
+            path = os.path.join(dirpath, filename)
+            files[path] = os.lstat(path).st_mtime_ns
+        return files
+      before = snapshot()
+      # The environment of the copy, as the launcher of the copy would set
+      # it (bin/sprite-invoke puts python/ and lib/ of its installation
+      # first): the entries of the original leave.
+      def relocated(variable, subdir):
+        entries = [
+            entry for entry in os.environ.get(variable, '').split(os.pathsep)
+                  if entry and not entry.startswith(original + os.sep)
+          ]
+        return os.pathsep.join([os.path.join(copy, subdir)] + entries)
+      with mock.patch.dict(os.environ, {
+          'SPRITE_HOME': copy
+        , 'PYTHONPATH': relocated('PYTHONPATH', 'python')
+        , 'LD_LIBRARY_PATH': relocated('LD_LIBRARY_PATH', 'lib')
+        , 'SPRITE_INTERPRETER_FLAGS': 'backend:cxx'
+        }):
+        proc = cytest.run_in_subprocess(code, timeout=300)
+      self.assertEqual(proc.returncode, 0, proc.stderr)
+      result = json.loads(proc.stdout.strip().splitlines()[-1])
+      self.assertEqual(result['commands'], [])
+      self.assertEqual(result['value'], [3])
+      self.assertEqual(result['prefix'], copy)
+      self.assertEqual(result['prelude_file'], os.path.join(copy, 'curry', 'Prelude.curry'))
+      self.assertEqual(result['prelude_object'], os.path.join(copy, subdir, 'Prelude.so'))
+      self.assertEqual(
+          result['list_object']
+        , os.path.join(copy, 'curry', 'Data', '.curry', config.intermediate_subdir(), 'List.so')
+        )
+      self.assertEqual(result['compile'], 0)
+      self.assertTrue(result['copy_mapped'])
+      self.assertFalse(result['original_mapped'], proc.stdout)
+      # Nothing was written into the copy by the run.
+      self.assertEqual(snapshot(), before)
+
   def test_launcher(self):
     '''
     A launcher of the package sets SPRITE_HOME from its own real location,
@@ -903,7 +1013,10 @@ class TestPackageRules(cytest.TestCase):
     A generated file of a library module names its source relative to the
     installation, and the module object resolves the name, so the package
     holds no path of the build machine and its bytecode caches stay valid
-    after a relocation.  A module outside the installation keeps its path.
+    after a relocation.  On the C++ backend a module outside the
+    installation names its source relative to its object (format 13), and
+    the loader resolves the name from the object; on the Python backend it
+    keeps its path.
     '''
     from curry.toolchain import _filenames
     from curry.lib import Prelude
@@ -941,9 +1054,19 @@ class TestPackageRules(cytest.TestCase):
         product = readfile(path)
         self.assertNotIn(home, product)
         self.assertNotIn(os.path.realpath(home), product)
-    # A module outside the installation keeps its absolute path: one
-    # compiled from text, whose source lies in a temporary directory.
+    # A module outside the installation: one compiled from text, whose
+    # source lies in a temporary directory.  The module object names the
+    # absolute path.  The generated C++ names the source relative to the
+    # object, "../../CondaProbe.curry", and holds no path of the machine;
+    # the generated Python keeps the absolute path.
     Probe = curry.compile('main :: Int\nmain = 1\n', modulename='CondaProbe')
     self.assertTrue(os.path.isabs(Probe.__file__), Probe.__file__)
     self.assertIsNone(_filenames.installed_relpath(Probe.__file__))
-    self.assertIn(Probe.__file__, curry.save(Probe, module_main=False))
+    saved = curry.save(Probe, module_main=False)
+    if curry.flags['backend'] == 'cxx':
+      self.assertIn('/*filename */ "../../CondaProbe.curry"', saved)
+      # The path of the source is gone from the record; the metadata of a
+      # module from text keeps its temporary directory (all.tmpd).
+      self.assertNotIn(Probe.__file__, saved)
+    else:
+      self.assertIn(Probe.__file__, saved)

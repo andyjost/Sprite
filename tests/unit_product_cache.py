@@ -17,8 +17,8 @@ from curry.toolchain import _productcache, plans, makecurry, _findcurry, _system
 from curry.tools import make
 from curry.utility.binding import binding
 from unittest import mock
-import contextlib, curry, gc, importlib, io, itertools, logging, os, shutil
-import stat, tempfile, time, unittest, zlib
+import contextlib, curry, gc, importlib, io, itertools, json, logging, os
+import shutil, stat, tempfile, time, unittest, zlib
 
 TESTDIR = os.path.dirname(os.path.abspath(__file__))
 SCRATCH = os.path.join(TESTDIR, '.cache')
@@ -198,7 +198,7 @@ class TestKey(ProductCacheTestCase):
     # The same files again give the same chain.
     self.write_json(1, name='A')
     self.assertEqual(_productcache.chain_digest(a, [self.srcdir]), with_json)
-    self.assertEqual(_productcache.KEY_FORMAT, 2)
+    self.assertEqual(_productcache.KEY_FORMAT, 3)
 
   def test_module_without_a_source(self):
     '''
@@ -549,16 +549,21 @@ class TestCompile(ProductCacheTestCase):
       )
     self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 1})
     # The facts of the key name the format, the generator, the optimizer,
-    # the budget, the route, the installation and the source directory.
+    # the budget and the route.  No fact names a tree: the installation and
+    # the source directory left the key when the objects stopped naming
+    # them (format 13), so a second tree is served (test_hit_in_another_tree).
     facts = self.cpp2so.product_facts(os.path.join(self.srcdir, name + '.curry'))
     heads = [fact.split()[0] for fact in facts]
     self.assertEqual(
         heads
-      , [ 'format', 'generator', 'optimizers', 'inline_budget', 'subdir'
-        , 'frontend', 'installation', 'source' ]
+      , ['format', 'generator', 'optimizers', 'inline_budget', 'subdir', 'frontend']
       )
-    self.assertIn('installation ' + self.toolchain.installation_path(), facts)
-    self.assertIn('source ' + os.path.realpath(self.srcdir), facts)
+    for fact in facts:
+      self.assertNotIn(self.toolchain.installation_path(), fact)
+      self.assertNotIn(config.prefix(), fact)
+      self.assertNotIn(self.srcdir, fact)
+      self.assertNotIn(os.path.realpath(self.srcdir), fact)
+      self.assertNotIn(os.sep, fact.split(' ', 1)[1])
     self.assertIn('inline_budget %d' % curry.flags['inline_budget'], facts)
     self.assertIn('format %d' % self.toolchain.compiler.FORMAT_VERSION, facts)
     self.assertRegex(self.toolchain.generator_digest(), r'^[0-9a-f]{16}$')
@@ -681,17 +686,18 @@ class TestCompile(ProductCacheTestCase):
     self.assertFalse(os.path.exists(sofile))
     self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 1})
 
-  def test_miss_in_another_directory(self):
+  def test_hit_in_another_tree(self):
     '''
-    The same text in another directory is a miss: the key names the real
-    path of the directory of the source, because the object names the
-    source in its record and the objects beside it in its NEEDED entries.
-    So a second tree compiles its own products (the dated TODO entry of
-    2026-10-07 on the product cache names the change that would let two
-    trees share them).
+    The same text in another directory is a hit: the key names no tree,
+    and the products name no path (the objects name their imports by
+    SONAME and the record names the source relative to the object).  Two
+    copies of a project that share one cache directory, as two worktrees
+    do: the first compiles, the second compiles nothing, and the module
+    runs in the second from the restored object, which names the source of
+    the second.
     '''
     name = self.write_json(14)
-    makecurry(self.plan, name, [self.srcdir])
+    first = makecurry(self.plan, name, [self.srcdir])
     other = os.path.join(self.base, 'other')
     shutil.copytree(self.srcdir, other)
     for suffix in ['.cpp', '.so', '.so.abi']:
@@ -701,15 +707,56 @@ class TestCompile(ProductCacheTestCase):
         _productcache.chain_digest(curryfile, [other])
       , _productcache.chain_digest(os.path.join(self.srcdir, name + '.curry'), [self.srcdir])
       )
-    self.assertNotEqual(
+    self.assertEqual(
         self.cpp2so.product_facts(curryfile)
       , self.cpp2so.product_facts(os.path.join(self.srcdir, name + '.curry'))
       )
-    with capture_log('curry.backends.cxx.toolchain') as log:
+    self.assertEqual(
+        self.cpp2so.product_key(curryfile, [other])
+      , self.cpp2so.product_key(os.path.join(self.srcdir, name + '.curry'), [self.srcdir])
+      )
+    with self.no_compiler(), capture_log('curry.backends.cxx.toolchain') as log:
       sofile = makecurry(self.plan, name, [other])
-    log.checkMessages(self, info='Compiling %r' % sofile)
-    self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 2})
-    self.assertEqual(len(self.entries(self.cpp2so.digest())), 2)
+    log.checkMessages(self, info='Restored %r from the product cache' % sofile)
+    self.assertEqual(
+        sofile, os.path.join(other, '.curry', config.intermediate_subdir(), name + '.so')
+      )
+    self.assertNotEqual(sofile, first)
+    # Both trees link the object of the entry (one file system here).
+    self.assertTrue(os.path.samefile(sofile, first))
+    self.assertEqual(os.stat(sofile).st_nlink, 3)
+    self.assertEqual(_productcache.counts, {'restored': 1, 'stored': 1})
+    self.assertEqual(len(self.entries(self.cpp2so.digest())), 1)
+    self.assertEqual(
+        self.cpp2so.read_stamp_lines(sofile)
+      , (self.cpp2so.digest(), self.toolchain.installation_path())
+      )
+    # The module runs in the second tree, in a child (the runtime of this
+    # process keeps one library per module name), with no compiler.
+    code = '\n'.join([
+        'import curry, json'
+      , 'from curry.objects.handle import getHandle'
+      , 'from curry.toolchain import _system'
+      , 'commands = []'
+      , 'pexec = _system.pexec'
+      , 'def counting_pexec(cmd, *args, **kwds):'
+      , '  commands.append(cmd)'
+      , '  return pexec(cmd, *args, **kwds)'
+      , '_system.pexec = counting_pexec'
+      , 'module = curry.import_(%r, currypath=%r)' % (name, [other] + curry.path)
+      , 'value = list(curry.eval(module.goal, converter="topython"))'
+      , 'print(json.dumps([commands, value, module.__file__, getHandle(module).sofilename]))'
+      ])
+    with mock.patch.dict(
+        os.environ, {'SPRITE_INTERPRETER_FLAGS': 'backend:cxx,interpret:off'}
+      ):
+      proc = cytest.run_in_subprocess(code, timeout=300)
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    commands, value, source, loaded = json.loads(proc.stdout.strip().splitlines()[-1])
+    self.assertEqual(commands, [])
+    self.assertEqual(value, [14])
+    self.assertEqual(source, curryfile)
+    self.assertEqual(loaded, sofile)
 
   def test_miss_on_another_digest(self):
     '''An entry of another runtime is not seen: the digest heads the key.'''

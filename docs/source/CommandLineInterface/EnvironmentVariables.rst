@@ -341,12 +341,14 @@ with Sprite, then you should not need these.
   texts of the module (its source, its ICurry file and its JSON, the input
   of the code generator) and of the modules it imports, the format of the
   generated code and the sources of the code generator and of the ICurry
-  reader, the flags of the optimizer and the inline budget, the route from
-  Curry to ICurry, and the
-  real paths of the installation and of the directory of the source.  An
-  object names the two paths, in its record and in its ``NEEDED`` entries,
-  so an entry serves one tree: the same tree after its products were
-  removed, or after an edit and its revert.  ``sprite-make``, the
+  reader, the flags of the optimizer and the inline budget, and the route
+  from Curry to ICurry.  No part of the key names a tree, and the products
+  name no path: an object names the objects of its imports by their
+  ``SONAME`` (``sprite-<module>.so.<format>``), not by path, and its record
+  names the source relative to the installation or to the object.  So an
+  entry serves every tree of one runtime: the same tree after its products
+  were removed or after an edit and its revert, and a second worktree,
+  which compiles nothing the first compiled.  ``sprite-make``, the
   background compile of the tiered mode and the prepare pass of the test
   runner look in the cache before they compile.  A module whose entry is
   there is neither generated nor compiled: its files are placed beside the
@@ -354,9 +356,8 @@ with Sprite, then you should not need these.
   with a stamp for this installation.  Under the interpreter flag
   ``interpret`` set to ``new`` nothing is placed: that mode interprets a
   module without a current object and never compiles it.  Without the
-  variable the cache is ``$XDG_CACHE_HOME/sprite/products`` or
-  ``~/.cache/sprite/products``.  Without the variable, or with the empty string, the cache is off;
-  every product is then compiled in place, as before the cache existed.
+  variable, or with the empty string, the cache is off; every product is
+  then compiled in place, as before the cache existed.
   The test runner and the worktree script name a directory of their own
   (``tests/.cache/products``); a developer who wants one across trees
   names it.  A module in the temporary directory of the system is never
@@ -381,7 +382,8 @@ with Sprite, then you should not need these.
   --prepare-only``), which compiles the shared Curry products of the test
   pool into the new worktree and stores them in the product cache.  The
   script never copies the compiled products of the main tree: their ABI
-  stamps and their ``NEEDED`` entries name the installation of that tree.
+  stamps name the installation of that tree.  A product cache the two
+  trees share serves the worktree the products of the main tree.
 
 Test Variables
 --------------

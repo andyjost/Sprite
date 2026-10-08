@@ -23,6 +23,15 @@ See runtime_digest, object_digest, and Cpp2So.is_stale.  A generated .cpp
 file carries a format stamp; Json2Cpp, which writes the file, refuses one of
 another format.  See Json2Cpp.is_stale.
 
+An object names no path, so it serves any tree (format 13 of the generated
+code).  Each object carries a SONAME, the full name of its module and the
+format version, "sprite-<module>.so.<format>" (soname); the linker records the
+SONAMEs of the objects of the imports as the NEEDED entries of an object,
+and the loader imports those modules before it opens the object, so the
+dynamic linker finds each name mapped (loader.load_module).  The record of
+a module names its source relative to the installation or to the object
+(compiler._source_file_name).  See Cpp2So for the link line.
+
 A compile stores its products in the product cache, and a plan places the
 cached products of a module instead of generating and compiling it when the
 cache holds them.  See Cpp2So.restore, Cpp2So.store and
@@ -110,8 +119,16 @@ FLAVOR_FLAGS = {
 # The link flags of a module.  A module binds its own functions locally.  So a
 # call to a function of the runtime headers that the compiler did not inline
 # does not go through the procedure linkage table to the copy in the module
-# loaded first.
-LINK_FLAGS = ['-Wl,-Bsymbolic-functions']
+# loaded first.  The linker records every library of the link line as a
+# NEEDED entry (--no-as-needed), so the NEEDED entries of an object name the
+# objects of all its imports, in the order of the IMPORTS line of the
+# generated file, whether or not the object takes a symbol from each.  The
+# default differs between toolchains (g++ of Debian and Ubuntu passes
+# --as-needed, which drops a library the object takes no symbol from), and
+# the loader reads the imports of an object from these entries
+# (loader.needed_modules), so the form is pinned here.  The flags enter the
+# digest of the stamp (object_digest).
+LINK_FLAGS = ['-Wl,-Bsymbolic-functions', '-Wl,--no-as-needed']
 
 def flavor_flags(flavor):
   '''The compiler flags of a flavor of generated code: 'release' or 'debug'.'''
@@ -191,13 +208,57 @@ def object_digest(flavor=None, include_dir=None, gc=None, write_counters=None):
 def installation_path():
   '''
   The real path of the installation: the text of the second line of an ABI
-  stamp.  A module links against the shared objects of its installation by
-  absolute path, so an object compiled under another installation of the
-  same runtime would load that installation's Prelude beside this one; the
-  stamp names the installation, and an object whose stamp names another is
-  stale (Cpp2So.is_stale).
+  stamp.  The stamp names the installation the object was compiled under,
+  and an object whose stamp names another is stale (Cpp2So.is_stale): a
+  copy of an installation made by hand compiles its objects again, and a
+  package whose manager rewrote the text keeps them (the decision of issue
+  #100).  The object itself names no path since format 13 of the generated
+  code: it names the objects of its imports and the runtime library by
+  SONAME (see soname), so the line is the one tie between an object and an
+  installation.
   '''
   return os.path.realpath(config.prefix())
+
+# The prefix of the SONAME of a compiled module.  A system library is named
+# "lib<name>.so.<version>" (libgcc_s.so.1, libc.so.6), which a bare
+# "<module>.so.<format>" would match; the prefix holds a character no
+# module name holds, so the two kinds of name never meet.
+SONAME_PREFIX = 'sprite-'
+
+def soname(fullname, format_version=None):
+  '''
+  The SONAME of the object of the module ``fullname``: the full name of the
+  module and the format of the generated code (compiler.FORMAT_VERSION by
+  default), in the form "sprite-<module>.so.<format>", for instance
+  "sprite-Data.List.so.13".  The compile step gives every object its
+  SONAME, and the linker records the SONAME of each object on the link
+  line as a NEEDED entry of the importer.  The dynamic linker satisfies
+  such an entry with an object of that name that the process has mapped
+  already, whatever its path, so the loader imports the modules an object
+  needs before it opens the object (loader.needed_modules).  The format
+  version is part of the name, so an object of another format never
+  satisfies the entry; the ABI stamp keeps such an object out of a process
+  in any case.  A dot of the module name is a dot of the SONAME; the
+  prefix and the suffix ".so." bound the name (module_of_soname).
+  '''
+  if format_version is None:
+    format_version = compiler.FORMAT_VERSION
+  return '%s%s.so.%d' % (SONAME_PREFIX, fullname, format_version)
+
+def module_of_soname(name):
+  '''
+  The full name of the module whose object has the SONAME ``name`` (see
+  soname), or None when ``name`` is not of that form: the name of a system
+  library, or of the runtime library.  The format version is not checked.
+  '''
+  if not name.startswith(SONAME_PREFIX):
+    return None
+  fullname, sep, version = name[len(SONAME_PREFIX):].rpartition('.so.')
+  if not sep or not fullname or not version.isdigit():
+    return None
+  if not curryname.isLegalModulename(fullname):
+    return None
+  return fullname
 
 # The sources of the code generator of this backend, whose change changes the
 # generated code: the emitter and its helpers in this directory, the generic
@@ -455,14 +516,27 @@ class Cpp2So(object):
   The first line is the digest of the runtime headers and of the flags the
   object was compiled with (object_digest), 16 hex digits.  The second line
   is the real path of the installation the object was compiled under
-  (installation_path): the object names the shared objects of that
-  installation in its NEEDED entries.  An object is current when the
-  digest is accepted (accepted_digests) and the path is the installation of
-  the process (is_stale).  So a copy of an installation made by hand keeps
-  objects that name the original and compiles them again, and a package
+  (installation_path).  An object is current when the digest is accepted
+  (accepted_digests) and the path is the installation of the process
+  (is_stale).  So a copy of an installation made by hand keeps objects
+  whose stamps name the original and compiles them again, and a package
   whose manager rewrites the path at install time (conda lists the stamps
   in info/has_prefix as text files) keeps its objects.  A stamp of one
   line, written before the path joined it, is stale.
+
+  The link line names no path that the object keeps.  The object gets the
+  SONAME of its module (soname; the module name comes from the header of
+  the generated file, "// MODULE: N"), the objects of its imports stand on
+  the line by their files and enter the object as their SONAMEs (the
+  NEEDED entries; every import, in the order of the IMPORTS line, see
+  LINK_FLAGS), and the runtime library enters as "libcyrt.so", which
+  the extension module of the backend has loaded.  So readelf -d shows no
+  absolute path, and an object compiled in one tree loads in a copy of the
+  tree at another path, or from the product cache in another tree.  A
+  program that opens such an object with dlopen and without the loader
+  must open the objects of its imports first, in dependency order, with
+  the runtime library loaded or on the search path; or it must name, on
+  LD_LIBRARY_PATH, a directory that holds each import under its SONAME.
 
   A compile stores its products in the product cache (store), and the plan
   places the cached products of a module instead of a compile (restore).
@@ -564,24 +638,32 @@ class Cpp2So(object):
     '''
     Tells whether an import of the module of ``sofile`` runs without a
     compiled object.  The imports are read from the generated file beside
-    the object and imported first.
+    the object, or from the NEEDED entries of the object when the file is
+    gone (sprite-make --tidy removes it; loader.needed_modules), and
+    imported first.  The two lists agree: the linker records every import
+    (LINK_FLAGS).
 
-    The object names the objects of its imports as needed libraries (see
-    _dependencies), and the dynamic linker maps the file at each such path
-    before the loader processes the imports.  When an import was edited, that
-    file is stale: under the interpreter flag ``interpret`` the import is
-    interpreted from its ICurry, and its tables would exist twice.  So an
+    The object names the objects of its imports as needed libraries, by
+    SONAME (see _dependencies), and the dynamic linker satisfies each name
+    with the object of that name the process has mapped.  When an import
+    was edited, its object is stale: under the interpreter flag
+    ``interpret`` the import is interpreted from its ICurry, no object of
+    its name is mapped, and the load of the importer would fail.  So an
     object is loaded only when every import was loaded from its object; a
     module whose import is interpreted is interpreted too (or compiled
-    again, without the flag).  Without the generated file the imports are
-    not known, and the object is trusted.
+    again, without the flag).  An object whose imports cannot be read is
+    trusted; the loader reads them once more before it opens the object
+    (loader.load_module).
     '''
+    from . import loader
     cppfile = _filenames.replacesuffix(sofile, '.cpp')
-    if not os.path.isfile(cppfile):
-      return False
     try:
-      imports = self._importedModules(cppfile)
-    except exceptions.PrerequisiteError:
+      if os.path.isfile(cppfile):
+        imports = self._importedModules(cppfile)
+      else:
+        imports = loader.needed_modules(sofile)
+    except (exceptions.PrerequisiteError, OSError, ValueError) as exc:
+      logger.debug('The imports of %r cannot be read (%s)', sofile, exc)
       return False
     for modulename in imports:
       module = self.interp.import_(modulename)
@@ -647,6 +729,22 @@ class Cpp2So(object):
     '''The format stamp of a generated file (format_version).'''
     return format_version(file_in)
 
+  MODULE_PAT = re.compile(r'// MODULE: (\S+)')
+  def _moduleName(self, file_in):
+    '''
+    The full name of the module of the generated file ``file_in``, from the
+    comment in its header ("// MODULE: N"; compiler.vEmitHeader).  The
+    SONAME of the object is formed from it (soname).
+    '''
+    with open(file_in, 'r') as stream:
+      for line in itertools.islice(stream, 16):
+        m = self.MODULE_PAT.match(line)
+        if m:
+          return m.group(1)
+    raise exceptions.PrerequisiteError(
+        'Cannot find the MODULE line in %r' % file_in
+      )
+
   IMPORT_PAT = re.compile(r'// IMPORTS: (.*)')
   def _importedModules(self, file_in):
     '''
@@ -679,8 +777,10 @@ class Cpp2So(object):
 
   def _dependencies(self, file_in):
     '''
-    Generates the .so files the specified .cpp file depends on.  They are added
-    to the link line so that ldd will automatically load the correct modules.
+    Generates the .so files the specified .cpp file depends on.  They stand
+    on the link line by their files, and the linker records each one by
+    its SONAME (soname) in the NEEDED entries of the object (LINK_FLAGS),
+    so the object names no path of this tree.
     '''
     for modulename in self._importedModules(file_in):
       yield self._sofilename(modulename)
@@ -744,6 +844,7 @@ class Cpp2So(object):
     for flag in self._cxxflags():
       yield flag
     yield '-Wl,-eentry'
+    yield '-Wl,-soname,%s' % soname(self._moduleName(file_in))
     for flag in LINK_FLAGS:
       yield flag
     yield file_in
@@ -825,16 +926,13 @@ class Cpp2So(object):
     generated code (compiler.FORMAT_VERSION) and the digest of the sources
     of the code generator (generator_digest); the keys of the optimizer
     passes and the inline budget of the interpreter, which shape the code;
-    the intermediate directory and the route from Curry to ICurry
-    (cache.frontend_digest), which decide the ICurry of a source; the real
-    path of the installation, which the object names in its NEEDED entries;
-    and the real path of the directory of the source, which the object
-    names in its record and in the NEEDED entries of the modules beside
-    it.  The two paths keep an object of one tree out of another tree,
-    where the dynamic linker would map the imports of the first tree
-    beside those of the second; they leave the key once the generated code
-    and the link name no absolute path (the dated TODO entry of 2026-10-07
-    on the product cache names that change).
+    and the intermediate directory and the route from Curry to ICurry
+    (cache.frontend_digest), which decide the ICurry of a source.  No fact
+    names a tree: the products name no path since format 13 (the SONAMEs
+    and the record), so an entry serves every tree of one runtime, and a
+    second worktree compiles nothing the first compiled.  Before format 13
+    the real paths of the installation and of the directory of the source
+    were facts, because the object named both.
     '''
     from ...interpreter import optimize
     from ... import cache
@@ -846,8 +944,6 @@ class Cpp2So(object):
       , 'inline_budget %d' % flags['inline_budget']
       , 'subdir ' + config.intermediate_subdir()
       , 'frontend ' + cache.frontend_digest()
-      , 'installation ' + installation_path()
-      , 'source ' + os.path.realpath(os.path.dirname(os.path.abspath(curryfile)))
       ]
 
   def product_key(self, filename, currypath):
