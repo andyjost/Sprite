@@ -7105,3 +7105,160 @@
   about 1,250 entries of the probe worktrees under tests/.cache/products
   (155 MB in all); the runner's prune keeps them because they share the
   digest; the directory may be deleted.
+
+2026-10-07: products translated before the binding rewrite stay in use (#101, worktree wt/stale)
+- Reproduced.  A pair as the route made it before the rewrite existed,
+  the .fcy of the front end (curry2flat with rewrite=False) and its plain
+  translation (flat2icy), both newer than the source, on a module with
+  the guard f x | x == 3 = x and main = f y where y free: icurry_is_stale
+  said False, currentfile returned the .icy, curry.import_ ran no front
+  end and left the times, and main suspended (the rewritten program
+  gives 3).  This worktree held two such pairs in its corpus, both
+  extracted from the overlay archive by make overlay (tar -m gives them
+  the time of the extraction, newer than the sources): atableNoflex (1
+  equality) and poker_four_of_a_kind of smap (2); of the other 878 .fcy
+  files under tests/data, 4 hold constrEq and the rest need no pass.  No
+  file of the library (22) needs it.
+- The cache, measured on the cache the main tree moved aside
+  (tests/.cache/aside-prerewrite/icurry.db, 2,183 rows of format 3), the
+  key of every corpus module computed under the digest of each era (the
+  sources of flat2icurry at 1233abf8, 1b554fd1, aba8c864 and HEAD, with
+  PORT_DIR mocked, and the Curry path of the drivers, the system library
+  included): 1,239 rows are reachable under the digest of 1233abf8
+  (10-04, before the pass), none with constrEq; 27 under 1b554fd1 (the
+  in-memory pass; 2 with constrEq); 6 under aba8c864 and the same 6
+  under HEAD (the digest has not changed since #85).  So the digest
+  covered bindingopt.py from the day it joined PORT_DIR (frontend_digest
+  digests every .py file there since 1233abf8), the rows of 2026-10-05
+  were out of reach from 1b554fd1 on, and no hit served a pre-rewrite
+  text after #85.  The pre-rewrite ICurry of the trees came from the
+  .icy files on disk, which the plan counted current; the cache is asked
+  only when the plan runs the step, so it was never asked.  What the key
+  did not see is the step itself: the digest covers the sources of the
+  pass, not the code that applies it (_frontend.curry2flat), so a change
+  to the step alone (which files it rewrites, #99) left the key as it
+  was.  The cache the main tree made on 10-07 after its refresh: 1,237
+  of 1,441 rows reachable under HEAD, 7 with constrEq, the 7 modules the
+  pass changes.
+- The rule (_curry2icurry.translated_before_rewrite, asked by
+  icurry_is_stale, which the plan asks of every .icy): an .icy is stale
+  when the .fcy of the front end beside the source holds a Boolean
+  equality the pass replaces and neither file holds constrEq.  The
+  check reads the .fcy: constrEq in it means rewritten, no equality name
+  means nothing to replace (both a fraction of a millisecond); else the
+  pass runs over the text in memory and counts; the .icy is read only
+  when the count is not zero, so an unrewritten .fcy the PAKCS oracle
+  wrote beside an .icy of the rewritten program is current (the product
+  is right; a stale verdict there would run the route at every import,
+  since a hit of the ICurry cache writes the .icy and leaves the .fcy).
+  Not judged: a .fcy older than the source (another version of the
+  source, after a hit), and the modules of the library (committed
+  ICurry, the owner's).  Cost: the Prelude 0.05 ms (a path comparison;
+  its .fcy holds constrEq, the definition, so the first tier would
+  answer for it too); the 893 .icy files under tests/data 0.74 s in
+  all, 0.83 ms each (679 of the 880 .fcy files have an equality name
+  without constrEq, so the parse runs for them: median 0.8 ms, mean
+  0.9 ms, about 0.3 ms per KB, the largest 9 ms, assembler of kiel at
+  28 KB).  Why not a marker time: a copy (tar
+  -m in make overlay and in new-worktree.sh) gives a pre-rewrite pair a
+  fresh time, so no time separates the two kinds of pair; the content
+  does.  The product cache cannot bypass the verdict: Cpp2So.restore
+  acts at the JSON and C++ stages alone, and its key digests the .icy
+  text.
+- The key: ROUTE_VERSION = 1 in _frontend.py, the version of the steps
+  between the front end and the translation, in icurry_cache_key through
+  cache.route_version(), not in frontend_digest: the product cache keys
+  on that digest too and digests the ICurry text itself, so the version
+  there would have recompiled every object once for nothing.  Every
+  entry of the ICurry cache misses once after this change (one
+  translation of each test module on the first run, as after the format
+  change to 3); KEY_FORMAT stays 3, the row does not change.
+- sprite-make prints "sprite-make: pre-rewrite pairs: N translated
+  again" at the end of a run that made such a pair again (not under -q;
+  the children of --jobs print it for the parent, which sums; the manual
+  says so); the prepare pass reads the line (prepare.rewrite_counts) and
+  repeats the count on the line of the directory and in its summary.
+- Tests, both backends: tests/unit_curry2icurry_stale.py, 10 tests: the
+  pair is stale and the import makes it again (the goal gives 3, the
+  times move, a second make runs no front end); three current pairs,
+  one per tier of the check, untouched by an import with the front end
+  mocked away; the oracle's unrewritten file beside a rewritten .icy is
+  current; a .fcy older than the source is not judged (the strict order
+  of newer); the files not judged; the library left out; the cost (the
+  best of five batches: the Prelude under 2 ms, a rewritten file under
+  5 ms, a parse under 25 ms; measured 0.05, 0.1 and 1 ms); the version
+  in the key and not in the digest; a version-0 entry misses, the route
+  makes the pair again and stores the new entry, which a later miss is
+  served from, and the old row stays; the lines of sprite-make (one
+  pair, nothing on a second run and under -q, two children summed, the
+  manual).  unit_runner.py: test_rewrite_counts (the line, the note, the
+  summary).  tests/manifest.json has no entry for the new file.
+- Verification in this worktree (env -i, one process at a time):
+  unit_curry2icurry_stale.py 10 OK on cxx (4.2 s) and on py (4.3 s);
+  through the runner at -j 2 --mem 4 --backend both: unit_curry2icurry,
+  unit_curry2icurry_stale, unit_cache, unit_runner, unit_make,
+  unit_product_cache, unit_flat2icurry_bindingopt, unit_findcurry and
+  unit_plan 18 of 18 OK (74 s); func_flat2icurry and unit_cxx_toolchain
+  4 of 4 OK (50 s; the oracle test over the products on disk is green
+  with the refreshed pairs).  sprite-make --icy atableNoflex in the
+  pool: the line with 1, the pair rewritten, a second run silent;
+  poker_four_of_a_kind on a copy of smap without currypp on the PATH:
+  the front end left its current files, the pass rewrote the .fcy, the
+  .icy was made (the line with 1).  ./run_tests --prepare-only --backend
+  cxx func_smap.py: "prepare: 48 modules in 2 directories on cxx, 1
+  pre-rewrite pair translated again, every product present" (35 s, the
+  pool compiled cold).  The docs were not rebuilt.
+- The refresh.  A tree after an upgrade across the rewrite (products
+  older than 2026-10-06, the products of the archive, copies of either)
+  needs nothing by hand: the first import of a module makes its pair
+  again; ./run_tests --prepare does the pool and the corpora in one go
+  and says how many; sprite-make --rewrite-flat M does one module,
+  current or not.  Documented in tests/README (sections 1, 8 and 10),
+  AGENTS.md and the page CompilationPipeline.
+- Left to the owner.  (1) A hit of the ICurry cache leaves the .fcy of
+  the front end as it is, so the pair on disk disagrees until a hand
+  rewrite (the oracle test accepts it); the route could run the pass
+  over the .fcy on a hit too, a read and at most a parse.  A route
+  change, not made.  (2) The gap of the rule: a source that names
+  constrEq itself and has a required equality is judged current; none
+  in the corpus.  (3) Option D of #99 (an .icy stale when the .fcy has
+  constrEq and the .icy has not, after a hand rewrite of the file
+  alone) is not covered; sprite-make --rewrite-flat covers that case.
+- After the review (same day).  (1) The parse of the check recurred at
+  every import of a current module in every process, and grew with the
+  file (0.3 ms per KB, 1.2 s for a text of 840 KB).  Now the count of
+  the pass is kept for the process by the path, size and time of the
+  .fcy (one parse per module per process), and a .fcy larger than
+  PARSE_LIMIT (256 KB, about 80 ms) is not judged, with one warning per
+  process that names sprite-make --rewrite-flat.  (2) A pre-rewrite
+  pair whose .fcy cannot be written again (a read-only file or
+  directory) failed the import with a raw PermissionError from the
+  pass; now it is not judged, with one warning per process, so the
+  import uses the pair as before the rule.  (3) A hit of the ICurry
+  cache on a flagged pair was counted as translated again; now it is
+  counted apart (pairs_served), the line of sprite-make ends in
+  ", M from the ICurry cache" when there was one, and the prepare pass
+  repeats the clause.  (4) The TODO had justified the exclusion of the
+  library with a parse of the Prelude that would not happen (its .fcy
+  holds constrEq, the definition); corrected above, with the current
+  example of the parse tier.  (5) tests/README section 1 now says that
+  the rows of the old key stay in the table.  Tests, both backends:
+  unit_curry2icurry_stale.py (14 now: the memo, the limit, the
+  read-only pair, the served pair, the line with the clause) and
+  unit_runner.py test_rewrite_counts.
+- Suites over the whole diff (same day, after make overlay restored the
+  two pre-rewrite pairs of the archive; -j 2 --mem 4, both backends):
+  the prepare pass, 1,239 modules in 12 directories, "1 pre-rewrite pair
+  translated again" (atableNoflex, both files rewritten) and "1
+  pre-rewrite pair from the ICurry cache" (poker_four_of_a_kind: the
+  .icy from the cache, the .fcy left as the front end wrote it); the
+  eqconstr corpus, which the archive does not hold, compiled cold (767
+  objects, 423 s).  ./run_tests --changed: 220 of 220 OK over two
+  commands (the first was cut at 595 s with 189 run; the 31 files left
+  ran after it); func_goal_defaulting failed in both backends inside the
+  sandbox alone (PAKCS writes under /tmp) and passed outside it.  The
+  named files unit_utility, unit_curry2icurry, unit_flat2icurry,
+  unit_flat2icurry_bindingopt, func_flat2icurry, unit_cache, unit_runner
+  and unit_curry2icurry_stale: 16 of 16 OK (133 s).  --fast: 132 of 132
+  OK (210 s).  The oracle suites func_*.py outside the sandbox: 42 of
+  42 OK (80 s).  No file of the suite failed because of the change.

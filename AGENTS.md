@@ -59,12 +59,17 @@ Merges to `master` happen at milestones.
   byte-identical to the files of `icurry` on the oracle (`tests/README`
   describes it). The route of the port differs from the `icurry` route in
   one setting, `icurry_compat=False` (see
-  `src/python/toolchain/_frontend.py`). A `.fcy` written before the
-  rewrite existed stays as it is until the front end writes it again;
-  `sprite-make --rewrite-flat M` runs the step again, and
-  `python -m curry.toolchain.flat2icurry.rewrite M.fcy` rewrites the file
-  alone. A run of the front end rewrites every `.fcy` it wrote, those of
-  the imports it compiled again included. The front end's warning on
+  `src/python/toolchain/_frontend.py`). An `.icy` translated before the
+  rewrite existed is stale (its `.fcy` holds an equality the pass
+  replaces, and neither file holds `constrEq`; the library is left out)
+  and is made again at the first import, by `sprite-make` or by the
+  prepare pass of the tests, which report the count;
+  `sprite-make --rewrite-flat M` runs the step again for one module,
+  current or not, and `python -m curry.toolchain.flat2icurry.rewrite
+  M.fcy` rewrites the file alone. A run of the front end rewrites every
+  `.fcy` it wrote, those of the imports it compiled again included. The
+  key of the ICurry cache of the tests names the version of the route
+  (`ROUTE_VERSION` of `_frontend.py`). The front end's warning on
   overlapping rules is reported once per module through the log at the
   WARNING level; `SPRITE_FRONTEND_WARNINGS=0` silences it, and the test
   runner, the test library, the benchmark harness and the run scripts of

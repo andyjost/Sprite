@@ -28,6 +28,20 @@ files joined the entry; the rows of format 2 stay in their own table, unread.
 The first run after the change compiles each test module once more and fills
 the new table; delete .cache/icurry.db to drop the old rows.
 
+The key also names the version of the route, ROUTE_VERSION of
+curry.toolchain._frontend: the steps between the front end and the
+translation.  The digest of the route (cache.frontend_digest) covers the
+programs, the flags and the sources of the translation and of the binding
+optimization, not the step that applies the pass to the FlatCurry file.
+The binding rewrite is version 1 (#85, #99), in the key since #101, so an
+entry of a route without the step is never served; a bump makes every
+entry miss once, and the first run after it compiles each test module once
+more.  The rows of the old key stay in the table, unread (KEY_FORMAT does
+not change); delete .cache/icurry.db to drop them.  The rows made before
+the pass existed were out of reach already,
+because the sources of the pass joined the digest with it; the pre-rewrite
+ICurry of a tree came from its files on disk (section 8).
+
 The C++ backend keeps a second cache, the product cache, under
 `.cache/products` (environment variable SPRITE_PRODUCT_CACHE; the runner and
 cytest set it unless the environment names a directory, and the empty string
@@ -472,7 +486,54 @@ the mark unrewritten, and the test reports how many pairs needed it); the
 archive is checked without it.  TestUnrewrittenFile of the same file pins
 the acceptance on a pair of its own.  A pair made before the routes
 rewrote the file, an unoptimized .fcy beside an .icy of the former
-in-memory pass, differs either way.  Rewrite the file by hand:
+in-memory pass, differs either way.
+
+A pair made before the rewrite existed, the .fcy of the front end beside
+an .icy translated from it, is stale by the rule of the toolchain (issue
+#101; curry.toolchain._curry2icurry.translated_before_rewrite): the .fcy
+holds a Boolean equality the pass replaces, and neither file holds
+constrEq.  Such a pair is current by the file times, and its program
+binds no variable through == in a guard.  The first import of the module,
+sprite-make and the prepare pass run the step from Curry to ICurry again:
+the front end leaves the current file, the pass rewrites it, and the
+translation follows; sprite-make prints "sprite-make: pre-rewrite pairs:
+N translated again", and the prepare pass repeats the count on the line
+of the directory and in its summary.  The check on an import reads the
+.fcy under .curry/pakcs-3.4.1/ beside the source: a file with constrEq
+was rewritten, and a file without an equality name has nothing to
+replace (a fraction of a millisecond); else the pass runs over the text
+in memory, and the .icy is read when the count is not zero.  The parse
+costs about 0.3 ms per KB: 1 ms for the median module of the corpus, 9 ms
+for the largest that reaches it (assembler of kiel, 28 KB); 679 of the
+880 .fcy files of the corpus reach it (an == in an if is common).  The
+count is kept for the process by the size and time of the file, so a
+module imported through several plans is parsed once per process.  A
+.fcy larger than PARSE_LIMIT (256 KB; the Prelude's 840 KB would parse
+in 1.2 s) is not judged, with one warning per process.  A .fcy older
+than its source is not judged (a hit in the ICurry cache writes no
+FlatCurry), nor is a module of the Curry library of the installation,
+whose ICurry is committed, nor a .fcy the pass cannot write again (a
+read-only file or directory; the import uses the pair as before the
+rule, and one warning names sprite-make --rewrite-flat); a pair the
+PAKCS oracle leaves, an unrewritten .fcy newer than an .icy of the
+rewritten program, is current, since the product is right.  When the
+ICurry cache of the drivers holds the entry of a flagged module (make
+overlay extracted the archive over a tree that had made the module
+already), the cache writes the .icy and the .fcy stays in the text of
+the front end; the pair is then of the oracle's shape, the line of
+sprite-make counts it apart ("0 translated again, 1 from the ICurry
+cache"), and sprite-make --rewrite-flat makes the two agree when they
+must.  A tree after an upgrade across the
+rewrite holds such pairs for the modules whose source has a required
+equality: the products of the archive (atableNoflex and
+poker_four_of_a_kind under tests/data, 2 of its 880 .fcy files), a tree
+whose products predate 2026-10-06, and copies of either
+(scripts/new-worktree.sh copies the products of the front end).  Nothing
+is to be done by hand: the first import makes each again, ./run_tests
+--prepare does it in one go for the pool and the corpora, and sprite-make
+--rewrite-flat M does it for one module, current or not.
+unit_curry2icurry_stale.py tests the rule, the key and the line of
+sprite-make.  Rewrite the file by hand:
 
         python -m curry.toolchain.flat2icurry.rewrite M.fcy...
 
@@ -933,7 +994,11 @@ in the product cache (section 1) and places the cached products of a
 module instead of a compile; its line about the counts reaches the log of
 the directory (the pass runs it without -q), and the line of the directory
 and the summary say how many products came from the cache ("43 of 43 from
-the product cache").  After the pass the runner prunes the cache when it
+the product cache"), and how many pairs made before the binding rewrite
+the pass translated again ("2 pre-rewrite pairs translated again"; section
+8), and how many the ICurry cache served instead ("1 pre-rewrite pair from
+the ICurry cache": the .fcy of such a module stays unrewritten).  After
+the pass the runner prunes the cache when it
 is the runner's own (.cache/products, not a directory the environment
 named): the digest directories of other runtimes and the leftovers of an
 interrupted store go, and a line says so when something went ("prepare:

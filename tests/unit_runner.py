@@ -1762,6 +1762,79 @@ class TestPrepare(unittest.TestCase):
           )
       )
 
+  def test_rewrite_counts(self):
+    '''
+    The pass reads the line of sprite-make about the pairs made before the
+    binding rewrite that the run translated again (issue #101): the note
+    of the job and the summary line repeat the count, beside the counts of
+    the product cache.  Without the line nothing is said.
+    '''
+    self.assertIsNone(prepare.rewrite_counts(''))
+    self.assertIsNone(prepare.rewrite_counts('sprite-make: pre-rewrite pairs: x\n'))
+    text = 'made A\nsprite-make: pre-rewrite pairs: 2 translated again\n'
+    self.assertEqual(prepare.rewrite_counts(text), (2, 0))
+    text += 'sprite-make: pre-rewrite pairs: 1 translated again\n'
+    self.assertEqual(prepare.rewrite_counts(text), (3, 0))
+    text += 'sprite-make: pre-rewrite pairs: 0 translated again, 2 from the ICurry cache\n'
+    self.assertEqual(prepare.rewrite_counts(text), (3, 2))
+    tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
+    self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
+    testdir = os.path.join(tmpdir, 'tests')
+    pool = os.path.join(testdir, 'data', 'curry')
+    os.makedirs(pool)
+    for name in 'a.curry', 'b.curry', 'c.curry':
+      open(os.path.join(pool, name), 'w').close()
+    def job(logtext):
+      logfile = os.path.join(tmpdir, 'prepare-%d.log' % len(os.listdir(tmpdir)))
+      with open(logfile, 'w') as stream:
+        stream.write(logtext)
+      made = prepare.jobs(
+          ['unit_x.py'], ['cxx'], '/sprite', {}, '/logs', cap=GIB, timeout=None
+        , testdir=testdir, subdir='.curry/x'
+        )[0]
+      made.logfile = logfile
+      made.status = 'ok'
+      made.finished = True
+      made.on_finished()
+      return made
+    quiet = job('made a\n')
+    self.assertIsNone(quiet.refreshed)
+    self.assertIsNone(quiet.served)
+    self.assertEqual(quiet.note, '')
+    one = job('sprite-make: pre-rewrite pairs: 1 translated again\n')
+    self.assertEqual((one.refreshed, one.served), (1, 0))
+    self.assertEqual(one.note, '1 pre-rewrite pair translated again')
+    served = job(
+        'sprite-make: pre-rewrite pairs: 0 translated again, 1 from the ICurry cache\n'
+      )
+    self.assertEqual((served.refreshed, served.served), (0, 1))
+    self.assertEqual(served.note, '1 pre-rewrite pair from the ICurry cache')
+    both = job(
+        'sprite-make: product cache: 2 restored, 1 stored\n'
+        'sprite-make: pre-rewrite pairs: 2 translated again\n'
+      )
+    self.assertEqual((both.restored, both.stored, both.refreshed), (2, 1, 2))
+    self.assertEqual(
+        both.note
+      , '2 of 3 from the product cache; 2 pre-rewrite pairs translated again'
+      )
+    self.assertEqual(
+        prepare.summary([one])
+      , 'prepare: 3 modules in 1 directory on cxx, 1 pre-rewrite pair '
+        'translated again, every product present'
+      )
+    self.assertEqual(
+        prepare.summary([quiet, one, both])
+      , 'prepare: 9 modules in 3 directories on cxx, 2 from the product cache, '
+        '3 pre-rewrite pairs translated again, every product present'
+      )
+    self.assertEqual(
+        prepare.summary([one, served])
+      , 'prepare: 6 modules in 2 directories on cxx, 1 pre-rewrite pair '
+        'translated again, 1 pre-rewrite pair from the ICurry cache, every '
+        'product present'
+      )
+
   def test_product_subdir(self):
     tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
     self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)

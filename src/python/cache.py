@@ -38,8 +38,8 @@ logger = logging.getLogger(__name__)
 __all__ = [
     'enabled', 'filename', 'icurry_cache_enabled', 'icurry_cache_key'
   , 'import_closure', 'interface_filename', 'is_program_error'
-  , 'rename_in_message', 'rename_module', 'reset', 'write_file'
-  , 'Curry2ICurryCache', 'INTERFACE_SUFFIXES', 'ParsedJsonCache'
+  , 'rename_in_message', 'rename_module', 'reset', 'route_version'
+  , 'write_file', 'Curry2ICurryCache', 'INTERFACE_SUFFIXES', 'ParsedJsonCache'
   ]
 
 try:
@@ -237,6 +237,20 @@ def frontend_digest(tool=None):
     _memo[memokey] = digest
   return _memo[memokey]
 
+def route_version():
+  '''
+  The version of the steps between the front end and the translation
+  (``ROUTE_VERSION`` of ``curry.toolchain._frontend``), part of the key of
+  the ICurry cache.  The digest of the route sees the programs, the flags
+  and the sources of the translation and of the binding optimization, not
+  the step that applies the pass to the FlatCurry file: a step that joins
+  the route or changes what it writes changes the key through this number
+  (issue #101).  The product cache does without it: its key digests the
+  ICurry text itself.
+  '''
+  from .toolchain import _frontend
+  return _frontend.ROUTE_VERSION
+
 def import_closure(curryfile, currypath=()):
   '''
   Finds the modules that ``curryfile`` imports, transitively, as Curry source
@@ -275,7 +289,8 @@ def icurry_cache_key(curryfile, currypath=(), options=(), tool=None):
   The key is a digest of the source text of the module, the source texts of
   the modules it imports (see ``import_closure``), the front-end options, the
   route from Curry to ICurry with its program and flags (see
-  ``frontend_digest``), and the intermediate subdirectory, which names the
+  ``frontend_digest``) and the version of its steps (see
+  ``route_version``), and the intermediate subdirectory, which names the
   version of the Curry library.  The directory of the file is not part of the
   key.
   The module name is part of the key for a named module, because the front
@@ -307,6 +322,7 @@ def icurry_cache_key(curryfile, currypath=(), options=(), tool=None):
   put(config.intermediate_subdir())
   put(tool)
   put(frontend_digest(tool))
+  put('route %d' % route_version())
   put(' '.join(options))
   modulename = os.path.basename(curryfile)[:-len('.curry')]
   put('' if config.is_anonymous_modname(modulename) else modulename)
