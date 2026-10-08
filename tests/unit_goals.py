@@ -810,9 +810,22 @@ class TestSaveRefusals(cytest.TestCase):
     self.assertFalse(os.path.exists(self.filename))
 
 
-@unittest.skipIf(IS_CXX, 'curry.save writes C++ source on the C++ backend')
+# The saved program belongs to the Python backend.  On the C++ backend
+# curry.save writes C++ source whose entry point is a stub
+# (backends.cxx.compiler._generate_main), so the tests that run the saved
+# file are known failures there; a C++ form of curry.save is an open decision
+# of issue #82, stage 5.
+SAVED_PROGRAM = (
+    'the saved form of the C++ backend is C++ source whose entry point is a '
+    'stub; it does not run as a program (issue #82, stage 5)'
+  )
+
 class TestSave(cytest.TestCase):
-  '''Saved modules on the Python backend.'''
+  '''
+  Saved modules.  The tests that run the saved program hold on the Python
+  backend and are known failures on the C++ backend (SAVED_PROGRAM); the
+  rest hold on both.
+  '''
 
   def setUp(self):
     self.tmpdir = tempfile.mkdtemp(prefix='sprite-goals-')
@@ -837,6 +850,7 @@ class TestSave(cytest.TestCase):
       )
     return proc
 
+  @cytest.expectedFailureIf(IS_CXX, SAVED_PROGRAM)
   def test_constrained_goal(self):
     '''A saved module with a constrained goal runs from another directory.'''
     filename = os.path.join(self.tmpdir, MODULE + '.py')
@@ -851,11 +865,13 @@ class TestSave(cytest.TestCase):
     self.assertLess(text.count('_0.rewrite(rts.Failure)'), 5)
     self.assertEqual(self.run_saved(filename).stdout, 'Just 5\n')
 
+  @cytest.expectedFailureIf(IS_CXX, SAVED_PROGRAM)
   def test_io_goal(self):
     filename = os.path.join(self.tmpdir, MODULE + '.py')
     curry.save(self.M, filename, goal='main16')
     self.assertEqual(self.run_saved(filename).stdout, '5\n')
 
+  @cytest.expectedFailureIf(IS_CXX, SAVED_PROGRAM)
   def test_signed_goal(self):
     '''A goal without dictionaries gets no scheme in the footer.'''
     filename = os.path.join(self.tmpdir, MODULE + '.py')
@@ -866,6 +882,7 @@ class TestSave(cytest.TestCase):
     self.assertNotIn('goalscheme', text)
     self.assertEqual(self.run_saved(filename).stdout, '7\n')
 
+  @cytest.expectedFailureIf(IS_CXX, SAVED_PROGRAM)
   def test_command_line(self):
     '''
     The saved program reads its command line as sprite-exec does (issue
@@ -917,12 +934,22 @@ class TestSave(cytest.TestCase):
     self.assertIs(Main.goal_from_scheme(self.M.main33, goals.flat_type_text(self.M.main33.scheme)), self.M.main33)
 
   def test_library(self):
-    '''module_main=False saves the module without a main program.'''
-    filename = os.path.join(self.tmpdir, MODULE + '.py')
+    '''
+    module_main=False saves the module without a main program, on both
+    backends: no moduleMain in the Python form, no entry point in the C++
+    form.
+    '''
+    filename = os.path.join(self.tmpdir, MODULE + ('.cpp' if IS_CXX else '.py'))
     curry.save(self.M, filename, module_main=False)
     with open(filename, encoding='utf-8') as stream:
-      self.assertNotIn('moduleMain', stream.read())
+      saved = stream.read()
     text = curry.save(self.M, module_main=False)
-    self.assertIn('IModule.fromBOM', text)
-    self.assertNotIn('moduleMain', text)
-    self.assertIn('IModule.fromBOM', inspect.getimpl(self.M))
+    for form in [saved, text, inspect.getimpl(self.M)]:
+      self.assertNotIn('moduleMain', form)
+      self.assertNotIn('void entry()', form)
+      if IS_CXX:
+        self.assertIn('/* SECTION: .header */', form)
+      else:
+        self.assertIn('IModule.fromBOM', form)
+    if IS_CXX:
+      self.assertIn('void entry()', curry.save(self.M, goal='main14'))

@@ -1,6 +1,6 @@
 #!/bin/bash
-# Runs the example in temporary copies of project/.  Set
-# SPRITE_INTERPRETER_FLAGS=backend:py|cxx to choose the backend.
+# Runs the example in temporary copies of project/ with the flags of
+# SPRITE_INTERPRETER_FLAGS.
 set -euo pipefail
 cd "$(dirname "$0")"
 : "${SPRITE_HOME:=$(cd ../.. && pwd)/install}"

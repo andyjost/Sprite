@@ -7,6 +7,17 @@ import argparse, code, cProfile, os, pstats, importlib, logging, sys, time
 curry = importlib.import_module(__package__)
 logger = logging.getLogger(__name__)
 
+BACKENDS = 'py', 'cxx'
+
+def backend_name(value):
+  '''
+  The type of the option -b.  The error names no value: py is the reference
+  backend, which the developer notes name (issue #82).
+  '''
+  if value not in BACKENDS:
+    raise argparse.ArgumentTypeError('unknown backend %r' % value)
+  return value
+
 class Main(object):
   DESCRIPTION = \
   '''
@@ -37,7 +48,11 @@ class Main(object):
       , description=self.description()
       )
     if 'b' in self.ARGUMENTS:
-      parser.add_argument( '-b', '--backend', choices=['py', 'cxx'], default=None
+      # The values stay unlisted in the help and in the error: the value py
+      # selects the reference backend, which the developer notes name
+      # (issue #82).
+      parser.add_argument( '-b', '--backend', type=backend_name, default=None
+        , metavar='BACKEND'
         , help='selects the backend; overrides SPRITE_INTERPRETER_FLAGS '
                '[default: %s]' % curry.flags['backend'])
     if 'i' in self.ARGUMENTS:

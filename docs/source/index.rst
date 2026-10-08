@@ -27,6 +27,7 @@ today.
    Introduction/Introduction
    Installation/Installation
    DeveloperSetup
+   DeveloperNotes
    CommandLineInterface/index
    REPL
    PythonAPI/index

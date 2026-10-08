@@ -19,12 +19,11 @@ the installation:
     Prelude>
 
 The prompt names the loaded module.  The Prelude is loaded at the start.
-The REPL runs on the default backend of the installation, the C++ backend.
-To use the Python backend, set ``SPRITE_INTERPRETER_FLAGS=backend:py`` in
-the environment (see :doc:`CommandLineInterface/EnvironmentVariables`) or
-say ``:set backend py`` at the prompt.
+The REPL runs on the default backend of the installation, the C++ backend,
+with the flags of ``SPRITE_INTERPRETER_FLAGS`` (see
+:doc:`CommandLineInterface/EnvironmentVariables`).
 
-On the C++ backend the REPL runs in time mode by default: the scheduler
+The REPL runs in time mode by default: the scheduler
 rotates its alternatives every 10 ms of wall time, so a diverging
 alternative beside a value costs a quantum, not a count of steps.  The
 values of a non-deterministic expression may then come in a different
@@ -69,12 +68,11 @@ be any unambiguous prefix, for example ``:e`` for ``:eval`` and ``:t`` for
     The options are:
 
     ``backend``
-        The backend of the session, ``py`` or ``cxx``.  ``:set backend
-        py`` or ``:set backend cxx`` switches the session to that backend:
-        the interpreter is reloaded and the module is loaded again.  If
-        that load fails, the session stays on the new backend with the
-        Prelude at the prompt, and the next ``:load`` or ``:set backend``
-        loads the module again.
+        The backend of the session.  ``:set backend NAME`` switches the
+        session to that backend: the interpreter is reloaded and the
+        module is loaded again.  If that load fails, the session stays on
+        the new backend with the Prelude at the prompt, and the next
+        ``:load`` or ``:set backend`` loads the module again.
 
     ``internal-error-details``
         A Boolean option.  ``:set +internal-error-details`` adds the
@@ -102,8 +100,8 @@ and the loop continues.
 A session with a module
 =======================
 
-The transcript below is the part of one session on the C++ backend that
-lists the options, loads a module and switches the backend.
+The transcript below is the part of one session that lists the options
+and loads a module.
 ``Goals.curry`` holds ``double x = x + x`` and ``main14 = Just 5``.  The
 sections that follow quote the other exchanges of the same session.
 
@@ -118,7 +116,7 @@ sections that follow quote the other exchanges of the same session.
         :set [+/-]<option>        (Boolean options only)
 
     Options for ":set" command:
-        backend                  - The backend of the session, py or cxx.  Setting it reloads the interpreter and the loaded module.
+        backend                  - The backend of the session.  Setting it reloads the interpreter and the loaded module.
         internal-error-details   - Show detailed information about internal errors.
 
     Current settings:
@@ -129,10 +127,6 @@ sections that follow quote the other exchanges of the same session.
     42
     Goals> :t double 21
     double 21 :: Num a => a
-    Goals> :set backend py
-    Goals> 1 ? 2
-    1
-    2
     Goals> :quit
 
 Defaulting in the REPL

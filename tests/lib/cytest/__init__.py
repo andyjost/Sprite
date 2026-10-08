@@ -213,6 +213,18 @@ def skipIfGcStress(reason):
   '''Skips a test when the collector runs in stress mode.'''
   return unittest.skipIf(GC_STRESS, 'collector stress mode: ' + reason)
 
+def expectedFailureIf(condition, reason):
+  '''
+  Marks a test as a known failure when ``condition`` holds, and leaves it
+  alone otherwise.  ``reason`` names the defect for the reader; unittest
+  reports an expected failure without one.  Use it where a test runs on
+  both backends and one of them has a known defect: the test keeps running
+  there, and a fix shows as an unexpected success.
+  '''
+  if condition:
+    return unittest.expectedFailure
+  return lambda f: f
+
 def interpret_mode():
   '''
   The value of the interpreter flag ``interpret`` of this session on the C++

@@ -171,12 +171,6 @@ Run "make stage" from the root of the repository first.  Then run
 
     ./run
 
-The run script uses the C++ backend by default.  To pick a backend, set
-SPRITE_INTERPRETER_FLAGS in the environment:
-
-    SPRITE_INTERPRETER_FLAGS=backend:py ./run
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
-
 The first run also compiles the two shared modules and Deduction.curry.
 The build products go to .curry/ next to each source.
 
@@ -310,17 +304,14 @@ identical on both backends.
 5. Limits
 ---------
 
-A warm run of ./run took 0.6 s on the C++ backend and 16 s on the Python
-backend.  The Python backend spends the time in scenario (d) and in the
-goals, one per row and one per printed type.  The first run also compiles
-the three modules; it took about 3 s more on the C++ backend.
+A warm run of ./run took 0.6 s.  The first run also compiles the three
+modules; it took about 3 s more.
 
 The generator grows by a factor of six per level of depth.  Depth 0 holds
 the 17 fundamental types and one class; depth 1 has 194 types, depth 2 has
-1245, and depth 3 has 7330.  The inverse question at depth 3 took 1.2 s on
-the C++ backend, and it finds 13 types: the cv-qualified and reference
-forms of int* and of int[3] up to that depth.  Keep the Python backend at
-depth 2.
+1245, and depth 3 has 7330.  The inverse question at depth 3 took 1.2 s,
+and it finds 13 types: the cv-qualified and reference forms of int* and of
+int[3] up to that depth.
 
 Deduction follows [temp.deduct.call] for a call and [temp.deduct.type] for
 the match of a partial specialization.  What the model leaves out:

@@ -3,7 +3,7 @@ Inspect Curry objects from Python
 
 This example looks inside a loaded Curry module with the module curry.inspect.
 It lists the symbols and the types of the module Nat, finds the files that
-hold its ICurry, and prints the Python code that Sprite generated for one
+hold its ICurry, and prints the code that the backend generated for one
 function.
 
 
@@ -51,10 +51,10 @@ Run "make stage" from the root of the repository first.  Then run
 
     ./run
 
-The C++ backend is the default of Sprite, so the run script selects the
-Python backend with SPRITE_INTERPRETER_FLAGS=backend:py.  The example runs
-on that backend only, because expected.out holds the first line of the
-generated Python code.  On the C++ backend inspect.getimpl gives the
+The run script selects the reference backend (the developer notes of the
+documentation name it), because expected.out holds the first line of the
+generated Python code.  The example runs on that backend only.  On the C++
+backend inspect.getimpl gives the
 generated C++ function, read from the .cpp file beside the shared library,
 and the first line is the banner "/****** Nat.natToInt ******/".
 

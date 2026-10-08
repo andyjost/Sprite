@@ -107,12 +107,6 @@ Run "make stage" from the root of the repository first.  Then run
 
     ./run
 
-The run script uses the C++ backend by default.  To pick a backend, set
-SPRITE_INTERPRETER_FLAGS in the environment:
-
-    SPRITE_INTERPRETER_FLAGS=backend:py ./run
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
-
 The first run also compiles CxxLayout.curry, and the two shared modules when
 no earlier example of the series has run.  The build products go to .curry/
 next to each source.
@@ -161,18 +155,12 @@ on both backends.
 5. Limits
 ---------
 
-A warm run of ./run took 0.6 s on the C++ backend and 15 s on the Python
-backend.  The first run also compiles CxxLayout.curry.  It took 2.6 s on the
-C++ backend and 16 s on the Python backend, with the shared modules compiled
-by an earlier example.
+A warm run of ./run took 0.6 s.  The first run also compiles
+CxxLayout.curry.  It took 2.6 s, with the shared modules compiled by an
+earlier example.
 
 The number of orders is the factorial of the number of members.  A seventh
-member makes 5040 orders.  On the C++ backend the two searches then took
-4.4 s and 0.6 s.  On the Python backend the search with the pin took 20 s,
-and the search over every order hit the recursion limit of Python after
-200 s, in the sort of 5040 pairs.  On that backend a sort of 1000 elements
-works, a sort of 2000 and the length of a list of 5040 hit the same limit.
-Keep the Python backend at six members.
+member makes 5040 orders.  The two searches then took 4.4 s and 0.6 s.
 
 The layout is the layout of a standard-layout struct.  A struct with a base
 class, a virtual function or a bit-field has another layout, and the model

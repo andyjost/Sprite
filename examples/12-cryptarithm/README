@@ -50,11 +50,6 @@ Run "make stage" from the root of the repository first.  Then run the script:
 
     ./run
 
-The script uses the C++ backend by default.  Set SPRITE_INTERPRETER_FLAGS to
-backend:cxx or backend:py to choose the backend.  The Python backend needs
-more than a minute for SEND + MORE = MONEY, so the test suite runs this
-example on the C++ backend only.
-
 To solve another puzzle, give the words on the command line.  The last word
 is the result:
 

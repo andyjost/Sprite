@@ -259,7 +259,12 @@ class TestPrelude(cytest.TestCase):
     self.assertEqual(list(curry.eval(isSpace, curry.expr(chr_, 160))), [True])
     self.assertEqual(list(curry.eval(isSpace, curry.expr(chr_, 48))), [False])
 
-  @unittest.skipIf(curry.flags['backend'] == 'cxx', 'TODO for C++')
+  @cytest.expectedFailureIf(
+      curry.flags['backend'] == 'cxx'
+    , 'cytest.step needs the step limit of the generic Evaluator '
+      '(rts.stepcounter), which the C++ RuntimeState does not provide; a '
+      'step limit in the runtime is an open decision of issue #82, stage 5'
+    )
   def test_apply_nf(self):
     '''Test the $!! operator.'''
     # Ensure the RHS argument is normalized before the function is applied.

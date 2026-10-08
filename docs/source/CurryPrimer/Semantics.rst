@@ -135,7 +135,7 @@ In the last line each value of ``x`` goes with the set computed from that
 value.  The same holds for a free variable that the argument holds.  A set
 function that starts before the variable is bound, and resumes after
 another alternative narrowed it, computes its set from the binding of its
-own alternative (the repair of issue #61 on both backends).  A function
+own alternative (the repair of issue #61).  A function
 whose result is a failure has the empty set::
 
     source :: String -> String

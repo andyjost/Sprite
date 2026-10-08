@@ -103,12 +103,6 @@ Run "make stage" from the root of the repository first.  Then run
 
     ./run
 
-The run script uses the C++ backend by default.  To pick a backend, set
-SPRITE_INTERPRETER_FLAGS in the environment:
-
-    SPRITE_INTERPRETER_FLAGS=backend:py ./run
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
-
 To try your own pattern and subject, pass both to go.py.  It runs match and
 grep on the pair.  Quote the pattern for the shell:
 
@@ -164,18 +158,15 @@ subject holds, as it does for an automaton.  grep adds the split
 pre ++ hit ++ post, which has a number of cases that is quadratic in the
 length of the subject, and asks the pattern at every split.  The subjects of
 the run script have twenty characters: a grep of ab*c or of (cat|dog)s? in
-one of them took 0.01 s on the C++ backend and 0.5 s on the Python backend.
-A grep of ab*c took 0.04 s and 3.3 s in a 41-character subject, and 0.6 s
-and 22 s in an 80-character subject.  A pattern with many hits costs more.
+one of them took 0.01 s.  A grep of ab*c took 0.04 s in a 41-character
+subject, and 0.6 s in an 80-character subject.  A pattern with many hits
+costs more.
 In the 40-character subject of 25 x's, a b, 9 x's, a b and 4 x's, .*b.*
-has 440 hits, every substring with a b, and the grep took 0.4 s on the C++
-backend and 14 s on the Python backend.  Keep subjects under about 40
-characters on the Python backend.
+has 440 hits, every substring with a b, and the grep took 0.4 s.
 
-On the C++ backend a grep of ab*c in a subject of 100 x's took 2.0 s with a
+A grep of ab*c in a subject of 100 x's took 2.0 s with a
 peak of 139 MB, and one of 130 x's took 3.5 s with a peak of 176 MB.
 
-curry.expr builds a String in one call (one node on the Python backend, the
-list of its characters on the C++ backend) and a list in a loop, so the length
-of a subject is bounded by memory and time, not by the Python recursion
-limit.
+curry.expr builds a String in one call (the list of its characters) and a
+list in a loop, so the length of a subject is bounded by memory and time,
+not by the Python recursion limit.

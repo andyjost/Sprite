@@ -77,12 +77,6 @@ Run "make stage" from the root of the repository first.  Then run
 
     ./run
 
-The run script uses the C++ backend by default.  To pick a backend, set
-SPRITE_INTERPRETER_FLAGS in the environment:
-
-    SPRITE_INTERPRETER_FLAGS=backend:py ./run
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
-
 To add a rule, pass --rule with a name and the body of a Curry equation of
 type String -> String.  The driver applies the rule to every line, with one
 space appended, and adds a column and a total for it.  For example:
@@ -131,19 +125,15 @@ count twice, because each occurrence of a tag is one match.
 
 The compile of the rules costs about half a second on every run.  The
 module is built in a temporary directory, so there is no cache.  A run of
-./run took 0.8 s on the C++ backend and 8 s on the Python backend, compile
-included.  On the C++ backend one call of field on a 70-character line
-took less than 0.1 s.
+./run took 0.8 s, compile included.  One call of field on a 70-character
+line took less than 0.1 s.
 
-On the Python backend the cost of field grows with the square of the line
-length.  The variable k occurs as a parameter and inside the pattern.  The
-front end turns the rule into a lazy unification of the pair (pattern, k')
-with (line, k), where k' is a fresh variable.  The pattern therefore tries
-every substring of the line as the key before k' meets k.  One call of field
-took 0.4 s on a 40-character line and 1.4 s on a 70-character line.  To
-stay under 30 s on the Python backend, keep the lines under 40 characters
-and the file under about 15 lines.  A rule with a literal key, such as
-(_ ++ "status=" ++ v ++ " " ++ _), took 0.02 s per line at either length.
+The cost of field grows with the square of the line length.  The variable k
+occurs as a parameter and inside the pattern.  The front end turns the rule
+into a lazy unification of the pair (pattern, k') with (line, k), where k'
+is a fresh variable.  The pattern therefore tries every substring of the
+line as the key before k' meets k.  A rule with a literal key, such as
+(_ ++ "status=" ++ v ++ " " ++ _), tries no substring as the key.
 
 The pattern of field also matches a key that ends with k, such as vhost=
 for k = "host".  To require a whole key, put " " before k in the pattern

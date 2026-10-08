@@ -43,10 +43,9 @@ def set_backend(inst, value):
   '''
   value = str(value)
   if value not in BACKENDS:
-    raise ValueError(
-        'Invalid backend: %r.  Expected one of %s.'
-      % (value, ', '.join(repr(b) for b in BACKENDS))
-      )
+    # The message names no value: py is the reference backend, which the
+    # developer notes name (issue #82).
+    raise ValueError('Invalid backend: %r.' % value)
   if inst.repl is None:
     inst.values['backend'] = value
   else:
@@ -56,9 +55,9 @@ def set_backend(inst, value):
 class Options(object):
   OPTIONS = {
       name: OptionSpec(name, *args) for name,args in {
-          'backend' : (str, None, ['py|cxx'], set_backend,
-              'The backend of the session, py or cxx.  Setting it reloads '
-              'the interpreter and the loaded module.')
+          'backend' : (str, None, ['NAME'], set_backend,
+              'The backend of the session.  Setting it reloads the '
+              'interpreter and the loaded module.')
         , 'internal-error-details' : (bool, False, [], None,
               'Show detailed information about internal errors.')
         }.items()

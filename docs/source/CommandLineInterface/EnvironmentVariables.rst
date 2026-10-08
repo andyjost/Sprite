@@ -52,10 +52,9 @@ The following are recognized:
   lower value keeps the heap smaller.  A higher value runs fewer
   collections, and it costs time on most programs, because a small heap
   stays in the cache.  The value is read when the runtime library loads.
-  The Python backend does not use it.  To run the collector every 65536
-  nodes, say::
+  To run the collector every 65536 nodes, say::
 
-     SPRITE_GC_THRESHOLD=65536 SPRITE_INTERPRETER_FLAGS=backend:cxx sprite-exec prog.curry
+     SPRITE_GC_THRESHOLD=65536 sprite-exec prog.curry
 
 ``SPRITE_GC_GROWTH``
   The growth factor of the collector of the C++ backend: after a
@@ -99,10 +98,9 @@ The following are recognized:
   ``tests/README``), not for a program.  The value ``0`` or an
   empty value turns the mode off, which is the default; another value turns
   it off with a warning.  The value is read when the runtime library loads.
-  The Python backend does not use it.  To run the unit tests in stress
-  mode, say::
+  To run the unit tests in stress mode, say::
 
-     SPRITE_GC_STRESS=1 SPRITE_INTERPRETER_FLAGS=backend:cxx ./run_tests 'unit_*.py'
+     SPRITE_GC_STRESS=1 ./run_tests 'unit_*.py'
 
   A runtime built with the Memory Pool System (``make GC=mps``, an
   experiment) reads the three variables above with another meaning:
@@ -127,8 +125,7 @@ The following are recognized:
   --stats`` (``gc_marked`` and the others, without the prefix), per
   collection instead of summed.  The value ``0`` or an empty value turns
   the report off, which is the default; another value turns it off with a
-  warning.  The value is read when the runtime library loads.  The Python
-  backend does not use it.
+  warning.  The value is read when the runtime library loads.
 
 .. _sprite-interpreter-flags:
 
@@ -145,12 +142,8 @@ The following are recognized:
 
      SPRITE_INTERPRETER_FLAGS=trace:True,debug:True
 
-  The ``backend`` flag selects the backend.  The C++ backend (``cxx``) is
-  the default of an installation (``configure --with-default-backend``).
-  The Python backend (``py``) suits small programs.  To run a program with
-  it, say::
-
-     SPRITE_INTERPRETER_FLAGS=backend:py sprite-exec prog.curry
+  The ``backend`` flag names the backend: ``cxx``, the C++ backend, the
+  default of an installation (``configure --with-default-backend``).
 
   The ``interpret`` flag selects how the C++ backend runs a module without
   a compiled object: ``tiered`` (the default) interprets it and compiles it
@@ -158,28 +151,6 @@ The following are recognized:
   interprets every module, and ``off`` compiles every module first.  An
   installation without a C++ compiler runs under the default with one
   notice; see :doc:`/Installation/WithoutCompiler`.
-
-  The ``step_budget`` flag sets the number of rewrite steps the Python backend
-  gives one alternative before it moves to the next.  The default is 2048.
-  The backend rotates only when another alternative waits, so a program with
-  one alternative runs as before.  An alternative that overflows the Python
-  stack runs again after the others.  When it overflows again without
-  progress, it is dropped, and its error is reported after the others have
-  run.  ``None`` disables the step-budget rotation.  Rotation on residuation
-  and on Python stack overflow still occurs.  To change the budget, say::
-
-     SPRITE_INTERPRETER_FLAGS=step_budget:65536 sprite-exec prog.curry
-
-  The ``recursion_limit`` flag sets the number of Python frames the Python
-  backend lets one value nest, the recursion limit of the interpreter while
-  the value is computed.  The default is 262144.  The backend nests about
-  eight frames per element of a list under a function that is not tail
-  recursive, such as ``length`` or ``sort``, so the default covers a list of
-  about thirty thousand elements; a larger limit costs about 4 KB of memory
-  per nested element.  ``None`` leaves the limit of the interpreter as it
-  is.  To raise the limit, say::
-
-     SPRITE_INTERPRETER_FLAGS=recursion_limit:1048576 sprite-exec prog.curry
 
   The ``stack_limit`` flag sets the number of bytes of C stack the C++ backend
   lets one evaluation use.  The default is 4194304.  When an alternative
@@ -211,8 +182,7 @@ The following are recognized:
   after an evaluation is multi-threaded, and Python warns on ``os.fork`` in
   such a process; the forked child starts a ticker of its own at its first
   evaluation.  Step mode starts no thread.  ``SPRITE_ROTATION`` (below)
-  sets the same flag alone.  The Python backend keeps its ``step_budget``
-  and ignores the flag.
+  sets the same flag alone.
 
   The ``typed_expr`` flag selects the typed builder of :func:`curry.expr`.
   It is ``True`` by default.  With ``False``, ``curry.expr`` converts

@@ -36,12 +36,11 @@ Backend Object
 ==============
 
 An :class:`IBackend <curry.backends.IBackend>` mediates interactions between
-an interpreter and a backend.  Each backend has one instance, which every
-interpreter that targets that backend shares; the object is stateless, and
-the state of an interpreter lives in an interpreter state the backend
-attaches to it.  The two backends are ``curry.backends.cxx``, the C++
-backend, and ``curry.backends.py``, the Python backend; each implements the
-interface in its module ``interface``.
+an interpreter and a backend.  A backend has one instance, which every
+interpreter that targets it shares; the object is stateless, and the state
+of an interpreter lives in an interpreter state the backend attaches to
+it.  The backend is ``curry.backends.cxx``, the C++ backend; it implements
+the interface in its module ``interface``.
 
 A backend implements the target-specific aspects of compilation and evaluation.
 The interface includes the following:
@@ -49,16 +48,15 @@ The interface includes the following:
   * **Compilation**
 
       - ``compile``:
-        Converts ICurry to the IR of the backend: generated C++ text, or
-        a generated Python module.
+        Converts ICurry to the IR of the backend: generated C++ text.
 
       - ``materialize``:
         Converts IR to runnable code: the functions of a module.
 
       - ``write_module``, ``load_module``, ``object_file_extension``:
-        The form of a module on disk, which :func:`curry.save` writes and
-        :func:`curry.load` reads: a ``.py`` file on the Python backend, a
-        ``.so`` file on the C++ backend.
+        The form of a module on disk: the C++ source that :func:`curry.save`
+        writes, and the shared object (``.so``) that :func:`curry.load`
+        reads.
 
       - ``extend_plan_skeleton``:
         The steps the backend adds to the compilation pipeline of
@@ -113,11 +111,10 @@ The interface includes the following:
     free variables, so that no two expressions created by the same
     interpreter share one.  :func:`curry.reset` installs a new state.
 
-The two backends share one scheduler design, the Fair Scheme.  A queue
-holds the configurations, each an alternative of the computation with its
+The scheduler design is the Fair Scheme.  A queue holds the
+configurations, each an alternative of the computation with its
 fingerprint of the choices it made.  A step rewrites one redex; a choice
 at the root forks the configuration; a free variable that reaches a case
 suspends it.  The C++ backend runs the scheduler in the runtime library
 ``libcyrt`` (``src/cyrt``), with compiled step functions or the bytecode
-of its ICurry interpreter; the Python backend runs it in Python
-(:mod:`curry.backends.py.eval`).
+of its ICurry interpreter.

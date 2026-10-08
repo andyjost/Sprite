@@ -213,7 +213,12 @@ class TestPyRuntime(cytest.TestCase):
     value, = curry.eval(goal)
     self.assertEqual(str(value), '[True]')
 
-  @unittest.skipIf(curry.flags['backend'] == 'cxx', 'cytest.step uses the generic Evaluator step limit (rts.stepcounter), which the C++ RuntimeState does not provide')
+  @cytest.expectedFailureIf(
+      curry.flags['backend'] == 'cxx'
+    , 'cytest.step needs the step limit of the generic Evaluator '
+      '(rts.stepcounter), which the C++ RuntimeState does not provide; a '
+      'step limit in the runtime is an open decision of issue #82, stage 5'
+    )
   def test_interp_step(self):
     interp = curry.getInterpreter()
     code = interp.compile(

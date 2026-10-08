@@ -62,9 +62,8 @@ The top-level data and methods fall roughly into the following categories:
 
         :func:`curry.import_` : Import a Curry module by name.
 
-        :func:`curry.load`    : Load a compiled Curry module from a file in
-        the form of the backend: a ``.py`` file on the Python backend, a
-        ``.so`` file on the C++ backend.
+        :func:`curry.load`    : Load a compiled Curry module from its
+        shared object.
 
         :func:`curry.save`    : Write the generated code of a module to a
         file, a program with a goal or a module alone
@@ -134,33 +133,27 @@ Interpreter flags
 
 An interpreter has a dict of flags.  :data:`curry.flags` is the dict of the
 global interpreter; the environment variable ``SPRITE_INTERPRETER_FLAGS``
-sets the flags of a process (``backend:py,interpret:off``), and
+sets the flags of a process (``interpret:off,rotation:steps:65536``), and
 :func:`curry.reload` or ``Interpreter(flags={...})`` sets them for a new
-interpreter.  A flag read at the start of an evaluation takes effect at the
-next one when it is changed in the dict.  :mod:`curry.interpreter.flags`
-describes every flag at length; the table names them with their defaults.
+interpreter, over the flags of the environment.  A flag read at the start
+of an evaluation takes effect at the next one when it is changed in the
+dict.  :mod:`curry.interpreter.flags` describes every flag at length; the
+table names them with their defaults.
 
 ===========================  =====================  ========================================================
 Flag                         Default                What it changes
 ===========================  =====================  ========================================================
-``backend``                  ``'cxx'`` [1]_         The backend: ``'cxx'``, the C++ backend, or ``'py'``,
-                                                    the Python backend.
+``backend``                  ``'cxx'`` [1]_         The backend: ``'cxx'``, the C++ backend.
 ``interpret``                ``'tiered'``           How the C++ backend runs a module without a compiled
                                                     object: ``'tiered'`` interprets it at once and
                                                     compiles it in the background; ``'new'`` interprets
                                                     it and never compiles it; ``'all'`` interprets every
-                                                    module; ``'off'`` compiles every module first.  The
-                                                    Python backend ignores it.
+                                                    module; ``'off'`` compiles every module first.
 ``rotation``                 ``'time:10ms'``        How the C++ backend paces the rotation of its queue
                                                     of alternatives: time mode (``time:<N><unit>``) or
                                                     step mode (``steps:<N>``), in which the order of the
                                                     values of a search reproduces.  ``SPRITE_ROTATION``
-                                                    sets it alone.  The Python backend ignores it.
-``step_budget``              ``2048``               The rewrite steps the Python backend gives one
-                                                    alternative before the next runs; ``None`` turns the
-                                                    rotation by steps off.
-``recursion_limit``          ``262144``             The Python frames the Python backend lets one value
-                                                    nest; ``None`` keeps the limit of the interpreter.
+                                                    sets it alone.
 ``stack_limit``              ``4194304``            The bytes of C stack the C++ backend lets one
                                                     evaluation use; ``None`` disables the guard.
 ``typed_expr``               ``True``               Whether :func:`curry.expr` types the expression it
@@ -189,7 +182,9 @@ Flag                         Default                What it changes
 
 .. [1] The default of ``backend`` is the one ``configure --with-default-backend``
    recorded in ``sysconfig/default_backend`` of the installation; ``cxx``
-   unless configured otherwise.
+   unless configured otherwise.  The flags of the reference backend,
+   ``step_budget`` and ``recursion_limit``, are described in the
+   :doc:`developer notes </DeveloperNotes>`.
 
 Package Structure
 =================
@@ -198,10 +193,9 @@ The contents of the ``curry`` package are documented in detail in the
 :ref:`reference-material`.  The major submodules are described briefly below.
 
 :mod:`curry.backends`
-    The interface :class:`IBackend <curry.backends.IBackend>` and its two
-    implementations, the C++ backend (:mod:`curry.backends.cxx`) and the
-    Python backend (:mod:`curry.backends.py`), with the code they share
-    (:mod:`curry.backends.generic`).
+    The interface :class:`IBackend <curry.backends.IBackend>`, its
+    implementation, the C++ backend (:mod:`curry.backends.cxx`), and the
+    generic code of the backends (:mod:`curry.backends.generic`).
 
 :mod:`curry.cache`
     Implements caching for Curry-to-ICurry and other conversions.

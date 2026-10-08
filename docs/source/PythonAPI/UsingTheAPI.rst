@@ -6,8 +6,7 @@ Using the API
 
     To try the examples in this file, start an interactive Python
     prompt.  See :ref:`starting-python` for details.  The outputs shown
-    come from a session on the C++ backend, the default; where the Python
-    backend prints something else, the text says so.
+    come from a session on the C++ backend.
 
 Importing Curry Modules
 =======================
@@ -74,9 +73,8 @@ shows its context:
     >>> curry.symbol('Prelude.+').signature
     'Num a => a -> a -> a'
 
-``Peano.add.info`` is the info table of the symbol in the runtime of the
-backend: its name, arity, tag, and step function.  Its text differs between
-the backends.
+``Peano.add.info`` is the info table of the symbol in the runtime: its
+name, arity, tag, and step function.
 
 To see the ICurry and the generated code, try the following commands:
 
@@ -96,10 +94,9 @@ To see the ICurry and the generated code, try the following commands:
     >>> print(Peano.add.getimpl())
 
 ``inspect.geticurry`` reads the ICurry of a module loaded from its compiled
-code from the file beside it.  ``getimpl`` gives the generated Python
-function on the Python backend.  On the C++ backend it gives the generated
-C++ function of a compiled module, and the bytecode listing of a module
-that the runtime interprets, which a freshly imported module is under the
+code from the file beside it.  ``getimpl`` gives the generated C++
+function of a compiled module, and the bytecode listing of a module that
+the runtime interprets, which a freshly imported module is under the
 default of the flag ``interpret`` (see :ref:`interpreter-flags`).
 
 .. tip::
@@ -188,53 +185,30 @@ translation to ICurry included).
 Writing Compiled Code to Disk
 -----------------------------
 
-:func:`curry.save` writes the generated code of a module in the form of
-the backend of the interpreter: Python source on the Python backend, C++
-source on the C++ backend.  :func:`curry.load` loads a file in the form of
-the backend: a ``.py`` file on the Python backend, a shared object (``.so``)
-on the C++ backend.  So the round trip through ``save`` and ``load`` belongs
-to the Python backend, and a shared object for the C++ backend comes from
-``sprite-make --so`` (see :ref:`sprite-make`).
+:func:`curry.save` writes the generated C++ of a module.  To save the
+compiled ``Fib`` module into a file ``Fib.cpp``, say:
 
-On the Python backend (``SPRITE_INTERPRETER_FLAGS=backend:py``), to save
-the compiled ``Fib`` module into a file ``Fib.py``, say:
-
-    >>> curry.save(Fib, 'Fib.py', module_main=False)
+    >>> curry.save(Fib, 'Fib.cpp', module_main=False)
 
 ``module_main=False`` saves the module alone.  Without it the file is a
 program, and ``goal=`` must name the goal it evaluates; a call with neither
-raises ``ValueError``.  The saved module can be loaded in another session
-with :func:`curry.load`:
+raises ``ValueError``.  The entry point of the C++ program is a stub today;
+``sprite-exec`` runs programs.
 
-    >>> Fib = curry.load('Fib.py')
+:func:`curry.load` loads the shared object of a module, which
+``sprite-make --so Fib.curry`` writes beside the source, under
+``.curry/sprite-pakcs-3.4.1/`` (see :ref:`sprite-make`):
 
-A saved program runs under the Python of the installation,
-``install/bin/python Fib.py``; the file has no interpreter line of its own.
-It reads ``-g NAME`` and ``--help`` as ``sprite-exec`` does.  Example 04 of
-:doc:`/Examples` shows the whole round trip.
+    >>> Fib = curry.load('.curry/sprite-pakcs-3.4.1/Fib.so')
 
 .. note::
 
-    Attempting to load ``Fib.py`` in the same session ``Fib`` was defined will
-    result in an error saying the module is already defined.  There are a few
-    ways around this:
-
-        1. Say ``del curry.modules['Fib']`` to remove the existing module.
-        2. Say ``curry.reset()`` to reset the global interpreter.
-        3. Load the module into a new interpreter:
-
-               >>> from curry.interpreter import Interpreter
-               >>> interp = Interpreter(flags={'backend': 'py'})
-               >>> interp.load('Fib.py')
-
-    A new interpreter starts from the default flags, not from the
-    environment; name the backend as shown.
-
-On the C++ backend, ``curry.load`` takes the shared object that
-``sprite-make --so Fib.curry`` writes beside the source, under
-``.curry/sprite-pakcs-3.4.1/``:
-
-    >>> Fib = curry.load('.curry/sprite-pakcs-3.4.1/Fib.so')
+    The runtime keeps one library per module name for the life of the
+    process.  A load of ``Fib.so`` in a session where ``Fib`` is loaded
+    from another file is refused with the message "it is already loaded
+    from"; load the object in a new process.  A new interpreter
+    (``Interpreter()``) shares the process and its libraries, and starts
+    from the flags of the environment (:ref:`interpreter-flags`).
 
 .. _building-expressions:
 
@@ -347,10 +321,7 @@ apply the ``str`` function or just print the value:
 
 ``str`` format shows expressions in a more natural way, but discards
 information about whether data is boxed.  A string of several characters is
-built in one call.  On the C++ backend it is the list of its characters,
-made natively.  On the Python backend it is one ``_biString`` node, which
-prints as ``_biString 'hello'`` until the first step unfolds it.  Neither
-form is bounded by the recursion limit.
+built in one call: the list of its characters, made natively.
 
 Symbolic Expressions
 --------------------
@@ -674,7 +645,7 @@ variable of Curry must have a ``Data`` type.
 
 Arithmetic on a free numeric variable does not narrow the variable.  A
 free variable of a built-in type that reaches a case suspends the
-evaluation, on both backends (issue #37), and the typed builder does not
+evaluation (issue #37), and the typed builder does not
 change that: ``x + 1 =:= 3`` suspends, while ``x =:= 3`` binds ``x``, and a
 conjunction in which another constraint binds ``x`` succeeds in either
 order:
@@ -979,9 +950,8 @@ A Curry ``Char`` is a Unicode code point.  A Python ``str`` converts to a
 ``Char`` where a ``Char`` is expected (see :ref:`typed-expressions`); a
 ``String`` converts back to a ``str``.  Both directions keep every code
 point.  The files that ``readFile``, ``writeFile``,
-and ``appendFile`` touch hold UTF-8 on both backends.  So do the standard
-streams of ``putChar`` and ``getChar`` on the C++ backend; on the Python
-backend they use the encoding of ``sys.stdout`` and ``sys.stdin``.
+and ``appendFile`` touch hold UTF-8, and so do the standard streams of
+``putChar`` and ``getChar``.
 
 :func:`curry.topython` takes an optional ``exprtype``, the static type of
 the value in Curry syntax, and threads it through lists and tuples, so an
@@ -1020,12 +990,10 @@ Limits
 * The walk that types a Curry value stops at 100000 nodes
   (``ValueTooLargeError`` above); ``curry.typed(node, 'T')`` states the
   type instead.
-* The Python backend bounds the Python frames of one value with the flag
-  ``recursion_limit``, so ``length`` or ``sort`` of a long list ends with
-  ``RecursionError`` there; :ref:`the entry of the flag
-  <sprite-interpreter-flags>` gives the default and the rule.  The C++
-  backend has no such limit below its ``stack_limit``.
-* Arithmetic on a free variable of a built-in type suspends on both
-  backends (issue #37); the binding optimization and ``=:=`` are the way
-  to bind such a variable.
+* An evaluation is bounded by the C stack it may use, the flag
+  ``stack_limit``; a deeper alternative is dropped with its error reported
+  after the others (:ref:`the entry of the flag <sprite-interpreter-flags>`).
+* Arithmetic on a free variable of a built-in type suspends (issue #37);
+  the binding optimization and ``=:=`` are the way to bind such a
+  variable.
 * An expression built by :func:`curry.raw_expr` is not checked.

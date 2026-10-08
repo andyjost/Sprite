@@ -134,13 +134,6 @@ Run "make stage" from the root of the repository first.  Then run
 
     ./run
 
-The run script uses the C++ backend by default.  The Python backend runs
-every scenario as well, in about ten times the time (section 5).  To pick
-a backend, set SPRITE_INTERPRETER_FLAGS in the environment:
-
-    SPRITE_INTERPRETER_FLAGS=backend:py ./run
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ./run
-
 The first run also compiles the three shared modules and Overloads.curry.
 The build products go to .curry/ next to each source.
 
@@ -217,17 +210,15 @@ one.
 5. Limits
 ---------
 
-A warm run of ./run took 1.0 s on the C++ backend.  The first run also
-compiles the modules: about a second more for CxxOverload.curry and
-Overloads.curry, and about 2 s more for the two shared modules of example
-20 when they are not compiled yet.  On the Python backend a run took 23 s:
-7 s for the scenarios (a) to (c) and the rest for (d).  Scenario (d) once
-stopped there with "Evaluation Suspended": the step of $## checked its
+A warm run of ./run took 1.0 s.  The first run also compiles the modules:
+about a second more for CxxOverload.curry and Overloads.curry, and about
+2 s more for the two shared modules of example 20 when they are not
+compiled yet.  Scenario (d) once stopped with "Evaluation Suspended" on the
+reference backend of the developer notes: the step of $## checked its
 residuals before the normalization and walked the generators of the
 narrowed type, where the fresh variables of the branches the alternative
 had not taken never get a value.  The step checks the normal form now, as
-the C++ runtime does, and the test suite runs this example on both
-backends.
+the C++ runtime does.
 
 Scenario (d) evaluates the type to normal form with $## before the question
 sees it, for speed.  The set function gives the same answer for the
@@ -235,17 +226,15 @@ variable t: the choices that bound t escape the set function, one per
 alternative.  But a narrowed variable costs.  Every choice of the generator
 of t, and of the generators of its parts, escapes the capsule when the
 question needs it, and each escape splits the capsule and restarts the
-computation around it, in every candidate.  Measured on the C++ backend:
-the question for one type, int*, takes 1472 rewrite steps and 81 forks
-through the normal form and 91618 steps and 14825 forks through the
-variable; scenario (d) at depth 1 takes 0.08 s (425 thousand steps)
-through the normal form and 22 s (118 million steps) through the variable,
-and at depth 2 0.24 s against 94 s.  Through the variable the search of
-depth 2 exceeded 2 GB of memory on the Python backend.
+computation around it, in every candidate.  Measured: the question for
+one type, int*, takes 1472 rewrite steps and 81 forks through the normal
+form and 91618 steps and 14825 forks through the variable; scenario (d) at
+depth 1 takes 0.08 s (425 thousand steps) through the normal form and 22 s
+(118 million steps) through the variable, and at depth 2 0.24 s against
+94 s.
 
 The generator grows by a factor of six per level of depth.  Depth 2 has
-1245 types, and scenario (d) over them took 0.3 s on the C++ backend; depth
-3 has 7330 types.
+1245 types, and scenario (d) over them took 0.3 s; depth 3 has 7330 types.
 
 A measurement of this example against other implementations belongs in
 the benchmark harness, not here.  The applications suite of the harness

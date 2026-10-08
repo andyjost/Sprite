@@ -59,12 +59,11 @@ The records
 ``baseline-2026-10-03``
     The baseline before the performance program, at commit ``1780ae09``,
     on a quiet 12-core x86-64 workstation: the four suites, the C++ backend
-    with five repetitions, the Python backend with one, and PAKCS on nine
-    programs.  On the C++ backend the 30 programs of the dissertation took
-    between 0.43 s (``PaliFunPats``) and 42 s (``Psort``) of CPU.  On the
-    Python backend 11 of them timed out at 120 s and two failed
-    (``Reverse`` and ``ReverseUser``).  The two Poker programs failed on
-    every backend for lack of the Curry preprocessor.
+    with five repetitions, the reference backend of the :doc:`developer
+    notes <DeveloperNotes>` with one, and PAKCS on nine programs.  On the
+    C++ backend the 30 programs of the dissertation took between 0.43 s
+    (``PaliFunPats``) and 42 s (``Psort``) of CPU.  The two Poker programs
+    failed on every backend for lack of the Curry preprocessor.
 
 ``phase2-2026-10-04``
     The record of the C++ backend after Phase 2 of the program: the
@@ -151,5 +150,5 @@ Other systems
 =============
 
 The baseline record holds the CPU seconds of PAKCS on nine programs beside
-the two backends of Sprite; ``run_benchmarks -b pakcs`` measures it.  This
+those of Sprite; ``run_benchmarks -b pakcs`` measures it.  This
 page makes no claim against other compilers.

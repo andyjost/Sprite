@@ -1,8 +1,9 @@
-Compile a Curry module to a Python script
-=========================================
+Save a compiled Curry module
+============================
 
-This example writes the compiled form of a Curry module to a Python script
-with curry.save, and then runs that script.
+This example writes the compiled form of a Curry module to a script with
+curry.save, and then runs that script.  The script is the saved form of the
+reference backend; the developer notes of the documentation describe it.
 
 
 1. What the example shows about functional logic programming
@@ -22,17 +23,17 @@ The script go.py imports the module and saves it:
 
     curry.save(wildcard_matching, 'wildcard_matching.py', goal='main')
 
-The saved file is a Python script that holds the generated code of the
-module.  The goal argument records the goal to evaluate.  When the script
+The saved file is a script that holds the generated code of the module.  The goal argument records the goal to evaluate.  When the script
 runs, it imports the Sprite runtime, loads the module, and prints every
 value of main.  The script reads -g as sprite-exec does: -g NAME evaluates
 another goal of the module.  A program needs a goal: curry.save without one
 raises an error.  To save a module as a library for curry.load, pass
 module_main=False.
 
-The saved form belongs to one backend.  On the Python backend it is Python.
-On the C++ backend curry.save writes C++ source, so the example runs on the
-Python backend only.
+The saved form belongs to one backend.  On the reference backend of the
+developer notes of the documentation it is Python.  On the C++ backend
+curry.save writes C++ source, so the example runs on the reference backend
+only.
 
 
 3. How to run
@@ -42,8 +43,7 @@ Run "make stage" from the root of the repository first.  Then run
 
     ./run
 
-The C++ backend is the default of Sprite, so the run script selects the
-Python backend with SPRITE_INTERPRETER_FLAGS=backend:py.  It runs go.py and
+The run script selects the reference backend.  It runs go.py and
 then the saved script, wildcard_matching.py.  The saved script is a build
 product and is not checked in.
 

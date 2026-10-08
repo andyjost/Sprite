@@ -111,7 +111,10 @@ class TestPlan(cytest.TestCase):
       )
 
   def test_04_cxx(self):
-    interp = Interpreter(flags={'backend':'cxx'})
+    # A fresh interpreter follows the environment; under interpret:all the
+    # skeleton of the C++ backend ends at the JSON, so the plan of the
+    # compiled route pins the mode.
+    interp = Interpreter(flags={'backend':'cxx', 'interpret':'off'})
     plan = plans.makeplan(
         interp
       , flags=plans.MAKE_ICURRY | plans.MAKE_JSON | plans.MAKE_TARGET_SOURCE

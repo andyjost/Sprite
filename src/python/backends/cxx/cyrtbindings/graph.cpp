@@ -454,8 +454,12 @@ namespace cyrt { namespace python
       .def("__deepcopy__", &Node::deepcopy, reference)
       .def("__getitem__", [](Node & self, index_type pos) -> Expr { return self[pos]; })
       .def("__hash__", &Node::hash)
-      .def("__eq__", &Node::operator==)
-      .def("__ne__", &Node::operator!=)
+      // A value that is not a node is never equal to one.  The operator tag
+      // turns the failed argument cast into NotImplemented, so Python
+      // answers False for == and True for != against a foreign object, as
+      // its data model expects (the Python backend answers the same way).
+      .def("__eq__", &Node::operator==, py::is_operator())
+      .def("__ne__", &Node::operator!=, py::is_operator())
       ;
 
     // The collector.  See cyrt/graph/gc/wdgc.cpp.
