@@ -114,7 +114,10 @@ The top-level data and methods fall roughly into the following categories:
         :data:`curry.fail` : A failure.
 
         :class:`curry.unboxed` : The unboxed payload of an ``Int``,
-        ``Char`` or ``Float``.
+        ``Char`` or ``Float``, as in ``[Prelude.Int, curry.unboxed(3)]``.
+        A payload that does not fit the primitive, and the marker anywhere
+        else, is an error at construction; an item of an iterator is
+        refused when the list is demanded.
 
 The errors the package raises are in :mod:`curry.exceptions`.  The errors
 of the typed boundary are subclasses of

@@ -201,23 +201,30 @@ class TestPyConversions(cytest.TestCase):
     self.assertIsNone(interp.currytype(tuple))
 
   def testUnboxedExpr(self):
-    self.assertIs(curry.raw_expr(curry.unboxed(0)), 0)
+    # The marker stands only as the payload of a primitive (issue #107).
+    Int = curry.getInterpreter().prelude.Int
+    self.assertEqual(repr(curry.raw_expr([Int, curry.unboxed(0)])), '<Int 0>')
+    self.assertRaisesRegex(
+        curry.CurryTypeError, 'stands outside a primitive'
+      , lambda: curry.raw_expr(curry.unboxed(0))
+      )
 
-  @unittest.skipIf(curry.flags['backend'] == 'cxx', 'TODO for C++')
   def testNestedUnboxed(self):
-    t1 = curry.raw_expr((0, 1))
-    t2 = curry.raw_expr((0, curry.unboxed(1)))
-    self.assertNotEqual(t1, t2)
-    self.assertEqual(t1[1].info.name, 'Int')
-    self.assertIs(t2[1], 1)
+    # A tuple with an unboxed component is an ill-formed node: an error on
+    # both backends (issue #107).
+    self.assertRaisesRegex(
+        curry.CurryTypeError, 'stands outside a primitive'
+      , lambda: curry.raw_expr((0, curry.unboxed(1)))
+      )
 
   def testUnboxedRewriteTarget(self):
     e = curry.raw_expr('dummy')
     self.assertRaisesRegex(
-        ValueError
-      , 'cannot rewrite a node to an unboxed value'
+        curry.CurryTypeError
+      , 'stands outside a primitive'
       , lambda: curry.raw_expr(curry.unboxed(0), target=e)
       )
+    self.assertEqual(str(e), '"dummy"')
 
   @cytest.with_flags(defaultconverter='topython')
   def testForwardExpr(self):

@@ -13,6 +13,9 @@ under ``[Char]`` is one string, a list converts in a loop under its element
 type, and the items of an iterator convert when the list is demanded.  A
 Curry node that fills a parameter is typed by a walk of its content, capped
 at :data:`VALUE_WALK_CAP` nodes; a bare node alone passes through untouched.
+The walk types a node without successors, such as ``[]``, at every position
+it holds, because the runtime shares one such node between positions of
+different types (:meth:`TypedProblem._walk`).
 
 The result type of a node the builder returns is kept in a weak record
 (:class:`TypeRecord`) keyed by the identity of the node, so ``curry.typeof``
@@ -105,8 +108,21 @@ class Ref(Spec):
     return '<ref>'
 
 class Unboxed(Spec):
-  '''An unboxed payload; ``payload`` is the Python value.'''
-  __slots__ = ()
+  '''
+  An :class:`unboxed <curry.expressions.unboxed>` marker the problem
+  refuses; ``payload`` is the Python value.  The payload of a primitive,
+  ``[Int, unboxed(3)]``, is a :class:`Raw` part instead
+  (:meth:`TypedBuilder._application`), so this spec stands alone, in a list
+  or a tuple, or as an argument, where a node is expected (issue #107); or,
+  with ``primitive`` set to ``'Int'``, ``'Char'`` or ``'Float'``, it is a
+  payload that does not fit that primitive, such as ``[Int, unboxed(2.5)]``.
+  A description prints the payload.
+  '''
+  __slots__ = ('primitive',)
+
+  def __init__(self, payload, primitive=None):
+    Spec.__init__(self, payload)
+    self.primitive = primitive
 
   def __repr__(self):
     return repr(self.payload)
@@ -444,8 +460,11 @@ class TypedBuilder:
       return Raw([symbol] + args), ()
     info = symbol.info
     if info.is_primitive and len(args) == 1 and isinstance(args[0], self.X.unboxed):
-      # A boxed literal over its unboxed payload, [Int, unboxed(3)].
-      typename = 'Int' if info.is_int else 'Char' if info.is_char else 'Float'
+      # A boxed literal over its unboxed payload, [Int, unboxed(3)].  A
+      # payload that does not fit the primitive is refused at its position.
+      typename = self.X.primitive_name(info)
+      if not self.X.unboxed_fits(typename, args[0].value):
+        return Unboxed(args[0].value, typename), ()
       return Raw([symbol] + args, typeexpr=tcons(typename)), ()
     scheme = symbol.scheme
     if scheme is None and not args:
@@ -607,10 +626,6 @@ class TypedBuilder:
         node = make(self.fsyms.Fwd, make(self.fsyms.Failure))
         self.brokenrefs[node.id()] = spec.payload
       return self._forward(node, target)
-    if isinstance(spec, Unboxed):
-      if target is not None:
-        raise ValueError('cannot rewrite a node to an unboxed value')
-      return spec.payload
     if isinstance(spec, Group):
       return args[-1]
     raise TypeError('not a spec: %r' % (spec,))
@@ -875,20 +890,17 @@ class TypedProblem(Problem):
       self._expect(spec, expected)
       return ()
     if isinstance(spec, Unboxed):
-      value = spec.payload
-      if isinstance(value, bool) or not isinstance(value, (numbers.Real, str)):
-        raise errors.ConversionError(
-            'cannot convert the unboxed value %r at %s' % (value, self.location(spec))
-          , where=self.location(spec), value=value
-          )
-      if isinstance(value, str):
-        spec.type = tcons('Char')
-      elif isinstance(value, numbers.Integral):
-        spec.type = tcons('Int')
-      else:
-        spec.type = tcons('Float')
-      self._expect(spec, expected)
-      return ()
+      # The marker outside the payload of a primitive, or a payload that
+      # does not fit its primitive (the class says where it stands).  A
+      # node is expected at the position of the marker, and the raw value
+      # in its place is an ill-formed node, which ended the process on the
+      # C++ backend; a payload of the wrong Python type is a node whose
+      # bits mean another value there (issue #107).
+      where = self.location(spec)
+      raise errors.ConversionError(
+          self.builder.X.unboxed_message(spec.payload, where, spec.primitive)
+        , where=where, value=spec.payload
+        )
     return Problem._enter(self, spec, expected)
 
   def _resolve(self, pred):
@@ -903,16 +915,28 @@ class TypedProblem(Problem):
   def _walk(self, spec, root):
     '''
     The type of a Curry value: a walk of its content, to the leaves, with
-    an explicit stack and a memo per node, so a shared subgraph is visited
-    once and a cycle ends.  A constructor or function node is typed by the
+    an explicit stack.  A constructor or function node is typed by the
     scheme of its symbol unified with the types of its arguments; a partial
     application by the scheme of its head unified with the arguments it
     holds, which leaves the function type of the missing ones; a node
-    without a scheme, a free variable and a failure are opaque leaves.  The
-    walk stops at :data:`VALUE_WALK_CAP` nodes, and a type that would print
-    with more than that many nodes is refused as well: the type of a value
-    that shares a node between the components of a pair at every level is
-    exponential in its size.
+    without a scheme, a free variable and a failure are opaque leaves.
+
+    A memo per node serves the nodes with node successors, the primitives,
+    the strings, the generators and the free variables, so a shared
+    subgraph is visited once, a cycle ends, and a variable has one type.  A
+    node without node successors, such as ``[]``, ``Nothing``, ``id`` or a
+    failure, is not in the memo: it is typed at every position it holds,
+    with a fresh instance of its scheme, because the runtime shares one
+    such node between positions of different types (on the C++ backend one
+    ``[]`` serves every empty list, and compiled code spells a constant
+    once on either backend), so the sharing says nothing about the type
+    (issue #108).  Every position of such a node counts towards the cap;
+    a node of the memo counts once.
+
+    The walk stops at :data:`VALUE_WALK_CAP` nodes, and a type that would
+    print with more than that many nodes is refused as well: the type of a
+    value that shares a node between the components of a pair at every
+    level is exponential in its size.
     '''
     interp = self.interp
     # The record is the shortcut for a node curry.expr returned: its type
@@ -926,29 +950,36 @@ class TypedProblem(Problem):
     symbols = symbol_map(interp)
     table = interp.sigtable
     cap = VALUE_WALK_CAP
-    types = {}
+    memo = {}  # the id of a node -> its type variable, at its first visit
     count = 0
-    root = _follow(root)
-    stack = [(root, None)]
+    rootvar = Var()
+    # An entry of the stack is a node with its type variable, and None
+    # before its children are typed, else the frame that types it: the
+    # parameter types, the result type and the variables of the children.
+    # A child is pushed with a fresh variable; the visit decides whether
+    # the node enters the memo, from the successors it reads anyway.
+    stack = [(_follow(root), rootvar, None)]
     while stack:
-      node, frame = stack.pop()
+      node, var, frame = stack.pop()
       if frame is not None:
-        var, params, restype, children = frame
-        for child, param in zip(children, params):
-          self._unify(types[child.id()], param, spec)
+        params, restype, childvars = frame
+        for childvar, param in zip(childvars, params):
+          self._unify(childvar, param, spec)
         self._unify(var, restype, spec)
         continue
-      key = node.id()
-      if key in types:
+      known = memo.get(node.id())
+      if known is not None:
+        # A shared node pushed twice before its first visit: one type.
+        self._unify(var, known, spec)
         continue
       count += 1
       if count > cap:
         raise errors.ValueTooLargeError(self.location(spec), cap)
-      var = types[key] = Var()
       info = node.info
       children = ()
       params = ()
       restype = var
+      shared = True  # whether the node enters the memo
       if info.is_primitive:
         if info.is_int:
           restype = tcons('Int')
@@ -956,7 +987,11 @@ class TypedProblem(Problem):
           restype = tcons('Char')
         else:
           restype = tcons('Float')
-      elif inspect.isa_freevar(node) or inspect.isa_failure(node):
+      elif inspect.isa_freevar(node):
+        memo[node.id()] = var
+        self._env_vars.append(var)
+        continue
+      elif inspect.isa_failure(node):
         self._env_vars.append(var)
         continue
       elif inspect.isa_choice(node):
@@ -983,6 +1018,10 @@ class TypedProblem(Problem):
         head, stored = info, node.successors
         if info.is_partial:
           head, stored = _partial_parts(node)
+        stored = [s for s in stored if isinstance(s, backends.Node)]
+        shared = bool(stored)
+        if shared:
+          memo[node.id()] = var
         symbol = None if head is None else symbols.get(id(head))
         scheme = None if symbol is None else table.lookup(symbol)
         skip = scheme.ndicts if scheme is not None and head.tag == T_FUNC else 0
@@ -994,9 +1033,7 @@ class TypedProblem(Problem):
         mapping = {}
         kinds = dict(scheme.typevars)
         t = terms.instantiate(scheme.typeexpr, mapping, kinds)
-        values = [
-            s for s in list(stored)[skip:] if isinstance(s, backends.Node)
-          ]
+        values = stored[skip:]
         params = []
         for _ in values:
           t = whnf(t, self.arity)
@@ -1012,11 +1049,21 @@ class TypedProblem(Problem):
             break
         children = [_follow(child) for child in values[:len(params)]]
         restype = t
-      stack.append((node, (var, params, restype, children)))
-      for child in reversed(children):
-        if child.id() not in types:
-          stack.append((child, None))
-    t = types[root.id()]
+      if shared:
+        memo[node.id()] = var
+      # A child in the memo has its variable already and is not visited
+      # again; any other child gets a fresh variable at this position.
+      childvars = []
+      pending = []
+      for child in children:
+        childvar = memo.get(child.id())
+        if childvar is None:
+          childvar = Var()
+          pending.append((child, childvar, None))
+        childvars.append(childvar)
+      stack.append((node, var, (params, restype, childvars)))
+      stack.extend(reversed(pending))
+    t = rootvar
     if terms.tree_size(t, cap) > cap:
       raise errors.ValueTooLargeError(
           self.location(spec), cap, what='type of the value'

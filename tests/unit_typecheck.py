@@ -1207,6 +1207,97 @@ class TestErrors(cytest.TestCase):
     self.assertEqual(prob.short_location(app), 'the expression')
 
 
+class TestSharedConstants(cytest.TestCase):
+  '''
+  The walk that types a value, on a node the runtime shares between
+  positions of different types (issue #108).  The C++ backend has one []
+  node, so a value that held the empty list at two types could not be
+  typed: the memo of the walk gave the shared node one type variable, and
+  the second position was a mismatch.  A node without successors is typed
+  at each position now, on both backends (builder.TypedProblem._walk).
+  '''
+  def values(self, *args):
+    return list(curry.eval(*args, converter='topython'))
+
+  def test_values_of_eval(self):
+    '''The three values of the issue type as the evaluator typed them.'''
+    v, = curry.eval([[1, 2], [3]])
+    self.assertEqual(curry.typeof(v), '[[Int]]')
+    strs, = curry.eval(['ab', 'c'])
+    self.assertEqual(curry.typeof(strs), '[[Char]]')
+    pair, = curry.eval(([1], 'ab'))
+    self.assertEqual(curry.typeof(pair), '([Int], [Char])')
+    one, = curry.eval([[1]])
+    self.assertEqual(curry.typeof(one), '[[Int]]')
+    # The result of a computation holds the empty list as the compiled code
+    # made it.
+    words, = curry.eval(P('words'), 'ab c')
+    self.assertEqual(str(words), '["ab", "c"]')
+    self.assertEqual(curry.typeof(words), '[[Char]]')
+    self.assertEqual(self.values(P('unwords'), words), ['ab c'])
+
+  def test_typed_call(self):
+    '''Such a value passes to a typed call.'''
+    strs, = curry.eval(['ab', 'c'])
+    self.assertEqual(self.values(P('unwords'), strs), ['ab c'])
+    self.assertEqual(curry.typeof(curry.expr(P('unwords'), strs)), '[Char]')
+    pair, = curry.eval(([1], 'ab'))
+    self.assertEqual(curry.typeof(curry.expr(P('snd'), pair)), '[Char]')
+    self.assertEqual(self.values(P('snd'), pair), ['ab'])
+    self.assertEqual(self.values(P('fst'), pair), [[1]])
+    v, = curry.eval([[1, 2], [3]])
+    self.assertEqual(self.values(P('concat'), v), [[1, 2, 3]])
+
+  def test_constants_per_position(self):
+    '''A nullary constructor, a bare function and a failure take a fresh type at each position.'''
+    self.assertEqual(curry.typeof(curry.raw_expr(([], []))), '([a], [b])')
+    self.assertEqual(curry.typeof(curry.raw_expr([[], []])), '[[a]]')
+    self.assertEqual(curry.typeof(curry.raw_expr((curry.fail, curry.fail))), '(a, b)')
+    self.assertEqual(curry.typeof(curry.raw_expr((P('id'), P('id')))), '(a -> a, b -> b)')
+    nothing = curry.raw_expr(P('Nothing'))
+    self.assertEqual(curry.typeof(curry.raw_expr((nothing, nothing))), '(Maybe a, Maybe b)')
+    # One [] node at two types fits an annotation.
+    nil = curry.raw_expr([])
+    e = curry.expr((nil, nil), exprtype='([Int], [Char])')
+    self.assertEqual(curry.typeof(e), '([Int], [Char])')
+    self.assertEqual(self.values(P('snd'), e), [''])
+
+  def test_shared_nodes_typed_once(self):
+    '''The memo still serves a shared subgraph, a cycle and a free variable.'''
+    from curry.expressions import anchor, ref
+    e = curry.raw_expr((anchor([P('Just'), []]), ref()))
+    self.assertIs(e[0], e[1])
+    self.assertEqual(curry.typeof(e), '(Maybe [a], Maybe [a])')
+    e = curry.raw_expr((anchor([1, 2]), ref()))
+    self.assertEqual(curry.typeof(e), '([Int], [Int])')
+    # let a = 1 : a in a
+    e = curry.raw_expr(anchor(curry.cons(1, ref())))
+    self.assertEqual(curry.typeof(e), '[Int]')
+    x = curry.free()
+    self.assertEqual(curry.typeof(curry.expr((x, x))), '(a, a)')
+
+  def test_positions_count(self):
+    '''Every position counts towards the cap of the walk; a shared cell counts once.'''
+    from curry.expressions import anchor, ref
+    from curry.typecheck import builder
+    cap = builder.VALUE_WALK_CAP
+    try:
+      # Three cells, three empty lists and the terminator: seven nodes.
+      builder.VALUE_WALK_CAP = 6
+      with self.assertRaisesRegex(errors.ValueTooLargeError, 'more than 6 nodes'):
+        curry.typeof(curry.raw_expr([[], [], []]))
+      builder.VALUE_WALK_CAP = 7
+      self.assertEqual(curry.typeof(curry.raw_expr([[], [], []])), '[[a]]')
+      # The pair and the five nodes of [1, 2], held twice: six nodes.
+      e = curry.raw_expr((anchor([1, 2]), ref()))
+      self.assertEqual(curry.typeof(e), '([Int], [Int])')
+      builder.VALUE_WALK_CAP = 5
+      with self.assertRaisesRegex(errors.ValueTooLargeError, 'more than 5 nodes'):
+        curry.typeof(e)
+    finally:
+      builder.VALUE_WALK_CAP = cap
+
+
 class TestAPI(cytest.TestCase):
   '''The API for the typed builder: specs, queries, describe, materialize.'''
 

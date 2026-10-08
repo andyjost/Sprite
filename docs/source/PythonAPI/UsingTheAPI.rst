@@ -302,10 +302,17 @@ formatting for lists, tuples, strings, or any other type is used.
 Boxed values, such as ``<Int 1>``, are easy to distinguish from unboxed ones.
 To be boxed is synonymous with being stored in a node.  The boxed integer
 ``<Int 1>`` is a node with symbol ``Int`` and successor ``1`` (which is
-unboxed).  To specify unboxed data, wrap it with ``curry.unboxed``:
+unboxed).  ``curry.unboxed`` marks the payload of such a node, and nothing
+else.  Anywhere but under ``Int``, ``Char`` or ``Float`` a node is expected,
+so the marker is an error at construction:
 
-    >>> curry.expr(curry.unboxed(1))
-    1
+    >>> from curry.lib import Prelude
+    >>> curry.expr([Prelude.Int, curry.unboxed(1)])
+    <Int 1>
+    >>> curry.expr(Prelude.id, curry.unboxed(1))
+    Traceback (most recent call last):
+      ...
+    curry.typecheck.errors.ConversionError: curry.unboxed(1) stands at argument 1 of Prelude.id :: a -> a; the marker is the payload of an Int, Char or Float, as in [Prelude.Int, curry.unboxed(1)]
 
 An alternative to ``repr`` format is ``str`` format.  To obtain it,
 apply the ``str`` function or just print the value:
@@ -572,7 +579,12 @@ variable.
 * A Curry node is typed by its content; see below.
 * :class:`curry.free` is a free variable; see below.
 * :class:`curry.unboxed` is the unboxed payload of an ``Int``, ``Char``
-  or ``Float``.
+  or ``Float``, as in ``[Prelude.Int, curry.unboxed(3)]``.  The payload
+  must fit the primitive: a Python ``int`` under ``Int``, a ``str`` of
+  length one under ``Char``, a ``float`` under ``Float``; another value
+  is a ``ConversionError`` that names the primitive.  Anywhere else the
+  marker is a ``ConversionError``; as an item of an iterator it is an
+  ``EvaluationError`` when the list is demanded.
 
 **Values of earlier evaluations.**  A Curry node that fills a parameter is
 typed by a walk of its content, to the leaves, not by its root alone.  The
@@ -588,8 +600,13 @@ what keeps a list of floats away from integer arithmetic:
 
 A partial application is typed by the scheme of its head and the arguments
 it holds, so ``map not`` from an earlier evaluation has the type ``[Bool]
--> [Bool]`` and ``apply`` refuses a number for it.  The walk stops at
-100000 nodes with an error.  It also refuses a value whose type would
+-> [Bool]`` and ``apply`` refuses a number for it.  A shared subgraph is
+visited once, but a node without successors, such as ``[]``, is typed at
+each position it holds: the C++ backend has one ``[]`` node for every
+empty list, so the value of ``([1], 'ab')`` holds it at two types, and the
+sharing says nothing about the type.  The walk stops at 100000 positions
+with an error (a shared ``[]`` counts once per position, a shared cell
+once).  It also refuses a value whose type would
 print with more than that many nodes; a value that shares one node between
 the components of a pair at every level has such a type.  State the type
 of a larger value with ``curry.typed(node, '[Float]')``, which skips the
@@ -771,8 +788,8 @@ attributes ``where``, ``symbol``, ``expected``, ``actual`` and ``value``.
     curry.typecheck.errors.ArityError: Prelude.Just :: a -> Maybe a takes 1 argument, 2 given
 
 ``ValueTooLargeError``
-    The walk that types a Curry value stopped at its cap of 100000 nodes;
-    the example is above.
+    The walk that types a Curry value stopped at its cap of 100000
+    positions; the example is above.
 
 ``ExprTypeSyntaxError``, ``ContextInExprTypeError``, ``UnknownTypeConstructorError``, ``KindError``, ``ExprTypeMismatchError``
     The errors of an ``exprtype`` string or a ``curry.typed`` annotation,
@@ -1002,7 +1019,8 @@ A ``Float`` prints as PAKCS prints it: the shortest digits that read back,
 Limits
 ======
 
-* The walk that types a Curry value stops at 100000 nodes
+* The walk that types a Curry value stops at 100000 positions, a shared
+  constant such as ``[]`` counted once per position
   (``ValueTooLargeError`` above); ``curry.typed(node, 'T')`` states the
   type instead.
 * An evaluation is bounded by the C stack it may use, the flag
@@ -1012,3 +1030,31 @@ Limits
   the binding optimization and ``=:=`` are the way to bind such a
   variable.
 * An expression built by :func:`curry.raw_expr` is not checked.
+* ``Int`` is a signed 64-bit integer, from -9223372036854775808 to
+  9223372036854775807.  A Python ``int`` outside the range is a
+  ``CurryTypeError`` where it enters an expression; so is an ``Int``
+  literal outside the range in a Curry source, when its module is loaded or
+  its function is first evaluated.  The minimum is not a literal:
+  ``-9223372036854775808`` negates the literal ``9223372036854775808``,
+  which is outside the range; write ``-9223372036854775807 - 1``.  An
+  addition, a subtraction, a multiplication, or a negation whose result is
+  outside the range raises ``EvaluationError``, as do ``div`` and ``quot``
+  of the minimum by -1, and ``truncate``, ``round``, ``ceiling`` and
+  ``floor`` of a ``Float`` outside the range, of an infinity, or of NaN.
+  The message names the operation and its operands: ``integer overflow:
+  9223372036854775807 + 1``, ``integer overflow: truncate 1.0e+30``
+  (``ceiling`` and ``floor`` convert through ``truncate`` and name it);
+  ``negate`` is ``0 - x`` in the Prelude and names that subtraction.
+  An enumeration that ends at the maximum, ``[9223372036854775806 ..
+  9223372036854775807]``, computes the successor of its last element and
+  raises too.
+* ``div``, ``mod``, ``quot`` and ``rem`` by zero raise ``EvaluationError``:
+  ``division by zero: div 1 0``.  The division of a ``Float`` by zero is
+  not an error: it gives an infinity, or NaN for ``0.0 / 0.0``.
+* ``read`` of a numeral outside the range of ``Int`` fails: ``reads
+  "9223372036854775808" :: [(Int, String)]`` and ``read`` of it have no
+  value.
+* ``catch`` takes an integer overflow or a division by zero as it takes
+  ``error``: the handler receives an ``IOError`` with the message.  The
+  reference backend of the :doc:`developer notes <../DeveloperNotes>` passes
+  these errors through ``catch``.

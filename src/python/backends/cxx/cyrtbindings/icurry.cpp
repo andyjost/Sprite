@@ -28,9 +28,29 @@ namespace py = pybind11;
 // A literal node lives as long as the process (literal_node), one per value
 // in the process: the table nodes serve the small values, and a map here
 // serves the others.
+namespace cyrt { namespace python
+{
+  [[noreturn]] void raise_int_range_error(py::handle value); // graph.cpp
+}}
+
 namespace
 {
   using namespace cyrt;
+
+  // The value of an Int literal.  A value outside the 64-bit range is a
+  // CurryTypeError, as it is where a Python int enters a node (issue #105);
+  // the cast of pybind11 raised a RuntimeError without the value.
+  unboxed_int_type int_literal_value(py::handle value)
+  {
+    static_assert(sizeof(unboxed_int_type) == sizeof(long), "assumes long");
+    int overflow = 0;
+    long const result = PyLong_AsLongAndOverflow(value.ptr(), &overflow);
+    if(overflow)
+      cyrt::python::raise_int_range_error(value);
+    if(result == -1 && PyErr_Occurred())
+      throw py::error_already_set();
+    return result;
+  }
 
   std::unordered_map<unboxed_int_type, Node *> g_int_nodes;
   std::unordered_map<unboxed_char_type, Node *> g_char_nodes;
@@ -96,7 +116,7 @@ namespace
       throw py::value_error("a constant tuple needs a kind and a value");
     std::string const kind = tup[0].cast<std::string>();
     if(kind == "I")
-      return int_literal(tup[1].cast<unboxed_int_type>());
+      return int_literal(int_literal_value(tup[1]));
     if(kind == "C")
       return char_literal(code_point(tup[1]));
     if(kind == "F")
@@ -129,7 +149,7 @@ namespace
         switch(vkind[0])
         {
           case 'i':
-            data.args.push_back(Arg(value.cast<unboxed_int_type>()));
+            data.args.push_back(Arg(int_literal_value(value)));
             break;
           case 'c':
             data.args.push_back(Arg(code_point(value)));

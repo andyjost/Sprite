@@ -6,7 +6,7 @@ from curry.backends.py.eval.rts import RuntimeState
 from curry.backends.py.eval.configuration import Bindings
 from curry.backends.py.eval.rts_freevars import _gen_ctors
 from curry.common import T_FAIL, T_CHOICE
-from curry import icurry, inspect, interpreter
+from curry import choice, icurry, inspect, interpreter
 from curry.utility.binding import binding
 from cytest import bootstrap
 from glob import glob
@@ -80,7 +80,9 @@ class TestPyRuntime(cytest.TestCase):
     N,M,U,B,Z,ZN,ZF = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF
     F,Q,W = [getattr(interp.backend.fundamental_symbols, nm) for nm in ['Failure', 'Choice', 'Fwd']]
     special_tags = [T_FAIL, T_CHOICE]
-    cid = bootstrap.cid
+    # A choice is built through its marker: curry.unboxed stands only under
+    # a primitive (issue #107).
+    cid = bootstrap.cid.value
 
     TESTS = {
       # [rec=0] Tests for head normalization.
@@ -95,7 +97,7 @@ class TestPyRuntime(cytest.TestCase):
           , [F      ,  F]
           , [ZF     ,  F]
           # Choice
-          , [[Q, cid, 0, 1],  [Q, cid, 0, 1]]
+          , [choice(cid, 0, 1),  choice(cid, 0, 1)]
           # , [ZQ,  [Q, cid, N, M]  ]
           # Fwd
           , [[W, N]      ,  [W, N]]
@@ -120,7 +122,7 @@ class TestPyRuntime(cytest.TestCase):
           , [[B, ZN, F] , F]
           , [[B, ZF, ZN], F]
           # Choice.
-          , [[U, [Q, cid, 0, 1]]    , [Q, cid, [U, 0], [U, 1]]        ] # pull tab.
+          , [[U, choice(cid, 0, 1)]    , choice(cid, [U, 0], [U, 1])        ] # pull tab.
           # , [[U, ZQ]           , [Q, cid, [U, N], [U, M]]             ]
           # , [[B, [Q, cid, 0, 1], ZQ], [Q, cid, [B, 0, ZQ], [B, 1, ZQ]]] # N stops at the first choice.
           # , [[B, ZQ, ZQ]       , [Q, cid, [B, N, ZQ], [B, M, ZQ]]     ]
@@ -133,7 +135,7 @@ class TestPyRuntime(cytest.TestCase):
             # Special symbols must not overwrite a leading FWD node.  The FWD
             # node and its target may both have referrers, so to ensure they
             # all see the same thing, the target should be updated.
-          , [[W, [U, [Q, cid, 0, 1]]]  , [W, [Q, cid, [U, 0], [U, 1]]]]
+          , [[W, [U, choice(cid, 0, 1)]]  , [W, choice(cid, [U, 0], [U, 1])]]
           , [[W, [U, ZF]]         , [W, F]                            ]
           ]
       # [rec=inf] Tests for descendant normalization (i.e., full normalization).
@@ -146,7 +148,7 @@ class TestPyRuntime(cytest.TestCase):
           , [[U, [U, ZF]]           , F]
           , [[B, [U, N], [B, ZF, N]], F]
           # Choice.
-          , [[B, [W, ZN], [U, [U, [Q, cid, 0, 1]]]], [Q, cid, [B, N, [U, [U, 0]]], [B, N, [U, [U, 1]]]]]
+          , [[B, [W, ZN], [U, [U, choice(cid, 0, 1)]]], choice(cid, [B, N, [U, [U, 0]]], [B, N, [U, [U, 1]]])]
           # Fwd.
             # Repeated W nodes are contracted, but the leading one should not
             # be removed (see note above in the rec=1 section).
@@ -328,7 +330,9 @@ class TestInstantiation(cytest.TestCase):
     return self.interp.raw_expr(self.interp.prelude.id, x)
 
   def q(self, cid, l, r):
-    return [self.interp.backend.fundamental_symbols.Choice, curry.unboxed(cid), l, r]
+    # The marker of a choice; curry.unboxed stands only under a primitive
+    # (issue #107).
+    return choice(cid, l, r)
 
   def u(self, rts):
     return rts.freshvar()
@@ -344,7 +348,7 @@ class TestInstantiation(cytest.TestCase):
     interp,q,x,e = self.interp, self.q, self.x, self.e(typename='()')
     rts = RuntimeState(interp)
     instance = rts.instantiate(rts.variable(e, [0]), interp.type('Prelude.[]'))
-    au = curry.raw_expr(*q(0, [interp.prelude.Cons, x(1), x(2)], [interp.prelude.Nil]))
+    au = curry.raw_expr(q(0, [interp.prelude.Cons, x(1), x(2)], [interp.prelude.Nil]))
     self.assertEqual(instance, au)
 
   def check_gen_ctors(self, interp, module, typename, generator):
@@ -363,7 +367,7 @@ class TestInstantiation(cytest.TestCase):
     interp,q,e = self.interp, self.q, self.e(typename='()')
     rts = RuntimeState(interp)
     instance = rts.instantiate(rts.variable(e, [0]), interp.type('Prelude.()'))
-    au = curry.raw_expr(*q(0, [interp.prelude.Unit], [interp.backend.fundamental_symbols.Failure]))
+    au = curry.raw_expr(q(0, [interp.prelude.Unit], [interp.backend.fundamental_symbols.Failure]))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, interp.prelude, '()', instance)
 
@@ -378,7 +382,7 @@ class TestInstantiation(cytest.TestCase):
     e = self.e(typename='Type.T', imports=Type)
     rts = RuntimeState(interp)
     instance = rts.instantiate(rts.variable(e, [0]), interp.type('Type.T'))
-    au = curry.raw_expr(*q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
+    au = curry.raw_expr(q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)
 
@@ -393,7 +397,7 @@ class TestInstantiation(cytest.TestCase):
     e = self.e(typename='Type.T', imports=Type)
     rts = RuntimeState(interp)
     instance = rts.instantiate(rts.variable(e, [0]), interp.type('Type.T'))
-    au = curry.raw_expr(*q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
+    au = curry.raw_expr(q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)
 
@@ -407,7 +411,7 @@ class TestInstantiation(cytest.TestCase):
     e = self.e(typename='Type.T ()', imports=Type)
     rts = RuntimeState(interp)
     instance = rts.instantiate(rts.variable(e, [0]), interp.type('Type.T'))
-    au = curry.raw_expr(*q(0, q(1, q(2, Type.A, [Type.B, x(3)]), [Type.C, x(4), x(5)]), q(6, [Type.D, x(7), x(8), x(9)], [Type.E, x(10), x(11), x(12), x(13)])))
+    au = curry.raw_expr(q(0, q(1, q(2, Type.A, [Type.B, x(3)]), [Type.C, x(4), x(5)]), q(6, [Type.D, x(7), x(8), x(9)], [Type.E, x(10), x(11), x(12), x(13)])))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)
 

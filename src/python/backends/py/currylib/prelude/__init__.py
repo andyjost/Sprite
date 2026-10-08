@@ -27,7 +27,7 @@ FUNCTION_METADATA = {
     , 'catch'                 : {'py.rawfunc'    : impl.catch              }
     , 'cond'                  : {'py.rawfunc'    : impl.cond               }
     , 'constrEq'              : {'py.rawfunc'    : impl.constr_eq          }
-    , 'divInt'                : {'py.unboxedfunc': op.floordiv             }
+    , 'divInt'                : {'py.unboxedfunc': impl.divInt             }
     , 'ensureNotFree'         : {'py.rawfunc'    : impl.ensureNotFree      }
     , 'eqChar'                : {'py.unboxedfunc': op.eq                   }
     , 'eqFloat'               : {'py.unboxedfunc': op.eq                   }
@@ -37,11 +37,11 @@ FUNCTION_METADATA = {
     , 'ltEqChar'              : {'py.unboxedfunc': op.le                   }
     , 'ltEqFloat'             : {'py.unboxedfunc': op.le                   }
     , 'ltEqInt'               : {'py.unboxedfunc': op.le                   }
-    , 'minusInt'              : {'py.unboxedfunc': op.sub                  }
+    , 'minusInt'              : {'py.unboxedfunc': impl.minusInt           }
     , 'modInt'                : {'py.unboxedfunc': impl.modInt             }
     , 'negateFloat'           : {'py.unboxedfunc': op.neg                  }
     , 'nonstrictEq'           : {'py.rawfunc'    : impl.nonstrict_eq       }
-    , 'plusInt'               : {'py.unboxedfunc': op.add                  }
+    , 'plusInt'               : {'py.unboxedfunc': impl.plusInt            }
     , 'prim_acosFloat'        : {'py.unboxedfunc': math.acos               }
     , 'prim_acoshFloat'       : {'py.unboxedfunc': math.acosh              }
     , 'prim_appendFile'       : {'py.rawfunc'    : impl.appendFile         }
@@ -78,13 +78,13 @@ FUNCTION_METADATA = {
     , 'prim_tanFloat'         : {'py.unboxedfunc': math.tan                }
     , 'prim_tanhFloat'        : {'py.unboxedfunc': math.tanh               }
     , 'prim_timesFloat'       : {'py.unboxedfunc': op.mul                  }
-    , 'prim_truncateFloat'    : {'py.unboxedfunc': int                     }
+    , 'prim_truncateFloat'    : {'py.unboxedfunc': impl.prim_truncateFloat }
     , 'prim_writeFile'        : {'py.rawfunc'    : impl.writeFile          }
     , 'quotInt'               : {'py.unboxedfunc': impl.quotInt            }
     , 'remInt'                : {'py.unboxedfunc': impl.remInt             }
     , 'returnIO'              : {'py.rawfunc'    : impl.returnIO           }
     , 'seqIO'                 : {'py.rawfunc'    : impl.seqIO              }
-    , 'timesInt'              : {'py.unboxedfunc': op.mul                  }
+    , 'timesInt'              : {'py.unboxedfunc': impl.timesInt           }
     # Unused PAKCS functions.
     , 'failure'               : {'py.rawfunc'    : impl.not_used           }
     , 'ifVar'                 : {'py.rawfunc'    : impl.not_used           }

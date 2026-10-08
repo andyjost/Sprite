@@ -1,0 +1,106 @@
+// Note: no include guards desired.
+//
+// A primitive on Int whose result may not exist.  The checked arithmetic
+// (plusInt, minusInt, timesInt, and the divisions of the minimum by -1) has
+// no result when it overflows the 64-bit Int, and a division has none when
+// the divisor is zero.  Such a step sets the error of the configuration
+// and returns E_ERROR, as prim_error does: catch takes it, and the
+// scheduler raises it as EvaluationError.
+//
+// CHECKED_SPEC is a 5-tuple of NAME, FUNC, ARITY, ARGFIELD, MESSAGE.  FUNC
+// takes the unboxed arguments and a reference to the result, and returns
+// true when the result exists.  MESSAGE takes the argument nodes and
+// spells the error.  See unboxed.def for the rest of the scheme.
+
+#ifndef CHECKED_SPEC
+#error "Define CHECKED_SPEC as a 5-tuple of NAME, FUNC, ARITY, ARGFIELD, MESSAGE"
+#endif
+
+// The preprocessor helpers, as in unboxed.def.
+#define CYRT_DEF_APPLY(macro, args) macro args
+#define CYRT_DEF_ELEM0(a, b, c, d, e) a
+#define CYRT_DEF_ELEM1(a, b, c, d, e) b
+#define CYRT_DEF_ELEM2(a, b, c, d, e) c
+#define CYRT_DEF_ELEM3(a, b, c, d, e) d
+#define CYRT_DEF_ELEM4(a, b, c, d, e) e
+#define CYRT_DEF_CAT(a, b) CYRT_DEF_CAT_I(a, b)
+#define CYRT_DEF_CAT_I(a, b) a ## b
+#define CYRT_DEF_STRINGIZE(a) CYRT_DEF_STRINGIZE_I(a)
+#define CYRT_DEF_STRINGIZE_I(a) #a
+
+#define NAME     CYRT_DEF_APPLY(CYRT_DEF_ELEM0, CHECKED_SPEC)
+#define FUNC     CYRT_DEF_APPLY(CYRT_DEF_ELEM1, CHECKED_SPEC)
+#define ARITY    CYRT_DEF_APPLY(CYRT_DEF_ELEM2, CHECKED_SPEC)
+#define ARGFIELD CYRT_DEF_APPLY(CYRT_DEF_ELEM3, CHECKED_SPEC)
+#define MESSAGE  CYRT_DEF_APPLY(CYRT_DEF_ELEM4, CHECKED_SPEC)
+
+#if ARITY != 1
+  #if ARITY != 2
+    #error "Expected arity 1 or 2."
+  #endif
+#endif
+
+#define STEP_FUNCTION_NAME  CYRT_DEF_CAT(NAME, _step)
+#define INFOTABLE_NAME      CYRT_DEF_CAT(NAME, _Info)
+
+static tag_type STEP_FUNCTION_NAME(RuntimeState * rts, Configuration * C)
+{
+  Cursor _0 = C->cursor();
+  Variable _1 = _0[0];
+  auto tagl = rts->hnf(C, &_1);
+  if(tagl < T_CTOR) return tagl;
+  unboxed_int_type value;
+  #if ARITY == 1
+    if(!FUNC(NodeU{_1.target}.ARGFIELD->value, value))
+    {
+      C->set_error(MESSAGE(_1.target));
+      return E_ERROR;
+    }
+  #else
+    Variable _2 = _0[1];
+    auto tagr = rts->hnf(C, &_2);
+    if(tagr < T_CTOR) return tagr;
+    if(!FUNC(NodeU{_1.target}.ARGFIELD->value, NodeU{_2.target}.ARGFIELD->value, value))
+    {
+      C->set_error(MESSAGE(_1.target, _2.target));
+      return E_ERROR;
+    }
+  #endif
+  // The Int result is written into the redex: it has the smallest node
+  // size, so it fits (see unboxed.def).
+  return _0->rewrite(&Int_Info, value);
+}
+
+InfoTable const INFOTABLE_NAME {
+    /*tag*/        T_FUNC
+  , /*arity*/      ARITY
+  , /*alloc_size*/ sizeof(CYRT_DEF_CAT(Node, ARITY))
+  , /*flags*/      F_STATIC_OBJECT
+  , /*name*/       CYRT_DEF_STRINGIZE(NAME)
+#if ARITY == 1
+  , /*format*/     "p"
+#else
+  , /*format*/     "pp"
+#endif
+  , /*step*/       STEP_FUNCTION_NAME
+  , /*type*/       nullptr
+  };
+
+#undef ARGFIELD
+#undef ARITY
+#undef CHECKED_SPEC
+#undef CYRT_DEF_APPLY
+#undef CYRT_DEF_CAT
+#undef CYRT_DEF_CAT_I
+#undef CYRT_DEF_ELEM0
+#undef CYRT_DEF_ELEM1
+#undef CYRT_DEF_ELEM2
+#undef CYRT_DEF_ELEM3
+#undef CYRT_DEF_ELEM4
+#undef CYRT_DEF_STRINGIZE
+#undef CYRT_DEF_STRINGIZE_I
+#undef FUNC
+#undef INFOTABLE_NAME
+#undef MESSAGE
+#undef NAME
+#undef STEP_FUNCTION_NAME

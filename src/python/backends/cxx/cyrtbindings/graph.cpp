@@ -19,9 +19,28 @@ namespace py = pybind11;
 static auto constexpr reference = py::return_value_policy::reference;
 static auto constexpr reference_internal = py::return_value_policy::reference_internal;
 
+namespace cyrt { namespace python
+{
+  // Int is 64 bits.  A Python int outside the range is refused where it
+  // would enter a node, with CurryTypeError and the message of the Python
+  // backend (backends/py/graph/node.py), so the two backends agree (issue
+  // #105).  The Arg binding below and the literals of the ICurry
+  // interpreter (icurry.cpp) raise it.
+  [[noreturn]] void raise_int_range_error(py::handle value)
+  {
+    std::string const message = std::string(py::str(value))
+        + " is outside the range of Int (-9223372036854775808 to 9223372036854775807)";
+    py::object const type =
+        py::module_::import("curry.exceptions").attr("CurryTypeError");
+    PyErr_SetString(type.ptr(), message.c_str());
+    throw py::error_already_set();
+  }
+}}
+
 namespace
 {
   using namespace cyrt;
+  using cyrt::python::raise_int_range_error;
 
   // Forward ``source`` to ``target`` on behalf of Python code.  Node::forward_to
   // asserts its preconditions; here a bad request becomes a Python exception.
@@ -369,6 +388,10 @@ namespace cyrt { namespace python
     py::class_<Arg, ByValueHolder<Arg>>(mod, "Arg")
       .def(py::init<Node *>())
       .def(py::init<unboxed_int_type>())
+      // A Python int that the 64-bit overload refused is outside the range
+      // of Int.  Without this overload the one below took it, and the node
+      // held the bits of a double.
+      .def(py::init([](py::int_ value) -> Arg { raise_int_range_error(value); }))
       .def(py::init<unboxed_float_type>())
       // A str of length one gives the code point of its character.
       .def(py::init([](py::str str) {

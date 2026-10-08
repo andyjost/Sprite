@@ -8353,3 +8353,334 @@
   feedstock before an upload), and the channel.  The two stale
   precompiled-header members of 2026-10-07 under ~/.cache/sprite and the
   earlier environments of the lane stay where they are.
+
+2026-10-08: Int is 64 bits with an error at the boundary, and the integer division by zero (#105, #106; worktree wt/apibugs)
+- Diagnosis.  The Int of the C++ backend is int64_t, and the boundary was
+  silent.  A Python int past the range reached the node through the Arg
+  binding: the 64-bit overload of pybind11 refused it, the double overload
+  took it, and the node held the bits of the nearest double (2**63 gave
+  4890909195324358656).  plusInt, minusInt and timesInt wrapped (2**62 +
+  2**62 gave the minimum).  truncate and round of a Float past the range
+  cast an out-of-range double (1e30 gave the minimum).  quotInt and remInt
+  divided through a double, so quot (2**53 + 1) 1 gave 2**53 and rem
+  (2**53 + 1) 3 gave 3.  divInt and modInt divided by zero unchecked, and
+  the process died with SIGFPE (exit 136); div minBound (-1) traps the
+  same way.  The Python backend kept the Python integer and raised
+  ZeroDivisionError.  The owner's default of 2026-10-08: 64 bits with an
+  error at the boundary; the unbounded Int is a later item.
+- Fix, C++ backend.  currylib/defs/checked.def is the template of a
+  primitive on Int whose result may not exist: FUNC returns false, the
+  step sets the error of the configuration (as prim_error does) and
+  returns E_ERROR: catch takes it, and the scheduler raises it as
+  EvaluationError.  math.cpp
+  defines the nine checked primitives with the builtins of the compiler
+  (__builtin_add_overflow and friends): plusInt, minusInt, timesInt;
+  divInt, modInt, quotInt and remInt with the division by zero and the
+  quotient of the minimum by -1 (the remainder of that pair is zero and
+  is taken before the division, which traps on it); prim_truncateFloat
+  and prim_roundFloat, which accept the integral doubles from -2^63 up to
+  2^63 and refuse the rest, the infinities and NaN included.  quot and
+  rem are integer divisions now, exact above 2**53.  The Arg binding
+  (cyrtbindings/graph.cpp) gets an overload for a Python int that the
+  64-bit overload refused; it raises CurryTypeError with the text of the
+  Python backend.  The literals of the ICurry interpreter
+  (cyrtbindings/icurry.cpp, an Int constant and the value set of a case)
+  check the range with PyLong_AsLongAndOverflow and raise the same error;
+  before, the cast of pybind11 raised a RuntimeError without the value
+  and the module did not load.  No node layout changed.
+- Fix, Python backend.  currylib/prelude/math.py has the twins: plusInt,
+  minusInt, timesInt, the four divisions and the two conversions check the
+  64-bit range and the zero divisor and raise EvaluationError with the
+  same texts; quotInt is an integer division; prim_divFloat gives the IEEE
+  result of a division by zero (an infinity, or NaN for 0.0 / 0.0) as the
+  C++ backend does, instead of ZeroDivisionError.  prim_readNatLiteral
+  of currylib/prelude/read.py fails the parse of a numeral outside the
+  range, as the C++ step does on ERANGE (before this entry it returned
+  the wide integer; after the range check of the node it raised the
+  CurryTypeError inside the evaluation).  graph/node.py checks
+  the range when an Int node is made, so the Python backend never holds a
+  wider integer (one mask of the flags per node).  The generated Python
+  binds the primitives when the file is written ("from _operator import
+  sub as ..."), so compiler.FORMAT_VERSION is 7 and a file of format 6 is
+  written again from its JSON; without the bump an installed Prelude.py
+  kept the operators of Python (seen: a staged tree ran the old ones).
+- The texts.  "integer overflow: 9223372036854775807 + 1", "integer
+  overflow: (-9223372036854775808) * (-1)", "integer overflow: div
+  (-9223372036854775808) (-1)", "integer overflow: truncate 1.0e+30",
+  "integer overflow: round (-Infinity)", "division by zero: div 1 0".  A
+  negative operand is in parentheses; a Float is spelled as show spells
+  it.  negate x is 0 - x in the Prelude, so negate minBound names "0 -
+  (-9223372036854775808)"; ceiling and floor convert through truncate and
+  name it.  A Python int outside the range: "9223372036854775808 is
+  outside the range of Int (-9223372036854775808 to 9223372036854775807)",
+  a CurryTypeError on both backends through curry.expr, curry.raw_expr
+  and curry.eval, at the node.
+- Cost.  Throughput suite, one run each, clean environment, the objects of
+  Tak1 and Fib compiled under it, compare --deterministic: Tak1 16210.3M
+  to 16216.8M instructions (ratio 1.00, +0.04 percent), Fib 2348.8M to
+  2349.3M (+0.02 percent), steps equal (33629915 and 3500006).  The CPU
+  seconds moved with the load of the shared machine (0.90 to 1.37 between
+  pairs) and are advisory.  A first pair measured on a cold tree gave
+  27880.0M to 16729.8M for Tak1: the first run compiled Tak1 in its
+  process tree (the tiered compile under sprite-exec), so the pair was
+  discarded and measured again on a warm tree.
+- Tests.  tests/unit_int_semantics.py, 13 tests on both backends: the
+  boundary values, the Python ints outside the range on three routes and
+  at the node, the four operations at the edge, negate and abs of the
+  minimum, the signs and the exact quotients of the four divisions, the
+  division by zero of each with divMod and quotRem, the Float division by
+  zero, the four conversions at the edge and of the infinities and NaN,
+  a literal outside the range in a module and in an expression, the
+  literals at the ends of the range (-9223372036854775808 negates the
+  literal 9223372036854775808 and is refused; -9223372036854775807 - 1 is
+  the minimum), read of a numeral at and
+  past the maximum, and a compiled program (a literal sum, 1 `div` 0,
+  fac 21).
+- Documentation.  The Limits section of Using the API states the range,
+  the errors with their texts, the literal of a source, the enumeration
+  that ends at the maximum, the Float division by zero, read of a numeral
+  past the range, and catch.  The section names no backend
+  (unit_reference_backend.py greps the user guide for "both backends";
+  the first draft failed it on three lines).
+- Results.  unit_int_semantics.py 11 ok on cxx and 11 ok on py by hand
+  and through the runner.  run_tests -j 2 --mem 4 --backend both:
+  unit_prelude, unit_typed_expr, unit_py_evaluation, unit_py_conversions,
+  unit_py_graph, unit_py_typechecks, unit_cxx_rewrite, unit_cxx_interp,
+  unit_cxx_literals, unit_cxx_runtime, unit_cxx_scheduler, unit_io_bind,
+  unit_evaluation, unit_conversions: 26 of 26 (unit_cxx_literals and
+  unit_cxx_rewrite after the prepare pass; the fresh worktree had no
+  compiled pool); unit_expr, unit_api, unit_goals, unit_typecheck,
+  func_math_int, func_math_float, func_math, func_readshow: 16 of 16;
+  the other unit_cxx_* and unit_py_* files: 48 of 48, with
+  unit_cxx_toolchain and unit_cxx_heap passing under a clean environment.
+  A shell that exports the flags of a conda toolchain (CXXFLAGS with -O2)
+  reaches the compiles of the runner: the precompiled header is named
+  O3O2, and Tak1 keeps Variable::skip out of line.  Run the runner under
+  env -i, as the build.  The whole suite is for the suite stage.
+- For the owner, not done.  (1) An unbounded Int, the later item.  (2) A
+  literal past the range in a Curry source is the CurryTypeError of the
+  node on both backends now, when the module loads (C++ backend) or when
+  the function is first evaluated (Python backend); the front end accepts
+  the literal.  A compile error with the position of the literal would
+  name it earlier, and -9223372036854775808 (negate of the literal past
+  the range) would need the treatment of the front end of Haskell to be
+  the minimum.  One site still differs: a literal past the range in a
+  case (isBig 99999999999999999999 = True) refuses the module on the C++
+  backend (the value set of the case holds Int nodes) and matches nothing
+  on the Python backend (its generated code compares Python ints; isBig
+  1 is False).  The check belongs in the emitter of the Python backend
+  (backends/py/compiler.py), a file of the other item in this worktree,
+  so it is left for the owner.  (3) read of a numeral past the range fails the parse
+  on both backends now, the rule the C++ backend had; an EvaluationError
+  ("integer overflow: read ...") on both would match the arithmetic
+  instead.  (4) catch of the Python backend catches IOError and
+  MonadError alone, so the new errors of the primitives pass it there,
+  where E_ERROR of the C++ backend reaches catch (caughtDiv = catch
+  (return $!! (1 `div` 0)) (\_ -> return 42) is 42 on the C++ backend and
+  raises on the Python backend); the gap predates this entry (prim_error
+  has it, and unit_io_bind.py skips TestCxxMonadic on the Python backend
+  for it).  The parity fix is small (catch EvaluationError, hand the
+  handler an IOError with the text), but it changes error under catch on
+  the Python backend too.  The Limits section states the difference.
+  (5) The texts name truncate for ceiling and floor and 0 - x for negate;
+  a text that names the function the user called needs those functions
+  as primitives of their own, a change to the Prelude copy.  (6)
+  enumFromTo x y computes x + 1 past y, so [9223372036854775806 ..
+  9223372036854775807] raises "integer overflow: 9223372036854775807 +
+  1" on both backends, where PAKCS gives the two-element list (take 2
+  [9223372036854775806 ..] gives it; succ maxBound and 2 ^ 64 raise as
+  designed).  A bounded enumFromTo is a change to the Prelude copy; the
+  Limits section states the case.
+- Suite stage, 2026-10-08.  The whole suite on both backends through the
+  runner (-j auto, --prepare, a clean environment, the sandbox off for
+  PAKCS): 224 of 224 run, 1 failed, wall 807.5 s.  The failure was
+  test_tak_indexes_inline of unit_cxx_heap.py on the C++ backend: a test
+  process of the fast tier had compiled Tak1 in the background (the tiered
+  compile under the inline budget of the interpreter), and Variable::skip
+  stayed out of line; after sprite-make --so Tak1 under a clean environment
+  the file passed (10 ok), with unit_cxx_passthrough.py and
+  unit_cxx_toolchain.py.  Not of this entry.  The fast tier 136 of 136;
+  the oracle suites func_*.py 42 of 42 on both backends; the changed test
+  files 22 of 22.  The benchmarks against the committed record
+  (phase2-2026-10-04, compare --deterministic): the steps of Tak1 33629915,
+  Fib 3500006, Queens10 17706900, Primes 14383977 and Reverse 8407940 are
+  the counts the record expects; Tak1 16217.0M and Fib 2349.7M
+  instructions in one run with perf (the pair above: 16216.8M and
+  2349.3M).
+
+2026-10-08: the unboxed marker outside a primitive, and the walk over shared constants (#107, #108; worktree wt/apibugs)
+- #107.  curry.unboxed is the marker of the payload of a primitive,
+  [Prelude.Int, curry.unboxed(3)].  Anywhere else the typed builder gave
+  the marker the type of its payload and handed the raw Python value to
+  make_node as a successor, and the untyped builder returned the raw value
+  from its handler: curry.expr(P.id, curry.unboxed(1)),
+  curry.raw_expr(P.id, curry.unboxed(1)) and curry.expr([curry.unboxed(1)])
+  ended the process on the C++ backend (exit 139; the bindings dereferenced
+  the value as a node), the Python backend built the ill-formed node
+  <id 1>, and the marker alone returned the Python int.  Both builders
+  raise a CurryTypeError now, on both backends.  The untyped builder
+  (expressions.ExpressionBuilder) takes the marker under a primitive in its
+  symbol handler, make_node(Int, 3), and its handler of the marker raises
+  for every other place; the typed builder keeps the Unboxed spec, so a
+  description prints it, and TypedProblem._enter raises a ConversionError
+  of the catalogue with the position.  The message names the marker and
+  its place: "curry.unboxed(1) stands at argument 1 of Prelude.id :: a ->
+  a; the marker is the payload of an Int, Char or Float, as in
+  [Prelude.Int, curry.unboxed(1)]"; the marker alone "stands alone"; in
+  the untyped builder, which has no positions, it "stands outside a
+  primitive" (expressions.unboxed_message).  The ValueError "cannot
+  rewrite a node to an unboxed value" is gone: the marker alone with a
+  target is the same CurryTypeError, and the target stays.  Tests:
+  TestUnboxedMarker of unit_expr.py (the payload through both builders;
+  alone, as an argument, in a list and in a tuple through expr,
+  describe().typeof(), eval, raw_expr and untyped_expr; the message names
+  the primitive of the payload; the error carries where and value; a
+  target stays).  The docs: Using the API (the boxed and unboxed values,
+  the list of the markers) and The curry Package.
+  Review findings applied.  A payload of the wrong Python type under a
+  primitive built garbage: [Float, unboxed(1)] was <Float 5.0e-324> on
+  the C++ backend (the bits of the int as a double) and <Float 1> on the
+  Python backend; [Int, unboxed(2.5)], [Int, unboxed('a')], [Char,
+  unboxed(1)] and [Int, unboxed(True)] disagreed between the backends the
+  same way, through both builders.  Both builders check the payload
+  before make_node now (expressions.unboxed_fits, unboxed_payload): a
+  Python int under Int (not a bool), a str of length one under Char, a
+  float under Float.  The typed builder raises a ConversionError at the
+  position of the primitive, "curry.unboxed(2.5) is not the payload of an
+  Int at argument 1 of Prelude.id :: a -> a; the payload of an Int is a
+  Python int, as in [Prelude.Int, curry.unboxed(3)]"; the untyped builder
+  raises the CurryTypeError without the position.  The range of Int is
+  checked where the node is made, as before (#105).  The marker has a
+  repr, curry.unboxed(1), so the EvaluationError of an item of an
+  iterator (converted when the list is demanded) names it instead of the
+  default object repr.  Tests: test_payload_type and test_iterator of
+  TestUnboxedMarker, both backends.
+- Files outside the item that the decision touched, reported here.  The
+  runtime tests built Choice nodes as [Choice, unboxed(cid), l, r] and
+  heterogeneous tuples through raw_expr, which the decision refuses.
+  tests/unit_py_interp.py and tests/unit_py_runtime.py build the choice
+  through the choice marker, choice(cid, l, r), the same raw node
+  (bootstrap.cid.value is the id; tests/lib/cytest/bootstrap.py keeps the
+  marker).  tests/lib/cytest/expression_library.py pairs the variable of
+  the value binding with a boxed 2, the shape make_value_bindings of
+  rts_bindings.py makes, so test_equals_value_binding of unit_equality.py
+  runs on the C++ backend too (its skip said the pair was heterogeneous).
+  unit_equality.py maps an unboxed marker to its bare value itself (raw)
+  for the rows that compare unboxed values; unit_indexing.py indexes the
+  bare values in test_index_unboxed; unit_py_conversions.py asserts the
+  error; unit_py_copy.py copies a Choice node, which holds its id unboxed;
+  unit_typed_expr.py asserts the error.
+- #108.  A value that held the empty list at two types could not be typed
+  on the C++ backend: curry.typeof(v) for v from [[1, 2], [3]],
+  ['ab', 'c'] or ([1], 'ab') raised MismatchError, and curry.eval(P.unwords,
+  strs) with such a value failed the same way; the Python backend typed
+  them.  The C++ runtime has one [] node (builtins.hpp: Nil, with Unit,
+  True, False, Fail, the small ints and chars, and the partial_node of a
+  module); the List spec and string_node of the typed builder make the
+  empty list through make_node(Nil), which returns that node; and the walk
+  of TypedProblem._walk memoized by node id, so one type variable served
+  every position of [].  The walk keeps the memo for the nodes with
+  successors and the free variables (a shared subgraph is visited once, a
+  cycle ends, a variable has one type) and types a node without node
+  successors at every position it holds, with a fresh instance of its
+  scheme (builder._constant: a nullary constructor, a partial application
+  without arguments, a function without arguments, a failure; not a
+  primitive, a string or a generator).  Chosen over the other two shapes:
+  a position key for "a nullary constructor shared across types" needs the
+  types before the memo decides, and the walk meets the positions one at a
+  time; a fresh [] node for every empty list is a change to the runtime,
+  the item of the C++ backend, and would not reach the values compiled
+  code makes.  The change is sound because such a node carries no type of
+  its own: the sharing is an artifact of the runtime, and a fresh instance
+  of the scheme at each position is what the front end gave each
+  occurrence of the constant in the source.  Every position counts towards
+  VALUE_WALK_CAP, so a value of n empty lists counts 2n + 1 nodes on both
+  backends, as it did on the Python backend before.  After review the
+  walk reads the successors of a node once: a child is pushed with a
+  fresh variable, the visit decides from the successors it reads anyway
+  whether the node enters the memo, and a shared node pushed twice before
+  its first visit unifies with the memo and is not counted again (the
+  helper _constant, which read the successors of every child once more,
+  is gone).  Measured cost, curry.typeof of a value of the evaluator,
+  best of three, the other lane on the machine: C++ backend, a list of
+  30000 Ints 1.054 s with the first shape of the walk and 0.888 s after
+  (the old memo gave 0.883 s in the review); 30000 empty lists 1.444 s
+  and 1.177 s; 15000 (Int, []) pairs 2.118 s and 1.474 s (the old memo
+  raised MismatchError on both).  Python backend, 8000 elements: Ints
+  0.188 s and 0.175 s (the old memo 0.178 s); empty lists 0.230 s and
+  0.220 s (0.129 s); pairs 0.248 s and 0.228 s (0.163 s).  The cost that
+  remains on constant-dense values is the typing of each position.  Both
+  backends give
+  the same answers now: ([], []) is ([a], [b]), (failed, failed) is (a, b),
+  (id, id) is (a -> a, b -> b), and a shared Just [] held twice is
+  (Maybe [a], Maybe [a]).  Tests: TestSharedConstants of unit_typecheck.py
+  (the three values typed and passed to unwords, snd, fst and concat; the
+  value of words "ab c"; the constants per position; a shared non-empty
+  node, a cycle and a free variable typed once; the cap counts positions
+  and a shared cell once).  The docs: Using the API, the values of earlier
+  evaluations; the cap is stated in positions there and in the Limits
+  (a shared [] counts once per position), since the error text "more
+  than 100000 nodes" counts positions on the C++ backend.
+- Not fixed, the owner's call (beyond the risk line).  The record of result
+  types (builder.TypeRecord) is keyed by the identity of the node, and the
+  C++ backend returns the one [] node from curry.expr([]), curry.expr('')
+  and curry.expr([], exprtype='[Int]') alike, so the last call wins: after
+  e1 = curry.expr([], exprtype='[Int]') and e2 = curry.expr(''),
+  curry.typeof(e1) is [Char] on the C++ backend ([Int] on the Python
+  backend, where the nodes differ), and the value [] of
+  curry.eval([P.filter, P.odd, [2, 4]]) types as [Char] after a
+  curry.expr('') in the same interpreter ([a] on the Python backend).
+  The conversions of curry.eval are affected too when a value of the
+  evaluator is the bare empty list (observed on the C++ backend, the
+  Python backend gives the other answers): with v the value of
+  curry.eval([P.filter, P.odd, [2, 4]]) and one curry.expr('') after it,
+  curry.eval(P.Cons, 1, v) raises MismatchError ("argument 2 has type
+  Char") where it gave [[1]] before the curry.expr(''), curry.eval([[1,
+  2], v]) raises the same, and curry.eval((v, 0)) yields ('', 0) because
+  the walk takes the record of the shared node through its shortcut and
+  the converter prints the empty list as a string; after a
+  curry.expr([], exprtype='[Bool]'), the value w of curry.eval([P.words,
+  '']) fails curry.eval(P.unwords, w).  One curry.expr('') earlier in the
+  life of the interpreter is enough: the entry lives as long as the
+  shared node.  This is the symptom of #108 for a value that is the empty
+  list rather than one that holds it.  The builder alone cannot make the
+  record sound: a record skipped for such a node makes curry.eval('')
+  yield [] instead of '' on both backends, because the converter reads the
+  record.  A mitigation inside the builder, not applied: the walk skips
+  the shortcut of the record when the root has no node successors, so a
+  bare constant value is typed by its scheme; its visible cost is that
+  curry.eval(P.id, curry.expr('')) prints [] on both backends.  The full
+  proposals: the evaluator takes the goal's type from the goal object
+  instead of the record, and the record skips the nodes the runtime
+  shares; or make_node of the C++ bindings returns a fresh [] node to
+  Python (the layout stays; the shared Nil of compiled code is untouched).
+  The small ints raise the same question in a weaker form: curry.expr(5)
+  and curry.expr(5, exprtype='Int') are one node, whose record says
+  Num a => a or Int by the last call.  The catalogue (P4) also asks
+  whether curry.unboxed should be a public marker at all; nothing in the
+  API needs it, since a Python value builds the same node.
+- Results.  Baseline before the change, ./run_tests -j 2 --mem 4 --backend
+  both over the twelve affected unit files: 24 of 24 run, 1 failed
+  (unit_inspect.py on cxx, 2 failures of testGetICurry and testGetImpl,
+  which expect a module loaded from its object and found it interpreted;
+  present before and after).  After the change: unit_expr.py 30 ok and
+  unit_typecheck.py 75 ok on both backends; the fourteen other files of
+  the item on both backends 28 of 28 run, every file ok except the
+  unit_inspect.py pair above; the fast tier of the unit suite
+  (./run_tests -j 2 --mem 4 --backend both 'unit_*.py' --fast) 136 of 136
+  run, 2 failed: unit_reference_backend.py on both backends, whose test of
+  the user guide fails on the Limits text of the other item ("on both
+  backends"), not on this one; func_goal_defaulting.py 53 ok on both
+  backends outside the sandbox (PAKCS writes under /tmp, read-only
+  inside it).  After the review: unit_expr.py 32 ok and unit_typecheck.py
+  75 ok on both backends; the ten other files of the item and
+  unit_inspect.py (its corpus object compiled by then) 24 of 24 run, 0
+  failed; unit_typecheck_serialize.py, unit_typed_expr.py and unit_api.py
+  ok on both backends.  The whole suite on both backends is for the suite
+  stage.
+- Suite stage, 2026-10-08.  The results of the whole suite, the fast tier,
+  the oracle suites and the benchmarks are in the entry above (one
+  failure, unit_cxx_heap.py on the C++ backend, from a background compile
+  of Tak1 by a test process, not of this entry); unit_expr.py 32,
+  unit_typecheck.py 75, unit_typed_expr.py 55 and unit_reference_backend.py
+  7 ok on both backends.

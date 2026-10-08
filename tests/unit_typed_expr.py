@@ -568,9 +568,11 @@ class TestForms(cytest.TestCase):
     self.assertEqual(str(e), '3')
     self.assertEqual(curry.typeof(e), 'Int')
     self.assertEqual(values(plus_one(e)), [4])
-    self.assertEqual(curry.expr(curry.unboxed(3)), 3)
-    self.assertEqual(curry.expr(curry.unboxed('a')), 'a')
-    with self.assertRaises(ValueError):
+    # The marker outside a primitive is an error (issue #107; the four
+    # placements are in unit_expr.py).
+    with self.assertRaisesRegex(curry.CurryTypeError, 'stands alone'):
+      curry.expr(curry.unboxed(3))
+    with self.assertRaisesRegex(curry.CurryTypeError, 'stands alone'):
       curry.expr(curry.unboxed(3), target=curry.expr(P.id, 0))
     e = curry.expr(curry.expressions.fwd(1))
     self.assertTrue(inspect.isa_fwd(e))

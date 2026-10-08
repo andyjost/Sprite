@@ -7,6 +7,14 @@ import itertools, operator, unittest
 
 not_equal = lambda *args: not equal(*args)
 
+def raw(arg):
+  '''
+  raw_expr, with an unboxed marker as its bare value: the equality meets an
+  unboxed value as the successor of a primitive.  The builders refuse the
+  marker outside a primitive (issue #107).
+  '''
+  return arg.value if isinstance(arg, curry.unboxed) else curry.raw_expr(arg)
+
 def long_list(n, last=None):
   '''
   Builds the list [1..n] without recursion.  ``last`` replaces the last
@@ -37,7 +45,7 @@ class TestGraphComparison(cytest.expression_library.ExpressionLibTestCase):
     for spec in self.negative_cases(self.true):
       yield spec
 
-  @cytest.check_predicate(mapper=curry.raw_expr)
+  @cytest.check_predicate(mapper=raw)
   def test_equals_int(self):
     yield equal, 1, 1
     yield equal, curry.unboxed(1), curry.unboxed(1)
@@ -47,7 +55,7 @@ class TestGraphComparison(cytest.expression_library.ExpressionLibTestCase):
     for spec in self.negative_cases(self.int, exclude=[self.unboxed_int]):
       yield spec
 
-  @cytest.check_predicate(mapper=curry.raw_expr)
+  @cytest.check_predicate(mapper=raw)
   def test_equals_char(self):
     yield equal, 'a', 'a'
     yield equal, curry.unboxed('a'), curry.unboxed('a')
@@ -57,7 +65,7 @@ class TestGraphComparison(cytest.expression_library.ExpressionLibTestCase):
     for spec in self.negative_cases(self.char, exclude=[self.unboxed_char]):
       yield spec
 
-  @cytest.check_predicate(mapper=curry.raw_expr)
+  @cytest.check_predicate(mapper=raw)
   def test_equals_float(self):
     yield equal, 1.1, 1.1
     yield equal, curry.unboxed(1.1), curry.unboxed(1.1)
@@ -164,12 +172,6 @@ class TestGraphComparison(cytest.expression_library.ExpressionLibTestCase):
     for spec in self.negative_cases(self.strict_constraint):
       yield spec
 
-  @unittest.skipIf(
-      curry.flags['backend'] == 'cxx'
-    , 'the pair (free(1), unboxed(2)) is a heterogeneous node, which the C++ '
-      'backend cannot represent (see unit_expr); comparing it dereferences the '
-      'unboxed value as a node'
-    )
   @cytest.check_predicate(mapper=curry.raw_expr)
   def test_equals_value_binding(self):
     yield equal, self.value_binding, self.value_binding

@@ -2,7 +2,7 @@
 import cytest # from ./lib; must be first
 from curry.exceptions import ModuleLookupError, SymbolLookupError, TypeLookupError
 from curry.icurry import *
-from curry import interpreter, toolchain, unboxed
+from curry import choice, interpreter, toolchain
 from curry.interpreter import Interpreter
 from curry.utility.binding import binding, del_
 from curry.utility import filesys
@@ -182,20 +182,21 @@ class TestPyInterp(cytest.TestCase):
   def checkEvalValues(self, interp):
     L = interp.import_(self.MYLIST)
     X = interp.import_(self.X)
-    Choice = interp.backend.fundamental_symbols.Choice
     Failure = interp.backend.fundamental_symbols.Failure
     bs = interp.import_(self.BOOTSTRAP)
-    cid = bootstrap.cid
+    # A choice is built through its marker: curry.unboxed stands only under
+    # a primitive (issue #107).
+    cid = bootstrap.cid.value
     N,M,U,B,Z,ZN,ZF = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF
     TESTS = [
         [[1], ['1']]
       , [[2.0], ['2.0']]
       , [[L.Cons, 0, [L.Cons, 1, L.Nil]], ['[0, 1]']]
-      , [[Choice, cid, 1, 2], ['1', '2']]
-      , [[X.X, [Choice, cid, 1, 2]], ['X 1', 'X 2']]
-      , [[X.X, [Choice, unboxed(0), 1, [X.X, [Choice, unboxed(1), 2, [Choice, unboxed(2), 3, 4]]]]], ['X 1', 'X (X 2)', 'X (X 3)', 'X (X 4)']]
+      , [[choice(cid, 1, 2)], ['1', '2']]
+      , [[X.X, choice(cid, 1, 2)], ['X 1', 'X 2']]
+      , [[X.X, choice(0, 1, [X.X, choice(1, 2, choice(2, 3, 4))])], ['X 1', 'X (X 2)', 'X (X 3)', 'X (X 4)']]
       , [[Failure], []]
-      , [[Choice, cid, Failure, 0], ['0']]
+      , [[choice(cid, Failure, 0)], ['0']]
       ]
     for expr, expected in TESTS:
       goal = interp.raw_expr(*expr)
