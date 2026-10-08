@@ -1835,6 +1835,145 @@ class TestPrepare(unittest.TestCase):
         'product present'
       )
 
+  def test_preprocessor_lacking(self):
+    '''
+    A module whose source names a preprocessor the PATH lacks, and whose
+    log shows that the front end could not run it, is without a product as
+    any other: the pass fails, and the note adds the cause and the remedy
+    (poker_four_of_a_kind of smap, currypp, in the nightly functional
+    shards before the workflow extracted the overlay archive).  Another
+    failure of such a module, or the tool on the PATH, gets no such hint.
+    '''
+    self.assertIsNone(prepare.preprocessor('/no/such/file.curry'))
+    tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
+    self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
+    testdir = os.path.join(tmpdir, 'tests')
+    corpus = os.path.join(testdir, 'data', 'curry', 'smap')
+    products = os.path.join(corpus, '.curry', 'x')
+    os.makedirs(products)
+    def write(name, text):
+      with open(os.path.join(corpus, name), 'w') as stream:
+        stream.write(text)
+    write('plain.curry', 'main = 1\n')
+    write(
+        'poker.curry'
+      , '{-# OPTIONS_CYMAKE -F --pgmF=currypp --optF=defaultrules #-}\n'
+        '{-# OPTIONS_CYMAKE -Wnone #-}\nmain = 2\n'
+      )
+    write('front.curry', '{-# OPTIONS_FRONTEND -F --pgmF tool-x #-}\n')
+    self.assertIsNone(prepare.preprocessor(os.path.join(corpus, 'plain.curry')))
+    self.assertEqual(
+        prepare.preprocessor(os.path.join(corpus, 'poker.curry')), 'currypp'
+      )
+    self.assertEqual(
+        prepare.preprocessor(os.path.join(corpus, 'front.curry')), 'tool-x'
+      )
+    os.remove(os.path.join(corpus, 'front.curry'))
+    # The log of the front end that could not run the tool, as the nightly
+    # job printed it, and the log of a failure after the ICurry step.
+    shell = (
+        'sprite-make: while running curry-frontend --flat poker:\n'
+        'sprite-make: /bin/sh: 1: currypp: not found\n'
+        'sprite-make: \n'
+        'sprite-make: Error:\n'
+        'sprite-make: Preprocessor exited with exit code 127\n'
+      )
+    other = (
+        'make: *** No rule to make target poker.so: prerequisite is the '
+        'wrong type or is unreadable: poker.cpp\n'
+      )
+    self.assertTrue(prepare.preprocessor_failed(shell, 'currypp'))
+    self.assertTrue(
+        prepare.preprocessor_failed('Preprocessor exited with exit code 1\n', 'x')
+      )
+    self.assertFalse(prepare.preprocessor_failed('g++: not found\n', 'currypp'))
+    self.assertFalse(prepare.preprocessor_failed(other, 'currypp'))
+    self.assertFalse(prepare.preprocessor_failed('', 'currypp'))
+    # The products the archive supplies, and the object of the other module.
+    for name in 'plain.so', 'poker.icy', 'poker.json.z':
+      open(os.path.join(products, name), 'w').close()
+    # A PATH with a stand-in currypp, and one without.
+    bindir = os.path.join(tmpdir, 'bin')
+    os.makedirs(bindir)
+    tool = os.path.join(bindir, 'currypp')
+    with open(tool, 'w') as stream:
+      stream.write('#!/bin/sh\n')
+    os.chmod(tool, 0o755)
+    nowhere = os.path.join(tmpdir, 'none')
+    logfile = os.path.join(tmpdir, 'prepare.log')
+    def job(path, log, status='FAILED'):
+      made = [
+          job for job in prepare.jobs(
+              ['func_smap.py'], ['cxx'], '/sprite', {'PATH': path}, '/logs'
+            , cap=GIB, timeout=None, testdir=testdir, subdir='.curry/x'
+            )
+          if job.directory == 'data/curry/smap'
+        ][0]
+      with open(logfile, 'w') as stream:
+        stream.write(log)
+      made.logfile = logfile
+      # Under --prepare-only the jobs are not advisory (cli.prepare_pass_jobs).
+      made.advisory = status == 'incomplete'
+      made.status = status
+      made.returncode = 1
+      made.note = 'exit status 1'
+      made.finished = True
+      made.on_finished()
+      return made
+    lacking = job(nowhere, shell)
+    self.assertEqual(
+        lacking.modules
+      , ['data/curry/smap/plain.curry', 'data/curry/smap/poker.curry']
+      )
+    self.assertEqual(lacking.lacking, {'data/curry/smap/poker.curry': 'currypp'})
+    self.assertEqual(lacking.status, 'FAILED')
+    self.assertEqual(
+        lacking.note
+      , 'exit status 1; 1 of 2 modules without a product: poker.curry; '
+        'poker.curry needs currypp, which the PATH lacks; make overlay after '
+        'make stage supplies its products'
+      )
+    self.assertEqual(cli.exit_status([lacking]), 1)
+    self.assertEqual(
+        prepare.summary([lacking])
+      , 'prepare: 2 modules in 1 directory on cxx; 1 without a product: '
+        'data/curry/smap/poker.curry (cxx); the tests that need them report it'
+      )
+    # An advisory job (--prepare) keeps its status as well.
+    self.assertEqual(job(nowhere, shell, 'incomplete').status, 'incomplete')
+    # A failure after the ICurry step is not blamed on the tool.
+    plain = job(nowhere, other)
+    self.assertEqual(plain.lacking, {})
+    self.assertEqual(plain.status, 'FAILED')
+    self.assertEqual(
+        plain.note
+      , 'exit status 1; 1 of 2 modules without a product: poker.curry'
+      )
+    # With currypp on the PATH the module could have been made.
+    present = job(bindir, shell)
+    self.assertEqual(present.lacking, {})
+    self.assertEqual(
+        present.note
+      , 'exit status 1; 1 of 2 modules without a product: poker.curry'
+      )
+    self.assertEqual(cli.exit_status([present]), 1)
+    # A second module without a product is named beside it.
+    os.remove(os.path.join(products, 'plain.so'))
+    both = job(nowhere, shell)
+    self.assertEqual(both.lacking, {'data/curry/smap/poker.curry': 'currypp'})
+    self.assertEqual(
+        both.note
+      , 'exit status 1; 2 of 2 modules without a product: plain.curry, '
+        'poker.curry; poker.curry needs currypp, which the PATH lacks; make '
+        'overlay after make stage supplies its products'
+      )
+    self.assertEqual(
+        prepare.summary([both])
+      , 'prepare: 2 modules in 1 directory on cxx; 2 without a product: '
+        'data/curry/smap/plain.curry (cxx), data/curry/smap/poker.curry '
+        '(cxx); the tests that need them report it'
+      )
+
   def test_product_subdir(self):
     tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
     self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)

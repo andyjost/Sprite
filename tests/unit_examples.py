@@ -71,11 +71,23 @@ REQUIRES = {}
 # Directory -> the reason the example does not run in the stress mode of the
 # collector (SPRITE_GC_STRESS=1; see cytest.GC_STRESS).  In that mode every
 # rewrite step marks the live state, and a search that keeps thousands of
-# alternatives alive does not end in TIMEOUT.
+# alternatives alive does not end in TIMEOUT.  The three cxx-types examples
+# below take one to three seconds in the default mode and more than 580 s in
+# the stress mode, each in one search; their output up to that search is
+# right.
 STRESS_EXCLUDED = {
     '11-sudoku': 'a search over a large live state'
   , '12-cryptarithm': 'a search over a large live state'
+  , '20-cxx-types-deduction':
+        'two inverse searches in (d) over every type of a depth, unfinished '
+        'after 580 s'
+  , '21-cxx-types-overloads':
+        'an inverse search in (d) over every argument type of depth 2, '
+        'unfinished after 580 s'
   , '22-cxx-types-trait-check': 'seven searches over 1245 types, each a set function'
+  , '23-cxx-types-layout':
+        'a search in (b) over every order of six members, unfinished after '
+        '580 s'
   }
 
 # Directory -> the reason its output is wrong.  The run of such an example

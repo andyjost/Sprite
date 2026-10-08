@@ -54,6 +54,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
+          # The history: make overlay prunes the extracted products of the
+          # sources that changed since the commit that packed the archive,
+          # which it finds with git log; a shallow clone would prune
+          # nothing and leave stale products in place.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
@@ -122,6 +127,18 @@ jobs:
             --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
             --with-icurry="${{ matrix.icurry }}"
           make stage
+      # The overlay archive at the root of the repository holds the
+      # FlatCurry and ICurry products of the test programs (tests/README,
+      # section 8).  It is extracted after the stage: the products are then
+      # newer than the interfaces of the installed library, so the front
+      # end leaves them alone, and sprite-make makes poker_four_of_a_kind
+      # of smap, whose preprocessor currypp the runner lacks, from its
+      # archived FlatCurry; extracted before the stage, the front end would
+      # compile the module again and fail.  The prepare pass and the
+      # functional suites need it; the checkout fetches the history for
+      # its prune.
+      - name: Extract the test products of the overlay archive
+        run: make overlay
       - name: Unit tests
         run: .github/scripts/run-tests.sh ${{ matrix.backend }} 'unit_*.py' ${{ matrix.shard }}
       - name: Functional tests
@@ -157,6 +174,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
+          # The history: make overlay prunes the extracted products of the
+          # sources that changed since the commit that packed the archive,
+          # which it finds with git log; a shallow clone would prune
+          # nothing and leave stale products in place.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
@@ -213,6 +235,9 @@ jobs:
             --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
             --with-icurry="$HOME/.cpm/bin/icurry"
           make stage
+      # The overlay archive, after the stage (see the test job).
+      - name: Extract the test products of the overlay archive
+        run: make overlay
       - name: Unit tests in the collector stress mode
         env:
           SPRITE_GC_STRESS: '1'
@@ -243,6 +268,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
+          # The history: make overlay prunes the extracted products of the
+          # sources that changed since the commit that packed the archive,
+          # which it finds with git log; a shallow clone would prune
+          # nothing and leave stale products in place.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
@@ -300,6 +330,9 @@ jobs:
             --with-icurry="$HOME/.cpm/bin/icurry"
           make GC_WRITE_COUNTERS=1 stage
           test "$(cat install/sysconfig/cxx_gc_write_counters)" = 1
+      # The overlay archive, after the stage (see the test job).
+      - name: Extract the test products of the overlay archive
+        run: make overlay
       - name: Tests of the collector and the heap
         run: .github/scripts/run-tests.sh cxx 'unit_cxx_[gh]*.py' 1/1
       - name: Tests of the collector in the stress mode
@@ -343,6 +376,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
+          # The history: make overlay prunes the extracted products of the
+          # sources that changed since the commit that packed the archive,
+          # which it finds with git log; a shallow clone would prune
+          # nothing and leave stale products in place.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
@@ -399,6 +437,9 @@ jobs:
             --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
             --with-icurry="$HOME/.cpm/bin/icurry"
           make stage
+      # The overlay archive, after the stage (see the test job).
+      - name: Extract the test products of the overlay archive
+        run: make overlay
       - name: Unit tests under interpret:${{ matrix.mode }}
         env:
           SPRITE_TEST_FLAGS: interpret:${{ matrix.mode }}

@@ -18,6 +18,16 @@ recorded in the TODO entry and the measurement table of Gate K.  The
 failure paths of the ticker (a thread that cannot start, a quantum of zero)
 and a fork with an evaluation in flight use the bindings ticker_enter and
 ticker_leave, which do what the outermost scheduler does on entry and exit.
+
+In the stress mode of the collector (SPRITE_GC_STRESS=1) a collection
+follows every step and marks the live state of a search.  The test of the
+pinned counters keeps its psort 8 half there (16929 steps in under a
+second) and skips its countQueens 8 half: that search takes 2.1 million
+steps, and the stress mode repeats the counters of the default mode
+(TestStress of unit_cxx_gc.py).  The repeat test takes a board of six
+there.  An evaluation
+of fair in step mode costs about thirty seconds there, because the sums of
+its loop stay live.
 '''
 import cytest # from ./lib; must be first
 from curry.interpreter import flags
@@ -244,24 +254,37 @@ class TestStepMode(cytest.TestCase):
     its steps and forks moved when the cadence last moved (the T4 entry of
     the TODO) and when the inliner landed (the O2 and O3 entry: fewer
     steps, so the rotations fall elsewhere and the forks move with them).
-    psort 8 ends within one period.
+    psort 8 ends within one period.  The stress mode of the collector checks
+    psort 8 and skips countQueens 8.
     '''
     G = curry.import_('CxxGc')
     values, steps, forks = self.steps_and_forks(G.psort, 8)
     self.assertEqual(values, [[1, 2, 3, 4, 5, 6, 7, 8]])
     self.assertEqual((steps, forks), (16929, 1636))
+    if cytest.GC_STRESS:
+      self.skipTest(
+          'collector stress mode: countQueens 8 takes 2.1 million steps over '
+          'the live state of its search; the stress mode repeats the counters '
+          'of the default mode'
+        )
     values, steps, forks = self.steps_and_forks(G.countQueens, 8)
     self.assertEqual(values, [92])
     self.assertEqual((steps, forks), (2112920, 511484))
 
   @cytest.with_flags(rotation=STEP_MODE)
   def test_counters_repeat(self):
-    '''Two evaluations of one search take the same steps and forks.'''
+    '''
+    Two evaluations of one search take the same steps and forks.  The board
+    is seven, or six in the stress mode of the collector: countQueens 6
+    crosses one rotation period (73967 steps) in about six seconds there,
+    and countQueens 7 takes minutes.
+    '''
+    n, count = (6, 4) if cytest.GC_STRESS else (7, 40)
     G = curry.import_('CxxGc')
-    first = self.steps_and_forks(G.countQueens, 7)
-    second = self.steps_and_forks(G.countQueens, 7)
+    first = self.steps_and_forks(G.countQueens, n)
+    second = self.steps_and_forks(G.countQueens, n)
     self.assertEqual(first, second)
-    self.assertEqual(first[0], [40])
+    self.assertEqual(first[0], [count])
 
   def test_no_ticker(self):
     '''Step mode never starts the ticker thread.'''

@@ -45,18 +45,33 @@ of the installed runtime alone, so the directory (and the CI cache entry
 that carries it) does not grow with every change to the runtime headers.  A
 cache the environment named is left alone: it may serve other
 installations.
+
+A module whose source names a preprocessor the machine lacks, through
+the pragma OPTIONS_CYMAKE -F --pgmF=TOOL (poker_four_of_a_kind of smap
+names currypp), cannot be made from its source.  The overlay archive
+holds its FlatCurry and its ICurry (make overlay, run after make stage;
+section 8 of README), and sprite-make makes the module from them without
+the front end.  Without them the front end runs the tool and fails; the
+module is then without a product, as any other, and the pass fails.  The
+note of the job adds the cause when the log shows it ("poker.curry needs
+currypp, which the PATH lacks; make overlay after make stage supplies its
+products"): the source names the tool, the PATH lacks it, and the log
+holds the message of the front end (PREPROCESSOR_FAILURE).  The status
+does not change for it: a failed pass keeps its meaning.
 '''
 
-import os, re, subprocess
+import os, re, shutil, subprocess
 from . import TESTDIR
 from .scheduler import Job
 
 __all__ = [
     'CACHE_LINE', 'CORPUS', 'DEFAULT_PRODUCT_CACHE', 'EXCLUDE', 'JSON_PRODUCTS'
-  , 'PRODUCT', 'PRUNE', 'REWRITE_LINE', 'PrepareJob', 'cache_counts'
-  , 'corpus_owners', 'directories', 'interpret_flag', 'jobs', 'modules'
-  , 'product_subdir', 'product_suffixes', 'prune_product_cache'
-  , 'rewrite_counts', 'summary'
+  , 'PGMF', 'PRAGMA', 'PREPROCESSOR_FAILURE', 'PRODUCT', 'PRUNE'
+  , 'REWRITE_LINE', 'PrepareJob'
+  , 'cache_counts', 'corpus_owners', 'directories', 'interpret_flag', 'jobs'
+  , 'modules', 'preprocessor', 'preprocessor_failed', 'product_subdir'
+  , 'product_suffixes'
+  , 'prune_product_cache', 'rewrite_counts', 'summary'
   ]
 
 # The product cache of a run unless the environment names one
@@ -223,6 +238,49 @@ PRODUCT = {'py': '.py', 'cxx': '.so'}
 # accepted too.
 JSON_PRODUCTS = ('.json.z', '.json')
 
+# The pragma that names a preprocessor the Curry front end runs over a
+# source, -F --pgmF=TOOL: OPTIONS_CYMAKE in the sources of PAKCS,
+# OPTIONS_FRONTEND in the current front end.  poker_four_of_a_kind of smap
+# names currypp.
+PRAGMA = re.compile(
+    r'\{-#\s*OPTIONS_(?:CYMAKE|FRONTEND)\b(?P<options>.*?)#-\}', re.DOTALL
+  )
+PGMF = re.compile(r'--pgmF(?:=|\s+)(?P<tool>\S+)')
+
+# What the log holds when the front end could not run the preprocessor:
+# the message of the shell ("currypp: not found") or the line of the
+# front end ("Preprocessor exited with exit code 127").
+PREPROCESSOR_FAILURE = re.compile(
+    r'(?P<tool>\S+): not found|Preprocessor exited with exit code'
+  )
+
+def preprocessor_failed(text, tool):
+  '''
+  True when the output ``text`` of sprite-make shows that the front end
+  could not run the preprocessor ``tool`` (PREPROCESSOR_FAILURE).
+  '''
+  for match in PREPROCESSOR_FAILURE.finditer(text):
+    if match.group('tool') in (None, tool):
+      return True
+  return False
+
+def preprocessor(path):
+  '''
+  The preprocessor that the Curry source at ``path`` names in an OPTIONS
+  pragma (PRAGMA, PGMF), or None.  The front end runs the tool over the
+  source, so a machine without it cannot make the module from its source.
+  '''
+  try:
+    with open(path, 'r', errors='replace') as stream:
+      text = stream.read()
+  except OSError:
+    return None
+  for match in PRAGMA.finditer(text):
+    found = PGMF.search(match.group('options'))
+    if found:
+      return found.group('tool')
+  return None
+
 def interpret_flag(flags):
   '''
   The value of the flag ``interpret`` in a SPRITE_INTERPRETER_FLAGS value:
@@ -306,6 +364,13 @@ def command(sprite_home, backend, files):
   make = os.path.join(sprite_home, 'bin', 'sprite-make')
   return [make, '-k', '-c', '-z', TARGET[backend]] + list(files)
 
+def _some(items, limit=8):
+  '''The first ``limit`` of ``items``, joined, and the count of the rest.'''
+  shown = list(items[:limit])
+  if len(items) > len(shown):
+    shown.append('%d more' % (len(items) - len(shown)))
+  return ', '.join(shown)
+
 def _names(modules, limit=6):
   '''The base names of some modules, the first ``limit`` of them.'''
   names = [os.path.basename(module) for module in modules]
@@ -338,11 +403,26 @@ class PrepareJob(Job):
     # them.
     self.refreshed = None
     self.served = None
+    # Of the modules without a product after a run that did not end well,
+    # those whose preprocessor the PATH lacks and the front end could not
+    # run (lacking_tools): module to tool.
+    self.lacking = {}
 
   @property
   def flags(self):
     '''The SPRITE_INTERPRETER_FLAGS of the environment of the job, or None.'''
     return (self.env or {}).get('SPRITE_INTERPRETER_FLAGS')
+
+  def stem(self, module):
+    '''
+    The path of the products of ``module`` in the product directory, up to
+    the suffix; None when the product directory is unknown.
+    '''
+    if self.subdir is None:
+      return None
+    directory, name = os.path.split(module)
+    stem = name[:-len('.curry')] if name.endswith('.curry') else name
+    return os.path.join(self.testdir, directory, self.subdir, stem)
 
   def products(self, module):
     '''
@@ -350,14 +430,38 @@ class PrepareJob(Job):
     the job, under its interpreter flags (product_suffixes); empty when the
     product directory is unknown.
     '''
-    if self.subdir is None:
+    stem = self.stem(module)
+    if stem is None:
       return []
-    directory, name = os.path.split(module)
-    stem = name[:-len('.curry')] if name.endswith('.curry') else name
     return [
-        os.path.join(self.testdir, directory, self.subdir, stem + suffix)
-        for suffix in product_suffixes(self.backend, self.flags)
+        stem + suffix for suffix in product_suffixes(self.backend, self.flags)
       ]
+
+  def tool_lacking(self, module):
+    '''
+    The preprocessor that the source of ``module`` names (preprocessor)
+    when the PATH of the job lacks it; None when the source names none or
+    the PATH has it.
+    '''
+    tool = preprocessor(os.path.join(self.testdir, module))
+    if tool is None:
+      return None
+    path = (self.env or os.environ).get('PATH')
+    return None if shutil.which(tool, path=path) else tool
+
+  def lacking_tools(self, missing, text):
+    '''
+    Of ``missing``, the modules without a product, those whose source
+    names a preprocessor the PATH lacks (tool_lacking) and whose failure
+    the log ``text`` shows (preprocessor_failed).  A dict of module to
+    tool, in the order of ``missing``.
+    '''
+    found = {}
+    for module in missing:
+      tool = self.tool_lacking(module)
+      if tool is not None and preprocessor_failed(text, tool):
+        found[module] = tool
+    return found
 
   def product(self, module):
     '''The usual product of ``module``: the first of ``products``, or None.'''
@@ -376,17 +480,23 @@ class PrepareJob(Job):
                if not any(os.path.isfile(f) for f in self.products(module))
       ]
 
+  def log_text(self):
+    '''The text of the log; empty when there is none or it is unreadable.'''
+    if not self.logfile:
+      return ''
+    try:
+      with open(self.logfile, 'r', errors='replace') as stream:
+        return stream.read()
+    except OSError:
+      return ''
+
   def read_cache_counts(self):
     '''
     Reads the counts of the product cache (cache_counts) and of the
     pre-rewrite pairs (rewrite_counts) from the log.
     '''
-    if not self.logfile:
-      return
-    try:
-      with open(self.logfile, 'r', errors='replace') as stream:
-        text = stream.read()
-    except OSError:
+    text = self.log_text()
+    if not text:
       return
     found = cache_counts(text)
     if found is not None:
@@ -407,12 +517,21 @@ class PrepareJob(Job):
       missing = self.missing()
       if missing is None:
         details.append('see the log')
-      elif not missing:
-        details.append('every product is present')
-      else:
+      elif missing:
         details.append('%d of %d modules without a product: %s' % (
             len(missing), len(self.modules), _names(missing)
           ))
+        self.lacking = self.lacking_tools(missing, self.log_text())
+        for tool in sorted(set(self.lacking.values())):
+          names = [m for m, t in self.lacking.items() if t == tool]
+          details.append(
+              '%s need%s %s, which the PATH lacks; make overlay after make '
+              'stage supplies %s products' % (
+                  _names(names), 's' if len(names) == 1 else '', tool
+                , 'its' if len(names) == 1 else 'their'
+                ))
+      else:
+        details.append('every product is present')
     if details:
       detail = '; '.join(details)
       self.note = '%s; %s' % (self.note, detail) if self.note else detail
@@ -444,7 +563,7 @@ def summary(jobs):
   missing = []
   unknown = []
   for job in jobs:
-    if job.status == 'ok' or not job.finished:
+    if not job.finished or job.status == 'ok':
       continue
     found = job.missing()
     if found is None:
@@ -455,10 +574,7 @@ def summary(jobs):
     return head + ', every product present'
   parts = [head]
   if missing:
-    shown = missing[:8]
-    if len(missing) > len(shown):
-      shown.append('%d more' % (len(missing) - len(shown)))
-    parts.append('%d without a product: %s' % (len(missing), ', '.join(shown)))
+    parts.append('%d without a product: %s' % (len(missing), _some(missing)))
   if unknown:
     parts.append(
         '%d director%s did not end well, products unknown: see the log'

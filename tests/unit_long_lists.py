@@ -16,6 +16,14 @@ import curry, unittest
 
 PY = curry.flags['backend'] == 'py'
 N = 10000
+# The size of the long list.  In the stress mode of the collector
+# (SPRITE_GC_STRESS=1) a collection follows every rewrite step and marks the
+# whole list, so length costs the square of the size and sort more: ten
+# thousand elements take about three minutes on the C++ backend, two
+# thousand about eight seconds.  The property holds at either size.  The
+# Python backend has no such collector and keeps ten thousand: that size is
+# the subject of issue #62 there.
+LONG = 2000 if cytest.GC_STRESS and not PY else N
 
 def values(*args):
   return list(curry.eval(*args, converter='topython'))
@@ -23,11 +31,16 @@ def values(*args):
 class TestLongLists(cytest.TestCase):
   @cytest.timeout(120)
   def test_length_and_sort(self):
-    '''length and sort over ten thousand elements, on both backends.'''
+    '''
+    length and sort over ten thousand elements, on both backends; over two
+    thousand on the C++ backend in the stress mode of the collector.
+    '''
     P = curry.import_('Prelude')
     DL = curry.import_('Data.List')
-    self.assertEqual(values(P.length, list(range(N))), [N])
-    self.assertEqual(values(DL.sort, list(range(N, 0, -1))), [list(range(1, N + 1))])
+    self.assertEqual(values(P.length, list(range(LONG))), [LONG])
+    self.assertEqual(
+        values(DL.sort, list(range(LONG, 0, -1))), [list(range(1, LONG + 1))]
+      )
 
   def test_length_below_the_limit(self):
     '''A list of a thousand elements works on both backends.'''

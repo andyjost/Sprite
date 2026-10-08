@@ -129,9 +129,17 @@ class PreRewriteCase(cytest.TestCase):
       )
 
   def no_front_end(self):
-    '''Fails the test when the front end runs from here on.'''
+    '''
+    Fails the test when the front end runs from here on.  Another command
+    through _system.pexec runs as usual: under interpret:off the C++
+    backend compiles the module with the C++ compiler through it.
+    '''
+    frontend = config.curry_frontend()
+    real = _system.pexec
     def pexec(cmd, *args, **kwds):
-      raise AssertionError('the front end ran: %s' % ' '.join(cmd))
+      if cmd[0] == frontend:
+        raise AssertionError('the front end ran: %s' % ' '.join(cmd))
+      return real(cmd, *args, **kwds)
     patcher = mock.patch.object(_system, 'pexec', pexec)
     patcher.start()
     self.addCleanup(patcher.stop)

@@ -762,23 +762,32 @@ class TestSaturateApplies(ApplyTestCase):
 class TestEvaluation(ApplyTestCase):
   '''Values and steps of the optimized program against the unoptimized one.'''
 
+  @cytest.hardreset
   def test_values(self):
-    for stem, text, values in [
+    programs = [
         ('Chains', CHAINS, CHAIN_VALUES), ('Order', ORDER, ORDER_VALUES)
-      ]:
+      ]
+    for stem, text, values in programs:
       optimized = self.import_(self.write(stem, text))
-      unoptimized = self.unoptimized(self.write(stem, text))
       for goal, expected in values.items():
         self.assertEqual(self.values(optimized, goal), expected, goal)
+    # The unoptimized form runs interpreted (interpretable).
+    self.interpretable()
+    for stem, text, values in programs:
+      unoptimized = self.unoptimized(self.write(stem, text))
+      for goal, expected in values.items():
         self.assertEqual(self.values(unoptimized, goal), expected, goal)
 
+  @cytest.hardreset
   def test_choices(self):
     '''A choice in an argument of a collapsed chain: the same values, no more.
     '''
     optimized = self.import_(self.write('Choices', CHOICES))
-    unoptimized = self.unoptimized(self.write('Choices', CHOICES))
     for goal, expected in CHOICE_VALUES.items():
       self.assertCountEqual(self.values(optimized, goal), expected, goal)
+    self.interpretable()
+    unoptimized = self.unoptimized(self.write('Choices', CHOICES))
+    for goal, expected in CHOICE_VALUES.items():
       self.assertCountEqual(self.values(unoptimized, goal), expected, goal)
 
   @cytest.hardreset
