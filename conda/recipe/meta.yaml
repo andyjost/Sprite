@@ -26,20 +26,21 @@ build:
   rpaths:
     - lib
     - opt/sprite/lib
-  # Of the files under opt/sprite/curry, two kinds name the build prefix.
-  # The shared objects of the compiled library modules name the modules
-  # they import by absolute path (their NEEDED entries; see
-  # curry.backends.cxx.toolchain.Cpp2So); conda-build records them in
-  # info/has_prefix as binary files.  The ABI stamp beside each object
-  # (.so.abi) names the real path of the installation as text on its
-  # second line; conda-build records a text file that holds the prefix by
-  # itself.  conda writes the prefix of the environment into both kinds at
+  # Of the files under opt/sprite/curry, one kind names the build prefix:
+  # the ABI stamp beside each compiled library module (.so.abi) names the
+  # real path of the installation as text on its second line.  conda-build
+  # records a text file that holds the prefix in info/has_prefix by
+  # itself, and conda writes the prefix of the environment into it at
   # install time, so the shipped objects stay current ("Relocation" in
-  # ../README.md).  The generated Python and C++ files name their sources
-  # relative to the installation (step 9 of build.sh), so no other text
-  # file holds the prefix; a test below checks the .py and .cpp files.
-  # The binary case is the default on Linux; it is spelled out because the
-  # package depends on it.
+  # ../README.md).  The objects themselves hold no path since format 13 of
+  # the generated code: they name the modules they import by SONAME
+  # (curry.backends.cxx.toolchain.Cpp2So), so no binary file of the package
+  # holds the prefix.  The generated Python and C++ files name their
+  # sources relative to the installation (step 9 of build.sh), so no other
+  # text file holds it; a test below checks the .py and .cpp files.  The
+  # detection of binary files is the default on Linux; it stays spelled
+  # out so that a binary file that holds the prefix again shows up in
+  # info/has_prefix instead of breaking silently.
   detect_binary_files_with_prefix: true
 
 requirements:

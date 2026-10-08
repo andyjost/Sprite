@@ -87,29 +87,34 @@ Build (`build.sh`):
    the generated Python resolves the name against the installation of the
    process when it loads (`curry.config.installed_path`), and the loader of
    the C++ backend resolves the name of the module record the same way.  A
-   source outside the installation keeps its absolute path.  So no
-   generated text file of the package holds the build prefix.
+   source outside the installation keeps its absolute path in the generated
+   Python; the record of the generated C++ names it relative to the object
+   (`../../M.curry`; format 13).  So no generated text file of the package
+   holds the build prefix.
 
-Relocation.  The compiled library modules name the build prefix: the shared
-objects name the modules they import by absolute path (their `NEEDED`
-entries, written by `curry.backends.cxx.toolchain.Cpp2So`). conda-build
-finds the prefix in them and lists them in `info/has_prefix` as binary
-files, 12 files in the build of 2026-10-07 (the 12 library modules with
-imports; `Prelude.so` imports nothing and names no path); conda writes the
-prefix of the environment into them at install time.  Since the stamp change
-of issue #100 (2026-10-07) the ABI stamp beside each compiled module
-(`.so.abi`, 13 files) names the real path of the installation as text on its
-second line, so conda-build lists the stamps as text entries of
+Relocation.  One kind of file of the package names the build prefix: the
+ABI stamp beside each compiled library module (`.so.abi`, 13 files) names
+the real path of the installation as text on its second line (issue #100,
+2026-10-07).  conda-build lists the stamps as text entries of
 `info/has_prefix` (it finds the prefix in a text file by itself; no line of
-`meta.yaml` or `build.sh` is needed) and conda rewrites them with the
-objects; the next build verifies the count, 12 binary and 13 text entries.
-The stamp holds the real path, so the build prefix must be a real path for
+`meta.yaml` or `build.sh` is needed) and conda rewrites them at install
+time, so the shipped objects count as current in the environment.  The
+stamp holds the real path, so the build prefix must be a real path for
 conda-build to find it in the stamps (a build root without a link in it).
-`meta.yaml` spells out
-`detect_binary_files_with_prefix`, the default on Linux, because the package
-depends on it.  Nothing else in the package names the build directory or the
-build prefix: the generated Python and C++ files name their sources relative
-to the installation (step 9 above), the links and launchers are relative,
+The shared objects themselves hold no path since format 13 of the generated
+code (2026-10-08): each object carries the `SONAME`
+`sprite-<module>.so.<format>` and names the modules it imports by their
+`SONAME` in its `NEEDED` entries (`curry.backends.cxx.toolchain.Cpp2So`),
+and the loader opens the imports of an object before the object, so the
+dynamic linker finds each name mapped.  Before format 13 the `NEEDED`
+entries named the objects of the imports by absolute path, conda-build
+listed the 12 objects with imports in `info/has_prefix` as binary files
+(the build of 2026-10-07), and conda patched the paths at install time.
+`meta.yaml` keeps `detect_binary_files_with_prefix` spelled out, the default
+on Linux, so that a binary file that holds the prefix again shows up in
+`info/has_prefix`.  Nothing else in the package names the build directory or
+the build prefix: the generated Python and C++ files name their sources
+relative to the installation (step 9 above), the links and launchers are relative,
 the sysconfig values name no prefix (`ld_interpreter_path` is a path, the
 dynamic loader `/lib64/ld-linux-x86-64.so.2`; see open question 13), and
 `-ffile-prefix-map` keeps the source directory out of the runtime binaries.
@@ -158,7 +163,12 @@ fresh environment with the 13 stamps rewritten, which is what the change
 gives: the first import of the Prelude 0.20 s from the shipped object,
 `sprite-exec` of the program 0.69 s then 0.18 s, `sprite-make --so` 3.4 s
 (the precompiled header and the program), nothing written under
-`opt/sprite`.  No build with the change has been made yet; open question 2
+`opt/sprite`.  Since format 13 (2026-10-08) the objects name no path, so
+the stamps are the one kind of file conda rewrites, and a test of the
+repository relocates a copy of a staged installation and loads its library
+from the copy with nothing compiled
+(`test_relocated_installation_loads_its_objects` of `tests/unit_conda.py`).
+No package build with either change has been made yet; open question 2
 names what it must show.
 
 The order of the chain is no longer at stake: the toolchain starts a
@@ -532,9 +542,10 @@ Resolve these before anything is published.  The license question of the
 first scaffold is closed: `LICENSE` at the root of the repository is the
 BSD 3-Clause license of Sprite, and the package ships it with the notices
 of the Curry library (`curry/lib/LICENSE`, `curry/lib/NOTICE`) and of
-pybind11.  Questions 3, 10, 11, 13 and 14 were decided on 2026-10-07, and
-the stamp of question 2 under issue #100 the same day; the entries record
-the decision.
+pybind11.  Questions 3, 10, 11, 13 and 14 were decided on 2026-10-07, the
+stamp of question 2 under issue #100 the same day, and the objects of
+question 2 on 2026-10-08 (format 13 of the generated code); the entries
+record the decisions.
 
 1. The front end.  Keep the separate package.  The binary has its own
    license and origin, it moves with PAKCS and not with Sprite, and a
@@ -567,17 +578,29 @@ the decision.
    alone), and conda rewrites a text entry at install time.  `build.sh`
    turns the product cache of the C++ backend off
    (`SPRITE_PRODUCT_CACHE=`), so the build compiles its own library
-   objects and the package holds files, not hard links into a cache.  What
-   the next build must show: 12 binary and 13 text entries in
-   `info/has_prefix`; in an environment, a stamp whose second line is the
-   prefix of the environment (`<env>/opt/sprite`), the first import of the
-   Prelude from the shipped object, `sprite-make --so` of a program without
-   a recompile of the library, and no file of the package changed after the
-   runs.  The stamp holds the real path, so the build prefix must be a real
-   path for conda-build to find it (a build root without a link in it).  A
-   system compiler should stay out: the generated code must see the
-   libstdc++ headers of a compiler that matches the runtime library of the
-   environment.  Open: the split.
+   objects and the package holds files, not hard links into a cache.  The
+   objects: since format 13 of the generated code (2026-10-08) a compiled
+   module names the modules it imports by `SONAME`, not by path, and its
+   record names a source outside the installation relative to the object,
+   so no binary file of the package holds the prefix and `info/has_prefix`
+   holds the stamps as text entries alone; the relocation of the objects
+   is tested in the repository (`test_relocated_installation_loads_its_objects`
+   of `tests/unit_conda.py`: a copy of a staged installation with its
+   stamps rewritten loads the library from its own objects, compiles
+   nothing, and maps no object of the original).  What the next build must
+   show: 13 text entries and no binary entry in `info/has_prefix` (the
+   stamps; a binary entry means an object holds the prefix again); in an
+   environment, a stamp whose second line is the prefix of the environment
+   (`<env>/opt/sprite`), `readelf -d` of `Data/List.so` with
+   `sprite-Prelude.so.13` and no path among its `NEEDED` entries, the first
+   import of the Prelude from the shipped object, `sprite-make --so` of a
+   program without a recompile of the library, and no file of the package
+   changed after the runs.  The stamp holds the real path, so the build
+   prefix must be a real path for conda-build to find it (a build root
+   without a link in it).  A system compiler should stay out: the generated
+   code must see the libstdc++ headers of a compiler that matches the
+   runtime library of the environment.  The stamp and the objects are
+   closed; open: the split.
 
 3. Writes into the package at run time.  Decided on 2026-10-07; see
    decision 6.  The precompiled header: `config.cxx_pch_root` chooses the
@@ -710,9 +733,11 @@ Publication and the channel are the owner's decisions.  Before them:
 
 1. The front end (question 1): a feedstock `curry-frontend`, and a build
    of the front end from source for a second platform.
-2. The ABI stamp (question 2): applied under issue #100; the next build
-   verifies the text entries of `info/has_prefix` and the runs named under
-   question 2.  Then decide the split into `sprite` and `sprite-cxx`.
+2. The ABI stamp and the objects (question 2): applied under issue #100
+   and the format-13 change of 2026-10-08; the next build verifies that
+   `info/has_prefix` holds the 13 stamps as text entries and no binary
+   entry, and the runs named under question 2.  Then decide the split into
+   `sprite` and `sprite-cxx`.
 3. The compiler pin (question 6): take the compiler of the pinning file on
    both sides, or tie them with `run_constrained`; the probe with GCC 16
    is recorded in the entry.

@@ -51,11 +51,13 @@ module stays mapped under its path; the runtime loads the new file through a
 link of its own name (see the load in cyrt/tiered.hpp).
 
 The imports.  A compiled object names the objects of its imports as needed
-libraries, which the dynamic linker maps before the loader processes the
-imports.  So the toolchain loads an object only when every import of the
-module was loaded from its object (Cpp2So.is_stale imports them first); a
-module whose import is interpreted is interpreted too, and its compile waits
-in the queue behind the compile of the import.
+libraries, by their SONAMEs (toolchain.soname), which the dynamic linker
+satisfies with the objects of those names the process has mapped.  So the
+toolchain loads an object only when every import of the module was loaded
+from its object (Cpp2So.is_stale imports them first; the loader imports the
+modules an object needs before it opens it); a module whose import is
+interpreted is interpreted too, and its compile waits in the queue behind
+the compile of the import, whose object the swap maps before the importer's.
 
 What is not compiled.  An expression module (curry.compile in mode 'expr'),
 an interactive module, and a module compiled from a string (str2module): the

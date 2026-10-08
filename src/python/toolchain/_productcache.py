@@ -26,17 +26,18 @@ JSON, each one that exists; the JSON is the input of the code generator,
 and a new JSON from the same source, after a change to the ICurry reader or
 to a pinned ICurry file, must miss), the sources of the modules it imports,
 and the facts the backend names (the format of the generated code, the
-sources of the code generator, the flags of the optimizer, the route from
-Curry to ICurry, the real paths of the installation, which is the second
-line of the stamp, and of the source directory; see
-``Cpp2So.product_facts`` of the C++ backend for the list and the reasons).
-An object names the two paths, so an entry
-serves one tree: the same tree after its products were removed, or after
-an edit and its revert; two trees share an entry once the object names no
-absolute path.  The names of the files in an entry are the names of the
-products beside the source.  The stamp stored in an entry is the one the
-compile wrote; a restore writes a stamp of its own for the installation
-that restores.
+sources of the code generator, the flags of the optimizer and the route
+from Curry to ICurry; see ``Cpp2So.product_facts`` of the C++ backend for
+the list and the reasons).  No part of the key names a tree, and the
+products name no path (the objects name their imports by SONAME and the
+record of a module names its source relative to the installation or to
+the object, since format 13 of the generated code), so an entry serves
+every tree of one runtime: the same tree after its products were removed
+or after an edit and its revert, and a second worktree, which compiles
+nothing the first compiled.  The names of the files in an entry are the
+names of the products beside the source.  The stamp stored in an entry is
+the one the compile wrote; a restore writes a stamp of its own for the
+installation that restores.
 
 Concurrency.  Two processes may store the same key at once: a store writes
 its files into a temporary directory beside the entry and renames the
@@ -77,7 +78,10 @@ __all__ = [
 # The format of the key.  Raise it when the layout of an entry or the parts
 # of the key change; the entries of the old format are then never found.
 # Format 2 added the ICurry file and the JSON of the module to the chain.
-KEY_FORMAT = 2
+# Format 3 dropped the real paths of the installation and of the source
+# directory from the facts (the products name no path since format 13 of
+# the generated code), so two trees share an entry.
+KEY_FORMAT = 3
 
 # The suffixes of the files a store and a restore may hard-link.  The others
 # are copied: the emitter writes a generated file in place, and a link would

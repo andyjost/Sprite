@@ -31,8 +31,10 @@ the interpreter flag ``debug`` is set.
 import cytest # from ./lib; must be first
 from cytest.logging import capture_log
 from curry import config, exceptions
-from curry.backends.cxx import compiler, toolchain
+from curry.backends.cxx import compiler, elf, loader, toolchain
+from curry.objects.handle import getHandle
 from curry.toolchain import plans, _findcurry, makecurry
+from curry.utility import curryname
 from curry.utility.binding import binding, del_
 from unittest import mock
 import curry, gc, importlib, itertools, json, logging, os, shutil, subprocess
@@ -327,6 +329,7 @@ class TestFormatStamp(ToolchainTestCase):
   '''
   STALE = '#error this file is stale\n'
   IMPORTS = '// IMPORTS: Prelude\n'
+  MODULE = '// MODULE: Fake\n'
 
   def write_cpp(self, name, lines):
     '''Writes a cached .cpp file for ``name``, newer than its JSON file.'''
@@ -342,11 +345,13 @@ class TestFormatStamp(ToolchainTestCase):
     module = self.compile_module(1)
     path = self.cached_file(module.__name__, '.cpp')
     with open(path) as stream:
-      head = [next(stream) for _ in range(4)]
-    # The stamp follows the import list, before the first include.
+      head = [next(stream) for _ in range(5)]
+    # The stamp follows the import list; the module name follows the stamp,
+    # before the first include.
     i = head.index(self.IMPORTS)
     self.assertEqual(head[i + 1], self.stamp(compiler.FORMAT_VERSION))
-    self.assertTrue(any(line.startswith('#include') for line in head[i + 2:]))
+    self.assertEqual(head[i + 2], '// MODULE: %s\n' % module.__name__)
+    self.assertTrue(any(line.startswith('#include') for line in head[i + 3:]))
     cpp2so = toolchain.Cpp2So(curry.getInterpreter())
     self.assertEqual(cpp2so.format_version(path), compiler.FORMAT_VERSION)
     self.assertFalse(cpp2so.is_stale(path))
@@ -378,11 +383,20 @@ class TestFormatStamp(ToolchainTestCase):
     '''A file with the current stamp is the prerequisite, as before.'''
     name = self.write_json(4)
     self.write_cpp(
-        name, [self.IMPORTS, self.stamp(compiler.FORMAT_VERSION), self.STALE]
+        name
+      , [self.IMPORTS, self.stamp(compiler.FORMAT_VERSION), self.MODULE, self.STALE]
       )
     with self.assertRaises(exceptions.CompileError) as cm:
       self.import_module(name)
     self.assertIn('this file is stale', str(cm.exception))
+    # A file of the current format without the module line, from which the
+    # compile step forms the SONAME of the object, is a prerequisite error.
+    self.write_cpp(
+        name, [self.IMPORTS, self.stamp(compiler.FORMAT_VERSION), self.STALE]
+      )
+    with self.assertRaises(exceptions.PrerequisiteError) as cm:
+      self.import_module(name)
+    self.assertIn('MODULE', str(cm.exception))
 
   def test_object_of_a_stale_file_is_dropped(self):
     '''
@@ -843,6 +857,520 @@ def undefined_symbols(path):
       line.split()[-1].split('@')[0]
       for line in proc.stdout.splitlines() if line.strip()
     )
+
+# The ICurry-JSON of a module with two public functions: ``goal`` returns the
+# integer ``value``, and ``uses`` calls ``callee`` with ``args`` (JSON
+# expressions, comma-separated) and is never evaluated.  The call keeps a
+# symbol of the module of the callee in the object, so the object binds to
+# that module when it loads.  The linker records every import among the
+# needed libraries whether or not a symbol is taken (toolchain.LINK_FLAGS
+# pins --no-as-needed).  A callee that is ``uses`` itself, or a recursive
+# function of the Prelude, is not inlined away.
+CALLING_JSON = (
+    '{"__class__":"IProg","name":"%(name)s","imports":[%(imports)s]'
+    ',"types":[],"functions":[{"__class__":"IFunction","name":"%(name)s.goal"'
+    ',"arity":0,"vis":{"__class__":"Public"},"needed":[],"body":{"__class__":'
+    '"IFuncBody","block":{"__class__":"IBlock","vardecls":[],"assigns":[]'
+    ',"stmt":{"__class__":"IReturn","expr":{"__class__":"ILit","lit":'
+    '{"__class__":"IInt","value":%(value)d}}}}}}'
+    ',{"__class__":"IFunction","name":"%(name)s.uses"'
+    ',"arity":0,"vis":{"__class__":"Public"},"needed":[],"body":{"__class__":'
+    '"IFuncBody","block":{"__class__":"IBlock","vardecls":[],"assigns":[]'
+    ',"stmt":{"__class__":"IReturn","expr":{"__class__":"IFCall"'
+    ',"name":"%(callee)s","exprs":[%(args)s]}}}}}],"aliases":[]}'
+  )
+INT_LITERAL = '{"__class__":"ILit","lit":{"__class__":"IInt","value":%d}}'
+
+# A child process that imports a module from a directory with the compiler
+# of the toolchain counted, and prints the commands, the value, the source
+# file and the object of the module, and the compile seconds, as JSON.
+COUNTING_IMPORT = '\n'.join([
+    'import curry, json, os'
+  , 'from curry.objects.handle import getHandle'
+  , 'from curry.toolchain import _system'
+  , 'commands = []'
+  , 'pexec = _system.pexec'
+  , 'def counting_pexec(cmd, *args, **kwds):'
+  , '  commands.append(cmd)'
+  , '  return pexec(cmd, *args, **kwds)'
+  , '_system.pexec = counting_pexec'
+  , 'module = curry.import_(%(name)r, currypath=%(currypath)r)'
+  , 'value = list(curry.eval(module.goal, converter="topython"))'
+  , 'print(json.dumps(['
+  , '    commands, value, module.__file__, getHandle(module).sofilename'
+  , '  , curry.stats()["compile"]'
+  , '  ]))'
+  ])
+
+def dynamic_names(dynamic):
+  '''Every name of a dynamic section: the NEEDED entries, the SONAME and the paths.'''
+  names = list(dynamic.needed)
+  names += [n for n in (dynamic.soname, dynamic.rpath, dynamic.runpath) if n]
+  return names
+
+@unittest.skipIf(
+    curry.flags['backend'] != 'cxx', 'the toolchain belongs to the C++ backend'
+  )
+class TestPortableObjects(ToolchainTestCase):
+  '''
+  A compiled object names no path, so it serves any tree (format 13 of the
+  generated code).  The object has a SONAME, "sprite-<module>.so.<format>"
+  (toolchain.soname), and names the objects of its imports by their
+  SONAMEs; the loader imports those modules before it opens the object, so
+  the dynamic linker finds each name mapped.  The record names a source
+  outside the installation relative to the directory of the object.  So a
+  copy of a tree with its products loads them at another path, and the
+  product cache serves a second tree (unit_product_cache.py).
+  '''
+  def setUp(self):
+    super().setUp()
+    self.plan = plans.makeplan(
+        curry.getInterpreter(), plans.MAKE_ALL | plans.ZIP_JSON
+      )
+    self.cpp2so = toolchain.Cpp2So(curry.getInterpreter())
+
+  def write_calling_json(self, value, imported=None, callee=None, args=()):
+    '''
+    The JSON of a module whose ``uses`` calls ``callee`` (see CALLING_JSON);
+    by default itself.  With ``imported`` the module imports that module
+    besides the Prelude.  Returns the name of the module.
+    '''
+    name = 'ToolchainTest%d' % next(self.counter)
+    imports = ['Prelude'] + ([imported] if imported else [])
+    text = CALLING_JSON % {
+        'name': name, 'value': value
+      , 'imports': ', '.join('"%s"' % i for i in imports)
+      , 'callee': callee or name + '.uses'
+      , 'args': ', '.join(INT_LITERAL % a for a in args)
+      }
+    with open(self.cached_file(name, '.json.z'), 'wb') as stream:
+      stream.write(zlib.compress(text.encode('utf-8')))
+    return name
+
+  def on_curry_path(self, directory):
+    '''
+    Puts ``directory`` on curry.path for the test: the compile step imports
+    the imports of a module from there.
+    '''
+    curry.path.insert(0, directory)
+    def remove():
+      if directory in curry.path:
+        curry.path.remove(directory)
+    self.addCleanup(remove)
+
+  def counting_import(self, name, currypath, env=None):
+    '''Imports ``name`` in a child process; see COUNTING_IMPORT.'''
+    code = COUNTING_IMPORT % {'name': name, 'currypath': currypath}
+    with mock.patch.dict(os.environ, env or {}):
+      proc = cytest.run_in_subprocess(code, timeout=300)
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    return json.loads(proc.stdout.strip().splitlines()[-1])
+
+  def test_soname_form(self):
+    '''The form of the SONAME, and the names that are not one.'''
+    self.assertEqual(
+        toolchain.soname('Data.List')
+      , 'sprite-Data.List.so.%d' % compiler.FORMAT_VERSION
+      )
+    self.assertEqual(toolchain.soname('Prelude', 12), 'sprite-Prelude.so.12')
+    self.assertEqual(toolchain.module_of_soname('sprite-Data.List.so.13'), 'Data.List')
+    self.assertEqual(toolchain.module_of_soname('sprite-intmath065.so.13'), 'intmath065')
+    self.assertEqual(toolchain.module_of_soname('sprite-Data.so.so.13'), 'Data.so')
+    for name in [
+        'libcyrt.so', 'libstdc++.so.6', 'libgcc_s.so.1', 'libc.so.6', 'libm.so.6'
+      , 'Prelude.so.13', 'sprite-.so.13', 'sprite-X.so.1a', 'sprite-X.so'
+      , 'sprite-a/b.so.13', 'sprite-a-b.so.13', ''
+      ]:
+      self.assertIsNone(toolchain.module_of_soname(name), name)
+
+  def test_object_names_no_path(self):
+    '''
+    The SONAME of the object and its NEEDED entries, read from the dynamic
+    section and checked against readelf when it is installed; the header
+    of the generated file; and the record of the source, relative to the
+    object.  No absolute path in either file.
+    '''
+    name = self.write_calling_json(21, callee='Prelude.foldr', args=(1, 2, 3))
+    module = self.import_module(name)
+    self.check_value(module, 21)
+    sofile = self.cached_file(name, '.so')
+    cppfile = self.cached_file(name, '.cpp')
+    dynamic = elf.read_dynamic(sofile)
+    self.assertEqual(dynamic.soname, toolchain.soname(name))
+    self.assertIn(toolchain.soname('Prelude'), dynamic.needed)
+    self.assertIn('libcyrt.so', dynamic.needed)
+    self.assertIsNone(dynamic.rpath)
+    self.assertIsNone(dynamic.runpath)
+    for entry in dynamic_names(dynamic):
+      self.assertNotIn(os.sep, entry)
+    self.assertEqual(loader.needed_modules(sofile), ['Prelude'])
+    if shutil.which('readelf') is not None:
+      out = subprocess.run(
+          ['readelf', '-d', sofile], capture_output=True, text=True, check=True
+        ).stdout
+      def entries(tag):
+        return [
+            line.split('[', 1)[1].rstrip().rstrip(']')
+            for line in out.splitlines() if '(%s)' % tag in line
+          ]
+      self.assertEqual(entries('NEEDED'), dynamic.needed)
+      self.assertEqual(entries('SONAME'), [dynamic.soname])
+      self.assertEqual(entries('RPATH') + entries('RUNPATH'), [])
+    # The header and the record of the generated file.
+    text = cytest.readfile(cppfile)
+    self.assertIn('// MODULE: %s\n' % name, text)
+    self.assertIn('/*filename */ "../../%s.curry"' % name, text)
+    self.assertNotIn(self.tmpdir, text)
+    self.assertNotIn(os.path.realpath(self.tmpdir), text)
+    self.assertNotIn(config.prefix(), text)
+    # The loader resolves the record from the object: the module names the
+    # source beside the product directory.
+    self.assertEqual(module.__file__, os.path.join(self.srcdir, name + '.curry'))
+    self.assertEqual(getHandle(module).sofilename, sofile)
+    self.assertEqual(
+        getHandle(module).icurry.metadata['cxx.shlib'].bom.filename
+      , '../../%s.curry' % name
+      )
+
+  def test_record_forms(self):
+    '''The two forms of the record and their resolution.'''
+    source_file_name = compiler._source_file_name
+    installed = config.installed_path('curry', 'Prelude.curry')
+    self.assertEqual(
+        source_file_name(installed), os.path.join('curry', 'Prelude.curry')
+      )
+    outside = os.path.join(self.srcdir, 'M.curry')
+    self.assertEqual(source_file_name(outside), os.path.join('..', '..', 'M.curry'))
+    packaged = os.path.join(self.srcdir, 'Pkg', 'M.curry')
+    self.assertEqual(source_file_name(packaged), os.path.join('..', '..', 'M.curry'))
+    sofile = os.path.join(self.subdir, 'M.so')
+    self.assertEqual(loader.source_file('../../M.curry', sofile), outside)
+    self.assertEqual(
+        loader.source_file('./M.curry', sofile), os.path.join(self.subdir, 'M.curry')
+      )
+    self.assertEqual(
+        loader.source_file(os.path.join('curry', 'Prelude.curry'), sofile), installed
+      )
+    self.assertEqual(loader.source_file(outside, sofile), outside)
+    self.assertIsNone(loader.source_file('', sofile))
+    self.assertIsNone(loader.source_file(None, sofile))
+    # An object outside a product directory: an object-relative record
+    # names no file of the module, and the module has no source file.
+    elsewhere = os.path.join(self.tmpdir, 'out', 'M.so')
+    self.assertIsNone(loader.source_file('../../M.curry', elsewhere))
+    self.assertIsNone(loader.source_file('./M.curry', elsewhere))
+    self.assertEqual(
+        loader.source_file(os.path.join('curry', 'Prelude.curry'), elsewhere)
+      , installed
+      )
+    self.assertEqual(loader.source_file(outside, elsewhere), outside)
+    # A file given by a relative path: the record is relative to the object
+    # of that file, under the same directory.
+    self.assertEqual(source_file_name('M.curry'), os.path.join('..', '..', 'M.curry'))
+
+  def test_installed_library_names_no_path(self):
+    '''
+    Every object of the installed library has the SONAME of its module and
+    names its imports by their SONAMEs: no path in any entry.  The test
+    reads the objects that are current for this installation.
+    '''
+    library = config.system_curry_path()
+    objects = []
+    for dirpath, dirnames, filenames in os.walk(library):
+      if os.path.basename(dirpath) != config.intermediate_subdir():
+        continue
+      for filename in filenames:
+        if filename.endswith('.so'):
+          objects.append(os.path.join(dirpath, filename))
+    objects = [so for so in objects if self.cpp2so.stamp_is_current(so)]
+    if not objects:
+      self.skipTest('the installed library has no current object')
+    for sofile in sorted(objects):
+      dynamic = elf.read_dynamic(sofile)
+      modulename = toolchain.module_of_soname(dynamic.soname or '')
+      self.assertIsNotNone(modulename, sofile)
+      self.assertEqual(
+          modulename.rsplit('.', 1)[-1], os.path.basename(sofile)[:-3], sofile
+        )
+      self.assertEqual(dynamic.soname, toolchain.soname(modulename))
+      for entry in dynamic_names(dynamic):
+        self.assertNotIn(os.sep, entry, sofile)
+      for imported in loader.needed_modules(sofile):
+        self.assertTrue(curryname.isLegalModulename(imported), imported)
+      # The NEEDED entries are the imports of the module, in the order of
+      # the IMPORTS line of the generated file (toolchain.LINK_FLAGS).
+      cppfile = sofile[:-3] + '.cpp'
+      if os.path.isfile(cppfile):
+        self.assertEqual(
+            loader.needed_modules(sofile), self.cpp2so._importedModules(cppfile)
+          , sofile
+          )
+      if modulename == 'Data.List':
+        self.assertIn(toolchain.soname('Prelude'), dynamic.needed)
+        self.assertIn('Prelude', loader.needed_modules(sofile))
+
+  def test_loads_from_a_copy_of_the_tree(self):
+    '''
+    A copy of the tree with its products at another path: the object loads
+    from the copy, nothing is compiled, and the module names the source of
+    the copy.  The stamp of the copy is rewritten through a build prefix
+    first, as a package manager rewrites the stamps of a relocated package,
+    and names this installation again.
+    '''
+    module = self.compile_module(22)
+    name = module.__name__
+    copy = os.path.join(self.tmpdir, 'copy', 'src')
+    shutil.copytree(self.srcdir, copy)
+    subdir = os.path.join(copy, '.curry', config.intermediate_subdir())
+    sofile = os.path.join(subdir, name + '.so')
+    for suffix in ['.json.z', '.cpp', '.so', '.so.abi']:
+      self.assertTrue(os.path.isfile(os.path.join(subdir, name + suffix)))
+    # The rewrite of the manager.
+    digest = self.cpp2so.digest()
+    build_prefix = os.path.join(self.tmpdir, 'bld', 'opt', 'sprite')
+    with open(self.cpp2so.stampfile(sofile), 'w') as stream:
+      stream.write('%s\n%s\n' % (digest, build_prefix))
+    self.assertTrue(self.cpp2so.is_stale(sofile))
+    text = cytest.readfile(self.cpp2so.stampfile(sofile))
+    with open(self.cpp2so.stampfile(sofile), 'w') as stream:
+      stream.write(text.replace(build_prefix, toolchain.installation_path()))
+    self.assertFalse(self.cpp2so.is_stale(sofile))
+    self.assertEqual(_findcurry.currentfile(self.plan, name, [copy]), sofile)
+    # The import in a child: the runtime of this process holds the library
+    # of the module under its first path.
+    before = os.stat(sofile).st_mtime_ns
+    commands, value, source, loaded, seconds = self.counting_import(
+        name, [copy] + curry.path
+      , env={'SPRITE_INTERPRETER_FLAGS': 'backend:cxx,interpret:off'}
+      )
+    self.assertEqual(commands, [])
+    self.assertEqual(value, [22])
+    self.assertEqual(source, os.path.join(copy, name + '.curry'))
+    self.assertEqual(loaded, sofile)
+    self.assertEqual(seconds, 0)
+    self.assertEqual(os.stat(sofile).st_mtime_ns, before)
+
+  def test_load_imports_the_needed_modules_first(self):
+    '''
+    curry.load of an object: the modules its NEEDED entries name are
+    imported first, each from its object, and then the object opens; the
+    dynamic linker finds each name mapped.  An import that runs without an
+    object is an error of the loader, not a message of the dynamic linker.
+    The child runs under interpret:new, so an import without an object is
+    interpreted, not compiled.
+    '''
+    first = self.write_calling_json(23)
+    second = self.write_calling_json(24, imported=first, callee=first + '.uses')
+    self.on_curry_path(self.srcdir)
+    sofile = makecurry(self.plan, second, [self.srcdir])
+    self.assertEqual(sofile, self.cached_file(second, '.so'))
+    # The linker records every import, in the order of the IMPORTS line
+    # (toolchain.LINK_FLAGS).
+    self.assertEqual(loader.needed_modules(sofile), ['Prelude', first])
+    self.assertTrue(os.path.isfile(self.cached_file(first, '.so')))
+    code = '\n'.join([
+        'import curry, json, os, sys'
+      , 'from curry.objects.handle import getHandle'
+      , 'curry.path.insert(0, %r)' % self.srcdir
+      , 'M = curry.load(%r)' % sofile
+      , 'value = list(curry.eval(M.goal, converter="topython"))'
+      , 'first = curry.modules[%r]' % first
+      , 'print(json.dumps([value, getHandle(first).sofilename, getHandle(M).sofilename]))'
+      , 'curry.reset()'
+      , 'curry.path.insert(0, %r)' % self.srcdir
+      # Without its object and its generated file the first module is
+      # interpreted from its JSON under new (with the file, new compiles
+      # it again; section 4 of tests/README).
+      , 'os.unlink(%r)' % self.cached_file(first, '.so')
+      , 'os.unlink(%r)' % self.cpp2so.stampfile(self.cached_file(first, '.so'))
+      , 'os.unlink(%r)' % self.cached_file(first, '.cpp')
+      , 'try:'
+      , '  curry.load(%r)' % sofile
+      , 'except curry.exceptions.DynloadError as exc:'
+      , '  print(json.dumps(str(exc)))'
+      , 'else:'
+      , '  print(json.dumps("no error"))'
+      ])
+    with mock.patch.dict(
+        os.environ, {'SPRITE_INTERPRETER_FLAGS': 'backend:cxx,interpret:new'}
+      ):
+      proc = cytest.run_in_subprocess(code, timeout=300)
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    lines = proc.stdout.strip().splitlines()
+    value, first_object, second_object = json.loads(lines[-2])
+    self.assertEqual(value, [24])
+    self.assertEqual(first_object, self.cached_file(first, '.so'))
+    self.assertEqual(second_object, sofile)
+    message = json.loads(lines[-1])
+    self.assertIn('runs without a compiled object', message)
+    self.assertIn(first, message)
+    self.assertNotIn('cannot open shared object file', proc.stderr)
+
+  def test_needed_entries_are_the_imports(self):
+    '''
+    The NEEDED entries name every import, whether or not the object takes
+    a symbol from it: the link line pins --no-as-needed
+    (toolchain.LINK_FLAGS), so the form does not depend on the default of
+    the toolchain.  The module here imports a module and never calls it.
+    '''
+    first = self.write_calling_json(31)
+    second = self.write_calling_json(32, imported=first)
+    self.on_curry_path(self.srcdir)
+    sofile = makecurry(self.plan, second, [self.srcdir])
+    self.assertEqual(
+        self.cpp2so._importedModules(self.cached_file(second, '.cpp'))
+      , ['Prelude', first]
+      )
+    self.assertEqual(loader.needed_modules(sofile), ['Prelude', first])
+    self.assertIn('-Wl,--no-as-needed', toolchain.LINK_FLAGS)
+    self.assertIn(
+        '-Wl,--no-as-needed'
+      , list(self.cpp2so._compileCommand(self.cached_file(second, '.cpp'), sofile))
+      )
+
+  def test_object_without_its_generated_file(self):
+    '''
+    An object without its generated file (sprite-make --tidy removes the
+    file).  The plan reads the imports of the object from its NEEDED
+    entries: with the stamps in place the module and its import load from
+    their objects, and nothing is compiled; when the stamp of the import
+    is gone, under interpret:new the import is interpreted, and so is the
+    importer (Cpp2So.import_lacks_an_object), with no error.  Before, the
+    plan trusted an object without its file, and the loader raised
+    DynloadError for the interpreted import.
+    '''
+    first = self.write_calling_json(33)
+    second = self.write_calling_json(34, imported=first, callee=first + '.uses')
+    self.on_curry_path(self.srcdir)
+    sofile = makecurry(self.plan, second, [self.srcdir])
+    first_sofile = self.cached_file(first, '.so')
+    for name in [first, second]:
+      os.unlink(self.cached_file(name, '.cpp'))
+    self.assertFalse(self.cpp2so.import_lacks_an_object(sofile))
+    # The child imports the import through curry.path (the plan imports
+    # the imports of an object from there), so the directory goes on it.
+    env = {
+        'SPRITE_INTERPRETER_FLAGS': 'backend:cxx,interpret:new'
+      , 'CURRYPATH': os.pathsep.join(
+            [self.srcdir] + os.environ.get('CURRYPATH', '').split(os.pathsep)
+          )
+      }
+    commands, value, source, loaded, seconds = self.counting_import(
+        second, [self.srcdir] + curry.path, env=env
+      )
+    self.assertEqual(commands, [])
+    self.assertEqual(value, [34])
+    self.assertEqual(loaded, sofile)
+    self.assertEqual(seconds, 0)
+    # The import loses its stamp.
+    os.unlink(self.cpp2so.stampfile(first_sofile))
+    code = '\n'.join([
+        'import curry, json'
+      , 'from curry.objects.handle import getHandle'
+      , 'M = curry.import_(%r, currypath=%r)' % (second, [self.srcdir])
+      , 'value = list(curry.eval(M.goal, converter="topython"))'
+      , 'first = curry.modules[%r]' % first
+      , 'print(json.dumps(['
+      , '    value, getHandle(first).sofilename, getHandle(M).sofilename'
+      , '  ]))'
+      ])
+    with mock.patch.dict(os.environ, env):
+      proc = cytest.run_in_subprocess(code, timeout=300)
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    value, first_object, second_object = json.loads(
+        proc.stdout.strip().splitlines()[-1]
+      )
+    self.assertEqual(value, [34])
+    self.assertIsNone(first_object)
+    self.assertIsNone(second_object)
+    self.assertNotIn('runs without a compiled object', proc.stderr)
+    self.assertNotIn('cannot open shared object file', proc.stderr)
+    # The objects stay for a later plan.
+    self.assertTrue(os.path.isfile(sofile))
+    self.assertTrue(os.path.isfile(first_sofile))
+
+  def test_elf_reader(self):
+    '''
+    elf.read_dynamic finds the dynamic section through the program headers,
+    as the dynamic linker does: an object whose section headers were
+    stripped reads the same.  A file without program headers, or one that
+    is not an ELF file, is a ValueError, not an empty result.
+    '''
+    module = self.compile_module(35)
+    sofile = self.cached_file(module.__name__, '.so')
+    dynamic = elf.read_dynamic(sofile)
+    self.assertEqual(dynamic.soname, toolchain.soname(module.__name__))
+    self.assertIn('libcyrt.so', dynamic.needed)
+    strip = shutil.which('strip')
+    if strip is not None:
+      helptext = subprocess.run(
+          [strip, '--help'], capture_output=True, text=True
+        ).stdout
+      if '--strip-section-headers' in helptext:
+        stripped = os.path.join(self.tmpdir, 'stripped.so')
+        shutil.copy(sofile, stripped)
+        subprocess.run(
+            [strip, '--strip-section-headers', stripped], check=True
+          )
+        self.assertEqual(repr(elf.read_dynamic(stripped)), repr(dynamic))
+    header = os.path.join(self.tmpdir, 'header.elf')
+    with open(header, 'wb') as stream:
+      stream.write(b'\x7fELF\x02\x01\x01' + bytes(57))
+    with self.assertRaisesRegex(ValueError, 'no program headers'):
+      elf.read_dynamic(header)
+    with self.assertRaisesRegex(ValueError, 'not an ELF file'):
+      elf.read_dynamic(self.cached_file(module.__name__, '.cpp'))
+    with self.assertRaisesRegex(ValueError, 'not a 64-bit ELF file'):
+      elf.read_dynamic(self.write_bytes('short.elf', b'\x7fELF\x01'))
+    with self.assertRaises(OSError):
+      elf.read_dynamic(os.path.join(self.tmpdir, 'missing.so'))
+
+  def write_bytes(self, name, data):
+    '''Writes ``data`` to a file of the test directory; returns its path.'''
+    filename = os.path.join(self.tmpdir, name)
+    with open(filename, 'wb') as stream:
+      stream.write(data)
+    return filename
+
+  def test_object_compiled_elsewhere_has_no_source(self):
+    '''
+    A generated file compiled outside the product directory of its source
+    (a file of curry.save compiled in another directory): the object
+    loads, and the module has no source file, because the object-relative
+    record names no file of the module (loader.source_file).  Before, the
+    module named a file that does not exist.  The product cache is off in
+    the child: the step keys its products by the source of the file, which
+    an object outside a product directory has not.
+    '''
+    name = self.write_calling_json(36, callee='Prelude.foldr', args=(1, 2, 3))
+    makecurry(self.plan, name, [self.srcdir])
+    out = os.path.join(self.tmpdir, 'out')
+    os.makedirs(out)
+    cppfile = os.path.join(out, name + '.cpp')
+    shutil.copy(self.cached_file(name, '.cpp'), cppfile)
+    code = '\n'.join([
+        'import curry, json'
+      , 'from curry.backends.cxx import toolchain'
+      , 'from curry.objects.handle import getHandle'
+      , 'sofile = toolchain.Cpp2So(curry.getInterpreter())(%r, curry.path)' % cppfile
+      , 'M = curry.load(sofile)'
+      , 'value = list(curry.eval(M.goal, converter="topython"))'
+      , 'print(json.dumps([sofile, value, M.__file__, getHandle(M).sofilename]))'
+      ])
+    env = {
+        'SPRITE_INTERPRETER_FLAGS': 'backend:cxx,interpret:off'
+      , 'SPRITE_PRODUCT_CACHE': ''
+      }
+    with mock.patch.dict(os.environ, env):
+      proc = cytest.run_in_subprocess(code, timeout=300)
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    sofile, value, source, loaded = json.loads(
+        proc.stdout.strip().splitlines()[-1]
+      )
+    self.assertEqual(sofile, os.path.join(out, name + '.so'))
+    self.assertEqual(value, [36])
+    self.assertIsNone(source)
+    self.assertEqual(loaded, sofile)
 
 @unittest.skipIf(
     curry.flags['backend'] != 'cxx', 'the toolchain belongs to the C++ backend'

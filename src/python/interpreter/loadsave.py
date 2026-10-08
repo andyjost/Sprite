@@ -63,7 +63,12 @@ def save(interp, cymodule, filename=None, goal=None, **kwds):
       A goal with class constraints and no signature is defaulted with the
       table of the PAKCS REPL at run time; the file records its type, so it
       runs from any directory.  A goal the table cannot default raises
-      here, at save time.
+      here, at save time.  On the C++ backend the saved file is C++ source,
+      and its record names the source of the module relative to the
+      directory of the object (the product directory beside the source,
+      ``.curry/<subdir>/``).  Compile the file in that directory, as
+      ``sprite-make --so`` does; an object compiled elsewhere loads, but
+      its module has no source file (``backends.cxx.loader.source_file``).
 
     kwds:
       Additional keyword arguments passed to ``IBackend.write_module``.

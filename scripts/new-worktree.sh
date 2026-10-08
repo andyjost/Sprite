@@ -25,14 +25,12 @@
 # Python backend writes it again in a moment.  The compiled products of the
 # C++ backend (the generated C++, the shared object and its ABI stamp) are
 # not copied either: the stamp of a copied object names the installation it
-# was compiled under, and so do the NEEDED entries of the object, so the
-# copy would be stale here.  The prepare pass
+# was compiled under, so the copy would be stale here.  The prepare pass
 # of the test runner compiles them (tests/run_tests --prepare-only) and
-# stores them in the product cache (SPRITE_PRODUCT_CACHE), which serves this
-# worktree afterwards; the key of the cache names the installation and the
-# source directory, so the products of the main tree are not served to the
-# worktree (the dated TODO entry of 2026-10-07 on the product cache names
-# the change that would let two trees share them).  With
+# stores them in the product cache (SPRITE_PRODUCT_CACHE); a cache the two
+# trees share serves the worktree the products of the main tree, because
+# the key names no tree and an object names no path (its imports enter it
+# by SONAME; the dated TODO entry of 2026-10-08 on portable objects).  With
 # SPRITE_WORKTREE_PREPARE=1 the pass runs at the end of this script, on the
 # C++ backend; it takes minutes on a cold tree and needs the Curry front
 # end.

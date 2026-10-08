@@ -79,7 +79,10 @@ source, and needs the C++ compiler that Sprite was configured with::
 The object is written to ``.curry/sprite-pakcs-<ver>/Peano.so``, beside its
 ABI stamp (``Peano.so.abi``): a digest of the runtime headers, the flags
 it was compiled with, the compiler of the build and the format of the
-generated code, and the real path of the installation.  The compile
+generated code, and the real path of the installation.  The object has
+the ``SONAME`` ``sprite-Peano.so.<format>`` and names the objects of the
+modules it imports by their ``SONAME``, so it holds no path (``readelf -d``
+shows none).  The compile
 also stores the object, the C++ source and the stamp in the product cache,
 from which a later compile of the same module under the same conditions
 places them instead of running the compiler (``SPRITE_PRODUCT_CACHE``; see
