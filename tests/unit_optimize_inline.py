@@ -23,8 +23,7 @@ name gives values.  The unoptimized form of a program is the same text under
 another name, imported from its ICurry object with the key of the pass set,
 which the framework reads as "this pass ran".  Every test of values compares
 the optimized program with the unoptimized one, on both backends; under
-interpret 'off' the unoptimized one runs under 'new'
-(ModuleTestCase.interpretable).
+interpret 'off' the unoptimized one compiles on its first use (issue #102).
 '''
 import cytest # from ./lib; must be first
 from curry import config, icurry, toolchain
@@ -531,13 +530,13 @@ class InlineTestCase(ModuleTestCase):
   def check_values(self, stem, text, values):
     '''
     The values of the optimized program, imported by name, and of the
-    unoptimized one, imported from its ICurry object, against ``values``.
-    The caller is hardreset (interpretable).
+    unoptimized one, imported from its ICurry object (under interpret 'off'
+    it compiles on its first use, issue #102), against ``values``.  The
+    caller is hardreset.
     '''
     optimized = self.import_(self.write(stem, text))
     for goal, expected in values.items():
       self.assertCountEqual(self.values(optimized, goal), expected, goal)
-    self.interpretable()
     unoptimized = self.unoptimized(self.write(stem, text))
     for goal, expected in values.items():
       self.assertCountEqual(self.values(unoptimized, goal), expected, goal)
@@ -982,9 +981,7 @@ class TestAcrossModules(InlineTestCase):
       , types.IFCall('Prelude.plusInt', [lit(1), lit(1)])
       )
     self.assertEqual(imodule.imports, imports + (base,))
-    # The values, from a module of the same text imported by name: on the
-    # C++ backend a module imported from its ICurry object has no object
-    # to run under interpret 'off'.
+    # The values, from a module of the same text imported by name.
     module = self.import_(self.write('Use', '''
       import %s
       import %s

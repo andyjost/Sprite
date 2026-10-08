@@ -9,13 +9,18 @@ programs are in data/curry/CxxInterp.curry; their values under the
 interpreter are compared with the values of the compiled code.
 '''
 import cytest # from ./lib; must be first
-from curry import common, config, icurry
-from curry.backends.cxx import bytecode
+from curry import common, config, icurry, inspect, toolchain
+from curry.backends.cxx import bytecode, materialize, tiered
 from curry.backends.cxx import cyrtbindings as cyrt
+from curry.backends.cxx import toolchain as cxx_toolchain
 from curry.backends.generic.eval import evaluator
 from curry.exceptions import CompileError, EvaluationError
 from curry.objects.handle import getHandle
-import curry, gc, importlib, os, subprocess, unittest
+from curry.toolchain import _makecurry, _productcache, plans
+from unittest import mock
+import contextlib, curry, gc, importlib, itertools, os, shutil, subprocess
+import tempfile
+import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BENCHMARKS = os.path.join(HERE, 'data', 'curry', 'benchmarks')
@@ -663,3 +668,397 @@ class TestPrograms(cytest.TestCase):
     self.assertEqual(
         self.run_child('Last', 'all', stress=True), (expected, steps)
       )
+
+
+@ONLY_CXX
+class TestFirstUse(cytest.TestCase):
+  '''
+  Under 'off' a module imported from an ICurry object compiles on its first
+  use (issue #102).  The toolchain never saw the module, so its functions
+  carry the trap step of the runtime (cyrt/module.hpp) until the first call
+  of one of them writes the C++ of the ICurry object beside the source,
+  compiles it and swaps the steps (materialize.first_use).  With the compile
+  turned off, or failed, the trap raises the documented error instead of
+  crashing the process.
+  '''
+  TEXT = '''
+module %(name)s where
+double :: Int -> Int
+double x = x + x
+main :: Int
+main = double 21
+boom :: Int
+boom = error "boom"
+'''
+  counter = itertools.count()
+
+  def setUp(self):
+    super().setUp()
+    self.tmpdir = tempfile.mkdtemp(prefix='sprite-firstuse-')
+    gc.collect()
+    curry.reload({'backend': 'cxx', 'interpret': 'off'})
+    gc.collect()
+    curry.path.insert(0, self.tmpdir)
+    self.currypath = list(curry.path)
+
+  def tearDown(self):
+    gc.collect()
+    shutil.rmtree(self.tmpdir, ignore_errors=True)
+    super().tearDown()
+
+  def write(self, text=TEXT, stem='CxxFirstUse'):
+    '''Writes a module under a new name.  Returns the name.'''
+    name = '%s%d' % (stem, next(self.counter))
+    with open(os.path.join(self.tmpdir, name + '.curry'), 'w') as stream:
+      stream.write(text % {'name': name})
+    return name
+
+  def icurry(self, name):
+    '''The ICurry of the module ``name``, as the plan writes it: no object.'''
+    plan = plans.makeplan(
+        None, plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON
+      )
+    return toolchain.loadcurry(plan, name, self.currypath)
+
+  def import_(self, name):
+    '''Imports the module ``name`` from its ICurry object.'''
+    return curry.import_(self.icurry(name), currypath=self.currypath)
+
+  def product(self, name, suffix):
+    return os.path.join(
+        self.tmpdir, '.curry', config.intermediate_subdir(), name + suffix
+      )
+
+  def assertTrapped(self, M, *names):
+    for name in names:
+      info = getattr(M, name).info
+      self.assertTrue(cyrt.is_trapped(info), name)
+      self.assertFalse(info.has_step, name)
+    self.assertTrue(materialize.is_pending(M))
+
+  def assertCompiled(self, M, *names):
+    for name in names:
+      info = getattr(M, name).info
+      self.assertFalse(cyrt.is_trapped(info), name)
+      self.assertTrue(info.has_step, name)
+    self.assertFalse(materialize.is_pending(M))
+
+  @cytest.hardreset
+  def test_compiled_on_first_use(self):
+    name = self.write()
+    M = self.import_(name)
+    h = getHandle(M)
+    self.assertTrapped(M, 'double', 'main', 'boom')
+    self.assertIsNone(h.icurry.metadata.get('cxx.shlib'))
+    sofile = self.product(name, '.so')
+    self.assertFalse(os.path.exists(sofile))
+    # An expression built before the compile holds the tables the object
+    # binds to (the shim of tiered.py).
+    e = curry.expr(M.double, 5)
+    before = curry.stats()['swapped']
+    self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+    self.assertCompiled(M, 'double', 'main', 'boom')
+    self.assertEqual(curry.stats()['swapped'] - before, 3)
+    # The object beside the source, with its stamp and the generated file.
+    self.assertTrue(os.path.isfile(sofile))
+    self.assertTrue(os.path.isfile(sofile + '.abi'))
+    self.assertTrue(os.path.isfile(self.product(name, '.cpp')))
+    self.assertEqual(os.path.realpath(h.sofilename), os.path.realpath(sofile))
+    self.assertIn('/****** %s.main ******/' % name, inspect.getimpl(M.main))
+    self.assertEqual(list(curry.eval(e, converter='topython')), [10])
+    # No second compile.
+    mtime = os.path.getmtime(sofile)
+    self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+    self.assertEqual(os.path.getmtime(sofile), mtime)
+    self.assertRaisesRegex(
+        EvaluationError, 'boom', lambda: list(curry.eval(M.boom))
+      )
+
+  @cytest.hardreset
+  def test_trap_without_the_compile(self):
+    '''The error of the trap step, with the compile turned off.'''
+    name = self.write()
+    M = self.import_(name)
+    pattern = r"cannot evaluate function '%s\.main': the function has no " \
+              r"compiled code \(its module was imported from an ICurry " \
+              r"object under interpret:off\): the compile on first use is " \
+              r"turned off" % name
+    with mock.patch.object(materialize, 'COMPILE_ON_FIRST_USE', False):
+      self.assertRaisesRegex(
+          EvaluationError, pattern, lambda: list(curry.eval(M.main))
+        )
+      self.assertTrapped(M, 'double', 'main', 'boom')
+      self.assertFalse(os.path.exists(self.product(name, '.so')))
+      # The single step of the evaluator raises it too.
+      self.assertRaisesRegex(
+          EvaluationError, pattern, evaluator.single_step
+        , curry.getInterpreter(), curry.raw_expr(M.main)
+        )
+      # A function nested in another module's evaluation names itself.
+      self.assertRaisesRegex(
+          EvaluationError, r"cannot evaluate function '%s\.double'" % name
+        , lambda: list(curry.eval(curry.expr(M.double, 1)))
+        )
+    # With the compile on again the module compiles and runs.
+    self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+    self.assertCompiled(M, 'double', 'main', 'boom')
+
+  @cytest.hardreset
+  def test_trap_after_a_failed_compile(self):
+    '''The error names the failure; the module stays trapped.'''
+    name = self.write()
+    M = self.import_(name)
+    def fail(self_, file_in, currypath, **ignored):
+      raise CompileError('g++ exited with status 1')
+    with mock.patch.object(cxx_toolchain.Cpp2So, '__call__', fail):
+      with self.assertLogs('curry.backends.cxx.materialize', 'WARNING') as logs:
+        self.assertRaisesRegex(
+            EvaluationError
+          , r"cannot evaluate function '%s\.main': .*: the compile failed: "
+            r"g\+\+ exited with status 1" % name
+          , lambda: list(curry.eval(M.main))
+          )
+    self.assertTrue(
+        any('cannot compile module %r on its first use' % name in line
+            for line in logs.output)
+      , logs.output
+      )
+    self.assertTrapped(M, 'double', 'main', 'boom')
+    self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+    self.assertCompiled(M, 'double', 'main', 'boom')
+
+  @cytest.hardreset
+  def test_pending_import_compiles_first(self):
+    '''
+    A module imported from an ICurry object that imports another: the
+    import compiles first, because the object names the object of its
+    import.
+    '''
+    a = self.write()
+    b = self.write('''
+module %%(name)s where
+import %s
+twice :: Int -> Int
+twice x = double (double x)
+''' % a)
+    A = self.import_(a)
+    B = self.import_(b)
+    self.assertTrapped(A, 'double', 'main')
+    self.assertTrapped(B, 'twice')
+    self.assertEqual(list(curry.eval(B.twice, 3, converter='topython')), [12])
+    self.assertCompiled(A, 'double', 'main')
+    self.assertCompiled(B, 'twice')
+    for name in a, b:
+      self.assertTrue(os.path.isfile(self.product(name, '.so')), name)
+    self.assertEqual(list(curry.eval(A.main, converter='topython')), [42])
+
+  @cytest.hardreset
+  def test_without_a_source_file(self):
+    '''
+    An ICurry object without a source file compiles into a directory of the
+    process: nothing beside the source.
+    '''
+    name = self.write()
+    imodule = self.icurry(name)
+    imodule.filename = None
+    M = curry.import_(imodule, currypath=self.currypath)
+    self.assertTrapped(M, 'main')
+    self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+    self.assertCompiled(M, 'double', 'main', 'boom')
+    self.assertFalse(os.path.exists(self.product(name, '.so')))
+    sofile = getHandle(M).sofilename
+    self.assertTrue(sofile.startswith(tiered._tmpdir()), sofile)
+    self.assertTrue(os.path.isfile(sofile))
+
+  @cytest.hardreset
+  def test_other_modes_do_not_trap(self):
+    '''Under the interpreter the functions get bytecode, as before.'''
+    name = self.write()
+    for mode in 'new', 'tiered':
+      gc.collect()
+      curry.reload({'backend': 'cxx', 'interpret': mode})
+      gc.collect()
+      curry.path.insert(0, self.tmpdir)
+      self.currypath = list(curry.path)
+      M = self.import_(name)
+      self.assertFalse(cyrt.is_trapped(M.main.info))
+      self.assertTrue(cyrt.icurry_is_interpreted(M.main.info))
+      self.assertFalse(materialize.is_pending(M))
+      self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+      M = None
+      tiered.cancel()
+      tiered.wait(10)
+
+  def object_of(self, name):
+    '''Compiles the module ``name`` as the plan does.  Nothing is loaded.'''
+    plan = plans.makeplan(
+        curry.getInterpreter(), plans.MAKE_ALL | plans.ZIP_JSON
+      )
+    sofile = _makecurry.makecurry(plan, name, self.currypath)
+    self.assertEqual(os.path.realpath(sofile), os.path.realpath(self.product(name, '.so')))
+    return sofile
+
+  def cache_entry(self, name):
+    '''The entry of the product cache for the source of ``name``, or None.'''
+    cpp2so = cxx_toolchain.Cpp2So(curry.getInterpreter())
+    key = cpp2so.product_key(
+        os.path.join(self.tmpdir, name + '.curry'), self.currypath
+      )
+    return _productcache.lookup(
+        cpp2so.digest(), key, [name + '.cpp', name + '.so']
+      )
+
+  def use_scratch(self):
+    '''
+    Moves the sources of the test under tests/.cache: a source under the
+    temporary directory of the system stays out of the product cache
+    (_productcache.excluded), and a test of the cache needs one that does
+    not.
+    '''
+    cachedir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.cache')
+    os.makedirs(cachedir, exist_ok=True)
+    scratch = tempfile.mkdtemp(dir=cachedir, prefix='firstuse-')
+    self.addCleanup(shutil.rmtree, scratch, ignore_errors=True)
+    self.tmpdir = scratch
+    curry.path.insert(0, scratch)
+    self.currypath = list(curry.path)
+
+  @contextlib.contextmanager
+  def count_compiles(self):
+    '''Counts the calls of Cpp2So while the block runs.'''
+    calls = []
+    original = cxx_toolchain.Cpp2So.__call__
+    def counted(self_, *args, **kwds):
+      calls.append(args[0])
+      return original(self_, *args, **kwds)
+    with mock.patch.object(cxx_toolchain.Cpp2So, '__call__', counted):
+      yield calls
+
+  @cytest.hardreset
+  def test_transformed_object_leaves_the_products(self):
+    '''
+    An ICurry object changed in memory is not the translation of the
+    source: its products go into a directory of the process, never beside
+    the source or into the product cache, which a later import of the
+    module by name would load (the review of issue #102).
+    '''
+    self.use_scratch()
+    name = self.write('''
+module %(name)s where
+main :: Int
+main = 1
+other :: Int
+other = 2
+''')
+    imodule = self.icurry(name)
+    a, b = imodule.functions['main'], imodule.functions['other']
+    a.body, b.body = b.body, a.body
+    M = curry.import_(imodule, currypath=self.currypath)
+    self.assertTrapped(M, 'main', 'other')
+    with self.count_compiles() as calls:
+      self.assertEqual(list(curry.eval(M.main, converter='topython')), [2])
+    self.assertEqual(len(calls), 1)
+    self.assertCompiled(M, 'main', 'other')
+    for suffix in '.cpp', '.so', '.so.abi':
+      self.assertFalse(os.path.exists(self.product(name, suffix)), suffix)
+    sofile = getHandle(M).sofilename
+    self.assertTrue(sofile.startswith(tiered._tmpdir()), sofile)
+    if _productcache.enabled():
+      self.assertIsNone(self.cache_entry(name))
+
+  @cytest.hardreset
+  def test_translation_is_recognized(self):
+    '''
+    The object the plan gives, after the import changed it in place (the
+    merge, the passes), is the translation on disk; an object with another
+    body, or without a JSON beside its source, is not.
+    '''
+    name = self.write()
+    interp = curry.getInterpreter()
+    imodule = self.icurry(name)
+    M = curry.import_(imodule, currypath=self.currypath)
+    self.assertTrue(materialize.is_translation(interp, imodule))
+    main = imodule.functions['main']
+    body = main.body
+    main.body = imodule.functions['boom'].body
+    self.assertFalse(materialize.is_translation(interp, imodule))
+    main.body = body
+    self.assertTrue(materialize.is_translation(interp, imodule))
+    for suffix in '.json.z', '.json':
+      try:
+        os.unlink(self.product(name, suffix))
+      except FileNotFoundError:
+        pass
+    self.assertFalse(materialize.is_translation(interp, imodule))
+    imodule.filename = None
+    self.assertFalse(materialize.is_translation(interp, imodule))
+
+  @cytest.hardreset
+  def test_current_object_is_adopted(self):
+    '''
+    A current object beside the source, whose generated file has the text
+    of the object in hand, is adopted on the first use: no compile, as
+    sprite-make --so skips a current object.
+    '''
+    name = self.write()
+    sofile = self.object_of(name)
+    mtime = os.path.getmtime(sofile)
+    M = self.import_(name)
+    self.assertTrapped(M, 'double', 'main', 'boom')
+    with self.count_compiles() as calls:
+      self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+    self.assertEqual(calls, [])
+    self.assertCompiled(M, 'double', 'main', 'boom')
+    self.assertEqual(os.path.getmtime(sofile), mtime)
+    self.assertEqual(
+        os.path.realpath(getHandle(M).sofilename), os.path.realpath(sofile)
+      )
+
+  @cytest.hardreset
+  def test_cached_object_is_restored(self):
+    '''
+    Without an object beside the source, the first use asks the product
+    cache before the compiler, as the plan does.
+    '''
+    if not _productcache.enabled():
+      self.skipTest('the product cache is off')
+    self.use_scratch()
+    name = self.write()
+    sofile = self.object_of(name)
+    self.assertIsNotNone(self.cache_entry(name))
+    for suffix in '.cpp', '.so', '.so.abi':
+      os.unlink(self.product(name, suffix))
+    M = self.import_(name)
+    with self.count_compiles() as calls:
+      self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+    self.assertEqual(calls, [])
+    self.assertCompiled(M, 'double', 'main', 'boom')
+    self.assertTrue(os.path.isfile(sofile))
+    self.assertTrue(os.path.isfile(self.product(name, '.cpp')))
+    self.assertEqual(
+        os.path.realpath(getHandle(M).sofilename), os.path.realpath(sofile)
+      )
+
+  @cytest.hardreset
+  def test_no_second_compile_after_the_adopt(self):
+    '''
+    A table the adopted object left trapped (the object has no step of its
+    name) raises at every call and never compiles its module again.
+    '''
+    name = self.write()
+    M = self.import_(name)
+    adopted = {'ok': True, 'swapped': 0, 'output': '', 'error': ''}
+    pattern = r"cannot evaluate function '%s\.main': .*: the compiled " \
+              r"object has no step for it" % name
+    with self.count_compiles() as calls:
+      with mock.patch.object(cyrt, 'tiered_adopt', return_value=adopted):
+        self.assertRaisesRegex(
+            EvaluationError, pattern, lambda: list(curry.eval(M.main))
+          )
+      self.assertEqual(len(calls), 1)
+      self.assertTrue(cyrt.is_trapped(M.main.info))
+      self.assertFalse(materialize.is_pending(M))
+      self.assertRaisesRegex(
+          EvaluationError, pattern, lambda: list(curry.eval(M.main))
+        )
+      self.assertEqual(len(calls), 1)

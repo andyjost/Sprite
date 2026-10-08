@@ -4,9 +4,11 @@
 #include <stdexcept>
 #include <string>
 #include "cyrt/builtins.hpp"
+#include "cyrt/exceptions.hpp"
 #include "cyrt/graph/infotable.hpp"
 #include "cyrt/graph/memory.hpp"
 #include "cyrt/graph/node.hpp"
+#include "cyrt/module.hpp"
 #include "cyrt/state/rts.hpp"
 #include "cyrt/ticker.hpp"
 #include "cyrt/utf8.hpp"
@@ -118,7 +120,9 @@ namespace
   // it already and takes the step; a state made for another goal gets a
   // configuration for the step, dropped afterwards.  So the queue holds one
   // configuration during the step, as the scheduler counters expect of a
-  // step outside a search.
+  // step outside a search.  A step that reports an error (E_ERROR: the
+  // error primitive, or the trap step of a function without code) raises
+  // it, as procD would.
   void RuntimeState_single_step(RuntimeState * rts, Node * root)
   {
     // Only a function node has a step.  A constructor, a value, or a
@@ -138,6 +142,9 @@ namespace
     gc_count_redex_write(root);
     if(status >= E_RESTART)
       rts->count_step();
+    std::string error;
+    if(status == E_ERROR)
+      error = rts->C()->pop_error().second;
     if(!own)
       rts->drop();
     // The variables the step created outlive this state.  Count them (the
@@ -146,6 +153,8 @@ namespace
     // later goal holds them.  The table itself is the weak table of the
     // interpreter state, which the collector may sweep in the meantime.
     rts->istate.external_freevars += rts->istate.xidfactory - xid0;
+    if(status == E_ERROR)
+      throw EvaluationError(error);
   }
 
   // The variable table as a dict from id to node, for the tests of the
@@ -339,9 +348,11 @@ namespace cyrt { namespace python
         , "The address of the table in the process (see "
           "curry.backends.cxx.tiered).")
       .def_property_readonly("has_step"
-        , [](InfoTable const & self) { return self.step != nullptr; }
+        , [](InfoTable const & self)
+            { return self.step != nullptr && !is_trapped(&self); }
         , "Whether the table has a step function: compiled, interpreted, or "
-          "built in.")
+          "built in.  The trap step of a function without code (see "
+          "install_trap) is not one.")
       ;
 
     // Fundamental symbols.
@@ -693,6 +704,10 @@ namespace cyrt { namespace python
         >())
       .def_readonly("steps_total", &RuntimeState::steps_total)
       .def_readonly("forks_total", &RuntimeState::forks_total)
+      .def_readwrite("step_limit", &RuntimeState::step_limit
+        , "The step limit of the evaluation: NOLIMIT, or the value of "
+          "steps_total after which the scheduler stops with StepLimitReached "
+          "(see cyrt/state/rts.hpp).  RuntimeState.stepcounter sets it.")
       .def_property_readonly("vtable", &RuntimeState_vtable
         , "The variable table as a dict from id to node.")
       .def("scheduler_counters", &RuntimeState_scheduler_counters

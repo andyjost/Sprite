@@ -81,4 +81,33 @@ namespace cyrt
     std::string name;
     std::unique_ptr<Impl> impl;
   };
+
+  // The trap step.  A function table made at run time gets no code when the
+  // interpreter flag ``interpret`` is 'off' (backends/cxx/materialize.py):
+  // its module was imported from an ICurry object, which the plan of the
+  // toolchain never compiles (issue #102).  The materializer gives such a
+  // table this step instead of a null pointer.  When the step runs, it
+  // calls the hook, which may give the table its code (the Python side
+  // compiles the module and swaps the steps; see tiered_adopt in
+  // tiered.hpp), and then runs the step the table has.  A table that still
+  // has no code sets the error of the configuration, which names the
+  // function and its module and the reason the hook gave, and returns
+  // E_ERROR: the evaluation raises instead of calling a null pointer.
+  //
+  // The hook returns the empty string when it gave the table its code, or
+  // the reason it did not.  It runs on the thread that evaluates, inside the
+  // step.  The bindings install one that calls into Python; without a hook
+  // the trap reports that.
+  using trap_hook_type = std::string (*)(InfoTable const *);
+  void set_trap_hook(trap_hook_type);
+  tag_type trap_step(RuntimeState *, Configuration *);
+  // Gives ``info`` the trap step.  ``info`` must be a function table made at
+  // run time without a step, or with the trap already (then nothing
+  // changes).  Throws std::invalid_argument otherwise.
+  void install_trap(InfoTable *);
+  inline bool is_trapped(InfoTable const * info)
+    { return info && info->step == &trap_step; }
+  // The name of the loaded module that owns a table, or the empty string.  A
+  // scan of the loaded modules, for messages.
+  std::string owner_of(InfoTable const *);
 }

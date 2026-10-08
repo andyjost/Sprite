@@ -51,12 +51,15 @@ Run "make stage" from the root of the repository first.  Then run
 
     ./run
 
-The run script selects the reference backend (the developer notes of the
-documentation name it), because expected.out holds the first line of the
-generated Python code.  The example runs on that backend only.  On the C++
-backend inspect.getimpl gives the
-generated C++ function, read from the .cpp file beside the shared library,
-and the first line is the banner "/****** Nat.natToInt ******/".
+The run script adds interpret:off to the interpreter flags, so the module
+is compiled before it runs, and inspect.getimpl reads the generated C++
+function from the .cpp file beside the shared library.  That is the code
+on the standard error stream, which section 2 describes.  Under the
+default of the flag interpret (tiered) a fresh module is interpreted from
+its ICurry first, and getimpl shows its bytecode there instead.  The first
+line is the banner "/****** Nat.natToInt ******/" under every mode, and
+whatever the C++ compiler, so expected.out holds it.  The example runs on
+the C++ backend.
 
 
 4. Expected output
@@ -73,13 +76,13 @@ The file expected.out holds the exact output of ./run:
     ICurry-JSON file: Nat.json.z
     Both live under .curry/ next to Nat.curry.
 
-    The Python implementation of Nat.natToInt starts with:
-        def CyF3Nat8natToInt(rts, _0):
+    The C++ implementation of Nat.natToInt starts with:
+        /****** Nat.natToInt ******/
     The whole code is on the standard error stream.
 
 The front end writes the ICurry files under .curry/ next to the source, in a
 subdirectory named after the front end version.  The whole generated code
-follows on the standard error stream.  It is a Python function of about ten
+follows on the standard error stream.  It is a C++ function of about twenty
 lines.  It brings the argument to head normal form, selects on its
 constructor, and rewrites the root with 0 for O and with 1 plus the
 converted predecessor for I.
@@ -88,7 +91,7 @@ converted predecessor for I.
 5. Limits
 ---------
 
-A warm run of ./run took 0.4 s.  The first run also compiles the module
-with the Curry front end, which takes about half a second more.  Only the first
-line of the generated code is part of expected.out, so a change of the
-generated code does not change the expected output.
+A warm run of ./run took 0.3 s.  The first run also compiles the module
+with the Curry front end and the C++ compiler, which takes about 2 s
+more.  Only the first line of the generated code is part of expected.out,
+so a change of the generated code does not change the expected output.

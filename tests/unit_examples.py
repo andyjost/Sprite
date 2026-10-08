@@ -36,7 +36,12 @@ EXAMPLES = {
     '00-run-curry-programs'         : {'py', 'cxx'}
   , '01-run-with-python'            : {'py', 'cxx'}
   , '02-dynamic-code-generation'    : {'py', 'cxx'}
-  , '03-inspect'                    : {'py'}
+  # 03-inspect prints the first line of the code the backend generated for a
+  # function, and expected.out holds the banner of the generated C++; its
+  # run script adds interpret:off, so the module is compiled before it runs.
+  # On the Python backend the line is the signature of the generated Python
+  # function, so the example runs on the C++ backend alone.
+  , '03-inspect'                    : {'cxx'}
   , '04-static-compile'             : {'py'}
   , '10-queens-set-functions'       : {'py', 'cxx'}
   , '11-sudoku'                     : {'cxx'}

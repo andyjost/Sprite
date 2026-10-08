@@ -33,7 +33,8 @@ module_main=False.
 The saved form belongs to one backend.  On the reference backend of the
 developer notes of the documentation it is Python.  On the C++ backend
 curry.save writes C++ source, so the example runs on the reference backend
-only.
+only.  The Python form of the saved program retires at the removal gate of
+issue #82 (the developer notes), and this example with it.
 
 
 3. How to run

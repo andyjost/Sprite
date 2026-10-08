@@ -259,12 +259,6 @@ class TestPrelude(cytest.TestCase):
     self.assertEqual(list(curry.eval(isSpace, curry.expr(chr_, 160))), [True])
     self.assertEqual(list(curry.eval(isSpace, curry.expr(chr_, 48))), [False])
 
-  @cytest.expectedFailureIf(
-      curry.flags['backend'] == 'cxx'
-    , 'cytest.step needs the step limit of the generic Evaluator '
-      '(rts.stepcounter), which the C++ RuntimeState does not provide; a '
-      'step limit in the runtime is an open decision of issue #82, stage 5'
-    )
   def test_apply_nf(self):
     '''Test the $!! operator.'''
     # Ensure the RHS argument is normalized before the function is applied.
@@ -292,6 +286,25 @@ class TestPrelude(cytest.TestCase):
     cytest.step.step(interp, freevar, num=4)
     freevar = inspect.fwd_chain_target(freevar)
     self.assertIsaFreevar(freevar)
+
+  def test_apply_nf_free_variable(self):
+    '''
+    A free variable is a normal form: ($!!) and normalForm give the
+    variable, as PAKCS does, and ($##), which needs a ground normal form,
+    suspends.  The C++ runtime suspended on all three; found when
+    test_apply_nf started to run on the C++ backend.
+    '''
+    interp = curry.getInterpreter()
+    for text in (
+        'id $!! (x::Int) where x free', 'normalForm (x::Int) where x free'
+      ):
+      e = interp.compile(text, mode='expr')
+      value, = curry.eval(e, converter=None)
+      self.assertIsaFreevar(inspect.fwd_chain_target(value))
+    e = interp.compile('id $## (x::Int) where x free', mode='expr')
+    self.assertRaises(
+        curry.exceptions.EvaluationSuspended, lambda: list(curry.eval(e))
+      )
 
   @cytest.with_flags(defaultconverter='topython')
   def test_strict_apply_choice(self):

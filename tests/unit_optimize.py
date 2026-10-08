@@ -212,18 +212,6 @@ class ModuleTestCase(cytest.TestCase):
     curry.path.insert(0, self.tmpdir)
     self.currypath = list(curry.path)
 
-  def interpretable(self):
-    '''
-    Reloads the interpreter under interpret 'new' when the session runs
-    under 'off'.  Under 'off' the toolchain compiles a module from its
-    files, and a function made at run time gets no step and no bytecode
-    (backends/cxx/materialize.py), so the C++ backend cannot run the
-    unoptimized form, which is imported from its ICurry object.  Under
-    'new' such a module is interpreted.  The caller is hardreset.
-    '''
-    if cytest.interpret_mode() == 'off':
-      self.reload(interpret='new')
-
   def write(self, stem, text):
     '''
     Writes a Curry module with a new name that starts with ``stem``.  The

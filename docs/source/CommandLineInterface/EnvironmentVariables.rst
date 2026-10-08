@@ -148,7 +148,9 @@ The following are recognized:
   The ``interpret`` flag selects how the C++ backend runs a module without
   a compiled object: ``tiered`` (the default) interprets it and compiles it
   in the background, ``new`` interprets it and never compiles it, ``all``
-  interprets every module, and ``off`` compiles every module first.  An
+  interprets every module, and ``off`` compiles every module first (a
+  module imported from an ICurry object at its first use; see the flag in
+  :mod:`curry.interpreter.flags`).  An
   installation without a C++ compiler runs under the default with one
   notice; see :doc:`/Installation/WithoutCompiler`.
 

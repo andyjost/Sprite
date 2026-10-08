@@ -417,6 +417,32 @@ namespace cyrt
     }
   }
 
+  TieredResult tiered_adopt(TieredJob job, bool in_evaluation)
+  {
+    Finished done{std::move(job), 0, 0, 0.0, {}, {}};
+    TieredResult result;
+    try
+    {
+      result = apply(done, in_evaluation);
+    }
+    catch(...)
+    {
+      result.module = done.job.module;
+      result.error = "an unexpected error";
+    }
+    std::lock_guard<std::mutex> lock(shared().mutex);
+    if(result.ok)
+    {
+      shared().counts.swapped_functions += result.swapped;
+      shared().counts.swapped_modules += 1;
+      if(in_evaluation)
+        shared().counts.applied_in_evaluation += 1;
+    }
+    else
+      shared().counts.failed_modules += 1;
+    return result;
+  }
+
   std::vector<TieredResult> tiered_take_results()
   {
     std::lock_guard<std::mutex> lock(shared().mutex);

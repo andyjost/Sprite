@@ -24,6 +24,39 @@ CORPUS_IMPORT_DIRS = [os.path.join(DATA, 'curry', 'kiel', 'lib')]
 # IExempt).  Both are checked against the archive in unit_flat2icurry.py.
 ROUTE_DIFFERS = {'TypedRoot', 'Externals'}
 
+# The products the PAKCS oracle leaves beside a FlatCurry file it wrote: the
+# Prolog that :load compiles, and the AbstractCurry that the front end run of
+# :eval writes (section 8 of the README).
+ORACLE_SUFFIXES = ('.pl', '.acy')
+
+def oracle_wrote(fcy):
+  '''
+  Whether the PAKCS oracle left one of its products beside ``fcy``: the one
+  writer outside the toolchain that writes a FlatCurry file in the text of
+  the front end beside an ICurry file of the rewritten program.
+  '''
+  stem = fcy[:-len('.fcy')]
+  return any(os.path.isfile(stem + suffix) for suffix in ORACLE_SUFFIXES)
+
+def check_on_disk(pairs, importdirs):
+  '''
+  Checks the pairs on disk: a FlatCurry file in the text of the front end
+  is accepted (accept_unrewritten of flat2icurry_oracle.check_file) beside
+  the products of the PAKCS oracle alone.  Returns the results in the order
+  of the pairs.
+
+  The oracle writes M.fcy before it compiles the module to Prolog and
+  writes M.pl, so a functional file that runs beside this one in a parallel
+  run can leave a pair without a product for the time of that compile; a
+  pair seen then is reported DIFFERENT.  Rerun the file.
+  '''
+  results = {}
+  for accept in (True, False):
+    selected = [pair for pair in pairs if oracle_wrote(pair[0]) == accept]
+    for pair, result in zip(selected, oracle.check_pairs(selected, importdirs, accept_unrewritten=accept)):
+      results[pair] = result
+  return [results[pair] for pair in pairs]
+
 class TestWholeCorpus(cytest.TestCase):
   '''
   Runs the FlatCurry-to-ICurry port over the whole oracle: every file of the
@@ -86,22 +119,29 @@ class TestWholeCorpus(cytest.TestCase):
     (section 8 of the README), so the plain translation of the file on
     disk is the ICurry beside it.
 
-    One writer outside the toolchain leaves a FlatCurry file in the text
-    of the front end: the PAKCS oracle (tests/oracle, tests/oracle_type).
-    Its ``:load M`` runs the front end, which compiles every module of the
-    chain whose files are stale for it (an import whose interface is older
-    than the interface of one of its own imports among them), and its
-    ``:eval`` runs the front end once more, for the goal, with the targets
-    ``--acy --flat``, which compiles every module without an ``.acy`` file
-    again.  The binding optimization of PAKCS runs over the modules it
-    compiles to Prolog, not over those files.  So the check accepts such a
-    file when the pass over it in memory translates to the ICurry beside
-    it (accept_unrewritten of flat2icurry_oracle.check_file), and reports
-    how many pairs needed it.  A pair that differs either way is a product
-    made before the routes rewrote the file, or a real difference; rewrite
-    the module (sprite-make --rewrite-flat M) or the file alone (python -m
-    curry.toolchain.flat2icurry.rewrite M.fcy).  TestUnrewrittenFile pins
-    the acceptance on a pair of its own.
+    One writer, which Sprite does not control, leaves a FlatCurry file in
+    the text of the front end: the PAKCS oracle (tests/oracle,
+    tests/oracle_type).  Its ``:load M`` runs the front end, which compiles
+    every module of the chain whose files are stale for it (an import whose
+    interface is older than the interface of one of its own imports among
+    them), and its ``:eval`` runs the front end once more, for the goal,
+    with the targets ``--acy --flat``, which compiles every module without
+    an ``.acy`` file again.  The binding optimization of PAKCS runs over
+    the modules it compiles to Prolog, not over those files.  The oracle
+    leaves its own products beside such a file: the Prolog of ``:load``
+    (M.pl) and the AbstractCurry of ``:eval`` (M.acy).  So the check
+    accepts such a file beside those products alone (oracle_wrote;
+    check_on_disk), when the pass over it in memory translates to the
+    ICurry beside it (accept_unrewritten of flat2icurry_oracle.check_file),
+    and reports how many pairs needed it.  The routes leave no such file:
+    they rewrite every FlatCurry file a run of the front end wrote (#99),
+    and a hit of the ICurry cache rewrites the file of the front end as
+    well (#101), so a pair that differs elsewhere is a product made before
+    the routes rewrote the file, a file a front end run by hand wrote, or a
+    real difference; rewrite the module (sprite-make --rewrite-flat M) or
+    the file alone (python -m curry.toolchain.flat2icurry.rewrite M.fcy).
+    TestUnrewrittenFile pins the acceptance, and its narrowing to the
+    oracle, on a pair of its own.
     '''
     pairs = []
     for fcy in self.on_disk_fcys():
@@ -112,9 +152,8 @@ class TestWholeCorpus(cytest.TestCase):
         pairs.append((fcy, icy))
     if not pairs:
       self.skipTest('no front-end products under tests/data')
-    results = oracle.check_pairs(
+    results = check_on_disk(
         pairs, self.overlay.library_dirs() + LIBRARY_DIRS + CORPUS_IMPORT_DIRS
-      , accept_unrewritten=True
       )
     self.assertEqual(
         oracle.summarize(results), (len(pairs), 0, 0), oracle.report(results)
@@ -123,8 +162,8 @@ class TestWholeCorpus(cytest.TestCase):
     if unrewritten:
       sys.stderr.write(
           '\n%d of %d FlatCurry files on disk are in the text of the front '
-          'end beside an ICurry file of the rewritten program (a writer '
-          'outside the toolchain, such as the PAKCS oracle, wrote them):\n  %s\n'
+          'end beside an ICurry file of the rewritten program and the '
+          'products of the PAKCS oracle, which wrote them:\n  %s\n'
               % (len(unrewritten), len(pairs), '\n  '.join(unrewritten))
         )
 
@@ -245,6 +284,22 @@ class TestUnrewrittenFile(cytest.TestCase):
       self.assertEqual(istream.read(), unrewritten)
     results = oracle.check_pairs([(fcy, icy)], accept_unrewritten=True)
     self.assertEqual(oracle.summarize(results), (1, 0, 0))
+    # The on-disk check accepts the file beside a product of the PAKCS
+    # oracle alone: without one the pair is DIFFERENT, as it is for a
+    # route that left the file (the routes leave none).
+    self.assertFalse(oracle_wrote(fcy))
+    plain, = check_on_disk([(fcy, icy)], [])
+    self.assertEqual(plain.status, oracle.DIFFERENT)
+    for suffix in ORACLE_SUFFIXES:
+      product = fcy[:-len('.fcy')] + suffix
+      with open(product, 'w') as ostream:
+        ostream.write('')
+      self.assertTrue(oracle_wrote(fcy))
+      accepted, = check_on_disk([(fcy, icy)], [])
+      self.assertEqual(accepted.status, oracle.EQUAL, accepted.detail)
+      self.assertTrue(accepted.unrewritten)
+      os.unlink(product)
+    self.assertFalse(oracle_wrote(fcy))
     # A corrupted oracle: the pass changes the program, but the optimized
     # program does not translate to this ICurry file, so the pair stays
     # DIFFERENT (the case of a file the pass leaves as it is follows).

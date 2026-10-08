@@ -6,8 +6,10 @@
 #include "cyrt/graph/infotable.hpp"
 #include "cyrt/icurry.hpp"
 #include "cyrt/module.hpp"
+#include "cyrt/state/configuration.hpp"
 #include <dlfcn.h>
 #include <iostream>
+#include <stdexcept>
 #include <unordered_map>
 
 using namespace cyrt;
@@ -213,7 +215,9 @@ namespace cyrt
   // still the interpreter (a symbol the shim does not name) takes the step
   // function of the object by its own symbol, and its aux field is cleared
   // as well, so a swapped table looks the same on both paths.  The bytecode
-  // stays allocated (cyrt/icurry.cpp): a step in flight finishes on it.
+  // stays allocated (cyrt/icurry.cpp): a step in flight finishes on it.  A
+  // table with the trap step (no code; see trap_step) is swapped the same
+  // way: the compile on first use under interpret:off ends here.
   size_t Module::adopt(
       std::shared_ptr<SharedCurryModule> const & shlib
     , std::vector<std::pair<std::string, InfoTable const *>> const & steps
@@ -226,7 +230,7 @@ namespace cyrt
       InfoTable * info = const_cast<InfoTable *>(step.second);
       if(!info)
         continue;
-      if(info->step == &icurry_step)
+      if(info->step == &icurry_step || info->step == &trap_step)
       {
         auto compiled = (stepfunc_type) dlsym(
             shlib->handle(), step.first.c_str()
@@ -236,7 +240,8 @@ namespace cyrt
         info->step = compiled;
         info->aux = nullptr;
       }
-      if(info->step && info->step != &icurry_step)
+      if(info->step && info->step != &icurry_step
+          && info->step != &trap_step)
         ++swapped;
     }
     // The initializers wrote the flags of the static tables, the static
@@ -385,6 +390,75 @@ namespace cyrt
   {
     auto * info = this->get_infotable(name);
     return (info && is_static(*info)) ? info : nullptr;
+  }
+
+  // The trap step (see module.hpp).
+  namespace
+  {
+    trap_hook_type g_trap_hook = nullptr;
+
+    std::string trap_message(InfoTable const * info, std::string const & reason)
+    {
+      std::string const owner = owner_of(info);
+      std::string text = "cannot evaluate function '";
+      if(!owner.empty())
+        text += owner + ".";
+      text += info->name;
+      text += "': the function has no compiled code (its module was imported "
+              "from an ICurry object under interpret:off)";
+      if(!reason.empty())
+        text += ": " + reason;
+      return text;
+    }
+  }
+
+  void set_trap_hook(trap_hook_type hook)
+  {
+    g_trap_hook = hook;
+  }
+
+  std::string owner_of(InfoTable const * info)
+  {
+    if(info)
+      for(auto && item: Module::getall())
+        if(item.second->get_infotable(info->name) == info)
+          return item.first;
+    return {};
+  }
+
+  tag_type trap_step(RuntimeState * rts, Configuration * C)
+  {
+    InfoTable const * info = C->cursor()->info;
+    std::string reason;
+    if(g_trap_hook)
+      reason = g_trap_hook(info);
+    else
+      reason = "no compile hook is installed";
+    // The hook gave the table its code: run it on the same redex.
+    if(info->step != &trap_step)
+      return info->step(rts, C);
+    C->set_error(trap_message(info, reason));
+    return E_ERROR;
+  }
+
+  void install_trap(InfoTable * info)
+  {
+    if(!info)
+      throw std::invalid_argument("install_trap: a null argument");
+    if(info->tag != T_FUNC)
+      throw std::invalid_argument(
+          std::string("install_trap: ") + info->name + " is not a function"
+        );
+    if(is_static(*info))
+      throw std::invalid_argument(
+          std::string("install_trap: ") + info->name
+          + " is a static info table (a built-in or a compiled module)"
+        );
+    if(info->step && info->step != &trap_step)
+      throw std::invalid_argument(
+          std::string("install_trap: ") + info->name + " has a step already"
+        );
+    info->step = &trap_step;
   }
 }
 

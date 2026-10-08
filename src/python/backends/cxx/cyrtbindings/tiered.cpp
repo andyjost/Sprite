@@ -13,7 +13,9 @@ namespace
 {
   using namespace cyrt;
 
-  void tiered_submit_(
+  // The job of a module: the shims (file, argv) and the steps (name, symbol,
+  // info) come as sequences of tuples.
+  TieredJob make_job(
       std::string module, py::sequence shims, std::vector<std::string> argv
     , std::vector<std::string> envp, std::string logfile, std::string sofile
     , py::sequence steps
@@ -46,25 +48,51 @@ namespace
           tup[0].cast<std::string>(), tup[1].cast<std::string>(), info
         });
     }
-    tiered_submit(std::move(job));
+    return job;
+  }
+
+  void tiered_submit_(
+      std::string module, py::sequence shims, std::vector<std::string> argv
+    , std::vector<std::string> envp, std::string logfile, std::string sofile
+    , py::sequence steps
+    )
+  {
+    tiered_submit(make_job(
+        std::move(module), shims, std::move(argv), std::move(envp)
+      , std::move(logfile), std::move(sofile), steps
+      ));
+  }
+
+  py::dict result_dict(TieredResult const & r)
+  {
+    py::dict d;
+    d["module"] = r.module;
+    d["sofile"] = r.sofile;
+    d["ok"] = r.ok;
+    d["in_evaluation"] = r.in_evaluation;
+    d["swapped"] = r.swapped;
+    d["seconds"] = r.seconds;
+    d["error"] = r.error;
+    d["output"] = r.output;
+    return d;
+  }
+
+  py::dict tiered_adopt_(
+      std::string module, py::sequence shims, std::string sofile
+    , py::sequence steps
+    )
+  {
+    TieredJob job = make_job(
+        std::move(module), shims, {}, {}, {}, std::move(sofile), steps
+      );
+    return result_dict(tiered_adopt(std::move(job), true));
   }
 
   py::list tiered_results_()
   {
     py::list out;
     for(auto const & r: tiered_take_results())
-    {
-      py::dict d;
-      d["module"] = r.module;
-      d["sofile"] = r.sofile;
-      d["ok"] = r.ok;
-      d["in_evaluation"] = r.in_evaluation;
-      d["swapped"] = r.swapped;
-      d["seconds"] = r.seconds;
-      d["error"] = r.error;
-      d["output"] = r.output;
-      out.append(d);
-    }
+      out.append(result_dict(r));
     return out;
   }
 
@@ -123,6 +151,12 @@ namespace cyrt { namespace python
         "(file, argv): the shims to link and load before the object.  steps "
         "is a sequence of (name, symbol, info): the functions to swap when "
         "the object is ready.");
+    mod.def("tiered_adopt", &tiered_adopt_
+      , py::arg("module"), py::arg("shims"), py::arg("sofile"), py::arg("steps")
+      , "Loads the object of a module compiled in this process and swaps the "
+        "steps at once (the compile on first use under interpret:off).  shims "
+        "and steps are as for tiered_submit.  Returns the result as a dict "
+        "with the keys of tiered_results.");
     mod.def("tiered_poll", []{ tiered_apply_pending(false); }
       , "Applies the compiled objects that finished in the background.  Call "
         "it from the thread that evaluates.");

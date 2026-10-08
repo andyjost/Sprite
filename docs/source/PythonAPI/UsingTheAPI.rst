@@ -193,7 +193,9 @@ compiled ``Fib`` module into a file ``Fib.cpp``, say:
 ``module_main=False`` saves the module alone.  Without it the file is a
 program, and ``goal=`` must name the goal it evaluates; a call with neither
 raises ``ValueError``.  The entry point of the C++ program is a stub today;
-``sprite-exec`` runs programs.
+``sprite-exec`` runs programs.  The saved program of the reference backend
+(:ref:`reference-backend`), a script in Python, retires at the removal gate
+of issue #82.
 
 :func:`curry.load` loads the shared object of a module, which
 ``sprite-make --so Fib.curry`` writes beside the source, under
@@ -322,6 +324,19 @@ apply the ``str`` function or just print the value:
 ``str`` format shows expressions in a more natural way, but discards
 information about whether data is boxed.  A string of several characters is
 built in one call: the list of its characters, made natively.
+
+Two nodes compare by their structure: ``==`` is True between two nodes that
+hold the same expression, whatever their identity, and False between a node
+and a value that is not a node.  A node hashes by its identity, so two equal
+nodes hash differently, and a dict or a set keyed by nodes keeps both; a
+node is not meant as a dictionary key.  A node has no order: ``<``
+between two nodes raises ``TypeError``.  For example:
+
+    >>> one, other = curry.expr(1), curry.expr(1)
+    >>> one == other, one == 1, one is other
+    (True, False, False)
+    >>> len({one, other})
+    2
 
 Symbolic Expressions
 --------------------

@@ -9,8 +9,12 @@ in a guard, where PAKCS binds one.  The rule of the toolchain
 file as stale, and the route makes it again at the first import.  The key
 of the ICurry cache names the version of the route
 (curry.toolchain._frontend.ROUTE_VERSION), so an entry of a route without
-the rewrite is never served.  sprite-make reports the pairs it made again,
-and the prepare pass of the test runner reads the line (unit_runner.py).
+the rewrite is never served.  A hit of the cache writes the ICurry file and
+runs the pass over the FlatCurry file of the front end as well
+(curry.toolchain._curry2icurry.rewrite_on_hit), so the pair agrees as after
+a translation.  sprite-make reports the pairs it made again and the pairs
+the cache served, and the prepare pass of the test runner reads the line
+(unit_runner.py).
 '''
 import cytest # from ./lib; must be first
 from curry import cache, config, toolchain
@@ -518,8 +522,8 @@ class TestCacheKey(PreRewriteCase):
     stored it), and the pair on disk is made pre-rewrite again (make
     overlay extracts the archive over the tree).  The next contact flags
     the pair, the cache writes the ICurry of the rewritten program, and
-    the FlatCurry file stays in the text of the front end: the pair is
-    counted as served, not as translated again.
+    the route rewrites the FlatCurry file as well (TestCacheHit): the pair
+    agrees, and it is counted as served, not as translated again.
     '''
     cachefile = os.path.join(self.tmpdir, 'cache', 'icurry.db')
     self.set_cache_file(cachefile)
@@ -532,10 +536,10 @@ class TestCacheKey(PreRewriteCase):
     self.no_front_end()
     self.assertEqual(self.convert(curryfile, use_cache=True), icy)
     self.assertIn(b'constrEq', readbytes(icy))
-    self.assertNotIn(b'constrEq', readbytes(fcy))
+    self.assertIn(b'constrEq', readbytes(fcy))
     self.assertEqual(_curry2icurry.pairs_refreshed(), 0)
     self.assertEqual(_curry2icurry.pairs_served(), 1)
-    # The pair is the shape the oracle leaves and is current now.
+    # The pair agrees and is current now.
     self.assertFalse(_curry2icurry.icurry_is_stale(icy))
 
 
@@ -578,7 +582,8 @@ class TestSpriteMake(PreRewriteCase):
     self.assertIn('pre-rewrite pairs', usage)
     self.assertRegex(usage, r'from the\s+ICurry cache')
     # With the ICurry cache: the first run stores the entry; the pair made
-    # pre-rewrite again is served from it, and the line says so.
+    # pre-rewrite again is served from it, the line says so, and the hit
+    # rewrites the FlatCurry file as well.
     cached = dict(env, SPRITE_CACHE_FILE=os.path.join(self.tmpdir, 'icurry.db'))
     def run_cached(*args):
       return subprocess.run(
@@ -598,7 +603,126 @@ class TestSpriteMake(PreRewriteCase):
       , 'sprite-make: pre-rewrite pairs: 0 translated again, 1 from the ICurry cache\n'
       )
     self.assertIn(b'constrEq', readbytes(icy))
-    self.assertNotIn(b'constrEq', readbytes(fcy))
+    self.assertIn(b'constrEq', readbytes(fcy))
+
+
+class TestCacheHit(PreRewriteCase):
+  '''
+  The route on a hit of the ICurry cache: the cache writes the ICurry file,
+  and the route runs the binding optimization over the FlatCurry file of
+  the front end beside the source (_curry2icurry.rewrite_on_hit), so the
+  pair never disagrees because of the cache.
+  '''
+
+  def hit(self, curryfile, icy):
+    '''Converts through the cache with the front end mocked away.'''
+    self.no_front_end()
+    stats = dict(cache.Curry2ICurryCache.stats)
+    self.assertEqual(self.convert(curryfile, use_cache=True), icy)
+    self.assertEqual(cache.Curry2ICurryCache.stats['hit'], stats['hit'] + 1)
+
+  def test_hit_rewrites_a_file_that_needs_it(self):
+    '''
+    A hit on a module whose FlatCurry file holds a required equality
+    leaves both files with constrEq: the text of the file is the text a
+    translation writes, byte for byte.
+    '''
+    self.set_cache_file(os.path.join(self.tmpdir, 'cache', 'icurry.db'))
+    curryfile = self.write('HitA', guard('HitA'))
+    icy = self.convert(curryfile, use_cache=True)
+    fcy = _frontend.flatcurryfile(curryfile)
+    rewritten = readbytes(fcy)
+    self.assertEqual(rewritten.count(b'constrEq'), 1)
+    self.pre_rewrite_pair(curryfile)
+    _curry2icurry.reset_counts()
+    self.hit(curryfile, icy)
+    self.assertEqual(readbytes(fcy), rewritten)
+    self.assertEqual(readbytes(icy).count(b'constrEq'), 1)
+    self.assertTrue(filesys.newer(fcy, curryfile))
+    self.assertFalse(_curry2icurry.icurry_is_stale(icy))
+    self.assertEqual(self.evaluate('HitA'), [3])
+    # The function alone: a second run replaces nothing.
+    self.assertEqual(_curry2icurry.rewrite_on_hit(curryfile), 0)
+    self.assertEqual(readbytes(fcy), rewritten)
+
+  def test_hit_touches_no_file_without_a_required_equality(self):
+    '''
+    A hit on a module whose FlatCurry file needs no rewrite leaves the
+    file alone: its bytes and its time stay.  A file without an equality
+    name is not parsed; a file with one outside a required position is
+    parsed and left.
+    '''
+    self.set_cache_file(os.path.join(self.tmpdir, 'cache', 'icurry.db'))
+    cases = [('HitIfEq', ifeq('HitIfEq'), 1), ('HitPlain', plain('HitPlain'), 0)]
+    files = {}
+    for name, text, _ in cases:
+      curryfile = self.write(name, text)
+      icy = self.convert(curryfile, use_cache=True)
+      fcy = _frontend.flatcurryfile(curryfile)
+      files[name] = (curryfile, icy, fcy, (readbytes(fcy), mtimes(fcy)))
+    for name, _, parses in cases:
+      with self.subTest(name=name):
+        curryfile, icy, fcy, before = files[name]
+        os.unlink(icy)
+        with mock.patch.object(
+            _curry2icurry.bindingopt, 'transform_prog'
+          , wraps=_curry2icurry.bindingopt.transform_prog
+          ) as parse:
+          self.hit(curryfile, icy)
+        self.assertEqual(parse.call_count, parses)
+        self.assertEqual((readbytes(fcy), mtimes(fcy)), before)
+        self.assertTrue(os.path.isfile(icy))
+        self.assertEqual(_curry2icurry.rewrite_on_hit(curryfile), 0)
+        self.assertEqual((readbytes(fcy), mtimes(fcy)), before)
+
+  def test_hit_leaves_a_file_of_another_version(self):
+    '''
+    A FlatCurry file older than the source belongs to another version of
+    the source.  A hit leaves it as it is: a rewrite would make it current
+    by the times for the front end.  A missing file is nothing to rewrite.
+    '''
+    self.set_cache_file(os.path.join(self.tmpdir, 'cache', 'icurry.db'))
+    curryfile = self.write('HitV', guard('HitV'))
+    icy = self.convert(curryfile, use_cache=True)
+    fcy, icy = self.pre_rewrite_pair(curryfile)
+    stamp = os.stat(fcy).st_mtime_ns + 1000000
+    os.utime(curryfile, ns=(stamp, stamp))
+    before = (readbytes(fcy), mtimes(fcy))
+    self.assertNotIn(b'constrEq', before[0])
+    self.assertIsNone(_curry2icurry.rewrite_on_hit(curryfile))
+    self.hit(curryfile, icy)
+    self.assertIn(b'constrEq', readbytes(icy))
+    self.assertEqual((readbytes(fcy), mtimes(fcy)), before)
+    self.assertFalse(_curry2icurry.icurry_is_stale(icy))
+    os.unlink(fcy)
+    self.assertIsNone(_curry2icurry.rewrite_on_hit(curryfile))
+
+  @unittest.skipIf(
+      hasattr(os, 'geteuid') and os.geteuid() == 0, 'root writes a read-only directory'
+    )
+  def test_hit_with_a_read_only_directory_warns(self):
+    '''
+    A FlatCurry file the pass cannot write again (its directory is
+    read-only) is left as it is, with one warning per process that names
+    sprite-make --rewrite-flat; the hit stands and the program runs.
+    '''
+    self.set_cache_file(os.path.join(self.tmpdir, 'cache', 'icurry.db'))
+    curryfile = self.write('HitR', guard('HitR'))
+    icy = self.convert(curryfile, use_cache=True)
+    fcy, icy = self.pre_rewrite_pair(curryfile)
+    directory = os.path.dirname(fcy)
+    os.chmod(directory, 0o555)
+    self.addCleanup(os.chmod, directory, 0o755)
+    before = (readbytes(fcy), mtimes(fcy))
+    with self.assertLogs(_curry2icurry.logger, 'WARNING') as logs:
+      self.hit(curryfile, icy)
+      self.assertIsNone(_curry2icurry.rewrite_on_hit(curryfile))
+    self.assertEqual(len(logs.output), 1, logs.output)
+    self.assertIn('sprite-make --rewrite-flat', logs.output[0])
+    self.assertIn(fcy, logs.output[0])
+    self.assertIn(b'constrEq', readbytes(icy))
+    self.assertEqual((readbytes(fcy), mtimes(fcy)), before)
+    self.assertEqual(self.evaluate('HitR'), [3])
 
 if __name__ == '__main__':
   unittest.main()

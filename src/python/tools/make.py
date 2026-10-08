@@ -114,12 +114,12 @@ the translation follows.  At the end of a run that made such a module
 again this program prints ``sprite-make: pre-rewrite pairs: N translated
 again``, unless ``-q`` was given; under ``--jobs`` the counts of the
 children are summed.  When the ICurry cache held the entry of the module
-(the test drivers keep one), the cache writes the ICurry file and the
-FlatCurry file stays as it was; the line then ends in ``, M from the
-ICurry cache``, and ``--rewrite-flat`` rewrites the file when it must
-agree.  The modules of the Curry library are not judged; their ICurry is
-committed.  A FlatCurry file larger than 256 KB, or one that cannot be
-written again, is not judged either, with a warning.
+(the test drivers keep one), the cache writes the ICurry file, and the
+binding optimization runs over the FlatCurry file as after a translation;
+the line then ends in ``, M from the ICurry cache``.  The modules of the
+Curry library are not judged; their ICurry is committed.  A FlatCurry file
+larger than 256 KB, or one that cannot be written again, is not judged
+either, with a warning.
 
 Environment Variables
 ---------------------

@@ -1,12 +1,12 @@
 #!/bin/bash
-# Runs the example on the reference backend (backend:py; the developer
-# notes of the documentation).  The example runs on that backend only; the
-# README says why.
+# Runs the example with the flags of SPRITE_INTERPRETER_FLAGS, and with the
+# module compiled before it runs (interpret:off), so that inspect.getimpl
+# reads the generated C++.  The README says why.
 set -euo pipefail
 cd "$(dirname "$0")"
 : "${SPRITE_HOME:=$(cd ../.. && pwd)/install}"
 export SPRITE_HOME
-export SPRITE_INTERPRETER_FLAGS=backend:py
+export SPRITE_INTERPRETER_FLAGS="${SPRITE_INTERPRETER_FLAGS:-backend:cxx},interpret:off"
 export LC_ALL=C.UTF-8 PYTHONIOENCODING=utf-8
 unset CURRYPATH
 echo '% python go.py'

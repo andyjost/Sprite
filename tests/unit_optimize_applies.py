@@ -745,9 +745,7 @@ class TestSaturateApplies(ApplyTestCase):
     self.assertEqual(ifcalls(imodule.functions['main']), ['%s.f' % base])
     self.assertEqual(ifcalls(imodule.functions['viaPrefix']), ['Prelude.++'])
     self.assertEqual(imodule.imports, imports + (base,))
-    # The values, from a module of the same text imported by name: on the
-    # C++ backend a module imported from its ICurry object has no object
-    # to run under interpret 'off'.
+    # The values, from a module of the same text imported by name.
     module = self.import_(self.write('Use', '''
       import %s
       main :: Int
@@ -771,8 +769,8 @@ class TestEvaluation(ApplyTestCase):
       optimized = self.import_(self.write(stem, text))
       for goal, expected in values.items():
         self.assertEqual(self.values(optimized, goal), expected, goal)
-    # The unoptimized form runs interpreted (interpretable).
-    self.interpretable()
+    # The unoptimized form is imported from its ICurry object: under
+    # interpret 'off' it compiles on its first use (issue #102).
     for stem, text, values in programs:
       unoptimized = self.unoptimized(self.write(stem, text))
       for goal, expected in values.items():
@@ -785,7 +783,6 @@ class TestEvaluation(ApplyTestCase):
     optimized = self.import_(self.write('Choices', CHOICES))
     for goal, expected in CHOICE_VALUES.items():
       self.assertCountEqual(self.values(optimized, goal), expected, goal)
-    self.interpretable()
     unoptimized = self.unoptimized(self.write('Choices', CHOICES))
     for goal, expected in CHOICE_VALUES.items():
       self.assertCountEqual(self.values(unoptimized, goal), expected, goal)

@@ -35,8 +35,8 @@ translated before the rewrite.  The toolchain counts them as stale (issue
 sprite-make prints how many it made again, and the line of the directory
 and the summary say so ("2 pre-rewrite pairs translated again").  When the
 ICurry cache of the drivers held the entry of such a module, the cache
-wrote its ICurry and the FlatCurry file stayed as it was; the lines then
-say so too ("1 pre-rewrite pair from the ICurry cache").
+wrote its ICurry, and the route rewrote the FlatCurry file as well; the
+lines then say so too ("1 pre-rewrite pair from the ICurry cache").
 
 After the pass the runner prunes its own product cache
 (:func:`prune_product_cache`): the cache under tests/.cache/products, which

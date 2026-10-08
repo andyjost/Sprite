@@ -119,6 +119,16 @@ namespace cyrt
     size_t                 stepcount = 0;
     size_t                 steps_total = 0;
     size_t                 forks_total = 0;
+    // The step limit of this evaluation, for the stepper of the test library
+    // (Evaluator.set_global_step_limit; the Python side sets it from the
+    // count at a reset).  NOLIMIT by default.  procS returns E_TERMINATE
+    // after the completed step that brings ``steps_total`` to the limit,
+    // every enclosing step hands the status out as it hands E_UNWIND out,
+    // and the outermost procD throws StepLimitReached.  So the graph holds
+    // the result of exactly that many steps, and no redex is half rewritten.
+    // The step is not a safepoint: ``stepcount`` and the rotation do not
+    // see it, so a run without a limit keeps its counters.
+    size_t                 step_limit = NOLIMIT;
     // The rotation cadence of this evaluation (see check_interrupts).  In
     // step mode ``rotation_steps`` is the number of completed steps between
     // two rotation checks and ``rotation_next`` the value of ``stepcount``

@@ -62,7 +62,21 @@ The following flags are available:
   * ``interpret`` ('off' | 'new' | 'all' | **'tiered'**)
 
     How the C++ backend runs a module whose code is not compiled.  With
-    'off', the toolchain compiles every module with the C++ compiler.  With
+    'off', the toolchain compiles every module with the C++ compiler.  A
+    module imported from an ICurry object (``curry.import_(imodule)``),
+    which the toolchain never sees, is compiled at its first use: the first
+    call of one of its functions generates the C++ of the ICurry object,
+    compiles it as ``sprite-make --so`` would, and swaps the functions of
+    the module to the compiled code (curry.backends.cxx.materialize).  When
+    the object is the translation of the source on disk, the products go
+    beside the source and into the product cache, and a current object
+    there is adopted without a compile; an object changed in memory, or
+    without a source file, compiles into a directory of the process.  A
+    function without code that is called all the same, because the compile
+    failed or because the hook
+    ``curry.backends.cxx.materialize.COMPILE_ON_FIRST_USE`` is False (the
+    tests use it), raises ``EvaluationError`` that names the function, its
+    module and the reason (issue #102).  With
     'new', a module without a compiled object (a module compiled from a
     string, an expression, a source file compiled for the first time) is
     interpreted by the ICurry interpreter of the runtime (cyrt/icurry.hpp)

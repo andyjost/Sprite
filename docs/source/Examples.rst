@@ -16,10 +16,12 @@ the example directory:
     ./run
 
 A run script uses the installed Sprite with the flags of
-``SPRITE_INTERPRETER_FLAGS``.  Examples 03 and 04 run on the reference
-backend of the :doc:`developer notes <DeveloperNotes>`, which their run
-scripts select: example 03 prints the generated code of a function, and
-example 04 saves a module in the saved form of that backend.
+``SPRITE_INTERPRETER_FLAGS``.  The script of example 03 adds
+``interpret:off`` to them, so the module is compiled before it runs and
+the example prints the first line of the generated C++ (its README says
+why).  Example 04 runs on the reference backend of the :doc:`developer
+notes <DeveloperNotes>`, which its run script selects: it saves a module
+in the saved form of that backend.
 
 The first run of an example also runs the Curry front end on its module.
 That takes a fraction of a second per module: example 01 took 0.56 s on
@@ -79,8 +81,9 @@ A Python program compiles a Curry module from a string and builds two goals, one
 Inspect Curry objects from Python
 =================================
 
-Directory ``examples/03-inspect``.  Runs on the reference backend
-(:doc:`DeveloperNotes`).
+Directory ``examples/03-inspect``.  Runs on the C++ backend, with the
+module compiled before it runs (the interpreter flag ``interpret:off``; see
+:ref:`interpreter-flags`).
 
 The module ``curry.inspect`` lists the symbols and the types of a loaded module and finds its ICurry files.  The example also prints the code that the backend generated for one function.
 

@@ -1,6 +1,6 @@
 '''Python bindings for libcyrt.so.'''
 from ._cyrtbindings import *
-from ...generic.eval import trace
+from ...generic.eval import control, trace
 from ....interpreter import flags as _flags
 from .... import exceptions
 from . import fingerprint
@@ -25,6 +25,54 @@ _SETF_STRATEGY = {
   , 'eager': SETF_EAGER
   }
 
+class StepCounter(object):
+  '''
+  The step counter of the generic evaluator over a C++ runtime state.
+
+  Evaluator.set_global_step_limit and the telemetry read the counter of the
+  Python backend (generic.eval.stepcounter.StepCounter) as
+  ``rts.stepcounter``; this object answers for the C++ state through its
+  fields ``steps_total`` and ``step_limit``.  The count and the limit are
+  relative to the last reset (``_step_base`` of the state), and the totals
+  of the state keep every step.  A limit at or below the count raises
+  E_TERMINATE at once, as the counter of the Python backend does; else the
+  scheduler returns E_TERMINATE after the step that reaches the limit
+  (cyrt/state/rts.hpp), and generate_values raises it.
+
+  A view: ``rts.stepcounter`` makes one per access, and the state holds no
+  counter.  A counter kept by the state made a reference cycle, which
+  delayed the destruction of the state of evaluator.single_step until the
+  cyclic collector ran; a live state is a root of the collector, so the
+  history of a search stayed reachable (test_repl_eval_under_stress of
+  unit_goals.py grew with the square of its length).
+  '''
+  def __init__(self, rts):
+    self._rts = rts
+
+  @property
+  def global_count(self):
+    '''The steps taken since the last reset.'''
+    return self._rts.steps_total - self._rts._step_base
+
+  @property
+  def global_limit(self):
+    limit = self._rts.step_limit
+    return float('inf') if limit == NOLIMIT else limit - self._rts._step_base
+
+  @global_limit.setter
+  def global_limit(self, limit):
+    if limit is None:
+      self._rts.step_limit = NOLIMIT
+      return
+    limit = int(limit)
+    if self.global_count >= limit:
+      raise control.E_TERMINATE()
+    self._rts.step_limit = self._rts._step_base + limit
+
+  def reset_global(self):
+    self._rts._step_base = self._rts.steps_total
+
+
 class RuntimeState(RuntimeStateBase):
   def __init__(self, interp, goal=None):
     istate = interp.backend.get_interpreter_state(interp)
@@ -42,6 +90,23 @@ class RuntimeState(RuntimeStateBase):
         self, istate, goal, self.tracing, self.setfunction_strategy
       , self.stack_limit, self.rotation_steps, self.rotation_quantum_ns
       )
+    # The count of the stepper starts here (StepCounter.reset_global).
+    self._step_base = 0
+
+  @property
+  def stepcounter(self):
+    '''The step counter of the generic evaluator: a view of this state.'''
+    return StepCounter(self)
+
+  def single_step(self, node):
+    '''
+    One rewrite step at the root of ``node`` (see evaluator.single_step).
+    A step that reports an error raises it as the evaluation would.
+    '''
+    try:
+      RuntimeStateBase.single_step(self, node)
+    except EvaluationError as err:
+      raise exceptions.EvaluationError(str(err))
 
   def generate_values(self):
     '''
@@ -51,6 +116,10 @@ class RuntimeState(RuntimeStateBase):
     ``sys.stdout``.  Both buffers share one file descriptor.  Python's buffer
     is flushed before the scheduler runs, and the C buffer when the scheduler
     returns (see the ``next`` binding), so the output keeps its order.
+
+    The step limit of the stepper (``stepcounter``) ends the evaluation with
+    E_TERMINATE, the flow-control exception of the generic evaluator, as on
+    the Python backend.
     '''
     try:
       while True:
@@ -63,6 +132,8 @@ class RuntimeState(RuntimeStateBase):
       raise exceptions.EvaluationError(str(err))
     except EvaluationSuspended:
       raise exceptions.EvaluationSuspended()
+    except StepLimitReached:
+      raise control.E_TERMINATE()
 
 def _flush_stdout():
   # A closed or missing stdout is legal: some IO tests close it to provoke an
