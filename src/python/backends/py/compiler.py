@@ -1,4 +1,5 @@
 from .currylib.prelude.math import apply_unboxed
+from .graph.node import check_int_range
 from ...exceptions import CompileError
 from ..generic import compiler, renderer
 from ... import config, icurry
@@ -250,6 +251,10 @@ class PyCompiler(compiler.CompilerBase):
     yield 'selector = %s.unboxed_value' % h_sel
     el = ''
     for branch in icase.branches:
+      # An Int literal outside the range is refused when the code is made,
+      # as the node refuses it (issue #105): a comparison with it would
+      # match nothing in silence.
+      check_int_range(branch.lit.value)
       rhs = repr(branch.lit.value)
       yield '%sif selector == %s:' % (el, rhs)
       yield list(self.compileS(branch.block))
@@ -268,6 +273,7 @@ class PyCompiler(compiler.CompilerBase):
     return '%s[%s]' % (var, ','.join(map(str, ivaraccess.path)))
 
   def vEmit_compileE_ILiteral(self, iliteral, h_ctor, primary):
+    check_int_range(iliteral.value)
     text = '%s, %r' % (h_ctor, iliteral.value)
     return 'rts.Node(%s)' % text if primary else text
 

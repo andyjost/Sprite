@@ -1,4 +1,4 @@
-from ...exceptions import CompileError
+from ...exceptions import CompileError, CurryTypeError
 from ..generic import compiler, renderer
 from ... import common, config, icurry
 from . import cyrtbindings as cyrt
@@ -467,6 +467,8 @@ class CxxCompiler(compiler.CompilerBase):
       if isinstance(br.lit, icurry.IChar):
         yield 'switch(NodeU{%s.target}.char_->value)' % h_sel
       elif isinstance(br.lit, icurry.IInt):
+        for branch in icase.branches:
+          _check_int_literal(branch.lit.value)
         yield 'switch(NodeU{%s.target}.int_->value)' % h_sel
       else:
         raise CompileError('bad switch type: %r' % type(br.lit))
@@ -506,6 +508,8 @@ class CxxCompiler(compiler.CompilerBase):
     # of its other literals (internLiteralNode).  So a step allocates nothing
     # for a literal.  A non-primary literal is the info table and the value,
     # for a rewrite of the redex.
+    if isinstance(iliteral, icurry.IInt):
+      _check_int_literal(iliteral.value)
     shown = _cxxshow(iliteral.value, use_char=True)
     if not primary:
       return '&%s, Arg(%s)' % (h_ctor, shown)
@@ -690,12 +694,28 @@ def _bom_entry(key, value):
 def _cxxshow(arg, use_char=False):
   assert False
 
+# The range of Int (issue #105).  The generated code spells an Int literal
+# as a C++ constant, which the C++ compiler narrows in silence when it does
+# not fit, so a literal outside the range is refused here, with the message
+# of the node (the materializer refuses the same literal at load).  The
+# minimum has no literal of its own in C++: it is spelled as an expression.
+INT_MIN = -(1 << 63)
+INT_MAX = (1 << 63) - 1
+
+def _check_int_literal(value):
+  if not INT_MIN <= value <= INT_MAX:
+    raise CurryTypeError(
+        '%d is outside the range of Int (%d to %d)' % (value, INT_MIN, INT_MAX)
+      )
+
 @_cxxshow.when(bool)
 def _cxxshow(bit, use_char=False):
   return 'true' if bit else 'false'
 
 @_cxxshow.when((int, float))
 def _cxxshow(i, use_char=False):
+  if i == INT_MIN and type(i) is int:
+    return '(-9223372036854775807LL - 1)'
   return repr(i)
 
 @_cxxshow.when(str)

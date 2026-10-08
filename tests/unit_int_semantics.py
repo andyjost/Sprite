@@ -211,6 +211,15 @@ class TestIntSemantics(cytest.TestCase):
       values(module.big)
     with self.assertRaisesRegex(curry.CurryTypeError, big_text):
       values(curry.compile('99999999999999999999 :: Int', mode='expr'))
+    # A literal of a case pattern is checked as well: the C++ generator
+    # spells it as a constant of the switch.
+    with self.assertRaisesRegex(curry.CurryTypeError, big_text):
+      module = curry.compile(textwrap.dedent('''
+          isBig :: Int -> Bool
+          isBig 99999999999999999999 = True
+          isBig _ = False
+          '''), modulename='BigPattern')
+      values(module.isBig, 1)
     # The maximum is a literal.  The minimum is not: -9223372036854775808
     # is the negation of the literal 9223372036854775808, which is outside
     # the range; -9223372036854775807 - 1 spells it.
