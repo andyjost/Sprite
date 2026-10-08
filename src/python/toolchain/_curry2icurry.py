@@ -7,7 +7,7 @@ import logging, os, re
 
 __all__ = [
     'PARSE_LIMIT', 'curry2icurry', 'icurry_is_stale', 'in_system_library'
-  , 'pairs_refreshed', 'pairs_served', 'reset_counts'
+  , 'pairs_refreshed', 'pairs_served', 'reset_counts', 'rewrite_on_hit'
   , 'translated_before_rewrite'
   ]
 logger = logging.getLogger(__name__)
@@ -77,9 +77,9 @@ def pairs_refreshed():
 def pairs_served():
   '''
   The number of pre-rewrite pairs the ICurry cache served in this process.
-  The cache wrote the ICurry file; the FlatCurry file of the front end
-  still holds the equalities until ``sprite-make --rewrite-flat`` runs the
-  step.
+  The cache wrote the ICurry file, and the route ran the binding
+  optimization over the FlatCurry file of the front end
+  (``rewrite_on_hit``), so the pair agrees as after a translation.
   '''
   return len(served_pairs)
 
@@ -115,6 +115,46 @@ def _writable(fcyfile):
   return os.access(fcyfile, os.W_OK) \
       and os.access(os.path.dirname(fcyfile), os.W_OK)
 
+def rewrite_on_hit(curryfile):
+  '''
+  Runs the binding optimization over the FlatCurry file of the front end
+  beside ``curryfile`` after a hit of the ICurry cache, as a translation
+  does (``_frontend.curry2flat``), so the file agrees with the ICurry file
+  the cache wrote.  The cost is a read, and a parse when the text has an
+  equality name; the file is written again only when the pass replaces an
+  equality, else it keeps its bytes and its time.
+
+  Two files are left as they are.  A file older than the source belongs to
+  another version of the source, and a rewrite would make it current by the
+  times for the front end; the front end writes it again when it next runs
+  for the module.  A file the pass cannot rewrite (unreadable, or in a
+  read-only directory) is left with one warning per process that names
+  ``sprite-make --rewrite-flat``; the hit stands.  A missing file is
+  nothing to rewrite.
+
+  Returns the number of equalities replaced, or None when the file was not
+  judged.
+  '''
+  curryfile = os.path.abspath(curryfile)
+  fcyfile = _frontend.flatcurryfile(curryfile)
+  if not os.path.isfile(fcyfile) or filesys.newer(curryfile, fcyfile):
+    return None
+  try:
+    with open(fcyfile, 'rb') as stream:
+      data = stream.read()
+    if EQUALITY_NAME.search(data) is None:
+      return 0
+    return _frontend.optimize_flatcurry(fcyfile)
+  except Exception as err:
+    _warn_once(
+        fcyfile
+      , 'cannot rewrite %s after a hit of the ICurry cache: %s; run '
+        'sprite-make --rewrite-flat on the module to make the file agree '
+        'with its ICurry'
+      , fcyfile, err
+      )
+    return None
+
 def in_system_library(curryfile):
   '''Tells whether ``curryfile`` lies in the Curry library of the installation.'''
   root = os.path.realpath(config.system_curry_path())
@@ -149,7 +189,8 @@ def translated_before_rewrite(curryfile, icyfile):
 
   Three files are not judged.  A FlatCurry file older than the source
   belongs to another version of the source (a hit in the ICurry cache
-  writes no FlatCurry) and is not the input of the ICurry file.  A module
+  writes no FlatCurry file; it rewrites a current one, ``rewrite_on_hit``)
+  and is not the input of the ICurry file.  A module
   of the Curry library of the installation keeps its committed ICurry
   (``in_system_library``); ``make stage`` makes those products.  A
   FlatCurry file the pass cannot write again (the file or its directory is
@@ -253,7 +294,10 @@ class Curry2ICurryConverter(object):
   The cache (see ``curry.cache``) is keyed by the source text and by the
   route, so an entry written by one route is never served to the other.  An
   error the front end reported about the program is taken from the cache
-  too.
+  too.  On a hit the cache writes the ICurry file, and the route runs the
+  binding optimization over the FlatCurry file of the front end beside the
+  source as well (``rewrite_on_hit``), so the pair on disk agrees as after
+  a translation; the pair is counted apart (``pairs_served``).
 
   The two interface files of the module travel with its ICurry (see
   ``cache.INTERFACE_SUFFIXES``).  Both routes run the front end, which writes
@@ -299,6 +343,7 @@ class Curry2ICurryConverter(object):
           )
       if slot:
         logger.debug('Found %s in the cache', file_out)
+        rewrite_on_hit(file_in)
       elif slot is not None and slot.error is not None:
         logger.debug('Found the error of %s in the cache', file_in)
         raise CompileError(_system.pexec_message(cmd, slot.error))

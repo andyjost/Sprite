@@ -7,6 +7,7 @@
 #include "cyrt/currylib/setfunctions.hpp"
 #include "cyrt/graph/node.hpp"
 #include "cyrt/icurry.hpp"
+#include "cyrt/module.hpp"
 #include "cyrt/state/rts.hpp"
 
 // The ICurry interpreter.  See icurry.hpp for the machine and the opcodes.
@@ -372,7 +373,9 @@ namespace cyrt
           std::string("icurry_attach: ") + info->name
           + " is a static info table (a built-in or a compiled module)"
         );
-    if(info->step)
+    // The trap step is no code (see cyrt/module.hpp); the bytecode replaces
+    // it.
+    if(info->step && !is_trapped(info))
       throw std::invalid_argument(
           std::string("icurry_attach: ") + info->name + " has a step already"
         );

@@ -134,6 +134,13 @@ namespace cyrt
                            continue;
                          C->forced_rotate = true;
                          return this->yield_control(E_UNWIND);
+        // The step limit was reached (see step_limit).  A nested scheduler
+        // hands the status out, as it hands E_UNWIND out; the outermost one
+        // ends the evaluation.  The configuration is left as it is: the
+        // evaluation never resumes.
+        case E_TERMINATE: if(this->in_recursive_call())
+                           return this->yield_control(E_TERMINATE);
+                         throw StepLimitReached("the step limit was reached");
         case E_ERROR   : C->raise_error();
         case E_RESIDUAL: this->rotate(Q);
                          continue;
@@ -206,6 +213,7 @@ namespace cyrt
                          #endif
                          scan->resize(ret);
                          goto redoN;
+        case E_TERMINATE:
         case E_UNWIND  :
         case E_GC      :
         case E_ROTATE  :
@@ -237,7 +245,7 @@ namespace cyrt
     GC_COUNT_REDEX_WRITE(redex);
     TRACE_STEP_EXIT(C->cursor())
     // Only a rewrite counts as a step.  A status below E_RESTART means the
-    // step was interrupted (E_UNWIND, E_GC, E_ROTATE), suspended
+    // step was interrupted (E_UNWIND, E_GC, E_ROTATE, E_TERMINATE), suspended
     // (E_RESIDUAL), or raised an error (E_ERROR), and the redex is as it was.
     // The Python backend applies the same rule (see S in fairscheme.py).
     //
@@ -252,8 +260,16 @@ namespace cyrt
     // each of them counts it on the way out; the next step checks.
     if(status >= E_RESTART)
     {
+      // The step limit (see step_limit): the evaluation ends after this
+      // step, with the redex as the step wrote it.  The test reads the
+      // count before the increment, from the value count_step loads, so
+      // that it costs one compare per completed step; the limit is NOLIMIT
+      // unless the stepper set one.
+      bool const last = this->steps_total + 1 >= this->step_limit;
       this->count_step();
       SCHEDULER_COUNT_SHARED(redex, C);
+      if(__builtin_expect(last, 0))
+        return E_TERMINATE;
       if(status != E_RESTART)
         status = this->check_interrupts(status);
     }

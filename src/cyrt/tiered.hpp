@@ -130,6 +130,15 @@ namespace cyrt
   // throws: a failure goes into the result of the job.
   void tiered_apply_pending(bool in_evaluation);
 
+  // Loads the object of a module that was compiled on the calling thread
+  // and swaps its steps at once, as tiered_apply_pending does for a finished
+  // job; no command of the job runs, and the shims of the job are loaded
+  // first.  The compile on first use under interpret:off ends here (see
+  // trap_step in module.hpp and backends/cxx/materialize.py).  The result
+  // is returned, not queued, and counts in tiered_status as the result of a
+  // job.  Never throws.
+  TieredResult tiered_adopt(TieredJob job, bool in_evaluation);
+
   // The results applied since the last call, in order.
   std::vector<TieredResult> tiered_take_results();
 

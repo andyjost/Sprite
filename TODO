@@ -7657,3 +7657,323 @@
   SPRITE_GC_STRESS=1; the whole unit suite under the stress mode 90 of
   90 ok in 737 s.  The results of the whole suite are in the entry
   above.
+
+2026-10-08: the route on a cache hit, example 03 on the C++ backend, the hash rule and the note on the saved program (decisions 4 and 6 of the action list; worktree wt/potholes3)
+- Decision 4, the route on a hit.  A hit of the ICurry cache wrote the
+  .icy and the interfaces and left the .fcy of the front end as it was,
+  so a pre-rewrite pair made again (make overlay over a tree whose cache
+  held the module) disagreed until a hand rewrite (#101, left to the
+  owner).  Now Curry2ICurryConverter.convert runs the binding
+  optimization over the .fcy on a hit as well
+  (_curry2icurry.rewrite_on_hit): a read; a parse when the text has an
+  equality name (the exact test of "nothing to replace"; a rewritten
+  file parses too, as after a miss, so the gap of a source that names
+  constrEq itself is not widened); the file is written when the pass
+  replaces an equality, else it keeps its bytes and its time.  Left
+  alone: a .fcy older than the source (another version of it; a rewrite
+  would make it current by the times for the front end, which would
+  then skip the module), a missing file, and a file the pass cannot
+  write again (a read-only directory), the last with one warning per
+  process that names sprite-make --rewrite-flat; the hit stands in
+  every case.  ROUTE_VERSION stays 1: the ICurry text of an entry does
+  not change, so no entry misses.  The count of served pairs stays as a
+  report (pairs_served; the line of sprite-make and the prepare pass as
+  before), with its meaning corrected in the docstrings, the manual of
+  sprite-make, tests/README and the page CompilationPipeline.
+- The oracle test.  func_flat2icurry.test_products_on_disk accepted an
+  unrewritten .fcy beside a rewritten .icy for every pair
+  (accept_unrewritten).  Now the acceptance is narrowed to the one
+  writer Sprite does not control, the PAKCS oracle, by its products
+  beside the file: the Prolog of :load (M.pl) and the AbstractCurry of
+  :eval (M.acy) (oracle_wrote, check_on_disk, ORACLE_SUFFIXES).  A pair
+  without them that differs fails the test with the usual report, since
+  the routes leave no such file now; the docstring says so.  On this
+  tree no pair needed the acceptance (the test prints the list when one
+  does).  The 15 modules with M.pl and M.acy under tests/data are
+  copies of the products of the main tree (the time of the extraction),
+  the oracle's hand there; the archive packs neither.
+- Tests, both backends.  unit_curry2icurry_stale.py, 18 (14 before):
+  TestCacheHit, a hit on a module whose .fcy needs the rewrite leaves
+  both files with constrEq and the .fcy byte-identical to the file a
+  translation writes (the program gives 3; a second rewrite_on_hit
+  replaces nothing); a hit on a module whose .fcy needs none leaves its
+  bytes and its time (no parse without an equality name, one parse with
+  one outside a required position); a .fcy older than the source and a
+  missing file are not judged (None); a read-only directory: one
+  warning, the hit stands, the program runs.
+  test_served_pair_is_counted_apart and the cached run of
+  test_sprite_make_reports now expect constrEq in the .fcy too.
+  func_flat2icurry.TestUnrewrittenFile: the pair without a product of
+  the oracle is DIFFERENT through check_on_disk, and EQUAL with the mark
+  unrewritten beside an empty M.pl or M.acy.
+- Decision 6d, example 03.  The run script no longer selects
+  backend:py: it keeps the flags of the environment (backend:cxx by
+  default) and appends interpret:off (a repeated flag parses, the last
+  wins), so the module is compiled before it runs and inspect.getimpl
+  reads the generated C++, which the README describes; the first line
+  is the banner /****** Nat.natToInt ******/ under every mode (the text
+  of an interpreted function starts with the same banner, and its second
+  line counts bytecode units), so the standard output of the example
+  does not depend on the mode, and the code on the standard error stream
+  does.  go.py prints "The
+  C++ implementation ..." and the banner; the README says why and gives
+  the timings (warm 0.3 s; the first run about 2 s more, the front end
+  and g++); expected.out regenerated from the run.  Under backend:py
+  the script prints the signature of the generated Python function
+  instead, so the output is not identical and unit_examples.py lists
+  the example on the C++ backend alone, with the reason beside the
+  entry.  Examples.rst and examples/README follow (03 (cxx); 04 keeps
+  the reference backend).
+- Decision 6a.  The README of example 04 and the section "Writing
+  Compiled Code to Disk" of UsingTheAPI.rst say in one sentence that
+  the saved program of the reference backend retires at the removal
+  gate of #82 (the API page avoids the phrase "Python form", which
+  unit_reference_backend.py forbids in the user guide).
+- Decision 6c, the hash rule.  UsingTheAPI.rst, "Built-in Conversions",
+  where a node is described: two nodes compare by structure, a node is
+  never equal to a value that is not a node, a node hashes by identity,
+  so two equal nodes hash differently and a set keyed by nodes keeps
+  both, a node is not meant as a dictionary key, a node has no order;
+  with a transcript.  No page described the equality against a foreign
+  object before; the lane of #82 stage 5 documented it in the source
+  and in unit_equality.py alone.  test_hash of unit_equality.py pins
+  the rule: node == same, hash(node) != hash(same), len({node, same})
+  == 2, same not in {node}, {node: 1}.get(same) is None, both backends.
+- Files outside the list of the item that had to change:
+  src/python/tools/make.py (the paragraph of the manual on the pairs
+  served), tests/lib/testrunner/prepare.py (its module docstring),
+  docs/source/Examples.rst and examples/README (the sentences on
+  example 03), tests/unit_equality.py (the pin).  Not changed:
+  AGENTS.md (the owner's), which states the rule of #101 and says that
+  a run of the front end rewrites every .fcy it wrote, and nothing of a
+  hit; one clause there could say that a hit of the ICurry cache
+  rewrites the .fcy of the module as well.
+- Verification, one process at a time unless said otherwise.
+  unit_curry2icurry_stale.py: 18 ok on cxx (tiered, 10.8 s), under
+  interpret:off (9.7 s) and under interpret:all (9.9 s).  Example 03:
+  ./run cold 2.4 s, warm 0.29 s, status 0, the same output; under
+  backend:py the last lines differ ("def CyF3Nat8natToInt(rts, _0):").
+  Through the runner at -j 2 --mem 4 --backend both:
+  unit_curry2icurry_stale, unit_curry2icurry (#99), unit_equality,
+  unit_examples, unit_reference_backend, unit_runner, unit_make,
+  func_flat2icurry, unit_flat2icurry_bindingopt and unit_inspect: 20 of
+  20 run, 19 ok, wall 243 s (unit_examples 168.7 s on py and 27.0 s on
+  cxx; func_flat2icurry 39 s per backend).  The one failure,
+  unit_inspect.py on cxx, testGetICurry and testGetImpl with Peano
+  interpreted ("bytecode: 30 units" for the step of add), as the entry
+  of #82 stage 5 saw it in a fresh worktree; after ./run_tests
+  --prepare-only --backend cxx unit_inspect.py (the pool, 34.5 s) the
+  two tests still failed in a test process, while a probe outside the
+  test library loaded Peano from its object (the banner of add).  The
+  other item of this lane edits the C++ backend (materialize.py, the
+  bindings) in the same worktree, and a later probe failed at the
+  import of the backend on a missing binding (set_trap_hook); the file
+  is not one of this item.  make -C docs html: status 0, no WARNING
+  line (19 s).
+- Left to the owner.  (1) The narrowing of the oracle test keys on the
+  products of PAKCS beside the .fcy; a front end run by hand
+  (pakcs-frontend --flat M) leaves none, and the test fails until
+  sprite-make --rewrite-flat M; the report names the command.  (2) The
+  entry of the runtime item of this lane was not in the file when this
+  entry was appended, so this one comes first.  (3) The clause of
+  AGENTS.md above.  (4) A window in a parallel functional run: the
+  oracle writes M.fcy before it compiles the module to Prolog and
+  writes M.pl, so test_products_on_disk, run beside another functional
+  file at -j 2 on a tree where the front end has work for the oracle,
+  can see the pair without a product and report it DIFFERENT (not
+  reproduced; CI runs the files of a shard one at a time).  The
+  docstring of check_on_disk and section 8 of tests/README record it.
+  An acceptance by shape instead, an unrewritten .fcy newer than the
+  .icy beside it (translated_before_rewrite names it; a route never
+  leaves it), would close the window.
+
+2026-10-08: #102 under interpret:off and the step limit of the C++ runtime (decisions 5 and 6b of the action list; worktree wt/potholes3; the entry of the toolchain item of this lane precedes this one)
+- #102, reproduced: under interpret:off a module imported from an ICurry
+  object (the ICurry of CxxInterp read from its JSON, then
+  curry.import_(imodule)) got its functions without a step (has_step
+  False), and the first evaluation, fact 3, died with SIGSEGV in
+  generate_values; tiered and new gave 6.
+- The fix, two lines of defence.  (1) The compile on first use.  Under
+  'off' a function table made at run time gets the trap step of the
+  runtime (cyrt/module.hpp: trap_step, install_trap, is_trapped,
+  set_trap_hook, owner_of; backends/cxx/materialize.py: Materializer.trap
+  and one Pending entry per module, with the search path of the import
+  from module_loaded).  The first call of such a function calls the hook
+  (materialize.first_use), which compiles the module in the process: its
+  pending imports first; the tables kept for the process and the shim of
+  the module linked and loaded (tiered._register_shim, _load_shim), so
+  that the object binds its tables to the tables the nodes and the
+  Python objects hold; the C++ of the ICurry object in hand written with
+  interp.save beside the source (.curry/<subdir>/M.cpp; a directory of
+  the process when the module has no source file or the directory
+  cannot be written), compiled by Cpp2So, the step sprite-make --so runs
+  (the product cache keeps the object); and the object loaded with the
+  swap of tiered execution on the calling thread (cyrt.tiered_adopt;
+  Module::adopt takes a trapped table as it takes an interpreted one).
+  Then the trap runs the compiled step on the same redex, and cxx.shlib
+  names the object.  Why at the first call and not at the import: the
+  plan imports every module it compiles the same way (Json2TargetSource,
+  which generates code and evaluates nothing), and a compile at the
+  import would recurse; the trap fires on a call alone.  (2) The error.
+  A function whose table still has the trap when it is called, because
+  the hook refused (the test hook materialize.COMPILE_ON_FIRST_USE is
+  False), the compile failed, or the module is gone, sets the error of
+  its configuration and returns E_ERROR, so the evaluation raises
+  EvaluationError "cannot evaluate function 'M.f': the function has no
+  compiled code (its module was imported from an ICurry object under
+  interpret:off): <reason>" (the module from owner_of, a scan of the
+  loaded modules).  The hook runs inside the step, so the trampoline of
+  the bindings reports an exception of the hook as the reason; an
+  interrupt and an exit pass.  RuntimeState.single_step raises the
+  error a step reports (it dropped it), through the Python wrapper that
+  turns the exception of the bindings into curry.exceptions.EvaluationError.
+  has_step is False for a trapped table, and icurry_attach accepts one.
+- The step limit (6b).  RuntimeState::step_limit (NOLIMIT by default,
+  cyrt/state/rts.hpp); procS returns the new status E_TERMINATE (-16,
+  fwd.hpp) after the completed step that brings steps_total to the
+  limit (the test reads the count before the increment: one compare per
+  step); procN hands it out with E_UNWIND and the others, hnf and the
+  generated code return it as any status below T_CTOR, a nested procD
+  yields it to the enclosing evaluation, and the outermost procD throws
+  StepLimitReached (exceptions.hpp, bound in the bindings), which
+  generate_values turns into control.E_TERMINATE.  So the graph holds
+  the result of exactly N steps, no redex is half rewritten, and the
+  counters of the rotation do not move (stepcount is not touched;
+  unit_cxx_rotation.py pins 16929/1636 and 2112920/511484 as before).
+  The interface: the Python wrapper of the state has stepcounter, a view
+  (cyrtbindings.StepCounter) with global_count, global_limit and
+  reset_global over steps_total, step_limit and _step_base of the state,
+  so Evaluator.set_global_step_limit, evaluator.evaluate(..., steplimit=N)
+  and cytest.step work unchanged on both backends; a limit at or below
+  the count raises at once, as on the Python backend.  The backends give
+  the same states (f (g (g 0)): f (g 0) after 2 steps, f 0 after 3; a
+  goal of 29 steps: E_TERMINATE at 28 and 29, the value at 30), so
+  test_interp_step of unit_py_runtime.py and test_apply_nf of
+  unit_prelude.py pass on the C++ backend and their expectedFailureIf
+  decorators are gone.  A view and not a field, because a counter held
+  by the state made a reference cycle: the state of
+  evaluator.single_step (one per compiled expression) then lived until
+  the cyclic collector ran, a live state is a root of the C++ collector,
+  and the history of a search stayed reachable, so
+  test_repl_eval_under_stress of unit_goals.py (last of 8000 elements
+  under SPRITE_GC_STRESS=1) grew with the square of the length (1000
+  elements 5.0 s, 2000 16.0 s, 4000 46.6 s, 8000 past its bound of 60 s)
+  and takes 1.0 s for 4000 again; test_counter_keeps_no_cycle of
+  unit_cxx_steplimit.py pins it.
+- A finding on the way, fixed: the second half of test_apply_nf
+  evaluates id $!! (x::Int) where x free.  The C++ runtime suspended
+  (hnf of the free variable at the root of the argument records a
+  residual, which applynf_step returned); the Python backend and PAKCS
+  3.4.1 give the variable, _a.  applynf_step now takes the residual back,
+  as hnf_or_free does, and reports T_FREE, which _applyspecial accepts,
+  so ($!!) and normalForm give the variable, and ($##), which needs a
+  ground normal form, suspends as before (applygnf_step).
+  test_apply_nf_free_variable of unit_prelude.py pins the three on both
+  backends.  A change of a primitive beyond the items, made because the
+  test the owner asked to flip needs it; apply.cpp, twelve lines.
+- The cost of the check, Tak1 through the benchmark harness (run Tak1
+  -b cxx -r 1 -w 1 under interpret:off and steps:65536, one run before
+  and one after, compare --deterministic): 16203.7 M instructions
+  before, 16377.2 M after, +1.07 percent, with 33629915 steps and equal
+  forks and collections in both: about five instructions per step.
+  Wall 2.20 s before and 1.40 s after, advisory (the machine was busier
+  during the first run).  A first form of the check, the compare after
+  the increment, measured 16376.5 M, so the compiler shared the load
+  already; the rest is likely the code layout of procS (the library has
+  three call sites of it; not compared with the baseline).  Not pursued.
+- The skips.  unit_optimize_applies.py and unit_optimize_inline.py no
+  longer reload under 'new' for the unoptimized half of their value
+  tests: ModuleTestCase.interpretable of unit_optimize.py is removed
+  (the two files were its only callers), and the module from the ICurry
+  object compiles on its first use under 'off'.  tests/README section 4
+  still describes the reload (the toolchain item of this lane owns the
+  file; the report of this item names the sentences).
+- The review of the first use, three findings fixed.  (1) The products
+  of a transformed ICurry object (the bodies of two functions swapped in
+  memory) went beside the source and into the product cache under the key
+  of the texts on disk: a later import of the module by name, in a new
+  process and again after rm -rf .curry (the restore), ran the transformed
+  code.  Now the C++ goes beside the source, and the object into the
+  cache, only when the object in hand is the translation of the texts on
+  disk (materialize.is_translation: the JSON beside the source read again
+  from the file, taken through the merge and the passes of an import, and
+  compared with the object by icurry.json.dumps, which leaves the
+  metadata out); any other object, and a module without a source file,
+  compiles into the directory of the process (tiered._tmpdir, which
+  _productcache.excluded keeps out).  The value tests of the optimizer
+  files turn the inliner off through the metadata, so their modules are
+  not the translation and compile into the process directory.  (2) A
+  current object beside the source was compiled again at every first use
+  (the second process rewrote the .so).  Now, for the translation, a
+  current object whose generated file has the text of the object in hand
+  is adopted without a compile (materialize.current_object: the text, the
+  stamp and the objects of the imports through Cpp2So.is_stale), else
+  the product cache is asked before the compiler (Cpp2So.restore, as the
+  plan does), else Cpp2So compiles.  (3) first_use compiled the module
+  again at every call of a table the adopt left trapped (an object
+  without a step of that name); it now answers "the compiled object has
+  no step for it" at once when the entry is compiled.  Tests in
+  TestFirstUse: a transformed object leaves nothing beside the source
+  and no cache entry (its source under tests/.cache, outside the excluded
+  temporary directory); is_translation on the plan's object after the
+  import, with another body, without the JSON, without a file; a current
+  object adopted with no call of Cpp2So and the mtime unchanged; the
+  cached object restored with no call of Cpp2So; no second compile after
+  an adopt patched to swap nothing.  The fourth finding, tests/README
+  section 4, is the toolchain item's file (see below).
+- Tests.  TestFirstUse of unit_cxx_interp.py (11, C++ backend): the
+  compile on first use (trapped before, swapped after, three functions
+  in curry.stats()['swapped'], the object with its stamp and the
+  generated file beside the source, sofilename, getimpl from the
+  generated file, an expression built before the compile evaluates after
+  it, no second compile, the error "boom" from the compiled code); the
+  error with the compile turned off, through curry.eval and
+  evaluator.single_step, and the compile afterwards; the error after a
+  failed compile (Cpp2So patched to raise; the warning logged; the
+  module stays trapped and compiles later); a pending import compiles
+  first; a module without a source file compiles into a directory of
+  the process; 'new' and 'tiered' attach bytecode as before; the five
+  tests of the review above.
+  unit_cxx_steplimit.py (new, 6, both backends): the limit ends the
+  evaluation after exactly N steps for every N up to the count of a
+  value, the totals count them, and the expression evaluates on from
+  there; the stepper on a nullary goal with the inliner off; the
+  interface of the counter (inf, None, 0 raises at once, step_limit
+  NOLIMIT and 7); no reference cycle (C++ backend); a limit inside a set
+  function for every N; a limit inside a search of four values.
+  test_apply_nf_free_variable of unit_prelude.py.  The docs: the flag
+  interpret in curry.interpreter.flags, EnvironmentVariables.rst, and
+  the stepper paragraph of DeveloperNotes.rst.
+- Verification (env -i, prlimit, one process at a time; the runner at
+  -j 2 --mem 4).  make stage after every C++ change (status 0) and make
+  overlay.  Single files on the C++ backend: unit_cxx_steplimit 6 ok
+  (on py too, 1 skipped), unit_cxx_interp 31 ok under tiered, off, new
+  and all, unit_py_runtime 12 (7 skipped, 1 expected failure) under
+  tiered and off, unit_prelude 18 ok under tiered and off (py 1
+  skipped), unit_optimize_applies 25 and unit_optimize_inline 31 ok
+  under off, tiered and py, unit_cxx_rotation 20, unit_cxx_tiered 20,
+  unit_cxx_runtime 5, unit_loadsave 5 (4 expected failures), unit_goals
+  48 (4 expected failures).  Through the runner on cxx after
+  --prepare-only 'unit_*.py' (the pool 31 s, the benchmarks corpus
+  46 s): unit_cxx*.py 21 of 21 ok (121.6 s); the other unit files in two
+  halves, 33 of 33 (195.3 s; unit_goals failed there before the view and
+  passed alone after it) and 37 of 37 (82.1 s); the whole unit suite
+  under interpret:off 91 of 91 ok (329.3 s); the touched files on both
+  backends 22 of 22 ok (79.6 s); seven files under SPRITE_GC_STRESS=1,
+  7 of 7 ok (150.2 s); func_*.py 21 of 21 run, 20 ok and
+  func_goal_defaulting failed inside the sandbox alone (PAKCS writes
+  under /tmp) and passed outside it (53 ok).  make -C docs html: status
+  0, no WARNING line.  After the review of the first use: a probe of the
+  three phases (transformed object, import by name, import by name after
+  rm -rf .curry) gave 2, 2, 2 before and 2, 1 (no object beside the
+  source, no cache entry) after; the honest import twice rewrote the .so
+  before and kept its mtime after; unit_cxx_interp 36 ok under off and
+  tiered; unit_optimize_applies 25 and unit_optimize_inline 31 ok under
+  off; the runner on both backends over unit_cxx_interp, unit_optimize,
+  the two optimizer files, unit_cxx_steplimit, unit_prelude,
+  unit_py_runtime, unit_cxx_tiered and unit_product_cache: 18 of 18 ok
+  (52.1 s).
+- Left to the owner.  (1) id $! x where x free: both backends suspend,
+  PAKCS gives the variable.  (2) The cost of the check, about one
+  percent of the instructions of Tak1: the layout of procS, or an
+  inlining decision, may give it back.  (3) tests/README section 4.

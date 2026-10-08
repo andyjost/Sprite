@@ -27,4 +27,14 @@ namespace cyrt
   {
     using EvaluationError::EvaluationError;
   };
+
+  // The step limit of an evaluation was reached (RuntimeState::step_limit).
+  // The outermost scheduler throws it when the status E_TERMINATE reaches
+  // it; the Python side turns it into the flow-control exception of the
+  // generic evaluator (control.E_TERMINATE).  Not an EvaluationError: the
+  // evaluation did not fail, it stopped.
+  struct StepLimitReached : std::runtime_error
+  {
+    using std::runtime_error::runtime_error;
+  };
 }

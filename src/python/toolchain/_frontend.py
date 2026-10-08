@@ -42,7 +42,10 @@ the toolchain (:func:`_curry2icurry.translated_before_rewrite`), and the
 route runs again at the first import of the module.  ``ROUTE_VERSION``
 names the steps of this module in the key of the ICurry cache
 (:func:`cache.icurry_cache_key`), so an entry of a route without a step is
-never served.  (Issue #101.)
+never served.  A hit of the cache writes the ICurry file and runs the pass
+over the FlatCurry file of the front end beside the source as well
+(:func:`_curry2icurry.rewrite_on_hit`), so a pair on disk never disagrees
+because of the cache.  (Issue #101.)
 
 The front end warns on overlapping rules ("Function f is potentially
 non-deterministic due to overlapping rules"), the shape under which

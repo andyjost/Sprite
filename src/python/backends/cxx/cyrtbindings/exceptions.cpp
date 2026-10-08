@@ -10,5 +10,8 @@ namespace cyrt { namespace python
 	{
 		py::register_exception<EvaluationError>(mod, "EvaluationError");
 		py::register_exception<EvaluationSuspended>(mod, "EvaluationSuspended");
+		// The step limit of an evaluation was reached (RuntimeState::step_limit).
+		// generate_values turns it into control.E_TERMINATE.
+		py::register_exception<StepLimitReached>(mod, "StepLimitReached");
 	}
 }}

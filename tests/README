@@ -23,7 +23,10 @@ or delete the file to start over.
 
 An entry holds the ICurry of a module and the two interface files the front
 end wrote for it, M.fint and M.icurry.  A hit writes all three beside each
-other under .curry/sprite-<pakcs>/.  The key format is 3 since the interface
+other under .curry/sprite-<pakcs>/, and runs the binding optimization over
+the FlatCurry file of the front end beside the source as well, when the file
+is current, so the pair agrees as after a translation (section 8).  The key
+format is 3 since the interface
 files joined the entry; the rows of format 2 stay in their own table, unread.
 The first run after the change compiles each test module once more and fills
 the new table; delete .cache/icurry.db to drop the old rows.
@@ -177,11 +180,11 @@ unit_compile_modules.py, unit_findcurry.py, unit_optimize.py, and
 unit_prebuild.py).  unit_optimize_applies.py and unit_optimize_inline.py
 pin 'new' for their steps tests, and unit_optimize_applies.py skips one
 test under 'all'.  Their tests of values evaluate the unoptimized form of
-a module, imported from its ICurry object: under 'off' such a module has
-no code (a function made at run time gets no step and no bytecode;
-backends/cxx/materialize.py) and the C++ backend cannot run it, so under
-'off' those tests reload the interpreter under 'new' before that half
-(ModuleTestCase.interpretable of unit_optimize.py).  The tests
+a module, imported from its ICurry object: under 'off' such a module
+compiles on its first use (the trap step of backends/cxx/materialize.py;
+issue #102), so those tests run under every mode.  A transformed object
+compiles into a directory of the process; the translation on disk
+compiles beside the source.  The tests
 that read the compiled object of a corpus module (the files named below,
 with TestInlineAllocation of unit_cxx_heap.py and TestStepFunctions of
 unit_cxx_passthrough.py, which read the objects of Tak1 and Fib under
@@ -501,13 +504,25 @@ front end, which compiles the stale modules of the chain, and its :eval
 runs the front end once more for the goal with the targets --acy --flat,
 which compiles every module without an .acy file again; the binding
 optimization of PAKCS runs over the modules it compiles to Prolog, not
-over those files.  The on-disk check accepts such a file when the pass
-over it in memory translates to the .icy beside it (the keyword
-accept_unrewritten of flat2icurry_oracle.check_file; the result carries
+over those files.  The oracle leaves its own products beside such a file,
+the Prolog of :load (M.pl) and the AbstractCurry of :eval (M.acy), and the
+on-disk check accepts an unrewritten file beside one of them alone, when
+the pass over it in memory translates to the .icy beside it (the keyword
+accept_unrewritten of flat2icurry_oracle.check_file, which
+func_flat2icurry.check_on_disk passes for those pairs; the result carries
 the mark unrewritten, and the test reports how many pairs needed it); the
-archive is checked without it.  TestUnrewrittenFile of the same file pins
-the acceptance on a pair of its own.  A pair made before the routes
-rewrote the file, an unoptimized .fcy beside an .icy of the former
+archive is checked without it.  The routes leave no such file: they
+rewrite every .fcy a run of the front end wrote, and a hit of the ICurry
+cache rewrites the .fcy of the front end as well (below), so a pair that
+differs elsewhere is a defect, or a file a front end run by hand wrote.
+The oracle writes M.fcy before it compiles the module to Prolog and writes
+M.pl, so a functional file that runs beside func_flat2icurry.py in a
+parallel run can leave a pair without a product for the time of that
+compile; a pair seen then is reported DIFFERENT, and a rerun of the file
+passes it (CI runs the files of a shard one at a time).
+TestUnrewrittenFile of the same file pins the acceptance, and its
+narrowing to the oracle, on a pair of its own.  A pair made before the
+routes rewrote the file, an unoptimized .fcy beside an .icy of the former
 in-memory pass, differs either way.
 
 A pair made before the rewrite existed, the .fcy of the front end beside
@@ -541,11 +556,14 @@ PAKCS oracle leaves, an unrewritten .fcy newer than an .icy of the
 rewritten program, is current, since the product is right.  When the
 ICurry cache of the drivers holds the entry of a flagged module (make
 overlay extracted the archive over a tree that had made the module
-already), the cache writes the .icy and the .fcy stays in the text of
-the front end; the pair is then of the oracle's shape, the line of
-sprite-make counts it apart ("0 translated again, 1 from the ICurry
-cache"), and sprite-make --rewrite-flat makes the two agree when they
-must.  A tree after an upgrade across the
+already), the cache writes the .icy, and the route runs the pass over
+the .fcy of the front end as well (rewrite_on_hit of
+curry.toolchain._curry2icurry: a read, and a parse when the text has an
+equality name; the file is written when the pass replaces an equality; a
+.fcy older than the source, of another version of it, and one the pass
+cannot write again are left, the latter with a warning), so the pair
+agrees as after a translation; the line of sprite-make counts it apart
+("0 translated again, 1 from the ICurry cache").  A tree after an upgrade across the
 rewrite holds such pairs for the modules whose source has a required
 equality: the products of the archive (atableNoflex and
 poker_four_of_a_kind under tests/data, 2 of its 880 .fcy files), a tree
@@ -1019,7 +1037,8 @@ and the summary say how many products came from the cache ("43 of 43 from
 the product cache"), and how many pairs made before the binding rewrite
 the pass translated again ("2 pre-rewrite pairs translated again"; section
 8), and how many the ICurry cache served instead ("1 pre-rewrite pair from
-the ICurry cache": the .fcy of such a module stays unrewritten).  After
+the ICurry cache": the cache wrote the .icy of such a module, and the route
+rewrote its .fcy as well).  After
 the pass the runner prunes the cache when it
 is the runner's own (.cache/products, not a directory the environment
 named): the digest directories of other runtimes and the leftovers of an

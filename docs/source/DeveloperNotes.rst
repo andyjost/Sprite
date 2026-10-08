@@ -97,12 +97,16 @@ What it is for
   #82.  ``tests/unit_loadsave.py`` pins both routes.
 * The stepper of the test library.  ``cytest.step`` takes a bounded number
   of rewrite steps of an expression through the step limit of the generic
-  evaluator (``Evaluator.set_global_step_limit``), which the Python
-  ``RuntimeState`` provides and the C++ one does not.  The two tests that
-  use it, ``test_interp_step`` of ``unit_py_runtime.py`` and
-  ``test_apply_nf`` of ``unit_prelude.py``, are known failures on the C++
-  backend.  ``evaluator.single_step`` takes one step at the root on both
-  backends.
+  evaluator (``Evaluator.set_global_step_limit``).  Both backends provide
+  the limit: the Python ``RuntimeState`` counts in its ``StepCounter``, and
+  the C++ scheduler stops after the step that reaches
+  ``RuntimeState::step_limit`` (``cyrt/state/rts.hpp``), which the adapter
+  ``cyrtbindings.StepCounter`` presents as ``rts.stepcounter``.  The graph
+  then holds the result of exactly that many steps on either backend, so
+  the two tests that use it, ``test_interp_step`` of ``unit_py_runtime.py``
+  and ``test_apply_nf`` of ``unit_prelude.py``, run on both;
+  ``unit_cxx_steplimit.py`` pins the limit.  ``evaluator.single_step``
+  takes one step at the root on both backends.
 * The white-box tests of its evaluator: the ``unit_py_*`` files that drive
   the graph classes and the ``RuntimeState`` of the backend directly skip on
   the C++ backend.

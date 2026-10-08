@@ -138,8 +138,8 @@ with a warning).  The step from Curry to ICurry runs again at the first
 import of the module, as for a changed source: the front end leaves the
 current file, the pass rewrites it, and the translation follows;
 ``sprite-make`` prints how many modules it made again so, and how many
-the ICurry cache of the test drivers served instead, whose FlatCurry file
-then stays as it was.  To run the step
+the ICurry cache of the test drivers served instead (a hit rewrites the
+FlatCurry file as well; see the cache below).  To run the step
 for a module by hand, current or not, run ``sprite-make --rewrite-flat M``:
 it rewrites the FlatCurry file, and makes the ICurry and the later products
 from it; the option implies ``--icy`` and stands alone.  The command
@@ -172,7 +172,12 @@ ICurry with its program and flags; the file name is not part of it.  So an
 entry written by one route is never served to the other.  A module compiled
 from a string by ``curry.compile`` gets a new name
 in every process.  The cache stores its ICurry under the name of the first
-compile and rewrites the name on a hit.  The test drivers turn the cache on.
+compile and rewrites the name on a hit.  A hit writes the ICurry file and
+runs the binding optimization over the FlatCurry file of the front end
+beside the source as well, when the file is current (``rewrite_on_hit`` of
+``curry.toolchain._curry2icurry``), so the pair on disk agrees as after a
+translation; a file older than the source, of another version of it, is
+left to the next run of the front end.  The test drivers turn the cache on.
 
 
 ICurry to JSON

@@ -67,8 +67,11 @@ Merges to `master` happen at milestones.
   `sprite-make --rewrite-flat M` runs the step again for one module,
   current or not, and `python -m curry.toolchain.flat2icurry.rewrite
   M.fcy` rewrites the file alone. A run of the front end rewrites every
-  `.fcy` it wrote, those of the imports it compiled again included. The
-  key of the ICurry cache of the tests names the version of the route
+  `.fcy` it wrote, those of the imports it compiled again included. A
+  hit of the ICurry cache of the test drivers rewrites the `.fcy` of the
+  module as well, so the file matches the ICurry it serves; a file older
+  than the source, missing, or in a read-only directory is left alone.
+  The key of that cache names the version of the route
   (`ROUTE_VERSION` of `_frontend.py`). The front end's warning on
   overlapping rules is reported once per module through the log at the
   WARNING level; `SPRITE_FRONTEND_WARNINGS=0` silences it, and the test

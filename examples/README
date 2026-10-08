@@ -11,9 +11,11 @@ example, run its script:
     ./run
 
 A run script uses the installed Sprite with the flags of
-SPRITE_INTERPRETER_FLAGS.  The scripts of 03-inspect and 04-static-compile
-select the reference backend of the developer notes of the documentation,
-because those examples run on it only.
+SPRITE_INTERPRETER_FLAGS.  The script of 03-inspect adds interpret:off to
+them, so the module is compiled before it runs and the example prints the
+first line of the generated C++ (its README says why).  The script of
+04-static-compile selects the reference backend of the developer notes of
+the documentation, because that example runs on it only.
 
 The first run of an example also compiles its Curry module, which takes
 about a second per module.  The build products go to .curry/ next to the
@@ -50,7 +52,7 @@ tour the API, 10 to 19 and 24 are programs with a Python driver, and 20 to
     Compile Curry code at run time.  curry.compile for a module and for an
     expression; curry.expr.
 
-03-inspect (py)
+03-inspect (cxx)
     Inspect Curry objects from Python.  curry.inspect: symbols, types,
     ICurry files, generated code.
 

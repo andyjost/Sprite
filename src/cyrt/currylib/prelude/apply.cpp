@@ -71,7 +71,8 @@ namespace cyrt { inline namespace
     // and so is the slot ``_2`` refers to.
     if(_0->info->tag == T_FWD)
       return T_FWD;
-    if(tag < T_CTOR)
+    // T_FREE: the action accepts a free variable (applynf_step).
+    if(tag < T_CTOR && tag != T_FREE)
       return rts->hnf(C, &_2, nullptr, monadic);
     Node * replacement = Node::create(
         &apply_Info, _1.target, _2.target
@@ -91,6 +92,15 @@ namespace cyrt { inline namespace
       // root of the argument.  procN pull-tabs a choice to the root of its
       // scan, which must not be the choice itself.
       tag_type tag = rts->hnf(C, var, nullptr, monadic);
+      // A free variable is a normal form: ($!!) and normalForm give the
+      // variable, as the Python backend and PAKCS do.  hnf recorded a
+      // residual for it; take it back, as hnf_or_free does, and report the
+      // variable.  ($##) suspends on it afterwards (applygnf_step).
+      if(tag == E_RESIDUAL && inspect::isa_freevar(var->target))
+      {
+        C->remove_residual(obj_id(var->target));
+        return T_FREE;
+      }
       if(tag < T_CTOR)
         return tag;
       C->scan.push(var);

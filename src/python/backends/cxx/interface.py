@@ -29,6 +29,7 @@ class IBackend(backends.IBackend):
     interp._its = cyrtbindings.InterpreterState()
 
   def module_loaded(self, interp, moduleobj, currypath):
+    materialize.module_loaded(interp, moduleobj, currypath)
     tiered.module_loaded(interp, moduleobj, currypath)
 
   def before_evaluation(self, interp):

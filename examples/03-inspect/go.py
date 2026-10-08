@@ -3,8 +3,8 @@ Inspects a Curry module with curry.inspect.
 
 Imports the module Nat and prints its symbols, its types, the constructors
 of its type, the names of the files that hold its ICurry, and the first line
-of the Python code that Sprite generated for one of its functions.  The
-whole generated code goes to the standard error stream.  It changes with the
+of the C++ code that Sprite generated for one of its functions.  The whole
+generated code goes to the standard error stream.  It changes with the
 compiler, and expected.out holds the standard output only.
 '''
 import os
@@ -36,12 +36,12 @@ print('ICurry-JSON file:', os.path.basename(inspect.getjsonfile(Nat)))
 print('Both live under .curry/ next to Nat.curry.')
 print()
 
-# The code that the Python backend generated for a function.  The first
-# line, without its trailing comment, is the signature.
+# The code that the backend generated for a function.  The first line is
+# the banner that names the function.
 code = inspect.getimpl(Nat.natToInt)
-print('The Python implementation of Nat.natToInt starts with:')
-print('   ', code.splitlines()[0].partition('#')[0].strip())
+print('The C++ implementation of Nat.natToInt starts with:')
+print('   ', code.splitlines()[0].strip())
 print('The whole code is on the standard error stream.')
-print('The Python implementation of Nat.natToInt:', file=sys.stderr)
-print('------------------------------------------', file=sys.stderr)
+print('The C++ implementation of Nat.natToInt:', file=sys.stderr)
+print('---------------------------------------', file=sys.stderr)
 print(code, file=sys.stderr)
