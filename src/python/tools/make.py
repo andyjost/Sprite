@@ -1,10 +1,10 @@
 from .. import cache, exceptions, config, getInterpreter, interpreter, toolchain, utility
 from ..interpreter import flags as _flags
-from ..toolchain import plans, _filenames, _findcurry, _loadcurry
+from ..toolchain import plans, _filenames, _findcurry, _loadcurry, _productcache
 from ..toolchain._makecurry import Maker, ToolchainContext
 from io import StringIO
 from .utility import handle_program_errors, unrst
-import argparse, os, pydoc, shutil, subprocess, sys, tempfile, time
+import argparse, os, pydoc, re, shutil, subprocess, sys, tempfile, time
 
 PROGRAM_NAME = 'sprite-make'
 __all__ = ['main']
@@ -94,11 +94,29 @@ missing, so the children find it.  The option covers the modules named on
 the command line and the modules they import.  The installation procedure
 passes the job count of ``make``.
 
+The product cache.  The C++ backend keeps a copy of each shared object it
+compiles, with the generated C++ and the ABI stamp, in a cache directory
+outside the tree (``SPRITE_PRODUCT_CACHE``; by default under the cache
+directory of the user).  An entry is found by content: the digest of the
+ABI stamp, the text of the module and of the modules it imports, and the
+facts that shape the generated code.  A module whose entry is in the
+cache is neither generated nor compiled; its files are placed beside the
+source with a stamp for this installation.  A module in the temporary
+directory of the system is not cached.  At the end of a run that restored
+or stored a product this program prints one line with the two counts,
+``sprite-make: product cache: N restored, M stored``, unless ``-q`` was
+given; under ``--jobs`` the counts of the children are summed.  See the
+page on environment variables.
+
 Environment Variables
 ---------------------
 
     CURRYPATH
         a colon-separated list of paths to search for Curry modules.
+
+    SPRITE_PRODUCT_CACHE
+        the directory of the product cache; the empty string turns the
+        cache off.
 
     SPRITE_CURRY2ICURRY
         names the route from Curry to ICurry: ``frontend`` or ``icurry``.
@@ -181,6 +199,9 @@ def main(program_name, argv):
   parser.add_argument('names', nargs='*', help='Curry modules or source files to process')
   parser.add_argument('--no-header'  , action='store_true', help=argparse.SUPPRESS)
   parser.add_argument('--with-rst'   , action='store_true', help=argparse.SUPPRESS)
+  # A child of --jobs: it prints the counts of the product cache for the
+  # parent, which sums them, whatever -q says (see cache_line).
+  parser.add_argument('--child'      , action='store_true', help=argparse.SUPPRESS)
   args = parser.parse_args(argv)
 
   if args.man:
@@ -266,14 +287,48 @@ def main(program_name, argv):
     # With -k the handler reports the error and goes on; without a plan
     # nothing can be made.
     sys.exit(1)
+  _productcache.reset_counts()
+  counts = {'restored': 0, 'stored': 0}
   if jobs > 1:
-    _make_parallel(program_name, plan, args, kwds, error_handler, jobs)
+    _make_parallel(program_name, plan, args, kwds, error_handler, jobs, counts)
   else:
     for name in args.names:
       with error_handler:
         _make_one(program_name, plan, name, args, kwds)
+  report_cache(program_name, args, counts)
   if error_handler.nerrors:
     sys.exit(1)
+
+# The line about the product cache at the end of a run (see the manual).  A
+# child of --jobs prints it for its parent, which sums the counts of its
+# children and its own.
+CACHE_LINE = re.compile(
+    r'^(?P<program>\S+): product cache: (?P<restored>\d+) restored, '
+    r'(?P<stored>\d+) stored$'
+  )
+
+def cache_line(program_name, counts):
+  '''The line that reports ``counts`` of the product cache.'''
+  return '%s: product cache: %d restored, %d stored' % (
+      program_name, counts['restored'], counts['stored']
+    )
+
+def report_cache(program_name, args, counts):
+  '''
+  Prints the line about the product cache when this run restored or stored
+  a product: the counts of this process (``_productcache.counts``) plus
+  ``counts``, those of the children.  Quiet under -q, unless this process
+  is a child of --jobs, whose parent reads the line.
+  '''
+  total = {
+      key: _productcache.counts[key] + counts[key] for key in ('restored', 'stored')
+    }
+  if not any(total.values()):
+    return
+  if args.quiet and not args.child:
+    return
+  sys.stdout.write(cache_line(program_name, total) + '\n')
+  sys.stdout.flush()
 
 def _make_one(program_name, plan, name, args, kwds):
   '''Makes one named module, source file, or ICurry file in this process.'''
@@ -480,6 +535,7 @@ def child_command(args, job):
               , 'quiet', 'tidy', 'zip' ]:
     if getattr(args, flag):
       cmd.append('--' + flag.replace('_', '-'))
+  cmd.append('--child')
   if args.curry2icurry:
     cmd += ['--curry2icurry', args.curry2icurry]
   if args.goal is not None:
@@ -495,11 +551,12 @@ def child_environment():
   env['PYTHONPATH'] = root + (os.pathsep + path if path else '')
   return env
 
-def _make_parallel(program_name, plan, args, kwds, error_handler, jobs):
+def _make_parallel(program_name, plan, args, kwds, error_handler, jobs, counts=None):
   '''
   Makes the named modules with up to ``jobs`` child processes.  An ICurry
   file is converted in this process.  With -o, the one named module is made
-  in this process after its imports, as a serial run makes it.
+  in this process after its imports, as a serial run makes it.  ``counts``,
+  a dict, sums the counts of the product cache the children report.
   '''
   graph = JobGraph(plan, config.currypath())
   deferred = []
@@ -517,7 +574,7 @@ def _make_parallel(program_name, plan, args, kwds, error_handler, jobs):
         _ensure_bytecode(args, currentfile)
   if graph.jobs:
     _prepare_shared(plan)
-  run_jobs(program_name, graph.jobs, jobs, args, error_handler)
+  run_jobs(program_name, graph.jobs, jobs, args, error_handler, counts=counts)
   if error_handler.nerrors and not args.keep_going:
     return
   for name in deferred:
@@ -537,14 +594,18 @@ def _prepare_shared(plan):
     if prepare is not None:
       prepare()
 
-def run_jobs(program_name, jobs, width, args, error_handler, poll_interval=0.05):
+def run_jobs(
+    program_name, jobs, width, args, error_handler, poll_interval=0.05
+  , counts=None
+  ):
   '''
   Runs the children of ``jobs``, at most ``width`` at once.  A job starts
   when the jobs of its imports have ended well.  A job whose import failed
   is not started, and counts as an error.  After an error no further job
   starts unless -k was given; the running children end by themselves.  The
   output of a child is written when it ends, so the lines of one module stay
-  together.
+  together, less its line about the product cache, whose counts are summed
+  into ``counts`` (a dict; see report_cache).
   '''
   pending = list(jobs)
   running = []
@@ -578,7 +639,7 @@ def run_jobs(program_name, jobs, width, args, error_handler, poll_interval=0.05)
         break
       job = _wait_any(running, poll_interval)
       running.remove(job)
-      _relay(job)
+      _relay(job, counts)
       if job.proc.returncode == 0:
         finished.add(job)
       else:
@@ -590,7 +651,7 @@ def run_jobs(program_name, jobs, width, args, error_handler, poll_interval=0.05)
       job.proc.terminate()
     for job in running:
       job.proc.wait()
-      _relay(job)
+      _relay(job, counts)
     raise
 
 def _wait_any(running, poll_interval):
@@ -601,14 +662,29 @@ def _wait_any(running, poll_interval):
         return job
     time.sleep(poll_interval)
 
-def _relay(job):
-  '''Writes the output of an ended child to the streams of this process.'''
+def _relay(job, counts=None):
+  '''
+  Writes the output of an ended child to the streams of this process.  The
+  line of the child about the product cache (cache_line) is taken out and
+  its counts are added to ``counts`` when a dict is given.
+  '''
   for stream, out in [(job.stdout, sys.stdout), (job.stderr, sys.stderr)]:
     stream.seek(0)
     data = stream.read()
     stream.close()
-    if data:
-      out.write(data.decode('utf-8', errors='replace'))
+    text = data.decode('utf-8', errors='replace')
+    if out is sys.stdout and counts is not None:
+      lines = []
+      for line in text.splitlines(keepends=True):
+        m = CACHE_LINE.match(line.rstrip('\n'))
+        if m:
+          counts['restored'] += int(m.group('restored'))
+          counts['stored'] += int(m.group('stored'))
+        else:
+          lines.append(line)
+      text = ''.join(lines)
+    if text:
+      out.write(text)
       out.flush()
 
 if __name__ == '__main__':

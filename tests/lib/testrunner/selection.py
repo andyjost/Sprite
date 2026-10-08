@@ -48,8 +48,9 @@ POOL_CHECKS = ['func_flat2icurry.py']
 # (f), import M as N.
 IMPORT = re.compile(r'^import\s+(?:qualified\s+)?([\w.]+)', re.M)
 TOOLCHAIN = [
-    'unit_compile*.py', 'unit_cache.py', '*toolchain*.py', '*flat2icurry*.py'
-  , '*curry2icurry*.py', 'unit_make.py', 'unit_prelude.py'
+    'unit_compile*.py', 'unit_cache.py', 'unit_product_cache.py'
+  , '*toolchain*.py', '*flat2icurry*.py', '*curry2icurry*.py', 'unit_make.py'
+  , 'unit_prelude.py'
   ]
 API = ['unit_expr.py', 'unit_api.py', '*conversions*.py', '*evaluation*.py']
 RULES = [

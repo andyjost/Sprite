@@ -14,8 +14,14 @@ against a runtime it was not written for.
 
 Each compiled object carries an ABI stamp beside it: the digest of the
 installed runtime headers it was compiled against and of the flags of its
-flavor.  An object whose stamp differs is compiled again; the age of the
-runtime library does not count.
+flavor, and the real path of the installation as text.  An object whose
+digest differs, or whose text names another installation, is compiled
+again; the age of the runtime library does not count.
+
+The tests compile their modules in a temporary directory, which the product
+cache leaves out (curry.toolchain._productcache.excluded), so a compile here
+is a compile, and nothing is stored in the cache of the user.
+unit_product_cache.py tests the cache.
 
 Generated code comes in two flavors.  The release flavor has no assertions,
 no stack protector, and no procedure linkage table.  The debug flavor keeps
@@ -514,8 +520,13 @@ class TestAbiStamp(ToolchainTestCase):
     digest = self.cpp2so.digest()
     self.assertEqual(digest, toolchain.object_digest(config.cxx_flavor()))
     self.assertNotEqual(digest, toolchain.runtime_digest())
-    self.assertEqual(cytest.readfile(stamp), digest + '\n')
+    # Two lines: the digest, and the real path of the installation.
+    installation = toolchain.installation_path()
+    self.assertEqual(installation, os.path.realpath(config.prefix()))
+    self.assertEqual(cytest.readfile(stamp), '%s\n%s\n' % (digest, installation))
     self.assertEqual(self.cpp2so.read_stamp(sofile), digest)
+    self.assertEqual(self.cpp2so.read_stamp_lines(sofile), (digest, installation))
+    self.assertTrue(self.cpp2so.stamp_is_current(sofile))
     self.assertFalse(self.cpp2so.is_stale(sofile))
     self.assertFalse(self.plan.is_stale(sofile))
     self.assertEqual(self.prerequisite(module.__name__), sofile)
@@ -611,6 +622,112 @@ class TestAbiStamp(ToolchainTestCase):
     self.assertEqual(self.cpp2so.read_stamp(sofile), self.cpp2so.digest())
     self.assertEqual(self.prerequisite(name), sofile)
     self.check_value(self.import_module(name), 6)
+
+  def test_stamp_lines(self):
+    '''
+    The reader of the stamp.  A missing stamp reads as two Nones; a stamp
+    of one line, written before the installation joined it, has no path;
+    blank space around a line does not count.
+    '''
+    name = self.build(9)
+    sofile = self.cached_file(name, '.so')
+    stamp = self.cpp2so.stampfile(sofile)
+    digest = self.cpp2so.digest()
+    installation = toolchain.installation_path()
+    self.assertEqual(self.cpp2so.read_stamp_lines(sofile), (digest, installation))
+    os.unlink(stamp)
+    self.assertEqual(self.cpp2so.read_stamp_lines(sofile), (None, None))
+    self.assertIsNone(self.cpp2so.read_stamp(sofile))
+    for text, lines in [
+        (digest + '\n', (digest, None))
+      , (digest, (digest, None))
+      , ('  %s \n %s  \n' % (digest, installation), (digest, installation))
+      , ('%s\n%s\nmore\n' % (digest, installation), (digest, installation))
+      , ('\n', (None, None))
+      , ('', (None, None))
+      ]:
+      with open(stamp, 'w') as stream:
+        stream.write(text)
+      self.assertEqual(self.cpp2so.read_stamp_lines(sofile), lines, repr(text))
+      self.assertEqual(
+          self.cpp2so.stamp_is_current(sofile), lines == (digest, installation)
+        , repr(text)
+        )
+
+  def test_relocated_object_is_kept(self):
+    '''
+    A relocated package.  The build of a package writes the stamp of an
+    object with the installation of the build; the package manager lists
+    the stamp among the text files that hold the prefix (conda:
+    info/has_prefix) and writes the prefix of the environment into it at
+    install time.  So the text names this installation, the digest is the
+    one of the runtime, and the object is kept: no compile.
+    '''
+    name = self.build(10)
+    sofile = self.cached_file(name, '.so')
+    cppfile = self.cached_file(name, '.cpp')
+    digest = self.cpp2so.digest()
+    build_prefix = os.path.join(self.tmpdir, 'bld', 'opt', 'sprite')
+    with open(self.cpp2so.stampfile(sofile), 'w') as stream:
+      stream.write('%s\n%s\n' % (digest, build_prefix))
+    self.assertFalse(self.cpp2so.stamp_is_current(sofile))
+    self.assertTrue(self.cpp2so.is_stale(sofile))
+    self.assertEqual(self.prerequisite(name), cppfile)
+    # The rewrite of the manager: the prefix of the environment in place of
+    # the prefix of the build, in the text.
+    text = cytest.readfile(self.cpp2so.stampfile(sofile))
+    text = text.replace(build_prefix, toolchain.installation_path())
+    with open(self.cpp2so.stampfile(sofile), 'w') as stream:
+      stream.write(text)
+    self.assertEqual(
+        self.cpp2so.read_stamp_lines(sofile), (digest, toolchain.installation_path())
+      )
+    self.assertTrue(self.cpp2so.stamp_is_current(sofile))
+    self.assertFalse(self.cpp2so.is_stale(sofile))
+    self.assertEqual(self.prerequisite(name), sofile)
+    # The manager may spell the prefix through a link; the real paths are
+    # compared.
+    link = os.path.join(self.tmpdir, 'env-link')
+    os.symlink(toolchain.installation_path(), link)
+    with open(self.cpp2so.stampfile(sofile), 'w') as stream:
+      stream.write('%s\n%s\n' % (digest, link))
+    self.assertTrue(self.cpp2so.stamp_is_current(sofile))
+    self.assertFalse(self.cpp2so.is_stale(sofile))
+    before = os.stat(sofile).st_mtime_ns
+    with mock.patch.object(
+        toolchain._system, 'pexec', side_effect=AssertionError('a compiler ran')
+      ):
+      self.assertEqual(makecurry(self.plan, name, [self.srcdir]), sofile)
+      self.check_value(self.import_module(name), 10)
+    self.assertEqual(os.stat(sofile).st_mtime_ns, before)
+
+  def test_hand_copy_is_stale(self):
+    '''
+    An installation copied by hand.  The copied stamp holds the right
+    digest, and its text names the original installation, whose shared
+    objects the copied object links against.  The object is stale and is
+    compiled again, with a stamp of this installation.
+    '''
+    name = self.build(11)
+    sofile = self.cached_file(name, '.so')
+    cppfile = self.cached_file(name, '.cpp')
+    digest = self.cpp2so.digest()
+    original = os.path.join(self.tmpdir, 'original-install')
+    with open(self.cpp2so.stampfile(sofile), 'w') as stream:
+      stream.write('%s\n%s\n' % (digest, original))
+    self.assertEqual(self.cpp2so.read_stamp(sofile), digest)
+    self.assertIn(digest, self.cpp2so.accepted_digests())
+    self.assertFalse(self.cpp2so.stamp_is_current(sofile))
+    self.assertTrue(self.cpp2so.is_stale(sofile))
+    self.assertEqual(self.prerequisite(name), cppfile)
+    with capture_log('curry.backends.cxx.toolchain') as log:
+      self.assertEqual(makecurry(self.plan, name, [self.srcdir]), sofile)
+    log.checkMessages(self, info='Compiling %r' % sofile)
+    self.assertEqual(
+        self.cpp2so.read_stamp_lines(sofile), (digest, toolchain.installation_path())
+      )
+    self.assertFalse(self.cpp2so.is_stale(sofile))
+    self.check_value(self.import_module(name), 11)
 
   def test_header_tree_problems(self):
     '''
@@ -859,23 +976,51 @@ class TestFlavor(ToolchainTestCase):
             self.prerequisite(name), self.cached_file(name, '.cpp')
           )
     self.assertFalse(self.cpp2so.is_stale(sofile))
-    # The digest names the installation by its real path: an object
-    # compiled under another one links against that installation's shared
-    # objects, so it is stale here.
+    # The digest does not name the installation: two installations of one
+    # runtime give one digest, so the product cache can serve both and a
+    # relocated package keeps its objects.  The installation is the second
+    # line of the stamp, as text, and that line decides (TestAbiStamp).
+    installation = toolchain.installation_path()
+    self.assertEqual(installation, os.path.realpath(config.prefix()))
     elsewhere = os.path.join(self.tmpdir, 'elsewhere')
-    foreign = toolchain.object_digest(prefix=elsewhere)
-    self.assertRegex(foreign, r'^[0-9a-f]{16}$')
-    self.assertNotEqual(foreign, toolchain.object_digest())
-    self.assertEqual(
-        toolchain.object_digest(prefix=config.prefix()), toolchain.object_digest()
-      )
+    include = config.installed_path('include')
+    with mock.patch.object(config, 'prefix', lambda: elsewhere):
+      self.assertEqual(toolchain.object_digest('release', include), release)
+      self.assertEqual(toolchain.object_digest('debug', include), debug)
+      self.assertEqual(toolchain.installation_path(), os.path.realpath(elsewhere))
+    self.assertRaises(TypeError, toolchain.object_digest, prefix=elsewhere)
+    # The compiler of the build and the format of the generated code are
+    # in the digest (the decision of issue #100).  The compiler is the
+    # record of the build (sysconfig/cxx_compiler), one line: a version
+    # and a target.
+    recorded = config.cxx_compiler()
+    self.assertIsInstance(recorded, str)
+    if config.cxx_tool() is not None:
+      self.assertRegex(recorded, r'^\S+ \S+$')
+    with mock.patch.object(config, 'cxx_compiler', lambda: 'other 1.0'):
+      self.assertNotEqual(toolchain.object_digest('release'), release)
+      self.assertNotEqual(toolchain.object_digest('debug'), debug)
+    with mock.patch.object(compiler, 'FORMAT_VERSION', compiler.FORMAT_VERSION + 1):
+      self.assertNotEqual(toolchain.object_digest('release'), release)
+    self.assertEqual(toolchain.object_digest('release'), release)
     link = os.path.join(self.tmpdir, 'install-link')
-    os.symlink(os.path.realpath(config.prefix()), link)
-    self.assertEqual(toolchain.object_digest(prefix=link), toolchain.object_digest())
+    os.symlink(installation, link)
+    with mock.patch.object(config, 'prefix', lambda: link):
+      self.assertEqual(toolchain.installation_path(), installation)
+    # The text: the right digest with another installation is a hand copy,
+    # stale; the digest alone, a stamp of the old form, is stale; the stamp
+    # this step writes is current.
     with open(self.cpp2so.stampfile(sofile), 'w') as stream:
-      stream.write(foreign + '\n')
+      stream.write('%s\n%s\n' % (self.cpp2so.digest(), elsewhere))
+    self.assertEqual(self.cpp2so.read_stamp(sofile), self.cpp2so.digest())
+    self.assertTrue(self.cpp2so.is_stale(sofile))
+    with open(self.cpp2so.stampfile(sofile), 'w') as stream:
+      stream.write(self.cpp2so.digest() + '\n')
     self.assertTrue(self.cpp2so.is_stale(sofile))
     self.cpp2so.write_stamp(sofile)
+    self.assertEqual(
+        self.cpp2so.read_stamp_lines(sofile), (self.cpp2so.digest(), installation)
+      )
     self.assertFalse(self.cpp2so.is_stale(sofile))
 
   @unittest.skipIf(

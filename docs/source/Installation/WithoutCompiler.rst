@@ -25,10 +25,14 @@ What runs interpreted
 
 ``make stage`` and ``make install`` compile the Curry library into the
 installation with the compiler of the build.  The ABI stamp beside each
-object names the runtime headers, the flavor, and the real path of the
-installation, so the library loads compiled while the installation stays
-where it was built, or where its package installed it, and counts as stale
-when the installation moves to another path.  Under the default of the flag
+object digests the runtime headers, the flavor, the compiler of the build
+(as the build recorded it in ``sysconfig/cxx_compiler``, so an installation
+without a compiler computes the same digest) and the format of the
+generated code, and names the real path of
+the installation as text, which a package manager rewrites at install time,
+so the library loads compiled where it was built or where its package
+installed it, and counts as stale when the installation is copied by hand to
+another path.  Under the default of the flag
 ``interpret``, ``tiered``, a module without a current object is interpreted
 at once.  With a compiler, a child process compiles the module in the
 background, and the runtime swaps its functions to the compiled code when

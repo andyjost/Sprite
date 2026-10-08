@@ -363,20 +363,66 @@ with Sprite, then you should not need these.
   so every module is generated and compiled again whatever their times
   say.
 
+``SPRITE_PRODUCT_CACHE``
+  The directory of the product cache of the C++ backend
+  (``curry.toolchain._productcache``).  A compile of a module stores its
+  shared object, the generated C++ and the ABI stamp there, under the
+  digest of the stamp and a key of the facts that decide the products: the
+  texts of the module (its source, its ICurry file and its JSON, the input
+  of the code generator) and of the modules it imports, the format of the
+  generated code and the sources of the code generator and of the ICurry
+  reader, the flags of the optimizer and the inline budget, the route from
+  Curry to ICurry, and the
+  real paths of the installation and of the directory of the source.  An
+  object names the two paths, in its record and in its ``NEEDED`` entries,
+  so an entry serves one tree: the same tree after its products were
+  removed, or after an edit and its revert.  ``sprite-make``, the
+  background compile of the tiered mode and the prepare pass of the test
+  runner look in the cache before they compile.  A module whose entry is
+  there is neither generated nor compiled: its files are placed beside the
+  source, the object as a hard link when the two lie on one file system,
+  with a stamp for this installation.  Under the interpreter flag
+  ``interpret`` set to ``new`` nothing is placed: that mode interprets a
+  module without a current object and never compiles it.  Without the
+  variable the cache is ``$XDG_CACHE_HOME/sprite/products`` or
+  ``~/.cache/sprite/products``.  Without the variable, or with the empty string, the cache is off;
+  every product is then compiled in place, as before the cache existed.
+  The test runner and the worktree script name a directory of their own
+  (``tests/.cache/products``); a developer who wants one across trees
+  names it.  A module in the temporary directory of the system is never
+  cached.  The cache grows: each change to the runtime headers, to the
+  compiler or to the flags starts a new digest directory (about 42 MB for
+  the Curry library), and the toolchain removes nothing; the directory may
+  be deleted at any time.  ``sprite-make`` prints one line with the counts
+  of a run that restored or stored a product (``sprite-make: product cache:
+  43 restored, 0 stored``).  The test runner and the test library set the
+  variable to ``tests/.cache/products`` unless the environment names it,
+  and the runner prunes that cache after its prepare pass: the digest
+  directories of other runtimes go.
+
 ``SPRITE_WORKTREE_ROOT``
   The directory under which ``scripts/new-worktree.sh`` puts the install
   and object trees of a new git worktree; the default is
   ``~/.cache/sprite/worktrees``.
+
+``SPRITE_WORKTREE_PREPARE``
+  With the value ``1``, ``scripts/new-worktree.sh`` ends with the prepare
+  pass of the test runner on the C++ backend (``tests/run_tests
+  --prepare-only``), which compiles the shared Curry products of the test
+  pool into the new worktree and stores them in the product cache.  The
+  script never copies the compiled products of the main tree: their ABI
+  stamps and their ``NEEDED`` entries name the installation of that tree.
 
 Test Variables
 --------------
 
 The test runner (``tests/run_tests``; section 10 of ``tests/README``) sets
 the environment of every test file: ``SPRITE_HOME``, ``SPRITE_CACHE_FILE``
-(``tests/.cache/icurry.db``), ``SPRITE_INTERPRETER_FLAGS`` (the backend of
-the run), ``SPRITE_ROTATION=steps:65536`` unless the environment of the
-run names a mode, and ``SPRITE_FRONTEND_WARNINGS=0`` unless the environment
-sets it.  Three variables address the tests themselves:
+(``tests/.cache/icurry.db``), ``SPRITE_PRODUCT_CACHE``
+(``tests/.cache/products``) unless the environment names it,
+``SPRITE_INTERPRETER_FLAGS`` (the backend of the run),
+``SPRITE_ROTATION=steps:65536`` unless the environment of the run names a
+mode, and ``SPRITE_FRONTEND_WARNINGS=0`` unless the environment sets it.  Three variables address the tests themselves:
 
 ``SPRITE_TEST_MAX_VMEM_KB``
   The cap on the address space of a test process, in KiB, or

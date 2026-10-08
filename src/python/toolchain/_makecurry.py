@@ -74,10 +74,7 @@ def makecurry(plan, name, currypath=None, **kwds):
         plan, name, currypath, **kwds
       )
     if not os.path.isdir(pipeline.currentfile):
-      maker = Maker(plan, pipeline, name, currypath, kwds)
-      if not maker.done:
-        with compile_clock:
-          maker.make()
+      Maker(plan, pipeline, name, currypath, kwds).make()
     return pipeline.currentfile
 
 class Maker(object):
@@ -107,17 +104,27 @@ class Maker(object):
     return ends_plan is not None and ends_plan(self.pipeline.currentfile)
 
   def make(self):
-    if self.done:
-      return
+    '''
+    Runs the steps of the plan from the current file to the end.  Before
+    each step the plan may place the cached products of the module instead
+    (``Plan.restore``; the product cache), also before a step that would
+    end the plan at its input.  The clock counts the steps; a restore that
+    placed files counts itself.  A plan that is done with nothing to
+    restore costs no time on the clock.
+    '''
     while True:
+      restored = self.plan.restore(self.pipeline.currentfile, self.currypath)
+      if restored is not None:
+        self.pipeline.currentfile = restored
+      if self.done:
+        return
       stage = self.plan.stages[self.current_position]
-      self.pipeline.currentfile = stage.step(
-          self.pipeline.currentfile, self.currypath, **self.kwds
-        )
+      with compile_clock:
+        self.pipeline.currentfile = stage.step(
+            self.pipeline.currentfile, self.currypath, **self.kwds
+          )
       if not self.done:
         self.pipeline.intermediates.append(self.pipeline.currentfile)
-      else:
-        break
 
 class ToolchainContext(object):
   '''

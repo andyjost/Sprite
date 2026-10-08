@@ -26,17 +26,20 @@ build:
   rpaths:
     - lib
     - opt/sprite/lib
-  # Of the files under opt/sprite/curry, the shared objects of the compiled
-  # library modules alone name the build prefix: an object names the
-  # modules it imports by absolute path (its NEEDED entries; see
-  # curry.backends.cxx.toolchain.Cpp2So).  conda-build records them in
-  # info/has_prefix as binary files, and conda writes the prefix of the
-  # environment into them at install time.  The generated Python and C++
-  # files name their sources relative to the installation (step 9 of
-  # build.sh; "Relocation" in ../README.md), so no text file of the
-  # package holds the prefix; a test below checks that.  The binary case
-  # is the default on Linux; it is spelled out because the package depends
-  # on it.
+  # Of the files under opt/sprite/curry, two kinds name the build prefix.
+  # The shared objects of the compiled library modules name the modules
+  # they import by absolute path (their NEEDED entries; see
+  # curry.backends.cxx.toolchain.Cpp2So); conda-build records them in
+  # info/has_prefix as binary files.  The ABI stamp beside each object
+  # (.so.abi) names the real path of the installation as text on its
+  # second line; conda-build records a text file that holds the prefix by
+  # itself.  conda writes the prefix of the environment into both kinds at
+  # install time, so the shipped objects stay current ("Relocation" in
+  # ../README.md).  The generated Python and C++ files name their sources
+  # relative to the installation (step 9 of build.sh), so no other text
+  # file holds the prefix; a test below checks the .py and .cpp files.
+  # The binary case is the default on Linux; it is spelled out because the
+  # package depends on it.
   detect_binary_files_with_prefix: true
 
 requirements:

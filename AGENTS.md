@@ -138,6 +138,14 @@ Merges to `master` happen at milestones.
   `tests/.cache/icurry.db`, keyed by the source text, so a repeated run
   compiles only the Curry texts that changed. Set `SPRITE_CACHE_FILE=` (the
   empty string) to run without the cache.
+- The C++ backend has a product cache (`SPRITE_PRODUCT_CACHE`, off unless
+  it names a directory): `sprite-make`, the tiered compile and the prepare
+  pass of the test runner look there before they compile a module and
+  store the shared object, the generated C++ and the ABI stamp after. The
+  runner and `scripts/new-worktree.sh` use `tests/.cache/products`. The
+  stamp names the installation as text beside a prefix-free digest, so a
+  relocated installation keeps its objects; an object still names its
+  imports by absolute path, so an entry serves one tree.
 - The step that writes `M.icy` writes `M.fint` and `M.icurry` beside it, on
   a cache miss (copies of the front end's files) and on a hit (from the
   cache). Code that needs the type of a symbol reads those copies, never

@@ -181,8 +181,9 @@ def environment(sprite_home, backend, base=None):
   '''
   The environment of a child: what the shell driver always set, with the
   backend in SPRITE_INTERPRETER_FLAGS, the rotation in step mode unless
-  the environment names a mode, and the warnings of the front end off
-  unless the environment says otherwise.
+  the environment names a mode, the warnings of the front end off unless
+  the environment says otherwise, and the two caches of the toolchain
+  under tests/.cache unless the environment names them.
   '''
   env = dict(os.environ if base is None else base)
   env['SPRITE_HOME'] = sprite_home
@@ -199,6 +200,12 @@ def environment(sprite_home, backend, base=None):
       os.path.join(TESTDIR, 'data', 'curry'), env.get('CURRYPATH')
     )
   env.setdefault('SPRITE_CACHE_FILE', os.path.join(TESTDIR, '.cache', 'icurry.db'))
+  # The product cache of the C++ backend under tests/.cache, beside the
+  # ICurry cache, unless the environment names a directory (or the empty
+  # string, which turns the cache off): a run writes nothing under the
+  # cache directory of the user, and the restored objects are hard links
+  # when the tree and the cache share a file system.
+  env.setdefault('SPRITE_PRODUCT_CACHE', os.path.join(TESTDIR, '.cache', 'products'))
   env['SPRITE_INTERPRETER_FLAGS'] = with_backend(
       env.get('SPRITE_INTERPRETER_FLAGS'), backend
     )
@@ -423,6 +430,15 @@ def main(argv=None):
     interrupted = pre.interrupted
     wall += pre.wall
     out.write(prepare.summary(prepare_jobs) + '\n')
+    pruned = prepare.prune_product_cache(sprite_home, envs[backends[0]])
+    if pruned and any(pruned):
+      out.write(
+          'prepare: product cache pruned: %d digest director%s of other '
+          'runtimes, %d temporary director%s\n' % (
+              pruned[0], 'y' if pruned[0] == 1 else 'ies'
+            , pruned[1], 'y' if pruned[1] == 1 else 'ies'
+            )
+        )
     out.flush()
   if jobs and not interrupted:
     sched = Scheduler(

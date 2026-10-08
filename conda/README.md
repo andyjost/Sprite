@@ -96,7 +96,16 @@ entries, written by `curry.backends.cxx.toolchain.Cpp2So`). conda-build
 finds the prefix in them and lists them in `info/has_prefix` as binary
 files, 12 files in the build of 2026-10-07 (the 12 library modules with
 imports; `Prelude.so` imports nothing and names no path); conda writes the
-prefix of the environment into them at install time.  `meta.yaml` spells out
+prefix of the environment into them at install time.  Since the stamp change
+of issue #100 (2026-10-07) the ABI stamp beside each compiled module
+(`.so.abi`, 13 files) names the real path of the installation as text on its
+second line, so conda-build lists the stamps as text entries of
+`info/has_prefix` (it finds the prefix in a text file by itself; no line of
+`meta.yaml` or `build.sh` is needed) and conda rewrites them with the
+objects; the next build verifies the count, 12 binary and 13 text entries.
+The stamp holds the real path, so the build prefix must be a real path for
+conda-build to find it in the stamps (a build root without a link in it).
+`meta.yaml` spells out
 `detect_binary_files_with_prefix`, the default on Linux, because the package
 depends on it.  Nothing else in the package names the build directory or the
 build prefix: the generated Python and C++ files name their sources relative
@@ -120,39 +129,37 @@ modification times of the build).  Before step 9 the text replacement
 changed the generated `.py` files, and the first import of a library module
 on the Python backend wrote its cache again.
 
-One consequence of the relocation remains, the fact of open question 2.  The
-ABI stamp of a compiled module (`.so.abi`) digests the real path of the
-installation prefix (`toolchain.object_digest`), so the shipped library
-objects count as stale in every environment, whose prefix is not the build
-prefix.  With `cxx-compiler` in the environment, the first import of a
-library module on the C++ backend runs it interpreted and starts a compile
-of it in the background (the tiered default).  A short process cancels that
-compile at exit and writes nothing: in the environment of the third build
-of 2026-10-07, one import of the Prelude (1.69 s, interpreted) and one
-`sprite-exec` run per backend (2.32 s on cxx, 0.64 s on py) left no new
-file under the environment.  `sprite-make --so`, and a process that runs
-longer than the compile, write the new object and stamp into `opt/sprite`:
-`sprite-make --so` of the test program (30.9 s) compiled Prelude, Data.List
-and Data.Maybe (its imports) and wrote their six files, which conda tracks
-and which then differ from the record in `conda-meta`
-(`sha256_in_prefix`; a hand comparison found the six and no other
-difference); a later import of the Prelude took 0.14 s from the new object.
-A cancelled compile can leave a shipped object without its stamp
-(Control.SetFunctions in an earlier environment of the day, after example
-10 under `sprite-exec`), and an object without a stamp is compiled again.
-In a read-only installation (a prefix owned by another user, a read-only
-mount) the recompile fails: `sprite-make --so` of any program, since every
-program imports the Prelude, exits 1 because the directory of the library
-object cannot be written.  Before the review of 2026-10-07 the error was a
-bare "[Errno 13] Permission denied" on `Prelude.so.abi`; since then the
-compile step names the cause, the directory that cannot be written and the
-stale object (`Cpp2So.__call__`; `tests/unit_conda.py` checks the
-message).  `sprite-exec` still runs in that installation, with the library
-interpreted on every run (1.8 s against 0.17 s from an object), and a short
-run says nothing about it, because the background compile is cancelled at
-exit (a process that outlives it logs one warning).  Without the compiler
-every module runs interpreted and one notice says so.  The change that
-would keep the objects is proposed under open question 2.
+The ABI stamp of a compiled module (`.so.abi`) was the one consequence of
+the relocation that remained until issue #100 (2026-10-07).  It digested
+the real path of the installation prefix (`toolchain.object_digest`), so
+the shipped library objects counted as stale in every environment, whose
+prefix is not the build prefix.  In the environment of the third build of
+2026-10-07: the first import of the Prelude took 1.69 s, interpreted, with
+a background compile that a short process cancels at exit (three short runs
+wrote nothing); `sprite-make --so` of a program that imports Data.List took
+30.9 s and wrote the objects and stamps of Prelude, Data.List and Data.Maybe
+into `opt/sprite`, six conda-tracked files that then differed from the
+record of `conda-meta` (`sha256_in_prefix`); a cancelled compile could leave
+a shipped object without its stamp (Control.SetFunctions after example 10
+under `sprite-exec`); and in a read-only installation the recompile failed,
+so `sprite-make --so` of every program exited 1 (the compile step names the
+cause since the review of that day; `tests/unit_conda.py` checks the
+message) while `sprite-exec` ran with the library interpreted (1.8 s against
+0.17 s from an object).  Since the change the stamp digests what decides
+compatibility (the runtime headers, the flags of the flavor and of the
+collector, the link flags, the compiler of the build as `make stage`
+records it in `sysconfig/cxx_compiler`, and the format of the generated
+code) and carries the real path of the installation as
+text on its second line; `Cpp2So.is_stale` compares the digest with the one
+of the runtime, and the text, as a real path, with the installation of the
+process.  A copy made by hand names the original and stays stale; a package
+whose stamps conda rewrote keeps its objects.  A probe of the same day in a
+fresh environment with the 13 stamps rewritten, which is what the change
+gives: the first import of the Prelude 0.20 s from the shipped object,
+`sprite-exec` of the program 0.69 s then 0.18 s, `sprite-make --so` 3.4 s
+(the precompiled header and the program), nothing written under
+`opt/sprite`.  No build with the change has been made yet; open question 2
+names what it must show.
 
 The order of the chain is no longer at stake: the toolchain starts a
 module from the newest file of its chain by modification time (issue #66),
@@ -192,17 +199,22 @@ compiler of the build to GCC 15 as well:
 the generated code is compiled against the headers under
 `opt/sprite/include` and linked against `opt/sprite/lib/libcyrt.so`, and one
 major version keeps one libstdc++ on both sides.  Move the pin together with
-`cxx-compiler`.  The compiled library modules do not depend on the compiler
-version: their ABI stamps (`.so.abi`) digest the runtime headers, the
-flavor flags and the real path of the installation; the last makes them
-stale in an environment (see "Relocation" and open question 2).  The
+`cxx-compiler`.  The ABI stamps of the compiled library modules
+(`.so.abi`) digest the runtime headers, the flavor flags and the compiler
+of the build, as `make stage` records it in `sysconfig/cxx_compiler` (the
+version and the target of `g++`), and carry the real path of the
+installation as text, which conda rewrites at install time (see
+"Relocation").  The record ships in the package, so an environment without
+`cxx-compiler` computes the digest of the shipped objects all the same; a
+package built with another compiler gives another digest, and its objects
+are its own.  The
 precompiled header of the runtime goes to the cache directory of the user,
 `$XDG_CACHE_HOME/sprite/pch/<key>` or `~/.cache/sprite/pch/<key>`, where
 the key is a digest of the real path of the installation: the C++ backend
 puts it there when the installed include directory cannot be written or
 lies in a conda environment (`config.cxx_pch_root`; `SPRITE_CXX_PCH_ROOT`
 overrides the rule).  So the header is not written into the package at run
-time (the library objects of open question 2 are; see "Relocation").  The
+time.  The
 cache grows: each installation leaves its own directory with a member of
 about 70 MB, and nothing removes the directory of an environment that was
 deleted (`remove_stale_members` works inside one key directory).  The
@@ -493,18 +505,18 @@ the owner; the next section gives a recommendation for each.
 5. The library is compiled into the package for both backends.  The
    precompiled header of the runtime is not; the C++ backend writes it on
    its first compile, into the cache directory of the user.
-6. Nothing but the library objects of open question 2 is written into the
-   package at run time (2026-10-07).  The precompiled header goes to
+6. Nothing is written into the package at run time (2026-10-07; the
+   library objects since the stamp change of issue #100, which the next
+   build verifies).  The precompiled header goes to
    `$XDG_CACHE_HOME/sprite/pch/<key>` or `~/.cache/sprite/pch/<key>` when
    the include directory of the installation cannot be written or lies in
    a conda environment; the generated files of the library name their
    sources relative to the installation, so conda rewrites no text file
-   and the shipped bytecode stays valid.  The write that remains until
-   open question 2 is decided: `sprite-make --so`, or a process that
-   outlives the background compile, compiles the stale library objects
-   again into `opt/sprite` (six conda-tracked files in the environment test
-   of 2026-10-07), and in a read-only installation that compile fails (see
-   "Relocation").
+   and the shipped bytecode stays valid.  Before the stamp change,
+   `sprite-make --so`, or a process that outlived the background compile,
+   compiled the stale library objects again into `opt/sprite` (six
+   conda-tracked files in the environment test of 2026-10-07), and in a
+   read-only installation that compile failed (see "Relocation").
 7. The source of the package is an export of a commit, through
    `build-packages.sh`.  The recipe keeps `path: ../..`.
 8. The version of the package is the `VERSION` file, read at render time.
@@ -520,8 +532,9 @@ Resolve these before anything is published.  The license question of the
 first scaffold is closed: `LICENSE` at the root of the repository is the
 BSD 3-Clause license of Sprite, and the package ships it with the notices
 of the Curry library (`curry/lib/LICENSE`, `curry/lib/NOTICE`) and of
-pybind11.  Questions 3, 10, 11, 13 and 14 were decided on 2026-10-07; the
-entries record the decision.
+pybind11.  Questions 3, 10, 11, 13 and 14 were decided on 2026-10-07, and
+the stamp of question 2 under issue #100 the same day; the entries record
+the decision.
 
 1. The front end.  Keep the separate package.  The binary has its own
    license and origin, it moves with PAKCS and not with Sprite, and a
@@ -537,43 +550,34 @@ entries record the decision.
    `sprite-cxx` that adds `cxx-compiler` for the background compile of the
    user's modules.  The split is a follow-up of the packaging issue #1;
    stage 2 of issue #82 (the compiler-free mode) documented the behaviour
-   and did not split the package.  The fact, measured on 2026-10-07: the ABI
-   stamp of a compiled module (`.so.abi`) digests the real path of the
-   installation prefix (`toolchain.object_digest`, the repair of finding C6
-   of the audit of issue #82: an object compiled under another installation
-   links against that installation's shared objects by absolute path), so
-   the shipped library objects are stale in the environment.  In a fresh
-   environment the first import of the Prelude took 1.66 s, interpreted;
-   `sprite-make --so` of a program that imports Data.List took 31.7 s,
-   because it compiled the stale Prelude, Data.List and Data.Maybe first.  A
-   probe in a second fresh environment with the 13 stamps rewritten to the
-   digest of that environment, which is what the proposal below gives: the
-   first import of the Prelude took 0.20 s from the shipped object,
-   `sprite-exec` of the same program 0.69 s on its first run and 0.18 s on
-   its second, `sprite-make --so` 3.4 s (the precompiled header and the
-   program), and nothing was written under `opt/sprite`.  Two more facts
-   from the review of the same day: in a read-only installation the
-   recompile of the stale objects fails, so `sprite-make --so` of every
-   program exits 1 (the compile step names the cause since then) and
-   `sprite-exec` interprets the library on every run; and in a writable
-   one the recompile changes six conda-tracked files, so the files of the
-   package no longer match the record of `conda-meta` (see "Relocation").
-   Proposal, not
-   done: let the stamp carry the real path of the installation as text
-   beside the digest of the headers and the flags, instead of inside the
-   digest.  conda-build then lists the 13 stamps in `info/has_prefix` as
-   text files and conda rewrites them at install time, together with the
-   `NEEDED` entries of the objects; the check compares the text with the
-   real path of the installation, so an object copied to another
-   installation by hand stays stale, as today, and a relocated package keeps
-   its objects.  The change is about ten lines in `toolchain.object_digest`,
-   `Cpp2So.write_stamp` and `Cpp2So.is_stale`, plus the test of
-   `unit_cxx_toolchain.py` that asserts that the digest itself changes with
-   the prefix (`test_digest` of `TestFlavor`); that assertion encodes the
-   rule of today, so the change did not meet the condition "keeps every
-   existing test green" and is proposed instead.  A system compiler should
-   stay out: the generated code must see the libstdc++ headers of a compiler
-   that matches the runtime library of the environment.
+   and did not split the package.  The stamp: decided on 2026-10-07 under
+   issue #100 and applied there.  The ABI stamp digests what decides
+   compatibility (the runtime headers, the flags of the flavor and of the
+   collector, the link flags, the compiler of the build and the format of
+   the generated code) and carries the real path of the
+   installation as text on its second line (`Cpp2So` of
+   `curry.backends.cxx.toolchain` documents the format); `is_stale`
+   compares the digest and the text.  So the shipped library objects stay
+   in use once conda rewrote the stamps, a copy made by hand stays stale,
+   and the recompile into the package and its failure in a read-only
+   installation (see "Relocation") are gone.  What the recipe needs:
+   nothing in `meta.yaml`.  conda-build finds the prefix in a text file by
+   itself and lists the file in `info/has_prefix` as a text entry (the
+   setting `detect_binary_files_with_prefix` concerns the binary files
+   alone), and conda rewrites a text entry at install time.  `build.sh`
+   turns the product cache of the C++ backend off
+   (`SPRITE_PRODUCT_CACHE=`), so the build compiles its own library
+   objects and the package holds files, not hard links into a cache.  What
+   the next build must show: 12 binary and 13 text entries in
+   `info/has_prefix`; in an environment, a stamp whose second line is the
+   prefix of the environment (`<env>/opt/sprite`), the first import of the
+   Prelude from the shipped object, `sprite-make --so` of a program without
+   a recompile of the library, and no file of the package changed after the
+   runs.  The stamp holds the real path, so the build prefix must be a real
+   path for conda-build to find it (a build root without a link in it).  A
+   system compiler should stay out: the generated code must see the
+   libstdc++ headers of a compiler that matches the runtime library of the
+   environment.  Open: the split.
 
 3. Writes into the package at run time.  Decided on 2026-10-07; see
    decision 6.  The precompiled header: `config.cxx_pch_root` chooses the
@@ -706,9 +710,9 @@ Publication and the channel are the owner's decisions.  Before them:
 
 1. The front end (question 1): a feedstock `curry-frontend`, and a build
    of the front end from source for a second platform.
-2. The ABI stamp (question 2): decide the proposal, so that the shipped
-   library objects stay in use; then decide the split into `sprite` and
-   `sprite-cxx`.
+2. The ABI stamp (question 2): applied under issue #100; the next build
+   verifies the text entries of `info/has_prefix` and the runs named under
+   question 2.  Then decide the split into `sprite` and `sprite-cxx`.
 3. The compiler pin (question 6): take the compiler of the pinning file on
    both sides, or tie them with `run_constrained`; the probe with GCC 16
    is recorded in the entry.
@@ -736,10 +740,10 @@ Publication and the channel are the owner's decisions.  Before them:
     neutral path, or through a CI feedstock, and inspect `info/recipe` and
     `info/about.json` (`conda build --no-include-recipe` leaves the recipe
     out of the package).
-11. A read-only installation (question 2): until the stamp proposal is
-    applied, the C++ backend cannot compile a program in an environment
-    whose `opt/sprite` cannot be written, because the stale library objects
-    must be compiled again first (`sprite-make --so` fails and names the
-    cause; `sprite-exec` runs the program with the library interpreted).
-    Say so on the channel, or apply the proposal first.
+11. A read-only installation (question 2): resolved by the stamp change of
+    issue #100 once the next build verifies it.  Until then the C++
+    backend cannot compile a program in an environment whose `opt/sprite`
+    cannot be written, because the stale library objects must be compiled
+    again first (`sprite-make --so` fails and names the cause;
+    `sprite-exec` runs the program with the library interpreted).
 12. One source of truth for the front-end pin (question 5).
