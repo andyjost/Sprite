@@ -98,9 +98,8 @@ To read another file, pass its name after the options.
 4. Expected output
 ------------------
 
-The file expected.out holds the exact output of ./run.  The output is the
-same on both backends.  The table has one row per line of sample.log.  The
-key rows are:
+The file expected.out holds the exact output of ./run.  The table has one
+row per line of sample.log.  The key rows are:
 
     line                                    status  host   tags
     host=alpha status=200 path=/index.html  200     alpha  -

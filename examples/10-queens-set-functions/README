@@ -38,8 +38,8 @@ generator of solutions.  The driver collects every value with
     curry.eval(Queens.queens, n, converter='topython')
 
 The converter turns each Curry list of Ints into a Python list of ints.  The
-scheduler does not promise an order of the values across the backends, so the
-driver sorts the solutions.  It then counts them and draws the smallest board.
+scheduler does not promise an order of the values, so the driver sorts the
+solutions.  It then counts them and draws the smallest board.
 
 
 3. How to run
@@ -72,8 +72,7 @@ that row.  For n = 4 the board is:
     Q . . .
     . . Q .
 
-The output is identical on both backends.  A size with no solution, such as 3,
-prints "n=3: 0 solutions" and no board.
+A size with no solution, such as 3, prints "n=3: 0 solutions" and no board.
 
 
 5. Limits

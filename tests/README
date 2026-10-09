@@ -85,9 +85,9 @@ Three kinds of tests are used:
 
       unit_examples.py runs the examples under examples/ in child processes
       and compares their output with the expected.out file of each example.
-      Set SPRITE_UPDATE_EXPECTED=1 to regenerate those files.  The file takes
-      about 40 s warm and about two minutes cold on one backend (see
-      section 6).
+      Set SPRITE_UPDATE_EXPECTED=1 to regenerate those files, once per
+      backend of EXAMPLES, and review the diff.  The file takes about 40 s
+      warm and about two minutes cold on one backend (see section 6).
 
 
 3. FILE LAYOUT

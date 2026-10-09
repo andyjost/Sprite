@@ -95,9 +95,7 @@ Measured on the C++ backend with a 2 GiB address-space cap:
   * A 21-clue puzzle and a 17-clue puzzle: more than 30 seconds, so they
     are not part of the run.
 
-The first run adds about a second to compile the module.  The Python
-backend did not finish the two grids in 120 seconds, so the test suite runs
-this example on the C++ backend only.
+The first run adds about a second to compile the module.
 
 Each step of the search recomputes the candidates of every blank cell.  One
 step costs 10 to 20 milliseconds.  A puzzle that needs thousands of steps

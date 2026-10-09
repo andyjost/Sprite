@@ -1,17 +1,24 @@
 '''
 The reference backend behind the flag backend:py (issue #82, stage 5).  The
-user guide names no Python backend; the developer notes name the flag, what
-the backend is for and its limits; and the flag still selects the backend
-through the surfaces the test suite, CI and the examples use.
+user guide and the READMEs a user reads name no Python backend; the
+developer notes name the flag, what the backend is for and its limits; and
+the flag still selects the backend through the surfaces the test suite, CI
+and the examples use.
 '''
 import cytest # from ./lib; must be first
 from curry import config
 from curry.interpreter import Interpreter
 import curry, glob, os, re, subprocess, sys, unittest
 
-DOCS = os.path.normpath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'docs', 'source')
+ROOT = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
   )
+DOCS = os.path.join(ROOT, 'docs', 'source')
+# The READMEs a user reads: the README of the repository, examples/README and
+# the README of every example.  The files a developer reads (README.contrib,
+# tests/README, conda/README.md, curry/README.md, the READMEs under src/ and
+# under tests/data/) are allowed to name the backend and are not scanned.
+USER_READMES = ['README', 'README.md', 'examples/README', 'examples/*/README']
 # The developer pages name the backend; the user guide is every other page.
 DEVELOPER_PAGES = ('DeveloperNotes.rst', 'DeveloperSetup.rst')
 # The generated pages, which the build of the documentation writes from the
@@ -42,6 +49,11 @@ class TestUserGuide(cytest.TestCase):
         continue
       yield rel, path
 
+  def readmes(self):
+    for pattern in USER_READMES:
+      for path in sorted(glob.glob(os.path.join(ROOT, pattern))):
+        yield os.path.relpath(path, ROOT), path
+
   def test_user_guide_names_no_python_backend(self):
     '''No page of the user guide names the Python backend or its flag.'''
     hits = []
@@ -54,6 +66,20 @@ class TestUserGuide(cytest.TestCase):
         hits.append('%s:%d: %s' % (rel, lineno, line.rstrip()))
     self.assertGreater(pages, 20)
     self.assertEqual(hits, [], 'the user guide names the Python backend:\n'
+                               + '\n'.join(hits))
+
+  def test_readmes_name_no_python_backend(self):
+    '''No README a user reads names the Python backend or its flag.'''
+    hits = []
+    files = 0
+    for rel, path in self.readmes():
+      files += 1
+      with open(path, encoding='utf-8') as stream:
+        text = stream.read()
+      for lineno, line in sorted(set(findall(text, PATTERNS))):
+        hits.append('%s:%d: %s' % (rel, lineno, line.rstrip()))
+    self.assertGreater(files, 20)
+    self.assertEqual(hits, [], 'a README names the Python backend:\n'
                                + '\n'.join(hits))
 
   def test_developer_notes_name_the_flag(self):

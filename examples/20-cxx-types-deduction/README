@@ -93,7 +93,8 @@ set function:
       report (sortValues (set3 bindCall names params args))
 
 The set holds every binding.  An empty set prints "no deduction".  The
-bindings are sorted, so that the output is the same on both backends.
+bindings are sorted, because the scheduler does not promise an order of the
+values.
 
 Partial ordering by deduction.  A partial specialization S<T*> is more
 specialized than S<T> when S<T> can be deduced from S<T*> and not the other
@@ -297,8 +298,7 @@ depth 2 the question also finds int const& and int const&&, and nothing
 else.  The bare type int const is not the type of a C++ expression: a
 prvalue of a cv-qualified scalar type is adjusted to the unqualified type
 ([expr.type]).  The model deduces from the written type, so that row stands
-for an expression of type int const of any value category.  The output is
-identical on both backends.
+for an expression of type int const of any value category.
 
 
 5. Limits
