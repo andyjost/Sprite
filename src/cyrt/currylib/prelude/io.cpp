@@ -2,7 +2,11 @@
 #include <cstdio>
 #include <cstring>
 #include "cyrt/cyrt.hpp"
+#include "cyrt/currylib/prelude.hpp"
 #include "cyrt/dynload.hpp"
+#include "cyrt/exceptions.hpp"
+#include "cyrt/module.hpp"
+#include "cyrt/utf8.hpp"
 #include <fstream>
 #include <iterator>
 #include <sstream>

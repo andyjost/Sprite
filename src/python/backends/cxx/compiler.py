@@ -51,6 +51,13 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # imports and its source by absolute path, so it serves one tree.
 FORMAT_VERSION = 13
 
+# The runtime headers every generated file includes, as vEmitHeader writes
+# them: one directive per name.  The toolchain digests the include closure
+# of these headers into the ABI stamp of an object (toolchain.runtime_headers
+# and runtime_digest): a header the closure does not reach belongs to the
+# runtime library alone, and an edit to it compiles no module again.
+RUNTIME_INCLUDES = ('cyrt/cyrt.hpp',)
+
 def compile(interp, imodule):
   compileM = CxxCompiler(interp, imodule)
   return compileM.compile()
@@ -124,7 +131,8 @@ class CxxCompiler(compiler.CompilerBase):
     yield '// IMPORTS: ' + ' '.join(str(mod) for mod in self.iroot.imports)
     yield '// FORMAT: %d' % FORMAT_VERSION
     yield '// MODULE: ' + self.iroot.fullname
-    yield '#include "cyrt/cyrt.hpp"'
+    for name in RUNTIME_INCLUDES:
+      yield '#include "%s"' % name
     yield ''
     yield 'using namespace cyrt;'
     yield ''

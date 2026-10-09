@@ -1,4 +1,5 @@
 #include "cyrt/cyrt.hpp"
+#include "cyrt/currylib/prelude.hpp"
 #include <cmath>
 #include <functional>
 #include <string>

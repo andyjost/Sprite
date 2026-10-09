@@ -60,8 +60,9 @@ serves the second tree the products of the first.  Under interpret:new
 nothing is placed (the
 mode never compiles).  After its prepare pass the runner prunes this cache
 and no other: the digest directories of other runtimes go, so the directory
-does not grow with every change to the runtime headers (the CI cache entry
-carries it).  Both directories under .cache may be deleted at any time.
+does not grow with every change to a runtime header that the generated code
+includes (the CI cache entry carries it).  Both directories under .cache may
+be deleted at any time.
 
 
 2. TEST CATEGORIES
@@ -1011,16 +1012,19 @@ writer (.json.z), the code generator (.py, .cpp), and the C++ compiler
 (.so).  Two files that write the same product at once can leave a torn
 file for a third to read.  The ICurry cache (SQLite, busy timeout 30 s),
 the bytecode cache, the ABI stamp, and the precompiled header are written
-atomically.  The ABI stamp of a shared object names the runtime headers,
-the flavor and the installation it was compiled under, so a product
-compiled under another SPRITE_HOME is compiled again here (the object
+atomically.  The ABI stamp of a shared object names the runtime headers
+the generated code includes (the include closure of cyrt/cyrt.hpp; a header
+of the runtime outside it rebuilds the runtime library alone), the flavor
+and the installation it was compiled under, so a product compiled under
+another SPRITE_HOME is compiled again here (the object
 itself names no path: its imports enter it by SONAME).  --prepare runs
 sprite-make over the shared pool (data/curry)
 and the corpus of each selected functional test, one directory and one
 process at a time, for each backend of the run, before any file starts.
 After it the parallel files only read the products.  Use it on a fresh
 checkout, after a change to a source under data/curry, after a change to
-a code generator, and after make stage installed new runtime headers.
+a code generator, and after make stage installed new runtime headers of
+that closure.
 The pass is advisory.  sprite-make runs with -k, so a module that fails
 to compile does not stop the others.  The job of its directory ends
 "incomplete", not "FAILED": its line names the modules that have no

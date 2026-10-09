@@ -120,10 +120,13 @@ Merges to `master` happen at milestones.
   below five seconds; `./run_tests --list` to see a selection without a
   run; `./run_tests -v FILE` to stream the output of one file (a breakpoint
   needs it). Add `--prepare` on a fresh checkout, after a change to the
-  toolchain, and after a change to a runtime header (every compiled object
-  is stale then), so the shared Curry products are compiled before the
-  files run in parallel: under the tiered default a test process
-  interprets a stale module and never compiles it. `--prepare-only` runs
+  toolchain, and after a change to a runtime header that the generated
+  code includes (the include closure of `cyrt/cyrt.hpp`; every compiled
+  object is stale then, where a change to a header outside the closure
+  rebuilds the runtime library alone), so the shared Curry products are
+  compiled before the files run in parallel: under the tiered default a
+  test process interprets a stale module and never compiles it.
+  `--prepare-only` runs
   the pass alone and exits with its status; CI runs it before the files
   of a C++ shard. The output of each file is in
   `tests/.cache/runner/<backend>/<file>.log`. The default width is
@@ -151,9 +154,10 @@ Merges to `master` happen at milestones.
   pass of the test runner look there before they compile a module and
   store the shared object, the generated C++ and the ABI stamp after. The
   runner and `scripts/new-worktree.sh` use `tests/.cache/products`. The
-  stamp names the installation as text beside a prefix-free digest, so a
-  relocated installation keeps its objects; an object still names its
-  imports by absolute path, so an entry serves one tree.
+  stamp names the installation as text beside a prefix-free digest of the
+  runtime headers the generated code includes and of the flags, so a
+  relocated installation keeps its objects; an object names its imports
+  by SONAME, so an entry serves every tree with the same stamp.
 - The step that writes `M.icy` writes `M.fint` and `M.icurry` beside it, on
   a cache miss (copies of the front end's files) and on a hit (from the
   cache). Code that needs the type of a symbol reads those copies, never

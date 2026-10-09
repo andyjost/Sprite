@@ -1,5 +1,7 @@
 #include "cyrt/cyrt.hpp"
+#include "cyrt/currylib/prelude.hpp"
 #include "cyrt/graph/walk.hpp"
+#include "cyrt/inspect.hpp"
 
 using namespace cyrt;
 
