@@ -196,7 +196,13 @@ The following are recognized:
 
 ``SPRITE_LOG_FILE``
   The file to which logging output is directed.  The default, ``-``, directs
-  this to standard output.
+  this to the standard error stream.  ``import curry`` configures the root
+  logger of Python (``logging.basicConfig``): a handler on that file or
+  stream with the format ``%(asctime)s [%(levelname)s] %(message)s``, and
+  the level of ``SPRITE_LOG_LEVEL``.  A program that configured logging
+  before the import keeps its configuration.  The two variables change
+  nothing then.  An unknown level name still stops the import with an
+  error.
 
 ``SPRITE_LOG_LEVEL``
   Sets the logging verbosity.  The **default** level is ``WARNING``.  Supported

@@ -133,8 +133,10 @@ eval = _interpreter_.eval
 expr = _interpreter_.expr
 flags = _interpreter_.flags
 '''
-The ``flags`` attribute of the global interpreter.  Modify this to reconfigure
-the interpreter.
+The ``flags`` attribute of the global interpreter.  Change its entries in
+place to reconfigure the interpreter, ``curry.flags['defaultconverter'] =
+'topython'``.  An assignment to ``curry.flags`` rebinds the name in the
+package and changes nothing in the interpreter.
 
 :meta hide-value:
 '''
@@ -152,7 +154,9 @@ contains the imported Curry modules.
 path = _interpreter_.path
 '''
 The ``path`` attribute of the global interpreter.  Initialized from environment
-variable CURRYPATH.  Modify this to dynamically adjust the Curry search path.
+variable CURRYPATH.  Change it in place to adjust the Curry search path,
+``curry.path.insert(0, '.')``.  An assignment to ``curry.path`` rebinds the
+name in the package and changes nothing in the interpreter.
 
 :meta hide-value:
 '''

@@ -22,6 +22,10 @@ directory, you can add it by saying:
 
     >>> curry.path.insert(0, '.')
 
+Change the list in place, as here.  An assignment to ``curry.path`` rebinds
+the name in the package.  The search path of the interpreter stays as it
+was.  The same holds for ``curry.flags``.
+
 Now, import ``Peano``:
 
     >>> from curry.lib import Peano
@@ -33,12 +37,22 @@ Whenever a Curry module is imported, a reference to it is stored in
 ``curry.modules``.  We can see that it now contains the implict module
 ``Prelude`` as well as ``Peano``:
 
-    >>> curry.modules
-    {'Prelude': <curry module 'Prelude'>, 'Peano': <curry module 'Peano'>}
+    >>> sorted(curry.modules)
+    ['Peano', 'Prelude']
 
 :func:`curry.import_` imports a module by name and returns it:
 
     >>> DL = curry.import_('Data.List')
+
+A dotted name imports the packages on its way, so this adds the package
+``Data`` to ``curry.modules`` as well.  ``curry.import_('Data')`` returns
+the package.  A source file is imported with
+``curry.import_('Peano.curry', is_sourcefile=True)``.  A list of names
+imports each of them.  The products of a module are written beside its
+source under ``.curry/sprite-pakcs-3.4.1/``.  They are the ICurry
+(``Peano.icy``), the interfaces of the front end (``Peano.fint``,
+``Peano.icurry``) and the JSON.  The generated C++ and the shared object
+(``Peano.so``) are added when the module has been compiled.
 
 Inspecting Symbols
 ==================
@@ -52,6 +66,12 @@ attributes.  These can be accessed in the usual way:
     <curry constructor 'O'>
     >>> Peano.add
     <curry function 'add'>
+
+Three rules say what a module offers.  The public functions and
+constructors are attributes under their Curry names, operators included.  A
+private function is not an attribute; ``curry.symbol`` reaches it by its
+full name.  A type is not an attribute; see
+:ref:`PythonAPI/UsingTheAPI:Inspecting Types` below.
 
 These objects contain a wealth of information.  For example:
 
@@ -91,7 +111,9 @@ To see the ICurry and the generated code, try the following commands:
           var $3
           $3 <- $1[0]
           return ICCall('Peano.S', IFCall('Peano.add', $3, $2))
-    >>> print(Peano.add.getimpl())
+    >>> print(Peano.add.getimpl())  # doctest: +ELLIPSIS
+    /****** Peano.add ******/
+    ...
 
 ``inspect.geticurry`` reads the ICurry of a module loaded from its compiled
 code from the file beside it.  ``getimpl`` gives the generated C++
@@ -109,9 +131,19 @@ fully-qualified name:
     <curry constructor 'S'>
 
 This function only searches loaded modules; it will not import anything.
-A Curry name that is not a Python identifier is reached with ``getattr``
-or with ``curry.symbol``:
+The name splits at its first dot into a module and a name in it, so
+``curry.symbol('Data.List.nub')`` needs the package ``Data`` loaded, as the
+import of ``Data.List`` above left it:
 
+    >>> curry.symbol('Data.List.nub')
+    <curry function 'nub'>
+
+A Curry name that is not a Python identifier, or is a Python keyword, is
+reached with ``getattr`` or with ``curry.symbol``.  Seven names of the
+Prelude are keywords: ``not``, ``and``, ``or``, ``break``, ``return``,
+``True`` and ``False``.
+
+    >>> from curry.lib import Prelude
     >>> getattr(Prelude, '++')
     <curry function '++'>
 
@@ -169,14 +201,14 @@ Use :func:`curry.compile` to dynamically create Curry modules:
     ...   )
 
 The above is equivalent to to placing the code into a file ``Fib.curry`` and
-importing it.  If a module name is provided, the module is added to
-:data:`curry.modules`.  Without one, the module gets a name of its own that
-no later compile reuses.
+importing it.  The module is added to :data:`curry.modules` under its name.
+Without a name, the module gets a name of its own that no later compile
+reuses.
 
 .. note::
 
-    Sprite dedents leading whitespace common to every line, so Curry code can
-    be formatted in blocks, as shown above.
+    The text reaches the front end as written.  The layout rule of Curry
+    accepts a block whose lines are indented alike, as shown above.
 
 Each compile runs the Curry front end, which takes a fraction of a second
 for a small module (0.6 s for ``Peano`` on the machine of this text, the
@@ -198,10 +230,17 @@ raises ``ValueError``.  The entry point of the C++ program is a stub today;
 of issue #82.
 
 :func:`curry.load` loads the shared object of a module, which
-``sprite-make --so Fib.curry`` writes beside the source, under
-``.curry/sprite-pakcs-3.4.1/`` (see :ref:`sprite-make`):
+``sprite-make --so`` writes beside the source, under
+``.curry/sprite-pakcs-3.4.1/`` (see :ref:`sprite-make`).  With the module
+above in a file ``Fib.curry``:
 
-    >>> Fib = curry.load('.curry/sprite-pakcs-3.4.1/Fib.so')
+.. code-block:: bash
+
+    % install/bin/sprite-make --so Fib.curry
+
+Then, in a new Python process (the note below says why):
+
+    >>> Fib = curry.load('.curry/sprite-pakcs-3.4.1/Fib.so')  # doctest: +SKIP
 
 .. note::
 
@@ -249,8 +288,7 @@ does not catch it; name the class in the ``except`` clause:
 
 A trailing ``where x, y free`` declares free variables, as in the REPL.  A
 variable whose type is absent from the result type cannot show in a value,
-so ``curry.eval`` reports its binding with each value, as the REPL of PAKCS
-prints it:
+so ``curry.eval`` reports its binding with each value:
 
     >>> goal = curry.compile('xs ++ [3] =:= [1, 2, 3] where xs free', mode='expr')
     >>> value = next(curry.eval(goal))
@@ -265,6 +303,13 @@ the value, which is the answer:
 
     >>> print(next(curry.eval(curry.compile('(x, 1) where x free', mode='expr'))))
     (_a, 1)
+
+The REPL of PAKCS prints the binding of every declared variable, ``{x=x} x``
+for ``x where x free``, where Sprite prints ``_a``.  The clause must end the
+text.  With ``exprtype``, or with a comment after ``free``, it is compiled
+as a local declaration.  The variables are not lifted then, and no binding
+is reported.  So ``curry.compile('xs =:= [1] where xs free', mode='expr',
+exprtype='Bool')`` evaluates to ``True`` alone.
 
 Curry expressions can also be created directly in Python with
 :func:`curry.expr`.  It bypasses the Curry front end, so it is fast, and it
@@ -284,6 +329,8 @@ examples:
     <Float 1.5>
     >>> curry.expr('a')
     <Char 'a'>
+    >>> curry.expr('ab')
+    <: <Char 'a'> <: <Char 'b'> <[]>>>
     >>> curry.expr(True)
     <True>
     >>> curry.expr([1])
@@ -337,13 +384,22 @@ hold the same expression, whatever their identity, and False between a node
 and a value that is not a node.  A node hashes by its identity, so two equal
 nodes hash differently, and a dict or a set keyed by nodes keeps both; a
 node is not meant as a dictionary key.  A node has no order: ``<``
-between two nodes raises ``TypeError``.  For example:
+between two nodes raises ``TypeError``.  Every node is true in a Boolean
+context, the node ``False`` and a failure included, so convert a value
+before a test.  ``len`` is not defined on a node.  ``v[i]`` is successor
+``i`` of the node, so ``v[0]`` of a list value is its head and ``v[1]`` its
+tail.  An index past the successors raises ``TypeError``, and so does
+``list(v)``.  A built-in value (``Int``, ``Char``, ``Float``) has no
+successor.  Its index 0 is the Python value it holds.  For example:
 
     >>> one, other = curry.expr(1), curry.expr(1)
     >>> one == other, one == 1, one is other
     (True, False, False)
     >>> len({one, other})
     2
+    >>> v = next(curry.eval(curry.expr([1, 2])))
+    >>> bool(next(curry.eval(False))), v[0], v[1]
+    (True, <Int 1>, <: <Int 2> <[]>>)
 
 Symbolic Expressions
 --------------------
@@ -374,11 +430,10 @@ symbol:
 
 .. note::
 
-  Using Python lists to build both Curry lists and nested Curry expressions may
-  seem to introduce an ambiguity.  This is not the case, though the reason is
-  subtle.  Lists are processed recursively from the inside out and treated as
-  subexpressions only when their first element is strictly a  *symbol*.
-  Consider:
+  Python lists build both Curry lists and nested Curry expressions.  The
+  rule is by the first element alone: a list whose first element is a
+  *symbol* is an application of that symbol, and any other list is a Curry
+  list.  Lists are processed from the inside out.  Consider:
 
       >>> print(curry.expr([Peano.S, Peano.O]))
       S O
@@ -392,7 +447,12 @@ symbol:
   The nested lists, ``[Peano.O]``, begin with a symbol and, therefore, specify
   subexpressions.  These are transformed first by applying ``curry.expr``
   recursively.  By the time it is processed, the outermost list begins with an
-  expression rather than a symbol.
+  expression rather than a symbol.  So a Curry list whose first element is a
+  symbol cannot be spelled as a flat Python list: ``curry.expr([Peano.O])``
+  is the value ``O``, and ``curry.expr([Peano.O, Peano.O])`` is an
+  ``ArityError``.  Spell such a list with one more level, ``[[Peano.O]]``,
+  with built nodes, ``[curry.expr(Peano.O)]``, or with
+  ``curry.cons(Peano.O, curry.nil)``.
 
 Graph-Like Expressions
 ----------------------
@@ -509,10 +569,12 @@ it:
 
 The context is printed in the order of the front end: by the first type
 variable of each constraint, then by the class.  ``curry.typeof`` answers
-for the nodes ``curry.expr`` returned and for the values of
-``curry.eval``.  The goal of ``curry.compile(mode='expr')`` without
-``exprtype`` is a node the front end built, and ``curry.typeof`` reports a
-bare type variable for it.
+for the nodes ``curry.expr`` returned.  It answers for the values of
+``curry.eval`` by their content.  For the goal of
+``curry.compile(mode='expr')`` it reports the type after defaulting,
+``Int`` for ``1 + 2``.  For a goal whose binding is reported (a ``where x
+free`` variable absent from the result type) it reports a bare type
+variable.
 
 The keyword ``exprtype`` states the type of the whole expression in Curry
 syntax, and :class:`curry.typed` states the type of one part.  Both are
@@ -534,7 +596,9 @@ variable.
   rejected.
 * ``int`` converts to ``Int``; under ``Float`` to a ``Float``; under
   another instance of ``Num`` through ``fromInt``.  Under a type variable
-  the variable gets the constraint ``Num`` and defaults to ``Int``.
+  the variable gets the constraint ``Num`` and defaults to ``Int``.  An
+  ``int`` outside the range of ``Int`` is a ``CurryTypeError``
+  (:ref:`PythonAPI/UsingTheAPI:Limits`).
 * ``float`` converts to ``Float``; under a type variable the variable gets
   the constraint ``Fractional``.  A ``float`` under ``Int`` is an error, as
   ``1.5 + (1 :: Int)`` is in Curry.
@@ -558,8 +622,15 @@ variable.
   ``[Float]``, as in Curry.  A list is built in a loop, so the builder puts
   no limit on its length.
 * ``tuple`` converts to a Curry tuple; ``()`` is the unit.  Curry has no
-  1-tuple, so a 1-tuple is an error.
-* An iterator converts to a lazy Curry list.  The element type is fixed
+  1-tuple, so a 1-tuple is an error.  The Prelude declares the tuple types
+  up to 15 components; a tuple of 16 or more types and then fails with a
+  ``SymbolLookupError`` that names the missing constructor.
+* An iterator converts to a lazy Curry list.  The items are read when
+  the list is demanded.  Of two expressions built on one iterator, the one
+  evaluated first takes the items, and the other gives ``[]``.  An
+  exhausted iterator converts to ``[]``.
+  Only an iterator converts: a ``range`` is a ``CurryTypeError``; pass
+  ``iter(range(n))``.  The element type is fixed
   when the expression is built, by the context, by the other arguments or
   by the defaulting table, never by an item.  So a class constraint that
   only the items could resolve, as in ``map show`` over an iterator of
@@ -587,9 +658,9 @@ variable.
   ``EvaluationError`` when the list is demanded.
 
 **Values of earlier evaluations.**  A Curry node that fills a parameter is
-typed by a walk of its content, to the leaves, not by its root alone.  The
-values :func:`curry.eval` yields are copies of the result, so this walk is
-what keeps a list of floats away from integer arithmetic:
+typed by a walk of its content, to the leaves, not by its root alone.  A
+value of :func:`curry.eval` is such a node and carries no type of its own.
+This walk is what keeps a list of floats away from integer arithmetic:
 
     >>> v = next(curry.eval(curry.expr([1.5, 2.5])))
     >>> curry.typeof(v)
@@ -597,6 +668,22 @@ what keeps a list of floats away from integer arithmetic:
     >>> DL = curry.import_('Data.List')
     >>> next(curry.eval(DL.sum, v, converter='topython'))
     4.0
+
+An evaluation rewrites the goal node in place.  Afterwards the node holds
+the result, or it forwards to the result.  ``repr`` shows a forward node as
+``<_Fwd <Int 2>>`` in the example below, or as ``<_FwdSz <O> 24>`` for a
+constructor value.  :func:`curry.topython` returns a forward node
+unconverted, while ``curry.eval`` and ``curry.typeof`` accept it:
+
+    >>> e = curry.expr(Fib.fib, 3)
+    >>> next(curry.eval(e, converter='topython'))
+    2
+    >>> e
+    <_Fwd <Int 2>>
+    >>> curry.topython(e)
+    <_Fwd <Int 2>>
+    >>> curry.typeof(e)
+    'Int'
 
 A partial application is typed by the scheme of its head and the arguments
 it holds, so ``map not`` from an earlier evaluation has the type ``[Bool]
@@ -619,6 +706,10 @@ walk:
     curry.typecheck.errors.ValueTooLargeError: the value at the expression has more than 100000 nodes; pass curry.typed(node, 'T')
     >>> curry.typeof(curry.typed(big, '[Int]'))
     '[Int]'
+
+The annotation is trusted: ``curry.typeof(curry.typed(big, 'Bool'))`` is
+``'Bool'``, and an expression built on a wrong annotation is ill-typed, as
+one of :func:`curry.raw_expr` can be.
 
 A node alone, or at the root of the expression, passes through untouched.
 
@@ -778,9 +869,12 @@ attributes ``where``, ``symbol``, ``expected``, ``actual`` and ``value``.
       Curry free variables must have a Data type
 
 ``ArityError``
-    A constructor applied to more arguments than it takes.  A function
-    applied to more arguments goes through ``Prelude.apply``; fewer
-    arguments give a partial application.
+    A constructor applied to more arguments than it takes.  Also a
+    function whose result type is a data type, applied to more arguments
+    than its type has arrows: ``inc :: Int -> Int`` with two arguments.  A
+    function whose result type is a function type or a type variable takes
+    the extra arguments through ``Prelude.apply``.  Fewer arguments give a
+    partial application.
 
     >>> curry.expr(Prelude.Just, 1, 2)
     Traceback (most recent call last):
@@ -869,7 +963,9 @@ computational steps it must to compute the next value.
 The arguments of ``curry.eval`` are those of ``curry.expr``: a symbol with
 its arguments, a Python value, a node, or a description, with the keyword
 ``exprtype``.  So ``curry.eval(plus, 1, 2)`` builds the expression and
-evaluates it.
+evaluates it.  A ``str`` is a value there, as in ``curry.expr``:
+``curry.eval('1 + 2')`` yields the string ``"1 + 2"``.  A text goal goes
+through ``curry.compile(mode='expr')``.
 
 A function of a module without a type signature keeps its class
 constraints, which the front end turns into leading dictionary parameters.
@@ -887,10 +983,12 @@ the ``repr`` format:
     <Int 13>
 
 An evaluation that fails in Curry raises an
-:class:`EvaluationError <curry.exceptions.EvaluationError>` from ``next``:
-``EvaluationSuspended`` when every alternative suspends on a free
-variable, and the subclasses of ``MonadError`` for the errors of ``IO``
-actions, among them ``NondetMonadError`` for a non-deterministic action.
+:class:`EvaluationError <curry.exceptions.EvaluationError>` from ``next``.
+``EvaluationSuspended`` is raised when an alternative suspends on a free
+variable, after the values of the alternatives that did not suspend.  An
+error of an ``IO`` action, a user error, an i/o error or a
+non-deterministic action, is an ``EvaluationError`` whose message names
+it, as ``error`` is.
 ``EvaluationError`` derives from ``BaseException``, not from
 ``Exception``, as ``CompileError`` does, so ``except Exception`` does not
 catch it; name the class in the ``except`` clause.  An expression with no
@@ -948,6 +1046,12 @@ say:
     8
     13
     21
+
+An error or a suspension in one alternative ends the generator.  The
+values of the alternatives before it are produced.  The error is raised
+from ``next`` in its turn, and no value follows it.  So ``1 ? error "boom"
+? 2`` yields ``1`` and then raises.  A generator that is not exhausted
+keeps its place: ``next`` continues it, also after other evaluations.
 
 The order of the values of a non-deterministic goal depends on the
 schedule of the backend.  On the C++ backend in time mode, the default,
@@ -1030,6 +1134,11 @@ Limits
   the binding optimization and ``=:=`` are the way to bind such a
   variable.
 * An expression built by :func:`curry.raw_expr` is not checked.
+* A tuple has at most 15 components, the largest tuple type the Prelude
+  declares; a longer tuple is a ``SymbolLookupError`` at construction.
+* An iterator is read when the list is demanded, so an exhausted iterator
+  converts to the empty list.  A ``range`` is a ``CurryTypeError``; pass
+  ``iter(range(n))``.
 * ``Int`` is a signed 64-bit integer, from -9223372036854775808 to
   9223372036854775807.  A Python ``int`` outside the range is a
   ``CurryTypeError`` where it enters an expression; so is an ``Int``

@@ -442,6 +442,20 @@ Functional tests match the pattern func_*.py:
     yields an empty string: Sprite prints a raw empty [Char] as [] and
     PAKCS as "".  A regeneration changes the time stamp of a module, so
     the driver remakes its goldens, about a second per goal.
+  - func_docs.py runs the two API pages of the documentation as doctests
+    (docs/source/Quickstart.rst and docs/source/PythonAPI/UsingTheAPI.rst).
+    Each page runs in a child process, from a directory that holds
+    examples/Peano.curry, with curry imported, on the backend of the
+    session, in step mode, with the doctest option ELLIPSIS.  The
+    directives on single examples (SKIP on help, dir and the load of
+    Fib.so) are in the pages.  Every example of a page must pass.  Using
+    the API names an object file and runs on the C++ backend alone.  The
+    Quickstart runs on both backends up to its section "Saving Compiled
+    Curry".  The load of Peano.so in that section, during the background
+    compile, is a known failure (issue #109, unittest.expectedFailure).  It
+    is a functional test because every run compiles Curry with the front
+    end.  It uses no oracle, and no corpus under data/curry, so --changed
+    selects it by its own name only.
 
 
 7. EDITOR INTEGRATION

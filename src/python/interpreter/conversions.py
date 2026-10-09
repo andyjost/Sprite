@@ -151,8 +151,11 @@ def _listiter(arg):
 
 def getconverter(converter):
   '''
-  Get the converter corresponding to the argument.  The converter returned
-  translates free variables into _a, _b, _c, etc.
+  Get the converter corresponding to the argument: ``None`` and a callable
+  are returned as they are, ``'topython'`` names :func:`topython`, and any
+  other name means no conversion.  A free variable in a value passes
+  through the converter as a node; :func:`curry.show_value` prints it as
+  ``_a``, ``_b`` and so on.
   '''
   if converter is None or callable(converter):
     return converter

@@ -29,8 +29,11 @@ class CurryModule(types.ModuleType):
   A Python module for interfacing with Curry modules.
 
   This type of object is produced when Curry code is imported into Python.
-  The public functions and constructors whose names are valid Python
-  identifiers are attached as module attributes.
+  The public functions and constructors are attached as module attributes
+  under their Curry names, operators included.  A name that is not a Python
+  identifier, or is a Python keyword, is reached with ``getattr``.  A
+  private function is reached through ``curry.symbol``, and a type through
+  ``curry.type``.
 
   Special attributes beginning with '.' (so as not to conflict with Curry
   names) contain information used by the Curry system.  These should generally

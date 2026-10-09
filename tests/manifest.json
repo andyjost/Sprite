@@ -18,6 +18,24 @@
         "tests": 6
       }
     },
+    "func_docs.py": {
+      "cxx": {
+        "duration_s": 5.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 215,
+        "tests": 3
+      },
+      "py": {
+        "duration_s": 0.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 54,
+        "tests": 3
+      }
+    },
     "func_eqconstr.py": {
       "cxx": {
         "duration_s": 1.0,

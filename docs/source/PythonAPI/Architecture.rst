@@ -27,9 +27,10 @@ objects.  So, for example, :func:`curry.import_` is a method that imports a
 Curry module into the global interpreter and :func:`curry.eval` evaluates an
 expression according to its settings.
 
-A new interpreter, ``Interpreter(flags={...})``, starts from the default
-flags, not from the environment variable ``SPRITE_INTERPRETER_FLAGS``; the
-global interpreter reads the variable.
+A new interpreter, ``Interpreter(flags={...})``, starts from the flags of
+the environment, as the global interpreter does: the defaults, then
+``SPRITE_ROTATION``, then ``SPRITE_INTERPRETER_FLAGS``, then its argument
+(:mod:`curry.interpreter.flags`).
 
 
 Backend Object
