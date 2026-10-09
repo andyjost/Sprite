@@ -2,7 +2,7 @@
 
 __all__ = [
     'RuntimeFlowException'
-  , 'E_RESIDUAL', 'E_STEPLIMIT', 'E_TERMINATE' , 'E_UNWIND'
+  , 'E_RESIDUAL', 'E_SETFAIL', 'E_STEPLIMIT', 'E_TERMINATE' , 'E_UNWIND'
   ]
 
 class RuntimeFlowException(BaseException):
@@ -43,6 +43,17 @@ class E_STEPLIMIT(RuntimeFlowException):
   '''
   def __init__(self, qid=None):
     self.qid = qid
+
+class E_SETFAIL(RuntimeFlowException):
+  '''
+  Raised when a boxed failure is demanded inside a set function under the
+  flag setfunction_failures (see boxed_failure in rts_setfunctions.py of the
+  Python backend).  ``sids`` are the ids of the enclosing sets whose guards
+  the failure crossed: the set function becomes a failure under their
+  guards (see allValues in currylib/setfunctions.py).
+  '''
+  def __init__(self, sids):
+    self.sids = list(sids)
 
 class E_TERMINATE(RuntimeFlowException):
   '''Raised to terminate evaluation.'''

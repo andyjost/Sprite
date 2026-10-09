@@ -146,8 +146,8 @@ Its limits
   (issue #60); the C++ backend prints the value.
 * The backend asserts on a set guard of an enclosing set at the root of a
   configuration, one known failure of the set-function corpus
-  (``unit_cxx_scheduler.py``, ``unit_setfunctions_bugs.py``); the C++
-  backend passes it.
+  (``unit_cxx_scheduler.py``, ``unit_setfunctions_bugs.py``,
+  ``unit_setfunctions_semantics.py``); the C++ backend passes it.
 * A string built by :func:`curry.expr` is one ``_biString`` node, which
   prints as ``_biString 'hello'`` until its first step unfolds it; on the
   C++ backend it is the list of its characters.  The ``repr`` of a negative

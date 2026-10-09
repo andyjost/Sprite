@@ -38,6 +38,21 @@ namespace cyrt { inline namespace
       QueueScope scope(rts, seteval->queue);
       value = rts->procD();
     }
+    if(rts->pending_control == E_SETFAIL)
+    {
+      // A boxed failure was demanded inside the capsule, under the flag
+      // setfunction_failures (RuntimeState::fail_capsule): the set function
+      // has no value.  The redex becomes a failure under the guards of the
+      // enclosing sets the failure crossed, so an enclosing set function
+      // whose argument it came from fails in turn when it demands it.
+      rts->pending_control = NOTAG;
+      Node * failure = Fail;
+      for(Set * set: rts->capsule_failure_guards)
+        failure = guard(set, failure);
+      rts->capsule_failure_guards.clear();
+      _0->forward_to(failure);
+      return T_FWD;
+    }
     if(rts->pending_control != NOTAG)
     {
       // The nested scheduler yields to an enclosing queue: the stack limit
@@ -127,7 +142,11 @@ namespace cyrt { inline namespace
     Node * arg = _0->successor(1);
     if(!capture)
       arg = Node::create(&SetGuard_Info, nullptr, arg);
-    _0->forward_to(Node::extend_partial(partial, arg));
+    Node * extended = Node::extend_partial(partial, arg);
+    // The arguments the partial application holds keep the guards crossed on
+    // the way to it (see set_step and apply_step).
+    guard_successors(extended, 2, 2 + partial->nargs(), _1.guards);
+    _0->forward_to(extended);
     return T_FWD;
   }
 
@@ -256,16 +275,18 @@ namespace cyrt { inline namespace
     // E_RESTART tells the enclosing steps that the root was replaced.
     //
     // The copy is taken for the state the goal captures outside its
-    // guards: a decided choice or a narrowed variable in the function
-    // position (set1 (constT x) 0).  The escape would handle such a choice
-    // too (choice_escapes: a choice an enclosing configuration decided
-    // escapes), at the cost of a split and a restart per choice; the
-    // private capsule forks on it in place.  A choice or a variable under
-    // a guard, an argument, needs no copy: its choice escapes the capsule
-    // (rule SF.1, allValues_step) and the choice node is pruned by each
-    // configuration, and a variable the capsule returns is resolved by each
-    // configuration that reads the value.  The walk takes the copy in both
-    // cases, which only loses the sharing of the capsule.
+    // guards: a decided choice or a narrowed variable in an argument
+    // applied with captureS (set f $< x), or in an encapsulated expression
+    // (set0).  The escape would handle such a choice too (choice_escapes:
+    // a choice an enclosing configuration decided escapes), at the cost of
+    // a split and a restart per choice; the private capsule forks on it in
+    // place.  A choice or a variable under a guard, an argument applied
+    // with applyS or held by the function value (set_step boxes those),
+    // needs no copy: its choice escapes the capsule (rule SF.1,
+    // allValues_step) and the choice node is pruned by each configuration,
+    // and a variable the capsule returns is resolved by each configuration
+    // that reads the value.  The walk takes the copy in both cases, which
+    // only loses the sharing of the capsule.
     if(holds_private_state(rts, C, (Node *) partial))
     {
       *C->root = C->scan.copy_spine(C->root, replacement);
@@ -301,9 +322,28 @@ namespace cyrt { inline namespace
     PartApplicNode * partapplic = NodeU{_1.target}.partapplic;
     // The same contents under the table of the set functions: the formats
     // of the two families agree for one number of arguments.
+    index_type const nargs = partapplic->nargs();
     Node * replacement = Node::create(
-        partials_info(partapplic->nargs()), _1.target->successors()
+        partials_info(nargs), _1.target->successors()
       );
+    // The arguments the function value holds are boxed as applyS boxes the
+    // arguments applied: a partial application holds the arguments given so
+    // far, and a lambda that closes over a variable of the enclosing context
+    // holds it as an argument after lambda lifting.  Each goes under a guard
+    // without a set, which evalS_step gives the new set, so its
+    // non-determinism and its failure escape the capsule as an argument's
+    // do (the entry rule of the dissertation boxes every argument of the
+    // set function; issue #117).  captureS stays the explicit capture of an
+    // argument.  A guard crossed on the way to the function value stays on
+    // each argument below the new guard (guard_successors).
+    guard_successors(replacement, 2, 2 + nargs, _1.guards);
+    for(index_type i=0; i<nargs; ++i)
+    {
+      Node * boxed = Node::create(
+          &SetGuard_Info, nullptr, replacement->successors()[2 + i].node
+        );
+      replacement->successors()[2 + i] = Arg(boxed);
+    }
     _0->forward_to(replacement);
     return T_FWD;
   }

@@ -593,14 +593,16 @@ report(value=next(curry.eval(M.fair)), status=cyrt.ticker_status())
     goal = curry.expr(M.plusOne, 1)
     with self.assertRaisesRegex(ValueError, 'quantum above zero'):
       cyrt.RuntimeStateBase(
-          istate, goal, False, cyrt.SETF_LAZY, cyrt.NOLIMIT, 0, 0
+          istate, goal, False, cyrt.SETF_LAZY, cyrt.SETF_FAILURES_ENCAPSULATE
+        , cyrt.NOLIMIT, 0, 0
         )
     with self.assertRaisesRegex(ValueError, 'quantum above zero'):
       cyrt.ticker_enter(0)
     # The other combinations construct: step mode needs no quantum.
     for steps, quantum_ns in [(65536, 0), (0, 10**7), (65536, 10**7)]:
       rts = cyrt.RuntimeStateBase(
-          istate, goal, False, cyrt.SETF_LAZY, cyrt.NOLIMIT, steps, quantum_ns
+          istate, goal, False, cyrt.SETF_LAZY, cyrt.SETF_FAILURES_ENCAPSULATE
+        , cyrt.NOLIMIT, steps, quantum_ns
         )
       del rts
 

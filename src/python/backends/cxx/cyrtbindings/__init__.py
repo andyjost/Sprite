@@ -25,6 +25,11 @@ _SETF_STRATEGY = {
   , 'eager': SETF_EAGER
   }
 
+_SETF_FAILURES = {
+    'encapsulate': SETF_FAILURES_ENCAPSULATE
+  , 'escape': SETF_FAILURES_ESCAPE
+  }
+
 class StepCounter(object):
   '''
   The step counter of the generic evaluator over a C++ runtime state.
@@ -79,6 +84,8 @@ class RuntimeState(RuntimeStateBase):
     self.tracing = interp.flags['trace']
     self.setfunction_strategy = \
         _SETF_STRATEGY[interp.flags['setfunction_strategy']]
+    self.setfunction_failures = \
+        _SETF_FAILURES[interp.flags['setfunction_failures']]
     limit = interp.flags['stack_limit']
     self.stack_limit = NOLIMIT if limit is None else int(limit)
     # The rotation cadence (see cyrt/ticker.hpp): zero steps select time
@@ -88,7 +95,8 @@ class RuntimeState(RuntimeStateBase):
     self.rotation_quantum_ns = value if mode == 'time' else 0
     RuntimeStateBase.__init__(
         self, istate, goal, self.tracing, self.setfunction_strategy
-      , self.stack_limit, self.rotation_steps, self.rotation_quantum_ns
+      , self.setfunction_failures, self.stack_limit, self.rotation_steps
+      , self.rotation_quantum_ns
       )
     # The count of the stepper starts here (StepCounter.reset_global).
     self._step_base = 0

@@ -3,6 +3,7 @@
 #include "cyrt/builtins.hpp"
 #include "cyrt/dynload.hpp"
 #include "cyrt/graph/node.hpp"
+#include "cyrt/inspect.hpp"
 #include "cyrt/module.hpp"
 #include "cyrt/utf8.hpp"
 #include <deque>
@@ -394,6 +395,41 @@ namespace cyrt
       return this->args()[0];
     }
     return Node::from_partial(this, arg);
+  }
+
+  // The box rule of the dissertation (chapter 4) for a partial application
+  // reached through set guards: a reference to a boxed expression is boxed.
+  // The step that applies a partial application (apply) or boxes one (set,
+  // applyS) copies its arguments out of it, so each argument goes under the
+  // guards crossed on the way to the application, nested as
+  // Variable::guarded_rvalue nests them.  Nothing happens for a variable
+  // that crossed no guard.  A guard without a set, the box of an argument
+  // of a PartialS (set_step, applyS_step), stays outermost: evalS_step
+  // gives the new set to the direct successors of its goal alone.  The
+  // crossed guards go on the value inside that box.  The successor array
+  // is addressed through the node after each guard is made.
+  void guard_successors(
+      Node * node, index_type begin, index_type end, GuardList const & guards
+    )
+  {
+    if(guards.empty())
+      return;
+    gc_count_write(node);
+    for(index_type i=begin; i<end; ++i)
+    {
+      if(node->info->format[i] != 'p')
+        continue;
+      Node * value = node->successors()[i].node;
+      bool const boxed = inspect::info_of(value) == &SetGuard_Info
+          && !inspect::get_set(value);
+      if(boxed)
+        value = inspect::get_setguard_value(value);
+      for(Set * set: guards)
+        value = guard(set, value);
+      if(boxed)
+        value = guard(nullptr, value);
+      node->successors()[i] = Arg(value);
+    }
   }
 
   PartialInfoFamily g_partapplic_infos{{&PartApplic_Info}, nullptr};

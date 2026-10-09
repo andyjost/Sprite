@@ -97,6 +97,7 @@ namespace cyrt
     RuntimeState(
         InterpreterState & istate, Node * goal, bool trace=false
       , SetFStrategy setfunction_strategy = SETF_LAZY
+      , SetFFailures setfunction_failures = SETF_FAILURES_ENCAPSULATE
       , size_t stack_limit = DEFAULT_STACK_LIMIT
       , size_t rotation_steps = TIME_MODE
       , uint64_t rotation_quantum_ns = DEFAULT_QUANTUM_NS
@@ -147,6 +148,7 @@ namespace cyrt
     std::unique_ptr<Queue> root_queue;
     qstack_type            qstack;
     SetFStrategy           setfunction_strategy;
+    SetFFailures           setfunction_failures;
     // C-stack guard.  An evaluation may use ``stack_room`` bytes of C stack
     // below ``stack_base``, the frame of the outermost procD.  ``stack_room``
     // is ``stack_limit`` (from the flag) clamped to the stack of the thread
@@ -164,6 +166,10 @@ namespace cyrt
     // meant for.
     tag_type               pending_control = NOTAG;
     Queue *                rotate_target = nullptr;
+    // The sets of the enclosing guards a boxed failure crossed, from
+    // fail_capsule to allValues_step, which puts their guards on the
+    // failure the set function becomes.  See failure_escapes.
+    std::vector<Set *>     capsule_failure_guards;
 		#ifdef SPRITE_TRACE_ENABLED
     std::unique_ptr<Trace> trace;
     #endif
@@ -266,6 +272,8 @@ namespace cyrt
     void pop_queue(TraceOpt=TRACE);
     bool choice_escapes(Configuration *, xid_type);
     bool owns_decision(Configuration *, xid_type);
+    bool failure_escapes(Configuration *, Variable const * inductive);
+    tag_type fail_capsule(Configuration *, Variable const * inductive);
     bool in_recursive_call() const;
   private:
     #ifdef SPRITE_TRACE_ENABLED

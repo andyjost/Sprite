@@ -32,6 +32,10 @@ class WalkState(object):
             for p in [realpath[:i] for i in range(len(realpath)+1)]
       ]
     self.data = []
+    # The set guards crossed on the way to the root of the walk; the walk
+    # records the ids of those it crosses itself in ``data``.  See
+    # boxed_failure in eval/rts_setfunctions.py.
+    self.base_guards = set()
 
   def advance(self):
     while self.stack and not self.stack[-1]:

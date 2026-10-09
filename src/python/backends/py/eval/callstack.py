@@ -41,6 +41,9 @@ def with_N_stackframe(N_body):
   def N(rts, var):
     C = rts.C
     state = graph.walk(var.root, realpath=var.realpath)
+    # The guards crossed on the way to the start of the walk, for
+    # boxed_failure (rts_setfunctions.py).
+    state.base_guards = set(var.guards)
     C.callstack.push(state)
     try:
       return N_body(rts, var, state)
