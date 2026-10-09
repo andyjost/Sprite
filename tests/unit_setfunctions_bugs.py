@@ -1,6 +1,9 @@
 '''
-Tests for three defects of the set functions and the scheduler: issues #61,
-#32, and #36.  The programs are in data/curry/SetFunctionsBugs.curry.
+Tests for defects of the set functions and the scheduler: issues #61, #32,
+and #36, whose programs are in data/curry/SetFunctionsBugs.curry, and the
+two findings of the differential harness on the Python backend, issues #120
+and #121, whose programs are data/curry/PyGeneratorAssert.curry and
+data/curry/PyFingerprintNone.curry.
 
 Issue #61: a set function over a free variable that a choice bound saw the
 binding of the first alternative in every branch.  The application sits
@@ -44,6 +47,24 @@ well, and its recursion never ends, because nothing forces anyOf [] once
 the pool is empty.  PAKCS does not end on it either.  With a guard the rules
 are exclusive, and both backends give the six values and end.
 
+Issue #120: the values of a set function hold a free variable of the goal,
+and sortValues compares them.  The copier that makes a value copied the
+node of the variable, so the value held a second node with the id of the
+variable.  The comparison narrowed the copy: the generator went onto the
+copy, and get_generator, which reads the node of the id from the table,
+asserted that the node had one.  The copier shares a free variable now, as
+the C++ copier does: one node stands for one id.
+
+Issue #121: a strict constraint between a variable of the capsule and a
+variable of the goal reached through the box of a captured argument.  The
+step of =:= built the pair of the constraint from the rvalues of the two
+sides, with the guard crossed on the way to the second, and constrain_equal
+read no id from the guard.  The pair holds the two variables themselves,
+as the pair of the C++ step does.  The pair of a value binding of a
+variable of a builtin type (make_value_bindings) had the same defect: the
+binding was dropped, and the Python backend suspended.  It holds the node
+of the variable now.
+
 The children run under prlimit and timeout, because a regression can spin
 inside C++ (see cytest.run_in_subprocess).
 '''
@@ -59,7 +80,7 @@ TIMEOUT = 120
 CHILD = '''
 import curry, itertools
 curry.reload(%(flags)r)
-M = curry.import_('SetFunctionsBugs')
+M = curry.import_(%(module)r)
 for name, limit in %(goals)r:
   try:
     values = curry.eval(getattr(M, name))
@@ -70,15 +91,15 @@ for name, limit in %(goals)r:
     print(name, 'error', type(exc).__name__, str(exc))
 '''
 
-def run_child(testcase, goals, **flags):
+def run_child(testcase, goals, module='SetFunctionsBugs', **flags):
   '''
-  Evaluates ``goals``, pairs of a goal name and a limit on the number of
-  values (None for all of them), in a child on the backend of this test
-  process, and returns a dict from the name to the sorted list of values (as
-  text) or to the error line.
+  Evaluates ``goals`` of ``module``, pairs of a goal name and a limit on the
+  number of values (None for all of them), in a child on the backend of this
+  test process, and returns a dict from the name to the sorted list of
+  values (as text) or to the error line.
   '''
   flags.setdefault('backend', curry.flags['backend'])
-  code = CHILD % {'flags': flags, 'goals': goals}
+  code = CHILD % {'flags': flags, 'goals': goals, 'module': module}
   proc = cytest.run_in_subprocess(code, TIMEOUT, address_space=ADDRESS_SPACE)
   testcase.assertEqual(
       proc.returncode, 0
@@ -340,6 +361,62 @@ class TestShrinkingPool(cytest.TestCase):
     '''
     results = run_child(self, [('pickOverlap', 6)])
     self.assertEqual(results, {'pickOverlap': self.SIX})
+
+
+class TestHarnessFindings(cytest.TestCase):
+  '''
+  Issues #120 and #121: two programs the differential harness generated,
+  which ended with an internal error on the Python backend.  Each is pinned
+  on both backends to the values of the C++ backend.
+  '''
+  @classmethod
+  def setUpClass(cls):
+    curry.import_('PyGeneratorAssert')
+    curry.import_('PyFingerprintNone')
+
+  def test_free_variable_in_values(self):
+    '''
+    Issue #120.  The first component has three values (S (S Z) twice and
+    Z), and the third component narrows the free variable of the argument,
+    x15, which the set function returns among its values, when sortValues
+    compares them: two lists.  The six values are their product.  The issue
+    recorded four values of the C++ backend at 1b7ae501, before the shared
+    capsule was cloned at its first divergence (#86): the capsule of the
+    third component is shared by the three alternatives of the first, and
+    two of them lost the side x15 = True.
+    '''
+    results = run_child(self, goals('goal'), module='PyGeneratorAssert')
+    self.assertEqual(results, {'goal': [
+        '(S (S Z), [], [False, False, False, False, True])'
+      , '(S (S Z), [], [False, False, False, False, True])'
+      , '(S (S Z), [], [False, False, False, True, True])'
+      , '(S (S Z), [], [False, False, False, True, True])'
+      , '(Z, [], [False, False, False, False, True])'
+      , '(Z, [], [False, False, False, True, True])'
+      ]})
+
+  def test_constraint_through_a_guard(self):
+    '''
+    Issue #121.  The set function has one value, False, under each of the
+    two alternatives of the choice Z ? Z in its captured argument, and the
+    other alternative of f3 is [].  The two variables of the goal stay
+    free.
+    '''
+    results = run_child(self, goals('goal'), module='PyFingerprintNone')
+    self.assertEqual(
+        results, {'goal': ['(_a, _b, [False])', '(_a, _b, [False])', '(_a, _b, [])']}
+      )
+
+  def test_value_binding_through_a_guard(self):
+    '''
+    The same cause through a value binding: a variable of the goal of a
+    builtin type is narrowed inside the capsule through the box of the
+    captured argument.  The pair of the value binding held the guard, and
+    the binding was dropped: the Python backend suspended.  The binding is
+    private to the capsule, so the variable stays free outside.
+    '''
+    results = run_child(self, goals('valueBinding'), module='PyFingerprintNone')
+    self.assertEqual(results, {'valueBinding': ['(_a, [True])']})
 
 
 if __name__ == '__main__':

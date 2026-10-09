@@ -158,11 +158,22 @@ def has_binding(rts, arg=None, config=None):
   return _find_binding(rts, arg, config) is not None
 
 def make_value_bindings(rts, freevar, values, typedef):
+  '''
+  Builds the value bindings of a free variable of a builtin type: one
+  ValueBinding per value, under a tree of choices.  ``freevar`` is the
+  Variable at the variable, or the node itself.  The pair holds the node,
+  without the set guards crossed on the way to it: constrain_equal reads
+  the id of the pair, and a guard has none, so a binding made through the
+  box of a captured argument was dropped (the cause of issue #121).  The
+  C++ step builds the same pair (make_value_bindings in
+  state/rts_bindings.cpp).
+  '''
+  target = getattr(freevar, 'target', freevar)
   n = len(values)
   assert n
   if n == 1:
     value = graph.Node(typedef.constructors[0], values[0])
-    pair = graph.Node(rts.prelude.Pair, freevar, value)
+    pair = graph.Node(rts.prelude.Pair, target, value)
     return graph.Node(rts.ValueBinding, value, pair)
   else:
     cid = next(rts.idfactory)

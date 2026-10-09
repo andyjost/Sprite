@@ -21,7 +21,7 @@ class InterpreterState(object):
     # The free variables made outside an evaluation of this interpreter: the
     # markers of curry.free and the raw Free nodes of curry.raw_expr,
     # counted by the expression builder; the variables of a single rewrite
-    # step (RuntimeState.single_step); and the variables copied into a value
+    # step (RuntimeState.single_step); and the variables a value shares
     # (rts_control.make_value).  While it is zero, RuntimeState.set_goal
     # skips the walk that registers the free variables a goal already holds,
     # and the generator step skips the walk of its item.  The C++ runtime

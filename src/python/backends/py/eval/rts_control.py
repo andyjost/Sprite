@@ -228,9 +228,10 @@ def make_value(rts, arg=None, config=None):
   skipgrds = set([] if rts.sid is None else [rts.sid])
   copier = GraphCopier(skipper=Skipper(skipfwd=True, skipgrds=skipgrds))
   value = copier(arg)
-  # The copies of the free variables of the value live outside this
-  # evaluation.  Count them, so that a later goal that holds the value is
-  # walked.  See InterpreterState.external_freevars.
+  # The value shares the free variables of the graph (the copier shares
+  # them), and they live on outside this evaluation.  Count them, so that a
+  # later goal that holds the value is walked.  See
+  # InterpreterState.external_freevars.
   rts.istate.external_freevars += copier.freevars
   return value
 
