@@ -9088,3 +9088,107 @@
   README and tests/README were split, one fact each.  After the review:
   func_docs.py and unit_reference_backend.py 4 of 4 ok on both backends;
   make -C docs html 0 warnings.
+
+2026-10-08: the READMEs a user reads name no Python backend (queue item 5 of the absence protocol; worktree wt/docs)
+- Scope.  Stage 5 of #82 (the entry "the reference flag of the Python
+  backend" above) took the Python backend out of the user guide and pinned
+  that with unit_reference_backend.py over docs/source.  The README of the
+  repository and the READMEs of the examples kept sentences on both
+  backends.  A scan with the patterns of the test over README,
+  examples/README and examples/*/README found 21 lines in 17 files.  The
+  rules: a sentence that only compared the two backends goes; a timing
+  sentence keeps the number of the C++ backend; a sentence on a fix keeps
+  its meaning; the sentence of example 04 on the saved program follows
+  PythonAPI/UsingTheAPI.rst ("The saved program of the reference backend,
+  a script in Python, retires at the removal gate of issue #82").  Each
+  paragraph touched is wrapped again at the width of its file.  Nothing an
+  example prints or does changed; every expected.out is as it was.
+- The hits of the patterns, before and after, by file.  README (line 46):
+  "runs configure and make stage in a clean environment, and runs a smoke
+  test on both backends" is "..., and runs a smoke test" (the usage text
+  of scripts/setup-dev-machine.sh says the same).  00 (58): the paragraph
+  "The output is identical on both backends." is removed; (64) "A warm run
+  of ./run took about 1 s on the Python backend and 0.4 s on the C++
+  backend." is "A warm run of ./run took 0.4 s on the C++ backend."  01
+  (60), 02 (69), 15 (232), 16 (97), 24 (393): the paragraph "The output is
+  identical on both backends." is removed.  04 (36): "The Python form of
+  the saved program retires at the removal gate of issue #82 (the
+  developer notes), and this example with it." is "The saved program of
+  the reference backend, a script in Python, retires at the removal gate
+  of issue #82 (the developer notes).  This example retires with it."  10
+  (75): the sentence "The output is identical on both backends." is
+  removed before "A size with no solution ...".  11 (98): "The Python
+  backend did not finish the two grids in 120 seconds, so the test suite
+  runs this example on the C++ backend only." is removed; "The first run
+  adds about a second to compile the module." stays.  13 (144), 14 (92),
+  17 (110), 20 (301), 23 (152): the sentence "The output is identical on
+  both backends." at the end of a paragraph is removed.  13 (150): "A warm
+  run of ./run took 0.2 s on the C++ backend and 1.0 s on the Python
+  backend." is "A warm run of ./run took 0.2 s on the C++ backend."  18
+  (102): "The output is the same on both backends." is removed.  19 (140):
+  "The output is identical on both backends." is removed.  20 (96): "The
+  bindings are sorted, so that the output is the same on both backends."
+  is "The bindings are sorted, because the scheduler does not promise an
+  order of the values."  24 (410): "The pattern rule binds the free inputs
+  of the relation on both backends (#98)." is "The pattern rule binds the
+  free inputs of the relation (#98)."
+- Six sentences that name the backends in the plural, outside the
+  patterns, found by a grep for "backend" over the same files and changed
+  by the same rules.  02 (77): "so ./run took 0.8 s on each backend" is
+  "so ./run took 0.8 s".  10 (41) and 23 (46): "The scheduler does not
+  promise an order of the values across the backends, so ..." is "The
+  scheduler does not promise an order of the values, so ...".  15 (65):
+  "The order of the values is not promised, and it differs between the
+  backends." is "The order of the values is not promised."  16 (74) and
+  19 (142): "the first one found may differ between the backends" is "the
+  first one found may differ from one run to the next" (both drivers take
+  the first value with next(); UsingTheAPI.rst, "Multi-Valued
+  Computations": on the C++ backend in time mode, the default, the order
+  may differ from one run to the next).
+- Left as they are.  The sentences that name the C++ backend alone (the
+  timings of 11, 12, 13 and 22; "For example, on the C++ backend:" before a
+  SPRITE_INTERPRETER_FLAGS=backend:cxx command in 10, 14, 17, 19 and 22):
+  the patterns allow them.  The run scripts and comments that name
+  backend:py (examples 03 and 04, examples/03-inspect/go.py,
+  examples/cxx/CxxType.curry), as stage 5 left them.
+- tests/unit_reference_backend.py: USER_READMES names the files (README,
+  README.md, examples/README, examples/*/README); TestUserGuide.readmes
+  lists them and test_readmes_name_no_python_backend scans them with the
+  same PATTERNS and the same report format, and asserts more than 20 files;
+  the docstring of the module names the READMEs.  The existing tests are as
+  they were.  Before the edits the new test listed the 21 lines above.  The
+  test does not guard the words "each backend", "between the backends" or a
+  list marker such as "(py, cxx)": a pattern for them would change the
+  existing test over docs/source.
+- Review of the same day, applied.  24 (406): "A set function applied to
+  such a name exhausts memory on the C++ backend (#97)" was the present
+  tense of a fixed bug (#97 is closed; the entry of 2026-10-07 above says
+  the module answers on this branch); it is "A set function applied to such
+  a name exhausted memory on the C++ backend before the fix of #97."
+  examples/README: the 20 list markers (py, cxx), (py) and (cxx) and the
+  words "the backends it runs on" (line 38) are removed, as stage 5 removed
+  the "Backends:" lines of docs/source/Examples.rst (the page names a
+  backend only for 03 and 04 now; the first report of this entry said the
+  lines were moved to the developer notes, which was wrong).  The
+  restrictions of EXAMPLES in tests/unit_examples.py are one sentence of the
+  paragraph on the test: 03, 11, 12 and 22 run on the C++ backend only, 04
+  on the reference backend only.  The words "once per backend" of the
+  regeneration instruction moved to tests/README (the bullet on
+  unit_examples.py), which names the backends.  Three paragraphs that the
+  first pass wrapped at 77 columns are wrapped at the width of their file:
+  15 (65) at 76, 18 (101) at 75, 04 (37) at 75.  04 (26), a line of 137
+  columns from stage 5 (three sentences on one line), is wrapped at 75 with
+  its paragraph; no word changed.  The comment of USER_READMES says that the
+  developer files are allowed to name the backend and are not scanned (it
+  said they name it; README.contrib, src/README, src/python/README.md and
+  tests/data/README do not).
+- Verification, in the clean environment (env -i with PATH, HOME, LC_ALL,
+  TMPDIR), after the review.  tests/run_tests -j 2 --mem 4 --backend both
+  unit_reference_backend.py unit_examples.py unit_api.py: 6 of 6 ok, 0
+  failed (unit_reference_backend.py 8 tests on cxx and on py; unit_api.py 12
+  tests on each; unit_examples.py 22 tests on py in 87.6 s and on cxx in
+  20.0 s), wall 108 s.  make -C docs html: build succeeded, 0 warnings.  No
+  expected.out changed; git status names the 17 READMEs, examples/README,
+  tests/README, the test and this file; no line of the diff holds a
+  machine-specific path or name; every changed README line is within the
+  width of its file.

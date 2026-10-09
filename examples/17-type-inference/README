@@ -107,7 +107,7 @@ The file expected.out holds the exact output of ./run.  The key lines are:
 The first line shows an unbound type variable.  The second shows a variable
 that unification links across three positions.  The third shows how the
 constants fix every variable.  The last term applies a number as a
-function, so it has no type.  The output is identical on both backends.
+function, so it has no type.
 
 
 5. Limits

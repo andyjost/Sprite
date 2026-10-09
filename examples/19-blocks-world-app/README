@@ -137,9 +137,9 @@ The second problem reverses the stack onto the third stack.  It takes
       2. B to stack 3  C//BA
       3. C to stack 3  //CBA
 
-The output is identical on both backends.  Each of the two problems has
-exactly one shortest plan.  For a problem with several shortest plans, the
-first one found may differ between the backends.
+Each of the two problems has exactly one shortest plan.  For a problem with
+several shortest plans, the first one found may differ from one run to the
+next.
 
 
 5. Limits

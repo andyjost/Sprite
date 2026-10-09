@@ -62,8 +62,8 @@ choice at the root of a configuration replaces it by two configurations at
 the back of the queue, and the front of the queue runs on.  The branches of
 solve advance in turns, and the first value of solve is the branch that
 finishes first, not the first branch in the order of the candidates.  The
-order of the values is not promised, and it differs between the backends.
-The example pins the plan with a second function:
+order of the values is not promised.  The example pins the plan with a
+second function:
 
     preferredFrom idx yanked lock ((p, r) : pending) plan =
       case lookup p plan of
@@ -228,8 +228,6 @@ The seventh run asks for a package that the index does not know:
     roots: tls 1
     no such package: tls
     exit status 2
-
-The output is identical on both backends.
 
 
 5. Limits

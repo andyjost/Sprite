@@ -141,15 +141,14 @@ The first line is the generation: the four words of a star-free pattern.
 grep lists every substring that is a word of the pattern, not only the
 longest one at each position.  So a+b? has nine hits in zzaaabzz, and
 (cat|dog)s? finds both cat and cats.  The subjects of grep have twenty
-characters; section 5 says why.  The output is identical on both backends.
+characters; section 5 says why.
 
 
 5. Limits
 ---------
 
-A warm run of ./run took 0.2 s on the C++ backend and 1.0 s on the Python
-backend.  The first run also compiles the module, which adds about half a
-second.
+A warm run of ./run took 0.2 s on the C++ backend.  The first run also
+compiles the module, which adds about half a second.
 
 Matching backtracks.  Each unfolding of a star is a choice, and the search
 tries every way to spend the subject on the pattern.  So the time of match

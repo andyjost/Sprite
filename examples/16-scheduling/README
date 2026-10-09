@@ -71,7 +71,7 @@ Run "make stage" from the root of the repository first.  Then run
 
 To try other tasks, edit TASKS and PRECEDENCES at the top of go.py.  If
 several schedules of the same length exist, the first one found may differ
-between the backends.
+from one run to the next.
 
 
 4. Expected output
@@ -93,8 +93,6 @@ row per task in order of start:
     cool   .....##..  rack
     frost  .......#.  bowl
     pack   ........#  table
-
-The output is identical on both backends.
 
 
 5. Limits

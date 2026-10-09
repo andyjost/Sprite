@@ -57,8 +57,6 @@ The file expected.out holds the exact output of ./run:
     % python go.py
     [4, 3, 2, 1]
 
-The output is identical on both backends.
-
 
 5. Limits
 ---------

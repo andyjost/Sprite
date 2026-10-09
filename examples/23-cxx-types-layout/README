@@ -43,8 +43,8 @@ and takes the first order of that run in the order of the member names:
     result = (length bySize, length best, layoutSized (minimum best))
 
 The sort compares sizes only.  The scheduler does not promise an order of the
-values across the backends, so minimum picks the order to print.  The names
-are unique, and minimum compares them first.
+values, so minimum picks the order to print.  The names are unique, and
+minimum compares them first.
 
 Constraints as rules.  Scenario (c) keeps the member tag first.  The search
 is the same with one more rule, a guard on the generated order:
@@ -148,8 +148,7 @@ Scenario (c) searches the orders with tag first:
       smallest sizeof 24, reached by 2 of 120 orders
       the first of those orders: tag, urgent, port, length, payload, stamp
 
-The table of the chosen order follows each summary.  The output is identical
-on both backends.
+The table of the chosen order follows each summary.
 
 
 5. Limits

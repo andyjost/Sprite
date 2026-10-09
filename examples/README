@@ -29,99 +29,100 @@ states what the example shows about functional logic programming, what it
 shows about calling Curry from Python, how to run it, the output to expect,
 and the sizes that keep the run short.
 
-The test tests/unit_examples.py runs every run script in a child process on
-the backend of the test session and compares its output with expected.out.
-To regenerate the expected output after a deliberate change, run
-SPRITE_UPDATE_EXPECTED=1 ./run_tests unit_examples.py from tests/ once per
-backend, and review the diff.
+The test tests/unit_examples.py runs every run script in a child process and
+compares its output with expected.out.  It runs 03-inspect, 11-sudoku,
+12-cryptarithm and 22-cxx-types-trait-check on the C++ backend only, and
+04-static-compile on the reference backend only.  To regenerate the expected
+output after a deliberate change, run SPRITE_UPDATE_EXPECTED=1 ./run_tests
+unit_examples.py from tests/, and review the diff.
 
-The list below gives each directory, the backends it runs on, the title of
-its README, and what it teaches.  The numbers group the examples: 00 to 04
-tour the API, 10 to 19 and 24 are programs with a Python driver, and 20 to
-23 are a series over one shared library.  The gaps are deliberate.
+The list below gives each directory, the title of its README, and what it
+teaches.  The numbers group the examples: 00 to 04 tour the API, 10 to 19
+and 24 are programs with a Python driver, and 20 to 23 are a series over one
+shared library.  The gaps are deliberate.
 
-00-run-curry-programs (py, cxx)
+00-run-curry-programs
     Run Curry programs with sprite-exec.  Call-time choice; a program by
     file, by module, and by goal.
 
-01-run-with-python (py, cxx)
+01-run-with-python
     Run a Curry program from Python.  Import a module and iterate over the
     values of a goal.
 
-02-dynamic-code-generation (py, cxx)
+02-dynamic-code-generation
     Compile Curry code at run time.  curry.compile for a module and for an
     expression; curry.expr.
 
-03-inspect (cxx)
+03-inspect
     Inspect Curry objects from Python.  curry.inspect: symbols, types,
     ICurry files, generated code.
 
-04-static-compile (py)
+04-static-compile
     Save a compiled Curry module.  curry.save with a goal, and running the
     saved script.
 
-10-queens-set-functions (py, cxx)
+10-queens-set-functions
     N queens with set functions.  Non-determinism as values, functional
     patterns, set functions.
 
-11-sudoku (cxx)
+11-sudoku
     Sudoku by search.  Search as the program; the most constrained cell
     first; a dead branch dies early.
 
-12-cryptarithm (cxx)
+12-cryptarithm
     Cryptarithms: SEND + MORE = MONEY.  Structural permutations and
     laziness as pruning.
 
-13-regex-nondeterminism (py, cxx)
+13-regex-nondeterminism
     Regular expressions by non-determinism.  A semantics as a function;
     the words of a pattern as values; matching by unification; free
     variables.
 
-14-parser-functional-patterns (py, cxx)
+14-parser-functional-patterns
     An expression parser from functional patterns.  Functional patterns
     split the input; failure prunes parses.
 
-15-dependency-solver (py, cxx)
+15-dependency-solver
     A package dependency solver.  Resolution as a search over Python data;
     the preference as the order of the candidates; the preferred plan
     pinned by a set function; a failure explained; a lockfile.
 
-16-scheduling (py, cxx)
+16-scheduling
     Scheduling tasks fed from Python data.  Constraints as guards;
     optimization by failure; guard order.
 
-17-type-inference (py, cxx)
+17-type-inference
     Type inference by unification.  Free variables as unknown types; =:= as
     unification.
 
-18-text-extraction (py, cxx)
+18-text-extraction
     Text extraction with functional patterns, compiled at run time.  Rules
     as Curry text; Curry extracts, Python aggregates.
 
-19-blocks-world-app (py, cxx)
+19-blocks-world-app
     Blocks World as a command-line application.  Search by iterative
     deepening; argparse; an http.server form.
 
-20-cxx-types-deduction (py, cxx)
+20-cxx-types-deduction
     Template argument deduction over a model of C++ types.  Free variables
     as template parameters; deduction by unification; set functions; a
     bounded generator for the inverse question.
 
-21-cxx-types-overloads (py, cxx)
+21-cxx-types-overloads
     Overload resolution over a model of C++ types.  Conversions as
     non-deterministic rules; the viable set as a set function; the inverse
     question with a free variable.
 
-22-cxx-types-trait-check (cxx)
+22-cxx-types-trait-check
     Trait checking by narrowing over a model of C++ types.  A bounded
     generator; narrowing with =:=; set functions collect counterexamples.
 
-23-cxx-types-layout (py, cxx)
+23-cxx-types-layout
     Member layout by search over a model of C++ types.  Non-determinism as
     member orders; set functions; a constraint as a guard; a reflection-like
     Python description.
 
-24-build-system (py, cxx)
+24-build-system
     A makefile in Curry.  Variables as definitions with the names of make;
     a rule as an equation of a relation with the inputs in the head; the
     pattern rule as a functional pattern; a condition as an if or a guard,

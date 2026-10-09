@@ -390,8 +390,6 @@ the copy without vec.c, and the build stops before the plan:
     refused: the build does not start
     exit status 2
 
-The output is identical on both backends.
-
 
 9. Limits
 ---------
@@ -405,9 +403,9 @@ The library reads the rules of a target through a set function, whose values
 are plain data, and every later question compares plain strings.  That is the
 idiom for a functional pattern's result in Sprite today.  A name that a
 functional pattern produced carries its narrowing into every later comparison
-(#86).  A set function applied to such a name exhausts memory on the C++
-backend (#97).  The pattern rule binds the free inputs of the relation on
-both backends (#98).
+(#86).  A set function applied to such a name exhausted memory on the C++
+backend before the fix of #97.  The pattern rule binds the free inputs of the
+relation (#98).
 
 A stamp is an integer that Python computes, here the modification time in
 nanoseconds.  A target with the same stamp as an input is up to date, as

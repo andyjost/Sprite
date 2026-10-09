@@ -66,13 +66,10 @@ The file expected.out holds the exact output of ./run:
     goal2: natFromInt 3
     I (I (I O))
 
-The output is identical on both backends.
-
 
 5. Limits
 ---------
 
 Each call of curry.compile runs the Curry front end, which costs about a
 third of a second.  The script compiles twice on every run, so ./run took
-0.8 s on each backend.  Code compiled from a string is not cached between
-runs.
+0.8 s.  Code compiled from a string is not cached between runs.

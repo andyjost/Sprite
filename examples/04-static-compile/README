@@ -23,18 +23,20 @@ The script go.py imports the module and saves it:
 
     curry.save(wildcard_matching, 'wildcard_matching.py', goal='main')
 
-The saved file is a script that holds the generated code of the module.  The goal argument records the goal to evaluate.  When the script
-runs, it imports the Sprite runtime, loads the module, and prints every
-value of main.  The script reads -g as sprite-exec does: -g NAME evaluates
-another goal of the module.  A program needs a goal: curry.save without one
-raises an error.  To save a module as a library for curry.load, pass
+The saved file is a script that holds the generated code of the module.
+The goal argument records the goal to evaluate.  When the script runs, it
+imports the Sprite runtime, loads the module, and prints every value of
+main.  The script reads -g as sprite-exec does: -g NAME evaluates another
+goal of the module.  A program needs a goal: curry.save without one raises
+an error.  To save a module as a library for curry.load, pass
 module_main=False.
 
 The saved form belongs to one backend.  On the reference backend of the
 developer notes of the documentation it is Python.  On the C++ backend
 curry.save writes C++ source, so the example runs on the reference backend
-only.  The Python form of the saved program retires at the removal gate of
-issue #82 (the developer notes), and this example with it.
+only.  The saved program of the reference backend, a script in Python,
+retires at the removal gate of issue #82 (the developer notes).  This
+example retires with it.
 
 
 3. How to run

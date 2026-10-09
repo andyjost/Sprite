@@ -55,12 +55,10 @@ The file expected.out holds the exact output of ./run:
     (False, True)
     (False, False)
 
-The output is identical on both backends.
-
 
 5. Limits
 ---------
 
-The program is tiny.  A warm run of ./run took about 1 s on the Python
-backend and 0.4 s on the C++ backend.  The first run also compiles the
-program with the Curry front end, which takes about half a second more.
+The program is tiny.  A warm run of ./run took 0.4 s on the C++ backend.  The
+first run also compiles the program with the Curry front end, which takes
+about half a second more.

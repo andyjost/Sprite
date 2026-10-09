@@ -88,8 +88,7 @@ The file expected.out holds the exact output of ./run.  The key lines are:
 
 The tree for 1+2*3 shows that '*' binds tighter than '+'.  The tree for
 10-2-3 shows that '-' associates to the left.  The last input lacks its right
-parenthesis.  No split parses, so Python reports no parse.  The output is
-identical on both backends.
+parenthesis.  No split parses, so Python reports no parse.
 
 
 5. Limits
