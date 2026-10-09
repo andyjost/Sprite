@@ -34,6 +34,8 @@ def freshvar(rts, target=None):
     rts.register_freevar(node)
   except AttributeError:
     pass
+  if rts.checker is not None:
+    rts.checker.variable(node)
   return node
 
 def get_generator(rts, arg=None, config=None):
@@ -72,7 +74,15 @@ def instantiate(rts, var, typedef, config=None):
     rts.suspend(var, config)
   else:
     var.target = _make_generator(rts, var, typedef)
-    graph.utility.copy_spine(var.root, var.realpath, end=var.target, rewrite=var.root)
+    checker = rts.checker
+    if checker is None:
+      graph.utility.copy_spine(var.root, var.realpath, end=var.target, rewrite=var.root)
+    else:
+      # The reducts of the configurations that reference the redex are read
+      # before the write and compared after it (X-b').
+      before = checker.instantiate_begin(var)
+      graph.utility.copy_spine(var.root, var.realpath, end=var.target, rewrite=var.root)
+      checker.instantiate_end(var, before)
     return var.target
 
 def is_narrowed(rts, arg=None, config=None):
@@ -219,4 +229,6 @@ def _make_generator(rts, variable, typedef=None):
           rts.Choice, vid, instance, graph.Node(rts.Failure)
         )
     graph.Node(variable.info, vid, instance, target=variable)
+    if rts.checker is not None:
+      rts.checker.generator(getattr(variable, 'target', variable), instance)
   return variable.successors[1]

@@ -67,6 +67,8 @@ def fork(rts, config=None):
   '''
   rts.telemetry._forks += 1
   config = config or rts.C
+  checker = rts.checker
+  clones = None if checker is None else []
   for idx, choicestate in [(1, LEFT), (2, RIGHT)]:
     clone = config.clone(config.root.successors[idx])
     if rts.update_fp(choicestate, config.root, config=clone):
@@ -82,7 +84,11 @@ def fork(rts, config=None):
           for i in [cid, gid]
         ):
         continue
+      if clones is not None:
+        clones.append(clone)
       yield clone
+  if checker is not None:
+    checker.fork(config, clones)
 
 def equate_fp(rts, arg0, arg1, config=None):
   '''
@@ -104,7 +110,15 @@ def pull_tab(rts, root, target, realpath, rewrite=None):
   cid,l,r = target.successors
   lhs = graph.utility.copy_spine(root, realpath, end=l)
   rhs = graph.utility.copy_spine(root, realpath, end=r)
-  return graph.Node(rts.Choice, cid, lhs, rhs, target=rewrite)
+  checker = rts.checker
+  if checker is None:
+    return graph.Node(rts.Choice, cid, lhs, rhs, target=rewrite)
+  # The copies are checked against the spine before the rewrite, and the
+  # identifier of the created choice after it.
+  checker.pulltab(root, target, realpath, lhs, rhs)
+  node = graph.Node(rts.Choice, cid, lhs, rhs, target=rewrite)
+  checker.pulltab_done(node, target)
+  return node
 
 def update_fp(rts, choicestate, arg=None, config=None):
   '''

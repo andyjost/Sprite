@@ -42,6 +42,8 @@ class SetFunctionEval(object):
 def create_queue(rts, sid, goal):
   with rts.queue_scope(sid=sid, trace=False):
     rts.set_goal(goal)
+    if rts.checker is not None:
+      rts.checker.capsule_entry(sid, goal)
     return rts.qid
 
 def create_setfunction(rts):
@@ -165,6 +167,7 @@ def split_queue(rts, qid, cid):
   configuration.  The C++ runtime has the same split (Queue::split).
   '''
   Q = rts.qtable[qid]
+  before = None if rts.checker is None else list(Q)
   rhs_qid = next(rts.setfactory)
   rhs = rts.qtable[rhs_qid] = copy(Q)
   for queue_, lr in ((Q, LEFT), (rhs, RIGHT)):
@@ -177,6 +180,8 @@ def split_queue(rts, qid, cid):
     queue_.clear()
     queue_.extend(kept)
     queue_.decisions.add(cid)
+  if before is not None:
+    rts.checker.escape(qid, cid, before, rhs_qid)
   return rhs_qid
 
 def clone_queue(rts, qid, vid, binding):
@@ -265,6 +270,8 @@ def sid(rts):
 def update_escape_set(rts, sid, cid):
   setf = rts.sftable[sid]
   setf.escape_set.add(cid)
+  if rts.checker is not None:
+    rts.checker.escape_insert(sid, cid)
 
 def update_escape_sets(rts, sids, cid):
   for sid in sids:
