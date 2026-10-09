@@ -129,11 +129,18 @@ class TestRefusedLoad(cytest.TestCase):
   the module ended the process (the sequences D, I and J of the API study;
   exit status 139).  Each sequence runs in a child process, so that a
   regression ends the child and not the test runner.  The two objects of
-  the module are compiled with sprite-make, once for the class.
+  the module are compiled with sprite-make, once for the class.  The child
+  runs under interpret:tiered whatever the mode of the runner, since a load
+  needs the compiled object of the Prelude (under 'all' it runs
+  interpreted, and the nightly job of 2026-10-09 failed these four cases
+  that way).
   '''
   SOURCE = 'module M where\n\nf :: Int -> Int\nf x = x + 1\n\nmain :: Int\nmain = f 41\n'
   CODE = r"""
 import os, sys
+# The child runs under tiered execution whatever the runner's mode: a load
+# needs the object of the Prelude, which runs interpreted under 'all'.
+os.environ['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
 import curry
 from curry.backends.cxx import cyrtbindings as cyrt
 soA, soB, case = %(soA)r, %(soB)r, %(case)r
