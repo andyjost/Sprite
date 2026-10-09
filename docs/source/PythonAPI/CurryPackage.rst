@@ -33,8 +33,8 @@ The top-level data and methods fall roughly into the following categories:
         new one, with the flags given and those of the environment.
 
         :func:`curry.reset`  : Soft-reset the global interpreter: unload
-        every module but the Prelude, reset the path, clear the signature
-        table.
+        every module but the Prelude and the packages, reset the path,
+        clear the signature table.
 
         :func:`curry.stats`  : Report the statistics of the run: time, steps,
         forks, collections, memory, compile time, collector time, the
@@ -46,7 +46,9 @@ The top-level data and methods fall roughly into the following categories:
 
     These can be used to find Curry objects.
 
-        :func:`curry.module` : Find a module by name.
+        :func:`curry.module` : Find a loaded module by name.  A module of
+        the Curry library of the installation is imported on demand; any
+        other module must be imported first.
 
         :func:`curry.symbol` : Find a symbol by name.
 
@@ -140,8 +142,11 @@ sets the flags of a process (``interpret:off,rotation:steps:65536``), and
 :func:`curry.reload` or ``Interpreter(flags={...})`` sets them for a new
 interpreter, over the flags of the environment.  A flag read at the start
 of an evaluation takes effect at the next one when it is changed in the
-dict.  :mod:`curry.interpreter.flags` describes every flag at length; the
-table names them with their defaults.
+dict.  ``backend`` is read when the interpreter is made, so a change of it
+in the dict has no effect; :func:`curry.reload` or a new interpreter
+selects a backend.  An assignment to :data:`curry.flags` rebinds the name
+in the package and changes nothing.  :mod:`curry.interpreter.flags`
+describes every flag at length; the table names them with their defaults.
 
 ===========================  =====================  ========================================================
 Flag                         Default                What it changes

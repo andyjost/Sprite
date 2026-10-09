@@ -39,7 +39,9 @@ Compiling an expression.  The call
     curry.compile('natFromInt 3', mode='expr', imports=Nat)
 
 passes an expression to the front end, with the module Nat in scope.  The
-front end checks the types.  curry.expr does not.
+front end checks the types.  curry.expr checks them too, from the type
+schemes in the interface the front end wrote for Nat.  It reports an error
+when the expression is built.
 
 Both goals go to curry.eval, which returns an iterator over the values.  The
 script takes the first value of each with next.

@@ -8869,3 +8869,222 @@
   a new FORMAT_VERSION if the generated code changes its entry points,
   and the scheduler's inline safepoint moves out of the header the
   generated code sees.
+
+2026-10-08: documentation truth: the statements of P51, the examples of the two API pages, and the facts of P52 (queue item 4 of the absence protocol; worktree wt/docs)
+- Scope.  The catalogue of the API study, entries P51 (statements the
+  probes contradicted; the examples of Quickstart.rst and
+  PythonAPI/UsingTheAPI.rst run as doctests) and P52 (facts the pages do
+  not state).  Every row was checked against this tree by a probe on the
+  C++ backend in step mode, under prlimit --as 2 GB and timeout 120, from
+  a directory with Peano.curry and a probe module Cat.curry (inc, dbl,
+  adder :: Int -> (Int -> Int), coin, three, mixed, (+++), a private
+  priv).  The text follows the code: no API, flag, default or message
+  changed.  The rows of the loader lane (P28, P53, P55) are left as they
+  are (#109, #110).
+- Rows of P51 corrected, with the place.  (1) "A new interpreter starts
+  from the default flags, not from the environment" (Architecture.rst,
+  "The Global Interpreter"): under SPRITE_INTERPRETER_FLAGS=
+  backend:cxx,stack_limit:1234567, Interpreter().flags['stack_limit'] is
+  1234567 and Interpreter().flags == curry.flags; the page now gives the
+  order defaults, SPRITE_ROTATION, SPRITE_INTERPRETER_FLAGS, argument.
+  (2) "Sprite dedents leading whitespace" (UsingTheAPI.rst, the note of
+  "Dynamic Compilation"): str2module writes the text as it is; the note
+  says the layout rule accepts the block.  (3) The underscore rule of
+  modulename (docstring of compile): compile('x = 1', modulename=
+  '_Hidden') puts '_Hidden' in curry.modules; the docstring says the
+  module is placed under its name.  (4) getconverter "translates free
+  variables into _a" (conversions.py): vals(curry.free()) is
+  [<_Free 0 <()>>]; the node passes through, show_value prints _a.
+  (5) "the subclasses of MonadError for the errors of IO actions"
+  (UsingTheAPI.rst, "Evaluating Expressions"): putChar ('a' ? 'b') raises
+  EvaluationError "non-determinism in monadic actions occurred!",
+  readFile "nofile" EvaluationError "i/o error: ...", ioError (userError
+  "x") EvaluationError "user error: x"; the page says an error of an IO
+  action is an EvaluationError whose message names it.  (6)
+  "EvaluationSuspended when every alternative suspends" (the same):
+  (y + 1 =:= 3) ? True yields True and then raises EvaluationSuspended;
+  the page says after the values of the alternatives that did not
+  suspend.  (7) "A function applied to more arguments goes through
+  apply" (the ArityError entry): expr(inc, 1, 2) is an ArityError,
+  expr(adder, 1, 2) is apply (adder 1) 2 (adder :: Int -> (Int -> Int)),
+  expr(id, not, True) is apply (id not) True; the entry gives the rule by
+  the result type.  (8) "The values curry.eval yields are copies of the
+  result" ("Values of earlier evaluations"): after next(curry.eval(e))
+  with e = expr(fib, 3), e is <_Fwd <Int 2>>, topython(e) returns the
+  node, typeof(e) is Int; with e = expr(plus, 1, 1), e is <Int 2>; the
+  page says the goal node is rewritten in place and holds the result or
+  forwards to it, with the example of fib 3.  (9) "curry.typeof reports a
+  bare type variable" for a compiled goal (the same): Int for '1 + 2',
+  Maybe Int for 'Just 5', a for 'xs ++ [3] =:= [1,2,3] where xs free'
+  (the lifted root); the page says so.  (10) "The front end checks the
+  types.  curry.expr does not." (examples/02-dynamic-code-generation/
+  README): expr(inc, 'a') is a ConversionError; the README says
+  curry.expr checks them too.  (11) reset "Clears loaded modules (except
+  for the Prelude)" (the docstring; CurryPackage.rst, "System Control"):
+  after an import of Data.List and a reset, curry.modules holds Data and
+  Prelude; both say the packages stay.  (12) "constructors whose names
+  are valid Python identifiers are attached" (docstring of CurryModule):
+  getattr(M, '+++') is the operator; the docstring says operators attach,
+  a keyword and an operator need getattr, a private function is reached
+  through curry.symbol.  (13) "by its fully-qualified name or by its name
+  relative to a module" (docstring of Interpreter.symbol): symbol('+',
+  'Prelude') is ModuleLookupError "Curry module '+' not found"; the
+  docstring says the name splits at its first dot and the second
+  parameter has no effect.  (14) "Modify this to change the behavior"
+  and "Modify this to adjust where to search" (docstrings of
+  Interpreter.flags and Interpreter.path; curry.flags and curry.path in
+  __init__.py; P54): curry.flags['backend'] = 'py' leaves
+  backend.backend_name 'cxx' and the evaluation on the C++ backend;
+  curry.path = ['/nonexistent'] leaves getInterpreter().path as it was;
+  curry.flags = {...} likewise; interp.flags = {} is AttributeError (no
+  setter); interp.path = [...] assigns into the same list; the docstrings
+  say in place, the attribute cannot be assigned, backend is read at
+  construction; UsingTheAPI.rst "Importing Curry Modules" and
+  CurryPackage.rst "Interpreter flags" say the same.  (15) The list
+  ambiguity "is not the case, though the reason is subtle"
+  (UsingTheAPI.rst, the note of "Symbolic Expressions"): expr([Peano.O])
+  is O, expr([Peano.O, Peano.O]) is ArityError, expr([[Peano.O]]) and
+  expr([curry.expr(Peano.O)]) and expr(cons(Peano.O, nil)) are [O]; the
+  note states the rule by the first element and the three spellings of
+  such a list.  (16) "as the REPL of PAKCS prints it" (docstring of
+  compile, docstring of absent_from_result, UsingTheAPI.rst "Building
+  Expressions"; the REPL page "Free variables in the REPL" gets the
+  difference): Sprite prints _a for 'x where x free'; the committed golden
+  tests/data/curry/goal_defaulting/text.free.au-gen holds {x=x} x for
+  PAKCS 3.4.1.  (17) Found on the way, SPRITE_LOG_FILE "The default, -,
+  directs this to standard output" (EnvironmentVariables.rst): the
+  handler's stream is sys.stderr; the page says the standard error
+  stream.
+- Rows of P51 true now, left as they are.  SPRITE_PRODUCT_CACHE: the
+  page says the cache is off without the variable; _productcache.root()
+  is None and enabled() is False.  curry.typeof on the values of
+  curry.eval with a shared [] (P19): '[[Int]]' for the value of
+  [[1, 2], [3]], '([Int], [Char])' for ([1], 'ab') (fixed by #108); the
+  sentence stays, with "by their content" added.  The usage pages
+  (--py, "Three target formats", -b {py,cxx}): the live sprite-make -h,
+  sprite-exec -h and sprite-make --man have none of the three; the pages
+  are generated from the tools by docs/source/CommandLineInterface/
+  build.bash at every build.  The list conversion: the page states the
+  loop (a list of 100000 builds; a nesting of 1000 lists is a
+  RecursionError, which no row asks the page to state).
+- Rows left to the loader lane: ":load FILE compiles and imports the
+  Curry module in FILE" (REPL.rst; P53, #110); the effect of a refused
+  load (UsingTheAPI.rst, the note of "Writing Compiled Code to Disk";
+  P28, #109); the stale object and the load during the compile
+  (Quickstart.rst, "Saving Compiled Curry"; P55, #109).  Their sentences
+  are as they were.
+- The examples of the two pages, run as the catalogue did (Python's
+  doctest over the text of the page, the working directory a copy of
+  examples/ with Peano.curry, curry in the globals, the C++ backend, step
+  mode, option ELLIPSIS).  Before: Using the API 4 of 141 failed (the
+  order of curry.modules, the omitted listing of getimpl, Prelude unbound
+  at getattr(Prelude, '++'), Fib.so missing), the Quickstart 4 of 41
+  (dir, help, the loop without a body, goal_with_two_values) and the
+  process dumped core at exit (#109).  Fixed: curry.modules is shown
+  through sorted (the order of the dict differs between sessions: Peano
+  first in the doctest, Prelude first in a probe); print(Peano.add.
+  getimpl()) shows the banner /****** Peano.add ******/ with an ELLIPSIS
+  directive, since the listing is the bytecode or the C++ by the moment
+  of the call; from curry.lib import Prelude precedes its first use; the
+  load of Fib.so has the shell step sprite-make --so Fib.curry in a code
+  block before it, the words "in a new Python process", and a SKIP
+  directive; dir(curry) and help(curry) carry SKIP; the loop prints the
+  value and breaks (S (S O)); the tip defines two = 'S O ? S (S O)' and
+  prints S O S (S O).  Sphinx trims the directives from the rendered
+  pages (0 occurrences of "doctest: +" in the HTML).  After: Using the
+  API 0 of 151 examples failed (1 skipped), the Quickstart before "Saving
+  Compiled Curry" 0 of 41 on both backends; the whole Quickstart fails
+  in its last section in one of two ways (FileNotFoundError on Peano.so
+  while the compile ran; or the load passes and the process dumps core
+  at exit).
+- tests/func_docs.py: each page in a child process of the Python of the
+  installation (prlimit 2 GB, timeout 300 s, CURRYPATH and PYTHONPATH
+  dropped as unit_examples.py does), from a fresh directory with
+  examples/Peano.curry, on the backend of the session, option ELLIPSIS;
+  every example must pass.  Using the API on the C++ backend alone (it
+  names Fib.so); the Quickstart up to "Saving Compiled Curry" on both
+  backends; the whole Quickstart an expectedFailure on the C++ backend
+  that names #109.  A functional file because every run compiles Curry
+  with the front end; no oracle, no corpus under data/curry (so --changed
+  selects it by name only: docs/* and *.rst are IGNORED in
+  selection.py).  tests/README section 6 describes it; the manifest has
+  its entries from --update-manifest on this machine (12 cores, 23 GB,
+  the calibration machine): cxx 5.5 s, 215 MB; py 0.5 s, 54 MB.
+- Facts of P52 added, with the place.  The data model of a node (bool,
+  len, [], iteration; P15, P16): UsingTheAPI.rst "Built-in Conversions",
+  beside the hash rule, with an example (every node is true, bool of the
+  node False included; len undefined; v[0] the head, v[1] the tail,
+  v[2] and list(v) TypeError).  The repr of a string (P23): the example
+  curry.expr('ab') there.  The forward node (P17): "Values of earlier
+  evaluations", with an example.  curry.typed is unchecked (P22): after
+  the curry.typed example (typeof(typed(node, 'Bool')) is 'Bool').  A
+  str as a goal is a value (P12): "Evaluating Expressions"
+  (curry.eval('1 + 2') yields the string).  An unknown converter name
+  means no conversion (P13): the docstring of eval and of getconverter
+  (converter='bogus' gives [<Int 2>]).  The generator contract (P27):
+  "Multi-Valued Computations" (1 ? error "boom" ? 2 yields 1 and raises;
+  a kept generator continues after other evaluations: 1, then [4, 5]
+  elsewhere, then [2, 3]).  The exhausted iterator and range (P9): the
+  iterator bullet and Limits (length of a used iterator 0;
+  expr(range(3)) CurryTypeError "cannot build a Curry expression from
+  type 'range'").  The tuple limit (P8): the tuple bullet and Limits
+  (tuple(range(16)) types and fails with SymbolLookupError "module
+  'Prelude' has no symbol '(,,,,,,,,,,,,,,,)'").  The Int range (P3): a
+  pointer from the int bullet to Limits, which states it.  import
+  curry configures the root logger (P37): EnvironmentVariables.rst,
+  SPRITE_LOG_FILE (basicConfig: a StreamHandler on stderr or a
+  FileHandler, format '%(asctime)s [%(levelname)s] %(message)s', the
+  level of SPRITE_LOG_LEVEL; a host that configured logging first keeps
+  its format and level, and SPRITE_LOG_LEVEL=DEBUG changes nothing then).
+  import_ (tools 2.5): "Importing Curry Modules" (a dotted name imports
+  the packages, import_('Data') is the package, is_sourcefile=True for a
+  file, a list of names; the products under .curry/sprite-pakcs-3.4.1/:
+  .icy, .fint, .icurry, .json.z, .cpp, .so, .so.abi).  The auto-import
+  (P33): CurryPackage.rst "Symbols & Types" (22 library modules in
+  automodules; module('Data.Char') imports it, module('Nope') is
+  ModuleLookupError).  The three rules of module attributes (P34):
+  "Inspecting Symbols"; the keywords not, and, or, return: the Quickstart
+  and Using the API at the getattr sentence (dir(Prelude) holds the seven
+  keywords False, True, and, break, not, or, return).  The whitespace
+  rule of the prompt (P47): REPL.rst "Commands of the REPL" (the prompt
+  prints a b for putStrLn "a   b"; :eval 'putStrLn "a   b"' on the
+  command line prints a   b).  exprtype and a comment keep the clause
+  local (P26): "Building Expressions" and REPL.rst (the REPL prints True
+  for x =:= 1 where x free -- comment and {x=1} True without the
+  comment).  curry.path and curry.flags in place (P54): "Importing Curry
+  Modules" and the docstrings.
+- Facts of P52 that need nothing.  The division by zero (P40) and the
+  Int range (P3) are in Limits.  truncate and round of a Float past
+  2**63 raise now (EvaluationError "integer overflow: truncate 1.0e+30"
+  for the Python float, "truncate 9.999999999999999e+29" for the Curry
+  literal 1.0e30, whose value the front end computes), as Limits says;
+  nothing added.  The shared [] (P19) is stated since #108.  The effect
+  of a refused load (P28), the edited source (P53) and the load during
+  the compile (P55): left to #109 and #110.
+- Verification.  The probes: the scripts of the run under the caps on the
+  C++ backend, outputs as quoted above.  Doctests after the edits:
+  UsingTheAPI.rst 0 of 151 failed in 4.5 s warm; Quickstart.rst 0 of 41
+  before its last section on cxx and on py.  tests/run_tests -j 2 --mem 4
+  --backend both func_docs.py: py 3 tests ok (2 skipped), cxx 3 tests ok
+  (1 expected failure), 6.5 s.  tests/run_tests -j 2 --mem 4 --backend
+  both unit_reference_backend.py unit_runner.py: 4 of 4 ok (the added
+  lines of the pages name no reference backend; the manifest reads).
+  make -C docs html in a clean environment: finished, 0 warnings; the
+  section references PythonAPI/UsingTheAPI:Inspecting Types and :Limits
+  resolve; the generated usage pages hold none of the stale phrases.
+
+  Review of the entry, applied the same day.  The keyword list of the two
+  pages names the seven Prelude names that are Python keywords (not, and,
+  or, break, return, True, False).  The iterator bullet and Limits state
+  the rule by demand: of two expressions built on one iterator, the one
+  evaluated first takes the items, and the other gives [] (probe: b built
+  second, evaluated first, gives [1, 2]; a then gives []).  The index
+  rule names the built-in values: curry.expr(1)[0] is 1, not a TypeError.
+  SPRITE_LOG_FILE: an unknown level name stops the import with an error
+  also when a host configured logging first (OSError from config.py).
+  The forward node: <_Fwd <Int 2>> is the form of the example;
+  <_FwdSz <O> 24> is the form for a constructor value (Peano.add O O).
+  The long added sentences of the pages, the docstrings, the example
+  README and tests/README were split, one fact each.  After the review:
+  func_docs.py and unit_reference_backend.py 4 of 4 ok on both backends;
+  make -C docs html 0 warnings.

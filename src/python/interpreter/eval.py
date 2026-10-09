@@ -28,7 +28,10 @@ def eval(interp, *args, **kwds):
         (:class:`curry.typecheck.goals.Bindings`).
     converter:
         Keyword-only argument specifying the converter to use when returning
-        results.  The default is 'default'.  See
+        results.  The default is 'default', the flag ``defaultconverter``.
+        ``'topython'`` applies :func:`curry.topython`, ``None`` and any
+        other name leave the Curry value, and a callable ``f(interp,
+        value)`` converts as it pleases.  See
         :func:``curry.interpreter.conversions.getconverter``.
     exprtype:
         Keyword-only argument: the type of the goal in Curry syntax, passed

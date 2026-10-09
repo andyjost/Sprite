@@ -261,7 +261,8 @@ def absent_from_result(scheme, nfree):
   its type without the dictionaries is ``t1 -> ... -> tn -> r``.  A variable
   whose type occurs in the result type ``r`` can show in a value and is left
   to the value; a variable whose type is absent from ``r`` cannot, and is
-  reported with its binding, as the REPL of PAKCS prints it.
+  reported with its binding.  The rule is Sprite's: the REPL of PAKCS
+  prints the binding of every lifted variable.
 
   Raises:
     CurryTypeError:

@@ -43,7 +43,10 @@ Commands of the REPL
 A line that starts with a colon is a command.  Any other line is an
 expression, which the REPL evaluates as ``:eval`` does.  A command name may
 be any unambiguous prefix, for example ``:e`` for ``:eval`` and ``:t`` for
-``:type``.
+``:type``.  The prompt splits a line at whitespace and joins the words with
+one space before the front end sees them.  So ``putStrLn "a   b"`` prints
+``a b`` at the prompt.  An argument given on the command line is taken as
+it is.
 
 ``:load FILE``
     Compiles and imports the Curry module in ``FILE`` and adds its
@@ -196,6 +199,11 @@ occurs in the result type is left in the value.
     _a
     Prelude> :type x where x free
     x where x free :: Data a => a
+
+The REPL of PAKCS prints the binding of every declared variable,
+``{x=x} x`` for ``x where x free``, where Sprite prints ``_a``.  The clause
+must end the line: with a comment after ``free`` the variables stay local
+and no binding is printed.
 
 ``:type`` does not lift the variables to parameters, on either system.  So
 ``:type x =:= y where x, y free`` fails in the front end with an ambiguous

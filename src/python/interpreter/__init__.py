@@ -93,8 +93,11 @@ class Interpreter(object):
   @utility.formatDocstring(config.python_package_name())
   def flags(self):
     '''
-    A dict containing the configuration flags.  Modify this to change
-    the behavior of the Curry system.  See :mod:`{0}.interpreter.flags`.
+    A dict containing the configuration flags.  Change its entries in
+    place to change the behavior of the Curry system; the attribute cannot
+    be assigned.  The flag ``backend`` is read when the interpreter is
+    made, so a later change of it has no effect.  See
+    :mod:`{0}.interpreter.flags`.
     '''
     return self._flags
 
@@ -110,8 +113,9 @@ class Interpreter(object):
   @property
   def path(self):
     '''
-    A list of strings specifying the Curry search path.  Modify this to
-    adjust where to search for Curry files.
+    A list of strings specifying the Curry search path.  Change it in
+    place to adjust where to search for Curry files.  An assignment to the
+    attribute replaces the entries of the same list.
     '''
     return self._path
 
@@ -152,11 +156,12 @@ class Interpreter(object):
     '''
     Soft-resets the interpreter.
 
-    Clears loaded modules (except for the Prelude), restores I/O streams to
-    their defaults, resets the Curry path from the environment, releases
-    the expression modules, and clears the signature table.  The names of
-    anonymous modules are not reused; see compile.py.  This is much faster
-    than building a new interpreter, which loads the Prelude.
+    Clears the loaded modules, except the Prelude and the packages.
+    Restores I/O streams to their defaults, resets the Curry path from the
+    environment, releases the expression modules, and clears the signature
+    table.  The names of anonymous modules are not reused; see compile.py.
+    This is much faster than building a new interpreter, which loads the
+    Prelude.
     '''
     self.stdin = sys.stdin
     self.stdout = sys.stdout
@@ -183,8 +188,10 @@ class Interpreter(object):
 
   def symbol(self, name, modulename=None):
     '''
-    Look up a symbol by its fully-qualified name or by its name relative to a
-    module.
+    Look up a symbol by its fully-qualified name, ``'Prelude.+'``.  The
+    name splits at its first dot into a module and a name in it, so
+    ``'Data.List.nub'`` needs the package ``Data`` loaded, as an import of
+    ``Data.List`` leaves it.  The second parameter has no effect.
     '''
     modulename, _, objname = name.partition('.')
     moduleobj = self.module(modulename)

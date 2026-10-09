@@ -98,12 +98,12 @@ To import Sprite, say:
 Use ``dir`` and ``help`` to explore package :mod:`curry` for yourself.  To list
 the functions, submoudles, and other objects provided by Sprite, say:
 
-    >>> dir(curry)
+    >>> dir(curry)  # doctest: +SKIP
 
 To read the help documentation, pass any of these objects to the ``help``
 command.  Take this opportunity to say:
 
-    >>> help(curry)
+    >>> help(curry)  # doctest: +SKIP
 
 .. tip::
 
@@ -140,8 +140,9 @@ public symbols of ``Peano`` are exposed as attributes of the module object:
     >>> Peano.add
     <curry function 'add'>
 
-Not all Curry symbols are valid Python identifiers.  Use ``getattr`` to access
-these:
+Not all Curry symbols are valid Python identifiers.  Seven names of the
+Prelude are Python keywords: ``not``, ``and``, ``or``, ``break``,
+``return``, ``True`` and ``False``.  Use ``getattr`` to access these:
 
     >>> getattr(Prelude, '++')
     <curry function '++'>
@@ -185,7 +186,9 @@ To iterate over the values, write a `for
 loop:
 
     >>> for value in curry.eval(goal):
-    ...   # your code here; use break to terminate evaluation.
+    ...   print(value)  # your code here; use break to terminate evaluation.
+    ...   break
+    S (S O)
 
 To partially evaluate an expression, simply discard the iteratable before it is
 exhaused.
@@ -201,7 +204,12 @@ exhaused.
     the goal, checks that it produced exactly one result, and binds that to
     ``value``.  If multiple values are expected, use a comma-separated list:
 
-        >>> a,b = curry.eval(goal_with_two_values)
+        >>> two = curry.compile(
+        ...     'S O ? S (S O)', mode='expr', exprtype='Nat', imports=[Peano]
+        ...   )
+        >>> a, b = curry.eval(two)
+        >>> print(a, b)
+        S O S (S O)
 
 Building Curry Expressions in Python
 ------------------------------------

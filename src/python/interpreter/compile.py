@@ -58,10 +58,10 @@ def compile(
         to ``Int``, ``Fractional`` to ``Float``, ``Monad`` to ``IO``, a
         lone ``Data`` to ``Bool``; see :mod:`{0}.typecheck.defaulting`.
     modulename:
-        Specifies the module name.  Used only in 'module' mode.  If the name
-        begins with an underscore, then it will not be placed in
-        :data:`curry.interpreter:Interpreter.modules`.  By default, a unique
-        name is chosen.
+        Specifies the module name.  Used only in 'module' mode.  The module
+        is placed in :data:`curry.interpreter:Interpreter.modules` under
+        that name.  By default, a unique name is chosen, which no later
+        compile reuses.
 
   Returns:
     In 'module' mode, a :class:`CurryModule <{0}.objects.CurryModule>`.  In
@@ -69,10 +69,11 @@ def compile(
     free`` declares free variables, as in the REPL.  A variable whose type
     is absent from the result type of the expression cannot show in a
     value, so ``curry.eval`` yields each value of such an expression with
-    its binding (:class:`Bindings <{0}.typecheck.goals.Bindings>`), as the
-    REPL of PAKCS prints it; a variable whose type occurs in the result type
-    is left in the value.  With ``exprtype`` the clause stays a local
-    declaration.
+    its binding (:class:`Bindings <{0}.typecheck.goals.Bindings>`); a
+    variable whose type occurs in the result type is left in the value.
+    The REPL of PAKCS prints the binding of every declared variable.  With
+    ``exprtype``, or with a comment after ``free``, the clause stays a
+    local declaration and no binding is reported.
 
   Raises:
     ~{0}.exceptions.CompileError:
