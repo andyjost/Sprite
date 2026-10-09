@@ -52,7 +52,11 @@ def constr_eq(rts, _0):
         if inspect.get_freevar_id(lhs.target) != inspect.get_freevar_id(rhs.target):
           yield rts.StrictConstraint
           yield rts.expr(True)
-          yield rts.expr((lhs, rhs))
+          # The pair holds the two variables themselves, without the guards
+          # crossed on the way to them: constrain_equal reads the ids of the
+          # pair, and a guard has none (issue #121).  The C++ step builds
+          # the same pair (constrEq_step in currylib/prelude/constr.cpp).
+          yield rts.expr((lhs.target, rhs.target))
         else:
           yield rts.prelude.True_
       else:

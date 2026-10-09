@@ -22,7 +22,8 @@ class GraphCopier(object):
   '''
   def __init__(self, skipper=None):
     self.skipper = skipper
-    # The number of free variables copied.  See rts_control.make_value.
+    # The number of free variables the copy shares.  See
+    # rts_control.make_value.
     self.freevars = 0
 
   def __call__(self, expr, memo=None):
@@ -62,14 +63,25 @@ class GraphCopier(object):
           if target is not None:
             cur = target
             continue
+        if cur.info.tag == T_FREE:
+          # A free variable is shared, not copied: one node stands for one
+          # id, the one in the free-variable table (RuntimeState.vtable).
+          # A copy with the same id would narrow apart from the variable:
+          # the generator made on demand on the copy is not on the node the
+          # table names (issue #120).  A value handed to Python would hold
+          # a node the runtime cannot find by its id as well.  The variable
+          # still counts: a later goal that holds the value must find it in
+          # the table (see rts_control.make_value).  The C++ copier has the
+          # same rule (graph/copy.cpp).
+          self.freevars += 1
+          value = cur
+          break
         # The copy starts as a shallow copy.  The copies of the successors
         # replace the originals one by one.  A valid node needs no check of
         # its arity or its successors, so ``new_node`` is not called.
         value = object.__new__(type(cur))
         value.info = cur.info
         value.successors = list(cur.successors)
-        if cur.info.tag == T_FREE:
-          self.freevars += 1
         memo[id(cur)] = value
         if keep is not None:
           keep.append(cur)

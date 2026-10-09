@@ -11,7 +11,7 @@ tests in unit_cxx_stack.py.
 '''
 import cytest # from ./lib; must be first
 from curry.backends.py.graph import Node
-from curry.backends.py.graph.copy import copygraph
+from curry.backends.py.graph.copy import copygraph, GraphCopier
 from curry.expressions import _setgrd
 from curry import inspect
 import copy as pycopy
@@ -125,6 +125,29 @@ class TestPyCopy(cytest.TestCase):
     self.assertEqual(count_nodes(dup), depth + 1)
     self.assertIs(dup.successors[0], dup.successors[1])
     self.assertTrue(disjoint(dup, node))
+
+  def test_free_variable_is_shared(self):
+    '''
+    A free variable is shared, not copied: one node stands for one id, the
+    one in the free-variable table.  A copy with the same id got a
+    generator of its own, apart from the node the table names, and
+    get_generator asserted when sortValues compared the values of a set
+    function that held a variable of the goal (issue #120).  The variable
+    still counts (see rts_control.make_value).  The C++ copier has the same
+    rule.
+    '''
+    var = curry.raw_expr(curry.free(7))
+    self.assertTrue(inspect.isa_freevar(var))
+    node = curry.raw_expr([var, 1, var])
+    self.assertIs(node.successors[0], var)
+    copier = GraphCopier()
+    dup = copier(node)
+    self.assertIsNot(dup, node)
+    self.assertIs(dup.successors[0], var)
+    self.assertIs(dup.successors[1].successors[1].successors[0], var)
+    self.assertIsNot(dup.successors[1], node.successors[1])
+    self.assertEqual(copier.freevars, 2)
+    self.assertEqual(str(dup), '[_a, 1, _a]')
 
   def test_unboxed_successor_is_shared(self):
     '''

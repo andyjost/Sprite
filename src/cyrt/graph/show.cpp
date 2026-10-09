@@ -221,10 +221,18 @@ namespace
     std::ostream * _os;
     SubstFreevars subst_freevars;
     ShowMonitor * monitor;
-    GcClamp gc_clamp; // the memo is keyed by the addresses of the nodes
+    GcClamp gc_clamp; // the path is keyed by the addresses of the nodes
     std::unordered_map<xid_type, std::string> tr; // free variable translations
     int nextid = 0;
-    std::unordered_multiset<void *> memo;
+    // The nodes on the path from the root to the current node, outermost
+    // first, and the same nodes as a set for the lookup.  A node enters the
+    // path when the walk extends it (extend) and leaves it when the walk
+    // returns from its successors (callback).  A node met again while it is
+    // on the path closes a cycle: an ellipsis stands for it.  A node met
+    // again elsewhere is shared, not cyclic, and is written in full every
+    // time (issue #119).
+    std::vector<void *> path;
+    std::unordered_multiset<void *> on_path;
     std::list<OStreamReverseAdaptor> ostream_adaptors;
     union Context
     {
@@ -297,17 +305,29 @@ namespace
         case '&': self->os() << ')'; break;
         case '[': self->os() << ']'; break;
       }
-      void * id = walk->cursor().id();
-      if(id)
+      // The walk returns from the successors of the node it extended last:
+      // the node leaves the path.  The last call, for the root level of the
+      // walk, closes no extension.  (walk->cursor() is the last successor
+      // visited at this level, not the node left.)
+      if(!self->path.empty())
       {
-        assert(self->memo.count(id));
-        auto p = self->memo.find(id);
-        if(p != self->memo.end())
-          self->memo.erase(p);
+        auto p = self->on_path.find(self->path.back());
+        assert(p != self->on_path.end());
+        self->on_path.erase(p);
+        self->path.pop_back();
       }
 
       if(self->monitor)
         self->monitor->exit(self->os(), walk, Context(data).value);
+    }
+
+    // Extends the walk below the current node and puts the node on the path.
+    void extend(Walk2 & walk, void * data=nullptr)
+    {
+      void * id = walk.cursor().id();
+      this->path.push_back(id);
+      this->on_path.insert(id);
+      walk.extend(data);
     }
 
     void show_name(InfoTable const * info)
@@ -321,46 +341,19 @@ namespace
       }
     }
 
-    bool is_terminus(InfoTable const * info)
-    {
-      // Indicates whether to always show this type of node (as opposed to an
-      // elipsis) when a cycle occurs.  A partial application without
-      // arguments has no node below it (its two slots are the missing count
-      // and the head), so it can be part of no cycle.
-      if(info->arity == 0 || (is_partial(*info) && info->arity == 2))
-        return true;
-      switch(typetag(*info))
-      {
-        case F_INT_TYPE  :
-        case F_CHAR_TYPE :
-        case F_FLOAT_TYPE:
-        case F_BOOL_TYPE : return true;
-        default          : break;
-      }
-      switch(info->tag)
-      {
-        case T_FAIL   :
-        case T_FREE   :
-        case T_UNBOXED: return true;
-        default       : return false;
-      }
-    }
-
     void stringify(Cursor expr)
     {
       for(auto && walk=cyrt::walk(expr, this, &callback); walk; ++walk)
       {
         auto cur = walk.cursor();
-        void * id = cur.id();
         bool cycle = false;
-        this->memo.insert(id);
         if(cur.kind == 'p')
         {
-          if(this->memo.count(id) > 1 && !this->is_terminus(cur->info))
+          if(this->on_path.count(cur.id()))
             cycle = true;
           else if(cur->info->tag == T_FWD)
           {
-            walk.extend(walk.data());
+            this->extend(walk, walk.data());
             continue;
           }
         }
@@ -389,7 +382,7 @@ namespace
                 this->os() << "...]";
                 continue;
               }
-              walk.extend(Context('['));
+              this->extend(walk, Context('['));
             }
             else
               this->os() << ']';
@@ -406,7 +399,7 @@ namespace
               this->flush_reverse_order();
               // Items of a bare concat list ('v') get '-', items of a
               // parenthesized one ('^') get '_'.
-              walk.extend(Context(data).value == '^' ? Context('_') : Context('-'));
+              this->extend(walk, Context(data).value == '^' ? Context('_') : Context('-'));
             }
             else
             {
@@ -425,7 +418,7 @@ namespace
             if(cycle)
               this->os() << "\"...";
             else if(cur->info->tag == T_CONS)
-              walk.extend(Context('"'));
+              this->extend(walk, Context('"'));
             else
               this->os() << '"';
             continue;
@@ -448,7 +441,7 @@ namespace
               else if(cur->info->tag == T_CONS)
               {
                 auto next = Context(data).value == '!' ? Context(':') : Context('<');
-                walk.extend(next);
+                this->extend(walk, next);
               }
               else
                 this->os() << '[' << ']';
@@ -506,13 +499,13 @@ namespace
         {
           case F_INT_TYPE:
           case F_FLOAT_TYPE:
-            walk.extend();
+            this->extend(walk);
             continue;
           case F_CHAR_TYPE:
             if(Context(data).value == '`')
-              walk.extend(Context('c'));
+              this->extend(walk, Context('c'));
             else
-              walk.extend();
+              this->extend(walk);
             continue;
           case F_PARTIAL_TYPE:
           {
@@ -533,7 +526,7 @@ namespace
                 os() << ')';
               else
               {
-                walk.extend(Context('&'));
+                this->extend(walk, Context('&'));
                 ++walk; // skip #missing
                 ++walk; // skip head_info
               }
@@ -549,7 +542,7 @@ namespace
               {
                 os() << '(';
                 show_name(partial->head_info);
-                walk.extend(Context('&'));
+                this->extend(walk, Context('&'));
                 ++walk; // skip #missing
                 ++walk; // skip head_info
               }
@@ -558,7 +551,7 @@ namespace
           }
           case F_IO_TYPE:
           {
-            walk.extend(Context(data));
+            this->extend(walk, Context(data));
             continue;
           }
           case F_LIST_TYPE:
@@ -566,7 +559,7 @@ namespace
             continue;
           case F_TUPLE_TYPE:
             this->os() << '(';
-            walk.extend(Context('('));
+            this->extend(walk, Context('('));
             continue;
           case F_CSTRING_TYPE:
           {
@@ -584,12 +577,12 @@ namespace
             {
               this->os() << '(';
               this->show_name(info);
-              walk.extend(Context('&'));
+              this->extend(walk, Context('&'));
             }
             else
             {
               this->show_name(info);
-              walk.extend(Context(' '));
+              this->extend(walk, Context(' '));
             }
             continue;
         }
@@ -650,22 +643,22 @@ namespace
         if(is_string && !is_empty)
         {
           this->os() << '"';
-          walk.extend(Context('"'));
+          this->extend(walk, Context('"'));
         }
         else
         {
           this->os() << '[';
-          walk.extend(Context('['));
+          this->extend(walk, Context('['));
         }
       }
       else
       {
         if(disallow_parens)
-          walk.extend(Context(':'));
+          this->extend(walk, Context(':'));
         else
         {
           this->os() << '(';
-          walk.extend(Context('<'));
+          this->extend(walk, Context('<'));
         }
       }
     }

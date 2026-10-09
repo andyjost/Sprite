@@ -243,6 +243,10 @@ class ListStringifier(Stringifier):
             l.append(self.stringify(arg.successor(0), outer=True))
             arg = arg.successor(1)
           else:
+            # The spine closes a cycle.  The push counted the node; the
+            # count is taken back, so that another occurrence of the list
+            # elsewhere is written in full (issue #119).
+            self.pop_subexpr(arg)
             l.append('...')
             return '[%s]' % ', '.join(l)
         if inspect.isa_nil(arg):
@@ -268,7 +272,13 @@ class ListStringifier(Stringifier):
     '''
     if not kwds.get('partial'):
       chars = ['"']
+      # A spine that meets a node again is a cycle.  It is no string; the
+      # list style writes it with an ellipsis (issue #119).
+      seen = set()
       while inspect.isa_cons(tail):
+        if id(tail) in seen:
+          return
+        seen.add(id(tail))
         head, tail = tail.successors
         if inspect.isa_char(head):
           ch = inspect.unboxed_value(head)

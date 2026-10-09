@@ -9925,3 +9925,151 @@
   references clones it twice and does the nested work after the clone
   point per clone; the per-configuration map of #86 (the SetEval node to
   its clone for the configuration) would make it one.
+
+2026-10-09: three findings of the differential harness (#119, #120, #121;
+  worktree wt/bugs3)
+- The programs.  The harness of the Fair Scheme proofs generated the three
+  programs on 2026-10-09 and the owner filed them.  Each one is a test
+  module now: data/curry/SharedListPrinter.curry (#119, pinned by
+  unit_show.py), data/curry/PyGeneratorAssert.curry (#120) and
+  data/curry/PyFingerprintNone.curry (#121, the module Prog of the harness
+  under the name of the file), both pinned by TestHarnessFindings of
+  unit_setfunctions_bugs.py on both backends.
+- #119, the C++ printer wrote "..." for a shared list without a cycle.
+  The cause: StrStringifier (graph/show.cpp) kept every node met in a
+  multiset and took a second count for a cycle.  The exit callback of the
+  walk removed walk->cursor(), which is the last successor visited at the
+  level the walk leaves, not the node left, so a node stayed in the
+  multiset after the walk left it, and its next occurrence printed as an
+  ellipsis: ([False], ...) for let d = [False] in (d, d), [[1], ...] for
+  let d = [1] in d : d.  The fix: the printer keeps the path from the root
+  to the current node (a vector, with a multiset for the lookup).  A node
+  enters the path when the printer extends the walk below it (the new
+  member extend, which every extension of StrStringifier goes through) and
+  leaves it in the callback (the last callback, for the root level of the
+  walk, closes no extension).  A node met again while it is on the path is
+  a cycle; a node met again elsewhere is shared and prints in full.
+  is_terminus went: a node the walk never extends is never on the path.
+  ReprStringifier was right already (its callback data is the node).  The
+  Python printer (show.py) had a leak of its own: format_as_list counted a
+  spine node that closed a cycle and never took the count back, so a
+  cyclic list shared by two positions printed as ([1, ...], ...) for
+  let a = 1:a in (a, a).  Fixed: the failed push is popped.  Both backends
+  print ([1, ...], [1, ...]) now, and every cyclic text observed before the
+  change stays: [1, ...], [1, 2, ...], Just ..., (..., 1), [...], ... .
+  The review found a second limit of the Python printer: the string style
+  (format_as_string) walked the spine of a list of Chars with no check for
+  a cycle, so str of let s = 'a':s in s never ended on the Python backend,
+  where the C++ printer writes ['a', ...].  Fixed: the walk keeps the nodes
+  it met and gives up at the first repeat; the list style then writes the
+  ellipsis.  Both backends print ['a', ...] and (['a', ...], ['a', ...]).
+  Tests: unit_show.py (14 tests, both backends): the two goals of the
+  issue evaluated, seven shared shapes (tuple, constructor, string, list in
+  list, open list, head and tail), and the cyclic shapes with their texts,
+  the shared cyclic list and the cyclic string among them.  test_circular
+  of unit_expr.py holds.
+- #120, the Python backend asserted in get_generator when sortValues
+  compared values with free variables.  The cause: the graph copier that
+  makes a value (rts_control.make_value, also the values of a set function
+  inside allValues) copied the node of a free variable, so the value held
+  a second node with the id of the variable.  The comparison narrowed the
+  copy: hnf made the generator on the copy (instantiate rewrites the node
+  at hand), and the next hnf of the same copy found the generator on it
+  but read the node of the id from the table (get_generator goes through
+  vtable), where the original had none; the assert followed the vain
+  constrain_equal of the original with itself.  The C++ copier shares a
+  free variable ("one node stands for one id", graph/copy.cpp), so the C++
+  backend never had two nodes.  The fix: the Python copier shares a free
+  variable too and counts it as before (external_freevars).  The comments
+  of make_value, InterpreterState and GraphCopier say so.  The expected
+  values: the issue records four values of the C++ backend at 1b7ae501.
+  The C++ backend at 7eeac2e9 (this base) prints six, the product of the
+  three values of f3 (Just True) (S (S Z) twice, Z) and the two sides of
+  x15, the free variable of the argument that the capsule returns among
+  its values and that sortValues narrows outside; the runs.jsonl of
+  campaign 1 records the same six for KiCS2 and for every C++ mode.  The
+  four were a loss of the shared capsule before #86 (two of the three
+  alternatives of the first component lost x15 = True).  The test pins the
+  six on both backends.  Tests: test_free_variable_in_values
+  (unit_setfunctions_bugs.py, both backends) and
+  test_free_variable_is_shared (unit_py_copy.py).
+- #121, the Python backend raised TypeError in read_fp with the id None.
+  The cause: the step of =:= (constr_eq in currylib/prelude/constr.py)
+  built the pair of a strict constraint with rts.expr((lhs, rhs)) from the
+  two Variables, that is from their rvalues, which carry the set guards
+  crossed on the way to the target.  In the program the right side, the
+  variable x19 of the goal, is reached through the box of a captured
+  argument (#117), so the pair held SetGuard(sid, x19), and obj_id of the
+  guard is None: D passed it to constrain_equal, equate_fp, update_fp and
+  read_fp.  The C++ step builds pair(lhs.target, rhs.target), the two
+  variables themselves.  The fix: the Python step does the same for the
+  strict constraint.  Test: test_constraint_through_a_guard
+  (unit_setfunctions_bugs.py, both backends): (_a, _b, []) and
+  (_a, _b, [False]) twice, the values of the C++ backend; the record of
+  campaign 1 shows KiCS2 with seven values, x19 instantiated, a difference
+  of the kind of row 2 of the memo and not the acceptance.  The review
+  found the same cause in make_value_bindings (eval/rts_bindings.py): the
+  pair of the value binding of a variable of a builtin type took the
+  Variable that hnf passes, that is its rvalue with the guards, so for a
+  variable of the goal reached through the box of a captured argument the
+  pair held SetGuard(sid, y).  constrain_equal read the id None from both
+  sides, took the sides for equal and returned True without a binding, and
+  the comparison that followed suspended: let y free in
+  (y, sortValues (set1 k2 y)) with k2 m = (m =:= 1) &> (m == 1) printed
+  "Evaluation Suspended" on the Python backend, where the C++ backend
+  prints (_a, [True]) (the binding is private to the capsule).  Fixed: the
+  pair holds the node of the variable, as the C++ step does.  Test:
+  test_value_binding_through_a_guard (unit_setfunctions_bugs.py, both
+  backends) on the goal valueBinding of PyFingerprintNone.curry.
+- Verification (the machine shared; the C++ runtime built with make stage
+  and make overlay after the change to show.cpp, which is no header of the
+  closure, so no object went stale).  The probes of the issues before the
+  change: ([False], ...) and ([False], ..., 1); AssertionError; TypeError
+  after the first value.  After: ([False], [False]), ([False], [False], 1)
+  and ([], [], 1) on both backends; six values on the Python backend, the
+  same texts in the same order as the C++ backend; three values.  The
+  runner, both backends, -j 2 --mem 4: unit_setfunctions_bindings.py,
+  unit_setfunctions_semantics.py, unit_setfunctions_bugs.py,
+  unit_py_residuation.py, unit_cxx_freevars.py, unit_show.py,
+  unit_py_copy.py, unit_expr.py and unit_py_constraints.py: 18 of 18 run,
+  0 failed, 31 s (one run before it had the sorted order of one expected
+  list wrong in the new test, corrected).  The fast tier, --fast --backend
+  both: 126 of 126 run, 5 failed, 128.7 s; the five (unit_cxx_rewrite.py,
+  unit_inspect.py, unit_cxx_bom.py, unit_cxx_partial.py,
+  unit_cxx_literals.py on cxx) read the compiled object of a corpus module
+  that the fresh worktree had not compiled (KeyError 'cxx.shlib', the
+  bytecode in place of the generated code); after --prepare-only --backend
+  both -j 2 --mem 4 (24 of 24, 0 failed; the first run compiled the main
+  corpus and was cut at 400 s, the second finished the rest in 88.6 s) the
+  five pass: 5 of 5, 0 failed, and the fast tier again: 126 of 126 run,
+  0 failed, 108.2 s.  Not run here: the full unit suite, the oracle suites
+  and the documentation build (the suite stage).
+- Left to the owner.  (1) The text of #120 names four values; the test
+  pins six, with the reason above; the comment on the issue is the
+  owner's.  (2) The pair of a non-strict constraint (nonstrict_eq) still
+  comes from the rvalues: a free variable on the left of =:<= reached
+  through a guard would give add_binding the id None the same way; no
+  program showed it, and the C++ step drops the guards of both sides
+  there, where the Python step keeps the guard on the bound expression (a
+  parity question of the box rule, not changed here).  The strict
+  constraint and the value binding take the nodes now; the box rule for
+  the non-strict pair is the owner's decision.  constrain_equal itself
+  still returns True for two arguments without an id (obj_id gives None
+  for a node that is neither a choice nor a free variable); a check there
+  would turn the next instance of the cause into an error instead of a
+  dropped binding, and is left to the same decision.  (3) curry.raw_expr
+  with a cyclic anchor referenced twice loops in fix_references until
+  MemoryError: raw_expr([anchor(cons(1, ref()), name='a'), ref('a')]) and
+  raw_expr((ref('a'), ref('b')), a=cons(1, ref('b')), b=cons(2, ref('a')));
+  the tests of unit_show.py build the shared cyclic shapes from a node
+  instead.  (4) The two printers write a partial application of an
+  operator differently, ((:) ...) against : ..., observed on
+  let a = (:) a in a; not pinned.  (5) The printed text of a cyclic list
+  shared by two positions changed on both backends, from ([1, ...], ...)
+  to ([1, ...], [1, ...]), the rule being an ellipsis only where the walk
+  meets a node of its own path.  The acceptance of #119 ("a shared cyclic
+  structure still prints with ...") can be read either way: the closing
+  comment of the issue should state the rule, or, if the old text is
+  wanted, both printers need a memo of the cyclic nodes already written
+  and test_shared_cyclic_list changes.  (6) Nothing is committed from this
+  lane.
