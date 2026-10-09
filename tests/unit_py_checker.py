@@ -9,8 +9,10 @@ functional-pattern, free-variable and residuation programs) run under the
 checker without a report and with the values they have without it.  And one
 constructed violation per check: a state corrupted on purpose through the
 Python API, or a step function replaced in the test, which the checker
-reports with the name of the invariant.  One program the checker found
-wrong is pinned as a known failure (TestDroppedBox).
+reports with the name of the invariant.  The program the checker found
+wrong, a captured choice behind a forward node in front of its box (issue
+#123), is pinned as fixed (TestDroppedBox), with the report of the defect
+built from a pull-tab whose path is short of its source.
 
 The checker drives the Python backend, so the white-box tests skip on the
 C++ backend; the flag is accepted there and ignored.
@@ -46,12 +48,14 @@ def _goals(module):
 # unit_setfunctions_semantics.py).
 PY_KNOWN_FAILURES = {'capNested', 'nestFail'}
 
-# The goals of unit_setfunctions_bugs.py, without the one of TestDroppedBox
-# and without nestedBound, the known failure of the Python backend (a guard
-# of an enclosing set at the root).
+# Goals of unit_setfunctions_bugs.py that run under the checker.
+# nestedBound, the known failure of the Python backend (a guard of an
+# enclosing set at the root), is out.  capturedThenGuarded failed under the
+# checker before the fix of issue #123.
 BUGS_GOALS = [
     'anyOfSet', 'tailsSet', 'headOrLastSet', 'argAfterStart', 'boundVar'
-  , 'capturedChoiceAfterStart', 'capturedVarAfterStart', 'choiceAfterStart'
+  , 'capturedChoiceAfterStart', 'capturedThenGuarded', 'capturedVarAfterStart'
+  , 'choiceAfterStart'
   , 'choiceArg', 'choiceCaptured', 'escapeUndecided', 'forced', 'forcedStrict'
   , 'longArg', 'longPlain', 'longPlainChoice', 'narrowedAfterStart'
   , 'narrowedInData', 'nestedAfterStart', 'nestedAlive', 'nestedAliveChoice'
@@ -108,8 +112,8 @@ paired :: (T3, T3)
 paired = (x =:= y) &> (pick x =:= 2) &> (x, y) where x, y free
 '''
 
-# The program of the known failure: a captured choice reached through a
-# forward node in front of its box.
+# The program of issue #123: a captured choice reached through a forward
+# node in front of its box.
 DROPPED_BOX = '''
 import Control.SetFunctions
 
@@ -225,6 +229,15 @@ class TestKnownGood(CheckerTestCase):
   def test_functional_patterns(self):
     self.module_goals('FunPatFreeArg')
     self.module_goals('FunPatFreeArgSet')
+
+  def test_captured_forward(self):
+    '''The goals of issue #123, which the checker found: a captured
+    choice behind a forward node in front of its box.'''
+    values = self.module_goals('CapturedFwd')
+    self.assertEqual(values['oneCaptured'], ['(2, A)', '(2, B)'])
+    self.assertEqual(
+        values['oneCapturedSet'], ['([[A], [A]], A)', '([[A], [B]], B)']
+      )
 
   def test_free_variables(self):
     '''The goals of unit_cxx_freevars.py on the Python backend.'''
@@ -627,45 +640,131 @@ k x y = if x then (if y then 1 else 2) else 3
 
 class TestDroppedBox(cytest.TestCase):
   '''
-  The defect the checker found (2026-10-09): in the walk of N of the Python
-  backend a forward node in front of a set guard is spliced out together
-  with the guard (logical_subexpr skips both), but the real path and the
-  set ids of the walk are not extended.  The pull-tab of the choice behind
-  the guard copies the spine without the box and inserts nothing into the
-  escape set, so a captured choice reached through a forward node alone is
-  encapsulated: oneCaptured gives (3, A) and (3, B), where the C++ backend
-  and the semantics of weakly encapsulated search give (2, A) and (2, B).
-  The checker reports it at the pull-tab (B1: the source is not at the
-  path of the target).
+  The defect the checker found (2026-10-09, issue #123): in the walk of N
+  of the Python backend a forward node in front of a set guard was spliced
+  out together with the guard (logical_subexpr skips both), but the real
+  path and the set ids of the walk were not extended.  The pull-tab of the
+  choice behind the guard copied the spine without the box and inserted
+  nothing into the escape set, so a captured choice reached through a
+  forward node alone was encapsulated: oneCaptured gave (3, A) and (3, B),
+  where the C++ backend and the semantics of weakly encapsulated search
+  give (2, A) and (2, B).  The checker reported it at the pull-tab (B1: the
+  source is not at the path of the target).  The walk splices the chain of
+  forward nodes alone now and crosses the guard as one met directly.
   '''
-  @cytest.expectedFailureIf(PY, 'the box behind a forward node is dropped')
   def test_values(self):
     M = curry.compile(DROPPED_BOX, modulename='CheckerDroppedBox')
     self.assertEqual(_values(M, 'oneCaptured'), ['(2, A)', '(2, B)'])
 
   @unittest.skipIf(not PY, 'the checker drives the Python backend')
-  @unittest.expectedFailure
   def test_under_the_checker(self):
     curry.reload({'backend': 'py', 'checker': True})
     try:
       M = curry.compile(DROPPED_BOX, modulename='CheckerDroppedBoxChecked')
-      _values(M, 'oneCaptured')
+      self.assertEqual(_values(M, 'oneCaptured'), ['(2, A)', '(2, B)'])
     finally:
       curry.reload({'backend': 'py', 'checker': False})
 
   @unittest.skipIf(not PY, 'the checker drives the Python backend')
   def test_report(self):
-    '''The report names the invariant, the event and the position.'''
+    '''The report of the defect, from a pull-tab whose recorded path ends
+    one step short of its source: it names the invariant, the event and
+    the position.'''
+    from curry.backends.py import graph
     curry.reload({'backend': 'py', 'checker': True})
     try:
-      M = curry.compile(DROPPED_BOX, modulename='CheckerDroppedBoxReport')
+      rts = _state(curry.raw_expr(1))
+      a, b = rts.expr(1), rts.expr(2)
+      target = graph.Node(rts.Choice, 7, a, b)
+      Just = rts.prelude.Just
+      root = graph.Node(Just, graph.Node(Just, target))
+      lhs = graph.Node(Just, graph.Node(Just, a))
+      rhs = graph.Node(Just, graph.Node(Just, b))
       with self.assertRaisesRegex(
           _checker().InvariantViolation
-        , r'B1 \(pull-tab\) violated at pull-tab: the source is not at the path'
+        , r'B1 \(pull-tab\) violated at pull-tab: the source is not at the '
+          r'path \[0\] of the target'
         ):
-        _values(M, 'oneCaptured')
+        rts.checker.pulltab(root, target, [0], lhs, rhs)
     finally:
       curry.reload({'backend': 'py', 'checker': False})
+
+
+@unittest.skipIf(not PY, 'the walk of N of the Python backend')
+class TestForwardChain(cytest.TestCase):
+  '''
+  The walk of N over a chain of forward nodes, on hand-built graphs.  The
+  generated code reads an argument through a logical path, which compresses
+  a chain before the step, so no goal of the suite puts a chain of two or
+  more forward nodes, or a guard directly before a chain, in front of the
+  walk.  The walk splices the chain out of its parent and meets the guard
+  behind it on the next pass: the recorded set ids and the alternatives of
+  the pull-tab hold every box on the way.  The old walk dropped the boxes
+  behind the chain and, with a guard met directly before the chain,
+  returned a value with the choice still inside.
+  '''
+  def walk(self, make):
+    '''
+    Runs N over ``Just (make(sids, choice))`` with two set ids.  Returns
+    the sids recorded at the pull-tab and the root after it.
+    '''
+    from curry.backends.py import graph
+    from curry.backends.py.eval.fairscheme import N
+    rts = _state(curry.raw_expr(1))
+    sids = [rts.create_setfunction(), rts.create_setfunction()]
+    choice = graph.Node(rts.Choice, 7, rts.expr(1), rts.expr(2))
+    rts.E = graph.Node(rts.prelude.Just, make(rts, sids, choice))
+    if rts.checker is not None:
+      rts.checker.tags[7] = frozenset(sids)
+    recorded = []
+    original = rts.update_escape_sets
+    def record(sids, cid):
+      recorded.append(([sid for sid in sids if sid is not None], cid))
+      original(sids=sids, cid=cid)
+    rts.update_escape_sets = record
+    self.assertFalse(N(rts, rts.variable(rts.E)))
+    return sids, recorded, str(rts.E)
+
+  def test_chain_then_guard(self):
+    '''Fwd -> Fwd -> SetGuard -> Choice.'''
+    from curry.backends.py import graph
+    def make(rts, sids, choice):
+      box = graph.Node(rts.SetGuard, sids[0], choice)
+      return graph.Node(rts.Fwd, graph.Node(rts.Fwd, box))
+    (s, _), recorded, root = self.walk(make)
+    self.assertEqual(recorded, [([s], 7)])
+    self.assertEqual(
+        root, '_Choice 7 (Just (_SetGuard %s 1)) (Just (_SetGuard %s 2))' % (s, s)
+      )
+
+  def test_guard_then_chain(self):
+    '''SetGuard -> Fwd -> Fwd -> SetGuard -> Choice.'''
+    from curry.backends.py import graph
+    def make(rts, sids, choice):
+      inner = graph.Node(rts.SetGuard, sids[1], choice)
+      chain = graph.Node(rts.Fwd, graph.Node(rts.Fwd, inner))
+      return graph.Node(rts.SetGuard, sids[0], chain)
+    (s, t), recorded, root = self.walk(make)
+    self.assertEqual(recorded, [([s, t], 7)])
+    self.assertEqual(
+        root
+      , '_Choice 7 (Just (_SetGuard %s (_SetGuard %s 1))) '
+        '(Just (_SetGuard %s (_SetGuard %s 2)))' % (s, t, s, t)
+      )
+
+  def test_alternating(self):
+    '''Fwd -> SetGuard -> Fwd -> SetGuard -> Choice.'''
+    from curry.backends.py import graph
+    def make(rts, sids, choice):
+      inner = graph.Node(rts.Fwd, graph.Node(rts.SetGuard, sids[1], choice))
+      return graph.Node(rts.Fwd, graph.Node(rts.SetGuard, sids[0], inner))
+    (s, t), recorded, root = self.walk(make)
+    self.assertEqual(recorded, [([s, t], 7)])
+    self.assertEqual(
+        root
+      , '_Choice 7 (Just (_SetGuard %s (_SetGuard %s 1))) '
+        '(Just (_SetGuard %s (_SetGuard %s 2)))' % (s, t, s, t)
+      )
 
 
 if __name__ == '__main__':

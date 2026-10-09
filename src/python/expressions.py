@@ -448,23 +448,49 @@ def fix_references(expr, brokenrefs, anchors):
   '''
   Replaces the placeholders of the references that were built before their
   anchors.  ``brokenrefs`` maps the id of a placeholder to the key of its
-  anchor in ``anchors``.
+  anchor in ``anchors``.  The walk enters every node once and goes on at
+  the anchor after a replacement.  A replacement closes a cycle through the
+  anchor, and a second reference to the anchor led the walk into the cycle
+  again, without end (issue #122).  A node reached only through a replaced
+  slot was never entered, so a placeholder below it stayed.
   '''
   if brokenrefs:
     from .backends.py.graph.walkexpr import walk
+    entered = set()
     for state in walk(expr):
-      if isinstance(state.cursor, backends.Node):
-        key = brokenrefs.get(state.cursor.id())
+      cursor = state.cursor
+      if isinstance(cursor, backends.Node):
+        key = brokenrefs.get(cursor.id())
         if key is not None:
+          node = _anchor_node(key, brokenrefs, anchors)
           parent = state.parent
           if parent is None:
-            # This is the trivial cycle a=a.
-            state.cursor.forward_to(state.cursor)
+            # The root is a placeholder.  The trivial cycle a=a forwards it
+            # to itself.
+            cursor.forward_to(node)
           else:
-            parent.set_successor(state.realpath[-1], anchors[key])
-        else:
+            parent.set_successor(state.realpath[-1], node)
+          state.spine[-1] = cursor = node
+        if cursor.id() not in entered:
+          entered.add(cursor.id())
           state.push()
   return expr
+
+def _anchor_node(key, brokenrefs, anchors):
+  '''
+  The node of the anchor ``key``.  An anchor whose node is a placeholder is
+  an alias of another anchor, and the chain of aliases is followed.  A chain
+  that returns to itself is the trivial cycle a=a: its placeholder is
+  forwarded to itself.
+  '''
+  node = anchors[key]
+  seen = set()
+  while node.id() in brokenrefs and node.id() not in seen:
+    seen.add(node.id())
+    node = anchors[brokenrefs[node.id()]]
+  if node.id() in seen:
+    node.forward_to(node)
+  return node
 
 # The dictionary argument of Prelude.unknown.  The body of unknown declares a
 # free variable and returns it; it never reads the dictionary.  The untyped

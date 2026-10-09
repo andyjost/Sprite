@@ -1,9 +1,11 @@
 '''
 Tests for defects of the set functions and the scheduler: issues #61, #32,
-and #36, whose programs are in data/curry/SetFunctionsBugs.curry, and the
-two findings of the differential harness on the Python backend, issues #120
+and #36, whose programs are in data/curry/SetFunctionsBugs.curry, the two
+findings of the differential harness on the Python backend, issues #120
 and #121, whose programs are data/curry/PyGeneratorAssert.curry and
-data/curry/PyFingerprintNone.curry.
+data/curry/PyFingerprintNone.curry, and the finding of the checker mode on
+the Python backend, issue #123, whose programs are
+data/curry/CapturedFwd.curry.
 
 Issue #61: a set function over a free variable that a choice bound saw the
 binding of the first alternative in every branch.  The application sits
@@ -64,6 +66,17 @@ as the pair of the C++ step does.  The pair of a value binding of a
 variable of a builtin type (make_value_bindings) had the same defect: the
 binding was dropped, and the Python backend suspended.  It holds the node
 of the variable now.
+
+Issue #123: a captured choice that the walk of N reaches through a forward
+node in front of its box.  constT x 0 rewrites to a forward node to the
+guarded x.  The walk of the Python backend replaced the forward node
+through logical_subexpr, which skips the chain and the set guards behind
+it, and left the real path and the set ids of the walk short of the guard.
+The pull-tab of the choice copied the spine without the box and put
+nothing into the escape set, so the captured choice was encapsulated: the
+set function had one value more than on the C++ backend.  The walk splices
+the chain of forward nodes alone now, as the C++ walk does, and crosses
+the guard behind it as a guard met directly.
 
 The children run under prlimit and timeout, because a regression can spin
 inside C++ (see cytest.run_in_subprocess).
@@ -417,6 +430,44 @@ class TestHarnessFindings(cytest.TestCase):
     '''
     results = run_child(self, goals('valueBinding'), module='PyFingerprintNone')
     self.assertEqual(results, {'valueBinding': ['(_a, [True])']})
+
+
+class TestCapturedForward(cytest.TestCase):
+  '''
+  Issue #123.  The captured choice x comes through the function position
+  (constT x), and the step of constT leaves a forward node to the guarded
+  x.  The pull-tab of x must keep the box and put x into the escape set,
+  so that x escapes the capsule and each alternative of the outside sees
+  one value of f 0.  The Python backend gave (3, A) and (3, B) for
+  oneCaptured, and ([[A], [A], [B]], A) for oneCapturedSet.  The five
+  goals are pinned to the values of the C++ backend on both backends.
+  '''
+  @classmethod
+  def setUpClass(cls):
+    curry.import_('CapturedFwd')
+
+  def test_captured_through_forward_node(self):
+    '''The choice is reached through the forward node alone.'''
+    results = run_child(
+        self, goals('oneCaptured', 'oneCapturedSet'), module='CapturedFwd'
+      )
+    self.assertEqual(results, {
+        'oneCaptured': ['(2, A)', '(2, B)']
+      , 'oneCapturedSet': ['([[A], [A]], A)', '([[A], [B]], B)']
+      })
+
+  def test_captured_and_guarded(self):
+    '''The choice is captured and a guarded argument as well; the shapes
+    of the issue around the goal of test_captured_then_guarded.'''
+    results = run_child(
+        self, goals('lengthFirst', 'setFirst', 'capturedThenGuarded')
+      , module='CapturedFwd'
+      )
+    self.assertEqual(results, {
+        'lengthFirst': ['(2, A)', '(2, B)']
+      , 'setFirst': ['([[A], [A, A]], A)', '([[A], [B, B]], B)']
+      , 'capturedThenGuarded': ['(A, [[A], [A, A]])', '(B, [[A], [B, B]])']
+      })
 
 
 if __name__ == '__main__':
