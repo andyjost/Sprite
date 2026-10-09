@@ -10344,3 +10344,104 @@
   wanted, both printers need a memo of the cyclic nodes already written
   and test_shared_cyclic_list changes.  (6) Nothing is committed from this
   lane.
+
+2026-10-09
+- #123, the Python backend encapsulated a captured choice that the walk of
+  N reaches through a forward node in front of its box: oneCaptured of the
+  issue printed (3, A) and (3, B), where the C++ backend prints (2, A) and
+  (2, B).  The checker mode found it (B1 at the pull-tab: the source is
+  not at the path of the target).  The cause: constT x 0 rewrites the
+  cursor of the walk to a forward node to the guarded x (IReturn of a
+  reference emits _0.rewrite(rts.Fwd, ...)), and the T_FWD case of N
+  (eval/fairscheme.py) replaced the cursor through logical_subexpr(parent,
+  index, update_fwd_nodes=True), which skips the chain of forward nodes
+  and the set guards behind it in one go, while the real path and the set
+  ids of the walk (state.realpath, state.data) were not extended.  So the
+  choice behind the guard was pull-tabbed along a path that ended at the
+  guard: copy_spine made the alternatives without the box, and
+  update_escape_sets saw no sid, so the choice never entered the escape
+  set of the capsule and was forked inside it.  The fix: the T_FWD case
+  compresses the chain of forward nodes alone (compress_fwd_chain), writes
+  its end into the slot of the parent, as the C++ walk does
+  (compress_fwd_chain in procN), and goes on at the end; a guard there is
+  met on the next pass and crossed by the T_SETGRD case, which pushes it
+  with its sid, so the path and the sids include the box.  The values,
+  the set functions and the fingerprints are as before.  Tests: the
+  module tests/data/curry/CapturedFwd.curry holds the five goals of the
+  issue (oneCaptured, oneCapturedSet, lengthFirst, setFirst,
+  capturedThenGuarded); TestCapturedForward of unit_setfunctions_bugs.py
+  pins them to the values of the C++ backend on both backends, in
+  children; test_captured_forward of unit_py_checker.py runs the module
+  under the checker and without it; the expectedFailure marks of
+  TestDroppedBox are gone (test_values on both backends,
+  test_under_the_checker asserts the values), and test_report builds the
+  report of the defect from a pull-tab whose path is one step short of
+  its source; capturedThenGuarded joins BUGS_GOALS, which runs under the
+  checker.  Before the fix the new tests fail: (3, A), (3, B), and the
+  violation under the checker.  Review (2026-10-09): no goal of the suite
+  puts a chain of two or more forward nodes, or a guard directly before a
+  chain, in front of the walk of N, because the generated code reads an
+  argument through a logical path, which compresses the chain before the
+  step.  The old walk had a second failure mode there: with a guard met
+  directly before the chain it returned a value with the choice still
+  inside.  TestForwardChain of unit_py_checker.py pins both shapes and
+  the alternating one on hand-built graphs: the sids recorded at the
+  pull-tab and the root after it, which keeps every box.
+- #122, curry.raw_expr did not return when a cyclic anchor was referenced
+  twice.  The cause: fix_references (expressions.py) walks the built graph
+  with walkexpr.walk, which has no memo, replaces a placeholder in the
+  slot of its parent and pushes every other node.  The replacement closes
+  the cycle through the anchor (a = 1 : a), and the second reference to
+  the anchor, resolved to the node of the anchor when it was built, led
+  the walk into the cycle again.  One reference ends because the
+  successors of the node were enumerated before the replacement.  The
+  fix: the walk enters a node once (a set of the ids entered); a
+  placeholder is still replaced at every slot that holds it.  The typed
+  builder (typecheck/builder.py) calls the same function, so curry.expr
+  is fixed too.  Test: test_shared_cycle of unit_expr.py, both builders,
+  both backends, under cytest.timeout(120): [a, a] with a = 1 : a prints
+  [[1, ...], [1, ...]], and (a, b) with a = 1 : b, b = 2 : a prints
+  ([1, 2, ...], [2, 1, ...]), each reference the same node.  Before the
+  fix the test ends at the timeout.  Review (2026-10-09): the walk did
+  not enter an anchor it put into a slot, so an anchor reached only
+  through a replaced slot kept its own placeholders: a = 1 : b, b = 2 : c,
+  c = 3 : a gave 1:2:failed (a defect older than the memo).  The walk now
+  goes on at the anchor after a replacement, and the memo ends it.  An
+  anchor whose value is a reference is an alias; the untyped builder
+  follows the chain of aliases (_anchor_node), and a chain that returns
+  to itself is the trivial cycle a=a.  The typed builder rejects a
+  reference to an alias as an undefined anchor, as before.
+  test_shared_cycle pins the chain of three anchors on both builders and
+  the alias chain on the untyped one.
+- Verification (the machine shared; no C++ change, no build).  Probes with
+  sprite-exec on copies of the reproducers, before the change: oneCaptured
+  (3, A) (3, B) and oneCapturedSet ([[A], [A], [B]], A) ([[A], [A], [B]], B)
+  on the Python backend; the C++ backend (2, A) (2, B) and ([[A], [A]], A)
+  ([[A], [B]], B); lengthFirst, setFirst and capturedThenGuarded agree on
+  both; the reproducer of #122 ran into timeout 60 on the Python backend
+  and timeout 30 on the C++ backend (exit 124).  After: the five goals
+  print the values of the C++ backend on the Python backend, with and
+  without checker:true (SPRITE_DEBUG=1); both shapes of #122 build on both
+  backends with both builders.  Single files: unit_expr.py 33 tests on py
+  and cxx; unit_setfunctions_bugs.py 27 tests on py, on cxx and on py with
+  checker:true (test_captured_then_guarded passes; before the fix it
+  failed there with the B1 report); unit_py_checker.py 39 tests on py, on
+  py with checker:true, and on cxx (36 skipped).  The runner, both
+  backends, -j 2 --mem 4: unit_setfunctions_bugs.py,
+  unit_setfunctions_bindings.py, unit_setfunctions_semantics.py,
+  unit_py_checker.py, unit_expr.py, unit_show.py: 12 of 12 run, 0 failed,
+  30.5 s.  The fast tier on the Python backend, -j 2 --mem 4: 74 of 74
+  run, 0 failed, 86.6 s.  Not run here: the full unit suite, the oracle
+  suites, the documentation build.
+- Left to the owner.  (1) The walk of N splices a chain of forward nodes
+  out of its parent, as before and as the C++ walk does; a walk that keeps
+  the forward nodes in the real path would copy them into the
+  alternatives of a pull-tab, so that form was not chosen.  (2) hnf
+  crosses a forward node with Variable.extend, one node per pass, and
+  meets a guard behind it on the next pass; it had no share in the
+  defect.  (3) The goals longPlainList, viaCall, viaData, viaForward and
+  viaPartial of SetFunctionsBugs.curry run clean under the checker
+  (probed) and are not in BUGS_GOALS of unit_py_checker.py; adding them
+  costs time in that file, the owner's call.  (4) The C++ backend has no
+  checker; its walk gave the right values here.  (5) Nothing is committed
+  from this lane.

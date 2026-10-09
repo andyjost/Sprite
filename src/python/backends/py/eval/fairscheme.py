@@ -129,9 +129,18 @@ def N(rts, var, state):
           rts.restart()
         break
       elif tag == T_FWD:
-        state.spine[-1] = indexing.logical_subexpr(
-            state.parent, state.realpath[-1], update_fwd_nodes=True
-          )
+        # The chain of forward nodes at the cursor is spliced out of the
+        # parent, as the C++ walk does (compress_fwd_chain in procN).  The
+        # walk goes on at the end of the chain.  A set guard there is met on
+        # the next pass.  The T_SETGRD case pushes it with its sid.  So the
+        # real path and the set ids include the box, and the pull-tab of a
+        # choice behind it keeps the box and inserts the choice into the
+        # escape set of its set.  logical_subexpr skipped the guards with
+        # the chain, and the path stayed short of them (issue #123).
+        end = indexing.compress_fwd_chain(state.cursor)
+        if state.parent is not None:
+          state.parent.set_successor(state.realpath[-1], end)
+        state.spine[-1] = end
       elif tag == T_CHOICE:
         cid = state.cursor.successors[0]
         rts.update_escape_sets(sids=state.data, cid=cid)

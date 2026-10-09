@@ -205,6 +205,58 @@ class TestExpr(cytest.TestCase):
     self.assertEqual(id(e), id(e[0]))
     yield e, '[...]', '<: ... <[]>>'
 
+  @cytest.timeout(120)
+  def test_shared_cycle(self):
+    '''
+    Issue #122.  A cyclic anchor referenced twice.  The replacement of the
+    placeholder closed the cycle, and the walk of fix_references entered
+    the cycle again through the second reference and did not end.  Each
+    reference resolves to the same node, and the printer writes the cycle
+    in full at both positions (issue #119).  The typed builder shares
+    fix_references.
+    '''
+    anchor, cons, ref = curry.expressions.anchor, curry.cons, curry.ref
+    for build in (curry.raw_expr, curry.expr):
+      # let a = 1 : a in [a, a]
+      e = build([anchor(cons(1, ref()), name='a'), ref('a')])
+      a = e[0]
+      self.assertIs(a[1], a)
+      self.assertIs(e[1][0], a)
+      self.assertEqual(str(e), '[[1, ...], [1, ...]]')
+      self.assertEqual(repr(e), '<: <: <Int 1> ...> <: <: <Int 1> ...> <[]>>>')
+      # let a = 1 : b, b = 2 : a in (a, b)
+      e = build(
+          (ref('a'), ref('b')), a=cons(1, ref('b')), b=cons(2, ref('a'))
+        )
+      a, b = e[0], e[1]
+      self.assertIs(a[1], b)
+      self.assertIs(b[1], a)
+      self.assertEqual(str(e), '([1, 2, ...], [2, 1, ...])')
+      self.assertEqual(
+          repr(e), '<(,) <: <Int 1> <: <Int 2> ...>> <: <Int 2> <: <Int 1> ...>>>'
+        )
+      # let a = 1 : b, b = 2 : c, c = 3 : a in a.  The anchor b is reached
+      # through the slot of a that held its placeholder, so the walk must go
+      # on at an anchor it put into a slot.
+      e = build(
+          ref('a'), a=cons(1, ref('b')), b=cons(2, ref('c')), c=cons(3, ref('a'))
+        )
+      self.assertIs(e[1][1][1], e)
+      self.assertEqual(str(e), '[1, 2, 3, ...]')
+      self.assertEqual(repr(e), '<: <Int 1> <: <Int 2> <: <Int 3> ...>>>')
+    # An anchor whose value is a reference is an alias of another anchor.
+    # The untyped builder follows the chain; the typed builder rejects the
+    # reference to it.
+    form = [ref('x'), anchor(ref('y'), name='x'), anchor(cons(1, ref('x')), name='y')]
+    e = curry.raw_expr(form)
+    a = e[1][1][0]
+    self.assertIs(a[1], a)
+    self.assertIs(e[0], a)
+    self.assertIs(e[1][0], a)
+    self.assertEqual(str(e), '[[1, ...], [1, ...], [1, ...]]')
+    with self.assertRaisesRegex(ValueError, "undefined anchor 'x'"):
+      curry.expr(form)
+
   @cytest.check_expressions()
   def test_named_anchor1(self):
     '''Test named anchors using a direct style.'''
