@@ -234,7 +234,8 @@ class RuntimeState(object):
     , register_freevar, register_freevars
     )
   from .rts_setfunctions import (
-      boxed_failure, create_queue, create_setfunction, choice_escapes
+      boxed_failure, clone_queue, create_queue, create_setfunction
+    , choice_escapes
     , guard_args, guard, guard_held, in_recursive_call, owns_decision
     , pop_queue, push_queue, qid
     , queue_scope, SetFunctionEval, sid, split_queue, update_escape_set

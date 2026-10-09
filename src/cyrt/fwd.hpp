@@ -68,6 +68,7 @@ namespace cyrt
   static constexpr tag_type   NOTAG   = std::numeric_limits<tag_type>::min();
   static constexpr xid_type   NOXID   = std::numeric_limits<xid_type>::max();
 
+  static constexpr tag_type E_DIVERGE  = -18; // a capsule read a binding of an enclosing configuration; see RuntimeState::diverge
   static constexpr tag_type E_SETFAIL  = -17; // a boxed failure fails the set function; see RuntimeState::fail_capsule
   static constexpr tag_type E_TERMINATE = -16; // the step limit was reached; see RuntimeState::step_limit
   static constexpr tag_type E_UNWIND   = -15; // C-stack limit reached; unwind to procD

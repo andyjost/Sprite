@@ -2,7 +2,8 @@
 
 __all__ = [
     'RuntimeFlowException'
-  , 'E_RESIDUAL', 'E_SETFAIL', 'E_STEPLIMIT', 'E_TERMINATE' , 'E_UNWIND'
+  , 'E_DIVERGE', 'E_RESIDUAL', 'E_SETFAIL', 'E_STEPLIMIT', 'E_TERMINATE'
+  , 'E_UNWIND'
   ]
 
 class RuntimeFlowException(BaseException):
@@ -54,6 +55,22 @@ class E_SETFAIL(RuntimeFlowException):
   '''
   def __init__(self, sids):
     self.sids = list(sids)
+
+class E_DIVERGE(RuntimeFlowException):
+  '''
+  Raised when the nested evaluation of a set function reads a binding of an
+  enclosing configuration (get_binding in rts_bindings.py of the Python
+  backend): the capsule depends on the private state of that configuration,
+  which another configuration with another binding may share (issue #86).
+  allValues (currylib/setfunctions.py) clones the capsule for that
+  configuration.  ``qid`` is the queue to clone, ``vid`` the id under which
+  its configurations looked the variable up, and ``binding`` the binding
+  the clone absorbs.
+  '''
+  def __init__(self, qid, vid, binding):
+    self.qid = qid
+    self.vid = vid
+    self.binding = binding
 
 class E_TERMINATE(RuntimeFlowException):
   '''Raised to terminate evaluation.'''

@@ -40,6 +40,20 @@ class Configuration(object):
     assert not self.residuals
     return Configuration(root, *map(copy, state))
 
+  def share(self):
+    '''
+    A copy for a second queue over the same configurations, the clone of a
+    capsule (rts_setfunctions.clone_queue): the same root, copies of the
+    state, and the residuals the configuration waits on.  The C++ runtime
+    shares the configuration between the queues and clones it before a
+    step (Queue::unshare_front); the queues of this backend hold
+    references, so the copy is made at once.
+    '''
+    state = self.fingerprint, self.strict_constraints, self.bindings, self.escape_all
+    cp = Configuration(self.root, *map(copy, state))
+    cp.residuals = set(self.residuals)
+    return cp
+
   @property
   def realpath(self):
     '''Gives the full real path to the cursor.'''

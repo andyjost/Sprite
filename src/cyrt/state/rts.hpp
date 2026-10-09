@@ -170,6 +170,13 @@ namespace cyrt
     // fail_capsule to allValues_step, which puts their guards on the
     // failure the set function becomes.  See failure_escapes.
     std::vector<Set *>     capsule_failure_guards;
+    // The divergence a nested evaluation met, from diverge to
+    // allValues_step: the queue to clone for the configuration that runs
+    // it, and the binding the clone absorbs, under the id the
+    // configurations of that queue use.  See diverge.
+    Queue *                diverge_queue = nullptr;
+    xid_type               diverge_vid = NOXID;
+    Node *                 diverge_binding = nullptr;
 		#ifdef SPRITE_TRACE_ENABLED
     std::unique_ptr<Trace> trace;
     #endif
@@ -247,10 +254,15 @@ namespace cyrt
     // entry for a variable the collector dropped, or for a node built
     // outside the runtime (Node.create from Python).  See InterpreterState.
     Node * get_freevar(xid_type vid);
-    // The binding of a variable: the configuration's own, or that of the
-    // nearest enclosing configuration, read through the queue stack as
-    // read_fp reads the decisions; nullptr when none has one.
-    Node * get_binding(Configuration *, xid_type vid);
+    // The binding of a variable: the configuration's own, the one its queue
+    // absorbed, or that of the nearest enclosing level, read through the
+    // queue stack as read_fp reads the decisions; nullptr when none has
+    // one.  ``level`` receives where it was found: 0 for the state of the
+    // configuration and its queue, k for the k-th enclosing level.  A
+    // binding found above is private state of the configuration there;
+    // a reader that puts it into the evaluation returns diverge (see
+    // rts_setfunctions.cpp).
+    Node * get_binding(Configuration *, xid_type vid, size_t * level=nullptr);
     Node * get_binding(Configuration *, Node *);
     Node * get_generator(Configuration *, xid_type vid);
     Node * get_generator(Configuration *, Node *);
@@ -274,6 +286,7 @@ namespace cyrt
     bool owns_decision(Configuration *, xid_type);
     bool failure_escapes(Configuration *, Variable const * inductive);
     tag_type fail_capsule(Configuration *, Variable const * inductive);
+    tag_type diverge(size_t level, xid_type vid, Node * binding);
     bool in_recursive_call() const;
   private:
     #ifdef SPRITE_TRACE_ENABLED

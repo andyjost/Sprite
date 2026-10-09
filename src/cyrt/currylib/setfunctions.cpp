@@ -53,11 +53,37 @@ namespace cyrt { inline namespace
       _0->forward_to(failure);
       return T_FWD;
     }
+    if(rts->pending_control == E_DIVERGE && rts->diverge_queue == seteval->queue)
+    {
+      // The nested evaluation read a binding of this configuration
+      // (RuntimeState::diverge), so the capsule depends on the private
+      // state of this configuration, and another configuration with
+      // another binding of the variable may share it (issue #86).  The
+      // capsule is cloned for this configuration: the clone shares the
+      // configurations of the queue, the decisions and the bindings
+      // absorbed before, and absorbs the binding read (Queue::clone).  It
+      // goes into a private copy of the spine, as a binding itself does
+      // (replace_freevar) and as the capsule of a private goal does
+      // (evalS_step); the shared node stays for the other configurations.
+      // E_RESTART tells the enclosing steps that the root was replaced;
+      // the read then finds the binding in the clone and takes effect.
+      rts->pending_control = NOTAG;
+      Queue * clone = new Queue(seteval->set);
+      seteval->queue->clone(*clone, rts->diverge_vid, rts->diverge_binding);
+      rts->diverge_queue = nullptr;
+      rts->diverge_binding = nullptr;
+      Node * clone_seteval = Node::create(seteval->info, seteval->set, clone);
+      gc_register_seteval(clone_seteval);
+      Node * view = Node::create(&allValues_Info, clone_seteval);
+      *C->root = C->scan.copy_spine(C->root, view);
+      return E_RESTART;
+    }
     if(rts->pending_control != NOTAG)
     {
       // The nested scheduler yields to an enclosing queue: the stack limit
       // was reached (E_UNWIND), an enclosing queue is due to rotate
-      // (E_ROTATE), or a collection is due (E_GC).  The redex stays as it
+      // (E_ROTATE), a collection is due (E_GC), or a capsule further out
+      // diverged (E_DIVERGE for another queue).  The redex stays as it
       // is, and the set function resumes when this configuration runs
       // again.  See RuntimeState::yield_control.
       tag_type const status = rts->pending_control;
@@ -170,7 +196,7 @@ namespace cyrt { inline namespace
     return T_FWD;
   }
 
-  // The number of nodes holds_private_state visits before it gives up.  The
+  // The number of nodes private_state visits before it gives up.  The
   // Python backend has the same bound (currylib/setfunctions.py).
   static constexpr size_t PRIVATE_WALK_BUDGET = 64;
 
@@ -180,31 +206,48 @@ namespace cyrt { inline namespace
   // another variable; for a choice of it, a decision.  That is the state
   // replace_freevar puts into the expression through a private copy of the
   // spine (rts_freevars.cpp), and the state a fork of the nested evaluation
-  // reads through the queue stack (rts_fingerprint.cpp).  The walk follows
-  // forward nodes and every pointer successor, so it crosses set guards,
-  // partial applications, data, and the alternatives of an undecided
-  // choice.  It does not enter the generator of a free variable: the
-  // variable itself is the test, and nothing below its generator is decided
-  // while the variable is not.  It stops after PRIVATE_WALK_BUDGET nodes
-  // with the conservative answer: a long argument counts as private.  So
-  // does a cyclic one.
+  // reads through the queue stack (rts_fingerprint.cpp).  Returns 1 when
+  // the state is private and 0 when it is not.  The bindings of the
+  // variables met go into ``absorbed``, under the group id of the
+  // variable: the new capsule absorbs them (Queue::absorbed), so its
+  // evaluation reads them as its own.  A binding that an enclosing
+  // configuration holds (get_binding at a level above) is a divergence of
+  // the capsule C itself runs in: the walk returns E_DIVERGE after
+  // RuntimeState::diverge, and the step runs again inside the clone.
+  //
+  // The walk follows forward nodes and every pointer successor, so it
+  // crosses set guards, partial applications, data, and the alternatives of
+  // an undecided choice.  It does not enter the generator of a free
+  // variable: the variable itself is the test, and nothing below its
+  // generator is decided while the variable is not.  It stops after
+  // PRIVATE_WALK_BUDGET nodes with the conservative answer: a long argument
+  // counts as private.  So does a cyclic one.  A binding beyond the budget
+  // is absorbed at the first read instead (diverge).
   //
   // When the outermost queue holds one configuration, no other configuration
   // reads the shared graph, and a later clone of this one starts with the
-  // same state, so the answer is false without a walk: a deterministic
-  // program never pays the walk and never loses the sharing of an
-  // application to the bound.  Inside a set function the state read through
-  // the queue stack depends on the enclosing configuration that runs the
-  // nested queue, so the walk runs there.
-  bool holds_private_state(
-      RuntimeState * rts, Configuration * C, Node * root
+  // same state, so the answer is 0: a deterministic program never loses
+  // the sharing of an application to the bound.  Such a configuration
+  // without a binding pays no walk.  One with a binding walks to absorb
+  // alone: a binding it holds predates the capsule, and every alternative
+  // of a later fork holds it too, so a read of it is no divergence; without
+  // the absorption each alternative alive at its first read cloned the
+  // capsule (the last one alone absorbs in place; see get_binding), and the
+  // nested work after the clone point was done per clone.  Inside a set
+  // function the state read through the queue stack depends on the
+  // enclosing configuration that runs the nested queue, so the full walk
+  // runs there.
+  int private_state(
+      RuntimeState * rts, Configuration * C, Node * root, BindingMap & absorbed
     )
   {
-    if(!rts->in_recursive_call() && rts->Q()->size() == 1)
-      return false;
+    bool const alone = !rts->in_recursive_call() && rts->Q()->size() == 1;
+    if(alone && C->bindings->empty())
+      return 0;
     std::vector<Node *> stack;
     stack.push_back(root);
     size_t budget = PRIVATE_WALK_BUDGET;
+    int result = 0;
     while(!stack.empty())
     {
       Node * node = stack.back();
@@ -214,26 +257,34 @@ namespace cyrt { inline namespace
       if(!node)
         continue;
       if(budget == 0)
-        return true;
+        return alone ? 0 : 1;
       --budget;
       InfoTable const * info = node->info;
       if(info->tag == T_FREE)
       {
         xid_type const vid = NodeU{node}.free->vid;
         xid_type const gid = C->grp_id(vid);
-        if(vid != gid || rts->get_binding(C, gid) || rts->is_narrowed(C, gid))
-          return true;
+        size_t level = 0;
+        if(Node * binding = rts->get_binding(C, gid, &level))
+        {
+          if(level)
+            return rts->diverge(level, gid, binding);
+          absorbed[gid] = binding;
+          result = 1;
+        }
+        else if(vid != gid || rts->is_narrowed(C, gid))
+          result = 1;
         continue;
       }
       if(info->tag == T_CHOICE
           && rts->read_fp(C, NodeU{node}.choice->cid) != UNDETERMINED)
-        return true;
+        result = 1;
       Arg const * args = node->successors();
       for(index_type i=0; i<info->arity; ++i)
         if(info->format[i] == 'p')
           stack.push_back(args[i].node);
     }
-    return false;
+    return alone ? 0 : result;
   }
 
   tag_type evalS_step(RuntimeState * rts, Configuration * C)
@@ -244,6 +295,19 @@ namespace cyrt { inline namespace
     if(status != T_CTOR)
       return status;
     PartApplicNode * partial = NodeU{_1.target}.partapplic;
+    // The state of this configuration for the goal (below).  A binding of
+    // an enclosing configuration met on the way is a divergence of the
+    // capsule this configuration runs in: the step runs again in the
+    // clone, where the binding is absorbed.  The map holds the addresses
+    // of the bindings across the allocations below, until the new queue
+    // takes it: under a moving collector (gc/mps.cpp) a node may move at an
+    // allocation, and the map is no root, so the clamp keeps every node in
+    // place until the swap.
+    GcClamp gc_clamp;
+    BindingMap absorbed;
+    int const state = private_state(rts, C, (Node *) partial, absorbed);
+    if(state < 0)
+      return state;
     // The set and the queue register themselves with the collector, which
     // frees them when no node reaches them; see gc/wdgc.cpp.
     Set * new_set = new Set();
@@ -258,21 +322,26 @@ namespace cyrt { inline namespace
           );
     }
     Queue * new_queue = new Queue(new_set, goal);
+    new_queue->absorbed.swap(absorbed);
     Node * seteval = Node::create(&SetEval_Info, new_set, new_queue);
     gc_register_seteval(seteval);
     Node * allvalues = Node::create(&allValues_Info, seteval);
     Node * replacement = Node::create(&Values_Info, allvalues);
     // The nested evaluation reads the state of this configuration for the
     // free variables and the choices of its goal (the fingerprint, through
-    // the queue stack), so its values depend on that state when this
-    // configuration bound, narrowed, or grouped such a variable, or decided
-    // such a choice.  A result that depends on the private state of a
-    // configuration never goes into the shared graph, where another
-    // configuration, with another binding of the variable or another side
-    // of the choice, would read it (issue #61).  It goes into a private copy
-    // of the spine, as the binding itself does (replace_freevar), and the
-    // shared node stays an application for the other configurations.
-    // E_RESTART tells the enclosing steps that the root was replaced.
+    // the queue stack; the bindings, absorbed above or at the first read),
+    // so its values depend on that state when this configuration bound,
+    // narrowed, or grouped such a variable, or decided such a choice.  A
+    // result that depends on the private state of a configuration never
+    // goes into the shared graph, where another configuration, with another
+    // binding of the variable or another side of the choice, would read it
+    // (issue #61).  It goes into a private copy of the spine, as the
+    // binding itself does (replace_freevar), and the shared node stays an
+    // application for the other configurations.  E_RESTART tells the
+    // enclosing steps that the root was replaced.  State the configuration
+    // gains after the start is handled later: a decision or a narrowing
+    // escapes as a choice (allValues_step), and a binding clones the
+    // capsule at its first read (RuntimeState::diverge).
     //
     // The copy is taken for the state the goal captures outside its
     // guards: a decided choice or a narrowed variable in an argument
@@ -287,7 +356,7 @@ namespace cyrt { inline namespace
     // and a variable the capsule returns is resolved by each configuration
     // that reads the value.  The walk takes the copy in both cases, which
     // only loses the sharing of the capsule.
-    if(holds_private_state(rts, C, (Node *) partial))
+    if(state)
     {
       *C->root = C->scan.copy_spine(C->root, replacement);
       return E_RESTART;

@@ -13,9 +13,10 @@ namespace cyrt
   // lets go of the front one, and the destructor of the rest, and the last
   // queue to let go of a configuration destroys it (Configuration::holders
   // counts the queues).  A configuration is in two queues only after the
-  // escape of a choice from a set function (split), and a queue clones such
-  // a configuration before it evaluates it (unshare_front), so no queue
-  // sees the steps of another.
+  // escape of a choice from a set function (split) or the clone of a
+  // capsule for a configuration whose binding it read (clone), and a queue
+  // clones such a configuration before it evaluates it (unshare_front), so
+  // no queue sees the steps of another.
   //
   // The outermost queue of an evaluation belongs to its runtime state.  The
   // queue of a set function belongs to its SetEval node, and a copy of that
@@ -51,6 +52,17 @@ namespace cyrt
     std::vector<xid_type> decisions;
     // Whether choice ``cid`` is in ``decisions``.
     bool decided(xid_type cid) const;
+    // The bindings of enclosing configurations that the nested evaluation
+    // of this queue reads: the state of the capsule, keyed by the group id
+    // of the variable in the configurations of the queue.  A capsule whose
+    // evaluation reads a binding of the configuration that runs it depends
+    // on the private state of that configuration, so the queue is cloned
+    // for it, and the clone absorbs the binding (RuntimeState::diverge;
+    // allValues_step in currylib/setfunctions.cpp).  The queues of a split
+    // and the clones of a queue share the bindings absorbed before.  The
+    // readers (RuntimeState::get_binding) look here after the map of the
+    // configuration and before the enclosing configurations.
+    BindingMap absorbed;
 
     using iterator = queue_type::iterator;
     using const_iterator = queue_type::const_iterator;
@@ -92,6 +104,14 @@ namespace cyrt
     // each of them prunes the choice node the escape makes.  ``rhs`` must
     // be empty.
     void split(xid_type cid, Queue & rhs);
+    // Clones the queue for a configuration whose binding its nested
+    // evaluation read (RuntimeState::diverge; see allValues_step in
+    // currylib/setfunctions.cpp).  ``copy`` must be empty.  After the call
+    // both queues hold every configuration, the decisions and the absorbed
+    // bindings, and ``copy`` absorbs ``binding`` for ``vid`` as well.  A
+    // shared configuration is cloned before a queue steps it
+    // (unshare_front), so the two queues then evolve apart.
+    void clone(Queue & copy, xid_type vid, Node * binding);
 
   private:
     queue_type items;

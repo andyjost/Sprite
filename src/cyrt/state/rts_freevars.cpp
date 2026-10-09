@@ -23,30 +23,75 @@ namespace cyrt
       );
   }
 
-  // The binding of variable ``vid`` for configuration C: its own, or the one
-  // of the nearest enclosing configuration that bound the variable, read
-  // through the queue stack as read_fp reads the decisions (walk_qstack).  A
-  // nested configuration, the capsule of a set function, starts with an
-  // empty binding map, and a variable of its goal that the enclosing
-  // configuration bound keeps its binding there.  Without the walk the
-  // capsule took such a variable for unbound: it bound the variable anew, to
-  // the other side of its comparison, or narrowed it, and the enclosing
-  // configuration then met the generator of a variable it had bound (issue
-  // #97).  The key in an enclosing map is the group id of the variable in
-  // that configuration.  The writers (add_binding, apply_binding,
-  // update_binding) use the map of the configuration alone.
-  Node * RuntimeState::get_binding(Configuration * C, xid_type vid)
+  // The binding of variable ``vid`` for configuration C: its own, the one
+  // its queue absorbed (Queue::absorbed), or the one of the nearest
+  // enclosing level that has it, read through the queue stack as read_fp
+  // reads the decisions (walk_qstack).  A nested configuration, the capsule
+  // of a set function, starts with an empty binding map, and a variable of
+  // its goal that the enclosing configuration bound keeps its binding there.
+  // Without the walk the capsule took such a variable for unbound: it bound
+  // the variable anew, to the other side of its comparison, or narrowed it,
+  // and the enclosing configuration then met the generator of a variable it
+  // had bound (issue #97).  The key in an enclosing map is the group id of
+  // the variable in that configuration.  The writers (add_binding,
+  // apply_binding, update_binding) use the map of the configuration alone.
+  //
+  // ``level`` tells where the binding was found: 0 for the state of C and
+  // its queue, k for the k-th enclosing level (the configuration there or
+  // the queue it is in).  A binding above is private to the configuration
+  // there, and a capsule that reads it may be shared by configurations
+  // with other bindings (issue #86): a reader that puts the binding into
+  // the evaluation returns diverge, and the capsule is cloned for that
+  // configuration before the read takes effect.  When the binding belongs
+  // to the outermost configuration and that configuration is alone in its
+  // queue, no other configuration reaches the capsule, and a later clone
+  // of the configuration starts with the same binding: the queue of C
+  // absorbs the binding in place, and the level is 0 (the shortcut of
+  // private_state in currylib/setfunctions.cpp, for the same reason).
+  Node * RuntimeState::get_binding(
+      Configuration * C, xid_type vid, size_t * level
+    )
   {
     auto p = C->bindings->find(vid);
     if(p != C->bindings->end())
-      return p->second;
-    for(auto q=this->qstack.rbegin()+1, e=this->qstack.rend(); q!=e; ++q)
     {
-      Configuration * outer = (*q)->front();
-      BindingMap const & bindings = *outer->bindings;
-      auto r = bindings.find(outer->grp_id(vid));
-      if(r != bindings.end())
-        return r->second;
+      if(level)
+        *level = 0;
+      return p->second;
+    }
+    size_t const n = this->qstack.size();
+    size_t k = 0;
+    for(auto q=this->qstack.rbegin(), e=this->qstack.rend(); q!=e; ++q, ++k)
+    {
+      Queue * Q = *q;
+      Node * node = nullptr;
+      xid_type key = vid;
+      if(k)
+      {
+        Configuration * outer = Q->front();
+        key = outer->grp_id(vid);
+        BindingMap const & bindings = *outer->bindings;
+        auto r = bindings.find(key);
+        if(r != bindings.end())
+          node = r->second;
+      }
+      if(!node)
+      {
+        auto a = Q->absorbed.find(key);
+        if(a != Q->absorbed.end())
+          node = a->second;
+      }
+      if(node)
+      {
+        if(k && k == n - 1 && Q->size() == 1)
+        {
+          this->qstack.back()->absorbed[vid] = node;
+          k = 0;
+        }
+        if(level)
+          *level = k;
+        return node;
+      }
     }
     return nullptr;
   }
@@ -73,7 +118,10 @@ namespace cyrt
     assert(C->cursor()->info->tag == T_FREE);
     xid_type vid = obj_id(C->cursor());
     xid_type gid = C->grp_id(vid);
-    Node * node = this->get_binding(C, gid);
+    size_t level = 0;
+    Node * node = this->get_binding(C, gid, &level);
+    if(node && level)
+      return this->diverge(level, gid, node);
     if(!node && this->is_narrowed(C, gid))
       node = this->get_generator(C, gid);
     if(!node && vid != gid)
@@ -100,8 +148,12 @@ namespace cyrt
       assert(slot->info->tag == T_CHOICE);
       return T_CHOICE;
     }
-    else if(Node * binding = this->get_binding(C, slot))
+    xid_type const gid = C->grp_id(obj_id(slot));
+    size_t level = 0;
+    if(Node * binding = this->get_binding(C, gid, &level))
     {
+      if(level)
+        return this->diverge(level, gid, binding);
       C->scan.push(inductive);
       *C->root = C->scan.copy_spine(C->root, binding);
       C->scan.pop();
