@@ -2,7 +2,7 @@
   "files": {
     "func_complete.py": {
       "cxx": {
-        "duration_s": 3.5,
+        "duration_s": 2.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -10,7 +10,7 @@
         "tests": 6
       },
       "py": {
-        "duration_s": 2.5,
+        "duration_s": 2.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -24,7 +24,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 215,
+        "peak_rss_mb": 269,
         "tests": 3
       },
       "py": {
@@ -38,7 +38,7 @@
     },
     "func_eqconstr.py": {
       "cxx": {
-        "duration_s": 1.0,
+        "duration_s": 2.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -46,7 +46,7 @@
         "tests": 128
       },
       "py": {
-        "duration_s": 1.0,
+        "duration_s": 2.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -56,91 +56,91 @@
     },
     "func_eqconstr_a0.py": {
       "cxx": {
-        "duration_s": 2.0,
+        "duration_s": 4.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 37,
+        "peak_rss_mb": 42,
         "tests": 180
       },
       "py": {
-        "duration_s": 1.5,
+        "duration_s": 2.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 38,
+        "peak_rss_mb": 41,
         "tests": 180
       }
     },
     "func_eqconstr_a0b0c0_1.py": {
       "cxx": {
-        "duration_s": 1.0,
+        "duration_s": 3.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 36,
+        "peak_rss_mb": 42,
         "tests": 150
       },
       "py": {
-        "duration_s": 1.5,
+        "duration_s": 3.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 38,
+        "peak_rss_mb": 41,
         "tests": 150
       }
     },
     "func_eqconstr_a0b0c0_2.py": {
       "cxx": {
-        "duration_s": 2.0,
+        "duration_s": 4.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 37,
+        "peak_rss_mb": 41,
         "tests": 150
       },
       "py": {
-        "duration_s": 1.5,
+        "duration_s": 2.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 38,
+        "peak_rss_mb": 41,
         "tests": 150
       }
     },
     "func_eqconstr_a0b0c0_3.py": {
       "cxx": {
-        "duration_s": 1.5,
+        "duration_s": 3.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 37,
+        "peak_rss_mb": 42,
         "tests": 144
       },
       "py": {
-        "duration_s": 1.5,
+        "duration_s": 3.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 38,
+        "peak_rss_mb": 41,
         "tests": 144
       }
     },
     "func_eqconstr_a2b1c0.py": {
       "cxx": {
-        "duration_s": 0.5,
+        "duration_s": 1.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 36,
+        "peak_rss_mb": 41,
         "tests": 15
       },
       "py": {
-        "duration_s": 0.5,
+        "duration_s": 1.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 37,
+        "peak_rss_mb": 41,
         "tests": 15
       }
     },
@@ -164,25 +164,25 @@
     },
     "func_flat2icurry.py": {
       "cxx": {
-        "duration_s": 18.0,
+        "duration_s": 26.9,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 154,
-        "tests": 4
+        "peak_rss_mb": 199,
+        "tests": 8
       },
       "py": {
-        "duration_s": 18.0,
+        "duration_s": 34.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 154,
-        "tests": 4
+        "peak_rss_mb": 198,
+        "tests": 8
       }
     },
     "func_funpat.py": {
       "cxx": {
-        "duration_s": 0.5,
+        "duration_s": 1.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -190,7 +190,7 @@
         "tests": 28
       },
       "py": {
-        "duration_s": 0.5,
+        "duration_s": 1.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -200,25 +200,25 @@
     },
     "func_goal_defaulting.py": {
       "cxx": {
-        "duration_s": 15.7,
-        "failures": 0,
-        "measured_on_cores": 12,
-        "measured_on_mem_gb": 23,
-        "peak_rss_mb": 150,
-        "tests": 52
-      },
-      "py": {
         "duration_s": 5.1,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 116,
-        "tests": 52
+        "peak_rss_mb": 150,
+        "tests": 53
+      },
+      "py": {
+        "duration_s": 5.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 137,
+        "tests": 53
       }
     },
     "func_io.py": {
       "cxx": {
-        "duration_s": 0.5,
+        "duration_s": 1.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -236,7 +236,7 @@
     },
     "func_kiel.py": {
       "cxx": {
-        "duration_s": 0.5,
+        "duration_s": 1.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -244,7 +244,7 @@
         "tests": 30
       },
       "py": {
-        "duration_s": 2.0,
+        "duration_s": 2.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -254,7 +254,7 @@
     },
     "func_math.py": {
       "cxx": {
-        "duration_s": 1.0,
+        "duration_s": 1.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -262,7 +262,7 @@
         "tests": 67
       },
       "py": {
-        "duration_s": 1.0,
+        "duration_s": 1.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -272,37 +272,37 @@
     },
     "func_math_float.py": {
       "cxx": {
-        "duration_s": 1.0,
+        "duration_s": 1.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 36,
+        "peak_rss_mb": 41,
         "tests": 77
       },
       "py": {
-        "duration_s": 1.0,
+        "duration_s": 1.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 37,
+        "peak_rss_mb": 41,
         "tests": 77
       }
     },
     "func_math_int.py": {
       "cxx": {
-        "duration_s": 1.0,
+        "duration_s": 1.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 36,
+        "peak_rss_mb": 41,
         "tests": 74
       },
       "py": {
-        "duration_s": 1.0,
+        "duration_s": 1.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 37,
+        "peak_rss_mb": 40,
         "tests": 74
       }
     },
@@ -316,7 +316,7 @@
         "tests": 6
       },
       "py": {
-        "duration_s": 2.0,
+        "duration_s": 1.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -344,7 +344,7 @@
     },
     "func_setfunctions.py": {
       "cxx": {
-        "duration_s": 1.5,
+        "duration_s": 2.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -352,7 +352,7 @@
         "tests": 39
       },
       "py": {
-        "duration_s": 1.0,
+        "duration_s": 1.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -370,12 +370,30 @@
         "tests": 4
       },
       "py": {
-        "duration_s": 2.5,
+        "duration_s": 2.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 56,
         "tests": 4
+      }
+    },
+    "func_typed_expr.py": {
+      "cxx": {
+        "duration_s": 2.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 61,
+        "tests": 16
+      },
+      "py": {
+        "duration_s": 1.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 53,
+        "tests": 16
       }
     },
     "unit_api.py": {
@@ -385,7 +403,7 @@
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 106,
-        "tests": 9
+        "tests": 12
       },
       "py": {
         "duration_s": 1.0,
@@ -393,30 +411,30 @@
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 76,
-        "tests": 9
+        "tests": 12
       }
     },
     "unit_benchmarks.py": {
       "cxx": {
-        "duration_s": 15.0,
+        "duration_s": 23.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 209,
-        "tests": 59
+        "peak_rss_mb": 346,
+        "tests": 73
       },
       "py": {
-        "duration_s": 8.0,
+        "duration_s": 24.1,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 226,
-        "tests": 59
+        "tests": 73
       }
     },
     "unit_cache.py": {
       "cxx": {
-        "duration_s": 12.5,
+        "duration_s": 5.6,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -424,11 +442,11 @@
         "tests": 28
       },
       "py": {
-        "duration_s": 5.5,
+        "duration_s": 5.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 108,
+        "peak_rss_mb": 133,
         "tests": 28
       }
     },
@@ -452,7 +470,7 @@
     },
     "unit_compile.py": {
       "cxx": {
-        "duration_s": 2.5,
+        "duration_s": 0.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -470,7 +488,7 @@
     },
     "unit_compile_expr.py": {
       "cxx": {
-        "duration_s": 2.5,
+        "duration_s": 0.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -482,13 +500,13 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 42,
+        "peak_rss_mb": 45,
         "tests": 2
       }
     },
     "unit_compile_modules.py": {
       "cxx": {
-        "duration_s": 2.5,
+        "duration_s": 1.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -500,21 +518,21 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 42,
+        "peak_rss_mb": 44,
         "tests": 3
       }
     },
     "unit_conda.py": {
       "cxx": {
-        "duration_s": 42.1,
+        "duration_s": 28.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 103,
+        "peak_rss_mb": 104,
         "tests": 24
       },
       "py": {
-        "duration_s": 34.5,
+        "duration_s": 24.3,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -524,43 +542,61 @@
     },
     "unit_configure.py": {
       "cxx": {
-        "duration_s": 11.5,
+        "duration_s": 10.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 74,
-        "tests": 12
+        "peak_rss_mb": 78,
+        "tests": 17
       },
       "py": {
-        "duration_s": 11.5,
+        "duration_s": 11.2,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 76,
-        "tests": 12
+        "peak_rss_mb": 79,
+        "tests": 17
       }
     },
     "unit_curry2icurry.py": {
       "cxx": {
-        "duration_s": 11.5,
+        "duration_s": 24.6,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 1026,
-        "tests": 11
+        "tests": 16
       },
       "py": {
-        "duration_s": 11.0,
+        "duration_s": 24.6,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 1031,
-        "tests": 11
+        "tests": 16
+      }
+    },
+    "unit_curry2icurry_stale.py": {
+      "cxx": {
+        "duration_s": 7.1,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 169,
+        "tests": 18
+      },
+      "py": {
+        "duration_s": 6.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 132,
+        "tests": 18
       }
     },
     "unit_currylib.py": {
       "cxx": {
-        "duration_s": 16.0,
+        "duration_s": 15.7,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -568,7 +604,7 @@
         "tests": 10
       },
       "py": {
-        "duration_s": 15.0,
+        "duration_s": 14.6,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -578,12 +614,12 @@
     },
     "unit_cxx_bom.py": {
       "cxx": {
-        "duration_s": 1.5,
+        "duration_s": 2.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 162,
-        "tests": 6
+        "tests": 10
       },
       "py": {
         "duration_s": 0.5,
@@ -591,7 +627,7 @@
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 33,
-        "tests": 6
+        "tests": 10
       }
     },
     "unit_cxx_counters.py": {
@@ -600,7 +636,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 36,
+        "peak_rss_mb": 41,
         "tests": 14
       },
       "py": {
@@ -608,8 +644,26 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 37,
+        "peak_rss_mb": 41,
         "tests": 14
+      }
+    },
+    "unit_cxx_emit.py": {
+      "cxx": {
+        "duration_s": 0.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 42,
+        "tests": 5
+      },
+      "py": {
+        "duration_s": 0.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 42,
+        "tests": 5
       }
     },
     "unit_cxx_freevars.py": {
@@ -632,7 +686,7 @@
     },
     "unit_cxx_gc.py": {
       "cxx": {
-        "duration_s": 9.0,
+        "duration_s": 9.6,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -650,7 +704,7 @@
     },
     "unit_cxx_gc_counters.py": {
       "cxx": {
-        "duration_s": 5.0,
+        "duration_s": 3.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -668,47 +722,47 @@
     },
     "unit_cxx_heap.py": {
       "cxx": {
-        "duration_s": 4.0,
+        "duration_s": 4.1,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 215,
-        "tests": 9
+        "tests": 10
       },
       "py": {
         "duration_s": 1.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 158,
-        "tests": 9
+        "peak_rss_mb": 176,
+        "tests": 10
       }
     },
     "unit_cxx_interp.py": {
       "cxx": {
-        "duration_s": 13.0,
+        "duration_s": 28.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 154,
-        "tests": 25
+        "peak_rss_mb": 231,
+        "tests": 36
       },
       "py": {
         "duration_s": 0.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 33,
-        "tests": 25
+        "peak_rss_mb": 37,
+        "tests": 36
       }
     },
     "unit_cxx_literals.py": {
       "cxx": {
-        "duration_s": 2.0,
+        "duration_s": 1.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 149,
+        "peak_rss_mb": 151,
         "tests": 11
       },
       "py": {
@@ -726,7 +780,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 32,
+        "peak_rss_mb": 33,
         "tests": 13
       },
       "py": {
@@ -740,7 +794,7 @@
     },
     "unit_cxx_partial.py": {
       "cxx": {
-        "duration_s": 2.0,
+        "duration_s": 1.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -776,7 +830,7 @@
     },
     "unit_cxx_rewrite.py": {
       "cxx": {
-        "duration_s": 2.0,
+        "duration_s": 1.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -784,12 +838,30 @@
         "tests": 17
       },
       "py": {
-        "duration_s": 1.5,
+        "duration_s": 1.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 154,
         "tests": 17
+      }
+    },
+    "unit_cxx_rotation.py": {
+      "cxx": {
+        "duration_s": 9.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 172,
+        "tests": 20
+      },
+      "py": {
+        "duration_s": 1.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 45,
+        "tests": 20
       }
     },
     "unit_cxx_runtime.py": {
@@ -812,29 +884,29 @@
     },
     "unit_cxx_scheduler.py": {
       "cxx": {
-        "duration_s": 2.0,
+        "duration_s": 2.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 154,
-        "tests": 8
+        "tests": 9
       },
       "py": {
-        "duration_s": 1.0,
+        "duration_s": 1.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 74,
-        "tests": 8
+        "tests": 9
       }
     },
     "unit_cxx_stack.py": {
       "cxx": {
-        "duration_s": 4.5,
+        "duration_s": 8.1,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 158,
+        "peak_rss_mb": 159,
         "tests": 16
       },
       "py": {
@@ -842,26 +914,62 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 33,
+        "peak_rss_mb": 34,
         "tests": 16
+      }
+    },
+    "unit_cxx_steplimit.py": {
+      "cxx": {
+        "duration_s": 1.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 48,
+        "tests": 6
+      },
+      "py": {
+        "duration_s": 1.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 51,
+        "tests": 6
+      }
+    },
+    "unit_cxx_tiered.py": {
+      "cxx": {
+        "duration_s": 36.3,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 329,
+        "tests": 27
+      },
+      "py": {
+        "duration_s": 0.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 36,
+        "tests": 27
       }
     },
     "unit_cxx_toolchain.py": {
       "cxx": {
-        "duration_s": 33.0,
+        "duration_s": 34.1,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 290,
-        "tests": 46
+        "tests": 49
       },
       "py": {
         "duration_s": 0.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 37,
-        "tests": 46
+        "peak_rss_mb": 38,
+        "tests": 49
       }
     },
     "unit_cxx_variable.py": {
@@ -902,38 +1010,38 @@
     },
     "unit_equality.py": {
       "cxx": {
-        "duration_s": 13.0,
+        "duration_s": 13.6,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 398,
-        "tests": 22
+        "peak_rss_mb": 403,
+        "tests": 25
       },
       "py": {
-        "duration_s": 11.0,
+        "duration_s": 11.2,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 396,
-        "tests": 22
+        "peak_rss_mb": 418,
+        "tests": 25
       }
     },
     "unit_examples.py": {
       "cxx": {
-        "duration_s": 9.0,
+        "duration_s": 17.6,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 232,
-        "tests": 20
+        "peak_rss_mb": 303,
+        "tests": 22
       },
       "py": {
-        "duration_s": 48.0,
+        "duration_s": 86.9,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 132,
-        "tests": 20
+        "peak_rss_mb": 145,
+        "tests": 22
       }
     },
     "unit_expr.py": {
@@ -942,26 +1050,26 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 36,
-        "tests": 25
+        "peak_rss_mb": 50,
+        "tests": 32
       },
       "py": {
         "duration_s": 0.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 37,
-        "tests": 25
+        "peak_rss_mb": 50,
+        "tests": 32
       }
     },
     "unit_findcurry.py": {
       "cxx": {
-        "duration_s": 0.5,
+        "duration_s": 1.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 106,
-        "tests": 7
+        "peak_rss_mb": 127,
+        "tests": 9
       },
       "py": {
         "duration_s": 0.5,
@@ -969,7 +1077,7 @@
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 57,
-        "tests": 7
+        "tests": 9
       }
     },
     "unit_fingerprint.py": {
@@ -978,7 +1086,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 47,
+        "peak_rss_mb": 48,
         "tests": 3
       },
       "py": {
@@ -986,31 +1094,49 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 47,
+        "peak_rss_mb": 48,
         "tests": 3
       }
     },
     "unit_flat2icurry.py": {
       "cxx": {
-        "duration_s": 7.0,
+        "duration_s": 10.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 72,
-        "tests": 68
+        "peak_rss_mb": 87,
+        "tests": 77
       },
       "py": {
-        "duration_s": 7.5,
+        "duration_s": 10.6,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 72,
-        "tests": 68
+        "peak_rss_mb": 87,
+        "tests": 77
+      }
+    },
+    "unit_flat2icurry_bindingopt.py": {
+      "cxx": {
+        "duration_s": 2.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 73,
+        "tests": 31
+      },
+      "py": {
+        "duration_s": 8.6,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 56,
+        "tests": 31
       }
     },
     "unit_free_markers.py": {
       "cxx": {
-        "duration_s": 1.0,
+        "duration_s": 0.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -1026,6 +1152,24 @@
         "tests": 17
       }
     },
+    "unit_frontend_warnings.py": {
+      "cxx": {
+        "duration_s": 4.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 109,
+        "tests": 5
+      },
+      "py": {
+        "duration_s": 4.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 107,
+        "tests": 5
+      }
+    },
     "unit_func_parts.py": {
       "cxx": {
         "duration_s": 0.5,
@@ -1033,33 +1177,69 @@
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 33,
-        "tests": 3
+        "tests": 4
       },
       "py": {
         "duration_s": 0.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 33,
-        "tests": 3
+        "peak_rss_mb": 34,
+        "tests": 4
+      }
+    },
+    "unit_funcpat_narrowed.py": {
+      "cxx": {
+        "duration_s": 0.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 70,
+        "tests": 2
+      },
+      "py": {
+        "duration_s": 9.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 46,
+        "tests": 2
+      }
+    },
+    "unit_funpat_free_argument.py": {
+      "cxx": {
+        "duration_s": 1.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 51,
+        "tests": 9
+      },
+      "py": {
+        "duration_s": 1.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 50,
+        "tests": 9
       }
     },
     "unit_goals.py": {
       "cxx": {
-        "duration_s": 13.5,
+        "duration_s": 4.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 182,
-        "tests": 38
+        "tests": 48
       },
       "py": {
-        "duration_s": 3.0,
+        "duration_s": 6.6,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 110,
-        "tests": 38
+        "tests": 48
       }
     },
     "unit_icurry.py": {
@@ -1086,7 +1266,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 40,
+        "peak_rss_mb": 41,
         "tests": 2
       },
       "py": {
@@ -1094,7 +1274,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 39,
+        "peak_rss_mb": 43,
         "tests": 2
       }
     },
@@ -1104,16 +1284,16 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 36,
-        "tests": 37
+        "peak_rss_mb": 40,
+        "tests": 39
       },
       "py": {
-        "duration_s": 1.0,
+        "duration_s": 0.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 37,
-        "tests": 37
+        "peak_rss_mb": 40,
+        "tests": 39
       }
     },
     "unit_inspect.py": {
@@ -1123,7 +1303,7 @@
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 153,
-        "tests": 24
+        "tests": 27
       },
       "py": {
         "duration_s": 0.5,
@@ -1131,7 +1311,25 @@
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 61,
-        "tests": 24
+        "tests": 27
+      }
+    },
+    "unit_int_semantics.py": {
+      "cxx": {
+        "duration_s": 1.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 51,
+        "tests": 13
+      },
+      "py": {
+        "duration_s": 1.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 50,
+        "tests": 13
       }
     },
     "unit_io_bind.py": {
@@ -1154,43 +1352,61 @@
     },
     "unit_loadsave.py": {
       "cxx": {
-        "duration_s": 0.5,
+        "duration_s": 3.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 33,
-        "tests": 4
+        "peak_rss_mb": 185,
+        "tests": 9
       },
       "py": {
-        "duration_s": 1.5,
+        "duration_s": 2.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 138,
-        "tests": 4
+        "peak_rss_mb": 148,
+        "tests": 9
+      }
+    },
+    "unit_long_lists.py": {
+      "cxx": {
+        "duration_s": 1.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 79,
+        "tests": 3
+      },
+      "py": {
+        "duration_s": 6.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 75,
+        "tests": 3
       }
     },
     "unit_make.py": {
       "cxx": {
-        "duration_s": 2.5,
+        "duration_s": 9.6,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 106,
-        "tests": 6
+        "peak_rss_mb": 281,
+        "tests": 18
       },
       "py": {
-        "duration_s": 2.5,
+        "duration_s": 4.6,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 106,
-        "tests": 6
+        "tests": 18
       }
     },
     "unit_optimize.py": {
       "cxx": {
-        "duration_s": 4.0,
+        "duration_s": 3.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -1198,12 +1414,48 @@
         "tests": 18
       },
       "py": {
-        "duration_s": 1.0,
+        "duration_s": 1.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 69,
         "tests": 18
+      }
+    },
+    "unit_optimize_applies.py": {
+      "cxx": {
+        "duration_s": 3.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 140,
+        "tests": 25
+      },
+      "py": {
+        "duration_s": 2.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 61,
+        "tests": 25
+      }
+    },
+    "unit_optimize_inline.py": {
+      "cxx": {
+        "duration_s": 5.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 153,
+        "tests": 31
+      },
+      "py": {
+        "duration_s": 3.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 67,
+        "tests": 31
       }
     },
     "unit_parse.py": {
@@ -1220,7 +1472,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 83,
+        "peak_rss_mb": 84,
         "tests": 11
       }
     },
@@ -1248,7 +1500,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 33,
+        "peak_rss_mb": 34,
         "tests": 9
       },
       "py": {
@@ -1256,49 +1508,49 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 33,
+        "peak_rss_mb": 34,
         "tests": 9
       }
     },
     "unit_prebuild.py": {
       "cxx": {
-        "duration_s": 5.0,
+        "duration_s": 27.2,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 130,
-        "tests": 16
+        "tests": 17
       },
       "py": {
-        "duration_s": 5.0,
+        "duration_s": 27.2,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 71,
-        "tests": 16
+        "peak_rss_mb": 78,
+        "tests": 17
       }
     },
     "unit_prelude.py": {
       "cxx": {
-        "duration_s": 3.0,
+        "duration_s": 1.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 148,
-        "tests": 14
+        "tests": 18
       },
       "py": {
-        "duration_s": 1.0,
-        "failures": 1,
+        "duration_s": 1.5,
+        "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 73,
-        "tests": 14
+        "tests": 18
       }
     },
     "unit_product_cache.py": {
       "cxx": {
-        "duration_s": 10.0,
+        "duration_s": 6.6,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -1320,7 +1572,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 32,
+        "peak_rss_mb": 33,
         "tests": 1
       },
       "py": {
@@ -1328,7 +1580,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 33,
+        "peak_rss_mb": 34,
         "tests": 1
       }
     },
@@ -1338,7 +1590,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 32,
+        "peak_rss_mb": 33,
         "tests": 4
       },
       "py": {
@@ -1364,7 +1616,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 42,
+        "peak_rss_mb": 48,
         "tests": 11
       }
     },
@@ -1374,7 +1626,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 57,
+        "peak_rss_mb": 71,
         "tests": 10
       },
       "py": {
@@ -1382,7 +1634,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 58,
+        "peak_rss_mb": 66,
         "tests": 10
       }
     },
@@ -1396,17 +1648,17 @@
         "tests": 11
       },
       "py": {
-        "duration_s": 4.5,
+        "duration_s": 9.1,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 232,
+        "peak_rss_mb": 255,
         "tests": 11
       }
     },
     "unit_py_evaluation.py": {
       "cxx": {
-        "duration_s": 1.0,
+        "duration_s": 0.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -1432,11 +1684,11 @@
         "tests": 9
       },
       "py": {
-        "duration_s": 6.0,
+        "duration_s": 4.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 73,
+        "peak_rss_mb": 87,
         "tests": 9
       }
     },
@@ -1454,7 +1706,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 37,
+        "peak_rss_mb": 40,
         "tests": 5
       }
     },
@@ -1464,7 +1716,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 52,
+        "peak_rss_mb": 59,
         "tests": 6
       },
       "py": {
@@ -1482,7 +1734,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 32,
+        "peak_rss_mb": 33,
         "tests": 7
       },
       "py": {
@@ -1500,7 +1752,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 32,
+        "peak_rss_mb": 33,
         "tests": 9
       },
       "py": {
@@ -1508,7 +1760,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 44,
+        "peak_rss_mb": 51,
         "tests": 9
       }
     },
@@ -1518,7 +1770,7 @@
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 32,
+        "peak_rss_mb": 33,
         "tests": 4
       },
       "py": {
@@ -1530,9 +1782,27 @@
         "tests": 4
       }
     },
+    "unit_py_residuation.py": {
+      "cxx": {
+        "duration_s": 0.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 46,
+        "tests": 6
+      },
+      "py": {
+        "duration_s": 1.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 46,
+        "tests": 6
+      }
+    },
     "unit_py_runtime.py": {
       "cxx": {
-        "duration_s": 1.5,
+        "duration_s": 0.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -1541,7 +1811,7 @@
       },
       "py": {
         "duration_s": 1.0,
-        "failures": 5,
+        "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 77,
@@ -1566,27 +1836,99 @@
         "tests": 3
       }
     },
-    "unit_runner.py": {
+    "unit_reference_backend.py": {
       "cxx": {
-        "duration_s": 11.5,
+        "duration_s": 2.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 140,
-        "tests": 54
+        "peak_rss_mb": 58,
+        "tests": 8
       },
       "py": {
-        "duration_s": 11.5,
+        "duration_s": 2.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 146,
-        "tests": 54
+        "peak_rss_mb": 75,
+        "tests": 8
+      }
+    },
+    "unit_reload.py": {
+      "cxx": {
+        "duration_s": 2.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 168,
+        "tests": 6
+      },
+      "py": {
+        "duration_s": 0.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 44,
+        "tests": 6
+      }
+    },
+    "unit_runner.py": {
+      "cxx": {
+        "duration_s": 18.1,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 260,
+        "tests": 69
+      },
+      "py": {
+        "duration_s": 18.8,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 260,
+        "tests": 69
+      }
+    },
+    "unit_setfunctions_bindings.py": {
+      "cxx": {
+        "duration_s": 1.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 80,
+        "tests": 7
+      },
+      "py": {
+        "duration_s": 1.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 81,
+        "tests": 7
+      }
+    },
+    "unit_setfunctions_bugs.py": {
+      "cxx": {
+        "duration_s": 4.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 82,
+        "tests": 22
+      },
+      "py": {
+        "duration_s": 4.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 82,
+        "tests": 22
       }
     },
     "unit_setup_script.py": {
       "cxx": {
-        "duration_s": 3.5,
+        "duration_s": 3.6,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -1602,9 +1944,27 @@
         "tests": 16
       }
     },
+    "unit_show_float.py": {
+      "cxx": {
+        "duration_s": 0.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 50,
+        "tests": 4
+      },
+      "py": {
+        "duration_s": 0.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 50,
+        "tests": 4
+      }
+    },
     "unit_sigtable.py": {
       "cxx": {
-        "duration_s": 3.0,
+        "duration_s": 2.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -1612,17 +1972,17 @@
         "tests": 22
       },
       "py": {
-        "duration_s": 2.5,
+        "duration_s": 2.0,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
-        "peak_rss_mb": 66,
+        "peak_rss_mb": 69,
         "tests": 22
       }
     },
     "unit_split.py": {
       "cxx": {
-        "duration_s": 1.0,
+        "duration_s": 1.5,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
@@ -1630,12 +1990,66 @@
         "tests": 4
       },
       "py": {
-        "duration_s": 13.0,
+        "duration_s": 7.1,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 67,
         "tests": 4
+      }
+    },
+    "unit_typecheck.py": {
+      "cxx": {
+        "duration_s": 2.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 66,
+        "tests": 75
+      },
+      "py": {
+        "duration_s": 2.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 77,
+        "tests": 75
+      }
+    },
+    "unit_typecheck_serialize.py": {
+      "cxx": {
+        "duration_s": 1.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 63,
+        "tests": 21
+      },
+      "py": {
+        "duration_s": 1.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 63,
+        "tests": 21
+      }
+    },
+    "unit_typed_expr.py": {
+      "cxx": {
+        "duration_s": 12.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 213,
+        "tests": 55
+      },
+      "py": {
+        "duration_s": 14.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 210,
+        "tests": 55
       }
     },
     "unit_utility.py": {
