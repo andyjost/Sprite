@@ -1,6 +1,8 @@
 #include <cassert>
 #include <cstdlib>
 #include "cyrt/cyrt.hpp"
+#include "cyrt/currylib/prelude.hpp"
+#include "cyrt/utf8.hpp"
 #include <sstream>
 #include <type_traits>
 

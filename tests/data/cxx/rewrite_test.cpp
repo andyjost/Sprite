@@ -4,6 +4,7 @@
 // check and exits with status 1; it prints "ok" and exits with status 0 when
 // every check passes.
 #include "cyrt/cyrt.hpp"
+#include "cyrt/currylib/prelude.hpp"
 #include <cstdio>
 #include <cstdlib>
 

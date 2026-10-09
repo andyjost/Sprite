@@ -222,13 +222,15 @@ interprets the ICurry of the module until the object is ready.
 
 The C++ backend compiles each generated module with ``g++`` into a shared
 object the first time the module is used, and again when the runtime headers
-change.  Each object records a digest of the installed headers, of the
-flags it was compiled with, of the compiler the runtime was built with and
-of the format of the generated code, and the real path of the installation
-it was compiled under, in a file beside it (``<module>.so.abi``, the ABI
-stamp).  An
-object whose digest differs from the installed headers, or whose path is not
-this installation, is compiled again; a new copy of the same runtime keeps
+the generated code includes change.  Each object records a digest of those
+headers (the include closure of ``cyrt/cyrt.hpp``; a header of the runtime
+outside it rebuilds the runtime library alone), of the flags it was
+compiled with, of the compiler the runtime was built with and of the format
+of the generated code, and the real path of the installation it was
+compiled under, in a file beside it (``<module>.so.abi``, the ABI stamp).
+An object whose digest differs from the installed headers of the closure,
+or whose path is not this installation, is compiled again; a new copy of
+the same runtime keeps
 every object, and a package whose manager rewrote the path at install time
 keeps its objects.  The object itself names no path: it carries the
 ``SONAME`` ``sprite-<module>.so.<format>`` and names the objects of its

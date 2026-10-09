@@ -307,7 +307,8 @@ with Sprite, then you should not need these.
   ``pch`` may be deleted at any time, and the header is built again on the
   next compile.  Set the variable to the empty string to compile without
   the precompiled header.  The header is built again when it is older than
-  any header file.
+  a header the generated code includes (the include closure of
+  ``cyrt/cyrt.hpp``).  A header outside the closure never makes it stale.
 
 ``SPRITE_DEBUG``
   Enables debugging for Sprite internal errors.  The command-line tools
@@ -363,8 +364,9 @@ with Sprite, then you should not need these.
   The test runner and the worktree script name a directory of their own
   (``tests/.cache/products``); a developer who wants one across trees
   names it.  A module in the temporary directory of the system is never
-  cached.  The cache grows: each change to the runtime headers, to the
-  compiler or to the flags starts a new digest directory (about 42 MB for
+  cached.  The cache grows: each change to a runtime header the generated
+  code includes, to the compiler or to the flags starts a new digest
+  directory (about 42 MB for
   the Curry library), and the toolchain removes nothing; the directory may
   be deleted at any time.  ``sprite-make`` prints one line with the counts
   of a run that restored or stored a product (``sprite-make: product cache:

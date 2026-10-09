@@ -18,9 +18,10 @@ Layout.  The cache is a directory of entries::
 The root is ``config.product_cache_dir`` (the environment variable
 SPRITE_PRODUCT_CACHE; the empty string turns the cache off).  The stamp
 digest is the digest of the ABI stamp (``toolchain.object_digest`` of the
-C++ backend): the runtime headers, the flags of the flavor and of the
-collector, so an entry serves one runtime.  The key is a digest of the facts
-that decide the generated code and the object (see ``product_key``): the
+C++ backend): the runtime headers the generated code includes, the flags of
+the flavor and of the collector, so an entry serves one runtime.  The key
+is a digest of the facts that decide the generated code and the object (see
+``product_key``): the
 module's name and its own texts (its Curry source, its ICurry file and its
 JSON, each one that exists; the JSON is the input of the code generator,
 and a new JSON from the same source, after a change to the ICurry reader or
@@ -54,10 +55,11 @@ The modification times of the restored files are set in the order of the
 toolchain (the C++ after the JSON, the object after the C++), so the plan
 finds the object the newest file of the module (``_findcurry.currentfile``).
 
-Growth.  Nothing in the toolchain removes an entry: each change to the
-runtime headers, to the compiler or to the flags starts a new digest
-directory, and the old one stays.  ``prune`` removes the digest directories
-other than the ones given, and the temporary directories of a store that
+Growth.  Nothing in the toolchain removes an entry: each change to a
+runtime header the generated code includes, to the compiler or to the flags
+starts a new digest directory, and the old one stays.  ``prune`` removes
+the digest directories other than the ones given, and the temporary
+directories of a store that
 was interrupted; the test runner calls it on its own cache after the
 prepare pass (tests/README, section 10).  The directory may be deleted at
 any time.

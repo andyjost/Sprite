@@ -13,10 +13,12 @@ or none, is written again from the JSON file instead of being compiled
 against a runtime it was not written for.
 
 Each compiled object carries an ABI stamp beside it: the digest of the
-installed runtime headers it was compiled against and of the flags of its
-flavor, and the real path of the installation as text.  An object whose
-digest differs, or whose text names another installation, is compiled
-again; the age of the runtime library does not count.
+runtime headers the generated code includes (the include closure of
+cyrt/cyrt.hpp; a header outside it belongs to the runtime library alone)
+and of the flags of its flavor, and the real path of the installation as
+text.  An object whose digest differs, or whose text names another
+installation, is compiled again; the age of the runtime library does not
+count.
 
 The tests compile their modules in a temporary directory, which the product
 cache leaves out (curry.toolchain._productcache.excluded), so a compile here
@@ -37,8 +39,8 @@ from curry.toolchain import plans, _findcurry, makecurry
 from curry.utility import curryname
 from curry.utility.binding import binding, del_
 from unittest import mock
-import curry, gc, importlib, itertools, json, logging, os, shutil, subprocess
-import tempfile, time, types, unittest, zlib
+import contextlib, curry, gc, importlib, itertools, json, logging, os, re
+import shutil, subprocess, tempfile, time, types, unittest, zlib
 
 # A module with one goal that returns an integer.
 MODULE_JSON = (
@@ -490,13 +492,49 @@ class TestFormatStamp(ToolchainTestCase):
       )
     self.assertFalse(cpp2so.is_stale(long))
 
+def conditional_includes(headers, include):
+  '''
+  The paths of the headers that a quoted include inside an #if block of one
+  of ``headers`` names, resolved as the scan of the toolchain resolves them
+  (against the directory of the including header, then against the include
+  directory ``include``).  The runtime headers use #pragma once, so every
+  #if is a condition, not a guard.
+  '''
+  found = set()
+  for header in headers:
+    depth = 0
+    with open(header, 'rb') as stream:
+      for line in stream:
+        words = line.split()
+        if not words or not words[0].startswith(b'#'):
+          continue
+        directive = words[0]
+        if directive == b'#' and len(words) > 1:
+          directive += words[1]
+        if directive.startswith(b'#if'):
+          depth += 1
+        elif directive.startswith(b'#endif'):
+          depth -= 1
+        elif directive.startswith(b'#include') and depth > 0:
+          m = re.search(rb'"([^"]+)"', line)
+          if m is None:
+            continue
+          parts = m.group(1).decode('utf-8').split('/')
+          for base in os.path.dirname(header), include:
+            target = os.path.join(base, *parts)
+            if os.path.exists(target):
+              found.add(os.path.normpath(target))
+              break
+  return found
+
 @unittest.skipIf(
     curry.flags['backend'] != 'cxx', 'the toolchain belongs to the C++ backend'
   )
 class TestAbiStamp(ToolchainTestCase):
   '''
-  Each shared object gets an ABI stamp: the digest of the installed runtime
-  headers it was compiled against and of the flags of its flavor.  An object
+  Each shared object gets an ABI stamp: the digest of the runtime headers
+  the generated code includes (the include closure of cyrt/cyrt.hpp;
+  test_closure) and of the flags of its flavor.  An object
   whose stamp is missing or differs from the digest of the installation is
   compiled again (TestFlavor covers the flavors).  An object with the
   same stamp is kept, whatever the time stamps of the runtime library and the
@@ -777,6 +815,29 @@ class TestAbiStamp(ToolchainTestCase):
       self.assertIsNone(self.cpp2so.read_stamp(sofile))
     self.assertTrue(self.cpp2so.is_stale(sofile))
     self.assertEqual(self.prerequisite(name), self.cached_file(name, '.cpp'))
+    # A header of the closure that cannot be read, under a root that reads:
+    # the same error, with the name of the header.  An include whose target
+    # does not exist is skipped: the compiler would find the file on its own
+    # search path, or fail itself.
+    copy = os.path.join(self.tmpdir, 'copy')
+    shutil.copytree(
+        config.installed_path('include', 'cyrt'), os.path.join(copy, 'cyrt')
+      , ignore=shutil.ignore_patterns('*.gch')
+      )
+    node = os.path.join(copy, 'cyrt', 'graph', 'node.hpp')
+    os.unlink(node)
+    os.symlink(os.path.join(self.tmpdir, 'gone.hpp'), node)
+    with self.assertRaises(exceptions.PrerequisiteError) as cm:
+      toolchain.runtime_digest(copy)
+    self.assertIn(copy, str(cm.exception))
+    self.assertIn('node.hpp', str(cm.exception))
+    os.unlink(node)
+    toolchain.runtime_digest.cache_clear()
+    self.assertRegex(toolchain.runtime_digest(copy), r'^[0-9a-f]{16}$')
+    self.assertNotIn(node, toolchain.runtime_headers(copy))
+    self.assertIn(
+        os.path.join(copy, 'cyrt', 'cyrt.hpp'), toolchain.runtime_headers(copy)
+      )
 
   def test_digest(self):
     '''
@@ -821,6 +882,194 @@ class TestAbiStamp(ToolchainTestCase):
     toolchain.runtime_digest.cache_clear()
     self.assertNotEqual(toolchain.runtime_digest(root), changed)
     self.assertEqual(toolchain.runtime_digest(), digest)
+
+  @contextlib.contextmanager
+  def installed_include(self, root):
+    '''
+    Routes the include directory of the installation
+    (config.installed_path('include')) to ``root``, and clears the cache of
+    the digest around it.
+    '''
+    real = config.installed_path
+    def patched(*parts):
+      if parts and parts[0] == 'include':
+        return os.path.join(root, *parts[1:])
+      return real(*parts)
+    toolchain.runtime_digest.cache_clear()
+    try:
+      with mock.patch.object(config, 'installed_path', patched):
+        yield
+    finally:
+      toolchain.runtime_digest.cache_clear()
+
+  def test_pch_unreadable_header(self):
+    '''
+    A header of the closure that cannot be read makes the precompiled
+    header stale, removes no member, and fails the build with the one
+    warning.  No PrerequisiteError leaves prepare().
+    '''
+    copy = os.path.join(self.tmpdir, 'pch_copy')
+    shutil.copytree(
+        config.installed_path('include', 'cyrt'), os.path.join(copy, 'cyrt')
+      , ignore=shutil.ignore_patterns('*.gch')
+      )
+    node = os.path.join(copy, 'cyrt', 'graph', 'node.hpp')
+    os.unlink(node)
+    os.symlink(os.path.join(self.tmpdir, 'gone.hpp'), node)
+    root = os.path.join(self.tmpdir, 'pch_root')
+    pch = toolchain.PrecompiledHeader(
+        root, config.cxx_tool(), toolchain.flavor_flags('release')
+      )
+    os.makedirs(pch.directory)
+    other = os.path.join(pch.directory, 'O0g-000000000003.gch')
+    for path in pch.filename, other:
+      with open(path, 'w') as stream:
+        stream.write('not a precompiled header\n')
+      os.utime(path, (1, 1))
+    with self.installed_include(copy):
+      with self.assertRaises(exceptions.PrerequisiteError):
+        pch.header_files()
+      self.assertFalse(pch.is_current())
+      self.assertIsNone(pch.remove_stale_members())
+      self.assertTrue(os.path.exists(other))
+      with capture_log('curry.backends.cxx.toolchain') as log:
+        self.assertFalse(pch.prepare())
+      log.checkMessages(self, warning='cannot build the precompiled header')
+      self.assertIn(root, toolchain.PrecompiledHeader._failed)
+    toolchain.PrecompiledHeader._failed.discard(root)
+
+  def test_closure(self):
+    '''
+    The digest covers the headers the generated code includes and no other:
+    the include closure of cyrt/cyrt.hpp.  An edit to a header outside it,
+    one the runtime library alone uses (the equality of graphs, the walks,
+    the bytecode of the interpreter), leaves the digest as it is, so no
+    module is compiled again.  An edit to a header inside it (the node
+    layout, the info table, the status protocol of the scheduler) gives
+    another digest, and an object stamped with the old one is stale.
+    '''
+    include = config.installed_path('include')
+    root = os.path.join(self.tmpdir, 'include')
+    shutil.copytree(
+        os.path.join(include, 'cyrt'), os.path.join(root, 'cyrt')
+      , ignore=shutil.ignore_patterns('*.gch')
+      )
+    def relative(paths, base):
+      return [os.path.relpath(path, base) for path in paths]
+    inside = relative(toolchain.runtime_headers(root), root)
+    self.assertEqual(inside, relative(toolchain.runtime_headers(), include))
+    self.assertEqual(inside, sorted(inside))
+    every = sorted(
+        os.path.relpath(os.path.join(dirpath, name), root)
+        for dirpath, _, filenames in os.walk(os.path.join(root, 'cyrt'))
+        for name in filenames if name.endswith(('.hpp', '.hxx'))
+      )
+    outside = sorted(set(every) - set(inside))
+    layout = [
+        'cyrt/graph/node.hpp', 'cyrt/graph/infotable.hpp', 'cyrt/state/rts.hpp'
+      ]
+    for name in ['cyrt/cyrt.hpp'] + layout:
+      self.assertIn(name, inside)
+    # The headers of the runtime's own.  The issue (#44) names the split; a
+    # header that joins the closure again widens every rebuild.
+    for name in [
+        'cyrt/graph/equality.hpp', 'cyrt/graph/walk.hpp', 'cyrt/icurry.hpp'
+      , 'cyrt/inspect.hpp', 'cyrt/module.hpp', 'cyrt/utf8.hpp'
+      ]:
+      self.assertIn(name, outside)
+    digest = toolchain.runtime_digest(root)
+    self.assertEqual(digest, toolchain.runtime_digest())
+    # An edit to every header outside the closure, and a new header that
+    # nothing includes: the same list and the same digest.
+    for name in outside:
+      with open(os.path.join(root, name), 'a') as stream:
+        stream.write('// an edit outside the closure\n')
+    internal = os.path.join(root, 'cyrt', 'graph', 'internal.hpp')
+    with open(internal, 'w') as stream:
+      stream.write('#pragma once\n')
+    toolchain.runtime_digest.cache_clear()
+    self.assertEqual(toolchain.runtime_digest(root), digest)
+    self.assertEqual(relative(toolchain.runtime_headers(root), root), inside)
+    # An edit to each header of the layout: another digest each time, and
+    # an object stamped with the old digest is stale under an installation
+    # whose include directory holds the edited headers.
+    name = self.build(9)
+    sofile = self.cached_file(name, '.so')
+    old = self.cpp2so.read_stamp(sofile)
+    self.assertEqual(old, toolchain.object_digest(self.cpp2so.flavor, root))
+    seen = {digest}
+    for header in layout:
+      with open(os.path.join(root, header), 'a') as stream:
+        stream.write('// an edit inside the closure\n')
+      toolchain.runtime_digest.cache_clear()
+      changed = toolchain.runtime_digest(root)
+      self.assertNotIn(changed, seen)
+      seen.add(changed)
+      with self.installed_include(root):
+        self.assertEqual(toolchain.runtime_digest(), changed)
+        self.assertNotEqual(self.cpp2so.digest(), old)
+        self.assertNotIn(old, self.cpp2so.accepted_digests())
+        self.assertTrue(self.cpp2so.is_stale(sofile))
+        self.assertEqual(self.prerequisite(name), self.cached_file(name, '.cpp'))
+      self.assertEqual(self.cpp2so.digest(), old)
+    self.assertFalse(self.cpp2so.is_stale(sofile))
+    self.assertEqual(self.prerequisite(name), sofile)
+
+  def test_compiler_lists_no_other_header(self):
+    '''
+    The cross-check of the scan: the headers the compiler reads for the
+    includes of a generated module, under the flags of each flavor (g++
+    -MM), are all in runtime_headers.  So a header the scan would miss
+    fails here, not at a user whose stale module loads.  A header the scan
+    lists and the compiler does not is included under a condition (#ifdef),
+    which the scan counts and the compiler, without the macro, does not.
+    The generated file includes the roots of the scan and no other header
+    of the runtime, and the precompiled header is the first root.
+    '''
+    name = self.build(3)
+    with open(self.cached_file(name, '.cpp')) as stream:
+      includes = re.findall(
+          r'^#include "(cyrt/[^"]+)"', stream.read(), re.MULTILINE
+        )
+    self.assertEqual(includes, list(compiler.RUNTIME_INCLUDES))
+    self.assertEqual(
+        toolchain.PrecompiledHeader.HEADER.replace(os.sep, '/'), includes[0]
+      )
+    include = os.path.normpath(config.installed_path('include'))
+    def relative(path):
+      return os.path.relpath(os.path.normpath(path), include)
+    headers = toolchain.runtime_headers()
+    scanned = set(map(relative, headers))
+    conditional = set(map(relative, conditional_includes(headers, include)))
+    for flavor in 'release', 'debug':
+      flags = ['-I' + include, '-fPIC', '-std=c++17']
+      flags += toolchain.flavor_flags(flavor) + toolchain.gc_flags()
+      listed = set()
+      for root in compiler.RUNTIME_INCLUDES:
+        header = os.path.join(include, *root.split('/'))
+        cmd = [config.cxx_tool(), '-MM', '-x', 'c++'] + flags + [header]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        for token in proc.stdout.replace('\\\n', ' ').split():
+          if token.endswith(':'):
+            continue
+          path = relative(token)
+          if not path.startswith('..'):
+            listed.add(path)
+      for name in [
+          'cyrt/cyrt.hpp', 'cyrt/graph/node.hpp', 'cyrt/graph/infotable.hpp'
+        , 'cyrt/state/rts.hpp'
+        ]:
+        self.assertIn(name, listed, flavor)
+      self.assertEqual(
+          sorted(listed - scanned), []
+        , 'the scan misses headers the compiler reads (%s)' % flavor
+        )
+      self.assertLessEqual(
+          scanned - listed, conditional
+        , 'the scan lists headers the compiler does not read and no '
+          'condition explains (%s)' % flavor
+        )
 
   def test_second_process_compiles_nothing(self):
     '''

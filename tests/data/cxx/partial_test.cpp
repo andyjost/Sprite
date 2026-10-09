@@ -7,6 +7,8 @@
 // failed check and exits with status 1; it prints "ok" and exits with
 // status 0 when every check passes.
 #include "cyrt/cyrt.hpp"
+#include "cyrt/currylib/prelude.hpp"
+#include "cyrt/currylib/setfunctions.hpp"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>

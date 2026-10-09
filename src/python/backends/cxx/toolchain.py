@@ -16,9 +16,13 @@ FLAVOR_FLAGS and Cpp2So.flavor.
 
 A compiled module stays valid as long as the runtime headers it was compiled
 against, the flags of its flavor and the installation it links against do not
-change.  Cpp2So records the first two as a digest and the third as text
-beside each shared object (the ABI stamp, <module>.so.abi) and compiles the
-module again when the installation gives another digest or another path.
+change.  The headers are those the generated code includes: the include
+closure of cyrt/cyrt.hpp (runtime_headers).  A header of the runtime outside
+that closure, one the runtime library alone uses, is not part of the stamp,
+so an edit to it rebuilds the library and no module.  Cpp2So records the
+digest of the closure and of the flags, and the installation as text, beside
+each shared object (the ABI stamp, <module>.so.abi) and compiles the module
+again when the installation gives another digest or another path.
 See runtime_digest, object_digest, and Cpp2So.is_stale.  A generated .cpp
 file carries a format stamp; Json2Cpp, which writes the file, refuses one of
 another format.  See Json2Cpp.is_stale.
@@ -47,30 +51,92 @@ import functools, hashlib, itertools, logging, os, re
 
 logger = logging.getLogger(__name__)
 
+# A quoted include directive, the form the runtime headers use for one
+# another.  The pattern matches a directive inside an #if block as well: a
+# header included under a condition is part of the closure, whatever the
+# macros of a compilation say.
+INCLUDE_PAT = re.compile(rb'^[ \t]*#[ \t]*include[ \t]*"([^"]+)"', re.MULTILINE)
+
+def _read_header(filename, include_dir):
+  '''The bytes of a runtime header.  PrerequisiteError when it cannot be read.'''
+  try:
+    with open(filename, 'rb') as stream:
+      return stream.read()
+  except OSError as exc:
+    raise exceptions.PrerequisiteError(
+        'cannot read the runtime header %r of the installation at %r (%s).'
+        '  Is the installation complete?' % (filename, include_dir, exc)
+      )
+
+def _include_closure(include_dir):
+  '''
+  The include closure of the headers the generated code includes
+  (compiler.RUNTIME_INCLUDES) under ``include_dir``: a dict from the path of
+  each header to its bytes, in the order of the paths relative to the
+  include directory.  A quoted include is resolved as the compiler resolves
+  it: against the directory of the including header first, then against the
+  include directory.  An include whose target exists nowhere is skipped (the
+  compiler would find it on its own search path, or the include is
+  conditional); a target that exists and cannot be read raises
+  PrerequisiteError.  A root that does not exist gives nothing.
+  '''
+  texts = {}
+  pending = [
+      os.path.join(include_dir, *name.split('/'))
+      for name in compiler.RUNTIME_INCLUDES
+    ]
+  while pending:
+    filename = os.path.normpath(pending.pop())
+    if filename in texts or not os.path.lexists(filename):
+      continue
+    text = _read_header(filename, include_dir)
+    texts[filename] = text
+    for name in INCLUDE_PAT.findall(text):
+      parts = name.decode('utf-8', 'replace').split('/')
+      for base in os.path.dirname(filename), include_dir:
+        target = os.path.join(base, *parts)
+        if os.path.lexists(target):
+          pending.append(target)
+          break
+  def relative(item):
+    return os.path.relpath(item[0], include_dir)
+  return dict(sorted(texts.items(), key=relative))
+
 def runtime_headers(include_dir=None):
   '''
-  The installed runtime headers, in a fixed order.  Generated code includes
-  cyrt/cyrt.hpp, which pulls in all of them.  ``include_dir`` is the include
-  directory to search; by default, the installed one.
+  The runtime headers the generated code includes, in a fixed order.  Every
+  generated file includes cyrt/cyrt.hpp (compiler.RUNTIME_INCLUDES), and the
+  list is the include closure of that header under ``include_dir``, by
+  default the installed include directory: the header, every header it
+  includes with a quoted directive, and so on, a conditional include
+  (#ifdef) counted.  A header of the runtime that no include of the closure
+  reaches, one the runtime library alone uses, is not in the list, so an
+  edit to it leaves the digest of the ABI stamp as it is (runtime_digest)
+  and compiles no module again.  The list is sorted by the path of each
+  header relative to the include directory, so the digest does not depend
+  on the order of the directives.  Empty when the root does not exist (an
+  installation without headers).
+
+  Raises:
+    PrerequisiteError: a header of the closure exists and cannot be read
+    (see runtime_digest).
   '''
   if include_dir is None:
     include_dir = config.installed_path('include')
-  top = os.path.join(include_dir, 'cyrt')
-  for dirpath, dirnames, filenames in os.walk(top):
-    dirnames[:] = sorted(d for d in dirnames if not d.endswith('.gch'))
-    for name in sorted(filenames):
-      if name.endswith(('.hpp', '.hxx', '.h')):
-        yield os.path.join(dirpath, name)
+  return list(_include_closure(include_dir))
 
 @functools.lru_cache(maxsize=None)
 def runtime_digest(include_dir=None):
   '''
-  A digest of the runtime headers under ``include_dir`` (by default, the
-  installed ones): the ABI that generated code is compiled against.  The
-  digest covers the names and the contents of the headers, not their time
-  stamps.  So a new copy of the same headers, as make stage installs, gives
-  the same digest, and a change to any header gives another.  The result is
-  cached for the life of the process.
+  A digest of the runtime headers the generated code includes
+  (runtime_headers) under ``include_dir``, by default the installed ones:
+  the ABI that generated code is compiled against.  The digest covers the
+  names and the contents of the headers of the closure, not their time
+  stamps and not the other headers of the runtime.  So a new copy of the
+  same headers, as make stage installs, gives the same digest, a change to
+  any header of the closure gives another, and a change to a header outside
+  it (the equality of graphs, the walks, the bytecode of the interpreter)
+  gives the same.  The result is cached for the life of the process.
 
   Returns None when the tree holds no header.  Such an installation cannot
   compile, so its objects are trusted as they are (see Cpp2So.is_stale).
@@ -83,23 +149,15 @@ def runtime_digest(include_dir=None):
   base = include_dir
   if base is None:
     base = config.installed_path('include')
+  texts = _include_closure(base)
+  if not texts:
+    return None
   digest = hashlib.sha256()
-  found = False
-  for filename in runtime_headers(include_dir):
-    found = True
+  for filename, text in texts.items():
     digest.update(os.path.relpath(filename, base).encode('utf-8'))
     digest.update(b'\0')
-    try:
-      with open(filename, 'rb') as stream:
-        digest.update(stream.read())
-    except OSError as exc:
-      raise exceptions.PrerequisiteError(
-          'cannot read the runtime header %r of the installation at %r (%s).'
-          '  Is the installation complete?' % (filename, base, exc)
-        )
+    digest.update(text)
     digest.update(b'\0')
-  if not found:
-    return None
   return digest.hexdigest()[:16]
 
 # The compiler flags of the two flavors of generated code.  They follow the
@@ -170,16 +228,18 @@ def gc_flags(gc=None, write_counters=None):
 def object_digest(flavor=None, include_dir=None, gc=None, write_counters=None):
   '''
   The digest of the ABI stamp of an object compiled now: a digest of the
-  runtime headers (runtime_digest), of the flags of ``flavor``, by default
+  runtime headers the generated code includes (runtime_digest), of the
+  flags of ``flavor``, by default
   the flavor of the installed runtime (config.cxx_flavor), of the flags of
   the collector ``gc`` and of its write counters, by default the installed
   ones (config.cxx_gc, config.cxx_gc_write_counters), of the link flags, of
   the compiler the runtime was built with (config.cxx_compiler: its version
   and target, as the build recorded them in sysconfig/cxx_compiler) and of
   the format of the generated code (compiler.FORMAT_VERSION).  So a change
-  to a header, to the flags of a flavor, to the collector, to the write
-  counters, to the compiler of the build or to the format compiles every
-  object again, once.  The digest covers what decides whether an object
+  to a header of the closure, to the flags of a flavor, to the collector,
+  to the write counters, to the compiler of the build or to the format
+  compiles every object again, once; a change to a header outside the
+  closure compiles none.  The digest covers what decides whether an object
   fits a runtime, and nothing of where the runtime is installed: two
   installations of one runtime give one digest, so the product cache can
   serve both, and a package relocated by its manager keeps its objects.
@@ -423,11 +483,20 @@ class PrecompiledHeader(object):
 
   @staticmethod
   def header_files():
-    '''The installed headers.  The precompiled header depends on them all.'''
+    '''
+    The headers the precompiled header depends on: the include closure of
+    cyrt/cyrt.hpp (runtime_headers).  A header outside it never makes a
+    member stale.
+    '''
     return runtime_headers()
 
   def is_current(self):
-    '''True when the member exists and no header is newer.'''
+    '''
+    True when the member exists and no header is newer.  False when a
+    header of the closure cannot be read (PrerequisiteError, an OSError):
+    the build then fails on the same header, and prepare() logs its one
+    warning.
+    '''
     try:
       stamp = os.path.getmtime(self.filename)
       return all(os.path.getmtime(f) <= stamp for f in self.header_files())
@@ -513,8 +582,9 @@ class Cpp2So(object):
       <digest>
       <installation>
 
-  The first line is the digest of the runtime headers and of the flags the
-  object was compiled with (object_digest), 16 hex digits.  The second line
+  The first line is the digest of the runtime headers the generated code
+  includes and of the flags the object was compiled with (object_digest),
+  16 hex digits.  The second line
   is the real path of the installation the object was compiled under
   (installation_path).  An object is current when the digest is accepted
   (accepted_digests) and the path is the installation of the process

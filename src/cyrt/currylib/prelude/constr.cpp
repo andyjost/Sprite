@@ -1,5 +1,8 @@
 #include <cassert>
 #include "cyrt/cyrt.hpp"
+#include "cyrt/currylib/prelude.hpp"
+#include "cyrt/exceptions.hpp"
+#include "cyrt/inspect.hpp"
 
 using namespace cyrt;
 

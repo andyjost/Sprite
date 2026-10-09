@@ -1,4 +1,5 @@
 #include "cyrt/cyrt.hpp"
+#include "cyrt/currylib/prelude.hpp"
 #include <sstream>
 
 using namespace cyrt;

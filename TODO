@@ -8353,3 +8353,188 @@
   feedstock before an upload), and the channel.  The two stale
   precompiled-header members of 2026-10-07 under ~/.cache/sprite and the
   earlier environments of the lane stay where they are.
+
+2026-10-08: the ABI stamp digests the headers the generated code includes (issue #44, V4; worktree wt/v4)
+- The set.  toolchain.runtime_headers returns the include closure of the
+  headers the emitter writes into every generated file
+  (compiler.RUNTIME_INCLUDES, today "cyrt/cyrt.hpp" alone; vEmitHeader
+  writes one directive per name): the scan follows every quoted include
+  recursively, resolved as the compiler resolves it (the directory of the
+  including header first, then the include directory), a conditional
+  include counted (trace.hpp under SPRITE_TRACE_ENABLED and
+  state/counters.hpp under SPRITE_SCHEDULER_COUNTERS), the list sorted by
+  the path relative to the include directory, so the digest does not
+  depend on the order of the directives.  runtime_digest, object_digest
+  and the precompiled header (PrecompiledHeader.header_files, which
+  decides when a member is stale) take the set.  A header under
+  include/cyrt that no include of the closure reaches is out of the
+  digest: an edit to it rebuilds the runtime library (the .d files of
+  src/Make.depends) and no module.  Kept: an installation without headers
+  gives None (the root does not exist), a header that exists and cannot be
+  read raises PrerequisiteError (now from the scan, which reads every
+  header of the closure), and an include whose target exists nowhere is
+  skipped, as the compiler would look on its own search path.  Unchanged:
+  the two-line form of the stamp, the key of the product cache, the object
+  format (13) and the flags of the flavors; the stamp's silence on the
+  compiler flags stays issue #111.  Consequence: the digest changed
+  (runtime_digest acf75bd301fe68a1 over 40 headers before, 44945b54ce321163
+  over 36 after the mechanical set, 06c21b76385755d3 over 28 after the
+  moves below; object_digest of the release flavor 996f8846f99f58c2 before,
+  1e3ab57f6792cc66 after; the rewrite of the comment of cyrt.hpp at the
+  review moved them once more, to 3ad33630500a2afe and c2c95115e9d64e47,
+  the digests of the final diff), so every compiled product is compiled
+  once more after this lands: make stage compiled the 13 library modules
+  in 37 s (0 restored, 13 stored), and the prepare pass of the test
+  corpora (1239 modules in 12 directories on cxx, cold) took 577 s.
+- The closure before the moves, measured on the installed tree: 40 headers
+  under include/cyrt (32 .hpp and 8 .hxx; graph/gc/block.hpp of src/cyrt is
+  not installed, src/cyrt/graph/gc has no Makefile), 36 in the closure of
+  cyrt.hpp, 4 outside: graph/equality.hpp, graph/walk.hpp, graph/walk.hxx
+  and icurry.hpp.  The orchestrator's scan over the 33 .hpp of src/cyrt
+  (29 in; equality, walk, icurry and gc/block out) agrees.  g++ -MM over
+  cyrt.hpp under the flags of both flavors lists 33 headers under
+  include/cyrt beside cyrt.hpp itself: the 36 of the scan less trace.hpp
+  and state/counters.hpp, the two conditional includes; the release list
+  and the debug list are the same.  So the mechanical set alone spares
+  four headers.
+- The moves.  cyrt.hpp included seven headers the generated code does not
+  use.  The survey: the generated code of the 13 library modules and the
+  1240 generated files of the test corpora of the main tree hold no
+  inspect::, no utf8_ name, no Module:: or SharedCurryModule, no throw, no
+  name of currylib/prelude.hpp or currylib/setfunctions.hpp (the code names
+  the tables of the Prelude by their mangled names, CyI7Prelude4_K_k, and
+  declares them itself in its .infotabs.link section; its "Module" is
+  bom::Module of bom.hpp); what it uses is Node::create, create_partial,
+  partial_node, successor_node, rewrite, forward_to, forward_or_copy, Arg,
+  Cursor, Variable, InfoTable, DataType, the bom types, the tags and the
+  status values, int_, char_, nil(), unit(), true_(), false_(),
+  literal_node, rts->hnf, rts->freshvar and C->cursor.  Six moves, each
+  the removal of the directive from cyrt.hpp: dynload.hpp with module.hpp
+  (module.hpp includes dynload.hpp, so they go together), inspect.hpp
+  (with inspect.hxx), utf8.hpp, exceptions.hpp, currylib/prelude.hpp and
+  currylib/setfunctions.hpp.  All six kept, none reverted: after each, the
+  generated code of Numeric compiles to an object in both flavors and the
+  Prelude's passes the front end of the compiler in both (a check with
+  -I src, so no precompiled header served), and with all six make stage,
+  make overlay, unit_cxx_toolchain.py (48 OK) and unit_cxx_interp.py (36
+  OK) pass, and libcyrt.so exports the same 775 dynamic symbols as before
+  (nm -D --defined-only, compared).  The sources that relied on cyrt.hpp
+  for those headers got the directives: the nine primitives of the Prelude
+  (src/cyrt/currylib/prelude/*.cpp) each include currylib/prelude.hpp
+  (the macros of that header name their tables; a source without it would
+  compile and export unmangled symbols, so every one includes it, whether
+  or not the compiler asked), apply.cpp and constr.cpp include inspect.hpp,
+  constr.cpp and io.cpp exceptions.hpp, io.cpp module.hpp and utf8.hpp,
+  read.cpp utf8.hpp; of the C++ test programs under tests/data/cxx,
+  literals_test.cpp, rewrite_test.cpp and partial_test.cpp include
+  currylib/prelude.hpp (failed_Info, apply_Info) and partial_test.cpp
+  currylib/setfunctions.hpp (partials_info, PartialS_Info).  cyrt.hpp
+  keeps bom.hpp, builtins.hpp, fwd.hpp, graph/indexing.hpp,
+  graph/infotable.hpp, graph/node.hpp and state/rts.hpp, with a comment on
+  its role.  The counts: headers in the digest 40 before, 36 after the
+  mechanical set, 28 after the moves; headers whose edit rebuilds the
+  runtime library alone 0, 4 and 12 (currylib/prelude.hpp,
+  currylib/setfunctions.hpp, dynload.hpp, exceptions.hpp,
+  graph/equality.hpp, graph/walk.hpp, graph/walk.hxx, icurry.hpp,
+  inspect.hpp, inspect.hxx, module.hpp, utf8.hpp).
+- Tests (unit_cxx_toolchain.py, 48 on cxx, 2 new).
+  TestAbiStamp.test_closure: a copy of the include directory; the closure
+  of the copy is the closure of the installation, sorted; cyrt.hpp,
+  node.hpp, infotable.hpp and rts.hpp are in it and equality.hpp,
+  walk.hpp, icurry.hpp, inspect.hpp, module.hpp and utf8.hpp out; an edit
+  to every header outside the closure and a new header nothing includes
+  leave the list and the digest as they are; an edit to node.hpp,
+  infotable.hpp and rts.hpp each gives another digest, and under an
+  installation whose include directory is the copy
+  (config.installed_path patched for 'include') an object stamped with
+  the old digest is stale, accepted_digests lacks the old one, and the
+  plan starts again from the .cpp.  test_compiler_lists_no_other_header:
+  the generated file includes the roots of the scan and no other runtime
+  header, the precompiled header is the first root, and g++ -MM -x c++
+  over each root under the flags of each flavor (-MM on the header itself,
+  so no precompiled header answers) lists no header under the include
+  directory that the scan does not, while every header the scan lists and
+  the compiler does not is the target of a conditional include
+  (conditional_includes of the test).  test_header_tree_problems adds a
+  dangling link inside the closure (the error names it and the
+  installation) and an include without a target (skipped, no error).
+  test_digest holds as it was.
+- The measurements, in the installed worktree under env -i, with the
+  product cache of the runs named (SPRITE_PRODUCT_CACHE under the build
+  root of the worktree, which the runner does not prune, so the entries of
+  the final digest survived the run with the edited node.hpp and served
+  the restore).
+  (a) A comment line appended to graph/walk.hpp, outside the closure:
+  make stage took 8.1 s, compiled 5 of the 41 objects of the runtime again
+  (the five translation units that include walk.hpp), relinked libcyrt.so,
+  compiled none of the 13 library modules (sprite-make made nothing and
+  printed no product cache line) and left both members of the precompiled
+  header as they were; run_tests --prepare-only --backend cxx took 12.3 s
+  and printed "prepare: 1239 modules in 12 directories on cxx, every
+  product present", and 0 of the 1240 objects under tests/data were
+  written.  (b) A comment line appended to graph/node.hpp, inside it: make
+  stage took 41.8 s, compiled 33 of the 41 objects of the runtime again,
+  relinked libcyrt.so, compiled the 13 library modules again (sprite-make:
+  product cache: 0 restored, 13 stored) and built the precompiled header
+  again (one member, the stale one of the other flavor removed);
+  run_tests --prepare-only --backend cxx took 586.2 s, printed the same
+  line for 1239 modules, and wrote 1240 of the 1240 objects under
+  tests/data: every module of the corpora compiled again, cold (the digest
+  was new, so no cache entry served).  Then the two lines removed by an
+  edit (git shows both headers as committed), make stage once more (17.3 s;
+  the 13 library
+  modules restored from the cache of the main tree, 13 restored, 0 stored)
+  and the pass once more (27.5 s; 1236 of 1239 from the product cache,
+  every product present), so the install and the corpora are those of the
+  tree.  The baseline pass that preceded (a), the first compile of the
+  corpora under the new digest, took 577 s for the 1239 modules.
+- Docs.  Every sentence that said the stamp digests the runtime headers
+  says the runtime headers the generated code includes: the docstrings of
+  toolchain.py (the module, runtime_headers, runtime_digest,
+  object_digest, PrecompiledHeader.header_files, Cpp2So) and of
+  _productcache.py, tests/README (sections 1 and 10), AGENTS.md (the
+  prepare note and the product cache paragraph), conda/README.md (three
+  places), CompilationPipeline.rst, sprite-make.rst,
+  EnvironmentVariables.rst (SPRITE_PRODUCT_CACHE) and WithoutCompiler.rst;
+  sprite-exec.rst said it already.  The product cache paragraph of
+  AGENTS.md still says that an object names its imports by absolute path,
+  which format 13 ended; not this item's sentence, left for the owner.
+- The deeper split, proposed and not done (the owner's design).  The 28
+  headers that remain in the closure divide in two.  The generated code
+  needs 14 of them: cyrt.hpp, fwd.hpp, bom.hpp, builtins.hpp,
+  graph/infotable.hpp, graph/node.hpp, graph/node.hxx, graph/cursor.hpp,
+  graph/cursor.hxx, smallvec.hpp, graph/memory.hpp, graph/indexing.hpp,
+  graph/indexing.hxx and state/rts.hpp (for the status values, hnf,
+  freshvar and the member cursor of Configuration).  The other 14 come in
+  through the complete definitions of RuntimeState and Configuration and
+  through inline bodies the generated code never calls:
+  state/configuration.hpp (the generated code reads C->cursor and nothing
+  else of it), state/queue.hpp, state/scan.hpp and scan.hxx,
+  fingerprint.hpp, unionfind.hpp and unionfind.hxx (members of
+  Configuration and RuntimeState), state/rts.hxx with ticker.hpp and
+  tiered.hpp (check_interrupts, which procS of the scheduler calls, not
+  the generated code), trace.hpp and state/counters.hpp (conditional),
+  graph/copy.hpp and graph/show.hpp (node.hxx includes them for
+  forward_or_copy and Node::str).  A split that gives RuntimeState and
+  Configuration a public layout part (the status values, the two entry
+  points as declarations on an incomplete RuntimeState, or as free
+  functions, and the cursor of a configuration behind an accessor) and
+  moves the inline bodies that need copy.hpp, show.hpp, ticker.hpp and
+  tiered.hpp into the runtime's own .hxx would spare those 14 headers:
+  the digest would cover 14 instead of 28.  The potential in edits,
+  measured on the history (git log --no-merges --since=2026-09-01; a
+  merge commit is not counted): of the 113 commits, 25 touched src/cyrt
+  and 15 touched a runtime header, and each of the 15 compiled every
+  module again.  None of the 15 touched only the 12
+  headers now outside the closure, so this item spares a kind of edit the
+  refresh did not make alone (one confined to the loader, the inspectors,
+  the exceptions, the codec or the tables of the primitives); the deeper
+  split of the 14 internal headers would have spared 1 of the 15; and
+  with the edits of state/rts.hpp itself counted as internal (11 of the
+  15 touched it; a public part that holds the status values and the two
+  entry points would see few of them) the bound is 7 of 15.  So the
+  potential lies in rts.hpp, not in the 14 headers around it.
+  The cost:
+  a new FORMAT_VERSION if the generated code changes its entry points,
+  and the scheduler's inline safepoint moves out of the header the
+  generated code sees.

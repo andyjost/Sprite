@@ -25,8 +25,9 @@ What runs interpreted
 
 ``make stage`` and ``make install`` compile the Curry library into the
 installation with the compiler of the build.  The ABI stamp beside each
-object digests the runtime headers, the flavor, the compiler of the build
-(as the build recorded it in ``sysconfig/cxx_compiler``, so an installation
+object digests the runtime headers the generated code includes, the
+flavor, the compiler of the build (as the build recorded it in
+``sysconfig/cxx_compiler``, so an installation
 without a compiler computes the same digest) and the format of the
 generated code, and names the real path of
 the installation as text, which a package manager rewrites at install time,

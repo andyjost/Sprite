@@ -151,10 +151,10 @@ so `sprite-make --so` of every program exited 1 (the compile step names the
 cause since the review of that day; `tests/unit_conda.py` checks the
 message) while `sprite-exec` ran with the library interpreted (1.8 s against
 0.17 s from an object).  Since the change the stamp digests what decides
-compatibility (the runtime headers, the flags of the flavor and of the
-collector, the link flags, the compiler of the build as `make stage`
-records it in `sysconfig/cxx_compiler`, and the format of the generated
-code) and carries the real path of the installation as
+compatibility (the runtime headers the generated code includes, the flags of
+the flavor and of the collector, the link flags, the compiler of the build
+as `make stage` records it in `sysconfig/cxx_compiler`, and the format of
+the generated code) and carries the real path of the installation as
 text on its second line; `Cpp2So.is_stale` compares the digest with the one
 of the runtime, and the text, as a real path, with the installation of the
 process.  A copy made by hand names the original and stays stale; a package
@@ -219,8 +219,9 @@ the generated code is compiled against the headers under
 `opt/sprite/include` and linked against `opt/sprite/lib/libcyrt.so`, and one
 major version keeps one libstdc++ on both sides.  Move the pin together with
 `cxx-compiler`.  The ABI stamps of the compiled library modules
-(`.so.abi`) digest the runtime headers, the flavor flags and the compiler
-of the build, as `make stage` records it in `sysconfig/cxx_compiler` (the
+(`.so.abi`) digest the runtime headers the generated code includes, the
+flavor flags and the compiler of the build, as `make stage` records it in
+`sysconfig/cxx_compiler` (the
 version and the target of `g++`; `15.3.0 x86_64-conda-linux-gnu` in the
 package of 2026-10-08), and carry the real path of the installation as
 text, which conda rewrites at install time (see
@@ -660,8 +661,9 @@ of 2026-10-08 showed both; the entries record the decisions.
    stage 2 of issue #82 (the compiler-free mode) documented the behaviour
    and did not split the package.  The stamp: decided on 2026-10-07 under
    issue #100 and applied there.  The ABI stamp digests what decides
-   compatibility (the runtime headers, the flags of the flavor and of the
-   collector, the link flags, the compiler of the build and the format of
+   compatibility (the runtime headers the generated code includes, the
+   flags of the flavor and of the collector, the link flags, the compiler
+   of the build and the format of
    the generated code) and carries the real path of the
    installation as text on its second line (`Cpp2So` of
    `curry.backends.cxx.toolchain` documents the format); `is_stale`

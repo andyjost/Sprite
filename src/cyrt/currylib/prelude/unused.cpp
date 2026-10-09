@@ -1,5 +1,6 @@
 
 #include "cyrt/cyrt.hpp"
+#include "cyrt/currylib/prelude.hpp"
 
 using namespace cyrt;
 
