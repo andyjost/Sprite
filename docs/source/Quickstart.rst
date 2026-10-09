@@ -321,9 +321,17 @@ Then, in Python:
 
     >>> Peano = curry.load('.curry/sprite-pakcs-3.4.1/Peano.so')
 
-The call adds ``Peano`` to :data:`curry.modules`.  A module whose library
-is loaded already from another file is refused: the runtime keeps one
-library per module name for the life of the process.
+The call adds ``Peano`` to :data:`curry.modules`.  Under the default
+setting of the C++ backend, ``interpret:tiered``, the import of ``Peano``
+above already started a compile of the module in the background when no
+current object existed; :func:`curry.load` of its object waits for that
+compile to end and loads the object it wrote, so the sequence works while
+the compile runs.  That compile writes the files ``sprite-make --so``
+writes, so run ``sprite-make`` once the background compile ended (a few
+seconds for a module of this size), not at the same time.  A module whose library is loaded already from another
+file is refused: the runtime keeps one library per module name for the
+life of the process.  An edit of ``Peano.curry`` after the import is not
+read again in this process; a new process reads it.
 
 .. _Python Tutorial: https://docs.python.org/3/tutorial/
 

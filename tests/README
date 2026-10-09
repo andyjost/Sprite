@@ -228,8 +228,22 @@ the values and steps of both tiers, the swap between the values of one
 evaluation and at a safepoint of a long one, a module that imports a fresh
 module, the tables and the shim across a reload, an edited module and an
 edited import after a reload, a module compiled from a string made again
-after a reset, the failure path in the process and under sprite-exec, and a
-fresh program under sprite-exec.  An interpreted module that applies
+after a reset, the failure path in the process and under sprite-exec, a
+fresh program under sprite-exec, a curry.load of the object of a module
+while its background compile runs (the loader waits for the compile, after
+a reset as well, and loads the object it wrote; the object of a module
+that runs, or ran, interpreted without a library of its name loaded is
+refused, before and after a reset; issue #109), and the save-then-load
+sequence of the Quickstart twice with an edit between, each in a child
+process.  unit_loadsave.py
+tests the refusal of a second object of a loaded module name, decided
+before the object is opened (issue #109).  unit_reload.py tests that an
+edited source is not read again in one process and that the process says
+so (issue #110): the warning of import_ once per edit, of :load once per
+:load, the warning of a :load or an import of another file of the same
+module name, the swap refused for an object compiled from an edited
+source, which keeps the module interpreted, and the swap kept for an edit
+of a comment (the check is of the ICurry file, not of the JSON).  An interpreted module that applies
 readFile of the compiled Prelude to a nondeterministic name raises the
 nondeterminism error, as compiled code and a program interpreted whole do;
 it raised ValueError while the primitive prim_readFile carried the name of

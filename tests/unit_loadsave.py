@@ -11,12 +11,14 @@ into the object of the backend where one is needed, and loaded back.
 import cytest # from ./lib; must be first
 
 from curry import config
-import curry, logging, os, unittest
+import curry, logging, os, shutil, subprocess, unittest
 import tempfile
 from cytest.logging import capture_log
 
 IS_CXX = curry.flags['backend'] == 'cxx'
 TIMEOUT = 300
+# The cap on the address space of a child, in bytes.
+ADDRESS_SPACE = 2 << 30
 
 NO_ROUND_TRIP = (
     'curry.save writes C++ source on the C++ backend and curry.load reads a '
@@ -110,3 +112,113 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
       , ['.so' if IS_CXX else '.py', "True ['42']", "True ['42']"]
       , proc.stderr
       )
+
+
+@unittest.skipUnless(
+    IS_CXX and config.cxx_tool() is not None
+  , 'the refused load belongs to the C++ backend and needs its compiler'
+  )
+class TestRefusedLoad(cytest.TestCase):
+  '''
+  A second object of a loaded module name is refused before it is opened,
+  and the module runs on (issue #109).  The loader opened the second library
+  before it compared the registered file: the dynamic linker bound the
+  symbols of the second library to the tables of the first, the initializers
+  of the second wrote those tables, and the refusal dropped the second
+  library, so the tables pointed into unmapped memory and the next use of
+  the module ended the process (the sequences D, I and J of the API study;
+  exit status 139).  Each sequence runs in a child process, so that a
+  regression ends the child and not the test runner.  The two objects of
+  the module are compiled with sprite-make, once for the class.
+  '''
+  SOURCE = 'module M where\n\nf :: Int -> Int\nf x = x + 1\n\nmain :: Int\nmain = f 41\n'
+  CODE = r"""
+import os, sys
+import curry
+from curry.backends.cxx import cyrtbindings as cyrt
+soA, soB, case = %(soA)r, %(soB)r, %(case)r
+curry.path.insert(0, %(dirA)r)
+def main():
+  return [str(v) for v in curry.eval(curry.modules['M'].main)]
+def refused():
+  try:
+    curry.load(soB)
+  except curry.exceptions.DynloadError as exc:
+    assert 'already loaded from' in str(exc), exc
+    print('refused')
+  else:
+    print('not refused')
+if case == 'D':
+  curry.load(soA); refused(); print(main())
+elif case == 'I':
+  curry.import_('M'); curry.load(soA); refused(); curry.reset()
+  curry.load(soA); print(main())
+elif case == 'J':
+  curry.import_('M'); refused(); curry.reset(); curry.load(soA); print(main())
+elif case == 'K':
+  curry.load(soA); curry.load(soA); print(main())
+registered = cyrt.SharedCurryModule.find_sofilename('M')
+print(os.path.realpath(registered) == os.path.realpath(soA))
+print('exiting normally')
+"""
+
+  @classmethod
+  def setUpClass(cls):
+    super().setUpClass()
+    cls.tmpdir = tempfile.mkdtemp(prefix='sprite-loadsave-refused-')
+    cls.objects = {}
+    for sub in 'A', 'B':
+      directory = os.path.join(cls.tmpdir, sub)
+      os.mkdir(directory)
+      with open(os.path.join(directory, 'M.curry'), 'w') as stream:
+        stream.write(cls.SOURCE)
+      env = dict(os.environ, CURRYPATH=directory)
+      env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
+      cmd = [
+          'prlimit', '--as=%d' % ADDRESS_SPACE, 'timeout', str(TIMEOUT)
+        , config.installed_path('bin', 'sprite-make'), '--so', '-z', 'M'
+        ]
+      proc = subprocess.run(
+          cmd, cwd=directory, env=env, capture_output=True, text=True
+        )
+      if proc.returncode != 0:
+        raise RuntimeError(
+            'sprite-make failed in %s:\n%s%s'
+            % (directory, proc.stdout, proc.stderr)
+          )
+      cls.objects[sub] = os.path.join(
+          directory, '.curry', config.intermediate_subdir(), 'M.so'
+        )
+
+  @classmethod
+  def tearDownClass(cls):
+    shutil.rmtree(cls.tmpdir, ignore_errors=True)
+    super().tearDownClass()
+
+  def run_case(self, case):
+    code = self.CODE % dict(
+        soA=self.objects['A'], soB=self.objects['B'], case=case
+      , dirA=os.path.join(self.tmpdir, 'A')
+      )
+    proc = cytest.run_in_subprocess(code, TIMEOUT, address_space=ADDRESS_SPACE)
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    expected = ["['42']", 'True', 'exiting normally']
+    if case != 'K':
+      expected.insert(0, 'refused')
+    self.assertEqual(proc.stdout.splitlines(), expected, proc.stderr)
+
+  def test_refused_then_used(self):
+    # Case D: load, the refused load of the copy, then a use.
+    self.run_case('D')
+
+  def test_refused_after_an_import_then_reset(self):
+    # Case I: import, load, the refused load, a reset, a load, then a use.
+    self.run_case('I')
+
+  def test_refused_on_an_imported_module_then_reset(self):
+    # Case J: import, the refused load, a reset, a load, then a use.
+    self.run_case('J')
+
+  def test_loaded_twice_then_used(self):
+    # Case K: the same file loaded twice (no refusal), then a use.
+    self.run_case('K')

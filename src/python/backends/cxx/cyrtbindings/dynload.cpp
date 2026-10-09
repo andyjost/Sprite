@@ -33,6 +33,19 @@ namespace cyrt { namespace python
 			.def_property_readonly("bom", &SharedCurryModule::bom, reference_internal)
 			.def_property_readonly("info", &SharedCurryModule::info, reference_internal)
 			.def("sofilename", &SharedCurryModule::sofilename, reference)
+      .def_static("find_sofilename"
+        , [](char const * fullname) -> py::object {
+            // A copy: the registry owns the entry weakly, and a reference
+            // would outlive the library.
+            auto * info = SharedCurryModule::find(fullname);
+            if(!info)
+              return py::none();
+            return py::str(info->sofilename);
+          }
+        , py::arg("fullname")
+        , "The file of the library loaded under a module name, or None.  "
+          "The loader asks before it opens an object, so a second library "
+          "of a loaded name is never opened.")
       ;
   }
 }}

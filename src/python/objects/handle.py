@@ -38,6 +38,32 @@ class Handle(object):
       return shlib.sofilename()
 
   @property
+  def source_mtime(self):
+    '''
+    The modification time of the source file of the module at its import
+    (st_mtime_ns; see ``interpreter.import_.record_source``), or None for a
+    module without a readable source file.
+    '''
+    return getattr(self.obj, '.source_mtime', None)
+
+  @source_mtime.setter
+  def source_mtime(self, value):
+    setattr(self.obj, '.source_mtime', value)
+
+  @property
+  def warned_mtime(self):
+    '''
+    The modification time of the source file when the warning of an edited
+    source was last logged for this module object
+    (``interpreter.import_.warn_edited``), or None.
+    '''
+    return getattr(self.obj, '.warned_mtime', None)
+
+  @warned_mtime.setter
+  def warned_mtime(self, value):
+    setattr(self.obj, '.warned_mtime', value)
+
+  @property
   def is_package(self):
     return isinstance(self.obj, CurryPackage)
 

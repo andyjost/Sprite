@@ -6,11 +6,14 @@ from ...objects.handle import getHandle
 from ...toolchain import plans
 from ...utility.binding import binding
 from ...utility import curryname, formatDocstring, visitation
-import collections.abc, contextlib, logging
+import collections.abc, contextlib, logging, os
 
 logger = logging.getLogger(__name__)
 
-__all__ = ['import_']
+__all__ = [
+    'edited_source', 'import_', 'record_source', 'warn_edited'
+  , 'warn_other_file'
+  ]
 
 @visitation.dispatch.on('arg')
 @formatDocstring(config.python_package_name())
@@ -39,7 +42,7 @@ def import_(interp, arg, currypath=None, is_sourcefile=False):
 def import_(interp, name, currypath=None, is_sourcefile=False):
   modulename = curryname.getModuleName(name, is_sourcefile)
   try:
-    return interp.modules[modulename]
+    moduleobj = interp.modules[modulename]
   except KeyError:
     importEx = ImportEx(interp, currypath)
     if is_sourcefile:
@@ -47,6 +50,14 @@ def import_(interp, name, currypath=None, is_sourcefile=False):
     else:
       prefixes = list(curryname.prefixes(modulename))
       return importEx(prefixes)
+  else:
+    # A loaded module is returned as it was loaded.  The file is not read
+    # again; a warning says so when it changed (issue #110), or when the
+    # file named is another file of the same module name.
+    warn_edited(moduleobj)
+    if is_sourcefile:
+      warn_other_file(moduleobj, name)
+    return moduleobj
 
 # Import a sequence or specifiers.
 @import_.when(collections.abc.Sequence, no=str)
@@ -120,6 +131,7 @@ class ImportEx(object):
       toolchain.mergebuiltins(imodule, self.interp.backend)
       toolchain.validatemodule(imodule)
       with _provisionalModule(self.interp, imodule) as moduleobj:
+        record_source(moduleobj)
         if imodule.imports:
           logger.info(
               'Processing imports for Curry module %r: %r'
@@ -139,6 +151,95 @@ class ImportEx(object):
     else:
       moduleobj = self.interp.modules[imodule.fullname]
       return self(tail, rv=moduleobj)
+
+
+def record_source(moduleobj):
+  '''
+  Records the modification time of the source file of a module at its import
+  (Handle.source_mtime), so that ``edited_source`` can tell a later edit.  A
+  module without a source file, or whose file cannot be read, records
+  nothing.
+  '''
+  h = getHandle(moduleobj)
+  filename = h.icurry.filename
+  try:
+    h.source_mtime = None if not filename else os.stat(filename).st_mtime_ns
+  except OSError:
+    h.source_mtime = None
+
+def _source_change(moduleobj):
+  '''
+  The source file of a loaded module and its modification time now, when the
+  time differs from the one recorded at the import; else None.  The products
+  of the module are not consulted: the background compile of the C++ backend
+  writes them again from the edited source (backends.cxx.tiered), so their
+  times do not answer the question.
+  '''
+  h = getHandle(moduleobj)
+  stamp = h.source_mtime
+  if stamp is None:
+    return None
+  filename = h.icurry.filename
+  try:
+    mtime = os.stat(filename).st_mtime_ns
+  except OSError:
+    return None
+  if mtime == stamp:
+    return None
+  return filename, mtime
+
+def edited_source(moduleobj):
+  '''
+  The source file of a loaded module when the file changed after the import,
+  else None.  An import of such a module returns the module as it was
+  loaded; a new process reads the edited file.
+  '''
+  change = _source_change(moduleobj)
+  return None if change is None else change[0]
+
+def warn_edited(moduleobj, always=False):
+  '''
+  Logs a warning when the source of a loaded module changed after the
+  import: the module stays as it was loaded, and the process does not read
+  the file again.  The warning is logged once per edit of a module object
+  (Handle.warned_mtime), so that the imports of other modules, and the
+  expression module of every evaluation, do not repeat it; with ``always``
+  it is logged on every call (the :load of the REPL prints it once per
+  :load).  Returns the source file, or None when the file did not change.
+  '''
+  change = _source_change(moduleobj)
+  if change is None:
+    return None
+  filename, mtime = change
+  h = getHandle(moduleobj)
+  if always or h.warned_mtime != mtime:
+    h.warned_mtime = mtime
+    logger.warning(
+        'module %r was not read again: its source %s changed after the '
+        'import; the module stays as it was loaded in this process, and a '
+        'new process reads the edited file'
+      , h.fullname, filename
+      )
+  return filename
+
+def warn_other_file(moduleobj, filename):
+  '''
+  Logs a warning when ``filename``, the source file a caller named, is not
+  the file the loaded module was read from: the module name is loaded
+  already, and the file named is not read.  Returns True when it warned.
+  '''
+  loaded = getHandle(moduleobj).icurry.filename
+  if not loaded or not filename:
+    return False
+  if os.path.realpath(loaded) == os.path.realpath(filename):
+    return False
+  logger.warning(
+      'module %r was not read from %s: the module name is loaded already '
+      'from %s, and the module stays as it was loaded in this process; a '
+      'new process reads the other file'
+    , getHandle(moduleobj).fullname, filename, loaded
+    )
+  return True
 
 
 @contextlib.contextmanager

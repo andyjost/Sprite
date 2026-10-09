@@ -96,8 +96,13 @@ Known limits
   changed shape after its shim was made stays interpreted, with the
   modules that import it, and one warning says so.  A swapped module keeps
   its registry entry for the life of the process, so a later load of the
-  same name from another directory is refused.  A program shorter than its
-  compile ends interpreted with no object written.
+  same name from another directory is refused, before the object is
+  opened.  :func:`curry.load` of the object of a module whose background
+  compile runs waits for the compile; the object of a module that stays
+  interpreted is refused, and a new process loads it.  An edited source
+  is not read again in one process: the import says so, and the swap
+  refuses an object compiled from the edited file.  A program shorter
+  than its compile ends interpreted with no object written.
 * ``show`` of a ``Float`` follows PAKCS.
 
 What is experimental

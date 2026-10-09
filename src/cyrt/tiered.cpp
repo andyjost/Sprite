@@ -1,5 +1,8 @@
+#include <array>
 #include <cerrno>
 #include <chrono>
+#include <cstdint>
+#include <cstdio>
 #include <condition_variable>
 #include <cstring>
 #include <deque>
@@ -204,6 +207,23 @@ namespace cyrt
       return stat(filename.c_str(), &st) == 0;
     }
 
+    // The table of the CRC-32 (the polynomial of zlib), made on first use.
+    std::array<uint32_t, 256> const & crc_table()
+    {
+      static std::array<uint32_t, 256> const table = []{
+        std::array<uint32_t, 256> t{};
+        for(uint32_t i=0; i<256; ++i)
+        {
+          uint32_t c = i;
+          for(int k=0; k<8; ++k)
+            c = (c & 1) ? (0xEDB88320u ^ (c >> 1)) : (c >> 1);
+          t[i] = c;
+        }
+        return t;
+      }();
+      return table;
+    }
+
     void worker()
     {
       while(true)
@@ -327,6 +347,15 @@ namespace cyrt
                      + std::to_string(done.status);
         return result;
       }
+      // The object must be the translation of the ICurry the import read:
+      // the child compiles the source as it is when the child runs (see
+      // TieredJob).
+      if(!job.icurryfile.empty()
+          && tiered_file_digest(job.icurryfile) != job.icurry_digest)
+      {
+        result.error = TIERED_EDITED;
+        return result;
+      }
       // The load; see tiered.hpp.  A file at a path this process maps
       // already is loaded through a link of its own name.
       std::string loadpath = job.sofile;
@@ -371,6 +400,27 @@ namespace cyrt
         unlink(linkpath.c_str());
       return result;
     }
+  }
+
+  std::string tiered_file_digest(std::string const & path)
+  {
+    std::ifstream stream(path, std::ios::binary);
+    if(!stream)
+      return {};
+    auto const & table = crc_table();
+    uint32_t crc = 0xFFFFFFFFu;
+    size_t size = 0;
+    char buffer[65536];
+    while(stream.read(buffer, sizeof(buffer)) || stream.gcount() > 0)
+    {
+      std::streamsize const n = stream.gcount();
+      for(std::streamsize i=0; i<n; ++i)
+        crc = table[(crc ^ (unsigned char) buffer[i]) & 0xFFu] ^ (crc >> 8);
+      size += n;
+    }
+    char text[48];
+    std::snprintf(text, sizeof(text), "%zu:%08x", size, crc ^ 0xFFFFFFFFu);
+    return text;
   }
 
   void tiered_submit(TieredJob job)

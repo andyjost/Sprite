@@ -82,6 +82,16 @@ namespace cyrt
     std::vector<std::string> envp;
     std::string logfile;
     std::string sofile;
+    // The ICurry file (.icy) of the module at the import, and its digest
+    // then (tiered_file_digest).  The swap refuses the object when the file
+    // differs: the child compiled the source as it was when the child ran,
+    // and an object of an edited source is not the code the loaded module
+    // means (issue #110).  The .icy, not the JSON made from it: a rerun of
+    // the front end writes the same .icy for the same text, while the
+    // JSON of the child differs from the one of the import in its spacing.
+    // Empty: no check.
+    std::string icurryfile;
+    std::string icurry_digest;
     // The functions to swap: the name of the function in its module, the
     // symbol of its step function in the object, and the table the
     // interpreter made.
@@ -121,6 +131,15 @@ namespace cyrt
     size_t failed_modules = 0;
     size_t applied_in_evaluation = 0;
   };
+
+  // The error of a result whose object was refused because the ICurry of
+  // the module changed after the import (see TieredJob).
+  constexpr char const * TIERED_EDITED =
+      "the ICurry of the module changed after the import";
+
+  // The digest of a file for the check of the swap: its size and the CRC-32
+  // of its bytes, as text.  The empty string when the file cannot be read.
+  std::string tiered_file_digest(std::string const & path);
 
   // Queues a job.  Starts the worker thread on the first call.
   void tiered_submit(TieredJob);

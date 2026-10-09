@@ -65,6 +65,28 @@ source lives in a temporary directory the interpreter removes, and an
 expression is evaluated once.  A module whose functions are all built in has
 nothing to swap.
 
+The check of the swap.  The child compiles the source as it is when the
+child runs.  An edit of the source between the import and the compile would
+swap in the code of the edited file, and the module would change meaning
+without a load (issue #110).  So a job carries the digest of the ICurry
+file (.icy) of the module at the import (cyrt.tiered_file_digest), and the
+swap refuses the object when the file differs (the result TIERED_EDITED):
+the module stays interpreted, and poll logs it.  A new process reads the
+edited source.  The .icy and not the JSON the import read: a touch or an
+edit of a comment makes the child run the front end again, which writes the
+same .icy for the same program, while its JSON differs from the one of the
+import in its spacing (sprite-make writes the plain form, the import the
+compact one), so a digest of the JSON refused the swap for an edit that
+changed nothing.
+
+The load.  curry.load of the object of a module that runs interpreted here
+is a swap as well: the object binds to the live tables through the shim, and
+an object dropped after such a load leaves the tables pointing into unmapped
+memory (issue #109).  The loader (loader.py) asks the registry by the module
+name before it opens an object, waits for a pending compile of the module
+(wait_for) and loads the object the compile wrote, and refuses the object of
+a module that stays interpreted (has_shim).
+
 Failure.  When the compile, the shim, or the load fails, the module stays
 interpreted, and the failure is logged once per module (poll).  The results
 applied at a safepoint are logged by the next poll: before and after an
@@ -88,8 +110,8 @@ import atexit, itertools, logging, os, shutil, tempfile, time
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    'MODE', 'cancel', 'counts', 'enabled', 'ensure_shims', 'module_loaded'
-  , 'poll', 'status', 'submit', 'wait'
+    'MODE', 'cancel', 'counts', 'enabled', 'ensure_shims', 'has_shim'
+  , 'module_loaded', 'pending', 'poll', 'status', 'submit', 'wait', 'wait_for'
   ]
 
 MODE = 'tiered'
@@ -134,6 +156,7 @@ class _State(object):
   def __init__(self):
     self.tmpdir = None
     self.shims = {}      # module name -> Shim
+    self.pending = {}    # module name -> the object of a compile not applied
     self.warned = set()  # the keys of the messages logged once
     self.counter = itertools.count()
 
@@ -407,10 +430,18 @@ def submit(interp, moduleobj, currypath):
       _tmpdir(), 'compile%d-%s.log' % (next(_state.counter), name)
     )
   argv = [config.installed_path('bin', 'sprite-make'), '--so', '-z', '-q', filename]
+  # The ICurry file of the module and its digest: the swap refuses an object
+  # of another text (see the module docstring).
+  icyfile = _filenames.icurryfilename(filename)
+  if not os.path.isfile(icyfile):
+    icyfile = ''
+  digest = '' if not icyfile else cyrt.tiered_file_digest(icyfile)
   logger.debug('Compiling %s in the background: %s', name, ' '.join(argv))
   cyrt.tiered_submit(
       name, _pending_shims(cxx), argv, envp, logfile, sofile, steps
+    , icyfile, digest
     )
+  _state.pending[name] = sofile
   return True
 
 def _refresh(interp, name):
@@ -433,6 +464,7 @@ def poll(interp=None):
   results = cyrt.tiered_results()
   for result in results:
     name = result['module']
+    _state.pending.pop(name, None)
     if result['ok']:
       logger.info(
           'Compiled %s in the background in %.2f s; %d function%s swapped%s'
@@ -447,6 +479,13 @@ def poll(interp=None):
         _refresh(interp, name)
     elif result['error'] == 'the module is no longer loaded':
       logger.debug('The background compile of %s is not needed', name)
+    elif result['error'] == cyrt.TIERED_EDITED:
+      logger.warning(
+          'the background compile of module %r is not applied: its source '
+          'changed after the import, and the swap never changes what a '
+          'loaded module means; the module stays interpreted in this '
+          'process, and a new process reads the edited file', name
+        )
     else:
       output = result['output'].strip()
       _warn_once(
@@ -476,6 +515,44 @@ def wait(timeout=None, interp=None):
     if deadline is not None and time.monotonic() >= deadline:
       return False
 
+def pending(name):
+  '''
+  Tells whether a background compile of module ``name`` is queued, running,
+  or finished and not yet applied.
+  '''
+  return name in _state.pending
+
+def wait_for(name, timeout=None, interp=None):
+  '''
+  Waits until the background compile of module ``name`` ended and its result
+  was applied (the compiles queued before it end first), or until
+  ``timeout`` seconds passed.  Returns True when no compile of the module is
+  pending.
+  '''
+  deadline = None if timeout is None else time.monotonic() + timeout
+  while pending(name):
+    if deadline is None:
+      slice_ = 0.25
+    else:
+      slice_ = min(0.25, max(0.0, deadline - time.monotonic()))
+    idle = cyrt.tiered_wait(slice_)
+    poll(interp)
+    if idle:
+      # Nothing is queued or running, and the poll applied what finished:
+      # a record left here is stale.
+      _state.pending.pop(name, None)
+    elif deadline is not None and time.monotonic() >= deadline:
+      return False
+  return True
+
+def has_shim(name):
+  '''
+  Tells whether a shim names the tables of module ``name``: the module runs,
+  or ran, interpreted in this process, and an object loaded under the name
+  binds to those tables (see the module docstring).
+  '''
+  return name in _state.shims
+
 def status():
   '''
   The counts of tiered execution in this process: queued, running,
@@ -497,6 +574,7 @@ def counts():
 def cancel():
   '''Drops the queued compiles and kills the running one.'''
   cyrt.tiered_cancel()
+  _state.pending.clear()
 
 def _at_exit():
   # The compiles that ended are applied and logged, so that a failure

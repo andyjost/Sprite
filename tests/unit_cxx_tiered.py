@@ -727,3 +727,245 @@ class TestNoCompiler(TieredTestCase):
       tiered._state.warned.discard('nocxx')
       M, N, warnings = self.run_without_compiler()
       self.assertEqual(warnings, [], mode)
+
+
+# The sequence of the API study's probe (P55) for a child process: the
+# import of a module whose object is stale queues its compile, and
+# curry.load of that object returns the module of the import.
+CHILD_LOAD = r'''
+import curry
+curry.path.insert(0, %(tmpdir)r)
+M = curry.import_(%(name)r)
+M2 = curry.load(%(sofile)r)
+print(M2 is M)
+print(next(curry.eval(M.total, 4, converter='topython')))
+print('exiting normally')
+'''
+
+# The save-then-load sequence of the Quickstart ("Saving Compiled Curry") for
+# a child process: the import, curry.save, sprite-make --so in a shell, then
+# curry.load of the object.
+#
+# The sequence of the review of issue #109 for a child process: the object
+# of a module that ran interpreted, loaded after a reset.  The tables of
+# the interpreted module are kept for the process and its shim names them;
+# the object bound to them, and once the new module released the object
+# the tables pointed into unmapped memory (the next use crashed, status
+# 139).  The loader refuses the object, and the module imports and runs on.
+RESET_LOAD = r'''
+import gc
+import curry
+from curry.backends.cxx import tiered
+curry.path.insert(0, %(tmpdir)r)
+M = curry.import_(%(name)r)
+tiered.cancel()
+print(tiered.has_shim(%(name)r))
+del M
+gc.collect()
+curry.reset()
+curry.path.insert(0, %(tmpdir)r)
+try:
+  curry.load(%(sofile)r)
+except curry.exceptions.DynloadError as exc:
+  print('refused' if 'runs, or ran, interpreted' in str(exc) else str(exc))
+else:
+  print('not refused')
+M = curry.import_(%(name)r)
+print(next(curry.eval(M.total, 4, converter='topython')))
+print('exiting normally')
+'''
+QUICKSTART = r'''
+import os, subprocess
+import curry
+os.chdir(%(tmpdir)r)
+curry.path.insert(0, '.')
+M = curry.import_(%(name)r)
+curry.save(M, %(name)r + '.cpp', module_main=False)
+# The import started a compile of the module in the background, which
+# writes the products sprite-make --so writes.  The two compiles would
+# write M.cpp and M.so at once, and one could read a torn file; a session
+# at the keyboard reaches the shell long after the compile ended.  So the
+# compile ends first here.  The load during the compile is the test
+# test_load_during_the_compile_exits_cleanly.
+from curry.backends.cxx import tiered
+tiered.wait()
+subprocess.run(
+    [%(make)r, '--so', %(name)r + '.curry'], check=True
+  , env=dict(os.environ, CURRYPATH='.')
+  )
+M2 = curry.load(os.path.join('.curry', %(subdir)r, %(name)r + '.so'))
+print(M2 is M)
+print(next(curry.eval(M.bump, 1, converter='topython')))
+print('exiting normally')
+'''
+
+
+class TestLoadDuringCompile(TieredTestCase):
+  '''
+  curry.load of the object of a module while its background compile runs,
+  and of the object of a module that stays interpreted (issue #109).  The
+  object binds to the live tables of the interpreted module through its
+  shim, so a load that dropped the object (the import returned the module
+  of the import, and nothing kept the library) left the tables pointing
+  into unmapped memory: the process ended at the next use of the module, or
+  at its exit in Module::clear.  The loader waits for the compile and loads
+  the object the compile wrote, and it refuses the object of a module that
+  stays interpreted.
+  '''
+  def compile_by_hand(self, name):
+    '''
+    Compiles a module with sprite-make, as the Quickstart does.  Returns
+    the object.
+    '''
+    env = dict(os.environ)
+    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
+    env['CURRYPATH'] = self.tmpdir
+    cmd = [
+        'prlimit', '--as=%d' % ADDRESS_SPACE, 'timeout', str(TIMEOUT)
+      , config.installed_path('bin', 'sprite-make'), '--so', '-z', name
+      ]
+    proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    self.assertTrue(os.path.isfile(self.sofile(name)))
+    return self.sofile(name)
+
+  def make_stale(self, name):
+    '''Moves the source of a module past its object, so the object is stale.'''
+    source = os.path.join(self.tmpdir, name + '.curry')
+    st = os.stat(source)
+    newer = max(st.st_mtime_ns, os.stat(self.sofile(name)).st_mtime_ns) + 1
+    os.utime(source, ns=(st.st_atime_ns, newer))
+
+  def run_child(self, code):
+    with binding(
+        os.environ, 'SPRITE_INTERPRETER_FLAGS', 'backend:cxx,interpret:tiered'
+      ):
+      proc = cytest.run_in_subprocess(code, TIMEOUT, address_space=ADDRESS_SPACE)
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    return proc
+
+  @cytest.hardreset
+  def test_load_waits_for_the_compile(self):
+    name = self.write_module()
+    self.compile_by_hand(name)
+    self.make_stale(name)
+    M = self.import_module(name)
+    self.assertTrue(tiered.pending(name))
+    self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
+    before = tiered.status()
+    with capture_log('curry.backends.cxx.loader', 'curry.backends.cxx.tiered') as log:
+      M2 = curry.load(self.sofile(name))
+    self.assertIs(M2, M)
+    self.assertFalse(tiered.pending(name))
+    after = tiered.status()
+    self.assertEqual(after['swapped_modules'], before['swapped_modules'] + 1)
+    self.assertEqual(after['failed_modules'], before['failed_modules'])
+    self.assertFalse(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertEqual(
+        os.path.realpath(getHandle(M).sofilename)
+      , os.path.realpath(self.sofile(name))
+      )
+    infos = log.data[logging.INFO]
+    self.assertTrue(
+        any('Waiting for the background compile of module %s' % name in line
+            for line in infos)
+      , infos
+      )
+    self.assertEqual(log.data[logging.WARNING], [])
+    self.assertEqual(self.py(M.total, 2), 8)
+
+  @cytest.hardreset
+  def test_load_waits_after_a_reset(self):
+    # The registry names the kept library of the first incarnation after a
+    # reset, and the second incarnation runs interpreted with a compile
+    # pending: the load waits for that compile all the same, and returns a
+    # module loaded from its object.
+    name = self.write_module()
+    M = self.import_module(name)
+    self.wait()
+    self.assertFalse(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertIsNotNone(cyrt.SharedCurryModule.find_sofilename(name))
+    M = None
+    self.switch('tiered')
+    self.make_stale(name)
+    M = self.import_module(name)
+    self.assertTrue(tiered.pending(name))
+    self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
+    with capture_log('curry.backends.cxx.loader', 'curry.backends.cxx.tiered') as log:
+      M2 = curry.load(self.sofile(name))
+    self.assertIs(M2, M)
+    self.assertFalse(tiered.pending(name))
+    self.assertFalse(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertTrue(
+        any('Waiting for the background compile of module %s' % name in line
+            for line in log.data[logging.INFO])
+      , log.data[logging.INFO]
+      )
+    self.assertEqual(log.data[logging.WARNING], [])
+    self.assertEqual(self.py(M.total, 2), 8)
+
+  def test_reset_then_load_is_refused(self):
+    name = self.write_module()
+    self.compile_by_hand(name)
+    self.make_stale(name)
+    proc = self.run_child(RESET_LOAD % dict(
+        tmpdir=self.tmpdir, name=name, sofile=self.sofile(name)
+      ))
+    self.assertEqual(
+        proc.stdout.splitlines(), ['True', 'refused', '40', 'exiting normally']
+      , proc.stderr
+      )
+
+  def test_load_during_the_compile_exits_cleanly(self):
+    # The process ended with a core dump at exit (status 139).
+    name = self.write_module()
+    self.compile_by_hand(name)
+    self.make_stale(name)
+    proc = self.run_child(CHILD_LOAD % dict(
+        tmpdir=self.tmpdir, name=name, sofile=self.sofile(name)
+      ))
+    self.assertEqual(
+        proc.stdout.splitlines(), ['True', '40', 'exiting normally'], proc.stderr
+      )
+
+  def test_quickstart_sequence_twice(self):
+    # The sequence of the Quickstart, run again after an edit of the source:
+    # the second run meets the background compile of the first import and
+    # loads the object it wrote.  A new process reads the edited source.
+    text = 'module %%(name)s where\nbump :: Int -> Int\nbump x = x + %d\n'
+    name = self.write_module(text % 1)
+    code = lambda: QUICKSTART % dict(
+        tmpdir=self.tmpdir, name=name
+      , make=config.installed_path('bin', 'sprite-make')
+      , subdir=config.intermediate_subdir()
+      )
+    proc = self.run_child(code())
+    self.assertEqual(
+        proc.stdout.splitlines(), ['True', '2', 'exiting normally'], proc.stderr
+      )
+    self.edit_module(name, text % 2)
+    proc = self.run_child(code())
+    self.assertEqual(
+        proc.stdout.splitlines(), ['True', '3', 'exiting normally'], proc.stderr
+      )
+
+  @cytest.hardreset
+  def test_interpreted_module_refuses_its_object(self):
+    # The module stays interpreted: no compiler for the background compile.
+    # An object made by hand afterwards cannot be loaded over it, and the
+    # module runs on.
+    self.addCleanup(tiered._state.warned.discard, 'nocxx')
+    with mock.patch.object(config, 'cxx_tool', return_value=None):
+      with capture_log('curry.backends.cxx.tiered'):
+        M = self.fresh_module()
+    name = M.__name__
+    self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertFalse(tiered.pending(name))
+    self.assertTrue(tiered.has_shim(name))
+    sofile = self.compile_by_hand(name)
+    with self.assertRaises(curry.exceptions.DynloadError) as cm:
+      curry.load(sofile)
+    self.assertIn('runs, or ran, interpreted in this process', str(cm.exception))
+    self.assertIsNone(cyrt.SharedCurryModule.find_sofilename(name))
+    self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertEqual(self.py(M.total, 2), 8)

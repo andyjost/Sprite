@@ -54,6 +54,17 @@ source under ``.curry/sprite-pakcs-3.4.1/``.  They are the ICurry
 ``Peano.icurry``) and the JSON.  The generated C++ and the shared object
 (``Peano.so``) are added when the module has been compiled.
 
+A module loaded already is returned as it was loaded.  Within one process its
+source is not read again: when the file changed after the import,
+:func:`curry.import_` returns the loaded module and logs a warning that
+names the module and the file, once per edit.  An import of another file of
+the same module name (``is_sourcefile=True``) returns the loaded module as
+well, and the warning names both files.  A new process reads the edited or
+the other file.  On the C++ backend the background compile of a module (the
+flag ``interpret``, :doc:`/Status`) compiles the source as it is when the
+compile runs; an object compiled from an edited source is refused at the
+swap, so the code of a loaded module never changes without a load.
+
 Inspecting Symbols
 ==================
 
@@ -247,9 +258,17 @@ Then, in a new Python process (the note below says why):
     The runtime keeps one library per module name for the life of the
     process.  A load of ``Fib.so`` in a session where ``Fib`` is loaded
     from another file is refused with the message "it is already loaded
-    from"; load the object in a new process.  A new interpreter
-    (``Interpreter()``) shares the process and its libraries, and starts
-    from the flags of the environment (:ref:`interpreter-flags`).
+    from", before the object is opened; load the object in a new process.
+    Under the default ``interpret:tiered`` of the C++ backend, an import of
+    ``Fib`` without a current object compiles it in the background, and
+    :func:`curry.load` of that object waits for the compile to end (the
+    log says so at the INFO level, and at the WARNING level once the wait
+    passes five seconds) and loads the object the compile wrote.  The
+    object of a module that runs, or ran, interpreted in this process
+    without a library of its name loaded (its compile failed, or a reset
+    came before the compile ended) is refused as well.  A new interpreter (``Interpreter()``)
+    shares the process and its libraries, and starts from the flags of the
+    environment (:ref:`interpreter-flags`).
 
 .. _building-expressions:
 

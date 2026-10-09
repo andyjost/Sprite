@@ -3,6 +3,7 @@ from .resolve import resolve
 import importlib, os, sys, traceback
 curry = importlib.import_module(__package__[:__package__.find('.')])
 _compile = importlib.import_module(curry.__name__ + '.interpreter.compile')
+_import = importlib.import_module(curry.__name__ + '.interpreter.import_')
 
 __all__ = ['COMMANDS', 'eval', 'load']
 
@@ -28,6 +29,18 @@ def load(repl, arg):
   currypath = [dirname] + curry.path
   basename = os.path.basename(filename)
   modulename = os.path.splitext(basename)[0]
+  # A loaded module is not read again in this process.  Every :load after an
+  # edit of its source says so (import_ says it once per edit), and so does
+  # a :load of another file of the same module name.
+  loaded = curry.modules.get(modulename)
+  if loaded is not None:
+    _import.warn_edited(loaded, always=True)
+    # The argument may be a module name; the file it names is the one in
+    # its directory, when there is one.
+    for candidate in filename, filename + '.curry':
+      if os.path.isfile(candidate):
+        _import.warn_other_file(loaded, candidate)
+        break
   repl.module = curry.import_(modulename, currypath=currypath)
   # The argument, so that a switch of the backend can load the module again.
   repl.loaded = arg
