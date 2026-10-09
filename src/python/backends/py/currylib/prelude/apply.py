@@ -19,15 +19,23 @@ def apply(rts, _0):
   assert inspect.isa_func(term) or inspect.isa_ctor(term)
   arg = _0.target.successors[1]
   assert missing >= 1
+  # A partial application reached through set guards (a function value that
+  # is an argument of a set function, or that such an argument holds) keeps
+  # its arguments boxed: each goes under the guards crossed on the way to it
+  # (the box rule of the dissertation, chapter 4: a reference to a boxed
+  # expression is boxed).  The application itself is not boxed, and neither
+  # is ``arg``, a successor of the redex.  The C++ runtime has the same step
+  # (apply_step).
+  held = [rts.guard_held(t, partapplic.guards) for t in term.successors]
   if missing == 1:
     yield term.info
-    for t in term.successors:
+    for t in held:
       yield t
     yield arg
   else:
     yield partapplic.info
     yield missing-1
-    yield graph.Node(term, *(term.successors+[arg]), partial=True)
+    yield graph.Node(term, *(held+[arg]), partial=True)
 
 def apply_gnf(rts, _0):
   '''
@@ -109,8 +117,10 @@ def _applyspecial(rts, _0, action, **kwds):
   with rts.catch_control(nondet=rts.is_io(term)):
     _1 = rts.variable(_0, 1)
     transformed_arg = action(rts, _1, **kwds)
+  # The function and the argument keep the guards crossed on the way to
+  # them (rvalue), so the box rule reaches the application (apply).
   yield rts.prelude.apply
-  yield _0.successors[0]
+  yield partapplic.rvalue
   yield transformed_arg
 
 def _normalize(rts, var, **kwds):

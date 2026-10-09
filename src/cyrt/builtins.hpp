@@ -3,6 +3,7 @@
 #include "cyrt/fwd.hpp"
 #include "cyrt/graph/infotable.hpp"
 #include "cyrt/graph/memory.hpp"
+#include "cyrt/smallvec.hpp"
 #include <string>
 
 #define Char_Info                CyI7Prelude4Char
@@ -424,4 +425,9 @@ namespace cyrt
     return node;
   }
   inline Node * guard(Set * set, Node * value) { return make_node<SetGrdNode>(set, value); }
+  // Puts the pointer successors [begin, end) of ``node`` under ``guards``,
+  // the guards a variable crossed; see builtins.cpp.
+  void guard_successors(
+      Node * node, index_type begin, index_type end, GuardList const & guards
+    );
 }

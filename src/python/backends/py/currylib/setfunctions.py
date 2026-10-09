@@ -1,7 +1,7 @@
 from ....common import T_CHOICE, T_FREE, LEFT, UNDETERMINED
 from ..eval import fairscheme
 from ...generic.currylib import setfunctions as generic_setfunctions
-from ...generic.eval.control import E_UNWIND
+from ...generic.eval.control import E_SETFAIL, E_UNWIND
 from .. import graph
 from .... import inspect
 
@@ -73,6 +73,17 @@ def allValues(rts, _0):
           rts.E, rts.C.realpath, end=lhs_view if lr == LEFT else rhs_view
         )
       rts.restart()
+  except E_SETFAIL as exc:
+    # A boxed failure was demanded inside the capsule, under the flag
+    # setfunction_failures (boxed_failure in eval/rts_setfunctions.py): the
+    # set function has no value.  The redex becomes a failure under the
+    # guards of the enclosing sets the failure crossed, so an enclosing set
+    # function whose argument it came from fails in turn when it demands
+    # it.  The C++ runtime has the same step (allValues_step).
+    if exc.sids:
+      yield from rts.guard_args(graph.Node(rts.Failure), exc.sids)
+    else:
+      yield rts.Failure
 
 def applyS(rts, _0, capture=False):
   # applyS :: PartialS (a -> b) -> a -> PartialS b
@@ -85,13 +96,13 @@ def applyS(rts, _0, capture=False):
   assert missing >= 1
   if not capture:
     arg = graph.Node(rts.SetGuard, NO_SID, arg)
+  # The arguments the partial application holds keep the guards crossed on
+  # the way to it, below their boxes (guard_held; see set_ and apply in
+  # currylib/prelude/apply.py).
+  held = [rts.guard_held(t, partapplic.guards) for t in term.successors]
   yield rts.setfunctions.PartialS
   yield missing - 1
-  yield graph.Node(
-      term
-    , *(term.successors + [arg])
-    , partial=(missing != 1)
-    )
+  yield graph.Node(term, *(held + [arg]), partial=(missing != 1))
 
 def captureS(rts, _0):
   # captureS :: PartialS (a -> b) -> a -> PartialS b
@@ -179,10 +190,12 @@ def evalS(rts, _0):
   # does (hnf), and the shared node stays an application for the other
   # configurations.  E_RESTART tells the enclosing steps that the root was
   # replaced.  The copy is taken for the state the goal captures outside
-  # its guards (set1 (constT x) 0); the escape would handle such a choice
-  # too (choice_escapes), at the cost of a split per choice.  A choice or a
-  # variable under a guard escapes the capsule or is resolved by each reader
-  # of the value (see allValues), so the copy only loses the sharing there.
+  # its guards (set f $< x, or an encapsulated expression); the escape
+  # would handle such a choice too (choice_escapes), at the cost of a split
+  # per choice.  A choice or a variable under a guard, an argument applied
+  # with applyS or held by the function value (set_ boxes those), escapes
+  # the capsule or is resolved by each reader of the value (see allValues),
+  # so the copy only loses the sharing there.
   # The C++ runtime has the same rule (evalS_step).
   if _holds_private_state(rts, term):
     replacement = graph.Node(rts.setfunctions.Values, allvalues)
@@ -201,9 +214,25 @@ def set_(rts, _0):
   _1 = rts.variable(_0, 0)
   _1.hnf()
   assert _1.info is rts.PartApplic
+  missing, term = _1.successors
+  # The arguments the function value holds are boxed as applyS boxes the
+  # arguments applied: a partial application holds the arguments given so
+  # far, and a lambda that closes over a variable of the enclosing context
+  # holds it as an argument after lambda lifting.  Each goes under a guard
+  # without a set, which evalS gives the new set, so its non-determinism and
+  # its failure escape the capsule as an argument's do (the entry rule of
+  # the dissertation boxes every argument of the set function; issue #117).
+  # captureS stays the explicit capture of an argument.  A guard crossed on
+  # the way to the function value stays on each argument below the new
+  # guard.  The C++ runtime has the same step (set_step).
   yield rts.setfunctions.PartialS
-  yield _1.successors[0]
-  yield _1.successors[1]
+  yield missing
+  yield graph.Node(
+      term.info
+    , *[graph.Node(rts.SetGuard, NO_SID, rts.guard(t, _1.guards))
+           for t in term.successors]
+    , partial=True
+    )
 
 def setN(rts, _0):
   # setN :: (a1 -> ... -> aN -> b) -> a1 -> ... -> aN -> Values b

@@ -135,13 +135,35 @@ In the last line each value of ``x`` goes with the set computed from that
 value.  The same holds for a free variable that the argument holds.  A set
 function that starts before the variable is bound, and resumes after
 another alternative narrowed it, computes its set from the binding of its
-own alternative (the repair of issue #61).  A function
-whose result is a failure has the empty set::
+own alternative (the repair of issue #61).
+
+The same holds for a choice or a free variable that the function value
+holds.  A partial application holds the arguments given so far, and a
+lambda that closes over a variable of the enclosing context holds it as an
+argument after lambda lifting; Sprite boxes those arguments as it boxes the
+arguments of the call, so their non-determinism stays outside the set
+(issue #117)::
+
+    main6 = let x = 1 ? 2 in (sortValues (set1 (\y -> x + y) 10), x)
+                                                  -- ([11], 1), ([12], 2)
+
+``captureS`` of ``Control.SetFunctions`` is the explicit way to put the
+non-determinism of an argument inside the set: ``evalS (set f `captureS`
+(1 ? 2))`` has one value, the set of ``f 1`` and ``f 2`` together.
+
+A function whose result is a failure has the empty set::
 
     source :: String -> String
     source (stem ++ ".o") = stem ++ ".c"
 
     main5 = isEmpty (set1 source "main.c")   -- True
+
+A failure that comes from an argument gets the same treatment by default:
+``isEmpty (set1 id failed)`` is ``True``.  The interpreter flag
+``setfunction_failures`` set to ``'escape'`` makes such a failure fail the
+set function instead, as the semantics of weakly encapsulated search
+prescribes; a failure of the function's own body still gives the empty set,
+and an argument the function does not demand fails nothing.
 
 Sprite evaluates a set function lazily by default: the values of the set
 are computed as the program consumes them (the interpreter flag

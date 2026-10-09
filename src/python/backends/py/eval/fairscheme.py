@@ -3,6 +3,7 @@ from ..graph import indexing
 from ..graph.node import Node
 from .. import graph
 from ...generic.eval import control, trace
+from ...generic.eval.control import E_SETFAIL
 from .... import icurry, inspect
 from . import callstack
 
@@ -17,6 +18,12 @@ def D(rts):
     rts.telemetry._iterD += 1
     tag = inspect.tag_of(E)
     if tag == T_FAIL:
+      # A failure under the guard of the current set at the root (escape_all)
+      # is boxed: under the flag setfunction_failures it fails the set
+      # function (boxed_failure; allValues catches E_SETFAIL).
+      sids = rts.boxed_failure()
+      if sids is not None:
+        raise E_SETFAIL(sids)
       rts.drop()
     elif tag == T_CONSTR:
       value, lr = E.successors
@@ -70,6 +77,11 @@ def N(rts, var, state):
     while True:
       tag = inspect.tag_of(state.cursor)
       if tag == T_FAIL:
+        # A failure below a set guard is boxed: under the flag
+        # setfunction_failures it fails the set function (boxed_failure).
+        sids = rts.boxed_failure()
+        if sids is not None:
+          raise E_SETFAIL(sids)
         if var.is_root:
           rts.drop()
         else:
@@ -187,6 +199,11 @@ def hnf(rts, var, typedef=None, values=None):
     if tag == T_SETGRD:
       var.extend()
     elif tag == T_FAIL:
+      # A failure below a set guard is boxed: under the flag
+      # setfunction_failures it fails the set function (boxed_failure).
+      sids = rts.boxed_failure(var.guards)
+      if sids is not None:
+        raise E_SETFAIL(sids)
       var.root.rewrite(rts.Failure)
       rts.unwind()
     elif tag == T_CONSTR:

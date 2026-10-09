@@ -4,17 +4,21 @@ intended to be imported except by rts.py.
 '''
 
 __all__ = [
-    'create_queue', 'create_setfunction', 'choice_escapes', 'guard_args'
-  , 'guard', 'in_recursive_call', 'owns_decision', 'pop_queue', 'push_queue'
-  , 'qid', 'queue_scope', 'SetFunctionEval', 'sid', 'split_queue'
-  , 'update_escape_set', 'update_scape_sets', 'walk_qstack'
+    'boxed_failure', 'create_queue', 'create_setfunction', 'choice_escapes'
+  , 'guard_args', 'guard', 'guard_held', 'in_recursive_call', 'owns_decision'
+  , 'pop_queue', 'push_queue', 'qid', 'queue_scope', 'SetFunctionEval', 'sid'
+  , 'split_queue', 'update_escape_set', 'update_scape_sets', 'walk_qstack'
   ]
 
 from ....common import LEFT, RIGHT, UNDETERMINED
+from .... import inspect
 from copy import copy
 from .. import graph
 from . import queue
 import contextlib
+
+# An undetermined set ID (currylib/setfunctions.py has the same value).
+NO_SID = -1
 
 class SetFunctionEval(object):
   '''
@@ -66,8 +70,9 @@ def choice_escapes(rts, cid):
   a refusal would write the values of one into the graph the other reads.
 
   A choice in no escape set escapes as well when an enclosing configuration
-  has decided it: a captured occurrence (set1 (constT x) 0) of a choice
-  that the outside decided after the capsule started.  A fork would prune
+  has decided it: a captured occurrence (set f $< x, or an encapsulated
+  expression) of a choice that the outside decided after the capsule
+  started.  A fork would prune
   it, inside a capsule that another enclosing configuration, with the other
   side, may share, to the side of the configuration that runs the capsule
   now.  The escape splits the capsule instead, and each side prunes its own
@@ -89,6 +94,46 @@ def choice_escapes(rts, cid):
     next(enclosing)
     escapes = any(gid in config.fingerprint for config in enclosing)
   return escapes and cid not in rts.Q.decisions
+
+def boxed_failure(rts, guards=()):
+  '''
+  Tells whether a failure met by the current configuration fails the set
+  function, and which guards the failure keeps.  Returns None when the
+  failure drops the alternative instead: the flag setfunction_failures is
+  'encapsulate', the evaluation is outside every set function, or the path
+  from the root of the configuration to the failure crosses no set guard.
+  Otherwise returns the ids of the enclosing sets whose guards the path
+  crossed, without the current set: the caller raises E_SETFAIL with them,
+  and allValues makes the set function a failure under their guards.
+
+  The path is read from the call stack of the configuration: the guards of
+  the variable of each hnf frame, and the guards the walk of each N frame
+  crossed (the guards of its variable and the set ids it pushed);
+  ``guards`` adds those of the position in hand.  A guard of the current
+  set at the root, which D stripped, set escape_all.  A boxed failure came
+  through the box of an argument of a set function, this one or an
+  enclosing one, as the box rule of the dissertation (chapter 4) keeps
+  every reference to a boxed expression boxed.  So it is a failure of the
+  context, not of the function, and the semantics of weakly encapsulated
+  search gives the set function no value.  An unboxed failure is the
+  function's own and drops its alternative (rule SF.5), as every failure
+  does under 'encapsulate'.  The C++ runtime has the same test
+  (RuntimeState::failure_escapes and fail_capsule).
+  '''
+  if rts.setfunction_failures != 'escape' or not rts.in_recursive_call:
+    return None
+  crossed = set(guards)
+  if rts.C.escape_all:
+    crossed.add(rts.sid)
+  for frame in rts.C.callstack.frames:
+    obj = frame.obj
+    crossed.update(getattr(obj, 'guards', ()))
+    crossed.update(getattr(obj, 'base_guards', ()))
+    crossed.update(sid for sid in getattr(obj, 'data', ()) if sid is not None)
+  if not crossed:
+    return None
+  crossed.discard(rts.sid)
+  return sorted(crossed)
 
 def owns_decision(rts, cid):
   '''
@@ -147,6 +192,24 @@ def guard(rts, expr, guards, target=None):
     return expr
   else:
     return graph.Node(*guard_args(rts, expr, guards), target=target)
+
+def guard_held(rts, expr, guards):
+  '''
+  Puts ``guards`` on an argument a partial application holds (the box rule
+  for a partial application reached through set guards; see apply and
+  applyS).  A guard without a set, the box of an argument of a PartialS
+  (``set_`` and ``applyS``), stays outermost: evalS gives the new set to
+  the direct successors of its goal alone.  The guards go on the value
+  inside that box.  The C++ runtime has the same rule (guard_successors).
+  '''
+  if not guards:
+    return expr
+  if inspect.isa_setguard(expr) and inspect.get_set_id(expr) == NO_SID:
+    return graph.Node(
+        rts.SetGuard, NO_SID
+      , guard(rts, inspect.get_setguard_value(expr), guards)
+      )
+  return guard(rts, expr, guards)
 
 def in_recursive_call(rts):
   return len(rts.qstack) > 1

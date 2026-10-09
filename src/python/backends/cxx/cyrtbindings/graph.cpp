@@ -722,8 +722,8 @@ namespace cyrt { namespace python
       // between two rotation checks (0 selects time mode) and the quantum
       // of time mode in nanoseconds.  See cyrt/ticker.hpp.
       .def(py::init<
-          InterpreterState &, Node *, bool, SetFStrategy, size_t, size_t
-        , uint64_t
+          InterpreterState &, Node *, bool, SetFStrategy, SetFFailures, size_t
+        , size_t, uint64_t
         >())
       .def_readonly("steps_total", &RuntimeState::steps_total)
       .def_readonly("forks_total", &RuntimeState::forks_total)

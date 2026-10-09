@@ -141,6 +141,11 @@ namespace cyrt
         case E_TERMINATE: if(this->in_recursive_call())
                            return this->yield_control(E_TERMINATE);
                          throw StepLimitReached("the step limit was reached");
+        // A boxed failure was demanded in this capsule (fail_capsule): the
+        // nested scheduler hands the status to allValues_step, which makes
+        // the set function a failure.  The queue is left as it is; nothing
+        // runs it again.
+        case E_SETFAIL : return this->yield_control(E_SETFAIL);
         case E_ERROR   : C->raise_error();
         case E_RESIDUAL: this->rotate(Q);
                          continue;
@@ -192,7 +197,9 @@ namespace cyrt
       {
         case T_UNBOXED : continue;
         case T_SETGRD  : scan->extend(); ++(*scan); continue;
-        case T_FAIL    : return root->make_failure();
+        case T_FAIL    : if(this->failure_escapes(C, nullptr))
+                           return this->fail_capsule(C, nullptr);
+                         return root->make_failure();
         case T_CONSTR  : *root = this->lift_constraint(C, root, scan->cursor());
                          return inspect::tag_of(root);
         case T_FREE    : tag = this->replace_freevar(C, root);
@@ -213,6 +220,7 @@ namespace cyrt
                          #endif
                          scan->resize(ret);
                          goto redoN;
+        case E_SETFAIL :
         case E_TERMINATE:
         case E_UNWIND  :
         case E_GC      :
@@ -307,7 +315,9 @@ namespace cyrt
           tag = inspect::tag_of(inductive->target);
           continue;
         }
-        case T_FAIL  : _0->forward_to(Fail);
+        case T_FAIL  : if(this->failure_escapes(C, inductive))
+                         return this->fail_capsule(C, inductive);
+                       _0->forward_to(Fail);
                        return T_FWD;
         case T_CONSTR: _0->forward_to(this->lift_constraint(C, inductive));
                        return T_FWD;

@@ -46,7 +46,13 @@ set7 external
 -- Partial set function appliction.
 external data PartialS _
 
--- Create the set function of a normal function.
+-- Create the set function of a normal function.  The arguments the
+-- function value holds are excluded from the set as the arguments applied
+-- with applyS are: a partial application holds the arguments given so far,
+-- and a lambda that closes over a variable of the enclosing context holds
+-- it as an argument.  So `set1 (\y -> x + y) 10` with `x = 0 ? 1` gives
+-- the two sets {10} and {11}, one per value of `x`.  Use captureS to
+-- include the non-determinism of an argument.
 set :: a -> PartialS a
 set external
 
@@ -54,7 +60,10 @@ set external
 exprS :: a -> PartialS a
 exprS external
 
--- Apply an argument in a set context, excluding its non-determinism.
+-- Apply an argument in a set context, excluding its non-determinism.  A
+-- failure of the argument that the function demands drops the alternative
+-- by default, and fails the set function under the interpreter flag
+-- setfunction_failures 'escape'.
 applyS :: PartialS (a -> b) -> a -> PartialS b
 applyS external
 

@@ -9475,3 +9475,236 @@
   tests/README, the test and this file; no line of the diff holds a
   machine-specific path or name; every changed README line is within the
   width of its file.
+
+2026-10-09: set functions, the captured arguments and the failure rule
+  (decisions D2 and D1 of the memo on the Fair Scheme proofs; #117;
+  worktree wt/setfun)
+- The owner approved the memo of 2026-10-08 with its recommendations on
+  2026-10-09.  Two of its decisions change the semantics of the set
+  functions, and this lane implements them on both backends.  D2 (option
+  O1): the arguments the function value given to set_k holds are boxed as
+  the value arguments are, so their non-determinism escapes the capsule;
+  captureS stays the explicit capture.  D1 (option F2, the amendment
+  A-fail): a failure that comes from an argument and is demanded inside
+  the capsule fails the set function, behind the flag setfunction_failures,
+  whose default stays 'encapsulate' in this lane.  D3, the shared capsule
+  (#86), is the next lane: nothing here changes the ownership of a capsule,
+  and test_shared_capsule keeps its expected-failure mark.
+- D2, where the boxing happens.  setN rewrites set_k f a1 .. ak to evalS
+  (applyS (.. (set f) ..) ak); applyS boxed each ai (a SetGuard without a
+  set, which evalS gives the new set) and set copied the partial
+  application f as it was, so a partial application's arguments and the
+  variables a lambda closes over (lambda lifting makes them arguments of
+  the lifted function) entered the capsule unboxed: a choice or a free
+  variable among them was encapsulated when the enclosing context had not
+  decided it, and escaped when it had (choice_escapes, the rule of
+  2026-10-05).  Now set_step (currylib/setfunctions.cpp) and set_
+  (backends/py/currylib/setfunctions.py) put every argument of the partial
+  application under a guard without a set, below which the guards crossed
+  on the way to the function value stay (guard_successors); evalS_step
+  gives the top guard the new set as before.  This is the entry rule of
+  the dissertation (chapter 4, p. 158), which boxes a_0 .. a_n, applied to
+  the arguments a partial application holds, which the dissertation treats
+  as data (p. 153).  What stays unboxed: an argument applied with captureS
+  ($<), an encapsulated expression (set0, exprS), and the head of the
+  function value.  The rule of choice_escapes for a captured choice an
+  enclosing configuration decided stays for them, and holds_private_state
+  stays as it was: a captured choice decided before the capsule starts is
+  still found by the walk, through the guard, and the capsule is still a
+  private copy; inside it the choice now escapes through the guard and the
+  split sorts the one configuration to its side (one split and one restart
+  instead of the fork in place that pruned it before).  Both readings give
+  the values of the test corpus; the benchmarks below show no counter
+  moved.
+- D2, a captured variable or choice inside a nested data structure of the
+  closure (the decision the task left here): the whole captured argument
+  node is boxed, as a value argument is, and the box propagates as it does
+  for a value argument.  A pattern match passes the box on to the
+  component through rvalue (fst p with p = (x, 2) captured: capData).  An
+  application of a partial application reached through guards (a captured
+  closure, capPartial; a value argument that is a closure, argPartial)
+  copied the arguments of the partial application out of the box, so a
+  choice inside them was encapsulated; this held for value arguments
+  before this lane (argPartial gave ([0, 1], 0) and ([0, 1], 1), values
+  outside the reference semantics, the same defect as #117 one level
+  down).  apply_step (prelude/apply.cpp) and apply (prelude/apply.py) now
+  put the guards crossed on the way to the partial application on each of
+  its arguments, in the completed application and in the extended partial
+  application (guard_successors in builtins.cpp, the box rule for a
+  partial application as data: a reference to a boxed expression is
+  boxed); applyS and captureS do the same for the arguments the partial
+  application already holds; and ($!), ($!!) and ($##) build their apply
+  node from the rvalues of the function and the argument, which kept the
+  guards of neither.  These three follow from the box rule and from D2's
+  "box the whole argument"; they are listed under the owner's items below
+  because they reach a value argument's closure, beyond the two rules as
+  stated.
+- D1, what a boxed failure is.  The runtime has one failure node, so the
+  box flag of the memo is read from the graph: a failure is boxed when the
+  path from the root of the configuration to it crosses a set guard.  The
+  C++ runtime reads the path from the levels of the scan (the root to the
+  redex; Scan::frames) and from the guards of the inductive variable (the
+  redex to the position): failure_escapes and fail_capsule in
+  state/rts_setfunctions.cpp, called at the two places a step meets a
+  failure inside a capsule, hnf and procN of fairscheme.cpp (a failure at
+  the root of a configuration, which procD meets, is unboxed, because a
+  guard at the root is a T_SETGRD node that procN descends).  The Python
+  backend reads the call stack of the configuration (the guards of the
+  variable of each hnf
+  frame, and the guards of each walk of N: the guards of its variable,
+  kept as base_guards of the WalkState, and the set ids it pushed) and
+  escape_all, which D sets when it strips a guard of the current set at
+  the root: boxed_failure in eval/rts_setfunctions.py, called in D, N and
+  hnf.  Under 'escape' a boxed failure returns the new status E_SETFAIL
+  (fwd.hpp; the exception E_SETFAIL on the Python backend), which every
+  enclosing step hands out as it hands E_TERMINATE out, the nested procD
+  yields it, and allValues_step (allValues) rewrites the redex of the set
+  function to a failure under the guards of the enclosing sets the
+  failure crossed, less the current set (capsule_failure_guards): so an
+  enclosing set function whose argument the failure came from fails in
+  turn when it demands it (nestFail), and a failure made inside the outer
+  function and passed to an inner set function fails the inner one and
+  drops the alternative of the outer function (nestFailInner).  The queue
+  of the failed capsule is left as it is; nothing runs it again.  Under
+  'encapsulate' (the default) every failure drops its alternative as
+  before (rule SF.5).  A value the program consumed before the failing
+  argument is demanded stays a value under both settings (lazyFirst): the
+  set is lazy, as the values of SF.3 are.  The flag is threaded as
+  setfunction_strategy is: FLAG_INFO and the docstring of
+  interpreter/flags.py, the table of the Python API page, SetFFailures in
+  fwd.hpp, a field and a constructor argument of RuntimeState, the enum of
+  the bindings (constants.cpp) and the mapping of cyrtbindings/__init__.py;
+  the Python backend reads it as rts.setfunction_failures.
+  unit_cxx_rotation.py constructs RuntimeStateBase directly and gained the
+  argument.
+- The goals of the memo's table (tests/data/curry/SetFunctionsSemantics.
+  curry, with the helpers of the probe modules), measured on this build
+  before and after the change, both backends, step mode, prlimit 2 GB.
+  Before, on both backends: s6PL [10, 11]; ord2 ([10, 11], 0) and
+  ([10, 11], 1); cin1 ([True], _a); cin1Rev (_a, [True]); capNarrow
+  ([False, True], _a); capData and capPartial ([10, 11], 0) and ([10, 11],
+  1); argPartial ([0, 1], 0) and ([0, 1], 1); s3 []; s3e True; s4 and s4h
+  []; s4a, s4b, s4c True; nestFail False; nestFailInner False; lazyFirst
+  True.  After, under both settings of the flag: s6PL [10] and [11]; ord2
+  and ord2Arg ([10], 0) and ([11], 1); cin1 ([True], True) and ([],
+  False); cin1Rev (True, [True]) and (False, []); capNarrow ([False],
+  True) and ([True], False); capData, capPartial ([10], 0) and ([11], 1);
+  argPartial ([0], 0) and ([1], 1); capNested [[1]] and [[2]].  After,
+  under 'encapsulate': s3 [], s3e True, s4 and s4h [], s4a, s4b, s4c True,
+  nestFail False, nestFailInner False; under 'escape': s3, s3e, s4, s4h,
+  s4a, s4b, s4c and nestFail no value, nestFailInner True; lazyFirst True
+  under both.  Unchanged under both settings, on both backends: s1 [-1, 1]
+  and [0, 2]; s2 of PG ([1], 0) and ([2], 1); s2 of PL [1]; s3 of PG [1];
+  s3i True; s4d True; s5 [[-1, 1]] and [[0, 2]]; nest2 [[False]] and
+  [[True]]; s6 of PG [False] and [True]; s7 of PG ([2], True) and ([1],
+  False); s7 of PL ([1], True) and ([2], False); s8 of PL [10] and [11];
+  s9 [1] and []; s10 [1] and []; ho1 [-1, 1] and [0]; cap1 [-1, 0, 1, 2];
+  ord1 (0, [10]) and (1, [11]); cin2 ([True], True) and ([], False); cin3
+  ([_a], _a).  Every value after is the reference value of the table
+  (sections 5.2 and 5.3 of the memo).  The two backends agree on every
+  goal but capNested and nestFail on the Python backend, which assert
+  before and after: a guard of an enclosing set at the root of a nested
+  configuration, the known failure of that backend.
+- Tests: tests/unit_setfunctions_semantics.py, one test per goal above (39
+  per backend), each class with one child per setting of the flag; the two
+  goals of the known failure are expected failures on the Python backend.
+  The existing set-function tests are unchanged and pass: the goldens of
+  applyS.curry (goal10, goal11: a captured occurrence applied with $<
+  follows the guarded one) and the captured shapes of
+  unit_setfunctions_bugs.py keep their values, because a captured
+  occurrence of a decided choice escapes now where the private capsule
+  forked on it before, with the same values.  Through the runner (-j 2
+  --mem 4 --backend both, env -i, after --prepare-only, which compiled the
+  products of 24 directories in 477 s after the header change):
+  unit_setfunctions_semantics, unit_setfunctions_bugs,
+  unit_setfunctions_bindings, unit_cxx_scheduler, func_setfunctions,
+  unit_funcpat_narrowed, unit_funpat_free_argument, unit_cxx_freevars,
+  unit_py_residuation, unit_cxx_interp, func_funpat, unit_cxx_partial,
+  unit_cxx_rotation, unit_cxx_steplimit, unit_py_fairness, unit_py_copy,
+  unit_inspect, unit_cxx_rewrite, unit_cxx_literals, unit_cxx_counters,
+  unit_cxx_variable, unit_cxx_passthrough, unit_cxx_stack, unit_cxx_heap,
+  unit_cxx_gc_counters, func_kiel, unit_cxx_bom, unit_cxx_mps: 56 of 56
+  run, wall 100 s, one failure, test_zero_quantum_is_an_error of
+  unit_cxx_rotation.py (the direct construction, fixed; 20 tests pass
+  alone); unit_examples, unit_cxx_gc, unit_typed_expr, unit_loadsave,
+  unit_currylib, unit_cache, unit_importer, unit_sigtable, unit_icurry,
+  unit_flat2icurry: 20 of 20 run, wall 206 s, two failures, unit_currylib
+  on both backends (below; 10 tests pass on each after the fix);
+  func_docs 3 tests on each backend; make -C docs html: build succeeded,
+  no warning on the edited pages.
+- The library source.  The comments of set and applyS in
+  curry/lib/Control/SetFunctions.curry describe the two rules.  The module
+  is one of the eight whose source tests/unit_currylib.py pins by digest,
+  and a changed time stamp made make install of test_install_interfaces
+  derive the JSON again from the committed .icy (identical bytes).  As the
+  README of the library prescribes: the .icy made from the edited source
+  with sprite-make --icy is byte-identical to the committed one, and the
+  digest in unit_currylib.py is updated.
+- Cost of D2 (run_benchmarks, C++ backend, one repetition, step mode, the
+  machine shared with two other workflows; compare --deterministic): the
+  steps, forks and collections of QueensSet, QueensSet9 and Queens10 are
+  equal before and after; the instructions of QueensSet9 18773.4 M to
+  18779.7 M (+0.03 percent) and of Queens10 9542.1 M to 9577.0 M (+0.4
+  percent, within the tolerance); QueensSet 6317.1 M to 3702.4 M, where
+  the count before included the background compile of the module after
+  the fresh checkout of the worktree.  The ~cpu and ~wall ratios of 1.6
+  are the load of the machine (advisory).  The set functions of the three
+  programs pass plain functions (set1 unsafe, set0 goal), so no argument
+  is boxed by the new rule, and no captured choice splits a capsule.
+  PokerChoice and PokerFree did not run before or after: their source
+  needs the Curry preprocessor (currypp), which the PAKCS installation of
+  the machine lacks.
+- Left to the owner.  (1) D3, the shared capsule (#86, route (c) decided):
+  the next lane; test_shared_capsule stays a known failure.  (2) The
+  default of setfunction_failures: 'encapsulate' here; 'escape' after the
+  differential harness confirms it, as the memo says.  (3) The three
+  propagation changes under D2 above (apply, applyS and captureS, and the
+  strict applications) box the arguments of a closure passed as a value
+  argument as well: argPartial changed from ([0, 1], 0) and ([0, 1], 1) to
+  ([0], 0) and ([1], 1), the reference values.  (4) holds_private_state
+  still copies the capsule for a captured choice decided before the start,
+  where the escape now handles it; the walk could skip the guarded
+  subtrees, which would leave such capsules shared (no benchmark counter
+  moved either way).  (5) Under 'escape' a set consumed in part keeps the
+  values produced before the failing argument is demanded (lazyFirst,
+  select): the lazy strategy, not the semantics of CHRS13, which has no
+  value for the whole set.  (6) The Python backend's known failure on a
+  guard of an enclosing set at the root now covers capNested and
+  nestFail as well.  (7) tests/manifest.json has no entry for the new file
+  (a calibration run on a quiet machine adds it).  (8) Issue #117 gets its
+  closing comment when the commit is merged and CI is green; nothing is
+  committed from this lane.
+- The review of the lane.  (a) A PartialS reached through a box, applied
+  with applyS inside the capsule (pS, pSCap in the test module), crashed
+  the C++ runtime (a null set in update_escape_sets) and raised KeyError on
+  the Python backend: applyS and captureS put the crossed guards around
+  the box without a set that set_step had made, so the box was no longer a
+  direct successor of the goal, and evalS never gave it the new set.
+  guard_successors (builtins.cpp) and the new guard_held
+  (eval/rts_setfunctions.py) keep such a box outermost and put the guards
+  on its value.  pS gives [[1]] and [[2]], pSCap ([[1]], 0) and
+  ([[2]], 1), the reference values, on both backends under both settings;
+  the two goals are tests.  (b) The eager strategy
+  (setfunction_strategy 'eager') loops on s1 and on s6PL, before this lane
+  as well (eagerApplyS_step makes a partial application of itself, so the
+  normalized argument comes back to the same step); s2PL answers with no
+  value.  The two rules were not exercised under the eager strategy.  The
+  fix is the owner's (the strategy has one branch in func_setfunctions.py
+  and the documentation still names it).  (c) The comment of
+  guard_successors said an allocation may move the node; this heap never
+  moves a node (graph/memory.hpp).  The comment now says why the slot is
+  read again.
+- The suite stage (2026-10-09).  The prepare pass, the fast selection
+  (124 file runs), the set-function and capsule files (46 file runs), the
+  three set-function files under interpret:off and interpret:all, and the
+  oracle suites (44 file runs) passed on both backends.  The docs build
+  reported two docutils errors from the docstring of guard_held (a word
+  that ends in an underscore reads as a reference); the docstring is
+  fixed, and the build has no warning.  The counters of Tak1 and Fib equal
+  the committed record of 2026-10-04; the steps of Queens10 (17706900)
+  differ from that record (54505073) on the clean head of py314 as well,
+  so the difference predates this lane (the rotation in step mode of
+  2026-10-05 came after the record).  The 18 unit files outside the fast
+  selection and the set-function batch ran as a third batch (36 file
+  runs, no failure), so every unit and functional file ran on both
+  backends in this lane, in four bounded runs rather than one.

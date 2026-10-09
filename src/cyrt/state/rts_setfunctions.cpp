@@ -1,4 +1,6 @@
+#include "cyrt/builtins.hpp"
 #include "cyrt/state/rts.hpp"
+#include <algorithm>
 
 namespace cyrt
 {
@@ -44,8 +46,9 @@ namespace cyrt
   // reads.
   //
   // A choice in no escape set escapes as well when an enclosing
-  // configuration has decided it: a captured occurrence (set1 (constT x) 0)
-  // of a choice that the outside decided after the capsule started.  A fork
+  // configuration has decided it: a captured occurrence (set f $< x, or an
+  // encapsulated expression) of a choice that the outside decided after
+  // the capsule started.  A fork
   // would prune it, inside a capsule that another enclosing configuration,
   // with the other side, may share, to the side of the configuration that
   // runs the capsule now.  The escape splits the capsule instead, and each
@@ -86,5 +89,74 @@ namespace cyrt
   {
     return C->fingerprint.test(C->grp_id(cid)) != UNDETERMINED
         || this->Q()->decided(cid);
+  }
+
+  // A level of the scan whose node is a set guard: the path from the root of
+  // the configuration to the position of the scan crosses the guard.
+  static inline bool is_guard_level(Cursor const & cur)
+  {
+    return cur.kind == 'p' && *cur && (*cur)->info->tag == T_SETGRD;
+  }
+
+  // Tells whether a failure met by a step of C fails the set function: the
+  // flag setfunction_failures is 'escape', the evaluation is inside a set
+  // function, and the path from the root of C to the failure crosses a set
+  // guard, in the levels of the scan (from the root to the redex) or in the
+  // guards of ``inductive`` (from the redex to the position; null when the
+  // failure is at the cursor of the scan).  Such a failure is boxed: it
+  // came through the box of an argument of a set function, this one or an
+  // enclosing one, as the box rule of the dissertation (chapter 4) keeps
+  // every reference to a boxed expression boxed.  So it is a failure of the
+  // context, not of the function, and the semantics of weakly encapsulated
+  // search gives the set function no value.  An unboxed failure is the
+  // function's own and drops its alternative (rule SF.5), as every failure
+  // does under 'encapsulate'.  The Python backend has the same test
+  // (boxed_failure in rts_setfunctions.py).
+  bool RuntimeState::failure_escapes(
+      Configuration * C, Variable const * inductive
+    )
+  {
+    if(this->setfunction_failures != SETF_FAILURES_ESCAPE
+        || !this->in_recursive_call())
+      return false;
+    if(inductive && !inductive->guards.empty())
+      return true;
+    for(auto const & level: C->scan.frames())
+      if(is_guard_level(level.cur))
+        return true;
+    return false;
+  }
+
+  // Fails the set function whose queue is current (see failure_escapes).
+  // Records the sets of the guards the failure crossed, less the current
+  // set, and returns E_SETFAIL, which every enclosing step hands out as it
+  // hands E_UNWIND out, up to the nested procD, which yields it to
+  // allValues_step.  That step makes the set function a failure under the
+  // guards recorded: an enclosing set function whose argument the failure
+  // came from fails in turn when it demands it, and a failure from no
+  // enclosing argument drops the alternative of the enclosing function.
+  // The step that met the failure is left as it was, with its queue: the
+  // set function is gone, and nothing runs the queue again.
+  tag_type RuntimeState::fail_capsule(
+      Configuration * C, Variable const * inductive
+    )
+  {
+    assert(this->in_recursive_call());
+    Set * const current = this->S();
+    auto & keep = this->capsule_failure_guards;
+    keep.clear();
+    auto record = [&](Set * set)
+    {
+      if(set && set != current
+          && std::find(keep.begin(), keep.end(), set) == keep.end())
+        keep.push_back(set);
+    };
+    for(auto const & level: C->scan.frames())
+      if(is_guard_level(level.cur))
+        record(NodeU{*level.cur}.setgrd->set);
+    if(inductive)
+      for(Set * set: inductive->guards)
+        record(set);
+    return E_SETFAIL;
   }
 }

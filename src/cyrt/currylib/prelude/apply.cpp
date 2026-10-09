@@ -32,18 +32,32 @@ namespace cyrt { inline namespace
     PartApplicNode * partial = NodeU{_1.target}.partapplic;
     assert(partial->info->type == &PartApplic_Type);
     Node * arg = _0->successor(1);
+    // A partial application reached through set guards (a function value
+    // that is an argument of a set function, or that such an argument holds)
+    // keeps its arguments boxed: each goes under the guards crossed on the
+    // way to it (guard_successors).  The application itself is not boxed,
+    // and neither is ``arg``, a successor of the redex.
+    index_type const nargs = partial->nargs();
     if(partial->complete(arg))
     {
       // The function node is written into the redex when it fits: a function
       // of up to two arguments.  See Node::rewrite.
       if(partial->head_info->alloc_size <= _0->info->alloc_size)
-        return _0->rewrite_from_partial(partial, arg);
-      _0->forward_to(Node::from_partial(partial, arg));
+      {
+        tag_type const tag = _0->rewrite_from_partial(partial, arg);
+        guard_successors(*_0, 0, nargs, _1.guards);
+        return tag;
+      }
+      Node * replacement = Node::from_partial(partial, arg);
+      guard_successors(replacement, 0, nargs, _1.guards);
+      _0->forward_to(replacement);
       return T_FWD;
     }
     // One more argument: one node, with the arguments inline.  It never fits
     // the redex (three words and the arguments against a head and two).
-    _0->forward_to(Node::extend_partial(partial, arg));
+    Node * extended = Node::extend_partial(partial, arg);
+    guard_successors(extended, 2, 2 + nargs, _1.guards);
+    _0->forward_to(extended);
     return T_FWD;
   }
 
@@ -76,8 +90,10 @@ namespace cyrt { inline namespace
     // T_FREE: the action accepts a free variable (applynf_step).
     if(tag < T_CTOR && tag != T_FREE)
       return rts->hnf(C, &_2, nullptr, monadic);
+    // The function and the argument keep the guards crossed on the way to
+    // them (rvalue), so the box rule reaches the application (apply_step).
     Node * replacement = Node::create(
-        &apply_Info, _1.target, _2.target
+        &apply_Info, _1.rvalue(), _2.rvalue()
       );
     _0->forward_to(replacement);
     return T_FWD;

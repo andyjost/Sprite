@@ -145,6 +145,26 @@ The following flags are available:
     CI jobs set ``steps:65536`` through it.  The Python backend keeps its
     ``step_budget`` and ignores this flag.
 
+  * ``setfunction_failures`` (**'encapsulate'** | 'escape')
+
+    What a failure that comes from an argument of a set function does when
+    the capsule demands it.  Such a failure is boxed: it reached the capsule
+    through the box of an argument, a value argument or an argument the
+    function value holds (a captured variable), so it belongs to the
+    context, not to the function.  With 'encapsulate', the default, it
+    drops its alternative, as a failure of the function does (rule SF.5 of
+    the dissertation): the set function gives the values of the other
+    alternatives, and the empty set when none remain.  With 'escape', it
+    fails the set function, as a choice of an argument escapes it: the
+    semantics of weakly encapsulated search (Christiansen, Hanus, Reck and
+    Seidel, PPDP 2013), which KiCS2 implements.  A failure of the
+    function's own body drops its alternative under both settings, and an
+    argument the function does not demand fails nothing.  A value the
+    program consumed before the failing argument was demanded stays a
+    value: the set is lazy.  The flag serves the Fair Scheme proofs
+    program, which decided for 'escape' (decision D1); the default moves
+    after the differential harness confirms it.
+
   * ``setfunction_strategy`` (**'lazy'** | 'eager')
 
     Indicates how to evaluate set functions.  If 'lazy', then set guards are
@@ -209,6 +229,7 @@ FLAG_INFO = {
   , 'postmortem'          : ( bool                , False )
   , 'recursion_limit'     : ({None, int}          , 1 << 18)
   , 'rotation'            : ( str                 , 'time:10ms')
+  , 'setfunction_failures': ({'encapsulate', 'escape'}, 'encapsulate')
   , 'setfunction_strategy': ({'eager', 'lazy'}    , 'lazy')
   , 'stack_limit'         : ({None, int}          , 4194304)
   , 'step_budget'         : ({None, int}          , 2048  )
