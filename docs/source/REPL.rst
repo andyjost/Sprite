@@ -53,7 +53,13 @@ be any unambiguous prefix, for example ``:e`` for ``:eval`` and ``:t`` for
     not in scope at the prompt, and no command imports another module.
     To use a function of a library at the prompt, define a wrapper in the
     loaded module, or re-export the library from it (``module M (module
-    M, module Control.SetFunctions) where``).
+    M, module Control.SetFunctions) where``).  A module loaded already is
+    not read again in this process: a second ``:load`` of it after an
+    edit of the file returns the module as it was loaded and prints a
+    warning that names the module and the file, once per ``:load``.  A
+    ``:load`` of another file of the same module name does the same, and
+    the warning names both files.  Quit the REPL and start it again to
+    load the edited or the other file.
 
 ``:eval EXPR``
     Compiles the expression, evaluates it, and prints each value on a line

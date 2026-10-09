@@ -8684,3 +8684,286 @@
   of Tak1 by a test process, not of this entry); unit_expr.py 32,
   unit_typecheck.py 75, unit_typed_expr.py 55 and unit_reference_backend.py
   7 ok on both backends.
+
+2026-10-08: the refused load, the load during the background compile, and the edited source (#109, #110; worktree wt/apibugs2)
+- #109, path A, the refused load.  Reproduced (the case D of the API
+  study: curry.load(soA), the refused curry.load(soB) of a second object of
+  module M, then curry.eval(M.main)): exit 139.  gdb: the fault is in
+  cyrt::pack under Node::create, which reads info->format of a table of M.
+  The cause, confirmed by the trace: the loader opened the second library
+  before it compared the registered file.  The dynamic linker binds the
+  symbols of a library to the first definition in the global scope, and a
+  compiled module is linked with -Bsymbolic-functions, which binds its
+  functions and not its data, so the second library's references to its
+  own tables resolved to the tables of the first library; InfoTable has a
+  constructor, so the tables are dynamic initializers (.init_array), and
+  the load of the second library constructed its tables at the addresses
+  of the first library's tables, with name, format and step pointers into
+  the second library.  The refusal dropped the second library (the
+  loader's SharedCurryModule was garbage), dlclose unmapped it (a compiled
+  module defines no STB_GNU_UNIQUE symbol, so nothing marks it NODELETE),
+  and the tables of the loaded module pointed into unmapped memory.  The
+  cases I and J of the study passed here before the change; they are the
+  same mechanism with a reset between (a reset does not rewrite the tables
+  of a module loaded from its object), and the fix covers them.  Fix: the
+  decision is taken before any dlopen.  The module name comes from the
+  SONAME of the object (elf.read_dynamic, which the loader read already
+  for the NEEDED entries; toolchain.module_of_soname), and the registry of
+  the runtime is asked by that name through a new binding,
+  SharedCurryModule.find (the registry is the truth: a library stays
+  registered after a reset while its tables are kept, where
+  interp.modules and the Module of the runtime know nothing of it).  A
+  different file is refused with the documented message, and nothing was
+  opened.  The compare after the open stays as the backstop for an object
+  without the SONAME of its module (one written before format 13), whose
+  name is known only after the open; such an object is still opened before
+  the compare, as before.  No other route was smaller: the bill of
+  materials of the file needs the relocations applied to read its name,
+  and an open with RTLD_LOCAL binds the references of the object to the
+  global scope all the same.
+- #109, path B, the load during the background compile.  Reproduced (the
+  probe of P55: Peano.curry newer than Peano.so, from curry.lib import
+  Peano, curry.load of the object, then the exit; also with curry.save
+  before the load): "exiting normally" printed, exit 139.  The trace.
+  gdb: __strlen_evex under cyrt::Module::clear() under Module::~Module,
+  called from the pybind11 deallocator during the garbage collection of
+  the exit of Python (Py_RunMain, _Py_Dealloc).  Module::clear keeps the
+  tables of an interpreted module and reads info->name to key them; the
+  name pointed into unmapped memory.  LD_DEBUG=files: the loader opened
+  Peano.so ("dynamically loaded by libcyrt.so"), the shim of Peano was
+  "needed by Peano.so (relocation dependency)", so the object bound its
+  tables to the live tables of the interpreted module, and "calling fini"
+  and "destroying link map" of Peano.so followed at once: import_ returned
+  the module of the import, nothing kept the loader's SharedCurryModule,
+  dlclose unmapped the object, and the live tables kept the name, format
+  and step pointers the initializers of the object had written.  So the
+  place is the drop of the library inside curry.load, not the child
+  replacing the mapped file (Cpp2So unlinks the old object and the linker
+  writes a new inode, so a mapped object stays), and not the order of the
+  exit handlers (the exit only reads what dangled already).  A use of the
+  module right after the load crashes at once in Node::create (the
+  variant with an evaluation), so the hazard does not need the exit; and
+  tiered.wait before the load exits 0 (the swap came first, and the load
+  is then the benign same-file case: the registry names the file, the
+  second dlopen returns the mapped object, no initializer runs).  Nor does
+  the hazard need a running compile: under tiered any curry.load of the
+  object of a module that runs interpreted binds through the shim the
+  same way, whether its compile failed, was blocked, or never ran for the
+  lack of a compiler.  Decision: the wait.  When a compile of the module
+  is queued, running or finished and not applied (tiered.pending, a record
+  the Python side keeps from submit to poll or cancel), the loader waits
+  for that module (tiered.wait_for: the compiles queued before it end
+  first, the worker is FIFO) and logs one line at the INFO level; the swap
+  then loads the object the compile wrote, the module is loaded from its
+  object, and the load proceeds as the same-file case.  The wait is sound
+  because after the swap the object is kept by the Module of the runtime
+  and the registry names it; a refusal would have made the sequence of the
+  Quickstart (save, sprite-make --so, load) an error whenever the import
+  had started a compile.  The sibling case the trace exposed, a module that
+  stays interpreted with no compile pending (its compile failed, or no
+  compiler), is refused before the open: "the module runs, or ran,
+  interpreted in this process; load the object in a new process" (the
+  wording and the scope after the review, below).  A load
+  of such an object would need the swap itself (the shims, the link to the
+  Module, the check that the object is the translation of the ICurry in
+  memory: the route of the trap step in materialize.compile_pending), which
+  is a design of the loader and the owner's.  curry.load of an object of a
+  module that runs interpreted under interpret:new keeps its old meaning
+  (no shim, the object's own storage, the loaded module comes back): the
+  round trip of unit_loadsave.py relies on it.  The wait has no timeout; a
+  Ctrl-C reaches it between the slices of a quarter second.
+- #110, cause (a), the edited source.  import_ of a loaded name returns
+  the loaded module and now logs a warning that names the module and the
+  file and says that a new process reads the edited file; the REPL's :load
+  logs it at every :load (commands.load calls warn_edited with always=True
+  before import_, which then says nothing more for that edit).  The notice
+  is the module logger at the WARNING level, the convention of the front
+  end's warning on overlapping rules and of the notices of tiered
+  execution; not the warnings module.  import_ logs it once per edit of a
+  module (a memo keyed by the name, the file and its modification time),
+  because every import of a module that imports M calls import_(M), and
+  the expression module of every :eval imports the loaded module: without
+  the memo one edit would print a line at every evaluation.  The check:
+  the import records the modification time of the source (st_mtime_ns;
+  Handle.source_mtime, set by record_source inside ImportEx), and the
+  check compares it with the file.  Not the products' times, as the item
+  suggested: the child of the background compile makes the products again
+  from the edited source (its front end runs when the source is newer than
+  the .icy), so after it the products are newer than the source while the
+  module in memory is the one of the first text (seen in the probe of
+  cause (b)); the product times then say "current" exactly where the
+  warning is due.  A module without a source file, or whose file is gone
+  (a module compiled from a string), records nothing and is never stale.
+  The message says a new process, not the REPL's restart: :set backend
+  reloads the interpreter and loads the module again while repl.module
+  still holds the old module object, and on the C++ backend a module of
+  the same name takes its tables back with their steps while such an
+  object is alive (P30), so the REPL has no restart short of a new
+  process; the REPL page says quit and start again.
+- #110, cause (b), the swap.  Chosen: the check at poll.  A job carries
+  the digest of the ICurry file (.icy) of the module at the import (size
+  and CRC-32, tiered_file_digest: one implementation in the runtime, which
+  the Python side calls at submit; the JSON at first, changed after the
+  review, below), and apply (cyrt/tiered.cpp) refuses the object when the
+  digest of the file differs at the swap, after the shims are loaded and
+  before the dlopen; the result carries the text TIERED_EDITED, poll logs
+  a warning, and the module stays interpreted with the code the import
+  read.  The child cannot be told to compile from the products in
+  hand: sprite-make takes a module or a source, and the plan starts from
+  the newest file of the chain, which an edit makes the source; a new
+  option of sprite-make is the owner's.  A refused swap counts as a failed
+  module in tiered.status and in failed_compiles of curry.stats.  The two
+  fields of TieredJob changed tiered.hpp, a runtime header under
+  include/cyrt, so the ABI stamp changed and every object compiled before
+  is stale: make stage compiled the library again (48 s), and the prepare
+  pass compiled the pool of the tests (101 modules in two directories,
+  72 s).
+- Tests.  unit_loadsave.py, TestRefusedLoad (C++ backend): the cases D, I
+  and J of the study, each in a child process that prints a marker and
+  ends with status 0, with the registry naming the first file after the
+  refusal; the two objects come from sprite-make once for the class.
+  unit_cxx_tiered.py, TestLoadDuringCompile: the load that waits for the
+  compile (the INFO line, the swap counted, the module loaded from its
+  object, a value); the load during the compile in a child that exits 0
+  with a marker; the Quickstart sequence twice with an edit between, each
+  run a child; and the refusal of the object of a module that stays
+  interpreted, which runs on.  unit_reload.py (both backends): the warning
+  of import_ once per edit, silent for an unchanged source and for a
+  module without a source file, the values unchanged; :load through
+  commands.load once per :load; and, on the C++ backend, the swap refused
+  after an edit (the dependent's compile waits behind its import's, so the
+  edit lands before the child runs), the module interpreted with the
+  values of the import, the warning, and the import after the edit.
+- Docs.  REPL.rst under :load; Using the API, "Importing Curry Modules"
+  and the note of "Writing Compiled Code to Disk"; the Quickstart, "Saving
+  Compiled Curry", names the background compile where its sequence meets
+  it; Status.rst, the gaps of the mixed mode; tests/README, section 4.
+  make -C docs html builds without a warning on those pages.
+- Assessed, left to the owner (beyond the risk line).  A true reload of a
+  module in one process: the tables of an interpreted module live for the
+  process and a module of the same name takes them back with their steps
+  while a module object is alive (P30), the registry keeps one library per
+  name, the bytecode of other modules and compiled objects name the tables
+  by address, and live expressions hold nodes of those tables; a reload
+  that gives the dependents, the expressions and the registry a sound
+  meaning is a design of the runtime.  A :reload command of the REPL (as
+  PAKCS has) needs that reload, or a re-exec of the process.  A stamp or a
+  record that names the digest of the JSON the object was compiled from
+  would let the loader verify an object against the ICurry in memory and
+  would make the adopt route of curry.load possible for an interpreted
+  module; that is a change to the object format or the stamp.  The
+  backstop for an object without a module SONAME opens before the compare,
+  as before.  The refusal of the object of a module that stays interpreted
+  is a new refusal in the shape the issue decided, named here for the
+  owner's eye.
+- Results.  The probes before the change: P55 exit 139 (also with a use
+  after the load, and with the save before it); tiered.wait before the load
+  exit 0; case D exit 139, cases I, J, K exit 0.  After the change: every
+  P55 variant exit 0 with the INFO line and 7 functions swapped; the cases
+  D, I, J, K exit 0 with ['42'] after the refusal.  ./run_tests -j 2 --mem
+  4 --backend both: unit_reload.py, unit_loadsave.py, unit_importer.py 6
+  of 6 ok; unit_cxx_tiered.py (24 tests on cxx), unit_goals.py (48) 4 of 4
+  ok; after --prepare-only on cxx (101 modules, every product present):
+  'unit_cxx_*.py' on cxx 21 of 21 ok (97 s); unit_api.py, unit_expr.py,
+  unit_loadsave.py, unit_py_conversions.py, unit_py_evaluation.py,
+  unit_inspect.py, unit_reference_backend.py on both backends 14 of 14 ok;
+  the fast tier ('unit_*.py' --fast) on both backends 140 of 140 ok
+  (203 s); the fourteen unit files outside the fast tier that no run above
+  covered (unit_examples.py, unit_conda.py, unit_currylib.py,
+  unit_benchmarks.py, unit_split.py, unit_equality.py, unit_cache.py,
+  unit_configure.py, unit_runner.py, unit_curry2icurry.py,
+  unit_product_cache.py, unit_flat2icurry.py, unit_py_fairness.py,
+  unit_prebuild.py) on both backends 28 of 28 ok (425 s).  The oracle
+  suites (func_*.py) and the whole suite on both backends are for the
+  suite stage.
+- The review of the change (the same day), the findings applied.
+  (1) The digest of the swap was of the .json.z the import read.  The
+  child's sprite-make --so writes the JSON in the plain form and the
+  import's plan in the compact one, so a touch of the source, or an edit
+  of a comment, made the child run the front end again and refused the
+  swap (TIERED_EDITED) for a program that did not change, and the module
+  lost its compiled tier for the session.  The digest is of the .icy now,
+  which the front end writes byte for byte the same for the same program
+  (the port and icurry agree, tests/README); the fields of TieredJob are
+  named icurryfile and icurry_digest (a header change, so the ABI stamp
+  changed once more and the library and the pool were compiled again).
+  Test: unit_reload.py, test_edit_of_a_comment_keeps_the_swap.
+  (2) The wait before a load skipped when the registry named the kept
+  library of an earlier incarnation (after a reset the same path is
+  registered while the second incarnation runs interpreted with a compile
+  pending): the loader waits whenever a compile of the name is pending,
+  before it asks the registry.  Test: unit_cxx_tiered.py,
+  test_load_waits_after_a_reset.
+  (3) A :load, or an import_ with is_sourcefile, of another file of the
+  same module name returned the loaded module and said nothing: a warning
+  names both files now (import_.warn_other_file; commands.load passes the
+  file the argument names, or the .curry beside a bare module name).
+  Test: unit_reload.py, test_load_of_another_file_warns.
+  (4) The child of test_quickstart_sequence_twice ran the foreground
+  sprite-make --so while the background compile of the import wrote the
+  same M.cpp and M.so: a race (a torn M.cpp fails one compile, and a failed
+  background compile turns the load into a refusal).  The child waits for
+  the background compile before sprite-make, as a session at the keyboard
+  does; the load during the compile is its own test.  The Quickstart says
+  to run sprite-make once the background compile ended.  A lock on the
+  products directory, so that two compiles of one module never write at
+  once, is the owner's.
+  (5) The dead case 'K' of TestRefusedLoad.run_case is a test now: the
+  same file loaded twice, then a use.
+  (6) loader.module_name had no caller: removed (_dynamic_names stays).
+  (7) The refusal of the object of a module that runs interpreted was
+  gated on the name in interp.modules.  After a reset the name is gone
+  while the tables of the interpreted module are kept for the process and
+  its shim names them; a load then accepted bound the object to the kept
+  tables (confirmed here: the probe of the review, M imported stale, the
+  compile cancelled, a reset, curry.load accepted, then curry.eval of
+  M.main dumped core at once, status 139; the review saw the crash one
+  step later, at the import after a second reset, once the new module had
+  released the object).  The loader refuses whenever a shim names the
+  tables of the name and no library is registered under it, in or out of
+  interp.modules: "the module runs, or ran, interpreted in this process;
+  load the object in a new process".  The case "swapped, reset, load of
+  the same file" is unchanged: the registry answers first.  The plan's
+  import of a current object after such a reset meets the same refusal,
+  as a DynloadError of the import; the alternative was the crash at the
+  next reset.  Test: unit_cxx_tiered.py, test_reset_then_load_is_refused
+  (a child process, status 0, the module imports and runs after the
+  refusal).
+  (8) The wait of curry.load was announced at the INFO level alone, under
+  a default level of WARNING: after five seconds (loader.WAIT_NOTICE_SECONDS)
+  one line at the WARNING level names the module and the object.  A bound
+  on the wait, after which the load refuses, is a new default and the
+  owner's; the wait runs in slices of a quarter second, so Ctrl-C reaches
+  it.
+  (9) SharedCurryModule.find handed Python a reference into an entry the
+  registry owns weakly: the binding is find_sofilename now and returns a
+  copy of the file name, or None.
+  (10) The warning of import_ is once per edit of a module object, not
+  once per call of import_ from user code: the review asked for once per
+  import_.  Every import of a dependent, the expression module of every
+  evaluation and the materialization of the Python backend call
+  interp.import_ of a loaded name, and nothing tells a user's call from
+  those without a keyword threaded through six internal callers (or a new
+  keyword of the public import_), which is beyond the smallest change.
+  The memo moved from a process-wide dictionary to the module object
+  (Handle.warned_mtime), so a second interpreter that loaded the module
+  warns on its own; the once-per-call rule is the owner's to confirm.
+  The REPL prints it once per :load as decided.
+- Suite stage (2026-10-08, after the review's fixes; nothing committed).
+  make stage and make overlay were current (exit 0, 16 s).  Every run
+  through ./run_tests -j 2 --mem 4 under env -i: --prepare-only on both
+  backends 24 of 24 ok (477 s, the pool compiled again under the new
+  stamp); --changed on both backends 228 of 228 run, 2 failed:
+  func_goal_defaulting.py on each backend, because the oracle PAKCS
+  writes under /tmp and the sandbox of the session mounts it read-only
+  (the environment, not the diff); the same file passed on both backends
+  outside the sandbox.  unit_reload.py, unit_loadsave.py,
+  unit_cxx_tiered.py, unit_importer.py on both backends 8 of 8 ok (54 s);
+  --fast on both backends 140 of 140 ok (234 s); unit_loadsave.py,
+  unit_cxx_tiered.py, unit_importer.py, unit_cxx_interp.py,
+  unit_inspect.py under backend:cxx,interpret:off 5 of 5 ok (46 s); the
+  oracle suites 'func_*.py' on both backends 42 of 42 ok (77 s); the
+  whole suite with --prepare on both backends 228 of 228 ok (634 s).
+  make -C docs html: 0 warnings.  run_benchmarks -r 1 -b cxx --no-perf on
+  Tak1 and Fib against phase2-2026-10-04: counters equal (Tak1 33629915
+  steps, Fib 3500006 steps), verdict same.

@@ -18,7 +18,7 @@ namespace
   TieredJob make_job(
       std::string module, py::sequence shims, std::vector<std::string> argv
     , std::vector<std::string> envp, std::string logfile, std::string sofile
-    , py::sequence steps
+    , py::sequence steps, std::string icurryfile, std::string icurry_digest
     )
   {
     TieredJob job;
@@ -36,6 +36,8 @@ namespace
     job.envp = std::move(envp);
     job.logfile = std::move(logfile);
     job.sofile = std::move(sofile);
+    job.icurryfile = std::move(icurryfile);
+    job.icurry_digest = std::move(icurry_digest);
     for(py::handle item: steps)
     {
       py::tuple tup = item.cast<py::tuple>();
@@ -54,12 +56,13 @@ namespace
   void tiered_submit_(
       std::string module, py::sequence shims, std::vector<std::string> argv
     , std::vector<std::string> envp, std::string logfile, std::string sofile
-    , py::sequence steps
+    , py::sequence steps, std::string icurryfile, std::string icurry_digest
     )
   {
     tiered_submit(make_job(
         std::move(module), shims, std::move(argv), std::move(envp)
-      , std::move(logfile), std::move(sofile), steps
+      , std::move(logfile), std::move(sofile), steps, std::move(icurryfile)
+      , std::move(icurry_digest)
       ));
   }
 
@@ -83,7 +86,7 @@ namespace
     )
   {
     TieredJob job = make_job(
-        std::move(module), shims, {}, {}, {}, std::move(sofile), steps
+        std::move(module), shims, {}, {}, {}, std::move(sofile), steps, {}, {}
       );
     return result_dict(tiered_adopt(std::move(job), true));
   }
@@ -147,10 +150,19 @@ namespace cyrt { namespace python
     mod.def("tiered_submit", &tiered_submit_
       , py::arg("module"), py::arg("shims"), py::arg("argv"), py::arg("envp")
       , py::arg("logfile"), py::arg("sofile"), py::arg("steps")
+      , py::arg("icurryfile") = "", py::arg("icurry_digest") = ""
       , "Queues the background compile of a module.  shims is a sequence of "
         "(file, argv): the shims to link and load before the object.  steps "
         "is a sequence of (name, symbol, info): the functions to swap when "
-        "the object is ready.");
+        "the object is ready.  icurryfile and icurry_digest name the ICurry "
+        "file (.icy) of the module at the import and its tiered_file_digest; "
+        "the swap refuses the object when the file differs (the error "
+        "TIERED_EDITED).");
+    mod.def("tiered_file_digest", &tiered_file_digest, py::arg("path")
+      , "The digest of a file for the check of the swap: its size and the "
+        "CRC-32 of its bytes, as text; the empty string when the file cannot "
+        "be read.");
+    mod.attr("TIERED_EDITED") = TIERED_EDITED;
     mod.def("tiered_adopt", &tiered_adopt_
       , py::arg("module"), py::arg("shims"), py::arg("sofile"), py::arg("steps")
       , "Loads the object of a module compiled in this process and swaps the "
