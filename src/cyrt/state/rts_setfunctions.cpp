@@ -127,6 +127,40 @@ namespace cyrt
     return false;
   }
 
+  // Records a divergence: the nested evaluation read, through the queue
+  // stack, the binding of ``vid`` that the configuration ``level`` levels up
+  // holds (get_binding), so the capsule that configuration runs depends on
+  // its private state.  Another configuration with another binding of the
+  // variable may share the capsule (issue #86): the shape of
+  // test_shared_capsule starts a set function over a free variable, takes
+  // a value, forks, binds the variable on each side and reads the next
+  // value from the same capsule.  The decision of the memo on the Fair
+  // Scheme proofs (D3, route (c)): the capsule is cloned for that
+  // configuration at the first divergence, which is this read.  Returns
+  // E_DIVERGE, which every enclosing step hands out as it hands E_UNWIND
+  // out, up to the allValues_step of that configuration (the one whose
+  // nested queue is ``diverge_queue``).  That step clones the queue, which
+  // absorbs the binding (Queue::clone), puts the clone into a private copy
+  // of its spine and restarts; the read then finds the binding in the
+  // clone (level 0).  The steps in between are left as they were, with
+  // their queues, as after E_UNWIND; the configurations the clone shares
+  // are cloned before a queue steps them (Queue::unshare_front).  A
+  // nested capsule inside the clone diverges in turn, one level down, at
+  // its next read.  The Python backend has the same step (E_DIVERGE in
+  // rts_bindings.py and allValues in currylib/setfunctions.py).
+  tag_type RuntimeState::diverge(size_t level, xid_type vid, Node * binding)
+  {
+    size_t const n = this->qstack.size();
+    assert(level > 0 && level < n);
+    // The queue the configuration at that level runs, and the id under
+    // which its configurations looked the variable up.
+    Queue * target = this->qstack[n - level];
+    this->diverge_queue = target;
+    this->diverge_vid = level == 1 ? vid : target->front()->grp_id(vid);
+    this->diverge_binding = binding;
+    return E_DIVERGE;
+  }
+
   // Fails the set function whose queue is current (see failure_escapes).
   // Records the sets of the guards the failure crossed, less the current
   // set, and returns E_SETFAIL, which every enclosing step hands out as it

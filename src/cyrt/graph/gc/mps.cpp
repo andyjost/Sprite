@@ -383,6 +383,8 @@ namespace cyrt
     {
       for(Queue * Q: g_queues)
       {
+        for(auto & pair: Q->absorbed)
+          CYRT_FIX_EXACT(pair.second);
         for(Configuration * C: *Q)
         {
           CYRT_FIX_EXACT(C->root_storage);

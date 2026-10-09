@@ -4,7 +4,8 @@ intended to be imported except by rts.py.
 '''
 
 __all__ = [
-    'boxed_failure', 'create_queue', 'create_setfunction', 'choice_escapes'
+    'boxed_failure', 'clone_queue', 'create_queue', 'create_setfunction'
+  , 'choice_escapes'
   , 'guard_args', 'guard', 'guard_held', 'in_recursive_call', 'owns_decision'
   , 'pop_queue', 'push_queue', 'qid', 'queue_scope', 'SetFunctionEval', 'sid'
   , 'split_queue', 'update_escape_set', 'update_scape_sets', 'walk_qstack'
@@ -177,6 +178,24 @@ def split_queue(rts, qid, cid):
     queue_.extend(kept)
     queue_.decisions.add(cid)
   return rhs_qid
+
+def clone_queue(rts, qid, vid, binding):
+  '''
+  Clones queue ``qid`` for the configuration that runs it, whose binding of
+  ``vid`` the nested evaluation read (E_DIVERGE; see allValues in
+  currylib/setfunctions.py), and returns the id of the clone.  The clone
+  holds a copy of every configuration (Configuration.share), the decisions
+  and the absorbed bindings, and absorbs ``binding`` for ``vid``.  The C++
+  runtime has the same step (Queue::clone), where the two queues share the
+  configurations and clone one before a step.
+  '''
+  Q = rts.qtable[qid]
+  clone_qid = next(rts.setfactory)
+  clone = rts.qtable[clone_qid] = copy(Q)
+  clone.clear()
+  clone.extend(config.share() for config in Q)
+  clone.absorbed[vid] = binding
+  return clone_qid
 
 def guard_args(rts, expr, guards):
   guards = iter(guards)

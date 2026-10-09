@@ -135,7 +135,23 @@ In the last line each value of ``x`` goes with the set computed from that
 value.  The same holds for a free variable that the argument holds.  A set
 function that starts before the variable is bound, and resumes after
 another alternative narrowed it, computes its set from the binding of its
-own alternative (the repair of issue #61).
+own alternative (the repair of issue #61).  The same holds when the
+alternatives bind the variable, with ``=:=``, ``=:<=`` or a functional
+pattern, after the set function started: the first time the set function
+reads the binding of an alternative, Sprite clones the set function for
+that alternative, so each alternative computes its own set (issue #86)::
+
+    g :: Char -> Int
+    g c = 0 ? (if c == 'a' then 1 else 2)
+
+    main7 = let (first, rest) = select (set1 g c)
+            in (first, (c =:<= 'a' ? c =:<= 'b') &> selectValue rest)
+      where c free                                -- (0, 1), (0, 2)
+
+A binding made before the set function started is read at the start, so
+it costs no clone.  The clone is made for each reference to the set
+function that reads the binding, so a set function that an alternative
+reads through two references is cloned twice.
 
 The same holds for a choice or a free variable that the function value
 holds.  A partial application holds the arguments given so far, and a

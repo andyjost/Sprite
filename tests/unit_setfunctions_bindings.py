@@ -33,16 +33,29 @@ Control.SetFunctions).
 The children run under prlimit and timeout, because a regression spins
 inside C++ and exhausts the memory (see cytest.run_in_subprocess).
 
-The last test is a known failure: a capsule that two configurations share
-and that reads a variable they bind differently after it started gives both
-the value of the first (section 5 of the module; the owner's item in the
-TODO entry of 2026-10-07).
+The shared capsule (sections 5 and 6 of the module; decision D3 of the memo
+on the Fair Scheme proofs, route (c); issue #86).  A capsule that two
+configurations share, started while a variable of its goal was free, is
+read again after each configuration bound the variable: the first to run
+it put its binding into the nested spine, and the other read a value made
+with that binding (the known failure test_shared_capsule before the rule).
+Now the nested evaluation's read of a binding of an enclosing configuration
+is the divergence: get_binding reports the level the binding was found at,
+the reader returns E_DIVERGE (RuntimeState::diverge; E_DIVERGE in
+rts_bindings.py), and the allValues step of the configuration that holds
+the binding clones the capsule for it, absorbs the binding into the clone
+(Queue::absorbed; Queue.absorbed) and restarts through a private copy of
+its spine.  The read then finds the binding in the clone.  A binding found
+at the outermost configuration while it is alone in its queue is absorbed
+in place, without a clone.  The tests of the shapes run the children under
+both settings of the flag setfunction_failures.
 '''
 import cytest # from ./lib; must be first
 import curry, unittest
 
 ADDRESS_SPACE = 1 << 30
 TIMEOUT = 120
+SETTINGS = ('encapsulate', 'escape')
 
 # Evaluates goals of the test module and prints one line per goal: its name
 # and the sorted values as Curry text, or the name of the error.
@@ -50,22 +63,37 @@ CHILD = '''
 import curry
 curry.reload(%(flags)r)
 M = curry.import_('SetFunctionsBindings')
+clones = []
+if %(clones)r:
+  # The Python backend alone: the clones of a capsule go through
+  # RuntimeState.clone_queue (eval/rts_setfunctions.py).
+  from curry.backends.py.eval import rts as rtsmod
+  orig_clone = rtsmod.RuntimeState.clone_queue
+  def clone_queue(self, *args):
+    clones.append(args)
+    return orig_clone(self, *args)
+  rtsmod.RuntimeState.clone_queue = clone_queue
 for name in %(goals)r:
+  del clones[:]
   try:
     values = curry.eval(getattr(M, name))
     print(name, sorted(str(value) for value in values))
   except curry.EvaluationError as exc:
     print(name, 'error', type(exc).__name__, str(exc))
+  if %(clones)r:
+    print(name + '.clones', len(clones))
 '''
 
 def run_child(testcase, *goals, **flags):
   '''
   Evaluates ``goals`` in a child on the backend of this test process and
   returns a dict from the name to the sorted list of values (as text) or to
-  the error line.
+  the error line.  On the Python backend, with ``clones=True``, the dict
+  also maps ``NAME.clones`` to the number of capsule clones the goal made.
   '''
   flags.setdefault('backend', curry.flags['backend'])
-  code = CHILD % {'flags': flags, 'goals': goals}
+  clones = flags.pop('clones', False) and flags['backend'] == 'py'
+  code = CHILD % {'flags': flags, 'goals': goals, 'clones': clones}
   proc = cytest.run_in_subprocess(code, TIMEOUT, address_space=ADDRESS_SPACE)
   testcase.assertEqual(
       proc.returncode, 0
@@ -75,7 +103,8 @@ def run_child(testcase, *goals, **flags):
   results = {}
   for line in proc.stdout.splitlines():
     name, _, rest = line.partition(' ')
-    results[name] = eval(rest) if rest.startswith('[') else rest
+    literal = rest.startswith('[') or name.endswith('.clones')
+    results[name] = eval(rest) if literal else rest
   return results
 
 
@@ -144,20 +173,129 @@ class TestBoundArgument(cytest.TestCase):
       , 'plainPat': ['(0, 1)']
       })
 
-  @unittest.expectedFailure
+  def check_settings(self, expected, clones=None):
+    '''
+    Evaluates the goals of ``expected`` under both settings of the flag.
+    ``clones`` maps a goal to the number of capsule clones it makes, checked
+    on the Python backend alone (the C++ runtime has no counter of them); a
+    goal of ``expected`` it leaves out makes none.
+    '''
+    goals = tuple(expected)
+    if clones and curry.flags['backend'] == 'py':
+      expected = dict(expected)
+      for name in goals:
+        expected[name + '.clones'] = clones.get(name, 0)
+    for setting in SETTINGS:
+      with self.subTest(setfunction_failures=setting):
+        results = run_child(
+            self, *goals, setfunction_failures=setting, clones=bool(clones)
+          )
+        self.assertEqual(results, expected)
+
   def test_shared_capsule(self):
     '''
     A capsule shared by two configurations that bind a variable of its
-    argument differently after it started.  The first to run the capsule
-    puts its binding into the nested spine; the other reads a value made
-    with that binding.  Both alternatives give (0, 1) where the plain goals
-    give (0, 1) and (0, 2) (and (0, 1) alone for the functional pattern).
-    The case and == shapes suspended before the fix; the functional-pattern
-    shape ran out of memory.  The owner's item: routes (a) and (b) of the
-    TODO entry of 2026-10-07.
+    argument differently after it started, by =:<= (the binding a functional
+    pattern makes).  Before the rule the first to run the capsule put its
+    binding into the nested spine and the other read a value made with it:
+    both alternatives gave (0, 1).  Now each alternative gets a clone of the
+    capsule at its first read of the binding and computes its own value,
+    as the plain goals do: (0, 1) and (0, 2), and (0, 1) alone for the
+    string, whose other binding fails the functional pattern inside.  The
+    case and == shapes suspended before the fix of #97; the string shape
+    ran out of memory.
     '''
-    results = run_child(self, 'sharedCase', 'sharedEq', 'sharedPat')
-    self.assertEqual(results, {
+    self.check_settings({
         'sharedCase': ['(0, 1)', '(0, 2)'], 'sharedEq': ['(0, 1)', '(0, 2)']
       , 'sharedPat': ['(0, 1)']
       })
+
+  def test_shared_strict(self):
+    '''The binding made by =:=, a value binding of a character.'''
+    self.check_settings({
+        'plainStrict': ['(0, 1)', '(0, 2)']
+      , 'sharedStrict': ['(0, 1)', '(0, 2)']
+      })
+
+  def test_shared_narrowed(self):
+    '''
+    A variable of a data type narrowed after the start: the generator
+    escapes the capsule and the queue splits (the repair of issue #61); no
+    binding is read, and no clone is made.
+    '''
+    self.check_settings({
+        'plainNarrow': ['(0, 1)', '(0, 2)']
+      , 'sharedNarrow': ['(0, 1)', '(0, 2)']
+      })
+
+  def test_shared_functional_pattern(self):
+    '''
+    A functional pattern applied to the shared variable after the start
+    narrows its spine and binds its characters.  The alternative whose
+    string does not end in 'a' has no value.
+    '''
+    self.check_settings({
+        'plainFunPat': ['(0, 2)'], 'sharedFunPat': ['(0, 2)']
+      })
+
+  def test_shared_nested(self):
+    '''
+    Nested capsules that share the variable of the outer goal: the outer
+    capsule is cloned for the alternative and the inner one for the clone's
+    configuration, one level at a time.
+    '''
+    self.check_settings({'sharedNested': ['(0, 1)', '(0, 2)']})
+
+  def test_shared_two_variables(self):
+    '''
+    Two variables bound after the start: the clone made at the read of the
+    first diverges again at the read of the second.
+    '''
+    self.check_settings({
+        'plainTwo': ['(0, 11)', '(0, 12)', '(0, 21)', '(0, 22)']
+      , 'sharedTwo': ['(0, 11)', '(0, 12)', '(0, 21)', '(0, 22)']
+      })
+
+  def test_sole_reader(self):
+    '''
+    One alternative alone binds the variable after the start: the capsule
+    absorbs the binding in place, without a clone.
+    '''
+    self.check_settings({'soleReader': ['(0, 1)']}, clones={'soleReader': 0})
+
+  def test_clone_per_reader(self):
+    '''
+    Each alternative that reads the binding clones the capsule once, and
+    the last one alive absorbs in place: one clone for each shared shape
+    of section 5, none for a capsule that starts after the binding.
+    '''
+    self.check_settings({
+        'privateCase': ['(0, 1)', '(0, 2)']
+      , 'sharedCase': ['(0, 1)', '(0, 2)'], 'sharedEq': ['(0, 1)', '(0, 2)']
+      , 'sharedPat': ['(0, 1)']
+      }, clones={
+        'privateCase': 0, 'sharedCase': 1, 'sharedEq': 1, 'sharedPat': 1
+      })
+
+  def test_binding_before_fork(self):
+    '''
+    The binding predates the capsule and the alternative forks later on
+    something else: every alternative holds the binding, so the capsule
+    absorbs it at its creation and no alternative clones it.  Before the
+    absorption at the top level the first alternative to read cloned.
+    '''
+    self.check_settings({
+        'boundThenFork': ['1', '11'], 'plainBoundThenFork': ['1', '11']
+      }, clones={'boundThenFork': 0})
+
+  def test_two_references(self):
+    '''
+    One alternative reads the shared capsule through two references: each
+    reference clones the capsule at its first read, since the clone is
+    private to the spine of one reference.  The values are right; the
+    second clone is the owner's item in the TODO entry of 2026-10-09.
+    '''
+    self.check_settings({
+        'twoRefs': ['(0, 11)', '(0, 22)']
+      , 'plainTwoRefs': ['(0, 11)', '(0, 22)']
+      }, clones={'twoRefs': 2})

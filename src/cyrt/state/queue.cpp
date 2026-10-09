@@ -118,6 +118,7 @@ namespace cyrt
     std::vector<xid_type> decisions = this->decisions;
     decisions.push_back(cid);
     std::vector<xid_type> rhs_decisions = decisions;
+    BindingMap rhs_absorbed = this->absorbed;
     // Nothing below throws.
     this->items.swap(keep);
     rhs.items.swap(move);
@@ -125,7 +126,24 @@ namespace cyrt
     rhs.count = rhs.items.size();
     this->decisions.swap(decisions);
     rhs.decisions.swap(rhs_decisions);
+    rhs.absorbed.swap(rhs_absorbed);
     for(Configuration * C: shared)
+      ++C->holders;
+  }
+
+  void Queue::clone(Queue & copy, xid_type vid, Node * binding)
+  {
+    assert(copy.empty());
+    queue_type items = this->items;
+    std::vector<xid_type> decisions = this->decisions;
+    BindingMap absorbed = this->absorbed;
+    absorbed[vid] = binding;
+    // Nothing below throws.
+    copy.items.swap(items);
+    copy.count = copy.items.size();
+    copy.decisions.swap(decisions);
+    copy.absorbed.swap(absorbed);
+    for(Configuration * C: copy.items)
       ++C->holders;
   }
 }

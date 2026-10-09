@@ -146,6 +146,13 @@ namespace cyrt
         // the set function a failure.  The queue is left as it is; nothing
         // runs it again.
         case E_SETFAIL : return this->yield_control(E_SETFAIL);
+        // The nested evaluation read a binding of an enclosing
+        // configuration (diverge): the scheduler hands the status out, up
+        // to the allValues_step of that configuration, which clones the
+        // capsule.  The front configuration stays in the middle of its
+        // step, as after E_UNWIND.
+        case E_DIVERGE : C->forced_rotate = true;
+                         return this->yield_control(E_DIVERGE);
         case E_ERROR   : C->raise_error();
         case E_RESIDUAL: this->rotate(Q);
                          continue;
@@ -220,6 +227,7 @@ namespace cyrt
                          #endif
                          scan->resize(ret);
                          goto redoN;
+        case E_DIVERGE :
         case E_SETFAIL :
         case E_TERMINATE:
         case E_UNWIND  :

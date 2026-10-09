@@ -384,6 +384,14 @@ namespace cyrt
   static void push_queue_roots(std::vector<Node *> & stack, Queue * Q)
   {
     auto const start = gc_clock::now();
+    // The bindings the queue absorbed (Queue::absorbed) are state of its
+    // configurations, read as their own.
+    for(auto & pair: Q->absorbed)
+    {
+      if(pair.second)
+        stack.push_back(pair.second);
+      push_freevar(stack, pair.first);
+    }
     for(auto * C: *Q)
     {
       ++g_last.configurations_pushed;

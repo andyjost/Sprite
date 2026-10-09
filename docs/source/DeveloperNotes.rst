@@ -148,6 +148,16 @@ Its limits
   configuration, one known failure of the set-function corpus
   (``unit_cxx_scheduler.py``, ``unit_setfunctions_bugs.py``,
   ``unit_setfunctions_semantics.py``); the C++ backend passes it.
+* The queues of a set function hold references to their configurations.
+  After the escape of a choice the two queues of the split share them, and
+  a step in one queue takes effect in the other; the C++ runtime clones a
+  shared configuration before a queue steps it.  The clone of a capsule
+  for an alternative that bound a variable of its goal after the start
+  (issue #86) copies the configurations instead.  On both backends the
+  clone goes into a private copy of the spine of the reference that read
+  the binding, so a second reference of the same alternative to the
+  capsule clones it again; a binding the alternative holds at the start
+  of the capsule is absorbed then, with no clone.
 * A string built by :func:`curry.expr` is one ``_biString`` node, which
   prints as ``_biString 'hello'`` until its first step unfolds it; on the
   C++ backend it is the list of its characters.  The ``repr`` of a negative

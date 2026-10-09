@@ -9708,3 +9708,220 @@
   selection and the set-function batch ran as a third batch (36 file
   runs, no failure), so every unit and functional file ran on both
   backends in this lane, in four bounded runs rather than one.
+
+2026-10-09: the shared capsule is cloned at its first divergence (decision D3
+  of the memo on the Fair Scheme proofs, route (c); #86; worktree wt/capsule)
+- The defect (the known failure test_shared_capsule, the owner's item of the
+  entry of 2026-10-07).  A capsule started while a variable of its goal was
+  free, consumed in part, and read again by two configurations that bound
+  the variable differently after the start: the nested evaluation read the
+  binding of the first reader through the queue stack (the fix of #97), put
+  it into the nested spine, and consed the value onto the shared allValues
+  node, which the other reader then took.  sharedCase and sharedEq gave
+  (0, 1) twice where the plain goals give (0, 1) and (0, 2); sharedPat gave
+  (0, 1) twice where the plain goal gives it once.
+- The decision.  The owner approved the memo with its recommendations on
+  2026-10-09: route (c), clone the capsule at the first divergence of the
+  enclosing state, or index its nested state by that state; route (b), an
+  ownership test with the narrowing route (a) for a shared capsule, as the
+  fallback when (c) costs too much.  The bound for "too much", set before
+  the measurements: a change of the steps or the forks of QueensSet, of
+  QueensSet9 or of the shape of unit_funcpat_narrowed.py (a goal without a
+  shared capsule pays nothing), or more than twice the steps of the private
+  shapes (privateCase, privateEq) on the shared ones.  Route (c) is within
+  the bound (below); route (b) was not needed.
+- The rule, operationally.  A divergence is the first read, by the nested
+  evaluation of a capsule, of a binding that the configuration which runs
+  the capsule holds and the capsule does not.  The bindings are the one
+  kind of enclosing state that enters a capsule without a choice node: a
+  decision of a choice of the goal and a narrowing of a variable of it
+  escape as choices and split the queue (the repair of #61), and a group
+  made outside is restored at the escape.  get_binding (rts_freevars.cpp;
+  _find_binding in rts_bindings.py) reports the level at which it found
+  the binding: 0 for the map of the configuration or the bindings its
+  queue absorbed (Queue::absorbed, new; Queue.absorbed), k for the k-th
+  enclosing level.  A reader that puts a binding of a level above into the
+  evaluation (replace_freevar, both overloads, and the walk of evalS_step;
+  N, hnf, D and the walk on the Python backend) returns E_DIVERGE
+  (RuntimeState::diverge; the exception E_DIVERGE), which every step hands
+  out as it hands E_UNWIND out, up to the allValues_step of the
+  configuration that holds the binding.  That step clones the queue
+  (Queue::clone: the same configurations, shared and cloned before a step
+  as after a split; the decisions; the absorbed bindings, plus the one
+  read, under the id the configurations of the queue use), puts allValues
+  of a new SetEval over the clone into a private copy of its spine, as a
+  binding itself goes into an expression, and restarts.  The read then
+  finds the binding at level 0.  The shared node stays for the other
+  configurations, each of which clones the capsule at its own first read.
+  Nested capsules diverge from the outside in: the outer queue is cloned
+  for the reader, and at the next read the inner queue for the clone's
+  configuration (sharedNested).  Two bindings cost two clones (sharedTwo).
+  The clone is the index of route (c) made lazily: one nested state per
+  enclosing state the capsule read.  The steps in between are left as
+  they were, with their queues, as after E_UNWIND (procD sets
+  forced_rotate); the collectors mark the absorbed bindings as roots.
+- Three shortcuts keep the cost off goals without sharing.  The walk of
+  evalS_step (private_state, which replaced holds_private_state) absorbs
+  the bindings it meets into the new queue, so a capsule created after the
+  binding never diverges on it.  A binding found at the outermost
+  configuration while it is alone in its queue is absorbed in place, with
+  no clone and no restart: no other configuration reaches the capsule, and
+  a later clone of the configuration starts with the same binding (the
+  reasoning of the shortcut of the walk).  Without it the last alternative
+  alive, whose walk the shortcut skips, cloned the capsule at its first
+  read and lost the sharing of the capsule between the two paths of
+  twoValues (privateCase went from 110 to 137 steps on the C++ backend;
+  back to 110 with it).  The outermost configuration alone in its queue
+  takes no private copy, and it skips the walk when it holds no binding;
+  when it holds one, the walk runs to absorb alone (the review below).
+- Sources.  C++: fwd.hpp (E_DIVERGE), state/queue.hpp and queue.cpp
+  (absorbed; clone; split copies absorbed), state/rts.hpp (diverge_queue,
+  diverge_vid, diverge_binding; get_binding with the level; diverge),
+  state/rts_freevars.cpp, state/rts_setfunctions.cpp, fairscheme.cpp (the
+  case in procD and in procN), currylib/setfunctions.cpp (allValues_step,
+  private_state, evalS_step), graph/gc/wdgc.cpp and mps.cpp.  Python:
+  generic/eval/control.py (E_DIVERGE), eval/queue.py, eval/configuration.py
+  (share: the clone copies the configurations, since the queues of this
+  backend hold references), eval/rts_bindings.py, eval/rts_setfunctions.py
+  (clone_queue), eval/rts.py, currylib/setfunctions.py.  The primer's
+  section on set functions and the developer notes on the Python backend
+  describe the rule; the note on the idiom of #86 is unchanged (below).
+- Tests.  tests/unit_setfunctions_bindings.py: test_shared_capsule is a
+  plain test, and every test of a shared shape runs its child under both
+  settings of setfunction_failures.  Section 6 of
+  tests/data/curry/SetFunctionsBindings.curry adds a shape per case the
+  rule covers, each with its plain goal: the binding of =:= (sharedStrict),
+  a data type narrowed after the start (sharedNarrow: the escape route, no
+  clone), a functional pattern applied to the shared variable after the
+  start (sharedFunPat: id "xa" against the free s narrows its spine and
+  binds its characters), nested capsules over one variable (sharedNested),
+  two variables (sharedTwo), and one alternative alone (soleReader, the
+  in-place absorption).  PAKCS 3.4.1 on the plain goals, in a module
+  without the set functions: plainStrict and plainNarrow (0,1) (0,2),
+  plainFunPat (0,2), plainTwo (0,11) (0,12) (0,21) (0,22), plainSole
+  (0,1); Sprite gives the same on both backends.
+- Measured (step mode; the machine shared with other work).  The shared
+  goals, C++ backend, steps/forks before and after: sharedCase 29/2 to
+  43/2, sharedEq 29/2 to 39/2, sharedPat 76/7 to 113/9 (the forks of
+  plainPat); Python: 25/2 to 33/2, 25/2 to 30/2, 55/7 to 74/9.  The
+  private shapes are unchanged (C++ 110/4 and 106/4; Python 91/4 and
+  88/4).  The new shapes, C++: sharedStrict 45/2 (plainStrict 23/1),
+  sharedNarrow 42/7 (18/5), sharedFunPat 298/40 (208/36), sharedNested
+  74/2, sharedTwo 135/4 (91/3), soleReader 24/1.  One clone per reader
+  that diverges, and the last reader alive absorbs in place (a probe that
+  counts clone_queue on the Python backend: one clone each for
+  sharedCase, sharedEq and sharedPat, none for the private shapes).  The
+  counters of unit_funcpat_narrowed.py are equal on both backends (C++:
+  one 145, 138 and 162 steps at 8 forks; many 219524/1202, 12102/8,
+  177745/1202; distinct 9529/324, 1690/72, 10231/450; Python: many
+  12867/1202, 12882/8, 13468/1202; distinct 1333/324, 1504/72, 1594/450):
+  the shape has no enclosing binding, so its pinned shape does not flip,
+  and the primer's note on the idiom stands.  run_benchmarks -r 1 -b cxx
+  --no-perf, compare --deterministic: QueensSet 2089740 steps, 511430
+  forks, 3 collections, and QueensSet9 11784795, 2978740, 11, equal
+  before and after; the ~wall ratios 1.32 and 1.23 are the load of the
+  machine (advisory).
+- Verification.  The single files, one process at a time, both backends:
+  unit_setfunctions_bindings.py (13 tests), unit_setfunctions_semantics.py
+  (the 41 goals of the memo under both settings; the Python backend keeps
+  its two known failures), unit_funcpat_narrowed.py, unit_setfunctions_bugs.py
+  (22, one skipped; the Python backend keeps its known failure),
+  unit_cxx_scheduler.py: all pass; unit_setfunctions_bindings.py passes in
+  the stress mode of the collector on the C++ backend (the absorbed
+  bindings are roots).  Through the runner (-j 2 --mem 4 --backend both):
+  unit_setfunctions_bindings.py, unit_setfunctions_bugs.py,
+  unit_setfunctions_semantics.py, unit_cxx_scheduler.py,
+  func_setfunctions.py, unit_funcpat_narrowed.py,
+  unit_funpat_free_argument.py, unit_cxx_freevars.py,
+  unit_py_residuation.py and unit_cxx_counters.py: 20 of 20 run, 0 failed,
+  wall 46 s; unit_cxx_gc.py, unit_cxx_gc_counters.py, unit_cxx_mps.py,
+  unit_cxx_heap.py, unit_cxx_interp.py, func_funpat.py, func_kiel.py,
+  unit_examples.py and unit_inspect.py: 18 of 18 run, 2 failed, wall
+  217 s, the two on the C++ backend for the stale products of the
+  runtime-header change (unit_cxx_heap.py found no Tak1.so; unit_inspect.py
+  found Peano interpreted); after --prepare-only (12 directories, 465 s)
+  the two files pass on both backends (4 of 4).  Not run: the full suite.
+- Review of 2026-10-09 (three findings, applied in this worktree).  (i)
+  Under the Memory Pool System back end (make GC=mps) the map of the walk
+  held the addresses of the bindings across the allocations of evalS_step
+  (the goal, the guards) before the new queue took it, and the map is no
+  root: a node moved there left a forwarding object in the map.  Not
+  observed (the installs use the default collector, which collects at
+  the safepoint alone); evalS_step holds a GcClamp from the walk to the
+  swap, the rule of gc/mps.cpp for a holder of node addresses across
+  allocations.  (ii) A binding that predates the capsule, made by the
+  outermost configuration while alone in its queue, was not absorbed at
+  the creation (the shortcut skipped the walk), so after a later fork on
+  something else each alternative alive at its first read cloned the
+  capsule and redid the nested work: boundThenFork, values 1 and 11, went
+  from 32 to 40 steps on the C++ backend against the base install (30 to
+  33 on the Python backend), with one clone.  Now the walk runs for such a
+  configuration when it holds a binding, to absorb alone (no private copy;
+  a configuration without a binding still skips it): boundThenFork is back
+  to 32/2 and 30/2 with no clone, and every other shape measured is
+  unchanged.  (iii) One alternative that reaches the shared capsule
+  through two references clones it twice, once per reference, since the
+  clone goes into a private copy of the spine of the reference that read
+  the binding and the shared node stays for the other: twoRefs gives
+  (0, 11) and (0, 22), right, at 63 steps on the C++ backend against 46
+  for plainTwoRefs (Python 45 against 24), two clones.  The remedy is the
+  per-configuration map from a copied node to its copy that the comments
+  of #86 name, the owner's design decision; the shape is pinned with its
+  values and its clone count (item 9 below).  Tests: test_clone_per_reader
+  (one clone per shared shape of section 5, none for privateCase),
+  test_binding_before_fork (no clone) and test_two_references (two), with
+  the clone count checked on the Python backend by a child that counts
+  clone_queue (the C++ runtime has no counter of the clones); the file has
+  16 tests, which pass on both backends and in the stress mode of the
+  collector.  The counters of unit_funcpat_narrowed.py and the benchmarks
+  are equal again (QueensSet 2089740 steps, QueensSet9 11784795, compare
+  --deterministic: counters equal; the walk of (ii) runs only for a
+  configuration with a binding, which these programs never have at the
+  top level).
+- The suite stage (2026-10-09, after the review; the machine shared).  make
+  stage and make overlay: exit 0.  ./run_tests --prepare-only --backend
+  both -j 2 --mem 4: 24 of 24, 0 failed, 41.5 s.  --changed selects the
+  whole suite (116 files: the runtime header and control.py changed), so
+  --fast --backend both ran instead: 124 of 124, 0 failed, 120 s; the
+  set-function and functional-pattern files (unit_setfunctions_bindings.py,
+  unit_setfunctions_bugs.py, unit_setfunctions_semantics.py,
+  func_setfunctions.py, unit_funcpat_narrowed.py,
+  unit_funpat_free_argument.py, func_funpat.py): both backends 14 of 14,
+  0 failed; interpret:off 7 of 7; interpret:all 7 of 7 (87 s).  The oracle
+  suites 'func_*.py', both backends: 44 of 44, 0 failed, 73.5 s.  make -C
+  docs html: build succeeded, 0 warnings.  run_benchmarks -r 1 -b cxx
+  --no-perf: QueensSet 2089740 steps, QueensSet9 11784795, Queens10
+  17706900, Tak1 33629915; compare --deterministic against the record of
+  2026-10-04 flags Queens10 (54505073 before the step-mode rotation) and
+  QueensSet, QueensSet9 (-2.9%, -3.0%), whose counters equal the record
+  taken on the clean merge base before this change (counters equal); Tak1
+  equal.  The full unit suite ('unit_*.py', both backends, 188 runs) was
+  started through the runner and cut short by the end of the stage at 3 of
+  188 runs, all ok; it remains to be run (--prepare first).
+- Left to the owner.  (1) The absorbed map is keyed by the group id of
+  the variable in the configurations of the queue, as the maps of the
+  configurations are; a group made inside the capsule after the
+  absorption (x =:= y between two variables of the goal) is not followed,
+  as the walk through the enclosing maps did not follow it before.  (2)
+  apply_binding reads the map of the configuration alone, as before: a
+  nested fork on the generator of a variable whose binding the queue
+  absorbed applies nothing and relies on the escape of the generator to
+  the configuration that holds the binding; the case of a captured
+  variable narrowed by a sibling alternative was not constructed.  (3)
+  The Python clone copies the configurations at once, where the C++
+  shares them and clones one before a step; the Python queues hold
+  references after a split as well (the reader's table of differences).
+  (4) A capsule whose argument exceeds the budget of the walk is private
+  at creation and absorbs a binding beyond the budget at its first read,
+  through a clone when the outer queue holds more than one configuration.
+  (5) tests/manifest.json: the entry of unit_setfunctions_bindings.py
+  predates its 16 tests (a calibration run on a quiet machine refreshes
+  it).  (6) Issue #86 keeps its item on the cost of a narrowed name (the
+  restart per read), which this lane does not change; the comment on the
+  shared capsule waits for the merge and CI.  (7) The notes of the memo
+  name holds_private_state, which is now private_state.  (8) Nothing is
+  committed from this lane.  (9) The clone per reference (finding (iii)
+  of the review): one alternative that reads the capsule through two
+  references clones it twice and does the nested work after the clone
+  point per clone; the per-configuration map of #86 (the SetEval node to
+  its clone for the configuration) would make it one.
