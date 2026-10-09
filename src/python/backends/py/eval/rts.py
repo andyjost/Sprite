@@ -1,6 +1,6 @@
 from ...generic.eval import stepcounter, telemetry, trace
 from ..graph import infotable
-from . import configuration
+from . import checker, configuration
 from .. import graph
 from .... import inspect
 from ....utility import maxrecursion
@@ -97,6 +97,10 @@ class RuntimeState(object):
 
     # The table of setfunction evaluations.
     self.sftable = {}
+
+    # The checker of the run-time invariants (the flag ``checker``), or
+    # None.  Every hook of the runtime is one test of this attribute.
+    self.checker = checker.Checker(self) if interp.flags['checker'] else None
 
     # The Fair Scheme work queues.
     self.qstack = []

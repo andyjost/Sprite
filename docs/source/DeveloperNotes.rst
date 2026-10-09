@@ -163,6 +163,111 @@ Its limits
   C++ backend it is the list of its characters.  The ``repr`` of a negative
   ``Float`` node differs between the backends.
 
+The checker mode
+----------------
+
+The interpreter flag ``checker`` (off by default) turns on the checker of
+the run-time invariants of the Fair Scheme, the checker mode of section 6.5
+of the memo on the Fair Scheme proofs.  The runtime state of the reference
+backend holds one ``Checker`` (``curry.backends.py.eval.checker``) while
+the flag is on, and ``None`` otherwise: every hook in the runtime is one
+test of that attribute, so the flag-off path costs one attribute test per
+event and makes the same steps, values and counters as before, and the
+checker changes no step, no value and no counter when it is on; it costs
+time, and memory, since it keeps every flagged cell alive for the life of
+the runtime state.  A violation raises ``InvariantViolation``, an
+``AssertionError`` whose message names the invariant, the event, the
+configuration (its queue, its set, its fingerprint, its groups, its root),
+the identifiers and the goal position.  The C++ backend accepts the flag
+and ignores it; its mirror is a later lane.  To run a program under the
+checker::
+
+   SPRITE_DEBUG=1 SPRITE_INTERPRETER_FLAGS=backend:py,checker:true sprite-exec prog.curry
+
+``sprite-exec`` prints an ``AssertionError`` as "an internal error
+occurred" unless ``SPRITE_DEBUG=1`` is set, so the report of a violation
+needs that variable under ``sprite-exec``; the Python API raises the
+exception with its full message.
+
+The hooks sit at the events the memo names, and each one runs the checks
+of the invariants it names (``RI`` numbers the invariants of the review of
+the implementation; the memo states them in its sections 2.1 to 2.5):
+
+* A fork (``rts_fingerprint.fork``) and a yield (``rts_control.
+  release_value``): the fingerprint of the configuration is a function and
+  its group invariant holds (every decided identifier agrees with the root
+  of its group, and no member disagrees), the fingerprints along the
+  dispatch chain of the nested queues agree, and the escape sets only grow
+  (B1, S0).  Each clone of a fork keeps every decision of its parent, has
+  the decision of the fork, and adds at most the forked identifier and its
+  group root (rule D.2 of the memo; a fork on a free variable, which
+  applies its bindings, may add more).  A fork inside a capsule is on an
+  identifier that is function-derived for the capsule, that is in the
+  escape set of no enclosing capsule and that no enclosing configuration
+  decided, or on one its queue was split on before (S0, def:s-escapes).
+  At a yield no choice, operation, failure or constraint cell is reachable
+  from the value, no bound variable remains in it, and for every variable
+  with a decided root identifier the identifiers on the decided path of
+  its generator are decided (B1, X-c).  Two exclusions, which the paper
+  must carry: the walk does not enter the generator of a free variable,
+  and it does not enter the arguments of a partial application, as the
+  walk of ``N`` does not (a value may hold ``(+) (1 ? 2)`` as a function
+  value with the choice unevaluated inside it).
+* An escape, rule SF.1 (``rts_setfunctions.split_queue``): the escaping
+  identifier is argument-derived for the capsule or for an enclosing one,
+  or an enclosing configuration decided it; the kept queue holds the LEFT
+  and the undecided configurations, the new one the RIGHT and the
+  undecided, both record the identifier, and both name one escape set
+  (S0, S-split).  An insertion into an escape set (a pull-tab across a
+  box) is of an argument-derived identifier (S0).
+* A pull-tab (``rts_fingerprint.pull_tab``): the created choice carries the
+  identifier of its source, the source is at the recorded path, and the
+  two alternatives are fresh copies of the spine that share the cells off
+  the path (B1); the identifier is in the escape set of every box the path
+  crosses (S0, def:s-pull).
+* An instantiation, rule S.x (``rts_freevars.instantiate``), a generator
+  (``_make_generator``) and the private copy of rule N.x (``N`` and
+  ``hnf``): one generator per variable with the variable's identifier at
+  its root (X1); the write is a faithful copy of the spine with the
+  generator at the end, and the reduct of every configuration that
+  references the redex, read under the fingerprint it is compatible with,
+  is the same before and after the write; the reduct of the private copy
+  equals the reduct of the root it replaces (X-b').  The reduct is read
+  with the generator image of the memo (a decided choice is its side, a
+  bound variable its binding or its generator, a free variable its
+  group) and compared through a digest, within a budget of cells per
+  event; an event over the budget is counted, not compared.
+* A step (``fairscheme.S``, after a completed step): the choice a step
+  creates is tagged with the boxes above it, the set guards crossed from
+  the root of each configuration of the dispatch chain to the redex, and
+  the capsules whose arguments reached the redex (the entry walk of a
+  capsule flags the cells reachable from its arguments, and the cells a
+  step, a pull-tab or a copy creates at a flagged cell inherit the flags).
+  The tags define "argument-derived" for the checks of S0.  A replacement
+  by failure comes from an exempt leaf of the definitional tree of the
+  operation, or from a built-in (B2).
+* An inductive position (``fairscheme.hnf``, at entry): the position is a
+  case of the definitional tree of the operation at the redex, rebuilt
+  from the ICurry case structure, under branches that match the
+  constructors already at the positions above it (B2).  B2 is asserted
+  for the operations with an ICurry body alone.  The built-in steps of
+  ``currylib`` are hand-written Python outside the generated code, have
+  no tree and are not checked; they are most of the ``hnf`` calls of a
+  run (on the set-function and functional-pattern goals of the suite,
+  10773 of 16492 calls: ``plusInt``, ``nonstrictEq``, ``apply``, ``cond``,
+  ``eqChar``, ``allValues``, ``_biString``, ``&``, ``constrEq``,
+  ``ltEqInt``, ``evalS``, ``applyS``, ``set``, ``$!``, ``eqInt`` lead).
+
+``tests/unit_py_checker.py`` holds one constructed violation per check and
+runs the known-good programs of the suite under the checker.  The checker
+does not check the lifts of the constraints of ``=:=`` and ``=:<=`` (the
+memo's FS-β), the schedule replay of section 6.5, or the private copies
+that a set function makes for a configuration.  "Argument-derived" is read
+from the tags of an identifier (the boxes above its creation site and the
+flags of the capsule's arguments), which over-approximate the escape sets:
+the checks of the current capsule read the tags, the checks of the
+enclosing capsules read the escape sets, as def:s-escapes does.
+
 The removal gate
 ----------------
 

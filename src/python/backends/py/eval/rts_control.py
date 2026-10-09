@@ -286,6 +286,8 @@ def release_value(rts):
   from the computation state, and then returns the value.
   '''
   rts.telemetry._values += 1
+  if rts.checker is not None:
+    rts.checker.yield_(rts.C)
   value = rts.make_value()
   rts.drop(trace=False)
   return value

@@ -180,6 +180,10 @@ Flag                         Default                What it changes
                                                     function does when the capsule demands it:
                                                     ``'encapsulate'`` drops its alternative, ``'escape'``
                                                     fails the set function.
+``checker``                  ``False``              The checker mode of the Fair Scheme proofs program: the
+                                                    reference backend asserts the run-time invariants of
+                                                    the Fair Scheme at every fork, escape, pull-tab,
+                                                    instantiation and yield; the C++ backend ignores it.
 ``debug``                    ``False``              More consistency checks; the C++ backend compiles its
                                                     modules in the debug flavor.
 ``trace``                    ``False``              Trace the computation.

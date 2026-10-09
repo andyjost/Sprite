@@ -9926,6 +9926,277 @@
   point per clone; the per-configuration map of #86 (the SetEval node to
   its clone for the configuration) would make it one.
 
+2026-10-09: the checker of memo 6.5 (the run-time invariants of the Fair
+  Scheme, first in the Python backend; worktree wt/checker)
+- The task.  Section 6.5 of the memo on the Fair Scheme proofs asks for a
+  checker mode, first in the Python backend, where instrumentation is cheap,
+  then mirrored in the C++ runtime behind a flag (a later lane).  The owner
+  approved the memo with its recommendations on 2026-10-09.  This entry
+  delivers the Python checker: the flag, the checker object, its hooks, the
+  checks of parts (1) to (5) of the lane, the tests, the cost, and the
+  violations found.
+- The flag.  ``checker`` (True | False, default False) in
+  curry.interpreter.flags, documented with the other flags, in the flags
+  table of the Python API page and in a section of the developer notes.
+  The exact text for a run: SPRITE_INTERPRETER_FLAGS=backend:py,checker:true
+  (the harness system py-check is the pair ('backend:py,checker:true', '')
+  in the systems table of run.py).  The C++ backend accepts the flag and
+  ignores it.
+- The design.  RuntimeState.checker holds one Checker
+  (backends/py/eval/checker.py) while the flag is on and None otherwise.
+  Every hook in the runtime is one test of that attribute, so the flag-off
+  path takes the same steps and makes the same nodes as before.  The
+  checker observes: it never writes the state (it reads the union-find
+  without path compression, the bindings without the absorption of
+  _find_binding, and the generators without their creation).  A violation
+  raises InvariantViolation, an AssertionError whose message names the
+  invariant, the event, the detail, the identifiers, the configuration (its
+  queue, its set, its index, escape_all, the fingerprint, the groups, the
+  goal position from the call stack, the root expression) and, for a
+  dispatch-chain disagreement, the enclosing configuration.
+- The hooks (the four events the memo names, and the three the checks of
+  FS-x and B2 need).  fork: rts_fingerprint.fork, after the clones are made
+  (the generator collects them and calls the hook when the queue has taken
+  them).  escape: rts_setfunctions.split_queue (rule SF.1), with the
+  configurations of the queue before the split; update_escape_set, the
+  insertion of an identifier by a pull-tab across a box.  pull-tab:
+  rts_fingerprint.pull_tab, once before the rewrite with the two copies and
+  once after it with the created choice.  yield: rts_control.release_value,
+  before the value is made.  instantiation: rts_freevars.instantiate (rule
+  S.x), before and after the write; rts_freevars._make_generator; the
+  private copies of rule N.x in N (three sites) and hnf (the binding), and
+  the value bindings of a builtin type in hnf.  step: fairscheme.S after a
+  completed step, with the symbol and the successors the redex held before
+  (the list object is kept, not copied: a step replaces it).  hnf: at the
+  entry of fairscheme.hnf.  capsule entry: rts_setfunctions.create_queue.
+  freshvar for the tags of a variable.
+- The checks.  (2) B1: at every fork, escape and yield the fingerprint of
+  each configuration involved is a function and its group invariant holds
+  (every decided identifier agrees with the root of its group in the
+  union-find of the configuration, and no member disagrees), and the
+  fingerprints along the dispatch chain agree (def:s-chain of the note:
+  the enclosing fingerprint is the union); each clone of a fork keeps
+  every decision of its parent (read through the clone's groups), has the
+  decision of the fork, in its own fingerprint or in an enclosing one, and
+  adds at most the forked identifier and its group root (rule D.2; a fork
+  on a free variable applies its bindings and equates its group, so the
+  last clause is skipped for it); at most two clones with different
+  sides.  A pull-tab gives the created choice the identifier of its
+  source, the source is at the recorded path, the two alternatives are
+  fresh copies of the spine that share the cells off the path and end in
+  the alternative, and the identifier is in the escape set of every box
+  the real path from the root to the source crosses (def:s-pull; the
+  insertions precede the pull-tab in N and hnf, so the check is exact
+  there, where the dropped-box defect below is found through the path
+  alone).  At a yield no choice, operation,
+  failure or constraint cell is reachable from the value; the generator of
+  a free variable and the arguments of a partial application are not
+  entered.  (3) FS-x.  X1: one generator per variable (the table of the
+  checker), its root a choice with the variable's identifier, checked at
+  the creation and at every instantiation.  X-c at a yield: no variable
+  with a binding or a decision remains in the value, and for every
+  variable of the table with a generator and a decided root the
+  identifiers on the decided path of its generator are decided.  X-b' at
+  an instantiation: the slot held the variable, the write put its
+  generator there, and the reduct of every configuration of every queue
+  that references the redex, read under the fingerprint it is compatible
+  with, is the same before and after the write; after a copy of rule N.x
+  the copy is a faithful copy of the spine with the replacement at its end
+  and its reduct equals the reduct of the root it replaces.  The reduct is
+  read with the generator image of the memo's revision: a decided choice
+  is its side, a bound variable its binding or its generator, a free
+  variable and an undecided generator root the group of the variable, and
+  a forward node or a box is passed through; it is compared as a digest
+  (blake2b over the cells), within a budget of 5000 cells per event; an
+  event over the budget is counted (counts['over_budget']) and not
+  compared.  None of the suite's goals reached the budget.  (4) FS-S.
+  Every identifier is tagged at its creation with the boxes above it: the
+  set guards crossed from the root of each configuration of the dispatch
+  chain to the redex (the frames of the call stacks, as boxed_failure reads
+  them, and escape_all), plus the flags of the redex cell.  The flags are
+  the entry step of def:s-flags: at the creation of a capsule the cells
+  reachable from its boxed arguments are flagged with the set (a bounded
+  walk; a capsule beyond the budget turns its S0 checks off), and the
+  cells a step, a pull-tab, a copy or a generator creates at a flagged
+  cell inherit the flags (a bounded walk from the redex that stops at
+  flagged cells).  A generator inherits the tags of its variable.  The
+  tags define "argument-derived".  S0: an insertion into an escape set is
+  of an argument-derived identifier (E in A); a fork inside a capsule is on
+  an identifier that is function-derived for the capsule (its tags), that
+  is in the escape set of no enclosing capsule (the shadow sets: the tags
+  of an enclosing set over-approximate its escape set, since a choice a
+  function makes inside the inner capsule is created under the box of the
+  outer one; argAfterStart of SetFunctionsBugs is the case) and that no
+  enclosing configuration decided, or on one the queue was split on
+  before (the three clauses of def:s-escapes, as choice_escapes reads
+  them);
+  at SF.1 the escaping identifier is argument-derived for the capsule or an
+  enclosing one of the chain, or an enclosing configuration decided it (the
+  three clauses of def:s-escapes, read on the tags instead of the escape
+  sets).  The escape sets only grow (a shadow per set; a loss and an
+  insertion outside the rule are both reported).  S-split: after SF.1 the
+  kept queue holds the LEFT and the undecided configurations, the new one
+  the RIGHT and the undecided, nothing else and nothing lost, both record
+  the identifier, both name one set.  (5) B2.  The definitional tree of an
+  operation is rebuilt from the ICurry case structure of its body (the
+  positions of the case variables through the IVarAccess assignments; a
+  case on a variable that is not a position is left untracked), found
+  through the symbol tables of the loaded modules by the info table of the
+  redex.  At every hnf the position is a case of the tree of the operation
+  at the redex whose branches above it match the constructors at their
+  positions (B2 a, b).  After a step that replaced the redex by a failure
+  the matched path ends in an exempt leaf, or in a literal case without a
+  branch for the value (B2 c); a failure that hnf writes at an inductive
+  position never reaches the hook (the step unwinds).  A built-in has no
+  tree and is not checked; the Prelude functions with ICurry bodies are.
+- The tests (tests/unit_py_checker.py, 38 tests; 35 skip on the C++
+  backend).  TestKnownGood: the goals of the probe table under both failure
+  rules, the goals of SetFunctionsBindings, the goals of
+  unit_setfunctions_bugs.py, the functional-pattern modules, the goals of
+  unit_cxx_freevars.py, and a module with the narrowed name of
+  unit_funcpat_narrowed.py, a released residual, a narrowing and a pairing:
+  each runs under the checker without a report and with the values it has
+  without the flag (both runs in the test).  One constructed violation per
+  check: the group invariant at a fork (a decided member of a group whose
+  root is undecided), a clone that drops the fingerprint of its parent
+  (Configuration.clone replaced in the test: without the check the goal
+  dup2 gives 16 values for 4), the identifier and the copies of a
+  pull-tab, a pull-tab across a box without the insertion into the escape
+  set, a choice in a yielded value, a nested configuration against its enclosing one,
+  a second generator and a wrong root identifier, a decided variable in a
+  value, an undecided inner identifier, a copy whose reduct changed, an
+  instantiation whose copy is corrupted off its path (copy_spine replaced
+  in the test), an insertion of a function-derived identifier into an
+  escape set, a fork inside a capsule on an argument-derived identifier, a
+  fork inside a nested capsule on an identifier in the escape set of the
+  enclosing set and one on an identifier the enclosing configuration
+  decided (choice_escapes turned off for the state, since the runtime
+  would split the queue), a split on a function-derived identifier, a split that keeps a decided
+  configuration in both queues, an escape set that lost an element, a step
+  that demands a position before the inductive position (the step function
+  replaced in the test), a step that fails on a matched rule, and the flag
+  itself.  TestDroppedBox pins the defect below (two known failures).
+- The cost with the flag off.  The steps and the forks of the goals of
+  unit_funcpat_narrowed.py are unchanged: one/source 107 steps 8 forks,
+  many/source 12867 and 1202, distinct/source 1333 and 324, one/sourceS 122
+  and 8, many/sourceS 12882 and 8, distinct/sourceS 1504 and 72,
+  one/sourceN 111 and 8, many/sourceN 13468 and 1202, distinct/sourceN
+  1594 and 450, before and after (and the same under the checker).  The
+  wall time of Half.curry main on the Python backend (goal2, toPeano 1600):
+  35.9, 35.2, 36.1 s before, 36.6, 36.4, 36.4 s after, on a shared machine:
+  the mean rises 2 percent, at the edge of the spread of the runs; the
+  flag-off path has one attribute test per step, per hnf, per pull-tab,
+  per fork, per yield and per copy (fork allocates its list of clones
+  under the test as well).  With the flag on the funcpat goals take 10.0 s
+  for 4.8 s, and the checker holds memory as well as time: it keeps every
+  flagged cell alive (the entry walk flags up to 50000 cells per capsule,
+  a step or a copy up to 1024) for the life of the runtime state, so a
+  long run of a capsule under the checker may need a larger address limit
+  than the plain run (HARNESS_AS_LIMIT of the harness, 2 GiB by default).
+- The runs.  The seven files of the lane under the checker through the
+  runner (-j 2 --mem 4 --backend py, SPRITE_INTERPRETER_FLAGS=
+  backend:py,checker:true): unit_funcpat_narrowed.py 2 of 2,
+  unit_setfunctions_semantics.py 41 of 41 (both failure rules through its
+  children, which inherit the flag), unit_cxx_freevars.py 7 of 7 (its
+  Python half), unit_setfunctions_bindings.py 16 of 16,
+  unit_py_residuation.py 6 of 6, unit_funpat_free_argument.py 9 of 9, and
+  unit_setfunctions_bugs.py 21 of 22: test_captured_then_guarded reports
+  the defect below; 34 s wall.  With the flag off the unit_py_* files, the
+  seven files and the new file: 21 of 21 files, 0 failed, 39 s wall.  The
+  new file on the C++ backend: 34 tests, 31 skipped, ok.  make -C docs
+  html: build succeeded.
+- The violations found.  (1) A true defect of the Python backend, found at
+  the pull-tab check (B1: the source is not at the recorded path): in the
+  walk of N a forward node at the cursor is replaced by
+  indexing.logical_subexpr(parent, index, update_fwd_nodes=True), which
+  skips the forward chain and the set guards behind it, while the real
+  path of the walk and its list of set ids stay as they were.  A choice
+  behind a box behind a forward node is then pull-tabbed along a path that
+  omits the box: the copies of the spine lose the guard, and the escape
+  set of the capsule is not updated.  A captured choice reached through a
+  forward node alone is encapsulated.  Reproducer (data T = A | B;
+  constT t _ = t; pickOne z f = [z] ? [f 0]; oneCaptured = let x = A ? B in
+  let vs = sortValues (set2 pickOne A (constT x)) in (length vs, x)): the
+  Python backend gives (3, A) and (3, B), the C++ backend (2, A) and
+  (2, B), the values of weakly encapsulated search.  The goal
+  capturedThenGuarded of unit_setfunctions_bugs.py has the same walk and
+  passes by the second, boxed occurrence of the choice, which escapes and
+  sorts the configurations forked too early.  The fix is in the T_FWD case
+  of N (fairscheme.py): step through the forward chain and the guards one
+  node at a time, with the real path and the set ids extended as the walk
+  does for a guard at the cursor; not made in this lane.  Pinned in
+  TestDroppedBox (test_values, a known failure on the Python backend;
+  test_under_the_checker, a known failure; test_report, the message).  (2)
+  A false alarm, fixed in the checker: the first form of the fork check
+  required the clone's own fingerprint to hold the decision; a nested fork
+  on an identifier an enclosing configuration decided writes nothing
+  (update_fp reads the decision through the queue stack and keeps one
+  side).  The check reads the decision through the chain.  No other report
+  on the goals of the lane.
+- The review of the lane (2026-10-09, seven findings) and what was done.
+  (1) The fork check did not relate the clone to its parent (rule D.2):
+  confirmed with Configuration.clone replaced to give an empty
+  fingerprint, dup2 then gives 16 values with no report; the check
+  _check_clone above was added, with the test.  (2) sprite-exec prints an
+  InvariantViolation, an AssertionError, as "an internal error occurred.
+  Rerun with SPRITE_DEBUG=1 for details." (ProgramErrorHandler.print_error
+  of curry.tools.utility): confirmed on the reproducer, with and without
+  SPRITE_DEBUG=1.  The output of sprite-exec is the owner's; the report of
+  a violation needs SPRITE_DEBUG=1 under sprite-exec today, and the
+  developer notes say so.  (3) B2 is asserted for the operations with an
+  ICurry body alone: on the set-function and functional-pattern goals of
+  the suite 10773 of 16492 hnf calls are untracked built-ins (plusInt
+  4947, nonstrictEq 1555, apply 771, cond 583, eqChar 552, allValues 442,
+  _biString 397, & 397, constrEq 390, ltEqInt 140, evalS 122, applyS 118,
+  set 104, $! 84, eqInt 82 lead); stated in the notes and here; no
+  hand-written tree table for the strict built-ins was added.  (4) The S0
+  fork check read the tags of the current set alone: the three clauses of
+  def:s-escapes are checked now (see the checks above).  A first form that
+  read the tags of the enclosing sets reported argAfterStart, a false
+  alarm: the tags over-approximate the escape sets of the enclosing sets.
+  (5) The yield walk does not enter the arguments of a partial application
+  (pa = (+) (1 ? 2) yields a function value with the choice inside it, no
+  report), nor the generator of a free variable: stated in the notes and
+  here as a reading the paper must carry; whether the model's value
+  definition treats a partial application as data is the owner's
+  question.  (6) fork allocated its list of clones with the flag off:
+  guarded now; the notes say "one attribute test per event" and name the
+  memory the checker holds.  The steps and the forks of the funcpat goals
+  are the same as before, flag off and on.  (7) The pull-tab check did not
+  assert the insertions of def:s-pull: added (_check_crossed_boxes), with
+  the test.  After the changes: unit_py_checker.py 38 tests ok (2 expected
+  failures) on the Python backend and ok (35 skipped) on the C++ backend;
+  the seven files under the checker through the runner: 7 of 7 run, 1
+  failed (test_captured_then_guarded, the dropped-box defect), 32 s wall.
+- Left to the owner.  (1) The C++ mirror of the checker behind the same
+  flag.  (2) The defect of (1) above: the fix in N, an issue, and the
+  values of oneCaptured as a test of both backends.  (3) Not checked: the
+  lifts of the constraints of =:= and =:<= (FS-beta, E-lift; the memo's
+  6.5 does not list them), the schedule replay of 6.5 (B3, S3: the Python
+  backend has one schedule; the harness compares the rotation modes of the
+  C++ backend), the private copies of the spine that a set function makes
+  for a configuration (evalS and the clone of a capsule), and the
+  one-constructor case of X-c (such a variable has no root identifier to
+  decide).  (4) Two approximations to state in the paper or to tighten:
+  "argument-derived" is read from the tags (the boxes above the creation
+  site, the entry flags and their inheritance), not from per-cell flags of
+  every cell, and the cells a step creates are flagged by a walk from the
+  redex that stops at flagged cells; the reduct comparison of X-b' is a
+  digest within a budget, so a goal whose configurations exceed 5000 cells
+  per instantiation is counted, not compared (none of the suite's goals
+  did).  (5) tests/manifest.json has no entry for unit_py_checker.py (a
+  calibration run adds it).  (6) The deferred nested-guard assertion of
+  the Python backend (capNested, nestFail, nestedBound) stays as it was;
+  those goals are left out of the known-good set.  (7) The report of a
+  violation under sprite-exec: either print_error prints an
+  InvariantViolation in full (a change to the output of sprite-exec), or
+  the py-check system of the harness sets SPRITE_DEBUG=1 in its
+  environment (the harness side); and HARNESS_AS_LIMIT may need to rise
+  for py-check (the memory the checker holds).  (8) A hand-written tree
+  table for the strict built-ins (plusInt, eqInt, ltEqInt, eqChar, cond,
+  &) would put their demand order under B2 as well.  (9) Nothing is
+  committed from this lane.
+
 2026-10-09: three findings of the differential harness (#119, #120, #121;
   worktree wt/bugs3)
 - The programs.  The harness of the Fair Scheme proofs generated the three

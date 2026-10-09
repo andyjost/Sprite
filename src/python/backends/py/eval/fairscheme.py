@@ -106,17 +106,26 @@ def N(rts, var, state):
         if rts.has_binding(state.cursor):
           rts.telemetry._copyspine += 1
           binding = rts.get_binding(state.cursor)
-          rts.E = graph.utility.copy_spine(rts.E, rts.C.realpath, end=binding)
+          old, path = rts.E, rts.C.realpath
+          rts.E = graph.utility.copy_spine(old, path, end=binding)
+          if rts.checker is not None:
+            rts.checker.copied(old, rts.E, path, binding, 'binding')
           rts.restart()
         elif rts.is_narrowed(state.cursor):
           rts.telemetry._copyspine += 1
           gen = rts.get_generator(state.cursor)
-          rts.E = graph.utility.copy_spine(rts.E, rts.C.realpath, end=gen)
+          old, path = rts.E, rts.C.realpath
+          rts.E = graph.utility.copy_spine(old, path, end=gen)
+          if rts.checker is not None:
+            rts.checker.copied(old, rts.E, path, gen, 'generator')
           rts.restart()
         elif rts.obj_id(state.cursor) != rts.grp_id(state.cursor):
           rts.telemetry._copyspine += 1
           x = rts.get_freevar(rts.grp_id(state.cursor))
-          rts.E = graph.utility.copy_spine(rts.E, rts.C.realpath, end=x)
+          old, path = rts.E, rts.C.realpath
+          rts.E = graph.utility.copy_spine(old, path, end=x)
+          if rts.checker is not None:
+            rts.checker.copied(old, rts.E, path, x, 'representative')
           rts.restart()
         break
       elif tag == T_FWD:
@@ -156,7 +165,16 @@ def S(rts, node):
   rts.telemetry._enterS += 1
   with rts.catch_control(unwind=True, nondet=rts.is_io(node)):
     _0 = rts.variable(node)
-    node.info.step(rts, _0)
+    checker = rts.checker
+    if checker is None:
+      node.info.step(rts, _0)
+    else:
+      # The checker reads the symbol and the arguments the redex held before
+      # the step.  The step replaces the list of successors, so the list
+      # itself is kept, not copied.
+      info, args = node.info, node.successors
+      info.step(rts, _0)
+      checker.step(node, info, args)
     # Only a completed step counts.  A step that raised a control exception
     # left its redex as it was.  The C++ procS applies the same rule.
     rts.stepcounter.increment()
@@ -187,6 +205,8 @@ def hnf(rts, var, typedef=None, values=None):
     The updated variable, ``var``.
   '''
   rts.telemetry._enterhnf += 1
+  if rts.checker is not None:
+    rts.checker.hnf(var, typedef, values)
   while True:
     rts.telemetry._iterhnf += 1
     target = var.target
@@ -215,11 +235,16 @@ def hnf(rts, var, typedef=None, values=None):
         var.replace_target(replacement=gen)
       elif rts.has_binding(var.target):
         binding = rts.get_binding(var.target)
-        rts.E = graph.utility.copy_spine(rts.E, rts.C.realpath, end=binding)
+        old, path = rts.E, rts.C.realpath
+        rts.E = graph.utility.copy_spine(old, path, end=binding)
+        if rts.checker is not None:
+          rts.checker.copied(old, rts.E, path, binding, 'binding')
         rts.restart()
       elif rts.is_builtin_type(typedef):
         if values:
           value_bindings = rts.make_value_bindings(var, values, typedef)
+          if rts.checker is not None:
+            rts.checker.value_bindings(var.target, value_bindings)
           var.replace_target(replacement=value_bindings)
         else:
           rts.suspend(var.target)
