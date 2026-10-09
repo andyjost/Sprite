@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ['load', 'save']
 
-def load(interp, filename):
+def load(interp, filename, **kwds):
   '''
   Loads a Curry module saved with :func:`save`.
 
@@ -20,6 +20,10 @@ def load(interp, filename):
     filename:
       The path to a file to load.  The file type and suffix must match the
       interpreter.
+    from_plan:
+      True when the import plan loads the current object of a module it
+      imports, False for a file the user named (the C++ backend decides
+      some refusals by it; see its loader).
 
   Returns:
     A :class:`CurryModule <{0}.objects.CurryModule>`.
@@ -31,7 +35,7 @@ def load(interp, filename):
         'Cannot load %r into the %r backend.  Expecting extension %r.'
             % (filename, be.backend_name, be.object_file_extension)
       )
-  cymodule = be.load_module(interp, filename)
+  cymodule = be.load_module(interp, filename, **kwds)
   if logger.isEnabledFor(logging.INFO):
     h = handle.getHandle(cymodule)
     logger.info(

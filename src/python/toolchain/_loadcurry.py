@@ -45,7 +45,9 @@ def loadcurry(plan, name, currypath=None, **kwds):
     # JSON beside it.
     return loadjson(json_beside(filename))
   else:
-    return plan.interp.load(filename)
+    # The plan's own route: the object is the current product of an import,
+    # not a file the user named (loader.load_module of the C++ backend).
+    return plan.interp.load(filename, from_plan=True)
 
 def json_beside(filename):
   '''

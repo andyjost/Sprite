@@ -16,7 +16,7 @@ import importlib.machinery, os
 
 __all__ = ['load_module']
 
-def load_module(interp, pyfile):
+def load_module(interp, pyfile, from_plan=False):
   assert pyfile.endswith('.py')
   name = os.path.splitext(os.path.basename(pyfile))[0]
   # A file from an older installation, or one whose cache was removed, gets

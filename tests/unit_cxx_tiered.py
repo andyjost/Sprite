@@ -969,3 +969,26 @@ class TestLoadDuringCompile(TieredTestCase):
     self.assertIsNone(cyrt.SharedCurryModule.find_sofilename(name))
     self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
     self.assertEqual(self.py(M.total, 2), 8)
+
+  def test_import_after_reset_takes_the_object(self):
+    # The import plan is exempt from that refusal.  After a reset the module
+    # has no library registered while its tables are kept; an import of the
+    # name finds the current object and loads it, as it did before the
+    # refusal existed (func_goal_defaulting.py imports after a reset in
+    # every test).
+    self.addCleanup(tiered._state.warned.discard, 'nocxx')
+    with mock.patch.object(config, 'cxx_tool', return_value=None):
+      with capture_log('curry.backends.cxx.tiered'):
+        M = self.fresh_module()
+    name = M.__name__
+    self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
+    sofile = self.compile_by_hand(name)
+    del M
+    curry.reset()
+    curry.path.insert(0, self.tmpdir)
+    M2 = curry.import_(name)
+    self.assertEqual(
+        os.path.realpath(cyrt.SharedCurryModule.find_sofilename(name))
+      , os.path.realpath(sofile)
+      )
+    self.assertEqual(self.py(M2.total, 2), 8)
