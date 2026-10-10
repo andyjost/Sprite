@@ -1,3 +1,4 @@
+#include "cyrt/checker.hpp"
 #include "cyrt/exceptions.hpp"
 #include "cyrt/fingerprint.hpp"
 #include "cyrt/state/rts.hpp"
@@ -93,6 +94,9 @@ namespace cyrt
 
   Expr RuntimeState::release_value()
   {
+    // The checker tests the value before it is made (cyrt/checker.hpp).
+    if(this->checker)
+      this->checker->yield_(this->C());
     Expr value = this->make_value();
     #ifdef SPRITE_TRACE_ENABLED
     if(this->trace) this->trace->yield(value);

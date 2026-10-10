@@ -1,4 +1,5 @@
 #include "cyrt/builtins.hpp"
+#include "cyrt/checker.hpp"
 #include "cyrt/currylib/prelude.hpp"
 #include "cyrt/currylib/setfunctions.hpp"
 #include "cyrt/graph/memory.hpp"
@@ -123,7 +124,14 @@ namespace cyrt { inline namespace
     // capsule, with different decisions, each get their side (issue #61).
     // The new queue belongs to its SetEval node; see queue.hpp.
     Queue * Qrhs = new Queue(seteval->set);
+    // The checker sees the queue before and after the split (rule SF.1;
+    // cyrt/checker.hpp).
+    std::vector<Configuration *> before;
+    if(rts->checker)
+      before.assign(seteval->queue->begin(), seteval->queue->end());
     seteval->queue->split(choice->cid, *Qrhs);
+    if(rts->checker)
+      rts->checker->escape(seteval->queue, choice->cid, before, Qrhs);
     Node * rhs_seteval = Node::create(seteval->info, seteval->set, Qrhs);
     gc_register_seteval(rhs_seteval);
     Node * lhs_view = Node::create(&allValues_Info, (Node *) seteval);
@@ -322,6 +330,10 @@ namespace cyrt { inline namespace
           );
     }
     Queue * new_queue = new Queue(new_set, goal);
+    // The entry walk of the checker flags the cells of the boxed arguments
+    // (cyrt/checker.hpp).
+    if(rts->checker)
+      rts->checker->capsule_entry(new_set, goal);
     new_queue->absorbed.swap(absorbed);
     Node * seteval = Node::create(&SetEval_Info, new_set, new_queue);
     gc_register_seteval(seteval);

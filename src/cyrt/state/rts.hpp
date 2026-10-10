@@ -101,6 +101,7 @@ namespace cyrt
       , size_t stack_limit = DEFAULT_STACK_LIMIT
       , size_t rotation_steps = TIME_MODE
       , uint64_t rotation_quantum_ns = DEFAULT_QUANTUM_NS
+      , bool checker = false
       );
     ~RuntimeState();
     RuntimeState(RuntimeState const &) = delete;
@@ -177,6 +178,12 @@ namespace cyrt
     Queue *                diverge_queue = nullptr;
     xid_type               diverge_vid = NOXID;
     Node *                 diverge_binding = nullptr;
+    // The checker of the run-time invariants of the Fair Scheme
+    // (cyrt/checker.hpp), while the interpreter flag ``checker`` is on;
+    // null otherwise.  Every hook of the runtime is one test of this
+    // pointer.  The state owns it.  The field is last among the plain
+    // fields, so the offsets generated code may read are unchanged.
+    Checker *              checker = nullptr;
 		#ifdef SPRITE_TRACE_ENABLED
     std::unique_ptr<Trace> trace;
     #endif
@@ -242,8 +249,8 @@ namespace cyrt
     // rts_fingerprint:
     bool equate_fp(Configuration *, xid_type, xid_type);
     void fork(Queue *, Configuration *);
-    static Node * pull_tab(Configuration *, Variable * inductive);
-    static Node * pull_tab(Configuration *, Node * source, Node * target);
+    Node * pull_tab(Configuration *, Variable * inductive);
+    Node * pull_tab(Configuration *, Node * source, Node * target);
     ChoiceState read_fp(Configuration *, xid_type);
     bool update_fp(Configuration *, xid_type, ChoiceState);
 

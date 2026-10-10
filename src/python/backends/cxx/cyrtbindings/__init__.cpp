@@ -4,6 +4,7 @@ namespace cyrt { namespace python
 {
   void register_constants(pybind11::module_);
   void register_dynload(pybind11::module_);
+  void register_checker(pybind11::module_);
   void register_evaluator(pybind11::module_);
   void register_exceptions(pybind11::module_);
   void register_fingerprint(pybind11::module_);
@@ -15,6 +16,7 @@ namespace cyrt { namespace python
 
 PYBIND11_MODULE(_cyrtbindings, mod)
 {
+  cyrt::python::register_checker(mod);
   cyrt::python::register_constants(mod);
   cyrt::python::register_dynload(mod);
   cyrt::python::register_evaluator(mod);

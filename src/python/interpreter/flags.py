@@ -28,21 +28,26 @@ The following flags are available:
   * ``checker`` (True | **False**)
 
     The checker mode of the Fair Scheme proofs program (section 6.5 of the
-    memo on the Fair Scheme proofs).  The Python backend holds a checker
-    (curry.backends.py.eval.checker) that asserts the run-time invariants
-    of the Fair Scheme at every fork, escape, pull-tab, instantiation and
-    yield: the identifier consistency of the fingerprints and their groups
-    (RI B1), the generators of the free variables and the reducts of the
-    configurations across an instantiation (X1, X-b', X-c), the two groups
-    of the choices inside a set function and the split of its queue (S0,
-    S-split), and the inductive positions and the failures of every step
-    against the definitional tree of its operation (B2).  A violation
-    raises ``InvariantViolation``, an ``AssertionError`` whose message
-    names the invariant, the event, the configuration, the identifiers and
-    the goal position.  The checker observes: it changes no step, no value
-    and no counter, and with the flag off the runtime tests one attribute
-    per event.  The C++ backend ignores the flag; its mirror is a later
-    lane.
+    memo on the Fair Scheme proofs).  Both backends hold a checker while
+    the flag is on: the Python backend in curry.backends.py.eval.checker,
+    the C++ runtime in cyrt/checker.hpp (RuntimeState::checker).  The
+    checker asserts the run-time invariants of the Fair Scheme at every
+    fork, escape, pull-tab, instantiation and yield: the identifier
+    consistency of the fingerprints and their groups (RI B1), the
+    generators of the free variables and the reducts of the configurations
+    across a write of a generator and a private copy of the spine (X1,
+    X-b, X-b', X-c), the two groups of the choices inside a set function
+    and the split of its queue (S0, S-split), and the inductive positions
+    and the failures of every step against the definitional tree of its
+    operation (B2; the C++ runtime reads the tree from the bytecode of an
+    interpreted operation, so a compiled operation is not checked there).
+    A violation raises ``InvariantViolation``, an ``AssertionError`` whose
+    message names the invariant, the event, the configuration, the
+    identifiers and the goal position; the C++ backend raises
+    ``curry.backends.cxx.cyrtbindings.InvariantViolation``.  The checker
+    observes: it changes no step, no value and no counter, and with the
+    flag off each runtime tests one attribute or one pointer per event.
+    The developer notes describe both checkers and where they differ.
 
   * ``debug`` (True | **False**)
 

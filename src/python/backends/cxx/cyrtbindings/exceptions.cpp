@@ -1,4 +1,5 @@
 #include "pybind11/pybind11.h"
+#include "cyrt/checker.hpp"
 #include "cyrt/exceptions.hpp"
 
 namespace py = pybind11;
@@ -13,5 +14,12 @@ namespace cyrt { namespace python
 		// The step limit of an evaluation was reached (RuntimeState::step_limit).
 		// generate_values turns it into control.E_TERMINATE.
 		py::register_exception<StepLimitReached>(mod, "StepLimitReached");
+		// A run-time invariant of the Fair Scheme does not hold (the flag
+		// ``checker``; cyrt/checker.hpp).  An AssertionError, as the report of
+		// the checker of the Python backend is; its message names the
+		// invariant, the event, the configuration and the identifiers.
+		py::register_exception<InvariantViolation>(
+		    mod, "InvariantViolation", PyExc_AssertionError
+		  );
 	}
 }}
