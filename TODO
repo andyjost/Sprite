@@ -11272,3 +11272,167 @@
   (a calibration run adds them; unit_flat2icurry.py takes 16.5 s, 12 s
   before).  (6) The new module utility/trampoline.py needs make stage (or
   make install in src/python/utility) to appear in a staged tree.
+
+2026-10-10: the default of setfunction_failures is 'escape' (decision D1 of
+  the memo on the Fair Scheme proofs, confirmed by the differential harness;
+  worktree wt/flip)
+- - The decision and its evidence.  The flag setfunction_failures (the lane of
+  2026-10-09 above) selects what a failure that comes from an argument of a
+  set function does when the capsule demands it: 'escape' fails the set
+  function (option F2 of the memo: the semantics of weakly encapsulated search
+  of Christiansen, Hanus, Reck and Seidel, PPDP 2013, which KiCS2 implements),
+  'encapsulate' drops its alternative (rule SF.5 of the dissertation).  The
+  lane left the default at 'encapsulate' until the differential harness
+  confirmed the decision.  Campaign 2 of the harness of the proofs project
+  confirmed it on 2026-10-09: 200 FS-S goals against KiCS2, agreement 192 of
+  200 under 'encapsulate' and 194 of 200 under 'escape', and no other verdict
+  moved.  The owner approved the flip on 2026-10-10, in a lane of its own.
+  The default is 'escape'.  The flag stays, with 'encapsulate' as the
+  alternative.  The semantics of neither setting changes: 'escape' keeps the
+  immediate trigger of the lane (the first demand of a boxed failure inside
+  the capsule fails the set function), and 'encapsulate' keeps the rule of the
+  dissertation.  No other default, no object format, no public API and no flag
+  changes.
+- - The places that stated the default; every one moved.
+  src/python/interpreter/flags.py: FLAG_INFO, and the docstring, from which
+  the reference page of the flags is generated (the sentence that the default
+  moves later is gone: 'escape' is the decision D1, the default since the
+  harness confirmed it, and 'encapsulate' is the semantics of the
+  dissertation).  docs/source/PythonAPI/CurryPackage.rst: the row of the table
+  of the flags.  docs/source/CurryPrimer/Semantics.rst: the paragraph on a
+  failure that comes from an argument (isEmpty (set1 id failed) has no value,
+  and is True under 'encapsulate'). curry/lib/Control/SetFunctions.curry: the
+  comment of applyS.  A comment alone: as the README of the library
+  prescribes, the .icy made from the edited source with sprite-make --icy (in
+  a scratch tree, with SPRITE_DISABLE_SYSLIB_CHECKS=1 as make -C curry sets
+  it) is byte-identical to the committed one, and the digest of the source in
+  tests/unit_currylib.py is updated.  src/cyrt/state/rts.hpp: the default
+  argument of the constructor of RuntimeState, the one default of the C++
+  runtime's own when the flag is absent, is SETF_FAILURES_ESCAPE, under a
+  comment that the defaults of the arguments are those of the flags (the
+  bindings pass the flag always, so no behaviour moved there; the header is in
+  the include closure of cyrt.hpp, so make stage built the runtime and the
+  library again, and the prepare pass compiled the test products again; the
+  edit moves the ABI stamp, item (6) below).  No default of its own elsewhere:
+  the bindings map the value of the flag (cyrtbindings/__init__.py), the
+  Python backend reads interp.flags (eval/rts.py), and the comments of
+  rts_setfunctions.cpp, currylib/setfunctions.cpp, fwd.hpp,
+  rts_setfunctions.py, fairscheme.py and control.py name no default.  The
+  REPL's :set lists its two options and no flag; the developer notes, the
+  examples and their READMEs name no default of the flag; conda/ names no
+  flag. tests/data/curry/SetFunctionsSemantics.curry: the comment of section
+  3. tests/unit_setfunctions_semantics.py: the docstrings name the default,
+  and TestDefault pins it (below).  The entries of this file older than this
+  one keep their statements, as history.
+- - Tests.  No expectation of a set-function test moved: the tests that run a
+  goal whose values differ between the settings set the flag explicitly and
+  run both settings, so both settings keep their tests (the memo's s3, s3e,
+  s4, s4h, s4a, s4b, s4c, nestFail and nestFailInner in
+  unit_setfunctions_semantics.py; the shared shapes of section 6 of
+  SetFunctionsBindings.curry in unit_setfunctions_bindings.py; the semantics
+  module in unit_py_checker.py and unit_cxx_checker.py).  The functional
+  corpus of set functions holds no failing argument, and the examples give
+  their outputs on both backends.  New: TestDefault of
+  unit_setfunctions_semantics.py pins the default (FLAG_INFO and
+  get_default_flags) and the values of s3, s3e, s4a, nestFailInner and
+  lazyFirst in a child that sets no flag (no value, no value, no value, True,
+  True).  The child inherits SPRITE_INTERPRETER_FLAGS, so it prints its
+  setting first, and the test asserts 'escape' before the values, with a
+  message that names the environment: a run with
+  setfunction_failures:encapsulate in the environment fails with the cause
+  (the review found a value diff without one).  One test asserted the old
+  default's values: test_counters_of_a_search of unit_cxx_rotation.py pinned
+  the steps and forks of countQueens 8 of CxxGc.curry under the cadence of
+  65536 steps, (2112920, 511484); under the new default they are (2020742,
+  461457), with the same value, 92.  The cause: a permutation of the program
+  holds a failure (the second rule of ndinsert has no case for []: an
+  overlapping rule), the capsule of unsafe demands it, and under 'escape' that
+  demand fails the set function at once, where 'encapsulate' ran the other
+  alternatives of the capsule first.  A scratch module confirms it: the same
+  search with an insertion that has no failing alternative takes the same
+  steps and forks under both settings (555018 and 76415 for the board of 7),
+  and the one with ndinsert takes 373018 and 82612 under 'escape' against
+  391282 and 92178 under 'encapsulate', 40 values both.  The test asserts the
+  counters of the default now, and a sibling test under 'encapsulate' keeps
+  the old pin (COUNT_QUEENS_COUNTERS).  The benchmark QueensSet moves the same
+  way (the Python API, the compiled module, step mode): 1997870 steps and
+  461545 forks under the default, 2089740 and 511430 under 'encapsulate' (the
+  numbers of the record of the lane of 2026-10-09), 92 values both; the wall
+  is 0.5 to 0.7 s under both, on a shared machine.
+- - The CHRS13 probe, a documented result and not a fix.  The example of
+  Christiansen, Hanus, Reck and Seidel on the level of a failure is set1 (\a
+  -> a ? True) failed, for which the paper gives the set {True}. The scratch
+  module, outside the tree, defines probe = sortValues (set1 (\a -> a ? True)
+  failed) and probeNE = notEmpty (set1 (\a -> a ? True) failed).  sprite-exec
+  -g probe, step mode, prlimit 2 GB, the three results verbatim: the C++
+  backend under the new default prints nothing and exits with status 0 (no
+  value); the C++ backend under setfunction_failures:encapsulate prints
+  [True]; the Python backend under the new default prints nothing and exits
+  with status 0 (no value).  Two more rows: probeNE on the C++ backend under
+  the new default prints nothing (no value), and probe on the Python backend
+  under 'encapsulate' prints [True].  Through the Python API on the C++
+  backend, list of curry.eval(M.probe) is [] under the default and ['[True]']
+  after a reload with 'encapsulate'.  So the immediate trigger differs from
+  the paper's example: the alternative a of the body demands the boxed
+  failure, and the trigger fails the whole set function at that demand, where
+  the paper drops the alternative a and keeps True.
+- - Verification.  Before the change, on the clean head (the worktree had no
+  compiled products, so the C++ backend ran the modules interpreted under the
+  tiered default): ./run_tests -j 2 --mem 4 --backend both on the five files
+  that name the flag, 10 of 10 run, 0 failed, wall 49.0 s (unit_py_checker.py
+  46 tests on py, unit_cxx_checker.py 57 on cxx, unit_setfunctions_bugs.py 27
+  on each, unit_setfunctions_bindings.py 16 on each,
+  unit_setfunctions_semantics.py 41 on each; the checker files skip on the
+  other backend).  The log of that baseline run was not kept: the runner's
+  logs under tests/.cache/runner hold the runs after the change alone, so the
+  baseline rests on this record.  After the change: make -j6 stage under the
+  clean environment, exit 0 (the runtime, the bindings and the library built
+  again); make overlay, 9 s (it pruned the products of the edited test
+  module); ./run_tests --prepare-only for the selection, 89 modules in 2
+  directories on cxx+py, every product present, wall 51.6 s; the batch of ten
+  files on both backends (the five above with unit_currylib.py,
+  unit_cxx_rotation.py, unit_cxx_scheduler.py, func_setfunctions.py and
+  unit_examples.py), 20 of 20 run, 1 failed, wall 157.1 s: the counters test
+  above, and the rest ok (unit_setfunctions_semantics.py 43 tests on each
+  backend, unit_examples.py 22 on each, py 103.1 s and cxx 22.0 s,
+  unit_currylib.py 10 on each with the new digest, unit_cxx_scheduler.py 9 on
+  each, func_setfunctions.py 39 on each).  After the edit of the counters
+  test, one file per process: unit_cxx_rotation.py 21 tests ok on cxx and on
+  py (14 skipped there), unit_setfunctions_semantics.py 43 ok on cxx and on py
+  (2 expected failures there).  After the review's edit of TestDefault:
+  unit_setfunctions_semantics.py 43 ok on cxx and on py (2 expected failures
+  there) one file per process, and the class TestDefault alone under
+  SPRITE_INTERPRETER_FLAGS=backend:cxx,setfunction_failures:encapsulate fails
+  one test with the message that names the environment.  The .icy of the
+  edited library source: sprite-make --icy in a scratch tree, byte-identical
+  to the committed file (cmp).  make -C docs html: build succeeded, no
+  warning; the generated reference page of the flags, the table of the Python
+  API page and the primer carry the new default.  Nothing is committed from
+  this lane.
+- - Left to the owner.  (1) The trigger.  The probe shows that the immediate
+  trigger gives the paper's example no value where CHRS13 gives {True}: the
+  level of the failure.  A trigger at the level of the alternative, which
+  drops the alternative that demands the boxed failure and fails the set
+  function when every alternative did, is one reading of the paper; its
+  design, and whether 'escape' should mean it, is the owner's decision.  (2)
+  The counters.  Every search whose boxed argument holds a failing alternative
+  takes fewer steps and forks under the default (QueensSet above; QueensSet9,
+  QueensSet10 and the other benchmark programs with set functions were not
+  measured here), so the next run of run_benchmarks against the records moves
+  those counters; the records are not updated here.  (3) tests/manifest.json:
+  the new tests add about a second to unit_setfunctions_semantics.py (2.0 s)
+  and to unit_cxx_rotation.py (9.7 s on cxx); a calibration run updates the
+  entries.  (4) The items of the lane of 2026-10-09 stand: the eager strategy
+  loops on s1 and s6PL, the Python backend's known failure covers capNested
+  and nestFail, and holds_private_state copies the capsule for a captured
+  choice decided before the start.  (5) The entries of this file older than
+  this one state the old default; they are history and are not edited.  (6)
+  The ABI stamp.  The edit of rts.hpp (a default argument that no caller uses:
+  both constructors the bindings expose take the argument) is in the include
+  closure of cyrt.hpp, which object_digest digests: runtime_digest moves from
+  549b676a7d379128 to 9ef6d4101fb12503, the stamp of the worktree is
+  16175fe95af94904, and an installation that takes this commit compiles every
+  compiled Curry product again, once. The owner can keep the edit (the
+  runtime's own default then matches the flag) or drop the unused default
+  argument from the stamped header and leave flags.py as the single source of
+  the default.

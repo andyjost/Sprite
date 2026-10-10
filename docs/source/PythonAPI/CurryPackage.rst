@@ -176,10 +176,10 @@ Flag                         Default                What it changes
 ``setfunction_strategy``     ``'lazy'``             How set functions evaluate: ``'lazy'`` with set
                                                     guards, ``'eager'`` with the arguments in ground
                                                     normal form first.
-``setfunction_failures``     ``'encapsulate'``      What a failure that comes from an argument of a set
+``setfunction_failures``     ``'escape'``           What a failure that comes from an argument of a set
                                                     function does when the capsule demands it:
-                                                    ``'encapsulate'`` drops its alternative, ``'escape'``
-                                                    fails the set function.
+                                                    ``'escape'`` fails the set function, ``'encapsulate'``
+                                                    drops its alternative.
 ``checker``                  ``False``              The checker mode of the Fair Scheme proofs program: the
                                                     reference backend asserts the run-time invariants of
                                                     the Fair Scheme at every fork, escape, pull-tab,

@@ -61,9 +61,9 @@ exprS :: a -> PartialS a
 exprS external
 
 -- Apply an argument in a set context, excluding its non-determinism.  A
--- failure of the argument that the function demands drops the alternative
--- by default, and fails the set function under the interpreter flag
--- setfunction_failures 'escape'.
+-- failure of the argument that the function demands fails the set function
+-- by default, and drops the alternative under the interpreter flag
+-- setfunction_failures 'encapsulate'.
 applyS :: PartialS (a -> b) -> a -> PartialS b
 applyS external
 
