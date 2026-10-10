@@ -70,8 +70,10 @@ class IBackend(metaclass=abc.ABCMeta):
     '''
     Called when the import of a module ends, after the imports of the module
     were imported and its symbols were loaded.  ``currypath`` is the search
-    path of the import.  The C++ backend queues the background compile of a
-    module it interprets (see backends.cxx.tiered).
+    path of the imports of the module: the path of a program given as a
+    file, or the path of the interpreter for a module given by name
+    (interpreter.import_.ImportEx).  The C++ backend queues the background
+    compile of a module it interprets (see backends.cxx.tiered).
     '''
 
   def module_unlinked(self, interp, moduleobj):

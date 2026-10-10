@@ -46,7 +46,10 @@ from . import compiler
 from ... import config, exceptions
 from ...objects.handle import getHandle
 from ...utility import curryname, filesys
-from ...toolchain import plans, _filenames, _loadcurry, _makecurry, _productcache, _system
+from ...toolchain import (
+    plans, _filenames, _findcurry, _loadcurry, _makecurry, _productcache
+  , _system
+  )
 import functools, hashlib, itertools, logging, os, re
 
 logger = logging.getLogger(__name__)
@@ -420,7 +423,7 @@ class Json2Cpp(Json2TargetSource):
     return self.interp.flags['interpret'] in ('new', 'tiered') \
         and filename.endswith(('.json', '.json.z'))
 
-  def is_stale(self, filename):
+  def is_stale(self, filename, currypath=None):
     '''
     Tells whether a .cpp file this step wrote is unusable (source_is_stale).
     The plan asks this step when the file ends the plan (sprite-make --cxx);
@@ -663,10 +666,12 @@ class Cpp2So(object):
       digests.add(object_digest('debug'))
     return digests
 
-  def is_stale(self, filename):
+  def is_stale(self, filename, currypath=None):
     '''
     Tells whether a cached file of this step is unusable.  The plan then
-    starts again from the file before it (Plan.prune_stale).
+    starts again from the file before it (Plan.prune_stale).  ``currypath``
+    is the search path of the imports of the module
+    (_findcurry.imports_path).
 
     A .cpp file is stale when its format stamp is not the emitter's
     (source_is_stale; a file without a stamp is format 1).
@@ -685,7 +690,7 @@ class Cpp2So(object):
     if filename.endswith('.so'):
       if not self.stamp_is_current(filename):
         return True
-      return self.import_lacks_an_object(filename)
+      return self.import_lacks_an_object(filename, currypath)
     return source_is_stale(filename)
 
   def stamp_is_current(self, sofile):
@@ -704,14 +709,15 @@ class Cpp2So(object):
       return False
     return os.path.realpath(path) == installation_path()
 
-  def import_lacks_an_object(self, sofile):
+  def import_lacks_an_object(self, sofile, currypath=None):
     '''
     Tells whether an import of the module of ``sofile`` runs without a
     compiled object.  The imports are read from the generated file beside
     the object, or from the NEEDED entries of the object when the file is
     gone (sprite-make --tidy removes it; loader.needed_modules), and
-    imported first.  The two lists agree: the linker records every import
-    (LINK_FLAGS).
+    imported first, on the search path ``currypath`` (by default the path
+    of the interpreter).  The two lists agree: the linker records every
+    import (LINK_FLAGS).
 
     The object names the objects of its imports as needed libraries, by
     SONAME (see _dependencies), and the dynamic linker satisfies each name
@@ -735,8 +741,9 @@ class Cpp2So(object):
     except (exceptions.PrerequisiteError, OSError, ValueError) as exc:
       logger.debug('The imports of %r cannot be read (%s)', sofile, exc)
       return False
+    currypath = _findcurry.import_path(self.interp, currypath)
     for modulename in imports:
-      module = self.interp.import_(modulename)
+      module = self.interp.import_(modulename, currypath=currypath)
       if getHandle(module).sofilename is None:
         logger.debug(
             'The object %r is not loaded: its import %s has no object'
@@ -832,11 +839,15 @@ class Cpp2So(object):
             'Cannot find IMPORTS list in %r' % file_in
           )
 
-  def _sofilename(self, modulename):
+  def _sofilename(self, modulename, currypath=None):
     '''
-    Gets the name of the .so file implementing the given module.
+    Gets the name of the .so file implementing the given module, which is
+    imported on the search path ``currypath`` and the path of the
+    interpreter (_findcurry.import_path).
     '''
-    module = self.interp.import_(modulename)
+    module = self.interp.import_(
+        modulename, currypath=_findcurry.import_path(self.interp, currypath)
+      )
     h = getHandle(module)
     sofilename = h.sofilename
     if sofilename is None:
@@ -845,7 +856,7 @@ class Cpp2So(object):
         )
     return sofilename
 
-  def _dependencies(self, file_in):
+  def _dependencies(self, file_in, currypath=None):
     '''
     Generates the .so files the specified .cpp file depends on.  They stand
     on the link line by their files, and the linker records each one by
@@ -853,7 +864,7 @@ class Cpp2So(object):
     so the object names no path of this tree.
     '''
     for modulename in self._importedModules(file_in):
-      yield self._sofilename(modulename)
+      yield self._sofilename(modulename, currypath)
 
   def _cxxflags(self):
     '''
@@ -898,7 +909,7 @@ class Cpp2So(object):
       if root != config.installed_path('include'):
         yield '-I%s' % root
 
-  def _compileCommand(self, file_in, file_out):
+  def _compileCommand(self, file_in, file_out, currypath=None):
     cxx = config.cxx_tool()
     if cxx is None:
       raise exceptions.CompileError(
@@ -918,7 +929,7 @@ class Cpp2So(object):
     for flag in LINK_FLAGS:
       yield flag
     yield file_in
-    for sofilename in self._dependencies(file_in):
+    for sofilename in self._dependencies(file_in, currypath):
       yield sofilename
     yield '-L%s' % config.installed_path('lib')
     yield '-lcyrt'
@@ -927,6 +938,9 @@ class Cpp2So(object):
 
   @_system.updateCheck
   def __call__(self, file_in, currypath, **ignored):
+    # The imports of a program given as a file are searched on its path;
+    # those of a module given by name on the path of the interpreter.
+    imports = _findcurry.imports_path(currypath, **ignored)
     if self.is_stale(file_in):
       # The emitter wrote this file, or the plan accepted it.  If its stamp
       # does not read back, every process would write and compile every
@@ -959,7 +973,7 @@ class Cpp2So(object):
         % (file_in, directory, state)
         )
     logger.info('Compiling %r', file_out)
-    cmd = list(self._compileCommand(file_in, file_out))
+    cmd = list(self._compileCommand(file_in, file_out, imports))
     logger.debug('Command: %s', ' '.join(cmd))
     # The old stamp goes before the compiler runs.  An object without a stamp
     # is stale, so a compile that stops between the compiler and the new
@@ -1027,7 +1041,7 @@ class Cpp2So(object):
         curryfile, currypath, self.product_facts(curryfile)
       )
 
-  def restore(self, file_in, currypath):
+  def restore(self, file_in, currypath, **kwds):
     '''
     Places the cached products of the module of ``file_in``, a current JSON
     or generated file of the module, beside it: the generated file, the
@@ -1042,7 +1056,10 @@ class Cpp2So(object):
     flag ``interpret`` set to 'new' either: that mode interprets a module
     without a current object and never compiles it (Json2Cpp.ends_plan),
     and a cached object would make the module compiled after all.  The
-    placement counts on the compile clock.
+    placement counts on the compile clock.  ``currypath`` is the search
+    path of the module; ``kwds`` are the keywords of the plan, whose
+    ``is_sourcefile`` tells whether the imports are searched on it
+    (_findcurry.imports_path).
     '''
     if not file_in.endswith(('.json', '.json.z', '.cpp')):
       return None
@@ -1085,7 +1102,9 @@ class Cpp2So(object):
         return None
       self.write_stamp(sofile)
     logger.info('Restored %r from the product cache', sofile)
-    if self.import_lacks_an_object(sofile):
+    if self.import_lacks_an_object(
+        sofile, _findcurry.imports_path(currypath, **kwds)
+      ):
       return None
     return sofile
 

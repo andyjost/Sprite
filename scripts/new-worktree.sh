@@ -8,7 +8,12 @@
 # (default: ~/.cache/sprite/worktrees/<name>), so a small home directory does
 # not fill up.  Make.config is copied from this tree, so no configure run is
 # needed.  The script runs `make stage` in the worktree; run it under a clean
-# environment if a conda toolchain is active.  Afterwards it copies the
+# environment if a conda toolchain is active.  The submodule step is the
+# exception to the clean environment: it clones pybind11 from the checkout
+# of this tree, which needs no network, and only when this tree lacks the
+# submodule or the commit the worktree pins does it fetch from the URL of
+# .gitmodules, which needs the network and the proxy variables of the
+# shell.  Afterwards it copies the
 # products of the front end from the product directories of the test corpus
 # (the ICurry, the JSON and the interfaces), so the worktree does not run
 # the front end again.  The copies get the time of the copy, not the time
@@ -49,8 +54,26 @@ root=${SPRITE_WORKTREE_ROOT:-$HOME/.cache/sprite/worktrees}/$name
 git -C "$here" worktree add -b "$branch" "$path" "$start"
 # A worktree starts with empty submodule directories.  Only pybind11 is
 # needed for the build; initializing it alone writes nothing to the
-# repository's config when the main tree has it registered already.
-git -C "$path" submodule update --init extern/pybind11
+# repository's config when the main tree has it registered already.  The
+# clone comes from the checkout of this tree (the URL of the submodule is
+# overridden for this one command, and the file transport allowed, which
+# git refuses for a submodule by default), so the step needs no network;
+# the remote of the clone is then set to the URL of .gitmodules, in the
+# configuration of the clone alone (submodule sync would write the shared
+# configuration of the repository as well).  When this tree has no
+# checkout of the submodule, or lacks the commit the worktree pins, the
+# plain update fetches from the URL.
+submodule=extern/pybind11
+if [ -e "$here/$submodule/.git" ] \
+   && git -C "$path" -c protocol.file.allow=always \
+        -c "submodule.$submodule.url=$here/$submodule" \
+        submodule update --init "$submodule"; then
+  url=$(git -C "$path" config -f .gitmodules "submodule.$submodule.url")
+  git -C "$path/$submodule" remote set-url origin "$url"
+else
+  echo "cloning $submodule from its URL (the checkout of $here did not serve)" >&2
+  git -C "$path" submodule update --init "$submodule"
+fi
 mkdir -p "$root/install" "$root/object-root"
 ln -s "$root/install" "$path/install"
 ln -s "$root/object-root" "$path/object-root"

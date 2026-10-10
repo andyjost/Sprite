@@ -44,16 +44,20 @@ def source_file_expr(filename):
     return repr(filename)
   return 'curry.config.installed_path(%r)' % relpath
 
+# The nesting at which a subexpression of the generated Python goes into a
+# temporary of the step function (CompilerBase.hoist; issue #125): the
+# parser of Python refuses more than 200 nested parentheses, a node is one
+# call, and 64 leaves room under that limit for the calls that wrap a
+# statement and the arguments of a node.
+HOIST_DEPTH = 64
+
 def compile(interp, iobj):
   compileM = PyCompiler(interp, iobj)
   return compileM.compile()
 
 class PyCompiler(compiler.CompilerBase):
   CODE_TYPE = 'Python'
-  # The parser of Python refuses more than 200 nested parentheses, and a
-  # node is one call: a subexpression this deep goes into a temporary of
-  # the step function (CompilerBase.hoist; issue #125).
-  HOIST_DEPTH = 64
+  HOIST_DEPTH = HOIST_DEPTH
   SYNTH_TAGS = 'py.boxedfunc', 'py.rawfunc', 'py.unboxedfunc'
   EXCLUDED_METADATA = set(SYNTH_TAGS + ('py.material',))
 

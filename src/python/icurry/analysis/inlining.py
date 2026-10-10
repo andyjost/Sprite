@@ -68,6 +68,7 @@ from .. import json as icurry_json
 from .. import types
 from .aliases import lookup_function, resolve_alias
 from .partials import APPLY, is_apply, saturate
+from ...utility.trampoline import trampoline
 import copy
 
 __all__ = [
@@ -97,51 +98,60 @@ MAX_DEPTH = 16
 
 _REFERENCES = (types.IVar, types.ILit, types.IString)
 
+# The walks over an expression are iterative, on a stack or on the
+# trampoline: a literal list of thousands of elements is a nest of cons
+# calls, one per element, and a walk that recursed per element ran out of
+# frames under maxrecursion (issue #125; the copy of the body in
+# inline_shape was the first, at about 2700 elements).
+
+def _subexpressions(exprs):
+  '''
+  Every expression under ``exprs``, parents before their parts: the
+  arguments of a call and the two sides of a choice, left to right.
+  '''
+  stack = list(reversed(exprs))
+  while stack:
+    expr = stack.pop()
+    yield expr
+    if isinstance(expr, types.ICall):
+      stack.extend(reversed(expr.exprs))
+    elif isinstance(expr, types.IOr):
+      stack.append(expr.rhs)
+      stack.append(expr.lhs)
+
 def node_count(expr):
   '''
   The nodes that ``expr`` builds: a call, a partial application, a
   constructor, a choice, or a literal is one node plus its arguments; a
   variable is a reference and counts nothing.
   '''
-  if isinstance(expr, types.ICall):
-    return 1 + sum(node_count(e) for e in expr.exprs)
-  elif isinstance(expr, types.IOr):
-    return 1 + node_count(expr.lhs) + node_count(expr.rhs)
-  elif isinstance(expr, (types.ILit, types.IString)):
-    return 1
-  return 0
+  return sum(
+      1 for e in _subexpressions([expr])
+        if isinstance(e, (types.ICall, types.IOr, types.ILit, types.IString))
+    )
 
 def _valid_expr(expr):
   '''Whether ``expr`` is an expression the inliner can substitute into.'''
-  if isinstance(expr, types.IVar):
-    return expr.vid != 0
-  elif isinstance(expr, (types.ILit, types.IString)):
-    return True
-  elif isinstance(expr, types.ICall):
-    return all(_valid_expr(e) for e in expr.exprs)
-  elif isinstance(expr, types.IOr):
-    return _valid_expr(expr.lhs) and _valid_expr(expr.rhs)
-  return False
+  for e in _subexpressions([expr]):
+    if isinstance(e, types.IVar):
+      if e.vid == 0:
+        return False
+    elif not isinstance(e, (types.ILit, types.IString, types.ICall, types.IOr)):
+      return False
+  return True
 
 def _count_uses(exprs, counts):
   '''Adds the occurrences of each variable in ``exprs`` to ``counts``.'''
-  for expr in exprs:
-    if isinstance(expr, types.IVar):
-      counts[expr.vid] = counts.get(expr.vid, 0) + 1
-    elif isinstance(expr, types.ICall):
-      _count_uses(expr.exprs, counts)
-    elif isinstance(expr, types.IOr):
-      _count_uses((expr.lhs, expr.rhs), counts)
+  for e in _subexpressions(exprs):
+    if isinstance(e, types.IVar):
+      counts[e.vid] = counts.get(e.vid, 0) + 1
   return counts
 
 def _symbols(exprs, found):
   '''Adds the symbol names of the calls in ``exprs`` to ``found``.'''
-  for expr in exprs:
-    if isinstance(expr, types.ICall):
-      found.add(expr.symbolname)
-      _symbols(expr.exprs, found)
-    elif isinstance(expr, types.IOr):
-      _symbols((expr.lhs, expr.rhs), found)
+  for e in _subexpressions(exprs):
+    if isinstance(e, types.ICall):
+      found.add(e.symbolname)
   return found
 
 
@@ -394,13 +404,9 @@ def _called(stmt):
   return found
 
 def _function_symbols(exprs, found):
-  for expr in exprs:
-    if type(expr) is types.IFCall:
-      found.add(expr.symbolname)
-    if isinstance(expr, types.ICall):
-      _function_symbols(expr.exprs, found)
-    elif isinstance(expr, types.IOr):
-      _function_symbols((expr.lhs, expr.rhs), found)
+  for e in _subexpressions(exprs):
+    if type(e) is types.IFCall:
+      found.add(e.symbolname)
 
 def _on_cycles(edges):
   '''
@@ -531,13 +537,9 @@ def _shape_calls(shape):
   return found
 
 def _named_functions(exprs, found):
-  for expr in exprs:
-    if isinstance(expr, (types.IFCall, types.IFPCall)):
-      found.add(expr.symbolname)
-    if isinstance(expr, types.ICall):
-      _named_functions(expr.exprs, found)
-    elif isinstance(expr, types.IOr):
-      _named_functions((expr.lhs, expr.rhs), found)
+  for e in _subexpressions(exprs):
+    if isinstance(e, (types.IFCall, types.IFPCall)):
+      found.add(e.symbolname)
 
 
 class _Pending(object):
@@ -618,16 +620,25 @@ class Inliner(object):
     '''
     Rewrites ``expr`` from the inside out.  The result of a rule is rewritten
     again, one level deeper, until no rule applies or the depth is reached.
+    The walk over the arguments runs on the trampoline; the rewrite of a
+    result (``rules``) runs a walk of its own, at most ``depth`` deep.
     '''
+    return trampoline(self._expr(expr, pending, depth))
+
+  def _expr(self, expr, pending, depth):
+    '''The walk of ``expr``: a generator over the nested calls and choices.'''
     if isinstance(expr, types.ICall):
-      expr.exprs = [self.expr(e, pending, depth) for e in expr.exprs]
+      exprs = []
+      for e in expr.exprs:
+        exprs.append((yield self._expr(e, pending, depth)))
+      expr.exprs = exprs
       if depth < self.depth:
         result = self.rules(expr, pending, depth)
         if result is not None:
           return result
     elif isinstance(expr, types.IOr):
-      expr.lhs = self.expr(expr.lhs, pending, depth)
-      expr.rhs = self.expr(expr.rhs, pending, depth)
+      expr.lhs = yield self._expr(expr.lhs, pending, depth)
+      expr.rhs = yield self._expr(expr.rhs, pending, depth)
     return expr
 
   def rules(self, expr, pending, depth):
@@ -795,19 +806,25 @@ def _substitute(expr, sigma):
   Replaces each variable of ``expr`` by its image under ``sigma``, in place.
   A variable, a literal, or a string is a new object at each occurrence;
   another image is placed as it is, once (the sharing rule binds a repeated
-  one first).
+  one first).  The walk does not enter an image.
   '''
-  if isinstance(expr, types.IVar):
-    image = sigma.get(expr.vid)
-    if image is None:
-      return expr
-    return _fresh_ref(image)
-  elif isinstance(expr, types.ICall):
-    expr.exprs = [_substitute(e, sigma) for e in expr.exprs]
-  elif isinstance(expr, types.IOr):
-    expr.lhs = _substitute(expr.lhs, sigma)
-    expr.rhs = _substitute(expr.rhs, sigma)
-  return expr
+  stack = []
+  def image(e):
+    if isinstance(e, types.IVar):
+      found = sigma.get(e.vid)
+      return e if found is None else _fresh_ref(found)
+    if isinstance(e, (types.ICall, types.IOr)):
+      stack.append(e)
+    return e
+  result = image(expr)
+  while stack:
+    node = stack.pop()
+    if isinstance(node, types.ICall):
+      node.exprs = [image(e) for e in node.exprs]
+    else:
+      node.lhs = image(node.lhs)
+      node.rhs = image(node.rhs)
+  return result
 
 def _has_node_assign(stmt):
   if isinstance(stmt, types.IBlock):
@@ -822,14 +839,9 @@ def _max_vid(stmt):
   '''The largest variable id used under ``stmt``; 0 when there is none.'''
   found = [0]
   def expr(e):
-    if isinstance(e, (types.IVar, types.IVarAccess)):
-      found[0] = max(found[0], e.vid)
-    elif isinstance(e, types.ICall):
-      for x in e.exprs:
-        expr(x)
-    elif isinstance(e, types.IOr):
-      expr(e.lhs)
-      expr(e.rhs)
+    for x in _subexpressions([e]):
+      if isinstance(x, (types.IVar, types.IVarAccess)):
+        found[0] = max(found[0], x.vid)
   def block(s):
     if isinstance(s, types.IBlock):
       for decl in s.vardecls:

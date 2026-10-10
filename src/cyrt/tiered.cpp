@@ -307,6 +307,89 @@ namespace cyrt
       return linkpath;
     }
 
+    // Opens the object ``sofile`` into the global scope; see the load in
+    // tiered.hpp.  A file at a path this process maps already is opened
+    // through a link of its own name, which ``loadpath`` names and the
+    // caller removes once the library took its own handle.  Returns the
+    // handle, or null with ``error`` set.
+    void * open_object(
+        std::string const & sofile, std::string & loadpath, std::string * error
+      )
+    {
+      loadpath = sofile;
+      std::string linkpath;
+      if(void * mapped = dlopen(sofile.c_str(), RTLD_LAZY | RTLD_NOLOAD))
+      {
+        dlclose(mapped);
+        linkpath = unique_link(sofile, error);
+        if(linkpath.empty())
+          return nullptr;
+        loadpath = linkpath;
+      }
+      // The first dlopen runs the initializers of the object, which write
+      // the live tables.  Its handle is never closed on a failure after
+      // this point, so the object stays mapped.
+      void * raw = dlopen(loadpath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+      if(!raw)
+      {
+        char const * msg = dlerror();
+        *error = std::string("cannot load the object: ") + (msg ? msg : "");
+        if(!linkpath.empty())
+          unlink(linkpath.c_str());
+      }
+      return raw;
+    }
+
+    // Maps the object of an import of a job (see the imports in
+    // tiered.hpp), unless the import has one: it was loaded from its
+    // object, swapped, or mapped by an earlier swap.  Nothing when the
+    // object does not exist: the load of the importer then reports what
+    // it lacks.  An import without a module of its name in the registry
+    // (none is expected) gets its object mapped all the same, and the
+    // handle stays open, so that the object stays mapped.  Returns false
+    // with the error of ``result`` set.
+    bool map_import(TieredJob::Import const & imp, TieredResult & result)
+    {
+      auto module = Module::find(imp.module);
+      if(module && module->shlib())
+        return true;
+      if(!file_exists(imp.sofile))
+        return true;
+      if(!imp.icurryfile.empty()
+          && tiered_file_digest(imp.icurryfile) != imp.icurry_digest)
+      {
+        result.error = "the ICurry of the import " + imp.module
+                     + " changed after the import";
+        return false;
+      }
+      std::string loadpath;
+      void * raw = open_object(imp.sofile, loadpath, &result.error);
+      if(!raw)
+      {
+        result.error = "the import " + imp.module + ": " + result.error;
+        return false;
+      }
+      bool ok = false;
+      try
+      {
+        if(module)
+        {
+          auto shlib = std::make_shared<SharedCurryModule>(imp.sofile, loadpath);
+          module->adopt(shlib, {});
+          dlclose(raw);
+        }
+        result.mapped.push_back(imp.module);
+        ok = true;
+      }
+      catch(std::exception const & e)
+      {
+        result.error = "the import " + imp.module + ": " + e.what();
+      }
+      if(loadpath != imp.sofile)
+        unlink(loadpath.c_str());
+      return ok;
+    }
+
     // Loads the object of a finished job and swaps the steps.
     TieredResult apply(Finished & done, bool in_evaluation)
     {
@@ -356,38 +439,39 @@ namespace cyrt
         result.error = TIERED_EDITED;
         return result;
       }
-      // The load; see tiered.hpp.  A file at a path this process maps
-      // already is loaded through a link of its own name.
-      std::string loadpath = job.sofile;
-      std::string linkpath;
-      if(void * mapped = dlopen(job.sofile.c_str(), RTLD_LAZY | RTLD_NOLOAD))
-      {
-        dlclose(mapped);
-        linkpath = unique_link(job.sofile, &result.error);
-        if(linkpath.empty())
+      // The objects of the imports first; see tiered.hpp.
+      for(auto const & imp: job.imports)
+        if(!map_import(imp, result))
           return result;
-        loadpath = linkpath;
-      }
-      // The first dlopen runs the initializers of the object, which write
-      // the live tables.  Its handle is never closed on a failure below, so
-      // the object stays mapped; on success the library owns the object and
-      // the handle is released.
-      void * raw = dlopen(loadpath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+      std::vector<std::pair<std::string, InfoTable const *>> steps;
+      for(auto const & step: job.steps)
+        steps.emplace_back(step.symbol, step.info);
+      // The object of the module may be mapped already: the swap of an
+      // importer mapped it (map_import).  Then the steps are adopted from
+      // it.
+      if(auto shlib = module->shlib())
+        if(shlib->sofilename() == job.sofile)
+        {
+          try
+          {
+            result.swapped = module->adopt(shlib, steps);
+            result.ok = true;
+          }
+          catch(std::exception const & e)
+          {
+            result.error = e.what();
+          }
+          return result;
+        }
+      // The load; see tiered.hpp.  On success the library owns the object
+      // and the handle is released.
+      std::string loadpath;
+      void * raw = open_object(job.sofile, loadpath, &result.error);
       if(!raw)
-      {
-        char const * msg = dlerror();
-        result.error = std::string("cannot load the object: ")
-                     + (msg ? msg : "");
-        if(!linkpath.empty())
-          unlink(linkpath.c_str());
         return result;
-      }
       try
       {
         auto shlib = std::make_shared<SharedCurryModule>(job.sofile, loadpath);
-        std::vector<std::pair<std::string, InfoTable const *>> steps;
-        for(auto const & step: job.steps)
-          steps.emplace_back(step.symbol, step.info);
         result.swapped = module->adopt(shlib, steps);
         result.ok = true;
         dlclose(raw);
@@ -396,8 +480,8 @@ namespace cyrt
       {
         result.error = e.what();
       }
-      if(!linkpath.empty())
-        unlink(linkpath.c_str());
+      if(loadpath != job.sofile)
+        unlink(loadpath.c_str());
       return result;
     }
   }

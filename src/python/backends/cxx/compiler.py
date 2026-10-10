@@ -1,6 +1,6 @@
 from ...exceptions import CompileError, CurryTypeError
 from ..generic import compiler, renderer
-from ... import common, config, icurry
+from ... import common, icurry
 from . import cyrtbindings as cyrt
 from . import passthrough
 from ...utility import formatDocstring, strings, visitation
@@ -755,10 +755,12 @@ def write_module(
     stream.write('\n\n')
 
 def _generate_main(target_object, goal):
+  # The entry point of a program is a stub (the Quickstart says so); the
+  # object is loaded by the runtime, never run by the dynamic loader, so
+  # the text names no program interpreter (an .interp section named the
+  # loader of the build machine until pothole batch 4 of 2026-10-10, and
+  # nothing read it).
   yield '#include <iostream>'
-  yield ''
-  yield 'const char my_interp[] __attribute__((section(".interp")))' \
-        ' = %s;' % _dquote(config.ld_interpreter_path())
   yield ''
   yield 'extern "C" void entry()'
   yield '{'

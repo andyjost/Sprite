@@ -1,5 +1,5 @@
 from .. import config
-from . import plans, _findcurry
+from . import plans, _findcurry, _productlock
 from ..utility import formatDocstring
 import importlib.util, logging, os, shutil, sys, time
 
@@ -66,6 +66,10 @@ def makecurry(plan, name, currypath=None, **kwds):
   '''
   if currypath is None:
     from .. import path as currypath
+  # A program given as a source file has its directory searched first, as
+  # PAKCS searches (_findcurry.program_path): the steps import the imports
+  # of the module through this path.
+  currypath = _findcurry.program_path(name, currypath, **kwds)
   do_tidy = kwds.pop('tidy', False)
   output = kwds.pop('output', None)
   kwds['zip'] = bool(kwds.get('zip', plan.flags & plans.ZIP_JSON))
@@ -111,20 +115,41 @@ class Maker(object):
     end the plan at its input.  The clock counts the steps; a restore that
     placed files counts itself.  A plan that is done with nothing to
     restore costs no time on the clock.
+
+    The steps run under the lock of the products of the module
+    (``_productlock``): a second process that compiles the same module
+    waits for the first, and once it holds the lock it looks at the files
+    again, so when the first wrote a current object it makes nothing.
     '''
-    while True:
-      restored = self.plan.restore(self.pipeline.currentfile, self.currypath)
-      if restored is not None:
-        self.pipeline.currentfile = restored
-      if self.done:
-        return
-      stage = self.plan.stages[self.current_position]
-      with compile_clock:
-        self.pipeline.currentfile = stage.step(
-            self.pipeline.currentfile, self.currypath, **self.kwds
+    if self._restored_and_done():
+      return
+    with _productlock.locked(self.pipeline.currentfile) as waited:
+      if waited:
+        self.pipeline.currentfile = _findcurry.currentfile(
+            self.plan, self.name, self.currypath, **self.kwds
           )
-      if not self.done:
-        self.pipeline.intermediates.append(self.pipeline.currentfile)
+      while True:
+        if self._restored_and_done():
+          return
+        stage = self.plan.stages[self.current_position]
+        with compile_clock:
+          self.pipeline.currentfile = stage.step(
+              self.pipeline.currentfile, self.currypath, **self.kwds
+            )
+        if not self.done:
+          self.pipeline.intermediates.append(self.pipeline.currentfile)
+
+  def _restored_and_done(self):
+    '''
+    Places the cached products of the module, if the cache holds them, and
+    tells whether the plan is done.
+    '''
+    restored = self.plan.restore(
+        self.pipeline.currentfile, self.currypath, **self.kwds
+      )
+    if restored is not None:
+      self.pipeline.currentfile = restored
+    return self.done
 
 class ToolchainContext(object):
   '''

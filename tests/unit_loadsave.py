@@ -318,3 +318,61 @@ print('values', [str(v) for v in curry.eval(M.main)])
     self.assertEqual(lines[1], 'steps %d' % nsteps)
     self.assertEqual(lines[2], "values ['Blue']")
     self.assertEqual(after, before)
+
+
+class TestSavedProgram(cytest.TestCase):
+  '''
+  A program saved with a goal (curry.save(M, file, goal='main')) names no
+  program interpreter.  The C++ text of a program carried an .interp
+  section with the dynamic loader of the build machine
+  (config.ld_interpreter_path), which nothing read: the objects are loaded
+  by the runtime, never run by the dynamic loader (pothole batch 4,
+  2026-10-10).  The saved program still runs: on the C++ backend compiled
+  by the step of the toolchain and loaded with curry.load after a reset, as
+  TestRoundTrip loads a module; on the Python backend as a script.
+  '''
+  CODE = r'''
+import os, subprocess, sys, tempfile
+os.environ['SPRITE_INTERPRETER_FLAGS'] = %(flags)r
+import curry
+from curry import config
+tmpdir = tempfile.mkdtemp(prefix='sprite-savedprog-')
+with open(os.path.join(tmpdir, 'SavedProgram.curry'), 'w') as stream:
+  stream.write('double :: Int -> Int\ndouble x = x + x\n\nmain :: Int\nmain = double 21\n')
+curry.path.insert(0, tmpdir)
+M = curry.import_('SavedProgram')
+text = curry.save(M, None, goal='main')
+print('.interp' in text, 'my_interp' in text, 'ld-linux' in text)
+if curry.flags['backend'] == 'cxx':
+  cppfile = os.path.join(
+      tmpdir, '.curry', config.intermediate_subdir(), 'SavedProgram.cpp'
+    )
+  curry.save(M, cppfile, goal='main')
+  from curry.backends.cxx import toolchain
+  saved = toolchain.Cpp2So(curry.getInterpreter())(cppfile, curry.path)
+  curry.reset()
+  M2 = curry.load(saved)
+  print([str(v) for v in curry.eval(M2.main)])
+else:
+  saved = os.path.join(tmpdir, 'SavedProgram.py')
+  curry.save(M, saved, goal='main')
+  proc = subprocess.run(
+      [sys.executable, saved], capture_output=True, text=True
+    )
+  print(proc.returncode, proc.stdout.split(), bool(proc.stderr.strip()))
+'''
+
+  @unittest.skipIf(
+      IS_CXX and config.cxx_tool() is None
+    , 'the shared object needs the C++ compiler of the installation'
+    )
+  def test_saved_program_runs_without_an_interpreter_line(self):
+    flags = 'backend:cxx,interpret:new' if IS_CXX else 'backend:py'
+    proc = cytest.run_in_subprocess(self.CODE % {'flags': flags}, TIMEOUT)
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    lines = proc.stdout.splitlines()
+    self.assertEqual(lines[0], 'False False False', proc.stderr)
+    if IS_CXX:
+      self.assertEqual(lines[1:], ["['42']"], proc.stderr)
+    else:
+      self.assertEqual(lines[1:], ["0 ['42'] False"], proc.stderr)

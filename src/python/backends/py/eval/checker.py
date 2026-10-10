@@ -98,7 +98,12 @@ SIGNATURE_BUDGET = 5000
 # a larger argument is counted and its S0 checks are skipped.
 ENTRY_BUDGET = 50000
 
-# The number of fresh cells one step or one copy may flag.
+# The number of fresh cells one event may flag: the propagation walk of a
+# step, a pull-tab, a copy and a generator run under this one budget, by
+# policy; a larger budget for the steps alone, or one by the size of the
+# result, is a decision of the owner.  A walk over its budget is counted
+# (propagate_over_budget) and makes the sets of its flags unbounded.  The
+# same budget as CHECKER_PROPAGATE_BUDGET of the C++ checker.
 PROPAGATE_BUDGET = 1024
 
 # The number of cells a description of an expression prints.

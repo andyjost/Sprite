@@ -8,6 +8,7 @@ keys of the passes that ran on it in its metadata and is not optimized again.
 '''
 from ..icurry import analysis, types, visit
 from .. import common, inspect, utility
+from ..utility.trampoline import trampoline
 import sys
 
 __all__ = ['inline_aliases', 'inline_calls', 'optimize', 'saturate_applies']
@@ -127,20 +128,30 @@ def saturate_applies(interp, ifun, imodule, modules=None):
           imodule.imports = imodule.imports + (modulename,)
     visit.visit(visitor, expr)
   def rewrite(expr):
+    # The walk runs on the trampoline: the nest of calls of a long literal
+    # list is one path of the tree (issue #125).
+    return trampoline(_rewrite(expr))
+  def _rewrite(expr):
     if isinstance(expr, types.ICall):
-      expr.exprs = [rewrite(e) for e in expr.exprs]
+      exprs = []
+      for e in expr.exprs:
+        exprs.append((yield _rewrite(e)))
+      expr.exprs = exprs
       if analysis.is_apply(expr, modules):
         call = analysis.saturate(expr, modules)
         if call is not None:
           # The arguments before the last are copies: of the body of a
           # nullary function, or of a partial application written in the
           # expression.  The copy of a body may hold a chain of its own.
-          call.exprs = [rewrite(e) for e in call.exprs]
+          exprs = []
+          for e in call.exprs:
+            exprs.append((yield _rewrite(e)))
+          call.exprs = exprs
           join_imports(call)
           return call
     elif isinstance(expr, types.IOr):
-      expr.lhs = rewrite(expr.lhs)
-      expr.rhs = rewrite(expr.rhs)
+      expr.lhs = yield _rewrite(expr.lhs)
+      expr.rhs = yield _rewrite(expr.rhs)
     return expr
   def visitor(iobj, **kwds):
     if isinstance(iobj, (types.IReturn, types.IVarAssign, types.INodeAssign)):

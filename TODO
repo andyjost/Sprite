@@ -11905,3 +11905,256 @@
   Not taken: a lookup of get_builtin_symbol in Materializer.symbol; the
   seed makes get_infotable find every built-in again.
 
+2026-10-10: pothole batch 4 (the products lock, the swap of imports, new-worktree.sh offline, the .interp line, the program's directory, the depth bounds, the rename of the binding guard; worktree wt/potholes4)
+- (1) The lock of the products of a module.  Two compiles of one module
+  into one product directory raced: the background child of the tiered
+  compile and a foreground sprite-make --so (the sequence of the
+  Quickstart), two sessions over one tree, or two test processes that
+  import one stale module; both wrote M.cpp and M.so in place, one could
+  read a torn file, and test_quickstart_sequence_twice waited for the
+  background compile while the Quickstart told the reader to wait.  Fix:
+  curry.toolchain._productlock, an advisory lock (flock) on <Module>.lock
+  in the product directory, held by _makecurry.Maker.make from the first
+  step that must run to the end of the plan, and by the compile on first
+  use (materialize.compile_pending).  The loser waits (one INFO line names
+  the lock); once it holds the lock it computes the current file again,
+  so when the winner wrote a current object it makes nothing.  The lock
+  dies with its process, the empty lock file may stay, a product directory
+  that cannot be made or written gets no lock (the steps report that), the
+  lock is per module (sprite-make --jobs compiles different modules at
+  once as before; the locks of the imports are taken in the order of the
+  import graph, which is acyclic) and re-entrant within a process.  The
+  Quickstart test runs sprite-make while the background compile may run;
+  the Quickstart and the sprite-make page say so.  Tests: TestProductLock
+  of unit_make.py (the lock file of every file of a chain, the free lock
+  and its re-entrance, a wait for a child that holds the lock, no lock in
+  an unwritable directory, and two sprite-make --so of one module started
+  while the test holds the lock: both exit 0, one "Compiling" line across
+  the two logs, the object and its stamp current, the object loads and
+  runs).  The whole-file race was never deterministic, so the two-compile
+  test holds the lock itself while the children start; the wait of the
+  loser and the single compile are the observed facts.  Review: a file
+  system that refuses flock (ENOLCK without a lock service, ENOSYS,
+  EINVAL) ended the compile with the OSError at its first step; now the
+  OSError of either flock gives no lock, as an unwritable directory does,
+  and the compile runs unlocked (test_no_lock_without_flock: flock
+  patched to raise ENOLCK, the JSON step of a plan runs).
+- (2) The swap of the imports.  Under tiered a job carried only its own
+  object; an importer whose import had not swapped (its job later in the
+  queue, or none) failed its dlopen with the message of the dynamic linker
+  (the SONAME of the import unmapped) and stayed interpreted.  Fix:
+  TieredJob.imports (tiered.hpp), the objects of the imports the
+  interpreter runs, direct and indirect, in dependency order, each with
+  the ICurry digest of its import; apply (tiered.cpp) maps each one whose
+  module has no object before the object of the importer (map_import),
+  under the same check of the ICurry (an edited import refuses the swap,
+  as its own job does), and adopts it into the module of the import with
+  no step to count; a job whose module has an object already (mapped by
+  an importer's swap) adopts its steps from it.  The Python side records
+  every module the interpreter runs at its load (tiered._record: the
+  object its compile writes, a private copy's under a foreign budget, the
+  ICurry file and its digest), builds the list at submit
+  (_import_objects; a module loaded from its object ends the walk), and
+  poll refreshes the record of a mapped import (the result field mapped;
+  one INFO line).  A module of type synonyms alone has no table, no shim
+  and no job, and its importers name its object: it is on record too.
+  Tests: TestImportObjects of unit_cxx_tiered.py (an importer of such a
+  module swaps and the import gets its object on record; the control,
+  with _import_objects stubbed to nothing, fails with "cannot open shared
+  object file" as before; the job of an import run after the job of its
+  importer, both swapped, the import mapped first and its job adopting the
+  mapped object).  A header change (tiered.hpp is in the closure of
+  cyrt.hpp), so the ABI stamp changed and the library and the pool were
+  compiled again (make stage, the prepare pass).  Review: poll refreshed
+  the records of the mapped imports only after a swap of the importer,
+  though apply maps them before it loads the object of the importer; when
+  that load failed, the import ran compiled with no object on record, and
+  a later load of another importer of it refused the object.  Now poll
+  refreshes every mapped import whatever the result of the importer
+  (test_import_mapped_before_a_failed_load: the object of the importer
+  cut short after the child wrote it, before the poll).
+- (3) scripts/new-worktree.sh offline.  The submodule step cloned pybind11
+  from its URL, which a sandbox without a network, or a clean environment
+  without the proxy variables, cannot reach.  Now the step clones from the
+  checkout of the main tree ($here/extern/pybind11) with the URL of the
+  submodule overridden for the one command (-c submodule.<name>.url=...)
+  and the file transport allowed (-c protocol.file.allow=always; git
+  refuses it for a submodule since 2.38.1), then sets the remote of the
+  clone to the URL of .gitmodules in the configuration of the clone alone
+  (submodule sync would write the shared configuration of the repository,
+  which this sandbox masks: "could not lock config file");
+  when the main tree has no checkout or lacks the commit, the plain update
+  fetches from the URL as before.  The header names the step as the
+  exception to the clean environment.  Verified in a scratch worktree
+  (git worktree add -b wt/potholes4-check2 .../wt-check2) under env -i
+  with no proxy variable: the clone, the checkout of 97bf890d, the remote
+  https://github.com/pybind/pybind11, git status clean; the worktree and
+  the branch were removed afterwards.  In that session git worktree
+  remove failed to delete .git/worktrees/<name>, so git worktree prune
+  was run by hand, once, outside the sandbox; it also pruned three stale
+  entries of earlier lanes (bugs3, conda2, cxxcheck: their gitdir files
+  no longer existed).  The review's session removed such a worktree
+  inside its sandbox without a failure, so the cause was not established.
+- (4) The .interp line of curry.save.  _generate_main of the C++ emitter
+  wrote a .interp section with config.ld_interpreter_path into the text of
+  a program (curry.save with a goal); no shipped or compiled object
+  carried it and nothing read it.  The lines are gone (the compiler
+  imports config no more); curry.load reads a shared object, never the
+  text, so nothing tolerated or parsed the line.  conda/README.md question
+  13 says the section is gone and that the sysconfig value stays, unused
+  by the code (dropping the value, its file and test_ld_interpreter_path
+  is the owner's).  Test: TestSavedProgram of unit_loadsave.py (the text
+  of a program saved with a goal has no .interp, my_interp or ld-linux;
+  on the C++ backend the program compiles with Cpp2So and loads after a
+  reset, main gives 42; on the Python backend the saved script prints
+  42).
+- (5) The program's directory on the search path.  sprite-make --so
+  Second.curry beside Smoke.curry failed with "Curry module 'Smoke' not
+  found" unless CURRYPATH named the directory: the front end found Smoke
+  (PAKCS searches the directory of the program first), the plan's own
+  import of the ICurry (Json2TargetSource) and the imports of the module
+  searched interp.path.  Fix: _findcurry.program_path, the directory of a
+  program given as a file first, then the path; makecurry and currentfile
+  use it (prune_stale and the is_stale of the steps take the path, so
+  Cpp2So judges an object by importing its imports on it, and the fake
+  steps of unit_findcurry.py and unit_plan.py take the argument); the
+  steps import on it (Json2TargetSource, Cpp2So._dependencies,
+  import_lacks_an_object, restore); ImportEx prepends it for a source
+  file and imports the imports of such a module on import_path, the path
+  of the program followed by the entries of interp.path it lacks (so the
+  siblings of a program are found, and a library module as before),
+  while a module given by name, with or without a currypath, keeps the
+  search of its imports on interp.path, as before: the path given with a
+  name finds that module alone.  The review confined it so (the first
+  version searched the imports of a named import on the given path too,
+  a wider meaning of the currypath argument of curry.import_, and the
+  steps of the plan did the same for a named plan):
+  _findcurry.imports_path(currypath, is_sourcefile) is the search path
+  of the imports as the steps import them, the program's path for a
+  source file and None (interp.path) for a name; currentfile hands it to
+  prune_stale, Json2TargetSource, Cpp2So and its restore derive it from
+  the is_sourcefile keyword of the plan (Plan.restore passes the
+  keywords), the first-use compile of the C++ backend passes the path it
+  recorded at module_loaded as the imports' path, and module_loaded gets
+  the search path of the imports (the program's path, or interp.path for
+  a name; test_import_by_name_with_a_path, test_import_of_a_path under
+  interpret:off too); the job
+  graph of sprite-make --jobs visits the imports on it; the loader
+  imports the modules an object needs from beside its source first.  The
+  EnvironmentVariables page, the sprite-exec page and the sprite-make
+  docstring say so.  Tests: test_program_path of unit_findcurry.py;
+  TestProgramDirectory of unit_make.py (two modules in a directory no
+  CURRYPATH names, the tools run from elsewhere: sprite-exec prints 8;
+  sprite-make --so writes both objects, sprite-exec runs them, a second
+  sprite-make --so leaves the object, curry.load of the object imports
+  the import; curry.import_ of the path in a child).
+- (6) The depth bounds past #125.  Made iterative: icurry.visit (an
+  explicit stack; the order of the visitor calls is the recursive one,
+  post-order or top-down, and a top-down replacement is walked into);
+  copy.deepcopy of an ICall or an IOr (__deepcopy__, the nested calls and
+  choices on a stack under the memo of copy.deepcopy, so the sharing and
+  the metadata are copied as before; every copy site of the inliner and
+  of partials gains); the walks of the inliner over an expression
+  (node_count, _valid_expr, _count_uses, _symbols, _function_symbols,
+  _named_functions, _max_vid over one _subexpressions generator;
+  _substitute in place on a stack; Inliner.expr on the trampoline, the
+  rewrite of a result a walk of its own at most MAX_DEPTH deep); the
+  rewrite of saturate_applies (the trampoline); and compileE of the
+  generic compiler (the trampoline: a leaf answers its text, a node is a
+  generator, compileArgs counts the nesting around the yields, so the
+  hoisting of the Python backend is unchanged and the symbol imports keep
+  their order).  utility.trampoline takes a value in place of a generator
+  as a result (and a value in place of a walk), so a dispatch may mix the
+  two.  HOIST_DEPTH is a module constant of backends.py.compiler with its
+  sentence.  Measured after the change: a literal list of 10800 elements
+  imports and runs on both backends (8.8 s on cxx under interpret:new,
+  177 MB); the chain of nested if-then-else costs four frames per level
+  in the monadic analysis (506 levels under a limit of 2048), about 4000
+  under maxrecursion (680 before; the visitor's frames are gone), and is
+  bounded by time first: the case lifting of the port is quadratic in the
+  chain (74 s of the 118 s of the import at 2000 levels, under cProfile;
+  3500 levels import in 255 s); the ICurry JSON codec recurses in C and
+  overflows the 8 MB stack between 12000 and 15000 levels of nesting
+  (both measured, dumps then loads of a nest of calls).  Documented in
+  the developer notes ("The depth bounds of the toolchain").  Tests:
+  TestDeepExpressions of unit_curry2icurry.py at 5400 (the copy, twice
+  2700), 8000 (compileE, twice 4000) and 10800 (the visitors, twice
+  5400), each a generated module imported and evaluated on the backend of
+  the run under interpret:new; TestVisit and TestDeepCopy of
+  unit_icurry.py (the order against a recursive reference walk, the
+  module walk, the replacement followed, a nest of 20000 at a recursion
+  limit of 1000; the copy's identity, sharing and metadata, a nest of
+  20000); TestTrampoline of unit_utility.py.  With the walks reverted the
+  import of 2800 elements failed in copy.deepcopy and the chain of 700 in
+  set_monadic_metadata (the probes before the change).  The digest of the
+  generator sources changed (compileE, visit, inlining, iexpression), so
+  the product cache misses once per module.
+- (7) The rename and the budget.  The table of the &> of the runtime is
+  CyI7Prelude12BindingGuard in the sources (prelude.hpp declares it
+  without a define, with the history of #124 beside it; constr.cpp
+  defines it with the step BindingGuard_step; rts_bindings.cpp names it);
+  seq_Info and seq_step are gone.  The propagation budget of the checkers
+  keeps its one name per checker (CHECKER_PROPAGATE_BUDGET,
+  PROPAGATE_BUDGET, 1024) and gets one comment each: one budget for the
+  walk of a step, a pull-tab, a copy and a generator by policy, a larger
+  budget for the steps alone or one by the size of the result the
+  owner's.
+- Verification (the clean environment, CCACHE_DIR set, prlimit, at most
+  two test processes at a time).  make stage after the C++ changes: the
+  first run stopped in the prebuild of the library on icurry_is_stale,
+  which took one argument (the fake steps of two test files took one as
+  well; both fixed), the second ran to status 0, and again status 0 after
+  the last change of tiered.cpp; make overlay status 0 each time; the
+  prepare pass of the runner on cxx: 12 of 12 run, 0 failed, wall 465.7
+  s (the ABI stamp changed).  Probes before the change (interpret:new on
+  cxx): a list of 2800 elements failed at import with RecursionError in
+  copy.deepcopy (8181 frames of 16384), a chain of 700 nested
+  if-then-else in set_monadic_metadata (4778 frames of visit, 682 of
+  _checkmonadic); after it: 2800, 5400, 8000 and 10800 elements import
+  and give [1, 2] (2.0 s, 3.9 s, 5.9 s and 8.8 s), the chains of 1400,
+  2500, 3000 and 3500 import (the last two in 162 s and 255 s; 4000 did
+  not end within 300 s, its front end alone took 75 s); 10800 elements
+  on the Python backend too.  Single files, each ok: unit_optimize_inline
+  (31), unit_optimize (18), unit_optimize_applies (25), unit_icurry (13),
+  unit_cxx_emit (5, 2 skipped), unit_utility (14), unit_findcurry (10),
+  unit_plan (9), unit_loadsave (10, 4 expected failures on cxx, 4 skipped
+  on py), unit_make (26, 1 skipped on cxx, 3 on py), unit_cxx_tiered (33,
+  52 s), unit_cxx_runtime (9), unit_setfunctions_bugs (27, 1 skipped),
+  unit_curry2icurry (21, 48 s on cxx, 50 s on py), unit_py_checker (46 on
+  py), unit_cxx_toolchain (49).  Through the runner (./run_tests -j 2
+  --mem 4 --backend both): unit_cxx_tiered, unit_make, unit_loadsave,
+  unit_cxx_toolchain, unit_cxx_interp, unit_reload, unit_prebuild,
+  unit_product_cache, unit_cxx_runtime, unit_setfunctions_bugs,
+  unit_conda, unit_api, unit_goals, unit_cxx_steplimit, unit_findcurry,
+  unit_icurry: 32 of 32 run, 0 failed, wall 142.1 s (a first run found
+  the two failures of unit_cxx_toolchain: the lock file in the listing of
+  the product directory, now expected, and the Prelude not found by
+  import_lacks_an_object in a child whose import gave a partial path,
+  which _findcurry.import_path settles); unit_curry2icurry, unit_icurry,
+  unit_utility, unit_findcurry, unit_plan, unit_optimize,
+  unit_optimize_inline, unit_optimize_applies, unit_cxx_emit,
+  unit_cxx_checker, unit_py_checker, unit_cxx_bom, unit_cxx_partial,
+  unit_cxx_passthrough, unit_flat2icurry, unit_parse, unit_py_interp,
+  unit_cxx_heap: 36 of 36 run, 0 failed, wall 134.6 s.  make -C docs
+  html: build succeeded.  Not run: the oracle suites (func_*.py) and the
+  whole suite on both backends, the suite stage.  The review's runs after
+  its changes (the three new tests fail with the change of each toggled
+  off): unit_make, unit_cxx_tiered, unit_cxx_toolchain, unit_findcurry,
+  unit_api, unit_product_cache, unit_prebuild, unit_loadsave, unit_reload,
+  unit_cxx_interp, unit_plan, unit_cxx_runtime through the runner on both
+  backends: 24 of 24 run, 0 failed, wall 103.6 s.
+- Left to the owner.  (1) The sysconfig value ld_interpreter_path, its
+  file and test_ld_interpreter_path are unused by the code now (item 4).
+  (2) The case lifting of the port is quadratic in a chain of nested
+  if-then-else (74 s of 118 s at 2000 levels), and the monadic analysis
+  recurses per level of such a chain (about 4000 levels); the ICurry JSON
+  codec recurses in C (12000 levels pass, 15000 overflow the 8 MB stack).
+  (3) TieredJob::imports and TieredResult::mapped live in tiered.hpp,
+  which is in the include closure of cyrt.hpp (prelude.hpp, checker.hpp
+  and module.hpp are not), so the ABI stamp moved and every installation
+  that takes this commit compiles its compiled Curry products again,
+  once (the prepare pass here: 465.7 s); keeping the list in the state of
+  tiered.cpp would need a declaration in some header all the same.
+  (4) tests/manifest.json has no entry for the new tests (a calibration
+  run adds them).  (5) The lock file <Module>.lock stays in the product
+  directory after a compile; the listing test of the stamp expects it.

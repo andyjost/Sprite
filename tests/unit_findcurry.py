@@ -40,7 +40,7 @@ class RefusingStep(object):
   '''A step of a plan that refuses the files named in ``stale``.'''
   def __init__(self):
     self.stale = set()
-  def is_stale(self, filename):
+  def is_stale(self, filename, currypath=None):
     return os.path.basename(filename) in self.stale
   def __call__(self, *args, **kwds):
     raise AssertionError('no step runs')
@@ -184,6 +184,44 @@ class TestFindCurry(cytest.TestCase):
     au = icurry.json.loads(cytest.readfile(goldenfile))
     self.assertEqual(icur, au)
 
+  def test_program_path(self):
+    '''
+    The search path of a program given as a file names its directory
+    first, as PAKCS searches; one given by name keeps the path as it is.
+    '''
+    from curry.toolchain import _findcurry
+    program = os.path.join(self.root, 'b', 'a.curry')
+    directory = os.path.join(self.root, 'b')
+    other = os.path.join(self.root, 'c')
+    self.assertEqual(
+        _findcurry.program_path(program, [other], is_sourcefile=True)
+      , [directory, other]
+      )
+    # The directory is named once, first, whatever the path says.
+    self.assertEqual(
+        _findcurry.program_path(
+            program, [other, directory, other], is_sourcefile=True
+          )
+      , [directory, other, other]
+      )
+    self.assertEqual(
+        _findcurry.program_path(program, (other,), is_sourcefile=True)
+      , [directory, other]
+      )
+    self.assertEqual(
+        _findcurry.program_path('a.curry', [other], is_sourcefile=True)
+      , [os.getcwd(), other]
+      )
+    self.assertEqual(_findcurry.program_path('a', [other]), [other])
+    self.assertEqual(
+        _findcurry.program_path('a', [other], is_sourcefile=False), [other]
+      )
+    # The keywords of a plan (zip, tidy) are accepted and ignored.
+    self.assertEqual(
+        _findcurry.program_path(program, [], is_sourcefile=True, zip=True)
+      , [directory]
+      )
+
   def test_illegal_name(self):
     self.assertRaisesRegex(
         ValueError, r"'kiel/rev' is not a legal module name."
@@ -269,7 +307,7 @@ class TestFindCurry(cytest.TestCase):
     class Step(object):
       def __init__(self):
         self.stale = set()
-      def is_stale(self, filename):
+      def is_stale(self, filename, currypath=None):
         return os.path.basename(filename) in self.stale
       def __call__(self, *args, **kwds):
         raise AssertionError('no step runs')

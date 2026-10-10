@@ -629,7 +629,7 @@ class TestCurry2ICurry(cytest.TestCase):
 # the binding optimization rebuilds the body of g.
 ELEMENTS = 1200
 
-LONG_LIST = '''e :: Int -> Int
+LONG_LIST_TEMPLATE = '''e :: Int -> Int
 e i = i ? (i + 1)
 
 g :: Int -> [Int]
@@ -637,7 +637,15 @@ g n = case n of { 1 -> [%s]; _ -> [] }
 
 longHead :: Int
 longHead = head (g (length [()]))
-''' % ', '.join('e %d' % i for i in range(1, ELEMENTS + 1))
+'''
+
+def long_list(elements):
+  '''The module of a literal list of ``elements`` elements.'''
+  return LONG_LIST_TEMPLATE % ', '.join(
+      'e %d' % i for i in range(1, elements + 1)
+    )
+
+LONG_LIST = long_list(ELEMENTS)
 
 DEEP_SUM = '''e :: Int -> Int
 e i = i ? (i + 1)
@@ -695,3 +703,30 @@ class TestDeepExpressions(cytest.TestCase):
   @cytest.with_flags(interpret='new')
   def test_nested_operator(self):
     self.assertEqual(self.values('DeepSum', DEEP_SUM, 'deepHead'), [1, 2])
+
+  # The bounds left after the fix of the walks of the port (the entry of
+  # 2026-10-09 in the TODO), each pinned at twice its old bound: the copy
+  # of a function body in the inliner failed at about 2700 elements (six
+  # frames per element through copy.deepcopy), the expression compiler of
+  # both backends at about 4000 (four frames per element), and the visitor
+  # of the optimizer at about 5400 (three).  One import runs all three
+  # walks, so each test is the import at its size (pothole batch 4,
+  # 2026-10-10).
+
+  @cytest.with_flags(interpret='new')
+  def test_inliner_copy_bound(self):
+    self.assertEqual(
+        self.values('LongList5400', long_list(5400), 'longHead'), [1, 2]
+      )
+
+  @cytest.with_flags(interpret='new')
+  def test_expression_compiler_bound(self):
+    self.assertEqual(
+        self.values('LongList8000', long_list(8000), 'longHead'), [1, 2]
+      )
+
+  @cytest.with_flags(interpret='new')
+  def test_visitor_bound(self):
+    self.assertEqual(
+        self.values('LongList10800', long_list(10800), 'longHead'), [1, 2]
+      )

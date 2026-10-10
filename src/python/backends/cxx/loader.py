@@ -150,6 +150,20 @@ def _check_before_open(interp, name, sofile, from_plan=False):
       % (name, sofile)
       )
 
+def _program_path(interp, sofile):
+  '''
+  The search path of the imports of the object ``sofile``: the directory
+  of its source first, when the object lies in the product directory of a
+  source (``_filenames.curryfilename``), then the path of the interpreter;
+  None, the path of the interpreter alone, for an object elsewhere.
+  '''
+  from ...toolchain import _findcurry
+  try:
+    curryfile = _filenames.curryfilename(sofile)
+  except ValueError:
+    return None
+  return _findcurry.program_path(curryfile, interp.path, is_sourcefile=True)
+
 def load_module(interp, sofile, from_plan=False):
   assert sofile.endswith('.so')
   sofile = os.path.abspath(sofile)
@@ -164,8 +178,11 @@ def load_module(interp, sofile, from_plan=False):
   # covers a load outside the plan (curry.load) and an object without its
   # generated file.  An import that runs without an object cannot satisfy
   # the name, so it is an error here, not a message of the dynamic linker.
+  # The imports are searched beside the source of the object first, as the
+  # imports of a program given as a file are (_findcurry.program_path).
+  currypath = _program_path(interp, sofile)
   for modulename in needed:
-    module = interp.import_(modulename)
+    module = interp.import_(modulename, currypath=currypath)
     if getHandle(module).sofilename is None:
       raise exceptions.DynloadError(
           'cannot load %r: its import %s runs without a compiled object'

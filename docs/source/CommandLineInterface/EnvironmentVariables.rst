@@ -11,7 +11,13 @@ The following are recognized:
 
 ``CURRYPATH``
   A colon-separated list of paths used to search for Curry modules.  Sprite
-  silently appends to this the path to its system libraries.
+  silently appends to this the path to its system libraries.  A program
+  given as a file (``sprite-exec prog.curry``, ``sprite-make --so
+  prog.curry``, ``curry.import_(path, is_sourcefile=True)``) has its
+  directory searched first, before the entries of CURRYPATH, as PAKCS
+  searches: the modules beside the program are found without a CURRYPATH
+  that names their directory.  A module given by name is searched on
+  CURRYPATH alone.
 
 ``SPRITE_HOME``
   The installation tree of Sprite: the directory that holds ``bin``,

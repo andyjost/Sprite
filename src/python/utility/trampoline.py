@@ -18,9 +18,14 @@ place of the recursive call::
 
     trampoline(size(tree))
 
-A generator that returns without a yield is a leaf.  An exception raised in
-a generator propagates to the caller of :func:`trampoline`.
+A generator that returns without a yield is a leaf.  A leaf may also be a
+plain value: a walk that yields something other than a generator gets that
+value back at once, and :func:`trampoline` of a value is the value.  So a
+walk dispatched on the type of a node may answer a leaf with its result and
+an inner node with a generator (the generic compiler does).  An exception
+raised in a generator propagates to the caller of :func:`trampoline`.
 '''
+import types
 
 __all__ = ['trampoline']
 
@@ -28,8 +33,11 @@ def trampoline(walk):
   '''
   Runs the generator ``walk`` and returns its result.  Each generator it
   yields is run in turn, and the result of that generator is sent back to
-  the generator that yielded it.
+  the generator that yielded it.  A value that is not a generator is a
+  result.
   '''
+  if not isinstance(walk, types.GeneratorType):
+    return walk
   stack = [walk]
   value = None
   while stack:
@@ -39,6 +47,9 @@ def trampoline(walk):
       stack.pop()
       value = stop.value
     else:
-      stack.append(child)
-      value = None
+      if isinstance(child, types.GeneratorType):
+        stack.append(child)
+        value = None
+      else:
+        value = child
   return value

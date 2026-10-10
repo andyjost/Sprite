@@ -1,6 +1,6 @@
 from .iobject import IObject
 from ...utility import translateKwds
-import abc
+import abc, copy
 
 __all__ = [
    'IVar', 'IVarAccess', 'ILit', 'IReference', 'ICall', 'IFCall', 'ICCall'
@@ -55,6 +55,8 @@ class ICall(IObject):
   @property
   def children(self):
     return self.exprs
+  def __deepcopy__(self, memo):
+    return _deepcopy_expression(self, memo)
   def __str__(self):
     string = ', '.join(
         [repr(self.symbolname)] \
@@ -91,6 +93,8 @@ class IOr(IObject):
   @property
   def children(self):
     return self.lhs, self.rhs
+  def __deepcopy__(self, memo):
+    return _deepcopy_expression(self, memo)
   def __str__(self):
     return '%s ? %s' % (self.lhs, self.rhs)
   def __repr__(self):
@@ -98,6 +102,52 @@ class IOr(IObject):
 
 class IExpression(IObject, metaclass=abc.ABCMeta):
   pass
+
+
+def _deepcopy_expression(root, memo):
+  '''
+  The deep copy of the call or choice ``root`` under ``memo``, the memo of
+  copy.deepcopy, which ICall.__deepcopy__ and IOr.__deepcopy__ call.  The
+  copy walks the nested calls and choices on a stack of its own: through
+  the generic protocol of copy.deepcopy the nest of cons calls of a literal
+  list cost six frames per element, and a list of about 2700 elements ran
+  out of frames under maxrecursion in the inliner (issue #125).  Every
+  other attribute of a node, and every part that is not a call or a
+  choice, is copied by copy.deepcopy under the same memo, so the copy is
+  the one copy.deepcopy made: a part shared within the expression is
+  copied once, and the metadata of a node is copied with it.
+  '''
+  keep = memo.setdefault(id(memo), [])
+  stack = []
+  def fresh(node):
+    # A new object of the class of ``node``, on record in the memo before
+    # its parts are copied, as copy.deepcopy records a copy.
+    cls = type(node)
+    new = cls.__new__(cls)
+    memo[id(node)] = new
+    keep.append(node)
+    return new
+  def part(value):
+    if isinstance(value, (ICall, IOr)):
+      found = memo.get(id(value))
+      if found is not None:
+        return found
+      new = fresh(value)
+      stack.append((value, new))
+      return new
+    return copy.deepcopy(value, memo)
+  result = fresh(root)
+  stack.append((root, result))
+  while stack:
+    node, new = stack.pop()
+    for key, value in node.__dict__.items():
+      if key == 'exprs' and isinstance(node, ICall):
+        new.__dict__[key] = [part(e) for e in value]
+      elif key in ('lhs', 'rhs') and isinstance(node, IOr):
+        new.__dict__[key] = part(value)
+      else:
+        new.__dict__[key] = copy.deepcopy(value, memo)
+  return result
 
 IExpression.register(IVar)
 IExpression.register(IVarAccess)

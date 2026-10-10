@@ -4,12 +4,12 @@ from curry import config, icurry, interpreter, toolchain
 from curry.interpreter import flags as _flags
 from curry.toolchain import plans
 from curry.tools import make
-from curry.toolchain import _system
+from curry.toolchain import _productlock, _system
 from curry.utility.binding import binding
 from curry.utility.strings import ensure_str
 from unittest import mock
-import argparse, contextlib, glob, io, itertools, json, os, shutil, subprocess
-import sys, tempfile, unittest, zlib
+import argparse, contextlib, errno, fcntl, glob, io, itertools, json, os
+import shutil, subprocess, sys, tempfile, threading, time, unittest, zlib
 
 SUBDIR = os.path.join('.curry', config.intermediate_subdir())
 
@@ -612,3 +612,336 @@ class TestJobs(cytest.TestCase):
     os.unlink(cache)
     self.assertEqual(self.sprite_make('--py', '-z', '--jobs', '2', a), [])
     self.assertTrue(os.path.isfile(cache))
+
+
+# A child that holds the lock of a module until it reads a line.
+HOLDER = r'''
+import sys
+from curry.toolchain import _productlock
+with _productlock.locked(sys.argv[1]) as waited:
+  print('held', waited, flush=True)
+  sys.stdin.readline()
+print('released', flush=True)
+'''
+
+class TestProductLock(cytest.TestCase):
+  '''
+  The lock of the products of a module (curry.toolchain._productlock): two
+  processes that compile one module into one product directory take turns,
+  and the second compiles nothing when the first wrote a current object.
+  '''
+  TIMEOUT = 300
+
+  def setUp(self):
+    super().setUp()
+    self.tmpdir = tempfile.mkdtemp(prefix='sprite-lock-')
+    self.addCleanup(shutil.rmtree, self.tmpdir, True)
+    self.name = 'LockedModule'
+    self.curryfile = os.path.join(self.tmpdir, self.name + '.curry')
+    self.lock = os.path.join(self.tmpdir, SUBDIR, self.name + '.lock')
+
+  def held(self):
+    '''Whether another open file description holds the lock.'''
+    fd = os.open(self.lock, os.O_RDWR)
+    try:
+      fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+      return True
+    else:
+      return False
+    finally:
+      os.close(fd)
+
+  def test_lockfile(self):
+    subdir = os.path.join(self.tmpdir, SUBDIR)
+    for filename in [
+        self.curryfile
+      , os.path.join(subdir, self.name + '.icy')
+      , os.path.join(subdir, self.name + '.json.z')
+      , os.path.join(subdir, self.name + '.cpp')
+      , os.path.join(subdir, self.name + '.so')
+      ]:
+      self.assertEqual(_productlock.lockfile(filename), self.lock, filename)
+
+  def test_free_lock(self):
+    # The lock file and its directory are made; the lock is held for the
+    # duration of the context, once per process (re-entrant), and released
+    # with it.
+    self.assertFalse(os.path.exists(self.lock))
+    with _productlock.locked(self.curryfile) as waited:
+      self.assertFalse(waited)
+      self.assertTrue(os.path.isfile(self.lock))
+      self.assertTrue(self.held())
+      with _productlock.locked(self.curryfile) as again:
+        self.assertFalse(again)
+        self.assertTrue(self.held())
+      self.assertTrue(self.held())
+    self.assertFalse(self.held())
+    self.assertTrue(os.path.isfile(self.lock))
+
+  def test_waits_for_another_process(self):
+    # A child holds the lock; a thread of this process waits for it and
+    # says so.  The thread does not return before the child releases.
+    child = subprocess.Popen(
+        [sys.executable, '-B', '-c', HOLDER, self.curryfile]
+      , stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
+      , env=dict(os.environ, PYTHONIOENCODING='utf-8')
+      )
+    try:
+      self.assertEqual(child.stdout.readline().split(), ['held', 'False'])
+      self.assertTrue(self.held())
+      result = {}
+      def take():
+        with _productlock.locked(self.curryfile) as waited:
+          result['waited'] = waited
+          result['held_by_child'] = child.poll() is None
+      thread = threading.Thread(target=take)
+      thread.start()
+      thread.join(1.0)
+      self.assertTrue(thread.is_alive(), 'the lock was not waited for')
+      child.stdin.write('go\n')
+      child.stdin.close()
+      thread.join(self.TIMEOUT)
+      self.assertFalse(thread.is_alive())
+      self.assertIs(result['waited'], True)
+      self.assertEqual(child.wait(self.TIMEOUT), 0)
+      self.assertEqual(child.stdout.readline().strip(), 'released')
+    finally:
+      if child.poll() is None:
+        child.kill()
+        child.wait()
+      child.stdout.close()
+      if not child.stdin.closed:
+        child.stdin.close()
+
+  def test_no_lock_in_an_unwritable_directory(self):
+    # Nothing can be compiled into the directory; the steps say so, and
+    # the lock neither fails nor makes the directory.
+    if os.geteuid() == 0:
+      self.skipTest('root writes anywhere')
+    os.chmod(self.tmpdir, 0o500)
+    self.addCleanup(os.chmod, self.tmpdir, 0o700)
+    with _productlock.locked(self.curryfile) as waited:
+      self.assertFalse(waited)
+    self.assertFalse(os.path.exists(os.path.join(self.tmpdir, '.curry')))
+
+  def test_no_lock_without_flock(self):
+    # A file system that refuses flock (ENOLCK, a network file system
+    # without a lock service): no lock, and the compile runs unlocked, as
+    # before the lock.  Before, the error ended the compile at its first
+    # step (here the JSON of an ICurry file, which needs no front end).
+    subdir = os.path.join(self.tmpdir, SUBDIR)
+    os.makedirs(subdir)
+    shutil.copy(
+        os.path.join('data', 'curry', SUBDIR, 'hello.icy'), subdir
+      )
+    lock = os.path.join(subdir, 'hello.lock')
+    error = OSError(errno.ENOLCK, 'No locks available')
+    with mock.patch.object(_productlock.fcntl, 'flock', side_effect=error):
+      with _productlock.locked(self.curryfile) as waited:
+        self.assertFalse(waited)
+        self.assertTrue(os.path.isfile(self.lock))
+        self.assertNotIn(self.lock, _productlock._held)
+      plan = plans.makeplan(
+          None, plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON
+        )
+      product = toolchain.makecurry(plan, 'hello', [self.tmpdir])
+    self.assertEqual(product, os.path.join(subdir, 'hello.json.z'))
+    self.assertTrue(os.path.isfile(product))
+    self.assertTrue(os.path.isfile(lock))
+    self.assertFalse(self.held())
+
+  @unittest.skipIf(
+      curry.flags['backend'] != 'cxx' or config.cxx_tool() is None
+    , 'the compile needs the C++ backend and its compiler'
+    )
+  def test_two_compiles_write_one_object(self):
+    '''
+    Two sprite-make --so of one module at once: both end well, one of them
+    compiles, and the object, its stamp and the generated file are whole.
+    The lock is held here while the two start, so both find it taken and
+    both wait; the first to get it compiles, and the second finds the
+    object current and compiles nothing.  Without the lock both wrote the
+    generated file and the object in place at once (the Quickstart told
+    the reader to wait for the background compile).
+    '''
+    from curry.backends.cxx.toolchain import Cpp2So
+    subdir = os.path.join(self.tmpdir, SUBDIR)
+    os.makedirs(subdir)
+    with open(os.path.join(subdir, self.name + '.json.z'), 'wb') as stream:
+      stream.write(zlib.compress(cytest.json_module(self.name, 7).encode('utf-8')))
+    env = dict(
+        os.environ, CURRYPATH=self.tmpdir, SPRITE_LOG_LEVEL='INFO'
+      , SPRITE_PRODUCT_CACHE=''
+      )
+    cmd = [
+        'prlimit', '--as=%d' % (2 << 30), 'timeout', str(self.TIMEOUT)
+      , config.installed_path('bin', 'sprite-make'), '--so', '-z', self.name
+      ]
+    with _productlock.locked(self.curryfile):
+      children = [
+          subprocess.Popen(
+              cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            , text=True
+            )
+          for _ in range(2)
+        ]
+      # Both children reach the lock while it is held here.
+      time.sleep(2.0)
+    outputs = [child.communicate(timeout=self.TIMEOUT) for child in children]
+    for child, (out, err) in zip(children, outputs):
+      self.assertEqual(child.returncode, 0, out + err)
+    sofile = os.path.join(subdir, self.name + '.so')
+    cppfile = os.path.join(subdir, self.name + '.cpp')
+    self.assertTrue(os.path.isfile(sofile))
+    self.assertTrue(os.path.isfile(cppfile))
+    cpp2so = Cpp2So(curry.getInterpreter())
+    self.assertTrue(cpp2so.stamp_is_current(sofile))
+    self.assertFalse(cpp2so.is_stale(sofile))
+    self.assertFalse(cpp2so.is_stale(cppfile))
+    logs = [err for _, err in outputs]
+    compiled = sum(
+        line.count('Compiling ') for log in logs for line in log.splitlines()
+        if self.name + ".so'" in line
+      )
+    self.assertEqual(compiled, 1, logs)
+    waited = sum(
+        'Waiting for another process that compiles' in log for log in logs
+      )
+    self.assertGreaterEqual(waited, 1, logs)
+    # The object is whole: it loads and runs.
+    M = curry.load(sofile)
+    self.assertEqual(
+        list(curry.eval(M.goal, converter='topython')), [7]
+      )
+
+
+class TestProgramDirectory(cytest.TestCase):
+  '''
+  A program given as a file has its directory searched first, as PAKCS
+  searches (toolchain._findcurry.program_path): sprite-make --so
+  Second.curry beside Smoke.curry failed with "Curry module 'Smoke' not
+  found" unless CURRYPATH named the directory (the environment test of the
+  conda lane, 2026-10-08).  The two modules here live in a directory that
+  no CURRYPATH names, and the tools run from another directory.
+  '''
+  TIMEOUT = 300
+
+  @classmethod
+  def setUpClass(cls):
+    super().setUpClass()
+    if config.curry_frontend() is None:
+      raise unittest.SkipTest('the Curry front end is not configured')
+
+  def setUp(self):
+    super().setUp()
+    self.tmpdir = tempfile.mkdtemp(prefix='sprite-progdir-')
+    self.addCleanup(shutil.rmtree, self.tmpdir, True)
+    self.progdir = os.path.join(self.tmpdir, 'prog')
+    self.cwd = os.path.join(self.tmpdir, 'elsewhere')
+    os.makedirs(self.progdir)
+    os.makedirs(self.cwd)
+    with open(os.path.join(self.progdir, 'ProgDirLib.curry'), 'w') as stream:
+      stream.write('module ProgDirLib where\n\ntwice :: Int -> Int\ntwice x = x + x\n')
+    self.program = os.path.join(self.progdir, 'ProgDirMain.curry')
+    with open(self.program, 'w') as stream:
+      stream.write(
+          'module ProgDirMain where\nimport ProgDirLib\n\n'
+          'main :: Int\nmain = twice 4\n'
+        )
+    self.env = dict(os.environ)
+    self.env.pop('CURRYPATH', None)
+
+  def run_tool(self, tool, *args):
+    cmd = [
+        'prlimit', '--as=%d' % (2 << 30), 'timeout', str(self.TIMEOUT)
+      , config.installed_path('bin', tool)
+      ] + list(args)
+    return subprocess.run(
+        cmd, env=self.env, cwd=self.cwd, capture_output=True, text=True
+      )
+
+  def sofile(self, name):
+    return os.path.join(self.progdir, SUBDIR, name + '.so')
+
+  def test_sprite_exec(self):
+    proc = self.run_tool('sprite-exec', self.program)
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    self.assertEqual(proc.stdout.split(), ['8'])
+
+  @unittest.skipIf(
+      curry.flags['backend'] != 'cxx' or config.cxx_tool() is None
+    , 'the compile needs the C++ backend and its compiler'
+    )
+  def test_sprite_make_so(self):
+    # The compile, a run from the objects, and a second compile that finds
+    # them current (the plan imports the import to judge the object).
+    proc = self.run_tool('sprite-make', '--so', self.program)
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    self.assertTrue(os.path.isfile(self.sofile('ProgDirMain')))
+    self.assertTrue(os.path.isfile(self.sofile('ProgDirLib')))
+    proc = self.run_tool('sprite-exec', self.program)
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    self.assertEqual(proc.stdout.split(), ['8'])
+    stamp = os.stat(self.sofile('ProgDirMain')).st_mtime_ns
+    proc = self.run_tool('sprite-make', '--so', self.program)
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    self.assertEqual(os.stat(self.sofile('ProgDirMain')).st_mtime_ns, stamp)
+    # curry.load of the object imports the import from beside the source.
+    code = (
+        'import curry\n'
+        'M = curry.load(%r)\n'
+        'print(list(curry.eval(M.main, converter="topython")))\n'
+      ) % self.sofile('ProgDirMain')
+    proc = subprocess.run(
+        [sys.executable, '-B', '-c', code], env=self.env, cwd=self.cwd
+      , capture_output=True, text=True
+      )
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    self.assertEqual(proc.stdout.strip(), '[8]')
+
+  def test_import_by_name_with_a_path(self):
+    # A module given by name with an explicit currypath is found on that
+    # path alone, and its imports are searched on the path of the
+    # interpreter, as before: the import beside it is not found.  The
+    # directory of a program comes first for a program given as a file
+    # (test_import_of_a_path), not for a name.
+    code = (
+        'import curry\n'
+        'from curry.exceptions import ModuleLookupError\n'
+        'try:\n'
+        '  curry.import_("ProgDirMain", currypath=[%r])\n'
+        'except ModuleLookupError as exc:\n'
+        '  print("ModuleLookupError", "ProgDirLib" in str(exc))\n'
+      ) % self.progdir
+    proc = subprocess.run(
+        [sys.executable, '-B', '-c', code], env=self.env, cwd=self.cwd
+      , capture_output=True, text=True
+      )
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    self.assertEqual(proc.stdout.split(), ['ModuleLookupError', 'True'])
+
+  def test_import_of_a_path(self):
+    # curry.import_ of a path, with the directory on no search path.
+    code = (
+        'import curry\n'
+        'M = curry.import_(%r, is_sourcefile=True)\n'
+        'print(list(curry.eval(M.main, converter="topython")))\n'
+        'print(curry.import_(%r) is M)\n'
+      ) % (self.program, 'ProgDirMain')
+    proc = subprocess.run(
+        [sys.executable, '-B', '-c', code], env=self.env, cwd=self.cwd
+      , capture_output=True, text=True
+      )
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    self.assertEqual(proc.stdout.split(), ['[8]', 'True'])
+    if curry.flags['backend'] == 'cxx' and config.cxx_tool() is not None:
+      # The compile on first use (interpret:off) imports the import from
+      # beside the program as well.
+      env = dict(self.env, SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:off')
+      proc = subprocess.run(
+          [sys.executable, '-B', '-c', code], env=env, cwd=self.cwd
+        , capture_output=True, text=True
+        )
+      self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+      self.assertEqual(proc.stdout.split(), ['[8]', 'True'])

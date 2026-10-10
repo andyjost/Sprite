@@ -51,7 +51,7 @@ from . import bytecode, cyrtbindings as cyrt
 from ..generic import compiler as generic
 from ... import config, icurry, objects
 from ...objects import handle
-from ...toolchain import _filenames
+from ...toolchain import _filenames, _productlock
 from ...utility import visitation
 import logging, os, time, weakref, zlib
 
@@ -226,7 +226,8 @@ class Pending(object):
   A module imported from an ICurry object under interpret:off: its function
   tables carry the trap step until its first use compiles it.  The module
   and its interpreter are held weakly; a module that was unloaded compiles
-  nothing.  ``currypath`` is the search path of the import (module_loaded),
+  nothing.  ``currypath`` is the search path of the imports of the module
+  (module_loaded),
   which the compile of the module needs for its imports.
   '''
   def __init__(self, interp, moduleobj):
@@ -376,10 +377,19 @@ def compile_pending(entry):
   else:
     cppfile = process_file(imodule)
   if sofile is None:
-    logger.info('Compiling %s on its first use: %s', name, cppfile)
-    with open(cppfile, 'w', encoding='utf-8') as stream:
-      stream.write(text)
-    sofile = cpp2so(cppfile, currypath)
+    # Under the lock of the products (toolchain._productlock): another
+    # process may compile the same module into the same directory.  After
+    # a wait the object there may be current.
+    with _productlock.locked(cppfile) as waited:
+      if waited:
+        sofile = current_object(cpp2so, cppfile, text, currypath)
+      if sofile is None:
+        logger.info('Compiling %s on its first use: %s', name, cppfile)
+        with open(cppfile, 'w', encoding='utf-8') as stream:
+          stream.write(text)
+        # The compile of the source of the module on the path of its
+        # imports (is_sourcefile; _findcurry.imports_path).
+        sofile = cpp2so(cppfile, currypath, is_sourcefile=True)
   steps = []
   for ifun in imodule.functions.values():
     info = M.get_infotable(ifun.name)
@@ -446,13 +456,14 @@ def current_object(cpp2so, cppfile, text, currypath):
   (Cpp2So.is_stale: its stamp and the objects of its imports); else the
   object the product cache places for the texts on disk (Cpp2So.restore),
   when the generated file it places has the text.  None when there is
-  neither: the module compiles.
+  neither: the module compiles.  ``currypath`` is the search path of the
+  imports of the module (module_loaded).
   '''
   sofile = _filenames.replacesuffix(cppfile, '.so')
   if _text_of(cppfile) == text and os.path.isfile(sofile) \
-      and not cpp2so.is_stale(sofile):
+      and not cpp2so.is_stale(sofile, currypath):
     return sofile
-  restored = cpp2so.restore(cppfile, currypath)
+  restored = cpp2so.restore(cppfile, currypath, is_sourcefile=True)
   if restored is not None and _text_of(cppfile) == text:
     return restored
   return None

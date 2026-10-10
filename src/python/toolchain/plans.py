@@ -100,26 +100,30 @@ class Plan(object):
         yield icyfile[:-4] + suffix
     return list(gen())
 
-  def prune_stale(self, filelist):
+  def prune_stale(self, filelist, currypath=None):
     '''
     Removes from ``filelist``, the files of one module in the order of this
     plan, every file that a step refuses, and every file after it.  A file
     that does not exist is kept, because nothing can be read from it.  See
-    ``is_stale``.
+    ``is_stale``; ``currypath`` is the search path of the imports of the
+    module (``_findcurry.imports_path``).
     '''
     for i, filename in enumerate(filelist):
-      if os.path.isfile(filename) and self.is_stale(filename):
+      if os.path.isfile(filename) and self.is_stale(filename, currypath):
         return filelist[:i]
     return filelist
 
-  def is_stale(self, filename):
+  def is_stale(self, filename, currypath=None):
     '''
     Tells whether a step of this plan refuses ``filename``.  A step refuses a
     file through its ``is_stale`` method, when it has one; see ``Json2Cpp``
     and ``Cpp2So`` of the C++ backend and ``curry2icurry`` of the toolchain.
     The step of the file's stage, which reads the file, is asked, and so is
     the step before it, which made the file.  A step that answers for both
-    its input and its output tells them apart by the suffix.
+    its input and its output tells them apart by the suffix.  ``currypath``
+    is the search path of the imports of the module
+    (``_findcurry.imports_path``), for a step that imports them to answer
+    (``Cpp2So``).
     '''
     position = self.position(filename)
     steps = [self.stages[position].step]
@@ -127,11 +131,11 @@ class Plan(object):
       steps.append(self.stages[position - 1].step)
     for step in steps:
       is_stale = getattr(step, 'is_stale', None)
-      if is_stale is not None and is_stale(filename):
+      if is_stale is not None and is_stale(filename, currypath):
         return True
     return False
 
-  def restore(self, filename, currypath):
+  def restore(self, filename, currypath, **kwds):
     '''
     Asks the step that makes the final product of this plan to place a
     cached copy of the products of the module of ``filename`` beside its
@@ -139,14 +143,15 @@ class Plan(object):
     Returns the file placed, or None when the step has no ``restore``
     method, the cache is off, or the cache holds no entry.  ``Maker.make``
     asks before each step, so a module whose products are cached is neither
-    generated nor compiled.
+    generated nor compiled.  ``kwds`` are the keywords of the plan
+    (``is_sourcefile`` among them).
     '''
     if len(self.stages) < 2:
       return None
     restore = getattr(self.stages[-2].step, 'restore', None)
     if restore is None:
       return None
-    return restore(filename, currypath)
+    return restore(filename, currypath, **kwds)
 
   def position(self, filename):
     '''Gives the current position in the plan.'''

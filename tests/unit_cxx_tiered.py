@@ -993,13 +993,11 @@ curry.path.insert(0, '.')
 M = curry.import_(%(name)r)
 curry.save(M, %(name)r + '.cpp', module_main=False)
 # The import started a compile of the module in the background, which
-# writes the products sprite-make --so writes.  The two compiles would
-# write M.cpp and M.so at once, and one could read a torn file; a session
-# at the keyboard reaches the shell long after the compile ended.  So the
-# compile ends first here.  The load during the compile is the test
-# test_load_during_the_compile_exits_cleanly.
-from curry.backends.cxx import tiered
-tiered.wait()
+# writes the products sprite-make --so writes.  The two compiles never
+# write at once: the lock of the products (toolchain._productlock) makes
+# the second wait, and it compiles nothing when the first wrote a current
+# object.  So sprite-make runs here while the background compile may run,
+# as a session at the keyboard may run it.
 subprocess.run(
     [%(make)r, '--so', %(name)r + '.curry'], check=True
   , env=dict(os.environ, CURRYPATH='.')
@@ -1143,6 +1141,9 @@ class TestLoadDuringCompile(TieredTestCase):
     # The sequence of the Quickstart, run again after an edit of the source:
     # the second run meets the background compile of the first import and
     # loads the object it wrote.  A new process reads the edited source.
+    # The foreground sprite-make runs while the background compile may run
+    # (the lock of the products; the test of the lock itself is
+    # TestProductLock of unit_make.py).
     text = 'module %%(name)s where\nbump :: Int -> Int\nbump x = x + %d\n'
     name = self.write_module(text % 1)
     code = lambda: QUICKSTART % dict(
@@ -1203,3 +1204,185 @@ class TestLoadDuringCompile(TieredTestCase):
       , os.path.realpath(sofile)
       )
     self.assertEqual(self.py(M2.total, 2), 8)
+
+
+# A module without a function and without a table: a type synonym alone
+# (a data type derives its Data instance, which is a function).  Nothing
+# to swap, so its load queues no compile (submit) and registers no shim,
+# while its importers name its object by SONAME.
+TYPES_MODULE = '''
+module %(name)s where
+
+type Pair = (Int, Int)
+'''
+
+# A module that imports TYPES_MODULE.
+USER_MODULE = '''
+module %%(name)s where
+import %(types)s
+
+mk :: Int -> Pair
+mk n = (n, n + 1)
+
+second :: Pair -> Int
+second p = case p of
+  (_, b) -> b
+'''
+
+# A module that imports MODULE.
+IMPORTER_MODULE = '''
+module %%(name)s where
+import %(first)s
+
+biggest :: Int -> Int
+biggest n = foldr max 0 (map area (shapes n))
+'''
+
+
+class TestImportObjects(TieredTestCase):
+  '''
+  The swap maps the objects of the imports of a module before its own ("The
+  imports" in tiered.py and tiered.hpp).  An object names the objects of
+  its imports by SONAME, which the dynamic linker satisfies with an object
+  of that name the process has mapped; an importer whose import had no job
+  (a module without a function to swap) or whose import compiled later
+  stayed interpreted, with the message of the dynamic linker in its log.
+  '''
+  @cytest.hardreset
+  def test_import_without_a_job(self):
+    types = self.write_module(TYPES_MODULE)
+    user = self.write_module(USER_MODULE % {'types': types})
+    with capture_log('curry.backends.cxx.tiered') as log:
+      U = self.import_module(user)
+      T = curry.import_(types)
+      # The import has neither a shim nor a job; the child of the importer
+      # compiles its object.
+      self.assertFalse(tiered.has_shim(types))
+      self.assertFalse(tiered.pending(types))
+      self.assertIsNone(getHandle(T).sofilename)
+      self.assertTrue(tiered.pending(user))
+      self.assertTrue(cyrt.icurry_is_interpreted(U.mk.info))
+      before = tiered.status()
+      self.assertEqual(self.py(U.second, self.value(U.mk, 4)), 5)
+      self.wait()
+    after = tiered.status()
+    self.assertEqual(after['swapped_modules'], before['swapped_modules'] + 1)
+    self.assertEqual(after['failed_modules'], before['failed_modules'])
+    self.assertEqual(log.data[logging.WARNING], [])
+    self.assertTrue(
+        any('Mapped the object of %s' % types in line
+            for line in log.data[logging.INFO])
+      , log.data[logging.INFO]
+      )
+    self.assertFalse(cyrt.icurry_is_interpreted(U.mk.info))
+    self.assertFalse(cyrt.icurry_is_interpreted(U.second.info))
+    # The import has its object on record now.
+    self.assertIsNotNone(getHandle(T).sofilename)
+    self.assertEqual(self.py(U.second, self.value(U.mk, 4)), 5)
+    self.assertEqual(self.py(U.second, self.value(U.mk, 7)), 8)
+
+  @cytest.hardreset
+  def test_import_mapped_before_a_failed_load(self):
+    # The swap maps the object of the import before it loads the object of
+    # the importer.  When that load fails (the object is cut short here
+    # after the child wrote it), the importer stays interpreted and the
+    # import runs compiled all the same: poll refreshes its record whatever
+    # came of the importer.  Before, the record of the import was refreshed
+    # only after a swap of the importer, and a later load of another
+    # importer of the import refused it.
+    types = self.write_module(TYPES_MODULE)
+    user = self.write_module(USER_MODULE % {'types': types})
+    with capture_log('curry.backends.cxx.tiered') as log:
+      U = self.import_module(user)
+      T = curry.import_(types)
+      self.assertTrue(tiered.pending(user))
+      self.assertIsNone(getHandle(T).sofilename)
+      before = tiered.status()
+      # The child ends; its result waits for the poll.
+      self.assertTrue(
+          cyrt.tiered_wait(COMPILE_SECONDS)
+        , 'the background compile did not end in %s s' % COMPILE_SECONDS
+        )
+      self.assertTrue(os.path.isfile(self.sofile(user)))
+      with open(self.sofile(user), 'wb') as stream:
+        stream.write(b'not an object\n')
+      tiered.poll(curry.getInterpreter())
+    after = tiered.status()
+    self.assertEqual(after['failed_modules'], before['failed_modules'] + 1)
+    self.assertEqual(after['swapped_modules'], before['swapped_modules'])
+    self.assertTrue(
+        any('cannot load the object' in line
+            for line in log.data[logging.WARNING])
+      , log.data[logging.WARNING]
+      )
+    self.assertTrue(
+        any('Mapped the object of %s' % types in line
+            for line in log.data[logging.INFO])
+      , log.data[logging.INFO]
+      )
+    self.assertTrue(cyrt.icurry_is_interpreted(U.mk.info))
+    self.assertIsNotNone(getHandle(T).sofilename)
+    self.assertEqual(self.py(U.second, self.value(U.mk, 4)), 5)
+
+  @cytest.hardreset
+  def test_swap_without_the_imports_fails(self):
+    # The control: a job without the objects of its imports fails as every
+    # such swap did before they were mapped, with the message of the
+    # dynamic linker, and the importer stays interpreted.
+    types = self.write_module(TYPES_MODULE)
+    user = self.write_module(USER_MODULE % {'types': types})
+    with mock.patch.object(tiered, '_import_objects', return_value=[]):
+      with capture_log('curry.backends.cxx.tiered') as log:
+        U = self.import_module(user)
+        before = tiered.status()
+        self.wait()
+    after = tiered.status()
+    self.assertEqual(after['failed_modules'], before['failed_modules'] + 1)
+    self.assertEqual(after['swapped_modules'], before['swapped_modules'])
+    self.assertTrue(cyrt.icurry_is_interpreted(U.mk.info))
+    self.assertTrue(
+        any('cannot open shared object file' in line
+            for line in log.data[logging.WARNING])
+      , log.data[logging.WARNING]
+      )
+    self.assertEqual(self.py(U.second, self.value(U.mk, 4)), 5)
+
+  @cytest.hardreset
+  def test_import_compiled_later(self):
+    # The job of the import runs after the job of its importer.  The child
+    # of the importer compiles the import as a dependency, so both objects
+    # are ready when the importer swaps: the swap maps the object of the
+    # import first, and the job of the import then adopts the mapped
+    # object.  The jobs are queued by hand in that order: the loads queue
+    # nothing (tiered_submit is stubbed) and record the modules.
+    first = self.write_module()
+    second = self.write_module(IMPORTER_MODULE % {'first': first})
+    with mock.patch.object(cyrt, 'tiered_submit'):
+      N = self.import_module(second)
+      M = curry.import_(first)
+    tiered.cancel()
+    self.assertFalse(tiered.pending(first))
+    self.assertFalse(tiered.pending(second))
+    self.assertTrue(cyrt.icurry_is_interpreted(N.biggest.info))
+    self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
+    interp = curry.getInterpreter()
+    before = tiered.status()
+    with capture_log('curry.backends.cxx.tiered') as log:
+      self.assertTrue(tiered.submit(interp, N, curry.path))
+      self.assertTrue(tiered.submit(interp, M, curry.path))
+      self.wait()
+    after = tiered.status()
+    self.assertEqual(after['swapped_modules'], before['swapped_modules'] + 2)
+    self.assertEqual(after['failed_modules'], before['failed_modules'])
+    self.assertEqual(log.data[logging.WARNING], [])
+    self.assertTrue(
+        any('Mapped the object of %s' % first in line
+            for line in log.data[logging.INFO])
+      , log.data[logging.INFO]
+      )
+    self.assertFalse(cyrt.icurry_is_interpreted(N.biggest.info))
+    self.assertFalse(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertIsNotNone(getHandle(M).sofilename)
+    self.assertIsNotNone(getHandle(N).sofilename)
+    self.assertEqual(self.py(N.biggest, 4), 20)
+    self.assertEqual(self.py(M.total, 4), 40)

@@ -47,7 +47,8 @@ If the program contains ``import`` statements, then you may need to set
 CURRYPATH in the environment.  This is a colon-delimited list of paths used to
 find Curry code.  The path to Sprite's standard Curry library is always added
 to this, so importing the ``Prelude``, for instance, does not require setting
-CURRYPATH.
+CURRYPATH.  The directory of a program given as a file is searched first, as
+PAKCS searches, so the modules beside the program need no CURRYPATH either.
 
 .. note::
 
