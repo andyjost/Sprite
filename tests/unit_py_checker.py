@@ -131,7 +131,7 @@ oneCaptured = let x = A ? B in
   let vs = sortValues (set2 pickOne A (constT x)) in (length vs, x)
 '''
 
-# The program of the known false alarm of both checkers (see
+# The program of the false alarm of both checkers fixed on 2026-10-09 (see
 # TestSharedArgument): a boxed argument whose evaluation outside the box,
 # after the capsule started, creates a choice.
 SHARED_ARGUMENT = '''
@@ -153,7 +153,46 @@ lazyThenOutside2 :: (Int, T, [Int])
 lazyThenOutside2 = let a = g2 (length [()]) in
   let vs = valuesOf (set1 f2 a) in
   (head vs, fromJust' a, vs)
+
+h2 :: Maybe T -> Int
+h2 x = case x of Just y -> case y of { A -> 10; B -> 20 }
+
+twoCapsulesChoice2 :: (Int, Int, T, [Int], [Int])
+twoCapsulesChoice2 = let a = g2 (length [()]) in
+  let vs = valuesOf (set1 f2 a) in
+  let ws = valuesOf (set1 f2 a) in
+  (head vs, head ws, fromJust' a, vs, ws)
+
+capturedThenShared2 :: (Int, T, [Int], [Int])
+capturedThenShared2 = let a = g2 (length [()]) in
+  let vs = valuesOf (set1 f2 a) in
+  let ws = valuesOf (set1 h2 a) in
+  (head vs, fromJust' a, vs, ws)
 '''
+
+# The shape of lazyThenOutside2 with a step that builds more cells than the
+# budget of one propagation walk (1024): the step of gBig at the flagged
+# argument builds about 2300 cells.  The walk flags the cells near the
+# result and runs out before the first element, so the choice e 1 creates
+# outside the box carries no tag.  The sets of the flags become unbounded
+# at that point, so the pull-tab across the box is not reported.
+BIG_STEP = '''
+import Control.SetFunctions
+
+e :: Int -> Int
+e i = i ? (i + 1)
+
+gBig :: Int -> [Int]
+gBig n = case n of { 1 -> [%s]; _ -> [] }
+
+fFirst :: [Int] -> Int
+fFirst x = 0 ? (x !! 0)
+
+bigThenOutside :: (Int, Int, [Int])
+bigThenOutside = let a = gBig (length [()]) in
+  let vs = valuesOf (set1 fFirst a) in
+  (head vs, a !! 0, vs)
+''' % ', '.join('e (%s)' % ('(' * 10 + str(i) + ' + 0)' * 10) for i in range(1, 101))
 
 
 @unittest.skipIf(not PY, 'the checker drives the Python backend')
@@ -793,50 +832,64 @@ class TestForwardChain(cytest.TestCase):
 
 class TestSharedArgument(cytest.TestCase):
   '''
-  The known false alarm of both checkers (2026-10-09, found in the review
-  of the C++ mirror): the step propagation of the flags is a no-op (the
-  walk starts at the redex, which carries the flags, and stops there), so
-  a `?` cell that a step makes at a flagged redex inherits no flag, and the
-  choice it creates is not argument-derived for the box above the
+  The false alarm of both checkers found in the review of the C++ mirror
+  (2026-10-09) and fixed the same day: the step propagation of the flags
+  started at the redex, which carries the flags, and stopped there, so a
+  `?` cell that a step made at a flagged redex inherited no flag, and the
+  choice it created was not argument-derived for the box above the
   argument.  The capsule of lazyThenOutside2 yields 0 without demanding
   the argument; the enclosing configuration steps g2 at the flagged cell
   and then `?`; the second alternative of the capsule pulls the choice
-  across the box, and the checker reports S0 (E in A).  The values without
-  the flag, (0, A, [0, 1]) and (0, B, [0, 2]), are those of weakly
-  encapsulated search.  The fix the TODO entry of the C++ mirror proposes
-  starts the propagation at the successors of the result cell, on both
-  backends.
+  across the box, and the checker reported S0 (E in A).  The propagation
+  starts at the successors of the result cell now, on both backends.  The
+  values, (0, A, [0, 1]) and (0, B, [0, 2]), are those of weakly
+  encapsulated search, with the flag off and under the checker.
   '''
+  VALUES = {
+      'lazyThenOutside2': ['(0, A, [0, 1])', '(0, B, [0, 2])']
+    , 'twoCapsulesChoice2': ['(0, 0, A, [0, 1], [0, 1])', '(0, 0, B, [0, 2], [0, 2])']
+    , 'capturedThenShared2': ['(0, A, [0, 1], [10])', '(0, B, [0, 2], [20])']
+    }
+  BIG_VALUES = ['(0, 1, [0, 1])', '(0, 2, [0, 2])']
+
+  def check_values(self, M):
+    for name, values in self.VALUES.items():
+      self.assertEqual(_values(M, name), values, name)
+
   def test_values(self):
     M = curry.compile(SHARED_ARGUMENT, modulename='CheckerSharedArgument')
-    self.assertEqual(
-        _values(M, 'lazyThenOutside2'), ['(0, A, [0, 1])', '(0, B, [0, 2])']
-      )
+    self.check_values(M)
+
+  def test_big_step_values(self):
+    M = curry.compile(BIG_STEP, modulename='CheckerBigStep')
+    self.assertEqual(_values(M, 'bigThenOutside'), self.BIG_VALUES)
 
   @unittest.skipIf(not PY, 'the checker drives the Python backend')
-  @unittest.expectedFailure
   def test_under_the_checker(self):
+    '''No report and the same values on the three shapes.'''
     curry.reload({'backend': 'py', 'checker': True})
     try:
       M = curry.compile(SHARED_ARGUMENT, modulename='CheckerSharedArgumentChecked')
-      _values(M, 'lazyThenOutside2')
+      self.check_values(M)
     finally:
       curry.reload({'backend': 'py', 'checker': False})
 
   @unittest.skipIf(not PY, 'the checker drives the Python backend')
-  def test_report(self):
-    '''The report names the invariant, the event and the set.'''
+  def test_big_step_under_the_checker(self):
+    '''A step over the budget of the walk: the walk is counted, the sets
+    of the flags become unbounded, and the pull-tab across the box is not
+    reported.  The values are those of the flag-off run.'''
     curry.reload({'backend': 'py', 'checker': True})
     try:
-      M = curry.compile(SHARED_ARGUMENT, modulename='CheckerSharedArgumentReport')
-      with self.assertRaisesRegex(
-          _checker().InvariantViolation
-        , r'S0 \(E in A\) violated at escape-set insertion: identifier \d+ '
-          r'enters the escape set of set \d+ but is not argument-derived'
-        ):
-        _values(M, 'lazyThenOutside2')
+      M = curry.compile(BIG_STEP, modulename='CheckerBigStepChecked')
+      rts = _state(curry.raw_expr(M.bigThenOutside))
+      values = sorted(str(v) for v in rts.generate_values())
+      counts = rts.checker.counts
     finally:
       curry.reload({'backend': 'py', 'checker': False})
+    self.assertEqual(values, self.BIG_VALUES)
+    self.assertGreaterEqual(counts['propagate_over_budget'], 1)
+    self.assertNotIn('violations', counts)
 
 
 if __name__ == '__main__':

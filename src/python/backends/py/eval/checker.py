@@ -64,7 +64,8 @@ The events the memo names, and the checks at each:
   from the root of each configuration of the dispatch chain to the redex,
   and the capsules whose arguments reached the redex (the flags of the
   cell, set by the entry walk of the capsule and inherited by the cells a
-  step creates at a flagged redex).  The tags define "argument-derived".
+  step creates at a flagged redex: the walk starts at the successors of
+  the result, under PROPAGATE_BUDGET).  The tags define "argument-derived".
   B2: a replacement by failure comes from an exempt leaf of the
   definitional tree of the operation, or from a built-in.
 
@@ -131,6 +132,13 @@ def _root(config, i):
     if j == i:
       return i
     i = j
+
+def _is_leaf_value(node):
+  '''A constructor or a failure without a successor cell.'''
+  tag = node.info.tag
+  if tag < T_CTOR and tag != T_FAIL:
+    return False
+  return not any(isinstance(s, Node) for s in node.successors)
 
 def _is_node(arg):
   return isinstance(arg, Node)
@@ -1134,14 +1142,25 @@ class Checker(object):
         self.tags[vid] = self.tags.get(vid, frozenset()) | {sid}
       stack.extend(node.successors)
 
-  def _propagate(self, node, flags, stop_at=None, budget=PROPAGATE_BUDGET):
+  def _propagate(self, node, flags, stop_at=None):
     '''The cells reachable from ``node`` that carry no flags yet inherit
-    ``flags``: the cells a step, a pull-tab or a copy created at a flagged
-    site.  The walk stops at a flagged cell and at ``stop_at``.'''
-    stack = [node]
+    ``flags``: the cells a pull-tab, a copy or a generator created at a
+    flagged site.  The walk stops at a flagged cell and at ``stop_at``.'''
+    self._propagate_all([node], flags, stop_at)
+
+  def _propagate_all(self, seeds, flags, stop_at=None):
+    '''The walk of _propagate from every cell of ``seeds``, under one
+    budget: the cells a step made (see step).  A walk over the budget
+    leaves cells without the flags, so the sets of ``flags`` become
+    unbounded: their checks of S0 are suppressed, not reported, as after
+    an entry walk over its budget.  A leaf value (a constructor or a
+    failure without a successor cell) is not flagged: it never steps and
+    holds no cell.'''
+    budget = PROPAGATE_BUDGET
+    stack = list(seeds)
     while stack:
       n = stack.pop()
-      if not isinstance(n, Node) or n is stop_at:
+      if not isinstance(n, Node) or n is stop_at or _is_leaf_value(n):
         continue
       key = id(n)
       entry = self.flags.get(key)
@@ -1152,6 +1171,7 @@ class Checker(object):
         continue
       budget -= 1
       if budget < 0:
+        self.unbounded_sets.update(flags)
         self.counts['propagate_over_budget'] += 1
         return
       self.flags[key] = (n, flags)
@@ -1183,7 +1203,12 @@ class Checker(object):
           tags |= flagged[1]
         self.tags[cid] = tags | self.tags.get(cid, frozenset())
     if flagged is not None:
-      self._propagate(node, flagged[1])
+      # The cells the step made inherit the flags of the redex: the cells
+      # under the result.  The redex carries the flags already, so a walk
+      # that started there stopped at once, and a cell made under it (the
+      # `?` of Just (A ? B)) inherited nothing: the false report of S0
+      # (E in A) at the pull-tab across the box (2026-10-09).
+      self._propagate_all(node.successors, flagged[1])
     if tag == T_FAIL:
       tree = self._tree(info)
       if tree is not None:

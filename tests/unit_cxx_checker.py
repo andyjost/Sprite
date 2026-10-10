@@ -145,15 +145,16 @@ oneCaptured = let x = A ? B in
   let vs = sortValues (set2 pickOne A (constT x)) in (length vs, x)
 '''
 
-# The program of the known false alarm of both checkers: a boxed argument
-# whose evaluation outside the box, after the capsule started, creates a
-# choice.  The capsule yields 0 without demanding the argument; the
-# enclosing configuration steps g2 at the flagged cell and then `?`, whose
-# choice cell inherits no flag (the step propagation of the flags starts at
-# the redex and stops there); the second alternative of the capsule pulls
-# the choice across the box, and the checker reports S0 (E in A).  The
-# runtime gives the values of weakly encapsulated search.  g2 cases on an
-# argument computed at run time, so the front end does not inline it.
+# The program of the false alarm of both checkers fixed on 2026-10-09 (see
+# TestSharedArgument): a boxed argument whose evaluation outside the box,
+# after the capsule started, creates a choice.  The capsule yields 0 without
+# demanding the argument; the enclosing configuration steps g2 at the
+# flagged cell and then `?`.  The `?` cell is made under the result of the
+# step of g2, so it inherits the flags of the redex, and the choice it
+# creates is argument-derived for the box; the second alternative of the
+# capsule pulls the choice across the box.  The runtime gives the values of
+# weakly encapsulated search.  g2 cases on an argument computed at run
+# time, so the front end does not inline it.
 SHARED_ARGUMENT = '''
 import Control.SetFunctions
 
@@ -173,7 +174,46 @@ lazyThenOutside2 :: (Int, T, [Int])
 lazyThenOutside2 = let a = g2 (length [()]) in
   let vs = valuesOf (set1 f2 a) in
   (head vs, fromJust' a, vs)
+
+h2 :: Maybe T -> Int
+h2 x = case x of Just y -> case y of { A -> 10; B -> 20 }
+
+twoCapsulesChoice2 :: (Int, Int, T, [Int], [Int])
+twoCapsulesChoice2 = let a = g2 (length [()]) in
+  let vs = valuesOf (set1 f2 a) in
+  let ws = valuesOf (set1 f2 a) in
+  (head vs, head ws, fromJust' a, vs, ws)
+
+capturedThenShared2 :: (Int, T, [Int], [Int])
+capturedThenShared2 = let a = g2 (length [()]) in
+  let vs = valuesOf (set1 f2 a) in
+  let ws = valuesOf (set1 h2 a) in
+  (head vs, fromJust' a, vs, ws)
 '''
+
+# The shape of lazyThenOutside2 with a step that builds more cells than the
+# budget of one propagation walk (1024): the step of gBig at the flagged
+# argument builds about 2300 cells.  The walk flags the cells near the
+# result and runs out before the first element, so the choice e 1 creates
+# outside the box carries no tag.  The sets of the flags become unbounded
+# at that point, so the pull-tab across the box is not reported.
+BIG_STEP = '''
+import Control.SetFunctions
+
+e :: Int -> Int
+e i = i ? (i + 1)
+
+gBig :: Int -> [Int]
+gBig n = case n of { 1 -> [%s]; _ -> [] }
+
+fFirst :: [Int] -> Int
+fFirst x = 0 ? (x !! 0)
+
+bigThenOutside :: (Int, Int, [Int])
+bigThenOutside = let a = gBig (length [()]) in
+  let vs = valuesOf (set1 fFirst a) in
+  (head vs, a !! 0, vs)
+''' % ', '.join('e (%s)' % ('(' * 10 + str(i) + ' + 0)' * 10) for i in range(1, 101))
 
 
 @unittest.skipIf(not CXX, 'the checker of the C++ runtime')
@@ -1005,47 +1045,61 @@ data T3 = P | Q | R
 
 class TestSharedArgument(cytest.TestCase):
   '''
-  The known false alarm of both checkers (2026-10-09, found in the review
-  of the C++ mirror): the step propagation of the flags is a no-op on both
-  backends (the walk starts at the redex, which carries the flags, and
-  stops there), so a `?` cell that a step makes at a flagged redex inherits
-  no flag, and the choice it creates is not argument-derived for the box
-  above the argument.  lazyThenOutside2 gives (0, A, [0, 1]) and
-  (0, B, [0, 2]) without the flag, the values of weakly encapsulated
-  search, and the checker reports S0 (E in A) at the pull-tab across the
-  box.  The fix the TODO entry proposes starts the propagation at the
-  successors of the result cell.
+  The false alarm of both checkers found in the review of the C++ mirror
+  (2026-10-09) and fixed the same day: the step propagation of the flags
+  started at the redex, which carries the flags, and stopped there, so a
+  `?` cell that a step made at a flagged redex inherited no flag, and the
+  choice it created was not argument-derived for the box above the
+  argument; the checker reported S0 (E in A) at the pull-tab across the
+  box.  The propagation starts at the successors of the result cell now.
+  lazyThenOutside2 gives (0, A, [0, 1]) and (0, B, [0, 2]), the values of
+  weakly encapsulated search, with the flag off and under the checker.
   '''
+  VALUES = {
+      'lazyThenOutside2': ['(0, A, [0, 1])', '(0, B, [0, 2])']
+    , 'twoCapsulesChoice2': ['(0, 0, A, [0, 1], [0, 1])', '(0, 0, B, [0, 2], [0, 2])']
+    , 'capturedThenShared2': ['(0, A, [0, 1], [10])', '(0, B, [0, 2], [20])']
+    }
+  BIG_VALUES = ['(0, 1, [0, 1])', '(0, 2, [0, 2])']
+
+  def check_values(self, M):
+    for name, values in self.VALUES.items():
+      self.assertEqual(_values(M, name), values, name)
+
   def test_values(self):
     M = curry.compile(SHARED_ARGUMENT, modulename='CxxCheckerSharedArgument')
-    self.assertEqual(
-        _values(M, 'lazyThenOutside2'), ['(0, A, [0, 1])', '(0, B, [0, 2])']
-      )
+    self.check_values(M)
+
+  def test_big_step_values(self):
+    M = curry.compile(BIG_STEP, modulename='CxxCheckerBigStep')
+    self.assertEqual(_values(M, 'bigThenOutside'), self.BIG_VALUES)
 
   @unittest.skipIf(not CXX, 'the checker of the C++ runtime')
-  @unittest.expectedFailure
   def test_under_the_checker(self):
+    '''No report and the same values on the three shapes.'''
     curry.reload({'backend': 'cxx', 'checker': True})
     try:
       M = curry.compile(SHARED_ARGUMENT, modulename='CxxCheckerSharedArgumentChecked')
-      _values(M, 'lazyThenOutside2')
+      self.check_values(M)
     finally:
       curry.reload({'backend': 'cxx', 'checker': False})
 
   @unittest.skipIf(not CXX, 'the checker of the C++ runtime')
-  def test_report(self):
-    '''The report names the invariant, the event and the set.'''
+  def test_big_step_under_the_checker(self):
+    '''A step over the budget of the walk: the walk is counted, the sets
+    of the flags become unbounded, and the pull-tab across the box is not
+    reported.  The values are those of the flag-off run.'''
     curry.reload({'backend': 'cxx', 'checker': True})
     try:
-      M = curry.compile(SHARED_ARGUMENT, modulename='CxxCheckerSharedArgumentReport')
-      with self.assertRaisesRegex(
-          _cb().InvariantViolation
-        , r'S0 \(E in A\) violated at escape-set insertion: identifier \d+ '
-          r'enters the escape set of set #\d+ but is not argument-derived'
-        ):
-        _values(M, 'lazyThenOutside2')
+      M = curry.compile(BIG_STEP, modulename='CxxCheckerBigStepChecked')
+      rts = _state(_node(M.bigThenOutside))
+      values = sorted(str(v) for v in rts.generate_values())
+      counts = _cb().checker_counts(rts)
     finally:
       curry.reload({'backend': 'cxx', 'checker': False})
+    self.assertEqual(values, self.BIG_VALUES)
+    self.assertGreaterEqual(counts['propagate_over_budget'], 1)
+    self.assertNotIn('violations', counts)
 
 
 if __name__ == '__main__':
