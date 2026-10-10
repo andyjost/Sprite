@@ -168,21 +168,26 @@ The checker mode
 
 The interpreter flag ``checker`` (off by default) turns on the checker of
 the run-time invariants of the Fair Scheme, the checker mode of section 6.5
-of the memo on the Fair Scheme proofs.  The runtime state of the reference
-backend holds one ``Checker`` (``curry.backends.py.eval.checker``) while
-the flag is on, and ``None`` otherwise: every hook in the runtime is one
-test of that attribute, so the flag-off path costs one attribute test per
-event and makes the same steps, values and counters as before, and the
-checker changes no step, no value and no counter when it is on; it costs
-time, and memory, since it keeps every flagged cell alive for the life of
-the runtime state.  A violation raises ``InvariantViolation``, an
-``AssertionError`` whose message names the invariant, the event, the
-configuration (its queue, its set, its fingerprint, its groups, its root),
-the identifiers and the goal position.  The C++ backend accepts the flag
-and ignores it; its mirror is a later lane.  To run a program under the
-checker::
+of the memo on the Fair Scheme proofs.  Both backends have one.  The
+runtime state of the reference backend holds one ``Checker``
+(``curry.backends.py.eval.checker``) while the flag is on, and ``None``
+otherwise; the runtime state of the C++ backend holds one ``Checker`` of
+``src/cyrt/checker.hpp`` (``RuntimeState::checker``, a pointer that is null
+otherwise).  Every hook in a runtime is one test of that attribute or
+pointer, so the flag-off path costs one test per event and makes the same
+steps, values and counters as before, and the checker changes no step, no
+value and no counter when it is on; it costs time, and memory, since it
+keeps every flagged cell alive for the life of the runtime state.  A
+violation raises ``InvariantViolation``, an ``AssertionError`` whose
+message names the invariant, the event, the configuration (its queue, its
+set, its fingerprint, its groups, its root), the identifiers and the goal
+position; on the C++ backend the class is
+``curry.backends.cxx.cyrtbindings.InvariantViolation``, raised from the
+hook through the scheduler as the step limit is.  To run a program under
+the checker::
 
    SPRITE_DEBUG=1 SPRITE_INTERPRETER_FLAGS=backend:py,checker:true sprite-exec prog.curry
+   SPRITE_DEBUG=1 SPRITE_INTERPRETER_FLAGS=backend:cxx,checker:true sprite-exec prog.curry
 
 ``sprite-exec`` prints an ``AssertionError`` as "an internal error
 occurred" unless ``SPRITE_DEBUG=1`` is set, so the report of a violation
@@ -267,6 +272,144 @@ from the tags of an identifier (the boxes above its creation site and the
 flags of the capsule's arguments), which over-approximate the escape sets:
 the checks of the current capsule read the tags, the checks of the
 enclosing capsules read the escape sets, as def:s-escapes does.
+
+The checker of the C++ runtime (``src/cyrt/checker.hpp``,
+``src/cyrt/checker.cpp``) mirrors the Python checker hook by hook and check
+by check.  Its header is outside the include closure of ``cyrt/cyrt.hpp``:
+the generated code never sees it, and the hooks reach the checker through
+the pointer of the runtime state.  The hooks sit at the same events: the
+fork (``rts_fingerprint.cpp``, after the clones went into the queue and
+before the parent leaves it), the escape (``allValues_step`` of
+``currylib/setfunctions.cpp``, around ``Queue::split``), the pull-tab
+(``RuntimeState::pull_tab``, before the copies of the spine and after the
+choice over them), the yield (``release_value``), the fresh variable
+(``freshvar``), the generator (``_make_generator`` and
+``clone_generator``), the value bindings and the private copies of rule N.x
+(``replace_freevar``), the write of a generator into a slot (rule S.x:
+``instantiate``, and the slot write of an existing generator in
+``replace_freevar``), the step (``procS``, before and after the step
+function) and the inductive position (``hnf``, at entry), and the entry of
+a capsule (``evalS_step``).  The checker reads the state without changing
+it: the union-find without path compression, the fingerprints without the
+growth of ``check_alloc`` (it enumerates the used bits of the blocks of
+the tree), the bindings without the absorption of ``get_binding``.  It
+keeps alive, as roots of the collector, every cell it flags and one box of
+every capsule it enters, so that the addresses in its tables stay those of
+the objects they name (the table of the generators compares addresses
+alone and roots nothing); under the MPS collector it also clamps the arena
+for the life of the runtime state.  The checks of B1 at a fork cost the
+same along a long chain of narrowings, where the Python checker reads
+every entry of the fingerprint: the group invariant is read over the ids
+the union-find united, the dispatch chain only inside a capsule, and rule
+D.2 from a diff of the clone's fingerprint tree against its parent's that
+skips the blocks the two share.  The group check rests on an invariant of
+``UnionFind``: ``unite`` is the only writer of its data and appends both
+ids to the list ``united``, so every member of a group of two or more is
+in the list (the collector reads it for the same reason).  A writer that
+bypassed ``unite`` would silence the check; ``test_group_invariant_at_fork``
+reads the list.  The comparison of the reducts at a write
+of rule S.x is skipped for a lone configuration (one queue of one
+configuration, no capsule entered), which alone references the redex.  A
+private copy of rule N.x whose slot is not a level of the scan is reported
+as a violation of X-b' (``copy_spine`` copies the levels of the scan from
+the slot down, so such a slot is a defect of the copy, not a case the check
+can skip); no program of the suite reaches it.
+
+Where the two checkers differ:
+
+* B2 is checked for the operations the ICurry interpreter of the runtime
+  runs: the definitional tree is rebuilt from the bytecode of the
+  operation (``BIND_ROOT`` and ``BIND_VAR`` give a variable its position,
+  ``COPY_VAR`` an alias, ``STORE_VAR`` a value that is not a position,
+  ``CASE_CONS`` and ``CASE_LIT`` the cases) at its first use and kept, so
+  an operation the tiered mode swaps to compiled code afterwards keeps its
+  tree.  A compiled operation has no bytecode and no tree: under
+  ``interpret:off``, and under ``tiered`` for a module loaded from its
+  object, the ``hnf`` calls of the generated step functions are counted as
+  untracked (``hnf_untracked``), not checked.  A compiled check would need
+  the tree from another source: the bytecode kept beside the compiled step
+  (the swap clears ``aux`` today), the ICurry of the module handed down
+  from the Python side when the flag is on, or a tree table the emitter
+  writes into the object.  Under ``interpret:all`` every operation with an
+  ICurry body is checked.  The measure, on the 165 known-good goals of the
+  test file (one runtime state per goal, ``steps:65536``): under the tiered
+  default after the prepare pass of the runner, 411 of 66545 ``hnf`` calls
+  are checked (0.6%; the rest are compiled steps and built-ins), under
+  ``interpret:all`` 22254 of 66538 (33.4%; the rest are the built-ins of
+  ``currylib``, which have no tree on either backend).  A run that checks
+  B2 on the C++ backend therefore uses
+  ``backend:cxx,checker:true,interpret:all``; the tiered pair exercises
+  the compiled steps under the other invariants.
+* A replacement by failure has three sources in the C++ runtime, where the
+  Python backend has one.  An exempt leaf is one.  A failure at an
+  inductive position is a completed step here (``hnf`` forwards the redex
+  to the failure and the step returns; the Python backend unwinds, and its
+  check never sees the step), and the check accepts it (B2 c names it).
+  A return of a reference (``RET_REF``) forwards the redex to the node the
+  reference denotes, which may be a failure; the tree tells such a leaf
+  from the return of a built node, and the check accepts it (the Python
+  backend writes a forward node there, which its check never sees).
+* The write of rule S.x is a write into the slot of the variable
+  (``*slot = genexpr``), not a copy of the spine, so the check is the
+  memo's X-b (Inst-slot): the reduct of every configuration that references
+  the redex is read before the write and compared after it, and no flags
+  propagate (no cell is made).  The slot write of a generator that exists
+  already (the ``has_generator`` branch of ``replace_freevar``, unhooked in
+  the Python backend) is checked the same way (``slot_writes`` in the
+  counts).  The reduct of a configuration with a binding of the variable
+  reads the generator choice of the variable as the binding, as it reads
+  the variable itself: the fork applies the binding to the generator.
+* The configurations whose reducts are compared are those of the queues of
+  the dispatch chain and of the capsules their graphs reach (the SetEval
+  nodes the walk meets), not every queue the collector registers: the
+  registry also holds the queues of other evaluations and of unloaded
+  interpreters, whose nodes this evaluation must not read.  A capsule
+  reachable from a yielded value alone is not read.
+* The reduct of a variable without a generator of its own, decided through
+  its group, is the generator of the representative of the group: that is
+  the node the runtime puts into the copy of rule N.x (``get_generator``
+  reads it by the group id), where the Python backend clones a generator
+  for the variable first.
+* The private copies that a set function makes for a configuration
+  (``evalS_step``, the clone of a capsule) are not checked on either
+  backend; the ``escape_all`` flag the Python checker reads is never set
+  by the C++ runtime.
+
+One defect is shared by the two checkers, found in the review of the C++
+mirror.  The step propagation of the flags is a no-op on both backends:
+the walk starts at the redex, which carries the flags, and stops there, so
+a cell a step makes at a flagged redex inherits nothing (the pull-tabs,
+the copies and the generators propagate).  The consequence: a boxed
+argument whose evaluation outside the box, after the capsule started,
+creates a choice gets a false report of S0 (E in A) at the pull-tab across
+the box, on both backends.  The program (``lazyThenOutside2`` of the test
+files)::
+
+   g2 n = case n of { 1 -> Just (A ? B); _ -> Nothing }
+   f2 x = 0 ? (case x of Just y -> case y of { A -> 1; B -> 2 })
+   lazyThenOutside2 = let a = g2 (length [()]) in
+     let vs = valuesOf (set1 f2 a) in (head vs, fromJust' a, vs)
+
+The capsule yields 0 without demanding ``a``; the enclosing configuration
+steps ``g2`` at the flagged cell, then ``?``, whose choice carries the tags
+of the boxes above it and the flags of the ``?`` cell, which are none; the
+second alternative of the capsule pulls the choice across the box.  The
+runtime gives ``(0, A, [0, 1])`` and ``(0, B, [0, 2])``, the values of
+weakly encapsulated search.  ``TestSharedArgument`` of both test files
+pins the report as a known failure.  The fix is the owner's call, since it
+changes what "argument-derived" reads: start the propagation of a step at
+the successors of the result cell, under the budget of the walk, on both
+backends.  Tried on the C++ checker, it removed the report on the three
+shapes of the review and reported nothing on the 165 known-good goals.
+
+``tests/unit_cxx_checker.py`` runs the known-good programs under the
+checker, compiled and under ``interpret:all``, with the values and the
+counters they have without it, and provokes one violation per check
+through the debug entry points of the bindings
+(``cyrtbindings.checker_debug_*``), which corrupt one configuration of a
+runtime state on purpose or run one check on constructed nodes; the
+entries refuse while the flag is off.  ``cyrtbindings.checker_counts``
+gives the counts of the events a state saw.
 
 The removal gate
 ----------------

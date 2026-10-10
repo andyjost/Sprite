@@ -1,4 +1,5 @@
 #include "cyrt/builtins.hpp"
+#include "cyrt/checker.hpp"
 #include "cyrt/exceptions.hpp"
 #include "cyrt/graph/indexing.hpp"
 #include "cyrt/inspect.hpp"
@@ -253,7 +254,13 @@ namespace cyrt
     Node * const redex = C->cursor().arg->node;
     assert(!is_pinned(*redex->info));
     #endif
+    // The checker records the redex before the step and checks the
+    // completed step after it (cyrt/checker.hpp).
+    if(this->checker)
+      this->checker->step_begin(C);
     auto status = C->cursor()->info->step(this, C);
+    if(this->checker)
+      this->checker->step_end(C, status);
     // A step writes its result into its redex.  The counter of writes into
     // old nodes (gc/wdgc.cpp) runs on every return: an interrupted step may
     // have written too (writeFile advances its string in place before the
@@ -298,6 +305,10 @@ namespace cyrt
     )
   {
     Cursor _0 = C->cursor();
+    // The checker tests the inductive position against the definitional
+    // tree of the operation (B2; cyrt/checker.hpp).
+    if(this->checker)
+      this->checker->hnf(C, inductive);
     // A choice at the inductive position of a monadic step is an error: an
     // I/O action cannot fork.  The Python backend raises NondetMonadError
     // there.  The flag covers a strict application of a monadic function,

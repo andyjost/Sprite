@@ -1,3 +1,4 @@
+#include "cyrt/checker.hpp"
 #include "cyrt/graph/memory.hpp"
 #include "cyrt/state/rts.hpp"
 #include "cyrt/trace.hpp"
@@ -39,6 +40,7 @@ namespace cyrt
       InterpreterState & istate, Node * goal, bool trace
     , SetFStrategy setfunction_strategy, SetFFailures setfunction_failures
     , size_t stack_limit, size_t rotation_steps, uint64_t rotation_quantum_ns
+    , bool checker
     )
     : istate(istate), rotation_steps(rotation_steps)
     , rotation_next(rotation_steps), rotation_quantum_ns(rotation_quantum_ns)
@@ -54,6 +56,10 @@ namespace cyrt
           "the rotation in time mode needs a quantum above zero nanoseconds"
         );
     this->push_queue(this->root_queue.get(), NOTRACE);
+    // The checker of the run-time invariants (the flag ``checker``).  See
+    // cyrt/checker.hpp.
+    if(checker)
+      this->checker = new Checker(*this);
     this->set_goal(goal);
 		#ifdef SPRITE_TRACE_ENABLED
 		if(trace)
@@ -70,6 +76,7 @@ namespace cyrt
   // of a set function belongs to its SetEval node; the collector frees it.
   RuntimeState::~RuntimeState()
   {
+    delete this->checker;
     gc_unregister_rts(this);
   }
 

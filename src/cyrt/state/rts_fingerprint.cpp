@@ -1,5 +1,6 @@
 #include <cassert>
 #include "cyrt/builtins.hpp"
+#include "cyrt/checker.hpp"
 #include "cyrt/fingerprint.hpp"
 #include "cyrt/state/rts.hpp"
 #include <utility>
@@ -36,7 +37,10 @@ namespace cyrt
     assert(Q == this->Q());
     ++this->forks_total;
     ChoiceNode * choice = NodeU{C->root}.choice;
-    auto && process_one = [this,Q,C,choice](Node * alt, ChoiceState lr) -> void
+    // The clones the queue took, for the checker (cyrt/checker.hpp).
+    Configuration * clones[2] = {nullptr, nullptr};
+    size_t nclones = 0;
+    auto && process_one = [this,Q,C,choice,&clones,&nclones](Node * alt, ChoiceState lr) -> void
     {
       auto copy = C->clone(alt);
       if(this->update_fp(copy.get(), choice->cid, lr))
@@ -77,11 +81,16 @@ namespace cyrt
           if(!is_consistent((*p)->front()->fingerprint, gid, lr))
             return;
         }
+        clones[nclones++] = copy.get();
         Q->push_back(std::move(copy));
       }
     };
     process_one(choice->lhs, LEFT);
     process_one(choice->rhs, RIGHT);
+    // The checker sees the parent and its clones together, before the
+    // parent leaves the queue.
+    if(this->checker)
+      this->checker->fork(Q, C, clones, nclones);
     // The alternatives are in the queue.  The parent is destroyed.
     SCHEDULER_COUNT_END(C, END_FORK);
     Q->pop_front();
@@ -96,9 +105,16 @@ namespace cyrt
     assert(source != target);
     assert(target->info->tag == T_CHOICE);
     ChoiceNode * choice = NodeU{target}.choice;
+    // The checker reads the path from the scan before the copies are made
+    // and checks the copies and the choice after (cyrt/checker.hpp).
+    if(this->checker)
+      this->checker->pulltab_begin(C, source, target);
     Node * lhs = C->scan.copy_spine(source, choice->lhs, choice->cid);
     Node * rhs = C->scan.copy_spine(source, choice->rhs, choice->cid);
-    return make_node<ChoiceNode>(choice->cid, lhs, rhs);
+    Node * result = make_node<ChoiceNode>(choice->cid, lhs, rhs);
+    if(this->checker)
+      this->checker->pulltab_end(C, source, target, lhs, rhs, result);
+    return result;
   }
 
   Node * RuntimeState::pull_tab(Configuration * C, Variable * inductive)
@@ -106,7 +122,7 @@ namespace cyrt
     assert(inductive->target->info->tag == T_CHOICE);
     Node * source = C->cursor().arg->node;
     C->scan.push(inductive);
-    auto result = RuntimeState::pull_tab(C, source, inductive->target);
+    auto result = this->pull_tab(C, source, inductive->target);
     C->scan.pop();
     return result;
   }

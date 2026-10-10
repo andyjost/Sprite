@@ -1,5 +1,6 @@
 #include <cassert>
 #include "cyrt/builtins.hpp"
+#include "cyrt/checker.hpp"
 #include "cyrt/fwd.hpp"
 #include "cyrt/graph/memory.hpp"
 #include "cyrt/graph/node.hpp"
@@ -119,16 +120,28 @@ namespace cyrt
     xid_type vid = obj_id(C->cursor());
     xid_type gid = C->grp_id(vid);
     size_t level = 0;
+    char const * kind = "binding";
     Node * node = this->get_binding(C, gid, &level);
     if(node && level)
       return this->diverge(level, gid, node);
     if(!node && this->is_narrowed(C, gid))
+    {
       node = this->get_generator(C, gid);
+      kind = "generator";
+    }
     if(!node && vid != gid)
+    {
       node = this->get_freevar(gid);
+      kind = "representative";
+    }
     if(node)
     {
-      *root = C->scan.copy_spine(root, node);
+      Node * copy = C->scan.copy_spine(root, node);
+      // The checker compares the copy with the spine it replaces, which
+      // the slot still holds (cyrt/checker.hpp).
+      if(this->checker)
+        this->checker->copied(C, root, *root, copy, node, kind);
+      *root = copy;
       return E_RESTART;
     }
     else
@@ -143,8 +156,16 @@ namespace cyrt
     assert(slot->info->tag == T_FREE);
     if(has_generator(slot))
     {
+      // The slot write of an existing generator, rule S.x: the checker
+      // reads the reducts of the configurations that reference the redex
+      // before the write and compares them after (cyrt/checker.hpp).
+      Node * genexpr = this->get_generator(C, slot);
+      if(this->checker)
+        this->checker->instantiate_begin(C, inductive, genexpr, "slot write");
       gc_count_slot_write(slot.arg);
-      *slot = this->get_generator(C, slot);
+      *slot = genexpr;
+      if(this->checker)
+        this->checker->instantiate_end(C, inductive, "slot write");
       assert(slot->info->tag == T_CHOICE);
       return T_CHOICE;
     }
@@ -155,7 +176,10 @@ namespace cyrt
       if(level)
         return this->diverge(level, gid, binding);
       C->scan.push(inductive);
-      *C->root = C->scan.copy_spine(C->root, binding);
+      Node * copy = C->scan.copy_spine(C->root, binding);
+      if(this->checker)
+        this->checker->copied(C, C->root, *C->root, copy, binding, "binding");
+      *C->root = copy;
       C->scan.pop();
       return E_RESTART;
     }
@@ -165,6 +189,8 @@ namespace cyrt
       if(values->size)
       {
         Node * bindings = this->make_value_bindings(slot, values);
+        if(this->checker)
+          this->checker->value_bindings(slot, bindings);
         gc_count_slot_write(slot.arg);
         *slot = bindings;
         return slot->info->tag;
@@ -187,6 +213,8 @@ namespace cyrt
     xid_type vid = this->istate.xidfactory++;
     Node * x = free(vid);
     this->istate.vtable.emplace(vid, x);
+    if(this->checker)
+      this->checker->variable(x);
     return x;
   }
 
@@ -255,6 +283,8 @@ namespace cyrt
     Node * cloned = choice(vid, lhs, rhs);
     gc_count_write(unbound);
     NodeU{unbound}.free->genexpr = cloned;
+    if(this->checker)
+      this->checker->generator(unbound, cloned);
   }
 
   struct GeneratorMaker
@@ -301,6 +331,8 @@ namespace cyrt
       Node * genexpr = maker.make(values, obj_id(freevar));
       gc_count_write(freevar);
       NodeU{freevar}.free->genexpr = genexpr;
+      if(rts->checker)
+        rts->checker->generator(freevar, genexpr);
     }
     return NodeU{freevar}.free->genexpr;
   }
@@ -320,8 +352,13 @@ namespace cyrt
     else
     {
       Node * genexpr = _make_generator(this, inductive->target, values);
+      // The slot write of rule S.x (see replace_freevar).
+      if(this->checker)
+        this->checker->instantiate_begin(C, inductive, genexpr, "instantiation");
       gc_count_slot_write(inductive->target.arg);
       *inductive->target = genexpr;
+      if(this->checker)
+        this->checker->instantiate_end(C, inductive, "instantiation");
       assert(genexpr->info->tag == T_CHOICE);
       return T_CHOICE;
     }

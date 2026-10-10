@@ -127,6 +127,30 @@ oneCaptured = let x = A ? B in
   let vs = sortValues (set2 pickOne A (constT x)) in (length vs, x)
 '''
 
+# The program of the known false alarm of both checkers (see
+# TestSharedArgument): a boxed argument whose evaluation outside the box,
+# after the capsule started, creates a choice.
+SHARED_ARGUMENT = '''
+import Control.SetFunctions
+
+data T = A | B
+  deriving (Eq, Ord, Show)
+
+g2 :: Int -> Maybe T
+g2 n = case n of { 1 -> Just (A ? B); _ -> Nothing }
+
+fromJust' :: Maybe T -> T
+fromJust' (Just y) = y
+
+f2 :: Maybe T -> Int
+f2 x = 0 ? (case x of Just y -> case y of { A -> 1; B -> 2 })
+
+lazyThenOutside2 :: (Int, T, [Int])
+lazyThenOutside2 = let a = g2 (length [()]) in
+  let vs = valuesOf (set1 f2 a) in
+  (head vs, fromJust' a, vs)
+'''
+
 
 @unittest.skipIf(not PY, 'the checker drives the Python backend')
 class CheckerTestCase(cytest.TestCase):
@@ -664,6 +688,54 @@ class TestDroppedBox(cytest.TestCase):
         , r'B1 \(pull-tab\) violated at pull-tab: the source is not at the path'
         ):
         _values(M, 'oneCaptured')
+    finally:
+      curry.reload({'backend': 'py', 'checker': False})
+
+
+class TestSharedArgument(cytest.TestCase):
+  '''
+  The known false alarm of both checkers (2026-10-09, found in the review
+  of the C++ mirror): the step propagation of the flags is a no-op (the
+  walk starts at the redex, which carries the flags, and stops there), so
+  a `?` cell that a step makes at a flagged redex inherits no flag, and the
+  choice it creates is not argument-derived for the box above the
+  argument.  The capsule of lazyThenOutside2 yields 0 without demanding
+  the argument; the enclosing configuration steps g2 at the flagged cell
+  and then `?`; the second alternative of the capsule pulls the choice
+  across the box, and the checker reports S0 (E in A).  The values without
+  the flag, (0, A, [0, 1]) and (0, B, [0, 2]), are those of weakly
+  encapsulated search.  The fix the TODO entry of the C++ mirror proposes
+  starts the propagation at the successors of the result cell, on both
+  backends.
+  '''
+  def test_values(self):
+    M = curry.compile(SHARED_ARGUMENT, modulename='CheckerSharedArgument')
+    self.assertEqual(
+        _values(M, 'lazyThenOutside2'), ['(0, A, [0, 1])', '(0, B, [0, 2])']
+      )
+
+  @unittest.skipIf(not PY, 'the checker drives the Python backend')
+  @unittest.expectedFailure
+  def test_under_the_checker(self):
+    curry.reload({'backend': 'py', 'checker': True})
+    try:
+      M = curry.compile(SHARED_ARGUMENT, modulename='CheckerSharedArgumentChecked')
+      _values(M, 'lazyThenOutside2')
+    finally:
+      curry.reload({'backend': 'py', 'checker': False})
+
+  @unittest.skipIf(not PY, 'the checker drives the Python backend')
+  def test_report(self):
+    '''The report names the invariant, the event and the set.'''
+    curry.reload({'backend': 'py', 'checker': True})
+    try:
+      M = curry.compile(SHARED_ARGUMENT, modulename='CheckerSharedArgumentReport')
+      with self.assertRaisesRegex(
+          _checker().InvariantViolation
+        , r'S0 \(E in A\) violated at escape-set insertion: identifier \d+ '
+          r'enters the escape set of set \d+ but is not argument-derived'
+        ):
+        _values(M, 'lazyThenOutside2')
     finally:
       curry.reload({'backend': 'py', 'checker': False})
 

@@ -9,6 +9,7 @@
 
 namespace cyrt
 {
+  struct Checker;
   struct Configuration;
   struct Cursor;
   struct DataType;

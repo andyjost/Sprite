@@ -718,9 +718,17 @@ namespace cyrt { namespace python
         "(make COUNTERS=1).");
 
     py::class_<RuntimeState>(mod, "RuntimeStateBase")
-      // The last two arguments are the rotation cadence: the completed steps
-      // between two rotation checks (0 selects time mode) and the quantum
-      // of time mode in nanoseconds.  See cyrt/ticker.hpp.
+      // The sixth and seventh arguments are the rotation cadence: the
+      // completed steps between two rotation checks (0 selects time mode)
+      // and the quantum of time mode in nanoseconds (see cyrt/ticker.hpp).
+      // The last one turns the checker of the run-time invariants on (see
+      // cyrt/checker.hpp).
+      .def(py::init<
+          InterpreterState &, Node *, bool, SetFStrategy, SetFFailures, size_t
+        , size_t, uint64_t, bool
+        >())
+      // Without the last argument the checker is off (the tests of the
+      // rotation build a state this way).
       .def(py::init<
           InterpreterState &, Node *, bool, SetFStrategy, SetFFailures, size_t
         , size_t, uint64_t

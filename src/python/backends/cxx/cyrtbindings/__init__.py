@@ -93,10 +93,13 @@ class RuntimeState(RuntimeStateBase):
     mode, value = _flags.parse_rotation(interp.flags['rotation'])
     self.rotation_steps = value if mode == 'steps' else 0
     self.rotation_quantum_ns = value if mode == 'time' else 0
+    # The checker of the run-time invariants of the Fair Scheme (the flag
+    # ``checker``; cyrt/checker.hpp).
+    self.checker = bool(interp.flags['checker'])
     RuntimeStateBase.__init__(
         self, istate, goal, self.tracing, self.setfunction_strategy
       , self.setfunction_failures, self.stack_limit, self.rotation_steps
-      , self.rotation_quantum_ns
+      , self.rotation_quantum_ns, self.checker
       )
     # The count of the stepper starts here (StepCounter.reset_global).
     self._step_base = 0
