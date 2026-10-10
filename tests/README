@@ -928,7 +928,17 @@ mode; an empty value counts as unset; section 4), and the warnings of the
 Curry front end off (SPRITE_FRONTEND_WARNINGS=0 unless the environment
 sets the variable; cytest sets the same default in a file run by hand, so
 a run compiles a module with or without a word on its overlapping rules
-alike; curry.toolchain._frontend).  A PATTERN is a file
+alike; curry.toolchain._frontend).  The variables of a compiler toolchain
+that the shell exports (CC, CXX, CFLAGS, CXXFLAGS, CPPFLAGS, LDFLAGS, AR
+and the like: TOOLCHAIN_VARIABLES in lib/testrunner/cli.py) do not reach
+a file or the prepare pass: the corpus compiles under the compiler and the
+flags of the installation whatever the shell exports, because the ABI
+stamp of an object does not record the flags, and the run prints one line
+that names the variables it dropped (issue #111).  An inline budget in
+SPRITE_INTERPRETER_FLAGS of the run does reach the files and the prepare
+pass, which then compile the shared products under it; the stamp does not
+record the budget either, so the run prints one line that names it
+(issue #116).  A PATTERN is a file
 name or a shell-style pattern of file names.  Several patterns select
 their union.  -v prints the output of every file.  With -v at width 1 the
 output streams as it comes, and the file gets the standard input, so a

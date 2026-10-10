@@ -32,9 +32,11 @@ beside the source, read again and taken through the merge and the passes
 of an import, has the structure of the object).  There a current object
 whose generated file has the same text is adopted without a compile, and
 the product cache is asked before the compiler, as the plan does.  A
-transformed object (an experiment of the optimizer, a test), and a module
-without a source file, compile into a directory of the process
-(tiered._tmpdir), which the product cache leaves out.  A function that still has no code when it is called raises
+transformed object (an experiment of the optimizer, a test), a module
+without a source file, and every module of a process whose inline budget
+is not the environment's (tiered._foreign_flags; issue #116) compile into a
+directory of the process (tiered._tmpdir), which the product cache leaves
+out.  A function that still has no code when it is called raises
 EvaluationError that names the function and its module and the reason: the
 compile failed, or COMPILE_ON_FIRST_USE is False (the hook of the tests).
 
@@ -289,7 +291,8 @@ def compile_pending(entry):
   process and its shim is linked and loaded (tiered.py), so that the object
   binds its tables to the tables the nodes and the Python objects hold.
   The C++ of the ICurry object in hand goes beside the source when the
-  object is the translation on disk (is_translation), else into a directory
+  object is the translation on disk (is_translation) under the optimizer
+  flags of the environment (tiered._foreign_flags), else into a directory
   of the process (see the module docstring); a current object beside the
   source is adopted as it is (current_object), else Cpp2So compiles the
   file, as sprite-make --so does; the runtime loads the object and swaps the
@@ -335,7 +338,14 @@ def compile_pending(entry):
     raise CompileError('the shim of module %r cannot be linked or loaded' % name)
   text = interp.save(moduleobj, None, module_main=False)
   cpp2so = toolchain.Cpp2So(interp)
-  cppfile = product_file(imodule) if is_translation(interp, imodule) else None
+  # The products go beside the source when the optimizer flags are the
+  # environment's and the object in hand is the translation on disk: a
+  # budget of the process alone shapes code the ABI stamp does not tell
+  # apart (tiered._foreign_flags; issue #116).  The cheap test comes first:
+  # is_translation reads the JSON again and runs the passes.
+  cppfile = None
+  if not tiered._foreign_flags(interp) and is_translation(interp, imodule):
+    cppfile = product_file(imodule)
   sofile = None
   if cppfile is not None:
     sofile = current_object(cpp2so, cppfile, text, currypath)
