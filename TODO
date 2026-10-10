@@ -11272,3 +11272,45 @@
   (a calibration run adds them; unit_flat2icurry.py takes 16.5 s, 12 s
   before).  (6) The new module utility/trampoline.py needs make stage (or
   make install in src/python/utility) to appear in a staged tree.
+
+2026-10-10: the py shard of CI moves to the nightly (#82, stage 4, second half; worktree wt/pynightly)
+- The change.  The matrix of the job test in .github/workflows/ci.yml
+  keeps the three cxx shards and drops the py entry.  A job of its own,
+  python, runs the Python backend right after the test job.  Its display
+  name stays "py backend 1/1", so the job list of the nightly reads as
+  before.  Its condition is that of the stress job: the nightly schedule,
+  or a workflow_dispatch with the new input python (a Boolean, default
+  true, listed after functional).  The steps are those of the test job for
+  the py entry: a build without icurry (--with-icurry=""), one shard, the
+  ccache and ICurry cache keys the matrix wrote (ccache-py-1/1-... and
+  icurry-cache-py-1/1-..., written out), the functional step under the
+  condition of the test job, the save of the ICurry cache and the ccache
+  statistics.  The comment above the matrix and the header of the job say
+  why.
+- The reason.  The second half of stage 4 of #82 (the py shard leaves the
+  pull-request matrix and runs on the nightly as a parity job) was
+  deferred to the month of the removal gate.  The owner decided on
+  2026-10-10 to move it now and to freeze the Python backend: no new
+  features, and no parity work for new semantics unless a pair of the
+  differential harness or a test needs it.  Its suites run on the schedule
+  and on request, not on every push.
+- What runs now.  A push to master, py314 or a wt/** branch, and a pull
+  request to master: the three cxx shards with the unit suite, and the
+  docs job (deploy docs on a push to master).  The nightly: the three cxx
+  shards with the unit and functional suites, py backend 1/1 with both
+  suites, the collector stress job, interpret:all and interpret:off, and
+  the docs job.  A dispatch: the cxx shards always; the functional suites
+  (functional, default true), the py job (python, default true), the
+  stress job, the interpreter jobs and the write-counters job by their
+  inputs.  The removal gate of #82 is unchanged: a month of green nightly
+  runs under interpret:off, tiered and all on the C++ backend, and no open
+  bug that names the Python backend as its only reproduction.
+- Docs.  docs/source/DeveloperNotes.rst: the oracle bullet of "What it is
+  for" names the nightly job in place of the pull-request matrix, the
+  alias sentence names the CI workflow in place of the CI matrix, and the
+  removal gate names the CI job in place of the CI shard.  tests/README,
+  AGENTS.md, conda/README.md and the CI scripts name no py shard and are
+  unchanged.
+- Not run here: no build and no CI run.  To check on GitHub: the push run
+  of the branch shows the cxx-only matrix; a dispatched run with
+  python=true shows the job py backend 1/1.
