@@ -11671,3 +11671,237 @@
   note of the runner names a budget of the environment until then); the
   whole suite on both backends (not run in this lane: longer than its
   foreground bound).
+
+2026-10-10: curry.save of a module loaded from its object, a module of the same name after a reset while the old object is alive, and the eager set-function strategy (#113, #114, #118; worktree wt/bugs8)
+- #113, curry.save of a module loaded from its object.  Cause, three
+  layers.  (1) CxxCompiler.vIsBuiltin asked Module::get_builtin_symbol
+  and get_builtin_type, which answered "a static table" (is_static,
+  F_STATIC_OBJECT).  The tables of a module loaded from its compiled
+  object are static too, so the compiler took every function and type of
+  such a module for a built-in of the runtime and wrote an extern
+  declaration in place of each step function (reproduced with a module of
+  42 step functions: 45,080 characters and 870 lines saved interpreted,
+  6,122 characters, 126 lines and no step function saved from the
+  object).  (2) compilable_icurry of interpreter/loadsave.py read the
+  JSON for the bodies and ran neither the merge of the built-ins nor the
+  passes of the optimizer, so the step functions would have been compiled
+  from the unoptimized bodies.  (3) With the passes run on the complete
+  ICurry, inline_calls looked the module up by its name among the loaded
+  modules and found the bill of materials, where no function has a body
+  or lies on a cycle, so it recorded the recursive count and its case
+  function as inline bodies: two metadata entries the interpreted save
+  did not write.  Fix: get_builtin_symbol and get_builtin_type answer
+  from the registered built-in modules (g_builtin_modules of
+  cyrt/module.cpp), never from the static flag (Module::adopt still
+  clears F_STATIC_OBJECT on a swapped table; harmless); compilable_icurry
+  takes the JSON through mergebuiltins, validatemodule and
+  interp.optimize, with the complete ICurry standing in for the loaded
+  module in interp.modules and in the ICurry of its package while the
+  passes run (_standing_in).  Probe: the two texts are byte-identical
+  after the fix (45,080 characters, 42 step functions).  getimpl of a
+  function that the generated file of such a module lacks now says "it is
+  not defined in" rather than "a built-in of the C++ runtime".  Test:
+  test_same_text_from_the_object of TestSaveFromObject in
+  unit_loadsave.py (two children: the first under interpret:new before
+  any object exists, then sprite-make --so, then the second under
+  interpret:tiered from the object; the step counts and the texts must
+  agree; with the C++ fix reverted and the runtime rebuilt it failed with
+  'steps 0' != 'steps 42').  No change to what save writes: C++ source,
+  as decision 6a of 2026-10-08 leaves it.
+  Regression of this change, found by the suite of the batch and fixed the
+  same day: test_reload_from_tiered_into_interpreter of
+  TestReloadAfterCompiledObject in unit_cxx_runtime.py found Prelude.so
+  mapped after a reload from tiered into interpret:all (['Prelude.so'] !=
+  []), where the route from interpret:off passed.  Cause:
+  Materializer.materializeEx of an IType asked get_builtin_type alone before
+  it made the tables of a type, and the old answer covered the static types
+  of a compiled object.  The merge of the built-ins lists thirteen types of
+  the Prelude without their material that the runtime does not register
+  under the name (the tuples (,,) to (,,,,,,,,,,,,,) and (->)), and the
+  record of Prelude.so carries them as static types; with the new answer the
+  materializer made a second table per type and constructor (create_type
+  replaced the entry of the module with it), and under tiered execution,
+  where the Materializer keeps the tables of every module, the clear at the
+  reload kept them and the object with them (g_kept_libraries) for the life
+  of the process; under interpret:off nothing is kept, the tables were freed
+  with the module, and that route passed.  Fix: the materializer takes the
+  static type the module has (Module::get_type) when the type is not a
+  built-in, as the function path asks get_infotable before it makes a table;
+  a type made at run time is not taken, as before (two interpreters of one
+  process that load a module of one name make their own types).  Probes:
+  after the fix no type of the Prelude loaded from its object is made at run
+  time (17 merged types, all static), the reload from tiered into all maps
+  nothing and the values hold, and Control.SetFunctions loaded from its
+  object had no such table before or after.  Test:
+  test_no_table_made_at_run_time of TestLibraryTablesInTheirObjects in
+  unit_cxx_runtime.py, which asserts that every type and constructor of the
+  Prelude and of Control.SetFunctions loaded from their objects is a static
+  table of the runtime's Module; with the materializer before the fix it
+  fails with 'the type Prelude.(,,) was made at run time', where test_tables
+  of the class passes (its symbol list does not reach those tables).
+  Verification: the two tests of TestReloadAfterCompiledObject pass alone;
+  through the runner (-j 2 --mem 4 --backend both) unit_cxx_runtime,
+  unit_cxx_tiered, unit_cxx_interp and unit_reload: 8 of 8, 0 failed, wall
+  40.5 s; unit_compile_modules, unit_loadsave and unit_setfunctions_bugs: 6
+  of 6, 0 failed, wall 14.5 s; the five tests of #114 pass by name on cxx,
+  and its two expectedFailure tests stay expected failures;
+  unit_cxx_runtime.py with the new test through the runner on both backends:
+  2 of 2, 0 failed (10 tests each).
+- #114, a module of the same name after a reset while an object of the old
+  module is alive.  Cause: the registry of the runtime maps a module name
+  to one Module object through a weak pointer (Module::find_or_create),
+  and the Python module object holds that object as its backend handle.
+  A reset unlinked the name from interp.modules and nothing else: while
+  the user held the old module object (or the second one, in the third
+  step of the issue), the Module stayed alive with its tables and their
+  steps, find_or_create gave it to the next module of the name, and the
+  materializer, which keeps a table that has a step, attached nothing
+  (second.f and third.f gave 1 on the module route; reload the same).  The
+  handover designed into Module::clear (the kept store, taken back by name
+  through create_infotable and create_type, which the shim of tiered
+  execution counts on) ran in the destructor alone.  The import route met
+  the same, and its data types a second defect: create_infotable and
+  create_type made a second table per constructor and type beside the
+  live ones (their assert is off under NDEBUG), so the shim of the first
+  incarnation no longer matched, and the module stayed interpreted with
+  the warning "the tables of module 'M' changed after compiled code bound
+  to them".  Fix: Module::retire (cyrt/module.hpp, bound in
+  cyrtbindings/module.cpp) hands the tables to the kept store and clears
+  the module at once, with keep forced, because Python objects of the old
+  module name the tables (a trapped table of a module never evaluated
+  under interpret:off would be freed otherwise); IBackend.module_unlinked,
+  a hook that Handle.unlink calls once the name left interp.modules, and
+  that the C++ backend implements with retire; Interpreter._unlink_modules,
+  the loop of reset, which interpreter.reload runs on the interpreter it
+  replaces before the new one imports (the old interpreter is alive during
+  the reload, so the hard reset met the same cause).  The next module of
+  the name takes the tables back at the same addresses, without their
+  steps, and attaches its own code; the shim serves.  Found in review:
+  clear wiped the built-ins the runtime registered under the name of the
+  module too (the constructor alone seeded them), and a retired module
+  survives while a Python object names it; under interpret:all, where no
+  object re-adds the tables, the next incarnation of Control.SetFunctions
+  resolved applyS to a fresh table without a step and the evaluation of
+  sortValues (evalS (set f $##> 1)) dumped core after a reset (status 139;
+  15 built-ins missing by name).  Module::seed_builtins copies the tables
+  of g_builtin_modules in; the constructor and the end of clear call it.
+  Test: TestBuiltinsAfterReset of unit_setfunctions_bugs.py, a child under
+  backend:cxx,interpret:all that keeps SF.set1 across a reset and
+  evaluates the goal through ($##>) and through a higher-order ($>): it
+  dumped core before the seed and gives ['[1, 2]'] twice after.  Probes under
+  tiered: the module route 1, 2, 3 (first.f gives 2 once second is made,
+  see below); the reload route 1, 2; the import route with a data type 1,
+  2, 3 and no warning.  Tests: testSameNameAfterResetWhileFirstAlive and
+  testSameNameAfterReloadWhileFirstAlive of unit_compile_modules.py on
+  both backends (skipped on cxx under interpret:off, where a second
+  library of a live name is refused by design,
+  testReusedModuleNameIsAnError); in TestSwap of unit_cxx_tiered.py,
+  test_string_module_made_again_while_the_first_is_alive (the same table
+  address, the new value), test_edited_module_made_again_while_the_first_is_alive
+  (the first incarnation swapped before the edit; the function and the
+  constructor keep their addresses; no warning; the second runs the new
+  code interpreted and is swapped in turn) and
+  test_edited_module_made_again_after_a_reload.  With the hook disabled,
+  all five failed ([1] != [2]; the warning of the changed tables).  Left
+  to the owner: (1) the second symptom of the issue: a symbol of a module
+  that left the interpreter still evaluates.  Its interpreter is a weak
+  reference to the same, reset, interpreter, and its table is kept; after
+  the handover it runs the code of the current incarnation of its name
+  when the shape agrees (first.f gives 2 once second is made, as a symbol
+  kept across a reset did before when the module object was dropped) and
+  its old code when the shape differs (the kept table is not taken back
+  then).  A refusal needs a mark on the unlinked module or a generation
+  on the interpreter, checked by curry.eval and the builders: proposed
+  as an error at evaluation and at expression building, "symbol M.f
+  belongs to a module that left the interpreter; import it again".  An
+  API behaviour, not taken; testStaleSymbolIsRefused of
+  unit_compile_modules.py (expectedFailure, cxx) pins the decision: it
+  asserts that curry.eval(first.f) raises after the reset, and fails today
+  because the goal evaluates to [1].  (2) Under interpret:off the import route
+  after an edit still runs the first code (probe: 1, 1, 1 before and
+  after the fix): the object of the second incarnation lands at the path
+  of the object the process maps, and SharedCurryModule(sofile) joins the
+  registry entry of the loaded library (dynload.cpp: one library per
+  module name while one is loaded); _refuse_other_file passes the same
+  path without a refusal or a warning, where the module route is refused
+  with DynloadError.  A refusal of a changed file, or a load through a
+  link of its own as the swap does, changes the loader; the issue's
+  acceptance is the default interpret:tiered.
+  test_edited_module_made_again_under_interpret_off of TestSwap in
+  unit_cxx_tiered.py (expectedFailure) pins the decision: it switches to
+  interpret:off, imports, edits, resets and imports again, and asserts
+  the edited value; it fails today with 1 != 2.  (3) retire keeps the
+  tables of every unlinked module, a trapped module never evaluated under
+  interpret:off included: a few tables per reset.
+- #118, the eager set-function strategy.  Cause: eagerApplyS_step of
+  src/cyrt/currylib/setfunctions.cpp, the step of ($##>) that setN_step
+  builds into the chain under the eager strategy, made the partial
+  application of eagerApplyS itself and applied it with ($##): once ($##)
+  had the argument in ground normal form it applied the function to it,
+  which was this step again, which normalized the argument again, without
+  end.  The definition of the library, ($##>) f a = (f $>) $## a, applies
+  ($>), which is applyS.  So every goal with an argument looped, ground or
+  not: sortValues (set1 adj binDigit) and sortValues (set1 adj 0) both
+  reached the 60 s timeout (exit 124) on the C++ backend, where
+  sortValues (set0 (adj binDigit)), which applies nothing, gave its four
+  values.  The Python backend runs the compiled definition of the library
+  and gave the values under eager.  Fix: the step builds the partial
+  application of applyS_Info.  A plain defect of the step, not of the
+  strategy: the eager strategy now gives the lazy values on both goals
+  ([(-1), 1] and [0, 2]; [(-1), 1]) on both backends, as the dissertation's
+  eager scheme does for an argument-total goal.  sortValues (set1 const1
+  failed) has no value under eager on both backends (and [1] under lazy):
+  the argument is normalized before the set function sees it, as the
+  docstring of the flag says ("similar to PAKCS", where the goal fails
+  too).  The issue reports [] for it.  That answer is not reproduced:
+  the goal has no value under eager with both settings of
+  setfunction_failures (encapsulate, the old default, and escape) on the
+  fixed build, and the fix did not touch this goal (the loop was in the
+  application of the function, which this goal never reaches); the
+  reviewer saw the same on the base build.  The docstring's rule for
+  'encapsulate' (a failure that drops the last alternative gives the
+  empty set, rule SF.5) does not describe the eager route, where the
+  argument fails before the set function starts.  Tests: TestEagerStrategy of
+  unit_setfunctions_bugs.py, test_lazy_strategy and
+  test_eager_strategy_ends, each a child under prlimit and timeout 120
+  with the flag, on both backends; the goals adjSet and adjSet0 in
+  data/curry/SetFunctionsBugs.curry.  With the C++ fix reverted and the
+  runtime rebuilt, the eager test failed with status 124 after 120 s.
+  Left to the owner: whether a failing argument under eager should have
+  no value (today, PAKCS-like), the [] of the issue, or the lazy [1]: the
+  semantics of the flag, with the wording of rule SF.5 in the docstring
+  of setfunction_failures as the point to decide; func_setfunctions.py
+  still skips 'free' under eager (EvaluationSuspended).
+- Verification (env -i, prlimit, CCACHE_DIR set, one or two processes at
+  a time).  make stage after the C++ change: 20 s, status 0 (module.hpp
+  is outside the include closure of cyrt.hpp, so the ABI stamp holds);
+  make overlay status 0.  Single files: unit_setfunctions_bugs.py 29 ok
+  (1 skipped) on cxx and 29 ok (1 skipped, 1 expected failure) on py;
+  unit_compile_modules.py 5 ok on cxx and 5 ok (1 skipped) on py;
+  unit_loadsave.py 10 ok (4 expected failures) on cxx;
+  unit_cxx_tiered.py 33 ok on cxx (51 s).  The new tests verbosely on cxx:
+  each ok, none skipped.  Through the runner (./run_tests -j 2 --mem 4
+  --backend both) over unit_loadsave, unit_compile_modules,
+  unit_cxx_tiered, unit_setfunctions_bugs, unit_setfunctions_semantics,
+  unit_cxx_interp, unit_inspect, unit_api, unit_cxx_checker,
+  unit_py_checker, unit_cxx_emit, unit_importer, unit_cxx_bom,
+  unit_prelude, unit_compile, unit_goals and func_setfunctions: 34 of 34
+  run, 2 failed, wall 121.6 s.  The two, unit_cxx_bom.py (4 errors,
+  KeyError 'cxx.shlib') and unit_inspect.py (2 failures, the bytecode of
+  Peano.add) on cxx, read the compiled objects of the corpus, which the
+  fresh worktree lacked (no CxxBom.so or Peano.so beside the sources);
+  the prepare pass (./run_tests --prepare-only --backend cxx: 12 of 12,
+  444 s) compiled them, and the two files then passed through the runner
+  (unit_inspect.py 27 ok, unit_cxx_bom.py 10 ok on cxx).  The whole suite
+  was not run (longer than the foreground bound of this lane).
+- Review pass (same day).  Applied: the seed of the built-ins after clear
+  (above); the record of set1 const1 failed under eager (above); the two
+  expectedFailure tests of the owner's decisions on #114 (above);
+  TestEagerStrategy moved above the __main__ block of
+  unit_setfunctions_bugs.py, where a direct run of the file skipped it;
+  the blank lines inside two docstrings (tiered.py, the unit file) and
+  the doubled blank lines in module.hpp, module.cpp, interface.py,
+  backends/__init__.py, interpreter/__init__.py and loadsave.py removed.
+  Not taken: a lookup of get_builtin_symbol in Materializer.symbol; the
+  seed makes get_infotable find every built-in again.
+

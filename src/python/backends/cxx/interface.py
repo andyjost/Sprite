@@ -32,6 +32,15 @@ class IBackend(backends.IBackend):
     materialize.module_loaded(interp, moduleobj, currypath)
     tiered.module_loaded(interp, moduleobj, currypath)
 
+  def module_unlinked(self, interp, moduleobj):
+    # The tables of the module go to the kept store now, not when the last
+    # Python reference to the module goes: a module of the same name made
+    # after a reset takes them back without their steps, whether or not the
+    # old module object is alive (issue #114).
+    M = getHandle(moduleobj).backend_handle
+    if M is not None:
+      M.retire()
+
   def before_evaluation(self, interp):
     if tiered.enabled(interp):
       tiered.poll(interp)

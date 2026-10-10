@@ -45,7 +45,7 @@ not reached yet.  The resolver makes the info table of such a function on
 demand; the loader finds it and attaches the body when it reaches it.
 '''
 
-from ...common import T_FUNC
+from ...common import F_STATIC_OBJECT, T_FUNC
 from ...exceptions import CompileError
 from . import bytecode, cyrtbindings as cyrt
 from ..generic import compiler as generic
@@ -66,6 +66,14 @@ BYTECODE = {}
 # under interpret:off (first_use).  A test sets it to False to reach the
 # error of the trap step.
 COMPILE_ON_FIRST_USE = True
+
+def _static(obj):
+  '''Whether a table or type belongs to a compiled object.'''
+  flags = obj.flags
+  if isinstance(flags, str):
+    # The flags of a DataType are a char.
+    flags = ord(flags)
+  return bool(flags & F_STATIC_OBJECT)
 
 def materialize(interp, iobj, moduleobj):
   materializer = Materializer(interp, moduleobj)
@@ -100,6 +108,17 @@ class Materializer(object):
   def materializeEx(self, itype):
     typeobj = self.M.get_builtin_type(itype.name)
     if typeobj is None:
+      # The static type of the compiled object of the module (Module::link),
+      # for a type the merge of the built-ins adds without its material and
+      # the runtime does not register (the tuples and (->) of the Prelude).
+      # A table made here instead would replace the entry of the module, and
+      # a reset under tiered execution, where the tables of every module are
+      # kept, would keep it and the object with it: Prelude.so stayed mapped
+      # across a reload into interpret:all.
+      typeobj = self.M.get_type(itype.name)
+      if typeobj is not None and not _static(typeobj):
+        typeobj = None
+    if typeobj is None:
       infos = [
           self.M.create_infotable(
               ictor.name, ictor.arity, tag
@@ -121,8 +140,11 @@ class Materializer(object):
     if info is None:
       info = self.create_function(ifun)
     # A table with a step keeps it: the function of a module of this name
-    # that is still loaded, interpreted or swapped to compiled code (see
-    # tiered.py), runs as it did.
+    # that another interpreter of the process loaded, interpreted or swapped
+    # to compiled code (see tiered.py), runs as it did.  A module that left
+    # its interpreter handed its tables over without their steps
+    # (Module::retire; issue #114), so a module made again attaches its own
+    # code.
     if not info.has_step:
       if self.interpret:
         self.attach(ifun, info)

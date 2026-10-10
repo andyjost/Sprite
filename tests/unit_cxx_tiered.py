@@ -399,6 +399,99 @@ class TestSwap(TieredTestCase):
     self.assertEqual(second.f.info.address, address)
     self.assertEqual(self.py(second.f), 2)
 
+  @cytest.hardreset
+  def test_string_module_made_again_while_the_first_is_alive(self):
+    # Issue #114: the first module object alive across the reset.  Its
+    # tables stayed in the registry with their steps, and the second module
+    # found them and ran the first code.  The reset hands the tables over
+    # (Module::retire), so the second module takes them back, at the same
+    # addresses, without the steps.
+    first = curry.compile('f :: Int\nf = 1', modulename='TieredDupAlive')
+    address = first.f.info.address
+    self.assertEqual(self.py(first.f), 1)
+    curry.reset()
+    second = curry.compile('f :: Int\nf = 2', modulename='TieredDupAlive')
+    self.assertIsNot(first.f, second.f)
+    self.assertEqual(second.f.info.address, address)
+    self.assertEqual(self.py(second.f), 2)
+    del first
+
+  EDITED = (
+      'module %%(name)s where\n\n'
+      'data T = A | B Int deriving (Eq, Show)\n\n'
+      'f :: T\nf = B %d\n\n'
+      'g :: T -> Int\ng A = 0\ng (B n) = n\n\n'
+      'main :: Int\nmain = g f\n'
+    )
+
+  @cytest.hardreset
+  def test_edited_module_made_again_while_the_first_is_alive(self):
+    # The import route of issue #114: the source edited between two imports
+    # with a reset between them, the first module object alive.  The first
+    # incarnation is swapped to compiled code before the edit; the second
+    # takes its tables back without the steps, runs the new code
+    # interpreted, and is swapped to the new object in turn.  The data type
+    # takes its tables back too, so the shim serves and no warning is
+    # logged (the type got new tables before, and the module stayed
+    # interpreted with the warning of a changed shape).
+    name = self.write_module(self.EDITED % 1)
+    first = self.import_module(name)
+    self.assertEqual(self.py(first.main), 1)
+    self.wait()
+    self.assertFalse(cyrt.icurry_is_interpreted(first.f.info))
+    addresses = first.f.info.address, first.B.info.address
+    self.edit_module(name, self.EDITED % 2)
+    curry.reset()
+    curry.path.insert(0, self.tmpdir)
+    with capture_log('curry.backends.cxx.tiered') as log:
+      second = self.import_module(name)
+    self.assertEqual(log.data[logging.WARNING], [])
+    self.assertIsNot(first.f, second.f)
+    self.assertEqual(
+        (second.f.info.address, second.B.info.address), addresses
+      )
+    self.assertTrue(cyrt.icurry_is_interpreted(second.f.info))
+    self.assertEqual(self.py(second.main), 2)
+    self.wait()
+    self.assertFalse(cyrt.icurry_is_interpreted(second.f.info))
+    self.assertEqual(self.py(second.main), 2)
+    del first
+
+  @cytest.hardreset
+  def test_edited_module_made_again_after_a_reload(self):
+    # The same across the hard reset of curry.reload, which unlinks the
+    # modules of the interpreter it replaces, the first module object alive.
+
+    name = self.write_module(self.EDITED % 1)
+    first = self.import_module(name)
+    self.assertEqual(self.py(first.main), 1)
+    self.edit_module(name, self.EDITED % 2)
+    self.switch('tiered')
+    second = self.import_module(name)
+    self.assertIsNot(first.f, second.f)
+    self.assertEqual(self.py(second.main), 2)
+    del first
+
+  @cytest.hardreset
+  @unittest.expectedFailure
+  def test_edited_module_made_again_under_interpret_off(self):
+    # The import route of issue #114 under interpret:off, the owner's
+    # decision: the second incarnation runs the first code.  Its object
+    # lands at the path of the object the process maps, and the loader
+    # joins the registry entry of the loaded library without a refusal or
+    # a warning (see the TODO entry of 2026-10-10).  The compile of the
+    # first incarnation runs in the foreground here.
+    name = self.write_module(self.EDITED % 1)
+    self.switch('off')
+    first = self.import_module(name)
+    self.assertEqual(self.py(first.main), 1)
+    self.edit_module(name, self.EDITED % 2)
+    curry.reset()
+    curry.path.insert(0, self.tmpdir)
+    second = self.import_module(name)
+    self.assertEqual(self.py(second.main), 2)
+    del first
+
 
 class TestPolicy(TieredTestCase):
   '''What is compiled in the background, and what happens when it fails.'''

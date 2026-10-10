@@ -5,7 +5,10 @@ findings of the differential harness on the Python backend, issues #120
 and #121, whose programs are data/curry/PyGeneratorAssert.curry and
 data/curry/PyFingerprintNone.curry, and the finding of the checker mode on
 the Python backend, issue #123, whose programs are
-data/curry/CapturedFwd.curry.
+data/curry/CapturedFwd.curry, and the eager strategy on the first set
+function of the dissertation, issue #118, whose programs are in
+data/curry/SetFunctionsBugs.curry as well.
+
 
 Issue #61: a set function over a free variable that a choice bound saw the
 binding of the first alternative in every branch.  The application sits
@@ -66,6 +69,20 @@ as the pair of the C++ step does.  The pair of a value binding of a
 variable of a builtin type (make_value_bindings) had the same defect: the
 binding was dropped, and the Python backend suspended.  It holds the node
 of the variable now.
+
+Issue #118: under the interpreter flag setfunction_strategy set to 'eager'
+the C++ backend did not end on sortValues (set1 adj binDigit), with adj x =
+x - 1 ? x + 1 and binDigit = 0 ? 1, nor on set1 adj 0.  The strategy
+normalizes each argument before the set function sees it: setN builds the
+chain with ($##>), whose step applies the function to the normalized
+argument.  The step of the C++ runtime built the partial application of
+itself where the definition of the library, ($##>) f a = (f $>) $## a,
+applies ($>): once ($##) had the argument in normal form, the step
+normalized it again, without end.  It builds the partial application of
+applyS now.  The Python backend runs the definition of the library and
+never looped.  The eager strategy gives the values of the lazy one on
+both goals: the choice of binDigit is pull-tabbed out of the set function
+before it starts, and the two sets are those of adj 0 and adj 1.
 
 Issue #123: a captured choice that the walk of N reaches through a forward
 node in front of its box.  constT x 0 rewrites to a forward node to the
@@ -468,6 +485,82 @@ class TestCapturedForward(cytest.TestCase):
       , 'setFirst': ['([[A], [A, A]], A)', '([[A], [B, B]], B)']
       , 'capturedThenGuarded': ['(A, [[A], [A, A]])', '(B, [[A], [B, B]])']
       })
+
+
+class TestEagerStrategy(cytest.TestCase):
+  '''
+  Issue #118.  The eager strategy ends on the first set function of the
+  dissertation and on the goal with a ground argument, with the values of
+  the lazy strategy.  Each child runs under one setting of the flag, under
+  prlimit and timeout: a regression spins inside C++.
+  '''
+  EXPECTED = {'adjSet': ['[(-1), 1]', '[0, 2]'], 'adjSet0': ['[(-1), 1]']}
+
+  @classmethod
+  def setUpClass(cls):
+    # Compile the module here; the children load it from the cache.
+    curry.import_('SetFunctionsBugs')
+
+  def test_lazy_strategy(self):
+    results = run_child(
+        self, goals('adjSet', 'adjSet0'), setfunction_strategy='lazy'
+      )
+    self.assertEqual(results, self.EXPECTED)
+
+  def test_eager_strategy_ends(self):
+    results = run_child(
+        self, goals('adjSet', 'adjSet0'), setfunction_strategy='eager'
+      )
+    self.assertEqual(results, self.EXPECTED)
+
+
+# A symbol of Control.SetFunctions kept across a reset, then a program that
+# applies a set function through ($##>) and through a higher-order use of
+# ($>), whose bytecode names applyS by its table.
+RESET_CHILD = '''
+import curry
+curry.reload(%(flags)r)
+SRC = (
+    'import Control.SetFunctions\\n'
+    'f :: Int -> Int\\nf x = x ? x + 1\\n'
+    'goalA :: [Int]\\ngoalA = sortValues (evalS (set f $##> 1))\\n'
+    'goalB :: [Int]\\ngoalB = sortValues (evalS ((head [($>)]) (set f) 1))\\n'
+  )
+kept = curry.import_('Control.SetFunctions').set1
+first = curry.compile(SRC, modulename='BuiltinsAfterReset')
+curry.reset()
+second = curry.compile(SRC, modulename='BuiltinsAfterReset')
+for name in 'goalA', 'goalB':
+  values = curry.eval(getattr(second, name))
+  print(name, sorted(str(value) for value in values))
+'''
+
+
+@unittest.skipIf(
+    curry.flags['backend'] != 'cxx', 'the kept tables belong to the C++ runtime'
+  )
+class TestBuiltinsAfterReset(cytest.TestCase):
+  '''
+  Issue #114, found in review.  Module::retire cleared the tables of a
+  module that a Python object kept alive across a reset, the built-ins the
+  runtime registered under its name included.  The next incarnation of
+  Control.SetFunctions, interpreted, then resolved applyS to a fresh table
+  without a step, and the evaluation crashed (status 139).  The clear seeds
+  the built-ins again.  The child runs under interpret:all, where the
+  library is interpreted and no object re-adds the tables.
+  '''
+  def test_set_functions_after_a_reset(self):
+    flags = {'backend': 'cxx', 'interpret': 'all'}
+    code = RESET_CHILD % {'flags': flags}
+    proc = cytest.run_in_subprocess(code, TIMEOUT, address_space=ADDRESS_SPACE)
+    self.assertEqual(
+        proc.returncode, 0
+      , 'the child ended with status %s; stdout:\n%s\nstderr:\n%s'
+            % (proc.returncode, proc.stdout, proc.stderr)
+      )
+    self.assertEqual(
+        proc.stdout.splitlines(), ["goalA ['[1, 2]']", "goalB ['[1, 2]']"]
+      )
 
 
 if __name__ == '__main__':

@@ -74,6 +74,16 @@ class IBackend(metaclass=abc.ABCMeta):
     module it interprets (see backends.cxx.tiered).
     '''
 
+  def module_unlinked(self, interp, moduleobj):
+    '''
+    Called when a module leaves the interpreter (Handle.unlink: a reset, or
+    the hard reset of ``reload``), after its name left ``interp.modules``.
+    The module object may stay alive in the hands of the user.  The C++
+    backend hands the tables of the module to the kept store of the
+    runtime, so a module of the same name made later runs its own code
+    (issue #114; see Module::retire in cyrt/module.hpp).
+    '''
+
   def before_evaluation(self, interp):
     '''
     Called when an evaluation is about to start.  The C++ backend applies the

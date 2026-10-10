@@ -169,13 +169,24 @@ class Interpreter(object):
     self.automodules = config.syslibs()
     self._expression_modules = [] # see compile.py, mode 'expr'
     self._lifted_goals = {} # see typecheck.goals.register_lifted
+    self._unlink_modules()
+    self.path[:] = config.currypath(reset=True)
+
+    self.backend.init_interpreter_state(self)
+    self._sigtable.clear()
+
+  def _unlink_modules(self):
+    '''
+    Unlinks the loaded modules, except the Prelude and the packages.  The
+    backend hands the tables of each module to the runtime
+    (IBackend.module_unlinked), so a module of the same name made later
+    runs its own code while an object of the old module is alive (issue
+    #114).  ``reset`` and ``reload`` call this.
+    '''
     for name, module in list(self.modules.items()):
       module = getHandle(module)
       if not module.is_package and name != 'Prelude':
         module.unlink(self)
-    self.path[:] = config.currypath(reset=True)
-    self.backend.init_interpreter_state(self)
-    self._sigtable.clear()
 
   def module(self, name):
     '''Look up a module by name.'''
@@ -222,5 +233,11 @@ def reload(name, flags={}):
   envflags = ','.join('%s:%s' % (str(k), str(v)) for k,v in flags.items())
   with binding(os.environ, 'SPRITE_INTERPRETER_FLAGS', envflags):
     this = sys.modules[name]
+    old = getattr(this, '_interpreter_', None)
+    if isinstance(old, Interpreter):
+      # The modules of the interpreter replaced leave it as a reset
+      # unlinks them, before the new interpreter imports: a module of the
+      # same name then takes its tables back and runs its own code while
+      # an object of the old module is alive (issue #114).
+      old._unlink_modules()
     importlib.reload(this)
-

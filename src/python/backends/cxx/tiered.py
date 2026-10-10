@@ -55,7 +55,9 @@ interpreter uses, so the table carries the compiled step when dlopen returns
 shim is made for the process: the addresses belong to it.  The runtime keeps
 the tables of an interpreted module for the life of the process and gives
 them back to a module of the same name made after a reset
-(Module::create_infotable), so a shim stays valid across a reload.  A module
+(Module::create_infotable; the reset hands them over at once through
+Module::retire, whether or not a Python object of the module is alive,
+issue #114), so a shim stays valid across a reload.  A module
 whose tables changed shape after its shim was made stays interpreted, and so
 does every module that imports it, because their objects would bind to the
 old tables; one warning says so.  The object of an earlier incarnation of a

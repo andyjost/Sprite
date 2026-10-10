@@ -106,12 +106,7 @@ namespace cyrt
   Module::Module(std::string name)
     : name(name), impl(new Impl)
   {
-    auto bi = g_builtin_modules.find(name);
-    if(bi != g_builtin_modules.end())
-    {
-      this->impl->types = bi->second.types;
-      this->impl->symbols = bi->second.symbols;
-    }
+    this->seed_builtins();
   }
 
   Module::~Module()
@@ -194,11 +189,33 @@ namespace cyrt
     this->impl->symbols.clear();
     this->impl->types.clear();
     this->impl->shlib.reset();
+    // The built-ins of the runtime belong to every incarnation of the
+    // module.  A retired module survives while a Python object names it, and
+    // the next incarnation takes it back: without this seed it would
+    // resolve applyS of Control.SetFunctions to a fresh table without a
+    // step and crash (issue #114).
+    this->seed_builtins();
+  }
+
+  void Module::seed_builtins()
+  {
+    auto bi = g_builtin_modules.find(this->name);
+    if(bi != g_builtin_modules.end())
+    {
+      this->impl->types = bi->second.types;
+      this->impl->symbols = bi->second.symbols;
+    }
   }
 
   void Module::keep_tables()
   {
     this->impl->keep = true;
+  }
+
+  void Module::retire()
+  {
+    this->impl->keep = true;
+    this->clear();
   }
 
   std::shared_ptr<SharedCurryModule> Module::shlib() const
@@ -380,16 +397,28 @@ namespace cyrt
     return type;
   }
 
+  // A built-in is a table the runtime registered under the name of this
+  // module (register_builtin_module).  The static flag does not tell one
+  // apart from a table of a compiled object: a module loaded from its
+  // object has static tables too, and the compiler of curry.save took every
+  // function of such a module for a built-in and wrote no step function
+  // (issue #113).
   DataType const * Module::get_builtin_type(std::string const & name) const
   {
-    auto * ty = this->get_type(name);
-    return (ty && is_static(*ty)) ? ty : nullptr;
+    auto bi = g_builtin_modules.find(this->name);
+    if(bi == g_builtin_modules.end())
+      return nullptr;
+    auto p = bi->second.types.find(name);
+    return (p != bi->second.types.end()) ? p->second : nullptr;
   }
 
   InfoTable const * Module::get_builtin_symbol(std::string const & name) const
   {
-    auto * info = this->get_infotable(name);
-    return (info && is_static(*info)) ? info : nullptr;
+    auto bi = g_builtin_modules.find(this->name);
+    if(bi == g_builtin_modules.end())
+      return nullptr;
+    auto p = bi->second.symbols.find(name);
+    return (p != bi->second.symbols.end()) ? p->second : nullptr;
   }
 
   // The trap step (see module.hpp).

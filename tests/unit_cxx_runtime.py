@@ -310,6 +310,14 @@ def _symbol_of(address):
     return where, symbol
   return None, None
 
+def _static(table):
+  '''Whether an info table or a data type belongs to a compiled object.'''
+  flags = table.flags
+  if isinstance(flags, str):
+    # The flags of a DataType are a char.
+    flags = ord(flags)
+  return bool(flags & common.F_STATIC_OBJECT)
+
 def _address_of(lib, symbol):
   '''
   The address of the data ``symbol`` as ``lib`` (a ctypes.CDLL) resolves
@@ -363,5 +371,50 @@ class TestLibraryTablesInTheirObjects(cytest.TestCase):
               'the table of %s.%s' % (h.fullname, symbol, h.fullname, name)
             )
         checked += 1
+    if not checked:
+      self.skipTest('no module of the library is loaded from its object')
+
+  def test_no_table_made_at_run_time(self):
+    '''
+    Every type and constructor of a module of the library loaded from its
+    object is a static table, of the object or of the runtime library: the
+    materializer makes none at run time.  The merge of the built-ins lists
+    types of the Prelude without their material that the runtime does not
+    register (the tuples from (,,) up, and (->)), and the record of the
+    object carries them.  The materializer asked for a built-in alone before
+    it made the tables of a type; when get_builtin_type stopped answering
+    for a static table of the object (issue #113) it made a second table
+    per type and constructor, which replaced the entry of the module, and
+    under tiered execution the clear at a reload kept the tables and the
+    object with them (the regression of
+    test_reload_from_tiered_into_interpreter).
+    '''
+    interp = curry.getInterpreter()
+    checked = 0
+    for M in (interp.prelude, interp.setfunctions):
+      h = getHandle(M)
+      if h.sofilename is None:
+        continue
+      module = h.backend_handle
+      for itype in h.icurry.types.values():
+        typedef = module.get_type(itype.name)
+        self.assertIsNotNone(
+            typedef, 'module %s has no type %s' % (h.fullname, itype.name)
+          )
+        self.assertTrue(
+            _static(typedef)
+          , 'the type %s.%s was made at run time' % (h.fullname, itype.name)
+          )
+        for ictor in itype.constructors:
+          info = module.get_infotable(ictor.name)
+          self.assertIsNotNone(
+              info, 'module %s has no table %s' % (h.fullname, ictor.name)
+            )
+          self.assertTrue(
+              _static(info)
+            , 'the table of %s.%s was made at run time'
+                  % (h.fullname, ictor.name)
+            )
+          checked += 1
     if not checked:
       self.skipTest('no module of the library is loaded from its object')

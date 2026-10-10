@@ -209,7 +209,9 @@ class Handle(object):
 
   def unlink(self, interp):
     del interp.modules[self.fullname]
+    interp.backend.module_unlinked(interp, self.obj)
     pkg = self.package(interp)
+
     if pkg is not None:
       del pkg.icurry[self.name]
       self.icurry.setparent(None)
