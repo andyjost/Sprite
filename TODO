@@ -10771,7 +10771,8 @@
   and the non-static pull_tab changed the ABI stamp once; no layout the
   generated code reads changed.  (8) Nothing is committed from this lane.
 
-2026-10-09
+2026-10-09: the dropped box of N and the cyclic anchors of raw_expr (#123,
+  #122; worktree wt/bugs4)
 - #123, the Python backend encapsulated a captured choice that the walk of
   N reaches through a forward node in front of its box: oneCaptured of the
   issue printed (3, A) and (3, B), where the C++ backend prints (2, A) and
