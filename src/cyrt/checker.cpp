@@ -2072,18 +2072,43 @@ namespace cyrt
     }
   }
 
+  // A constructor or a failure without a successor cell.
+  static bool is_leaf_value(Node * n)
+  {
+    InfoTable const * info = n->info;
+    if(info->tag < T_CTOR && info->tag != T_FAIL)
+      return false;
+    for(index_type i = 0; i < info->arity; ++i)
+      if(info->format[i] == 'p')
+        return false;
+    return true;
+  }
+
   // The cells reachable from ``node`` that carry no flags yet inherit
-  // ``f``: the cells a step, a pull-tab or a copy created at a flagged
-  // site.  The walk stops at a flagged cell and at ``stop_at``.
+  // ``f``: the cells a pull-tab, a copy or a generator created at a
+  // flagged site.  The walk stops at a flagged cell and at ``stop_at``.
   void Checker::propagate(Node * node, SetList const & f, Node * stop_at)
   {
+    this->propagate(std::vector<Node *>{node}, f, stop_at);
+  }
+
+  // The same walk from every cell of ``stack`` under one budget: the cells
+  // a step made (see step_end).  A walk over the budget leaves cells
+  // without the flags, so the sets of ``f`` become unbounded: their checks
+  // of S0 are suppressed, not reported, as after an entry walk over its
+  // budget.  A leaf value (a constructor or Fail without a successor, the
+  // static True, False, Nil, Fail and the small literals among them) is
+  // not flagged: it never steps and holds no cell.
+  void Checker::propagate(
+      std::vector<Node *> stack, SetList const & f, Node * stop_at
+    )
+  {
     size_t budget = CHECKER_PROPAGATE_BUDGET;
-    std::vector<Node *> stack{node};
     while(!stack.empty())
     {
       Node * n = stack.back();
       stack.pop_back();
-      if(!n || n == stop_at)
+      if(!n || n == stop_at || is_leaf_value(n))
         continue;
       auto p = this->flags.find(n);
       if(p != this->flags.end())
@@ -2094,6 +2119,8 @@ namespace cyrt
       }
       if(budget == 0)
       {
+        for(Set * set: f)
+          this->unbounded_sets.insert(set);
         ++this->counts["propagate_over_budget"];
         return;
       }
@@ -2165,8 +2192,23 @@ namespace cyrt
         add_all(this->tags[cid], t);
       }
     }
-    if(has_flags)
-      this->propagate(redex, flagged, nullptr);
+    if(has_flags && result)
+    {
+      // The cells the step made inherit the flags of the redex: the result,
+      // when the step forwarded the redex to a fresh cell, and the cells
+      // under it.  The redex carries the flags already, so a walk that
+      // started there stopped at once, and a cell made under it (the ? of
+      // Just (A ? B)) inherited nothing: the false report of S0 (E in A) at
+      // the pull-tab across the box (2026-10-09).
+      std::vector<Node *> seeds;
+      if(result != redex && !is_leaf_value(result))
+        seeds.push_back(result);
+      Arg const * data = result->successors();
+      for(index_type i = 0; i < result->info->arity; ++i)
+        if(result->info->format[i] == 'p')
+          seeds.push_back(data[i].node);
+      this->propagate(std::move(seeds), flagged, nullptr);
+    }
     if(result && result->info->tag == T_FAIL)
     {
       CheckerTree const * tree = this->tree_of(rec.info);

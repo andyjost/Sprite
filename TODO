@@ -10577,8 +10577,9 @@
   shape.  TestSharedArgument of unit_cxx_checker.py and unit_py_checker.py
   pins it as an expectedFailure on both backends, with the values without
   the flag and the text of the report.  Not changed: the fix is the owner's,
-  item (3) below.  (g) escape_all is never set by the C++ runtime; the hook
-  reads it for symmetry.  (h) The private copies of a set function
+  item (3) below.  Fixed on 2026-10-09 (the entry "#124 and the checkers'
+  propagation" below).  (g) escape_all is never set by the C++ runtime; the
+  hook reads it for symmetry.  (h) The private copies of a set function
   (evalS_step, the clone of a capsule) are not checked on either backend.
 - The tests (tests/unit_cxx_checker.py, 56 tests on the C++ backend; the
   flag tests and the values of TestSharedArgument run on both).
@@ -10743,7 +10744,9 @@
   and dies at sibling after the reload (exit 139); the base install and the
   lane's install behave alike.  The issue should name the object loaded from
   disk as the trigger (the runner's prepare pass writes such objects for the
-  test data) and start from the gdb frame above.
+  test data) and start from the gdb frame above.  Filed as #124 and fixed
+  on 2026-10-09 (the entry "#124 and the checkers' propagation" below): the
+  trigger is the compiled Prelude, not the object of the module.
 - Left to the owner.  (1) B2 for the compiled step functions (the three
   routes above); until then the system cxx-check is the interpret:all pair
   above (B2 for every operation with an ICurry body: 33.4% of the hnf calls
@@ -10761,7 +10764,8 @@
   of the flag-off run), the 165 known-good goals without a report and with
   the same counts; the expectedFailure tests of TestSharedArgument become
   passes then, and the reading of "argument-derived" in the paper follows
-  the memo's "inherited by created cells".  (4) The private copies of a set
+  the memo's "inherited by created cells".  Done on 2026-10-09 (the entry
+  "#124 and the checkers' propagation" below).  (4) The private copies of a set
   function, the lifts of the constraints of =:= and =:<= (FS-beta) and the
   schedule replay stay unchecked, as on the Python backend; the harness
   compares the rotation modes.  (5) tests/manifest.json has no entry for
@@ -10872,3 +10876,243 @@
   costs time in that file, the owner's call.  (4) The C++ backend has no
   checker; its walk gave the right values here.  (5) Nothing is committed
   from this lane.
+
+2026-10-09: #124 and the checkers' propagation (the reload from a compiled
+  module into interpret:all, and the step propagation of the box flags of
+  both checkers; worktree wt/bugs5)
+- The task.  Two items left by the checker lanes of 2026-10-09: issue #124,
+  a segmentation fault in procS after a reload into interpret:all of a
+  process that had loaded the Prelude from its compiled object, and the
+  false alarm of S0 (E in A) of both checkers on a boxed argument whose
+  evaluation outside the box creates a choice (item (3) of the entry of the
+  C++ mirror, difference (f)).  Nothing is committed from this lane.
+- #124, the reproduction.  SetFunctionsBindings.curry alone in a scratch
+  directory, the probe of the issue, SPRITE_ROTATION=steps:65536,
+  SPRITE_CACHE_FILE= and SPRITE_PRODUCT_CACHE= empty: the first run (the
+  pass interpret:off compiles the module in the process) prints "off 35
+  goals ok", "all 35 goals ok", exit 0; the second run, which loads the
+  module from the .so the first wrote, prints "off 35 goals ok" and dies
+  with exit 139.  The probe narrowed: the crash needs no goal of the first
+  pass (the import alone), and not the module's object: a first pass that
+  imports the Prelude alone (curry.getInterpreter().prelude), then the
+  reload into interpret:all, then the goal sibling, dies the same way; a
+  first pass that imports nothing runs the goal.  Under gdb (the real
+  python of the conda environment, PYTHONPATH and LD_LIBRARY_PATH of the
+  wrapper): #0 0x00007ffff22d3700 in ?? (), #1 RuntimeState::procS; the
+  shared libraries at the crash hold no compiled Curry module, and the
+  Prelude's object was mapped at 0x00007ffff2294040-0x00007ffff236b420
+  before its dlclose.  At the call, rax held the info table of the redex:
+  CyI7Prelude3seq, the static table seq_Info of libcyrt itself (the &> of
+  the runtime, cyrt/currylib/prelude/constr.cpp), whose name, format and
+  step fields pointed into that range of the old Prelude.so.
+- #124, the cause.  prelude.hpp gives the runtime's table of &> the
+  exported symbol CyI7Prelude3seq (#define seq_Info CyI7Prelude3seq), the
+  mangled name of the Curry function Prelude.seq.  seq and &> are not
+  built-ins of the Prelude specification (75 functions; cond and
+  nonstrictEq are), so the compiled Prelude defines InfoTable const
+  CyI7Prelude3seq{...} for its seq (seq x y = const y $! x) as well.  The
+  dynamic initializer of an object constructs a table at the address its
+  symbol resolves to, which the dynamic linker binds to the first
+  definition in the global scope: libcyrt's, loaded by the bindings.  So a
+  load of Prelude.so writes the table of Prelude.seq over libcyrt's seq_Info
+  (the mechanism the shim of tiered execution relies on, applied to a
+  symbol two libraries define), and the unload of the object at a reload
+  leaves the step of the runtime's table in unmapped memory.
+  RuntimeState::apply_binding makes a node with &seq_Info when a
+  configuration with a binding of a variable forks on its generator; of the
+  35 goals sibling is the first that does, so the goals before it ran.
+  The nm check over the installed library: of the 130 CyI/CyD symbols
+  libcyrt exports, CyI7Prelude3seq is the only one a compiled module of
+  the library defines too (Control.SetFunctions imports Values, PartialS
+  and SetEval from libcyrt and defines none).  While the object was
+  mapped the overwrite was invisible in the values: the node ran the
+  compiled seq, const root $! (generator =:<= binding), so a goal that
+  applies a binding at a fork took four steps more under the compiled
+  Prelude than under interpret:all (sibling and ReloadBinding.bound 35
+  against 31, bound3 37 against 33; sprite-exec --stats, steps:65536).
+  The first run of the issue survived because the compile on first use
+  kept the earlier interpreter alive across the reload, and the object
+  with it; a module held across the reload (M at module level) does the
+  same (see the test).
+- #124, the fix.  The exported name of the table: #define seq_Info
+  CyI7Prelude12BindingGuard in prelude.hpp, with the comment, as Choice,
+  Fwd and ValueBinding carry names of no Curry symbol.  The identifier
+  seq_Info and the step seq_step stay (the table is named "&>"; the
+  identifier is historical).  prelude.hpp and checker.hpp are outside the
+  include closure of cyrt/cyrt.hpp, so the ABI stamp did not change: make
+  stage rebuilt libcyrt and the bindings alone (the objects of the library
+  kept their time stamps), and no prepare pass was needed.  After the
+  fix: the probe's second run prints "off 35 goals ok", "all 35 goals ok",
+  exit 0, the Prelude-only variant runs sibling, and the compiled Prelude
+  and interpret:all take the same steps (31, 33, 31), the counts the
+  Python backend's &> gives.  The reload from tiered into interpret:all
+  once the object exists is covered: the trigger is the Prelude loaded
+  from its object, which tiered does as interpret:off does; the child of
+  the test from tiered died with status -11 before the fix and passes
+  after.  A table of the runtime that is not a built-in but carries a
+  Curry name is the whole class; the test below guards the installed
+  library against it.
+- #124, the tests (tests/data/curry/ReloadBinding.curry; unit_cxx_runtime.py).
+  ReloadBinding: len0, bound (the shape of sibling, values 0 1 2 7) and
+  bound3 (0 1 3 9).  TestReloadBindingValues pins the values on both
+  backends.  TestReloadAfterCompiledObject (C++) copies the module to a
+  temporary directory, compiles it with sprite-make --so under
+  interpret:off, and runs the sequence in a child: the goals under the
+  first mode, a reload into interpret:all, the goals again, as JSON, from
+  interpret:off and from tiered.  The child imports the module inside a
+  function and collects after the reload, and it reports the compiled
+  modules of the library mapped after each reload (/proc/self/maps): the
+  test asserts that none is mapped when the second pass starts, since a
+  first form of the child, with M at module level, kept the objects mapped
+  and passed on the unfixed runtime.  Before the fix both children ended
+  with status -11; after, the values of both passes are the pinned ones.
+  TestLibraryTablesInTheirObjects (C++): for the Prelude and
+  Control.SetFunctions loaded from their objects, the table of every symbol
+  lies in the object or in libcyrt (dladdr through ctypes), and a table in
+  libcyrt is a symbol the object does not define (the address the object
+  resolves for the symbol equals libcyrt's: dlsym through ctypes.CDLL).
+  On the old name it fails with "the object of Prelude and the runtime
+  library both define CyI7Prelude3seq, the table of Prelude.seq"
+  (verified by a revert of the define, a rebuild, the run, and the restore;
+  a rebuild of libcyrt takes 6 to 10 s with ccache).
+- The checkers, the fix.  Checker::step_end propagates the flags of the
+  redex from the result cell, when the step forwarded the redex to a fresh
+  cell, and from each successor of the result, through a new overload of
+  propagate over several seeds under the one budget of a walk
+  (CHECKER_PROPAGATE_BUDGET, 1024 cells per event, unchanged; the entry
+  walk keeps its 50000).  Checker.step calls _propagate_all over the
+  successors of the node, the seeded form of _propagate with the same
+  budget; the single-cell callers (the pull-tab, the copies, the
+  generators) are unchanged.  The old walk started at the redex, which
+  carries the flags, and stopped there.  Two changes of the walk after
+  the review of the lane (the bullet "The review" below): a walk over its
+  budget inserts the sets of the flags into unbounded_sets, as the entry
+  walk does, and keeps the counter propagate_over_budget; and a leaf
+  value (a constructor or Fail without a successor cell: the static True,
+  False, Nil, Fail, the small literals and the nullary constructors) is
+  neither seeded nor flagged (is_leaf_value in checker.cpp, _is_leaf_value
+  in checker.py).
+- The checkers, the tests.  TestSharedArgument of both files: the
+  expectedFailure mark is gone, test_under_the_checker asserts the values
+  under the checker ((0, A, [0, 1]) and (0, B, [0, 2])), and test_report,
+  which pinned the text of the false report, is removed (the constructed
+  violations of E in A in both files keep the message under test).  Before
+  the C++ build the C++ test failed with the report (root (f2_CASE1 {box
+  #1|(?1 A B)})); the Python test passed as soon as checker.py changed.
+  unit_cxx_checker.py has 55 tests on the C++ backend now, unit_py_checker.py
+  44 on the Python backend, no expected failure in either.  The developer
+  notes: the step bullet names the budgets and the start of the walk, and
+  the paragraph on the shared defect states the fix.
+- The runs (the clean environment, CCACHE_DIR set, -j 2 --mem 4).  The
+  seven files under the checker: Python backend
+  (SPRITE_INTERPRETER_FLAGS=backend:py,checker:true: unit_funcpat_narrowed,
+  unit_setfunctions_semantics, unit_cxx_freevars, unit_setfunctions_bindings,
+  unit_py_residuation, unit_funpat_free_argument, unit_setfunctions_bugs) 7
+  of 7 run, 0 failed, wall 37.0 s; C++ compiled (backend:cxx,checker:true:
+  unit_cxx_freevars, unit_setfunctions_bugs, unit_cxx_scheduler,
+  unit_setfunctions_semantics, unit_setfunctions_bindings,
+  unit_funpat_free_argument, unit_funcpat_narrowed) 7 of 7, 0 failed, wall
+  24.5 s; C++ under interpret:all 7 of 7, 0 failed, wall 90.0 s
+  (unit_cxx_freevars 33.5 s, unit_setfunctions_bugs 51.5 s,
+  unit_cxx_scheduler 18.0 s, unit_setfunctions_bindings 49.5 s,
+  unit_setfunctions_semantics 16.5 s, unit_funpat_free_argument 4.5 s,
+  unit_funcpat_narrowed 2.5 s).  No report on any goal, and the known-good
+  tests assert the same steps and forks with the flag on and off.  The
+  required files on both backends (./run_tests -j 2 --mem 4 --backend both
+  unit_cxx_checker.py unit_py_checker.py unit_setfunctions_bugs.py
+  unit_setfunctions_bindings.py unit_loadsave.py unit_cxx_tiered.py
+  unit_cxx_runtime.py): 14 of 14 run, 0 failed, wall 72.6 s.  make -C docs
+  html: build succeeded.
+- The review of the lane, four findings.  (1) Confirmed: the C++ checker
+  still reported the false S0 (E in A) when a step built more cells than
+  the budget of the walk.  The probe: gBig n = case n of { 1 -> [e (((1 +
+  0) + ... + 0)), ... 100 elements of ten additions]; _ -> [] }, e i = i ?
+  (i + 1), fFirst x = 0 ? (x !! 0), bigThenOutside = let a = gBig (length
+  [()]) in let vs = valuesOf (set1 fFirst a) in (head vs, a !! 0, vs).
+  The step of gBig at the flagged cell builds about 2300 cells; the walk
+  flagged the cells near the result, ran out, and left the cell of e 1
+  without flags, so the choice the outside a !! 0 made carried no tag and
+  the second alternative of the capsule pulled it across the box: "S0 (E
+  in A) violated at escape-set insertion: identifier 1 enters the escape
+  set of set #1 but is not argument-derived for it (tags [])", root {box
+  #1|(?1 1 (plusInt 1 1))}, counts steps 32, forks 2,
+  propagate_over_budget 1, violations 1, compiled and under interpret:all
+  (a form with four additions per element, about 1100 cells, stayed under
+  the budget on the C++ backend and over it on the Python backend).  The
+  Python checker counted the walk over budget and reported nothing: its
+  runtime forks on the choice inside the capsule after the enclosing
+  configuration decided it (escapes 1, no insertion).  The fix is the
+  fallback of the entry walk: a propagation walk over its budget inserts
+  the sets of the flags into unbounded_sets, so the checks of S0 of those
+  sets are suppressed, not reported, and the counter stays.  After the
+  fix both backends give the flag-off values (0, 1, [0, 1]) and (0, 2,
+  [0, 2]) with propagate_over_budget 1 and no violation (C++ steps 38,
+  forks 5; Python steps 38, forks 5).  The budget stays at 1024 cells per
+  event; a budget per event kind is the owner's.  (2) Confirmed:
+  twoCapsulesChoice2 and capturedThenShared2 existed in the prose alone.
+  Both are in SHARED_ARGUMENT of the two test files now, in the form of
+  the review: twoCapsulesChoice2 = let a = g2 (length [()]) in let vs =
+  valuesOf (set1 f2 a) in let ws = valuesOf (set1 f2 a) in (head vs, head
+  ws, fromJust' a, vs, ws), values (0, 0, A, [0, 1], [0, 1]) and (0, 0, B,
+  [0, 2], [0, 2]); capturedThenShared2 with h2 x = case x of Just y ->
+  case y of { A -> 10; B -> 20 } and ws = valuesOf (set1 h2 a), values
+  (0, A, [0, 1], [10]) and (0, B, [0, 2], [20]).  Under the checker on
+  both backends: no report, the same values (C++ steps 44 and 46, forks 9
+  and 7; Python steps 42 and 40).  Whether they match the programs the
+  earlier lane ran is not known; these are the pinned ones.  (3)
+  Plausible, applied: a step that forwards the redex to a static node
+  (Fail, True, False) seeded the walk with it, so the static node entered
+  the flags map and was rooted, and every later such step ran subset and
+  add_all over its growing list.  The walk skips a leaf value now (a
+  constructor or Fail without a successor cell), at the seeds and in the
+  walk; the flags of such a node are never read (flags_of is read for a
+  redex, the source of a pull-tab, a free variable and the root of a copy,
+  which hold a successor cell).  Measured on QueensSet (main = queens 8)
+  under backend:cxx,checker:true, steps:65536, two runs each: without the
+  skip and the fallback wall 20.9 and 24.0 s, peak_rss 160.7 and 160.0 MB;
+  with them 20.5 and 22.0 s, 160.0 and 159.9 MB; steps 2089740, forks
+  511430 in all four.  No measurable difference on this search.  (4)
+  Confirmed, outside the diff: a literal list of 1200 elements fails at
+  import with RecursionError on both backends.  bindingopt recurses three
+  frames per cons (rec -> comb -> many); with the limit at 4000 the
+  visitor-based conversion that follows hits it next (otherwise(*terms)),
+  and at 20000 the C stack overflows (8156 kB).  Not fixed in this lane:
+  filed as #125 with the reproducer, under the standing approval.
+- The tests after the review.  TestSharedArgument of both files holds
+  SHARED_ARGUMENT (three shapes) and BIG_STEP (bigThenOutside, built by a
+  join in the test file): test_values and test_big_step_values pin the
+  flag-off values on both backends; test_under_the_checker asserts the
+  values of the three shapes under the checker; test_big_step_under_the_
+  checker runs bigThenOutside through a runtime state and asserts the
+  values, propagate_over_budget >= 1 and no violation in the counts.  The
+  C++ test failed with the S0 report on the build without the fallback
+  (verified by a rebuild without the two walk changes, the run, the
+  restore and the rebuild); the Python test passes before and after the
+  fallback, since its runtime never inserted the choice, and pins the
+  count.  Verified after the review: ./run_tests -j 2 --mem 4 --backend
+  both unit_cxx_checker.py unit_py_checker.py unit_cxx_runtime.py, 6 of 6
+  run, 0 failed, wall 40.1 s (unit_cxx_checker.py 57 tests on cxx,
+  unit_py_checker.py 46 on py); the seven known-good files under
+  backend:py,checker:true 7 of 7, 0 failed, wall 32.5 s; under
+  backend:cxx,checker:true 7 of 7, 0 failed, wall 22.5 s; under
+  backend:cxx,checker:true,interpret:all 7 of 7, 0 failed, wall 90.1 s.
+  make -C docs html: build succeeded.
+- Left to the owner.  (1) The identifier seq_Info and its step seq_step
+  name the &> of the runtime; a rename to the name of the symbol
+  (BindingGuard) is cosmetic and touches constr.cpp, prelude.hpp and
+  rts_bindings.cpp.  (2) The step counts of the C++ backend under a
+  compiled Prelude fell by four for a goal that applies a binding at a fork
+  (35 to 31 for sibling); the counts under interpret:all and on the Python
+  backend are unchanged, so a harness system that compares the compiled
+  and the interpreted counters would have found the overwrite.  (3) The
+  linkage test guards the two modules of the library with built-ins; a
+  general guard would hide the tables the runtime uses alone
+  (visibility("hidden")) or check every object of the installed library.
+  (4) tests/manifest.json has no entry for the new tests of
+  unit_cxx_runtime.py (a calibration run adds them).  (5) The file
+  tests/data/curry/ReloadBinding.curry is new and untracked.  (6) The
+  budget of the propagation walk, 1024 cells per event, is one constant
+  for the steps, the pull-tabs, the copies and the generators; a larger
+  budget for the steps alone, or a budget by the size of the result, is a
+  policy of the instrumentation and the owner's.  (7) #125, the recursion
+  of the ICurry port over a long literal list.

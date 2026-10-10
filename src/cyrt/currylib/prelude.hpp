@@ -20,7 +20,15 @@
 #define concurrentAnd_Info           CyI7Prelude2_M        // (&)
 #define constrEq_Info                CyI7Prelude8constrEq
 #define nonstrictEq_Info             CyI7Prelude11nonstrictEq
-#define seq_Info                     CyI7Prelude3seq
+// The &> of the runtime (RuntimeState::apply_binding), not a built-in of
+// the Prelude: the compiled Prelude defines Prelude.&> and Prelude.seq
+// itself.  Its symbol is the mangled name of no Curry function, as those
+// of Choice and Fwd are.  Under the name of Prelude.seq the dynamic
+// initializer of the compiled Prelude wrote its table of seq over this
+// one when the object was loaded (the dynamic linker binds a definition to
+// the first one in the global scope), and a reload that unloaded the
+// object left the step pointing into unmapped memory (issue #124).
+#define seq_Info                     CyI7Prelude12BindingGuard
 
 // prelude/io.cpp
 #define prim_appendFile_Info         CyI7Prelude16prim__appendFile

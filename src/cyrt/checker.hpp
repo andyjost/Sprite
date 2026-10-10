@@ -216,6 +216,9 @@ namespace cyrt
 
     // FS-S.
     void propagate(Node *, SetList const & flags, Node * stop_at);
+    void propagate(
+        std::vector<Node *> seeds, SetList const & flags, Node * stop_at
+      );
     bool scan_path(Configuration *, Node * source, PathList &);
 
     // B2.

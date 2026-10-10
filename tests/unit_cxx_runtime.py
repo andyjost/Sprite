@@ -1,7 +1,12 @@
 import cytest # from ./lib; must be first
 from curry.backends.cxx import cyrtbindings as cyrt
-from curry import common, config
-import curry, os, subprocess, unittest
+from curry.objects.handle import getHandle
+from curry.utility.binding import binding
+from curry import common, config, inspect
+import ctypes, curry, json, os, shutil, subprocess, tempfile, unittest
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+DATA = os.path.join(HERE, 'data', 'curry')
 
 class TestCxxRuntime(cytest.TestCase):
   def testModuleCreation(self):
@@ -134,3 +139,229 @@ class TestBackendOption(cytest.TestCase):
   def test_backend_option_overrides_flag(self):
     self.assertIn('backend cxx', self.backend_seen('cxx', 'py'))
     self.assertIn('backend py', self.backend_seen('py', 'cxx'))
+
+
+# Issue #124
+# ==========
+
+# The child of the reload tests: the nullary goals of ReloadBinding under
+# each mode of the flag ``interpret`` in turn, with a reload between the
+# modes, and the compiled modules of the Curry library mapped after each
+# reload (from /proc/self/maps; None where there is none), as JSON.  The
+# module is a local of a function: a module held across the reload keeps
+# the object of the earlier interpreter, and the Prelude's with it, mapped,
+# and the sequence of the issue is not run.
+RELOAD_CHILD = '''
+import curry, gc, json, os
+from curry import inspect
+from curry.common import T_FUNC
+def goals(M):
+  return sorted(
+      name for name, sym in inspect.symbols(M).items()
+          if sym.info.tag == T_FUNC and sym.info.arity == 0
+    )
+def run():
+  M = curry.import_('ReloadBinding')
+  return {
+      name: sorted(str(v) for v in curry.eval(getattr(M, name)))
+          for name in goals(M)
+    }
+def mapped():
+  try:
+    with open('/proc/self/maps') as stream:
+      lines = stream.read().splitlines()
+  except OSError:
+    return None
+  return sorted(set(
+      os.path.basename(line.split()[-1]) for line in lines
+          if '/.curry/' in line and line.endswith('.so')
+    ))
+out = {'values': [], 'mapped': []}
+for mode in %(modes)r:
+  curry.reload({'backend': 'cxx', 'interpret': mode})
+  gc.collect()
+  out['mapped'].append(mapped())
+  out['values'].append(run())
+print(json.dumps(out))
+'''
+
+# The values of the goals of ReloadBinding.
+RELOAD_VALUES = {
+    'bound': ['0', '1', '2', '7']
+  , 'bound3': ['0', '1', '3', '9']
+  }
+
+
+class TestReloadBindingValues(cytest.TestCase):
+  '''The goals of ReloadBinding on the current backend.'''
+  def test_values(self):
+    M = curry.import_('ReloadBinding')
+    values = {
+        name: sorted(str(v) for v in curry.eval(getattr(M, name)))
+            for name in RELOAD_VALUES
+      }
+    self.assertEqual(values, RELOAD_VALUES)
+
+
+@unittest.skipIf(
+    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
+  )
+class TestReloadAfterCompiledObject(cytest.TestCase):
+  '''
+  Issue #124.  A process that evaluated the goals of a module loaded from
+  its compiled object, then reloaded the interpreter into interpret:all and
+  evaluated the same goals, died with a segmentation fault in procS at the
+  goal that applies the binding of a free variable at a fork
+  (RuntimeState::apply_binding).  The runtime builds that node with its own
+  table of &> (seq_Info of cyrt/currylib/prelude.hpp), which the runtime
+  library exported under the mangled name of the Curry function
+  Prelude.seq.  The compiled Prelude defines that symbol too, so its
+  dynamic initializer wrote the table of seq over the table of the runtime
+  when the object was loaded, and the unload of the object at the reload
+  left the step of the table pointing into unmapped memory.  The table
+  carries a name of its own now.  The tests run the sequence in a child,
+  from interpret:off and from tiered, with the object of the module
+  compiled first; the trigger is the compiled Prelude, not the object of
+  the module.
+  '''
+  TIMEOUT = 300
+  ADDRESS_SPACE = 2 << 30
+
+  def setUp(self):
+    super().setUp()
+    self.tmpdir = tempfile.mkdtemp(prefix='sprite-reload-')
+    shutil.copy(os.path.join(DATA, 'ReloadBinding.curry'), self.tmpdir)
+
+  def tearDown(self):
+    shutil.rmtree(self.tmpdir, ignore_errors=True)
+    super().tearDown()
+
+  def compile_module(self):
+    '''Compiles the copy of the module to its object with sprite-make.'''
+    env = dict(os.environ)
+    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:off'
+    env['CURRYPATH'] = self.tmpdir
+    cmd = [
+        'prlimit', '--as=%d' % self.ADDRESS_SPACE, 'timeout', str(self.TIMEOUT)
+      , config.installed_path('bin', 'sprite-make'), '--so', '-z', 'ReloadBinding'
+      ]
+    proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    sofile = os.path.join(
+        self.tmpdir, '.curry', config.intermediate_subdir(), 'ReloadBinding.so'
+      )
+    self.assertTrue(os.path.isfile(sofile), sofile)
+
+  def child(self, modes):
+    with binding(os.environ, 'CURRYPATH', self.tmpdir):
+      proc = cytest.run_in_subprocess(
+          RELOAD_CHILD % {'modes': modes}, self.TIMEOUT
+        , address_space=self.ADDRESS_SPACE
+        )
+    self.assertEqual(
+        proc.returncode, 0
+      , 'the child (%s) ended with status %s; stdout:\n%s\nstderr:\n%s'
+            % (' then '.join(modes), proc.returncode, proc.stdout, proc.stderr)
+      )
+    return json.loads(proc.stdout.strip().splitlines()[-1])
+
+  def check(self, modes):
+    self.compile_module()
+    out = self.child(modes)
+    # The second pass starts after the unload of every object of the first:
+    # the sequence of the issue.
+    if out['mapped'][1] is not None:
+      self.assertEqual(out['mapped'][1], [])
+    self.assertEqual(out['values'], [RELOAD_VALUES, RELOAD_VALUES])
+
+  def test_reload_from_compiled_into_interpreter(self):
+    self.check(('off', 'all'))
+
+  def test_reload_from_tiered_into_interpreter(self):
+    self.check(('tiered', 'all'))
+
+
+class _DlInfo(ctypes.Structure):
+  _fields_ = [
+      ('dli_fname', ctypes.c_char_p), ('dli_fbase', ctypes.c_void_p)
+    , ('dli_sname', ctypes.c_char_p), ('dli_saddr', ctypes.c_void_p)
+    ]
+
+def _symbol_of(address):
+  '''
+  The file of the loaded object that holds ``address`` and the name of the
+  dynamic symbol at that address there, or None for each that is not
+  known (dladdr).
+  '''
+  for lib in (None, 'libdl.so.2'):
+    try:
+      dladdr = ctypes.CDLL(lib).dladdr
+    except (OSError, AttributeError):
+      continue
+    dladdr.argtypes = [ctypes.c_void_p, ctypes.POINTER(_DlInfo)]
+    dladdr.restype = ctypes.c_int
+    info = _DlInfo()
+    if not dladdr(ctypes.c_void_p(address), ctypes.byref(info)):
+      return None, None
+    where = None if not info.dli_fname else os.path.realpath(info.dli_fname.decode())
+    symbol = None
+    if info.dli_sname and info.dli_saddr == address:
+      symbol = info.dli_sname.decode()
+    return where, symbol
+  return None, None
+
+def _address_of(lib, symbol):
+  '''
+  The address of the data ``symbol`` as ``lib`` (a ctypes.CDLL) resolves
+  it: its own definition first, then those of the objects it needs.  None
+  when none resolves it.
+  '''
+  try:
+    return ctypes.addressof(ctypes.c_char.in_dll(lib, symbol))
+  except ValueError:
+    return None
+
+
+@unittest.skipIf(
+    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
+  )
+class TestLibraryTablesInTheirObjects(cytest.TestCase):
+  '''
+  No table of a module of the Curry library loaded from its compiled object
+  is defined by the object and by the runtime library both.  The dynamic
+  linker binds every reference to the first definition in the global
+  scope, so the dynamic initializer of the object writes its table over the
+  table of the runtime, and an unload of the object leaves the table of the
+  runtime pointing into unmapped memory (issue #124: the table of
+  Prelude.seq over the table of the &> of the runtime, both under the
+  symbol CyI7Prelude3seq).  A table of the module that lies in the runtime
+  library is a built-in the object imports and does not define (the
+  built-ins of the Prelude; Values of Control.SetFunctions).
+  '''
+  def test_tables(self):
+    interp = curry.getInterpreter()
+    libcyrt_path = config.installed_path('lib', 'libcyrt.so')
+    libcyrt = os.path.realpath(libcyrt_path)
+    runtime = ctypes.CDLL(libcyrt_path)
+    checked = 0
+    for M in (interp.prelude, interp.setfunctions):
+      h = getHandle(M)
+      if h.sofilename is None:
+        continue
+      sofile = os.path.realpath(h.sofilename)
+      shlib = ctypes.CDLL(h.sofilename)
+      for name, sym in sorted(inspect.symbols(M).items()):
+        where, symbol = _symbol_of(sym.info.address)
+        self.assertIn(
+            where, (libcyrt, sofile)
+          , 'the table of %s.%s lies in %s' % (h.fullname, name, where)
+          )
+        if where == libcyrt and symbol is not None:
+          self.assertEqual(
+              _address_of(shlib, symbol), _address_of(runtime, symbol)
+            , 'the object of %s and the runtime library both define %s, '
+              'the table of %s.%s' % (h.fullname, symbol, h.fullname, name)
+            )
+        checked += 1
+    if not checked:
+      self.skipTest('no module of the library is loaded from its object')

@@ -246,9 +246,16 @@ the implementation; the memo states them in its sections 2.1 to 2.5):
   creates is tagged with the boxes above it, the set guards crossed from
   the root of each configuration of the dispatch chain to the redex, and
   the capsules whose arguments reached the redex (the entry walk of a
-  capsule flags the cells reachable from its arguments, and the cells a
-  step, a pull-tab or a copy creates at a flagged cell inherit the flags).
-  The tags define "argument-derived" for the checks of S0.  A replacement
+  capsule flags the cells reachable from its arguments, up to 50000 cells
+  per capsule, and the cells a step, a pull-tab, a copy or a generator
+  creates at a flagged cell inherit the flags, up to 1024 cells per event;
+  the walk of a step starts at the successors of the result cell, since
+  the redex itself carries the flags already, and a walk over its budget
+  makes the sets of the flags unbounded, so their checks of S0 are
+  suppressed from then on, as after an entry walk over its budget; a leaf
+  value, a constructor or a failure without a successor cell, is not
+  flagged).  The tags define
+  "argument-derived" for the checks of S0.  A replacement
   by failure comes from an exempt leaf of the definitional tree of the
   operation, or from a built-in (B2).
 * An inductive position (``fairscheme.hnf``, at entry): the position is a
@@ -375,15 +382,15 @@ Where the two checkers differ:
   backend; the ``escape_all`` flag the Python checker reads is never set
   by the C++ runtime.
 
-One defect is shared by the two checkers, found in the review of the C++
-mirror.  The step propagation of the flags is a no-op on both backends:
-the walk starts at the redex, which carries the flags, and stops there, so
-a cell a step makes at a flagged redex inherits nothing (the pull-tabs,
-the copies and the generators propagate).  The consequence: a boxed
-argument whose evaluation outside the box, after the capsule started,
-creates a choice gets a false report of S0 (E in A) at the pull-tab across
-the box, on both backends.  The program (``lazyThenOutside2`` of the test
-files)::
+One false alarm was shared by the two checkers, found in the review of the
+C++ mirror and fixed on 2026-10-09.  The step propagation of the flags was
+a no-op on both backends: the walk started at the redex, which carries the
+flags, and stopped there, so a cell a step made at a flagged redex
+inherited nothing (the pull-tabs, the copies and the generators
+propagated).  The consequence: a boxed argument whose evaluation outside
+the box, after the capsule started, creates a choice got a false report of
+S0 (E in A) at the pull-tab across the box, on both backends.  The program
+(``lazyThenOutside2`` of the test files)::
 
    g2 n = case n of { 1 -> Just (A ? B); _ -> Nothing }
    f2 x = 0 ? (case x of Just y -> case y of { A -> 1; B -> 2 })
@@ -391,16 +398,31 @@ files)::
      let vs = valuesOf (set1 f2 a) in (head vs, fromJust' a, vs)
 
 The capsule yields 0 without demanding ``a``; the enclosing configuration
-steps ``g2`` at the flagged cell, then ``?``, whose choice carries the tags
-of the boxes above it and the flags of the ``?`` cell, which are none; the
+steps ``g2`` at the flagged cell, then ``?``, whose choice carried the tags
+of the boxes above it and the flags of the ``?`` cell, which were none; the
 second alternative of the capsule pulls the choice across the box.  The
 runtime gives ``(0, A, [0, 1])`` and ``(0, B, [0, 2])``, the values of
-weakly encapsulated search.  ``TestSharedArgument`` of both test files
-pins the report as a known failure.  The fix is the owner's call, since it
-changes what "argument-derived" reads: start the propagation of a step at
-the successors of the result cell, under the budget of the walk, on both
-backends.  Tried on the C++ checker, it removed the report on the three
-shapes of the review and reported nothing on the 165 known-good goals.
+weakly encapsulated search.  The walk of a step starts at the successors
+of the result cell now (``Checker::step_end`` propagates from the result,
+when the step forwarded the redex to a fresh cell, and from each successor
+of the result, under the budget of one walk; ``Checker.step`` propagates
+from the successors of the node), so the ``?`` cell inherits the flags of
+the redex of ``g2`` and the choice is argument-derived for the box.
+``TestSharedArgument`` of both test files pins the values under the
+checker on three shapes (``lazyThenOutside2``, ``twoCapsulesChoice2`` with
+two capsules over the argument, ``capturedThenShared2`` with the argument
+captured by a second set function), and the known-good goals of both files
+report nothing with the same counts as before.
+
+The walk of a step is bounded by 1024 cells.  A step whose result holds
+more cells than that (``bigThenOutside`` of the test files: the step of
+``gBig`` builds a list of 100 elements of about 23 cells each) leaves the
+far cells without the flags, so a choice made there outside the box
+carries no tag, and the pull-tab across the box would be reported.  A walk
+over its budget therefore makes the sets of the flags unbounded, as the
+entry walk does: the event is counted (``propagate_over_budget``) and the
+checks of S0 of those sets are suppressed from then on.  The budget is a
+policy of the instrumentation, not of the invariants.
 
 ``tests/unit_cxx_checker.py`` runs the known-good programs under the
 checker, compiled and under ``interpret:all``, with the values and the
