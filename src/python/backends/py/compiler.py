@@ -50,6 +50,10 @@ def compile(interp, iobj):
 
 class PyCompiler(compiler.CompilerBase):
   CODE_TYPE = 'Python'
+  # The parser of Python refuses more than 200 nested parentheses, and a
+  # node is one call: a subexpression this deep goes into a temporary of
+  # the step function (CompilerBase.hoist; issue #125).
+  HOIST_DEPTH = 64
   SYNTH_TAGS = 'py.boxedfunc', 'py.rawfunc', 'py.unboxedfunc'
   EXCLUDED_METADATA = set(SYNTH_TAGS + ('py.material',))
 
@@ -100,6 +104,9 @@ class PyCompiler(compiler.CompilerBase):
 
   def vEmitStepfuncEntry(self):
     return []
+
+  def vEmitHoisted(self, name, text):
+    yield '%s = %s' % (name, text)
 
   def vEmitImportBackendFunction(self, func, h_func):
     yield 'from %s import %s as %s' % (func.__module__, func.__name__, h_func)

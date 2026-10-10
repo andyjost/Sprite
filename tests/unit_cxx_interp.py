@@ -369,6 +369,26 @@ class TestEmitter(cytest.TestCase):
         list(bytecode.disassemble(code)), ['   0 PUSH_CONST k0', '   2 RET_REF']
       )
 
+  def test_deep_expression(self):
+    '''
+    A nested expression is emitted on a stack of the emitter's own (issue
+    #125): the emitter recursed once per argument, and a literal list of
+    1200 elements failed at import under the interpreter.
+    '''
+    import sys
+    depth = 20000
+    self.assertLess(sys.getrecursionlimit(), depth)
+    deep = icurry.ICCall('Prelude.[]', [])
+    for i in range(depth, 0, -1):
+      deep = icurry.ICCall('Prelude.:', [lit(i), deep])
+    ifun = function(0, icurry.IBlock([], [], icurry.IReturn(deep)))
+    code = bytecode.compile_function(ifun, Resolver())
+    ops = names(code)
+    self.assertEqual(ops.count('PUSH_CONST'), depth)
+    self.assertEqual(ops.count('MAKE'), depth)
+    self.assertEqual(ops[-1], 'RET_NODE')
+    self.assertEqual(code.nstack, depth + 1)
+
 
 @ONLY_CXX
 class TestValues(cytest.TestCase):

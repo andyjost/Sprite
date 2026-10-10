@@ -11,6 +11,7 @@ and from the interfaces of its imports.
 
 from . import flatcurry as fc
 from .errors import Flat2ICurryError
+from ...utility.trampoline import trampoline
 
 __all__ = ['complete_prog', 'complete_exp', 'failed_branch', 'type_of_constructor']
 
@@ -40,22 +41,45 @@ def complete_rule(datadecls, rule):
   return fc.Rule(rule.args, complete_exp(datadecls, rule.body))
 
 def complete_exp(datadecls, e):
-  complete = lambda x: complete_exp(datadecls, x)
+  '''
+  Completes every case in an expression.  The walk runs on a stack of its
+  own (:func:`utility.trampoline.trampoline`), so a nested application of
+  any depth needs no recursion (issue #125).
+  '''
+  return trampoline(_complete(datadecls, e))
+
+def _complete(datadecls, e):
   if isinstance(e, (fc.Var, fc.Lit)):
     return e
   elif isinstance(e, fc.Comb):
-    return fc.Comb(e.combtype, e.name, [complete(arg) for arg in e.args])
+    args = []
+    for arg in e.args:
+      arg = yield _complete(datadecls, arg)
+      args.append(arg)
+    return fc.Comb(e.combtype, e.name, args)
   elif isinstance(e, fc.Let):
-    return fc.Let([(v, complete(b)) for v, b in e.bindings], complete(e.body))
+    bindings = []
+    for v, b in e.bindings:
+      b = yield _complete(datadecls, b)
+      bindings.append((v, b))
+    body = yield _complete(datadecls, e.body)
+    return fc.Let(bindings, body)
   elif isinstance(e, fc.Free):
-    return fc.Free(e.vars, complete(e.body))
+    body = yield _complete(datadecls, e.body)
+    return fc.Free(e.vars, body)
   elif isinstance(e, fc.Or):
-    return fc.Or(complete(e.lhs), complete(e.rhs))
+    lhs = yield _complete(datadecls, e.lhs)
+    rhs = yield _complete(datadecls, e.rhs)
+    return fc.Or(lhs, rhs)
   elif isinstance(e, fc.Typed):
-    return fc.Typed(complete(e.expr), e.typeexpr)
+    expr = yield _complete(datadecls, e.expr)
+    return fc.Typed(expr, e.typeexpr)
   elif isinstance(e, fc.Case):
-    ce = complete(e.scrutinee)
-    cbrs = [fc.Branch(br.pattern, complete(br.body)) for br in e.branches]
+    ce = yield _complete(datadecls, e.scrutinee)
+    cbrs = []
+    for br in e.branches:
+      body = yield _complete(datadecls, br.body)
+      cbrs.append(fc.Branch(br.pattern, body))
     if not cbrs or isinstance(cbrs[0].pattern, fc.LPattern):
       return fc.Case(e.casetype, ce, cbrs)
     _, consdecls = type_of_constructor(datadecls, cbrs[0].pattern.name)

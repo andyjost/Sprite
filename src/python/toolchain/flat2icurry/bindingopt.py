@@ -59,6 +59,7 @@ module again and makes them from the rewritten file.
 '''
 
 from . import flatcurry as fc
+from ...utility.trampoline import trampoline
 import functools
 
 __all__ = [
@@ -218,28 +219,30 @@ def case_arg_type(branches):
 def transform_exp(e, reqval, equivalence=True):
   '''
   Transforms an expression whose value is required to be ``reqval``.
-  Returns the new expression and the number of equalities replaced.
+  Returns the new expression and the number of equalities replaced.  The
+  walk runs on a stack of its own (:func:`utility.trampoline.trampoline`),
+  so a nested application of any depth needs no recursion (issue #125).
   '''
   def rec(e, reqval):
     if isinstance(e, (fc.Var, fc.Lit)):
       return e, 0
     elif isinstance(e, fc.Comb):
-      return comb(e, reqval)
+      return (yield from comb(e, reqval))
     elif isinstance(e, fc.Free):
-      body, n = rec(e.body, reqval)
+      body, n = yield rec(e.body, reqval)
       return fc.Free(e.vars, body), n
     elif isinstance(e, fc.Or):
-      lhs, n1 = rec(e.lhs, reqval)
-      rhs, n2 = rec(e.rhs, reqval)
+      lhs, n1 = yield rec(e.lhs, reqval)
+      rhs, n2 = yield rec(e.rhs, reqval)
       return fc.Or(lhs, rhs), n1 + n2
     elif isinstance(e, fc.Typed):
-      expr, n = rec(e.expr, reqval)
+      expr, n = yield rec(e.expr, reqval)
       return fc.Typed(expr, e.typeexpr), n
     elif isinstance(e, fc.Case):
-      scrutinee, n = rec(e.scrutinee, case_arg_type(e.branches))
+      scrutinee, n = yield rec(e.scrutinee, case_arg_type(e.branches))
       branches = []
       for br in e.branches:
-        body, m = rec(br.body, reqval)
+        body, m = yield rec(br.body, reqval)
         branches.append(fc.Branch(br.pattern, body))
         n += m
       return fc.Case(e.casetype, scrutinee, branches), n
@@ -247,65 +250,80 @@ def transform_exp(e, reqval, equivalence=True):
       n = 0
       bindings = []
       for v, b in e.bindings:
-        b, m = rec(b, ANY)
+        b, m = yield rec(b, ANY)
         bindings.append((v, b))
         n += m
-      body, m = rec(e.body, reqval)
+      body, m = yield rec(e.body, reqval)
       return fc.Let(bindings, body), n + m
     raise TypeError('not an expression: %r' % (e,))
 
   def comb(e, reqval):
-    if reqval == TRUE:
-      operands = equality_operands(e, True, equivalence)
-      if operands is not None:
-        args, n = many(operands, [ANY, ANY])
-        return fc.Comb(fc.FuncCall, fc.prelude('constrEq'), args), n + 1
-    if reqval == FALSE:
-      operands = equality_operands(e, False, equivalence)
-      if operands is not None:
-        args, n = many(operands, [ANY, ANY])
-        constraint = fc.Comb(fc.FuncCall, fc.prelude('constrEq'), args)
-        return fc.Comb(fc.FuncCall, fc.prelude('not'), [constraint]), n + 1
-    if e.name == fc.prelude('$') and len(e.args) == 2 \
-        and isinstance(e.args[0], fc.Comb) \
-        and isinstance(e.args[0].combtype, (fc.FuncPartCall, fc.ConsPartCall)):
-      return rec(reduce_dollar(e.args), reqval)
-    values = required_argument_values(e.name, reqval, len(e.args))
-    args, n = many(e.args, values)
-    return fc.Comb(e.combtype, e.name, args), n
+    # A call of ($) on a partial application is reduced to the call and
+    # looked at again, as an equality it may be.
+    while True:
+      if reqval == TRUE:
+        operands = equality_operands(e, True, equivalence)
+        if operands is not None:
+          args, n = yield many(operands, [ANY, ANY])
+          return fc.Comb(fc.FuncCall, fc.prelude('constrEq'), args), n + 1
+      if reqval == FALSE:
+        operands = equality_operands(e, False, equivalence)
+        if operands is not None:
+          args, n = yield many(operands, [ANY, ANY])
+          constraint = fc.Comb(fc.FuncCall, fc.prelude('constrEq'), args)
+          return fc.Comb(fc.FuncCall, fc.prelude('not'), [constraint]), n + 1
+      if e.name == fc.prelude('$') and len(e.args) == 2 \
+          and isinstance(e.args[0], fc.Comb) \
+          and isinstance(e.args[0].combtype, (fc.FuncPartCall, fc.ConsPartCall)):
+        e = reduce_dollar(e.args)
+        continue
+      values = required_argument_values(e.name, reqval, len(e.args))
+      args, n = yield many(e.args, values)
+      return fc.Comb(e.combtype, e.name, args), n
 
   def many(exprs, values):
     out = []
     n = 0
     for expr, value in zip(exprs, values):
-      expr, m = rec(expr, value)
+      expr, m = yield rec(expr, value)
       out.append(expr)
       n += m
     return out, n
 
-  return rec(e, reqval)
+  return trampoline(rec(e, reqval))
 
 def contains_equality(e, equivalence=True):
-  '''Whether an expression holds a Boolean equality or disequality call.'''
-  if isinstance(e, (fc.Var, fc.Lit)):
-    return False
-  elif isinstance(e, fc.Comb):
-    return equality_operands(e, True, equivalence) is not None \
-        or equality_operands(e, False, equivalence) is not None \
-        or any(contains_equality(arg, equivalence) for arg in e.args)
-  elif isinstance(e, fc.Free):
-    return contains_equality(e.body, equivalence)
-  elif isinstance(e, fc.Typed):
-    return contains_equality(e.expr, equivalence)
-  elif isinstance(e, fc.Or):
-    return contains_equality(e.lhs, equivalence) or contains_equality(e.rhs, equivalence)
-  elif isinstance(e, fc.Case):
-    return contains_equality(e.scrutinee, equivalence) \
-        or any(contains_equality(br.body, equivalence) for br in e.branches)
-  elif isinstance(e, fc.Let):
-    return contains_equality(e.body, equivalence) \
-        or any(contains_equality(b, equivalence) for _, b in e.bindings)
-  raise TypeError('not an expression: %r' % (e,))
+  '''
+  Whether an expression holds a Boolean equality or disequality call.  The
+  walk keeps its own stack, so a nested application of any depth needs no
+  recursion.
+  '''
+  stack = [e]
+  while stack:
+    e = stack.pop()
+    if isinstance(e, (fc.Var, fc.Lit)):
+      continue
+    elif isinstance(e, fc.Comb):
+      if equality_operands(e, True, equivalence) is not None \
+          or equality_operands(e, False, equivalence) is not None:
+        return True
+      stack.extend(reversed(e.args))
+    elif isinstance(e, fc.Free):
+      stack.append(e.body)
+    elif isinstance(e, fc.Typed):
+      stack.append(e.expr)
+    elif isinstance(e, fc.Or):
+      stack.append(e.rhs)
+      stack.append(e.lhs)
+    elif isinstance(e, fc.Case):
+      stack.extend(reversed([br.body for br in e.branches]))
+      stack.append(e.scrutinee)
+    elif isinstance(e, fc.Let):
+      stack.extend(reversed([b for _, b in e.bindings]))
+      stack.append(e.body)
+    else:
+      raise TypeError('not an expression: %r' % (e,))
+  return False
 
 def transform_func(fd, equivalence=True):
   '''

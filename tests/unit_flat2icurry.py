@@ -9,7 +9,7 @@ from curry.utility import maxrecursion, readcurry
 from curry.utility.readcurry import lex
 from curry import config
 import flat2icurry_oracle as oracle
-import contextlib, glob, io, math, os, shutil, tempfile, unittest
+import contextlib, glob, io, math, os, shutil, sys, tempfile, unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -345,7 +345,7 @@ class TestWriter(cytest.TestCase):
     self.assertRaises(TypeError, terms.showterm, object())
 
   def test_deep_term(self):
-    '''A deep term, such as a long string literal, needs a raised recursion limit.'''
+    '''A deep term, such as a long string literal: the writer keeps its own stack.'''
     deep = ic.ILit(ic.IInt(0))
     for i in range(3000):
       deep = ic.ICCall(('Prelude', ':', 1), [ic.ILit(ic.IInt(i)), deep])
@@ -467,7 +467,7 @@ class TestHaskellWriter(cytest.TestCase):
       self.skipTest('no FlatCurry file of the front end in the test corpus')
 
   def test_deep_term(self):
-    '''A deep term, such as a long string literal, needs a raised recursion limit.'''
+    '''A deep term, such as a long string literal: the writer keeps its own stack.'''
     deep = ccall(P('[]'))
     for i in range(3000):
       deep = ccall(P(':'), fc.Lit(fc.Intc(i)), deep)
@@ -476,6 +476,8 @@ class TestHaskellWriter(cytest.TestCase):
         'Comb ConsCall ("Prelude",":") [Lit (Intc 2999),Comb ConsCall ("Prelude",":") [Lit (Intc 2998),'
       ))
     self.assertTrue(text.endswith('Comb ConsCall ("Prelude","[]") []' + ']' * 3000))
+    # The comparison of two deep terms recurses (Term.__eq__), the reader
+    # does not.
     with maxrecursion():
       self.assertTrue(fc.read(text) == deep)
 
@@ -1523,3 +1525,86 @@ class TestOracleHarness(cytest.TestCase):
       self.assertEqual(missing.status, oracle.FAILED)
     finally:
       shutil.rmtree(tmpdir)
+
+# The depth of the terms of TestDeepTerms: past the limit under which the
+# readers and the writers ran (utility.MAX_RECURSION_LIMIT, 16384), and far
+# past the default limit of 1000 under which the passes ran.
+DEPTH = 20000
+
+def deep_list(leaf, depth=DEPTH):
+  '''
+  A literal list of ``depth`` elements, ``leaf(i)`` for ``i`` from 1, as
+  the front end writes it: a nest of cons calls.
+  '''
+  e = ccall(P('[]'))
+  for i in range(depth, 0, -1):
+    e = ccall(P(':'), leaf(i), e)
+  return e
+
+class TestDeepTerms(cytest.TestCase):
+  '''
+  The walks of the port over a nested application run on a stack of their
+  own, not on the stack of Python (issue #125: a literal list of 1200
+  elements failed at import with RecursionError).  Each test takes a term
+  deeper than any recursion limit the port set, under the default limit.
+  '''
+
+  def setUp(self):
+    super().setUp()
+    self.assertLess(sys.getrecursionlimit(), DEPTH)
+
+  def test_reader_and_writers(self):
+    '''The parser, the decoder, and the two writers.'''
+    deep = deep_list(lambda i: fc.Lit(fc.Intc(i)))
+    text = fc.show(deep)
+    self.assertTrue(text.startswith(
+        'Comb ConsCall ("Prelude",":") [Lit (Intc 1),Comb ConsCall ("Prelude",":") [Lit (Intc 2),'
+      ))
+    self.assertTrue(text.endswith('Comb ConsCall ("Prelude","[]") []' + ']' * DEPTH))
+    self.assertEqual(fc.show(fc.read(text)), text)
+    shown = terms.showterm(deep)
+    self.assertTrue(shown.startswith(
+        '(Comb ConsCall ("Prelude",":") [(Lit (Intc 1)),(Comb ConsCall ("Prelude",":") [(Lit (Intc 2)),'
+      ))
+    self.assertTrue(shown.endswith('(Comb ConsCall ("Prelude","[]") [])' + '])' * DEPTH))
+    self.assertEqual(terms.showterm(fc.decode(readcurry.parse(shown))), shown)
+
+  def test_passes(self):
+    '''The selectors and the passes over an expression.'''
+    deep = deep_list(fc.Var)
+    indices = list(range(1, DEPTH + 1))
+    self.assertEqual(fc.all_vars(deep), indices)
+    # The union of the Curry library is quadratic: a shallower nest.
+    self.assertEqual(caselifting.unbound_vars(deep_list(fc.Var, 5000)), indices[:5000])
+    text = fc.show(deep)
+    self.assertEqual(fc.show(casecompletion.complete_exp([], deep)), text)
+    self.assertEqual(fc.show(elimnewtype.elim_exp(set(), deep)), text)
+    renamed = fc.show(elimnewtype.subst_var(DEPTH, 0, deep))
+    self.assertTrue(renamed.endswith('[Var 0,Comb ConsCall ("Prelude","[]") []' + ']' * DEPTH))
+    state = caselifting.LiftState('M', set())
+    self.assertEqual(fc.show(caselifting.lift_exp(state, True, deep)), text)
+    self.assertEqual(state.liftfuncs, [])
+
+  def test_translation(self):
+    '''The ICurry generation, and the translation as a whole.'''
+    deep = deep_list(lambda i: fc.Lit(fc.Intc(i)))
+    iprog = f2i.translate(prog([func('f', [], deep)]), [PRELUDE])
+    text = terms.showterm(iprog)
+    self.assertTrue(text.startswith(
+        '(IProg "M" ["Prelude"] [] [(IFunction ("M","f",0) 0 Public [] (IFuncBody '
+        '(IBlock [] [] (IReturn (ICCall ("Prelude",":",1) [(ILit (IInt 1)),'
+      ))
+    self.assertEqual(text.count('(ICCall ("Prelude",":",1) [(ILit (IInt '), DEPTH)
+    self.assertTrue(text.endswith(
+        '(ICCall ("Prelude","[]",0) [])' + '])' * DEPTH + '))))])'
+      ))
+    # The positions of the variables of a recursive let, one list per
+    # level, so a shallower nest.
+    depth = 2000
+    e = ic.ICCall(('Prelude', '[]', 0), [])
+    for i in range(depth, 0, -1):
+      e = ic.ICCall(('Prelude', ':', 1), [ic.IVar(i), e])
+    positions = compiler.var_pos([], e)
+    self.assertEqual(len(positions), depth)
+    self.assertEqual(positions[0], (1, [0]))
+    self.assertEqual(positions[-1], (depth, [1] * (depth - 1) + [0]))

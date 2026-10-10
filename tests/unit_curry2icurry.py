@@ -622,3 +622,76 @@ class TestCurry2ICurry(cytest.TestCase):
     # system library (flatcurry_dirs).
     dirs = _frontend.flatcurry_dirs(impa, [self.tmpdir, config.system_curry_path()])
     self.assertEqual(dirs, [os.path.join(self.tmpdir, FE_SUBDIR)])
+
+# The modules of TestDeepExpressions (issue #125): a literal list of
+# ELEMENTS elements, and a chain of ELEMENTS applications of a binary
+# operator.  The case on a literal is a Boolean equality in FlatCurry, so
+# the binding optimization rebuilds the body of g.
+ELEMENTS = 1200
+
+LONG_LIST = '''e :: Int -> Int
+e i = i ? (i + 1)
+
+g :: Int -> [Int]
+g n = case n of { 1 -> [%s]; _ -> [] }
+
+longHead :: Int
+longHead = head (g (length [()]))
+''' % ', '.join('e %d' % i for i in range(1, ELEMENTS + 1))
+
+DEEP_SUM = '''e :: Int -> Int
+e i = i ? (i + 1)
+
+g :: Int -> Int
+g n = case n of { 1 -> %s; _ -> 0 }
+
+deepHead :: Int
+deepHead = g (length [()])
+''' % ('0 + (' * ELEMENTS + 'e 1' + ')' * ELEMENTS)
+
+class TestDeepExpressions(cytest.TestCase):
+  '''
+  A module with a deeply nested expression imports and runs on both
+  backends (issue #125).  The port of icurry recursed once per element of
+  a literal list, first in the binding optimization, then in the passes
+  after it and in the reader of the ICurry text; the Python backend wrote
+  the expression as one nested call, which the parser of Python refuses
+  past 200 parentheses; the interpreter of the C++ runtime recursed in its
+  emitter.  The module is written by the test, as the script of the issue
+  does, and the ICurry cache is off, so the route runs every time.  The
+  tests run under interpret:new: they pin the import, the emitters and the
+  evaluation, not the compile with g++ (about 18 s and 800 MB of resident
+  memory per module in a background child under the tiered default).
+  '''
+
+  @classmethod
+  def setUpClass(cls):
+    super().setUpClass()
+    if config.curry_frontend() is None:
+      raise unittest.SkipTest('the Curry front end is not configured')
+
+  def setUp(self):
+    super().setUp()
+    self.tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
+    self.addCleanup(shutil.rmtree, self.tmpdir, True)
+    patcher = mock.patch.dict(os.environ, {'SPRITE_CACHE_FILE': ''})
+    patcher.start()
+    self.addCleanup(patcher.stop)
+    cache.reset()
+    self.addCleanup(cache.reset)
+
+  def values(self, name, text, goal):
+    '''Writes the module, imports it, and evaluates the goal.'''
+    curryfile = os.path.join(self.tmpdir, name + '.curry')
+    with open(curryfile, 'w', encoding='utf-8') as ostream:
+      ostream.write(text)
+    M = curry.import_(name, currypath=[self.tmpdir])
+    return list(curry.eval(getattr(M, goal), converter='topython'))
+
+  @cytest.with_flags(interpret='new')
+  def test_long_literal_list(self):
+    self.assertEqual(self.values('LongList', LONG_LIST, 'longHead'), [1, 2])
+
+  @cytest.with_flags(interpret='new')
+  def test_nested_operator(self):
+    self.assertEqual(self.values('DeepSum', DEEP_SUM, 'deepHead'), [1, 2])
