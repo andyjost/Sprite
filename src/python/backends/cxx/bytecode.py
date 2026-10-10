@@ -564,24 +564,49 @@ class _Emitter(object):
       self.emit('PUSH_CONST', k)
       self.push()
       return
-    for arg in ipcall.exprs:
-      self.expr(arg)
-    self.emit('MAKE_PARTIAL', self.symbol(ipcall.symbolname), len(ipcall.exprs))
-    self.pop(len(ipcall.exprs))
-    self.push()
+    self.compound(ipcall)
 
   @expr.when(icurry.ICall)
   def expr(self, icall):
-    for arg in icall.exprs:
-      self.expr(arg)
-    self.emit('MAKE', self.symbol(icall.symbolname), len(icall.exprs))
-    self.pop(len(icall.exprs))
-    self.push()
+    self.compound(icall)
 
   @expr.when(icurry.IOr)
   def expr(self, ior):
-    self.expr(ior.lhs)
-    self.expr(ior.rhs)
-    self.emit('MAKE', self.symbol('Prelude.?'), 2)
-    self.pop(2)
+    self.compound(ior)
+
+  def compound(self, root):
+    '''
+    Emits a call, a partial application with arguments, or a choice: the
+    arguments of a node are pushed before the node is made, left to right.
+    The walk keeps its own stack, so a nested expression of any depth needs
+    no recursion (issue #125).
+    '''
+    stack = [(root, False)]
+    while stack:
+      expr, visited = stack.pop()
+      if visited:
+        self.make(expr)
+      elif isinstance(expr, icurry.IOr):
+        stack.append((expr, True))
+        stack.append((expr.rhs, False))
+        stack.append((expr.lhs, False))
+      elif isinstance(expr, icurry.ICall) \
+          and (expr.exprs or not isinstance(expr, icurry.IPartialCall)):
+        stack.append((expr, True))
+        for arg in reversed(expr.exprs):
+          stack.append((arg, False))
+      else:
+        self.expr(expr)
+
+  def make(self, expr):
+    '''The instruction that makes the node of ``expr`` from its arguments.'''
+    if isinstance(expr, icurry.IOr):
+      self.emit('MAKE', self.symbol('Prelude.?'), 2)
+      self.pop(2)
+    elif isinstance(expr, icurry.IPartialCall):
+      self.emit('MAKE_PARTIAL', self.symbol(expr.symbolname), len(expr.exprs))
+      self.pop(len(expr.exprs))
+    else:
+      self.emit('MAKE', self.symbol(expr.symbolname), len(expr.exprs))
+      self.pop(len(expr.exprs))
     self.push()

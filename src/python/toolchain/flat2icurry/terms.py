@@ -11,7 +11,6 @@ the derived ``Show`` instances of Haskell, which the Curry front end uses to
 write a FlatCurry file; a file read and shown again is byte-identical.
 '''
 
-from ...utility import maxrecursion
 import math
 
 __all__ = [
@@ -174,40 +173,47 @@ def show_float(f):
 def showterm(term):
   '''Prints a term as the PAKCS ``showTerm`` does.  There is no newline.'''
   parts = []
-  with maxrecursion():
-    _show(term, parts.append)
+  _show(term, parts.append)
   return ''.join(parts)
 
 def _show(x, emit):
-  if isinstance(x, Term):
-    if not x._args_:
-      emit(x._name_)
+  # The walk keeps its own stack of the terms to show and of the text to
+  # emit after them, so a term of any depth needs no recursion (issue
+  # #125).  An item is a term, or text with the term None.
+  stack = [(x, None)]
+  while stack:
+    x, text = stack.pop()
+    if text is not None:
+      emit(text)
+    elif isinstance(x, Term):
+      if not x._args_:
+        emit(x._name_)
+      else:
+        emit('(' + x._name_)
+        stack.append((None, ')'))
+        for arg in reversed(x._args_):
+          stack.append((arg, None))
+          stack.append((None, ' '))
+    elif isinstance(x, Char):
+      emit(show_char(x))
+    elif isinstance(x, str):
+      emit(show_string(x))
+    elif isinstance(x, bool):
+      raise TypeError('cannot show %r' % (x,))
+    elif isinstance(x, int):
+      emit(str(x) if x >= 0 else '(%d)' % x)
+    elif isinstance(x, float):
+      emit(show_float(x))
+    elif isinstance(x, (tuple, list)):
+      open_, close = '()' if isinstance(x, tuple) else '[]'
+      emit(open_)
+      stack.append((None, close))
+      for i in reversed(range(len(x))):
+        stack.append((x[i], None))
+        if i:
+          stack.append((None, ','))
     else:
-      emit('(' + x._name_)
-      for arg in x._args_:
-        emit(' ')
-        _show(arg, emit)
-      emit(')')
-  elif isinstance(x, Char):
-    emit(show_char(x))
-  elif isinstance(x, str):
-    emit(show_string(x))
-  elif isinstance(x, bool):
-    raise TypeError('cannot show %r' % (x,))
-  elif isinstance(x, int):
-    emit(str(x) if x >= 0 else '(%d)' % x)
-  elif isinstance(x, float):
-    emit(show_float(x))
-  elif isinstance(x, (tuple, list)):
-    open_, close = '()' if isinstance(x, tuple) else '[]'
-    emit(open_)
-    for i, arg in enumerate(x):
-      if i:
-        emit(',')
-      _show(arg, emit)
-    emit(close)
-  else:
-    raise TypeError('cannot show %r' % (x,))
+      raise TypeError('cannot show %r' % (x,))
 
 # The Haskell writer
 # ==================
@@ -306,41 +312,46 @@ def showhaskell(term):
   a list and of a tuple are not.  There is no newline.
   '''
   parts = []
-  with maxrecursion():
-    _show_haskell(term, 0, parts.append)
+  _show_haskell(term, 0, parts.append)
   return ''.join(parts)
 
 def _show_haskell(x, prec, emit):
-  if isinstance(x, Term):
-    if not x._args_:
-      emit(x._name_)
+  # The walk keeps its own stack, as _show does.  An item is a term with
+  # its precedence, or text with the term None.
+  stack = [(x, prec, None)]
+  while stack:
+    x, prec, text = stack.pop()
+    if text is not None:
+      emit(text)
+    elif isinstance(x, Term):
+      if not x._args_:
+        emit(x._name_)
+      else:
+        if prec > 10:
+          emit('(')
+          stack.append((None, 0, ')'))
+        emit(x._name_)
+        for arg in reversed(x._args_):
+          stack.append((arg, 11, None))
+          stack.append((None, 0, ' '))
+    elif isinstance(x, Char):
+      emit(show_haskell_char(x))
+    elif isinstance(x, str):
+      emit(show_haskell_string(x))
+    elif isinstance(x, bool):
+      raise TypeError('cannot show %r' % (x,))
+    elif isinstance(x, int):
+      emit('(%d)' % x if x < 0 and prec > 6 else str(x))
+    elif isinstance(x, float):
+      text = show_haskell_float(x)
+      emit('(%s)' % text if text.startswith('-') and prec > 6 else text)
+    elif isinstance(x, (tuple, list)):
+      open_, close = '()' if isinstance(x, tuple) else '[]'
+      emit(open_)
+      stack.append((None, 0, close))
+      for i in reversed(range(len(x))):
+        stack.append((x[i], 0, None))
+        if i:
+          stack.append((None, 0, ','))
     else:
-      if prec > 10:
-        emit('(')
-      emit(x._name_)
-      for arg in x._args_:
-        emit(' ')
-        _show_haskell(arg, 11, emit)
-      if prec > 10:
-        emit(')')
-  elif isinstance(x, Char):
-    emit(show_haskell_char(x))
-  elif isinstance(x, str):
-    emit(show_haskell_string(x))
-  elif isinstance(x, bool):
-    raise TypeError('cannot show %r' % (x,))
-  elif isinstance(x, int):
-    emit('(%d)' % x if x < 0 and prec > 6 else str(x))
-  elif isinstance(x, float):
-    text = show_haskell_float(x)
-    emit('(%s)' % text if text.startswith('-') and prec > 6 else text)
-  elif isinstance(x, (tuple, list)):
-    open_, close = '()' if isinstance(x, tuple) else '[]'
-    emit(open_)
-    for i, arg in enumerate(x):
-      if i:
-        emit(',')
-      _show_haskell(arg, 0, emit)
-    emit(close)
-  else:
-    raise TypeError('cannot show %r' % (x,))
+      raise TypeError('cannot show %r' % (x,))

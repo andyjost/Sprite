@@ -14,6 +14,7 @@ of the list, so the output order is the reverse of the order of creation.
 '''
 
 from . import flatcurry as fc
+from ...utility.trampoline import trampoline
 
 __all__ = ['lift_prog', 'unbound_vars', 'union', 'unionmap']
 
@@ -25,9 +26,13 @@ def union(xs, ys):
 
 def unionmap(f, items):
   '''``foldr union [] (map f items)``.'''
+  return unions([f(item) for item in items])
+
+def unions(lists):
+  '''``foldr union []`` of a list of lists.'''
   acc = []
-  for item in reversed(items):
-    acc = union(f(item), acc)
+  for item in reversed(lists):
+    acc = union(item, acc)
   return acc
 
 class LiftState:
@@ -63,7 +68,7 @@ def lift_prog(prog):
   return fc.Prog(prog.name, prog.imports, prog.types, functions, prog.operators)
 
 def lift_new_fun(state, fd):
-  return fc.Func(fd.name, fd.arity, fd.visibility, fd.typeexpr, lift_rule(state, fd.rule))
+  return trampoline(_lift_new_fun(state, fd))
 
 def lift_rule(state, rule):
   if isinstance(rule, fc.External):
@@ -74,48 +79,78 @@ def lift_exp(state, nested, e):
   '''
   Lifts an expression.  ``nested`` is true inside an expression where a
   case, let, or free declaration must be lifted, such as a call argument.
+  The walk runs on a stack of its own (:func:`utility.trampoline.trampoline`),
+  so a nested application of any depth needs no recursion (issue #125); a
+  function the walk makes is lifted in turn on the same stack, before it
+  is added, as the recursion did.
   '''
+  return trampoline(_lift(state, nested, e))
+
+def _lift(state, nested, e):
   if isinstance(e, (fc.Var, fc.Lit)):
     return e
   elif isinstance(e, fc.Comb):
-    return fc.Comb(e.combtype, e.name, [lift_exp(state, True, arg) for arg in e.args])
+    args = []
+    for arg in e.args:
+      arg = yield _lift(state, True, arg)
+      args.append(arg)
+    return fc.Comb(e.combtype, e.name, args)
   elif isinstance(e, fc.Case):
     if isinstance(e.scrutinee, fc.Var):
-      return lift_case_exp(state, nested, e)
-    return lift_case_arg(state, e)
+      return (yield from _lift_case_exp(state, nested, e))
+    return (yield from _lift_case_arg(state, e))
   elif isinstance(e, fc.Let):
     if nested:
-      return lift_to_function(state, 'LET', e)
-    bindings = [(v, lift_exp(state, True, b)) for v, b in e.bindings]
-    return fc.Let(bindings, lift_exp(state, True, e.body))
+      return (yield from _lift_to_function(state, 'LET', e))
+    bindings = []
+    for v, b in e.bindings:
+      b = yield _lift(state, True, b)
+      bindings.append((v, b))
+    body = yield _lift(state, True, e.body)
+    return fc.Let(bindings, body)
   elif isinstance(e, fc.Free):
     if nested:
-      return lift_to_function(state, 'FREE', e)
-    return fc.Free(e.vars, lift_exp(state, True, e.body))
+      return (yield from _lift_to_function(state, 'FREE', e))
+    body = yield _lift(state, True, e.body)
+    return fc.Free(e.vars, body)
   elif isinstance(e, fc.Or):
-    return fc.Or(lift_exp(state, True, e.lhs), lift_exp(state, True, e.rhs))
+    lhs = yield _lift(state, True, e.lhs)
+    rhs = yield _lift(state, True, e.rhs)
+    return fc.Or(lhs, rhs)
   elif isinstance(e, fc.Typed):
-    return fc.Typed(lift_exp(state, nested, e.expr), e.typeexpr)
+    expr = yield _lift(state, nested, e.expr)
+    return fc.Typed(expr, e.typeexpr)
   raise TypeError('not an expression: %r' % (e,))
 
-def lift_to_function(state, suffix, e):
+def _lift_new_fun(state, fd):
+  rule = fd.rule
+  if not isinstance(rule, fc.External):
+    body = yield _lift(state, False, rule.body)
+    rule = fc.Rule(rule.args, body)
+  return fc.Func(fd.name, fd.arity, fd.visibility, fd.typeexpr, rule)
+
+def _lift_to_function(state, suffix, e):
   '''Moves ``e`` into a new function of its unbound variables.'''
   cfn = state.gen_func_name(suffix)
   vs = unbound_vars(e)
   newfun = fc.Func(cfn, len(vs), fc.Private, NONE_TYPE, fc.Rule(vs, e))
-  state.add_fun(lift_new_fun(state, newfun))
+  newfun = yield _lift_new_fun(state, newfun)
+  state.add_fun(newfun)
   return fc.Comb(fc.FuncCall, cfn, [fc.Var(v) for v in vs])
 
-def lift_case_exp(state, nested, e):
+def _lift_case_exp(state, nested, e):
   if nested:
-    return lift_to_function(state, 'CASE', e)
-  ne = lift_exp(state, True, e.scrutinee)
-  nbrs = [fc.Branch(br.pattern, lift_exp(state, True, br.body)) for br in e.branches]
+    return (yield from _lift_to_function(state, 'CASE', e))
+  ne = yield _lift(state, True, e.scrutinee)
+  nbrs = []
+  for br in e.branches:
+    body = yield _lift(state, True, br.body)
+    nbrs.append(fc.Branch(br.pattern, body))
   return fc.Case(e.casetype, ne, nbrs)
 
-def lift_case_arg(state, e):
+def _lift_case_arg(state, e):
   '''Lifts a case whose scrutinee is not a variable.'''
-  ne = lift_exp(state, True, e.scrutinee)
+  ne = yield _lift(state, True, e.scrutinee)
   cfn = state.gen_func_name('COMPLEXCASE')
   casevar = max([0] + fc.all_vars(e)) + 1
   vs = unionmap(unbound_vars_in_branch, e.branches)
@@ -123,32 +158,58 @@ def lift_case_arg(state, e):
       cfn, len(vs) + 1, fc.Private, NONE_TYPE
     , fc.Rule(vs + [casevar], fc.Case(e.casetype, fc.Var(casevar), e.branches))
     )
-  state.add_fun(lift_new_fun(state, newfun))
+  newfun = yield _lift_new_fun(state, newfun)
+  state.add_fun(newfun)
   return fc.Comb(fc.FuncCall, cfn, [fc.Var(v) for v in vs] + [ne])
 
 def unbound_vars(e):
-  '''The variables an expression does not bind, as the Curry ``unboundVars``.'''
+  '''
+  The variables an expression does not bind, as the Curry ``unboundVars``.
+  The walk runs on a stack of its own (:func:`utility.trampoline.trampoline`).
+  '''
+  return trampoline(_unbound_vars(e))
+
+def _unbound_vars(e):
   if isinstance(e, fc.Var):
     return [e.index]
   elif isinstance(e, fc.Lit):
     return []
   elif isinstance(e, fc.Comb):
-    return unionmap(unbound_vars, e.args)
+    parts = []
+    for arg in e.args:
+      part = yield _unbound_vars(arg)
+      parts.append(part)
+    return unions(parts)
   elif isinstance(e, fc.Or):
-    return union(unbound_vars(e.lhs), unbound_vars(e.rhs))
+    lhs = yield _unbound_vars(e.lhs)
+    rhs = yield _unbound_vars(e.rhs)
+    return union(lhs, rhs)
   elif isinstance(e, fc.Typed):
-    return unbound_vars(e.expr)
+    return (yield _unbound_vars(e.expr))
   elif isinstance(e, fc.Free):
-    return [v for v in unbound_vars(e.body) if v not in e.vars]
+    body = yield _unbound_vars(e.body)
+    return [v for v in body if v not in e.vars]
   elif isinstance(e, fc.Let):
-    unbounds = unionmap(unbound_vars, [e.body] + [b for _, b in e.bindings])
+    parts = []
+    for sub in [e.body] + [b for _, b in e.bindings]:
+      part = yield _unbound_vars(sub)
+      parts.append(part)
     bounds = [v for v, _ in e.bindings]
-    return [v for v in unbounds if v not in bounds]
+    return [v for v in unions(parts) if v not in bounds]
   elif isinstance(e, fc.Case):
-    return union(unbound_vars(e.scrutinee), unionmap(unbound_vars_in_branch, e.branches))
+    scrutinee = yield _unbound_vars(e.scrutinee)
+    parts = []
+    for br in e.branches:
+      part = yield _unbound_vars_in_branch(br)
+      parts.append(part)
+    return union(scrutinee, unions(parts))
   raise TypeError('not an expression: %r' % (e,))
 
 def unbound_vars_in_branch(br):
+  return trampoline(_unbound_vars_in_branch(br))
+
+def _unbound_vars_in_branch(br):
+  body = yield _unbound_vars(br.body)
   if isinstance(br.pattern, fc.Pattern):
-    return [v for v in unbound_vars(br.body) if v not in br.pattern.vars]
-  return unbound_vars(br.body)
+    return [v for v in body if v not in br.pattern.vars]
+  return body

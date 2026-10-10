@@ -89,6 +89,37 @@ class ReadCurryEscapes(cytest.TestCase):
     self.assertEqual(tok, '\u08e9\u00e41')
 
 
+class ReadCurryDepth(cytest.TestCase):
+  '''
+  The reader of the ICurry text runs on a stack of its own (issue #125):
+  the parser and the decoder recursed once per nested application, and a
+  literal list of 1200 elements failed at import.
+  '''
+  DEPTH = 20000
+
+  def test_deep_text(self):
+    import sys
+    from curry.utility import readcurry
+    self.assertLess(sys.getrecursionlimit(), self.DEPTH)
+    text = ''.join(
+        '(ICCall ("Prelude",":",1) [(ILit (IInt %d)),' % i
+            for i in range(1, self.DEPTH + 1)
+      ) + '(ICCall ("Prelude","[]",0) [])' + '])' * self.DEPTH
+    rcdata = readcurry.parse(text)
+    self.assertIsInstance(rcdata, readcurry.Applic)
+    self.assertEqual(rcdata.f.name, 'ICCall')
+    icur = icurry.readcurry.loads(rcdata)
+    depth = 0
+    while icur.exprs:
+      self.assertIsInstance(icur, icurry.ICCall)
+      self.assertEqual(icur.symbolname, 'Prelude.:')
+      self.assertEqual(icur.exprs[0].lit.value, depth + 1)
+      icur = icur.exprs[1]
+      depth += 1
+    self.assertEqual(icur.symbolname, 'Prelude.[]')
+    self.assertEqual(depth, self.DEPTH)
+
+
 class EncodeJSON(cytest.TestCase):
   '''Tests the ICurry-JSON encoder and the library caches it wrote.'''
 

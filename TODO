@@ -11116,3 +11116,159 @@
   budget for the steps alone, or a budget by the size of the result, is a
   policy of the instrumentation and the owner's.  (7) #125, the recursion
   of the ICurry port over a long literal list.
+
+2026-10-09: the port of icurry on a deep expression (#125)
+- Symptom: a module whose function returns a literal list of 1200 elements
+  failed at import on both backends with RecursionError (the reproducer of
+  the issue, LongList.curry).  The front end writes the list as a nest of
+  cons calls, one application per element, and the case on the literal 1
+  is a Boolean equality in FlatCurry (=== through apply), so the binding
+  optimization rebuilt the body of g.  A module with 100 elements imported.
+- Cause: every walk over an expression on the route recursed once per
+  nested application.  In the port (toolchain/flat2icurry): bindingopt
+  (rec, comb, many: three frames per element, the first to fail at the
+  default limit of 1000; contains_equality, two), elimnewtype (elim_exp,
+  subst_var), casecompletion (complete_exp, two), caselifting (lift_exp,
+  unbound_vars), compiler (to_iexpr, var_pos), flatcurry (_decode,
+  all_vars) and terms (_show, _show_haskell); the readers and the writers
+  ran under maxrecursion (16384 frames), the passes did not.  After the
+  port, the reader of the ICurry text: utility.readcurry.parse_ (four to
+  five frames per element, at the default limit) and icurry.readcurry
+  (Decoder through fmap and the visitation, fourteen frames per element
+  under maxrecursion, which ran out at 1200 elements; at a limit of 20000
+  it overflowed the C stack, the "Stack overflow (used 8156 kB) in
+  comparison" of the issue is the issubclass of its visitation).  On the
+  C++ backend the plain-variable analysis of both emitters
+  (passthrough._Uses.expr) and the bytecode emitter of the interpreter
+  (bytecode._Emitter.expr, three frames per element: the tiered default and
+  interpret new and all).  On the Python backend the generated module
+  itself: one nested call per element, which the parser of Python refuses
+  past 200 parentheses ("too many nested parentheses").
+- The fix of the walks.  A new helper, curry.utility.trampoline: a walk is
+  a generator that yields the walk of each subexpression and returns its
+  result, and trampoline runs the generators on a list, so the depth of
+  the tree costs no frame of Python; the code of a pass reads as the
+  recursion did, with yield in place of the call, and the side effects
+  keep their order (the counter and the order of the lifted functions of
+  caselifting, which lifts a new function on the same stack before it adds
+  it).  The rebuilders use it: transform_exp, elim_exp, subst_var,
+  complete_exp, lift_exp, unbound_vars, to_iexpr, flatcurry.decode and
+  icurry.readcurry.Decoder.  The folds keep an explicit stack:
+  contains_equality, all_vars, var_pos, showterm and showhaskell (the text
+  to emit after a term is an item of the stack), passthrough._Uses.expr and
+  bytecode._Emitter.compound (the arguments pushed before the node, left to
+  right, as before; make emits MAKE, MAKE_PARTIAL or the choice).  The
+  parser of readcurry keeps a stack of frames (an open parenthesis or
+  bracket with its closed expressions and the terms under way; a comma
+  ends an expression, the closing delimiter ends the frame); make_expression
+  is unchanged, so the empty tuple, the nullary application in argument
+  position, the infix application and the trailing comma read as before.
+  The maxrecursion wrappers of the port (flatcurry.read and decode,
+  all_vars, the two writers, compiler.flat2icurry) and of
+  icurry.readcurry.loads are gone: no walk of the port or of the reader
+  recurses per element.  The output is byte-identical: unit_flat2icurry.py
+  (the sample and the probes) and func_flat2icurry.py (the whole archive)
+  pass unchanged, with ROUTE_VERSION 1 and the ICurry cache keys as they
+  were.  The times of the two files are the manifest's (func_flat2icurry
+  27 to 28 s against 26 to 30 s).
+- The fix of the Python backend.  CompilerBase hoists a node that lies
+  HOIST_DEPTH levels under its statement, and at every multiple of it,
+  into a temporary assigned before the statement (hoist, hoisting,
+  compileArgs, vEmitHoisted; the temporaries are _h0, _h1, ... of the step
+  function).  The Python backend sets 64 (a node is one call, and the
+  parser of Python allows 200); the C++ backend sets None and hoists
+  nothing.  The arguments of a call are compiled as a list, not a lazy
+  generator, so the depth is counted; the symbol imports happen in the
+  same order and the generated text of every existing module is the same
+  (unit_cxx_emit.py and the files that read generated code pass), so the
+  FORMAT_VERSION of neither backend moved: a module with such an
+  expression never compiled before.  Under interpret:off the module of the
+  issue compiles with g++ (19 s, 794 MB peak) and prints the same values.
+  The digest of the generator sources (cxx/toolchain.GENERATOR_SOURCES
+  names passthrough.py, generic/compiler.py and icurry/) changed, so the
+  product cache misses once per module; the test files that read the
+  compiled object of a pool module (unit_cxx_bom.py, unit_cxx_partial.py,
+  unit_cxx_passthrough.py) fail with KeyError 'cxx.shlib' on the stale
+  products under the tiered default until the prepare pass runs, as the
+  README says after a change to a code generator (./run_tests --prepare).
+- Bounds left, under maxrecursion (16384 frames).  A literal list of 2500
+  elements imports on both backends; one of 2800 (and 3000, 5000, and 5000
+  nested additions) fails at import on both with RecursionError, 16384
+  frames: 8181 copy.deepcopy, 2729 _reconstruct, 2729 _deepcopy_dict and
+  2723 _deepcopy_list under optimize -> inline_calls -> inline_shape
+  (icurry/analysis/inlining.py, body_shape(copy.deepcopy(ifun.body),
+  arity)).  The deep copy costs six frames per nested application, so the
+  first walk to fail past 2500 elements is the copy of the function body
+  in the inliner, at about 2700 elements.  Behind it, measured with a
+  profile hook over the import of the module of the issue: the optimizer's
+  visitors over the ICurry (icurry.visit under inline_aliases,
+  saturate_applies, set_monadic_metadata and find_static_strings: about
+  three frames per nested application, 3657 at 1200 elements, so about
+  5400 elements), inlining.node_count and _valid_expr (two per level), the
+  generic compileE of both backends (four frames per level, 4857 at 1200
+  elements on the Python backend, so about 4000 elements), and the JSON
+  codec of the ICurry, which recurses in C: 5000 levels pass in the main
+  thread, 20000 overflow its 8 MB stack.  A second shape, untouched by the
+  fix: a chain of nested if-then-else (f x = if x == 1 then 1 else (if x ==
+  2 then 2 else ...)) of 1200 levels translates (the lifting puts each
+  case in its own function; the port exits 0 at the default limit) and
+  fails at import on the C++ backend in set_monadic_metadata: the analysis
+  follows the chain of lifted functions, about seven frames per level
+  (4778 of visitation.replacement, __call__ and visit.visit each, 682 of
+  _checkmonadic), so about 680 levels; a chain of 400 prints [3].  A long
+  guard or if chain is the same shape.
+- Tests, each at the default recursion limit of 1000, each failing with
+  RecursionError (or the SyntaxError of the Python backend) before the fix:
+  TestDeepTerms of unit_flat2icurry.py (the parser, the decoder and the two
+  writers, the selectors and the passes, and the translation, on a list of
+  20000 elements; var_pos on 2000 and unbound_vars on 5000, the quadratic
+  ones); test_deep_expression of TestPass in unit_flat2icurry_bindingopt.py
+  (a chain of 20000 conjunctions in a condition, every equality replaced;
+  a list without an equality rebuilt as it is); ReadCurryDepth of
+  unit_parse.py (the parser and the decoder on 20000 nested calls);
+  test_deep_expression of TestEmitter in unit_cxx_interp.py (the bytecode
+  of a list of 20000: PUSH_CONST and MAKE 20000 each, RET_NODE last,
+  nstack 20001); TestDeepExpressions of unit_curry2icurry.py (the modules
+  of the issue, LongList with 1200 elements and DeepSum with 1200 nested
+  additions, written by the test into a temporary directory with the
+  ICurry cache off, imported and evaluated to [1, 2] on the backend of the
+  run, under interpret:new: under the tiered default each import started a
+  background g++ of the module, 18 s and 794 MB, that ran beside the rest
+  of the file and was killed at exit; the tests pin the import, the
+  emitters and the evaluation, and the compile with g++ is the
+  interpret:off run above).  The script of the issue prints [1, 2] on both
+  backends.
+- The runs (the clean environment, CCACHE_DIR set, ./run_tests -j 2 --mem 4
+  --backend both).  The oracle and the toolchain: unit_flat2icurry.py,
+  func_flat2icurry.py, unit_flat2icurry_bindingopt.py, unit_curry2icurry.py,
+  unit_curry2icurry_stale.py, unit_parse.py: 12 of 12 run, 0 failed, wall
+  93.6 s.  The rest of the toolchain tests and the checkers: unit_goals.py,
+  unit_sigtable.py, unit_typecheck_serialize.py, unit_typed_expr.py,
+  unit_typecheck.py, unit_runner.py, unit_py_checker.py,
+  unit_setfunctions_bugs.py: 16 of 16, 0 failed, wall 65.6 s.  The
+  emitters and the optimizer: unit_cxx_interp.py, unit_cxx_emit.py,
+  unit_cxx_tiered.py, unit_cxx_passthrough.py, unit_cxx_partial.py,
+  unit_cxx_bom.py, unit_optimize.py, unit_optimize_inline.py,
+  unit_optimize_applies.py, unit_icurry.py, unit_py_interp.py,
+  unit_loadsave.py, unit_reload.py, unit_prebuild.py, unit_product_cache.py,
+  unit_cxx_toolchain.py: 32 of 32, 3 failed, wall 121.2 s, the three
+  stale-product files above; with --prepare (data/curry and the benchmarks
+  on both backends, 2.5 to 34.5 s each) those three: 6 of 6, 0 failed, wall
+  75.5 s.
+- Left to the owner.  (1) The deep copy of the function body in
+  inline_shape (six frames per nested application, the bound of about 2700
+  elements), the optimizer's visitors (icurry.visit, about 5400 elements;
+  set_monadic_metadata over a chain of lifted functions, about 680
+  levels) and the generic compileE (about 4000 elements) recurse per level
+  under maxrecursion; an iterative copy (a __deepcopy__ of the ICurry
+  nodes on a stack, or a shape computed without a copy), an iterative
+  visit and an iterative compileE would lift them.  (2) The JSON
+  codec of the ICurry recurses in C.  (3) HOIST_DEPTH is a constant of the
+  Python emitter, not a flag; the C++ emitter writes one nested call, which
+  g++ accepts at 1200.  (4) rc.show, Applic.__eq__ and __repr__ of
+  readcurry and Term.__eq__ of the port recurse per level; the oracle's
+  structural difference and the tests of equal deep terms use them under
+  maxrecursion.  (5) tests/manifest.json has no entry for the new tests
+  (a calibration run adds them; unit_flat2icurry.py takes 16.5 s, 12 s
+  before).  (6) The new module utility/trampoline.py needs make stage (or
+  make install in src/python/utility) to appear in a staged tree.

@@ -21,100 +21,81 @@ def parse(curry_text, **kwds):
   parser = Parser(curry_text, **kwds)
   return parser.parse()
 
+class Frame(object):
+  '''
+  An open parenthesis or bracket of the parser, or the whole text
+  (``opening`` None): the expressions closed so far, and the terms of the
+  expression under way.
+  '''
+  __slots__ = ('opening', 'expressions', 'terms')
+
+  def __init__(self, opening):
+    self.opening = opening
+    self.expressions = []
+    self.terms = []
+
+  def end_expression(self):
+    '''Closes the expression under way, as a comma does.'''
+    self.expressions.append(make_expression(self.terms, otherwise=types.Applic))
+    self.terms = []
+
+  def value(self):
+    '''
+    The value of the closed frame: a list for a bracket, and for a
+    parenthesis the one expression, an infix application, or a tuple.
+    '''
+    if self.terms:
+      self.end_expression()
+    if self.opening == '(':
+      return make_expression(self.expressions, otherwise=lambda *args: tuple(args))
+    return self.expressions
+
 class Parser(object):
+  '''
+  Parses the tokens on a stack of frames of its own, so a nesting of any
+  depth needs no recursion (issue #125: a literal list of 1200 elements
+  failed at import).  A comma ends an expression, and the closing delimiter
+  ends the frame, whose value becomes a term of the frame below.
+  '''
   def __init__(self, text):
     self.text = text
     self.tokens = list(lex.tokenize(self.text))
-    self.index = self.study()
-
-  def study(self):
-    '''Builds an index of matching positions for parentheses and brackets.'''
-    stack = []
-    index = {}
-    lparen,rparen,lbracket,rbracket = [lex.DELIMITERS[c] for c in '()[]']
-    for ipos, tok in enumerate(self.tokens):
-      if tok is lparen or tok is lbracket:
-        stack.append(ipos)
-      elif tok is rparen or tok is rbracket:
-        index[stack.pop()] = ipos
-    return index
 
   def parse(self):
-    expr, i = self.parse_expr(0, len(self.tokens))
-    assert i == len(self.tokens)
-    return expr
-
-  def parse_expr(self, begin, end):
-    # Example:
-    #     'F (A 5), (B 6)'
-    # Parses 'F (A 5)', eats the comma, returns the cursor at '(' before B.
-    terms = []
-    while begin < end:
-      tok = self.tokens[begin]
+    frames = [Frame(None)]
+    for tok in self.tokens:
+      frame = frames[-1]
       if isinstance(tok, lex.DelimiterToken):
-        if tok == '(':
-          close =  self.index[begin]
-          terms.append(self.parse_parens(begin+1, close))
-          begin = close + 1
-        elif tok == '[':
-          close =  self.index[begin]
-          terms.append(self.parse_sequence(begin+1, close))
-          begin = close + 1
+        if tok == '(' or tok == '[':
+          frames.append(Frame(tok))
         elif tok == ',':
-          begin += 1
-          break
+          frame.end_expression()
         else:
-          assert False
+          assert frame.opening == ('(' if tok == ')' else '['), tok
+          frames.pop()
+          frames[-1].terms.append(frame.value())
       elif isinstance(tok, lex.NumberToken):
         try:
           value = types.Int(tok)
         except ValueError:
           value = types.Float(tok)
-        terms.append(value)
-        begin += 1
+        frame.terms.append(value)
       elif isinstance(tok, lex.StringToken):
-        terms.append(types.String(tok))
-        begin += 1
+        frame.terms.append(types.String(tok))
       elif isinstance(tok, lex.CharToken):
-        terms.append(types.Char(tok))
-        begin += 1
+        frame.terms.append(types.Char(tok))
       elif isinstance(tok, lex.IdentifierToken):
-        if terms:
-          term, begin = self.parse_expr(begin, begin+1)
-          terms.append(term)
-        else:
-          terms.append(types.make_identifier(tok))
-          begin += 1
+        # An identifier after the first term is an expression of its own:
+        # an applicative symbol is applied to no arguments.
+        term = types.make_identifier(tok)
+        if frame.terms:
+          term = make_expression([term], otherwise=types.Applic)
+        frame.terms.append(term)
       else:
         assert False
-
-    expr = make_expression(terms, otherwise=types.Applic)
-    return expr, begin
-
-  def parse_parens(self, begin, end):
-    terms = self.parse_sequence(begin, end)
-    return make_expression(terms, otherwise=lambda *args: tuple(args))
-
-  def parse_sequence(self, begin, end):
-    expressions = []
-    while begin < end:
-      expr, begin = self.parse_expr(begin, end)
-      expressions.append(expr)
-    return expressions
-
-  def is_integer(self, tok):
-    return tok.isdigit()
-
-  def is_string(self, tok):
-    return tok.startswith('"') and tok.endswith('"')
-
-  def is_float(self, tok):
-    try:
-      float(tok)
-    except ValueError:
-      return False
-    else:
-      return True
+    frame, = frames
+    assert not frame.expressions
+    return make_expression(frame.terms, otherwise=types.Applic)
 
 
 def make_expression(terms, otherwise):
@@ -124,4 +105,3 @@ def make_expression(terms, otherwise):
     return types.Applic(terms[1], terms[0], terms[2])
   else:
     return otherwise(*terms)
-

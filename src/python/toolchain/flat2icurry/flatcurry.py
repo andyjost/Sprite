@@ -11,7 +11,8 @@ same bytes.
 
 from .errors import Flat2ICurryError
 from .terms import Char, Term, constructor, showhaskell
-from ...utility import maxrecursion, readcurry as rc
+from ...utility import readcurry as rc
+from ...utility.trampoline import trampoline
 import os
 
 __all__ = [
@@ -104,8 +105,7 @@ def prelude(name):
 # ==========
 def read(text):
   '''Reads a FlatCurry program (or interface) from .fcy text.'''
-  with maxrecursion():
-    return decode(rc.parse(text))
+  return decode(rc.parse(text))
 
 def load(filename):
   '''Reads a FlatCurry program (or interface) from a file.'''
@@ -132,9 +132,12 @@ def write(prog, filename):
   os.replace(tmpname, filename)
 
 def decode(rcdata):
-  '''Converts the ``readcurry`` representation into FlatCurry terms.'''
-  with maxrecursion():
-    return _decode(rcdata)
+  '''
+  Converts the ``readcurry`` representation into FlatCurry terms.  The walk
+  runs on a stack of its own (:func:`utility.trampoline.trampoline`), so a
+  term of any depth needs no recursion (issue #125).
+  '''
+  return trampoline(_decode(rcdata))
 
 def _lookup(name):
   try:
@@ -156,16 +159,22 @@ def _decode(x):
           '%s takes %d arguments, got %d'
               % (x.f.name, len(entry._fields_), len(x.args))
         )
-    return entry(*[_decode(arg) for arg in x.args])
+    args = []
+    for arg in x.args:
+      arg = yield _decode(arg)
+      args.append(arg)
+    return entry(*args)
   elif isinstance(x, rc.Identifier):
     entry = _lookup(x.name)
     if not isinstance(entry, Term):
       raise Flat2ICurryError('%s needs %d arguments' % (x.name, len(entry._fields_)))
     return entry
-  elif isinstance(x, list):
-    return [_decode(arg) for arg in x]
-  elif isinstance(x, tuple):
-    return tuple(_decode(arg) for arg in x)
+  elif isinstance(x, (list, tuple)):
+    out = []
+    for arg in x:
+      arg = yield _decode(arg)
+      out.append(arg)
+    return type(x)(out)
   elif isinstance(x, rc.Char):
     return Char(x)
   elif isinstance(x, rc.String):
@@ -182,40 +191,46 @@ def _decode(x):
 def all_vars(expr):
   '''
   All variables of an expression, pattern variables included, in the order
-  of ``FlatCurry.Goodies.allVars``.  The list may repeat a variable.
+  of ``FlatCurry.Goodies.allVars``.  The list may repeat a variable.  The
+  walk keeps its own stack, so a nested application of any depth needs no
+  recursion: an item of the stack is an expression to visit, or a list of
+  variables to record as they are.
   '''
   out = []
-  def visit(e):
-    if isinstance(e, Var):
+  stack = [expr]
+  while stack:
+    e = stack.pop()
+    if isinstance(e, list):
+      out.extend(e)
+    elif isinstance(e, Var):
       out.append(e.index)
     elif isinstance(e, Lit):
       pass
     elif isinstance(e, Comb):
-      for arg in e.args:
-        visit(arg)
+      stack.extend(reversed(e.args))
     elif isinstance(e, Let):
-      visit(e.body)
+      items = [e.body]
       for v, b in e.bindings:
-        out.append(v)
-        visit(b)
+        items.append([v])
+        items.append(b)
+      stack.extend(reversed(items))
     elif isinstance(e, Free):
-      out.extend(e.vars)
-      visit(e.body)
+      stack.append(e.body)
+      stack.append(list(e.vars))
     elif isinstance(e, Or):
-      visit(e.lhs)
-      visit(e.rhs)
+      stack.append(e.rhs)
+      stack.append(e.lhs)
     elif isinstance(e, Case):
-      visit(e.scrutinee)
+      items = [e.scrutinee]
       for branch in e.branches:
         if isinstance(branch.pattern, Pattern):
-          out.extend(branch.pattern.vars)
-        visit(branch.body)
+          items.append(list(branch.pattern.vars))
+        items.append(branch.body)
+      stack.extend(reversed(items))
     elif isinstance(e, Typed):
-      visit(e.expr)
+      stack.append(e.expr)
     else:
       raise TypeError('not an expression: %r' % (e,))
-  with maxrecursion():
-    visit(expr)
   return out
 
 def data_decls_of(prog):

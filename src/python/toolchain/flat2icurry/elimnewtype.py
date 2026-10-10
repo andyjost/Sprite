@@ -16,6 +16,7 @@ The newtypes come from the module and from the interfaces of its imports.
 '''
 
 from . import flatcurry as fc
+from ...utility.trampoline import trampoline
 
 __all__ = ['elim_newtype', 'newtypes_of', 'subst_var']
 
@@ -100,26 +101,46 @@ def subst_tvars(mapping, te):
   return subst(te)
 
 def elim_exp(newcons, e):
+  '''
+  Eliminates the newtype constructors of an expression.  The walk runs on
+  a stack of its own (:func:`utility.trampoline.trampoline`), so a nested
+  application of any depth needs no recursion (issue #125).
+  '''
+  return trampoline(_elim_exp(newcons, e))
+
+def _elim_exp(newcons, e):
   if isinstance(e, (fc.Var, fc.Lit)):
     return e
   elif isinstance(e, fc.Comb):
-    args = [elim_exp(newcons, arg) for arg in e.args]
+    args = []
+    for arg in e.args:
+      arg = yield _elim_exp(newcons, arg)
+      args.append(arg)
     return elim_comb(newcons, e.combtype, e.name, args)
   elif isinstance(e, fc.Let):
-    return fc.Let(
-        [(v, elim_exp(newcons, b)) for v, b in e.bindings], elim_exp(newcons, e.body)
-      )
+    bindings = []
+    for v, b in e.bindings:
+      b = yield _elim_exp(newcons, b)
+      bindings.append((v, b))
+    body = yield _elim_exp(newcons, e.body)
+    return fc.Let(bindings, body)
   elif isinstance(e, fc.Free):
-    return fc.Free(e.vars, elim_exp(newcons, e.body))
+    body = yield _elim_exp(newcons, e.body)
+    return fc.Free(e.vars, body)
   elif isinstance(e, fc.Or):
-    return fc.Or(elim_exp(newcons, e.lhs), elim_exp(newcons, e.rhs))
+    lhs = yield _elim_exp(newcons, e.lhs)
+    rhs = yield _elim_exp(newcons, e.rhs)
+    return fc.Or(lhs, rhs)
   elif isinstance(e, fc.Case):
-    return elim_case(
-        newcons, e.casetype, elim_exp(newcons, e.scrutinee)
-      , [fc.Branch(br.pattern, elim_exp(newcons, br.body)) for br in e.branches]
-      )
+    scrutinee = yield _elim_exp(newcons, e.scrutinee)
+    branches = []
+    for br in e.branches:
+      body = yield _elim_exp(newcons, br.body)
+      branches.append(fc.Branch(br.pattern, body))
+    return elim_case(newcons, e.casetype, scrutinee, branches)
   elif isinstance(e, fc.Typed):
-    return fc.Typed(elim_exp(newcons, e.expr), e.typeexpr)
+    expr = yield _elim_exp(newcons, e.expr)
+    return fc.Typed(expr, e.typeexpr)
   raise TypeError('not an expression: %r' % (e,))
 
 def elim_comb(newcons, ct, qn, es):
@@ -140,26 +161,44 @@ def elim_case(newcons, ct, ce, bs):
   return fc.Case(ct, ce, bs)
 
 def subst_var(x, y, e0):
-  '''Replaces the variable ``x`` by the variable ``y`` in an expression.'''
+  '''
+  Replaces the variable ``x`` by the variable ``y`` in an expression.  The
+  walk runs on a stack of its own (:func:`utility.trampoline.trampoline`).
+  '''
   def subst(e):
     if isinstance(e, fc.Var):
       return fc.Var(y) if e.index == x else e
     elif isinstance(e, fc.Lit):
       return e
     elif isinstance(e, fc.Comb):
-      return fc.Comb(e.combtype, e.name, [subst(arg) for arg in e.args])
+      args = []
+      for arg in e.args:
+        arg = yield subst(arg)
+        args.append(arg)
+      return fc.Comb(e.combtype, e.name, args)
     elif isinstance(e, fc.Let):
-      return fc.Let([(v, subst(b)) for v, b in e.bindings], subst(e.body))
+      bindings = []
+      for v, b in e.bindings:
+        b = yield subst(b)
+        bindings.append((v, b))
+      body = yield subst(e.body)
+      return fc.Let(bindings, body)
     elif isinstance(e, fc.Free):
-      return fc.Free(e.vars, subst(e.body))
+      body = yield subst(e.body)
+      return fc.Free(e.vars, body)
     elif isinstance(e, fc.Or):
-      return fc.Or(subst(e.lhs), subst(e.rhs))
+      lhs = yield subst(e.lhs)
+      rhs = yield subst(e.rhs)
+      return fc.Or(lhs, rhs)
     elif isinstance(e, fc.Case):
-      return fc.Case(
-          e.casetype, subst(e.scrutinee)
-        , [fc.Branch(br.pattern, subst(br.body)) for br in e.branches]
-        )
+      scrutinee = yield subst(e.scrutinee)
+      branches = []
+      for br in e.branches:
+        body = yield subst(br.body)
+        branches.append(fc.Branch(br.pattern, body))
+      return fc.Case(e.casetype, scrutinee, branches)
     elif isinstance(e, fc.Typed):
-      return fc.Typed(subst(e.expr), e.typeexpr)
+      expr = yield subst(e.expr)
+      return fc.Typed(expr, e.typeexpr)
     raise TypeError('not an expression: %r' % (e,))
-  return subst(e0)
+  return trampoline(subst(e0))

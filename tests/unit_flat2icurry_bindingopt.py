@@ -349,6 +349,34 @@ class TestPass(cytest.TestCase):
     self.assertIn(P('constrEq'), names(f2i.translate(p, [PRELUDE], bindingopt=True)))
     self.assertNotIn(P('constrEq'), names(f2i.translate(p, [PRELUDE])))
 
+  def test_deep_expression(self):
+    '''
+    The pass runs on a stack of its own, not on the stack of Python (issue
+    #125): a literal list of 1200 elements failed at import with
+    RecursionError in rec, comb and many, three frames per element.
+    '''
+    depth = 20000
+    self.assertLess(sys.getrecursionlimit(), depth)
+    # (&) requires True of both arguments, so every equality of a chain of
+    # conjunctions in a condition is replaced.
+    conj = eq(X, lit(depth))
+    for i in range(depth - 1, 0, -1):
+      conj = fcall(P('&'), eq(X, lit(i)), conj)
+    self.assertTrue(bo.contains_equality(conj))
+    out, n = self.transformed(guard(conj, X))
+    self.assertEqual(n, depth)
+    text = fc.show(out)
+    self.assertEqual(text.count('("Prelude","constrEq")'), depth)
+    self.assertNotIn('_impl#==#', text)
+    # A literal list without an equality is rebuilt as it is.
+    deep = ccall(P('[]'))
+    for i in range(depth, 0, -1):
+      deep = ccall(P(':'), lit(i), deep)
+    self.assertFalse(bo.contains_equality(deep))
+    out, n = self.transformed(deep)
+    self.assertEqual(n, 0)
+    self.assertEqual(fc.show(out), fc.show(deep))
+
 def flat_icurry_calls(iobj):
   '''The IFCall nodes of an ICurry term of the port.'''
   found = []

@@ -13,7 +13,7 @@ lifted program.
 
 from . import flatcurry as fc, icurrytypes as ic
 from .errors import Flat2ICurryError
-from ...utility import maxrecursion
+from ...utility.trampoline import trampoline
 
 __all__ = ['NameMaps', 'flat2icurry', 'demand_of', 'strip_typed', 'var_pos']
 
@@ -99,8 +99,7 @@ def flat2icurry(maps, prog, icurry_compat=True):
         (mn, tn, ti)
       , [((c.name[0], c.name[1], i), c.arity) for i, c in enumerate(td.constructors)]
       ))
-  with maxrecursion():
-    functions = [tr_func(maps, fd, icurry_compat) for fd in prog.functions]
+  functions = [tr_func(maps, fd, icurry_compat) for fd in prog.functions]
   return ic.IProg(prog.name, list(prog.imports), types, functions)
 
 def tr_vis(vis):
@@ -237,15 +236,28 @@ def tr_lbranch(ctx, carg, br):
   return ic.ILitBranch(tr_lit(pat.literal), to_iblock(ctx, [], br.body, carg))
 
 def to_iexpr(ctx, e):
+  '''
+  The ICurry expression of a FlatCurry expression.  The walk runs on a
+  stack of its own (:func:`utility.trampoline.trampoline`), so a nested
+  application of any depth needs no recursion (issue #125).
+  '''
+  return trampoline(_to_iexpr(ctx, e))
+
+def _to_iexpr(ctx, e):
   if isinstance(e, fc.Var):
     return ic.IVar(e.index)
   elif isinstance(e, fc.Lit):
     return ic.ILit(tr_lit(e.literal))
   elif isinstance(e, fc.Comb):
     if e.name == fc.prelude('?') and len(e.args) == 2:
-      return to_iexpr(ctx, fc.Or(e.args[0], e.args[1]))
+      lhs = yield _to_iexpr(ctx, e.args[0])
+      rhs = yield _to_iexpr(ctx, e.args[1])
+      return ic.IOr(lhs, rhs)
     mn, fn = e.name
-    args = [to_iexpr(ctx, arg) for arg in e.args]
+    args = []
+    for arg in e.args:
+      arg = yield _to_iexpr(ctx, arg)
+      args.append(arg)
     ct = e.combtype
     maps, cur = ctx.maps, ctx.qname[1]
     if ct == fc.FuncCall:
@@ -257,13 +269,15 @@ def to_iexpr(ctx, e):
     else:
       return ic.ICPCall((mn, fn, maps.pos_of_cons(e.name, cur)), ct.missing, args)
   elif isinstance(e, fc.Or):
-    return ic.IOr(to_iexpr(ctx, e.lhs), to_iexpr(ctx, e.rhs))
+    lhs = yield _to_iexpr(ctx, e.lhs)
+    rhs = yield _to_iexpr(ctx, e.rhs)
+    return ic.IOr(lhs, rhs)
   elif isinstance(e, fc.Typed):
-    return to_iexpr(ctx, e.expr)
+    return (yield _to_iexpr(ctx, e.expr))
   elif isinstance(e, fc.Let):
-    return to_iexpr(ctx, e.body)
+    return (yield _to_iexpr(ctx, e.body))
   elif isinstance(e, fc.Free):
-    return to_iexpr(ctx, e.body)
+    return (yield _to_iexpr(ctx, e.body))
   elif isinstance(e, fc.Case):
     raise ctx.error('toIExpr: Case occurred')
   raise TypeError('not an expression: %r' % (e,))
@@ -278,16 +292,25 @@ def tr_lit(lit):
   raise TypeError('not a literal: %r' % (lit,))
 
 def var_pos(rpos, e):
-  '''The variables of an ICurry expression with their positions.'''
-  if isinstance(e, ic.IVar):
-    return [(e.var, list(rpos))]
-  elif isinstance(e, (ic.IVarAccess, ic.ILit)):
-    return []
-  elif isinstance(e, (ic.IFCall, ic.ICCall, ic.IFPCall, ic.ICPCall)):
-    out = []
-    for i, arg in enumerate(e.args):
-      out.extend(var_pos(rpos + [i], arg))
-    return out
-  elif isinstance(e, ic.IOr):
-    return var_pos(rpos + [0], e.lhs) + var_pos(rpos + [1], e.rhs)
-  raise TypeError('not an ICurry expression: %r' % (e,))
+  '''
+  The variables of an ICurry expression with their positions, in the order
+  of the expression.  The walk keeps its own stack, so a nested application
+  of any depth needs no recursion.
+  '''
+  out = []
+  stack = [(list(rpos), e)]
+  while stack:
+    rpos, e = stack.pop()
+    if isinstance(e, ic.IVar):
+      out.append((e.var, rpos))
+    elif isinstance(e, (ic.IVarAccess, ic.ILit)):
+      pass
+    elif isinstance(e, (ic.IFCall, ic.ICCall, ic.IFPCall, ic.ICPCall)):
+      for i in reversed(range(len(e.args))):
+        stack.append((rpos + [i], e.args[i]))
+    elif isinstance(e, ic.IOr):
+      stack.append((rpos + [1], e.rhs))
+      stack.append((rpos + [0], e.lhs))
+    else:
+      raise TypeError('not an ICurry expression: %r' % (e,))
+  return out

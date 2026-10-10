@@ -156,18 +156,24 @@ class _Uses(object):
       raise _Unknown(stmt)
 
   def expr(self, expr):
-    '''Visits an expression whose value is passed on.'''
-    if isinstance(expr, icurry.IVar):
-      pass
-    elif isinstance(expr, icurry.IVarAccess):
-      self.bound.add(expr.vid)
-    elif isinstance(expr, icurry.ICall):
-      for arg in expr.exprs:
-        self.expr(arg)
-    elif isinstance(expr, icurry.IOr):
-      self.expr(expr.lhs)
-      self.expr(expr.rhs)
-    elif isinstance(expr, _BUILT + (icurry.IUnboxedLiteral,)):
-      pass
-    else:
-      raise _Unknown(expr)
+    '''
+    Visits an expression whose value is passed on.  The walk keeps its own
+    stack, so a nested expression of any depth needs no recursion (issue
+    #125).
+    '''
+    stack = [expr]
+    while stack:
+      expr = stack.pop()
+      if isinstance(expr, icurry.IVar):
+        pass
+      elif isinstance(expr, icurry.IVarAccess):
+        self.bound.add(expr.vid)
+      elif isinstance(expr, icurry.ICall):
+        stack.extend(reversed(expr.exprs))
+      elif isinstance(expr, icurry.IOr):
+        stack.append(expr.rhs)
+        stack.append(expr.lhs)
+      elif isinstance(expr, _BUILT + (icurry.IUnboxedLiteral,)):
+        pass
+      else:
+        raise _Unknown(expr)
