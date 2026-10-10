@@ -891,6 +891,36 @@ twice x = double (double x)
     self.assertTrue(os.path.isfile(sofile))
 
   @cytest.hardreset
+  def test_foreign_budget_compiles_into_the_process_directory(self):
+    '''
+    Under an inline budget other than the environment's, the translation of
+    the source compiles into a directory of the process as well: the budget
+    shapes the generated code, and an object beside the source would pass
+    for current in every later process, because the ABI stamp does not
+    record the budget (issue #116, the first-use path).
+    '''
+    gc.collect()
+    curry.reload({'backend': 'cxx', 'interpret': 'off', 'inline_budget': 0})
+    gc.collect()
+    curry.path.insert(0, self.tmpdir)
+    self.currypath = list(curry.path)
+    self.assertTrue(tiered._foreign_flags(curry.getInterpreter()))
+    name = self.write()
+    M = self.import_(name)
+    self.assertTrue(
+        materialize.is_translation(curry.getInterpreter(), getHandle(M).icurry)
+      )
+    self.assertTrapped(M, 'main')
+    self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+    self.assertCompiled(M, 'double', 'main', 'boom')
+    self.assertFalse(os.path.exists(self.product(name, '.so')))
+    self.assertFalse(os.path.exists(self.product(name, '.cpp')))
+    sofile = getHandle(M).sofilename
+    self.assertTrue(sofile.startswith(tiered._tmpdir()), sofile)
+    self.assertTrue(os.path.isfile(sofile))
+    self.assertIn('/****** %s.main ******/' % name, inspect.getimpl(M.main))
+
+  @cytest.hardreset
   def test_other_modes_do_not_trap(self):
     '''Under the interpreter the functions get bytecode, as before.'''
     name = self.write()

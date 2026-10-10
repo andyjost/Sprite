@@ -23,6 +23,18 @@ evaluation: the scheduler applies a finished job at its periodic safepoint
 (RuntimeState::check_interrupts), and Interpreter.eval applies the finished
 jobs before an evaluation (poll).
 
+The flags.  The child compiles under the inline budget of the interpreter,
+so the code it swaps in is the code the interpreter ran.  The budget shapes
+the generated code, and the ABI stamp of an object does not record it, so a
+compile beside the source under a budget other than the one the environment
+names would leave an object that every later process of that tree takes for
+current (issue #116).  Such a process compiles a copy of the source in a
+directory of its own (_foreign_flags, _private_copy): the generated file and
+the object land there, the product cache leaves them out
+(_productcache.excluded), and they go with the process.  An import compiled
+that way is found by the compile of its importer through the search path of
+the child, before the original.
+
 The shim.  A compiled object names its info tables and data types by ELF
 symbol, its own included, and the dynamic linker binds a reference to the
 first definition in the global scope.  When the load of a module ends, this
@@ -105,7 +117,7 @@ from ...utility import curryname, formatting
 from ..generic import compiler as generic
 from . import cyrtbindings as cyrt
 from ... import common, config
-import atexit, itertools, logging, os, shutil, tempfile, time
+import atexit, itertools, logging, os, shutil, tempfile, time, weakref
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +169,8 @@ class _State(object):
     self.tmpdir = None
     self.shims = {}      # module name -> Shim
     self.pending = {}    # module name -> the object of a compile not applied
+    self.modules = {}    # module name -> a weak reference to its module object
+    self.private = []    # the directories of the private copies, in order
     self.warned = set()  # the keys of the messages logged once
     self.counter = itertools.count()
 
@@ -176,7 +190,9 @@ def _environment(interp, currypath=None):
   '''
   The environment of the child: the flags of a compile, and the search path
   of the import.  The child compiles under the inline budget of the
-  interpreter, so the code it swaps in is the code the interpreter ran.
+  interpreter, so the code it swaps in is the code the interpreter ran; a
+  budget other than the one the environment names compiles a private copy
+  of the source (see the module docstring and submit).
   '''
   env = dict(os.environ)
   env['SPRITE_INTERPRETER_FLAGS'] = \
@@ -187,6 +203,56 @@ def _environment(interp, currypath=None):
   if currypath is not None:
     env['CURRYPATH'] = ':'.join(curryname.makeCurryPath(currypath))
   return ['%s=%s' % item for item in env.items()]
+
+def _foreign_flags(interp):
+  '''
+  Tells whether ``interp`` runs under optimizer flags other than the ones a
+  child reads from the environment: the inline budget, which shapes the
+  generated code and which the ABI stamp of an object does not record.  The
+  compiled products of such an interpreter go into a directory of the
+  process, never beside a source that another process reads (issue #116).
+  '''
+  from ...interpreter import flags as _flags
+  environment = dict(_flags.get_default_flags())
+  environment.update(_flags.getflags())
+  return interp.flags['inline_budget'] != environment['inline_budget']
+
+def _private_copy(imodule):
+  '''
+  Copies the source of ``imodule`` into a directory of the process, with
+  its current ICurry file, interface files and JSON beside it, in the
+  layout of a search path entry.  Returns the copy and the search
+  directories of the child: the private directories made before this one,
+  the newest first, so an import compiled this way is found with its
+  object, and the copy of the live module before an older copy of the same
+  name, then the root of the original, so the other imports are found in
+  place.  The child
+  compiles the copy, so its generated file and its object land in the
+  private directory (see the module docstring).
+  '''
+  filename = os.path.abspath(imodule.filename)
+  relpath = imodule.fullname.replace('.', os.sep) + '.curry'
+  if filename.endswith(os.sep + relpath):
+    root = filename[:-len(relpath) - 1]
+  else:
+    root, relpath = os.path.split(filename)
+  directory = os.path.join(_tmpdir(), 'private%d' % next(_state.counter))
+  copy = os.path.join(directory, relpath)
+  os.makedirs(os.path.dirname(copy), exist_ok=True)
+  shutil.copy2(filename, copy)
+  stem = _filenames.icurryfilename(filename)[:-len('.icy')]
+  products = [stem + suffix for suffix in ('.icy', '.fint', '.icurry')]
+  products += list(_filenames.jsonfilenames(filename))
+  productdir = os.path.dirname(_filenames.icurryfilename(copy))
+  os.makedirs(productdir, exist_ok=True)
+  for product in products:
+    if os.path.isfile(product):
+      shutil.copy2(
+          product, os.path.join(productdir, os.path.basename(product))
+        )
+  searchdirs = list(reversed(_state.private)) + [root]
+  _state.private.append(directory)
+  return copy, searchdirs
 
 def _runtime(info):
   '''Whether a table or type was made at run time.'''
@@ -424,12 +490,21 @@ def submit(interp, moduleobj, currypath):
       , blocked
       )
     return False
+  source = filename
+  if _foreign_flags(interp):
+    # The object goes into a directory of the process (the module
+    # docstring, "The flags").  The digest below is still the one of the
+    # ICurry file beside the original: the copy is of this moment.
+    source, searchdirs = _private_copy(imodule)
+    currypath = searchdirs + list(
+        currypath if currypath is not None else interp.path
+      )
   envp = _environment(interp, currypath)
-  sofile = _filenames.replacesuffix(_filenames.icurryfilename(filename), '.so')
+  sofile = _filenames.replacesuffix(_filenames.icurryfilename(source), '.so')
   logfile = os.path.join(
       _tmpdir(), 'compile%d-%s.log' % (next(_state.counter), name)
     )
-  argv = [config.installed_path('bin', 'sprite-make'), '--so', '-z', '-q', filename]
+  argv = [config.installed_path('bin', 'sprite-make'), '--so', '-z', '-q', source]
   # The ICurry file of the module and its digest: the swap refuses an object
   # of another text (see the module docstring).
   icyfile = _filenames.icurryfilename(filename)
@@ -442,17 +517,30 @@ def submit(interp, moduleobj, currypath):
     , icyfile, digest
     )
   _state.pending[name] = sofile
+  _state.modules[name] = weakref.ref(moduleobj)
   return True
 
-def _refresh(interp, name):
-  '''Records the object of a swapped module in its ICurry (cxx.shlib).'''
-  moduleobj = interp.modules.get(name)
-  if moduleobj is None:
-    return
-  h = getHandle(moduleobj)
-  shlib = h.backend_handle.shlib
-  if shlib is not None and h.icurry.metadata.get('cxx.shlib') is None:
-    h.icurry.update_metadata({'cxx.shlib': shlib})
+def _refresh(name, interp=None):
+  '''
+  Records the object of a swapped module in its ICurry (cxx.shlib), so the
+  handle of the module names it (sofilename) and inspect.getimpl reads the
+  compiled code from the generated file beside it.  The module is the one
+  the job was submitted for, whichever thread polls and whether or not an
+  interpreter was given (issue #115: a poll without one left the ICurry
+  without the object); the module of that name in ``interp``, when it is
+  another object, learns of it too.
+  '''
+  ref = _state.modules.pop(name, None)
+  candidates = [] if ref is None else [ref()]
+  if interp is not None:
+    candidates.append(interp.modules.get(name))
+  for moduleobj in candidates:
+    if moduleobj is None:
+      continue
+    h = getHandle(moduleobj)
+    shlib = h.backend_handle.shlib
+    if shlib is not None and h.icurry.metadata.get('cxx.shlib') is None:
+      h.icurry.update_metadata({'cxx.shlib': shlib})
 
 def poll(interp=None):
   '''
@@ -465,6 +553,8 @@ def poll(interp=None):
   for result in results:
     name = result['module']
     _state.pending.pop(name, None)
+    if not result['ok']:
+      _state.modules.pop(name, None)
     if result['ok']:
       logger.info(
           'Compiled %s in the background in %.2f s; %d function%s swapped%s'
@@ -475,8 +565,7 @@ def poll(interp=None):
       shim = _state.shims.get(name)
       if shim is not None:
         shim.loaded = True
-      if interp is not None:
-        _refresh(interp, name)
+      _refresh(name, interp)
     elif result['error'] == 'the module is no longer loaded':
       logger.debug('The background compile of %s is not needed', name)
     elif result['error'] == cyrt.TIERED_EDITED:
@@ -575,6 +664,7 @@ def cancel():
   '''Drops the queued compiles and kills the running one.'''
   cyrt.tiered_cancel()
   _state.pending.clear()
+  _state.modules.clear()
 
 def _at_exit():
   # The compiles that ended are applied and logged, so that a failure

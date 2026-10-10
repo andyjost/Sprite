@@ -83,8 +83,13 @@ def _nodes_outside_generators(root):
       stack.extend(node.successors)
 
 def apply_hnf(rts, _0):
-  '''Implements ($!).'''
-  return _applyspecial(rts, _0, fairscheme.hnf)
+  '''
+  Implements ($!).  A free variable is a head normal form: the function is
+  applied to the variable, as PAKCS does (id $! x gives x), where hnf alone
+  suspended on it (issue #112).  The C++ runtime does the same
+  (applyhnf_step in currylib/prelude/apply.cpp).
+  '''
+  return _applyspecial(rts, _0, fairscheme.hnf_or_free)
 
 def apply_nf(rts, _0):
   '''Implements ($!!).'''

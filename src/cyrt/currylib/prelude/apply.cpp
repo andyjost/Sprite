@@ -87,7 +87,8 @@ namespace cyrt { inline namespace
     // and so is the slot ``_2`` refers to.
     if(_0->info->tag == T_FWD)
       return T_FWD;
-    // T_FREE: the action accepts a free variable (applynf_step).
+    // T_FREE: the action accepts a free variable (applyhnf_step and
+    // applynf_step).
     if(tag < T_CTOR && tag != T_FREE)
       return rts->hnf(C, &_2, nullptr, monadic);
     // The function and the argument keep the guards crossed on the way to
@@ -168,7 +169,19 @@ namespace cyrt { inline namespace
     auto && headnormalize = [](
         RuntimeState * rts, Configuration * C, Variable * var, bool monadic
       )
-      { return rts->hnf(C, var, nullptr, monadic); };
+    {
+      tag_type tag = rts->hnf(C, var, nullptr, monadic);
+      // A free variable is a head normal form: ($!) applies the function to
+      // the variable, as the Python backend and PAKCS do (id $! x gives x).
+      // hnf recorded a residual for it; take it back, as hnf_or_free does,
+      // and report the variable (issue #112).
+      if(tag == E_RESIDUAL && inspect::isa_freevar(var->target))
+      {
+        C->remove_residual(obj_id(var->target));
+        return T_FREE;
+      }
+      return tag;
+    };
     return _applyspecial(rts, C, headnormalize);
   }
 

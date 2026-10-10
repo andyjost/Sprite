@@ -1148,6 +1148,26 @@ class TestReport(unittest.TestCase):
     self.assertEqual(report.tail(os.path.join(tmpdir, 'none.log')), '')
 
 
+# The program a child of the runner runs for
+# TestCli.test_child_compiles_under_the_installation_toolchain: the compiler
+# and the flags the C++ backend would compile with, the member of the
+# precompiled header those flags select, and the compiler variables of its
+# environment.
+CHILD_TOOLCHAIN = '''
+import curry, os, tempfile
+from curry import config
+from curry.backends.cxx import toolchain
+cpp2so = toolchain.Cpp2So(curry.getInterpreter())
+flags = list(cpp2so._cxxflags())
+root = config.cxx_pch_root() or tempfile.gettempdir()
+pch = toolchain.PrecompiledHeader(root, config.cxx_tool(), flags)
+print('cxx', config.cxx_tool())
+print('flags', ' '.join(flags))
+print('member', pch.flavor)
+print('flavor', cpp2so.flavor)
+print('env', os.environ.get('CXX'), os.environ.get('CXXFLAGS'))
+'''
+
 class TestCli(unittest.TestCase):
 
   def test_defaults(self):
@@ -1281,6 +1301,128 @@ class TestCli(unittest.TestCase):
     self.assertEqual(shared['SPRITE_PRODUCT_CACHE'], '/shared/products')
     off = cli.environment('/sprite', 'cxx', dict(base, SPRITE_PRODUCT_CACHE=''))
     self.assertEqual(off['SPRITE_PRODUCT_CACHE'], '')
+
+  def test_environment_drops_the_toolchain_variables(self):
+    '''
+    The variables of a compiler toolchain that a shell exports never reach
+    a child: a test process and the prepare pass compile under the compiler
+    and the flags of the installation (issue #111).  The run says so once.
+    '''
+    base = {
+        'PATH': '/bin', 'HOME': '/home/someone', 'CC': 'other-cc'
+      , 'CXX': 'other-c++', 'CFLAGS': '-O2', 'CXXFLAGS': '-O2 -fno-plt'
+      , 'CPPFLAGS': '-DX', 'LDFLAGS': '-Wl,-O1', 'AR': 'other-ar'
+      , 'RANLIB': 'other-ranlib', 'STRIP': ''
+      }
+    env = cli.environment('/sprite', 'cxx', base)
+    for name in cli.TOOLCHAIN_VARIABLES:
+      self.assertNotIn(name, env)
+    self.assertEqual(env['PATH'], '/bin')
+    self.assertEqual(env['HOME'], '/home/someone')
+    self.assertEqual(
+        cli.toolchain_variables(base)
+      , [ 'AR', 'CC', 'CFLAGS', 'CPPFLAGS', 'CXX', 'CXXFLAGS', 'LDFLAGS'
+        , 'RANLIB' ]
+      )
+    self.assertEqual(cli.toolchain_variables({'PATH': '/bin', 'CXX': ''}), [])
+    self.assertIsNone(cli.toolchain_note({'PATH': '/bin'}))
+    note = cli.toolchain_note(base)
+    self.assertTrue(
+        note.startswith(
+            'toolchain: the environment sets AR, CC, CFLAGS, CPPFLAGS, CXX, '
+            'CXXFLAGS, LDFLAGS, RANLIB; '
+          )
+      , note
+      )
+    # A run prints the note once, before the lines of the files.
+    out = io.StringIO()
+    with mock.patch.dict(os.environ, {'CXXFLAGS': '-O2 -fno-plt'}):
+      with redirect_stdout(out):
+        status = cli.main(['--list', 'unit_runner.py'])
+    self.assertEqual(status, 0)
+    lines = out.getvalue().splitlines()
+    self.assertTrue(
+        lines[0].startswith('toolchain: the environment sets CXXFLAGS;')
+      , lines[0]
+      )
+    self.assertEqual(
+        sum(1 for line in lines if line.startswith('toolchain: ')), 1
+      )
+
+  def test_budget_note(self):
+    '''
+    A run whose environment names an inline budget in
+    SPRITE_INTERPRETER_FLAGS says so once: the runner hands the flags to
+    its children, which compile the shared products under that budget, and
+    the ABI stamp does not record it (issue #116).
+    '''
+    flags = 'backend:cxx,inline_budget:0'
+    self.assertEqual(cli.flag_value(flags, 'inline_budget'), '0')
+    self.assertIsNone(cli.flag_value('backend:cxx', 'inline_budget'))
+    self.assertIsNone(cli.flag_value(None, 'inline_budget'))
+    self.assertIsNone(cli.budget_note({'PATH': '/bin'}))
+    self.assertIsNone(
+        cli.budget_note({'SPRITE_INTERPRETER_FLAGS': 'backend:py'})
+      )
+    note = cli.budget_note({'SPRITE_INTERPRETER_FLAGS': flags})
+    head = 'inline budget: the environment sets inline_budget:0; '
+    self.assertTrue(note.startswith(head), note)
+    out = io.StringIO()
+    with mock.patch.dict(os.environ, {'SPRITE_INTERPRETER_FLAGS': flags}):
+      with redirect_stdout(out):
+        status = cli.main(['--list', 'unit_runner.py'])
+    self.assertEqual(status, 0)
+    lines = out.getvalue().splitlines()
+    budget = [line for line in lines if line.startswith('inline budget: ')]
+    self.assertEqual(len(budget), 1, lines)
+    self.assertTrue(budget[0].startswith(head), budget[0])
+    # Without a budget in the flags, no line.
+    out = io.StringIO()
+    env = {'SPRITE_INTERPRETER_FLAGS': 'backend:cxx'}
+    with mock.patch.dict(os.environ, env):
+      with redirect_stdout(out):
+        status = cli.main(['--list', 'unit_runner.py'])
+    self.assertEqual(status, 0)
+    self.assertNotIn('inline budget: ', out.getvalue())
+
+  def test_child_compiles_under_the_installation_toolchain(self):
+    '''
+    A child started with the environment of the runner from a shell that
+    exports a toolchain (CXX, CXXFLAGS and the rest) compiles with the
+    compiler of the installation and the flags of its flavor alone: no flag
+    of the shell reaches the compile command, the precompiled header is the
+    member of the flavor, and the child's environment names no compiler
+    (issue #111: the member was named O3O2-..., and the objects carried
+    the flags of the shell).
+    '''
+    sprite_home = os.environ.get('SPRITE_HOME')
+    python = os.path.join(sprite_home or '', 'bin', 'python')
+    if not sprite_home or not os.path.isfile(python):
+      self.skipTest('no installation: SPRITE_HOME is not set')
+    base = dict(
+        os.environ, CC='x86_64-conda-linux-gnu-cc'
+      , CXX='x86_64-conda-linux-gnu-c++', CFLAGS='-O2 -pipe'
+      , CXXFLAGS='-O2 -fno-plt -ffunction-sections -pipe'
+      , CPPFLAGS='-DNDEBUG -D_FORTIFY_SOURCE=2'
+      , LDFLAGS='-Wl,-O2 -Wl,--as-needed', AR='x86_64-conda-linux-gnu-ar'
+      )
+    env = cli.environment(sprite_home, 'cxx', base)
+    proc = subprocess.run(
+        [python, '-B', '-c', CHILD_TOOLCHAIN], env=env, capture_output=True
+      , text=True, timeout=300
+      )
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    report = {}
+    for line in proc.stdout.splitlines():
+      key, _, value = line.partition(' ')
+      report[key] = value
+    self.assertEqual(report['cxx'], os.path.join(sprite_home, 'tools', 'cxx'))
+    flags = report['flags'].split()
+    for flag in ['-ffunction-sections', '-pipe', '-D_FORTIFY_SOURCE=2']:
+      self.assertNotIn(flag, flags)
+    prefix = 'O3-' if report['flavor'] == 'release' else 'O0g-'
+    self.assertTrue(report['member'].startswith(prefix), report['member'])
+    self.assertEqual(report['env'], 'None None')
 
   def test_backstop(self):
     self.assertEqual(cli.backstop_prefix(GIB, setting='unlimited'), [])

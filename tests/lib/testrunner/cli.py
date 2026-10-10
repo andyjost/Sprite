@@ -15,8 +15,9 @@ from .manifest import Manifest
 from .scheduler import Job, Scheduler
 
 __all__ = [
-    'backstop_prefix', 'environment', 'exit_status', 'main', 'parse_args'
-  , 'prepare_pass_jobs', 'test_job'
+    'TOOLCHAIN_VARIABLES', 'backstop_prefix', 'budget_note', 'environment'
+  , 'exit_status', 'flag_backend', 'flag_value', 'main', 'parse_args'
+  , 'prepare_pass_jobs', 'test_job', 'toolchain_note', 'toolchain_variables'
   ]
 
 # The cap of a directory of the prepare pass, and the seconds it may take
@@ -146,13 +147,17 @@ def installed_backend(sprite_home):
     return DEFAULT_BACKEND
   return value if value in BACKENDS else DEFAULT_BACKEND
 
-def flag_backend(flags):
-  '''The backend named in a SPRITE_INTERPRETER_FLAGS value, or None.'''
+def flag_value(flags, flag):
+  '''The value of ``flag`` in a SPRITE_INTERPRETER_FLAGS value, or None.'''
   for item in (flags or '').split(','):
     name, _, value = item.partition(':')
-    if name.strip() == 'backend' and value.strip():
+    if name.strip() == flag and value.strip():
       return value.strip()
   return None
+
+def flag_backend(flags):
+  '''The backend named in a SPRITE_INTERPRETER_FLAGS value, or None.'''
+  return flag_value(flags, 'backend')
 
 def with_backend(flags, backend):
   '''The flags value with its backend set to ``backend``.'''
@@ -170,6 +175,56 @@ def prepend_path(entry, value):
     return ':'.join(parts)
   return ':'.join([entry] + parts)
 
+# The variables of a compiler toolchain that a shell may export (a conda
+# environment with a compiler package exports them all).  configure and the
+# Makefiles honour them by design, so a build follows the shell.  A test
+# process does not: the corpus compiles under the compiler and the flags of
+# the installation (tools/cxx, sysconfig) whatever the shell exports, because
+# the ABI stamp of an object does not record the flags, and an object
+# compiled under other flags would pass for current in every later run
+# (issue #111).  environment() drops them from the environment of a child,
+# and main() says so once when the environment of the run sets one.
+TOOLCHAIN_VARIABLES = (
+    'AR', 'AS', 'CC', 'CFLAGS', 'CPP', 'CPPFLAGS', 'CXX', 'CXXFLAGS', 'LD'
+  , 'LDFLAGS', 'LDLIBS', 'NM', 'OBJCOPY', 'OBJDUMP', 'RANLIB', 'READELF'
+  , 'STRIP'
+  )
+
+def toolchain_variables(env):
+  '''The variables of TOOLCHAIN_VARIABLES that ``env`` sets, in order.'''
+  return [name for name in TOOLCHAIN_VARIABLES if env.get(name)]
+
+def toolchain_note(env):
+  '''
+  The line a run prints when its environment sets a toolchain variable, or
+  None.
+  '''
+  names = toolchain_variables(env)
+  if not names:
+    return None
+  return (
+      'toolchain: the environment sets %s; the test processes and the '
+      'prepare pass compile under the compiler and the flags of the '
+      'installation instead' % ', '.join(names)
+    )
+
+def budget_note(env):
+  '''
+  The line a run prints when its environment names an inline budget in
+  SPRITE_INTERPRETER_FLAGS, or None.  The budget shapes the generated code
+  and the ABI stamp of an object does not record it, so the shared products
+  a run compiles under it pass for current in a run under another budget
+  (issue #116).  The runner hands the flags to its children as they are.
+  '''
+  budget = flag_value(env.get('SPRITE_INTERPRETER_FLAGS'), 'inline_budget')
+  if budget is None:
+    return None
+  return (
+      'inline budget: the environment sets inline_budget:%s; the test '
+      'processes and the prepare pass compile the shared products under '
+      'it, and a run under another budget loads them as current' % budget
+    )
+
 # The rotation mode of the test files: step mode, so that the exact counters
 # and the order of the values of a search reproduce between runs (the flag
 # ``rotation`` in curry.interpreter.flags).  A value in the environment of
@@ -182,10 +237,13 @@ def environment(sprite_home, backend, base=None):
   The environment of a child: what the shell driver always set, with the
   backend in SPRITE_INTERPRETER_FLAGS, the rotation in step mode unless
   the environment names a mode, the warnings of the front end off unless
-  the environment says otherwise, and the two caches of the toolchain
-  under tests/.cache unless the environment names them.
+  the environment says otherwise, the two caches of the toolchain under
+  tests/.cache unless the environment names them, and no variable of a
+  compiler toolchain (TOOLCHAIN_VARIABLES).
   '''
   env = dict(os.environ if base is None else base)
+  for name in TOOLCHAIN_VARIABLES:
+    env.pop(name, None)
   env['SPRITE_HOME'] = sprite_home
   if not env.get('SPRITE_ROTATION'):
     env['SPRITE_ROTATION'] = STEP_MODE
@@ -395,6 +453,9 @@ def main(argv=None):
     prepare_jobs = prepare_pass_jobs(args, names, backends, sprite_home)
   for line in notes:
     out.write('changed: %s\n' % line)
+  for note in [toolchain_note(os.environ), budget_note(os.environ)]:
+    if note:
+      out.write(note + '\n')
   if args.list:
     out.write(listing(prepare_jobs + jobs, manifest) + '\n')
     return 0

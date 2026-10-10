@@ -547,6 +547,124 @@ class TestPolicy(TieredTestCase):
     self.assertEqual(self.py(N.viaCall), 3)
     self.assertEqual(steps() - n0, direct)
 
+  def test_getimpl_after_the_swap(self):
+    '''
+    inspect.getimpl of a swapped function reads the compiled code from the
+    generated file beside the object in the process that swapped it, as it
+    does in a process that loads the object; before the swap it shows the
+    bytecode.  After a wait without an interpreter it raised "its module
+    has no compiled object": the poll recorded the object in the ICurry of
+    the module through the interpreter alone (issue #115).
+    '''
+    M = self.fresh_module()
+    name = M.__name__
+    banner = '/****** %s.area ******/\n' % name
+    code = inspect.getimpl(M.area)
+    self.assertTrue(code.startswith(banner), code)
+    self.assertIn('bytecode:', code)
+    self.assertIsNone(getHandle(M).sofilename)
+    # The wait of the issue names no interpreter.
+    self.assertTrue(tiered.wait(COMPILE_SECONDS))
+    self.assertFalse(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertEqual(
+        os.path.realpath(getHandle(M).sofilename)
+      , os.path.realpath(self.sofile(name))
+      )
+    code = inspect.getimpl(M.area)
+    self.assertTrue(code.startswith(banner), code)
+    self.assertNotIn('bytecode:', code)
+    self.assertIn('RuntimeState * rts', code)
+    self.assertEqual(code, M.area.getimpl())
+
+  @cytest.hardreset
+  def test_foreign_budget_compiles_a_private_copy(self):
+    '''
+    A process whose inline budget is not the environment's compiles a
+    module in the background into a directory of its own: the swap gives
+    it code of its budget, and nothing lands beside the source, where every
+    later process took an object of another budget for current, because
+    the ABI stamp does not record the budget (issue #116).  A process
+    under the budget of the environment then finds no object, compiles the
+    module beside the source, and runs the inlined code on both tiers.
+    '''
+    self.switch('tiered', inline_budget=0)
+    self.assertTrue(tiered._foreign_flags(curry.getInterpreter()))
+    name = self.write_module(BUDGET_MODULE)
+    M = self.import_module(name)
+    self.assertTrue(cyrt.icurry_is_interpreted(M.viaCall.info))
+    n0 = steps()
+    self.assertEqual(self.py(M.direct), 3)
+    direct = steps() - n0
+    n0 = steps()
+    self.assertEqual(self.py(M.viaCall), 3)
+    self.assertEqual(steps() - n0, direct + 1)
+    self.wait()
+    self.assertFalse(cyrt.icurry_is_interpreted(M.viaCall.info))
+    n0 = steps()
+    self.assertEqual(self.py(M.viaCall), 3)
+    self.assertEqual(steps() - n0, direct + 1)
+    # Nothing beside the source.  The object, its stamp and the generated
+    # file lie in the directory of the process, and getimpl reads them.
+    self.assertFalse(os.path.exists(self.sofile(name)))
+    self.assertFalse(os.path.exists(self.stamp(name)))
+    self.assertFalse(os.path.exists(self.sofile(name)[:-3] + '.cpp'))
+    sofile = getHandle(M).sofilename
+    private = os.path.realpath(tiered._tmpdir()) + os.sep
+    self.assertTrue(os.path.realpath(sofile).startswith(private), sofile)
+    self.assertTrue(os.path.isfile(sofile + '.abi'))
+    self.assertIn(
+        '/****** %s.viaCall ******/' % name, inspect.getimpl(M.viaCall)
+      )
+    # The same module under the budget of the environment.
+    del M
+    self.switch('tiered')
+    self.assertFalse(tiered._foreign_flags(curry.getInterpreter()))
+    N = self.import_module(name)
+    self.assertTrue(cyrt.icurry_is_interpreted(N.viaCall.info))
+    n0 = steps()
+    self.assertEqual(self.py(N.viaCall), 3)
+    self.assertEqual(steps() - n0, direct)
+    self.wait()
+    self.assertFalse(cyrt.icurry_is_interpreted(N.viaCall.info))
+    self.assertTrue(os.path.isfile(self.sofile(name)))
+    self.assertTrue(os.path.isfile(self.stamp(name)))
+    self.assertEqual(
+        os.path.realpath(getHandle(N).sofilename)
+      , os.path.realpath(self.sofile(name))
+      )
+    n0 = steps()
+    self.assertEqual(self.py(N.viaCall), 3)
+    self.assertEqual(steps() - n0, direct)
+
+  def test_private_copies_newest_first(self):
+    '''
+    The search path of a child lists the private directories newest first,
+    so the copy of the live module shadows an older copy of the same name
+    (a reload after an edit that kept the shape of the module), then the
+    root of the original.
+    '''
+    import types
+    root = tempfile.mkdtemp(dir=self.tmpdir)
+    source = os.path.join(root, 'PrivateOrder.curry')
+    with open(source, 'w') as stream:
+      stream.write('f :: Int\nf = 1\n')
+    imodule = types.SimpleNamespace(filename=source, fullname='PrivateOrder')
+    before = list(tiered._state.private)
+    try:
+      copy1, dirs1 = tiered._private_copy(imodule)
+      copy2, dirs2 = tiered._private_copy(imodule)
+      copy3, dirs3 = tiered._private_copy(imodule)
+    finally:
+      added = tiered._state.private[len(before):]
+      del tiered._state.private[len(before):]
+    dir1, dir2, dir3 = added
+    self.assertEqual(os.path.dirname(copy1), dir1)
+    self.assertEqual(os.path.dirname(copy3), dir3)
+    self.assertTrue(os.path.isfile(copy3))
+    self.assertEqual(dirs1, list(reversed(before)) + [root])
+    self.assertEqual(dirs2, [dir1] + list(reversed(before)) + [root])
+    self.assertEqual(dirs3, [dir2, dir1] + list(reversed(before)) + [root])
+
   def test_sprite_make_compiles(self):
     # An explicit compile writes the object under the flag.
     name = self.write_module()

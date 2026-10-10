@@ -289,14 +289,16 @@ class TestPrelude(cytest.TestCase):
 
   def test_apply_nf_free_variable(self):
     '''
-    A free variable is a normal form: ($!!) and normalForm give the
+    A free variable is a normal form: ($!), ($!!) and normalForm give the
     variable, as PAKCS does, and ($##), which needs a ground normal form,
-    suspends.  The C++ runtime suspended on all three; found when
-    test_apply_nf started to run on the C++ backend.
+    suspends.  The C++ runtime suspended on all four; found when
+    test_apply_nf started to run on the C++ backend.  ($!) suspended on
+    both backends (issue #112).
     '''
     interp = curry.getInterpreter()
     for text in (
-        'id $!! (x::Int) where x free', 'normalForm (x::Int) where x free'
+        'id $! (x::Int) where x free', 'id $!! (x::Int) where x free'
+      , 'normalForm (x::Int) where x free'
       ):
       e = interp.compile(text, mode='expr')
       value, = curry.eval(e, converter=None)

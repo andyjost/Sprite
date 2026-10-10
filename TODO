@@ -11272,3 +11272,196 @@
   (a calibration run adds them; unit_flat2icurry.py takes 16.5 s, 12 s
   before).  (6) The new module utility/trampoline.py needs make stage (or
   make install in src/python/utility) to appear in a staged tree.
+
+2026-10-10: ($!) of a free variable, getimpl after a swap, the private compile of a foreign budget, and the compiler variables of the runner (#112, #115, #116, #111; worktree wt/bugs7)
+- #112, ($!) of a free variable.  Cause: on both backends ($!) ran hnf on
+  the argument and handed its suspension on: a free variable at the root
+  of the argument recorded a residual (E_RESIDUAL in applyhnf_step of
+  src/cyrt/currylib/prelude/apply.cpp; the control exception of
+  fairscheme.hnf in apply_hnf of backends/py/currylib/prelude/apply.py),
+  where PAKCS 3.4.1 reads the variable as a head normal form and applies
+  the function to it (id $! x gives _a).  Fix: the C++ step takes the
+  residual back and reports T_FREE when hnf suspended on a free variable
+  at the root, as applynf_step does since pothole batch 3 and as
+  hnf_or_free does; _applyspecial accepts T_FREE and builds the
+  application.  The Python step uses fairscheme.hnf_or_free in place of
+  hnf.  ($##) still suspends (applygnf_step).  Probe: id $! (x::Int)
+  where x free gives _a on both backends (both suspended before); not $!
+  x where x free gives the two values.  Test:
+  test_apply_nf_free_variable of unit_prelude.py covers ($!) beside ($!!)
+  and normalForm (it ended in EvaluationSuspended on the Python backend
+  with the fix reverted; the C++ half was shown by the probe, not by a
+  rebuild).  No oracle run: PAKCS writes under /tmp, which the sandbox
+  of this lane mounts read-only.  The C++ change is apply.cpp alone (make
+  stage, make overlay: status 0).
+- #115, getimpl after a swap.  Cause: the swap of a background compile
+  recorded the object in the ICurry of the module (cxx.shlib, which
+  handle.sofilename reads) only through _refresh(interp, name), and
+  poll(interp) ran it only when an interpreter was given.  tiered.wait()
+  without one, as the issue calls it, applied the swap and recorded
+  nothing; implementation.getimpl then found no object ("its module has
+  no compiled object"), and so did every reader of sofilename (the
+  loader, Cpp2So.import_lacks_an_object).  The poll of that wait took
+  the result, so no later poll of the process, with an interpreter or
+  not, recorded the object: getimpl raised before and after an
+  evaluation.  A second process showed the C++ because it loaded the
+  object at the import.  Fix: submit keeps a weak reference to the
+  module object of the job (_state.modules), and _refresh(name, interp)
+  records the object on that module whichever thread polls and whether
+  or not an interpreter was given; the module of that name in the
+  interpreter, when it is
+  another object, learns of it too.  A result that did not swap drops
+  the reference; cancel clears them.  Test: test_getimpl_after_the_swap
+  of unit_cxx_tiered.py (the bytecode before, tiered.wait(seconds)
+  without an interpreter, sofilename the object beside the source, the
+  C++ with the banner and no bytecode line, equal to M.area.getimpl();
+  with the fix reverted it failed at sofilename, None).  The probe of the
+  issue prints the compiled form after the wait.
+- #116, the private compile of a foreign budget.  Cause: tiered.submit
+  ran sprite-make --so on the source beside the shared products with the
+  flags of the interpreter (backend:cxx,interpret:off,debug,inline_budget:N),
+  by design, so that the code swapped in is the code the interpreter ran
+  (test_budget_reaches_the_child).  The budget shapes the generated code,
+  the key of the product cache digests it (Cpp2So.product_facts), but the
+  ABI stamp beside the object does not, so a process with another budget
+  wrote an object every later process of the tree took for current
+  (reproduced: a budget-0 process compiled a fresh module in the
+  background, and a default process then loaded that object at the
+  import, interpreted nothing, and took 3 steps for viaCall where the
+  inlined code takes 2).  The same flags reached the compile on first
+  use under interpret:off (materialize.compile_pending compiled the
+  translation beside the source), and they still reach the plan of a
+  plain import of a stale module under interpret:off.  Fix, the second
+  alternative of the task: a process whose inline budget is not the one
+  the environment names (tiered._foreign_flags: the defaults of the
+  flags under SPRITE_INTERPRETER_FLAGS, what a child reads on its own)
+  compiles a private copy.  _private_copy puts the source, with its
+  current ICurry file, interface files and JSON, under
+  tiered._tmpdir()/privateN/ in the layout of a search path entry; the
+  child runs sprite-make --so on the copy, with the private directories
+  of the earlier jobs and the root of the original on its CURRYPATH, so
+  an import compiled this way is found with its object before the
+  original, and the other imports in place.  The generated file and the
+  object land in the private directory, which the product cache leaves
+  out (_productcache.excluded) and which goes with the process; the
+  digest of the swap's check stays the one of the ICurry file beside the
+  original.  The first-use path compiles into the process directory
+  under a foreign budget as well (process_file, as a transformed object
+  does).  The budget of the environment compiles beside the source as
+  before, so the prepare pass, sprite-make and a run under
+  SPRITE_INTERPRETER_FLAGS=inline_budget:N agree with themselves.
+  Probes: the budget-0 process left nothing beside the source, swapped
+  to its private object (3 steps for viaCall before and after), and the
+  default process interpreted the module, compiled it beside the source
+  and took 2 steps on both tiers; Tak1 of the benchmarks corpus with no
+  object beside the source, under budget 0: interpreted, compiled into
+  privateN/, nothing beside the source (nm of the private object shows
+  no cyrt::Variable::skip reference: the symbol count of the issue came
+  from the flags of #111, not from the budget).  Tests:
+  test_foreign_budget_compiles_a_private_copy of unit_cxx_tiered.py (the
+  steps of each tier under budget 0, nothing beside the source, the
+  object and its stamp under tiered._tmpdir(), getimpl reads it; then the
+  same module under the budget of the environment is interpreted at the
+  import, compiled beside the source, and inlined on both tiers; with
+  the fix reverted the default process loaded the foreign object) and
+  test_foreign_budget_compiles_into_the_process_directory of
+  TestFirstUse in unit_cxx_interp.py.  The alternatives, for the record:
+  (a) the background compile of a shared module under the flags of the
+  environment, which swaps in code of another budget than the
+  interpreter ran (the defect test_budget_reaches_the_child pins);
+  (b) the private copy, taken; (c) no background compile under a
+  foreign budget, which leaves such a process on the interpreter; (d)
+  the stamp or the record carries the optimizer keys, which changes the
+  stamp (the owner's; see #111 below).  Left to the owner: (1) a process
+  with a foreign budget still loads a current shared object of the
+  default budget (the Tak1 probe before its object was removed: the
+  "reuses" half of the issue), and a plain import of a stale module
+  under interpret:off still compiles beside the source with the flags of
+  the process; both end with the stamp or the record naming the budget.
+  (2) The private copy runs the front end again when the module has no
+  products beside its source (a read-only directory); the products are
+  copied when they exist.  (3) debug:true compiles a debug object beside
+  the source as before: its stamp names the flavor, so a release process
+  compiles it again rather than runs it.
+- #111, the compiler variables of the runner.  Cause: cli.environment
+  copied os.environ into the environment of every test process and of
+  the prepare pass, and Cpp2So._cxxflags appends CXXFLAGS of its
+  environment to the compile command (configure and the Makefiles honour
+  the variables by design); the compiler itself is the installation's
+  (config.cxx_tool is tools/cxx) whatever CXX says.  So a login shell
+  with a conda toolchain compiled the corpus under -O2 -fno-plt
+  -ffunction-sections and named the precompiled header O3O2-...
+  (reproduced with the variables set: member O3O2-13a51c520ba2, the
+  flags in the command).  Fix: environment() drops TOOLCHAIN_VARIABLES
+  (AR, AS, CC, CFLAGS, CPP, CPPFLAGS, CXX, CXXFLAGS, LD, LDFLAGS, LDLIBS,
+  NM, OBJCOPY, OBJDUMP, RANLIB, READELF, STRIP) from the environment of
+  a child, which covers the test processes, the prepare pass, the
+  sprite-make -S probe and the prune of the product cache; main prints
+  one line before the first file when the environment of the run sets
+  one ("toolchain: the environment sets CXX, CXXFLAGS; the test
+  processes and the prepare pass compile under the compiler and the
+  flags of the installation instead").  No opt-in: the issue proposed a
+  flag, which is the owner's; a file run by hand still reads the shell.
+  tests/README section 10 says so.  Tests in TestCli of unit_runner.py:
+  test_environment_drops_the_toolchain_variables (the variables gone,
+  the others kept, the note's text, the note once in a --list run) and
+  test_child_compiles_under_the_installation_toolchain (a child of the
+  installed python under the environment of the runner from a shell
+  that exports the conda names: the compiler is tools/cxx of the
+  installation, no flag of the shell in Cpp2So._cxxflags, the member of
+  the flavor, no CXX or CXXFLAGS in its environment; with the fix
+  reverted, -ffunction-sections was in the flags).  Left to the owner:
+  whether the ABI stamp records the compiler flags (the second cause of
+  the issue; a leaked object passes for current until the stamp or the
+  record names them), and the tests that read CXXFLAGS of their own
+  environment (unit_prebuild.py, the two tiered tests that fail a
+  compile through it) keep doing so.
+- Verification (env -i, prlimit, CCACHE_DIR set, one or two processes at
+  a time).  make stage and make overlay after the C++ change: status 0.
+  Single files: unit_prelude.py 18 ok on cxx and on py (1 skipped),
+  unit_cxx_tiered.py 29 ok (46 s), unit_runner.py 71 ok (17 s),
+  unit_cxx_interp.py 38 ok (32 s).  The new tests verbosely, each ok and
+  none skipped; with the Python side of the fixes reverted, each failed
+  (unit_prelude on py: EvaluationSuspended; the runner's child test:
+  -ffunction-sections in the flags; the getimpl test: sofilename None;
+  the others: the helpers missing).  The prepare pass: the pool, 49
+  modules in 33.5 s, every product present; the benchmarks corpus, 60
+  modules in 34.0 s, every product present.  Through the runner
+  (./run_tests -j 2 --mem 4 --backend both) over unit_prelude,
+  unit_cxx_tiered, unit_runner, unit_cxx_interp, unit_inspect,
+  unit_optimize, unit_optimize_inline, unit_optimize_applies,
+  unit_cxx_steplimit, unit_cxx_heap, unit_cxx_toolchain,
+  unit_product_cache, unit_loadsave, unit_api, unit_goals and
+  unit_prebuild: 32 of 32 run, 0 failed, wall 136.1 s (unit_cxx_heap.py,
+  the file of the issue, 10 ok on cxx after the prepare pass).
+- Review pass (the same day).  (1) The cause sentence of #115 above
+  said the next Interpreter.eval repaired the record; it did not, the
+  poll of the wait had taken the result (reworded above).  (2) An
+  inline budget in SPRITE_INTERPRETER_FLAGS of a run reaches the
+  children (with_backend keeps the other flags), which then compile the
+  shared products under it with nothing said: the leak of #116 for
+  every later run under another budget.  Until the stamp question is
+  settled, main prints one line that names the budget (cli.budget_note,
+  beside toolchain_note; flag_value is the reader both notes share;
+  tests/README section 10; test_budget_note of unit_runner.py).  No
+  flag and no change to the stamp.  (3) The search path of the child of
+  a private compile listed the private directories oldest first, so a
+  reload of M with its shape kept (a new private copy) left an importer
+  compiled later to find the older copy of M first; no wrong behaviour
+  was seen (the shim binds the symbols and the tables hold the live
+  steps), but the docstring promised the live copy.  Now the newest
+  first (test_private_copies_newest_first of unit_cxx_tiered.py: three
+  copies of one module, the third's search path is [dir2, dir1, root];
+  it failed on the order with the old line).  (4) compile_pending ran
+  is_translation (a read of the JSON and the optimizer passes) before
+  the test of _foreign_flags and threw the answer away under a foreign
+  budget; the cheap test comes first now.  Verification: unit_runner.py
+  72 ok (17 s), unit_cxx_tiered.py 30 ok (47 s), unit_cxx_interp.py 38
+  ok (28 s), one file at a time; ./run_tests --list under
+  SPRITE_INTERPRETER_FLAGS=inline_budget:0 CXXFLAGS=-O2 prints the
+  toolchain line and the inline budget line, once each.
+- Left to the owner, across the issues: the stamp question of #111 and
+  the two halves of #116 that only the stamp or the record settles (the
+  note of the runner names a budget of the environment until then); the
+  whole suite on both backends (not run in this lane: longer than its
+  foreground bound).
