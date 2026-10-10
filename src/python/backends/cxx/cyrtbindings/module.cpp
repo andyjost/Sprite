@@ -90,6 +90,11 @@ namespace cyrt { namespace python
       .def("link", &Module::link)
       .def("keep_tables", &Module::keep_tables
         , "Keeps the tables made at run time for the life of the process.")
+      .def("retire", &Module::retire
+        , "Hands the tables made at run time to the kept store and clears "
+          "the module, so a module of the same name made later takes them "
+          "back without their steps (issue #114).")
+
       .def_property_readonly("shlib", &Module::shlib
         , "The compiled object linked to the module, or None.")
       .def_readonly("name", &Module::name)

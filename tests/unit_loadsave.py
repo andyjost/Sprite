@@ -229,3 +229,92 @@ print('exiting normally')
   def test_loaded_twice_then_used(self):
     # Case K: the same file loaded twice (no refusal), then a use.
     self.run_case('K')
+
+
+@unittest.skipUnless(
+    IS_CXX and config.cxx_tool() is not None
+  , 'the saved text of a module loaded from its object belongs to the C++ '
+    'backend and needs its compiler'
+  )
+class TestSaveFromObject(cytest.TestCase):
+  '''
+  curry.save of a module that runs from its compiled object writes the text
+  it writes for the same module interpreted (issue #113).  The compiler
+  took every static info table for a built-in of the runtime, and the
+  tables of a module loaded from its object are static, so the saved module
+  had an extern declaration per function and no step function (3,763
+  characters against 30,399 for the module of the issue).  The ICurry read
+  back from the JSON file is taken through the steps of an import as well
+  (the merge of the built-ins, the passes of the optimizer, with the
+  complete module standing in for the loaded one), so the metadata of the
+  record agrees too.  Two children save the same module: the first before
+  any object exists, under interpret:new, where the module is interpreted
+  and never compiled; sprite-make --so then compiles the object; the second,
+  under the default interpret:tiered, loads the object.  The texts must
+  agree.
+  '''
+  SOURCE = (
+      'module SaveFromObject where\n\n'
+      'data Color = Red | Green | Blue\n  deriving (Eq, Show)\n\n'
+      'next :: Color -> Color\nnext Red = Green\nnext Green = Blue\n'
+      'next Blue = Red\n\n'
+      'twice :: (a -> a) -> a -> a\ntwice f x = f (f x)\n\n'
+      'count :: Int -> Int\n'
+      'count n = if n <= 0 then 0 else 1 + count (n - 1)\n\n'
+      'main :: Color\nmain = twice next Red\n'
+    )
+  CODE = r"""
+import os, re
+os.environ['SPRITE_INTERPRETER_FLAGS'] = %(flags)r
+import curry
+from curry.objects.handle import getHandle
+curry.path.insert(0, %(tmpdir)r)
+M = curry.import_('SaveFromObject')
+print('object', getHandle(M).sofilename is not None)
+text = curry.save(M, module_main=False)
+print('steps', len(re.findall(r'^tag_type Cy', text, re.M)))
+with open(%(out)r, 'w', encoding='utf-8') as stream:
+  stream.write(text)
+print('values', [str(v) for v in curry.eval(M.main)])
+"""
+
+  def save_in_child(self, flags, tmpdir, out):
+    code = self.CODE % dict(flags=flags, tmpdir=tmpdir, out=out)
+    proc = cytest.run_in_subprocess(code, TIMEOUT, address_space=ADDRESS_SPACE)
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    with open(out, encoding='utf-8') as stream:
+      return proc.stdout.splitlines(), stream.read()
+
+  def test_same_text_from_the_object(self):
+    tmpdir = tempfile.mkdtemp(prefix='sprite-loadsave-object-')
+    self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
+    with open(os.path.join(tmpdir, 'SaveFromObject.curry'), 'w') as stream:
+      stream.write(self.SOURCE)
+    lines, before = self.save_in_child(
+        'backend:cxx,interpret:new', tmpdir, os.path.join(tmpdir, 'before.cpp')
+      )
+    self.assertEqual(lines[0], 'object False')
+    self.assertEqual(lines[2], "values ['Blue']")
+    nsteps = int(lines[1].split()[1])
+    self.assertGreater(nsteps, 0)
+    # The object, as sprite-make --so writes it beside the source.
+    env = dict(os.environ, CURRYPATH=tmpdir)
+    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
+    cmd = [
+        'prlimit', '--as=%d' % ADDRESS_SPACE, 'timeout', str(TIMEOUT)
+      , config.installed_path('bin', 'sprite-make'), '--so', '-z'
+      , 'SaveFromObject'
+      ]
+    proc = subprocess.run(
+        cmd, cwd=tmpdir, env=env, capture_output=True, text=True
+      )
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    lines, after = self.save_in_child(
+        'backend:cxx,interpret:tiered', tmpdir
+      , os.path.join(tmpdir, 'after.cpp')
+      )
+
+    self.assertEqual(lines[0], 'object True')
+    self.assertEqual(lines[1], 'steps %d' % nsteps)
+    self.assertEqual(lines[2], "values ['Blue']")
+    self.assertEqual(after, before)

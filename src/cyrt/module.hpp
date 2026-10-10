@@ -24,6 +24,10 @@ namespace cyrt
 
     void link(std::shared_ptr<SharedCurryModule> const &);
     void clear();
+    // Copies the tables the runtime registered under the name of this
+    // module (register_builtin_module) into the module.  The constructor
+    // and clear call it.
+    void seed_builtins();
 
     // Tiered execution (cyrt/tiered.hpp).  Links the compiled object of a
     // module whose functions the interpreter runs, and gives every function
@@ -42,6 +46,16 @@ namespace cyrt
     // Keeps the tables made at run time for the life of the process (see
     // clear).  The materializer calls this for a module it interprets.
     void keep_tables();
+    // Hands the tables made at run time to the kept store and clears the
+    // module, as the destructor of an interpreted module does.  A reset of
+    // the interpreter calls this when a module leaves it while a Python
+    // object of the module is still alive (issue #114): the registry gives
+    // this object back to a module of the same name made later, which then
+    // takes the tables back through create_infotable, without a step, and
+    // runs its own code; before, it found the tables with the steps of the
+    // old module.  The tables are kept whatever the state of the module:
+    // the Python objects of the old module name them.
+    void retire();
 
     static void register_builtin_module(
         std::string const & name, TypeTable && types, SymbolTable && symbols
@@ -74,6 +88,10 @@ namespace cyrt
       );
     DataType const * get_type(std::string const & name) const;
 
+    // The table of a symbol or type the runtime registered as a built-in of
+    // this module (register_builtin_module), or null.  A static table of a
+    // compiled object is not a built-in: the compiler of curry.save writes
+    // the step function of such a symbol again (issue #113).
     InfoTable const * get_builtin_symbol(std::string const &) const;
     DataType const * get_builtin_type(std::string const &) const;
 

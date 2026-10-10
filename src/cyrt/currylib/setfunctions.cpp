@@ -191,12 +191,19 @@ namespace cyrt { inline namespace
     { return _applyS(rts, C, true); }
 
   // ($##>) f a = (f $>) $## a
+  //
+  // The partial application is of applyS, the ($>) of the definition: once
+  // ($##) has the argument in ground normal form, applyS puts it under its
+  // guard.  A partial application of this step applied the normalized
+  // argument to this step again, which normalized it again, without end
+  // (issue #118: sortValues (set1 adj binDigit) under the eager strategy).
   tag_type eagerApplyS_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Node * partial = Node::create_partial(
-        &eagerApplyS_Info, _0->successor(0)
+        &applyS_Info, _0->successor(0)
       );
+
     Node * replacement = Node::create(
         &applygnf_Info, partial, _0->successor(1)
       );

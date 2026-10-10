@@ -3,7 +3,7 @@ from ..typecheck import defaulting, goals
 from ..utility.binding import binding
 from ..utility.strings import ensure_str
 from ..objects import handle
-import io, logging, os
+import contextlib, io, logging, os
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ def save(interp, cymodule, filename=None, goal=None, **kwds):
         'main program'
       )
   h = handle.getHandle(interp.import_(icy))
-  icy = compilable_icurry(cymodule, h.icurry)
+  icy = compilable_icurry(interp, cymodule, h.icurry)
   if logger.isEnabledFor(logging.INFO):
     logger.info(
         'Saving Curry module %r to %r (%r type%s, %r symbol%s)'
@@ -143,13 +143,16 @@ def goal_scheme_text(interp, symbol):
     )
   return goals.flat_type_text(scheme)
 
-def compilable_icurry(cymodule, icy):
+def compilable_icurry(interp, cymodule, icy):
   '''
   The ICurry to compile for a saved module.  A module loaded from generated
   code holds its bill of materials: every function body is ``IExempt`` and
   the code lives in the metadata, so compiling it again would write a
   failing stub for every function.  The ICurry with the bodies is read from
-  the JSON file of the module in that case.
+  the JSON file of the module in that case, and taken through the steps of
+  an import (the merge of the built-ins, the validation, the passes of the
+  optimizer), so the text saved from a module that runs from its object is
+  the text saved from the same module interpreted (issue #113).
   '''
   functions = list(icy.functions.values())
   exempt = [
@@ -166,4 +169,32 @@ def compilable_icurry(cymodule, icy):
             % (icy.fullname, len(exempt), len(functions), icy.filename)
       )
   logger.info('Reading the ICurry of %s from %s', icy.fullname, jsonfile)
-  return toolchain.loadjson(jsonfile)
+  complete = toolchain.loadjson(jsonfile)
+  toolchain.mergebuiltins(complete, interp.backend)
+  toolchain.validatemodule(complete)
+  # The passes read the module under its name among the loaded modules
+  # (the call graph of inline_calls, the aliases, the monadic analysis).
+  # At the import they found the ICurry with the bodies there; here they
+  # would find the bill of materials, where no function has a body or lies
+  # on a cycle, and record a recursive function as an inline body.  The
+  # complete ICurry stands in for the module while the passes run.
+  with _standing_in(interp, cymodule, complete):
+    interp.optimize(complete)
+  return complete
+
+
+@contextlib.contextmanager
+def _standing_in(interp, cymodule, imodule):
+  '''
+  Binds ``imodule`` under the name of ``cymodule`` among the loaded modules
+  of ``interp``, and in the ICurry of its package, for the duration of the
+  block; the loaded module is restored on exit.
+  '''
+  h = handle.getHandle(cymodule)
+  with binding(interp.modules, h.fullname, imodule):
+    pkg = h.package(interp)
+    if pkg is None:
+      yield
+    else:
+      with binding(pkg.icurry, h.name, imodule):
+        yield
