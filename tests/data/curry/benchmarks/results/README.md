@@ -135,3 +135,34 @@ backends run the sizes 10 to 100 and resolvelib alone runs 200 and 800
 The nightly performance job appends its records to the branch
 `perf-history` of the repository, not to this directory; `tests/README`,
 section 9, describes the job, the history command, and the chart page.
+
+## phase3-2026-10-10
+
+The record of the C++ backend after the lanes of 2026-10-10 (the escape
+default of `setfunction_failures`, bug batches A and B, pothole batch 4)
+on top of the step-mode rotation of 2026-10-05 and the inliner and the
+known-constructor rule of Phase 3 (2026-10-06), taken on the same
+12-core x86-64 workstation at commit `24b0507a` with the calibrated
+manifest in the working tree (`-dirty`), with no other work of this
+project on the machine. Schema 2: every record carries the instruction
+count of the repetition under perf, so a later compare against this
+record can use `--deterministic`; the compare against
+`phase2-2026-10-04` has no instruction baseline and reads the counters.
+
+- `throughput`: the nightly set of ten programs (`--nightly`), 3
+  repetitions, 300 s timeout.
+- `memory`: the same ten programs with the collector on and off, 1
+  repetition, 300 s timeout.
+
+Against `phase2-2026-10-04` the counters moved as the dated TODO entries
+said. The inliner and the known-constructor rule: Primes 61364444 to
+14383977 steps, Queens10 54505073 to 17706900, SearchQueens 41373250 to
+34001063 (forks 1084883 to 1084670), PermSort 12531154 to 12530839,
+Reverse 8407963 to 8407940, Last 3100017 to 3100015. The escape default,
+under which a search whose boxed argument holds a failing alternative
+stops at the first demand of the failure: QueensSet 2152979 to 1997870
+steps and 511583 to 461545 forks, QueensSet9 12143480 to 11305416 and
+2979048 to 2704943. Tak1 and Fib are equal. A compare against this
+record expects these counters now. In the memory suite the CPU seconds
+of Primes, Queens10, SearchQueens and PermSort fell with their steps
+(ratios 0.23 to 0.89); the peaks and the rest are within the noise band.
