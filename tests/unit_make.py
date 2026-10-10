@@ -755,6 +755,7 @@ class TestProductLock(cytest.TestCase):
       curry.flags['backend'] != 'cxx' or config.cxx_tool() is None
     , 'the compile needs the C++ backend and its compiler'
     )
+  @cytest.skipIfInterpreted('the test reads the object it compiled')
   def test_two_compiles_write_one_object(self):
     '''
     Two sprite-make --so of one module at once: both end well, one of them
@@ -851,6 +852,11 @@ class TestProgramDirectory(cytest.TestCase):
         )
     self.env = dict(os.environ)
     self.env.pop('CURRYPATH', None)
+    if curry.flags['backend'] == 'cxx':
+      # The children load the objects they compile.  Under the runner's
+      # interpret:all a load is refused, so the children run under the
+      # tiered default, as the loader tests do.
+      self.env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
 
   def run_tool(self, tool, *args):
     cmd = [
