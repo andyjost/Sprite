@@ -250,7 +250,9 @@ namespace cyrt { inline namespace
     return T_FWD;
   }
 
-  tag_type seq_step(RuntimeState * rts, Configuration * C)
+  // The step of the &> of the runtime (CyI7Prelude12BindingGuard; see
+  // prelude.hpp).
+  tag_type BindingGuard_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Variable _1 = _0[0];
@@ -302,14 +304,14 @@ extern "C"
     , /*type*/       nullptr
     };
 
-  InfoTable const seq_Info {
+  InfoTable const CyI7Prelude12BindingGuard {
       /*tag*/        T_FUNC
     , /*arity*/      2
     , /*alloc_size*/ sizeof(Node2)
     , /*flags*/      F_OPERATOR | F_STATIC_OBJECT
     , /*name*/       "&>"
     , /*format*/     "pp"
-    , /*step*/       seq_step
+    , /*step*/       BindingGuard_step
     , /*type*/       nullptr
     };
 }

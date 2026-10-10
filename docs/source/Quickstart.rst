@@ -327,11 +327,13 @@ above already started a compile of the module in the background when no
 current object existed; :func:`curry.load` of its object waits for that
 compile to end and loads the object it wrote, so the sequence works while
 the compile runs.  That compile writes the files ``sprite-make --so``
-writes, so run ``sprite-make`` once the background compile ended (a few
-seconds for a module of this size), not at the same time.  A module whose library is loaded already from another
-file is refused: the runtime keeps one library per module name for the
-life of the process.  An edit of ``Peano.curry`` after the import is not
-read again in this process; a new process reads it.
+writes, and the two never write at once: a compile holds a lock file
+beside the products (``Peano.lock``), the second process waits for the
+first, and it compiles nothing when the first wrote a current object.  A
+module whose library is loaded already from another file is refused: the
+runtime keeps one library per module name for the life of the process.  An
+edit of ``Peano.curry`` after the import is not read again in this
+process; a new process reads it.
 
 .. _Python Tutorial: https://docs.python.org/3/tutorial/
 

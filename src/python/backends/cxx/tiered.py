@@ -69,7 +69,17 @@ toolchain loads an object only when every import of the module was loaded
 from its object (Cpp2So.is_stale imports them first; the loader imports the
 modules an object needs before it opens it); a module whose import is
 interpreted is interpreted too, and its compile waits in the queue behind
-the compile of the import, whose object the swap maps before the importer's.
+the compile of the import.  The swap maps the objects of the imports before
+the importer's: a job carries the objects of the imports the interpreter
+runs (direct and indirect, in dependency order, each with the ICurry digest
+of its import; see _record and _import_objects), and the swap maps each one
+whose module has no object yet, under the same check of its ICurry, so an
+importer swaps whenever the objects are ready: when the job of an import
+runs later, or when an import has no job (a module without a function to
+swap, one of type synonyms alone, say, whose object the child of the
+importer compiles).  An import mapped that way is swapped, with no step to
+count, whatever comes of the load of the importer after it (poll refreshes
+its record either way); its own job, if any, then adopts the mapped object.
 
 What is not compiled.  An expression module (curry.compile in mode 'expr'),
 an interactive module, and a module compiled from a string (str2module): the
@@ -163,6 +173,20 @@ class Shim(object):
       ]
 
 
+class _Record(object):
+  '''
+  The object of a module the interpreter runs, for the swap of its importers
+  (see "The imports" in the module docstring): the file the compile of the
+  module writes, the ICurry file of the module at the import and its digest
+  then, and a weak reference to the module object.
+  '''
+  def __init__(self, moduleobj, sofile, icyfile, digest):
+    self.module = weakref.ref(moduleobj)
+    self.sofile = sofile
+    self.icyfile = icyfile
+    self.digest = digest
+
+
 class _State(object):
   '''The state of the process: the shims and the logged failures.'''
   def __init__(self):
@@ -170,6 +194,7 @@ class _State(object):
     self.shims = {}      # module name -> Shim
     self.pending = {}    # module name -> the object of a compile not applied
     self.modules = {}    # module name -> a weak reference to its module object
+    self.records = {}    # module name -> _Record
     self.private = []    # the directories of the private copies, in order
     self.warned = set()  # the keys of the messages logged once
     self.counter = itertools.count()
@@ -429,17 +454,73 @@ def _interpreter_setting(interp, imodule):
 def module_loaded(interp, moduleobj, currypath):
   '''
   Called when the import of a module ends (IBackend.module_loaded).
-  Registers the shim of the module and queues its background compile.
-  Returns True when a job was queued.  ``currypath`` is the search path of
-  the import.
+  Registers the shim of the module, records its object for the swap of its
+  importers (_record) and queues its background compile.  Returns True
+  when a job was queued.  ``currypath`` is the search path of the imports
+  of the module (IBackend.module_loaded), the CURRYPATH of the child.
   '''
   if not _compiles(interp, moduleobj):
     return False
+  # Every module the interpreter runs is on record, a module without a
+  # table made at run time too (one of type synonyms alone, say): its
+  # importers name its object all the same.
+  _record(moduleobj)
   shim = _register_shim(moduleobj)
   if shim is None and _state.shims.get(getHandle(moduleobj).icurry.fullname):
     # The shape changed: blocked.
     return False
   return submit(interp, moduleobj, currypath)
+
+def _record(moduleobj, sofile=None):
+  '''
+  Records the object of a module the interpreter runs (see _Record): by
+  default the object beside its source, which its own job and the child of
+  an importer write; ``sofile`` names another (a private copy).  The digest
+  is of the ICurry file beside the source at this moment, as the check of
+  the swap takes it.  Returns the record.
+  '''
+  imodule = getHandle(moduleobj).icurry
+  filename = imodule.filename
+  if sofile is None:
+    sofile = _filenames.replacesuffix(_filenames.icurryfilename(filename), '.so')
+  icyfile = _filenames.icurryfilename(filename)
+  if not os.path.isfile(icyfile):
+    icyfile = ''
+  digest = '' if not icyfile else cyrt.tiered_file_digest(icyfile)
+  record = _Record(moduleobj, sofile, icyfile, digest)
+  _state.records[imodule.fullname] = record
+  return record
+
+def _import_objects(interp, imodule):
+  '''
+  The objects of the imports of ``imodule`` that the swap maps before the
+  object of the module, as tuples (module, sofile, icurryfile, digest), in
+  dependency order, an import before the modules that import it, each
+  once: the imports the interpreter runs in this process, direct and
+  indirect, that have a record (_record) for their module object.  A module
+  loaded from its object is mapped already, and so are its imports, so the
+  walk stops at it.
+  '''
+  out = []
+  seen = set()
+  def visit(name):
+    if name in seen:
+      return
+    seen.add(name)
+    moduleobj = interp.modules.get(name)
+    if moduleobj is None:
+      return
+    h = getHandle(moduleobj)
+    if h.icurry.metadata.get('cxx.shlib') is not None:
+      return
+    for depname in h.icurry.imports:
+      visit(depname)
+    record = _state.records.get(name)
+    if record is not None and record.module() is moduleobj:
+      out.append((name, record.sofile, record.icyfile, record.digest))
+  for depname in imodule.imports:
+    visit(depname)
+  return out
 
 def submit(interp, moduleobj, currypath):
   '''
@@ -506,15 +587,13 @@ def submit(interp, moduleobj, currypath):
     )
   argv = [config.installed_path('bin', 'sprite-make'), '--so', '-z', '-q', source]
   # The ICurry file of the module and its digest: the swap refuses an object
-  # of another text (see the module docstring).
-  icyfile = _filenames.icurryfilename(filename)
-  if not os.path.isfile(icyfile):
-    icyfile = ''
-  digest = '' if not icyfile else cyrt.tiered_file_digest(icyfile)
+  # of another text (see the module docstring).  The record of the module
+  # names the object this job writes, for the swap of its importers.
+  record = _record(moduleobj, sofile)
   logger.debug('Compiling %s in the background: %s', name, ' '.join(argv))
   cyrt.tiered_submit(
       name, _pending_shims(cxx), argv, envp, logfile, sofile, steps
-    , icyfile, digest
+    , record.icyfile, record.digest, _import_objects(interp, imodule)
     )
   _state.pending[name] = sofile
   _state.modules[name] = weakref.ref(moduleobj)
@@ -532,6 +611,9 @@ def _refresh(name, interp=None):
   '''
   ref = _state.modules.pop(name, None)
   candidates = [] if ref is None else [ref()]
+  record = _state.records.get(name)
+  if record is not None:
+    candidates.append(record.module())
   if interp is not None:
     candidates.append(interp.modules.get(name))
   for moduleobj in candidates:
@@ -555,6 +637,16 @@ def poll(interp=None):
     _state.pending.pop(name, None)
     if not result['ok']:
       _state.modules.pop(name, None)
+    for imported in result['mapped']:
+      # The swap mapped the object of an import (see the module docstring,
+      # "The imports") before it loaded the object of the module: the
+      # import runs compiled now, whatever came of the load of the module,
+      # and its record names its object.
+      logger.info(
+          'Mapped the object of %s, an import of %s, in the background'
+        , imported, name
+        )
+      _refresh(imported, interp)
     if result['ok']:
       logger.info(
           'Compiled %s in the background in %.2f s; %d function%s swapped%s'

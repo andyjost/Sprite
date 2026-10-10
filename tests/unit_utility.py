@@ -189,3 +189,52 @@ class TestBinding(unittest.TestCase):
     with binding(self.mapping, 'x', del_):
       self.assertFalse('x' in self.mapping)
     self.assertFalse('x' in self.mapping)
+
+
+class TestTrampoline(unittest.TestCase):
+  '''
+  utility.trampoline runs a walk written as generators on a list, so the
+  depth of a tree costs no frame of Python (issue #125).  A value yielded
+  in place of a generator is a result, and the trampoline of a value is
+  the value (pothole batch 4: the expression compiler answers a leaf with
+  its text and a node with a generator).
+  '''
+  def test_generators_and_values(self):
+    from curry.utility.trampoline import trampoline
+    def size(tree):
+      total = 1
+      for child in tree:
+        total += yield (size(child) if isinstance(child, list) else 1)
+      return total
+    self.assertEqual(trampoline(size([])), 1)
+    self.assertEqual(trampoline(size([[1, 2], 3])), 5)
+    self.assertEqual(trampoline(42), 42)
+    self.assertEqual(trampoline('leaf'), 'leaf')
+    self.assertIsNone(trampoline(None))
+
+  def test_deep(self):
+    import sys
+    from curry.utility.trampoline import trampoline
+    def size(tree):
+      total = 1
+      for child in tree:
+        total += yield size(child)
+      return total
+    tree = []
+    for _ in range(20000):
+      tree = [tree]
+    limit = sys.getrecursionlimit()
+    sys.setrecursionlimit(1000)
+    try:
+      self.assertEqual(trampoline(size(tree)), 20001)
+    finally:
+      sys.setrecursionlimit(limit)
+
+  def test_exception(self):
+    from curry.utility.trampoline import trampoline
+    def fail(depth):
+      if depth == 0:
+        raise KeyError('leaf')
+      yield fail(depth - 1)
+    with self.assertRaises(KeyError):
+      trampoline(fail(3))

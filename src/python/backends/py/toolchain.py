@@ -91,7 +91,7 @@ class Json2Py(Json2TargetSource):
   NAME = 'json2py'
   SUFFIX = '.py'
 
-  def is_stale(self, filename):
+  def is_stale(self, filename, currypath=None):
     '''
     Tells whether a cached file of this step is out of date (source_is_stale).
     The plan then starts again from the JSON file (Plan.prune_stale).  The

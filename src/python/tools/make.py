@@ -17,8 +17,16 @@ Executes the toolchain to compile Curry code.
 This program uses timestamps and prerequisites to lazily update targets.  Each
 positional argument can be a Curry module name, a Curry source file, or an
 ICurry file (extension: ``.icy``).  Modules are located by searching the
-CURRYPATH environment variable.  An ICurry file can only be converted to JSON;
-the JSON file is written beside it.
+CURRYPATH environment variable; the imports of a program given as a source
+file are searched in the directory of the file first, as PAKCS searches, so
+a program and the modules beside it need no CURRYPATH.  An ICurry file can
+only be converted to JSON; the JSON file is written beside it.
+
+Two processes that compile one module into one product directory, such as
+a background compile of the C++ backend and this program, never write at
+once: the compile runs under a lock file beside the products
+(``<Module>.lock``), the second process waits for the first, and it
+compiles nothing when the first wrote a current object.
 
 The target formats follow.  Curry-formatted ICurry (extension:
 ``.icy``) is generated with the ``-i,--icy`` option.  These files can be read
@@ -125,7 +133,8 @@ Environment Variables
 ---------------------
 
     CURRYPATH
-        a colon-separated list of paths to search for Curry modules.
+        a colon-separated list of paths to search for Curry modules.  The
+        directory of a program given as a source file is searched first.
 
     SPRITE_PRODUCT_CACHE
         the directory of the product cache; the empty string turns the
@@ -541,12 +550,17 @@ class JobGraph(object):
     the name is a package, with the current file of the module.  Raises
     what the lookup of the module raises.
     '''
-    currentfile = _findcurry.currentfile(
-        self.plan, arg, self.currypath, is_sourcefile=is_sourcefile
+    # A program given as a source file has its directory searched first
+    # (_findcurry.program_path), for its imports and theirs.
+    currypath = _findcurry.program_path(
+        arg, self.currypath, is_sourcefile=is_sourcefile
       )
-    return self._visit(arg, currentfile), currentfile
+    currentfile = _findcurry.currentfile(
+        self.plan, arg, currypath, is_sourcefile=is_sourcefile
+      )
+    return self._visit(arg, currentfile, currypath), currentfile
 
-  def _visit(self, arg, currentfile):
+  def _visit(self, arg, currentfile, currypath):
     if os.path.isdir(currentfile):
       return None
     curryfile = _filenames.curryfilename(currentfile)
@@ -557,12 +571,12 @@ class JobGraph(object):
     waits = []
     for name in imports_of(curryfile):
       try:
-        imported = _findcurry.currentfile(self.plan, name, self.currypath)
+        imported = _findcurry.currentfile(self.plan, name, currypath)
       except (exceptions.ModuleLookupError, exceptions.PrerequisiteError):
         continue
       if os.path.isdir(imported):
         continue
-      self._visit(name, imported)
+      self._visit(name, imported, currypath)
       waits.extend(self._deps[_filenames.curryfilename(imported)])
     waits = list(dict.fromkeys(waits))
     if is_done(self.plan, currentfile):

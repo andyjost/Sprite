@@ -445,3 +445,47 @@ on one backend), its CI job and the value ``py`` of the flag go in one
 commit; the issue records the date.  The month started with the first
 nightly run after the merge of stages 1 to 4.  Examples 03 and 04 and the
 Python form of ``curry.save`` follow the decision on the C++ form.
+
+The depth bounds of the toolchain
+=================================
+
+A deep expression, such as the nest of cons calls of a long literal list
+or a chain of nested if-then-else, met a recursive walk at every stage of
+an import.  Issue #125 made the walks of the route from Curry to ICurry
+iterative (``utility.trampoline`` and explicit stacks), and pothole batch 4
+(2026-10-10) the walks of the import after it: the visitor of the
+optimizer (``icurry.visit``), the copy of a function body and the other
+walks over an expression in the inliner (``icurry.analysis.inlining``;
+``copy.deepcopy`` of a call or a choice copies the nested calls and
+choices on a stack of its own), the rewrite of the saturation pass
+(``interpreter.optimize``) and the expression compiler of both backends
+(``backends.generic.compiler.compileE``).  A literal list of 10800
+elements imports and runs on both backends under ``interpret:new``
+(``tests/unit_curry2icurry.py``, ``TestDeepExpressions``; about 9 s on
+the C++ backend).  What still bounds a deep expression, as measured on the
+machine of that lane:
+
+* The JSON codec of the ICurry (``icurry.json``) recurses in C, in the
+  codec of Python.  A nest of 12000 calls is written and read back; one of
+  15000 overflows the 8 MB stack of the main thread (``RecursionError``,
+  "Stack overflow").  The bound is a bound in levels of nesting of the
+  ICurry, not in frames of Python, so ``maxrecursion`` does not move it; a
+  thread with a larger stack, or a codec without the recursion, would.
+
+* The monadic analysis (``icurry.analysis.monadic``) follows the call
+  graph: a chain of nested if-then-else lifts into a chain of functions,
+  one per level, and the analysis recurses once per function, four frames
+  per level (``set_monadic_metadata``, ``visit``, the visitor and
+  ``_checkmonadic``; 506 levels under a limit of 2048 frames), so about
+  4000 levels under ``maxrecursion`` (16384 frames; about 680 before the
+  visitor was made iterative).  The time of the case lifting of the port
+  bounds such a chain first: it is quadratic in the chain, 74 s of the
+  118 s of the import of a chain of 2000 levels; a chain of 3500 levels
+  imports in 255 s.
+
+* The hoisting depth of the Python backend, ``HOIST_DEPTH`` of
+  ``backends.py.compiler`` (64): the parser of Python refuses more than
+  200 nested parentheses, and a node of the generated code is one call,
+  so a subexpression at that nesting under its statement goes into a
+  temporary of the step function.  The C++ backend hoists nothing; g++
+  accepts the nested call of a list of 1200 elements (19 s, 794 MB).

@@ -36,7 +36,7 @@ namespace cyrt
       Node * genexpr = this->get_generator(C, id);
       Node * binding = C->bindings->at(id);
       Node * eq = Node::create(&nonstrictEq_Info, genexpr, binding);
-      *C->root = Node::create(&seq_Info, eq, C->root);
+      *C->root = Node::create(&CyI7Prelude12BindingGuard, eq, C->root);
       write(C->bindings).erase(id);
     }
   }

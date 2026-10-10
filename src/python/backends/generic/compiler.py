@@ -1,6 +1,7 @@
 from ...exceptions import CompileError
 from ... import config, icurry
 from ...utility import formatDocstring, maxrecursion, strings, visitation
+from ...utility.trampoline import trampoline
 import abc, collections, collections.abc, contextlib, itertools, logging, re
 
 logger = logging.getLogger(__name__)
@@ -632,11 +633,20 @@ class CompilerBase(abc.ABC):
 
   def compileArgs(self, exprs):
     '''The arguments of a node as primary expressions, one level down.'''
+    return trampoline(self._compileArgs(exprs))
+
+  def _compileArgs(self, exprs):
+    '''
+    The walk of compileArgs (see compileE).  The nesting is counted while
+    the arguments are compiled; a walk that fails leaves the compiler, so
+    no finally clause restores it.
+    '''
     self.expr_depth += 1
-    try:
-      return [self.compileE(expr, primary=True) for expr in exprs]
-    finally:
-      self.expr_depth -= 1
+    args = []
+    for expr in exprs:
+      args.append((yield self._compileE(expr, primary=True)))
+    self.expr_depth -= 1
+    return args
 
   def hoist(self, text, primary):
     '''
@@ -681,61 +691,72 @@ class CompilerBase(abc.ABC):
   ### compileE ###
   ################
 
-  @visitation.dispatch.on('expr')
   def compileE(self, expr, primary=False):
     '''
     Compile an expression into a string.  For primary expressions, the string
     evaluates to a value (boxed or unboxed).  For non-primary expressions, it
     contains comma-separated arguments that may be passed to the Node constructor
     or Node->forward_to.
+
+    The walk runs on the trampoline (utility.trampoline): the case of a node
+    with arguments is a generator that yields the walk of each argument, so
+    the depth of the expression costs no frame of Python.  A nested call
+    per level ran out of frames at about 4000 elements of a literal list
+    under maxrecursion (issue #125).  The symbols are imported in the order
+    of the recursive walk: the node's own before those of its arguments.
     '''
+    return trampoline(self._compileE(expr, primary))
+
+  @visitation.dispatch.on('expr')
+  def _compileE(self, expr, primary=False):
+    '''The walk of compileE: a result for a leaf, a generator for a node.'''
     assert False
 
-  @compileE.when(icurry.IVar)
-  def compileE(self, ivar, primary=False):
+  @_compileE.when(icurry.IVar)
+  def _compileE(self, ivar, primary=False):
     return self.vEmit_compileE_IVar(ivar)
 
-  @compileE.when(icurry.IVarAccess)
-  def compileE(self, ivaraccess, primary=False):
+  @_compileE.when(icurry.IVarAccess)
+  def _compileE(self, ivaraccess, primary=False):
     var = self.compileE(ivaraccess.var, primary=primary)
     return self.vEmit_compileE_IVarAccess(ivaraccess, var)
 
-  @compileE.when(icurry.ILiteral)
-  def compileE(self, iliteral, primary=False):
+  @_compileE.when(icurry.ILiteral)
+  def _compileE(self, iliteral, primary=False):
     h_ctor = self.importSymbol(iliteral.fullname)
     return self.vEmit_compileE_ILiteral(iliteral, h_ctor, primary)
 
-  @compileE.when(icurry.IString)
-  def compileE(self, istring, primary=False):
+  @_compileE.when(icurry.IString)
+  def _compileE(self, istring, primary=False):
     string = strings.ensure_str(istring.value)
     h_string = self.internStringLiteral(string)
     return self.vEmit_compileE_IString(istring, h_string, primary)
 
-  @compileE.when(icurry.IUnboxedLiteral)
-  def compileE(self, iunboxed, primary=False):
+  @_compileE.when(icurry.IUnboxedLiteral)
+  def _compileE(self, iunboxed, primary=False):
     return self.vEmit_compileE_IUnboxedLiteral(iunboxed, primary)
 
-  @compileE.when(icurry.ILit)
-  def compileE(self, ilit, primary=False):
+  @_compileE.when(icurry.ILit)
+  def _compileE(self, ilit, primary=False):
     return self.compileE(ilit.lit, primary)
 
-  @compileE.when(icurry.ICall)
-  def compileE(self, icall, primary=False):
+  @_compileE.when(icurry.ICall)
+  def _compileE(self, icall, primary=False):
     h_info = self.importSymbol(icall.symbolname)
-    args = self.compileArgs(icall.exprs)
+    args = yield self._compileArgs(icall.exprs)
     text = self.vEmit_compileE_ICall(icall, h_info, args, primary)
     return self.hoist(text, primary)
 
-  @compileE.when(icurry.IPartialCall)
-  def compileE(self, ipcall, primary=False):
+  @_compileE.when(icurry.IPartialCall)
+  def _compileE(self, ipcall, primary=False):
     h_info = self.importSymbol(ipcall.symbolname)
-    args = self.compileArgs(ipcall.exprs)
+    args = yield self._compileArgs(ipcall.exprs)
     text = self.vEmit_compileE_IPartialCall(ipcall, h_info, args, primary)
     return self.hoist(text, primary)
 
-  @compileE.when(icurry.IOr)
-  def compileE(self, ior, primary=False):
-    lhs, rhs = self.compileArgs([ior.lhs, ior.rhs])
+  @_compileE.when(icurry.IOr)
+  def _compileE(self, ior, primary=False):
+    lhs, rhs = yield self._compileArgs([ior.lhs, ior.rhs])
     text = self.vEmit_compileE_IOr(ior, lhs, rhs, primary)
     return self.hoist(text, primary)
 

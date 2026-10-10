@@ -582,12 +582,13 @@ class TestAbiStamp(ToolchainTestCase):
     self.assertFalse(self.cpp2so.is_stale(sofile))
     self.assertFalse(self.plan.is_stale(sofile))
     self.assertEqual(self.prerequisite(module.__name__), sofile)
-    # No temporary file remains.
+    # No temporary file remains; the lock file of the compile stays
+    # (toolchain._productlock).
     names = sorted(os.listdir(self.subdir))
     self.assertEqual(
         names, sorted(
             module.__name__ + suffix
-            for suffix in ['.json.z', '.cpp', '.so', '.so.abi']
+            for suffix in ['.json.z', '.cpp', '.lock', '.so', '.so.abi']
           )
       )
 

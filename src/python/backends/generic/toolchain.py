@@ -1,4 +1,4 @@
-from ...toolchain import _filenames, _loadcurry, _system
+from ...toolchain import _filenames, _findcurry, _loadcurry, _system
 from ...utility import binding
 
 class Json2TargetSource(object):
@@ -21,7 +21,12 @@ class Json2TargetSource(object):
     # when done so that a subsequent step can import the real module produced.
     assert icurry.fullname not in self.interp.modules
     with binding.binding(self.interp.modules, icurry.fullname, binding.del_):
-      module = self.interp.import_(icurry)
+      # The imports of a program given as a file are searched on the path
+      # of the step, which names its directory first; those of a module
+      # given by name on the path of the interpreter, as before.
+      module = self.interp.import_(
+          icurry, currypath=_findcurry.imports_path(currypath, **ignored)
+        )
       file_out = _filenames.replacesuffix(file_in, self.SUFFIX)
       _system.makeOutputDir(file_out)
       self.interp.save(module, file_out, module_main=False)

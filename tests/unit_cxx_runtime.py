@@ -213,9 +213,9 @@ class TestReloadAfterCompiledObject(cytest.TestCase):
   evaluated the same goals, died with a segmentation fault in procS at the
   goal that applies the binding of a free variable at a fork
   (RuntimeState::apply_binding).  The runtime builds that node with its own
-  table of &> (seq_Info of cyrt/currylib/prelude.hpp), which the runtime
-  library exported under the mangled name of the Curry function
-  Prelude.seq.  The compiled Prelude defines that symbol too, so its
+  table of &> (CyI7Prelude12BindingGuard of cyrt/currylib/prelude.hpp,
+  seq_Info then), which the runtime library exported under the mangled
+  name of the Curry function Prelude.seq.  The compiled Prelude defines that symbol too, so its
   dynamic initializer wrote the table of seq over the table of the runtime
   when the object was loaded, and the unload of the object at the reload
   left the step of the table pointing into unmapped memory.  The table

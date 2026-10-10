@@ -55,6 +55,20 @@
 // interpreter made.  So the load itself is the swap, the object's own copies
 // of the tables stay blank, and the shim must be loaded before the object.
 //
+// The imports.  An object names the objects of its imports by SONAME, and
+// the dynamic linker satisfies each name with an object of that name the
+// process has mapped.  A job carries the objects of the imports the
+// interpreter runs (TieredJob::imports, in dependency order), and the swap
+// maps each one whose module has no object yet before it loads the
+// importer's: the job of the import may run later, or not at all (a
+// module without a function to swap, whose object the child of the
+// importer compiled).  The load binds the object to the live tables of the
+// import through its shim, which the job loads first, so the import is
+// swapped by it, under the same check of its ICurry; its own job, when it
+// comes, adopts the mapped object.  Without this an importer whose import
+// had not swapped stayed interpreted with the message of the dynamic
+// linker in its log.
+//
 // A failure of the compile, of the shim, or of the load leaves the module
 // interpreted; the result reports the cause, and the Python side logs it once.
 namespace cyrt
@@ -92,6 +106,20 @@ namespace cyrt
     // Empty: no check.
     std::string icurryfile;
     std::string icurry_digest;
+    // The objects of the imports of the module that the interpreter runs,
+    // in dependency order (an import before the modules that import it),
+    // each once: the full name of the import, the object its compile
+    // writes, and its ICurry file and digest at the import, as above.  The
+    // swap maps each one whose module has no object before it loads the
+    // object of the module (see the imports above).
+    struct Import
+    {
+      std::string module;
+      std::string sofile;
+      std::string icurryfile;
+      std::string icurry_digest;
+    };
+    std::vector<Import> imports;
     // The functions to swap: the name of the function in its module, the
     // symbol of its step function in the object, and the table the
     // interpreter made.
@@ -115,6 +143,8 @@ namespace cyrt
     bool in_evaluation = false;
     // The functions swapped.
     size_t swapped = 0;
+    // The imports whose objects this swap mapped (see TieredJob::imports).
+    std::vector<std::string> mapped;
     // The wall seconds of the commands.
     double seconds = 0;
     // Why the module stays interpreted, and the output of the commands.

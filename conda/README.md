@@ -794,25 +794,23 @@ of 2026-10-08 showed both; the entries record the decisions.
 13. `ld_interpreter_path`.  Documented on 2026-10-07 as a fact with a test.
     The sysconfig value is a fixed file of the repository
     (`src/export/sysconfig/ld_interpreter_path.var`): the dynamic loader of
-    glibc on x86-64 Linux, `/lib64/ld-linux-x86-64.so.2`.  `curry.save` of
-    a module with a goal writes it into the `.interp` section of the C++
-    text of the program (`curry.backends.cxx.compiler._generate_main`,
-    under `module_main`); the toolchain saves a module without a main
-    program (`module_main=False`), so no object that `sprite-make` or the
-    background compile writes carries the section: in the environment of
-    2026-10-08 none of the 13 library objects and none of the compiled
-    programs has one (`readelf -S`), and the `Smoke.so` kept from the test
-    of 2026-10-07 has none either (the sentence of that day that said it
-    carries the path was wrong).  It is the one sysconfig value that names
-    a path of the machine, and the one assumption the package makes about
-    the machine outside the environment.  `tests/unit_conda.py`
-    (`test_ld_interpreter_path`) checks that the value is the `PT_INTERP`
-    of the Python of the installation and a file that exists; in the
-    environments of 2026-10-07 and 2026-10-08 the Python of the environment
-    names `/lib64/ld-linux-x86-64.so.2` and the file exists on the machine.
-    A second platform, or a libc other than glibc, needs another value: let
-    `configure` read the `PT_INTERP` of the Python of the environment, or
-    drop the section if nothing runs the shared objects directly.
+    glibc on x86-64 Linux, `/lib64/ld-linux-x86-64.so.2`.  Until pothole
+    batch 4 (2026-10-10) `curry.save` of a module with a goal wrote it into
+    an `.interp` section of the C++ text of the program
+    (`curry.backends.cxx.compiler._generate_main`, under `module_main`);
+    the toolchain saves a module without a main program
+    (`module_main=False`), so no object that `sprite-make` or the
+    background compile writes ever carried the section (in the environment
+    of 2026-10-08 none of the 13 library objects and none of the compiled
+    programs had one, `readelf -S`; the sentence of 2026-10-07 that said
+    `Smoke.so` carries the path was wrong), and nothing read it.  The line
+    is gone: the saved text of a program names no loader, and the objects
+    are loaded by the runtime, never run by the dynamic loader.  The
+    sysconfig value stays, unused by the code: it is the one sysconfig
+    value that names a path of the machine, and `tests/unit_conda.py`
+    (`test_ld_interpreter_path`) still checks that it is the `PT_INTERP` of
+    the Python of the installation and a file that exists.  Whether to drop
+    the value, its file and the test is the owner's.
 14. The sysroot at run time.  Documented on 2026-10-07 as a fact.  The
     build compiles against the conda-forge sysroot 2.17
     (`c_stdlib_version`).  The C++ backend compiles generated code against

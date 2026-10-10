@@ -5,9 +5,56 @@ from ..tools.utility import make_exception
 from ..utility import curryname, filesys, formatDocstring
 import logging, os
 
-__all__ = ['currentfile']
+__all__ = ['currentfile', 'import_path', 'imports_path', 'program_path']
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
+
+def program_path(name, currypath, is_sourcefile=False, **ignored):
+  '''
+  The search path of a program.  For a module given as a source file
+  (``is_sourcefile``), the directory of the file comes first, then the
+  entries of ``currypath``, as PAKCS searches: the imports of the program
+  are found beside it without a CURRYPATH that names its directory.  For a
+  module given by name the path is ``currypath`` as a list.  The tools
+  (sprite-exec, sprite-make) and curry.import_ of a path search this path
+  for the imports of the program, and the plan asks the steps about the
+  files of the program under it.
+  '''
+  currypath = list(currypath)
+  if is_sourcefile:
+    directory = os.path.dirname(os.path.abspath(name))
+    currypath = [directory] + [
+        entry for entry in currypath if os.path.abspath(entry) != directory
+      ]
+  return currypath
+
+def imports_path(currypath, is_sourcefile=False, **ignored):
+  '''
+  The search path of the imports of a module whose own search path is
+  ``currypath`` (``program_path``), as the steps of a plan import them.
+  For a program given as a source file it is that path, so the imports are
+  found beside the program.  None, the path of the interpreter, for a
+  module given by name: the path given with a name finds that module
+  alone, and its imports are searched as before.
+  '''
+  return list(currypath) if is_sourcefile else None
+
+def import_path(interp, currypath):
+  '''
+  The search path of the imports of a program on ``currypath``
+  (``imports_path``): that path, then the entries of the path of ``interp``
+  it lacks.  So the imports of a program are found beside it and on the
+  path given for it, and the Prelude and the other modules of the library
+  as before, whatever path a caller gave.  None, the path of the
+  interpreter, without a path.
+  '''
+  if currypath is None:
+    return None
+  path = curryname.makeCurryPath(currypath)
+  for entry in curryname.makeCurryPath(interp.path):
+    if entry not in path:
+      path.append(entry)
+  return path
 
 @formatDocstring(config.python_package_name())
 def currentfile(
@@ -51,6 +98,7 @@ def currentfile(
     Curry file is returned if it exists.  If neither of those applies, the
     package directory name is returned, if it exists.
   '''
+  currypath = program_path(name, currypath, is_sourcefile)
   if not is_sourcefile:
     # If name is a module name, then search CURRYPATH for the source file or
     # (possibly zipped) JSON and set it as the name.  source file and
@@ -96,7 +144,9 @@ def currentfile(
   # Disregard a file the toolchain no longer accepts, and everything made
   # from it: a .cpp file of another format, or a .so file compiled against
   # other runtime headers.  The age of the runtime library does not count.
-  filelist = plan.prune_stale(filelist)
+  filelist = plan.prune_stale(
+      filelist, imports_path(currypath, is_sourcefile)
+    )
   prereq = os.path.abspath(filesys.newest(filelist))
   if not os.path.exists(prereq):
     # If there is no prerequisite, then there is no Curry file or any of its

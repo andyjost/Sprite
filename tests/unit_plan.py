@@ -209,7 +209,7 @@ class TestPlan(cytest.TestCase):
     class Step(object):
       def __init__(self, stale):
         self.stale = stale
-      def is_stale(self, filename):
+      def is_stale(self, filename, currypath=None):
         return os.path.basename(filename) in self.stale
     plan = plans.Plan(None, 0, [
         plans.Stage(['.curry'], object())
@@ -236,7 +236,7 @@ class TestPlan(cytest.TestCase):
     class Step(object):
       def __init__(self, stale):
         self.stale = stale
-      def is_stale(self, filename):
+      def is_stale(self, filename, currypath=None):
         return os.path.basename(filename) in self.stale
     plan = plans.Plan(None, 0, [
         plans.Stage(['.curry'], object())

@@ -243,7 +243,7 @@ def translated_before_rewrite(curryfile, icyfile):
     return False
   return True
 
-def icurry_is_stale(filename):
+def icurry_is_stale(filename, currypath=None):
   '''
   Tells whether an ICurry file must be made again, when its Curry source
   exists, so a conversion can supply the file.  Two states count.  An
@@ -252,7 +252,8 @@ def icurry_is_stale(filename):
   in this state.  Or the file was translated before the binding
   optimization rewrote the FlatCurry file (``translated_before_rewrite``);
   the file is then noted in ``stale_pairs``.  The plan asks this of the
-  ``.curry`` input of the step as well; a source is never refused.
+  ``.curry`` input of the step as well; a source is never refused.  The
+  search path ``currypath`` is not needed here.
   '''
   if not filename.endswith('.icy'):
     return False

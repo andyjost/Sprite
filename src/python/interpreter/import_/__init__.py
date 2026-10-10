@@ -3,7 +3,7 @@
 from ... import config, icurry, objects, toolchain, utility
 from . import load
 from ...objects.handle import getHandle
-from ...toolchain import plans
+from ...toolchain import plans, _findcurry
 from ...utility.binding import binding
 from ...utility import curryname, formatDocstring, visitation
 import collections.abc, contextlib, logging, os
@@ -80,16 +80,43 @@ def import_(interp, imodule, currypath=None, **kwds):
 class ImportEx(object):
   '''
   Low-level routine to import Curry packages and modules.
+
+  ``currypath`` is the search path of the import; by default the path of
+  the interpreter.  A module given as a source file has its directory
+  searched first, as PAKCS searches (``_findcurry.program_path``), and its
+  imports are searched on that path, then on the path of the interpreter
+  (``import_path``), so the imports of a program are found beside it, and
+  a module of the library as before.  A module given by name is found on
+  ``currypath`` alone, and its imports on the path of the interpreter, as
+  before.  A parsed module (an ``IModule``) given with a path, as the steps
+  of a plan give the module of a program, has its imports searched as a
+  source file has.
   '''
   def __init__(self, interp, currypath):
     self.plan = plans.makeplan(interp, plans.MAKE_ALL | plans.ZIP_JSON)
     self.currypath = curryname.makeCurryPath(
         interp.path if currypath is None else currypath
       )
+    # Whether the module was given by name (not as a file, not parsed).
+    self.by_name = False
 
   @property
   def interp(self):
     return self.plan.interp
+
+  @property
+  def import_path(self):
+    '''
+    The search path of the imports of a module imported here.  For a module
+    given as a source file, or parsed and given with a path: the path of
+    this import (the directory of a file first), then the entries of the
+    path of the interpreter that it lacks (``_findcurry.import_path``).
+    None, the path of the interpreter, for a module given by name: the path
+    given with a name finds that module alone.
+    '''
+    if self.by_name:
+      return None
+    return _findcurry.import_path(self.interp, self.currypath)
 
   @visitation.dispatch.on('arg')
   def __call__(self, arg, *args, **kwds):
@@ -106,6 +133,12 @@ class ImportEx(object):
   @__call__.when(str)
   def __call__(self, modulename, tail=[], is_sourcefile=False):
     logger.info('Importing %s', modulename)
+    if is_sourcefile:
+      self.currypath = _findcurry.program_path(
+          modulename, self.currypath, is_sourcefile=True
+        )
+    else:
+      self.by_name = True
     icontainer = toolchain.loadcurry(
         self.plan, modulename, self.currypath, is_sourcefile=is_sourcefile
       )
@@ -138,15 +171,19 @@ class ImportEx(object):
             , imodule.name, imodule.imports
             )
         for modulename in imodule.imports:
-          self.interp.import_(modulename)
+          self.interp.import_(modulename, currypath=self.import_path)
         load.loadSymbols(self.interp, imodule, moduleobj)
         for name, target in imodule.aliases.items():
           if hasattr(moduleobj, name):
             raise ValueError("cannot alias previously defined name %r" % name)
           setattr(moduleobj, name, getattr(moduleobj, target))
-        self.interp.backend.module_loaded(
-            self.interp, moduleobj, self.currypath
-          )
+        # The backend gets the search path of the imports of the module:
+        # the compile of a module on first use and the background compile
+        # import them on it.
+        imports = self.import_path
+        if imports is None:
+          imports = curryname.makeCurryPath(self.interp.path)
+        self.interp.backend.module_loaded(self.interp, moduleobj, imports)
         return self(tail, rv=moduleobj)
     else:
       moduleobj = self.interp.modules[imodule.fullname]

@@ -37,7 +37,13 @@ namespace cyrt
   // The number of cells the entry walk of a capsule may flag.  A capsule
   // with a larger argument is counted and its S0 checks are skipped.
   static constexpr size_t CHECKER_ENTRY_BUDGET = 50000;
-  // The number of fresh cells one step, one pull-tab or one copy may flag.
+  // The number of fresh cells one event may flag: the propagation walk of
+  // a step (step_end), a pull-tab, a copy and a generator run under this
+  // one budget, by policy; a larger budget for the steps alone, or one by
+  // the size of the result, is a decision of the owner.  The walk over its
+  // budget is counted (propagate_over_budget) and makes the sets of its
+  // flags unbounded.  The same budget as PROPAGATE_BUDGET of the Python
+  // checker.
   static constexpr size_t CHECKER_PROPAGATE_BUDGET = 1024;
   // The number of cells a description of an expression prints.
   static constexpr size_t CHECKER_TEXT_LIMIT = 48;
