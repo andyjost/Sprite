@@ -177,9 +177,9 @@ capNested :: [[Int]]
 capNested = sortValues (set1 (\x -> sortValues (set1 (constT x) 0)) (1 ? 2))
 
 -- Section 3: failures from an argument (decision D1).  Under the flag
--- setfunction_failures 'escape' the goals of this section have no value
--- where the comment says so; without it every failure drops its
--- alternative and an empty queue gives the empty set.
+-- setfunction_failures 'escape', the default, the goals of this section
+-- have no value where the comment says so; under 'encapsulate' every
+-- failure drops its alternative and an empty queue gives the empty set.
 
 -- s3: a failing argument that the function demands: [] and True, or no
 -- value.

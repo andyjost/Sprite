@@ -245,31 +245,60 @@ class TestStepMode(cytest.TestCase):
       , after['forks'] - before['forks']
       )
 
-  @cytest.with_flags(rotation=STEP_MODE)
-  def test_counters_of_a_search(self):
-    '''
-    The counters of a search program under the cadence of 65536 steps, as
-    they were before time mode existed.  countQueens 8 crosses 32 rotation
-    periods with queues of several configurations inside its set functions;
-    its steps and forks moved when the cadence last moved (the T4 entry of
-    the TODO) and when the inliner landed (the O2 and O3 entry: fewer
-    steps, so the rotations fall elsewhere and the forks move with them).
-    psort 8 ends within one period.  The stress mode of the collector checks
-    psort 8 and skips countQueens 8.
-    '''
-    G = curry.import_('CxxGc')
-    values, steps, forks = self.steps_and_forks(G.psort, 8)
-    self.assertEqual(values, [[1, 2, 3, 4, 5, 6, 7, 8]])
-    self.assertEqual((steps, forks), (16929, 1636))
+  # The counters of countQueens 8 under the two settings of the flag
+  # setfunction_failures.  A permutation of the program holds a failure (the
+  # second rule of ndinsert has no case for []), and the capsule of unsafe
+  # demands it.  Under 'escape', the default since 2026-10-10, that demand
+  # fails the set function at once, where 'encapsulate' runs the other
+  # alternatives of the capsule first; so the search takes fewer steps and
+  # forks under 'escape', and the values are the same.
+  COUNT_QUEENS_COUNTERS = {
+      'escape': (2020742, 461457)
+    , 'encapsulate': (2112920, 511484)
+    }
+
+  def check_count_queens(self, setting):
+    '''countQueens 8 under one setting of setfunction_failures.'''
     if cytest.GC_STRESS:
       self.skipTest(
           'collector stress mode: countQueens 8 takes 2.1 million steps over '
           'the live state of its search; the stress mode repeats the counters '
           'of the default mode'
         )
+    self.assertEqual(curry.flags['setfunction_failures'], setting)
+    G = curry.import_('CxxGc')
     values, steps, forks = self.steps_and_forks(G.countQueens, 8)
     self.assertEqual(values, [92])
-    self.assertEqual((steps, forks), (2112920, 511484))
+    self.assertEqual((steps, forks), self.COUNT_QUEENS_COUNTERS[setting])
+
+  @cytest.with_flags(rotation=STEP_MODE)
+  def test_counters_of_a_search(self):
+    '''
+    The counters of a search program under the cadence of 65536 steps, as
+    they were before time mode existed.  countQueens 8 crosses about 31
+    rotation periods with queues of several configurations inside its set
+    functions; its steps and forks moved when the cadence last moved (the
+    T4 entry of the TODO), when the inliner landed (the O2 and O3 entry:
+    fewer steps, so the rotations fall elsewhere and the forks move with
+    them), and when the default of setfunction_failures moved to 'escape'
+    (the entry of 2026-10-10; COUNT_QUEENS_COUNTERS).  psort 8 ends within
+    one period.  The stress mode of the collector checks psort 8 and skips
+    countQueens 8.
+    '''
+    G = curry.import_('CxxGc')
+    values, steps, forks = self.steps_and_forks(G.psort, 8)
+    self.assertEqual(values, [[1, 2, 3, 4, 5, 6, 7, 8]])
+    self.assertEqual((steps, forks), (16929, 1636))
+    self.check_count_queens('escape')
+
+  @cytest.with_flags(rotation=STEP_MODE, setfunction_failures='encapsulate')
+  def test_counters_of_a_search_under_encapsulate(self):
+    '''
+    The same search under 'encapsulate', the default until 2026-10-10: the
+    counters that test_counters_of_a_search pinned before the default
+    moved.
+    '''
+    self.check_count_queens('encapsulate')
 
   @cytest.with_flags(rotation=STEP_MODE)
   def test_counters_repeat(self):

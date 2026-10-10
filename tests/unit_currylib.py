@@ -17,7 +17,7 @@ ENV = {
 # and update the hash here.
 PINNED_SHA256 = {
     'Prelude'              : '748bf87cf8a5c197d8b6c84a20cdc12c4c4cef6ef9280287351bc8d15e180d00'
-  , 'Control.SetFunctions' : '51c4cadae68d8533d04704814af162893ac89592afdf15b4eb4ba410b7687e4b'
+  , 'Control.SetFunctions' : '675fcba933c71e68b0bc6ec3fc374b44e1b1a97fdcf18a2d86b93a2c9a6fd353'
   , 'Data.Char'            : '11259bdd56bb7760ac3078e0ae00e1d32f28fdf3b68fc2b4cee3cdc76f8c0214'
   , 'Data.Either'          : 'e1905d37f366c9bdb4de75e3d558bc0d090ade88b714a21109fd8ba32c0cf051'
   , 'Data.Function'        : 'cb6a890a3d0f0524585c8437a2ed257af88331250c24d8b9efadba7da66003ee'

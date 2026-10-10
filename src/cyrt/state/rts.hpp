@@ -94,10 +94,12 @@ namespace cyrt
 
   struct RuntimeState
   {
+    // The defaults of the arguments are the defaults of the interpreter
+    // flags (interpreter/flags.py).
     RuntimeState(
         InterpreterState & istate, Node * goal, bool trace=false
       , SetFStrategy setfunction_strategy = SETF_LAZY
-      , SetFFailures setfunction_failures = SETF_FAILURES_ENCAPSULATE
+      , SetFFailures setfunction_failures = SETF_FAILURES_ESCAPE
       , size_t stack_limit = DEFAULT_STACK_LIMIT
       , size_t rotation_steps = TIME_MODE
       , uint64_t rotation_quantum_ns = DEFAULT_QUANTUM_NS

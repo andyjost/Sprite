@@ -20,14 +20,16 @@ through a box puts the box on its arguments (apply_step; apply), so a
 choice inside a captured data structure or a captured closure escapes too.
 captureS stays the explicit capture of an argument.
 
-D1, the failure rule, behind the flag setfunction_failures (the default
-'encapsulate').  Under 'escape' a failure that comes from an argument (a
-boxed failure) and is demanded inside the capsule fails the set function
-(failure_escapes and fail_capsule in state/rts_setfunctions.cpp;
-boxed_failure in eval/rts_setfunctions.py): sortValues (set1 id failed) has
-no value, where it gives [] by default.  A failure of the function's own
-body drops its alternative under both settings, and an argument the
-function does not demand fails nothing.
+D1, the failure rule, behind the flag setfunction_failures.  Under
+'escape' a failure that comes from an argument (a boxed failure) and is
+demanded inside the capsule fails the set function (failure_escapes and
+fail_capsule in state/rts_setfunctions.cpp; boxed_failure in
+eval/rts_setfunctions.py): sortValues (set1 id failed) has no value, where
+it gives [] under 'encapsulate', the rule of the dissertation.  A failure
+of the function's own body drops its alternative under both settings, and
+an argument the function does not demand fails nothing.  The default is
+'escape' since 2026-10-10, after the differential harness confirmed the
+decision; TestDefault pins it.
 
 Each class runs one child per setting of the flag and keeps the results;
 a test reads the values of one goal under both settings.  The children run
@@ -37,7 +39,7 @@ the root of a nested configuration, the known failure of the Python
 backend (TestNestedSetGuardPython in unit_cxx_scheduler.py).
 '''
 import cytest # from ./lib; must be first
-import curry, unittest
+import curry, os, unittest
 
 ADDRESS_SPACE = 2 << 30
 TIMEOUT = 120
@@ -48,6 +50,7 @@ SETTINGS = ('encapsulate', 'escape')
 CHILD = '''
 import curry
 curry.reload(%(flags)r)
+print('setfunction_failures', curry.flags['setfunction_failures'])
 M = curry.import_('SetFunctionsSemantics')
 for name in %(goals)r:
   try:
@@ -61,7 +64,8 @@ def run_child(goals, **flags):
   '''
   Evaluates ``goals`` in a child on the backend of this test process and
   returns a dict from the name to the sorted list of values (as text) or to
-  the error line.
+  the error line.  The key 'setfunction_failures' holds the setting of the
+  child: a child without the flag inherits SPRITE_INTERPRETER_FLAGS.
   '''
   flags.setdefault('backend', curry.flags['backend'])
   code = CHILD % {'flags': flags, 'goals': list(goals)}
@@ -194,7 +198,8 @@ class TestFailureRule(GoalsCase):
   '''
   Decision D1.  A boxed failure demanded inside the capsule drops its
   alternative under 'encapsulate' (the values of both backends before the
-  change) and fails the set function under 'escape' (no value).  s4a holds
+  change, and the default until 2026-10-10) and fails the set function
+  under 'escape' (no value; the default since then).  s4a holds
   the failure in a captured argument, which D2 boxes; nestFail demands the
   argument of the outer set function inside the inner one, so both fail;
   nestFailInner makes the failure inside the outer function and passes it
@@ -214,6 +219,40 @@ class TestFailureRule(GoalsCase):
     , 'nestFailInner': (['False'], ['True'])
     , 'lazyFirst': same(['True'])
     }
+
+
+class TestDefault(cytest.TestCase):
+  '''
+  The default of the flag is 'escape' (decision D1 of the memo, confirmed
+  by the differential harness of the Fair Scheme proofs program on
+  2026-10-09): a child that sets no flag gives the values of 'escape'.
+  'encapsulate', the rule of the dissertation, stays the alternative.
+  '''
+  GOALS = ('s3', 's3e', 's4a', 'nestFailInner', 'lazyFirst')
+
+  def test_default(self):
+    from curry.interpreter import flags
+    spec, default = flags.FLAG_INFO['setfunction_failures']
+    self.assertEqual(spec, {'encapsulate', 'escape'})
+    self.assertEqual(default, 'escape')
+    self.assertEqual(
+        flags.get_default_flags()['setfunction_failures'], 'escape'
+      )
+
+  def test_values_under_the_default(self):
+    curry.import_('SetFunctionsSemantics')
+    results = run_child(self.GOALS)
+    # The child sets no flag, so it takes the default, unless the
+    # environment of the run names the flag.
+    self.assertEqual(
+        results.pop('setfunction_failures'), 'escape'
+      , 'the child does not run under the default: SPRITE_INTERPRETER_FLAGS '
+        'is %r' % os.environ.get('SPRITE_INTERPRETER_FLAGS', '')
+      )
+    self.assertEqual(results, {
+        's3': [], 's3e': [], 's4a': [], 'nestFailInner': ['True']
+      , 'lazyFirst': ['True']
+      })
 
 
 if __name__ == '__main__':
