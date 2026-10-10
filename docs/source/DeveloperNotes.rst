@@ -47,7 +47,7 @@ surface that sets a flag takes the value:
 
 The name ``backend:py`` stays until the removal.  A second name, one that
 says "reference", would add an alias to the flag, to the help texts, to
-the REPL, to the test runner, to the CI matrix, to the conda recipe and to
+the REPL, to the test runner, to the CI workflow, to the conda recipe and to
 the run scripts of the examples, for the month before the removal.  The
 removal deletes every call site either way.
 
@@ -56,9 +56,9 @@ What it is for
 
 * The oracle of the values of the C++ backend.  The test runner runs every
   file on both backends (``--backend both``), the functional tests compare
-  both backends with PAKCS, and the pull-request matrix of CI keeps one
-  shard on this backend until a month of green nightly runs (the second half
-  of stage 4 of issue #82).
+  both backends with PAKCS, and CI runs the unit and functional suites on
+  this backend in the job ``py backend 1/1``, on the nightly schedule and
+  on request, not on a push (stage 4 of issue #82).
 * The generated code of a function as Python source.
   ``curry.inspect.getimpl(f)`` gives the Python step function on this
   backend.  The C++ backend gives the generated C++ of a compiled module, or
@@ -441,7 +441,7 @@ Stage 6 of issue #82.  When the unit and functional suites pass under
 nightly runs, and no open bug names the Python backend as its only
 reproduction, the source of the backend (``src/python/backends/py``), its
 tests (the ``unit_py_*`` files, and the tests that skip or expect a failure
-on one backend), its CI shard and the value ``py`` of the flag go in one
+on one backend), its CI job and the value ``py`` of the flag go in one
 commit; the issue records the date.  The month started with the first
 nightly run after the merge of stages 1 to 4.  Examples 03 and 04 and the
 Python form of ``curry.save`` follow the decision on the C++ form.
