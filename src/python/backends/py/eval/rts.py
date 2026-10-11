@@ -61,7 +61,6 @@ class RuntimeState(object):
       )
     self.currypath = tuple(interp.path)
     self.expr = interp.raw_expr
-    self.setfunction_strategy = interp.flags['setfunction_strategy']
     self.setfunction_failures = interp.flags['setfunction_failures']
     self.prelude = interp.prelude
     self.stdin = interp.stdin

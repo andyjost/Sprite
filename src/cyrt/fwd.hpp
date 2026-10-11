@@ -34,7 +34,6 @@ namespace cyrt
   enum TraceOpt : bool { TRACE = true, NOTRACE = false };
   enum ShowStyle { SHOW_STR, SHOW_STR_SUBST_FREEVARS, SHOW_REPR };
   enum SubstFreevars : bool { SUBST_FREEVARS=true, PLAIN_FREEVARS=false };
-  enum SetFStrategy { SETF_EAGER, SETF_LAZY };
   // What a failure that comes from an argument of a set function does when
   // the capsule demands it (the interpreter flag setfunction_failures):
   // drops its alternative, or fails the set function.  See

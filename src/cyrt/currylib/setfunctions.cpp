@@ -1,6 +1,5 @@
 #include "cyrt/builtins.hpp"
 #include "cyrt/checker.hpp"
-#include "cyrt/currylib/prelude.hpp"
 #include "cyrt/currylib/setfunctions.hpp"
 #include "cyrt/graph/memory.hpp"
 #include "cyrt/inspect.hpp"
@@ -189,27 +188,6 @@ namespace cyrt { inline namespace
 
   tag_type captureS_step(RuntimeState * rts, Configuration * C)
     { return _applyS(rts, C, true); }
-
-  // ($##>) f a = (f $>) $## a
-  //
-  // The partial application is of applyS, the ($>) of the definition: once
-  // ($##) has the argument in ground normal form, applyS puts it under its
-  // guard.  A partial application of this step applied the normalized
-  // argument to this step again, which normalized it again, without end
-  // (issue #118: sortValues (set1 adj binDigit) under the eager strategy).
-  tag_type eagerApplyS_step(RuntimeState * rts, Configuration * C)
-  {
-    Cursor _0 = C->cursor();
-    Node * partial = Node::create_partial(
-        &applyS_Info, _0->successor(0)
-      );
-
-    Node * replacement = Node::create(
-        &applygnf_Info, partial, _0->successor(1)
-      );
-    _0->forward_to(replacement);
-    return T_FWD;
-  }
 
   // The number of nodes private_state visits before it gives up.  The
   // Python backend has the same bound (currylib/setfunctions.py).
@@ -451,10 +429,8 @@ namespace cyrt { inline namespace
         n==0 ? &exprS_Info : &set_Info
       , _0->successor(0)
       );
-    InfoTable const * fapply = rts->setfunction_strategy == SETF_EAGER
-        ? &eagerApplyS_Info : &applyS_Info;
     Node * subexpr = curry(
-        fapply, setf, _0->begin() + 1, _0->end()
+        &applyS_Info, setf, _0->begin() + 1, _0->end()
       );
     Node * replacement = Node::create(&evalS_Info, subexpr);
     _0->forward_to(replacement);
@@ -494,17 +470,6 @@ extern "C"
     , /*name*/       "captureS"
     , /*format*/     "pp"
     , /*step*/       captureS_step
-    , /*type*/       nullptr
-    };
-
-  InfoTable const eagerApplyS_Info {
-      /*tag*/        T_FUNC
-    , /*arity*/      2
-    , /*alloc_size*/ sizeof(Node2)
-    , /*flags*/      F_OPERATOR | F_STATIC_OBJECT
-    , /*name*/       "$##>"
-    , /*format*/     "pp"
-    , /*step*/       eagerApplyS_step
     , /*type*/       nullptr
     };
 
@@ -696,7 +661,6 @@ static int register_setfunction_builtins()
       {"allValues"    , &allValues_Info}
     , {"applyS"       , &applyS_Info}
     , {"captureS"     , &captureS_Info}
-    , {"eagerApplyS"  , &eagerApplyS_Info}
     , {"evalS"        , &evalS_Info}
     , {"exprS"        , &exprS_Info}
     , {"PartialS"     , &PartialS_Info}

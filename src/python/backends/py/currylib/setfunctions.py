@@ -293,10 +293,7 @@ def setN(rts, _0):
   n = len(_0.successors) - 1
   pure = getattr(rts.setfunctions, 'exprS' if n == 0 else 'set')
   setf = graph.Node(pure, _0.successors[0])
-  fapply = getattr(
-      rts.setfunctions
-    , '$##>' if rts.setfunction_strategy == 'eager' else '$>'
-    )
+  fapply = getattr(rts.setfunctions, '$>')
   yield rts.setfunctions.evalS
   yield graph.utility.curry(rts, setf, *_0.successors[1:], fapply=fapply)
 

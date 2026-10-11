@@ -20,11 +20,6 @@ def make_node(info, *args, **kwds):
   args = [Arg(arg) for arg in args]
   return Node.create(info, args, target, bool(partial_info))
 
-_SETF_STRATEGY = {
-    'lazy': SETF_LAZY
-  , 'eager': SETF_EAGER
-  }
-
 _SETF_FAILURES = {
     'encapsulate': SETF_FAILURES_ENCAPSULATE
   , 'escape': SETF_FAILURES_ESCAPE
@@ -82,8 +77,6 @@ class RuntimeState(RuntimeStateBase):
   def __init__(self, interp, goal=None):
     istate = interp.backend.get_interpreter_state(interp)
     self.tracing = interp.flags['trace']
-    self.setfunction_strategy = \
-        _SETF_STRATEGY[interp.flags['setfunction_strategy']]
     self.setfunction_failures = \
         _SETF_FAILURES[interp.flags['setfunction_failures']]
     limit = interp.flags['stack_limit']
@@ -97,9 +90,9 @@ class RuntimeState(RuntimeStateBase):
     # ``checker``; cyrt/checker.hpp).
     self.checker = bool(interp.flags['checker'])
     RuntimeStateBase.__init__(
-        self, istate, goal, self.tracing, self.setfunction_strategy
-      , self.setfunction_failures, self.stack_limit, self.rotation_steps
-      , self.rotation_quantum_ns, self.checker
+        self, istate, goal, self.tracing, self.setfunction_failures
+      , self.stack_limit, self.rotation_steps, self.rotation_quantum_ns
+      , self.checker
       )
     # The count of the stepper starts here (StepCounter.reset_global).
     self._step_base = 0

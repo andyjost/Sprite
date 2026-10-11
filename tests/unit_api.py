@@ -289,3 +289,14 @@ show(curry.getInterpreter())
   def test_unknown_flag(self):
     with self.assertRaisesRegex(ValueError, "unknown flag: 'bogus'"):
       Interpreter(flags={'bogus': 1})
+
+  def test_setfunction_strategy_is_unknown(self):
+    '''
+    The flag of the eager set-function strategy went with the strategy on
+    2026-10-11.  A program that sets it sees the error of an unknown flag.
+    '''
+    self.assertNotIn('setfunction_strategy', curry.flags)
+    with self.assertRaisesRegex(
+        ValueError, "unknown flag: 'setfunction_strategy'"
+      ):
+      Interpreter(flags={'setfunction_strategy': 'eager'})

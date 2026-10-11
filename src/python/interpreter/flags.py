@@ -190,12 +190,6 @@ The following flags are available:
     differential harness confirmed it; 'encapsulate' is the semantics of
     the dissertation.
 
-  * ``setfunction_strategy`` (**'lazy'** | 'eager')
-
-    Indicates how to evaluate set functions.  If 'lazy', then set guards are
-    used (similar to KiCS2).  Otherwise, each argument is reduced to ground
-    normal form before applying the set function (similar to PAKCS).
-
   * ``stack_limit`` (**4194304** | <int> | None)
 
     The number of bytes of C stack the C++ backend lets one evaluation use.
@@ -256,7 +250,6 @@ FLAG_INFO = {
   , 'recursion_limit'     : ({None, int}          , 1 << 18)
   , 'rotation'            : ( str                 , 'time:10ms')
   , 'setfunction_failures': ({'encapsulate', 'escape'}, 'escape')
-  , 'setfunction_strategy': ({'eager', 'lazy'}    , 'lazy')
   , 'stack_limit'         : ({None, int}          , 4194304)
   , 'step_budget'         : ({None, int}          , 2048  )
   , 'telemetry_interval'  : ({None, float}        , None  )

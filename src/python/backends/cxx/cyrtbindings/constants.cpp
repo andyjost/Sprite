@@ -48,12 +48,6 @@ namespace cyrt { namespace python
         .export_values()
         ;
 
-    py::enum_<SetFStrategy>(mod, "SetFStrategy")
-        .value("SETF_EAGER"   , SETF_EAGER)
-        .value("SETF_LAZY"    , SETF_LAZY)
-        .export_values()
-        ;
-
     py::enum_<SetFFailures>(mod, "SetFFailures")
         .value("SETF_FAILURES_ENCAPSULATE", SETF_FAILURES_ENCAPSULATE)
         .value("SETF_FAILURES_ESCAPE"     , SETF_FAILURES_ESCAPE)
