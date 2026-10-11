@@ -124,3 +124,18 @@ unwoundIn d = let x, y free in (y =:= x) &> ((x =:= depth d) &> 1)
 -- dropped with the stack error.
 unwound :: Int -> Int
 unwound d = (if sortValues (set1 unwoundIn d) == [1] then 1 else 2) ? 7
+
+-- Rule N.1 at a shared root (issue #126).  After the fork on ?, the first
+-- alternative is the pair p, whose first successor fails: the configuration
+-- is dropped and no cell changes, so the second alternative reads p through
+-- snd and gives (1, 2).  The C++ scheduler forwarded the shared pair to a
+-- failure at the drop, and the second alternative gave no value.
+failedSiblingPair :: (Int, Int)
+failedSiblingPair = let p = (failed :: Int, 1) in p ? (snd p, 2)
+
+failedSiblingJust :: (Maybe Int, Int)
+failedSiblingJust = let p = (Just (failed :: Int), 1) in p ? (Just (snd p), 2)
+
+-- The control: the alternative that reads p runs first.
+failedSiblingFirst :: (Int, Int)
+failedSiblingFirst = let p = (failed :: Int, 1) in (snd p, 2) ? p

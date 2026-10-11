@@ -43,15 +43,11 @@ def _goals(module):
           if sym.info.tag == T_FUNC and sym.info.arity == 0
     )
 
-# The goals of the probe table that assert on the Python backend without the
-# checker (a guard of an enclosing set at the root; see
-# unit_setfunctions_semantics.py).
-PY_KNOWN_FAILURES = {'capNested', 'nestFail'}
-
 # Goals of unit_setfunctions_bugs.py that run under the checker.
-# nestedBound, the known failure of the Python backend (a guard of an
-# enclosing set at the root), is out.  capturedThenGuarded failed under the
-# checker before the fix of issue #123.
+# capturedThenGuarded failed under the checker before the fix of issue #123;
+# nestedBound puts a guard of an enclosing set at the root of a nested
+# configuration, where the Python backend asserted before the fix of issue
+# #130.
 BUGS_GOALS = [
     'anyOfSet', 'tailsSet', 'headOrLastSet', 'argAfterStart', 'boundVar'
   , 'capturedChoiceAfterStart', 'capturedThenGuarded', 'capturedVarAfterStart'
@@ -271,7 +267,7 @@ class TestKnownGood(CheckerTestCase):
   def test_setfunction_semantics(self):
     '''The goals of the probe table of the memo, under both failure rules.'''
     M = curry.import_('SetFunctionsSemantics')
-    names = [g for g in _goals(M) if g not in PY_KNOWN_FAILURES]
+    names = _goals(M)
     for setting in ('encapsulate', 'escape'):
       values = self.module_goals(
           'SetFunctionsSemantics', names, setfunction_failures=setting
@@ -515,6 +511,73 @@ h2 = g2 5 y where y free
         list(curry.eval(M.h2))
     finally:
       utility.copy_spine = original
+
+
+class TestAuditChecks(CheckerTestCase):
+  '''The checks of the audit of 2026-10-11 (issues #126 to #128), each on
+  a constructed state: E5, E11 and Def 2.40 (discard).'''
+  def test_group_generator(self):
+    '''E5: a decided class of two variables whose root has no generator
+    (issue #127).'''
+    from curry.backends.py.eval import configuration, rts_freevars
+    interp = curry.getInterpreter()
+    rts = _state(curry.raw_expr(1))
+    x = rts.freshvar()
+    y = rts.freshvar()
+    rts_freevars._make_generator(rts, x, interp.type('Prelude.Bool'))
+    xid, yid = x.successors[0], y.successors[0]
+    config = configuration.Configuration(rts.expr(1))
+    config.fingerprint[xid] = LEFT
+    config.fingerprint[yid] = LEFT
+    # y is the root of the class {x, y}.
+    config.strict_constraints.write[xid] = yid
+    with self.assertRaisesRegex(_checker().InvariantViolation, 'E5.*no generator'):
+      rts.checker.yield_(config)
+
+  def test_one_binding_per_class(self):
+    '''E11: a binding under a member of its class (issue #128).'''
+    from curry.backends.py.eval import configuration
+    rts = _state(curry.raw_expr(1))
+    x = rts.freshvar()
+    y = rts.freshvar()
+    xid, yid = x.successors[0], y.successors[0]
+    config = configuration.Configuration(rts.expr(1))
+    config.strict_constraints.write[xid] = yid
+    config.bindings.write[xid] = rts.expr(True)
+    with self.assertRaisesRegex(_checker().InvariantViolation, 'E11'):
+      rts.checker.yield_(config)
+
+  def test_discard_changes_no_cell(self):
+    '''Def 2.40: the root cell of a dropped configuration holds the symbol
+    and the successors it held at the dispatch (issue #126).'''
+    from curry.backends.py import graph
+    rts = _state(curry.raw_expr(1))
+    root = graph.Node(rts.prelude.Just, rts.expr(2))
+    rts.checker.dispatch(root)
+    root.successors[0] = rts.expr(3)
+    with self.assertRaisesRegex(_checker().InvariantViolation, 'Def 2.40.*successor 0'):
+      rts.checker.discard(root)
+    root = graph.Node(rts.prelude.Just, rts.expr(2))
+    rts.checker.dispatch(root)
+    root.rewrite(rts.Failure)
+    with self.assertRaisesRegex(_checker().InvariantViolation, 'Def 2.40.*holds'):
+      rts.checker.discard(root)
+
+  def test_discard_record_per_scheduler(self):
+    '''The dispatches and drops of a nested scheduler (a set function
+    inside a step) keep the record of the outer dispatch.'''
+    from curry.backends.py import graph
+    rts = _state(curry.raw_expr(1))
+    outer = graph.Node(rts.prelude.Just, rts.expr(2))
+    rts.checker.dispatch(outer)
+    rts.checker.enter_scheduler()
+    inner = graph.Node(rts.prelude.Just, rts.expr(5))
+    rts.checker.dispatch(inner)
+    rts.checker.discard(inner)
+    rts.checker.leave_scheduler()
+    outer.successors[0] = rts.expr(3)
+    with self.assertRaisesRegex(_checker().InvariantViolation, 'Def 2.40.*successor 0'):
+      rts.checker.discard(outer)
 
 
 class TestSetFunctions(CheckerTestCase):

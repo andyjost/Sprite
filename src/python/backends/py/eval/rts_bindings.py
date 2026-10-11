@@ -25,8 +25,14 @@ the map of the configuration alone.  The C++ runtime has the same rule
 (RuntimeState::get_binding and diverge).
 '''
 
+from ....common import T_CTOR
 from ...generic.eval.control import E_DIVERGE
 from .. import graph
+from ..graph.node import Node
+from .... import inspect
+
+# The number of cells the comparison of two bindings reads.
+SAME_BINDING_BUDGET = 1024
 
 __all__ = [
     'add_binding', 'apply_binding', 'get_binding', 'has_binding'
@@ -78,17 +84,49 @@ def _divergence(rts, arg, config, level, binding):
   cfg = config if level == 1 else rts.qtable[qid][0]
   return qid, rts.grp_id(rts.obj_id(arg, config), cfg), binding
 
+def _same_binding(current, value):
+  '''
+  Two bindings of one class are the same term when they are one cell, or
+  the same constructor or literal over the same successors through forward
+  nodes, read within SAME_BINDING_BUDGET cells.  Two distinct cells that
+  are not constructor terms (operations, choices, variables, failures)
+  count as different, and so does a pair beyond the budget: the merge of
+  two classes bound to different terms fails the step (issue #128), where
+  the equality of two unevaluated terms is not decided here (Remark 2.70
+  of the note on the Fair Scheme leaves the merge of two bound classes
+  open: the rule is the owner's).  The C++ runtime has the same comparison
+  (same_binding in state/rts_bindings.cpp).
+  '''
+  stack = [(current, value)]
+  cells = 0
+  while stack:
+    a, b = stack.pop()
+    a, b = inspect.fwd_chain_target(a), inspect.fwd_chain_target(b)
+    if a is b:
+      continue
+    if not isinstance(a, Node) or not isinstance(b, Node):
+      if isinstance(a, Node) or isinstance(b, Node) or a != b:
+        return False
+      continue
+    if a.info is not b.info or a.info.tag < T_CTOR:
+      return False
+    cells += 1
+    if cells > SAME_BINDING_BUDGET:
+      return False
+    stack.extend(zip(a.successors, b.successors))
+  return True
+
 def add_binding(rts, arg, value, config=None):
   '''
-  Create a binding from ``arg`` to ``value``.  The return value indicates
-  whether the binding succeeded.
+  Create a binding from ``arg`` to ``value``.  The bindings sit under the
+  root of the class (update_binding keeps them there at a union).  The
+  return value indicates whether the binding succeeded: False when the
+  class holds a different binding.
   '''
   config = config or rts.C
   gid = rts.grp_id(arg, config)
   if gid in config.bindings:
-    current = config.bindings.read[gid]
-    assert rts.is_builtin_type(current.info.typedef)
-    return current.info is value.info and current[0] == value[0]
+    return _same_binding(config.bindings.read[gid], value)
   else:
     config.bindings.write[gid] = value
     return True
@@ -183,15 +221,20 @@ def make_value_bindings(rts, freevar, values, typedef):
 
 def update_binding(rts, arg=None, config=None):
   '''
-  Updates the bindings for a node when its group ID changes.
-
-  This performs the following action: if node ``arg`` has a binding then let i,
-  j equal its object and effective IDs, respectively, and if i!=j, move the
-  binding from i to j.  The map of the configuration alone is read.
+  Moves the binding of ``arg`` to the root of its class when its group ID
+  changed: ``arg`` is a root of a class before a union, and the binding
+  goes under the root after it, so a class keeps one binding, under its
+  root.  The map of the configuration alone is read.  Returns False when
+  the two roots held different bindings: the two classes were bound to
+  different terms, so the merge is inconsistent and the step fails (the
+  equality has no instance; issue #128).  The C++ runtime has the same
+  step (merge_binding in state/rts_constraints.cpp).
   '''
   config = config or rts.C
   arg = config.root if arg is None else arg
   i, j = rts.obj_id(arg, config), rts.grp_id(arg, config)
-  if i != j:
-    if i in config.bindings:
-      rts.add_binding(j, config.bindings.read[i], config=config)
+  if i != j and i in config.bindings:
+    if not rts.add_binding(j, config.bindings.read[i], config=config):
+      return False
+    del config.bindings.write[i]
+  return True

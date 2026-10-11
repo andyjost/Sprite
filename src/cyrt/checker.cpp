@@ -938,6 +938,18 @@ namespace cyrt
             + side_name(dr)
           , cfg, {i, r}
           );
+      // E5 (Def 2.74, Thm 3.28): a decided class of variables has a
+      // generator at its root, where a read through the class finds it
+      // (get_generator; issue #127).
+      Node * root = this->rts.get_freevar(r);
+      if(root && root->info->tag == T_FREE && !has_generator(root))
+        this->violation(
+            "E5 (group generator)", event
+          , "the class of variable " + std::to_string(i) + " is decided "
+            + side_name(d) + " and its root " + std::to_string(r)
+            + " has no generator"
+          , cfg, {i, r}
+          );
     }
     if(chain.empty())
       return;
@@ -1077,6 +1089,7 @@ namespace cyrt
     {
       Configuration * clone = clones[k];
       this->check_fingerprint(clone, "fork", enclosing);
+      this->check_bindings(clone, "fork");
       this->check_clone(clone, cid, C);
       // The decision is recorded in the clone, or an enclosing
       // configuration made it before (update_fp writes nothing then, and
@@ -1466,6 +1479,7 @@ namespace cyrt
     ++this->counts["yields"];
     auto const enclosing = this->chain(false);
     this->check_fingerprint(C, "yield", enclosing);
+    this->check_bindings(C, "yield");
     this->check_value(C);
     this->check_decided_variables(C);
     this->check_escape_sets("yield", C);
@@ -1538,6 +1552,27 @@ namespace cyrt
 
   // Every identifier on the decided path of the generator of a decided
   // variable is decided (X-c).
+  // E11 (the reading of the note; Remark 2.70): every binding of a
+  // configuration is keyed by the root of its class, so a class holds one
+  // binding (add_binding writes under the root, the merge of a union moves
+  // the bindings of the old roots to the new one; issue #128).
+  void Checker::check_bindings(Configuration * C, char const * event)
+  {
+    for(auto const & entry: *C->bindings)
+    {
+      xid_type const k = entry.first;
+      xid_type const r = group_root(C, k);
+      if(r != k)
+        this->violation(
+            "E11 (one binding per class)", event
+          , "the binding of identifier " + std::to_string(k)
+            + " sits under a member of its class, whose root is "
+            + std::to_string(r)
+          , C, {k, r}
+          );
+    }
+  }
+
   void Checker::check_decided_variables(Configuration * C)
   {
     for(auto const & entry: this->rts.istate.vtable)
@@ -1706,6 +1741,32 @@ namespace cyrt
     this->inst_gen = gen;
     this->inst_vid = vid;
     Node * redex = C->cursor().arg ? *C->cursor() : nullptr;
+    // Def 2.62 and Def 2.75: an equality step narrows a free variable
+    // against a constructor on the other side alone.  Two free variables
+    // make a constraint cell, and a free left side of =:<= takes the right
+    // side as a non-strict binding, without a step at it.  A variable that
+    // the fingerprint decides, or that a binding holds, is bound, and its
+    // generator is read; a generator created by another configuration
+    // binds nothing here (issue #129).
+    if(redex && redex->info->tag == T_FUNC && redex->info->arity == 2
+        && !var->realpath.empty()
+        && this->decision(vid, C) == UNDETERMINED
+        && !this->binding(C, vid))
+    {
+      bool const strict = std::strcmp(redex->info->name, "constrEq") == 0;
+      bool const nonstrict = std::strcmp(redex->info->name, "nonstrictEq") == 0;
+      index_type const pos = *var->realpath.begin();
+      Node * other = pos < 2 ? deref_fwd(redex->successors()[1 - pos].node) : nullptr;
+      bool const against_free = other && other->info->tag == T_FREE;
+      if((strict && against_free) || (nonstrict && pos == 0))
+        this->violation(
+            "Def 2.62 (equality step)", event
+          , "the step of " + std::string(redex->info->name)
+            + " narrows variable " + std::to_string(vid)
+            + ", which is free in the configuration"
+          , C, {vid}
+          );
+    }
     this->inst_reducts.clear();
     // A lone configuration (one queue of one configuration, no capsule
     // entered) is the only one that references the redex, and its own
@@ -2142,6 +2203,101 @@ namespace cyrt
   // --------------------------------------------------------------------------
   // Steps and the definitional trees.
   // --------------------------------------------------------------------------
+
+  // The root cell of C at its dispatch: the cell, its symbol, and its
+  // successor cells.  A constructor, a set guard or a constraint cell is
+  // recorded: a step rewrites an operation cell at the root in place, and
+  // an unboxed root is no cell.
+  void Checker::dispatch(Configuration * C)
+  {
+    Node * root = C->root.arg && C->root.kind == 'p' ? *C->root : nullptr;
+    if(root)
+    {
+      tag_type const tag = root->info->tag;
+      if(tag < T_CTOR && tag != T_SETGRD && tag != T_CONSTR)
+        root = nullptr;
+    }
+    DispatchRecord & rec = this->dispatch_stack.back();
+    rec.root = root;
+    rec.info = root ? root->info : nullptr;
+    rec.args.clear();
+    if(!root)
+      return;
+    InfoTable const * info = root->info;
+    Arg const * data = root->successors();
+    for(index_type i = 0; i < info->arity; ++i)
+      if(info->format[i] == 'p')
+        rec.args.push_back(data[i].node);
+  }
+
+  // A nested procD runs on the same checker: its dispatches and drops get
+  // their own record, and the outer drop compares its own root.
+  void Checker::enter_scheduler()
+  {
+    this->dispatch_stack.emplace_back();
+  }
+
+  void Checker::leave_scheduler()
+  {
+    assert(this->dispatch_stack.size() > 1);
+    this->dispatch_stack.pop_back();
+  }
+
+  // At a drop of the dispatched configuration: the discards change no cell
+  // (Def 2.40: D.1, D.3, D.4 and N.1; Def 2.24 admits a replacement by
+  // failure at an operation cell alone), so the root cell holds the symbol
+  // and the successors it held at the dispatch.  A successor is compared
+  // through forward cells, read now for both: a step below the root
+  // forwards its operation cell, and the compression of a chain writes
+  // the slot to the end of the chain, a no-op modulo the dereference (Def
+  // 2.9).  A forward cell written over the shared root of a failed
+  // configuration took the value of a sibling (issue #126).  The Python
+  // checker has the same check (discard).
+  void Checker::discard(Configuration * C)
+  {
+    ++this->counts["discards"];
+    DispatchRecord & rec = this->dispatch_stack.back();
+    Node * root = rec.root;
+    rec.root = nullptr;
+    if(!root)
+      return;
+    if(root->info != rec.info)
+      this->violation(
+          "Def 2.40 (discard)", "drop"
+        , "the root cell held " + std::string(rec.info->name)
+          + " at the dispatch and holds " + std::string(root->info->name)
+          + " at the drop"
+        , C
+        );
+    InfoTable const * info = root->info;
+    Arg const * data = root->successors();
+    size_t k = 0;
+    for(index_type i = 0; i < info->arity; ++i)
+      if(info->format[i] == 'p')
+      {
+        Node * now = deref_fwd(data[i].node);
+        Node * then = k < rec.args.size() ? deref_fwd(rec.args[k]) : nullptr;
+        if(now != then)
+          this->violation(
+              "Def 2.40 (discard)", "drop"
+            , "successor " + std::to_string(i) + " of the root cell "
+              + std::string(info->name) + " changed during the dispatch"
+            , C
+            );
+        ++k;
+      }
+  }
+
+  // After a constraint step at the root kept the configuration (rule
+  // D.beta): the fingerprint, with the group and generator clauses, and the
+  // bindings.
+  void Checker::constrained(Configuration * C)
+  {
+    ++this->counts["constraints"];
+    auto const enclosing = this->chain(false);
+    this->check_fingerprint(C, "constraint", enclosing);
+    this->check_bindings(C, "constraint");
+  }
 
   void Checker::step_begin(Configuration * C)
   {

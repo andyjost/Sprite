@@ -119,6 +119,18 @@ namespace cyrt { inline namespace
   static xid_type vid(Variable const & var)
     { return inspect::xget_freevar_id(var.target); }
 
+  // The guides of the equality steps: a variable is bound in a
+  // configuration when the fingerprint of the configuration decides its
+  // group, or when a binding holds it; a generator that another
+  // configuration created binds nothing here (Def 2.57 of the note on the
+  // Fair Scheme).  An equality step binds such a variable by its constraint
+  // cell or its non-strict binding, without a narrowing (Def 2.62, Def
+  // 2.75; issue #129), so hnf_or_free reports it as free.  The marker is a
+  // value set of kind 'v' and no values, which replace_freevar reads
+  // (state/rts_freevars.cpp).  Every other demand of a variable with a
+  // generator narrows it by that generator (rule S.x).
+  static ValueSet const FREE_IN_CONFIGURATION{nullptr, 0, 'v'};
+
   tag_type constrEq_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
@@ -126,14 +138,14 @@ namespace cyrt { inline namespace
     Variable rhs = _0[1];
     // lhs:{0: ctor, 1: free, 2: unboxed} + rhs:{0: ctor, 3: free, 6: unboxed}
     int code = 0;
-    auto tagl = rts->hnf_or_free(C, &lhs);
+    auto tagl = rts->hnf_or_free(C, &lhs, &FREE_IN_CONFIGURATION);
     switch(tagl)
     {
       case T_UNBOXED: code += 2; break;
       case T_FREE   : code += 1; break;
       default       : if(tagl < T_CTOR) return tagl;
     }
-    auto tagr = rts->hnf_or_free(C, &rhs);
+    auto tagr = rts->hnf_or_free(C, &rhs, &FREE_IN_CONFIGURATION);
     switch(tagr)
     {
       case T_UNBOXED: code += 6; break;
@@ -205,7 +217,7 @@ namespace cyrt { inline namespace
     }
     if(code != 2)
     {
-      tagl = rts->hnf_or_free(C, &lhs);
+      tagl = rts->hnf_or_free(C, &lhs, &FREE_IN_CONFIGURATION);
       if(tagl == T_FREE)
       {
         if(code == 1)
@@ -223,7 +235,7 @@ namespace cyrt { inline namespace
     }
     if(code != 1)
     {
-      tagr = rts->hnf_or_free(C, &rhs);
+      tagr = rts->hnf_or_free(C, &rhs, &FREE_IN_CONFIGURATION);
       if(tagr == T_FREE)
         return rts->hnf(C, &rhs, make_guides(&vs, lhs.target));
       else if(tagr < T_CTOR)

@@ -12258,3 +12258,261 @@
   does the test pool).  (2) tests/manifest.json counts 30 tests for
   unit_setfunctions_bugs.py and 12 for unit_api.py; the files have 29
   and 13 now (a calibration run updates it).
+
+2026-10-11: five bugs of the audit of the implementation against the proved rules of the Fair Scheme (#126 to #130; worktree wt/bugs9)
+- The source.  The audit of 2026-10-11 compared both backends with the
+  proved rules of the Fair Scheme and its extensions (the base scheme,
+  FS-x, FS-beta, FS-S) and filed five correctness bugs with reproducers,
+  the values of KiCS2 and the rule each one breaks.  Each fix is at the
+  cause, and each gets a unit test on both backends; the checker mode of
+  both backends gains the check the issue names, where it fits.
+- (1) #126, the C++ scheduler at rule N.1.  procN (fairscheme.cpp), case
+  T_FAIL, returned root->make_failure(), which forwards the root cell of
+  the configuration to a failure in place.  After a fork the root is a
+  cell a sibling configuration shares: let p = (failed, 1) in p ? (snd
+  p, 2) gave no value (the Python backend and KiCS2: (1, 2)).  Rule N.1
+  returns false and rule D.5 drops the configuration; the discards change
+  no cell (Def 2.40), and a replacement by failure is a step at an
+  operation cell alone (Def 2.24).  Fix: procN returns T_FAIL when its
+  root is the root of the configuration (root == C->root), and procD
+  drops the configuration; the other caller, applynf_step, scans from its
+  redex, an operation cell, which becomes a failure as before (the Python
+  N: if var.is_root: rts.drop(), else the redex is rewritten).  The other
+  make_failure sites (basic.cpp, read.cpp, icurry.cpp) write the redex of
+  a step.  Tests: TestFailedSuccessorOfSharedRoot of unit_cxx_scheduler.py
+  (failedSiblingPair, failedSiblingJust, failedSiblingFirst of
+  data/curry/CxxScheduler.curry; both backends; once plain and once under
+  the checker).  Checker (both backends): Def 2.40 (discard).  At the
+  dispatch of a configuration the root cell is recorded when it is a
+  constructor, a set guard or a constraint cell (an operation cell at the
+  root is rewritten in place by its step); at a drop (procD T_FAIL; D and
+  N at the root) the cell holds the same symbol and the same successors,
+  read through forward cells now for both records, since a step below the
+  root forwards its operation cell and the compression of a chain writes
+  the slot to the end of the chain.  The check was not run against the
+  old runtime (no build pairs the old procN with the new checker); the
+  review pins it on a constructed state instead
+  (test_discard_changes_no_cell of unit_py_checker.py: a changed
+  successor, and a root forwarded to a failure, each reported).  The
+  record of the dispatch is one per scheduler (dispatch_stack of both
+  checkers): a set function evaluated inside a step runs a nested
+  scheduler on the same checker, whose dispatches and drops overwrote the
+  one record, so the outer drop compared the wrong root or skipped the
+  check (allValues_step and allValues push a record around their procD
+  and D: enter_scheduler, leave_scheduler;
+  test_discard_record_per_scheduler).
+- (2) #130, the Python D at a set guard of an enclosing set.  D, case
+  T_SETGRD, called rts.unwind() for a guard whose set is not the current
+  set, and allValues then asserted on the tag of the root of the nested
+  configuration: capNested and nestFail of SetFunctionsSemantics raised
+  an internal error on the Python backend ([[1]], [[2]] and no value on
+  the C++ backend, whose procD lets T_SETGRD fall to procN).  A monitor is
+  bookkeeping: the box dereference passes through it at any position, the
+  root included (Def 2.77).  Fix: D strips a guard of the current set
+  (escape_all, as before) or a guard outside every set function, and
+  hands a guard of an enclosing set to N, which descends into it like a
+  constructor; a choice below it is pulled up through it into the escape
+  set of its set and escapes, and the value keeps the guard.  Tests: the
+  known failures are gone: PY_KNOWN_FAILURES of
+  unit_setfunctions_semantics.py and of unit_py_checker.py (capNested and
+  nestFail run on both backends, under the checker too),
+  test_nested_set_function of unit_setfunctions_bugs.py runs on both
+  backends (test_nested_set_function_python is gone), TestNestedSetGuard
+  of unit_cxx_scheduler.py runs on both backends (TestNestedSetGuardPython
+  is gone).
+- (3) #127, the generator of a decided class at the union-find root.
+  get_generator read the generator at the root of the class alone
+  (rts_freevars.cpp, rts_freevars.py), and the union by size can make a
+  variable without a generator the root: in g16b the class {a, b}, b
+  decided, is united into {c, d, e} by a =:= c, c becomes the root, and
+  the yield of c copied the Unit marker of the variable into the value
+  (C++: (True, True, ())) or asserted (Python).  Def 2.74 and Thm 3.28:
+  c is bound through the decided class and is replaced by its generator.
+  Fix at the union: _constrain_equal_rec (rts_constraints.cpp,
+  rts_constraints.py) finds its pivot among the two variables of the
+  constraint, the root, or any member of the class (the ids united; the
+  parent table in Python), and gives the root and the two variables a
+  clone of the pivot's generator when they have none, paired leaf by leaf
+  (pair_generators), so a decided class has a generator at its root.
+  get_generator calls _constrain_equal_rec for a variable without a
+  generator (the former constrain_equal(x, root) did nothing when x was
+  the root) and throws a logic_error (C++) or asserts (Python) when the
+  class has none; the same path serves apply_binding at a fork, which
+  reads the generator of the root before the fork's constrain_equal runs.
+  Tests: TestDecidedClassRoot of unit_constraints.py (g14, g16, g16b of
+  data/curry/Constraints.curry, the values of KiCS2, both backends).
+  Checker (both backends): E5 (group generator), in the fingerprint
+  check at every fork, constraint step and yield: a decided class of two
+  or more variables has a generator at its root (the C++ check reads the
+  ids united, the Python check a decided member other than the root; a
+  decided singleton without a generator is a constructed state of
+  test_no_decided_variable_in_a_value).  The check was seen to fire on a
+  constructed state alone (test_group_generator of unit_py_checker.py);
+  the review ran the Python backend with the three rts_*.py files of the
+  fix reverted under the new checker on g16b and saw the right values
+  with no E5 report, so the check is not shown to catch the old defect
+  on g16b on the Python backend (the Def 2.62 check was seen to fire on
+  g20 and g15 with constr.py reverted).
+- (4) #128, the merge of two bound classes.  At a union, update_binding
+  moved the binding of a constraint id to the new root and dropped the
+  Boolean of add_binding when the root held a different binding (the C++
+  assertion was commented out; the Python add_binding asserted on a
+  binding of a non-builtin type): g18 gave (A, A) and (B True, B True) on
+  the C++ backend, a value that violates the program's own constraint
+  inner y =:<= False, and an internal error on the Python backend (KiCS2:
+  (A, A)).  Two classes bound to different terms have no common instance,
+  so the step fails.  Fix: the bindings of a class sit under its root
+  (add_binding looks the class up by its root; the former C++ lookup by
+  the id missed a binding of the group under another key and overwrote
+  it); constrain_equal moves the bindings of the two roots before the
+  union to the root after it (merge_binding in rts_constraints.cpp;
+  update_binding in rts_bindings.py, which returns the Boolean now) and
+  fails the step when the roots held different bindings; the old key is
+  erased.  The former C++ update_binding moved the binding of the
+  constraint's id alone, so the binding of a class whose root was neither
+  id of the constraint stayed under the old root, a non-root key no reader
+  looks up (orphan of Constraints.curry gives (True, True) now; the old
+  build was not probed on it).  Two bindings are the same term when they
+  are one cell, or the same constructor or literal over the same
+  successors through forward cells, within a budget of 1024 cells
+  (same_binding, _same_binding); two distinct cells that are not
+  constructor terms count as different, and so does a pair beyond the
+  budget: the step fails.  Tests: TestMergeOfBoundClasses of
+  unit_constraints.py (g5 no value, g18 (A, A), g18t False, eqJust the
+  bindings to equal terms in distinct cells kept, orphan; both backends).
+  Checker (both backends): E11 (one binding per class), at every fork,
+  constraint step and yield: every key of the bindings is the root of
+  its class (test_one_binding_per_class of unit_py_checker.py, on a
+  constructed state).  The constraint step at the root is a new event of
+  both checkers (constrained), with the fingerprint check as at a fork.
+  same_binding compares an unboxed pointer successor (format 'x': the
+  head of a partial application, the set of a set guard) by its value,
+  as graph/equality.cpp does; the first version returned false for it,
+  where _same_binding of the Python backend compares such a successor
+  with !=.  The open case of the merge has a test: eqShapeG18 of
+  Constraints.curry, let e = x =:= y in (e &> (0, 0)) ? ((x =:<= (1 +
+  1)) &> (y =:<= (1 + 1)) &> e &> (x, y)), gives (0, 0) alone on both
+  backends where KiCS2 gives (0, 0) and (2, 2): the shared constraint
+  cell e unites the two classes while their bindings are two unevaluated
+  cells, and the step fails.  Without the shared cell the step copies
+  the bindings in first and the value survives.
+  TestMergeOfEqualUnevaluatedTerms of unit_constraints.py expects both
+  values under expectedFailure, so the owner's decision turns it green.
+- (5) #129, the equality steps and a generator of another configuration.
+  The steps read "bound" as "has a generator" before the fingerprint:
+  hnf, case T_FREE, called replace_freevar (rts_freevars.cpp) and the
+  Python hnf did the same, which writes the slot whenever the variable
+  has a generator.  A variable narrowed by another alternative was
+  narrowed again in a configuration whose fingerprint holds no decision
+  for it; under =:<= the right side was then evaluated in each
+  alternative: g20 lost (True, True), and g15 yielded four ground values
+  where the theory and KiCS2 yield (x, x) once.  Def 2.57: a variable is
+  bound in a configuration when the fingerprint decides its group or a
+  binding holds it; Def 2.62 and Def 2.75 case 2: the equality steps bind
+  a free variable by a constraint cell or a non-strict binding, without a
+  step at the right side.  Fix: the equality steps alone ask hnf_or_free
+  for a variable that is free in the configuration: constrEq_step and
+  nonstrictEq_step pass the marker FREE_IN_CONFIGURATION (a value set of
+  kind 'v' and no values, constr.cpp), which replace_freevar reads: with
+  it a variable is narrowed when the fingerprint decides its group and no
+  binding holds it (its generator, or a clone through the class), a
+  binding is copied in as before, and otherwise the variable is reported
+  free (E_RESIDUAL, which hnf_or_free takes back); the Python hnf has the
+  keyword free, hnf_or_free passes it, and constr.py sets it.  The other
+  callers of hnf_or_free and hnf (($!), ensureNotFree, the primitives,
+  the case of a step) narrow a variable with a generator as before:
+  strictApp of Constraints.curry gives the same four values on both
+  backends (the first version of the fix put the rule into hnf_or_free
+  itself, and ($!) of the Python backend then yielded _a where the C++
+  backend narrowed).  The binding store keeps its design.  Tests:
+  TestEqualityOfFreeVariable of unit_constraints.py (g20 the three values
+  of KiCS2; g22 unchanged; g15 (_a, _a), (True, False), (False, True), the
+  yield form of KiCS2 with the same instance set; strictApp; both
+  backends).  Checker (both backends): Def 2.62 (equality step), at an
+  instantiation and at a slot write inside a step of constrEq or
+  nonstrictEq: the step narrows a variable whose group is undecided and
+  unbound against a constructor on the other side alone; two free
+  variables make a constraint cell, and a free left side of =:<= takes
+  the right side as a binding (the first version flagged every narrowing
+  of such a variable and fired on g14, where a =:= c narrows a against the
+  constructor c was bound to).  The Python hnf gained the hook slot_write
+  for the write of an existing generator, which had none.
+- Documentation.  The module docstring of checker.py and the checker
+  section of DeveloperNotes.rst list the new events and checks (the
+  constraint step, the dispatch and the drop, the slot write).
+- Verification (the clean environment, CCACHE_DIR set, prlimit, at most
+  two test processes at a time).  The reproducers of the five issues,
+  re-run from the issue text under sprite-exec with steps:65536 before the
+  change: goalA, goalB no value on cxx; g16, g16b (True, True, ()) on cxx
+  and an internal error on py; g18 (A, A) and (B True, B True) on cxx,
+  g18t False and True, both an internal error on py after the first
+  value; g20 two values on both; capNested and nestFail an internal error
+  on py.  After the change, on both backends: goalA (1, 2), goalB (Just
+  1, 2), goalC (1, 2); g14, g16, g16b the values of KiCS2; g5 no value,
+  g18 (A, A), g18t False; g20 (True, True), (True, False), (False, True),
+  g22 (True, True), g15 (_a, _a), (True, False), (False, True); capNested
+  [[1]], [[2]], nestFail no value; eqJust (Just True, Just True), orphan
+  (True, True), strictApp False, False, True, False, bindRoot and
+  bindRoot2 (False, True), goalE ((1, 2), 0), g7a, g7b and g17 the values
+  of the audit; g20 and g15 under checker:true on both backends: the same
+  values, no violation.  make stage after the C++ changes: status 0 (four
+  runs; one stopped on a compile error of the checker, fixed); make
+  overlay status 0.  Single files, each ok: unit_cxx_scheduler.py (10 on
+  cxx, 10 on py with 2 skipped), unit_constraints.py (13 on each
+  backend), unit_setfunctions_semantics.py (43 on py),
+  unit_setfunctions_bugs.py (28 on py, 1 skipped), unit_py_checker.py (46
+  on py), unit_cxx_checker.py (57 on cxx).  Through the runner
+  (./run_tests -j 2 --mem 4 --backend both): unit_cxx_freevars,
+  unit_free_markers, unit_funpat_free_argument, unit_funcpat_narrowed,
+  unit_py_residuation, unit_setfunctions_bindings,
+  unit_setfunctions_semantics, unit_setfunctions_bugs,
+  unit_cxx_scheduler, unit_constraints, unit_cxx_checker,
+  unit_py_checker, unit_cxx_runtime, unit_equality, unit_py_constraints,
+  unit_fingerprint, unit_goals: 34 of 34 run, 0 failed, wall 99.1 s;
+  unit_py_evaluation, unit_py_pulltab, unit_py_fairness, unit_cxx_interp,
+  unit_cxx_partial, unit_cxx_passthrough, unit_cxx_rewrite,
+  unit_cxx_rotation, unit_cxx_gc, unit_cxx_stack, unit_cxx_steplimit,
+  unit_prelude, unit_currylib, unit_api, unit_expr, unit_typed_expr,
+  unit_int_semantics, unit_long_lists, unit_show, unit_py_runtime,
+  unit_cxx_variable, unit_cxx_heap, unit_py_copy, unit_py_graph,
+  unit_py_control, unit_io_bind, unit_loadsave, unit_reload,
+  unit_examples, unit_cxx_counters, unit_cxx_tiered: 62 of 62 run, 2
+  failed, wall 223.2 s, the two being unit_cxx_passthrough and
+  unit_cxx_partial on cxx with KeyError 'cxx.shlib' (their modules were
+  interpreted after the change of the runtime); with --prepare the two
+  pass (prepare 28 s and 35 s, 2 of 2 run, 0 failed); func_eqconstr_a0b0c0_1
+  (150 on each backend) and func_setfunctions (39 on each): 4 of 4 run, 0
+  failed.  make -C docs html: build succeeded (the two docutils errors on
+  "interpreter.import" are older).  Not run: the whole suite on both
+  backends (the suite stage).  After the review (the dispatch stack, the
+  'x' case, the four constructed-state tests, eqShapeG18): make stage and
+  make overlay status 0; unit_py_checker.py 50 ok on py;
+  unit_constraints.py 14 on each backend, ok with one expected failure;
+  ./run_tests -j 2 --mem 4 --backend both unit_constraints.py
+  unit_cxx_scheduler.py unit_py_checker.py unit_cxx_checker.py
+  unit_setfunctions_semantics.py unit_setfunctions_bugs.py
+  unit_setfunctions_bindings.py func_setfunctions.py: 16 of 16 run, 0
+  failed, wall 61.1 s.
+- Left to the owner.  (1) The merge of two classes bound to different
+  terms fails the step; Remark 2.70 of the note leaves the merge open, and
+  two distinct unevaluated terms (or a pair beyond the budget of 1024
+  cells) count as different here, so a program that binds two variables
+  to equal terms that are not yet evaluated and then unites them loses
+  the value (eqShapeG18, an expected failure); the alternatives are a test of the terms by an equality
+  (b1 =:= b2 as a guard of the root, as apply_binding guards) or the
+  binding through the class of before.  (2) RuntimeState::update_binding
+  keeps its void declaration in state/rts.hpp (the header is in the
+  include closure of cyrt.hpp, so a Boolean signature moves the ABI
+  stamp); nothing calls it now, and it goes with the next change of the
+  stamp.  (3) The marker FREE_IN_CONFIGURATION is the character 'v' in
+  constr.cpp and in rts_freevars.cpp; a shared declaration needs a header
+  outside the include closure.  (4) The rule "free in the configuration"
+  covers the equality steps alone; ($!), ensureNotFree and the strict
+  primitives narrow a variable with a generator from another
+  configuration as before (strictApp), a reading of Def 2.44 to 2.46 that
+  the audit left out.  (5) tests/manifest.json has no entry for
+  unit_constraints.py, and the counts of unit_cxx_scheduler.py (10, from
+  9) and unit_setfunctions_bugs.py (28, from 29) moved; a calibration run
+  updates them.  (6) The other findings of the audit stay open: the N.1
+  look-ahead (issue 02 of the audit), the deferred form of the failure
+  rule of the set functions (06, 08), and the decisions of its table.

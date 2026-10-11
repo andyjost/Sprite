@@ -34,9 +34,10 @@ decision; TestDefault pins it.
 Each class runs one child per setting of the flag and keeps the results;
 a test reads the values of one goal under both settings.  The children run
 under prlimit and timeout, because a regression can spin inside C++ (see
-cytest.run_in_subprocess).  Two goals put a guard of an enclosing set at
-the root of a nested configuration, the known failure of the Python
-backend (TestNestedSetGuardPython in unit_cxx_scheduler.py).
+cytest.run_in_subprocess).  Two goals, capNested and nestFail, put a guard
+of an enclosing set at the root of a nested configuration, where the Python
+backend unwound to allValues before the fix of issue #130; the guard is a
+node of the spine like a constructor on both backends now.
 '''
 import cytest # from ./lib; must be first
 import curry, os, unittest
@@ -85,10 +86,6 @@ def same(values):
   '''The expected values of a goal that the flag does not change.'''
   return (values, values)
 
-# The goals of the Python backend that put a guard of an enclosing set at
-# the root of a nested configuration: its known failure.
-PY_KNOWN_FAILURES = {'capNested', 'nestFail'}
-
 def goal_tests(cls):
   '''
   Adds a test per goal of cls.GOALS, which maps a goal to its expected
@@ -98,8 +95,6 @@ def goal_tests(cls):
     def test(self, goal=goal):
       self.check(goal)
     test.__doc__ = 'The goal %s under both settings of the flag.' % goal
-    if goal in PY_KNOWN_FAILURES and curry.flags['backend'] == 'py':
-      test = unittest.expectedFailure(test)
     setattr(cls, 'test_' + goal, test)
   return cls
 

@@ -217,7 +217,23 @@ the implementation; the memo states them in its sections 2.1 to 2.5):
   must carry: the walk does not enter the generator of a free variable,
   and it does not enter the arguments of a partial application, as the
   walk of ``N`` does not (a value may hold ``(+) (1 ? 2)`` as a function
-  value with the choice unevaluated inside it).
+  value with the choice unevaluated inside it).  At a fork, at a yield and
+  at a constraint step at the root (rule D.beta) as well: a decided class
+  of two or more variables has a generator at its root (E5, Def 2.74 of
+  the note on the Fair Scheme; issue #127), and every binding sits under
+  the root of its class, one binding per class (E11, Remark 2.70; issue
+  #128).
+* The dispatch of a configuration and a drop of it (``D``, and ``N`` at a
+  failed successor of the root): the discards change no cell, so a
+  constructor, set-guard or constraint cell at the root holds at the drop
+  the symbol and the successors, through forward cells, it held at the
+  dispatch (Def 2.40 (discard); issue #126 of the C++ scheduler).
+* A slot write of an existing generator (``hnf``) and an instantiation
+  inside a step of ``=:=`` or ``=:<=``: the step narrows a variable that
+  is free in the configuration against a constructor alone; two free
+  variables make a constraint cell, and a free left side of ``=:<=`` takes
+  the right side as a binding without a step at it (Def 2.62 (equality
+  step); issue #129).
 * An escape, rule SF.1 (``rts_setfunctions.split_queue``): the escaping
   identifier is argument-derived for the capsule or for an enclosing one,
   or an enclosing configuration decided it; the kept queue holds the LEFT

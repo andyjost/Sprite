@@ -217,9 +217,9 @@ class Variable(object):
         self.rts, self, typedef, values
       )
 
-  def hnf_or_free(self, typedef=None):
+  def hnf_or_free(self, typedef=None, **kwds):
     return (fairscheme or _import_fairscheme()).hnf_or_free(
-        self.rts, self, typedef
+        self.rts, self, typedef, **kwds
       )
 
   def replace_target(self, replacement):

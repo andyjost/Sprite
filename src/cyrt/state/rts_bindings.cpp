@@ -1,23 +1,77 @@
 #include <cassert>
+#include "cyrt/builtins.hpp"
 #include "cyrt/state/rts.hpp"
 #include "cyrt/currylib/prelude.hpp"
+#include <utility>
+#include <vector>
 
 namespace cyrt
 {
+  // The number of cells the comparison of two bindings reads.
+  static constexpr size_t SAME_BINDING_BUDGET = 1024;
+
+  static Node * skip_fwd(Node * node)
+  {
+    while(node && node->info->tag == T_FWD)
+      node = NodeU{node}.fwd->target;
+    return node;
+  }
+
+  // Two bindings of one class are the same term when they are one cell, or
+  // the same constructor or literal over the same successors through
+  // forward cells, read within the budget.  Two distinct cells that are not
+  // constructor terms (operations, choices, variables, failures) count as
+  // different, and so does a pair beyond the budget: the merge of two
+  // classes bound to different terms fails the step (issue #128), where
+  // the equality of two unevaluated terms is not decided here (Remark 2.70
+  // of the note on the Fair Scheme leaves the merge of two bound classes
+  // open: the rule is the owner's).  The Python backend has the same
+  // comparison (_same_binding in rts_bindings.py).
+  static bool same_binding(Node * a, Node * b)
+  {
+    std::vector<std::pair<Node *, Node *>> stack{{a, b}};
+    size_t cells = 0;
+    while(!stack.empty())
+    {
+      Node * p = skip_fwd(stack.back().first);
+      Node * q = skip_fwd(stack.back().second);
+      stack.pop_back();
+      if(p == q)
+        continue;
+      if(!p || !q || p->info != q->info || p->info->tag < T_CTOR)
+        return false;
+      if(++cells > SAME_BINDING_BUDGET)
+        return false;
+      InfoTable const * info = p->info;
+      Arg const * pa = p->successors();
+      Arg const * qa = q->successors();
+      for(index_type i = 0; i < info->arity; ++i)
+        switch(info->format[i])
+        {
+          case 'p': stack.emplace_back(pa[i].node, qa[i].node); break;
+          case 'i': if(pa[i].ub_int != qa[i].ub_int) return false; break;
+          case 'f': if(pa[i].ub_float != qa[i].ub_float) return false; break;
+          case 'c': if(pa[i].ub_char != qa[i].ub_char) return false; break;
+          // An unboxed pointer: the head of a partial application, or the
+          // set of a set guard (graph/equality.cpp compares it the same way).
+          case 'x': if(pa[i].blob != qa[i].blob) return false; break;
+          default : return false;
+        }
+    }
+    return true;
+  }
+
+  // Binds the class of ``vid`` to ``value``.  The bindings sit under the
+  // root of the class (the merge keeps them there, rts_constraints.cpp).
+  // False when the class holds a different binding.
   bool RuntimeState::add_binding(Configuration * C, xid_type vid, Node * value)
   {
-    if(C->has_binding(vid))
-    {
-      Node * current = this->get_binding(C, vid);
-      // assert(current->info->typedef in rts->builtin_types);
-      return current->info == value->info && obj_id(current) == obj_id(value);
-    }
-    else
-    {
-      xid_type gid = C->grp_id(vid);
-      write(C->bindings)[gid] = value;
-      return true;
-    }
+    xid_type gid = C->grp_id(vid);
+    auto p = C->bindings->find(gid);
+    if(p != C->bindings->end())
+      return same_binding(p->second, value);
+    write(C->bindings)[gid] = value;
+    return true;
   }
 
   // Applies the binding of variable ``id`` to configuration C, whose root is
@@ -39,14 +93,6 @@ namespace cyrt
       *C->root = Node::create(&CyI7Prelude12BindingGuard, eq, C->root);
       write(C->bindings).erase(id);
     }
-  }
-
-  void RuntimeState::update_binding(Configuration * C, xid_type vid)
-  {
-    xid_type gid = C->grp_id(vid);
-    if(vid != gid)
-      if(C->bindings->count(vid))
-        this->add_binding(C, gid, this->get_binding(C, vid));
   }
 
   struct ValueBindingsMaker

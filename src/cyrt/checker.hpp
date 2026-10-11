@@ -140,6 +140,19 @@ namespace cyrt
     // ``status``.  A status below E_RESTART is not a completed step.
     void step_begin(Configuration *);
     void step_end(Configuration *, tag_type status);
+    // The dispatch of a configuration (procD, at the top of its loop) and
+    // a drop of the dispatched configuration (procD, T_FAIL): a discard
+    // changes no cell (Def 2.40 of the note on the Fair Scheme), so the
+    // root cell is at the drop what it was at the dispatch.
+    void dispatch(Configuration *);
+    void discard(Configuration *);
+    // A nested scheduler (allValues_step, around its procD): the record of
+    // the dispatch is per scheduler.
+    void enter_scheduler();
+    void leave_scheduler();
+    // A constraint step at the root (procD, T_CONSTR, rule D.beta): after
+    // constrain_equal kept the configuration.
+    void constrained(Configuration *);
     // An inductive position (hnf, at entry).
     void hnf(Configuration *, Variable const * inductive);
     // The entry of a capsule (evalS_step): the goal of the new queue.
@@ -212,6 +225,9 @@ namespace cyrt
       );
     void check_value(Configuration *);
     void check_decided_variables(Configuration *);
+    // E11: the bindings of a configuration sit under the roots of their
+    // classes, one per class.
+    void check_bindings(Configuration *, char const * event);
 
     // FS-x.
     bool reducts(Node * watch, std::vector<ReductRecord> &);
@@ -265,6 +281,18 @@ namespace cyrt
     PathList pt_path;
     // The queues an escape names, for the reports of its checks.
     std::vector<Queue *> describe_queues;
+    // The root cell of the dispatched configuration, one record per
+    // scheduler: the cell, its symbol and its successor cells (dispatch,
+    // discard).  A nested procD (a set function evaluated inside a step)
+    // pushes its own record (enter_scheduler, leave_scheduler), so the
+    // drop of the outer configuration compares its own root.
+    struct DispatchRecord
+    {
+      Node * root = nullptr;
+      InfoTable const * info = nullptr;
+      std::vector<Node *> args;
+    };
+    std::vector<DispatchRecord> dispatch_stack{1};
     // The slot write in flight.
     Variable const * inst_var = nullptr;
     Node * inst_gen = nullptr;

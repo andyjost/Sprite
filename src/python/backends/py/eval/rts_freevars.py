@@ -42,12 +42,21 @@ def get_generator(rts, arg=None, config=None):
   '''
   Returns the generator for the given free variable. The first argument must
   be a choice or free variable node, or ID.
+
+  A variable of a decided class without a generator of its own is bound
+  through the class (Def 2.74 of the note on the Fair Scheme): it gets a
+  clone of the generator of a member that has one, paired leaf by leaf
+  (_constrain_equal_rec of rts_constraints.py, which searches the class;
+  the variable may be the root, which the union by size can leave without
+  a generator; issue #127).
   '''
+  from .rts_constraints import _constrain_equal_rec
   vid = rts.obj_id(arg, config)
   x = rts.get_freevar(vid)
   if not rts.has_generator(x):
-    rts.constrain_equal(x, rts.get_freevar(rts.grp_id(vid, config)))
-    assert rts.has_generator(x)
+    _constrain_equal_rec(rts, vid, rts.grp_id(vid, config), config=config)
+    assert rts.has_generator(x), \
+        'free variable %s has no generator and its class has none' % vid
   _, gen = x.successors
   return gen
 
