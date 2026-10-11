@@ -12158,3 +12158,17 @@
   (4) tests/manifest.json has no entry for the new tests (a calibration
   run adds them).  (5) The lock file <Module>.lock stays in the product
   directory after a compile; the listing test of the stamp expects it.
+
+2026-10-10: the eager strategy and a failing argument (closed)
+- The owner asked whether sortValues (set1 const1 failed) should give [1].
+  Under the default strategy (lazy) it does, on both backends and under
+  both failure rules: const1 does not demand its argument, so the failure
+  is never demanded (probed on 8f2315f9).  Under setfunction_strategy:eager
+  the argument is reduced to ground normal form before the set function
+  sees it, by the flag's definition, so a failing argument gives no value,
+  on both backends and under both rules, as the strict set-functions
+  package of PAKCS does; sortValues (set1 const1 (1 ? failed)) gives [1]
+  under eager, the choice in the argument being outside the set.  The []
+  of the report of #118 came from the looping step that the batch of
+  2026-10-10 fixed.  Closed: no value under eager, by definition; the open
+  item of that batch's entry is withdrawn.
