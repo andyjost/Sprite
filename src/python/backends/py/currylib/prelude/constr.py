@@ -44,7 +44,9 @@ def concurrent_and(rts, _0):
 
 def constr_eq(rts, _0):
   '''Implements =:=.'''
-  lhs, rhs = [rts.variable(_0, i).hnf_or_free() for i in (0,1)]
+  # A variable that is free in this configuration is taken as it is,
+  # although another configuration may have narrowed it (issue #129).
+  lhs, rhs = [rts.variable(_0, i).hnf_or_free(free=True) for i in (0,1)]
   if lhs.is_boxed and rhs.is_boxed:
     ltag, rtag = lhs.info.tag, rhs.info.tag
     if ltag == T_FREE:
@@ -108,7 +110,7 @@ def nonstrict_eq(rts, _0):
   lhs = rts.variable(_0, 0)
   rhs = rts.variable(_0, 1)
   if lhs.is_boxed and rhs.is_boxed:
-    lhs = lhs.hnf_or_free()
+    lhs = lhs.hnf_or_free(free=True)
     if lhs.info.tag == T_FREE:
       # Bind lhs -> rhs
       yield rts.NonStrictConstraint
@@ -116,7 +118,7 @@ def nonstrict_eq(rts, _0):
       yield rts.expr((lhs, rhs))
     else:
       assert inspect.is_data(lhs.target)
-      rhs = rhs.hnf_or_free()
+      rhs = rhs.hnf_or_free(free=True)
       if rhs.info.tag == T_FREE:
         values = [lhs.unboxed_value] if rts.is_builtin_type(lhs.typedef) else None
         _1 = rts.variable(_0, 1)

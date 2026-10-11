@@ -46,6 +46,29 @@ The events the memo names, and the checks at each:
   every variable with a decided root identifier the identifiers on the
   decided path of its generator are decided.
 
+* The constraint step at the root (rule D.beta; fairscheme.D after
+  constrain_equal kept the configuration).  B1 as at a fork.  At a fork, a
+  constraint step and a yield as well: E5, a decided class of two or more
+  variables has a generator at its root (Def 2.74, Thm 3.28 of the note on
+  the Fair Scheme; issue #127); E11, every binding sits under the root of
+  its class, so a class holds one binding (Remark 2.70; issue #128).
+
+* The dispatch of a configuration (fairscheme.D) and a drop of the
+  dispatched configuration (D at a failed root, N at a failed successor of
+  the root).  Def 2.40 (discard): the discards change no cell, so the root
+  cell holds at the drop the symbol and the successors (through forward
+  nodes) it held at the dispatch; a constructor, a set guard or a
+  constraint cell at the root is recorded, an operation cell is not (a step
+  rewrites it in place; issue #126).  The record is one per scheduler: a
+  nested D (allValues) pushes its own (enter_scheduler, leave_scheduler).
+
+* A slot write of an existing generator (fairscheme.hnf) and an
+  instantiation.  Def 2.62 (equality step): a step of =:= or =:<= narrows
+  a variable that is free in the configuration (its group undecided, no
+  binding) against a constructor alone; two free variables make a
+  constraint cell, and a free left side of =:<= takes the right side as a
+  binding without a step at it (issue #129).
+
 * An instantiation (rule S.x; rts_freevars.instantiate), the copy of rule
   N.x (fairscheme.N and hnf), and the creation of a generator.  X1: one
   generator per variable, with the variable's identifier at its root.
@@ -316,6 +339,12 @@ class Checker(object):
     self.flags = {}
     # The trees of the operations, by the id of the info table.
     self.trees = {}
+    # The root cell of the dispatched configuration, one record per
+    # scheduler (dispatch, discard): the cell, its symbol and its
+    # successors.  A nested D (allValues) pushes its own record
+    # (enter_scheduler, leave_scheduler), so the drop of the outer
+    # configuration compares its own root.
+    self.dispatch_stack = [[None, None, []]]
     self._modules_seen = -1
     self._symbols = {}
     self.counts = collections.Counter()
@@ -449,6 +478,18 @@ class Checker(object):
                 % (i, d, r, dr)
           , config, ids=[i, r]
           )
+      # E5 (Def 2.74, Thm 3.28): a decided class of two or more variables
+      # has a generator at its root, where a read through the class finds
+      # it (get_generator; issue #127).  The C++ checker reads the ids
+      # united; here a member other than the root names its class.
+      root = self.rts.vtable.get(r) if i != r and i in self.rts.vtable else None
+      if root is not None and not self._has_generator(root):
+        self._violation(
+            'E5 (group generator)', event
+          , 'the class of variable %s is decided %s and its root %s has no '
+            'generator' % (i, d, r)
+          , config, ids=[i, r]
+          )
     if chain is None:
       chain = ()
     for cfg in chain:
@@ -464,6 +505,21 @@ class Checker(object):
               , config, ids=[i, j]
               , extra=['enclosing ' + line for line in self._describe(cfg)]
               )
+
+  def _check_bindings(self, config, event):
+    '''E11 (the reading of the note; Remark 2.70): every binding of
+    ``config`` is keyed by the root of its class, so a class holds one
+    binding (add_binding writes under the root, update_binding moves the
+    bindings of the old roots of a union to the new one; issue #128).'''
+    for k in list(config.bindings.read):
+      r = _root(config, k)
+      if r != k:
+        self._violation(
+            'E11 (one binding per class)', event
+          , 'the binding of identifier %s sits under a member of its class, '
+            'whose root is %s' % (k, r)
+          , config, ids=[k, r]
+          )
 
   def _check_escape_sets(self, event, config=None):
     '''Every escape set holds what the hook saw, and nothing less.'''
@@ -500,6 +556,7 @@ class Checker(object):
     sides = []
     for clone in clones:
       self._check_fingerprint(clone, 'fork', chain)
+      self._check_bindings(clone, 'fork')
       self._check_clone(clone, cid, parent)
       # The decision is recorded in the clone, or an enclosing configuration
       # made it before (update_fp writes nothing then, and one side alone
@@ -747,9 +804,114 @@ class Checker(object):
     self.counts['yields'] += 1
     chain = self._chain()
     self._check_fingerprint(config, 'yield', chain)
+    self._check_bindings(config, 'yield')
     self._check_value(config)
     self._check_decided_variables(config)
     self._check_escape_sets('yield', config)
+
+  def constrained(self, config):
+    '''After a constraint step at the root kept ``config`` (rule D.beta):
+    the fingerprint, with the group and generator clauses, and the
+    bindings.'''
+    self.counts['constraints'] += 1
+    self._check_fingerprint(config, 'constraint', self._chain())
+    self._check_bindings(config, 'constraint')
+
+  def dispatch(self, root):
+    '''At the dispatch of a configuration (D): its root cell, its symbol
+    and its successors, for discard.  A constructor, a set guard or a
+    constraint cell is recorded: a step rewrites an operation cell at the
+    root in place.'''
+    if isinstance(root, Node) and (
+        root.info.tag >= T_CTOR or root.info.tag in (T_SETGRD, T_CONSTR)
+      ):
+      self.dispatch_stack[-1] = [root, root.info, list(root.successors)]
+    else:
+      self.dispatch_stack[-1] = [None, None, []]
+
+  def enter_scheduler(self):
+    '''A nested D runs on this checker (allValues): its dispatches and
+    drops get their own record.'''
+    self.dispatch_stack.append([None, None, []])
+
+  def leave_scheduler(self):
+    assert len(self.dispatch_stack) > 1
+    self.dispatch_stack.pop()
+
+  def discard(self, root):
+    '''At a drop of the dispatched configuration (D, and N at the root):
+    the discards change no cell (Def 2.40: D.1, D.3, D.4 and N.1; Def 2.24
+    admits a replacement by failure at an operation cell alone), so the
+    root cell recorded at the dispatch holds the symbol and the successors
+    it held then.  A successor is compared through forward nodes, read now
+    for both: a step below the root forwards its operation cell, and the
+    compression of a chain writes the slot to the end of the chain, a no-op
+    modulo the dereference (Def 2.9).  A failure written over the shared
+    root of a failed configuration took the value of a sibling (issue #126
+    of the C++ backend; the C++ checker has the same check).'''
+    self.counts['discards'] += 1
+    rec = self.dispatch_stack[-1]
+    root, info, args = rec
+    rec[0] = None
+    if not isinstance(root, Node):
+      return
+    if root.info is not info:
+      self._violation(
+          'Def 2.40 (discard)', 'drop'
+        , 'the root cell held %s at the dispatch and holds %s at the drop'
+              % (info.name, root.info.name)
+        , self.rts.C
+        )
+    deref = lambda s: _deref(s) if isinstance(s, Node) else s
+    now = [deref(s) for s in root.successors]
+    then = [deref(s) for s in args]
+    for i, (a, b) in enumerate(zip(now, then)):
+      if a is not b and (isinstance(a, Node) or isinstance(b, Node) or a != b):
+        self._violation(
+            'Def 2.40 (discard)', 'drop'
+          , 'successor %s of the root cell %s changed during the dispatch'
+                % (i, root.info.name)
+          , self.rts.C
+          )
+
+  def slot_write(self, var):
+    '''Before hnf writes the generator of the variable at ``var`` into
+    the spine of the redex ``var.root`` (rule S.x with an existing
+    generator).'''
+    self.counts['slot_writes'] += 1
+    self._check_equality_narrowing(var, 'slot write')
+
+  def _check_equality_narrowing(self, var, event):
+    '''Def 2.62 and Def 2.75: an equality step narrows a free variable
+    against a constructor on the other side alone.  Two free variables
+    make a constraint cell, and a free left side of =:<= takes the right
+    side as a non-strict binding, without a step at it.  A variable that
+    the fingerprint decides, or that a binding holds, is bound, and its
+    generator is read; a generator created by another configuration binds
+    nothing here (issue #129).'''
+    root, x = var.root, var.target
+    if not isinstance(root, Node) or not isinstance(x, Node) \
+        or x.info.tag != T_FREE or not var.realpath:
+      return
+    name = root.info.name
+    if name not in ('constrEq', 'nonstrictEq') or len(root.successors) != 2:
+      return
+    vid = x.successors[0]
+    config = self.rts.C
+    if self._decision(vid, config) != UNDETERMINED \
+        or self._binding(vid, config) is not None:
+      return
+    pos = var.realpath[0]
+    other = _deref(root.successors[1 - pos]) if pos in (0, 1) else None
+    against_free = isinstance(other, Node) and other.info.tag == T_FREE
+    if (name == 'constrEq' and against_free) \
+        or (name == 'nonstrictEq' and pos == 0):
+      self._violation(
+          'Def 2.62 (equality step)', event
+        , 'the step of %s narrows variable %s, which is free in the '
+          'configuration' % (name, vid)
+        , config, ids=[vid]
+        )
 
   def _check_value(self, config):
     '''No choice, operation, failure or constraint cell is reachable from
@@ -914,6 +1076,7 @@ class Checker(object):
           'X1', 'instantiation'
         , 'variable %s has two generators' % vid, self.rts.C, ids=[vid]
         )
+    self._check_equality_narrowing(var, 'instantiation')
     reducts = self._reducts(root)
     return x, reducts
 

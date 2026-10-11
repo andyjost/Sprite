@@ -164,23 +164,11 @@ class TestBoundVariable(cytest.TestCase):
         results, {'twoSets': ['[([A], [[A, A]])]', '[([B], [[B, B]])]']}
       )
 
-  @unittest.skipIf(
-      curry.flags['backend'] != 'cxx'
-    , 'the Python backend asserts on a guard of an enclosing set at the root'
-    )
   def test_nested_set_function(self):
-    results = run_child(self, goals('nestedBound'))
-    self.assertEqual(results, {'nestedBound': ['[[[A]]]', '[[[B]]]']})
-
-  @unittest.skipIf(
-      curry.flags['backend'] != 'py', 'the known failure of the Python backend'
-    )
-  @unittest.expectedFailure
-  def test_nested_set_function_python(self):
     '''
-    On the Python backend a guard of an enclosing set function at the root
-    of a nested configuration unwinds to allValues, which expects a choice
-    (see TestNestedSetGuardPython in unit_cxx_scheduler.py).
+    The guard of the enclosing set at the root of the nested configuration:
+    the Python backend unwound to allValues there before the fix of issue
+    #130.
     '''
     results = run_child(self, goals('nestedBound'))
     self.assertEqual(results, {'nestedBound': ['[[[A]]]', '[[[B]]]']})

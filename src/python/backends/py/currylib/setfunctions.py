@@ -20,7 +20,15 @@ def allValues(rts, _0):
   try:
     with rts.queue_scope(sid=sid, qid=qid):
       try:
-        value = next(fairscheme.D(rts))
+        # The checker keeps one dispatch record per scheduler (checker.py).
+        checker = rts.checker
+        if checker is not None:
+          checker.enter_scheduler()
+        try:
+          value = next(fairscheme.D(rts))
+        finally:
+          if checker is not None:
+            checker.leave_scheduler()
         yield rts.prelude.Cons
         yield value
         yield graph.Node(rts.setfunctions.allValues, seteval)

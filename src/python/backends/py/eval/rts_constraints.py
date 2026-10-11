@@ -72,9 +72,15 @@ def constrain_equal(
     if constraint_type == STRICT_CONSTRAINT:
       if not rts.equate_fp(i, j, config=config):
         return False
+      # The bindings of a class sit under its root: the roots before the
+      # union hand theirs to the root after it.  Two different bindings
+      # make the merge inconsistent (issue #128).
+      ri, rj = rts.grp_id(i, config), rts.grp_id(j, config)
       config.strict_constraints.write.unite(i, j)
-      rts.update_binding(i, config=config)
-      rts.update_binding(j, config=config)
+      if not rts.update_binding(ri, config=config):
+        return False
+      if not rts.update_binding(rj, config=config):
+        return False
       if any(map(inspect.isa_freevar, [arg0, arg1])):
         return _constrain_equal_rec(rts, i, j, config=config)
     else:
@@ -83,10 +89,20 @@ def constrain_equal(
 
 def _constrain_equal_rec(rts, arg0, arg1, config=None):
   '''
-  Implements the recursive part of ``constrain_equal.``  Given two arguments,
-  if at least one has been narrowed, ensure both are instantiated and then
-  constrain the subvariables to be equal.  The arguments must all be free
-  variables (or arguments convertible to free variables) of the same type.
+  Implements the recursive part of ``constrain_equal.``  Given two arguments
+  of one class, if the class has been narrowed, ensure both and the root of
+  the class are instantiated and then constrain the subvariables to be
+  equal.  The arguments must all be free variables (or arguments
+  convertible to free variables) of the same type.
+
+  The pivot is a member of the class with a generator: one of the two
+  arguments, the root, or any member (the union by size can make a member
+  without a generator the root: the class {a, b} with b narrowed, united
+  into {c, d, e}, has the root c, and the constraint a =:= c names neither b
+  nor a generator; issue #127).  The root and the two arguments get a clone
+  of the pivot's generator when they have none, paired with it, so a read
+  at the root finds one (get_generator), and a decided class has a
+  generator at its root.
 
   Examples:
     1. Suppose the arguments are free variables x and y, x has been narrowed to a
@@ -118,33 +134,43 @@ def _constrain_equal_rec(rts, arg0, arg1, config=None):
     A Boolean indicating whether the new constraints succeeded (i.e., could be
     consistent).
   '''
+  config = config or rts.C
   try:
     xs = [rts.get_freevar(x) for x in [arg0, arg1]]
   except KeyError:
     return True
-  else:
-    try:
-      pivot = next(
-          x for x in xs if rts.is_narrowed(x, config=config)
-                        and rts.has_generator(x)
-        )
-    except StopIteration:
-      return True
-    else:
-      u = rts.get_generator(pivot, config=config)
-      for x in xs:
-        if x is not pivot:
-          if not rts.has_generator(x):
-            rts.clone_generator(pivot, x)
-          v = rts.get_generator(x, config=config)
-          for p, q in zip(*[graph.walk(uv) for uv in [u,v]]):
-            if rts.is_nondet(p.cursor):
-              if not rts.constrain_equal(p.cursor, q.cursor, config=config):
-                return False
-            if not inspect.isa_freevar(p.cursor):
-              p.push()
-              q.push()
-      return True
+  if not rts.is_narrowed(xs[0], config=config):
+    return True
+  gid = rts.grp_id(xs[0], config=config)
+  root = rts.vtable.get(gid)
+  candidates = xs + ([root] if root is not None else [])
+  pivot = next((x for x in candidates if rts.has_generator(x)), None)
+  if pivot is None:
+    parent = config.strict_constraints.read.parent.read
+    for k in list(parent):
+      x = rts.vtable.get(k) if rts.grp_id(k, config=config) == gid else None
+      if x is not None and rts.has_generator(x):
+        pivot = x
+        break
+  if pivot is None:
+    return True
+  u = rts.get_generator(pivot, config=config)
+  seen = []
+  for x in [root] + xs:
+    if x is None or x is pivot or any(x is y for y in seen):
+      continue
+    seen.append(x)
+    if not rts.has_generator(x):
+      rts.clone_generator(pivot, x)
+    v = rts.get_generator(x, config=config)
+    for p, q in zip(*[graph.walk(uv) for uv in [u,v]]):
+      if rts.is_nondet(p.cursor):
+        if not rts.constrain_equal(p.cursor, q.cursor, config=config):
+          return False
+      if not inspect.isa_freevar(p.cursor):
+        p.push()
+        q.push()
+  return True
 
 def lift_constraint(rts, var, rewrite=None):
   '''

@@ -64,17 +64,25 @@ namespace cyrt
       g_creator_serial = C->serial;
       #endif
       tag = inspect::tag_of(C->root);
+      // The checker records the root cell at the dispatch and compares it
+      // at a drop: a discard changes no cell (cyrt/checker.hpp).
+      if(this->checker)
+        this->checker->dispatch(C);
     redoD:
       switch(tag)
       {
         case T_UNBOXED : return this->release_value();
         case T_CONSTR  : if(this->constrain_equal(C, C->root))
                          {
+                           if(this->checker)
+                             this->checker->constrained(C);
                            *C->root = NodeU{C->root}.constr->value;
                            tag = inspect::tag_of(C->root);
                            goto redoD;
                          }
         case T_FAIL    : SCHEDULER_COUNT_END(C, END_FAILURE);
+                         if(this->checker)
+                           this->checker->discard(C);
                          this->drop();
                          continue;
         case T_FREE    : tag = this->replace_freevar(C, C->root);
@@ -205,8 +213,17 @@ namespace cyrt
       {
         case T_UNBOXED : continue;
         case T_SETGRD  : scan->extend(); ++(*scan); continue;
+        // Rule N.1: a failed successor fails the configuration.  At the
+        // root of the configuration (procD) the discard changes no cell:
+        // the root is a cell a sibling configuration shares after a
+        // fork, and a failure written over it took the sibling's value
+        // (issue #126).  procD drops the configuration on T_FAIL.  A step
+        // that normalizes its argument (applynf_step) scans from its
+        // redex, an operation cell, which becomes a failure as in hnf.
         case T_FAIL    : if(this->failure_escapes(C, nullptr))
                            return this->fail_capsule(C, nullptr);
+                         if(root == C->root)
+                           return T_FAIL;
                          return root->make_failure();
         case T_CONSTR  : *root = this->lift_constraint(C, root, scan->cursor());
                          return inspect::tag_of(root);
@@ -373,6 +390,11 @@ namespace cyrt
   // configuration "not ready" when the step was interrupted (E_GC,
   // E_ROTATE, E_UNWIND) before the caller acted on the variable, and a
   // nested scheduler then reported a false suspension.
+  //
+  // The equality steps pass the marker FREE_IN_CONFIGURATION as the guides
+  // (currylib/prelude/constr.cpp): a variable that is free in the
+  // configuration is reported although a generator exists (replace_freevar
+  // in state/rts_freevars.cpp).
   tag_type RuntimeState::hnf_or_free(
       Configuration * C, Variable * inductive, void const * guides
     )

@@ -24,6 +24,17 @@ namespace cyrt { inline namespace
     RuntimeState * rts;
   };
 
+  struct SchedulerScope
+  {
+    SchedulerScope(Checker * checker) : checker(checker)
+      { if(this->checker) this->checker->enter_scheduler(); }
+    ~SchedulerScope()
+      { if(this->checker) this->checker->leave_scheduler(); }
+    SchedulerScope(SchedulerScope const &) = delete;
+    SchedulerScope & operator=(SchedulerScope const &) = delete;
+    Checker * checker;
+  };
+
   tag_type allValues_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
@@ -36,6 +47,9 @@ namespace cyrt { inline namespace
     Expr value;
     {
       QueueScope scope(rts, seteval->queue);
+      // The checker keeps one dispatch record per scheduler
+      // (cyrt/checker.hpp).
+      SchedulerScope checker_scope(rts->checker);
       value = rts->procD();
     }
     if(rts->pending_control == E_SETFAIL)

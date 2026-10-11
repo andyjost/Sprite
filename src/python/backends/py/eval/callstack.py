@@ -59,11 +59,11 @@ def with_hnf_stackframe(hnf_body):
   Performs stack manipulations for hnf.  Pushes the inductive varible onto the
   stack.
   '''
-  def hnf(rts, var, typedef=None, values=None):
+  def hnf(rts, var, typedef=None, values=None, **kwds):
     C = rts.C
     C.callstack.push(var)
     try:
-      return hnf_body(rts, var, typedef, values)
+      return hnf_body(rts, var, typedef, values, **kwds)
     finally:
       C.callstack.pop()
   return hnf

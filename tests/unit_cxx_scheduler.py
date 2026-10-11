@@ -8,7 +8,10 @@ set1 anyOf xs) puts the guard of the argument at the root of the nested
 configuration.  The scheduler asserted there, and the release build looped.
 A step interrupted by the periodic rotation or the stack limit left the
 residual of its group in the configuration, and the nested scheduler then
-reported a false suspension.  The programs are in data/curry/CxxScheduler.curry.
+reported a false suspension.  A failed successor of a constructor root
+(rule N.1) was written as a failure over the root, a cell a sibling
+configuration shares after a fork (issue #126).  The programs are in
+data/curry/CxxScheduler.curry.
 
 The children run under prlimit and timeout, because a regression spins
 inside C++ (see cytest.run_in_subprocess).
@@ -96,16 +99,13 @@ class TestSetGuardRoot(cytest.TestCase):
     self.assertEqual(results, {'nestedCaptureCase': ['[[1]]', '[[2]]']})
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx'
-  , 'the Python backend asserts on a guard of an enclosing set at the root'
-  )
 class TestNestedSetGuard(cytest.TestCase):
   '''
   The inner of two nested set functions returns its argument, which carries
   the guards of both.  The inner scheduler descends into them; a choice
   below them joins the escape sets of both sets and escapes both set
-  functions.
+  functions.  The Python backend unwound on the guard of the enclosing set
+  at the root before the fix of issue #130.
   '''
   @classmethod
   def setUpClass(cls):
@@ -130,24 +130,35 @@ class TestNestedSetGuard(cytest.TestCase):
     self.assertEqual(results, {'nestedCapture': ['[[1]]', '[[2]]']})
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'py', 'the known failure of the Python backend'
-  )
-class TestNestedSetGuardPython(cytest.TestCase):
+class TestFailedSuccessorOfSharedRoot(cytest.TestCase):
   '''
-  On the Python backend a guard of an enclosing set function at the root of
-  a nested configuration unwinds to allValues, which expects a choice.
+  Rule N.1 at the root of a configuration (issue #126).  The first
+  alternative of p ? (snd p, 2) is the shared pair p, whose first successor
+  fails.  The configuration is dropped and no cell changes (Def 2.40 of the
+  note on the Fair Scheme: the discards change no cell), so the second
+  alternative reads p and gives (1, 2).  The C++ scheduler wrote a failure
+  over the shared root, and the second alternative gave no value.  The
+  checker verifies at a drop that the root cell is as it was at the
+  dispatch (Def 2.40 (discard)).
   '''
+  GOALS = [('failedSiblingPair', ()), ('failedSiblingJust', ()), ('failedSiblingFirst', ())]
+  EXPECTED = {
+      'failedSiblingPair': ['(1, 2)']
+    , 'failedSiblingJust': ['(Just 1, 2)']
+    , 'failedSiblingFirst': ['(1, 2)']
+    }
+
   @classmethod
   def setUpClass(cls):
     curry.import_('CxxScheduler')
 
-  @unittest.expectedFailure
-  def test_nested_set_functions(self):
-    results = run_child(self, [('nestedPlain', ()), ('nested', ())])
-    self.assertEqual(
-        results, {'nestedPlain': ['[[1]]'], 'nested': ['[[1]]', '[[2]]']}
-      )
+  def test_failed_successor_of_a_shared_root(self):
+    results = run_child(self, self.GOALS)
+    self.assertEqual(results, self.EXPECTED)
+
+  def test_under_the_checker(self):
+    results = run_child(self, self.GOALS, checker=True)
+    self.assertEqual(results, self.EXPECTED)
 
 
 @unittest.skipIf(

@@ -97,6 +97,14 @@ namespace cyrt
     return nullptr;
   }
 
+  bool _constrain_equal_rec(RuntimeState *, Configuration *, xid_type, xid_type);
+
+  // The generator of variable ``vid`` for configuration C.  A variable of a
+  // decided class without a generator of its own is bound through the
+  // class (Def 2.74): it gets a clone of the generator of a member that
+  // has one, paired leaf by leaf (_constrain_equal_rec, which searches the
+  // class; the variable may be the root, which the union by size can
+  // leave without a generator; issue #127).
   Node * RuntimeState::get_generator(Configuration * C, xid_type vid)
   {
     Node * x = this->get_freevar(vid);
@@ -105,11 +113,14 @@ namespace cyrt
     if(!has_generator(x))
     {
       xid_type gid = C->grp_id(vid);
-      Node * y = this->get_freevar(gid);
-      if(!y)
+      if(!this->get_freevar(gid))
         throw missing_freevar(gid);
-      this->constrain_equal(C, x, y, STRICT_CONSTRAINT);
-      assert(has_generator(x));
+      _constrain_equal_rec(this, C, vid, gid);
+      if(!has_generator(x))
+        throw std::logic_error(
+            "free variable " + std::to_string(vid)
+            + " has no generator and its class has none"
+          );
     }
     return NodeU{x}.free->genexpr;
   }
@@ -154,11 +165,27 @@ namespace cyrt
   {
     Cursor & slot = inductive->target;
     assert(slot->info->tag == T_FREE);
-    if(has_generator(slot))
+    ValueSet const * values = (ValueSet const *) guides;
+    // The marker of the equality steps (FREE_IN_CONFIGURATION in
+    // currylib/prelude/constr.cpp), a value set of kind 'v': the caller
+    // takes a free variable as it is.  The variable is bound here when a
+    // binding holds it or the fingerprint decides its group; a generator
+    // another configuration created binds nothing (issue #129).  Without
+    // the marker a variable with a generator is narrowed by it.
+    bool const free_wanted = values && values->kind == 'v';
+    if(free_wanted)
+      values = nullptr;
+    xid_type const gid = C->grp_id(obj_id(slot));
+    bool const narrow = free_wanted
+        ? !this->get_binding(C, gid) && this->is_narrowed(C, gid)
+        : has_generator(slot) != nullptr;
+    if(narrow)
     {
       // The slot write of an existing generator, rule S.x: the checker
       // reads the reducts of the configurations that reference the redex
-      // before the write and compares them after (cyrt/checker.hpp).
+      // before the write and compares them after (cyrt/checker.hpp).  A
+      // variable of a decided class without a generator of its own gets
+      // one here (get_generator).
       Node * genexpr = this->get_generator(C, slot);
       if(this->checker)
         this->checker->instantiate_begin(C, inductive, genexpr, "slot write");
@@ -169,7 +196,6 @@ namespace cyrt
       assert(slot->info->tag == T_CHOICE);
       return T_CHOICE;
     }
-    xid_type const gid = C->grp_id(obj_id(slot));
     size_t level = 0;
     if(Node * binding = this->get_binding(C, gid, &level))
     {
@@ -183,7 +209,13 @@ namespace cyrt
       C->scan.pop();
       return E_RESTART;
     }
-    ValueSet const * values = (ValueSet const *) guides;
+    if(free_wanted)
+    {
+      // Free in this configuration: hnf_or_free takes the residual back
+      // and reports T_FREE.
+      C->add_residual(obj_id(slot));
+      return E_RESIDUAL;
+    }
     if(values && values->kind != 't')
     {
       if(values->size)

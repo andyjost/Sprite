@@ -17,6 +17,10 @@ def D(rts):
     assert not hasattr(E, 'raw_expr')
     rts.telemetry._iterD += 1
     tag = inspect.tag_of(E)
+    checker = rts.checker
+    if checker is not None:
+      # The root cell at the dispatch, for the discard check (checker.py).
+      checker.dispatch(E)
     if tag == T_FAIL:
       # A failure under the guard of the current set at the root (escape_all)
       # is boxed: under the flag setfunction_failures it fails the set
@@ -24,6 +28,8 @@ def D(rts):
       sids = rts.boxed_failure()
       if sids is not None:
         raise E_SETFAIL(sids)
+      if checker is not None:
+        checker.discard(E)
       rts.drop()
     elif tag == T_CONSTR:
       value, lr = E.successors
@@ -31,6 +37,8 @@ def D(rts):
       if not rts.constrain_equal(l, r, rts.constraint_type()):
         rts.drop()
       else:
+        if checker is not None:
+          checker.constrained(rts.C)
         rts.E = value
         del value
     elif tag == T_FREE:
@@ -42,12 +50,20 @@ def D(rts):
         yield rts.release_value()
     elif tag == T_FWD:
       rts.E = inspect.fwd_target(E)
-    elif tag == T_SETGRD:
-      sid = E.successors[0]
-      if sid == rts.sid:
+    elif tag == T_SETGRD and (
+        E.successors[0] == rts.sid or not rts.in_recursive_call
+      ):
+      # A guard of the current set at the root: the choices and the
+      # failures below it escape (escape_all), and the guard goes, as
+      # release_value drops the guards of the current set from a value.
+      # Outside every set function a guard at the root goes the same way.
+      # A guard of an enclosing set is a node of the spine like a
+      # constructor: N descends into it, a choice found below it is pulled
+      # up through it into the escape set of its set, and the value keeps
+      # it (the C++ procD lets T_SETGRD fall to procN).  An unwind here
+      # reached allValues, which expects a choice at the root (issue #130).
+      if E.successors[0] == rts.sid:
         rts.C.escape_all = True
-      elif rts.in_recursive_call:
-        rts.unwind()
       rts.E = E.successors[1]
     elif tag == T_CHOICE:
       cid = rts.obj_id()
@@ -61,7 +77,7 @@ def D(rts):
       with rts.catch_control(residual=True, restart=True, steplimit=True):
         if tag == T_FUNC:
           S(rts, E)
-        elif tag >= T_CTOR:
+        elif tag >= T_CTOR or tag == T_SETGRD:
           if N(rts, rts.variable(E)):
             yield rts.release_value()
   # The queue is empty.  An alternative dropped at the stack limit reports its
@@ -83,6 +99,9 @@ def N(rts, var, state):
         if sids is not None:
           raise E_SETFAIL(sids)
         if var.is_root:
+          # Rule N.1: the configuration is dropped and no cell changes.
+          if rts.checker is not None:
+            rts.checker.discard(var.root)
           rts.drop()
         else:
           # The redex becomes a failure, as in hnf.  ($!!) normalizes its
@@ -190,7 +209,7 @@ def S(rts, node):
     rts.count_step()
 
 @callstack.with_hnf_stackframe
-def hnf(rts, var, typedef=None, values=None):
+def hnf(rts, var, typedef=None, values=None, free=False):
   '''
   Head-normalize the expression at the given variable.
 
@@ -209,6 +228,18 @@ def hnf(rts, var, typedef=None, values=None):
       An optional list of integers, floats, or characters indicating the values
       that may occur at the inductive position.  This is only meaningful when
       ``typedef`` is Prelude.Int, Prelude.Float, or Prelude.Char.
+
+    free:
+      The caller takes a free variable as it is (the equality steps, through
+      hnf_or_free).  A variable is bound in a configuration when the
+      fingerprint of the configuration decides its group, or when a binding
+      holds it; a generator that another configuration created binds nothing
+      here (Def 2.57 of the note on the Fair Scheme).  So an equality step
+      binds such a variable by its constraint cell or its non-strict
+      binding, without a narrowing (Def 2.62, Def 2.75; issue #129).
+      Without the flag a variable with a generator is narrowed by it (rule
+      S.x).  The C++ runtime has the same rule (FREE_IN_CONFIGURATION in
+      currylib/prelude/constr.cpp).
 
   Returns:
     The updated variable, ``var``.
@@ -239,8 +270,18 @@ def hnf(rts, var, typedef=None, values=None):
       rts.lift_constraint(var, rewrite=var.root)
       rts.unwind()
     elif tag == T_FREE:
-      if rts.has_generator(var.target):
+      if free:
+        narrow = not rts.has_binding(var.target) \
+            and rts.is_narrowed(var.target)
+      else:
+        narrow = rts.has_generator(var.target)
+      if narrow:
+        # A variable of a decided class without a generator of its own gets
+        # one here (get_generator).  The checker tests the equality rule at
+        # every slot write.
         gen = rts.get_generator(var.target)
+        if rts.checker is not None:
+          rts.checker.slot_write(var)
         var.replace_target(replacement=gen)
       elif rts.has_binding(var.target):
         binding = rts.get_binding(var.target)
@@ -257,6 +298,9 @@ def hnf(rts, var, typedef=None, values=None):
           var.replace_target(replacement=value_bindings)
         else:
           rts.suspend(var.target)
+      elif free:
+        # Free in this configuration: hnf_or_free reports the variable.
+        rts.suspend(var.target)
       else:
         rts.instantiate(var, typedef)
     elif tag == T_FWD:
@@ -274,10 +318,14 @@ def hnf(rts, var, typedef=None, values=None):
     else:
       assert False
 
-def hnf_or_free(rts, var, typedef=None):
-  '''Reduce the expression to head normal form or a free variable.'''
+def hnf_or_free(rts, var, typedef=None, free=False):
+  '''
+  Reduce the expression to head normal form or a free variable.  With
+  ``free`` a variable that is free in the configuration is reported as it
+  is, although a generator may exist (see ``free`` of hnf).
+  '''
   try:
-    return var.hnf(typedef)
+    return hnf(rts, var, typedef, free=free)
   except control.E_RESIDUAL:
     # The argument could be a free variable or an expression containing a free
     # variable that cannot be narrowed, such as "ensureNotFree x".
