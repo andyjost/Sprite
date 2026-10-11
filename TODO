@@ -12172,3 +12172,89 @@
   of the report of #118 came from the looping step that the batch of
   2026-10-10 fixed.  Closed: no value under eager, by definition; the open
   item of that batch's entry is withdrawn.
+
+2026-10-11: the eager set-function strategy dropped (worktree wt/eager)
+- The decision.  The owner decided on 2026-10-11 that the eager strategy
+  of the set functions goes.  The strategy was implementation only: the
+  interpreter flag setfunction_strategy with the values lazy and eager,
+  from the code base of 2021.  Nothing in the theory, the harness or the
+  documentation of the semantics depends on it, and the lazy strategy is
+  the only one the Fair Scheme proofs describe.  The lazy strategy does
+  not change: every existing test of the set functions keeps its values.
+- Files changed, and the symbols removed.  src/python/interpreter/flags.py:
+  the entry of setfunction_strategy in the docstring and in FLAG_INFO.
+  src/cyrt/fwd.hpp: enum SetFStrategy (SETF_EAGER, SETF_LAZY).
+  src/cyrt/state/rts.hpp and rts.cpp: the constructor argument and the
+  field setfunction_strategy of RuntimeState.
+  src/python/backends/cxx/cyrtbindings/constants.cpp: the Python enum
+  SetFStrategy; graph.cpp: the argument of both constructors of
+  RuntimeStateBase (the comment on the positions of the rotation cadence
+  moved by one); __init__.py: _SETF_STRATEGY and the attribute
+  setfunction_strategy of RuntimeState.  src/cyrt/currylib/setfunctions.cpp:
+  eagerApplyS_step, the table eagerApplyS_Info (named "$##>"), its entry
+  "eagerApplyS" in the built-in symbols of Control.SetFunctions, and the
+  branch of setN_step that chose it (the chain is built with applyS_Info
+  alone); the include of prelude.hpp went with applygnf_Info, its last
+  use there.  setfunctions.hpp: the define and the extern of
+  eagerApplyS_Info.  src/python/backends/py/eval/rts.py: the attribute
+  setfunction_strategy.  src/python/backends/py/currylib/setfunctions.py:
+  setN builds the chain with ($>) alone.
+  docs/source/PythonAPI/CurryPackage.rst: the row of the flags table.
+  docs/source/CurryPrimer/Semantics.rst: the paragraph on the lazy
+  evaluation of a set function names no flag.  The C++ symbol names of
+  the lazy path are unchanged.  The ($##>) of the library
+  (curry/lib/Control/SetFunctions.curry) stays and runs from its
+  definition on both backends, as before: a built-in is looked up by its
+  ICurry name, and no function of the library is named eagerApplyS, so
+  the removed table was reached through setN_step alone.
+- Tests moved.  TestEagerStrategy of unit_setfunctions_bugs.py is
+  TestFirstSetFunction, with the lazy test alone: test_lazy_strategy
+  evaluates adjSet and adjSet0 of data/curry/SetFunctionsBugs.curry in a
+  child without the flag; test_eager_strategy_ends is gone.  The skip of
+  'free' under eager in func_setfunctions.py is gone, and with it the
+  imports of the file that nothing used (curry, logging, curry.config,
+  capture_log; the skip was the last use of curry): the file imports
+  cytest alone, 39 tests on each backend as before.  The two direct
+  constructions of RuntimeStateBase in unit_cxx_rotation.py
+  (test_zero_quantum_is_an_error) lost the argument.  New:
+  test_setfunction_strategy_is_unknown of TestFreshInterpreterFlags in
+  unit_api.py, beside test_unknown_flag: the flag is not in curry.flags,
+  and Interpreter(flags={'setfunction_strategy': 'eager'}) raises
+  ValueError "unknown flag: 'setfunction_strategy'".  The docstring of
+  the unit file and the comments of the Curry module keep the history of
+  #118.
+- A program that sets the flag now sees the error of an unknown flag.
+  Interpreter(flags={'setfunction_strategy': ...}) raises ValueError
+  "unknown flag: 'setfunction_strategy'" (Interpreter.__new__).  In
+  SPRITE_INTERPRETER_FLAGS (setfunction_strategy:eager), and in
+  curry.reload({'setfunction_strategy': ...}), which passes its flags
+  through that variable, the flag is dropped with the log line
+  "[WARNING] unknown flag: 'setfunction_strategy'" and the interpreter
+  starts without it; observed on both routes, and the same as for
+  'bogus'.
+- Verification (env -i, prlimit, CCACHE_DIR set, at most two test
+  processes at a time).  make stage after the C++ changes: status 0 in
+  47 s (the warning on module.cpp:144, 'found' set but not used, is
+  older); make overlay status 0 in 9 s.  Single file:
+  unit_setfunctions_bugs.py on cxx, 29 tests ok (1 skipped) in 12 s; the
+  worktree had no ICurry cache and no products of SetFunctionsBugs, so
+  the run sent the module through the front end, inside the sandbox,
+  without trouble.  Through the runner (./run_tests -j 2 --mem 4
+  --backend both): unit_setfunctions_bugs (29 tests on each backend; 30
+  before), unit_setfunctions_semantics (43), unit_setfunctions_bindings
+  (16), func_setfunctions (39), unit_api (13; 12 before): 10 of 10 run,
+  0 failed, wall 32.0 s; unit_py_checker (46), unit_cxx_checker (57),
+  unit_cxx_runtime (10), unit_cxx_rotation (21): 8 of 8 run, 0 failed,
+  wall 43.5 s.  The new test and test_lazy_strategy by name (-v) on both
+  backends: ok.  make -C docs html: build succeeded in 17 s, and no page
+  of the output names the flag (the two docutils errors on the target
+  "interpreter.import", in docstrings of backends/__init__.py and
+  cxx/interface.py, are older).  Not run: the whole suite on both
+  backends (the suite stage).
+- Notes for the owner.  (1) fwd.hpp and rts.hpp are in the include
+  closure of cyrt.hpp, so the ABI stamp moved: every installation that
+  takes this commit compiles its compiled Curry products again, once
+  (make stage compiled the library here; the prepare pass of the runner
+  does the test pool).  (2) tests/manifest.json counts 30 tests for
+  unit_setfunctions_bugs.py and 12 for unit_api.py; the files have 29
+  and 13 now (a calibration run updates it).

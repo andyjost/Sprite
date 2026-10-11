@@ -2,8 +2,7 @@
 -- variable that a choice bound, or over a choice the configuration decided
 -- (issue #61), set functions whose values are sub-terms of the guarded
 -- argument (issue #32), a choice from a shrinking pool (issue #36), and
--- the first set function of the dissertation under the eager strategy
--- (issue #118).
+-- the first set function of the dissertation (issue #118).
 module SetFunctionsBugs where
 
 
@@ -255,11 +254,10 @@ assignOverlap n pool acc
 pickOverlap :: [Int]
 pickOverlap = assignOverlap 2 [1,2,3] []
 
--- Issue #118.  The eager strategy (the interpreter flag
--- setfunction_strategy) normalizes each argument before the set function
--- sees it.  The step of the C++ runtime applied the normalized argument to
--- itself again, so the first set function of the dissertation did not end,
--- and neither did the goal with a ground argument.
+-- Issue #118.  The first set function of the dissertation and the goal
+-- with a ground argument.  The eager strategy of 2021, under which the C++
+-- runtime did not end on them, was dropped on 2026-10-11 with its flag.
+-- The goals stay under the lazy strategy, the only one.
 adj :: Int -> Int
 adj x = x - 1 ? x + 1
 

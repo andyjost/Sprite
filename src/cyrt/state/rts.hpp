@@ -98,7 +98,6 @@ namespace cyrt
     // flags (interpreter/flags.py).
     RuntimeState(
         InterpreterState & istate, Node * goal, bool trace=false
-      , SetFStrategy setfunction_strategy = SETF_LAZY
       , SetFFailures setfunction_failures = SETF_FAILURES_ESCAPE
       , size_t stack_limit = DEFAULT_STACK_LIMIT
       , size_t rotation_steps = TIME_MODE
@@ -150,7 +149,6 @@ namespace cyrt
     // SetEval nodes of the set functions under evaluation.
     std::unique_ptr<Queue> root_queue;
     qstack_type            qstack;
-    SetFStrategy           setfunction_strategy;
     SetFFailures           setfunction_failures;
     // C-stack guard.  An evaluation may use ``stack_room`` bytes of C stack
     // below ``stack_base``, the frame of the outermost procD.  ``stack_room``

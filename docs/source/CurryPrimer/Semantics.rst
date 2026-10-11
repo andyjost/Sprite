@@ -182,9 +182,8 @@ nothing.  The interpreter flag ``setfunction_failures`` selects the rule:
 failure as a failure of the function, so ``isEmpty (set1 id failed)`` is
 ``True`` under it (the rule of the dissertation).
 
-Sprite evaluates a set function lazily by default: the values of the set
-are computed as the program consumes them (the interpreter flag
-``setfunction_strategy``).  Inside the set, the scheduler runs a queue of
-its own, and the rotation of the Fair Scheme covers the nested queues, so
-an alternative that diverges inside a set function does not starve the
+Sprite evaluates a set function lazily: the values of the set are computed
+as the program consumes them.  Inside the set, the scheduler runs a queue
+of its own, and the rotation of the Fair Scheme covers the nested queues,
+so an alternative that diverges inside a set function does not starve the
 others.

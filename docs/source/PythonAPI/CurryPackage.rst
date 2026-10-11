@@ -173,9 +173,6 @@ Flag                         Default                What it changes
                                                     turns both rules off.
 ``defaultconverter``         ``None``               The converter of :func:`curry.eval` when the call
                                                     names none: ``None`` or ``'topython'``.
-``setfunction_strategy``     ``'lazy'``             How set functions evaluate: ``'lazy'`` with set
-                                                    guards, ``'eager'`` with the arguments in ground
-                                                    normal form first.
 ``setfunction_failures``     ``'escape'``           What a failure that comes from an argument of a set
                                                     function does when the capsule demands it:
                                                     ``'escape'`` fails the set function, ``'encapsulate'``

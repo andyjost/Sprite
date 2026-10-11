@@ -9,7 +9,6 @@
 #define allValues_Info       CyI7Control12SetFunctions9allValues
 #define applyS_Info          CyI7Control12SetFunctions6applyS
 #define captureS_Info        CyI7Control12SetFunctions8captureS
-#define eagerApplyS_Info     CyI7Control12SetFunctions11eagerApplyS
 #define evalS_Info           CyI7Control12SetFunctions5evalS
 #define exprS_Info           CyI7Control12SetFunctions5exprS
 #define PartialS_Info        CyI7Control12SetFunctions8PartialS
@@ -36,7 +35,6 @@ extern "C"
   extern InfoTable const allValues_Info;
   extern InfoTable const applyS_Info;
   extern InfoTable const captureS_Info;
-  extern InfoTable const eagerApplyS_Info;
   extern InfoTable const evalS_Info;
   extern InfoTable const exprS_Info;
   extern InfoTable const PartialS_Info;
