@@ -650,12 +650,12 @@
     },
     "unit_cxx_checker.py": {
       "cxx": {
-        "duration_s": 37.9,
+        "duration_s": 44.2,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 127,
-        "tests": 57
+        "tests": 59
       },
       "py": {
         "duration_s": 1.0,
@@ -663,7 +663,7 @@
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 55,
-        "tests": 57
+        "tests": 59
       }
     },
     "unit_cxx_counters.py": {
@@ -1440,6 +1440,24 @@
         "tests": 28
       }
     },
+    "unit_occurs.py": {
+      "cxx": {
+        "duration_s": 2.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 76,
+        "tests": 10
+      },
+      "py": {
+        "duration_s": 2.5,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 92,
+        "tests": 10
+      }
+    },
     "unit_optimize.py": {
       "cxx": {
         "duration_s": 3.0,
@@ -1492,6 +1510,24 @@
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 68,
         "tests": 31
+      }
+    },
+    "unit_pairing.py": {
+      "cxx": {
+        "duration_s": 2.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 110,
+        "tests": 11
+      },
+      "py": {
+        "duration_s": 2.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 92,
+        "tests": 11
       }
     },
     "unit_parse.py": {
@@ -1627,15 +1663,15 @@
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 50,
-        "tests": 50
+        "tests": 52
       },
       "py": {
-        "duration_s": 15.1,
+        "duration_s": 18.3,
         "failures": 0,
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 126,
-        "tests": 50
+        "tests": 52
       }
     },
     "unit_py_constraints.py": {
