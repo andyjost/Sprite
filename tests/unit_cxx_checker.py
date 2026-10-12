@@ -802,6 +802,39 @@ class TestFreeVariables(CheckerTestCase):
       ):
       cb.checker_debug_check_yield(rts)
 
+  def test_equality_step_pairs(self):
+    '''Def 2.62 under decision D25: the strict equality of a decided
+    variable x and a variable y that is free in the configuration records
+    the pair.  A slot write of the generator of x against y is reported,
+    and so is a narrowing of y against x; a narrowing of y against a
+    constructor term is not.'''
+    cb = _cb()
+    P = curry.getInterpreter().prelude
+    rts = _state(_node(1))
+    x = cb.checker_debug_freshvar(rts)
+    y = cb.checker_debug_freshvar(rts)
+    vx, vy = _vid(x), _vid(y)
+    genx = _make(cb.Choice, vx, _node(True), _node(False))
+    geny = _make(cb.Choice, vy, _node(True), _node(False))
+    cb.checker_debug_attach_generator(rts, x, genx)
+    cb.checker_debug_attach_generator(rts, y, geny)
+    cb.checker_debug_set_fp(rts, vx, LEFT)
+    cb.checker_debug_set_root(rts, _make(P.constrEq, x, y))
+    with self.assertRaisesRegex(
+        cb.InvariantViolation
+      , r'Def 2\.62.*replaces variable %s, which the configuration decides.*'
+        r'against variable %s.*pairs them' % (vx, vy)
+      ):
+      cb.checker_debug_instantiate_begin(rts, [0], genx)
+    with self.assertRaisesRegex(
+        cb.InvariantViolation
+      , r'Def 2\.62.*narrows variable %s, which is free.*against variable %s'
+        r', which the configuration decides' % (vy, vx)
+      ):
+      cb.checker_debug_instantiate_begin(rts, [1], geny)
+    cb.checker_debug_set_root(rts, _make(P.constrEq, _node(True), y))
+    cb.checker_debug_instantiate_begin(rts, [1], geny)
+
 
 class TestSetFunctions(CheckerTestCase):
   '''RI S0, S-split.'''

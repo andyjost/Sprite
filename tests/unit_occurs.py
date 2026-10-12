@@ -17,20 +17,21 @@ backend (KiCS2 3.5.0 gives True and False); it gives True alone now.  The
 checker verifies the invariant (D15 (occurs check)) at every fork,
 constraint step and yield.
 
-Two goals of the decision are expected failures: goalR, the right
-alternative alone, and g10, the audit's infinite class.  In both, the
-equality step expands a decided variable to its instance before the pair
-reaches the constraint store, and the cycle appears as an endless
-narrowing of fresh leaves, never as a union of two classes, so the check
-at the union does not see it.  The approved values (no value) wait for the
-owner's decision on the equality step; see the TODO entry of 2026-10-12.
+Two goals of the decision reach the union through the equality step:
+goalR, the right alternative alone, and g10, the audit's infinite class.
+In both, the step meets a decided variable and a variable that is free in
+the configuration, and records the pair (decision D25 of 2026-10-12; see
+unit_pairing.py) instead of expanding the decided one and narrowing the
+free one against its instance without end, so the union and its check
+happen, and both goals give no value.
 '''
 import cytest # from ./lib; must be first
-import curry, unittest
+import curry
 
 ADDRESS_SPACE = 2 << 30
 TIMEOUT = 300
-# The child of the expected failures diverges; it is killed after this.
+# The child of the paired cycles ends at once; a regression to the endless
+# narrowing is killed after this.
 SHORT_TIMEOUT = 30
 
 # Evaluates goals of the test module and prints one line per goal: its name
@@ -114,22 +115,24 @@ class TestControls(GoalsCase):
   def test_five_cells(self): self.check('fiveCells')
 
 
-class TestNoUnion(cytest.TestCase):
+class TestPairedCycle(cytest.TestCase):
   '''
-  The two goals whose cycle never reaches a union: goalR (the right
-  alternative of goal alone) and g10 (the audit's infinite class).  The
-  decision gives both no value.  Today the equality step expands the
-  decided variable before the pair reaches the store, and both diverge; the
-  child is killed by its timeout.  The test turns green with the owner's
-  decision on the equality step (see the module docstring).
+  The two goals whose cycle reaches the union through the pairing of the
+  equality step (decision D25): goalR (the right alternative of goal
+  alone) and g10 (the audit's infinite class).  Both give no value and
+  end; before the decision both narrowed without end (see the module
+  docstring).
   '''
   @classmethod
   def setUpClass(cls):
     curry.import_('Occurs')
 
-  @unittest.expectedFailure
   def test_goalR_and_g10(self):
     results = run_child(['goalR', 'g10'], timeout=SHORT_TIMEOUT)
+    self.assertEqual(results, {'goalR': [], 'g10': []})
+
+  def test_under_the_checker(self):
+    results = run_child(['goalR', 'g10'], timeout=SHORT_TIMEOUT, checker=True)
     self.assertEqual(results, {'goalR': [], 'g10': []})
 
 

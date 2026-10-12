@@ -555,6 +555,38 @@ class TestAuditChecks(CheckerTestCase):
       ):
       rts.checker.yield_(config)
 
+  def test_equality_step_pairs(self):
+    '''Def 2.62 under decision D25: the strict equality of a decided
+    variable x and a variable y that is free in the configuration records
+    the pair.  A slot write of the generator of x against y is reported,
+    and so is a narrowing of y against x; a narrowing of y against a
+    constructor term is not.'''
+    from curry.backends.py import graph
+    from curry.backends.py.eval import rts_freevars
+    interp = curry.getInterpreter()
+    P = interp.prelude
+    rts = _state(curry.raw_expr(1))
+    x = rts.freshvar()
+    y = rts.freshvar()
+    rts_freevars._make_generator(rts, x, interp.type('Prelude.Bool'))
+    xid, yid = x.successors[0], y.successors[0]
+    rts.C.fingerprint[xid] = LEFT
+    root = graph.Node(P.constrEq, x, y)
+    with self.assertRaisesRegex(
+        _checker().InvariantViolation
+      , r'Def 2\.62.*replaces variable %s, which the configuration decides.*'
+        r'against variable %s.*pairs them' % (xid, yid)
+      ):
+      rts.checker.slot_write(rts.variable(root, 0))
+    with self.assertRaisesRegex(
+        _checker().InvariantViolation
+      , r'Def 2\.62.*narrows variable %s, which is free.*against variable %s'
+        r', which the configuration decides' % (yid, xid)
+      ):
+      rts.checker.slot_write(rts.variable(root, 1))
+    term = graph.Node(P.constrEq, rts.expr(True), y)
+    rts.checker.slot_write(rts.variable(term, 1))
+
   def test_one_binding_per_class(self):
     '''E11: a binding under a member of its class (issue #128).'''
     from curry.backends.py.eval import configuration

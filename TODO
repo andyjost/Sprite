@@ -12700,3 +12700,146 @@
   instance below it, which the example of a cycle that only an inner
   pair shows (a1 = S c with c ~ b1, united through A = S a1 and B = S
   b1) needs.
+
+2026-10-12: the pairing of a decided variable with a free one in a strict equality (decision D25 of 2026-10-12; worktree wt/pairing)
+- The source.  The lane of the occurs check (above) found that the check
+  at the union does not reach goalR and g10 of Occurs.curry: the equality
+  step expanded a decided variable to its instance before the pair
+  reached the constraint store, and the cycle appeared as an endless
+  narrowing of fresh leaves.  The owner decided on 2026-10-12 (D25, the
+  reading (A) of that entry, the revision 3 of the theory): when a step
+  of =:= meets, on one side, a variable y that is free in the
+  configuration (no decision of the fingerprint for its group, no
+  binding) and, on the other side, a variable x the configuration decides
+  (its generator was written by the narrowing of an earlier step, and the
+  fingerprint decides its top choice, so that x reads as the constructor
+  term of the decided branch, S x'), the step records the pair {x, y},
+  the constraint cell it makes for two free variables, instead of
+  narrowing y against the instance.  The constraint step of D then unites
+  the two classes, with the occurs check, and y reads the instance of the
+  decided class through the class (the machinery of #127).  A free
+  variable against a constructor term that is not the instance of a
+  decided variable narrows as before.  The two readings give the same
+  values; the pairing forks less; and a cyclic pair fails the step where
+  the narrowing ran without end: goalR and g10 give no value and end, as
+  the owner states PAKCS has them (KiCS2 3.5.0 gives goalR False and g10
+  True, observed through the harness).
+- The rule in the runtime (both backends, the same rule).  The strict
+  equality reads both sides before it expands a decided one.  C++
+  (currylib/prelude/constr.cpp): constrEq_step asks hnf_or_free with a
+  second marker, FREE_OR_DECIDED (a value set of kind 'd' beside
+  FREE_IN_CONFIGURATION, kind 'v'), which replace_freevar
+  (state/rts_freevars.cpp) reads: a variable the fingerprint decides is
+  reported as a free one is, and a binding alone is copied in.  The step then
+  classifies each variable side with decided (no binding of the group,
+  is_narrowed) and acts: a free variable against a constructor or a
+  value narrows as before (make_guides); a decided variable against a
+  constructor or a value is expanded (expand: hnf_or_free with
+  FREE_IN_CONFIGURATION writes its generator into the slot, rule S.x,
+  and the pull-tab follows); two decided variables expand the left one
+  first, and the step runs again with its instance (as before); two free
+  variables, or a free one and a decided one, make the pair.  Python
+  (currylib/prelude/constr.py): the same cases over hnf_or_free(free=True,
+  decided=True); hnf and hnf_or_free of eval/fairscheme.py gain the
+  keyword decided, which turns the slot write of a decided variable off
+  under free.  The non-strict equality =:<= is not in the decision and
+  keeps FREE_IN_CONFIGURATION: a decided left side is expanded before the
+  right side is read, as before; the shared code path forced no change
+  there.  No change to the object format, the ABI stamp (rts.hpp is
+  untouched), a default, a public API or a flag; the design of the
+  runtime, the scheduler and the collector stays.  An order of steps
+  changed without a change of values: the expansion of a decided side
+  waits until the other side is read, so when the other side forks, the
+  decided side is expanded in each clone (the expansion of a decided
+  choice is a fork() with one surviving clone, counted in forks_total).
+  After a case on x the body of the rule reads x as the constructor cell
+  of the decided branch (the pull-tab copies the leaf of the generator
+  into the slot), which the step takes for a constructor term: y is
+  narrowed against it by a fork, and the equality below it, x' =:= y',
+  meets the two variables and pairs them, so a cycle through such a cell
+  fails one level down (cycleLeaf of Pairing.curry), where the pure
+  paired form (cycleVar, goalR, g10) fails at once.  The implemented
+  reading of "the instance of a decided variable" is therefore the free
+  variable node whose group the fingerprint decides; a matched argument
+  cell is a constructor term to the step.  The review of the lane
+  confirmed the gap and asked for no code change.
+- The checker (both backends).  The check Def 2.62 (equality step), at
+  an instantiation and at a slot write inside a step of constrEq or
+  nonstrictEq (instantiate_begin of checker.cpp,
+  _check_equality_narrowing of checker.py), reads the new rule: a step
+  of constrEq that narrows a variable that is free in the configuration
+  against a free variable is reported, and the report names the other
+  variable when the configuration decides it ("the step pairs them
+  (decision D25)"); a slot write that replaces a decided variable by its
+  generator against a variable that is free in the configuration is
+  reported too, the clause that fires on the old step (the expansion of x
+  against the free y of goalR); a narrowing against a constructor term
+  passes.  D15, E5 and E11 are unchanged.  The module docstring of
+  checker.py and the checker section of DeveloperNotes.rst name the new
+  clause.
+- Tests.  data/curry/Pairing.curry and unit_pairing.py (both backends;
+  one child per class under prlimit and timeout, and one under the
+  checker): leftDecided and rightDecided (S _a, one value), bothBranches
+  (Z and S _a, a value per decided branch), readThrough ((S _a, True),
+  the free variable read through the merged class), deeper ((S Z, S Z),
+  the inner variable narrowed after the union), bothDecided ((S Z, S
+  Z)), againstTerm ((S Z, Z)), decidedAgainstTerm (S Z), cycleVar and
+  cycleLeaf (no value); the values and their counts are those of the
+  narrowing reading.  unit_occurs.py: TestNoUnion is TestPairedCycle,
+  goalR and g10 give no value, plain and under the checker, without the
+  expectedFailure.  The cycles of unit_pairing.py run in their own
+  class, TestPairedCycle, in a child with a 30 s timeout, as in
+  unit_occurs.py: a regression to the endless narrowing is killed there
+  and the values of the finite goals stay visible.  The guard of _expand
+  in constr.py is a raise, not an assert, so that it survives python
+  -O.  test_equality_step_pairs of unit_py_checker.py (the
+  Python backend) and of unit_cxx_checker.py (the C++ backend), on a
+  constructed state: x decided LEFT with a generator, y free, the redex
+  constrEq x y; the slot write of x against y and the narrowing of y
+  against x are reported, the narrowing of y against True is not.  The
+  Python test was run against the sources of 0a29d91a (the package put
+  first on sys.path, the built bindings linked beside it) and failed
+  there with "InvariantViolation not raised".
+- Verification (the clean environment, CCACHE_DIR set, prlimit, at most
+  two test processes at a time).  Before the change, under sprite-exec
+  with steps:65536, prlimit 2 GB and timeout 60, on both backends: Occurs
+  goal True, exit 0; goalR and g10 the timeout, exit 124.  KiCS2 through
+  the harness: goalR False, g10 True; PAKCS through the harness: exit 4
+  (it writes under /tmp, read-only in the sandbox), so its values were
+  not observed in this lane.  make stage status 0, make overlay status
+  0.  After the change, on both backends: goalR and g10 no value, exit 0;
+  goal True; the same under checker:true on cxx.  Single files, each ok:
+  unit_pairing.py 11 on each backend, before and after the review (the
+  cycles moved to their own class); unit_occurs.py 10 on each backend
+  (9 ok and 1 expected failure before).  Through the runner (./run_tests
+  -j 2 --mem 4 --backend both): unit_constraints (14 on each backend),
+  unit_py_checker (52 on py, 51 before), unit_cxx_checker (59 on cxx, 58
+  before): 6 of 6 run, 0 failed, wall 51.0 s; unit_cxx_freevars,
+  unit_free_markers, unit_funpat_free_argument, unit_funcpat_narrowed,
+  unit_py_residuation, unit_setfunctions_bindings, unit_fingerprint,
+  unit_equality, unit_goals, unit_py_constraints, func_funpat and the six
+  func_eqconstr files: 34 of 34 run, 0 failed, wall 75.1 s;
+  unit_cxx_scheduler, unit_setfunctions_semantics, unit_setfunctions_bugs,
+  unit_cxx_runtime, unit_cxx_stack, unit_py_evaluation,
+  func_setfunctions, unit_cxx_interp, unit_api, unit_examples,
+  unit_prelude: 22 of 22 run, 0 failed, wall 129.1 s.  make -C docs
+  html: status 0.  Not run: the whole suite on both backends (the suite
+  stage).
+- Changed printed values.  The goals that narrowed without end give no
+  value and end: goalR and g10 of Occurs.curry, cycleVar and cycleLeaf of
+  Pairing.curry.  No other value of the test corpus changed.  The forks:
+  a strict equality of a decided variable and a free one makes no fork
+  where it forked once per constructor of the type before (the clones of
+  the other constructors failed); a decided side whose other side forks
+  is expanded once per clone instead of once before the fork.  The counts
+  were not measured.
+- Left to the owner.  (1) tests/manifest.json has no entry for
+  unit_pairing.py or unit_occurs.py; a calibration run adds them.  (2)
+  The matched-argument form costs one fork per pattern level more than
+  the paired form: the runtime has no map from a leaf of a generator to
+  its variable, and a map needs state beside the object format; the
+  values are the same.  (3) The non-strict equality keeps its order (a
+  decided left side is expanded before the right side is read); a
+  decision on =:<= would mirror the rule.  (4) The values of PAKCS for
+  goalR and g10 were not observed here.  (5) The whole suite on both
+  backends (the suite stage).

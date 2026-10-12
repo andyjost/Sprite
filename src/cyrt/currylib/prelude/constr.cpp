@@ -131,21 +131,54 @@ namespace cyrt { inline namespace
   // generator narrows it by that generator (rule S.x).
   static ValueSet const FREE_IN_CONFIGURATION{nullptr, 0, 'v'};
 
+  // The marker of the strict equality (kind 'd'): a variable the
+  // configuration decides is reported as it is too, instead of being
+  // replaced by its generator.  The step reads both sides before it
+  // expands a decided one (decision D25 of 2026-10-12).
+  static ValueSet const FREE_OR_DECIDED{nullptr, 0, 'd'};
+
+  // Whether the configuration decides the variable at ``var``: the
+  // fingerprint decides its group and no binding holds it.  Such a
+  // variable reads as its instance (replace_freevar writes its generator
+  // under FREE_IN_CONFIGURATION).
+  static bool decided(RuntimeState * rts, Configuration * C, Variable const & var)
+  {
+    xid_type const gid = C->grp_id(vid(var));
+    return !rts->get_binding(C, gid) && rts->is_narrowed(C, gid);
+  }
+
+  // Writes the generator of the decided variable at ``var`` into its slot
+  // (rule S.x; the pull-tab follows in hnf).
+  static tag_type expand(RuntimeState * rts, Configuration * C, Variable * var)
+    { return rts->hnf_or_free(C, var, &FREE_IN_CONFIGURATION); }
+
   tag_type constrEq_step(RuntimeState * rts, Configuration * C)
   {
     Cursor _0 = C->cursor();
     Variable lhs = _0[0];
     Variable rhs = _0[1];
-    // lhs:{0: ctor, 1: free, 2: unboxed} + rhs:{0: ctor, 3: free, 6: unboxed}
+    // lhs:{0: ctor, 1: variable, 2: unboxed}
+    //   + rhs:{0: ctor, 3: variable, 6: unboxed}
+    // A variable is one that is free in the configuration or one that the
+    // configuration decides; a bound one was replaced by its binding.  A
+    // decided variable is expanded to its instance once the other side is
+    // known: against a constructor or a value, or against a second decided
+    // variable.  Against a variable that is free in the configuration the
+    // step records the pair instead (decision D25 of 2026-10-12): the
+    // constraint step unites the two classes, with the occurs check, and
+    // the free variable reads the instance through the class.  The values
+    // are those of the narrowing of the free variable against the
+    // instance, with fewer forks, and a cyclic pair fails the step where
+    // the narrowing ran without end.
     int code = 0;
-    auto tagl = rts->hnf_or_free(C, &lhs, &FREE_IN_CONFIGURATION);
+    auto tagl = rts->hnf_or_free(C, &lhs, &FREE_OR_DECIDED);
     switch(tagl)
     {
       case T_UNBOXED: code += 2; break;
       case T_FREE   : code += 1; break;
       default       : if(tagl < T_CTOR) return tagl;
     }
-    auto tagr = rts->hnf_or_free(C, &rhs, &FREE_IN_CONFIGURATION);
+    auto tagr = rts->hnf_or_free(C, &rhs, &FREE_OR_DECIDED);
     switch(tagr)
     {
       case T_UNBOXED: code += 6; break;
@@ -155,15 +188,28 @@ namespace cyrt { inline namespace
     ValueSet vs;
     switch(code)
     {
-      case 1: return rts->hnf(C, &lhs, make_guides(&vs, rhs.target));
-      case 3: return rts->hnf(C, &rhs, make_guides(&vs, lhs.target));
-      case 4: _0->forward_to(
-                  vid(lhs) == vid(rhs)
-                      ? True
-                      : Node::create(
-                            &StrictConstraint_Info
-                          , True, pair(lhs.target, rhs.target)
-                          )
+      case 1: if(decided(rts, C, lhs))
+                return expand(rts, C, &lhs);
+              return rts->hnf(C, &lhs, make_guides(&vs, rhs.target));
+      case 3: if(decided(rts, C, rhs))
+                return expand(rts, C, &rhs);
+              return rts->hnf(C, &rhs, make_guides(&vs, lhs.target));
+      case 4: if(vid(lhs) == vid(rhs))
+              {
+                _0->forward_to(True);
+                return T_FWD;
+              }
+              // Two decided variables: the left one is expanded first, and
+              // the step runs again with its instance.
+              if(decided(rts, C, lhs) && decided(rts, C, rhs))
+                return expand(rts, C, &lhs);
+              // Two free variables, or a free one and a decided one: the
+              // pair.
+              _0->forward_to(
+                  Node::create(
+                      &StrictConstraint_Info
+                    , True, pair(lhs.target, rhs.target)
+                    )
                 );
               return T_FWD;
       case 2:
