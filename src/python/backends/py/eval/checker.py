@@ -51,7 +51,10 @@ The events the memo names, and the checks at each:
   constraint step and a yield as well: E5, a decided class of two or more
   variables has a generator at its root (Def 2.74, Thm 3.28 of the note on
   the Fair Scheme; issue #127); E11, every binding sits under the root of
-  its class, so a class holds one binding (Remark 2.70; issue #128).
+  its class, so a class holds one binding (Remark 2.70; issue #128); D15,
+  no class holds a variable that lies inside the generator instance of
+  another member, the occurs check of the decision of 2026-10-12 (the
+  union that would make such a class fails the step).
 
 * The dispatch of a configuration (fairscheme.D) and a drop of the
   dispatched configuration (D at a failed root, N at a failed successor of
@@ -521,6 +524,66 @@ class Checker(object):
           , config, ids=[k, r]
           )
 
+  def _check_occurs(self, config, event):
+    '''D15 (occurs check; the decision of 2026-10-12): no class of free
+    variables holds a variable that lies inside the generator instance of
+    another member.  Such a class has no finite instance (x = S x has no
+    term), and the union that would make it fails the step (occurs in
+    rts_constraints.py).  The instance of a decided class is the
+    generator at its root (E5), read along the decided path, through
+    forward cells, down to the inner variables, and through the generator
+    of each decided class it reaches, once per class.  A singleton class
+    holds no variable of its own instance, so the parent table names the
+    classes to check.'''
+    vtable = self.rts.vtable
+    def generator_of(vid):
+      x = vtable.get(vid)
+      if x is not None and self._has_generator(x):
+        return x.successors[1]
+      return None
+    parent = config.strict_constraints.read.parent.read
+    roots = sorted(set(_root(config, i) for i in parent))
+    for r in roots:
+      if self._decision(r, config) == UNDETERMINED:
+        continue
+      gen = generator_of(r)
+      if gen is None:
+        continue # E5 reports it.
+      seen = {r}
+      stack = [gen]
+      while stack:
+        node = _deref(stack.pop())
+        if not isinstance(node, Node):
+          continue
+        tag = node.info.tag
+        if tag == T_CHOICE:
+          cid, lhs, rhs = node.successors
+          d = self._decision(cid, config)
+          if d == LEFT:
+            stack.append(lhs)
+          elif d == RIGHT:
+            stack.append(rhs)
+        elif tag == T_FREE:
+          vid = node.successors[0]
+          rv = _root(config, vid)
+          if rv == r:
+            self._violation(
+                'D15 (occurs check)', event
+              , 'the class of variable %s holds variable %s, which lies '
+                'inside the generator instance of the class' % (r, vid)
+              , config, ids=[r, vid]
+              )
+          if rv in seen:
+            continue
+          seen.add(rv)
+          inner = generator_of(rv)
+          if inner is None:
+            inner = generator_of(vid)
+          if inner is not None:
+            stack.append(inner)
+        elif tag >= T_CTOR:
+          stack.extend(node.successors)
+
   def _check_escape_sets(self, event, config=None):
     '''Every escape set holds what the hook saw, and nothing less.'''
     for sid, shadow in self.escape_sets.items():
@@ -557,6 +620,7 @@ class Checker(object):
     for clone in clones:
       self._check_fingerprint(clone, 'fork', chain)
       self._check_bindings(clone, 'fork')
+      self._check_occurs(clone, 'fork')
       self._check_clone(clone, cid, parent)
       # The decision is recorded in the clone, or an enclosing configuration
       # made it before (update_fp writes nothing then, and one side alone
@@ -805,6 +869,7 @@ class Checker(object):
     chain = self._chain()
     self._check_fingerprint(config, 'yield', chain)
     self._check_bindings(config, 'yield')
+    self._check_occurs(config, 'yield')
     self._check_value(config)
     self._check_decided_variables(config)
     self._check_escape_sets('yield', config)
@@ -816,6 +881,7 @@ class Checker(object):
     self.counts['constraints'] += 1
     self._check_fingerprint(config, 'constraint', self._chain())
     self._check_bindings(config, 'constraint')
+    self._check_occurs(config, 'constraint')
 
   def dispatch(self, root):
     '''At the dispatch of a configuration (D): its root cell, its symbol

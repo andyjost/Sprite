@@ -66,3 +66,14 @@ lastOfRange n = lastOf [1..n]
 
 twoLastOf :: Int -> Int
 twoLastOf n = lastOfRange n ? lastOfRange n
+
+-- Narrows xs to n cons cells by a tail call.
+cells :: Int -> [Bool] -> Bool
+cells n xs = if n == 0 then xs =:= [] else case xs of (_:ys) -> cells (n-1) ys
+
+-- A deep instance united through a shared constraint cell: the right
+-- alternative narrows xs to n cells and then meets the cell xs =:= ys the
+-- left alternative made.  The pairing of the constraint store descends n
+-- levels (issue #131).
+deepPair :: Int -> Bool
+deepPair n = let e = xs =:= ys in e ? (cells n xs &> e &> True) where xs, ys free

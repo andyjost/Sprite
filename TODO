@@ -12516,3 +12516,187 @@
   updates them.  (6) The other findings of the audit stay open: the N.1
   look-ahead (issue 02 of the audit), the deferred form of the failure
   rule of the set functions (06, 08), and the decisions of its table.
+
+2026-10-12: the occurs check at the union of two classes of free variables (the owner's decision of 2026-10-12; worktree wt/occurs)
+- The source.  The Lean mechanization of the theory found that without
+  an occurs check the Fair Scheme yields a value no instance of the goal
+  produces: goal = let e = x =:= y in e ? k x y e, with k (S x') y e =
+  (x' =:= y) &> (e &> False) and data N = Z | S N (Cycle.curry of the
+  audit).  The right alternative narrows x to S x', unites x' with y, and
+  then meets the shared cell x =:= y: the class of x would hold x', a
+  variable inside the instance of x, which no finite term satisfies.
+  KiCS2 3.5.0 gives True and False (observed through the harness).  The
+  owner states that PAKCS 3.4.1 gives no value for the right alternative,
+  so True alone; the harness could not run PAKCS here (it writes under
+  /tmp, read-only in the sandbox), so that value was not observed in this
+  lane.  Sprite gave True and then dumped core past its stack guard
+  on the C++ backend (issue #131), or raised a recursion error on the
+  Python backend.  The owner approved on 2026-10-12 a rule of the scheme
+  and of Sprite with it: when a constraint step unites the class of x
+  with the class of y, the merged class is tested for a cycle, a member
+  whose generator instance (the choice tree with the inner free
+  variables at the constructor arguments, as created so far) contains
+  another member of the class; if there is one, the step fails as an
+  inconsistent constraint does, and the configuration is dropped.  The
+  approved values: goal True alone; goalR (the right alternative alone)
+  no value; Fsb.g10 of the audit, (x =:= unJ y) &> (y =:= unJ x) &>
+  True, no value; every other behaviour as before.
+- The rule in the runtime (both backends, the same test).  occurs in
+  state/rts_constraints.cpp and in rts_constraints.py, called after the
+  union and the merge of the bindings and before the pairing
+  (_constrain_equal_rec), whose recursion on a cyclic class never ends.
+  The test is local to the union.  It walks the generator instance of
+  each side (the generator of the variable of the constraint, or of the
+  root of its class before the union; a side without one, undecided or
+  fresh, has no instance): the choice nodes along the decided path
+  (read_fp), the constructor cells, through forward cells, down to the
+  inner free variables.  An inner variable of the merged class is the
+  cycle.  An inner variable of another decided class is bound through
+  that class (Def 2.74), so the walk continues into the generator of
+  that class (its own, or that of its root; E5), once per class.  A
+  choice the configuration has not decided ends the walk: the variable
+  is not narrowed there, and its generator is no instance of it (a walk
+  of both sides would report a cycle through an alternative the
+  configuration may never take).  Nothing is scanned outside the union:
+  no table, no scan of the ids united.  Two unions skip the test without
+  loss.  A union of two variables already in one class (the fork's
+  constrain_equal of a variable with its root; the pairing of two paired
+  generators) identifies nothing new.  A union of a leaf with a fresh
+  leaf of a clone made in the same pairing (the flag fresh of
+  pair_generators and of _constrain_equal): the fresh leaf has no
+  instance and lies in no instance outside the class the enclosing union
+  tested, so that test covers it; without the skip the pairing of an
+  instance of n cells walked the instance below every leaf, O(n^2) for a
+  linear pairing (deepShared 20000 of the probe ran into the timeout of
+  60 s; with the skip 0.25 s).  The signature of
+  RuntimeState::constrain_equal is in state/rts.hpp (the include closure,
+  the ABI stamp), so the flag is a parameter of the file-static
+  constrain_equal_impl, which the method calls with false.
+- The finding: the check at the union does not reach goalR and g10.  In
+  Sprite the equality step expands a decided variable to its instance
+  before the pair reaches the constraint store (replace_freevar with the
+  marker FREE_IN_CONFIGURATION, issue #129: a variable whose group is
+  decided is narrowed by its generator, or by a clone through its
+  class).  In goalR, after x' =:= y, the step x =:= y becomes S x' =:=
+  y, which narrows y by a fork; S x' =:= S y' becomes x' =:= y', which
+  expands x' through its decided class to S x'2; and so on: every union
+  the store sees pairs two fresh leaves (a trace of the Python backend
+  with x = 0, y = 1, x' = 2: the unions 2 ~ 1, then 3 ~ 4, 5 ~ 6, 7 ~ 8,
+  ...), and the cycle appears as an endless narrowing, never as a union
+  of two classes.  g10 takes the same route.  In goal, the left
+  alternative makes the constraint cell x =:= y while both are free, and
+  the right alternative meets that cell at its root: the constraint step
+  of D unites the class of x with the class {x', y}, and the check fails
+  the step.  So goal gives True alone on both backends; goalR and g10
+  run on without end as before (the timeout of 60 s on both backends).
+  The approved values of goalR and g10 need a decision on the equality
+  step, which the lane of 2026-10-11 left to the owner (item (4) of its
+  entry): (A) the strict equality of a decided variable and a variable
+  that is free in the configuration makes the constraint cell instead of
+  expanding the decided side, so the union and its check happen (the
+  free side is then bound through the class, without a fork; the values
+  stay, the forks are fewer); or (B) an occurs check at the narrowing of
+  a free variable against a constructor term in a strict equality (the
+  term, as created so far, holds a variable of the class of the
+  variable), whose walk of the term costs O(size) at every narrowing and
+  makes xs =:= l, with l an evaluated list of n cells, O(n^2).  (A) keeps
+  one rule at one site and is recommended; it changes the equality step
+  of both backends (constr.cpp, constr.py), the Def 2.62 check of the
+  checkers, and the behaviour the lane of 2026-10-11 set under #129.
+  Until then TestNoUnion of unit_occurs.py pins the approved values
+  under expectedFailure (a child of 30 s).
+- The checker (both backends).  D15 (occurs check), named after the
+  decision item the audit filed the infinite class under: no class
+  holds a variable that lies inside the generator instance of another
+  member, verified at every fork (each clone), constraint step and
+  yield beside E5 and E11 (check_occurs in checker.cpp, _check_occurs
+  in checker.py).  The classes checked are those of the ids united (C++)
+  or of the parent table (Python), the decided ones; the instance of a
+  class is the generator at its root, read as the walk of the runtime
+  reads it.  A violation is reported, never a changed value.  The check
+  was seen to fire on a constructed state alone (test_occurs_check of
+  unit_py_checker.py and of unit_cxx_checker.py: x with the generator
+  Nothing ?_x Just y, decided RIGHT, y united with x); the goals of
+  unit_occurs.py run under the checker on both backends without a
+  report.  The module docstring of
+  checker.py and the checker section of DeveloperNotes.rst name the
+  check.
+- #131 (the core dump).  The pairing of the constraint store
+  (constrain_equal, _constrain_equal_rec, pair_generators) recurses once
+  per level of the instances, and the stack guard polls stack_exhausted
+  at the T_FUNC cases of hnf and procN alone, so a recursion of the
+  store ran past the guard into the C stack: goal before the check (the
+  cyclic pairing), and after it deepPair 100000 of StackGuard.curry (let
+  e = xs =:= ys in e ? (cells n xs &> e &> True), with cells a tail call
+  that narrows xs to n cells; the pairing descends n levels): the probe
+  gave True and dumped core, exit 139, in 0.9 s.  The small local fix:
+  _constrain_equal_rec polls stack_exhausted and throws the
+  EvaluationError of the guard ("stack limit of N bytes exceeded (flag
+  stack_limit)"), which the bindings hand to Python as
+  curry.EvaluationError.  deepPair 100000 gives True and the error now
+  (0.4 s); test_deep_pairing_raises of unit_cxx_stack.py pins it at the
+  limit of the test file.  The deferred form of the guard (drop the
+  alternative, report when the queue is empty) needs the pairing to
+  unwind and resume, and an iterative pairing (a worklist) changes the
+  order of the ids of the clones; both stay open under #131.  A change
+  in printed values: a pairing deeper than the stack limit ends with the
+  error where it ran on in the C stack before (deepPair 20000: two
+  values before, True and the error now, as a nested length of that
+  depth gives); a pairing of 2000 levels keeps both values.
+- Tests.  data/curry/Occurs.curry and unit_occurs.py (both backends; one
+  child per class under prlimit and timeout, and one under the checker):
+  TestSharedCell (goal; goalJ, the shape with data R = N | J R: True
+  alone); TestControls (ctrlShared; ctrlChain, an instance that reaches
+  another decided class; ctrlLeaf; ctrlPair, two narrowed variables
+  paired leaf by leaf; fiveCells, the g16 of Constraints.curry: the
+  values of before); TestNoUnion (goalR, g10: the expected failure
+  above); TestChecker.  test_occurs_check of unit_py_checker.py (the
+  Python backend) and of unit_cxx_checker.py (the C++ backend, on a
+  constructed state through the debug entries of the bindings: x with
+  the generator Nothing ?_x Just y, y with Nothing ?_y Just x, both
+  decided RIGHT, no report apart, D15 at the yield once united);
+  test_deep_pairing_raises of unit_cxx_stack.py with deepPair and cells
+  of StackGuard.curry (the C++ backend).
+- Verification (the clean environment, CCACHE_DIR set, prlimit, at most
+  two test processes at a time).  Before the change, under sprite-exec
+  with steps:65536, prlimit 2 GB and timeout 60: Cycle goal True then a
+  core dump on cxx (exit 139), True then a recursion error on py (exit
+  1); goalR the timeout on both; g10 and g10v the timeout on both;
+  KiCS2 through the harness: goal True and False, goalR False, g10 True;
+  PAKCS through the harness: exit 4, read-only /tmp.  After the change:
+  goal True alone, exit 0, on both backends, and under checker:true on
+  cxx; goalJ True; ctrlShared, ctrlChain, ctrlLeaf True twice; ctrlPair
+  (True, True), (False, False); fiveCells the two values of g16; goalR
+  and g10 the timeout on both.  make stage status 0 (four runs), make
+  overlay status 0 (four runs).  Single files: unit_py_checker.py 51 ok on py (50
+  before); unit_occurs.py 9 ok with 1 expected failure on each backend;
+  unit_cxx_stack.py 17 ok on cxx (16 before); unit_cxx_checker.py 58 ok
+  on cxx (57 before), 58 ran on py with 54 skipped.  Through the runner
+  (./run_tests -j 2 --mem 4): on py, unit_constraints,
+  unit_py_constraints, unit_free_markers, unit_funpat_free_argument,
+  unit_funcpat_narrowed, unit_fingerprint, unit_equality, unit_goals,
+  unit_setfunctions_bindings, func_funpat and the six func_eqconstr
+  files: 16 of 16 run, 0 failed, wall 41.0 s; on cxx the same files with
+  unit_occurs, unit_cxx_freevars and unit_cxx_checker: 18 of 18 run, 0
+  failed, wall 84.6 s; unit_py_checker and unit_cxx_stack on py: 2 of 2,
+  0 failed; on both backends, unit_setfunctions_semantics,
+  unit_setfunctions_bugs, unit_cxx_scheduler, unit_py_residuation,
+  unit_cxx_runtime, unit_py_evaluation, func_setfunctions,
+  unit_cxx_interp, unit_api, unit_examples and unit_prelude: 22 of 22
+  run, 0 failed, wall 136.6 s.  Not run: the whole suite on both
+  backends (the suite stage).
+- Left to the owner.  (1) The equality step for goalR and g10, (A) or
+  (B) above.  (2) The deferred form of the guard in the constraint
+  store, under #131, and the acceptance of the changed output it brings
+  today: a pairing deeper than stack_limit ends with the guard's error
+  at once (an EvaluationError, not the dropped alternative of the
+  deferred form), where it ran on in the C stack before; deepPair 20000
+  gave two values and gives True and the error now.  (3) tests/manifest.json has no entry for
+  unit_occurs.py; a calibration run adds it.  (4) On the Python backend
+  a pairing deeper than its recursion limit ends with RecursionError,
+  not curry.EvaluationError.  (5) The quadratic walk remains for the
+  union of two decided classes with deep instances (both sides with
+  generators before the union): the test at each leaf pair walks the
+  instance below it, which the example of a cycle that only an inner
+  pair shows (a1 = S c with c ~ b1, united through A = S a1 and B = S
+  b1) needs.

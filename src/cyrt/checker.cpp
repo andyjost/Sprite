@@ -1090,6 +1090,7 @@ namespace cyrt
       Configuration * clone = clones[k];
       this->check_fingerprint(clone, "fork", enclosing);
       this->check_bindings(clone, "fork");
+      this->check_occurs(clone, "fork");
       this->check_clone(clone, cid, C);
       // The decision is recorded in the clone, or an enclosing
       // configuration made it before (update_fp writes nothing then, and
@@ -1480,6 +1481,7 @@ namespace cyrt
     auto const enclosing = this->chain(false);
     this->check_fingerprint(C, "yield", enclosing);
     this->check_bindings(C, "yield");
+    this->check_occurs(C, "yield");
     this->check_value(C);
     this->check_decided_variables(C);
     this->check_escape_sets("yield", C);
@@ -1570,6 +1572,83 @@ namespace cyrt
             + std::to_string(r)
           , C, {k, r}
           );
+    }
+  }
+
+  // D15 (occurs check; the decision of 2026-10-12): no class of free
+  // variables holds a variable that lies inside the generator instance of
+  // another member.  Such a class has no finite instance (x = S x has no
+  // term), and the union that would make it fails the step (occurs in
+  // state/rts_constraints.cpp).  The instance of a decided class is the
+  // generator at its root (E5), read along the decided path, through
+  // forward cells, down to the inner variables, and through the generator
+  // of each decided class it reaches, once per class.  A singleton class
+  // holds no variable of its own instance, so the ids united name the
+  // classes to check.
+  void Checker::check_occurs(Configuration * C, char const * event)
+  {
+    auto generator_of = [this](xid_type vid) -> Node *
+    {
+      Node * x = this->rts.get_freevar(vid);
+      return x && x->info->tag == T_FREE ? has_generator(x) : nullptr;
+    };
+    std::unordered_set<xid_type> roots;
+    for(xid_type i: C->strict_constraints->united)
+      roots.insert(group_root(C, i));
+    for(xid_type r: roots)
+    {
+      if(this->decision(r, C) == UNDETERMINED)
+        continue;
+      Node * gen = generator_of(r);
+      if(!gen)
+        continue; // E5 reports it.
+      std::unordered_set<xid_type> seen{r};
+      std::vector<Node *> stack{gen};
+      while(!stack.empty())
+      {
+        Node * node = deref_fwd(stack.back());
+        stack.pop_back();
+        if(!node)
+          continue;
+        tag_type const tag = node->info->tag;
+        if(tag == T_CHOICE)
+        {
+          ChoiceNode * choice = NodeU{node}.choice;
+          ChoiceState const d = this->decision(choice->cid, C);
+          if(d == LEFT)
+            stack.push_back(choice->lhs);
+          else if(d == RIGHT)
+            stack.push_back(choice->rhs);
+        }
+        else if(tag == T_FREE)
+        {
+          xid_type const vid = NodeU{node}.free->vid;
+          xid_type const rv = group_root(C, vid);
+          if(rv == r)
+            this->violation(
+                "D15 (occurs check)", event
+              , "the class of variable " + std::to_string(r) + " holds variable "
+                + std::to_string(vid)
+                + ", which lies inside the generator instance of the class"
+              , C, {r, vid}
+              );
+          if(!seen.insert(rv).second)
+            continue;
+          Node * inner = generator_of(rv);
+          if(!inner)
+            inner = generator_of(vid);
+          if(inner)
+            stack.push_back(inner);
+        }
+        else if(tag >= T_CTOR)
+        {
+          InfoTable const * info = node->info;
+          Arg const * args = node->successors();
+          for(index_type k = 0; k < info->arity; ++k)
+            if(info->format[k] == 'p')
+              stack.push_back(args[k].node);
+        }
+      }
     }
   }
 
@@ -2297,6 +2376,7 @@ namespace cyrt
     auto const enclosing = this->chain(false);
     this->check_fingerprint(C, "constraint", enclosing);
     this->check_bindings(C, "constraint");
+    this->check_occurs(C, "constraint");
   }
 
   void Checker::step_begin(Configuration * C)

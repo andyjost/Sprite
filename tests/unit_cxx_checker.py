@@ -776,6 +776,32 @@ class TestFreeVariables(CheckerTestCase):
     with self.assertRaisesRegex(cb.InvariantViolation, 'X-b.*not the generator'):
       cb.checker_debug_instantiate_end(rts, [0])
 
+  def test_occurs_check(self):
+    '''D15: a decided class whose generator instance holds another member
+    (the occurs check of the decision of 2026-10-12).  The generator of x
+    is Nothing ?_x Just y, that of y is Nothing ?_y Just x; both are decided
+    RIGHT.  Apart, no report; united, the class holds a cycle.'''
+    cb = _cb()
+    P = curry.getInterpreter().prelude
+    rts = _state(_node(1))
+    x = cb.checker_debug_freshvar(rts)
+    y = cb.checker_debug_freshvar(rts)
+    vx, vy = _vid(x), _vid(y)
+    cb.checker_debug_attach_generator(
+        rts, x, _make(cb.Choice, vx, _node(P.Nothing), _just(y))
+      )
+    cb.checker_debug_attach_generator(
+        rts, y, _make(cb.Choice, vy, _node(P.Nothing), _just(x))
+      )
+    cb.checker_debug_set_fp(rts, vx, RIGHT)
+    cb.checker_debug_set_fp(rts, vy, RIGHT)
+    cb.checker_debug_check_yield(rts)
+    cb.checker_debug_unite(rts, vx, vy)
+    with self.assertRaisesRegex(
+        cb.InvariantViolation, r'D15 \(occurs check\).*holds variable'
+      ):
+      cb.checker_debug_check_yield(rts)
+
 
 class TestSetFunctions(CheckerTestCase):
   '''RI S0, S-split.'''
