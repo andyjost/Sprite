@@ -228,6 +228,9 @@ namespace cyrt
     // E11: the bindings of a configuration sit under the roots of their
     // classes, one per class.
     void check_bindings(Configuration *, char const * event);
+    // D15: no class holds a variable inside the generator instance of
+    // another member (the occurs check).
+    void check_occurs(Configuration *, char const * event);
 
     // FS-x.
     bool reducts(Node * watch, std::vector<ReductRecord> &);

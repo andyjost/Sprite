@@ -1,12 +1,19 @@
 #include "cyrt/builtins.hpp"
+#include "cyrt/exceptions.hpp"
 #include "cyrt/graph/walk.hpp"
 #include "cyrt/inspect.hpp"
 #include "cyrt/state/configuration.hpp"
 #include "cyrt/state/rts.hpp"
+#include <unordered_set>
+#include <vector>
 
 namespace cyrt
 {
   bool _constrain_equal_rec(RuntimeState *, Configuration *, xid_type, xid_type);
+  static bool constrain_equal_impl(
+      RuntimeState *, Configuration *, Node *, Node *, ConstraintType
+    , bool fresh
+    );
 
   // Moves the binding of ``old``, a root of a class before a union, to
   // ``root``, the root after it: a class keeps one binding, under its root.
@@ -38,6 +45,107 @@ namespace cyrt
     merge_binding(this, C, vid, C->grp_id(vid));
   }
 
+  // The generator of variable ``vid``, or of ``root``, the root of its
+  // class, or nullptr.  A decided class has one at its root (E5).
+  static Node * class_generator(
+      RuntimeState * rts, xid_type vid, xid_type root
+    )
+  {
+    for(xid_type k: {vid, root})
+    {
+      Node * x = rts->get_freevar(k);
+      if(x && x->info->tag == T_FREE)
+        if(Node * gen = has_generator(x))
+          return gen;
+    }
+    return nullptr;
+  }
+
+  // Whether the generator instance ``gen`` contains a variable of the class
+  // with root ``root``.  ``seen`` holds the roots of the classes whose
+  // generators were entered.  The walk allocates no node.
+  static bool instance_reaches(
+      RuntimeState * rts, Configuration * C, Node * gen, xid_type root
+    , std::unordered_set<xid_type> & seen
+    )
+  {
+    std::vector<Node *> stack{gen};
+    while(!stack.empty())
+    {
+      Node * node = stack.back();
+      stack.pop_back();
+      while(node && node->info->tag == T_FWD)
+        node = NodeU{node}.fwd->target;
+      if(!node)
+        continue;
+      tag_type const tag = node->info->tag;
+      if(tag == T_CHOICE)
+      {
+        ChoiceNode * choice = NodeU{node}.choice;
+        ChoiceState const lr = rts->read_fp(C, choice->cid);
+        if(lr == LEFT)
+          stack.push_back(choice->lhs);
+        else if(lr == RIGHT)
+          stack.push_back(choice->rhs);
+      }
+      else if(tag == T_FREE)
+      {
+        xid_type const vid = NodeU{node}.free->vid;
+        xid_type const r = C->grp_id(vid);
+        if(r == root)
+          return true;
+        if(!seen.insert(r).second)
+          continue;
+        if(Node * inner = class_generator(rts, vid, r))
+          stack.push_back(inner);
+      }
+      else if(tag >= T_CTOR)
+      {
+        InfoTable const * info = node->info;
+        Arg const * args = node->successors();
+        for(index_type k = 0; k < info->arity; ++k)
+          if(info->format[k] == 'p')
+            stack.push_back(args[k].node);
+      }
+    }
+    return false;
+  }
+
+  // The occurs check at the union of two classes of free variables (the
+  // decision of 2026-10-12 on the Fair Scheme).  ``i`` and ``j`` are the
+  // two variables of the constraint, just united; ``ri`` and ``rj`` are
+  // the roots of their classes before the union.  True when the merged
+  // class has a cycle: a member whose generator instance, as created so
+  // far, contains another member of the class.  Such a class has no finite
+  // instance (x = S x has no term), so the step fails.
+  //
+  // The test is local to the union.  It walks the generator instance of
+  // each side (the generator of the variable or of its old root; a side
+  // without one, undecided or fresh, has no instance): the choice nodes
+  // along the decided path, the constructor cells, through forward cells,
+  // down to the inner free variables.  An inner variable of the merged
+  // class is the cycle.  An inner variable of another decided class is
+  // bound through that class (Def 2.74), so the walk continues into the
+  // generator of that class, once per class.  A choice the configuration
+  // has not decided ends the walk there: the variable is not narrowed
+  // here, and its generator is no instance of it.  The Python backend has
+  // the same test (occurs in rts_constraints.py), and the checker verifies
+  // the invariant (D15 (occurs check)).
+  static bool occurs(
+      RuntimeState * rts, Configuration * C
+    , xid_type i, xid_type j, xid_type ri, xid_type rj
+    )
+  {
+    xid_type const root = C->grp_id(i);
+    std::unordered_set<xid_type> seen;
+    xid_type const sides[2][2] = {{i, ri}, {j, rj}};
+    for(auto const & side: sides)
+      if(Node * gen = class_generator(rts, side[0], side[1]))
+        if(instance_reaches(rts, C, gen, root, seen))
+          return true;
+    return false;
+  }
+
   bool RuntimeState::constrain_equal(Configuration * C, Cursor cur)
   {
     ConstrNode * constr = NodeU{cur}.constr;
@@ -50,6 +158,16 @@ namespace cyrt
       Configuration * C, Node * x, Node * y, ConstraintType ctype
     )
   {
+    return constrain_equal_impl(this, C, x, y, ctype, false);
+  }
+
+  // ``fresh`` is true for the pairs of the pairing of a generator with a
+  // clone made in the same call (see pair_generators).
+  static bool constrain_equal_impl(
+      RuntimeState * rts, Configuration * C, Node * x, Node * y
+    , ConstraintType ctype, bool fresh
+    )
+  {
     assert(inspect::is_nondet(x));
     xid_type const i = obj_id(x);
     xid_type const j = inspect::is_nondet(y) ? obj_id(y) : NOXID;
@@ -57,7 +175,7 @@ namespace cyrt
     {
       if(ctype == STRICT_CONSTRAINT)
       {
-        if(!this->equate_fp(C, i, j))
+        if(!rts->equate_fp(C, i, j))
           return false;
         // The bindings of a class sit under its root: the roots before the
         // union hand theirs to the root after it.
@@ -65,13 +183,24 @@ namespace cyrt
         xid_type const rj = C->grp_id(j);
         write(C->strict_constraints).unite(i, j);
         xid_type const r = C->grp_id(i);
-        if(!merge_binding(this, C, ri, r) || !merge_binding(this, C, rj, r))
+        if(!merge_binding(rts, C, ri, r) || !merge_binding(rts, C, rj, r))
           return false;
         if(inspect::isa_freevar(x) || inspect::isa_freevar(y))
-          return _constrain_equal_rec(this, C, i, j);
+        {
+          // The occurs check: a cycle through the merged class has no
+          // finite instance, so the step fails as an inconsistent
+          // constraint does.  Two variables of one class (the fork's
+          // constraint of a variable with its root; the pairing of two
+          // paired generators) identify nothing new, and a fresh leaf of
+          // a clone has no instance and lies in no instance outside the
+          // class the enclosing union tested: neither needs the test.
+          if(ri != rj && !fresh && occurs(rts, C, i, j, ri, rj))
+            return false;
+          return _constrain_equal_rec(rts, C, i, j);
+        }
       }
       else
-        return this->add_binding(C, i, y);
+        return rts->add_binding(C, i, y);
     }
     return true;
   }
@@ -79,14 +208,18 @@ namespace cyrt
   // Pairs the generators of two variables leaf by leaf (Def 2.67 of the
   // note on the Fair Scheme): a sub-variable of one is constrained equal to
   // the sub-variable of the other at the same position.
+  // ``fresh`` says that ``v`` is a clone made for this pairing: its leaves
+  // are fresh variables (constrain_equal_impl).
   static bool pair_generators(
-      RuntimeState * rts, Configuration * C, Node * u, Node * v
+      RuntimeState * rts, Configuration * C, Node * u, Node * v, bool fresh
     )
   {
     for(Walk p(u), q(v); p && q; ++p, ++q)
     {
       if(inspect::is_nondet(p.cursor()))
-        if(!rts->constrain_equal(C, p.cursor(), q.cursor(), STRICT_CONSTRAINT))
+        if(!constrain_equal_impl(
+            rts, C, p.cursor(), q.cursor(), STRICT_CONSTRAINT, fresh
+          ))
           return false;
       if(!inspect::isa_freevar(p.cursor()))
         { p.extend(); q.extend(); }
@@ -108,6 +241,15 @@ namespace cyrt
       RuntimeState * rts, Configuration * C, xid_type i, xid_type j
     )
   {
+    // The pairing recurses once per level of the instances, outside the
+    // steps where the stack guard unwinds (issue #131).  A pairing deeper
+    // than the stack limit ends the evaluation with the error of the
+    // guard instead of a segmentation fault.
+    if(rts->stack_exhausted())
+      throw EvaluationError(
+          "stack limit of " + std::to_string(rts->stack_room)
+          + " bytes exceeded (flag stack_limit)"
+        );
     Node * x = rts->get_freevar(i);
     if(!x) return true;
     Node * y = rts->get_freevar(j);
@@ -143,9 +285,10 @@ namespace cyrt
         seen = seen || others[m] == other;
       if(seen)
         continue;
-      if(!has_generator(other))
+      bool const fresh = !has_generator(other);
+      if(fresh)
         rts->clone_generator(pivot, other);
-      if(!pair_generators(rts, C, u, rts->get_generator(C, other)))
+      if(!pair_generators(rts, C, u, rts->get_generator(C, other), fresh))
         return false;
     }
     return true;

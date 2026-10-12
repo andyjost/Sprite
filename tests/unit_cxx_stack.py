@@ -115,6 +115,17 @@ class TestStackGuard(cytest.TestCase):
     self.assertEqual(lines[0], 'value 200000')
     self.assertRegex(lines[1], self.STACK_ERROR)
 
+  def test_deep_pairing_raises(self):
+    '''
+    The pairing of two deep generators in the constraint store recurses
+    once per level, outside the steps where the guard unwinds (issue
+    #131).  The store polls the guard and ends the evaluation with its
+    error instead of a segmentation fault.
+    '''
+    lines = self.evaluate('M.deepPair, %d' % self.N, count=2)
+    self.assertEqual(lines[0], 'value True')
+    self.assertRegex(lines[1], self.STACK_ERROR)
+
   def test_nested_queue_unwinds_to_enclosing_queue(self):
     '''
     An audit finding: a set function evaluates its argument in a nested work

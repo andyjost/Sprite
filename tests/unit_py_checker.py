@@ -534,6 +534,27 @@ class TestAuditChecks(CheckerTestCase):
     with self.assertRaisesRegex(_checker().InvariantViolation, 'E5.*no generator'):
       rts.checker.yield_(config)
 
+  def test_occurs_check(self):
+    '''D15: a decided class {x, y} whose generator instance holds y (the
+    occurs check of the decision of 2026-10-12).'''
+    from curry.backends.py.eval import configuration, rts_freevars
+    interp = curry.getInterpreter()
+    rts = _state(curry.raw_expr(1))
+    x = rts.freshvar()
+    rts_freevars._make_generator(rts, x, interp.type('Prelude.Maybe'))
+    # The generator of x is Nothing ?_x Just y, with y its inner variable.
+    _, gen = x.successors
+    y = gen.successors[2].successors[0]
+    xid, yid = x.successors[0], y.successors[0]
+    config = configuration.Configuration(rts.expr(1))
+    config.fingerprint[xid] = RIGHT
+    # x is the root of the class {x, y}.
+    config.strict_constraints.write[yid] = xid
+    with self.assertRaisesRegex(
+        _checker().InvariantViolation, 'D15.*holds variable %s' % yid
+      ):
+      rts.checker.yield_(config)
+
   def test_one_binding_per_class(self):
     '''E11: a binding under a member of its class (issue #128).'''
     from curry.backends.py.eval import configuration

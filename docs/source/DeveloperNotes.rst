@@ -222,7 +222,9 @@ the implementation; the memo states them in its sections 2.1 to 2.5):
   of two or more variables has a generator at its root (E5, Def 2.74 of
   the note on the Fair Scheme; issue #127), and every binding sits under
   the root of its class, one binding per class (E11, Remark 2.70; issue
-  #128).
+  #128), and no class holds a variable that lies inside the generator
+  instance of another member (D15 (occurs check), the decision of
+  2026-10-12: the union that would make such a class fails the step).
 * The dispatch of a configuration and a drop of it (``D``, and ``N`` at a
   failed successor of the root): the discards change no cell, so a
   constructor, set-guard or constraint cell at the root holds at the drop
