@@ -70,7 +70,11 @@ The events the memo names, and the checks at each:
   a variable that is free in the configuration (its group undecided, no
   binding) against a constructor alone; two free variables make a
   constraint cell, and a free left side of =:<= takes the right side as a
-  binding without a step at it (issue #129).
+  binding without a step at it (issue #129).  A step of =:= that meets a
+  decided variable and a variable that is free in the configuration
+  records the pair: it neither narrows the free one against the instance
+  nor replaces the decided one by its generator (decision D25 of
+  2026-10-12).
 
 * An instantiation (rule S.x; rts_freevars.instantiate), the copy of rule
   N.x (fairscheme.N and hnf), and the creation of a generator.  X1: one
@@ -954,7 +958,10 @@ class Checker(object):
     side as a non-strict binding, without a step at it.  A variable that
     the fingerprint decides, or that a binding holds, is bound, and its
     generator is read; a generator created by another configuration binds
-    nothing here (issue #129).'''
+    nothing here (issue #129).  The strict equality of a decided variable
+    and a variable that is free in the configuration records the pair
+    (decision D25 of 2026-10-12): it neither narrows the free one against
+    the instance nor expands the decided one against the free one.'''
     root, x = var.root, var.target
     if not isinstance(root, Node) or not isinstance(x, Node) \
         or x.info.tag != T_FREE or not var.realpath:
@@ -964,19 +971,34 @@ class Checker(object):
       return
     vid = x.successors[0]
     config = self.rts.C
-    if self._decision(vid, config) != UNDETERMINED \
-        or self._binding(vid, config) is not None:
-      return
+    def free_in(v):
+      return self._decision(v, config) == UNDETERMINED \
+          and self._binding(v, config) is None
+    def decided_in(v):
+      return self._decision(v, config) != UNDETERMINED \
+          and self._binding(v, config) is None
     pos = var.realpath[0]
     other = _deref(root.successors[1 - pos]) if pos in (0, 1) else None
     against_free = isinstance(other, Node) and other.info.tag == T_FREE
-    if (name == 'constrEq' and against_free) \
-        or (name == 'nonstrictEq' and pos == 0):
+    ovid = other.successors[0] if against_free else None
+    strict = name == 'constrEq'
+    if free_in(vid) and (
+        (strict and against_free) or (name == 'nonstrictEq' and pos == 0)
+      ):
+      detail = 'the step of %s narrows variable %s, which is free in the ' \
+          'configuration' % (name, vid)
+      if strict and decided_in(ovid):
+        detail += ', against variable %s, which the configuration ' \
+            'decides: the step pairs them (decision D25)' % ovid
+      self._violation('Def 2.62 (equality step)', event, detail, config, ids=[vid])
+    elif strict and decided_in(vid) and against_free and free_in(ovid):
       self._violation(
           'Def 2.62 (equality step)', event
-        , 'the step of %s narrows variable %s, which is free in the '
-          'configuration' % (name, vid)
-        , config, ids=[vid]
+        , 'the step of %s replaces variable %s, which the configuration '
+          'decides, by its generator against variable %s, which is free in '
+          'the configuration: the step pairs them (decision D25)'
+              % (name, vid, ovid)
+        , config, ids=[vid, ovid]
         )
 
   def _check_value(self, config):

@@ -209,7 +209,7 @@ def S(rts, node):
     rts.count_step()
 
 @callstack.with_hnf_stackframe
-def hnf(rts, var, typedef=None, values=None, free=False):
+def hnf(rts, var, typedef=None, values=None, free=False, decided=False):
   '''
   Head-normalize the expression at the given variable.
 
@@ -241,6 +241,13 @@ def hnf(rts, var, typedef=None, values=None, free=False):
       S.x).  The C++ runtime has the same rule (FREE_IN_CONFIGURATION in
       currylib/prelude/constr.cpp).
 
+    decided:
+      With ``free``, a variable the configuration decides is reported as it
+      is too, instead of being replaced by its generator; a binding alone is
+      copied in.  The strict equality reads both sides before it expands a
+      decided one (decision D25 of 2026-10-12; FREE_OR_DECIDED of the C++
+      step).
+
   Returns:
     The updated variable, ``var``.
   '''
@@ -271,7 +278,7 @@ def hnf(rts, var, typedef=None, values=None, free=False):
       rts.unwind()
     elif tag == T_FREE:
       if free:
-        narrow = not rts.has_binding(var.target) \
+        narrow = not decided and not rts.has_binding(var.target) \
             and rts.is_narrowed(var.target)
       else:
         narrow = rts.has_generator(var.target)
@@ -318,14 +325,15 @@ def hnf(rts, var, typedef=None, values=None, free=False):
     else:
       assert False
 
-def hnf_or_free(rts, var, typedef=None, free=False):
+def hnf_or_free(rts, var, typedef=None, free=False, decided=False):
   '''
   Reduce the expression to head normal form or a free variable.  With
   ``free`` a variable that is free in the configuration is reported as it
-  is, although a generator may exist (see ``free`` of hnf).
+  is, although a generator may exist, and with ``decided`` as well a
+  variable the configuration decides (see hnf).
   '''
   try:
-    return hnf(rts, var, typedef, free=free)
+    return hnf(rts, var, typedef, free=free, decided=decided)
   except control.E_RESIDUAL:
     # The argument could be a free variable or an expression containing a free
     # variable that cannot be narrowed, such as "ensureNotFree x".

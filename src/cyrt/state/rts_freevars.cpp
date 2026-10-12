@@ -166,18 +166,24 @@ namespace cyrt
     Cursor & slot = inductive->target;
     assert(slot->info->tag == T_FREE);
     ValueSet const * values = (ValueSet const *) guides;
-    // The marker of the equality steps (FREE_IN_CONFIGURATION in
-    // currylib/prelude/constr.cpp), a value set of kind 'v': the caller
-    // takes a free variable as it is.  The variable is bound here when a
-    // binding holds it or the fingerprint decides its group; a generator
-    // another configuration created binds nothing (issue #129).  Without
-    // the marker a variable with a generator is narrowed by it.
-    bool const free_wanted = values && values->kind == 'v';
+    // The markers of the equality steps (currylib/prelude/constr.cpp),
+    // value sets without values.  FREE_IN_CONFIGURATION, kind 'v': the
+    // caller takes a free variable as it is.  The variable is bound here
+    // when a binding holds it or the fingerprint decides its group; a
+    // generator another configuration created binds nothing (issue #129).
+    // FREE_OR_DECIDED, kind 'd': a variable the fingerprint decides is
+    // reported as it is too, and a binding alone is copied in; the strict
+    // equality reads both sides before it expands a decided one (decision
+    // D25).  Without a marker a variable with a generator is narrowed by
+    // it.
+    bool const free_wanted = values && (values->kind == 'v' || values->kind == 'd');
+    bool const decided_wanted = values && values->kind == 'd';
     if(free_wanted)
       values = nullptr;
     xid_type const gid = C->grp_id(obj_id(slot));
     bool const narrow = free_wanted
-        ? !this->get_binding(C, gid) && this->is_narrowed(C, gid)
+        ? !decided_wanted && !this->get_binding(C, gid)
+            && this->is_narrowed(C, gid)
         : has_generator(slot) != nullptr;
     if(narrow)
     {

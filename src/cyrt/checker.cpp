@@ -1826,25 +1826,53 @@ namespace cyrt
     // side as a non-strict binding, without a step at it.  A variable that
     // the fingerprint decides, or that a binding holds, is bound, and its
     // generator is read; a generator created by another configuration
-    // binds nothing here (issue #129).
+    // binds nothing here (issue #129).  The strict equality of a decided
+    // variable and a variable that is free in the configuration records
+    // the pair (decision D25 of 2026-10-12): it neither narrows the free
+    // one against the instance nor expands the decided one against the
+    // free one.
     if(redex && redex->info->tag == T_FUNC && redex->info->arity == 2
-        && !var->realpath.empty()
-        && this->decision(vid, C) == UNDETERMINED
-        && !this->binding(C, vid))
+        && !var->realpath.empty())
     {
       bool const strict = std::strcmp(redex->info->name, "constrEq") == 0;
       bool const nonstrict = std::strcmp(redex->info->name, "nonstrictEq") == 0;
-      index_type const pos = *var->realpath.begin();
-      Node * other = pos < 2 ? deref_fwd(redex->successors()[1 - pos].node) : nullptr;
-      bool const against_free = other && other->info->tag == T_FREE;
-      if((strict && against_free) || (nonstrict && pos == 0))
-        this->violation(
-            "Def 2.62 (equality step)", event
-          , "the step of " + std::string(redex->info->name)
-            + " narrows variable " + std::to_string(vid)
-            + ", which is free in the configuration"
-          , C, {vid}
-          );
+      if(strict || nonstrict)
+      {
+        index_type const pos = *var->realpath.begin();
+        Node * other = pos < 2 ? deref_fwd(redex->successors()[1 - pos].node) : nullptr;
+        bool const against_free = other && other->info->tag == T_FREE;
+        xid_type const ovid = against_free ? NodeU{other}.free->vid : NOXID;
+        bool const free_here = this->decision(vid, C) == UNDETERMINED
+            && !this->binding(C, vid);
+        bool const decided_here = !free_here && !this->binding(C, vid);
+        bool const other_free = against_free
+            && this->decision(ovid, C) == UNDETERMINED && !this->binding(C, ovid);
+        bool const other_decided = against_free && !other_free
+            && !this->binding(C, ovid);
+        std::string const name(redex->info->name);
+        if(free_here && ((strict && against_free) || (nonstrict && pos == 0)))
+          this->violation(
+              "Def 2.62 (equality step)", event
+            , "the step of " + name + " narrows variable " + std::to_string(vid)
+              + ", which is free in the configuration"
+              + (strict && other_decided
+                  ? ", against variable " + std::to_string(ovid)
+                    + ", which the configuration decides: the step pairs them"
+                    " (decision D25)"
+                  : std::string())
+            , C, {vid}
+            );
+        else if(strict && decided_here && other_free)
+          this->violation(
+              "Def 2.62 (equality step)", event
+            , "the step of " + name + " replaces variable " + std::to_string(vid)
+              + ", which the configuration decides, by its generator against"
+                " variable " + std::to_string(ovid)
+              + ", which is free in the configuration: the step pairs them"
+                " (decision D25)"
+            , C, {vid, ovid}
+            );
+      }
     }
     this->inst_reducts.clear();
     // A lone configuration (one queue of one configuration, no capsule

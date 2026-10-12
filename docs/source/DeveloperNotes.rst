@@ -235,7 +235,10 @@ the implementation; the memo states them in its sections 2.1 to 2.5):
   is free in the configuration against a constructor alone; two free
   variables make a constraint cell, and a free left side of ``=:<=`` takes
   the right side as a binding without a step at it (Def 2.62 (equality
-  step); issue #129).
+  step); issue #129).  A step of ``=:=`` that meets a decided variable and
+  a variable that is free in the configuration records the pair: it
+  neither narrows the free one against the instance nor replaces the
+  decided one by its generator (decision D25 of 2026-10-12).
 * An escape, rule SF.1 (``rts_setfunctions.split_queue``): the escaping
   identifier is argument-derived for the capsule or for an enclosing one,
   or an enclosing configuration decided it; the kept queue holds the LEFT
