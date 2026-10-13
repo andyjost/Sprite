@@ -82,6 +82,12 @@ namespace cyrt
     Residuals         residuals;
     bool              escape_all = false;
     bool              forced_rotate = false;
+    // Whether the failure this configuration met is in the record of its
+    // capsule (RuntimeState::record_failure).  A failure is observed at the
+    // position that met it first and again at every level above it on the
+    // way to the root; the record is made once.  A clone starts with its
+    // own flag.
+    bool              failure_recorded = false;
     // The number of rewrite steps taken for this configuration.  Steps of a
     // nested set-function evaluation count as well.  See
     // RuntimeState::count_step.

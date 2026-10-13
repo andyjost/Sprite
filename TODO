@@ -12844,6 +12844,285 @@
   goalR and g10 were not observed here.  (5) The whole suite on both
   backends (the suite stage).
 
+2026-10-12: the failure rule F2 of the set functions in its deferred form, and the flag setfunction_failures removed (the owner's decision of item 1 of the briefing of the audit; worktree wt/setfail)
+- The decision.  The owner decided on 2026-10-12 that the failure rule F2
+  of the set functions, in the deferred form of Definition 2.94 of the
+  note on the Fair Scheme, is Sprite's one behaviour on both backends,
+  and that the interpreter flag setfunction_failures with its two values
+  escape and encapsulate goes.  The semantics was fixed at the outset
+  (decision D1 of 2026-10-09: a set function whose computation fails
+  because of an outside argument is itself undefined, the weakly
+  encapsulated search of Christiansen, Hanus, Reck and Seidel, as KiCS2
+  behaves); the flag was scaffolding, and both of its values were wrong:
+  'escape' failed the capsule at the first boxed failure a step met, so
+  the value depended on the order of the alternatives, and 'encapsulate'
+  never failed a capsule.  Sprite implements the semantics with no flag
+  and no name for it.
+- The rule in the runtime (both backends, the same rule).  (d1) When a
+  configuration of a capsule meets a failure, the configuration is
+  dropped, as every failure drops a configuration, and the capsule
+  records the failure on its queue (the queue object the SetEval node
+  holds; one record per inner queue).  A failure whose path from the
+  root of the configuration crosses a set guard, in the levels of the
+  scan or in the guards of the inductive position (the test
+  failure_escapes made before, unchanged), is an outside failure: the
+  record names the sets of the enclosing guards it crossed, less the
+  current set, with its level, the position in the chain of the
+  capsules, innermost first, of the outermost capsule whose guard it
+  crossed (zero when the failure crossed the guard of the capsule
+  alone).  A failure that crossed no guard is an inside failure.  (d2)
+  On the empty queue the capsule is a failure when it produced no value,
+  recorded no inside failure and recorded some outside failure; its set
+  stands otherwise, the empty set included.  (d3) The failure written
+  carries the guards of the records at the least level, the failures
+  that entered the chain innermost (deviation 147 of the README of the
+  Lean development), together; a record of level zero makes a plain
+  failure, which drops the alternative of the enclosing function.  C++:
+  Queue gains produced, inside_failure and outside_failures
+  (state/queue.hpp, with FailureRecord; Queue::split and Queue::clone
+  copy the record to both queues, as Capsule.split of the mechanization
+  keeps it); RuntimeState::record_failure (state/rts_setfunctions.cpp)
+  replaces failure_escapes and fail_capsule and is called at the three
+  sites that observe a failure, procD at the root (a failed alternative
+  rewritten to Fail at the root passes neither procN nor hnf), procN at a
+  level of the scan and hnf at the inductive position (fairscheme.cpp);
+  the configuration then drops as before.  A failure is observed first
+  with its whole path and again at each level above it on the way to the
+  root (hnf forwards the redex to the failure and the caller meets it at
+  the redex), so Configuration::failure_recorded makes the record once; a
+  clone starts with its own flag.  A constraint that fails at the root of
+  procD (the occurs check, or the union of two classes with different
+  instances; constrain_equal returns false and the case falls through to
+  T_FAIL) is a failure at the root like a failure cell there: its path
+  crossed no guard, so the record is an inside failure (the review of
+  2026-10-12 found the fall-through without a record; the first version
+  of this lane called it deliberate).  D of the Python backend records
+  the same way; there a configuration that stripped a guard of its set at
+  the root before (escape_all) records an outside failure of level zero
+  instead.  A constraint lifted from under a guard (lift_constraint)
+  carries no guards: the lift copies the spine with its guards below the
+  constraint, so a constraint of the argument that fails at the root is
+  recorded as the function's own; see "Left to the owner".  The verdict
+  is in allValues_step
+  (currylib/setfunctions.cpp) on the empty queue, the one place the end
+  of a queue is observed: the values of a set are produced one at a time
+  (a cons cell per value, nil at the end), so isEmpty returns at the
+  first value without running the queue to its end, and a set that
+  produced a value never fails.  The status E_SETFAIL, the pending-control
+  path of procD and procN, and capsule_failure_guards are gone.  Python:
+  Queue of eval/queue.py has the same fields and copies them in __copy__
+  (split_queue and clone_queue copy the queue); record_failure of
+  eval/rts_setfunctions.py replaces boxed_failure, called by D, N and
+  hnf of eval/fairscheme.py; allValues of currylib/setfunctions.py gives
+  the verdict and counts the values; E_SETFAIL of generic/eval/control.py
+  is gone; Configuration.failure_recorded as in C++.
+- The level reading, in two functions per backend.  The choice of the
+  records is the free function cyrt::failure_guards (state/queue.cpp,
+  declared in queue.hpp; Queue::failure_guards calls it) and the module
+  function failure_guards of eval/queue.py (Queue.failure_guards calls
+  it): the least level, and the union of their guards.  The level of a
+  record is RuntimeState::failure_level (state/rts_setfunctions.cpp,
+  declared in rts.hpp) and failure_level of eval/rts_setfunctions.py
+  (bound on the state in rts.py): the position, innermost first, of the
+  outermost capsule of the chain among the sets crossed.  record_failure
+  calls failure_level, and the checker calls both (check_failure_record
+  the level, check_capsule_end the choice), so the checker never holds a
+  copy of the reading (the review of 2026-10-12 found it computed in six
+  functions).  The comments name the choice and the deviation.  The
+  owner's item 2(a) may confirm or change the reading: a change of the
+  choice of the records touches the two failure_guards, and a change of
+  the level touches the two failure_level, and nothing else.
+- The removal, every file.  src/python/interpreter/flags.py: the entry of
+  the docstring and the row of FLAG_INFO.  src/cyrt/fwd.hpp: the enum
+  SetFFailures and the status E_SETFAIL.  src/cyrt/state/rts.hpp and
+  rts.cpp: the constructor parameter, the member setfunction_failures and
+  capsule_failure_guards; the declarations of failure_escapes and
+  fail_capsule became record_failure.  src/cyrt/state/rts_setfunctions.cpp,
+  fairscheme.cpp, currylib/setfunctions.cpp: the two code paths and the
+  comments.  src/python/backends/cxx/cyrtbindings/constants.cpp: the
+  Python enum; graph.cpp: the argument of both constructors of
+  RuntimeStateBase (the comment on the positions of the rotation cadence
+  moved by one); __init__.py: _SETF_FAILURES and the attribute.
+  src/python/backends/py/eval/rts.py: the attribute, and the method table
+  (record_failure, failure_level for boxed_failure).  control.py,
+  fairscheme.py, rts_setfunctions.py, currylib/setfunctions.py,
+  callstack.py, walkexpr.py: the code and the comments that named the
+  flag or boxed_failure.  docs/source/PythonAPI/CurryPackage.rst: the
+  row of the table of the flags.  docs/source/CurryPrimer/Semantics.rst:
+  the paragraph on a failure that comes from an argument states the one
+  rule in three sentences and names no removed value.
+  docs/source/DeveloperNotes.rst: the list of the hooks of the checker.
+  tests/data/curry/benchmarks/results/README.md: the record
+  phase3-2026-10-10 says what the measured runs used, in the past tense,
+  without a flag name.  curry/lib/Control/SetFunctions.curry: the comment
+  of applyS (a comment alone: the .icy made from the edited source with
+  sprite-make --icy in a scratch tree under SPRITE_DISABLE_SYSLIB_CHECKS=1
+  is byte-identical to the committed one, cmp; the digest of the source
+  in tests/unit_currylib.py is updated).  tests/data/curry/
+  SetFunctionsSemantics.curry: the comments of the header and of section
+  3.  A flags string that names setfunction_failures is rejected as every
+  unknown flag is: Interpreter(flags={'setfunction_failures': ...})
+  raises ValueError "unknown flag: 'setfunction_failures'"
+  (test_setfunction_failures_is_unknown of unit_api.py), and
+  SPRITE_INTERPRETER_FLAGS drops it with the warning of an unknown flag.
+  The harness of the Fair Scheme proofs (outside this repository) names
+  the systems cxx-escape and cxx-encapsulate, which set the flag; they
+  need the owner's edit.
+- The ABI stamp.  fwd.hpp, rts.hpp, queue.hpp and configuration.hpp are in
+  the include closure of cyrt/cyrt.hpp, so the stamp of the compiled
+  Curry objects moves, as the decision accepts: every compiled object is
+  stale, make stage compiled the library again, the product cache misses,
+  and the suites need ./run_tests --prepare-only first.  No change to the
+  object format itself, no new flag, no default, no public API beyond the
+  removal.
+- The checker (both backends).  Two hooks: failure_recorded, after
+  record_failure made its record (the hook reads the guards the path
+  crossed from the scan and the inductive position, or from the call
+  stack, as the runtime does, and check_failure_record compares: an
+  inside failure crossed no guard; an outside failure names the crossed
+  sets less the set of the capsule, with the level of the outermost
+  capsule of the chain among them), and capsule_end, after the verdict of
+  allValues (check_capsule_end: the failure is written iff the capsule
+  produced no value, recorded no inside failure and recorded some
+  outside failure, (d2); its guards are the union of the records at the
+  least level, (d3)).  The reports name F2 (d1), F2 (d2) and F2 (d3).
+  S0, S-split and capsule_entry are unchanged.  The debug entries
+  checker_debug_check_failure_record and checker_debug_check_capsule_end
+  of the bindings serve the constructed-state tests test_failure_record
+  and test_capsule_end of TestSetFunctions in unit_cxx_checker.py and
+  unit_py_checker.py (two capsules on the queue stack; each report
+  provoked once, and the passing records).  The module docstring of
+  checker.py and the developer notes name the hooks.
+- Tests.  New: tests/data/curry/SetFunctionsFailures.curry and
+  tests/unit_setfunctions_failures.py (both backends; one child per class
+  under prlimit and timeout, and one under the checker, as
+  unit_pairing.py does): t1, t2 [True]; t3, t4 False; d2a, d2b True;
+  lazyT [True]; valThenFail [1]; mixed [2] (an inside failure, an outside
+  failure and a value in one capsule); mixedE True; t1c [True]; argFail
+  [0]; level, levelB []; levelC no value; level2 [[]]; ownflag [0];
+  set0Inner no value; set0InnerV [[7]]; the pairs t1/t2, t3/t4, d2a/d2b
+  and level/levelB asserted equal.  Every value is the value of KiCS2
+  3.5.0, observed through the harness, except cycleInside True and
+  cycleInsideS [] (test_cycle_inside; the goals are in FAILURES_GOALS of
+  the checker tests too): an alternative that dies through the failed
+  constraint step at the root alone (the cycle of x, decided outside the
+  capsule by isT, with a free y through the union of the classes; no
+  narrowing with a failing sibling inside), beside the failure of the
+  argument.  KiCS2 has no occurs check, so it is no reference there; the
+  value is that of rule (d1).  unit_setfunctions_semantics.py:
+  one child per class and one column of values; TestFailureRule keeps
+  its goals with the values of the semantics (s3, s3e, s4, s4h, s4a,
+  s4b, s4c and nestFail no value, nestFailInner True, lazyFirst True; the
+  'encapsulate' column, [] or True, went with the flag); TestDefault,
+  which pinned the flag table and the default, went (it tested the flag
+  itself).  unit_setfunctions_bindings.py: check_settings is
+  check_values, one child per shape.  unit_cxx_rotation.py:
+  test_counters_of_a_search pins countQueens 8 at (2112920, 511384)
+  steps and forks under the deferred form (the immediate trigger took
+  (2020742, 461457), the rule of the dissertation (2112920, 511484); the
+  value is 92 under every rule); test_counters_of_a_search_under_encapsulate
+  went (it tested the flag); the two direct constructions of
+  RuntimeStateBase lost the argument.  unit_cxx_checker.py and
+  unit_py_checker.py: test_setfunction_semantics runs the module once;
+  test_setfunction_failures (the goals named in FAILURES_GOALS: the
+  module lifts a local declaration of t1c into a private nullary
+  function) runs the new module with and without the checker, in the
+  compiled and the interpreted children.  unit_api.py:
+  test_setfunction_failures_is_unknown.  unit_currylib.py: the digest.
+- Verification (the clean environment, CCACHE_DIR set, prlimit, at most
+  two test processes at a time).  Before the change, under sprite-exec
+  with steps:65536, prlimit 2 GB and timeout 60, on both backends: t1,
+  t2, t3, d2a, lazyT, valThenFail, level and set0Inner no value, t4
+  False, levelB [].  KiCS2 through the harness: t1, t2 [True]; t3, t4
+  False; d2a, d2b True; lazyT [True]; valThenFail [1]; level, levelB,
+  level2 []; levelC, set0Inner, ordA no value; set0InnerV [[7]]; t1c
+  [True]; ownflag [0]; mixed [2]; mixedE True; argFail [0].  make stage
+  status 0 (53 s; the stamp moved), make overlay status 0.  After the
+  change, on both backends, plain and under checker:true: every goal of
+  SetFunctionsFailures.curry prints the value of KiCS2 (the C++ backend
+  printed no value on d2a and d2b until the record at the root of procD
+  was added).  Single files: unit_setfunctions_failures.py 23 tests ok
+  on cxx and on py; unit_setfunctions_semantics.py 41 ok on each;
+  unit_py_checker.py 55 ok on py (52 before); unit_cxx_checker.py 63 ok
+  on cxx (59 before); unit_currylib.py 10 ok on each after the stage of
+  the edited source.  ./run_tests --prepare-only for the selection, 4 of
+  4 run, wall 60 s.  Through the runner (./run_tests -j 2 --mem 4
+  --backend both): unit_setfunctions_failures, unit_setfunctions_semantics,
+  unit_setfunctions_bindings, unit_setfunctions_bugs, unit_cxx_rotation,
+  unit_cxx_scheduler, unit_cxx_checker, unit_py_checker, unit_api,
+  func_setfunctions, unit_pairing: 22 of 22 run, 0 failed (unit_currylib
+  failed twice in that batch, before the stage of the edited library
+  source: the digest, and make install of the test regenerating a
+  .json.z older than the source; both pass after make stage).  make -C
+  docs html: build succeeded, 2 warnings (the two docutils errors on the
+  target "interpreter.import" are older), and no page of the output names
+  the flag.  Not run: the whole suite on both backends (the suite stage).
+  The review fixes of 2026-10-12 (the record of a failed constraint, the
+  shared failure_level and failure_guards): probes on the Python backend
+  with a temporary trace of D and of record_failure (removed after)
+  showed every cycle made by a narrowing inside the capsule beside a
+  failure cell of a sibling alternative, and cycleInside with the
+  fall-through alone: no value on the Python backend, True on the C++
+  backend, which met a failure cell in a sibling there.  After the fix
+  both backends print True and [] on cycleInside and cycleInsideS, plain
+  and under checker:true (sprite-exec).  unit_setfunctions_failures.py:
+  24 ok on cxx and on py; with the record of D of the Python backend
+  taken out again, 2 failures on py (test_cycle_inside and
+  TestChecker.test_one_capsule), then 24 ok with it back.
+  unit_cxx_checker.py 63 ok on cxx; unit_py_checker.py 55 ok on py.
+  make stage status 0 (rts.hpp and queue.hpp changed: the stamp moved
+  again), make overlay status 0.  ./run_tests
+  --prepare-only --backend both for the selection: 4 of 4 run, 0 failed,
+  wall 57 s.  Through the runner (./run_tests -j 2 --mem 4 --backend
+  both): unit_setfunctions_failures, unit_setfunctions_semantics,
+  unit_setfunctions_bindings, unit_setfunctions_bugs, unit_cxx_rotation,
+  unit_cxx_scheduler, unit_cxx_checker, unit_py_checker, unit_api,
+  unit_currylib, func_setfunctions, unit_pairing: 24 of 24 run, 0 failed,
+  wall 107 s.
+- Changed printed values.  t1, t2 (sortValues (set1 (\a -> a ? True)
+  failed) and the swap): no value before, [True] after.  t3 (isEmpty of
+  t1): no value before, False after; t4 False before and after.  d2a,
+  d2b: no value before, True after.  lazyT: no value before, [True]
+  after.  valThenFail: no value before, [1] after.  level: no value
+  before, [] after; levelB [] before and after.  levelC and set0Inner: no
+  value before and after.  level2: [] before and after.  ownflag: [0]
+  before and after.  mixed: no value before, [2] after; mixedE: no value
+  before, True after.  argFail: [0] and no value before and after.
+  cycleInside: no value on the Python backend and True on the C++ backend
+  before the record of a failed constraint, True on both after;
+  cycleInsideS [] on both after.  The
+  goals of the set-function test modules that must have no value (s3,
+  s3e, s4, s4h, s4a, s4b, s4c and nestFail of SetFunctionsSemantics.curry;
+  TestFailureRule of unit_setfunctions_semantics.py pins them on both
+  backends) have none.  The
+  counters of countQueens 8 moved from (2020742, 461457) to (2112920,
+  511384), the value 92 unchanged; QueensSet and the other benchmark
+  programs with set functions were not measured here.
+- Left to the owner.  (1) Item 2(a): the level reading; the choice of the
+  records in cyrt::failure_guards (state/queue.cpp) and failure_guards of
+  eval/queue.py, the level in RuntimeState::failure_level and
+  failure_level of eval/rts_setfunctions.py; the checker calls them.
+  (1b) A constraint lifted from under a guard loses the guards it
+  crossed: sortValues (set1 id cyc) with cyc = (x =:= T x) &> True where
+  x free, data T = T T, prints [] on both backends (the occurs check of
+  the argument fails at the root with no guard on the path) where the
+  failure of the argument means no value, as set1 id failed has none; a
+  record of the guards at the lift would settle it, outside this lane.
+  (1c) The generator of a free variable escapes as a choice with a
+  failing side: sortValues (set1 (\a -> a ? True) cyc) prints [True]
+  twice, one value per side of the escaped generator of x.  (2) The records of a queue go to both queues of
+  a split and to a clone, as the mechanization keeps them; a record made
+  by a configuration that had decided the escaped choice before the
+  split is kept by the queue of the other side as well.  (3) The harness
+  systems cxx-escape and cxx-encapsulate name the removed flag.  (4)
+  tests/manifest.json has no entry for unit_setfunctions_failures.py,
+  and the counts of unit_setfunctions_semantics.py (41),
+  unit_cxx_rotation.py (20), unit_cxx_checker.py (63), unit_py_checker.py
+  (55) and unit_api.py (14) moved; a calibration run updates them.  (5)
+  The whole suite on both backends (the suite stage).  (6) The next run
+  of run_benchmarks against the records moves the counters of the
+  programs with a failing boxed alternative.
+
 2026-10-12: the look-ahead of rule N.1 of the Fair Scheme (issue #132; worktree wt/lookahead)
 - The source.  The audit of 2026-10-11 found that both backends drop the
   look-ahead of rule N.1: the rule reads every successor of the root of a
@@ -13053,3 +13332,17 @@
   design excludes; a decision is the owner's.  (5) The values of PAKCS
   for the goals were not observed.  (6) The whole suite on both backends
   (the suite stage).
+- The merge of py314 into the lane (2026-10-12), after the set-function
+  lane above landed there.  The finding of the look-ahead takes the
+  failure path of that lane: in procN and in N the tag T_FAIL lands in
+  the case T_FAIL, which calls record_failure (an inside or an outside
+  failure recorded on the queue of the capsule) and then returns T_FAIL
+  to procD, which drops the configuration, or makes the redex of ($!!) a
+  failure; failure_escapes, fail_capsule, boxed_failure and the status
+  E_SETFAIL named above went with that lane.  The guards crossed are
+  those of the levels of the scan, as for a failure at the cursor: the
+  failed successor is one level below the cursor, read through forward
+  cells alone, so no guard lies between them.  The checker holds both
+  sets of hooks (failure_recorded, capsule_end, descend) and the bindings
+  both debug entries.  Item (3) above stands under the new names: a read
+  through a set guard needs the set of the guard in record_failure.

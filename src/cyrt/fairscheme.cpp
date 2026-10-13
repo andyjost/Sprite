@@ -81,7 +81,14 @@ namespace cyrt
                            tag = inspect::tag_of(C->root);
                            goto redoD;
                          }
-        case T_FAIL    : SCHEDULER_COUNT_END(C, END_FAILURE);
+        // Rule D.3: the configuration is dropped.  Inside a set function
+        // the failure goes into the record of the capsule first
+        // (record_failure).  A failed constraint, which falls through
+        // from the case above, is a failure at the root like a failure
+        // cell there: its path crossed no guard, so the record is an
+        // inside failure.
+        case T_FAIL    : this->record_failure(C, nullptr);
+                         SCHEDULER_COUNT_END(C, END_FAILURE);
                          if(this->checker)
                            this->checker->discard(C);
                          this->drop();
@@ -151,11 +158,6 @@ namespace cyrt
         case E_TERMINATE: if(this->in_recursive_call())
                            return this->yield_control(E_TERMINATE);
                          throw StepLimitReached("the step limit was reached");
-        // A boxed failure was demanded in this capsule (fail_capsule): the
-        // nested scheduler hands the status to allValues_step, which makes
-        // the set function a failure.  The queue is left as it is; nothing
-        // runs it again.
-        case E_SETFAIL : return this->yield_control(E_SETFAIL);
         // The nested evaluation read a binding of an enclosing
         // configuration (diverge): the scheduler hands the status out, up
         // to the allValues_step of that configuration, which clones the
@@ -224,8 +226,9 @@ namespace cyrt
         // (issue #126).  procD drops the configuration on T_FAIL.  A step
         // that normalizes its argument (applynf_step) scans from its
         // redex, an operation cell, which becomes a failure as in hnf.
-        case T_FAIL    : if(this->failure_escapes(C, nullptr))
-                           return this->fail_capsule(C, nullptr);
+        // Inside a set function the failure goes into the record of the
+        // capsule first (record_failure).
+        case T_FAIL    : this->record_failure(C, nullptr);
                          if(root == C->root)
                            return T_FAIL;
                          return root->make_failure();
@@ -282,7 +285,6 @@ namespace cyrt
                          stepped = true;
                          goto redoN;
         case E_DIVERGE :
-        case E_SETFAIL :
         case E_TERMINATE:
         case E_UNWIND  :
         case E_GC      :
@@ -407,8 +409,10 @@ namespace cyrt
           tag = inspect::tag_of(inductive->target);
           continue;
         }
-        case T_FAIL  : if(this->failure_escapes(C, inductive))
-                         return this->fail_capsule(C, inductive);
+        // A failure at the inductive position: the redex becomes a failure.
+        // Inside a set function the failure goes into the record of the
+        // capsule first, with the guards of the position (record_failure).
+        case T_FAIL  : this->record_failure(C, inductive);
                        _0->forward_to(Fail);
                        return T_FWD;
         case T_CONSTR: _0->forward_to(this->lift_constraint(C, inductive));

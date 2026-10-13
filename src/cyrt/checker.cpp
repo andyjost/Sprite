@@ -2241,6 +2241,145 @@ namespace cyrt
     }
   }
 
+  // The record of a failure, rule (d1) of the failure rule F2 in its
+  // deferred form (Definition 2.94 of the note on the Fair Scheme).  The
+  // hook reads the guards the path from the root of the configuration to
+  // the failure crossed, from the levels of the scan and the guards of the
+  // inductive position, as the runtime does, and the check compares them
+  // with the record: an inside failure crossed no guard; an outside failure
+  // names the crossed sets less the set of the capsule, with the level at
+  // which it entered the chain (RuntimeState::failure_level, the runtime's
+  // own definition).
+  void Checker::failure_recorded(
+      Configuration * C, Queue * Q, Variable const * inductive
+    , FailureRecord const * record
+    )
+  {
+    SetList crossed;
+    for(auto const & level: C->scan.frames())
+    {
+      Cursor const & cur = level.cur;
+      if(cur.kind == 'p' && *cur && (*cur)->info->tag == T_SETGRD)
+        add(crossed, NodeU{*cur}.setgrd->set);
+    }
+    if(inductive)
+      for(Set * set: inductive->guards)
+        add(crossed, set);
+    this->check_failure_record(Q, crossed, record);
+  }
+
+  void Checker::check_failure_record(
+      Queue * Q, SetList const & crossed, FailureRecord const * record
+    )
+  {
+    ++this->counts["failure_records"];
+    Configuration * C = Q->empty() ? nullptr : Q->front();
+    if(!record)
+    {
+      if(!crossed.empty())
+        this->violation(
+            "F2 (d1)", "failure"
+          , "a failure that crossed the guards of sets "
+            + this->set_names(crossed) + " is recorded as an inside failure"
+          , C
+          );
+      return;
+    }
+    if(crossed.empty())
+      this->violation(
+          "F2 (d1)", "failure"
+        , "a failure that crossed no guard is recorded as an outside failure"
+        , C
+        );
+    SetList expected;
+    for(Set * set: crossed)
+      if(set != Q->set)
+        add(expected, set);
+    bool same = expected.size() == record->guards.size();
+    for(Set * set: record->guards)
+      same = same && contains(expected, set);
+    if(!same)
+      this->violation(
+          "F2 (d1)", "failure"
+        , "the record names sets " + this->set_names(record->guards)
+          + " where the failure crossed " + this->set_names(crossed)
+          + " (less the set of the capsule, " + this->set_name(Q->set) + ")"
+        , C
+        );
+    // The level is the runtime's own definition (RuntimeState::failure_level).
+    size_t const level = this->rts.failure_level(expected);
+    if(level != record->level)
+      this->violation(
+          "F2 (d1)", "failure"
+        , "the record has level " + std::to_string(record->level)
+          + " where the outermost capsule of the chain among the sets crossed "
+            "is at level " + std::to_string(level)
+        , C
+        );
+  }
+
+  // The end of a capsule, rules (d2) and (d3): the capsule is a failure
+  // when it produced no value, recorded no inside failure and recorded some
+  // outside failure, and the empty list otherwise; the failure goes under
+  // the guards of the sets of the records at the least level, the failures
+  // that entered the chain innermost (deviation 147 of the README of the
+  // Lean development), together.
+  void Checker::capsule_end(Queue * Q, Node * written)
+  {
+    this->check_capsule_end(
+        Q->produced, Q->inside_failure, Q->outside_failures, written
+      );
+  }
+
+  void Checker::check_capsule_end(
+      size_t produced, bool inside_failure
+    , std::vector<FailureRecord> const & outside_failures, Node * written
+    )
+  {
+    ++this->counts["capsule_ends"];
+    bool const expected = produced == 0 && !inside_failure
+        && !outside_failures.empty();
+    SetList guards;
+    Node * node = written;
+    while(node && node->info->tag == T_SETGRD)
+    {
+      add(guards, NodeU{node}.setgrd->set);
+      node = NodeU{node}.setgrd->value;
+    }
+    bool const failed = node && node->info->tag == T_FAIL;
+    std::string const record = "the capsule produced " + std::to_string(produced)
+        + " values and recorded " + (inside_failure ? "an" : "no")
+        + " inside failure and " + std::to_string(outside_failures.size())
+        + " outside failures";
+    if(expected != failed)
+      this->violation(
+          "F2 (d2)", "capsule end"
+        , record + ", and wrote " + (failed ? "a failure" : "the empty set")
+        , nullptr
+        );
+    if(!failed)
+      return;
+    // The choice of the records is the runtime's own (cyrt::failure_guards
+    // of state/queue.cpp): the check pins the verdict to that one place.
+    size_t least = outside_failures.front().level;
+    for(FailureRecord const & r: outside_failures)
+      least = std::min(least, r.level);
+    SetList innermost;
+    for(Set * set: cyrt::failure_guards(outside_failures))
+      add(innermost, set);
+    bool same = innermost.size() == guards.size();
+    for(Set * set: guards)
+      same = same && contains(innermost, set);
+    if(!same)
+      this->violation(
+          "F2 (d3)", "capsule end"
+        , record + ", and wrote the failure under the guards of sets "
+          + this->set_names(guards) + " where the records at the least level "
+          + std::to_string(least) + " name sets " + this->set_names(innermost)
+        , nullptr
+        );
+  }
+
   // A constructor or a failure without a successor cell.
   static bool is_leaf_value(Node * n)
   {

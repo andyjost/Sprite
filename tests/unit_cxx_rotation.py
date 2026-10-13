@@ -245,31 +245,29 @@ class TestStepMode(cytest.TestCase):
       , after['forks'] - before['forks']
       )
 
-  # The counters of countQueens 8 under the two settings of the flag
-  # setfunction_failures.  A permutation of the program holds a failure (the
-  # second rule of ndinsert has no case for []), and the capsule of unsafe
-  # demands it.  Under 'escape', the default since 2026-10-10, that demand
-  # fails the set function at once, where 'encapsulate' runs the other
-  # alternatives of the capsule first; so the search takes fewer steps and
-  # forks under 'escape', and the values are the same.
-  COUNT_QUEENS_COUNTERS = {
-      'escape': (2020742, 461457)
-    , 'encapsulate': (2112920, 511484)
-    }
+  # The counters of countQueens 8.  A permutation of the program holds a
+  # failure (the second rule of ndinsert has no case for []), and the
+  # capsule of unsafe demands it.  Under the deferred form of the failure
+  # rule of the set functions (2026-10-12) the capsule runs its other
+  # alternatives after that demand and fails on the empty queue; the
+  # immediate trigger of 2026-10-10 failed the set function at once, with
+  # (2020742, 461457), and the rule of the dissertation before it, which
+  # never failed a capsule, took (2112920, 511484).  The values are the
+  # same under every rule.
+  COUNT_QUEENS_COUNTERS = (2112920, 511384)
 
-  def check_count_queens(self, setting):
-    '''countQueens 8 under one setting of setfunction_failures.'''
+  def check_count_queens(self):
+    '''countQueens 8 under the cadence of 65536 steps.'''
     if cytest.GC_STRESS:
       self.skipTest(
           'collector stress mode: countQueens 8 takes 2.1 million steps over '
           'the live state of its search; the stress mode repeats the counters '
           'of the default mode'
         )
-    self.assertEqual(curry.flags['setfunction_failures'], setting)
     G = curry.import_('CxxGc')
     values, steps, forks = self.steps_and_forks(G.countQueens, 8)
     self.assertEqual(values, [92])
-    self.assertEqual((steps, forks), self.COUNT_QUEENS_COUNTERS[setting])
+    self.assertEqual((steps, forks), self.COUNT_QUEENS_COUNTERS)
 
   @cytest.with_flags(rotation=STEP_MODE)
   def test_counters_of_a_search(self):
@@ -280,25 +278,16 @@ class TestStepMode(cytest.TestCase):
     functions; its steps and forks moved when the cadence last moved (the
     T4 entry of the TODO), when the inliner landed (the O2 and O3 entry:
     fewer steps, so the rotations fall elsewhere and the forks move with
-    them), and when the default of setfunction_failures moved to 'escape'
-    (the entry of 2026-10-10; COUNT_QUEENS_COUNTERS).  psort 8 ends within
-    one period.  The stress mode of the collector checks psort 8 and skips
-    countQueens 8.
+    them), and with the failure rule of the set functions (the entries of
+    2026-10-10 and 2026-10-12; COUNT_QUEENS_COUNTERS).  psort 8 ends
+    within one period.  The stress mode of the collector checks psort 8
+    and skips countQueens 8.
     '''
     G = curry.import_('CxxGc')
     values, steps, forks = self.steps_and_forks(G.psort, 8)
     self.assertEqual(values, [[1, 2, 3, 4, 5, 6, 7, 8]])
     self.assertEqual((steps, forks), (16929, 1636))
-    self.check_count_queens('escape')
-
-  @cytest.with_flags(rotation=STEP_MODE, setfunction_failures='encapsulate')
-  def test_counters_of_a_search_under_encapsulate(self):
-    '''
-    The same search under 'encapsulate', the default until 2026-10-10: the
-    counters that test_counters_of_a_search pinned before the default
-    moved.
-    '''
-    self.check_count_queens('encapsulate')
+    self.check_count_queens()
 
   @cytest.with_flags(rotation=STEP_MODE)
   def test_counters_repeat(self):
@@ -621,17 +610,13 @@ report(value=next(curry.eval(M.fair)), status=cyrt.ticker_status())
     M = curry.import_('CxxRewrite')
     goal = curry.expr(M.plusOne, 1)
     with self.assertRaisesRegex(ValueError, 'quantum above zero'):
-      cyrt.RuntimeStateBase(
-          istate, goal, False, cyrt.SETF_FAILURES_ENCAPSULATE
-        , cyrt.NOLIMIT, 0, 0
-        )
+      cyrt.RuntimeStateBase(istate, goal, False, cyrt.NOLIMIT, 0, 0)
     with self.assertRaisesRegex(ValueError, 'quantum above zero'):
       cyrt.ticker_enter(0)
     # The other combinations construct: step mode needs no quantum.
     for steps, quantum_ns in [(65536, 0), (0, 10**7), (65536, 10**7)]:
       rts = cyrt.RuntimeStateBase(
-          istate, goal, False, cyrt.SETF_FAILURES_ENCAPSULATE
-        , cyrt.NOLIMIT, steps, quantum_ns
+          istate, goal, False, cyrt.NOLIMIT, steps, quantum_ns
         )
       del rts
 

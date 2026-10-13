@@ -125,6 +125,15 @@ BUGS_GOALS = [
   , 'twoSets', 'viaCall', 'viaData', 'viaForward', 'viaPartial'
   ]
 
+# The goals of unit_setfunctions_failures.py (the module lifts a local
+# declaration of t1c into a private nullary function, which the module
+# handle does not expose).
+FAILURES_GOALS = [
+    't1', 't2', 't3', 't4', 'd2a', 'd2b', 'lazyT', 'valThenFail', 'level'
+  , 'levelB', 'levelC', 'level2', 'ownflag', 'set0Inner', 'set0InnerV'
+  , 'mixed', 'mixedE', 't1c', 'argFail', 'cycleInside', 'cycleInsideS'
+  ]
+
 # The program of the defect the Python checker found: a captured choice
 # reached through a forward node in front of its box.  The C++ backend gives
 # the values of weakly encapsulated search.
@@ -318,12 +327,15 @@ class TestKnownGood(CheckerTestCase):
     return self.both_ways(compute)
 
   def test_setfunction_semantics(self):
-    '''The goals of the probe table of the memo, under both failure rules.'''
-    for setting in ('encapsulate', 'escape'):
-      values = self.module_goals(
-          'SetFunctionsSemantics', setfunction_failures=setting
-        )
-      self.assertEqual(values['s1'], ['[(-1), 1]', '[0, 2]'])
+    '''The goals of the probe table of the memo.'''
+    values = self.module_goals('SetFunctionsSemantics')
+    self.assertEqual(values['s1'], ['[(-1), 1]', '[0, 2]'])
+
+  def test_setfunction_failures(self):
+    '''The probes of the failure rule in its deferred form.'''
+    values = self.module_goals('SetFunctionsFailures', FAILURES_GOALS)
+    self.assertEqual(values['t1'], ['[True]'])
+    self.assertEqual(values['level'], ['[]'])
 
   def test_setfunction_bindings(self):
     values = self.module_goals('SetFunctionsBindings')
@@ -421,6 +433,7 @@ from curry.common import T_FUNC
 PROGRAMS = %(programs)r
 DROPPED_BOX = %(dropped_box)r
 BUGS_GOALS = %(bugs_goals)r
+FAILURES_GOALS = %(failures_goals)r
 def goals(M):
   return sorted(
       name for name, sym in inspect.symbols(M).items()
@@ -453,7 +466,7 @@ class TestKnownGoodInterpreted(cytest.TestCase):
     flags = 'backend:cxx,interpret:all,checker:%s' % ('true' if checker else 'false')
     code = INTERPRETED_CHILD % {
         'programs': PROGRAMS, 'dropped_box': DROPPED_BOX, 'bugs_goals': BUGS_GOALS
-      , 'body': body
+      , 'failures_goals': FAILURES_GOALS, 'body': body
       }
     saved = os.environ.get('SPRITE_INTERPRETER_FLAGS')
     os.environ['SPRITE_INTERPRETER_FLAGS'] = flags
@@ -480,12 +493,15 @@ class TestKnownGoodInterpreted(cytest.TestCase):
     return with_checker
 
   def test_setfunction_semantics(self):
-    for setting in ('encapsulate', 'escape'):
-      values = self.both_ways(
-          "curry.reload(dict(curry.flags, setfunction_failures=%r))\n"
-          "out.update(module_goals('SetFunctionsSemantics'))" % setting
-        )
-      self.assertEqual(values['s1'], ['[(-1), 1]', '[0, 2]'])
+    values = self.both_ways("out.update(module_goals('SetFunctionsSemantics'))")
+    self.assertEqual(values['s1'], ['[(-1), 1]', '[0, 2]'])
+
+  def test_setfunction_failures(self):
+    values = self.both_ways(
+        "out.update(module_goals('SetFunctionsFailures', FAILURES_GOALS))"
+      )
+    self.assertEqual(values['t1'], ['[True]'])
+    self.assertEqual(values['level'], ['[]'])
 
   def test_setfunction_bindings(self):
     values = self.both_ways("out.update(module_goals('SetFunctionsBindings'))")
@@ -837,7 +853,7 @@ class TestFreeVariables(CheckerTestCase):
 
 
 class TestSetFunctions(CheckerTestCase):
-  '''RI S0, S-split.'''
+  '''RI S0, S-split, and the failure rule F2 (d1), (d2), (d3).'''
   def test_escape_set_holds_argument_derived_identifiers(self):
     '''A pull-tab across a box inserts the identifier into the escape set
     of the set (def:s-pull); the identifier must be argument-derived for
@@ -996,6 +1012,68 @@ class TestSetFunctions(CheckerTestCase):
     finally:
       cb.checker_debug_pop_capsule(rts)
       del capsule
+
+  def test_failure_record(self):
+    '''F2 (d1): the record of a failure names the sets of the guards it
+    crossed, less the set of the capsule, with the level at which it
+    entered the chain; a failure that crossed no guard is an inside
+    failure.  Depth 0 is the inner capsule, depth 1 the outer one.'''
+    cb = _cb()
+    rts = _state(_node(1))
+    outer = cb.checker_debug_push_capsule(rts, _node(1))
+    inner = cb.checker_debug_push_capsule(rts, _node(2))
+    try:
+      cb.checker_debug_check_failure_record(rts, [])
+      cb.checker_debug_check_failure_record(rts, [0], [], 0)
+      cb.checker_debug_check_failure_record(rts, [0, 1], [1], 1)
+      cb.checker_debug_check_failure_record(rts, [1], [1], 1)
+      with self.assertRaisesRegex(
+          cb.InvariantViolation, r'F2 \(d1\).*recorded as an inside failure'
+        ):
+        cb.checker_debug_check_failure_record(rts, [0])
+      with self.assertRaisesRegex(
+          cb.InvariantViolation
+        , r'F2 \(d1\).*crossed no guard is recorded as an outside failure'
+        ):
+        cb.checker_debug_check_failure_record(rts, [], [], 0)
+      with self.assertRaisesRegex(cb.InvariantViolation, r'F2 \(d1\).*names sets'):
+        cb.checker_debug_check_failure_record(rts, [0, 1], [0, 1], 1)
+      with self.assertRaisesRegex(cb.InvariantViolation, r'F2 \(d1\).*level 0 where'):
+        cb.checker_debug_check_failure_record(rts, [0, 1], [1], 0)
+    finally:
+      cb.checker_debug_pop_capsule(rts)
+      cb.checker_debug_pop_capsule(rts)
+      del inner, outer
+
+  def test_capsule_end(self):
+    '''F2 (d2): the capsule is a failure when it produced no value,
+    recorded no inside failure and recorded some outside failure, and the
+    empty set otherwise.  F2 (d3): the failure goes under the guards of
+    the records at the least level, together.'''
+    cb = _cb()
+    rts = _state(_node(1))
+    outer = cb.checker_debug_push_capsule(rts, _node(1))
+    inner = cb.checker_debug_push_capsule(rts, _node(2))
+    try:
+      check = lambda *args: cb.checker_debug_check_capsule_end(rts, *args)
+      check(0, False, [], None)
+      check(0, False, [(0, [])], [])
+      check(0, False, [(1, [1]), (0, [])], [])
+      check(0, False, [(1, [1])], [1])
+      check(1, False, [(1, [1])], None)
+      check(0, True, [(1, [1])], None)
+      with self.assertRaisesRegex(cb.InvariantViolation, r'F2 \(d2\).*wrote the empty set'):
+        check(0, False, [(1, [1])], None)
+      with self.assertRaisesRegex(cb.InvariantViolation, r'F2 \(d2\).*produced 1 values.*wrote a failure'):
+        check(1, False, [(1, [1])], [1])
+      with self.assertRaisesRegex(cb.InvariantViolation, r'F2 \(d2\).*an inside failure.*wrote a failure'):
+        check(0, True, [(1, [1])], [1])
+      with self.assertRaisesRegex(cb.InvariantViolation, r'F2 \(d3\).*least level 0'):
+        check(0, False, [(1, [1]), (0, [])], [1])
+    finally:
+      cb.checker_debug_pop_capsule(rts)
+      cb.checker_debug_pop_capsule(rts)
+      del inner, outer
 
 
 class TestNeededness(CheckerTestCase):

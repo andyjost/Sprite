@@ -61,7 +61,6 @@ class RuntimeState(object):
       )
     self.currypath = tuple(interp.path)
     self.expr = interp.raw_expr
-    self.setfunction_failures = interp.flags['setfunction_failures']
     self.prelude = interp.prelude
     self.stdin = interp.stdin
     self.stdout = interp.stdout
@@ -237,11 +236,10 @@ class RuntimeState(object):
     , register_freevar, register_freevars
     )
   from .rts_setfunctions import (
-      boxed_failure, clone_queue, create_queue, create_setfunction
-    , choice_escapes
-    , guard_args, guard, guard_held, in_recursive_call, owns_decision
-    , pop_queue, push_queue, qid
-    , queue_scope, SetFunctionEval, sid, split_queue, update_escape_set
+      clone_queue, create_queue, create_setfunction, choice_escapes
+    , failure_level, guard_args, guard, guard_held, in_recursive_call
+    , owns_decision, pop_queue, push_queue, qid, queue_scope, record_failure
+    , SetFunctionEval, sid, split_queue, update_escape_set
     , update_escape_sets, walk_qstack
     )
 

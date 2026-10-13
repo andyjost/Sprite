@@ -20,11 +20,6 @@ def make_node(info, *args, **kwds):
   args = [Arg(arg) for arg in args]
   return Node.create(info, args, target, bool(partial_info))
 
-_SETF_FAILURES = {
-    'encapsulate': SETF_FAILURES_ENCAPSULATE
-  , 'escape': SETF_FAILURES_ESCAPE
-  }
-
 class StepCounter(object):
   '''
   The step counter of the generic evaluator over a C++ runtime state.
@@ -77,8 +72,6 @@ class RuntimeState(RuntimeStateBase):
   def __init__(self, interp, goal=None):
     istate = interp.backend.get_interpreter_state(interp)
     self.tracing = interp.flags['trace']
-    self.setfunction_failures = \
-        _SETF_FAILURES[interp.flags['setfunction_failures']]
     limit = interp.flags['stack_limit']
     self.stack_limit = NOLIMIT if limit is None else int(limit)
     # The rotation cadence (see cyrt/ticker.hpp): zero steps select time
@@ -90,9 +83,8 @@ class RuntimeState(RuntimeStateBase):
     # ``checker``; cyrt/checker.hpp).
     self.checker = bool(interp.flags['checker'])
     RuntimeStateBase.__init__(
-        self, istate, goal, self.tracing, self.setfunction_failures
-      , self.stack_limit, self.rotation_steps, self.rotation_quantum_ns
-      , self.checker
+        self, istate, goal, self.tracing, self.stack_limit
+      , self.rotation_steps, self.rotation_quantum_ns, self.checker
       )
     # The count of the stepper starts here (StepCounter.reset_global).
     self._step_base = 0

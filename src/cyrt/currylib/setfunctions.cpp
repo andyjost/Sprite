@@ -52,21 +52,6 @@ namespace cyrt { inline namespace
       SchedulerScope checker_scope(rts->checker);
       value = rts->procD();
     }
-    if(rts->pending_control == E_SETFAIL)
-    {
-      // A boxed failure was demanded inside the capsule, under the flag
-      // setfunction_failures (RuntimeState::fail_capsule): the set function
-      // has no value.  The redex becomes a failure under the guards of the
-      // enclosing sets the failure crossed, so an enclosing set function
-      // whose argument it came from fails in turn when it demands it.
-      rts->pending_control = NOTAG;
-      Node * failure = Fail;
-      for(Set * set: rts->capsule_failure_guards)
-        failure = guard(set, failure);
-      rts->capsule_failure_guards.clear();
-      _0->forward_to(failure);
-      return T_FWD;
-    }
     if(rts->pending_control == E_DIVERGE && rts->diverge_queue == seteval->queue)
     {
       // The nested evaluation read a binding of this configuration
@@ -106,7 +91,29 @@ namespace cyrt { inline namespace
     }
     if(!value)
     {
-      _0->forward_to(nil());
+      // The queue is empty: rule SF.5 in the deferred form of the failure
+      // rule F2 (Definition 2.94 of the note on the Fair Scheme; the record
+      // is made by RuntimeState::record_failure).  (d2): the set function
+      // is a failure when the capsule produced no value, recorded no
+      // inside failure and recorded some outside failure; the list ends
+      // otherwise, so an empty set is a value.  (d3): the failure goes
+      // under the guards of the enclosing sets that the recorded failures
+      // at the innermost level crossed (Queue::failure_guards, the one
+      // place of that choice), so an enclosing set function whose argument
+      // the failure came from fails in turn when it demands it, and a
+      // failure that crossed the guard of this set alone is a plain
+      // failure of the enclosing configuration.
+      Queue * const Q = seteval->queue;
+      Node * written = nil();
+      if(Q->fails_at_end())
+      {
+        written = Fail;
+        for(Set * set: Q->failure_guards())
+          written = guard(set, written);
+      }
+      if(rts->checker)
+        rts->checker->capsule_end(Q, written);
+      _0->forward_to(written);
       return T_FWD;
     }
     assert(value.kind == 'p');
@@ -115,6 +122,9 @@ namespace cyrt { inline namespace
     // set are dropped by make_value).  Only a choice escapes.
     if(value.arg.node->info->tag != T_CHOICE)
     {
+      // Rule SF.3: the record of the capsule counts the value (the verdict
+      // on the empty queue reads the count).
+      ++seteval->queue->produced;
       _0->forward_to(
           cons(
               value.arg.node

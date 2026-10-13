@@ -98,7 +98,6 @@ namespace cyrt
     // flags (interpreter/flags.py).
     RuntimeState(
         InterpreterState & istate, Node * goal, bool trace=false
-      , SetFFailures setfunction_failures = SETF_FAILURES_ESCAPE
       , size_t stack_limit = DEFAULT_STACK_LIMIT
       , size_t rotation_steps = TIME_MODE
       , uint64_t rotation_quantum_ns = DEFAULT_QUANTUM_NS
@@ -149,7 +148,6 @@ namespace cyrt
     // SetEval nodes of the set functions under evaluation.
     std::unique_ptr<Queue> root_queue;
     qstack_type            qstack;
-    SetFFailures           setfunction_failures;
     // C-stack guard.  An evaluation may use ``stack_room`` bytes of C stack
     // below ``stack_base``, the frame of the outermost procD.  ``stack_room``
     // is ``stack_limit`` (from the flag) clamped to the stack of the thread
@@ -167,10 +165,6 @@ namespace cyrt
     // meant for.
     tag_type               pending_control = NOTAG;
     Queue *                rotate_target = nullptr;
-    // The sets of the enclosing guards a boxed failure crossed, from
-    // fail_capsule to allValues_step, which puts their guards on the
-    // failure the set function becomes.  See failure_escapes.
-    std::vector<Set *>     capsule_failure_guards;
     // The divergence a nested evaluation met, from diverge to
     // allValues_step: the queue to clone for the configuration that runs
     // it, and the binding the clone absorbs, under the id the
@@ -291,8 +285,10 @@ namespace cyrt
     void pop_queue(TraceOpt=TRACE);
     bool choice_escapes(Configuration *, xid_type);
     bool owns_decision(Configuration *, xid_type);
-    bool failure_escapes(Configuration *, Variable const * inductive);
-    tag_type fail_capsule(Configuration *, Variable const * inductive);
+    void record_failure(Configuration *, Variable const * inductive);
+    // The level of an outside failure that crossed the guards of ``sets``
+    // (rts_setfunctions.cpp).
+    size_t failure_level(std::vector<Set *> const & sets) const;
     tag_type diverge(size_t level, xid_type vid, Node * binding);
     bool in_recursive_call() const;
   private:

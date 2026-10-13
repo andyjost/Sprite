@@ -138,8 +138,10 @@ section 9, describes the job, the history command, and the chart page.
 
 ## phase3-2026-10-10
 
-The record of the C++ backend after the lanes of 2026-10-10 (the escape
-default of `setfunction_failures`, bug batches A and B, pothole batch 4)
+The record of the C++ backend after the lanes of 2026-10-10 (bug batches
+A and B, pothole batch 4; the measured runs used the failure rule of the
+set functions of that day, which failed a set function at the first
+failure from an argument it met, before the deferred form of 2026-10-12)
 on top of the step-mode rotation of 2026-10-05 and the inliner and the
 known-constructor rule of Phase 3 (2026-10-06), taken on the same
 12-core x86-64 workstation at commit `24b0507a` with the calibrated

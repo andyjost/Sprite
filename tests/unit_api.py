@@ -300,3 +300,17 @@ show(curry.getInterpreter())
         ValueError, "unknown flag: 'setfunction_strategy'"
       ):
       Interpreter(flags={'setfunction_strategy': 'eager'})
+
+  def test_setfunction_failures_is_unknown(self):
+    '''
+    The flag of the failure rule of the set functions went on 2026-10-12:
+    the deferred form of the rule is the one behaviour, and neither of
+    the two values of the flag names it.  A program that sets it sees the
+    error of an unknown flag.
+    '''
+    self.assertNotIn('setfunction_failures', curry.flags)
+    for value in ('escape', 'encapsulate'):
+      with self.assertRaisesRegex(
+          ValueError, "unknown flag: 'setfunction_failures'"
+        ):
+        Interpreter(flags={'setfunction_failures': value})

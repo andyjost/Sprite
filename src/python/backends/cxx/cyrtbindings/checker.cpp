@@ -436,6 +436,63 @@ namespace cyrt { namespace python
         "its root, a constructor cell, or at successor ``below`` of that "
         "cell, and runs the hooks of the descent and of a completed step "
         "there (rule N.1 (look-ahead)).");
+    // The checks of the failure rule F2 in its deferred form on constructed
+    // records.  A set is named by its depth on the queue stack (0 is the
+    // innermost capsule).
+    mod.def("checker_debug_check_failure_record"
+      , [](RuntimeState & rts, std::vector<size_t> const & crossed
+          , py::object guards, size_t level)
+        {
+          Checker & checker = require(rts);
+          SetList crossed_sets;
+          for(size_t depth: crossed)
+            crossed_sets.push_back(set_at(rts, depth));
+          if(guards.is_none())
+          {
+            checker.check_failure_record(rts.Q(), crossed_sets, nullptr);
+            return;
+          }
+          FailureRecord record{level, {}};
+          for(size_t depth: guards.cast<std::vector<size_t>>())
+            record.guards.push_back(set_at(rts, depth));
+          checker.check_failure_record(rts.Q(), crossed_sets, &record);
+        }
+      , py::arg("rts"), py::arg("crossed"), py::arg("guards") = py::none()
+      , py::arg("level") = 0
+      , "Runs the check of rule (d1) on a failure that crossed the guards of "
+        "the sets at depths ``crossed`` and was recorded on the current queue "
+        "as an inside failure (``guards`` None) or as an outside failure with "
+        "the guards of the sets at depths ``guards`` and ``level``.");
+    mod.def("checker_debug_check_capsule_end"
+      , [](RuntimeState & rts, size_t produced, bool inside_failure
+          , std::vector<std::pair<size_t, std::vector<size_t>>> const & records
+          , py::object written)
+        {
+          Checker & checker = require(rts);
+          std::vector<FailureRecord> outside;
+          for(auto const & entry: records)
+          {
+            FailureRecord record{entry.first, {}};
+            for(size_t depth: entry.second)
+              record.guards.push_back(set_at(rts, depth));
+            outside.push_back(std::move(record));
+          }
+          Node * node = nil();
+          if(!written.is_none())
+          {
+            node = Fail;
+            for(size_t depth: written.cast<std::vector<size_t>>())
+              node = Node::create(&SetGuard_Info, set_at(rts, depth), node);
+          }
+          checker.check_capsule_end(produced, inside_failure, outside, node);
+        }
+      , py::arg("rts"), py::arg("produced"), py::arg("inside_failure")
+      , py::arg("records"), py::arg("written") = py::none()
+      , "Runs the checks of rules (d2) and (d3) on a capsule that produced "
+        "``produced`` values and recorded ``inside_failure`` and the outside "
+        "failures ``records`` (pairs of a level and the depths of the sets of "
+        "the guards), and wrote the empty list (``written`` None) or a failure "
+        "under the guards of the sets at depths ``written``.");
     mod.def("checker_debug_tree"
       , [](RuntimeState & rts, InfoTable const * info)
         { return tree_object(require(rts).tree_of(info)); }
