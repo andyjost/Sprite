@@ -713,6 +713,80 @@ class TestAuditChecks(CheckerTestCase):
     with self.assertRaisesRegex(_checker().InvariantViolation, 'Def 2.40.*successor 0'):
       rts.checker.discard(outer)
 
+  def test_step_under_a_failed_sibling(self):
+    '''N.1 (look-ahead): a completed step under a constructor cell one of
+    whose successors, read through forward nodes, is a failure (issue
+    #132).  The finding of the descent is taken by one step alone; a cell
+    without a failed successor gives none.'''
+    from curry.backends.py import graph
+    from curry.backends.py.currylib.fundamental import Fwd
+    rts = _state(curry.raw_expr(1))
+    P = rts.prelude
+    redex = graph.Node(P.id, rts.expr(1))
+    failure = graph.Node(Fwd, graph.Node(rts.Failure))
+    root = graph.Node(P.Pair, redex, failure)
+    state = graph.walk(root)
+    state.push()
+    state.advance()
+    self.assertIs(state.cursor, redex)
+    rts.checker.descend(state)
+    unneeded = rts.checker.take_descent()
+    self.assertEqual(unneeded, (root, 1))
+    self.assertIsNone(rts.checker.take_descent())
+    with self.assertRaisesRegex(
+        _checker().InvariantViolation
+      , r'N\.1 \(look-ahead\).*successor 1 is a failure'
+      ):
+      rts.checker.step(redex, redex.info, list(redex.successors), unneeded)
+    rts.checker.step(redex, redex.info, list(redex.successors), None)
+    root = graph.Node(P.Pair, redex, rts.expr(2))
+    state = graph.walk(root)
+    state.push()
+    state.advance()
+    rts.checker.descend(state)
+    self.assertIsNone(rts.checker.take_descent())
+
+  def test_step_under_the_parent_alone(self):
+    '''N.1 (look-ahead) reads the parent cell of the redex alone.  At the
+    root of the walk there is no parent: the cell above an inductive
+    position is not read.  A failure beside a cell above the parent is not
+    read either, as the runtime reads that cell at its extension alone.'''
+    from curry.backends.py import graph
+    from curry.backends.py.currylib.fundamental import Fwd
+    rts = _state(curry.raw_expr(1))
+    P = rts.prelude
+    redex = graph.Node(P.id, rts.expr(1))
+    failure = graph.Node(Fwd, graph.Node(rts.Failure))
+    # The walk of hnf starts at the redex under (redex, failure): no level
+    # of the walk is above the cursor, and the pair is not read.
+    root = graph.Node(P.Pair, redex, failure)
+    state = graph.walk(root, realpath=[0])
+    self.assertIs(state.cursor, redex)
+    self.assertIs(state.parent, root)
+    rts.checker.descend(state)
+    self.assertIsNone(rts.checker.take_descent())
+    # ((redex, 2), failure): the parent of the redex has no failed
+    # successor; the failure beside the parent is not read.
+    inner = graph.Node(P.Pair, redex, rts.expr(2))
+    state = graph.walk(graph.Node(P.Pair, inner, failure))
+    state.push()
+    state.advance()
+    state.push()
+    state.advance()
+    self.assertIs(state.cursor, redex)
+    rts.checker.descend(state)
+    self.assertIsNone(rts.checker.take_descent())
+    # ((redex, failure), 2): the parent is read one level down.
+    inner = graph.Node(P.Pair, redex, failure)
+    state = graph.walk(graph.Node(P.Pair, inner, rts.expr(2)))
+    state.push()
+    state.advance()
+    state.push()
+    state.advance()
+    self.assertIs(state.cursor, redex)
+    rts.checker.descend(state)
+    self.assertEqual(rts.checker.take_descent(), (inner, 1))
+
 
 class TestSetFunctions(CheckerTestCase):
   '''RI S0, S-split, and the failure rule F2 (d1), (d2), (d3).'''

@@ -1243,6 +1243,49 @@ data T3 = P | Q | R
     self.assertEqual(_values(self.M, 'h', False), [])
 
 
+class TestLookAhead(CheckerTestCase):
+  '''N.1 (look-ahead), issue #132: a completed step under a constructor
+  cell one of whose successors, read through forward cells, is a failure
+  is reported; a cell without a failed successor passes.  The rule reads
+  the parent cell of the redex alone: a failure beside a cell above the
+  parent is not read, as the runtime reads that cell at its extension
+  alone.'''
+  def test_step_under_a_failed_sibling(self):
+    cb = _cb()
+    P = curry.getInterpreter().prelude
+    rts = _state(_node(1))
+    redex = _node([P.id, 1])
+    failure = _make(cb.Fwd, _make(cb.Failure))
+    cb.checker_debug_set_root(rts, _make(P.Pair, redex, failure))
+    with self.assertRaisesRegex(
+        cb.InvariantViolation, r'N\.1 \(look-ahead\).*successor 1 is a failure'
+      ):
+      cb.checker_debug_check_step_under(rts, 0)
+    cb.checker_debug_set_root(rts, _make(P.Pair, redex, _node(2)))
+    cb.checker_debug_check_step_under(rts, 0)
+
+  def test_step_under_the_parent_alone(self):
+    cb = _cb()
+    P = curry.getInterpreter().prelude
+    rts = _state(_node(1))
+    redex = _node([P.id, 1])
+    failure = _make(cb.Fwd, _make(cb.Failure))
+    # ((id 1, 2), failure): the parent of the redex has no failed
+    # successor; the failure beside the parent is not read.
+    cb.checker_debug_set_root(
+        rts, _make(P.Pair, _make(P.Pair, redex, _node(2)), failure)
+      )
+    cb.checker_debug_check_step_under(rts, 0, 0)
+    # ((id 1, failure), 2): the parent is read one level down.
+    cb.checker_debug_set_root(
+        rts, _make(P.Pair, _make(P.Pair, redex, failure), _node(2))
+      )
+    with self.assertRaisesRegex(
+        cb.InvariantViolation, r'N\.1 \(look-ahead\).*successor 1 is a failure'
+      ):
+      cb.checker_debug_check_step_under(rts, 0, 0)
+
+
 class TestSharedArgument(cytest.TestCase):
   '''
   The false alarm of both checkers found in the review of the C++ mirror

@@ -141,6 +141,15 @@ namespace cyrt
     // ``status``.  A status below E_RESTART is not a completed step.
     void step_begin(Configuration *);
     void step_end(Configuration *, tag_type status);
+    // The descent of the scan into an operation cell (procN, T_FUNC):
+    // ``root`` is the root of the scan.  Rule N.1 (look-ahead): the parent
+    // cell of the cell, when the cell is below the root of the scan, is a
+    // constructor cell none of whose successors, read through forward
+    // cells, is a failure; such a configuration has no value, and a
+    // completed step below the cell was not needed (issue #132).  The
+    // finding is kept for the step that follows and reported when that
+    // step completes (step_end).
+    void descend(Configuration *, Cursor root);
     // The dispatch of a configuration (procD, at the top of its loop) and
     // a drop of the dispatched configuration (procD, T_FAIL): a discard
     // changes no cell (Def 2.40 of the note on the Fair Scheme), so the
@@ -217,6 +226,10 @@ namespace cyrt
       InfoTable const * info;
       size_t offset;
       size_t nargs;
+      // The constructor cell above the redex whose successor ``index`` was
+      // a failure at the descent (rule N.1), or null.
+      Node * cell = nullptr;
+      index_type index = 0;
     };
     struct ReductRecord
     {
@@ -317,6 +330,10 @@ namespace cyrt
     // held before its step.
     std::vector<StepRecord> step_stack;
     std::vector<Node *> step_args;
+    // The finding of the last descent (descend), taken by the next
+    // step_begin.
+    Node * descent_cell = nullptr;
+    index_type descent_index = 0;
     // The pull-tab in flight.
     PathList pt_path;
     // The queues an escape names, for the reports of its checks.

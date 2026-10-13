@@ -6,6 +6,24 @@ from ...generic.eval import control, trace
 from .... import icurry, inspect
 from . import callstack
 
+def failed_successor(node):
+  '''
+  Rule N.1 at a constructor cell: the index of the first successor of
+  ``node`` that is a failure, read through forward nodes, or None.  The
+  successors are read once, in order, and nothing is written.  A partial
+  application is a value: its arguments are not read, as the walk does not
+  enter them.  The C++ runtime has the same helper (cyrt/fairscheme.hpp).
+  '''
+  if not isinstance(node, Node) or getattr(node.info, 'is_partial', False):
+    return None
+  for i, succ in enumerate(node.successors):
+    if isinstance(succ, Node):
+      while succ.info.tag == T_FWD:
+        succ = succ.successors[0]
+      if succ.info.tag == T_FAIL:
+        return i
+  return None
+
 @trace.trace_values
 def D(rts):
   rts.telemetry._enterD += 1
@@ -107,9 +125,35 @@ def D(rts):
 @callstack.with_N_stackframe
 def N(rts, var, state):
   rts.telemetry._enterN += 1
+  # Set by a step (the T_FUNC branch) and cleared by the read of the parent
+  # cell that the next descent makes (rule N.1, see below).
+  stepped = False
   for _ in state:
     while True:
       tag = inspect.tag_of(state.cursor)
+      # Rule N.1 reads every successor of a constructor cell before the walk
+      # descends into one of them: a failure among them, read through
+      # forward nodes, means that the configuration has no value, and it
+      # takes the path a failure at the cursor takes, before any step below
+      # the cell (issue #132).  Without the look-ahead the walk entered a
+      # diverging successor first, the rotation restarted it from the root,
+      # and it entered the same successor again.  The order of the rules
+      # puts N.1 before the pull-tab of a choice among the successors.
+      # After a step, a step below the parent cell may have made a
+      # successor of that cell a failure (a shared node rewritten in a
+      # capsule), so the parent is read again before the next descent.  The
+      # root of the walk has no parent in the walk: the node above the
+      # inductive position of a step is not read, as a failure beside that
+      # position does not fail the step (snd (failed, 1)).  One read per
+      # completed step at most, bounded by the arity.
+      if tag >= T_CTOR and failed_successor(state.cursor) is not None:
+        tag = T_FAIL
+      elif tag == T_FUNC and stepped:
+        stepped = False
+        parent = state.parent if state.stack else None
+        if isinstance(parent, Node) and parent.info.tag >= T_CTOR \
+            and failed_successor(parent) is not None:
+          tag = T_FAIL
       if tag == T_FAIL:
         # Inside a set function the failure goes into the record of the
         # capsule first (record_failure): a failure below a set guard is
@@ -195,8 +239,12 @@ def N(rts, var, state):
         state.push(data=sid)
         break
       elif tag == T_FUNC:
+        # The checker tests the descent against rule N.1 (checker.py).
+        if rts.checker is not None:
+          rts.checker.descend(state)
         with rts.trace.position(rts.E, state.realpath):
           S(rts, state.cursor)
+        stepped = True
       elif tag >= T_CTOR:
         if not getattr(inspect.info_of(state.cursor), 'is_partial', False):
           state.push()
@@ -218,8 +266,11 @@ def S(rts, node):
       # the step.  The step replaces the list of successors, so the list
       # itself is kept, not copied.
       info, args = node.info, node.successors
+      # The finding of the descent of N belongs to this step alone; a
+      # nested step (hnf) starts with none.
+      unneeded = checker.take_descent()
       info.step(rts, _0)
-      checker.step(node, info, args)
+      checker.step(node, info, args, unneeded)
     # Only a completed step counts.  A step that raised a control exception
     # left its redex as it was.  The C++ procS applies the same rule.
     rts.stepcounter.increment()
