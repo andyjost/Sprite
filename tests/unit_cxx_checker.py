@@ -818,6 +818,69 @@ class TestFreeVariables(CheckerTestCase):
       ):
       cb.checker_debug_check_yield(rts)
 
+  def test_guard_at_the_merge(self):
+    '''D26: a constraint step that unites two classes bound to distinct
+    cells keeps one binding and guards its result with the strict equality
+    of the two (the decision of 2026-10-12).  The classes {x} and {y},
+    bound to two cells, are united and the binding of the old root is
+    dropped.  Dropped without a report, or reported without the guard in
+    the continuation, or reported with a cell the configuration never
+    held: a violation.  With the guard above the result: none.'''
+    cb = _cb()
+    rts = _state(_node(1))
+    x = cb.checker_debug_freshvar(rts)
+    y = cb.checker_debug_freshvar(rts)
+    vx, vy = _vid(x), _vid(y)
+    a, b = _just(_node(1)), _just(_node(2))
+    cb.checker_debug_bind(rts, vx, a)
+    cb.checker_debug_bind(rts, vy, b)
+    cb.checker_debug_constrain_begin(rts)
+    root = cb.checker_debug_unite(rts, vx, vy)
+    kept, dropped = (a, b) if root == vx else (b, a)
+    cb.checker_debug_unbind(rts, vy if root == vx else vx)
+    cb.checker_debug_set_root(rts, _node(True))
+    with self.assertRaisesRegex(
+        cb.InvariantViolation
+      , r'D26 \(guard at the merge\).*dropped by the step without a guard'
+      ):
+      cb.checker_debug_check_constrained(rts)
+    cb.checker_debug_merge_guard(rts, dropped, kept)
+    with self.assertRaisesRegex(
+        cb.InvariantViolation, r'D26 \(guard at the merge\).*holds no guard'
+      ):
+      cb.checker_debug_check_constrained(rts)
+    cb.checker_debug_set_root(
+        rts, cb.checker_debug_merge_guard_node(rts, dropped, kept, _node(True))
+      )
+    cb.checker_debug_check_constrained(rts)
+    cb.checker_debug_merge_guard(rts, dropped, _node(3))
+    with self.assertRaisesRegex(
+        cb.InvariantViolation
+      , r'D26 \(guard at the merge\).*pairs no two bindings'
+      ):
+      cb.checker_debug_check_constrained(rts)
+
+  def test_unguarded_merge_counted(self):
+    '''A merge of two distinct binding cells without a guard list (the
+    fork, the pairing of get_generator) fails the step as before D26 and
+    the checker counts it (unguarded_merges).  One cell under both roots,
+    or one bound root, is not counted.'''
+    cb = _cb()
+    rts = _state(_node(1))
+    x = cb.checker_debug_freshvar(rts)
+    y = cb.checker_debug_freshvar(rts)
+    vx, vy = _vid(x), _vid(y)
+    a, b = _just(_node(1)), _just(_node(2))
+    cb.checker_debug_bind(rts, vx, a)
+    root = cb.checker_debug_unite(rts, vx, vy)
+    old = vy if root == vx else vx
+    cb.checker_debug_bind(rts, old, a)
+    cb.checker_debug_update_binding(rts, old)
+    self.assertNotIn('unguarded_merges', cb.checker_counts(rts))
+    cb.checker_debug_bind(rts, old, b)
+    cb.checker_debug_update_binding(rts, old)
+    self.assertEqual(cb.checker_counts(rts)['unguarded_merges'], 1)
+
   def test_equality_step_pairs(self):
     '''Def 2.62 under decision D25: the strict equality of a decided
     variable x and a variable y that is free in the configuration records

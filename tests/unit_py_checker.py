@@ -525,7 +525,8 @@ h2 = g2 5 y where y free
 
 class TestAuditChecks(CheckerTestCase):
   '''The checks of the audit of 2026-10-11 (issues #126 to #128), each on
-  a constructed state: E5, E11 and Def 2.40 (discard).'''
+  a constructed state: E5, E11 and Def 2.40 (discard), and D26 of the
+  decision of 2026-10-12.'''
   def test_group_generator(self):
     '''E5: a decided class of two variables whose root has no generator
     (issue #127).'''
@@ -609,6 +610,76 @@ class TestAuditChecks(CheckerTestCase):
     config.bindings.write[xid] = rts.expr(True)
     with self.assertRaisesRegex(_checker().InvariantViolation, 'E11'):
       rts.checker.yield_(config)
+
+  def test_guard_at_the_merge(self):
+    '''D26: a constraint step that unites two classes bound to distinct
+    cells keeps one binding and guards its result with the strict equality
+    of the two (the decision of 2026-10-12).  The classes {x} and {y},
+    bound to two cells, are united and the binding of the old root is
+    dropped.  Dropped without a report, or reported without the guard in
+    the continuation, or reported with a cell the configuration never
+    held: a violation.  With the guard above the result: none.'''
+    from curry.backends.py import graph
+    P = curry.getInterpreter().prelude
+    rts = _state(curry.raw_expr(1))
+    config = rts.C
+    x = rts.freshvar()
+    y = rts.freshvar()
+    xid, yid = x.successors[0], y.successors[0]
+    a, b = graph.Node(P.Just, rts.expr(1)), graph.Node(P.Just, rts.expr(2))
+    config.bindings.write[xid] = a
+    config.bindings.write[yid] = b
+    rts.checker.constrain_begin(config)
+    config.strict_constraints.write.unite(xid, yid)
+    root = rts.grp_id(xid, config)
+    kept, dropped = (a, b) if root == xid else (b, a)
+    del config.bindings.write[yid if root == xid else xid]
+    config.root = rts.expr(True)
+    with self.assertRaisesRegex(
+        _checker().InvariantViolation
+      , r'D26 \(guard at the merge\).*dropped by the step without a guard'
+      ):
+      rts.checker.constrained(config)
+    rts.checker.merge_guard(config, dropped, kept)
+    with self.assertRaisesRegex(
+        _checker().InvariantViolation
+      , r'D26 \(guard at the merge\).*holds no guard'
+      ):
+      rts.checker.constrained(config)
+    config.root = graph.Node(
+        getattr(P, '&>'), graph.Node(P.constrEq, dropped, kept), rts.expr(True)
+      )
+    rts.checker.constrained(config)
+    rts.checker.merge_guard(config, dropped, rts.expr(3))
+    with self.assertRaisesRegex(
+        _checker().InvariantViolation
+      , r'D26 \(guard at the merge\).*pairs no two bindings'
+      ):
+      rts.checker.constrained(config)
+
+  def test_unguarded_merge_counted(self):
+    '''A merge of two distinct binding cells without a guard list (the
+    fork, the pairing of get_generator) returns False as before D26 and
+    the checker counts it (unguarded_merges).  One cell under both roots,
+    or one bound root, is not counted.'''
+    from curry.backends.py import graph
+    P = curry.getInterpreter().prelude
+    rts = _state(curry.raw_expr(1))
+    config = rts.C
+    x = rts.freshvar()
+    y = rts.freshvar()
+    xid, yid = x.successors[0], y.successors[0]
+    a, b = graph.Node(P.Just, rts.expr(1)), graph.Node(P.Just, rts.expr(2))
+    config.bindings.write[xid] = a
+    config.strict_constraints.write.unite(xid, yid)
+    root = rts.grp_id(xid, config)
+    old = yid if root == xid else xid
+    config.bindings.write[old] = a
+    self.assertTrue(rts.update_binding(old, config=config))
+    self.assertNotIn('unguarded_merges', rts.checker.counts)
+    config.bindings.write[old] = b
+    self.assertFalse(rts.update_binding(old, config=config))
+    self.assertEqual(rts.checker.counts['unguarded_merges'], 1)
 
   def test_discard_changes_no_cell(self):
     '''Def 2.40: the root cell of a dropped configuration holds the symbol

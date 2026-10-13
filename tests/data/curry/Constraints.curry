@@ -19,8 +19,9 @@ g14 :: (Bool, Bool, Bool)
 g14 = (a =:= b) &> (not b, a =:= c, c) where a, b, c free
 
 -- Issue #128: a merge of two classes bound to different terms.  In the
--- second alternative of g18, x reads B True and y reads B False through the
--- bindings of their leaves before the equality step, so the step fails.
+-- second alternative of g18, the constraint step unites the leaf classes
+-- of x and y, bound to True and to False, and the guard True =:= False of
+-- the merge fails (decision D26 of 2026-10-12).
 data T = A | B Bool
 
 inner :: T -> Bool
@@ -52,9 +53,9 @@ eqJust :: (Maybe Bool, Maybe Bool)
 eqJust = (x =:<= Just True) &> (y =:<= Just True) &> (x =:= y) &> (x, y) where x, y free
 
 -- Two classes bound to equal but unevaluated terms in distinct cells, united
--- by a constraint cell the first alternative shares.  The merge counts the
--- two cells as different and fails the step, so the second value (2, 2) is
--- lost; KiCS2 gives both values.  The rule is the owner's (Remark 2.70).
+-- by a constraint cell the first alternative shares.  The merge keeps one
+-- binding and guards the step with (1 + 1) =:= (1 + 1), so the second
+-- value (2, 2) stands, as in KiCS2 (decision D26 of 2026-10-12).
 eqShapeG18 :: (Int, Int)
 eqShapeG18 = let e = x =:= y
              in (e &> (0, 0)) ? ((x =:<= (1 + 1)) &> (y =:<= (1 + 1)) &> e &> (x, y))

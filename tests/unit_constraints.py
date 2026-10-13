@@ -18,10 +18,13 @@ verifies it at every fork, constraint step and yield: E5).
 Issue #128: at a union of two classes, the binding of the old root was
 moved to the new root without a test of the result, so a merge of two
 classes bound to different terms kept one binding (C++) or asserted
-(Python).  The merge fails the step now, and a binding sits under the root
-of its class (the checker verifies it: E11).  Two bindings are the same
-term when they are one cell or the same constructor term through forward
-cells; two distinct unevaluated terms count as different.
+(Python).  A binding sits under the root of its class now (the checker
+verifies it: E11), and the merge of two classes bound to distinct cells
+keeps one binding and guards the result of the step with the strict
+equality of the two (decision D26 of 2026-10-12; unit_boundmerge.py):
+the guard fails for two different terms, so g18, g18t and g5 keep their
+values, and succeeds for two equal terms not yet evaluated, which the
+first rule after the issue, a failure of the step, lost (eqShapeG18).
 
 Issue #129: the equality steps read "bound" as "has a generator" before
 they read the fingerprint, so a variable that another alternative narrowed
@@ -32,7 +35,7 @@ FREE_IN_CONFIGURATION of the C++ steps), and the checker verifies that no
 equality step narrows a variable the configuration left free.
 '''
 import cytest # from ./lib; must be first
-import curry, unittest
+import curry
 
 ADDRESS_SPACE = 2 << 30
 TIMEOUT = 300
@@ -120,16 +123,15 @@ class TestMergeOfBoundClasses(GoalsCase):
 
 class TestMergeOfEqualUnevaluatedTerms(GoalsCase):
   '''
-  The open case of issue #128, left to the owner: two classes bound to equal
-  but unevaluated terms in distinct cells, united by a shared constraint
-  cell.  The merge counts the two cells as different and fails the step,
-  so (2, 2) is lost (KiCS2: (0, 0) and (2, 2)).  The test turns green when
-  the merge tests the two terms by an equality or keeps the former binding
-  through the class (Remark 2.70).
+  The case of issue #128 the owner decided (D26): two classes bound to
+  equal but unevaluated terms in distinct cells, united by a shared
+  constraint cell.  The merge keeps one binding and guards the step with
+  the equality (1 + 1) =:= (1 + 1), so the second value stands (KiCS2:
+  (0, 0) and (2, 2)).  Before the decision the merge counted the two cells
+  as different and failed the step, and (2, 2) was lost.
   '''
   EXPECTED = {'eqShapeG18': ['(0, 0)', '(2, 2)']}
 
-  @unittest.expectedFailure
   def test_eqShapeG18(self): self.check('eqShapeG18')
 
 
@@ -162,7 +164,8 @@ class TestChecker(cytest.TestCase):
   def test_checker(self):
     expected = {}
     for cls in (
-        TestDecidedClassRoot, TestMergeOfBoundClasses, TestEqualityOfFreeVariable
+        TestDecidedClassRoot, TestMergeOfBoundClasses
+      , TestMergeOfEqualUnevaluatedTerms, TestEqualityOfFreeVariable
       ):
       expected.update(cls.EXPECTED)
     results = run_child(expected, checker=True)

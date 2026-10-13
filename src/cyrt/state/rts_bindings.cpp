@@ -21,11 +21,12 @@ namespace cyrt
   // the same constructor or literal over the same successors through
   // forward cells, read within the budget.  Two distinct cells that are not
   // constructor terms (operations, choices, variables, failures) count as
-  // different, and so does a pair beyond the budget: the merge of two
-  // classes bound to different terms fails the step (issue #128), where
-  // the equality of two unevaluated terms is not decided here (Remark 2.70
-  // of the note on the Fair Scheme leaves the merge of two bound classes
-  // open: the rule is the owner's).  The Python backend has the same
+  // different, and so does a pair beyond the budget: a second non-strict
+  // binding of a bound class to a different term fails the step
+  // (add_binding).  The merge of two bound classes at a union no longer
+  // compares the terms: it keeps one binding and guards the step with the
+  // strict equality of the two (merge_binding in rts_constraints.cpp;
+  // decision D26 of 2026-10-12).  The Python backend has the same
   // comparison (_same_binding in rts_bindings.py).
   static bool same_binding(Node * a, Node * b)
   {
@@ -63,7 +64,7 @@ namespace cyrt
 
   // Binds the class of ``vid`` to ``value``.  The bindings sit under the
   // root of the class (the merge keeps them there, rts_constraints.cpp).
-  // False when the class holds a different binding.
+  // False when the class holds a different binding (same_binding).
   bool RuntimeState::add_binding(Configuration * C, xid_type vid, Node * value)
   {
     xid_type gid = C->grp_id(vid);

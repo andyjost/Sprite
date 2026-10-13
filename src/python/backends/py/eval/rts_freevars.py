@@ -54,6 +54,11 @@ def get_generator(rts, arg=None, config=None):
   vid = rts.obj_id(arg, config)
   x = rts.get_freevar(vid)
   if not rts.has_generator(x):
+    # The result of the pairing is dropped on purpose: the variable and its
+    # root are one class, so the pairing identifies nothing new, and a merge
+    # of two distinct binding cells, the one failure the pairing without a
+    # list reports, is counted by the checker (unguarded_merges) and reached
+    # by no known program.
     _constrain_equal_rec(rts, vid, rts.grp_id(vid, config), config=config)
     assert rts.has_generator(x), \
         'free variable %s has no generator and its class has none' % vid

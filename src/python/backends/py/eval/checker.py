@@ -365,6 +365,12 @@ class Checker(object):
     # (enter_scheduler, leave_scheduler), so the drop of the outer
     # configuration compares its own root.
     self.dispatch_stack = [[None, None, []]]
+    # The bindings of the configuration at the start of the constraint
+    # step in flight and the pairs of bindings its unions merged
+    # (constrain_begin, merge_guard, _check_merge_guards).  A constraint
+    # step evaluates nothing, so one record serves every scheduler.
+    self.constraint_bindings = {}
+    self.merge_guards = []
     self._modules_seen = -1
     self._symbols = {}
     self.counts = collections.Counter()
@@ -540,6 +546,64 @@ class Checker(object):
             'whose root is %s' % (k, r)
           , config, ids=[k, r]
           )
+
+  def _check_merge_guards(self, config, event):
+    '''D26 (the guard at the merge of two bound classes; the decision of
+    2026-10-12): a constraint step at the root that unites two classes
+    with distinct binding cells keeps one cell and puts the strict
+    equality of the two above its result (update_binding in
+    rts_bindings.py and D of fairscheme.py).  The record of the step holds
+    the bindings before it (constrain_begin) and the pairs the step
+    reported (merge_guard).  Every binding cell of the record that the
+    configuration no longer holds is an operand of a reported pair: a
+    cell dropped without a guard loses the equality of the two terms.
+    Each reported pair holds two distinct cells of the record.  And the
+    continuation of the configuration, the result of the constraint cell
+    at the root, or the root once the result is written, begins with the
+    guards of the pairs: one &> cell per pair, the first reported
+    outermost, whose condition is the constrEq cell over the pair.  The
+    C++ checker has the same check (check_merge_guards).'''
+    before = {id(cell): cell for cell in self.constraint_bindings.values()}
+    after = {id(cell) for cell in config.bindings.read.values()}
+    guards = self.merge_guards
+    for key, cell in before.items():
+      if key in after:
+        continue
+      if not any(a is cell or b is cell for a, b in guards):
+        self._violation(
+            'D26 (guard at the merge)', event
+          , 'the binding %s was dropped by the step without a guard of its '
+            'equality with the binding kept' % _text(cell)
+          , config
+          )
+    for a, b in guards:
+      if a is b or id(a) not in before or id(b) not in before:
+        self._violation(
+            'D26 (guard at the merge)', event
+          , 'the guard %s =:= %s pairs no two bindings the configuration '
+            'held before the step' % (_text(a), _text(b))
+          , config
+          )
+    fwd = inspect.fwd_chain_target
+    node = fwd(config.root)
+    if isinstance(node, Node) and node.info.tag == T_CONSTR:
+      node = fwd(node.successors[0])
+    guard_info = getattr(self.rts.prelude, '&>').info
+    eq_info = self.rts.prelude.constrEq.info
+    for a, b in guards:
+      cond = None
+      if isinstance(node, Node) and node.info is guard_info:
+        cond = fwd(node.successors[0])
+      args = cond.successors \
+          if isinstance(cond, Node) and cond.info is eq_info else None
+      if args is None or args[0] is not a or args[1] is not b:
+        self._violation(
+            'D26 (guard at the merge)', event
+          , 'the continuation holds no guard %s =:= %s where the step '
+            'merged the two bound classes' % (_text(a), _text(b))
+          , config
+          )
+      node = fwd(node.successors[1])
 
   def _check_occurs(self, config, event):
     '''D15 (occurs check; the decision of 2026-10-12): no class of free
@@ -899,6 +963,31 @@ class Checker(object):
     self._check_fingerprint(config, 'constraint', self._chain())
     self._check_bindings(config, 'constraint')
     self._check_occurs(config, 'constraint')
+    self._check_merge_guards(config, 'constraint')
+
+  def constrain_begin(self, config):
+    '''Before the unions of a constraint step at the root (D): the
+    bindings of ``config``, which constrained compares with the bindings
+    after the step (_check_merge_guards).'''
+    self.constraint_bindings = dict(config.bindings.read)
+    self.merge_guards = []
+
+  def merge_guard(self, config, dropped, kept):
+    '''A merge of two bound classes in the constraint step in flight
+    (update_binding; decision D26 of 2026-10-12): the binding dropped and
+    the binding kept.  The pair goes into the record, and constrained
+    compares the record with the store and the continuation
+    (_check_merge_guards).'''
+    self.counts['merge_guards'] += 1
+    self.merge_guards.append((dropped, kept))
+
+  def unguarded_merge(self, config):
+    '''A merge of two bound classes with distinct binding cells outside
+    the constraint step at the root (update_binding without a list: the
+    fork, the pairing of get_generator).  The step fails as before D26.
+    No known program reaches it; the count makes a reach visible, and the
+    tests pin it at zero.  The C++ checker has the same count.'''
+    self.counts['unguarded_merges'] += 1
 
   def dispatch(self, root):
     '''At the dispatch of a configuration (D): its root cell, its symbol
