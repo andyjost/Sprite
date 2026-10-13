@@ -115,6 +115,11 @@ namespace cyrt
       xid_type gid = C->grp_id(vid);
       if(!this->get_freevar(gid))
         throw missing_freevar(gid);
+      // The result of the pairing is dropped on purpose: the variable and
+      // its root are one class, so the pairing identifies nothing new, and
+      // a merge of two distinct binding cells, the one failure the pairing
+      // without a list reports, is counted by the checker
+      // (unguarded_merges) and reached by no known program.
       _constrain_equal_rec(this, C, vid, gid);
       if(!has_generator(x))
         throw std::logic_error(
