@@ -1,7 +1,7 @@
 from ....common import T_CHOICE, T_FREE, LEFT, UNDETERMINED
 from ..eval import fairscheme
 from ...generic.currylib import setfunctions as generic_setfunctions
-from ...generic.eval.control import E_DIVERGE, E_SETFAIL, E_UNWIND
+from ...generic.eval.control import E_DIVERGE, E_UNWIND
 from .. import graph
 from .... import inspect
 
@@ -29,11 +29,37 @@ def allValues(rts, _0):
         finally:
           if checker is not None:
             checker.leave_scheduler()
+        # Rule SF.3: the record of the capsule counts the value (the
+        # verdict on the empty queue reads the count).
+        rts.qtable[qid].produced += 1
         yield rts.prelude.Cons
         yield value
         yield graph.Node(rts.setfunctions.allValues, seteval)
       except StopIteration:
-        yield rts.prelude.Nil
+        # The queue is empty: rule SF.5 in the deferred form of the failure
+        # rule F2 (Definition 2.94 of the note on the Fair Scheme; the
+        # record is made by record_failure in eval/rts_setfunctions.py).
+        # (d2): the set function is a failure when the capsule produced no
+        # value, recorded no inside failure and recorded some outside
+        # failure; the list ends otherwise, so an empty set is a value.
+        # (d3): the failure goes under the guards of the enclosing sets
+        # that the recorded failures at the innermost level crossed
+        # (Queue.failure_guards, the one place of that choice), so an
+        # enclosing set function whose argument the failure came from
+        # fails in turn when it demands it, and a failure that crossed the
+        # guard of this set alone is a plain failure of the enclosing
+        # configuration.  The C++ runtime has the same step
+        # (allValues_step).
+        Q = rts.qtable[qid]
+        failure_sids = Q.failure_guards() if Q.fails_at_end() else None
+        if rts.checker is not None:
+          rts.checker.capsule_end(qid, failure_sids)
+        if failure_sids is None:
+          yield rts.prelude.Nil
+        elif failure_sids:
+          yield from rts.guard_args(graph.Node(rts.Failure), failure_sids)
+        else:
+          yield rts.Failure
   except E_UNWIND:
     # The choice at the root of the front configuration escapes the set
     # function (rule SF.1), whatever this configuration decided: nothing of
@@ -104,17 +130,6 @@ def allValues(rts, _0):
       )
     rts.E = graph.utility.copy_spine(rts.E, rts.C.realpath, end=view)
     rts.restart()
-  except E_SETFAIL as exc:
-    # A boxed failure was demanded inside the capsule, under the flag
-    # setfunction_failures (boxed_failure in eval/rts_setfunctions.py): the
-    # set function has no value.  The redex becomes a failure under the
-    # guards of the enclosing sets the failure crossed, so an enclosing set
-    # function whose argument it came from fails in turn when it demands
-    # it.  The C++ runtime has the same step (allValues_step).
-    if exc.sids:
-      yield from rts.guard_args(graph.Node(rts.Failure), exc.sids)
-    else:
-      yield rts.Failure
 
 def applyS(rts, _0, capture=False):
   # applyS :: PartialS (a -> b) -> a -> PartialS b

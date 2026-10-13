@@ -38,13 +38,13 @@ namespace cyrt
 
   RuntimeState::RuntimeState(
       InterpreterState & istate, Node * goal, bool trace
-    , SetFFailures setfunction_failures, size_t stack_limit
+    , size_t stack_limit
     , size_t rotation_steps, uint64_t rotation_quantum_ns, bool checker
     )
     : istate(istate), rotation_steps(rotation_steps)
     , rotation_next(rotation_steps), rotation_quantum_ns(rotation_quantum_ns)
     , root_queue(new Queue())
-    , setfunction_failures(setfunction_failures), stack_limit(stack_limit)
+    , stack_limit(stack_limit)
   {
     // Time mode needs a quantum: a ticker with none would never release its
     // mutex (cyrt/ticker.hpp).  The Python side guarantees one; this guards

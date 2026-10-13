@@ -174,13 +174,12 @@ A function whose result is a failure has the empty set::
 
     main5 = isEmpty (set1 source "main.c")   -- True
 
-A failure that comes from an argument fails the set function instead, as
-the semantics of weakly encapsulated search prescribes: ``isEmpty (set1 id
-failed)`` has no value.  An argument the function does not demand fails
-nothing.  The interpreter flag ``setfunction_failures`` selects the rule:
-``'escape'``, the default, is this one, and ``'encapsulate'`` treats such a
-failure as a failure of the function, so ``isEmpty (set1 id failed)`` is
-``True`` under it (the rule of the dissertation).
+A failure that comes from an argument is not a failure of the function.
+It drops the alternative that demands it, and the set function fails when
+no alternative gives a value and none fails on its own, as the semantics of
+weakly encapsulated search prescribes: ``isEmpty (set1 id failed)`` has no
+value, and ``sortValues (set1 (\a -> a ? True) failed)`` is ``[True]``.
+An argument the function does not demand fails nothing.
 
 Sprite evaluates a set function lazily: the values of the set are computed
 as the program consumes them.  Inside the set, the scheduler runs a queue

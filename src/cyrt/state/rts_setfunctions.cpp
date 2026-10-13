@@ -1,4 +1,5 @@
 #include "cyrt/builtins.hpp"
+#include "cyrt/checker.hpp"
 #include "cyrt/state/rts.hpp"
 #include <algorithm>
 
@@ -98,33 +99,106 @@ namespace cyrt
     return cur.kind == 'p' && *cur && (*cur)->info->tag == T_SETGRD;
   }
 
-  // Tells whether a failure met by a step of C fails the set function: the
-  // flag setfunction_failures is 'escape', the evaluation is inside a set
-  // function, and the path from the root of C to the failure crosses a set
-  // guard, in the levels of the scan (from the root to the redex) or in the
-  // guards of ``inductive`` (from the redex to the position; null when the
-  // failure is at the cursor of the scan).  Such a failure is boxed: it
-  // came through the box of an argument of a set function, this one or an
-  // enclosing one, as the box rule of the dissertation (chapter 4) keeps
-  // every reference to a boxed expression boxed.  So it is a failure of the
-  // context, not of the function, and the semantics of weakly encapsulated
-  // search gives the set function no value.  An unboxed failure is the
-  // function's own and drops its alternative (rule SF.5), as every failure
-  // does under 'encapsulate'.  The Python backend has the same test
-  // (boxed_failure in rts_setfunctions.py).
-  bool RuntimeState::failure_escapes(
+  // Records a failure met by a step of C in its capsule: rule (d1) of the
+  // failure rule F2 in its deferred form (Definition 2.94 of the note on
+  // the Fair Scheme).  The step that met the failure drops the
+  // configuration as every failure does (procD on T_FAIL; procN and hnf
+  // hand the failure up to it).  This records what the failure was for the
+  // verdict on the empty queue (Queue::fails_at_end and
+  // Queue::failure_guards; allValues_step in currylib/setfunctions.cpp).
+  //
+  // The failure is boxed when the path from the root of C to it crosses a
+  // set guard, in the levels of the scan (from the root to the redex) or in
+  // the guards of ``inductive`` (from the redex to the position; null when
+  // the failure is at the cursor of the scan).  Such a failure came through
+  // the box of an argument of a set function, this one or an enclosing one,
+  // as the box rule of the dissertation (chapter 4) keeps every reference
+  // to a boxed expression boxed.  So it is a failure of the context, not of
+  // the function: the capsule records an outside failure with the sets of
+  // the enclosing guards it crossed, less the current set, and the level at
+  // which it entered the chain of the capsules.  A failure that crossed no
+  // guard is the function's own: the capsule records an inside failure
+  // (rule SF.5 of the dissertation drops the alternative).  A capsule
+  // whose queue empties with no value, no inside failure and some outside
+  // failure is itself a failure, the semantics of weakly encapsulated
+  // search (Christiansen, Hanus, Reck and Seidel, PPDP 2013), as KiCS2
+  // behaves.  Outside every set function nothing is recorded.
+  //
+  // A failure is observed at the position that met it first, with the
+  // whole path, and again at each level above it on the way to the root,
+  // with a shorter path (hnf forwards the redex to the failure, and the
+  // caller meets the failure at the redex).  The first observation makes
+  // the record and sets Configuration::failure_recorded; the rest make
+  // none.  A constraint that fails at the root of procD (the occurs
+  // check, or the union of two classes with different instances) is a
+  // failure at the root like a failure cell there: the path crossed no
+  // guard, so the record is an inside failure.  The Python backend has
+  // the same rule (record_failure in rts_setfunctions.py).
+  //
+  // The level of an outside failure is failure_level, and the choice of
+  // the records at the end of the capsule is failure_guards (queue.cpp);
+  // the checker calls both (Checker::check_failure_record and
+  // check_capsule_end), so a change of the reading of rule (d3) touches
+  // those two functions alone.
+  void RuntimeState::record_failure(
       Configuration * C, Variable const * inductive
     )
   {
-    if(this->setfunction_failures != SETF_FAILURES_ESCAPE
-        || !this->in_recursive_call())
-      return false;
-    if(inductive && !inductive->guards.empty())
-      return true;
+    if(!this->in_recursive_call() || C->failure_recorded)
+      return;
+    C->failure_recorded = true;
+    Queue * const Q = this->Q();
+    Set * const current = Q->set;
+    // The guards the path crossed, from the root down, without repetition.
+    std::vector<Set *> crossed;
+    auto cross = [&](Set * set)
+    {
+      if(set && std::find(crossed.begin(), crossed.end(), set) == crossed.end())
+        crossed.push_back(set);
+    };
     for(auto const & level: C->scan.frames())
       if(is_guard_level(level.cur))
-        return true;
-    return false;
+        cross(NodeU{*level.cur}.setgrd->set);
+    if(inductive)
+      for(Set * set: inductive->guards)
+        cross(set);
+    if(crossed.empty())
+    {
+      Q->inside_failure = true;
+      if(this->checker)
+        this->checker->failure_recorded(C, Q, inductive, nullptr);
+      return;
+    }
+    FailureRecord record{0, {}};
+    for(Set * set: crossed)
+      if(set != current)
+        record.guards.push_back(set);
+    record.level = this->failure_level(record.guards);
+    Q->outside_failures.push_back(std::move(record));
+    if(this->checker)
+      this->checker->failure_recorded(
+          C, Q, inductive, &Q->outside_failures.back()
+        );
+  }
+
+  // The level of an outside failure that crossed the guards of ``sets``:
+  // the position, innermost first, of the outermost capsule of the chain
+  // among them; zero when none is on the chain (the failure crossed the
+  // guard of this capsule alone).  A guard of a set that is on the chain
+  // no more does not move the level.  The one place that defines the
+  // level; the checker calls it.
+  size_t RuntimeState::failure_level(std::vector<Set *> const & sets) const
+  {
+    size_t level = 0;
+    size_t const n = this->qstack.size();
+    for(Set * set: sets)
+      for(size_t k = 1; k < n; ++k)
+        if(this->qstack[n - 1 - k]->set == set)
+        {
+          level = std::max(level, k);
+          break;
+        }
+    return level;
   }
 
   // Records a divergence: the nested evaluation read, through the queue
@@ -161,36 +235,4 @@ namespace cyrt
     return E_DIVERGE;
   }
 
-  // Fails the set function whose queue is current (see failure_escapes).
-  // Records the sets of the guards the failure crossed, less the current
-  // set, and returns E_SETFAIL, which every enclosing step hands out as it
-  // hands E_UNWIND out, up to the nested procD, which yields it to
-  // allValues_step.  That step makes the set function a failure under the
-  // guards recorded: an enclosing set function whose argument the failure
-  // came from fails in turn when it demands it, and a failure from no
-  // enclosing argument drops the alternative of the enclosing function.
-  // The step that met the failure is left as it was, with its queue: the
-  // set function is gone, and nothing runs the queue again.
-  tag_type RuntimeState::fail_capsule(
-      Configuration * C, Variable const * inductive
-    )
-  {
-    assert(this->in_recursive_call());
-    Set * const current = this->S();
-    auto & keep = this->capsule_failure_guards;
-    keep.clear();
-    auto record = [&](Set * set)
-    {
-      if(set && set != current
-          && std::find(keep.begin(), keep.end(), set) == keep.end())
-        keep.push_back(set);
-    };
-    for(auto const & level: C->scan.frames())
-      if(is_guard_level(level.cur))
-        record(NodeU{*level.cur}.setgrd->set);
-    if(inductive)
-      for(Set * set: inductive->guards)
-        record(set);
-    return E_SETFAIL;
-  }
 }

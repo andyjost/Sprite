@@ -18,6 +18,7 @@
 #include "cyrt/fwd.hpp"
 #include "cyrt/graph/cursor.hpp"
 #include "cyrt/graph/memory.hpp"
+#include "cyrt/state/queue.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -157,11 +158,31 @@ namespace cyrt
     void hnf(Configuration *, Variable const * inductive);
     // The entry of a capsule (evalS_step): the goal of the new queue.
     void capsule_entry(Set *, Node * goal);
+    // The record of a failure in a capsule (RuntimeState::record_failure),
+    // rule (d1) of the deferred form of the failure rule F2: after the
+    // record went into the queue.  ``inductive`` is the inductive position
+    // that met the failure, or null when the scan met it; ``record`` is
+    // the outside failure recorded, or null for an inside failure.
+    void failure_recorded(
+        Configuration *, Queue *, Variable const * inductive
+      , FailureRecord const * record
+      );
+    // The end of a capsule on the empty queue (allValues_step), rules (d2)
+    // and (d3): after the verdict, with the node written, a failure under
+    // the guards of enclosing sets or the empty list.
+    void capsule_end(Queue *, Node * written);
 
     // For the tests: the pieces of the checks on constructed objects.
     void check_clone(Configuration * clone, xid_type cid, Configuration * parent);
     void check_failed_step(
         Configuration *, InfoTable const *, std::vector<Node *> const & args
+      );
+    void check_failure_record(
+        Queue *, SetList const & crossed, FailureRecord const * record
+      );
+    void check_capsule_end(
+        size_t produced, bool inside_failure
+      , std::vector<FailureRecord> const & outside_failures, Node * written
       );
     void tag(xid_type, Set *);
     void note_escape(Set *, xid_type);

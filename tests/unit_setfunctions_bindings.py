@@ -47,15 +47,13 @@ the binding clones the capsule for it, absorbs the binding into the clone
 (Queue::absorbed; Queue.absorbed) and restarts through a private copy of
 its spine.  The read then finds the binding in the clone.  A binding found
 at the outermost configuration while it is alone in its queue is absorbed
-in place, without a clone.  The tests of the shapes run the children under
-both settings of the flag setfunction_failures.
+in place, without a clone.
 '''
 import cytest # from ./lib; must be first
 import curry, unittest
 
 ADDRESS_SPACE = 1 << 30
 TIMEOUT = 120
-SETTINGS = ('encapsulate', 'escape')
 
 # Evaluates goals of the test module and prints one line per goal: its name
 # and the sorted values as Curry text, or the name of the error.
@@ -173,24 +171,20 @@ class TestBoundArgument(cytest.TestCase):
       , 'plainPat': ['(0, 1)']
       })
 
-  def check_settings(self, expected, clones=None):
+  def check_values(self, expected, clones=None):
     '''
-    Evaluates the goals of ``expected`` under both settings of the flag.
-    ``clones`` maps a goal to the number of capsule clones it makes, checked
-    on the Python backend alone (the C++ runtime has no counter of them); a
-    goal of ``expected`` it leaves out makes none.
+    Evaluates the goals of ``expected`` in a child.  ``clones`` maps a goal
+    to the number of capsule clones it makes, checked on the Python backend
+    alone (the C++ runtime has no counter of them); a goal of ``expected``
+    it leaves out makes none.
     '''
     goals = tuple(expected)
     if clones and curry.flags['backend'] == 'py':
       expected = dict(expected)
       for name in goals:
         expected[name + '.clones'] = clones.get(name, 0)
-    for setting in SETTINGS:
-      with self.subTest(setfunction_failures=setting):
-        results = run_child(
-            self, *goals, setfunction_failures=setting, clones=bool(clones)
-          )
-        self.assertEqual(results, expected)
+    results = run_child(self, *goals, clones=bool(clones))
+    self.assertEqual(results, expected)
 
   def test_shared_capsule(self):
     '''
@@ -205,14 +199,14 @@ class TestBoundArgument(cytest.TestCase):
     case and == shapes suspended before the fix of #97; the string shape
     ran out of memory.
     '''
-    self.check_settings({
+    self.check_values({
         'sharedCase': ['(0, 1)', '(0, 2)'], 'sharedEq': ['(0, 1)', '(0, 2)']
       , 'sharedPat': ['(0, 1)']
       })
 
   def test_shared_strict(self):
     '''The binding made by =:=, a value binding of a character.'''
-    self.check_settings({
+    self.check_values({
         'plainStrict': ['(0, 1)', '(0, 2)']
       , 'sharedStrict': ['(0, 1)', '(0, 2)']
       })
@@ -223,7 +217,7 @@ class TestBoundArgument(cytest.TestCase):
     escapes the capsule and the queue splits (the repair of issue #61); no
     binding is read, and no clone is made.
     '''
-    self.check_settings({
+    self.check_values({
         'plainNarrow': ['(0, 1)', '(0, 2)']
       , 'sharedNarrow': ['(0, 1)', '(0, 2)']
       })
@@ -234,7 +228,7 @@ class TestBoundArgument(cytest.TestCase):
     narrows its spine and binds its characters.  The alternative whose
     string does not end in 'a' has no value.
     '''
-    self.check_settings({
+    self.check_values({
         'plainFunPat': ['(0, 2)'], 'sharedFunPat': ['(0, 2)']
       })
 
@@ -244,14 +238,14 @@ class TestBoundArgument(cytest.TestCase):
     capsule is cloned for the alternative and the inner one for the clone's
     configuration, one level at a time.
     '''
-    self.check_settings({'sharedNested': ['(0, 1)', '(0, 2)']})
+    self.check_values({'sharedNested': ['(0, 1)', '(0, 2)']})
 
   def test_shared_two_variables(self):
     '''
     Two variables bound after the start: the clone made at the read of the
     first diverges again at the read of the second.
     '''
-    self.check_settings({
+    self.check_values({
         'plainTwo': ['(0, 11)', '(0, 12)', '(0, 21)', '(0, 22)']
       , 'sharedTwo': ['(0, 11)', '(0, 12)', '(0, 21)', '(0, 22)']
       })
@@ -261,7 +255,7 @@ class TestBoundArgument(cytest.TestCase):
     One alternative alone binds the variable after the start: the capsule
     absorbs the binding in place, without a clone.
     '''
-    self.check_settings({'soleReader': ['(0, 1)']}, clones={'soleReader': 0})
+    self.check_values({'soleReader': ['(0, 1)']}, clones={'soleReader': 0})
 
   def test_clone_per_reader(self):
     '''
@@ -269,7 +263,7 @@ class TestBoundArgument(cytest.TestCase):
     the last one alive absorbs in place: one clone for each shared shape
     of section 5, none for a capsule that starts after the binding.
     '''
-    self.check_settings({
+    self.check_values({
         'privateCase': ['(0, 1)', '(0, 2)']
       , 'sharedCase': ['(0, 1)', '(0, 2)'], 'sharedEq': ['(0, 1)', '(0, 2)']
       , 'sharedPat': ['(0, 1)']
@@ -284,7 +278,7 @@ class TestBoundArgument(cytest.TestCase):
     absorbs it at its creation and no alternative clones it.  Before the
     absorption at the top level the first alternative to read cloned.
     '''
-    self.check_settings({
+    self.check_values({
         'boundThenFork': ['1', '11'], 'plainBoundThenFork': ['1', '11']
       }, clones={'boundThenFork': 0})
 
@@ -295,7 +289,7 @@ class TestBoundArgument(cytest.TestCase):
     private to the spine of one reference.  The values are right; the
     second clone is the owner's item in the TODO entry of 2026-10-09.
     '''
-    self.check_settings({
+    self.check_values({
         'twoRefs': ['(0, 11)', '(0, 22)']
       , 'plainTwoRefs': ['(0, 11)', '(0, 22)']
       }, clones={'twoRefs': 2})

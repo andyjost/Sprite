@@ -65,6 +65,18 @@ The events the memo names, and the checks at each:
   rewrites it in place; issue #126).  The record is one per scheduler: a
   nested D (allValues) pushes its own (enter_scheduler, leave_scheduler).
 
+* The record of a failure in a capsule (rts_setfunctions.record_failure)
+  and the end of a capsule on the empty queue (allValues).  F2 (d1), the
+  failure rule in its deferred form (Definition 2.94 of the note on the
+  Fair Scheme): a failure that crossed no set guard on the path from the
+  root of the configuration is recorded as an inside failure, and one that
+  crossed a guard as an outside failure that names the crossed sets less
+  the set of the capsule, with the level at which it entered the chain of
+  the capsules.  F2 (d2): the capsule is a failure when it produced no
+  value, recorded no inside failure and recorded some outside failure, and
+  the empty set otherwise.  F2 (d3): the failure goes under the guards of
+  the records at the least level, together.
+
 * A slot write of an existing generator (fairscheme.hnf) and an
   instantiation.  Def 2.62 (equality step): a step of =:= or =:<= narrows
   a variable that is free in the configuration (its group undecided, no
@@ -115,6 +127,7 @@ from ....common import (
   )
 from .... import icurry, inspect
 from ..graph.node import Node
+from .queue import failure_guards
 import collections, hashlib
 
 __all__ = ['Checker', 'InvariantViolation']
@@ -1360,6 +1373,106 @@ class Checker(object):
   # --------------------------------------------------------------------------
   # FS-S: the tags and the flags.
   # --------------------------------------------------------------------------
+
+  def failure_recorded(self, config, guards, record):
+    '''After record_failure recorded a failure that ``config`` met in
+    the current queue: ``guards`` are the guards of the position in hand,
+    and ``record`` the pair of the level and the set ids recorded, or None
+    for an inside failure.  The hook reads the guards the path crossed
+    from the call stack of the configuration, as record_failure does, and
+    the check compares them with the record.'''
+    crossed = set(guards)
+    if config.escape_all:
+      crossed.add(self.rts.sid)
+    for frame in config.callstack.frames:
+      obj = frame.obj
+      crossed.update(getattr(obj, 'guards', ()))
+      crossed.update(getattr(obj, 'base_guards', ()))
+      crossed.update(s for s in getattr(obj, 'data', ()) if s is not None)
+    crossed.discard(None)
+    self.check_failure_record(self.rts.Q, crossed, record)
+
+  def check_failure_record(self, Q, crossed, record):
+    '''F2 (d1): an inside failure crossed no guard; an outside failure
+    names the crossed sets less the set of the capsule, with the level of
+    the outermost capsule of the chain among them (zero when none is on
+    the chain).'''
+    self.counts['failure_records'] += 1
+    config = Q[0] if Q else None
+    if record is None:
+      if crossed:
+        self._violation(
+            'F2 (d1)', 'failure'
+          , 'a failure that crossed the guards of sets %s is recorded as an '
+            'inside failure' % sorted(crossed)
+          , config
+          )
+      return
+    if not crossed:
+      self._violation(
+          'F2 (d1)', 'failure'
+        , 'a failure that crossed no guard is recorded as an outside failure'
+        , config
+        )
+    level, sids = record
+    expected = set(crossed) - {Q.sid}
+    if set(sids) != expected:
+      self._violation(
+          'F2 (d1)', 'failure'
+        , 'the record names sets %s where the failure crossed %s (less the '
+          'set of the capsule, %s)' % (sorted(sids), sorted(crossed), Q.sid)
+        , config
+        )
+    # The level is the runtime's own definition (rts_setfunctions.failure_level).
+    expected_level = self.rts.failure_level(expected)
+    if level != expected_level:
+      self._violation(
+          'F2 (d1)', 'failure'
+        , 'the record has level %s where the outermost capsule of the chain '
+          'among the sets crossed is at level %s' % (level, expected_level)
+        , config
+        )
+
+  def capsule_end(self, qid, failure_sids):
+    '''After allValues gave its verdict on the empty queue ``qid``:
+    ``failure_sids`` is None when the list ended, and the set ids of the
+    guards of the failure written otherwise.'''
+    Q = self.rts.qtable[qid]
+    self.check_capsule_end(
+        Q.produced, Q.inside_failure, Q.outside_failures, failure_sids
+      )
+
+  def check_capsule_end(self, produced, inside_failure, outside_failures, failure_sids):
+    '''F2 (d2): the capsule is a failure when it produced no value,
+    recorded no inside failure and recorded some outside failure, and the
+    empty list otherwise.  F2 (d3): the failure goes under the guards of
+    the records at the least level, the failures that entered the chain
+    innermost, together.'''
+    self.counts['capsule_ends'] += 1
+    expected = not produced and not inside_failure and bool(outside_failures)
+    failed = failure_sids is not None
+    record = 'the capsule produced %s values and recorded %s inside failure ' \
+        'and %s outside failures' % (
+            produced, 'an' if inside_failure else 'no', len(outside_failures)
+          )
+    if expected != failed:
+      self._violation(
+          'F2 (d2)', 'capsule end'
+        , '%s, and wrote %s' % (record, 'a failure' if failed else 'the empty set')
+        )
+    if not failed:
+      return
+    # The choice of the records is the runtime's own (failure_guards of
+    # queue.py): the check pins the verdict to that one place.
+    least = min(level for level, _ in outside_failures)
+    innermost = set(failure_guards(outside_failures))
+    if set(failure_sids) != innermost:
+      self._violation(
+          'F2 (d3)', 'capsule end'
+        , '%s, and wrote the failure under the guards of sets %s where the '
+          'records at the least level %s name sets %s'
+              % (record, sorted(failure_sids), least, sorted(innermost))
+        )
 
   def capsule_entry(self, sid, goal):
     '''After create_queue set the goal of set ``sid``: every cell reachable

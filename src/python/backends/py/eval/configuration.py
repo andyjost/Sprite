@@ -20,6 +20,12 @@ class Configuration(object):
     self.residuals = set()
     self.callstack = callstack.CallStack()
     self.escape_all = escape_all
+    # Whether the failure this configuration met is in the record of its
+    # capsule (rts_setfunctions.record_failure).  A failure is observed at
+    # the position that met it first and again at every level above it on
+    # the way to the root; the record is made once.  A clone starts with its
+    # own flag.
+    self.failure_recorded = False
     # The number of rewrite steps taken for this configuration.  Steps of a
     # nested set-function evaluation count as well.  See rts_control.count_step.
     self.steps = 0
