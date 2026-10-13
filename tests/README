@@ -501,17 +501,32 @@ when configure was given --with-icurry.  To check files by hand, say, e.g.,
 The harness prints the first differing byte and the first differing subterm
 of each file that differs.
 
-Both routes apply the binding optimization to the FlatCurry file before the
-translation (curry.toolchain.flat2icurry.bindingopt): a Boolean equality
-required to be True, as in the condition of a rule, becomes constrEq, as
-the preprocessing of PAKCS makes it.  The pass rewrites M.fcy in place when
-it replaces an equality, in the format of the front end, and leaves the
-file alone otherwise; a second run over a rewritten file changes nothing.
-The writer (flat2icurry.flatcurry.write) reproduces the text of the front
-end: a file of the front end read and written again is byte-identical,
-which func_flat2icurry.py checks over the whole archive and the products on
-disk, with the idempotence of the pass.  The icurry program reads the
-rewritten file as well, so the two routes write the same .icy file.
+Both routes apply the rewrite step to the FlatCurry file before the
+translation (curry.toolchain.flat2icurry.rewrite_file), two passes in
+order.  The binding optimization (flat2icurry.bindingopt): a Boolean
+equality required to be True, as in the condition of a rule, becomes
+constrEq, as the preprocessing of PAKCS makes it.  The set0 lift
+(flat2icurry.setlift; decision D28 of 2026-10-12): set0 e over the
+captured variables x1 .. xk of e becomes setk L x1 .. xk, with a new
+private function L x1 .. xk = e, so the captured variables are arguments
+of the capsule, boxed at the entry; a closed set0 is unchanged.  The step
+rewrites M.fcy in place when a pass changes the program, in the format of
+the front end, and leaves the file alone otherwise; a second run over a
+rewritten file changes nothing.  The writer (flat2icurry.flatcurry.write)
+reproduces the text of the front end: a file of the front end read and
+written again is byte-identical, which func_flat2icurry.py checks over the
+whole archive and the products on disk, with the idempotence of both
+passes.  The icurry program reads the rewritten file as well, so the two
+routes write the same .icy file.  The PAKCS oracle shares the .fcy under
+.curry/pakcs-3.4.1/ with the routes, so for a module with a set0 over
+captured variables it reads a lifted file: the lifted function is private,
+has a type the front end could have written, and the interface M.fint is
+never rewritten.  That PAKCS accepts such a file is not yet verified: the
+oracle does not run where the lift was made, and no module of the
+functional corpus holds a set0 over captured variables (SetLift, FailSib
+and SetFunctionsFailures are modules of unit tests).  To verify it, where
+the oracle runs: import SetLift under Sprite, then load SetLift in pakcs
+and evaluate heap2; record the result here.
 
 A run of the front end on M compiles more than M: an import whose files
 are missing, older than its source, or older than the interface of one of
@@ -556,21 +571,25 @@ narrowing to the oracle, on a pair of its own.  A pair made before the
 routes rewrote the file, an unoptimized .fcy beside an .icy of the former
 in-memory pass, differs either way.
 
-A pair made before the rewrite existed, the .fcy of the front end beside
-an .icy translated from it, is stale by the rule of the toolchain (issue
-#101; curry.toolchain._curry2icurry.translated_before_rewrite): the .fcy
-holds a Boolean equality the pass replaces, and neither file holds
-constrEq.  Such a pair is current by the file times, and its program
-binds no variable through == in a guard.  The first import of the module,
-sprite-make and the prepare pass run the step from Curry to ICurry again:
-the front end leaves the current file, the pass rewrites it, and the
-translation follows; sprite-make prints "sprite-make: pre-rewrite pairs:
-N translated again", and the prepare pass repeats the count on the line
-of the directory and in its summary.  The check on an import reads the
-.fcy under .curry/pakcs-3.4.1/ beside the source: a file with constrEq
-was rewritten, and a file without an equality name has nothing to
-replace (a fraction of a millisecond); else the pass runs over the text
-in memory, and the .icy is read when the count is not zero.  The parse
+A pair made before a pass of the rewrite existed, the .fcy of the front
+end beside an .icy translated from it, is stale by the rule of the
+toolchain (issue #101; decision D28;
+curry.toolchain._curry2icurry.translated_before_rewrite): the .fcy holds a
+Boolean equality the binding optimization replaces, and neither file
+holds constrEq; or the .fcy holds a set0 call over captured variables the
+lift lifts, and the .icy lacks the lifted function.  Such a pair is
+current by the file times, and its program binds no variable through ==
+in a guard, or keeps the captured variables of a set0 inside the capsule.
+The first import of the module, sprite-make and the prepare pass run the
+step from Curry to ICurry again: the front end leaves the current file,
+the step rewrites it, and the translation follows; sprite-make prints
+"sprite-make: pre-rewrite pairs: N translated again", and the prepare
+pass repeats the count on the line of the directory and in its summary.
+The check on an import reads the .fcy under .curry/pakcs-3.4.1/ beside
+the source: a file without an equality name and without set0 has nothing
+to rewrite, and a file with constrEq and without set0 was rewritten (a
+fraction of a millisecond); else the step runs over the text in memory,
+and the .icy is read when a count is not zero.  The parse
 costs about 0.3 ms per KB: 1 ms for the median module of the corpus, 9 ms
 for the largest that reaches it (assembler of kiel, 28 KB); 679 of the
 880 .fcy files of the corpus reach it (an == in an if is common).  The
@@ -611,8 +630,9 @@ sprite-make.  Rewrite the file by hand:
 rewrites FlatCurry files in place, and sprite-make --rewrite-flat M runs the
 step of a module again, current or not, and makes the ICurry from the
 rewritten file (the option implies --icy and stands alone).  The option
---bindingopt of python -m curry.toolchain.flat2icurry applies the pass to
-the program in memory and leaves the file alone.
+--rewrite of python -m curry.toolchain.flat2icurry applies the step to
+the program in memory and leaves the file alone.  unit_setlift.py tests
+the set0 lift, its plumbing and the programs of data/curry/SetLift.curry.
 unit_flat2icurry_bindingopt.py tests the pass, the
 rewrite, and the programs that need it, such as sendMoreMoney;
 unit_curry2icurry.py checks that both routes write the same .icy for it.

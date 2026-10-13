@@ -1,6 +1,7 @@
 import cytest # from ./lib; must be first
 from curry import cache, config, exceptions, toolchain
 from curry.toolchain import _curry2icurry, _frontend, plans
+from curry.toolchain.flat2icurry import flatcurry as fc, setlift as sl
 from curry.utility import binding
 import flat2icurry_oracle as oracle
 import curry, os, shutil, subprocess, tarfile, tempfile, time, unittest
@@ -328,6 +329,39 @@ class TestCurry2ICurry(cytest.TestCase):
     icy = self.convert(other, curry2icurry='icurry')
     self.assertEqual(readbytes(icy), port)
     self.assertEqual(readbytes(_frontend.flatcurryfile(other)).count(b'constrEq'), 15)
+    self.assertFalse(_curry2icurry.icurry_is_stale(icy))
+
+  def test_set0_lift_icurry(self):
+    '''
+    The second pass of the rewrite step, the set0 lift (decision D28 of
+    2026-10-12), reaches the icurry route the same way: the icurry program
+    reads the lifted file, with its private lifted functions and their
+    polymorphic types, and writes the same ICurry as the route through the
+    port; the oracle harness finds the pair equal, and the pair is current.
+    '''
+    if config.icurry_tool() is None:
+      self.skipTest('icurry is not configured')
+    self.without_cache()
+    # The module imports Control.SetFunctions of the library: the icurry
+    # program reads the library through CURRYPATH, which the route binds to
+    # the path given (a caller passes config.currypath(), which holds the
+    # system path).
+    library = [config.system_curry_path()]
+    port = readbytes(self.convert(self.copy('SetLift.curry'), library))
+    other = os.path.join(self.tmpdir, 'other', 'SetLift.curry')
+    os.makedirs(os.path.dirname(other))
+    shutil.copy(os.path.join(DATA, 'SetLift.curry'), other)
+    icy = self.convert(other, library, curry2icurry='icurry')
+    self.assertEqual(readbytes(icy), port)
+    fcy = _frontend.flatcurryfile(other)
+    fcytext = readbytes(fcy)
+    # The 19 program points of the module, one lifted function each.
+    self.assertEqual(len(sl.lifted_functions(fc.load(fcy))), 19)
+    self.assertIn(b'("SetLift","one_SET00")', fcytext)
+    self.assertIn(b'("Control.SetFunctions","set1") [Comb (FuncPartCall 1) ("SetLift","one_SET00") []', fcytext)
+    self.assertIn(b'one_SET00', readbytes(icy))
+    result = oracle.check_file(fcy, icyfile=icy)
+    self.assertEqual(result.status, oracle.EQUAL, result.detail)
     self.assertFalse(_curry2icurry.icurry_is_stale(icy))
 
   def test_stale_without_interfaces(self):

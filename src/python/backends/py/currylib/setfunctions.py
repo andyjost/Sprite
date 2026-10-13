@@ -282,6 +282,14 @@ def evalS(rts, _0):
   yield allvalues
 
 def exprS(rts, _0):
+  # exprS :: a -> PartialS a, the encapsulated expression of a closed set0.
+  # It boxes nothing: a saturated call set0 e whose expression holds
+  # variables of the enclosing context never reaches here, since the
+  # compiler lifts it into setk over those variables, which set_ boxes (the
+  # set0 lift of curry.toolchain.flat2icurry.setlift; decision D28 of
+  # 2026-10-12).  A partial application of set0 (map set0 xs) is no call,
+  # so the pass leaves it alone, and the element reaches here through apply
+  # with nothing boxed: a documented limit of the lift.
   yield rts.setfunctions.PartialS
   yield ENCAPSULATED_EXPR
   yield _0.successors[0]

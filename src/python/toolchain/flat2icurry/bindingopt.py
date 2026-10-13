@@ -42,14 +42,17 @@ compiler): the file is written again when the pass replaced an equality, and
 left as it is otherwise.  Both routes from Curry to ICurry
 (:mod:`curry.toolchain._frontend` and the ``icurry`` program, see
 :mod:`curry.toolchain._curry2icurry`) run it after the front end and before
-the translation, so the ``.fcy`` file on disk is the optimized program and
-the two routes translate the same text.  The pass is idempotent: over an
-optimized program it replaces nothing and writes nothing.
-:func:`optimize_bindings` is the pass on a program in memory; the oracle
-tests of the translation never apply it, because the files ``icurry`` wrote
-for the oracle come from the FlatCurry as the front end wrote it.
+the translation, as the first pass of the rewrite step (:mod:`rewrite`;
+the set0 lift of :mod:`setlift` is the second), so the ``.fcy`` file on
+disk is the optimized program and the two routes translate the same text.
+The pass is idempotent: over an optimized program it replaces nothing and
+writes nothing.  :func:`optimize_bindings` is the pass on a program in
+memory; the oracle tests of the translation never apply it, because the
+files ``icurry`` wrote for the oracle come from the FlatCurry as the front
+end wrote it.
 
-The command line of :mod:`rewrite` rewrites FlatCurry files by hand::
+The command line of :mod:`rewrite` rewrites FlatCurry files by hand, with
+both passes::
 
     python -m curry.toolchain.flat2icurry.rewrite [-q] M.fcy...
 

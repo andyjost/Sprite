@@ -46,11 +46,16 @@ Merges to `master` happen at milestones.
   `--with-curry-frontend PATH` builds without it, and the pinned release
   then names the intermediate directories.
 - Curry is translated to ICurry in three steps: the front end
-  (`bin/pakcs-frontend` of PAKCS) writes FlatCurry; the binding
-  optimization of PAKCS (`flat2icurry.bindingopt`, which turns a Boolean
-  equality that a condition requires to be True into `constrEq`) rewrites
-  the `.fcy` file in place when it replaces an equality, as PAKCS does
-  before any compiler reads the file; and `curry.toolchain.flat2icurry`, a
+  (`bin/pakcs-frontend` of PAKCS) writes FlatCurry; the rewrite step
+  (`flat2icurry.rewrite_file`) rewrites the `.fcy` file in place, when a
+  pass changes the program, with two passes: the binding optimization of
+  PAKCS (`flat2icurry.bindingopt`, which turns a Boolean equality that a
+  condition requires to be True into `constrEq`, as PAKCS does before any
+  compiler reads the file) and the set0 lift (`flat2icurry.setlift`,
+  which turns `set0 e` over the captured variables `x1 .. xk` of `e` into
+  `setk L x1 .. xk` with a new private function `L x1 .. xk = e`, so the
+  captured variables are arguments of the capsule, boxed at the entry;
+  decision D28 of 2026-10-12); and `curry.toolchain.flat2icurry`, a
   Python port of `icurry` 3.1.0, writes ICurry. The `icurry` program is an
   optional alternative for the last step, configured with `configure
   --with-icurry` and selected with `SPRITE_CURRY2ICURRY=icurry` or
@@ -59,9 +64,11 @@ Merges to `master` happen at milestones.
   byte-identical to the files of `icurry` on the oracle (`tests/README`
   describes it). The route of the port differs from the `icurry` route in
   one setting, `icurry_compat=False` (see
-  `src/python/toolchain/_frontend.py`). An `.icy` translated before the
-  rewrite existed is stale (its `.fcy` holds an equality the pass
-  replaces, and neither file holds `constrEq`; the library is left out)
+  `src/python/toolchain/_frontend.py`). An `.icy` translated before a
+  pass of the rewrite existed is stale (its `.fcy` holds an equality the
+  binding optimization replaces and neither file holds `constrEq`, or
+  holds a `set0` call the lift lifts and the `.icy` lacks the lifted
+  function; the library is left out)
   and is made again at the first import, by `sprite-make` or by the
   prepare pass of the tests, which report the count;
   `sprite-make --rewrite-flat M` runs the step again for one module,

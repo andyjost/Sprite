@@ -152,7 +152,10 @@ class TestNestedCapsules(GoalsCase):
   inside the inner capsule (levelC: both capsules fail), the inner
   capsule's own argument inside a total outer one (level2), an inside
   failure of the inner function under the box of the outer argument
-  (ownflag), and set0, which boxes nothing (set0Inner, set0InnerV).
+  (ownflag), and set0 over a captured variable, which the compiler lifts
+  into set1 so the variable is boxed (set0Inner, set0InnerV; decision D28
+  of 2026-10-12): the inner capsule fails on the outside failure, and the
+  failure goes under the outer guard, where the outer capsule fails too.
   '''
   EXPECTED = {
       'level': ['[]']

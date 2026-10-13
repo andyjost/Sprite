@@ -13,16 +13,21 @@ interfaces of the imports beside their sources.  Then
 The command runs in the directory of the module and names the module by its
 file name, as ``icurry`` does, so the output lands in the same places.
 
-Between the two steps the binding optimization of
-:mod:`curry.toolchain.flat2icurry.bindingopt` rewrites ``M.fcy`` in place
-(:func:`optimize_flatcurry`): the Boolean equalities of the conditions
-become equational constraints, as the preprocessing of PAKCS makes them
-before it compiles a FlatCurry file.  A program that binds free variables
-through ``==`` in a guard then runs as it runs under PAKCS.  A file in which
-the pass replaces nothing keeps its bytes and its time.  The ``icurry``
-route runs the same two steps before the ``icurry`` program, so the file
-both routes translate is the optimized one, and the translation itself runs
-without the pass (``bindingopt=False``).
+Between the two steps the rewrite step of the routes
+(:func:`curry.toolchain.flat2icurry.rewrite_file`) rewrites ``M.fcy`` in
+place (:func:`optimize_flatcurry`), with two passes.  The binding optimization
+(:mod:`curry.toolchain.flat2icurry.bindingopt`) turns the Boolean
+equalities of the conditions into equational constraints, as the
+preprocessing of PAKCS makes them before it compiles a FlatCurry file; a
+program that binds free variables through ``==`` in a guard then runs as
+it runs under PAKCS.  The set0 lift
+(:mod:`curry.toolchain.flat2icurry.setlift`) turns ``set0 e`` over the
+captured variables of ``e`` into ``setk L xs``, so the captured variables
+are arguments of the capsule, boxed at the entry (decision D28 of
+2026-10-12).  A file in which neither pass changes anything keeps its
+bytes and its time.  The ``icurry`` route runs the same two steps before
+the ``icurry`` program, so the file both routes translate is the rewritten
+one, and the translation itself runs without the step (``rewrite=False``).
 
 A run of the front end on ``M`` compiles more than ``M``: an import whose
 files are missing, older than its source, or older than the interface of
@@ -36,14 +41,15 @@ pass is idempotent, and the pair beside each other agree again.  (Issue
 #99; a ``make stage`` that writes the interfaces of the library anew makes
 every module of a tree such an import at its next contact.)
 
-An ICurry file translated before the rewrite existed pairs with a FlatCurry
-file that still holds the equalities.  Such a pair is stale by the rule of
-the toolchain (:func:`_curry2icurry.translated_before_rewrite`), and the
-route runs again at the first import of the module.  ``ROUTE_VERSION``
-names the steps of this module in the key of the ICurry cache
+An ICurry file translated before a pass of the rewrite existed pairs with
+a FlatCurry file that still holds the equalities, or the unlifted ``set0``
+calls.  Such a pair is stale by the rule of the toolchain
+(:func:`_curry2icurry.translated_before_rewrite`), and the route runs
+again at the first import of the module.  ``ROUTE_VERSION`` names the
+steps of this module in the key of the ICurry cache
 (:func:`cache.icurry_cache_key`), so an entry of a route without a step is
-never served.  A hit of the cache writes the ICurry file and runs the pass
-over the FlatCurry file of the front end beside the source as well
+never served.  A hit of the cache writes the ICurry file and runs the
+step over the FlatCurry file of the front end beside the source as well
 (:func:`_curry2icurry.rewrite_on_hit`), so a pair on disk never disagrees
 because of the cache.  (Issue #101.)
 
@@ -92,7 +98,11 @@ logger = logging.getLogger(__name__)
 #   1: the binding optimization rewrites the FlatCurry file in place, the
 #      module's own and those of the imports the run compiled again (#85,
 #      #99).  The version joined the key with #101.
-ROUTE_VERSION = 1
+#   2: 2026-10-12, the set0 lift joins the rewrite step (decision D28): a
+#      call set0 e over the captured variables of e becomes setk L xs in
+#      the FlatCurry file, so the ICurry of a module with such a call
+#      changes.
+ROUTE_VERSION = 2
 
 # The options that silence the front end.  They are the ones icurry passes in
 # quiet mode.
@@ -228,13 +238,13 @@ def curry2flat(file_in, currypath, quiet=False, rewrite=True):
   warnings of a run that succeeded are reported (:func:`report_warnings`).
 
   The run compiles the module and every import whose files are stale for
-  the front end (see the module docstring).  With ``rewrite`` the binding
-  optimization runs over every FlatCurry file the run wrote: the file of
-  ``file_in`` and the files of those imports, so that no file of the front
-  end's text is left beside an ICurry file of the rewritten program.  A
-  file of an import that cannot be read is reported and left; the module's
-  own file raises.  A caller that needs the text of the front end passes
-  ``rewrite=False``.
+  the front end (see the module docstring).  With ``rewrite`` the rewrite
+  step (the binding optimization and the set0 lift) runs over every
+  FlatCurry file the run wrote: the file of ``file_in`` and the files of
+  those imports, so that no file of the front end's text is left beside an
+  ICurry file of the rewritten program.  A file of an import that cannot
+  be read is reported and left; the module's own file raises.  A caller
+  that needs the text of the front end passes ``rewrite=False``.
   '''
   cmd = command(file_in, currypath, quiet)
   logger.debug('Command: %s', ' '.join(cmd))
@@ -265,14 +275,19 @@ def curry2flat(file_in, currypath, quiet=False, rewrite=True):
 
 def optimize_flatcurry(fcyfile):
   '''
-  Applies the binding optimization to the FlatCurry file in place, as PAKCS
-  does before any compiler reads it.  Returns the number of equalities
-  replaced; the file is written again only when that is not zero.
+  Applies the rewrite step to the FlatCurry file in place, as PAKCS applies
+  its preprocessing before any compiler reads a file: the binding
+  optimization, then the set0 lift (:func:`flat2icurry.rewrite_file`).
+  Returns the pair of counts (equalities replaced, set0 calls lifted); the
+  file is written again only when one of them is not zero.
   '''
-  n = flat2icurry.optimize_file(fcyfile)
+  counts = flat2icurry.rewrite_file(fcyfile)
+  n, m = counts
   if n:
     logger.debug('Rewrote %s: %d equalities replaced by constrEq', fcyfile, n)
-  return n
+  if m:
+    logger.debug('Rewrote %s: %d set0 calls lifted', fcyfile, m)
+  return counts
 
 # A warning of the front end: the file, the position, the word Warning.
 # The lines of its text follow, and a blank line ends it.
@@ -320,7 +335,7 @@ def flat2icy(fcyfile, file_out, searchdirs):
   '''
   Translates the FlatCurry file ``fcyfile`` to ICurry and writes ``file_out``.
   The interfaces of the imports are searched under ``searchdirs``.  The
-  translation applies no pass of its own: the file is the optimized program
+  translation applies no pass of its own: the file is the rewritten program
   (see :func:`optimize_flatcurry`).
   '''
   finder = flat2icurry.InterfaceFinder(searchdirs, [config.frontend_subdir()])
@@ -330,7 +345,7 @@ def flat2icy(fcyfile, file_out, searchdirs):
 def curry2icurry(file_in, file_out, currypath, quiet=False):
   '''
   Converts the Curry file ``file_in`` to the ICurry file ``file_out``: the
-  front end, the rewrite of its FlatCurry files, and the translation.
+  front end, the rewrite step over its FlatCurry files, and the translation.
   '''
   fcyfile = curry2flat(file_in, currypath, quiet)
   flat2icy(fcyfile, file_out, searchdirs(file_in, currypath))

@@ -19,6 +19,7 @@ the cache served, and the prepare pass of the test runner reads the line
 import cytest # from ./lib; must be first
 from curry import cache, config, toolchain
 from curry.toolchain import _curry2icurry, _frontend, _system, plans
+from curry.toolchain.flat2icurry import bindingopt as bo
 from curry.utility import filesys
 import curry, os, shutil, sqlite3, subprocess, tempfile, time, unittest
 from unittest import mock
@@ -316,8 +317,7 @@ class TestStaleness(PreRewriteCase):
     icy = self.convert(curryfile)
     fcy = _frontend.flatcurryfile(curryfile)
     with mock.patch.object(
-        _curry2icurry.bindingopt, 'transform_prog'
-      , wraps=_curry2icurry.bindingopt.transform_prog
+        bo, 'transform_prog', wraps=bo.transform_prog
       ) as parse:
       self.assertFalse(_curry2icurry.icurry_is_stale(icy))
       self.assertFalse(_curry2icurry.icurry_is_stale(icy))
@@ -353,8 +353,7 @@ class TestStaleness(PreRewriteCase):
     size = os.path.getsize(fcy)
     with mock.patch.object(_curry2icurry, 'PARSE_LIMIT', size - 1):
       with mock.patch.object(
-          _curry2icurry.bindingopt, 'transform_prog'
-        , wraps=_curry2icurry.bindingopt.transform_prog
+          bo, 'transform_prog', wraps=bo.transform_prog
         ) as parse:
         with self.assertLogs(_curry2icurry.logger, 'WARNING') as logs:
           self.assertFalse(_curry2icurry.translated_before_rewrite(curryfile, icy))
@@ -460,8 +459,10 @@ class TestCacheKey(PreRewriteCase):
     route alone: the version is in the key of the ICurry cache alone, the
     product cache digests the ICurry text itself.
     '''
-    self.assertEqual(_frontend.ROUTE_VERSION, 1)
-    self.assertEqual(cache.route_version(), 1)
+    # Version 2 since the set0 lift joined the step (decision D28 of
+    # 2026-10-12).
+    self.assertEqual(_frontend.ROUTE_VERSION, 2)
+    self.assertEqual(cache.route_version(), 2)
     curryfile = self.write('GuardK', guard('GuardK'))
     key = lambda: cache.icurry_cache_key(curryfile, [self.tmpdir], (), 'frontend')
     digest = cache.frontend_digest('frontend')
@@ -665,8 +666,7 @@ class TestCacheHit(PreRewriteCase):
         curryfile, icy, fcy, before = files[name]
         os.unlink(icy)
         with mock.patch.object(
-            _curry2icurry.bindingopt, 'transform_prog'
-          , wraps=_curry2icurry.bindingopt.transform_prog
+            bo, 'transform_prog', wraps=bo.transform_prog
           ) as parse:
           self.hit(curryfile, icy)
         self.assertEqual(parse.call_count, parses)

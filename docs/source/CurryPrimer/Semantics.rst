@@ -163,6 +163,27 @@ arguments of the call, so their non-determinism stays outside the set
     main6 = let x = 1 ? 2 in (sortValues (set1 (\y -> x + y) 10), x)
                                                   -- ([11], 1), ([12], 2)
 
+The same holds for the variables of the enclosing context that the
+expression of ``set0`` holds, the captured variables.  ``set0 e`` is the
+set function of the operation ``\x1 .. xk -> e`` applied to the captured
+variables ``x1 .. xk``: the compiler lifts the expression into such an
+operation (the set0 lift of the toolchain, decision D28 of 2026-10-12),
+and the captured variables are arguments of the capsule, boxed at the
+entry.  So ``let x = coin in allValues x`` of the paper on weakly
+encapsulated search (Christiansen, Hanus, Reck and Seidel, PPDP 2013)
+yields one set per alternative of ``x``, and a captured variable that
+fails is an outside failure: an alternative of the expression that
+demands it is dropped, and the set function fails when no alternative
+gives a value and none fails on its own (``main9``), as with an argument
+of ``set1`` below.  A class dictionary and a free variable of a ``where``
+clause are captured variables like any other.  An expression without
+captured variables is encapsulated whole::
+
+    main8 = let x = 0 ? 1 in sortValues (set0 (x + 1))   -- [1], [2]
+    main9 = let w = failed :: Int in sortValues (set0 (id w))  -- no value
+    main9b = let w = failed :: Int in sortValues (set0 (w ? 7))  -- [7]
+    main10 = sortValues (set0 (0 ? 1))                   -- [0, 1]
+
 ``captureS`` of ``Control.SetFunctions`` is the explicit way to put the
 non-determinism of an argument inside the set: ``evalS (set f `captureS`
 (1 ? 2))`` has one value, the set of ``f 1`` and ``f 2`` together.

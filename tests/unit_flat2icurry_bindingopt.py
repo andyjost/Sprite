@@ -14,7 +14,7 @@ PAKCS 3.4.1 with its default settings.
 
 TestPass checks the pass on FlatCurry terms.  TestRewrite checks the pass
 over a FlatCurry file (optimize_file, the command line of rewrite, and the
-option --bindingopt of the translation's command line, which leaves the
+option --rewrite of the translation's command line, which leaves the
 file alone).  TestRoute compiles Curry text through the build route and
 evaluates it on the backend of the run.  The two defects of the Python
 backend found with the program, in the order of the suspension of a
@@ -337,7 +337,7 @@ class TestPass(cytest.TestCase):
     self.assertIs(bo.optimize_bindings(p), p)
 
   def test_translate_flag(self):
-    '''translate applies the pass on request only.'''
+    '''translate applies the rewrite step, the pass among it, on request only.'''
     p = prog(func('f', [1], guard(eq(X, lit(3)), X)))
     # The name of a call in the ICurry of the port carries the index of the
     # symbol in its module after the module and the name.
@@ -346,7 +346,7 @@ class TestPass(cytest.TestCase):
             for fd in iprog.functions
             for node in flat_icurry_calls(fd)
       }
-    self.assertIn(P('constrEq'), names(f2i.translate(p, [PRELUDE], bindingopt=True)))
+    self.assertIn(P('constrEq'), names(f2i.translate(p, [PRELUDE], rewrite=True)))
     self.assertNotIn(P('constrEq'), names(f2i.translate(p, [PRELUDE])))
 
   def test_deep_expression(self):
@@ -493,13 +493,14 @@ class TestRewrite(cytest.TestCase):
 
   def test_translation_option(self):
     '''
-    --bindingopt of the translation's command line applies the pass to the
-    program in memory, and leaves the file as it is.
+    --rewrite of the translation's command line applies the rewrite step,
+    the pass among it, to the program in memory, and leaves the file as it
+    is.
     '''
     fcyfile = self.fresh_flatcurry('sendMoreMoney')
     before = self.snapshot(fcyfile)
     texts = {}
-    for flag in (), ('--bindingopt',):
+    for flag in (), ('--rewrite',):
       out = os.path.join(self.tmpdir, 'sendMoreMoney.icy')
       argv = list(flag) + ['-o', out, fcyfile]
       for directory in LIBRARY_DIRS:
@@ -508,8 +509,8 @@ class TestRewrite(cytest.TestCase):
       with open(out, 'r', encoding='utf-8', newline='') as istream:
         texts[flag] = istream.read()
     self.assertNotIn('constrEq', texts[()])
-    self.assertIn('constrEq', texts[('--bindingopt',)])
-    self.assertNotIn('_impl#==#', texts[('--bindingopt',)])
+    self.assertIn('constrEq', texts[('--rewrite',)])
+    self.assertNotIn('_impl#==#', texts[('--rewrite',)])
     self.assertEqual(self.snapshot(fcyfile), before)
     # The rewritten file translates to the text of the option.
     self.assertEqual(bo.optimize_file(fcyfile), 15)
@@ -518,7 +519,7 @@ class TestRewrite(cytest.TestCase):
       argv[:0] = ['-i', directory]
     self.assertEqual(cli.main(argv), 0)
     with open(out, 'r', encoding='utf-8', newline='') as istream:
-      self.assertEqual(istream.read(), texts[('--bindingopt',)])
+      self.assertEqual(istream.read(), texts[('--rewrite',)])
 
 # Curry programs
 # ==============

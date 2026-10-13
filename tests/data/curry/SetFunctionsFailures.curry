@@ -102,14 +102,20 @@ gFail _ = failed
 ownflag :: [Int]
 ownflag = sortValues (set1 id sizeG)
 
--- set0Inner: set0 boxes nothing, so the inner capsule meets the failure
--- of the outer argument through the outer guard alone: the inner capsule
--- fails under that guard, and the outer capsule fails in turn.  No value.
+-- set0Inner: a is a captured variable of the inner set0, so the compiler
+-- lifts set0 (id a) into set1 L a (decision D28 of 2026-10-12) and the
+-- inner capsule boxes a under its own guard, over the guard of the outer
+-- argument.  The inner capsule meets the failure as an outside failure
+-- that entered the chain at the outer level, has no value and no inside
+-- failure, so it fails, and the failure goes under the outer guard (the
+-- record at the innermost level), where the outer capsule fails in turn.
+-- No value, as before the lift, when the inner capsule met the failure
+-- through the outer guard alone.
 set0Inner :: [[Int]]
 set0Inner = sortValues (set1 (\a -> sortValues (set0 (id a))) (failed :: Int))
 
--- set0InnerV: the same with a value of the inner function beside it.
--- [[7]]
+-- set0InnerV: the same with a value of the inner function beside it: the
+-- inner set stands with the value.  [[7]]
 set0InnerV :: [[Int]]
 set0InnerV = sortValues (set1 (\a -> sortValues (set0 (id a ? 7))) (failed :: Int))
 
