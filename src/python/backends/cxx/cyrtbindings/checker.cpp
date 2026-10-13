@@ -405,6 +405,37 @@ namespace cyrt { namespace python
           require(rts).check_failed_step(front(rts), node->info, args);
         }
       , "Runs the check of a step that replaced ``node`` by a failure.");
+    mod.def("checker_debug_check_step_under"
+      , [](RuntimeState & rts, size_t index, py::object below)
+        {
+          Checker & checker = require(rts);
+          Configuration * C = front(rts);
+          Node * root = *C->root;
+          if(!root || root->info->tag < T_CTOR || index >= root->info->arity)
+            throw py::value_error("the root is not a constructor with that successor");
+          C->scan.reset();
+          C->scan.extend();
+          for(size_t k = 0; k <= index; ++k)
+            ++C->scan;
+          if(!below.is_none())
+          {
+            size_t const j = below.cast<size_t>();
+            Node * cell = *C->scan.cursor();
+            if(!cell || cell->info->tag < T_CTOR || j >= cell->info->arity)
+              throw py::value_error("the successor is not a constructor with that successor");
+            C->scan.extend();
+            for(size_t k = 0; k <= j; ++k)
+              ++C->scan;
+          }
+          checker.descend(C, C->root);
+          checker.step_begin(C);
+          checker.step_end(C, T_CTOR);
+        }
+      , py::arg("rts"), py::arg("index"), py::arg("below") = py::none()
+      , "Puts the scan of the front configuration at successor ``index`` of "
+        "its root, a constructor cell, or at successor ``below`` of that "
+        "cell, and runs the hooks of the descent and of a completed step "
+        "there (rule N.1 (look-ahead)).");
     mod.def("checker_debug_tree"
       , [](RuntimeState & rts, InfoTable const * info)
         { return tree_object(require(rts).tree_of(info)); }

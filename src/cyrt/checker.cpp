@@ -1,5 +1,6 @@
 #include "cyrt/builtins.hpp"
 #include "cyrt/checker.hpp"
+#include "cyrt/fairscheme.hpp"
 #include "cyrt/currylib/setfunctions.hpp"
 #include "cyrt/fingerprint.hpp"
 #include "cyrt/graph/infotable.hpp"
@@ -2407,10 +2408,48 @@ namespace cyrt
     this->check_occurs(C, "constraint");
   }
 
+  // The parent cell of the cursor: the level of the scan above the cursor,
+  // when the cursor is below the root of the current scan.  At the root
+  // the level above belongs to an enclosing scan or holds the cell above
+  // an inductive position (Scan::push), which the rule does not read: a
+  // failure beside the inductive position of a step does not fail the
+  // step (snd (failed, 1)).  A constructor cell with a failed successor is
+  // the finding of rule N.1: the scan of the runtime reads the cell at its
+  // extension and again at the first descent after a completed step
+  // (procN, issue #132), and drops the configuration, so a step below it
+  // is a step the rule forbids.  A cell above the parent is not read: the
+  // runtime reads it at its extension alone, and the rotation, not every
+  // step, returns the scan to the root (the TODO entry of 2026-10-12 on
+  // the look-ahead names the case).
+  void Checker::descend(Configuration * C, Cursor root)
+  {
+    ++this->counts["descents"];
+    this->descent_cell = nullptr;
+    auto const & frames = C->scan.frames();
+    size_t const n = frames.size();
+    if(n < 2 || frames[n - 1].cur == root)
+      return;
+    Cursor const & cur = frames[n - 2].cur;
+    if(cur.kind != 'p' || !cur.arg)
+      return;
+    Node * cell = *cur;
+    index_type index = 0;
+    if(cell && cell->info->tag >= T_CTOR && failed_successor(cell, index))
+    {
+      this->descent_cell = cell;
+      this->descent_index = index;
+    }
+  }
+
   void Checker::step_begin(Configuration * C)
   {
     Node * redex = C->cursor().arg ? *C->cursor() : nullptr;
     StepRecord rec{redex, redex ? redex->info : nullptr, this->step_args.size(), 0};
+    // The finding of the descent belongs to this step alone; a nested step
+    // (hnf) starts with none.
+    rec.cell = this->descent_cell;
+    rec.index = this->descent_index;
+    this->descent_cell = nullptr;
     if(redex)
     {
       InfoTable const * info = redex->info;
@@ -2442,6 +2481,16 @@ namespace cyrt
       return;
     ++this->counts["steps"];
     Node * const redex = rec.redex;
+    if(rec.cell)
+      this->violation(
+          "N.1 (look-ahead)", "step"
+        , "a completed step at " + this->text(redex)
+          + " under the constructor cell " + std::string(rec.cell->info->name)
+          + " whose successor " + std::to_string(rec.index)
+          + " is a failure: the configuration has no value, and the step "
+            "was not needed"
+        , C
+        );
     SetList const flagged = this->flags_of(redex);
     bool const has_flags = this->flags.count(redex) != 0;
     Node * const result = deref_fwd(redex);

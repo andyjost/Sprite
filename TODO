@@ -12843,3 +12843,213 @@
   decision on =:<= would mirror the rule.  (4) The values of PAKCS for
   goalR and g10 were not observed here.  (5) The whole suite on both
   backends (the suite stage).
+
+2026-10-12: the look-ahead of rule N.1 of the Fair Scheme (issue #132; worktree wt/lookahead)
+- The source.  The audit of 2026-10-11 found that both backends drop the
+  look-ahead of rule N.1: the rule reads every successor of the root of a
+  constructor-rooted configuration before any step, and a failure among
+  them, dereferenced, means that the configuration has no value, so rule
+  D.5 drops it.  Both backends tested the failure at the cursor of the
+  depth-first scan alone: the scan entered the first successor that is
+  not a value, stepped it until the rotation interrupt, restarted from the
+  root and entered the same successor again.  The reproducer, goal = let
+  t = failed in (t ? loop, t) with loop = loop: rule D.2 forks (t, t) and
+  (loop, t); the first child steps t to a failure and is dropped; the
+  theory drops the second child at its dispatch, before any step at loop,
+  and the run ends with no value.  Sprite did not end (exit 124 under
+  timeout 60 on both backends), and KiCS2 does not end either.  The
+  control goal0 = (t ? 1, t) ends with no value everywhere.  No value is
+  lost; the departure is in termination.
+- The rule in the runtime (both backends, the same rule).  Before the scan
+  descends into a successor of a constructor cell, it reads the successors
+  of the cell through forward cells; when one is a failure, the
+  configuration takes the path a failure at the cursor takes.  C++
+  (fairscheme.cpp, procN, the default case): failed_successor of the new
+  header cyrt/fairscheme.hpp reads the pointer successors of the cell
+  once, in order, without a write and without an allocation (a partial
+  application is a value and is not read); a finding sets the tag to
+  T_FAIL and goes to the case T_FAIL, so a boxed failure in a capsule
+  fails the set function (failure_escapes, fail_capsule, as at the
+  cursor), a failure under the root of the configuration returns T_FAIL
+  to procD, which drops the configuration, and a failure under the redex
+  of ($!!) makes the redex a failure as before.  The header is outside
+  the include closure of cyrt/cyrt.hpp (the checker shares it), so the
+  ABI stamp of the compiled objects is unchanged.  Python
+  (eval/fairscheme.py): failed_successor, and N sets the tag to T_FAIL
+  before it dispatches on the tag, so the branch of a failure at the
+  cursor runs (boxed_failure, the drop at the root, the rewrite of the
+  redex of ($!!)).  The look-ahead holds at every constructor cell the
+  scan visits, not at the root alone: ((t ? loop, t), 1) needs it one
+  level down.  It does not cross a set guard: a guard whose value is a
+  failure is met when the scan enters it, as before (the set-function
+  failure path belongs to another lane).  The one-step rule of N and the
+  rotation granularity are unchanged; no flag, no default, no change to
+  the design of the scheduler, the rotation or the collector.  One order
+  of rules changed without a change of values: a failure cell beside a
+  choice among the successors of a cell is found before the choice is
+  pulled up (N.1 before the pull-tab), so such a configuration is dropped
+  without a fork where it forked once and dropped both children before
+  (goalOrder below; a choice beside the operation failed, goalChoice, is
+  not such a case: the operation is not a failure cell until it is
+  stepped).
+- The read of the parent cell again after a step (the review of the
+  lane).  The read at the extension misses a failure that appears after
+  it: a step below the cell can rewrite a shared successor of the cell to
+  a failure (the capsule of a set function absorbs the failure as the
+  function's own and completes), and one configuration in a queue never
+  rotates, so the scan never returns to the root.  captureShared = let t
+  = failed in (length (sortValues (set0 (t + 1))), loop, t): the triple
+  is read at its extension (no failure yet), the step at successor 0
+  rewrites t in place, the scan advances to loop, and without a second
+  read it steps loop without end (exit 124 under timeout 60 on both
+  backends; the checker reported the step).  Now a local flag of
+  procN/N, set by a completed step and cleared by the next descent into
+  an operation cell, makes that descent read the parent cell of the
+  cursor again (C++: the level of the scan above the cursor, when the
+  cursor is not the root level of the scan; Python: state.parent when the
+  walk pushed a level).  The root of the scan has no parent in the scan:
+  the cell above the inductive position of a step is not read, as a
+  failure beside that position does not fail the step (snd (failed, 1)).
+  The cost is one read of the parent at most per completed step, bounded
+  by the arity; no field of Scan::Level, no change to the one-step rule
+  or to the rotation.  captureStep = (after (length (sortValues (set0 (t
+  + 1)))), t) with after n = if n == 0 then loop else loop covers the
+  step at the cursor itself (the redex becomes loop; the next descent at
+  the same cursor reads the pair).  Both end with no value on both
+  backends now.  The checker checks the rule the runtime implements: at
+  a descent below the root of the scan, the parent cell has no failed
+  successor (Checker::descend reads the level above the cursor;
+  Checker.descend reads state.parent).  Before the review it read the
+  whole spine of the scan, a stronger rule than the runtime kept.
+- The checker (both backends).  A hook at the descent of the scan into an
+  operation cell (procN, case T_FUNC: Checker::descend; N, the T_FUNC
+  branch: Checker.descend) reads the parent cell of the cursor when the
+  cursor is below the root of the scan (the C++ walk compares the level
+  of the cursor with the root of the scan, so the levels of an inductive
+  position or of an enclosing scan are not read; the Python walk reads
+  state.parent when the walk pushed a level).  A cell with a failed
+  successor is the finding of the descent, kept for the step that
+  follows (step_begin of the C++ checker takes it into the step record;
+  S of the Python backend takes it with take_descent, so a nested step
+  starts with none) and reported when that step completes: "N.1
+  (look-ahead)", a completed step at the redex under the constructor cell
+  whose successor i is a failure; the configuration has no value and the
+  step was not needed.  The count "descents" joins the counts.  A debug
+  entry of the bindings, checker_debug_check_step_under(rts, index,
+  below=None), puts the scan of the front configuration at a successor of
+  its root, or at a successor of that successor, and runs the hooks of
+  the descent and of a completed step there.  D15, E5 and E11 are
+  unchanged.  The module docstring of checker.py and the checker section
+  of DeveloperNotes.rst name the check.
+- Tests.  data/curry/FailSib.curry and unit_n1_lookahead.py (both
+  backends; one child per class under prlimit and timeout, and one under
+  the checker): TestControls (goal0, goalChoice = (1 ? 2, failed) and
+  goalOrder = (t, 0) ? (1 ? 2, t), no value; ctrlPair = (1 ? 2, 3), two
+  values; ctrlShared, the shared pair of #126, (1, 2)),
+  TestDroppedBeforeTheStep, in a child with a 30 s timeout as
+  TestPairedCycle of unit_occurs.py (goal, goal2 = ((t ? loop, t), 1),
+  goalFwd with t = head [], captureShared and captureStep, no value;
+  ctrlOuter = goal ? (5, 5), the value (5, 5) and the end of the run);
+  TestSetFunctions, 30 s (goalSet = sortValues (set0 goal), [] on both
+  backends, the failure is the function's own and the set is empty;
+  goalSetArg = sortValues (set1 (\x -> (x ? loop, x)) failed), a control
+  of the boxed-failure path: no value on both backends, and the run
+  ended before the change as well, since the first child fails the whole
+  set function under 'escape' before the diverging child runs; KiCS2
+  ends neither run, so the tests assert the end of the run alone).
+  Against the install of the main checkout at b99ae60c (the base of the
+  lane) the file fails on both backends with 4 failures of 6 (the
+  children of the two classes killed at 30 s); with the change it
+  passes, 6 on each backend.  test_step_under_a_failed_sibling of
+  unit_py_checker.py (TestAuditChecks) and of unit_cxx_checker.py
+  (TestLookAhead), on a constructed state: the pair (id 1, Fwd failed),
+  the descent at id 1 and a completed step there are reported, the pair
+  (id 1, 2) is not, and the finding is taken once;
+  test_step_under_the_parent_alone in both files: the descent at the
+  root of a walk reads no parent (Python), ((id 1, 2), Fwd failed) gives
+  no finding, ((id 1, Fwd failed), 2) gives the finding one level down.
+  FailSib.curry also defines the two limits of the rule, which no test
+  runs: captureDeep and guardShared (below).
+- The measured cost (the benchmark harness, one run each on the C++
+  backend, step mode, the install of the main checkout at b99ae60c as
+  "before", the install with the read at the extension alone as "after",
+  and the install with the read of the parent after a step as "after2";
+  the same Make.config): instructions Peano 2962.0 M, 2837.2 M, 1553.5 M
+  (the last run found the compiled products in the cache where the first
+  two did not; the steps are equal), Reverse 12458.5 M, 12575.8 M,
+  12543.0 M, PermSortPeano 39849.4 M, 41830.1 M, 42070.8 M, TakPeano
+  17177.9 M, 17178.1 M, 17177.6 M; CPU seconds 0.580, 0.546, 0.312;
+  1.199, 1.144, 1.163; 6.947, 6.905, 6.969; 1.352, 1.322, 1.399; the
+  steps are equal on all four in the three runs.  The run-to-run noise of
+  one run each on a shared machine covers the CPU differences; the
+  instruction counts of Reverse, PermSortPeano and TakPeano are the
+  measured cost of the two reads together (at most 5.6 percent, on
+  PermSortPeano).
+- Verification (the clean environment, CCACHE_DIR set, prlimit, at most
+  two test processes at a time).  Before the change, under sprite-exec
+  with steps:65536, prlimit 2 GB and timeout 60, on both backends: goal0
+  no value, exit 0; goal exit 124.  KiCS2 through the harness (timeout
+  60): goal0 ok, no value; goal timeout; goalChoice ok, no value; goal2,
+  goalFwd, goalSet and goalSetArg timeout.  With the read at the
+  extension alone: captureShared exit 124 on both backends, and under
+  checker:true exit 1 with the violation N.1 (look-ahead) at the step at
+  loop; goalOrder no value, exit 0.  make stage status 0, make overlay
+  status 0 (twice: after the runtime change and after the change of the
+  debug entry).  After the change, on both backends: goal, goal2,
+  goalChoice, goalFwd, goalOrder, captureShared and captureStep no
+  value, exit 0, plain and under checker:true for captureShared; goalSet
+  [], exit 0; goalSetArg no value, exit 0; ctrlPair (1, 3) and (2, 3).
+  Single files, each ok: unit_n1_lookahead.py 6 on each backend;
+  unit_cxx_checker.py 61 on cxx (59 before the lane); unit_py_checker.py
+  54 on py (52 before the lane).  Through the runner (./run_tests -j 2
+  --mem 4 --backend both): unit_cxx_scheduler, unit_py_evaluation,
+  unit_cxx_rotation, unit_setfunctions_semantics, unit_setfunctions_bugs,
+  unit_cxx_checker, unit_py_checker, unit_occurs, unit_pairing,
+  unit_constraints, unit_n1_lookahead: 22 of 22 run, 0 failed, wall 77.1
+  s; unit_cxx_counters, unit_cxx_runtime, unit_cxx_stack,
+  unit_cxx_interp, unit_examples, unit_prelude, unit_api,
+  unit_cxx_freevars, unit_setfunctions_bindings, unit_goals,
+  unit_equality, unit_fingerprint: 24 of 24 run, 0 failed, wall 166.8 s.
+  Not run: the whole suite on both backends (the suite stage).
+- Changed printed values.  The runs that did not end now end: goal,
+  goal2, goalFwd, captureShared and captureStep of FailSib.curry give no
+  value; ctrlOuter gives (5, 5) and ends; goalSet gives [].  goalOrder
+  and goalSetArg ended before the change as well, with the same result
+  (no value).  No other value of the files above changed, and the step
+  counts of the four benchmark programs are equal.
+- Left to the owner.  (1) A bug found on the way, outside this lane: the
+  failure path of the scan under ($!!) writes the failure over the
+  argument cell.  procN, case T_FAIL, returns root->make_failure() when
+  the root of the scan is not the root of the configuration, and
+  applynf_step (currylib/prelude/apply.cpp) passes the slot of the
+  argument, not the redex, so the argument node is rewritten in place; a
+  sibling configuration shares it after a fork.  nfShared = let p =
+  (failed :: Int, 1) in fst (id $!! p) ? snd p gives no value on the C++
+  backend (the install of the main checkout at b99ae60c as well), and 1
+  on the Python backend and in KiCS2.  The Python N rewrites the redex
+  (var.root).  The shape of issue #126 for ($!!); not changed here.  (2)
+  tests/manifest.json has no entry for unit_n1_lookahead.py; a
+  calibration run adds it.  (3) The look-ahead does not read through a
+  set guard.  The reproducer, guardShared = let t = failed in sortValues
+  (set1 (\x -> (loop, x)) t) ? [(t, t)]: the first child runs the capsule
+  over (loop, guard t); the rotation lets the second child step t to a
+  failure and drop; back in the capsule, successor 1 of the pair is a
+  guard whose target is the failure, failed_successor follows forward
+  cells alone, and the scan enters loop again (exit 124 under timeout 60
+  on both backends, plain and under the checker, which uses the same
+  helper).  At the cursor the same failure takes the capsule's failure
+  path (failure_escapes sees the guard level; fail_capsule).  A read
+  through the guard needs the set id of the guard in failure_escapes and
+  fail_capsule, the path of the set-function lane; a note on issue #132
+  or a new issue for that lane is for the owner to post.  (4) The read
+  of the parent after a step does not reach a cell above the parent.
+  captureDeep = let t = failed in ((length (sortValues (set0 (t + 1))),
+  loop), t): the step at length rewrites t, the scan advances within the
+  inner pair, whose read finds nothing, and the outer pair is not read
+  again (exit 124 under timeout 30 on both backends; the checker reports
+  nothing, as it checks the parent alone).  A read of every level of the
+  scan after each step is unbounded (a long list makes a deep scan), and
+  a return to the root at every step is the one-step rule, which the
+  design excludes; a decision is the owner's.  (5) The values of PAKCS
+  for the goals were not observed.  (6) The whole suite on both backends
+  (the suite stage).
