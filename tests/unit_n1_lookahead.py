@@ -22,6 +22,7 @@ visible.
 '''
 import cytest # from ./lib; must be first
 import curry
+import unittest
 
 ADDRESS_SPACE = 2 << 30
 TIMEOUT = 300
@@ -118,14 +119,12 @@ class TestDroppedBeforeTheStep(cytest.TestCase):
 
 
 class TestSetFunctions(cytest.TestCase):
-  '''The reproducer inside a set function (set0 goal: the failure is the
-  function's own and the set is empty, [] on both backends), and a control
-  of the boxed-failure path (set1 over failed: the first child meets the
-  boxed failure at its cursor and fails the set function under the default
-  'escape' before the diverging child runs; no value, before the change as
-  well).  KiCS2 ends neither run, so the tests assert the end of the run
-  alone: the child ends within the short timeout, and no goal raises.'''
-  GOALS = ['goalSet', 'goalSetArg']
+  '''The reproducer inside a set function (set0 goal): the failure is the
+  function's own, an inside failure of the capsule, so the alternative is
+  dropped and the set is empty, [] on both backends.  KiCS2 does not end
+  the run, so the test asserts the end of the run alone: the child ends
+  within the short timeout, and the goal does not raise.'''
+  GOALS = ['goalSet']
 
   @classmethod
   def setUpClass(cls):
@@ -139,5 +138,29 @@ class TestSetFunctions(cytest.TestCase):
   def test_runs_end(self):
     self.check(run_child(self.GOALS, timeout=SHORT_TIMEOUT))
 
+  def test_under_the_checker(self):
+    self.check(run_child(self.GOALS, timeout=SHORT_TIMEOUT, checker=True))
+
+
+class TestBoxedFailureBesideALoop(TestSetFunctions):
+  '''A boxed failure beside an alternative that does not end, inside a set
+  function (set1 over failed, with the alternatives x ? loop).  The first
+  child meets the boxed failure at its cursor; under the failure rule in
+  its deferred form the capsule records it as an outside failure and goes
+  on with the second child, (loop, guard failed), whose failure sits
+  behind a set guard that the look-ahead does not read through, so the run
+  does not end, as in KiCS2.  Before that rule the first boxed failure
+  failed the whole set function at once under the flag setting 'escape',
+  and the run ended.  A read through a set guard is a decision of the
+  owner (item 3 of the TODO entry of 2026-10-12 on the look-ahead).  Until
+  then the tests are expected failures: the child is killed at the short
+  timeout, and a fix ends it at once and shows as an unexpected success.'''
+  GOALS = ['goalSetArg']
+
+  @unittest.expectedFailure
+  def test_runs_end(self):
+    self.check(run_child(self.GOALS, timeout=SHORT_TIMEOUT))
+
+  @unittest.expectedFailure
   def test_under_the_checker(self):
     self.check(run_child(self.GOALS, timeout=SHORT_TIMEOUT, checker=True))

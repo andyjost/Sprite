@@ -93,12 +93,16 @@ ctrlShared = let p = (failed :: Int, 1) in p ? (snd p, 2)
 
 -- Inside a set function.  The failure of goal is the function's own, so
 -- the alternative is dropped (rule SF.5) and the set is empty: both
--- backends give [].  goalSetArg is a control of the boxed-failure path:
--- the argument of the set function fails, the first child meets the boxed
--- failure at its cursor and fails the whole set function under the
--- default 'escape' before the diverging child runs (no value, before the
--- change as well).  KiCS2 ends neither run, so the tests assert the end
--- of the run alone.
+-- backends give [].  goalSetArg puts the boxed failure beside an
+-- alternative that does not end: the first child meets the boxed failure
+-- at its cursor, the capsule records it as an outside failure (the failure
+-- rule in its deferred form) and goes on with the second child, (loop,
+-- guard failed), whose failure sits behind a set guard that the look-ahead
+-- does not read through, so the run does not end.  Before the deferred
+-- rule the first boxed failure failed the whole set function at once under
+-- the flag setting 'escape', and the run ended.  KiCS2 ends neither run,
+-- so the tests assert the end of the run alone, and goalSetArg is an
+-- expected failure.
 goalSet :: [(Int, Int)]
 goalSet = sortValues (set0 goal)
 
