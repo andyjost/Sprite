@@ -1,14 +1,15 @@
 from .. import cache, config
 from ..exceptions import CompileError
 from . import _filenames, _frontend, _system
-from .flat2icurry import bindingopt, flatcurry
+from . import flat2icurry
+from .flat2icurry import flatcurry
 from ..utility import curryname, filesys
 import logging, os, re
 
 __all__ = [
-    'PARSE_LIMIT', 'curry2icurry', 'icurry_is_stale', 'in_system_library'
-  , 'pairs_refreshed', 'pairs_served', 'reset_counts', 'rewrite_on_hit'
-  , 'translated_before_rewrite'
+    'CONSTR_EQ', 'EQUALITY_NAME', 'PARSE_LIMIT', 'SET0_NAME', 'curry2icurry'
+  , 'icurry_is_stale', 'in_system_library', 'pairs_refreshed', 'pairs_served'
+  , 'reset_counts', 'rewrite_on_hit', 'translated_before_rewrite'
   ]
 logger = logging.getLogger(__name__)
 
@@ -33,12 +34,15 @@ def curry2icurry(curryfile, currypath, **kwds):
 # optimization writes, and of the Boolean equalities it replaces: the class
 # methods of the Prelude and the instance methods of any module
 # (bindingopt.is_equality_name).  A FlatCurry file without such a name has
-# nothing the pass would replace.
+# nothing the pass would replace.  SET0_NAME is the spelling of set0, the
+# function the set0 lift lifts (setlift): a FlatCurry file without it has
+# nothing the lift would lift.
 CONSTR_EQ = b'("Prelude","constrEq"'
 EQUALITY_NAME = re.compile(
     rb'\("Prelude","(?:==|===|/=|/==)"\)'
     rb'|_impl#(?:==#Prelude\.Eq|===#Prelude\.Data|/=#Prelude\.Eq)#'
   )
+SET0_NAME = b'("Control.SetFunctions","set0")'
 
 # The largest FlatCurry file the check parses, in bytes.  The parse costs
 # about 0.3 ms per KB, so a file at the limit costs about 80 ms.  A larger
@@ -46,17 +50,18 @@ EQUALITY_NAME = re.compile(
 PARSE_LIMIT = 256 * 1024
 
 # The ICurry files this process found stale because they were translated
-# before the binding rewrite (translated_before_rewrite), by absolute path;
-# those of them the route has translated again since; and those the ICurry
-# cache served instead (the FlatCurry file then stays as it was).
+# before a pass of the rewrite (translated_before_rewrite), by absolute
+# path; those of them the route has translated again since; and those the
+# ICurry cache served instead (the FlatCurry file then stays as it was).
 # sprite-make reports the counts, and the prepare pass of the test runner
 # reads them.
 stale_pairs = set()
 refreshed_pairs = set()
 served_pairs = set()
 
-# The count of the pass over a FlatCurry file, by path, size and mtime: a
-# module imported through several plans in one process is parsed once.
+# The counts of the rewrite step over a FlatCurry file, by path, size and
+# mtime: a module imported through several plans in one process is parsed
+# once.
 _counts = {}
 
 # The files this process has warned about, so a warning comes once.
@@ -77,9 +82,9 @@ def pairs_refreshed():
 def pairs_served():
   '''
   The number of pre-rewrite pairs the ICurry cache served in this process.
-  The cache wrote the ICurry file, and the route ran the binding
-  optimization over the FlatCurry file of the front end
-  (``rewrite_on_hit``), so the pair agrees as after a translation.
+  The cache wrote the ICurry file, and the route ran the rewrite step over
+  the FlatCurry file of the front end (``rewrite_on_hit``), so the pair
+  agrees as after a translation.
   '''
   return len(served_pairs)
 
@@ -96,19 +101,36 @@ def _warn_once(fcyfile, message, *args):
 
 def _rewrite_count(fcyfile, data, stamp):
   '''
-  The number of equalities the pass replaces in the text ``data`` of
-  ``fcyfile``, from the memo when the file has the size and time of
-  ``stamp``.  None when the pass cannot read the text.
+  What the rewrite step changes in the text ``data`` of ``fcyfile``: the
+  number of equalities the binding optimization replaces, the number of
+  calls the set0 lift lifts, and the local names of the lifted functions;
+  from the memo when the file has the size and time of ``stamp``.  None
+  when the step cannot read the text.
   '''
   key = (fcyfile,) + stamp
   if key not in _counts:
     try:
-      _, count = bindingopt.transform_prog(flatcurry.read(data.decode('utf-8')))
+      prog = flatcurry.read(data.decode('utf-8'))
+      lifted, (equalities, calls) = flat2icurry.rewrite_prog(prog)
+      names = set(fd.name for fd in prog.functions)
+      new = [fd.name[1] for fd in lifted.functions if fd.name not in names]
+      result = (equalities, calls, new)
     except Exception as err:
-      logger.debug('cannot apply the binding optimization to %s: %s', fcyfile, err)
-      count = None
-    _counts[key] = count
+      logger.debug('cannot apply the rewrite step to %s: %s', fcyfile, err)
+      result = None
+    _counts[key] = result
   return _counts[key]
+
+def _needs_rewrite(data):
+  '''
+  Which passes of the rewrite step the FlatCurry text ``data`` may need,
+  by its spelling alone: the binding optimization when the text has an
+  equality name and no ``constrEq`` (a file with ``constrEq`` was
+  rewritten by it), the set0 lift when the text names ``set0``.
+  '''
+  equalities = CONSTR_EQ not in data and EQUALITY_NAME.search(data) is not None
+  calls = SET0_NAME in data
+  return equalities, calls
 
 def _writable(fcyfile):
   '''Whether the pass can write ``fcyfile`` again (a temporary file beside it).'''
@@ -117,23 +139,24 @@ def _writable(fcyfile):
 
 def rewrite_on_hit(curryfile):
   '''
-  Runs the binding optimization over the FlatCurry file of the front end
-  beside ``curryfile`` after a hit of the ICurry cache, as a translation
-  does (``_frontend.curry2flat``), so the file agrees with the ICurry file
-  the cache wrote.  The cost is a read, and a parse when the text has an
-  equality name; the file is written again only when the pass replaces an
-  equality, else it keeps its bytes and its time.
+  Runs the rewrite step (the binding optimization and the set0 lift) over
+  the FlatCurry file of the front end beside ``curryfile`` after a hit of
+  the ICurry cache, as a translation does (``_frontend.curry2flat``), so
+  the file agrees with the ICurry file the cache wrote.  The cost is a
+  read, and a parse when the text has an equality name or names ``set0``;
+  the file is written again only when a pass changes the program, else it
+  keeps its bytes and its time.
 
   Two files are left as they are.  A file older than the source belongs to
   another version of the source, and a rewrite would make it current by the
   times for the front end; the front end writes it again when it next runs
-  for the module.  A file the pass cannot rewrite (unreadable, or in a
+  for the module.  A file the step cannot rewrite (unreadable, or in a
   read-only directory) is left with one warning per process that names
   ``sprite-make --rewrite-flat``; the hit stands.  A missing file is
   nothing to rewrite.
 
-  Returns the number of equalities replaced, or None when the file was not
-  judged.
+  Returns the number of changes (equalities replaced and set0 calls
+  lifted), or None when the file was not judged.
   '''
   curryfile = os.path.abspath(curryfile)
   fcyfile = _frontend.flatcurryfile(curryfile)
@@ -142,9 +165,9 @@ def rewrite_on_hit(curryfile):
   try:
     with open(fcyfile, 'rb') as stream:
       data = stream.read()
-    if EQUALITY_NAME.search(data) is None:
+    if EQUALITY_NAME.search(data) is None and SET0_NAME not in data:
       return 0
-    return _frontend.optimize_flatcurry(fcyfile)
+    return sum(_frontend.optimize_flatcurry(fcyfile))
   except Exception as err:
     _warn_once(
         fcyfile
@@ -164,28 +187,35 @@ def in_system_library(curryfile):
 def translated_before_rewrite(curryfile, icyfile):
   '''
   Tells whether ``icyfile`` was translated from the FlatCurry file of
-  ``curryfile`` before the binding optimization rewrote the file (issue
-  #101): the file of the front end (``_frontend.flatcurryfile``) holds a
-  Boolean equality the pass would replace, and neither it nor the ICurry
-  file holds ``constrEq``.  Such a pair comes from a tree made before the
-  routes rewrote the file, from the overlay archive of the tests, or from
-  a copy of either.  It is current by the file times, and its program
-  binds no variable through ``==`` in a guard, where PAKCS binds one.
+  ``curryfile`` before a pass of the rewrite step rewrote the file (issue
+  #101; decision D28).  Two rules, one per pass.  The binding optimization:
+  the file of the front end (``_frontend.flatcurryfile``) holds a Boolean
+  equality the pass would replace, and neither it nor the ICurry file
+  holds ``constrEq``.  The set0 lift: the file holds a saturated call of
+  ``set0`` whose argument has captured variables, which the pass would
+  lift, and the ICurry file lacks the function the lift would make.  Such
+  a pair comes from a tree made before the routes rewrote the file with
+  that pass, from the overlay archive of the tests, or from a copy of
+  either.  It is current by the file times, and its program binds no
+  variable through ``==`` in a guard, where PAKCS binds one, or keeps the
+  captured variables of a ``set0`` inside the capsule, where the rule of
+  the set functions boxes them.
 
   The check is cheap on an import.  The FlatCurry file is read: a file
-  with ``constrEq`` was rewritten, and a file without an equality name has
-  nothing to replace, so both answer at once (a fraction of a
-  millisecond).  Else the pass runs over the text in memory and counts (a
-  parse: about 0.3 ms per KB, 1 ms for the median module of the test
-  corpus, 10 ms for one of 28 KB; the count is kept for the process by
-  the size and time of the file, so a module imported through several
-  plans pays once).  A file larger than ``PARSE_LIMIT`` is not judged,
-  with one warning per process: its parse would cost a second at 840 KB
-  at every start.  The ICurry file is read only when the count is not
-  zero: a file of the front end can be newer than the ICurry file and
-  unrewritten beside an ICurry file of the rewritten program (the PAKCS
-  oracle of the tests writes such a file; section 8 of tests/README), and
-  that product is right.  Nothing is written.
+  without an equality name and without ``set0`` has nothing to rewrite,
+  and a file with ``constrEq`` and without ``set0`` was rewritten, so both
+  answer at once (a fraction of a millisecond).  Else the step runs over
+  the text in memory and counts (a parse: about 0.3 ms per KB, 1 ms for
+  the median module of the test corpus, 10 ms for one of 28 KB; the
+  counts are kept for the process by the size and time of the file, so a
+  module imported through several plans pays once).  A file larger than
+  ``PARSE_LIMIT`` is not judged, with one warning per process: its parse
+  would cost a second at 840 KB at every start.  The ICurry file is read
+  only when a count is not zero: a file of the front end can be newer
+  than the ICurry file and unrewritten beside an ICurry file of the
+  rewritten program (the PAKCS oracle of the tests writes such a file;
+  section 8 of tests/README), and that product is right.  Nothing is
+  written.
 
   Three files are not judged.  A FlatCurry file older than the source
   belongs to another version of the source (a hit in the ICurry cache
@@ -193,10 +223,10 @@ def translated_before_rewrite(curryfile, icyfile):
   and is not the input of the ICurry file.  A module
   of the Curry library of the installation keeps its committed ICurry
   (``in_system_library``); ``make stage`` makes those products.  A
-  FlatCurry file the pass cannot write again (the file or its directory is
+  FlatCurry file the step cannot write again (the file or its directory is
   read-only) is left as it is, with one warning per process that names
   ``sprite-make --rewrite-flat``: a stale verdict would fail the import
-  when the pass writes the file.  A file the pass cannot read is left to
+  when the step writes the file.  A file the step cannot read is left to
   the translation, which reports it.
   '''
   if in_system_library(curryfile):
@@ -209,12 +239,13 @@ def translated_before_rewrite(curryfile, icyfile):
       data = stream.read()
   except OSError:
     return False
-  if CONSTR_EQ in data or EQUALITY_NAME.search(data) is None:
+  equalities, calls = _needs_rewrite(data)
+  if not (equalities or calls):
     return False
   if len(data) > PARSE_LIMIT:
     _warn_once(
         fcyfile
-      , '%s is larger than %d bytes and was not checked against the binding '
+      , '%s is larger than %d bytes and was not checked against the '
         'rewrite; run sprite-make --rewrite-flat on the module once if the '
         'tree predates the rewrite'
       , fcyfile, PARSE_LIMIT
@@ -224,20 +255,29 @@ def translated_before_rewrite(curryfile, icyfile):
     st = os.stat(fcyfile)
   except OSError:
     return False
-  if not _rewrite_count(fcyfile, data, (st.st_size, st.st_mtime_ns)):
+  counts = _rewrite_count(fcyfile, data, (st.st_size, st.st_mtime_ns))
+  if counts is None:
+    return False
+  equalities = equalities and counts[0] > 0
+  calls = calls and counts[1] > 0
+  if not (equalities or calls):
     return False
   try:
     with open(icyfile, 'rb') as stream:
-      if CONSTR_EQ in stream.read():
-        return False
+      icy = stream.read()
   except OSError:
+    return False
+  if equalities and CONSTR_EQ in icy:
+    equalities = False
+  if calls and all(('"%s"' % name).encode('utf-8') in icy for name in counts[2]):
+    calls = False
+  if not (equalities or calls):
     return False
   if not _writable(fcyfile):
     _warn_once(
         fcyfile
-      , '%s was translated before the binding rewrite and cannot be written '
-        'again; run sprite-make --rewrite-flat on the module where it is '
-        'writable'
+      , '%s was translated before the rewrite and cannot be written again; '
+        'run sprite-make --rewrite-flat on the module where it is writable'
       , icyfile
       )
     return False
@@ -249,9 +289,9 @@ def icurry_is_stale(filename, currypath=None):
   exists, so a conversion can supply the file.  Two states count.  An
   interface file beside it is missing (see ``cache.INTERFACE_SUFFIXES``):
   an ICurry file written before the interface files travelled with it is
-  in this state.  Or the file was translated before the binding
-  optimization rewrote the FlatCurry file (``translated_before_rewrite``);
-  the file is then noted in ``stale_pairs``.  The plan asks this of the
+  in this state.  Or the file was translated before a pass of the rewrite
+  step rewrote the FlatCurry file (``translated_before_rewrite``); the
+  file is then noted in ``stale_pairs``.  The plan asks this of the
   ``.curry`` input of the step as well; a source is never refused.  The
   search path ``currypath`` is not needed here.
   '''
@@ -284,21 +324,22 @@ class Curry2ICurryConverter(object):
   :mod:`curry.toolchain.flat2icurry`.  ``icurry`` runs the ``icurry``
   program.  :func:`config.curry2icurry_tool` picks the route.  Both routes
   run the front end first (``_frontend.curry2flat``), which applies the
-  binding optimization in place to every FlatCurry file the run wrote, the
-  module's and those of the imports the run compiled again, as PAKCS does
+  rewrite step (the binding optimization and the set0 lift) in place to
+  every FlatCurry file the run wrote, the module's and those of the
+  imports the run compiled again, as PAKCS applies its preprocessing
   before any compiler reads a file; the ``icurry`` program then runs the
   front end again, which finds its files current and leaves the rewritten
-  ones as they are, and translates the optimized program.  So the two
+  ones as they are, and translates the rewritten program.  So the two
   routes write the same ICurry for a module with a required Boolean
-  equality.
+  equality or a ``set0`` over captured variables.
 
   The cache (see ``curry.cache``) is keyed by the source text and by the
   route, so an entry written by one route is never served to the other.  An
   error the front end reported about the program is taken from the cache
   too.  On a hit the cache writes the ICurry file, and the route runs the
-  binding optimization over the FlatCurry file of the front end beside the
-  source as well (``rewrite_on_hit``), so the pair on disk agrees as after
-  a translation; the pair is counted apart (``pairs_served``).
+  rewrite step over the FlatCurry file of the front end beside the source
+  as well (``rewrite_on_hit``), so the pair on disk agrees as after a
+  translation; the pair is counted apart (``pairs_served``).
 
   The two interface files of the module travel with its ICurry (see
   ``cache.INTERFACE_SUFFIXES``).  Both routes run the front end, which writes

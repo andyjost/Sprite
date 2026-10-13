@@ -13652,3 +13652,233 @@
   (3) The whole suite on both backends (the suite stage).  (4) The
   deletion of the dangling header link in the main install after the
   merge.
+
+2026-10-12: the captured variables of set0 are arguments of the capsule (decision D28; worktree wt/set0lift)
+- The decision.  The owner took decision D28 on 2026-10-12: the captured
+  variables of the expression of set0, and of a function value given to
+  a set function, are arguments of the capsule, boxed at the entry, as
+  the arguments of setk are.  The authority is the paper on weakly
+  encapsulated search (Christiansen, Hanus, Reck and Seidel, PPDP 2013,
+  section 3.3): let x = coin in allValues x yields {0} and {1}, one set
+  per outside alternative, and let x = failedBool in allValues x fails
+  instead of yielding a set; the implementations (KiCS2, PAKCS), which
+  scope by the time of the first evaluation, are not the authority.  The
+  research note (revision 3, def:s-entry) reads: set0 e with the
+  captured variables v_1 .. v_p is the application of the set function
+  of the lifted operation e' = \v_1 .. v_p -> e to v_1 .. v_p, the v_j
+  boxed as value arguments; p = 0 is the closed case, unchanged.  The
+  reasons: the runtime already reaches that entry state for setk and for
+  a function value whose partial application holds arguments (set_step
+  and set_ box every argument the function value holds, issue #117), so
+  set1 (L x_1 .. x_(k-1)) x_k and setk L x_1 .. x_k reach one entry
+  state for any k, and the lifting is a pass of the compiler: no change
+  to the C++ runtime, the evaluation of the Python backend, the Curry
+  text of the library, the ABI or a default.
+- The pass.  src/python/toolchain/flat2icurry/setlift.py, beside
+  bindingopt, with transform_prog(prog) -> (prog, count), optimize_set0
+  on a program in memory and optimize_file in place, as bindingopt has
+  them.  For every saturated call set0 e in a rule of the module (the
+  lambdas f._#lambdaN of the front end, the bindings and the bodies of
+  lets, the branches of cases and the alternatives of a choice
+  included), bottom-up (a set0 inside e first), with the captured
+  variables x_1 .. x_k of e (the variables e does not bind, the Curry
+  unboundVars, in the order of their first occurrence; a class
+  dictionary and a free variable of an enclosing where are captured
+  like any other), k >= 1: a new Private function L x_1 .. x_k = e,
+  named f_SET0n (f the local name of the enclosing function, n a counter
+  per enclosing function from zero; a name an original function has is
+  skipped; the front end writes no such name, and the case lifting of
+  the translation, which runs after it over the lifted program, skips
+  the names the program holds), with a type annotation at the root of e
+  removed (the defect of icurry 3.1.0 on a root annotation over a let,
+  a free declaration or a case) and the type forall a_0 .. a_k. a_0 ->
+  .. -> a_k, a ForallType over k + 1 type variables as the front end
+  writes a scheme (the ICurry compiler ignores the type; the file is on
+  disk, and the oracle may read it).  The call becomes setk L x_1 .. x_k
+  for k up to seven, the arities the library has, and set1
+  (L x_1 .. x_(k-1)) x_k beyond.  set0 $ e is the call set0 e (the $ on
+  the partial application set0 is reduced as bindingopt reduces it).  A
+  closed set0 (k = 0) is unchanged.  The pass is idempotent:
+  transform_prog over its own output changes nothing, count 0.  The
+  interface M.fint is never written: the lifted function is private,
+  and the importers number the public functions of a module from that
+  file.
+- The plumbing.  flat2icurry.rewrite_prog applies the two passes in
+  order, the binding optimization then the lift, and returns the pair
+  of counts; rewrite_file writes the file once when either changed it,
+  in the format of the front end, else leaves it with its time.
+  _frontend.optimize_flatcurry calls rewrite_file over the module's
+  .fcy and every .fcy the front end wrote, so both routes, the port and
+  the external icurry, read the lifted file.  rewrite_on_hit's early
+  return and its marker cover set0 (SET0_NAME, the bytes of the
+  qualified name in the .fcy).  translated_before_rewrite has one rule
+  per pass: a .fcy that holds a saturated set0 call whose argument has
+  captured variables, beside an .icy that lacks the functions the lift
+  would make (the names come from the pass in memory, memoized by the
+  size and the time of the file), is stale, and so is the .icy; the
+  library is left out as before (no library module uses set0).
+  ROUTE_VERSION is 2, with a dated line in its comment, pinned by
+  unit_curry2icurry_stale.py and unit_setlift.py; setlift.py and
+  __init__.py of flat2icurry join REWRITE_SOURCES, the digest of the
+  icurry route.  One flag for both passes: translate(..., rewrite=True)
+  replaces bindingopt=True, --rewrite replaces --bindingopt of
+  python -m curry.toolchain.flat2icurry, and
+  python -m curry.toolchain.flat2icurry.rewrite and
+  sprite-make --rewrite-flat run both.  One flag, because the step is
+  one unit on the routes: the file on disk holds both rewrites or
+  neither, and a caller that wants the ICurry the routes make wants
+  both; a caller that needs the text of the front end passes
+  rewrite=False as before.  The oracle's accept_unrewritten runs
+  rewrite_prog in memory, and the idempotence test of
+  func_flat2icurry.py covers both passes over the archive.
+- Tests.  New: tests/unit_setlift.py with tests/data/curry/SetLift.curry,
+  both backends, in a child under prlimit and timeout, plain and under
+  the checker.  TestPass, the pass on FlatCurry terms (15 tests: the
+  captured variables and their order, the type, the forms of the call,
+  the names, one and two variables, the closed and the unsaturated
+  cases, set0 $ e, the root annotation, the nested set0, every kind of
+  rule, eight and seven variables, a name collision, an external rule,
+  the step of the routes).  TestGoals, the parity corpus: each program
+  point set0 e with captured variables beside its hand-written lifting
+  setk L xs, with the same values: one variable (one), two (two), a
+  class dictionary (dictS, show over a Show-constrained parameter), a
+  free variable of the enclosing where (freeS, one set per binding as
+  s6PG and capNarrow), a free variable declared inside the expression
+  (innerFree, closed), seven variables (set7) and nine (set1 over a
+  partial application of eight), a nested set0, a set0 inside a lambda,
+  set0 $ e (dollar, dollar2), a root annotation (typed), set0 in the
+  branches of a case and under a let, the wrapper of the paper applied
+  to a choice (wrapc: [0] and [1]), a closed set0 and the limit of the
+  lift (partial: map (sortValues . set0)).  TestPinnedValues: heap1 no
+  value, heap2 [0] and [1], f0cap no value, s0idf [], s0f [], s1f1 no
+  value, s0c [0, 1], s1idc [0] and [1], wrapc [0] and [1].
+  TestChecker: a closed set0 is a capsule without a box (the count
+  capsules_without_box of the C++ checker), a lifted set0 has its box.
+  TestFiles: the pass over the FlatCurry file of the module (19 lifted
+  functions, private, of the polymorphic type, the root annotation
+  stripped), optimize_file and rewrite_file (the file written once, the
+  interface files untouched by content and time), the command lines, a
+  pair made before the lift found stale and translated again, the hit
+  of the ICurry cache lifting the file, and ROUTE_VERSION 2.  Moved:
+  captureShared, captureStep and captureDeep of FailSib.curry from the
+  records to the tests (TestCapturedFailure of unit_n1_cursor.py, no
+  value, plain and under the checker; their comments rewritten: the
+  boxed t fails as an outside failure of the set function, which fails,
+  so length fails at the cursor before the scan reaches loop);
+  guardShared stays a record, with its comment adjusted (the boxed
+  failure sits behind loop inside the capsule, which never reaches it).
+  Kept with their values: set0Inner (no value) and set0InnerV ([[7]]) of
+  unit_setfunctions_failures.py, with the comments rewritten: a is a
+  captured variable of the inner set0, now boxed under the inner guard
+  over the outer one; the inner capsule meets the failure as an outside
+  failure, has no value and no inside failure, so it fails, and the
+  failure goes under the outer guard, where the outer capsule fails in
+  turn: no value, as before, when the inner capsule met the failure
+  through the outer guard alone.  Dropped: none.  The comment "set0
+  boxes nothing" of SetFunctionsFailures.curry is corrected, and exprS
+  of the Python backend gets a comment that says why no captured
+  variable reaches it.  unit_curry2icurry.py gains test_set0_lift_icurry:
+  the icurry route reads the lifted file and writes the same .icy as the
+  port for SetLift, and the oracle harness finds the pair equal.
+  tests/manifest.json has no entry for unit_setlift.py; a calibration run
+  adds it.
+- Documentation.  AGENTS.md (the paragraph on the route: two rewrite
+  passes, the stale rule), docs/source/CurryPrimer/Semantics.rst (the
+  paragraph on the captured variables of set0, with main8 to main10),
+  docs/source/Introduction/CompilationPipeline.rst (the lift, the entry
+  rule, the limits, the stale rule), tests/README (the step, the stale
+  rules, accept_unrewritten, the test files).
+- Limits.  A set0 that is not a saturated call is left alone: a partial
+  application (map set0 xs, sortValues . set0) or a set0 reached through
+  a variable; the pass sees no argument, and the element reaches set0 at
+  run time as an encapsulated expression (the goal partial of
+  SetLift.curry pins [[0, 1]]).  The type of a lifted function is a
+  fresh polymorphic scheme, not the type of e: no reader in Sprite types
+  a FlatCurry file, and the oracle compares ICurry, which has no types.
+  The check on an import parses a .fcy that names set0 even when its
+  calls are closed (a parse, once per process by the size and time of
+  the file), where before only an equality name without constrEq cost
+  a parse.  The ICurry cache of every tree misses once under version 2
+  of the route.
+- Verification (the clean environment, CCACHE_DIR set, prlimit, timeout,
+  at most two test processes at a time).  Before the change (the probes
+  at the start of the lane, under sprite-exec with steps:65536, prlimit
+  2 GB and timeout 60, the same values on both backends): heap1 [], exit
+  0; heap2 [0, 1]; f0cap []; s0idf []; s0f []; s1f1 no value; s0c
+  [0, 1]; s1idc [0] and [1]; wrapc [0, 1]; captureShared, captureStep
+  and captureDeep of FailSib.curry exit 124 with no output.  After the
+  change, on both backends, plain and under checker:true, under the same
+  settings: heap1 no value, exit 0; heap2 [0] and [1]; f0cap no value;
+  s0idf []; s0f []; s1f1 no value; s0c [0, 1]; s1idc [0] and [1]; wrapc
+  [0] and [1]; captureShared, captureStep and captureDeep no value, exit
+  0.  The first import of FailSib and of SetFunctionsFailures found
+  their pairs stale under the lift rule and translated them again (the
+  .fcy and the .icy hold captureShared_SET00, captureStep_SET00,
+  captureDeep_SET00, set0Inner._#lambda10_SET00 and
+  set0InnerV._#lambda11_SET00); the corpus holds 24 lifted functions in
+  three modules (SetLift 19, FailSib 3, SetFunctionsFailures 2), and no
+  other module of the corpus has a set0 over captured variables
+  (StackGuard, CxxPartial, FunPatFreeArgSet, basic00, basic01 and the
+  Poker benchmarks use closed set0).  make stage status 0; the ABI stamp
+  of Prelude.so before and after: the same digest.  The
+  prepare pass (./run_tests --prepare-only --backend both -j 2 --mem 4):
+  1252 modules in 12 directories, 24 of 24 ok, 0 failed, wall 580 s,
+  every product present; it translated 2 pre-rewrite pairs again, one
+  under data/curry (SetFunctionsFailures, the lift rule) and one under
+  data/curry/smap (the binding rule, a pair of the overlay); the C++
+  side compiled the objects of a cold tree (eqconstr alone 327 s).
+  Through the runner (./run_tests -j 2 --mem 4 --backend both), the
+  touched files, the files with closed set0 uses and the files of the
+  renamed flag: unit_setlift, unit_n1_cursor, unit_setfunctions_failures,
+  unit_setfunctions_semantics, unit_setfunctions_bindings,
+  unit_setfunctions_bugs, unit_curry2icurry_stale, unit_sigtable,
+  unit_cxx_checker, unit_py_checker, func_flat2icurry, func_setfunctions,
+  unit_flat2icurry_bindingopt, unit_curry2icurry, unit_cxx_partial,
+  unit_py_fairness, unit_cxx_stack and unit_funpat_free_argument: 36 of
+  36 run, 4 failed in the first pass (wall 193 s), two defects of the
+  lane, corrected and run again.  rewrite_prog handed the lift the
+  program the binding optimization rebuilt without a replacement (its $
+  reduced), where optimize_bindings hands back the original
+  (test_rewrite_is_idempotent of func_flat2icurry.py, both backends):
+  rewrite_prog takes the optimized program only when an equality was
+  replaced, _rewrite_count of _curry2icurry.py calls rewrite_prog, and
+  the parse counts of unit_curry2icurry_stale.py patch the bindingopt
+  module, which the step calls.  The parity test of lam compared the
+  values in the order written where the child sorts them as text
+  (unit_setlift.py, both backends): the expectations are sorted now.
+  After the corrections, on both backends: func_flat2icurry 8 tests,
+  unit_setlift 48, unit_flat2icurry_bindingopt 32, unit_curry2icurry_stale
+  18 and unit_curry2icurry 22 ok, the last with the new
+  test_set0_lift_icurry (the icurry program reads the library through
+  CURRYPATH, which the route binds to the path given, so the test passes
+  the system path, as config.currypath() of a caller holds it).  Every
+  file of the list passed on both backends in its last run.  make -C
+  docs html: build succeeded, 2 warnings, both in docstrings of files
+  outside the lane (backends/__init__.py and cxx/interface.py); the
+  Reference has the page of setlift.  The
+  public-safe grep over the changed and the new files prints nothing.
+  Not run: func_goal_defaulting.py (the PAKCS REPL oracle does not run
+  in the environment of the lane) and the whole suite on both backends.
+- Changed printed values.  A captured variable that fails is an
+  outside failure: an alternative that demands it is dropped, and the
+  set0 has no value when no alternative gives a value and none fails on
+  its own, where before the set was empty (heap1, f0cap; the capture
+  goals of FailSib.curry, which end now; set0 (w ? 7) with w = failed
+  still gives [7], as example (2) of the paper prescribes); a
+  set0 over a captured choice gives one set per alternative, where
+  before it gave one set of both alternatives (heap2, wrapc, one, two).
+  A closed set0 is unchanged.
+- Left to the owner.  (1) The commit (the owner's agent commits after
+  the suites).  (2) The whole suite on both backends, and
+  func_goal_defaulting.py where the PAKCS oracle runs.  (3) A
+  calibration entry for unit_setlift.py in tests/manifest.json.  (4) The
+  ICurry cache of every tree misses once under version 2 of the route,
+  and a tree made before the lift translates its modules with a set0
+  over captured variables again at the first import; sprite-make
+  --rewrite-flat M does it by hand.  (5) The research note: def:s-entry
+  of revision 3 states the rule this lane implements; nothing in the
+  note changes here.  (6) The PAKCS oracle reads the lifted .fcy of a
+  module with a set0 over captured variables; that PAKCS accepts such
+  a file is not verified (no module of the functional corpus has one):
+  where the oracle runs, import SetLift under Sprite, load it in pakcs,
+  evaluate heap2, and record the result in tests/README section 8.

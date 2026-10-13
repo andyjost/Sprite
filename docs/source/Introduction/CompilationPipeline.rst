@@ -22,8 +22,9 @@ Sprite first translates Curry source code into a format called `ICurry
 <https://arxiv.org/abs/1908.11101>`__.  This takes three steps.  The Curry
 front end, a program that comes with PAKCS, translates the module and its
 imports into `FlatCurry`_, the desugared and otherwise simplified program.
-The binding optimization of PAKCS then rewrites the FlatCurry file in place
-(see below).  Then Sprite's own translation,
+The rewrite step then rewrites the FlatCurry file in place, with the
+binding optimization of PAKCS and the set0 lift (see below).  Then
+Sprite's own translation,
 :mod:`curry.toolchain.flat2icurry`, turns the FlatCurry into ICurry.  That
 translation is a Python port of the external program `icurry
 <https://cpm.curry-lang.org/pkgs/icurry.html>`__ 3.1.0, available through
@@ -81,9 +82,11 @@ byte-identical to the oracle.  The build route (``sprite-make`` and the
 import of a module) turns it off and looks through the annotation.  The
 option ``--no-icurry-compat`` of the command line does the same.
 
-Between the front end and the translation, both routes apply the binding
-optimization to the FlatCurry file
-(:mod:`curry.toolchain.flat2icurry.bindingopt`).  PAKCS and KiCS2 run the
+Between the front end and the translation, both routes apply the rewrite
+step to the FlatCurry file (:func:`curry.toolchain.flat2icurry.rewrite_file`),
+two passes in order: the binding optimization
+(:mod:`curry.toolchain.flat2icurry.bindingopt`) and the set0 lift
+(:mod:`curry.toolchain.flat2icurry.setlift`).  PAKCS and KiCS2 run the
 tool ``transbooleq`` over every FlatCurry file they compile (the property
 ``bindingoptimization`` of PAKCS, ``fast`` by default), and the pass is a
 port of its fast mode.  A Boolean equality whose value is required to be
@@ -99,44 +102,65 @@ program in the residuation style of ``sendMoreMoney`` (tests/data/curry)
 solve: without it the digit equalities suspend, under PAKCS as well
 (``pakcs -Dbindingoptimization=no``).
 
+The set0 lift makes the captured variables of ``set0 e`` arguments of
+the capsule (decision D28 of 2026-10-12).  A call ``set0 e`` whose
+expression ``e`` holds variables of the enclosing context, ``x1 .. xk``,
+becomes ``setk L x1 .. xk``, with a new private function
+``L x1 .. xk = e`` (``set1 (L x1 .. x(k-1)) xk`` beyond seven, the
+arities the library has).  The runtime boxes the arguments of ``setk``
+at the entry of the capsule, so the non-determinism and the failure of a
+captured variable stay outside the set, one set per outside alternative,
+as the semantics of weakly encapsulated search prescribes (see
+:ref:`CurryPrimer/Semantics:Set Functions`).  A class dictionary and a
+free variable of an enclosing ``where`` are captured variables like any
+other; a ``set0`` inside a lambda or a local definition is lifted out of
+the function the front end made for it; ``set0 $ e`` is the call
+``set0 e``.  A closed ``set0 e`` (no captured variable) is unchanged.
+The pass does not reach a ``set0`` that is not a saturated call, such as
+the partial application in ``map set0 xs``: it sees no argument there,
+and the element reaches ``set0`` at run time as a closed expression.
+
 As PAKCS does (``preprocessFcyFile`` of its compiler), Sprite applies the
-pass to the file itself.  When the pass replaces an equality, ``M.fcy`` is
+step to the file itself.  When a pass changes the program, ``M.fcy`` is
 written again, in the format of the front end (a file of the front end
 read and written again is byte-identical); otherwise the file is left as it
 is, with its time.  A second run over a rewritten file changes nothing.  So
-the ``.fcy`` on disk is the optimized program, the ``icurry`` program reads
+the ``.fcy`` on disk is the rewritten program, the ``icurry`` program reads
 it too, and the two routes write the same ``.icy`` file.  The oracle tests
-do not apply the pass: the files ``icurry`` wrote for the archive come from
-the FlatCurry as the front end wrote it.  The option ``--bindingopt`` of
-the command line ``python -m curry.toolchain.flat2icurry`` applies the pass
-to the program in memory and leaves the file alone (the flag ``bindingopt``
-of :func:`curry.toolchain.flat2icurry.translate`).
+do not apply the step: the files ``icurry`` wrote for the archive come from
+the FlatCurry as the front end wrote it.  The option ``--rewrite`` of
+the command line ``python -m curry.toolchain.flat2icurry`` applies the
+step to the program in memory and leaves the file alone (the flag
+``rewrite`` of :func:`curry.toolchain.flat2icurry.translate`).
 
 The rewrite covers every FlatCurry file a run of the front end wrote.  A
 run on ``M`` compiles more than ``M``: an import whose files are missing,
 older than its source, or older than the interface of one of its own
 imports is compiled again, and its ``.fcy`` is written again in the text
 of the front end, while its ICurry stays current by the rule of the
-toolchain.  So the pass runs over the files of those imports too, and the
+toolchain.  So the step runs over the files of those imports too, and the
 FlatCurry file beside an ICurry file never lacks the rewrite the ICurry
 has.  One writer outside the toolchain leaves such a file: the PAKCS
 oracle of the tests (section 8 of ``tests/README``).
 
-The pass reaches the modules the routes translate.  The committed ICurry of
-the Curry library predates it and is not regenerated by the pass; the
+The step reaches the modules the routes translate.  The committed ICurry of
+the Curry library predates it and is not regenerated by the step; the
 ``.icy`` of a library module changes only when the module is translated
-again (``SPRITE_REBUILD_ICY=1``), and then from its rewritten FlatCurry.  A
-product translated before the file was rewritten is stale: the FlatCurry
-file beside the source holds a Boolean equality the pass replaces, and
-neither it nor the ICurry file holds ``constrEq``
+again (``SPRITE_REBUILD_ICY=1``), and then from its rewritten FlatCurry
+(no library module uses ``set0``).  A product translated before the file
+was rewritten by a pass is stale: the FlatCurry file beside the source
+holds a Boolean equality the binding optimization replaces, and neither it
+nor the ICurry file holds ``constrEq``; or it holds a ``set0`` call the
+lift lifts, and the ICurry file lacks the lifted function
 (``translated_before_rewrite`` of ``curry.toolchain._curry2icurry``; the
 modules of the library are not judged, and the check costs a read of the
 FlatCurry file on an import, a parse when the text has an equality name
-and no ``constrEq``, once per process and for a file up to 256 KB; a
-larger file, and a file that cannot be written again, are not judged,
-with a warning).  The step from Curry to ICurry runs again at the first
-import of the module, as for a changed source: the front end leaves the
-current file, the pass rewrites it, and the translation follows;
+and no ``constrEq`` or names ``set0``, once per process and for a file up
+to 256 KB; a larger file, and a file that cannot be written again, are
+not judged, with a warning).  The step from Curry to ICurry runs again at
+the first import of the module, as for a changed source: the front end
+leaves the current file, the step rewrites it, and the translation
+follows;
 ``sprite-make`` prints how many modules it made again so, and how many
 the ICurry cache of the test drivers served instead (a hit rewrites the
 FlatCurry file as well; see the cache below).  To run the step

@@ -71,9 +71,10 @@ whichever tool is installed.
 The ``--rewrite-flat`` option runs the step from Curry to ICurry of every
 named module again, whether or not its files are current, without the
 ICurry cache: the front end (which leaves a current FlatCurry file as it
-is), the binding optimization, which rewrites the FlatCurry file in place
-when it replaces an equality (``curry.toolchain.flat2icurry.bindingopt``),
-and the translation.  The option implies ``--icy``, so it stands alone;
+is), the rewrite step, which rewrites the FlatCurry file in place when the
+binding optimization replaces an equality or the set0 lift lifts a call
+(``curry.toolchain.flat2icurry.rewrite_file``), and the translation.  The
+option implies ``--icy``, so it stands alone;
 the later steps of another target follow as usual from the new ICurry
 file.  Use it on a module whose products were made before the FlatCurry
 file was rewritten, so that the file on disk and the products agree; the
@@ -110,21 +111,23 @@ or stored a product this program prints one line with the two counts,
 given; under ``--jobs`` the counts of the children are summed.  See the
 page on environment variables.
 
-Products made before the binding rewrite.  The ICurry file of a module
-counts as stale when the FlatCurry file of the front end beside the source
-holds a Boolean equality the binding optimization replaces and neither
-file holds ``constrEq``: a pair translated before the routes rewrote the
-file, from an older tree or from the overlay archive of the tests
+Products made before the rewrite.  The ICurry file of a module counts as
+stale when the FlatCurry file of the front end beside the source holds a
+Boolean equality the binding optimization replaces and neither file holds
+``constrEq``, or holds a ``set0`` call the set0 lift lifts and the ICurry
+file lacks the lifted function: a pair translated before the routes
+rewrote the file with that pass, from an older tree or from the overlay
+archive of the tests
 (``curry.toolchain._curry2icurry.translated_before_rewrite``).  The step
 from Curry to ICurry runs again for such a module, as for a changed
-source: the front end leaves the current file, the pass rewrites it, and
-the translation follows.  At the end of a run that made such a module
-again this program prints ``sprite-make: pre-rewrite pairs: N translated
-again``, unless ``-q`` was given; under ``--jobs`` the counts of the
-children are summed.  When the ICurry cache held the entry of the module
-(the test drivers keep one), the cache writes the ICurry file, and the
-binding optimization runs over the FlatCurry file as after a translation;
-the line then ends in ``, M from the ICurry cache``.  The modules of the
+source: the front end leaves the current file, the rewrite step rewrites
+it, and the translation follows.  At the end of a run that made such a
+module again this program prints ``sprite-make: pre-rewrite pairs: N
+translated again``, unless ``-q`` was given; under ``--jobs`` the counts
+of the children are summed.  When the ICurry cache held the entry of the
+module (the test drivers keep one), the cache writes the ICurry file, and
+the rewrite step runs over the FlatCurry file as after a translation; the
+line then ends in ``, M from the ICurry cache``.  The modules of the
 Curry library are not judged; their ICurry is committed.  A FlatCurry file
 larger than 256 KB, or one that cannot be written again, is not judged
 either, with a warning.
@@ -207,8 +210,8 @@ def main(program_name, argv):
   parser.add_argument(      '--rewrite-flat', action='store_true'
     , help='run the step from Curry to ICurry again, current or not: the '
            'front end, the rewrite of the FlatCurry file by the binding '
-           'optimization, and the translation (implies --icy; needs the '
-           'source; --jobs 1)')
+           'optimization and the set0 lift, and the translation (implies '
+           '--icy; needs the source; --jobs 1)')
   parser.add_argument('-S', '--subdir' , action='store_true'
     , help='print the subdirectory to which output files are written then exit')
   parser.add_argument('-t', '--tidy'   , action='store_true'

@@ -8,10 +8,11 @@ module and the ``-i`` directories, in the ``.curry`` subdirectories named by
 ``-s``.  Without ``-s``, the subdirectory of ``.curry`` that holds ``M.fcy``
 is used.
 
-``--bindingopt`` applies the binding optimization to the program in memory
-before the translation and leaves ``M.fcy`` as it is: the ICurry of a
-FlatCurry file the routes have not rewritten yet, without a change to the
-file.  To rewrite the file itself, as the routes do, run
+``--rewrite`` applies the rewrite step of the routes, the binding
+optimization and the set0 lift, to the program in memory before the
+translation and leaves ``M.fcy`` as it is: the ICurry of a FlatCurry file
+the routes have not rewritten yet, without a change to the file.  To
+rewrite the file itself, as the routes do, run
 ``python -m curry.toolchain.flat2icurry.rewrite M.fcy``.
 '''
 
@@ -45,11 +46,13 @@ def main(argv=None):
            'icurry 3.1.0 does not'
     )
   parser.add_argument(
-      '--bindingopt', action='store_true'
-    , help='apply the binding optimization to the program in memory first: '
-           'a Boolean equality required to be True becomes constrEq; the '
-           'file is not touched (the routes rewrite it instead, see '
-           'curry.toolchain.flat2icurry.bindingopt)'
+      '--rewrite', action='store_true'
+    , help='apply the rewrite step of the routes to the program in memory '
+           'first: a Boolean equality required to be True becomes constrEq '
+           '(the binding optimization), and set0 e over the captured '
+           'variables of e becomes setk L xs (the set0 lift); the file is '
+           'not touched (the routes rewrite it instead, see '
+           'curry.toolchain.flat2icurry.rewrite)'
     )
   args = parser.parse_args(argv)
   prog = load_interface(args.fcyfile)
@@ -62,7 +65,7 @@ def main(argv=None):
   finder = InterfaceFinder(searchdirs, subdirs)
   iprog = translate(
       prog, [finder.find(modname) for modname in prog.imports]
-    , args.icurry_compat, args.bindingopt
+    , args.icurry_compat, args.rewrite
     )
   if args.output == '-':
     sys.stdout.write(showterm(iprog))

@@ -179,13 +179,16 @@ def _sourceinfo(path):
 # The sources of the built-in translation from FlatCurry to ICurry
 # (curry.toolchain.flat2icurry).  They are part of the digest of the
 # front-end route: a change to the translation changes the ICurry as a new
-# front end would.  The icurry route runs the binding optimization over the
-# FlatCurry file before the icurry program reads it, so the sources of that
-# pass (REWRITE_SOURCES) are part of its digest too.
+# front end would.  The icurry route runs the rewrite step (the binding
+# optimization and the set0 lift) over the FlatCurry file before the icurry
+# program reads it, so the sources of that step (REWRITE_SOURCES) are part
+# of its digest too.
 PORT_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), 'toolchain', 'flat2icurry'
   )
-REWRITE_SOURCES = ['bindingopt.py', 'flatcurry.py', 'terms.py']
+REWRITE_SOURCES = [
+    '__init__.py', 'bindingopt.py', 'flatcurry.py', 'setlift.py', 'terms.py'
+  ]
 
 def _digest_file(hasher, path):
   with open(path, 'rb') as stream:

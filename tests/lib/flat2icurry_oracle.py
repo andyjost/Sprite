@@ -112,13 +112,14 @@ def check_file(
   pairs with the files of icurry.
 
   With ``accept_unrewritten`` a file that differs is tried once more as the
-  routes would translate it: the binding optimization runs over the program
-  in memory, and when the pass changes it and the optimized program
-  translates to the oracle, the result is EQUAL with ``unrewritten`` set.
-  That is the state of a FlatCurry file that a writer outside the toolchain
-  left in the text of the front end beside an ICurry file of the rewritten
-  program (the PAKCS oracle does; see test_products_on_disk of
-  func_flat2icurry.py).  The file on disk is not touched.
+  routes would translate it: the rewrite step (the binding optimization
+  and the set0 lift) runs over the program in memory, and when a pass
+  changes it and the rewritten program translates to the oracle, the
+  result is EQUAL with ``unrewritten`` set.  That is the state of a
+  FlatCurry file that a writer outside the toolchain left in the text of
+  the front end beside an ICurry file of the rewritten program (the PAKCS
+  oracle does; see test_products_on_disk of func_flat2icurry.py).  The
+  file on disk is not touched.
   '''
   start = time.time()
   if icyfile is None:
@@ -142,7 +143,7 @@ def check_file(
   if actual == expected:
     return Result(fcyfile, icyfile, EQUAL, '', time.time() - start)
   if accept_unrewritten:
-    optimized = f2i.optimize_bindings(prog)
+    optimized, _ = f2i.rewrite_prog(prog)
     if optimized is not prog:
       try:
         rewritten = f2i.showterm(f2i.translate(optimized, interfaces))
@@ -152,8 +153,8 @@ def check_file(
       if rewritten == expected:
         return Result(
             fcyfile, icyfile, EQUAL
-          , 'equal after the binding optimization: the FlatCurry file is '
-            'the text of the front end, unrewritten'
+          , 'equal after the rewrite step: the FlatCurry file is the text '
+            'of the front end, unrewritten'
           , time.time() - start, unrewritten=True
           )
   return Result(

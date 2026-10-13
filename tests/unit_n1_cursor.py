@@ -18,7 +18,13 @@ end under the cursor reading, as in KiCS2.  FailSib.curry keeps those goals
 as records; no test runs them.
 
 The tests here are the goals that end under the cursor reading, with their
-values.
+values.  TestCapturedFailure holds the three capture goals of FailSib.curry,
+which the set0 lift of decision D28 (2026-10-12) made end: the compiler
+lifts set0 (t + 1) over the captured t into set1 L t, so t is boxed at the
+entry of the capsule, its failure is an outside failure of the set
+function, which fails, and length fails at the cursor before the scan
+reaches loop.  Before the lift the failure was the function's own, the set
+was empty, and the scan then stepped loop without end.
 '''
 import cytest # from ./lib; must be first
 import curry
@@ -78,6 +84,29 @@ class TestCursorReading(cytest.TestCase):
   @classmethod
   def setUpClass(cls):
     # Compile the module here; the children load it from the cache.
+    curry.import_('FailSib')
+
+  def test_values(self):
+    self.assertEqual(run_child(self.EXPECTED), self.EXPECTED)
+
+  def test_under_the_checker(self):
+    self.assertEqual(run_child(self.EXPECTED, checker=True), self.EXPECTED)
+
+
+class TestCapturedFailure(cytest.TestCase):
+  '''The captured variable t of set0 fails beside loop (decision D28): the
+  lifted set function fails on the boxed failure, length fails at the
+  cursor, and the run ends with no value, whether the failing cell is a
+  successor of the root (captureShared), under a step at the cursor
+  (captureStep), or one level down (captureDeep).'''
+  EXPECTED = {
+      'captureShared': []
+    , 'captureStep': []
+    , 'captureDeep': []
+    }
+
+  @classmethod
+  def setUpClass(cls):
     curry.import_('FailSib')
 
   def test_values(self):

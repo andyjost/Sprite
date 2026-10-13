@@ -1,6 +1,7 @@
 import cytest # from ./lib; must be first
 import flat2icurry_oracle as oracle
-from curry.toolchain.flat2icurry import bindingopt as bo, flatcurry as fc
+from curry.toolchain import flat2icurry as f2i
+from curry.toolchain.flat2icurry import bindingopt as bo, flatcurry as fc, setlift as sl
 from curry.utility import maxrecursion
 from curry import config, toolchain
 from curry.toolchain import _frontend, _system
@@ -194,26 +195,49 @@ class TestWholeCorpus(cytest.TestCase):
   def test_rewrite_is_idempotent(self):
     '''
     The binding optimization over an optimized program replaces nothing and
-    gives the program back, and the optimized program survives the writer
-    and the reader: the second run of a route over a rewritten file changes
-    nothing.  Every .fcy of the archive, some of which the pass changes.
+    gives the program back, the set0 lift over a lifted program lifts
+    nothing and gives the program back, and the rewritten program survives
+    the writer and the reader: the second run of a route over a rewritten
+    file changes nothing.  Every .fcy of the archive, some of which the
+    binding optimization changes; the set0 lift changes those with a set0
+    over captured variables, when the archive has one.
     '''
     changed = []
+    lifted = []
     for fcy in self.overlay.fcys():
       prog = fc.load(fcy)
       once, n = bo.transform_prog(prog)
       twice, m = bo.transform_prog(once)
       self.assertEqual(m, 0, fcy)
+      # The step hands the lift the optimized program when an equality was
+      # replaced, else the program itself (optimize_bindings).
+      base = once if n else prog
+      liftonce, k = sl.transform_prog(base)
+      lifttwice, j = sl.transform_prog(liftonce)
+      self.assertEqual(j, 0, fcy)
+      self.assertIs(lifttwice, liftonce, fcy)
+      rewritten, counts = f2i.rewrite_prog(prog)
+      self.assertEqual(counts, (n, k), fcy)
       # A deep term (a long string literal) compares below the default
       # recursion limit.
       with maxrecursion():
         self.assertTrue(twice == once, fcy)
+        self.assertTrue(rewritten == liftonce, fcy)
         if n:
           changed.append(os.path.basename(fcy))
           self.assertTrue(fc.read(fc.show(once)) == once, fcy)
           self.assertIsNot(bo.optimize_bindings(prog), prog)
         else:
           self.assertIs(bo.optimize_bindings(prog), prog)
+        if k:
+          lifted.append(os.path.basename(fcy))
+          self.assertTrue(fc.read(fc.show(liftonce)) == liftonce, fcy)
+          self.assertIsNot(sl.optimize_set0(base), base)
+        else:
+          self.assertIs(sl.optimize_set0(base), base)
+          self.assertIs(liftonce, base)
+        if not (n or k):
+          self.assertIs(rewritten, prog)
     self.assertTrue(changed, 'no module of the archive has a required equality')
 
   def test_cli_overlay(self):
