@@ -1,7 +1,6 @@
 #include "cyrt/builtins.hpp"
 #include "cyrt/checker.hpp"
 #include "cyrt/exceptions.hpp"
-#include "cyrt/fairscheme.hpp"
 #include "cyrt/graph/indexing.hpp"
 #include "cyrt/inspect.hpp"
 #include "cyrt/state/rts.hpp"
@@ -205,9 +204,6 @@ namespace cyrt
   {
     size_t ret = 0;
     tag_type tag = 0;
-    // Set by a step (case T_FUNC) and cleared by the read of the parent
-    // cell that the next descent makes (rule N.1, see the default case).
-    bool stepped = false;
     #ifdef SPRITE_TRACE_ENABLED
     PositionKey key;
     #endif
@@ -219,8 +215,10 @@ namespace cyrt
       {
         case T_UNBOXED : continue;
         case T_SETGRD  : scan->extend(); ++(*scan); continue;
-        // Rule N.1: a failed successor fails the configuration.  At the
-        // root of the configuration (procD) the discard changes no cell:
+        // Rule N.1: a failed successor fails the configuration.  The rule
+        // is read at the cursor of the scan alone, as KiCS2 reads it, not
+        // over the whole constructor cell (decision D27 of 2026-10-12).  At
+        // the root of the configuration (procD) the discard changes no cell:
         // the root is a cell a sibling configuration shares after a
         // fork, and a failure written over it took the sibling's value
         // (issue #126).  procD drops the configuration on T_FAIL.  A step
@@ -242,37 +240,6 @@ namespace cyrt
         case T_CHOICE  : *root = this->pull_tab(C, root, scan->cursor());
                          return T_CHOICE;
         case T_FUNC    : if(this->stack_exhausted()) return E_UNWIND;
-                         // Rule N.1 after a step: a step below the parent
-                         // cell may have made a successor of that cell a
-                         // failure (a shared cell rewritten in a capsule),
-                         // so the parent is read again before the next
-                         // descent (the default case reads a cell at its
-                         // extension).  The root level of the scan has no
-                         // parent in the scan: the cell above the inductive
-                         // position of a step is not read, as a failure
-                         // beside that position does not fail the step
-                         // (snd (failed, 1)).  One read per completed step
-                         // at most, bounded by the arity.
-                         if(stepped)
-                         {
-                           stepped = false;
-                           if(scan->cursor() != root)
-                           {
-                             Cursor const & up = scan->frames()[scan->size() - 2].cur;
-                             Node * parent = up.kind == 'p' ? *up : nullptr;
-                             index_type failed;
-                             if(parent && parent->info->tag >= T_CTOR
-                                 && failed_successor(parent, failed))
-                             {
-                               tag = T_FAIL;
-                               goto redoN;
-                             }
-                           }
-                         }
-                         // The checker tests the descent against rule N.1
-                         // (cyrt/checker.hpp).
-                         if(this->checker)
-                           this->checker->descend(C, root);
                          ret = scan->size();
                          #ifdef SPRITE_TRACE_ENABLED
                          if(this->trace) { key = this->trace->enter_position(this->Q(), *scan); }
@@ -282,7 +249,6 @@ namespace cyrt
                          if(this->trace) { this->trace->exit_position(this->Q(), key); }
                          #endif
                          scan->resize(ret);
-                         stepped = true;
                          goto redoN;
         case E_DIVERGE :
         case E_TERMINATE:
@@ -292,29 +258,9 @@ namespace cyrt
         case E_ERROR   :
         case E_RESIDUAL:
         case E_RESTART : return tag;
-        // A constructor cell.  Rule N.1 reads every successor of the cell
-        // before the scan descends into one of them: a failure among them,
-        // read through forward cells, means that the configuration has no
-        // value, and the failure takes the path a failure at the cursor
-        // takes (case T_FAIL), before any step below the cell (issue
-        // #132).  Without the look-ahead the scan entered a diverging
-        // successor first, the rotation restarted it from the root, and it
-        // entered the same successor again.  The look-ahead costs one read
-        // of the successors per visit of the cell, and one more read of
-        // the parent cell after a completed step (case T_FUNC).  The order
-        // of the rules puts N.1 before the pull-tab of a choice among the
-        // successors.
         default        :
           if(!is_partial(*scan->cursor()->info))
-          {
-            index_type failed;
-            if(failed_successor(*scan->cursor(), failed))
-            {
-              tag = T_FAIL;
-              goto redoN;
-            }
             scan->extend();
-          }
       }
     }
     return T_CTOR;

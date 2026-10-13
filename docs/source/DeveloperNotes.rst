@@ -234,15 +234,6 @@ the implementation; the memo states them in its sections 2.1 to 2.5):
   constructor, set-guard or constraint cell at the root holds at the drop
   the symbol and the successors, through forward cells, it held at the
   dispatch (Def 2.40 (discard); issue #126 of the C++ scheduler).
-* The descent of the scan into an operation cell (``N``, ``procN``) and
-  the completed step that follows: the parent cell of the operation cell,
-  when the cell is below the root of the scan, has no successor, read
-  through forward cells, that is a failure, since such a configuration
-  has no value and the scan drops it before any step below the cell (N.1
-  (look-ahead); issue #132).  The scan reads a constructor cell at its
-  extension and again at the first descent after a completed step; a
-  cell above the parent is read at its extension alone, so the check
-  stops at the parent.
 * A slot write of an existing generator (``hnf``) and an instantiation
   inside a step of ``=:=`` or ``=:<=``: the step narrows a variable that
   is free in the configuration against a constructor alone; two free
