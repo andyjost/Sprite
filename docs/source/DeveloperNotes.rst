@@ -225,6 +225,10 @@ the implementation; the memo states them in its sections 2.1 to 2.5):
   #128), and no class holds a variable that lies inside the generator
   instance of another member (D15 (occurs check), the decision of
   2026-10-12: the union that would make such a class fails the step).
+  At a constraint step as well: a binding the step dropped at the merge
+  of two bound classes is guarded, above the result of the step, by its
+  strict equality with the binding kept (D26 (guard at the merge), the
+  decision of 2026-10-12).
 * The dispatch of a configuration and a drop of it (``D``, and ``N`` at a
   failed successor of the root): the discards change no cell, so a
   constructor, set-guard or constraint cell at the root holds at the drop

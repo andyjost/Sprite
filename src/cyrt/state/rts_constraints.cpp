@@ -1,4 +1,6 @@
 #include "cyrt/builtins.hpp"
+#include "cyrt/checker.hpp"
+#include "cyrt/currylib/prelude.hpp"
 #include "cyrt/exceptions.hpp"
 #include "cyrt/graph/walk.hpp"
 #include "cyrt/inspect.hpp"
@@ -9,20 +11,39 @@
 
 namespace cyrt
 {
-  bool _constrain_equal_rec(RuntimeState *, Configuration *, xid_type, xid_type);
+  // The pairs of binding cells a constraint step merged (decision D26 of
+  // 2026-10-12): the binding dropped and the binding kept, one pair per
+  // union of two bound classes.  The step puts their strict equalities
+  // above its result (RuntimeState::constrain_equal).
+  using MergeGuards = std::vector<std::pair<Node *, Node *>>;
+
+  bool _constrain_equal_rec(
+      RuntimeState *, Configuration *, xid_type, xid_type, MergeGuards *
+    );
   static bool constrain_equal_impl(
       RuntimeState *, Configuration *, Node *, Node *, ConstraintType
-    , bool fresh
+    , bool fresh, MergeGuards * guards
     );
 
   // Moves the binding of ``old``, a root of a class before a union, to
-  // ``root``, the root after it: a class keeps one binding, under its root.
-  // False when the two roots held different bindings: the two classes were
-  // bound to different terms, so the merge is inconsistent and the step
-  // fails (the equality has no instance; issue #128).  The Python backend
-  // has the same step (update_binding in rts_bindings.py).
+  // ``root``, the root after it: a class keeps one binding, under its root
+  // (issue #128).  When the two roots hold distinct binding cells, the
+  // class keeps the binding of ``root`` and the pair goes into ``guards``
+  // (decision D26 of 2026-10-12): the two classes were bound to two terms,
+  // and the strict equality of the two terms, as a guard above the result
+  // of the step, decides the merge.  An equality of the two terms that
+  // fails drops the configuration, as the inconsistent merge did before
+  // the decision; one that succeeds keeps the value the failure lost (two
+  // equal terms not yet evaluated: eqShapeG18 of unit_constraints.py).
+  // One cell under both roots is one binding: nothing to guard.  Without a
+  // list (a caller outside the constraint step at the root: the fork, the
+  // pairing of get_generator) such a merge fails the step, as before the
+  // decision.  No program is known to reach it, so the checker counts it
+  // (unguarded_merges) and the tests pin the count at zero.  The Python
+  // backend has the same step (update_binding in rts_bindings.py).
   static bool merge_binding(
       RuntimeState * rts, Configuration * C, xid_type old, xid_type root
+    , MergeGuards * guards
     )
   {
     if(old == root)
@@ -31,8 +52,21 @@ namespace cyrt
     if(p == C->bindings->end())
       return true;
     Node * value = p->second;
-    if(!rts->add_binding(C, root, value))
-      return false;
+    auto q = C->bindings->find(root);
+    if(q == C->bindings->end())
+      write(C->bindings)[root] = value;
+    else if(q->second != value)
+    {
+      if(!guards)
+      {
+        if(rts->checker)
+          rts->checker->unguarded_merge(C);
+        return false;
+      }
+      guards->emplace_back(value, q->second);
+      if(rts->checker)
+        rts->checker->merge_guard(C, value, q->second);
+    }
     write(C->bindings).erase(old);
     return true;
   }
@@ -42,7 +76,7 @@ namespace cyrt
   // stamp, so the declaration stays as it is.
   void RuntimeState::update_binding(Configuration * C, xid_type vid)
   {
-    merge_binding(this, C, vid, C->grp_id(vid));
+    merge_binding(this, C, vid, C->grp_id(vid), nullptr);
   }
 
   // The generator of variable ``vid``, or of ``root``, the root of its
@@ -146,26 +180,58 @@ namespace cyrt
     return false;
   }
 
+  // The constraint step at the root of the configuration (procD, rule
+  // D.beta): ``cur`` is the root slot, which holds the constraint cell.
+  // When the step merged two bound classes (decision D26 of 2026-10-12),
+  // the guards of the merges go above the result of the cell: the slot
+  // gets a copy of the cell whose result is (b1 =:= b2) &> ... &> result,
+  // one guard per pair, the first union outermost, and the scheduler then
+  // writes that result in place of the cell as it does without a guard.
+  // The slot is private to the configuration (the lift copied the spine
+  // of the configuration to bring the constraint there), and the shared
+  // cell, which other configurations with other stores hold, is left as
+  // it is: the copy is the one lift_constraint makes.  The guard is an
+  // ordinary strict equality of the program: its failure drops the
+  // configuration, its success yields True in its place, and its own
+  // pairings proceed as usual.
   bool RuntimeState::constrain_equal(Configuration * C, Cursor cur)
   {
     ConstrNode * constr = NodeU{cur}.constr;
-    return this->constrain_equal(
-        C, constr->lhs(), constr->rhs(), constraint_type(cur)
-      );
+    MergeGuards guards;
+    if(this->checker)
+      this->checker->constrain_begin(C);
+    if(!constrain_equal_impl(
+        this, C, constr->lhs(), constr->rhs(), constraint_type(cur), false
+      , &guards
+      ))
+      return false;
+    if(!guards.empty())
+    {
+      Node * value = constr->value;
+      for(auto g = guards.rbegin(); g != guards.rend(); ++g)
+        value = Node::create(
+            &CyI7Prelude12BindingGuard
+          , Node::create(&constrEq_Info, g->first, g->second)
+          , value
+          );
+      *cur = Node::create(constr->info, value, constr->pair);
+    }
+    return true;
   }
 
   bool RuntimeState::constrain_equal(
       Configuration * C, Node * x, Node * y, ConstraintType ctype
     )
   {
-    return constrain_equal_impl(this, C, x, y, ctype, false);
+    return constrain_equal_impl(this, C, x, y, ctype, false, nullptr);
   }
 
   // ``fresh`` is true for the pairs of the pairing of a generator with a
-  // clone made in the same call (see pair_generators).
+  // clone made in the same call (see pair_generators).  ``guards`` takes
+  // the pairs of bindings the unions merge (merge_binding), or is null.
   static bool constrain_equal_impl(
       RuntimeState * rts, Configuration * C, Node * x, Node * y
-    , ConstraintType ctype, bool fresh
+    , ConstraintType ctype, bool fresh, MergeGuards * guards
     )
   {
     assert(inspect::is_nondet(x));
@@ -183,7 +249,8 @@ namespace cyrt
         xid_type const rj = C->grp_id(j);
         write(C->strict_constraints).unite(i, j);
         xid_type const r = C->grp_id(i);
-        if(!merge_binding(rts, C, ri, r) || !merge_binding(rts, C, rj, r))
+        if(!merge_binding(rts, C, ri, r, guards)
+            || !merge_binding(rts, C, rj, r, guards))
           return false;
         if(inspect::isa_freevar(x) || inspect::isa_freevar(y))
         {
@@ -196,7 +263,7 @@ namespace cyrt
           // class the enclosing union tested: neither needs the test.
           if(ri != rj && !fresh && occurs(rts, C, i, j, ri, rj))
             return false;
-          return _constrain_equal_rec(rts, C, i, j);
+          return _constrain_equal_rec(rts, C, i, j, guards);
         }
       }
       else
@@ -212,13 +279,14 @@ namespace cyrt
   // are fresh variables (constrain_equal_impl).
   static bool pair_generators(
       RuntimeState * rts, Configuration * C, Node * u, Node * v, bool fresh
+    , MergeGuards * guards
     )
   {
     for(Walk p(u), q(v); p && q; ++p, ++q)
     {
       if(inspect::is_nondet(p.cursor()))
         if(!constrain_equal_impl(
-            rts, C, p.cursor(), q.cursor(), STRICT_CONSTRAINT, fresh
+            rts, C, p.cursor(), q.cursor(), STRICT_CONSTRAINT, fresh, guards
           ))
           return false;
       if(!inspect::isa_freevar(p.cursor()))
@@ -237,8 +305,18 @@ namespace cyrt
   // The root and the two variables get a clone of the pivot's generator
   // when they have none, paired with it, so a read at the root finds one
   // (get_generator), and the decided class has a generator at its root.
+  // ``guards`` takes the pairs of bindings the unions of the pairing merge
+  // (merge_binding); the form without it (get_generator) passes none.
   bool _constrain_equal_rec(
       RuntimeState * rts, Configuration * C, xid_type i, xid_type j
+    )
+  {
+    return _constrain_equal_rec(rts, C, i, j, nullptr);
+  }
+
+  bool _constrain_equal_rec(
+      RuntimeState * rts, Configuration * C, xid_type i, xid_type j
+    , MergeGuards * guards
     )
   {
     // The pairing recurses once per level of the instances, outside the
@@ -288,7 +366,9 @@ namespace cyrt
       bool const fresh = !has_generator(other);
       if(fresh)
         rts->clone_generator(pivot, other);
-      if(!pair_generators(rts, C, u, rts->get_generator(C, other), fresh))
+      if(!pair_generators(
+          rts, C, u, rts->get_generator(C, other), fresh, guards
+        ))
         return false;
     }
     return true;

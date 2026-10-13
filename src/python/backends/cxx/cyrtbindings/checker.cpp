@@ -3,6 +3,7 @@
 #include <vector>
 #include "cyrt/builtins.hpp"
 #include "cyrt/checker.hpp"
+#include "cyrt/currylib/prelude.hpp"
 #include "cyrt/currylib/setfunctions.hpp"
 #include "cyrt/graph/indexing.hpp"
 #include "cyrt/graph/memory.hpp"
@@ -173,6 +174,43 @@ namespace cyrt { namespace python
       , [](RuntimeState & rts, xid_type vid, Node * node)
         { require(rts); write(front(rts)->bindings)[vid] = node; }
       , "Writes ``node`` as the binding of ``vid`` into the front "
+        "configuration.");
+    mod.def("checker_debug_unbind"
+      , [](RuntimeState & rts, xid_type vid)
+        { require(rts); write(front(rts)->bindings).erase(vid); }
+      , "Removes the binding of ``vid`` from the front configuration.");
+    mod.def("checker_debug_update_binding"
+      , [](RuntimeState & rts, xid_type vid)
+        { require(rts); rts.update_binding(front(rts), vid); }
+      , "Moves the binding of ``vid`` to the root of its class in the front "
+        "configuration without a guard list, as the fork and get_generator "
+        "do (merge_binding without a list).");
+    mod.def("checker_debug_constrain_begin"
+      , [](RuntimeState & rts) { require(rts).constrain_begin(front(rts)); }
+      , "Records the bindings of the front configuration, as a constraint "
+        "step at the root does before its unions.");
+    mod.def("checker_debug_merge_guard"
+      , [](RuntimeState & rts, Node * dropped, Node * kept)
+        { require(rts).merge_guard(front(rts), dropped, kept); }
+      , "Reports a merge of two bound classes of the front configuration: "
+        "the binding dropped and the binding kept.");
+    mod.def("checker_debug_merge_guard_node"
+      , [](RuntimeState & rts, Node * dropped, Node * kept, Node * value) -> Node *
+        {
+          require(rts);
+          return Node::create(
+              &CyI7Prelude12BindingGuard
+            , Node::create(&constrEq_Info, dropped, kept)
+            , value
+            );
+        }
+      , reference
+      , "The guard a constraint step puts above its result at the merge of "
+        "two bound classes: (dropped =:= kept) &> value, with the tables of "
+        "the runtime.");
+    mod.def("checker_debug_check_constrained"
+      , [](RuntimeState & rts) { require(rts).constrained(front(rts)); }
+      , "Runs the checks of a constraint step at the root on the front "
         "configuration.");
     mod.def("checker_debug_set_root"
       , [](RuntimeState & rts, Node * node)

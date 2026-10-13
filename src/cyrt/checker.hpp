@@ -160,9 +160,21 @@ namespace cyrt
     // the dispatch is per scheduler.
     void enter_scheduler();
     void leave_scheduler();
-    // A constraint step at the root (procD, T_CONSTR, rule D.beta): after
-    // constrain_equal kept the configuration.
+    // A constraint step at the root (procD, T_CONSTR, rule D.beta): before
+    // its unions (RuntimeState::constrain_equal at the root slot), and
+    // after constrain_equal kept the configuration.
+    void constrain_begin(Configuration *);
     void constrained(Configuration *);
+    // A merge of two bound classes in a constraint step (merge_binding in
+    // state/rts_constraints.cpp; decision D26 of 2026-10-12): the binding
+    // dropped and the binding kept, whose strict equality guards the
+    // result of the step.
+    void merge_guard(Configuration *, Node * dropped, Node * kept);
+    // A merge of two bound classes with distinct binding cells outside the
+    // constraint step at the root (merge_binding without a list: the
+    // fork, the pairing of get_generator).  The step fails as before D26.
+    // No known program reaches it; the count makes a reach visible.
+    void unguarded_merge(Configuration *);
     // An inductive position (hnf, at entry).
     void hnf(Configuration *, Variable const * inductive);
     // The entry of a capsule (evalS_step): the goal of the new queue.
@@ -262,6 +274,10 @@ namespace cyrt
     // E11: the bindings of a configuration sit under the roots of their
     // classes, one per class.
     void check_bindings(Configuration *, char const * event);
+    // D26: a binding a constraint step dropped at the merge of two bound
+    // classes is guarded by its equality with the binding kept, above the
+    // result of the step.
+    void check_merge_guards(Configuration *, char const * event);
     // D15: no class holds a variable inside the generator instance of
     // another member (the occurs check).
     void check_occurs(Configuration *, char const * event);
@@ -334,6 +350,12 @@ namespace cyrt
       std::vector<Node *> args;
     };
     std::vector<DispatchRecord> dispatch_stack{1};
+    // The bindings of the configuration at the start of the constraint
+    // step in flight and the pairs of bindings its unions merged
+    // (constrain_begin, merge_guard, check_merge_guards).  A constraint
+    // step evaluates nothing, so one record serves every scheduler.
+    BindingMap constraint_bindings;
+    std::vector<std::pair<Node *, Node *>> merge_guards;
     // The slot write in flight.
     Variable const * inst_var = nullptr;
     Node * inst_gen = nullptr;

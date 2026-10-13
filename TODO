@@ -13123,6 +13123,162 @@
   of run_benchmarks against the records moves the counters of the
   programs with a failing boxed alternative.
 
+2026-10-12: the equality guard at the merge of two bound classes (decision D26 of 2026-10-12; worktree wt/boundmerge)
+- The decision.  The constraint store keeps, per configuration, the
+  classes of free variables that strict equalities united and the
+  bindings that non-strict equalities (=:<=) gave them, one binding per
+  class under its root (issue #128).  The rule of #128 failed the step
+  when a union joined two classes bound to distinct cells, and that lost
+  a value when the two cells were equal terms not yet evaluated:
+  eqShapeG18 of Constraints.curry gave (0, 0) alone where the procedure
+  of Antoy and Hanus, and KiCS2, give (0, 0) and (2, 2).  The owner
+  decided on 2026-10-12 (D26, "run it as you say"): when a union joins
+  two classes that both carry a binding and the two binding cells are
+  not one cell, the union goes ahead, the merged class keeps the binding
+  of the root the union keeps, and the configuration continues with the
+  strict equality of the two bindings, b1 =:= b2, as a guard above the
+  result of the constraint cell: the result becomes (b1 =:= b2) &> result
+  in effect.  The guard is an ordinary strict equality of the program:
+  its failure drops the configuration (g18 and g18t keep (A, A) and
+  False alone, g5 keeps no value), its success yields True in its place
+  (eqShapeG18 gains (2, 2)), and its own pairings proceed as usual.  One
+  cell under both roots is one binding, and a union with one bound class
+  moves the binding: neither makes a guard.  The rule applies at every
+  union of a constraint step, the recursive ones of the pairing of two
+  generators included; three or more bindings at one step make one guard
+  per extra binding, nested under &>.  The note (revision 3, def:b-Dbeta),
+  the proofs and the Lean mechanization carry the same rule; this lane is
+  the Sprite part.
+- The rule in the runtime (both backends, the same rule).  C++:
+  merge_binding (state/rts_constraints.cpp) moves the binding of the old
+  root to the new root when the new root has none, erases the old key
+  when the two roots hold one cell, and otherwise keeps the binding of
+  the new root, erases the old one and puts the pair (dropped, kept) into
+  the list of the step (MergeGuards), which constrain_equal_impl,
+  pair_generators and _constrain_equal_rec thread through the pairing;
+  the four-argument _constrain_equal_rec of get_generator and the
+  four-argument constrain_equal of the fork pass no list, and a merge of
+  two distinct cells there fails the step as before (no program is known
+  to reach it: the two generators of one class are paired when they meet,
+  so their leaves share their classes, and the leaves of a clone are
+  fresh).  The review asked for the reach to be visible: the checker
+  counts such a merge (unguarded_merges, Checker::unguarded_merge and
+  checker.unguarded_merge, called from merge_binding and update_binding
+  when the list is absent and the cells differ), TestGuardCounts of
+  unit_boundmerge.py pins the count at zero for every goal of the module,
+  and test_unguarded_merge_counted of unit_cxx_checker.py (through the
+  new entry checker_debug_update_binding, which runs the public
+  RuntimeState::update_binding, the no-list form) and of
+  unit_py_checker.py drives the count to one on a constructed state.
+  get_generator says in a comment that the result of the pairing is
+  dropped on purpose.
+  The root form RuntimeState::constrain_equal(C, Cursor), the one procD
+  calls, collects the pairs and, when there are some, writes into the
+  slot a copy of the constraint cell whose result is (b1 =:= b2) &> ...
+  &> result, with the tables constrEq_Info and CyI7Prelude12BindingGuard
+  of the runtime, the first union outermost; procD then writes that
+  result in place of the cell as it does without a guard, so procD is
+  unchanged.  The private copy of the spine: the slot is the root of the
+  configuration, private to it, because lift_constraint copied the spine
+  of the configuration to bring the constraint cell to the root, and the
+  copy of the cell is the one lift_constraint makes
+  (Node::create(constr->info, value, constr->pair)); the shared cell,
+  which other configurations with other stores hold, is not written.
+  No header of the include closure of cyrt/cyrt.hpp changed (checker.hpp
+  is outside it), so the ABI stamp stayed.  Python: update_binding
+  (rts_bindings.py) takes the list, constrain_equal and
+  _constrain_equal_rec (rts_constraints.py) thread it, and D of
+  fairscheme.py wraps the value in Node(&>, Node(constrEq, b1, b2),
+  value) per pair and sets rts.E, the private root of the configuration.
+  same_binding (C++) and _same_binding (Python) serve add_binding alone
+  now, the second non-strict binding of a bound class; the merge no
+  longer compares the terms.
+- The checker (both backends).  D26 (guard at the merge):
+  constrain_begin, called by the root form of constrain_equal (C++) and
+  by D before the call (Python), records the bindings of the
+  configuration; merge_guard, called at each merge of two distinct
+  cells, records the pair (and counts merge_guards); constrained runs
+  check_merge_guards after E11, E5 and D15 (unchanged): every binding
+  cell of the record the configuration no longer holds is an operand of
+  a recorded pair, each recorded pair holds two distinct cells of the
+  record, and the continuation of the configuration (the result of the
+  constraint cell at the root in C++, where constrained runs before the
+  write of procD; the root in Python, where it runs after the write)
+  begins with one &> cell per pair, the first recorded outermost, whose
+  condition is the constrEq cell over the pair.  The first version took
+  the bindings at the dispatch, which is too early in C++: procD runs
+  every step of a configuration under one dispatch (goto redoD), so the
+  bindings made before the constraint cell reached the root were missing
+  from the record, and eqShapeG18 was reported under checker:true.  New
+  debug entries of cyrtbindings: checker_debug_unbind,
+  checker_debug_constrain_begin, checker_debug_merge_guard,
+  checker_debug_merge_guard_node, checker_debug_check_constrained.
+- Tests.  tests/data/curry/BoundMerge.curry and tests/unit_boundmerge.py
+  (12 tests on each backend): evalEq (two Just True cells, evaluated and
+  equal), unevalEq (two sums 1 + 1, the shape of eqShapeG18), diffVal
+  (1 + 1 against 1 + 2: no value from the alternative), sameCell (one
+  let-bound sum under both classes: no guard), leafEq and leafDiff (the
+  shape of g18 over data T = A | B Int, equal and different leaves),
+  three and threeDiff (the leaf classes {x1}, {x2, y1} and {y2} of
+  x = P x1 x2 and y = P y1 y2, each bound, united at one step: two
+  guards), narrowIn (Just z =:= Just True narrows z) and narrowLeaf (B z
+  =:= B (1 + 1)).  The expectations are the values of KiCS2, observed
+  through the harness (run.py --system kics2) on 2026-10-12, with the
+  value counts; TestChecker runs the goals under checker:true;
+  TestGuardCounts evaluates each goal in process under the checker and
+  pins the count merge_guards (1, 1, 1, 0, 1, 1, 2, 2, 1, 1).  Two
+  findings while the module was written: the translation to ICurry
+  folds not False, and a call ident True of ident b = b, to the
+  constructor True, and a literal constructor is one static cell on the
+  C++ backend and a fresh cell per occurrence on the Python backend, so
+  a binding written as True or not False makes no guard on the C++
+  backend; the unevaluated bindings of the module are sums, which the
+  translation keeps.  unit_constraints.py:
+  TestMergeOfEqualUnevaluatedTerms lost its expectedFailure and joined
+  the checker child; the comments of Constraints.curry on g18 and
+  eqShapeG18 follow the rule.  test_guard_at_the_merge of
+  unit_cxx_checker.py (TestFreeVariables) and of unit_py_checker.py
+  (TestAuditChecks), on a constructed state: a binding dropped without a
+  report, a report without the guard in the continuation, and a report
+  with a cell the configuration never held are each reported; the guard
+  above the result is not.  Before the change, sprite-exec gave
+  eqShapeG18 (0, 0) alone on both backends; after it (0, 0) and (2, 2),
+  plain and under checker:true; g18 (A, A), g18t False, g5 no value
+  before and after, and KiCS2 the same four results.  The ten goals of
+  BoundMerge print the values of KiCS2 on both backends, plain and under
+  checker:true (sprite-exec, rotation steps:65536).  One file at a time:
+  unit_boundmerge.py 12 ok on cxx and on py; unit_constraints.py 14 ok on
+  both; unit_cxx_checker.py 64 ok on cxx; unit_py_checker.py 56 ok on py.
+  make stage status 0 (three times, after each C++ edit), make overlay
+  status 0.  Through the runner (./run_tests -j 2 --mem 4 --backend
+  both): unit_constraints, unit_boundmerge, unit_pairing, unit_occurs,
+  unit_cxx_freevars, unit_free_markers, unit_funpat_free_argument,
+  unit_funcpat_narrowed, unit_py_residuation, unit_setfunctions_bindings,
+  unit_cxx_checker, unit_py_checker: 24 of 24 run, 0 failed, wall 69 s.
+- Changed printed values.  eqShapeG18: (0, 0) before, (0, 0) and (2, 2)
+  after, on both backends.  g18 (A, A), g18t False, g5 no value, eqJust
+  (Just True, Just True), orphan (True, True), g14, g16, g16b, g20, g22,
+  g15 and strictApp unchanged.  The direct second binding of a bound
+  class, (x =:= y) &> (x =:<= (1 + 1)) &> (y =:<= (1 + 1)) &> (x, y),
+  prints (2, 2) on both backends and in KiCS2 (the bound side reads its
+  binding before the step): no merge is involved.  No benchmark was
+  measured; the counters of the programs with a merge of two bound
+  classes move by the steps of the guards.
+- Left to the owner.  (1) tests/manifest.json has no entry for
+  unit_boundmerge.py, and the counts of unit_cxx_checker.py (64),
+  unit_py_checker.py (56) and unit_constraints.py (14, one expected
+  failure fewer) moved; a calibration run updates them.  (2) The whole
+  suite on both backends (the suite stage).  (3) The folding of ident
+  True to True by the translation to ICurry (flat2icurry, the port of
+  icurry 3.1.0): a note for the test authors, not a bug of this lane.
+  (4) A merge of two distinct cells outside the constraint step at the
+  root (the fork's constrain_equal of a variable with its root, the
+  pairing of get_generator) keeps the failure of #128; no program is
+  known to reach it (see above), the checker counts a reach
+  (unguarded_merges) and the tests pin the count at zero; a guard there
+  needs the root slot of the configuration, which both callers have,
+  when one is found.
+
 2026-10-12: the look-ahead of rule N.1 of the Fair Scheme (issue #132; worktree wt/lookahead)
 - The source.  The audit of 2026-10-11 found that both backends drop the
   look-ahead of rule N.1: the rule reads every successor of the root of a
@@ -13363,3 +13519,15 @@
   both backends, plain and under checker:true: goal no value, exit 0;
   goalSet [], exit 0; t3 and level of SetFunctionsFailures.curry False
   and [].
+- The second merge of py314 into the lane (2026-10-12), after the D26 lane
+  (the equality guard at the merge of two bound classes) landed there.
+  Three conflicts, all textual: the includes of checker.cpp
+  (cyrt/currylib/prelude.hpp of D26 and cyrt/fairscheme.hpp of the
+  look-ahead, both kept), the members of Checker.__init__ in checker.py
+  (descent of the look-ahead, constraint_bindings and merge_guards of
+  D26, all kept), and this file (the D26 entry before this entry).  The
+  rest merged by itself: the checker holds the hooks of the three lanes
+  (failure_recorded, capsule_end, descend, constrain_begin, merge_guard,
+  unguarded_merge), D of fairscheme.py wraps the value of a constraint
+  step in the guard cells and N keeps the look-ahead block, and both
+  checker test files keep every test.

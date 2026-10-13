@@ -50,16 +50,32 @@ def D(rts):
     elif tag == T_CONSTR:
       value, lr = E.successors
       l, r = lr.successors
-      if not rts.constrain_equal(l, r, rts.constraint_type()):
+      guards = []
+      if checker is not None:
+        checker.constrain_begin(rts.C)
+      if not rts.constrain_equal(l, r, rts.constraint_type(), guards=guards):
         # A failed constraint is a failure at the root like a failure
         # cell there (record_failure: an inside failure, unless the
         # configuration stripped a guard of its set at the root before).
         rts.record_failure()
         rts.drop()
       else:
+        # The merge of two bound classes (decision D26 of 2026-10-12): the
+        # strict equality of the two bindings guards the result, one
+        # guard per pair, the first union outermost.  The root of the
+        # configuration is private to it (the lift copied the spine to
+        # bring the constraint there), and the shared constraint cell is
+        # left as it is.  The C++ runtime makes the same guards
+        # (RuntimeState::constrain_equal in state/rts_constraints.cpp).
+        for dropped, kept in reversed(guards):
+          value = Node(
+              getattr(rts.prelude, '&>')
+            , Node(rts.prelude.constrEq, dropped, kept)
+            , value
+            )
+        rts.E = value
         if checker is not None:
           checker.constrained(rts.C)
-        rts.E = value
         del value
     elif tag == T_FREE:
       if rts.has_binding():

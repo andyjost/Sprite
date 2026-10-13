@@ -1,7 +1,8 @@
 #include "cyrt/builtins.hpp"
 #include "cyrt/checker.hpp"
-#include "cyrt/fairscheme.hpp"
+#include "cyrt/currylib/prelude.hpp"
 #include "cyrt/currylib/setfunctions.hpp"
+#include "cyrt/fairscheme.hpp"
 #include "cyrt/fingerprint.hpp"
 #include "cyrt/graph/infotable.hpp"
 #include "cyrt/graph/memory.hpp"
@@ -1576,6 +1577,74 @@ namespace cyrt
     }
   }
 
+  // D26 (the guard at the merge of two bound classes; the decision of
+  // 2026-10-12): a constraint step at the root that unites two classes
+  // with distinct binding cells keeps one cell and puts the strict
+  // equality of the two above its result (merge_binding and
+  // RuntimeState::constrain_equal in state/rts_constraints.cpp).  The
+  // record of the step holds the bindings before it (constrain_begin) and
+  // the pairs the step reported (merge_guard).  Every binding cell of the
+  // record that the configuration no longer holds is an operand of a
+  // reported pair: a cell dropped without a guard loses the equality of
+  // the two terms.  Each reported pair holds two distinct cells of the
+  // record.  And the continuation of the configuration, the result of the
+  // constraint cell at the root, or the root once the result is written,
+  // begins with the guards of the pairs: one &> cell of the runtime per
+  // pair, the first reported outermost, whose condition is the constrEq
+  // cell over the pair.  The Python checker has the same check
+  // (_check_merge_guards).
+  void Checker::check_merge_guards(Configuration * C, char const * event)
+  {
+    std::unordered_set<Node *> before, after;
+    for(auto const & entry: this->constraint_bindings)
+      before.insert(entry.second);
+    for(auto const & entry: *C->bindings)
+      after.insert(entry.second);
+    for(Node * cell: before)
+    {
+      if(after.count(cell))
+        continue;
+      bool guarded = false;
+      for(auto const & g: this->merge_guards)
+        guarded = guarded || g.first == cell || g.second == cell;
+      if(!guarded)
+        this->violation(
+            "D26 (guard at the merge)", event
+          , "the binding " + this->text(cell) + " was dropped by the step "
+            "without a guard of its equality with the binding kept"
+          , C
+          );
+    }
+    for(auto const & g: this->merge_guards)
+      if(g.first == g.second || !before.count(g.first) || !before.count(g.second))
+        this->violation(
+            "D26 (guard at the merge)", event
+          , "the guard " + this->text(g.first) + " =:= " + this->text(g.second)
+            + " pairs no two bindings the configuration held before the step"
+          , C
+          );
+    Node * node = C->root.arg && C->root.kind == 'p' ? deref_fwd(*C->root) : nullptr;
+    if(node && node->info->tag == T_CONSTR)
+      node = deref_fwd(NodeU{node}.constr->value);
+    for(auto const & g: this->merge_guards)
+    {
+      Node * cond = nullptr;
+      if(node && node->info == &CyI7Prelude12BindingGuard)
+        cond = deref_fwd(node->successors()[0].node);
+      Arg const * args = cond && cond->info == &constrEq_Info
+          ? cond->successors() : nullptr;
+      if(!args || args[0].node != g.first || args[1].node != g.second)
+        this->violation(
+            "D26 (guard at the merge)", event
+          , "the continuation holds no guard " + this->text(g.first)
+            + " =:= " + this->text(g.second)
+            + " where the step merged the two bound classes"
+          , C
+          );
+      node = deref_fwd(node->successors()[1].node);
+    }
+  }
+
   // D15 (occurs check; the decision of 2026-10-12): no class of free
   // variables holds a variable that lies inside the generator instance of
   // another member.  Such a class has no finite instance (x = S x has no
@@ -2545,6 +2614,33 @@ namespace cyrt
     this->check_fingerprint(C, "constraint", enclosing);
     this->check_bindings(C, "constraint");
     this->check_occurs(C, "constraint");
+    this->check_merge_guards(C, "constraint");
+  }
+
+  // Before the unions of a constraint step at the root: the bindings of
+  // the configuration, which constrained compares with the bindings after
+  // the step (check_merge_guards).
+  void Checker::constrain_begin(Configuration * C)
+  {
+    this->constraint_bindings = *C->bindings;
+    this->merge_guards.clear();
+  }
+
+  // A merge of two bound classes in the constraint step in flight: the
+  // pair goes into the record, and constrained compares the record with
+  // the store and the continuation (check_merge_guards).
+  void Checker::merge_guard(Configuration *, Node * dropped, Node * kept)
+  {
+    ++this->counts["merge_guards"];
+    this->merge_guards.emplace_back(dropped, kept);
+  }
+
+  // A merge of two distinct binding cells that no list received: the
+  // caller fails the step (the fork) or drops the result (get_generator).
+  // The count alone is kept; the tests pin it at zero.
+  void Checker::unguarded_merge(Configuration *)
+  {
+    ++this->counts["unguarded_merges"];
   }
 
   // The parent cell of the cursor: the level of the scan above the cursor,

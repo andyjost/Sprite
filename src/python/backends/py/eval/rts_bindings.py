@@ -90,12 +90,13 @@ def _same_binding(current, value):
   the same constructor or literal over the same successors through forward
   nodes, read within SAME_BINDING_BUDGET cells.  Two distinct cells that
   are not constructor terms (operations, choices, variables, failures)
-  count as different, and so does a pair beyond the budget: the merge of
-  two classes bound to different terms fails the step (issue #128), where
-  the equality of two unevaluated terms is not decided here (Remark 2.70
-  of the note on the Fair Scheme leaves the merge of two bound classes
-  open: the rule is the owner's).  The C++ runtime has the same comparison
-  (same_binding in state/rts_bindings.cpp).
+  count as different, and so does a pair beyond the budget: a second
+  non-strict binding of a bound class to a different term fails the step
+  (add_binding).  The merge of two bound classes at a union no longer
+  compares the terms: it keeps one binding and guards the step with the
+  strict equality of the two (update_binding; decision D26 of
+  2026-10-12).  The C++ runtime has the same comparison (same_binding in
+  state/rts_bindings.cpp).
   '''
   stack = [(current, value)]
   cells = 0
@@ -219,22 +220,45 @@ def make_value_bindings(rts, freevar, values, typedef):
     right = make_value_bindings(rts, freevar, values[n//2:], typedef)
     return graph.Node(rts.Choice, cid, left, right)
 
-def update_binding(rts, arg=None, config=None):
+def update_binding(rts, arg=None, config=None, guards=None):
   '''
   Moves the binding of ``arg`` to the root of its class when its group ID
   changed: ``arg`` is a root of a class before a union, and the binding
   goes under the root after it, so a class keeps one binding, under its
-  root.  The map of the configuration alone is read.  Returns False when
-  the two roots held different bindings: the two classes were bound to
-  different terms, so the merge is inconsistent and the step fails (the
-  equality has no instance; issue #128).  The C++ runtime has the same
-  step (merge_binding in state/rts_constraints.cpp).
+  root (issue #128).  The map of the configuration alone is read.
+
+  When the two roots hold distinct binding cells, the class keeps the
+  binding of the new root and the pair (dropped, kept) goes into
+  ``guards`` (decision D26 of 2026-10-12): the two classes were bound to
+  two terms, and the strict equality of the two terms, as a guard above
+  the result of the constraint step, decides the merge (fairscheme.D).
+  An equality that fails drops the configuration, as the inconsistent
+  merge did before the decision; one that succeeds keeps the value the
+  failure lost (two equal terms not yet evaluated: eqShapeG18 of
+  unit_constraints.py).  One cell under both roots is one binding: nothing
+  to guard.  Without a list (a caller outside the constraint step at the
+  root: the fork, the pairing of get_generator) such a merge returns False
+  and fails the step, as before the decision.  No program is known to
+  reach it, so the checker counts it (unguarded_merges) and the tests pin
+  the count at zero.  The C++ runtime has the same step (merge_binding in
+  state/rts_constraints.cpp).
   '''
   config = config or rts.C
   arg = config.root if arg is None else arg
   i, j = rts.obj_id(arg, config), rts.grp_id(arg, config)
   if i != j and i in config.bindings:
-    if not rts.add_binding(j, config.bindings.read[i], config=config):
-      return False
+    value = config.bindings.read[i]
+    if j not in config.bindings:
+      config.bindings.write[j] = value
+    else:
+      kept = config.bindings.read[j]
+      if kept is not value:
+        if guards is None:
+          if rts.checker is not None:
+            rts.checker.unguarded_merge(config)
+          return False
+        guards.append((value, kept))
+        if rts.checker is not None:
+          rts.checker.merge_guard(config, value, kept)
     del config.bindings.write[i]
   return True

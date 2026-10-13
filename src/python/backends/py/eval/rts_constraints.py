@@ -26,6 +26,7 @@ def constraint_type(rts, arg=None, config=None):
 
 def constrain_equal(
     rts, arg0, arg1, constraint_type=STRICT_CONSTRAINT, config=None
+  , guards=None
   ):
   '''
   Constrain the given arguments to be equal in the specified context.  This
@@ -60,14 +61,23 @@ def constrain_equal(
      config:
         The configuration to use as context.
 
+     guards:
+        A list that takes the pairs of bindings (dropped, kept) of the
+        unions that merge two bound classes (update_binding; decision D26
+        of 2026-10-12), or None: such a merge then fails the step.  The
+        constraint step at the root (fairscheme.D) puts the strict
+        equality of each pair above its result.
+
   Returns:
     A Boolean indicating whether the resulting configuration remains
     consistent.
 
   '''
-  return _constrain_equal(rts, arg0, arg1, constraint_type, config, False)
+  return _constrain_equal(
+      rts, arg0, arg1, constraint_type, config, False, guards
+    )
 
-def _constrain_equal(rts, arg0, arg1, constraint_type, config, fresh):
+def _constrain_equal(rts, arg0, arg1, constraint_type, config, fresh, guards):
   '''
   The body of ``constrain_equal``.  ``fresh`` is true for the pairs of the
   pairing of a generator with a clone made in the same call
@@ -81,13 +91,13 @@ def _constrain_equal(rts, arg0, arg1, constraint_type, config, fresh):
       if not rts.equate_fp(i, j, config=config):
         return False
       # The bindings of a class sit under its root: the roots before the
-      # union hand theirs to the root after it.  Two different bindings
-      # make the merge inconsistent (issue #128).
+      # union hand theirs to the root after it (issue #128).  Two distinct
+      # binding cells make a guard of the step (decision D26).
       ri, rj = rts.grp_id(i, config), rts.grp_id(j, config)
       config.strict_constraints.write.unite(i, j)
-      if not rts.update_binding(ri, config=config):
+      if not rts.update_binding(ri, config=config, guards=guards):
         return False
-      if not rts.update_binding(rj, config=config):
+      if not rts.update_binding(rj, config=config, guards=guards):
         return False
       if any(map(inspect.isa_freevar, [arg0, arg1])):
         # The occurs check: a cycle through the merged class has no finite
@@ -99,7 +109,7 @@ def _constrain_equal(rts, arg0, arg1, constraint_type, config, fresh):
         # neither needs the test.
         if ri != rj and not fresh and occurs(rts, i, j, ri, rj, config=config):
           return False
-        return _constrain_equal_rec(rts, i, j, config=config)
+        return _constrain_equal_rec(rts, i, j, config=config, guards=guards)
     else:
       return rts.add_binding(i, arg1, config=config)
   return True
@@ -179,7 +189,7 @@ def _instance_reaches(rts, gen, root, seen, config):
       stack.extend(node.successors)
   return False
 
-def _constrain_equal_rec(rts, arg0, arg1, config=None):
+def _constrain_equal_rec(rts, arg0, arg1, config=None, guards=None):
   '''
   Implements the recursive part of ``constrain_equal.``  Given two arguments
   of one class, if the class has been narrowed, ensure both and the root of
@@ -222,6 +232,10 @@ def _constrain_equal_rec(rts, arg0, arg1, config=None):
      config:
         The configuration to use as context.
 
+     guards:
+        The list of ``constrain_equal`` for the pairs of bindings the
+        unions of the pairing merge, or None (get_generator passes none).
+
   Returns:
     A Boolean indicating whether the new constraints succeeded (i.e., could be
     consistent).
@@ -260,7 +274,7 @@ def _constrain_equal_rec(rts, arg0, arg1, config=None):
     for p, q in zip(*[graph.walk(uv) for uv in [u,v]]):
       if rts.is_nondet(p.cursor):
         if not _constrain_equal(
-            rts, p.cursor, q.cursor, STRICT_CONSTRAINT, config, fresh
+            rts, p.cursor, q.cursor, STRICT_CONSTRAINT, config, fresh, guards
           ):
           return False
       if not inspect.isa_freevar(p.cursor):
