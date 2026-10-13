@@ -13531,3 +13531,124 @@
   unguarded_merge), D of fairscheme.py wraps the value of a constraint
   step in the guard cells and N keeps the look-ahead block, and both
   checker test files keep every test.
+
+2026-10-12: rule N.1 of the Fair Scheme read at the cursor (decision D27; worktree wt/n1cursor)
+- The decision.  The owner took decision D27 on 2026-10-12: rule N.1 of
+  procedure N is read at the cursor of the depth-first scan, as Sprite
+  read it before 2026-10-12 and as KiCS2 reads it, not over the whole
+  constructor cell as the thesis states it.  The look-ahead of the entry
+  above (issue #132, worktree wt/lookahead, merged the same day) is
+  removed from both backends.  The reasons: the criteria are a formally
+  proven correct and optimal strategy and the best performance against the
+  competing implementations; the look-ahead is a cost on every constructor
+  visit (and one more read after every completed step) for a benefit that
+  arrives only through sharing, and no value depends on it.  A
+  configuration with a failure under its constructor spine has no value
+  under either reading; a step at the sibling of a failure is a step at a
+  needed position; the theorems of safety and optimality hold under both.
+  The difference is in termination alone: let t = failed in (t ? loop, t)
+  ends under the eager reading and does not end under the cursor reading,
+  as in KiCS2.  Issues #132 and #136 close as not bugs after this lane
+  merges (the owner's agent posts the closures).
+- The rule in the runtime (both backends, the same rule).  The scan of a
+  constructor-rooted configuration reads a failure at its cursor alone
+  (procN, case T_FAIL; N, the T_FAIL branch): the failure takes the path
+  of the deferred failure rule (record_failure, then the drop of the
+  configuration by procD, or the rewrite of the redex of ($!!)).  A
+  constructor cell at the cursor is extended without a read of its
+  successors (the default case of procN; the T_CTOR branch of N), and a
+  step is followed by no read of the parent cell.  procN and N read as at
+  9ca9e0d7 (the deferred failure rule, before the look-ahead), with one
+  comment at the T_FAIL case that names the decision.  The one-step rule,
+  the rotation, the record of the deferred failure rule, the guard of D26
+  at the merge of two bound classes, the pairing of a decided variable
+  (D25), the occurs check and the other checks of the checker are
+  unchanged.  No flag, no default, no change of values.
+- Removed, file by file.  src/cyrt/fairscheme.cpp: the include of
+  cyrt/fairscheme.hpp, the flag stepped of procN, the read of the parent
+  cell and the call Checker::descend in the case T_FUNC, and the read of
+  the successors in the default case.  src/cyrt/fairscheme.hpp: the file
+  (failed_successor), which no other file used (git rm).
+  src/cyrt/checker.hpp and checker.cpp: Checker::descend, the fields cell
+  and index of the StepRecord, the members descent_cell and
+  descent_index, the count "descents", the check "N.1 (look-ahead)" of
+  step_end, and the include of cyrt/fairscheme.hpp.
+  src/python/backends/cxx/cyrtbindings/checker.cpp: the debug entry
+  checker_debug_check_step_under.  src/python/backends/py/eval/
+  fairscheme.py: failed_successor, the flag stepped of N, the block that
+  set the tag to T_FAIL on a failed successor of the cursor or of the
+  parent after a step, the call rts.checker.descend, and the finding S
+  passed to checker.step.  src/python/backends/py/eval/checker.py:
+  descend, take_descent, the member descent, the parameter unneeded of
+  step with its violation, the count 'descents', and the bullet of the
+  module docstring.  docs/source/DeveloperNotes.rst: the bullet of the
+  check.  The checker files, the bindings and the documentation are
+  identical to py314 before the merge of the lane (8ac0dea3).  The ABI
+  stamp of the compiled objects is unchanged (the stamp of Prelude.so
+  before and after make stage: the same digest), as the two headers were
+  outside the include closure of cyrt/cyrt.hpp.
+- Tests.  tests/unit_n1_lookahead.py is renamed tests/unit_n1_cursor.py
+  (git mv), with the module and class docstrings rewritten for D27.  Kept,
+  in TestCursorReading, plain and under checker:true, in a child under
+  prlimit and timeout: goal0, goalChoice and goalOrder (no value),
+  ctrlPair ((1, 3), (2, 3)) and ctrlShared ((1, 2)), the goals of
+  FailSib.curry that end under the cursor reading.  Dropped: the
+  end-of-run tests of goal, goal2, goalFwd, captureShared, captureStep
+  (TestDroppedBeforeTheStep), goalSet (TestSetFunctions), goalSetArg
+  (TestBoxedFailureBesideALoop, the two expected failures), and ctrlOuter,
+  whose run does not end under the cursor reading either (the value
+  (5, 5) is printed, exit 124 under timeout 60 on both backends).  The
+  constructed-state tests of the look-ahead are dropped:
+  TestLookAhead of unit_cxx_checker.py (test_step_under_a_failed_sibling,
+  test_step_under_the_parent_alone) and the two tests of the same names
+  in TestAuditChecks of unit_py_checker.py; both files are identical to
+  py314 before the lane.  The goals that diverge stay in FailSib.curry
+  under the heading "Records: runs that the eager N.1 of the thesis ends
+  and the cursor reading of decision D27 does not, as KiCS2; not run by
+  the tests": goal, goal2, goalFwd, ctrlOuter, captureShared, captureStep,
+  goalSet, goalSetArg, and the two limits of the look-ahead, captureDeep
+  and guardShared, which ended under neither reading.  tests/manifest.json
+  has no entry for unit_n1_cursor.py (nor had it one for the old name); a
+  calibration run adds it.
+- Verification (the clean environment, CCACHE_DIR set, prlimit, at most
+  two test processes at a time).  Before the change, under sprite-exec
+  with steps:65536, prlimit 2 GB and timeout 60, on both backends: goal0
+  no value, exit 0; goal no value, exit 0; goalSet [], exit 0; ctrlPair
+  (1, 3) (2, 3); t3 and level of SetFunctionsFailures.curry False and [];
+  eqShapeG18 of Constraints.curry (0, 0) (2, 2).  make stage status 0,
+  make overlay status 0.  After the change, on both backends, under the
+  same settings: goal0, goalChoice, goalOrder no value, exit 0; ctrlPair
+  (1, 3) (2, 3); ctrlShared (1, 2); goal, goal2, goalFwd, goalSet,
+  goalSetArg, captureShared, captureStep, captureDeep, guardShared exit
+  124 with no output; ctrlOuter (5, 5) and exit 124; t3 False; level [];
+  eqShapeG18 (0, 0) (2, 2).  Single files, each ok: unit_n1_cursor.py 2
+  on each backend; unit_cxx_checker.py 65 on cxx (67 before the removal);
+  unit_py_checker.py 57 on py (59 before).  Through the runner
+  (./run_tests -j 2 --mem 4 --backend both): unit_n1_cursor,
+  unit_cxx_checker, unit_py_checker, unit_cxx_scheduler,
+  unit_cxx_rotation, unit_py_evaluation, unit_setfunctions_failures,
+  unit_setfunctions_semantics, unit_boundmerge, unit_pairing, unit_occurs,
+  unit_constraints: 24 of 24 run, 0 failed, wall 69.1 s.  The pinned
+  counters of unit_cxx_rotation.py (psort 8: 16929 steps, 1636 forks;
+  countQueens 8: 2112920 steps, 511384 forks) pass unchanged: the
+  look-ahead changed no step count.  Not run: the whole suite on both
+  backends (the suite stage).
+- Changed printed values.  None.  The runs the look-ahead ended do not
+  end now (the records above), as before 2026-10-12 and as in KiCS2.
+- The staged install.  make stage links each exported header into
+  include/cyrt/ and prunes nothing, so the link to the removed
+  src/cyrt/fairscheme.hpp dangled after the removal; it was deleted by
+  hand in the staged install of the worktree.  After the merge, the
+  staged install of the main checkout holds the same dangling link
+  (install/include/cyrt/fairscheme.hpp) until it is deleted by hand.
+- The rename.  The rewrite of tests/unit_n1_cursor.py kept less than
+  half of the text of tests/unit_n1_lookahead.py, below the similarity
+  threshold of git, so git log --follow may not join the two names.  The
+  commit message should say that the file replaces unit_n1_lookahead.py.
+- Left to the owner.  (1) The closures of #132 and #136 as not bugs.
+  (2) Item (1) of the entry above, the failure path of the scan under
+  ($!!) that writes the failure over the argument cell (nfShared), stands
+  as before: it is outside this lane and the look-ahead lane alike.
+  (3) The whole suite on both backends (the suite stage).  (4) The
+  deletion of the dangling header link in the main install after the
+  merge.

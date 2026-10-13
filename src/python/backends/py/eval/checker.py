@@ -101,14 +101,6 @@ The events the memo names, and the checks at each:
   (SIGNATURE_BUDGET cells per event); an event over the budget is counted,
   not checked.
 
-* The descent of the walk of N into an operation cell (fairscheme.N) and
-  the completed step that follows.  N.1 (look-ahead): no constructor cell
-  on the path from the root of the walk to the cell has a successor, read
-  through forward nodes, that is a failure; such a configuration has no
-  value, and the walk of the runtime drops it before any step below the
-  cell (issue #132), so a completed step under such a cell was not
-  needed.  The finding of the descent is reported at the step.
-
 * A step (fairscheme.S, after a completed step).  The choice a step creates
   is tagged with the boxes above it: the set guards crossed on the path
   from the root of each configuration of the dispatch chain to the redex,
@@ -373,9 +365,6 @@ class Checker(object):
     # (enter_scheduler, leave_scheduler), so the drop of the outer
     # configuration compares its own root.
     self.dispatch_stack = [[None, None, []]]
-    # The finding of the last descent of N (descend), taken by the step
-    # that follows (take_descent).
-    self.descent = None
     # The bindings of the configuration at the start of the constraint
     # step in flight and the pairs of bindings its unions merged
     # (constrain_begin, merge_guard, _check_merge_guards).  A constraint
@@ -1657,51 +1646,10 @@ class Checker(object):
   # Steps and the definitional trees.
   # --------------------------------------------------------------------------
 
-  def descend(self, state):
-    '''At the descent of the walk ``state`` of N into an operation cell:
-    the parent cell of the cursor, when the cursor is below the root of the
-    walk (the walk pushed a level).  At the root the cell above is the cell
-    above an inductive position, which the rule does not read: a failure
-    beside that position does not fail the step (snd (failed, 1)).  A
-    constructor cell with a failed successor is the finding of rule N.1
-    (look-ahead): the walk of the runtime reads the cell at its extension
-    and again at the first descent after a completed step, and drops the
-    configuration there (issue #132), so a step below it is a step the
-    rule forbids.  A cell above the parent is not read: the runtime reads
-    it at its extension alone.  The finding is kept for the step that
-    follows (take_descent) and reported when that step completes (step).'''
-    from .fairscheme import failed_successor
-    self.counts['descents'] += 1
-    self.descent = None
-    if not state.stack:
-      return
-    cell = state.parent
-    if isinstance(cell, Node) and cell.info.tag >= T_CTOR:
-      index = failed_successor(cell)
-      if index is not None:
-        self.descent = (cell, index)
-
-  def take_descent(self):
-    '''The finding of the last descent, for the step that follows it;
-    the finding is cleared, so a nested step starts with none.'''
-    descent, self.descent = self.descent, None
-    return descent
-
-  def step(self, node, info, args, unneeded=None):
+  def step(self, node, info, args):
     '''After S completed a step at ``node``, which held ``info`` with the
-    successors ``args`` before the step.  ``unneeded`` is the finding of
-    the descent (take_descent): the constructor cell above the redex and
-    the index of its failed successor, or None.'''
+    successors ``args`` before the step.'''
     self.counts['steps'] += 1
-    if unneeded is not None:
-      cell, index = unneeded
-      self._violation(
-          'N.1 (look-ahead)', 'step'
-        , 'a completed step at %s under the constructor cell %s whose '
-          'successor %s is a failure: the configuration has no value, and '
-          'the step was not needed' % (_text(node), cell.info.name, index)
-        , self.rts.C
-        )
     tag = node.info.tag
     flagged = self.flags.get(id(node))
     if tag == T_CHOICE:
