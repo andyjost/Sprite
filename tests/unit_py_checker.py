@@ -58,6 +58,15 @@ BUGS_GOALS = [
   , 'pick2', 'twoCapsules', 'twoSets'
   ]
 
+# The goals of unit_setfunctions_failures.py (the module lifts a local
+# declaration of t1c into a private nullary function, which the module
+# handle does not expose).
+FAILURES_GOALS = [
+    't1', 't2', 't3', 't4', 'd2a', 'd2b', 'lazyT', 'valThenFail', 'level'
+  , 'levelB', 'levelC', 'level2', 'ownflag', 'set0Inner', 'set0InnerV'
+  , 'mixed', 'mixedE', 't1c', 'argFail', 'cycleInside', 'cycleInsideS'
+  ]
+
 # A name a functional pattern produced, read many times (the shape of
 # unit_funcpat_narrowed.py), and a residuation that another alternative
 # releases.
@@ -265,14 +274,15 @@ class TestKnownGood(CheckerTestCase):
     return self.values_both_ways(compute)
 
   def test_setfunction_semantics(self):
-    '''The goals of the probe table of the memo, under both failure rules.'''
-    M = curry.import_('SetFunctionsSemantics')
-    names = _goals(M)
-    for setting in ('encapsulate', 'escape'):
-      values = self.module_goals(
-          'SetFunctionsSemantics', names, setfunction_failures=setting
-        )
-      self.assertEqual(values['s1'], ['[(-1), 1]', '[0, 2]'])
+    '''The goals of the probe table of the memo.'''
+    values = self.module_goals('SetFunctionsSemantics')
+    self.assertEqual(values['s1'], ['[(-1), 1]', '[0, 2]'])
+
+  def test_setfunction_failures(self):
+    '''The probes of the failure rule in its deferred form.'''
+    values = self.module_goals('SetFunctionsFailures', FAILURES_GOALS)
+    self.assertEqual(values['t1'], ['[True]'])
+    self.assertEqual(values['level'], ['[]'])
 
   def test_setfunction_bindings(self):
     values = self.module_goals('SetFunctionsBindings')
@@ -634,7 +644,7 @@ class TestAuditChecks(CheckerTestCase):
 
 
 class TestSetFunctions(CheckerTestCase):
-  '''RI S0, S-split.'''
+  '''RI S0, S-split, and the failure rule F2 (d1), (d2), (d3).'''
   def test_escape_set_holds_argument_derived_identifiers(self):
     rts = _state(curry.raw_expr(1))
     sid = rts.create_setfunction()
@@ -761,6 +771,63 @@ class TestSetFunctions(CheckerTestCase):
     rts.sftable[sid].escape_set.discard(31)
     with self.assertRaisesRegex(_checker().InvariantViolation, 'escape sets grow'):
       rts.checker.yield_(configuration.Configuration(rts.expr(1)))
+
+  def test_failure_record(self):
+    '''F2 (d1): the record of a failure names the sets of the guards it
+    crossed, less the set of the capsule, with the level at which it
+    entered the chain; a failure that crossed no guard is an inside
+    failure.'''
+    rts = _state(curry.raw_expr(1))
+    outer = rts.create_setfunction()
+    inner = rts.create_setfunction()
+    rts.push_queue(sid=outer)
+    rts.push_queue(sid=inner)
+    try:
+      Q = rts.Q
+      check = rts.checker.check_failure_record
+      check(Q, set(), None)
+      check(Q, {inner}, (0, frozenset()))
+      check(Q, {inner, outer}, (1, frozenset([outer])))
+      check(Q, {outer}, (1, frozenset([outer])))
+      with self.assertRaisesRegex(
+          _checker().InvariantViolation, r'F2 \(d1\).*recorded as an inside failure'
+        ):
+        check(Q, {inner}, None)
+      with self.assertRaisesRegex(
+          _checker().InvariantViolation
+        , r'F2 \(d1\).*crossed no guard is recorded as an outside failure'
+        ):
+        check(Q, set(), (0, frozenset()))
+      with self.assertRaisesRegex(_checker().InvariantViolation, r'F2 \(d1\).*names sets'):
+        check(Q, {inner, outer}, (1, frozenset([inner, outer])))
+      with self.assertRaisesRegex(_checker().InvariantViolation, r'F2 \(d1\).*level 0 where'):
+        check(Q, {inner, outer}, (0, frozenset([outer])))
+    finally:
+      rts.pop_queue()
+      rts.pop_queue()
+
+  def test_capsule_end(self):
+    '''F2 (d2): the capsule is a failure when it produced no value,
+    recorded no inside failure and recorded some outside failure, and the
+    empty set otherwise.  F2 (d3): the failure goes under the guards of
+    the records at the least level, together.'''
+    rts = _state(curry.raw_expr(1))
+    outer = frozenset([7])
+    check = rts.checker.check_capsule_end
+    check(0, False, [], None)
+    check(0, False, [(0, frozenset())], [])
+    check(0, False, [(1, outer), (0, frozenset())], [])
+    check(0, False, [(1, outer)], [7])
+    check(1, False, [(1, outer)], None)
+    check(0, True, [(1, outer)], None)
+    with self.assertRaisesRegex(_checker().InvariantViolation, r'F2 \(d2\).*wrote the empty set'):
+      check(0, False, [(1, outer)], None)
+    with self.assertRaisesRegex(_checker().InvariantViolation, r'F2 \(d2\).*produced 1 values.*wrote a failure'):
+      check(1, False, [(1, outer)], [7])
+    with self.assertRaisesRegex(_checker().InvariantViolation, r'F2 \(d2\).*an inside failure.*wrote a failure'):
+      check(0, True, [(1, outer)], [7])
+    with self.assertRaisesRegex(_checker().InvariantViolation, r'F2 \(d3\).*least level 0'):
+      check(0, False, [(1, outer), (0, frozenset())], [7])
 
 
 class TestNeededness(CheckerTestCase):

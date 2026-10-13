@@ -119,6 +119,7 @@ namespace cyrt
     decisions.push_back(cid);
     std::vector<xid_type> rhs_decisions = decisions;
     BindingMap rhs_absorbed = this->absorbed;
+    std::vector<FailureRecord> rhs_failures = this->outside_failures;
     // Nothing below throws.
     this->items.swap(keep);
     rhs.items.swap(move);
@@ -127,6 +128,9 @@ namespace cyrt
     this->decisions.swap(decisions);
     rhs.decisions.swap(rhs_decisions);
     rhs.absorbed.swap(rhs_absorbed);
+    rhs.produced = this->produced;
+    rhs.inside_failure = this->inside_failure;
+    rhs.outside_failures.swap(rhs_failures);
     for(Configuration * C: shared)
       ++C->holders;
   }
@@ -138,12 +142,38 @@ namespace cyrt
     std::vector<xid_type> decisions = this->decisions;
     BindingMap absorbed = this->absorbed;
     absorbed[vid] = binding;
+    std::vector<FailureRecord> failures = this->outside_failures;
     // Nothing below throws.
     copy.items.swap(items);
     copy.count = copy.items.size();
     copy.decisions.swap(decisions);
     copy.absorbed.swap(absorbed);
+    copy.produced = this->produced;
+    copy.inside_failure = this->inside_failure;
+    copy.outside_failures.swap(failures);
     for(Configuration * C: copy.items)
       ++C->holders;
+  }
+
+  // The level choice of rule (d3); see the declaration.
+  std::vector<Set *> failure_guards(std::vector<FailureRecord> const & records)
+  {
+    std::vector<Set *> guards;
+    if(records.empty())
+      return guards;
+    size_t least = records.front().level;
+    for(FailureRecord const & record: records)
+      least = std::min(least, record.level);
+    for(FailureRecord const & record: records)
+      if(record.level == least)
+        for(Set * set: record.guards)
+          if(std::find(guards.begin(), guards.end(), set) == guards.end())
+            guards.push_back(set);
+    return guards;
+  }
+
+  std::vector<Set *> Queue::failure_guards() const
+  {
+    return cyrt::failure_guards(this->outside_failures);
   }
 }

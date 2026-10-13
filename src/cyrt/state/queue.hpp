@@ -9,6 +9,30 @@ namespace cyrt
 {
   using queue_type = std::deque<Configuration*>;
 
+  // A recorded outside failure of a capsule: rule (d1) of the failure rule
+  // F2 in its deferred form (Definition 2.94 of the note on the Fair
+  // Scheme; see RuntimeState::record_failure).  ``level`` is the position,
+  // in the chain of the capsules innermost first, of the outermost capsule
+  // whose guard the failure crossed: the level at which the failed cell
+  // entered the chain.  Zero names the capsule itself: the failure crossed
+  // the guard of its own argument alone.  ``guards`` are the sets of the
+  // enclosing guards the failure crossed, less the set of the capsule.
+  struct FailureRecord
+  {
+    size_t level;
+    std::vector<Set *> guards;
+  };
+
+  // Rule (d3) of the failure rule F2: the guards of the failure a capsule
+  // with the outside failures ``records`` becomes.  This is the one place
+  // that chooses the records: the records at the least level (the
+  // failures that entered the chain innermost; deviation 147 of the
+  // README of the Lean development), and the union of their guards.  A
+  // record of level zero makes a plain failure, which escapes to no
+  // enclosing capsule.  Queue::failure_guards and the checker
+  // (Checker::check_capsule_end) call it.
+  std::vector<Set *> failure_guards(std::vector<FailureRecord> const & records);
+
   // A queue of configurations.  The queue owns its configurations: pop_front
   // lets go of the front one, and the destructor of the rest, and the last
   // queue to let go of a configuration destroys it (Configuration::holders
@@ -63,6 +87,29 @@ namespace cyrt
     // readers (RuntimeState::get_binding) look here after the map of the
     // configuration and before the enclosing configurations.
     BindingMap absorbed;
+    // The failure record of the capsule (Definition 2.94, the deferred form
+    // of the failure rule F2; RuntimeState::record_failure writes it, and
+    // allValues_step in currylib/setfunctions.cpp reads it on the empty
+    // queue).  ``produced`` counts the values the queue gave (rule SF.3),
+    // ``inside_failure`` tells whether a configuration met a failure of the
+    // function's own, and ``outside_failures`` are the failures that came
+    // from an argument, each with its level.  The queues of a split and the
+    // clones of a queue share the record made before, as the mechanization
+    // keeps it (Capsule.split and the clone of the Lean development).
+    size_t produced = 0;
+    bool inside_failure = false;
+    std::vector<FailureRecord> outside_failures;
+    // Rule (d2): on the empty queue the capsule is a failure when it
+    // produced no value, recorded no inside failure and recorded some
+    // outside failure; its set stands otherwise.
+    bool fails_at_end() const
+    {
+      return this->produced == 0 && !this->inside_failure
+          && !this->outside_failures.empty();
+    }
+    // Rule (d3): the guards of the failure the capsule becomes
+    // (cyrt::failure_guards over outside_failures).
+    std::vector<Set *> failure_guards() const;
 
     using iterator = queue_type::iterator;
     using const_iterator = queue_type::const_iterator;

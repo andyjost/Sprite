@@ -20,38 +20,37 @@ through a box puts the box on its arguments (apply_step; apply), so a
 choice inside a captured data structure or a captured closure escapes too.
 captureS stays the explicit capture of an argument.
 
-D1, the failure rule, behind the flag setfunction_failures.  Under
-'escape' a failure that comes from an argument (a boxed failure) and is
-demanded inside the capsule fails the set function (failure_escapes and
-fail_capsule in state/rts_setfunctions.cpp; boxed_failure in
-eval/rts_setfunctions.py): sortValues (set1 id failed) has no value, where
-it gives [] under 'encapsulate', the rule of the dissertation.  A failure
-of the function's own body drops its alternative under both settings, and
-an argument the function does not demand fails nothing.  The default is
-'escape' since 2026-10-10, after the differential harness confirmed the
-decision; TestDefault pins it.
+D1, the failure rule, in its deferred form (Definition 2.94 of the note on
+the Fair Scheme; the owner's decision of 2026-10-12, which removed the flag
+setfunction_failures and its two values).  A failure that comes from an
+argument (a boxed failure) and is demanded inside the capsule drops the
+alternative that demands it, and the capsule records it; the set function
+fails when its queue empties with no value, no failure of the function's
+own and some failure from an argument (record_failure in
+state/rts_setfunctions.cpp and eval/rts_setfunctions.py; the verdict in
+allValues): sortValues (set1 id failed) has no value.  A failure of the
+function's own body drops its alternative, and an argument the function
+does not demand fails nothing.  unit_setfunctions_failures.py tests the
+rule on the probes of the audit.
 
-Each class runs one child per setting of the flag and keeps the results;
-a test reads the values of one goal under both settings.  The children run
-under prlimit and timeout, because a regression can spin inside C++ (see
-cytest.run_in_subprocess).  Two goals, capNested and nestFail, put a guard
+Each class runs one child and keeps the results; a test reads the values of
+one goal.  The children run under prlimit and timeout, because a regression
+can spin inside C++ (see cytest.run_in_subprocess).  Two goals, capNested and nestFail, put a guard
 of an enclosing set at the root of a nested configuration, where the Python
 backend unwound to allValues before the fix of issue #130; the guard is a
 node of the spine like a constructor on both backends now.
 '''
 import cytest # from ./lib; must be first
-import curry, os, unittest
+import curry, unittest
 
 ADDRESS_SPACE = 2 << 30
 TIMEOUT = 120
-SETTINGS = ('encapsulate', 'escape')
 
 # Evaluates goals of the test module and prints one line per goal: its name
 # and the sorted values as Curry text, or the name of the error.
 CHILD = '''
 import curry
 curry.reload(%(flags)r)
-print('setfunction_failures', curry.flags['setfunction_failures'])
 M = curry.import_('SetFunctionsSemantics')
 for name in %(goals)r:
   try:
@@ -65,8 +64,7 @@ def run_child(goals, **flags):
   '''
   Evaluates ``goals`` in a child on the backend of this test process and
   returns a dict from the name to the sorted list of values (as text) or to
-  the error line.  The key 'setfunction_failures' holds the setting of the
-  child: a child without the flag inherits SPRITE_INTERPRETER_FLAGS.
+  the error line.
   '''
   flags.setdefault('backend', curry.flags['backend'])
   code = CHILD % {'flags': flags, 'goals': list(goals)}
@@ -82,43 +80,31 @@ def run_child(goals, **flags):
     results[name] = eval(rest) if rest.startswith('[') else rest
   return results
 
-def same(values):
-  '''The expected values of a goal that the flag does not change.'''
-  return (values, values)
-
 def goal_tests(cls):
   '''
   Adds a test per goal of cls.GOALS, which maps a goal to its expected
-  values under 'encapsulate' and under 'escape'.
+  values.
   '''
   for goal in cls.GOALS:
     def test(self, goal=goal):
       self.check(goal)
-    test.__doc__ = 'The goal %s under both settings of the flag.' % goal
+    test.__doc__ = 'The goal %s.' % goal
     setattr(cls, 'test_' + goal, test)
   return cls
 
 
 class GoalsCase(cytest.TestCase):
-  '''
-  One child per setting of the flag setfunction_failures, run once per
-  class; a test compares the values of one goal under both settings.
-  '''
+  '''One child per class; a test reads the values of one goal.'''
   GOALS = {}
 
   @classmethod
   def setUpClass(cls):
     # Compile the module here; the children load it from the cache.
     curry.import_('SetFunctionsSemantics')
-    cls.results = {
-        setting: run_child(cls.GOALS, setfunction_failures=setting)
-            for setting in SETTINGS
-      }
+    cls.results = run_child(cls.GOALS)
 
   def check(self, goal):
-    for setting, expected in zip(SETTINGS, self.GOALS[goal]):
-      with self.subTest(setfunction_failures=setting):
-        self.assertEqual(self.results[setting].get(goal), expected)
+    self.assertEqual(self.results.get(goal), self.GOALS[goal])
 
 
 @goal_tests
@@ -135,25 +121,25 @@ class TestUnchangedGoals(GoalsCase):
   those both backends gave before the change.
   '''
   GOALS = {
-      's1': same(['[(-1), 1]', '[0, 2]'])
-    , 's2PG': same(['([1], 0)', '([2], 1)'])
-    , 's2PL': same(['[1]'])
-    , 's3PG': same(['[1]'])
-    , 's3i': same(['True'])
-    , 's4d': same(['True'])
-    , 's5': same(['[[(-1), 1]]', '[[0, 2]]'])
-    , 'nest2': same(['[[False]]', '[[True]]'])
-    , 's6PG': same(['[False]', '[True]'])
-    , 's7PG': same(['([1], False)', '([2], True)'])
-    , 's7PL': same(['([1], True)', '([2], False)'])
-    , 's8PL': same(['[10]', '[11]'])
-    , 's9': same(['[1]', '[]'])
-    , 's10': same(['[1]', '[]'])
-    , 'ho1': same(['[(-1), 1]', '[0]'])
-    , 'cap1': same(['[(-1), 0, 1, 2]'])
-    , 'ord1': same(['(0, [10])', '(1, [11])'])
-    , 'cin2': same(['([True], True)', '([], False)'])
-    , 'cin3': same(['([_a], _a)'])
+      's1': ['[(-1), 1]', '[0, 2]']
+    , 's2PG': ['([1], 0)', '([2], 1)']
+    , 's2PL': ['[1]']
+    , 's3PG': ['[1]']
+    , 's3i': ['True']
+    , 's4d': ['True']
+    , 's5': ['[[(-1), 1]]', '[[0, 2]]']
+    , 'nest2': ['[[False]]', '[[True]]']
+    , 's6PG': ['[False]', '[True]']
+    , 's7PG': ['([1], False)', '([2], True)']
+    , 's7PL': ['([1], True)', '([2], False)']
+    , 's8PL': ['[10]', '[11]']
+    , 's9': ['[1]', '[]']
+    , 's10': ['[1]', '[]']
+    , 'ho1': ['[(-1), 1]', '[0]']
+    , 'cap1': ['[(-1), 0, 1, 2]']
+    , 'ord1': ['(0, [10])', '(1, [11])']
+    , 'cin2': ['([True], True)', '([], False)']
+    , 'cin3': ['([_a], _a)']
     }
 
 
@@ -173,81 +159,49 @@ class TestCapturedArguments(GoalsCase):
   null set there (a crash) and the Python backend raised KeyError.
   '''
   GOALS = {
-      's6PL': same(['[10]', '[11]'])
-    , 'ord2': same(['([10], 0)', '([11], 1)'])
-    , 'ord2Arg': same(['([10], 0)', '([11], 1)'])
-    , 'cin1': same(['([True], True)', '([], False)'])
-    , 'cin1Rev': same(['(False, [])', '(True, [True])'])
-    , 'capNarrow': same(['([False], True)', '([True], False)'])
-    , 'capData': same(['([10], 0)', '([11], 1)'])
-    , 'capPartial': same(['([10], 0)', '([11], 1)'])
-    , 'argPartial': same(['([0], 0)', '([1], 1)'])
-    , 'capNested': same(['[[1]]', '[[2]]'])
-    , 'pS': same(['[[1]]', '[[2]]'])
-    , 'pSCap': same(['([[1]], 0)', '([[2]], 1)'])
+      's6PL': ['[10]', '[11]']
+    , 'ord2': ['([10], 0)', '([11], 1)']
+    , 'ord2Arg': ['([10], 0)', '([11], 1)']
+    , 'cin1': ['([True], True)', '([], False)']
+    , 'cin1Rev': ['(False, [])', '(True, [True])']
+    , 'capNarrow': ['([False], True)', '([True], False)']
+    , 'capData': ['([10], 0)', '([11], 1)']
+    , 'capPartial': ['([10], 0)', '([11], 1)']
+    , 'argPartial': ['([0], 0)', '([1], 1)']
+    , 'capNested': ['[[1]]', '[[2]]']
+    , 'pS': ['[[1]]', '[[2]]']
+    , 'pSCap': ['([[1]], 0)', '([[2]], 1)']
     }
 
 
 @goal_tests
 class TestFailureRule(GoalsCase):
   '''
-  Decision D1.  A boxed failure demanded inside the capsule drops its
-  alternative under 'encapsulate' (the values of both backends before the
-  change, and the default until 2026-10-10) and fails the set function
-  under 'escape' (no value; the default since then).  s4a holds
-  the failure in a captured argument, which D2 boxes; nestFail demands the
-  argument of the outer set function inside the inner one, so both fail;
+  Decision D1 in its deferred form.  Every alternative of these set
+  functions demands the failing argument, so each capsule fails and the
+  goal has no value (the rule of the dissertation gave [] or True, the
+  values of both backends before 2026-10-10).  s4a holds the failure in a
+  captured argument, which D2 boxes; nestFail demands the argument of the
+  outer set function inside the inner one, so the inner capsule fails
+  under the guard of the outer set and the outer capsule fails in turn;
   nestFailInner makes the failure inside the outer function and passes it
-  to the inner set function, which fails and drops the alternative of the
-  outer function, so the outer set is empty; lazyFirst consumes a value
-  before the failing argument is demanded.
+  to the inner set function, which fails for its own argument, a plain
+  failure that drops the alternative of the outer function, so the outer
+  set is empty; lazyFirst consumes a value before the failing argument is
+  demanded.
   '''
   GOALS = {
-      's3': (['[]'], [])
-    , 's3e': (['True'], [])
-    , 's4': (['[]'], [])
-    , 's4h': (['[]'], [])
-    , 's4a': (['True'], [])
-    , 's4b': (['True'], [])
-    , 's4c': (['True'], [])
-    , 'nestFail': (['False'], [])
-    , 'nestFailInner': (['False'], ['True'])
-    , 'lazyFirst': same(['True'])
+      's3': []
+    , 's3e': []
+    , 's4': []
+    , 's4h': []
+    , 's4a': []
+    , 's4b': []
+    , 's4c': []
+    , 'nestFail': []
+    , 'nestFailInner': ['True']
+    , 'lazyFirst': ['True']
     }
-
-
-class TestDefault(cytest.TestCase):
-  '''
-  The default of the flag is 'escape' (decision D1 of the memo, confirmed
-  by the differential harness of the Fair Scheme proofs program on
-  2026-10-09): a child that sets no flag gives the values of 'escape'.
-  'encapsulate', the rule of the dissertation, stays the alternative.
-  '''
-  GOALS = ('s3', 's3e', 's4a', 'nestFailInner', 'lazyFirst')
-
-  def test_default(self):
-    from curry.interpreter import flags
-    spec, default = flags.FLAG_INFO['setfunction_failures']
-    self.assertEqual(spec, {'encapsulate', 'escape'})
-    self.assertEqual(default, 'escape')
-    self.assertEqual(
-        flags.get_default_flags()['setfunction_failures'], 'escape'
-      )
-
-  def test_values_under_the_default(self):
-    curry.import_('SetFunctionsSemantics')
-    results = run_child(self.GOALS)
-    # The child sets no flag, so it takes the default, unless the
-    # environment of the run names the flag.
-    self.assertEqual(
-        results.pop('setfunction_failures'), 'escape'
-      , 'the child does not run under the default: SPRITE_INTERPRETER_FLAGS '
-        'is %r' % os.environ.get('SPRITE_INTERPRETER_FLAGS', '')
-      )
-    self.assertEqual(results, {
-        's3': [], 's3e': [], 's4a': [], 'nestFailInner': ['True']
-      , 'lazyFirst': ['True']
-      })
 
 
 if __name__ == '__main__':

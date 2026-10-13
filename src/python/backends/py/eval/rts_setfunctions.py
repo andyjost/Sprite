@@ -4,11 +4,11 @@ intended to be imported except by rts.py.
 '''
 
 __all__ = [
-    'boxed_failure', 'clone_queue', 'create_queue', 'create_setfunction'
-  , 'choice_escapes'
-  , 'guard_args', 'guard', 'guard_held', 'in_recursive_call', 'owns_decision'
-  , 'pop_queue', 'push_queue', 'qid', 'queue_scope', 'SetFunctionEval', 'sid'
-  , 'split_queue', 'update_escape_set', 'update_scape_sets', 'walk_qstack'
+    'clone_queue', 'create_queue', 'create_setfunction', 'choice_escapes'
+  , 'failure_level', 'guard_args', 'guard', 'guard_held', 'in_recursive_call'
+  , 'owns_decision', 'pop_queue', 'push_queue', 'qid', 'queue_scope'
+  , 'record_failure', 'SetFunctionEval', 'sid', 'split_queue'
+  , 'update_escape_set', 'update_scape_sets', 'walk_qstack'
   ]
 
 from ....common import LEFT, RIGHT, UNDETERMINED
@@ -98,45 +98,95 @@ def choice_escapes(rts, cid):
     escapes = any(gid in config.fingerprint for config in enclosing)
   return escapes and cid not in rts.Q.decisions
 
-def boxed_failure(rts, guards=()):
+def record_failure(rts, guards=()):
   '''
-  Tells whether a failure met by the current configuration fails the set
-  function, and which guards the failure keeps.  Returns None when the
-  failure drops the alternative instead: the flag setfunction_failures is
-  'encapsulate', the evaluation is outside every set function, or the path
-  from the root of the configuration to the failure crosses no set guard.
-  Otherwise returns the ids of the enclosing sets whose guards the path
-  crossed, without the current set: the caller raises E_SETFAIL with them,
-  and allValues makes the set function a failure under their guards.
+  Records a failure met by the current configuration in its capsule: rule
+  (d1) of the failure rule F2 in its deferred form (Definition 2.94 of the
+  note on the Fair Scheme).  The caller drops the configuration as every
+  failure does (D at a failed root; N and hnf hand the failure up to it).
+  This records what the failure was for the verdict on the empty queue
+  (Queue.fails_at_end and Queue.failure_guards; allValues in
+  currylib/setfunctions.py).
 
-  The path is read from the call stack of the configuration: the guards of
-  the variable of each hnf frame, and the guards the walk of each N frame
-  crossed (the guards of its variable and the set ids it pushed);
-  ``guards`` adds those of the position in hand.  A guard of the current
-  set at the root, which D stripped, set escape_all.  A boxed failure came
-  through the box of an argument of a set function, this one or an
-  enclosing one, as the box rule of the dissertation (chapter 4) keeps
-  every reference to a boxed expression boxed.  So it is a failure of the
-  context, not of the function, and the semantics of weakly encapsulated
-  search gives the set function no value.  An unboxed failure is the
-  function's own and drops its alternative (rule SF.5), as every failure
-  does under 'encapsulate'.  The C++ runtime has the same test
-  (RuntimeState::failure_escapes and fail_capsule).
+  The failure is boxed when the path from the root of the configuration to
+  the failure crosses a set guard.  The path is read from the call stack of
+  the configuration: the guards of the variable of each hnf frame, and the
+  guards the walk of each N frame crossed (the guards of its variable and
+  the set ids it pushed); ``guards`` adds those of the position in hand.  A
+  guard of the current set at the root, which D stripped, set escape_all.
+  A boxed failure came through the box of an argument of a set function,
+  this one or an enclosing one, as the box rule of the dissertation
+  (chapter 4) keeps every reference to a boxed expression boxed.  So it is
+  a failure of the context, not of the function: the capsule records an
+  outside failure with the ids of the enclosing sets whose guards it
+  crossed, less the current set, and the level at which it entered the
+  chain of the capsules (the position, innermost first, of the outermost
+  capsule of the chain among them; zero when none is on the chain).  A
+  failure that crossed no guard is the function's own: the capsule records
+  an inside failure (rule SF.5 of the dissertation drops the alternative).
+  A capsule whose queue empties with no value, no inside failure and some
+  outside failure is itself a failure, the semantics of weakly encapsulated
+  search (Christiansen, Hanus, Reck and Seidel, PPDP 2013), as KiCS2
+  behaves.  Outside every set function nothing is recorded.
+
+  A failure is observed at the position that met it first, with the whole
+  path, and again at each level above it on the way to the root, with a
+  shorter path (hnf rewrites the redex to the failure and unwinds, and the
+  caller meets the failure at the redex).  The first observation makes the
+  record and sets Configuration.failure_recorded; the rest make none.  A
+  constraint that fails at the root of D (the occurs check, or the union
+  of two classes with different instances) is a failure at the root like a
+  failure cell there: the path crossed no guard, so the record is an
+  inside failure, unless the configuration stripped a guard of its set at
+  the root before (escape_all).  The C++ runtime has the same rule
+  (RuntimeState::record_failure).
+
+  The level of an outside failure is failure_level, and the choice of the
+  records at the end of the capsule is failure_guards of queue.py; the
+  checker calls both (check_failure_record and check_capsule_end), so a
+  change of the reading of rule (d3) touches those two functions alone.
   '''
-  if rts.setfunction_failures != 'escape' or not rts.in_recursive_call:
-    return None
+  if not rts.in_recursive_call:
+    return
+  C = rts.C
+  if C.failure_recorded:
+    return
+  C.failure_recorded = True
   crossed = set(guards)
-  if rts.C.escape_all:
+  if C.escape_all:
     crossed.add(rts.sid)
-  for frame in rts.C.callstack.frames:
+  for frame in C.callstack.frames:
     obj = frame.obj
     crossed.update(getattr(obj, 'guards', ()))
     crossed.update(getattr(obj, 'base_guards', ()))
     crossed.update(sid for sid in getattr(obj, 'data', ()) if sid is not None)
+  crossed.discard(None)
+  Q = rts.Q
   if not crossed:
-    return None
-  crossed.discard(rts.sid)
-  return sorted(crossed)
+    Q.inside_failure = True
+    if rts.checker is not None:
+      rts.checker.failure_recorded(C, guards, None)
+    return
+  sids = crossed - {rts.sid}
+  record = (failure_level(rts, sids), frozenset(sids))
+  Q.outside_failures.append(record)
+  if rts.checker is not None:
+    rts.checker.failure_recorded(C, guards, record)
+
+def failure_level(rts, sids):
+  '''
+  The level of an outside failure that crossed the guards of the sets
+  ``sids``: the position, in the chain of the capsules innermost first, of
+  the outermost capsule of the chain among them.  Zero names the current
+  capsule: none of the sets is on the chain.
+  '''
+  level = 0
+  chain = rts.qstack
+  n = len(chain)
+  for k in range(1, n):
+    if rts.qtable[chain[n - 1 - k]].sid in sids:
+      level = k
+  return level
 
 def owns_decision(rts, cid):
   '''

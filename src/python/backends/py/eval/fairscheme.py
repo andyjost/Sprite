@@ -3,7 +3,6 @@ from ..graph import indexing
 from ..graph.node import Node
 from .. import graph
 from ...generic.eval import control, trace
-from ...generic.eval.control import E_SETFAIL
 from .... import icurry, inspect
 from . import callstack
 
@@ -22,12 +21,11 @@ def D(rts):
       # The root cell at the dispatch, for the discard check (checker.py).
       checker.dispatch(E)
     if tag == T_FAIL:
-      # A failure under the guard of the current set at the root (escape_all)
-      # is boxed: under the flag setfunction_failures it fails the set
-      # function (boxed_failure; allValues catches E_SETFAIL).
-      sids = rts.boxed_failure()
-      if sids is not None:
-        raise E_SETFAIL(sids)
+      # Rule D.3: the configuration is dropped.  Inside a set function the
+      # failure goes into the record of the capsule first (record_failure):
+      # a failure under the guard of the current set at the root
+      # (escape_all) is boxed.
+      rts.record_failure()
       if checker is not None:
         checker.discard(E)
       rts.drop()
@@ -35,6 +33,10 @@ def D(rts):
       value, lr = E.successors
       l, r = lr.successors
       if not rts.constrain_equal(l, r, rts.constraint_type()):
+        # A failed constraint is a failure at the root like a failure
+        # cell there (record_failure: an inside failure, unless the
+        # configuration stripped a guard of its set at the root before).
+        rts.record_failure()
         rts.drop()
       else:
         if checker is not None:
@@ -93,11 +95,10 @@ def N(rts, var, state):
     while True:
       tag = inspect.tag_of(state.cursor)
       if tag == T_FAIL:
-        # A failure below a set guard is boxed: under the flag
-        # setfunction_failures it fails the set function (boxed_failure).
-        sids = rts.boxed_failure()
-        if sids is not None:
-          raise E_SETFAIL(sids)
+        # Inside a set function the failure goes into the record of the
+        # capsule first (record_failure): a failure below a set guard is
+        # boxed.
+        rts.record_failure()
         if var.is_root:
           # Rule N.1: the configuration is dropped and no cell changes.
           if rts.checker is not None:
@@ -266,11 +267,10 @@ def hnf(rts, var, typedef=None, values=None, free=False, decided=False):
     if tag == T_SETGRD:
       var.extend()
     elif tag == T_FAIL:
-      # A failure below a set guard is boxed: under the flag
-      # setfunction_failures it fails the set function (boxed_failure).
-      sids = rts.boxed_failure(var.guards)
-      if sids is not None:
-        raise E_SETFAIL(sids)
+      # A failure at the inductive position: the redex becomes a failure.
+      # Inside a set function the failure goes into the record of the
+      # capsule first, with the guards of the position (record_failure).
+      rts.record_failure(var.guards)
       var.root.rewrite(rts.Failure)
       rts.unwind()
     elif tag == T_CONSTR:

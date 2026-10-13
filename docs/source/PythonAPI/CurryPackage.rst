@@ -173,10 +173,6 @@ Flag                         Default                What it changes
                                                     turns both rules off.
 ``defaultconverter``         ``None``               The converter of :func:`curry.eval` when the call
                                                     names none: ``None`` or ``'topython'``.
-``setfunction_failures``     ``'escape'``           What a failure that comes from an argument of a set
-                                                    function does when the capsule demands it:
-                                                    ``'escape'`` fails the set function, ``'encapsulate'``
-                                                    drops its alternative.
 ``checker``                  ``False``              The checker mode of the Fair Scheme proofs program: the
                                                     reference backend asserts the run-time invariants of
                                                     the Fair Scheme at every fork, escape, pull-tab,

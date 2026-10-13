@@ -316,8 +316,10 @@ choice over them), the yield (``release_value``), the fresh variable
 (``replace_freevar``), the write of a generator into a slot (rule S.x:
 ``instantiate``, and the slot write of an existing generator in
 ``replace_freevar``), the step (``procS``, before and after the step
-function) and the inductive position (``hnf``, at entry), and the entry of
-a capsule (``evalS_step``).  The checker reads the state without changing
+function) and the inductive position (``hnf``, at entry), the entry of a
+capsule (``evalS_step``), the record of a failure in a capsule
+(``RuntimeState::record_failure``) and the end of a capsule on the empty
+queue (``allValues_step``).  The checker reads the state without changing
 it: the union-find without path compression, the fingerprints without the
 growth of ``check_alloc`` (it enumerates the used bits of the blocks of
 the tree), the bindings without the absorption of ``get_binding``.  It

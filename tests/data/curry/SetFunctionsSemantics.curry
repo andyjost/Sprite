@@ -4,8 +4,10 @@
 -- Two rules are under test.  The captured arguments of the function value
 -- of a set function are boxed as the value arguments are (decision D2,
 -- issue #117): their non-determinism escapes the capsule.  A failure that
--- comes from an argument and is demanded inside the capsule fails the set
--- function under the flag setfunction_failures (decision D1).
+-- comes from an argument and is demanded inside the capsule drops the
+-- alternative that demands it, and the set function fails when no
+-- alternative gives a value and none fails on its own (decision D1, in the
+-- deferred form of 2026-10-12).
 module SetFunctionsSemantics where
 import Control.SetFunctions
 
@@ -176,13 +178,11 @@ argPartial = let x = 0 ? 1 in
 capNested :: [[Int]]
 capNested = sortValues (set1 (\x -> sortValues (set1 (constT x) 0)) (1 ? 2))
 
--- Section 3: failures from an argument (decision D1).  Under the flag
--- setfunction_failures 'escape', the default, the goals of this section
--- have no value where the comment says so; under 'encapsulate' every
--- failure drops its alternative and an empty queue gives the empty set.
+-- Section 3: failures from an argument (decision D1).  Every alternative
+-- of these functions demands the failing argument, so the set function
+-- fails, and the goals have no value where the comment says so.
 
--- s3: a failing argument that the function demands: [] and True, or no
--- value.
+-- s3: a failing argument that the function demands: no value.
 s3 :: [Int]
 s3 = sortValues (set1 id failed)
 
@@ -190,7 +190,7 @@ s3e :: Bool
 s3e = isEmpty (set1 id failed)
 
 -- s4 of PG: the failing argument under a pattern match, and the same with a
--- failing call: [] or no value.
+-- failing call: no value.
 s4 :: [Bool]
 s4 = sortValues (set1 nilP failed)
 
@@ -198,7 +198,7 @@ s4h :: [Bool]
 s4h = sortValues (set1 nilP (head []))
 
 -- s4a, s4b: both failures outside, one captured and one passed; g1 demands
--- the captured one first, g2 the passed one: True or no value.
+-- the captured one first, g2 the passed one: no value.
 s4a :: Bool
 s4a = isEmpty (set1 (g1 failed) failed)
 
@@ -206,25 +206,25 @@ s4b :: Bool
 s4b = isEmpty (set1 (g2 failed) failed)
 
 -- s4c: the inner failure is created inside the capsule, and g1 demands the
--- argument first: True or no value.
+-- argument first: no value.
 s4c :: Bool
 s4c = isEmpty (set1 (\a -> g1 a failed) failed)
 
 -- The failing argument of the outer set function demanded inside the inner
--- capsule: both capsules fail.  False (the outer set holds the empty inner
--- set) or no value.
+-- capsule: the inner capsule fails under the guard of the outer set, and
+-- the outer capsule fails in turn.  No value.
 nestFail :: Bool
 nestFail = isEmpty (set1 (\x -> sortValues (set1 id x)) (failed :: Int))
 
 -- The failure is created inside the outer function and passed to the inner
--- set function: the inner set function fails, which drops the alternative
--- of the outer function.  False or True.
+-- set function: the inner set function fails for its own argument, a plain
+-- failure that drops the alternative of the outer function.  True.
 nestFailInner :: Bool
 nestFailInner =
   isEmpty (set1 (\_ -> sortValues (set1 id (failed :: Int))) (0 :: Int))
 
--- A value produced before the failing argument is demanded stays a value
--- under both settings: the set is lazy.
+-- A value produced before the failing argument is demanded stays a value:
+-- the set is lazy.
 lazyFirst :: Bool
 lazyFirst = notEmpty (set1 (\x -> 1 ? x) failed)
 
