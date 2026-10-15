@@ -1,0 +1,11 @@
+% python go.py
+rel goal1 c -> ['(True, Peter)', '(True, Susan)']
+rel goal2 g c -> ['(True, Antony, Andrew)', '(True, Antony, Peter)', '(True, Antony, Susan)', '(True, Bill, Andrew)']
+con goal1 c -> ['(True, Peter)', '(True, Susan)']
+con goal2 g c -> ['(True, Antony, Andrew)', '(True, Antony, Peter)', '(True, Antony, Susan)', '(True, Bill, Andrew)']
+fun goal1 -> ['John']
+fun goal2 c -> ['(True, Peter)', '(True, Susan)']
+fun goal3 g c -> ['(True, Antony, Peter)', '(True, Antony, Andrew)', '(True, Antony, Susan)', '(True, Bill, Andrew)']
+fun goal4 a -> ['(True, Frank)', '(True, Alice)', '(True, Maria)', '(True, Antony)', '(True, Bill)', '(True, Christine)']
+nd goal1 -> ['Antony']
+nd goal2 c -> ['(Antony, Peter)', '(Bill, Andrew)', '(Antony, Andrew)', '(Antony, Susan)']

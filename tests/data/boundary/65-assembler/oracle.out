@@ -1,0 +1,12 @@
+$ pakcs --nocypm -q :set safe :load assembler :eval 'main' :quit
+[9,4,9,0]
+
+$ pakcs --nocypm -q :set safe :load assembler :eval 'assembler [Label L0, Jump L1, Jump L0, Label L1] [] 0' :quit
+[9,4,9,0]
+
+$ pakcs --nocypm -q :set safe :load assembler :eval 'assembler [Label L1, Jump L2, Jump L2, Label L2, Jump L1] [] 0' :quit
+[9,4,9,4,9,0]
+
+$ pakcs --nocypm -q :set safe :load assembler :eval 'assembler [Jump L3] [] 0' :quit
+[9,_a]
+

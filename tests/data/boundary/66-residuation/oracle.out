@@ -1,0 +1,22 @@
+$ pakcs --nocypm -q :set safe :load rigidadd :eval 'goal' :quit
+True
+
+$ pakcs --nocypm -q :set safe :load rigidor :eval 'goal' :quit
+True
+
+$ pakcs --nocypm -q :set safe :load infresiduate :eval 'goal l where l free' :quit
+{l=[0]} True
+
+$ pakcs --nocypm -q :set safe :load Account :eval 'goal1 b where b free' :quit
+{b=250} True
+
+$ pakcs --nocypm -q :set safe :load Account :eval 'goal2 b where b free' :quit
+{b=150} True
+
+$ pakcs --nocypm -q :set safe :load Account :eval 'goal3 s where s free' :quit
+{s=[Deposit 100,Balance 100,Withdraw 30,Balance 70,Withdraw 30,Balance 40,Deposit 70,Balance 110,Withdraw 30,Balance 80,Withdraw 30,Balance 50]} True
+
+$ pakcs --nocypm -q :set safe :load digit :eval 'goal x y where x, y free' :quit
+{x=0, y=0} True
+{x=2, y=4} True
+

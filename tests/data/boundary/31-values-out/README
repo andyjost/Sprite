@@ -1,0 +1,20 @@
+31-values-out: the values that come back from Curry.
+
+Seam: values of a user type, a function as a value, a Char and a String out,
+the converter 'topython' and converter=None, the flag defaultconverter,
+curry.topython with and without a type, show_value of a free variable.
+Sources: memo A6, A9, A10; catalogue P18, P21, P23, P54; Using the API,
+"Conversions to Python".  Backends: py, cxx.  Oracle: oracle.out, the
+PAKCS 3.4.1 REPL on items, id inc, chr 65, emptyString, pairs, freeList.
+
+Expected output: items prints [A, B, C] and converts to a list of nodes, the
+constructors of a user type are left alone; id inc prints inc and converts
+to a partial-application node, whose repr differs by backend, so its class
+is printed; chr 65 is the str 'A'.  emptyString converts to '' through the
+type of the goal, while the value alone is [] in Curry and types as [a], so
+curry.topython gives [] without a type and '' with exprtype='String' (P18).
+pairs converts to [('', 0), ('ab', 1)].  The flag defaultconverter set in
+place converts by default, [2]; the assignment curry.flags = {...} rebinds
+the name of the package and changes nothing, [<Int 2>] (P54).  show_value
+prints the free variable of freeList as _a, as PAKCS does.  The Python
+backend prints a built string as _biString 'ab' (P23): none is printed.

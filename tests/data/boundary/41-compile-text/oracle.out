@@ -1,0 +1,18 @@
+$ pakcs --nocypm -q :set safe :load Nat :eval 'natFromInt 3' :quit
+I (I (I O))
+
+$ pakcs --nocypm -q :set safe :load Nat :eval 'natToInt (I O)' :quit
+1
+
+$ pakcs --nocypm -q :set safe :load Nat :eval 'natFromInt 5' :quit
+I (I (I (I (I O))))
+
+$ pakcs --nocypm -q :set safe :eval 'toEnum 65' :quit
+Overloaded type: Enum a => a
+Cannot handle arbitrary overloaded top-level expressions
+Hint: add type annotation to specialize the type
+% exit status 1
+
+$ pakcs --nocypm -q :set safe :eval '(toEnum 65) :: Char' :quit
+'A'
+

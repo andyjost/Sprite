@@ -1,0 +1,27 @@
+$ pakcs --nocypm -q :set safe :load Last :eval 'goal' :quit
+4
+
+$ pakcs --nocypm -q :set safe :load Member :eval 'goal1 x where x free' :quit
+{x=1} True
+{x=2} True
+{x=3} True
+
+$ pakcs --nocypm -q :set safe :load Member :eval 'goal2 x where x free' :quit
+{x=2} True
+{x=3} True
+
+$ pakcs --nocypm -q :set safe :load Nats :eval 'goal1' :quit
+S (S Z)
+
+$ pakcs --nocypm -q :set safe :load Nats :eval 'goal2' :quit
+Z
+S Z
+S (S Z)
+
+$ pakcs --nocypm -q :set safe :load Nats :eval 'sub (S (S (S Z))) (S Z)' :quit
+S (S Z)
+
+$ pakcs --nocypm -q :set safe :load Nats :eval 'sub (S Z) (S (S (S Z)))' :quit
+*** No value found!
+% exit status 2
+

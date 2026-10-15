@@ -1,0 +1,19 @@
+61-puzzles: constraint puzzles with several free variables, from Python.
+
+Seam: a goal with two to four free parameters gets markers from
+curry.free(), paired with the goal in a tuple to read the bindings back; a
+Peano term read back is a Curry value, counted by its text; a Curry tuple
+indexes by an int and not by a slice.
+Sources: PAKCS 3.4.1 examples horseman.curry, colormap.curry (Michael
+Hanus, BSD license); catalogue P5, P7, P23.
+Backends: py, cxx.  Oracle: oracle.out (PAKCS 3.4.1 on the same goals).
+
+Expected output: goal1 gives two men and one horse; goal2 six men and two
+horses; goal3 three pairs with two heads (the feet 4, 6, 8).  colormap.goal
+has 256 values in Sprite, 48 of them True, where PAKCS prints 48 rows: the
+goal is coloring & correct, and Sprite's (&) yields False when one side is
+False, where PAKCS's (&) has no value (oracle.out shows False & True and
+True & False with "*** No value found!").  The difference is recorded in
+the README of the corpus; the count 256 pins today's behaviour and changes
+if (&) follows PAKCS.  The order of the values is the scheduler's under
+step mode.

@@ -1,0 +1,21 @@
+$ pakcs --nocypm -q :set safe :load inflists :eval 'goal1' :quit
+[1,1,2,3,5,8,13,21,34,55]
+
+$ pakcs --nocypm -q :set safe :load inflists :eval 'goal2' :quit
+[2,3,5,7,11]
+
+$ pakcs --nocypm -q :set safe :load inflists :eval 'goal3' :quit
+[1,2,3,4,5,6,8,9,10,12]
+
+$ pakcs --nocypm -q :set safe :load inflists :eval 'take 15 fibs' :quit
+[1,1,2,3,5,8,13,21,34,55,89,144,233,377,610]
+
+$ pakcs --nocypm -q :set safe :load First :eval 'goal1' :quit
+[O,S O]
+
+$ pakcs --nocypm -q :set safe :load First :eval 'goal2 x y where x, y free' :quit
+{x=S O, y=O} True
+
+$ pakcs --nocypm -q :set safe :eval 'take 3 [10, 11, 12, 13, 14]' :quit
+[10,11,12]
+

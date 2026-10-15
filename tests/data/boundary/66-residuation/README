@@ -1,0 +1,18 @@
+66-residuation: residuation and concurrency driven from Python.
+
+Seam: goals that suspend on a free variable (ensureNotFree, ensureSpine)
+until a generator or an equation under the concurrent conjunction (&)
+binds it; an active object over a stream of messages; arithmetic as a
+passive constraint.  The free parameters of the goals come from
+curry.free(), paired with the goal in a tuple.
+Sources: PAKCS 3.4.1 examples rigidadd.curry, rigidor.curry,
+infresiduate.curry, Account.curry, digit.curry (Michael Hanus, BSD
+license); catalogue P5, P7, P21 (suspension).
+Backends: py, cxx (both ran; the Python backend takes about two seconds).
+Oracle: oracle.out (PAKCS 3.4.1 on the same goals).
+
+Expected output: rigidadd.goal and rigidor.goal are True; infresiduate
+binds l to [0]; Account.goal1 binds b to 250 and goal2 to 150; Account.goal3
+binds s to the twelve messages the client and the account exchanged until
+the balance reached 50; digit.goal gives (0, 0) and (2, 4).  Every value
+agrees with PAKCS.  Pins no defect.

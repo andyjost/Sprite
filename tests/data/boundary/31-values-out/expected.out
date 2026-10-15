@@ -1,0 +1,12 @@
+% python go.py
+items -> ['[A, B, C]']
+items converted -> [[<A>, <B>, <C>]]
+id inc -> ['inc'] Node
+chr 65 -> ["'A'"] ['A']
+emptyString -> ['[]'] ['']
+topython -> [] ''
+pairs -> ['[([], 0), ("ab", 1)]'] [[('', 0), ('ab', 1)]]
+converter=None -> ['Node']
+flags['defaultconverter'] = 'topython' -> [2]
+flags = {...} -> [<Int 2>]
+freeList -> [_a]

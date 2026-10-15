@@ -1,0 +1,31 @@
+% sprite-exec Tools.curry -g coin
+0
+1
+% sprite-exec Tools.curry -g nothing
+% sprite-exec Tools.curry -g boom
+exit status 1
+% sprite-exec Tools.curry
+3
+% python -m curry.tools.icy < commands
+Prelude> Tools> 0
+1
+Tools> {ins=["x"]} "cmd1"
+{ins=["y", "z"]} "cmd2"
+Tools> coin :: Int
+Tools> Tools> Tools> 3
+Tools> 
+% python go.py
+coin:
+0
+1
+rule "a" ins where ins free:
+{ins=["x"]} "cmd1"
+{ins=["y", "z"]} "cmd2"
+:type coin -> coin :: Int
+nothing:
+boom:
+EvaluationError: boom
+three:
+3
+main:
+3

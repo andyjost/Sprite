@@ -1,0 +1,8 @@
+$ pakcs --nocypm -q :set safe :load Rule :eval 'rule "a" ins where ins free' :quit
+{ins=["x"]} "cmd1"
+{ins=["y","z"]} "cmd2"
+
+$ pakcs --nocypm -q :set safe :load Rule :eval 'rulePair "a" ins where ins free' :quit
+{ins=["x"]} ("cmd1",["x"])
+{ins=["y","z"]} ("cmd2",["y","z"])
+

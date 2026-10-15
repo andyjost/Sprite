@@ -1,0 +1,14 @@
+% python go.py
+anonymous module -> sprite__interactive_0 ['Prelude', 'sprite__interactive_0']
+natFromInt 3 -> ['I (I (I O))']
+'Named' in curry.modules -> True
+the same name again !! ValueError: module 'Named' is already defined
+five -> ['I (I (I (I (I O))))']
+imports=['Data.List'] !! KeyError: 'Data.List'
+the import line of the text -> [[1, 2]]
+'natFromInt 3' as an expression -> ['I (I (I O))']
+'natToInt (I O)' with exprtype='Int' -> [1] Int
+eval('natToInt O') -> ['natToInt O']
+'toEnum 65' without a type !! CompileError: add a type annotation (exprtype)
+'toEnum 65' with exprtype='Char' -> ['A']
+a syntax error !! CompileError

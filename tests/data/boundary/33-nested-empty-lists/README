@@ -1,0 +1,20 @@
+33-nested-empty-lists: a value with the empty list at two types crosses
+back into a typed call.  Pins issue #108 (open).
+
+Seam: the typed walk of a value of curry.eval, a raw node and a recorded
+curry.expr([]) with [] at two types; the shared [] node of the C++ backend.
+Sources: catalogue P19, P22; issue #108; the memo's revision note on the
+shared empty list under the identity-keyed record.  Backends: py, cxx.
+Oracle: none, the goals are Python.
+
+Expected output: every line passes.  The values of the issue type as
+[[Int]], [[Char]] and ([Int], [Char]); unwords of the value ['ab', 'c']
+gives 'ab c'; a recorded curry.expr([]) reused at two types in one
+expression types as ([a], Int) and [[Char]]; one [] node of a value used
+at [Int] and at String in one call passes through id; a value with [] at
+two types types as ([a], [b]) and passes through id.  The issue says these
+lines raise MismatchError on the C++ backend.  On 2026-10-15 at ef96509d
+none did, on either backend, although the empty list is one shared node
+there (curry.expr([]) is curry.expr([]) holds on cxx and not on py, so
+that fact stays out of expected.out).  The owner decides what the issue
+pins now; a fixed or a regressed walk changes this file visibly.

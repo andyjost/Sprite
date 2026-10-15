@@ -1,0 +1,20 @@
+$ pakcs --nocypm -q :set safe :eval 'x =:= 1 where x free' :quit
+{x=1} True
+
+$ pakcs --nocypm -q :set safe :eval 'xs ++ [3] =:= [1,2,3] where xs free' :quit
+{xs=[1,2]} True
+
+$ pakcs --nocypm -q :set safe :eval '(xs =:= [1], [0]) where xs free' :quit
+{xs=[1]} (True,[0])
+
+$ pakcs --nocypm -q :set safe :eval '(xs =:= [1 :: Int], [0 :: Int]) where xs free' :quit
+{xs=[1]} (True,[0])
+
+$ pakcs --nocypm -q :set safe :eval 'x =:= 1 where x free -- comment' :quit
+True
+
+$ pakcs --nocypm -q :set safe :eval 'xs ++ ys =:= [1,2] where xs, ys free' :quit
+{xs=[], ys=[1,2]} True
+{xs=[1], ys=[2]} True
+{xs=[1,2], ys=[]} True
+

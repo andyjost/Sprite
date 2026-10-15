@@ -1,0 +1,14 @@
+% python go.py
+first.f -> [1]
+sorted(curry.modules) after reset -> ['Prelude']
+second.f -> [2]
+first is second -> False
+first.f after the reset -> [2]
+first.f.interpreter is None -> False
+curry.reload -> Hard-resets the interpreter.  Any flags supplied will be forwarded to the
+sorted(curry.modules) after reload -> []
+third.f -> [3]
+curry.import_('Same') is third -> True
+sorted(curry.modules) -> ['Prelude', 'Same']
+second.f after the reload -> [3]
+first.f after the reload -> [3]

@@ -1,0 +1,15 @@
+% python go.py
+map inc [1, 2] -> [[2, 3]]
+typeof inc -> 'Int -> Int'
+typeof (rule 'a') -> '[[Char]] -> [Char]'
+map (rule 'a') inputs -> [['cmd1', 'cmd2']]
+str (id inc 1) -> 'apply (id inc) 1'
+id inc 1 -> [2]
+inc 1 2 !! ArityError: App.inc :: Int -> Int takes 1 argument, 2 given
+typeof show -> 'Show a => a -> [Char]'
+show !! DefaultingError: cannot handle the overloaded goal Prelude.show of type Show a => a -> [Char]
+  Cannot handle arbitrary overloaded top-level expressions
+  add a type signature
+show 1 -> ['1']
+rule 'a' ['x'] -> ['cmd1']
+usesRel rule -> ['cmd2']

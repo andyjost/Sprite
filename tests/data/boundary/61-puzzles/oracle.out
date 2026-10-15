@@ -1,0 +1,69 @@
+$ pakcs --nocypm -q :set safe :load horseman :eval 'goal1 m h where m, h free' :quit
+{m=S (S O), h=S O} True
+
+$ pakcs --nocypm -q :set safe :load horseman :eval 'goal2 m h where m, h free' :quit
+{m=S (S (S (S (S (S O))))), h=S (S O)} True
+
+$ pakcs --nocypm -q :set safe :load horseman :eval 'goal3 m h hd where m, h, hd free' :quit
+{m=O, h=S (S O), hd=S (S (S (S (S (S (S (S O)))))))} True
+{m=S O, h=S O, hd=S (S (S (S (S (S O)))))} True
+{m=S (S O), h=O, hd=S (S (S (S O)))} True
+
+$ pakcs --nocypm -q :set safe :load colormap :eval 'goal l1 l2 l3 l4 where l1, l2, l3, l4 free' :quit
+{l1=Red, l2=Yellow, l3=Green, l4=Red} True
+{l1=Red, l2=Yellow, l3=Green, l4=Blue} True
+{l1=Red, l2=Yellow, l3=Blue, l4=Red} True
+{l1=Red, l2=Yellow, l3=Blue, l4=Green} True
+{l1=Red, l2=Green, l3=Yellow, l4=Red} True
+{l1=Red, l2=Green, l3=Yellow, l4=Blue} True
+{l1=Red, l2=Green, l3=Blue, l4=Red} True
+{l1=Red, l2=Green, l3=Blue, l4=Yellow} True
+{l1=Red, l2=Blue, l3=Yellow, l4=Red} True
+{l1=Red, l2=Blue, l3=Yellow, l4=Green} True
+{l1=Red, l2=Blue, l3=Green, l4=Red} True
+{l1=Red, l2=Blue, l3=Green, l4=Yellow} True
+{l1=Yellow, l2=Red, l3=Green, l4=Yellow} True
+{l1=Yellow, l2=Red, l3=Green, l4=Blue} True
+{l1=Yellow, l2=Red, l3=Blue, l4=Yellow} True
+{l1=Yellow, l2=Red, l3=Blue, l4=Green} True
+{l1=Yellow, l2=Green, l3=Red, l4=Yellow} True
+{l1=Yellow, l2=Green, l3=Red, l4=Blue} True
+{l1=Yellow, l2=Green, l3=Blue, l4=Red} True
+{l1=Yellow, l2=Green, l3=Blue, l4=Yellow} True
+{l1=Yellow, l2=Blue, l3=Red, l4=Yellow} True
+{l1=Yellow, l2=Blue, l3=Red, l4=Green} True
+{l1=Yellow, l2=Blue, l3=Green, l4=Red} True
+{l1=Yellow, l2=Blue, l3=Green, l4=Yellow} True
+{l1=Green, l2=Red, l3=Yellow, l4=Green} True
+{l1=Green, l2=Red, l3=Yellow, l4=Blue} True
+{l1=Green, l2=Red, l3=Blue, l4=Yellow} True
+{l1=Green, l2=Red, l3=Blue, l4=Green} True
+{l1=Green, l2=Yellow, l3=Red, l4=Green} True
+{l1=Green, l2=Yellow, l3=Red, l4=Blue} True
+{l1=Green, l2=Yellow, l3=Blue, l4=Red} True
+{l1=Green, l2=Yellow, l3=Blue, l4=Green} True
+{l1=Green, l2=Blue, l3=Red, l4=Yellow} True
+{l1=Green, l2=Blue, l3=Red, l4=Green} True
+{l1=Green, l2=Blue, l3=Yellow, l4=Red} True
+{l1=Green, l2=Blue, l3=Yellow, l4=Green} True
+{l1=Blue, l2=Red, l3=Yellow, l4=Green} True
+{l1=Blue, l2=Red, l3=Yellow, l4=Blue} True
+{l1=Blue, l2=Red, l3=Green, l4=Yellow} True
+{l1=Blue, l2=Red, l3=Green, l4=Blue} True
+{l1=Blue, l2=Yellow, l3=Red, l4=Green} True
+{l1=Blue, l2=Yellow, l3=Red, l4=Blue} True
+{l1=Blue, l2=Yellow, l3=Green, l4=Red} True
+{l1=Blue, l2=Yellow, l3=Green, l4=Blue} True
+{l1=Blue, l2=Green, l3=Red, l4=Yellow} True
+{l1=Blue, l2=Green, l3=Red, l4=Blue} True
+{l1=Blue, l2=Green, l3=Yellow, l4=Red} True
+{l1=Blue, l2=Green, l3=Yellow, l4=Blue} True
+
+$ pakcs --nocypm -q :set safe :eval 'False & True' :quit
+*** No value found!
+% exit status 2
+
+$ pakcs --nocypm -q :set safe :eval 'True & False' :quit
+*** No value found!
+% exit status 2
+

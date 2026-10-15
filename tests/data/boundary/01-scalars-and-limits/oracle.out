@@ -1,0 +1,38 @@
+$ pakcs --nocypm -q :set safe :eval 'not True' :quit
+False
+
+$ pakcs --nocypm -q :set safe :eval 'succ True' :quit
+*** No value found!
+% exit status 2
+
+$ pakcs --nocypm -q :set safe :eval '9223372036854775807' :quit
+9223372036854775807
+
+$ pakcs --nocypm -q :set safe :eval '(-9223372036854775808) :: Int' :quit
+(-9223372036854775808)
+
+$ pakcs --nocypm -q :set safe :eval '2^62 + 2^62' :quit
+9223372036854775808
+
+$ pakcs --nocypm -q :set safe :eval 'div 1 0' :quit
+ERROR: error(evaluation_error(zero_divisor),context(/(div,2),_))
+% exit status 1
+
+$ pakcs --nocypm -q :set safe :eval 'mod 1 0' :quit
+ERROR: error(evaluation_error(zero_divisor),context(/(mod,2),_))
+% exit status 1
+
+$ pakcs --nocypm -q :set safe :eval 'sqrt 4' :quit
+2.0
+
+$ pakcs --nocypm -q :set safe :eval '1 + 2.5' :quit
+3.5
+
+$ pakcs --nocypm -q :set safe :eval 'succ 1' :quit
+2
+
+$ pakcs --nocypm -q :set safe :eval 'succ 1.5' :quit
+Overloaded type: (Enum a, Fractional a) => a
+Cannot handle arbitrary overloaded top-level expressions
+Hint: add type annotation to specialize the type
+% exit status 1

@@ -1,0 +1,6 @@
+% python go.py
+f -> [1]
+import_('Ed') is the loaded module -> True
+f after the edit -> [1]
+f after the background compile -> [1]
+f after reset and import -> [2]

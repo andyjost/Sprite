@@ -1,0 +1,9 @@
+% python go.py
+goal1 -> [[1, 1, 2, 3, 5, 8, 13, 21, 34, 55]]
+goal2 -> [[2, 3, 5, 7, 11]]
+goal3 -> [[1, 2, 3, 4, 5, 6, 8, 9, 10, 12]]
+take 15 fibs -> [[1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610]]
+First.goal1 -> ['[O, S O]']
+(First.goal2 x y, x, y) -> ['(True, S O, O)']
+take 3 (count 10) -> [[10, 11, 12]]
+next of the iterator -> 13

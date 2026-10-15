@@ -1,0 +1,29 @@
+$ pakcs --nocypm -q :set safe :load Stream :eval 'three' :quit
+1
+2
+3
+
+$ pakcs --nocypm -q :set safe :load Stream :eval 'mixed' :quit
+1
+ERROR: boom
+% exit status 1
+
+$ pakcs --nocypm -q :set safe :load Stream :eval 'nothing' :quit
+*** No value found!
+% exit status 2
+
+$ pakcs --nocypm -q :set safe :load Stream :eval 'x + 1 =:= 3 where x free' :quit
+*** Evaluation suspended!
+*** Warning: there are suspended constraints (for details: ":set +suspend")
+*** Possible reasons for the suspension:
+Applying a primitive (rigid) operation to a free variable
+{x=_720}
+
+$ pakcs --nocypm -q :set safe :load Stream :eval '(x =:= 1) ? (y + 1 =:= 3) where x, y free' :quit
+{x=1, y=y} True
+*** Evaluation suspended!
+*** Warning: there are suspended constraints (for details: ":set +suspend")
+*** Possible reasons for the suspension:
+Applying a primitive (rigid) operation to a free variable
+{x=x, y=_836}
+

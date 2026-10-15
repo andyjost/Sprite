@@ -1,0 +1,18 @@
+Containers
+==========
+
+Seam: a list, a tuple, the unit, the 1-tuple, the 15-tuple limit, a
+range, an iterator and an exhausted one, nested and shared data (memo A2).
+Catalogue: P8 (the 16-tuple), P9 (iterators).  Issues: none.
+Output: a list crosses with one element type, so [1, 2.5] is [1.0, 2.5] of
+type Fractional a => [a].  () is the unit; (1,) is a ConversionError.  The
+14-tuple comes back as a Python tuple.  The 15-tuple crosses in and types,
+but the converter stops at 14 components and hands back the node, which
+prints in its raw form.  The 16-tuple types and then fails as a
+SymbolLookupError on a symbol the user never wrote (P8).  range(3) has no
+row in the table; list(range(3)) crosses.  An iterator is a lazy list:
+take 3 of itertools.count(10) is [10, 11, 12], and iter([1, 2]) has length
+2 at its first use and 0 at the second (P9).  A Python list used twice in
+one tuple crosses as a pair of equal lists.
+Oracle: oracle.out holds the PAKCS 3.4.1 transcripts of the plain goals.
+Backends: py and cxx, one output.

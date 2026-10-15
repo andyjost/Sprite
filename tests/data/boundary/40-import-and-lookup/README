@@ -1,0 +1,19 @@
+40-import-and-lookup: import by name and by file, the path, the loaded
+modules, and what a module offers.
+
+Seam: curry.import_ by name and by path (is_sourcefile=True), curry.path
+changed in place against an assignment (P54), curry.modules, the
+attributes of a module object against curry.type, getattr for an operator
+and for a keyword, curry.symbol with a dotted name (P33), curry.module for
+a library module, inspect.symbols against dir (P34).
+Sources: memo A13, A14; catalogue P33, P34, P39, P54; Using the API,
+"Importing Curry Modules" and "Inspecting Symbols".
+Backends: py, cxx.  Oracle: none (no goal is plain Curry).
+
+Expected output: the path without the flag is a ModuleLookupError and with
+it the module 'Lookup'; the assignment to curry.path leaves the
+interpreter's list; Lookup.Item is an AttributeError where curry.type
+gives the constructors A and B; inspect.symbols lists the private helper
+and not the exported operator, where dir lists the operator and not
+helper; curry.symbol('Data.List.nub') fails before Data.List is imported
+and works after.  Pins no defect; the warts are P33, P34, P39 and P54.

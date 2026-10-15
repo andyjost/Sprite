@@ -1,0 +1,20 @@
+21-pairing-of-103: a free variable from Python and the values of a
+nondeterministic goal.  Pins issue #103 (open).
+
+Seam: curry.free() passed to a goal with two alternatives; the escapes that
+pair a value with its binding; the text route.
+Sources: memo A11; catalogue P20, P24, P42; issue #103.  Backends: py, cxx.
+Oracle: oracle.out, the PAKCS 3.4.1 REPL on rule "a" ins and rulePair "a" ins
+with "where ins free".
+
+Expected output: rule "a" ins gives ['cmd1', 'cmd2'] and the marker
+afterwards is _a: the pairing of a value with its binding of ins is lost,
+which is the defect.  A fixed system (A11: curry.free('ins') and a Bindings
+on both routes) gives [('cmd1', ['x']), ('cmd2', ['y', 'z'])] for that first
+call, and expected.out changes there.  The escapes work today: the tuple
+(rule "a" ins, ins) and the Curry function rulePair give the pairs, since a
+variable inside a value is resolved per alternative.  A positional after a
+list goal is a CurryTypeError, not a request for the binding.  The text
+route gives a Bindings per value, {ins=["x"]} "cmd1" and
+{ins=["y", "z"]} "cmd2", with the value and the bindings as attributes
+(P20); PAKCS prints the same with no space after the comma.

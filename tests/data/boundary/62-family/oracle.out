@@ -1,0 +1,50 @@
+$ pakcs --nocypm -q :set safe :load family_rel :eval 'goal1 c where c free' :quit
+{c=Susan} True
+{c=Peter} True
+
+$ pakcs --nocypm -q :set safe :load family_rel :eval 'goal2 g c where g, c free' :quit
+{g=Antony, c=Susan} True
+{g=Antony, c=Peter} True
+{g=Bill, c=Andrew} True
+{g=Antony, c=Andrew} True
+
+$ pakcs --nocypm -q :set safe :load family_con :eval 'goal1 c where c free' :quit
+{c=Susan} True
+{c=Peter} True
+
+$ pakcs --nocypm -q :set safe :load family_con :eval 'goal2 g c where g, c free' :quit
+{g=Antony, c=Susan} True
+{g=Antony, c=Peter} True
+{g=Bill, c=Andrew} True
+{g=Antony, c=Andrew} True
+
+$ pakcs --nocypm -q :set safe :load family_fun :eval 'goal1' :quit
+John
+
+$ pakcs --nocypm -q :set safe :load family_fun :eval 'goal2 c where c free' :quit
+{c=Susan} True
+{c=Peter} True
+
+$ pakcs --nocypm -q :set safe :load family_fun :eval 'goal3 g c where g, c free' :quit
+{g=Antony, c=Susan} True
+{g=Antony, c=Peter} True
+{g=Bill, c=Andrew} True
+{g=Antony, c=Andrew} True
+
+$ pakcs --nocypm -q :set safe :load family_fun :eval 'goal4 a where a free' :quit
+{a=Frank} True
+{a=Alice} True
+{a=Antony} True
+{a=Bill} True
+{a=Christine} True
+{a=Maria} True
+
+$ pakcs --nocypm -q :set safe :load family_nd :eval 'goal1' :quit
+Antony
+
+$ pakcs --nocypm -q :set safe :load family_nd :eval 'goal2 c where c free' :quit
+{c=Susan} Antony
+{c=Peter} Antony
+{c=Andrew} Bill
+{c=Andrew} Antony
+

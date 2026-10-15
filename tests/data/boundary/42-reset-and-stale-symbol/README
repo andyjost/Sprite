@@ -1,0 +1,18 @@
+42-reset-and-stale-symbol: a module of the same name after curry.reset and
+curry.reload, and a symbol that outlives the reset.
+
+Seam: curry.compile under one modulename three times across a soft reset
+and a hard reset; the module objects and the symbols kept alive in Python.
+Sources: memo A13, A17; catalogue P30, P35; issue #114 (open).
+Backends: cxx.  The Python backend differs on the old symbols: there
+first.f stays 1 and second.f stays 2 after the resets.  Oracle: none.
+
+Expected output pins today's behaviour of #114 on the C++ backend: after
+the reset, second.f is 2 (the first symptom, fixed at 3d79a27e) and the
+old symbol first.f evaluates to 2 as well; after the reload, first.f and
+second.f both evaluate to 3, the code of the newest module of that name.
+curry.modules holds the Prelude after reset and is empty right after
+reload, until the next import.  A fixed system refuses the evaluation of
+first.f after the reset with an error (the expectation of #114); the lines
+"first.f after the reset", "second.f after the reload" and "first.f after
+the reload" change then.

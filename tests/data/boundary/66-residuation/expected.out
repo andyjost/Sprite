@@ -1,0 +1,20 @@
+% python go.py
+rigidadd.goal -> [True]
+rigidor.goal -> [True]
+(infresiduate.goal l, l) -> [(True, [0])]
+(Account.goal1 b, b) -> [(True, 250)]
+(Account.goal2 b, b) -> [(True, 150)]
+(Account.goal3 s, s) -> True
+   Deposit 100
+   Balance 100
+   Withdraw 30
+   Balance 70
+   Withdraw 30
+   Balance 40
+   Deposit 70
+   Balance 110
+   Withdraw 30
+   Balance 80
+   Withdraw 30
+   Balance 50
+(digit.goal x y, x, y) -> [(True, 0, 0), (True, 2, 4)]

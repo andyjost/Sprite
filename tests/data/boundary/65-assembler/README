@@ -1,0 +1,17 @@
+65-assembler: a one-pass assembler whose forward references are logic
+variables, driven from Python.
+
+Seam: the input program built in Python as a list of user constructors;
+each instruction is curry.expr(M.Jump, M.L1) because a list whose first
+element is a symbol is an application (#104, open; memo A1); an unbound
+variable in a value out.
+Sources: PAKCS 3.4.1 examples assembler.curry (Michael Hanus, BSD license);
+catalogue P5, P7; issue #104.
+Backends: py, cxx.  Oracle: oracle.out (PAKCS 3.4.1 on the same goals).
+
+Expected output: main and the program built in Python give [9, 4, 9, 0]:
+the jump to L1 is assembled before L1 is reached, its address is a free
+variable that the label binds to 4.  The second program, with two forward
+jumps and one backward, gives [9, 4, 9, 4, 9, 0].  A jump to a label that
+is never defined leaves its address unbound: [9, _a], as PAKCS prints.
+Pins no defect; the spelling of the list is the wart of #104.

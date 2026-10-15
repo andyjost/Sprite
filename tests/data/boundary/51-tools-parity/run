@@ -1,0 +1,29 @@
+#!/bin/bash
+# Runs sprite-exec and the REPL on the goals of Tools.curry, then the driver,
+# which evaluates the same goals through the API.
+set -euo pipefail
+cd "$(dirname "$0")"
+: "${SPRITE_HOME:=$(cd ../../../.. && pwd)/install}"
+export SPRITE_HOME
+export SPRITE_INTERPRETER_FLAGS="${SPRITE_INTERPRETER_FLAGS:-backend:cxx}"
+export SPRITE_ROTATION="${SPRITE_ROTATION:-steps:65536}"
+export LC_ALL=C.UTF-8 PYTHONIOENCODING=utf-8
+unset CURRYPATH
+# sprite-exec: a goal with two values, a goal without a value (exit 0), a
+# goal that raises (its message goes to stderr, the exit status is 1), and
+# main.
+echo '% sprite-exec Tools.curry -g coin'
+"$SPRITE_HOME/bin/sprite-exec" Tools.curry -g coin
+echo '% sprite-exec Tools.curry -g nothing'
+"$SPRITE_HOME/bin/sprite-exec" Tools.curry -g nothing
+echo '% sprite-exec Tools.curry -g boom'
+"$SPRITE_HOME/bin/sprite-exec" Tools.curry -g boom || echo "exit status $?"
+echo '% sprite-exec Tools.curry'
+"$SPRITE_HOME/bin/sprite-exec" Tools.curry
+# The REPL on the same goals.  Its error report for boom goes to stderr.
+echo '% python -m curry.tools.icy < commands'
+printf ':load Tools.curry\ncoin\nrule "a" ins where ins free\n:type coin\nnothing\nboom\nthree\n:quit\n' \
+  | "$SPRITE_HOME/bin/python" -m curry.tools.icy
+echo
+echo '% python go.py'
+"$SPRITE_HOME/bin/python" go.py

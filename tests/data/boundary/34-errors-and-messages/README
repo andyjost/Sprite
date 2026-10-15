@@ -1,0 +1,20 @@
+34-errors-and-messages: the errors a Python caller meets at the boundary.
+
+Seam: the first line of the messages of the typed boundary, the hint of the
+defaulting error, the classes of the exceptions and what a try catches, a
+leaked ValueError, the report of the front end without its command line.
+Sources: memo A4, A20, A21; catalogue P1, P7, P41, P42, P43, P44, P45; Using
+the API, "Typed Expressions" (the error catalogue).  Backends: py, cxx.  Oracle:
+none, the goals are Python.
+
+Expected output: MismatchError for length of a Char, ArityError for inc 1 2,
+NoInstanceError for succ of a list of functions, ConversionError for None;
+each message names the symbol and its scheme (P44).  eval(show) is a
+DefaultingError of three lines, with the sentence of the PAKCS REPL and the
+hint "add a type signature", which a Python call cannot follow.  The four
+typed errors are CurryTypeErrors, which are TypeErrors; EvaluationError and
+CompileError are not Exceptions, so "except Exception" lets an evaluation
+error escape and "except BaseException" catches it (P42).  curry.free('x')
+leaks a ValueError (P43; the id is positional and there is no name, P7).  The CompileError of "1 +" carries the command
+line of the front end with the install path (P45); the driver prints the
+class and the report line "Unexpected end-of-file".  Pins no defect.

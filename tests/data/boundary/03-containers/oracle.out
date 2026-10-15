@@ -1,0 +1,26 @@
+$ pakcs --nocypm -q :set safe :eval 'length [1, 2, 3]' :quit
+3
+
+$ pakcs --nocypm -q :set safe :eval 'concat [[1, 2], [], [3]]' :quit
+[1,2,3]
+
+$ pakcs --nocypm -q :set safe :eval '[1, 2.5]' :quit
+[1.0,2.5]
+
+$ pakcs --nocypm -q :set safe :eval '()' :quit
+()
+
+$ pakcs --nocypm -q :set safe :eval '(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)' :quit
+(0,1,2,3,4,5,6,7,8,9,10,11,12,13)
+
+$ pakcs --nocypm -q :set safe :eval '(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)' :quit
+(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14)
+
+$ pakcs --nocypm -q :set safe :eval 'take 3 [10 ..]' :quit
+[10,11,12]
+
+$ pakcs --nocypm -q :set safe :eval 'length [1, 2]' :quit
+2
+
+$ pakcs --nocypm -q :set safe :eval '([1, 2], [1, 2])' :quit
+([1,2],[1,2])

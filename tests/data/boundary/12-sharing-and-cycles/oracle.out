@@ -1,0 +1,36 @@
+$ pakcs --nocypm -q :set safe :load Coin :eval 'let t = coin in (t, t)' :quit
+(0,0)
+(1,1)
+
+$ pakcs --nocypm -q :set safe :load Coin :eval '(coin, coin)' :quit
+(0,0)
+(0,1)
+(1,0)
+(1,1)
+
+$ pakcs --nocypm -q :set safe :load Coin :eval 'double coin' :quit
+0
+2
+
+$ pakcs --nocypm -q :set safe :load Coin :eval 'coin + coin' :quit
+0
+1
+1
+2
+
+$ pakcs --nocypm -q :set safe :load Coin :eval 'take 3 (let a = 1 : a in a)' :quit
+[1,1,1]
+
+$ pakcs --nocypm -q :set safe :load Coin :eval 'let c = 1 ? 2 in (c, c)' :quit
+(1,1)
+(2,2)
+
+$ pakcs --nocypm -q :set safe :load Coin :eval '(1 ? 2, 1 ? 2)' :quit
+(1,1)
+(1,2)
+(2,1)
+(2,2)
+
+$ pakcs --nocypm -q :set safe :load Coin :eval '1 ? 2' :quit
+1
+2

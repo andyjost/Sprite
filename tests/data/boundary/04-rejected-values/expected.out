@@ -1,0 +1,13 @@
+% python go.py
+Just None !! ConversionError: cannot convert None at argument 1 of Prelude.Just :: a -> Maybe a; expected a
+{'a': 1} !! CurryTypeError: cannot build a Curry expression from type 'dict'
+{1} !! CurryTypeError: cannot build a Curry expression from type 'set'
+lambda x: x !! CurryTypeError: cannot build a Curry expression from type 'function'
+b'ab' -> ['ab']
+length (eval coin) -> [2]
+id (unboxed 1) !! ConversionError: curry.unboxed(1) stands at argument 1 of Prelude.id :: a -> a; the marker is the payload of an Int, Char or Float, as in [Prelude.Int, curry.unboxed(1)]
+converter='bogus' -> [<Int 2>]
+'topython' positional !! ArityError: Rej.inc :: Int -> Int takes 1 argument, 2 given
+converter=None -> [<Int 2>]
+converter=convert -> [('converted', '2')]
+converter=str -> 'TypeError'

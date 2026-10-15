@@ -1,0 +1,15 @@
+% python go.py
+(t, t) -> [(0, 0), (1, 1)]
+(coin, coin) -> [(0, 0), (0, 1), (1, 0), (1, 1)]
+double coin -> [0, 2]
+coin + coin -> [0, 1, 1, 2]
+vals(t) -> [0, 1]
+vals(t), again -> [0, 1]
+str (take 3 a) -> 'take 3 [1, ...]'
+take 3 a -> [[1, 1, 1]]
+(c, c) -> [(1, 1), (2, 2)]
+(1 ? 2, 1 ? 2) -> [(1, 1), (1, 2), (2, 1), (2, 2)]
+convertor='topython' -> [<Int 2>]
+str (choice 1 2) -> '(?) 1 2'
+choice 1 2 -> [1, 2]
+choice 1 2 3 -> [2, 3]

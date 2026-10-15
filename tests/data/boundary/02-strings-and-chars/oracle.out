@@ -1,0 +1,29 @@
+$ pakcs --nocypm -q :set safe :load Str :eval "ord 'a'" :quit
+97
+
+$ pakcs --nocypm -q :set safe :load Str :eval 'length "a"' :quit
+1
+
+$ pakcs --nocypm -q :set safe :load Str :eval 'length ""' :quit
+0
+
+$ pakcs --nocypm -q :set safe :load Str :eval "show 'a'" :quit
+"'a'"
+
+$ pakcs --nocypm -q :set safe :load Str :eval 'show "a"' :quit
+"\"a\""
+
+$ pakcs --nocypm -q :set safe :load Str :eval 'strInTuple ("a", 1)' :quit
+"a1"
+
+$ pakcs --nocypm -q :set safe :load Str :eval 'names [("a", 1)]' :quit
+["a"]
+
+$ pakcs --nocypm -q :set safe :load Str :eval 'names [("a", 1), ("b", 2)]' :quit
+["a","b"]
+
+$ pakcs --nocypm -q :set safe :load Str :eval 'chr 65' :quit
+'A'
+
+$ pakcs --nocypm -q :set safe :load Str :eval 'ord (chr 65)' :quit
+65

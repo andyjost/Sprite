@@ -1,0 +1,19 @@
+32-value-data-model: a Curry value as a Python object.
+
+Seam: equality, hash, order, truth, len and indexing of a node; the forward
+node after an evaluation; the trusted annotation of curry.typed.
+Sources: memo A9; catalogue P15, P16, P17, P18, P22.  Backends: cxx.
+Oracle: none, the goals are Python.
+
+Expected output: two values 42 are equal and hash apart, so a set keeps
+both, and a node never equals the int 42 (P15).  sorted(coins) is a
+TypeError, the nodes define no order; key=str works.  The node False is
+true in Python: the C++ node has no __bool__.  A list value has no len;
+n[0] is the head <Int 1> and n[1] the tail <: <Int 2> <[]>> (P16).  The
+goal node inc 1 is <_Fwd <Int 2>> after its evaluation; a second
+evaluation gives 2 through the recorded type, and curry.topython(e) returns
+the forward node unchanged (P17).  curry.typed(e, 'Bool') types as Bool,
+unchecked (P22).  The Python backend differs on three lines and the driver
+is declared on the C++ backend alone: bool(f) is False, len(n) is 2 (the
+successor count) and e after the evaluation is <Int 2>, which topython
+converts to 2.  Pins no defect.

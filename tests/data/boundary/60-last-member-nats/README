@@ -1,0 +1,16 @@
+60-last-member-nats: narrowing by inversion driven from Python.
+
+Seam: classic programs of PAKCS imported as modules; a goal with a parameter
+gets a free variable from curry.free(), paired with the goal in a tuple so
+that the binding is read back; Peano terms built in Python with curry.expr.
+Sources: PAKCS 3.4.1 examples Last.curry, Member.curry, Nats.curry (Michael
+Hanus, BSD license); catalogue P5 (the tuple as the only pairing), P7.
+Backends: py, cxx.  Oracle: oracle.out, the PAKCS 3.4.1 REPL on the same goals.
+
+Expected output: Last.goal is 4.  Member.goal1 x gives the three members of
+[1,2,3]; the tuple shows the binding of x with each True.  The order of the
+values is the scheduler's under step mode, 3, 2, 1, where PAKCS prints 1, 2, 3.
+Member.goal2 x gives 3 and 2.  Nats.goal1 is S (S Z), Nats.goal2 the three
+naturals up to two.  sub 3 1 is S (S Z); sub 1 3 has no value, which the
+generator shows as an empty list, where PAKCS prints "*** No value found!".
+Pins no defect.

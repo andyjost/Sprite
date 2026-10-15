@@ -1,0 +1,19 @@
+45-load-objects: the compiled object on the C++ backend.
+
+Seam: an import that loads a shared object made by sprite-make --so,
+curry.save of that module, a second module compiled in the background
+(curry.backends.cxx.tiered.wait and status), inspect.getimpl before and
+after the swap, curry.load of the object and of a second copy under the
+same name.  The run script copies the driver into a temporary directory
+and runs sprite-make there first.
+Sources: memo A16; catalogue P28, P29, P38, P55; issues #109, #113, #115
+(closed; regression).
+Backends: cxx (the objects are those of the C++ backend).  Oracle: none.
+
+Expected output: Obj.f is 42 and no background compile is queued after the
+import; the saved text starts with "/* SECTION: .header */" and has four
+step functions (#113: an object-loaded module saved with none); getimpl of
+Obj.f and of Other.h after the swap give the header lines (#115);
+curry.load of Obj.so returns Obj; the second copy is a DynloadError and
+Obj.g 1 is 43 afterwards; the run script prints "exit status 0" (#109: a
+crash at exit).  Pins no defect.

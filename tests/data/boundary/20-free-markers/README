@@ -1,0 +1,18 @@
+20-free-markers: curry.free on the expression route.
+
+Seam: a curry.free() marker is one Curry variable; a binding is private to
+the evaluation that made it; a typed marker; the anonymous variable of the
+text route.  (The name wart of curry.free, P7, is shown by 34.)
+Sources: memo A11; catalogue P21, P24, P42; Using the API, "Expression
+Modifiers".  Backends: py, cxx.  Oracle: oracle.out, the PAKCS 3.4.1 REPL on
+the same goals as text with "where x free".
+
+Expected output: (x =:= 1, x, x) gives (True, 1, 1), one marker bound once
+and read twice; the same marker bound to 2 in a second goal, and free again
+afterwards, printed as _a.  A marker types as a; with exprtype='[Int]' as
+[Int].  A free Char inside a String prints as [_a];
+under the converter the join of the characters meets a node and a plain
+TypeError escapes (P21), the same on both backends.  On the text route
+"_ ++ [x] =:= [1,2,3] where x free" gives {x=3} True, and the anonymous
+variable is not reported.  PAKCS prints the typed marker [x] :: String as
+{x=x} [x], where Sprite prints [_a].  Pins no defect.

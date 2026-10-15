@@ -1,0 +1,20 @@
+30-generator-contract: the generator of curry.eval.
+
+Seam: laziness, next and its default, break and close, failure as no value,
+an error and a suspension in the stream.
+Sources: memo A6, A12; catalogue P27, P42, P46; Using the API, "Multi-Valued
+Computations".  Backends: py, cxx.  Oracle: oracle.out, the PAKCS 3.4.1 REPL
+on three, mixed, nothing, x + 1 =:= 3 and the choice of a value and a
+suspension.
+
+Expected output: curry.eval returns a generator and runs nothing; next gives
+1; a for loop that breaks after 2 keeps the search, so the next value is 3,
+then StopIteration; after close() the list is empty.  The failed goal
+nothing gives the default None and the empty list, where PAKCS prints
+"*** No value found!" and exits 2 (P46).  mixed gives 1, then the
+EvaluationError boom ends the stream and the 2 never comes (P27); PAKCS
+prints 1 and ERROR: boom.  x + 1 =:= 3 with x free suspends on the rigid +
+and raises EvaluationSuspended, a subclass of EvaluationError; PAKCS prints
+"*** Evaluation suspended!".  The choice of x =:= 1 with the suspension
+gives True first and then the suspension in either order of the operands,
+in step mode on both backends.  Pins no defect.

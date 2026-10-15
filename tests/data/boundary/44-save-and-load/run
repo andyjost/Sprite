@@ -1,0 +1,19 @@
+#!/bin/bash
+# Runs the driver in a temporary copy, because go.py writes the saved files,
+# then runs the saved program with the Python of the installation.
+set -euo pipefail
+cd "$(dirname "$0")"
+: "${SPRITE_HOME:=$(cd ../../../.. && pwd)/install}"
+export SPRITE_HOME
+export SPRITE_INTERPRETER_FLAGS="${SPRITE_INTERPRETER_FLAGS:-backend:py}"
+export SPRITE_ROTATION="${SPRITE_ROTATION:-steps:65536}"
+export LC_ALL=C.UTF-8 PYTHONIOENCODING=utf-8
+unset CURRYPATH
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+cp go.py M.curry "$work"
+cd "$work"
+echo '% python go.py'
+"$SPRITE_HOME/bin/python" go.py
+echo '% python Prog.py'
+"$SPRITE_HOME/bin/python" Prog.py

@@ -1,0 +1,12 @@
+$ pakcs --nocypm -q :set safe :eval '(x =:= 1, x, x) where x free' :quit
+{x=1} (True,1,1)
+
+$ pakcs --nocypm -q :set safe :eval '(x =:= 2, x) where x free' :quit
+{x=2} (True,2)
+
+$ pakcs --nocypm -q :set safe :eval '[x] :: String where x free' :quit
+{x=x} [x]
+
+$ pakcs --nocypm -q :set safe :eval '_ ++ [x] =:= [1,2,3] where x free' :quit
+{x=3} True
+

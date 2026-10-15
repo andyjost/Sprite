@@ -1,0 +1,22 @@
+$ pakcs --nocypm -q :set safe :load Tools :eval 'coin' :quit
+0
+1
+
+$ pakcs --nocypm -q :set safe :load Tools :eval 'three' :quit
+3
+
+$ pakcs --nocypm -q :set safe :load Tools :eval 'nothing' :quit
+*** No value found!
+% exit status 2
+
+$ pakcs --nocypm -q :set safe :load Tools :eval 'boom' :quit
+ERROR: boom
+% exit status 1
+
+$ pakcs --nocypm -q :set safe :load Tools :eval 'rule "a" ins where ins free' :quit
+{ins=["x"]} "cmd1"
+{ins=["y","z"]} "cmd2"
+
+$ pakcs --nocypm -q :set safe :load Tools :eval 'main' :quit
+3
+

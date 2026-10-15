@@ -1,0 +1,20 @@
+22-where-free-text-route: "where x free" in a text goal.
+
+Seam: curry.compile(text, mode='expr') lifts a trailing clause into a
+Bindings; the result-type rule of the lift; a trailing comment and exprtype;
+several variables; the two printers of Bindings; typeof of the lifted goal.
+Sources: memo A7, A11; catalogue P20, P25, P26; the REPL page "Free
+variables in the REPL"; tests/unit_goals.py.  Backends: py, cxx.  Oracle:
+oracle.out, the PAKCS 3.4.1 REPL on the same texts.
+
+Expected output: {x=1} True and {xs=[1, 2]} True for one variable.  The pair
+(xs =:= [1], [0]) reports xs; with the annotations [1 :: Int] and [0 :: Int]
+it gives (True, [0]) with no binding, where PAKCS prints {xs=[1]} (True,[0])
+for both: Sprite reports a variable only when its type is absent from the
+type of the result (P25, a parity gap without an issue).  A trailing comment
+gives True, as PAKCS prints it, and exprtype='Bool' gives True too (P26).
+Two variables give three Bindings in the order of the search under step
+mode, xs=[1, 2] first, where PAKCS prints xs=[] first.  The converted
+Bindings prints {xs=[1,2]} True, the other printer (P20), with the value
+True and the dict {'xs': [1, 2]}.  typeof of the lifted goal is a: the lift
+records no type.  Pins no defect.

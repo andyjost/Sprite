@@ -1,0 +1,19 @@
+Sharing and cycles
+==================
+
+Seam: a term object used twice against a symbol used twice (call-time
+choice, the coin lines), anchors and curry.ref for shared and cyclic
+subterms, the anchor trap of an unknown keyword.  Memo: A1 (the sharing
+rule), A5 (the markers).  Catalogue: P5 (unknown keywords are anchors),
+P6 (choice takes an id first), P17 (the evaluated node is a forward node
+on the C++ backend, so the driver never prints repr(t)).  Issues: none.
+Output: t = curry.expr(coin) in (t, t) gives (0, 0) and (1, 1); the symbol
+twice gives four pairs; double coin gives 0 and 2 and coin + coin four
+sums, in the order of step mode.  vals(t) twice gives [0, 1] both times.
+take 3 of the cycle a = 1 : a prints as take 3 [1, ...] and is [1, 1, 1].
+One anchor over a choice referenced twice gives two pairs; two choice
+markers give four.  convertor='topython' is accepted as an anchor and the
+goal yields the node <Int 2>.  choice 1 2 3 is the two-way choice 2 ? 3:
+the first argument is the id.
+Oracle: oracle.out holds the PAKCS 3.4.1 transcripts of the goals over
+the module Coin, with let for the shared node.  Backends: py and cxx.

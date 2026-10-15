@@ -389,6 +389,21 @@ Unit tests match the pattern unit_*.py.
     Curry text on every run.  It keeps the unit_ prefix so that CI runs the
     examples on every push.  To leave it out of a quick cycle, name the
     files you need, for example run_tests 'unit_prelude.py'.
+  - unit_boundary.py runs the drivers of the boundary corpus under
+    data/boundary in child processes, as unit_examples.py runs the
+    examples: one driver per directory NN-name with a run script, go.py,
+    expected.out and a README, on the backends its DRIVERS entry declares;
+    SPRITE_UPDATE_EXPECTED=1 rewrites expected.out.  The corpus exercises
+    the Python-Curry boundary seam by seam (values in, symbols and
+    sharing, free variables and bindings, results out, modules and the
+    loader, set functions and the tools, classic Curry programs of PAKCS
+    driven from Python), and data/boundary/README.md holds the coverage
+    table, the programs Sprite cannot compile, and the attribution of the
+    copied programs.  A driver that pins an open issue records today's
+    output, so the fix changes the file visibly.  The file runs no oracle:
+    an oracle.out beside a driver is a committed transcript of the PAKCS
+    REPL on the same goals.  The test also checks the rules of the corpus
+    (the files of a directory, the length of go.py, no machine path).
   - unit_configure.py runs copies of configure in scratch directories and
     make dry runs; it builds nothing.  It checks the options --jobs and
     --with-ccache and the ordering rules that keep make -j safe.

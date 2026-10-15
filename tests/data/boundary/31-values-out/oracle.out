@@ -1,0 +1,18 @@
+$ pakcs --nocypm -q :set safe :load Out :eval 'items' :quit
+[A,B,C]
+
+$ pakcs --nocypm -q :set safe :load Out :eval 'id inc' :quit
+inc
+
+$ pakcs --nocypm -q :set safe :load Out :eval 'chr 65' :quit
+'A'
+
+$ pakcs --nocypm -q :set safe :load Out :eval 'emptyString' :quit
+[]
+
+$ pakcs --nocypm -q :set safe :load Out :eval 'pairs' :quit
+[([],0),("ab",1)]
+
+$ pakcs --nocypm -q :set safe :load Out :eval 'freeList' :quit
+[_a]
+

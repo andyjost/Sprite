@@ -1,0 +1,19 @@
+43-edited-source: an edited source is not read again by curry.import_ in
+one process; the loaded module stays and a warning says so.
+
+Seam: curry.import_ of a module whose file changed after the import, the
+background compile of the C++ backend (curry.backends.cxx.tiered.wait),
+curry.reset and a new import.  The run script copies go.py into a
+temporary directory because the driver writes Ed.curry there.
+Sources: memo A13; catalogue P53; issue #110 (closed; regression of the
+narrower rule of 89b82481).
+Backends: py, cxx; the output is the same on both.  Oracle: none.
+
+Expected output: f is 1; after the edit the second import_ returns the
+same object and f is still 1, with the warning "module 'Ed' was not read
+again" on stderr, which the test does not compare; after tiered.wait f is
+still 1 (the running code is not swapped when the source changed; on the
+Python backend wait returns at once); the driver writes f = 2 again after
+the wait, so that the source postdates the products of f = 1 (an object
+written after the edit is trusted by its time: a race the driver avoids);
+after curry.reset and a new import f is 2.  Pins no defect.

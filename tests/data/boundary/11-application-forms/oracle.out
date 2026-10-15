@@ -1,0 +1,23 @@
+$ pakcs --nocypm -q :set safe :load App :eval 'map inc [1, 2]' :quit
+[2,3]
+
+$ pakcs --nocypm -q :set safe :load App :eval 'map (rule "a") [["x"], ["y", "z"]]' :quit
+["cmd1","cmd2"]
+
+$ pakcs --nocypm -q :set safe :load App :eval 'id inc 1' :quit
+2
+
+$ pakcs --nocypm -q :set safe :load App :eval 'show' :quit
+Overloaded type: Show a => a -> [Char]
+Cannot handle arbitrary overloaded top-level expressions
+Hint: add type annotation to specialize the type
+% exit status 1
+
+$ pakcs --nocypm -q :set safe :load App :eval 'show 1' :quit
+"1"
+
+$ pakcs --nocypm -q :set safe :load App :eval 'rule "a" ["x"]' :quit
+"cmd1"
+
+$ pakcs --nocypm -q :set safe :load App :eval 'usesRel rule' :quit
+"cmd2"

@@ -1,0 +1,17 @@
+63-nondetfunc: nondeterministic operations driven from Python.
+
+Seam: a module whose rules overlap by design (the run script sets
+SPRITE_FRONTEND_WARNINGS=0); nondeterministic operations applied to Python
+lists, which cross as [Int]; every value of a search collected in a list.
+Sources: PAKCS 3.4.1 examples nondetfunc.curry (Michael Hanus, BSD license);
+catalogue P3, P7.
+Backends: py, cxx.  Oracle: oracle.out (PAKCS 3.4.1 on the same goals).
+
+Expected output: goal1 to goal3 sort [4,3,2,1] by three spellings of
+permutation sort, one value each.  goal4 = double coin gives o and s (s o),
+two values and not three: the argument of double is shared, so both
+occurrences of x are the same coin (call-time choice).  The lower-case
+constructors o and s compile under the pinned front end.  permut [1,2,3]
+gives six lists and insert 0 [1,2] three; the driver sorts them, so the
+order of the output does not depend on the scheduler.  choose 1 2 gives
+1 and 2.  Pins no defect.

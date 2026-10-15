@@ -1,0 +1,5 @@
+% python go.py
+main -> [[9, 4, 9, 0]]
+assembler (built in Python) -> [[9, 4, 9, 0]]
+assembler (two forward jumps) -> [[9, 4, 9, 4, 9, 0]]
+assembler (undefined label) -> ['[9, _a]']

@@ -1,0 +1,33 @@
+$ pakcs --nocypm -q :set safe :load nondetfunc :eval 'goal1' :quit
+[1,2,3,4]
+
+$ pakcs --nocypm -q :set safe :load nondetfunc :eval 'goal2' :quit
+[1,2,3,4]
+
+$ pakcs --nocypm -q :set safe :load nondetfunc :eval 'goal3' :quit
+[1,2,3,4]
+
+$ pakcs --nocypm -q :set safe :load nondetfunc :eval 'goal4' :quit
+o
+s (s o)
+
+$ pakcs --nocypm -q :set safe :load nondetfunc :eval 'permut [1,2,3]' :quit
+[1,2,3]
+[2,1,3]
+[2,3,1]
+[1,3,2]
+[3,1,2]
+[3,2,1]
+
+$ pakcs --nocypm -q :set safe :load nondetfunc :eval 'insert 0 [1,2]' :quit
+[0,1,2]
+[1,0,2]
+[1,2,0]
+
+$ pakcs --nocypm -q :set safe :load nondetfunc :eval 'sort [3,1,4,2]' :quit
+[1,2,3,4]
+
+$ pakcs --nocypm -q :set safe :load nondetfunc :eval 'choose 1 2' :quit
+1
+2
+

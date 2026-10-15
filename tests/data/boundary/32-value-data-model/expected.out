@@ -1,0 +1,17 @@
+% python go.py
+a == b -> True
+hash(a) == hash(b) -> False
+len({a, b}) -> 2
+a == 42 -> False
+sorted(coins) !! TypeError
+sorted(coins, key=str) -> [<Int 1>, <Int 2>]
+(str(f), bool(f)) -> ('False', True)
+len(n) !! TypeError
+n[0], n[1] -> <Int 1> <: <Int 2> <[]>>
+e -> <inc <Int 1>>
+vals(e) -> [2]
+e after -> <_Fwd <Int 2>>
+vals(e) again -> [2]
+topython(e) -> <_Fwd <Int 2>>
+typeof(e) -> Int
+typeof(typed(e, 'Bool')) -> Bool

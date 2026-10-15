@@ -1,0 +1,19 @@
+62-family: the family databases in four styles, asked from Python.
+
+Seam: four modules imported by name; the same questions as goals with zero
+to two free parameters, the markers from curry.free() paired with the goal
+in a tuple; persons are constructors of a user type, shown by str.
+Sources: PAKCS 3.4.1 examples family_rel.curry, family_con.curry,
+family_fun.curry, family_nd.curry (Michael Hanus, BSD license);
+catalogue P5, P7, P23.
+Backends: py, cxx.  Oracle: oracle.out (PAKCS 3.4.1 on the same goals).
+
+Expected output: in every style the children of John are Peter and Susan
+and the grandfather pairs are the four of PAKCS; family_fun goal4 lists the
+six ancestors of Andrew; family_nd goal2 pairs each grandparent with c.
+The order of the values is the scheduler's under step mode and differs from
+PAKCS's order.  family_nd goal3 (ancestor Andrew) is not run: the rule
+ancestor p = father (ancestor p) has no end, and under the 2 GB cap the C++
+backend raised MemoryError (std::bad_alloc) after six values, in six
+seconds.  family_fun goal5 (every ancestor pair) is left out as well.
+Pins no defect.
