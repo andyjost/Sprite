@@ -15,5 +15,6 @@ goal is coloring & correct, and Sprite's (&) yields False when one side is
 False, where PAKCS's (&) has no value (oracle.out shows False & True and
 True & False with "*** No value found!").  The difference is recorded in
 the README of the corpus; the count 256 pins today's behaviour and changes
-if (&) follows PAKCS.  The order of the values is the scheduler's under
+if (&) follows PAKCS (issue #139; PAKCS 3.10.0 and KiCS2 3.5.0 have no
+value there either).  The order of the values is the scheduler's under
 step mode.
