@@ -36,6 +36,7 @@ Example:
 __all__ = [
   # Global API
     'getInterpreter'
+  , 'CurryError'
   , 'reload'
   , 'show_value'
 

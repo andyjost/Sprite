@@ -16,7 +16,7 @@ def vals(*goal, **kwds):
 def show(label, thunk):
   try:
     print(label, '->', repr(thunk()))
-  except BaseException as error:  # EvaluationError is not an Exception (P42)
+  except Exception as error:
     print(label, '!!', type(error).__name__ + ':', str(error).splitlines()[0])
 
 # The lines of the issue: a value of eval with [] at the end of two lists,

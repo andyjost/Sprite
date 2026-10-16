@@ -295,8 +295,7 @@ expression.  A type with class constraints, such as ``Num a => a`` for
 ``1 + 2``, is defaulted as the REPL of PAKCS does (the table is in
 :ref:`goal-defaulting` below).  A constraint the table cannot handle is a
 ``CompileError`` with the sentence of the REPL.  ``CompileError`` derives
-from ``BaseException``, not from ``Exception``, so ``except Exception``
-does not catch it; name the class in the ``except`` clause:
+from ``CurryError``, an ``Exception``, so ``except Exception`` catches it:
 
     >>> curry.compile('toEnum 65', mode='expr')
     Traceback (most recent call last):
@@ -1008,10 +1007,9 @@ variable, after the values of the alternatives that did not suspend.  An
 error of an ``IO`` action, a user error, an i/o error or a
 non-deterministic action, is an ``EvaluationError`` whose message names
 it, as ``error`` is.
-``EvaluationError`` derives from ``BaseException``, not from
-``Exception``, as ``CompileError`` does, so ``except Exception`` does not
-catch it; name the class in the ``except`` clause.  An expression with no
-value ends the generator without a value.
+``EvaluationError`` derives from ``CurryError``, an ``Exception``, as
+``CompileError`` does, so ``except Exception`` catches it.  An expression
+with no value ends the generator without a value.
 
 .. _goal-defaulting:
 

@@ -9,6 +9,36 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, 'data', 'curry')
 
 class TestCxxRuntime(cytest.TestCase):
+  def test_exception_types_are_public(self):
+    self.assertIs(cyrt.EvaluationError, curry.exceptions.EvaluationError)
+    self.assertIs(cyrt.EvaluationSuspended, curry.exceptions.EvaluationSuspended)
+    self.assertTrue(issubclass(cyrt.StepLimitReached, curry.CurryError))
+    self.assertTrue(issubclass(cyrt.InvariantViolation, curry.CurryError))
+    self.assertTrue(issubclass(cyrt.InvariantViolation, AssertionError))
+
+  @unittest.skipUnless(curry.flags['backend'] == 'cxx', 'requires the C++ backend')
+  def test_native_exceptions_are_public(self):
+    from curry.backends.generic.eval.evaluator import Evaluator
+    P = curry.import_('Prelude')
+    x = curry.free()
+    goals = [
+        (curry.expr(P.error, 'boom'), curry.EvaluationError, 'boom')
+      , ( curry.expr(getattr(P, '=:='), curry.expr(getattr(P, '+'), x, 1), 3)
+        , curry.EvaluationSuspended, 'Evaluation Suspended!'
+        )
+      ]
+    for goal, error, message in goals:
+      with self.subTest(error=error.__name__):
+        evaluator = Evaluator(curry.getInterpreter(), goal)
+        with self.assertRaisesRegex(error, message) as cm:
+          evaluator.rts.next()
+        self.assertIs(type(cm.exception), error)
+
+  def test_native_load_error_is_public(self):
+    with self.assertRaisesRegex(curry.DynloadError, 'missing.so') as cm:
+      cyrt.SharedCurryModule('missing.so')
+    self.assertIs(type(cm.exception), curry.DynloadError)
+
   def testModuleCreation(self):
     count_modules = lambda: len(cyrt.Module.getall())
     # Earlier tests in the same process may leave the Prelude loaded, so count

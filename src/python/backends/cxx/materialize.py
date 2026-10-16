@@ -297,7 +297,6 @@ def first_use(info):
   except (KeyboardInterrupt, SystemExit):
     raise
   except BaseException as exc:
-    # CompileError and EvaluationError derive from BaseException.
     logger.warning(
         'cannot compile module %r on its first use: %s', entry.name, exc
       )

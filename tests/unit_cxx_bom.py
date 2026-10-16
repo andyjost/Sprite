@@ -191,7 +191,7 @@ class TestPlainDataBOM(cytest.TestCase):
         'bom::Module const _bom_ = {%s, %s, nullptr, nullptr, 0, nullptr'
         ', nullptr, 0, nullptr, 0, nullptr, 0};'
       )
-    # The C++ DynloadError reaches Python as a RuntimeError.
+    # The C++ DynloadError keeps RuntimeError as a base.
     sofile = build('CxxBomOld', record % ('bom::VERSION + 1', '"CxxBomOld"'))
     with self.assertRaisesRegex(
         RuntimeError, r'layout version \d+, and this runtime reads version \d+'

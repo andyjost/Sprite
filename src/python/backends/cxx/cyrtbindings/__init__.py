@@ -2,7 +2,6 @@
 from ._cyrtbindings import *
 from ...generic.eval import control, trace
 from ....interpreter import flags as _flags
-from .... import exceptions
 from . import fingerprint
 from ... import InfoTable as _backends_InfoTable
 from ... import Node as _backends_Node
@@ -99,10 +98,7 @@ class RuntimeState(RuntimeStateBase):
     One rewrite step at the root of ``node`` (see evaluator.single_step).
     A step that reports an error raises it as the evaluation would.
     '''
-    try:
-      RuntimeStateBase.single_step(self, node)
-    except EvaluationError as err:
-      raise exceptions.EvaluationError(str(err))
+    RuntimeStateBase.single_step(self, node)
 
   def generate_values(self):
     '''
@@ -124,10 +120,6 @@ class RuntimeState(RuntimeStateBase):
         if result is None:
           return
         yield result
-    except EvaluationError as err:
-      raise exceptions.EvaluationError(str(err))
-    except EvaluationSuspended:
-      raise exceptions.EvaluationSuspended()
     except StepLimitReached:
       raise control.E_TERMINATE()
 

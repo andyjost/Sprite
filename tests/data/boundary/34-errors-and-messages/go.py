@@ -1,8 +1,8 @@
 '''
 The errors a Python caller meets at the boundary: the first line of the
-messages of the typed boundary, and the classes of the exceptions.  Two of
-them derive from BaseException, so "except Exception" misses an evaluation
-error.  A CompileError carries the command line of the front end with the
+messages of the typed boundary, and the classes of the exceptions.  They
+derive from CurryError, an Exception, so "except Exception" catches an
+evaluation error.  A CompileError carries the command line of the front end with the
 paths of the installation (P45), so the driver prints its class and the
 message line of the front end alone.
 '''
@@ -16,7 +16,7 @@ P = curry.import_('Prelude')
 def show(label, thunk):
   try:
     print(label, '->', repr(thunk()))
-  except BaseException as error:  # EvaluationError is not an Exception (P42)
+  except Exception as error:
     print(label, '!!', type(error).__name__ + ':', str(error).splitlines()[0])
 
 # The messages of the typed boundary name the symbol, its scheme, the
@@ -36,8 +36,7 @@ except curry.CurryTypeError as error:
   for line in str(error).splitlines():
     print('   ', line)
 
-# The classes.  The typed errors are TypeErrors; the evaluation errors are
-# not Exceptions (P42).
+# The classes.  The typed errors are TypeErrors; all are Exceptions (A20).
 E = curry.typecheck.errors
 print('typed errors are CurryTypeError ->', all(
     issubclass(cls, curry.CurryTypeError)
@@ -48,7 +47,7 @@ print('CompileError is an Exception ->', issubclass(curry.CompileError, Exceptio
 print('EvaluationSuspended under EvaluationError ->',
       issubclass(curry.EvaluationSuspended, curry.EvaluationError))
 
-# What that means for a try: "except Exception" misses an EvaluationError.
+# What that means for a try: "except Exception" catches an EvaluationError.
 def attempt(kind):
   try:
     list(curry.eval(M.boom))

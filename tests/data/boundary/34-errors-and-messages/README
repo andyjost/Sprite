@@ -13,8 +13,8 @@ each message names the symbol and its scheme (P44).  eval(show) is a
 DefaultingError of three lines, with the sentence of the PAKCS REPL and the
 hint "add a type signature", which a Python call cannot follow.  The four
 typed errors are CurryTypeErrors, which are TypeErrors; EvaluationError and
-CompileError are not Exceptions, so "except Exception" lets an evaluation
-error escape and "except BaseException" catches it (P42).  curry.free('x')
+CompileError are CurryErrors and Exceptions, so "except Exception" and
+"except BaseException" both catch an evaluation error (A20).  curry.free('x')
 leaks a ValueError (P43; the id is positional and there is no name, P7).  The CompileError of "1 +" carries the command
 line of the front end with the install path (P45); the driver prints the
 class and the report line "Unexpected end-of-file".  Pins no defect.

@@ -1,43 +1,46 @@
 
-class CompileError(BaseException):
+class CurryError(Exception):
+  '''The root of the Curry exception tree.'''
+
+class CompileError(CurryError):
   '''Raised when an error occurs while compiling Curry code.'''
 
-class InstantiationError(BaseException):
+class InstantiationError(CurryError):
   '''Raised when a free variable is bound to an unboxed value.'''
 
-class NotConstructorError(ValueError):
+class NotConstructorError(CurryError, ValueError):
   '''Raised when a non-constructor value occurs where disallowed.'''
   def __init__(self, arg):
    self.arg = arg
 
-class ModuleLookupError(ValueError):
+class ModuleLookupError(CurryError, ValueError):
   '''Raised when a Curry module is not found.'''
 
-class SymbolLookupError(AttributeError):
+class SymbolLookupError(CurryError, AttributeError):
   '''Raised when a Curry symbol is not found.'''
 
-class TypeLookupError(AttributeError):
+class TypeLookupError(CurryError, AttributeError):
   '''Raised when a Curry type is not found.'''
 
-class CurryIndexError(IndexError):
+class CurryIndexError(CurryError, IndexError):
   '''Raised when indexing into a Curry expression fails.'''
   pass
 
-class CurryTypeError(TypeError):
+class CurryTypeError(CurryError, TypeError):
   '''Raised when a type error occurs while evaluating a Curry program.'''
 
-class TimeoutError(RuntimeError):
+class TimeoutError(CurryError, RuntimeError):
   pass
 
-class PrerequisiteError(IOError):
+class PrerequisiteError(CurryError, IOError):
   '''Raised when a build prerequisite is invalid.'''
 
-class DynloadError(RuntimeError):
+class DynloadError(CurryError, RuntimeError):
   '''Raised when a compiled Curry module cannot be loaded.'''
 
 ######
 # Evaluation Errors
-class EvaluationError(BaseException):
+class EvaluationError(CurryError):
   '''Signals an error raised from a Curry program.'''
   pass
 

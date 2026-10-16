@@ -127,9 +127,9 @@ of the typed boundary are subclasses of
 example each under :ref:`the error catalogue <typed-errors>`.  The errors
 of an evaluation are subclasses of
 :class:`curry.exceptions.EvaluationError`.  ``EvaluationError`` and
-:class:`curry.exceptions.CompileError` derive from ``BaseException``, not
-from ``Exception``, so ``except Exception`` does not catch them; name the
-class in the ``except`` clause.
+:class:`curry.exceptions.CompileError` derive from
+:class:`curry.exceptions.CurryError`, an ``Exception``, so
+``except Exception`` catches them.
 
 .. _interpreter-flags:
 
