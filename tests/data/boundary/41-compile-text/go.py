@@ -4,7 +4,7 @@ curry.compile of Curry text in both modes.
 Curry text crosses the boundary as a module (the default mode) or as an
 expression (mode='expr').  A module gets a generated name or the one of
 modulename, and a name in use is refused.  A module object in imports makes
-it visible to the text; a library name in imports fails today (P32).  An
+it visible to the text; a library name in imports is imported on demand (P32, #146).  An
 expression is typed from its text, with exprtype where the text alone is
 overloaded.  The front end runs in this process on every run.
 '''
@@ -45,7 +45,7 @@ show('the same name again', lambda: curry.compile('x :: Int\nx = 8', modulename=
 Use = curry.compile('import %s\nfive :: Nat\nfive = natFromInt 5' % Nat.__name__, imports=[Nat])
 print('five ->', texts(Use.five))
 
-# imports by a library name is a KeyError today (P32).  The import line of
+# imports by a library name imports the module on demand (P32, #146).  The import line of
 # the text alone works.
 NUB = 'import Data.List\nn :: [Int]\nn = nub [1, 1, 2]'
 show("imports=['Data.List']", lambda: curry.compile(NUB, imports=['Data.List']))
