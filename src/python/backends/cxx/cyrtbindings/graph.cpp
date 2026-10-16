@@ -485,8 +485,46 @@ namespace cyrt { namespace python
       .def("id", [](Node * self) { return (uintptr_t) self; })
       .def("copy", &Node::copy, reference)
       .def("__copy__", &Node::copy, reference)
-      .def("__deepcopy__", &Node::deepcopy, reference)
-      .def("__getitem__", [](Node & self, index_type pos) -> Expr { return self[pos]; })
+      .def("__deepcopy__"
+          , [](py::object self, py::object memo) -> py::object
+            {
+              if(memo.is_none())
+                return py::cast(self.cast<Node *>()->deepcopy(), reference);
+              py::dict table = memo.cast<py::dict>();
+              py::int_ const key(reinterpret_cast<uintptr_t>(self.ptr()));
+              if(table.contains(key))
+                return table[key];
+              py::object copy = py::cast(
+                  self.cast<Node *>()->deepcopy(), reference
+                );
+              table[key] = copy;
+              // Keep the original alive while its Python id is in the memo.
+              py::int_ const keepkey(reinterpret_cast<uintptr_t>(memo.ptr()));
+              table.attr("setdefault")(keepkey, py::list()).attr("append")(self);
+              return copy;
+            }
+          , py::arg("memo") = py::none()
+          )
+      .def("__getitem__"
+          , [](Node & self, py::int_ index) -> Expr
+            {
+              int overflow = 0;
+              long pos = PyLong_AsLongAndOverflow(index.ptr(), &overflow);
+              if(pos == -1 && PyErr_Occurred())
+                throw py::error_already_set();
+              long const arity = self.size();
+              if(overflow || pos < -arity || pos >= arity)
+              {
+                py::object const type =
+                    py::module_::import("curry.exceptions").attr("CurryIndexError");
+                PyErr_SetString(type.ptr(), "node index out of range");
+                throw py::error_already_set();
+              }
+              if(pos < 0)
+                pos += arity;
+              return self[static_cast<index_type>(pos)];
+            }
+          )
       .def("__hash__", &Node::hash)
       // A value that is not a node is never equal to one.  The operator tag
       // turns the failed argument cast into NotImplemented, so Python
