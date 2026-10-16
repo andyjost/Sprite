@@ -260,7 +260,10 @@ def _updateImports(interp, module, stmts, currypath):
 
 @_updateImports.when(str)
 def _updateImports(interp, modulename, stmts, currypath):
-  module = interp.modules[modulename]
+  try:
+    module = interp.modules[modulename]
+  except KeyError:
+    module = interp.import_(modulename)
   return _updateImports(interp, module, stmts, currypath)
 
 @_updateImports.when(types.ModuleType)
