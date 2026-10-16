@@ -9,10 +9,10 @@ eval(show) !! DefaultingError:
       add a type signature
 typed errors are CurryTypeError -> True
 CurryTypeError is a TypeError -> True
-EvaluationError is an Exception -> False
-CompileError is an Exception -> False
+EvaluationError is an Exception -> True
+CompileError is an Exception -> True
 EvaluationSuspended under EvaluationError -> True
-except Exception -> escaped EvaluationError
+except Exception -> caught EvaluationError
 except BaseException -> caught EvaluationError
 free('x') !! ValueError: invalid literal for int() with base 10: 'x'
 compile("1 +") !! CompileError: Unexpected end-of-file

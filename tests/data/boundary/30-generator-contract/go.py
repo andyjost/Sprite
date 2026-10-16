@@ -20,7 +20,7 @@ def collect(values, limit=6):
     except StopIteration:
       out.append('StopIteration')
       break
-    except BaseException as error:  # EvaluationError is not an Exception (P42)
+    except Exception as error:
       out.append(type(error).__name__ + ': ' + str(error))
   return out
 

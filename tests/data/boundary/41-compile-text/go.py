@@ -12,15 +12,11 @@ import os, curry
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-# CompileError derives from BaseException, so "except Exception" misses it
-# (P42); the helper names it.
-ERRORS = (Exception, curry.exceptions.CompileError)
-
 def show(label, thunk):
   '''Prints what thunk returns, or the class and last line of the error.'''
   try:
     print(label, '->', thunk())
-  except ERRORS as exc:
+  except Exception as exc:
     print(label, '!!', type(exc).__name__ + ':', str(exc).strip().splitlines()[-1].strip())
 
 def vals(*goal):
@@ -68,5 +64,5 @@ print("'toEnum 65' with exprtype='Char' ->"
 # A syntax error: the class alone, as the message holds a path (P45).
 try:
   curry.compile('f :: Int\nf = = 1')
-except ERRORS as exc:
+except Exception as exc:
   print('a syntax error !!', type(exc).__name__)

@@ -20,11 +20,9 @@ def vals(*args):
 
 def show(label, thunk):
   '''Prints the value of one probe, or the class and the first line of its error.'''
-  # EvaluationError derives from BaseException, so except Exception alone
-  # misses it (catalogue P42).
   try:
     print(label, '->', repr(thunk()))
-  except (Exception, curry.EvaluationError) as e:
+  except Exception as e:
     print(label, '!!', type(e).__name__ + ':', str(e).splitlines()[0])
 
 # A bool is a Bool, so succ is the one of Enum Bool.  True is the last

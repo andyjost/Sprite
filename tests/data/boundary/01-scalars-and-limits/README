@@ -4,8 +4,8 @@ Scalars and the limits of Int
 Seam: scalar Python values cross by the conversion table of the memo (A2,
 A3): a bool is a Bool, an int a polymorphic literal, a float a fractional
 one.  Catalogue: P3 (the 64-bit Int), P10 (the typed boundary), P40 (the
-division by zero, #106), P42 (the EvaluationError derives from
-BaseException, so the driver catches it by name).  Issues: #105 and #106,
+division by zero, #106), P42 (EvaluationError is a CurryError and an
+Exception, caught by the driver).  Issues: #105 and #106,
 fixed; this driver is their regression.
 Output: typeof True is Bool, and succ True has no value because True is
 the last Bool.  The edges 2**63 - 1 and -2**63 cross; 2**63 and -2**63 - 1
