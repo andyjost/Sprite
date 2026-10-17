@@ -55,7 +55,6 @@ class TestFlowF09(cytest.TestCase):
     self.assertTrue(p)
     self.assertEqual((p.symbol.name, p.args, p.args[1]), ('Point', (0, 0), 0))
 
-  @unittest.expectedFailure
   def test_data_has_no_sequence_protocol(self):
     G = curry.import_('Geo'); p = curry.eval(G.origin).one()
     with self.assertRaises(TypeError):
@@ -63,12 +62,10 @@ class TestFlowF09(cytest.TestCase):
     with self.assertRaises(TypeError):
       len(p)
 
-  @unittest.expectedFailure
   def test_pass_data_back(self):
     G = curry.import_('Geo'); p = curry.eval(G.origin).one()
     self.assertEqual((curry.eval(G.norm1(p)).one(), curry.eval(G.norm1(G.Point(3, -4))).one()), (0, 7))
 
-  @unittest.expectedFailure
   def test_tree_values(self):
     G = curry.import_('Geo'); t = curry.eval(G.Node(G.Leaf, -1, G.Leaf)).one(); leaf = curry.eval(G.Leaf).one()
     self.assertEqual((str(t), t.args[1], str(leaf)), ('Node Leaf (-1) Leaf', -1, 'Leaf'))
@@ -78,7 +75,6 @@ class TestFlowF09(cytest.TestCase):
     self.assertEqual(leaf, curry.eval(G.Leaf).one())
     self.assertEqual(t, t)
 
-  @unittest.expectedFailure
   def test_function_value(self):
     P = curry.import_('Prelude'); G = curry.import_('Geo'); p = curry.eval(G.origin).one()
     f = curry.eval(G.norm1).one()
@@ -87,7 +83,6 @@ class TestFlowF09(cytest.TestCase):
     self.assertEqual(curry.eval(f(p)).one(), 0)
     self.assertEqual(curry.eval(P.apply(f, p)).one(), 0)
 
-  @unittest.expectedFailure
   def test_char_and_string_values(self):
     P = curry.import_('Prelude'); c = curry.eval(P.chr(66)).one(); s = curry.eval(P.reverse('ab')).one()
     self.assertIsInstance(c, curry.Char)
@@ -98,7 +93,6 @@ class TestFlowF09(cytest.TestCase):
     self.assertEqual((str(curry.eval(P.Just(s)).one()), curry.eval(P.length(s)).one()), ('Just "ba"', 2))
     self.assertEqual(str(curry.eval(P.Just(str(c))).one()), 'Just "B"')
 
-  @unittest.expectedFailure
   def test_print_type_and_hash_values(self):
     P = curry.import_('Prelude'); G = curry.import_('Geo'); p = curry.eval(G.origin).one(); q = curry.eval(G.Point(0, 0)).one()
     c = curry.eval(P.chr(66)).one(); s = curry.eval(P.reverse('ab')).one()

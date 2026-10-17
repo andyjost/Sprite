@@ -4,7 +4,7 @@ from . import conversions
 from .. import backends, expressions, inspect
 from ..objects import CurryNodeInfo
 from ..objects.results import Answer, Bindings, Results
-from ..objects.terms import Term, Var, check_live, named_vars, term, walk_forms
+from ..objects.terms import Char, Term, Var, check_live, named_vars, term, walk_forms
 from ..toolchain.flat2icurry import flatcurry as fc
 from ..typecheck import goals
 from ..typecheck.builder import _follow
@@ -28,7 +28,7 @@ def _arguments(interp, args, kwds):
   check_live(args)
   if len(args) == 1:
     value = args[0]
-    if isinstance(value, str):
+    if isinstance(value, str) and not isinstance(value, Char):
       from ..typecheck.errors import ConversionError
       raise ConversionError('a str goal needs curry.parse(text) for code or curry.term(text) for a String')
     legacy = (
@@ -91,7 +91,7 @@ def _converter(interp, converter, typeexpr, variables):
   convert = conversions.getconverter(converter if converter != 'default'
       else interp.flags['defaultconverter'])
   if convert is conversions.topython:
-    to_python = conversions.ToPython(variable=_Variables(interp, variables))
+    to_python = conversions.ToPython(variable=_Variables(interp, variables), interp=interp)
     return lambda ip, value: to_python(value, typeexpr=_under_io(typeexpr))
   return convert
 

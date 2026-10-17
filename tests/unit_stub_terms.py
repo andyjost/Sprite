@@ -566,7 +566,6 @@ class TestStubTerms(cytest.TestCase):
     with self.assertRaises(curry.ConversionError):
       curry.term(tuple(range(16)))
 
-  @unittest.expectedFailure
   def test_tuple_arity_range_and_unit(self):
     self.assertEqual(curry.eval(curry.term(())).one(), ())
     for count in (2, 15):
@@ -596,7 +595,6 @@ class TestStubTerms(cytest.TestCase):
     self.assertEqual(curry.eval(P.take(2, t)).one(), [0, 1])
     self.assertEqual(drawn, [0, 1])
 
-  @unittest.expectedFailure
   def test_iterator_bad_element_fails_when_drawn(self):
     P = curry.import_('Prelude')
     t = curry.term(iter([1, 'bad']), type='[Int]')

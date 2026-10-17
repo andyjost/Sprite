@@ -44,7 +44,6 @@ class TestStubInspection(cytest.TestCase):
       , ('Num a => a', 'Int', '[Char]', 'Data a => a')
       )
 
-  @unittest.expectedFailure
   def test_show_example(self):
     self.assertEqual(
         (curry.show([1, 2]), curry.show('ab'), curry.show((curry.Char('a'), 1)), curry.show(''))
@@ -63,7 +62,6 @@ class TestStubInspection(cytest.TestCase):
     with self.assertRaises(curry.CompileError):
       curry.typeof(curry.parse('x =:= y where x, y free'))
 
-  @unittest.expectedFailure
   def test_typeof_answer_is_value_type(self):
     a = curry.solve(curry.term(1, type='Int')).one()
     self.assertEqual(curry.typeof(a), 'Int')

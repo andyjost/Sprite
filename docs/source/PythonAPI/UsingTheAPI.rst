@@ -275,6 +275,51 @@ Then, in a new Python process (the note below says why):
 Building Expressions
 ====================
 
+``curry.term(value)`` converts Python data to a typed Curry term. A
+``str`` is always a String; use ``curry.Char`` for a character, including
+in a character argument. A ``bool`` never fills an Int argument. Lists,
+``range`` and other sequences become lists; tuples have zero or 2 to 15
+components. ``None`` and dictionaries require an explicit representation,
+such as ``Prelude.Nothing`` and ``list(d.items())``.
+
+    >>> curry.eval(Prelude.ord(curry.Char('A'))).one()
+    65
+    >>> curry.typeof(curry.term('a')), curry.typeof(curry.Char('a'))
+    ('[Char]', 'Char')
+
+An iterator becomes a lazy list. A held term remembers the items already
+drawn; another evaluation reads that prefix again and can draw more.
+An incompatible item raises ``ConversionError`` when it is drawn.
+
+``curry.eval`` converts built-in values recursively, including inside user
+constructors and set-function results. A Char becomes ``curry.Char``,
+equal to and hashed as the corresponding Python string. Other user values
+are ``Data`` with ``symbol`` and converted ``args``. They compare
+structurally, are hashable, are true, and have no sequence protocol.
+Ordering calls Curry's ``compare`` and requires an Ord instance. Pass a
+Data value straight back to Curry.
+
+    >>> v = curry.eval(Prelude.Just(curry.Char('A'))).one()
+    >>> isinstance(v, curry.Data), v.symbol.name, v.args
+    (True, 'Just', ('A',))
+    >>> curry.eval(Prelude.id(v)).one() == v
+    True
+
+A function value is a callable ``Function`` term. A set-function result
+is a ``Values`` collection: equality counts multiplicity, iteration order
+is unspecified, and an empty collection is a false value. An unbound
+variable remains the ``Var`` itself at every nested position.
+``curry.typeof`` prints the undefaulted type scheme of a term or parsed
+text; on an Answer it reports the type of the value.
+
+    >>> f = curry.eval(Prelude['not']).one()
+    >>> isinstance(f, curry.Function), curry.eval(f(True)).one()
+    (True, False)
+    >>> curry.typeof(curry.solve(curry.term(1, type='Int')).one())
+    'Int'
+
+The following examples describe the older expression-building door.
+
 The string to ``curry.compile`` is by default interpreted as a module
 definition.  To instead build an expression, set the mode to ``'expr'``:
 
@@ -1148,17 +1193,22 @@ to ``[]`` and a list of characters to a ``str``:
     >>> next(curry.eval(curry.typed('', 'String'), converter='topython'))
     ''
 
-:func:`curry.topython` prunes the recursion wherever it encounters a
-subexpression it cannot convert.  The reason for this potentially
-counter-intuitive behavior is made clear by the following example:
+:func:`curry.topython` converts user constructors and their fields to
+``Data`` values:
 
     >>> just5 = curry.expr(Prelude.Just, 5)
     >>> curry.topython(just5)
-    <Just <Int 5>>
+    Just 5
 
-One might expect the boxed integer to be converted to a Python integer, but
-that would lead to an ill-typed expression.  Sprite leaves it to the user to
-avoid this or convert such values another way.
+    >>> isinstance(curry.topython(just5), curry.Data), curry.topython(just5).args
+    (True, (5,))
+
+Set-function values become ``Values`` collections:
+
+    >>> SF = curry.import_('Control.SetFunctions')
+    >>> vs = curry.eval(SF.set0(curry.choice(1, 1, 2))).one()
+    >>> isinstance(vs, curry.Values), sorted(vs), len(vs)
+    (True, [1, 1, 2], 3)
 
 A value with a free variable prints the variable as ``_a``, ``_b`` and so
 on; :func:`curry.show_value` gives that text for a converted value too.

@@ -56,7 +56,6 @@ class TestFlowF02(cytest.TestCase):
     with self.assertRaises(curry.ConversionError):
       list(curry.eval([I.inc, 1]))
 
-  @unittest.expectedFailure
   def test_function_value(self):
     P = curry.import_('Prelude'); I = curry.import_('Items')
     f = curry.eval(I.inc).one()
@@ -68,7 +67,6 @@ class TestFlowF02(cytest.TestCase):
     self.assertEqual(list(curry.eval(P.map(I.inc, [1, 2]))), [[2, 3]])
     self.assertEqual(list(curry.eval(I.inc)), [f])
 
-  @unittest.expectedFailure
   def test_partial_application(self):
     P = curry.import_('Prelude'); I = curry.import_('Items')
     t = P.map(I.inc)

@@ -1,7 +1,7 @@
 % python go.py
 items -> ['[A, B, C]']
-items converted -> [[<A>, <B>, <C>]]
-id inc -> ['inc'] Node
+items converted -> [[A, B, C]]
+id inc -> ['inc'] Function
 chr 65 -> ["'A'"] ['A']
 emptyString -> ['[]'] ['']
 topython -> [] ''

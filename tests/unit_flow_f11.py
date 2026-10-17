@@ -40,7 +40,6 @@ class TestFlowF11(cytest.TestCase):
     if FLOW_PATH not in curry.path:
       curry.path.insert(0, FLOW_PATH)
 
-  @unittest.expectedFailure
   def test_values_collection(self):
     SF = curry.import_('Control.SetFunctions'); S = curry.import_('Sets')
     vs = curry.eval(SF.set0(S.coin)).one()
@@ -50,7 +49,6 @@ class TestFlowF11(cytest.TestCase):
     self.assertEqual(len(vs), 2)
     self.assertIn(1, vs)
 
-  @unittest.expectedFailure
   def test_empty_set_is_a_value(self):
     P = curry.import_('Prelude'); SF = curry.import_('Control.SetFunctions'); S = curry.import_('Sets')
     e = curry.eval(SF.set2(S.rule, 'b', ['x'])).one()
@@ -59,13 +57,11 @@ class TestFlowF11(cytest.TestCase):
     self.assertFalse(e)
     self.assertEqual(e, curry.eval(SF.set0(P.failed)).one())
 
-  @unittest.expectedFailure
   def test_argument_choice_outside(self):
     SF = curry.import_('Control.SetFunctions'); S = curry.import_('Sets')
     self.assertEqual([sorted(v) for v in curry.eval(SF.set1(S.inc, S.coin))], [[1], [2]])
     self.assertEqual(list(curry.eval(SF.set1(S.inc, S.nothing))), [])
 
-  @unittest.expectedFailure
   def test_nested_sets_and_multiplicity(self):
     SF = curry.import_('Control.SetFunctions'); S = curry.import_('Sets')
     self.assertEqual(curry.eval(S.nested).one(), [[0, 1]])
@@ -101,14 +97,12 @@ class TestFlowF11(cytest.TestCase):
         self.assertEqual(len(row), 1)
         self.assertIsInstance(row[0], curry.Var)
 
-  @unittest.expectedFailure
   def test_captured_iterator(self):
     P = curry.import_('Prelude'); SF = curry.import_('Control.SetFunctions')
     it = iter([1, 2, 3]); xs = curry.term(it)
     self.assertEqual(sorted(curry.eval(SF.set1(P.length, xs)).one()), [3])
     self.assertEqual(list(it), [])
 
-  @unittest.expectedFailure
   def test_weak_encapsulation(self):
     SF = curry.import_('Control.SetFunctions'); S = curry.import_('Sets'); t = S.coin
     self.assertEqual([sorted(v) for v in curry.eval(SF.set0(t))], [[0, 1]])

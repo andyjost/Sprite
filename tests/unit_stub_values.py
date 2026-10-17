@@ -69,7 +69,6 @@ class TestStubValues(cytest.TestCase):
     if FLOW_PATH not in curry.path:
       curry.path.insert(0, FLOW_PATH)
 
-  @unittest.expectedFailure
   def test_data_point_example(self):
     Geo = curry.import_('Geo')
     p = curry.eval(Geo.origin).one()
@@ -78,7 +77,6 @@ class TestStubValues(cytest.TestCase):
       , ('Point', (0, 0), 'Point 0 0', True)
       )
 
-  @unittest.expectedFailure
   def test_data_tree_setup_example(self):
     Geo = curry.import_('Geo')
     t = curry.eval(Geo.Node(Geo.Leaf, -1, Geo.Leaf)).one()
@@ -100,25 +98,21 @@ class TestStubValues(cytest.TestCase):
       case _:
         self.fail('Node pattern did not match')
 
-  @unittest.expectedFailure
   def test_function_example(self):
     Coin = curry.import_('Coin')
     f = curry.eval(Coin.inc).one()
     self.assertEqual((str(f), curry.eval(f(41)).one()), ('inc', 42))
 
-  @unittest.expectedFailure
   def test_values_example(self):
     SF = curry.import_('Control.SetFunctions')
     Coin = curry.import_('Coin')
     self.assertEqual(sorted(curry.eval(SF.set0(Coin.coin)).one()), [0, 1])
 
-  @unittest.expectedFailure
   def test_char_example(self):
     P = curry.import_('Prelude')
     c = curry.eval(P.chr(65)).one()
     self.assertEqual((type(c).__name__, c == 'A', curry.show(c)), ('Char', True, "'A'"))
 
-  @unittest.expectedFailure
   def test_data_equality_and_hash(self):
     P = curry.import_('Prelude')
     v = curry.eval(P.Just(5)).one()
@@ -144,7 +138,6 @@ class TestStubValues(cytest.TestCase):
     self.assertTrue(b > a)
     self.assertTrue(b >= a)
 
-  @(unittest.expectedFailure if curry.flags['backend'] == 'py' else lambda test: test)
   def test_data_truth_and_no_length(self):
     P = curry.import_('Prelude')
     v = curry.eval(P.Nothing).one()
@@ -152,7 +145,6 @@ class TestStubValues(cytest.TestCase):
     with self.assertRaises(TypeError):
       len(v)
 
-  @unittest.expectedFailure
   def test_data_round_trip(self):
     Geo = curry.import_('Geo')
     v = curry.eval(Geo.Point(2, -3)).one()
@@ -223,7 +215,6 @@ class TestStubValues(cytest.TestCase):
     self.assertIs(type(curry.eval(curry.term([1, 2])).one()), list)
     self.assertIs(type(curry.eval(curry.term((1, 2))).one()), tuple)
 
-  @unittest.expectedFailure
   def test_function_is_callable_and_structurally_equal(self):
     Coin = curry.import_('Coin')
     f = curry.eval(Coin.inc).one()
@@ -234,7 +225,6 @@ class TestStubValues(cytest.TestCase):
     self.assertEqual(f.symbol.name, 'inc')
     self.assertEqual(f.args, ())
 
-  @unittest.expectedFailure
   def test_values_are_a_multiset(self):
     SF = curry.import_('Control.SetFunctions')
     v = curry.eval(SF.set0(curry.choice(0, 1, 1))).one()
@@ -249,7 +239,6 @@ class TestStubValues(cytest.TestCase):
     self.assertNotEqual(v, curry.eval(SF.set0(curry.choice(0, 1))).one())
     self.assertTrue(bool(v))
 
-  @unittest.expectedFailure
   def test_empty_values_are_false_and_a_value(self):
     SF = curry.import_('Control.SetFunctions')
     P = curry.import_('Prelude')
@@ -259,13 +248,11 @@ class TestStubValues(cytest.TestCase):
     self.assertEqual(len(v), 0)
     self.assertEqual(list(v), [])
 
-  @unittest.expectedFailure
   def test_values_printing(self):
     SF = curry.import_('Control.SetFunctions')
     Coin = curry.import_('Coin')
     self.assertEqual(str(curry.eval(SF.set0(Coin.coin)).one()), 'Values [0,1]')
 
-  @unittest.expectedFailure
   def test_set0_weak_encapsulation_depends_on_first_owner(self):
     Coin = curry.import_('Coin')
     SF = curry.import_('Control.SetFunctions')
@@ -276,14 +263,12 @@ class TestStubValues(cytest.TestCase):
     self.assertCountEqual(a, [([0, 1], 0), ([0, 1], 1)])
     self.assertCountEqual(b, [(0, [0]), (1, [1])])
 
-  @unittest.expectedFailure
   def test_set1_keeps_argument_choice_outside(self):
     Coin = curry.import_('Coin')
     SF = curry.import_('Control.SetFunctions')
     P = curry.import_('Prelude')
     self.assertCountEqual([sorted(v) for v in curry.eval(SF.set1(P.id, Coin.coin))], [[0], [1]])
 
-  @unittest.expectedFailure
   def test_char_is_a_string_with_same_hash(self):
     c = curry.Char('a')
     self.assertIsInstance(c, str)
@@ -318,7 +303,6 @@ class TestStubValues(cytest.TestCase):
     P = curry.import_('Prelude')
     self.assertIs(type(curry.eval(curry.term(1.5)).one()), float)
 
-  @unittest.expectedFailure
   def test_value_table_char(self):
     P = curry.import_('Prelude')
     self.assertIs(type(curry.eval(P.chr(65)).one()), curry.Char)
@@ -339,7 +323,6 @@ class TestStubValues(cytest.TestCase):
     P = curry.import_('Prelude')
     self.assertIs(type(curry.eval(curry.term((1, 2))).one()), tuple)
 
-  @unittest.expectedFailure
   def test_value_conversion_reaches_nested_positions(self):
     P = curry.import_('Prelude')
     value = curry.eval(curry.term([(True, 1, P.chr(65), 'ab')])).one()

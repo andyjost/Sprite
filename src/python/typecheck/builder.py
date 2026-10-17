@@ -306,6 +306,7 @@ class TypedBuilder:
     self._dicts = {}
     self._term_specs = {}
     self._term_counts = {}
+    self._function_nodes = {}
 
   # The untyped builder, for the parts without a type.
   @property
@@ -401,12 +402,16 @@ class TypedBuilder:
     if isinstance(arg, Results):
       from .errors import ConversionError
       raise ConversionError('cannot convert Results to a Curry list: write list(results)')
-    from ..objects.terms import Term, ValueList, Var as TermVar, Reference, LetForm
+    from ..objects.terms import Term, Function, ValueList, Var as TermVar, Reference, LetForm, IteratorSource
     if isinstance(arg, Term):
       from ..objects.terms import check_term
       check_term(arg)
     if isinstance(arg, TermVar):
       return self.spec_of(arg._marker)
+    if isinstance(arg, Function):
+      spec = _typed(arg._typeexpr)
+      spec.spec = Raw(self._copy_function(arg._node))
+      return spec, ()
     if isinstance(arg, Reference):
       try:
         return Ref(self._ref_var(arg.name)), ()
@@ -440,6 +445,8 @@ class TypedBuilder:
     if isinstance(arg, ValueList):
       spec = _list(len(arg))
       return spec, [(item, spec.items, i) for i, item in enumerate(arg)]
+    if isinstance(arg, IteratorSource):
+      return Iter(arg), ()
     if hasattr(arg, 'rvalue'):
       arg = arg.rvalue
     if isinstance(arg, Spec):
@@ -838,10 +845,44 @@ class TypedBuilder:
 
   def _iterator_node(self, problem, spec, target):
     elemtype = problem.type_of(spec).args[0]
-    items = iterate_typed(
-        self.interp, spec.payload, elemtype, problem.location(spec)
-      )
+    from ..objects.terms import IteratorSource
+    cursor = IteratorCursor if isinstance(spec.payload, IteratorSource) else iterate_typed
+    items = cursor(self.interp, spec.payload, elemtype, problem.location(spec))
     return self._mknode(self.prelude._biGenerator, items, target=target)
+
+  def _copy_function(self, root):
+    '''A fresh captured graph, with replayable iterator cursors.'''
+    copies = self._function_nodes
+    pending = [root]
+    while pending:
+      node = pending.pop()
+      if node.id() in copies:
+        continue
+      if inspect.isa_freevar(node):
+        copies[node.id()] = node
+      elif node.info.name == GENERATOR_NODE and IteratorCursor.of_node(node) is not None:
+        cursor = IteratorCursor.of_node(node).fork()
+        copies[node.id()] = self._mknode(self.prelude._biGenerator, cursor)
+      else:
+        copies[node.id()] = node.copy()
+        pending.extend(x for x in node.successors if isinstance(x, backends.Node))
+    pending, seen = [root], set()
+    while pending:
+      node = pending.pop()
+      if node.id() in seen:
+        continue
+      seen.add(node.id())
+      if inspect.isa_freevar(node):
+        continue
+      copy = copies[node.id()]
+      for index, child in enumerate(node.successors):
+        if isinstance(child, backends.Node):
+          if self.interp.flags['backend'] == 'cxx':
+            copy.set_successor(index, copies[child.id()])
+          else:
+            copy.successors[index] = copies[child.id()]
+          pending.append(child)
+    return copies[root.id()]
 
   def _wrap_node(self, spec, child, target):
     make = self._mknode
@@ -862,23 +903,59 @@ class TypedBuilder:
 
 # Iterators
 # =========
+class IteratorCursor:
+  '''One evaluation's position in a held Python iterator.'''
+  _live = weakref.WeakValueDictionary()
+
+  def __init__(self, interp, source, elemtype, where, index=0):
+    self.interp, self.source = interp, source
+    self.elemtype, self.where = elemtype, where
+    self.index = index
+    self.items = itertools.islice(iterate_typed(interp, source, elemtype, where), index, None)
+    self._live[id(self)] = self
+
+  @classmethod
+  def of_node(cls, node):
+    payload = node.successor(0)
+    # C++ exposes an opaque Python payload as its address. The runtime
+    # owns its reference; the weak registry recovers our own cursors.
+    return payload if isinstance(payload, cls) else cls._live.get(payload)
+
+  def __iter__(self): return self
+
+  def __next__(self):
+    item = next(self.items)
+    self.index += 1
+    return item
+
+  def fork(self):
+    return IteratorCursor(self.interp, self.source, self.elemtype, self.where, self.index)
+
+
 def iterate_typed(interp, iterator, elemtype, where):
   '''
   Converts the items of ``iterator`` at ``elemtype`` as the list is
   demanded.  An item that does not convert ends the evaluation with an
-  ``EvaluationError`` that names the item, the position and the type.
+  ``ConversionError`` that names the item, the position and the type.
   '''
-  convert = item_converter(interp, elemtype)
+  from ..objects.terms import IteratorSource
+  surface = isinstance(iterator, IteratorSource)
+  convert = item_converter(interp, elemtype, surface)
   for item in iterator:
     try:
+      if surface and isinstance(item, int):
+        from ..objects.terms import _convert
+        _convert(interp, item)
       yield convert(item)
     except exceptions.CurryTypeError as err:
-      raise exceptions.EvaluationError(
+      from .errors import ConversionError
+      error = ConversionError if surface else exceptions.EvaluationError
+      raise error(
           'cannot convert item %r of the iterator at %s to %s'
               % (item, where, show_type(elemtype))
         ) from err
 
-def item_converter(interp, elemtype):
+def item_converter(interp, elemtype, surface=False):
   '''
   A function from a Python item to its node at ``elemtype``: a direct
   conversion for the ground types ``Int``, ``Float``, ``Char``, ``Bool`` and
@@ -892,8 +969,22 @@ def item_converter(interp, elemtype):
       name = elemtype.name
     elif elemtype.name == LIST and elemtype.args == [fc.TCons(CHAR, [])]:
       name = LIST
+  from ..objects.terms import _convert, raw_symbols
+  from .terms import instantiate, zonk
+  expected = instantiate(elemtype, {})
   def general(item):
-    return build(interp, (item,), {}, exprtype=elemtype)
+    nonlocal expected
+    if not surface:
+      return build(interp, (item,), {}, exprtype=elemtype)
+    with raw_symbols():
+      b = TypedBuilder(interp)
+      problem = TypedProblem(b, b.specs((_convert(interp, item),)), zonk(expected))
+      problem.solve()
+      # Retain the element type chosen by earlier items, including nested
+      # positions. An iterator is one homogeneous Curry list.
+      from .unify import unify
+      unify(expected, instantiate(problem.typeexpr, {}))
+      return b.materialize(problem)
   def reject(item, what):
     raise exceptions.CurryTypeError(
         'cannot convert %r to %s' % (item, what)
@@ -910,7 +1001,8 @@ def item_converter(interp, elemtype):
       return general(item)
   elif name == CHAR:
     def convert(item):
-      if isinstance(item, str) and len(item) == 1:
+      from ..objects.terms import Char
+      if isinstance(item, Char) or not surface and isinstance(item, str) and len(item) == 1:
         return make(prelude.Char, item)
       return general(item)
   elif name == BOOL:
@@ -921,7 +1013,9 @@ def item_converter(interp, elemtype):
   elif name == LIST:
     strings_ = TypedBuilder(interp)
     def convert(item):
-      if isinstance(item, (str, bytes)):
+      from ..objects.terms import Char
+      if isinstance(item, (str, bytes)) and (not surface
+          or isinstance(item, str) and not isinstance(item, Char)):
         return strings_.string_node(strings.ensure_str(item))
       return general(item)
   else:
@@ -1219,7 +1313,10 @@ def typeof(interp, e, defaulted=False):
   content), a symbol, a :class:`Description`, or any argument of
   ``curry.expr``.
   '''
-  from ..objects.terms import Term, Var as TermVar, signature
+  from ..objects.terms import Term, Var as TermVar, signature, term
+  from ..objects.results import Answer
+  if isinstance(e, Answer):
+    return typeof(interp, term(interp, e.value), True)
   if isinstance(e, TermVar) and not defaulted:
     from ..objects.terms import raw_symbols
     with raw_symbols():

@@ -4,8 +4,8 @@ not True -> [False]
 succ True -> []
 2**63 - 1 -> [9223372036854775807]
 -2**63 -> [-9223372036854775808]
-2**63 !! CurryTypeError: 9223372036854775808 is outside the range of Int (-9223372036854775808 to 9223372036854775807)
--2**63 - 1 !! CurryTypeError: -9223372036854775809 is outside the range of Int (-9223372036854775808 to 9223372036854775807)
+2**63 !! IntOverflowError: 9223372036854775808 is outside the range of Int (-9223372036854775808 to 9223372036854775807)
+-2**63 - 1 !! IntOverflowError: -9223372036854775809 is outside the range of Int (-9223372036854775808 to 9223372036854775807)
 2**62 + 2**62 !! EvaluationError: integer overflow: 4611686018427387904 + 4611686018427387904
 div 1 0 !! EvaluationError: division by zero: div 1 0
 mod 1 0 !! EvaluationError: division by zero: mod 1 0

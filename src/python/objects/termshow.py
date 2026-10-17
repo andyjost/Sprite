@@ -139,7 +139,7 @@ def application(info, args):
 
 def format_(value):
   from ..expressions import typed
-  from .terms import Term, ValueList, Var, Reference, LetForm
+  from .terms import Term, ValueList, Var, Reference, LetForm, Char, Values, IteratorSource
   ctx = _CONTEXT.get()
   if isinstance(value, Term):
     name = ctx.lets.get(id(value))
@@ -157,6 +157,8 @@ def format_(value):
   if isinstance(value, LetForm):
     return 'let %s in %s' % ('; '.join('%s = %s' % (name, format_(v)[0])
         for name, v in value.bindings.items()), format_(value.body)[0]), APP
+  if isinstance(value, Values):
+    return 'Values [%s]' % ','.join(format_(v)[0] for v in value), APP
   if isinstance(value, Term):
     if hasattr(value, '_text'):
       return value._text, APP
@@ -178,11 +180,11 @@ def format_(value):
     text = show_float(value)
     return text, NEG if value < 0 else ATOM
   if isinstance(value, (bool, int, str)):
-    text = curry_literal(value, as_char=False)
+    text = curry_literal(value, as_char=isinstance(value, Char))
     if isinstance(value, int) and value < 0:
       return text[1:-1] if text.startswith('(') else text, NEG
     return text, ATOM
-  if isinstance(value, Iterator):
+  if isinstance(value, (Iterator, IteratorSource)):
     return '<iterator>', ATOM
   return str(value), APP
 
