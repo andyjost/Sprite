@@ -373,7 +373,6 @@ class TestStubTerms(cytest.TestCase):
     t = curry.term(1)
     self.assertCountEqual(list(curry.eval(t.__rchoice__(2))), [2, 1])
 
-  @unittest.expectedFailure
   def test_shared_subterm_prints_let(self):
     Coin = curry.import_('Coin')
     P = curry.import_('Prelude')

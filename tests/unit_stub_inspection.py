@@ -83,7 +83,6 @@ class TestStubInspection(cytest.TestCase):
     self.assertEqual(curry.show((b, a, b, x)), '(_a,_b,_a,x)')
     self.assertEqual(curry.show(a), '_a')
 
-  @unittest.expectedFailure
   def test_show_shared_reducible_subterm(self):
     Coin = curry.import_('Coin')
     P = curry.import_('Prelude')
