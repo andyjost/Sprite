@@ -49,11 +49,11 @@ def stop(message):
 def ask(goal, *args):
   '''The one value of a deterministic goal, as Python data, or None when the
   goal has no value.'''
-  return next(curry.eval(goal, *args, converter='topython'), None)
+  return next(curry.eval(goal(*args) if args else goal), None)
 
 def answers(goal, *args):
   '''Every value of a goal, sorted.  Curry promises no order.'''
-  return sorted(curry.eval(goal, *args, converter='topython'))
+  return sorted(curry.eval(goal(*args) if args else goal))
 
 def literal(value):
   '''A Python string as a Curry string literal.'''
@@ -117,7 +117,7 @@ def variables(module):
         continue
     except Exception:
       continue
-    values = curry.eval(symbol, converter='topython')
+    values = curry.eval(symbol)
     table.extend((name, value) for value in values)
   return table
 
@@ -167,7 +167,7 @@ class Build:
     self.jobs = jobs
     self.trace = trace
     depends = getattr(module, 'depends', Make.noDepends)
-    self.build = curry.expr(Make.build, module.rule, depends, table, goal)
+    self.build = Make.build(module.rule, depends, table, goal)
     # The names of the build: the goal, what it reads, and so on.  The
     # targets are the names with a recipe; the rest are sources.
     self.names = ask(Make.names, self.build)

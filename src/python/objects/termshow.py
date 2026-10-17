@@ -105,13 +105,13 @@ def operand(piece, side, fixity):
     return text
   return '(%s)' % text
 
-def application(info, args):
+def application(info, args, pieces=None):
   from .terms import Symbol
   sym = Symbol(info, info.module)
   name = sym.name
   if name.startswith('_impl#'):
     name = name.split('#')[1]
-  pieces = [format_(arg) for arg in args]
+  pieces = [format_(arg) for arg in args] if pieces is None else pieces
   if name == '()' or name.startswith('(') and name.endswith(')') and set(name[1:-1]) == {','}:
     if len(pieces) == sym.arity:
       return '(%s)' % ','.join(p[0] for p in pieces), ATOM
@@ -140,6 +140,22 @@ def application(info, args):
   return piece
 
 def format_(value):
+  # A converted value can be deeper than the Python call stack.
+  stack = [_format(value)]
+  result, ready = None, False
+  while stack:
+    try:
+      child = stack[-1].send(result) if ready else next(stack[-1])
+    except StopIteration as done:
+      result, ready = done.value, True
+      stack.pop()
+    else:
+      stack.append(_format(child))
+      ready = False
+  return result
+
+
+def _format(value):
   from ..expressions import typed
   from .terms import Term, ValueList, Var, Reference, LetForm, Char, Values, IteratorSource
   ctx = _CONTEXT.get()
@@ -157,27 +173,41 @@ def format_(value):
   if isinstance(value, Reference):
     return value.name, ATOM
   if isinstance(value, LetForm):
-    return 'let %s in %s' % ('; '.join('%s = %s' % (name, format_(v)[0])
-        for name, v in value.bindings.items()), format_(value.body)[0]), APP
+    bindings = []
+    for name, v in value.bindings.items():
+      bindings.append('%s = %s' % (name, (yield v)[0]))
+    return 'let %s in %s' % ('; '.join(bindings), (yield value.body)[0]), APP
   if isinstance(value, Values):
-    return 'Values [%s]' % ','.join(format_(v)[0] for v in value), APP
+    pieces = []
+    for v in value:
+      pieces.append((yield v)[0])
+    return 'Values [%s]' % ','.join(pieces), APP
   if isinstance(value, Term):
     if hasattr(value, '_text'):
       return value._text, APP
-    return format_(value._form)
+    return (yield value._form)
   if isinstance(value, typed):
     if isinstance(value.value, str):
       return curry_literal(value.value, as_char=value.exprtype == 'Char'), ATOM
-    return format_(value.value)
+    return (yield value.value)
   if isinstance(value, CurryNodeInfo):
     return application(value, ())
   if isinstance(value, list) and not isinstance(value, ValueList) and value \
       and isinstance(value[0], CurryNodeInfo):
-    return application(value[0], value[1:])
+    pieces = []
+    for v in value[1:]:
+      pieces.append((yield v))
+    return application(value[0], value[1:], pieces)
   if isinstance(value, list):
-    return '[%s]' % ','.join(format_(v)[0] for v in value), ATOM
+    pieces = []
+    for v in value:
+      pieces.append((yield v)[0])
+    return '[%s]' % ','.join(pieces), ATOM
   if isinstance(value, tuple):
-    return '(%s)' % ','.join(format_(v)[0] for v in value), ATOM
+    pieces = []
+    for v in value:
+      pieces.append((yield v)[0])
+    return '(%s)' % ','.join(pieces), ATOM
   if isinstance(value, float):
     text = show_float(value)
     return text, NEG if value < 0 else ATOM

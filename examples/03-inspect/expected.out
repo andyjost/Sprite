@@ -1,4 +1,6 @@
 % python go.py
+Module: Nat
+Module file: Nat.curry
 Symbols defined in Nat: I, O, natFromInt, natFromInt_COMPLEXCASE0, natFromInt_COMPLEXCASE1, natToInt
 Types defined in Nat: Nat
 Constructors of Nat.Nat: O (arity 0), I (arity 1)

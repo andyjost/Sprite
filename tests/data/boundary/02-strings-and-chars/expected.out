@@ -1,20 +1,21 @@
 % python go.py
-str(expr('a')) -> "'a'"
+show('a') -> '"a"'
 typeof 'a' -> '[Char]'
 typeof 'ab' -> '[Char]'
 typeof '' -> '[Char]'
-ord 'a' -> [97]
+ord 'a' !! ConversionError: cannot convert 'a' to Char at argument 1 of Prelude.ord :: Char -> Int: a str is a String; write curry.Char('a')
+ord (Char 'a') -> [97]
 length 'a' -> [1]
 length '' -> [0]
-'' !! ConversionError: a str goal needs curry.parse(text) for code or curry.term(text) for a String
-show 'a' -> ["'a'"]
-show (typed 'a' String) -> ['"a"']
-typeof ('a', 1) -> 'Num a => (Char, a)'
+'' as a goal !! ConversionError: a str goal needs curry.parse(text) for code or curry.term(text) for a String
+term '' -> ['']
+show (Char 'a') -> ["'a'"]
+show 'a' -> ['"a"']
+typeof ('a', 1) -> 'Num a => ([Char], a)'
 strInTuple ('a', 1) -> ['a1']
 names [('a', 1)] -> [['a']]
-names table !! MismatchError: type mismatch in argument 1 of Str.names :: [([Char], Int)] -> [[Char]]
-names (typed table) -> [['a', 'b']]
-chr 65 -> "<Char 'A'>"
+names table -> [['a', 'b']]
+chr 65 -> "'A'"
 typeof (chr 65) -> 'Char'
 ord (chr 65) -> [65]
-chr 65, converted -> ['A']
+chr 65 == "A" -> True

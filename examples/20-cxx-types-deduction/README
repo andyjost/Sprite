@@ -137,18 +137,18 @@ Deduction.curry, and ../cxx, for the shared modules.  It imports CxxLimits,
 CxxType and Deduction from curry.lib.
 
 Python builds the types and the patterns.  Each constructor of CxxType.Type
-is applied with curry.expr, for example
+is applied as a Python call, for example
 
-    curry.expr(CxxType.Ptr, curry.expr(CxxType.Const, INT))
+    CxxType.Ptr(CxxType.Const(INT))
 
-for int const*, where INT is curry.expr(CxxType.Fund, CxxLimits.Int).  A
+for int const*, where INT is CxxType.Fund(CxxLimits.Int).  A
 template parameter is the class of its name, cls('T'), and a function
 parameter is a pattern under ByValue, ByLRef or ByRRef: by_lref(const(T))
 is the parameter T const&.  A partial specialization is a Template with the
 names of its parameters: template(['T'], ptr(T)) is S<T*>.  A name is a
-Python str, which curry.expr converts by the type the constructor expects,
+Python str, which curry.term converts by the type the constructor expects,
 a String, also for a name of one character such as "T"; a list of names is
-a list of such strings.  Python can make a free variable: curry.free() in a
+a list of such strings.  Python can make a free variable: curry.free('x') in a
 goal is one variable (Y1), and the typed builder gives it its type (#56).
 This driver keeps its free variables in Curry by choice: deduceCall makes
 one per template parameter, and the inverse questions of Deduction.curry
@@ -156,11 +156,11 @@ declare one.  Python passes concrete types and patterns.
 
 Every goal returns a String, and the driver reads it with
 
-    next(curry.eval(goal, *args, converter='topython'))
+    curry.eval(goal(*args) if args else goal).one()
 
-The converter turns the Curry String into a str.  The driver prints the
+Evaluation turns the Curry String into a str.  The driver prints the
 parameters of a template through Deduction.signature and the argument types
-through the Curry printer, curry.eval(CxxType.showCxx, t), so that Python
+through the Curry printer, curry.eval(CxxType.showCxx(t)), so that Python
 holds no knowledge of C++ syntax.  The whole driver builds the data, calls
 the goals and aligns the columns.
 

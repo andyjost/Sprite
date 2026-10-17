@@ -1,20 +1,11 @@
-Scalars and the limits of Int
-=============================
+Scalars and limits
+==================
 
-Seam: scalar Python values cross by the conversion table of the memo (A2,
-A3): a bool is a Bool, an int a polymorphic literal, a float a fractional
-one.  Catalogue: P3 (the 64-bit Int), P10 (the typed boundary), P40 (the
-division by zero, #106), P42 (EvaluationError is a CurryError and an
-Exception, caught by the driver).  Issues: #105 and #106,
-fixed; this driver is their regression.
-Output: typeof True is Bool, and succ True has no value because True is
-the last Bool.  The edges 2**63 - 1 and -2**63 cross; 2**63 and -2**63 - 1
-are an IntOverflowError that names the range, as is 2**62 + 2**62.
-div 1 0 and mod 1 0 are DivisionByZeroError.  sqrt 4 is 2.0 and 1 + 2.5 is
-3.5: an int is a literal that fills a Float slot.  typeof 1 is Num a => a
-and Int when defaulted; 1.5 is Fractional a => a and Float.  succ 1.5 is a
-DefaultingError: no default of the REPL's table is Enum and Fractional.
-Oracle: oracle.out holds the PAKCS 3.4.1 transcripts of the plain goals.
-PAKCS has unbounded integers, so 2^62 + 2^62 is 9223372036854775808 there
-where Sprite raises; "Limits" of Using the API states the difference.
-Backends: py and cxx, one output.
+Seam: Booleans, integers, floats, numeric defaulting and arithmetic errors.
+Float is concrete; an Int is limited to signed 64-bit values.
+
+Run ./run after make stage, or run unit_boundary.py from tests/.
+The run script selects the staged Python and the session backend.
+expected.out records stdout; stderr is shown on failure by the test.
+The driver comments explain the individual probes and their order.
+The corpus README.md lists the backends and the oracle for this driver.

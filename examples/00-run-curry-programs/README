@@ -14,7 +14,7 @@ Call-time choice.  The program defines
 
 The operator ? is a non-deterministic choice.  The goal main binds x to flip
 once and returns (x, x).  Both components share the one choice, so main has
-two values: (True, True) and (False, False).
+two values: (True,True) and (False,False).
 
 The goal mainalt returns (flip, flip).  The two calls of flip are independent
 choices, so mainalt has four values.  The difference between the two goals
@@ -44,16 +44,16 @@ Run "make stage" from the root of the repository first.  Then run
 The file expected.out holds the exact output of ./run:
 
     % sprite-exec program.curry
-    (True, True)
-    (False, False)
+    (True,True)
+    (False,False)
     % CURRYPATH=. sprite-exec -m program
-    (True, True)
-    (False, False)
+    (True,True)
+    (False,False)
     % sprite-exec program.curry -g mainalt
-    (True, True)
-    (True, False)
-    (False, True)
-    (False, False)
+    (True,True)
+    (True,False)
+    (False,True)
+    (False,False)
 
 
 5. Limits

@@ -573,8 +573,8 @@ class TestPrograms(cytest.TestCase):
       )
     self.assertEqual(
         proc.stdout.splitlines()
-      , ['3', '1+2 :: Num a => a', '{xs=[1, 2]} True', 'x where x free :: Data a => a'
-        , '_a', '[1.0, 2.5]']
+      , ['3', '1+2 :: Num a => a', '{xs=[1,2]} True', 'x where x free :: Data a => a'
+        , '{x=x} x', '[1.0,2.5]']
       )
 
   @unittest.skipUnless(IS_CXX, 'the stress mode belongs to the collector of the C++ backend')

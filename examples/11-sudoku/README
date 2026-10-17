@@ -29,7 +29,7 @@ first, so a dead branch dies early.
 go.py reads each puzzle file into a nested Python list of ints, with 0 for a
 blank.  The call
 
-    curry.eval(Sudoku.solve, board, converter='topython')
+    curry.eval(Sudoku.solve(board))
 
 turns the nested list into the Curry value of type [[Int]], applies solve to
 it, and returns a generator.  Each value of the generator is one solution,

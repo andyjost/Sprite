@@ -2,1299 +2,288 @@
 Using the API
 =============
 
-.. note::
+Sprite lets Python assemble typed Curry terms and consume their answers.
+Import a module with ``curry.import_``, call its symbols to build terms,
+and pass a term to ``curry.eval``.  Evaluation returns converted values.
+Use ``curry.solve`` when you also need the bindings of named variables.
 
-    To try the examples in this file, start an interactive Python
-    prompt.  See :ref:`starting-python` for details.  The outputs shown
-    come from a session on the C++ backend.
+Importing and inspecting
+========================
 
-Importing Curry Modules
-=======================
+Run these examples from a directory containing ``Peano.curry`` (the file
+in ``examples/``).  Imports search ``curry.path`` and the installed library.
+The ``curry.lib`` import hook is also available.
 
-Curry modules can be imported into Python via the ``import`` keyword.  To avoid
-ambiguity with Python modules, Curry code is imported from a virtual package called
-``curry.lib``.  We will see an example shortly.
-
-To import ``Peano`` it is first necessary to configure the search path residing
-at ``curry.path``.  The initial value of this comes from the environment
-variable CURRYPATH.  If your CURRYPATH does not already contain the current
-directory, you can add it by saying:
-
+    >>> import curry
     >>> curry.path.insert(0, '.')
+    >>> P = curry.import_('Prelude')
+    >>> Peano = curry.import_('Peano')
+    >>> curry.import_('Peano') is Peano
+    True
+    >>> curry.modules['Peano'] is Peano
+    True
 
-Change the list in place, as here.  An assignment to ``curry.path`` rebinds
-the name in the package.  The search path of the interpreter stays as it
-was.  The same holds for ``curry.flags``.
+A symbol is a term.  Calling it builds an application without evaluating it.
+Operators and Python keywords are available through item lookup.
+Metadata lives under ``curry.info(module)``; it includes the module's name,
+file, symbols and types.  A type is metadata rather than a module attribute.
 
-Now, import ``Peano``:
-
-    >>> from curry.lib import Peano
-
-This compiles the code of ``Peano`` into executable form, loads it into a
-Python module, and registers that object with Python.
-
-Whenever a Curry module is imported, a reference to it is stored in
-``curry.modules``.  We can see that it now contains the implict module
-``Prelude`` as well as ``Peano``:
-
-    >>> sorted(curry.modules)
-    ['Peano', 'Prelude']
-
-:func:`curry.import_` imports a module by name and returns it:
-
-    >>> DL = curry.import_('Data.List')
-
-A dotted name imports the packages on its way, so this adds the package
-``Data`` to ``curry.modules`` as well.  ``curry.import_('Data')`` returns
-the package.  A source file is imported with
-``curry.import_('Peano.curry', is_sourcefile=True)``.  A list of names
-imports each of them.  The products of a module are written beside its
-source under ``.curry/sprite-pakcs-3.4.1/``.  They are the ICurry
-(``Peano.icy``), the interfaces of the front end (``Peano.fint``,
-``Peano.icurry``) and the JSON.  The generated C++ and the shared object
-(``Peano.so``) are added when the module has been compiled.
-
-A module loaded already is returned as it was loaded.  Within one process its
-source is not read again: when the file changed after the import,
-:func:`curry.import_` returns the loaded module and logs a warning that
-names the module and the file, once per edit.  An import of another file of
-the same module name (``is_sourcefile=True``) returns the loaded module as
-well, and the warning names both files.  A new process reads the edited or
-the other file.  On the C++ backend the background compile of a module (the
-flag ``interpret``, :doc:`/Status`) compiles the source as it is when the
-compile runs; an object compiled from an edited source is refused at the
-swap, so the code of a loaded module never changes without a load.
-
-Inspecting Symbols
-==================
-
-``Peano`` exposes public symbols (i.e., constructors and functions) as Python
-attributes.  These can be accessed in the usual way:
-
-    >>> Peano.S
-    <Term S :: Nat -> Nat>
-    >>> Peano.O
-    <Term O :: Nat>
-    >>> Peano.add
-    <Term add :: Nat -> Nat -> Nat>
-
-Three rules say what a module offers.  The public functions and
-constructors are attributes under their Curry names, operators included.  A
-private function is not an attribute; ``curry.symbol`` reaches it by its
-full name.  A type is not an attribute; see
-:ref:`PythonAPI/UsingTheAPI:Inspecting Types` below.
-
-These objects contain a wealth of information.  For example:
-
-    >>> Peano.add.name
-    'add'
-    >>> Peano.add.fullname
-    'Peano.add'
-    >>> Peano.add.signature
-    'Nat -> Nat -> Nat'
-    >>> Peano.add.scheme
-    <Scheme Peano.add :: Nat -> Nat -> Nat>
-
-The signature is the type scheme of the symbol in Curry syntax.  Sprite reads
-it from the FlatCurry interface that the front end wrote beside the module.
-``Peano.add.scheme`` is the same scheme as an object; see
-:mod:`curry.typecheck`.  A symbol of the Prelude with a class constraint
-shows its context:
-
-    >>> curry.symbol('Prelude.+').signature
-    'Num a => a -> a -> a'
-
-``Peano.add.info`` is the info table of the symbol in the runtime: its
-name, arity, tag, and step function.
-
-To see the ICurry and the generated code, try the following commands:
-
-    >>> from curry import inspect
-    >>> print(inspect.geticurry(Peano.add))
-    add:
-      var $1
-      var $2
-      $1 <- $0[0]
-      $2 <- $0[1]
-      case $1 of
-        Peano.O -> return $2
-        Peano.S _ ->
-          var $3
-          $3 <- $1[0]
-          return ICCall('Peano.S', IFCall('Peano.add', $3, $2))
-    >>> print(Peano.add.getimpl())  # doctest: +ELLIPSIS
-    /****** Peano.add ******/
-    ...
-
-``inspect.geticurry`` reads the ICurry of a module loaded from its compiled
-code from the file beside it.  ``getimpl`` gives the generated C++
-function of a compiled module, and the bytecode listing of a module that
-the runtime interprets, which a freshly imported module is under the
-default of the flag ``interpret`` (see :ref:`interpreter-flags`).
-
-.. tip::
-    Use ``print`` when examining long strings with embedded newlines.
-
-Sprite provides the function ``curry.symbol`` to find symbols by their
-fully-qualified name:
-
-    >>> curry.symbol('Peano.S')
-    <Term S :: Nat -> Nat>
-
-This function only searches loaded modules; it will not import anything.
-The name splits at its first dot into a module and a name in it, so
-``curry.symbol('Data.List.nub')`` needs the package ``Data`` loaded, as the
-import of ``Data.List`` above left it:
-
-    >>> curry.symbol('Data.List.nub')
-    <Term nub :: Eq a => [a] -> [a]>
-
-A Curry name that is not a Python identifier, or is a Python keyword, is
-reached with ``getattr`` or with ``curry.symbol``.  Seven names of the
-Prelude are keywords: ``not``, ``and``, ``or``, ``break``, ``return``,
-``True`` and ``False``.
-
-    >>> from curry.lib import Prelude
-    >>> getattr(Prelude, '++')
-    <Term (++) :: [a] -> [a] -> [a]>
-
-Inspecting Types
-================
-
-Curry types and symbols reside in separate namespaces.  To avoid
-collisions, types are not exposed as module attributes in Python.
-
-Sprite provides ``curry.inspect.types`` to gain access to the types defined in
-a module:
-
-    >>> from curry import inspect
-    >>> list(curry.info(Peano).types)
+    >>> print(Peano.S)
+    S
+    >>> print(Peano.add)
+    add
+    >>> print(P['+'])
+    (+)
+    >>> curry.info(Peano).name
+    'Peano'
+    >>> sorted(curry.info(Peano).types)
     ['Nat']
-
-One may also use ``curry.type`` to look up a type by its fully-qualified name:
-
-    >>> curry.info(Peano).types['Nat'].fullname
-    'Peano.Nat'
-
-A type object knows its constructors:
-
-    >>> Nat = curry.info(Peano).types['Nat']
-    >>> Nat.fullname
-    'Peano.Nat'
-    >>> Nat.constructors
-    (<Symbol Peano.O :: Nat>, <Symbol Peano.S :: Nat -> Nat>)
-
-:func:`curry.currytype` gives the Curry type a Python value converts to by
-its Python type alone: ``curry.currytype(int)`` is ``Int`` and
-``curry.currytype(str)`` is ``Char``.  The typed builder below converts by
-the expected type instead, so a ``str`` becomes a ``String`` where one is
-expected.
-
-
-Compiling Curry Code
-====================
-
-Dynamic Compilation
--------------------
-
-Use :func:`curry.compile` to dynamically create Curry modules:
-
-    >>> Fib = curry.compile(
-    ...     '''
-    ...     fib :: Int -> Int
-    ...     fib n | n < 3 = 1
-    ...           | True  = (fib (n-1)) + (fib (n-2))
-    ...
-    ...     main :: Int
-    ...     main = fib 7
-    ...     '''
-    ...   , modulename='Fib'
-    ...   )
-
-The above is equivalent to to placing the code into a file ``Fib.curry`` and
-importing it.  The module is added to :data:`curry.modules` under its name.
-Without a name, the module gets a name of its own that no later compile
-reuses.
-
-.. note::
-
-    The text reaches the front end as written.  The layout rule of Curry
-    accepts a block whose lines are indented alike, as shown above.
-
-Each compile runs the Curry front end, which takes a fraction of a second
-for a small module (0.6 s for ``Peano`` on the machine of this text, the
-translation to ICurry included).
-
-Writing Compiled Code to Disk
------------------------------
-
-:func:`curry.save` writes the generated C++ of a module.  To save the
-compiled ``Fib`` module into a file ``Fib.cpp``, say:
-
-    >>> curry.save(Fib, 'Fib.cpp', module_main=False)
-
-``module_main=False`` saves the module alone.  Without it the file is a
-program, and ``goal=`` must name the goal it evaluates; a call with neither
-raises ``ValueError``.  The entry point of the C++ program is a stub today;
-``sprite-exec`` runs programs.  The saved program of the reference backend
-(:ref:`reference-backend`), a script in Python, retires at the removal gate
-of issue #82.
-
-:func:`curry.load` loads the shared object of a module, which
-``sprite-make --so`` writes beside the source, under
-``.curry/sprite-pakcs-3.4.1/`` (see :ref:`sprite-make`).  With the module
-above in a file ``Fib.curry``:
-
-.. code-block:: bash
-
-    % install/bin/sprite-make --so Fib.curry
-
-Then, in a new Python process (the note below says why):
-
-    >>> Fib = curry.load('.curry/sprite-pakcs-3.4.1/Fib.so')  # doctest: +SKIP
-
-.. note::
-
-    The runtime keeps one library per module name for the life of the
-    process.  A load of ``Fib.so`` in a session where ``Fib`` is loaded
-    from another file is refused with the message "it is already loaded
-    from", before the object is opened; load the object in a new process.
-    Under the default ``interpret:tiered`` of the C++ backend, an import of
-    ``Fib`` without a current object compiles it in the background, and
-    :func:`curry.load` of that object waits for the compile to end (the
-    log says so at the INFO level, and at the WARNING level once the wait
-    passes five seconds) and loads the object the compile wrote.  The
-    object of a module that runs, or ran, interpreted in this process
-    without a library of its name loaded (its compile failed, or a reset
-    came before the compile ended) is refused as well.  A new interpreter (``Interpreter()``)
-    shares the process and its libraries, and starts from the flags of the
-    environment (:ref:`interpreter-flags`).
+    >>> [c.name for c in curry.info(Peano).types['Nat'].constructors]
+    ['O', 'S']
 
 .. _building-expressions:
 
-Building Expressions
-====================
+Building terms
+==============
 
-``curry.term(value)`` converts Python data to a typed Curry term. A
-``str`` is always a String; use ``curry.Char`` for a character, including
-in a character argument. A ``bool`` never fills an Int argument. Lists,
-``range`` and other sequences become lists; tuples have zero or 2 to 15
-components. ``None`` and dictionaries require an explicit representation,
-such as ``Prelude.Nothing`` and ``list(d.items())``.
+A held ``Term`` describes a computation.  It is typed at construction and
+remains unchanged by evaluation.  Partial applications are terms too.
+Use ``curry.term`` for Python values and ``type=`` for an annotation.
+A Python list always describes a list value, including a list of symbols.
 
-    >>> curry.eval(Prelude.ord(curry.Char('A'))).one()
-    65
-    >>> curry.typeof(curry.term('a')), curry.typeof(curry.Char('a'))
-    ('[Char]', 'Char')
-
-An iterator becomes a lazy list. A held term remembers the items already
-drawn; another evaluation reads that prefix again and can draw more.
-An incompatible item raises ``ConversionError`` when it is drawn.
-
-``curry.eval`` converts built-in values recursively, including inside user
-constructors and set-function results. A Char becomes ``curry.Char``,
-equal to and hashed as the corresponding Python string. Other user values
-are ``Data`` with ``symbol`` and converted ``args``. They compare
-structurally, are hashable, are true, and have no sequence protocol.
-Ordering calls Curry's ``compare`` and requires an Ord instance. Pass a
-Data value straight back to Curry.
-
-    >>> v = curry.eval(Prelude.Just(curry.Char('A'))).one()
-    >>> isinstance(v, curry.Data), v.symbol.name, v.args
-    (True, 'Just', ('A',))
-    >>> curry.eval(Prelude.id(v)).one() == v
-    True
-
-A function value is a callable ``Function`` term. A set-function result
-is a ``Values`` collection: equality counts multiplicity, iteration order
-is unspecified, and an empty collection is a false value. An unbound
-variable remains the ``Var`` itself at every nested position.
-``curry.typeof`` prints the undefaulted type scheme of a term or parsed
-text; on an Answer it reports the type of the value.
-
-    >>> f = curry.eval(Prelude['not']).one()
-    >>> isinstance(f, curry.Function), curry.eval(f(True)).one()
-    (True, False)
-    >>> curry.typeof(curry.solve(curry.term(1, type='Int')).one())
-    'Int'
-
-The following examples describe the older expression-building door.
-
-The string to ``curry.compile`` is by default interpreted as a module
-definition.  To instead build an expression, set the mode to ``'expr'``:
-
-    >>> fib3 = curry.compile(
-    ...     'fib 3', mode='expr', exprtype='Int', imports=[Fib]
-    ...   )
-    >>> fib3
-    <fib <Int 3>>
-
-Note the following:
-
-    - ``exprtype`` provides the type annotation of this expression.  See
-      :ref:`important-notes`.
-    - Adding ``Fib`` to the import list makes ``Fib.fib`` available.
-
-``exprtype`` is optional.  Without it the front end infers the type of the
-expression.  A type with class constraints, such as ``Num a => a`` for
-``1 + 2``, is defaulted as the REPL of PAKCS does (the table is in
-:ref:`goal-defaulting` below).  A constraint the table cannot handle is a
-``CompileError`` with the sentence of the REPL.  ``CompileError`` derives
-from ``CurryError``, an ``Exception``, so ``except Exception`` catches it:
-
-    >>> curry.compile('toEnum 65', mode='expr')
-    Traceback (most recent call last):
-      ...
-    curry.exceptions.CompileError: cannot handle the overloaded goal toEnum 65 of type Enum a => a
-    Cannot handle arbitrary overloaded top-level expressions
-    state the type: toEnum 65 :: T
-
-A trailing ``where x, y free`` declares free variables, as in the REPL.  A
-variable whose type is absent from the result type cannot show in a value,
-so the old ``compile(mode='expr')`` route retains a binding wrapper when
-``converter=None`` is explicit:
-
-    >>> goal = curry.compile('xs ++ [3] =:= [1, 2, 3] where xs free', mode='expr')
-    >>> value = next(curry.eval(goal, converter=None))
-    >>> print(value)
-    {xs=[1, 2]} True
-
-Such a value is a :class:`Bindings <curry.typecheck.goals.Bindings>`
-object: ``value.value`` is the value of the goal and ``value.bindings`` a
-dict from the name of a variable to its binding, in the order of the
-declaration.  A variable whose type occurs in the result type is left in
-the value, which is the answer:
-
-    >>> print(next(curry.eval(curry.compile('(x, 1) where x free', mode='expr'))))
-    (_a, 1)
-
-Use ``curry.solve(curry.parse(text))`` to report every named variable
-through the new Answer/Bindings interface. The REPL of PAKCS prints the
-binding of every declared variable, ``{x=x} x``
-for ``x where x free``, where Sprite prints ``_a``.  The clause must end the
-text.  With ``exprtype``, or with a comment after ``free``, it is compiled
-as a local declaration.  The variables are not lifted then, and no binding
-is reported.  So ``curry.compile('xs =:= [1] where xs free', mode='expr',
-exprtype='Bool')`` evaluates to ``True`` alone.
-
-Curry expressions can also be created directly in Python with
-:func:`curry.expr`.  It bypasses the Curry front end, so it is fast, and it
-is typed: the expression is checked and converted before any node is built.
-:ref:`typed-expressions` below gives the rules.
-
-Built-in Conversions
---------------------
-
-``curry.expr`` converts numbers, strings, Booleans, lists, and tuples to Curry,
-each by the type its position expects (see :ref:`typed-expressions`).  A few
-examples:
-
-    >>> curry.expr(1)
-    <Int 1>
-    >>> curry.expr(1.5)
-    <Float 1.5>
-    >>> curry.expr('a')
-    <Char 'a'>
-    >>> curry.expr('ab')
-    <: <Char 'a'> <: <Char 'b'> <[]>>>
-    >>> curry.expr(True)
-    <True>
-    >>> curry.expr([1])
-    <: <Int 1> <[]>>
-    >>> curry.expr((1,2))
-    <(,) <Int 1> <Int 2>>
-    >>> curry.expr(())
-    <()>
-
-The above values are shown in ``repr`` format.  This format can be obtained by
-applying the ``repr`` function.  This format reflects the underlying graph
-structure directly.  Each node is rendered as an angle-bracket-enclosed
-sequence comprising the symbol name followed by the successors.  No special
-formatting for lists, tuples, strings, or any other type is used.
-
-Boxed values, such as ``<Int 1>``, are easy to distinguish from unboxed ones.
-To be boxed is synonymous with being stored in a node.  The boxed integer
-``<Int 1>`` is a node with symbol ``Int`` and successor ``1`` (which is
-unboxed).  ``curry.unboxed`` marks the payload of such a node, and nothing
-else.  Anywhere but under ``Int``, ``Char`` or ``Float`` a node is expected,
-so the marker is an error at construction:
-
-    >>> from curry.lib import Prelude
-    >>> curry.expr([Prelude.Int, curry.unboxed(1)])
-    <Int 1>
-    >>> curry.expr(Prelude.id, curry.unboxed(1))
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.errors.ConversionError: curry.unboxed(1) stands at argument 1 of Prelude.id :: a -> a; the marker is the payload of an Int, Char or Float, as in [Prelude.Int, curry.unboxed(1)]
-
-An alternative to ``repr`` format is ``str`` format.  To obtain it,
-apply the ``str`` function or just print the value:
-
-    >>> print(curry.expr(1))
-    1
-    >>> print(curry.expr('a'))
-    'a'
-    >>> print(curry.expr('hello'))
-    "hello"
-    >>> print(curry.expr([1]))
-    [1]
-    >>> print(curry.expr((1,2)))
-    (1, 2)
-
-``str`` format shows expressions in a more natural way, but discards
-information about whether data is boxed.  A string of several characters is
-built in one call: the list of its characters, made natively.
-
-Two nodes compare by their structure: ``==`` is True between two nodes that
-hold the same expression, whatever their identity, and False between a node
-and a value that is not a node.  A node hashes by its identity, so two equal
-nodes hash differently, and a dict or a set keyed by nodes keeps both; a
-node is not meant as a dictionary key.  A node has no order: ``<``
-between two nodes raises ``TypeError``.  Every node is true in a Boolean
-context, the node ``False`` and a failure included, so convert a value
-before a test.  ``len`` is not defined on a node.  ``v[i]`` is successor
-``i`` of the node, so ``v[0]`` of a list value is its head and ``v[1]`` its
-tail.  An index past the successors raises ``TypeError``, and so does
-``list(v)``.  A built-in value (``Int``, ``Char``, ``Float``) has no
-successor.  Its index 0 is the Python value it holds.  For example:
-
-    >>> one, other = curry.expr(1), curry.expr(1)
-    >>> one == other, one == 1, one is other
-    (True, False, False)
-    >>> len({one, other})
-    2
-    >>> v = next(curry.eval(curry.expr([1, 2]), converter=None))
-    >>> bool(next(curry.eval(False, converter=None))), v[0], v[1]
-    (True, <Int 1>, <: <Int 2> <[]>>)
-
-Symbolic Expressions
---------------------
-
-Curry symbols are converted to expressions:
-
-    >>> from curry.lib import Prelude
-    >>> curry.expr(Prelude.Nothing)
-    <Nothing>
-
-To apply arguments, place them after the symbol:
-
-    >>> curry.expr(Prelude.Just, 5)
-    <Just <Int 5>>
-    >>> curry.expr(Fib.fib, 7)
-    <fib <Int 7>>
-
-Partial applications are allowed:
-
-    >>> curry.expr(Prelude.Just)
-    <_PartApplic 1 Just>
-
-A subexpression can be specified as a Python list whose first element is a
-symbol:
-
-    >>> print(curry.expr(Peano.S, [Peano.S, Peano.O]))
+    >>> goal = Peano.add(Peano.S(Peano.O), Peano.S(Peano.O))
+    >>> print(goal)
+    add (S O) (S O)
+    >>> print(curry.eval(goal).one())
     S (S O)
+    >>> print(goal)
+    add (S O) (S O)
+    >>> print(Peano.S(Peano.S(Peano.O)))
+    S (S O)
+    >>> curry.eval(P.length([Peano.O, Peano.O])).one()
+    2
+    >>> curry.eval(P.map(P['+'](1), [2, 3])).one()
+    [3, 4]
+    >>> curry.eval(curry.term(1, type='Float')).one()
+    1.0
 
-.. note::
+Curry text uses ``curry.parse``.  Imports are a sequence of modules or module
+names.  Type annotations belong in the text.  A bare Python string passed
+to evaluation is refused: choose text parsing or a String value explicitly.
 
-  Python lists build both Curry lists and nested Curry expressions.  The
-  rule is by the first element alone: a list whose first element is a
-  *symbol* is an application of that symbol, and any other list is a Curry
-  list.  Lists are processed from the inside out.  Consider:
+    >>> parsed = curry.parse('add (S O) (S O)', imports=[Peano])
+    >>> print(curry.eval(parsed).one())
+    S (S O)
+    >>> curry.eval(curry.parse('1 + 2 :: Int')).one()
+    3
+    >>> curry.eval(curry.term('hello')).one()
+    'hello'
 
-      >>> print(curry.expr([Peano.S, Peano.O]))
-      S O
+``curry.compile`` builds a module from source text.  The current session
+lane uses ``modulename=`` when a specific module name is needed.
 
-  This list specifies a subexpression because ``Peano.S`` is a symbol.  On the
-  other hand:
-
-      >>> print(curry.expr([[Peano.O], [Peano.O]]))
-      [O, O]
-
-  The nested lists, ``[Peano.O]``, begin with a symbol and, therefore, specify
-  subexpressions.  These are transformed first by applying ``curry.expr``
-  recursively.  By the time it is processed, the outermost list begins with an
-  expression rather than a symbol.  So a Curry list whose first element is a
-  symbol cannot be spelled as a flat Python list: ``curry.expr([Peano.O])``
-  is the value ``O``, and ``curry.expr([Peano.O, Peano.O])`` is an
-  ``ArityError``.  Spell such a list with one more level, ``[[Peano.O]]``,
-  with built nodes, ``[curry.expr(Peano.O)]``, or with
-  ``curry.cons(Peano.O, curry.nil)``.
-
-Graph-Like Expressions
-----------------------
-
-Named subexpressions can be created by passing keyword arguments.  This is
-necessary to create graph-like (as opposed to tree-like) expressions that
-contain shared subexpressions and/or cycles.  To reference a subexpression, use
-``curry.ref``.  The following creates an infinity in the Peano system:
-
-    >>> curry.expr(curry.ref('a'), a=[Peano.S, curry.ref('a')])
-    <S ...>
-
-This is equivalent to the following Curry expression:
-
-.. code-block:: haskell
-
-    let a=(S a) in a
-
-The ellipsis indicates a back reference.  In general, ``repr`` will not render
-a subexpression more than once.  ``str`` format does not do this, so an attempt
-to print the previous expression would never terminate.
-
-Expression Modifiers
---------------------
-
-In addition to ``curry.ref``, a few other helper functions and objects are
-provided.  To create a free variable, use ``curry.free``.  One marker is one
-variable, also when it occurs several times or in several expressions.  The
-expression holds a call of ``Prelude.unknown``, and the first rewrite step
-turns it into the variable.  ``curry.reset()`` starts a new interpreter
-state, and the marker becomes a new variable there:
-
-    >>> xs = curry.free()
-    >>> print(curry.expr(xs))
-    unknown _inst#Prelude.Data#Prelude.Bool
-    >>> print(next(curry.eval(xs)))
-    _a
-
-A binding made during one evaluation is private to that evaluation.  The
-same marker in a later goal is the same variable node, unbound again:
-
-    >>> x = curry.free()
-    >>> eq = getattr(Prelude, '=:=')
-    >>> print(next(curry.eval(eq, x, 1)))
-    True
-    >>> print(next(curry.eval(x)))
-    _a
-
-To create a non-deterministic choice, use ``curry.choice``.  The expression
-holds a call of ``Prelude.?``, and the first rewrite step turns it into a
-choice with a fresh identifier, so two markers are two independent choices:
-
-    >>> print(curry.expr(curry.choice(1, 2)))
-    (?) 1 2
-    >>> sorted(curry.eval(curry.choice(1, 2), converter='topython'))
-    [1, 2]
-    >>> plus = curry.symbol('Prelude.+')
-    >>> sorted(curry.eval(plus, curry.choice(1, 2), curry.choice(10, 20), converter='topython'))
-    [11, 12, 21, 22]
-
-``curry.raw_expr`` builds the raw ``Free`` and ``Choice`` nodes instead, with
-the identifiers given to the markers.  That form serves the tests of the
-runtime.
-
-Use ``curry.cons`` and ``curry.nil`` to create cons-style lists, and
-``curry.fail`` to place a failure:
-
-    >>> print(curry.expr(curry.cons(1, curry.nil)))
-    [1]
-    >>> print(curry.expr(curry.cons(1, 2, 3, curry.nil)))
-    [1, 2, 3]
-    >>> print(curry.expr(curry.fail))
-    failed
-
+    >>> M = curry.compile('double :: Int -> Int\ndouble x = x + x', modulename='Double')
+    >>> curry.eval(M.double(4)).one()
+    8
 
 .. _typed-expressions:
 
-Typed Expressions
------------------
+Types and conversions
+=====================
 
-:func:`curry.expr` types an expression before it builds it.  The type
-scheme of each symbol comes from the FlatCurry interface of its module, the
-``signature`` shown above.  The arguments are unified with the parameter
-types.  The class constraints that remain are defaulted with the table of
-the PAKCS REPL (:ref:`goal-defaulting`), and the class dictionaries are
-supplied.  So an overloaded function, and a class method, can be called
-from Python:
+Construction reads the type schemes of symbols from their FlatCurry
+interfaces, unifies the arguments, and supplies class dictionaries.
+``curry.typeof`` returns Curry type text before defaulting.
+``defaulted=True`` asks for the type evaluation will use.
 
-    >>> plus = curry.symbol('Prelude.+')
-    >>> print(curry.expr(plus, 1, 2))
-    apply (apply ((+) _inst#Prelude.Num#Prelude.Int) 1) 2
-    >>> next(curry.eval(plus, 1, 2, converter='topython'))
-    3
-    >>> next(curry.eval(plus, 1.5, 1, converter='topython'))
-    2.5
-    >>> next(curry.eval(Prelude.show, [Prelude.Just, 1], converter='topython'))
-    'Just 1'
-
-:func:`curry.typeof` gives the type of an expression, of a symbol, or of
-any argument ``curry.expr`` accepts: the inferred scheme before defaulting,
-which is what ``:type`` prints in the :ref:`REPL <repl>`, or the type after
-it:
-
-    >>> curry.typeof(curry.expr(plus, 1, 2))
+    >>> curry.typeof(P['+'](1, 2))
     'Num a => a'
-    >>> curry.typeof(curry.expr(plus, 1, 2), defaulted=True)
+    >>> curry.typeof(P['+'](1, 2), defaulted=True)
     'Int'
-    >>> curry.typeof(plus)
-    'Num a => a -> a -> a'
     >>> curry.typeof([1, 2.5])
     '[Float]'
     >>> curry.typeof((1, 2.5))
     'Num a => (a, Float)'
-
-The context is printed in the order of the front end: by the first type
-variable of each constraint, then by the class.  ``curry.typeof`` answers
-for the nodes ``curry.expr`` returned.  It answers for the values of
-``curry.eval`` by their content.  For the goal of
-``curry.compile(mode='expr')`` it reports the type after defaulting,
-``Int`` for ``1 + 2``.  For a goal whose binding is reported (a ``where x
-free`` variable absent from the result type) it reports a bare type
-variable.
-
-The keyword ``exprtype`` states the type of the whole expression in Curry
-syntax, and :class:`curry.typed` states the type of one part.  Both are
-unified with the inferred type:
-
-    >>> curry.typeof(curry.expr(Prelude.Just, 5, exprtype='Maybe Float'))
-    'Maybe Float'
-    >>> next(curry.eval(Prelude.read, '5', exprtype='Int', converter='topython'))
-    5
-    >>> curry.typeof(curry.typed(1, 'Float'))
+    >>> curry.typeof(curry.term(1, type='Float'))
     'Float'
 
-**Conversion rules.**  A Python value converts by the type its position
-expects.  The Python type decides only where the expected type is a type
-variable.
-
-* ``bool`` converts to ``True`` or ``False``.  Any other value under
-  ``Bool`` is an error, so ``curry.expr(getattr(Prelude, 'not'), 1)`` is
-  rejected.
-* ``int`` converts to ``Int``; under ``Float`` to a ``Float``; under
-  another instance of ``Num`` through ``fromInt``.  Under a type variable
-  the variable gets the constraint ``Num`` and defaults to ``Int``.  An
-  ``int`` outside the range of ``Int`` is a ``CurryTypeError``
-  (:ref:`PythonAPI/UsingTheAPI:Limits`).
-* ``float`` converts to ``Float``; under a type variable the variable gets
-  the constraint ``Fractional``.  A ``float`` under ``Int`` is an error, as
-  ``1.5 + (1 :: Int)`` is in Curry.
-* ``str`` converts to one string of any length under ``String``
-  (``[Char]``): ``'a'`` under ``String`` is ``"a"``, and ``''`` is the
-  empty string.  Under ``Char`` a ``str`` of length one converts to the
-  character.  Under a bare type variable the Python type decides: a ``str``
-  of length one is a ``Char``, and any other ``str`` is a ``String``.
-  ``curry.typed('a', 'String')`` makes the one-character string.  The
-  decision waits for the rest of the expression.  A part that fixes the
-  variable to a list makes the one-character string a string too:
-
-  - ``curry.typeof(['c', 'ab'])`` is ``'[[Char]]'``, and so is
-    ``curry.typeof(['ab', 'c'])``.
-  - ``fmap ord 'a'`` is ``[97]``: the ``f a`` of ``fmap`` is a type that
-    only a list can fill.
-
-  ``bytes`` convert as ``str``.
-* ``list`` converts to a Curry list.  Every element takes the element
-  type, and all elements unify before defaulting, so ``[1, 2.5]`` is
-  ``[Float]``, as in Curry.  A list is built in a loop, so the builder puts
-  no limit on its length.
-* ``tuple`` converts to a Curry tuple; ``()`` is the unit.  Curry has no
-  1-tuple, so a 1-tuple is an error.  The Prelude declares the tuple types
-  up to 15 components; a tuple of 16 or more types and then fails with a
-  ``SymbolLookupError`` that names the missing constructor.
-* An iterator converts to a lazy Curry list.  The items are read when
-  the list is demanded.  Of two expressions built on one iterator, the one
-  evaluated first takes the items, and the other gives ``[]``.  An
-  exhausted iterator converts to ``[]``.
-  Only an iterator converts: a ``range`` is a ``CurryTypeError``; pass
-  ``iter(range(n))``.  The element type is fixed
-  when the expression is built, by the context, by the other arguments or
-  by the defaulting table, never by an item.  So a class constraint that
-  only the items could resolve, as in ``map show`` over an iterator of
-  numbers, is an error; ``curry.typed(iterator, '[Int]')`` states the
-  element type.  An item that does not convert raises an
-  ``EvaluationError`` when it is demanded, which ends the evaluation,
-  inside ``?`` and inside a set function alike:
-
-      >>> list(curry.eval(getattr(Prelude, '++'), [1], iter([2, 'a']), converter='topython'))
-      Traceback (most recent call last):
-        ...
-      curry.exceptions.EvaluationError: cannot convert item 'a' of the iterator at argument 2 of Prelude.++ :: [a] -> [a] -> [a] to Int
-
-* ``None`` is an error that names the expected type.  Under ``Maybe t``
-  the message adds the line ``Prelude.Nothing is the empty value of
-  Maybe``.
-* A Curry node is typed by its content; see below.
-* :class:`curry.free` is a free variable; see below.
-* :class:`curry.unboxed` is the unboxed payload of an ``Int``, ``Char``
-  or ``Float``, as in ``[Prelude.Int, curry.unboxed(3)]``.  The payload
-  must fit the primitive: a Python ``int`` under ``Int``, a ``str`` of
-  length one under ``Char``, a ``float`` under ``Float``; another value
-  is a ``ConversionError`` that names the primitive.  Anywhere else the
-  marker is a ``ConversionError``; as an item of an iterator it is an
-  ``EvaluationError`` when the list is demanded.
-
-**Values of earlier evaluations.**  A Curry node that fills a parameter is
-typed by a walk of its content, to the leaves, not by its root alone.  A
-value of :func:`curry.eval` is such a node and carries no type of its own.
-This walk is what keeps a list of floats away from integer arithmetic:
-
-    >>> v = next(curry.eval(curry.expr([1.5, 2.5]), converter=None))
-    >>> curry.typeof(v)
-    '[Float]'
-    >>> DL = curry.import_('Data.List')
-    >>> next(curry.eval(DL.sum, v, converter='topython'))
-    4.0
-
-An evaluation rewrites the goal node in place.  Afterwards the node holds
-the result, or it forwards to the result.  ``repr`` shows a forward node as
-``<_Fwd <Int 2>>`` in the example below, or as ``<_FwdSz <O> 24>`` for a
-constructor value.  :func:`curry.topython` returns a forward node
-unconverted, while ``curry.eval`` and ``curry.typeof`` accept it:
-
-    >>> e = curry.expr(Fib.fib, 3)
-    >>> next(curry.eval(e, converter='topython'))
-    2
-    >>> e
-    <_Fwd <Int 2>>
-    >>> curry.topython(e)
-    <_Fwd <Int 2>>
-    >>> curry.typeof(e)
-    'Int'
-
-A partial application is typed by the scheme of its head and the arguments
-it holds, so ``map not`` from an earlier evaluation has the type ``[Bool]
--> [Bool]`` and ``apply`` refuses a number for it.  A shared subgraph is
-visited once, but a node without successors, such as ``[]``, is typed at
-each position it holds: the C++ backend has one ``[]`` node for every
-empty list, so the value of ``([1], 'ab')`` holds it at two types, and the
-sharing says nothing about the type.  The walk stops at 100000 positions
-with an error (a shared ``[]`` counts once per position, a shared cell
-once).  It also refuses a value whose type would
-print with more than that many nodes; a value that shares one node between
-the components of a pair at every level has such a type.  State the type
-of a larger value with ``curry.typed(node, '[Float]')``, which skips the
-walk:
-
-    >>> big = next(curry.eval(curry.expr(list(range(100001))), converter=None))
-    >>> curry.typeof(big)
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.errors.ValueTooLargeError: the value at the expression has more than 100000 nodes; pass curry.typed(node, 'T')
-    >>> curry.typeof(curry.typed(big, '[Int]'))
-    '[Int]'
-
-The annotation is trusted: ``curry.typeof(curry.typed(big, 'Bool'))`` is
-``'Bool'``, and an expression built on a wrong annotation is ill-typed, as
-one of :func:`curry.raw_expr` can be.
-
-A node alone, or at the root of the expression, passes through untouched.
-
-**The scope of inference.**  One call of ``curry.expr`` is one inference
-scope.  The class constraints of the call are defaulted when it returns,
-and a later call does not reopen them:
-
-    >>> incr = curry.expr(plus, 1)
-    >>> curry.typeof(incr, defaulted=True)
-    'Int -> Int'
-    >>> curry.expr(Prelude.apply, incr, 1.5)
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.errors.ConversionError: cannot convert 1.5 to Int at argument 2 of Prelude.apply :: (a -> b) -> a -> b
-
-To let the outer context decide, build the expression in one call, or
-build a description with :func:`curry.describe`, which is typed with the
-expression that receives it:
-
-    >>> next(curry.eval(Prelude.apply, [plus, 1], 1.5, converter='topython'))
-    2.5
-    >>> d = curry.describe(plus, 1)
-    >>> print(d)
-    (+) 1
-    >>> d.typeof()
-    'Num a => a -> a'
-    >>> next(curry.eval(Prelude.apply, d, 1.5, converter='topython'))
-    2.5
-
-A description keeps the keyword anchors of its arguments and the keyword
-``exprtype``; every use of it is typed afresh, so one description serves
-several contexts.  A symbol without a type scheme is built untyped when
-it stands alone, as the goal of a saved module is.  Such a symbol comes
-from a module without a FlatCurry interface, or it is a built-in of
-Sprite's own Prelude such as ``Prelude.IO``.  :func:`curry.typeof`
-refuses it with an ``InterfaceError`` that names ``raw_expr``, and so does
-an application of it.
-
-**Free variables.**  A :class:`curry.free` marker is one variable, as
-described above.  Its type comes from the context.  The marker carries no
-constraint of its own, so ``curry.eval(Prelude.id, x)`` gives ``_a`` with
-the type ``a``.  A consumer that needs ``Data``, such as ``=:=``, adds the
-constraint, and a lone ``Data`` constraint defaults to ``Bool``, as in
-PAKCS:
-
-    >>> x, y = curry.free(), curry.free()
-    >>> eq = getattr(Prelude, '=:=')
-    >>> curry.typeof(curry.expr(eq, x, y))
-    'Data a => Bool'
-    >>> print(next(curry.eval(eq, x, y)))
-    True
-
-``curry.free(exprtype='[Int]')`` fixes the type of a variable.  A free
-variable at a function type is an error at construction, because a free
-variable of Curry must have a ``Data`` type.
-
-Arithmetic on a free numeric variable does not narrow the variable.  A
-free variable of a built-in type that reaches a case suspends the
-evaluation (issue #37), and the typed builder does not
-change that: ``x + 1 =:= 3`` suspends, while ``x =:= 3`` binds ``x``, and a
-conjunction in which another constraint binds ``x`` succeeds in either
-order:
-
-    >>> x = curry.free()
-    >>> next(curry.eval(eq, [plus, x, 1], 3))
-    Traceback (most recent call last):
-      ...
-    curry.exceptions.SuspensionError: Evaluation suspended: (=:=)
-    >>> y = curry.free()
-    >>> conj = getattr(Prelude, '&')
-    >>> print(next(curry.eval(conj, [eq, y, 3], [eq, [plus, y, 1], 4])))
-    True
-
-The binding optimization of the toolchain turns a required Boolean
-equality of a Curry program into the constraint ``=:=``, as PAKCS does,
-so a guard ``x == 3`` in a program binds ``x``; see
-:ref:`Introduction/CompilationPipeline:Curry to ICurry`.
-
-.. _typed-errors:
-
-**Errors.**  A typing failure raises :class:`CurryTypeError
-<curry.exceptions.CurryTypeError>` at construction; nothing is evaluated.
-``CurryTypeError`` is a ``TypeError``, so ``except Exception`` catches it,
-unlike ``CompileError`` and ``EvaluationError``.
-The message names the symbol with its scheme, the argument, and the types.
-This is the catalogue, with one example of each error
-(:mod:`curry.typecheck.errors`).  Every class below is a subclass of
-``CurryTypeError``.  The errors of the engine are subclasses of
-``TypeCheckError``, which carries the facts of the message as the
-attributes ``where``, ``symbol``, ``expected``, ``actual`` and ``value``.
-
-``MismatchError``
-    Two arguments disagree, or an argument does not fit its parameter.
-
-    >>> curry.expr(plus, 1, 'a')
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.errors.MismatchError: type mismatch in argument 2 of Prelude.+ :: Num a => a -> a -> a
-      argument 1 fixed a := Int (from 1)
-      argument 2 has type Char (from 'a')
-
-``ConversionError``
-    A Python value under a type it cannot take.  ``None`` is such a value
-    under every type, and so is a 1-tuple.
-
-    >>> curry.expr(getattr(Prelude, 'not'), 1)
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.errors.ConversionError: cannot convert 1 to Bool at argument 1 of Prelude.not :: Bool -> Bool
-    >>> curry.expr(curry.symbol('Prelude.maybe'), 0, Prelude.id, None)
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.errors.ConversionError: cannot convert None at argument 3 of Prelude.maybe :: a -> (b -> a) -> Maybe b -> a; expected Maybe a
-      Prelude.Nothing is the empty value of Maybe
-
-``AmbiguousTypeError``
-    A class constraint on a type variable that is absent from the result
-    type, which nothing fixes and the table cannot default; the front end
-    rejects the same text.
-
-    >>> curry.expr(Prelude.show, [])
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.errors.AmbiguousTypeError: ambiguous type in show [] :: Show a => [Char]
-      Ambiguous type variable a in type Show a => [Char]
-      Cannot handle arbitrary overloaded top-level expressions
-      defaults exist for Num and Integral (Int), Fractional and Floating (Float), Monad (IO) and Data (Bool); pass exprtype, for example exprtype='Int'
-
-``DefaultingError`` (:mod:`curry.typecheck.defaulting`)
-    A class constraint in the result type that the table cannot default.
-    The message has the sentence of the PAKCS REPL; ``exprtype`` resolves
-    it.  The same failure is a ``CompileError`` for a text goal of
-    ``curry.compile``.
-
-    >>> curry.expr(Prelude.read, '5')
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.defaulting.DefaultingError: cannot handle the overloaded goal read "5" of type Read a => a
-    Cannot handle arbitrary overloaded top-level expressions
-    state the type: curry.term(goal, type='T')
-
-``NoInstanceError``
-    A constraint on a type that has no instance of the class.
-
-    >>> curry.expr(Prelude.show, Prelude.id)
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.errors.NoInstanceError: no instance for Show (a -> a) in argument 1 of Prelude.show
-
-``FreeFunctionError``
-    A free variable at a function type.
-
-    >>> curry.expr(Prelude.apply, curry.free(), 1)
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.errors.FreeFunctionError: free variable at argument 1 of Prelude.apply :: (a -> b) -> a -> b would have the function type a -> b
-      Curry free variables must have a Data type
-
-``ArityError``
-    A constructor applied to more arguments than it takes.  Also a
-    function whose result type is a data type, applied to more arguments
-    than its type has arrows: ``inc :: Int -> Int`` with two arguments.  A
-    function whose result type is a function type or a type variable takes
-    the extra arguments through ``Prelude.apply``.  Fewer arguments give a
-    partial application.
-
-    >>> curry.expr(Prelude.Just, 1, 2)
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.errors.ArityError: Prelude.Just :: a -> Maybe a takes 1 argument, 2 given
-
-``ValueTooLargeError``
-    The walk that types a Curry value stopped at its cap of 100000
-    positions; the example is above.
-
-``ExprTypeSyntaxError``, ``ContextInExprTypeError``, ``UnknownTypeConstructorError``, ``KindError``, ``ExprTypeMismatchError``
-    The errors of an ``exprtype`` string or a ``curry.typed`` annotation,
-    all subclasses of ``ExprTypeError``:
-
-    * ``ExprTypeSyntaxError``: a text that does not parse.
-    * ``ContextInExprTypeError``: a context in the text; the context is
-      inferred.
-    * ``UnknownTypeConstructorError``: a type constructor that no loaded
-      interface declares.
-    * ``KindError``: a type constructor applied to the wrong number of
-      arguments.
-    * ``ExprTypeMismatchError``: a type that does not unify with the
-      inferred one.
-
-    >>> curry.expr(1, exprtype='Maybe (')
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.errors.ExprTypeSyntaxError: cannot parse exprtype 'Maybe (': expected a type, found end of text at column 8
-    >>> curry.expr(1, exprtype='Num a => a')
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.errors.ContextInExprTypeError: exprtype takes a type without a context; the context is inferred (exprtype 'Num a => a')
-    >>> curry.expr(1, exprtype='Foo')
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.errors.UnknownTypeConstructorError: unknown type constructor Foo; searched the interfaces of Prelude, Peano, Data.Maybe, Data.List, Fib; curry.compile(..., exprtype=...) accepts any Curry type
-    >>> curry.expr(1, exprtype='Maybe Int Int')
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.errors.KindError: Maybe takes 1 type argument, 2 given in exprtype 'Maybe Int Int'
-    >>> curry.expr(Prelude.Just, 1, exprtype='Int')
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.errors.ExprTypeMismatchError: exprtype Int does not match the inferred type Maybe a
-
-``InterfaceError`` (:mod:`curry.typecheck.sigtable`)
-    A symbol without a type scheme where one is needed.
-
-    >>> curry.typeof(Prelude.IO)
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.sigtable.InterfaceError: no type for Prelude.IO: the FlatCurry interface .../Prelude.fint has no entry 'IO'; use raw_expr
-
-**The untyped builder.**  :func:`curry.raw_expr` builds an expression
-without types.  It converts every Python value by its Python type, checks
-only the arity of a symbol, supplies no dictionary, and builds the raw
-``Free`` and ``Choice`` nodes with the identifiers of the markers.  It
-serves the runtime and its tests.
-
-.. warning::
-
-   :func:`curry.raw_expr` can produce an ill-typed expression.  Evaluating
-   an ill-typed expression results in undefined behavior: ``raw_expr(plus,
-   1, 2)`` builds ``+`` without its ``Num`` dictionary, and the evaluation
-   of such a node can end the process.
-
-The interpreter flag ``typed_expr`` (``True`` by default) turns the typing
-of :func:`curry.expr` off for a whole interpreter; see
-:ref:`interpreter-flags`.
-
-
-Evaluating Expressions
-======================
-
-To evaluate an expression pass it to ``curry.eval``.
-
-    >>> print(next(curry.eval(fib3)))
-    2
-    >>> print(next(curry.eval(Fib.main, converter=None)))
-    13
-
-``curry.eval`` returns a :class:`curry.Results` iterator. Nothing runs at
-that call; each ``next`` runs the search to the next value. Built-in values
-convert to Python integers, floats, Booleans, strings, lists and tuples.
-An unbound variable crosses as a :class:`curry.Var`. User data and function
-values currently cross as runtime nodes.
-
-The goal is a term or a value that ``curry.term`` converts. Write
-``curry.parse('1 + 2')`` for Curry text and ``curry.term('1 + 2')`` for a
-String. A bare string goal raises ``ConversionError`` naming both spellings.
-The earlier call form ``curry.eval(plus, 1, 2)`` remains accepted.
-
-A function of a module without a type signature keeps its class
-constraints, which the front end turns into leading dictionary parameters.
-``curry.eval`` supplies the dictionaries after the defaulting of
-:ref:`goal-defaulting`, so ``main = Just 5`` evaluates to ``Just 5`` and
-not to a partial application.  A call with arguments,
-``curry.eval(M.addOne, 1)``, is typed like any expression of
-:func:`curry.expr`.
-
-``one()`` requires exactly one value. No value raises ``NoValueError``
-(a ``LookupError``); a second raises ``ManyValuesError`` (a ``ValueError``).
-Use ``next`` when only the first value is needed. ``close()`` ends a search;
-a ``with`` block closes it on exit. There is no ``len``.
-
-    >>> curry.eval(curry.term(42)).one()
-    42
-    >>> with curry.eval(curry.choice(1, 2)) as results:
-    ...     first = next(results)
-    >>> first, list(results)
-    (1, [])
-
-``curry.solve`` yields :class:`curry.Answer`, a pair of the converted value
-and a :class:`curry.Bindings` mapping. It reports every named variable, in
-first-occurrence order, including an unbound one. Index the mapping by its
-name or its ``Var``. Anonymous variables are omitted. ``str(answer)`` and
-``curry.show(answer)`` print the REPL's answer line.
-
-    >>> answer = curry.solve(curry.parse('xs ++ [3] =:= [1,2,3] where xs free')).one()
-    >>> answer.value, answer.bindings['xs'], len(answer)
-    (True, [1, 2], 2)
-    >>> curry.show(answer)
-    '{xs=[1,2]} True'
-
-Terms, variables and module objects held across ``curry.reset()`` raise
-``StaleError`` when used again. Build goals from the newly imported modules.
-A module's earlier terms also become stale when its code is replaced.
-
-``converter=None`` retains raw results for code that inspects nodes:
-
-    >>> next(curry.eval(Fib.main, converter=None))
-    <Int 13>
-
-An evaluation that raises a Curry error raises an
-:class:`EvaluationError <curry.exceptions.EvaluationError>` from ``next``.
-``EvaluationSuspended`` is raised when an alternative suspends on a free
-variable, after the values of the alternatives that did not suspend.  An
-error of an ``IO`` action, a user error, an i/o error or a
-non-deterministic action, is an ``EvaluationError`` whose message names
-it, as ``error`` is.
-``EvaluationError`` derives from ``CurryError``, an ``Exception``, as
-``CompileError`` does, so ``except Exception`` catches it.  An expression
-with no value ends the results without a value.
+Python ``bool``, ``int`` and ``float`` become Bool, a numeric literal and
+Float respectively.  An integer outside the signed 64-bit range is an
+``IntOverflowError``.  A Python ``str`` is always a String; ``curry.Char``
+spells a Char.  Lists are homogeneous, tuples have zero or two through
+fifteen components, and ranges become lists.  An iterator is consumed
+lazily; a type annotation can state its element type without consuming it.
+Bytes, dictionaries, sets and None are refused.  Use explicit data such as
+``P.Nothing`` or ``P.Just(x)`` for an optional value.
+
+    >>> curry.eval(P.ord(curry.Char('a'))).one()
+    97
+    >>> curry.eval(P.length('a')).one()
+    1
+    >>> curry.eval(P.Just(3)).one().args
+    (3,)
+    >>> curry.eval(P.take(3, iter(range(10)))).one()
+    [0, 1, 2]
+    >>> curry.eval([1, 2.5]).one()
+    [1.0, 2.5]
 
 .. _goal-defaulting:
 
-Defaulting of class constraints
--------------------------------
+Goal defaulting
+===============
 
-A goal without a type annotation keeps the class constraints the front end
-inferred.  ``curry.eval``, ``curry.compile(mode='expr')``, the REPL,
-``sprite-exec -g`` and ``curry.save`` default them with the table of the
-PAKCS REPL (``defaultQualType`` of its ``c2p.pl``), which
-:mod:`curry.typecheck.defaulting` implements:
+Class constraints default as in the PAKCS REPL: Num and Integral to Int,
+Fractional and Floating to Float, Monad to IO, and a lone Data to Bool.
+Other ambiguous constraints raise ``DefaultingError``.  A held partial
+application has already been typed; a later call unifies with that type.
 
-* ``Num`` and ``Integral`` default to ``Int``.
-* ``Fractional`` and ``Floating`` default to ``Float``.
-* ``Monad`` and ``MonadFail`` default to ``IO``.
-* ``Data``, ``Eq``, ``Ord``, ``Read`` and ``Show`` are dropped on a
-  variable defaulted to ``Int`` or ``Float``; ``Enum`` is dropped on a
-  variable defaulted to ``Int``; ``Monad`` is dropped on ``IO``.
-* A variable that carries ``Data`` alone defaults to ``Bool``.
-* Anything else is an error with the sentence of the REPL, ``Cannot
-  handle arbitrary overloaded top-level expressions``: ``toEnum 65``
-  (``Enum a``) and ``read "5"`` (``Read a``) are such goals, and a type
-  annotation resolves them.
+.. _typed-errors:
 
-A type variable without a constraint stays polymorphic.  A goal of type
-``IO t`` runs during the evaluation, and the value is the result of the
-action.  ``tests/func_goal_defaulting.py`` pins the table against the
-REPL of PAKCS.
-
-Multi-Valued Computations
--------------------------
-
-Non-deterministic computations are in general multi-valued.  To partially
-evaluate such an expression, stop taking values and close the results.  For example, to print the Fibonacci numbers less than 30 one could
-say:
-
-    >>> fibs = curry.compile(
-    ...     'anyOf (map fib [1..])', mode='expr', exprtype='Int', imports=[Fib]
-    ...   )
-    >>> for value in curry.eval(fibs, converter='topython'):
-    ...   if value < 30:
-    ...     print(value)
-    ...   else:
-    ...     break
-    1
-    1
-    2
-    3
-    5
-    8
-    13
-    21
-
-An error or a suspension in one alternative ends the generator.  The
-values of the alternatives before it are produced.  The error is raised
-from ``next`` in its turn, and no value follows it.  So ``1 ? error "boom"
-? 2`` yields ``1`` and then raises.  A generator that is not exhausted
-keeps its place: ``next`` continues it, also after other evaluations.
-
-The order of the values of a non-deterministic goal depends on the
-schedule of the backend.  On the C++ backend in time mode, the default,
-the order may differ from one run to the next; step mode pins it (the
-flag ``rotation``; see :ref:`interpreter-flags`).
-
-Conversions to Python
-=====================
-
-:func:`curry.expr` provides conversions from Python to Curry.  The reverse can
-be performed with :func:`curry.topython`.  This function recursively converts a
-Curry expression to Python.
-
-Conversions to the following Python types are performed: ``bool``, ``float``,
-``int``, ``list``, ``str``, ``tuple``.
-
-The keyword ``converter`` of :func:`curry.eval` converts each value as it
-is produced: ``'topython'`` applies :func:`curry.topython`, ``None`` leaves
-the Curry value, and a callable ``f(interp, value)`` converts as it
-pleases.  The default is ``'topython'``.  The explicit spelling
-``converter='default'`` reads the interpreter flag ``defaultconverter``:
-
-    >>> curry.flags['defaultconverter'] = 'topython'
-    >>> next(curry.eval([1, 2]))
-    [1, 2]
-    >>> next(curry.eval([1, 2], converter=None))
-    <: <Int 1> <: <Int 2> <[]>>>
-    >>> curry.flags['defaultconverter'] = None
-
-A Curry ``Char`` is a Unicode code point.  A Python ``str`` converts to a
-``String`` where a ``String`` is expected and a ``str`` of length one to a
-``Char`` where a ``Char`` is expected (see :ref:`typed-expressions`); a
-``String`` converts back to a ``str``.  Both directions keep every code
-point.  The files that ``readFile``, ``writeFile``,
-and ``appendFile`` touch hold UTF-8, and so do the standard streams of
-``putChar`` and ``getChar``.
-
-:func:`curry.topython` takes an optional ``exprtype``, the static type of
-the value in Curry syntax, and threads it through lists and tuples, so an
-empty ``String`` converts to ``''``.  :func:`curry.eval` passes the type of
-the goal it built to the converter.  Without a type, an empty list converts
-to ``[]`` and a list of characters to a ``str``:
-
-    >>> empty = next(curry.eval(curry.typed('', 'String'), converter=None))
-    >>> curry.topython(empty)
-    []
-    >>> curry.topython(empty, exprtype='String')
-    ''
-    >>> next(curry.eval(curry.typed('', 'String'), converter='topython'))
-    ''
-
-:func:`curry.topython` converts user constructors and their fields to
-``Data`` values:
-
-    >>> just5 = curry.expr(Prelude.Just, 5)
-    >>> curry.topython(just5)
-    Just 5
-
-    >>> isinstance(curry.topython(just5), curry.Data), curry.topython(just5).args
-    (True, (5,))
-
-Set-function values become ``Values`` collections:
-
-    >>> SF = curry.import_('Control.SetFunctions')
-    >>> vs = curry.eval(SF.set0(curry.choice(1, 1, 2))).one()
-    >>> isinstance(vs, curry.Values), sorted(vs), len(vs)
-    (True, [1, 1, 2], 3)
-
-A value with a free variable prints the variable as ``_a``, ``_b`` and so
-on; :func:`curry.show_value` gives that text for a converted value too.
-A ``Float`` prints as PAKCS prints it: the shortest digits that read back,
-``1.0e+16`` for a large value, and ``1.0`` for an integral one.
-
-Limits
+Errors
 ======
 
-* The walk that types a Curry value stops at 100000 positions, a shared
-  constant such as ``[]`` counted once per position
-  (``ValueTooLargeError`` above); ``curry.typed(node, 'T')`` states the
-  type instead.
-* An evaluation is bounded by the C stack it may use, the flag
-  ``stack_limit``; a deeper alternative is dropped with its error reported
-  after the others (:ref:`the entry of the flag <sprite-interpreter-flags>`).
-* Arithmetic on a free variable of a built-in type suspends (issue #37);
-  the binding optimization and ``=:=`` are the way to bind such a
-  variable.
-* An expression built by :func:`curry.raw_expr` is not checked.
-* A tuple has at most 15 components, the largest tuple type the Prelude
-  declares; a longer tuple is a ``SymbolLookupError`` at construction.
-* An iterator is read when the list is demanded, so an exhausted iterator
-  converts to the empty list.  A ``range`` is a ``CurryTypeError``; pass
-  ``iter(range(n))``.
-* ``Int`` is a signed 64-bit integer, from -9223372036854775808 to
-  9223372036854775807.  A Python ``int`` outside the range is a
-  ``CurryTypeError`` where it enters an expression; so is an ``Int``
-  literal outside the range in a Curry source, when its module is loaded or
-  its function is first evaluated.  The minimum is not a literal:
-  ``-9223372036854775808`` negates the literal ``9223372036854775808``,
-  which is outside the range; write ``-9223372036854775807 - 1``.  An
-  addition, a subtraction, a multiplication, or a negation whose result is
-  outside the range raises ``EvaluationError``, as do ``div`` and ``quot``
-  of the minimum by -1, and ``truncate``, ``round``, ``ceiling`` and
-  ``floor`` of a ``Float`` outside the range, of an infinity, or of NaN.
-  The message names the operation and its operands: ``integer overflow:
-  9223372036854775807 + 1``, ``integer overflow: truncate 1.0e+30``
-  (``ceiling`` and ``floor`` convert through ``truncate`` and name it);
-  ``negate`` is ``0 - x`` in the Prelude and names that subtraction.
-  An enumeration that ends at the maximum, ``[9223372036854775806 ..
-  9223372036854775807]``, computes the successor of its last element and
-  raises too.
-* ``div``, ``mod``, ``quot`` and ``rem`` by zero raise ``EvaluationError``:
-  ``division by zero: div 1 0``.  The division of a ``Float`` by zero is
-  not an error: it gives an infinity, or NaN for ``0.0 / 0.0``.
-* ``read`` of a numeral outside the range of ``Int`` fails: ``reads
-  "9223372036854775808" :: [(Int, String)]`` and ``read`` of it have no
-  value.
-* ``catch`` takes an integer overflow or a division by zero as it takes
-  ``error``: the handler receives an ``IOError`` with the message.  The
-  reference backend of the :doc:`developer notes <../DeveloperNotes>` passes
-  these errors through ``catch``.
+All public errors descend from ``curry.CurryError``, an Exception.
+``CurryTypeError`` also derives from TypeError.  Its children distinguish
+conversion, mismatch, arity, instance and type-annotation failures.
+Construction errors name the argument and symbol.  Evaluation errors are
+raised when the Results advances.  ``NoValueError`` and ``ManyValuesError``
+are the two cardinality errors of ``one()``.
 
+    >>> issubclass(curry.ConversionError, curry.CurryTypeError)
+    True
+    >>> issubclass(curry.CurryTypeError, TypeError)
+    True
+    >>> issubclass(curry.EvaluationError, curry.CurryError)
+    True
+    >>> P['not'](1)
+    Traceback (most recent call last):
+      ...
+    curry.typecheck.errors.ConversionError: cannot convert 1 to Bool at argument 1 of Prelude.not :: Bool -> Bool: an int is a numeric literal; write True or False
 
-Errors and printed values
-=========================
+Choices and sharing
+===================
 
-Every package error derives from ``curry.CurryError``. The standard Python
-classes also apply: ``CurryTypeError`` is a ``TypeError``,
-``DivisionByZeroError`` is a ``ZeroDivisionError``, and
-``CurryFileNotFoundError`` is a ``FileNotFoundError`` with ``filename`` set.
-A signed 64-bit ``Int`` overflow raises ``IntOverflowError``, both when a
-literal is built and when a computation takes a step.
+Each choice represents a nondeterministic computation.  One held Python
+term used twice shares that computation.  Two separate reads of a function
+symbol build independent computations.  The order of search values is the
+scheduler's; sort when the order is irrelevant.
 
-An evaluation raises from ``next`` when it reaches the error. A failure
-has no values; ``Results.one()`` raises ``NoValueError`` for it, or
-``ManyValuesError`` if a second value is found. When only suspended
-alternatives remain, ``SuspensionError`` names the original goal, after
-any values already produced. ``catch`` in Curry can handle a program's
-I/O error on either backend. A choice inside an I/O action raises
-``NondetError``.
+    >>> coin = curry.choice(0, 1)
+    >>> sorted(curry.eval((coin, coin)))
+    [(0, 0), (1, 1)]
+    >>> sorted(curry.eval((curry.choice(0, 1), curry.choice(0, 1))))
+    [(0, 0), (0, 1), (1, 0), (1, 1)]
 
-``curry.show`` prints terms, converted values and answers in Curry syntax.
-Python containers keep their usual ``str``; use ``curry.show`` for their
-Curry spelling. The empty String prints ``""`` and a partially applied
-operator prints ``(+) 1``. Shared reducible terms print through ``let``.
+Cycles can be written in Curry text.  Consume a finite prefix before
+conversion: the outbound conversion is eager, with no lazy list view.
 
-    >>> P = curry.import_('Prelude')
-    >>> curry.show(P.Just(-1)), curry.show(P['+'](1)), curry.show('')
-    ('Just (-1)', '(+) 1', '""')
-    >>> curry.show([1, 2]), str([1, 2])
-    ('[1,2]', '[1, 2]')
+    >>> cycle = curry.parse('take 4 xs where xs = 1 : xs')
+    >>> curry.eval(cycle).one()
+    [1, 1, 1, 1]
 
-A ``CompileError`` exposes the front end's diagnostic in ``report`` and its
-position in ``line`` and ``column``. Its message omits the command line and
-machine directories. Front-end warnings have category ``CurryWarning``
-and can be filtered with Python's ``warnings`` module. Importing Curry
-installs a null handler on its own logger and leaves the root logger alone.
+Variables and answers
+=====================
+
+``curry.free(name)`` creates one named variable.  Reusing that Python object
+shares the variable within a goal.  Bindings belong to an evaluation; the
+variable's static type persists.  ``curry.anonymous`` creates a distinct
+unnamed variable at every occurrence.  ``solve`` yields an ``Answer`` whose
+``value`` is converted and whose ``bindings`` is a ``Bindings`` mapping,
+indexed by name or by the original Var.  Evaluation alone yields values.
+
+    >>> x = curry.free('x', type='Int')
+    >>> goal = P['=:='](x, 3)
+    >>> curry.eval(goal).one()
+    True
+    >>> answer = curry.solve(goal).one()
+    >>> answer.value
+    True
+    >>> answer.bindings['x'], answer.bindings[x]
+    (3, 3)
+    >>> curry.show(answer)
+    '{x=3} True'
+    >>> curry.solve(P['=:='](x, 4)).one().bindings[x]
+    4
+    >>> goal = curry.parse('xs ++ [3] =:= [1,2,3] where xs free')
+    >>> curry.show(curry.solve(goal).one())
+    '{xs=[1,2]} True'
+    >>> goal = curry.term((curry.anonymous, curry.anonymous), type='(Int, Int)')
+    >>> list(curry.solve(goal).one().bindings)
+    []
+
+Results and outbound values
+===========================
+
+``curry.eval`` and ``curry.solve`` return a lazy ``Results`` iterator.
+Nothing runs until it advances.  A break preserves its position; ``close``
+ends the search, and a context manager closes it on exit.  ``one()`` checks
+that exactly one value exists.  It reads a second value to detect ambiguity
+and raises ``ManyValuesError`` if one exists.  Failure produces no value;
+a suspension raises ``SuspensionError`` under ``EvaluationError``.
+
+    >>> results = curry.eval(curry.choice(1, 2))
+    >>> isinstance(results, curry.Results)
+    True
+    >>> next(results)
+    1
+    >>> list(results)
+    [2]
+    >>> with curry.eval(curry.choice(1, 2)) as results:
+    ...   first = next(results)
+    >>> first, list(results)
+    (1, [])
+    >>> list(curry.eval(P.failed))
+    []
+
+Built-in values become Python scalars, lists and tuples.  A Char remains a
+``Char``, distinct in type from str but equal to the same one-character
+string.  A user constructor becomes ``Data`` with ``symbol`` and ``args``;
+a function value becomes a callable ``Function``.  Set functions produce a
+finite multiset ``Values`` collection.  Converted values can enter later
+Curry calls.  ``curry.show`` prints Curry text, including nested values;
+Python's repr of a list follows Python's spacing and quoting.
+
+    >>> value = curry.eval(P.Just([1, 2])).one()
+    >>> isinstance(value, curry.Data)
+    True
+    >>> value.symbol.name, value.args
+    ('Just', ([1, 2],))
+    >>> curry.show(value)
+    'Just [1,2]'
+    >>> function = curry.eval(P['+'](1)).one()
+    >>> isinstance(function, curry.Function)
+    True
+    >>> curry.eval(function(2)).one()
+    3
+    >>> curry.show(curry.eval(curry.term('', type='String')).one())
+    '""'
+    >>> SF = curry.import_('Control.SetFunctions')
+    >>> values = curry.eval(SF.set0(curry.choice(1, 2))).one()
+    >>> isinstance(values, curry.Values), sorted(values)
+    (True, [1, 2])
+
+A Python-held term shared inside and outside ``set0`` follows weak
+encapsulation: whichever evaluation owns it first determines the result.
+Use ``SF.set1(P.id, term)`` to put the choice outside deliberately.
+A free argument narrows outside a set function, giving a set per binding.
+The deferred failure rule produces no value only when nothing inside
+succeeds and an outside failure is encountered.
+
+Saving and session control
+==========================
+
+The session lane still uses its landed signatures: ``compile`` accepts
+``modulename=``, file imports use ``is_sourcefile=True``, and ``save`` uses
+``goal=`` or ``module_main=False``.  ``reload`` replaces the interpreter.
+``reset`` clears loaded modules; terms of an earlier session raise
+``StaleError``.  Build them again from the newly imported module.
+
+``curry.save(M, path, module_main=False)`` writes generated source;
+``goal='main'`` includes a program entry point.  The generated C++ entry
+point is a stub today.  ``sprite-make --so`` writes the shared object that
+``curry.load`` reads.  See :doc:`../Quickstart`; the source round trip is
+covered in :doc:`../DeveloperNotes`.
+
+The tools print each converted answer with ``curry.show``.  The REPL uses
+``solve`` to include named bindings.  Their exit statuses and error
+messages retain the current command-line contract.

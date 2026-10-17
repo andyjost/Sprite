@@ -1,20 +1,19 @@
 % python go.py
 import_ by name is the loaded object -> True
-import_ of a path !! ValueError
-import_ of a path with is_sourcefile=True -> Lookup
-after curry.path = [...] the interpreter keeps its list -> True
+import_ of a path -> Lookup
+import_ of a path is the loaded object -> True
+after curry.path[:] = ['nowhere'], import_('Data.Char') !! ModuleLookupError: Curry module 'Data' not found.
 sorted(curry.modules) -> ['Lookup', 'Prelude']
-Lookup.Item !! SymbolLookupError
-curry.type('Lookup.Item').constructors -> ['A', 'B']
-getattr(Lookup, '+++') [1] [2] -> [[1, 2]]
-getattr(P, 'not') True -> [False]
-Lookup.twice 4 -> [8]
-Lookup.helper (private) -> helper
-inspect.symbols(Lookup) -> ['A', 'B', 'helper', 'twice']
-dir(Lookup) -> ['+++', 'A', 'B', 'twice']
-curry.symbol('Prelude.+') 1 2 -> [3]
-curry.symbol('Data.List.nub') before an import -> nub
-curry.symbol('Data.List.nub') after the import -> [[1, 2]]
-curry.module('Data.Char').toUpper 'a' -> ['A']
-curry.module('Nope') !! ModuleLookupError: Curry module 'Nope' not found
+Lookup.Item !! SymbolLookupError: 'Item' is a type: curry.info(Lookup).types['Item']
+curry.info(Lookup).types['Item'].constructors -> ['A', 'B']
+Lookup['+++'] [1] [2] -> [1, 2]
+P['not'] True -> False
+Lookup.twice 4 -> 8
+Lookup.helper (private) 1 2 -> 3
+sorted(curry.info(Lookup).symbols) -> ['+++', 'A', 'B', 'helper', 'twice']
+dir(Lookup) -> ['+++', '.backend_handle', '.icurry', '.info', '.interp', '.session', '.source_mtime', '.symbols', '.types', '.version', 'A', 'B', '__doc__', '__file__', '__loader__', '__name__', '__package__', '__spec__', 'twice']
+P['+'] 1 2 -> 3
+import_('Data.List').nub [1, 1, 2] -> [1, 2]
+import_('Data.Char').toUpper 'a' -> A
+import_('Nope') !! ModuleLookupError: Curry module 'Nope' not found.
 sorted(curry.modules) at the end -> ['Data', 'Data.Char', 'Data.List', 'Data.Maybe', 'Lookup', 'Prelude']

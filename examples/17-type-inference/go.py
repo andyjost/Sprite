@@ -14,9 +14,11 @@ import os
 import sys
 import curry
 
-# Find Infer.curry next to this file, whatever the working directory is.
-curry.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from curry.lib import Infer
+# Infer.curry is next to this file, whatever the working directory is.
+Infer = curry.import_(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Infer.curry')
+  , is_sourcefile=True
+  )
 
 # Terms as nested tuples.  The first element names the constructor of Infer.Term.
 TERMS = [
@@ -40,19 +42,19 @@ def build(term):
   '''Converts a nested tuple into a Curry term of type Infer.Term.'''
   tag = term[0]
   if tag == 'var':
-    return curry.expr(Infer.Var, term[1])
+    return Infer.Var(term[1])
   if tag == 'lam':
-    return curry.expr(Infer.Lam, term[1], build(term[2]))
+    return Infer.Lam(term[1], build(term[2]))
   if tag == 'app':
-    return curry.expr(Infer.App, build(term[1]), build(term[2]))
+    return Infer.App(build(term[1]), build(term[2]))
   if tag == 'lit':
-    return curry.expr(Infer.Lit, term[1])
+    return Infer.Lit(term[1])
   if tag == 'bool':
-    return curry.expr(Infer.BoolLit, term[1])
+    return Infer.BoolLit(term[1])
   if tag == 'if':
-    return curry.expr(Infer.If, build(term[1]), build(term[2]), build(term[3]))
+    return Infer.If(build(term[1]), build(term[2]), build(term[3]))
   if tag == 'add':
-    return curry.expr(Infer.Add, build(term[1]), build(term[2]))
+    return Infer.Add(build(term[1]), build(term[2]))
   raise ValueError('unknown term: %r' % (term,))
 
 def show(term):
@@ -79,11 +81,12 @@ def wrap(term, *tags):
   s = show(term)
   return '(%s)' % s if term[0] in tags else s
 
+
 def infer(term):
   '''Returns the types of a term as strings.  An ill-typed term has none.'''
   # The empty list is the empty environment: no variable is in scope.
   # A type with unbound variables prints them as _a, _b, and so on.
-  return [str(ty) for ty in curry.eval(Infer.infer, [], build(term))]
+  return [str(ty) for ty in curry.eval(Infer.infer([], build(term)))]
 
 def main(terms):
   for term in terms:

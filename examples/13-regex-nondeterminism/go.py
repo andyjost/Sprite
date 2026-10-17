@@ -20,9 +20,11 @@ import os
 import sys
 import curry
 
-# Find Regex.curry next to this file, whatever the working directory is.
-curry.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from curry.lib import Regex
+# Regex.curry is next to this file, whatever the working directory is.
+Regex = curry.import_(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Regex.curry')
+  , is_sourcefile=True
+  )
 
 CASES = [
     ('words', '(cat|dog)s?', None),
@@ -106,44 +108,42 @@ def build(ast):
   '''Builds the Curry value of type Regex.RE for a parsed pattern.
 
   Each tuple becomes an application of the constructor of the same name.
-  The argument of Lit is a str of length one, which curry.expr turns into a
-  Char.
+  The argument of Lit is a str of length one; curry.Char makes it a Char.
+  A nullary constructor, Any, is the attribute itself: a call needs an
+  argument.
   '''
   tag, args = ast[0], ast[1:]
-  args = [build(arg) if isinstance(arg, tuple) else arg for arg in args]
-  return curry.expr(getattr(Regex, tag), *args)
+  args = [build(arg) if isinstance(arg, tuple) else curry.Char(arg) for arg in args]
+  return Regex[tag](*args) if args else Regex[tag]
 
 def words(pattern):
   '''Every word of a star-free pattern, sorted.'''
-  values = curry.eval(Regex.sem, build(parse(pattern)), converter='topython')
-  # Each value is one word.  The order of the values is not promised, so
-  # sort them.  A pattern with a star has infinitely many words, and a word
-  # of a pattern with . holds a free character, which the converter rejects;
-  # first_words shows both without the converter.
+  values = curry.eval(Regex.sem(build(parse(pattern))))
+  # Each value is one word, a str.  The order of the values is not promised,
+  # so sort them.  A pattern with a star has infinitely many words, and a
+  # word of a pattern with . holds a free character, so it comes back as a
+  # list of Char and Var; first_words shows both in Curry syntax.
   return sorted(values)
 
 def first_words(pattern, count):
   '''The first count words of any pattern, in Curry syntax.'''
-  values = curry.eval(Regex.sem, build(parse(pattern)))
-  return [str(value) for value in itertools.islice(values, count)]
+  values = curry.eval(Regex.sem(build(parse(pattern))))
+  return [curry.show(value) for value in itertools.islice(values, count)]
 
 def match(pattern, subject):
   '''True when the whole subject is a word of the pattern.'''
-  values = curry.eval(Regex.match, build(parse(pattern)), subject,
-                      converter='topython')
+  values = curry.eval(Regex.match(build(parse(pattern)), subject))
   # A failed guard is not an error: the goal has no value.  One True is
   # enough, so take the first value and stop the search.
   return next(values, False)
 
 def grep(pattern, subject):
   '''Every hit of the pattern in the subject as (before, hit, after).'''
-  values = curry.eval(Regex.grep, build(parse(pattern)), subject,
-                      converter='topython')
-  # Each value is a tuple of three Curry Strings, which the converter turns
-  # into Python strings, the empty String into ''.  A pattern such as a*a*
-  # derives one hit in several ways, and each derivation is one value, so a
-  # set keeps one copy of each hit.
-  hits = set(tuple(value) for value in values)
+  values = curry.eval(Regex.grep(build(parse(pattern)), subject))
+  # Each value is a tuple of three str, the empty String as ''.  A pattern
+  # such as a*a* derives one hit in several ways, and each derivation is one
+  # value, so a set keeps one copy of each hit.
+  hits = set(values)
   # The order of the values is not promised.  Sort by position, then length.
   return sorted(hits, key=lambda hit: (len(hit[0]), len(hit[1])))
 

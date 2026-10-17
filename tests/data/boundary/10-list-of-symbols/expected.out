@@ -1,10 +1,11 @@
 % python go.py
-countItems [A, B] !! ArityError: Items.A :: Item takes 0 arguments, 1 given
-applyAll [inc, dbl] 5 !! MismatchError: type mismatch in argument 1 of Items.applyAll :: [Int -> Int] -> Int -> [Int]
-countItems [[A], [B]] -> [2]
-countItems [A] !! MismatchError: type mismatch in argument 1 of Items.countItems :: [Item] -> Int
-countItems [expr A, B] -> [2]
-applyAll [[inc], [dbl]] 5 -> [[6, 10]]
-typeof (A, B) -> '(Items.Item, Items.Item)'
-str [inc, 1] -> 'inc 1'
+countItems [A, B] -> [2]
+applyAll [inc, dbl] 5 -> [[6, 10]]
+countItems [[A], [B]] !! MismatchError: type mismatch in element 1 of the list in argument 1 of Items.countItems :: [Item] -> Int
+countItems [A] -> [1]
+applyAll [[inc], [dbl]] 5 !! MismatchError: type mismatch in element 1 of the list in argument 1 of Items.applyAll :: [Int -> Int] -> Int -> [Int]
+typeof (A, B) -> '(Item, Item)'
+show [inc, 1] !! ConversionError: cannot convert 1 to Int -> Int at element 2 of the list in the expression
 [inc, 1] !! ConversionError: cannot convert 1 to Int -> Int at element 2 of the list in the expression
+str inc(1) -> 'inc 1'
+inc(1) -> [2]

@@ -22,16 +22,16 @@ the constructor, and rewrites the root of the expression.
 ----------------------------------------------------------
 
 The script adds its own directory to curry.path and imports the module Nat.
-Then it calls these functions of curry.inspect:
+Public metadata comes from curry.info(Nat): name, file, symbols and types.
+The curry.inspect module is a developer module outside the public API.
+The product probes use these internal functions:
 
-    inspect.symbols(Nat)        the public constructors and functions
-    inspect.types(Nat)          the types
     inspect.geticurryfile(Nat)  the ICurry file of the module
     inspect.getjsonfile(Nat)    the ICurry-JSON file of the module
     inspect.getimpl(Nat.natToInt)  the generated code of one function
 
 Types are not attributes of the module object.  The script looks the type up
-by its full name, curry.type('Nat.Nat'), and reads its constructors from the
+in curry.info(Nat).types['Nat'], and reads its constructors from the
 type object.
 
 The symbol list holds two names that are not in the source:
@@ -68,6 +68,8 @@ the C++ backend.
 The file expected.out holds the exact output of ./run:
 
     % python go.py
+    Module: Nat
+    Module file: Nat.curry
     Symbols defined in Nat: I, O, natFromInt, natFromInt_COMPLEXCASE0, natFromInt_COMPLEXCASE1, natToInt
     Types defined in Nat: Nat
     Constructors of Nat.Nat: O (arity 0), I (arity 1)

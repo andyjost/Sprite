@@ -17,13 +17,18 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 curry.path.insert(0, HERE)
 from curry.lib import Nat
 
+# Public metadata names the module and its file.
+info = curry.info(Nat)
+print('Module:', info.name)
+print('Module file:', os.path.basename(info.file))
+
 # The public symbols and the types of the module, by name.
-print('Symbols defined in Nat:', ', '.join(sorted(inspect.symbols(Nat))))
-print('Types defined in Nat:', ', '.join(sorted(inspect.types(Nat))))
+print('Symbols defined in Nat:', ', '.join(sorted(curry.info(Nat).symbols)))
+print('Types defined in Nat:', ', '.join(sorted(curry.info(Nat).types)))
 
 # A type object lists its constructors.  Types are not attributes of the
-# module, so look the type up by its full name.
-nat = curry.type('Nat.Nat')
+# module, so look the type up in its metadata.
+nat = curry.info(Nat).types['Nat']
 print('Constructors of Nat.Nat:',
       ', '.join('%s (arity %d)' % (c.name, c.arity) for c in nat.constructors))
 print()

@@ -5,8 +5,8 @@ The REPL
 ========
 
 Sprite has a read-eval-print loop for Curry expressions.  It compiles each
-expression with the Curry front end, as :func:`curry.compile` with mode
-``'expr'`` does, and evaluates it with :func:`curry.eval`.  The same route
+expression with ``curry.parse`` and evaluates it with ``curry.solve``.
+It prints each converted answer with ``curry.show``.  The same route
 serves ``sprite-exec -g`` and the text goals of the Python API, so the
 three agree on every goal.
 
@@ -167,9 +167,9 @@ expression resolves it.
 
     Prelude> toEnum 65
     **** ERROR ****
-    cannot handle the overloaded expression 'toEnum 65' of type Enum a => a
-      Cannot handle arbitrary overloaded top-level expressions
-      add a type annotation (exprtype)
+    cannot handle the overloaded goal toEnum 65 of type Enum a => a
+    Cannot handle arbitrary overloaded top-level expressions
+    state the type: curry.term(goal, type='T')
     Prelude> toEnum 65 :: Char
     'A'
 
@@ -190,31 +190,28 @@ way.  With ``main14 = Just 5`` in ``Goals.curry``:
 Free variables in the REPL
 ==========================
 
-A trailing ``where x free`` declares free variables, as in PAKCS.  A
-variable whose type is absent from the result type cannot show in a value,
-so ``:eval`` prints its binding with each value.  A variable whose type
-occurs in the result type is left in the value.
+A trailing ``where x free`` declares named variables, as in PAKCS.
+The REPL uses ``curry.solve`` and prints every declared variable with each
+value.  A variable that remains free is bound to itself; variables that
+unify share a name in the answer.
 
 .. code-block:: text
 
     Prelude> xs ++ [3] =:= [1,2,3] where xs free
-    {xs=[1, 2]} True
+    {xs=[1,2]} True
     Prelude> x =:= y where x, y free
-    {x=_a, y=_a} True
+    {x=x, y=x} True
     Prelude> x where x free
-    _a
+    {x=x} x
     Prelude> :type x where x free
     x where x free :: Data a => a
 
-The REPL of PAKCS prints the binding of every declared variable,
-``{x=x} x`` for ``x where x free``, where Sprite prints ``_a``.  The clause
-must end the line: with a comment after ``free`` the variables stay local
-and no binding is printed.
-
-``:type`` does not lift the variables to parameters, on either system.  So
-``:type x =:= y where x, y free`` fails in the front end with an ambiguous
-type variable, while ``:eval`` of the same text prints
-``{x=_a, y=_a} True``.
+A comment after ``free`` keeps the variables local to the expression, so
+that form prints the value alone.  Write the trailing clause last when
+bindings should be reported.  Type annotations belong in Curry text,
+before the trailing clause.  A type query does not add the binding tuple:
+``:type x =:= y where x, y free`` still fails in the front end with the
+ambiguous type ``Data a => Bool``.
 
 IO goals in the REPL
 ====================
@@ -251,9 +248,9 @@ with the status 1:
 
     % install/bin/python -m curry.tools.icy :eval 'toEnum 65' :quit
     **** ERROR ****
-    cannot handle the overloaded expression 'toEnum 65' of type Enum a => a
-      Cannot handle arbitrary overloaded top-level expressions
-      add a type annotation (exprtype)
+    cannot handle the overloaded goal toEnum 65 of type Enum a => a
+    Cannot handle arbitrary overloaded top-level expressions
+    state the type: curry.term(goal, type='T')
     % echo $?
     1
 

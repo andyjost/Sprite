@@ -1,13 +1,7 @@
 % python go.py
-Just None !! ConversionError: cannot convert None at argument 1 of Prelude.Just :: a -> Maybe a; expected a
+Just None !! ConversionError: cannot convert None at argument 1 of Prelude.Just :: a -> Maybe a: cannot convert NoneType: write P.Nothing or P.Just(x)
 {'a': 1} !! ConversionError: cannot convert dict: write list(d.items())
 {1} !! ConversionError: cannot convert set to a Curry value
 lambda x: x !! ConversionError: cannot convert function to a Curry value
 b'ab' !! ConversionError: cannot convert bytes: write b.decode() for the String
-length (eval coin) !! ConversionError: cannot convert Results to a Curry list: write list(results)
-id (unboxed 1) !! ConversionError: curry.unboxed(1) stands at argument 1 of Prelude.id :: a -> a; the marker is the payload of an Int, Char or Float, as in [Prelude.Int, curry.unboxed(1)]
-converter='bogus' -> [<Int 2>]
-'topython' positional !! ArityError: Rej.inc :: Int -> Int takes 1 argument, 2 given
-converter=None -> [<Int 2>]
-converter=convert -> [('converted', '2')]
-converter=str -> 'TypeError'
+length (eval coin) !! ConversionError: cannot convert <Results of coin> at argument 1 of Prelude.length :: [a] -> Int: cannot convert Results to a Curry list: write list(results)

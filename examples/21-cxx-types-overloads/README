@@ -105,25 +105,25 @@ Overloads.curry, and ../cxx, for the shared modules.  It imports CxxLimits,
 CxxType and Overloads from curry.lib.
 
 Python builds the data.  A type is built with the constructors of
-CxxType.Type, for example curry.expr(CxxType.Ptr, INT) for int*, where INT
-is curry.expr(CxxType.Fund, CxxLimits.Int).  An overload set is a Python
+CxxType.Type, for example CxxType.Ptr(INT) for int*, where INT
+is CxxType.Fund(CxxLimits.Int).  An overload set is a Python
 list of tuples (name, [parameter types]), and a class hierarchy is a list
 of tuples (derived, base).  curry.eval turns a Python tuple into a Curry
 tuple and a Python list into a Curry list, so the Curry goals receive
 values of the types [Candidate] and Hierarchy with no conversion code.  A
-name is a Python str, which curry.expr converts by the type the goal
+name is a Python str, which curry.term converts by the type the goal
 expects, a String, also for a name of one character such as "f".  Python
-can make a free variable: curry.free() in a goal is one variable (Y1), and
+can make a free variable: curry.free('x') in a goal is one variable (Y1), and
 the typed builder (#56) will give it its type.  This driver keeps its free
 variables in Overloads.curry by choice, and Python passes concrete types.
 
 Every goal returns a String, and the driver reads it with
 
-    next(curry.eval(goal, *args, converter='topython'))
+    curry.eval(goal(*args) if args else goal).one()
 
-The converter turns the Curry String into a str.  The driver prints the
+Evaluation turns the Curry String into a str.  The driver prints the
 calls and the overload sets through the Curry printer,
-curry.eval(CxxType.showCxx, t), so that Python holds no knowledge of C++
+curry.eval(CxxType.showCxx(t)), so that Python holds no knowledge of C++
 syntax.  The whole driver builds the data, calls the goals and prints.
 
 

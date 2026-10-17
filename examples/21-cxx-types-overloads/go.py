@@ -18,25 +18,25 @@ curry.path.insert(0, os.path.join(HERE, '..', 'cxx'))
 curry.path.insert(0, HERE)
 from curry.lib import CxxLimits, CxxType, Overloads
 
-# The constructors of CxxType.Type, applied with curry.expr.  A class name is
-# a Python str; curry.expr converts it to a String, the parameter type.
+# The constructors of CxxType.Type, applied as Python calls.  A class name is
+# a Python str; the symbol call converts it to a String, the parameter type.
 def fund(name):
-  return curry.expr(CxxType.Fund, getattr(CxxLimits, name))
+  return CxxType.Fund(getattr(CxxLimits, name))
 
 def const(t):
-  return curry.expr(CxxType.Const, t)
+  return CxxType.Const(t)
 
 def ptr(t):
-  return curry.expr(CxxType.Ptr, t)
+  return CxxType.Ptr(t)
 
 def lref(t):
-  return curry.expr(CxxType.LRef, t)
+  return CxxType.LRef(t)
 
 def arr(t, n):
-  return curry.expr(CxxType.Arr, t, n)
+  return CxxType.Arr(t, n)
 
 def cls(name):
-  return curry.expr(CxxType.Class, name, [])
+  return CxxType.Class(name, [])
 
 VOID, BOOL, CHAR, INT = fund('Void'), fund('Bool'), fund('Char'), fund('Int')
 LONG, FLOAT, DOUBLE, NULLPTR = fund('Long'), fund('Float'), fund('Double'), fund('NullptrT')
@@ -53,7 +53,7 @@ def candidate(name, *params):
 
 def text(goal, *args):
   '''The one value of a goal that returns a String, as a str.'''
-  return next(curry.eval(goal, *args, converter='topython'))
+  return next(curry.eval(goal(*args) if args else goal))
 
 def show(t):
   '''A type in C++ syntax, printed by CxxType.showCxx.'''

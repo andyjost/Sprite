@@ -28,7 +28,7 @@ Important Notes
     ``Fractional`` to ``Float``, ``Monad`` to ``IO``, a lone ``Data`` to
     ``Bool``.  A constraint outside that table, such as ``Enum a`` for
     ``toEnum 65``, is an error that asks for a type annotation.
-    Expressions built in Python with :func:`curry.expr` are typed before
+    Expressions built in Python with ``curry.term`` and symbol calls are typed before
     they are built; see :ref:`typed-expressions`.
 
 

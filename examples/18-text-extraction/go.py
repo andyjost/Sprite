@@ -43,12 +43,12 @@ tag (_ ++ "<" ++ t ++ ">" ++ _) | '<' `notElem` t && '>' `notElem` t = t
 # The keys that field reads from every line.
 KEYS = ['status', 'host']
 
+
 def matches(rule, *args):
   '''Every value of rule applied to args, as sorted Python strings.  The
-  scheduler does not promise an order of the values, so sort them.  The
-  converter turns each Curry String into a str, the empty String into ''.'''
-  values = curry.eval(rule, *args, converter='topython')
-  return sorted(values)
+  scheduler does not promise an order of the values, so sort them.  Each
+  value is a str, the empty String as ''.'''
+  return sorted(curry.eval(rule(*args)))
 
 def compile_rules(extra):
   '''Assembles the default rules and the extra ones into one Curry module and
@@ -78,7 +78,7 @@ def main(argv):
       default=os.path.join(HERE, 'sample.log'))
   args = parser.parse_args(argv)
 
-  # curry.CompileError derives from BaseException, so catch it by name.
+
   try:
     Rules = compile_rules(args.rule)
   except curry.CompileError as error:
@@ -100,7 +100,7 @@ def main(argv):
       row[key] = matches(Rules.field, key, line + ' ')
     row['tags'] = matches(Rules.tag, line)
     for name in extra:
-      row[name] = matches(getattr(Rules, name), line + ' ')
+      row[name] = matches(Rules[name], line + ' ')
     for column in columns:
       counters[column].update(row[column])
     rows.append((line, row))

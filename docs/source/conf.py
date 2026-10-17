@@ -11,7 +11,7 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import os, sys
+import os, re, sys
 from datetime import datetime
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -317,3 +317,18 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
+
+
+def literal_internal_import(app, what, name, obj, options, lines):
+  # The underscore in this internal module name is literal source text.
+  for i, line in enumerate(lines):
+    line = line.replace('(interpreter.import_.ImportEx)',
+        '(``interpreter.import_.ImportEx``)')
+    # Public exception aliases otherwise leave Napoleon's roles ambiguous.
+    lines[i] = re.sub(
+        r'(?<![\w.])(PrerequisiteError|CurryIndexError|NotConstructorError|'
+        r'ModuleLookupError|DefaultingError)\b', r'curry.\1', line)
+
+
+def setup(app):
+  app.connect('autodoc-process-docstring', literal_internal_import)

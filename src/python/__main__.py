@@ -128,7 +128,7 @@ class Main(object):
             args.NAME, curry.path, is_sourcefile=not args.module
           )
         if args.goal is not None:
-          symbol = curry.symbol(module.__name__ + '.' + args.goal)
+          symbol = module[args.goal]
           goalscheme = self.goalscheme if args.goal == self.default_goal else None
           def goal():
             # The expression is built when the evaluation starts and is not
@@ -143,13 +143,13 @@ class Main(object):
             try:
               if args.time:
                 t0 = time.time()
-                for value in curry.eval(goal(), converter=None):
+                for value in curry.eval(goal()):
                   pass
                 t1 = time.time()
                 sys.stdout.write('%0.3f' % (t1 - t0))
               else:
-                for value in curry.eval(goal(), converter=None):
-                  print(curry.show_value(value))
+                for value in curry.eval(goal()):
+                  print(curry.show(value))
             except exceptions.EvaluationError as exc:
               sys.stderr.write('** %s **\n' % exc)
               sys.exit(1)
@@ -173,7 +173,7 @@ class Main(object):
     scheme = goals.scheme_from_flat_text(symbol, goalscheme)
     if not scheme.ndicts:
       return symbol
-    return goals.defaulted_goal(curry.getInterpreter(), symbol, scheme)
+    return goals.defaulted_goal(curry._interpreter_, symbol, scheme)
 
 def main(program_name, argv=None):
   '''Main program for Curry.'''

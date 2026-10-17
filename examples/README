@@ -17,6 +17,10 @@ first line of the generated C++ (its README says why).  The script of
 04-static-compile selects the reference backend of the developer notes of
 the documentation, because that example runs on it only.
 
+Python drivers use symbol calls, curry.term for values, curry.parse for
+text goals, and curry.eval or curry.solve for Results of converted values.
+Use Results.one() for a unique result and curry.show for Curry text.
+
 The first run of an example also compiles its Curry module, which takes
 about a second per module.  The build products go to .curry/ next to the
 source.  The Curry front end warns on a function whose rules overlap, and
@@ -49,9 +53,9 @@ shared library.  The gaps are deliberate.
     Run a Curry program from Python.  Import a module and iterate over the
     values of a goal.
 
-02-dynamic-code-generation
-    Compile Curry code at run time.  curry.compile for a module and for an
-    expression; curry.expr.
+02-dynamic-code-generation     Compile Curry code at run time.  curry.compile
+for a module, curry.parse for text goals,     and symbol calls for
+applications.
 
 03-inspect
     Inspect Curry objects from Python.  curry.inspect: symbols, types,

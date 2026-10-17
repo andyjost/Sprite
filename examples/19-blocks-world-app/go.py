@@ -19,9 +19,11 @@ import os
 import sys
 import curry
 
-# Find Blocks.curry next to this file, whatever the working directory is.
-curry.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from curry.lib import Blocks
+# Blocks.curry is next to this file, whatever the working directory is.
+Blocks = curry.import_(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Blocks.curry')
+  , is_sourcefile=True
+  )
 
 STACKS = 3
 BLOCKS = 'ABCDE'   # the constructors of the Curry type Block
@@ -44,23 +46,19 @@ def parse_world(text):
 def to_curry(stacks):
   '''Builds the Curry World for the stacks: a tuple of three lists of blocks.
 
-  Each block is the expression of a constructor, curry.expr(Blocks.A).  A
-  Python list whose first element is a Curry symbol would be an application,
-  not a list, so the stacks hold expressions rather than symbols.
+  Each block is a constructor of the Curry type Block, Blocks[letter].
   '''
-  return tuple([curry.expr(getattr(Blocks, letter)) for letter in stack]
-               for stack in stacks)
+  return tuple([Blocks[letter] for letter in stack] for stack in stacks)
 
 def first_plan(start, goal, bound):
   '''The first plan of at most bound moves, or None when there is none.
 
   One Curry call is a generator of plans.  next() takes the first one and
   stops the search.  A bound with no plan yields zero values, which is not an
-  error.  The converter turns the trace into a Python list of tuples of lists.
-  The blocks stay Curry constructors, and str() of one gives its name.
+  error.  The trace comes back as a Python list of tuples of lists.  The
+  blocks are Curry values, and str() of one gives its name.
   '''
-  values = curry.eval(Blocks.plan, bound, to_curry(start), to_curry(goal),
-                      converter='topython')
+  values = curry.eval(Blocks.plan(bound, to_curry(start), to_curry(goal)))
   return next(values, None)
 
 def show_world(world):

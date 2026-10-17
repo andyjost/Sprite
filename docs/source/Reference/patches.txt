@@ -8,3 +8,11 @@
  
  Subpackages
  -----------
+--- curry.show.rst
++++ curry.show.rst
+@@ -4,4 +4,5 @@
+ .. automodule:: curry.show
++   :no-index:
+    :members:
+    :show-inheritance:
+    :undoc-members:

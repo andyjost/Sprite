@@ -68,7 +68,7 @@ Compile Curry code at run time
 
 Directory ``examples/02-dynamic-code-generation``.
 
-A Python program compiles a Curry module from a string and builds two goals, one with ``curry.expr`` and one with ``curry.compile``.  Each compile runs the Curry front end.
+A Python program compiles a Curry module from a string and builds two goals, one with symbol calls and one with ``curry.parse``.  Each compile runs the Curry front end.
 
 .. code-block:: bash
 
@@ -85,7 +85,7 @@ Directory ``examples/03-inspect``.  Runs on the C++ backend, with the
 module compiled before it runs (the interpreter flag ``interpret:off``; see
 :ref:`interpreter-flags`).
 
-The module ``curry.inspect`` lists the symbols and the types of a loaded module and finds its ICurry files.  The example also prints the code that the backend generated for one function.
+``curry.info`` lists the symbols and types of a loaded module.  The developer module ``curry.inspect`` finds its ICurry files.  The example also prints the code that the backend generated for one function.
 
 .. code-block:: bash
 

@@ -16,47 +16,47 @@ curry.path.insert(0, os.path.join(HERE, '..', 'cxx'))
 curry.path.insert(0, HERE)
 from curry.lib import CxxLimits, CxxType, Deduction
 
-# The constructors of CxxType.Type, applied with curry.expr.  A class name is
-# a Python str; curry.expr converts it to a String, the parameter type.
+# The constructors of CxxType.Type, applied as Python calls.  A class name is
+# a Python str; the symbol call converts it to a String, the parameter type.
 def fund(name):
-  return curry.expr(CxxType.Fund, getattr(CxxLimits, name))
+  return CxxType.Fund(getattr(CxxLimits, name))
 
 def const(t):
-  return curry.expr(CxxType.Const, t)
+  return CxxType.Const(t)
 
 def ptr(t):
-  return curry.expr(CxxType.Ptr, t)
+  return CxxType.Ptr(t)
 
 def lref(t):
-  return curry.expr(CxxType.LRef, t)
+  return CxxType.LRef(t)
 
 def rref(t):
-  return curry.expr(CxxType.RRef, t)
+  return CxxType.RRef(t)
 
 def arr(t, n):
-  return curry.expr(CxxType.Arr, t, n)
+  return CxxType.Arr(t, n)
 
 def fun(result, params):
-  return curry.expr(CxxType.Fun, result, params)
+  return CxxType.Fun(result, params)
 
 def cls(name, args=()):
-  return curry.expr(CxxType.Class, name, list(args))
+  return CxxType.Class(name, list(args))
 
 # The function parameters of a template: by value (p), by lvalue reference
 # (p&) and by rvalue reference (p&&).
 def by_value(p):
-  return curry.expr(CxxType.ByValue, p)
+  return CxxType.ByValue(p)
 
 def by_lref(p):
-  return curry.expr(CxxType.ByLRef, p)
+  return CxxType.ByLRef(p)
 
 def by_rref(p):
-  return curry.expr(CxxType.ByRRef, p)
+  return CxxType.ByRRef(p)
 
 # A partial specialization of a class template S, with the names of its
 # template parameters: S<T const*> is template(['T'], ptr(const(T))).
 def template(names, pattern):
-  return curry.expr(CxxType.Template, list(names), pattern)
+  return CxxType.Template(list(names), pattern)
 
 VOID, CHAR, INT, LONG, DOUBLE = (
     fund('Void'), fund('Char'), fund('Int'), fund('Long'), fund('Double')
@@ -68,7 +68,7 @@ T, U = cls('T'), cls('U')
 
 def text(goal, *args):
   '''The one value of a goal that returns a String, as a str.'''
-  return next(curry.eval(goal, *args, converter='topython'))
+  return next(curry.eval(goal(*args) if args else goal))
 
 def show(t):
   '''A type in C++ syntax, printed by CxxType.showCxx.'''

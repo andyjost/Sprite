@@ -1,15 +1,15 @@
 % python go.py
-typeof [[1, 2], [3]] -> '[[Int]]'
+typeof [[1, 2], [3]] -> 'Num a => [[a]]'
 typeof ['ab', 'c'] -> '[[Char]]'
-unwords strs -> ['ab c']
-typeof ([1], 'ab') -> '([Int], [Char])'
-typeof [[1]] -> '[[Int]]'
-typeof raw_expr [[1, 2], []] -> '[[Int]]'
+unwords strs -> 'ab c'
+typeof ([1], 'ab') -> 'Num a => ([a], [Char])'
+typeof [[1]] -> 'Num a => [[a]]'
+typeof term [[1, 2], []] -> 'Num a => [[a]]'
 typeof (e, length e) -> '([a], Int)'
 typeof [e, 'ab'] -> '[[Char]]'
 typeof nil -> '[a]'
-id ([[1], nil], [["a"], nil]) -> [([[1], []], ['a', ''])]
-id (nil :: [Int], nil :: String) -> [([], '')]
-typeof two -> '([a], [b])'
-id two -> [([], [])]
-id (two, strs) -> [(([], []), ['ab', 'c'])]
+id ([[1], nil], [["a"], nil]) -> ([[1], []], [['a'], []])
+id (nil :: [Int], nil :: String) -> ([], '')
+typeof two -> '([a], [Char])'
+id two -> ([], '')
+id (two, strs) -> (([], ''), ['ab', 'c'])

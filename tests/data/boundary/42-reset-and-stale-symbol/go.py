@@ -2,18 +2,14 @@
 A module of the same name after curry.reset and curry.reload, and a symbol
 that outlives the reset (#114, open).
 
-A module object and its symbols are Python objects that stay alive after
-curry.reset clears the interpreter's modules.  A new module of the same
-name then runs its own code (the first symptom of #114, fixed).  The old
-symbol previously evaluated: on the C++ backend it runs the code of the newest
-module of that name, where the Python backend keeps the old code.  The
-driver pins today's output on the C++ backend; a fixed system refuses the
-evaluation of the old symbol.
+A reset makes the held module and its symbols stale.  A new module with
+that name runs its own code.  The landed reload still replaces the whole
+interpreter; the session lane will change its signature.
 '''
 import curry
 
 def vals(*goal):
-  return list(curry.eval(*goal, converter='topython'))
+  return list(curry.eval(goal[0](*goal[1:]) if len(goal) > 1 else goal[0]))
 
 def compile_same(n):
   '''Compiles a module named Same whose f is n.'''
@@ -29,15 +25,13 @@ second = compile_same(2)
 print('second.f ->', vals(second.f))
 print('first is second ->', first is second)
 
-# #114: the old symbol evaluates after the reset.  Today's output on the
-# C++ backend is 2, the value of the new code; the Python backend gives 1.
+# The old module refuses access after the reset.
 try:
   first.f
 except curry.StaleError as error:
   print('first.f after the reset !!', type(error).__name__)
 
 # A hard reset: curry.reload builds a new interpreter and takes flags.
-print('curry.reload ->', curry.reload.__doc__.strip().splitlines()[0])
 curry.reload()
 print('sorted(curry.modules) after reload ->', sorted(curry.modules))
 third = compile_same(3)
@@ -45,7 +39,7 @@ print('third.f ->', vals(third.f))
 print("curry.import_('Same') is third ->", curry.import_('Same') is third)
 print('sorted(curry.modules) ->', sorted(curry.modules))
 
-# The two old symbols again: both run the code of third on the C++ backend.
+# The two old modules again: both are stale.
 for label, module in [('second', second), ('first', first)]:
   try:
     module.f

@@ -15,15 +15,14 @@ natFromInt i | i == 0    = O
 ''')
 
 # Build a goal dynamically.
-goal = curry.expr(Nat.natToInt, [Nat.I, Nat.O])
+goal = Nat.natToInt(Nat.I(Nat.O))
 print('goal1:', goal)
 
 # Evaluate.
-print(next(curry.eval(goal)))
+print(curry.eval(goal).one())
 
 
 # Compile a Curry expression dynamically.
-goal2 = curry.compile('natFromInt 3', mode='expr', imports=Nat)
+goal2 = curry.parse('natFromInt 3', imports=[Nat])
 print('goal2:', goal2)
-print(next(curry.eval(goal2)))
-
+print(curry.eval(goal2).one())

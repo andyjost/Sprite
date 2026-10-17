@@ -1,19 +1,11 @@
-51-tools-parity: the REPL and sprite-exec against curry.eval on the goals
-of one module.
+Tools parity
+============
 
-Seam: sprite-exec with -g and with main, the REPL (python -m curry.tools.icy)
-fed from a pipe with :load, goals, :type and :quit, then curry.eval,
-curry.compile(mode='expr') for the goal with where ins free, and
-curry.typeof, on the same goals.
-Sources: memo A22; catalogue P46, P47, P48; the REPL page; the sprite-exec
-page.
-Backends: py, cxx.  Oracle: oracle.out (PAKCS 3.4.1 on coin, three,
-nothing, boom and the rule goal).
+Seam: The tools and API print converted values through curry.show.
+The REPL uses parse and solve for text goals with named bindings.
 
-Expected output: the three tools print 0 and 1 for coin, nothing for
-nothing, and 3 for three and main; the REPL and the API print the rule
-goal as {ins=["x"]} "cmd1" and {ins=["y", "z"]} "cmd2" and the type as
-coin :: Int.  For boom, sprite-exec prints "** boom **" on stderr and
-exits 1 (the run script prints the status), the REPL prints its error
-report on stderr (not compared), and the API raises EvaluationError with
-the message boom (P46: one error, three reports).  Pins no defect.
+Run ./run after make stage, or run unit_boundary.py from tests/.
+The run script selects the staged Python and the session backend.
+expected.out records stdout; stderr is shown on failure by the test.
+The driver comments explain the individual probes and their order.
+The corpus README.md lists the backends and the oracle for this driver.

@@ -1,8 +1,8 @@
 % python go.py
-length 'a' !! MismatchError: type mismatch in argument 1 of Prelude.length :: [a] -> Int
+length 'a' !! ConversionError: exprtype Char does not match the inferred type [a]
 inc 1 2 !! ArityError: Err.inc :: Int -> Int takes 1 argument, 2 given
-succ [succ, pred] !! NoInstanceError: no instance for Enum (a -> a) in argument 1 of Prelude.succ
-expr(None) !! ConversionError: cannot convert None at the expression; expected a Curry value
+succ [succ, pred] !! NoInstanceError: no instance for Enum [a] in argument 1 of Prelude.succ
+term(None) !! ConversionError: cannot convert NoneType: write P.Nothing or P.Just(x)
 eval(show) !! DefaultingError:
     cannot handle the overloaded goal Prelude.show of type Show a => a -> [Char]
     Cannot handle arbitrary overloaded top-level expressions
@@ -11,8 +11,8 @@ typed errors are CurryTypeError -> True
 CurryTypeError is a TypeError -> True
 EvaluationError is an Exception -> True
 CompileError is an Exception -> True
-EvaluationSuspended under EvaluationError -> True
+SuspensionError under EvaluationError -> True
+every error under CurryError -> True
 except Exception -> caught EvaluationError
-except BaseException -> caught EvaluationError
 free('x') -> x
-compile("1 +") !! CompileError: Unexpected end-of-file
+parse("1 +") !! CompileError: 1:4 Error: Unexpected end-of-file

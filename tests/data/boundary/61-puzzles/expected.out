@@ -1,10 +1,10 @@
 % python go.py
-(goal1 m h, m, h) -> ['(True, S (S O), S O)']
+goal1 m h -> ['{m=S (S O), h=S O} True']
 goal2 -> men 6, horses 2
 goal3 -> men 2, horses 0, feet 4
 goal3 -> men 1, horses 1, feet 6
 goal3 -> men 0, horses 2, feet 8
 colormap: 256 values, 48 of them True
-   (True, Red, Green, Yellow, Red)
-   (True, Red, Green, Yellow, Blue)
-   (True, Red, Green, Blue, Red)
+   {l1=Red, l2=Green, l3=Yellow, l4=Red} True
+   {l1=Red, l2=Green, l3=Yellow, l4=Blue} True
+   {l1=Red, l2=Green, l3=Blue, l4=Red} True

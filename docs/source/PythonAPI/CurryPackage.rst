@@ -2,134 +2,30 @@
 The ``curry`` Package
 =====================
 
-This section gives a high-level view of the ``curry`` package.  The intent
-is to give readers some idea of where various bits of Sprite can be located.
-
 .. _top-api:
 
-Top-Level API
-=============
+The public API uses terms and converted values.  Import with
+``curry.import_``; the loaded registry is ``curry.modules``.  A module's
+attributes are symbols, item lookup reaches operators, and ``curry.info``
+provides metadata, including its name, file, symbols and types.
 
-The ``curry`` module itself serves as a collection of classes and functions
-intended to carry out the most common tasks.  Many of these are methods of a
-singleton Curry interpreter that is created when importing ``curry``.  For many
-common use cases, one can simply use these methods without ever thinking about
-an interpreter, let alone creating one.
+Calling a symbol constructs a typed ``Term``.  ``curry.term`` converts a
+Python value, ``curry.parse`` reads Curry text, and ``curry.typeof`` gives
+the type.  ``curry.free(name)``, ``curry.anonymous`` and ``curry.choice``
+construct variables and choices.  ``curry.let`` and ``curry.ref`` describe
+explicit bindings.  A held Python term shares a computation when reused.
 
-The global interpreter can be obtained by calling :func:`curry.getInterpreter`.
+``curry.eval`` returns ``Results`` of converted values; ``curry.solve``
+returns ``Answer`` objects with ``Bindings``.  ``Results.one()`` checks
+uniqueness.  User data is ``Data``, callable function values are
+``Function``, finite set values are ``Values``, and ``Char`` is distinct
+from String.  ``curry.show`` prints Curry text.
 
-The top-level data and methods fall roughly into the following categories:
-
-  - **System Control**
-
-    These can be used to manipulate the global interpreter:
-
-        :data:`curry.flags`  : The flags of the global interpreter, a dict;
-        see :ref:`interpreter-flags`.
-
-        :data:`curry.path`   : Configure or view the Curry search path.
-
-        :func:`curry.reload` : Discard the global interpreter, then create a
-        new one, with the flags given and those of the environment.
-
-        :func:`curry.reset`  : Soft-reset the global interpreter: unload
-        every module but the Prelude and the packages, reset the path,
-        clear the signature table.
-
-        :func:`curry.stats`  : Report the statistics of the run: time, steps,
-        forks, collections, memory, compile time, collector time, the
-        counts of tiered execution, and the counters of the collector.
-
-    Also, see the :mod:`curry.config` module.
-
-  - **Symbols & Types**
-
-    These can be used to find Curry objects.
-
-        :func:`curry.module` : Find a loaded module by name.  A module of
-        the Curry library of the installation is imported on demand; any
-        other module must be imported first.
-
-        :func:`curry.symbol` : Find a symbol by name.
-
-        :func:`curry.type`   : Find a type by name.
-
-        :func:`curry.currytype` : Get the Curry type that corresponds to a Python type.
-
-  - **Curry Modules**
-
-    These can be used to create, transform, load, or save Curry code.
-
-        :func:`curry.compile` : Create Curry modules (with mode 'module').
-
-        :func:`curry.import_` : Import a Curry module by name.
-
-        :func:`curry.load`    : Load a compiled Curry module from its
-        shared object.
-
-        :func:`curry.save`    : Write the generated code of a module to a
-        file, a program with a goal or a module alone
-        (``module_main=False``).  The form is the one of the backend.
-
-        :data:`curry.modules` : Access imported modules.
-
-  - **Expressions & Evaluation**
-
-    These can be used to build and evaluate Curry expressions.
-
-        :func:`curry.compile` : Create Curry expressions (with mode 'expr').
-
-        :func:`curry.eval`    : Evaluate a Curry goal; the arguments of
-        :func:`curry.expr`, with the keyword ``converter``.
-
-        :func:`curry.expr`    : Construct a Curry expression, typed (see :ref:`typed-expressions`).
-
-        :func:`curry.raw_expr` : Construct a Curry expression without types.
-
-        :func:`curry.typeof`  : The type of an expression or of a symbol.
-
-        :func:`curry.describe` : Describe an expression, to be typed as a whole later.
-
-        :func:`curry.topython` : Convert a Curry value to Python.
-
-        :func:`curry.show_value` : The text of a converted value in Curry
-        format.
-
-  - **Markers of expressions**
-
-    These objects stand for the parts of an expression that are no Python
-    value (:mod:`curry.expressions`).
-
-        :class:`curry.free` : A free variable; one marker is one variable.
-
-        :class:`curry.choice` : A non-deterministic choice between two
-        expressions.
-
-        :class:`curry.typed` : A part with its type stated in Curry syntax.
-
-        :class:`curry.ref` : A reference to a named subexpression (a
-        keyword argument of :func:`curry.expr`).
-
-        :class:`curry.cons`, :data:`curry.nil` : The cells of a cons-style
-        list.
-
-        :data:`curry.fail` : A failure.
-
-        :class:`curry.unboxed` : The unboxed payload of an ``Int``,
-        ``Char`` or ``Float``, as in ``[Prelude.Int, curry.unboxed(3)]``.
-        A payload that does not fit the primitive, and the marker anywhere
-        else, is an error at construction; an item of an iterator is
-        refused when the list is demanded.
-
-The errors the package raises are in :mod:`curry.exceptions`.  The errors
-of the typed boundary are subclasses of
-:class:`curry.exceptions.CurryTypeError`, a ``TypeError``, listed with an
-example each under :ref:`the error catalogue <typed-errors>`.  The errors
-of an evaluation are subclasses of
-:class:`curry.exceptions.EvaluationError`.  ``EvaluationError`` and
-:class:`curry.exceptions.CompileError` derive from
-:class:`curry.exceptions.CurryError`, an ``Exception``, so
-``except Exception`` catches them.
+``curry.compile`` creates modules.  The current session signatures of
+``save``, ``load``, ``reset`` and ``reload`` are described in
+:doc:`UsingTheAPI`.  ``curry.path`` controls imports, ``curry.flags`` holds
+interpreter settings, and ``curry.stats`` reports runtime counters.
+The public error tree is rooted at ``curry.CurryError``.
 
 .. _interpreter-flags:
 
@@ -164,15 +60,10 @@ Flag                         Default                What it changes
                                                     sets it alone.
 ``stack_limit``              ``4194304``            The bytes of C stack the C++ backend lets one
                                                     evaluation use; ``None`` disables the guard.
-``typed_expr``               ``True``               Whether :func:`curry.expr` types the expression it
-                                                    builds.  ``False`` makes it the untyped builder with
-                                                    the markers of ``expr``.
 ``inline_budget``            ``4``                  The largest function body, in nodes built, that the
                                                     optimizer inlines at a call; a call of a single-case
                                                     function on a constructor becomes the branch.  ``0``
                                                     turns both rules off.
-``defaultconverter``         ``None``               The converter of :func:`curry.eval` when the call
-                                                    names none: ``None`` or ``'topython'``.
 ``checker``                  ``False``              The checker mode of the Fair Scheme proofs program: the
                                                     reference backend asserts the run-time invariants of
                                                     the Fair Scheme at every fork, escape, pull-tab,
@@ -218,10 +109,8 @@ The contents of the ``curry`` package are documented in detail in the
 :mod:`curry.exceptions`
     Contains all non-built-in exceptions Sprite might raise.
 
-:mod:`curry.expressions`
-    The builders :func:`curry.expr`, :func:`curry.raw_expr`,
-    :func:`curry.typeof` and :func:`curry.describe`, and the markers of an
-    expression.
+The public builders and value classes are described in :doc:`UsingTheAPI`.
+The remaining modules here are developer modules outside that surface.
 
 :mod:`curry.icurry`
     A Python implementation of ICurry, which serves as the Sprite IR.
@@ -267,7 +156,7 @@ The contents of the ``curry`` package are documented in detail in the
     (``symbol.signature``, ``symbol.scheme``, ``interp.sigtable``).  The
     package also holds the defaulting table and the goals of
     :func:`curry.eval`, the engine and the builder that type the
-    expressions of :func:`curry.expr`, and the error catalogue
+    terms built with ``curry.term``, and the error catalogue
     (:mod:`curry.typecheck.errors`).
 
 :mod:`curry.utility`

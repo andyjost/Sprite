@@ -72,24 +72,24 @@ backslash makes the next character literal.  The parser returns nested
 tuples.  The first item of each tuple is the name of a constructor of
 Regex.RE.  The function build turns each tuple into Curry data:
 
-    curry.expr(getattr(Regex, tag), *args)
+    Regex[tag](*args)
 
-The argument of Lit is a Python str of length one, which curry.expr turns
-into a Char, the type the constructor expects.  A subject is a str of any
-length, which curry.eval turns into a String under the parameter type.
+A constructor without fields is Regex[tag] itself.
+The argument of Lit is wrapped in curry.Char; a Python str is a String.  A
+subject is a str of any length, which curry.eval turns into a String under the
+parameter type.
 
 The Python function words collects every value of sem for a star-free
-pattern with converter='topython', which turns each Curry String into a
+pattern with curry.eval, which turns each Curry String into a
 str, and sorts them, because Curry does not promise an order of the values.
 The function first_words takes the first few values of sem for any pattern
-with itertools.islice and prints each one with str(), in Curry syntax, so a
-word with a free character shows the variable.  The converter rejects such a
-word: a free character is not a str.
+with itertools.islice and prints each one with curry.show, in Curry syntax.
+A word with a free character comes back as a list of Char and Var.
 
 The Python function match takes the first value of the goal and stops the
 search.  A goal with no value means False.  A failed guard is not an error.
 The Python function grep iterates over every value of the goal with
-converter='topython', which turns the tuple of three Strings into Python
+curry.eval, which turns the tuple of three Strings into Python
 strings.  Curry does not promise an order of the values, so go.py sorts the
 hits by position and length.  A pattern such as a*a* derives one hit in
 several ways.  Each derivation is one value, so go.py keeps one copy of each
@@ -166,6 +166,6 @@ has 440 hits, every substring with a b, and the grep took 0.4 s.
 A grep of ab*c in a subject of 100 x's took 2.0 s with a
 peak of 139 MB, and one of 130 x's took 3.5 s with a peak of 176 MB.
 
-curry.expr builds a String in one call (the list of its characters) and a
+curry.term builds a String in one call (the list of its characters) and a
 list in a loop, so the length of a subject is bounded by memory and time,
 not by the Python recursion limit.

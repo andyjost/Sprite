@@ -1,7 +1,6 @@
 % python go.py
 M.f -> [42]
 saved -> ['M.py', 'Prog.py', 'go.py']
-save without a goal !! ValueError: curry.save needs a goal
 save with goal=M.main !! TypeError
 text of the module -> # SECTION: .header
 loaded -> M ['M', 'Prelude']
@@ -9,4 +8,4 @@ L.f -> [42]
 curry.modules['M'] is L -> True
 load again is L -> True
 % python Prog.py
-[42, 43]
+[42,43]

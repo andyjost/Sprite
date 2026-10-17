@@ -1,8 +1,8 @@
 % python go.py
 Last.goal -> [4]
-(Member.goal1 x, x) -> [(True, 3), (True, 2), (True, 1)]
-(Member.goal2 x, x) -> [(True, 3), (True, 2)]
-Nats.goal1 -> ['S (S Z)']
-Nats.goal2 -> ['Z', 'S Z', 'S (S Z)']
-sub 3 1 -> ['S (S Z)']
+Member.goal1 x -> [Answer(value=True, bindings={x=3}), Answer(value=True, bindings={x=2}), Answer(value=True, bindings={x=1})]
+Member.goal2 x -> [Answer(value=True, bindings={x=3}), Answer(value=True, bindings={x=2})]
+Nats.goal1 -> [S (S Z)]
+Nats.goal2 -> [Z, S Z, S (S Z)]
+sub 3 1 -> [S (S Z)]
 sub 1 3 -> []

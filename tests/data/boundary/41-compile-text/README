@@ -1,18 +1,11 @@
-41-compile-text: curry.compile of Curry text in both modes.
+Compile and parse
+=================
 
-Seam: a module from text with a generated name and with modulename, a
-reused name, imports by a module object and by a library name, mode='expr'
-with imports and exprtype, a str given to eval, overloaded text without a
-type, a syntax error.  The text of Nat.curry is compiled as text; the
-oracle loads the same file as a module.
-Sources: memo A7, A15; catalogue P12, P26, P32, P45; examples 02 and 18.
-Backends: py, cxx.  Oracle: oracle.out (PAKCS 3.4.1 on the goals that are
-plain Curry).
+Seam: curry.compile builds modules; curry.parse reads expressions.
+Imports supply scope, and a Curry annotation states an expression type.
 
-Expected output: the anonymous module is sprite__interactive_0; the second
-compile under 'Named' is a ValueError; imports=[Nat] works and
-imports=['Data.List'] imports the library module on demand (P32, fixed by
-#146 on 2026-10-16) as the import line of the text does; natFromInt 3 is I (I (I O)); eval('natToInt O') is the string
-refused with parse/term spellings; toEnum 65 names :: T without a type, or gives 'A' with
-exprtype='Char'; a syntax error is a CompileError, printed by its class
-while report retains the complete front-end diagnostic. Pins no defect.
+Run ./run after make stage, or run unit_boundary.py from tests/.
+The run script selects the staged Python and the session backend.
+expected.out records stdout; stderr is shown on failure by the test.
+The driver comments explain the individual probes and their order.
+The corpus README.md lists the backends and the oracle for this driver.

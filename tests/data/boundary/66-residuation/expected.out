@@ -1,10 +1,10 @@
 % python go.py
 rigidadd.goal -> [True]
 rigidor.goal -> [True]
-(infresiduate.goal l, l) -> [(True, [0])]
-(Account.goal1 b, b) -> [(True, 250)]
-(Account.goal2 b, b) -> [(True, 150)]
-(Account.goal3 s, s) -> True
+infresiduate.goal l -> ['{l=[0]} True']
+Account.goal1 b -> ['{b=250} True']
+Account.goal2 b -> ['{b=150} True']
+Account.goal3 s -> True
    Deposit 100
    Balance 100
    Withdraw 30
@@ -17,4 +17,4 @@ rigidor.goal -> [True]
    Balance 80
    Withdraw 30
    Balance 50
-(digit.goal x y, x, y) -> [(True, 0, 0), (True, 2, 4)]
+digit.goal x y -> ['{x=0, y=0} True', '{x=2, y=4} True']

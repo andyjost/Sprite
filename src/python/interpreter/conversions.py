@@ -71,8 +71,20 @@ class ToPython(object):
     return self.expression_symbols.get(id(info)) or symbol_map(self.interp).get(id(info))
   def __call__(self, value, convert_strings=True, typeexpr=None):
     '''Convert one value.'''
-    return self.__convert(value, convert_strings, typeexpr)
-  def __convert(self, value, convert_strings=True, typeexpr=None):
+    stack = [self._steps(value, convert_strings, typeexpr)]
+    result, ready = None, False
+    while stack:
+      try:
+        child, childtype = stack[-1].send(result) if ready else next(stack[-1])
+      except StopIteration as done:
+        result, ready = done.value, True
+        stack.pop()
+      else:
+        stack.append(self._steps(child, convert_strings, childtype))
+        ready = False
+    return result
+
+  def _steps(self, value, convert_strings=True, typeexpr=None):
     value = getattr(value, 'target', value)
     if self.variable is not None:
       from ..typecheck.builder import _follow
@@ -82,7 +94,7 @@ class ToPython(object):
     if inspect.isa_io(value):
       if isinstance(typeexpr, fc.TCons) and typeexpr.name == fc.prelude('IO') and typeexpr.args:
         typeexpr = typeexpr.args[0]
-      return self.__convert(unbox(value), convert_strings, typeexpr)
+      return (yield unbox(value), typeexpr)
     if inspect.isa_boxed_primitive(value):
       from ..objects.terms import Char
       return Char(unbox(value)) if inspect.isa_boxed_char(value) else unbox(value)
@@ -99,11 +111,14 @@ class ToPython(object):
       if not inspect.isa_nil(tail):
         if self.interp is None:
           raise exceptions.NotConstructorError(tail)
-        result = self.__convert(tail, convert_strings, typeexpr)
+        result = yield tail, typeexpr
         for cell, elem in zip(reversed(cells), reversed(elems)):
-          result = self._value(cell, [self.__convert(elem, convert_strings, elemtype), result], typeexpr)
+          converted = yield elem, elemtype
+          result = self._value(cell, [converted, result], typeexpr)
         return result
-      l = [self.__convert(elem, convert_strings, elemtype) for elem in elems]
+      l = []
+      for elem in elems:
+        l.append((yield elem, elemtype))
       if convert_strings:
         # The static type decides when it is known: [Char] is a string,
         # also when it is empty.  Without a type, a list of characters is a
@@ -117,10 +132,10 @@ class ToPython(object):
       return l
     elif inspect.isa_tuple(value) or inspect.info_of(value) is not None and inspect.isa_tuple_name(value.info.name):
       comps = _component_types(typeexpr, len(value.successors))
-      return tuple(
-          self.__convert(x, convert_strings, t)
-              for x, t in zip(value.successors, comps)
-        )
+      items = []
+      for x, t in zip(value.successors, comps):
+        items.append((yield x, t))
+      return tuple(items)
     elif _is_string_node(value):
       # The string node of the Python backend, not yet unfolded.
       from ..backends.py.currylib.prelude.string import text
@@ -136,7 +151,9 @@ class ToPython(object):
       if symbol.fullname == 'Control.SetFunctions.Values':
         from ..objects.terms import Values
         inner = typeexpr.args[0] if isinstance(typeexpr, fc.TCons) and typeexpr.args else None
-        items = [self.__convert(x, convert_strings, inner) for x in _listiter(value.successor(0))]
+        items = []
+        for x in _listiter(value.successor(0)):
+          items.append((yield x, inner))
         result = self._value(value, [items], typeexpr, Values, symbol)
         result._items = tuple(items)
         return result
@@ -149,13 +166,15 @@ class ToPython(object):
       if head.tag == T_FUNC:
         stored = [x for x in stored if isinstance(x, backends.Node) and not _is_dictionary(x)]
       types = _argument_types(scheme, typeexpr, len(stored), value.info.is_partial)
-      args = [self.__convert(x, convert_strings, t) for x, t in zip(stored, types)]
+      args = []
+      for x, t in zip(stored, types):
+        args.append((yield x, t))
       from ..objects.terms import Data, Function
       cls = Function if value.info.is_partial or head.tag == T_FUNC else Data
       return self._value(value, args, typeexpr, cls, symbol)
 
   def _value(self, node, args, typeexpr, cls=None, symbol=None):
-    from ..objects.terms import Data, Symbol, _convert, named_vars, raw_symbols, unqualify
+    from ..objects.terms import Data, Symbol, Term, _convert, raw_symbols, unqualify
     from ..typecheck import builder
     if symbol is None:
       symbol = self._symbol(node.info)
@@ -166,9 +185,18 @@ class ToPython(object):
     result._node = node
     result.symbol = sym
     result._value_args = tuple(args)
-    result._args = tuple(_convert(self.interp, a) for a in args)
+    # Child terms were just converted in this session. Reuse their metadata
+    # without walking their whole subtrees at each enclosing constructor.
+    result._args = tuple(a if isinstance(a, Term) else _convert(self.interp, a) for a in args)
     result._form = [symbol, *result._args]
-    result._free_vars = named_vars(result._form)
+    result._free_vars = {}
+    stack = list(reversed(args))
+    while stack:
+      arg = stack.pop()
+      if isinstance(arg, Term):
+        result._free_vars.update(arg.free_vars)
+      elif isinstance(arg, (list, tuple)):
+        stack.extend(reversed(arg))
     with raw_symbols():
       result._signature = unqualify(builder.typeof(self.interp, node)) if typeexpr is None else unqualify(builder.show_type(typeexpr))
       if typeexpr is None:
