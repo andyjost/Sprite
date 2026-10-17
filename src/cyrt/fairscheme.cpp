@@ -195,7 +195,7 @@ namespace cyrt
     {
       std::string message;
       message.swap(this->deferred_error);
-      throw EvaluationError(message);
+      throw EvaluationError(message, ErrorKind::stack);
     }
     return Expr{};
   }

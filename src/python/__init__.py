@@ -175,7 +175,7 @@ save = _interpreter_.save
 stats = _interpreter_.stats
 from .objects import CurryModule as Module
 from .objects.terms import Term, Data, Function, Values, Symbol, DataType, Char, Var, Anonymous, anonymous, Reference
-from .typecheck.errors import ConversionError, MismatchError, ArityError
+from .typecheck.errors import ConversionError, MismatchError, ArityError, NoInstanceError
 from .typecheck.defaulting import DefaultingError
 
 def info(module):
@@ -210,10 +210,14 @@ def ref(name=None):
   return Reference(_interpreter_, name)
 
 def _qualified(name):
+  from .utility.curryname import isLegalModulename
   parts = name.split('.')
   for index in range(len(parts) - 1, 0, -1):
+    prefix = '.'.join(parts[:index])
+    if not isLegalModulename(prefix):
+      continue
     try:
-      module = import_('.'.join(parts[:index]))
+      module = import_(prefix)
     except ModuleLookupError:
       continue
     return module, '.'.join(parts[index:])
@@ -308,3 +312,10 @@ def show(value):
   return show_term(value)
 
 __all__ += ['solve', 'Results', 'Answer', 'Bindings', 'show', 'NoValueError', 'ManyValuesError', 'StaleError']
+
+__all__ += ['NoInstanceError', 'TypeSyntaxError', 'InterfaceError', 'CompileError'
+  , 'EvaluationError', 'SuspensionError', 'DivisionByZeroError', 'CurryIOError'
+  , 'CurryFileNotFoundError', 'NondetError', 'StackLimitError', 'EvaluationTimeout'
+  , 'InstantiationError', 'ModuleLookupError', 'ModuleExistsError', 'SymbolLookupError'
+  , 'TypeLookupError', 'LoadError', 'PrerequisiteError', 'FlagError', 'CurryWarning'
+  , 'NotConstructorError', 'CurryIndexError']

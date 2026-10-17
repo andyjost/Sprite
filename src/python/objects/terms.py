@@ -97,12 +97,17 @@ class DataType:
   def __hash__(self):
     return hash(self._datatype)
 
+class _Types(dict):
+  def __missing__(self, name):
+    from ..exceptions import TypeLookupError
+    raise TypeLookupError('no type %r in the module' % name)
+
 class ModuleInfo:
   '''Metadata in the module's dotted slot, outside its Curry namespace.'''
   def __init__(self, module):
     self._module = module
     self._symbols = {}
-    self._types = {}
+    self._types = _Types()
 
   name = property(lambda self: self._module.__name__)
 
@@ -188,13 +193,14 @@ class Term:
       b = builder.TypedBuilder(interp)
       self._spec = b.specs((form,))
       from ..typecheck.defaulting import DefaultingError
-      from ..typecheck.errors import ConversionError, ExprTypeMismatchError
+      from ..typecheck.errors import ConversionError, MismatchError, ExprTypeMismatchError
       try:
         problem = builder.TypedProblem(b, self._spec, annotation)
       except ExprTypeMismatchError as err:
         if annotation is not None:
           raise
-        raise ConversionError(
+        error = MismatchError if _has_term(form) else ConversionError
+        raise error(
             err.lines, where=err.where, symbol=err.symbol
           , expected=err.expected, actual=err.actual, value=err.value
           ) from None
@@ -260,7 +266,17 @@ class Term:
     if self.symbol is not None:
       values = self._args + values
       form = [self.symbol._info, *values]
-      return Term(self._interp, form, self.symbol, values)
+      from ..typecheck.errors import ConversionError
+      try:
+        return Term(self._interp, form, self.symbol, values)
+      except ConversionError as error:
+        match = re.match(r'argument (\d+) of ', error.where or '')
+        if match:
+          index = int(match[1]) - 1
+          inputs = (*self._args, *args)
+          if index < len(inputs):
+            raise _conversion_error(error, inputs[index]) from None
+        raise
     with raw_symbols():
       apply_ = self._interp.prelude.apply
     head = self
@@ -465,6 +481,38 @@ def _graph_key(root, variables=None):
   return tuple(key)
 
 
+def _has_term(value):
+  if isinstance(value, Term):
+    return True
+  if isinstance(value, (list, tuple)):
+    return any(_has_term(v) for v in value)
+  return False
+
+
+def _conversion_error(error, value):
+  from ..typecheck.errors import ConversionError
+  from ..typecheck.sigtable import show_type
+  expected = show_type(error.expected) if error.expected is not None else None
+  if expected is None:
+    return error
+  hint = None
+  if isinstance(value, str) and not isinstance(value, Char):
+    hint = 'a str is a String'
+    if expected == 'Char':
+      hint += '; write curry.Char(%r)' % value
+  elif isinstance(value, bool):
+    hint = 'a bool is a Bool'
+  elif isinstance(value, int):
+    hint = 'an int is a numeric literal'
+    if expected == 'Bool':
+      hint += '; write True or False'
+  if hint is None:
+    return error
+  message = 'cannot convert %r to %s at %s: %s' % (value, expected, error.where, hint)
+  return ConversionError(message, where=error.where, symbol=error.symbol,
+      expected=error.expected, actual=error.actual, value=value)
+
+
 def _convert(interp, value):
   from ..expressions import typed
   from ..typecheck.errors import ConversionError
@@ -489,7 +537,7 @@ def _convert(interp, value):
   if isinstance(value, dict):
     raise ConversionError('cannot convert dict: write list(d.items())')
   if isinstance(value, str):
-    return typed(str(value), 'Char' if isinstance(value, Char) else '[Char]')
+    return typed(str.__str__(value), 'Char' if isinstance(value, Char) else '[Char]')
   if isinstance(value, tuple):
     if len(value) == 1 or len(value) > 15:
       raise ConversionError('a Curry tuple has zero or 2 to 15 components')
@@ -772,10 +820,16 @@ def names_in_text(text):
 
 def text_error(error, text, imports, lifted):
   from ..exceptions import CompileError
+  # A translation failure is Sprite's complete sentence, not a front-end report.
+  from ..toolchain.flat2icurry.errors import Flat2ICurryError
+  if isinstance(error, Flat2ICurryError):
+    return error
   # Imports and the lifted-goal declaration precede the expression.
-  report = str(error)
-  positions = re.findall(r':(\d+):(\d+)(?:[-:].*)?', report)
-  line, column = (map(int, positions[0]) if positions else (1, 1))
+  report = error.report
+  line, column = error.line, error.column
+  if line is None or column is None:
+    positions = re.findall(r':(\d+):(\d+)(?:[-:].*)?', report)
+    line, column = (map(int, positions[0]) if positions else (1, 1))
   prefix_lines = imports + int(lifted)
   line = max(1, line - prefix_lines)
   if line == 1:

@@ -25,8 +25,20 @@ namespace cyrt { namespace python
       }
       catch(EvaluationError const & error)
       {
-        auto type = py::module_::import("curry.exceptions").attr("EvaluationError");
-        PyErr_SetString(type.ptr(), error.what());
+        auto make_error = py::module_::import("curry.exceptions").attr("evaluation_error");
+        char const * kind = "evaluation";
+        switch(error.kind)
+        {
+          case ErrorKind::io: kind = "io"; break;
+          case ErrorKind::file_not_found: kind = "file_not_found"; break;
+          case ErrorKind::nondet: kind = "nondet"; break;
+          case ErrorKind::overflow: kind = "overflow"; break;
+          case ErrorKind::division: kind = "division"; break;
+          case ErrorKind::stack: kind = "stack"; break;
+          default: break;
+        }
+        auto translated = make_error(error.what(), kind, error.filename);
+        PyErr_SetObject(reinterpret_cast<PyObject *>(Py_TYPE(translated.ptr())), translated.ptr());
       }
       catch(InstantiationError const & error)
       {

@@ -29,40 +29,7 @@ DEFAULTS_HINT = (
     "exprtype='Int'"
   )
 
-class TypeCheckError(exceptions.CurryTypeError):
-  '''
-  A typing failure of the engine.
-
-  Attributes:
-    where:
-        The text of the location, e.g., ``argument 2 of Prelude.+ :: Num a
-        => a -> a -> a``, or None.
-    symbol:
-        The qualified name of the symbol whose argument failed, or None.
-    expected:
-        The expected type, as a FlatCurry type, or None.
-    actual:
-        The inferred type, or None.
-    value:
-        The Python value that failed to convert, or None.
-  '''
-  def __init__(
-      self, lines, where=None, symbol=None, expected=None, actual=None
-    , value=None
-    ):
-    if isinstance(lines, str):
-      lines = [lines]
-    exceptions.CurryTypeError.__init__(self, '\n'.join(lines))
-    self.lines = list(lines)
-    self.where = where
-    self.symbol = symbol
-    self.expected = expected
-    self.actual = actual
-    self.value = value
-
-  @property
-  def first_line(self):
-    return self.lines[0]
+TypeCheckError = exceptions.CurryTypeError
 
 class MismatchError(TypeCheckError):
   '''
@@ -94,7 +61,7 @@ class NoInstanceError(TypeCheckError):
   '''``no instance for Show (a -> a) in argument 1 of Prelude.show``.'''
   def __init__(self, classname, typetext, where, **kwds):
     TypeCheckError.__init__(
-        self, 'no instance for %s %s in %s' % (classname, typetext, where)
+        self, 'no instance for %s %s in %s' % (classname, typetext, where.split(' :: ', 1)[0])
       , where=where, **kwds
       )
     self.classname = classname
@@ -147,7 +114,7 @@ class ValueTooLargeError(TypeCheckError):
 
 # The errors of exprtype strings
 # ==============================
-class ExprTypeError(TypeCheckError):
+class ExprTypeError(exceptions.TypeSyntaxError):
   '''A problem with an ``exprtype`` string or a ``curry.typed`` annotation.'''
   def __init__(self, lines, text=None, **kwds):
     TypeCheckError.__init__(self, lines, **kwds)
@@ -205,11 +172,12 @@ class KindError(ExprTypeError):
     self.arity = arity
     self.ngiven = ngiven
 
-class ExprTypeMismatchError(ExprTypeError):
+class ExprTypeMismatchError(MismatchError):
   '''``exprtype T does not match the inferred type U``.'''
   def __init__(self, text, inferred, detail=None, **kwds):
     lines = ['exprtype %s does not match the inferred type %s' % (text, inferred)]
     if detail:
       lines.append('  ' + detail)
-    ExprTypeError.__init__(self, lines, text=text, **kwds)
+    MismatchError.__init__(self, lines, **kwds)
+    self.text = text
     self.inferred = inferred

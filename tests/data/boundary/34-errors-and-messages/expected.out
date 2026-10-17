@@ -1,12 +1,12 @@
 % python go.py
 length 'a' !! MismatchError: type mismatch in argument 1 of Prelude.length :: [a] -> Int
 inc 1 2 !! ArityError: Err.inc :: Int -> Int takes 1 argument, 2 given
-succ [succ, pred] !! NoInstanceError: no instance for Enum (a -> a) in argument 1 of Prelude.succ :: Enum a => a -> a
+succ [succ, pred] !! NoInstanceError: no instance for Enum (a -> a) in argument 1 of Prelude.succ
 expr(None) !! ConversionError: cannot convert None at the expression; expected a Curry value
 eval(show) !! DefaultingError:
     cannot handle the overloaded goal Prelude.show of type Show a => a -> [Char]
-      Cannot handle arbitrary overloaded top-level expressions
-      add a type signature
+    Cannot handle arbitrary overloaded top-level expressions
+    state the type: curry.term(goal, type='T')
 typed errors are CurryTypeError -> True
 CurryTypeError is a TypeError -> True
 EvaluationError is an Exception -> True

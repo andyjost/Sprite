@@ -9,7 +9,7 @@ def choice(rts, _0):
   yield _0.successors[1]
 
 def error(rts, msg):
-  msg = str(rts.topython(msg))
+  msg = ''.join(rts.topython(msg))
   raise EvaluationError(msg)
 
 def failed(rts):

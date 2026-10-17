@@ -110,7 +110,6 @@ class TestFlowF03(cytest.TestCase):
     self.assertEqual(str(caught.exception), 'boom')
     self.assertEqual(list(r), [])
 
-  @unittest.expectedFailure
   def test_suspension(self):
     P = curry.import_('Prelude')
     r = curry.eval(P['=:='](P['+'](curry.free(), 1), 3))

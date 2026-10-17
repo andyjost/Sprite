@@ -1,5 +1,6 @@
 #pragma once
 #include <cassert>
+#include "cyrt/exceptions.hpp"
 #include "cyrt/builtins.hpp"
 #include "cyrt/fingerprint.hpp"
 #include "cyrt/fingerprint.hpp"
@@ -97,6 +98,8 @@ namespace cyrt
     // RuntimeState::unwind.
     size_t            unwind_steps = NOLIMIT;
     size_t            unwind_total = NOLIMIT;
+    ErrorKind error_kind = ErrorKind::evaluation;
+    std::string error_filename;
     std::pair<Node *, std::string> error; // pair of (error_object, message)
     #ifdef SPRITE_SCHEDULER_COUNTERS
     // The serial number of this configuration, unique in the process and
@@ -117,8 +120,8 @@ namespace cyrt
 
     void clear_error();
     std::pair<Node *, std::string> pop_error();
-    void set_error(std::string const &);
-    void set_error(Node *, std::string const &);
+    void set_error(std::string const &, ErrorKind=ErrorKind::evaluation);
+    void set_error(Node *, std::string const &, ErrorKind=ErrorKind::io, std::string const & filename={});
     void raise_error();
 
     // Records a free variable the configuration waits on, with its group,

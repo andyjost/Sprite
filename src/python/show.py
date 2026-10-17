@@ -235,13 +235,13 @@ class ListStringifier(Stringifier):
     if inspect.isa_cons(arg) and self.style != 'repr' and not kwds.get('partial'):
       l = [self.stringify(arg.successor(0), outer=True)]
       spine = []
-      arg = arg.successor(1)
+      arg = inspect.fwd_chain_target(arg.successor(1))
       try:
         while inspect.isa_cons(arg):
           if self.push_subexpr(arg):
             spine.append(arg)
             l.append(self.stringify(arg.successor(0), outer=True))
-            arg = arg.successor(1)
+            arg = inspect.fwd_chain_target(arg.successor(1))
           else:
             # The spine closes a cycle.  The push counted the node; the
             # count is taken back, so that another occurrence of the list
@@ -275,11 +275,12 @@ class ListStringifier(Stringifier):
       # A spine that meets a node again is a cycle.  It is no string; the
       # list style writes it with an ellipsis (issue #119).
       seen = set()
+      tail = inspect.fwd_chain_target(tail)
       while inspect.isa_cons(tail):
         if id(tail) in seen:
           return
         seen.add(id(tail))
-        head, tail = tail.successors
+        head, tail = map(inspect.fwd_chain_target, tail.successors)
         if inspect.isa_char(head):
           ch = inspect.unboxed_value(head)
           chars.append(escape_char(ch, '"'))
@@ -396,5 +397,32 @@ def show(arg, stringifier=None, **kwds):
     The string representation of ``arg``.
   '''
   stringifier = stringifier or DefaultStringifier(**kwds)
+  if stringifier.style == 'repr':
+    return _repr(arg, stringifier)
   return stringifier.stringify(arg, outer=True)
+
+
+def _repr(root, stringifier):
+  '''Print a graph with an explicit stack, including long list spines.'''
+  output, path = [], set()
+  stack = [('node', root)]
+  while stack:
+    action, value = stack.pop()
+    if action == 'text':
+      output.append(value)
+    elif action == 'exit':
+      path.remove(value)
+      output.append('>')
+    elif not hasattr(value, 'info'):
+      output.append(stringifier.format(value))
+    elif id(value) in path:
+      output.append('...')
+    else:
+      path.add(id(value))
+      output.append('<' + value.info.name)
+      stack.append(('exit', id(value)))
+      for successor in reversed(value.successors):
+        stack.append(('node', successor))
+        stack.append(('text', ' '))
+  return ''.join(output)
 

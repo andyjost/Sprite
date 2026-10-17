@@ -106,9 +106,14 @@ def compile(
   elif mode == 'expr':
     if modulename is not None:
       raise ValueError('%r is only allowed in mode=%r', ('modulename', 'module'))
-    func, freevars, moduleobj = compile_expression(
-        interp, string, stmts, currypath, exprtype=exprtype
-      )
+    try:
+      func, freevars, moduleobj = compile_expression(
+          interp, string, stmts, currypath, exprtype=exprtype
+        )
+    except exceptions.CompileError as error:
+      from ..objects.terms import text_error
+      lifted = bool(goals.split_where_free(string)[1]) and not exprtype
+      raise text_error(error, string, len(stmts) + bool(exprtype), lifted) from None
     return expression_goal(interp, func, string, freevars, moduleobj)
   else:
     raise TypeError('expected mode %r or %r' % ('module', 'expr'))
@@ -190,12 +195,12 @@ def expression_goal(interp, func, string, freevars, moduleobj):
   if func.info.arity > nfree:
     try:
       defaulted = defaulting.default_scheme(
-          scheme, what='expression %r' % string
-        , hint='add a type annotation (exprtype)'
+          scheme, what='goal %s' % string
+        , hint='state the type: %s :: T' % string
         , type_arity=goals.type_arity(interp)
         )
     except defaulting.DefaultingError as err:
-      raise exceptions.CompileError(str(err))
+      raise exceptions.CompileError(str(err)) from None
     dicts = goals.dictionaries(interp, defaulted)
   markers = [goals.free_marker() for _ in freevars]
   # The front end typed the text; the expression module is not in the

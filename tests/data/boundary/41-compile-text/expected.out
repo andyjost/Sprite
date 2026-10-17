@@ -9,6 +9,6 @@ the import line of the text -> [[1, 2]]
 'natFromInt 3' as an expression -> ['I (I (I O))']
 'natToInt (I O)' with exprtype='Int' -> [1] Int
 eval('natToInt O') !! ConversionError: a str goal needs curry.parse(text) for code or curry.term(text) for a String
-'toEnum 65' without a type !! CompileError: add a type annotation (exprtype)
+'toEnum 65' without a type !! CompileError: state the type: toEnum 65 :: T
 'toEnum 65' with exprtype='Char' -> ['A']
 a syntax error !! CompileError

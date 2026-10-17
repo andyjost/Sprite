@@ -238,7 +238,7 @@ class TestFindCurry(cytest.TestCase):
 
   def test_import_with_currypath(self):
     self.assertRaisesRegex(
-        ValueError
+        curry.ModuleLookupError
       , r"module 'import_test' not found"
       , lambda: curry.import_('import_test')
       )

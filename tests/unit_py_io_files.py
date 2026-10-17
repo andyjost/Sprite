@@ -82,7 +82,7 @@ class TestPyIOFiles(cytest.TestCase):
     goal = curry.compile('readFile "nofile"', 'expr')
     self.assertRaisesRegex(
         IOError
-      , r"\[Errno 2\] No such file or directory: 'nofile'"
+      , r"No such file or directory: nofile"
       , lambda: list(curry.eval(goal))
       )
 
@@ -98,7 +98,7 @@ class TestPyIOFiles(cytest.TestCase):
       goal = curry.compile('readFile "nofile" `catch` ioError', 'expr')
       self.assertRaisesRegex(
           curry.EvaluationError
-        , r"i/o error: \[Errno 2\] No such file or directory: 'nofile'"
+        , r"i/o error: No such file or directory: nofile"
         , lambda: list(curry.eval(goal))
         )
 

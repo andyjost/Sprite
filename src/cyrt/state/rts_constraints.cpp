@@ -326,7 +326,7 @@ namespace cyrt
     if(rts->stack_exhausted())
       throw EvaluationError(
           "stack limit of " + std::to_string(rts->stack_room)
-          + " bytes exceeded (flag stack_limit)"
+          + " bytes exceeded (flag stack_limit)", ErrorKind::stack
         );
     Node * x = rts->get_freevar(i);
     if(!x) return true;

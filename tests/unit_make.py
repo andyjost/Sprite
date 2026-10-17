@@ -772,12 +772,20 @@ class TestProductLock(cytest.TestCase):
     with open(os.path.join(subdir, self.name + '.json.z'), 'wb') as stream:
       stream.write(zlib.compress(cytest.json_module(self.name, 7).encode('utf-8')))
     env = dict(
-        os.environ, CURRYPATH=self.tmpdir, SPRITE_LOG_LEVEL='INFO'
+        os.environ, CURRYPATH=self.tmpdir
       , SPRITE_PRODUCT_CACHE=''
       )
+    code = """
+import sys, unittest
+from curry.tools import make
+with unittest.TestCase().assertLogs('curry', level='INFO') as log:
+  make.main('sprite-make', sys.argv[1:])
+for record in log.output:
+  print(record, file=sys.stderr)
+"""
     cmd = [
         'prlimit', '--as=%d' % (2 << 30), 'timeout', str(self.TIMEOUT)
-      , config.installed_path('bin', 'sprite-make'), '--so', '-z', self.name
+      , sys.executable, '-c', code, '--so', '-z', self.name
       ]
     with _productlock.locked(self.curryfile):
       children = [

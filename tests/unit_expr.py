@@ -455,9 +455,9 @@ class TestUnboxedMarker(cytest.TestCase):
     with self.assertRaisesRegex(ConversionError, 'is not the payload of an Int'):
       d.typeof()
     # The range of Int is checked where the node is made, on both backends.
-    with self.assertRaisesRegex(CurryTypeError, 'outside the range of Int'):
+    with self.assertRaisesRegex(curry.IntOverflowError, 'outside the range of Int'):
       curry.expr([P.Int, curry.unboxed(2 ** 64)])
-    with self.assertRaisesRegex(CurryTypeError, 'outside the range of Int'):
+    with self.assertRaisesRegex(curry.IntOverflowError, 'outside the range of Int'):
       curry.raw_expr([P.Int, curry.unboxed(2 ** 64)])
 
   def test_iterator(self):

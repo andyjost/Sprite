@@ -74,7 +74,6 @@ class TestFlowF14(cytest.TestCase):
     self.assertIsInstance(caught.exception, Exception)
     self.assertEqual(str(caught.exception), 'boom')
 
-  @unittest.expectedFailure
   def test_suspension(self):
     T = curry.import_('Tools')
     with self.assertRaises(curry.SuspensionError) as caught:

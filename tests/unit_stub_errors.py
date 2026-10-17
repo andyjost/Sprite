@@ -107,22 +107,18 @@ class TestStubErrors(cytest.TestCase):
     self.assertEqual(curry.CurryTypeError.__bases__, (curry.CurryError, TypeError))
     self.assertTrue(issubclass(curry.CurryTypeError, Exception))
 
-  @unittest.expectedFailure
   def test_ConversionError_bases(self):
     self.assertEqual(curry.ConversionError.__bases__, (curry.CurryTypeError,))
     self.assertTrue(issubclass(curry.ConversionError, Exception))
 
-  @unittest.expectedFailure
   def test_MismatchError_bases(self):
     self.assertEqual(curry.MismatchError.__bases__, (curry.CurryTypeError,))
     self.assertTrue(issubclass(curry.MismatchError, Exception))
 
-  @unittest.expectedFailure
   def test_ArityError_bases(self):
     self.assertEqual(curry.ArityError.__bases__, (curry.CurryTypeError,))
     self.assertTrue(issubclass(curry.ArityError, Exception))
 
-  @unittest.expectedFailure
   def test_NoInstanceError_bases(self):
     self.assertEqual(curry.NoInstanceError.__bases__, (curry.CurryTypeError,))
     self.assertTrue(issubclass(curry.NoInstanceError, Exception))
@@ -131,12 +127,10 @@ class TestStubErrors(cytest.TestCase):
     self.assertEqual(curry.DefaultingError.__bases__, (curry.CurryTypeError,))
     self.assertTrue(issubclass(curry.DefaultingError, Exception))
 
-  @unittest.expectedFailure
   def test_TypeSyntaxError_bases(self):
     self.assertEqual(curry.TypeSyntaxError.__bases__, (curry.CurryTypeError,))
     self.assertTrue(issubclass(curry.TypeSyntaxError, Exception))
 
-  @unittest.expectedFailure
   def test_InterfaceError_bases(self):
     self.assertEqual(curry.InterfaceError.__bases__, (curry.CurryTypeError,))
     self.assertTrue(issubclass(curry.InterfaceError, Exception))
@@ -153,42 +147,34 @@ class TestStubErrors(cytest.TestCase):
     self.assertEqual(curry.EvaluationError.__bases__, (curry.CurryError,))
     self.assertTrue(issubclass(curry.EvaluationError, Exception))
 
-  @unittest.expectedFailure
   def test_SuspensionError_bases(self):
     self.assertEqual(curry.SuspensionError.__bases__, (curry.EvaluationError,))
     self.assertTrue(issubclass(curry.SuspensionError, Exception))
 
-  @unittest.expectedFailure
   def test_DivisionByZeroError_bases(self):
     self.assertEqual(curry.DivisionByZeroError.__bases__, (curry.EvaluationError, ZeroDivisionError))
     self.assertTrue(issubclass(curry.DivisionByZeroError, Exception))
 
-  @unittest.expectedFailure
   def test_CurryIOError_bases(self):
     self.assertEqual(curry.CurryIOError.__bases__, (curry.EvaluationError, OSError))
     self.assertTrue(issubclass(curry.CurryIOError, Exception))
 
-  @unittest.expectedFailure
   def test_CurryFileNotFoundError_bases(self):
     self.assertEqual(curry.CurryFileNotFoundError.__bases__, (curry.CurryIOError, FileNotFoundError))
     self.assertTrue(issubclass(curry.CurryFileNotFoundError, Exception))
 
-  @unittest.expectedFailure
   def test_NondetError_bases(self):
     self.assertEqual(curry.NondetError.__bases__, (curry.EvaluationError,))
     self.assertTrue(issubclass(curry.NondetError, Exception))
 
-  @unittest.expectedFailure
   def test_StackLimitError_bases(self):
     self.assertEqual(curry.StackLimitError.__bases__, (curry.EvaluationError, RecursionError))
     self.assertTrue(issubclass(curry.StackLimitError, Exception))
 
-  @unittest.expectedFailure
   def test_EvaluationTimeout_bases(self):
     self.assertEqual(curry.EvaluationTimeout.__bases__, (curry.EvaluationError,))
     self.assertTrue(issubclass(curry.EvaluationTimeout, Exception))
 
-  @unittest.expectedFailure
   def test_InstantiationError_bases(self):
     self.assertEqual(curry.InstantiationError.__bases__, (curry.EvaluationError,))
     self.assertTrue(issubclass(curry.InstantiationError, Exception))
@@ -201,12 +187,10 @@ class TestStubErrors(cytest.TestCase):
     self.assertEqual(curry.ManyValuesError.__bases__, (curry.CurryError, ValueError))
     self.assertTrue(issubclass(curry.ManyValuesError, Exception))
 
-  @unittest.expectedFailure
   def test_ModuleLookupError_bases(self):
     self.assertEqual(curry.ModuleLookupError.__bases__, (curry.CurryError, ModuleNotFoundError))
     self.assertTrue(issubclass(curry.ModuleLookupError, Exception))
 
-  @unittest.expectedFailure
   def test_ModuleExistsError_bases(self):
     self.assertEqual(curry.ModuleExistsError.__bases__, (curry.CurryError, ValueError))
     self.assertTrue(issubclass(curry.ModuleExistsError, Exception))
@@ -223,7 +207,6 @@ class TestStubErrors(cytest.TestCase):
     self.assertEqual(curry.StaleError.__bases__, (curry.CurryError, RuntimeError))
     self.assertTrue(issubclass(curry.StaleError, Exception))
 
-  @unittest.expectedFailure
   def test_LoadError_bases(self):
     self.assertEqual(curry.LoadError.__bases__, (curry.CurryError, OSError))
     self.assertTrue(issubclass(curry.LoadError, Exception))
@@ -232,7 +215,6 @@ class TestStubErrors(cytest.TestCase):
     self.assertEqual(curry.PrerequisiteError.__bases__, (curry.CurryError, OSError))
     self.assertTrue(issubclass(curry.PrerequisiteError, Exception))
 
-  @unittest.expectedFailure
   def test_FlagError_bases(self):
     self.assertEqual(curry.FlagError.__bases__, (curry.CurryError, ValueError))
     self.assertTrue(issubclass(curry.FlagError, Exception))
@@ -245,12 +227,10 @@ class TestStubErrors(cytest.TestCase):
     self.assertEqual(curry.CurryIndexError.__bases__, (curry.CurryError, IndexError))
     self.assertTrue(issubclass(curry.CurryIndexError, Exception))
 
-  @unittest.expectedFailure
   def test_CurryWarning_bases(self):
     self.assertEqual(curry.CurryWarning.__bases__, (UserWarning,))
     self.assertTrue(issubclass(curry.CurryWarning, Exception))
 
-  @unittest.expectedFailure
   def test_conversion_message_example(self):
     P = curry.import_('Prelude')
     with self.assertRaises(curry.ConversionError) as caught:
@@ -260,7 +240,6 @@ class TestStubErrors(cytest.TestCase):
       , "cannot convert 'a' to Char at argument 1 of Prelude.ord :: Char -> Int: a str is a String; write curry.Char('a')"
       )
 
-  @unittest.expectedFailure
   def test_defaulting_message_example(self):
     P = curry.import_('Prelude')
     with self.assertRaises(curry.DefaultingError) as caught:
@@ -284,29 +263,24 @@ class TestStubErrors(cytest.TestCase):
       Items.A(1)
     self.assertEqual(str(caught.exception), 'Items.A :: Item takes 0 arguments, 1 given')
 
-  @unittest.expectedFailure
   def test_no_instance_message(self):
     P = curry.import_('Prelude')
     with self.assertRaises(curry.NoInstanceError) as caught:
       P['+'](True, True)
     self.assertEqual(str(caught.exception), 'no instance for Num Bool in argument 1 of Prelude.+')
 
-  @unittest.expectedFailure
   def test_type_syntax_rejects_invalid_annotation(self):
     with self.assertRaises(curry.TypeSyntaxError):
       curry.term(1, type='[')
 
-  @unittest.expectedFailure
   def test_type_syntax_rejects_unknown_type(self):
     with self.assertRaises(curry.TypeSyntaxError):
       curry.term(1, type='NoSuchType')
 
-  @unittest.expectedFailure
   def test_type_syntax_rejects_wrong_kind(self):
     with self.assertRaises(curry.TypeSyntaxError):
       curry.term([], type='Maybe')
 
-  @unittest.expectedFailure
   def test_int_overflow_during_step_has_same_class(self):
     P = curry.import_('Prelude')
     r = curry.eval(P['+'](curry.term(2 ** 63 - 1, type='Int'), 1))
@@ -335,7 +309,6 @@ class TestStubErrors(cytest.TestCase):
       next(curry.eval(P.ioError(P.userError('x'))))
     self.assertEqual(str(caught.exception), 'user error: x')
 
-  @unittest.expectedFailure
   def test_suspension_message_after_other_values(self):
     M = curry.import_('Tools')
     goal = curry.choice(True, M.suspend)
@@ -345,7 +318,6 @@ class TestStubErrors(cytest.TestCase):
       next(r)
     self.assertEqual(str(caught.exception), 'Evaluation suspended: ' + str(goal))
 
-  @unittest.expectedFailure
   def test_division_by_zero_message(self):
     P = curry.import_('Prelude')
     with self.assertRaises(curry.DivisionByZeroError) as caught:
@@ -357,7 +329,6 @@ class TestStubErrors(cytest.TestCase):
     P = curry.import_('Prelude')
     self.assertEqual(curry.eval(P['/'](1.0, 0.0)).one(), float('inf'))
 
-  @unittest.expectedFailure
   def test_file_not_found_sets_filename(self):
     P = curry.import_('Prelude')
     with self.assertRaises(curry.CurryFileNotFoundError) as caught:
@@ -365,7 +336,6 @@ class TestStubErrors(cytest.TestCase):
     self.assertIsInstance(caught.exception, FileNotFoundError)
     self.assertEqual(caught.exception.filename, '/nosuch')
 
-  @unittest.expectedFailure
   def test_nondeterminism_in_io_is_nondet_error(self):
     P = curry.import_('Prelude')
     with self.assertRaises(curry.NondetError):
@@ -383,13 +353,11 @@ class TestStubErrors(cytest.TestCase):
       curry.eval(Coin.coin).one()
     self.assertEqual(str(caught.exception), 'more than one value: coin has 0 and 1')
 
-  @unittest.expectedFailure
   def test_missing_module_is_import_error(self):
     with self.assertRaises(curry.ModuleLookupError) as caught:
       curry.import_('StubMissingModule')
     self.assertIsInstance(caught.exception, ImportError)
 
-  @unittest.expectedFailure
   def test_missing_module_hook_is_import_error(self):
     with self.assertRaises(curry.ModuleLookupError) as caught:
       from curry.lib import StubMissingModule
@@ -417,7 +385,6 @@ class TestStubErrors(cytest.TestCase):
       Items.Item
     self.assertEqual(str(caught.exception), "'Item' is a type: curry.info(Items).types['Item']")
 
-  @unittest.expectedFailure
   def test_missing_type_raises_type_lookup_error(self):
     M = curry.import_('Items')
     with self.assertRaises(curry.TypeLookupError):
@@ -453,7 +420,6 @@ class TestStubErrors(cytest.TestCase):
     for name in ('backend', 'interpret', 'rotation', 'stack_limit'):
       self.assertIn(name, text)
 
-  @unittest.expectedFailure
   def test_warning_can_be_filtered(self):
     with warnings.catch_warnings(record=True) as seen:
       warnings.simplefilter('ignore', curry.CurryWarning)
@@ -462,11 +428,9 @@ class TestStubErrors(cytest.TestCase):
     with self.assertWarns(curry.CurryWarning):
       warnings.warn('stub warning', curry.CurryWarning)
 
-  @unittest.expectedFailure
   def test_logger_has_null_handler(self):
     self.assertTrue(any(isinstance(h, logging.NullHandler) for h in logging.getLogger('curry').handlers))
 
-  @unittest.expectedFailure
   def test_mismatch_error_shows_parameter_and_argument_types(self):
     Coin = curry.import_('Coin')
     with self.assertRaises(curry.MismatchError) as caught:
@@ -474,19 +438,16 @@ class TestStubErrors(cytest.TestCase):
     self.assertIn('Bool', str(caught.exception))
     self.assertIn('Int', str(caught.exception))
 
-  @unittest.expectedFailure
   def test_free_function_cannot_be_instantiated(self):
     f = curry.free('f', type='Int -> Int')
     with self.assertRaises(curry.InstantiationError):
       next(curry.eval(f(1)))
 
-  @unittest.expectedFailure
   def test_import_does_not_configure_root_logger(self):
     code = "import logging; before = tuple(logging.getLogger().handlers); import curry; assert tuple(logging.getLogger().handlers) == before"
     run = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True)
     self.assertEqual(run.returncode, 0, run.stderr)
 
-  @unittest.expectedFailure
   def test_frontend_warning_uses_curry_warning(self):
     with mock.patch.dict(os.environ, {'SPRITE_FRONTEND_WARNINGS': '1'}):
       with self.assertWarns(curry.CurryWarning):

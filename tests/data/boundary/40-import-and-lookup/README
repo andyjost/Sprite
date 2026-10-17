@@ -10,7 +10,7 @@ Sources: memo A13, A14; catalogue P33, P34, P39, P54; Using the API,
 "Importing Curry Modules" and "Inspecting Symbols".
 Backends: py, cxx.  Oracle: none (no goal is plain Curry).
 
-Expected output: the path without the flag is a ModuleLookupError and with
+Expected output: the path without the flag is an illegal-name ValueError and with
 it the module 'Lookup'; the assignment to curry.path leaves the
 interpreter's list; Lookup.Item is an AttributeError where curry.type
 gives the constructors A and B; inspect.symbols lists the private helper

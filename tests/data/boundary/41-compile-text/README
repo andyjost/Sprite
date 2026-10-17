@@ -13,6 +13,6 @@ Expected output: the anonymous module is sprite__interactive_0; the second
 compile under 'Named' is a ValueError; imports=[Nat] works and
 imports=['Data.List'] imports the library module on demand (P32, fixed by
 #146 on 2026-10-16) as the import line of the text does; natFromInt 3 is I (I (I O)); eval('natToInt O') is the string
-itself (P12); 'toEnum 65' is a CompileError without a type and 'A' with
+refused with parse/term spellings; toEnum 65 names :: T without a type, or gives 'A' with
 exprtype='Char'; a syntax error is a CompileError, printed by its class
-because its text holds a path (P45).  Pins no defect.
+while report retains the complete front-end diagnostic. Pins no defect.

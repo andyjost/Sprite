@@ -837,7 +837,9 @@ class TestPrograms(cytest.TestCase):
       )
     self.assertEqual(actual, expected)
     stderr = self.last_stderr
-    self.assertEqual(stderr.count('stays interpreted'), 1, stderr)
+    self.assertIn('CurryWarning:', stderr)
+    self.assertEqual(sum('CurryWarning:' in line and 'stays interpreted' in line
+        for line in stderr.splitlines()), 1, stderr)
     self.assertIn('no-such-flag-of-sprite', stderr)
     stats = stderr.strip().splitlines()[-1]
     self.assertIn(' swapped=0 ', stats)

@@ -214,8 +214,8 @@ class TestCurry2ICurry(cytest.TestCase):
     with self.assertRaises(exceptions.CompileError) as cm:
       self.convert(curryfile)
     message = str(cm.exception)
-    self.assertIn('while running', message)
-    self.assertIn(config.curry_frontend(), message)
+    self.assertNotIn('while running', message)
+    self.assertNotIn(config.curry_frontend(), message)
     self.assertIn("`x' is undefined", message)
     self.assertFalse(os.path.exists(os.path.join(self.tmpdir, SUBDIR, 'Bad.icy')))
     # A missing import.

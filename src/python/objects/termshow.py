@@ -109,6 +109,8 @@ def application(info, args):
   from .terms import Symbol
   sym = Symbol(info, info.module)
   name = sym.name
+  if name.startswith('_impl#'):
+    name = name.split('#')[1]
   pieces = [format_(arg) for arg in args]
   if name == '()' or name.startswith('(') and name.endswith(')') and set(name[1:-1]) == {','}:
     if len(pieces) == sym.arity:

@@ -132,7 +132,7 @@ class TestAcceptance(cytest.TestCase):
     with self.assertRaises(curry.CurryTypeError) as cm:
       curry.expr(P.read, '5')
     message = str(cm.exception)
-    self.assertRegex(message, r'^cannot handle the overloaded expression \'read "5"\' of type Read a => a\n')
+    self.assertRegex(message, r'^cannot handle the overloaded goal read "5" of type Read a => a\n')
     self.assertIn(ORACLE_SENTENCE, message)
     self.assertEqual(values(P.read, curry.typed('5', 'String'), exprtype='Int'), [5])
     self.assertEqual(values(curry.expr(P.read, '5', exprtype='Int')), [5])
@@ -436,10 +436,10 @@ class TestConversion(cytest.TestCase):
     P = prelude()
     with self.assertRaisesRegex(
         curry.CurryTypeError
-      , r"^cannot handle the overloaded expression 'map show <iterator>' of type "
+      , r"^cannot handle the overloaded goal map show <iterator> of type "
         r"Show a => \[\[Char\]\]\n"
-        r'  ' + re.escape(ORACLE_SENTENCE) + r'\n'
-        r'  add a type annotation \(exprtype\)\n'
+        + re.escape(ORACLE_SENTENCE) + r'\n'
+        + re.escape("state the type: curry.term(goal, type='T')") + r'\n'
         r'  ' + re.escape(engine.ITERATOR_HINT) + '$'
       ):
       curry.expr(P.map, P.show, iter([1, 2, 3]))
@@ -447,7 +447,7 @@ class TestConversion(cytest.TestCase):
         values(P.map, P.show, curry.typed(iter([1, 2, 3]), '[Int]')), [['1', '2', '3']]
       )
     # The line is absent when the constraint sits elsewhere.
-    with self.assertRaisesRegex(curry.CurryTypeError, r'add a type annotation \(exprtype\)$'):
+    with self.assertRaisesRegex(curry.CurryTypeError, re.escape("state the type: curry.term(goal, type='T')") + '$'):
       curry.expr(P.read, '5')
 
   def test_free_markers(self):
@@ -1023,18 +1023,18 @@ class TestCatalogue(cytest.TestCase):
   def test_undefaultable_expression(self):
     P = prelude()
     err = self.check(
-        r'^cannot handle the overloaded expression \'read "5"\' of type Read a => a\n'
-        r'  ' + re.escape(ORACLE_SENTENCE) + r'\n'
-        r'  add a type annotation \(exprtype\)$'
+        r'^cannot handle the overloaded goal read "5" of type Read a => a\n'
+        + re.escape(ORACLE_SENTENCE) + r'\n'
+        + re.escape("state the type: curry.term(goal, type='T')") + '$'
       , P.read, '5'
       )
     self.assertIsInstance(err, DefaultingError)
-    self.check(r"^cannot handle the overloaded expression 'toEnum 65' of type Enum a => a\n", P.toEnum, 65)
+    self.check(r"^cannot handle the overloaded goal toEnum 65 of type Enum a => a\n", P.toEnum, 65)
 
   def test_no_instance(self):
     P = prelude()
     err = self.check(
-        r'^no instance for Show \(a -> a\) in argument 1 of Prelude\.show :: Show a => a -> \[Char\]$'
+        r'^no instance for Show \(a -> a\) in argument 1 of Prelude\.show$'
       , P.show, P.id
       )
     self.assertIsInstance(err, errors.NoInstanceError)

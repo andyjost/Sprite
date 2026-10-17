@@ -31,11 +31,32 @@ namespace cyrt
     return error_msg;
   }
 
-  static Node * _make_io_error(char const * error_msg, IOErrorKind error_kind=IO_ERROR)
+  static tag_type file_error_step(RuntimeState *, Configuration * C)
+  {
+    Cursor root = C->cursor();
+    std::string message = extract_string(root[1].target);
+    std::string filename = extract_string(root[2].target);
+    bool missing = NodeU{root[3].target}.int_->value == ENOENT;
+    C->set_error(root[0].target, "i/o error: " + message,
+        missing ? ErrorKind::file_not_found : ErrorKind::io, filename);
+    return E_ERROR;
+  }
+
+  static InfoTable const file_error_Info {
+      T_FUNC, 4, sizeof(Node) + 4 * sizeof(Arg), F_MONADIC | F_STATIC_OBJECT,
+      "fileError", "pppp", file_error_step, nullptr
+    };
+
+  static Node * _make_io_error(char const * error_msg, IOErrorKind error_kind=IO_ERROR,
+                              int error_number=0, std::string const & filename={})
   {
     Node * error_object = Node::create(
         ioerror_info(error_kind), cstring(error_msg)
       );
+    if(!filename.empty())
+      return Node::create(&file_error_Info, error_object,
+          build_curry_string(error_msg), build_curry_string(filename.c_str()),
+          int_(error_number));
     return Node::create(&prim_ioError_Info, error_object);
   }
 
@@ -193,8 +214,9 @@ namespace cyrt
     std::ifstream stream(filename, std::ios_base::binary);
     if(!stream)
     {
+      int error_number = errno;
       char const * error_msg = _make_io_error_msg(IO_ERROR, filename);
-      Node * replacement = _make_io_error(error_msg, IO_ERROR);
+      Node * replacement = _make_io_error(error_msg, IO_ERROR, error_number, filename);
       _0->forward_to(replacement);
       return T_FWD;
     }
@@ -264,8 +286,9 @@ namespace cyrt
     }
   return_error:
     {
+      int error_number = errno;
       char const * error_msg = _make_io_error_msg(IO_ERROR, filename);
-      Node * replacement = _make_io_error(error_msg, IO_ERROR);
+      Node * replacement = _make_io_error(error_msg, IO_ERROR, error_number, filename);
       _0->forward_to(replacement);
       return T_FWD;
     }

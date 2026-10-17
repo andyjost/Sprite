@@ -21,12 +21,7 @@ if _LOG_LEVEL_NAME_ not in _LOG_LEVEL_NAMES_:
 else:
   _LOG_LEVEL_ = getattr(logging, _LOG_LEVEL_NAME_)
 
-logging.basicConfig(
-    level=_LOG_LEVEL_
-  , format='%(asctime)s [%(levelname)s] %(message)s'
-  , datefmt='%m/%d/%Y %H:%M:%S'
-  , **({'filename': _LOG_FILE_} if _LOG_FILE_ not in ['-', ''] else {})
-  )
+logging.getLogger('curry').addHandler(logging.NullHandler())
 
 logger = logging.getLogger(__name__)
 

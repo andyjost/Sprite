@@ -6,9 +6,9 @@ succ True -> []
 -2**63 -> [-9223372036854775808]
 2**63 !! IntOverflowError: 9223372036854775808 is outside the range of Int (-9223372036854775808 to 9223372036854775807)
 -2**63 - 1 !! IntOverflowError: -9223372036854775809 is outside the range of Int (-9223372036854775808 to 9223372036854775807)
-2**62 + 2**62 !! EvaluationError: integer overflow: 4611686018427387904 + 4611686018427387904
-div 1 0 !! EvaluationError: division by zero: div 1 0
-mod 1 0 !! EvaluationError: division by zero: mod 1 0
+2**62 + 2**62 !! IntOverflowError: integer overflow: 4611686018427387904 + 4611686018427387904
+div 1 0 !! DivisionByZeroError: division by zero: div 1 0
+mod 1 0 !! DivisionByZeroError: division by zero: mod 1 0
 sqrt 4 -> [2.0]
 1 + 2.5 -> [3.5]
 succ 1 -> [2]
@@ -16,4 +16,4 @@ typeof 1 -> 'Num a => a'
 typeof 1, defaulted -> 'Int'
 typeof 1.5 -> 'Fractional a => a'
 typeof 1.5, defaulted -> 'Float'
-succ 1.5 !! DefaultingError: cannot handle the overloaded expression 'succ 1.5' of type (Enum a, Fractional a) => a
+succ 1.5 !! DefaultingError: cannot handle the overloaded goal succ 1.5 of type (Enum a, Fractional a) => a

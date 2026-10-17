@@ -1,4 +1,4 @@
-from .....exceptions import MonadError
+from .....exceptions import EvaluationError, CurryIOError, NondetError, IntOverflowError
 from ... import graph
 from . import show, string
 
@@ -22,13 +22,18 @@ def catch(rts, func):
   try:
     _1 = rts.variable(func, 0)
     _1.hnf()
-  except (IOError, MonadError) as exc:
+  except (OSError, EvaluationError, IntOverflowError) as exc:
     yield rts.prelude.apply
     yield func.successors[1]
     idx = getattr(exc, 'CTOR_INDEX', 0)
+    message = getattr(exc, 'curry_message', str(exc))
+    if isinstance(exc, OSError) and not isinstance(exc, CurryIOError):
+      message = exc.strerror
+      if exc.filename is not None:
+        message += ': ' + exc.filename
     yield graph.Node(
         rts.prelude.IOError.info.typedef.constructors[idx]
-      , string.pystring(rts, str(exc))
+      , string.pystring(rts, message)
       )
   else:
     yield rts.Fwd
@@ -39,9 +44,16 @@ def getChar(rts):
   yield graph.Node(rts.prelude.Char, rts.stdin.read(1))
 
 def ioError(rts, func):
-  yield rts.prelude.error
-  showf = rts.symbol('Prelude._impl#show#Prelude.Show#Prelude.IOError')
-  yield graph.Node(showf, func[0])
+  value = rts.variable(func, 0)
+  value.hnf()
+  index = value.info.tag
+  message = ''.join(rts.topython(value.successors[0]))
+  prefix = ('i/o error', 'user error', 'failed computation', 'nondet error')[index]
+  cls = NondetError if index == 3 else CurryIOError
+  error = cls('%s: %s' % (prefix, message))
+  error.CTOR_INDEX = index
+  error.curry_message = message
+  raise error
 
 def putChar(rts, a):
   rts.stdout.write(a.unboxed_value)

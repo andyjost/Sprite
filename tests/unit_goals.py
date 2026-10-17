@@ -183,20 +183,20 @@ class TestDefaulting(cytest.TestCase):
         self.default(context, typeexpr)
       message = str(cm.exception)
       self.assertRegex(message, '^cannot handle the overloaded goal M.goal of type ' + shown)
-      self.assertIn('\n  ' + ORACLE_SENTENCE + '\n', message)
-      self.assertTrue(message.endswith('add a type signature'), message)
+      self.assertIn('\n' + ORACLE_SENTENCE + '\n', message)
+      self.assertTrue(message.endswith("state the type: curry.term(goal, type='T')"), message)
       self.assertIsNotNone(cm.exception.predicate)
     # The caller names the goal and the hint.
     with self.assertRaises(DefaultingError) as cm:
       self.default(
-          [pred('Enum', tvar(0))], tvar(0), what="expression 'toEnum 65'"
-        , hint='add a type annotation (exprtype)'
+          [pred('Enum', tvar(0))], tvar(0), what="goal toEnum 65"
+        , hint='state the type: toEnum 65 :: Int'
         )
     self.assertEqual(
         str(cm.exception)
-      , "cannot handle the overloaded expression 'toEnum 65' of type Enum a => a\n"
-        "  " + ORACLE_SENTENCE + "\n"
-        "  add a type annotation (exprtype)"
+      , "cannot handle the overloaded goal toEnum 65 of type Enum a => a\n"
+        + ORACLE_SENTENCE + "\n"
+        "state the type: toEnum 65 :: Int"
       )
     self.assertIsInstance(cm.exception, curry.CurryTypeError)
 
@@ -312,7 +312,7 @@ class TestModuleGoals(cytest.TestCase):
               % (MODULE, symbol.name, shown)
         )
       self.assertIn(ORACLE_SENTENCE, message)
-      self.assertIn('add a type signature', message)
+      self.assertIn("state the type: curry.term(goal, type='T')", message)
     # A class method with its own constraints names both in its type.
     with self.assertRaisesRegex(
         curry.CurryTypeError
@@ -436,12 +436,12 @@ class TestTextGoals(cytest.TestCase):
       curry.compile('toEnum 65', mode='expr')
     self.assertEqual(
         str(cm.exception)
-      , "cannot handle the overloaded expression 'toEnum 65' of type Enum a => a\n"
-        "  " + ORACLE_SENTENCE + "\n"
-        "  add a type annotation (exprtype)"
+      , "cannot handle the overloaded goal toEnum 65 of type Enum a => a\n"
+        + ORACLE_SENTENCE + "\n"
+        "state the type: toEnum 65 :: T"
       )
     with self.assertRaisesRegex(
-        curry.CompileError, r"'maxBound \+ 1' of type \(Bounded a, Num a\) => a"
+        curry.CompileError, r"maxBound \+ 1 of type \(Bounded a, Num a\) => a"
       ):
       curry.compile('maxBound + 1', mode='expr')
     with self.assertRaisesRegex(curry.CompileError, 'Ambiguous type variable'):
@@ -720,7 +720,7 @@ class TestPrograms(cytest.TestCase):
   def test_repl_error(self):
     proc = self.repl(':eval toEnum 65', status=1)
     self.assertEqual(proc.stdout, '')
-    self.assertIn("'toEnum 65' of type Enum a => a", proc.stderr)
+    self.assertIn("toEnum 65 of type Enum a => a", proc.stderr)
     self.assertIn(ORACLE_SENTENCE, proc.stderr)
 
   def test_sprite_exec(self):
