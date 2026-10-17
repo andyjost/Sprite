@@ -148,14 +148,15 @@ HAND_VALUES = {
 class TestValues(cytest.TestCase):
   '''The programs give the same values on both backends.'''
   def values(self, *goal):
-    return list(curry.eval(*goal, converter='topython'))
+    return [cytest.raw.interp().topython(v) for v in
+        cytest.raw.values(cytest.raw.expr(*goal, typed=True))]
 
   def shown(self, *goal):
-    return [str(v) for v in curry.eval(*goal)]
+    return [str(v) for v in cytest.raw.values(cytest.raw.expr(*goal, typed=True))]
 
   def test_defaults(self):
     M = curry.import_('CxxEmit')
-    ptr = curry.expr(M.Ptr, M.Int)
+    ptr = cytest.raw.expr(M.Ptr, M.Int, typed=True)
     self.assertEqual(self.values(M.isPtr, ptr), [True])
     self.assertEqual(self.values(M.isPtr, M.Char), [False])
     self.assertEqual(self.values(M.rank, M.Char), [1])
@@ -222,13 +223,13 @@ class TestHandBuilt(cytest.TestCase):
     # The module is built by hand and has no FlatCurry interface, so the
     # typed builder cannot type the call: build it untyped.
     self.assertEqual(
-        list(curry.eval(curry.raw_expr(M.boolVar, 7), converter='topython'))
+        list(curry.eval(cytest.raw.expr(M.boolVar, 7)))
       , [7]
       )
     for name, value in HAND_VALUES.items():
       goal = getattr(M, name)
       self.assertEqual(
-          list(curry.eval(goal, converter='topython')), [value], name
+          list(curry.eval(goal)), [value], name
         )
 
   @ONLY_CXX

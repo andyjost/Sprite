@@ -506,9 +506,9 @@ class TestCompile(ProductCacheTestCase):
     from curry.backends.cxx import toolchain
     self.toolchain = toolchain
     self.plan = plans.makeplan(
-        curry.getInterpreter(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
       )
-    self.cpp2so = toolchain.Cpp2So(curry.getInterpreter())
+    self.cpp2so = toolchain.Cpp2So(cytest.raw.interp())
 
   def tearDown(self):
     super().tearDown()
@@ -608,7 +608,7 @@ class TestCompile(ProductCacheTestCase):
     self.assertEqual(self.prerequisite(name), sofile)
     self.assertEqual(os.stat(sofile).st_nlink, 2)
     module = curry.import_(name, currypath=[self.srcdir] + curry.path)
-    self.assertEqual(list(curry.eval(module.goal, converter='topython')), [2])
+    self.assertEqual(list(curry.eval(module.goal)), [2])
 
   def test_stale_object_is_replaced(self):
     '''
@@ -666,7 +666,7 @@ class TestCompile(ProductCacheTestCase):
     self.assertNotEqual(self.entry(name), first)
     self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 2})
     module = curry.import_(name, currypath=[self.srcdir] + curry.path)
-    self.assertEqual(list(curry.eval(module.goal, converter='topython')), [2])
+    self.assertEqual(list(curry.eval(module.goal)), [2])
 
   def test_interpret_new_does_not_restore(self):
     '''
@@ -681,7 +681,7 @@ class TestCompile(ProductCacheTestCase):
     from curry.objects.handle import getHandle
     with self.no_compiler():
       module = curry.import_(name, currypath=[self.srcdir] + curry.path)
-      self.assertEqual(list(curry.eval(module.goal, converter='topython')), [15])
+      self.assertEqual(list(curry.eval(module.goal)), [15])
     self.assertIsNone(getHandle(module).icurry.metadata.get('cxx.shlib'))
     self.assertFalse(os.path.exists(sofile))
     self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 1})
@@ -734,7 +734,7 @@ class TestCompile(ProductCacheTestCase):
     # The module runs in the second tree, in a child (the runtime of this
     # process keeps one library per module name), with no compiler.
     code = '\n'.join([
-        'import curry, json'
+        'import cytest, curry, json'
       , 'from curry.objects.handle import getHandle'
       , 'from curry.toolchain import _system'
       , 'commands = []'
@@ -744,7 +744,7 @@ class TestCompile(ProductCacheTestCase):
       , '  return pexec(cmd, *args, **kwds)'
       , '_system.pexec = counting_pexec'
       , 'module = curry.import_(%r, currypath=%r)' % (name, [other] + curry.path)
-      , 'value = list(curry.eval(module.goal, converter="topython"))'
+      , 'value = list(curry.eval(module.goal))'
       , 'print(json.dumps([commands, value, module.__file__, getHandle(module).sofilename]))'
       ])
     with mock.patch.dict(
@@ -847,7 +847,7 @@ class TestCompile(ProductCacheTestCase):
     from curry.objects.handle import getHandle
     with self.no_compiler():
       module = curry.import_(name, currypath=[self.srcdir] + curry.path)
-      self.assertEqual(list(curry.eval(module.goal, converter='topython')), [11])
+      self.assertEqual(list(curry.eval(module.goal)), [11])
     self.assertIsNotNone(getHandle(module).icurry.metadata.get('cxx.shlib'))
     self.assertTrue(os.path.isfile(sofile))
     self.assertEqual(_productcache.counts['restored'], 1)

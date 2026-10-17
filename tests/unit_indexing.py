@@ -67,7 +67,7 @@ class IndexingTests(object):
   def test_index_unboxed(self):
     '''
     An unboxed value has no successors.  (The rows went through
-    curry.unboxed before; the builders refuse the marker outside a
+    cytest.raw.unboxed before; the builders refuse the marker outside a
     primitive since issue #107.)
     '''
     for value in (1, 'a', 1.0):
@@ -80,8 +80,8 @@ class IndexingTests(object):
   @cytest.check_indexing
   def test_index_algebraic(self):
     prelude = curry.import_('Prelude')
-    e = curry.raw_expr([prelude.Just, 5])
-    five = curry.raw_expr(5)
+    e = cytest.raw.expr([prelude.Just, 5])
+    five = cytest.raw.expr(5)
     yield e, 0, five
     yield e, [0], five
     yield e, -1, five
@@ -94,16 +94,16 @@ class IndexingTests(object):
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_index_list(self):
-    e = curry.raw_expr([0, 1, [2, 3, [], [4]]])
-    middle = curry.raw_expr([2, 3, [], [4]])
-    bot = curry.raw_expr([4])
+    e = cytest.raw.expr([0, 1, [2, 3, [], [4]]])
+    middle = cytest.raw.expr([2, 3, [], [4]])
+    bot = cytest.raw.expr([4])
     yield e, (), e
-    yield e, 0, curry.raw_expr(0)
-    yield e, (1,0), curry.raw_expr(1)
+    yield e, 0, cytest.raw.expr(0)
+    yield e, (1,0), cytest.raw.expr(1)
     yield e, (1,1,0), middle
     yield e, (1,1,-2), middle
-    yield e, (1,1,0,0), curry.raw_expr(2)
-    yield e, (1,1,0,1,1,0), curry.raw_expr([])
+    yield e, (1,1,0,0), cytest.raw.expr(2)
+    yield e, (1,1,0,1,1,0), cytest.raw.expr([])
     yield e, (1,1,0,1,1,1,0,0,0), 4
     yield e, iter((1,1,0,1,1,1,0,0,0)), 4
     def path():
@@ -117,9 +117,9 @@ class IndexingTests(object):
   @cytest.check_indexing
   def test_index_path_forms(self):
     '''A path may hold bools or nested sequences, or be a range or bytes.'''
-    e = curry.raw_expr([0, 1, [2, 3, [], [4]]])
-    tail = curry.raw_expr([1, [2, 3, [], [4]]])
-    middle = curry.raw_expr([2, 3, [], [4]])
+    e = cytest.raw.expr([0, 1, [2, 3, [], [4]]])
+    tail = cytest.raw.expr([1, [2, 3, [], [4]]])
+    middle = cytest.raw.expr([2, 3, [], [4]])
     yield e, [1, [1, 0]], middle
     yield e, [[1], (1,), [[0]]], middle
     yield e, (True, True, False), middle
@@ -133,41 +133,41 @@ class IndexingTests(object):
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_index_tuple(self):
-    e = curry.raw_expr((0, (1, 2), [3]))
+    e = cytest.raw.expr((0, (1, 2), [3]))
     yield e, (), e
-    yield e, 1, curry.raw_expr((1, 2))
-    yield e, 2, curry.raw_expr([3])
+    yield e, 1, cytest.raw.expr((1, 2))
+    yield e, 2, cytest.raw.expr([3])
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_index_string(self):
-    e = curry.raw_expr('Hello, you!')
+    e = cytest.raw.expr('Hello, you!')
     yield e, (), e
-    yield e, (1,1,1,1,0), curry.raw_expr('o')
+    yield e, (1,1,1,1,0), cytest.raw.expr('o')
     yield e, (1,1,1,1,0,0), 'o'
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_index_choice(self):
-    e = curry.raw_expr(curry.expressions.choice(5, 'a', 'b'))
+    e = cytest.raw.expr(curry.expressions.choice(5, 'a', 'b'))
     yield e, 0, 5
     yield e, (0, 0), out_of_range
-    yield e, 1, curry.raw_expr('a')
+    yield e, 1, cytest.raw.expr('a')
     yield e, (1, 0), 'a'
-    yield e, 2, curry.raw_expr('b')
+    yield e, 2, cytest.raw.expr('b')
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_index_fail(self):
-    e = curry.raw_expr(curry.fail)
+    e = cytest.raw.expr(cytest.raw.fail)
     yield e, (), e
     yield e, 0, out_of_range
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_index_cyclical(self):
-    cons, nil, ref = curry.cons, curry.nil, curry.ref
-    e = curry.raw_expr(ref('a'), a=cons(0, ref('b')), b=cons(1, ref('a')))
+    cons, nil, ref = cytest.raw.cons, cytest.raw.nil, curry.ref
+    e = cytest.raw.expr(ref('a'), a=cons(0, ref('b')), b=cons(1, ref('a')))
     self.assertIs(subexpr(e, ()), e)
     yield e, (0,0), 0
     yield e, (1,0,0), 1
@@ -175,7 +175,7 @@ class IndexingTests(object):
     yield e, (1,1,1,0,0), 1
 
   def test_index_invalid(self):
-    onetwo = curry.raw_expr([1,2])
+    onetwo = cytest.raw.expr([1,2])
     self.assertRaisesRegex(
         curry.CurryIndexError
       , r"node index must be an integer or sequence of integers, not 'str'"
@@ -224,20 +224,20 @@ class TestIndex(IndexingTests, cytest.TestCase):
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_index_fwd(self):
-    e = curry.raw_expr(fwd([0, fwd(1)]))
+    e = cytest.raw.expr(fwd([0, fwd(1)]))
     yield e, (), e
-    yield e, (0,0), curry.raw_expr(0)
+    yield e, (0,0), cytest.raw.expr(0)
     yield e, (0,0,0), 0
-    yield e, (0,1), curry.raw_expr([fwd(1)])
-    yield e, (0,1,0), curry.raw_expr(fwd(1))
-    yield e, (0,1,0,0), curry.raw_expr(1)
+    yield e, (0,1), cytest.raw.expr([fwd(1)])
+    yield e, (0,1,0), cytest.raw.expr(fwd(1))
+    yield e, (0,1,0,0), cytest.raw.expr(1)
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_index_setgrd(self):
-    e = curry.raw_expr(_setgrd(0, True))
+    e = cytest.raw.expr(_setgrd(0, True))
     yield e, 0, 0
-    yield e, 1, curry.raw_expr(True)
+    yield e, 1, cytest.raw.expr(True)
 
 
 # Note: many tests are inherited.
@@ -255,7 +255,7 @@ class TestRealpathNoUFN(cytest.TestCase):
     )
 
   def test_realpath_invalid(self):
-    onetwo = curry.raw_expr([1,2])
+    onetwo = cytest.raw.expr([1,2])
     for badpath, name in [
           (None, 'NoneType')
         , ('err', 'str')
@@ -289,7 +289,7 @@ class TestRealpathNoUFN(cytest.TestCase):
 
   def test_realpath_result(self):
     '''The result is a named tuple.'''
-    e = curry.raw_expr([1,2])
+    e = cytest.raw.expr([1,2])
     result = realpath(e, [1, 0])
     self.assertIs(result.target, e.successors[1].successors[0])
     self.assertEqual(result.realpath, [1, 0])
@@ -299,12 +299,12 @@ class TestRealpathNoUFN(cytest.TestCase):
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_realpath_fwd(self):
-    e = curry.raw_expr(fwd([0, fwd(1)]))
-    e_copy = curry.raw_expr(fwd([0, fwd(1)]))
-    yield e, ()   , (curry.raw_expr([0, fwd(1)]), [0]      , set())
+    e = cytest.raw.expr(fwd([0, fwd(1)]))
+    e_copy = cytest.raw.expr(fwd([0, fwd(1)]))
+    yield e, ()   , (cytest.raw.expr([0, fwd(1)]), [0]      , set())
     yield e, (0,0), (0                      , [0,0,0]  , set())
-    yield e, 1    , (curry.raw_expr([fwd(1)])   , [0,1]    , set())
-    yield e, (1,0), (curry.raw_expr(1)          , [0,1,0,0], set())
+    yield e, 1    , (cytest.raw.expr([fwd(1)])   , [0,1]    , set())
+    yield e, (1,0), (cytest.raw.expr(1)          , [0,1,0,0], set())
 
     # Ensure indexing did not modify the expression.
     self.assertStructEqual(e, e_copy)
@@ -312,12 +312,12 @@ class TestRealpathNoUFN(cytest.TestCase):
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_realpath_setgrd(self):
-    e = curry.raw_expr(_setgrd(0, True))
-    true = curry.raw_expr(True)
+    e = cytest.raw.expr(_setgrd(0, True))
+    true = cytest.raw.expr(True)
     yield e, (), (true, [1], set([0]))
     self.assertStructEqual(subexpr(e, [1]), true)
 
-    e = curry.raw_expr(_setgrd(0, _setgrd(1, _setgrd(0, True))))
+    e = cytest.raw.expr(_setgrd(0, _setgrd(1, _setgrd(0, True))))
     yield e, (), (true, [1,1,1], set([0,1]))
     self.assertStructEqual(subexpr(e, [1,1,1]), true)
 
@@ -325,10 +325,10 @@ class TestRealpathNoUFN(cytest.TestCase):
   @cytest.check_indexing
   def test_realpath_interleaved(self):
     '''Test interleaved forward nodes and set guards.'''
-    e = curry.raw_expr(_setgrd(0, fwd(fwd(_setgrd(1, True)))))
-    true = curry.raw_expr(True)
+    e = cytest.raw.expr(_setgrd(0, fwd(fwd(_setgrd(1, True)))))
+    true = cytest.raw.expr(True)
     yield e, (), (true, [1,0,0,1], set([0,1]))
-    self.assertStructEqual(e, curry.raw_expr(_setgrd(0, fwd(fwd(_setgrd(1, True))))))
+    self.assertStructEqual(e, cytest.raw.expr(_setgrd(0, fwd(fwd(_setgrd(1, True))))))
 
 
 class TestRealpathUFN(cytest.TestCase):
@@ -340,20 +340,20 @@ class TestRealpathUFN(cytest.TestCase):
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_realpath_fwd(self):
-    e = curry.raw_expr(fwd([0, fwd(1)]))
-    yield e, ()   , (curry.raw_expr([0, fwd(1)]), [0]     , set())
+    e = cytest.raw.expr(fwd([0, fwd(1)]))
+    yield e, ()   , (cytest.raw.expr([0, fwd(1)]), [0]     , set())
     self.assertIsaFwd(e)
 
-    e = curry.raw_expr(fwd([0, fwd(1)]))
+    e = cytest.raw.expr(fwd([0, fwd(1)]))
     yield e, (0,0), (0                      , [0,0,0] , set())
     self.assertIsaFwd(e)
 
-    e = curry.raw_expr(fwd([0, fwd(1)]))
-    yield e, 1    , (curry.raw_expr([1])        , [0, 1]  , set())
+    e = cytest.raw.expr(fwd([0, fwd(1)]))
+    yield e, 1    , (cytest.raw.expr([1])        , [0, 1]  , set())
     self.assertIsaFwd(e)
 
-    e = curry.raw_expr(fwd([0, fwd(1)]))
-    yield e, (1,0), (curry.raw_expr(1)          , [0, 1,0], set())
+    e = cytest.raw.expr(fwd([0, fwd(1)]))
+    yield e, (1,0), (cytest.raw.expr(1)          , [0, 1,0], set())
     self.assertIsaFwd(e)
 
   def test_realpath_compress_fwd_chain1(self):
@@ -361,8 +361,8 @@ class TestRealpathUFN(cytest.TestCase):
     # Try the following with chains of various lengths.
     for N in range(2, 5):
       # Make a chain of N forward nodes: fwd(...fwd(-1)...)
-      end = curry.raw_expr(-1)
-      e = curry.raw_expr(functools.reduce(lambda a,_: fwd(a), range(N), end))
+      end = cytest.raw.expr(-1)
+      e = cytest.raw.expr(functools.reduce(lambda a,_: fwd(a), range(N), end))
       chain = [subexpr(e, [0]*i) for i in range(N)] # keep each link
       # Everything in the chain is a forward node.
       for fwdnode in chain:
@@ -376,7 +376,7 @@ class TestRealpathUFN(cytest.TestCase):
       self.assertStructEqual(subexpr(e, path), end)
       self.assertEqual(grds, set())
       # The head remains a FWD b/c we don't have its parent.
-      self.assertStructEqual(e, curry.raw_expr(fwd(end)))
+      self.assertStructEqual(e, cytest.raw.expr(fwd(end)))
       # Now, every link is short-cut to the end.
       self.assertTrue(all(inspect.fwd_target(link) is end for link in chain))
 
@@ -389,8 +389,8 @@ class TestRealpathUFN(cytest.TestCase):
     for head in [prelude.Just, prelude.id]: # try with a ctor and function
       for N in range(2, 5):
         # Make a chain of N forward nodes: fwd(...fwd(-1)...)
-        end = curry.raw_expr(-1)
-        e = curry.raw_expr([head, functools.reduce(lambda a,_: fwd(a), range(N), end)])
+        end = cytest.raw.expr(-1)
+        e = cytest.raw.expr([head, functools.reduce(lambda a,_: fwd(a), range(N), end)])
         chain = [subexpr(e, [0]+[0]*i) for i in range(N)] # keep each link
         # Everything in the chain is a forward node.
         for fwdnode in chain:
@@ -406,20 +406,20 @@ class TestRealpathUFN(cytest.TestCase):
         # Now, every link is short-cut to the end.
         self.assertTrue(all(inspect.fwd_target(link) is end for link in chain))
         # And there are no forward nodes at all in the expression.
-        self.assertStructEqual(e, curry.raw_expr([head, -1]))
+        self.assertStructEqual(e, cytest.raw.expr([head, -1]))
 
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_realpath_interleaved(self):
     '''Test interleaved forward nodes and set guards.'''
-    e = curry.raw_expr(_setgrd(0, fwd(fwd(_setgrd(1, True)))))
-    true = curry.raw_expr(True)
+    e = cytest.raw.expr(_setgrd(0, fwd(fwd(_setgrd(1, True)))))
+    true = cytest.raw.expr(True)
     yield e, (), (true, [1,1], set([0,1]))
-    self.assertStructEqual(e, curry.raw_expr(_setgrd(0, _setgrd(1, True))))
+    self.assertStructEqual(e, cytest.raw.expr(_setgrd(0, _setgrd(1, True))))
 
-    e = curry.raw_expr(_setgrd(0, [fwd(fwd(_setgrd(1, fwd(True))))]))
-    true = curry.raw_expr(True)
-    yield e, 1, (curry.raw_expr([]), [1,1], set([0]))
+    e = cytest.raw.expr(_setgrd(0, [fwd(fwd(_setgrd(1, fwd(True))))]))
+    true = cytest.raw.expr(True)
+    yield e, 1, (cytest.raw.expr([]), [1,1], set([0]))
     yield e, 0, (true, [1,0,1], set([0,1]))
-    self.assertStructEqual(e, curry.raw_expr(_setgrd(0, [_setgrd(1, True)])))
+    self.assertStructEqual(e, cytest.raw.expr(_setgrd(0, [_setgrd(1, True)])))
 

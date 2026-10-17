@@ -68,13 +68,13 @@ class TestShowFloat(cytest.TestCase):
     '''
     for value, text in VALUES:
       expected = '(%s)' % text if value < 0 else text
-      self.assertEqual(str(curry.expr(value)), expected, repr(value))
+      self.assertEqual(str(cytest.raw.expr(value, typed=True)), expected, repr(value))
       if value >= 0:
         self.assertEqual(
-            repr(curry.expr(value)), '<Float %s>' % text, repr(value)
+            repr(cytest.raw.expr(value, typed=True)), '<Float %s>' % text, repr(value)
           )
     self.assertEqual(
-        str(curry.expr([1.5, -2.5, 1.0e16])), '[1.5, (-2.5), 1.0e+16]'
+        str(cytest.raw.expr([1.5, -2.5, 1.0e16], typed=True)), '[1.5, (-2.5), 1.0e+16]'
       )
 
   def test_show_in_curry(self):
@@ -86,18 +86,18 @@ class TestShowFloat(cytest.TestCase):
     M = curry.compile(CURRY)
     for value, text in VALUES:
       self.assertEqual(
-          next(curry.eval(M.showF, value, converter='topython')), text
+          next(curry.eval((M.showF)(value))), text
         , repr(value)
         )
     self.assertEqual(
-        next(curry.eval(M.showL, [1.5, -2.5, 1.0e16], converter='topython'))
+        next(curry.eval((M.showL)([1.5, -2.5, 1.0e16])))
       , '[1.5,-2.5,1.0e+16]'
       )
     self.assertEqual(
-        next(curry.eval(M.showP, -2.5, converter='topython')), '(-2.5)'
+        next(curry.eval((M.showP)(-2.5))), '(-2.5)'
       )
     self.assertEqual(
-        next(curry.eval(M.addF, 0.1, 0.2, converter='topython'))
+        next(curry.eval((M.addF)(0.1, 0.2)))
       , '0.30000000000000004'
       )
 
@@ -108,7 +108,7 @@ main :: String
 main = show [3.5, 1.0, 0.0, 0.0001, 1.0e-5, 1.0e7, 1.0e15, 1.0e16, 0.1 + 0.2]
 ''')
     self.assertEqual(
-        next(curry.eval(M.main, converter='topython'))
+        next(curry.eval(M.main))
       , '[3.5,1.0,0.0,0.0001,1.0e-5,10000000.0,1.0e+15,1.0e+16,'
         '0.30000000000000004]'
       )

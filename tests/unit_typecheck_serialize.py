@@ -22,10 +22,10 @@ def prelude():
   return curry.import_('Prelude')
 
 def symbol(name):
-  return curry.symbol('Prelude.' + name)
+  return curry.import_('Prelude')[name]
 
 def text(*args, **kwds):
-  '''The Curry text of the arguments of curry.expr.'''
+  '''The Curry text of the arguments of the internal serializer.'''
   return str(ser(*args, **kwds))
 
 def ser(*args, **kwds):
@@ -33,7 +33,7 @@ def ser(*args, **kwds):
   module = kwds.pop('module', None)
   typed = kwds.pop('typed', True)
   return serialize_call(
-      curry.getInterpreter(), args, kwds, exprtype=exprtype, module=module
+      cytest.raw.interp(), args, kwds, exprtype=exprtype, module=module
     , typed=typed
     )
 
@@ -123,10 +123,10 @@ class TestApplications(cytest.TestCase):
     self.assertEqual(text(pair), '(,)')
     self.assertEqual(text(getattr(P, '(,,)'), 1, 2, 3), '(1, 2, 3)')
     self.assertEqual(text(P.Nil), '[]')
-    self.assertEqual(text(curry.nil), '[]')
+    self.assertEqual(text(cytest.raw.nil), '[]')
     self.assertEqual(text(getattr(P, '()')), '()')
     self.assertEqual(text(P.Cons, 1, [P.Cons, 2, P.Nil]), '1 : (2 : [])')
-    self.assertEqual(text(curry.cons(1, 2, curry.nil)), '1 : (2 : [])')
+    self.assertEqual(text(cytest.raw.cons(1, 2, cytest.raw.nil)), '1 : (2 : [])')
     self.assertEqual(text(P.Cons, 1), '(:) 1')
     self.assertEqual(text(P.length, [P.Cons, 1, P.Nil]), 'length (1 : [])')
     self.assertEqual(text(curry.choice(1, 2)), '1 ? 2')
@@ -190,7 +190,7 @@ class TestValues(cytest.TestCase):
     self.assertEqual(text(P.length, 'hello'), 'length "hello"')
     self.assertEqual(text(P.reverse, 'ab'), 'reverse "ab"')
     self.assertEqual(text(P.unwords, ['a', 'bc']), 'unwords ["a", "bc"]')
-    self.assertEqual(text(curry.typed('a', 'String')), '("a" :: String)')
+    self.assertEqual(text(cytest.raw.typed('a', 'String')), '("a" :: String)')
     self.assertEqual(text('ab\n"q" \\ ä'), r'"ab\n\"q\" \\ \228"')
     # Without the typing the length decides, as the messages print it.
     self.assertEqual(text(P.length, 'a', typed=False), "length 'a'")
@@ -205,12 +205,12 @@ class TestValues(cytest.TestCase):
     self.assertEqual(text(P.read, '5', exprtype='Int'), '(read "5" :: Int)')
     self.assertEqual(text(1, exprtype='Float'), '(1 :: Float)')
     self.assertEqual(text(symbol('+'), 1, 2, exprtype='Float'), '(1 + 2 :: Float)')
-    self.assertEqual(text(P.id, curry.typed(5, 'Float')), 'id (5 :: Float)')
-    self.assertEqual(text(curry.typed([], '[Int]')), '([] :: [Int])')
-    self.assertEqual(text(curry.free(exprtype='[Int]')), 'let x1 free in (x1 :: [Int])')
+    self.assertEqual(text(P.id, curry.term(5, type='Float')), 'id (5 :: Float)')
+    self.assertEqual(text(curry.term([], type='[Int]')), '([] :: [Int])')
+    self.assertEqual(text(cytest.raw.free(exprtype='[Int]')), 'let x1 free in (x1 :: [Int])')
     # A type given as a FlatCurry type prints through the printer.
     typeexpr = fc.TCons(fc.prelude('[]'), [fc.TCons(fc.prelude('Char'), [])])
-    s = ser(curry.typed([], '[Char]'), exprtype=typeexpr)
+    s = ser(curry.term([], type='[Char]'), exprtype=typeexpr)
     self.assertEqual(s.text, '(([] :: [Char]) :: [Char])')
     self.assertIs(s.exprtype, typeexpr)
     spec = engine.Typed(engine.Lit(1), typeexpr)
@@ -218,13 +218,13 @@ class TestValues(cytest.TestCase):
 
   def test_untyped_parts(self):
     P = prelude()
-    self.assertEqual(text([P.Int, curry.unboxed(3)]), '(3 :: Int)')
-    self.assertEqual(text([P.Char, curry.unboxed('a')]), "('a' :: Char)")
-    self.assertEqual(text([P.Float, curry.unboxed(2.5)]), '(2.5 :: Float)')
-    self.assertEqual(text(P.Just, [P.Int, curry.unboxed(3)]), 'Just (3 :: Int)')
-    self.assertEqual(text(curry.unboxed(3)), '3')
-    self.assertEqual(text(curry.unboxed(2.5)), '2.5')
-    self.assertEqual(text(P.id, curry.fail), 'id failed')
+    self.assertEqual(text([P.Int, cytest.raw.unboxed(3)]), '(3 :: Int)')
+    self.assertEqual(text([P.Char, cytest.raw.unboxed('a')]), "('a' :: Char)")
+    self.assertEqual(text([P.Float, cytest.raw.unboxed(2.5)]), '(2.5 :: Float)')
+    self.assertEqual(text(P.Just, [P.Int, cytest.raw.unboxed(3)]), 'Just (3 :: Int)')
+    self.assertEqual(text(cytest.raw.unboxed(3)), '3')
+    self.assertEqual(text(cytest.raw.unboxed(2.5)), '2.5')
+    self.assertEqual(text(P.id, cytest.raw.fail), 'id failed')
     self.assertEqual(text(curry.expressions.fwd(1)), '1')
     self.assertEqual(text(P.id, curry.expressions.fwd([P.Just, 1])), 'id (Just 1)')
     with self.assertRaisesRegex(SerializeError, 'a setgrd node has no Curry text'):
@@ -238,7 +238,7 @@ class TestParameters(cytest.TestCase):
   def test_nodes_and_iterators(self):
     P = prelude()
     DL = curry.import_('Data.List')
-    v = next(curry.eval(curry.expr([1.5, 2.5]), converter=None))
+    v = next(cytest.raw.values(cytest.raw.expr([1.5, 2.5], typed=True)))
     s = ser(DL.sum, v)
     self.assertEqual(s.text, 'Data.List.sum p1')
     self.assertEqual(s.params, ['p1'])
@@ -249,24 +249,24 @@ class TestParameters(cytest.TestCase):
       s.where_text()
     s = ser(P.length, iter([1, 2]))
     self.assertEqual(s.text, 'length p1')
-    s = ser(symbol('+'), curry.expr(1), curry.expr(2))
+    s = ser(symbol('+'), cytest.raw.expr(1, typed=True), cytest.raw.expr(2, typed=True))
     self.assertEqual(s.text, 'p1 + p2')
     self.assertEqual(s.params, ['p1', 'p2'])
     # The same node twice is one parameter; a raw node is one too.
-    n = curry.expr(1)
+    n = cytest.raw.expr(1, typed=True)
     self.assertEqual(ser(symbol('+'), n, n).text, 'p1 + p1')
-    self.assertEqual(ser(P.id, curry.raw_expr(P.Just, 1)).text, 'id p1')
+    self.assertEqual(ser(P.id, cytest.raw.expr(P.Just, 1)).text, 'id p1')
     # A node alone prints as a parameter too.
     self.assertEqual(ser(n).definition(), 'compiled_expression p1 = p1')
     # The engine's Known spec is an operand without text.
-    spec = engine.App(P.length, engine.Known('[Int]', curry.raw_expr([1])))
+    spec = engine.App(P.length, engine.Known('[Int]', cytest.raw.expr([1])))
     self.assertEqual(serialize.serialize(spec).text, 'length p1')
     self.assertEqual(serialize.serialize(engine.Iter(iter([]))).params, ['p1'])
 
   def test_free_markers(self):
     P = prelude()
     eq = symbol('=:=')
-    x, y = curry.free(), curry.free()
+    x, y = cytest.raw.free(), cytest.raw.free()
     s = ser(P.id, x)
     self.assertEqual(s.text, 'let x1 free in id x1')
     self.assertEqual(s.frees, ['x1'])
@@ -290,64 +290,60 @@ class TestParameters(cytest.TestCase):
       , 'let x1 free in ((x1 ++ [3]) =:= [1, 2, 3]) &> x1'
       )
     # A marker and a parameter.
-    s = ser(eq, x, curry.expr(1))
+    s = ser(eq, x, cytest.raw.expr(1, typed=True))
     self.assertEqual(s.definition(), 'compiled_expression p1 x1 = x1 =:= p1')
     self.assertEqual(s.parameters(lift_frees=False), ['p1'])
 
   def test_anchors(self):
     P = prelude()
     anchor, ref = curry.expressions.anchor, curry.ref
-    s = ser(P.take, 2, anchor(curry.cons(1, ref())))
+    s = ser(P.take, 2, anchor(cytest.raw.cons(1, ref())))
     self.assertEqual(s.text, 'let a1 = 1 : a1 in take 2 a1')
     self.assertEqual(s.bindings, [('a1', '1 : a1')])
     self.assertEqual(s.body, 'take 2 a1')
     # A keyword anchor keeps its name.
-    s = ser(P.take, 3, ref('xs'), xs=curry.cons(7, ref('xs')))
+    s = ser(P.take, 3, ref('xs'), xs=cytest.raw.cons(7, ref('xs')))
     self.assertEqual(s.text, 'let xs = 7 : xs in take 3 xs')
     self.assertEqual(s.definition(), 'compiled_expression = let xs = 7 : xs in take 3 xs')
     # A keyword anchor may refer to an earlier one.
-    s = ser(P.take, 3, ref('b'), a=curry.cons(1, curry.nil), b=curry.cons(2, ref('a')))
+    s = ser(P.take, 3, ref('b'), a=cytest.raw.cons(1, cytest.raw.nil), b=cytest.raw.cons(2, ref('a')))
     self.assertEqual(s.text, 'let a = 1 : []; b = 2 : a in take 3 b')
     # A name that is a keyword, that starts with an underscore, or that
     # names a symbol of the expression is replaced.
-    s = ser(P.take, 2, anchor(curry.cons(1, ref('free')), name='free'))
+    s = ser(P.take, 2, anchor(cytest.raw.cons(1, ref('free')), name='free'))
     self.assertEqual(s.text, 'let a1 = 1 : a1 in take 2 a1')
-    s = ser(P.take, 2, anchor(curry.cons(1, ref('_7')), name='_7'))
+    s = ser(P.take, 2, anchor(cytest.raw.cons(1, ref('_7')), name='_7'))
     self.assertEqual(s.text, 'let a1 = 1 : a1 in take 2 a1')
-    s = ser(P.take, 2, anchor(curry.cons(1, ref('take')), name='take'))
+    s = ser(P.take, 2, anchor(cytest.raw.cons(1, ref('take')), name='take'))
     self.assertEqual(s.text, 'let a1 = 1 : a1 in take 2 a1')
     # The free markers come before the anchors; an anchor may hold one.
-    x = curry.free()
-    s = ser(P.take, 2, anchor(curry.cons(x, ref())))
+    x = cytest.raw.free()
+    s = ser(P.take, 2, anchor(cytest.raw.cons(x, ref())))
     self.assertEqual(s.text, 'let x1 free in let a1 = x1 : a1 in take 2 a1')
     self.assertEqual(s.where_text(), 'let a1 = x1 : a1 in take 2 a1 where x1 free')
     self.assertEqual(s.definition(), 'compiled_expression x1 = let a1 = x1 : a1 in take 2 a1')
     # The trivial cycle and an anchor inside an anchor.
     self.assertEqual(ser(anchor(ref())).text, 'let a1 = a1 in a1')
-    s = ser(P.take, 3, anchor(curry.cons(1, anchor(curry.cons(2, ref('o')), name='i')), name='o'))
+    s = ser(P.take, 3, anchor(cytest.raw.cons(1, anchor(cytest.raw.cons(2, ref('o')), name='i')), name='o'))
     self.assertEqual(s.text, 'let o = 1 : i; i = 2 : o in take 3 o')
 
 class TestEntryPoints(cytest.TestCase):
   '''serialize, serialize_call, serialize_description and Serialized.'''
 
-  def test_descriptions(self):
+  def test_terms(self):
     P = prelude()
     plus = symbol('+')
-    d = curry.describe(plus, 1, 2)
-    self.assertEqual(serialize_description(d).text, '1 + 2')
-    self.assertEqual(serialize.serialize(d).text, '1 + 2')
-    inner = curry.describe(plus, 1, 1)
-    outer = curry.describe(plus, inner, 2.5)
-    self.assertEqual(serialize_description(outer).text, '(1 + 1) + 2.5')
-    self.assertEqual(text(outer), '(1 + 1) + 2.5')
-    self.assertEqual(text(P.show, d), 'show (1 + 2)')
-    d = curry.describe(P.take, 3, curry.ref('xs'), xs=curry.cons(7, curry.ref('xs')))
-    self.assertEqual(serialize_description(d).text, 'let xs = 7 : xs in take 3 xs')
-    # The annotation sits on the body, inside the declarations.
-    self.assertEqual(serialize_description(d, exprtype='[Int]').text, 'let xs = 7 : xs in (take 3 xs :: [Int])')
-    # A one-character string in a description follows its type.
-    self.assertEqual(serialize_description(curry.describe(P.length, 'a')).text, 'length "a"')
-    self.assertEqual(serialize_description(curry.describe(P.length, 'a'), typed=False).text, "length 'a'")
+    term = plus(1, 2)
+    self.assertEqual(str(term), '1 + 2')
+    self.assertEqual(str(P.show(term)), 'show (1 + 2)')
+    outer = plus(plus(1, 1), 2.5)
+    self.assertEqual(str(outer), '1 + 1 + 2.5')
+    self.assertEqual(list(curry.eval(curry.parse(str(outer)))), [4.5])
+    cycle = curry.let(P.take(3, curry.ref('xs')), xs=P.Cons(7, curry.ref('xs')))
+    self.assertEqual(str(cycle), 'let xs = 7 : xs in take 3 xs')
+    self.assertEqual(list(curry.eval(cycle)), [[7, 7, 7]])
+    self.assertEqual(curry.typeof(curry.term(cycle, type='[Int]')), '[Int]')
+    self.assertEqual(str(P.length('a')), 'length "a"')
 
   def test_specs(self):
     '''The engine's specs serialize as they are.'''

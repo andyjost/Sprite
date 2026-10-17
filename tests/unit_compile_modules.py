@@ -18,20 +18,18 @@ REFUSED_UNDER_OFF = unittest.skipIf(
 
 
 class TestCompileModules(cytest.TestCase):
-  @cytest.with_flags(defaultconverter='topython')
   def testExprModuleOutlivesNextCompile(self):
     '''
     An expression module stays loaded while its goal can still be evaluated.
     An audit finding: compiling a second expression unloaded the first one's
     module, and the C++ backend then read freed memory through the goal.
     '''
-    a = curry.compile('"hello" ++ " world"', 'expr')
-    b = curry.compile('"other"', 'expr')
+    a = curry.parse('"hello" ++ " world"')
+    b = curry.parse('"other"')
     gc.collect()
     self.assertEqual(list(curry.eval(a)), ['hello world'])
     self.assertEqual(list(curry.eval(b)), ['other'])
 
-  @cytest.with_flags(defaultconverter='topython')
   def testAnonymousModuleNamesNotReused(self):
     '''
     The names of anonymous modules are unique for the process.  An audit
@@ -40,14 +38,14 @@ class TestCompileModules(cytest.TestCase):
     second module then resolved to the first one's code.
     '''
     first = curry.compile('f :: Int\nf = 1')
-    goal = curry.compile('"first"', 'expr')
+    goal = curry.parse('"first"')
     # Keep the first expression module loaded across the reset.
-    held = list(curry.getInterpreter()._expression_modules)
+    held = list(cytest.raw.interp()._expression_modules)
     curry.reset()
     second = curry.compile('f :: Int\nf = 2')
     self.assertNotEqual(first.__name__, second.__name__)
     self.assertEqual(list(curry.eval(second.f)), [2])
-    self.assertEqual(list(curry.eval(curry.compile('"second"', 'expr'))), ['second'])
+    self.assertEqual(list(curry.eval(curry.parse('"second"'))), ['second'])
     del held, goal
 
   @unittest.skipIf(
@@ -81,15 +79,15 @@ class TestCompileModules(cytest.TestCase):
     or not the module object is alive.
     '''
     first = curry.compile('f :: Int\nf = 1', modulename='SameNameAlive')
-    self.assertEqual(list(curry.eval(first.f, converter='topython')), [1])
+    self.assertEqual(list(curry.eval(first.f)), [1])
     curry.reset()
     second = curry.compile('f :: Int\nf = 2', modulename='SameNameAlive')
     with self.assertRaises(curry.StaleError):
       first.f
-    self.assertEqual(list(curry.eval(second.f, converter='topython')), [2])
+    self.assertEqual(list(curry.eval(second.f)), [2])
     curry.reset()
     third = curry.compile('f :: Int\nf = 3', modulename='SameNameAlive')
-    self.assertEqual(list(curry.eval(third.f, converter='topython')), [3])
+    self.assertEqual(list(curry.eval(third.f)), [3])
     del first, second, third
 
   @REFUSED_UNDER_OFF
@@ -100,12 +98,12 @@ class TestCompileModules(cytest.TestCase):
     it replaces, so the same holds across a reload (issue #114).
     '''
     first = curry.compile('f :: Int\nf = 1', modulename='SameNameReload')
-    self.assertEqual(list(curry.eval(first.f, converter='topython')), [1])
+    self.assertEqual(list(curry.eval(first.f)), [1])
     curry.reload()
     second = curry.compile('f :: Int\nf = 2', modulename='SameNameReload')
     with self.assertRaises(curry.StaleError):
       first.f
-    self.assertEqual(list(curry.eval(second.f, converter='topython')), [2])
+    self.assertEqual(list(curry.eval(second.f)), [2])
     del first, second
 
   @unittest.skipIf(
@@ -122,8 +120,8 @@ class TestCompileModules(cytest.TestCase):
     2026-10-10).
     '''
     first = curry.compile('f :: Int\nf = 1', modulename='StaleSymbol')
-    self.assertEqual(list(curry.eval(first.f, converter='topython')), [1])
+    self.assertEqual(list(curry.eval(first.f)), [1])
     curry.reset()
     with self.assertRaises(curry.StaleError):
-      list(curry.eval(first.f, converter='topython'))
+      list(curry.eval(first.f))
     del first

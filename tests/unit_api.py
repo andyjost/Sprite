@@ -51,7 +51,7 @@ class TestStats(cytest.TestCase):
   @staticmethod
   def goal():
     '''A goal with one fork and at least one step; no Curry code is compiled.'''
-    return curry.expr([curry.symbol('Prelude.not'), curry.choice(True, False)])
+    return curry.import_('Prelude')['not'](curry.choice(True, False))
 
   @staticmethod
   def parse(line):
@@ -63,7 +63,7 @@ class TestStats(cytest.TestCase):
   @staticmethod
   def extra_keys():
     '''The keys after KEYS: the scheduler counters, when the runtime has them.'''
-    if curry.getInterpreter().backend.scheduler_counters_enabled():
+    if cytest.raw.interp().backend.scheduler_counters_enabled():
       return statsmod.SCHEDULER_KEYS
     return ()
 
@@ -153,8 +153,8 @@ class TestStats(cytest.TestCase):
     '''
     from curry.backends.generic.eval import evaluator
     before = curry.stats()
-    expr = curry.expr([curry.symbol('Prelude.not'), True])
-    stepped = evaluator.single_step(curry.getInterpreter(), expr)
+    expr = cytest.raw.expr(curry.import_('Prelude')['not'], True, typed=True)
+    stepped = evaluator.single_step(cytest.raw.interp(), expr)
     after = curry.stats()
     self.assertEqual(after['steps'], before['steps'] + 1)
     self.assertEqual(after['forks'], before['forks'])
@@ -181,12 +181,12 @@ class TestStats(cytest.TestCase):
     module = curry.import_(self.MODULE, currypath=[tmpdir] + curry.path)
     after = curry.stats()['compile']
     self.assertGreater(after, before)
-    self.assertEqual(list(curry.eval(module.goal, converter='topython')), [3])
+    self.assertEqual(list(curry.eval(module.goal)), [3])
     curry.reset()
     self.assertNotIn(self.MODULE, curry.modules)
     module = curry.import_(self.MODULE, currypath=[tmpdir] + curry.path)
     self.assertEqual(curry.stats()['compile'], after)
-    self.assertEqual(list(curry.eval(module.goal, converter='topython')), [3])
+    self.assertEqual(list(curry.eval(module.goal)), [3])
 
   def sprite_exec(self, *args, status=0):
     '''
@@ -260,13 +260,13 @@ import os
 os.environ['SPRITE_INTERPRETER_FLAGS'] = 'backend:%s,inline_budget:7,interpret:new'
 os.environ['SPRITE_ROTATION'] = 'steps:100'
 from curry.interpreter import Interpreter
-import curry
+import cytest, curry
 def show(interp):
   flags = interp.flags
   print(flags['backend'], flags['inline_budget'], flags['interpret'], flags['rotation'])
 show(Interpreter())
 show(Interpreter(flags={'inline_budget': 0, 'rotation': 'steps:7'}))
-show(curry.getInterpreter())
+show(cytest.raw.interp())
 ''' % backend
     proc = cytest.run_in_subprocess(code, self.TIMEOUT)
     self.assertEqual(proc.returncode, 0, proc.stderr)

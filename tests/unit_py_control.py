@@ -15,14 +15,14 @@ import contextlib, curry, io, unittest
   )
 class TestPyControl(cytest.TestCase):
   def setUp(self):
-    self.interp = curry.getInterpreter()
+    self.interp = cytest.raw.interp()
     self.P = self.interp.prelude
 
   def make_rts(self, *goals):
     '''Makes a runtime state with one configuration per goal.'''
-    rts = RuntimeState(self.interp, curry.raw_expr(goals[0]))
+    rts = RuntimeState(self.interp, cytest.raw.expr(goals[0]))
     for goal in goals[1:]:
-      rts.append(Configuration(curry.raw_expr(goal)))
+      rts.append(Configuration(cytest.raw.expr(goal)))
     return rts
 
   def test_catch_control_unwind(self):
@@ -115,10 +115,10 @@ class TestPyControl(cytest.TestCase):
   def test_is_io(self):
     rts = self.make_rts(1)
     P = self.P
-    self.assertTrue(rts.is_io(curry.raw_expr([P.prim_putChar, 'a'])))
-    self.assertTrue(rts.is_io(curry.raw_expr([P.putStr, 'a'])))
-    self.assertFalse(rts.is_io(curry.raw_expr([P.head, [1]])))
-    self.assertRaises(AssertionError, rts.is_io, curry.raw_expr(1))
+    self.assertTrue(rts.is_io(cytest.raw.expr([P.prim_putChar, 'a'])))
+    self.assertTrue(rts.is_io(cytest.raw.expr([P.putStr, 'a'])))
+    self.assertFalse(rts.is_io(cytest.raw.expr([P.head, [1]])))
+    self.assertRaises(AssertionError, rts.is_io, cytest.raw.expr(1))
     self.assertIn('bindIO', rts_control.IO_FUNCTION_NAMES)
 
   def test_ready(self):
@@ -145,10 +145,10 @@ class TestPyControl(cytest.TestCase):
     self.assertIs(rts.Q, rts.qtable[rts.qid])
     self.assertIs(rts.C, rts.Q[0])
     self.assertIs(rts.E, rts.C.root)
-    root = curry.raw_expr(3)
+    root = cytest.raw.expr(3)
     rts.E = root
     self.assertIs(rts.C.root, root)
-    config = Configuration(curry.raw_expr(4))
+    config = Configuration(cytest.raw.expr(4))
     rts.C = config
     self.assertIs(rts.Q[0], config)
     queue = rts.Q.copy()
@@ -173,10 +173,10 @@ class TestPyControl(cytest.TestCase):
   @cytest.with_flags(trace=True)
   def test_trace_on(self):
     '''With tracing on, the steps and the values are printed.'''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
-      values = list(curry.eval(interp.prelude.id, 1))
+      values = list(curry.eval((interp.prelude.id)(1)))
     self.assertEqual(len(values), 1)
     self.assertIn('S <<<', out.getvalue())
     self.assertIn('S >>>', out.getvalue())

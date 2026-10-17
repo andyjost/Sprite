@@ -9,16 +9,16 @@ import Data.List
 import Data.Maybe
 
 goal_sum = Data.List.sum [1, 2, 3]
-goal_sum_floats = Data.List.sum [1.5, 2.5]
+goal_sum_floats = Data.List.sum [(1.5 :: Float), (2.5 :: Float)]
 goal_maximum = Data.List.maximum [1, 3, 2]
 goal_nub = Data.List.nub [1, 1, 2]
 goal_frommaybe = Data.Maybe.fromMaybe 0 Nothing
 goal_fromjust = Data.Maybe.fromJust (Just 1)
-goal_lookup = lookup 1 [(1, 'a')]
+goal_lookup = lookup 1 [(1, ("a" :: [Char]))]
 goal_elem = elem 2 [1, 2]
-goal_zip = zip [1, 2] "ab"
-goal_unwords = unwords ["a", "bc"]
-goal_concat = concat ["ab", "c"]
+goal_zip = zip [1, 2] ("ab" :: [Char])
+goal_unwords = unwords [("a" :: [Char]), ("bc" :: [Char])]
+goal_concat = concat [("ab" :: [Char]), ("c" :: [Char])]
 goal_identity_run = Data.Functor.Identity.runIdentity (Data.Functor.Identity.Identity 5)
 goal_identity_show = show (Data.Functor.Identity.Identity 5)
 goal_identity_eq = Data.Functor.Identity.Identity 5 == Data.Functor.Identity.Identity 5

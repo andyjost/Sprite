@@ -6,6 +6,18 @@ import os
 
 class TestTerms(cytest.TestCase):
 
+  def test_deep_container_conversion(self):
+    nested = 1
+    for _ in range(500):
+      nested = [nested]
+    term = curry.term(nested)
+    self.assertEqual(curry.typeof(term, defaulted=True)[:20], '[' * 20)
+
+  def test_container_conversion_keeps_scalar_errors(self):
+    for value in (b'abc', [b'abc'], (b'abc', 1), (1,)):
+      with self.subTest(value=value), self.assertRaises(curry.ConversionError):
+        curry.term(value)
+
   def test_data_ordering_calls_curry_compare(self):
     path = os.path.join(os.path.dirname(__file__), 'data', 'curry', 'flows')
     curry.path.insert(0, path)
@@ -121,22 +133,22 @@ class TestTerms(cytest.TestCase):
     t = curry.term(items(), type='[Int]')
     P = curry.import_('Prelude')
     self.assertEqual(drawn, [])
-    self.assertEqual(list(curry.eval(P.take(2, t), converter='topython')), [[0, 1]])
+    self.assertEqual(list(curry.eval(P.take(2, t))), [[0, 1]])
     self.assertEqual(drawn, [0, 1])
-    self.assertEqual(list(curry.eval(P.take(2, t), converter='topython')), [[0, 1]])
+    self.assertEqual(list(curry.eval(P.take(2, t))), [[0, 1]])
     self.assertEqual(drawn, [0, 1])
 
   def test_inspect_sequence_of_terms(self):
     P = curry.import_('Prelude')
     self.assertTrue(inspect.isa(curry.term(1), [P.Int, P.Float]))
-    self.assertTrue(inspect.isa(curry.term(1), [curry.type('Prelude.Int')]))
+    self.assertTrue(inspect.isa(curry.term(1), [curry.info(P).types['Int']]))
     self.assertTrue(inspect.isa(curry.term(1), [P.Int.symbol]))
 
-  def test_old_builders_accept_term_heads(self):
+  def test_internal_builder_accepts_term_heads(self):
     P = curry.import_('Prelude')
-    for build in (curry.expr, curry.raw_expr):
+    for build in (cytest.raw.expr, lambda *args: cytest.raw.expr(*args, typed=True)):
       node = build(P['not'], True)
-      self.assertEqual(list(curry.eval(node, converter='topython')), [False])
+      self.assertEqual(list(curry.eval(node)), [False])
 
   def test_call_type_error_is_a_conversion(self):
     P = curry.import_('Prelude')
@@ -153,9 +165,74 @@ class TestTerms(cytest.TestCase):
     for value in (1.5, 1.0e15, 1.0e-5, -0.0, float('inf'),
         -float('inf'), float('nan')):
       with self.subTest(value=value):
-        self.assertEqual(str(curry.term(value)), str(curry.expr(value)))
+        self.assertEqual(str(curry.term(value)), str(cytest.raw.expr(value, typed=True)))
 
-  def test_type_constructors_keep_the_old_info_field(self):
-    constructors = curry.type('Prelude.Bool').constructors
-    self.assertEqual([(c.name, c.info.arity) for c in constructors],
+  def test_type_constructor_metadata(self):
+    constructors = curry.info(curry.import_('Prelude')).types['Bool'].constructors
+    self.assertEqual([(c.name, c.arity) for c in constructors],
         [('False', 0), ('True', 0)])
+
+
+  def test_overloaded_iterator_argument(self):
+    P = curry.import_('Prelude')
+    goal = P.map(P.show, iter([1]))
+    self.assertEqual(curry.typeof(goal), 'Show a => [[Char]]')
+    with self.assertRaises(curry.DefaultingError) as caught:
+      curry.eval(goal)
+    self.assertNotIn('IteratorSource', str(caught.exception))
+    typed = curry.term(iter([1]), type='[Int]')
+    self.assertEqual(list(curry.eval(P.map(P.show, typed))), [['1']])
+
+  def test_float_in_int_slot_names_operand_and_position(self):
+    P = curry.import_('Prelude')
+    with self.assertRaises(curry.ConversionError) as caught:
+      P.plusInt(1, 2.5)
+    error = caught.exception
+    self.assertIn('2.5', str(error))
+    self.assertIn('argument 2 of Prelude.plusInt', str(error))
+    self.assertIn('write an int', str(error))
+    self.assertEqual(error.symbol, 'Prelude.plusInt')
+
+  def test_typeof_python_values_follows_term_conversion(self):
+    self.assertEqual(curry.typeof([1, 2.5]), '[Float]')
+    self.assertEqual(curry.typeof((1, 2.5)), 'Num a => (a, Float)')
+    self.assertEqual(curry.typeof(1), 'Num a => a')
+    self.assertEqual(curry.typeof(True), 'Bool')
+    self.assertEqual(curry.typeof('a'), '[Char]')
+    for value in (None, b'a', {}, set(), (1,)):
+      with self.subTest(value=value), self.assertRaises(curry.ConversionError):
+        curry.typeof(value)
+    with self.assertRaises(curry.IntOverflowError):
+      curry.typeof(2 ** 63)
+
+  def test_typeof_internal_markers_retains_node_path(self):
+    raw = cytest.raw
+    self.assertEqual(raw.interp().typeof(raw.free(exprtype='[Int]')), '[Int]')
+    node = raw.expr(True)
+    self.assertEqual(raw.interp().typeof(raw.typed(node, 'Bool')), 'Bool')
+
+
+  def test_bad_operand_keeps_symbol_and_position(self):
+    P = curry.import_('Prelude')
+    with self.assertRaises(curry.ConversionError) as caught:
+      P.Just(None)
+    self.assertIn('None', str(caught.exception))
+    self.assertIn('argument 1 of Prelude.Just', str(caught.exception))
+    self.assertIn('P.Nothing', str(caught.exception))
+    self.assertEqual(caught.exception.symbol, 'Prelude.Just')
+    with self.assertRaises(curry.ConversionError) as caught:
+      P.plusInt(curry.term(1, type='Int'), 2.5)
+    self.assertIn('argument 2 of Prelude.plusInt', str(caught.exception))
+    self.assertIn('write an int', str(caught.exception))
+
+
+  def test_nested_term_mismatch_names_position_and_types(self):
+    P = curry.import_('Prelude')
+    M = curry.import_('Data.Maybe')
+    value = curry.eval(P.Just(1)).one()
+    with self.assertRaises(curry.MismatchError) as caught:
+      P['+'](1.5, M.fromJust(value))
+    message = str(caught.exception)
+    self.assertIn('argument 1 of Data.Maybe.fromJust', message)
+    self.assertIn('expected Maybe Float, got Maybe Int', message)
+    self.assertNotIn('TCons', message)

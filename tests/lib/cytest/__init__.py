@@ -25,6 +25,7 @@ os.environ.setdefault(
       )
   )
 
+from . import raw
 from .checkers import check_expressions, check_indexing, check_predicate
 import builtins
 import contextlib
@@ -101,7 +102,7 @@ def setio(stdin=None, stdout=None, stderr=None):
     @functools.wraps(f)
     def wrapper(*args, **kwds):
       import curry
-      interp = curry.getInterpreter()
+      interp = raw.interp()
       if stdin is not None:
         if isinstance(stdin, str):
           io = StringIO()

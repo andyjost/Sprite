@@ -30,7 +30,7 @@ committed; one goal per twin, ``goal_<name> = <text>``.  Four checks:
     excluded from this oracle, as the design says; unit tests cover them.
 
   * TestRoundTrip compiles the Curry text of the conversion rows of the
-    design (section 3.7) through curry.compile(mode='expr') and compares
+    design (section 3.7) through curry.parse and compares
     the values with those of the Python call: the text the serializer
     printed means what the call means.
 
@@ -52,8 +52,8 @@ from curry.interpreter import compile as compilemod
 from curry.toolchain.flat2icurry import flatcurry as fc
 from curry.typecheck import builder, sigtable
 from curry.typecheck.serialize import serialize_call
+from curry.objects.terms import walk_forms
 import curry, itertools, os, re, sys, unittest
-from curry.expressions import choice as choice_marker
 
 SOURCE_DIR = 'data/curry/typed_expr/'
 ORACLE_TIMEOUT = 60
@@ -64,32 +64,54 @@ GOAL_PREFIX = 'goal_'
 # ==========
 class Call:
   '''
-  The Python call of a twin: the arguments of ``curry.expr``, its keyword
-  anchors, and ``exprtype``.
+  The Python call of a twin, with an optional type and recursive bindings.
   '''
   def __init__(self, *args, **kwds):
     self.args = args
-    self.exprtype = kwds.pop('exprtype', None)
+    self.type = kwds.pop('type', None)
     self.anchors = kwds
 
   def node(self):
-    return curry.expr(*self.args, exprtype=self.exprtype, **self.anchors)
+    value = self.args[0](*self.args[1:]) if len(self.args) > 1 else curry.term(self.args[0])
+    if self.anchors:
+      value = curry.let(value, **self.anchors)
+    return curry.term(value, type=self.type)
 
   def values(self):
     '''The values of the call, as Curry values.'''
-    return list(curry.eval(self.node(), converter=None))
+    return list(curry.eval(self.node()))
 
   def serialized(self, module=None):
-    return serialize_call(
-        curry.getInterpreter(), self.args, self.anchors, exprtype=self.exprtype
-      , module=module
-      )
+    term = self.node()
+    # The serializer prints concrete inferred variable types. An open
+    # inferred type is generalized by the oracle's binding instead of
+    # being written as a rigid annotation such as (xs :: [a]).
+    changed = []
+    for var in walk_forms(term):
+      if not isinstance(var, curry.Var):
+        continue
+      annotation = var._marker.exprtype
+      pending = [annotation]
+      while pending:
+        item = pending.pop()
+        if isinstance(item, fc.TVar):
+          changed.append((var._marker, annotation))
+          var._marker.exprtype = None
+          break
+        if isinstance(item, fc.FuncType):
+          pending.extend((item.domain, item.range))
+        elif isinstance(item, fc.TCons):
+          pending.extend(item.args)
+    try:
+      return serialize_call(cytest.raw.interp(), (term,), {}, module=module)
+    finally:
+      for marker, annotation in changed:
+        marker.exprtype = annotation
 
   def problem(self):
-    '''The engine's problem of the call, typed and not solved.'''
-    b = builder.TypedBuilder(curry.getInterpreter())
-    root = b.specs(self.args, self.anchors)
-    return builder.TypedProblem(b, root, self.exprtype)
+    '''The engine's problem of the converted term, before defaulting.'''
+    b = builder.TypedBuilder(cytest.raw.interp())
+    return builder.TypedProblem(b, b.specs((self.node(),)))
 
 class Twin:
   '''
@@ -154,7 +176,11 @@ class Corpus:
     name = os.path.basename(__file__)
     lines = [GENERATED_NOTE % (name, name), self.header.rstrip('\n'), '']
     for twin in self.twins:
-      lines.append(self.goal_line(twin, ns))
+      try:
+        lines.append(self.goal_line(twin, Namespace(ns.M, ns.modulename)))
+      except Exception as error:
+        error.add_note('corpus twin: ' + twin.name)
+        raise
     return '\n'.join(lines) + '\n'
 
 GENERATED_NOTE = (
@@ -176,11 +202,11 @@ class Namespace:
     self.ID = curry.import_('Data.Functor.Identity')
     self.M = module
     self.modulename = modulename if module is None else module.__name__
-    self.x = curry.free()
-    self.y = curry.free()
+    self.x = curry.free('x')
+    self.y = curry.free('y')
 
   def sym(self, name):
-    return curry.symbol('Prelude.' + name)
+    return curry.import_('Prelude')[name]
 
   @property
   def plus(self):
@@ -196,13 +222,12 @@ class Namespace:
 
   def value(self, *args, **kwds):
     '''The first value of an evaluation: a copy, typed later by its content.'''
-    kwds.setdefault('converter', None)
-    return next(curry.eval(*args, **kwds))
+    return next(curry.eval(curry.let((args[0](*args[1:]) if len(args) > 1 else args[0]), **kwds)))
 
 def _twin(name, make, **kwds):
   return Twin(name, make, **kwds)
 
-anchor, ref, cons, nil = curry.expressions.anchor, curry.ref, curry.cons, curry.nil
+ref = curry.ref
 
 # The conversion rows of section 3.7 of the design and the literal rows of
 # the API tables.  The rows marked ``row`` round-trip through the front end
@@ -212,9 +237,9 @@ LITERALS = Corpus('twins_literals', '''\
 ''', [
     _twin('plus', lambda ns: Call(ns.plus, 1, 2), row=True)
   , _twin('plus_float', lambda ns: Call(ns.plus, 1.5, 1), row=True, floats=True)
-  , _twin('int_as_float', lambda ns: Call(1, exprtype='Float'), row=True, floats=True)
+  , _twin('int_as_float', lambda ns: Call(1, type='Float'), row=True, floats=True)
   , _twin('int', lambda ns: Call(1), row=True)
-  , _twin('int_typed', lambda ns: Call(1, exprtype='Int'), row=True)
+  , _twin('int_typed', lambda ns: Call(1, type='Int'), row=True)
   , _twin('float', lambda ns: Call(2.5), row=True, floats=True)
   , _twin('divide', lambda ns: Call(ns.sym('/'), 3, 2), row=True, floats=True)
   , _twin('negative', lambda ns: Call(ns.P.negate, -1), row=True)
@@ -222,56 +247,54 @@ LITERALS = Corpus('twins_literals', '''\
   , _twin('bool', lambda ns: Call(True), row=True)
   , _twin('not', lambda ns: Call(ns.not_, True), row=True)
   , _twin('and', lambda ns: Call(ns.sym('&&'), True, False))
-  , _twin('char', lambda ns: Call('a'), row=True)
-  , _twin('ord', lambda ns: Call(ns.P.ord, 'a'), row=True)
-  , _twin('ord_unicode', lambda ns: Call(ns.P.ord, 'ä'))
+  , _twin('char', lambda ns: Call(curry.Char('a')), row=True)
+  , _twin('ord', lambda ns: Call(ns.P.ord, curry.Char('a')), row=True)
+  , _twin('ord_unicode', lambda ns: Call(ns.P.ord, curry.Char('ä')))
   , _twin('chr', lambda ns: Call(ns.P.chr, 97))
-  , _twin('char_var', lambda ns: Call(ns.P.id, 'a'), row=True)
+  , _twin('char_var', lambda ns: Call(ns.P.id, curry.Char('a')), row=True)
   , _twin('string', lambda ns: Call('hi'), row=True)
   , _twin('string_length', lambda ns: Call(ns.P.length, 'hello'), row=True)
   , _twin('char_as_string', lambda ns: Call(ns.P.length, 'a'), row=True)
-  , _twin('typed_string', lambda ns: Call(curry.typed('a', 'String')), row=True)
+  , _twin('typed_string', lambda ns: Call(curry.term('a', type='String')), row=True)
   , _twin('empty_string', lambda ns: Call(ns.P.length, ''), row=True)
   , _twin('empty_string_append', lambda ns: Call(ns.sym('++'), '', 'a'))
-  , _twin('bytes', lambda ns: Call(b'bytes'), row=True)
   , _twin('reverse_string', lambda ns: Call(ns.P.reverse, 'ab'))
   , _twin('char_then_string', lambda ns: Call(['c', 'ab']), row=True)
   , _twin('string_then_char', lambda ns: Call(['ab', 'c']), row=True)
-  , _twin('choice_char_string', lambda ns: Call(choice_marker('c', 'ab')))
+  , _twin('choice_char_string', lambda ns: Call(curry.choice('c', 'ab')))
   , _twin('fmap_ord_char', lambda ns: Call(ns.P.fmap, ns.P.ord, 'a'), row=True)
   , _twin('escapes', lambda ns: Call('ab\n"q" \\ ä\U0001f600'))
   , _twin('floats', lambda ns: Call([1, 2.5]), row=True, floats=True)
   , _twin('ints', lambda ns: Call([1, 2, 3]), row=True)
   , _twin('nested_list', lambda ns: Call([[1, 2], [3]]))
   , _twin('nil', lambda ns: Call([]), row=True)
-  , _twin('typed_nil', lambda ns: Call(curry.typed([], '[Int]')))
+  , _twin('typed_nil', lambda ns: Call(curry.term([], type='[Int]')))
   , _twin('range', lambda ns: Call(ns.P.length, list(range(20))))
-  , _twin('pair', lambda ns: Call((1, 'a')), row=True)
+  , _twin('pair', lambda ns: Call((1, curry.Char('a'))), row=True)
   , _twin('unit', lambda ns: Call(()), row=True)
-  , _twin('triple', lambda ns: Call(([1, 2], ('a', 2.5), True)), floats=True)
-  , _twin('fst', lambda ns: Call(ns.P.fst, (1, 'a')))
-  , _twin('snd', lambda ns: Call(ns.P.snd, (1, 'a')))
-  , _twin('unboxed', lambda ns: Call([ns.P.Int, curry.unboxed(3)]), row=True)
-  , _twin('cons', lambda ns: Call(cons(1, 2, nil)))
+  , _twin('triple', lambda ns: Call(([1, 2], (curry.Char('a'), 2.5), True)), floats=True)
+  , _twin('fst', lambda ns: Call(ns.P.fst, (1, curry.Char('a'))))
+  , _twin('snd', lambda ns: Call(ns.P.snd, (1, curry.Char('a'))))
+  , _twin('cons', lambda ns: Call(ns.P.Cons(1, ns.P.Cons(2, ns.P.Nil))))
   , _twin('show_float', lambda ns: Call(ns.P.show, 2.5), floats=True)
-  , _twin('show_plus', lambda ns: Call(ns.P.show, [ns.plus, 1, 2]))
-  , _twin('show_just', lambda ns: Call(ns.P.show, [ns.P.Just, 1]))
+  , _twin('show_plus', lambda ns: Call(ns.P.show, ns.plus(1, 2)))
+  , _twin('show_just', lambda ns: Call(ns.P.show, ns.P.Just(1)))
   , _twin('power', lambda ns: Call(ns.sym('^'), 2, 3))
   , _twin('fromintegral', lambda ns: Call(ns.P.fromIntegral, 3))
   , _twin('just', lambda ns: Call(ns.P.Just, 5))
-  , _twin('just_float', lambda ns: Call(ns.P.Just, 5, exprtype='Maybe Float'), row=True, floats=True)
-  , _twin('read_int', lambda ns: Call(ns.P.read, '5', exprtype='Int'))
-  , _twin('apply', lambda ns: Call(ns.P.apply, [ns.plus, 1], 6))
+  , _twin('just_float', lambda ns: Call(ns.P.Just, 5, type='Maybe Float'), row=True, floats=True)
+  , _twin('read_int', lambda ns: Call(ns.P.read, '5', type='Int'))
+  , _twin('apply', lambda ns: Call(ns.P.apply, ns.plus(1), 6))
   , _twin('over_application', lambda ns: Call(ns.P.id, ns.P.id, 5))
-  , _twin('map_plus', lambda ns: Call(ns.P.map, [ns.plus, 1], [1, 2]))
+  , _twin('map_plus', lambda ns: Call(ns.P.map, ns.plus(1), [1, 2]))
   , _twin('foldr', lambda ns: Call(ns.P.foldr, ns.plus, 0, [1, 2, 3]))
-  , _twin('fmap', lambda ns: Call(ns.P.fmap, [ns.plus, 1], [ns.P.Just, 1]))
-  , _twin('enumfrom', lambda ns: Call(ns.P.take, 3, [ns.P.enumFrom, 1]))
-  , _twin('choice', lambda ns: Call(choice_marker(1, 2)))
-  , _twin('choice_float', lambda ns: Call(choice_marker(1, 2.5)), floats=True)
-  , _twin('choice_not', lambda ns: Call(ns.not_, choice_marker(True, False)))
-  , _twin('choice_plus', lambda ns: Call(ns.plus, choice_marker(1, 2), 10))
-  , _twin('fail', lambda ns: Call(ns.P.id, curry.fail))
+  , _twin('fmap', lambda ns: Call(ns.P.fmap, ns.plus(1), ns.P.Just(1)))
+  , _twin('enumfrom', lambda ns: Call(ns.P.take, 3, ns.P.enumFrom(1)))
+  , _twin('choice', lambda ns: Call(curry.choice(1, 2)))
+  , _twin('choice_float', lambda ns: Call(curry.choice(1, 2.5)), floats=True)
+  , _twin('choice_not', lambda ns: Call(ns.not_, curry.choice(True, False)))
+  , _twin('choice_plus', lambda ns: Call(ns.plus, curry.choice(1, 2), 10))
+  , _twin('fail', lambda ns: Call(ns.P.id, ns.P.failed))
   ])
 
 # The library modules: Data.List, Data.Maybe and the newtype Identity, and
@@ -290,37 +313,37 @@ import Data.Maybe
   , _twin('maximum', lambda ns: Call(ns.DL.maximum, [1, 3, 2]))
   , _twin('nub', lambda ns: Call(ns.DL.nub, [1, 1, 2]))
   , _twin('frommaybe', lambda ns: Call(ns.DM.fromMaybe, 0, ns.P.Nothing))
-  , _twin('fromjust', lambda ns: Call(ns.DM.fromJust, [ns.P.Just, 1]))
+  , _twin('fromjust', lambda ns: Call(ns.DM.fromJust, ns.P.Just(1)))
   , _twin('lookup', lambda ns: Call(ns.P.lookup, 1, [(1, 'a')]))
   , _twin('elem', lambda ns: Call(ns.P.elem, 2, [1, 2]))
   , _twin('zip', lambda ns: Call(ns.P.zip, [1, 2], 'ab'))
   , _twin('unwords', lambda ns: Call(ns.P.unwords, ['a', 'bc']))
   , _twin('concat', lambda ns: Call(ns.P.concat, ['ab', 'c']))
-  , _twin('identity_run', lambda ns: Call(ns.ID.runIdentity, [ns.ID.Identity, 5]))
-  , _twin('identity_show', lambda ns: Call(ns.P.show, [ns.ID.Identity, 5]))
-  , _twin('identity_eq', lambda ns: Call(ns.sym('=='), [ns.ID.Identity, 5], [ns.ID.Identity, 5]))
+  , _twin('identity_run', lambda ns: Call(ns.ID.runIdentity, ns.ID.Identity(5)))
+  , _twin('identity_show', lambda ns: Call(ns.P.show, ns.ID.Identity(5)))
+  , _twin('identity_eq', lambda ns: Call(ns.sym('=='), ns.ID.Identity(5), ns.ID.Identity(5)))
   , _twin('identity_fmap', lambda ns: Call(
-        ns.ID.runIdentity, [ns.P.fmap, [ns.plus, 1], [ns.ID.Identity, 5]]
+        ns.ID.runIdentity, ns.P.fmap(ns.plus(1), ns.ID.Identity(5))
       ))
   , _twin('identity_apply', lambda ns: Call(
-        ns.ID.runIdentity, [ns.P.apply, ns.ID.Identity, 5]
+        ns.ID.runIdentity, ns.P.apply(ns.ID.Identity, 5)
       ))
   # Values of an earlier evaluation: the text is written by hand.
-  , _twin('sum_value', lambda ns: Call(ns.DL.sum, ns.value(curry.expr([1.5, 2.5])))
+  , _twin('sum_value', lambda ns: Call(ns.DL.sum, ns.value(curry.term([1.5, 2.5])))
         , text='sum [1.5, 2.5]', floats=True)
   , _twin('fromjust_value', lambda ns: Call(
-        ns.plus, [ns.DM.fromJust, ns.value(ns.P.Just, 1)], 2
+        ns.plus, ns.DM.fromJust(ns.value(ns.P.Just, 1)), 2
       ), text='fromJust (Just 1) + 2')
-  , _twin('length_value', lambda ns: Call(ns.P.length, ns.value(curry.expr('ab')))
+  , _twin('length_value', lambda ns: Call(ns.P.length, ns.value(curry.term('ab')))
         , text='length "ab"')
   , _twin('sum_reverse_value', lambda ns: Call(
         ns.DL.sum, ns.value(ns.P.reverse, [1, 2, 3])
       ), text='sum (reverse [1, 2, 3])')
-  , _twin('fst_value', lambda ns: Call(ns.P.fst, ns.value(curry.expr((1, 'a'))))
+  , _twin('fst_value', lambda ns: Call(ns.P.fst, ns.value(curry.term((1, curry.Char('a')))))
         , text="fst (1, 'a')")
   , _twin('show_value', lambda ns: Call(ns.P.show, ns.value(ns.P.Just, [1.5]))
         , text='show (Just [1.5])', floats=True)
-  , _twin('node_twice', lambda ns: (lambda n: Call(ns.plus, n, n))(curry.expr(21))
+  , _twin('node_twice', lambda ns: (lambda n: Call(ns.plus, n, n))(curry.term(21))
         , text='21 + 21')
   # An iterator: no text of its own either.
   , _twin('iterator', lambda ns: Call(ns.P.take, 3, itertools.count())
@@ -339,26 +362,26 @@ LOGIC = Corpus('twins_logic', '''\
 ''', [
     _twin('free_id', lambda ns: Call(ns.P.id, ns.x))
   , _twin('free_pair', lambda ns: Call((ns.x, ns.y)))
-  , _twin('free_unify', lambda ns: Call(([ns.eq, ns.x, ns.y], ns.x)))
-  , _twin('free_bind', lambda ns: Call(ns.sym('&>'), [ns.eq, ns.x, 1], ns.x))
+  , _twin('free_unify', lambda ns: Call((ns.eq(ns.x, ns.y), ns.x)))
+  , _twin('free_bind', lambda ns: Call(ns.sym('&>'), ns.eq(ns.x, 1), ns.x))
   , _twin('free_append', lambda ns: Call(
-        ns.sym('&>'), [ns.eq, [ns.sym('++'), ns.x, [3]], [1, 2, 3]], ns.x
+        ns.sym('&>'), ns.eq(ns.sym('++')(ns.x, [3]), [1, 2, 3]), ns.x
       ))
-  , _twin('free_tuple_eq', lambda ns: Call(([ns.eq, (ns.x, 2), (1, 2)], ns.x)))
-  , _twin('free_head', lambda ns: Call(ns.P.head, [ns.P.Cons, ns.x, ns.y]))
+  , _twin('free_tuple_eq', lambda ns: Call((ns.eq((ns.x, 2), (1, 2)), ns.x)))
+  , _twin('free_head', lambda ns: Call(ns.P.head, ns.P.Cons(ns.x, ns.y)))
   , _twin('free_list', lambda ns: Call([ns.x, 1]))
-  , _twin('free_typed', lambda ns: Call(ns.P.id, curry.free(exprtype='[Int]')))
-  , _twin('anchor_cycle', lambda ns: Call(ns.P.take, 2, anchor(cons(1, ref()))))
-  , _twin('anchor_keyword', lambda ns: Call(ns.P.take, 3, ref('xs'), xs=cons(7, ref('xs'))))
+  , _twin('free_typed', lambda ns: Call(ns.P.id, curry.free('xs', type='[Int]')))
+  , _twin('anchor_cycle', lambda ns: Call(ns.P.take, 2, curry.let(ref('xs'), xs=ns.P.Cons(1, ref('xs')))))
+  , _twin('anchor_keyword', lambda ns: Call(ns.P.take, 3, ref('xs'), xs=ns.P.Cons(7, ref('xs'))))
   , _twin('anchor_nested', lambda ns: Call(
-        ns.P.take, 3, anchor(cons(1, anchor(cons(2, ref('o')), name='i')), name='o')
+        ns.P.take, 3, curry.let(ref('o'), o=ns.P.Cons(1, ref('i')), i=ns.P.Cons(2, ref('o')))
       ))
-  , _twin('anchor_free', lambda ns: Call(ns.P.take, 2, anchor(cons(ns.x, ref()))))
+  , _twin('anchor_free', lambda ns: Call(ns.P.take, 2, curry.let(ref('xs'), xs=ns.P.Cons(ns.x, ref('xs')))))
   , _twin('anchor_shared', lambda ns: Call(
-        ns.plus, ref('v'), ref('v'), v=[ns.plus, 1, 2]
+        ns.plus, ref('v'), ref('v'), v=ns.plus(1, 2)
       ))
-  , _twin('choice_nested', lambda ns: Call(choice_marker(1, choice_marker(2, 3))))
-  , _twin('choice_list', lambda ns: Call([choice_marker(1, 2), 3]))
+  , _twin('choice_nested', lambda ns: Call(curry.choice(1, curry.choice(2, 3))))
+  , _twin('choice_list', lambda ns: Call([curry.choice(1, 2), 3]))
   ])
 
 # A module with declarations of its own: a newtype, a data type with a Num
@@ -408,16 +431,16 @@ g15 = 1 + 2
 addOne x = x + 1
 ''', [
     _twin('box', lambda ns: Call(ns.M.Box, 5))
-  , _twin('box_eq', lambda ns: Call(ns.sym('=='), [ns.M.Box, 5], [ns.M.Box, 5]))
-  , _twin('box_show', lambda ns: Call(ns.P.show, [ns.M.Box, 5]))
-  , _twin('box_pair', lambda ns: Call(([ns.M.Box, 1], 'a')))
-  , _twin('box_list', lambda ns: Call([[ns.M.Box, 1], [ns.M.Box, 2]]))
+  , _twin('box_eq', lambda ns: Call(ns.sym('=='), ns.M.Box(5), ns.M.Box(5)))
+  , _twin('box_show', lambda ns: Call(ns.P.show, ns.M.Box(5)))
+  , _twin('box_pair', lambda ns: Call((ns.M.Box(1), curry.Char('a'))))
+  , _twin('box_list', lambda ns: Call([ns.M.Box(1), ns.M.Box(2)]))
   , _twin('box_bare', lambda ns: Call(ns.P.apply, ns.M.Box, 5))
-  , _twin('nat', lambda ns: Call(ns.M.twice, 2, exprtype='Nat'))
-  , _twin('nat_literal', lambda ns: Call(3, exprtype='Nat'), row=True)
+  , _twin('nat', lambda ns: Call(ns.M.twice, 2, type='Nat'))
+  , _twin('nat_literal', lambda ns: Call(3, type='Nat'), row=True)
   , _twin('toint', lambda ns: Call(ns.M.natToInt, 3), row=True)
-  , _twin('toint_twice', lambda ns: Call(ns.M.natToInt, [ns.M.twice, 2]))
-  , _twin('nat_list', lambda ns: Call([[ns.M.S, ns.M.Z], ns.M.Z]))
+  , _twin('toint_twice', lambda ns: Call(ns.M.natToInt, ns.M.twice(2)))
+  , _twin('nat_list', lambda ns: Call([ns.M.S(ns.M.Z), ns.M.Z]))
   , _twin('pretty', lambda ns: Call(ns.M.pretty, [True, False]))
   , _twin('idf', lambda ns: Call(ns.M.idf, 1))
   , _twin('g14', lambda ns: Call(ns.M.g14))
@@ -450,7 +473,7 @@ import Data.Maybe
   , _twin('read', lambda ns: Call(ns.P.read, '5'))
   , _twin('enumfrom', lambda ns: Call(ns.P.enumFrom, 1))
   , _twin('return', lambda ns: Call(ns.sym('return'), 5))
-  , _twin('pure_pair', lambda ns: Call(ns.P.pure, (1, 'a')))
+  , _twin('pure_pair', lambda ns: Call(ns.P.pure, (1, curry.Char('a'))))
   , _twin('mapm', lambda ns: Call(ns.P.mapM_, ns.P.print, [1, 2]))
   , _twin('free_eq', lambda ns: Call(ns.eq, ns.x, ns.y))
   , _twin('free_const', lambda ns: Call(ns.P.const, 1, ns.x))
@@ -471,7 +494,7 @@ def namespace(corpus):
 # Normalization
 # =============
 _IDENT_CHARS = "A-Za-z0-9_'"
-_VARIABLE = re.compile(r"(?<![%s])_[a-z]+[0-9]*(?![%s])" % (_IDENT_CHARS, _IDENT_CHARS))
+_VARIABLE = re.compile(r"(?<![%s])(?:_[a-z]+[0-9]*|x|y|xs)(?![%s])" % (_IDENT_CHARS, _IDENT_CHARS))
 
 def rename_variables(text):
   '''
@@ -501,7 +524,7 @@ def assertEqualModuloVariables(self, sprite, oracle_answer):
 
 def show_values(values):
   '''The values of an evaluation as Sprite prints them, one per line.'''
-  return '\n'.join(curry.show_value(value) for value in values) + '\n'
+  return '\n'.join(curry.show(value) for value in values) + '\n'
 
 def readfile(filename):
   with open(filename, encoding='utf-8') as stream:
@@ -621,14 +644,14 @@ class TestTypes(CorpusTestCase):
   '''
   def check_corpus(self, corpus):
     module = curry.import_(corpus.modulename)
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     ns = Namespace(module)
     checked = 0
     for twin in corpus.twins:
       if twin.text is not None:
         continue
       with self.subTest(goal=twin.goal):
-        call = twin.make(ns)
+        call = twin.make(Namespace(module))
         serialized = call.serialized(module=corpus.modulename)
         self.assertEqual(
             getattr(module, twin.goal).scheme.fullname
@@ -652,7 +675,7 @@ class TestTypes(CorpusTestCase):
   def test_canonical_type(self):
     '''The canonical form renames and sorts the context.'''
     P = curry.import_('Prelude')
-    plus = curry.symbol('Prelude.+')
+    plus = curry.import_('Prelude')['+']
     self.assertEqual(canonical_type(plus.scheme), 'Num a => a -> a -> a')
     a, b = fc.TVar(7), fc.TVar(3)
     scheme = sigtable.Scheme(
@@ -688,13 +711,13 @@ class TestRoundTrip(CorpusTestCase):
       if not twin.row:
         continue
       with self.subTest(goal=twin.goal):
-        call = twin.make(ns)
+        call = twin.make(Namespace(module))
         self.assertEqual(call.serialized(module=corpus.modulename).text, twin.curry_text(ns))
         # The text compiles in a module of its own, so the names of the
         # twin module are qualified there.
         text = call.serialized().text
-        goal = curry.compile(text, mode='expr', imports=[module])
-        expected = show_values(curry.eval(goal, converter=None))
+        goal = curry.parse(text, imports=[module])
+        expected = show_values(curry.eval(goal))
         observed = show_values(call.values())
         self.assertEqual(
             normalize_values(observed), normalize_values(expected)

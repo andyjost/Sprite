@@ -6,10 +6,10 @@ from curry.backends.py.graph import Node
 from curry import inspect
 import curry, unittest
 
-u = curry.unboxed
+u = cytest.raw.unboxed
 hint = r'  \(An unboxed value was expected but a boxed value of the ' \
         r'correct type was supplied\.  Perhaps you need to wrap an '   \
-        r'argument with curry\.unboxed\?\)'
+        r'argument with \w+\.unboxed\?\)'
 
 @unittest.skip('typechecks were removed Apr 2022')
 class TestPyTypeChecks(cytest.TestCase):

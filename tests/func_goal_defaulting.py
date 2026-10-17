@@ -13,7 +13,7 @@ directory:
     the :eval of the REPL) defaults the constraints as Sprite does.
     rejected.curry holds two goals the table rejects on both sides.
 
-  * TestTextGoals compiles a list of texts with curry.compile(mode='expr')
+  * TestTextGoals compiles a list of texts with curry.parse
     without exprtype and compares the values with the goldens of the oracle,
     which evaluates the same text in the REPL.  A trailing "where x free" is
     lifted to parameters on both sides.  PAKCS prints the binding of every
@@ -217,7 +217,7 @@ def golden(module, goal, filename, text=None, **kwds):
 
 def show_values(results):
   '''The values of an evaluation as Sprite prints them, one per line.'''
-  return '\n'.join(curry.show_value(value) for value in results) + '\n'
+  return '\n'.join(curry.show(value) for value in results) + '\n'
 
 
 class TestModuleGoals(cytest.FunctionalTestCase):
@@ -246,7 +246,7 @@ class TestModuleGoals(cytest.FunctionalTestCase):
 
 class TestTextGoals(cytest.TestCase):
   '''
-  Text goals through curry.compile(mode='expr') without exprtype; the oracle
+  Text goals through curry.parse without exprtype; the oracle
   evaluates the same text in the REPL.  One test per text; see TEXTS and
   ERRORS.
   '''
@@ -259,10 +259,10 @@ class TestTextGoals(cytest.TestCase):
     module = curry.import_(MODULE)
     expected = golden(module, text, 'text.%s.au-gen' % name, text=text)
     _, names = goals.split_where_free(text)
-    goal = curry.compile(text, mode='expr', imports=[module])
-    lifted = goals.lifted_goal(curry.getInterpreter(), goal)
+    goal = curry.parse(text, imports=[module])
+    lifted = goals.lifted_goal(cytest.raw.interp(), goal)
     reported = () if lifted is None else lifted.freevars
-    observed = show_values(curry.eval(goal, converter=None))
+    observed = show_values(curry.eval(goal))
     expected = drop_bindings(expected, set(names) - set(reported))
     self.assertEqual(
         normalize_values(observed, names), normalize_values(expected, names)
@@ -281,8 +281,8 @@ class TestTextGoals(cytest.TestCase):
       , 'the oracle accepted %r:\n%s' % (text, expected)
       )
     self.assertIn(phrase, expected)
-    with self.assertRaises(curry.CompileError) as cm:
-      curry.compile(text, mode='expr', imports=[module])
+    with self.assertRaises((curry.CompileError, curry.DefaultingError)) as cm:
+      curry.eval(curry.parse(text, imports=[module]))
     message = str(cm.exception)
     self.assertIn(phrase, message)
     # The table rejects the same type on both sides.
@@ -345,7 +345,7 @@ class TestTypes(cytest.TestCase):
 
   def check_text(self, name, text):
     module = curry.import_(MODULE)
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     self.check_type(
         module, text, 'text.%s.type.au-gen' % name
       , lambda: str(compilemod.expression_scheme(interp, text, imports=[module]))

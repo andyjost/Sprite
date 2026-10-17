@@ -419,15 +419,15 @@ class TestValues(cytest.TestCase):
     name, args = goal[0], goal[1:]
     def convert(arg):
       if isinstance(arg, tuple):
-        return curry.expr(getattr(M, arg[0]), *[convert(a) for a in arg[1:]])
+        return cytest.raw.expr(getattr(M, arg[0]), *[convert(a) for a in arg[1:]], typed=True)
       return arg
-    return curry.expr(getattr(M, name), *[convert(a) for a in args])
+    return cytest.raw.expr(getattr(M, name), *[convert(a) for a in args], typed=True)
 
   def values(self, M):
     results = {}
     for i, goal in enumerate(self.GOALS):
       expr = self.expression(M, goal)
-      results[i] = sorted(str(v) for v in curry.eval(expr, converter=None))
+      results[i] = sorted(str(v) for v in cytest.raw.values(expr))
     return results
 
   def value(self, results, name, *args):
@@ -449,7 +449,7 @@ class TestValues(cytest.TestCase):
       interpreted = cyrt.icurry_is_interpreted(M.fact.info)
       self.assertEqual(interpreted, mode == 'all', mode)
       self.assertEqual(
-          cyrt.icurry_is_interpreted(curry.symbol('Prelude.map').info)
+          cyrt.icurry_is_interpreted(curry.import_('Prelude')['map'].info)
         , mode == 'all', mode
         )
       if mode == 'all':
@@ -459,10 +459,10 @@ class TestValues(cytest.TestCase):
   def test_failure(self):
     M = switch('all')
     # headOf [] fails: no value.
-    self.assertEqual(list(curry.eval(M.headOf, [], converter=None)), [])
+    self.assertEqual(list(cytest.raw.values(cytest.raw.expr(M.headOf, [], typed=True))), [])
     self.assertRaisesRegex(
         EvaluationError, 'boom'
-      , lambda: list(curry.eval(curry.expr(M.boom, 1), converter=None))
+      , lambda: list(cytest.raw.values(cytest.raw.expr(M.boom, 1, typed=True)))
       )
 
 
@@ -493,10 +493,10 @@ main = double (CxxInterp.fact 3)
     self.assertTrue(cyrt.icurry_is_interpreted(N.double.info))
     self.assertTrue(cyrt.icurry_is_interpreted(N.main.info))
     self.assertEqual(cyrt.icurry_count(), before + 2)
-    self.assertEqual(list(curry.eval(N.main, converter='topython')), [12])
+    self.assertEqual(list(curry.eval(N.main)), [12])
     # An expression compiles to an interpreted function.
-    e = curry.compile('CxxInterp.fact 5 + 1', mode='expr', imports=[M])
-    self.assertEqual(next(curry.eval(e, converter='topython')), 121)
+    e = curry.parse('CxxInterp.fact 5 + 1', imports=[M])
+    self.assertEqual(next(curry.eval(e)), 121)
     # The bytecode of an interpreted function.
     bc = cyrt.icurry_bytecode(N.double.info)
     self.assertEqual(
@@ -509,7 +509,7 @@ main = double (CxxInterp.fact 3)
       , '   7 RET_NODE k0 2'
       ])
     self.assertIsNone(cyrt.icurry_bytecode(M.fact.info))
-    self.assertIsNone(cyrt.icurry_bytecode(curry.symbol('Prelude.:').info))
+    self.assertIsNone(cyrt.icurry_bytecode(curry.import_('Prelude')[':'].info))
 
   @cytest.hardreset
   def test_all(self):
@@ -522,10 +522,10 @@ main = double (CxxInterp.fact 3)
     self.assertTrue(cyrt.icurry_is_interpreted(prelude.length.info))
     # A built-in keeps the step of the runtime.
     self.assertFalse(
-        cyrt.icurry_is_interpreted(curry.symbol('Prelude.plusInt').info)
+        cyrt.icurry_is_interpreted(curry.import_('Prelude')['plusInt'].info)
       )
     self.assertFalse(
-        cyrt.icurry_is_interpreted(curry.symbol('Prelude.apply').info)
+        cyrt.icurry_is_interpreted(curry.import_('Prelude')['apply'].info)
       )
     # Set functions.
     setf = curry.import_('Control.SetFunctions')
@@ -533,9 +533,7 @@ main = double (CxxInterp.fact 3)
     self.assertTrue(cyrt.icurry_is_interpreted(setf.sortValues.info))
     self.assertGreater(cyrt.icurry_count(), 1000)
     self.assertEqual(
-        list(curry.eval(
-            curry.expr(prelude.length, [1, 2, 3]), converter='topython'
-          ))
+        list(curry.eval(cytest.raw.expr(prelude.length, [1, 2, 3], typed=True)))
       , [3]
       )
 
@@ -544,7 +542,7 @@ main = double (CxxInterp.fact 3)
     M = switch('off')
     code = [bytecode.OP['EXEMPT']]
     # A static table: a compiled function, a built-in.
-    for info in M.fact.info, curry.symbol('Prelude.plusInt').info:
+    for info in M.fact.info, curry.import_('Prelude')['plusInt'].info:
       self.assertRaisesRegex(
           ValueError, 'static', cyrt.icurry_attach, info, code, [], 0, 0, 0
         )
@@ -596,51 +594,51 @@ class TestSteps(cytest.TestCase):
 
   def step(self, expr, until, limit=64):
     for _ in range(limit):
-      evaluator.single_step(curry.getInterpreter(), expr)
+      evaluator.single_step(cytest.raw.interp(), expr)
       if until(expr):
         return expr
     raise AssertionError('the root did not change in %d steps' % limit)
 
   def test_tail_call_in_place(self):
-    e = curry.raw_expr(self.M.walk, [1, 2, 3])
+    e = cytest.raw.expr(self.M.walk, [1, 2, 3])
     start = str(e)
     self.step(e, lambda e: str(e) != start)
     self.assertEqual(e.info.tag, common.T_FUNC)
     self.assertEqual(e.info.name, 'walk')
-    self.assertEqual(str(e), str(curry.raw_expr(self.M.walk, [2, 3])))
+    self.assertEqual(str(e), str(cytest.raw.expr(self.M.walk, [2, 3])))
 
   def test_constructor_in_place(self):
-    e = curry.raw_expr(self.M.rot3, 1, 2, 3)
+    e = cytest.raw.expr(self.M.rot3, 1, 2, 3)
     self.step(e, lambda e: e.info.name != 'rot3')
     self.assertEqual(e.info.name, 'Pair3')
     self.assertEqual(str(e), 'Pair3 3 1 2')
 
   def test_reference_results(self):
-    e = curry.raw_expr(self.M.second, 1, 2)
+    e = cytest.raw.expr(self.M.second, 1, 2)
     self.step(e, lambda e: e.info.name != 'second')
     self.assertEqual(e.info.name, 'Int')
     self.assertEqual(str(e), '2')
-    e = curry.raw_expr(self.M.keepShape, 1, curry.raw_expr(self.M.Rect, 1, 2))
+    e = cytest.raw.expr(self.M.keepShape, 1, cytest.raw.expr(self.M.Rect, 1, 2))
     self.step(e, lambda e: e.info.name != 'keepShape')
     self.assertEqual(e.info.tag, common.T_FWD)
-    self.assertEqual(str(next(curry.eval(e, converter=None))), 'Rect 1 2')
+    self.assertEqual(str(next(cytest.raw.values(e))), 'Rect 1 2')
 
   def test_pinned_result_is_forwarded(self):
-    e = curry.raw_expr(self.M.vowel, 'a')
+    e = cytest.raw.expr(self.M.vowel, 'a')
     self.step(e, lambda e: e.info.name != 'vowel')
     self.assertEqual(e.info.tag, common.T_FWD)
-    self.assertEqual(str(next(curry.eval(e, converter=None))), 'True')
+    self.assertEqual(str(next(cytest.raw.values(e))), 'True')
 
   def test_string_result_in_place(self):
-    e = curry.raw_expr(self.M.greeting)
+    e = cytest.raw.expr(self.M.greeting)
     self.step(e, lambda e: e.info.name != 'greeting')
     self.assertEqual(e.info.name, '_biString')
-    self.assertEqual(str(next(curry.eval(e, converter=None))), '"hello, world"')
+    self.assertEqual(str(next(cytest.raw.values(e))), '"hello, world"')
 
   def test_tail_calls_allocate_nothing(self):
-    e = curry.raw_expr(self.M.walk, list(range(100)))
+    e = cytest.raw.expr(self.M.walk, list(range(100)))
     before = cyrt.gc_allocation_count()
-    self.assertEqual(next(curry.eval(e, converter='topython')), 0)
+    self.assertEqual(next(curry.eval(e)), 0)
     self.assertLess(cyrt.gc_allocation_count() - before, 20)
 
 
@@ -773,9 +771,9 @@ boom = error "boom"
     self.assertFalse(os.path.exists(sofile))
     # An expression built before the compile holds the tables the object
     # binds to (the shim of tiered.py).
-    e = curry.expr(M.double, 5)
+    e = cytest.raw.expr(M.double, 5, typed=True)
     before = curry.stats()['swapped']
-    self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+    self.assertEqual(list(curry.eval(M.main)), [42])
     self.assertCompiled(M, 'double', 'main', 'boom')
     self.assertEqual(curry.stats()['swapped'] - before, 3)
     # The object beside the source, with its stamp and the generated file.
@@ -784,13 +782,13 @@ boom = error "boom"
     self.assertTrue(os.path.isfile(self.product(name, '.cpp')))
     self.assertEqual(os.path.realpath(h.sofilename), os.path.realpath(sofile))
     self.assertIn('/****** %s.main ******/' % name, inspect.getimpl(M.main))
-    self.assertEqual(list(curry.eval(e, converter='topython')), [10])
+    self.assertEqual(list(curry.eval(e)), [10])
     # No second compile.
     mtime = os.path.getmtime(sofile)
-    self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+    self.assertEqual(list(curry.eval(M.main)), [42])
     self.assertEqual(os.path.getmtime(sofile), mtime)
     self.assertRaisesRegex(
-        EvaluationError, 'boom', lambda: list(curry.eval(M.boom, converter=None))
+        EvaluationError, 'boom', lambda: list(cytest.raw.values(M.boom))
       )
 
   @cytest.hardreset
@@ -804,22 +802,22 @@ boom = error "boom"
               r"turned off" % name
     with mock.patch.object(materialize, 'COMPILE_ON_FIRST_USE', False):
       self.assertRaisesRegex(
-          EvaluationError, pattern, lambda: list(curry.eval(M.main, converter=None))
+          EvaluationError, pattern, lambda: list(cytest.raw.values(M.main))
         )
       self.assertTrapped(M, 'double', 'main', 'boom')
       self.assertFalse(os.path.exists(self.product(name, '.so')))
       # The single step of the evaluator raises it too.
       self.assertRaisesRegex(
           EvaluationError, pattern, evaluator.single_step
-        , curry.getInterpreter(), curry.raw_expr(M.main)
+        , cytest.raw.interp(), cytest.raw.expr(M.main)
         )
       # A function nested in another module's evaluation names itself.
       self.assertRaisesRegex(
           EvaluationError, r"cannot evaluate function '%s\.double'" % name
-        , lambda: list(curry.eval(curry.expr(M.double, 1), converter=None))
+        , lambda: list(cytest.raw.values(cytest.raw.expr(M.double, 1, typed=True)))
         )
     # With the compile on again the module compiles and runs.
-    self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+    self.assertEqual(list(curry.eval(M.main)), [42])
     self.assertCompiled(M, 'double', 'main', 'boom')
 
   @cytest.hardreset
@@ -835,7 +833,7 @@ boom = error "boom"
             EvaluationError
           , r"cannot evaluate function '%s\.main': .*: the compile failed: "
             r"g\+\+ exited with status 1" % name
-          , lambda: list(curry.eval(M.main, converter=None))
+          , lambda: list(cytest.raw.values(M.main))
           )
     self.assertTrue(
         any('cannot compile module %r on its first use' % name in line
@@ -843,7 +841,7 @@ boom = error "boom"
       , logs.output
       )
     self.assertTrapped(M, 'double', 'main', 'boom')
-    self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+    self.assertEqual(list(curry.eval(M.main)), [42])
     self.assertCompiled(M, 'double', 'main', 'boom')
 
   @cytest.hardreset
@@ -864,12 +862,12 @@ twice x = double (double x)
     B = self.import_(b)
     self.assertTrapped(A, 'double', 'main')
     self.assertTrapped(B, 'twice')
-    self.assertEqual(list(curry.eval(B.twice, 3, converter='topython')), [12])
+    self.assertEqual(list(curry.eval((B.twice)(3))), [12])
     self.assertCompiled(A, 'double', 'main')
     self.assertCompiled(B, 'twice')
     for name in a, b:
       self.assertTrue(os.path.isfile(self.product(name, '.so')), name)
-    self.assertEqual(list(curry.eval(A.main, converter='topython')), [42])
+    self.assertEqual(list(curry.eval(A.main)), [42])
 
   @cytest.hardreset
   def test_without_a_source_file(self):
@@ -882,7 +880,7 @@ twice x = double (double x)
     imodule.filename = None
     M = curry.import_(imodule, currypath=self.currypath)
     self.assertTrapped(M, 'main')
-    self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+    self.assertEqual(list(curry.eval(M.main)), [42])
     self.assertCompiled(M, 'double', 'main', 'boom')
     self.assertFalse(os.path.exists(self.product(name, '.so')))
     sofile = getHandle(M).sofilename
@@ -903,14 +901,14 @@ twice x = double (double x)
     gc.collect()
     curry.path.insert(0, self.tmpdir)
     self.currypath = list(curry.path)
-    self.assertTrue(tiered._foreign_flags(curry.getInterpreter()))
+    self.assertTrue(tiered._foreign_flags(cytest.raw.interp()))
     name = self.write()
     M = self.import_(name)
     self.assertTrue(
-        materialize.is_translation(curry.getInterpreter(), getHandle(M).icurry)
+        materialize.is_translation(cytest.raw.interp(), getHandle(M).icurry)
       )
     self.assertTrapped(M, 'main')
-    self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+    self.assertEqual(list(curry.eval(M.main)), [42])
     self.assertCompiled(M, 'double', 'main', 'boom')
     self.assertFalse(os.path.exists(self.product(name, '.so')))
     self.assertFalse(os.path.exists(self.product(name, '.cpp')))
@@ -933,7 +931,7 @@ twice x = double (double x)
       self.assertFalse(cyrt.is_trapped(M.main.info))
       self.assertTrue(cyrt.icurry_is_interpreted(M.main.info))
       self.assertFalse(materialize.is_pending(M))
-      self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+      self.assertEqual(list(curry.eval(M.main)), [42])
       M = None
       tiered.cancel()
       tiered.wait(10)
@@ -941,7 +939,7 @@ twice x = double (double x)
   def object_of(self, name):
     '''Compiles the module ``name`` as the plan does.  Nothing is loaded.'''
     plan = plans.makeplan(
-        curry.getInterpreter(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
       )
     sofile = _makecurry.makecurry(plan, name, self.currypath)
     self.assertEqual(os.path.realpath(sofile), os.path.realpath(self.product(name, '.so')))
@@ -949,7 +947,7 @@ twice x = double (double x)
 
   def cache_entry(self, name):
     '''The entry of the product cache for the source of ``name``, or None.'''
-    cpp2so = cxx_toolchain.Cpp2So(curry.getInterpreter())
+    cpp2so = cxx_toolchain.Cpp2So(cytest.raw.interp())
     key = cpp2so.product_key(
         os.path.join(self.tmpdir, name + '.curry'), self.currypath
       )
@@ -1005,7 +1003,7 @@ other = 2
     M = curry.import_(imodule, currypath=self.currypath)
     self.assertTrapped(M, 'main', 'other')
     with self.count_compiles() as calls:
-      self.assertEqual(list(curry.eval(M.main, converter='topython')), [2])
+      self.assertEqual(list(curry.eval(M.main)), [2])
     self.assertEqual(len(calls), 1)
     self.assertCompiled(M, 'main', 'other')
     for suffix in '.cpp', '.so', '.so.abi':
@@ -1023,7 +1021,7 @@ other = 2
     body, or without a JSON beside its source, is not.
     '''
     name = self.write()
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     imodule = self.icurry(name)
     M = curry.import_(imodule, currypath=self.currypath)
     self.assertTrue(materialize.is_translation(interp, imodule))
@@ -1055,7 +1053,7 @@ other = 2
     M = self.import_(name)
     self.assertTrapped(M, 'double', 'main', 'boom')
     with self.count_compiles() as calls:
-      self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+      self.assertEqual(list(curry.eval(M.main)), [42])
     self.assertEqual(calls, [])
     self.assertCompiled(M, 'double', 'main', 'boom')
     self.assertEqual(os.path.getmtime(sofile), mtime)
@@ -1079,7 +1077,7 @@ other = 2
       os.unlink(self.product(name, suffix))
     M = self.import_(name)
     with self.count_compiles() as calls:
-      self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
+      self.assertEqual(list(curry.eval(M.main)), [42])
     self.assertEqual(calls, [])
     self.assertCompiled(M, 'double', 'main', 'boom')
     self.assertTrue(os.path.isfile(sofile))
@@ -1102,12 +1100,12 @@ other = 2
     with self.count_compiles() as calls:
       with mock.patch.object(cyrt, 'tiered_adopt', return_value=adopted):
         self.assertRaisesRegex(
-            EvaluationError, pattern, lambda: list(curry.eval(M.main, converter=None))
+            EvaluationError, pattern, lambda: list(cytest.raw.values(M.main))
           )
       self.assertEqual(len(calls), 1)
       self.assertTrue(cyrt.is_trapped(M.main.info))
       self.assertFalse(materialize.is_pending(M))
       self.assertRaisesRegex(
-          EvaluationError, pattern, lambda: list(curry.eval(M.main, converter=None))
+          EvaluationError, pattern, lambda: list(cytest.raw.values(M.main))
         )
       self.assertEqual(len(calls), 1)

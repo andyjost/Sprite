@@ -727,7 +727,6 @@ class TestSlot(cytest.TestCase):
 class TestCompile(cytest.TestCase):
   '''The cache under curry.compile and the toolchain, with the front end.'''
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_anonymous_module(self):
     '''
     The second compile of a text is a hit.  Its ICurry carries the new module
@@ -781,8 +780,8 @@ class TestCompile(cytest.TestCase):
         )
       self.assertEqual(len(rows(cachefile)), 1)
       # The module from the cache runs.
-      self.assertEqual(next(curry.eval(second.f, 3)), 7)
-      self.assertEqual(next(curry.eval(second.mapf, [1, 2])), [4, 6])
+      self.assertEqual(next(curry.eval((second.f)(3))), 7)
+      self.assertEqual(next(curry.eval((second.mapf)([1, 2]))), [4, 6])
       # A changed text misses.
       with frontend_calls() as calls:
         curry.compile(MODULE_TEXT + 'extra :: Int\nextra = 1\n')
@@ -814,10 +813,10 @@ class TestCompile(cytest.TestCase):
     with cache_file():
       with frontend_calls() as calls:
         module = curry.compile(MODULE_TEXT)
-        curry.compile('1 + 2', 'expr', exprtype='Int')
+        curry.parse('(1 + 2) :: Int')
         self.assertEqual(len(calls), 2)
       code = '\n'.join([
-          'import curry, json, re'
+          'import cytest, curry, json, re'
         , 'from curry import cache, config'
         , 'from curry.toolchain import _filenames, _system'
         , 'pexec = _system.pexec'
@@ -828,11 +827,11 @@ class TestCompile(cytest.TestCase):
         , '  return pexec(cmd, *args, **kwds)'
         , '_system.pexec = checking_pexec'
         , 'module = curry.compile(%r)' % MODULE_TEXT
-        , 'expr = curry.compile("1 + 2", "expr", exprtype="Int")'
-        , 'values = [curry.topython(next(curry.eval(module.f, 3)))'
-        , '         , curry.topython(next(curry.eval(expr)))]'
+        , 'expr = curry.parse("(1 + 2) :: Int")'
+        , 'values = [next(curry.eval(module.f(3)))'
+        , '         , next(curry.eval(expr))]'
         , 'stats = cache.Curry2ICurryCache.stats'
-        , 'exprmodule = curry.getInterpreter()._expression_modules[-1]'
+        , 'exprmodule = cytest.raw.interp()._expression_modules[-1]'
         , 'icy = _filenames.icurryfilename(exprmodule.__file__)'
         , 'fint = open(cache.interface_filename(icy, ".fint")).read()'
         , 'pattern = r\'Func \\("%s","compiled_expression"\\) 0 Public \\((.*?)\\) \\(Rule\''
@@ -897,12 +896,12 @@ class TestCompile(cytest.TestCase):
     '''
     def child(module_text):
       code = '\n'.join([
-          'import curry, json'
+          'import cytest, curry, json'
         , 'from curry import cache'
         , 'module = curry.compile(%r)' % module_text
-        , 'expr = curry.compile('
-          '"show (f 3)", "expr", imports=module, exprtype="String")'
-        , 'value = curry.topython(next(curry.eval(expr)))'
+        , 'expr = curry.parse('
+          '"show (f 3) :: String", imports=[module])'
+        , 'value = next(curry.eval(expr))'
         , 'stats = cache.Curry2ICurryCache.stats'
         , 'print(json.dumps([module.__name__, value, stats]))'
         ])

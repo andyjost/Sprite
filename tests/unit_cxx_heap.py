@@ -17,7 +17,7 @@ class ChildTests(cytest.TestCase):
   data/curry/CxxHeap.curry and data/curry/CxxGc.curry.  No test of its own.
   '''
   PREAMBLE = '''
-import curry, gc, os, sys
+import cytest, curry, gc, os, sys
 from curry.backends.cxx import cyrtbindings as cyrt
 curry.reload({'backend': 'cxx'})
 H = curry.import_('CxxHeap')
@@ -69,18 +69,17 @@ class TestHeap(ChildTests):
     and a collection after Python drops it takes them away again.  The heap
     holds whole chunks and spans.
     '''
-    self.run_child('''
+    self.run_child('''import cytest
+
 cyrt.gc_collect()
 before = cyrt.gc_node_count()
 a0 = cyrt.gc_allocation_count()
-e = curry.expr([(1, 'a'), (2, 'b'), (3, 'c')])
+e = cytest.raw.expr([(1, 'a'), (2, 'b'), (3, 'c')], typed=True)
 made = cyrt.gc_allocation_count() - a0
 assert made >= 6, made
-assert cyrt.gc_node_count() == before + made \
-    , (before, made, cyrt.gc_node_count())
+assert cyrt.gc_node_count() == before + made     , (before, made, cyrt.gc_node_count())
 cyrt.gc_collect()
-assert cyrt.gc_node_count() == before + made \
-    , (before, made, cyrt.gc_node_count())
+assert cyrt.gc_node_count() == before + made     , (before, made, cyrt.gc_node_count())
 assert str(e) == "[(1, 'a'), (2, 'b'), (3, 'c')]", str(e)
 heap = cyrt.gc_heap_bytes()
 assert heap >= CHUNK_BYTES and heap % BLOCK_BYTES == 0, heap
@@ -102,15 +101,16 @@ assert cyrt.gc_verify() is None
     enumFromTo).  The heap holds about one collection cycle of them and
     reuses its blocks: a second walk takes no new memory.
     '''
-    proc = self.run_child('''
-assert curry.topython(next(curry.eval(G.walk, 2000000))) == 2000000
+    proc = self.run_child('''import cytest
+
+assert cytest.raw.interp().topython(next(curry.eval((G.walk)(2000000)))) == 2000000
 heap = cyrt.gc_heap_bytes()
 collections = cyrt.gc_collections()
 assert collections > 10, collections
 # The threshold is 2^20 nodes of at most 32 bytes in this program, plus
 # the run in progress of each size class and the bitmaps.
 assert heap <= 48 * CHUNK_BYTES, heap
-assert curry.topython(next(curry.eval(G.walk, 2000000))) == 2000000
+assert cytest.raw.interp().topython(next(curry.eval((G.walk)(2000000)))) == 2000000
 assert cyrt.gc_heap_bytes() == heap, (heap, cyrt.gc_heap_bytes())
 cyrt.gc_collect()
 print('heap_mb', heap / 2.0 ** 20, 'blocks', cyrt.gc_block_count()
@@ -124,16 +124,17 @@ print('heap_mb', heap / 2.0 ** 20, 'blocks', cyrt.gc_block_count()
     Such nodes are built, kept through collections, summed, and given back:
     the block count returns to what it was.
     '''
-    self.run_child('''
+    self.run_child('''import cytest
+
 cyrt.gc_set_threshold(1 << 14)
 cyrt.gc_collect()
 blocks = cyrt.gc_block_count()
-sums = curry.topython(next(curry.eval(H.sums, 50)))
+sums = cytest.raw.interp().topython(next(curry.eval((H.sums)(50))))
 assert sums == [70 * i for i in range(1, 51)], sums
 n0 = cyrt.gc_collections()
-assert curry.topython(next(curry.eval(H.keepWhile, 50, %d))) == %d + 70 * 1275
+assert cytest.raw.interp().topython(next(curry.eval((H.keepWhile)(50, %d)))) == %d + 70 * 1275
 assert cyrt.gc_collections() - n0 > 10, cyrt.gc_collections() - n0
-value = next(curry.eval(H.keep, 30))
+value = next(curry.eval((H.keep)(30)))
 text = str(value)
 assert text.count('Big') == 30, text
 assert cyrt.gc_block_count() >= blocks + 30, (blocks, cyrt.gc_block_count())
@@ -154,19 +155,20 @@ assert cyrt.gc_block_count() < blocks + 30, (blocks, cyrt.gc_block_count())
     evaluation nested in a Python callback.
     '''
     walk = self.WALK
-    self.run_child('''
-value = next(curry.eval(G.table, 300))
+    self.run_child('''import cytest
+
+value = next(curry.eval((G.table)(300)))
 cyrt.gc_set_threshold(1 << 14)
-assert curry.topython(next(curry.eval(G.walk, %d))) == %d
+assert cytest.raw.interp().topython(next(curry.eval((G.walk)(%d)))) == %d
 assert cyrt.gc_verify() is None
-assert curry.topython(next(curry.eval(G.spaced, %d))) == %d
+assert cytest.raw.interp().topython(next(curry.eval((G.spaced)(%d)))) == %d
 assert cyrt.gc_verify() is None
 def items():
   for i in range(3):
-    yield curry.topython(next(curry.eval(G.walk, %d))) + i
-assert curry.topython(next(curry.eval(G.lastOf, iter(items())))) == %d
+    yield cytest.raw.interp().topython(next(curry.eval((G.walk)(%d)))) + i
+assert cytest.raw.interp().topython(next(curry.eval((G.lastOf)(iter(items()))))) == %d
 assert cyrt.gc_verify() is None
-assert curry.topython(value) == [(i, str(i)) for i in range(1, 301)]
+assert cytest.raw.interp().topython(value) == [(i, str(i)) for i in range(1, 301)]
 assert cyrt.gc_collections() > 20, cyrt.gc_collections()
 ''' % (walk, walk, walk // 50, 3 * (walk // 50) + 6, walk // 5, walk // 5 + 2))
 
@@ -176,11 +178,12 @@ assert cyrt.gc_collections() > 20, cyrt.gc_collections()
     the counts are as without it, and a request from Python finds nothing.
     '''
     with mock.patch.dict(os.environ, {'SPRITE_GC_STRESS': '1'}):
-      self.run_child('''
+      self.run_child('''import cytest
+
 assert cyrt.gc_stress()
-table = curry.topython(next(curry.eval(G.table, 50)))
+table = cytest.raw.interp().topython(next(curry.eval((G.table)(50))))
 assert table == [(i, str(i)) for i in range(1, 51)], table
-assert curry.topython(next(curry.eval(H.sums, 3))) == [70, 140, 210]
+assert cytest.raw.interp().topython(next(curry.eval((H.sums)(3)))) == [70, 140, 210]
 assert cyrt.gc_collections() > 100, cyrt.gc_collections()
 assert cyrt.gc_verify() is None
 ''')
@@ -195,7 +198,7 @@ def probe():
     raise ValueError('refused: %s' % err)
   yield 1
 try:
-  next(curry.eval(G.lastOf, iter(probe())))
+  next(curry.eval((G.lastOf)(iter(probe()))))
 except ValueError as err:
   assert 'refused' in str(err), err
 else:
@@ -314,9 +317,9 @@ class TestValues(cytest.TestCase):
   def test_values(self):
     H = curry.import_('CxxHeap')
     self.assertEqual(
-        curry.topython(next(curry.eval(H.sums, 5))), [70, 140, 210, 280, 350]
+        cytest.raw.interp().topython(next(curry.eval((H.sums)(5)))), [70, 140, 210, 280, 350]
       )
     self.assertEqual(
-        curry.topython(next(curry.eval(H.keepWhile, 4, 100))), 100 + 700
+        cytest.raw.interp().topython(next(curry.eval((H.keepWhile)(4, 100)))), 100 + 700
       )
-    self.assertEqual(str(next(curry.eval(H.keep, 1))).count('Big'), 1)
+    self.assertEqual(str(next(curry.eval((H.keep)(1)))).count('Big'), 1)

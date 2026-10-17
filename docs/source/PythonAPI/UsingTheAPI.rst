@@ -629,9 +629,9 @@ it:
     >>> curry.typeof(plus)
     'Num a => a -> a -> a'
     >>> curry.typeof([1, 2.5])
-    'Fractional a => [a]'
+    '[Float]'
     >>> curry.typeof((1, 2.5))
-    '(Num a, Fractional b) => (a, b)'
+    'Num a => (a, Float)'
 
 The context is printed in the order of the front end: by the first type
 variable of each constraint, then by the class.  ``curry.typeof`` answers

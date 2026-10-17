@@ -24,7 +24,7 @@ _PRELUDE = []
 
 def prelude_prog():
   if not _PRELUDE:
-    path = curry.getInterpreter().sigtable.interface_filename('Prelude')
+    path = cytest.raw.interp().sigtable.interface_filename('Prelude')
     _PRELUDE.append(fc.load(path))
   return _PRELUDE[0]
 
@@ -86,7 +86,7 @@ class TestSchemes(cytest.TestCase):
   def test_signatures(self):
     '''The printed schemes of the symbols named in the issue.'''
     for name, expected in self.SIGNATURES.items():
-      symbol = curry.symbol('Prelude.' + name)
+      symbol = curry.import_('Prelude')[name]
       self.assertEqual(symbol.signature, expected, name)
       self.assertEqual(str(symbol.scheme), expected, name)
       self.assertEqual(symbol.scheme.fullname, 'Prelude.' + name)
@@ -98,7 +98,7 @@ class TestSchemes(cytest.TestCase):
     '''
     funcs, _, ctors = interface_entries(prelude_prog())
     for name in self.SIGNATURES:
-      scheme = curry.symbol('Prelude.' + name).scheme
+      scheme = curry.import_('Prelude')[name].scheme
       if scheme.is_constructor:
         typedecl, cons = ctors[name]
         self.assertEqual(scheme.arity, cons.arity, name)
@@ -124,7 +124,7 @@ class TestSchemes(cytest.TestCase):
     selector of arity 1 with no source parameters; ``=:=`` takes its Data
     dictionary first; an instance takes its context dictionaries first.
     '''
-    plus = curry.symbol('Prelude.+').scheme
+    plus = curry.import_('Prelude')['+'].scheme
     self.assertEqual((plus.arity, plus.ndicts, plus.source_arity), (1, 1, 0))
     self.assertEqual(
         plus.context, (sigtable.Predicate('Prelude.Num', fc.TVar(0)),)
@@ -132,13 +132,13 @@ class TestSchemes(cytest.TestCase):
     self.assertEqual(str(plus.context[0]), 'Num a')
     self.assertEqual(plus.typevars, ((0, fc.KStar),))
     self.assertFalse(plus.is_constructor)
-    constreq = curry.symbol('Prelude.=:=').scheme
+    constreq = curry.import_('Prelude')['=:='].scheme
     self.assertEqual(
         (constreq.arity, constreq.ndicts, constreq.source_arity), (3, 1, 2)
       )
-    inst = curry.symbol('Prelude._inst#Prelude.Show#[]').scheme
+    inst = curry.import_('Prelude')['_inst#Prelude.Show#[]'].scheme
     self.assertEqual((inst.arity, inst.ndicts), (2, 1))
-    fmap = curry.symbol('Prelude.fmap').scheme
+    fmap = curry.import_('Prelude')['fmap'].scheme
     self.assertEqual(
         fmap.typevars
       , ((0, fc.KArrow(fc.KStar, fc.KStar)), (1, fc.KStar), (2, fc.KStar))
@@ -146,10 +146,10 @@ class TestSchemes(cytest.TestCase):
     self.assertEqual(
         fmap.context, (sigtable.Predicate('Prelude.Functor', fc.TVar(0)),)
       )
-    just = curry.symbol('Prelude.Just').scheme
+    just = curry.import_('Prelude')['Just'].scheme
     self.assertTrue(just.is_constructor)
     self.assertEqual((just.arity, just.ndicts), (1, 0))
-    fromintegral = curry.symbol('Prelude.fromIntegral').scheme
+    fromintegral = curry.import_('Prelude')['fromIntegral'].scheme
     self.assertEqual(str(fromintegral), '(Integral a, Num b) => a -> b')
     self.assertEqual((fromintegral.arity, fromintegral.ndicts), (2, 2))
 
@@ -161,7 +161,7 @@ class TestSchemes(cytest.TestCase):
     and no dictionary stays in the type.
     '''
     for name in ['round', 'truncate', 'ceiling', 'floor']:
-      scheme = curry.symbol('Prelude.' + name).scheme
+      scheme = curry.import_('Prelude')[name].scheme
       self.assertEqual(str(scheme), '(RealFrac a, Integral b) => a -> b', name)
       self.assertEqual(
           (scheme.arity, scheme.ndicts, scheme.source_arity), (1, 2, 0), name
@@ -171,7 +171,7 @@ class TestSchemes(cytest.TestCase):
         , ['Prelude.RealFrac', 'Prelude.Integral']
         )
       self.assertEqual(len(scheme.typevars), 2, name)
-    scheme = curry.symbol('Prelude.properFraction').scheme
+    scheme = curry.import_('Prelude')['properFraction'].scheme
     self.assertEqual(str(scheme), '(RealFrac a, Integral b) => a -> (b, a)')
     flat = scheme.flat_typeexpr
     self.assertIsInstance(flat, fc.ForallType)
@@ -179,7 +179,7 @@ class TestSchemes(cytest.TestCase):
     # No function of the Prelude keeps a dictionary domain in its type,
     # apart from the lifted local functions (f._#lambdaN, f.g.N), whose
     # dictionaries lie between their parameters.
-    iface = curry.getInterpreter().sigtable.interface('Prelude')
+    iface = cytest.raw.interp().sigtable.interface('Prelude')
     local = re.compile(r'\._#|\.\d+(\.|$)')
     kept = [
         name for name in iface.function_names()
@@ -189,14 +189,14 @@ class TestSchemes(cytest.TestCase):
 
   def test_library_modules(self):
     '''Data.List and Control.SetFunctions find their interface.'''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     for modname, symbol, expected in [
         ('Data.List', 'nub', 'Eq a => [a] -> [a]')
       , ('Data.List', '\\\\', 'Eq a => [a] -> [a] -> [a]')
       , ('Control.SetFunctions', 'set1', '(a -> b) -> a -> Values b')
       , ('Control.SetFunctions', 'Values', '[a] -> Values a')
       ]:
-      module = curry.module(modname)
+      module = curry.import_(modname)
       iface = interp.sigtable.interface(module)
       self.assertIsNotNone(iface, modname)
       self.assertEqual(iface.name, modname)
@@ -209,18 +209,18 @@ class TestSchemes(cytest.TestCase):
     self.assertIn('Control.SetFunctions', interp.sigtable.modules())
     # Hierarchical modules under two packages, with a newtype.
     curry.import_('Data.Functor.Identity')
-    identity = curry.symbol('Data.Functor.Identity.Identity')
+    identity = curry.import_('Data.Functor.Identity')['Identity']
     self.assertEqual(identity.signature, 'a -> Identity a')
     self.assertTrue(identity.scheme.is_constructor)
     self.assertEqual(identity.scheme.arity, 1)
-    self.assertEqual(curry.symbol('Data.Maybe.fromJust').signature, 'Maybe a -> a')
+    self.assertEqual(curry.import_('Data.Maybe')['fromJust'].signature, 'Maybe a -> a')
 
   def test_lookup_by_name(self):
     '''``lookup`` takes a fully-qualified name as well as a symbol.'''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     scheme = interp.sigtable.lookup('Prelude.+')
     self.assertEqual(str(scheme), 'Num a => a -> a -> a')
-    self.assertIs(scheme, curry.symbol('Prelude.+').scheme)
+    self.assertIs(scheme, curry.import_('Prelude')['+'].scheme)
     with self.assertRaises(curry.SymbolLookupError):
       interp.sigtable.lookup('Prelude.noSuchSymbol')
     with self.assertRaises(curry.ModuleLookupError):
@@ -238,15 +238,15 @@ class TestSchemes(cytest.TestCase):
     case or let function has none.  Asking for one is an error only with
     ``required``.
     '''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     for name in 'Int', 'Char', 'Float':
-      symbol = curry.symbol('Prelude.' + name)
+      symbol = curry.import_('Prelude')[name]
       self.assertEqual(symbol.signature, name)
       self.assertTrue(symbol.scheme.is_constructor)
       self.assertEqual(symbol.scheme.arity, 0)
       self.assertIsNone(symbol.scheme.flat_typeexpr)
     for name in 'IO', '->', '_biGenerator':
-      symbol = curry.symbol('Prelude.' + name)
+      symbol = curry.import_('Prelude')[name]
       self.assertIsNone(symbol.scheme, name)
       self.assertIsNone(symbol.signature, name)
       self.assertIsNone(interp.sigtable.lookup(symbol), name)
@@ -257,11 +257,11 @@ class TestSchemes(cytest.TestCase):
       ):
       interp.sigtable.lookup('Prelude._biGenerator', required=True)
     lifted = [
-        name for name in Handle(curry.module('Prelude')).symbols
+        name for name in Handle(curry.modules['Prelude']).symbols
              if '_CASE' in name or '_LET' in name
       ]
     self.assertTrue(lifted)
-    self.assertIsNone(curry.symbol('Prelude.' + lifted[0]).scheme)
+    self.assertIsNone(curry.import_('Prelude')[lifted[0]].scheme)
 
   def test_bare_node(self):
     '''
@@ -269,24 +269,24 @@ class TestSchemes(cytest.TestCase):
     The typed ``expr`` (item Y7) reads the interface of the Prelude for the
     scheme of ``not``.
     '''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     P = curry.import_('Prelude')
     self.assertEqual(interp.sigtable.modules(), [])
     symbol = interp.symbol('Prelude.not')
     self.assertEqual(interp.sigtable.modules(), [])
-    raw_goal = curry.raw_expr(symbol, True)
+    raw_goal = cytest.raw.expr(symbol, True)
     self.assertEqual(interp.sigtable.modules(), [])
-    goal = curry.expr(symbol, True)
+    goal = cytest.raw.expr(symbol, True, typed=True)
     self.assertEqual(interp.sigtable.modules(), ['Prelude'])
-    self.assertEqual(list(curry.eval(raw_goal, converter='topython')), [False])
-    self.assertEqual(list(curry.eval(goal, converter='topython')), [False])
+    self.assertEqual(list(curry.eval(raw_goal)), [False])
+    self.assertEqual(list(curry.eval(goal)), [False])
 
 
 class TestInstances(cytest.TestCase):
   '''The instance map from the ``_inst#Class#Type`` names.'''
 
   def test_prelude_instances(self):
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     table = interp.sigtable
     inst = table.instance('Prelude.Num', 'Prelude.Int')
     self.assertEqual(inst.fullname, 'Prelude._inst#Prelude.Num#Prelude.Int')
@@ -320,11 +320,11 @@ class TestInstances(cytest.TestCase):
 
   def test_loaded_modules(self):
     '''A module loaded later adds its instances on the next call.'''
-    table = curry.getInterpreter().sigtable
+    table = cytest.raw.interp().sigtable
     self.assertIsNone(
         table.instance('Prelude.Data', 'Control.SetFunctions.Values')
       )
-    curry.module('Control.SetFunctions')
+    curry.import_('Control.SetFunctions')
     inst = table.instance('Prelude.Data', 'Control.SetFunctions.Values')
     self.assertEqual(inst.modulename, 'Control.SetFunctions')
     self.assertEqual(
@@ -343,7 +343,7 @@ class TestInstances(cytest.TestCase):
 
   def test_frontend_check(self):
     '''The interface of the Prelude must hold _inst#Prelude.Num#Prelude.Int.'''
-    iface = curry.getInterpreter().sigtable.interface('Prelude')
+    iface = cytest.raw.interp().sigtable.interface('Prelude')
     sigtable.SignatureTable.check_frontend(iface)
     text = (
         b'Prog "Prelude" [] [] [Func ("Prelude","id") 1 Public (ForallType '
@@ -382,14 +382,14 @@ class TestInterface(cytest.TestCase):
 
   def test_index_agrees_with_full_parse(self):
     '''Data/Maybe.fint, Data/List.fint and the interface of the test module.'''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     for modname in 'Data.Maybe', 'Data.List', 'SigTable':
       curry.import_(modname)
       self.check_against_full_parse(interp.sigtable.interface_filename(modname))
 
   def test_prelude_names(self):
     '''The index of the Prelude finds every entry of the full parse.'''
-    iface = curry.getInterpreter().sigtable.interface('Prelude')
+    iface = cytest.raw.interp().sigtable.interface('Prelude')
     funcs, types, ctors = interface_entries(prelude_prog())
     self.assertEqual(set(iface.function_names()), set(funcs))
     self.assertEqual(set(iface.type_names()), set(types))
@@ -405,7 +405,7 @@ class TestInterface(cytest.TestCase):
     Times the index of the Prelude interface and one lookup, once.  The
     numbers go to the log and to the issue; nothing is asserted about them.
     '''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     path = interp.sigtable.interface_filename('Prelude')
     t0 = time.perf_counter()
     iface = sigtable.Interface(path)
@@ -414,9 +414,9 @@ class TestInterface(cytest.TestCase):
     t2 = time.perf_counter()
     curry.reset()
     t3 = time.perf_counter()
-    cold = curry.symbol('Prelude.+').scheme
+    cold = curry.import_('Prelude')['+'].scheme
     t4 = time.perf_counter()
-    warm = curry.symbol('Prelude.+').scheme
+    warm = curry.import_('Prelude')['+'].scheme
     t5 = time.perf_counter()
     logger.info(
         'Prelude.fint: index %.2f ms, one entry %.3f ms, cold lookup after '
@@ -471,7 +471,7 @@ class TestModules(cytest.TestCase):
   def test_test_module(self):
     '''The module SigTable under tests/data/curry.'''
     M = curry.import_('SigTable')
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     iface = interp.sigtable.interface(M)
     self.assertEqual(iface.name, 'SigTable')
     self.assertEqual(M.pretty.signature, 'Pretty a => a -> [Char]')
@@ -493,9 +493,9 @@ class TestModules(cytest.TestCase):
     self.assertEqual(M.Rect.signature, 'Float -> Float -> Shape')
     self.assertEqual(M.Age.signature, 'Int -> Age')
     self.assertTrue(M.Age.scheme.is_constructor)
-    hidden = curry.symbol('SigTable.hidden')
+    hidden = curry.import_('SigTable')['hidden']
     self.assertEqual(hidden.signature, 'Int -> Int')
-    default = curry.symbol('SigTable._def#prettyList#SigTable.Pretty')
+    default = curry.import_('SigTable')['_def#prettyList#SigTable.Pretty']
     self.assertEqual(default.signature, 'Pretty a => [a] -> [Char]')
     self.assertEqual(default.scheme.arity, 2)
     # Names outside the Prelude and the own module are qualified.
@@ -508,7 +508,7 @@ class TestModules(cytest.TestCase):
       , 'SigTable.Pretty a => a -> [Char]'
       )
     self.assertEqual(
-        sigtable.show_scheme(curry.symbol('Prelude.+').scheme, module='SigTable')
+        sigtable.show_scheme(curry.import_('Prelude')['+'].scheme, module='SigTable')
       , 'Num a => a -> a -> a'
       )
     # The instances of the module.
@@ -534,7 +534,7 @@ class TestModules(cytest.TestCase):
     Without the file, the symbols have no scheme, and the typed path gets
     the error that names the module and raw_expr.
     '''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     M = compile_without_cache(
         'f :: Int -> Int\n'
         'f x = x + 1\n'
@@ -565,18 +565,18 @@ class TestModules(cytest.TestCase):
 
   def test_reset(self):
     '''Interpreter.reset clears the table.'''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     table = interp.sigtable
     self.assertEqual(table.modules(), [])
-    curry.symbol('Prelude.+').scheme
-    curry.module('Data.List').nub.scheme
+    curry.import_('Prelude')['+'].scheme
+    curry.import_('Data.List').nub.scheme
     table.instances()
     self.assertLessEqual({'Data.List', 'Prelude'}, set(table.modules()))
     curry.reset()
     self.assertIs(interp.sigtable, table)
     self.assertEqual(table.modules(), [])
     self.assertNotIn('Data.List', curry.modules)
-    self.assertEqual(curry.symbol('Prelude.+').signature, 'Num a => a -> a -> a')
+    self.assertEqual(curry.import_('Prelude')['+'].signature, 'Num a => a -> a -> a')
     self.assertEqual(table.modules(), ['Prelude'])
     self.assertIsNotNone(table.instance('Prelude.Num', 'Prelude.Int'))
     self.assertIsNone(table.instance('Prelude.Data', 'Control.SetFunctions.Values'))
@@ -646,7 +646,7 @@ class TestPrinter(cytest.TestCase):
     pred = sigtable.Predicate('M.C', fc.TCons(P('Maybe'), [a]))
     self.assertEqual(str(pred), 'M.C (Maybe a)')
     self.assertEqual(sigtable.show_predicate(pred, module='M'), 'C (Maybe a)')
-    functor = curry.symbol('Prelude._Dict#Functor').signature
+    functor = curry.import_('Prelude')['_Dict#Functor'].signature
     self.assertEqual(
         functor
       , '(forall a b. (a -> b) -> c a -> c b) -> (forall a b. a -> c b -> c a)'

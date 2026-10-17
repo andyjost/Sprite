@@ -11,24 +11,23 @@ class TestPrelude(cytest.TestCase):
   @property
   def constrEq(self):
     if config.syslibversion() < (3,3,0):
-      return curry.symbol('Prelude.=:=')
+      return curry.import_('Prelude')['=:=']
     else:
-      return curry.symbol('Prelude.constrEq')
+      return curry.import_('Prelude')['constrEq']
 
-  @cytest.with_flags(defaultconverter='topython')
   def testBuiltinPreludeTypes(self):
     '''
     Tests the built-in Prelude types and, indicentally, the ``isa`` function.
     '''
-    e2s = lambda expr: str(next(curry.eval(curry.expr(expr), converter=None)))
+    e2s = lambda expr: str(next(cytest.raw.values(cytest.raw.expr(expr, typed=True))))
 
     # Int, Char, Float.
-    Int = curry.symbol('Prelude.Int')
-    Char = curry.symbol('Prelude.Char')
-    Float = curry.symbol('Prelude.Float')
-    int_ = next(curry.eval(1, converter=None))
-    char_ = next(curry.eval(curry.term(curry.Char('a')), converter=None))
-    float_ = next(curry.eval(1., converter=None))
+    Int = curry.import_('Prelude')['Int']
+    Char = curry.import_('Prelude')['Char']
+    Float = curry.import_('Prelude')['Float']
+    int_ = next(cytest.raw.values(1))
+    char_ = next(cytest.raw.values(curry.term(curry.Char('a'))))
+    float_ = next(cytest.raw.values(1.))
 
     self.assertIsa(int_, Int)
     self.assertIsNotA(int_, Char)
@@ -41,77 +40,77 @@ class TestPrelude(cytest.TestCase):
     self.assertIsa(float_, Float)
 
     # List.
-    Cons,Nil = curry.symbol('Prelude.:'), curry.symbol('Prelude.[]')
+    Cons,Nil = curry.import_('Prelude')[':'], curry.import_('Prelude')['[]']
     self.assertEqual(e2s([Cons, 1, Nil]), '[1]')
     self.assertEqual(e2s([Cons, 1, [Cons, 2, Nil]]), '[1, 2]')
     l0 = Node(Nil)
     l1 = Node(Cons, 1, l0)
-    self.assertIsa(l0, curry.symbol('Prelude.[]'))
-    self.assertIsNotA(l0, curry.symbol('Prelude.:'))
-    self.assertIsa(l0, curry.type('Prelude.[]'))
-    self.assertIsa(l1, curry.type('Prelude.[]'))
-    self.assertIsNotA(int_, curry.type('Prelude.[]'))
+    self.assertIsa(l0, curry.import_('Prelude')['[]'])
+    self.assertIsNotA(l0, curry.import_('Prelude')[':'])
+    self.assertIsa(l0, curry.info(curry.import_('Prelude')).types['[]'])
+    self.assertIsa(l1, curry.info(curry.import_('Prelude')).types['[]'])
+    self.assertIsNotA(int_, curry.info(curry.import_('Prelude')).types['[]'])
 
     # Tuples.
-    Unit = curry.symbol('Prelude.()')
+    Unit = curry.import_('Prelude')['()']
     self.assertEqual(e2s([Unit]), '()')
-    Pair = curry.symbol('Prelude.(,)')
+    Pair = curry.import_('Prelude')['(,)']
     self.assertEqual(e2s([Pair, 1, 2]), '(1, 2)')
-    T = curry.symbol('Prelude.(,,)')
+    T = curry.import_('Prelude')['(,,)']
     self.assertEqual(e2s([T, 1, 2, 3]), '(1, 2, 3)')
-    T = curry.symbol('Prelude.(,,,)')
+    T = curry.import_('Prelude')['(,,,)']
     self.assertEqual(e2s([T, 1, 2, 3, 4]), '(1, 2, 3, 4)')
-    T = curry.symbol('Prelude.(,,,,)')
+    T = curry.import_('Prelude')['(,,,,)']
     self.assertEqual(e2s([T, 1, 2, 3, 4, 5]), '(1, 2, 3, 4, 5)')
-    T = curry.symbol('Prelude.(,,,,,)')
+    T = curry.import_('Prelude')['(,,,,,)']
     self.assertEqual(e2s([T, 1, 2, 3, 4, 5, 6]), '(1, 2, 3, 4, 5, 6)')
-    T = curry.symbol('Prelude.(,,,,,,)')
+    T = curry.import_('Prelude')['(,,,,,,)']
     self.assertEqual(e2s([T, 1, 2, 3, 4, 5, 6, 7]), '(1, 2, 3, 4, 5, 6, 7)')
-    T = curry.symbol('Prelude.(,,,,,,,)')
+    T = curry.import_('Prelude')['(,,,,,,,)']
     self.assertEqual(e2s([T, 1, 2, 3, 4, 5, 6, 7, 8]), '(1, 2, 3, 4, 5, 6, 7, 8)')
-    T = curry.symbol('Prelude.(,,,,,,,,)')
+    T = curry.import_('Prelude')['(,,,,,,,,)']
     self.assertEqual(e2s([T, 1, 2, 3, 4, 5, 6, 7, 8, 9]), '(1, 2, 3, 4, 5, 6, 7, 8, 9)')
 
     # Bool.
-    T,F = curry.symbol('Prelude.True'), curry.symbol('Prelude.False')
+    T,F = curry.import_('Prelude')['True'], curry.import_('Prelude')['False']
     self.assertEqual(e2s([Cons, T, [Cons, F, Nil]]), '[True, False]')
 
   def testLitParsers(self):
     # The primitives are called without the $## of their Prelude wrappers,
     # so the string must be in normal form already: a list of characters,
     # not the lazy string node the typed builder makes of a str.
-    eval_ = lambda e: next(curry.eval(curry.expr(cells(e)), converter=None))
-    sym = lambda s: curry.symbol('Prelude.' + s)
+    eval_ = lambda e: next(cytest.raw.values(cytest.raw.expr(cells(e), typed=True)))
+    sym = lambda s: curry.import_('Prelude')[s]
     # Int
-    self.assertEqual(eval_([sym('prim_readNatLiteral'), ['0']]), curry.raw_expr([(0, "")]))
-    self.assertEqual(eval_([sym('prim_readNatLiteral'), "123"]), curry.raw_expr([(123, "")]))
+    self.assertEqual(eval_([sym('prim_readNatLiteral'), ['0']]), cytest.raw.expr([(0, "")]))
+    self.assertEqual(eval_([sym('prim_readNatLiteral'), "123"]), cytest.raw.expr([(123, "")]))
     # Float
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1.23"]), curry.raw_expr([(1.23, "")]))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "+1.23"]), curry.raw_expr([(1.23, "")]))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "-1.23"]), curry.raw_expr([(-1.23, "")]))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1."]), curry.raw_expr([(1.0, "")]))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), ["1"]]), curry.raw_expr([(1.0, "")]))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "+.9"]), curry.raw_expr([(0.9, "")]))
-    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1.2"]), curry.raw_expr([(1.2, "")]))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1.23"]), cytest.raw.expr([(1.23, "")]))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "+1.23"]), cytest.raw.expr([(1.23, "")]))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "-1.23"]), cytest.raw.expr([(-1.23, "")]))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1."]), cytest.raw.expr([(1.0, "")]))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), ["1"]]), cytest.raw.expr([(1.0, "")]))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "+.9"]), cytest.raw.expr([(0.9, "")]))
+    self.assertEqual(eval_([sym('prim_readFloatLiteral'), "1.2"]), cytest.raw.expr([(1.2, "")]))
     # Char
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'a'"]), curry.raw_expr([('a', "")]))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\''"]), curry.raw_expr([('\'', "")]))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\\'"]), curry.raw_expr([('\\', "")]))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\''"]), curry.raw_expr([('\'', "")]))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\"'"]), curry.raw_expr([('"', "")]))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\b'"]), curry.raw_expr([('\b', "")]))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\f'"]), curry.raw_expr([('\f', "")]))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\n'"]), curry.raw_expr([('\n', "")]))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\r'"]), curry.raw_expr([('\r', "")]))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\t'"]), curry.raw_expr([('\t', "")]))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\v'"]), curry.raw_expr([('\v', "")]))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\x41'"]), curry.raw_expr([('A', "")]))
-    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\65'"]), curry.raw_expr([('A', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'a'"]), cytest.raw.expr([('a', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\''"]), cytest.raw.expr([('\'', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\\'"]), cytest.raw.expr([('\\', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\''"]), cytest.raw.expr([('\'', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\\"'"]), cytest.raw.expr([('"', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\b'"]), cytest.raw.expr([('\b', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\f'"]), cytest.raw.expr([('\f', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\n'"]), cytest.raw.expr([('\n', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\r'"]), cytest.raw.expr([('\r', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\t'"]), cytest.raw.expr([('\t', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\v'"]), cytest.raw.expr([('\v', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\x41'"]), cytest.raw.expr([('A', "")]))
+    self.assertEqual(eval_([sym('prim_readCharLiteral'), "'\\65'"]), cytest.raw.expr([('A', "")]))
     # String
-    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"A"''']), curry.raw_expr([(['A'], "")]))
-    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"\\x41\\66"''']), curry.raw_expr([('AB', "")]))
+    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"A"''']), cytest.raw.expr([(['A'], "")]))
+    self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"\\x41\\66"''']), cytest.raw.expr([('AB', "")]))
     self.assertEqual(eval_([sym('prim_readStringLiteral'), '''"\\\\ \\' \\" \\b \\f \\n \\r \\t \\v"'''])
-      , curry.raw_expr([('\\ \' " \b \f \n \r \t \v', "")])
+      , cytest.raw.expr([('\\ \' " \b \f \n \r \t \v', "")])
       )
 
   def testLitParsersBad(self):
@@ -121,9 +120,9 @@ class TestPrelude(cytest.TestCase):
     # should never occur because a lexer is used beforehand to ensure the input
     # is always valid.
     def assertNoGood(e):
-      values = list(curry.eval(curry.expr(cells(e)), converter=None))
-      self.assertTrue(values == [] or curry.topython(values[0][1]) == [])
-    sym = lambda s: curry.symbol('Prelude.' + s)
+      values = list(cytest.raw.values(cytest.raw.expr(cells(e), typed=True)))
+      self.assertTrue(values == [] or cytest.raw.interp().topython(values[0][1]) == [])
+    sym = lambda s: curry.import_('Prelude')[s]
 
     # Int
     assertNoGood([sym('prim_readNatLiteral'), '0foo'])
@@ -163,67 +162,63 @@ class TestPrelude(cytest.TestCase):
     builder supplies the dictionary of the instance and routes the value
     arguments through apply: apply (apply (+ dict) 1) 2.
     '''
-    add = curry.symbol('Prelude.+')
-    apply_ = curry.symbol('Prelude.apply')
+    add = curry.import_('Prelude')['+']
+    apply_ = curry.import_('Prelude')['apply']
     #
-    e = curry.expr(add, 1, 2)
+    e = cytest.raw.expr(add, 1, 2, typed=True)
     self.assertEqual(
         str(e), 'apply (apply ((+) _inst#Prelude.Num#Prelude.Int) 1) 2'
       )
-    self.assertEqual(list(curry.eval(e, converter='topython')), [3])
+    self.assertEqual(list(curry.eval(e)), [3])
     self.assertEqual(curry.typeof(e), 'Num a => a')
     self.assertEqual(curry.typeof(e, defaulted=True), 'Int')
     # The same expression spelled with apply.
-    e = curry.expr(apply_, [apply_, add, 1], 2)
-    self.assertEqual(list(curry.eval(e, converter='topython')), [3])
+    e = cytest.raw.expr(apply_, [apply_, add, 1], 2, typed=True)
+    self.assertEqual(list(curry.eval(e)), [3])
     #
-    incr = curry.expr(add, 1)
+    incr = cytest.raw.expr(add, 1, typed=True)
     self.assertEqual(curry.typeof(incr, defaulted=True), 'Int -> Int')
     self.assertEqual(str(incr), 'apply ((+) _inst#Prelude.Num#Prelude.Int) 1')
-    e = curry.expr(apply_, incr, 6)
-    self.assertEqual(list(curry.eval(e, converter='topython')), [7])
+    e = cytest.raw.expr(apply_, incr, 6, typed=True)
+    self.assertEqual(list(curry.eval(e)), [7])
 
   def testFailed(self):
-    failed = curry.symbol('Prelude.failed')
+    failed = curry.import_('Prelude')['failed']
     self.assertEqual(len(list(curry.eval(failed))), 0)
 
   def testError(self):
-    error = curry.symbol('Prelude.error')
+    error = curry.import_('Prelude')['error']
     self.assertRaisesRegex(
         curry.EvaluationError
-      , 'oops', lambda: next(curry.eval(error, "oops"))
+      , 'oops', lambda: next(curry.eval((error)("oops")))
       )
 
-  @cytest.with_flags(defaultconverter='topython')
   def testOrd(self):
-    ord_ = curry.symbol('Prelude.ord')
-    self.assertEqual(list(curry.eval(ord_, 'A')), [65])
+    ord_ = curry.import_('Prelude')['ord']
+    self.assertEqual(list(curry.eval((ord_)(curry.Char('A')))), [65])
     # A Char is a code point.  The C++ backend stored a signed byte, so this
     # gave -96.
-    chr_ = curry.symbol('Prelude.chr')
-    self.assertEqual(list(curry.eval(ord_, curry.expr(chr_, 160))), [160])
-    self.assertEqual(list(curry.eval(ord_, '\u00e4')), [228])
-    self.assertEqual(list(curry.eval(ord_, '\U0001f600')), [0x1f600])
+    chr_ = curry.import_('Prelude')['chr']
+    self.assertEqual(list(curry.eval((ord_)(chr_(160)))), [160])
+    self.assertEqual(list(curry.eval((ord_)(curry.Char('\u00e4')))), [228])
+    self.assertEqual(list(curry.eval((ord_)(curry.Char('\U0001f600')))), [0x1f600])
 
-  @cytest.with_flags(defaultconverter='topython')
   def testRound(self):
     '''round halves away from zero, as PAKCS and std::round do.'''
-    round_ = curry.symbol('Prelude.round')
+    round_ = curry.import_('Prelude')['round']
     cases = [
         (2.5, 3), (-2.5, -3), (0.5, 1), (-0.5, -1), (1.5, 2), (3.5, 4)
       , (2.4, 2), (-2.6, -3), (0.49999999999999994, 0), (1e15 + 0.5, 1000000000000001)
       ]
     for x, expected in cases:
-      self.assertEqual(list(curry.eval(round_, x)), [expected], x)
+      self.assertEqual(list(curry.eval((round_)(x))), [expected], x)
 
-  @cytest.with_flags(defaultconverter='topython')
   def testChr(self):
-    chr_ = curry.symbol('Prelude.chr')
-    self.assertEqual(list(curry.eval(chr_, 65)), ['A'])
-    self.assertEqual(list(curry.eval(chr_, 228)), ['\u00e4'])
-    self.assertEqual(list(curry.eval(chr_, 0x1f600)), ['\U0001f600'])
+    chr_ = curry.import_('Prelude')['chr']
+    self.assertEqual(list(curry.eval((chr_)(65))), ['A'])
+    self.assertEqual(list(curry.eval((chr_)(228))), ['\u00e4'])
+    self.assertEqual(list(curry.eval((chr_)(0x1f600))), ['\U0001f600'])
 
-  @cytest.with_flags(defaultconverter='topython')
   def testShowNonAscii(self):
     '''show writes a code point outside printable ASCII as a decimal escape.'''
     module = curry.compile(
@@ -241,7 +236,6 @@ class TestPrelude(cytest.TestCase):
     self.assertEqual(list(curry.eval(module.s)), ['"\\228\\246\\252"'])
     self.assertEqual(list(curry.eval(module.e)), ["'\\128512'"])
 
-  @cytest.with_flags(defaultconverter='topython')
   def testIsSpace(self):
     '''
     The ICurry text writes the non-breaking space in ``isSpace`` as the
@@ -249,20 +243,20 @@ class TestPrelude(cytest.TestCase):
     an old reader, held '0' there, so ``isSpace '0'`` was true and
     ``read "0"`` failed on both backends.
     '''
-    isSpace = curry.symbol('Prelude.isSpace')
-    chr_ = curry.symbol('Prelude.chr')
+    isSpace = curry.import_('Prelude')['isSpace']
+    chr_ = curry.import_('Prelude')['chr']
     for char, expected in [
         ('0', False), ('1', False), ('9', False), ('a', False)
       , (' ', True), ('\t', True), ('\n', True)
       ]:
-      self.assertEqual(list(curry.eval(isSpace, char)), [expected], char)
-    self.assertEqual(list(curry.eval(isSpace, curry.expr(chr_, 160))), [True])
-    self.assertEqual(list(curry.eval(isSpace, curry.expr(chr_, 48))), [False])
+      self.assertEqual(list(curry.eval((isSpace)(curry.Char(char)))), [expected], char)
+    self.assertEqual(list(curry.eval((isSpace)(chr_(160)))), [True])
+    self.assertEqual(list(curry.eval((isSpace)(chr_(48)))), [False])
 
   def test_apply_nf(self):
     '''Test the $!! operator.'''
     # Ensure the RHS argument is normalized before the function is applied.
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     code = interp.compile(
         '''
         f :: Int -> Int
@@ -282,8 +276,8 @@ class TestPrelude(cytest.TestCase):
     # Ensure results are ungrounded.  The lifted variable of the text route
     # is a marker (curry.free) that its first step turns into the variable,
     # so the variable costs one step of the four.
-    freevar = interp.compile('id $!! (x::Int) where x free', mode='expr')
-    cytest.step.step(interp, freevar, num=4)
+    freevar = cytest.raw.expr(curry.parse('id $!! (x::Int) where x free'))
+    cytest.step.step(interp, freevar, num=5)
     freevar = inspect.fwd_chain_target(freevar)
     self.assertIsaFreevar(freevar)
 
@@ -295,20 +289,19 @@ class TestPrelude(cytest.TestCase):
     test_apply_nf started to run on the C++ backend.  ($!) suspended on
     both backends (issue #112).
     '''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     for text in (
         'id $! (x::Int) where x free', 'id $!! (x::Int) where x free'
       , 'normalForm (x::Int) where x free'
       ):
-      e = interp.compile(text, mode='expr')
-      value, = curry.eval(e, converter=None)
+      e = cytest.raw.expr(curry.parse(text))
+      value, = cytest.raw.values(e)
       self.assertIsaFreevar(inspect.fwd_chain_target(value))
-    e = interp.compile('id $## (x::Int) where x free', mode='expr')
+    e = cytest.raw.expr(curry.parse('id $## (x::Int) where x free'))
     self.assertRaises(
         curry.exceptions.EvaluationSuspended, lambda: list(curry.eval(e))
       )
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_strict_apply_choice(self):
     '''
     A choice or a failure in the argument of a strict application.  An audit
@@ -317,9 +310,9 @@ class TestPrelude(cytest.TestCase):
     procN with the choice as its root and failed an assertion in pull_tab.
     '''
     for op in ['$!', '$!!', '$##']:
-      goal = curry.compile('id %s ((1 :: Int) ? 2)' % op, 'expr')
+      goal = curry.parse('id %s ((1 :: Int) ? 2)' % op)
       self.assertEqual(sorted(curry.eval(goal)), [1, 2], op)
-      goal = curry.compile('id %s (failed :: Int)' % op, 'expr')
+      goal = curry.parse('id %s (failed :: Int)' % op)
       self.assertEqual(list(curry.eval(goal)), [], op)
 
   def test_partial_application_value(self):
@@ -328,29 +321,28 @@ class TestPrelude(cytest.TestCase):
     An audit finding: on the Python backend, a string literal inside it (a
     memoryview) stopped the copier that makes the value.
     '''
-    goal = curry.compile('(++) "abc"', 'expr')
-    value, = curry.eval(goal, converter=None)
-    apply = curry.symbol('Prelude.apply')
+    goal = curry.parse('(++) "abc"')
+    value, = cytest.raw.values(goal)
+    apply = curry.import_('Prelude')['apply']
     self.assertEqual(
-        list(curry.eval(apply, value, 'de', converter='topython')), ['abcde']
+        list(curry.eval(cytest.raw.expr(apply, value, 'de', typed=True))), ['abcde']
       )
 
   # Used by testEqualityConstraint.
   def checkSatisfied(self, lhs, rhs):
-    e = curry.raw_expr(self.constrEq, lhs, rhs)
+    e = cytest.raw.expr(self.constrEq, lhs, rhs)
     self.assertEqual(list(curry.eval(e)), [True])
 
   def checkUnsatisfied(self, lhs, rhs):
-    e = curry.raw_expr(self.constrEq, lhs, rhs)
+    e = cytest.raw.expr(self.constrEq, lhs, rhs)
     self.assertEqual(list(curry.eval(e)), [])
 
-  @cytest.with_flags(defaultconverter='topython')
   def testEquationalConstraint(self):
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     # Note: a type dictionary is needed to call Prelude.unknown, but the type
     # is irrelevant for these tests.
-    inst_unit = curry.symbol('Prelude._inst#Prelude.Data#()')
-    unknown = curry.raw_expr([interp.prelude.unknown, inst_unit])
+    inst_unit = curry.import_('Prelude')['_inst#Prelude.Data#()']
+    unknown = cytest.raw.expr([interp.prelude.unknown, inst_unit])
 
     # First, test with no free variable constraints.
     # builtin <=> builtin
@@ -395,9 +387,9 @@ class TestErrorMessage(cytest.TestCase):
 
   @unittest.skipUnless(curry.flags['backend'] == 'cxx', 'C++ symbol tables')
   def test_primitives_carry_their_curry_names(self):
-    self.assertEqual(curry.symbol('Prelude.prim_error').info.name, 'prim_error')
-    self.assertEqual(curry.symbol('Prelude.error').info.name, 'error')
+    self.assertEqual(curry.import_('Prelude')['prim_error'].info.name, 'prim_error')
+    self.assertEqual(curry.import_('Prelude')['error'].info.name, 'error')
     self.assertEqual(
-        curry.symbol('Prelude.prim_showIntLiteral').info.name
+        curry.import_('Prelude')['prim_showIntLiteral'].info.name
       , 'prim_showIntLiteral'
       )

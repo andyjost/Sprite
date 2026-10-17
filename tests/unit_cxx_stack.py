@@ -31,10 +31,10 @@ TIMEOUT = 60
 # V`` for each of the first ``count`` values, ``end`` when the values run out,
 # and ``error MESSAGE`` when the evaluation stops with an EvaluationError.
 # ``goal`` lists the arguments of curry.eval in terms of the module ``M``.
-CHILD = '''
+CHILD = r'''
 import curry
 curry.reload({
-    'backend': 'cxx', 'defaultconverter': 'topython', 'stack_limit': %(limit)r
+    'backend': 'cxx', 'stack_limit': %(limit)r
   })
 M = curry.import_('StackGuard')
 values = curry.eval(%(goal)s)
@@ -49,10 +49,10 @@ except curry.EvaluationError as exc:
 
 # Evaluates a long list and prints its length and its last element.
 CHILD_LONG_LIST = '''
-import curry
-curry.reload({'backend': 'cxx', 'defaultconverter': 'topython'})
+import cytest, curry
+curry.reload({'backend': 'cxx'})
 M = curry.import_('StackGuard')
-value, = curry.eval(M.longList, %(n)d)
+value, = curry.eval((M.longList)(%(n)d))
 print(len(value), value[-1])
 '''
 
@@ -173,17 +173,15 @@ class TestStackGuard(cytest.TestCase):
     self.assertEqual(len(lines), 1, lines)
     self.assertRegex(lines[0], self.STACK_ERROR)
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_default_limit_admits_moderate_depth(self):
-    goal = curry.compile('length [1..2000]', 'expr')
+    goal = curry.parse('length [1..2000]')
     self.assertEqual(list(curry.eval(goal)), [2000])
 
-  @cytest.with_flags(defaultconverter='topython', stack_limit=None)
+  @cytest.with_flags(stack_limit=None)
   def test_guard_disabled(self):
-    goal = curry.compile('length [1..2000]', 'expr')
+    goal = curry.parse('length [1..2000]')
     self.assertEqual(list(curry.eval(goal)), [2000])
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_interrupted_steps_are_not_counted(self):
     '''
     An audit finding: a step interrupted by the periodic rotation counted as
@@ -195,9 +193,9 @@ class TestStackGuard(cytest.TestCase):
     def steps(goal, *args):
       # The evaluator yields raw values.  curry.eval converts them.
       ev = evaluator.Evaluator(
-          curry.getInterpreter(), curry.raw_expr(goal, *args)
+          cytest.raw.interp(), cytest.raw.expr(goal, *args)
         )
-      values = [curry.topython(value) for value in ev.evaluate()]
+      values = [cytest.raw.interp().topython(value) for value in ev.evaluate()]
       return values, ev.rts.steps_total
     M = curry.import_('StackGuard')
     n = 200000
@@ -219,13 +217,12 @@ class TestDeepValue(cytest.TestCase):
   def setUpClass(cls):
     curry.import_('StackGuard')
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_long_list_value(self):
     # Copying the value out of the graph recursed once per list element.  This
     # depth is safe for a recursive copier too.  The deep case runs in a child
     # (see below), because a crash would end the test runner.
     n = 5000
-    goal = curry.compile('[1..%d]' % n, 'expr', exprtype='[Int]')
+    goal = curry.parse('(%s) :: %s' % ('[1..%d]' % n, '[Int]'))
     value, = curry.eval(goal)
     self.assertEqual(len(value), n)
     self.assertEqual(value[-1], n)
@@ -248,9 +245,9 @@ class TestDeepValue(cytest.TestCase):
     in exponential time.  The copy must keep the sharing.
     '''
     depth = 16
-    node = curry.expr(0)
+    node = cytest.raw.expr(0, typed=True)
     for _ in range(depth):
-      node = curry.expr((node, node))
+      node = cytest.raw.expr((node, node), typed=True)
     self.assertEqual(self.count_nodes(node), depth + 1)
     dup = node.__deepcopy__()
     self.assertNotEqual(dup.id(), node.id())
@@ -264,7 +261,7 @@ class TestDeepValue(cytest.TestCase):
     [a] in a`` is a cons node that leads back to itself.
     '''
     anchor, ref = curry.expressions.anchor, curry.ref
-    node = curry.raw_expr(anchor([ref()]))
+    node = cytest.raw.expr(anchor([ref()]))
     self.assertTrue(self.reaches(node, node.id()))
     dup = node.__deepcopy__()
     self.assertNotEqual(dup.id(), node.id())

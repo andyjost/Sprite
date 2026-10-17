@@ -46,7 +46,7 @@ class IOBindTestCase(cytest.TestCase):
     return curry.import_('IOBind')
 
   def eval_(self, goal, *args, **kwds):
-    return list(curry.eval(goal, *args, **kwds))
+    return list(curry.eval(curry.let((goal(*args) if args else goal), **kwds)))
 
   def assertNondetError(self, goal, *args):
     '''Evaluates the goal and checks for the non-determinism error.'''
@@ -60,13 +60,11 @@ class TestIOBind(IOBindTestCase):
   # of the evaluator.
   INPUT = 'data/curry/io/readFile_bind.in'
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_readFile_bind_length(self):
     expected = len(cytest.readfile(self.INPUT))
     self.assertGreaterEqual(expected, 121)
     self.assertEqual(self.eval_(self.M.readLength, self.INPUT), [expected])
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_readFile_empty_file(self):
     '''
     An audit finding: the Python backend mapped the file into memory, and
@@ -80,7 +78,6 @@ class TestIOBind(IOBindTestCase):
       self.assertEqual(len(value), 0)
       self.assertEqual(self.eval_(self.M.readLength, 'empty.txt'), [0])
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_readFile_utf8_length(self):
     '''
     A file holds UTF-8, and length counts code points.  The Python backend
@@ -94,7 +91,6 @@ class TestIOBind(IOBindTestCase):
       self.assertEqual(self.eval_(self.M.readLength, 'utf8.txt'), [5])
       self.assertEqual(self.eval_(self.M.readText, 'utf8.txt'), [text])
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_readFile_top_level(self):
     # The IO wrapper is stripped from a top-level value.
     self.assertEqual(
@@ -106,7 +102,6 @@ class TestIOBind(IOBindTestCase):
       curry.flags['backend'] == 'cxx'
     , 'the C++ getChar reads the process stdin; setio cannot redirect it'
     )
-  @cytest.with_flags(defaultconverter='topython')
   @cytest.setio(stdin='mu')
   def test_getChar_bind(self):
     self.assertEqual(self.eval_(self.M.getCharOrd), [ord('m')])
@@ -120,7 +115,7 @@ class TestIOBind(IOBindTestCase):
       curry.flags['backend'] != 'cxx'
     , 'unit_py_io_files covers the Python backend with a small step budget'
     )
-  @cytest.with_flags(defaultconverter='topython', rotation='steps:65536')
+  @cytest.with_flags(rotation='steps:65536')
   def test_writeFile_keeps_prefix_across_rotation(self):
     '''
     An audit finding: the C++ writeFile opened the file in write mode on
@@ -148,10 +143,10 @@ class TestIOBind(IOBindTestCase):
         'bindIO', 'catch', 'getChar', 'prim_appendFile', 'prim_ioError'
       , 'prim_putChar', 'prim_readFile', 'prim_writeFile', 'returnIO'
       ]:
-      info = curry.symbol('Prelude.' + name).info
+      info = curry.import_('Prelude')[name].info
       self.assertTrue(info.flags & common.F_MONADIC, name)
     for name in ['$!', '$!!', '$##', 'apply', 'ensureNotFree']:
-      info = curry.symbol('Prelude.' + name).info
+      info = curry.import_('Prelude')[name].info
       self.assertFalse(info.flags & common.F_MONADIC, name)
 
   @cytest.setio(stdout='')

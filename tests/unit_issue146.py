@@ -14,32 +14,32 @@ from curry.exceptions import ModuleLookupError
 class TestIssue146(unittest.TestCase):
   def test_unknown_import_raises_module_lookup_error(self):
     with self.assertRaises(ModuleLookupError) as cm:
-      curry.compile('1', mode='expr', imports=['Nosuch'])
+      curry.parse('1', imports=['Nosuch'])
     self.assertIn('Nosuch', str(cm.exception))
 
   def test_unknown_import_is_never_a_bare_key_error(self):
     try:
-      curry.compile('1', mode='expr', imports=['Nosuch'])
+      curry.parse('1', imports=['Nosuch'])
     except ModuleLookupError:
       pass
     except KeyError: # pragma: no cover
       self.fail('a bare KeyError escaped from curry.compile')
 
   def test_loaded_module_by_name(self):
-    goal = curry.compile('length [1,2,3]', mode='expr', imports=['Prelude'])
-    self.assertEqual(list(curry.eval(goal, converter='topython')), [3])
+    goal = curry.parse('length [1,2,3]', imports=['Prelude'])
+    self.assertEqual(list(curry.eval(goal)), [3])
 
   def test_loaded_module_by_object(self):
     P = curry.import_('Prelude')
-    goal = curry.compile('length [1,2,3]', mode='expr', imports=[P])
-    self.assertEqual(list(curry.eval(goal, converter='topython')), [3])
+    goal = curry.parse('length [1,2,3]', imports=[P])
+    self.assertEqual(list(curry.eval(goal)), [3])
 
   def test_library_module_imported_on_demand(self):
     # Data.List is a module of the installed library; it need not be loaded
     # before the call: a name in imports is imported as curry.import_ imports
     # it.
-    goal = curry.compile('nub [1,1,2]', mode='expr', imports=['Data.List'])
-    self.assertEqual(list(curry.eval(goal, converter='topython')), [[1, 2]])
+    goal = curry.parse('nub [1,1,2]', imports=['Data.List'])
+    self.assertEqual(list(curry.eval(goal)), [[1, 2]])
     self.assertIn('Data.List', curry.modules)
 
   def test_module_mode_unknown_import(self):

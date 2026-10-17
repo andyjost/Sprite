@@ -181,7 +181,6 @@ class TestCurry2ICurry(cytest.TestCase):
     self.assertEqual(out, os.path.join(root, 'Sub', SUBDIR, 'Deep.icy'))
     self.assertEqual(readbytes(out), readbytes(deep_icy))
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_typed_root(self):
     '''
     A type annotation at the root of a rule.  icurry 3.1.0 loses the bindings
@@ -200,11 +199,11 @@ class TestCurry2ICurry(cytest.TestCase):
       , text
       )
     TypedRoot = curry.import_('TypedRoot', currypath=[os.path.dirname(curryfile)])
-    self.assertEqual(next(curry.eval(TypedRoot.typedLetRoot, 3)), 16)
-    self.assertEqual(next(curry.eval(TypedRoot.typedFreeRoot, 3)), 3)
-    self.assertEqual(sorted(curry.eval(TypedRoot.typedOrRoot, 3)), [3, 4])
-    self.assertEqual(next(curry.eval(TypedRoot.typedCallRoot, 3)), 4)
-    self.assertEqual(next(curry.eval(TypedRoot.typedNested, 3)), 17)
+    self.assertEqual(next(curry.eval((TypedRoot.typedLetRoot)(3))), 16)
+    self.assertEqual(next(curry.eval((TypedRoot.typedFreeRoot)(3))), 3)
+    self.assertEqual(sorted(curry.eval((TypedRoot.typedOrRoot)(3))), [3, 4])
+    self.assertEqual(next(curry.eval((TypedRoot.typedCallRoot)(3))), 4)
+    self.assertEqual(next(curry.eval((TypedRoot.typedNested)(3))), 17)
 
   def test_errors(self):
     '''A failure of the front end is a CompileError with its messages.'''
@@ -728,7 +727,7 @@ class TestDeepExpressions(cytest.TestCase):
     with open(curryfile, 'w', encoding='utf-8') as ostream:
       ostream.write(text)
     M = curry.import_(name, currypath=[self.tmpdir])
-    return list(curry.eval(getattr(M, goal), converter='topython'))
+    return list(curry.eval(getattr(M, goal)))
 
   @cytest.with_flags(interpret='new')
   def test_long_literal_list(self):

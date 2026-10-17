@@ -4,7 +4,7 @@ The child program of the expression item of the compile suite.
 Usage: python probe.py [EXPRESSION [TYPE]]
 
 Imports the curry package, imports the Prelude, compiles the expression of
-the given Curry type with curry.compile, and evaluates it to its first value.
+the given Curry type with curry.parse, and evaluates it to its first value.
 Prints one JSON object with the seconds of each step (import, prelude,
 compile, first_value), the value, and the fields of curry.stats().  The
 harness measures the process from the outside as well; see
@@ -24,13 +24,13 @@ def main(argv=None):
   marks.append(time.perf_counter())
   curry.import_('Prelude')
   marks.append(time.perf_counter())
-  expr = curry.compile(text, mode='expr', exprtype=exprtype)
+  expr = curry.parse('(%s) :: %s' % (text, exprtype))
   marks.append(time.perf_counter())
   value = next(iter(curry.eval(expr)))
   marks.append(time.perf_counter())
   stats = curry.stats()
   report = dict(zip(STEPS, [b - a for a, b in zip(marks, marks[1:])]))
-  report['value'] = curry.show_value(value)
+  report['value'] = curry.show(value)
   report['stats'] = dict(stats)
   print(json.dumps(report))
   return 0

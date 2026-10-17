@@ -32,11 +32,11 @@ import curry, unittest
 def values(*args, **kwds):
   '''The values of a goal, converted to Python.'''
   kwds.setdefault('converter', 'topython')
-  return list(curry.eval(*args, **kwds))
+  return list(curry.eval(curry.let((args[0](*args[1:]) if len(args) > 1 else args[0]), **kwds)))
 
 def texts(*args):
   '''The values of a goal as Curry text.'''
-  return [str(value) for value in curry.eval(*args, converter=None)]
+  return [str(answer) for answer in curry.solve(args[0](*args[1:]) if len(args) > 1 else args[0])]
 
 class TestFunPatFreeArgument(cytest.TestCase):
   def setUp(self):
@@ -47,7 +47,7 @@ class TestFunPatFreeArgument(cytest.TestCase):
 
   def goal(self, text):
     '''A text goal over the module, with its where-free bindings.'''
-    return curry.compile(text, mode='expr', imports=[self.M])
+    return curry.parse(text, imports=[self.M])
 
   # The rules over strings.
   # -----------------------
@@ -107,24 +107,24 @@ class TestFunPatFreeArgument(cytest.TestCase):
   def test_maybe(self):
     '''The pattern Just (n + 1) binds the free actual to Just 4.'''
     M, S = self.M, self.S
-    Prelude = curry.getInterpreter().prelude
-    self.assertEqual(values(M.wrap, 3, curry.expr(Prelude.Just, 4)), ['succ'])
-    self.assertEqual(values(M.wrap, 3, curry.expr(Prelude.Nothing)), [])
+    Prelude = cytest.raw.interp().prelude
+    self.assertEqual(values(M.wrap, 3, (Prelude.Just)(4)), ['succ'])
+    self.assertEqual(values(M.wrap, 3, curry.term(Prelude.Nothing)), [])
     goal = self.goal('wrap 3 m where m free')
     self.assertEqual(texts(goal), ['{m=Just 4} "succ"'])
-    self.assertEqual(texts(M.wrapC, 3), ['(Just 4, "succ")'])
-    self.assertEqual(texts(S.wrapS, 3), ['[(Just 4, "succ")]'])
+    self.assertEqual(texts(M.wrapC, 3), ['(Just 4,"succ")'])
+    self.assertEqual(texts(S.wrapS, 3), ['[(Just 4,"succ")]'])
 
   def test_data_type(self):
     '''The pattern Rect (2 * r) (2 * r) binds the free actual to Rect 6 6.'''
     M, S = self.M, self.S
-    circle = curry.expr(M.Circle, 3)
-    self.assertEqual(values(M.double, circle, curry.expr(M.Rect, 6, 6)), ['rect'])
-    self.assertEqual(values(M.double, circle, curry.expr(M.Rect, 6, 7)), [])
+    circle = (M.Circle)(3)
+    self.assertEqual(values(M.double, circle, (M.Rect)(6, 6)), ['rect'])
+    self.assertEqual(values(M.double, circle, (M.Rect)(6, 7)), [])
     goal = self.goal('double (Circle 3) t where t free')
     self.assertEqual(texts(goal), ['{t=Rect 6 6} "rect"'])
-    self.assertEqual(texts(M.doubleC, circle), ['(Rect 6 6, "rect")'])
-    self.assertEqual(texts(S.doubleS, circle), ['[(Rect 6 6, "rect")]'])
+    self.assertEqual(texts(M.doubleC, circle), ['(Rect 6 6,"rect")'])
+    self.assertEqual(texts(S.doubleS, circle), ['[(Rect 6 6,"rect")]'])
 
   def test_char(self):
     '''
@@ -136,14 +136,14 @@ class TestFunPatFreeArgument(cytest.TestCase):
     answer alone, and the pair pins the binding.
     '''
     M, S = self.M, self.S
-    self.assertEqual(values(M.upper, 'vec', 'V'), ['upper'])
-    self.assertEqual(values(M.upper, 'vec', 'v'), [])
+    self.assertEqual(values(M.upper, 'vec', curry.Char('V')), ['upper'])
+    self.assertEqual(values(M.upper, 'vec', curry.Char('v')), [])
     plain = texts(self.goal('upper "vec" ch where ch free'))
     self.assertEqual(len(plain), 1, plain)
     self.assertTrue(plain[0].endswith('"upper"'), plain)
     goal = self.goal('(ch, upper "vec" ch) where ch free')
     self.assertEqual(values(goal), [('V', 'upper')])
-    self.assertEqual(texts(goal), ['(\'V\', "upper")'])
+    self.assertEqual(texts(goal), ['{ch=\'V\'} (\'V\',"upper")'])
     self.assertEqual(values(M.upperC, 'vec'), [('V', 'upper')])
     self.assertEqual(values(S.upperS, 'vec'), [[('V', 'upper')]])
 
@@ -170,14 +170,14 @@ class TestFunPatFreeArgument(cytest.TestCase):
     shared variable: the Int value binds the component.
     '''
     M, S = self.M, self.S
-    Prelude = curry.getInterpreter().prelude
-    self.assertEqual(values(M.single, curry.expr(Prelude.Just, 3)), ['three'])
-    self.assertEqual(values(M.single, curry.expr(Prelude.Just, 4)), [])
-    self.assertEqual(values(M.single, curry.expr(Prelude.Nothing)), [])
+    Prelude = cytest.raw.interp().prelude
+    self.assertEqual(values(M.single, (Prelude.Just)(3)), ['three'])
+    self.assertEqual(values(M.single, (Prelude.Just)(4)), [])
+    self.assertEqual(values(M.single, curry.term(Prelude.Nothing)), [])
     goal = self.goal('single m where m free')
     self.assertEqual(texts(goal), ['{m=Just 3} "three"'])
-    self.assertEqual(texts(M.singleC), ['(Just 3, "three")'])
-    self.assertEqual(texts(S.singleS), ['[(Just 3, "three")]'])
+    self.assertEqual(texts(M.singleC), ['(Just 3,"three")'])
+    self.assertEqual(texts(S.singleS), ['[(Just 3,"three")]'])
 
 if __name__ == '__main__':
   unittest.main()

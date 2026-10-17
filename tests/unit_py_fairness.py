@@ -20,7 +20,7 @@ import curry, unittest
 
 # The tests run under a recursion limit of 16384 frames (the flag
 # recursion_limit; the default is 262144), so a short list overflows it.
-FLAGS = {'defaultconverter': 'topython', 'recursion_limit': 1 << 14}
+FLAGS = {'recursion_limit': 1 << 14}
 
 @unittest.skipIf(
     curry.flags['backend'] != 'py'
@@ -47,9 +47,7 @@ class TestPyFairness(cytest.TestCase):
     configurations took turns forever.  Both are dropped now, and the error
     of the first is reported when the queue is empty.
     '''
-    goal = curry.compile(
-        'length [1..%d] ? length [1..%d]' % (self.N, self.N), 'expr'
-      )
+    goal = curry.parse('length [1..%d] ? length [1..%d]' % (self.N, self.N))
     with self.assertRaises(RecursionError):
       list(curry.eval(goal))
 
@@ -61,20 +59,15 @@ class TestPyFairness(cytest.TestCase):
     per configuration: a global step count moves while the other two
     configurations run, so it does not show that this one is stuck.
     '''
-    goal = curry.compile(
-        'length [1..%d] ? length [1..%d] ? length [1..%d]'
-            % (self.N, self.N, self.N)
-      , 'expr'
-      )
+    goal = curry.parse('length [1..%d] ? length [1..%d] ? length [1..%d]'
+            % (self.N, self.N, self.N))
     with self.assertRaises(RecursionError):
       list(curry.eval(goal))
 
   @cytest.with_flags(**FLAGS)
   @cytest.timeout(TIMEOUT)
   def test_deep_alternative_does_not_starve_others(self):
-    goal = curry.compile(
-        'length [1..%d] ? 1 ? length [1..%d]' % (self.N, self.N), 'expr'
-      )
+    goal = curry.parse('length [1..%d] ? 1 ? length [1..%d]' % (self.N, self.N))
     values = curry.eval(goal)
     self.assertEqual(next(values), 1)
     with self.assertRaises(RecursionError):
@@ -84,9 +77,7 @@ class TestPyFairness(cytest.TestCase):
   @cytest.timeout(TIMEOUT)
   def test_deep_alternative_does_not_starve_others_without_budget(self):
     # The stack-overflow rotation does not depend on the step budget.
-    goal = curry.compile(
-        'length [1..%d] ? 1 ? length [1..%d]' % (self.N, self.N), 'expr'
-      )
+    goal = curry.parse('length [1..%d] ? 1 ? length [1..%d]' % (self.N, self.N))
     values = curry.eval(goal)
     self.assertEqual(next(values), 1)
     with self.assertRaises(RecursionError):
@@ -103,7 +94,7 @@ class TestPyFairness(cytest.TestCase):
     same rule (unit_cxx_stack).
     '''
     M = curry.import_('StackGuard')
-    values = curry.eval(M.mixedAlt, self.N, 3000)
+    values = curry.eval((M.mixedAlt)(self.N, 3000))
     self.assertEqual(next(values), 3000)
     with self.assertRaises(RecursionError):
       next(values)
@@ -117,7 +108,7 @@ class TestPyFairness(cytest.TestCase):
     queue, which rotates, so the other alternative produces its value first.
     '''
     M = curry.import_('StackGuard')
-    values = curry.eval(M.deepSet, self.N)
+    values = curry.eval((M.deepSet)(self.N))
     self.assertEqual(next(values), 1)
     with self.assertRaises(RecursionError):
       next(values)

@@ -123,7 +123,7 @@ class TestPatterns(cytest.TestCase):
   values are the same on both backends.
   '''
   def values(self, goal):
-    return list(curry.eval(goal, converter='topython'))
+    return list(curry.eval(goal))
 
   def test_deep_patterns(self):
     M = curry.import_('CxxVariable')

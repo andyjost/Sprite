@@ -97,10 +97,10 @@ class TestMake(cytest.TestCase):
       dirname, filename = os.path.split(input_file)
       stem = filename[:-6]
       plan_icy = plans.makeplan(
-          curry.getInterpreter(), plans.MAKE_ICURRY
+          cytest.raw.interp(), plans.MAKE_ICURRY
         )
       plan_json = plans.makeplan(
-          curry.getInterpreter(), plans.MAKE_ICURRY | plans.MAKE_JSON
+          cytest.raw.interp(), plans.MAKE_ICURRY | plans.MAKE_JSON
         )
       with tempfile.TemporaryDirectory() as tmpdir:
         shutil.copy(input_file, tmpdir)
@@ -266,7 +266,7 @@ class TestJobs(cytest.TestCase):
     self.subdir = os.path.join(self.tmpdir, SUBDIR)
     os.makedirs(self.subdir)
     self.target = '--py' if curry.flags['backend'] == 'py' else '--so'
-    self.suffix = curry.getInterpreter().backend.object_file_extension
+    self.suffix = cytest.raw.interp().backend.object_file_extension
     # The plan of sprite-make: an explicit compile compiles, so its
     # interpreter has the flag ``interpret`` off (make.main).  Under the
     # tiered default of the C++ backend the plan of an import ends at the
@@ -467,7 +467,7 @@ class TestJobs(cytest.TestCase):
         lambda: self.tmpdir in curry.path and curry.path.remove(self.tmpdir)
       )
     module = curry.import_(a)
-    self.assertEqual(list(curry.eval(module.goal, converter='topython')), [3])
+    self.assertEqual(list(curry.eval(module.goal)), [3])
 
   def test_width(self):
     '''At most N children run at once; independent modules run together.'''
@@ -598,7 +598,7 @@ class TestJobs(cytest.TestCase):
     self.assertTrue(os.path.isfile(self.product(b)))
     # With the header disabled nothing is built and nothing is yielded.
     with binding(os.environ, 'SPRITE_CXX_PCH_ROOT', ''):
-      step = cxx_toolchain.Cpp2So(curry.getInterpreter())
+      step = cxx_toolchain.Cpp2So(cytest.raw.interp())
       self.assertFalse(step.prepare_header())
       self.assertEqual(list(step._pchflags()), [])
 
@@ -804,7 +804,7 @@ for record in log.output:
     cppfile = os.path.join(subdir, self.name + '.cpp')
     self.assertTrue(os.path.isfile(sofile))
     self.assertTrue(os.path.isfile(cppfile))
-    cpp2so = Cpp2So(curry.getInterpreter())
+    cpp2so = Cpp2So(cytest.raw.interp())
     self.assertTrue(cpp2so.stamp_is_current(sofile))
     self.assertFalse(cpp2so.is_stale(sofile))
     self.assertFalse(cpp2so.is_stale(cppfile))
@@ -821,7 +821,7 @@ for record in log.output:
     # The object is whole: it loads and runs.
     M = curry.load(sofile)
     self.assertEqual(
-        list(curry.eval(M.goal, converter='topython')), [7]
+        list(curry.eval(M.goal)), [7]
       )
 
 
@@ -903,9 +903,7 @@ class TestProgramDirectory(cytest.TestCase):
     self.assertEqual(os.stat(self.sofile('ProgDirMain')).st_mtime_ns, stamp)
     # curry.load of the object imports the import from beside the source.
     code = (
-        'import curry\n'
-        'M = curry.load(%r)\n'
-        'print(list(curry.eval(M.main, converter="topython")))\n'
+        'import cytest, curry\nM = curry.load(%r)\nprint(list(curry.eval(M.main)))\n'
       ) % self.sofile('ProgDirMain')
     proc = subprocess.run(
         [sys.executable, '-B', '-c', code], env=self.env, cwd=self.cwd
@@ -921,7 +919,7 @@ class TestProgramDirectory(cytest.TestCase):
     # directory of a program comes first for a program given as a file
     # (test_import_of_a_path), not for a name.
     code = (
-        'import curry\n'
+        'import cytest, curry\n'
         'from curry.exceptions import ModuleLookupError\n'
         'try:\n'
         '  curry.import_("ProgDirMain", currypath=[%r])\n'
@@ -938,10 +936,7 @@ class TestProgramDirectory(cytest.TestCase):
   def test_import_of_a_path(self):
     # curry.import_ of a path, with the directory on no search path.
     code = (
-        'import curry\n'
-        'M = curry.import_(%r, is_sourcefile=True)\n'
-        'print(list(curry.eval(M.main, converter="topython")))\n'
-        'print(curry.import_(%r) is M)\n'
+        'import cytest, curry\nM = curry.import_(%r, is_sourcefile=True)\nprint(list(curry.eval(M.main)))\nprint(curry.import_(%r) is M)\n'
       ) % (self.program, 'ProgDirMain')
     proc = subprocess.run(
         [sys.executable, '-B', '-c', code], env=self.env, cwd=self.cwd

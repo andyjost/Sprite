@@ -15,7 +15,7 @@ class ChildTests(cytest.TestCase):
   TIMEOUT = 300
 
   PREAMBLE = '''
-import curry, gc, os, resource, sys, weakref
+import cytest, curry, gc, os, resource, sys, weakref
 from curry.backends.cxx import cyrtbindings as cyrt
 curry.reload({'backend': 'cxx'})
 M = curry.import_('CxxFreeVars')
@@ -60,9 +60,10 @@ class TestWeakTable(ChildTests):
     1 GiB cap, and leaves as few nodes and table entries behind as one that
     narrows a hundred thousand.
     '''
-    proc = self.run_child('''
+    proc = self.run_child('''import cytest
+
 def live(n):
-  value = curry.topython(next(curry.eval(M.narrowMany, n, converter=None)))
+  value = cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.narrowMany, n, typed=True))))
   assert value == n, (value, n)
   gc.collect()
   cyrt.gc_collect()
@@ -85,14 +86,15 @@ print('live', small, big, 'peak_rss_mb', peak
     variables each it holds the variables allocated since the last
     collection, not every variable of the process.
     '''
-    proc = self.run_child('''
+    proc = self.run_child('''import cytest
+
 cyrt.gc_set_threshold(1 << 14)
 seen = []
 def items(n, k):
   for i in range(n):
     seen.append((cyrt.gc_freevar_count(), cyrt.gc_node_count()))
     yield k
-value = curry.topython(next(curry.eval(M.narrowEach, iter(items(40, 5000)), converter=None)))
+value = cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.narrowEach, iter(items(40, 5000)), typed=True))))
 assert value == 200000, value
 peak = max(entries for entries, nodes in seen)
 # The threshold is 16384 nodes, and a narrowing allocates several nodes
@@ -114,8 +116,9 @@ print('peak', peak)
     of the value narrows the one variable (2 and 4, not 2, 3, 3, 4).  Before
     the table was weak, that evaluation crashed in a new runtime state.
     '''
-    self.run_child('''
-value = next(curry.eval(M.pairFree, converter=None))
+    self.run_child('''import cytest
+
+value = next(cytest.raw.values(M.pairFree))
 a, b = value.successors
 assert a.info.name == '_Free', repr(value)
 assert a.id() == b.id(), repr(value)
@@ -124,7 +127,7 @@ assert a.__deepcopy__().id() == a.id()
 gc.collect()
 cyrt.gc_collect()
 assert cyrt.gc_freevar_count() == 1, cyrt.gc_freevar_count()
-values = sorted(curry.topython(x) for x in curry.eval(M.both, value, converter=None))
+values = sorted(cytest.raw.interp().topython(x) for x in cytest.raw.values(cytest.raw.expr(M.both, value, typed=True)))
 assert values == [2, 4], values
 del value, a, b
 gc.collect()
@@ -143,7 +146,8 @@ assert cyrt.gc_freevar_count() == 0, cyrt.gc_freevar_count()
     triple needs the root of its group after the expression dropped it: a
     table that lost the root narrows x and z apart.
     '''
-    code = '''
+    code = '''import cytest
+
 results = []
 for goal, args in [
     (M.narrowMany, (2000,)), (M.bindMany, (2000,)), (M.uniteMany, (300,))
@@ -151,7 +155,7 @@ for goal, args in [
   , (M.triple, ()), (M.lasts, (15,))
   ]:
   before = curry.stats()['steps']
-  values = [repr(v) for v in curry.eval(goal, *args, converter=None)]
+  values = [repr(v) for v in cytest.raw.values(cytest.raw.expr(goal, *args, typed=True))]
   results.append((goal.name, values, curry.stats()['steps'] - before))
 gc.collect()
 cyrt.gc_collect()
@@ -203,10 +207,11 @@ class TestNarrowing(ChildTests):
     The functional pattern of lastOf narrows a list variable once per cell;
     with a small threshold the collector runs many times during it.
     '''
-    proc = self.run_child('''
+    proc = self.run_child('''import cytest
+
 cyrt.gc_set_threshold(1 << 13)
 n0 = cyrt.gc_collections()
-assert curry.topython(next(curry.eval(M.lasts, 60, converter=None))) == list(range(1, 61))
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.lasts, 60, typed=True)))) == list(range(1, 61))
 collections = cyrt.gc_collections() - n0
 assert collections > 10, collections
 assert cyrt.gc_verify() is None
@@ -227,7 +232,8 @@ class TestFinalizers(ChildTests):
   '''
 
   def test_iterator_is_released(self):
-    self.run_child('''
+    self.run_child('''import cytest
+
 def gen(n):
   for i in range(n):
     yield i
@@ -235,7 +241,7 @@ def gen(n):
 # Consumed to the end: the step releases the iterator at the last item.
 g = gen(3)
 ref = weakref.ref(g)
-assert curry.topython(next(curry.eval(M.total, g, converter=None))) == 3
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.total, g, typed=True)))) == 3
 del g
 gc.collect()
 assert ref() is None, 'an exhausted iterator was kept'
@@ -245,7 +251,7 @@ assert ref() is None, 'an exhausted iterator was kept'
 # as take dropped the rest, before the evaluation ended.
 g = gen(100)
 ref = weakref.ref(g)
-assert curry.topython(next(curry.eval(M.firstTwo, g, converter=None))) == [0, 1]
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.firstTwo, g, typed=True)))) == [0, 1]
 del g
 gc.collect()
 if not cyrt.gc_stress():
@@ -256,7 +262,7 @@ assert ref() is None, 'the iterator of a dead node was kept'
 # Never evaluated: the node Python holds keeps the iterator.
 g = gen(5)
 ref = weakref.ref(g)
-e = curry.raw_expr(g)
+e = cytest.raw.expr(g)
 del g
 gc.collect()
 cyrt.gc_collect()
@@ -269,7 +275,7 @@ assert ref() is None, 'the iterator of a dropped node was kept'
 # A copy of the node owns a reference of its own.
 g = gen(5)
 ref = weakref.ref(g)
-e = curry.raw_expr(g)
+e = cytest.raw.expr(g)
 c = e.copy()
 d = e.__deepcopy__()
 del g, e
@@ -293,17 +299,17 @@ class TestValues(cytest.TestCase):
 
   def test_values(self):
     M = curry.import_('CxxFreeVars')
-    self.assertEqual(curry.topython(next(curry.eval(M.narrowMany, 500, converter=None))), 500)
-    self.assertEqual(curry.topython(next(curry.eval(M.bindMany, 500, converter=None))), 500)
-    self.assertEqual(curry.topython(next(curry.eval(M.uniteMany, 100, converter=None))), 100)
+    self.assertEqual(cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.narrowMany, 500, typed=True)))), 500)
+    self.assertEqual(cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.bindMany, 500, typed=True)))), 500)
+    self.assertEqual(cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.uniteMany, 100, typed=True)))), 100)
     self.assertEqual(
-        sorted(curry.topython(v) for v in curry.eval(M.triple, converter=None))
+        sorted(cytest.raw.interp().topython(v) for v in cytest.raw.values(M.triple))
       , [(1, 1), (2, 2), (3, 3)]
       )
     self.assertEqual(
-        sorted(str(v) for v in curry.eval(M.wakeByNarrowing, converter=None))
+        sorted(str(v) for v in cytest.raw.values(M.wakeByNarrowing))
       , ['I', 'I', 'O', 'O']
       )
     self.assertEqual(
-        curry.topython(next(curry.eval(M.lasts, 10, converter=None))), list(range(1, 11))
+        cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.lasts, 10, typed=True)))), list(range(1, 11))
       )

@@ -6,7 +6,7 @@ import unittest
 class TestLongRepr(cytest.TestCase):
   def test_list_string_and_nested_list(self):
     for text in ('[1..500]', '([1..500],5)', 'replicate 500 \'a\''):
-      value = next(curry.eval(curry.compile(text, mode='expr'), converter=None))
+      value = next(curry.eval(curry.parse(text)))
       shown = repr(value)
       self.assertIsInstance(shown, str)
       self.assertGreater(len(shown), 500)

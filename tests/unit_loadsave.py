@@ -72,7 +72,7 @@ class TestRoundTrip(cytest.TestCase):
   CODE = r'''
 import os, sys, tempfile
 os.environ['SPRITE_INTERPRETER_FLAGS'] = %(flags)r
-import curry
+import cytest, curry
 tmpdir = tempfile.mkdtemp(prefix='sprite-loadsave-')
 with open(os.path.join(tmpdir, 'SaveLoadFresh.curry'), 'w') as stream:
   stream.write('double :: Int -> Int\ndouble x = x + x\n\nmain :: Int\nmain = double 21\n')
@@ -87,7 +87,7 @@ if curry.flags['backend'] == 'cxx':
       tmpdir, '.curry', config.intermediate_subdir(), 'SaveLoadFresh.cpp'
     )
   curry.save(M, cppfile, module_main=False)
-  saved = toolchain.Cpp2So(curry.getInterpreter())(cppfile, curry.path)
+  saved = toolchain.Cpp2So(cytest.raw.interp())(cppfile, curry.path)
 else:
   saved = os.path.join(tmpdir, 'SaveLoadFresh.py')
   curry.save(M, saved, module_main=False)
@@ -136,7 +136,7 @@ class TestRefusedLoad(cytest.TestCase):
   that way).
   '''
   SOURCE = 'module M where\n\nf :: Int -> Int\nf x = x + 1\n\nmain :: Int\nmain = f 41\n'
-  CODE = r"""
+  CODE = r'''
 import os, sys
 # The child runs under tiered execution whatever the runner's mode: a load
 # needs the object of the Prelude, which runs interpreted under 'all'.
@@ -167,7 +167,7 @@ elif case == 'K':
 registered = cyrt.SharedCurryModule.find_sofilename('M')
 print(os.path.realpath(registered) == os.path.realpath(soA))
 print('exiting normally')
-"""
+'''
 
   @classmethod
   def setUpClass(cls):
@@ -263,7 +263,7 @@ class TestSaveFromObject(cytest.TestCase):
       'count n = if n <= 0 then 0 else 1 + count (n - 1)\n\n'
       'main :: Color\nmain = twice next Red\n'
     )
-  CODE = r"""
+  CODE = r'''
 import os, re
 os.environ['SPRITE_INTERPRETER_FLAGS'] = %(flags)r
 import curry
@@ -276,7 +276,7 @@ print('steps', len(re.findall(r'^tag_type Cy', text, re.M)))
 with open(%(out)r, 'w', encoding='utf-8') as stream:
   stream.write(text)
 print('values', [str(v) for v in curry.eval(M.main)])
-"""
+'''
 
   def save_in_child(self, flags, tmpdir, out):
     code = self.CODE % dict(flags=flags, tmpdir=tmpdir, out=out)
@@ -334,7 +334,7 @@ class TestSavedProgram(cytest.TestCase):
   CODE = r'''
 import os, subprocess, sys, tempfile
 os.environ['SPRITE_INTERPRETER_FLAGS'] = %(flags)r
-import curry
+import cytest, curry
 from curry import config
 tmpdir = tempfile.mkdtemp(prefix='sprite-savedprog-')
 with open(os.path.join(tmpdir, 'SavedProgram.curry'), 'w') as stream:
@@ -349,7 +349,7 @@ if curry.flags['backend'] == 'cxx':
     )
   curry.save(M, cppfile, goal='main')
   from curry.backends.cxx import toolchain
-  saved = toolchain.Cpp2So(curry.getInterpreter())(cppfile, curry.path)
+  saved = toolchain.Cpp2So(cytest.raw.interp())(cppfile, curry.path)
   curry.reset()
   M2 = curry.load(saved)
   print([str(v) for v in curry.eval(M2.main)])

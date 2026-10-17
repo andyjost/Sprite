@@ -3,7 +3,7 @@ from curry import config
 import curry, os, signal, subprocess, tempfile, unittest
 
 class CompleteTestCase(cytest.TestCase):
-  @cytest.with_flags(backend='cxx', defaultconverter='topython')
+  @cytest.with_flags(backend='cxx')
   def test_complete(self):
     Loop = curry.compile(
       '''
@@ -133,7 +133,7 @@ class SomeNumTestCase(cytest.TestCase):
     curry.import_('SomeNum') # compile once, so the child loads the cache
     code = '''
 import curry
-curry.reload({'backend': 'cxx', 'defaultconverter': 'topython'})
+curry.reload({'backend': 'cxx'})
 M = curry.import_('SomeNum')
 print(list(curry.eval(M.main)))
 '''

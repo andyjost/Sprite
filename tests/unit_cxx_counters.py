@@ -26,7 +26,7 @@ TIMEOUT = 120
 
 def raw_counters():
   '''The summed counters of the interpreter, as the runtime reports them.'''
-  return curry.getInterpreter()._evaluation_totals.scheduler
+  return cytest.raw.interp()._evaluation_totals.scheduler
 
 def plain(stats):
   '''
@@ -99,11 +99,11 @@ class TestPlainBuild(cytest.TestCase):
   '''A plain runtime, or the Python backend, reports the seven fields only.'''
 
   def test_no_counters(self):
-    goal = curry.expr([curry.symbol('Prelude.not'), curry.choice(True, False)])
+    goal = cytest.raw.expr([curry.import_('Prelude')['not'], curry.choice(True, False)], typed=True)
     self.assertEqual(sorted(map(str, curry.eval(goal))), ['False', 'True'])
     self.assertEqual(tuple(curry.stats()), statsmod.KEYS)
     self.assertIsNone(raw_counters())
-    self.assertFalse(curry.getInterpreter().backend.scheduler_counters_enabled())
+    self.assertFalse(cytest.raw.interp().backend.scheduler_counters_enabled())
     if CXX:
       self.assertFalse(cyrt.scheduler_counters_enabled())
 
@@ -127,7 +127,7 @@ class TestCounters(cytest.TestCase):
     self.G = curry.import_('CxxGc')
 
   def evaluate(self, goal, *args):
-    return sorted(curry.eval(goal, *args, converter='topython'))
+    return sorted(curry.eval((goal)(*args)))
 
   def check_invariant(self):
     '''
@@ -153,7 +153,7 @@ class TestCounters(cytest.TestCase):
     '''The fourteen keys follow the others, in the line and in the dict.'''
     stats = curry.stats()
     self.assertEqual(tuple(stats), KEYS)
-    self.assertTrue(curry.getInterpreter().backend.scheduler_counters_enabled())
+    self.assertTrue(cytest.raw.interp().backend.scheduler_counters_enabled())
     line = str(stats)
     self.assertRegex(
         line
@@ -251,7 +251,7 @@ class TestCounters(cytest.TestCase):
     alternative in the queue.  It counts as a configuration without a
     lifetime, while the generator runs and after it is closed.
     '''
-    values = curry.eval(self.M.twoValues, converter='topython')
+    values = curry.eval(self.M.twoValues)
     self.assertEqual(next(values), 1)
     stats, outer = self.check_invariant()
     self.assertEqual(stats['steps'], 3)
@@ -350,8 +350,8 @@ class TestCounters(cytest.TestCase):
     A step through evaluator.single_step is a serial step of the one
     configuration of its state, which stays in the queue.
     '''
-    expr = curry.expr([curry.symbol('Prelude.not'), True])
-    stepped = evaluator.single_step(curry.getInterpreter(), expr)
+    expr = cytest.raw.expr([curry.import_('Prelude')['not'], True], typed=True)
+    stepped = evaluator.single_step(cytest.raw.interp(), expr)
     stats, outer = self.check_invariant()
     self.assertEqual(stats['steps'], 1)
     self.assertEqual(stats['serial_steps'], 1)

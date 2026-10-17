@@ -63,15 +63,15 @@ ONLY_CXX = unittest.skipIf(
 
 # A child on the C++ backend in the rotation mode %(mode)r with the rewrite
 # test module imported.  ``report`` prints one JSON line.
-CHILD = '''
+CHILD = r'''
 import curry, json, os, sys, time
 curry.reload(
-    {'backend': 'cxx', 'rotation': %(mode)r, 'defaultconverter': 'topython'}
+    {'backend': 'cxx', 'rotation': %(mode)r}
   )
 from curry.backends.cxx import cyrtbindings as cyrt
 M = curry.import_('CxxRewrite')
 def report(**fields):
-  sys.stdout.write(json.dumps(fields) + '\\n')
+  sys.stdout.write(json.dumps(fields) + '\n')
   sys.stdout.flush()
 def ticker_thread():
   """The task id of the ticker thread, or None."""
@@ -238,7 +238,7 @@ class TestStepMode(cytest.TestCase):
 
   def steps_and_forks(self, goal, *args):
     before = curry.stats()
-    values = list(curry.eval(goal, *args, converter='topython'))
+    values = list(curry.eval((goal)(*args)))
     after = curry.stats()
     return (
         values, after['steps'] - before['steps']
@@ -325,7 +325,7 @@ report(value=value, status=cyrt.ticker_status(), thread=ticker_thread())
     lines = run_child(self, STEP_MODE, '''
 for mode in ['steps:65536', 'steps:1000']:
   curry.reload(
-      {'backend': 'cxx', 'rotation': mode, 'defaultconverter': 'topython'}
+      {'backend': 'cxx', 'rotation': mode}
     )
   M = curry.import_('CxxRewrite')
   before = curry.stats()['steps']
@@ -351,7 +351,7 @@ class TestTimeMode(cytest.TestCase):
     steps.  The bound on the seconds is generous (see GENEROUS_SECONDS).
     '''
     lines = run_child(self, TIME_MODE, '''
-next(curry.eval(M.plusOne, 1))  # the first evaluation starts the ticker
+next(curry.eval((M.plusOne)(1)))  # the first evaluation starts the ticker
 before = curry.stats()['steps']
 t0 = time.monotonic()
 value = next(curry.eval(M.fair))
@@ -486,7 +486,7 @@ report(
     '''
     lines = run_child(self, TIME_MODE, '''
 import signal
-next(curry.eval(M.plusOne, 1))  # the first evaluation starts the ticker
+next(curry.eval((M.plusOne)(1)))  # the first evaluation starts the ticker
 cyrt.ticker_enter(%(quantum_ns)d)
 status_parent = cyrt.ticker_status()
 r, w = os.pipe()
@@ -555,14 +555,14 @@ report(
     lines = run_child(self, TIME_MODE, '''
 import resource
 curry.reload({
-    'backend': 'cxx', 'rotation': %(time)r, 'defaultconverter': 'topython'
+    'backend': 'cxx', 'rotation': %(time)r
   , 'interpret': 'new'
   })
 M = curry.import_('CxxRewrite')
 resource.setrlimit(resource.RLIMIT_NPROC, (1, 1))
 def attempt():
   try:
-    return {'value': next(curry.eval(M.plusOne, 1)), 'error': None}
+    return {'value': next(curry.eval((M.plusOne)(1))), 'error': None}
   except RuntimeError as error:
     return {'value': None, 'error': str(error)}
 first = attempt()
@@ -575,7 +575,7 @@ report(
   )
 # Step mode needs no thread.
 curry.reload({
-    'backend': 'cxx', 'rotation': %(steps)r, 'defaultconverter': 'topython'
+    'backend': 'cxx', 'rotation': %(steps)r
   , 'interpret': 'new'
   })
 M = curry.import_('CxxRewrite')
@@ -605,10 +605,10 @@ report(value=next(curry.eval(M.fair)), status=cyrt.ticker_status())
     at least one nanosecond).
     '''
     from curry.backends.cxx import cyrtbindings as cyrt
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     istate = interp.backend.get_interpreter_state(interp)
     M = curry.import_('CxxRewrite')
-    goal = curry.expr(M.plusOne, 1)
+    goal = cytest.raw.expr(M.plusOne, 1, typed=True)
     with self.assertRaisesRegex(ValueError, 'quantum above zero'):
       cyrt.RuntimeStateBase(istate, goal, False, cyrt.NOLIMIT, 0, 0)
     with self.assertRaisesRegex(ValueError, 'quantum above zero'):
@@ -630,11 +630,11 @@ S = curry.import_('StackGuard')
 results = {}
 for mode in ['time:10ms', 'steps:65536']:
   curry.reload(
-      {'backend': 'cxx', 'rotation': mode, 'defaultconverter': 'topython'}
+      {'backend': 'cxx', 'rotation': mode}
     )
   S = curry.import_('StackGuard')
   before = curry.stats()['steps']
-  value = list(curry.eval(S.lastOfRange, 200000))
+  value = list(curry.eval((S.lastOfRange)(200000)))
   results[mode] = [value, curry.stats()['steps'] - before]
 report(results=results)
 ''')

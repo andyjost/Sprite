@@ -48,7 +48,7 @@ class TestErrorsRoot(unittest.TestCase):
   def test_evaluation_error_is_caught_by_except_exception(self):
     P = curry.import_('Prelude')
     try:
-      list(curry.eval(curry.expr(P.error, 'boom')))
+      list(curry.eval((P.error)('boom')))
     except Exception as e:
       self.assertIsInstance(e, E.EvaluationError)
       self.assertIsInstance(e, E.CurryError)
@@ -58,8 +58,8 @@ class TestErrorsRoot(unittest.TestCase):
 
   def test_suspension_is_a_curry_error(self):
     P = curry.import_('Prelude')
-    x = curry.free()
-    goal = curry.expr(getattr(P, '=:='), curry.expr(getattr(P, '+'), x, 1), 3)
+    x = curry.free('x')
+    goal = (getattr(P, '=:='))((getattr(P, '+'))(x, 1), 3)
     with self.assertRaises(E.CurryError) as cm:
       list(curry.eval(goal))
     self.assertIsInstance(cm.exception, E.EvaluationSuspended)

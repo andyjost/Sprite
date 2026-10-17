@@ -7,7 +7,7 @@ section 10).
 '''
 from curry import common
 from io import StringIO
-import curry, unittest
+import cytest, curry, unittest
 import cytest
 
 @unittest.skipIf(curry.flags['backend'] == 'cxx', 'TODO for C++')
@@ -71,7 +71,7 @@ class TestPyIO(cytest.TestCase):
     }
 
   def test_monadic_property1(self):
-    stab = getattr(curry.getInterpreter().prelude, '.symbols')
+    stab = getattr(cytest.raw.interp().prelude, '.symbols')
     monadic_symbols = sorted([
         symbol for symbol, obj in stab.items()
                if obj.info.flags & common.F_MONADIC
@@ -101,39 +101,38 @@ class TestPyIO(cytest.TestCase):
       )
     stdout = StringIO()
     curry._interpreter_.stdout = stdout
-    out = curry.eval(Test.main, converter=None)
+    out = cytest.raw.values(Test.main)
     result = next(out)
     self.assertEqual(stdout.getvalue(), "Hello, World!")
     self.assertEqual(str(result), '()')
 
   @cytest.setio(stdout='')
   def test_nd_io(self):
-    goal = curry.compile("putChar ('a' ? 'b')", 'expr')
+    goal = curry.parse("putChar ('a' ? 'b')")
     self.assertRaisesRegex(
         curry.EvaluationError
       , r'non-determinism in monadic actions occurred'
-      , lambda: list(curry.eval(goal, converter=None))
+      , lambda: list(cytest.raw.values(goal))
       )
 
   @cytest.setio(stdout='')
   def test_nd_io2(self):
-    goal = curry.compile('''putStrLn ("one" ? "two")''', 'expr')
+    goal = curry.parse('''putStrLn ("one" ? "two")''')
     self.assertRaisesRegex(
         curry.EvaluationError
       , r'non-determinism in monadic actions occurred'
-      , lambda: list(curry.eval(goal, converter=None))
+      , lambda: list(cytest.raw.values(goal))
       )
 
-  @cytest.with_flags(defaultconverter='topython')
   @cytest.setio(stdin='muh\ninput\n')
   def test_getChar(self):
-    getChar = curry.symbol('Prelude.getChar')
-    self.assertEqual(list(curry.eval(getChar, converter='default')), ['m'])
+    getChar = curry.import_('Prelude')['getChar']
+    self.assertEqual(list(curry.eval(getChar)), ['m'])
 
   @cytest.setio(stdout='')
   def test_putChar(self):
-    putChar = curry.symbol('Prelude.putChar')
-    IO = curry.symbol('Prelude.IO')
-    Unit = curry.symbol('Prelude.()')
-    self.assertEqual(list(curry.eval(putChar, 'x', converter=None)), [curry.raw_expr(Unit)])
-    self.assertEqual(curry.getInterpreter().stdout.getvalue(), 'x')
+    putChar = curry.import_('Prelude')['putChar']
+    IO = curry.import_('Prelude')['IO']
+    Unit = curry.import_('Prelude')['()']
+    self.assertEqual(list(cytest.raw.values(cytest.raw.expr(putChar, 'x', typed=True))), [cytest.raw.expr(Unit)])
+    self.assertEqual(cytest.raw.interp().stdout.getvalue(), 'x')

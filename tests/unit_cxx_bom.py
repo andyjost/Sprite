@@ -51,7 +51,7 @@ class TestPlainDataBOM(cytest.TestCase):
   @cytest.skipIfInterpreted('the test reads the compiled object of CxxBom')
   def test_value(self):
     module, _ = self.load()
-    self.assertEqual(list(curry.eval(module.main, converter='topython')), [9])
+    self.assertEqual(list(curry.eval(module.main)), [9])
 
   @cytest.skipIfInterpreted('the test reads the compiled object of CxxBom')
   def test_decoded_bom(self):
@@ -220,7 +220,7 @@ class TestPlainDataBOM(cytest.TestCase):
     or an int outside the C++ range with an error that names the key.  A key
     of another backend is left out.
     '''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     def module(metadata):
       ifun = icurry.IFunction(
           'CxxBomMeta.f', 0, True, None, icurry.IBody(icurry.IExempt())
@@ -273,7 +273,7 @@ class TestFunctionNames(cytest.TestCase):
     interpreted from its ICurry: under interpret:all, and under the other
     modes while its object is missing or stale.
     '''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     shlib = getattr(interp.prelude, '.icurry').metadata.get('cxx.shlib')
     if shlib is None:
       self.skipTest(
@@ -291,8 +291,8 @@ class TestFunctionNames(cytest.TestCase):
       prim = 'prim_' + name
       self.assertEqual(len(rows[name]), 1, name)
       self.assertEqual(len(rows[prim]), 1, prim)
-      wrapper = curry.symbol('Prelude.' + name).info
-      primitive = curry.symbol('Prelude.' + prim).info
+      wrapper = curry.import_('Prelude')[name].info
+      primitive = curry.import_('Prelude')[prim].info
       self.assertEqual(wrapper.name, name)
       self.assertEqual(primitive.name, prim)
       self.assertIsNot(wrapper, primitive)
@@ -300,11 +300,9 @@ class TestFunctionNames(cytest.TestCase):
 
   def test_wrapper_normalizes(self):
     '''A module compiled from a string names the wrapper and gets its text.'''
-    goal = curry.compile(
-        '(showsPrec 11 (-2.5 :: Float) "", showsPrec 0 (-3 :: Int) "")', 'expr'
-      )
+    goal = curry.parse('(showsPrec 11 (-2.5 :: Float) "", showsPrec 0 (-3 :: Int) "")')
     self.assertEqual(
-        list(curry.eval(goal, converter='topython')), [('(-2.5)', '-3')]
+        list(curry.eval(goal)), [('(-2.5)', '-3')]
       )
 
   def test_no_two_rows_share_a_name(self):
@@ -313,7 +311,7 @@ class TestFunctionNames(cytest.TestCase):
     whatever the names.  The loader asserts the same of every module when
     it builds the symbol table (interpreter.import_.load).
     '''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     shlib = self.prelude_shlib()
     names = collections.Counter(info.name for _, _, info in shlib.bom.functions)
     self.assertEqual([name for name, n in names.items() if n > 1], [])
@@ -331,7 +329,7 @@ class TestFunctionNames(cytest.TestCase):
     its ICurry: under interpret 'all', and in the compile of the Prelude
     itself.  The table of nonstrictEq said nonStrictEq once.
     '''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     M = getHandle(interp.prelude).backend_handle
     jsonfile = os.path.join(
         config.system_curry_path(), '.curry', config.intermediate_subdir()

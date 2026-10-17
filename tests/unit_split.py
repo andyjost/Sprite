@@ -37,7 +37,7 @@ class TestSplitPrograms(cytest.TestCase):
 
   def values(self, *goal):
     return collections.Counter(
-        tuple(v) for v in curry.eval(*goal, converter='topython')
+        tuple(v) for v in curry.eval(goal[0](*goal[1:]) if len(goal) > 1 else goal[0])
       )
 
   def check(self, program, function):

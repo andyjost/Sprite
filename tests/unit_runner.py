@@ -1154,10 +1154,10 @@ class TestReport(unittest.TestCase):
 # precompiled header those flags select, and the compiler variables of its
 # environment.
 CHILD_TOOLCHAIN = '''
-import curry, os, tempfile
+import cytest, curry, os, tempfile
 from curry import config
 from curry.backends.cxx import toolchain
-cpp2so = toolchain.Cpp2So(curry.getInterpreter())
+cpp2so = toolchain.Cpp2So(cytest.raw.interp())
 flags = list(cpp2so._cxxflags())
 root = config.cxx_pch_root() or tempfile.gettempdir()
 pch = toolchain.PrecompiledHeader(root, config.cxx_tool(), flags)

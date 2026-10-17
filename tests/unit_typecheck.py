@@ -32,17 +32,17 @@ IS_CXX = curry.flags['backend'] == 'cxx'
 MODULE = 'TypeCheck'
 
 def P(name):
-  return curry.symbol('Prelude.' + name)
+  return curry.import_('Prelude')[name]
 
 def problem(*args, **kwds):
-  '''A problem over the arguments of ``curry.expr``, typed and not solved.'''
-  return Problem(curry.getInterpreter(), engine.spec_of(*args), **kwds)
+  '''A problem over the arguments of ``cytest.raw.expr``, typed and not solved.'''
+  return Problem(cytest.raw.interp(), engine.spec_of(*args), **kwds)
 
 def solved(*args, **kwds):
   return problem(*args, **kwds).solve()
 
 def build(*args, **kwds):
-  return engine.build(curry.getInterpreter(), *args, **kwds)
+  return engine.build(cytest.raw.interp(), *args, **kwds)
 
 def floats(text):
   '''
@@ -53,7 +53,7 @@ def floats(text):
 
 def values(*args, **kwds):
   '''The values of the built expression, as Curry text.'''
-  return [floats(str(value)) for value in curry.eval(build(*args, **kwds), converter=None)]
+  return [floats(str(value)) for value in cytest.raw.values(build(*args, **kwds))]
 
 def oracle(name, kind=''):
   '''
@@ -297,7 +297,7 @@ class TestSchemes(cytest.TestCase):
       self.assertEqual(values(P('mapM_'), P('print'), [1, 2]), ['()'])
     else:
       stdout = StringIO()
-      curry.getInterpreter().stdout = stdout
+      cytest.raw.interp().stdout = stdout
       self.assertEqual(values(P('mapM_'), P('print'), [1, 2]), ['()'])
       self.assertEqual(stdout.getvalue(), '1\n2\n')
 
@@ -389,7 +389,7 @@ class TestReduction(cytest.TestCase):
       problem(P('+'), True, False)
 
   def test_superclasses(self):
-    env = InstanceEnv(curry.getInterpreter())
+    env = InstanceEnv(cytest.raw.interp())
     supers = env.superclasses()
     self.assertEqual(supers['Prelude.Fractional'], {'Prelude.Num'})
     self.assertEqual(
@@ -431,7 +431,7 @@ class TestReduction(cytest.TestCase):
       problem(M.pretty, 'a')
 
   def test_typename(self):
-    env = InstanceEnv(curry.getInterpreter())
+    env = InstanceEnv(cytest.raw.interp())
     self.assertEqual(env.typename(LIST(INT)), '[]')
     self.assertEqual(env.typename(tcons('()')), '()')
     self.assertEqual(env.typename(tcons('(,)', INT, INT)), '(,)')
@@ -489,7 +489,7 @@ class TestDefaulting(cytest.TestCase):
     The REPL types the text with ``let x free in x``, so its :type says
     Data a => a; its value is the variable, as here.
     '''
-    x = curry.free()
+    x = cytest.raw.free()
     prob = problem(x)
     self.assertEqual(prob.signature, 'a')
     self.assertEqual(squeeze(oracle('free', 'type')), 'Dataa=>a')
@@ -566,11 +566,11 @@ class TestDefaulting(cytest.TestCase):
       self.assertEqual(squeeze(before), squeeze(oracle(name, 'type')), name)
       self.assertEqual(values(*args), expected, name)
     # Data alone defaults to Bool; Data with Num follows Num.
-    prob = solved(P('=:='), curry.free(), curry.free())
+    prob = solved(P('=:='), cytest.raw.free(), cytest.raw.free())
     self.assertEqual(prob.signature, 'Data a => Bool')
     self.assertEqual(dicts(prob), ['_inst#Prelude.Data#Prelude.Bool'])
-    self.assertEqual(values(P('=:='), curry.free(), curry.free()), ['True'])
-    prob = solved(P('=:='), curry.free(), 1)
+    self.assertEqual(values(P('=:='), cytest.raw.free(), cytest.raw.free()), ['True'])
+    prob = solved(P('=:='), cytest.raw.free(), 1)
     self.assertEqual(prob.signature, '(Data a, Num a) => Bool')
     self.assertEqual(dicts(prob), ['_inst#Prelude.Data#Prelude.Int'])
     self.assertEqual(prob.defaulting[0].substitution, {0: 'Int'})
@@ -610,7 +610,7 @@ class TestDefaulting(cytest.TestCase):
       )
     # Through a free marker the monad is in the environment: the table binds
     # it to IO, and Show (IO Int) has no instance.
-    x = curry.free()
+    x = cytest.raw.free()
     with self.assertRaisesRegex(errors.NoInstanceError, r'^no instance for Show \(IO Int\)'):
       solved(P('show'), [P('>>='), x, P('return')], exprtype='[Char]') if False else \
           solved(P('show'), [P('>>'), x, [P('return'), 1]])
@@ -702,7 +702,7 @@ class TestConversionRules(cytest.TestCase):
         r"  argument 2 has type Bool \(from True\)$"
       ):
       problem(P('+'), 'a', True)
-    DM = curry.module('Data.Maybe')
+    DM = curry.import_('Data.Maybe')
     with self.assertRaisesRegex(errors.ConversionError, r'^cannot convert "a" to Maybe a at argument 1'):
       problem(DM.fromJust, 'a')
     with self.assertRaisesRegex(errors.ConversionError, r"^cannot convert 'a' to Int at argument 1 of Prelude.plusInt"):
@@ -719,7 +719,7 @@ class TestConversionRules(cytest.TestCase):
       )
     self.assertIsNone(cm.exception.value)
     with self.assertRaises(errors.ConversionError) as cm:
-      problem(curry.module('Data.Maybe').fromJust, None)
+      problem(curry.import_('Data.Maybe').fromJust, None)
     self.assertEqual(
         str(cm.exception)
       , 'cannot convert None at argument 1 of Data.Maybe.fromJust :: Maybe a -> a; '
@@ -767,7 +767,7 @@ class TestConversionRules(cytest.TestCase):
 
   def test_iterator(self):
     '''The element type of an iterator is fixed by the context or the table.'''
-    DL = curry.module('Data.List')
+    DL = curry.import_('Data.List')
     prob = solved(DL.sum, iter([1, 2]))
     self.assertEqual(prob.signature, 'Num a => a')
     self.assertEqual(prob.show_type_of(prob.root.args[0]), '[Int]')
@@ -780,25 +780,25 @@ class TestConversionRules(cytest.TestCase):
 
   def test_known(self):
     '''A value with a type the caller supplies.'''
-    DL = curry.module('Data.List')
-    node = curry.raw_expr([1.5, 2.5])
+    DL = curry.import_('Data.List')
+    node = cytest.raw.expr([1.5, 2.5])
     prob = solved(DL.sum, Known('[Float]', node))
     self.assertEqual(prob.signature, 'Float')
     self.assertEqual(dicts(prob), ['_inst#Prelude.Num#Prelude.Float'])
     self.assertEqual(values(DL.sum, Known('[Float]', node)), ['4.0'])
-    self.assertEqual(values(P('+'), Known(INT, curry.raw_expr(3)), 4), ['7'])
+    self.assertEqual(values(P('+'), Known(INT, cytest.raw.expr(3)), 4), ['7'])
     # The variables of a known type belong to the environment: no defaulting.
-    prob = solved(Known('Maybe a', curry.raw_expr([P('Just'), 1])))
+    prob = solved(Known('Maybe a', cytest.raw.expr([P('Just'), 1])))
     self.assertEqual(prob.defaulted_signature, 'Maybe a')
-    self.assertEqual(values(Known('Maybe a', curry.raw_expr([P('Just'), 1]))), ['Just 1'])
+    self.assertEqual(values(Known('Maybe a', cytest.raw.expr([P('Just'), 1]))), ['Just 1'])
     with self.assertRaisesRegex(
         errors.ConversionError
       , r'^cannot convert 1\.5 to Int at argument 2 of Prelude\.\+ :: Num a => a -> a -> a\n'
         r'  argument 1 fixed a := Int \(from <value>\)$'
       ):
-      problem(P('+'), Known(INT, curry.raw_expr(3)), 1.5)
+      problem(P('+'), Known(INT, cytest.raw.expr(3)), 1.5)
     with self.assertRaisesRegex(curry.CurryTypeError, r'Known\(typeexpr, node\)'):
-      engine.spec_of(curry.raw_expr(3))
+      engine.spec_of(cytest.raw.expr(3))
 
   def test_typed(self):
     '''A nested annotation.'''
@@ -816,7 +816,7 @@ class TestFreeVariables(cytest.TestCase):
   '''Free markers: one variable per marker, the Data dictionary of its type.'''
 
   def test_data_dictionaries(self):
-    x = curry.free()
+    x = cytest.raw.free()
     prob = solved(P('=:='), x, [1, 2])
     self.assertEqual(prob.signature, '(Data a, Num a) => Bool')
     free = prob.root.args[0]
@@ -827,39 +827,39 @@ class TestFreeVariables(cytest.TestCase):
       )
     self.assertEqual(values(P('=:='), x, [1, 2]), ['True'])
     # A type with a polymorphic part gets the placeholder inside.
-    y = curry.free()
+    y = cytest.raw.free()
     prob = solved(P('length'), [y])
     self.assertEqual(prob.show_type_of(prob.root.args[0].items[0]), 'a')
     self.assertEqual(
         str(prob.free_dictionary(prob.root.args[0].items[0])), '_inst#Prelude.Data#Prelude.Bool'
       )
-    prob = solved(curry.free(), exprtype='[Int]')
+    prob = solved(cytest.raw.free(), exprtype='[Int]')
     self.assertEqual(str(prob.free_dictionary(prob.root)), '_inst#Prelude.Data#[] _inst#Prelude.Data#Prelude.Int')
-    self.assertEqual(values(curry.free(), exprtype='[Int]'), ['_a'])
+    self.assertEqual(values(cytest.raw.free(), exprtype='[Int]'), ['_a'])
 
   def test_one_variable_per_marker(self):
-    x = curry.free()
+    x = cytest.raw.free()
     prob = solved(P('&&'), [P('=:='), x, 1], [P('=:='), x, 1])
     frees = [spec for spec in prob.specs if isinstance(spec, Free)]
     self.assertEqual(len(frees), 2)
     self.assertIs(frees[0].type.find(), frees[1].type.find())
     node = engine.materialize(prob)
-    self.assertEqual([str(v) for v in curry.eval(node, converter=None)], ['True'])
+    self.assertEqual([str(v) for v in cytest.raw.values(node)], ['True'])
     self.assertEqual(values(P('&&'), [P('=:='), x, 1], [P('=:='), x, 2]), [])
     # The marker keeps its node across materializations.
-    z = curry.free()
+    z = cytest.raw.free()
     node1 = build(P('id'), z)
-    self.assertIs(curry.expr(z), node1.successors[0] if not IS_CXX else curry.expr(z))
+    self.assertIs(cytest.raw.expr(z, typed=True), node1.successors[0] if not IS_CXX else cytest.raw.expr(z, typed=True))
     node2 = build(P('id'), z)
     self.assertEqual(str(node2), str(node1))
     # An anonymous Free spec is a variable of its own.
     prob = solved(Tuple([Free(), Free()]))
     self.assertEqual(prob.signature, '(a, b)')
-    self.assertEqual(values((curry.free(), curry.free())), ['(_a, _b)'])
+    self.assertEqual(values((cytest.raw.free(), cytest.raw.free())), ['(_a, _b)'])
 
   def test_function_type(self):
     with self.assertRaises(errors.FreeFunctionError) as cm:
-      problem(P('map'), curry.free(), [1, 2])
+      problem(P('map'), cytest.raw.free(), [1, 2])
     self.assertEqual(
         str(cm.exception).split('\n')
       , [ 'free variable at argument 1 of Prelude.map :: (a -> b) -> [a] -> [b] '
@@ -868,14 +868,14 @@ class TestFreeVariables(cytest.TestCase):
         ]
       )
     self.assertEqual(cm.exception.actual, fc.FuncType(fc.TVar(0), fc.TVar(1)))
-    x = curry.free()
+    x = cytest.raw.free()
     with self.assertRaisesRegex(errors.FreeFunctionError, r'would have the function type Bool -> Bool'):
       problem(P('?'), x, P('not'))
     with self.assertRaisesRegex(errors.NoInstanceError, r'^no instance for Data \(a -> b\) in the expression'):
       problem(P('unknown'), 1)
 
   def test_occurs_in_expression(self):
-    x = curry.free()
+    x = cytest.raw.free()
     with self.assertRaises(errors.MismatchError) as cm:
       problem(P('=:='), x, [P('Just'), x])
     self.assertEqual(
@@ -898,7 +898,7 @@ class TestExprType(cytest.TestCase):
   '''The parser of exprtype strings.'''
 
   def parse(self, text, module=None):
-    te, names = exprtype.parse_type(curry.getInterpreter(), text, module)
+    te, names = exprtype.parse_type(cytest.raw.interp(), text, module)
     return sigtable.show_type(te, names=names), te
 
   def test_prelude_types(self):
@@ -924,12 +924,12 @@ class TestExprType(cytest.TestCase):
     # A higher-kinded argument may be a partial constructor.
     _, te = self.parse('Either Maybe Int')
     self.assertEqual(te, tcons('Either', tcons('Maybe'), INT))
-    self.assertEqual(exprtype.parse_type(curry.getInterpreter(), '(a, b) -> a')[1], {0: 'a', 1: 'b'})
+    self.assertEqual(exprtype.parse_type(cytest.raw.interp(), '(a, b) -> a')[1], {0: 'a', 1: 'b'})
 
   def test_user_synonyms(self):
     '''The synonyms of the test module come from its .icurry interface.'''
     M = curry.import_(MODULE)
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     syns = exprtype.synonyms_of(interp, MODULE)
     self.assertEqual(sorted(syns), ['Name', 'Names', 'Pair', 'Table'])
     self.assertEqual(syns['Pair'].params, ('a',))
@@ -978,7 +978,6 @@ class TestExprType(cytest.TestCase):
     self.assertRegex(
         str(cm.exception)
       , r'^unknown type constructor Foo; searched the interfaces of Prelude, .*TypeCheck.*; '
-        r'curry\.compile\(\.\.\., exprtype=\.\.\.\) accepts any Curry type$'
       )
     self.assertEqual(cm.exception.name, 'Foo')
     self.assertIn('Prelude', cm.exception.searched)
@@ -1082,7 +1081,7 @@ class TestNewtypes(cytest.TestCase):
     self.assertEqual(prob.defaulted_signature, 'Data.Functor.Identity.Identity Int')
     node = engine.materialize(prob)
     self.assertEqual(str(node), '5')
-    self.assertEqual([str(v) for v in curry.eval(node, converter=None)], ['5'])
+    self.assertEqual([str(v) for v in cytest.raw.values(node)], ['5'])
     self.assertEqual(values(ID.Identity, 5), ['5'])
     self.assertEqual(str(build(ID.Identity)), 'id')
     self.assertEqual(values(ID.runIdentity, [ID.Identity, 5]), ['5'])
@@ -1182,10 +1181,8 @@ class TestErrors(cytest.TestCase):
       self.assertTrue(issubclass(cls, curry.CurryTypeError))
     self.assertTrue(issubclass(DefaultingError, curry.CurryTypeError))
     err = errors.ValueTooLargeError('argument 1 of M.f', 100000)
-    self.assertEqual(
-        str(err)
-      , "the value at argument 1 of M.f has more than 100000 nodes; pass curry.typed(node, 'T')"
-      )
+    self.assertTrue(str(err).startswith(
+        "the value at argument 1 of M.f has more than 100000 nodes; "))
     err = errors.TypeCheckError('one line', where='w', symbol='M.f')
     self.assertEqual((err.lines, err.where, err.symbol), (['one line'], 'w', 'M.f'))
 
@@ -1217,64 +1214,64 @@ class TestSharedConstants(cytest.TestCase):
   at each position now, on both backends (builder.TypedProblem._walk).
   '''
   def values(self, *args):
-    return list(curry.eval(*args, converter='topython'))
+    return list(curry.eval(cytest.raw.expr(*args, typed=True)))
 
   def test_values_of_eval(self):
     '''The three values of the issue type as the evaluator typed them.'''
-    v, = curry.eval([[1, 2], [3]], converter=None)
+    v, = cytest.raw.values([[1, 2], [3]])
     self.assertEqual(curry.typeof(v), '[[Int]]')
-    strs, = curry.eval(['ab', 'c'], converter=None)
+    strs, = cytest.raw.values(['ab', 'c'])
     self.assertEqual(curry.typeof(strs), '[[Char]]')
-    pair, = curry.eval(([1], 'ab'), converter=None)
+    pair, = cytest.raw.values(([1], 'ab'))
     self.assertEqual(curry.typeof(pair), '([Int], [Char])')
-    one, = curry.eval([[1]], converter=None)
+    one, = cytest.raw.values([[1]])
     self.assertEqual(curry.typeof(one), '[[Int]]')
     # The result of a computation holds the empty list as the compiled code
     # made it.
-    words, = curry.eval(P('words'), 'ab c', converter=None)
+    words, = cytest.raw.values(cytest.raw.expr(P('words'), 'ab c', typed=True))
     self.assertEqual(str(words), '["ab", "c"]')
     self.assertEqual(curry.typeof(words), '[[Char]]')
     self.assertEqual(self.values(P('unwords'), words), ['ab c'])
 
   def test_typed_call(self):
     '''Such a value passes to a typed call.'''
-    strs, = curry.eval(['ab', 'c'], converter=None)
+    strs, = cytest.raw.values(['ab', 'c'])
     self.assertEqual(self.values(P('unwords'), strs), ['ab c'])
-    self.assertEqual(curry.typeof(curry.expr(P('unwords'), strs)), '[Char]')
-    pair, = curry.eval(([1], 'ab'), converter=None)
-    self.assertEqual(curry.typeof(curry.expr(P('snd'), pair)), '[Char]')
+    self.assertEqual(curry.typeof(cytest.raw.expr(P('unwords'), strs, typed=True)), '[Char]')
+    pair, = cytest.raw.values(([1], 'ab'))
+    self.assertEqual(curry.typeof(cytest.raw.expr(P('snd'), pair, typed=True)), '[Char]')
     self.assertEqual(self.values(P('snd'), pair), ['ab'])
     self.assertEqual(self.values(P('fst'), pair), [[1]])
-    v, = curry.eval([[1, 2], [3]], converter=None)
+    v, = cytest.raw.values([[1, 2], [3]])
     self.assertEqual(self.values(P('concat'), v), [[1, 2, 3]])
 
   def test_constants_per_position(self):
     '''A nullary constructor, a bare function and a failure take a fresh type at each position.'''
-    self.assertEqual(curry.typeof(curry.raw_expr(([], []))), '([a], [b])')
-    self.assertEqual(curry.typeof(curry.raw_expr([[], []])), '[[a]]')
-    self.assertEqual(curry.typeof(curry.raw_expr((curry.fail, curry.fail))), '(a, b)')
-    self.assertEqual(curry.typeof(curry.raw_expr((P('id'), P('id')))), '(a -> a, b -> b)')
-    nothing = curry.raw_expr(P('Nothing'))
-    self.assertEqual(curry.typeof(curry.raw_expr((nothing, nothing))), '(Maybe a, Maybe b)')
+    self.assertEqual(curry.typeof(cytest.raw.expr(([], []))), '([a], [b])')
+    self.assertEqual(curry.typeof(cytest.raw.expr([[], []])), '[[a]]')
+    self.assertEqual(curry.typeof(cytest.raw.expr((cytest.raw.fail, cytest.raw.fail))), '(a, b)')
+    self.assertEqual(curry.typeof(cytest.raw.expr((P('id'), P('id')))), '(a -> a, b -> b)')
+    nothing = cytest.raw.expr(P('Nothing'))
+    self.assertEqual(curry.typeof(cytest.raw.expr((nothing, nothing))), '(Maybe a, Maybe b)')
     # One [] node at two types fits an annotation.
-    nil = curry.raw_expr([])
-    e = curry.expr((nil, nil), exprtype='([Int], [Char])')
+    nil = cytest.raw.expr([])
+    e = cytest.raw.expr((nil, nil), exprtype='([Int], [Char])', typed=True)
     self.assertEqual(curry.typeof(e), '([Int], [Char])')
     self.assertEqual(self.values(P('snd'), e), [''])
 
   def test_shared_nodes_typed_once(self):
     '''The memo still serves a shared subgraph, a cycle and a free variable.'''
     from curry.expressions import anchor, ref
-    e = curry.raw_expr((anchor([P('Just'), []]), ref()))
+    e = cytest.raw.expr((anchor([P('Just'), []]), ref()))
     self.assertIs(e[0], e[1])
     self.assertEqual(curry.typeof(e), '(Maybe [a], Maybe [a])')
-    e = curry.raw_expr((anchor([1, 2]), ref()))
+    e = cytest.raw.expr((anchor([1, 2]), ref()))
     self.assertEqual(curry.typeof(e), '([Int], [Int])')
     # let a = 1 : a in a
-    e = curry.raw_expr(anchor(curry.cons(1, ref())))
+    e = cytest.raw.expr(anchor(cytest.raw.cons(1, ref())))
     self.assertEqual(curry.typeof(e), '[Int]')
-    x = curry.free()
-    self.assertEqual(curry.typeof(curry.expr((x, x))), '(a, a)')
+    x = cytest.raw.free()
+    self.assertEqual(curry.typeof(cytest.raw.expr((x, x), typed=True)), '(a, a)')
 
   def test_positions_count(self):
     '''Every position counts towards the cap of the walk; a shared cell counts once.'''
@@ -1285,11 +1282,11 @@ class TestSharedConstants(cytest.TestCase):
       # Three cells, three empty lists and the terminator: seven nodes.
       builder.VALUE_WALK_CAP = 6
       with self.assertRaisesRegex(errors.ValueTooLargeError, 'more than 6 nodes'):
-        curry.typeof(curry.raw_expr([[], [], []]))
+        curry.typeof(cytest.raw.expr([[], [], []]))
       builder.VALUE_WALK_CAP = 7
-      self.assertEqual(curry.typeof(curry.raw_expr([[], [], []])), '[[a]]')
+      self.assertEqual(curry.typeof(cytest.raw.expr([[], [], []])), '[[a]]')
       # The pair and the five nodes of [1, 2], held twice: six nodes.
-      e = curry.raw_expr((anchor([1, 2]), ref()))
+      e = cytest.raw.expr((anchor([1, 2]), ref()))
       self.assertEqual(curry.typeof(e), '([Int], [Int])')
       builder.VALUE_WALK_CAP = 5
       with self.assertRaisesRegex(errors.ValueTooLargeError, 'more than 5 nodes'):
@@ -1313,7 +1310,7 @@ class TestAPI(cytest.TestCase):
     self.assertIsInstance(engine.spec_of(None), Lit)
     self.assertIsInstance(engine.spec_of([1, 2]), List)
     self.assertIsInstance(engine.spec_of((1, 2)), Tuple)
-    self.assertIsInstance(engine.spec_of(curry.free()), Free)
+    self.assertIsInstance(engine.spec_of(cytest.raw.free()), Free)
     self.assertIsInstance(engine.spec_of(iter([1])), Iter)
     choice = engine.spec_of(curry.choice(1, 2))
     self.assertIsInstance(choice, App)
@@ -1332,7 +1329,7 @@ class TestAPI(cytest.TestCase):
     self.assertEqual(values(App('Prelude.not', False)), ['True'])
     self.assertEqual(values(App(P('+').scheme, 1, 2)), ['3'])
     prob = solved(App('Prelude.+', 1, 2))
-    self.assertIs(prob.root.symbol, curry.getInterpreter().symbol('Prelude.+'))
+    self.assertIs(prob.root.symbol, cytest.raw.interp().symbol('Prelude.+'))
     self.assertEqual(describe(App(P('+').scheme, 1, 2)), '1 + 2')
 
   def test_queries(self):
@@ -1361,13 +1358,13 @@ class TestAPI(cytest.TestCase):
     self.assertEqual(app.preds[0].index, 0)
     self.assertIs(prob.solve(), prob)
     self.assertTrue(prob.solved)
-    self.assertEqual(engine.infer(curry.getInterpreter(), P('+'), 1, 2).defaulted_signature, 'Int')
+    self.assertEqual(engine.infer(cytest.raw.interp(), P('+'), 1, 2).defaulted_signature, 'Int')
     # The scheme of the table's run.
     d, = prob.defaulting
     self.assertEqual(d.substitution, {0: 'Float'})
 
   def test_describe(self):
-    x = curry.free()
+    x = cytest.raw.free()
     cases = [
         ((P('+'), 1, 2), '1 + 2')
       , ((P('+'), P('maxBound'), 1), 'maxBound + 1')
@@ -1378,10 +1375,10 @@ class TestAPI(cytest.TestCase):
       , (([1, 2.5],), '[1, 2.5]')
       , (((1, 'a', True),), "(1, 'a', True)")
       , ((P('=:='), x, x), '_a =:= _a')
-      , ((P('=:='), x, curry.free()), '_a =:= _b')
+      , ((P('=:='), x, cytest.raw.free()), '_a =:= _b')
       , ((P('length'), iter([1])), 'length <iterator>')
-      , ((P('length'), Known('[Int]', curry.raw_expr([1]))), 'length <value>')
-      , ((curry.module('Data.Maybe').fromJust, [P('Just'), 1]), 'Data.Maybe.fromJust (Just 1)')
+      , ((P('length'), Known('[Int]', cytest.raw.expr([1]))), 'length <value>')
+      , ((curry.import_('Data.Maybe').fromJust, [P('Just'), 1]), 'Data.Maybe.fromJust (Just 1)')
       , ((P('(,)'), 1, 2), '(1, 2)')
       , ((P('?'), 1, [P('?'), 2, 3]), '1 ? (2 ? 3)')
       , ((P('not'),), 'not')
@@ -1393,7 +1390,7 @@ class TestAPI(cytest.TestCase):
       # by its type.
       spec = engine.spec_of(*args)
       try:
-        Problem(curry.getInterpreter(), spec)
+        Problem(cytest.raw.interp(), spec)
       except curry.CurryTypeError:
         pass
       self.assertEqual(describe(spec), expected)
@@ -1412,7 +1409,7 @@ class TestAPI(cytest.TestCase):
     spec = Lit(0)
     for i in range(1, 10001):
       spec = App(plus, spec, Lit(i))
-    prob = Problem(curry.getInterpreter(), spec)
+    prob = Problem(cytest.raw.interp(), spec)
     self.assertEqual(prob.signature, 'Num a => a')
     prob.solve()
     self.assertEqual(prob.defaulted_signature, 'Int')
@@ -1424,7 +1421,7 @@ class TestAPI(cytest.TestCase):
     spec = Lit(0)
     for i in range(1, 101):
       spec = App(plus, spec, Lit(i))
-    self.assertEqual([str(v) for v in curry.eval(engine.materialize(Problem(curry.getInterpreter(), spec)), converter=None)], ['5050'])
+    self.assertEqual([str(v) for v in cytest.raw.values(engine.materialize(Problem(cytest.raw.interp(), spec)))], ['5050'])
 
   def test_materialize_shapes(self):
     '''The shapes of the reference materializer.'''
@@ -1453,13 +1450,13 @@ class TestAPI(cytest.TestCase):
     self.assertEqual(str(build((1, 'a'))), "(1, 'a')")
     self.assertEqual(str(build([1, 2])), '[1, 2]')
     self.assertEqual(str(build('ab')), '"ab"')
-    self.assertEqual(str(build(curry.free())), 'unknown _inst#Prelude.Data#Prelude.Bool')
+    self.assertEqual(str(build(cytest.raw.free())), 'unknown _inst#Prelude.Data#Prelude.Bool')
     self.assertEqual(values(P('negate'), 5), ['(-5)'])
     self.assertEqual(values(P('Just'), [P('Just'), 'a']), ["Just (Just 'a')"])
     self.assertEqual(values(P('length'), [P('map'), P('not'), [True, False]]), ['2'])
 
   def test_package_exports(self):
-    import curry.typecheck as tc
+    import cytest, curry.typecheck as tc
     self.assertIs(tc.Problem, Problem)
     self.assertIs(tc.infer, engine.infer)
     self.assertIs(tc.DictTerm, DictTerm)

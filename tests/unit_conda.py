@@ -820,7 +820,7 @@ class TestPackageRules(cytest.TestCase):
       raise unittest.SkipTest('root writes everywhere')
     from curry.backends.cxx import toolchain
     from curry.backends.cxx import compiler as cxxcompiler
-    step = toolchain.Cpp2So(curry.getInterpreter())
+    step = toolchain.Cpp2So(cytest.raw.interp())
     with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
       cppfile = os.path.join(tmpdir, 'M.cpp')
       sofile = os.path.join(tmpdir, 'M.so')
@@ -867,7 +867,7 @@ class TestPackageRules(cytest.TestCase):
     original = toolchain.installation_path()
     subdir = os.path.join('curry', '.curry', config.intermediate_subdir())
     prelude_so = os.path.join(original, subdir, 'Prelude.so')
-    step = toolchain.Cpp2So(curry.getInterpreter())
+    step = toolchain.Cpp2So(cytest.raw.interp())
     if not os.path.isfile(prelude_so) or not step.stamp_is_current(prelude_so):
       raise unittest.SkipTest('the installed library has no current object')
     with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
@@ -902,7 +902,7 @@ class TestPackageRules(cytest.TestCase):
         , '_system.pexec = counting_pexec'
         , 'from curry.lib import Prelude'
         , 'L = curry.import_("Data.List")'
-        , 'value = list(curry.eval(curry.expr(L.last, [1, 2, 3]), converter="topython"))'
+        , 'value = list(curry.eval(L.last([1, 2, 3])))'
         , 'with open("/proc/self/maps") as stream:'
         , '  maps = stream.read()'
         , 'print(json.dumps({'

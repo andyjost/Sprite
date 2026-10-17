@@ -22,7 +22,7 @@ import curry, unittest
 
 def values(goal):
   '''The values of a goal as Python objects, in order.'''
-  return list(curry.eval(goal, converter='topython'))
+  return list(curry.eval(goal))
 
 ORDER = '''
 loopInt :: Int -> Int
@@ -141,7 +141,7 @@ blockedAtHead = (v + 1) ? ((v =:= 1) &> (u + 1))
 
 def texts(*args):
   '''The values of a goal as Curry text, in order.'''
-  return [str(value) for value in curry.eval(*args, converter=None)]
+  return [str(value) for value in cytest.raw.values(cytest.raw.expr(*args, typed=True))]
 
 class TestSuspensionOrder(cytest.TestCase):
   '''
@@ -202,7 +202,7 @@ class TestNormalFormOfNarrowedVariable(cytest.TestCase):
     M = curry.compile(NARROWED)
     got = []
     with self.assertRaises(EvaluationSuspended):
-      for value in curry.eval(M.pickNamed, 1, converter=None):
+      for value in cytest.raw.values(cytest.raw.expr(M.pickNamed, 1, typed=True)):
         got.append(str(value))
     self.assertEqual(got, ['UB UA'])
 

@@ -38,12 +38,12 @@ SHORT_TIMEOUT = 30
 # Evaluates goals of the test module and prints one line per goal: its name
 # and the sorted values as Curry text, or the name of the error.
 CHILD = '''
-import curry
+import cytest, curry
 curry.reload(%(flags)r)
 M = curry.import_('Pairing')
 for name in %(goals)r:
   try:
-    values = curry.eval(getattr(M, name), converter=None)
+    values = cytest.raw.values(getattr(M, name))
     print(name, sorted(str(value) for value in values))
   except Exception as exc:
     print(name, 'error', type(exc).__name__, str(exc))

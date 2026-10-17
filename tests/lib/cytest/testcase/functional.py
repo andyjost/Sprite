@@ -12,6 +12,7 @@ the oracle's output.
 The behavior can be fine-tuned by setting additional class variables in the
 subclass.  See the documentation for FunctionalTestCase.
 '''
+from .. import raw
 from ..clean import clean
 from glob import glob
 from .. import oracle
@@ -50,7 +51,6 @@ class FunctionalTestCaseMetaclass(type):
     defs.setdefault('SKIP'               , None)
     defs.setdefault('CLEAN_KWDS'         , None)
     defs.setdefault('COMPARISON_METHOD'  , None)
-    defs.setdefault('CONVERTER'          , None)
     defs.setdefault('DO_CLEAN'           , None)
     defs.setdefault('ORACLE_TIMEOUT'     , None)
     defs.setdefault('TTY'                , None)
@@ -67,7 +67,6 @@ class FunctionalTestCaseMetaclass(type):
     defs['COMPARISON_METHOD'] = TSKeywords(
         defs['COMPARISON_METHOD'], callable, unittest.TestCase.assertEqual
       )
-    defs['CONVERTER']         = TSKeywords(defs['CONVERTER']        , str, None)
     defs['DO_CLEAN']          = TSKeywords(defs['DO_CLEAN']         , bool, True)
     defs['ORACLE_TIMEOUT']    = TSKeywords(defs['ORACLE_TIMEOUT']   , int, 20)
     defs['TTY']               = TSKeywords(defs['TTY']              , tuple, None)
@@ -163,10 +162,6 @@ class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclas
       COMPARISON_METHOD [Optional, callable or {str:callable}, assertEqual]
         Specifies the method used to compare results.
 
-      CONVERTER [Optional, str or {str:str}, default=None]
-        Specifies the 'defaultconverter' flag.  This controls how Curry values are
-        converted to Python before being output by the REPL.
-
       DO_CLEAN [Optional, bool or {str:bool}, default=False]
         Indicates whether to perform the cleanup step by calling
         ``clean.clean``.  This is a string-to-string transformation applied to
@@ -260,7 +255,7 @@ class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclas
         else tty.redirect_stdout(stdout) if stdout_text is not None
         else contextlib.nullcontext()
       )
-    interp = curry.getInterpreter()
+    interp = raw.interp()
     streams = interp.stdin, interp.stdout, interp.stderr
     try:
       with stdin_context:
@@ -292,7 +287,6 @@ class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclas
     Load the specified module, execute each goal, and compare with goldens
     provided by the oracle.
     '''
-    curry.flags['defaultconverter'] = self.CONVERTER[testname]
     module = curry.import_(testname)
     num_tests_run = 0
     failures = []
@@ -324,7 +318,7 @@ class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclas
               )
           continue
 
-      sprite_answer_raw = '\n'.join([curry.show_value(x) for x in results])
+      sprite_answer_raw = '\n'.join([curry.show(x) for x in results])
       sprite_answer_raw += '\n'
 
       if self.DO_CLEAN[testname]:
@@ -360,7 +354,7 @@ class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclas
     Evaluates a Curry expression under Sprite.  Subclasses may override this to
     control evaluation.
     '''
-    return curry.eval(goal, converter='default')
+    return curry.eval(goal)
 
 
 def value_arity(goal):

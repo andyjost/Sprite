@@ -55,7 +55,7 @@ class ChildTests(cytest.TestCase):
   TIMEOUT = 120
 
   PREAMBLE = '''
-import curry, gc, os, sys, weakref
+import cytest, curry, gc, os, sys, weakref
 from curry.backends.cxx import cyrtbindings as cyrt
 curry.reload({'backend': 'cxx'})
 G = curry.import_('CxxGc')
@@ -103,13 +103,14 @@ class TestMps(ChildTests):
     collects on its own, and the heap walks (the in-place rewrites left
     consistent pad objects).
     '''
-    proc = self.run_child('''
-table = next(curry.eval(G.table, 300))
-assert curry.topython(next(curry.eval(G.walk, 300000))) == 300000
-assert curry.topython(next(curry.eval(G.psort, 7))) == list(range(1, 8))
-assert curry.topython(next(curry.eval(G.countQueens, 6))) == 4
-assert curry.topython(next(curry.eval(G.inner, 2000))) == [2000]
-assert curry.topython(next(curry.eval(G.lastOf, iter(range(200))))) == 199
+    proc = self.run_child('''import cytest
+
+table = next(curry.eval((G.table)(300)))
+assert cytest.raw.interp().topython(next(curry.eval((G.walk)(300000)))) == 300000
+assert cytest.raw.interp().topython(next(curry.eval((G.psort)(7)))) == list(range(1, 8))
+assert cytest.raw.interp().topython(next(curry.eval((G.countQueens)(6)))) == 4
+assert cytest.raw.interp().topython(next(curry.eval((G.inner)(2000)))) == [2000]
+assert cytest.raw.interp().topython(next(curry.eval((G.lastOf)(iter(range(200)))))) == 199
 text = str(table)
 assert text, 'the table lost its text'
 collections = cyrt.gc_collections()
@@ -126,13 +127,14 @@ print('stats', sorted(cyrt.gc_backend_stats().items()))
     A node Python holds keeps its address and its content across the
     collections of a long evaluation and an explicit collection.
     '''
-    self.run_child('''
-e = curry.raw_expr([1, 2, 3, [4, 5], 'ab'])
+    self.run_child('''import cytest
+
+e = cytest.raw.expr([1, 2, 3, [4, 5], 'ab'])
 address = e.id()
 text = repr(e)
-assert curry.topython(next(curry.eval(G.walk, 300000))) == 300000
+assert cytest.raw.interp().topython(next(curry.eval((G.walk)(300000)))) == 300000
 cyrt.gc_collect()
-assert curry.topython(next(curry.eval(G.walk, 300000))) == 300000
+assert cytest.raw.interp().topython(next(curry.eval((G.walk)(300000)))) == 300000
 assert e.id() == address, (e.id(), address)
 assert repr(e) == text, (repr(e), text)
 assert cyrt.gc_collections() > 0
@@ -141,7 +143,7 @@ assert cyrt.gc_collections() > 0
   def test_explicit_collection_reclaims(self):
     '''A value Python drops is reclaimed by gc_collect.'''
     self.run_child('''
-table = next(curry.eval(G.table, 3000))
+table = next(curry.eval((G.table)(3000)))
 assert str(table), 'the table lost its text'
 cyrt.gc_collect()
 before = cyrt.gc_node_count()
@@ -160,21 +162,22 @@ assert after < before, (after, before)
     collector; one consumed to the end by the step; one never evaluated is
     kept while Python holds the node.
     '''
-    self.run_child('''
+    self.run_child('''import cytest
+
 def gen(n):
   for i in range(n):
     yield i
 
 g = gen(3)
 ref = weakref.ref(g)
-assert curry.topython(next(curry.eval(F.total, g))) == 3
+assert cytest.raw.interp().topython(next(curry.eval((F.total)(g)))) == 3
 del g
 gc.collect()
 assert ref() is None, 'an exhausted iterator was kept'
 
 g = gen(100)
 ref = weakref.ref(g)
-assert curry.topython(next(curry.eval(F.firstTwo, g))) == [0, 1]
+assert cytest.raw.interp().topython(next(curry.eval((F.firstTwo)(g)))) == [0, 1]
 del g
 gc.collect()
 cyrt.gc_collect()
@@ -183,7 +186,7 @@ assert ref() is None, 'the iterator of a dead node was kept'
 
 g = gen(5)
 ref = weakref.ref(g)
-e = curry.raw_expr(g)
+e = cytest.raw.expr(g)
 del g
 gc.collect()
 cyrt.gc_collect()
@@ -200,13 +203,14 @@ assert ref() is None, 'the iterator was kept after the node was dropped'
     The queue of a set function is destroyed when its SetEval node dies: the
     node is finalized, and the count of queues returns to its baseline.
     '''
-    self.run_child('''
-assert curry.topython(next(curry.eval(G.inner, 10))) == [10]
+    self.run_child('''import cytest
+
+assert cytest.raw.interp().topython(next(curry.eval((G.inner)(10)))) == [10]
 cyrt.gc_collect()
 cyrt.gc_collect()
 baseline = cyrt.gc_queue_count()
-assert curry.topython(next(curry.eval(G.inner, 3000))) == [3000]
-assert curry.topython(next(curry.eval(G.psort, 6))) == list(range(1, 7))
+assert cytest.raw.interp().topython(next(curry.eval((G.inner)(3000)))) == [3000]
+assert cytest.raw.interp().topython(next(curry.eval((G.psort)(6)))) == list(range(1, 7))
 grown = cyrt.gc_queue_count()
 cyrt.gc_collect()
 cyrt.gc_collect()
@@ -220,11 +224,12 @@ print('queues', baseline, grown, after)
     An evaluation nested in a Python callback collects inside the step of
     the enclosing one; the thread root keeps what the suspended step holds.
     '''
-    self.run_child('''
+    self.run_child('''import cytest
+
 def items():
   for i in range(3):
-    yield curry.topython(next(curry.eval(G.walk, 100000))) + i
-assert curry.topython(next(curry.eval(G.lastOf, iter(items())))) == 100002
+    yield cytest.raw.interp().topython(next(curry.eval((G.walk)(100000)))) + i
+assert cytest.raw.interp().topython(next(curry.eval((G.lastOf)(iter(items()))))) == 100002
 assert cyrt.gc_collections() > 0
 ''')
 
@@ -233,12 +238,13 @@ assert cyrt.gc_collections() > 0
     SPRITE_GC_THRESHOLD, or gc_set_threshold, runs a full collection every
     so many nodes; the values hold across them.
     '''
-    self.run_child('''
+    self.run_child('''import cytest
+
 cyrt.gc_set_threshold(1 << 14)
 assert cyrt.gc_threshold() == 1 << 14
-table = next(curry.eval(G.table, 300))
-assert curry.topython(next(curry.eval(G.walk, 50000))) == 50000
-assert curry.topython(next(curry.eval(G.psort, 6))) == list(range(1, 7))
+table = next(curry.eval((G.table)(300)))
+assert cytest.raw.interp().topython(next(curry.eval((G.walk)(50000)))) == 50000
+assert cytest.raw.interp().topython(next(curry.eval((G.psort)(6)))) == list(range(1, 7))
 assert str(table), 'the table lost its text'
 stats = cyrt.gc_backend_stats()
 assert stats['full_collections'] >= 40, stats
@@ -250,10 +256,11 @@ print('full', stats['full_collections'])
     The fault counter sits on top of the MPS handler and counts the barrier
     faults; the statistics report them.
     '''
-    proc = self.run_child('''
-table = next(curry.eval(G.table, 300))
-assert curry.topython(next(curry.eval(G.walk, 300000))) == 300000
-assert curry.topython(next(curry.eval(G.psort, 7))) == list(range(1, 8))
+    proc = self.run_child('''import cytest
+
+table = next(curry.eval((G.table)(300)))
+assert cytest.raw.interp().topython(next(curry.eval((G.walk)(300000)))) == 300000
+assert cytest.raw.interp().topython(next(curry.eval((G.psort)(7)))) == list(range(1, 8))
 stats = cyrt.gc_backend_stats()
 assert stats['counting_faults'] == 1, stats
 assert cyrt.gc_fault_count() == stats['faults'], stats
@@ -265,11 +272,12 @@ print('faults', cyrt.gc_fault_count(), 'collections', stats['collections']
 
   def test_stress_mode(self):
     '''A full collection at every safepoint keeps the values right.'''
-    self.run_child('''
+    self.run_child('''import cytest
+
 assert cyrt.gc_stress()
-assert curry.topython(next(curry.eval(G.psort, 5))) == list(range(1, 6))
-assert curry.topython(next(curry.eval(G.walk, 500))) == 500
-assert curry.topython(next(curry.eval(G.inner, 50))) == [50]
+assert cytest.raw.interp().topython(next(curry.eval((G.psort)(5)))) == list(range(1, 6))
+assert cytest.raw.interp().topython(next(curry.eval((G.walk)(500)))) == 500
+assert cytest.raw.interp().topython(next(curry.eval((G.inner)(50)))) == [50]
 stats = cyrt.gc_backend_stats()
 assert stats['full_collections'] >= 500, stats
 ''', env={'SPRITE_GC_STRESS': '1'})
@@ -279,12 +287,13 @@ assert stats['full_collections'] >= 500, stats
     With Python's faulthandler enabled at startup, the MPS handler is
     installed after it and takes the barrier faults; nothing is printed.
     '''
-    proc = self.run_child('''
+    proc = self.run_child('''import cytest
+
 import faulthandler
 assert faulthandler.is_enabled()
-table = next(curry.eval(G.table, 300))
-assert curry.topython(next(curry.eval(G.walk, 300000))) == 300000
-assert curry.topython(next(curry.eval(G.psort, 7))) == list(range(1, 8))
+table = next(curry.eval((G.table)(300)))
+assert cytest.raw.interp().topython(next(curry.eval((G.walk)(300000)))) == 300000
+assert cytest.raw.interp().topython(next(curry.eval((G.psort)(7)))) == list(range(1, 8))
 print('faults', cyrt.gc_fault_count())
 ''', env={'PYTHONFAULTHANDLER': '1'})
     self.assertNotIn('Fatal Python error', proc.stderr)
@@ -296,13 +305,14 @@ print('faults', cyrt.gc_fault_count())
     in front of the MPS handler.  The program still completes; this test
     records what Python prints on the first barrier fault.
     '''
-    proc = self.run_child('''
+    proc = self.run_child('''import cytest
+
 import faulthandler
-table = next(curry.eval(G.table, 300))
+table = next(curry.eval((G.table)(300)))
 faulthandler.enable()
-assert curry.topython(next(curry.eval(G.walk, 300000))) == 300000
-assert curry.topython(next(curry.eval(G.psort, 8))) == list(range(1, 9))
-assert curry.topython(next(curry.eval(G.countQueens, 7))) == 40
+assert cytest.raw.interp().topython(next(curry.eval((G.walk)(300000)))) == 300000
+assert cytest.raw.interp().topython(next(curry.eval((G.psort)(8)))) == list(range(1, 9))
+assert cytest.raw.interp().topython(next(curry.eval((G.countQueens)(7)))) == 40
 print('faults', cyrt.gc_fault_count(), 'enabled', faulthandler.is_enabled())
 ''')
     self.assertIn('faults', proc.stdout)

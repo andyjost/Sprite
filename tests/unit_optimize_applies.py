@@ -38,7 +38,7 @@ def applies(iobj, modules=None):
   resolves the aliases; by default, the modules of the interpreter.
   '''
   if modules is None:
-    modules = curry.getInterpreter().modules
+    modules = cytest.raw.interp().modules
   found = []
   def visitor(node, **kwds):
     if analysis.is_apply(node, modules):
@@ -521,7 +521,7 @@ class ApplyTestCase(ModuleTestCase):
     return module
 
   def values(self, module, goal):
-    return list(curry.eval(getattr(module, goal), converter='topython'))
+    return list(curry.eval(getattr(module, goal)))
 
 
 class TestSaturateApplies(ApplyTestCase):
@@ -592,7 +592,7 @@ class TestSaturateApplies(ApplyTestCase):
       , analysis.unfolding_text(types.ICPCall('Prelude.Just', 1, []))
       )
     # No apply with a known head remains in the module.
-    self.assertFalse(known_applies(imodule, curry.getInterpreter().modules))
+    self.assertFalse(known_applies(imodule, cytest.raw.interp().modules))
     # The nullary functions record what they unfold to; the others do not.
     self.assertEqual(
         fn['g'].metadata[analysis.UNFOLDING_KEY]
@@ -642,7 +642,7 @@ class TestSaturateApplies(ApplyTestCase):
           fn[goal].body.block.stmt.expr, types.IFCall(f, args), goal
         )
     self.assertEqual(ifcalls(fn['dollarVar']), [optimize.APPLY])
-    modules = curry.getInterpreter().modules
+    modules = cytest.raw.interp().modules
     self.assertEqual(
         analysis.resolve_alias('%s.dollarVar' % name, modules, 2)
       , optimize.APPLY
@@ -855,7 +855,7 @@ class TestPrelude(cytest.TestCase):
     The staged Prelude was compiled with the pass: its metadata names the
     unfoldings, and the modules that import it collapse their chains.
     '''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     imodule = getattr(interp.prelude, '.icurry')
     self.assertTrue(imodule.metadata[passkey()])
     ne = imodule.functions[self.IMPL_NE_INT]
@@ -875,9 +875,9 @@ class TestPrelude(cytest.TestCase):
       self.assertNotIn(
           analysis.UNFOLDING_KEY, imodule.functions[name].metadata, name
         )
-    goal = curry.compile('(3 /= 4, 3 /= 3, mod 7 3 /= 0)', 'expr')
+    goal = curry.parse('(3 /= 4, 3 /= 3, mod 7 3 /= 0)')
     self.assertEqual(
-        list(curry.eval(goal, converter='topython')), [(True, False, True)]
+        list(curry.eval(goal)), [(True, False, True)]
       )
 
   def test_prelude_source(self):
@@ -893,7 +893,7 @@ class TestPrelude(cytest.TestCase):
     self.assertGreaterEqual(len(known_before), 100)
     # chr $ ... and lex $ ...: chains through the alias of apply.
     self.assertIn('Prelude.$', [iapply.symbolname for iapply in known_before])
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     for ifun in imodule.functions.values():
       optimize.saturate_applies(interp, ifun, imodule, modules=modules)
     after = applies(imodule, modules)
@@ -961,7 +961,7 @@ class TestCompiledModules(cytest.TestCase):
         (stem, counting(stem, optimizer)) for stem, optimizer in original
       ]
     try:
-      interp = curry.getInterpreter()
+      interp = cytest.raw.interp()
       self.assertNotIn('Prelude', interp.modules)
       imodule = getattr(interp.prelude, '.icurry')
       self.assertEqual(dict(counts), {})
@@ -970,9 +970,9 @@ class TestCompiledModules(cytest.TestCase):
         self.assertTrue(imodule.metadata[stem % backend], stem)
       self.assertTrue(imodule.metadata['%s.is_merged' % backend])
       # A module imported from its ICurry is optimized, once.
-      goal = curry.compile('3 /= 4', 'expr')
+      goal = curry.parse('3 /= 4')
       self.assertTrue(counts)
-      self.assertEqual(list(curry.eval(goal, converter='topython')), [True])
+      self.assertEqual(list(curry.eval(goal)), [True])
     finally:
       optimize.default_optimizers[:] = original
 
@@ -1025,7 +1025,7 @@ class TestBenchmarkShapes(cytest.TestCase):
     plan = plans.makeplan(
         None, plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON
       )
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     # The heads are nullary functions of the Prelude, known through the
     # metadata of the installed Prelude once it is loaded.
     interp.prelude

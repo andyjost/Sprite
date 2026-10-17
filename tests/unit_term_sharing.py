@@ -120,9 +120,9 @@ class TestTermSharing(cytest.TestCase):
     self.assertEqual([a.value for a in second], [(1, 1)])
     self.assertEqual(list(curry.eval(t)), [(0, 0), (1, 1)])
 
-  def test_old_builders_keep_sharing(self):
+  def test_internal_builders_keep_sharing(self):
     c = self.C.coin
-    for build in (curry.expr, curry.raw_expr):
+    for build in (cytest.raw.expr, lambda *args, **kwds: cytest.raw.expr(*args, typed=True, **kwds)):
       node = build((c, c))
-      self.assertEqual(list(curry.eval(node, converter='topython')),
+      self.assertEqual(list(curry.eval(node)),
           [(0, 0), (1, 1)])

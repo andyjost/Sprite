@@ -10,8 +10,8 @@ class TestPyEvaluation(cytest.TestCase):
     expected results.
     '''
     module = curry.import_(name)
-    main = curry.raw_expr(module.main)
-    values = list(curry.eval(main, converter='default'))
+    main = cytest.raw.expr(module.main)
+    values = list(curry.eval(main))
     self.assertEqual(values, expected)
 
   def checkAsString(self, args, expected):
@@ -20,20 +20,17 @@ class TestPyEvaluation(cytest.TestCase):
     string, and then compare that string against the expected results.  This
     can be used to check partial applications.
     '''
-    expr = curry.raw_expr(*args)
-    values = list(curry.eval(expr, converter=None))
+    expr = cytest.raw.expr(*args)
+    values = list(cytest.raw.values(expr))
     self.assertEqual(len(values), 1)
     self.assertEqual(str(values[0]), expected)
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_atableFlex(self):
     self.check('atableFlex', [True])
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_atableNoflex(self):
     self.check('atableNoflex', [False])
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_btable(self):
     self.check('btable', [0])
 
@@ -56,7 +53,6 @@ class TestPyEvaluation(cytest.TestCase):
       )
     self.checkAsString([Rev.main], '[10, 9, 8, 7, 6, 5, 4, 3, 2, 1]')
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_addSomeNum2(self):
     '''
     Covers a 2023 report by Michael Hanus: ``isZero (addSomeNum2 2000)`` never
@@ -67,9 +63,8 @@ class TestPyEvaluation(cytest.TestCase):
     data/curry/SomeNum.curry.
     '''
     SomeNum = curry.import_('SomeNum')
-    self.assertEqual(list(curry.eval(SomeNum.check, 50, converter='default')), [True])
+    self.assertEqual(list(curry.eval((SomeNum.check)(50))), [True])
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_partial(self):
     '''Checks the string representation of partial applications.'''
     m = curry.import_('myand')

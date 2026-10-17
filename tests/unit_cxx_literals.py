@@ -23,12 +23,7 @@ ADDRESS_SPACE = 2 << 30
 TIMEOUT = 120
 
 # A child on the C++ backend with the Prelude loaded.
-CHILD = '''
-import curry
-from curry.backends.cxx import cyrtbindings as cyrt
-curry.reload({'backend': 'cxx', 'defaultconverter': 'topython'})
-curry.import_('Prelude')
-'''
+CHILD = "\nimport curry\nfrom curry.backends.cxx import cyrtbindings as cyrt\ncurry.reload({'backend': 'cxx'})\ncurry.import_('Prelude')\n"
 
 def raw(value):
   '''The node of a value or an expression.'''
@@ -40,7 +35,7 @@ def step(expr, until=None, limit=64):
   holds (see unit_cxx_rewrite.py).
   '''
   for _ in range(limit):
-    evaluator.single_step(curry.getInterpreter(), expr)
+    evaluator.single_step(cytest.raw.interp(), expr)
     if until is None or until(expr):
       return expr
   raise AssertionError('the root did not change in %d steps' % limit)
@@ -56,7 +51,7 @@ def result(expr):
 
 def evaluated(goal, *args):
   '''The raw node of a nullary function of the test module, evaluated.'''
-  expr = curry.raw_expr(goal, *args)
+  expr = cytest.raw.expr(goal, *args)
   name = expr.info.name
   step(expr, until=lambda e: e.info.name != name)
   return result(expr)
@@ -65,7 +60,7 @@ def evaluated(goal, *args):
 class TestValues(cytest.TestCase):
   '''The programs give the same values on both backends.'''
   def values(self, *goal):
-    return list(curry.eval(*goal, converter='topython'))
+    return list(curry.eval(goal[0](*goal[1:]) if len(goal) > 1 else goal[0]))
 
   def test_values(self):
     M = curry.import_('CxxLiterals')
@@ -88,10 +83,10 @@ class TestValues(cytest.TestCase):
     repr form marks a cycle with an ellipsis, not a shared leaf.
     '''
     M = curry.import_('CxxLiterals')
-    value, = curry.eval(M.twice, converter=None)
+    value, = cytest.raw.values(M.twice)
     self.assertEqual(str(value), '(1, 1)')
     self.assertEqual(repr(raw(value)), '<(,) <Int 1> <Int 1>>')
-    value, = curry.eval(M.greeting, converter=None)
+    value, = cytest.raw.values(M.greeting)
     self.assertEqual(str(value), '"hi!\\955"')
 
 
@@ -115,11 +110,11 @@ class TestTables(cytest.TestCase):
     for value in -128, -1, 0, 1, 1023:
       node = cyrt.small_int(value)
       self.assertEqual(node.info.name, 'Int')
-      self.assertEqual(curry.topython(node), value)
+      self.assertEqual(cytest.raw.interp().topython(node), value)
       self.assertEqual(node.id(), cyrt.small_int(value).id())
       self.assertTrue(cyrt.gc_is_literal(node))
     self.assertEqual(str(cyrt.small_int(1023)), '1023')
-    self.assertFalse(cyrt.gc_is_literal(curry.raw_expr(1)))
+    self.assertFalse(cyrt.gc_is_literal(cytest.raw.expr(1)))
     self.assertFalse(cyrt.gc_is_literal(None))
     self.assertNotEqual(cyrt.small_int(0).id(), cyrt.small_int(1).id())
     for value in -129, 1024:
@@ -128,7 +123,7 @@ class TestTables(cytest.TestCase):
     for char in '\0', 'a', 'z', '\x7f':
       node = cyrt.small_char(char)
       self.assertEqual(node.info.name, 'Char')
-      self.assertEqual(curry.topython(node), char)
+      self.assertEqual(cytest.raw.interp().topython(node), char)
       self.assertEqual(node.id(), cyrt.small_char(char).id())
     self.assertEqual(str(cyrt.small_char('a')), "'a'")
     for text in '\x80', '\u03bb', 'ab', '':
@@ -157,8 +152,8 @@ class TestTables(cytest.TestCase):
     from curry.backends.cxx import cyrtbindings as cyrt
     big, lam, flt = evaluated(self.M.large).successors
     self.assertEqual(str(big), '100000')
-    self.assertEqual(curry.topython(lam), '\u03bb')
-    self.assertEqual(curry.topython(flt), 2.5)
+    self.assertEqual(cytest.raw.interp().topython(lam), '\u03bb')
+    self.assertEqual(cytest.raw.interp().topython(flt), 2.5)
     again, zero = evaluated(self.M.largeAgain).successors
     self.assertEqual(again.id(), big.id())
     self.assertEqual(zero.id(), cyrt.small_int(0).id())
@@ -213,15 +208,15 @@ print(cyrt.gc_literal_count() - before)
 M = curry.import_('CxxLiterals')
 cyrt.gc_set_threshold(1 << 14)
 before = cyrt.gc_collections()
-assert next(curry.eval(M.countDown, %(n)d, converter='topython')) == 0
+assert next(curry.eval((M.countDown)(%(n)d))) == 0
 collections = cyrt.gc_collections() - before
 assert collections > 0, collections
 assert str(cyrt.small_int(5)) == '5'
 assert str(cyrt.small_char('a')) == "'a'"
-assert next(curry.eval(M.small, converter='topython')) == (7, 'a')
-assert next(curry.eval(M.large, converter='topython')) == (100000, '\\u03bb', 2.5)
-assert next(curry.eval(M.bounds, converter='topython')) == [1023, 1024]
-assert next(curry.eval(M.countDown, 100, converter='topython')) == 0
+assert next(curry.eval(M.small)) == (7, 'a')
+assert next(curry.eval(M.large)) == (100000, '\u03bb', 2.5)
+assert next(curry.eval(M.bounds)) == [1023, 1024]
+assert next(curry.eval((M.countDown)(100))) == 0
 print('collections', collections)
 ''' % {'n': n}, TIMEOUT, address_space=ADDRESS_SPACE)
     self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -237,7 +232,7 @@ print('collections', collections)
     from curry.backends.cxx import cyrtbindings as cyrt
     n = 1000
     before = cyrt.gc_allocation_count()
-    value = next(curry.eval(self.M.countDown, n, converter='topython'))
+    value = next(curry.eval((self.M.countDown)(n)))
     allocated = cyrt.gc_allocation_count() - before
     self.assertEqual(value, 0)
     self.assertLess(allocated, 4 * n)
@@ -252,9 +247,9 @@ print('collections', collections)
     with self.assertRaisesRegex(ValueError, 'cannot forward a value'):
       one.forward_to(cyrt.small_int(2))
     with self.assertRaisesRegex(ValueError, 'cannot forward a value'):
-      curry.raw_expr(5).forward_to(curry.raw_expr(6))
+      cytest.raw.expr(5).forward_to(cytest.raw.expr(6))
     with self.assertRaisesRegex(ValueError, 'cannot forward a value'):
-      curry.raw_expr('x').forward_to(curry.raw_expr(6))
+      cytest.raw.expr('x').forward_to(cytest.raw.expr(6))
     self.assertEqual(str(one), '1')
     self.assertEqual(str(cyrt.small_int(1)), '1')
 

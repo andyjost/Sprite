@@ -75,7 +75,7 @@ class TestPyConversions(cytest.TestCase):
 
   def testToPython(self):
     '''Test the conversions from Curry to Python.'''
-    interp = Interpreter(flags=dict(PY, defaultconverter='topython'))
+    interp = Interpreter(flags=dict(PY))
     # Bool
     x = interp.raw_expr(True)
     self.assertNotEqual(x, True)
@@ -148,37 +148,36 @@ class TestPyConversions(cytest.TestCase):
   def testConvertEmptyString(self):
     '''
     An empty [Char] converts to an empty Python string when the static type
-    is known.  curry.expr records the type of the expression it builds, and
+    is known.  cytest.raw.expr records the type of the expression it builds, and
     curry.eval hands that type to the converter; topython takes it as
     exprtype.  Without a type the converter keeps its rule: a list of
     characters is a string, and an empty list is a list.
     '''
-    x = curry.expr('')
-    y, = curry.eval(x, converter='topython')
+    x = cytest.raw.expr('', typed=True)
+    y, = curry.eval(x)
     self.assertIsInstance(y, str)
     self.assertEqual(y, '')
-    self.assertEqual(curry.topython(curry.raw_expr(''), exprtype='[Char]'), '')
-    self.assertEqual(curry.topython(curry.raw_expr('')), [])
-    self.assertEqual(curry.topython(curry.raw_expr([]), exprtype='[Int]'), [])
-    self.assertEqual(curry.topython(curry.raw_expr(['a']), exprtype='[Int]'), ['a'])
-    self.assertEqual(curry.topython(curry.raw_expr(['a'])), 'a')
+    self.assertEqual(cytest.raw.interp().topython(cytest.raw.expr(''), exprtype='[Char]'), '')
+    self.assertEqual(cytest.raw.interp().topython(cytest.raw.expr('')), [])
+    self.assertEqual(cytest.raw.interp().topython(cytest.raw.expr([]), exprtype='[Int]'), [])
+    self.assertEqual(cytest.raw.interp().topython(cytest.raw.expr(['a']), exprtype='[Int]'), ['a'])
+    self.assertEqual(cytest.raw.interp().topython(cytest.raw.expr(['a'])), 'a')
     self.assertEqual(
-        curry.topython(curry.raw_expr(([], 1)), exprtype='([Char], Int)'), ('', 1)
+        cytest.raw.interp().topython(cytest.raw.expr(([], 1)), exprtype='([Char], Int)'), ('', 1)
       )
-    self.assertEqual(curry.topython(curry.raw_expr(([], 1))), ([], 1))
+    self.assertEqual(cytest.raw.interp().topython(cytest.raw.expr(([], 1))), ([], 1))
 
-  @cytest.with_flags(defaultconverter='topython')
   def testIteratorToPython(self):
     # Iterator.
-    take = curry.symbol('Prelude.take')
+    take = curry.import_('Prelude')['take']
     seq = itertools.count() # infinite sequence.
-    x = curry.raw_expr(seq)
+    x = cytest.raw.expr(seq)
     self.assertTrue(repr(x).startswith('<_biGenerator'))
-    goal = curry.raw_expr([take, 5, x])
+    goal = cytest.raw.expr([take, 5, x])
     self.assertEqual(list(curry.eval(goal)), [[0,1,2,3,4]])
     # Generator.
     seq = (2*i for i in range(10))
-    goal = curry.raw_expr([take, 3, seq])
+    goal = cytest.raw.expr([take, 3, seq])
     self.assertEqual(list(curry.eval(goal)), [[0,2,4]])
 
   def testTypesToPython(self):
@@ -202,11 +201,11 @@ class TestPyConversions(cytest.TestCase):
 
   def testUnboxedExpr(self):
     # The marker stands only as the payload of a primitive (issue #107).
-    Int = curry.getInterpreter().prelude.Int
-    self.assertEqual(repr(curry.raw_expr([Int, curry.unboxed(0)])), '<Int 0>')
+    Int = cytest.raw.interp().prelude.Int
+    self.assertEqual(repr(cytest.raw.expr([Int, cytest.raw.unboxed(0)])), '<Int 0>')
     self.assertRaisesRegex(
         curry.CurryTypeError, 'stands outside a primitive'
-      , lambda: curry.raw_expr(curry.unboxed(0))
+      , lambda: cytest.raw.expr(cytest.raw.unboxed(0))
       )
 
   def testNestedUnboxed(self):
@@ -214,23 +213,22 @@ class TestPyConversions(cytest.TestCase):
     # both backends (issue #107).
     self.assertRaisesRegex(
         curry.CurryTypeError, 'stands outside a primitive'
-      , lambda: curry.raw_expr((0, curry.unboxed(1)))
+      , lambda: cytest.raw.expr((0, cytest.raw.unboxed(1)))
       )
 
   def testUnboxedRewriteTarget(self):
-    e = curry.raw_expr('dummy')
+    e = cytest.raw.expr('dummy')
     self.assertRaisesRegex(
         curry.CurryTypeError
       , 'stands outside a primitive'
-      , lambda: curry.raw_expr(curry.unboxed(0), target=e)
+      , lambda: cytest.raw.expr(cytest.raw.unboxed(0), target=e)
       )
     self.assertEqual(str(e), '"dummy"')
 
-  @cytest.with_flags(defaultconverter='topython')
   def testForwardExpr(self):
-    a = curry.raw_expr(curry.getInterpreter().prelude.id, 0)
-    b = curry.raw_expr(curry.getInterpreter().prelude.id, 1)
-    curry.raw_expr(b, target=a)
+    a = cytest.raw.expr(cytest.raw.interp().prelude.id, 0)
+    b = cytest.raw.expr(cytest.raw.interp().prelude.id, 1)
+    cytest.raw.expr(b, target=a)
     self.assertEqual(list(curry.eval(a)), [1])
 
 

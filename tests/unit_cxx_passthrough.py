@@ -20,14 +20,14 @@ TIMEOUT = 120
 class TestValues(cytest.TestCase):
   '''The programs give the same values on both backends.'''
   def values(self, *goal):
-    return sorted(str(v) for v in curry.eval(*goal, converter=None))
+    return sorted(str(v) for v in cytest.raw.values(cytest.raw.expr(*goal, typed=True)))
 
   def test_arguments(self):
     M = curry.import_('CxxPassThrough')
     self.assertEqual(self.values(M.rot3, 1, 2, 3), ['(3, 1, 2)'])
     self.assertEqual(self.values(M.second, 1, 2), ['2'])
     self.assertEqual(
-        self.values(M.second, 1, curry.expr(M.addOne, 41)), ['42']
+        self.values(M.second, 1, cytest.raw.expr(M.addOne, 41, typed=True)), ['42']
       )
     self.assertEqual(self.values(M.twiceOver, 5), ['[10, 6]'])
     self.assertEqual(self.values(M.orPass, 1, 2), ['1', '2'])
@@ -36,7 +36,7 @@ class TestValues(cytest.TestCase):
 
   def test_pattern_variables(self):
     M = curry.import_('CxxPassThrough')
-    self.assertEqual(self.values(M.firstOf, curry.expr(M.big, 4)), ['4'])
+    self.assertEqual(self.values(M.firstOf, cytest.raw.expr(M.big, 4, typed=True)), ['4'])
     self.assertEqual(self.values(M.plainHead), ['42'])
 
   def test_forward_node_in_slot(self):

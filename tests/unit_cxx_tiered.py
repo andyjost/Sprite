@@ -82,7 +82,7 @@ viaCall = s 1 2
 
 def steps():
   '''The rewrite steps taken by the evaluations of the interpreter.'''
-  return curry.getInterpreter()._evaluation_totals.steps
+  return cytest.raw.interp()._evaluation_totals.steps
 
 
 @ONLY_CXX
@@ -142,11 +142,11 @@ class TieredTestCase(cytest.TestCase):
 
   def value(self, *args):
     '''The first value of a goal, as a Curry node.'''
-    return next(curry.eval(*args, converter=None))
+    return next(cytest.raw.values(cytest.raw.expr(*args, typed=True)))
 
   def py(self, *args):
     '''The first value of a goal, as a Python object.'''
-    return next(curry.eval(*args, converter='topython'))
+    return cytest.raw.interp().topython(self.value(*args))
 
   def stamp(self, name):
     '''The ABI stamp of the object: written after a compile ends.'''
@@ -154,7 +154,7 @@ class TieredTestCase(cytest.TestCase):
 
   def wait(self):
     self.assertTrue(
-        tiered.wait(COMPILE_SECONDS, curry.getInterpreter())
+        tiered.wait(COMPILE_SECONDS, cytest.raw.interp())
       , 'the background compile did not end in %s s' % COMPILE_SECONDS
       )
 
@@ -220,7 +220,7 @@ class TestSwap(TieredTestCase):
     self.assertEqual(v2.info.address, v1.info.address)
     self.assertEqual(v2.info.address, M.Rect.info.address)
     self.assertTrue(inspect.isa(v2, M.Rect))
-    self.assertTrue(inspect.isa(v2, curry.type(name + '.Shape')))
+    self.assertTrue(inspect.isa(v2, curry.info(curry.modules[name]).types['Shape']))
     self.assertIs(self.py(M.same, v1, v2), True)
     self.assertIs(self.py(M.same, v2, self.value(M.mk, 3)), True)
     self.assertIs(self.py(M.same, v1, self.value(M.mk, 4)), False)
@@ -234,10 +234,10 @@ class TestSwap(TieredTestCase):
     # evaluation waits; the remaining alternatives run compiled, and the
     # evaluation ends with the same values.
     M = self.fresh_module()
-    expected = sorted(str(v) for v in curry.eval(M.choices, 4))
+    expected = sorted(str(v) for v in curry.eval((M.choices)(4)))
     self.assertEqual(expected, ['0', '20', '40'])
     N = self.fresh_module()
-    values = curry.eval(N.choices, 4)
+    values = curry.eval((N.choices)(4))
     first = next(values)
     self.assertTrue(cyrt.icurry_is_interpreted(N.choices.info))
     self.wait()
@@ -528,8 +528,8 @@ class TestPolicy(TieredTestCase):
         'double :: Int -> Int\ndouble x = x + x\n', mode='module'
       )
     self.assertTrue(cyrt.icurry_is_interpreted(S.double.info))
-    e = curry.compile('double 21', mode='expr', imports=[S])
-    self.assertEqual(next(curry.eval(e, converter='topython')), 42)
+    e = curry.parse('double 21', imports=[S])
+    self.assertEqual(next(curry.eval(e)), 42)
     self.assertTrue(tiered.wait(10))
     after = tiered.status()
     self.assertEqual(after['queued'], 0)
@@ -605,7 +605,7 @@ class TestPolicy(TieredTestCase):
     self.assertEqual(curry.flags['inline_budget'], 0)
     env = dict(
         item.split('=', 1)
-          for item in tiered._environment(curry.getInterpreter())
+          for item in tiered._environment(cytest.raw.interp())
       )
     self.assertIn(
         'inline_budget:0', env['SPRITE_INTERPRETER_FLAGS'].split(',')
@@ -628,7 +628,7 @@ class TestPolicy(TieredTestCase):
     self.switch('tiered')
     env = dict(
         item.split('=', 1)
-          for item in tiered._environment(curry.getInterpreter())
+          for item in tiered._environment(cytest.raw.interp())
       )
     self.assertIn(
         'inline_budget:4', env['SPRITE_INTERPRETER_FLAGS'].split(',')
@@ -684,7 +684,7 @@ class TestPolicy(TieredTestCase):
     module beside the source, and runs the inlined code on both tiers.
     '''
     self.switch('tiered', inline_budget=0)
-    self.assertTrue(tiered._foreign_flags(curry.getInterpreter()))
+    self.assertTrue(tiered._foreign_flags(cytest.raw.interp()))
     name = self.write_module(BUDGET_MODULE)
     M = self.import_module(name)
     self.assertTrue(cyrt.icurry_is_interpreted(M.viaCall.info))
@@ -714,7 +714,7 @@ class TestPolicy(TieredTestCase):
     # The same module under the budget of the environment.
     del M
     self.switch('tiered')
-    self.assertFalse(tiered._foreign_flags(curry.getInterpreter()))
+    self.assertFalse(tiered._foreign_flags(cytest.raw.interp()))
     N = self.import_module(name)
     self.assertTrue(cyrt.icurry_is_interpreted(N.viaCall.info))
     n0 = steps()
@@ -868,9 +868,9 @@ class TestNoCompiler(TieredTestCase):
     with mock.patch.object(config, 'cxx_tool', return_value=None):
       with capture_log('curry.backends.cxx.tiered') as log:
         M = self.fresh_module()
-        self.assertEqual(next(curry.eval(M.total, 3, converter='topython')), 20)
+        self.assertEqual(next(curry.eval((M.total)(3))), 20)
         N = self.fresh_module()
-        self.assertEqual(next(curry.eval(N.total, 2, converter='topython')), 8)
+        self.assertEqual(next(curry.eval((N.total)(2))), 8)
     self.assertTrue(cyrt.icurry_is_interpreted(M.total.info))
     self.assertTrue(cyrt.icurry_is_interpreted(N.total.info))
     tiered.wait(10)
@@ -889,7 +889,7 @@ class TestNoCompiler(TieredTestCase):
     # The setting named: new where the Prelude loaded from its object (a
     # fresh module has no generated file), else all.  The flag is added to
     # the variable, not set in place of it.
-    setting = 'new' if tiered._prelude_compiled(curry.getInterpreter()) else 'all'
+    setting = 'new' if tiered._prelude_compiled(cytest.raw.interp()) else 'all'
     self.assertIn(
         'add interpret:%s to SPRITE_INTERPRETER_FLAGS' % setting, notice
       )
@@ -909,7 +909,7 @@ class TestNoCompiler(TieredTestCase):
     (the library objects are stale, and new would compile them) or a
     current generated file lies beside the module (new would compile it).
     '''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     with mock.patch.object(config, 'cxx_tool', return_value=None):
       with capture_log('curry.backends.cxx.tiered'):
         M = self.fresh_module()
@@ -948,15 +948,7 @@ class TestNoCompiler(TieredTestCase):
 # The sequence of the API study's probe (P55) for a child process: the
 # import of a module whose object is stale queues its compile, and
 # curry.load of that object returns the module of the import.
-CHILD_LOAD = r'''
-import curry
-curry.path.insert(0, %(tmpdir)r)
-M = curry.import_(%(name)r)
-M2 = curry.load(%(sofile)r)
-print(M2 is M)
-print(next(curry.eval(M.total, 4, converter='topython')))
-print('exiting normally')
-'''
+CHILD_LOAD = "\nimport cytest, curry\ncurry.path.insert(0, %(tmpdir)r)\nM = curry.import_(%(name)r)\nM2 = curry.load(%(sofile)r)\nprint(M2 is M)\nprint(next(curry.eval((M.total)(4))))\nprint('exiting normally')\n"
 
 # The save-then-load sequence of the Quickstart ("Saving Compiled Curry") for
 # a child process: the import, curry.save, sprite-make --so in a shell, then
@@ -970,7 +962,7 @@ print('exiting normally')
 # 139).  The loader refuses the object, and the module imports and runs on.
 RESET_LOAD = r'''
 import gc
-import curry
+import cytest, curry
 from curry.backends.cxx import tiered
 curry.path.insert(0, %(tmpdir)r)
 M = curry.import_(%(name)r)
@@ -987,12 +979,12 @@ except curry.exceptions.DynloadError as exc:
 else:
   print('not refused')
 M = curry.import_(%(name)r)
-print(next(curry.eval(M.total, 4, converter='topython')))
+print(next(curry.eval((M.total)(4))))
 print('exiting normally')
 '''
 QUICKSTART = r'''
 import os, subprocess
-import curry
+import cytest, curry
 os.chdir(%(tmpdir)r)
 curry.path.insert(0, '.')
 M = curry.import_(%(name)r)
@@ -1009,7 +1001,7 @@ subprocess.run(
   )
 M2 = curry.load(os.path.join('.curry', %(subdir)r, %(name)r + '.so'))
 print(M2 is M)
-print(next(curry.eval(M.bump, 1, converter='topython')))
+print(next(curry.eval((M.bump)(1))))
 print('exiting normally')
 '''
 
@@ -1311,7 +1303,7 @@ class TestImportObjects(TieredTestCase):
       self.assertTrue(os.path.isfile(self.sofile(user)))
       with open(self.sofile(user), 'wb') as stream:
         stream.write(b'not an object\n')
-      tiered.poll(curry.getInterpreter())
+      tiered.poll(cytest.raw.interp())
     after = tiered.status()
     self.assertEqual(after['failed_modules'], before['failed_modules'] + 1)
     self.assertEqual(after['swapped_modules'], before['swapped_modules'])
@@ -1370,7 +1362,7 @@ class TestImportObjects(TieredTestCase):
     self.assertFalse(tiered.pending(second))
     self.assertTrue(cyrt.icurry_is_interpreted(N.biggest.info))
     self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     before = tiered.status()
     with capture_log('curry.backends.cxx.tiered') as log:
       self.assertTrue(tiered.submit(interp, N, curry.path))

@@ -81,7 +81,7 @@ class TestPyRuntime(cytest.TestCase):
     N,M,U,B,Z,ZN,ZF = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF
     F,Q,W = [getattr(interp.backend.fundamental_symbols, nm) for nm in ['Failure', 'Choice', 'Fwd']]
     special_tags = [T_FAIL, T_CHOICE]
-    # A choice is built through its marker: curry.unboxed stands only under
+    # A choice is built through its marker: cytest.raw.unboxed stands only under
     # a primitive (issue #107).
     cid = bootstrap.cid.value
 
@@ -205,7 +205,6 @@ class TestPyRuntime(cytest.TestCase):
     icur = inspect.geticurry(module)
     self.assertIsInstance(icur, icurry.IModule)
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_instantiation(self):
     goal = curry.compile(
         '''
@@ -217,7 +216,7 @@ class TestPyRuntime(cytest.TestCase):
     self.assertEqual(str(value), '[True]')
 
   def test_interp_step(self):
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     code = interp.compile(
         '''
         f :: Int -> Int
@@ -257,7 +256,7 @@ class TestPyRuntime(cytest.TestCase):
     self.assertRaisesRegex(
         ValueError
       , "no implementation code available for 'Prelude.True'"
-      , lambda: curry.symbol('Prelude.True').getimpl()
+      , lambda: curry.import_('Prelude')['True'].getimpl()
       )
 
   @unittest.expectedFailure
@@ -331,7 +330,7 @@ class TestInstantiation(cytest.TestCase):
     return self.interp.raw_expr(self.interp.prelude.id, x)
 
   def q(self, cid, l, r):
-    # The marker of a choice; curry.unboxed stands only under a primitive
+    # The marker of a choice; cytest.raw.unboxed stands only under a primitive
     # (issue #107).
     return choice(cid, l, r)
 
@@ -349,7 +348,7 @@ class TestInstantiation(cytest.TestCase):
     interp,q,x,e = self.interp, self.q, self.x, self.e(typename='()')
     rts = RuntimeState(interp)
     instance = rts.instantiate(rts.variable(e, [0]), interp.type('Prelude.[]'))
-    au = curry.raw_expr(q(0, [interp.prelude.Cons, x(1), x(2)], [interp.prelude.Nil]))
+    au = cytest.raw.expr(q(0, [interp.prelude.Cons, x(1), x(2)], [interp.prelude.Nil]))
     self.assertEqual(instance, au)
 
   def check_gen_ctors(self, interp, module, typename, generator):
@@ -368,7 +367,7 @@ class TestInstantiation(cytest.TestCase):
     interp,q,e = self.interp, self.q, self.e(typename='()')
     rts = RuntimeState(interp)
     instance = rts.instantiate(rts.variable(e, [0]), interp.type('Prelude.()'))
-    au = curry.raw_expr(q(0, [interp.prelude.Unit], [interp.backend.fundamental_symbols.Failure]))
+    au = cytest.raw.expr(q(0, [interp.prelude.Unit], [interp.backend.fundamental_symbols.Failure]))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, interp.prelude, '()', instance)
 
@@ -383,7 +382,7 @@ class TestInstantiation(cytest.TestCase):
     e = self.e(typename='Type.T', imports=Type)
     rts = RuntimeState(interp)
     instance = rts.instantiate(rts.variable(e, [0]), interp.type('Type.T'))
-    au = curry.raw_expr(q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
+    au = cytest.raw.expr(q(0, q(1, q(2, Type.A, Type.B), q(3, Type.C, Type.D)), q(4, q(5, Type.E, Type.F), Type.G)))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)
 
@@ -398,7 +397,7 @@ class TestInstantiation(cytest.TestCase):
     e = self.e(typename='Type.T', imports=Type)
     rts = RuntimeState(interp)
     instance = rts.instantiate(rts.variable(e, [0]), interp.type('Type.T'))
-    au = curry.raw_expr(q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
+    au = cytest.raw.expr(q(0, q(1, q(2, Type.A, Type.B), Type.C), q(3, q(4, Type.D, Type.E), Type.F)))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)
 
@@ -412,7 +411,7 @@ class TestInstantiation(cytest.TestCase):
     e = self.e(typename='Type.T ()', imports=Type)
     rts = RuntimeState(interp)
     instance = rts.instantiate(rts.variable(e, [0]), interp.type('Type.T'))
-    au = curry.raw_expr(q(0, q(1, q(2, Type.A, [Type.B, x(3)]), [Type.C, x(4), x(5)]), q(6, [Type.D, x(7), x(8), x(9)], [Type.E, x(10), x(11), x(12), x(13)])))
+    au = cytest.raw.expr(q(0, q(1, q(2, Type.A, [Type.B, x(3)]), [Type.C, x(4), x(5)]), q(6, [Type.D, x(7), x(8), x(9)], [Type.E, x(10), x(11), x(12), x(13)])))
     self.assertEqual(instance, au)
     self.check_gen_ctors(interp, Type, 'T', instance)
 

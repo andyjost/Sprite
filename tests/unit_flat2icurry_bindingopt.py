@@ -525,7 +525,7 @@ class TestRewrite(cytest.TestCase):
 # ==============
 def values(goal):
   '''The values of a goal as Python objects, in order.'''
-  return list(curry.eval(goal, converter='topython'))
+  return list(curry.eval(goal))
 
 SUSPENDS = object()
 

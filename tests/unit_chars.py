@@ -43,9 +43,9 @@ MALFORMED = [
 
 # A child evaluates one goal of the module and prints its values.
 CHILD = textwrap.dedent('''
-    import curry
+    import cytest, curry
     M = curry.import_('Chars')
-    print(list(curry.eval(M.%s, converter='topython')))
+    print(list(curry.eval(M.%s)))
     ''')
 
 class TestChars(cytest.TestCase):
@@ -58,14 +58,14 @@ class TestChars(cytest.TestCase):
     return curry.import_('Chars')
 
   def eval_(self, *args):
-    return list(curry.eval(*args, converter='topython'))
+    return list(curry.eval(args[0](*args[1:]) if len(args) > 1 else args[0]))
 
   def test_ord_chr(self):
-    chr_ = curry.symbol('Prelude.chr')
-    ord_ = curry.symbol('Prelude.ord')
-    self.assertEqual(self.eval_(ord_, curry.expr(chr_, 160)), [160])
-    self.assertEqual(self.eval_(ord_, '\u00e4'), [228])
-    self.assertEqual(self.eval_(ord_, EMOJI), [0x1f600])
+    chr_ = curry.import_('Prelude')['chr']
+    ord_ = curry.import_('Prelude')['ord']
+    self.assertEqual(self.eval_(ord_, (chr_)(160)), [160])
+    self.assertEqual(self.eval_(ord_, curry.Char('\u00e4')), [228])
+    self.assertEqual(self.eval_(ord_, curry.Char(EMOJI)), [0x1f600])
     self.assertEqual(self.eval_(chr_, 228), ['\u00e4'])
     self.assertEqual(self.eval_(chr_, 0x1f600), [EMOJI])
     self.assertEqual(self.eval_(chr_, 0x10ffff), ['\U0010ffff'])
@@ -81,26 +81,26 @@ class TestChars(cytest.TestCase):
     Python as U+FFFD, as utf8_encode writes it.  An audit finding: the
     caster raised ValueError instead.
     '''
-    prim_chr = curry.symbol('Prelude.prim_chr')
-    value, = curry.eval(prim_chr, 0x110000, converter=None)
+    prim_chr = curry.import_('Prelude')['prim_chr']
+    value, = cytest.raw.values(cytest.raw.expr(prim_chr, 0x110000, typed=True))
     self.assertEqual(str(value), "'\\1114112'")
-    self.assertEqual(curry.topython(value), '\ufffd')
-    chr_ = curry.symbol('Prelude.chr')
+    self.assertEqual(cytest.raw.interp().topython(value), '\ufffd')
+    chr_ = curry.import_('Prelude')['chr']
     self.assertEqual(self.eval_(chr_, 0x110000), ['\U0010ffff'])
 
   def test_python_round_trip(self):
     '''A Python string of any code points converts to Curry and back.'''
     for text in ['\u00e4', SAMPLE, EMOJI, 'a\u00a0b', SAMPLE + EMOJI]:
-      expr = curry.expr(text)
-      self.assertEqual(curry.topython(expr), text, text)
+      expr = curry.term(text)
+      self.assertEqual(curry.eval(expr).one(), text, text)
       self.assertEqual(self.eval_(expr), [text], text)
     # show writes every code point outside printable ASCII as a decimal
     # escape, on both backends.
-    self.assertEqual(repr(curry.raw_expr('\u00e4')), "<Char '\\228'>")
-    self.assertEqual(str(curry.raw_expr('\u00e4')), "'\\228'")
-    self.assertEqual(str(curry.raw_expr(EMOJI)), "'\\128512'")
-    self.assertEqual(str(curry.raw_expr('a' + SAMPLE)), '"a\\228\\246\\252"')
-    self.assertEqual(str(curry.raw_expr('~\x7f\x00')), '"~\\127\\00"')
+    self.assertEqual(repr(cytest.raw.expr('\u00e4')), "<Char '\\228'>")
+    self.assertEqual(str(cytest.raw.expr('\u00e4')), "'\\228'")
+    self.assertEqual(str(cytest.raw.expr(EMOJI)), "'\\128512'")
+    self.assertEqual(str(cytest.raw.expr('a' + SAMPLE)), '"a\\228\\246\\252"')
+    self.assertEqual(str(cytest.raw.expr('~\x7f\x00')), '"~\\127\\00"')
 
   def test_show_read_literals(self):
     '''
@@ -110,7 +110,7 @@ class TestChars(cytest.TestCase):
     M = self.M
     self.assertEqual(self.eval_(M.sample), [SAMPLE])
     self.assertEqual(
-        self.eval_(curry.symbol('Prelude.map'), curry.symbol('Prelude.ord'), M.sample)
+        self.eval_(curry.import_('Prelude')['map'], curry.import_('Prelude')['ord'], M.sample)
       , [[228, 246, 252]]
       )
     self.assertEqual(
