@@ -565,11 +565,17 @@ class ExpressionBuilder(object):
     else:
       Cons = self.prelude.Cons
       Nil = self.prelude.Nil
-      sentinel = object()
-      seq = iter(lst)
-      f = lambda x,g: [Cons, self(x), g()] if x is not sentinel else Nil
-      g = lambda: f(next(seq, sentinel), g)
-      return self(g())
+      # Build the spine iteratively, innermost first, as the nested-list
+      # formulation did (issue #150: a list of 300 elements or more used to
+      # raise a RecursionError).  Each element goes through this builder on
+      # the way in, in list order, and once more when the Cons nodes are
+      # made, so a node given as an element is Fwd-wrapped under a target,
+      # as before.
+      nodes = [self(x) for x in lst]
+      node = self._mknode(Nil, target=self.target)
+      for sub in reversed(nodes):
+        node = self._mknode(Cons, self(sub), node, target=self.target)
+      return node
 
   @__call__.when(tuple)
   def __call__(self, tup, *trailing):
