@@ -136,21 +136,21 @@ Curry symbols are constructor and function names (but not type names).  The
 public symbols of ``Peano`` are exposed as attributes of the module object:
 
     >>> Peano.S
-    <curry constructor 'S'>
+    <Term S :: Nat -> Nat>
     >>> Peano.add
-    <curry function 'add'>
+    <Term add :: Nat -> Nat -> Nat>
 
 Not all Curry symbols are valid Python identifiers.  Seven names of the
 Prelude are Python keywords: ``not``, ``and``, ``or``, ``break``,
 ``return``, ``True`` and ``False``.  Use ``getattr`` to access these:
 
     >>> getattr(Prelude, '++')
-    <curry function '++'>
+    <Term (++) :: [a] -> [a] -> [a]>
 
 You may also find symbols by their full names using :func:`curry.symbol`:
 
     >>> curry.symbol('Prelude.++')
-    <curry function '++'>
+    <Term (++) :: [a] -> [a] -> [a]>
 
 
 Building and Evaluating Goals

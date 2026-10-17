@@ -257,9 +257,17 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     self.assertEqual(inspect.gettype(Peano, 'Nat'), Nat)
 
     # inspect.symbols
-    public_symbols = {'O': Peano.O, 'S': Peano.S, 'add': Peano.add, 'main': Peano.main}
-    self.assertEqual(inspect.symbols(Peano), public_symbols)
-    self.assertEqual(inspect.getsymbol(Peano, 'S'), Peano.S)
+    public_symbols = {
+        name: curry.info(Peano).symbols[name] for name in ('O', 'S', 'add', 'main')
+      }
+    self.assertEqual(
+        {name: symbol.fullname for name, symbol in inspect.symbols(Peano).items()}
+      , {name: symbol.fullname for name, symbol in public_symbols.items()}
+      )
+    for name, symbol in public_symbols.items():
+      self.assertIsInstance(symbol, curry.Symbol)
+      self.assertIs(getattr(Peano, name).symbol, symbol)
+    self.assertEqual(inspect.getsymbol(Peano, 'S').fullname, Peano.S.symbol.fullname)
     self.assertRaises(curry.SymbolLookupError, lambda: inspect.getsymbol(Peano, 'Foo'))
     self.assertRaises(curry.SymbolLookupError, lambda: inspect.getsymbol(Peano, 'Nat'))
 

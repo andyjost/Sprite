@@ -86,7 +86,6 @@ class TestFlowF02(cytest.TestCase):
     self.assertEqual(str(t), 'apply (id inc) 1')
     self.assertEqual(list(curry.eval(t)), [2])
 
-  @unittest.expectedFailure
   def test_arity_at_call(self):
     I = curry.import_('Items')
     with self.assertRaises(curry.ArityError):

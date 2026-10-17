@@ -304,6 +304,8 @@ class TypedBuilder:
     self.brokenrefs = {}
     self._raw = None
     self._dicts = {}
+    self._term_specs = {}
+    self._term_counts = {}
 
   # The untyped builder, for the parts without a type.
   @property
@@ -338,6 +340,24 @@ class TypedBuilder:
       self._declare_anchor(name)
     forms = [X.anchor(value, name=name) for name, value in anchors.items()]
     forms.append(self._form(args))
+    from ..objects.terms import Term
+    pending = list(forms)
+    while pending:
+      value = pending.pop()
+      if isinstance(value, Term):
+        key = id(value)
+        self._term_counts[key] = self._term_counts.get(key, 0) + 1
+        if self._term_counts[key] == 1:
+          pending.append(value._form)
+      elif isinstance(value, (list, tuple)):
+        pending.extend(value)
+      elif isinstance(value, (X.typed, X.anchor, X.fwd, X._setgrd,
+          X._strictconstr, X._nonstrictconstr, X._valuebinding)):
+        pending.append(value.value)
+      elif isinstance(value, X.choice):
+        pending.extend((value.lhs, value.rhs))
+      elif isinstance(value, X.cons):
+        pending.extend((value.head, value.tail))
     items = [None] * len(forms)
     stack = [(form, items, i) for i, form in reversed(list(enumerate(forms)))]
     while stack:
@@ -358,6 +378,9 @@ class TypedBuilder:
     if not args:
       raise exceptions.CurryTypeError('curry.expr takes an expression; none given')
     head = args[0]
+    from ..objects.terms import Term
+    if isinstance(head, Term) and head.symbol is not None:
+      return [head.symbol._info, *head._args, *args[1:]]
     if isinstance(head, (CurryNodeInfo, backends.InfoTable)):
       return list(args)
     raise exceptions.CurryTypeError('invalid arguments after %r' % (head,))
@@ -368,6 +391,23 @@ class TypedBuilder:
     value, a container and an index.
     '''
     X = self.X
+    from ..objects.terms import Term, ValueList
+    if isinstance(arg, Term):
+      if isinstance(arg._form, collections.abc.Iterator):
+        return Raw(arg._node, walk=True), ()
+      form = arg._form if arg._annotation is None else X.typed(arg._form, arg._annotation)
+      if self._term_counts.get(id(arg), 0) < 2:
+        return self.spec_of(form)
+      key = self._term_specs.get(id(arg))
+      if key is not None:
+        return Ref(key), ()
+      key = self._term_specs[id(arg)] = Var()
+      self.anchors[key] = None
+      spec = Wrap('anchor', key)
+      return spec, [(form, spec.items, 0)]
+    if isinstance(arg, ValueList):
+      spec = _list(len(arg))
+      return spec, [(item, spec.items, i) for i, item in enumerate(arg)]
     if hasattr(arg, 'rvalue'):
       arg = arg.rvalue
     if isinstance(arg, Spec):
@@ -391,6 +431,8 @@ class TypedBuilder:
     if isinstance(arg, list):
       if arg:
         head = arg[0]
+        if isinstance(head, Term) and head.symbol is not None and not head._args:
+          return self._application(head.symbol._info, arg[1:])
         if isinstance(head, CurryNodeInfo):
           return self._application(head, arg[1:])
         if isinstance(head, backends.InfoTable):
@@ -498,6 +540,9 @@ class TypedBuilder:
     Whether an argument is a class dictionary: the symbol of an instance
     function, a node of one, or a list that starts with one.
     '''
+    from ..objects.terms import Term
+    if isinstance(arg, Term):
+      return arg.symbol is not None and TypedBuilder.is_dictionary(arg.symbol._info)
     if isinstance(arg, list):
       return bool(arg) and TypedBuilder.is_dictionary(arg[0])
     if isinstance(arg, CurryNodeInfo):
@@ -572,6 +617,8 @@ class TypedBuilder:
     stack = [(root, False)]
     while stack:
       spec, ready = stack.pop()
+      if id(spec) in nodes:
+        continue
       children = _children(spec)
       if ready:
         args = [nodes[id(child)] for child in children]
@@ -1136,6 +1183,20 @@ def typeof(interp, e, defaulted=False):
   content), a symbol, a :class:`Description`, or any argument of
   ``curry.expr``.
   '''
+  from ..objects.terms import Term
+  if isinstance(e, Term):
+    if e._signature == '?' and e.symbol is not None:
+      interp.sigtable.lookup(e.symbol._info, required=True)
+    if not defaulted:
+      return e._signature
+    if e._defaulted is not None:
+      return e._defaulted
+    from ..objects.terms import raw_symbols
+    with raw_symbols():
+      b = TypedBuilder(interp)
+      problem = TypedProblem(b, b.specs((e,)))
+      problem.solve()
+      return problem.defaulted_signature
   e = getattr(e, 'rvalue', e)
   if isinstance(e, backends.Node):
     entry = record_of(interp).get(e)

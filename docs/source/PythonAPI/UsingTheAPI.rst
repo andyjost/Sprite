@@ -72,11 +72,11 @@ Inspecting Symbols
 attributes.  These can be accessed in the usual way:
 
     >>> Peano.S
-    <curry constructor 'S'>
+    <Term S :: Nat -> Nat>
     >>> Peano.O
-    <curry constructor 'O'>
+    <Term O :: Nat>
     >>> Peano.add
-    <curry function 'add'>
+    <Term add :: Nat -> Nat -> Nat>
 
 Three rules say what a module offers.  The public functions and
 constructors are attributes under their Curry names, operators included.  A
@@ -139,7 +139,7 @@ Sprite provides the function ``curry.symbol`` to find symbols by their
 fully-qualified name:
 
     >>> curry.symbol('Peano.S')
-    <curry constructor 'S'>
+    <Term S :: Nat -> Nat>
 
 This function only searches loaded modules; it will not import anything.
 The name splits at its first dot into a module and a name in it, so
@@ -147,7 +147,7 @@ The name splits at its first dot into a module and a name in it, so
 import of ``Data.List`` above left it:
 
     >>> curry.symbol('Data.List.nub')
-    <curry function 'nub'>
+    <Term nub :: Eq a => [a] -> [a]>
 
 A Curry name that is not a Python identifier, or is a Python keyword, is
 reached with ``getattr`` or with ``curry.symbol``.  Seven names of the
@@ -156,7 +156,7 @@ Prelude are keywords: ``not``, ``and``, ``or``, ``break``, ``return``,
 
     >>> from curry.lib import Prelude
     >>> getattr(Prelude, '++')
-    <curry function '++'>
+    <Term (++) :: [a] -> [a] -> [a]>
 
 Inspecting Types
 ================
@@ -168,21 +168,21 @@ Sprite provides ``curry.inspect.types`` to gain access to the types defined in
 a module:
 
     >>> from curry import inspect
-    >>> inspect.types(Peano)
-    {'Nat': <curry type 'Nat'>}
+    >>> list(curry.info(Peano).types)
+    ['Nat']
 
 One may also use ``curry.type`` to look up a type by its fully-qualified name:
 
-    >>> curry.type('Peano.Nat')
-    <curry type 'Nat'>
+    >>> curry.info(Peano).types['Nat'].fullname
+    'Peano.Nat'
 
 A type object knows its constructors:
 
-    >>> Nat = curry.type('Peano.Nat')
+    >>> Nat = curry.info(Peano).types['Nat']
     >>> Nat.fullname
     'Peano.Nat'
     >>> Nat.constructors
-    (<curry constructor 'O'>, <curry constructor 'S'>)
+    (<Symbol Peano.O :: Nat>, <Symbol Peano.S :: Nat -> Nat>)
 
 :func:`curry.currytype` gives the Curry type a Python value converts to by
 its Python type alone: ``curry.currytype(int)`` is ``Int`` and

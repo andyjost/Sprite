@@ -179,13 +179,11 @@ class TestStubModules(cytest.TestCase):
       self.assertEqual(seen, [])
       self.assertEqual(list(curry.eval(M.coin)), [0, 1])
 
-  @unittest.expectedFailure
   def test_compile_header_registers_name(self):
     M = curry.compile('module StubHeader where\nf :: Int\nf = 1')
     self.assertIs(curry.modules['StubHeader'], M)
     self.assertIsNone(curry.info(M).file)
 
-  @unittest.expectedFailure
   def test_compile_generated_name_is_registered(self):
     M = curry.compile('f :: Int\nf = 1')
     self.assertIs(curry.modules[curry.info(M).name], M)
@@ -295,7 +293,6 @@ class TestStubModules(cytest.TestCase):
     self.assertIs(curry.modules['Data.List'], M)
     self.assertNotIn('Data', curry.modules)
 
-  @unittest.expectedFailure
   def test_path_mutation_changes_search(self):
     with tempfile.TemporaryDirectory() as work:
       source = Path(work) / 'StubPath.curry'
@@ -324,7 +321,6 @@ class TestStubModules(cytest.TestCase):
     self.assertTrue(all(isinstance(k, str) for k in counters))
     self.assertTrue(all(isinstance(v, (int, float)) for v in counters.values()))
 
-  @unittest.expectedFailure
   def test_module_example(self):
     P = curry.import_('Prelude')
     Coin = curry.import_('Coin')
@@ -333,7 +329,6 @@ class TestStubModules(cytest.TestCase):
       , ('not True', True, False)
       )
 
-  @unittest.expectedFailure
   def test_module_is_python_module(self):
     M = curry.import_('Coin')
     self.assertIsInstance(M, curry.Module)
@@ -345,13 +340,11 @@ class TestStubModules(cytest.TestCase):
     M = curry.compile('module StubPrivate (public) where\npublic :: Int\npublic = helper\nhelper :: Int\nhelper = 1')
     self.assertEqual(curry.eval(M['helper']).one(), 1)
 
-  @unittest.expectedFailure
   def test_module_missing_symbol_raises(self):
     M = curry.import_('Coin')
     with self.assertRaises(curry.SymbolLookupError):
       M.nosuch
 
-  @unittest.expectedFailure
   def test_info_is_the_dotted_slot(self):
     M = curry.import_('Geo')
     info = curry.info(M)
@@ -373,7 +366,6 @@ class TestStubModules(cytest.TestCase):
       )
     self.assertEqual(curry.info(M).name, 'StubMetadata')
 
-  @unittest.expectedFailure
   def test_info_symbols_include_private_not_dictionaries(self):
     M = curry.compile('module StubPrivate (public) where\npublic :: Int\npublic = helper\nhelper :: Int\nhelper = 1')
     info = curry.info(M)

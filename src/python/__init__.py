@@ -125,6 +125,11 @@ del _expressions
 # modules first, so their libraries unload now; see interpreter/compile.py.
 if '_interpreter_' in globals():
   _interpreter_._expression_modules = []
+  _interpreter_._unlink_modules()
+  _old_prelude = _interpreter_.modules.pop('Prelude', None)
+  if _old_prelude is not None:
+    _interpreter_.backend.module_unlinked(_interpreter_, _old_prelude)
+  del _old_prelude
 _interpreter_ = interpreter.Interpreter(flags=_flags.getflags())
 
 compile = _interpreter_.compile
@@ -166,9 +171,37 @@ raw_expr = _interpreter_.raw_expr
 reset = _interpreter_.reset
 save = _interpreter_.save
 stats = _interpreter_.stats
-symbol = _interpreter_.symbol
+from .objects import CurryModule as Module
+from .objects.terms import Term, Symbol, DataType, Char
+from .typecheck.errors import ConversionError, MismatchError, ArityError
+
+def info(module):
+  return getattr(module, '.info')
+
+def term(value, *, type=None):
+  from .objects.terms import term as build_term
+  return build_term(_interpreter_, value, type)
+
+def _qualified(name):
+  parts = name.split('.')
+  for index in range(len(parts) - 1, 0, -1):
+    try:
+      module = import_('.'.join(parts[:index]))
+    except ModuleLookupError:
+      continue
+    return module, '.'.join(parts[index:])
+  raise ModuleLookupError('no module prefix in %r' % name)
+
+def symbol(name):
+  module, local = _qualified(name)
+  return module[local]
 topython = _interpreter_.topython
-type = _interpreter_.type
+def type(name):
+  module, local = _qualified(name)
+  try:
+    return info(module).types[local]
+  except KeyError:
+    raise TypeLookupError('module %r has no type %r' % (module.__name__, local)) from None
 typeof = _interpreter_.typeof
 
 def getInterpreter():
@@ -226,3 +259,5 @@ def show_value(value):
   Curry systems.
   '''
   return ShowValue()(value)
+
+__all__ += ['Term', 'Symbol', 'DataType', 'Module', 'Char', 'term', 'info', 'ConversionError', 'MismatchError', 'ArityError']

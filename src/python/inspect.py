@@ -13,10 +13,16 @@ import re
 SUBDIR = config.intermediate_subdir()
 
 def info_of(arg):
+  from .objects.terms import Term
+  if isinstance(arg, Term):
+    arg = arg._node
   if is_boxed(arg):
     return arg.info
 
 def tag_of(arg):
+  from .objects.terms import Term
+  if isinstance(arg, Term):
+    arg = arg._node
   if is_boxed(arg):
     return arg.info.tag
   elif isa_unboxed_primitive(arg):
@@ -27,6 +33,15 @@ def isa(arg, what):
   Checks whether the given Curry object is an instance of the given type or
   constructor.  The second argument may be a sequence to check against.
   '''
+  from .objects.terms import Term, Symbol, DataType
+  if isinstance(arg, Term):
+    arg = arg._node
+  if isinstance(what, Term) and what.symbol is not None:
+    what = what.symbol._info
+  elif isinstance(what, Symbol):
+    what = what._info
+  elif isinstance(what, DataType):
+    what = what._datatype
   if not is_boxed(arg):
     return False
   else:
@@ -34,6 +49,13 @@ def isa(arg, what):
 
 @visitation.dispatch.on('what')
 def _isa(addr, what):
+  from .objects.terms import Term, Symbol, DataType
+  if isinstance(what, Term) and what.symbol is not None:
+    return _isa(addr, what.symbol._info)
+  if isinstance(what, Symbol):
+    return _isa(addr, what._info)
+  if isinstance(what, DataType):
+    return _isa(addr, what._datatype)
   raise TypeError(
       'arg 2 must be an instance or sequence of %s.objects.CurryNodeInfo '
       'objects.' % __package__
@@ -234,6 +256,9 @@ def _boxed_kind(ty):
   return kind
 
 def is_boxed(node):
+  from .objects.terms import Term
+  if isinstance(node, Term):
+    return True
   ty = type(node)
   kind = _boxed_kinds.get(ty)
   if kind == _NODE_TYPE:
@@ -314,6 +339,13 @@ def geticurry(obj):
   file is read once per module object.  A module without the file gives
   the bill of materials.
   '''
+  from .objects.terms import Term, Symbol, DataType
+  if isinstance(obj, Term):
+    obj = obj.symbol._info if obj.symbol is not None else obj._node
+  elif isinstance(obj, Symbol):
+    obj = obj._info
+  elif isinstance(obj, DataType):
+    obj = obj._datatype
   if isinstance(obj, objects.CurryModule):
     return _module_icurry(obj)
   icy = getattr(obj, '.icurry', None)
@@ -367,6 +399,11 @@ def getimpl(obj):
       No code is available: a constructor, a built-in of the C++ runtime, or
       a function the backend made without a step.
   '''
+  from .objects.terms import Term, Symbol
+  if isinstance(obj, Term) and obj.symbol is not None:
+    obj = obj.symbol._info
+  elif isinstance(obj, Symbol):
+    obj = obj._info
   if isinstance(obj, objects.CurryNodeInfo):
     interp = obj.interpreter
     if interp is None:

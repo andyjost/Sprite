@@ -94,7 +94,6 @@ class TestFlowF07(cytest.TestCase):
     with self.assertRaises(curry.ConversionError):
       next(r)
 
-  @unittest.expectedFailure
   def test_iterator_type_and_text(self):
     P = curry.import_('Prelude')
     self.assertEqual(curry.typeof(iter([1])), '[a]')

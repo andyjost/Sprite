@@ -52,7 +52,6 @@ class TestStubInspection(cytest.TestCase):
       , ('[1,2]', '"ab"', "('a',1)", '""')
       )
 
-  @unittest.expectedFailure
   def test_typeof_defaulted_uses_repl_table(self):
     self.assertEqual(curry.typeof(1, defaulted=True), 'Int')
     self.assertEqual(curry.typeof(curry.term(1), defaulted=True), 'Int')

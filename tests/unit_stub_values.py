@@ -295,12 +295,10 @@ class TestStubValues(cytest.TestCase):
     self.assertEqual(hash(c), hash('a'))
     self.assertIs(type(curry.eval(curry.term(c)).one()), curry.Char)
 
-  @unittest.expectedFailure
   def test_char_rejects_empty_string(self):
     with self.assertRaises(ValueError):
       curry.Char('')
 
-  @unittest.expectedFailure
   def test_char_rejects_long_string(self):
     with self.assertRaises(ValueError):
       curry.Char('ab')

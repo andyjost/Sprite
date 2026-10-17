@@ -136,7 +136,6 @@ class TestStubEvaluation(cytest.TestCase):
     Primes = curry.import_('Primes')
     self.assertEqual(list(stream(Primes.threeOut)), [1, 2, 3])
 
-  @unittest.expectedFailure
   def test_eval_is_lazy_and_errors_at_next(self):
     P = curry.import_('Prelude')
     r = curry.eval(P.error('boom'))

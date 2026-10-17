@@ -65,7 +65,6 @@ class TestFlowF13(cytest.TestCase):
     self.assertIsNot(v[0], v[1])
     self.assertEqual(curry.show(v), '(_a,_b)')
 
-  @unittest.expectedFailure
   def test_structural_keys(self):
     I = curry.import_('Items'); C = curry.import_('Coin'); t = I.inc(1)
     table = {t: 'one', C.coin: 'coin'}

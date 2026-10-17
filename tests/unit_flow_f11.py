@@ -116,7 +116,6 @@ class TestFlowF11(cytest.TestCase):
     self.assertEqual([(c, sorted(v)) for c, v in curry.eval((t, SF.set0(t)))], [(0, [0]), (1, [1])])
     self.assertEqual(str(t), 'coin')
 
-  @unittest.expectedFailure
   def test_set_term_printing(self):
     SF = curry.import_('Control.SetFunctions'); S = curry.import_('Sets')
     self.assertEqual(repr(SF.set0(S.coin)), '<Term set0 coin :: Values Int>')
