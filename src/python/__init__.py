@@ -172,8 +172,9 @@ reset = _interpreter_.reset
 save = _interpreter_.save
 stats = _interpreter_.stats
 from .objects import CurryModule as Module
-from .objects.terms import Term, Symbol, DataType, Char
+from .objects.terms import Term, Symbol, DataType, Char, Var, Anonymous, anonymous, Reference
 from .typecheck.errors import ConversionError, MismatchError, ArityError
+from .typecheck.defaulting import DefaultingError
 
 def info(module):
   return getattr(module, '.info')
@@ -181,6 +182,30 @@ def info(module):
 def term(value, *, type=None):
   from .objects.terms import term as build_term
   return build_term(_interpreter_, value, type)
+
+def parse(text, *, imports=()):
+  from .objects.terms import parse as parse_term
+  return parse_term(_interpreter_, text, imports)
+
+def free(name=None, *, type=None, **legacy):
+  from . import expressions as _expressions
+  if legacy or isinstance(name, int):
+    return _expressions.free(vid=legacy.pop('vid', 0 if name is None else name), **legacy)
+  return Var(_interpreter_, name, type)
+
+def choice(first, second, *more):
+  from .objects.terms import choice as build_choice
+  return build_choice(_interpreter_, first, second, *more)
+
+def let(body, /, **bindings):
+  from .objects.terms import let as build_let
+  return build_let(_interpreter_, body, bindings)
+
+def ref(name=None):
+  from . import expressions as _expressions
+  if name is None:
+    return _expressions.ref()
+  return Reference(_interpreter_, name)
 
 def _qualified(name):
   parts = name.split('.')
@@ -202,7 +227,10 @@ def type(name):
     return info(module).types[local]
   except KeyError:
     raise TypeLookupError('module %r has no type %r' % (module.__name__, local)) from None
-typeof = _interpreter_.typeof
+def typeof(value, defaulted=False):
+  if isinstance(value, str):
+    value = term(value)
+  return _interpreter_.typeof(value, defaulted=defaulted)
 
 def getInterpreter():
   '''Get the global interpreter instance.'''
@@ -261,3 +289,7 @@ def show_value(value):
   return ShowValue()(value)
 
 __all__ += ['Term', 'Symbol', 'DataType', 'Module', 'Char', 'term', 'info', 'ConversionError', 'MismatchError', 'ArityError']
+
+__all__ += ['parse', 'Var', 'Anonymous', 'anonymous', 'let']
+
+__all__ += ['DefaultingError']

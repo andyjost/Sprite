@@ -14,5 +14,5 @@ CompileError is an Exception -> True
 EvaluationSuspended under EvaluationError -> True
 except Exception -> caught EvaluationError
 except BaseException -> caught EvaluationError
-free('x') !! ValueError: invalid literal for int() with base 10: 'x'
+free('x') -> x
 compile("1 +") !! CompileError: Unexpected end-of-file

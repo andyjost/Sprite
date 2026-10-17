@@ -127,7 +127,6 @@ class TestStubErrors(cytest.TestCase):
     self.assertEqual(curry.NoInstanceError.__bases__, (curry.CurryTypeError,))
     self.assertTrue(issubclass(curry.NoInstanceError, Exception))
 
-  @unittest.expectedFailure
   def test_DefaultingError_bases(self):
     self.assertEqual(curry.DefaultingError.__bases__, (curry.CurryTypeError,))
     self.assertTrue(issubclass(curry.DefaultingError, Exception))
@@ -319,7 +318,6 @@ class TestStubErrors(cytest.TestCase):
     with self.assertRaises(curry.IntOverflowError):
       next(r)
 
-  @unittest.expectedFailure
   def test_compile_error_has_report_and_position(self):
     with self.assertRaises(curry.CompileError) as caught:
       curry.parse('1 + )')

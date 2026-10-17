@@ -65,7 +65,6 @@ class TestFlowF05(cytest.TestCase):
     self.assertEqual(list(curry.eval(g)), ['cmd1', 'cmd2'])
     self.assertEqual(curry.typeof(g), '[Char]')
 
-  @unittest.expectedFailure
   def test_annotation_after_clause(self):
     R = curry.import_('Rule')
     with self.assertRaises(curry.CompileError):
@@ -109,7 +108,6 @@ class TestFlowF05(cytest.TestCase):
       curry.typeof(g)
     self.assertIn('Ambiguous type variable', str(caught.exception))
 
-  @unittest.expectedFailure
   def test_types_and_bare_text(self):
     self.assertEqual(curry.typeof(curry.parse('xs ++ ys where xs, ys free')), 'Data a => [a]')
     self.assertEqual((curry.typeof('a'), curry.typeof('ab')), ('[Char]', '[Char]'))

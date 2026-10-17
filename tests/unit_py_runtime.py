@@ -6,7 +6,8 @@ from curry.backends.py.eval.rts import RuntimeState
 from curry.backends.py.eval.configuration import Bindings
 from curry.backends.py.eval.rts_freevars import _gen_ctors
 from curry.common import T_FAIL, T_CHOICE
-from curry import choice, icurry, inspect, interpreter
+from curry import icurry, inspect, interpreter
+from curry.expressions import choice
 from curry.utility.binding import binding
 from cytest import bootstrap
 from glob import glob

@@ -53,8 +53,8 @@ print("'natFromInt 3' as an expression ->"
 expr = curry.compile('natToInt (I O)', mode='expr', imports=[Nat], exprtype='Int')
 print("'natToInt (I O)' with exprtype='Int' ->", vals(expr), curry.typeof(expr))
 
-# A str given to eval is a String value, not a goal (P12).
-print("eval('natToInt O') ->", vals('natToInt O'))
+# A bare str goal names the text and String routes in its refusal.
+show("eval('natToInt O')", lambda: vals('natToInt O'))
 
 # Overloaded text without a type is a CompileError; exprtype resolves it.
 show("'toEnum 65' without a type", lambda: texts(curry.compile('toEnum 65', mode='expr')))

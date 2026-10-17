@@ -1,6 +1,9 @@
 '''Print the source forms of terms without the runtime dictionaries.'''
 
 from collections.abc import Iterator
+from contextvars import ContextVar
+
+_NAMES = ContextVar('term_variable_names', default=None)
 from ..toolchain.flat2icurry import flatcurry as fc
 from ..typecheck.serialize import curry_literal
 from ..show import show_float
@@ -63,8 +66,22 @@ def application(info, args):
 
 def format_(value):
   from ..expressions import typed
-  from .terms import Term, ValueList
+  from .terms import Term, ValueList, Var, Reference, LetForm
+  if isinstance(value, Var):
+    names = _NAMES.get()
+    if value.name is not None:
+      return value.name, ATOM
+    if id(value) not in names:
+      names[id(value)] = '_' + alpha(len(names))
+    return names[id(value)], ATOM
+  if isinstance(value, Reference):
+    return value.name, ATOM
+  if isinstance(value, LetForm):
+    return 'let %s in %s' % ('; '.join('%s = %s' % (name, format_(v)[0])
+        for name, v in value.bindings.items()), format_(value.body)[0]), APP
   if isinstance(value, Term):
+    if hasattr(value, '_text'):
+      return value._text, APP
     return format_(value._form)
   if isinstance(value, typed):
     if isinstance(value.value, str):
@@ -92,5 +109,18 @@ def format_(value):
   return str(value), APP
 
 def show(term):
-  text, kind = format_(term)
-  return '(%s)' % text if kind == NEG else text
+  token = _NAMES.set({})
+  try:
+    text, kind = format_(term)
+    return '(%s)' % text if kind == NEG else text
+  finally:
+    _NAMES.reset(token)
+
+
+def alpha(n):
+  chars = []
+  while True:
+    chars.append(chr(97 + n % 26))
+    n = n // 26 - 1
+    if n < 0:
+      return ''.join(reversed(chars))

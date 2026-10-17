@@ -454,7 +454,13 @@ def make_goal(interp, args, exprtype=None, anchors=None):
   ``typed_expr`` off, :func:`check_application` refuses a symbol applied to
   arguments.
   '''
-  from ..objects.terms import Term
+  from ..objects.terms import Term, check_refs, named_vars
+  from .errors import ConversionError
+  if len(args) == 1 and isinstance(args[0], str):
+    raise ConversionError('a str goal needs curry.parse(text) for code or curry.term(text) for a String')
+  if not anchors:
+    check_refs(args)
+  named_vars(args)
   if args and isinstance(args[0], Term):
     head = args[0]
     if head.symbol is not None and not head._args:
@@ -475,7 +481,16 @@ def make_goal(interp, args, exprtype=None, anchors=None):
         return Goal(expr)
   if not interp.flags.get('typed_expr', True):
     check_application(args)
-  return Goal(interp.expr(*args, exprtype=exprtype, **anchors))
+  try:
+    return Goal(interp.expr(*args, exprtype=exprtype, **anchors))
+  except DefaultingError as error:
+    if len(args) != 1 or not isinstance(args[0], Term):
+      raise
+    term = args[0]
+    message = 'cannot handle the overloaded goal %s of type %s' % (term, term._signature)
+    message += '\nCannot handle arbitrary overloaded top-level expressions'
+    message += "\nstate the type: curry.term(goal, type='T')"
+    raise DefaultingError(message, error.scheme, error.predicate) from None
 
 # The scheme in a saved module
 # ============================

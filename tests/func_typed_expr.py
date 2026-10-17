@@ -53,6 +53,7 @@ from curry.toolchain.flat2icurry import flatcurry as fc
 from curry.typecheck import builder, sigtable
 from curry.typecheck.serialize import serialize_call
 import curry, itertools, os, re, sys, unittest
+from curry.expressions import choice as choice_marker
 
 SOURCE_DIR = 'data/curry/typed_expr/'
 ORACLE_TIMEOUT = 60
@@ -235,7 +236,7 @@ LITERALS = Corpus('twins_literals', '''\
   , _twin('reverse_string', lambda ns: Call(ns.P.reverse, 'ab'))
   , _twin('char_then_string', lambda ns: Call(['c', 'ab']), row=True)
   , _twin('string_then_char', lambda ns: Call(['ab', 'c']), row=True)
-  , _twin('choice_char_string', lambda ns: Call(curry.choice('c', 'ab')))
+  , _twin('choice_char_string', lambda ns: Call(choice_marker('c', 'ab')))
   , _twin('fmap_ord_char', lambda ns: Call(ns.P.fmap, ns.P.ord, 'a'), row=True)
   , _twin('escapes', lambda ns: Call('ab\n"q" \\ ä\U0001f600'))
   , _twin('floats', lambda ns: Call([1, 2.5]), row=True, floats=True)
@@ -265,10 +266,10 @@ LITERALS = Corpus('twins_literals', '''\
   , _twin('foldr', lambda ns: Call(ns.P.foldr, ns.plus, 0, [1, 2, 3]))
   , _twin('fmap', lambda ns: Call(ns.P.fmap, [ns.plus, 1], [ns.P.Just, 1]))
   , _twin('enumfrom', lambda ns: Call(ns.P.take, 3, [ns.P.enumFrom, 1]))
-  , _twin('choice', lambda ns: Call(curry.choice(1, 2)))
-  , _twin('choice_float', lambda ns: Call(curry.choice(1, 2.5)), floats=True)
-  , _twin('choice_not', lambda ns: Call(ns.not_, curry.choice(True, False)))
-  , _twin('choice_plus', lambda ns: Call(ns.plus, curry.choice(1, 2), 10))
+  , _twin('choice', lambda ns: Call(choice_marker(1, 2)))
+  , _twin('choice_float', lambda ns: Call(choice_marker(1, 2.5)), floats=True)
+  , _twin('choice_not', lambda ns: Call(ns.not_, choice_marker(True, False)))
+  , _twin('choice_plus', lambda ns: Call(ns.plus, choice_marker(1, 2), 10))
   , _twin('fail', lambda ns: Call(ns.P.id, curry.fail))
   ])
 
@@ -355,8 +356,8 @@ LOGIC = Corpus('twins_logic', '''\
   , _twin('anchor_shared', lambda ns: Call(
         ns.plus, ref('v'), ref('v'), v=[ns.plus, 1, 2]
       ))
-  , _twin('choice_nested', lambda ns: Call(curry.choice(1, curry.choice(2, 3))))
-  , _twin('choice_list', lambda ns: Call([curry.choice(1, 2), 3]))
+  , _twin('choice_nested', lambda ns: Call(choice_marker(1, choice_marker(2, 3))))
+  , _twin('choice_list', lambda ns: Call([choice_marker(1, 2), 3]))
   ])
 
 # A module with declarations of its own: a newtype, a data type with a Num

@@ -333,15 +333,17 @@ class TypedBuilder:
     :class:`Group`.
     '''
     X = self.X
+    from ..objects.terms import named_vars
     anchors = dict(anchors)
+    named_vars((args, tuple(anchors.values())))
     # Every keyword anchor is declared before any value is converted, so
     # that an anchor may refer to one that comes later.
     for name in anchors:
       self._declare_anchor(name)
     forms = [X.anchor(value, name=name) for name, value in anchors.items()]
     forms.append(self._form(args))
-    from ..objects.terms import Term
-    pending = list(forms)
+    from ..objects.terms import Term, LetForm
+    pending = [] if getattr(self, '_precounted', False) else list(forms)
     while pending:
       value = pending.pop()
       if isinstance(value, Term):
@@ -349,6 +351,8 @@ class TypedBuilder:
         self._term_counts[key] = self._term_counts.get(key, 0) + 1
         if self._term_counts[key] == 1:
           pending.append(value._form)
+      elif isinstance(value, LetForm):
+        pending.extend((value.body, *value.bindings.values()))
       elif isinstance(value, (list, tuple)):
         pending.extend(value)
       elif isinstance(value, (X.typed, X.anchor, X.fwd, X._setgrd,
@@ -391,7 +395,26 @@ class TypedBuilder:
     value, a container and an index.
     '''
     X = self.X
-    from ..objects.terms import Term, ValueList
+    from ..objects.terms import Term, ValueList, Var as TermVar, Reference, LetForm
+    if isinstance(arg, TermVar):
+      return self.spec_of(arg._marker)
+    if isinstance(arg, Reference):
+      try:
+        return Ref(self._ref_var(arg.name)), ()
+      except ValueError:
+        raise exceptions.CurryTypeError(
+            'reference %r needs a binding; available bindings: %s'
+                % (arg.name, ', '.join(self.anchor_vars) or '(none)')
+          ) from None
+    if isinstance(arg, LetForm):
+      nested = TypedBuilder(self.interp)
+      nested._precounted = True
+      nested._term_counts = self._term_counts
+      nested._term_specs = self._term_specs
+      nested.anchors = self.anchors
+      spec = nested.specs((arg.body,), arg.bindings.items())
+      self.anchors.update(nested.anchors)
+      return spec, ()
     if isinstance(arg, Term):
       if isinstance(arg._form, collections.abc.Iterator):
         return Raw(arg._node, walk=True), ()
@@ -604,6 +627,8 @@ class TypedBuilder:
     '''Types a spec tree, builds its node and records the result type.'''
     problem = TypedProblem(self, root, exprtype)
     problem.solve()
+    from ..objects.terms import fix_variable_types
+    fix_variable_types(problem)
     node = self.materialize(problem)
     if isinstance(node, backends.Node):
       record_of(self.interp).put(node, problem.scheme, problem.typeexpr)
@@ -1183,8 +1208,21 @@ def typeof(interp, e, defaulted=False):
   content), a symbol, a :class:`Description`, or any argument of
   ``curry.expr``.
   '''
-  from ..objects.terms import Term
+  from ..objects.terms import Term, Var as TermVar, signature
+  if isinstance(e, TermVar) and not defaulted:
+    from ..objects.terms import raw_symbols
+    with raw_symbols():
+      b = TypedBuilder(interp)
+      problem = TypedProblem(b, b.specs((e,)))
+      return signature(problem)
   if isinstance(e, Term):
+    if getattr(e, '_ambiguous', None) is not None:
+      message = 'Ambiguous type variable in type %s' % e._signature
+      if hasattr(e, '_text'):
+        error = exceptions.CompileError('1:1 Error: ' + message)
+        error.line, error.column, error.report = 1, 1, message
+        raise error
+      raise exceptions.CurryTypeError(message)
     if e._signature == '?' and e.symbol is not None:
       interp.sigtable.lookup(e.symbol._info, required=True)
     if not defaulted:

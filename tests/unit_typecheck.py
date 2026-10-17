@@ -849,7 +849,7 @@ class TestFreeVariables(cytest.TestCase):
     # The marker keeps its node across materializations.
     z = curry.free()
     node1 = build(P('id'), z)
-    self.assertIs(z._shared(curry.getInterpreter()), node1.successors[0] if not IS_CXX else z._shared(curry.getInterpreter()))
+    self.assertIs(curry.expr(z), node1.successors[0] if not IS_CXX else curry.expr(z))
     node2 = build(P('id'), z)
     self.assertEqual(str(node2), str(node1))
     # An anonymous Free spec is a variable of its own.
@@ -1317,7 +1317,7 @@ class TestAPI(cytest.TestCase):
     self.assertIsInstance(engine.spec_of(iter([1])), Iter)
     choice = engine.spec_of(curry.choice(1, 2))
     self.assertIsInstance(choice, App)
-    self.assertEqual(choice.symbol, 'Prelude.?')
+    self.assertEqual(choice.symbol.fullname, 'Prelude.?')
     spec = Lit(1)
     self.assertIs(engine.spec_of(spec), spec)
     with self.assertRaisesRegex(curry.CurryTypeError, 'invalid arguments after 1'):

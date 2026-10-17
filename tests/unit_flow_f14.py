@@ -100,7 +100,6 @@ print(repr(values))
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(proc.stdout, 'hello\n[()]\n')
 
-  @unittest.expectedFailure
   def test_types(self):
     T = curry.import_('Tools'); g = curry.parse('xs ++ [3] =:= [1,2,3] where xs free', imports=[T])
     self.assertEqual((curry.typeof(T.freegoal), curry.typeof(g), curry.typeof(T.bound)), ('(Int, Int)', 'Bool', 'Bool'))

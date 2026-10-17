@@ -86,7 +86,6 @@ class TestFlowF04(cytest.TestCase):
     self.assertIs(a.value[0], ins)
     self.assertIs(a.value[1], y)
 
-  @unittest.expectedFailure
   def test_variable_identity(self):
     ins = curry.free('ins')
     self.assertFalse(curry.free('x') == curry.free('x'))
@@ -99,7 +98,6 @@ class TestFlowF04(cytest.TestCase):
     with self.assertRaises(curry.CurryTypeError):
       curry.solve((x1, x2))
 
-  @unittest.expectedFailure
   def test_variable_type(self):
     ins = curry.free('ins')
     self.assertEqual(curry.typeof(ins), 'Data a => a')

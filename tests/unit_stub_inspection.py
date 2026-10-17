@@ -7,7 +7,7 @@ python-api-implementation-plan.md. Section 12 amends metadata access.
   test_show_example: lines 6421-6422; lane 1.
   test_typeof_defaulted_uses_repl_table: lines 6396-6400; lane 2.
   test_typeof_text_and_value_agree: lines 6396-6398; lane 2.
-  test_typeof_refuses_repl_refusal: lines 6399; lane 2.
+  test_typeof_refuses_repl_refusal (a parsed text: CompileError, as stage C's rule and F05 say; corrected by the reviewer 2026-10-16): lines 6399; lane 2.
   test_typeof_answer_is_value_type: lines 6394; lane 2.
   test_show_constructor_negative_argument: lines 6408-6410; lane 1.
   test_show_operator_precedence: lines 6410-6411; lane 1.
@@ -37,7 +37,6 @@ class TestStubInspection(cytest.TestCase):
     if FLOW_PATH not in curry.path:
       curry.path.insert(0, FLOW_PATH)
 
-  @unittest.expectedFailure
   def test_typeof_example(self):
     Coin = curry.import_('Coin')
     self.assertEqual(
@@ -56,14 +55,13 @@ class TestStubInspection(cytest.TestCase):
     self.assertEqual(curry.typeof(1, defaulted=True), 'Int')
     self.assertEqual(curry.typeof(curry.term(1), defaulted=True), 'Int')
 
-  @unittest.expectedFailure
   def test_typeof_text_and_value_agree(self):
     self.assertEqual(curry.typeof('ab'), '[Char]')
     self.assertEqual(curry.typeof(curry.parse('"ab"')), '[Char]')
 
   @unittest.expectedFailure
   def test_typeof_refuses_repl_refusal(self):
-    with self.assertRaises(curry.CurryTypeError):
+    with self.assertRaises(curry.CompileError):
       curry.typeof(curry.parse('x =:= y where x, y free'))
 
   @unittest.expectedFailure
