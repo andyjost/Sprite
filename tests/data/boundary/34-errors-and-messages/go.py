@@ -2,9 +2,9 @@
 The errors a Python caller meets at the boundary: the first line of the
 messages of the typed boundary, and the classes of the exceptions.  They
 derive from CurryError, an Exception, so "except Exception" catches an
-evaluation error.  A CompileError carries the command line of the front end with the
-paths of the installation (P45), so the driver prints its class and the
-message line of the front end alone.
+evaluation error. CompileError.report retains the front-end diagnostic;
+its str is the first error without a machine path (A21). The driver
+prints the class and the diagnostic alone.
 '''
 import os, curry
 import curry.typecheck.errors  # the classes of the typed boundary (P42: not exported)
@@ -28,7 +28,7 @@ show('succ [succ, pred]', lambda: curry.expr(P.succ, [P.succ, P.pred]))
 show('expr(None)', lambda: curry.expr(None))
 
 # A lone class method as a goal: the sentence of the PAKCS REPL, and a hint
-# that names a Curry signature, which a Python call cannot follow (P44).
+# that gives the Python type spelling (P44).
 try:
   curry.eval(P.show)
 except curry.CurryTypeError as error:
@@ -62,11 +62,9 @@ print('except BaseException ->', attempt(BaseException))
 # Errors beside CurryTypeError leak from the builders (P43).
 show("free('x')", lambda: curry.free('x'))
 
-# A syntax error in a text goal: the report of the front end follows the
-# command line in the message (P45).  The line after "Error:" is printed.
+# A syntax error carries the diagnostic, without the command line (A21).
 try:
   curry.compile('1 +', mode='expr')
 except curry.CompileError as error:
-  lines = str(error).splitlines()
-  report = next(lines[i + 1].strip() for i, line in enumerate(lines) if line.endswith('Error:'))
+  report = error.report.split('Error:', 1)[-1].strip().splitlines()[0]
   print('compile("1 +") !!', type(error).__name__ + ':', report)

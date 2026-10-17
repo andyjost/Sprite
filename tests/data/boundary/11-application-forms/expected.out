@@ -8,8 +8,8 @@ id inc 1 -> [2]
 inc 1 2 !! ArityError: App.inc :: Int -> Int takes 1 argument, 2 given
 typeof show -> 'Show a => a -> [Char]'
 show !! DefaultingError: cannot handle the overloaded goal Prelude.show of type Show a => a -> [Char]
-  Cannot handle arbitrary overloaded top-level expressions
-  add a type signature
+Cannot handle arbitrary overloaded top-level expressions
+state the type: curry.term(goal, type='T')
 show 1 -> ['1']
 rule 'a' ['x'] -> ['cmd1']
 usesRel rule -> ['cmd2']

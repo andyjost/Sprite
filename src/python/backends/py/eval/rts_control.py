@@ -91,11 +91,11 @@ class ControlHandler(object):
       return False
     if issubclass(exc_type, E_UNWIND):
       if self.nondet:
-        raise exceptions.NondetMonadError()
+        raise exceptions.NondetError()
       return bool(self.unwind)
     if issubclass(exc_type, E_RESIDUAL):
       if self.nondet:
-        raise exceptions.NondetMonadError()
+        raise exceptions.NondetError()
       if self.residual:
         self.rts.C.residuals.update(exc.ids)
         self.rts.rotate()

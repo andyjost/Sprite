@@ -44,7 +44,7 @@ __all__ = [
   , 'build', 'describe', 'infer', 'materialize', 'spec_of'
   ]
 
-DEFAULT_HINT = 'add a type annotation (exprtype)'
+DEFAULT_HINT = "state the type: curry.term(goal, type='T')"
 
 # The line added to the error of the table when the constraint sits on the
 # element type of an iterator, which the items never fix.
@@ -520,6 +520,9 @@ class Problem:
     if isinstance(head, fc.FuncType):
       for holder in var.holders:
         if isinstance(holder, Free):
+          if getattr(holder.payload, '_var', None) is not None \
+              and getattr(holder.payload, 'exprtype', None):
+            continue
           where = self.location(self._current)
           raise errors.FreeFunctionError(
               where, self.show(head), actual=self.type_of_term(head)
@@ -811,7 +814,7 @@ class Problem:
       text = describe(self.root)
       if len(text) > WHAT_WIDTH:
         text = text[:WHAT_WIDTH - 3] + '...'
-      return "expression '%s'" % text
+      return "goal %s" % text
     return _LazyText(make)
 
   def solve(self):
@@ -828,6 +831,11 @@ class Problem:
       app.dicts = [self._resolve(pred) for pred in app.preds]
     for free in self.frees:
       self._current = free
+      if isinstance(whnf(free.type, self.arity), fc.FuncType) \
+          and getattr(free.payload, '_var', None) is not None:
+        raise exceptions.InstantiationError(
+            'free variable at %s cannot be instantiated at function type %s'
+            % (self.location(free), self.show(free.type)))
       free.dict = self._resolve(Pred(DATA_CLASS, free.type, free))
     self._current = None
     self.solved = True

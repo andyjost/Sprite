@@ -2,7 +2,7 @@
 
 from collections.abc import Iterator, Mapping
 from typing import NamedTuple
-from ..exceptions import NoValueError, ManyValuesError
+from ..exceptions import NoValueError, ManyValuesError, SuspensionError
 
 class Results(Iterator):
   '''A lazy search. Closing it releases the evaluation.'''
@@ -18,6 +18,9 @@ class Results(Iterator):
       raise StopIteration
     try:
       return next(self._values)
+    except SuspensionError:
+      self.close()
+      raise SuspensionError('Evaluation suspended: ' + self._text) from None
     except BaseException:
       self.close()
       raise

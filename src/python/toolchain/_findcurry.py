@@ -153,7 +153,7 @@ def currentfile(
     # derivatives (it could be OK to ship Curry files with no source).  Report
     # this as there being no source file.
     assert not os.path.exists(curryfile)
-    raise PrerequisiteError('Curry file does not exist: %r' % curryfile)
+    raise ModuleLookupError('Curry file does not exist: %r' % curryfile)
   if not (os.access(prereq, os.R_OK) and os.path.isfile(prereq)):
     raise PrerequisiteError(
         'prerequisite is the wrong type or is unreadable: %r' % prereq

@@ -6,8 +6,8 @@ application is a function, and a surplus argument goes through apply when
 the result type has the arrow, as in Curry.  Too many arguments for a
 symbol whose result is not a function is an ArityError.  A class method
 alone, show, cannot be defaulted and is refused with the three lines of
-the REPL's sentence, where the hint "add a type signature" fits a module
-and not a Python call (catalogue P44).  With an argument the constraint is
+the REPL's sentence and a type spelling for the Python goal (catalogue P44).
+With an argument the constraint is
 defaulted and the goal runs.  A relation of a program, rule, passes as a
 value to a function that takes it, as example 24 passes depends.
 '''

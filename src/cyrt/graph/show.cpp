@@ -297,7 +297,11 @@ namespace
     static void callback(void * static_data, void * data, Walk2 const * walk)
     {
       auto self = (StrStringifier *)(static_data);
-      switch(Context(data).value)
+      // A forwarding edge borrows its parent's context. Its target prints
+      // the separator; returning from the edge closes no delimiter.
+      bool const forwarding = !self->path.empty()
+          && static_cast<Node *>(self->path.back())->info->tag == T_FWD;
+      if(!forwarding) switch(Context(data).value)
       {
         case '(':
         case ')':
@@ -353,7 +357,19 @@ namespace
             cycle = true;
           else if(cur->info->tag == T_FWD)
           {
-            this->extend(walk, walk.data());
+            auto context = walk.data();
+            switch(Context(context).value)
+            {
+              case '\0': walk.data() = Context(' '); break;
+              case '(' : walk.data() = Context(')'); break;
+              case '[' : walk.data() = Context(']'); break;
+              case '"' : walk.data() = Context('`'); break;
+              case ':' : walk.data() = Context('!'); break;
+              case '<' : walk.data() = Context('>'); break;
+              case '_' : walk.data() = Context('^'); break;
+              case '-' : walk.data() = Context('v'); break;
+            }
+            this->extend(walk, context);
             continue;
           }
         }
@@ -551,7 +567,9 @@ namespace
           }
           case F_IO_TYPE:
           {
-            this->extend(walk, Context(data));
+            if(!this->path.empty())
+              goto default_case;
+            this->extend(walk);
             continue;
           }
           case F_LIST_TYPE:
@@ -636,6 +654,8 @@ namespace
         is_string = is_string
             && (cons->head && is_char(*cons->head->info));
         end = cons->tail;
+        while(end && end->info->tag == T_FWD)
+          end = NodeU{end}.fwd->target;
         is_empty = false;
       }
       if(end && is_list(*end->info))

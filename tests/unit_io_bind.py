@@ -16,12 +16,12 @@ not once per test.
 '''
 import cytest # from ./lib; must be first
 from curry import common
-from curry.exceptions import NondetMonadError
+from curry.exceptions import NondetError
 import contextlib, curry, os, tempfile, unittest
 
 # The text of the error for a choice in a monadic action.  The C++ runtime
 # defines the same text (NONDET_MONAD_ERROR_TEXT in cyrt/builtins.hpp).
-NONDET_TEXT = str(NondetMonadError())
+NONDET_TEXT = str(NondetError())
 
 @contextlib.contextmanager
 def fresh_directory():

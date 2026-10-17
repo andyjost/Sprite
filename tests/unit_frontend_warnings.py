@@ -39,6 +39,9 @@ OTHER = 'non-exhaustive'
 
 def warnings_of(log):
   '''The WARNING records of a capture.'''
+  if hasattr(log, 'records'):
+    return [record.getMessage() for record in log.records
+        if record.levelno == logging.WARNING]
   return log.data.get(logging.WARNING, [])
 
 class TestFrontendWarnings(cytest.TestCase):
@@ -109,12 +112,14 @@ class TestFrontendWarnings(cytest.TestCase):
     curry.import_ reports the warning on overlapping rules once, with the
     module name, and nothing on the non-exhaustive function.  The second
     import, from the products, and the third, from the ICurry cache, report
-    nothing: the front end does not run.
+    nothing. A fresh import without products runs the front end again when
+    warnings are requested, even if a cache entry exists.
     '''
     self.with_cache(os.path.join(self.tmpdir, 'cache.db'))
     self.write('OverlapImport')
-    with capture_log('curry.toolchain._frontend') as log:
-      M = curry.import_('OverlapImport', currypath=[self.tmpdir])
+    with self.assertWarns(curry.CurryWarning):
+      with self.assertLogs('curry', level='WARNING') as log:
+        M = curry.import_('OverlapImport', currypath=[self.tmpdir])
     self.assertEqual(list(curry.eval(M.main, converter='topython')), [[3, 2, 1]])
     records = warnings_of(log)
     self.assertEqual(len(records), 1, records)
@@ -127,13 +132,15 @@ class TestFrontendWarnings(cytest.TestCase):
     with capture_log('curry.toolchain._frontend') as log:
       curry.import_('OverlapImport', currypath=[self.tmpdir])
     self.assertEqual(warnings_of(log), [])
-    # From the cache: the products are gone, the entry is not.
+    # The products are gone. Requesting warnings runs the front end again,
+    # even though the cache entry remains.
     curry.reload()
     shutil.rmtree(os.path.join(self.tmpdir, '.curry'))
-    with capture_log('curry.toolchain._frontend') as log:
-      curry.import_('OverlapImport', currypath=[self.tmpdir])
-    self.assertEqual(warnings_of(log), [])
-    self.assertFalse(
+    with self.assertWarns(curry.CurryWarning):
+      with self.assertLogs('curry', level='WARNING') as log:
+        curry.import_('OverlapImport', currypath=[self.tmpdir])
+    self.assertEqual(len(warnings_of(log)), 1)
+    self.assertTrue(
         os.path.exists(_frontend.flatcurryfile(os.path.join(self.tmpdir, 'OverlapImport.curry')))
       )
 
@@ -174,7 +181,7 @@ class TestFrontendWarnings(cytest.TestCase):
     proc = make('--icy', curryfile)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(proc.stderr.count(MESSAGE), 1, proc.stderr)
-    self.assertIn('[WARNING] the Curry front end warns on module OverlapMake (', proc.stderr)
+    self.assertIn('CurryWarning: OverlapMake.curry:', proc.stderr)
     self.assertNotIn(OTHER, proc.stderr)
     proc = make('--icy', curryfile)
     self.assertEqual(proc.returncode, 0, proc.stderr)

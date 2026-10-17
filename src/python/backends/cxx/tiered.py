@@ -129,7 +129,8 @@ from ...utility import curryname, formatting
 from ..generic import compiler as generic
 from . import cyrtbindings as cyrt
 from ... import common, config
-import atexit, itertools, logging, os, shutil, tempfile, time, weakref
+import atexit, itertools, logging, os, shutil, tempfile, time, weakref, warnings
+from ...exceptions import CurryWarning
 
 logger = logging.getLogger(__name__)
 
@@ -212,6 +213,7 @@ def _warn_once(key, message, *args):
   if key not in _state.warned:
     _state.warned.add(key)
     logger.warning(message, *args)
+    warnings.warn(message % args, CurryWarning, stacklevel=2)
 
 def _environment(interp, currypath=None):
   '''
@@ -663,8 +665,9 @@ def poll(interp=None):
     elif result['error'] == 'the module is no longer loaded':
       logger.debug('The background compile of %s is not needed', name)
     elif result['error'] == cyrt.TIERED_EDITED:
-      logger.warning(
-          'the background compile of module %r is not applied: its source '
+      _warn_once(
+          ('edited', name)
+        , 'the background compile of module %r is not applied: its source '
           'changed after the import, and the swap never changes what a '
           'loaded module means; the module stays interpreted in this '
           'process, and a new process reads the edited file', name

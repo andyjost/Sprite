@@ -125,13 +125,13 @@ def _error(scheme, pred, what, hint):
   what = 'goal %s' % scheme.fullname if what is None else what
   lines = [
       'cannot handle the overloaded %s of type %s' % (what, show_scheme(scheme))
-    , '  ' + ORACLE_SENTENCE
+    , ORACLE_SENTENCE
     ]
   if hint:
-    lines.append('  ' + hint)
+    lines.append(hint)
   return DefaultingError('\n'.join(lines), scheme, pred)
 
-def default_scheme(scheme, what=None, hint='add a type signature', type_arity=None):
+def default_scheme(scheme, what=None, hint="state the type: curry.term(goal, type='T')", type_arity=None):
   '''
   Applies the table of the PAKCS REPL to a scheme.
 

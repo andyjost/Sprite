@@ -11,10 +11,10 @@ Expected output: MismatchError for length of a Char, ArityError for inc 1 2,
 NoInstanceError for succ of a list of functions, ConversionError for None;
 each message names the symbol and its scheme (P44).  eval(show) is a
 DefaultingError of three lines, with the sentence of the PAKCS REPL and the
-hint "add a type signature", which a Python call cannot follow.  The four
+hint "state the type: curry.term(goal, type=...)".  The four
 typed errors are CurryTypeErrors, which are TypeErrors; EvaluationError and
 CompileError are CurryErrors and Exceptions, so "except Exception" and
 "except BaseException" both catch an evaluation error (A20).  curry.free('x')
-leaks a ValueError (P43; the id is positional and there is no name, P7).  The CompileError of "1 +" carries the command
-line of the front end with the install path (P45); the driver prints the
+prints its name. CompileError.report holds the front-end report, while
+str omits the command line and machine path (A21); the driver prints the
 class and the report line "Unexpected end-of-file".  Pins no defect.

@@ -7,7 +7,7 @@ from curry.backends.generic.eval.control import (
 from curry.backends.py.eval import rts_control
 from curry.backends.py.eval.configuration import Configuration
 from curry.backends.py.eval.rts import RuntimeState
-from curry.exceptions import EvaluationSuspended, NondetMonadError
+from curry.exceptions import EvaluationSuspended, NondetError
 import contextlib, curry, io, unittest
 
 @unittest.skipIf(
@@ -32,7 +32,7 @@ class TestPyControl(cytest.TestCase):
         raise E_UNWIND()
     raise_unwind(unwind=True)
     self.assertRaises(E_UNWIND, raise_unwind)
-    self.assertRaises(NondetMonadError, raise_unwind, nondet=True, unwind=True)
+    self.assertRaises(NondetError, raise_unwind, nondet=True, unwind=True)
 
   def test_catch_control_residual(self):
     rts = self.make_rts(1, 2)
@@ -44,7 +44,7 @@ class TestPyControl(cytest.TestCase):
     self.assertRaises(E_RESIDUAL, raise_residual)
     raise_residual(ground=False)
     self.assertRaises(
-        NondetMonadError, raise_residual, nondet=True, residual=True
+        NondetError, raise_residual, nondet=True, residual=True
       )
     self.assertIs(rts.C, head)
     # residual=True records the IDs and rotates the queue.

@@ -9,8 +9,8 @@ Exception, caught by the driver).  Issues: #105 and #106,
 fixed; this driver is their regression.
 Output: typeof True is Bool, and succ True has no value because True is
 the last Bool.  The edges 2**63 - 1 and -2**63 cross; 2**63 and -2**63 - 1
-are a CurryTypeError that names the range.  The overflow of 2**62 + 2**62,
-div 1 0 and mod 1 0 are an EvaluationError.  sqrt 4 is 2.0 and 1 + 2.5 is
+are an IntOverflowError that names the range, as is 2**62 + 2**62.
+div 1 0 and mod 1 0 are DivisionByZeroError.  sqrt 4 is 2.0 and 1 + 2.5 is
 3.5: an int is a literal that fills a Float slot.  typeof 1 is Num a => a
 and Int when defaulted; 1.5 is Fractional a => a and Float.  succ 1.5 is a
 DefaultingError: no default of the REPL's table is Enum and Fractional.

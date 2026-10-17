@@ -256,9 +256,9 @@ class TestNormalization(cytest.TestCase):
       prob.solve()
     self.assertEqual(
         str(cm.exception)
-      , "cannot handle the overloaded expression 'pure 1' of type "
-        "(Applicative a, Num b) => a b\n  " + ORACLE_SENTENCE + "\n"
-        "  add a type annotation (exprtype)"
+      , "cannot handle the overloaded goal pure 1 of type "
+        "(Applicative a, Num b) => a b\n" + ORACLE_SENTENCE + "\n"
+        "state the type: curry.term(goal, type='T')"
       )
     prob = solved(P('pure'), 1, exprtype='Maybe Int')
     self.assertEqual(prob.signature, 'Maybe Int')
@@ -375,7 +375,7 @@ class TestReduction(cytest.TestCase):
       problem(P('show'), P('id'))
     self.assertEqual(
         str(cm.exception)
-      , 'no instance for Show (a -> a) in argument 1 of Prelude.show :: Show a => a -> [Char]'
+      , 'no instance for Show (a -> a) in argument 1 of Prelude.show'
       )
     self.assertEqual(cm.exception.classname, 'Show')
     self.assertEqual(cm.exception.symbol, 'Prelude.show')
@@ -528,9 +528,9 @@ class TestDefaulting(cytest.TestCase):
       prob.solve()
     self.assertEqual(
         str(cm.exception)
-      , "cannot handle the overloaded expression 'toEnum 65' of type Enum a => a\n"
-        "  " + ORACLE_SENTENCE + "\n"
-        "  add a type annotation (exprtype)"
+      , "cannot handle the overloaded goal toEnum 65 of type Enum a => a\n"
+        + ORACLE_SENTENCE + "\n"
+        "state the type: curry.term(goal, type='T')"
       )
     self.assertIn(ORACLE_SENTENCE, oracle('toenum'))
     self.assertIn('Overloaded type: Enum a => a', oracle('toenum'))
@@ -542,7 +542,7 @@ class TestDefaulting(cytest.TestCase):
     self.assertEqual(squeeze(prob.signature), squeeze(oracle('maxbound', 'type')))
     with self.assertRaisesRegex(
         DefaultingError
-      , r"^cannot handle the overloaded expression 'maxBound \+ 1' of type "
+      , r"^cannot handle the overloaded goal maxBound \+ 1 of type "
         r"\(Bounded a, Num a\) => a\n"
       ):
       prob.solve()
@@ -581,20 +581,20 @@ class TestDefaulting(cytest.TestCase):
       solved(P('toEnum'), 65, what='goal g', hint='give g a signature')
     self.assertEqual(
         str(cm.exception)
-      , 'cannot handle the overloaded goal g of type Enum a => a\n  '
-        + ORACLE_SENTENCE + '\n  give g a signature'
+      , 'cannot handle the overloaded goal g of type Enum a => a\n'
+        + ORACLE_SENTENCE + '\ngive g a signature'
       )
-    self.assertEqual(str(problem(P('toEnum'), 65).what), "expression 'toEnum 65'")
+    self.assertEqual(str(problem(P('toEnum'), 65).what), "goal toEnum 65")
     self.assertEqual(problem(P('toEnum'), 65, what='goal g').what, 'goal g')
     # A long description is cut.
     prob = problem(P('show'), list(range(40)))
-    self.assertEqual(len(str(prob.what)), engine.WHAT_WIDTH + len("expression ''"))
-    self.assertTrue(str(prob.what).endswith("...'"))
+    self.assertEqual(len(str(prob.what)), engine.WHAT_WIDTH + len("goal "))
+    self.assertTrue(str(prob.what).endswith("..."))
 
   def test_read(self):
     '''read "5" is Read a => a; the table rejects it, as the oracle does.'''
     with self.assertRaisesRegex(
-        DefaultingError, r"^cannot handle the overloaded expression 'read \"5\"' of type Read a => a\n"
+        DefaultingError, r"^cannot handle the overloaded goal read \"5\" of type Read a => a\n"
       ):
       solved(P('read'), '5')
     self.assertEqual(values(P('read'), '5', exprtype='Int'), ['5'])
@@ -1152,7 +1152,7 @@ class TestErrors(cytest.TestCase):
     # Bool first.
     with self.assertRaisesRegex(
         errors.NoInstanceError
-      , r'^no instance for Num Bool in argument 1 of Prelude\.not :: Bool -> Bool$'
+      , r'^no instance for Num Bool in argument 1 of Prelude\.not$'
       ):
       problem(P('&&'), True, [P('not'), [P('+'), 1, 2]])
     with self.assertRaisesRegex(

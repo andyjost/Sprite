@@ -20,6 +20,7 @@ def exception_classes():
   return [
       cls for _, cls in inspect.getmembers(E, inspect.isclass)
       if cls.__module__ == E.__name__ and issubclass(cls, BaseException)
+      and not issubclass(cls, Warning)
     ]
 
 class TestErrorsRoot(unittest.TestCase):
@@ -40,7 +41,7 @@ class TestErrorsRoot(unittest.TestCase):
   def test_other_bases_are_kept(self):
     self.assertTrue(issubclass(E.CurryTypeError, TypeError))
     self.assertTrue(issubclass(E.CurryIndexError, IndexError))
-    self.assertTrue(issubclass(E.ModuleLookupError, ValueError))
+    self.assertTrue(issubclass(E.ModuleLookupError, ModuleNotFoundError))
     self.assertTrue(issubclass(E.SymbolLookupError, AttributeError))
     self.assertTrue(issubclass(E.EvaluationSuspended, E.EvaluationError))
 

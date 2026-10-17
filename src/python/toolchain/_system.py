@@ -54,7 +54,7 @@ def pexec(cmd, cwd=None, with_stderr=False):
     raise
 
   if retcode:
-    err = CompileError(pexec_message(cmd, stderr))
+    err = CompileError(stderr.strip() or 'the compiler rejected the input', report=stderr)
     err.command = list(cmd)
     err.returncode = retcode
     err.stderr = stderr

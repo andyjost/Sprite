@@ -3,8 +3,8 @@ Application forms
 
 Seam: partial application, over-application through apply, a symbol as a
 function value, the arity and class checks of the typed boundary.  Memo:
-A1, A4.  Catalogue: P10, P44 (the hint of the DefaultingError fits a
-module, not a Python call); the relation of example 24.  Issues: none.
+A1, A4. Catalogue: P10, P44 (DefaultingError names curry.term with a
+type); the relation of example 24. Issues: none.
 Output: map inc [1, 2] is [2, 3]; typeof inc is Int -> Int.  rule 'a' is
 a partial application of type [[Char]] -> [Char], and map applies it to
 two inputs.  id inc 1 prints as apply (id inc) 1 and is 2: the surplus

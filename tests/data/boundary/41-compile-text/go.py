@@ -61,7 +61,7 @@ show("'toEnum 65' without a type", lambda: texts(curry.compile('toEnum 65', mode
 print("'toEnum 65' with exprtype='Char' ->"
     , vals(curry.compile('toEnum 65', mode='expr', exprtype='Char')))
 
-# A syntax error: the class alone, as the message holds a path (P45).
+# A syntax error: this probe prints its class; the diagnostic is in report.
 try:
   curry.compile('f :: Int\nf = = 1')
 except Exception as exc:

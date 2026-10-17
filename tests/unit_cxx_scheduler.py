@@ -191,7 +191,7 @@ class TestInterruptedStep(cytest.TestCase):
     results = run_child(self, [('unwound', (5000,))], stack_limit=1 << 16)
     self.assertRegex(
         results['unwound']
-      , r'^error EvaluationError stack limit of \d+ bytes exceeded'
+      , r'^error StackLimitError stack limit of \d+ bytes exceeded'
       )
 
   @cytest.skipIfGcStress('a collection at every step hides the rotation path')

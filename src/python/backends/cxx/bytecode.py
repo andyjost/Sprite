@@ -314,6 +314,8 @@ class _Emitter(object):
 
   def literal(self, lit):
     if isinstance(lit, icurry.IInt):
+      from .compiler import _check_int_literal
+      _check_int_literal(lit.value)
       return self.const(('I', lit.value), ('I', lit.value))
     if isinstance(lit, icurry.IChar):
       point = ord(lit.value)
@@ -480,6 +482,9 @@ class _Emitter(object):
     lits = [branch.lit for branch in icase.branches]
     if all(isinstance(lit, icurry.IInt) for lit in lits):
       kind = 'i'
+      from .compiler import _check_int_literal
+      for lit in lits:
+        _check_int_literal(lit.value)
       bits = [lit.value & MASK64 for lit in lits]
     elif all(isinstance(lit, icurry.IChar) for lit in lits):
       kind = 'c'

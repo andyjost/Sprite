@@ -47,7 +47,6 @@ class TestFlowF06(cytest.TestCase):
     self.assertEqual(curry.eval(P.take(10, L.primes)).one(), [2, 3, 5, 7, 11, 13, 17, 19, 23, 29])
     self.assertEqual(curry.eval(P.take(8, L.fibs)).one(), [1, 1, 2, 3, 5, 8, 13, 21])
 
-  @unittest.expectedFailure
   def test_whole_fibs_overflows(self):
     L = curry.import_('inflists')
     with self.assertRaises(curry.IntOverflowError):

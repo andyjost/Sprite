@@ -75,7 +75,6 @@ class TestFlowF12(cytest.TestCase):
       curry.eval(P.failed).one()
     self.assertIsInstance(caught.exception, LookupError)
 
-  @unittest.expectedFailure
   def test_suspension_at_next(self):
     P = curry.import_('Prelude')
     expr = P['=:='](P['+'](curry.free(), 1), 3)
@@ -89,7 +88,6 @@ class TestFlowF12(cytest.TestCase):
       self.assertIsInstance(caught.exception, curry.CurryError)
       self.assertEqual(str(caught.exception), message)
 
-  @unittest.expectedFailure
   def test_file_error_at_next(self):
     P = curry.import_('Prelude')
     for g in (P.readFile('/nosuch'), curry.parse('readFile "/nosuch"')):
@@ -101,7 +99,6 @@ class TestFlowF12(cytest.TestCase):
       self.assertIsInstance(caught.exception, curry.EvaluationError)
       self.assertEqual(caught.exception.filename, '/nosuch')
 
-  @unittest.expectedFailure
   def test_user_io_error_at_next(self):
     P = curry.import_('Prelude')
     for g in (P.ioError(P.userError('x')), curry.parse('ioError (userError "x")')):
@@ -112,7 +109,6 @@ class TestFlowF12(cytest.TestCase):
       self.assertIsInstance(caught.exception, curry.EvaluationError)
       self.assertEqual(str(caught.exception), 'user error: x')
 
-  @unittest.expectedFailure
   def test_overflow_at_next(self):
     P = curry.import_('Prelude')
     expr = P['+'](curry.term(2**63 - 1, type='Int'), 1)
@@ -124,7 +120,6 @@ class TestFlowF12(cytest.TestCase):
       self.assertIsInstance(caught.exception, curry.CurryError)
       self.assertEqual(str(caught.exception), 'integer overflow: 9223372036854775807 + 1')
 
-  @unittest.expectedFailure
   def test_literal_overflow_at_build(self):
     P = curry.import_('Prelude')
     with self.assertRaises(curry.IntOverflowError):
@@ -132,7 +127,6 @@ class TestFlowF12(cytest.TestCase):
     with self.assertRaises(curry.IntOverflowError):
       curry.parse('9223372036854775808 + 1')
 
-  @unittest.expectedFailure
   def test_division_by_zero_at_next(self):
     P = curry.import_('Prelude')
     for g in (P.div(1, 0), curry.parse('div 1 0')):
@@ -151,7 +145,6 @@ class TestFlowF12(cytest.TestCase):
       self.assertIsInstance(caught.exception, ValueError)
       self.assertIsInstance(caught.exception, curry.CurryError)
 
-  @unittest.expectedFailure
   def test_missing_modules_at_build(self):
     with self.assertRaises(curry.ModuleLookupError) as caught:
       curry.import_('Nosuch')
@@ -161,7 +154,6 @@ class TestFlowF12(cytest.TestCase):
     with self.assertRaises(curry.CompileError):
       curry.parse('Nosuch.f')
 
-  @unittest.expectedFailure
   def test_error_tree(self):
     for error in (curry.CompileError, curry.EvaluationError, curry.CurryTypeError,
         curry.ModuleLookupError, curry.IntOverflowError, curry.NoValueError, curry.StaleError):

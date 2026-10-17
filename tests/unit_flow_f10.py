@@ -83,7 +83,6 @@ class TestFlowF10(cytest.TestCase):
       curry.compile('f :: Int\nf = 2', name='Same')
     self.assertIs(curry.modules['Same'], N)
 
-  @unittest.expectedFailure
   def test_cached_import_after_edit(self):
     M = curry.import_('Peano')
     self.assertEqual(str(curry.eval(M.main).one()), 'S (S O)')

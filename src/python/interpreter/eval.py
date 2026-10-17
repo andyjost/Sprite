@@ -114,6 +114,21 @@ def _run(interp, goal, convert, answer=False):
       if convert is not None:
         value = convert(interp, value)
       yield Answer(value, bindings) if answer else value
+  except FileNotFoundError as error:
+    from ..exceptions import CurryFileNotFoundError
+    if isinstance(error, CurryFileNotFoundError):
+      raise
+    exc = CurryFileNotFoundError('i/o error: %s: %s' % (error.strerror, error.filename))
+    exc.filename = error.filename
+    raise exc from None
+  except OSError as error:
+    from ..exceptions import CurryIOError
+    if isinstance(error, CurryIOError):
+      raise
+    raise CurryIOError('i/o error: %s' % error.strerror) from None
+  except RecursionError as error:
+    from ..exceptions import StackLimitError
+    raise StackLimitError(str(error)) from None
   finally:
     values.close()
 

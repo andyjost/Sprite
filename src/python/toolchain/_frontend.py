@@ -77,7 +77,8 @@ other file of the oracle changes.
 
 from .. import config
 from . import _system, flat2icurry
-from ..exceptions import CompileError
+from ..exceptions import CompileError, CurryWarning
+import warnings
 from ..utility import curryname
 import logging, os, re, shlex
 
@@ -320,6 +321,7 @@ def report_warnings(stderr, moduledir):
   record of its own.  An empty text reports nothing.
   '''
   for filename, text in warnings_by_file(stderr):
+    warnings.warn(text, CurryWarning, stacklevel=2)
     if filename is None:
       logger.warning('the Curry front end says:\n%s', text)
       continue

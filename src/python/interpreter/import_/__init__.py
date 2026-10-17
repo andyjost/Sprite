@@ -6,9 +6,14 @@ from ...objects.handle import getHandle
 from ...toolchain import plans, _findcurry
 from ...utility.binding import binding
 from ...utility import curryname, formatDocstring, visitation
-import collections.abc, contextlib, logging, os
+import collections.abc, contextlib, logging, os, warnings
+from ...exceptions import CurryWarning
 
 logger = logging.getLogger(__name__)
+
+def _warn(message, *args):
+  logger.warning(message, *args)
+  warnings.warn(message % args, CurryWarning, stacklevel=2)
 
 __all__ = [
     'edited_source', 'import_', 'record_source', 'warn_edited'
@@ -41,9 +46,8 @@ def import_(interp, arg, currypath=None, is_sourcefile=False):
 @import_.when(str)
 def import_(interp, name, currypath=None, is_sourcefile=False):
   modulename = curryname.getModuleName(name, is_sourcefile)
-  try:
-    moduleobj = interp.modules[modulename]
-  except KeyError:
+  moduleobj = interp.modules.get(modulename)
+  if moduleobj is None:
     importEx = ImportEx(interp, currypath)
     if is_sourcefile:
       return importEx(name, is_sourcefile=is_sourcefile)
@@ -253,7 +257,7 @@ def warn_edited(moduleobj, always=False):
   h = getHandle(moduleobj)
   if always or h.warned_mtime != mtime:
     h.warned_mtime = mtime
-    logger.warning(
+    _warn(
         'module %r was not read again: its source %s changed after the '
         'import; the module stays as it was loaded in this process, and a '
         'new process reads the edited file'
@@ -272,7 +276,7 @@ def warn_other_file(moduleobj, filename):
     return False
   if os.path.realpath(loaded) == os.path.realpath(filename):
     return False
-  logger.warning(
+  _warn(
       'module %r was not read from %s: the module name is loaded already '
       'from %s, and the module stays as it was loaded in this process; a '
       'new process reads the other file'

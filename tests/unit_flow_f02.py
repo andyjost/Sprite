@@ -89,7 +89,6 @@ class TestFlowF02(cytest.TestCase):
     with self.assertRaises(TypeError):
       I.inc()
 
-  @unittest.expectedFailure
   def test_operator_partial_printing(self):
     P = curry.import_('Prelude')
     f = curry.eval(P['+'](1)).one()

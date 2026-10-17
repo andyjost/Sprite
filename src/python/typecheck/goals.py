@@ -489,7 +489,17 @@ def make_goal(interp, args, exprtype=None, anchors=None):
     term = args[0]
     message = 'cannot handle the overloaded goal %s of type %s' % (term, term._signature)
     message += '\nCannot handle arbitrary overloaded top-level expressions'
-    message += "\nstate the type: curry.term(goal, type='T')"
+    if term.symbol is not None and term.symbol.name.isidentifier() \
+        and not any(isinstance(arg, Term) for arg in term._args):
+      module = term.symbol.module.__name__
+      prefix = 'P' if module == 'Prelude' else module
+      call = '%s.%s(%s)' % (prefix, term.symbol.name,
+          ', '.join(repr(getattr(arg, 'value', arg)) for arg in term._args))
+    else:
+      call = 'goal'
+    typename = ('Int' if term.symbol is not None
+        and term.symbol.fullname == 'Prelude.read' else 'T')
+    message += "\nstate the type: curry.term(%s, type=%r)" % (call, typename)
     raise DefaultingError(message, error.scheme, error.predicate) from None
 
 # The scheme in a saved module

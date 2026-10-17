@@ -24,7 +24,7 @@ class TestCxxRuntime(cytest.TestCase):
     goals = [
         (curry.expr(P.error, 'boom'), curry.EvaluationError, 'boom')
       , ( curry.expr(getattr(P, '=:='), curry.expr(getattr(P, '+'), x, 1), 3)
-        , curry.EvaluationSuspended, 'Evaluation Suspended!'
+        , curry.SuspensionError, 'Evaluation suspended'
         )
       ]
     for goal, error, message in goals:

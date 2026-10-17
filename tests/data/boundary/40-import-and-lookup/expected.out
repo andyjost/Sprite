@@ -1,6 +1,6 @@
 % python go.py
 import_ by name is the loaded object -> True
-import_ of a path !! ModuleLookupError
+import_ of a path !! ValueError
 import_ of a path with is_sourcefile=True -> Lookup
 after curry.path = [...] the interpreter keeps its list -> True
 sorted(curry.modules) -> ['Lookup', 'Prelude']

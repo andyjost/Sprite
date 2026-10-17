@@ -1,5 +1,6 @@
 #pragma once
 #include <stdexcept>
+#include <string>
 
 namespace cyrt
 {
@@ -18,9 +19,15 @@ namespace cyrt
     using std::runtime_error::runtime_error;
   };
 
+  enum class ErrorKind { evaluation, io, file_not_found, nondet, overflow, division, stack };
+
   struct EvaluationError : std::runtime_error
   {
-    using std::runtime_error::runtime_error;
+    ErrorKind kind;
+    std::string filename;
+    EvaluationError(std::string const & message, ErrorKind kind=ErrorKind::evaluation,
+                    std::string const & filename={})
+      : std::runtime_error(message), kind(kind), filename(filename) {}
   };
 
   struct EvaluationSuspended : EvaluationError

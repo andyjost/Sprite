@@ -369,7 +369,7 @@ class Curry2ICurryConverter(object):
   def __init__(self, **kwds):
     self.quiet = kwds.get('quiet', False)
     self.use_cache = bool(kwds.get('use_cache', True)) \
-                         and cache.icurry_cache_enabled()
+                         and cache.icurry_cache_enabled() and not _frontend.frontend_warnings()
     self.tool = config.curry2icurry_tool(kwds.get('curry2icurry'))
 
   @_system.updateCheck
@@ -388,7 +388,7 @@ class Curry2ICurryConverter(object):
         rewrite_on_hit(file_in)
       elif slot is not None and slot.error is not None:
         logger.debug('Found the error of %s in the cache', file_in)
-        raise CompileError(_system.pexec_message(cmd, slot.error))
+        raise CompileError(slot.error, report=slot.error)
       else:
         logger.debug('Using CURRYPATH %s', os.environ['CURRYPATH'])
         _system.makeOutputDir(file_out)

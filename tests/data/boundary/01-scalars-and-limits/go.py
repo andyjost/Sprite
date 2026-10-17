@@ -5,8 +5,8 @@ A bool is a Bool and never an Int.  An int is a polymorphic literal, Num a
 => a, that defaults to Int as in the PAKCS REPL and fills a Float slot as a
 Float.  A float is Fractional a => a.  The Int of Sprite is 64 bits on both
 backends: a value past the range is refused at the boundary (#105), and an
-overflow or a division by zero in Curry is an EvaluationError (#106), not a
-wrapped value or a crash.  Each line prints a label and the value, or the
+overflow is IntOverflowError; integral division by zero is DivisionByZeroError
+(#106), with no wrapped value or crash.  Each line prints a label and the value, or the
 class of the error and the first line of its message.
 '''
 import curry
@@ -39,7 +39,7 @@ show('2**63', lambda: vals(2**63))
 show('-2**63 - 1', lambda: vals(-2**63 - 1))
 
 # Arithmetic that leaves the range, or divides by zero, is an
-# EvaluationError (#106).  PAKCS has unbounded integers and prints
+# IntOverflowError or DivisionByZeroError (#106). PAKCS prints
 # 9223372036854775808 for the sum; "Limits" of Using the API states the
 # difference.
 show('2**62 + 2**62', lambda: vals(plus, 2**62, 2**62))

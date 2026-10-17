@@ -345,9 +345,9 @@ from ``CurryError``, an ``Exception``, so ``except Exception`` catches it:
     >>> curry.compile('toEnum 65', mode='expr')
     Traceback (most recent call last):
       ...
-    curry.exceptions.CompileError: cannot handle the overloaded expression 'toEnum 65' of type Enum a => a
-      Cannot handle arbitrary overloaded top-level expressions
-      add a type annotation (exprtype)
+    curry.exceptions.CompileError: cannot handle the overloaded goal toEnum 65 of type Enum a => a
+    Cannot handle arbitrary overloaded top-level expressions
+    state the type: toEnum 65 :: T
 
 A trailing ``where x, y free`` declares free variables, as in the REPL.  A
 variable whose type is absent from the result type cannot show in a value,
@@ -843,7 +843,7 @@ order:
     >>> next(curry.eval(eq, [plus, x, 1], 3))
     Traceback (most recent call last):
       ...
-    curry.exceptions.EvaluationSuspended: Evaluation Suspended!
+    curry.exceptions.SuspensionError: Evaluation suspended: (=:=)
     >>> y = curry.free()
     >>> conj = getattr(Prelude, '&')
     >>> print(next(curry.eval(conj, [eq, y, 3], [eq, [plus, y, 1], 4])))
@@ -913,9 +913,9 @@ attributes ``where``, ``symbol``, ``expected``, ``actual`` and ``value``.
     >>> curry.expr(Prelude.read, '5')
     Traceback (most recent call last):
       ...
-    curry.typecheck.defaulting.DefaultingError: cannot handle the overloaded expression 'read "5"' of type Read a => a
-      Cannot handle arbitrary overloaded top-level expressions
-      add a type annotation (exprtype)
+    curry.typecheck.defaulting.DefaultingError: cannot handle the overloaded goal read "5" of type Read a => a
+    Cannot handle arbitrary overloaded top-level expressions
+    state the type: curry.term(goal, type='T')
 
 ``NoInstanceError``
     A constraint on a type that has no instance of the class.
@@ -923,7 +923,7 @@ attributes ``where``, ``symbol``, ``expected``, ``actual`` and ``value``.
     >>> curry.expr(Prelude.show, Prelude.id)
     Traceback (most recent call last):
       ...
-    curry.typecheck.errors.NoInstanceError: no instance for Show (a -> a) in argument 1 of Prelude.show :: Show a => a -> [Char]
+    curry.typecheck.errors.NoInstanceError: no instance for Show (a -> a) in argument 1 of Prelude.show
 
 ``FreeFunctionError``
     A free variable at a function type.
@@ -1262,3 +1262,39 @@ Limits
   ``error``: the handler receives an ``IOError`` with the message.  The
   reference backend of the :doc:`developer notes <../DeveloperNotes>` passes
   these errors through ``catch``.
+
+
+Errors and printed values
+=========================
+
+Every package error derives from ``curry.CurryError``. The standard Python
+classes also apply: ``CurryTypeError`` is a ``TypeError``,
+``DivisionByZeroError`` is a ``ZeroDivisionError``, and
+``CurryFileNotFoundError`` is a ``FileNotFoundError`` with ``filename`` set.
+A signed 64-bit ``Int`` overflow raises ``IntOverflowError``, both when a
+literal is built and when a computation takes a step.
+
+An evaluation raises from ``next`` when it reaches the error. A failure
+has no values; ``Results.one()`` raises ``NoValueError`` for it, or
+``ManyValuesError`` if a second value is found. When only suspended
+alternatives remain, ``SuspensionError`` names the original goal, after
+any values already produced. ``catch`` in Curry can handle a program's
+I/O error on either backend. A choice inside an I/O action raises
+``NondetError``.
+
+``curry.show`` prints terms, converted values and answers in Curry syntax.
+Python containers keep their usual ``str``; use ``curry.show`` for their
+Curry spelling. The empty String prints ``""`` and a partially applied
+operator prints ``(+) 1``. Shared reducible terms print through ``let``.
+
+    >>> P = curry.import_('Prelude')
+    >>> curry.show(P.Just(-1)), curry.show(P['+'](1)), curry.show('')
+    ('Just (-1)', '(+) 1', '""')
+    >>> curry.show([1, 2]), str([1, 2])
+    ('[1,2]', '[1, 2]')
+
+A ``CompileError`` exposes the front end's diagnostic in ``report`` and its
+position in ``line`` and ``column``. Its message omits the command line and
+machine directories. Front-end warnings have category ``CurryWarning``
+and can be filtered with Python's ``warnings`` module. Importing Curry
+installs a null handler on its own logger and leaves the root logger alone.

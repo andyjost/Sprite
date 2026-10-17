@@ -30,7 +30,8 @@ class TestIntSemantics(cytest.TestCase):
 
   def assertError(self, message, *goal):
     '''The goal raises EvaluationError with exactly ``message``.'''
-    with self.assertRaises(curry.EvaluationError) as cm:
+    error = curry.DivisionByZeroError if message.startswith('division by zero:') else curry.IntOverflowError
+    with self.assertRaises(error) as cm:
       values(*goal)
     self.assertEqual(str(cm.exception), message)
 
@@ -46,25 +47,25 @@ class TestIntSemantics(cytest.TestCase):
   def test_int_outside_the_range(self):
     # The typed and the raw routes refuse the value where it enters a node.
     for value in [INT_MAX + 1, INT_MIN - 1, 10**30, -(10**30), 2**64]:
-      with self.assertRaises(curry.CurryTypeError):
+      with self.assertRaises(curry.IntOverflowError):
         curry.expr(value)
-      with self.assertRaises(curry.CurryTypeError):
+      with self.assertRaises(curry.IntOverflowError):
         curry.raw_expr(value)
       with self.assertRaises(curry.IntOverflowError):
         list(curry.eval(value))
-      with self.assertRaises(curry.CurryTypeError):
+      with self.assertRaises(curry.IntOverflowError):
         curry.expr(self.P.Just, value)
-      with self.assertRaises(curry.CurryTypeError):
+      with self.assertRaises(curry.IntOverflowError):
         curry.expr([1, value])
     # The message, at the node.
     make_node = curry.getInterpreter().backend.make_node
-    with self.assertRaises(curry.CurryTypeError) as cm:
+    with self.assertRaises(curry.IntOverflowError) as cm:
       make_node(self.P.Int, INT_MAX + 1)
     self.assertEqual(str(cm.exception), '9223372036854775808 ' + RANGE_TEXT)
-    with self.assertRaises(curry.CurryTypeError) as cm:
+    with self.assertRaises(curry.IntOverflowError) as cm:
       make_node(self.P.Int, INT_MIN - 1)
     self.assertEqual(str(cm.exception), '-9223372036854775809 ' + RANGE_TEXT)
-    with self.assertRaises(curry.CurryTypeError) as cm:
+    with self.assertRaises(curry.IntOverflowError) as cm:
       make_node(self.P.Int, 10**30)
     self.assertEqual(str(cm.exception), '%d %s' % (10**30, RANGE_TEXT))
     # The ends of the range are values.
@@ -198,22 +199,20 @@ class TestIntSemantics(cytest.TestCase):
     self.assertEqual(values(P.floor, -2.1), [-3])
 
   def test_literal_outside_the_range(self):
-    # An Int literal of a Curry source outside the range is the
-    # CurryTypeError of the node, as a Python int is.  The backends raise it
-    # at different times: when the module loads, or when the function is
-    # first evaluated.
+    # A Curry Int literal outside the range is IntOverflowError at the
+    # build, just as a Python int is. Case patterns are checked too.
     big_text = re.escape('99999999999999999999 ' + RANGE_TEXT)
-    with self.assertRaisesRegex(curry.CurryTypeError, big_text):
+    with self.assertRaisesRegex(curry.IntOverflowError, big_text):
       module = curry.compile(textwrap.dedent('''
           big :: Int
           big = 99999999999999999999
           '''), modulename='BigLiteral')
       values(module.big)
-    with self.assertRaisesRegex(curry.CurryTypeError, big_text):
+    with self.assertRaisesRegex(curry.IntOverflowError, big_text):
       values(curry.compile('99999999999999999999 :: Int', mode='expr'))
     # A literal of a case pattern is checked as well: the C++ generator
     # spells it as a constant of the switch.
-    with self.assertRaisesRegex(curry.CurryTypeError, big_text):
+    with self.assertRaisesRegex(curry.IntOverflowError, big_text):
       module = curry.compile(textwrap.dedent('''
           isBig :: Int -> Bool
           isBig 99999999999999999999 = True
@@ -233,7 +232,7 @@ class TestIntSemantics(cytest.TestCase):
     self.assertEqual(values(module.top), [INT_MAX])
     self.assertEqual(values(module.bottom), [INT_MIN])
     with self.assertRaisesRegex(
-        curry.CurryTypeError, re.escape('9223372036854775808 ' + RANGE_TEXT)
+        curry.IntOverflowError, re.escape('9223372036854775808 ' + RANGE_TEXT)
       ):
       module = curry.compile(textwrap.dedent('''
           bottom :: Int

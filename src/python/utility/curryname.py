@@ -71,5 +71,5 @@ def removeSuffix(name, suffix):
 
 def validateModulename(name):
   if not isLegalModulename(name):
-    raise ModuleLookupError('%r is not a legal module name.' % name)
+    raise ValueError('%r is not a legal module name.' % name)
 

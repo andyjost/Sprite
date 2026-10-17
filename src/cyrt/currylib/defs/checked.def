@@ -53,7 +53,7 @@ static tag_type STEP_FUNCTION_NAME(RuntimeState * rts, Configuration * C)
   #if ARITY == 1
     if(!FUNC(NodeU{_1.target}.ARGFIELD->value, value))
     {
-      C->set_error(MESSAGE(_1.target));
+      C->set_error(MESSAGE(_1.target), ErrorKind::overflow);
       return E_ERROR;
     }
   #else
@@ -62,7 +62,8 @@ static tag_type STEP_FUNCTION_NAME(RuntimeState * rts, Configuration * C)
     if(tagr < T_CTOR) return tagr;
     if(!FUNC(NodeU{_1.target}.ARGFIELD->value, NodeU{_2.target}.ARGFIELD->value, value))
     {
-      C->set_error(MESSAGE(_1.target, _2.target));
+      C->set_error(MESSAGE(_1.target, _2.target),
+          NodeU{_2.target}.int_->value == 0 ? ErrorKind::division : ErrorKind::overflow);
       return E_ERROR;
     }
   #endif

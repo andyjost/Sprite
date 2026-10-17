@@ -175,6 +175,7 @@ INT_MAX = (1 << 63) - 1
 
 def check_int_range(value):
   if type(value) is int and not INT_MIN <= value <= INT_MAX:
-    raise CurryTypeError(
+    from ....exceptions import IntOverflowError
+    raise IntOverflowError(
         '%d is outside the range of Int (%d to %d)' % (value, INT_MIN, INT_MAX)
       )

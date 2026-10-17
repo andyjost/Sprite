@@ -53,7 +53,7 @@ print('nothing ->', next(curry.eval(M.nothing), None), list(curry.eval(M.nothing
 print('mixed ->', collect(curry.eval(M.mixed)))
 
 # A suspension: x + 1 =:= 3 with x free blocks on the rigid +, and the
-# generator raises EvaluationSuspended, a subclass of EvaluationError.
+# Results raises SuspensionError with the goal text, under EvaluationError.
 print('x + 1 =:= 3 ->', collect(curry.eval(eq, [plus, curry.free(), 1], 3)))
 
 # A choice between a value and a suspension: the value comes first, then

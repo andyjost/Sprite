@@ -1,6 +1,6 @@
 from ..... import inspect
 from .....show import show_float
-from .....exceptions import EvaluationError
+from .....exceptions import IntOverflowError, DivisionByZeroError
 import math
 import operator as op
 
@@ -33,16 +33,17 @@ def _operand(value):
   return '(%s)' % text if text.startswith('-') else text
 
 def _overflow(x, op_text, y):
-  raise EvaluationError(
+  raise IntOverflowError(
       'integer overflow: %s %s %s' % (_operand(x), op_text, _operand(y))
     )
 
 def _division_error(name, x, y):
   kind = 'division by zero' if y == 0 else 'integer overflow'
-  raise EvaluationError('%s: %s %s %s' % (kind, name, _operand(x), _operand(y)))
+  error = DivisionByZeroError if y == 0 else IntOverflowError
+  raise error('%s: %s %s %s' % (kind, name, _operand(x), _operand(y)))
 
 def _conversion_error(name, x):
-  raise EvaluationError('integer overflow: %s %s' % (name, _operand(x)))
+  raise IntOverflowError('integer overflow: %s %s' % (name, _operand(x)))
 
 def _fits(value):
   return INT_MIN <= value <= INT_MAX
