@@ -26,7 +26,7 @@ TIMEOUT = 120
 # and the values as Curry text, or the name of the error.
 CHILD = '''
 import cytest, curry
-curry.reload(%(flags)r)
+curry.reset(**%(flags)r)
 M = curry.import_('CxxScheduler')
 for name, args in %(goals)r:
   try:

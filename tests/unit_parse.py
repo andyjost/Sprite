@@ -49,7 +49,7 @@ class ParseJSON(cytest.TestCase):
     '''Parse example programs from Kiel.'''
     for jsonfile in glob('data/json/kiel-*.json'):
       icur = icurry.json.load(jsonfile)
-      curry.import_(icur)
+      cytest.raw.import_(icur)
 
 class ReadCurryEscapes(cytest.TestCase):
   '''Tests the character escapes of the ICurry text reader.'''

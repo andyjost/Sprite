@@ -204,7 +204,7 @@ def record_source(moduleobj):
   nothing.
   '''
   h = getHandle(moduleobj)
-  filename = h.icurry.filename
+  filename = getattr(moduleobj, '.source_file', None) or h.icurry.filename
   try:
     h.source_mtime = None if not filename else os.stat(filename).st_mtime_ns
   except OSError:
@@ -222,7 +222,7 @@ def _source_change(moduleobj):
   stamp = h.source_mtime
   if stamp is None:
     return None
-  filename = h.icurry.filename
+  filename = getattr(moduleobj, '.source_file', None) or h.icurry.filename
   try:
     mtime = os.stat(filename).st_mtime_ns
   except OSError:

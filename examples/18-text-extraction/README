@@ -46,7 +46,7 @@ driver prints "-" for such a cell.
 Compiling Curry text at run time.  The rules are a string in go.py.  The
 driver passes the string to
 
-    curry.compile(source, modulename='Rules')
+    curry.compile(source, name='Rules')
 
 which runs the Curry front end and returns a module object.  The functions
 of the module are attributes of that object: Rules.field and Rules.tag.  An

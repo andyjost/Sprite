@@ -7,15 +7,38 @@ import curry, gc, os, re, shutil, subprocess, tempfile, zlib
 class ICurryTestCase(cytest.TestCase):
   '''Tests for the API found in module ``curry``.'''
 
+  def test_literate_file_finds_its_sibling_import(self):
+    from pathlib import Path
+    with tempfile.TemporaryDirectory() as work:
+      root = Path(work)
+      (root / 'Sibling.curry').write_text('module Sibling where\nf :: Int\nf = 7\n')
+      source = root / 'Literate.lcurry'
+      source.write_text('> module Literate where\n> import Sibling\n> g = f\n')
+      previous = list(curry.path)
+      module = curry.import_(source)
+      self.assertEqual(curry.eval(module.g).one(), 7)
+      self.assertEqual(curry.path, previous)
+      curry.wait()
+
+  def test_pathlike_without_suffix_is_a_file(self):
+    from pathlib import Path
+    with tempfile.TemporaryDirectory() as work:
+      source = Path(work) / 'BareSource'
+      source.write_text('module BareSource where\nf :: Int\nf = 7\n')
+      module = curry.import_(source)
+      self.assertEqual(curry.eval(module.f).one(), 7)
+      self.assertEqual(curry.info(module).file, str(source))
+      self.assertIs(curry.import_(source), module)
+
   def test_reload(self):
-    curry.reload()
+    curry.reset()
     curry.path.insert(0, 'data/curry/kiel')
     self.assertIn('data/curry/kiel', curry.path)
     curry.import_('rev')
     self.assertIn('rev', curry.modules)
 
-    curry.reload()
-    self.assertNotIn('data/curry/kiel', curry.path)
+    curry.reset()
+    self.assertIn('data/curry/kiel', curry.path)
     self.assertNotIn('rev', curry.modules)
 
 
@@ -178,13 +201,13 @@ class TestStats(cytest.TestCase):
           zlib.compress(cytest.json_module(self.MODULE, 3).encode('utf-8'))
         )
     before = curry.stats()['compile']
-    module = curry.import_(self.MODULE, currypath=[tmpdir] + curry.path)
+    module = curry.import_(self.MODULE, path=[tmpdir] + curry.path)
     after = curry.stats()['compile']
     self.assertGreater(after, before)
     self.assertEqual(list(curry.eval(module.goal)), [3])
     curry.reset()
     self.assertNotIn(self.MODULE, curry.modules)
-    module = curry.import_(self.MODULE, currypath=[tmpdir] + curry.path)
+    module = curry.import_(self.MODULE, path=[tmpdir] + curry.path)
     self.assertEqual(curry.stats()['compile'], after)
     self.assertEqual(list(curry.eval(module.goal)), [3])
 
@@ -287,7 +310,7 @@ show(cytest.raw.interp())
     self.assertEqual(Interpreter().flags['backend'], curry.flags['backend'])
 
   def test_unknown_flag(self):
-    with self.assertRaisesRegex(ValueError, "unknown flag: 'bogus'"):
+    with self.assertRaisesRegex(curry.FlagError, "'bogus' is not a flag;"):
       Interpreter(flags={'bogus': 1})
 
   def test_setfunction_strategy_is_unknown(self):
@@ -297,7 +320,7 @@ show(cytest.raw.interp())
     '''
     self.assertNotIn('setfunction_strategy', curry.flags)
     with self.assertRaisesRegex(
-        ValueError, "unknown flag: 'setfunction_strategy'"
+        curry.FlagError, "'setfunction_strategy' is not a flag;"
       ):
       Interpreter(flags={'setfunction_strategy': 'eager'})
 
@@ -311,6 +334,6 @@ show(cytest.raw.interp())
     self.assertNotIn('setfunction_failures', curry.flags)
     for value in ('escape', 'encapsulate'):
       with self.assertRaisesRegex(
-          ValueError, "unknown flag: 'setfunction_failures'"
+          curry.FlagError, "'setfunction_failures' is not a flag;"
         ):
         Interpreter(flags={'setfunction_failures': value})

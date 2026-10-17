@@ -31,7 +31,7 @@ status = tiered.status()
 print('background compiles after the import ->', status['queued'] + status['running'])
 
 # #113: the saved module of an object-loaded module has step functions.
-text = curry.save(Obj, module_main=False)
+text = curry.inspect.getimpl(Obj)
 print('save: first line ->', text.splitlines()[0])
 print('save: step functions ->'
     , sum(1 for line in text.splitlines() if line.startswith('tag_type Cy')))

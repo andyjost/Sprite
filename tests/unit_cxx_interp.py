@@ -42,7 +42,7 @@ def switch(mode, name='CxxInterp'):
   first: the garbage is collected before the reload.
   '''
   gc.collect()
-  curry.reload({'backend': 'cxx', 'interpret': mode})
+  curry.reset(**{'backend': 'cxx', 'interpret': mode})
   return curry.import_(name)
 
 
@@ -713,7 +713,7 @@ boom = error "boom"
     super().setUp()
     self.tmpdir = tempfile.mkdtemp(prefix='sprite-firstuse-')
     gc.collect()
-    curry.reload({'backend': 'cxx', 'interpret': 'off'})
+    curry.reset(**{'backend': 'cxx', 'interpret': 'off'})
     gc.collect()
     curry.path.insert(0, self.tmpdir)
     self.currypath = list(curry.path)
@@ -739,7 +739,7 @@ boom = error "boom"
 
   def import_(self, name):
     '''Imports the module ``name`` from its ICurry object.'''
-    return curry.import_(self.icurry(name), currypath=self.currypath)
+    return cytest.raw.import_(self.icurry(name), currypath=self.currypath)
 
   def product(self, name, suffix):
     return os.path.join(
@@ -878,7 +878,7 @@ twice x = double (double x)
     name = self.write()
     imodule = self.icurry(name)
     imodule.filename = None
-    M = curry.import_(imodule, currypath=self.currypath)
+    M = cytest.raw.import_(imodule, currypath=self.currypath)
     self.assertTrapped(M, 'main')
     self.assertEqual(list(curry.eval(M.main)), [42])
     self.assertCompiled(M, 'double', 'main', 'boom')
@@ -897,7 +897,7 @@ twice x = double (double x)
     record the budget (issue #116, the first-use path).
     '''
     gc.collect()
-    curry.reload({'backend': 'cxx', 'interpret': 'off', 'inline_budget': 0})
+    curry.reset(**{'backend': 'cxx', 'interpret': 'off', 'inline_budget': 0})
     gc.collect()
     curry.path.insert(0, self.tmpdir)
     self.currypath = list(curry.path)
@@ -923,7 +923,7 @@ twice x = double (double x)
     name = self.write()
     for mode in 'new', 'tiered':
       gc.collect()
-      curry.reload({'backend': 'cxx', 'interpret': mode})
+      curry.reset(**{'backend': 'cxx', 'interpret': mode})
       gc.collect()
       curry.path.insert(0, self.tmpdir)
       self.currypath = list(curry.path)
@@ -1000,7 +1000,7 @@ other = 2
     imodule = self.icurry(name)
     a, b = imodule.functions['main'], imodule.functions['other']
     a.body, b.body = b.body, a.body
-    M = curry.import_(imodule, currypath=self.currypath)
+    M = cytest.raw.import_(imodule, currypath=self.currypath)
     self.assertTrapped(M, 'main', 'other')
     with self.count_compiles() as calls:
       self.assertEqual(list(curry.eval(M.main)), [2])
@@ -1023,7 +1023,7 @@ other = 2
     name = self.write()
     interp = cytest.raw.interp()
     imodule = self.icurry(name)
-    M = curry.import_(imodule, currypath=self.currypath)
+    M = cytest.raw.import_(imodule, currypath=self.currypath)
     self.assertTrue(materialize.is_translation(interp, imodule))
     main = imodule.functions['main']
     body = main.body

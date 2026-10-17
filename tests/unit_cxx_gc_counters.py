@@ -36,7 +36,7 @@ class TestCounters(cytest.TestCase):
   PREAMBLE = '''
 import cytest, curry, gc, os, sys
 from curry.backends.cxx import cyrtbindings as cyrt
-curry.reload({'backend': 'cxx'})
+curry.reset(**{'backend': 'cxx'})
 M = curry.import_('CxxGc')
 COUNTERS = %r
 PHASES = COUNTERS[:4]

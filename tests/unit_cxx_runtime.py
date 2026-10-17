@@ -114,7 +114,7 @@ class TestCxxProcess(cytest.TestCase):
     '''
     code = '''
 import cytest, curry, os
-curry.reload({'backend': 'cxx'})
+curry.reset(**{'backend': 'cxx'})
 M = curry.import_('CxxRuntime')
 try:
   next(curry.eval(M.unbounded))
@@ -208,7 +208,7 @@ def mapped():
     ))
 out = {'values': [], 'mapped': []}
 for mode in %(modes)r:
-  curry.reload({'backend': 'cxx', 'interpret': mode})
+  curry.reset(**{'backend': 'cxx', 'interpret': mode})
   gc.collect()
   out['mapped'].append(mapped())
   out['values'].append(run())
@@ -301,7 +301,7 @@ class TestReloadAfterCompiledObject(cytest.TestCase):
     # The second pass starts after the unload of every object of the first:
     # the sequence of the issue.
     if out['mapped'][1] is not None:
-      self.assertEqual(out['mapped'][1], [])
+      self.assertEqual(out['mapped'][1], ['Prelude.so', 'ReloadBinding.so'])
     self.assertEqual(out['values'], [RELOAD_VALUES, RELOAD_VALUES])
 
   def test_reload_from_compiled_into_interpreter(self):

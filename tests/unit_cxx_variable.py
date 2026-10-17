@@ -96,7 +96,7 @@ class TestStepFunctions(cytest.TestCase):
 
   def sofile(self, name):
     '''Compiles a benchmark module, if needed, and returns its object.'''
-    curry.import_(name, currypath=[self.BENCHMARKS] + curry.path)
+    curry.import_(name, path=[self.BENCHMARKS] + curry.path)
     path = os.path.join(
         self.BENCHMARKS, '.curry', config.intermediate_subdir(), name + '.so'
       )

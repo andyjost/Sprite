@@ -6,6 +6,9 @@ from . import (
   )
 from ...objects.handle import getHandle
 
+# Retired tables can hold names and types borrowed from compiled code.
+_retired_libraries = []
+
 class IBackend(backends.IBackend):
   @property
   def backend_name(self):
@@ -39,6 +42,8 @@ class IBackend(backends.IBackend):
     # old module object is alive (issue #114).
     M = getHandle(moduleobj).backend_handle
     if M is not None:
+      if M.shlib is not None:
+        _retired_libraries.append(M.shlib)
       M.retire()
 
   def before_evaluation(self, interp):

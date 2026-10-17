@@ -224,7 +224,7 @@ class TestFindCurry(cytest.TestCase):
 
   def test_illegal_name(self):
     self.assertRaisesRegex(
-        ValueError, r"'kiel/rev' is not a legal module name."
+        curry.ModuleLookupError, r'kiel/rev'
       , lambda: curry.import_('kiel/rev')
       )
     self.assertRaisesRegex(
@@ -245,16 +245,16 @@ class TestFindCurry(cytest.TestCase):
     self.assertRaisesRegex(
         TypeError
       , r"'currypath' must be a string or sequence of strings, got 1."
-      , lambda: curry.import_('import_test', currypath=1)
+      , lambda: curry.import_('import_test', path=1)
       )
     self.assertMayRaise(
         None
-      , lambda: curry.import_('import_test', currypath=['data/import_'])
+      , lambda: curry.import_('import_test', path=['data/import_'])
       )
-    del curry.modules['import_test']
+    curry.reset()
     self.assertMayRaise(
         None
-      , lambda: curry.import_('import_test', currypath='data/import_')
+      , lambda: curry.import_('import_test', path='data/import_')
       )
 
   def test_newer(self):
@@ -421,7 +421,7 @@ class TestReorderedChangeTimes(cytest.TestCase):
       # flag ``interpret`` (tiered) the plan of a module ends at its JSON
       # and the object is compiled in the background; see
       # unit_cxx_toolchain.  The cleanup restores the default.
-      curry.reload({'interpret': 'off'})
+      curry.reset(**{'interpret': 'off'})
       curry.import_('Prelude')
       self.addCleanup(self.reload_curry)
     self.plan = plans.makeplan(
@@ -483,7 +483,7 @@ class TestReorderedChangeTimes(cytest.TestCase):
       self.assertGreater(new, old, filename)
     self.assertEqual(remade, sorted(remade))
     self.assertEqual(self.currentfile(), files[-1])
-    module = curry.import_(self.NAME, currypath=[self.srcdir])
+    module = curry.import_(self.NAME, path=[self.srcdir])
     self.assertEqual(
         list(curry.eval(module.goal)), [2]
       )

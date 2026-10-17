@@ -522,7 +522,7 @@ class InlineTestCase(ModuleTestCase):
     '''
     imodule = self.load_icurry(name)
     imodule.update_metadata({passkey(): True})
-    return curry.import_(imodule, currypath=self.currypath)
+    return cytest.raw.import_(imodule, currypath=self.currypath)
 
   def values(self, module, goal):
     return list(curry.eval(getattr(module, goal)))
@@ -957,7 +957,7 @@ class TestAcrossModules(InlineTestCase):
     self.assertIsInstance(analysis.inline_shape(fn['unC']), analysis.CaseBody)
     self.assertTrue(getattr(base_module, '.icurry').metadata[passkey()])
     imodule = self.load_icurry(top)
-    curry.import_(imodule, currypath=self.currypath)
+    cytest.raw.import_(imodule, currypath=self.currypath)
     self.assertEqual(
         result_of(imodule.functions['useFour'])
       , pair(types.IFCall('Prelude.plusInt', [lit(10), lit(1)]), lit(2))
@@ -975,7 +975,7 @@ class TestAcrossModules(InlineTestCase):
       ''' % middle))
     self.assertNotIn(base, imodule.imports)
     imports = imodule.imports
-    curry.import_(imodule, currypath=self.currypath)
+    cytest.raw.import_(imodule, currypath=self.currypath)
     self.assertEqual(
         result_of(imodule.functions['main'])
       , types.IFCall('Prelude.plusInt', [lit(1), lit(1)])

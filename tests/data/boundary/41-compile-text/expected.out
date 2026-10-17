@@ -1,8 +1,8 @@
 % python go.py
-anonymous module -> sprite__interactive_0 ['Prelude', 'sprite__interactive_0']
+anonymous module -> Interactive_0 ['Interactive_0', 'Prelude']
 natFromInt 3 -> [I (I (I O))]
 'Named' in curry.modules -> True
-the same name again !! ValueError: module 'Named' is already defined
+the same name again !! ModuleExistsError: module 'Named' is loaded; curry.reload(curry.modules['Named'], text=...) replaces its code
 five -> [I (I (I (I (I O))))]
 imports=['Data.List'] -> [1, 2]
 the import line of the text -> [1, 2]
@@ -12,4 +12,4 @@ eval('natToInt O') !! ConversionError: a str goal needs curry.parse(text) for co
 typeof 'toEnum 65' -> Enum a => a
 eval 'toEnum 65' without a type !! DefaultingError: cannot handle the overloaded goal toEnum 65 of type Enum a => a | Cannot handle arbitrary overloaded top-level expressions | state the type: curry.term(goal, type='T')
 'toEnum 65 :: Char' -> A
-a syntax error !! CompileError: sprite__interactive_9.curry:3:5 Error: Unexpected token `='
+a syntax error !! CompileError: Interactive_9.curry:3:5 Error: Unexpected token `='

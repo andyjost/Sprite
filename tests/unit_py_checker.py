@@ -205,11 +205,11 @@ class CheckerTestCase(cytest.TestCase):
   '''A test case under the checker.  The flag is set for the class.'''
   @classmethod
   def setUpClass(cls):
-    curry.reload({'backend': 'py', 'checker': True})
+    curry.reset(**{'backend': 'py', 'checker': True})
 
   @classmethod
   def tearDownClass(cls):
-    curry.reload({'backend': 'py', 'checker': False})
+    curry.reset(**{'backend': 'py', 'checker': False})
 
 
 class TestFlag(cytest.TestCase):
@@ -221,31 +221,31 @@ class TestFlag(cytest.TestCase):
   @unittest.skipIf(not PY, 'the checker drives the Python backend')
   def test_off_means_no_checker(self):
     '''With the flag off the runtime state holds no checker.'''
-    curry.reload({'backend': 'py', 'checker': False})
+    curry.reset(**{'backend': 'py', 'checker': False})
     try:
       rts = _state(cytest.raw.expr(1))
       self.assertIsNone(rts.checker)
     finally:
-      curry.reload({'backend': 'py'})
+      curry.reset(**{'backend': 'py'})
 
   @unittest.skipIf(not PY, 'the checker drives the Python backend')
   def test_on_means_checker(self):
-    curry.reload({'backend': 'py', 'checker': True})
+    curry.reset(**{'backend': 'py', 'checker': True})
     try:
       rts = _state(cytest.raw.expr(1))
       self.assertIsInstance(rts.checker, _checker().Checker)
     finally:
-      curry.reload({'backend': 'py', 'checker': False})
+      curry.reset(**{'backend': 'py', 'checker': False})
 
   def test_accepted_on_every_backend(self):
     '''The flag is accepted on the backend of the process; the C++ backend
     ignores it.'''
-    curry.reload({'checker': True})
+    curry.reset(**{'checker': True})
     try:
       self.assertEqual(curry.flags['checker'], True)
       self.assertEqual([cytest.raw.interp().topython(v) for v in cytest.raw.values(cytest.raw.expr(1, typed=True))], [1])
     finally:
-      curry.reload({'checker': False})
+      curry.reset(**{'checker': False})
 
 
 class TestKnownGood(CheckerTestCase):
@@ -256,18 +256,18 @@ class TestKnownGood(CheckerTestCase):
   '''
   def values_both_ways(self, compute):
     with_checker = compute()
-    curry.reload({'backend': 'py', 'checker': False})
+    curry.reset(**{'backend': 'py', 'checker': False})
     try:
       without = compute()
     finally:
-      curry.reload({'backend': 'py', 'checker': True})
+      curry.reset(**{'backend': 'py', 'checker': True})
     self.assertEqual(with_checker, without)
     return with_checker
 
   def module_goals(self, modname, names=None, **flags):
     def compute():
       if flags:
-        curry.reload(dict(flags, backend='py', checker=curry.flags['checker']))
+        curry.reset(**dict(flags, backend='py', checker=curry.flags['checker']))
       M = curry.import_(modname)
       goals = _goals(M) if names is None else names
       return {name: _values(M, name) for name in goals}
@@ -327,7 +327,7 @@ class TestKnownGood(CheckerTestCase):
   def test_programs(self):
     '''The narrowed name, the released residual, the pairing.'''
     def compute():
-      M = curry.compile(PROGRAMS, modulename='CheckerPrograms')
+      M = curry.compile(PROGRAMS, name='CheckerPrograms')
       return {name: _values(M, name) for name in _goals(M)}
     values = self.values_both_ways(compute)
     self.assertEqual(values['manySource'], ['20'])
@@ -339,7 +339,7 @@ class TestKnownGood(CheckerTestCase):
 
   def test_counts(self):
     '''The checker saw the events of a search.'''
-    M = curry.compile(PROGRAMS, modulename='CheckerCounts')
+    M = curry.compile(PROGRAMS, name='CheckerCounts')
     rts = _state(cytest.raw.expr(M.narrowed))
     self.assertEqual(sorted(str(v) for v in rts.generate_values()), ['1', '2', '3'])
     counts = rts.checker.counts
@@ -374,7 +374,7 @@ class TestIdentifierConsistency(CheckerTestCase):
     M = curry.compile('''
 dup2 :: (Bool, Bool, Bool, Bool)
 dup2 = let x = True ? False in let y = True ? False in (x, y, x, y)
-''', modulename='CheckerDup2')
+''', name='CheckerDup2')
     self.assertEqual(len(_values(M, 'dup2')), 4)
     original = configuration.Configuration.clone
     def drop(self, root):
@@ -474,7 +474,7 @@ class TestFreeVariables(CheckerTestCase):
   def test_inner_identifiers_decided(self):
     '''A decided root with an undecided inner identifier.'''
     from curry.backends.py.eval import configuration, rts_freevars
-    M = curry.compile('data T3 = P | Q | R', modulename='CheckerT3')
+    M = curry.compile('data T3 = P | Q | R', name='CheckerT3')
     interp = cytest.raw.interp()
     rts = _state(cytest.raw.expr(1))
     x = rts.freshvar()
@@ -507,7 +507,7 @@ g2 n Q = n + 1
 g2 n R = n + 2
 h2 :: Int
 h2 = g2 5 y where y free
-''', modulename='CheckerInst')
+''', name='CheckerInst')
     original = utility.copy_spine
     interp = cytest.raw.interp()
     def corrupt(root, realpath, end=None, rewrite=None):
@@ -916,7 +916,7 @@ k x y = if x then (if y then 1 else 2) else 3
 
   def test_tree(self):
     '''The tree of k: one case on the first argument.'''
-    M = curry.compile(self.SOURCE, modulename='CheckerTree')
+    M = curry.compile(self.SOURCE, name='CheckerTree')
     rts = _state(cytest.raw.expr(1))
     tree = rts.checker._tree(M.k.info)
     self.assertEqual(tree.path, [0])
@@ -925,7 +925,7 @@ k x y = if x then (if y then 1 else 2) else 3
 
   def test_hnf_at_an_inductive_position(self):
     '''A step that demands the second argument first.'''
-    M = curry.compile(self.SOURCE, modulename='CheckerHnf')
+    M = curry.compile(self.SOURCE, name='CheckerHnf')
     def make_step(original):
       def step(rts, _0):
         rts.variable(_0, 1).hnf()
@@ -937,7 +937,7 @@ k x y = if x then (if y then 1 else 2) else 3
 
   def test_failure_from_an_exempt_leaf(self):
     '''A step that fails on a matched rule.'''
-    M = curry.compile(self.SOURCE, modulename='CheckerFail')
+    M = curry.compile(self.SOURCE, name='CheckerFail')
     def make_step(original):
       def step(rts, _0):
         rts.variable(_0, 0).hnf()
@@ -948,7 +948,7 @@ k x y = if x then (if y then 1 else 2) else 3
       list(cytest.raw.values(cytest.raw.expr([M.k, True, False])))
 
   def test_unchanged_step_passes(self):
-    M = curry.compile(self.SOURCE, modulename='CheckerPass')
+    M = curry.compile(self.SOURCE, name='CheckerPass')
     self.assertEqual(
         [cytest.raw.interp().topython(v) for v in cytest.raw.values(cytest.raw.expr([M.k, True, False]))]
       , [2]
@@ -970,17 +970,17 @@ class TestDroppedBox(cytest.TestCase):
   forward nodes alone now and crosses the guard as one met directly.
   '''
   def test_values(self):
-    M = curry.compile(DROPPED_BOX, modulename='CheckerDroppedBox')
+    M = curry.compile(DROPPED_BOX, name='CheckerDroppedBox')
     self.assertEqual(_values(M, 'oneCaptured'), ['(2, A)', '(2, B)'])
 
   @unittest.skipIf(not PY, 'the checker drives the Python backend')
   def test_under_the_checker(self):
-    curry.reload({'backend': 'py', 'checker': True})
+    curry.reset(**{'backend': 'py', 'checker': True})
     try:
-      M = curry.compile(DROPPED_BOX, modulename='CheckerDroppedBoxChecked')
+      M = curry.compile(DROPPED_BOX, name='CheckerDroppedBoxChecked')
       self.assertEqual(_values(M, 'oneCaptured'), ['(2, A)', '(2, B)'])
     finally:
-      curry.reload({'backend': 'py', 'checker': False})
+      curry.reset(**{'backend': 'py', 'checker': False})
 
   @unittest.skipIf(not PY, 'the checker drives the Python backend')
   def test_report(self):
@@ -988,7 +988,7 @@ class TestDroppedBox(cytest.TestCase):
     one step short of its source: it names the invariant, the event and
     the position.'''
     from curry.backends.py import graph
-    curry.reload({'backend': 'py', 'checker': True})
+    curry.reset(**{'backend': 'py', 'checker': True})
     try:
       rts = _state(cytest.raw.expr(1))
       a, b = rts.expr(1), rts.expr(2)
@@ -1004,7 +1004,7 @@ class TestDroppedBox(cytest.TestCase):
         ):
         rts.checker.pulltab(root, target, [0], lhs, rhs)
     finally:
-      curry.reload({'backend': 'py', 'checker': False})
+      curry.reset(**{'backend': 'py', 'checker': False})
 
 
 @unittest.skipIf(not PY, 'the walk of N of the Python backend')
@@ -1111,36 +1111,36 @@ class TestSharedArgument(cytest.TestCase):
       self.assertEqual(_values(M, name), values, name)
 
   def test_values(self):
-    M = curry.compile(SHARED_ARGUMENT, modulename='CheckerSharedArgument')
+    M = curry.compile(SHARED_ARGUMENT, name='CheckerSharedArgument')
     self.check_values(M)
 
   def test_big_step_values(self):
-    M = curry.compile(BIG_STEP, modulename='CheckerBigStep')
+    M = curry.compile(BIG_STEP, name='CheckerBigStep')
     self.assertEqual(_values(M, 'bigThenOutside'), self.BIG_VALUES)
 
   @unittest.skipIf(not PY, 'the checker drives the Python backend')
   def test_under_the_checker(self):
     '''No report and the same values on the three shapes.'''
-    curry.reload({'backend': 'py', 'checker': True})
+    curry.reset(**{'backend': 'py', 'checker': True})
     try:
-      M = curry.compile(SHARED_ARGUMENT, modulename='CheckerSharedArgumentChecked')
+      M = curry.compile(SHARED_ARGUMENT, name='CheckerSharedArgumentChecked')
       self.check_values(M)
     finally:
-      curry.reload({'backend': 'py', 'checker': False})
+      curry.reset(**{'backend': 'py', 'checker': False})
 
   @unittest.skipIf(not PY, 'the checker drives the Python backend')
   def test_big_step_under_the_checker(self):
     '''A step over the budget of the walk: the walk is counted, the sets
     of the flags become unbounded, and the pull-tab across the box is not
     reported.  The values are those of the flag-off run.'''
-    curry.reload({'backend': 'py', 'checker': True})
+    curry.reset(**{'backend': 'py', 'checker': True})
     try:
-      M = curry.compile(BIG_STEP, modulename='CheckerBigStepChecked')
+      M = curry.compile(BIG_STEP, name='CheckerBigStepChecked')
       rts = _state(cytest.raw.expr(M.bigThenOutside))
       values = sorted(str(v) for v in rts.generate_values())
       counts = rts.checker.counts
     finally:
-      curry.reload({'backend': 'py', 'checker': False})
+      curry.reset(**{'backend': 'py', 'checker': False})
     self.assertEqual(values, self.BIG_VALUES)
     self.assertGreaterEqual(counts['propagate_over_budget'], 1)
     self.assertNotIn('violations', counts)

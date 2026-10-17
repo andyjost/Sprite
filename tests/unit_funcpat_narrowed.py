@@ -71,7 +71,7 @@ def measure(goal):
 
 class TestNarrowedName(cytest.TestCase):
   def setUp(self):
-    self.M = curry.compile(SOURCE, modulename='FuncPatNarrowed')
+    self.M = curry.compile(SOURCE, name='FuncPatNarrowed')
 
   def test_values(self):
     '''The three routes give the same values.'''

@@ -922,7 +922,7 @@ class TestProgramDirectory(cytest.TestCase):
         'import cytest, curry\n'
         'from curry.exceptions import ModuleLookupError\n'
         'try:\n'
-        '  curry.import_("ProgDirMain", currypath=[%r])\n'
+        '  curry.import_("ProgDirMain", path=[%r])\n'
         'except ModuleLookupError as exc:\n'
         '  print("ModuleLookupError", "ProgDirLib" in str(exc))\n'
       ) % self.progdir
@@ -936,7 +936,7 @@ class TestProgramDirectory(cytest.TestCase):
   def test_import_of_a_path(self):
     # curry.import_ of a path, with the directory on no search path.
     code = (
-        'import cytest, curry\nM = curry.import_(%r, is_sourcefile=True)\nprint(list(curry.eval(M.main)))\nprint(curry.import_(%r) is M)\n'
+        'import cytest, curry\nM = curry.import_(%r)\nprint(list(curry.eval(M.main)))\nprint(curry.import_(%r) is M)\n'
       ) % (self.program, 'ProgDirMain')
     proc = subprocess.run(
         [sys.executable, '-B', '-c', code], env=self.env, cwd=self.cwd

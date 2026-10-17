@@ -24,7 +24,7 @@ ADDRESS_SPACE = 2 << 30
 TIMEOUT = 120
 
 # A child on the C++ backend with the test module imported.
-CHILD = "\nimport curry\nfrom curry.backends.cxx import cyrtbindings as cyrt\ncurry.reload({'backend': 'cxx'})\nM = curry.import_('CxxRewrite')\n"
+CHILD = "\nimport curry\nfrom curry.backends.cxx import cyrtbindings as cyrt\ncurry.reset(**{'backend': 'cxx'})\nM = curry.import_('CxxRewrite')\n"
 
 def step(expr, until=None, limit=64):
   '''

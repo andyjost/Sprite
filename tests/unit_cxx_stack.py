@@ -33,7 +33,7 @@ TIMEOUT = 60
 # ``goal`` lists the arguments of curry.eval in terms of the module ``M``.
 CHILD = r'''
 import curry
-curry.reload({
+curry.reset(**{
     'backend': 'cxx', 'stack_limit': %(limit)r
   })
 M = curry.import_('StackGuard')
@@ -50,7 +50,7 @@ except curry.EvaluationError as exc:
 # Evaluates a long list and prints its length and its last element.
 CHILD_LONG_LIST = '''
 import cytest, curry
-curry.reload({'backend': 'cxx'})
+curry.reset(**{'backend': 'cxx'})
 M = curry.import_('StackGuard')
 value, = curry.eval((M.longList)(%(n)d))
 print(len(value), value[-1])

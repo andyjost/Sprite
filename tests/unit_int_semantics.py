@@ -206,7 +206,7 @@ class TestIntSemantics(cytest.TestCase):
       module = curry.compile(textwrap.dedent('''
           big :: Int
           big = 99999999999999999999
-          '''), modulename='BigLiteral')
+          '''), name='BigLiteral')
       values(module.big)
     with self.assertRaisesRegex(curry.IntOverflowError, big_text):
       values(curry.parse('99999999999999999999 :: Int'))
@@ -217,7 +217,7 @@ class TestIntSemantics(cytest.TestCase):
           isBig :: Int -> Bool
           isBig 99999999999999999999 = True
           isBig _ = False
-          '''), modulename='BigPattern')
+          '''), name='BigPattern')
       values(module.isBig, 1)
     # The maximum is a literal.  The minimum is not: -9223372036854775808
     # is the negation of the literal 9223372036854775808, which is outside
@@ -228,7 +228,7 @@ class TestIntSemantics(cytest.TestCase):
 
         bottom :: Int
         bottom = -9223372036854775807 - 1
-        '''), modulename='EdgeLiteral')
+        '''), name='EdgeLiteral')
     self.assertEqual(values(module.top), [INT_MAX])
     self.assertEqual(values(module.bottom), [INT_MIN])
     with self.assertRaisesRegex(
@@ -237,7 +237,7 @@ class TestIntSemantics(cytest.TestCase):
       module = curry.compile(textwrap.dedent('''
           bottom :: Int
           bottom = -9223372036854775808
-          '''), modulename='MinLiteral')
+          '''), name='MinLiteral')
       values(module.bottom)
 
   def test_read_outside_the_range(self):
@@ -251,7 +251,7 @@ class TestIntSemantics(cytest.TestCase):
         readOk, readBig :: Int
         readOk = read "9223372036854775807"
         readBig = read "9223372036854775808"
-        '''), modulename='ReadBig')
+        '''), name='ReadBig')
     self.assertEqual(values(module.readsOk), [[(INT_MAX, '')]])
     self.assertEqual(values(module.readOk), [INT_MAX])
     self.assertEqual(values(module.readsBig), [])
@@ -271,7 +271,7 @@ class TestIntSemantics(cytest.TestCase):
 
         fac :: Int -> Int
         fac n = if n <= 1 then 1 else n * fac (n - 1)
-        '''), modulename='IntSemantics')
+        '''), name='IntSemantics')
     self.assertEqual(values(module.ok), [INT_MAX])
     self.assertEqual(values(module.fac, 20), [math.factorial(20)])
     self.assertError('integer overflow: 9223372036854775807 + 1', module.big)

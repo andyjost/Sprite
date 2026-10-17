@@ -42,6 +42,10 @@ from .interpreter import flags as _flags
 # A reload replaces the interpreter.  Release the previous one's expression
 # modules first, so their libraries unload now; see interpreter/compile.py.
 if '_interpreter_' in globals():
+  if _interpreter_.flags['backend'] == 'cxx':
+    from .backends.cxx import tiered as _tiered
+    _tiered.cancel()
+    _tiered.wait(interp=_interpreter_)
   _interpreter_._session = object()
   _interpreter_._expression_modules = []
   _interpreter_._unlink_modules()
@@ -49,46 +53,47 @@ if '_interpreter_' in globals():
   if _old_prelude is not None:
     _interpreter_.backend.module_unlinked(_interpreter_, _old_prelude)
   del _old_prelude
-_interpreter_ = interpreter.Interpreter(flags=_flags.getflags())
+try:
+  _interpreter_ = interpreter.Interpreter(flags=_flags.getflags())
+except FlagError:
+  import sys as _sys
+  def _flag_error_hook(kind, value, traceback, previous=_sys.excepthook):
+    if issubclass(kind, FlagError):
+      print('FlagError: ' + str(value), file=_sys.stderr)
+    else:
+      previous(kind, value, traceback)
+  _sys.excepthook = _flag_error_hook
+  raise
 
-compile = _interpreter_.compile
+from .interpreter import session as _session
+
+def compile(source, *, name=None, imports=()):
+  return _session.compile(_interpreter_, source, name=name, imports=imports)
 
 def eval(goal):
   """Return the converted values of a goal as a lazy Results."""
   return _interpreter_.eval(goal)
 
 solve = _interpreter_.solve
-flags = _interpreter_.flags
-'''
-The ``flags`` attribute of the global interpreter.  Change its entries in
-place to reconfigure the interpreter, ``curry.flags['trace'] = True``.
-An assignment to ``curry.flags`` rebinds the name in the package and changes
-nothing in the interpreter.
+flags = _session.MappingProxyType(_interpreter_.flags)
+def import_(name, *, path=None):
+  return _session.import_(_interpreter_, name, path=path)
 
-:meta hide-value:
-'''
-import_ = _interpreter_.import_
-load = _interpreter_.load
-modules = _interpreter_.modules
-'''
-The ``modules`` attribute of the global interpreter.  This is a ``dict`` that
-contains the imported Curry modules.
+def load(path):
+  return _session.load(_interpreter_, path)
 
-:meta hide-value:
-'''
+modules = _session.Modules(_interpreter_)
 
 path = _interpreter_.path
-'''
-The ``path`` attribute of the global interpreter.  Initialized from environment
-variable CURRYPATH.  Change it in place to adjust the Curry search path,
-``curry.path.insert(0, '.')``.  An assignment to ``curry.path`` rebinds the
-name in the package and changes nothing in the interpreter.
 
-:meta hide-value:
-'''
+def reset(**flags):
+  return _session.reset(_interpreter_, **flags)
 
-reset = _interpreter_.reset
-save = _interpreter_.save
+def save(module, path, *, main=None):
+  return _session.save(_interpreter_, module, path, main=main)
+
+def wait(module=None):
+  return _session.wait(_interpreter_, module)
 stats = _interpreter_.stats
 from .objects import CurryModule as Module
 from .objects.terms import (
@@ -99,6 +104,8 @@ from .typecheck.errors import ConversionError, MismatchError, ArityError, NoInst
 from .typecheck.defaulting import DefaultingError
 
 def info(module):
+  from .objects.terms import check_module
+  check_module(module)
   return getattr(module, '.info')
 
 def term(value, *, type=None):
@@ -151,13 +158,8 @@ def typeof(value, *, defaulted=False):
     value = term(value)
   return _interpreter_.typeof(value, defaulted=defaulted)
 
-def reload(flags={}):
-  '''
-  Hard-resets the interpreter.  Any flags supplied will be forwarded to the
-  constructor, overriding flags supplied via the environment variable
-  SPRITE_INTERPRETER_FLAGS.
-  '''
-  interpreter.reload(__name__, flags)
+def reload(module, *, text=None):
+  return _session.reload(_interpreter_, module, text=text)
 
 
 from .objects.results import Results, Answer, Bindings
@@ -171,7 +173,7 @@ def show(value):
   return show_term(value)
 
 
-# wait belongs to lane 5; stream and Stream belong to lane 7.
+# The stream channel is not yet available.
 __all__ = [
     'import_'
   , 'compile'
@@ -182,6 +184,7 @@ __all__ = [
   , 'modules'
   , 'path'
   , 'flags'
+  , 'wait'
   , 'stats'
   , 'term'
   , 'parse'
@@ -245,3 +248,17 @@ __all__ = [
   , 'info'
   , 'Reference'
   ]
+
+
+# Forward assignment as well as mutation of the public search path.
+import types as _types
+import sys as _sys
+
+class _Package(_types.ModuleType):
+  def __setattr__(self, name, value):
+    if name == 'path':
+      self._interpreter_.path = value
+      value = self._interpreter_.path
+    super().__setattr__(name, value)
+
+_sys.modules[__name__].__class__ = _Package

@@ -17,7 +17,7 @@ class ChildTests(cytest.TestCase):
   PREAMBLE = '''
 import cytest, curry, gc, os, resource, sys, weakref
 from curry.backends.cxx import cyrtbindings as cyrt
-curry.reload({'backend': 'cxx'})
+curry.reset(**{'backend': 'cxx'})
 M = curry.import_('CxxFreeVars')
 '''
 

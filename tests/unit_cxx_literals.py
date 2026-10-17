@@ -23,7 +23,7 @@ ADDRESS_SPACE = 2 << 30
 TIMEOUT = 120
 
 # A child on the C++ backend with the Prelude loaded.
-CHILD = "\nimport curry\nfrom curry.backends.cxx import cyrtbindings as cyrt\ncurry.reload({'backend': 'cxx'})\ncurry.import_('Prelude')\n"
+CHILD = "\nimport curry\nfrom curry.backends.cxx import cyrtbindings as cyrt\ncurry.reset(**{'backend': 'cxx'})\ncurry.import_('Prelude')\n"
 
 def raw(value):
   '''The node of a value or an expression.'''

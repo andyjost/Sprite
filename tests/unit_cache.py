@@ -420,6 +420,8 @@ class TestSlot(cytest.TestCase):
     again = self.slot('M', subdir='other')
     self.assertTrue(again)
     self.assertEqual(files(again.file_out), products)
+    with open(again.file_out + '.source') as stream:
+      self.assertEqual(stream.read(), _curry2icurry.source_digest(again.file_in))
     self.assertEqual(
         cache.Curry2ICurryCache.stats
       , {'hit': stats['hit'] + 1, 'miss': stats['miss'] + 1}
@@ -913,10 +915,10 @@ class TestCompile(cytest.TestCase):
       second = child('f :: Int -> [Int]\nf x = [x, x]\n')
       third = child('f :: Int -> [Int]\nf x = [x, x]\n')
     misses = {'hit': 0, 'miss': 2}
-    self.assertEqual(first, ['sprite__interactive_0', '4', misses])
-    self.assertEqual(second, ['sprite__interactive_0', '[3,3]', misses])
+    self.assertEqual(first, ['Interactive_0', '4', misses])
+    self.assertEqual(second, ['Interactive_0', '[3,3]', misses])
     self.assertEqual(
-        third, ['sprite__interactive_0', '[3,3]', {'hit': 2, 'miss': 0}]
+        third, ['Interactive_0', '[3,3]', {'hit': 2, 'miss': 0}]
       )
 
   def test_program_error_is_cached(self):
@@ -934,7 +936,7 @@ class TestCompile(cytest.TestCase):
           self.assertEqual(len(calls), expected_calls)
         messages.append(str(cm.exception))
       names = [
-          re.search(r'(sprite__interactive_\d+)\.curry:', m).group(1)
+          re.search(r'(Interactive_\d+)\.curry:', m).group(1)
               for m in messages
         ]
       self.assertNotEqual(names[0], names[1])

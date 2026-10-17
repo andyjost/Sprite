@@ -16,8 +16,15 @@ class TestCase(unittest.TestCase):
                 if name.startswith('assert')
     })
 
+  def run(self, result=None):
+    path = list(curry.path)
+    try:
+      return super().run(result)
+    finally:
+      curry.path = path
+
   def tearDown(self):
-    curry.reset() # Undo, e.g., path and I/O modifications after each test.
+    curry.reset() # Start a fresh session after each test.
     gc.collect()  # Drop cyclic garbage now, so C++ modules unload before the next test.
 
   def assertMayRaise(self, exception, expr, msg=None):

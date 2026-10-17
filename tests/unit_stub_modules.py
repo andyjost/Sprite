@@ -99,35 +99,29 @@ class TestStubModules(cytest.TestCase):
       curry.path.insert(0, FLOW_PATH)
     self.addCleanup(importlib.reload, curry)
 
-  @unittest.expectedFailure
   def test_import_example(self):
     Coin = curry.import_('Coin')
     with working_directory(FLOW_PATH):
       self.assertIs(curry.import_('./Coin.curry'), Coin)
 
-  @unittest.expectedFailure
   def test_compile_setup_example(self):
     N = curry.compile('f :: Int -> Int\nf x = x + 1', name='N')
     self.assertIs(curry.modules['N'], N)
 
-  @unittest.expectedFailure
   def test_compile_result_example(self):
     N = curry.compile('f :: Int -> Int\nf x = x + 1', name='N')
     self.assertEqual(list(curry.eval(N.f(1))), [2])
 
-  @unittest.expectedFailure
   def test_reload_example(self):
     curry.reset(interpret='new')
     Coin = curry.import_('Coin')
     self.assertIs(curry.reload(Coin), Coin)
 
-  @unittest.expectedFailure
   def test_reset_example(self):
     curry.import_('Coin')
     curry.reset(backend='py')
     self.assertEqual(sorted(curry.modules), ['Prelude'])
 
-  @unittest.expectedFailure
   def test_save_example(self):
     Coin = curry.import_('Coin')
     with tempfile.TemporaryDirectory() as work, working_directory(work):
@@ -136,7 +130,6 @@ class TestStubModules(cytest.TestCase):
       self.assertGreater(os.path.getsize('Coin.so'), 0)
       self.assertGreater(os.path.getsize('coin.exe'), 0)
 
-  @unittest.expectedFailure
   def test_load_example(self):
     with tempfile.TemporaryDirectory() as work:
       product = os.path.join(work, 'Coin.so')
@@ -145,12 +138,10 @@ class TestStubModules(cytest.TestCase):
       M = curry.load(product)
       self.assertEqual(curry.info(M).name, 'Coin')
 
-  @unittest.expectedFailure
   def test_import_pathlike_is_a_file(self):
     M = curry.import_(Path(FLOW_PATH) / 'Coin.curry')
     self.assertIs(M, curry.import_('Coin'))
 
-  @unittest.expectedFailure
   def test_import_explicit_search_path(self):
     M = curry.import_('Coin', path=[Path(FLOW_PATH)])
     self.assertIs(M, curry.modules['Coin'])
@@ -164,7 +155,6 @@ class TestStubModules(cytest.TestCase):
     from curry.lib import Coin
     self.assertIs(Coin, curry.import_('Coin'))
 
-  @unittest.expectedFailure
   def test_loaded_source_is_not_read_and_warns_once(self):
     with tempfile.TemporaryDirectory() as work:
       source = Path(work) / 'Coin.curry'
@@ -196,7 +186,6 @@ class TestStubModules(cytest.TestCase):
     M = curry.compile('f :: Int\nf = Coin.inc 1', imports=['Coin'])
     self.assertEqual(curry.eval(M.f).one(), 2)
 
-  @unittest.expectedFailure
   def test_compile_loaded_name_is_rejected(self):
     M = curry.compile('f :: Int\nf = 1', name='Same')
     with self.assertRaises(curry.ModuleExistsError):
@@ -207,7 +196,6 @@ class TestStubModules(cytest.TestCase):
     with self.assertRaises(curry.CompileError):
       curry.compile('f = )')
 
-  @unittest.expectedFailure
   def test_reload_text_updates_in_place_and_stales_terms(self):
     M = curry.compile('f :: Int\nf = 1', name='StubReload')
     old = M.f
@@ -216,14 +204,12 @@ class TestStubModules(cytest.TestCase):
     with self.assertRaises(curry.StaleError):
       curry.eval(old).one()
 
-  @unittest.expectedFailure
   def test_reload_text_module_requires_text(self):
     M = curry.compile('f :: Int\nf = 1')
     with self.assertRaises(curry.LoadError) as caught:
       curry.reload(M)
     self.assertIn('text', str(caught.exception))
 
-  @unittest.expectedFailure
   def test_reload_file_limit_names_ways_out(self):
     Coin = curry.import_('Coin')
     if curry.flags['backend'] == 'cxx' and curry.flags['interpret'] in ('tiered', 'off'):
@@ -234,7 +220,6 @@ class TestStubModules(cytest.TestCase):
     else:
       self.assertIs(curry.reload(Coin), Coin)
 
-  @unittest.expectedFailure
   def test_reset_keeps_path_and_purges_import_hook(self):
     from curry.lib import Coin
     path = list(curry.path)
@@ -265,23 +250,19 @@ class TestStubModules(cytest.TestCase):
     with self.assertRaises(curry.StaleError):
       old.coin
 
-  @unittest.expectedFailure
   def test_reset_rejects_unknown_flag(self):
     with self.assertRaises(curry.FlagError):
       curry.reset(bogus=True)
 
-  @unittest.expectedFailure
   def test_reset_rejects_invalid_flag_value(self):
     with self.assertRaises(curry.FlagError):
       curry.reset(backend='missing')
 
-  @unittest.expectedFailure
   def test_wait_returns_none(self):
     M = curry.import_('Coin')
     self.assertIsNone(curry.wait(M))
     self.assertIsNone(curry.wait())
 
-  @unittest.expectedFailure
   def test_modules_omit_packages(self):
     M = curry.import_('Data.List')
     self.assertIsInstance(curry.modules, Mapping)
@@ -295,7 +276,6 @@ class TestStubModules(cytest.TestCase):
       curry.path.insert(0, work)
       self.assertEqual(curry.info(curry.import_('StubPath')).file, str(source))
 
-  @unittest.expectedFailure
   def test_path_assignment_changes_search(self):
     with tempfile.TemporaryDirectory() as work:
       source = Path(work) / 'StubPath.curry'
@@ -303,7 +283,6 @@ class TestStubModules(cytest.TestCase):
       curry.path = [work] + list(curry.path)
       self.assertEqual(curry.info(curry.import_('StubPath')).file, str(source))
 
-  @unittest.expectedFailure
   def test_flags_are_read_only(self):
     self.assertIsInstance(curry.flags, Mapping)
     with self.assertRaises(TypeError):
@@ -369,7 +348,6 @@ class TestStubModules(cytest.TestCase):
     self.assertTrue(info.symbols['public'].public)
     self.assertFalse(any('_impl#' in n or '_inst#' in n for n in info.symbols))
 
-  @unittest.expectedFailure
   def test_load_bad_format_is_load_error(self):
     with tempfile.TemporaryDirectory() as work:
       path = Path(work) / 'bad.data'
@@ -377,7 +355,6 @@ class TestStubModules(cytest.TestCase):
       with self.assertRaises(curry.LoadError):
         curry.load(path)
 
-  @unittest.expectedFailure
   def test_load_other_backend_is_load_error(self):
     with tempfile.TemporaryDirectory() as work:
       other = 'py' if curry.flags['backend'] == 'cxx' else 'cxx'
@@ -388,7 +365,6 @@ class TestStubModules(cytest.TestCase):
       with self.assertRaises(curry.LoadError):
         curry.load(product)
 
-  @unittest.expectedFailure
   def test_load_same_file_returns_registered_module(self):
     with tempfile.TemporaryDirectory() as work:
       ext = '.so' if curry.flags['backend'] == 'cxx' else '.py'
@@ -399,7 +375,6 @@ class TestStubModules(cytest.TestCase):
       self.assertIs(curry.modules['Coin'], M)
       self.assertIs(curry.load(product), M)
 
-  @unittest.expectedFailure
   def test_load_same_name_from_another_file_is_rejected(self):
     M = curry.import_('Coin')
     with tempfile.TemporaryDirectory() as work:
@@ -409,7 +384,6 @@ class TestStubModules(cytest.TestCase):
       with self.assertRaises(curry.LoadError):
         curry.load(product)
 
-  @unittest.expectedFailure
   def test_saved_main_prints_goal_answers(self):
     Coin = curry.import_('Coin')
     with tempfile.TemporaryDirectory() as work:
@@ -418,14 +392,12 @@ class TestStubModules(cytest.TestCase):
       run = subprocess.run([program], check=True, capture_output=True, text=True)
       self.assertEqual(run.stdout, '0\n1\n')
 
-  @unittest.expectedFailure
   def test_environment_flag_validator_matches_reset(self):
     env = dict(os.environ, SPRITE_INTERPRETER_FLAGS='bogus:1')
     code = "try:\n import curry\nexcept Exception as error:\n print(type(error).__name__)\nelse:\n raise AssertionError('unknown flag accepted')"
     run = subprocess.run([sys.executable, '-c', code], env=env, check=True, capture_output=True, text=True)
     self.assertEqual(run.stdout.strip(), 'FlagError')
 
-  @unittest.expectedFailure
   def test_import_literate_file(self):
     with tempfile.TemporaryDirectory() as work:
       source = Path(work) / 'StubLiterate.lcurry'
@@ -440,7 +412,6 @@ class TestStubModules(cytest.TestCase):
       curry.path[:0] = [first, second]
       self.assertEqual(curry.eval(curry.import_('StubPathOrder').f).one(), 1)
 
-  @unittest.expectedFailure
   def test_reload_reads_edited_source_in_place(self):
     curry.reset(interpret='new')
     with tempfile.TemporaryDirectory() as work:

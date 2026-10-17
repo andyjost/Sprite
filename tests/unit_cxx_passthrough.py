@@ -254,7 +254,7 @@ class TestStepFunctions(cytest.TestCase):
   VARIABLE = re.compile(r'smallvec_free|8Variable[CD][12]E|guarded_rvalue')
 
   def module(self, name):
-    curry.import_(name, currypath=[self.BENCHMARKS] + curry.path)
+    curry.import_(name, path=[self.BENCHMARKS] + curry.path)
     base = os.path.join(
         self.BENCHMARKS, '.curry', config.intermediate_subdir(), name
       )

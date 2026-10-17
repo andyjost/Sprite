@@ -35,7 +35,7 @@ TIMEOUT = 300
 # and the sorted values as Curry text, or the name of the error.
 CHILD = '''
 import cytest, curry
-curry.reload(%(flags)r)
+curry.reset(**%(flags)r)
 M = curry.import_('BoundMerge')
 for name in %(goals)r:
   try:
@@ -132,14 +132,14 @@ class TestGuardCounts(cytest.TestCase):
   @classmethod
   def setUpClass(cls):
     cls.backend = curry.flags['backend']
-    curry.reload({'backend': cls.backend, 'checker': True})
+    curry.reset(**{'backend': cls.backend, 'checker': True})
 
   def setUp(self):
     self.M = curry.import_('BoundMerge')
 
   @classmethod
   def tearDownClass(cls):
-    curry.reload({'backend': cls.backend, 'checker': False})
+    curry.reset(**{'backend': cls.backend, 'checker': False})
 
   def evaluate(self, goal):
     '''The sorted values of ``goal`` and the counts of the checker.'''

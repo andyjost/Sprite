@@ -2,7 +2,7 @@
 Import by name and by file, the Curry path, the loaded modules, and what a
 module offers, on the public API.
 
-curry.import_ takes a name, or a file with is_sourcefile=True.  curry.path is a list;
+curry.import_ takes a name, or a file recognized by its suffix.  curry.path is a list;
 an assignment takes effect at the next import.  A module's attributes are
 terms, M[name] reaches any name, and curry.info(M) holds types and symbols.
 A library symbol is an attribute of its imported module.
@@ -27,9 +27,9 @@ P = curry.import_('Prelude')
 # file by its suffix.
 show('import_ by name is the loaded object', lambda: curry.import_('Lookup') is Lookup)
 show('import_ of a path',
-  lambda: curry.import_(os.path.join(HERE, 'Lookup.curry'), is_sourcefile=True).__name__)
+  lambda: curry.import_(os.path.join(HERE, 'Lookup.curry')).__name__)
 show('import_ of a path is the loaded object',
-  lambda: curry.import_(os.path.join(HERE, 'Lookup.curry'), is_sourcefile=True) is Lookup)
+  lambda: curry.import_(os.path.join(HERE, 'Lookup.curry')) is Lookup)
 # An assignment to curry.path takes effect at the next import_.
 saved = list(curry.path)
 curry.path[:] = ['nowhere']

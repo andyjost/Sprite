@@ -163,10 +163,10 @@ class TestReplLoadAfterEdit(EditedSourceTestCase):
     with capture_log(IMPORT_LOGGER) as log:
       commands.load(session, second)
       self.assertIs(session.module, M)
-      self.assertIs(curry.import_(second, is_sourcefile=True), M)
+      self.assertIs(curry.import_(second), M)
       # The file it was read from is not another file.
       commands.load(session, first)
-      self.assertIs(curry.import_(first, is_sourcefile=True), M)
+      self.assertIs(curry.import_(first), M)
     warnings = log.data[logging.WARNING]
     self.assertEqual(len(warnings), 2, warnings)
     for warning in warnings:
@@ -179,7 +179,7 @@ class TestReplLoadAfterEdit(EditedSourceTestCase):
 class TestSwapAfterEdit(EditedSourceTestCase):
   def setUp(self):
     super().setUp()
-    curry.reload({'backend': 'cxx', 'interpret': 'tiered'})
+    curry.reset(**{'backend': 'cxx', 'interpret': 'tiered'})
     curry.path.insert(0, self.tmpdir)
 
   @cytest.hardreset
@@ -268,3 +268,25 @@ class TestSwapAfterEdit(EditedSourceTestCase):
     self.assertFalse(cyrt.icurry_is_interpreted(B.g.info))
     self.assertFalse(cyrt.icurry_is_interpreted(D.h.info))
     self.assertEqual(self.value(D.h, 1), 12)
+
+
+class TestReplacement(cytest.TestCase):
+  def test_frontend_refusal_keeps_the_current_module_usable(self):
+    module = curry.compile('f :: Int\nf = 1', name='RefusedReload')
+    old = module.f
+    with self.assertRaises(curry.CompileError):
+      curry.reload(module, text='f = )')
+    self.assertIs(curry.modules['RefusedReload'], module)
+    self.assertEqual(curry.eval(old).one(), 1)
+    self.assertEqual(curry.eval(module.f).one(), 1)
+
+  def test_text_reload_keeps_its_import_scope(self):
+    scope = curry.compile('helper :: Int\nhelper = 40', name='ReloadScope')
+    module = curry.compile('f :: Int\nf = helper + 1',
+        name='ReloadScoped', imports=[scope])
+    old = module.f
+    self.assertEqual(curry.eval(old).one(), 41)
+    curry.reload(module, text='f :: Int\nf = helper + 2')
+    self.assertEqual(curry.eval(module.f).one(), 42)
+    with self.assertRaises(curry.StaleError):
+      curry.eval(old).one()

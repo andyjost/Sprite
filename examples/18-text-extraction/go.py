@@ -56,7 +56,7 @@ def compile_rules(extra):
   source = RULES
   for name, body in extra:
     source += '\n%s :: String -> String\n%s %s\n' % (name, name, body)
-  return curry.compile(source, modulename='Rules')
+  return curry.compile(source, name='Rules')
 
 def cell(values):
   return ','.join(values) if values else '-'

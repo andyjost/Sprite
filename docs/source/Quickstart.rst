@@ -154,9 +154,9 @@ to evaluation is refused: choose text parsing or a String value explicitly.
     'hello'
 
 ``curry.compile`` builds a module from source text.  The current session
-lane uses ``modulename=`` when a specific module name is needed.
+lane uses ``name=`` when a specific module name is needed.
 
-    >>> M = curry.compile('double :: Int -> Int\ndouble x = x + x', modulename='Double')
+    >>> M = curry.compile('double :: Int -> Int\ndouble x = x + x', name='Double')
     >>> curry.eval(M.double(4)).one()
     8
 
@@ -337,40 +337,30 @@ succeeds and an outside failure is encountered.
 Saving Compiled Curry
 ---------------------
 
-:func:`curry.save` writes the generated C++ of a module:
+:func:`curry.save` writes the compiled object of the current backend:
 
-    >>> curry.save(Peano, 'Peano.cpp', module_main=False)
+    >>> curry.save(Peano, 'Peano.so')
 
-Use this to see how Sprite compiles Curry.  ``module_main=False`` saves
-the module alone.  Without it the file is a program, and ``goal=`` must
-name the goal it evaluates; a call with neither raises ``ValueError``.
-The entry point of the C++ program is a stub today: ``sprite-exec`` runs
-programs.
+Load it in a new session. A second load of the same file returns the module
+already registered under its name:
 
-:func:`curry.load` loads the shared object of a module, which
-``sprite-make --so`` writes beside the source (see :ref:`sprite-make`):
+    >>> curry.reset()
+    >>> Peano = curry.load('Peano.so')
+    >>> curry.load('Peano.so') is Peano
+    True
 
-.. code-block:: bash
+A file of another backend or format raises :class:`curry.LoadError`.
+A name loaded from another file is refused too. To write a program that
+prints the answers of a goal, name that goal with ``main``:
 
-    % install/bin/sprite-make --so Peano.curry
+    >>> curry.save(Peano, 'peano.exe', main=Peano.main)
 
-Then, in Python:
-
-    >>> Peano = curry.load('.curry/sprite-pakcs-3.4.1/Peano.so')
-
-The call adds ``Peano`` to :data:`curry.modules`.  Under the default
-setting of the C++ backend, ``interpret:tiered``, the import of ``Peano``
-above already started a compile of the module in the background when no
-current object existed; :func:`curry.load` of its object waits for that
-compile to end and loads the object it wrote, so the sequence works while
-the compile runs.  That compile writes the files ``sprite-make --so``
-writes, and the two never write at once: a compile holds a lock file
-beside the products (``Peano.lock``), the second process waits for the
-first, and it compiles nothing when the first wrote a current object.  A
-module whose library is loaded already from another file is refused: the
-runtime keeps one library per module name for the life of the process.  An
-edit of ``Peano.curry`` after the import is not read again in this
-process; a new process reads it.
+An import returns a loaded module unchanged. If its source changed,
+:class:`curry.CurryWarning` says so once. :func:`curry.reload` reads the
+source again and updates the module in place; earlier terms become stale.
+A file module on the C++ backend under ``interpret='tiered'`` or ``'off'``
+requires a new process, or ``curry.reset(interpret='new')`` before import,
+for a reload. :func:`curry.wait` waits for background compilation.
 
 .. _Python Tutorial: https://docs.python.org/3/tutorial/
 

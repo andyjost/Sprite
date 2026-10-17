@@ -135,6 +135,11 @@ def currentfile(
     raise ModuleLookupError('expected .curry extension in %r' % curryfile)
   curryfile = os.path.abspath(curryfile)
   filelist = plan.filelist(curryfile)
+  from . import _curry2icurry
+  if plan.stages[0].step is _curry2icurry.curry2icurry \
+      and _curry2icurry.source_changed(curryfile, _filenames.icurryfilename(curryfile)):
+    # Check even when tidy removed the ICurry prerequisite.
+    filelist = [curryfile]
   # Force recompile, if requested.
   if config.force_recompile_cxx():
     filelist = [

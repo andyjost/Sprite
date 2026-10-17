@@ -1,5 +1,5 @@
 from .. import config
-from . import plans, _findcurry, _productlock
+from . import plans, _filenames, _findcurry, _productlock
 from ..utility import formatDocstring
 import importlib.util, logging, os, shutil, sys, time
 
@@ -144,6 +144,13 @@ class Maker(object):
     Places the cached products of the module, if the cache holds them, and
     tells whether the plan is done.
     '''
+    from . import _curry2icurry
+    source = self.pipeline.currentfile
+    if source.endswith('.curry') \
+        and self.plan.stages[0].step is _curry2icurry.curry2icurry \
+        and _curry2icurry.source_changed(source, _filenames.icurryfilename(source)):
+      # Refresh ICurry and its interfaces before adopting a cached object.
+      return False
     restored = self.plan.restore(
         self.pipeline.currentfile, self.currypath, **self.kwds
       )

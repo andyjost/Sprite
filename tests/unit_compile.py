@@ -17,18 +17,22 @@ class TestPyCompile(cytest.TestCase):
       , lambda: curry.compile('f=x')
       )
 
+  def test_header_refusal_is_compile_error(self):
+    with self.assertRaises(curry.CompileError):
+      curry.compile('module HeaderOnly')
+
   def testModuleRedefined(self):
-    curry.compile('goal=0', modulename='a')
+    curry.compile('goal=0', name='a')
     self.assertRaisesRegex(
-        ValueError
-      , "module 'a' is already defined"
-      , lambda: curry.compile('goal=0', modulename='a')
+        curry.ModuleExistsError
+      , "module 'a' is loaded;"
+      , lambda: curry.compile('goal=0', name='a')
       )
 
   def testMissingExternalConstructorDefinition(self):
     self.assertRaisesRegex(
         curry.CompileError
-      , r"failed to resolve external type 'sprite__interactive_\d+\.A'"
+      , r"failed to resolve external type 'Interactive_\d+\.A'"
       , lambda: curry.compile('data A')
       )
 
@@ -66,7 +70,7 @@ class TestPyCompile(cytest.TestCase):
         or 0 1 = 1
         or 1 1 = 1
         '''
-      , modulename='Or'
+      , name='Or'
       )
     e = curry.parse('Or.or 0 0', imports=[Or])
     self.assertEqual(next(curry.eval(e)), 0)

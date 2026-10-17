@@ -28,7 +28,7 @@ laziness when crossing the language boundary in either direction.
             where triple c | a*a + b*b == c*c = (a,b,c) where a,b free
 
         '''
-      , modulename='Triples'
+      , name='Triples'
       )
     # Use the results in Python.
     for (a,b,c) in curry.eval(Triples.getTriples):

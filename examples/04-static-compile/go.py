@@ -17,4 +17,4 @@ print('Loading and compiling wildcard_matching.curry')
 wildcard_matching = curry.import_('wildcard_matching')
 
 print('Saving the program to wildcard_matching.py with goal main')
-curry.save(wildcard_matching, os.path.join(HERE, 'wildcard_matching.py'), goal='main')
+curry.save(wildcard_matching, os.path.join(HERE, 'wildcard_matching.py'), main='main')

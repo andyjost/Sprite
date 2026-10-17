@@ -25,7 +25,7 @@ class Handle(object):
 
   @property
   def name(self):
-    return self.obj.__name__
+    return self.icurry.name
 
   @property
   def fullname(self):
@@ -71,7 +71,7 @@ class Handle(object):
     return self.icurry.packagename
 
   def package(self, interp):
-    pkg = interp.modules.get(self.packagename, None)
+    pkg = interp.modules.get(self.packagename(), None)
     if pkg:
       return Handle(pkg)
 
@@ -207,7 +207,7 @@ class Handle(object):
     else:
       return h.get_builtin_typename
 
-  def unlink(self, interp):
+  def unlink(self, interp, keep_package=False):
     setattr(self.obj, '.retired', True)
     setattr(self.obj, '.version', object())
     del interp.modules[self.fullname]
@@ -216,7 +216,6 @@ class Handle(object):
 
     if pkg is not None:
       del pkg.icurry[self.name]
-      self.icurry.setparent(None)
       del pkg[self.name]
-      if not pkg:
+      if not keep_package and not pkg:
         pkg.unlink(interp)

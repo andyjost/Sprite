@@ -59,7 +59,7 @@ TIMEOUT = 120
 # and the sorted values as Curry text, or the name of the error.
 CHILD = '''
 import curry
-curry.reload(%(flags)r)
+curry.reset(**%(flags)r)
 M = curry.import_('SetFunctionsBindings')
 clones = []
 if %(clones)r:

@@ -68,7 +68,7 @@ class ToolchainTestCase(cytest.TestCase):
     # first use, and a test that fakes a step of the toolchain (a format
     # stamp that misreads, a missing compiler) must not plan the installed
     # Prelude under the fake.
-    curry.reload({'interpret': 'off'})
+    curry.reset(**{'interpret': 'off'})
     curry.import_('Prelude')
     self.tmpdir = tempfile.mkdtemp(prefix='sprite-toolchain-')
     self.srcdir = os.path.join(self.tmpdir, 'src')
@@ -96,7 +96,7 @@ class ToolchainTestCase(cytest.TestCase):
     return os.path.join(self.subdir, name + suffix)
 
   def import_module(self, name):
-    return curry.import_(name, currypath=[self.srcdir] + curry.path)
+    return curry.import_(name, path=[self.srcdir] + curry.path)
 
   def check_value(self, module, value):
     self.assertEqual(
@@ -1087,7 +1087,7 @@ class TestAbiStamp(ToolchainTestCase):
       , '  commands.append(cmd)'
       , '  return pexec(cmd, *args, **kwds)'
       , '_system.pexec = counting_pexec'
-      , 'module = curry.import_(%r, currypath=%r)'
+      , 'module = curry.import_(%r, path=%r)'
             % (module.__name__, [self.srcdir] + curry.path)
       , 'value = list(curry.eval(module.goal))'
       , 'print(json.dumps([commands, value]))'
@@ -1144,7 +1144,7 @@ COUNTING_IMPORT = '\n'.join([
   , '  commands.append(cmd)'
   , '  return pexec(cmd, *args, **kwds)'
   , '_system.pexec = counting_pexec'
-  , 'module = curry.import_(%(name)r, currypath=%(currypath)r)'
+  , 'module = curry.import_(%(name)r, path=%(currypath)r)'
   , 'value = list(curry.eval(module.goal))'
   , 'print(json.dumps(['
   , '    commands, value, module.__file__, getHandle(module).sofilename'
@@ -1517,7 +1517,7 @@ class TestPortableObjects(ToolchainTestCase):
     code = '\n'.join([
         'import cytest, curry, json'
       , 'from curry.objects.handle import getHandle'
-      , 'M = curry.import_(%r, currypath=%r)' % (second, [self.srcdir])
+      , 'M = curry.import_(%r, path=%r)' % (second, [self.srcdir])
       , 'value = list(curry.eval(M.goal))'
       , 'first = curry.modules[%r]' % first
       , 'print(json.dumps(['
@@ -1930,7 +1930,7 @@ class TestMissingCompiler(ToolchainTestCase):
       , 'def no_pexec(cmd, *args, **kwds):'
       , '  raise AssertionError("a command ran: %r" % (cmd,))'
       , '_system.pexec = no_pexec'
-      , 'module = curry.import_(%r, currypath=%r)'
+      , 'module = curry.import_(%r, path=%r)'
             % (module.__name__, [self.srcdir] + curry.path)
       , 'print(json.dumps(list(curry.eval(module.goal))))'
       ])

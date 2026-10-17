@@ -2,11 +2,11 @@
 Implements Interpreter.compile.
 '''
 
-from .. import config, objects, toolchain
+from .. import config, exceptions, objects, toolchain
 from ..objects import handle
 from ..typecheck import goals, sigtable
 from ..utility.visitation import dispatch
-import itertools, os, types
+import itertools, os, re, types
 
 __all__ = ['compile', 'expression_scheme']
 
@@ -22,11 +22,18 @@ _module_counter = itertools.count()
 def compile(interp, string, imports=None, modulename=None):
   """Compile Curry source as a module, optionally naming it and its imports."""
   stmts, currypath = getImportSpecForExpr(interp, [] if imports is None else imports)
+  header = re.search(r'^\s*module\s+([\w.]+)\b', string, re.M)
+  generated = modulename is None and header is None
   if modulename is None:
-    modulename = config.interactive_modname() + str(next(_module_counter))
+    modulename = header.group(1) if header else config.interactive_modname() + str(next(_module_counter))
+  if generated:
+    while modulename in interp.modules:
+      modulename = config.interactive_modname() + str(next(_module_counter))
   if modulename in interp.modules:
-    raise ValueError('module %r is already defined' % modulename)
-  string = '%s\n%s' % ('\n'.join(stmts), string)
+    raise exceptions.ModuleExistsError(
+        "module %r is loaded; curry.reload(curry.modules[%r], text=...) replaces its code"
+        % (modulename, modulename))
+  string = _module_source(string, modulename, stmts)
   moduleobj, icur = toolchain.str2module(
       interp, string, currypath
     , modulename=modulename
@@ -39,6 +46,21 @@ def compile(interp, string, imports=None, modulename=None):
     if icur.name == config.interactive_modname() \
         and icur.name in interp.modules:
       del interp.modules[icur.name]
+
+def _module_source(string, modulename, stmts):
+  header = re.search(r'^\s*module\s+([\w.]+)\b', string, re.M)
+  if header:
+    string = string[:header.start(1)] + modulename + string[header.end(1):]
+    start = header.start(1) + len(modulename)
+    where = re.search(r'\bwhere\b', string[start:])
+    if where is None:
+      return string
+    end = where.end() + start
+    return string[:end] + '\n' + '\n'.join(stmts) + string[end:]
+  if '.' in modulename:
+    stmts = ['module %s where' % modulename] + list(stmts)
+  return '%s\n%s' % ('\n'.join(stmts), string)
+
 
 def compile_expression(
     interp, string, stmts, currypath, exprtype=None, lift_freevars=True

@@ -122,7 +122,7 @@ class TestCounters(cytest.TestCase):
     curry.import_('CxxGc')
 
   def setUp(self):
-    curry.reload({'backend': 'cxx'})
+    curry.reset(**{'backend': 'cxx'})
     self.M = curry.import_('CxxCounters')
     self.G = curry.import_('CxxGc')
 
@@ -267,7 +267,7 @@ class TestCounters(cytest.TestCase):
       })
     self.check_invariant()
     # Both values: nothing is left.
-    curry.reload({'backend': 'cxx'})
+    curry.reset(**{'backend': 'cxx'})
     M = curry.import_('CxxCounters')
     self.assertEqual(self.evaluate(M.twoValues), [1, 2])
     stats, outer = self.check_invariant()
@@ -328,7 +328,7 @@ class TestCounters(cytest.TestCase):
     self.assertEqual(stats['nested_steps'], 0)
     self.assertEqual(stats['nested_configurations'], 0)
     # The nested search of countQueens: the outermost queue never forks.
-    curry.reload({'backend': 'cxx'})
+    curry.reset(**{'backend': 'cxx'})
     G = curry.import_('CxxGc')
     self.assertEqual(self.evaluate(G.countQueens, 4), [2])
     stats, outer = self.check_invariant()

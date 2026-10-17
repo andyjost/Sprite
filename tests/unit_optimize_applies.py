@@ -516,7 +516,7 @@ class ApplyTestCase(ModuleTestCase):
     imodule.update_metadata({
         passkey(): True, '%s.opt.inline_calls' % curry.flags['backend']: True
       })
-    module = curry.import_(imodule, currypath=self.currypath)
+    module = cytest.raw.import_(imodule, currypath=self.currypath)
     self.assertTrue(applies(imodule), 'the unoptimized form keeps its applies')
     return module
 
@@ -741,7 +741,7 @@ class TestSaturateApplies(ApplyTestCase):
     imodule = self.load_icurry(top)
     self.assertNotIn(base, imodule.imports)
     imports = imodule.imports
-    curry.import_(imodule, currypath=self.currypath)
+    cytest.raw.import_(imodule, currypath=self.currypath)
     self.assertEqual(ifcalls(imodule.functions['main']), ['%s.f' % base])
     self.assertEqual(ifcalls(imodule.functions['viaPrefix']), ['Prelude.++'])
     self.assertEqual(imodule.imports, imports + (base,))
@@ -949,7 +949,7 @@ class TestCompiledModules(cytest.TestCase):
     '''
     if curry.flags['interpret'] == 'all':
       self.skipTest('the Prelude is interpreted from its ICurry')
-    curry.reload()
+    curry.reset()
     counts = collections.Counter()
     original = list(optimize.default_optimizers)
     def counting(stem, optimizer):
@@ -962,7 +962,7 @@ class TestCompiledModules(cytest.TestCase):
       ]
     try:
       interp = cytest.raw.interp()
-      self.assertNotIn('Prelude', interp.modules)
+      self.assertIn('Prelude', interp.modules)
       imodule = getattr(interp.prelude, '.icurry')
       self.assertEqual(dict(counts), {})
       backend = curry.flags['backend']

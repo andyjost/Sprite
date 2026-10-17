@@ -1,10 +1,8 @@
 '''
-A module of the same name after curry.reset and curry.reload, and a symbol
-that outlives the reset (#114, open).
+A module of the same name after reset or reload, and stale objects (#114).
 
-A reset makes the held module and its symbols stale.  A new module with
-that name runs its own code.  The landed reload still replaces the whole
-interpreter; the session lane will change its signature.
+A reset stales the old module. Reload replaces its code in place and stales
+its earlier terms. Each incarnation runs its own code.
 '''
 import curry
 
@@ -13,7 +11,7 @@ def vals(*goal):
 
 def compile_same(n):
   '''Compiles a module named Same whose f is n.'''
-  return curry.compile('f :: Int\nf = %d' % n, modulename='Same')
+  return curry.compile('f :: Int\nf = %d' % n, name='Same')
 
 first = compile_same(1)
 print('first.f ->', vals(first.f))
@@ -31,16 +29,20 @@ try:
 except curry.StaleError as error:
   print('first.f after the reset !!', type(error).__name__)
 
-# A hard reset: curry.reload builds a new interpreter and takes flags.
-curry.reload()
+# Reload replaces this module in place and refuses its earlier term.
+old = second.f
+third = curry.reload(second, text='f :: Int\nf = 3')
+print('reload is second ->', third is second)
 print('sorted(curry.modules) after reload ->', sorted(curry.modules))
-third = compile_same(3)
 print('third.f ->', vals(third.f))
 print("curry.import_('Same') is third ->", curry.import_('Same') is third)
-print('sorted(curry.modules) ->', sorted(curry.modules))
+try:
+  vals(old)
+except curry.StaleError as error:
+  print('old term after reload !!', type(error).__name__)
 
 # The two old modules again: both are stale.
-for label, module in [('second', second), ('first', first)]:
+for label, module in [('first', first)]:
   try:
     module.f
   except curry.StaleError as error:

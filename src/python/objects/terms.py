@@ -113,6 +113,9 @@ class ModuleInfo:
 
   @property
   def file(self):
+    source = getattr(self._module, '.source_file', None)
+    if source is not None:
+      return source
     icy = getattr(self._module, '.icurry')
     return None if icy.metadata.get('all.tmpd') is not None else icy.filename
 

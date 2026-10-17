@@ -4,7 +4,7 @@ backend, the pair that round-trips.
 
 A loaded module crosses the boundary back to disk as Python source:
 curry.save with module_main=False writes a module that curry.load reads in
-a later interpreter, and curry.save with goal='main' writes a program that
+a later interpreter, and curry.save with main=M.main writes a program that
 the Python of the installation runs (the run script does so after this
 driver).  The goal of save is a name and not a symbol (P39).  The driver
 runs in a temporary copy, so that the saved files stay out of the corpus.
@@ -21,19 +21,17 @@ M = curry.import_('M')
 print('M.f ->', vals(M.f))
 
 # A module without a main program, and a program whose goal is main.
-curry.save(M, os.path.join(HERE, 'M.py'), module_main=False)
-curry.save(M, os.path.join(HERE, 'Prog.py'), goal='main')
+curry.save(M, os.path.join(HERE, 'M.py'))
+curry.save(M, os.path.join(HERE, 'Prog.py'), main=M.main)
 print('saved ->', sorted(name for name in os.listdir(HERE) if name.endswith('.py')))
 
-# The goal is a string; a symbol is a TypeError (P39).
+# A term names the main goal; the destination path is required.
+curry.save(M, os.path.join(HERE, 'Y.py'), main=M.main)
+print('save with main=M.main -> program')
 try:
-  curry.save(M, os.path.join(HERE, 'Y.py'), goal=M.main)
+  curry.save(M)
 except TypeError:
-  print('save with goal=M.main !! TypeError')
-
-# Without a file name, save returns the text of the module.
-text = curry.save(M, module_main=False)
-print('text of the module ->', text.splitlines()[0])
+  print('save without path !! TypeError')
 
 # A reset forgets M; load reads the saved module back under its name.
 curry.reset()

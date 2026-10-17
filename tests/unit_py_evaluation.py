@@ -49,7 +49,7 @@ class TestPyEvaluation(cytest.TestCase):
         main :: [Int]
         main = rev [1..10]
         '''
-      , modulename='Rev'
+      , name='Rev'
       )
     self.checkAsString([Rev.main], '[10, 9, 8, 7, 6, 5, 4, 3, 2, 1]')
 

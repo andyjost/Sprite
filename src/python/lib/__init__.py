@@ -35,7 +35,6 @@ class CurryImportHook(object):
       cyname = fullname[len(self.LIBPATH):]
       moduleobj = self.curry.import_(cyname)
       assert moduleobj.__name__
-      assert moduleobj.__file__
       moduleobj.__loader__ = self
       # The module should normally be placed into sys.modules before processing
       # the import.  In this case, however, this is not critical because the
@@ -53,6 +52,8 @@ class CurryImportHook(object):
 
 
 import sys
-sys.meta_path.insert(0, CurryImportHook())
+if not any(getattr(hook, 'LIBPATH', None) == CurryImportHook.LIBPATH
+           for hook in sys.meta_path):
+  sys.meta_path.insert(0, CurryImportHook())
 del config, CurryImportHook, sys # Empty this module to avoid name clashes.
 

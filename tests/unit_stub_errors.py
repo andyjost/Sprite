@@ -363,7 +363,6 @@ class TestStubErrors(cytest.TestCase):
       from curry.lib import StubMissingModule
     self.assertIsInstance(caught.exception, ImportError)
 
-  @unittest.expectedFailure
   def test_module_exists_message(self):
     curry.compile('f :: Int\nf = 1', name='Same')
     with self.assertRaises(curry.ModuleExistsError) as caught:
@@ -403,7 +402,6 @@ class TestStubErrors(cytest.TestCase):
     self.assertIn('reset', text)
     self.assertIn('build it again from Coin', text)
 
-  @unittest.expectedFailure
   def test_load_message_names_file_and_backend(self):
     with self.assertRaises(curry.LoadError) as caught:
       curry.load('stub-missing.so')
@@ -411,7 +409,6 @@ class TestStubErrors(cytest.TestCase):
     self.assertIn('stub-missing.so', text)
     self.assertIn(curry.flags['backend'], text)
 
-  @unittest.expectedFailure
   def test_flag_error_message(self):
     with self.assertRaises(curry.FlagError) as caught:
       curry.reset(bogus=True)
