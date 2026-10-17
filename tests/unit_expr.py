@@ -254,7 +254,7 @@ class TestExpr(cytest.TestCase):
     self.assertIs(e[0], a)
     self.assertIs(e[1][0], a)
     self.assertEqual(str(e), '[[1, ...], [1, ...], [1, ...]]')
-    with self.assertRaisesRegex(ValueError, "undefined anchor 'x'"):
+    with self.assertRaisesRegex(CurryTypeError, "reference 'x' needs a binding"):
       curry.expr(form)
 
   @cytest.check_expressions()

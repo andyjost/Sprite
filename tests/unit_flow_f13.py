@@ -74,7 +74,6 @@ class TestFlowF13(cytest.TestCase):
     self.assertEqual((table[I.inc(1)], table[C.coin]), ('one', 'coin'))
     self.assertIsNot(t, I.inc(1))
 
-  @unittest.expectedFailure
   def test_arithmetic_and_infix(self):
     I = curry.import_('Items'); C = curry.import_('Coin'); t = I.inc(1)
     self.assertNotEqual(t, 2)
@@ -83,7 +82,6 @@ class TestFlowF13(cytest.TestCase):
     self.assertEqual(str(t + 2 * C.coin), 'inc 1 + 2 * coin')
     self.assertEqual(str(curry.term([1, 2]).__infix__('++', [3])), '[1,2] ++ [3]')
 
-  @unittest.expectedFailure
   def test_variable_keys_and_choice(self):
     x = curry.free('x')
     self.assertEqual(x, x)

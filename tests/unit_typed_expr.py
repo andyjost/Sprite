@@ -491,7 +491,7 @@ class TestForms(cytest.TestCase):
         curry.CurryTypeError
       , r"^type mismatch in argument 2 of Prelude\.\? :: a -> a -> a\n"
         r"  argument 1 fixed a := Int \(from 1\)\n"
-        r"  argument 2 has type Char \(from 'a'\)$"
+        r"  argument 2 has type \[Char\] \(from \('a' :: \[Char\]\)\)$"
       ):
       curry.expr(curry.choice(1, 'a'))
 
@@ -506,7 +506,7 @@ class TestForms(cytest.TestCase):
     # The reference shares the type of its anchor.
     with self.assertRaises(curry.CurryTypeError):
       curry.expr(P.take, 'a', ref('xs'), xs=curry.cons(7, ref('xs')))
-    with self.assertRaisesRegex(ValueError, 'undefined anchor'):
+    with self.assertRaisesRegex(curry.CurryTypeError, 'needs a binding'):
       curry.expr(ref('nowhere'))
     # The trivial cycle a = a.
     e = curry.expr(anchor(ref()))
@@ -684,7 +684,7 @@ class TestValueWalk(cytest.TestCase):
     v, = curry.eval(P.id, x)
     self.assertTrue(inspect.isa_freevar(v))
     self.assertEqual(curry.typeof(v), 'a')
-    self.assertEqual(curry.typeof(curry.raw_expr(curry.choice(1, 2))), 'Int')
+    self.assertEqual(curry.typeof(curry.raw_expr(curry.choice(1, 2))), 'Num a => a')
     self.assertEqual(curry.typeof(curry.raw_expr(curry.fail)), 'a')
     g = curry.raw_expr(itertools.count())
     self.assertEqual(curry.typeof(g), '[a]')

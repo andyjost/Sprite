@@ -2,7 +2,8 @@
 import cytest # from ./lib; must be first
 from curry.exceptions import ModuleLookupError, SymbolLookupError, TypeLookupError
 from curry.icurry import *
-from curry import choice, interpreter, toolchain
+from curry import interpreter, toolchain
+from curry.expressions import choice
 from curry.interpreter import Interpreter
 from curry.utility.binding import binding, del_
 from curry.utility import filesys
@@ -132,7 +133,7 @@ class TestPyInterp(cytest.TestCase):
     interp = Interpreter(flags=PY)
     self.assertEqual(interp.stats()['steps'], 0)
     self.assertEqual(interp.stats()['forks'], 0)
-    choice = lambda: curry.choice(True, False)
+    choice = lambda: curry.expressions.choice(True, False)
     goal = interp.expr([interp.symbol('Prelude.not'), choice()])
     self.assertEqual(sorted(map(str, interp.eval(goal))), ['False', 'True'])
     stats = interp.stats()

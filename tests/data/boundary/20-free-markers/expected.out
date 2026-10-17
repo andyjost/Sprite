@@ -2,7 +2,7 @@
 (x =:= 1, x, x) -> [(True, 1, 1)]
 (x =:= 2, x) -> [(True, 2)]
 x afterwards -> ['_a']
-typeof free -> 'a'
+typeof free -> 'Data a => a'
 typeof free '[Int]' -> '[Int]'
 [_] :: String -> ['[_a]']
 [_] :: String converted !! TypeError

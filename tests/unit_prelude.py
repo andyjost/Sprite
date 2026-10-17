@@ -27,7 +27,7 @@ class TestPrelude(cytest.TestCase):
     Char = curry.symbol('Prelude.Char')
     Float = curry.symbol('Prelude.Float')
     int_ = next(curry.eval(1, converter=None))
-    char_ = next(curry.eval('a', converter=None))
+    char_ = next(curry.eval(curry.term(curry.Char('a')), converter=None))
     float_ = next(curry.eval(1., converter=None))
 
     self.assertIsa(int_, Int)

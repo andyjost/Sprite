@@ -528,7 +528,11 @@ class ExpressionBuilder(object):
 
   @visitation.dispatch.on('arg')
   def __call__(self, arg, *args, **kwds):
-    from .objects.terms import Term
+    from .objects.terms import Term, Var, Reference
+    if isinstance(arg, Var):
+      return self(arg._marker, *args, **kwds)
+    if isinstance(arg, Reference):
+      return self(ref(arg.name), *args, **kwds)
     if isinstance(arg, Term):
       if args and arg.symbol is not None:
         return self(arg.symbol._info, *arg._args, *args, **kwds)

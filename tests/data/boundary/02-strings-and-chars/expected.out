@@ -1,12 +1,12 @@
 % python go.py
 str(expr('a')) -> "'a'"
-typeof 'a' -> 'Char'
+typeof 'a' -> '[Char]'
 typeof 'ab' -> '[Char]'
 typeof '' -> '[Char]'
 ord 'a' -> [97]
 length 'a' -> [1]
 length '' -> [0]
-'' -> ['']
+'' !! ConversionError: a str goal needs curry.parse(text) for code or curry.term(text) for a String
 show 'a' -> ["'a'"]
 show (typed 'a' String) -> ['"a"']
 typeof ('a', 1) -> 'Num a => (Char, a)'

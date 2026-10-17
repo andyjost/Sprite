@@ -46,7 +46,7 @@ def _node(*args):
   return curry.raw_expr(*args)
 
 def _choice(cid, lhs, rhs):
-  return curry.raw_expr(curry.choice(cid, lhs, rhs))
+  return curry.raw_expr(curry.expressions.choice(cid, lhs, rhs))
 
 def _make(info, *args):
   return _cb().make_node(getattr(info, 'info', info), *args)

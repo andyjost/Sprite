@@ -12,4 +12,4 @@ take 3 a -> [[1, 1, 1]]
 convertor='topython' -> [<Int 2>]
 str (choice 1 2) -> '(?) 1 2'
 choice 1 2 -> [1, 2]
-choice 1 2 3 -> [2, 3]
+choice 1 2 3 -> [1, 2, 3]

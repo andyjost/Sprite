@@ -130,7 +130,7 @@ class TestApplications(cytest.TestCase):
     self.assertEqual(text(P.Cons, 1), '(:) 1')
     self.assertEqual(text(P.length, [P.Cons, 1, P.Nil]), 'length (1 : [])')
     self.assertEqual(text(curry.choice(1, 2)), '1 ? 2')
-    self.assertEqual(text(getattr(P, 'not'), curry.choice(True, False)), 'not (True ? False)')
+    self.assertEqual(text(getattr(P, 'not'), curry.choice(True, False)), 'not ((True :: Bool) ? (False :: Bool))')
     self.assertEqual(text(P.Just, curry.choice(1, 2)), 'Just (1 ? 2)')
 
   def test_qualification(self):

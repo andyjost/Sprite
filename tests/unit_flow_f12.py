@@ -47,7 +47,6 @@ class TestFlowF12(cytest.TestCase):
     if FLOW_PATH not in curry.path:
       curry.path.insert(0, FLOW_PATH)
 
-  @unittest.expectedFailure
   def test_type_error_at_build(self):
     P = curry.import_('Prelude')
     with self.assertRaises(curry.ConversionError) as caught:
@@ -58,7 +57,6 @@ class TestFlowF12(cytest.TestCase):
     with self.assertRaises(curry.CompileError):
       curry.parse('not 1')
 
-  @unittest.expectedFailure
   def test_error_at_next(self):
     P = curry.import_('Prelude')
     for g in (P.error('boom'), curry.parse('error "boom"')):

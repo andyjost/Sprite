@@ -56,7 +56,7 @@ show('(1 ? 2, 1 ? 2)', lambda: vals((curry.choice(1, 2), curry.choice(1, 2))))
 # and the goal yields the Curry node (P5).
 show("convertor='topython'", lambda: list(curry.eval(Coin.inc, 1, convertor='topython')))
 
-# curry.choice(cid, lhs, rhs): with three arguments the first is the id.
+# curry.choice takes alternatives, nested to the right.
 show('str (choice 1 2)', lambda: str(curry.expr(curry.choice(1, 2))))
 show('choice 1 2', lambda: vals(curry.choice(1, 2)))
 show('choice 1 2 3', lambda: vals(curry.choice(1, 2, 3)))

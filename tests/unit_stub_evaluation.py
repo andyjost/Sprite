@@ -152,7 +152,6 @@ class TestStubEvaluation(cytest.TestCase):
       next(r)
     self.assertEqual(list(r), [])
 
-  @unittest.expectedFailure
   def test_eval_bare_string_names_parse_and_term(self):
     with self.assertRaises(curry.ConversionError) as caught:
       curry.eval('1 + 2')
