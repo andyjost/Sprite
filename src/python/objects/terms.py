@@ -2,7 +2,7 @@
 
 from contextlib import contextmanager
 from contextvars import ContextVar
-from collections.abc import Iterator, Sequence
+from collections.abc import Collection, Iterator, Sequence
 import re
 from dataclasses import dataclass
 
@@ -135,6 +135,27 @@ class Char(str):
     if not isinstance(value, str) or len(value) != 1:
       raise ValueError('Char takes a str of exactly one character, got %r' % (value,))
     return str.__new__(cls, value)
+
+class IteratorSource:
+  '''The items of a held iterator, shared by its evaluations.'''
+  def __init__(self, source):
+    self.source = source
+    self.items = []
+    self.done = False
+
+  def __iter__(self):
+    index = 0
+    while True:
+      if index == len(self.items):
+        if self.done:
+          return
+        try:
+          self.items.append(next(self.source))
+        except StopIteration:
+          self.done = True
+          return
+      yield self.items[index]
+      index += 1
 
 class Term:
   '''A typed Curry expression held by Python.'''
@@ -328,6 +349,78 @@ class Term:
     raise AttributeError(name)
 
 
+class Data(Term):
+  '''A constructor value with converted arguments.'''
+  args = property(lambda self: self._value_args)
+
+  def __bool__(self):
+    return True
+
+  def __repr__(self):
+    return str(self)
+
+  def _compare(self, other, accepted):
+    if not isinstance(other, Data):
+      return NotImplemented
+    from ..exceptions import CurryTypeError
+    try:
+      result = self._interp.eval(self._interp.prelude.compare(self, other)).one()
+    except CurryTypeError:
+      raise TypeError('ordering Data requires an Ord instance for its type') from None
+    return result.symbol.name in accepted
+
+  def __lt__(self, other): return self._compare(other, ('LT',))
+  def __le__(self, other): return self._compare(other, ('LT', 'EQ'))
+  def __gt__(self, other): return self._compare(other, ('GT',))
+  def __ge__(self, other): return self._compare(other, ('GT', 'EQ'))
+
+
+class Function(Term):
+  '''A function value, including a partial constructor application.'''
+  args = property(lambda self: self._value_args)
+
+  def __call__(self, *args):
+    if not args:
+      return super().__call__()
+    check_live(self)
+    with raw_symbols():
+      apply_ = self._interp.prelude.apply
+    result = self
+    for arg in args:
+      result = Term(self._interp, [apply_, result, _convert(self._interp, arg)])
+    return result
+
+  def __bool__(self):
+    return True
+
+  def __repr__(self):
+    return '<Function %s :: %s>' % (self, self._signature)
+
+
+class Values(Term, Collection):
+  '''The finite multiset produced by a set function.'''
+  def __len__(self): return len(self._items)
+  def __iter__(self): return iter(self._items)
+  def __contains__(self, value): return value in self._items
+  def __bool__(self): return bool(self._items)
+  def __repr__(self): return str(self)
+
+  def __eq__(self, other):
+    if not isinstance(other, Values):
+      return Term.__eq__(self, other)
+    remaining = list(other)
+    for item in self:
+      for index, candidate in enumerate(remaining):
+        if item == candidate:
+          remaining.pop(index)
+          break
+      else:
+        return False
+    return not remaining
+
+  __hash__ = None
+
+
 def variable_nodes(term):
   from ..typecheck.builder import _follow
   out = {}
@@ -347,6 +440,9 @@ def _graph_key(root, variables=None):
   pending = [root]
   while pending:
     node = pending.pop()
+    if isinstance(node, tuple) and len(node) == 2 and node[0] == 'leave':
+      seen.pop(node[1])
+      continue
     if not isinstance(node, backends.Node):
       key.append(('literal', type(node), node))
     elif variables and node.id() in variables:
@@ -358,7 +454,13 @@ def _graph_key(root, variables=None):
     else:
       seen[node.id()] = len(seen)
       children = tuple(node.successors)
-      key.append(('node', id(node.info), len(children)))
+      info = node.info
+      identity = ('partial', info.arity) if info.is_partial else id(info)
+      key.append(('node', identity, len(children)))
+      # Constructor sharing does not distinguish equal data values. Keep
+      # ancestors until their children finish, so cycles still terminate.
+      if inspect.isa_ctor(node):
+        pending.append(('leave', node.id()))
       pending.extend(reversed(children))
   return tuple(key)
 
@@ -398,7 +500,15 @@ def _convert(interp, value):
     return typed(value, 'Bool')
   if isinstance(value, float):
     return typed(value, 'Float')
-  if isinstance(value, (int, Iterator, CurryNodeInfo)):
+  if isinstance(value, int) and not -2 ** 63 <= value < 2 ** 63:
+    from ..exceptions import IntOverflowError
+    raise IntOverflowError('%s is outside the range of Int (%s to %s)'
+        % (value, -2 ** 63, 2 ** 63 - 1))
+  if isinstance(value, IteratorSource):
+    return value
+  if isinstance(value, Iterator):
+    return IteratorSource(value)
+  if isinstance(value, (int, CurryNodeInfo)):
     return value
   raise ConversionError('cannot convert %s to a Curry value' % type(value).__name__)
 

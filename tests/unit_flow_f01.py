@@ -56,7 +56,6 @@ class TestFlowF01(cytest.TestCase):
     self.assertEqual(curry.eval(S.names(rows)).one(), ['a', 'b'])
     self.assertEqual(curry.eval(S.names(curry.term(rows))).one(), ['a', 'b'])
 
-  @unittest.expectedFailure
   def test_char_boundary(self):
     P = curry.import_('Prelude')
     with self.assertRaises(curry.ConversionError):
@@ -73,7 +72,6 @@ class TestFlowF01(cytest.TestCase):
     with self.assertRaises(curry.ConversionError):
       P.chr(True)
 
-  @unittest.expectedFailure
   def test_maybe_boundary(self):
     P = curry.import_('Prelude'); C = curry.import_('Coin')
     with self.assertRaises(curry.ConversionError):

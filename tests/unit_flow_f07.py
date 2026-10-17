@@ -63,7 +63,6 @@ class TestFlowF07(cytest.TestCase):
     g = iter([1, 2, 3])
     self.assertEqual((curry.eval(P.length(g)).one(), curry.eval(P.length(g)).one()), (3, 0))
 
-  @unittest.expectedFailure
   def test_term_remembers_iterator(self):
     P = curry.import_('Prelude'); xs = curry.term(iter([1, 2]))
     self.assertEqual((curry.eval(P.length(xs)).one(), curry.eval(P.length(xs)).one()), (2, 2))
@@ -75,7 +74,6 @@ class TestFlowF07(cytest.TestCase):
     self.assertEqual(curry.eval(P.length(iter([]))).one(), 0)
     self.assertEqual(curry.eval(P.take(3, itertools.count())).one(), [0, 1, 2])
 
-  @unittest.expectedFailure
   def test_heterogeneous_iterator_rejected(self):
     P = curry.import_('Prelude')
     t = P.take(2, iter([1, 'a']))
@@ -83,7 +81,6 @@ class TestFlowF07(cytest.TestCase):
     with self.assertRaises(curry.ConversionError):
       next(r)
 
-  @unittest.expectedFailure
   def test_bad_item_when_drawn(self):
     P = curry.import_('Prelude')
     t = P.foldr(P['+'], 0, iter([1, 'a']))

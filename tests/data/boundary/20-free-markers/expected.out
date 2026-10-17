@@ -5,5 +5,4 @@ x afterwards -> ['_a']
 typeof free -> 'Data a => a'
 typeof free '[Int]' -> '[Int]'
 [_] :: String -> ['[_a]']
-[_] :: String converted !! TypeError
 _ ++ [x] =:= [1,2,3] where x free -> ['{x=3} True']

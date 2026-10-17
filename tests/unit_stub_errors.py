@@ -141,7 +141,6 @@ class TestStubErrors(cytest.TestCase):
     self.assertEqual(curry.InterfaceError.__bases__, (curry.CurryTypeError,))
     self.assertTrue(issubclass(curry.InterfaceError, Exception))
 
-  @unittest.expectedFailure
   def test_IntOverflowError_bases(self):
     self.assertEqual(curry.IntOverflowError.__bases__, (curry.CurryError, OverflowError))
     self.assertTrue(issubclass(curry.IntOverflowError, Exception))
@@ -271,7 +270,6 @@ class TestStubErrors(cytest.TestCase):
       , 'cannot handle the overloaded goal read "5" of type Read a => a\nCannot handle arbitrary overloaded top-level expressions\nstate the type: curry.term(P.read(\'5\'), type=\'Int\')'
       )
 
-  @unittest.expectedFailure
   def test_int_overflow_message_example(self):
     with self.assertRaises(curry.IntOverflowError) as caught:
       curry.term(2 ** 63)
@@ -494,7 +492,6 @@ class TestStubErrors(cytest.TestCase):
       with self.assertWarns(curry.CurryWarning):
         curry.compile('f :: Int -> Int\nf 0 = 1\nf x = 2')
 
-  @unittest.expectedFailure
   def test_int_boundary_is_signed_64_bits(self):
     for value in (-2 ** 63, 2 ** 63 - 1):
       self.assertEqual(curry.eval(curry.term(value)).one(), value)

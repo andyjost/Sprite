@@ -50,7 +50,7 @@ class TestIntSemantics(cytest.TestCase):
         curry.expr(value)
       with self.assertRaises(curry.CurryTypeError):
         curry.raw_expr(value)
-      with self.assertRaises(curry.CurryTypeError):
+      with self.assertRaises(curry.IntOverflowError):
         list(curry.eval(value))
       with self.assertRaises(curry.CurryTypeError):
         curry.expr(self.P.Just, value)

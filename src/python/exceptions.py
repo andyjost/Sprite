@@ -29,6 +29,9 @@ class CurryIndexError(CurryError, IndexError):
 class CurryTypeError(CurryError, TypeError):
   '''Raised when a type error occurs while evaluating a Curry program.'''
 
+class IntOverflowError(CurryError, OverflowError):
+  '''An Int is outside the signed 64-bit range.'''
+
 class NoValueError(CurryError, LookupError):
   '''Results.one found no value.'''
 

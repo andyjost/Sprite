@@ -56,13 +56,24 @@ def _is_known(typeexpr):
   return isinstance(typeexpr, (fc.TCons, fc.FuncType))
 
 class ToPython(object):
-  def __init__(self, convert_freevars=True, variable=None):
+  def __init__(self, convert_freevars=True, variable=None, interp=None):
     self.convert_freevars = convert_freevars
     self.variable = variable
+    self.interp = interp
+    self.expression_symbols = {} if interp is None else {
+        id(symbol.info): symbol
+          for module in interp._expression_modules
+          for symbol in getattr(module, '.symbols').values()
+      }
+
+  def _symbol(self, info):
+    from ..typecheck.builder import symbol_map
+    return self.expression_symbols.get(id(info)) or symbol_map(self.interp).get(id(info))
   def __call__(self, value, convert_strings=True, typeexpr=None):
     '''Convert one value.'''
     return self.__convert(value, convert_strings, typeexpr)
   def __convert(self, value, convert_strings=True, typeexpr=None):
+    value = getattr(value, 'target', value)
     if self.variable is not None:
       from ..typecheck.builder import _follow
       value = _follow(value)
@@ -73,25 +84,38 @@ class ToPython(object):
         typeexpr = typeexpr.args[0]
       return self.__convert(unbox(value), convert_strings, typeexpr)
     if inspect.isa_boxed_primitive(value):
-      return unbox(value)
+      from ..objects.terms import Char
+      return Char(unbox(value)) if inspect.isa_boxed_char(value) else unbox(value)
     elif inspect.isa_bool(value):
       return inspect.isa_true(value)
     elif inspect.isa_list(value):
       elemtype = _element_type(typeexpr)
-      elems = list(_listiter(value))
+      elems, cells, tail = [], [], value
+      from ..typecheck.builder import _follow
+      while inspect.isa_cons(tail):
+        cells.append(tail)
+        elems.append(_follow(tail.successor(0)))
+        tail = _follow(tail.successor(1))
+      if not inspect.isa_nil(tail):
+        if self.interp is None:
+          raise exceptions.NotConstructorError(tail)
+        result = self.__convert(tail, convert_strings, typeexpr)
+        for cell, elem in zip(reversed(cells), reversed(elems)):
+          result = self._value(cell, [self.__convert(elem, convert_strings, elemtype), result], typeexpr)
+        return result
       l = [self.__convert(elem, convert_strings, elemtype) for elem in elems]
       if convert_strings:
         # The static type decides when it is known: [Char] is a string,
         # also when it is empty.  Without a type, a list of characters is a
         # string, as it was before the types; a list of strings stays a
         # list.
-        if _is_char(elemtype):
+        if _is_char(elemtype) and all(isinstance(x, str) for x in l):
           return ''.join(l)
         if not _is_known(elemtype) and l \
             and all(inspect.isa_boxed_char(elem) for elem in elems):
           return ''.join(l)
       return l
-    elif inspect.isa_tuple(value):
+    elif inspect.isa_tuple(value) or inspect.info_of(value) is not None and inspect.isa_tuple_name(value.info.name):
       comps = _component_types(typeexpr, len(value.successors))
       return tuple(
           self.__convert(x, convert_strings, t)
@@ -102,7 +126,90 @@ class ToPython(object):
       from ..backends.py.currylib.prelude.string import text
       return text(value.successor(0))
     else:
-      return value
+      if self.interp is None or not isinstance(value, backends.Node):
+        return value
+      from ..typecheck.builder import _partial_parts
+      head, stored = _partial_parts(value) if value.info.is_partial else (value.info, value.successors)
+      symbol = self._symbol(head)
+      if symbol is None:
+        return value
+      if symbol.fullname == 'Control.SetFunctions.Values':
+        from ..objects.terms import Values
+        inner = typeexpr.args[0] if isinstance(typeexpr, fc.TCons) and typeexpr.args else None
+        items = [self.__convert(x, convert_strings, inner) for x in _listiter(value.successor(0))]
+        result = self._value(value, [items], typeexpr, Values, symbol)
+        result._items = tuple(items)
+        return result
+      scheme = symbol.scheme
+      # Function dictionaries are implementation arguments, absent from
+      # the value's source application.
+      from ..common import T_FUNC
+      skip = scheme.ndicts if scheme is not None and head.tag == T_FUNC else 0
+      stored = list(stored)[skip:]
+      if head.tag == T_FUNC:
+        stored = [x for x in stored if isinstance(x, backends.Node) and not _is_dictionary(x)]
+      types = _argument_types(scheme, typeexpr, len(stored), value.info.is_partial)
+      args = [self.__convert(x, convert_strings, t) for x, t in zip(stored, types)]
+      from ..objects.terms import Data, Function
+      cls = Function if value.info.is_partial or head.tag == T_FUNC else Data
+      return self._value(value, args, typeexpr, cls, symbol)
+
+  def _value(self, node, args, typeexpr, cls=None, symbol=None):
+    from ..objects.terms import Data, Symbol, _convert, named_vars, raw_symbols, unqualify
+    from ..typecheck import builder
+    if symbol is None:
+      symbol = self._symbol(node.info)
+    sym = Symbol(symbol, symbol.module)
+    result = object.__new__(Data if cls is None else cls)
+    result._interp = self.interp
+    result._session = self.interp._session
+    result._node = node
+    result.symbol = sym
+    result._value_args = tuple(args)
+    result._args = tuple(_convert(self.interp, a) for a in args)
+    result._form = [symbol, *result._args]
+    result._free_vars = named_vars(result._form)
+    with raw_symbols():
+      result._signature = unqualify(builder.typeof(self.interp, node)) if typeexpr is None else unqualify(builder.show_type(typeexpr))
+      if typeexpr is None:
+        b = builder.TypedBuilder(self.interp)
+        problem = builder.TypedProblem(b, builder.Raw(node, walk=True))
+        typeexpr = problem.typeexpr
+    result._typeexpr = typeexpr
+    result._defaulted = result._signature
+    result._annotation = typeexpr
+    return result
+
+
+def _is_dictionary(node):
+  from ..typecheck.builder import _partial_parts, _follow
+  node = _follow(node)
+  if not isinstance(node, backends.Node):
+    return False
+  head = _partial_parts(node)[0] if node.info.is_partial else node.info
+  return head is not None and head.name.startswith('_inst#')
+
+
+def _argument_types(scheme, typeexpr, n, partial=False):
+  '''Instantiate the constructor's fields from the enclosing value type.'''
+  if scheme is None:
+    return [None] * n
+  params, result = [], scheme.typeexpr
+  while isinstance(result, fc.FuncType) and (not partial or len(params) < n):
+    params.append(result.domain)
+    result = result.range
+  mapping = {}
+  def match(pattern, actual):
+    if isinstance(pattern, fc.TVar) and actual is not None:
+      mapping.setdefault(pattern.index, actual)
+    elif isinstance(pattern, fc.TCons) and isinstance(actual, fc.TCons) and pattern.name == actual.name:
+      for p, a in zip(pattern.args, actual.args): match(p, a)
+    elif isinstance(pattern, fc.FuncType) and isinstance(actual, fc.FuncType):
+      match(pattern.domain, actual.domain)
+      match(pattern.range, actual.range)
+  match(result, typeexpr)
+  from ..typecheck.defaulting import substitute
+  return [substitute(p, mapping) for p in params[:n]] + [None] * max(0, n - len(params))
 
 def _is_string_node(value):
   info = inspect.info_of(value)
@@ -115,8 +222,8 @@ def topython(interp, value, convert_strings=True, exprtype=None):
   '''
   Converts a Curry value to Python by substituting built-in types.
 
-  This functions converts (recursively) the types ``int``, ``float``, ``str``,
-  ``bool``, ``list``, and ``tuple``.  Other types are passed through untouched.
+  Built-in values convert recursively to Python data. User constructors,
+  functions and set-function results become Data, Function and Values.
 
   Args:
     value:
@@ -141,7 +248,7 @@ def topython(interp, value, convert_strings=True, exprtype=None):
   if isinstance(exprtype, str):
     from ..typecheck import exprtype as exprtype_mod
     exprtype, _ = exprtype_mod.parse_type(interp, exprtype)
-  return _topython(value, convert_strings, exprtype)
+  return ToPython(convert_freevars=False, interp=interp)(value, convert_strings, exprtype)
 
 def _topython(value, convert_strings=True, typeexpr=None):
   '''Internal version of ``topython`` that takes no interpreter.'''

@@ -174,7 +174,7 @@ reset = _interpreter_.reset
 save = _interpreter_.save
 stats = _interpreter_.stats
 from .objects import CurryModule as Module
-from .objects.terms import Term, Symbol, DataType, Char, Var, Anonymous, anonymous, Reference
+from .objects.terms import Term, Data, Function, Values, Symbol, DataType, Char, Var, Anonymous, anonymous, Reference
 from .typecheck.errors import ConversionError, MismatchError, ArityError
 from .typecheck.defaulting import DefaultingError
 
@@ -290,11 +290,12 @@ def show_value(value):
   '''
   return ShowValue()(value)
 
-__all__ += ['Term', 'Symbol', 'DataType', 'Module', 'Char', 'term', 'info', 'ConversionError', 'MismatchError', 'ArityError']
+__all__ += ['Term', 'Data', 'Function', 'Values', 'Symbol', 'DataType', 'Module', 'Char', 'term', 'info', 'ConversionError', 'MismatchError', 'ArityError']
 
 __all__ += ['parse', 'Var', 'Anonymous', 'anonymous', 'let']
 
 __all__ += ['DefaultingError']
+__all__ += ['IntOverflowError']
 
 from .objects.results import Results, Answer, Bindings
 # Load the node printer before exporting the public function of that name.
