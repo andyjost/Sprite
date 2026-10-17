@@ -18,16 +18,17 @@ IS_CXX = curry.flags['backend'] == 'cxx'
 class TestStepLimit(cytest.TestCase):
   def setUp(self):
     super().setUp()
-    self.interp = curry.getInterpreter()
+    self.interp = cytest.raw.interp()
 
   def expr(self, text, **kwds):
-    return self.interp.compile(text, mode='expr', **kwds)
+    node = cytest.raw.expr(curry.parse(text, **kwds))
+    return evaluator.single_step(self.interp, node)
 
   def steps_of(self, text, **kwds):
     '''The values and the rewrite steps of one evaluation of ``text``.'''
     e = self.expr(text, **kwds)
     before = curry.stats()['steps']
-    values = list(curry.eval(e, converter='topython'))
+    values = list(curry.eval(e))
     return values, curry.stats()['steps'] - before
 
   def limited(self, e, limit):
@@ -54,7 +55,7 @@ class TestStepLimit(cytest.TestCase):
       with self.assertRaises(control.E_TERMINATE):
         self.limited(e, limit)
       self.assertEqual(curry.stats()['steps'] - before, limit, limit)
-      self.assertEqual(list(curry.eval(e, converter='topython')), [6], limit)
+      self.assertEqual(list(curry.eval(e)), [6], limit)
     e = self.expr(text)
     self.assertEqual(self.limited(e, n + 1), [6])
 
@@ -65,7 +66,7 @@ class TestStepLimit(cytest.TestCase):
     as the steps left it; the same states on both backends.  The inliner
     is off, so that the steps are those of the text.
     '''
-    self.interp = curry.getInterpreter()
+    self.interp = cytest.raw.interp()
     code = self.interp.compile(
         '''
         f :: Int -> Int
@@ -96,7 +97,7 @@ class TestStepLimit(cytest.TestCase):
     self.assertEqual(goal, expected[2])
     cytest.step.step(self.interp, goal)
     self.assertEqual(goal, expected[3])
-    self.assertEqual(list(curry.eval(goal, converter='topython')), [11])
+    self.assertEqual(list(curry.eval(goal)), [11])
 
   def test_counter_interface(self):
     '''The interface of the step counter the generic evaluator reads.'''

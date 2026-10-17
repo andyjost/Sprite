@@ -94,7 +94,7 @@ class TestPyInterp(cytest.TestCase):
       else:
         shutil.copy(srcfile, tgtfile)
       module = interp.import_('test')
-      value = next(interp.eval(interp.raw_expr(module.main), converter='topython'))
+      value = next(interp.eval(interp.raw_expr(module.main)))
       for jsonfile in toolchain.jsonfilenames(tgtfile):
         try:
           mtime = os.path.getmtime(jsonfile)
@@ -135,7 +135,7 @@ class TestPyInterp(cytest.TestCase):
     self.assertEqual(interp.stats()['forks'], 0)
     choice = lambda: curry.expressions.choice(True, False)
     goal = interp.expr([interp.symbol('Prelude.not'), choice()])
-    self.assertEqual(sorted(map(str, interp.eval(goal, converter=None))), ['False', 'True'])
+    self.assertEqual(sorted(map(str, cytest.raw.values(goal, interpreter=interp))), ['False', 'True'])
     stats = interp.stats()
     self.assertGreater(stats['steps'], 0)
     self.assertEqual(stats['forks'], 1)
@@ -148,7 +148,7 @@ class TestPyInterp(cytest.TestCase):
     self.assertEqual(interp.stats()['forks'], 1)
     # One value of a second evaluation, generator kept: the running
     # evaluation is counted.
-    values = interp.eval(interp.expr([interp.symbol('Prelude.not'), choice()]), converter=None)
+    values = cytest.raw.values(cytest.raw.expr(interp.symbol('Prelude.not'), choice(), typed=True, interpreter=interp), interpreter=interp)
     next(values)
     self.assertEqual(interp.stats()['forks'], 2)
     self.assertGreater(interp.stats()['steps'], stats['steps'])
@@ -159,14 +159,12 @@ class TestPyInterp(cytest.TestCase):
     '''Tests to get complete line coverage.'''
     interp = Interpreter(flags=PY)
     # Run interp.eval with a literal as input (not Node).
-    self.assertEqual(list(interp.eval(1, converter=None)), [interp.raw_expr(1)])
+    self.assertEqual(list(cytest.raw.values(cytest.raw.expr(1, interpreter=interp), interpreter=interp)), [interp.raw_expr(1)])
 
     # Evaluate an expression with a leading FWD node.  It should be removed.
     # W = interp.backend.fundamental_symbols.Fwd
-    # self.assertEqual(list(interp.eval([W, 1], converter=None)), [interp.raw_expr(1)])
 
 
-  @cytest.with_flags(defaultconverter='topython')
   def testEvalValues(self):
     '''Evaluate constructor goals.'''
     interp_debug = Interpreter(flags=dict(PY, debug=True))
@@ -191,7 +189,7 @@ class TestPyInterp(cytest.TestCase):
     X = interp.import_(self.X)
     Failure = interp.backend.fundamental_symbols.Failure
     bs = interp.import_(self.BOOTSTRAP)
-    # A choice is built through its marker: curry.unboxed stands only under
+    # A choice is built through its marker: cytest.raw.unboxed stands only under
     # a primitive (issue #107).
     cid = bootstrap.cid.value
     N,M,U,B,Z,ZN,ZF = bs.N, bs.M, bs.U, bs.B, bs.Z, bs.ZN, bs.ZF
@@ -207,7 +205,7 @@ class TestPyInterp(cytest.TestCase):
       ]
     for expr, expected in TESTS:
       goal = interp.raw_expr(*expr)
-      result = map(str, interp.eval(goal, converter=None))
+      result = map(str, cytest.raw.values(goal, interpreter=interp))
       expected = map(self.format_list, expected)
       self.assertEqual(set(result), set(expected))
 

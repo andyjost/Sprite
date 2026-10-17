@@ -260,7 +260,7 @@ class ModuleTestCase(cytest.TestCase):
   def steps(self, goal):
     '''The values and the rewrite steps of one evaluation of ``goal``.'''
     before = curry.stats()['steps']
-    values = list(curry.eval(goal, converter='topython'))
+    values = list(curry.eval(goal))
     return values, curry.stats()['steps'] - before
 
 
@@ -454,7 +454,7 @@ class TestEvaluation(ModuleTestCase):
       ''')
     module = self.import_(name)
     self.assertEqual(
-        list(curry.eval(module.main, converter='topython'))
+        list(curry.eval(module.main))
       , [(5, [2, 1, 6], [2, 3], True)]
       )
     functions = getattr(module, '.icurry').functions
@@ -520,7 +520,7 @@ class TestEvaluation(ModuleTestCase):
         getattr(module, '.icurry').functions['p'].metadata[analysis.ALIAS_KEY]
       , 'Prelude.putStr'
       )
-    self.assertEqual(list(curry.eval(module.q, converter='topython')), [()])
+    self.assertEqual(list(curry.eval(module.q)), [()])
 
   @cytest.hardreset
   def test_private_target_across_modules(self):
@@ -544,7 +544,7 @@ class TestEvaluation(ModuleTestCase):
       main = f True 7
       ''' % private)
     module = self.import_(caller)
-    self.assertEqual(list(curry.eval(module.main, converter='topython')), [7])
+    self.assertEqual(list(curry.eval(module.main)), [7])
     text = self.generated_text(caller)
     self.assertIn(infotable_handle('%s.g' % private), text)
     self.assertNotIn(infotable_handle('%s.f' % private), text)
@@ -571,7 +571,7 @@ class TestEvaluation(ModuleTestCase):
       main = f 21
       ''' % middle)
     module = self.import_(top)
-    self.assertEqual(list(curry.eval(module.main, converter='topython')), [42])
+    self.assertEqual(list(curry.eval(module.main)), [42])
     self.assertIn(base, getattr(module, '.icurry').imports)
     text = self.generated_text(top)
     self.assertIn(infotable_handle('%s.g' % base), text)
@@ -604,15 +604,15 @@ class TestPreludeAliases(cytest.TestCase):
     The staged Prelude was compiled with the pass: its metadata names the
     targets, and its own code evaluates.
     '''
-    imodule = getattr(curry.getInterpreter().prelude, '.icurry')
+    imodule = getattr(cytest.raw.interp().prelude, '.icurry')
     for name, target in self.ALIASES.items():
       self.assertEqual(
           imodule.functions[name].metadata.get(analysis.ALIAS_KEY), target, name
         )
     for name in 'ltEqInt', 'plusInt', 'length', 'take', 'not':
       self.assertNotIn(analysis.ALIAS_KEY, imodule.functions[name].metadata)
-    goal = curry.compile('length (take 3 [1 ..])', 'expr')
-    self.assertEqual(list(curry.eval(goal, converter='topython')), [3])
+    goal = curry.parse('length (take 3 [1 ..])')
+    self.assertEqual(list(curry.eval(goal)), [3])
 
   def test_prelude_source(self):
     '''
@@ -626,7 +626,7 @@ class TestPreludeAliases(cytest.TestCase):
       )
     imodule = loadjson(jsonfile)
     imports = imodule.imports
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     length = imodule.functions['length']
     take = imodule.functions['take']
     self.assertIn('Prelude._impl#+#Prelude.Num#Prelude.Int', ifcalls(length))

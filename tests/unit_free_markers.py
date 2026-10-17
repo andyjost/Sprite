@@ -1,11 +1,11 @@
 '''
 Free variables and choices made from Python: issue #33, item Y1 of the typed
-boundary (#50).  ``curry.free()`` is one shared node per marker, a call of
+boundary (#50).  ``curry.free('x1')`` is one shared node per marker, a call of
 ``Prelude.unknown``, so the runtime creates the variable with a fresh id;
 ``curry.choice`` is a call of ``Prelude.?``; and ``RuntimeState.set_goal``
 registers the free variables a goal already holds, behind a counter of the
 free variables made outside an evaluation.  So a marker reused in a second
-goal, a goal that came out of ``compile(mode='expr')``, and a cyclic goal
+goal, a goal that came out of ``parse``, and a cyclic goal
 that holds a marker evaluate on both backends.  A marker inside a lazy
 iterator, a value of an earlier evaluation that holds a free variable, and a
 marker used after ``curry.reset`` evaluate too.  ``raw_expr`` keeps the raw
@@ -19,10 +19,11 @@ import curry
 
 def values(*args):
   '''The values of a goal as Python objects, in order.'''
-  return list(curry.eval(*args, converter='topython'))
+  return list(map(cytest.raw.interp().topython,
+      cytest.raw.values(cytest.raw.expr(*args, typed=True))))
 
 def interpreter_state():
-  interp = curry.getInterpreter()
+  interp = cytest.raw.interp()
   return interp.backend.get_interpreter_state(interp)
 
 def create_variable(marker):
@@ -33,29 +34,25 @@ def create_variable(marker):
   generator and no binding.
   '''
   P = curry.import_('Prelude')
-  value, = curry.eval(P.id, marker, converter=None)
-  node = inspect.fwd_chain_target(curry.expr(marker))
+  value, = cytest.raw.values(cytest.raw.expr(P.id, marker, typed=True))
+  node = inspect.fwd_chain_target(cytest.raw.expr(marker, typed=True))
   assert inspect.isa_freevar(node)
   return node
 
 class TestFreeMarkers(cytest.TestCase):
-  '''``curry.free`` through ``curry.expr`` and ``curry.eval``.'''
+  '''``curry.free`` through ``cytest.raw.expr`` and ``curry.eval``.'''
 
   def test_issue33_goal(self):
     '''The goal of #33, xs ++ [3] =:= [1,2,3] &> xs, gives [1, 2].'''
     P = curry.import_('Prelude')
-    xs = curry.free()
-    goal = curry.expr(
-        P.cond
-      , curry.expr(P.constrEq, curry.expr(getattr(P, '++'), xs, [3]), [1, 2, 3])
-      , xs
-      )
+    xs = curry.free('xs')
+    goal = cytest.raw.expr(P.cond, cytest.raw.expr(P.constrEq, cytest.raw.expr(getattr(P, '++'), xs, [3], typed=True), [1, 2, 3], typed=True), xs, typed=True)
     self.assertEqual(values(goal), [[1, 2]])
 
   def test_two_markers(self):
     '''Two markers are two variables: constrEq (x, y) (1, 2) gives True.'''
     P = curry.import_('Prelude')
-    x, y = curry.free(), curry.free()
+    x, y = curry.free('x'), curry.free('y')
     self.assertEqual(values(P.constrEq, (x, y), (1, 2)), [True])
 
   def test_one_node_per_marker(self):
@@ -64,12 +61,12 @@ class TestFreeMarkers(cytest.TestCase):
     across expressions.  Two markers are two nodes.
     '''
     P = curry.import_('Prelude')
-    x, y = curry.free(), curry.free()
-    e = curry.expr((x, x, y))
+    x, y = curry.free('x'), curry.free('y')
+    e = cytest.raw.expr((x, x, y), typed=True)
     first, second, third = e[0], e[1], e[2]
     self.assertIs(first, second)
     self.assertIsNot(first, third)
-    self.assertIs(curry.expr(x), first)
+    self.assertIs(cytest.raw.expr(x, typed=True), first)
     self.assertEqual(first.info.name, P.unknown.info.name)
     self.assertRegex(str(first), r'^unknown ')
 
@@ -82,15 +79,15 @@ class TestFreeMarkers(cytest.TestCase):
     uses ``constrEq``, which takes none.
     '''
     P = curry.import_('Prelude')
-    x = curry.free()
-    value, = curry.eval(P.id, x, converter=None)
+    x = curry.free('x')
+    value, = cytest.raw.values(cytest.raw.expr(P.id, x, typed=True))
     self.assertIsaFreevar(value)
     self.assertEqual(str(value), '_a')
     self.assertEqual(values(P.constrEq, x, 1), [True])
-    y = curry.free()
-    value, = curry.eval(P.id, y, converter=None)
+    y = curry.free('y')
+    value, = cytest.raw.values(cytest.raw.expr(P.id, y, typed=True))
     self.assertEqual(str(value), '_a')
-    dictionary = curry.symbol('Prelude._inst#Prelude.Data#Prelude.Int')
+    dictionary = curry.import_('Prelude')['_inst#Prelude.Data#Prelude.Int']
     self.assertEqual(values(getattr(P, '=:='), dictionary, y, 1), [True])
 
   def test_goal_evaluated_twice(self):
@@ -101,12 +98,8 @@ class TestFreeMarkers(cytest.TestCase):
     derives the bindings again.
     '''
     P = curry.import_('Prelude')
-    xs = curry.free()
-    goal = curry.expr(
-        P.cond
-      , curry.expr(P.constrEq, curry.expr(getattr(P, '++'), xs, [3]), [1, 2, 3])
-      , xs
-      )
+    xs = curry.free('xs')
+    goal = cytest.raw.expr(P.cond, cytest.raw.expr(P.constrEq, cytest.raw.expr(getattr(P, '++'), xs, [3], typed=True), [1, 2, 3], typed=True), xs, typed=True)
     self.assertEqual(values(goal), [[1, 2]])
     self.assertEqual(values(goal), [[1, 2]])
 
@@ -117,25 +110,18 @@ class TestFreeMarkers(cytest.TestCase):
     so the walk of set_goal must cross the cycle to register it.
     '''
     P = curry.import_('Prelude')
-    x = curry.free()
+    x = curry.free('x')
     create_variable(x)
-    goal = curry.expr(
-        P.cond
-      , curry.expr(P.constrEq, x, 1)
-      , curry.expr(P.take, 2, anchor(cons(x, ref())))
-      )
+    goal = cytest.raw.expr(P.cond, cytest.raw.expr(P.constrEq, x, 1, typed=True), cytest.raw.expr(P.take, 2, anchor(cons(x, ref())), typed=True), typed=True)
     self.assertEqual(values(goal), [[1, 1]])
 
   def test_compile_expr_let_free(self):
     '''
     ``let xs free`` inside a text expression.  The single rewrite step of
-    compile(mode='expr') creates the variable in a state that is discarded;
+    parse creates the variable in a state that is discarded;
     the evaluation of the result registers it.
     '''
-    goal = curry.compile(
-        'let xs free in (xs ++ [3] =:= [1,2,3]) &> xs'
-      , mode='expr', exprtype='[Int]'
-      )
+    goal = curry.parse('(let xs free in (xs ++ [3] =:= [1,2,3]) &> xs) :: [Int]')
     self.assertEqual(values(goal), [[1, 2]])
 
   def test_registration(self):
@@ -144,42 +130,43 @@ class TestFreeMarkers(cytest.TestCase):
     table of the new state, on both backends.
     '''
     P = curry.import_('Prelude')
-    interp = curry.getInterpreter()
-    x = curry.free()
+    interp = cytest.raw.interp()
+    x = curry.free('x')
     node = create_variable(x)
     vid = inspect.get_freevar_id(node)
-    rts = interp.backend.create_evaluation_rts(interp, curry.expr(P.id, x))
+    rts = interp.backend.create_evaluation_rts(interp, cytest.raw.expr(P.id, x, typed=True))
     self.assertIn(vid, rts.vtable)
     self.assertIs(rts.vtable[vid], node)
 
   def test_counter(self):
-    '''
+    '''import cytest
+
     The walk of set_goal runs only after the interpreter made a free variable
     outside an evaluation: a marker of curry.free, a raw Free node of
-    curry.raw_expr, a variable of a single step, or a variable copied into
+    cytest.raw.expr, a variable of a single step, or a variable copied into
     a value.  The counter is InterpreterState.external_freevars on both
     backends.
     '''
     P = curry.import_('Prelude')
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     istate = interpreter_state()
     self.assertEqual(istate.external_freevars, 0)
-    curry.expr(P.id, 1)
+    cytest.raw.expr(P.id, 1, typed=True)
     self.assertEqual(istate.external_freevars, 0)
-    x = curry.free()
-    curry.expr((x, x))
+    x = curry.free('x')
+    cytest.raw.expr((x, x), typed=True)
     self.assertEqual(istate.external_freevars, 2)
-    raw = curry.raw_expr(free(1000))
+    raw = cytest.raw.expr(free(1000))
     self.assertEqual(istate.external_freevars, 3)
     # With the counter at zero, the goal is not walked.  (On the C++
     # backend the table is the weak table of the interpreter, shared by
     # its evaluations, so the test asks for the id of the raw node.)
     istate.external_freevars = 0
-    rts = interp.backend.create_evaluation_rts(interp, curry.expr(P.id, raw))
+    rts = interp.backend.create_evaluation_rts(interp, cytest.raw.expr(P.id, raw, typed=True))
     self.assertNotIn(1000, rts.vtable)
     del rts
     istate.external_freevars = 1
-    rts = interp.backend.create_evaluation_rts(interp, curry.expr(P.id, raw))
+    rts = interp.backend.create_evaluation_rts(interp, cytest.raw.expr(P.id, raw, typed=True))
     self.assertIn(1000, rts.vtable)
 
   def test_single_step_counts_variables(self):
@@ -188,9 +175,9 @@ class TestFreeMarkers(cytest.TestCase):
     counts them, so that the next goal is walked.
     '''
     P = curry.import_('Prelude')
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     istate = interpreter_state()
-    e = curry.expr(curry.free())
+    e = cytest.raw.expr(curry.free('e'), typed=True)
     istate.external_freevars = 0
     evaluator.single_step(interp, e)
     self.assertIsaFreevar(inspect.fwd_chain_target(e))
@@ -205,17 +192,9 @@ class TestFreeMarkers(cytest.TestCase):
     [1, 2] after an earlier evaluation created the variable.
     '''
     P = curry.import_('Prelude')
-    xs = curry.free()
+    xs = curry.free('xs')
     create_variable(xs)
-    goal = curry.expr(
-        P.cond
-      , curry.expr(
-            P.constrEq
-          , curry.expr(getattr(P, '++'), curry.expr(P.head, iter([xs])), [3])
-          , [1, 2, 3]
-          )
-      , curry.expr(P.head, iter([xs]))
-      )
+    goal = cytest.raw.expr(P.cond, cytest.raw.expr(P.constrEq, cytest.raw.expr(getattr(P, '++'), cytest.raw.expr(P.head, iter([xs]), typed=True), [3], typed=True), [1, 2, 3], typed=True), cytest.raw.expr(P.head, iter([xs]), typed=True), typed=True)
     self.assertEqual(values(goal), [[1, 2]])
 
   def test_value_with_free_variable(self):
@@ -228,14 +207,10 @@ class TestFreeMarkers(cytest.TestCase):
     istate = interpreter_state()
     M = curry.compile('g :: [Int]\ng = xs where xs free\n', mode='module')
     self.assertEqual(istate.external_freevars, 0)
-    v, = curry.eval(M.g, converter=None)
+    v, = cytest.raw.values(M.g)
     self.assertIsaFreevar(v)
     self.assertGreaterEqual(istate.external_freevars, 1)
-    goal = curry.expr(
-        P.cond
-      , curry.expr(P.constrEq, curry.expr(getattr(P, '++'), v, [3]), [1, 2, 3])
-      , v
-      )
+    goal = cytest.raw.expr(P.cond, cytest.raw.expr(P.constrEq, cytest.raw.expr(getattr(P, '++'), v, [3], typed=True), [1, 2, 3], typed=True), v, typed=True)
     self.assertEqual(values(goal), [[1, 2]])
 
   def test_reset(self):
@@ -249,27 +224,27 @@ class TestFreeMarkers(cytest.TestCase):
     before = create_variable(x)
     curry.reset()
     P = curry.import_('Prelude')
-    y = curry.free()
-    self.assertIsNot(curry.expr(x), before)
+    y = curry.free('y')
+    self.assertIsNot(cytest.raw.expr(x, typed=True), before)
     self.assertEqual(values(P.constrEq, (x, y), (1, 2)), [True])
 
   def test_raw_expr(self):
     '''raw_expr keeps the raw Free node with the id of the marker.'''
-    self.assertEqual(repr(curry.raw_expr(free(5))), '<_Free 5 <()>>')
-    e = curry.raw_expr((free(5), free(5)))
+    self.assertEqual(repr(cytest.raw.expr(free(5))), '<_Free 5 <()>>')
+    e = cytest.raw.expr((free(5), free(5)))
     first, second = e[0], e[1]
     self.assertIsNot(first, second)
 
 
 class TestChoiceMarkers(cytest.TestCase):
-  '''``curry.choice`` through ``curry.expr`` and ``curry.eval``.'''
+  '''``curry.choice`` through ``cytest.raw.expr`` and ``curry.eval``.'''
 
   def test_fresh_ids(self):
     '''
     Each choice gets its own id from the runtime: two choices in one goal
     give four values.  (Two raw choices with the id 0 would give two.)
     '''
-    goal = curry.expr((curry.choice(1, 2), curry.choice(3, 4)))
+    goal = cytest.raw.expr((curry.choice(1, 2), curry.choice(3, 4)), typed=True)
     self.assertEqual(sorted(values(goal)), [(1, 3), (1, 4), (2, 3), (2, 4)])
 
   def test_choice_node(self):
@@ -278,8 +253,8 @@ class TestChoiceMarkers(cytest.TestCase):
     is fresh, so two markers get two ids.
     '''
     P = curry.import_('Prelude')
-    interp = curry.getInterpreter()
-    e1, e2 = curry.expr(curry.choice(1, 2)), curry.expr(curry.choice(3, 4))
+    interp = cytest.raw.interp()
+    e1, e2 = cytest.raw.expr(curry.choice(1, 2), typed=True), cytest.raw.expr(curry.choice(3, 4), typed=True)
     self.assertEqual(e1.info.name, getattr(P, '?').info.name)
     self.assertEqual(str(e1), '(?) 1 2')
     evaluator.single_step(interp, e1)
@@ -292,6 +267,6 @@ class TestChoiceMarkers(cytest.TestCase):
   def test_raw_expr(self):
     '''raw_expr keeps the raw Choice node with the id of the marker.'''
     self.assertEqual(
-        repr(curry.raw_expr(choice(1, True, False)))
+        repr(cytest.raw.expr(choice(1, True, False)))
       , '<_Choice 1 <True> <False>>'
       )

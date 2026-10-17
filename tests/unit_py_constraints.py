@@ -89,9 +89,9 @@ class TestConstraintStore(cytest.TestCase):
 
   @unittest.expectedFailure
   def testFrameFork(self):
-    Unit = curry.symbol('Prelude.()')
-    e = curry.raw_expr(curry.symbol('Prelude.?'), -10, 10)
-    interp = curry.getInterpreter()
+    Unit = curry.import_('Prelude')['()']
+    e = cytest.raw.expr(curry.import_('Prelude')['?'], -10, 10)
+    interp = cytest.raw.interp()
     rts = RuntimeState(interp)
     cytest.step.step(interp, e)
     cid,l,r = e
@@ -116,7 +116,7 @@ class TestConstraintStore(cytest.TestCase):
     self.assertIs(buf.pop().expr[()], r)
     self.assertFalse(buf)
     #
-    e = curry.raw_expr(curry.symbol('Prelude.?'), -10, 10)
+    e = cytest.raw.expr(curry.import_('Prelude')['?'], -10, 10)
     cytest.step.step(interp, e)
     cid2,_,_ = e
     self.assertNotEqual(cid, cid2)

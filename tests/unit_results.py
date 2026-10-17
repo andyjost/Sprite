@@ -15,9 +15,9 @@ class TestResults(cytest.TestCase):
       self.assertEqual(start.call_count, 0)
       self.assertEqual(next(results), 1)
       self.assertEqual(start.call_count, 1)
-      self.assertEqual(len(curry.getInterpreter()._evaluation_totals._running), 1)
+      self.assertEqual(len(cytest.raw.interp()._evaluation_totals._running), 1)
       results.close()
-      self.assertEqual(len(curry.getInterpreter()._evaluation_totals._running), 0)
+      self.assertEqual(len(cytest.raw.interp()._evaluation_totals._running), 0)
 
   def test_close_before_start(self):
     with mock.patch.object(Goal, 'evaluate') as start:
@@ -26,28 +26,19 @@ class TestResults(cytest.TestCase):
       self.assertEqual(list(results), [])
       start.assert_not_called()
 
-  def test_legacy_converters_and_multiple_arguments(self):
+  def test_raw_and_converted_values(self):
     P = curry.import_('Prelude')
-    raw = curry.eval(P.id, 1, converter=None).one()
-    self.assertIsInstance(raw, backends.Node)
-    self.assertEqual(curry.eval(P.id, 1, converter='topython').one(), 1)
-    self.assertEqual(curry.eval(P.id, 1, converter=lambda ip, node: str(node)).one(), '1')
+    node = cytest.raw.values(P.id(1)).one()
+    self.assertIsInstance(node, backends.Node)
+    self.assertEqual(curry.eval(P.id(1)).one(), 1)
 
-  def test_converter_error_ends_and_releases_the_run(self):
-    def refuse(ip, node):
-      raise ValueError('conversion refused')
-    results = curry.eval(curry.choice(1, 2), converter=refuse)
-    with self.assertRaisesRegex(ValueError, 'conversion refused'):
-      next(results)
-    self.assertEqual(list(results), [])
-    self.assertEqual(len(curry.getInterpreter()._evaluation_totals._running), 0)
 
   def test_many_values_closes_the_run(self):
     results = curry.eval(curry.choice(1, 2))
     with self.assertRaises(curry.ManyValuesError):
       results.one()
     self.assertEqual(list(results), [])
-    self.assertEqual(len(curry.getInterpreter()._evaluation_totals._running), 0)
+    self.assertEqual(len(cytest.raw.interp()._evaluation_totals._running), 0)
 
   def test_stale_nested_term_and_prelude_module(self):
     P = curry.import_('Prelude')
@@ -63,7 +54,7 @@ class TestResults(cytest.TestCase):
   def test_retired_module_stales_held_applications(self):
     module = curry.compile('f :: Int -> Int\nf x = x', modulename='ResultsRetired')
     old = module.f(1)
-    getHandle(module).unlink(curry.getInterpreter())
+    getHandle(module).unlink(cytest.raw.interp())
     with self.assertRaisesRegex(curry.StaleError, 'reload.*build it again from ResultsRetired'):
       curry.eval(old)
 
@@ -98,13 +89,13 @@ class TestResults(cytest.TestCase):
     x = curry.free('x')
     with self.assertRaises(curry.CurryTypeError):
       curry.eval([P.id, x])
-    self.assertEqual(curry.eval(P.id, 3).one(), 3)
+    self.assertEqual(curry.eval((P.id)(3)).one(), 3)
 
-  def test_stale_iterator_item_and_old_builders(self):
+  def test_stale_iterator_item_and_internal_builders(self):
     old = curry.term(1)
     symbol = curry.import_('Prelude').id
     curry.reset()
-    for build in (curry.expr, curry.raw_expr):
+    for build in (cytest.raw.expr, lambda *args, **kwds: cytest.raw.expr(*args, typed=True, **kwds)):
       with self.assertRaises(curry.StaleError):
         build(old)
       with self.assertRaises(curry.StaleError):

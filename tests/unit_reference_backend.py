@@ -111,8 +111,8 @@ class TestFlag(cytest.TestCase):
     code = '''
 import os
 os.environ['SPRITE_INTERPRETER_FLAGS'] = 'backend:py'
-import curry
-print(curry.flags['backend'], curry.getInterpreter().backend.backend_name)
+import cytest, curry
+print(curry.flags['backend'], cytest.raw.interp().backend.backend_name)
 '''
     proc = cytest.run_in_subprocess(code, TIMEOUT)
     self.assertEqual(proc.returncode, 0, proc.stderr)

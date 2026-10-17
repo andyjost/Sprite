@@ -34,12 +34,12 @@ TIMEOUT = 300
 # Evaluates goals of the test module and prints one line per goal: its name
 # and the sorted values as Curry text, or the name of the error.
 CHILD = '''
-import curry
+import cytest, curry
 curry.reload(%(flags)r)
 M = curry.import_('BoundMerge')
 for name in %(goals)r:
   try:
-    values = curry.eval(getattr(M, name), converter=None)
+    values = cytest.raw.values(getattr(M, name))
     print(name, sorted(str(value) for value in values))
   except Exception as exc:
     print(name, 'error', type(exc).__name__, str(exc))
@@ -143,8 +143,8 @@ class TestGuardCounts(cytest.TestCase):
 
   def evaluate(self, goal):
     '''The sorted values of ``goal`` and the counts of the checker.'''
-    interp = curry.getInterpreter()
-    node = curry.raw_expr(goal)
+    interp = cytest.raw.interp()
+    node = cytest.raw.expr(goal)
     if self.backend == 'cxx':
       from curry.backends.cxx import cyrtbindings
       rts = cyrtbindings.RuntimeState(interp, node)

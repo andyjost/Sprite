@@ -525,7 +525,7 @@ class InlineTestCase(ModuleTestCase):
     return curry.import_(imodule, currypath=self.currypath)
 
   def values(self, module, goal):
-    return list(curry.eval(getattr(module, goal), converter='topython'))
+    return list(curry.eval(getattr(module, goal)))
 
   def check_values(self, stem, text, values):
     '''
@@ -648,7 +648,7 @@ class TestInlineShapes(InlineTestCase):
             types.IFPCall('%s.inc' % name, 1, []), lit(5)
           ])
       )
-    modules = curry.getInterpreter().modules
+    modules = cytest.raw.interp().modules
     self.assertEqual(len(known_applies(use, modules)), 1)
     module = self.import_(self.write('App', '''
       app :: (a -> b) -> a -> b
@@ -713,7 +713,7 @@ class TestInlineShapes(InlineTestCase):
     self.assertIn(analysis.INLINE_KEY, fn['useFour'].metadata)
     self.assertNotIn(analysis.INLINE_KEY, fn['hidden'].metadata)
     self.assertEqual(
-        analysis.recorded_functions(imodule, curry.getInterpreter().modules)
+        analysis.recorded_functions(imodule, cytest.raw.interp().modules)
       , frozenset(['%s.four' % name, '%s.useFour' % name])
       )
 
@@ -1080,7 +1080,7 @@ class TestPrelude(cytest.TestCase):
     The staged Prelude was compiled with the pass: its metadata records the
     bodies of the chain, and a module that imports it resolves x /= y.
     '''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     imodule = getattr(interp.prelude, '.icurry')
     self.assertTrue(imodule.metadata[passkey()])
     for name in self.RECORDED:
@@ -1099,9 +1099,9 @@ class TestPrelude(cytest.TestCase):
       )
     self.assertIsInstance(shape, analysis.CaseBody)
     self.assertEqual(set(shape.branches), {'Prelude.()'})
-    goal = curry.compile('(3 /= 4, 3 /= 3, mod 7 3 /= 0)', 'expr')
+    goal = curry.parse('(3 /= 4, 3 /= 3, mod 7 3 /= 0)')
     self.assertEqual(
-        list(curry.eval(goal, converter='topython')), [(True, False, True)]
+        list(curry.eval(goal)), [(True, False, True)]
       )
 
   def test_prelude_source(self):
@@ -1114,7 +1114,7 @@ class TestPrelude(cytest.TestCase):
     '''
     imodule = self.prelude_json()
     modules = {'Prelude': imodule}
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     for ifun in imodule.functions.values():
       optimize.saturate_applies(interp, ifun, imodule, modules=modules)
     for ifun in imodule.functions.values():
@@ -1164,7 +1164,7 @@ class TestBenchmarkShapes(cytest.TestCase):
     plan = plans.makeplan(
         None, plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON
       )
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     interp.prelude
     def passes(ifun, imodule):
       optimize.saturate_applies(interp, ifun, imodule)

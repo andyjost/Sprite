@@ -120,7 +120,7 @@ class TestFrontendWarnings(cytest.TestCase):
     with self.assertWarns(curry.CurryWarning):
       with self.assertLogs('curry', level='WARNING') as log:
         M = curry.import_('OverlapImport', currypath=[self.tmpdir])
-    self.assertEqual(list(curry.eval(M.main, converter='topython')), [[3, 2, 1]])
+    self.assertEqual(list(curry.eval(M.main)), [[3, 2, 1]])
     records = warnings_of(log)
     self.assertEqual(len(records), 1, records)
     self.assertIn('module OverlapImport (', records[0])
@@ -157,7 +157,7 @@ class TestFrontendWarnings(cytest.TestCase):
     self.assertIn('module OverlapText (', records[0])
     self.assertIn(MESSAGE, records[0])
     self.assertNotIn(OTHER, records[0])
-    self.assertEqual(list(curry.eval(M.main, converter='topython')), [[3, 2, 1]])
+    self.assertEqual(list(curry.eval(M.main)), [[3, 2, 1]])
     with mock.patch.dict(os.environ, {_frontend.WARNINGS_VARIABLE: '0'}):
       with capture_log('curry.toolchain._frontend') as log:
         curry.compile(OVERLAP % 'OverlapQuiet', modulename='OverlapQuiet')

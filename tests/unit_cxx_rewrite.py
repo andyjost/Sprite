@@ -24,12 +24,7 @@ ADDRESS_SPACE = 2 << 30
 TIMEOUT = 120
 
 # A child on the C++ backend with the test module imported.
-CHILD = '''
-import curry
-from curry.backends.cxx import cyrtbindings as cyrt
-curry.reload({'backend': 'cxx', 'defaultconverter': 'topython'})
-M = curry.import_('CxxRewrite')
-'''
+CHILD = "\nimport curry\nfrom curry.backends.cxx import cyrtbindings as cyrt\ncurry.reload({'backend': 'cxx'})\nM = curry.import_('CxxRewrite')\n"
 
 def step(expr, until=None, limit=64):
   '''
@@ -40,7 +35,7 @@ def step(expr, until=None, limit=64):
   step; the nested result is in the graph, and the next call goes further.
   '''
   for _ in range(limit):
-    evaluator.single_step(curry.getInterpreter(), expr)
+    evaluator.single_step(cytest.raw.interp(), expr)
     if until is None or until(expr):
       return expr
   raise AssertionError('the root did not change in %d steps' % limit)
@@ -48,7 +43,8 @@ def step(expr, until=None, limit=64):
 class TestValues(cytest.TestCase):
   '''The programs give the same values on both backends.'''
   def values(self, *goal):
-    return list(curry.eval(*goal, converter='topython'))
+    return [cytest.raw.interp().topython(v) for v in
+        cytest.raw.values(cytest.raw.expr(*goal, typed=True))]
 
   def test_values(self):
     M = curry.import_('CxxRewrite')
@@ -57,11 +53,11 @@ class TestValues(cytest.TestCase):
     self.assertEqual(self.values(M.pinned, 1), [True])
     self.assertEqual(self.values(M.lit, 1), [5])
     self.assertEqual(self.values(M.swap, 1, 2), [(2, 1)])
-    self.assertEqual(self.values(M.rot, 1, 2, 3, curry.expr(M.nat, 4)), [2])
+    self.assertEqual(self.values(M.rot, 1, 2, 3, cytest.raw.expr(M.nat, 4, typed=True)), [2])
     self.assertEqual(self.values(M.applyTwice, 5), [7])
-    self.assertEqual([str(v) for v in curry.eval(M.just, 1, converter=None)], ['Just 1'])
-    self.assertEqual([str(v) for v in curry.eval(M.three, 1, converter=None)], ['Three 1 1 1'])
-    self.assertEqual([str(v) for v in curry.eval(M.color, 1, converter=None)], ['Red'])
+    self.assertEqual([str(v) for v in cytest.raw.values(cytest.raw.expr(M.just, 1, typed=True))], ['Just 1'])
+    self.assertEqual([str(v) for v in cytest.raw.values(cytest.raw.expr(M.three, 1, typed=True))], ['Three 1 1 1'])
+    self.assertEqual([str(v) for v in cytest.raw.values(cytest.raw.expr(M.color, 1, typed=True))], ['Red'])
 
 
 @unittest.skipIf(
@@ -76,62 +72,62 @@ class TestRewrite(cytest.TestCase):
     self.M = curry.import_('CxxRewrite')
 
   def test_tail_call(self):
-    e = curry.raw_expr(self.M.walk, [1, 2, 3])
+    e = cytest.raw.expr(self.M.walk, [1, 2, 3])
     step(e)
     self.assertEqual(e.info.tag, common.T_FUNC)
     self.assertEqual(e.info.name, 'walk')
-    self.assertEqual(str(e), str(curry.raw_expr(self.M.walk, [2, 3])))
+    self.assertEqual(str(e), str(cytest.raw.expr(self.M.walk, [2, 3])))
 
   def test_constructor(self):
-    e = curry.raw_expr(self.M.just, 1)
+    e = cytest.raw.expr(self.M.just, 1)
     step(e)
     self.assertEqual(e.info.name, 'Just')
     self.assertEqual(str(e), 'Just 1')
 
   def test_larger_result_is_forwarded(self):
-    e = curry.raw_expr(self.M.three, 1)
+    e = cytest.raw.expr(self.M.three, 1)
     step(e)
     self.assertEqual(e.info.tag, common.T_FWD)
-    self.assertEqual(str(next(curry.eval(e, converter=None))), 'Three 1 1 1')
+    self.assertEqual(str(next(cytest.raw.values(e))), 'Three 1 1 1')
 
   def test_pinned_result_is_forwarded(self):
-    e = curry.raw_expr(self.M.pinned, 1)
+    e = cytest.raw.expr(self.M.pinned, 1)
     step(e)
     self.assertEqual(e.info.tag, common.T_FWD)
-    self.assertEqual(str(next(curry.eval(e, converter=None))), 'True')
+    self.assertEqual(str(next(cytest.raw.values(e))), 'True')
 
   def test_nullary_constructor(self):
-    e = curry.raw_expr(self.M.color, 1)
+    e = cytest.raw.expr(self.M.color, 1)
     step(e)
     self.assertEqual(e.info.name, 'Red')
 
   def test_literal(self):
-    e = curry.raw_expr(self.M.lit, 1)
+    e = cytest.raw.expr(self.M.lit, 1)
     step(e)
     self.assertEqual(e.info.name, 'Int')
     self.assertEqual(str(e), '5')
 
   def test_reference_to_primitive_is_copied(self):
-    e = curry.raw_expr(self.M.first, [7, 8])
+    e = cytest.raw.expr(self.M.first, [7, 8])
     step(e)
     self.assertEqual(e.info.name, 'Int')
     self.assertEqual(str(e), '7')
 
   def test_reference_to_expression_is_forwarded(self):
-    e = curry.raw_expr(self.M.first, [curry.raw_expr(self.M.lit, 0)])
+    e = cytest.raw.expr(self.M.first, [cytest.raw.expr(self.M.lit, 0)])
     step(e)
     self.assertEqual(e.info.tag, common.T_FWD)
-    self.assertEqual(str(next(curry.eval(e, converter=None))), '5')
+    self.assertEqual(str(next(cytest.raw.values(e))), '5')
 
   def test_swapped_arguments(self):
     # Both successors are read before the redex is written.
-    e = curry.raw_expr(self.M.swap, 1, 2)
+    e = cytest.raw.expr(self.M.swap, 1, 2)
     step(e)
     self.assertEqual(e.info.name, '(,)')
     self.assertEqual(str(e), '(2, 1)')
 
   def test_rotated_arguments(self):
-    e = curry.raw_expr(self.M.rot, 1, 2, 3, curry.raw_expr(self.M.nat, 4))
+    e = cytest.raw.expr(self.M.rot, 1, 2, 3, cytest.raw.expr(self.M.nat, 4))
     step(e, until=lambda e: not str(e).startswith('rot 1 2 3 '))
     self.assertEqual(e.info.name, 'rot')
     self.assertRegex(str(e), r'^rot 2 3 1 ')
@@ -139,12 +135,12 @@ class TestRewrite(cytest.TestCase):
   def test_apply(self):
     # twice f x = f (f x) is rewritten to the application in place, and the
     # completed partial application is written into the application.
-    e = curry.raw_expr(self.M.twice, curry.raw_expr(self.M.plusOne), 5)
+    e = cytest.raw.expr(self.M.twice, cytest.raw.expr(self.M.plusOne), 5)
     step(e)
     self.assertEqual(e.info.name, 'apply')
     step(e, until=lambda e: e.info.name != 'apply')
     self.assertEqual(e.info.name, 'plus')
-    self.assertEqual(curry.topython(next(curry.eval(e, converter=None))), 7)
+    self.assertEqual(cytest.raw.interp().topython(next(cytest.raw.values(e))), 7)
 
   def test_tail_calls_allocate_nothing(self):
     '''
@@ -152,9 +148,9 @@ class TestRewrite(cytest.TestCase):
     the in-place rewrite every step allocated the next call.
     '''
     from curry.backends.cxx import cyrtbindings as cyrt
-    xs = curry.raw_expr(list(range(100)))
+    xs = cytest.raw.expr(list(range(100)))
     before = cyrt.gc_allocation_count()
-    value = next(curry.eval(self.M.walk, xs, converter='topython'))
+    value = next(curry.eval(cytest.raw.expr(self.M.walk, xs, typed=True)))
     allocated = cyrt.gc_allocation_count() - before
     self.assertEqual(value, 0)
     self.assertLess(allocated, 20)
@@ -166,7 +162,7 @@ class TestRewrite(cytest.TestCase):
     still gets its turn.
     '''
     proc = cytest.run_in_subprocess(
-        CHILD + 'print(next(curry.eval(M.fair, converter=None)))\n', TIMEOUT
+        CHILD + 'import cytest\nprint(next(cytest.raw.values(M.fair)))\n', TIMEOUT
       , address_space=ADDRESS_SPACE
       )
     self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -180,10 +176,11 @@ class TestRewrite(cytest.TestCase):
     live, so the threshold grows by the growth factor after each collection.
     '''
     proc = cytest.run_in_subprocess(
-        CHILD + '''
+        CHILD + '''import cytest
+
 cyrt.gc_set_threshold(1 << 10)
 before = cyrt.gc_collections()
-value = next(curry.eval(M.fair, converter=None))
+value = next(cytest.raw.values(M.fair))
 print(value, cyrt.gc_collections() - before)
 ''', TIMEOUT, address_space=ADDRESS_SPACE
       )

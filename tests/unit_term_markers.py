@@ -14,7 +14,7 @@ class TestTermMarkers(cytest.TestCase):
     self.P = curry.import_('Prelude')
 
   def values(self, goal):
-    return list(curry.eval(goal, converter='topython'))
+    return list(curry.eval(goal))
 
   def test_parse_annotations_and_composition(self):
     R = curry.import_('Rule')
@@ -97,14 +97,14 @@ class TestTermMarkers(cytest.TestCase):
     for n in (1, 2):
       goal = (self.P['=:='](x, n), x, x)
       self.assertEqual(self.values(goal), [(True, n, n)])
-    node = curry.expr((x, x))
+    node = curry.term((x, x))
     left, right = (inspect.fwd_chain_target(arg) for arg in node.successors)
     self.assertEqual(left.id(), right.id())
-    self.assertEqual(str(curry.raw_expr(x)), '_a')
+    self.assertEqual(str(cytest.raw.expr(x)), '_a')
 
   def test_names_and_duplicates(self):
     x, y = curry.free('x'), curry.free('y')
-    a, b = curry.free(), curry.free()
+    a, b = curry.free(None), curry.free(None)
     self.assertEqual(str(curry.term((b, a, y, b, x))), '(_a,_b,y,_a,x)')
     self.assertNotEqual(self.P.id(x), self.P.id(y))
     self.assertEqual(self.P.id(x), self.P.id(x))

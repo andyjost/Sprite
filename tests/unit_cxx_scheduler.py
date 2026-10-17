@@ -25,12 +25,12 @@ TIMEOUT = 120
 # Evaluates goals of the test module and prints one line per goal: its name
 # and the values as Curry text, or the name of the error.
 CHILD = '''
-import curry
+import cytest, curry
 curry.reload(%(flags)r)
 M = curry.import_('CxxScheduler')
 for name, args in %(goals)r:
   try:
-    values = [str(value) for value in curry.eval(getattr(M, name), *args, converter=None)]
+    values = [str(value) for value in cytest.raw.values(cytest.raw.expr(getattr(M, name), *args, typed=True))]
     print(name, values)
   except curry.EvaluationError as exc:
     print(name, 'error', type(exc).__name__, str(exc))

@@ -200,8 +200,13 @@ class Term:
         if annotation is not None:
           raise
         error = MismatchError if _has_term(form) else ConversionError
+        lines = err.lines
+        if error is MismatchError and err.where:
+          from ..typecheck.sigtable import show_type
+          lines = 'type mismatch in %s: expected %s, got %s' % (
+              err.where, show_type(err.expected), show_type(err.actual))
         raise error(
-            err.lines, where=err.where, symbol=err.symbol
+            lines, where=err.where, symbol=err.symbol
           , expected=err.expected, actual=err.actual, value=err.value
           ) from None
       fix_variable_types(problem)
@@ -262,19 +267,33 @@ class Term:
     check_live(self)
     if not args:
       raise TypeError('a call needs at least one argument; %s alone is the term %s' % (self, self))
-    values = tuple(_convert(self._interp, a) for a in args)
+    from ..typecheck.errors import ConversionError, MismatchError
+    values = []
+    for index, arg in enumerate(args, len(self._args) + 1):
+      try:
+        values.append(_convert(self._interp, arg))
+      except ConversionError as error:
+        if self.symbol is None:
+          raise
+        where = 'argument %d of %s :: %s' % (
+            index, self.symbol.fullname, self.symbol.signature)
+        raise ConversionError('cannot convert %r at %s: %s' % (arg, where, error),
+            where=where, symbol=self.symbol.fullname, value=arg) from None
+    values = tuple(values)
     if self.symbol is not None:
       values = self._args + values
       form = [self.symbol._info, *values]
-      from ..typecheck.errors import ConversionError
       try:
         return Term(self._interp, form, self.symbol, values)
-      except ConversionError as error:
-        match = re.match(r'argument (\d+) of ', error.where or '')
+      except (ConversionError, MismatchError) as error:
+        pattern = r'argument (\d+) of ' + re.escape(self.symbol.fullname) + r' :: '
+        match = re.match(pattern, error.where or '')
         if match:
           index = int(match[1]) - 1
           inputs = (*self._args, *args)
           if index < len(inputs):
+            if isinstance(error, MismatchError) and not isinstance(inputs[index], float):
+              raise
             raise _conversion_error(error, inputs[index]) from None
         raise
     with raw_symbols():
@@ -506,14 +525,44 @@ def _conversion_error(error, value):
     hint = 'an int is a numeric literal'
     if expected == 'Bool':
       hint += '; write True or False'
+  elif isinstance(value, float) and expected == 'Int':
+    hint = 'a float is a Float; write an int for an Int slot'
   if hint is None:
     return error
   message = 'cannot convert %r to %s at %s: %s' % (value, expected, error.where, hint)
-  return ConversionError(message, where=error.where, symbol=error.symbol,
+  symbol = error.symbol
+  if symbol is None and error.where and ' of ' in error.where:
+    symbol = error.where.split(' of ', 1)[1].split(' :: ', 1)[0]
+  return ConversionError(message, where=error.where, symbol=symbol,
       expected=error.expected, actual=error.actual, value=value)
 
 
 def _convert(interp, value):
+  # Containers can be deeper than the Python call stack. Convert their
+  # elements in source order and assemble tuples after their children.
+  root = [None]
+  stack = [(value, root, 0, False)]
+  while stack:
+    value, target, index, finish = stack.pop()
+    if finish:
+      target[index] = tuple(value)
+    elif isinstance(value, (tuple, Sequence)) and not isinstance(value, (str, bytes)):
+      from ..typecheck.errors import ConversionError
+      if isinstance(value, tuple) and (len(value) == 1 or len(value) > 15):
+        raise ConversionError('a Curry tuple has zero or 2 to 15 components')
+      converted = ValueList([None] * len(value))
+      if isinstance(value, tuple):
+        stack.append((converted, target, index, True))
+      else:
+        target[index] = converted
+      stack.extend((value[i], converted, i, False)
+          for i in reversed(range(len(value))))
+    else:
+      target[index] = _convert_leaf(interp, value)
+  return root[0]
+
+
+def _convert_leaf(interp, value):
   from ..expressions import typed
   from ..typecheck.errors import ConversionError
   if value is anonymous:
@@ -538,12 +587,6 @@ def _convert(interp, value):
     raise ConversionError('cannot convert dict: write list(d.items())')
   if isinstance(value, str):
     return typed(str.__str__(value), 'Char' if isinstance(value, Char) else '[Char]')
-  if isinstance(value, tuple):
-    if len(value) == 1 or len(value) > 15:
-      raise ConversionError('a Curry tuple has zero or 2 to 15 components')
-    return tuple(_convert(interp, x) for x in value)
-  if isinstance(value, Sequence):
-    return ValueList(_convert(interp, x) for x in value)
   if isinstance(value, bool):
     return typed(value, 'Bool')
   if isinstance(value, float):

@@ -354,12 +354,12 @@ class TestPass(cytest.TestCase):
 # Evaluates goals of the test module and prints one line per goal: its name
 # and the sorted values as Curry text, or the name of the error.
 CHILD = '''
-import curry
+import cytest, curry
 curry.reload(%(flags)r)
 M = curry.import_(%(module)r)
 for name in %(goals)r:
   try:
-    values = curry.eval(getattr(M, name), converter=None)
+    values = cytest.raw.values(getattr(M, name))
     print(name, sorted(str(value) for value in values))
   except Exception as exc:
     print(name, 'error', type(exc).__name__, str(exc))
@@ -370,20 +370,20 @@ for name in %(goals)r:
 # checker of the Python backend keeps no count of the capsules without a
 # box; the line then says None for it.
 COUNTS_CHILD = '''
-import curry
+import cytest, curry
 curry.reload(%(flags)r)
 M = curry.import_(%(module)r)
 if curry.flags['backend'] == 'cxx':
   from curry.backends.cxx import cyrtbindings as cb
   def run(goal):
-    rts = cb.RuntimeState(curry.getInterpreter(), curry.raw_expr(goal))
+    rts = cb.RuntimeState(cytest.raw.interp(), cytest.raw.expr(goal))
     values = sorted(str(v) for v in rts.generate_values())
     counts = dict(cb.checker_counts(rts))
     return values, counts.get('capsules', 0), counts.get('capsules_without_box', 0)
 else:
   from curry.backends.py.eval.rts import RuntimeState
   def run(goal):
-    rts = RuntimeState(curry.getInterpreter(), curry.raw_expr(goal))
+    rts = RuntimeState(cytest.raw.interp(), cytest.raw.expr(goal))
     values = sorted(str(v) for v in rts.generate_values())
     return values, rts.checker.counts.get('capsules', 0), None
 for name in %(goals)r:

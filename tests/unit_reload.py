@@ -71,7 +71,7 @@ class EditedSourceTestCase(cytest.TestCase):
 
   def value(self, goal, *args):
     '''The first value of a goal, as a Python object.'''
-    return next(curry.eval(goal, *args, converter='topython'))
+    return next(curry.eval(goal(*args) if args else goal))
 
 
 class TestImportAfterEdit(EditedSourceTestCase):
@@ -212,7 +212,7 @@ class TestSwapAfterEdit(EditedSourceTestCase):
     self.assertEqual(self.value(D.h, 1), 12)
     with capture_log(TIERED_LOGGER) as log:
       self.assertTrue(
-          tiered.wait(COMPILE_SECONDS, curry.getInterpreter())
+          tiered.wait(COMPILE_SECONDS, cytest.raw.interp())
         , 'the background compiles did not end in %s s' % COMPILE_SECONDS
         )
     after = tiered.status()
@@ -258,7 +258,7 @@ class TestSwapAfterEdit(EditedSourceTestCase):
     self.edit_module(dep, dep_text('-- a comment, no code changed'))
     with capture_log(TIERED_LOGGER) as log:
       self.assertTrue(
-          tiered.wait(COMPILE_SECONDS, curry.getInterpreter())
+          tiered.wait(COMPILE_SECONDS, cytest.raw.interp())
         , 'the background compiles did not end in %s s' % COMPILE_SECONDS
         )
     after = tiered.status()

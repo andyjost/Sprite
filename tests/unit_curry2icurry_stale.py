@@ -151,7 +151,7 @@ class PreRewriteCase(cytest.TestCase):
 
   def evaluate(self, name):
     module = curry.import_(name, currypath=[self.tmpdir])
-    return list(curry.eval(module.main, converter='topython'))
+    return list(curry.eval(module.main))
 
 
 class TestStaleness(PreRewriteCase):

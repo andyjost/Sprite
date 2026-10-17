@@ -11,9 +11,8 @@ import cytest
 
 @unittest.skipIf(curry.flags['backend'] == 'cxx', 'TODO for C++')
 class TestPyIOFiles(cytest.TestCase):
-  @cytest.with_flags(defaultconverter='topython')
   def test_readfile(self):
-    goal = curry.compile('readFile "data/sample.txt"', 'expr')
+    goal = curry.parse('readFile "data/sample.txt"')
     result = list(curry.eval(goal))
     self.assertEqual(
       result, ["this is a file\ncontaining sample text\n\n(the end)\n"]
@@ -25,11 +24,11 @@ class TestPyIOFiles(cytest.TestCase):
       os.chdir(tmpdir)
       try:
         txt = ('djiod', r' and finally,...')
-        goal = curry.compile('writeFile "file.txt" ("%s" ++ "%s")' % txt, 'expr')
+        goal = curry.parse('writeFile "file.txt" ("%s" ++ "%s")' % txt)
         next(curry.eval(goal))
         self.assertEqual(cytest.readfile('file.txt'), ''.join(txt))
 
-        goal = curry.compile('writeFile "file.txt" ("%s" ? "%s")' % txt, 'expr')
+        goal = curry.parse('writeFile "file.txt" ("%s" ? "%s")' % txt)
         self.assertRaisesRegex(
             curry.EvaluationError
           , r'non-determinism in monadic actions occurred'
@@ -50,11 +49,8 @@ class TestPyIOFiles(cytest.TestCase):
       cwd = os.getcwd()
       os.chdir(tmpdir)
       try:
-        goal = curry.compile(
-            'writeFile "a.txt" (concat (replicate 50 "abcd"))'
-            ' ? writeFile "b.txt" (concat (replicate 50 "wxyz"))'
-          , 'expr'
-          )
+        goal = curry.parse('writeFile "a.txt" (concat (replicate 50 "abcd"))'
+            ' ? writeFile "b.txt" (concat (replicate 50 "wxyz"))')
         results = list(curry.eval(goal))
         self.assertEqual(len(results), 2)
         self.assertEqual(cytest.readfile('a.txt'), 'abcd' * 50)
@@ -68,7 +64,7 @@ class TestPyIOFiles(cytest.TestCase):
       cwd = os.getcwd()
       os.chdir(tmpdir)
       try:
-        goal = curry.compile('appendFile "file.txt" ("a" ? "b")', 'expr')
+        goal = curry.parse('appendFile "file.txt" ("a" ? "b")')
         self.assertRaisesRegex(
             curry.EvaluationError
           , r'non-determinism in monadic actions occurred'
@@ -77,36 +73,32 @@ class TestPyIOFiles(cytest.TestCase):
       finally:
         os.chdir(cwd)
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_io_error(self):
-    goal = curry.compile('readFile "nofile"', 'expr')
+    goal = curry.parse('readFile "nofile"')
     self.assertRaisesRegex(
         IOError
       , r"No such file or directory: nofile"
       , lambda: list(curry.eval(goal))
       )
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_catch(self):
-    goal = curry.compile('readFile "nofile" <|> return "nothing"', 'expr')
+    goal = curry.parse('readFile "nofile" <|> return "nothing"')
     self.assertEqual(list(curry.eval(goal)), ["nothing"])
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_ioError(self):
     from curry.utility import maxrecursion
     with maxrecursion():
-      goal = curry.compile('readFile "nofile" `catch` ioError', 'expr')
+      goal = curry.parse('readFile "nofile" `catch` ioError')
       self.assertRaisesRegex(
           curry.EvaluationError
         , r"i/o error: No such file or directory: nofile"
         , lambda: list(curry.eval(goal))
         )
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_readFile(self):
-    readFile = curry.symbol('Prelude.readFile')
+    readFile = curry.import_('Prelude')['readFile']
     self.assertEqual(
-        list(curry.eval(readFile, "data/sample.txt"))
+        list(curry.eval((readFile)("data/sample.txt")))
       , ['this is a file\ncontaining sample text\n\n(the end)\n']
       )
 

@@ -425,7 +425,7 @@ class TestReorderedChangeTimes(cytest.TestCase):
       curry.import_('Prelude')
       self.addCleanup(self.reload_curry)
     self.plan = plans.makeplan(
-        curry.getInterpreter(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
       )
     self.tmpdir = tempfile.mkdtemp(prefix='sprite-findcurry-')
     self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
@@ -485,7 +485,7 @@ class TestReorderedChangeTimes(cytest.TestCase):
     self.assertEqual(self.currentfile(), files[-1])
     module = curry.import_(self.NAME, currypath=[self.srcdir])
     self.assertEqual(
-        list(curry.eval(module.goal, converter='topython')), [2]
+        list(curry.eval(module.goal)), [2]
       )
     if curry.flags['backend'] == 'cxx':
       # An object whose ABI stamp differs goes, whatever the times say.

@@ -19,14 +19,14 @@ RANGE_TEXT = \
 
 def values(*goal):
   '''The values of a goal as Python objects.'''
-  return list(curry.eval(*goal, converter='topython'))
+  return list(curry.eval(goal[0](*goal[1:]) if len(goal) > 1 else goal[0]))
 
 class TestIntSemantics(cytest.TestCase):
   def setUp(self):
     self.P = curry.import_('Prelude')
 
   def sym(self, name):
-    return curry.symbol('Prelude.' + name)
+    return curry.import_('Prelude')[name]
 
   def assertError(self, message, *goal):
     '''The goal raises EvaluationError with exactly ``message``.'''
@@ -48,17 +48,17 @@ class TestIntSemantics(cytest.TestCase):
     # The typed and the raw routes refuse the value where it enters a node.
     for value in [INT_MAX + 1, INT_MIN - 1, 10**30, -(10**30), 2**64]:
       with self.assertRaises(curry.IntOverflowError):
-        curry.expr(value)
+        curry.term(value)
       with self.assertRaises(curry.IntOverflowError):
-        curry.raw_expr(value)
+        cytest.raw.expr(value)
       with self.assertRaises(curry.IntOverflowError):
         list(curry.eval(value))
       with self.assertRaises(curry.IntOverflowError):
-        curry.expr(self.P.Just, value)
+        (self.P.Just)(value)
       with self.assertRaises(curry.IntOverflowError):
-        curry.expr([1, value])
+        curry.term([1, value])
     # The message, at the node.
-    make_node = curry.getInterpreter().backend.make_node
+    make_node = cytest.raw.interp().backend.make_node
     with self.assertRaises(curry.IntOverflowError) as cm:
       make_node(self.P.Int, INT_MAX + 1)
     self.assertEqual(str(cm.exception), '9223372036854775808 ' + RANGE_TEXT)
@@ -69,8 +69,8 @@ class TestIntSemantics(cytest.TestCase):
       make_node(self.P.Int, 10**30)
     self.assertEqual(str(cm.exception), '%d %s' % (10**30, RANGE_TEXT))
     # The ends of the range are values.
-    self.assertEqual(curry.topython(make_node(self.P.Int, INT_MAX)), INT_MAX)
-    self.assertEqual(curry.topython(make_node(self.P.Int, INT_MIN)), INT_MIN)
+    self.assertEqual(cytest.raw.interp().topython(make_node(self.P.Int, INT_MAX)), INT_MAX)
+    self.assertEqual(cytest.raw.interp().topython(make_node(self.P.Int, INT_MIN)), INT_MIN)
 
   def test_addition(self):
     plus = self.sym('+')
@@ -209,7 +209,7 @@ class TestIntSemantics(cytest.TestCase):
           '''), modulename='BigLiteral')
       values(module.big)
     with self.assertRaisesRegex(curry.IntOverflowError, big_text):
-      values(curry.compile('99999999999999999999 :: Int', mode='expr'))
+      values(curry.parse('99999999999999999999 :: Int'))
     # A literal of a case pattern is checked as well: the C++ generator
     # spells it as a constant of the switch.
     with self.assertRaisesRegex(curry.IntOverflowError, big_text):

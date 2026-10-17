@@ -15,10 +15,10 @@ FLOAT_CLEANER = lambda s: cytest.clean.clean(s, **CLEAN_KWDS)
 CXX = curry.flags['backend'] == 'cxx'
 
 class TestExpr(cytest.TestCase):
-  '''Tests expression-building with ``curry.raw_expr``.'''
+  '''Tests expression-building with ``cytest.raw.expr``.'''
 
   def test_negative(self):
-    # A bunch of things that cannot accept trailing arguments in curry.raw_expr.
+    # A bunch of things that cannot accept trailing arguments in cytest.raw.expr.
     for (before, what) in [
         (True, 'True')
       , (1, '1')
@@ -33,7 +33,7 @@ class TestExpr(cytest.TestCase):
       , (anchor(0, name='a'), "anchor 'a'")
       , (ref('a'), "ref 'a'")
       , (iter([1,2]), r'\<%s object at 0x\w+\>' % listiterator_name)
-      , (curry.raw_expr(0), r"'Int' node")
+      , (cytest.raw.expr(0), r"'Int' node")
       , (unboxed(0), r'unboxed 0')
       , (cons(0, []), r"'cons'")
       , (nil, r"'nil'")
@@ -48,7 +48,7 @@ class TestExpr(cytest.TestCase):
       ]:
       self.assertRaisesRegex(
           CurryTypeError, r'invalid arguments after %s' % what
-        , lambda: curry.raw_expr(before, True)
+        , lambda: cytest.raw.expr(before, True)
         )
 
   @cytest.check_expressions()
@@ -82,20 +82,20 @@ class TestExpr(cytest.TestCase):
 
   @cytest.check_expressions()
   def test_cons(self):
-    yield curry.nil, '[]', '<[]>', []
-    yield curry.cons(0, curry.nil), '[0]', '<: <Int 0> <[]>>', [0]
-    yield curry.cons(0, 1, curry.nil), '[0, 1]', '<: <Int 0> <: <Int 1> <[]>>>', [0, 1]
+    yield cytest.raw.nil, '[]', '<[]>', []
+    yield cytest.raw.cons(0, cytest.raw.nil), '[0]', '<: <Int 0> <[]>>', [0]
+    yield cytest.raw.cons(0, 1, cytest.raw.nil), '[0, 1]', '<: <Int 0> <: <Int 1> <[]>>>', [0, 1]
 
   def test_iterators(self):
     '''Python iterators become lazy lists in Curry.'''
-    e = curry.raw_expr(iter([]))
+    e = cytest.raw.expr(iter([]))
     self.assertRegex(str(e), '_biGenerator')
     val = next(curry.eval(e))
     self.assertEqual(str(e), '[]')
 
-    e = curry.raw_expr(iter([1,2]))
+    e = cytest.raw.expr(iter([1,2]))
     self.assertRegex(str(e), '_biGenerator')
-    val = curry.topython(next(curry.eval(e)))
+    val = cytest.raw.interp().topython(next(curry.eval(e)))
     self.assertEqual(val, [1, 2])
 
   @cytest.check_expressions()
@@ -106,7 +106,7 @@ class TestExpr(cytest.TestCase):
     self.assertRaisesRegex(
         TypeError
       , r'Curry has no 1-tuple'
-      , lambda: curry.raw_expr((1,))
+      , lambda: cytest.raw.expr((1,))
       )
 
   @cytest.check_expressions()
@@ -122,7 +122,7 @@ class TestExpr(cytest.TestCase):
                                 , sorted([True, False])
 
   def test_fail(self):
-    e = curry.raw_expr(fail)
+    e = cytest.raw.expr(fail)
     self.assertEqual(str(e), 'failed')
     self.assertEqual(list(curry.eval(e)), [])
 
@@ -163,8 +163,8 @@ class TestExpr(cytest.TestCase):
   def test_unboxed(self):
     # The marker is the payload of a primitive; see TestUnboxedMarker.
     prelude = curry.import_('Prelude')
-    yield [prelude.Int, curry.unboxed(2)], '2', '<Int 2>', 2
-    yield [prelude.Char, curry.unboxed('a')], "'a'", "<Char 'a'>", 'a'
+    yield [prelude.Int, cytest.raw.unboxed(2)], '2', '<Int 2>', 2
+    yield [prelude.Char, cytest.raw.unboxed('a')], "'a'", "<Char 'a'>", 'a'
 
   @cytest.check_expressions()
   def test_var(self):
@@ -173,7 +173,7 @@ class TestExpr(cytest.TestCase):
   @cytest.check_expressions()
   def test_nonlinear(self):
     # let a=1 in [a, a]
-    e = curry.raw_expr([curry.expressions.anchor(1), curry.ref()])
+    e = cytest.raw.expr([curry.expressions.anchor(1), curry.ref()])
     a, b = e[0], e[1][0]
     self.assertEqual(id(a), id(b))
     yield e, None, None, None, [[1, 1]]
@@ -183,25 +183,25 @@ class TestExpr(cytest.TestCase):
     anchor, ref = curry.expressions.anchor, curry.ref
 
     # let a=a in a
-    e = curry.raw_expr(anchor(ref()))
+    e = cytest.raw.expr(anchor(ref()))
     self.assertIsaFwd(e)
     also_e = inspect.fwd_target(e)
     self.assertIs(e, also_e)
     yield e, '...', '<_Fwd ...>'
     #
-    e = curry.raw_expr(ref('a'), a=ref('a'))
+    e = cytest.raw.expr(ref('a'), a=ref('a'))
     self.assertIsaFwd(e)
     also_e = inspect.fwd_target(e)
     self.assertIs(e, also_e)
     yield e, '...', '<_Fwd ...>'
 
     # let a=[a] in a
-    e = curry.raw_expr(anchor([ref()]))
+    e = cytest.raw.expr(anchor([ref()]))
     self.assertEqual(id(e), id(e[0]))
     yield e, '[...]', '<: ... <[]>>'
     #
     exprs = {'a': [ref('a')]}
-    e = curry.raw_expr(ref('a'), **exprs)
+    e = cytest.raw.expr(ref('a'), **exprs)
     self.assertEqual(id(e), id(e[0]))
     yield e, '[...]', '<: ... <[]>>'
 
@@ -215,8 +215,8 @@ class TestExpr(cytest.TestCase):
     in full at both positions (issue #119).  The typed builder shares
     fix_references.
     '''
-    anchor, cons, ref = curry.expressions.anchor, curry.cons, curry.ref
-    for build in (curry.raw_expr, curry.expr):
+    anchor, cons, ref = curry.expressions.anchor, cytest.raw.cons, curry.ref
+    for build in (cytest.raw.expr, lambda *args, **kwds: cytest.raw.expr(*args, typed=True, **kwds)):
       # let a = 1 : a in [a, a]
       e = build([anchor(cons(1, ref()), name='a'), ref('a')])
       a = e[0]
@@ -248,24 +248,24 @@ class TestExpr(cytest.TestCase):
     # The untyped builder follows the chain; the typed builder rejects the
     # reference to it.
     form = [ref('x'), anchor(ref('y'), name='x'), anchor(cons(1, ref('x')), name='y')]
-    e = curry.raw_expr(form)
+    e = cytest.raw.expr(form)
     a = e[1][1][0]
     self.assertIs(a[1], a)
     self.assertIs(e[0], a)
     self.assertIs(e[1][0], a)
     self.assertEqual(str(e), '[[1, ...], [1, ...], [1, ...]]')
     with self.assertRaisesRegex(CurryTypeError, "reference 'x' needs a binding"):
-      curry.expr(form)
+      cytest.raw.expr(form, typed=True)
 
   @cytest.check_expressions()
   def test_named_anchor1(self):
     '''Test named anchors using a direct style.'''
     # let a=(0:b), b=(1:a) in take 5 a
     prelude = curry.import_('Prelude')
-    anchor, cons, ref = curry.expressions.anchor, curry.cons, curry.ref
+    anchor, cons, ref = curry.expressions.anchor, cytest.raw.cons, curry.ref
     b = anchor(cons(1, ref('a')), name='b')
     a = anchor(cons(0, b), name='a')
-    e = curry.raw_expr(prelude.take, 5, a)
+    e = cytest.raw.expr(prelude.take, 5, a)
     A = e[1]
     B = A[1]
     self.assertEqual(id(A), id(B[1]))
@@ -276,12 +276,12 @@ class TestExpr(cytest.TestCase):
     '''Test named anchors using keyword style.'''
     # let a=(0:b), b=(1:a) in take 5 a
     prelude = curry.import_('Prelude')
-    cons, ref = curry.cons, curry.ref
+    cons, ref = cytest.raw.cons, curry.ref
     exprs = {
         'a': cons(0, ref('b'))
       , 'b': cons(1, ref('a'))
       }
-    e = curry.raw_expr(prelude.take, 5, ref('a'), **exprs)
+    e = cytest.raw.expr(prelude.take, 5, ref('a'), **exprs)
     A = e[1]
     B = A[1]
     self.assertEqual(id(A), id(B[1]))
@@ -296,7 +296,7 @@ class TestExpr(cytest.TestCase):
       , 'b': [5]
       , 'c': [prelude.Just, []]
       }
-    e = curry.raw_expr((ref('a'), ref('b'), ref('c')), **exprs)
+    e = cytest.raw.expr((ref('a'), ref('b'), ref('c')), **exprs)
     yield e, '(5, [5], Just [])' \
            , '<(,,) <Int 5> <: <Int 5> <[]>> <Just <[]>>>'
 
@@ -305,7 +305,7 @@ class TestExpr(cytest.TestCase):
 
 class TestUnboxedMarker(cytest.TestCase):
   '''
-  The place of curry.unboxed (issue #107).  The marker is the payload of a
+  The place of cytest.raw.unboxed (issue #107).  The marker is the payload of a
   primitive, [Int, unboxed(3)].  Anywhere else both builders raise a
   CurryTypeError at construction, on both backends: the C++ backend
   dereferenced the raw value as a node and ended the process, and the
@@ -313,168 +313,149 @@ class TestUnboxedMarker(cytest.TestCase):
   '''
   PLACE = (
       r'the marker is the payload of an Int, Char or Float, as in '
-      r'\[Prelude\.Int, curry\.unboxed\(1\)\]'
+      r'\[Prelude\.Int, \w+\.unboxed\(1\)\]'
     )
 
   def test_payload(self):
     '''As the payload of a primitive the marker works through both builders.'''
     P = curry.import_('Prelude')
-    for build in (curry.expr, curry.raw_expr):
-      e = build([P.Int, curry.unboxed(3)])
+    for build in (cytest.raw.expr, lambda *args, **kwds: cytest.raw.expr(*args, typed=True, **kwds)):
+      e = build([P.Int, cytest.raw.unboxed(3)])
       self.assertEqual(repr(e), '<Int 3>')
-      self.assertEqual(curry.topython(e), 3)
-      self.assertEqual(repr(build(P.Char, curry.unboxed('a'))), "<Char 'a'>")
-      self.assertEqual(curry.topython(build([P.Float, curry.unboxed(2.5)])), 2.5)
-    self.assertEqual(curry.typeof(curry.expr([P.Int, curry.unboxed(3)])), 'Int')
+      self.assertEqual(cytest.raw.interp().topython(e), 3)
+      self.assertEqual(repr(build(P.Char, cytest.raw.unboxed('a'))), "<Char 'a'>")
+      self.assertEqual(cytest.raw.interp().topython(build([P.Float, cytest.raw.unboxed(2.5)])), 2.5)
+    self.assertEqual(curry.typeof(cytest.raw.expr([P.Int, cytest.raw.unboxed(3)], typed=True)), 'Int')
     self.assertEqual(
-        list(curry.eval([P.Int, curry.unboxed(3)], converter='topython')), [3]
+        list(curry.eval(cytest.raw.expr(P.Int, cytest.raw.unboxed(3), typed=True))), [3]
       )
 
   def test_typed_builder(self):
     '''Alone, as an argument, in a list, in a tuple: an error that names the position.'''
     P = curry.import_('Prelude')
     cases = [
-        ( (curry.unboxed(1),)
-        , r'^curry\.unboxed\(1\) stands alone; ' + self.PLACE + '$'
+        ( (cytest.raw.unboxed(1),)
+        , r'^\w+\.unboxed\(1\) stands alone; ' + self.PLACE + '$'
         )
-      , ( (P.id, curry.unboxed(1))
-        , r'^curry\.unboxed\(1\) stands at argument 1 of Prelude\.id :: a -> a; '
+      , ( (P.id, cytest.raw.unboxed(1))
+        , r'^\w+\.unboxed\(1\) stands at argument 1 of Prelude\.id :: a -> a; '
           + self.PLACE + '$'
         )
-      , ( ([curry.unboxed(1)],)
-        , r'^curry\.unboxed\(1\) stands at element 1 of the list in the '
+      , ( ([cytest.raw.unboxed(1)],)
+        , r'^\w+\.unboxed\(1\) stands at element 1 of the list in the '
           r'expression; ' + self.PLACE + '$'
         )
-      , ( ((curry.unboxed(1), 2),)
-        , r'^curry\.unboxed\(1\) stands at component 1 of the tuple in the '
+      , ( ((cytest.raw.unboxed(1), 2),)
+        , r'^\w+\.unboxed\(1\) stands at component 1 of the tuple in the '
           r'expression; ' + self.PLACE + '$'
         )
       ]
     for args, regex in cases:
       with self.assertRaisesRegex(CurryTypeError, regex):
-        curry.expr(*args)
+        cytest.raw.expr(*args, typed=True)
       with self.assertRaisesRegex(CurryTypeError, regex):
-        curry.typeof(curry.describe(*args))
-      with self.assertRaisesRegex(CurryTypeError, regex):
-        list(curry.eval(*args))
+        list(cytest.raw.values(cytest.raw.expr(*args, typed=True)))
     # The message names the primitive of the payload.
     with self.assertRaisesRegex(
-        CurryTypeError, r"as in \[Prelude\.Char, curry\.unboxed\('a'\)\]$"
+        CurryTypeError, r"as in \[Prelude\.Char, \w+\.unboxed\('a'\)\]$"
       ):
-      curry.expr(P.id, curry.unboxed('a'))
+      cytest.raw.expr(P.id, cytest.raw.unboxed('a'), typed=True)
     with self.assertRaisesRegex(
-        CurryTypeError, r'as in \[Prelude\.Float, curry\.unboxed\(2\.5\)\]$'
+        CurryTypeError, r'as in \[Prelude\.Float, \w+\.unboxed\(2\.5\)\]$'
       ):
-      curry.expr(P.Just, curry.unboxed(2.5))
+      cytest.raw.expr(P.Just, cytest.raw.unboxed(2.5), typed=True)
     # The error is one of the catalogue and carries the position.
     with self.assertRaises(ConversionError) as cm:
-      curry.expr(P.id, curry.unboxed(1))
+      cytest.raw.expr(P.id, cytest.raw.unboxed(1), typed=True)
     self.assertEqual(cm.exception.where, 'argument 1 of Prelude.id :: a -> a')
     self.assertEqual(cm.exception.value, 1)
-    # A description holds the marker and prints it; typing it is the error.
-    d = curry.describe(P.id, curry.unboxed(1))
-    self.assertEqual(str(d), 'id 1')
-    with self.assertRaisesRegex(CurryTypeError, 'stands at argument 1 of'):
-      d.typeof()
     # Nothing is built: a target stays as it is.
-    target = curry.expr(P.id, 0)
+    target = cytest.raw.expr(P.id, 0, typed=True)
     with self.assertRaisesRegex(CurryTypeError, 'stands alone'):
-      curry.expr(curry.unboxed(1), target=target)
+      cytest.raw.expr(cytest.raw.unboxed(1), target=target, typed=True)
     self.assertEqual(str(target), 'id 0')
 
   def test_untyped_builder(self):
     '''raw_expr, and expr with the typing off, raise too, without a position.'''
     P = curry.import_('Prelude')
-    interp = curry.getInterpreter()
-    regex = r'^curry\.unboxed\(1\) stands outside a primitive; ' + self.PLACE + '$'
+    interp = cytest.raw.interp()
+    regex = r'^\w+\.unboxed\(1\) stands outside a primitive; ' + self.PLACE + '$'
     for args in [
-        (curry.unboxed(1),), (P.id, curry.unboxed(1)), ([curry.unboxed(1)],)
-      , ((curry.unboxed(1), 2),), (P.Just, [1, curry.unboxed(1)])
+        (cytest.raw.unboxed(1),), (P.id, cytest.raw.unboxed(1)), ([cytest.raw.unboxed(1)],)
+      , ((cytest.raw.unboxed(1), 2),), (P.Just, [1, cytest.raw.unboxed(1)])
       ]:
       with self.assertRaisesRegex(CurryTypeError, regex):
-        curry.raw_expr(*args)
+        cytest.raw.expr(*args)
       with self.assertRaisesRegex(CurryTypeError, regex):
         curry.expressions.untyped_expr(interp, *args)
     # The marker alone with a target is the same error, and the target stays.
-    target = curry.raw_expr(P.id, 0)
+    target = cytest.raw.expr(P.id, 0)
     with self.assertRaisesRegex(CurryTypeError, regex):
-      curry.raw_expr(curry.unboxed(1), target=target)
+      cytest.raw.expr(cytest.raw.unboxed(1), target=target)
     self.assertEqual(str(target), 'id 0')
     # Trailing arguments are reported first, as for every marker.
     with self.assertRaisesRegex(CurryTypeError, 'invalid arguments after unboxed 1'):
-      curry.raw_expr(curry.unboxed(1), True)
+      cytest.raw.expr(cytest.raw.unboxed(1), True)
 
   def test_payload_type(self):
     '''A payload that does not fit its primitive is refused by both builders.'''
     P = curry.import_('Prelude')
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     cases = [
         ( P.Int, 2.5
-        , r"curry\.unboxed\(2\.5\) is not the payload of an Int%s; the payload "
-          r"of an Int is a Python int, as in \[Prelude\.Int, curry\.unboxed\(3\)\]$"
+        , r"\w+\.unboxed\(2\.5\) is not the payload of an Int%s; the payload "
+          r"of an Int is a Python int, as in \[Prelude\.Int, \w+\.unboxed\(3\)\]$"
         )
-      , (P.Int, 'a', r"curry\.unboxed\('a'\) is not the payload of an Int%s; ")
-      , (P.Int, True, r"curry\.unboxed\(True\) is not the payload of an Int%s; ")
+      , (P.Int, 'a', r"\w+\.unboxed\('a'\) is not the payload of an Int%s; ")
+      , (P.Int, True, r"\w+\.unboxed\(True\) is not the payload of an Int%s; ")
       , ( P.Float, 1
-        , r"curry\.unboxed\(1\) is not the payload of a Float%s; the payload of "
-          r"a Float is a Python float, as in \[Prelude\.Float, curry\.unboxed\(2\.5\)\]$"
+        , r"\w+\.unboxed\(1\) is not the payload of a Float%s; the payload of "
+          r"a Float is a Python float, as in \[Prelude\.Float, \w+\.unboxed\(2\.5\)\]$"
         )
-      , (P.Float, 'a', r"curry\.unboxed\('a'\) is not the payload of a Float%s; ")
+      , (P.Float, 'a', r"\w+\.unboxed\('a'\) is not the payload of a Float%s; ")
       , ( P.Char, 1
-        , r"curry\.unboxed\(1\) is not the payload of a Char%s; the payload of "
-          r"a Char is a str of length one, as in \[Prelude\.Char, curry\.unboxed\('a'\)\]$"
+        , r"\w+\.unboxed\(1\) is not the payload of a Char%s; the payload of "
+          r"a Char is a str of length one, as in \[Prelude\.Char, \w+\.unboxed\('a'\)\]$"
         )
-      , (P.Char, 'ab', r"curry\.unboxed\('ab'\) is not the payload of a Char%s; ")
-      , (P.Char, 2.5, r"curry\.unboxed\(2\.5\) is not the payload of a Char%s; ")
+      , (P.Char, 'ab', r"\w+\.unboxed\('ab'\) is not the payload of a Char%s; ")
+      , (P.Char, 2.5, r"\w+\.unboxed\(2\.5\) is not the payload of a Char%s; ")
       ]
     for prim, value, regex in cases:
       # The typed builder names the position of the primitive.
       with self.assertRaisesRegex(ConversionError, '^' + regex % ' at the expression'):
-        curry.expr([prim, curry.unboxed(value)])
+        cytest.raw.expr([prim, cytest.raw.unboxed(value)], typed=True)
       with self.assertRaisesRegex(
           ConversionError, '^' + regex % r' at argument 1 of Prelude\.id :: a -> a'
         ):
-        curry.expr(P.id, [prim, curry.unboxed(value)])
-      with self.assertRaisesRegex(
-          ConversionError
-        , '^' + regex % r' at element 1 of the list in the expression'
-        ):
-        curry.typeof(curry.describe([[prim, curry.unboxed(value)]]))
+        cytest.raw.expr(P.id, [prim, cytest.raw.unboxed(value)], typed=True)
       # The untyped builder has no position.
       with self.assertRaisesRegex(CurryTypeError, '^' + regex % ''):
-        curry.raw_expr([prim, curry.unboxed(value)])
+        cytest.raw.expr([prim, cytest.raw.unboxed(value)])
       with self.assertRaisesRegex(CurryTypeError, '^' + regex % ''):
-        curry.expressions.untyped_expr(interp, P.id, [prim, curry.unboxed(value)])
+        curry.expressions.untyped_expr(interp, P.id, [prim, cytest.raw.unboxed(value)])
     with self.assertRaises(ConversionError) as cm:
-      curry.expr(P.Just, [P.Int, curry.unboxed(2.5)])
+      cytest.raw.expr(P.Just, [P.Int, cytest.raw.unboxed(2.5)], typed=True)
     self.assertEqual(cm.exception.where, 'argument 1 of Prelude.Just :: a -> Maybe a')
     self.assertEqual(cm.exception.value, 2.5)
-    # A description prints the payload; typing it is the error.
-    d = curry.describe([P.Int, curry.unboxed(2.5)])
-    self.assertEqual(str(d), '2.5')
-    with self.assertRaisesRegex(ConversionError, 'is not the payload of an Int'):
-      d.typeof()
     # The range of Int is checked where the node is made, on both backends.
     with self.assertRaisesRegex(curry.IntOverflowError, 'outside the range of Int'):
-      curry.expr([P.Int, curry.unboxed(2 ** 64)])
+      cytest.raw.expr([P.Int, cytest.raw.unboxed(2 ** 64)], typed=True)
     with self.assertRaisesRegex(curry.IntOverflowError, 'outside the range of Int'):
-      curry.raw_expr([P.Int, curry.unboxed(2 ** 64)])
+      cytest.raw.expr([P.Int, cytest.raw.unboxed(2 ** 64)])
 
   def test_iterator(self):
     '''An item of an iterator converts when the list is demanded: the error names the marker.'''
     P = curry.import_('Prelude')
-    self.assertEqual(repr(curry.unboxed(1)), 'curry.unboxed(1)')
-    self.assertEqual(repr(curry.unboxed('a')), "curry.unboxed('a')")
     # The construction passes: the items are not read yet.
-    e = curry.expr(P.length, iter([curry.unboxed(1), curry.unboxed(2)]))
+    e = cytest.raw.expr(P.length, iter([cytest.raw.unboxed(1), cytest.raw.unboxed(2)]), typed=True)
     with self.assertRaisesRegex(
         EvaluationError
-      , r'^cannot convert item curry\.unboxed\(1\) of the iterator at argument 1 '
+      , r'^cannot convert item \w+\.unboxed\(1\) of the iterator at argument 1 '
         r'of Prelude\.length :: \[a\] -> Int to a$'
       ):
       list(curry.eval(e))
-    with self.assertRaisesRegex(EvaluationError, r'cannot convert item curry\.unboxed\(1\)'):
-      list(curry.eval(P.length, iter([curry.unboxed(1)])))
+    with self.assertRaisesRegex(EvaluationError, r'cannot convert item \w+\.unboxed\(1\)'):
+      list(cytest.raw.values(cytest.raw.expr(P.length, iter([cytest.raw.unboxed(1)]), typed=True)))
 
 
 class TestSurplusArguments(cytest.TestCase):
@@ -498,22 +479,22 @@ class TestSurplusArguments(cytest.TestCase):
       )
 
   def values(self, *args):
-    return list(curry.eval(*args, converter='topython'))
+    return list(curry.eval(cytest.raw.expr(*args, typed=True)))
 
   def test_point_free(self):
     M = self.M
-    e = curry.raw_expr(M.norm, 3)
+    e = cytest.raw.expr(M.norm, 3)
     self.assertEqual(str(e), 'apply norm 3')
     self.assertEqual(self.values(e), [7])
-    e = curry.raw_expr(M.twice, M.norm, 3)
+    e = cytest.raw.expr(M.twice, M.norm, 3)
     self.assertEqual(str(e), 'apply (twice norm) 3')
     self.assertEqual(self.values(e), [15])
     # Two surplus arguments: one apply per argument.
-    e = curry.raw_expr(M.twice, M.twice, M.norm, 3)
+    e = cytest.raw.expr(M.twice, M.twice, M.norm, 3)
     self.assertEqual(str(e), 'apply (apply (twice twice) norm) 3')
     self.assertEqual(self.values(e), [63])
     # The typed builder, and so curry.eval, take the same route.
-    self.assertEqual(str(curry.expr(M.norm, 3)), 'apply norm 3')
+    self.assertEqual(str(cytest.raw.expr(M.norm, 3, typed=True)), 'apply norm 3')
     self.assertEqual(self.values(M.norm, 3), [7])
     self.assertEqual(self.values(M.twice, M.norm, 3), [15])
 
@@ -521,21 +502,21 @@ class TestSurplusArguments(cytest.TestCase):
     '''Both builders refuse the surplus with one sentence form.'''
     P = curry.import_('Prelude')
     with self.assertRaises(CurryTypeError) as cm:
-      curry.raw_expr(P.Just, 1, 2)
+      cytest.raw.expr(P.Just, 1, 2)
     self.assertEqual(str(cm.exception), 'Just takes 1 argument, 2 given')
     with self.assertRaisesRegex(CurryTypeError, 'takes 1 argument, 2 given'):
-      curry.expr(P.Just, 1, 2)
+      cytest.raw.expr(P.Just, 1, 2, typed=True)
     with self.assertRaises(CurryTypeError) as cm:
-      curry.raw_expr(P.Nothing, 1)
+      cytest.raw.expr(P.Nothing, 1)
     self.assertEqual(str(cm.exception), 'Nothing takes 0 arguments, 1 given')
 
   def test_node_count(self):
     '''A node is made with the count of its arity, on both backends.'''
     P = curry.import_('Prelude')
-    backend = curry.getInterpreter().backend
+    backend = cytest.raw.interp().backend
     make = backend.make_node
     partial = backend.fundamental_symbols.PartApplic
-    one = curry.raw_expr(1)
+    one = cytest.raw.expr(1)
     with self.assertRaisesRegex(
         TypeError, r"cannot construct 'Just' \(arity=1\), with 2 args"
       ):

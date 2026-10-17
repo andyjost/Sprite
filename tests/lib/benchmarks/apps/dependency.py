@@ -65,7 +65,7 @@ def sprite(index, roots):
   setup = time.perf_counter() - start
   start = time.perf_counter()
   values = curry.eval(
-      Deps.preferred, index, [], [], roots, converter='topython'
+      Deps.preferred(index, [], [], roots)
     )
   plan = next(values, None)
   solve = time.perf_counter() - start

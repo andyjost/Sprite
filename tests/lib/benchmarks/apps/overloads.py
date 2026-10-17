@@ -99,14 +99,14 @@ def sprite_side(workload):
   from curry.lib import CxxLimits, CxxType, Overloads
 
   def term(t):
-    '''The Curry term of a type, built with curry.expr as the driver does.'''
+    '''The Curry term of a type, built by calling its constructor.'''
     if t[0] == 'fund':
-      return curry.expr(CxxType.Fund, getattr(CxxLimits, t[1]))
+      return CxxType.Fund(getattr(CxxLimits, t[1]))
     if t[0] == 'const':
-      return curry.expr(CxxType.Const, term(t[1]))
+      return CxxType.Const(term(t[1]))
     if t[0] == 'ptr':
-      return curry.expr(CxxType.Ptr, term(t[1]))
-    return curry.expr(CxxType.Class, t[1], [])
+      return CxxType.Ptr(term(t[1]))
+    return CxxType.Class(t[1], [])
 
   # The overload set and the hierarchy once, before the clock starts: the
   # question is the call, not the declaration of the candidates.  A name is
@@ -120,8 +120,7 @@ def sprite_side(workload):
   answers = []
   for args in workload:
     answers.append(next(curry.eval(
-        Overloads.resultLine, hierarchy, candidates, [term(a) for a in args]
-      , converter='topython'
+        Overloads.resultLine(hierarchy, candidates, [term(a) for a in args])
       )))
   solve = time.perf_counter() - start
   reference = [

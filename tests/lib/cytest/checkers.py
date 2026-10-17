@@ -4,6 +4,7 @@ specification.  To use these, one decorates some method of cytest.TestCase.
 That method should yield a sequence of tuples to be checked.  Each of the
 checkers accepts a continuation to be passed the generated values.
 '''
+from . import raw
 import contextlib, curry, inspect, traceback
 
 # @contextlib.contextmanager
@@ -22,7 +23,7 @@ import contextlib, curry, inspect, traceback
 #       )
 #     raise type(e)(message)
 
-def check_expressions(converter=curry.topython, postprocessor=sorted, cleaner=None):
+def check_expressions(transform=raw.interp().topython, postprocessor=sorted, cleaner=None):
   '''
   A decorator for unit tests that check Curry expressions.
 
@@ -30,19 +31,19 @@ def check_expressions(converter=curry.topython, postprocessor=sorted, cleaner=No
   expression and its expected properties.  This function will build each
   expression and check the given properties.
 
-  The first tuple element is passed to curry.raw_expr to build an expression,
+  The first tuple element is passed to raw.expr to build an expression,
   ``e``.  Up to four additional elements are accepted, and for each that is not
   None, the corresponding property is checked:
 
       - The expected str(e).
       - The expected repr(e).
-      - The expected result of curry.topython(e).
+      - The expected result of raw.interp().topython(e).
       - The expected result of curry.eval(e) after applying postprocessing and
-        ``curry.topython``.
+        ``raw.interp().topython``.
 
   Parameters:
   -----------
-    ``converter`` [default: ``curry.topython``]
+    ``transform`` [default: ``raw.interp().topython``]
       The conversion to apply to values before comparing with the expected
       results.
 
@@ -77,7 +78,7 @@ def check_expressions(converter=curry.topython, postprocessor=sorted, cleaner=No
   example, the representation of a failure both as a string and a Python value
   are ignored.  The fifth argument ensures this expression produced no values:
 
-      yield curry.raw_expr.fail, 'failed', None, None, []  # no results
+      yield raw.fail, 'failed', None, None, []  # no results
 
   For non-deterministic computations, the results should be put in a
   deterministic order.  By default, values are sorted:
@@ -97,17 +98,17 @@ def check_expressions(converter=curry.topython, postprocessor=sorted, cleaner=No
   def decorator(testmethod):
     def checker(self, spec):
       expr, str_, repr_, python, evaluated = (spec + 5 * (None,))[:5]
-      e = curry.raw_expr(expr)
+      e = raw.expr(expr)
       if str_ is not None:
         assert_equal(self, str(e), str_)
       if repr_ is not None:
         assert_equal(self, repr(e), repr_)
       if python is not None:
-        assert_equal(self, curry.topython(e), python)
+        assert_equal(self, raw.interp().topython(e), python)
       if evaluated is not None:
-        values = curry.eval(e, converter=None)
-        if converter is not None:
-          values = map(converter, values)
+        values = raw.values(e)
+        if transform is not None:
+          values = map(transform, values)
         if postprocessor is not None:
           values = postprocessor(values)
         assert_equal(self, values, evaluated)
@@ -120,7 +121,7 @@ def check_indexing(testmethod):
 
   The wrapped method should generate triples comprising an expression
   specifier, path, and expected result.  The expression specifier will be
-  passed to ``curry.expr``.  The expression returned is indexed by calling
+  passed to ``raw.expr``.  The expression returned is indexed by calling
   self.INDEXER.  If the expected result is an exception instance or class, the
   indexing step must raise that exception.  If it is an instance, then the
   string value should be a regular expression to check the raised exception
@@ -140,7 +141,7 @@ def check_indexing(testmethod):
     else:
       regex = None
       excty = None
-    e = curry.raw_expr(exprspec)
+    e = raw.expr(exprspec)
     if excty is None:
       d = self.INDEXER(e, path)
       self.assertEqual(d, expected)

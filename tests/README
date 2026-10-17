@@ -65,6 +65,18 @@ includes (the CI cache entry carries it).  Both directories under .cache may
 be deleted at any time.
 
 
+The Python API tests build terms with module calls (M.f(x)), curry.term
+for Python values, and curry.parse for Curry text. curry.eval yields Python
+values; curry.solve also reports the bindings of named variables. Use
+curry.show for Curry text and curry.typeof for types. A list is a list value.
+
+Tests of runtime nodes use cytest.raw from lib/cytest/raw.py. raw.expr
+builds nodes, raw.values yields evaluation nodes, and raw.show prints them.
+The helper also supplies the internal markers and raw.interp for tests of
+the runtime, collector, indexing and forwarding. Keep that facility in the
+test library; tests of values use the public term and evaluation surface.
+
+
 2. TEST CATEGORIES
 ------------------
 
@@ -359,27 +371,20 @@ Unit tests match the pattern unit_*.py.
     the PAKCS REPL compare the engine's types and values with the goldens
     of func_goal_defaulting.py under data/curry/goal_defaulting/, so the
     file runs no oracle.
-  - unit_typed_expr.py tests the typed curry.expr on both backends: the
-    acceptance list of item Y7 (a method call routed through apply, show
-    over Maybe Int, exprtype, the errors at construction, read "5", a free
-    marker at a function type, a list of 10000 values and a tree of 10^4
-    applications, a value of curry.eval fed back, an iterator item that
-    does not convert), the conversion rules, the forms of the untyped
-    builder on the typed path, the walk that types a Curry node (also a
-    partial application, and the cap on the size of a type), the API
-    (typeof, describe with anchors and exprtype, the record of result
-    types, topython with exprtype, the keyword anchors of eval, the flag
-    typed_expr) and every line of the error catalogue.  It imports
-    UnsignedGoals and TypeCheck, the modules of unit_goals.py and
-    unit_typecheck.py, and Data.Functor.Identity, and compiles two texts
-    with the front end for the order of a context.  Two tests build a list
-    of 100001 nodes to reach the cap of the walk; they take a few seconds.
+  - unit_typed_expr.py tests module calls, curry.term and curry.parse on
+    both backends: method dictionaries, annotations, construction errors,
+    the REPL defaulting table, containers, iterators, free variables,
+    recursive bindings and values fed into later calls. The node builder
+    checks use cytest.raw for dictionary arguments, forwarding, targets,
+    weak type records and the node-walk cap. It imports UnsignedGoals,
+    TypeCheck and Data.Functor.Identity. Two tests build 100001-node lists
+    to reach the walk cap; they take a few seconds.
   - Tests that call a Prelude primitive directly, without the $## of its
     wrapper, must pass a string in normal form: a list of characters.  The
     typed builder makes one lazy string node of a str on the Python
     backend (unit_prelude.py, cells).
   - unit_typecheck_serialize.py tests the serializer of the typed boundary
-    (curry.typecheck.serialize) on both backends without a front end: the
+    (curry.typecheck.serialize) on both backends: the
     Curry literal of every Python value, the text of every kind of spec,
     the parameters of the operands without text, the let of the free
     markers and of the anchors, the annotations, and the entry points.
@@ -442,13 +447,13 @@ Functional tests match the pattern func_*.py:
     A goal with value parameters is skipped, as before.
   - func_goal_defaulting.py pins the parity of goals and types with the
     PAKCS REPL: the modules under data/curry/goal_defaulting/ through the
-    driver, a list of text goals through curry.compile(mode='expr'), and
+    driver, a list of text goals through curry.parse, and
     the :type of the REPL through oracle_type.  The goldens are committed;
     a change to defaulting.curry regenerates them all, about 80 runs of
     PAKCS.  The golden of a text goal records its text on its first line
     and is made again when the text changes.  IO goals stay out, because
     the oracle runs the REPL in safe mode.
-  - func_typed_expr.py pins the twins of the typed curry.expr against the
+  - func_typed_expr.py pins the twins of typed module calls and curry.term against the
     PAKCS REPL: per case a Python call and the equivalent Curry text with
     the Python values written as Curry literals.  The corpus lives in the
     file; the modules under data/curry/typed_expr/ are generated from it
@@ -460,7 +465,7 @@ Functional tests match the pattern func_*.py:
     the call with the type of the goal in the FlatCurry interface, a twin
     with free markers compiled once more with the markers lifted to
     parameters; the conversion rows of the design round-trip through
-    curry.compile(mode='expr').  TypeCorpus.curry holds goals with a type
+    curry.parse.  TypeCorpus.curry holds goals with a type
     but no comparable value (function values, types the table rejects,
     IO); the driver skips it by its name.  The REPL of PAKCS refuses a
     goal whose type names a type of a module the goal module imports,

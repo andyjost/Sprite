@@ -14,7 +14,7 @@ class ChildTests(cytest.TestCase):
 
   # The children import the bindings and the test module.
   PREAMBLE = '''
-import curry, gc, os, sys
+import cytest, curry, gc, os, sys
 from curry.backends.cxx import cyrtbindings as cyrt
 curry.reload({'backend': 'cxx'})
 M = curry.import_('CxxGc')
@@ -58,19 +58,20 @@ class TestCxxGc(ChildTests):
     A value handed to Python stays correct across collections, and its nodes
     are reclaimed after Python drops it.
     '''
-    proc = self.run_child('''
-value = next(curry.eval(M.table, 300, converter=None))
+    proc = self.run_child('''import cytest
+
+value = next(cytest.raw.values(cytest.raw.expr(M.table, 300, typed=True)))
 text = str(value)
 expected = [(i, str(i)) for i in range(1, 301)]
-assert curry.topython(value) == expected
+assert cytest.raw.interp().topython(value) == expected
 cyrt.gc_set_threshold(1 << 14)
 n0 = cyrt.gc_collections()
-assert curry.topython(next(curry.eval(M.walk, %d, converter=None))) == %d
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, %d, typed=True)))) == %d
 collections = cyrt.gc_collections() - n0
 assert collections > 10, collections
 cyrt.gc_collect()
 assert str(value) == text, str(value)
-assert curry.topython(value) == expected
+assert cytest.raw.interp().topython(value) == expected
 before = cyrt.gc_node_count()
 del value
 gc.collect()
@@ -86,22 +87,23 @@ print('collections', collections, 'nodes', before, after)
 
   def test_expression_survives_collections(self):
     '''
-    An expression built with curry.expr, evaluated or not, stays correct
+    An expression built with cytest.raw.expr, evaluated or not, stays correct
     across collections.
     '''
-    self.run_child('''
-value = curry.expr([(1, 'a'), (2, 'b')])
-goal = curry.expr(M.walk, 25)
+    self.run_child('''import cytest
+
+value = cytest.raw.expr([(1, 'a'), (2, 'b')], typed=True)
+goal = cytest.raw.expr(M.walk, 25, typed=True)
 text, goaltext = str(value), str(goal)
 cyrt.gc_set_threshold(1 << 14)
 n0 = cyrt.gc_collections()
-assert curry.topython(next(curry.eval(M.walk, 100000, converter=None))) == 100000
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 100000, typed=True)))) == 100000
 assert cyrt.gc_collections() > n0
 cyrt.gc_collect()
 assert str(value) == text, str(value)
 assert str(goal) == goaltext, str(goal)
-assert curry.topython(next(curry.eval(value, converter=None))) == [(1, 'a'), (2, 'b')]
-assert curry.topython(next(curry.eval(goal, converter=None))) == 25
+assert cytest.raw.interp().topython(next(cytest.raw.values(value))) == [(1, 'a'), (2, 'b')]
+assert cytest.raw.interp().topython(next(cytest.raw.values(goal))) == 25
 ''')
 
   def test_copy_of_a_pinned_constructor(self):
@@ -113,12 +115,13 @@ assert curry.topython(next(curry.eval(goal, converter=None))) == 25
     was freed under its holder, and the verifier did not see it, because it
     checks the marked nodes.
     '''
-    self.run_child('''
+    self.run_child('''import cytest
+
 import copy
 raw = lambda e: getattr(e, 'raw_expr', e)
 copies = []
 for value in [[], (), True, False]:
-  node = raw(curry.raw_expr(value))
+  node = raw(cytest.raw.expr(value))
   text = repr(node)
   copies.append((node.copy(), text))
   copies.append((copy.copy(node), text))
@@ -130,28 +133,29 @@ before = cyrt.gc_node_count()
 cyrt.gc_collect()
 assert cyrt.gc_node_count() == before, (before, cyrt.gc_node_count())
 # Fill the slots a freed copy would have left behind.
-junk = [curry.raw_expr(i) for i in range(1000, 4000)]
-assert curry.topython(next(curry.eval(M.walk, 3000, converter=None))) == 3000
+junk = [cytest.raw.expr(i) for i in range(1000, 4000)]
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 3000, typed=True)))) == 3000
 cyrt.gc_collect()
 for c, text in copies:
   assert repr(c) == text, (repr(c), text)
 assert cyrt.gc_verify() is None
-assert curry.topython(next(curry.eval(copies[0][0], converter=None))) == []
-assert curry.topython(next(curry.eval(copies[6][0], converter=None))) is True
+assert cytest.raw.interp().topython(next(cytest.raw.values(copies[0][0]))) == []
+assert cytest.raw.interp().topython(next(cytest.raw.values(copies[6][0]))) is True
 ''')
 
   def test_roots_follow_wrappers(self):
     '''
     A node is a root while a Python wrapper of it exists.  Wrappers come and
-    go with curry.expr and with the successors of a node.
+    go with cytest.raw.expr and with the successors of a node.
     '''
-    self.run_child('''
+    self.run_child('''import cytest
+
 raw = lambda e: getattr(e, 'raw_expr', e)
 r0 = cyrt.gc_num_roots()
-e = curry.expr(7)
+e = cytest.raw.expr(7, typed=True)
 assert cyrt.gc_num_roots() == r0 + 1, (r0, cyrt.gc_num_roots())
 assert cyrt.gc_root_count(raw(e)) == 1
-lst = curry.expr([1, 2, 3])
+lst = cytest.raw.expr([1, 2, 3], typed=True)
 assert cyrt.gc_num_roots() == r0 + 2
 succ = raw(lst).successors
 assert len(succ) == 2
@@ -177,16 +181,18 @@ assert cyrt.gc_root_count(None) == 0
     memory under a 1 GiB cap.  With the default threshold a walk over a
     million cells completes under the cap.
     '''
-    self.run_child('''
+    self.run_child('''import cytest
+
 cyrt.gc_set_threshold(10 ** 9)
 try:
-  next(curry.eval(M.walk, 8000000, converter=None))
+  next(cytest.raw.values(cytest.raw.expr(M.walk, 8000000, typed=True)))
 except MemoryError:
   os._exit(42)
 os._exit(1)
 ''', address_space=1 << 30, status=42)
-    proc = self.run_child('''
-assert curry.topython(next(curry.eval(M.walk, 1000000, converter=None))) == 1000000
+    proc = self.run_child('''import cytest
+
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 1000000, typed=True)))) == 1000000
 print('collections', cyrt.gc_collections(), 'seconds', cyrt.gc_seconds())
 assert cyrt.gc_collections() > 0
 ''', address_space=1 << 30)
@@ -198,8 +204,9 @@ assert cyrt.gc_collections() > 0
     collection there reclaims the nodes allocated since the nested
     evaluation began.
     '''
-    self.run_child('''
-assert curry.topython(next(curry.eval(M.inner, 1000000, converter=None))) == [1000000]
+    self.run_child('''import cytest
+
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.inner, 1000000, typed=True)))) == [1000000]
 assert cyrt.gc_collections() > 0
 assert cyrt.gc_eval_depth() == 0
 ''', address_space=1 << 30)
@@ -210,9 +217,10 @@ assert cyrt.gc_eval_depth() == 0
     queue that only the SetEval node reaches.  Collections between two
     values must keep them.
     '''
-    self.run_child('''
+    self.run_child('''import cytest
+
 cyrt.gc_set_threshold(1 << 14)
-assert curry.topython(next(curry.eval(M.spaced, 20000, converter=None))) == 60006
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.spaced, 20000, typed=True)))) == 60006
 assert cyrt.gc_collections() > 10
 ''')
 
@@ -224,14 +232,15 @@ assert cyrt.gc_collections() > 10
     callback, because the steps of the enclosing evaluation are on the C
     stack.
     '''
-    self.run_child('''
+    self.run_child('''import cytest
+
 cyrt.gc_set_threshold(1 << 14)
 depths = []
 def items():
   for i in range(3):
     depths.append(cyrt.gc_eval_depth())
-    yield curry.topython(next(curry.eval(M.walk, 50000, converter=None))) + i
-assert curry.topython(next(curry.eval(M.lastOf, iter(items()), converter=None))) == 50002
+    yield cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 50000, typed=True)))) + i
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.lastOf, iter(items()), typed=True)))) == 50002
 assert depths == [1, 1, 1], depths
 assert cyrt.gc_collections() > 0
 def refuse():
@@ -241,7 +250,7 @@ def refuse():
     raise ValueError('refused: %s' % err)
   yield 1
 try:
-  next(curry.eval(M.lastOf, iter(refuse()), converter=None))
+  next(cytest.raw.values(cytest.raw.expr(M.lastOf, iter(refuse()), typed=True)))
 except ValueError as err:
   assert 'refused' in str(err), err
 else:
@@ -260,10 +269,11 @@ assert cyrt.gc_eval_depth() == 0
     stays within eight times the live nodes, and the threshold falls back
     to the configured value when the live nodes go.
     '''
-    self.run_child('''
+    self.run_child('''import cytest
+
 floor = 1 << 14
 cyrt.gc_set_threshold(floor)
-value = next(curry.eval(M.table, 3000, converter=None))
+value = next(cytest.raw.values(cytest.raw.expr(M.table, 3000, typed=True)))
 cyrt.gc_collect()
 live = cyrt.gc_node_count()
 assert live > floor, live
@@ -282,11 +292,12 @@ assert cyrt.gc_threshold() == floor, cyrt.gc_threshold()
     follows gc_collections, and gc_seconds follows gc_seconds, before and
     after an evaluation that collects.
     '''
-    proc = self.run_child('''
+    proc = self.run_child('''import cytest
+
 cyrt.gc_set_threshold(1 << 14)
 before = curry.stats()
 assert before['collections'] == cyrt.gc_collections(), before
-assert curry.topython(next(curry.eval(M.walk, 100000, converter=None))) == 100000
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 100000, typed=True)))) == 100000
 after = curry.stats()
 collections = cyrt.gc_collections()
 assert after['collections'] == collections, (after, collections)
@@ -311,10 +322,11 @@ print(after)
     collection the threshold is that many times the survivors.  A bad value
     falls back to the default with a warning.
     '''
-    code = '''
+    code = '''import cytest
+
 print('growth', cyrt.gc_growth())
 cyrt.gc_set_threshold(1 << 14)
-value = next(curry.eval(M.table, 3000, converter=None))
+value = next(cytest.raw.values(cytest.raw.expr(M.table, 3000, typed=True)))
 cyrt.gc_collect()
 live = cyrt.gc_node_count()
 assert live > 1 << 14, live
@@ -401,11 +413,12 @@ def settled():
     freed at once, so the live count follows the queue, and nothing is left
     when the evaluation ends.
     '''
-    proc = self.run_child(self.COUNTS + '''
+    proc = self.run_child(self.COUNTS + '''import cytest
+
 base = settled()
 assert base == (0, 0, 0), base
-values = list(curry.eval(M.psort, 7, converter=None))
-assert curry.topython(values[0]) == list(range(1, 8)), values
+values = list(cytest.raw.values(cytest.raw.expr(M.psort, 7, typed=True)))
+assert cytest.raw.interp().topython(values[0]) == list(range(1, 8)), values
 assert len(values) == 1, values
 assert settled() == (0, 0, 0), counts()
 stats = curry.stats()
@@ -422,7 +435,8 @@ print('forks', stats['forks'])
     the configurations of finished set functions go at each collection, so
     the counts stay far below the number of set functions run.
     '''
-    proc = self.run_child(self.COUNTS + '''
+    proc = self.run_child(self.COUNTS + '''import cytest
+
 cyrt.gc_set_threshold(1 << 14)
 seen = []
 def items(n):
@@ -430,7 +444,7 @@ def items(n):
     seen.append(counts())
     yield i
 n0 = cyrt.gc_collections()
-assert curry.topython(next(curry.eval(M.partial, 3, iter(items(2000)), converter=None))) == 2000
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.partial, 3, iter(items(2000)), typed=True)))) == 2000
 collections = cyrt.gc_collections() - n0
 assert collections > 0, collections
 peak_queues = max(q for c, q, s in seen)
@@ -454,7 +468,8 @@ print('collections', collections
     few nodes, so without this rule the dead queues would pile up until the
     nodes reached the threshold.
     '''
-    proc = self.run_child(self.COUNTS + '''
+    proc = self.run_child(self.COUNTS + '''import cytest
+
 cyrt.gc_set_threshold(1 << 16)
 seen = []
 def items(n):
@@ -462,7 +477,7 @@ def items(n):
     seen.append(counts() + (cyrt.gc_node_count(),))
     yield i
 n0 = cyrt.gc_collections()
-assert curry.topython(next(curry.eval(M.partial, 6, iter(items(600)), converter=None))) == 600
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.partial, 6, iter(items(600)), typed=True)))) == 600
 collections = cyrt.gc_collections() - n0
 peak_configurations = max(c for c, q, s, n in seen)
 peak_nodes = max(n for c, q, s, n in seen)
@@ -481,9 +496,10 @@ print('collections', collections, 'peak', peak_configurations, peak_nodes)
     of its own, and most of them are consumed only in part.  The values are
     right, and nothing is left afterwards.
     '''
-    self.run_child(self.COUNTS + '''
+    self.run_child(self.COUNTS + '''import cytest
+
 cyrt.gc_set_threshold(1 << 14)
-assert curry.topython(next(curry.eval(M.countQueens, 5, converter=None))) == 10
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.countQueens, 5, typed=True)))) == 10
 assert cyrt.gc_eval_depth() == 0
 assert settled() == (0, 0, 0), counts()
 ''')
@@ -495,16 +511,17 @@ assert settled() == (0, 0, 0), counts()
     state is consistent afterwards: the depth is zero, a collection runs,
     and nothing is left once the evaluation is dropped.
     '''
-    self.run_child(self.COUNTS + '''
+    self.run_child(self.COUNTS + '''import cytest
+
 try:
-  next(curry.eval(M.boomSet, converter=None))
+  next(cytest.raw.values(M.boomSet))
 except curry.exceptions.EvaluationError as err:
   assert 'boom' in str(err), err
 else:
   assert False, 'no error'
 assert cyrt.gc_eval_depth() == 0
 assert settled() == (0, 0, 0), counts()
-assert curry.topython(next(curry.eval(M.psort, 4, converter=None))) == [1, 2, 3, 4]
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.psort, 4, typed=True)))) == [1, 2, 3, 4]
 assert settled() == (0, 0, 0), counts()
 ''')
 
@@ -516,8 +533,9 @@ assert settled() == (0, 0, 0), counts()
     steps it, so neither sees the steps of the other.  The two sets are
     {1,2} and {2,3}.
     '''
-    self.run_child(self.COUNTS + '''
-values = sorted(curry.topython(v) for v in curry.eval(M.escaped, converter=None))
+    self.run_child(self.COUNTS + '''import cytest
+
+values = sorted(cytest.raw.interp().topython(v) for v in cytest.raw.values(M.escaped))
 assert values == [[1, 2], [2, 3]], values
 assert settled() == (0, 0, 0), counts()
 ''')
@@ -548,14 +566,15 @@ class TestStress(ChildTests):
     steps, the values are right, curry.stats reports the collections, and
     nothing is left afterwards.
     '''
-    proc = self.run_stress_child(TestOwnership.COUNTS + '''
+    proc = self.run_stress_child(TestOwnership.COUNTS + '''import cytest
+
 assert cyrt.gc_stress()
 table = [(i, str(i)) for i in range(1, 51)]
 for goal, args, expected in [
     (M.walk, (2000,), 2000), (M.table, (50,), table), (M.spaced, (50,), 156)
   ]:
   before = curry.stats()
-  value = curry.topython(next(curry.eval(goal, *args, converter=None)))
+  value = cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(goal, *args, typed=True))))
   after = curry.stats()
   assert value == expected, (value, expected)
   steps = after['steps'] - before['steps']
@@ -580,17 +599,18 @@ assert settled() == (0, 0, 0), counts()
     variables of an interrupted normalization, or of a constraint lifted to
     the root, as residuals (apply.cpp).
     '''
-    code = TestOwnership.COUNTS + '''
+    code = TestOwnership.COUNTS + '''import cytest
+
 results = []
 for goal, args in [
     (M.psort, (5,)), (M.escaped, ()), (M.countQueens, (4,)), (M.queens, (4,))
   , (M.partial, (3, [1, 2, 3, 4])), (M.groundOwn, ())
   ]:
   before = curry.stats()
-  values = [curry.topython(v) for v in curry.eval(goal, *args, converter=None)]
+  values = [cytest.raw.interp().topython(v) for v in cytest.raw.values(cytest.raw.expr(goal, *args, typed=True))]
   results.append((values, curry.stats()['steps'] - before['steps']))
 try:
-  next(curry.eval(M.boomSet, converter=None))
+  next(cytest.raw.values(M.boomSet))
 except curry.exceptions.EvaluationError as err:
   assert 'boom' in str(err), err
 else:
@@ -617,13 +637,14 @@ print(results)
     An evaluation started from a Python callback runs nested and collects
     there, with the older nodes as roots, at every step.
     '''
-    self.run_stress_child('''
+    self.run_stress_child('''import cytest
+
 depths = []
 def items():
   for i in range(3):
     depths.append(cyrt.gc_eval_depth())
-    yield curry.topython(next(curry.eval(M.walk, 500, converter=None))) + i
-assert curry.topython(next(curry.eval(M.lastOf, iter(items()), converter=None))) == 502
+    yield cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 500, typed=True)))) + i
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.lastOf, iter(items()), typed=True)))) == 502
 assert depths == [1, 1, 1], depths
 assert cyrt.gc_eval_depth() == 0
 ''')
@@ -634,10 +655,11 @@ assert cyrt.gc_eval_depth() == 0
     evaluation below the threshold runs no collection.  Another value turns
     the mode off with a warning.
     '''
-    code = '''
+    code = '''import cytest
+
 print('stress', cyrt.gc_stress())
 before = cyrt.gc_collections()
-assert curry.topython(next(curry.eval(M.walk, 1000, converter=None))) == 1000
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 1000, typed=True)))) == 1000
 print('collections', cyrt.gc_collections() - before)
 '''
     expected = ['stress False', 'collections 0']
@@ -662,5 +684,5 @@ class TestSplitValues(cytest.TestCase):
 
   def test_escaped_choice(self):
     M = curry.import_('CxxGc')
-    values = sorted(curry.topython(v) for v in curry.eval(M.escaped, converter=None))
+    values = sorted(cytest.raw.interp().topython(v) for v in cytest.raw.values(M.escaped))
     self.assertEqual(values, [[1, 2], [2, 3]])

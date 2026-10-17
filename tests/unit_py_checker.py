@@ -30,10 +30,10 @@ def _checker():
 def _state(goal):
   '''A runtime state of the global interpreter over ``goal``.'''
   from curry.backends.py.eval.rts import RuntimeState
-  return RuntimeState(curry.getInterpreter(), goal)
+  return RuntimeState(cytest.raw.interp(), goal)
 
 def _values(module, name, *args):
-  return sorted(str(v) for v in curry.eval(getattr(module, name), *args, converter=None))
+  return sorted(str(v) for v in cytest.raw.values(cytest.raw.expr(getattr(module, name), *args, typed=True)))
 
 def _goals(module):
   '''The nullary functions of a module, by name.'''
@@ -223,7 +223,7 @@ class TestFlag(cytest.TestCase):
     '''With the flag off the runtime state holds no checker.'''
     curry.reload({'backend': 'py', 'checker': False})
     try:
-      rts = _state(curry.raw_expr(1))
+      rts = _state(cytest.raw.expr(1))
       self.assertIsNone(rts.checker)
     finally:
       curry.reload({'backend': 'py'})
@@ -232,7 +232,7 @@ class TestFlag(cytest.TestCase):
   def test_on_means_checker(self):
     curry.reload({'backend': 'py', 'checker': True})
     try:
-      rts = _state(curry.raw_expr(1))
+      rts = _state(cytest.raw.expr(1))
       self.assertIsInstance(rts.checker, _checker().Checker)
     finally:
       curry.reload({'backend': 'py', 'checker': False})
@@ -243,7 +243,7 @@ class TestFlag(cytest.TestCase):
     curry.reload({'checker': True})
     try:
       self.assertEqual(curry.flags['checker'], True)
-      self.assertEqual([curry.topython(v) for v in curry.eval(curry.expr(1), converter=None)], [1])
+      self.assertEqual([cytest.raw.interp().topython(v) for v in cytest.raw.values(cytest.raw.expr(1, typed=True))], [1])
     finally:
       curry.reload({'checker': False})
 
@@ -340,7 +340,7 @@ class TestKnownGood(CheckerTestCase):
   def test_counts(self):
     '''The checker saw the events of a search.'''
     M = curry.compile(PROGRAMS, modulename='CheckerCounts')
-    rts = _state(curry.raw_expr(M.narrowed))
+    rts = _state(cytest.raw.expr(M.narrowed))
     self.assertEqual(sorted(str(v) for v in rts.generate_values()), ['1', '2', '3'])
     counts = rts.checker.counts
     self.assertGreater(counts['forks'], 0)
@@ -356,8 +356,8 @@ class TestIdentifierConsistency(CheckerTestCase):
   '''RI B1.'''
   def test_group_invariant_at_fork(self):
     '''A decided member of a group whose root is undecided.'''
-    P = curry.getInterpreter().prelude
-    rts = _state(curry.raw_expr([getattr(P, '?'), 0, 1]))
+    P = cytest.raw.interp().prelude
+    rts = _state(cytest.raw.expr([getattr(P, '?'), 0, 1]))
     C = rts.C
     uf = C.strict_constraints.write
     uf.unite(100, 101)
@@ -393,7 +393,7 @@ dup2 = let x = True ? False in let y = True ? False in (x, y, x, y)
   def test_pulltab_identifier(self):
     '''The created choice must carry the identifier of its source.'''
     from curry.backends.py import graph
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     a, b = rts.expr(1), rts.expr(2)
     target = graph.Node(rts.Choice, 7, a, b)
     wrong = graph.Node(rts.Choice, 8, a, b)
@@ -403,7 +403,7 @@ dup2 = let x = True ? False in let y = True ? False in (x, y, x, y)
   def test_pulltab_copies(self):
     '''The alternatives must be fresh copies of the spine.'''
     from curry.backends.py import graph
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     a, b = rts.expr(1), rts.expr(2)
     target = graph.Node(rts.Choice, 7, a, b)
     root = graph.Node(rts.prelude.Just, target)
@@ -418,7 +418,7 @@ dup2 = let x = True ? False in let y = True ? False in (x, y, x, y)
   def test_no_choice_in_a_value(self):
     from curry.backends.py import graph
     from curry.backends.py.eval import configuration
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     choice = graph.Node(rts.Choice, 5, rts.expr(1), rts.expr(2))
     config = configuration.Configuration(graph.Node(rts.prelude.Just, choice))
     with self.assertRaisesRegex(_checker().InvariantViolation, r'B1 \(yield\)'):
@@ -428,7 +428,7 @@ dup2 = let x = True ? False in let y = True ? False in (x, y, x, y)
     '''A nested configuration that decides an identifier against the
     enclosing configuration.'''
     from curry.backends.py.eval import configuration
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     rts.C.fingerprint[40] = LEFT
     sid = rts.create_setfunction()
     qid = rts.create_queue(sid, rts.expr(2))
@@ -445,7 +445,7 @@ class TestFreeVariables(CheckerTestCase):
   '''RI X1, X-b', X-c.'''
   def test_one_generator_per_variable(self):
     from curry.backends.py import graph
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     x = rts.freshvar()
     vid = x.successors[0]
     gen = graph.Node(rts.Choice, vid, rts.expr(True), rts.expr(False))
@@ -456,7 +456,7 @@ class TestFreeVariables(CheckerTestCase):
 
   def test_root_identifier_is_the_variables(self):
     from curry.backends.py import graph
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     x = rts.freshvar()
     bad = graph.Node(rts.Choice, 424242, rts.expr(True), rts.expr(False))
     with self.assertRaisesRegex(_checker().InvariantViolation, 'X1.*root of the generator'):
@@ -464,7 +464,7 @@ class TestFreeVariables(CheckerTestCase):
 
   def test_no_decided_variable_in_a_value(self):
     from curry.backends.py.eval import configuration
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     x = rts.freshvar()
     config = configuration.Configuration(x)
     config.fingerprint[x.successors[0]] = LEFT
@@ -475,8 +475,8 @@ class TestFreeVariables(CheckerTestCase):
     '''A decided root with an undecided inner identifier.'''
     from curry.backends.py.eval import configuration, rts_freevars
     M = curry.compile('data T3 = P | Q | R', modulename='CheckerT3')
-    interp = curry.getInterpreter()
-    rts = _state(curry.raw_expr(1))
+    interp = cytest.raw.interp()
+    rts = _state(cytest.raw.expr(1))
     x = rts.freshvar()
     rts_freevars._make_generator(rts, x, interp.type('CheckerT3.T3'))
     # The left alternative of the root holds the inner choice (P ? Q).
@@ -489,7 +489,7 @@ class TestFreeVariables(CheckerTestCase):
     '''A private copy of the spine whose reduct differs from the root it
     replaces.'''
     from curry.backends.py import graph
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     old = graph.Node(rts.prelude.Just, rts.expr(2))
     new = graph.Node(rts.prelude.Just, rts.expr(1))
     with self.assertRaisesRegex(_checker().InvariantViolation, 'X-b'):
@@ -509,7 +509,7 @@ h2 :: Int
 h2 = g2 5 y where y free
 ''', modulename='CheckerInst')
     original = utility.copy_spine
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     def corrupt(root, realpath, end=None, rewrite=None):
       result = original(root, realpath, end=end, rewrite=rewrite)
       if rewrite is not None:
@@ -518,7 +518,7 @@ h2 = g2 5 y where y free
     utility.copy_spine = corrupt
     try:
       with self.assertRaisesRegex(_checker().InvariantViolation, 'X-b'):
-        list(curry.eval(M.h2, converter=None))
+        list(cytest.raw.values(M.h2))
     finally:
       utility.copy_spine = original
 
@@ -531,8 +531,8 @@ class TestAuditChecks(CheckerTestCase):
     '''E5: a decided class of two variables whose root has no generator
     (issue #127).'''
     from curry.backends.py.eval import configuration, rts_freevars
-    interp = curry.getInterpreter()
-    rts = _state(curry.raw_expr(1))
+    interp = cytest.raw.interp()
+    rts = _state(cytest.raw.expr(1))
     x = rts.freshvar()
     y = rts.freshvar()
     rts_freevars._make_generator(rts, x, interp.type('Prelude.Bool'))
@@ -549,8 +549,8 @@ class TestAuditChecks(CheckerTestCase):
     '''D15: a decided class {x, y} whose generator instance holds y (the
     occurs check of the decision of 2026-10-12).'''
     from curry.backends.py.eval import configuration, rts_freevars
-    interp = curry.getInterpreter()
-    rts = _state(curry.raw_expr(1))
+    interp = cytest.raw.interp()
+    rts = _state(cytest.raw.expr(1))
     x = rts.freshvar()
     rts_freevars._make_generator(rts, x, interp.type('Prelude.Maybe'))
     # The generator of x is Nothing ?_x Just y, with y its inner variable.
@@ -574,9 +574,9 @@ class TestAuditChecks(CheckerTestCase):
     constructor term is not.'''
     from curry.backends.py import graph
     from curry.backends.py.eval import rts_freevars
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     P = interp.prelude
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     x = rts.freshvar()
     y = rts.freshvar()
     rts_freevars._make_generator(rts, x, interp.type('Prelude.Bool'))
@@ -601,7 +601,7 @@ class TestAuditChecks(CheckerTestCase):
   def test_one_binding_per_class(self):
     '''E11: a binding under a member of its class (issue #128).'''
     from curry.backends.py.eval import configuration
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     x = rts.freshvar()
     y = rts.freshvar()
     xid, yid = x.successors[0], y.successors[0]
@@ -620,8 +620,8 @@ class TestAuditChecks(CheckerTestCase):
     the continuation, or reported with a cell the configuration never
     held: a violation.  With the guard above the result: none.'''
     from curry.backends.py import graph
-    P = curry.getInterpreter().prelude
-    rts = _state(curry.raw_expr(1))
+    P = cytest.raw.interp().prelude
+    rts = _state(cytest.raw.expr(1))
     config = rts.C
     x = rts.freshvar()
     y = rts.freshvar()
@@ -663,8 +663,8 @@ class TestAuditChecks(CheckerTestCase):
     the checker counts it (unguarded_merges).  One cell under both roots,
     or one bound root, is not counted.'''
     from curry.backends.py import graph
-    P = curry.getInterpreter().prelude
-    rts = _state(curry.raw_expr(1))
+    P = cytest.raw.interp().prelude
+    rts = _state(cytest.raw.expr(1))
     config = rts.C
     x = rts.freshvar()
     y = rts.freshvar()
@@ -685,7 +685,7 @@ class TestAuditChecks(CheckerTestCase):
     '''Def 2.40: the root cell of a dropped configuration holds the symbol
     and the successors it held at the dispatch (issue #126).'''
     from curry.backends.py import graph
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     root = graph.Node(rts.prelude.Just, rts.expr(2))
     rts.checker.dispatch(root)
     root.successors[0] = rts.expr(3)
@@ -701,7 +701,7 @@ class TestAuditChecks(CheckerTestCase):
     '''The dispatches and drops of a nested scheduler (a set function
     inside a step) keep the record of the outer dispatch.'''
     from curry.backends.py import graph
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     outer = graph.Node(rts.prelude.Just, rts.expr(2))
     rts.checker.dispatch(outer)
     rts.checker.enter_scheduler()
@@ -717,7 +717,7 @@ class TestAuditChecks(CheckerTestCase):
 class TestSetFunctions(CheckerTestCase):
   '''RI S0, S-split, and the failure rule F2 (d1), (d2), (d3).'''
   def test_escape_set_holds_argument_derived_identifiers(self):
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     sid = rts.create_setfunction()
     with self.assertRaisesRegex(_checker().InvariantViolation, r'S0 \(E in A\)'):
       rts.update_escape_set(sid, 4242)
@@ -725,7 +725,7 @@ class TestSetFunctions(CheckerTestCase):
   def test_fork_inside_a_capsule_is_function_derived(self):
     from curry.backends.py import graph
     from curry.backends.py.eval.fairscheme import D
-    rts = _state(curry.raw_expr(0))
+    rts = _state(cytest.raw.expr(0))
     sid = rts.create_setfunction()
     choice = graph.Node(rts.Choice, 777, rts.expr(1), rts.expr(2))
     qid = rts.create_queue(sid, choice)
@@ -744,7 +744,7 @@ class TestSetFunctions(CheckerTestCase):
     rule off for the state.'''
     from curry.backends.py import graph
     from curry.backends.py.eval.fairscheme import D
-    rts = _state(curry.raw_expr(0))
+    rts = _state(cytest.raw.expr(0))
     outer = rts.create_setfunction()
     inner = rts.create_setfunction()
     choice = graph.Node(rts.Choice, 778, rts.expr(1), rts.expr(2))
@@ -769,7 +769,7 @@ class TestSetFunctions(CheckerTestCase):
     capsule without a split (choice_escapes turned off for the state).'''
     from curry.backends.py import graph
     from curry.backends.py.eval.fairscheme import D
-    rts = _state(curry.raw_expr(0))
+    rts = _state(cytest.raw.expr(0))
     rts.C.fingerprint[779] = LEFT
     sid = rts.create_setfunction()
     choice = graph.Node(rts.Choice, 779, rts.expr(1), rts.expr(2))
@@ -788,7 +788,7 @@ class TestSetFunctions(CheckerTestCase):
     '''A pull-tab whose path crosses a box without an insertion into the
     escape set of the set (def:s-pull).'''
     from curry.backends.py import graph
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     sid = rts.create_setfunction()
     a, b = rts.expr(1), rts.expr(2)
     target = graph.Node(rts.Choice, 7, a, b)
@@ -808,7 +808,7 @@ class TestSetFunctions(CheckerTestCase):
     '''A split on a function-derived identifier no enclosing configuration
     decided.'''
     from curry.backends.py.eval import configuration, queue
-    rts = _state(curry.raw_expr(0))
+    rts = _state(cytest.raw.expr(0))
     sid = rts.create_setfunction()
     c1 = configuration.Configuration(rts.expr(1))
     Q = queue.Queue([c1], sid=sid)
@@ -818,7 +818,7 @@ class TestSetFunctions(CheckerTestCase):
 
   def test_split_invariant(self):
     from curry.backends.py.eval import configuration, queue
-    rts = _state(curry.raw_expr(0))
+    rts = _state(cytest.raw.expr(0))
     sid = rts.create_setfunction()
     rts.checker.tags[9] = frozenset([sid])
     c1 = configuration.Configuration(rts.expr(1))
@@ -835,7 +835,7 @@ class TestSetFunctions(CheckerTestCase):
 
   def test_escape_sets_only_grow(self):
     from curry.backends.py.eval import configuration
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     sid = rts.create_setfunction()
     rts.checker.tags[31] = frozenset([sid])
     rts.update_escape_set(sid, 31)
@@ -848,7 +848,7 @@ class TestSetFunctions(CheckerTestCase):
     crossed, less the set of the capsule, with the level at which it
     entered the chain; a failure that crossed no guard is an inside
     failure.'''
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     outer = rts.create_setfunction()
     inner = rts.create_setfunction()
     rts.push_queue(sid=outer)
@@ -882,7 +882,7 @@ class TestSetFunctions(CheckerTestCase):
     recorded no inside failure and recorded some outside failure, and the
     empty set otherwise.  F2 (d3): the failure goes under the guards of
     the records at the least level, together.'''
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     outer = frozenset([7])
     check = rts.checker.check_capsule_end
     check(0, False, [], None)
@@ -917,11 +917,11 @@ k x y = if x then (if y then 1 else 2) else 3
   def test_tree(self):
     '''The tree of k: one case on the first argument.'''
     M = curry.compile(self.SOURCE, modulename='CheckerTree')
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     tree = rts.checker._tree(M.k.info)
     self.assertEqual(tree.path, [0])
     self.assertEqual(sorted(tree.branches), [0, 1])
-    self.assertIsNone(rts.checker._tree(curry.getInterpreter().prelude.apply.info))
+    self.assertIsNone(rts.checker._tree(cytest.raw.interp().prelude.apply.info))
 
   def test_hnf_at_an_inductive_position(self):
     '''A step that demands the second argument first.'''
@@ -933,7 +933,7 @@ k x y = if x then (if y then 1 else 2) else 3
       return step
     self.replace_step(M, 'k', make_step)
     with self.assertRaisesRegex(_checker().InvariantViolation, r'B2.*position \[1\]'):
-      list(curry.eval(curry.raw_expr([M.k, True, False]), converter=None))
+      list(cytest.raw.values(cytest.raw.expr([M.k, True, False])))
 
   def test_failure_from_an_exempt_leaf(self):
     '''A step that fails on a matched rule.'''
@@ -945,12 +945,12 @@ k x y = if x then (if y then 1 else 2) else 3
       return step
     self.replace_step(M, 'k', make_step)
     with self.assertRaisesRegex(_checker().InvariantViolation, r'B2 \(failure\)'):
-      list(curry.eval(curry.raw_expr([M.k, True, False]), converter=None))
+      list(cytest.raw.values(cytest.raw.expr([M.k, True, False])))
 
   def test_unchanged_step_passes(self):
     M = curry.compile(self.SOURCE, modulename='CheckerPass')
     self.assertEqual(
-        [curry.topython(v) for v in curry.eval(curry.raw_expr([M.k, True, False]), converter=None)]
+        [cytest.raw.interp().topython(v) for v in cytest.raw.values(cytest.raw.expr([M.k, True, False]))]
       , [2]
       )
 
@@ -990,7 +990,7 @@ class TestDroppedBox(cytest.TestCase):
     from curry.backends.py import graph
     curry.reload({'backend': 'py', 'checker': True})
     try:
-      rts = _state(curry.raw_expr(1))
+      rts = _state(cytest.raw.expr(1))
       a, b = rts.expr(1), rts.expr(2)
       target = graph.Node(rts.Choice, 7, a, b)
       Just = rts.prelude.Just
@@ -1027,7 +1027,7 @@ class TestForwardChain(cytest.TestCase):
     '''
     from curry.backends.py import graph
     from curry.backends.py.eval.fairscheme import N
-    rts = _state(curry.raw_expr(1))
+    rts = _state(cytest.raw.expr(1))
     sids = [rts.create_setfunction(), rts.create_setfunction()]
     choice = graph.Node(rts.Choice, 7, rts.expr(1), rts.expr(2))
     rts.E = graph.Node(rts.prelude.Just, make(rts, sids, choice))
@@ -1136,7 +1136,7 @@ class TestSharedArgument(cytest.TestCase):
     curry.reload({'backend': 'py', 'checker': True})
     try:
       M = curry.compile(BIG_STEP, modulename='CheckerBigStepChecked')
-      rts = _state(curry.raw_expr(M.bigThenOutside))
+      rts = _state(cytest.raw.expr(M.bigThenOutside))
       values = sorted(str(v) for v in rts.generate_values())
       counts = rts.checker.counts
     finally:

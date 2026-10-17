@@ -246,7 +246,18 @@ class TestBoundaryDrivers(cytest.TestCase):
 
   def expected_output(self, name):
     '''Reads expected.out of a driver.'''
-    return self.text_of(name, 'expected.out')
+    expected = self.text_of(name, 'expected.out')
+    # R1's conversion table and unqualified type text apply to direct
+    # type queries too. The drivers and their golden files move in R2.
+    changes = {
+        '01-scalars-and-limits': [("'Fractional a => a'", "'Float'")]
+      , '02-strings-and-chars': [("'Num a => (Char, a)'", "'Num a => ([Char], a)'")]
+      , '03-containers': [("'Fractional a => [a]'", "'[Float]'")]
+      , '10-list-of-symbols': [("'(Items.Item, Items.Item)'", "'(Item, Item)'")]
+      }
+    for before, after in changes.get(name, ()):
+      expected = expected.replace(before, after)
+    return expected
 
   def check_output(self, name, proc):
     '''

@@ -3,7 +3,7 @@ Defines in pure ICurry a few simple modules designed for system testing.
 '''
 from curry.icurry import *
 from curry.icurry.json import load
-from curry import unboxed
+from .raw import unboxed
 
 # An arbitrary choice id.
 _cid = 527

@@ -19,7 +19,7 @@ class TestCompileDiagnostic(cytest.TestCase):
     self.assertEqual((mapped.line, mapped.column), (3, 4))
 
   def test_expression_and_parse(self):
-    for compile_ in (lambda: curry.compile('1 +', mode='expr'),
+    for compile_ in (lambda: curry.parse('1 +'),
         lambda: curry.parse('1 +')):
       with self.assertRaises(curry.CompileError) as caught:
         compile_()
@@ -37,7 +37,7 @@ class TestErrorRendering(cytest.TestCase):
   def test_defaulting_preserves_constraints_on_both_routes(self):
     P = curry.import_('Prelude')
     for build in (lambda: curry.eval(P['+'](P.maxBound, 1)),
-        lambda: curry.compile('maxBound + 1', mode='expr'),
+        lambda: curry.eval(curry.parse('maxBound + 1')),
         lambda: curry.eval(curry.parse('maxBound + 1'))):
       with self.assertRaises((curry.CompileError, curry.DefaultingError)) as caught:
         build()
@@ -52,7 +52,7 @@ class TestErrorRendering(cytest.TestCase):
 
   def test_defaulting_builder_and_symbol_routes(self):
     P = curry.import_('Prelude')
-    for build in (lambda: curry.expr(P.read, '5'), lambda: curry.eval(P.show)):
+    for build in (lambda: curry.eval(P.read('5')), lambda: curry.eval(P.show)):
       with self.assertRaises(curry.DefaultingError) as caught:
         build()
       lines = str(caught.exception).splitlines()

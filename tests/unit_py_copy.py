@@ -19,7 +19,7 @@ import curry, unittest
 
 def long_list(n):
   '''Builds the list [1..n] without recursion.'''
-  prelude = curry.getInterpreter().prelude
+  prelude = cytest.raw.interp().prelude
   tail = Node(prelude.Nil)
   for i in range(n, 0, -1):
     tail = Node(prelude.Cons, Node(prelude.Int, i), tail)
@@ -61,13 +61,12 @@ class TestPyCopy(cytest.TestCase):
     node = long_list(n)
     dup = node.__deepcopy__()
     self.assertIsNot(dup, node)
-    value = curry.topython(dup)
+    value = cytest.raw.interp().topython(dup)
     self.assertEqual(len(value), n)
     self.assertEqual(value[-1], n)
     self.assertEqual(count_nodes(dup), 2 * n + 1)
     self.assertTrue(disjoint(dup, node))
 
-  @cytest.with_flags(defaultconverter='topython')
   def test_long_list_value(self):
     '''
     The value of ``[1..n]`` leaves the graph through the copier with
@@ -78,7 +77,7 @@ class TestPyCopy(cytest.TestCase):
     '''
     n = 10000
     M = curry.import_('StackGuard')
-    value, = curry.eval(M.longList, n)
+    value, = curry.eval((M.longList)(n))
     self.assertEqual(len(value), n)
     self.assertEqual(value[-1], n)
 
@@ -88,7 +87,7 @@ class TestPyCopy(cytest.TestCase):
     itself.  The recursive copier raised RecursionError.
     '''
     anchor, ref = curry.expressions.anchor, curry.ref
-    node = curry.raw_expr(anchor([ref()]))
+    node = cytest.raw.expr(anchor([ref()]))
     self.assertIs(node.successors[0], node)
     dup = node.__deepcopy__()
     self.assertIsNot(dup, node)
@@ -100,8 +99,8 @@ class TestPyCopy(cytest.TestCase):
 
   def test_cycle_of_two_nodes_copies(self):
     # let a=(0:b), b=(1:a) in a
-    cons, ref = curry.cons, curry.ref
-    node = curry.raw_expr(ref('a'), a=cons(0, ref('b')), b=cons(1, ref('a')))
+    cons, ref = cytest.raw.cons, curry.ref
+    node = cytest.raw.expr(ref('a'), a=cons(0, ref('b')), b=cons(1, ref('a')))
     dup = node.__deepcopy__()
     self.assertIs(dup.successors[1].successors[1], dup)
     self.assertTrue(disjoint(dup, node))
@@ -116,9 +115,9 @@ class TestPyCopy(cytest.TestCase):
     ``2 ** depth`` leaves.  The copy must keep the sharing.
     '''
     depth = 16
-    node = curry.expr(0)
+    node = cytest.raw.expr(0, typed=True)
     for _ in range(depth):
-      node = curry.expr((node, node))
+      node = cytest.raw.expr((node, node), typed=True)
     self.assertEqual(count_nodes(node), depth + 1)
     dup = node.__deepcopy__()
     self.assertIsNot(dup, node)
@@ -136,9 +135,9 @@ class TestPyCopy(cytest.TestCase):
     still counts (see rts_control.make_value).  The C++ copier has the same
     rule.
     '''
-    var = curry.raw_expr(curry.free(7))
+    var = cytest.raw.expr(curry.free(7))
     self.assertTrue(inspect.isa_freevar(var))
-    node = curry.raw_expr([var, 1, var])
+    node = cytest.raw.expr([var, 1, var])
     self.assertIs(node.successors[0], var)
     copier = GraphCopier()
     dup = copier(node)
@@ -158,7 +157,7 @@ class TestPyCopy(cytest.TestCase):
     could not leave the graph as a value.
     '''
     from curry.backends.py.currylib.prelude import string
-    prelude = curry.getInterpreter().prelude
+    prelude = cytest.raw.interp().prelude
     literal = string.codepoints('abc')
     items = iter([1, 2])
     node = Node(
@@ -179,10 +178,10 @@ class TestPyCopy(cytest.TestCase):
     forward node.
     '''
     fwd = curry.expressions.fwd
-    node = curry.raw_expr([fwd(1), fwd(fwd(2))])
+    node = cytest.raw.expr([fwd(1), fwd(fwd(2))])
     dup = copygraph(node, skipfwd=True)
     self.assertFalse(any(inspect.isa_fwd(x) for x in nodes_of(dup)))
-    self.assertEqual(curry.topython(dup), [1, 2])
+    self.assertEqual(cytest.raw.interp().topython(dup), [1, 2])
     kept = copygraph(node)
     self.assertEqual(sum(1 for x in nodes_of(kept) if inspect.isa_fwd(x)), 3)
     self.assertEqual(repr(kept), repr(node))
@@ -190,12 +189,12 @@ class TestPyCopy(cytest.TestCase):
 
   def test_skip_setguard(self):
     # ``skipgrds`` removes the set guards of the given sets.
-    node = curry.raw_expr(_setgrd(7, [1, _setgrd(8, 2)]))
+    node = cytest.raw.expr(_setgrd(7, [1, _setgrd(8, 2)]))
     dup = copygraph(node, skipgrds={7})
     self.assertTrue(inspect.isa_cons(dup))
     self.assertTrue(inspect.isa_setguard(dup.successors[1].successors[0]))
     dup = copygraph(node, skipgrds={7, 8})
-    self.assertEqual(curry.topython(dup), [1, 2])
+    self.assertEqual(cytest.raw.interp().topython(dup), [1, 2])
     kept = copygraph(node, skipgrds={9})
     self.assertTrue(inspect.isa_setguard(kept))
     self.assertEqual(repr(kept), repr(node))
@@ -204,9 +203,9 @@ class TestPyCopy(cytest.TestCase):
     # A built-in value and an unboxed successor copy as themselves.
     self.assertEqual(copygraph(5), 5)
     self.assertEqual(copygraph('a'), 'a')
-    # A choice holds its id unboxed.  (curry.unboxed stands only under a
+    # A choice holds its id unboxed.  (cytest.raw.unboxed stands only under a
     # primitive since issue #107.)
-    node = curry.raw_expr(curry.expressions.choice(2, 3, 4))
+    node = cytest.raw.expr(curry.expressions.choice(2, 3, 4))
     dup = copygraph(node)
     self.assertEqual(str(dup), '_Choice 2 3 4')
     self.assertEqual(dup.successors[0], 2)
@@ -214,7 +213,7 @@ class TestPyCopy(cytest.TestCase):
 
   def test_partial_application_copies(self):
     prelude = curry.import_('Prelude')
-    node = curry.raw_expr(prelude.Cons, 1) # (1:)
+    node = cytest.raw.expr(prelude.Cons, 1) # (1:)
     dup = node.__deepcopy__()
     self.assertEqual(repr(dup), repr(node))
     self.assertTrue(disjoint(dup, node))
@@ -225,11 +224,11 @@ class TestPyCopy(cytest.TestCase):
     node in a Python list lead to one copy.  One memo across several calls
     keeps the sharing as well.
     '''
-    node = curry.expr([1, 2])
+    node = cytest.raw.expr([1, 2], typed=True)
     a, b = pycopy.deepcopy([node, node])
     self.assertIs(a, b)
     self.assertIsNot(a, node)
-    self.assertEqual(curry.topython(a), [1, 2])
+    self.assertEqual(cytest.raw.interp().topython(a), [1, 2])
     memo = {}
     c = copygraph(node, memo=memo)
     d = copygraph(node, memo=memo)

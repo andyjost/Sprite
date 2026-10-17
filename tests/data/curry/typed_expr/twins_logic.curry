@@ -6,17 +6,17 @@
 
 goal_free_id = let x1 free in id x1
 goal_free_pair = let x1, x2 free in (x1, x2)
-goal_free_unify = let x1, x2 free in (x1 =:= x2, x1)
-goal_free_bind = let x1 free in (x1 =:= 1) &> x1
-goal_free_append = let x1 free in ((x1 ++ [3]) =:= [1, 2, 3]) &> x1
-goal_free_tuple_eq = let x1 free in ((x1, 2) =:= (1, 2), x1)
+goal_free_unify = let x1, x2 free in ((x1 :: Bool) =:= (x2 :: Bool), (x1 :: Bool))
+goal_free_bind = let x1 free in ((x1 :: Int) =:= 1) &> (x1 :: Int)
+goal_free_append = let x1 free in (((x1 :: [Int]) ++ [3]) =:= [1, 2, 3]) &> (x1 :: [Int])
+goal_free_tuple_eq = let x1 free in (((x1 :: Int), 2) =:= (1, 2), (x1 :: Int))
 goal_free_head = let x1, x2 free in head (x1 : x2)
-goal_free_list = let x1 free in [x1, 1]
+goal_free_list = let x1 free in [(x1 :: Int), 1]
 goal_free_typed = let x1 free in id (x1 :: [Int])
 goal_anchor_cycle = let a1 = 1 : a1 in take 2 a1
-goal_anchor_keyword = let xs = 7 : xs in take 3 xs
-goal_anchor_nested = let o = 1 : i; i = 2 : o in take 3 o
+goal_anchor_keyword = let a1 = 7 : a1 in take 3 a1
+goal_anchor_nested = let a1 = 1 : a2; a2 = 2 : a1 in take 3 a1
 goal_anchor_free = let x1 free in let a1 = x1 : a1 in take 2 a1
-goal_anchor_shared = let v = 1 + 2 in v + v
+goal_anchor_shared = let a1 = 1 + 2 in a1 + a1
 goal_choice_nested = 1 ? (2 ? 3)
 goal_choice_list = [1 ? 2, 3]

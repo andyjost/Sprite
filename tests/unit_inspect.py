@@ -11,11 +11,11 @@ def MAP(*args):
 
 class TestInspect(cytest.expression_library.ExpressionLibTestCase):
   def testIsaTypeError(self):
-    self.assertIsa(curry.raw_expr(1), curry.symbol('Prelude.Int'))
+    self.assertIsa(cytest.raw.expr(1), curry.import_('Prelude')['Int'])
     self.assertRaisesRegex(
         TypeError
       , 'arg 2 must be an instance or sequence of curry.objects.CurryNodeInfo objects.'
-      , lambda: inspect.isa(curry.raw_expr(1), self.not_a_node)
+      , lambda: inspect.isa(cytest.raw.expr(1), self.not_a_node)
       )
 
   def testIsaCurryExpr(self):
@@ -43,7 +43,7 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     cache must answer as the checks it replaces do, and it must notice a class
     registered with an ABC after the cache saw its instances.
     '''
-    node = curry.raw_expr(1)
+    node = cytest.raw.expr(1)
     for _ in range(2):
       self.assertTrue(inspect.is_boxed(node))
       for value in [1, 1.0, 'a', True, None, b'ab', memoryview(b'ab'), 1j]:
@@ -76,7 +76,7 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     fall back to the uncached check, whatever the first instance of the type
     answered.
     '''
-    node = curry.raw_expr(1)
+    node = cytest.raw.expr(1)
     def proxy_class():
       class Proxy(object):
         def __init__(self, cls):
@@ -238,7 +238,7 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
   def testSymbolsAndTypes(self):
     curry.path.insert(0, 'data/curry')
     Peano = curry.import_('Peano')
-    Nat = curry.type('Peano.Nat')
+    Nat = curry.info(curry.import_('Peano')).types['Nat']
 
     # inspect.types
     self.assertEqual(inspect.types(Peano), {'Nat': Nat})
@@ -252,7 +252,7 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     SetFunctions = curry.import_('Control.SetFunctions')
     self.assertEqual(
         inspect.gettype(Control, 'SetFunctions.Values')
-      , curry.type('Control.SetFunctions.Values')
+      , curry.info(curry.import_('Control.SetFunctions')).types['Values']
       )
     self.assertEqual(inspect.gettype(Peano, 'Nat'), Nat)
 
@@ -306,7 +306,7 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     self.assertIn('exempt', str(Peano.add.icurry))
     # A constructor and a type give their ICurry.
     self.assertIs(inspect.geticurry(Peano.S), Peano.S.icurry)
-    Nat = curry.type('Peano.Nat')
+    Nat = curry.info(curry.import_('Peano')).types['Nat']
     self.assertIs(inspect.geticurry(Nat), Nat.icurry)
     # A module compiled from a string.
     M = curry.compile('f :: Int -> Int\nf x = x + 1')
@@ -327,7 +327,7 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     code = inspect.getimpl(Peano.add)
     self.assertIsInstance(code, str)
     self.assertEqual(code, Peano.add.getimpl())
-    prim = curry.symbol('Prelude.prim_showFloatLiteral')
+    prim = curry.import_('Prelude')['prim_showFloatLiteral']
     if curry.flags['backend'] == 'py':
       self.assertRegex(code, r'(^|\n)def \w+\(rts, _0\):')
       self.assertIn('Peano.add', code)

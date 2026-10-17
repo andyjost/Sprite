@@ -15,10 +15,10 @@ goal_show = show
 goal_fromjust = Data.Maybe.fromJust
 goal_maxbound = maxBound
 goal_toenum = toEnum 65
-goal_read = read "5"
+goal_read = read ("5" :: [Char])
 goal_enumfrom = enumFrom 1
 goal_return = return 5
-goal_pure_pair = pure (1, 'a')
+goal_pure_pair = pure (1, ('a' :: Char))
 goal_mapm = mapM_ print [1, 2]
-goal_free_eq x1 x2 = x1 =:= x2
+goal_free_eq x1 x2 = (x1 :: Bool) =:= (x2 :: Bool)
 goal_free_const x1 = const 1 x1

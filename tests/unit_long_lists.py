@@ -26,7 +26,7 @@ N = 10000
 LONG = 2000 if cytest.GC_STRESS and not PY else N
 
 def values(*args):
-  return list(curry.eval(*args, converter='topython'))
+  return list(curry.eval(args[0](*args[1:]) if len(args) > 1 else args[0]))
 
 class TestLongLists(cytest.TestCase):
   @cytest.timeout(120)

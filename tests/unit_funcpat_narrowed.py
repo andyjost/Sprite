@@ -59,13 +59,13 @@ distinct f = length (nub (map f [[x, y] ++ ".o" | x <- "abc", y <- "abc"]))
 COMPARISONS = 200
 
 def totals():
-  t = curry.getInterpreter()._evaluation_totals
+  t = cytest.raw.interp()._evaluation_totals
   return t.steps, t.forks
 
 def measure(goal):
   '''The value of a goal with the steps and forks of its evaluation.'''
   steps0, forks0 = totals()
-  value = next(curry.eval(curry.expr(goal), converter='topython'))
+  value = next(curry.eval(curry.term(goal)))
   steps1, forks1 = totals()
   return value, steps1 - steps0, forks1 - forks0
 
@@ -77,9 +77,9 @@ class TestNarrowedName(cytest.TestCase):
     '''The three routes give the same values.'''
     M = self.M
     for f in [M.source, M.sourceS, M.sourceN]:
-      self.assertEqual(next(curry.eval(M.one, f, converter='topython')), True)
-      self.assertEqual(next(curry.eval(M.many, f, converter='topython')), COMPARISONS)
-      self.assertEqual(next(curry.eval(M.distinct, f, converter='topython')), 9)
+      self.assertEqual(next(curry.eval((M.one)(f))), True)
+      self.assertEqual(next(curry.eval((M.many)(f))), COMPARISONS)
+      self.assertEqual(next(curry.eval((M.distinct)(f))), 9)
 
   def test_forks(self):
     '''
@@ -89,12 +89,12 @@ class TestNarrowedName(cytest.TestCase):
     counted as a fork; $## does not change that.
     '''
     M = self.M
-    _, _, forks_once = measure([M.one, M.source])
+    _, _, forks_once = measure(M.one(M.source))
     self.assertEqual(forks_once, 8)
-    _, steps_set, forks_set = measure([M.many, M.sourceS])
+    _, steps_set, forks_set = measure(M.many(M.sourceS))
     self.assertEqual(forks_set, forks_once)
-    _, steps_direct, forks_direct = measure([M.many, M.source])
-    _, steps_nf, forks_nf = measure([M.many, M.sourceN])
+    _, steps_direct, forks_direct = measure(M.many(M.source))
+    _, steps_nf, forks_nf = measure(M.many(M.sourceN))
     per_comparison = (forks_direct - forks_once) / COMPARISONS
     self.assertGreaterEqual(per_comparison, 1)
     self.assertEqual(forks_nf, forks_direct)

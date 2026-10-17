@@ -39,7 +39,6 @@ class TestPyCompile(cytest.TestCase):
       , lambda: curry.compile('data A')
       )
 
-  @cytest.with_flags(defaultconverter='topython')
   def testCompileStringAsModule(self):
     '''Test dynamic module compilation.'''
     text = '''
@@ -48,7 +47,7 @@ class TestPyCompile(cytest.TestCase):
             | True  = (fib (n-1)) + (fib (n-2))
     '''
     fib = curry.compile(text).fib
-    eight = curry.eval(fib, 6)
+    eight = curry.eval((fib)(6))
     self.assertEqual(next(eight), 8)
 
     # Compile another version (zero-based index this time).  Ensure each one
@@ -59,12 +58,11 @@ class TestPyCompile(cytest.TestCase):
             | True  = (fib (n-1)) + (fib (n-2))
     '''
     fib2 = curry.compile(text2).fib
-    five = curry.eval(fib2, 4)
+    five = curry.eval((fib2)(4))
     self.assertEqual(next(five), 5)
-    two = curry.eval(fib, 3)
+    two = curry.eval((fib)(3))
     self.assertEqual(next(two), 2)
 
-  @cytest.with_flags(defaultconverter='topython')
   def testCompileStringAsExpr(self):
     '''Test dynamic expression compilation.'''
     Or = curry.compile(
@@ -77,9 +75,9 @@ class TestPyCompile(cytest.TestCase):
         '''
       , modulename='Or'
       )
-    e = curry.compile('Or.or 0 0', mode='expr', imports=[Or])
+    e = curry.parse('Or.or 0 0', imports=[Or])
     self.assertEqual(next(curry.eval(e)), 0)
-    e = curry.compile('Or.or 0 1', mode='expr', imports=[Or])
+    e = curry.parse('Or.or 0 1', imports=[Or])
     self.assertEqual(next(curry.eval(e)), 1)
 
     # Check that ICurry-generated symbols are hidden.  There are multiple

@@ -20,16 +20,16 @@ class TestCxxRuntime(cytest.TestCase):
   def test_native_exceptions_are_public(self):
     from curry.backends.generic.eval.evaluator import Evaluator
     P = curry.import_('Prelude')
-    x = curry.free()
+    x = curry.free('x')
     goals = [
-        (curry.expr(P.error, 'boom'), curry.EvaluationError, 'boom')
-      , ( curry.expr(getattr(P, '=:='), curry.expr(getattr(P, '+'), x, 1), 3)
+        (cytest.raw.expr(P.error, 'boom', typed=True), curry.EvaluationError, 'boom')
+      , ( cytest.raw.expr(getattr(P, '=:='), cytest.raw.expr(getattr(P, '+'), x, 1, typed=True), 3, typed=True)
         , curry.SuspensionError, 'Evaluation suspended'
         )
       ]
     for goal, error, message in goals:
       with self.subTest(error=error.__name__):
-        evaluator = Evaluator(curry.getInterpreter(), goal)
+        evaluator = Evaluator(cytest.raw.interp(), goal)
         with self.assertRaisesRegex(error, message) as cm:
           evaluator.rts.next()
         self.assertIs(type(cm.exception), error)
@@ -113,8 +113,8 @@ class TestCxxProcess(cytest.TestCase):
     for a program that completes under the cap).
     '''
     code = '''
-import curry, os
-curry.reload({'backend': 'cxx', 'defaultconverter': 'topython'})
+import cytest, curry, os
+curry.reload({'backend': 'cxx'})
 M = curry.import_('CxxRuntime')
 try:
   next(curry.eval(M.unbounded))
@@ -182,7 +182,7 @@ class TestBackendOption(cytest.TestCase):
 # the object of the earlier interpreter, and the Prelude's with it, mapped,
 # and the sequence of the issue is not run.
 RELOAD_CHILD = '''
-import curry, gc, json, os
+import cytest, curry, gc, json, os
 from curry import inspect
 from curry.common import T_FUNC
 def goals(M):
@@ -377,7 +377,7 @@ class TestLibraryTablesInTheirObjects(cytest.TestCase):
   built-ins of the Prelude; Values of Control.SetFunctions).
   '''
   def test_tables(self):
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     libcyrt_path = config.installed_path('lib', 'libcyrt.so')
     libcyrt = os.path.realpath(libcyrt_path)
     runtime = ctypes.CDLL(libcyrt_path)
@@ -419,7 +419,7 @@ class TestLibraryTablesInTheirObjects(cytest.TestCase):
     object with them (the regression of
     test_reload_from_tiered_into_interpreter).
     '''
-    interp = curry.getInterpreter()
+    interp = cytest.raw.interp()
     checked = 0
     for M in (interp.prelude, interp.setfunctions):
       h = getHandle(M)

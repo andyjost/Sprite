@@ -100,7 +100,7 @@ class ToolchainTestCase(cytest.TestCase):
 
   def check_value(self, module, value):
     self.assertEqual(
-        list(curry.eval(module.goal, converter='topython')), [value]
+        list(curry.eval(module.goal)), [value]
       )
 
   def compile_module(self, value):
@@ -140,7 +140,7 @@ class TestPrecompiledHeader(ToolchainTestCase):
     cpp = self.cached_file(module.__name__, '.cpp')
     self.assertTrue(os.path.exists(cpp))
     out = os.path.join(self.tmpdir, 'probe.so')
-    cpp2so = toolchain.Cpp2So(curry.getInterpreter())
+    cpp2so = toolchain.Cpp2So(cytest.raw.interp())
     return list(cpp2so._compileCommand(cpp, out))
 
   def test_builds_once_and_reuses(self):
@@ -192,7 +192,7 @@ class TestPrecompiledHeader(ToolchainTestCase):
     path = os.path.join(self.gch_dir, member)
     pch = toolchain.PrecompiledHeader(
         self.root, config.cxx_tool()
-      , toolchain.Cpp2So(curry.getInterpreter())._cxxflags()
+      , toolchain.Cpp2So(cytest.raw.interp())._cxxflags()
       )
     self.assertEqual(pch.filename, path)
     headers = list(pch.header_files())
@@ -225,7 +225,7 @@ class TestPrecompiledHeader(ToolchainTestCase):
     member, = self.members()
     pch = toolchain.PrecompiledHeader(
         self.root, config.cxx_tool()
-      , toolchain.Cpp2So(curry.getInterpreter())._cxxflags()
+      , toolchain.Cpp2So(cytest.raw.interp())._cxxflags()
       )
     newest_header = max(os.path.getmtime(f) for f in pch.header_files())
     stale = os.path.join(self.gch_dir, 'O3-000000000001.gch')
@@ -354,7 +354,7 @@ class TestFormatStamp(ToolchainTestCase):
     self.assertEqual(head[i + 1], self.stamp(compiler.FORMAT_VERSION))
     self.assertEqual(head[i + 2], '// MODULE: %s\n' % module.__name__)
     self.assertTrue(any(line.startswith('#include') for line in head[i + 3:]))
-    cpp2so = toolchain.Cpp2So(curry.getInterpreter())
+    cpp2so = toolchain.Cpp2So(cytest.raw.interp())
     self.assertEqual(cpp2so.format_version(path), compiler.FORMAT_VERSION)
     self.assertFalse(cpp2so.is_stale(path))
 
@@ -364,7 +364,7 @@ class TestFormatStamp(ToolchainTestCase):
     path = self.write_cpp(
         name, [self.IMPORTS, self.stamp(compiler.FORMAT_VERSION + 1), self.STALE]
       )
-    cpp2so = toolchain.Cpp2So(curry.getInterpreter())
+    cpp2so = toolchain.Cpp2So(cytest.raw.interp())
     self.assertTrue(cpp2so.is_stale(path))
     self.check_value(self.import_module(name), 2)
     text = cytest.readfile(path)
@@ -375,7 +375,7 @@ class TestFormatStamp(ToolchainTestCase):
     '''A file from before the stamp has format 1, and is written again.'''
     name = self.write_json(3)
     path = self.write_cpp(name, [self.IMPORTS, self.STALE])
-    cpp2so = toolchain.Cpp2So(curry.getInterpreter())
+    cpp2so = toolchain.Cpp2So(cytest.raw.interp())
     self.assertEqual(cpp2so.format_version(path), 1)
     self.assertTrue(cpp2so.is_stale(path))
     self.check_value(self.import_module(name), 3)
@@ -407,7 +407,7 @@ class TestFormatStamp(ToolchainTestCase):
     '''
     module = self.compile_module(5)
     name = module.__name__
-    plan = plans.makeplan(curry.getInterpreter(), plans.MAKE_ALL | plans.ZIP_JSON)
+    plan = plans.makeplan(cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON)
     prereq = _findcurry.currentfile(plan, name, [self.srcdir])
     self.assertEqual(prereq, self.cached_file(name, '.so'))
     self.write_cpp(name, [self.IMPORTS, self.stamp(1), self.STALE])
@@ -424,7 +424,7 @@ class TestFormatStamp(ToolchainTestCase):
     name = self.write_json(8)
     path = self.write_cpp(name, [self.IMPORTS, self.stamp(1), self.STALE])
     plan = plans.makeplan(
-        curry.getInterpreter()
+        cytest.raw.interp()
       , plans.MAKE_ICURRY | plans.MAKE_JSON | plans.MAKE_TARGET_SOURCE
             | plans.ZIP_JSON
       )
@@ -473,7 +473,7 @@ class TestFormatStamp(ToolchainTestCase):
     comments.
     '''
     module = self.compile_module(7)
-    cpp2so = toolchain.Cpp2So(curry.getInterpreter())
+    cpp2so = toolchain.Cpp2So(cytest.raw.interp())
     path = self.cached_file(module.__name__, '.cpp')
     with open(path) as stream:
       head = [next(stream) for _ in range(3)]
@@ -545,9 +545,9 @@ class TestAbiStamp(ToolchainTestCase):
   def setUp(self):
     super().setUp()
     self.plan = plans.makeplan(
-        curry.getInterpreter(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
       )
-    self.cpp2so = toolchain.Cpp2So(curry.getInterpreter())
+    self.cpp2so = toolchain.Cpp2So(cytest.raw.interp())
 
   def prerequisite(self, name):
     return _findcurry.currentfile(self.plan, name, [self.srcdir])
@@ -1079,7 +1079,7 @@ class TestAbiStamp(ToolchainTestCase):
     '''
     module = self.compile_module(5)
     code = '\n'.join([
-        'import curry, json'
+        'import cytest, curry, json'
       , 'from curry.toolchain import _system'
       , 'commands = []'
       , 'pexec = _system.pexec'
@@ -1089,7 +1089,7 @@ class TestAbiStamp(ToolchainTestCase):
       , '_system.pexec = counting_pexec'
       , 'module = curry.import_(%r, currypath=%r)'
             % (module.__name__, [self.srcdir] + curry.path)
-      , 'value = list(curry.eval(module.goal, converter="topython"))'
+      , 'value = list(curry.eval(module.goal))'
       , 'print(json.dumps([commands, value]))'
       ])
     proc = cytest.run_in_subprocess(code, timeout=300)
@@ -1135,7 +1135,7 @@ INT_LITERAL = '{"__class__":"ILit","lit":{"__class__":"IInt","value":%d}}'
 # of the toolchain counted, and prints the commands, the value, the source
 # file and the object of the module, and the compile seconds, as JSON.
 COUNTING_IMPORT = '\n'.join([
-    'import curry, json, os'
+    'import cytest, curry, json, os'
   , 'from curry.objects.handle import getHandle'
   , 'from curry.toolchain import _system'
   , 'commands = []'
@@ -1145,7 +1145,7 @@ COUNTING_IMPORT = '\n'.join([
   , '  return pexec(cmd, *args, **kwds)'
   , '_system.pexec = counting_pexec'
   , 'module = curry.import_(%(name)r, currypath=%(currypath)r)'
-  , 'value = list(curry.eval(module.goal, converter="topython"))'
+  , 'value = list(curry.eval(module.goal))'
   , 'print(json.dumps(['
   , '    commands, value, module.__file__, getHandle(module).sofilename'
   , '  , curry.stats()["compile"]'
@@ -1175,9 +1175,9 @@ class TestPortableObjects(ToolchainTestCase):
   def setUp(self):
     super().setUp()
     self.plan = plans.makeplan(
-        curry.getInterpreter(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
       )
-    self.cpp2so = toolchain.Cpp2So(curry.getInterpreter())
+    self.cpp2so = toolchain.Cpp2So(cytest.raw.interp())
 
   def write_calling_json(self, value, imported=None, callee=None, args=()):
     '''
@@ -1419,11 +1419,11 @@ class TestPortableObjects(ToolchainTestCase):
     self.assertEqual(loader.needed_modules(sofile), ['Prelude', first])
     self.assertTrue(os.path.isfile(self.cached_file(first, '.so')))
     code = '\n'.join([
-        'import curry, json, os, sys'
+        'import cytest, curry, json, os, sys'
       , 'from curry.objects.handle import getHandle'
       , 'curry.path.insert(0, %r)' % self.srcdir
       , 'M = curry.load(%r)' % sofile
-      , 'value = list(curry.eval(M.goal, converter="topython"))'
+      , 'value = list(curry.eval(M.goal))'
       , 'first = curry.modules[%r]' % first
       , 'print(json.dumps([value, getHandle(first).sofilename, getHandle(M).sofilename]))'
       , 'curry.reset()'
@@ -1515,10 +1515,10 @@ class TestPortableObjects(ToolchainTestCase):
     # The import loses its stamp.
     os.unlink(self.cpp2so.stampfile(first_sofile))
     code = '\n'.join([
-        'import curry, json'
+        'import cytest, curry, json'
       , 'from curry.objects.handle import getHandle'
       , 'M = curry.import_(%r, currypath=%r)' % (second, [self.srcdir])
-      , 'value = list(curry.eval(M.goal, converter="topython"))'
+      , 'value = list(curry.eval(M.goal))'
       , 'first = curry.modules[%r]' % first
       , 'print(json.dumps(['
       , '    value, getHandle(first).sofilename, getHandle(M).sofilename'
@@ -1599,12 +1599,12 @@ class TestPortableObjects(ToolchainTestCase):
     cppfile = os.path.join(out, name + '.cpp')
     shutil.copy(self.cached_file(name, '.cpp'), cppfile)
     code = '\n'.join([
-        'import curry, json'
+        'import cytest, curry, json'
       , 'from curry.backends.cxx import toolchain'
       , 'from curry.objects.handle import getHandle'
-      , 'sofile = toolchain.Cpp2So(curry.getInterpreter())(%r, curry.path)' % cppfile
+      , 'sofile = toolchain.Cpp2So(cytest.raw.interp())(%r, curry.path)' % cppfile
       , 'M = curry.load(sofile)'
-      , 'value = list(curry.eval(M.goal, converter="topython"))'
+      , 'value = list(curry.eval(M.goal))'
       , 'print(json.dumps([sofile, value, M.__file__, getHandle(M).sofilename]))'
       ])
     env = {
@@ -1645,9 +1645,9 @@ class TestFlavor(ToolchainTestCase):
   def setUp(self):
     super().setUp()
     self.plan = plans.makeplan(
-        curry.getInterpreter(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
       )
-    self.cpp2so = toolchain.Cpp2So(curry.getInterpreter())
+    self.cpp2so = toolchain.Cpp2So(cytest.raw.interp())
 
   def prerequisite(self, name):
     return _findcurry.currentfile(self.plan, name, [self.srcdir])
@@ -1835,7 +1835,7 @@ class TestFlavor(ToolchainTestCase):
     and its stamp names the debug flavor.  The objects of the installation
     are kept: the Prelude is not compiled again.
     '''
-    cpp2so = toolchain.Cpp2So(curry.getInterpreter())
+    cpp2so = toolchain.Cpp2So(cytest.raw.interp())
     self.assertEqual(cpp2so.flavor, 'debug')
     self.assertEqual(cpp2so.digest(), toolchain.object_digest('debug'))
     self.assertEqual(
@@ -1873,7 +1873,7 @@ class TestFlavor(ToolchainTestCase):
     # A step of the debug flavor on the interpreter of the session: the
     # staleness check imports the imports of a module (import_lacks_an_object).
     debug = toolchain.Cpp2So(types.SimpleNamespace(
-        flags={'debug': True}, import_=curry.getInterpreter().import_
+        flags={'debug': True}, import_=cytest.raw.interp().import_
       ))
     self.assertEqual(release.flavor, 'release')
     self.assertEqual(debug.flavor, 'debug')
@@ -1923,7 +1923,7 @@ class TestMissingCompiler(ToolchainTestCase):
     '''
     module = self.compile_module(13)
     code = '\n'.join([
-        'import curry, json'
+        'import cytest, curry, json'
       , 'from curry import config'
       , 'from curry.toolchain import _system'
       , 'config.cxx_tool = lambda cached=None: None'
@@ -1932,7 +1932,7 @@ class TestMissingCompiler(ToolchainTestCase):
       , '_system.pexec = no_pexec'
       , 'module = curry.import_(%r, currypath=%r)'
             % (module.__name__, [self.srcdir] + curry.path)
-      , 'print(json.dumps(list(curry.eval(module.goal, converter="topython"))))'
+      , 'print(json.dumps(list(curry.eval(module.goal))))'
       ])
     proc = cytest.run_in_subprocess(code, timeout=300)
     self.assertEqual(proc.returncode, 0, proc.stderr)

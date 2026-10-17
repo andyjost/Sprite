@@ -11,37 +11,37 @@ import curry, unittest
   )
 class TestPyGraph(cytest.TestCase):
   def setUp(self):
-    self.interp = curry.getInterpreter()
+    self.interp = cytest.raw.interp()
     self.P = self.interp.prelude
 
   def test_node_slots(self):
     '''A node holds its info and its successors, nothing else.'''
-    node = curry.raw_expr([self.P.Just, 1])
+    node = cytest.raw.expr([self.P.Just, 1])
     self.assertFalse(hasattr(node, '__dict__'))
     self.assertRaises(AttributeError, setattr, node, 'extra', 1)
     self.assertIs(node.info, self.P.Just.info)
     self.assertEqual(len(node.successors), 1)
-    self.assertEqual(curry.topython(node.successors[0]), 1)
+    self.assertEqual(cytest.raw.interp().topython(node.successors[0]), 1)
 
   def test_node_construction(self):
     '''Checks the forms of info and the keywords accepted by Node.'''
     Int = self.P.Int
     one = Node(Int.info, 1)                   # an InfoTable
-    self.assertEqual(curry.topython(one), 1)
+    self.assertEqual(cytest.raw.interp().topython(one), 1)
     two = Node(Int, 2)                        # a CurryNodeInfo
-    self.assertEqual(curry.topython(two), 2)
+    self.assertEqual(cytest.raw.interp().topython(two), 2)
     three = Node([Int.info, 3])               # a sequence
-    self.assertEqual(curry.topython(three), 3)
+    self.assertEqual(cytest.raw.interp().topython(three), 3)
     four = Node(x for x in [Int.info, 4])     # a generator
-    self.assertEqual(curry.topython(four), 4)
+    self.assertEqual(cytest.raw.interp().topython(four), 4)
     # The target is rewritten in place.  It may be a variable.
     Node(Int.info, 5, target=one)
-    self.assertEqual(curry.topython(one), 5)
+    self.assertEqual(cytest.raw.interp().topython(one), 5)
     rts = RuntimeState(self.interp, two)
     Node(Int.info, 6, target=rts.variable(two))
-    self.assertEqual(curry.topython(two), 6)
+    self.assertEqual(cytest.raw.interp().topython(two), 6)
     Node((x for x in [Int.info, 7]), target=one)
-    self.assertEqual(curry.topython(one), 7)
+    self.assertEqual(cytest.raw.interp().topython(one), 7)
     # A variable as a successor stands for its target.
     just = Node(self.P.Just.info, rts.variable(two))
     self.assertIs(just.successors[0], two)
@@ -66,8 +66,8 @@ class TestPyGraph(cytest.TestCase):
   def test_variable(self):
     '''Checks the path and the guards of variables made by indexing.'''
     P = self.P
-    inner = curry.raw_expr([P.id, True])
-    e = curry.raw_expr([P.id, fwd(_setgrd(0, inner))])
+    inner = cytest.raw.expr([P.id, True])
+    e = cytest.raw.expr([P.id, fwd(_setgrd(0, inner))])
     rts = RuntimeState(self.interp, e)
     _0 = rts.variable(e)
     self.assertFalse(hasattr(_0, '__dict__'))
@@ -104,7 +104,7 @@ class TestPyGraph(cytest.TestCase):
     self.assertEqual(rvalue.successors[0], 0)
     self.assertIs(rvalue.successors[1], _2.target)
     # A variable over an unboxed value.
-    one = curry.raw_expr(1)
+    one = cytest.raw.expr(1)
     _3 = rts.variable(one, 0)
     self.assertEqual(_3.target, 1)
     self.assertEqual(_3.realpath, [0])
@@ -119,9 +119,9 @@ class TestPyGraph(cytest.TestCase):
   def test_copy_spine(self):
     '''copy_spine copies the nodes along a path and shares the rest.'''
     P = self.P
-    just1 = curry.raw_expr([P.Just, 1])
-    e = curry.raw_expr([P.id, [P.Just, just1]])
-    two = curry.raw_expr(2)
+    just1 = cytest.raw.expr([P.Just, 1])
+    e = cytest.raw.expr([P.id, [P.Just, just1]])
+    two = cytest.raw.expr(2)
     # A new root.
     r = utility.copy_spine(e, [0, 0], end=two)
     self.assertIsNot(r, e)
@@ -148,7 +148,7 @@ class TestPyGraph(cytest.TestCase):
     self.assertIs(inner.successors[0], just1)
     # The rewrite target and the end may be variables.
     rts = RuntimeState(self.interp, e)
-    three = curry.raw_expr(3)
+    three = cytest.raw.expr(3)
     utility.copy_spine(e, [0, 0], end=rts.variable(three), rewrite=rts.variable(e))
     self.assertIs(e.successors[0].successors[0], three)
     # Only a function node can be rewritten.
@@ -159,7 +159,7 @@ class TestPyGraph(cytest.TestCase):
 
   def test_walk_push(self):
     '''walk pushes the successors of a node and nothing for a literal.'''
-    e = curry.raw_expr([self.P.Just, 1])
+    e = cytest.raw.expr([self.P.Just, 1])
     state = walk(e)
     self.assertIs(state.cursor, e)
     state.push()

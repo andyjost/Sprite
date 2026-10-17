@@ -105,12 +105,12 @@ TIMEOUT = 120
 # and the sorted values as Curry text, or the name of the error.  A limit
 # takes the first values of a goal that does not end.
 CHILD = '''
-import curry, itertools
+import cytest, curry, itertools
 curry.reload(%(flags)r)
 M = curry.import_(%(module)r)
 for name, limit in %(goals)r:
   try:
-    values = curry.eval(getattr(M, name), converter=None)
+    values = cytest.raw.values(getattr(M, name))
     if limit is not None:
       values = itertools.islice(values, limit)
     print(name, sorted(str(value) for value in values))
@@ -495,21 +495,21 @@ class TestFirstSetFunction(cytest.TestCase):
 # A symbol of Control.SetFunctions kept across a reset, then a program that
 # applies a set function through ($##>) and through a higher-order use of
 # ($>), whose bytecode names applyS by its table.
-RESET_CHILD = '''
-import curry
+RESET_CHILD = r'''
+import cytest, curry
 curry.reload(%(flags)r)
 SRC = (
-    'import Control.SetFunctions\\n'
-    'f :: Int -> Int\\nf x = x ? x + 1\\n'
-    'goalA :: [Int]\\ngoalA = sortValues (evalS (set f $##> 1))\\n'
-    'goalB :: [Int]\\ngoalB = sortValues (evalS ((head [($>)]) (set f) 1))\\n'
+    'import Control.SetFunctions\n'
+    'f :: Int -> Int\nf x = x ? x + 1\n'
+    'goalA :: [Int]\ngoalA = sortValues (evalS (set f $##> 1))\n'
+    'goalB :: [Int]\ngoalB = sortValues (evalS ((head [($>)]) (set f) 1))\n'
   )
 kept = curry.import_('Control.SetFunctions').set1
 first = curry.compile(SRC, modulename='BuiltinsAfterReset')
 curry.reset()
 second = curry.compile(SRC, modulename='BuiltinsAfterReset')
 for name in 'goalA', 'goalB':
-  values = curry.eval(getattr(second, name), converter=None)
+  values = cytest.raw.values(getattr(second, name))
   print(name, sorted(str(value) for value in values))
 '''
 

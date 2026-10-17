@@ -26,11 +26,11 @@ class TestSharedValues(cytest.TestCase):
     self.M = curry.import_('SharedListPrinter')
 
   def test_shared_list(self):
-    values = [str(value) for value in curry.eval(self.M.goal, converter=None)]
+    values = [str(value) for value in cytest.raw.values(self.M.goal)]
     self.assertEqual(values, ['([False], [False])'])
 
   def test_shared_choice(self):
-    values = sorted(str(value) for value in curry.eval(self.M.goal2, converter=None))
+    values = sorted(str(value) for value in cytest.raw.values(self.M.goal2))
     self.assertEqual(values, ['([False], [False], 1)', '([], [], 1)'])
 
 
@@ -43,36 +43,36 @@ class TestSharedExpressions(cytest.TestCase):
 
   def test_shared_list_in_tuple(self):
     # let d = [False] in (d, d)
-    e = curry.raw_expr((ref('d'), ref('d')), d=[False])
+    e = cytest.raw.expr((ref('d'), ref('d')), d=[False])
     self.assertIs(e[0], e[1])
     self.check(e, '([False], [False])', '<(,) <: <False> <[]>> <: <False> <[]>>>')
 
   def test_shared_constructor(self):
     prelude = curry.import_('Prelude')
     # let d = Just 1 in (d, d) and in [d, d]
-    e = curry.raw_expr((ref('d'), ref('d')), d=[prelude.Just, 1])
+    e = cytest.raw.expr((ref('d'), ref('d')), d=[prelude.Just, 1])
     self.check(e, '(Just 1, Just 1)', '<(,) <Just <Int 1>> <Just <Int 1>>>')
-    e = curry.raw_expr([ref('d'), ref('d')], d=[prelude.Just, 1])
+    e = cytest.raw.expr([ref('d'), ref('d')], d=[prelude.Just, 1])
     self.check(e, '[Just 1, Just 1]')
 
   def test_shared_string(self):
     # let d = "ab" in (d, d)
-    e = curry.raw_expr((ref('d'), ref('d')), d='ab')
+    e = cytest.raw.expr((ref('d'), ref('d')), d='ab')
     self.check(e, '("ab", "ab")')
 
   def test_shared_list_in_list(self):
     # let d = [1, 2] in [d, d]
-    e = curry.raw_expr([ref('d'), ref('d')], d=[1, 2])
+    e = cytest.raw.expr([ref('d'), ref('d')], d=[1, 2])
     self.check(e, '[[1, 2], [1, 2]]')
 
   def test_shared_open_list(self):
     # let d = 1 : x in (d, d) with x free
-    e = curry.raw_expr((ref('d'), ref('d')), d=curry.cons(1, curry.free(7)))
+    e = cytest.raw.expr((ref('d'), ref('d')), d=cytest.raw.cons(1, curry.free(7)))
     self.check(e, '(1:_a, 1:_a)')
 
   def test_shared_head_and_tail(self):
     # let d = [1] in d : d, the list [[1], 1]
-    e = curry.raw_expr(curry.cons(ref('d'), ref('d')), d=[1])
+    e = cytest.raw.expr(cytest.raw.cons(ref('d'), ref('d')), d=[1])
     self.assertIs(e[0], e[1])
     self.check(e, '[[1], 1]')
 
@@ -89,7 +89,7 @@ class TestCyclicExpressions(cytest.TestCase):
 
   def cyclic_list(self):
     # let a = 1 : a in a
-    e = curry.raw_expr(ref('a'), a=curry.cons(1, ref('a')))
+    e = cytest.raw.expr(ref('a'), a=cytest.raw.cons(1, ref('a')))
     self.assertIs(e[1], e)
     return e
 
@@ -98,18 +98,18 @@ class TestCyclicExpressions(cytest.TestCase):
 
   def test_cycle_of_two_nodes(self):
     # let a = 1 : b, b = 2 : a in a
-    e = curry.raw_expr(ref('a'), a=curry.cons(1, ref('b')), b=curry.cons(2, ref('a')))
+    e = cytest.raw.expr(ref('a'), a=cytest.raw.cons(1, ref('b')), b=cytest.raw.cons(2, ref('a')))
     self.check(e, '[1, 2, ...]', '<: <Int 1> <: <Int 2> ...>>')
 
   def test_cycle_through_constructor(self):
     prelude = curry.import_('Prelude')
     # let a = Just a in a
-    e = curry.raw_expr(ref('a'), a=[prelude.Just, ref('a')])
+    e = cytest.raw.expr(ref('a'), a=[prelude.Just, ref('a')])
     self.check(e, 'Just ...', '<Just ...>')
 
   def test_cycle_through_tuple(self):
     # let a = (a, 1) in a
-    e = curry.raw_expr(ref('a'), a=(ref('a'), 1))
+    e = cytest.raw.expr(ref('a'), a=(ref('a'), 1))
     self.check(e, '(..., 1)', '<(,) ... <Int 1>>')
 
   def test_cyclic_string(self):
@@ -118,12 +118,12 @@ class TestCyclicExpressions(cytest.TestCase):
     did not end on the Python backend.  The list style writes it.
     '''
     # let s = 'a' : s in s
-    s = curry.raw_expr(ref('s'), s=curry.cons('a', ref('s')))
+    s = cytest.raw.expr(ref('s'), s=cytest.raw.cons('a', ref('s')))
     self.assertIs(s[1], s)
     self.check(s, "['a', ...]", "<: <Char 'a'> ...>")
-    self.check(curry.raw_expr((s, s)), "(['a', ...], ['a', ...])")
+    self.check(cytest.raw.expr((s, s)), "(['a', ...], ['a', ...])")
     # A string whose tail is a cycle of two nodes.
-    e = curry.raw_expr(ref('a'), a=curry.cons('a', ref('b')), b=curry.cons('b', ref('a')))
+    e = cytest.raw.expr(ref('a'), a=cytest.raw.cons('a', ref('b')), b=cytest.raw.cons('b', ref('a')))
     self.check(e, "['a', 'b', ...]")
 
   def test_shared_cyclic_list(self):
@@ -133,10 +133,10 @@ class TestCyclicExpressions(cytest.TestCase):
     ellipsis on both backends.
     '''
     a = self.cyclic_list()
-    self.check(curry.raw_expr((a, a)), '([1, ...], [1, ...])')
-    self.check(curry.raw_expr([a, a]), '[[1, ...], [1, ...]]')
+    self.check(cytest.raw.expr((a, a)), '([1, ...], [1, ...])')
+    self.check(cytest.raw.expr([a, a]), '[[1, ...], [1, ...]]')
     # a : a is the list whose head is a and whose spine continues into a.
-    self.check(curry.raw_expr(curry.cons(a, a)), '[[1, ...], 1, ...]')
+    self.check(cytest.raw.expr(cytest.raw.cons(a, a)), '[[1, ...], 1, ...]')
 
 
 if __name__ == '__main__':

@@ -79,7 +79,7 @@ class TestStagedLibrary(cytest.TestCase):
     # CXXFLAGS on, so a test run with CXXFLAGS set would look for another
     # member.
     if not os.environ.get('CXXFLAGS') and not curry.flags['debug']:
-      cpp2so = cxx_toolchain.Cpp2So(curry.getInterpreter())
+      cpp2so = cxx_toolchain.Cpp2So(cytest.raw.interp())
       pch = cxx_toolchain.PrecompiledHeader(
           config.installed_path('include'), config.cxx_tool()
         , cpp2so._cxxflags()
@@ -96,7 +96,7 @@ class TestStagedLibrary(cytest.TestCase):
     if curry.flags['backend'] == 'cxx' and config.cxx_tool() is None:
       self.skipTest('no C++ compiler is installed')
     code = '\n'.join([
-        'import curry, json, os'
+        'import cytest, curry, json, os'
       , 'from curry import config'
       , 'from curry.toolchain import _system'
       , 'import importlib.machinery as machinery'
@@ -211,7 +211,7 @@ class JsonModuleTestCase(cytest.TestCase):
     self.subdir = os.path.join(self.srcdir, SUBDIR)
     os.makedirs(self.subdir)
     self.plan = plans.makeplan(
-        curry.getInterpreter(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
       )
 
   def tearDown(self):
@@ -245,7 +245,7 @@ class JsonModuleTestCase(cytest.TestCase):
     loading the module.  Returns the module name.
     '''
     name = self.write_json(value)
-    suffix = curry.getInterpreter().backend.object_file_extension
+    suffix = cytest.raw.interp().backend.object_file_extension
     target = makecurry(self.plan, name, [self.srcdir])
     self.assertEqual(target, self.cached_file(name, suffix))
     return name
@@ -255,7 +255,7 @@ class JsonModuleTestCase(cytest.TestCase):
 
   def check_value(self, module, value):
     self.assertEqual(
-        list(curry.eval(module.goal, converter='topython')), [value]
+        list(curry.eval(module.goal)), [value]
       )
 
 class TestPackagedModule(JsonModuleTestCase):
@@ -270,11 +270,11 @@ class TestPackagedModule(JsonModuleTestCase):
     plan at the JSON.
     '''
     plan = plans.makeplan(
-        curry.getInterpreter(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
       )
     package = 'PrebuildPkg%d' % next(self.counter)
     name = self.write_json(6, package=package)
-    suffix = curry.getInterpreter().backend.object_file_extension
+    suffix = cytest.raw.interp().backend.object_file_extension
     target = makecurry(plan, name, [self.srcdir])
     self.assertEqual(target, self.cached_file(name, suffix))
     self.assertIn(package, curry.modules)
@@ -352,7 +352,7 @@ class TestBytecodeCache(JsonModuleTestCase):
     pyfile = self.cached_file(name, '.py')
     os.unlink(py_toolchain.bytecode_file(pyfile))
     code = '\n'.join([
-        'import curry, json, sys'
+        'import cytest, curry, json, sys'
       , 'import importlib.machinery as machinery'
       , 'compiled = []'
       , 'source_to_code = machinery.SourceFileLoader.source_to_code'
@@ -363,7 +363,7 @@ class TestBytecodeCache(JsonModuleTestCase):
       , 'machinery.SourceFileLoader.source_to_code = counting'
       , 'module = curry.import_(%r, currypath=[%r] + curry.path)'
             % (name, self.srcdir)
-      , 'values = list(curry.eval(module.goal, converter="topython"))'
+      , 'values = list(curry.eval(module.goal))'
       , 'print(json.dumps([len(compiled), values, sys.dont_write_bytecode]))'
       ])
     for expected in [1, 0]:
@@ -502,7 +502,7 @@ class TestFormatStamp(JsonModuleTestCase):
         py_toolchain.format_version(path), py_compiler.FORMAT_VERSION
       )
     self.assertFalse(py_toolchain.source_is_stale(path))
-    json2py = py_toolchain.Json2Py(curry.getInterpreter())
+    json2py = py_toolchain.Json2Py(cytest.raw.interp())
     self.assertFalse(json2py.is_stale(path))
     self.assertFalse(json2py.is_stale(self.cached_file(name, '.json.z')))
     self.assertFalse(self.plan.is_stale(path))

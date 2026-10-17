@@ -29,10 +29,10 @@ def _cb():
 
 def _state(goal):
   '''A runtime state of the global interpreter over the node ``goal``.'''
-  return _cb().RuntimeState(curry.getInterpreter(), goal)
+  return _cb().RuntimeState(cytest.raw.interp(), goal)
 
 def _values(module, name, *args):
-  return sorted(str(v) for v in curry.eval(getattr(module, name), *args, converter=None))
+  return sorted(str(v) for v in cytest.raw.values(cytest.raw.expr(getattr(module, name), *args, typed=True)))
 
 def _goals(module):
   '''The nullary functions of a module, by name.'''
@@ -43,23 +43,23 @@ def _goals(module):
     )
 
 def _node(*args):
-  return curry.raw_expr(*args)
+  return cytest.raw.expr(*args)
 
 def _choice(cid, lhs, rhs):
-  return curry.raw_expr(curry.expressions.choice(cid, lhs, rhs))
+  return cytest.raw.expr(curry.expressions.choice(cid, lhs, rhs))
 
 def _make(info, *args):
   return _cb().make_node(getattr(info, 'info', info), *args)
 
 def _just(node):
-  return _make(curry.getInterpreter().prelude.Just, node)
+  return _make(cytest.raw.interp().prelude.Just, node)
 
 def _vid(x):
   '''The id of a free variable node.'''
   return x.successor(0)
 
 def _totals():
-  t = curry.getInterpreter()._evaluation_totals
+  t = cytest.raw.interp()._evaluation_totals
   return t.steps, t.forks
 
 # A name a functional pattern produced, read many times (the shape of
@@ -275,7 +275,7 @@ class TestFlag(cytest.TestCase):
     curry.reload({'checker': True})
     try:
       self.assertEqual(curry.flags['checker'], True)
-      self.assertEqual([curry.topython(v) for v in curry.eval(curry.expr(1), converter=None)], [1])
+      self.assertEqual([cytest.raw.interp().topython(v) for v in cytest.raw.values(cytest.raw.expr(1, typed=True))], [1])
     finally:
       curry.reload({'checker': False})
 
@@ -397,7 +397,7 @@ class TestKnownGood(CheckerTestCase):
       counters = {}
       for name in ('manySource', 'distinctSource', 'manySourceS', 'paired'):
         before = _totals()
-        list(curry.eval(getattr(M, name), converter=None))
+        list(cytest.raw.values(getattr(M, name)))
         after = _totals()
         counters[name] = (after[0] - before[0], after[1] - before[1])
       return counters
@@ -427,7 +427,7 @@ class TestKnownGood(CheckerTestCase):
 # the C++ checker holds the reproducer), so the mode is set before the
 # first import, through the environment of the child.
 INTERPRETED_CHILD = '''
-import curry, json, sys
+import cytest, curry, json, sys
 from curry import inspect
 from curry.common import T_FUNC
 PROGRAMS = %(programs)r
@@ -440,7 +440,7 @@ def goals(M):
           if sym.info.tag == T_FUNC and sym.info.arity == 0
     )
 def values(M, name, *args):
-  return sorted(str(v) for v in curry.eval(getattr(M, name), *args, converter=None))
+  return sorted(str(v) for v in cytest.raw.values(cytest.raw.expr(getattr(M, name), *args, typed=True)))
 def module_goals(modname, names=None):
   M = curry.import_(modname)
   return {name: values(M, name) for name in (goals(M) if names is None else names)}
@@ -554,24 +554,23 @@ class TestKnownGoodInterpreted(cytest.TestCase):
     under the interpreter the hnf calls checked outnumber the untracked
     ones.'''
     body = (
-        "M = curry.compile(PROGRAMS, modulename='CxxCheckerCountersI')\n"
-        "def totals():\n"
-        "  t = curry.getInterpreter()._evaluation_totals\n"
-        "  return t.steps, t.forks\n"
-        "for name in ('manySource', 'distinctSource', 'manySourceS', 'paired'):\n"
-        "  before = totals()\n"
-        "  list(curry.eval(getattr(M, name), converter=None))\n"
-        "  after = totals()\n"
-        "  out[name] = [after[0] - before[0], after[1] - before[1]]\n"
+        r'''import cytest
+M = curry.compile(PROGRAMS, modulename='CxxCheckerCountersI')
+def totals():
+  t = cytest.raw.interp()._evaluation_totals
+  return t.steps, t.forks
+for name in ('manySource', 'distinctSource', 'manySourceS', 'paired'):
+  before = totals()
+  list(cytest.raw.values(getattr(M, name)))
+  after = totals()
+  out[name] = [after[0] - before[0], after[1] - before[1]]
+'''
       )
     counters = self.both_ways(body)
     self.assertGreater(counters['manySource'][1], 8)
     counts = self.child(
         body
-        + "from curry.backends.cxx import cyrtbindings as cb\n"
-          "rts = cb.RuntimeState(curry.getInterpreter(), curry.raw_expr(M.narrowed))\n"
-          "out['values'] = sorted(str(v) for v in rts.generate_values())\n"
-          "out['counts'] = cb.checker_counts(rts)\n"
+        + "import cytest\nfrom curry.backends.cxx import cyrtbindings as cb\nrts = cb.RuntimeState(cytest.raw.interp(), cytest.raw.expr(M.narrowed))\nout['values'] = sorted(str(v) for v in rts.generate_values())\nout['counts'] = cb.checker_counts(rts)\n"
       , True)
     self.assertEqual(counts['values'], ['1', '2', '3'])
     self.assertGreater(counts['counts']['hnfs'], counts['counts'].get('hnf_untracked', 0))
@@ -584,7 +583,7 @@ class TestIdentifierConsistency(CheckerTestCase):
   def test_group_invariant_at_fork(self):
     '''A decided member of a group whose root is undecided.'''
     cb = _cb()
-    P = curry.getInterpreter().prelude
+    P = cytest.raw.interp().prelude
     rts = _state(_node([getattr(P, '?'), 0, 1]))
     root = cb.checker_debug_unite(rts, 100, 101)
     # The check reads the ids the union-find united (every member of a
@@ -664,7 +663,7 @@ class TestIdentifierConsistency(CheckerTestCase):
 
   def test_no_operation_in_a_value(self):
     cb = _cb()
-    P = curry.getInterpreter().prelude
+    P = cytest.raw.interp().prelude
     rts = _state(_node(1))
     cb.checker_debug_set_root(rts, _just(_node([P.id, 1])))
     with self.assertRaisesRegex(cb.InvariantViolation, r'B1 \(yield\).*the cell id'):
@@ -760,7 +759,7 @@ class TestFreeVariables(CheckerTestCase):
     configuration in the queue, so that the reducts are compared (a lone
     configuration skips the comparison).'''
     cb = _cb()
-    P = curry.getInterpreter().prelude
+    P = cytest.raw.interp().prelude
     rts = _state(_node(1))
     cb.checker_debug_append(rts, _node(0))
     x = cb.checker_debug_freshvar(rts)
@@ -798,7 +797,7 @@ class TestFreeVariables(CheckerTestCase):
     is Nothing ?_x Just y, that of y is Nothing ?_y Just x; both are decided
     RIGHT.  Apart, no report; united, the class holds a cycle.'''
     cb = _cb()
-    P = curry.getInterpreter().prelude
+    P = cytest.raw.interp().prelude
     rts = _state(_node(1))
     x = cb.checker_debug_freshvar(rts)
     y = cb.checker_debug_freshvar(rts)
@@ -888,7 +887,7 @@ class TestFreeVariables(CheckerTestCase):
     and so is a narrowing of y against x; a narrowing of y against a
     constructor term is not.'''
     cb = _cb()
-    P = curry.getInterpreter().prelude
+    P = cytest.raw.interp().prelude
     rts = _state(_node(1))
     x = cb.checker_debug_freshvar(rts)
     y = cb.checker_debug_freshvar(rts)
@@ -1183,7 +1182,7 @@ data T3 = P | Q | R
         cb.checker_debug_tree(rts, self.M.h.info)['branches'][0]['kind'], 'exempt'
       )
     self.assertEqual(cb.checker_debug_tree(rts, self.M.g.info)['kind'], 'return_ref')
-    self.assertIsNone(cb.checker_debug_tree(rts, curry.getInterpreter().prelude.apply.info))
+    self.assertIsNone(cb.checker_debug_tree(rts, cytest.raw.interp().prelude.apply.info))
 
   def test_hnf_at_an_inductive_position(self):
     '''A step that demands the second argument where no branch needs it.'''
@@ -1203,7 +1202,7 @@ data T3 = P | Q | R
     if not self.interpreted:
       self.skipTest('the function is compiled: no tree')
     cb = _cb()
-    P = curry.getInterpreter().prelude
+    P = cytest.raw.interp().prelude
     rts = _state(_node(1))
     cb.checker_debug_set_root(rts, _node([self.M.k, [P.id, True], False]))
     cb.checker_debug_check_hnf(rts, [0])
@@ -1221,7 +1220,7 @@ data T3 = P | Q | R
     if not self.interpreted:
       self.skipTest('the function is compiled: no tree')
     cb = _cb()
-    P = curry.getInterpreter().prelude
+    P = cytest.raw.interp().prelude
     rts = _state(_node(1))
     with self.assertRaisesRegex(cb.InvariantViolation, r'B2 \(failure\).*holds'):
       cb.checker_debug_check_failed_step(rts, _node([self.M.k, [P.id, True], False]))

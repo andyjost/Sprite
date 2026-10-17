@@ -316,6 +316,31 @@ class TypedBuilder:
     return self._raw
 
   def raw_build(self, form, target=None):
+    from ..objects.terms import IteratorSource, ValueList
+    # An overloaded term still needs a graph while defaulting is deferred.
+    # Keep value lists distinct from application descriptions, and expose
+    # cached iterator sources through their replaying iterators.
+    root = [None]
+    pending = [(form, root, 0, False)]
+    while pending:
+      value, owner, index, finish = pending.pop()
+      if finish:
+        kind, items = value
+        if kind is ValueList:
+          result = self.X.nil
+          for item in reversed(items):
+            result = self.X.cons(item, result)
+        else:
+          result = kind(items)
+        owner[index] = result
+      elif isinstance(value, (list, tuple)):
+        items = [None] * len(value)
+        pending.append(((type(value), items), owner, index, True))
+        pending.extend((value[i], items, i, False)
+            for i in reversed(range(len(value))))
+      else:
+        owner[index] = iter(value) if isinstance(value, IteratorSource) else value
+    form = root[0]
     builder = self.raw
     builder.target = target
     try:
@@ -1358,6 +1383,11 @@ def typeof(interp, e, defaulted=False):
     interp.sigtable.lookup(e, required=True)
     raise exceptions.CurryTypeError('no type for %s' % _symbol_name(e))
   else:
+    from .. import expressions
+    internal = isinstance(e, (CurryNodeInfo, backends.InfoTable)) \
+        or type(e).__module__ == expressions.__name__
+    if not internal:
+      return typeof(interp, term(interp, e), defaulted)
     builder = TypedBuilder(interp)
     problem = TypedProblem(builder, builder.specs((e,)))
   if defaulted:

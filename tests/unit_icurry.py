@@ -75,17 +75,17 @@ class ICurryTestCase(cytest.TestCase):
 
   def testSymbolNames2(self):
     # Spot-checking some funny ICurry names.
-    iobj = curry.symbol('Prelude..').icurry
+    iobj = curry.import_('Prelude')['.'].icurry
     self.assertEqual(iobj.name, '.')
     self.assertEqual(iobj.modulename, 'Prelude')
     self.assertEqual(iobj.splitname(), ['Prelude', '.'])
 
-    iobj = curry.symbol('Prelude.pi._#lambda').icurry
+    iobj = curry.import_('Prelude')['pi._#lambda'].icurry
     self.assertEqual(iobj.name, 'pi._#lambda')
     self.assertEqual(iobj.modulename, 'Prelude')
     self.assertEqual(iobj.splitname(), ['Prelude', 'pi._#lambda'])
 
-    iobj = curry.symbol('Data.Either.partitionEithers.left.24').icurry
+    iobj = curry.import_('Data.Either')['partitionEithers.left.24'].icurry
     self.assertEqual(iobj.name, 'partitionEithers.left.24')
     self.assertEqual(iobj.modulename, 'Data.Either')
     self.assertEqual(iobj.splitname(), ['Data', 'Either', 'partitionEithers.left.24'])

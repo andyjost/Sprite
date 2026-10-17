@@ -32,7 +32,7 @@ def step(expr, until=None, limit=64):
   for _ in range(limit):
     if expr.info.tag != common.T_FUNC:
       raise AssertionError('the root is not a function application: %r' % expr)
-    evaluator.single_step(curry.getInterpreter(), expr)
+    evaluator.single_step(cytest.raw.interp(), expr)
     if until is None or until(expr):
       return expr
   raise AssertionError('the root did not change in %d steps' % limit)
@@ -50,7 +50,8 @@ def result(expr):
 class TestValues(cytest.TestCase):
   '''The programs give the same values on both backends.'''
   def values(self, *goal):
-    return list(curry.eval(*goal, converter='topython'))
+    return [cytest.raw.interp().topython(v) for v in
+        cytest.raw.values(cytest.raw.expr(*goal, typed=True))]
 
   def test_apply(self):
     M = curry.import_('CxxPartial')
@@ -58,12 +59,12 @@ class TestValues(cytest.TestCase):
     self.assertEqual(self.values(M.one), [6])
     self.assertEqual(self.values(M.two), [6])
     self.assertEqual(self.values(M.twice), [12])
-    self.assertEqual(str(next(curry.eval(M.justs, converter=None))), '[Just 1, Just 2]')
+    self.assertEqual(str(next(cytest.raw.values(M.justs))), '[Just 1, Just 2]')
     self.assertEqual(self.values(M.sections), [[2, 3, 6]])
     self.assertEqual(self.values(M.loop, 0, 100), [100])
     self.assertEqual(self.values(M.applyInc, 5, 0), [6])
     self.assertEqual(self.values(M.app, M.inc, 41), [42])
-    self.assertEqual(self.values(M.app, curry.raw_expr(M.plus3, 1, 2), 3), [6])
+    self.assertEqual(self.values(M.app, cytest.raw.expr(M.plus3, 1, 2), 3), [6])
 
   def test_many_arguments(self):
     M = curry.import_('CxxPartial')
@@ -91,17 +92,17 @@ class TestValues(cytest.TestCase):
     arguments f; a function value shared by two positions is written twice.
     '''
     M = curry.import_('CxxPartial')
-    self.assertEqual(str(curry.raw_expr(M.plus3, 1, 2)), '(plus3 1 2)')
-    self.assertEqual(str(curry.raw_expr(M.plus3)), 'plus3')
-    value, = curry.eval(M.partials, converter=None)
+    self.assertEqual(str(cytest.raw.expr(M.plus3, 1, 2)), '(plus3 1 2)')
+    self.assertEqual(str(cytest.raw.expr(M.plus3)), 'plus3')
+    value, = cytest.raw.values(M.partials)
     self.assertEqual(str(value), '[(plus3 1 2), (plus3 1 2)]')
-    value, = curry.eval(M.incTwice, converter=None)
+    value, = cytest.raw.values(M.incTwice)
     self.assertEqual(str(value), '(inc, inc)')
 
   def test_equality(self):
     '''Partial applications are compared by head, count, and arguments.'''
     M = curry.import_('CxxPartial')
-    e = lambda *args: curry.raw_expr(*args)
+    e = lambda *args: cytest.raw.expr(*args)
     self.assertEqual(e(M.plus3, 1), e(M.plus3, 1))
     self.assertEqual(e(M.plus3), e(M.plus3))
     self.assertEqual(e(M.plus3, 1, [2, 3]), e(M.plus3, 1, [2, 3]))
@@ -126,30 +127,30 @@ class TestLayout(cytest.TestCase):
     self.assertEqual(node.info.format, 'ix' + 'p' * len(args))
     self.assertEqual(node.successors[0], missing)
     self.assertEqual(
-        [curry.topython(s) for s in node.successors[2:]], args
+        [cytest.raw.interp().topython(s) for s in node.successors[2:]], args
       )
 
   def test_slots(self):
     M = self.M
-    self.assertPartial(curry.raw_expr(M.plus3), 3, [])
-    self.assertPartial(curry.raw_expr(M.plus3, 1), 2, [1])
-    self.assertPartial(curry.raw_expr(M.plus3, 1, 2), 1, [1, 2])
+    self.assertPartial(cytest.raw.expr(M.plus3), 3, [])
+    self.assertPartial(cytest.raw.expr(M.plus3, 1), 2, [1])
+    self.assertPartial(cytest.raw.expr(M.plus3, 1, 2), 1, [1, 2])
     # The head is slot 1, an unboxed pointer; the same for every count.
     heads = set(
-        curry.raw_expr(M.plus3, *args).successors[1]
+        cytest.raw.expr(M.plus3, *args).successors[1]
             for args in ([], [1], [1, 2])
       )
     self.assertEqual(len(heads), 1)
-    self.assertNotEqual(heads, {curry.raw_expr(M.plus2).successors[1]})
+    self.assertNotEqual(heads, {cytest.raw.expr(M.plus2).successors[1]})
 
   def test_many_arguments(self):
     '''A partial application beyond the cached range of the family.'''
     M = self.M
     for n in 31, 32, 33, 35:
       args = list(range(1, n + 1))
-      self.assertPartial(curry.raw_expr(M.many, *args), 36 - n, args)
-    a = curry.raw_expr(M.many, *range(1, 34))
-    b = curry.raw_expr(M.many, *range(1, 34))
+      self.assertPartial(cytest.raw.expr(M.many, *args), 36 - n, args)
+    a = cytest.raw.expr(M.many, *range(1, 34))
+    b = cytest.raw.expr(M.many, *range(1, 34))
     self.assertEqual(a.info.arity, 35)
     self.assertIs(a.info, b.info)
 
@@ -160,15 +161,15 @@ class TestLayout(cytest.TestCase):
     '''
     from curry.backends.cxx import cyrtbindings as cyrt
     M = self.M
-    apply_ = curry.symbol('Prelude.apply')
-    e = curry.raw_expr(apply_, curry.raw_expr(M.plus3, 1), 2)
+    apply_ = curry.import_('Prelude')['apply']
+    e = cytest.raw.expr(apply_, cytest.raw.expr(M.plus3, 1), 2)
     before = cyrt.gc_allocation_count()
     step(e)
     self.assertEqual(cyrt.gc_allocation_count() - before, 1)
     self.assertEqual(e.info.tag, common.T_FWD)
     self.assertPartial(result(e), 1, [1, 2])
     # The same for a function value.
-    e = curry.raw_expr(apply_, curry.raw_expr(M.plus3), 7)
+    e = cytest.raw.expr(apply_, cytest.raw.expr(M.plus3), 7)
     step(e)
     self.assertPartial(result(e), 2, [7])
 
@@ -178,32 +179,32 @@ class TestLayout(cytest.TestCase):
     (two arguments), into a new node otherwise, the arguments in order.
     '''
     M = self.M
-    apply_ = curry.symbol('Prelude.apply')
-    e = curry.raw_expr(apply_, curry.raw_expr(M.plus2, 1), 2)
+    apply_ = curry.import_('Prelude')['apply']
+    e = cytest.raw.expr(apply_, cytest.raw.expr(M.plus2, 1), 2)
     step(e)
     self.assertEqual(e.info.name, 'plus2')
-    self.assertEqual([curry.topython(s) for s in e.successors], [1, 2])
-    e = curry.raw_expr(apply_, curry.raw_expr(M.plus3, 1, 2), 3)
+    self.assertEqual([cytest.raw.interp().topython(s) for s in e.successors], [1, 2])
+    e = cytest.raw.expr(apply_, cytest.raw.expr(M.plus3, 1, 2), 3)
     step(e)
     self.assertEqual(e.info.tag, common.T_FWD)
     node = result(e)
     self.assertEqual(node.info.name, 'plus3')
-    self.assertEqual([curry.topython(s) for s in node.successors], [1, 2, 3])
+    self.assertEqual([cytest.raw.interp().topython(s) for s in node.successors], [1, 2, 3])
     args = list(range(1, 36))
-    e = curry.raw_expr(apply_, curry.raw_expr(M.many, *args), 36)
+    e = cytest.raw.expr(apply_, cytest.raw.expr(M.many, *args), 36)
     step(e)
     node = result(e)
     self.assertEqual(node.info.name, 'many')
-    self.assertEqual([curry.topython(s) for s in node.successors], args + [36])
+    self.assertEqual([cytest.raw.interp().topython(s) for s in node.successors], args + [36])
 
   def test_repr(self):
     M = self.M
-    self.assertEqual(repr(curry.raw_expr(M.plus3)), '<_PartApplic 3 plus3>')
+    self.assertEqual(repr(cytest.raw.expr(M.plus3)), '<_PartApplic 3 plus3>')
     self.assertEqual(
-        repr(curry.raw_expr(M.plus3, 1, 2))
+        repr(cytest.raw.expr(M.plus3, 1, 2))
       , '<_PartApplic 1 plus3 <Int 1> <Int 2>>'
       )
-    value, = curry.eval(M.incTwice, converter=None)
+    value, = cytest.raw.values(M.incTwice)
     self.assertEqual(
         repr(raw(value)), '<(,) <_PartApplic 1 inc> <_PartApplic 1 inc>>'
       )
@@ -211,7 +212,7 @@ class TestLayout(cytest.TestCase):
   def test_copy(self):
     '''A copy of a partial application keeps its arguments.'''
     M = self.M
-    e = curry.raw_expr(M.plus3, 1, [2])
+    e = cytest.raw.expr(M.plus3, 1, [2])
     for c in e.copy(), e.__deepcopy__():
       self.assertPartial(c, 1, [1, [2]])
       self.assertEqual(c, e)
@@ -235,7 +236,7 @@ class TestSharedFunctionValues(cytest.TestCase):
     _ = app inc x is rewritten in place to apply inc x (app is an alias of
     apply, which the optimizer inlines).
     '''
-    e = curry.raw_expr(self.M.applyInc, 5, 0)
+    e = cytest.raw.expr(self.M.applyInc, 5, 0)
     step(e, until=lambda e: e.info.name == 'apply')
     return e.successors[0]
 
@@ -248,7 +249,7 @@ class TestSharedFunctionValues(cytest.TestCase):
     # One node for every execution of the step.
     self.assertEqual(self.function_value().id(), node.id())
     # A node made from Python is a heap node; it is equal to the shared one.
-    made = curry.raw_expr(self.M.inc)
+    made = cytest.raw.expr(self.M.inc)
     self.assertFalse(cyrt.gc_is_literal(made))
     self.assertEqual(made, node)
 
@@ -262,14 +263,14 @@ class TestSharedFunctionValues(cytest.TestCase):
     from curry.backends.cxx import cyrtbindings as cyrt
     n = 1000
     before = cyrt.gc_allocation_count()
-    self.assertEqual(curry.topython(next(curry.eval(self.M.loop, 0, n, converter=None))), n)
+    self.assertEqual(cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(self.M.loop, 0, n, typed=True)))), n)
     nodes = cyrt.gc_allocation_count() - before
     self.assertLess(nodes, 6 * n)
 
   def test_forwarding_a_shared_node_is_refused(self):
     node = self.function_value()
     with self.assertRaisesRegex(ValueError, 'cannot forward the shared node'):
-      node.forward_to(curry.raw_expr(1))
+      node.forward_to(cytest.raw.expr(1))
     self.assertEqual(node.info.name, '_PartApplic')
 
   def test_stepping_a_value_is_refused(self):
@@ -277,23 +278,23 @@ class TestSharedFunctionValues(cytest.TestCase):
     single_step refuses a root without a step (a constructor, a value, a
     forward node) instead of calling a null pointer.
     '''
-    for expr in self.function_value(), curry.raw_expr(1), curry.raw_expr([]):
+    for expr in self.function_value(), cytest.raw.expr(1), cytest.raw.expr([]):
       with self.assertRaisesRegex(ValueError, 'cannot step a node'):
-        evaluator.single_step(curry.getInterpreter(), expr)
+        evaluator.single_step(cytest.raw.interp(), expr)
 
   def test_survives_collections(self):
     '''The values are right after many collections in a child.'''
     proc = cytest.run_in_subprocess('''
-import curry
+import cytest, curry
 from curry.backends.cxx import cyrtbindings as cyrt
-curry.reload({'backend': 'cxx', 'defaultconverter': 'topython'})
+curry.reload({'backend': 'cxx'})
 M = curry.import_('CxxPartial')
 cyrt.gc_set_threshold(1 << 12)
 before = cyrt.gc_collections()
 for _ in range(8):
-  assert next(curry.eval(M.loop, 0, 3000, converter='topython')) == 3000
-  assert next(curry.eval(M.manyApply, converter='topython')) == 666
-  assert sorted(curry.eval(M.set2Many, converter='topython')) == [[631], [666]]
+  assert next(curry.eval((M.loop)(0, 3000))) == 3000
+  assert next(curry.eval(M.manyApply)) == 666
+  assert sorted(curry.eval(M.set2Many)) == [[631], [666]]
 print(cyrt.gc_collections() - before)
 ''', TIMEOUT, address_space=2 << 30)
     self.assertEqual(proc.returncode, 0, proc.stderr)
