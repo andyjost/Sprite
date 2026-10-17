@@ -3,13 +3,86 @@
 from collections.abc import Iterator
 from contextvars import ContextVar
 
-_NAMES = ContextVar('term_variable_names', default=None)
+_CONTEXT = ContextVar('term_print_context', default=None)
 from ..toolchain.flat2icurry import flatcurry as fc
 from ..typecheck.serialize import curry_literal
 from ..show import show_float
 from . import CurryNodeInfo
 
 ATOM, APP, NEG = 'atom', 'app', 'neg'
+
+class Context:
+  '''The names of variables and shared terms in one text.'''
+  def __init__(self):
+    self.variables = {}
+    self.lets = {}
+    self.defining = set()
+
+
+def _walk(root):
+  from ..expressions import typed
+  from .terms import Term, Var, Reference, LetForm
+  seen, stack = set(), [root]
+  while stack:
+    value = stack.pop()
+    yield value
+    if isinstance(value, (Var, Reference)):
+      continue
+    if isinstance(value, Term):
+      if id(value) in seen:
+        continue
+      seen.add(id(value))
+      if hasattr(value, '_text'):
+        stack.extend(reversed(list(value.free_vars.values())))
+      else:
+        stack.append(value._form)
+    elif isinstance(value, LetForm):
+      stack.extend(reversed([*value.bindings.values(), value.body]))
+    elif isinstance(value, (list, tuple)):
+      stack.extend(reversed(value))
+    elif isinstance(value, typed):
+      stack.append(value.value)
+
+
+def _is_reducible(value):
+  from .terms import Term, ValueList
+  from ..common import T_CTOR
+  if not isinstance(value, Term):
+    return False
+  if hasattr(value, '_text'):
+    return True
+  if value.symbol is not None:
+    return value.symbol.kind == 'function'
+  form = value._form
+  # Applications of function results have an apply head and no symbol.
+  return (isinstance(form, list) and not isinstance(form, ValueList)
+      and bool(form) and isinstance(form[0], CurryNodeInfo)
+      and form[0].info.tag < T_CTOR)
+
+
+def _shared_reducible(root):
+  from .terms import Term
+  counts, order = {}, []
+  for value in _walk(root):
+    if isinstance(value, Term):
+      key = id(value)
+      if key not in counts:
+        order.append(value)
+      counts[key] = counts.get(key, 0) + 1
+  return [value for value in order
+      if counts[id(value)] > 1 and _is_reducible(value)]
+
+
+def _used_names(root):
+  from .terms import Var, Reference, LetForm
+  names = set()
+  for value in _walk(root):
+    if isinstance(value, (Var, Reference)) and value.name is not None:
+      names.add(value.name)
+    elif isinstance(value, LetForm):
+      names.update(value.bindings)
+  return names
+
 
 def argument(piece):
   text, kind = piece
@@ -67,8 +140,13 @@ def application(info, args):
 def format_(value):
   from ..expressions import typed
   from .terms import Term, ValueList, Var, Reference, LetForm
+  ctx = _CONTEXT.get()
+  if isinstance(value, Term):
+    name = ctx.lets.get(id(value))
+    if name is not None and id(value) not in ctx.defining:
+      return name, ATOM
   if isinstance(value, Var):
-    names = _NAMES.get()
+    names = ctx.variables
     if value.name is not None:
       return value.name, ATOM
     if id(value) not in names:
@@ -109,12 +187,28 @@ def format_(value):
   return str(value), APP
 
 def show(term):
-  token = _NAMES.set({})
+  ctx = Context()
+  token = _CONTEXT.set(ctx)
   try:
+    shared = _shared_reducible(term)
+    if shared:
+      used, i = _used_names(term), 1
+      for value in shared:
+        while 'x%d' % i in used:
+          i += 1
+        ctx.lets[id(value)] = 'x%d' % i
+        i += 1
     text, kind = format_(term)
+    if shared:
+      declarations = []
+      for value in shared:
+        ctx.defining.add(id(value))
+        declarations.append('%s = %s' % (ctx.lets[id(value)], format_(value)[0]))
+        ctx.defining.remove(id(value))
+      return 'let %s in %s' % ('; '.join(declarations), text)
     return '(%s)' % text if kind == NEG else text
   finally:
-    _NAMES.reset(token)
+    _CONTEXT.reset(token)
 
 
 def alpha(n):

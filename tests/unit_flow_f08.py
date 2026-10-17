@@ -48,7 +48,6 @@ class TestFlowF08(cytest.TestCase):
     self.assertEqual(list(curry.eval((t, t))), [(0, 0), (1, 1)])
     self.assertEqual(list(curry.eval((C.coin, C.coin))), [(0, 0), (0, 1), (1, 0), (1, 1)])
 
-  @unittest.expectedFailure
   def test_sharing_prints_as_let(self):
     P = curry.import_('Prelude'); C = curry.import_('Coin'); t = C.coin
     self.assertEqual((str(t), repr(t)), ('coin', '<Term coin :: Int>'))
@@ -95,7 +94,6 @@ class TestFlowF08(cytest.TestCase):
     self.assertEqual(curry.eval(P.take(3, ones)).one(), [1, 1, 1])
     self.assertEqual(str(ones), 'let a = 1 : a in a')
 
-  @unittest.expectedFailure
   def test_text_preserves_sharing(self):
     C = curry.import_('Coin'); t = C.coin
     self.assertEqual(list(curry.eval(curry.parse(curry.show((t, t)), imports=[C]))), [(0, 0), (1, 1)])
