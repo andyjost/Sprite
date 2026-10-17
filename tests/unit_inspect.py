@@ -374,7 +374,7 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     curry.reload({'backend': 'cxx', 'interpret': 'new', 'inline_budget': 0})
     M = curry.compile(
         'double :: Int -> Int\ndouble x = x + x\nmain :: Int\nmain = double 21'
-      , mode='module'
+
       )
     code = inspect.getimpl(M.double)
     lines = code.splitlines()

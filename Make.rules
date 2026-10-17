@@ -199,7 +199,7 @@ endif
 
 # Submodules may override PYTHONFILES.
 ifeq ($(flavor PYTHONFILES),undefined)
-  PYTHONFILES = $(wildcard *.py)
+  PYTHONFILES = $(wildcard *.py *.pyi)
 endif
 ifdef PYTHONFILES
   ifdef INSTALL_DIR
@@ -209,6 +209,13 @@ ifdef PYTHONFILES
     FILES_TO_UNINSTALL += $(PYTHONFILES_INSTALL)
     install:: $(PYTHONFILES_INSTALL)
     $(INSTALL_DIR)/%.py : %.py
+			@mkdir -p $(dir $@)
+      ifdef SYMLINK_INTERFACES
+				ln -sf $(abspath $<) $@
+      else
+				cp $< $@
+      endif
+    $(INSTALL_DIR)/%.pyi : %.pyi
 			@mkdir -p $(dir $@)
       ifdef SYMLINK_INTERFACES
 				ln -sf $(abspath $<) $@

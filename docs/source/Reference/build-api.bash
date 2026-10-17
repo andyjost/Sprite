@@ -1,5 +1,21 @@
 #!/bin/bash
+set -eu
+# The Reference describes the installed public package.
 rm -f curry.*.rst curry.*.rst.rej
-# The last argument excludes curry.backends.llvm, a package of empty files.
-../../../install/bin/sprite-invoke ../../../install/bin/python -m sphinx.ext.apidoc -o . ../../../install/python/curry --module-first --force --separate --no-toc ../../../install/python/curry/backends/llvm
-patch -u < patches.txt
+../../../install/bin/python - <<'PY'
+from pathlib import Path
+import curry
+
+Path('curry.rst').write_text('''curry package
+=============
+
+The :download:`public surface <../../../src/python/__init__.pyi>` is
+installed beside the package as ``curry/__init__.pyi``. It records the
+names and signatures available in this version.
+
+.. automodule:: curry
+   :members: %s
+   :show-inheritance:
+   :undoc-members:
+''' % ', '.join(curry.__all__), encoding='utf-8')
+PY

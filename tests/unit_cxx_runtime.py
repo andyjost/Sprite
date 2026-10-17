@@ -11,7 +11,7 @@ DATA = os.path.join(HERE, 'data', 'curry')
 class TestCxxRuntime(cytest.TestCase):
   def test_exception_types_are_public(self):
     self.assertIs(cyrt.EvaluationError, curry.exceptions.EvaluationError)
-    self.assertIs(cyrt.EvaluationSuspended, curry.exceptions.EvaluationSuspended)
+    self.assertIs(cyrt.SuspensionError, curry.exceptions.SuspensionError)
     self.assertTrue(issubclass(cyrt.StepLimitReached, curry.CurryError))
     self.assertTrue(issubclass(cyrt.InvariantViolation, curry.CurryError))
     self.assertTrue(issubclass(cyrt.InvariantViolation, AssertionError))
@@ -35,9 +35,9 @@ class TestCxxRuntime(cytest.TestCase):
         self.assertIs(type(cm.exception), error)
 
   def test_native_load_error_is_public(self):
-    with self.assertRaisesRegex(curry.DynloadError, 'missing.so') as cm:
+    with self.assertRaisesRegex(curry.LoadError, 'missing.so') as cm:
       cyrt.SharedCurryModule('missing.so')
-    self.assertIs(type(cm.exception), curry.DynloadError)
+    self.assertIs(type(cm.exception), curry.LoadError)
 
   def testModuleCreation(self):
     count_modules = lambda: len(cyrt.Module.getall())

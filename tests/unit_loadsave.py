@@ -150,7 +150,7 @@ def main():
 def refused():
   try:
     curry.load(soB)
-  except curry.exceptions.DynloadError as exc:
+  except curry.exceptions.LoadError as exc:
     assert 'already loaded from' in str(exc), exc
     print('refused')
   else:

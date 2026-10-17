@@ -1436,7 +1436,7 @@ class TestPortableObjects(ToolchainTestCase):
       , 'os.unlink(%r)' % self.cached_file(first, '.cpp')
       , 'try:'
       , '  curry.load(%r)' % sofile
-      , 'except curry.exceptions.DynloadError as exc:'
+      , 'except curry.exceptions.LoadError as exc:'
       , '  print(json.dumps(str(exc)))'
       , 'else:'
       , '  print(json.dumps("no error"))'
@@ -1487,7 +1487,7 @@ class TestPortableObjects(ToolchainTestCase):
     is gone, under interpret:new the import is interpreted, and so is the
     importer (Cpp2So.import_lacks_an_object), with no error.  Before, the
     plan trusted an object without its file, and the loader raised
-    DynloadError for the interpreted import.
+    LoadError for the interpreted import.
     '''
     first = self.write_calling_json(33)
     second = self.write_calling_json(34, imported=first, callee=first + '.uses')

@@ -19,7 +19,7 @@ class InterpreterState(object):
     self.idfactory = itertools.count()
     self.setfactory = itertools.count()
     # The free variables made outside an evaluation of this interpreter: the
-    # markers of curry.free and the raw Free nodes of curry.raw_expr,
+    # markers of curry.free and the raw Free nodes of expressions.raw_expr,
     # counted by the expression builder; the variables of a single rewrite
     # step (RuntimeState.single_step); and the variables a value shares
     # (rts_control.make_value).  While it is zero, RuntimeState.set_goal

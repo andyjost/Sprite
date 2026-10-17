@@ -17,7 +17,7 @@ and so did the puzzle after its search.  The step now suspends on the
 variables without any information (rts.is_void), as ensureNotFree does.
 '''
 import cytest # from ./lib; must be first
-from curry.exceptions import EvaluationSuspended
+from curry.exceptions import SuspensionError
 import curry, unittest
 
 def values(goal):
@@ -153,7 +153,7 @@ class TestSuspensionOrder(cytest.TestCase):
     M = curry.compile(ORDER)
     for name in 'leftFree', 'plusLeftFree', 'fourValue':
       with self.subTest(goal=name):
-        with self.assertRaises(EvaluationSuspended):
+        with self.assertRaises(SuspensionError):
           values(getattr(M, name))
 
 class TestGroundNormalForm(cytest.TestCase):
@@ -173,7 +173,7 @@ class TestGroundNormalForm(cytest.TestCase):
   @cytest.timeout(60)
   def test_variable_without_information_suspends(self):
     M = curry.compile(BOUND)
-    with self.assertRaises(EvaluationSuspended):
+    with self.assertRaises(SuspensionError):
       values(M.showVarBound)
 
 class TestNormalFormOfNarrowedVariable(cytest.TestCase):
@@ -201,7 +201,7 @@ class TestNormalFormOfNarrowedVariable(cytest.TestCase):
   def test_free_name_suspends_after_the_values(self):
     M = curry.compile(NARROWED)
     got = []
-    with self.assertRaises(EvaluationSuspended):
+    with self.assertRaises(SuspensionError):
       for value in cytest.raw.values(cytest.raw.expr(M.pickNamed, 1, typed=True)):
         got.append(str(value))
     self.assertEqual(got, ['UB UA'])
@@ -220,7 +220,7 @@ class TestReleaseReadsTheWaitingConfiguration(cytest.TestCase):
     M = curry.compile(BEHIND)
     for name in 'blockedBehindHead', 'blockedAtHead':
       with self.subTest(goal=name):
-        with self.assertRaises(EvaluationSuspended):
+        with self.assertRaises(SuspensionError):
           values(getattr(M, name))
 
 if __name__ == '__main__':

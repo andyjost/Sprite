@@ -17,13 +17,6 @@ class TestPyCompile(cytest.TestCase):
       , lambda: curry.compile('f=x')
       )
 
-  def testIllegalMode(self):
-    self.assertRaisesRegex(
-        TypeError
-      , "expected mode 'module' or 'expr'"
-      , lambda: curry.compile('goal=0', mode='foo')
-      )
-
   def testModuleRedefined(self):
     curry.compile('goal=0', modulename='a')
     self.assertRaisesRegex(

@@ -3,7 +3,7 @@ The root of the error tree (the first slice of proposal A20 of the API
 review): every exception class of curry.exceptions derives from CurryError,
 and CurryError derives from Exception.  The three classes that derived from
 BaseException (CompileError, EvaluationError and, through it,
-EvaluationSuspended, and InstantiationError) become ordinary exceptions, so
+SuspensionError, and InstantiationError) become ordinary exceptions, so
 that `except Exception` in a Python program sees them.  Every class keeps its
 other bases (ValueError, IndexError, TypeError, ...), so `except TypeError`
 still catches a CurryTypeError.  Both backends raise the same classes.
@@ -43,7 +43,7 @@ class TestErrorsRoot(unittest.TestCase):
     self.assertTrue(issubclass(E.CurryIndexError, IndexError))
     self.assertTrue(issubclass(E.ModuleLookupError, ModuleNotFoundError))
     self.assertTrue(issubclass(E.SymbolLookupError, AttributeError))
-    self.assertTrue(issubclass(E.EvaluationSuspended, E.EvaluationError))
+    self.assertTrue(issubclass(E.SuspensionError, E.EvaluationError))
 
   def test_evaluation_error_is_caught_by_except_exception(self):
     P = curry.import_('Prelude')
@@ -62,10 +62,10 @@ class TestErrorsRoot(unittest.TestCase):
     goal = (getattr(P, '=:='))((getattr(P, '+'))(x, 1), 3)
     with self.assertRaises(E.CurryError) as cm:
       list(curry.eval(goal))
-    self.assertIsInstance(cm.exception, E.EvaluationSuspended)
+    self.assertIsInstance(cm.exception, E.SuspensionError)
 
   def test_compile_error_is_a_curry_error(self):
     with self.assertRaises(Exception) as cm:
-      curry.compile('x :: Int\nx = = 1\n', mode='module')
+      curry.compile('x :: Int\nx = = 1\n')
     self.assertIsInstance(cm.exception, E.CompileError)
     self.assertIsInstance(cm.exception, E.CurryError)

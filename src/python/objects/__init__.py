@@ -118,54 +118,6 @@ class CurryPackage(CurryModule):
 
 
 
-class CurryExpression(object):
-  def __init__(self, raw_expr):
-    self.raw_expr = raw_expr
-
-  def __getitem__(self, key):
-    return CurryExpression(self.raw_expr[key])
-
-  @property
-  def info(self):
-    from .. import inspect
-    return inspect.info_of(self.raw_expr)
-
-  @property
-  def is_boxed(self):
-    from .. import inspect
-    return inspect.is_boxed(self.raw_expr)
-
-  def __str__(self):
-    return str(self.raw_expr)
-
-  def __repr__(self):
-    from .. import inspect
-    info = inspect.info_of(self.raw_expr)
-    if info is None:
-      return '<curry constructor expression: type=unboxed %r, value=%r>' % (
-          type(self.raw_info).__name__, self.raw_expr
-        )
-    if info.tag >= T_CTOR:
-      return '<curry constructor expression: type=%r, head=%r>' % (
-          info.typedef().name, info.name
-        )
-    if info.tag == T_FUNC:
-      return '<curry function expression: head=%r>' % info.name
-    if info.tag == T_CHOICE:
-      return '<curry choice expression>: id=%r>' % \
-          inspect.get_choice_id(self.raw_expr)
-    if info.tag == T_FWD:
-      return '<curry forward expression>'
-    if info.tag == T_FAIL:
-      return '<curry failure expression>'
-    if info.tag == T_FREE:
-      return '<curry free variable expression: id=%r>' % \
-          inspect.get_freevar_id(self.raw_expr)
-    if info.tag == T_CONSTR:
-      return '<curry constraint expression>'
-    return '<invalid curry expression>'
-
-
 class CurryDataType(object):
   '''
   Static information for a Curry data type.

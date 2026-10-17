@@ -260,10 +260,8 @@ class TestTextGoals(cytest.TestCase):
     expected = golden(module, text, 'text.%s.au-gen' % name, text=text)
     _, names = goals.split_where_free(text)
     goal = curry.parse(text, imports=[module])
-    lifted = goals.lifted_goal(cytest.raw.interp(), goal)
-    reported = () if lifted is None else lifted.freevars
     observed = show_values(curry.eval(goal))
-    expected = drop_bindings(expected, set(names) - set(reported))
+    expected = drop_bindings(expected, set(names))
     self.assertEqual(
         normalize_values(observed, names), normalize_values(expected, names)
       , 'the values of %r differ:\n--- Sprite:\n%s--- oracle:\n%s'

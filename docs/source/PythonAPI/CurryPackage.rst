@@ -4,7 +4,9 @@ The ``curry`` Package
 
 .. _top-api:
 
-The public API uses terms and converted values.  Import with
+The :download:`installed public stub <../../../src/python/__init__.pyi>`
+records the public names and their landed signatures. The public API uses
+terms and converted values.  Import with
 ``curry.import_``; the loaded registry is ``curry.modules``.  A module's
 attributes are symbols, item lookup reaches operators, and ``curry.info``
 provides metadata, including its name, file, symbols and types.

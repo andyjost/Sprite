@@ -215,7 +215,7 @@ class TestIOBind(IOBindTestCase):
 @unittest.skipIf(
     curry.flags['backend'] != 'cxx'
   , 'the Python backend keys its rule on function names, and its catch '
-    'catches only IOError and MonadError'
+    'catches only OSError and EvaluationError'
   )
 class TestCxxMonadic(IOBindTestCase):
   '''

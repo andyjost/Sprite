@@ -1,8 +1,5 @@
-This directory contains auto-generated files providing the reference
-documentation for the ``curry`` Python module.
+The Reference describes the installed public surface of curry.
 
-To update the API documentation.
-
-  1. Ensure sphinx and autodoc and installed via PIP.
-  2. Stage Sprite.
-  3. Run build-api.bash.
+Stage Sprite, then run build-api.bash to regenerate curry.rst from
+curry.__all__. The page links to the stub installed beside the package.
+Internal modules are described in the developer documentation.

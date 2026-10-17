@@ -81,14 +81,10 @@ class ManyValuesError(CurryError, ValueError):
 class StaleError(CurryError, RuntimeError):
   '''An object belongs to an earlier session or module version.'''
 
-class TimeoutError(CurryError, RuntimeError):
-  pass
 
 class PrerequisiteError(CurryError, IOError):
   '''Raised when a build prerequisite is invalid.'''
 
-class DynloadError(CurryError, RuntimeError):
-  '''Raised when a compiled Curry module cannot be loaded.'''
 
 ######
 # Evaluation Errors
@@ -127,37 +123,6 @@ class EvaluationTimeout(EvaluationError):
 class InstantiationError(EvaluationError):
   '''A free variable of function type could not be instantiated.'''
 
-# Internal callers use the public suspension class too.
-EvaluationSuspended = SuspensionError
-
-class MonadError(EvaluationError):
-  # Prelude.IOError
-  CTOR_INDEX = 0
-  def __init__(self):
-    EvaluationError.__init__(self, 'An IO error occurred in monadic actions!')
-
-class UserMonadError(MonadError):
-  # Prelude.UserError
-  CTOR_INDEX = 1
-  def __init__(self):
-    EvaluationError.__init__(self, 'A user error occurred in monadic actions!')
-
-class FailMonadError(MonadError):
-  # Prelude.FailError
-  CTOR_INDEX = 2
-  def __init__(self):
-    EvaluationError.__init__(
-        self, 'A failed computation occurred in monadic actions!'
-      )
-
-class NondetMonadError(NondetError):
-  # Prelude.NondetError
-  # Non-determinism occurred in monadic actions.
-  CTOR_INDEX = 3
-  def __init__(self):
-    EvaluationError.__init__(
-        self, 'non-determinism in monadic actions occurred!'
-      )
 
 def evaluation_error(message, kind='evaluation', filename=None):
   """Translate the runtime's explicit error kind at the native boundary."""

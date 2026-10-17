@@ -86,12 +86,12 @@ class TestStackGuard(cytest.TestCase):
     return run_child(self, code)
 
   def test_deep_evaluation_raises(self):
-    lines = self.evaluate('M.deep, %d' % self.N)
+    lines = self.evaluate('M.deep(%d)' % self.N)
     self.assertEqual(len(lines), 1, lines)
     self.assertRegex(lines[0], self.STACK_ERROR)
 
   def test_deep_alternative_does_not_starve_others(self):
-    lines = self.evaluate('M.deepAlt, %d' % self.N, count=2)
+    lines = self.evaluate('M.deepAlt(%d)' % self.N, count=2)
     self.assertEqual(lines[0], 'value 1')
     self.assertRegex(lines[1], self.STACK_ERROR)
 
@@ -101,7 +101,7 @@ class TestStackGuard(cytest.TestCase):
     progress check is per configuration: a global step count moves while the
     other two run, so it does not show that this one is stuck.
     '''
-    lines = self.evaluate('M.deepThree, %d' % self.N)
+    lines = self.evaluate('M.deepThree(%d)' % self.N)
     self.assertEqual(len(lines), 1, lines)
     self.assertRegex(lines[0], self.STACK_ERROR)
 
@@ -111,7 +111,7 @@ class TestStackGuard(cytest.TestCase):
     waits.  The shallow alternative, which needs many steps, still produces
     its value.  The Python backend applies the same rule (unit_py_fairness).
     '''
-    lines = self.evaluate('M.mixedAlt, %d, 200000' % self.N, count=2)
+    lines = self.evaluate('M.mixedAlt(%d, 200000)' % self.N, count=2)
     self.assertEqual(lines[0], 'value 200000')
     self.assertRegex(lines[1], self.STACK_ERROR)
 
@@ -122,7 +122,7 @@ class TestStackGuard(cytest.TestCase):
     #131).  The store polls the guard and ends the evaluation with its
     error instead of a segmentation fault.
     '''
-    lines = self.evaluate('M.deepPair, %d' % self.N, count=2)
+    lines = self.evaluate('M.deepPair(%d)' % self.N, count=2)
     self.assertEqual(lines[0], 'value True')
     self.assertRegex(lines[1], self.STACK_ERROR)
 
@@ -133,7 +133,7 @@ class TestStackGuard(cytest.TestCase):
     queue never rotated, so the value 1 never arrived.  The unwind now goes
     to the nearest enclosing queue that can rotate.
     '''
-    lines = self.evaluate('M.deepSet, %d' % self.N, count=2)
+    lines = self.evaluate('M.deepSet(%d)' % self.N, count=2)
     self.assertEqual(lines[0], 'value 1')
     self.assertRegex(lines[1], self.STACK_ERROR)
 
@@ -169,7 +169,7 @@ class TestStackGuard(cytest.TestCase):
     guard never fire, and the process crashed with a segmentation fault.  The
     limit is now clamped to the stack of the thread less a margin.
     '''
-    lines = self.evaluate('M.deep, 100000', limit=1 << 40)
+    lines = self.evaluate('M.deep(100000)', limit=1 << 40)
     self.assertEqual(len(lines), 1, lines)
     self.assertRegex(lines[0], self.STACK_ERROR)
 
@@ -260,7 +260,7 @@ class TestDeepValue(cytest.TestCase):
     end.  The copy of a node is now recorded first.  The copy of ``let a =
     [a] in a`` is a cons node that leads back to itself.
     '''
-    anchor, ref = curry.expressions.anchor, curry.ref
+    anchor, ref = curry.expressions.anchor, cytest.raw.ref
     node = cytest.raw.expr(anchor([ref()]))
     self.assertTrue(self.reaches(node, node.id()))
     dup = node.__deepcopy__()

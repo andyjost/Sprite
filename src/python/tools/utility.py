@@ -1,4 +1,3 @@
-from ..exceptions import TimeoutError
 from .. import config
 import contextlib, logging, os, re, signal, sys, traceback
 

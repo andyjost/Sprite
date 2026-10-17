@@ -322,9 +322,9 @@ class TestInstantiation(cytest.TestCase):
     self.interp = interpreter.Interpreter(flags=PY)
 
   def e(self, typename, imports=None):
-    x, = list(self.interp.eval(self.interp.compile(
-        'x::(%s) where x free' % typename, 'expr', imports=imports
-      )))
+    from curry.objects.terms import parse
+    goal = parse(self.interp, 'x::(%s) where x free' % typename, imports=imports or ())
+    x, = self.interp.eval_nodes(goal)
     self.assertIsaFreevar(x)
     self.assertChoiceIdEquals(x, 0)
     return self.interp.raw_expr(self.interp.prelude.id, x)

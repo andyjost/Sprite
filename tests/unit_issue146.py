@@ -44,5 +44,5 @@ class TestIssue146(unittest.TestCase):
 
   def test_module_mode_unknown_import(self):
     with self.assertRaises(ModuleLookupError) as cm:
-      curry.compile('x :: Int\nx = 1\n', mode='module', imports=['Nosuch'])
+      curry.compile('x :: Int\nx = 1\n', imports=['Nosuch'])
     self.assertIn('Nosuch', str(cm.exception))

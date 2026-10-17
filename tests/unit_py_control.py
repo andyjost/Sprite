@@ -7,7 +7,7 @@ from curry.backends.generic.eval.control import (
 from curry.backends.py.eval import rts_control
 from curry.backends.py.eval.configuration import Configuration
 from curry.backends.py.eval.rts import RuntimeState
-from curry.exceptions import EvaluationSuspended, NondetError
+from curry.exceptions import SuspensionError, NondetError
 import contextlib, curry, io, unittest
 
 @unittest.skipIf(
@@ -135,7 +135,7 @@ class TestPyControl(cytest.TestCase):
     self.assertIs(rts.Q[-1], head)
     # When every configuration is blocked, the evaluation is suspended.
     rts.C.residuals.add(rts.obj_id(x))
-    self.assertRaises(EvaluationSuspended, rts.ready)
+    self.assertRaises(SuspensionError, rts.ready)
     # An empty queue is not ready.
     rts.Q.clear()
     self.assertFalse(rts.ready())

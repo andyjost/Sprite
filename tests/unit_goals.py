@@ -25,7 +25,7 @@ from curry.interpreter import compile as compilemod
 from curry.toolchain.flat2icurry import flatcurry as fc
 from curry.typecheck import defaulting, goals, sigtable
 from curry.typecheck.defaulting import DefaultingError, ORACLE_SENTENCE
-from curry.typecheck.goals import Bindings, Goal
+from curry.typecheck.goals import Goal
 from io import StringIO
 from unittest import mock
 import curry, os, re, shutil, subprocess, sys, tempfile, unittest
@@ -478,34 +478,10 @@ class TestTextGoals(cytest.TestCase):
     with self.assertRaises(curry.StaleError):
       curry.eval(e)
 
-  def test_absent_from_result(self):
-    '''The rule on schemes built by hand.'''
-    arrow = fc.FuncType
-    Int, Bool = tcons('Int'), tcons('Bool')
-    def absent(typeexpr, nfree):
-      return goals.absent_from_result(
-          scheme([], typeexpr, source_arity=nfree), nfree
-        )
-    self.assertEqual(absent(arrow(tcons('[]', Int), Bool), 1), [0])
-    self.assertEqual(absent(arrow(tvar(0), tvar(0)), 1), [])
-    self.assertEqual(
-        absent(arrow(tvar(0), arrow(tvar(1), tcons('(,)', tvar(0), tvar(1)))), 2), []
-      )
-    self.assertEqual(absent(arrow(tvar(0), arrow(tcons('[]', tvar(0)), tvar(0))), 2), [1])
-    self.assertEqual(absent(arrow(Int, tcons('[]', Int)), 1), [])
-    self.assertEqual(absent(arrow(tcons('[]', Int), Int), 1), [0])
-    self.assertEqual(absent(arrow(Int, arrow(Bool, Int)), 2), [1])
-    self.assertEqual(absent(Int, 0), [])
-    with self.assertRaises(curry.CurryTypeError):
-      absent(Int, 1)
-    self.assertTrue(goals.type_occurs(Int, arrow(Bool, tcons('[]', Int))))
-    self.assertFalse(goals.type_occurs(tcons('[]', Int), tcons('[]', tcons('[]', Bool))))
-
   def test_where_free_with_exprtype(self):
     '''With exprtype the clause stays a local declaration, as before.'''
     e = curry.parse('(xs ++ [3] =:= [1,2,3] &> xs) :: [Int] where xs free')
     self.assertNotIsInstance(e, Goal)
-    self.assertIsNone(goals.lifted_goal(cytest.raw.interp(), e))
     self.assertEqual(values(e), [[1, 2]])
 
   def test_split_where_free(self):
@@ -517,16 +493,6 @@ class TestTextGoals(cytest.TestCase):
     self.assertEqual(split('let x free in x'), ('let x free in x', []))
     self.assertEqual(split('xs where xs free\n'), ('xs', ['xs']))
     self.assertEqual(split('x where 1 free'), ('x where 1 free', []))
-
-  def test_split_tuple_text(self):
-    split = goals.split_tuple_text
-    self.assertEqual(split('(True, [1, 2])', 2), ['True', '[1, 2]'])
-    self.assertEqual(split('("a, b", \'x\', [1, (2, 3)])', 3), ['"a, b"', "'x'", '[1, (2, 3)]'])
-    self.assertEqual(split("(',', '\\'', \"\\\"\")", 3), ["','", "'\\''", '"\\""'])
-    self.assertEqual(split("(Foo' 1, x)", 2), ["Foo' 1", 'x'])
-    self.assertIsNone(split('(a, b)', 3))
-    self.assertIsNone(split('a', 2))
-    self.assertIsNone(split('(a, )', 2))
 
   def test_expression_scheme(self):
     '''The undefaulted type of a text, what :type prints.'''

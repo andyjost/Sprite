@@ -299,7 +299,7 @@ class TestPrelude(cytest.TestCase):
       self.assertIsaFreevar(inspect.fwd_chain_target(value))
     e = cytest.raw.expr(curry.parse('id $## (x::Int) where x free'))
     self.assertRaises(
-        curry.exceptions.EvaluationSuspended, lambda: list(curry.eval(e))
+        curry.exceptions.SuspensionError, lambda: list(curry.eval(e))
       )
 
   def test_strict_apply_choice(self):
@@ -381,7 +381,7 @@ class TestErrorMessage(cytest.TestCase):
     # compiled Prelude.  The primitive behind prim_error carried the display
     # name "error" and shadowed the function that normalizes the message, so
     # an unevaluated (++) reached the runtime ("bad Curry string").
-    M = curry.compile('main = error ("A " ++ "b")', mode='module')
+    M = curry.compile('main = error ("A " ++ "b")')
     with self.assertRaisesRegex(curry.EvaluationError, r'^A b'):
       list(curry.eval(M.main))
 

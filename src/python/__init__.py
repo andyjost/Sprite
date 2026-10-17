@@ -1,76 +1,9 @@
-'''
-The Sprite Curry system.
+"""The public Python surface of Sprite.
 
-This package contains everything one needs to compile and execute Curry code.
-The topmost module provides an instance of the Curry system and an API to
-interact with it.
-
-To perform a soft reset call :func:`reset`.  This returns the system to its
-original state, with no definitions and no modules imported.  The configuration
-is taken from environment variable SPRITE_INTERPRETER_FLAGS.  To change that at
-runtime, call :func:`reload` and specify new flags.
-
-Use :func:`import_` to import Curry modules, :func:`compile` to compile Curry
-code, :func:`expr` to build Curry expressions, and :func:`eval` to evaluate
-them.  :data:`path` determines where Sprite searches for Curry code.  Loaded
-modules can be found under :data:`modules`.  Use :func:`topython` to convert
-Curry values to Python objects.  :func:`stats` reports the statistics of the
-run: time, rewrite steps, forks, collections, memory, compile time, and
-collector time.
-
-Example:
-
-    >>> mymodule = curry.compile("""
-    ... data Item = A | B
-    ... rotate A = B
-    ... rotate B = A
-    ... main :: Item
-    ... main = rotate A ? rotate B
-    ... """)
-    >>> for value in curry.eval(mymodule.main):
-    ...   print(value)
-    B
-    A
-'''
-
-__all__ = [
-  # Global API
-    'getInterpreter'
-  , 'CurryError'
-  , 'reload'
-  , 'show_value'
-
-  # Methods of the global interpreter.
-  , 'compile'
-  , 'currytype'
-  , 'describe'
-  , 'eval'
-  , 'expr'
-  , 'flags'
-  , 'import_'
-  , 'load'
-  , 'module'
-  , 'modules'
-  , 'path'
-  , 'raw_expr'
-  , 'reset'
-  , 'save'
-  , 'stats'
-  , 'symbol'
-  , 'topython'
-  , 'type'
-  , 'typeof'
-
-  # Wrappers to control expression building.
-  , 'choice'
-  , 'cons'
-  , 'fail'
-  , 'free'
-  , 'nil'
-  , 'ref'
-  , 'typed'
-  , 'unboxed'
-  ]
+Build typed terms with module calls, ``term`` and ``parse``. Evaluate them
+with ``eval`` or ``solve`` and print values with ``show``. The installed
+``__init__.pyi`` describes the public names and their landed signatures.
+"""
 
 # Install Sprite's breakpoint() as sys.breakpointhook.
 import os
@@ -94,32 +27,17 @@ if not os.access(os.environ['SPRITE_HOME'], os.R_OK):
   raise ImportError('SPRITE_HOME is not readable')
 del os
 
-from .exceptions import *
+from .exceptions import (
+    CurryError, CompileError, NotConstructorError, ModuleLookupError
+  , SymbolLookupError, TypeLookupError, CurryIndexError, CurryTypeError
+  , TypeSyntaxError, InterfaceError, ModuleExistsError, LoadError
+  , FlagError, CurryWarning, IntOverflowError, NoValueError
+  , ManyValuesError, StaleError, PrerequisiteError, EvaluationError
+  , SuspensionError, DivisionByZeroError, CurryIOError, CurryFileNotFoundError
+  , NondetError, StackLimitError, EvaluationTimeout, InstantiationError
+  )
 from . import interpreter, lib
 from .interpreter import flags as _flags
-from .utility import visitation as _visitation
-import collections.abc as _collections_abc
-
-from . import expressions as _expressions
-choice  = _expressions.choice
-cons    = _expressions.cons
-fail    = _expressions.fail
-'''
-Places a failure into a Curry expression.
-
-:meta hide-value:
-'''
-free    = _expressions.free
-nil     = _expressions.nil
-'''
-Places a list terminator into a Curry expression.
-
-:meta hide-value:
-'''
-ref     = _expressions.ref
-typed   = _expressions.typed
-unboxed = _expressions.unboxed
-del _expressions
 
 # A reload replaces the interpreter.  Release the previous one's expression
 # modules first, so their libraries unload now; see interpreter/compile.py.
@@ -134,23 +52,23 @@ if '_interpreter_' in globals():
 _interpreter_ = interpreter.Interpreter(flags=_flags.getflags())
 
 compile = _interpreter_.compile
-currytype = _interpreter_.currytype
-describe = _interpreter_.describe
-eval = _interpreter_.eval
+
+def eval(goal):
+  """Return the converted values of a goal as a lazy Results."""
+  return _interpreter_.eval(goal)
+
 solve = _interpreter_.solve
-expr = _interpreter_.expr
 flags = _interpreter_.flags
 '''
 The ``flags`` attribute of the global interpreter.  Change its entries in
-place to reconfigure the interpreter, ``curry.flags['defaultconverter'] =
-'topython'``.  An assignment to ``curry.flags`` rebinds the name in the
-package and changes nothing in the interpreter.
+place to reconfigure the interpreter, ``curry.flags['trace'] = True``.
+An assignment to ``curry.flags`` rebinds the name in the package and changes
+nothing in the interpreter.
 
 :meta hide-value:
 '''
 import_ = _interpreter_.import_
 load = _interpreter_.load
-module = _interpreter_.module
 modules = _interpreter_.modules
 '''
 The ``modules`` attribute of the global interpreter.  This is a ``dict`` that
@@ -169,12 +87,14 @@ name in the package and changes nothing in the interpreter.
 :meta hide-value:
 '''
 
-raw_expr = _interpreter_.raw_expr
 reset = _interpreter_.reset
 save = _interpreter_.save
 stats = _interpreter_.stats
 from .objects import CurryModule as Module
-from .objects.terms import Term, Data, Function, Values, Symbol, DataType, Char, Var, Anonymous, anonymous, Reference
+from .objects.terms import (
+    Term, Data, Function, Values, Symbol, DataType, Char
+  , Var, Anonymous, anonymous, Reference
+  )
 from .typecheck.errors import ConversionError, MismatchError, ArityError, NoInstanceError
 from .typecheck.defaulting import DefaultingError
 
@@ -189,10 +109,7 @@ def parse(text, *, imports=()):
   from .objects.terms import parse as parse_term
   return parse_term(_interpreter_, text, imports)
 
-def free(name=None, *, type=None, **legacy):
-  from . import expressions as _expressions
-  if legacy or isinstance(name, int):
-    return _expressions.free(vid=legacy.pop('vid', 0 if name is None else name), **legacy)
+def free(name=None, *, type=None):
   return Var(_interpreter_, name, type)
 
 def choice(first, second, *more):
@@ -203,10 +120,7 @@ def let(body, /, **bindings):
   from .objects.terms import let as build_let
   return build_let(_interpreter_, body, bindings)
 
-def ref(name=None):
-  from . import expressions as _expressions
-  if name is None:
-    return _expressions.ref()
+def ref(name):
   return Reference(_interpreter_, name)
 
 def _qualified(name):
@@ -226,21 +140,16 @@ def _qualified(name):
 def symbol(name):
   module, local = _qualified(name)
   return module[local]
-topython = _interpreter_.topython
 def type(name):
   module, local = _qualified(name)
   try:
     return info(module).types[local]
   except KeyError:
     raise TypeLookupError('module %r has no type %r' % (module.__name__, local)) from None
-def typeof(value, defaulted=False):
+def typeof(value, *, defaulted=False):
   if isinstance(value, str):
     value = term(value)
   return _interpreter_.typeof(value, defaulted=defaulted)
-
-def getInterpreter():
-  '''Get the global interpreter instance.'''
-  return _interpreter_
 
 def reload(flags={}):
   '''
@@ -250,56 +159,6 @@ def reload(flags={}):
   '''
   interpreter.reload(__name__, flags)
 
-
-class ShowValue(object):
-  @_visitation.dispatch.on('value')
-  def __call__(self, value):
-    return str(value)
-
-  @__call__.when(tuple)
-  def __call__(self, value):
-    if len(value) == 1:
-      return self(value[0])
-    else:
-      return '(%s)' % ','.join(map(self, value))
-
-  @__call__.when(list)
-  def __call__(self, value):
-    return '[%s]' % ','.join(map(self, value))
-
-  @__call__.when(_collections_abc.Sequence, no=str)
-  def __call__(self, value):
-    return self(list(value))
-
-  @__call__.when(str)
-  def __call__(self, value):
-    # We need to add a single quote to the string to trick Python into
-    # surrounding it with double quotes.
-    value = repr(value + "'")
-    value = value[:-2] + value[-1]
-    return value
-
-  @__call__.when(_collections_abc.Mapping)
-  def __call__(self, value):
-    return {self(k): self(v) for k,v in value.items()}
-
-
-def show_value(value):
-  '''
-  Converts a Python Curry value to a string in Curry format.  This does a few
-  things, such as lowering one-tuples; adjusting containers, such as tuples and
-  lists, to print elements as with ``str`` rather than ``repr``; and converting
-  free variable to friendly names _a, _b, etc.  The output should match other
-  Curry systems.
-  '''
-  return ShowValue()(value)
-
-__all__ += ['Term', 'Data', 'Function', 'Values', 'Symbol', 'DataType', 'Module', 'Char', 'term', 'info', 'ConversionError', 'MismatchError', 'ArityError']
-
-__all__ += ['parse', 'Var', 'Anonymous', 'anonymous', 'let']
-
-__all__ += ['DefaultingError']
-__all__ += ['IntOverflowError']
 
 from .objects.results import Results, Answer, Bindings
 # Load the node printer before exporting the public function of that name.
@@ -311,11 +170,78 @@ def show(value):
   from .objects.termshow import show as show_term
   return show_term(value)
 
-__all__ += ['solve', 'Results', 'Answer', 'Bindings', 'show', 'NoValueError', 'ManyValuesError', 'StaleError']
 
-__all__ += ['NoInstanceError', 'TypeSyntaxError', 'InterfaceError', 'CompileError'
-  , 'EvaluationError', 'SuspensionError', 'DivisionByZeroError', 'CurryIOError'
-  , 'CurryFileNotFoundError', 'NondetError', 'StackLimitError', 'EvaluationTimeout'
-  , 'InstantiationError', 'ModuleLookupError', 'ModuleExistsError', 'SymbolLookupError'
-  , 'TypeLookupError', 'LoadError', 'PrerequisiteError', 'FlagError', 'CurryWarning'
-  , 'NotConstructorError', 'CurryIndexError']
+# wait belongs to lane 5; stream and Stream belong to lane 7.
+__all__ = [
+    'import_'
+  , 'compile'
+  , 'reload'
+  , 'reset'
+  , 'save'
+  , 'load'
+  , 'modules'
+  , 'path'
+  , 'flags'
+  , 'stats'
+  , 'term'
+  , 'parse'
+  , 'free'
+  , 'anonymous'
+  , 'choice'
+  , 'let'
+  , 'ref'
+  , 'symbol'
+  , 'type'
+  , 'eval'
+  , 'solve'
+  , 'typeof'
+  , 'show'
+  , 'Module'
+  , 'Symbol'
+  , 'DataType'
+  , 'Term'
+  , 'Data'
+  , 'Function'
+  , 'Var'
+  , 'Values'
+  , 'Char'
+  , 'Anonymous'
+  , 'Results'
+  , 'Answer'
+  , 'Bindings'
+  , 'CurryError'
+  , 'CurryWarning'
+  , 'CurryTypeError'
+  , 'ConversionError'
+  , 'MismatchError'
+  , 'ArityError'
+  , 'NoInstanceError'
+  , 'DefaultingError'
+  , 'TypeSyntaxError'
+  , 'InterfaceError'
+  , 'IntOverflowError'
+  , 'CompileError'
+  , 'EvaluationError'
+  , 'SuspensionError'
+  , 'DivisionByZeroError'
+  , 'CurryIOError'
+  , 'CurryFileNotFoundError'
+  , 'NondetError'
+  , 'StackLimitError'
+  , 'EvaluationTimeout'
+  , 'InstantiationError'
+  , 'NoValueError'
+  , 'ManyValuesError'
+  , 'ModuleLookupError'
+  , 'ModuleExistsError'
+  , 'SymbolLookupError'
+  , 'TypeLookupError'
+  , 'StaleError'
+  , 'LoadError'
+  , 'PrerequisiteError'
+  , 'FlagError'
+  , 'NotConstructorError'
+  , 'CurryIndexError'
+  , 'info'
+  , 'Reference'
+  ]

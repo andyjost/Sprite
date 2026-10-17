@@ -19,7 +19,7 @@ application takes, the type a literal resolved to, and the ``Data``
 dictionary of a free variable.  :func:`materialize` is the reference
 materializer: it builds the node of a solved problem through ``raw_expr``,
 with the dictionaries in scheme order, ``apply`` chains for over-application
-and newtype constructors erased.  The typed builder of ``curry.expr`` is its
+and newtype constructors erased.  The typed builder of ``expressions.expr`` is its
 production counterpart.
 '''
 
@@ -50,7 +50,7 @@ DEFAULT_HINT = "state the type: curry.term(goal, type='T')"
 # element type of an iterator, which the items never fix.
 ITERATOR_HINT = (
     "the element type of an iterator is fixed when the expression is built; "
-    "state it with curry.typed(iterator, '[T]')"
+    "state it with curry.term(iterator, type='[T]')"
   )
 # The width of the expression text in the message of the defaulting table.
 WHAT_WIDTH = 60
@@ -192,7 +192,7 @@ class Typed(Spec):
 
 def spec_of(*args):
   '''
-  The spec of the arguments of ``curry.expr``: a spec as it is; a symbol
+  The spec of the arguments of ``expressions.expr``: a spec as it is; a symbol
   with its arguments; a Python value; a list headed by a symbol as an
   application and any other list as a Curry list; a tuple; a free marker;
   a choice marker as a call of ``Prelude.?``; an iterator.
@@ -251,7 +251,7 @@ class Problem:
     interp:
         The interpreter.
     spec:
-        The expression, as a spec or as the arguments of ``curry.expr``.
+        The expression, as a spec or as the arguments of ``expressions.expr``.
     exprtype:
         The expected type of the root, in Curry syntax, or None.  Its type
         variables are rigid.
@@ -991,7 +991,7 @@ class Problem:
     '''
     The error of the table with one more line when the constraint it
     rejected sits on the element type of an iterator, which no item can
-    fix: ``curry.typed(iterator, '[T]')`` states it.
+    fix: ``curry.term(iterator, type='[T]')`` states it.
     '''
     pred = err.predicate
     index = None if pred is None else _first_typevar(pred.typeexpr)
@@ -1107,7 +1107,7 @@ def _context_key(pred):
     )
 
 def infer(interp, *args, **kwds):
-  '''Types the arguments of ``curry.expr`` and solves; returns the :class:`Problem`.'''
+  '''Types the arguments of ``expressions.expr`` and solves; returns the :class:`Problem`.'''
   return Problem(interp, spec_of(*args), **kwds).solve()
 
 # The description of a spec
@@ -1211,7 +1211,7 @@ def materialize(problem):
   past the arity, a partial application for fewer, a newtype constructor as
   its argument and a bare one as ``Prelude.id``, one ``unknown`` node per
   free marker with the ``Data`` dictionary of its type, literals at their
-  resolved types.  The typed builder of ``curry.expr`` is the production
+  resolved types.  The typed builder of ``expressions.expr`` is the production
   counterpart; this one serves the tests of the engine.
   '''
   problem.solve()
@@ -1326,5 +1326,5 @@ def _children(spec):
   return ()
 
 def build(interp, *args, **kwds):
-  '''Types the arguments of ``curry.expr`` and builds the node.'''
+  '''Types the arguments of ``expressions.expr`` and builds the node.'''
   return materialize(infer(interp, *args, **kwds))

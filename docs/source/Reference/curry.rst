@@ -1,37 +1,11 @@
 curry package
 =============
 
+The :download:`public surface <../../../src/python/__init__.pyi>` is
+installed beside the package as ``curry/__init__.pyi``. It records the
+names and signatures available in this version.
+
 .. automodule:: curry
-   :members:
+   :members: import_, compile, reload, reset, save, load, modules, path, flags, stats, term, parse, free, anonymous, choice, let, ref, symbol, type, eval, solve, typeof, show, Module, Symbol, DataType, Term, Data, Function, Var, Values, Char, Anonymous, Results, Answer, Bindings, CurryError, CurryWarning, CurryTypeError, ConversionError, MismatchError, ArityError, NoInstanceError, DefaultingError, TypeSyntaxError, InterfaceError, IntOverflowError, CompileError, EvaluationError, SuspensionError, DivisionByZeroError, CurryIOError, CurryFileNotFoundError, NondetError, StackLimitError, EvaluationTimeout, InstantiationError, NoValueError, ManyValuesError, ModuleLookupError, ModuleExistsError, SymbolLookupError, TypeLookupError, StaleError, LoadError, PrerequisiteError, FlagError, NotConstructorError, CurryIndexError, info, Reference
    :show-inheritance:
    :undoc-members:
-
-Subpackages
------------
-
-.. toctree::
-   :maxdepth: 4
-
-   curry.backends
-   curry.icurry
-   curry.interpreter
-   curry.lib
-   curry.objects
-   curry.toolchain
-   curry.tools
-   curry.typecheck
-   curry.utility
-
-Submodules
-----------
-
-.. toctree::
-   :maxdepth: 4
-
-   curry.cache
-   curry.common
-   curry.config
-   curry.exceptions
-   curry.expressions
-   curry.inspect
-   curry.show

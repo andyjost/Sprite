@@ -9,7 +9,7 @@ that module returns C++ text with its step functions (#113).  A second
 module, Other, is imported from its source: it runs interpreted while the
 background compile runs; evaluation still works after the swap.
 curry.load of the object of Obj returns the loaded module; the object of a
-second copy under the same name is refused with DynloadError, and the
+second copy under the same name is refused with LoadError, and the
 module still works after the refusal (#109).  The exit status is 0.
 '''
 import glob, os, curry

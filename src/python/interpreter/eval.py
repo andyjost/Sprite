@@ -87,13 +87,9 @@ class _Variables:
     return self.foreign[vid]
 
 
-def _converter(interp, converter, typeexpr, variables):
-  convert = conversions.getconverter(converter if converter != 'default'
-      else interp.flags['defaultconverter'])
-  if convert is conversions.topython:
-    to_python = conversions.ToPython(variable=_Variables(interp, variables), interp=interp)
-    return lambda ip, value: to_python(value, typeexpr=_under_io(typeexpr))
-  return convert
+def _converter(interp, typeexpr, variables):
+  to_python = conversions.ToPython(variable=_Variables(interp, variables), interp=interp)
+  return lambda ip, value: to_python(value, typeexpr=_under_io(typeexpr))
 
 
 def _run(interp, goal, convert, answer=False):
@@ -103,14 +99,6 @@ def _run(interp, goal, convert, answer=False):
   try:
     for value in values:
       bindings = Bindings() if answer else None
-      if isinstance(value, goals.Bindings):
-        if convert is None and not answer:
-          yield value
-          continue
-        if answer:
-          bindings = Bindings((name, convert(interp, part) if convert else part)
-              for name, part in value.bindings.items())
-        value = value.value
       if convert is not None:
         value = convert(interp, value)
       yield Answer(value, bindings) if answer else value
@@ -134,15 +122,21 @@ def _run(interp, goal, convert, answer=False):
 
 
 def eval(interp, *args, **kwds):
-  '''Return a Results of the goal's values; converter=None keeps raw nodes.'''
-  if not args and 'goal' in kwds:
-    args = (kwds.pop('goal'),)
-  converter = kwds.pop('converter', 'topython')
+  """Return the converted values of an internal goal description."""
+  return _evaluate(interp, args, kwds, raw=False)
+
+
+def eval_nodes(interp, *args, **kwds):
+  """Return runtime nodes for internal callers."""
+  return _evaluate(interp, args, kwds, raw=True)
+
+
+def _evaluate(interp, args, kwds, raw):
   args = _arguments(interp, args, kwds)
   variables = [v for v in walk_forms(args) if isinstance(v, Var)]
   goal = goals.make_goal(interp, args, exprtype=kwds.pop('exprtype', None), anchors=kwds)
   text = goal.text or _text(args[0])
-  convert = _converter(interp, converter, expressions.result_type(interp, goal.expr), variables)
+  convert = None if raw else _converter(interp, expressions.result_type(interp, goal.expr), variables)
   return Results(_run(interp, goal, convert), text)
 
 
@@ -157,7 +151,7 @@ def solve(interp, goal):
     for var in reversed(variables):
       bindings = (var, bindings)
     goal = goals.make_goal(interp, ((value, bindings),))
-    convert = _converter(interp, 'topython', expressions.result_type(interp, goal.expr), all_vars)
+    convert = _converter(interp, expressions.result_type(interp, goal.expr), all_vars)
     def answers():
       values = _run(interp, goal, convert)
       try:
@@ -172,6 +166,6 @@ def solve(interp, goal):
     values = answers()
   else:
     goal = goals.make_goal(interp, args)
-    convert = _converter(interp, 'topython', expressions.result_type(interp, goal.expr), all_vars)
+    convert = _converter(interp, expressions.result_type(interp, goal.expr), all_vars)
     values = _run(interp, goal, convert, answer=True)
   return Results(values, str(value))

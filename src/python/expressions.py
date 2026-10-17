@@ -70,7 +70,7 @@ del _nilcls
 class unboxed(object):
   '''
   Used with :func:`expr` to place the unboxed payload of a primitive into a
-  Curry expression: ``[Prelude.Int, curry.unboxed(3)]`` is the node ``<Int
+  Curry expression: ``[Prelude.Int, expressions.unboxed(3)]`` is the node ``<Int
   3>``, and ``Prelude.Char`` and ``Prelude.Float`` take the marker the same
   way.  A plain Python value builds the same node, so the marker is seldom
   needed.  The payload must fit the primitive: a Python ``int`` under
@@ -90,7 +90,7 @@ class unboxed(object):
     self.value = value
 
   def __repr__(self):
-    return 'curry.unboxed(%r)' % (self.value,)
+    return 'expressions.unboxed(%r)' % (self.value,)
 
 # The primitive of a payload: its name, the Python type the payload must
 # have, and the example of the messages.
@@ -119,7 +119,7 @@ def unboxed_fits(primitive, value):
 
 def unboxed_payload(info, value, where=None):
   '''
-  The payload of ``curry.unboxed`` under the primitive ``info``, checked:
+  The payload of ``expressions.unboxed`` under the primitive ``info``, checked:
   the value itself, or a ``CurryTypeError`` when it does not fit
   (:func:`unboxed_fits`).  ``where`` is the text of the position in the
   typed builder, or None in the untyped builder.
@@ -141,8 +141,8 @@ def unboxed_message(value, where=None, primitive=None):
     _, pytype, example = _PRIMITIVES[primitive]
     place = '' if where is None else ' at ' + where
     return (
-        'curry.unboxed(%r) is not the payload of %s %s%s; the payload of '
-        '%s %s is %s, as in [Prelude.%s, curry.unboxed(%r)]'
+        'expressions.unboxed(%r) is not the payload of %s %s%s; the payload of '
+        '%s %s is %s, as in [Prelude.%s, expressions.unboxed(%r)]'
             % ( value, _article(primitive), primitive, place
               , _article(primitive), primitive, pytype, primitive, example
               )
@@ -160,8 +160,8 @@ def unboxed_message(value, where=None, primitive=None):
   else:
     place = 'at ' + where
   return (
-      'curry.unboxed(%r) stands %s; the marker is the payload of an Int, '
-      'Char or Float, as in [Prelude.%s, curry.unboxed(%r)]'
+      'expressions.unboxed(%r) stands %s; the marker is the payload of an Int, '
+      'Char or Float, as in [Prelude.%s, expressions.unboxed(%r)]'
           % (value, place, primitive, value)
     )
 
@@ -263,10 +263,10 @@ class choice(object):
 class typed(object):
   '''
   Used with :func:`expr` to annotate a part of an expression with its type:
-  ``curry.typed(value, 'T')`` converts ``value`` at the type ``T``, in Curry
+  ``expressions.typed(value, 'T')`` converts ``value`` at the type ``T``, in Curry
   syntax, and unifies ``T`` with the type the context expects.  So
-  ``curry.typed('a', 'String')`` is the string ``"a"``, and
-  ``curry.typed(node, '[Int]')`` states the type of a large value instead of
+  ``expressions.typed('a', 'String')`` is the string ``"a"``, and
+  ``expressions.typed(node, '[Int]')`` states the type of a large value instead of
   a walk of its content.  ``raw_expr`` builds the value and ignores the
   annotation.
   '''
@@ -288,7 +288,6 @@ def expr(interp, *args, **kwds):
   at ``Int``, and ``expr(P.show, [P.Just, 1])`` finds the ``Show`` instance
   of ``Maybe Int``.  A typing failure raises :class:`CurryTypeError
   <{0}.exceptions.CurryTypeError>` at construction; nothing is evaluated.
-  The flag ``typed_expr`` turns the typing off.
 
   The arguments specify the expression to build.  Each positional argument
   must be directly convertible to Curry or describe a node.  A Python value
@@ -317,7 +316,7 @@ def expr(interp, *args, **kwds):
       An error that names the expected type.
     * a Curry node
       Typed by a walk of its content, up to 100000 nodes;
-      ``curry.typed(node, 'T')`` states the type instead.  A node alone
+      ``expressions.typed(node, 'T')`` states the type instead.  A node alone
       passes through untouched.
 
   Any (possibly nested) sequence whose first element is an instance of
@@ -342,7 +341,7 @@ def expr(interp, *args, **kwds):
   marker a call of ``Prelude.?``, so the runtime assigns the ids.
   ``raw_expr`` builds the raw ``Free`` and ``Choice`` nodes instead.  An
   :class:`unboxed` marker stands only as the payload of a primitive,
-  ``[Prelude.Int, curry.unboxed(3)]``; anywhere else it is a
+  ``[Prelude.Int, expressions.unboxed(3)]``; anywhere else it is a
   ``CurryTypeError``.
 
   Args:
@@ -367,13 +366,11 @@ def expr(interp, *args, **kwds):
     it, and ``eval`` converts its values by it.
   '''
   exprtype = kwds.pop('exprtype', None)
-  if interp.flags.get('typed_expr', True):
-    from .typecheck import builder
-    target = kwds.pop('target', None)
-    from .objects.terms import raw_symbols
-    with raw_symbols():
-      return builder.build(interp, args, kwds, exprtype=exprtype, target=target)
-  return _build(interp, args, kwds, raw=False)
+  from .typecheck import builder
+  target = kwds.pop('target', None)
+  from .objects.terms import raw_symbols
+  with raw_symbols():
+    return builder.build(interp, args, kwds, exprtype=exprtype, target=target)
 
 def raw_expr(interp, *args, **kwds):
   '''
@@ -396,7 +393,7 @@ def untyped_expr(interp, *args, **kwds):
   '''
   The untyped builder with the markers of :func:`expr`: a :class:`free`
   marker is its shared ``unknown`` node and a :class:`choice` marker a call
-  of ``Prelude.?``.  This is :func:`expr` with the flag ``typed_expr`` off.
+  of ``Prelude.?``.  The runtime calls it explicitly.
   The interpreter uses it for the expressions it builds around compiled
   code, whose types the front end checked.
   '''
@@ -504,8 +501,7 @@ UNKNOWN_DICTIONARY = 'Prelude._inst#Prelude.Data#Prelude.Bool'
 
 class ExpressionBuilder(object):
   '''
-  Implementation of ``raw_expr``, and of ``expr`` with the flag
-  ``typed_expr`` off.  With ``raw`` set, a free marker becomes a raw
+  Implementation of ``raw_expr`` and ``untyped_expr``.  With ``raw`` set, a free marker becomes a raw
   ``Free`` node and a choice marker a raw ``Choice`` node, as the tests of
   the runtime expect.  Otherwise the markers become calls of
   ``Prelude.unknown`` and ``Prelude.?``, so that the runtime assigns the

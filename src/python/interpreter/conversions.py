@@ -7,7 +7,7 @@ from .. import backends, exceptions, inspect
 from ..toolchain.flat2icurry import flatcurry as fc
 import numbers
 
-__all__ = ['currytype', 'getconverter', 'topython', 'unbox']
+__all__ = ['currytype', 'topython', 'unbox']
 
 LIST = ('Prelude', '[]')
 CHAR = ('Prelude', 'Char')
@@ -293,16 +293,3 @@ def _listiter(arg):
     arg = arg.successor(1)
   if not inspect.isa_nil(arg):
     raise exceptions.NotConstructorError(arg)
-
-def getconverter(converter):
-  '''
-  Get the converter corresponding to the argument: ``None`` and a callable
-  are returned as they are, ``'topython'`` names :func:`topython`, and any
-  other name means no conversion.  A free variable in a value passes
-  through the converter as a node; :func:`curry.show_value` prints it as
-  ``_a``, ``_b`` and so on.
-  '''
-  if converter is None or callable(converter):
-    return converter
-  elif converter == 'topython':
-    return topython

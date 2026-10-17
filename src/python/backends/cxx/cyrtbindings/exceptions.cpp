@@ -11,7 +11,7 @@ namespace cyrt { namespace python
   {
     auto exceptions = py::module_::import("curry.exceptions");
     mod.attr("EvaluationError") = exceptions.attr("EvaluationError");
-    mod.attr("EvaluationSuspended") = exceptions.attr("EvaluationSuspended");
+    mod.attr("SuspensionError") = exceptions.attr("SuspensionError");
     py::register_exception_translator([](std::exception_ptr error)
     {
       try
@@ -20,7 +20,7 @@ namespace cyrt { namespace python
       }
       catch(EvaluationSuspended const &)
       {
-        auto type = py::module_::import("curry.exceptions").attr("EvaluationSuspended");
+        auto type = py::module_::import("curry.exceptions").attr("SuspensionError");
         PyErr_SetObject(type.ptr(), type().ptr());
       }
       catch(EvaluationError const & error)
@@ -47,7 +47,7 @@ namespace cyrt { namespace python
       }
       catch(DynloadError const & error)
       {
-        auto type = py::module_::import("curry.exceptions").attr("DynloadError");
+        auto type = py::module_::import("curry.exceptions").attr("LoadError");
         PyErr_SetString(type.ptr(), error.what());
       }
     });

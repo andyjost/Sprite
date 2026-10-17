@@ -166,7 +166,7 @@ class IndexingTests(object):
   @cytest.check_predicate(cross_check_realpath)
   @cytest.check_indexing
   def test_index_cyclical(self):
-    cons, nil, ref = cytest.raw.cons, cytest.raw.nil, curry.ref
+    cons, nil, ref = cytest.raw.cons, cytest.raw.nil, cytest.raw.ref
     e = cytest.raw.expr(ref('a'), a=cons(0, ref('b')), b=cons(1, ref('a')))
     self.assertIs(subexpr(e, ()), e)
     yield e, (0,0), 0

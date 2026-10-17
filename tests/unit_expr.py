@@ -173,14 +173,14 @@ class TestExpr(cytest.TestCase):
   @cytest.check_expressions()
   def test_nonlinear(self):
     # let a=1 in [a, a]
-    e = cytest.raw.expr([curry.expressions.anchor(1), curry.ref()])
+    e = cytest.raw.expr([curry.expressions.anchor(1), cytest.raw.ref()])
     a, b = e[0], e[1][0]
     self.assertEqual(id(a), id(b))
     yield e, None, None, None, [[1, 1]]
 
   @cytest.check_expressions()
   def test_circular(self):
-    anchor, ref = curry.expressions.anchor, curry.ref
+    anchor, ref = curry.expressions.anchor, cytest.raw.ref
 
     # let a=a in a
     e = cytest.raw.expr(anchor(ref()))
@@ -215,7 +215,7 @@ class TestExpr(cytest.TestCase):
     in full at both positions (issue #119).  The typed builder shares
     fix_references.
     '''
-    anchor, cons, ref = curry.expressions.anchor, cytest.raw.cons, curry.ref
+    anchor, cons, ref = curry.expressions.anchor, cytest.raw.cons, cytest.raw.ref
     for build in (cytest.raw.expr, lambda *args, **kwds: cytest.raw.expr(*args, typed=True, **kwds)):
       # let a = 1 : a in [a, a]
       e = build([anchor(cons(1, ref()), name='a'), ref('a')])
@@ -254,7 +254,7 @@ class TestExpr(cytest.TestCase):
     self.assertIs(e[0], a)
     self.assertIs(e[1][0], a)
     self.assertEqual(str(e), '[[1, ...], [1, ...], [1, ...]]')
-    with self.assertRaisesRegex(CurryTypeError, "reference 'x' needs a binding"):
+    with self.assertRaisesRegex(ValueError, "reference to the undefined anchor 'x'"):
       cytest.raw.expr(form, typed=True)
 
   @cytest.check_expressions()
@@ -262,7 +262,7 @@ class TestExpr(cytest.TestCase):
     '''Test named anchors using a direct style.'''
     # let a=(0:b), b=(1:a) in take 5 a
     prelude = curry.import_('Prelude')
-    anchor, cons, ref = curry.expressions.anchor, cytest.raw.cons, curry.ref
+    anchor, cons, ref = curry.expressions.anchor, cytest.raw.cons, cytest.raw.ref
     b = anchor(cons(1, ref('a')), name='b')
     a = anchor(cons(0, b), name='a')
     e = cytest.raw.expr(prelude.take, 5, a)
@@ -276,7 +276,7 @@ class TestExpr(cytest.TestCase):
     '''Test named anchors using keyword style.'''
     # let a=(0:b), b=(1:a) in take 5 a
     prelude = curry.import_('Prelude')
-    cons, ref = cytest.raw.cons, curry.ref
+    cons, ref = cytest.raw.cons, cytest.raw.ref
     exprs = {
         'a': cons(0, ref('b'))
       , 'b': cons(1, ref('a'))
@@ -313,7 +313,7 @@ class TestUnboxedMarker(cytest.TestCase):
   '''
   PLACE = (
       r'the marker is the payload of an Int, Char or Float, as in '
-      r'\[Prelude\.Int, \w+\.unboxed\(1\)\]'
+      r'\[Prelude\.Int, expressions\.unboxed\(1\)\]'
     )
 
   def test_payload(self):
@@ -335,18 +335,18 @@ class TestUnboxedMarker(cytest.TestCase):
     P = curry.import_('Prelude')
     cases = [
         ( (cytest.raw.unboxed(1),)
-        , r'^\w+\.unboxed\(1\) stands alone; ' + self.PLACE + '$'
+        , r'^expressions\.unboxed\(1\) stands alone; ' + self.PLACE + '$'
         )
       , ( (P.id, cytest.raw.unboxed(1))
-        , r'^\w+\.unboxed\(1\) stands at argument 1 of Prelude\.id :: a -> a; '
+        , r'^expressions\.unboxed\(1\) stands at argument 1 of Prelude\.id :: a -> a; '
           + self.PLACE + '$'
         )
       , ( ([cytest.raw.unboxed(1)],)
-        , r'^\w+\.unboxed\(1\) stands at element 1 of the list in the '
+        , r'^expressions\.unboxed\(1\) stands at element 1 of the list in the '
           r'expression; ' + self.PLACE + '$'
         )
       , ( ((cytest.raw.unboxed(1), 2),)
-        , r'^\w+\.unboxed\(1\) stands at component 1 of the tuple in the '
+        , r'^expressions\.unboxed\(1\) stands at component 1 of the tuple in the '
           r'expression; ' + self.PLACE + '$'
         )
       ]
@@ -357,11 +357,11 @@ class TestUnboxedMarker(cytest.TestCase):
         list(cytest.raw.values(cytest.raw.expr(*args, typed=True)))
     # The message names the primitive of the payload.
     with self.assertRaisesRegex(
-        CurryTypeError, r"as in \[Prelude\.Char, \w+\.unboxed\('a'\)\]$"
+        CurryTypeError, r"as in \[Prelude\.Char, expressions\.unboxed\('a'\)\]$"
       ):
       cytest.raw.expr(P.id, cytest.raw.unboxed('a'), typed=True)
     with self.assertRaisesRegex(
-        CurryTypeError, r'as in \[Prelude\.Float, \w+\.unboxed\(2\.5\)\]$'
+        CurryTypeError, r'as in \[Prelude\.Float, expressions\.unboxed\(2\.5\)\]$'
       ):
       cytest.raw.expr(P.Just, cytest.raw.unboxed(2.5), typed=True)
     # The error is one of the catalogue and carries the position.
@@ -379,7 +379,7 @@ class TestUnboxedMarker(cytest.TestCase):
     '''raw_expr, and expr with the typing off, raise too, without a position.'''
     P = curry.import_('Prelude')
     interp = cytest.raw.interp()
-    regex = r'^\w+\.unboxed\(1\) stands outside a primitive; ' + self.PLACE + '$'
+    regex = r'^expressions\.unboxed\(1\) stands outside a primitive; ' + self.PLACE + '$'
     for args in [
         (cytest.raw.unboxed(1),), (P.id, cytest.raw.unboxed(1)), ([cytest.raw.unboxed(1)],)
       , ((cytest.raw.unboxed(1), 2),), (P.Just, [1, cytest.raw.unboxed(1)])
@@ -403,22 +403,22 @@ class TestUnboxedMarker(cytest.TestCase):
     interp = cytest.raw.interp()
     cases = [
         ( P.Int, 2.5
-        , r"\w+\.unboxed\(2\.5\) is not the payload of an Int%s; the payload "
-          r"of an Int is a Python int, as in \[Prelude\.Int, \w+\.unboxed\(3\)\]$"
+        , r"expressions\.unboxed\(2\.5\) is not the payload of an Int%s; the payload "
+          r"of an Int is a Python int, as in \[Prelude\.Int, expressions\.unboxed\(3\)\]$"
         )
-      , (P.Int, 'a', r"\w+\.unboxed\('a'\) is not the payload of an Int%s; ")
-      , (P.Int, True, r"\w+\.unboxed\(True\) is not the payload of an Int%s; ")
+      , (P.Int, 'a', r"expressions\.unboxed\('a'\) is not the payload of an Int%s; ")
+      , (P.Int, True, r"expressions\.unboxed\(True\) is not the payload of an Int%s; ")
       , ( P.Float, 1
-        , r"\w+\.unboxed\(1\) is not the payload of a Float%s; the payload of "
-          r"a Float is a Python float, as in \[Prelude\.Float, \w+\.unboxed\(2\.5\)\]$"
+        , r"expressions\.unboxed\(1\) is not the payload of a Float%s; the payload of "
+          r"a Float is a Python float, as in \[Prelude\.Float, expressions\.unboxed\(2\.5\)\]$"
         )
-      , (P.Float, 'a', r"\w+\.unboxed\('a'\) is not the payload of a Float%s; ")
+      , (P.Float, 'a', r"expressions\.unboxed\('a'\) is not the payload of a Float%s; ")
       , ( P.Char, 1
-        , r"\w+\.unboxed\(1\) is not the payload of a Char%s; the payload of "
-          r"a Char is a str of length one, as in \[Prelude\.Char, \w+\.unboxed\('a'\)\]$"
+        , r"expressions\.unboxed\(1\) is not the payload of a Char%s; the payload of "
+          r"a Char is a str of length one, as in \[Prelude\.Char, expressions\.unboxed\('a'\)\]$"
         )
-      , (P.Char, 'ab', r"\w+\.unboxed\('ab'\) is not the payload of a Char%s; ")
-      , (P.Char, 2.5, r"\w+\.unboxed\(2\.5\) is not the payload of a Char%s; ")
+      , (P.Char, 'ab', r"expressions\.unboxed\('ab'\) is not the payload of a Char%s; ")
+      , (P.Char, 2.5, r"expressions\.unboxed\(2\.5\) is not the payload of a Char%s; ")
       ]
     for prim, value, regex in cases:
       # The typed builder names the position of the primitive.
@@ -450,11 +450,11 @@ class TestUnboxedMarker(cytest.TestCase):
     e = cytest.raw.expr(P.length, iter([cytest.raw.unboxed(1), cytest.raw.unboxed(2)]), typed=True)
     with self.assertRaisesRegex(
         EvaluationError
-      , r'^cannot convert item \w+\.unboxed\(1\) of the iterator at argument 1 '
+      , r'^cannot convert item expressions\.unboxed\(1\) of the iterator at argument 1 '
         r'of Prelude\.length :: \[a\] -> Int to a$'
       ):
       list(curry.eval(e))
-    with self.assertRaisesRegex(EvaluationError, r'cannot convert item \w+\.unboxed\(1\)'):
+    with self.assertRaisesRegex(EvaluationError, r'cannot convert item expressions\.unboxed\(1\)'):
       list(cytest.raw.values(cytest.raw.expr(P.length, iter([cytest.raw.unboxed(1)]), typed=True)))
 
 
