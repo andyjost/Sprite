@@ -15,6 +15,7 @@ def vals(*goal, **kwds):
   return list(curry.eval(*goal, converter='topython', **kwds))
 
 def texts(*goal, **kwds):
+  kwds.setdefault('converter', None)
   return [str(value) for value in curry.eval(*goal, **kwds)]
 
 # Values of a user type: the text is the Curry show; the converter leaves
@@ -34,7 +35,7 @@ print('chr 65 ->', texts(P.chr, 65), vals(P.chr, 65))
 # value alone is [] in Curry and types as [a], so topython without a type
 # gives [] and with exprtype='String' gives '' (P18).
 print('emptyString ->', texts(M.emptyString), vals(M.emptyString))
-node, = curry.eval(M.emptyString)
+node, = curry.eval(M.emptyString, converter=None)
 print('topython ->', curry.topython(node), repr(curry.topython(node, exprtype='String')))
 
 # Strings inside a structure follow the type of the goal: "" is '' here.
@@ -55,5 +56,5 @@ print("flags = {...} ->", list(curry.eval(M.inc, 1)))
 curry.flags = flags
 
 # A free variable in a value: show_value prints it as _a, as PAKCS does.
-value, = curry.eval(M.freeList)
+value, = curry.eval(M.freeList, converter=None)
 print('freeList ->', curry.show_value(value))

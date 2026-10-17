@@ -30,7 +30,7 @@ curry.reload(%(flags)r)
 M = curry.import_('CxxScheduler')
 for name, args in %(goals)r:
   try:
-    values = [str(value) for value in curry.eval(getattr(M, name), *args)]
+    values = [str(value) for value in curry.eval(getattr(M, name), *args, converter=None)]
     print(name, values)
   except curry.EvaluationError as exc:
     print(name, 'error', type(exc).__name__, str(exc))

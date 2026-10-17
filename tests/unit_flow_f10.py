@@ -72,7 +72,6 @@ class TestFlowF10(cytest.TestCase):
     self.assertEqual(curry.eval(N.f).one(), 1)
     self.assertIs(curry.modules['Same'], N)
 
-  @unittest.expectedFailure
   def test_parse_in_module_scope(self):
     M = curry.import_('Peano')
     self.assertEqual(str(curry.eval(curry.parse('add (S O) O', imports=[M])).one()), 'S O')

@@ -16,10 +16,10 @@ from curry.lib import inflists, First
 from curry.lib import Prelude as P
 
 def vals(*goal):
-  return list(curry.eval(*goal, converter='topython'))
+  return list(curry.eval(curry.expr(*goal), converter='topython'))
 
 def texts(*goal):
-  return [str(v) for v in curry.eval(*goal)]
+  return [str(v) for v in curry.eval(curry.expr(*goal), converter=None)]
 
 # The three goals of inflists: ten Fibonacci numbers, five primes from the
 # sieve, ten Hamming numbers.

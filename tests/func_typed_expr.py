@@ -77,7 +77,7 @@ class Call:
 
   def values(self):
     '''The values of the call, as Curry values.'''
-    return list(curry.eval(self.node()))
+    return list(curry.eval(self.node(), converter=None))
 
   def serialized(self, module=None):
     return serialize_call(
@@ -196,6 +196,7 @@ class Namespace:
 
   def value(self, *args, **kwds):
     '''The first value of an evaluation: a copy, typed later by its content.'''
+    kwds.setdefault('converter', None)
     return next(curry.eval(*args, **kwds))
 
 def _twin(name, make, **kwds):
@@ -693,7 +694,7 @@ class TestRoundTrip(CorpusTestCase):
         # twin module are qualified there.
         text = call.serialized().text
         goal = curry.compile(text, mode='expr', imports=[module])
-        expected = show_values(curry.eval(goal))
+        expected = show_values(curry.eval(goal, converter=None))
         observed = show_values(call.values())
         self.assertEqual(
             normalize_values(observed), normalize_values(expected)

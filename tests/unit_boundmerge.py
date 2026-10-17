@@ -39,7 +39,7 @@ curry.reload(%(flags)r)
 M = curry.import_('BoundMerge')
 for name in %(goals)r:
   try:
-    values = curry.eval(getattr(M, name))
+    values = curry.eval(getattr(M, name), converter=None)
     print(name, sorted(str(value) for value in values))
   except Exception as exc:
     print(name, 'error', type(exc).__name__, str(exc))
@@ -133,7 +133,9 @@ class TestGuardCounts(cytest.TestCase):
   def setUpClass(cls):
     cls.backend = curry.flags['backend']
     curry.reload({'backend': cls.backend, 'checker': True})
-    cls.M = curry.import_('BoundMerge')
+
+  def setUp(self):
+    self.M = curry.import_('BoundMerge')
 
   @classmethod
   def tearDownClass(cls):

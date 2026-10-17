@@ -88,10 +88,10 @@ class TestValues(cytest.TestCase):
     repr form marks a cycle with an ellipsis, not a shared leaf.
     '''
     M = curry.import_('CxxLiterals')
-    value, = curry.eval(M.twice)
+    value, = curry.eval(M.twice, converter=None)
     self.assertEqual(str(value), '(1, 1)')
     self.assertEqual(repr(raw(value)), '<(,) <Int 1> <Int 1>>')
-    value, = curry.eval(M.greeting)
+    value, = curry.eval(M.greeting, converter=None)
     self.assertEqual(str(value), '"hi!\\955"')
 
 
@@ -104,9 +104,8 @@ class TestTables(cytest.TestCase):
   bindings: small_int, small_char, gc_literal_count, and the successors of
   stepped expressions.
   '''
-  @classmethod
-  def setUpClass(cls):
-    cls.M = curry.import_('CxxLiterals')
+  def setUp(self):
+    self.M = curry.import_('CxxLiterals')
 
   def test_bounds(self):
     from curry.backends.cxx import cyrtbindings as cyrt
@@ -214,15 +213,15 @@ print(cyrt.gc_literal_count() - before)
 M = curry.import_('CxxLiterals')
 cyrt.gc_set_threshold(1 << 14)
 before = cyrt.gc_collections()
-assert next(curry.eval(M.countDown, %(n)d)) == 0
+assert next(curry.eval(M.countDown, %(n)d, converter='topython')) == 0
 collections = cyrt.gc_collections() - before
 assert collections > 0, collections
 assert str(cyrt.small_int(5)) == '5'
 assert str(cyrt.small_char('a')) == "'a'"
-assert next(curry.eval(M.small)) == (7, 'a')
-assert next(curry.eval(M.large)) == (100000, '\\u03bb', 2.5)
-assert next(curry.eval(M.bounds)) == [1023, 1024]
-assert next(curry.eval(M.countDown, 100)) == 0
+assert next(curry.eval(M.small, converter='topython')) == (7, 'a')
+assert next(curry.eval(M.large, converter='topython')) == (100000, '\\u03bb', 2.5)
+assert next(curry.eval(M.bounds, converter='topython')) == [1023, 1024]
+assert next(curry.eval(M.countDown, 100, converter='topython')) == 0
 print('collections', collections)
 ''' % {'n': n}, TIMEOUT, address_space=ADDRESS_SPACE)
     self.assertEqual(proc.returncode, 0, proc.stderr)

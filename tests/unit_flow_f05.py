@@ -42,7 +42,6 @@ class TestFlowF05(cytest.TestCase):
     if FLOW_PATH not in curry.path:
       curry.path.insert(0, FLOW_PATH)
 
-  @unittest.expectedFailure
   def test_text_answers(self):
     R = curry.import_('Rule'); g = curry.parse('rule "a" ins where ins free', imports=[R])
     a = next(curry.solve(g))
@@ -57,7 +56,6 @@ class TestFlowF05(cytest.TestCase):
     self.assertEqual(list(curry.eval(g)), ['cmd1', 'cmd2'])
     self.assertEqual(curry.typeof(g), '[Char]')
 
-  @unittest.expectedFailure
   def test_annotation_before_clause(self):
     R = curry.import_('Rule')
     g = curry.parse('rule "a" ins :: String where ins free', imports=[R])
@@ -70,7 +68,6 @@ class TestFlowF05(cytest.TestCase):
     with self.assertRaises(curry.CompileError):
       curry.parse('rule "a" ins where ins free :: String', imports=[R])
 
-  @unittest.expectedFailure
   def test_comment_makes_clause_local(self):
     R = curry.import_('Rule')
     g = curry.parse('rule "a" ins where ins free -- the rule', imports=[R])
@@ -78,28 +75,24 @@ class TestFlowF05(cytest.TestCase):
     self.assertEqual(list(curry.eval(g)), ['cmd1', 'cmd2'])
     self.assertEqual(curry.typeof(g), '[Char]')
 
-  @unittest.expectedFailure
   def test_list_constraint(self):
     g = curry.parse('xs ++ [3] =:= [1,2,3] where xs free')
     self.assertEqual([str(a) for a in curry.solve(g)], ['{xs=[1,2]} True'])
     self.assertEqual(list(curry.eval(g)), [True])
     self.assertEqual(curry.typeof(g), 'Bool')
 
-  @unittest.expectedFailure
   def test_binding_in_result_type(self):
     g = curry.parse('(xs =:= [1 :: Int], [0 :: Int]) where xs free')
     self.assertEqual([str(a) for a in curry.solve(g)], ['{xs=[1]} (True,[0])'])
     self.assertEqual(list(curry.eval(g)), [(True, [0])])
     self.assertEqual(curry.typeof(g), '(Bool, [Int])')
 
-  @unittest.expectedFailure
   def test_narrow_bool(self):
     g = curry.parse('not b where b free')
     self.assertEqual([str(a) for a in curry.solve(g)], ['{b=False} True', '{b=True} False'])
     self.assertEqual(list(curry.eval(g)), [True, False])
     self.assertEqual(curry.typeof(g), 'Bool')
 
-  @unittest.expectedFailure
   def test_ambiguous_type(self):
     g = curry.parse('x =:= y where x, y free')
     self.assertEqual([str(a) for a in curry.solve(g)], ['{x=x, y=x} True'])
@@ -114,13 +107,11 @@ class TestFlowF05(cytest.TestCase):
     with self.assertRaises(curry.ConversionError):
       curry.eval('rule "a" ins where ins free')
 
-  @unittest.expectedFailure
   def test_same_answers_as_expression(self):
     R = curry.import_('Rule'); ins = curry.free('ins')
     g = curry.parse('rule "a" ins where ins free', imports=[R])
     self.assertEqual(list(curry.solve(R.rule('a', ins))), list(curry.solve(g)))
 
-  @unittest.expectedFailure
   def test_parsed_term_composes(self):
     P = curry.import_('Prelude'); R = curry.import_('Rule')
     g = curry.parse('rule "a" ins where ins free', imports=[R])

@@ -8,5 +8,5 @@ topython -> [] ''
 pairs -> ['[([], 0), ("ab", 1)]'] [[('', 0), ('ab', 1)]]
 converter=None -> ['Node']
 flags['defaultconverter'] = 'topython' -> [2]
-flags = {...} -> [<Int 2>]
+flags = {...} -> [2]
 freeList -> [_a]

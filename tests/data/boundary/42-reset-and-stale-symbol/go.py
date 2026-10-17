@@ -5,7 +5,7 @@ that outlives the reset (#114, open).
 A module object and its symbols are Python objects that stay alive after
 curry.reset clears the interpreter's modules.  A new module of the same
 name then runs its own code (the first symptom of #114, fixed).  The old
-symbol still evaluates: on the C++ backend it runs the code of the newest
+symbol previously evaluated: on the C++ backend it runs the code of the newest
 module of that name, where the Python backend keeps the old code.  The
 driver pins today's output on the C++ backend; a fixed system refuses the
 evaluation of the old symbol.
@@ -31,8 +31,10 @@ print('first is second ->', first is second)
 
 # #114: the old symbol evaluates after the reset.  Today's output on the
 # C++ backend is 2, the value of the new code; the Python backend gives 1.
-print('first.f after the reset ->', vals(first.f))
-print('first.f.interpreter is None ->', first.f.interpreter is None)
+try:
+  first.f
+except curry.StaleError as error:
+  print('first.f after the reset !!', type(error).__name__)
 
 # A hard reset: curry.reload builds a new interpreter and takes flags.
 print('curry.reload ->', curry.reload.__doc__.strip().splitlines()[0])
@@ -44,5 +46,8 @@ print("curry.import_('Same') is third ->", curry.import_('Same') is third)
 print('sorted(curry.modules) ->', sorted(curry.modules))
 
 # The two old symbols again: both run the code of third on the C++ backend.
-print('second.f after the reload ->', vals(second.f))
-print('first.f after the reload ->', vals(first.f))
+for label, module in [('second', second), ('first', first)]:
+  try:
+    module.f
+  except curry.StaleError as error:
+    print(label + '.f after the reload !!', type(error).__name__)

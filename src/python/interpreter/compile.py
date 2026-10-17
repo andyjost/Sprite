@@ -268,6 +268,9 @@ def _updateImports(interp, modulename, stmts, currypath):
 
 @_updateImports.when(types.ModuleType)
 def _updateImports(interp, module, stmts, currypath):
+  if isinstance(module, objects.CurryModule):
+    from ..objects.terms import check_module
+    check_module(module)
   if module.__name__ != '_System':
     stmts.append('import ' + module.__name__)
     # If this is a dynamic module, add its directory to the search path.

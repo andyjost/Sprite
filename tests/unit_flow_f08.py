@@ -40,7 +40,6 @@ class TestFlowF08(cytest.TestCase):
     if FLOW_PATH not in curry.path:
       curry.path.insert(0, FLOW_PATH)
 
-  @unittest.expectedFailure
   def test_independent_and_shared_calls(self):
     P = curry.import_('Prelude'); C = curry.import_('Coin'); t = C.coin
     self.assertEqual(list(curry.eval(C.double(C.coin))), [0, 2])
@@ -57,7 +56,6 @@ class TestFlowF08(cytest.TestCase):
     self.assertEqual(curry.show((t, t)), 'let x1 = coin in (x1,x1)')
     self.assertEqual(curry.show((C.coin, C.coin)), '(coin,coin)')
 
-  @unittest.expectedFailure
   def test_evaluation_keeps_term(self):
     C = curry.import_('Coin'); t = C.coin
     self.assertEqual(list(curry.eval(t)), [0, 1])
@@ -80,13 +78,11 @@ class TestFlowF08(cytest.TestCase):
     self.assertEqual(C.inc(1), C.inc(1))
     self.assertEqual({C.inc(1): 1}[C.inc(1)], 1)
 
-  @unittest.expectedFailure
   def test_choice_sharing(self):
     ch = curry.choice(1, 2)
     self.assertEqual(list(curry.eval((ch, ch))), [(1, 1), (2, 2)])
     self.assertEqual(list(curry.eval((curry.choice(1, 2), curry.choice(1, 2)))), [(1, 1), (1, 2), (2, 1), (2, 2)])
 
-  @unittest.expectedFailure
   def test_variable_and_value_sharing(self):
     C = curry.import_('Coin'); x = curry.free()
     self.assertEqual(curry.show(curry.eval((x, x)).one()), '(_a,_a)')
@@ -94,7 +90,6 @@ class TestFlowF08(cytest.TestCase):
     self.assertIs(type(v), int)
     self.assertEqual(list(curry.eval((v, v))), [(0, 0)])
 
-  @unittest.expectedFailure
   def test_cyclic_list(self):
     P = curry.import_('Prelude'); ones = curry.parse('let a = 1 : a in a')
     self.assertEqual(curry.eval(P.take(3, ones)).one(), [1, 1, 1])
@@ -105,7 +100,6 @@ class TestFlowF08(cytest.TestCase):
     C = curry.import_('Coin'); t = C.coin
     self.assertEqual(list(curry.eval(curry.parse(curry.show((t, t)), imports=[C]))), [(0, 0), (1, 1)])
 
-  @unittest.expectedFailure
   def test_term_in_python_list(self):
     P = curry.import_('Prelude'); C = curry.import_('Coin'); xs = [C.coin]
     self.assertEqual(sorted(curry.eval(P['++'](xs, xs))), [[0, 0], [1, 1]])

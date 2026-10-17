@@ -127,7 +127,6 @@ class TestStubValues(cytest.TestCase):
     self.assertEqual(hash(v), hash(P.Just(5)))
     self.assertEqual(curry.eval(P.Nothing).one(), P.Nothing)
 
-  @unittest.expectedFailure
   def test_data_without_ord_rejects_ordering(self):
     Geo = curry.import_('Geo')
     a = curry.eval(Geo.Point(0, 0)).one()
@@ -145,7 +144,7 @@ class TestStubValues(cytest.TestCase):
     self.assertTrue(b > a)
     self.assertTrue(b >= a)
 
-  @unittest.expectedFailure
+  @(unittest.expectedFailure if curry.flags['backend'] == 'py' else lambda test: test)
   def test_data_truth_and_no_length(self):
     P = curry.import_('Prelude')
     v = curry.eval(P.Nothing).one()
@@ -193,7 +192,6 @@ class TestStubValues(cytest.TestCase):
     self.assertIsInstance(partial, curry.Term)
     self.assertIsInstance(curry.eval(partial).one(), curry.Function)
 
-  @unittest.expectedFailure
   def test_constructor_class_in_term_positions(self):
     P = curry.import_('Prelude')
     Geo = curry.import_('Geo')
@@ -219,7 +217,6 @@ class TestStubValues(cytest.TestCase):
     self.assertIsNot(Geo.Point, curry.info(Geo).types['Point'].cls)
     self.assertTrue(issubclass(Geo.Point, curry.info(Geo).types['Point'].cls))
 
-  @unittest.expectedFailure
   def test_builtin_values_are_python_data(self):
     P = curry.import_('Prelude')
     self.assertIs(type(curry.eval(P['True']).one()), bool)
@@ -303,24 +300,20 @@ class TestStubValues(cytest.TestCase):
     with self.assertRaises(ValueError):
       curry.Char('ab')
 
-  @unittest.expectedFailure
   def test_char_slot_requires_char(self):
     P = curry.import_('Prelude')
     with self.assertRaises(curry.ConversionError):
       P.ord('a')
     self.assertEqual(curry.eval(P.ord(curry.Char('a'))).one(), 97)
 
-  @unittest.expectedFailure
   def test_value_table_bool(self):
     P = curry.import_('Prelude')
     self.assertIs(type(curry.eval(P['True']).one()), bool)
 
-  @unittest.expectedFailure
   def test_value_table_int(self):
     P = curry.import_('Prelude')
     self.assertIs(type(curry.eval(curry.term(1, type='Int')).one()), int)
 
-  @unittest.expectedFailure
   def test_value_table_float(self):
     P = curry.import_('Prelude')
     self.assertIs(type(curry.eval(curry.term(1.5)).one()), float)
@@ -330,22 +323,18 @@ class TestStubValues(cytest.TestCase):
     P = curry.import_('Prelude')
     self.assertIs(type(curry.eval(P.chr(65)).one()), curry.Char)
 
-  @unittest.expectedFailure
   def test_value_table_string(self):
     P = curry.import_('Prelude')
     self.assertIs(type(curry.eval(curry.term('ab')).one()), str)
 
-  @unittest.expectedFailure
   def test_value_table_empty_string(self):
     P = curry.import_('Prelude')
     self.assertIs(type(curry.eval(curry.term('', type='[Char]')).one()), str)
 
-  @unittest.expectedFailure
   def test_value_table_list(self):
     P = curry.import_('Prelude')
     self.assertIs(type(curry.eval(curry.term([1, 2])).one()), list)
 
-  @unittest.expectedFailure
   def test_value_table_tuple(self):
     P = curry.import_('Prelude')
     self.assertIs(type(curry.eval(curry.term((1, 2))).one()), tuple)
@@ -359,7 +348,6 @@ class TestStubValues(cytest.TestCase):
     self.assertIs(type(value[0][2]), curry.Char)
     self.assertIs(type(value[0][3]), str)
 
-  @unittest.expectedFailure
   def test_io_action_yields_its_converted_result(self):
     P = curry.import_('Prelude')
     action = curry.term(P['return'](42), type='IO Int')
@@ -375,7 +363,6 @@ class TestStubValues(cytest.TestCase):
       case _:
         self.fail('Data pattern did not match')
 
-  @unittest.expectedFailure
   def test_constructor_class_as_map_argument(self):
     P = curry.import_('Prelude')
     Peano = curry.import_('Peano')

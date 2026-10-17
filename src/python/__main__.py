@@ -143,12 +143,12 @@ class Main(object):
             try:
               if args.time:
                 t0 = time.time()
-                for value in curry.eval(goal()):
+                for value in curry.eval(goal(), converter=None):
                   pass
                 t1 = time.time()
                 sys.stdout.write('%0.3f' % (t1 - t0))
               else:
-                for value in curry.eval(goal()):
+                for value in curry.eval(goal(), converter=None):
                   print(curry.show_value(value))
             except exceptions.EvaluationError as exc:
               sys.stderr.write('** %s **\n' % exc)

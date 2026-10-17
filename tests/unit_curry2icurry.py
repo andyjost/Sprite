@@ -200,11 +200,11 @@ class TestCurry2ICurry(cytest.TestCase):
       , text
       )
     TypedRoot = curry.import_('TypedRoot', currypath=[os.path.dirname(curryfile)])
-    self.assertEqual(next(curry.eval([TypedRoot.typedLetRoot, 3])), 16)
-    self.assertEqual(next(curry.eval([TypedRoot.typedFreeRoot, 3])), 3)
-    self.assertEqual(sorted(curry.eval([TypedRoot.typedOrRoot, 3])), [3, 4])
-    self.assertEqual(next(curry.eval([TypedRoot.typedCallRoot, 3])), 4)
-    self.assertEqual(next(curry.eval([TypedRoot.typedNested, 3])), 17)
+    self.assertEqual(next(curry.eval(TypedRoot.typedLetRoot, 3)), 16)
+    self.assertEqual(next(curry.eval(TypedRoot.typedFreeRoot, 3)), 3)
+    self.assertEqual(sorted(curry.eval(TypedRoot.typedOrRoot, 3)), [3, 4])
+    self.assertEqual(next(curry.eval(TypedRoot.typedCallRoot, 3)), 4)
+    self.assertEqual(next(curry.eval(TypedRoot.typedNested, 3)), 17)
 
   def test_errors(self):
     '''A failure of the front end is a CompileError with its messages.'''

@@ -59,7 +59,6 @@ class TestStubInspection(cytest.TestCase):
     self.assertEqual(curry.typeof('ab'), '[Char]')
     self.assertEqual(curry.typeof(curry.parse('"ab"')), '[Char]')
 
-  @unittest.expectedFailure
   def test_typeof_refuses_repl_refusal(self):
     with self.assertRaises(curry.CompileError):
       curry.typeof(curry.parse('x =:= y where x, y free'))
@@ -69,17 +68,14 @@ class TestStubInspection(cytest.TestCase):
     a = curry.solve(curry.term(1, type='Int')).one()
     self.assertEqual(curry.typeof(a), 'Int')
 
-  @unittest.expectedFailure
   def test_show_constructor_negative_argument(self):
     P = curry.import_('Prelude')
     self.assertEqual(curry.show(P.Just(-1)), 'Just (-1)')
 
-  @unittest.expectedFailure
   def test_show_operator_precedence(self):
     Coin = curry.import_('Coin')
     self.assertEqual(curry.show(Coin.inc(curry.choice(1, 2))), 'inc (1 ? 2)')
 
-  @unittest.expectedFailure
   def test_show_variables_numbered_per_text(self):
     a = curry.free()
     b = curry.free()
@@ -94,14 +90,12 @@ class TestStubInspection(cytest.TestCase):
     c = Coin.coin
     self.assertEqual(curry.show(P['+'](c, c)), 'let x1 = coin in x1 + x1')
 
-  @unittest.expectedFailure
   def test_show_equals_str_for_curry_objects(self):
     Coin = curry.import_('Coin')
     t = Coin.inc(1)
     self.assertEqual(curry.show(t), str(t))
     self.assertEqual(str([1, 2]), '[1, 2]')
 
-  @unittest.expectedFailure
   def test_show_empty_string_and_partial_operator_departures(self):
     P = curry.import_('Prelude')
     self.assertEqual(curry.show(curry.term('', type='[Char]')), '""')

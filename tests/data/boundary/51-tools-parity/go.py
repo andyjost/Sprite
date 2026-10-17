@@ -16,7 +16,7 @@ from curry.lib import Tools
 
 def lines(goal):
   '''Prints the values of goal one per line, as the tools do.'''
-  for value in curry.eval(goal):
+  for value in curry.solve(goal):
     print(value)
 
 print('coin:')
@@ -24,7 +24,7 @@ lines(Tools.coin)
 
 # The text goal of the REPL: the bindings of ins come with each value.
 print('rule "a" ins where ins free:')
-lines(curry.compile('rule "a" ins where ins free', mode='expr', imports=[Tools]))
+lines(curry.parse('rule "a" ins where ins free', imports=[Tools]))
 
 print(':type coin ->', 'coin ::', curry.typeof(Tools.coin))
 

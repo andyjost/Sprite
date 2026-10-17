@@ -15,7 +15,7 @@ curry.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from curry.lib import horseman, colormap
 
 def texts(*goal):
-  return [str(v) for v in curry.eval(*goal)]
+  return [str(v) for v in curry.eval(curry.expr(*goal), converter=None)]
 
 def peano(term):
   '''The number of a Peano term read back: the count of S in its text.'''
@@ -28,14 +28,14 @@ print('(goal1 m h, m, h) ->', texts(([horseman.goal1, m, h], m, h)))
 # goal2: eight heads and twenty feet.  The Peano terms are long, so the
 # driver counts their S constructors.
 m, h = curry.free(), curry.free()
-for value in curry.eval(([horseman.goal2, m, h], m, h)):
+for value in curry.eval(curry.expr(([horseman.goal2, m, h], m, h)), converter=None):
   print('goal2 -> men %d, horses %d' % (peano(value[1]), peano(value[2])))
 
 # goal3: two heads and any number of feet.  Three values: the pairs with
 # two heads and the feet each pair has.  A Curry tuple read back indexes by
 # an int and not by a slice, so the components are taken one by one.
 m, h, hd = curry.free(), curry.free(), curry.free()
-for value in curry.eval(([horseman.goal3, m, h, hd], m, h, hd)):
+for value in curry.eval(curry.expr(([horseman.goal3, m, h, hd], m, h, hd)), converter=None):
   men, horses, feet = (peano(value[i]) for i in (1, 2, 3))
   print('goal3 -> men %d, horses %d, feet %d' % (men, horses, feet))
 
@@ -45,7 +45,7 @@ for value in curry.eval(([horseman.goal3, m, h, hd], m, h, hd)):
 # colourings, 48 of them True; PAKCS's (&) has no value there and prints 48
 # rows.  The driver prints both counts and the first three True values.
 l = [curry.free() for _ in range(4)]
-values = list(curry.eval(([colormap.goal] + l, *l)))
+values = list(curry.eval(curry.expr(([colormap.goal] + l, *l)), converter=None))
 correct = [str(v) for v in values if str(v[0]) == 'True']
 print('colormap: %d values, %d of them True' % (len(values), len(correct)))
 for value in correct[:3]:

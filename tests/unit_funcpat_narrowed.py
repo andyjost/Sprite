@@ -65,14 +65,13 @@ def totals():
 def measure(goal):
   '''The value of a goal with the steps and forks of its evaluation.'''
   steps0, forks0 = totals()
-  value = next(curry.eval(goal, converter='topython'))
+  value = next(curry.eval(curry.expr(goal), converter='topython'))
   steps1, forks1 = totals()
   return value, steps1 - steps0, forks1 - forks0
 
 class TestNarrowedName(cytest.TestCase):
-  @classmethod
-  def setUpClass(cls):
-    cls.M = curry.compile(SOURCE, modulename='FuncPatNarrowed')
+  def setUp(self):
+    self.M = curry.compile(SOURCE, modulename='FuncPatNarrowed')
 
   def test_values(self):
     '''The three routes give the same values.'''

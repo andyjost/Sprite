@@ -1,74 +1,162 @@
-'''
-Implements Interpreter.eval.
-'''
+'''The lazy searches returned by Interpreter.eval and Interpreter.solve.'''
 
 from . import conversions
-from .. import expressions
+from .. import backends, expressions, inspect
+from ..objects import CurryNodeInfo
+from ..objects.results import Answer, Bindings, Results
+from ..objects.terms import Term, Var, check_live, named_vars, term, walk_forms
 from ..toolchain.flat2icurry import flatcurry as fc
 from ..typecheck import goals
+from ..typecheck.builder import _follow
+from ..typecheck.builder import Description
 
 IO = fc.prelude('IO')
 
-def eval(interp, *args, **kwds):
-  '''
-  Evaluate a Curry goal.
 
-  Args:
-    *args:
-        Positional arguments that specify the goal.  These are passed to
-        ``Interpreter.expr``.  One function symbol whose scheme has class
-        constraints and no value parameter, a goal without a signature such
-        as ``main = Just 5``, is applied to its dictionaries first: the
-        constraints are defaulted with the table of the PAKCS REPL (see
-        :mod:`curry.typecheck.defaulting`), so the goal evaluates to a value
-        and not to a partial application.  An expression of
-        ``curry.compile(mode='expr')`` whose text declared ``where x free``
-        variables absent from its result type yields its values with the
-        bindings of those variables
-        (:class:`curry.typecheck.goals.Bindings`).
-    converter:
-        Keyword-only argument specifying the converter to use when returning
-        results.  The default is 'default', the flag ``defaultconverter``.
-        ``'topython'`` applies :func:`curry.topython`, ``None`` and any
-        other name leave the Curry value, and a callable ``f(interp,
-        value)`` converts as it pleases.  See
-        :func:``curry.interpreter.conversions.getconverter``.
-    exprtype:
-        Keyword-only argument: the type of the goal in Curry syntax, passed
-        to ``Interpreter.expr``.
-    **kwds:
-        Any other keyword names an anchor, as in ``Interpreter.expr``.
+def _legacy_description(value, legacy):
+  stack = [value]
+  while stack:
+    value = stack.pop()
+    if isinstance(value, legacy):
+      return True
+    if isinstance(value, (list, tuple)):
+      stack.extend(value)
+  return False
 
-  Raises:
-    ~curry.exceptions.EvaluationError:
-        A Curry error occurred during evaluation.
-    ~curry.exceptions.CurryTypeError:
-        The table cannot default a class constraint of the goal.
 
-  Returns:
-    A generator producing the values of the specified Curry program.
-  '''
-  converter = kwds.pop('converter', 'default')
-  convert = conversions.getconverter(
-      converter if converter != 'default' else interp.flags['defaultconverter']
-    )
-  # The C++ backend applies the objects compiled in the background here
-  # (backends.cxx.tiered).
-  interp.backend.before_evaluation(interp)
-  goal = goals.make_goal(
-      interp, args, exprtype=kwds.pop('exprtype', None), anchors=kwds
-    )
+def _arguments(interp, args, kwds):
+  check_live(args)
+  if len(args) == 1:
+    value = args[0]
+    if isinstance(value, str):
+      from ..typecheck.errors import ConversionError
+      raise ConversionError('a str goal needs curry.parse(text) for code or curry.term(text) for a String')
+    legacy = (
+        Description, expressions.free, expressions.ref, expressions.typed
+      , expressions.cons, expressions.unboxed, expressions.fwd, expressions.choice
+      , expressions.anchor
+      )
+    if not isinstance(value, (Term, backends.Node, CurryNodeInfo, goals.Goal, *legacy)) \
+        and not kwds and not _legacy_description(value, (*legacy, backends.Node)):
+      # Raw symbol descriptions remain at the old door.
+      application = isinstance(value, list) and value and isinstance(value[0], CurryNodeInfo)
+      if isinstance(value, list) and any(isinstance(v, expressions.unboxed) for v in value):
+        application = True
+      if not application:
+        args = (term(interp, value),)
+  return args
+
+
+def _text(value):
+  if isinstance(value, goals.Goal):
+    return value.text or _text(value.expr)
+  if isinstance(value, backends.Node):
+    # A raw graph can be cyclic or enormous. Its head names the old door.
+    return value.info.name
+  try:
+    return str(value)
+  except RecursionError:
+    return '<term>'
+
+
+def _under_io(typeexpr):
+  if isinstance(typeexpr, fc.TCons) and typeexpr.name == IO and len(typeexpr.args) == 1:
+    return typeexpr.args[0]
+  return typeexpr
+
+
+class _Variables:
+  '''Resolve runtime variables to their Python identities within one run.'''
+  def __init__(self, interp, source):
+    self.interp = interp
+    self.source = source
+    self.foreign = {}
+
+  def __call__(self, node):
+    vid = inspect.get_freevar_id(node)
+    for var in self.source:
+      held = var._marker._shared(self.interp)
+      if held is not None:
+        held = _follow(held)
+        if inspect.isa_freevar(held) and inspect.get_freevar_id(held) == vid:
+          return var
+    if vid not in self.foreign:
+      var = Var(self.interp)
+      var._marker._share(self.interp, node)
+      self.foreign[vid] = var
+    return self.foreign[vid]
+
+
+def _converter(interp, converter, typeexpr, variables):
+  convert = conversions.getconverter(converter if converter != 'default'
+      else interp.flags['defaultconverter'])
   if convert is conversions.topython:
-    # The static type of a goal the typed builder made, so that a value
-    # converts by its type: an empty [Char] is ''.  An IO goal yields its
-    # payload, so its type is the type under IO.
-    typeexpr = expressions.result_type(interp, goal.expr)
-    if isinstance(typeexpr, fc.TCons) and typeexpr.name == IO \
-        and len(typeexpr.args) == 1:
-      typeexpr = typeexpr.args[0]
-    if typeexpr is not None:
-      def convert(interp, value, typeexpr=typeexpr):
-        return conversions.topython(interp, value, exprtype=typeexpr)
-  # The goal object hands its node to the runtime state and keeps no
-  # reference to it; see Goal.evaluate.
-  return goal.evaluate(interp, convert)
+    to_python = conversions.ToPython(variable=_Variables(interp, variables))
+    return lambda ip, value: to_python(value, typeexpr=_under_io(typeexpr))
+  return convert
+
+
+def _run(interp, goal, convert, answer=False):
+  # Creating a runtime state can inspect the root. Defer it until next().
+  interp.backend.before_evaluation(interp)
+  values = goal.evaluate(interp)
+  try:
+    for value in values:
+      bindings = Bindings() if answer else None
+      if isinstance(value, goals.Bindings):
+        if convert is None and not answer:
+          yield value
+          continue
+        if answer:
+          bindings = Bindings((name, convert(interp, part) if convert else part)
+              for name, part in value.bindings.items())
+        value = value.value
+      if convert is not None:
+        value = convert(interp, value)
+      yield Answer(value, bindings) if answer else value
+  finally:
+    values.close()
+
+
+def eval(interp, *args, **kwds):
+  '''Return a Results of the goal's values; converter=None keeps raw nodes.'''
+  if not args and 'goal' in kwds:
+    args = (kwds.pop('goal'),)
+  converter = kwds.pop('converter', 'topython')
+  args = _arguments(interp, args, kwds)
+  variables = [v for v in walk_forms(args) if isinstance(v, Var)]
+  goal = goals.make_goal(interp, args, exprtype=kwds.pop('exprtype', None), anchors=kwds)
+  text = goal.text or _text(args[0])
+  convert = _converter(interp, converter, expressions.result_type(interp, goal.expr), variables)
+  return Results(_run(interp, goal, convert), text)
+
+
+def solve(interp, goal):
+  '''Return a Results of Answer(value, bindings), reporting every named Var.'''
+  args = _arguments(interp, (goal,), {})
+  value = args[0]
+  variables = tuple(named_vars(value).values())
+  all_vars = [v for v in walk_forms(value) if isinstance(v, Var)]
+  if variables:
+    bindings = ()
+    for var in reversed(variables):
+      bindings = (var, bindings)
+    goal = goals.make_goal(interp, ((value, bindings),))
+    convert = _converter(interp, 'topython', expressions.result_type(interp, goal.expr), all_vars)
+    def answers():
+      values = _run(interp, goal, convert)
+      try:
+        for result, bindings in values:
+          parts = []
+          for var in variables:
+            part, bindings = bindings
+            parts.append((var.name, part))
+          yield Answer(result, Bindings(parts, variables))
+      finally:
+        values.close()
+    values = answers()
+  else:
+    goal = goals.make_goal(interp, args)
+    convert = _converter(interp, 'topython', expressions.result_type(interp, goal.expr), all_vars)
+    values = _run(interp, goal, convert, answer=True)
+  return Results(values, str(value))

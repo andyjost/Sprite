@@ -2,7 +2,8 @@ from ....common import T_SETGRD, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CT
 from ....common import F_INT_TYPE
 from ....exceptions import CurryTypeError
 from .... import backends, icurry, utility
-from .... import inspect, show
+from .... import inspect
+from ....show import show
 from .infotable import InfoTable
 import collections.abc, numbers, types
 
@@ -36,10 +37,10 @@ class Node(object):
     return Node(partial_info, missing, partexpr, target=target)
 
   def __str__(self):
-    return show.show(self)
+    return show(self)
 
   def __repr__(self):
-    return show.show(self, style='repr')
+    return show(self, style='repr')
 
   def __copy__(self):
     return self.copy()

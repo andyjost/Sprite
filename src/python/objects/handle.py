@@ -208,6 +208,8 @@ class Handle(object):
       return h.get_builtin_typename
 
   def unlink(self, interp):
+    setattr(self.obj, '.retired', True)
+    setattr(self.obj, '.version', object())
     del interp.modules[self.fullname]
     interp.backend.module_unlinked(interp, self.obj)
     pkg = self.package(interp)

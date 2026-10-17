@@ -12,9 +12,10 @@ curry.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 M = curry.import_('Rule')
 
 def vals(*goal, **kwds):
-  return list(curry.eval(*goal, converter='topython', **kwds))
+  return list(curry.eval(curry.expr(*goal, **kwds), converter='topython'))
 
 def texts(*goal, **kwds):
+  kwds.setdefault('converter', None)
   return [str(value) for value in curry.eval(*goal, **kwds)]
 
 # The pairing is lost: the values come without their binding, and the marker
@@ -37,13 +38,13 @@ print('rulePair "a" ins ->', vals(M.rulePair, 'a', curry.free()))
 # alone is printed.
 ins4 = curry.free()
 try:
-  curry.eval([M.rule, 'a', ins4], ins4)
+  curry.eval([M.rule, 'a', ins4], ins4, converter=None)
 except curry.CurryTypeError as error:
   print('eval([rule, "a", ins], ins) !!', type(error).__name__)
 
 # The text route lifts "where ins free" and yields a Bindings per value,
 # with the value and the bindings as attributes (P20).
 goal = curry.compile('rule "a" ins where ins free', mode='expr', imports=[M])
-for item in curry.eval(goal):
+for item in curry.eval(goal, converter=None):
   print('text route ->', item)
   print('  value:', item.value, ' bindings:', item.bindings)

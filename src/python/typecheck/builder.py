@@ -384,6 +384,8 @@ class TypedBuilder:
     head = args[0]
     from ..objects.terms import Term
     if isinstance(head, Term) and head.symbol is not None:
+      from ..objects.terms import check_term
+      check_term(head)
       return [head.symbol._info, *head._args, *args[1:]]
     if isinstance(head, (CurryNodeInfo, backends.InfoTable)):
       return list(args)
@@ -395,7 +397,14 @@ class TypedBuilder:
     value, a container and an index.
     '''
     X = self.X
+    from ..objects.results import Results
+    if isinstance(arg, Results):
+      from .errors import ConversionError
+      raise ConversionError('cannot convert Results to a Curry list: write list(results)')
     from ..objects.terms import Term, ValueList, Var as TermVar, Reference, LetForm
+    if isinstance(arg, Term):
+      from ..objects.terms import check_term
+      check_term(arg)
     if isinstance(arg, TermVar):
       return self.spec_of(arg._marker)
     if isinstance(arg, Reference):
@@ -455,6 +464,8 @@ class TypedBuilder:
       if arg:
         head = arg[0]
         if isinstance(head, Term) and head.symbol is not None and not head._args:
+          from ..objects.terms import check_term
+          check_term(head)
           return self._application(head.symbol._info, arg[1:])
         if isinstance(head, CurryNodeInfo):
           return self._application(head, arg[1:])

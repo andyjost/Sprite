@@ -238,7 +238,7 @@ class TestParameters(cytest.TestCase):
   def test_nodes_and_iterators(self):
     P = prelude()
     DL = curry.import_('Data.List')
-    v = next(curry.eval(curry.expr([1.5, 2.5])))
+    v = next(curry.eval(curry.expr([1.5, 2.5]), converter=None))
     s = ser(DL.sum, v)
     self.assertEqual(s.text, 'Data.List.sum p1')
     self.assertEqual(s.params, ['p1'])

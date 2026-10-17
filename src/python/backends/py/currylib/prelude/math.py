@@ -1,4 +1,5 @@
-from ..... import inspect, show as show_module
+from ..... import inspect
+from .....show import show_float
 from .....exceptions import EvaluationError
 import math
 import operator as op
@@ -26,7 +27,7 @@ def apply_unboxed(rts, unboxedfunc, _0):
 def _operand(value):
   '''The text of an operand: in parentheses when it is negative.'''
   if isinstance(value, float):
-    text = show_module.show_float(value)
+    text = show_float(value)
   else:
     text = str(value)
   return '(%s)' % text if text.startswith('-') else text

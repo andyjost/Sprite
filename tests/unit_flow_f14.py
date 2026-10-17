@@ -40,7 +40,6 @@ class TestFlowF14(cytest.TestCase):
     if FLOW_PATH not in curry.path:
       curry.path.insert(0, FLOW_PATH)
 
-  @unittest.expectedFailure
   def test_answer_line(self):
     T = curry.import_('Tools')
     g = curry.parse('xs ++ [3] =:= [1,2,3] where xs free', imports=[T])
@@ -51,7 +50,6 @@ class TestFlowF14(cytest.TestCase):
     self.assertIs(a.value, True)
     self.assertEqual(a.bindings['xs'], [1, 2])
 
-  @unittest.expectedFailure
   def test_values_and_free_variable(self):
     T = curry.import_('Tools'); g = curry.parse('xs ++ [3] =:= [1,2,3] where xs free', imports=[T])
     self.assertEqual(list(curry.eval(g)), [True])
@@ -61,7 +59,6 @@ class TestFlowF14(cytest.TestCase):
     self.assertEqual(v[1], 1)
     self.assertEqual(curry.show(v), '(_a,1)')
 
-  @unittest.expectedFailure
   def test_no_value(self):
     T = curry.import_('Tools')
     self.assertEqual(list(curry.eval(T.nothing)), [])
@@ -69,7 +66,6 @@ class TestFlowF14(cytest.TestCase):
       curry.eval(T.nothing).one()
     self.assertEqual(str(caught.exception), 'No value found: nothing')
 
-  @unittest.expectedFailure
   def test_evaluation_error(self):
     T = curry.import_('Tools')
     with self.assertRaises(curry.CurryError) as caught:
@@ -85,7 +81,6 @@ class TestFlowF14(cytest.TestCase):
       list(curry.eval(T.suspend))
     self.assertEqual(str(caught.exception), 'Evaluation suspended: suspend')
 
-  @unittest.expectedFailure
   def test_io_payload(self):
     code = """
 import curry

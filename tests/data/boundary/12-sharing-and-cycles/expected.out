@@ -9,7 +9,7 @@ str (take 3 a) -> 'take 3 [1, ...]'
 take 3 a -> [[1, 1, 1]]
 (c, c) -> [(1, 1), (2, 2)]
 (1 ? 2, 1 ? 2) -> [(1, 1), (1, 2), (2, 1), (2, 2)]
-convertor='topython' -> [<Int 2>]
+convertor='topython' -> [2]
 str (choice 1 2) -> '(?) 1 2'
 choice 1 2 -> [1, 2]
 choice 1 2 3 -> [1, 2, 3]

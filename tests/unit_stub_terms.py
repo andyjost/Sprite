@@ -143,23 +143,19 @@ class TestStubTerms(cytest.TestCase):
     self.assertIsInstance(g, curry.Term)
     self.assertEqual(list(g.free_vars), ['xs'])
 
-  @unittest.expectedFailure
   def test_parse_answer_example(self):
     g = curry.parse('xs ++ [3] =:= [1,2,3] where xs free')
     self.assertEqual(str(next(curry.solve(g))), '{xs=[1,2]} True')
 
-  @unittest.expectedFailure
   def test_free_example(self):
     P = curry.import_('Prelude')
     x = curry.free('x')
     self.assertEqual(list(curry.eval((P['=:='](x, 1), x, x))), [(True, 1, 1)])
 
-  @unittest.expectedFailure
   def test_anonymous_example(self):
     Rule = curry.import_('Rule')
     self.assertEqual(list(curry.eval(Rule.rule('a', curry.anonymous))), ['cmd1', 'cmd2'])
 
-  @unittest.expectedFailure
   def test_choice_example(self):
     self.assertEqual(list(curry.eval(curry.choice(1, 2, 3))), [1, 2, 3])
 
@@ -168,7 +164,6 @@ class TestStubTerms(cytest.TestCase):
     ones = curry.let(curry.ref('a'), a=P[':'](1, curry.ref('a')))
     self.assertIsInstance(ones, curry.Term)
 
-  @unittest.expectedFailure
   def test_let_result_example(self):
     P = curry.import_('Prelude')
     ones = curry.let(curry.ref('a'), a=P[':'](1, curry.ref('a')))
@@ -177,7 +172,6 @@ class TestStubTerms(cytest.TestCase):
   def test_symbol_example(self):
     self.assertEqual(str(curry.symbol('Data.List.nub')), 'nub')
 
-  @unittest.expectedFailure
   def test_term_sharing_example(self):
     Coin = curry.import_('Coin')
     t = Coin.coin
@@ -194,7 +188,6 @@ class TestStubTerms(cytest.TestCase):
   def test_infix_example(self):
     self.assertEqual(str(curry.term([1, 2]).__infix__('++', [3])), '[1,2] ++ [3]')
 
-  @unittest.expectedFailure
   def test_var_example(self):
     x = curry.free('x')
     self.assertIs(curry.eval(x).one(), x)
@@ -217,21 +210,17 @@ class TestStubTerms(cytest.TestCase):
     with self.assertRaises(curry.CurryTypeError):
       curry.term(True, type='Int')
 
-  @unittest.expectedFailure
   def test_parse_imports_modules(self):
     self.assertEqual(curry.eval(curry.parse('Coin.inc 1', imports=[curry.import_('Coin')])).one(), 2)
 
-  @unittest.expectedFailure
   def test_parse_imports_names(self):
     self.assertEqual(curry.eval(curry.parse('Coin.inc 1', imports=['Coin'])).one(), 2)
 
-  @unittest.expectedFailure
   def test_parse_type_annotation(self):
     g = curry.parse('(read "5") :: Int')
     self.assertEqual(curry.typeof(g), 'Int')
     self.assertEqual(curry.eval(g).one(), 5)
 
-  @unittest.expectedFailure
   def test_parse_comment_after_free_hides_bindings(self):
     g = curry.parse('not b where b free -- local declaration')
     self.assertCountEqual([str(a) for a in curry.solve(g)], ['True', 'False'])
@@ -272,7 +261,6 @@ class TestStubTerms(cytest.TestCase):
     with self.assertRaises(curry.CurryTypeError):
       P['not'](x)
 
-  @unittest.expectedFailure
   def test_anonymous_occurrences_are_fresh(self):
     P = curry.import_('Prelude')
     self.assertIsInstance(curry.anonymous, curry.Anonymous)
@@ -283,7 +271,6 @@ class TestStubTerms(cytest.TestCase):
     t = curry.choice(1, 2, 3)
     self.assertEqual(t, curry.choice(1, curry.choice(2, 3)))
 
-  @unittest.expectedFailure
   def test_choices_are_fresh(self):
     self.assertCountEqual(
         list(curry.eval((curry.choice(0, 1), curry.choice(0, 1))))
@@ -313,7 +300,6 @@ class TestStubTerms(cytest.TestCase):
     self.assertIsInstance(dt, curry.DataType)
     self.assertIs(dt, curry.info(curry.modules['Peano']).types['Nat'])
 
-  @unittest.expectedFailure
   def test_evaluation_never_changes_a_term(self):
     Coin = curry.import_('Coin')
     t = Coin.double(Coin.coin)
@@ -379,12 +365,10 @@ class TestStubTerms(cytest.TestCase):
     with self.assertRaises(TypeError):
       Coin.coin()
 
-  @unittest.expectedFailure
   def test_choice_dunder(self):
     t = curry.term(1)
     self.assertCountEqual(list(curry.eval(t.__choice__(2))), [1, 2])
 
-  @unittest.expectedFailure
   def test_rchoice_dunder(self):
     t = curry.term(1)
     self.assertCountEqual(list(curry.eval(t.__rchoice__(2))), [2, 1])
@@ -401,13 +385,11 @@ class TestStubTerms(cytest.TestCase):
     Coin = curry.import_('Coin')
     self.assertEqual(repr(Coin.inc(1)), '<Term inc 1 :: Int>')
 
-  @unittest.expectedFailure
   def test_add_builds_prelude_term(self):
     t = curry.term(7) + 2
     self.assertIsInstance(t, curry.Term)
     self.assertEqual(curry.eval(t).one(), 9)
 
-  @unittest.expectedFailure
   def test_add_reflected_builds_prelude_term(self):
     t = 2 + curry.term(7)
     self.assertIsInstance(t, curry.Term)
@@ -419,13 +401,11 @@ class TestStubTerms(cytest.TestCase):
   def test_radd_foreign_operand_is_not_implemented(self):
     self.assertIs(curry.term(1).__radd__(object()), NotImplemented)
 
-  @unittest.expectedFailure
   def test_sub_builds_prelude_term(self):
     t = curry.term(7) - 2
     self.assertIsInstance(t, curry.Term)
     self.assertEqual(curry.eval(t).one(), 5)
 
-  @unittest.expectedFailure
   def test_sub_reflected_builds_prelude_term(self):
     t = 9 - curry.term(4)
     self.assertIsInstance(t, curry.Term)
@@ -437,13 +417,11 @@ class TestStubTerms(cytest.TestCase):
   def test_rsub_foreign_operand_is_not_implemented(self):
     self.assertIs(curry.term(1).__rsub__(object()), NotImplemented)
 
-  @unittest.expectedFailure
   def test_mul_builds_prelude_term(self):
     t = curry.term(7) * 2
     self.assertIsInstance(t, curry.Term)
     self.assertEqual(curry.eval(t).one(), 14)
 
-  @unittest.expectedFailure
   def test_mul_reflected_builds_prelude_term(self):
     t = 2 * curry.term(7)
     self.assertIsInstance(t, curry.Term)
@@ -455,13 +433,11 @@ class TestStubTerms(cytest.TestCase):
   def test_rmul_foreign_operand_is_not_implemented(self):
     self.assertIs(curry.term(1).__rmul__(object()), NotImplemented)
 
-  @unittest.expectedFailure
   def test_truediv_builds_prelude_term(self):
     t = curry.term(7.0) / 2
     self.assertIsInstance(t, curry.Term)
     self.assertEqual(curry.eval(t).one(), 3.5)
 
-  @unittest.expectedFailure
   def test_truediv_reflected_builds_prelude_term(self):
     t = 7 / curry.term(2.0)
     self.assertIsInstance(t, curry.Term)
@@ -473,13 +449,11 @@ class TestStubTerms(cytest.TestCase):
   def test_rtruediv_foreign_operand_is_not_implemented(self):
     self.assertIs(curry.term(1).__rtruediv__(object()), NotImplemented)
 
-  @unittest.expectedFailure
   def test_floordiv_builds_prelude_term(self):
     t = curry.term(-7) // 2
     self.assertIsInstance(t, curry.Term)
     self.assertEqual(curry.eval(t).one(), -4)
 
-  @unittest.expectedFailure
   def test_floordiv_reflected_builds_prelude_term(self):
     t = -7 // curry.term(2)
     self.assertIsInstance(t, curry.Term)
@@ -491,13 +465,11 @@ class TestStubTerms(cytest.TestCase):
   def test_rfloordiv_foreign_operand_is_not_implemented(self):
     self.assertIs(curry.term(1).__rfloordiv__(object()), NotImplemented)
 
-  @unittest.expectedFailure
   def test_mod_builds_prelude_term(self):
     t = curry.term(-7) % 2
     self.assertIsInstance(t, curry.Term)
     self.assertEqual(curry.eval(t).one(), 1)
 
-  @unittest.expectedFailure
   def test_mod_reflected_builds_prelude_term(self):
     t = -7 % curry.term(2)
     self.assertIsInstance(t, curry.Term)
@@ -509,15 +481,12 @@ class TestStubTerms(cytest.TestCase):
   def test_rmod_foreign_operand_is_not_implemented(self):
     self.assertIs(curry.term(1).__rmod__(object()), NotImplemented)
 
-  @unittest.expectedFailure
   def test_negate_builds_prelude_term(self):
     self.assertEqual(curry.eval(-curry.term(3)).one(), -3)
 
-  @unittest.expectedFailure
   def test_and_is_concurrent_conjunction(self):
     self.assertIs(curry.eval(curry.term(True) & False).one(), False)
 
-  @unittest.expectedFailure
   def test_rand_is_concurrent_conjunction(self):
     self.assertIs(curry.eval(True & curry.term(False)).one(), False)
 
@@ -563,7 +532,6 @@ class TestStubTerms(cytest.TestCase):
     self.assertTrue(issubclass(dt.cls, curry.Data))
     self.assertIs(Geo.Node.datatype.cls, dt.cls)
 
-  @unittest.expectedFailure
   def test_var_binding_is_private_to_evaluation(self):
     P = curry.import_('Prelude')
     x = curry.free('x')
@@ -587,7 +555,6 @@ class TestStubTerms(cytest.TestCase):
   def test_conversion_char_type(self):
     self.assertEqual(curry.typeof(curry.term(curry.Char('a'))), 'Char')
 
-  @unittest.expectedFailure
   def test_integer_converts_in_float_slot(self):
     P = curry.import_('Prelude')
     self.assertEqual(curry.eval(P.sqrt(4)).one(), 2.0)
@@ -607,7 +574,6 @@ class TestStubTerms(cytest.TestCase):
       value = tuple(range(count))
       self.assertEqual(curry.eval(curry.term(value)).one(), value)
 
-  @unittest.expectedFailure
   def test_sequence_converts_to_list(self):
     from collections import UserList
     for value in (range(3), UserList([0, 1, 2])):
@@ -617,7 +583,6 @@ class TestStubTerms(cytest.TestCase):
     with self.assertRaises(curry.CurryTypeError):
       curry.term([1, True])
 
-  @unittest.expectedFailure
   def test_iterator_is_lazy_and_drawn_once(self):
     drawn = []
     def items():
@@ -668,7 +633,6 @@ class TestStubTerms(cytest.TestCase):
       curry.term((lambda: 1))
     self.assertIn('function', str(caught.exception))
 
-  @unittest.expectedFailure
   def test_conversion_rejects_results_with_list_spelling(self):
     results = curry.eval(1)
     self.addCleanup(results.close)
@@ -687,7 +651,6 @@ class TestStubTerms(cytest.TestCase):
     with self.assertRaises(curry.CurryTypeError):
       P.chr(1.0)
 
-  @unittest.expectedFailure
   def test_string_is_data_outside_parse(self):
     self.assertEqual(curry.eval(curry.term('1 + 2')).one(), '1 + 2')
 
@@ -696,7 +659,6 @@ class TestStubTerms(cytest.TestCase):
     self.assertEqual(t.symbol.fullname, 'Data.List.nub')
     self.assertIs(t.symbol.module, curry.modules['Data.List'])
 
-  @unittest.expectedFailure
   def test_integer_uses_custom_num_from_int(self):
     M = curry.import_('TypeCheck')
     self.assertEqual(curry.eval(M.toInt(3)).one(), 3)

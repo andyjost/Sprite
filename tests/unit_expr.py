@@ -485,9 +485,8 @@ class TestSurplusArguments(cytest.TestCase):
   A constructor applied to a surplus is an error, and so is a node made with
   a count other than the arity, on both backends.
   '''
-  @classmethod
-  def setUpClass(cls):
-    cls.M = curry.compile(
+  def setUp(self):
+    self.M = curry.compile(
         '''
         norm :: Int -> Int
         norm = (+ 1) . (* 2)

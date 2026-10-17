@@ -20,7 +20,7 @@ coin:
 1
 rule "a" ins where ins free:
 {ins=["x"]} "cmd1"
-{ins=["y", "z"]} "cmd2"
+{ins=["y","z"]} "cmd2"
 :type coin -> coin :: Int
 nothing:
 boom:

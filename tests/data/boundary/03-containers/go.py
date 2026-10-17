@@ -39,7 +39,8 @@ show('typeof [1, 2.5]', lambda: curry.typeof([1, 2.5]))
 show('()', lambda: vals(()))
 show('(1,)', lambda: vals((1,)))
 show('tuple(range(14))', lambda: vals(tuple(range(14))))
-show('typeof tuple(range(15))', lambda: curry.typeof(next(curry.eval(tuple(range(15))))))
+show('typeof tuple(range(15))',
+     lambda: curry.typeof(next(curry.eval(tuple(range(15)), converter=None))))
 show('tuple(range(15))', lambda: vals(tuple(range(15))))
 show('tuple(range(16))', lambda: vals(tuple(range(16))))
 

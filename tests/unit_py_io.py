@@ -101,7 +101,7 @@ class TestPyIO(cytest.TestCase):
       )
     stdout = StringIO()
     curry._interpreter_.stdout = stdout
-    out = curry.eval([Test.main])
+    out = curry.eval(Test.main, converter=None)
     result = next(out)
     self.assertEqual(stdout.getvalue(), "Hello, World!")
     self.assertEqual(str(result), '()')
@@ -112,7 +112,7 @@ class TestPyIO(cytest.TestCase):
     self.assertRaisesRegex(
         curry.EvaluationError
       , r'non-determinism in monadic actions occurred'
-      , lambda: list(curry.eval(goal))
+      , lambda: list(curry.eval(goal, converter=None))
       )
 
   @cytest.setio(stdout='')
@@ -121,19 +121,19 @@ class TestPyIO(cytest.TestCase):
     self.assertRaisesRegex(
         curry.EvaluationError
       , r'non-determinism in monadic actions occurred'
-      , lambda: list(curry.eval(goal))
+      , lambda: list(curry.eval(goal, converter=None))
       )
 
   @cytest.with_flags(defaultconverter='topython')
   @cytest.setio(stdin='muh\ninput\n')
   def test_getChar(self):
     getChar = curry.symbol('Prelude.getChar')
-    self.assertEqual(list(curry.eval(getChar)), ['m'])
+    self.assertEqual(list(curry.eval(getChar, converter='default')), ['m'])
 
   @cytest.setio(stdout='')
   def test_putChar(self):
     putChar = curry.symbol('Prelude.putChar')
     IO = curry.symbol('Prelude.IO')
     Unit = curry.symbol('Prelude.()')
-    self.assertEqual(list(curry.eval(putChar, 'x')), [curry.raw_expr(Unit)])
+    self.assertEqual(list(curry.eval(putChar, 'x', converter=None)), [curry.raw_expr(Unit)])
     self.assertEqual(curry.getInterpreter().stdout.getvalue(), 'x')

@@ -411,7 +411,8 @@ class TestSwap(TieredTestCase):
     self.assertEqual(self.py(first.f), 1)
     curry.reset()
     second = curry.compile('f :: Int\nf = 2', modulename='TieredDupAlive')
-    self.assertIsNot(first.f, second.f)
+    with self.assertRaises(curry.StaleError):
+      first.f
     self.assertEqual(second.f.info.address, address)
     self.assertEqual(self.py(second.f), 2)
     del first
@@ -446,7 +447,8 @@ class TestSwap(TieredTestCase):
     with capture_log('curry.backends.cxx.tiered') as log:
       second = self.import_module(name)
     self.assertEqual(log.data[logging.WARNING], [])
-    self.assertIsNot(first.f, second.f)
+    with self.assertRaises(curry.StaleError):
+      first.f
     self.assertEqual(
         (second.f.info.address, second.B.info.address), addresses
       )
@@ -468,7 +470,8 @@ class TestSwap(TieredTestCase):
     self.edit_module(name, self.EDITED % 2)
     self.switch('tiered')
     second = self.import_module(name)
-    self.assertIsNot(first.f, second.f)
+    with self.assertRaises(curry.StaleError):
+      first.f
     self.assertEqual(self.py(second.main), 2)
     del first
 

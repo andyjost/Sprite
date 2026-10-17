@@ -53,7 +53,7 @@ def floats(text):
 
 def values(*args, **kwds):
   '''The values of the built expression, as Curry text.'''
-  return [floats(str(value)) for value in curry.eval(build(*args, **kwds))]
+  return [floats(str(value)) for value in curry.eval(build(*args, **kwds), converter=None)]
 
 def oracle(name, kind=''):
   '''
@@ -844,7 +844,7 @@ class TestFreeVariables(cytest.TestCase):
     self.assertEqual(len(frees), 2)
     self.assertIs(frees[0].type.find(), frees[1].type.find())
     node = engine.materialize(prob)
-    self.assertEqual([str(v) for v in curry.eval(node)], ['True'])
+    self.assertEqual([str(v) for v in curry.eval(node, converter=None)], ['True'])
     self.assertEqual(values(P('&&'), [P('=:='), x, 1], [P('=:='), x, 2]), [])
     # The marker keeps its node across materializations.
     z = curry.free()
@@ -1082,7 +1082,7 @@ class TestNewtypes(cytest.TestCase):
     self.assertEqual(prob.defaulted_signature, 'Data.Functor.Identity.Identity Int')
     node = engine.materialize(prob)
     self.assertEqual(str(node), '5')
-    self.assertEqual([str(v) for v in curry.eval(node)], ['5'])
+    self.assertEqual([str(v) for v in curry.eval(node, converter=None)], ['5'])
     self.assertEqual(values(ID.Identity, 5), ['5'])
     self.assertEqual(str(build(ID.Identity)), 'id')
     self.assertEqual(values(ID.runIdentity, [ID.Identity, 5]), ['5'])
@@ -1221,31 +1221,31 @@ class TestSharedConstants(cytest.TestCase):
 
   def test_values_of_eval(self):
     '''The three values of the issue type as the evaluator typed them.'''
-    v, = curry.eval([[1, 2], [3]])
+    v, = curry.eval([[1, 2], [3]], converter=None)
     self.assertEqual(curry.typeof(v), '[[Int]]')
-    strs, = curry.eval(['ab', 'c'])
+    strs, = curry.eval(['ab', 'c'], converter=None)
     self.assertEqual(curry.typeof(strs), '[[Char]]')
-    pair, = curry.eval(([1], 'ab'))
+    pair, = curry.eval(([1], 'ab'), converter=None)
     self.assertEqual(curry.typeof(pair), '([Int], [Char])')
-    one, = curry.eval([[1]])
+    one, = curry.eval([[1]], converter=None)
     self.assertEqual(curry.typeof(one), '[[Int]]')
     # The result of a computation holds the empty list as the compiled code
     # made it.
-    words, = curry.eval(P('words'), 'ab c')
+    words, = curry.eval(P('words'), 'ab c', converter=None)
     self.assertEqual(str(words), '["ab", "c"]')
     self.assertEqual(curry.typeof(words), '[[Char]]')
     self.assertEqual(self.values(P('unwords'), words), ['ab c'])
 
   def test_typed_call(self):
     '''Such a value passes to a typed call.'''
-    strs, = curry.eval(['ab', 'c'])
+    strs, = curry.eval(['ab', 'c'], converter=None)
     self.assertEqual(self.values(P('unwords'), strs), ['ab c'])
     self.assertEqual(curry.typeof(curry.expr(P('unwords'), strs)), '[Char]')
-    pair, = curry.eval(([1], 'ab'))
+    pair, = curry.eval(([1], 'ab'), converter=None)
     self.assertEqual(curry.typeof(curry.expr(P('snd'), pair)), '[Char]')
     self.assertEqual(self.values(P('snd'), pair), ['ab'])
     self.assertEqual(self.values(P('fst'), pair), [[1]])
-    v, = curry.eval([[1, 2], [3]])
+    v, = curry.eval([[1, 2], [3]], converter=None)
     self.assertEqual(self.values(P('concat'), v), [[1, 2, 3]])
 
   def test_constants_per_position(self):
@@ -1424,7 +1424,7 @@ class TestAPI(cytest.TestCase):
     spec = Lit(0)
     for i in range(1, 101):
       spec = App(plus, spec, Lit(i))
-    self.assertEqual([str(v) for v in curry.eval(engine.materialize(Problem(curry.getInterpreter(), spec)))], ['5050'])
+    self.assertEqual([str(v) for v in curry.eval(engine.materialize(Problem(curry.getInterpreter(), spec)), converter=None)], ['5050'])
 
   def test_materialize_shapes(self):
     '''The shapes of the reference materializer.'''

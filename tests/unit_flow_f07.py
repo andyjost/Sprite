@@ -44,7 +44,6 @@ class TestFlowF07(cytest.TestCase):
     if FLOW_PATH not in curry.path:
       curry.path.insert(0, FLOW_PATH)
 
-  @unittest.expectedFailure
   def test_draw_on_demand(self):
     P = curry.import_('Prelude'); drawn = []
     def gen():
@@ -58,7 +57,6 @@ class TestFlowF07(cytest.TestCase):
     self.assertEqual(r.one(), [10, 11, 12])
     self.assertEqual(drawn, [10, 11, 12])
 
-  @unittest.expectedFailure
   def test_bare_iterator_is_consumed(self):
     P = curry.import_('Prelude'); it = iter([1, 2])
     self.assertEqual((curry.eval(P.length(it)).one(), curry.eval(P.length(it)).one(), list(it)), (2, 0, []))
@@ -72,7 +70,6 @@ class TestFlowF07(cytest.TestCase):
     t = P.length(iter([1, 2, 3]))
     self.assertEqual((curry.eval(t).one(), curry.eval(t).one()), (3, 3))
 
-  @unittest.expectedFailure
   def test_empty_and_infinite_iterators(self):
     P = curry.import_('Prelude')
     self.assertEqual(curry.eval(P.length(iter([]))).one(), 0)
@@ -99,7 +96,6 @@ class TestFlowF07(cytest.TestCase):
     self.assertEqual(curry.typeof(iter([1])), '[a]')
     self.assertEqual(str(P.take(3, iter([7, 8, 9]))), 'take 3 <iterator>')
 
-  @unittest.expectedFailure
   def test_results_are_not_a_list(self):
     P = curry.import_('Prelude'); C = curry.import_('Coin'); r = curry.eval(C.coin)
     self.assertIsInstance(r, curry.Results)
@@ -109,7 +105,6 @@ class TestFlowF07(cytest.TestCase):
     with self.assertRaises(curry.ConversionError):
       P.head(curry.eval(C.coin))
 
-  @unittest.expectedFailure
   def test_compound_and_string_items(self):
     P = curry.import_('Prelude')
     self.assertEqual(curry.eval(P.take(2, iter([[1], [2, 3]]))).one(), [[1], [2, 3]])
@@ -118,7 +113,6 @@ class TestFlowF07(cytest.TestCase):
     self.assertIs(type(v), str)
     self.assertEqual(v, 'ab')
 
-  @unittest.expectedFailure
   def test_bare_iterator_twice(self):
     g = iter([1, 2])
     self.assertEqual(curry.eval((g, g)).one(), ([1, 2], []))

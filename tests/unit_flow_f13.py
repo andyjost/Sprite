@@ -54,7 +54,6 @@ class TestFlowF13(cytest.TestCase):
     self.assertEqual(sorted(curry.eval(I.inc(types.ChoiceType(1, 2)))), [2, 3])
     self.assertEqual(sorted(curry.eval(I.applyAll([I.inc, I.dbl], types.ChoiceType(1, 2)))), [[2, 2], [3, 4]])
 
-  @unittest.expectedFailure
   def test_anonymous_placeholder(self):
     R = curry.import_('Rule'); anonymous = curry.anonymous
     self.assertEqual(list(curry.eval(R.rule('a', anonymous))), ['cmd1', 'cmd2'])
@@ -96,7 +95,6 @@ class TestFlowF13(cytest.TestCase):
     with self.assertRaises(curry.ConversionError):
       eval('I.inc(1) ? 2 == 2')
 
-  @unittest.expectedFailure
   def test_equations_and_comparison(self):
     P = curry.import_('Prelude'); I = curry.import_('Items'); t = I.inc(1)
     eq = P['=='](t, 2)

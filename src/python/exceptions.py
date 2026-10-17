@@ -29,6 +29,15 @@ class CurryIndexError(CurryError, IndexError):
 class CurryTypeError(CurryError, TypeError):
   '''Raised when a type error occurs while evaluating a Curry program.'''
 
+class NoValueError(CurryError, LookupError):
+  '''Results.one found no value.'''
+
+class ManyValuesError(CurryError, ValueError):
+  '''Results.one found a second value.'''
+
+class StaleError(CurryError, RuntimeError):
+  '''An object belongs to an earlier session or module version.'''
+
 class TimeoutError(CurryError, RuntimeError):
   pass
 

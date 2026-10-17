@@ -17,10 +17,10 @@ curry.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from curry.lib import rigidadd, rigidor, infresiduate, Account, digit
 
 def vals(*goal):
-  return list(curry.eval(*goal, converter='topython'))
+  return list(curry.eval(curry.expr(*goal), converter='topython'))
 
 def texts(*goal):
-  return [str(v) for v in curry.eval(*goal)]
+  return [str(v) for v in curry.eval(curry.expr(*goal), converter=None)]
 
 # rigidadd.goal: add x O =:= S O & isNat x.  True once x is bound to S O.
 print('rigidadd.goal ->', vals(rigidadd.goal))
@@ -43,7 +43,7 @@ print('(Account.goal2 b, b) ->', vals(([Account.goal2, b], b)))
 # Account.goal3 s: the client and the account exchange messages over the
 # stream s until the balance is 50.  The value of s is the whole stream.
 s = curry.free()
-for value in curry.eval(([Account.goal3, s], s)):
+for value in curry.eval(curry.expr(([Account.goal3, s], s)), converter=None):
   print('(Account.goal3 s, s) ->', value[0])
   for message in str(value[1]).strip('[]').split(', '):
     print('  ', message)

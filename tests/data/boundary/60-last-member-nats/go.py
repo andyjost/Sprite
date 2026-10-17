@@ -15,10 +15,10 @@ curry.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from curry.lib import Last, Member, Nats
 
 def vals(*goal):
-  return list(curry.eval(*goal, converter='topython'))
+  return list(curry.eval(curry.expr(*goal), converter='topython'))
 
 def texts(*goal):
-  return [str(v) for v in curry.eval(*goal)]
+  return [str(v) for v in curry.eval(curry.expr(*goal), converter=None)]
 
 # Last.goal = last [1,2,3,4]: the free variable x of the rule is bound by
 # the equation append _ [x] == [1,2,3,4].  One value.

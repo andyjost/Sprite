@@ -59,9 +59,9 @@ class TestValues(cytest.TestCase):
     self.assertEqual(self.values(M.swap, 1, 2), [(2, 1)])
     self.assertEqual(self.values(M.rot, 1, 2, 3, curry.expr(M.nat, 4)), [2])
     self.assertEqual(self.values(M.applyTwice, 5), [7])
-    self.assertEqual([str(v) for v in curry.eval(M.just, 1)], ['Just 1'])
-    self.assertEqual([str(v) for v in curry.eval(M.three, 1)], ['Three 1 1 1'])
-    self.assertEqual([str(v) for v in curry.eval(M.color, 1)], ['Red'])
+    self.assertEqual([str(v) for v in curry.eval(M.just, 1, converter=None)], ['Just 1'])
+    self.assertEqual([str(v) for v in curry.eval(M.three, 1, converter=None)], ['Three 1 1 1'])
+    self.assertEqual([str(v) for v in curry.eval(M.color, 1, converter=None)], ['Red'])
 
 
 @unittest.skipIf(
@@ -72,9 +72,8 @@ class TestRewrite(cytest.TestCase):
   One step of each program, taken at the root of a raw expression: the node
   is rewritten in place or forwarded, as the rule says.
   '''
-  @classmethod
-  def setUpClass(cls):
-    cls.M = curry.import_('CxxRewrite')
+  def setUp(self):
+    self.M = curry.import_('CxxRewrite')
 
   def test_tail_call(self):
     e = curry.raw_expr(self.M.walk, [1, 2, 3])
@@ -93,13 +92,13 @@ class TestRewrite(cytest.TestCase):
     e = curry.raw_expr(self.M.three, 1)
     step(e)
     self.assertEqual(e.info.tag, common.T_FWD)
-    self.assertEqual(str(next(curry.eval(e))), 'Three 1 1 1')
+    self.assertEqual(str(next(curry.eval(e, converter=None))), 'Three 1 1 1')
 
   def test_pinned_result_is_forwarded(self):
     e = curry.raw_expr(self.M.pinned, 1)
     step(e)
     self.assertEqual(e.info.tag, common.T_FWD)
-    self.assertEqual(str(next(curry.eval(e))), 'True')
+    self.assertEqual(str(next(curry.eval(e, converter=None))), 'True')
 
   def test_nullary_constructor(self):
     e = curry.raw_expr(self.M.color, 1)
@@ -122,7 +121,7 @@ class TestRewrite(cytest.TestCase):
     e = curry.raw_expr(self.M.first, [curry.raw_expr(self.M.lit, 0)])
     step(e)
     self.assertEqual(e.info.tag, common.T_FWD)
-    self.assertEqual(str(next(curry.eval(e))), '5')
+    self.assertEqual(str(next(curry.eval(e, converter=None))), '5')
 
   def test_swapped_arguments(self):
     # Both successors are read before the redex is written.
@@ -145,7 +144,7 @@ class TestRewrite(cytest.TestCase):
     self.assertEqual(e.info.name, 'apply')
     step(e, until=lambda e: e.info.name != 'apply')
     self.assertEqual(e.info.name, 'plus')
-    self.assertEqual(curry.topython(next(curry.eval(e))), 7)
+    self.assertEqual(curry.topython(next(curry.eval(e, converter=None))), 7)
 
   def test_tail_calls_allocate_nothing(self):
     '''
@@ -167,7 +166,7 @@ class TestRewrite(cytest.TestCase):
     still gets its turn.
     '''
     proc = cytest.run_in_subprocess(
-        CHILD + 'print(next(curry.eval(M.fair)))\n', TIMEOUT
+        CHILD + 'print(next(curry.eval(M.fair, converter=None)))\n', TIMEOUT
       , address_space=ADDRESS_SPACE
       )
     self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -184,7 +183,7 @@ class TestRewrite(cytest.TestCase):
         CHILD + '''
 cyrt.gc_set_threshold(1 << 10)
 before = cyrt.gc_collections()
-value = next(curry.eval(M.fair))
+value = next(curry.eval(M.fair, converter=None))
 print(value, cyrt.gc_collections() - before)
 ''', TIMEOUT, address_space=ADDRESS_SPACE
       )

@@ -13,6 +13,7 @@ def goal(text, **kwds):
   return curry.compile(text, mode='expr', **kwds)
 
 def texts(goal, **kwds):
+  kwds.setdefault('converter', None)
   return [str(value) for value in curry.eval(goal, **kwds)]
 
 def show(text, **kwds):
@@ -45,6 +46,6 @@ show('xs ++ ys =:= [1,2] where xs, ys free')
 # as [1,2].  The lifted goal records no type, so typeof answers a.
 lifted = goal('xs ++ [3] =:= [1,2,3] where xs free')
 print('converted ->', texts(lifted, converter='topython'))
-item, = curry.eval(lifted, converter='topython')
+item = curry.solve(curry.parse('xs ++ [3] =:= [1,2,3] where xs free')).one()
 print('  value:', item.value, ' bindings:', item.bindings)
 print('typeof of the lifted goal ->', curry.typeof(lifted))

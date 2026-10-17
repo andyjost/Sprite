@@ -156,13 +156,15 @@ class Interpreter(object):
     '''
     Soft-resets the interpreter.
 
-    Clears the loaded modules, except the Prelude and the packages.
+    Starts a new session and clears the loaded modules except the packages.
+    A loaded Prelude is replaced too, so held module objects become stale.
     Restores I/O streams to their defaults, resets the Curry path from the
     environment, releases the expression modules, and clears the signature
     table.  The names of anonymous modules are not reused; see compile.py.
     This is much faster than building a new interpreter, which loads the
     Prelude.
     '''
+    self._session = object()
     self.stdin = sys.stdin
     self.stdout = sys.stdout
     self.stderr = sys.stderr
@@ -170,10 +172,17 @@ class Interpreter(object):
     self._expression_modules = [] # see compile.py, mode 'expr'
     self._lifted_goals = {} # see typecheck.goals.register_lifted
     self._unlink_modules()
+    prelude = self.modules.pop('Prelude', None)
+    if prelude is not None:
+      self.backend.module_unlinked(self, prelude)
+    for cached in ('__preludelib', '__setflib'):
+      self.__dict__.pop(cached, None)
     self.path[:] = config.currypath(reset=True)
 
     self.backend.init_interpreter_state(self)
     self._sigtable.clear()
+    if prelude is not None:
+      self.import_('Prelude')
 
   def _unlink_modules(self):
     '''
@@ -218,7 +227,7 @@ class Interpreter(object):
   from .compile import compile
   from .conversions import currytype, topython, unbox
   from ..expressions import describe, expr, raw_expr, typeof
-  from .eval import eval
+  from .eval import eval, solve
   from .import_ import import_
   from .loadsave import load, save
   from .optimize import optimize

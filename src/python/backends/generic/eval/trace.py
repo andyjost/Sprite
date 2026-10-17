@@ -10,8 +10,8 @@ def show_queue(rts, qid=None):
   return 'queue %s: %s' % (qid, list(e.fingerprint for e in rts.qtable[qid]))
 
 def _showexpr(expr):
-  from .... import show
-  return show.show(expr, stringifier=show.PlainFreeVarsStringifier())
+  from ....show import show, PlainFreeVarsStringifier
+  return show(expr, stringifier=PlainFreeVarsStringifier())
 
 def enter_rewrite(rts, indent, expr):
   if rts.tracing:
@@ -19,7 +19,6 @@ def enter_rewrite(rts, indent, expr):
 
 def exit_rewrite(rts, indent, expr):
   if rts.tracing:
-    from .... import show
     print('S >>> %s%s' % ('  ' * indent, _showexpr(expr)))
 
 def failed(rts, qid=None):

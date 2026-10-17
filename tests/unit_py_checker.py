@@ -33,7 +33,7 @@ def _state(goal):
   return RuntimeState(curry.getInterpreter(), goal)
 
 def _values(module, name, *args):
-  return sorted(str(v) for v in curry.eval(getattr(module, name), *args))
+  return sorted(str(v) for v in curry.eval(getattr(module, name), *args, converter=None))
 
 def _goals(module):
   '''The nullary functions of a module, by name.'''
@@ -243,7 +243,7 @@ class TestFlag(cytest.TestCase):
     curry.reload({'checker': True})
     try:
       self.assertEqual(curry.flags['checker'], True)
-      self.assertEqual([curry.topython(v) for v in curry.eval(curry.expr(1))], [1])
+      self.assertEqual([curry.topython(v) for v in curry.eval(curry.expr(1), converter=None)], [1])
     finally:
       curry.reload({'checker': False})
 
@@ -518,7 +518,7 @@ h2 = g2 5 y where y free
     utility.copy_spine = corrupt
     try:
       with self.assertRaisesRegex(_checker().InvariantViolation, 'X-b'):
-        list(curry.eval(M.h2))
+        list(curry.eval(M.h2, converter=None))
     finally:
       utility.copy_spine = original
 
@@ -933,7 +933,7 @@ k x y = if x then (if y then 1 else 2) else 3
       return step
     self.replace_step(M, 'k', make_step)
     with self.assertRaisesRegex(_checker().InvariantViolation, r'B2.*position \[1\]'):
-      list(curry.eval(curry.raw_expr([M.k, True, False])))
+      list(curry.eval(curry.raw_expr([M.k, True, False]), converter=None))
 
   def test_failure_from_an_exempt_leaf(self):
     '''A step that fails on a matched rule.'''
@@ -945,12 +945,12 @@ k x y = if x then (if y then 1 else 2) else 3
       return step
     self.replace_step(M, 'k', make_step)
     with self.assertRaisesRegex(_checker().InvariantViolation, r'B2 \(failure\)'):
-      list(curry.eval(curry.raw_expr([M.k, True, False])))
+      list(curry.eval(curry.raw_expr([M.k, True, False]), converter=None))
 
   def test_unchanged_step_passes(self):
     M = curry.compile(self.SOURCE, modulename='CheckerPass')
     self.assertEqual(
-        [curry.topython(v) for v in curry.eval(curry.raw_expr([M.k, True, False]))]
+        [curry.topython(v) for v in curry.eval(curry.raw_expr([M.k, True, False]), converter=None)]
       , [2]
       )
 

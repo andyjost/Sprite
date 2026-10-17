@@ -459,10 +459,10 @@ class TestValues(cytest.TestCase):
   def test_failure(self):
     M = switch('all')
     # headOf [] fails: no value.
-    self.assertEqual(list(curry.eval(M.headOf, [])), [])
+    self.assertEqual(list(curry.eval(M.headOf, [], converter=None)), [])
     self.assertRaisesRegex(
         EvaluationError, 'boom'
-      , lambda: list(curry.eval(curry.expr(M.boom, 1)))
+      , lambda: list(curry.eval(curry.expr(M.boom, 1), converter=None))
       )
 
 
@@ -582,9 +582,8 @@ class TestSteps(cytest.TestCase):
   redex is rewritten in place or forwarded, as for compiled code (see
   unit_cxx_rewrite.py).
   '''
-  @classmethod
-  def setUpClass(cls):
-    cls.M = switch('all')
+  def setUp(self):
+    self.M = switch('all')
 
   @classmethod
   def tearDownClass(cls):
@@ -624,19 +623,19 @@ class TestSteps(cytest.TestCase):
     e = curry.raw_expr(self.M.keepShape, 1, curry.raw_expr(self.M.Rect, 1, 2))
     self.step(e, lambda e: e.info.name != 'keepShape')
     self.assertEqual(e.info.tag, common.T_FWD)
-    self.assertEqual(str(next(curry.eval(e))), 'Rect 1 2')
+    self.assertEqual(str(next(curry.eval(e, converter=None))), 'Rect 1 2')
 
   def test_pinned_result_is_forwarded(self):
     e = curry.raw_expr(self.M.vowel, 'a')
     self.step(e, lambda e: e.info.name != 'vowel')
     self.assertEqual(e.info.tag, common.T_FWD)
-    self.assertEqual(str(next(curry.eval(e))), 'True')
+    self.assertEqual(str(next(curry.eval(e, converter=None))), 'True')
 
   def test_string_result_in_place(self):
     e = curry.raw_expr(self.M.greeting)
     self.step(e, lambda e: e.info.name != 'greeting')
     self.assertEqual(e.info.name, '_biString')
-    self.assertEqual(str(next(curry.eval(e))), '"hello, world"')
+    self.assertEqual(str(next(curry.eval(e, converter=None))), '"hello, world"')
 
   def test_tail_calls_allocate_nothing(self):
     e = curry.raw_expr(self.M.walk, list(range(100)))
@@ -791,7 +790,7 @@ boom = error "boom"
     self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
     self.assertEqual(os.path.getmtime(sofile), mtime)
     self.assertRaisesRegex(
-        EvaluationError, 'boom', lambda: list(curry.eval(M.boom))
+        EvaluationError, 'boom', lambda: list(curry.eval(M.boom, converter=None))
       )
 
   @cytest.hardreset
@@ -805,7 +804,7 @@ boom = error "boom"
               r"turned off" % name
     with mock.patch.object(materialize, 'COMPILE_ON_FIRST_USE', False):
       self.assertRaisesRegex(
-          EvaluationError, pattern, lambda: list(curry.eval(M.main))
+          EvaluationError, pattern, lambda: list(curry.eval(M.main, converter=None))
         )
       self.assertTrapped(M, 'double', 'main', 'boom')
       self.assertFalse(os.path.exists(self.product(name, '.so')))
@@ -817,7 +816,7 @@ boom = error "boom"
       # A function nested in another module's evaluation names itself.
       self.assertRaisesRegex(
           EvaluationError, r"cannot evaluate function '%s\.double'" % name
-        , lambda: list(curry.eval(curry.expr(M.double, 1)))
+        , lambda: list(curry.eval(curry.expr(M.double, 1), converter=None))
         )
     # With the compile on again the module compiles and runs.
     self.assertEqual(list(curry.eval(M.main, converter='topython')), [42])
@@ -836,7 +835,7 @@ boom = error "boom"
             EvaluationError
           , r"cannot evaluate function '%s\.main': .*: the compile failed: "
             r"g\+\+ exited with status 1" % name
-          , lambda: list(curry.eval(M.main))
+          , lambda: list(curry.eval(M.main, converter=None))
           )
     self.assertTrue(
         any('cannot compile module %r on its first use' % name in line
@@ -1103,12 +1102,12 @@ other = 2
     with self.count_compiles() as calls:
       with mock.patch.object(cyrt, 'tiered_adopt', return_value=adopted):
         self.assertRaisesRegex(
-            EvaluationError, pattern, lambda: list(curry.eval(M.main))
+            EvaluationError, pattern, lambda: list(curry.eval(M.main, converter=None))
           )
       self.assertEqual(len(calls), 1)
       self.assertTrue(cyrt.is_trapped(M.main.info))
       self.assertFalse(materialize.is_pending(M))
       self.assertRaisesRegex(
-          EvaluationError, pattern, lambda: list(curry.eval(M.main))
+          EvaluationError, pattern, lambda: list(curry.eval(M.main, converter=None))
         )
       self.assertEqual(len(calls), 1)

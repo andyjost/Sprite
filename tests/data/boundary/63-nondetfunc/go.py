@@ -18,7 +18,7 @@ def vals(*goal):
   return list(curry.eval(*goal, converter='topython'))
 
 def texts(*goal):
-  return [str(v) for v in curry.eval(*goal)]
+  return [str(v) for v in curry.eval(*goal, converter=None)]
 
 # goal1, goal2, goal3: permutation sort in three spellings, one value each.
 print('goal1 ->', vals(M.goal1))

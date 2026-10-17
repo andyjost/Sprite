@@ -49,6 +49,8 @@ class CurryModule(types.ModuleType):
     setattr(self, '.types', {})
     setattr(self, '.backend_handle', None)
     setattr(self, '.interp', interp)
+    setattr(self, '.session', interp._session)
+    setattr(self, '.version', object())
     from .terms import ModuleInfo
     setattr(self, '.info', ModuleInfo(self))
     return self
@@ -71,6 +73,8 @@ class CurryModule(types.ModuleType):
     if isinstance(value, CurryNodeInfo):
       from .terms import Term, _RAW_ACCESS
       if not _RAW_ACCESS.get():
+        from .terms import check_module
+        check_module(self)
         return Term.from_symbol(value, self)
     return value
 
@@ -82,6 +86,9 @@ class CurryModule(types.ModuleType):
     if name in symbols:
       from .terms import Term, _RAW_ACCESS
       value = symbols[name]
+      if not _RAW_ACCESS.get():
+        from .terms import check_module
+        check_module(self)
       return value if _RAW_ACCESS.get() else Term.from_symbol(value, self)
     if name in getattr(self, '.types'):
       raise SymbolLookupError(

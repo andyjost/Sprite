@@ -18,15 +18,15 @@ def vals(*goal, **kwds):
 
 # Equal values hash apart, so a set keeps both; a node never equals a
 # Python int (P15).
-a, = curry.eval(M.inc, 41)
-b, = curry.eval(M.inc, 41)
+a, = curry.eval(M.inc, 41, converter=None)
+b, = curry.eval(M.inc, 41, converter=None)
 print('a == b ->', a == b)
 print('hash(a) == hash(b) ->', hash(a) == hash(b))
 print('len({a, b}) ->', len({a, b}))
 print('a == 42 ->', a == 42)
 
 # Values do not order; sorted needs a key.
-coins = list(curry.eval(M.coin))
+coins = list(curry.eval(M.coin, converter=None))
 try:
   sorted(coins)
 except TypeError as error:
@@ -34,11 +34,11 @@ except TypeError as error:
 print('sorted(coins, key=str) ->', sorted(coins, key=str))
 
 # The node False is true in Python: the C++ node has no __bool__.
-f, = curry.eval(getattr(P, 'not'), True)
+f, = curry.eval(getattr(P, 'not'), True, converter=None)
 print('(str(f), bool(f)) ->', (str(f), bool(f)))
 
 # A list value has no len; n[0] is the head and n[1] the tail (P16).
-n, = curry.eval([1, 2])
+n, = curry.eval([1, 2], converter=None)
 try:
   len(n)
 except TypeError as error:

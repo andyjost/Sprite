@@ -58,7 +58,7 @@ show('names table', lambda: vals(Str.names, table))
 show('names (typed table)', lambda: vals(Str.names, curry.typed(table, '[(String, Int)]')))
 
 # A Char out: the node, its type, the node back in, and the converted str.
-c = next(curry.eval(P.chr, 65))
+c = next(curry.eval(P.chr, 65, converter=None))
 show('chr 65', lambda: repr(c))
 show('typeof (chr 65)', lambda: curry.typeof(c))
 show('ord (chr 65)', lambda: vals(P.ord, c))

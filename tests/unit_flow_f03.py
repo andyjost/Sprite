@@ -42,7 +42,6 @@ class TestFlowF03(cytest.TestCase):
     if FLOW_PATH not in curry.path:
       curry.path.insert(0, FLOW_PATH)
 
-  @unittest.expectedFailure
   def test_consume_partially(self):
     M = curry.import_('Stream'); r = curry.eval(M.three)
     self.assertIsInstance(r, curry.Results)
@@ -58,7 +57,6 @@ class TestFlowF03(cytest.TestCase):
     self.assertIsNone(r.close())
     self.assertEqual(list(r), [])
 
-  @unittest.expectedFailure
   def test_length_and_materialization(self):
     M = curry.import_('Stream')
     with self.assertRaises(TypeError):
@@ -68,14 +66,12 @@ class TestFlowF03(cytest.TestCase):
     self.assertTrue(all(type(v) is int for v in values))
     self.assertEqual(len(values), 3)
 
-  @unittest.expectedFailure
   def test_context_closes(self):
     M = curry.import_('Stream')
     with curry.eval(M.three) as r:
       self.assertEqual(next(r), 1)
     self.assertEqual(list(r), [])
 
-  @unittest.expectedFailure
   def test_no_value(self):
     M = curry.import_('Stream')
     self.assertEqual(list(curry.eval(M.nothing)), [])
@@ -84,21 +80,18 @@ class TestFlowF03(cytest.TestCase):
       curry.eval(M.nothing).one()
     self.assertEqual(str(caught.exception), 'No value found: nothing')
 
-  @unittest.expectedFailure
   def test_many_values(self):
     M = curry.import_('Stream')
     with self.assertRaises(curry.ManyValuesError) as caught:
       curry.eval(M.three).one()
     self.assertEqual(str(caught.exception), 'more than one value: three has 1 and 2')
 
-  @unittest.expectedFailure
   def test_failed_alternative(self):
     M = curry.import_('Stream')
     values = list(curry.eval(M.partial))
     self.assertEqual(values, [1, 2])
     self.assertTrue(all(type(v) is int for v in values))
 
-  @unittest.expectedFailure
   def test_error_after_values(self):
     M = curry.import_('Stream'); r = curry.eval(M.mixed)
     self.assertEqual([next(r) for _ in range(1)], [1])
@@ -108,7 +101,6 @@ class TestFlowF03(cytest.TestCase):
     self.assertEqual(str(caught.exception), 'boom')
     self.assertEqual(list(r), [])
 
-  @unittest.expectedFailure
   def test_left_associated_error(self):
     M = curry.import_('Stream'); r = curry.eval(M.mixedL)
     self.assertEqual([next(r) for _ in range(2)], [2, 1])

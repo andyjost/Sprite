@@ -781,8 +781,8 @@ class TestCompile(cytest.TestCase):
         )
       self.assertEqual(len(rows(cachefile)), 1)
       # The module from the cache runs.
-      self.assertEqual(next(curry.eval([second.f, 3])), 7)
-      self.assertEqual(next(curry.eval([second.mapf, [1, 2]])), [4, 6])
+      self.assertEqual(next(curry.eval(second.f, 3)), 7)
+      self.assertEqual(next(curry.eval(second.mapf, [1, 2])), [4, 6])
       # A changed text misses.
       with frontend_calls() as calls:
         curry.compile(MODULE_TEXT + 'extra :: Int\nextra = 1\n')
@@ -829,7 +829,7 @@ class TestCompile(cytest.TestCase):
         , '_system.pexec = checking_pexec'
         , 'module = curry.compile(%r)' % MODULE_TEXT
         , 'expr = curry.compile("1 + 2", "expr", exprtype="Int")'
-        , 'values = [curry.topython(next(curry.eval([module.f, 3])))'
+        , 'values = [curry.topython(next(curry.eval(module.f, 3)))'
         , '         , curry.topython(next(curry.eval(expr)))]'
         , 'stats = cache.Curry2ICurryCache.stats'
         , 'exprmodule = curry.getInterpreter()._expression_modules[-1]'

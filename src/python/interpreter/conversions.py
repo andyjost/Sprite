@@ -56,13 +56,23 @@ def _is_known(typeexpr):
   return isinstance(typeexpr, (fc.TCons, fc.FuncType))
 
 class ToPython(object):
-  def __init__(self, convert_freevars=True):
+  def __init__(self, convert_freevars=True, variable=None):
     self.convert_freevars = convert_freevars
+    self.variable = variable
   def __call__(self, value, convert_strings=True, typeexpr=None):
     '''Convert one value.'''
     return self.__convert(value, convert_strings, typeexpr)
   def __convert(self, value, convert_strings=True, typeexpr=None):
-    if inspect.isa_boxed_primitive(value) or inspect.isa_io(value):
+    if self.variable is not None:
+      from ..typecheck.builder import _follow
+      value = _follow(value)
+      if inspect.isa_freevar(value):
+        return self.variable(value)
+    if inspect.isa_io(value):
+      if isinstance(typeexpr, fc.TCons) and typeexpr.name == fc.prelude('IO') and typeexpr.args:
+        typeexpr = typeexpr.args[0]
+      return self.__convert(unbox(value), convert_strings, typeexpr)
+    if inspect.isa_boxed_primitive(value):
       return unbox(value)
     elif inspect.isa_bool(value):
       return inspect.isa_true(value)

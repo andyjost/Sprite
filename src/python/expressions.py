@@ -528,7 +528,9 @@ class ExpressionBuilder(object):
 
   @visitation.dispatch.on('arg')
   def __call__(self, arg, *args, **kwds):
-    from .objects.terms import Term, Var, Reference
+    from .objects.terms import Term, Var, Reference, check_term
+    if isinstance(arg, Term):
+      check_term(arg)
     if isinstance(arg, Var):
       return self(arg._marker, *args, **kwds)
     if isinstance(arg, Reference):
@@ -559,6 +561,8 @@ class ExpressionBuilder(object):
       raise CurryTypeError('invalid arguments after %r' % lst)
     from .objects.terms import Term
     if lst and isinstance(lst[0], Term) and lst[0].symbol is not None:
+      from .objects.terms import check_term
+      check_term(lst[0])
       return self(lst[0].symbol._info, *lst[0]._args, *lst[1:])
     if len(lst) and isinstance(lst[0], (objects.CurryNodeInfo, backends.InfoTable)):
       return self(*lst)

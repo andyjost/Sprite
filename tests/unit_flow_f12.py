@@ -67,7 +67,6 @@ class TestFlowF12(cytest.TestCase):
       self.assertIsInstance(caught.exception, Exception)
       self.assertEqual(str(caught.exception), 'boom')
 
-  @unittest.expectedFailure
   def test_failure_and_one(self):
     P = curry.import_('Prelude')
     self.assertEqual(list(curry.eval(P.failed)), [])

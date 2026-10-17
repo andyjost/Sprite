@@ -306,10 +306,11 @@ from ``CurryError``, an ``Exception``, so ``except Exception`` catches it:
 
 A trailing ``where x, y free`` declares free variables, as in the REPL.  A
 variable whose type is absent from the result type cannot show in a value,
-so ``curry.eval`` reports its binding with each value:
+so the old ``compile(mode='expr')`` route retains a binding wrapper when
+``converter=None`` is explicit:
 
     >>> goal = curry.compile('xs ++ [3] =:= [1, 2, 3] where xs free', mode='expr')
-    >>> value = next(curry.eval(goal))
+    >>> value = next(curry.eval(goal, converter=None))
     >>> print(value)
     {xs=[1, 2]} True
 
@@ -322,7 +323,9 @@ the value, which is the answer:
     >>> print(next(curry.eval(curry.compile('(x, 1) where x free', mode='expr'))))
     (_a, 1)
 
-The REPL of PAKCS prints the binding of every declared variable, ``{x=x} x``
+Use ``curry.solve(curry.parse(text))`` to report every named variable
+through the new Answer/Bindings interface. The REPL of PAKCS prints the
+binding of every declared variable, ``{x=x} x``
 for ``x where x free``, where Sprite prints ``_a``.  The clause must end the
 text.  With ``exprtype``, or with a comment after ``free``, it is compiled
 as a local declaration.  The variables are not lifted then, and no binding
@@ -415,8 +418,8 @@ successor.  Its index 0 is the Python value it holds.  For example:
     (True, False, False)
     >>> len({one, other})
     2
-    >>> v = next(curry.eval(curry.expr([1, 2])))
-    >>> bool(next(curry.eval(False))), v[0], v[1]
+    >>> v = next(curry.eval(curry.expr([1, 2]), converter=None))
+    >>> bool(next(curry.eval(False, converter=None))), v[0], v[1]
     (True, <Int 1>, <: <Int 2> <[]>>)
 
 Symbolic Expressions
@@ -528,7 +531,7 @@ choice with a fresh identifier, so two markers are two independent choices:
     >>> sorted(curry.eval(curry.choice(1, 2), converter='topython'))
     [1, 2]
     >>> plus = curry.symbol('Prelude.+')
-    >>> sorted(curry.eval([plus, curry.choice(1, 2), curry.choice(10, 20)], converter='topython'))
+    >>> sorted(curry.eval(plus, curry.choice(1, 2), curry.choice(10, 20), converter='topython'))
     [11, 12, 21, 22]
 
 ``curry.raw_expr`` builds the raw ``Free`` and ``Choice`` nodes instead, with
@@ -680,7 +683,7 @@ typed by a walk of its content, to the leaves, not by its root alone.  A
 value of :func:`curry.eval` is such a node and carries no type of its own.
 This walk is what keeps a list of floats away from integer arithmetic:
 
-    >>> v = next(curry.eval(curry.expr([1.5, 2.5])))
+    >>> v = next(curry.eval(curry.expr([1.5, 2.5]), converter=None))
     >>> curry.typeof(v)
     '[Float]'
     >>> DL = curry.import_('Data.List')
@@ -717,7 +720,7 @@ the components of a pair at every level has such a type.  State the type
 of a larger value with ``curry.typed(node, '[Float]')``, which skips the
 walk:
 
-    >>> big = next(curry.eval(curry.expr(list(range(100001)))))
+    >>> big = next(curry.eval(curry.expr(list(range(100001))), converter=None))
     >>> curry.typeof(big)
     Traceback (most recent call last):
       ...
@@ -971,19 +974,19 @@ To evaluate an expression pass it to ``curry.eval``.
 
     >>> print(next(curry.eval(fib3)))
     2
-    >>> print(next(curry.eval(Fib.main)))
+    >>> print(next(curry.eval(Fib.main, converter=None)))
     13
 
-``curry.eval`` returns a generator that yields one value with each invocation
-of ``next``.  The goal is evaluated lazily, so ``next`` performs only the
-computational steps it must to compute the next value.
+``curry.eval`` returns a :class:`curry.Results` iterator. Nothing runs at
+that call; each ``next`` runs the search to the next value. Built-in values
+convert to Python integers, floats, Booleans, strings, lists and tuples.
+An unbound variable crosses as a :class:`curry.Var`. User data and function
+values currently cross as runtime nodes.
 
-The arguments of ``curry.eval`` are those of ``curry.expr``: a symbol with
-its arguments, a Python value, a node, or a description, with the keyword
-``exprtype``.  So ``curry.eval(plus, 1, 2)`` builds the expression and
-evaluates it.  A ``str`` is a value there, as in ``curry.expr``:
-``curry.eval('1 + 2')`` yields the string ``"1 + 2"``.  A text goal goes
-through ``curry.compile(mode='expr')``.
+The goal is a term or a value that ``curry.term`` converts. Write
+``curry.parse('1 + 2')`` for Curry text and ``curry.term('1 + 2')`` for a
+String. A bare string goal raises ``ConversionError`` naming both spellings.
+The earlier call form ``curry.eval(plus, 1, 2)`` remains accepted.
 
 A function of a module without a type signature keeps its class
 constraints, which the front end turns into leading dictionary parameters.
@@ -993,14 +996,40 @@ not to a partial application.  A call with arguments,
 ``curry.eval(M.addOne, 1)``, is typed like any expression of
 :func:`curry.expr`.
 
-By default, no conversions are performed.  That means the ``13`` returned above
-is a Curry integer rather than a Python integer.  We can see this by looking at
-the ``repr`` format:
+``one()`` requires exactly one value. No value raises ``NoValueError``
+(a ``LookupError``); a second raises ``ManyValuesError`` (a ``ValueError``).
+Use ``next`` when only the first value is needed. ``close()`` ends a search;
+a ``with`` block closes it on exit. There is no ``len``.
 
-    >>> next(curry.eval(Fib.main))
+    >>> curry.eval(curry.term(42)).one()
+    42
+    >>> with curry.eval(curry.choice(1, 2)) as results:
+    ...     first = next(results)
+    >>> first, list(results)
+    (1, [])
+
+``curry.solve`` yields :class:`curry.Answer`, a pair of the converted value
+and a :class:`curry.Bindings` mapping. It reports every named variable, in
+first-occurrence order, including an unbound one. Index the mapping by its
+name or its ``Var``. Anonymous variables are omitted. ``str(answer)`` and
+``curry.show(answer)`` print the REPL's answer line.
+
+    >>> answer = curry.solve(curry.parse('xs ++ [3] =:= [1,2,3] where xs free')).one()
+    >>> answer.value, answer.bindings['xs'], len(answer)
+    (True, [1, 2], 2)
+    >>> curry.show(answer)
+    '{xs=[1,2]} True'
+
+Terms, variables and module objects held across ``curry.reset()`` raise
+``StaleError`` when used again. Build goals from the newly imported modules.
+A module's earlier terms also become stale when its code is replaced.
+
+``converter=None`` retains raw results for code that inspects nodes:
+
+    >>> next(curry.eval(Fib.main, converter=None))
     <Int 13>
 
-An evaluation that fails in Curry raises an
+An evaluation that raises a Curry error raises an
 :class:`EvaluationError <curry.exceptions.EvaluationError>` from ``next``.
 ``EvaluationSuspended`` is raised when an alternative suspends on a free
 variable, after the values of the alternatives that did not suspend.  An
@@ -1009,7 +1038,7 @@ non-deterministic action, is an ``EvaluationError`` whose message names
 it, as ``error`` is.
 ``EvaluationError`` derives from ``CurryError``, an ``Exception``, as
 ``CompileError`` does, so ``except Exception`` catches it.  An expression
-with no value ends the generator without a value.
+with no value ends the results without a value.
 
 .. _goal-defaulting:
 
@@ -1043,8 +1072,7 @@ Multi-Valued Computations
 -------------------------
 
 Non-deterministic computations are in general multi-valued.  To partially
-evaluate such an expression, simply stop taking values and discard the
-generator.  For example, to print the Fibonacci numbers less than 30 one could
+evaluate such an expression, stop taking values and close the results.  For example, to print the Fibonacci numbers less than 30 one could
 say:
 
     >>> fibs = curry.compile(
@@ -1088,8 +1116,8 @@ Conversions to the following Python types are performed: ``bool``, ``float``,
 The keyword ``converter`` of :func:`curry.eval` converts each value as it
 is produced: ``'topython'`` applies :func:`curry.topython`, ``None`` leaves
 the Curry value, and a callable ``f(interp, value)`` converts as it
-pleases.  The default, ``'default'``, is the interpreter flag
-``defaultconverter``, ``None`` unless set:
+pleases.  The default is ``'topython'``.  The explicit spelling
+``converter='default'`` reads the interpreter flag ``defaultconverter``:
 
     >>> curry.flags['defaultconverter'] = 'topython'
     >>> next(curry.eval([1, 2]))
@@ -1112,7 +1140,7 @@ empty ``String`` converts to ``''``.  :func:`curry.eval` passes the type of
 the goal it built to the converter.  Without a type, an empty list converts
 to ``[]`` and a list of characters to a ``str``:
 
-    >>> empty = next(curry.eval(curry.typed('', 'String')))
+    >>> empty = next(curry.eval(curry.typed('', 'String'), converter=None))
     >>> curry.topython(empty)
     []
     >>> curry.topython(empty, exprtype='String')

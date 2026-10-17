@@ -194,12 +194,10 @@ class TestStubErrors(cytest.TestCase):
     self.assertEqual(curry.InstantiationError.__bases__, (curry.EvaluationError,))
     self.assertTrue(issubclass(curry.InstantiationError, Exception))
 
-  @unittest.expectedFailure
   def test_NoValueError_bases(self):
     self.assertEqual(curry.NoValueError.__bases__, (curry.CurryError, LookupError))
     self.assertTrue(issubclass(curry.NoValueError, Exception))
 
-  @unittest.expectedFailure
   def test_ManyValuesError_bases(self):
     self.assertEqual(curry.ManyValuesError.__bases__, (curry.CurryError, ValueError))
     self.assertTrue(issubclass(curry.ManyValuesError, Exception))
@@ -222,7 +220,6 @@ class TestStubErrors(cytest.TestCase):
     self.assertEqual(curry.TypeLookupError.__bases__, (curry.CurryError, AttributeError))
     self.assertTrue(issubclass(curry.TypeLookupError, Exception))
 
-  @unittest.expectedFailure
   def test_StaleError_bases(self):
     self.assertEqual(curry.StaleError.__bases__, (curry.CurryError, RuntimeError))
     self.assertTrue(issubclass(curry.StaleError, Exception))
@@ -358,7 +355,6 @@ class TestStubErrors(cytest.TestCase):
     self.assertIsInstance(caught.exception, ZeroDivisionError)
     self.assertEqual(str(caught.exception), 'division by zero: div 1 0')
 
-  @unittest.expectedFailure
   def test_float_division_keeps_ieee_result(self):
     P = curry.import_('Prelude')
     self.assertEqual(curry.eval(P['/'](1.0, 0.0)).one(), float('inf'))
@@ -377,14 +373,12 @@ class TestStubErrors(cytest.TestCase):
     with self.assertRaises(curry.NondetError):
       next(curry.eval(P.print(curry.choice(1, 2))))
 
-  @unittest.expectedFailure
   def test_no_value_message(self):
     Stream = curry.import_('Stream')
     with self.assertRaises(curry.NoValueError) as caught:
       curry.eval(Stream.nothing).one()
     self.assertEqual(str(caught.exception), 'No value found: nothing')
 
-  @unittest.expectedFailure
   def test_many_values_message(self):
     Coin = curry.import_('Coin')
     with self.assertRaises(curry.ManyValuesError) as caught:
@@ -433,7 +427,6 @@ class TestStubErrors(cytest.TestCase):
     with self.assertRaises(curry.TypeLookupError):
       curry.info(M).types['NoSuchType']
 
-  @unittest.expectedFailure
   def test_stale_message_names_module_event_and_rebuild(self):
     Coin = curry.import_('Coin')
     old = Coin.inc(1)

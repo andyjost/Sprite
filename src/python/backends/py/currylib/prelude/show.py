@@ -1,12 +1,12 @@
-from ..... import show as show_module
+from .....show import show as show_node, show_float
 
 __all__ = ['show']
 
 def show(rts, arg):
   if arg.is_boxed:
-    string = show_module.show(arg.target)
+    string = show_node(arg.target)
   elif isinstance(arg.target, float):
-    string = show_module.show_float(arg.target)
+    string = show_float(arg.target)
   else:
     string = str(arg.target)
   if len(string) == 1:

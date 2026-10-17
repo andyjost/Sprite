@@ -17,7 +17,7 @@ curry.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from curry.lib import family_rel, family_con, family_fun, family_nd
 
 def texts(*goal):
-  return [str(v) for v in curry.eval(*goal)]
+  return [str(v) for v in curry.eval(curry.expr(*goal), converter=None)]
 
 def ask(label, goal, arity):
   '''Prints the values of goal applied to arity fresh markers.'''

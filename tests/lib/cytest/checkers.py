@@ -105,7 +105,7 @@ def check_expressions(converter=curry.topython, postprocessor=sorted, cleaner=No
       if python is not None:
         assert_equal(self, curry.topython(e), python)
       if evaluated is not None:
-        values = curry.eval(e)
+        values = curry.eval(e, converter=None)
         if converter is not None:
           values = map(converter, values)
         if postprocessor is not None:
