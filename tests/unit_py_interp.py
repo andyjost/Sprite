@@ -41,7 +41,13 @@ class TestPyInterp(cytest.TestCase):
     self.assertIs(interp.modules['example'], example)
 
     # Symbol lookup.
-    self.assertIs(interp.symbol('Prelude.Int'), interp.modules['Prelude'].Int)
+    M = interp.modules['Prelude']
+    symbol = interp.symbol('Prelude.Int')
+    self.assertIsInstance(symbol, curry.objects.CurryNodeInfo)
+    self.assertIsInstance(M.Int, curry.Term)
+    self.assertEqual(M.Int.symbol.fullname, symbol.fullname)
+    self.assertEqual(M.Int, M.Int)
+    self.assertIsNot(M.Int, M.Int)
     self.assertRaisesRegex(
         ModuleLookupError, "Curry module 'blah' not found"
       , lambda: interp.symbol('blah.x')

@@ -422,6 +422,10 @@ def check_application(args):
   '''
   if len(args) == 1 and isinstance(args[0], list):
     args = args[0]
+  from ..objects.terms import Term
+  if args and isinstance(args[0], Term) and args[0].symbol is not None:
+    head = args[0]
+    args = (head.symbol._info, *head._args, *args[1:])
   if len(args) < 2 or not isinstance(args[0], CurryNodeInfo):
     return
   head = args[0]
@@ -450,6 +454,11 @@ def make_goal(interp, args, exprtype=None, anchors=None):
   ``typed_expr`` off, :func:`check_application` refuses a symbol applied to
   arguments.
   '''
+  from ..objects.terms import Term
+  if args and isinstance(args[0], Term):
+    head = args[0]
+    if head.symbol is not None and not head._args:
+      args = (head.symbol._info, *args[1:])
   anchors = dict(anchors or {})
   if len(args) == 1 and not anchors:
     arg = args[0]

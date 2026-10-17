@@ -284,7 +284,6 @@ class TestStubErrors(cytest.TestCase):
       , '9223372036854775808 is outside the range of Int (-9223372036854775808 to 9223372036854775807)'
       )
 
-  @unittest.expectedFailure
   def test_arity_message(self):
     Items = curry.import_('Items')
     with self.assertRaises(curry.ArityError) as caught:
@@ -330,7 +329,6 @@ class TestStubErrors(cytest.TestCase):
     self.assertEqual((error.line, error.column), (1, 5))
     self.assertNotIn(tempfile.gettempdir(), str(error))
 
-  @unittest.expectedFailure
   def test_evaluation_error_message(self):
     P = curry.import_('Prelude')
     r = curry.eval(P.error('boom'))
@@ -338,7 +336,6 @@ class TestStubErrors(cytest.TestCase):
       next(r)
     self.assertEqual(str(caught.exception), 'boom')
 
-  @unittest.expectedFailure
   def test_user_io_error_message(self):
     P = curry.import_('Prelude')
     with self.assertRaises(curry.EvaluationError) as caught:
@@ -418,14 +415,12 @@ class TestStubErrors(cytest.TestCase):
       , "module 'Same' is loaded; curry.reload(curry.modules['Same'], text=...) replaces its code"
       )
 
-  @unittest.expectedFailure
   def test_missing_symbol_message(self):
     Tools = curry.import_('Tools')
     with self.assertRaises(curry.SymbolLookupError) as caught:
       Tools.nosuch
     self.assertEqual(str(caught.exception), "module 'Tools' has no symbol 'nosuch'")
 
-  @unittest.expectedFailure
   def test_type_name_message_uses_info(self):
     Items = curry.import_('Items')
     with self.assertRaises(curry.SymbolLookupError) as caught:

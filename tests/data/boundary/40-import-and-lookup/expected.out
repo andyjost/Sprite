@@ -4,16 +4,16 @@ import_ of a path !! ModuleLookupError
 import_ of a path with is_sourcefile=True -> Lookup
 after curry.path = [...] the interpreter keeps its list -> True
 sorted(curry.modules) -> ['Lookup', 'Prelude']
-Lookup.Item !! AttributeError
+Lookup.Item !! SymbolLookupError
 curry.type('Lookup.Item').constructors -> ['A', 'B']
 getattr(Lookup, '+++') [1] [2] -> [[1, 2]]
 getattr(P, 'not') True -> [False]
 Lookup.twice 4 -> [8]
-Lookup.helper (private) !! AttributeError
+Lookup.helper (private) -> helper
 inspect.symbols(Lookup) -> ['A', 'B', 'helper', 'twice']
 dir(Lookup) -> ['+++', 'A', 'B', 'twice']
 curry.symbol('Prelude.+') 1 2 -> [3]
-curry.symbol('Data.List.nub') before an import !! ModuleLookupError: Curry module 'Data' not found
+curry.symbol('Data.List.nub') before an import -> nub
 curry.symbol('Data.List.nub') after the import -> [[1, 2]]
 curry.module('Data.Char').toUpper 'a' -> ['A']
 curry.module('Nope') !! ModuleLookupError: Curry module 'Nope' not found

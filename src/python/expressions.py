@@ -370,7 +370,9 @@ def expr(interp, *args, **kwds):
   if interp.flags.get('typed_expr', True):
     from .typecheck import builder
     target = kwds.pop('target', None)
-    return builder.build(interp, args, kwds, exprtype=exprtype, target=target)
+    from .objects.terms import raw_symbols
+    with raw_symbols():
+      return builder.build(interp, args, kwds, exprtype=exprtype, target=target)
   return _build(interp, args, kwds, raw=False)
 
 def raw_expr(interp, *args, **kwds):
@@ -386,7 +388,9 @@ def raw_expr(interp, *args, **kwds):
   to more is an error.  An expression that is not well typed evaluates with
   undefined behaviour.
   '''
-  return _build(interp, args, kwds, raw=True)
+  from .objects.terms import raw_symbols
+  with raw_symbols():
+    return _build(interp, args, kwds, raw=True)
 
 def untyped_expr(interp, *args, **kwds):
   '''
@@ -524,6 +528,11 @@ class ExpressionBuilder(object):
 
   @visitation.dispatch.on('arg')
   def __call__(self, arg, *args, **kwds):
+    from .objects.terms import Term
+    if isinstance(arg, Term):
+      if args and arg.symbol is not None:
+        return self(arg.symbol._info, *arg._args, *args, **kwds)
+      return self(arg._node, **kwds)
     if hasattr(arg, 'rvalue'): # handle Variable
       return self(arg.rvalue, *args, **kwds)
     raise TypeError(
@@ -544,6 +553,9 @@ class ExpressionBuilder(object):
   def __call__(self, lst, *trailing):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % lst)
+    from .objects.terms import Term
+    if lst and isinstance(lst[0], Term) and lst[0].symbol is not None:
+      return self(lst[0].symbol._info, *lst[0]._args, *lst[1:])
     if len(lst) and isinstance(lst[0], (objects.CurryNodeInfo, backends.InfoTable)):
       return self(*lst)
     else:

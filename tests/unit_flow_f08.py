@@ -66,7 +66,6 @@ class TestFlowF08(cytest.TestCase):
     self.assertEqual(list(curry.eval((t, 5))), [(0, 5), (1, 5)])
     self.assertEqual(list(curry.eval((t, t))), [(0, 0), (1, 1)])
 
-  @unittest.expectedFailure
   def test_attributes_are_fresh_terms(self):
     C = curry.import_('Coin'); t = C.coin
     self.assertIsInstance(t, curry.Term)
@@ -76,7 +75,6 @@ class TestFlowF08(cytest.TestCase):
     with self.assertRaises(TypeError):
       C.coin()
 
-  @unittest.expectedFailure
   def test_structural_keys(self):
     C = curry.import_('Coin')
     self.assertEqual(C.inc(1), C.inc(1))

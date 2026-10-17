@@ -48,6 +48,9 @@ class CurryModule(types.ModuleType):
     setattr(self, '.symbols', {})
     setattr(self, '.types', {})
     setattr(self, '.backend_handle', None)
+    setattr(self, '.interp', interp)
+    from .terms import ModuleInfo
+    setattr(self, '.info', ModuleInfo(self))
     return self
 
   def __init__(self, interp, imodule):
@@ -63,9 +66,32 @@ class CurryModule(types.ModuleType):
 
   __str__ = __repr__
 
-  @property
-  def is_package(self):
-    return False
+  def __getattribute__(self, name):
+    value = types.ModuleType.__getattribute__(self, name)
+    if isinstance(value, CurryNodeInfo):
+      from .terms import Term, _RAW_ACCESS
+      if not _RAW_ACCESS.get():
+        return Term.from_symbol(value, self)
+    return value
+
+  def __getattr__(self, name):
+    if name.startswith('.') or name.startswith('__') and name.endswith('__'):
+      raise AttributeError(name)
+    from ..exceptions import SymbolLookupError
+    symbols = getattr(self, '.symbols')
+    if name in symbols:
+      from .terms import Term, _RAW_ACCESS
+      value = symbols[name]
+      return value if _RAW_ACCESS.get() else Term.from_symbol(value, self)
+    if name in getattr(self, '.types'):
+      raise SymbolLookupError(
+          "%r is a type: curry.info(%s).types[%r]" % (name, self.__name__, name)
+        )
+    raise SymbolLookupError('module %r has no symbol %r' % (self.__name__, name))
+
+  def __getitem__(self, name):
+    return getattr(self, name)
+
 
 
 class CurryPackage(CurryModule):
@@ -83,9 +109,6 @@ class CurryPackage(CurryModule):
 
   __str__ = __repr__
 
-  @property
-  def is_package(self):
-    return True
 
 
 class CurryExpression(object):

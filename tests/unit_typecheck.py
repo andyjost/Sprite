@@ -1332,7 +1332,7 @@ class TestAPI(cytest.TestCase):
     self.assertEqual(values(App('Prelude.not', False)), ['True'])
     self.assertEqual(values(App(P('+').scheme, 1, 2)), ['3'])
     prob = solved(App('Prelude.+', 1, 2))
-    self.assertIs(prob.root.symbol, P('+'))
+    self.assertIs(prob.root.symbol, curry.getInterpreter().symbol('Prelude.+'))
     self.assertEqual(describe(App(P('+').scheme, 1, 2)), '1 + 2')
 
   def test_queries(self):

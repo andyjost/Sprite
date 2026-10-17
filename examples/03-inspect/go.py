@@ -25,7 +25,7 @@ print('Types defined in Nat:', ', '.join(sorted(inspect.types(Nat))))
 # module, so look the type up by its full name.
 nat = curry.type('Nat.Nat')
 print('Constructors of Nat.Nat:',
-      ', '.join('%s (arity %d)' % (c.name, c.info.arity) for c in nat.constructors))
+      ', '.join('%s (arity %d)' % (c.name, c.arity) for c in nat.constructors))
 print()
 
 # The front end writes ICurry under .curry/ next to the source, in a

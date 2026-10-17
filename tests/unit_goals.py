@@ -931,7 +931,7 @@ class TestSave(cytest.TestCase):
     self.assertEqual(rebuilt.ndicts, 1)
     goal = Main.goal_from_scheme(self.M.main14, text)
     self.assertEqual(texts(goal), ['Just 5'])
-    self.assertIs(Main.goal_from_scheme(self.M.main33, goals.flat_type_text(self.M.main33.scheme)), self.M.main33)
+    self.assertEqual(Main.goal_from_scheme(self.M.main33, goals.flat_type_text(self.M.main33.scheme)), self.M.main33)
 
   def test_library(self):
     '''

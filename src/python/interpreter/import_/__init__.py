@@ -173,10 +173,12 @@ class ImportEx(object):
         for modulename in imodule.imports:
           self.interp.import_(modulename, currypath=self.import_path)
         load.loadSymbols(self.interp, imodule, moduleobj)
-        for name, target in imodule.aliases.items():
-          if hasattr(moduleobj, name):
-            raise ValueError("cannot alias previously defined name %r" % name)
-          setattr(moduleobj, name, getattr(moduleobj, target))
+        from ...objects.terms import raw_symbols
+        with raw_symbols():
+          for name, target in imodule.aliases.items():
+            if hasattr(moduleobj, name):
+              raise ValueError("cannot alias previously defined name %r" % name)
+            setattr(moduleobj, name, getattr(moduleobj, target))
         # The backend gets the search path of the imports of the module:
         # the compile of a module on first use and the background compile
         # import them on it.

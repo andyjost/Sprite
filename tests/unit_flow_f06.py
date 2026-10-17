@@ -75,7 +75,6 @@ class TestFlowF06(cytest.TestCase):
     self.assertEqual(str(t), 'take 3 fibs')
     self.assertEqual((curry.typeof(L.fibs), curry.typeof(L.goal1)), ('Num a => [a]', '[Int]'))
 
-  @unittest.expectedFailure
   def test_term_inspection(self):
     P = curry.import_('Prelude'); L = curry.import_('inflists'); t = P.take(3, L.fibs)
     with self.assertRaises(TypeError):
