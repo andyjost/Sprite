@@ -40,7 +40,7 @@ def load(repl, arg):
       if os.path.isfile(candidate):
         _import.warn_other_file(loaded, candidate)
         break
-  repl.module = curry.import_(modulename, currypath=currypath)
+  repl.module = curry.import_(modulename, path=currypath)
   # The argument, so that a switch of the backend can load the module again.
   repl.loaded = arg
   # The expressions of :eval and :type import the loaded module, so the

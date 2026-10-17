@@ -86,7 +86,7 @@ class TestPyIO(cytest.TestCase):
             x <- return ("Hello, " ++ "World!")
             putStr x
         '''
-      , modulename='Test'
+      , name='Test'
       )
     self.assertTrue(Test.main.icurry.metadata['all.monadic'])
 
@@ -97,7 +97,7 @@ class TestPyIO(cytest.TestCase):
             x <- return ("Hello, " ++ "World!")
             putStr x
         '''
-      , modulename='Test'
+      , name='Test'
       )
     stdout = StringIO()
     curry._interpreter_.stdout = stdout

@@ -10,7 +10,6 @@ import read the file again.  The run script runs the driver in a temporary
 copy, so that the file it writes stays out of the corpus.
 '''
 import os, time, curry
-from curry.backends.cxx import tiered
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -37,13 +36,8 @@ print('f after the edit ->', vals(M.f))
 # The background compile of the C++ backend, when there is one, never swaps
 # the running code to the code of a changed source, whichever file its child
 # read.  On the Python backend wait returns at once.
-tiered.wait()
+curry.wait()
 print('f after the background compile ->', vals(M.f))
-
-# The edit again, after the compile: the source then postdates every product
-# of f = 1.  Without it the next import trusts an object the compile wrote
-# after the edit, when the compile finished after the sleep (a race).
-write(2)
 
 # A reset forgets the module; the next import reads the file.
 del M

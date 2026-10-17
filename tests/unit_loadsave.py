@@ -34,10 +34,10 @@ class LoadSaveTestCase(cytest.TestCase):
       # Save the module as a library: no goal, so no main program.  The file
       # takes the suffix of the form the backend writes.
       filename = os.path.join(tmpdir, 'Module' + ('.cpp' if IS_CXX else '.py'))
-      curry.save(Module, filename, module_main=False)
+      curry._interpreter_.save(Module, filename, module_main=False)
 
       # Load the module.  The C++ backend refuses the file: it loads a .so.
-      Module2 = curry.load(filename)
+      Module2 = curry._interpreter_.load(filename)
 
       # They should compare equal.
       self.assertEqual(Module, Module2)
@@ -86,16 +86,16 @@ if curry.flags['backend'] == 'cxx':
   cppfile = os.path.join(
       tmpdir, '.curry', config.intermediate_subdir(), 'SaveLoadFresh.cpp'
     )
-  curry.save(M, cppfile, module_main=False)
+  curry._interpreter_.save(M, cppfile, module_main=False)
   saved = toolchain.Cpp2So(cytest.raw.interp())(cppfile, curry.path)
 else:
   saved = os.path.join(tmpdir, 'SaveLoadFresh.py')
-  curry.save(M, saved, module_main=False)
+  curry._interpreter_.save(M, saved, module_main=False)
 print(os.path.splitext(saved)[1])
-M2 = curry.load(saved)
+M2 = curry._interpreter_.load(saved)
 print(M2 is M, [str(v) for v in curry.eval(M2.main)])
 curry.reset()
-M3 = curry.load(saved)
+M3 = curry._interpreter_.load(saved)
 print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
 '''
 
@@ -149,21 +149,21 @@ def main():
   return [str(v) for v in curry.eval(curry.modules['M'].main)]
 def refused():
   try:
-    curry.load(soB)
+    curry._interpreter_.load(soB)
   except curry.exceptions.LoadError as exc:
     assert 'already loaded from' in str(exc), exc
     print('refused')
   else:
     print('not refused')
 if case == 'D':
-  curry.load(soA); refused(); print(main())
+  curry._interpreter_.load(soA); refused(); print(main())
 elif case == 'I':
-  curry.import_('M'); curry.load(soA); refused(); curry.reset()
-  curry.load(soA); print(main())
+  curry.import_('M'); curry._interpreter_.load(soA); refused(); curry.reset()
+  curry._interpreter_.load(soA); print(main())
 elif case == 'J':
-  curry.import_('M'); refused(); curry.reset(); curry.load(soA); print(main())
+  curry.import_('M'); refused(); curry.reset(); curry._interpreter_.load(soA); print(main())
 elif case == 'K':
-  curry.load(soA); curry.load(soA); print(main())
+  curry._interpreter_.load(soA); curry._interpreter_.load(soA); print(main())
 registered = cyrt.SharedCurryModule.find_sofilename('M')
 print(os.path.realpath(registered) == os.path.realpath(soA))
 print('exiting normally')
@@ -271,7 +271,7 @@ from curry.objects.handle import getHandle
 curry.path.insert(0, %(tmpdir)r)
 M = curry.import_('SaveFromObject')
 print('object', getHandle(M).sofilename is not None)
-text = curry.save(M, module_main=False)
+text = curry._interpreter_.save(M, module_main=False)
 print('steps', len(re.findall(r'^tag_type Cy', text, re.M)))
 with open(%(out)r, 'w', encoding='utf-8') as stream:
   stream.write(text)
@@ -322,7 +322,7 @@ print('values', [str(v) for v in curry.eval(M.main)])
 
 class TestSavedProgram(cytest.TestCase):
   '''
-  A program saved with a goal (curry.save(M, file, goal='main')) names no
+  A program saved with a goal (curry._interpreter_.save(M, file, goal='main')) names no
   program interpreter.  The C++ text of a program carried an .interp
   section with the dynamic loader of the build machine
   (config.ld_interpreter_path), which nothing read: the objects are loaded
@@ -341,21 +341,21 @@ with open(os.path.join(tmpdir, 'SavedProgram.curry'), 'w') as stream:
   stream.write('double :: Int -> Int\ndouble x = x + x\n\nmain :: Int\nmain = double 21\n')
 curry.path.insert(0, tmpdir)
 M = curry.import_('SavedProgram')
-text = curry.save(M, None, goal='main')
+text = curry._interpreter_.save(M, None, goal='main')
 print('.interp' in text, 'my_interp' in text, 'ld-linux' in text)
 if curry.flags['backend'] == 'cxx':
   cppfile = os.path.join(
       tmpdir, '.curry', config.intermediate_subdir(), 'SavedProgram.cpp'
     )
-  curry.save(M, cppfile, goal='main')
+  curry._interpreter_.save(M, cppfile, goal='main')
   from curry.backends.cxx import toolchain
   saved = toolchain.Cpp2So(cytest.raw.interp())(cppfile, curry.path)
   curry.reset()
-  M2 = curry.load(saved)
+  M2 = curry._interpreter_.load(saved)
   print([str(v) for v in curry.eval(M2.main)])
 else:
   saved = os.path.join(tmpdir, 'SavedProgram.py')
-  curry.save(M, saved, goal='main')
+  curry._interpreter_.save(M, saved, goal='main')
   proc = subprocess.run(
       [sys.executable, saved], capture_output=True, text=True
     )
@@ -376,3 +376,27 @@ else:
       self.assertEqual(lines[1:], ["['42']"], proc.stderr)
     else:
       self.assertEqual(lines[1:], ["0 ['42'] False"], proc.stderr)
+
+
+class TestPublicObjects(cytest.TestCase):
+  def test_loaded_object_keeps_its_typed_interface(self):
+    module = curry.compile('f :: Int -> Int\nf x = x + 1', name='SavedTyped')
+    with tempfile.TemporaryDirectory() as work:
+      suffix = '.so' if curry.flags['backend'] == 'cxx' else '.py'
+      product = os.path.join(work, 'SavedTyped' + suffix)
+      curry.save(module, product)
+      curry.reset()
+      loaded = curry.load(product)
+      self.assertEqual(curry.eval(loaded.f(41)).one(), 42)
+      self.assertEqual(curry.typeof(loaded.f), 'Int -> Int')
+      self.assertIs(curry.load(product), loaded)
+      from curry.lib import SavedTyped
+      self.assertIs(SavedTyped, loaded)
+
+  def test_saved_constrained_program_prints_the_defaulted_goal(self):
+    module = curry.compile('main = Just 5', name='SavedConstrained')
+    with tempfile.TemporaryDirectory() as work:
+      program = os.path.join(work, 'saved.exe')
+      curry.save(module, program, main=module.main)
+      run = subprocess.run([program], check=True, capture_output=True, text=True)
+      self.assertEqual(run.stdout, 'Just 5\n')

@@ -13,7 +13,7 @@ The following are recognized:
   A colon-separated list of paths used to search for Curry modules.  Sprite
   silently appends to this the path to its system libraries.  A program
   given as a file (``sprite-exec prog.curry``, ``sprite-make --so
-  prog.curry``, ``curry.import_(path, is_sourcefile=True)``) has its
+  prog.curry``, ``curry.import_(path)``) has its
   directory searched first, before the entries of CURRYPATH, as PAKCS
   searches: the modules beside the program are found without a CURRYPATH
   that names their directory.  A module given by name is searched on

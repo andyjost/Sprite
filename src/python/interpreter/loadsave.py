@@ -107,6 +107,16 @@ def save(interp, cymodule, filename=None, goal=None, **kwds):
       , len(h.types), '' if len(h.types) == 1 else 's'
       , len(h.symbols), '' if len(h.symbols) == 1 else 's'
       )
+  if kwds.pop('interfaces', False):
+    from ..typecheck import exprtype
+    iface = interp.sigtable.interface(cymodule)
+    if iface is not None:
+      icy.update_metadata({'all.fint': iface.data.decode('utf-8')})
+      try:
+        with open(exprtype.icurry_filename(iface.path), encoding='utf-8') as stream:
+          icy.update_metadata({'all.interface': stream.read()})
+      except OSError:
+        pass
   be = interp.backend
   target_object = be.compile(interp, icy)
   if isinstance(filename, str):

@@ -2,7 +2,7 @@
 import_ by name is the loaded object -> True
 import_ of a path -> Lookup
 import_ of a path is the loaded object -> True
-after curry.path[:] = ['nowhere'], import_('Data.Char') !! ModuleLookupError: Curry module 'Data' not found.
+after curry.path[:] = ['nowhere'], import_('Data.Char') !! ModuleLookupError: Curry module 'Data' not found.; searched curry.path
 sorted(curry.modules) -> ['Lookup', 'Prelude']
 Lookup.Item !! SymbolLookupError: 'Item' is a type: curry.info(Lookup).types['Item']
 curry.info(Lookup).types['Item'].constructors -> ['A', 'B']
@@ -15,5 +15,5 @@ dir(Lookup) -> ['+++', '.backend_handle', '.icurry', '.info', '.interp', '.sessi
 P['+'] 1 2 -> 3
 import_('Data.List').nub [1, 1, 2] -> [1, 2]
 import_('Data.Char').toUpper 'a' -> A
-import_('Nope') !! ModuleLookupError: Curry module 'Nope' not found.
-sorted(curry.modules) at the end -> ['Data', 'Data.Char', 'Data.List', 'Data.Maybe', 'Lookup', 'Prelude']
+import_('Nope') !! ModuleLookupError: Curry module 'Nope' not found.; searched curry.path
+sorted(curry.modules) at the end -> ['Data.Char', 'Data.List', 'Data.Maybe', 'Lookup', 'Prelude']

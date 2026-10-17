@@ -23,7 +23,6 @@ import curry
 # Regex.curry is next to this file, whatever the working directory is.
 Regex = curry.import_(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Regex.curry')
-  , is_sourcefile=True
   )
 
 CASES = [

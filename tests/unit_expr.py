@@ -475,7 +475,7 @@ class TestSurplusArguments(cytest.TestCase):
         twice :: (a -> a) -> a -> a
         twice f = f . f
         '''
-      , modulename='PointFree63'
+      , name='PointFree63'
       )
 
   def values(self, *args):

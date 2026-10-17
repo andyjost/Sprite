@@ -102,7 +102,7 @@ class REPL(object):
     on the new backend with the Prelude at the prompt, keeps the argument
     of the last :load for a switch back, and reports the error.
     '''
-    curry.reload({'backend': backend})
+    curry.reset(**{'backend': backend})
     self.options.values['backend'] = backend
     loaded = self.loaded
     if loaded is None:

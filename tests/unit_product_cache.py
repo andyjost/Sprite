@@ -501,7 +501,7 @@ class TestCompile(ProductCacheTestCase):
       self.skipTest('no C++ compiler is installed')
     # The flag ``interpret`` off, as unit_cxx_toolchain.py has it: the plan
     # of an import then compiles (a test of the tiered default reloads).
-    curry.reload({'interpret': 'off'})
+    curry.reset(**{'interpret': 'off'})
     curry.import_('Prelude')
     from curry.backends.cxx import toolchain
     self.toolchain = toolchain
@@ -607,7 +607,7 @@ class TestCompile(ProductCacheTestCase):
     self.assertFalse(self.cpp2so.is_stale(sofile))
     self.assertEqual(self.prerequisite(name), sofile)
     self.assertEqual(os.stat(sofile).st_nlink, 2)
-    module = curry.import_(name, currypath=[self.srcdir] + curry.path)
+    module = curry.import_(name, path=[self.srcdir] + curry.path)
     self.assertEqual(list(curry.eval(module.goal)), [2])
 
   def test_stale_object_is_replaced(self):
@@ -665,7 +665,7 @@ class TestCompile(ProductCacheTestCase):
     log.checkMessages(self, info='Compiling %r' % sofile)
     self.assertNotEqual(self.entry(name), first)
     self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 2})
-    module = curry.import_(name, currypath=[self.srcdir] + curry.path)
+    module = curry.import_(name, path=[self.srcdir] + curry.path)
     self.assertEqual(list(curry.eval(module.goal)), [2])
 
   def test_interpret_new_does_not_restore(self):
@@ -677,10 +677,10 @@ class TestCompile(ProductCacheTestCase):
     name = self.write_json(15)
     sofile = makecurry(self.plan, name, [self.srcdir])
     self.remove_products(name)
-    curry.reload({'interpret': 'new'})
+    curry.reset(**{'interpret': 'new'})
     from curry.objects.handle import getHandle
     with self.no_compiler():
-      module = curry.import_(name, currypath=[self.srcdir] + curry.path)
+      module = curry.import_(name, path=[self.srcdir] + curry.path)
       self.assertEqual(list(curry.eval(module.goal)), [15])
     self.assertIsNone(getHandle(module).icurry.metadata.get('cxx.shlib'))
     self.assertFalse(os.path.exists(sofile))
@@ -743,7 +743,7 @@ class TestCompile(ProductCacheTestCase):
       , '  commands.append(cmd)'
       , '  return pexec(cmd, *args, **kwds)'
       , '_system.pexec = counting_pexec'
-      , 'module = curry.import_(%r, currypath=%r)' % (name, [other] + curry.path)
+      , 'module = curry.import_(%r, path=%r)' % (name, [other] + curry.path)
       , 'value = list(curry.eval(module.goal))'
       , 'print(json.dumps([commands, value, module.__file__, getHandle(module).sofilename]))'
       ])
@@ -843,10 +843,10 @@ class TestCompile(ProductCacheTestCase):
     name = self.write_json(11)
     sofile = makecurry(self.plan, name, [self.srcdir])
     self.remove_products(name)
-    curry.reload({'interpret': 'tiered'})
+    curry.reset(**{'interpret': 'tiered'})
     from curry.objects.handle import getHandle
     with self.no_compiler():
-      module = curry.import_(name, currypath=[self.srcdir] + curry.path)
+      module = curry.import_(name, path=[self.srcdir] + curry.path)
       self.assertEqual(list(curry.eval(module.goal)), [11])
     self.assertIsNotNone(getHandle(module).icurry.metadata.get('cxx.shlib'))
     self.assertTrue(os.path.isfile(sofile))

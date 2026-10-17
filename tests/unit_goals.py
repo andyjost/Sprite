@@ -645,18 +645,18 @@ class TestReplSession(cytest.TestCase):
         raise ImportError('no %s on this backend' % name)
       return real_import(name, *args, **kwds)
     repl.command, repl.args = ':set', ['backend', other]
-    with mock.patch.object(curry, 'reload') as reload:
+    with mock.patch.object(curry, 'reset') as reload:
       with mock.patch.object(curry, 'import_', side_effect=failing_import):
         with self.assertRaisesRegex(ImportError, 'no %s' % MODULE):
           self.commands.eval(':set', repl)
-    reload.assert_called_once_with({'backend': other})
+    reload.assert_called_once_with(backend=other)
     self.assertEqual(repl.options['backend'], other)
     self.assertEqual(repl.module.__name__, 'Prelude')
     self.assertEqual(repl.loaded, MODULE_FILE)
     self.assertEqual((repl.command, repl.args), (':set', ['backend', other]))
-    with mock.patch.object(curry, 'reload') as reload:
+    with mock.patch.object(curry, 'reset') as reload:
       repl.options['backend'] = this
-    reload.assert_called_once_with({'backend': this})
+    reload.assert_called_once_with(backend=this)
     self.assertEqual(repl.options['backend'], this)
     self.assertEqual(repl.module.__name__, MODULE)
     self.assertEqual(repl.loaded, MODULE_FILE)
@@ -678,19 +678,19 @@ class TestSaveRefusals(cytest.TestCase):
   def test_without_goal(self):
     '''save without a goal raises ValueError, to a file and to a string.'''
     with self.assertRaisesRegex(ValueError, 'curry.save needs a goal'):
-      curry.save(self.M, self.filename)
+      curry._interpreter_.save(self.M, self.filename)
     self.assertFalse(os.path.exists(self.filename))
     with self.assertRaisesRegex(ValueError, 'module_main=False'):
-      curry.save(self.M)
+      curry._interpreter_.save(self.M)
     # A module without a main program is saved on both backends.
-    text = curry.save(self.M, module_main=False)
+    text = curry._interpreter_.save(self.M, module_main=False)
     self.assertNotIn('moduleMain', text)
     self.assertNotIn('entry()', text)
 
   def test_undefaultable_goal(self):
     '''save(goal='maxBound') raises at save time, with the sentence of the oracle.'''
     with self.assertRaises(curry.CurryTypeError) as cm:
-      curry.save(self.M, self.filename, goal='main18')
+      curry._interpreter_.save(self.M, self.filename, goal='main18')
     self.assertIn('Bounded a => a', str(cm.exception))
     self.assertIn(ORACLE_SENTENCE, str(cm.exception))
     self.assertFalse(os.path.exists(self.filename))
@@ -740,7 +740,7 @@ class TestSave(cytest.TestCase):
   def test_constrained_goal(self):
     '''A saved module with a constrained goal runs from another directory.'''
     filename = os.path.join(self.tmpdir, MODULE + '.py')
-    curry.save(self.M, filename, goal='main14')
+    curry._interpreter_.save(self.M, filename, goal='main14')
     with open(filename, encoding='utf-8') as stream:
       text = stream.read()
     footer = text[text.index('# SECTION: .footer'):]
@@ -754,14 +754,14 @@ class TestSave(cytest.TestCase):
   @cytest.expectedFailureIf(IS_CXX, SAVED_PROGRAM)
   def test_io_goal(self):
     filename = os.path.join(self.tmpdir, MODULE + '.py')
-    curry.save(self.M, filename, goal='main16')
+    curry._interpreter_.save(self.M, filename, goal='main16')
     self.assertEqual(self.run_saved(filename).stdout, '5\n')
 
   @cytest.expectedFailureIf(IS_CXX, SAVED_PROGRAM)
   def test_signed_goal(self):
     '''A goal without dictionaries gets no scheme in the footer.'''
     filename = os.path.join(self.tmpdir, MODULE + '.py')
-    curry.save(self.M, filename, goal='main33')
+    curry._interpreter_.save(self.M, filename, goal='main33')
     with open(filename, encoding='utf-8') as stream:
       text = stream.read()
     self.assertIn("goal='main33')", text)
@@ -778,7 +778,7 @@ class TestSave(cytest.TestCase):
     saved module are rejected.
     '''
     filename = os.path.join(self.tmpdir, MODULE + '.py')
-    curry.save(self.M, filename, goal='main14')
+    curry._interpreter_.save(self.M, filename, goal='main14')
     self.assertEqual(self.run_saved(filename).stdout, 'Just 5\n')
     self.assertEqual(self.run_saved(filename, '-g', 'main14').stdout, 'Just 5\n')
     # A signed goal, a constrained goal, and an IO goal print what
@@ -826,10 +826,10 @@ class TestSave(cytest.TestCase):
     form.
     '''
     filename = os.path.join(self.tmpdir, MODULE + ('.cpp' if IS_CXX else '.py'))
-    curry.save(self.M, filename, module_main=False)
+    curry._interpreter_.save(self.M, filename, module_main=False)
     with open(filename, encoding='utf-8') as stream:
       saved = stream.read()
-    text = curry.save(self.M, module_main=False)
+    text = curry._interpreter_.save(self.M, module_main=False)
     for form in [saved, text, inspect.getimpl(self.M)]:
       self.assertNotIn('moduleMain', form)
       self.assertNotIn('void entry()', form)
@@ -838,4 +838,4 @@ class TestSave(cytest.TestCase):
       else:
         self.assertIn('IModule.fromBOM', form)
     if IS_CXX:
-      self.assertIn('void entry()', curry.save(self.M, goal='main14'))
+      self.assertIn('void entry()', curry._interpreter_.save(self.M, goal='main14'))

@@ -18,6 +18,32 @@ REFUSED_UNDER_OFF = unittest.skipIf(
 
 
 class TestCompileModules(cytest.TestCase):
+  def test_dotted_header_and_reload(self):
+    module = curry.compile('module TextPackage.Child where\nf :: Int\nf = 7')
+    self.assertEqual(curry.info(module).name, 'TextPackage.Child')
+    self.assertIs(curry.modules['TextPackage.Child'], module)
+    self.assertNotIn('TextPackage', curry.modules)
+    from curry.lib import TextPackage
+    self.assertIs(TextPackage.Child, module)
+    old = module.f
+    self.assertEqual(curry.eval(old).one(), 7)
+    self.assertIs(curry.reload(module, text='f :: Int\nf = 8'), module)
+    self.assertEqual(curry.eval(module.f).one(), 8)
+    self.assertIs(TextPackage.Child, module)
+    with self.assertRaises(curry.StaleError):
+      curry.eval(old).one()
+
+  def test_generated_name_skips_a_loaded_name(self):
+    from curry.interpreter import compile as compilemod
+    from unittest import mock
+    import itertools
+    with mock.patch.object(compilemod, '_module_counter', itertools.count(9000)):
+      occupied = curry.compile('f :: Int\nf = 1', name='Interactive_9000')
+      generated = curry.compile('f :: Int\nf = 2')
+    self.assertEqual(curry.info(generated).name, 'Interactive_9001')
+    self.assertEqual(curry.eval(occupied.f).one(), 1)
+    self.assertEqual(curry.eval(generated.f).one(), 2)
+
   def testExprModuleOutlivesNextCompile(self):
     '''
     An expression module stays loaded while its goal can still be evaluated.
@@ -61,10 +87,10 @@ class TestCompileModules(cytest.TestCase):
     string is interpreted and makes no library; a module of the same name
     made again takes the tables of the first back (unit_cxx_tiered.py).
     '''
-    first = curry.compile('f :: Int\nf = 1', modulename='Dup')
+    first = curry.compile('f :: Int\nf = 1', name='Dup')
     curry.reset()
-    with self.assertRaisesRegex(curry.exceptions.LoadError, "'Dup'"):
-      curry.compile('f :: Int\nf = 2', modulename='Dup')
+    second = curry.compile('f :: Int\nf = 2', name='Dup')
+    self.assertEqual(curry.eval(second.f).one(), 2)
     del first
 
   @REFUSED_UNDER_OFF
@@ -78,15 +104,15 @@ class TestCompileModules(cytest.TestCase):
     The reset hands the tables over now (IBackend.module_unlinked), whether
     or not the module object is alive.
     '''
-    first = curry.compile('f :: Int\nf = 1', modulename='SameNameAlive')
+    first = curry.compile('f :: Int\nf = 1', name='SameNameAlive')
     self.assertEqual(list(curry.eval(first.f)), [1])
     curry.reset()
-    second = curry.compile('f :: Int\nf = 2', modulename='SameNameAlive')
+    second = curry.compile('f :: Int\nf = 2', name='SameNameAlive')
     with self.assertRaises(curry.StaleError):
       first.f
     self.assertEqual(list(curry.eval(second.f)), [2])
     curry.reset()
-    third = curry.compile('f :: Int\nf = 3', modulename='SameNameAlive')
+    third = curry.compile('f :: Int\nf = 3', name='SameNameAlive')
     self.assertEqual(list(curry.eval(third.f)), [3])
     del first, second, third
 
@@ -97,10 +123,10 @@ class TestCompileModules(cytest.TestCase):
     The hard reset of curry.reload unlinks the modules of the interpreter
     it replaces, so the same holds across a reload (issue #114).
     '''
-    first = curry.compile('f :: Int\nf = 1', modulename='SameNameReload')
+    first = curry.compile('f :: Int\nf = 1', name='SameNameReload')
     self.assertEqual(list(curry.eval(first.f)), [1])
-    curry.reload()
-    second = curry.compile('f :: Int\nf = 2', modulename='SameNameReload')
+    curry.reset()
+    second = curry.compile('f :: Int\nf = 2', name='SameNameReload')
     with self.assertRaises(curry.StaleError):
       first.f
     self.assertEqual(list(curry.eval(second.f)), [2])
@@ -119,7 +145,7 @@ class TestCompileModules(cytest.TestCase):
     evaluation and at expression building (see the TODO entry of
     2026-10-10).
     '''
-    first = curry.compile('f :: Int\nf = 1', modulename='StaleSymbol')
+    first = curry.compile('f :: Int\nf = 1', name='StaleSymbol')
     self.assertEqual(list(curry.eval(first.f)), [1])
     curry.reset()
     with self.assertRaises(curry.StaleError):

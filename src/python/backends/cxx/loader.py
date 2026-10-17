@@ -4,9 +4,10 @@ from ...toolchain import _filenames
 from ... import config, exceptions
 from . import cyrtbindings as cyrt
 from . import elf
-import logging, os
+import hashlib, logging, os
 
 logger = logging.getLogger(__name__)
+_objects = {}
 
 __all__ = ['load_module', 'needed_modules', 'source_file']
 
@@ -164,11 +165,16 @@ def _program_path(interp, sofile):
     return None
   return _findcurry.program_path(curryfile, interp.path, is_sourcefile=True)
 
-def load_module(interp, sofile, from_plan=False):
+def load_module(interp, sofile, from_plan=False, fresh=False):
   assert sofile.endswith('.so')
   sofile = os.path.abspath(sofile)
   name, needed = _dynamic_names(sofile)
-  if name is not None:
+  previous = None if name is None else cyrt.SharedCurryModule.find_sofilename(name)
+  with open(sofile, 'rb') as stream:
+    digest = hashlib.sha256(stream.read()).hexdigest()
+  replace = previous is not None and name not in interp.modules \
+      and (from_plan or fresh) and _objects.get(name) != (sofile, digest)
+  if name is not None and not replace:
     _check_before_open(interp, name, sofile, from_plan)
   # The object names the objects of its imports by their SONAMEs, and the
   # dynamic linker satisfies such a name with an object of that name this
@@ -192,13 +198,21 @@ def load_module(interp, sofile, from_plan=False):
   # must be named before an object binds to them (see tiered.py).
   from . import tiered
   tiered.ensure_shims(interp)
-  shlib = cyrt.SharedCurryModule(sofile)
+  if replace:
+    owner = cyrt.Module.find_or_create(name)
+    result = cyrt.tiered_adopt(name, [], sofile, [])
+    if not result['ok']:
+      raise exceptions.LoadError('cannot load %r: %s' % (sofile, result['error']))
+    shlib = owner.shlib
+  else:
+    shlib = cyrt.SharedCurryModule(sofile)
   # The runtime keeps one registry entry per module name for as long as a
   # library of that name is loaded, and a second library joins the entry of
   # the first.  _check_before_open refused such a file before the open; this
   # is the backstop for an object without the SONAME of its module, whose
   # name is known only now.
   _refuse_other_file(shlib.info.fullname, shlib.info.sofilename, sofile)
+  _objects[name] = sofile, digest
   bom = shlib.bom
   # The metadata of the record carries the keys of the optimizer passes that
   # ran on the module, so no pass runs again on a module without bodies
@@ -207,7 +221,7 @@ def load_module(interp, sofile, from_plan=False):
   # record does not list (toolchain.mergebuiltins).
   metadata = {
       key: value for key, value in bom.metadata.items()
-                 if key.startswith(OPTIMIZER_PREFIX)
+                 if key.startswith(OPTIMIZER_PREFIX) or key in ('all.fint', 'all.interface')
     }
   metadata['cxx.shlib'] = shlib
   imodule = icurry_types.IModule.fromBOM(

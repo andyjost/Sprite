@@ -251,7 +251,7 @@ class JsonModuleTestCase(cytest.TestCase):
     return name
 
   def import_module(self, name):
-    return curry.import_(name, currypath=[self.srcdir] + curry.path)
+    return curry.import_(name, path=[self.srcdir] + curry.path)
 
   def check_value(self, module, value):
     self.assertEqual(
@@ -277,7 +277,7 @@ class TestPackagedModule(JsonModuleTestCase):
     suffix = cytest.raw.interp().backend.object_file_extension
     target = makecurry(plan, name, [self.srcdir])
     self.assertEqual(target, self.cached_file(name, suffix))
-    self.assertIn(package, curry.modules)
+    self.assertNotIn(package, curry.modules)
     self.assertNotIn(name, curry.modules)
     self.check_value(self.import_module(name), 6)
 
@@ -322,24 +322,24 @@ class TestBytecodeCache(JsonModuleTestCase):
     with mock.patch.object(
         importlib.machinery.SourceFileLoader, 'source_to_code', recording
       ), mock.patch.object(sys, 'dont_write_bytecode', True):
-      self.check_value(curry.load(pyfile), 2)
+      self.check_value(cytest.raw.interp().load(pyfile), 2)
       self.assertEqual(compiled, [])
       # The source changes, so its cache is stale.
       stamp = os.stat(pyfile).st_mtime + 5
       os.utime(pyfile, (stamp, stamp))
       self.assertFalse(py_toolchain.bytecode_is_current(pyfile))
-      curry.load(pyfile)
+      cytest.raw.interp().load(pyfile)
       self.assertEqual(compiled, [pyfile])
       self.assertTrue(py_toolchain.bytecode_is_current(pyfile))
-      curry.load(pyfile)
+      cytest.raw.interp().load(pyfile)
       self.assertEqual(compiled, [pyfile])
       # The cache is missing: the file came from an installation that wrote
       # none.
       os.unlink(cache)
-      self.check_value(curry.load(pyfile), 2)
+      self.check_value(cytest.raw.interp().load(pyfile), 2)
       self.assertEqual(compiled, [pyfile] * 2)
       self.assertTrue(py_toolchain.bytecode_is_current(pyfile))
-      curry.load(pyfile)
+      cytest.raw.interp().load(pyfile)
       self.assertEqual(compiled, [pyfile] * 2)
 
   def test_file_without_a_cache_is_compiled_once(self):
@@ -361,7 +361,7 @@ class TestBytecodeCache(JsonModuleTestCase):
       , '    compiled.append(path)'
       , '  return source_to_code(self, data, path, *args, **kwds)'
       , 'machinery.SourceFileLoader.source_to_code = counting'
-      , 'module = curry.import_(%r, currypath=[%r] + curry.path)'
+      , 'module = curry.import_(%r, path=[%r] + curry.path)'
             % (name, self.srcdir)
       , 'values = list(curry.eval(module.goal))'
       , 'print(json.dumps([len(compiled), values, sys.dont_write_bytecode]))'
@@ -453,7 +453,7 @@ class TestBytecodeCache(JsonModuleTestCase):
     written = os.stat(cache).st_mtime_ns
     sprite_make_py()
     self.assertEqual(os.stat(cache).st_mtime_ns, written)
-    self.check_value(curry.load(pyfile), 7)
+    self.check_value(cytest.raw.interp().load(pyfile), 7)
 
   def test_tidy_removes_the_cache(self):
     '''A Python file that --tidy removes takes its cache along.'''

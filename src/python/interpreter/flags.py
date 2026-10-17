@@ -1,4 +1,5 @@
 from .. import config
+from ..exceptions import FlagError
 import logging, os, sys
 
 logger = logging.getLogger(__name__)
@@ -10,7 +11,7 @@ Defines the flags used to configure a Curry interpreter.
 The flags of an interpreter start from the environment.  The base is the
 defaults below; SPRITE_ROTATION sets the flag ``rotation`` over them;
 SPRITE_INTERPRETER_FLAGS sets any flag over that; and the argument of
-``Interpreter(flags=...)`` or of ``curry.reload(flags)`` wins (see getflags).
+``Interpreter(flags=...)`` or of ``curry.reset(**flags)`` wins (see getflags).
 So an interpreter built directly runs as the process does, on the backend
 and in the mode of the environment, unless its argument says otherwise.
 
@@ -256,12 +257,24 @@ def parse_rotation(text):
   raise error
 
 def check_flags(flags):
-  '''
-  Raises ValueError for a flag value that cannot be used: today the flag
-  ``rotation``.  The other flags are checked when they are converted.
-  '''
-  if 'rotation' in flags:
-    parse_rotation(flags['rotation'])
+  """Validate session flags, including values supplied directly by Python."""
+  for flag, value in flags.items():
+    if flag not in FLAG_INFO:
+      raise FlagError('%r is not a flag; the flags are %s' %
+          (flag, ', '.join(FLAG_INFO)))
+    spec = FLAG_INFO[flag][0]
+    choices = spec if isinstance(spec, (set, tuple)) else (spec,)
+    valid = any(type(value) is choice if isinstance(choice, type)
+        else type(value) is type(choice) and value == choice for choice in choices)
+    if not valid:
+      raise FlagError('%r is not a value for flag %r; expected %s' %
+          (value, flag, _show(spec)))
+    if flag == 'rotation':
+      try:
+        parse_rotation(value)
+      except ValueError as error:
+        raise FlagError(str(error)) from None
+
 
 def _show(valspec): # pragma no cover
   if isinstance(valspec, str):
@@ -388,14 +401,17 @@ def getflags(flags={}, weakflags={}):
   if rotation:
     flags_out['rotation'] = rotation
   envflags = os.environ.get('SPRITE_INTERPRETER_FLAGS')
-  if envflags: # pragma: no cover
-    # A value may hold a colon of its own (rotation:time:10ms), so an item
-    # splits at its first colon only.
-    flags_out.update({
-        flag: converted for e in envflags.split(',')
-                        for flag, given in [e.split(':', 1)]
-                        for converted in [_flagval(flag, given, flags_out)]
-                        if converted is not NotImplemented
-      })
+  if envflags:
+    for item in envflags.split(','):
+      flag, colon, given = item.partition(':')
+      if not colon:
+        raise FlagError('%r is not a flag setting; expected name:value' % item)
+      check_flags({flag: FLAG_INFO[flag][1]} if flag in FLAG_INFO else {flag: None})
+      converted = _convert(given, FLAG_INFO[flag][0])
+      if converted is NotImplemented:
+        raise FlagError('%r is not a value for flag %r; expected %s' %
+            (given, flag, _show(FLAG_INFO[flag][0])))
+      flags_out[flag] = converted
   flags_out.update(flags)
+  check_flags(flags_out)
   return flags_out

@@ -287,7 +287,7 @@ class TestSharedFunctionValues(cytest.TestCase):
     proc = cytest.run_in_subprocess('''
 import cytest, curry
 from curry.backends.cxx import cyrtbindings as cyrt
-curry.reload({'backend': 'cxx'})
+curry.reset(**{'backend': 'cxx'})
 M = curry.import_('CxxPartial')
 cyrt.gc_set_threshold(1 << 12)
 before = cyrt.gc_collections()

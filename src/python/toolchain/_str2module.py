@@ -16,7 +16,9 @@ _TEMPORARY_DIRS = set()
 
 def is_temporary(filename):
   '''Tells whether ``filename`` lies in a directory str2module made.'''
-  return os.path.dirname(os.path.abspath(filename)) in _TEMPORARY_DIRS
+  filename = os.path.abspath(filename)
+  return any(filename.startswith(directory + os.sep)
+      for directory in _TEMPORARY_DIRS)
 
 @formatDocstring(config.python_package_name())
 def str2module(
@@ -62,7 +64,8 @@ def str2module(
   logger.debug('Created directory %r for a dynamic Curry module', moduledir)
   _TEMPORARY_DIRS.add(moduledir)
   try:
-    curryfile = os.path.join(moduledir, modulename + '.curry')
+    curryfile = os.path.join(moduledir, modulename.replace('.', os.sep) + '.curry')
+    os.makedirs(os.path.dirname(curryfile), exist_ok=True)
     with open(curryfile, 'w', encoding='utf-8') as ostream:
       ostream.write(moduletext)
     moduleobj = interp.import_(modulename, currypath=[moduledir] + currypath)

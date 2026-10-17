@@ -137,7 +137,7 @@ def with_flags(**flags):
     @hardreset
     def replacement(*args, **kwds):
       import curry
-      curry.reload(flags)
+      curry.reset(**flags)
       return f(*args, **kwds)
     return replacement
   return decorator

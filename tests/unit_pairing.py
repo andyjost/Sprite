@@ -39,7 +39,7 @@ SHORT_TIMEOUT = 30
 # and the sorted values as Curry text, or the name of the error.
 CHILD = '''
 import cytest, curry
-curry.reload(%(flags)r)
+curry.reset(**%(flags)r)
 M = curry.import_('Pairing')
 for name in %(goals)r:
   try:

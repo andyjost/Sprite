@@ -208,7 +208,7 @@ class ModuleTestCase(cytest.TestCase):
 
   def reload(self, **flags):
     '''Reloads the interpreter with ``flags``; the caller is hardreset.'''
-    curry.reload(flags)
+    curry.reset(**flags)
     curry.path.insert(0, self.tmpdir)
     self.currypath = list(curry.path)
 
@@ -242,12 +242,12 @@ class ModuleTestCase(cytest.TestCase):
       imodule.update_metadata({
           '%s.opt.inline_calls' % curry.flags['backend']: True
         })
-    curry.import_(imodule, currypath=self.currypath)
+    cytest.raw.import_(imodule, currypath=self.currypath)
     return imodule
 
   def import_(self, name):
     '''Imports the module ``name`` by name: it is compiled and loaded.'''
-    return curry.import_(name, currypath=self.currypath)
+    return curry.import_(name, path=self.currypath)
 
   def generated_text(self, name):
     '''The generated code of a module imported by name.'''
@@ -425,7 +425,7 @@ class TestInlineAliases(ModuleTestCase):
     imodule = self.load_icurry(top)
     self.assertNotIn(base, imodule.imports)
     imports = imodule.imports
-    curry.import_(imodule, currypath=self.currypath)
+    cytest.raw.import_(imodule, currypath=self.currypath)
     self.assertEqual(ifcalls(imodule.functions['main']), ['%s.g' % base])
     self.assertEqual(imodule.imports, imports + (base,))
 

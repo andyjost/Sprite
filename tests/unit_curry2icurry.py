@@ -198,7 +198,7 @@ class TestCurry2ICurry(cytest.TestCase):
         '("Prelude","_impl#*#Prelude.Num#Prelude.Int",343) [(IVar 2),(IVar 2)])))'
       , text
       )
-    TypedRoot = curry.import_('TypedRoot', currypath=[os.path.dirname(curryfile)])
+    TypedRoot = curry.import_('TypedRoot', path=[os.path.dirname(curryfile)])
     self.assertEqual(next(curry.eval((TypedRoot.typedLetRoot)(3))), 16)
     self.assertEqual(next(curry.eval((TypedRoot.typedFreeRoot)(3))), 3)
     self.assertEqual(sorted(curry.eval((TypedRoot.typedOrRoot)(3))), [3, 4])
@@ -469,12 +469,16 @@ class TestCurry2ICurry(cytest.TestCase):
     self.assertIn('rm ', result.stdout)
     self.assertEqual(products(stale[0]), [])
     self.assertTrue(products(kept[0]))
+    icy = next(name for name in products(kept[0]) if name.endswith('.icy'))
+    source = os.path.join(ROOT, 'tests', 'data', 'curry', kept[0] + '.curry')
+    with open(icy + '.source') as stream:
+      self.assertEqual(stream.read(), _curry2icurry.source_digest(source))
 
   def test_overlay_interfaces(self):
     '''
     make overlay-interfaces copies the interfaces of the front end beside
-    every ICurry file of the extracted test products, so an extracted file
-    whose source exists is not stale.
+    every ICurry file of the extracted test products. A file without a
+    source digest still needs to be rebuilt before import.
     '''
     archive = os.path.join(ROOT, 'overlay-%s.tgz' % config.frontend_subdir())
     if not os.path.isfile(archive) or not os.path.isfile(os.path.join(ROOT, 'Make.config')):
@@ -512,7 +516,7 @@ class TestCurry2ICurry(cytest.TestCase):
       , timeout=300
       )
     self.assertEqual(result.returncode, 0, result.stdout)
-    self.assertFalse(_curry2icurry.icurry_is_stale(peano))
+    self.assertTrue(_curry2icurry.icurry_is_stale(peano))
     for icy in icys:
       stem = os.path.basename(icy)[:-len('.icy')]
       for suffix, content in interfaces_beside(icy).items():
@@ -726,7 +730,7 @@ class TestDeepExpressions(cytest.TestCase):
     curryfile = os.path.join(self.tmpdir, name + '.curry')
     with open(curryfile, 'w', encoding='utf-8') as ostream:
       ostream.write(text)
-    M = curry.import_(name, currypath=[self.tmpdir])
+    M = curry.import_(name, path=[self.tmpdir])
     return list(curry.eval(getattr(M, goal)))
 
   @cytest.with_flags(interpret='new')

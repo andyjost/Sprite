@@ -19,7 +19,7 @@ class ChildTests(cytest.TestCase):
   PREAMBLE = '''
 import cytest, curry, gc, os, sys
 from curry.backends.cxx import cyrtbindings as cyrt
-curry.reload({'backend': 'cxx'})
+curry.reset(**{'backend': 'cxx'})
 H = curry.import_('CxxHeap')
 G = curry.import_('CxxGc')
 BLOCK_BYTES = %d
@@ -232,7 +232,7 @@ class TestInlineAllocation(cytest.TestCase):
     shared module (the prepare pass of the runner does).
     '''
     from curry.backends.cxx import toolchain
-    curry.import_('Tak1', currypath=[self.BENCHMARKS] + curry.path)
+    curry.import_('Tak1', path=[self.BENCHMARKS] + curry.path)
     base = os.path.join(
         self.BENCHMARKS, '.curry', config.intermediate_subdir(), 'Tak1'
       )

@@ -100,6 +100,12 @@ class TestSurface(cytest.TestCase):
     for flag in ('default' + 'converter', 'typed' + '_expr'):
       self.assertNotIn(flag, curry.flags)
 
+  def test_session_signatures(self):
+    for name in ('import_', 'compile', 'reload', 'save', 'load', 'wait'):
+      self.assertIn(name, self.names)
+    self.assertEqual(list(inspect.signature(curry.wait).parameters), ['module'])
+    self.assertEqual(list(inspect.signature(curry.reset).parameters), ['flags'])
+
   def test_internal_node_evaluation(self):
     from curry import backends
     self.assertIsInstance(cytest.raw.values(curry.term(1)).one(), backends.Node)

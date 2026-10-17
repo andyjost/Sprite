@@ -41,7 +41,7 @@ class TestCompileExpr(cytest.TestCase):
     yield e, '[True, False, ...]', '<_Fwd <: <True> <: <False> ...>>>'
     # A back reference below the top-level constructor gives the INodeAssign a
     # path of length two.  Both backends must index to the parent slot.
-    M = curry.compile('data T = T Bool T Int', modulename='RecLetT')
+    M = curry.compile('data T = T Bool T Int', name='RecLetT')
     e = parsed_node('let a = T True (T False a 1) 2 in a', imports=[M])
     yield e, 'T True (T False ... 1) 2' \
            , '<_Fwd <T <True> <T <False> ... <Int 1>> <Int 2>>>'

@@ -57,7 +57,7 @@ if debugging():
   logger.info('Debugging is enabled because SPRITE_DEBUG is set.')
 
 def interactive_modname():
-  return 'sprite__interactive_'
+  return 'Interactive_'
 
 def expression_modname(n):
   '''
@@ -78,7 +78,7 @@ def is_anonymous_modname(name):
   these per process, so the same text gets another name in another process.
   The ICurry cache leaves the name out of its key for these modules.
   '''
-  return name.startswith(interactive_modname()) or is_expression_modname(name)
+  return name.startswith((interactive_modname(), 'sprite__interactive_')) or is_expression_modname(name)
 
 class _Variable(object):
   def __init__(self, name, type=str, use_env=False):

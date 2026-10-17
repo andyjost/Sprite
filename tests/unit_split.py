@@ -41,8 +41,8 @@ class TestSplitPrograms(cytest.TestCase):
       )
 
   def check(self, program, function):
-    M = curry.import_(program + 'Split', currypath=CURRYPATH)
-    O = curry.import_(program, currypath=CURRYPATH)
+    M = curry.import_(program + 'Split', path=CURRYPATH)
+    O = curry.import_(program, path=CURRYPATH)
     # The permutations: n! distinct ones; every part generates its share
     # and no permutation twice; every part of a split into at most n parts
     # has some.
@@ -78,7 +78,7 @@ class TestSplitPrograms(cytest.TestCase):
   def test_goals(self):
     '''Every module spells main and the goals of the parts.'''
     for program, _ in PROGRAMS:
-      M = curry.import_(program + 'Split', currypath=CURRYPATH)
+      M = curry.import_(program + 'Split', path=CURRYPATH)
       for name in ['main'] + [
           'part%d_%d' % (k, i) for k in PARTS for i in range(k)
         ]:

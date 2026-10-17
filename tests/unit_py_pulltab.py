@@ -9,7 +9,7 @@ class TestPyPullTab(cytest.TestCase):
   @unittest.skipIf(curry.flags['backend'] == 'cxx', 'drives the Python-backend RuntimeState and fairscheme.hnf directly')
   def testPullChoice(self):
     '''Tests the pull-tab step for choices.'''
-    module = curry.compile('f (_,_,9) True a = a', modulename='M')
+    module = curry.compile('f (_,_,9) True a = a', name='M')
     interp = cytest.raw.interp()
     P = interp.prelude
     goal = cytest.raw.expr( # id (M.f (1,2,8?9) True (1,2,3))

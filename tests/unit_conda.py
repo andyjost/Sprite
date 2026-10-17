@@ -548,6 +548,10 @@ class TestCondaRecipe(cytest.TestCase):
       self.assertEqual(result.returncode, 0, result.stdout)
       for name in ['Makefile', 'Make.include', 'Make.rules', 'Make.validate', 'Make.config']:
         shutil.copy(os.path.join(ROOT, name), clone)
+      shutil.copy(
+          os.path.join(ROOT, 'scripts', 'stamp-overlay.py')
+        , os.path.join(clone, 'scripts')
+        )
       result = run(['make', '-C', clone, 'overlay'])
       self.assertEqual(result.returncode, 0, result.stdout)
       self.assertIn('overlay-prune: WARNING: this is a shallow clone', result.stdout)
@@ -1038,7 +1042,7 @@ class TestPackageRules(cytest.TestCase):
     self.assertEqual(str(curry.typeof(Prelude.length)), '[a] -> Int')
     # The generated file of the library carries the relative name, and no
     # path of the installation.
-    text = curry.save(Prelude, module_main=False)
+    text = curry._interpreter_.save(Prelude, module_main=False)
     if 'IModule.fromBOM' in text:
       self.assertIn(
           "filename=curry.config.installed_path('curry/Prelude.curry')", text
@@ -1059,10 +1063,10 @@ class TestPackageRules(cytest.TestCase):
     # absolute path.  The generated C++ names the source relative to the
     # object, "../../CondaProbe.curry", and holds no path of the machine;
     # the generated Python keeps the absolute path.
-    Probe = curry.compile('main :: Int\nmain = 1\n', modulename='CondaProbe')
+    Probe = curry.compile('main :: Int\nmain = 1\n', name='CondaProbe')
     self.assertTrue(os.path.isabs(Probe.__file__), Probe.__file__)
     self.assertIsNone(_filenames.installed_relpath(Probe.__file__))
-    saved = curry.save(Probe, module_main=False)
+    saved = curry._interpreter_.save(Probe, module_main=False)
     if curry.flags['backend'] == 'cxx':
       self.assertIn('/*filename */ "../../CondaProbe.curry"', saved)
       # The path of the source is gone from the record; the metadata of a

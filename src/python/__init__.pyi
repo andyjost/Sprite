@@ -2,9 +2,8 @@
 The public Python surface of Sprite.
 
 This installed stub records the names and signatures that have landed.
-Session operations retain their current signatures until lane 5 lands;
-wait is omitted with that lane. Stream and stream await lane 7. Constructor
-classes await lane 6; constructors currently produce Term and Data.
+Session operations load, compile, reload, save and reset modules; wait
+observes background compilation. Constructors produce Term and Data.
 Module metadata lives under the dotted slot returned by info(module).
 Internal builders and interpreter methods are outside this surface.
 """
@@ -26,6 +25,7 @@ __all__ = [
   , 'modules'
   , 'path'
   , 'flags'
+  , 'wait'
   , 'stats'
   , 'term'
   , 'parse'
@@ -163,35 +163,30 @@ Convertible: TypeAlias = (
 # Modules and the session
 # ---------------------------------------------------------------------------
 
-def import_(arg: str | PathLike[str], currypath: Sequence[str] | None = None, is_sourcefile: bool = False) -> Module:
-  """Import a module or source file, optionally using a search path."""
+def import_(name: str | PathLike[str], *, path: Sequence[str | PathLike[str]] | None = None) -> Module:
+  """Load a file or a module on path; a loaded module is returned unchanged."""
 
-def compile(string: str, imports: Iterable[Module | str] | None = None, modulename: str | None = None) -> Module:
-  """Compile source into a module, with optional imports and module name."""
+def compile(source: str, *, name: str | None = None, imports: Iterable[Module | str] = ()) -> Module:
+  """Compile and register text under name, its header or Interactive_N."""
 
-def reload(flags: dict[str, object] = {}) -> None:
-  """Replace the interpreter, applying the supplied flags."""
+def reload(module: Module, *, text: str | None = None) -> Module:
+  """Replace code in place, staling earlier terms; text modules require text."""
 
-def reset() -> None:
-  """Clear the current session and restore the path from the environment."""
+def reset(**flags: object) -> None:
+  """Start a new session, retaining path; invalid flags raise FlagError."""
 
-def save(cymodule: Module, filename: str | PathLike[str] | None = None, goal: str | None = None, **kwds: Any) -> None:
-  """Save generated code; goal selects the program entry point."""
+def save(module: Module, path: str | PathLike[str], *, main: Term | str | None = None) -> None:
+  """Write the backend object, or a program that prints main's answers."""
 
-def load(filename: str | PathLike[str], **kwds: Any) -> Module:
-  """Load a compiled object into the current session."""
+def load(path: str | PathLike[str]) -> Module:
+  """Register an object saved by this backend; other formats raise LoadError."""
 
+def wait(module: Module | None = None) -> None:
+  """Wait for background compilation of module, or of every module."""
 
-#: The loaded modules by qualified name (``'Prelude'``, ``'Data.List'``);
-#: Packages are included until the session lane changes the registry.
 modules: Mapping[str, Module]
-
-#: The directories ``import_`` searches, in order (``CURRYPATH``, then the
-#: library of the installation); mutate the list in place.
 path: list[str]
-
-#: Mutable interpreter flags, initialized from SPRITE_INTERPRETER_FLAGS.
-flags: dict[str, object]
+flags: Mapping[str, object]
 
 def stats() -> dict[str, int | float]:
   """The counters of the session: rewrite steps, forks, collections, seconds."""
@@ -311,7 +306,7 @@ class Term:
   # Each builds a term through the Prelude's operator and returns
   # ``NotImplemented`` for a foreign operand.  No comparison dunder is
   # defined on a term: the comparisons are ``P['<'](a, b)`` until DL-4
-  # lands. Data ordering through Curry compare awaits lane 6.
+  # lands. Data ordering through Curry compare is not yet available.
   def __add__(self, other: Convertible) -> Term:
     """``self + other`` is the term ``self + other``; ``1 + Coin.coin`` is ``1 + coin``."""
   def __radd__(self, other: Convertible) -> Term: ...
@@ -349,7 +344,7 @@ class Data(Term):
   A value of a user type, with its constructor symbol and converted args.
 
   Equality is structural. Pass the value back into Curry as an argument.
-  Constructor classes and ordering through Curry compare await lane 6.
+  Constructor classes and ordering through Curry compare are not yet available.
   """
   __match_args__: ClassVar[tuple[str, ...]] = ('symbol', 'args')
   symbol: Symbol

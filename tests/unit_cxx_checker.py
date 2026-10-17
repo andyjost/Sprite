@@ -232,11 +232,11 @@ class CheckerTestCase(cytest.TestCase):
 
   @classmethod
   def setUpClass(cls):
-    curry.reload(cls.FLAGS)
+    curry.reset(**cls.FLAGS)
 
   @classmethod
   def tearDownClass(cls):
-    curry.reload({'backend': 'cxx', 'checker': False})
+    curry.reset(**{'backend': 'cxx', 'checker': False})
 
   def flags(self, **more):
     return dict(self.FLAGS, **more)
@@ -252,38 +252,38 @@ class TestFlag(cytest.TestCase):
   def test_off_means_no_checker(self):
     '''With the flag off the runtime state holds no checker, and the debug
     entries refuse.'''
-    curry.reload({'backend': 'cxx', 'checker': False})
+    curry.reset(**{'backend': 'cxx', 'checker': False})
     try:
       rts = _state(_node(1))
       self.assertFalse(_cb().checker_enabled(rts))
       with self.assertRaises(ValueError):
         _cb().checker_counts(rts)
     finally:
-      curry.reload({'backend': 'cxx'})
+      curry.reset(**{'backend': 'cxx'})
 
   @unittest.skipIf(not CXX, 'the checker of the C++ runtime')
   def test_on_means_checker(self):
-    curry.reload({'backend': 'cxx', 'checker': True})
+    curry.reset(**{'backend': 'cxx', 'checker': True})
     try:
       rts = _state(_node(1))
       self.assertTrue(_cb().checker_enabled(rts))
       self.assertEqual(_cb().checker_counts(rts), {})
     finally:
-      curry.reload({'backend': 'cxx', 'checker': False})
+      curry.reset(**{'backend': 'cxx', 'checker': False})
 
   def test_accepted_on_every_backend(self):
-    curry.reload({'checker': True})
+    curry.reset(**{'checker': True})
     try:
       self.assertEqual(curry.flags['checker'], True)
       self.assertEqual([cytest.raw.interp().topython(v) for v in cytest.raw.values(cytest.raw.expr(1, typed=True))], [1])
     finally:
-      curry.reload({'checker': False})
+      curry.reset(**{'checker': False})
 
   @unittest.skipIf(not CXX, 'the checker of the C++ runtime')
   def test_violation_is_an_assertion_error(self):
     '''A report reaches Python as an AssertionError that names the
     invariant, the event, the configuration and the goal position.'''
-    curry.reload({'backend': 'cxx', 'checker': True})
+    curry.reset(**{'backend': 'cxx', 'checker': True})
     try:
       cb = _cb()
       self.assertTrue(issubclass(cb.InvariantViolation, AssertionError))
@@ -298,7 +298,7 @@ class TestFlag(cytest.TestCase):
       self.assertIn('goal position: []', text)
       self.assertIn('root: (Just (?5 1 2))', text)
     finally:
-      curry.reload({'backend': 'cxx', 'checker': False})
+      curry.reset(**{'backend': 'cxx', 'checker': False})
 
 
 class TestKnownGood(CheckerTestCase):
@@ -309,18 +309,18 @@ class TestKnownGood(CheckerTestCase):
   '''
   def both_ways(self, compute):
     with_checker = compute()
-    curry.reload(self.flags(checker=False))
+    curry.reset(**self.flags(checker=False))
     try:
       without = compute()
     finally:
-      curry.reload(self.FLAGS)
+      curry.reset(**self.FLAGS)
     self.assertEqual(with_checker, without)
     return with_checker
 
   def module_goals(self, modname, names=None, **flags):
     def compute():
       if flags:
-        curry.reload(self.flags(checker=curry.flags['checker'], **flags))
+        curry.reset(**self.flags(checker=curry.flags['checker'], **flags))
       M = curry.import_(modname)
       goals = _goals(M) if names is None else names
       return {name: _values(M, name) for name in goals}
@@ -371,7 +371,7 @@ class TestKnownGood(CheckerTestCase):
   def test_programs(self):
     '''The narrowed name, the released residual, the narrowing, the pairing.'''
     def compute():
-      M = curry.compile(PROGRAMS, modulename='CxxCheckerPrograms')
+      M = curry.compile(PROGRAMS, name='CxxCheckerPrograms')
       return {name: _values(M, name) for name in _goals(M)}
     values = self.both_ways(compute)
     self.assertEqual(values['manySource'], ['20'])
@@ -385,7 +385,7 @@ class TestKnownGood(CheckerTestCase):
     '''The program of the defect of the Python backend: the C++ runtime
     passes the checker with the values of weakly encapsulated search.'''
     def compute():
-      M = curry.compile(DROPPED_BOX, modulename='CxxCheckerDroppedBox')
+      M = curry.compile(DROPPED_BOX, name='CxxCheckerDroppedBox')
       return _values(M, 'oneCaptured')
     self.assertEqual(self.both_ways(compute), ['(2, A)', '(2, B)'])
 
@@ -393,7 +393,7 @@ class TestKnownGood(CheckerTestCase):
     '''The steps and the forks of a search are the same with the flag on
     and off.'''
     def compute():
-      M = curry.compile(PROGRAMS, modulename='CxxCheckerCounters')
+      M = curry.compile(PROGRAMS, name='CxxCheckerCounters')
       counters = {}
       for name in ('manySource', 'distinctSource', 'manySourceS', 'paired'):
         before = _totals()
@@ -406,7 +406,7 @@ class TestKnownGood(CheckerTestCase):
 
   def test_counts(self):
     '''The checker saw the events of a search.'''
-    M = curry.compile(PROGRAMS, modulename='CxxCheckerCounts')
+    M = curry.compile(PROGRAMS, name='CxxCheckerCounts')
     rts = _state(_node(M.narrowed))
     self.assertEqual(sorted(str(v) for v in rts.generate_values()), ['1', '2', '3'])
     counts = _cb().checker_counts(rts)
@@ -535,7 +535,7 @@ class TestKnownGoodInterpreted(cytest.TestCase):
 
   def test_programs(self):
     values = self.both_ways(
-        "M = curry.compile(PROGRAMS, modulename='CxxCheckerProgramsI')\n"
+        "M = curry.compile(PROGRAMS, name='CxxCheckerProgramsI')\n"
         "out.update({name: values(M, name) for name in goals(M)})"
       )
     self.assertEqual(values['manySource'], ['20'])
@@ -544,7 +544,7 @@ class TestKnownGoodInterpreted(cytest.TestCase):
 
   def test_dropped_box(self):
     values = self.both_ways(
-        "M = curry.compile(DROPPED_BOX, modulename='CxxCheckerDroppedBoxI')\n"
+        "M = curry.compile(DROPPED_BOX, name='CxxCheckerDroppedBoxI')\n"
         "out['oneCaptured'] = values(M, 'oneCaptured')"
       )
     self.assertEqual(values['oneCaptured'], ['(2, A)', '(2, B)'])
@@ -555,7 +555,7 @@ class TestKnownGoodInterpreted(cytest.TestCase):
     ones.'''
     body = (
         r'''import cytest
-M = curry.compile(PROGRAMS, modulename='CxxCheckerCountersI')
+M = curry.compile(PROGRAMS, name='CxxCheckerCountersI')
 def totals():
   t = cytest.raw.interp()._evaluation_totals
   return t.steps, t.forks
@@ -1160,7 +1160,7 @@ data T3 = P | Q | R
     CheckerTestCase.setUpClass()
 
   def setUp(self):
-    self.M = curry.compile(self.SOURCE, modulename='CxxCheckerTree')
+    self.M = curry.compile(self.SOURCE, name='CxxCheckerTree')
     self.interpreted = _cb().icurry_is_interpreted(self.M.k.info)
 
   def test_tree(self):
@@ -1268,36 +1268,36 @@ class TestSharedArgument(cytest.TestCase):
       self.assertEqual(_values(M, name), values, name)
 
   def test_values(self):
-    M = curry.compile(SHARED_ARGUMENT, modulename='CxxCheckerSharedArgument')
+    M = curry.compile(SHARED_ARGUMENT, name='CxxCheckerSharedArgument')
     self.check_values(M)
 
   def test_big_step_values(self):
-    M = curry.compile(BIG_STEP, modulename='CxxCheckerBigStep')
+    M = curry.compile(BIG_STEP, name='CxxCheckerBigStep')
     self.assertEqual(_values(M, 'bigThenOutside'), self.BIG_VALUES)
 
   @unittest.skipIf(not CXX, 'the checker of the C++ runtime')
   def test_under_the_checker(self):
     '''No report and the same values on the three shapes.'''
-    curry.reload({'backend': 'cxx', 'checker': True})
+    curry.reset(**{'backend': 'cxx', 'checker': True})
     try:
-      M = curry.compile(SHARED_ARGUMENT, modulename='CxxCheckerSharedArgumentChecked')
+      M = curry.compile(SHARED_ARGUMENT, name='CxxCheckerSharedArgumentChecked')
       self.check_values(M)
     finally:
-      curry.reload({'backend': 'cxx', 'checker': False})
+      curry.reset(**{'backend': 'cxx', 'checker': False})
 
   @unittest.skipIf(not CXX, 'the checker of the C++ runtime')
   def test_big_step_under_the_checker(self):
     '''A step over the budget of the walk: the walk is counted, the sets
     of the flags become unbounded, and the pull-tab across the box is not
     reported.  The values are those of the flag-off run.'''
-    curry.reload({'backend': 'cxx', 'checker': True})
+    curry.reset(**{'backend': 'cxx', 'checker': True})
     try:
-      M = curry.compile(BIG_STEP, modulename='CxxCheckerBigStepChecked')
+      M = curry.compile(BIG_STEP, name='CxxCheckerBigStepChecked')
       rts = _state(_node(M.bigThenOutside))
       values = sorted(str(v) for v in rts.generate_values())
       counts = _cb().checker_counts(rts)
     finally:
-      curry.reload({'backend': 'cxx', 'checker': False})
+      curry.reset(**{'backend': 'cxx', 'checker': False})
     self.assertEqual(values, self.BIG_VALUES)
     self.assertGreaterEqual(counts['propagate_over_budget'], 1)
     self.assertNotIn('violations', counts)

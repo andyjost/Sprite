@@ -118,14 +118,14 @@ class Main(object):
       # Reload before any Curry code is imported.  Flags passed to reload take
       # precedence over SPRITE_INTERPRETER_FLAGS; the other flags set there
       # are kept.
-      curry.reload({'backend': args.backend})
+      curry.reset(**{'backend': args.backend})
     with handle_program_errors(self.program_name, exit_status=1):
       if args.NAME is None:
         code.interact(local={'__package__': curry})
         return
       else:
         module = curry.import_(
-            args.NAME, curry.path, is_sourcefile=not args.module
+            args.NAME, path=curry.path
           )
         if args.goal is not None:
           symbol = module[args.goal]

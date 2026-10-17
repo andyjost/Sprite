@@ -103,7 +103,7 @@ class TieredTestCase(cytest.TestCase):
     its module objects first (see unit_cxx_interp.switch).
     '''
     gc.collect()
-    curry.reload(dict(flags, backend='cxx', interpret=mode))
+    curry.reset(**dict(flags, backend='cxx', interpret=mode))
     # The old interpreter is garbage now; its modules go before a module of
     # the same name is made again.
     gc.collect()
@@ -390,12 +390,12 @@ class TestSwap(TieredTestCase):
     # so a module of the same name after a reset is not refused (compare
     # unit_compile.testReusedModuleNameIsAnError under interpret:off): it
     # takes the tables of the first back and runs its own code.
-    first = curry.compile('f :: Int\nf = 1', modulename='TieredDup')
+    first = curry.compile('f :: Int\nf = 1', name='TieredDup')
     address = first.f.info.address
     self.assertEqual(self.py(first.f), 1)
     first = None
     curry.reset()
-    second = curry.compile('f :: Int\nf = 2', modulename='TieredDup')
+    second = curry.compile('f :: Int\nf = 2', name='TieredDup')
     self.assertEqual(second.f.info.address, address)
     self.assertEqual(self.py(second.f), 2)
 
@@ -406,11 +406,11 @@ class TestSwap(TieredTestCase):
     # found them and ran the first code.  The reset hands the tables over
     # (Module::retire), so the second module takes them back, at the same
     # addresses, without the steps.
-    first = curry.compile('f :: Int\nf = 1', modulename='TieredDupAlive')
+    first = curry.compile('f :: Int\nf = 1', name='TieredDupAlive')
     address = first.f.info.address
     self.assertEqual(self.py(first.f), 1)
     curry.reset()
-    second = curry.compile('f :: Int\nf = 2', modulename='TieredDupAlive')
+    second = curry.compile('f :: Int\nf = 2', name='TieredDupAlive')
     with self.assertRaises(curry.StaleError):
       first.f
     self.assertEqual(second.f.info.address, address)
@@ -476,7 +476,6 @@ class TestSwap(TieredTestCase):
     del first
 
   @cytest.hardreset
-  @unittest.expectedFailure
   def test_edited_module_made_again_under_interpret_off(self):
     # The import route of issue #114 under interpret:off, the owner's
     # decision: the second incarnation runs the first code.  Its object
@@ -948,7 +947,7 @@ class TestNoCompiler(TieredTestCase):
 # The sequence of the API study's probe (P55) for a child process: the
 # import of a module whose object is stale queues its compile, and
 # curry.load of that object returns the module of the import.
-CHILD_LOAD = "\nimport cytest, curry\ncurry.path.insert(0, %(tmpdir)r)\nM = curry.import_(%(name)r)\nM2 = curry.load(%(sofile)r)\nprint(M2 is M)\nprint(next(curry.eval((M.total)(4))))\nprint('exiting normally')\n"
+CHILD_LOAD = "\nimport cytest, curry\ncurry.path.insert(0, %(tmpdir)r)\nM = curry.import_(%(name)r)\nM2 = curry._interpreter_.load(%(sofile)r)\nprint(M2 is M)\nprint(next(curry.eval((M.total)(4))))\nprint('exiting normally')\n"
 
 # The save-then-load sequence of the Quickstart ("Saving Compiled Curry") for
 # a child process: the import, curry.save, sprite-make --so in a shell, then
@@ -973,7 +972,7 @@ gc.collect()
 curry.reset()
 curry.path.insert(0, %(tmpdir)r)
 try:
-  curry.load(%(sofile)r)
+  curry._interpreter_.load(%(sofile)r)
 except curry.exceptions.LoadError as exc:
   print('refused' if 'runs, or ran, interpreted' in str(exc) else str(exc))
 else:
@@ -988,7 +987,7 @@ import cytest, curry
 os.chdir(%(tmpdir)r)
 curry.path.insert(0, '.')
 M = curry.import_(%(name)r)
-curry.save(M, %(name)r + '.cpp', module_main=False)
+curry._interpreter_.save(M, %(name)r + '.cpp', module_main=False)
 # The import started a compile of the module in the background, which
 # writes the products sprite-make --so writes.  The two compiles never
 # write at once: the lock of the products (toolchain._productlock) makes
@@ -999,7 +998,7 @@ subprocess.run(
     [%(make)r, '--so', %(name)r + '.curry'], check=True
   , env=dict(os.environ, CURRYPATH='.')
   )
-M2 = curry.load(os.path.join('.curry', %(subdir)r, %(name)r + '.so'))
+M2 = curry._interpreter_.load(os.path.join('.curry', %(subdir)r, %(name)r + '.so'))
 print(M2 is M)
 print(next(curry.eval((M.bump)(1))))
 print('exiting normally')
@@ -1060,7 +1059,7 @@ class TestLoadDuringCompile(TieredTestCase):
     self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
     before = tiered.status()
     with capture_log('curry.backends.cxx.loader', 'curry.backends.cxx.tiered') as log:
-      M2 = curry.load(self.sofile(name))
+      M2 = curry._interpreter_.load(self.sofile(name))
     self.assertIs(M2, M)
     self.assertFalse(tiered.pending(name))
     after = tiered.status()
@@ -1098,7 +1097,7 @@ class TestLoadDuringCompile(TieredTestCase):
     self.assertTrue(tiered.pending(name))
     self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
     with capture_log('curry.backends.cxx.loader', 'curry.backends.cxx.tiered') as log:
-      M2 = curry.load(self.sofile(name))
+      M2 = curry._interpreter_.load(self.sofile(name))
     self.assertIs(M2, M)
     self.assertFalse(tiered.pending(name))
     self.assertFalse(cyrt.icurry_is_interpreted(M.area.info))
@@ -1173,7 +1172,7 @@ class TestLoadDuringCompile(TieredTestCase):
     self.assertTrue(tiered.has_shim(name))
     sofile = self.compile_by_hand(name)
     with self.assertRaises(curry.exceptions.LoadError) as cm:
-      curry.load(sofile)
+      curry._interpreter_.load(sofile)
     self.assertIn('runs, or ran, interpreted in this process', str(cm.exception))
     self.assertIsNone(cyrt.SharedCurryModule.find_sofilename(name))
     self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))

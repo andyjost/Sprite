@@ -65,7 +65,7 @@ ONLY_CXX = unittest.skipIf(
 # test module imported.  ``report`` prints one JSON line.
 CHILD = r'''
 import curry, json, os, sys, time
-curry.reload(
+curry.reset(**
     {'backend': 'cxx', 'rotation': %(mode)r}
   )
 from curry.backends.cxx import cyrtbindings as cyrt
@@ -173,7 +173,7 @@ print(curry.flags['rotation'])
   def test_environment_precedence(self):
     '''
     SPRITE_ROTATION sets the flag below SPRITE_INTERPRETER_FLAGS, whose
-    value keeps the colon of the setting, and the flags of a reload win.
+    value keeps the colon of the setting, and explicit reset flags win.
     '''
     code = '''
 import os
@@ -181,10 +181,10 @@ os.environ['SPRITE_ROTATION'] = 'steps:100'
 os.environ['SPRITE_INTERPRETER_FLAGS'] = 'backend:%s'
 import curry
 print(curry.flags['rotation'])
-curry.reload({'rotation': 'steps:7'})
+curry.reset(**{'rotation': 'steps:7'})
 print(curry.flags['rotation'])
 os.environ['SPRITE_INTERPRETER_FLAGS'] = 'backend:%s,rotation:time:5ms'
-curry.reload()
+curry.reset(backend=curry.flags['backend'])
 print(curry.flags['rotation'])
 ''' % (curry.flags['backend'], curry.flags['backend'])
     proc = cytest.run_in_subprocess(code, TIMEOUT)
@@ -324,7 +324,7 @@ report(value=value, status=cyrt.ticker_status(), thread=ticker_thread())
     '''
     lines = run_child(self, STEP_MODE, '''
 for mode in ['steps:65536', 'steps:1000']:
-  curry.reload(
+  curry.reset(**
       {'backend': 'cxx', 'rotation': mode}
     )
   M = curry.import_('CxxRewrite')
@@ -554,7 +554,7 @@ report(
     '''
     lines = run_child(self, TIME_MODE, '''
 import resource
-curry.reload({
+curry.reset(**{
     'backend': 'cxx', 'rotation': %(time)r
   , 'interpret': 'new'
   })
@@ -574,7 +574,7 @@ report(
   , status_second=status_second, thread=ticker_thread()
   )
 # Step mode needs no thread.
-curry.reload({
+curry.reset(**{
     'backend': 'cxx', 'rotation': %(steps)r
   , 'interpret': 'new'
   })
@@ -629,7 +629,7 @@ report(value=next(curry.eval(M.fair)), status=cyrt.ticker_status())
 S = curry.import_('StackGuard')
 results = {}
 for mode in ['time:10ms', 'steps:65536']:
-  curry.reload(
+  curry.reset(**
       {'backend': 'cxx', 'rotation': mode}
     )
   S = curry.import_('StackGuard')

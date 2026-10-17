@@ -1138,6 +1138,9 @@ source: poker_four_of_a_kind under data/curry/smap names currypp in its
 pragma OPTIONS_CYMAKE -F --pgmF=currypp.  make overlay, run after make
 stage, supplies its FlatCurry and ICurry (section 8); the pass then makes
 the module from them without the front end, and no line names it.
+The overlay records a source digest only when the source matches the
+commit that packed the archive. A shallow history ending at that commit
+cannot establish this provenance and leaves the products without a stamp.
 Without them the front end runs currypp and fails, and the module is
 without a product as any other: the pass fails, and the line of the
 directory adds the cause when the log shows it ("poker_four_of_a_kind.curry

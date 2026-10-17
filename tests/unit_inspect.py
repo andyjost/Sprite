@@ -282,6 +282,7 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     self.assertEqual(nub.fullname, 'Data.List.nub')
 
   @cytest.skipIfInterpreted('the test expects a module loaded from its object')
+  @cytest.with_flags(interpret='off')
   def testGetICurry(self):
     '''
     A module loaded from its compiled code carries a bill of materials whose
@@ -318,6 +319,7 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
   @cytest.skipIfInterpreted(
       'the test expects compiled code; testGetImplInterpreted covers the bytecode'
     )
+  @cytest.with_flags(interpret='off')
   def testGetImpl(self):
     '''
     The code of a step function, on the backend of the session (issue #38).
@@ -371,7 +373,7 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     inliner is off: main would build the sum in place of the call.
     '''
     gc.collect()
-    curry.reload({'backend': 'cxx', 'interpret': 'new', 'inline_budget': 0})
+    curry.reset(**{'backend': 'cxx', 'interpret': 'new', 'inline_budget': 0})
     M = curry.compile(
         'double :: Int -> Int\ndouble x = x + x\nmain :: Int\nmain = double 21'
 

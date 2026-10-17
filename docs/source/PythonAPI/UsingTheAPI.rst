@@ -79,10 +79,10 @@ to evaluation is refused: choose text parsing or a String value explicitly.
     >>> curry.eval(curry.term('hello')).one()
     'hello'
 
-``curry.compile`` builds a module from source text.  The current session
-lane uses ``modulename=`` when a specific module name is needed.
+``curry.compile`` builds a module from source text. Use ``name=`` when a
+specific module name is needed.
 
-    >>> M = curry.compile('double :: Int -> Int\ndouble x = x + x', modulename='Double')
+    >>> M = curry.compile('double :: Int -> Int\ndouble x = x + x', name='Double')
     >>> curry.eval(M.double(4)).one()
     8
 
@@ -272,17 +272,23 @@ succeeds and an outside failure is encountered.
 Saving and session control
 ==========================
 
-The session lane still uses its landed signatures: ``compile`` accepts
-``modulename=``, file imports use ``is_sourcefile=True``, and ``save`` uses
-``goal=`` or ``module_main=False``.  ``reload`` replaces the interpreter.
-``reset`` clears loaded modules; terms of an earlier session raise
-``StaleError``.  Build them again from the newly imported module.
+``compile(source, name='M')`` registers a module; its own header or a
+fresh ``Interactive_N`` supplies the name when omitted. ``import_``
+recognizes a source file by its suffix or path separators; a ``PathLike``
+is always a file. Other strings are module names searched on ``curry.path``.
+Change the path in place or assign a new list.
 
-``curry.save(M, path, module_main=False)`` writes generated source;
-``goal='main'`` includes a program entry point.  The generated C++ entry
-point is a stub today.  ``sprite-make --so`` writes the shared object that
-``curry.load`` reads.  See :doc:`../Quickstart`; the source round trip is
-covered in :doc:`../DeveloperNotes`.
+``reset(**flags)`` starts a new session, keeps the search path and leaves
+only the Prelude registered. Old terms, variables and modules raise
+``StaleError``. ``reload(M, text=source)`` updates a text module in place;
+for a file module omit ``text`` to read its source again. Earlier terms
+become stale. ``curry.wait()`` waits for background compilation.
+
+``curry.save(M, path)`` writes the object of the current backend;
+``main=M.main`` writes a program that prints the answers of that goal.
+``curry.load(path)`` registers a saved object. Another backend or format,
+or a name loaded from another file, raises ``LoadError``.
+See :doc:`../Quickstart` for the reload rules of the C++ backend.
 
 The tools print each converted answer with ``curry.show``.  The REPL uses
 ``solve`` to include named bindings.  Their exit statuses and error

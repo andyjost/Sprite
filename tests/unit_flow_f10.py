@@ -61,12 +61,10 @@ class TestFlowF10(cytest.TestCase):
     with open(self.source, 'w', encoding='utf-8') as stream:
       stream.write(text.replace('main = add (S O) (S O)', 'main = S O'))
 
-  @unittest.expectedFailure
   def test_import_by_name_and_file(self):
     M = curry.import_('Peano')
     self.assertIs(curry.import_(self.source), M)
 
-  @unittest.expectedFailure
   def test_compile_text(self):
     N = curry.compile('f :: Int\nf = 1', name='Same')
     self.assertEqual(curry.eval(N.f).one(), 1)
@@ -76,7 +74,6 @@ class TestFlowF10(cytest.TestCase):
     M = curry.import_('Peano')
     self.assertEqual(str(curry.eval(curry.parse('add (S O) O', imports=[M])).one()), 'S O')
 
-  @unittest.expectedFailure
   def test_duplicate_module_name(self):
     N = curry.compile('f :: Int\nf = 1', name='Same')
     with self.assertRaises(curry.ModuleExistsError):
@@ -91,7 +88,6 @@ class TestFlowF10(cytest.TestCase):
       self.assertIs(curry.import_('Peano'), M)
     self.assertEqual(str(curry.eval(M.main).one()), 'S (S O)')
 
-  @unittest.expectedFailure
   def test_reload_file_and_old_term(self):
     M = curry.import_('Peano'); old = M.main
     self.edit_source()
@@ -105,14 +101,12 @@ class TestFlowF10(cytest.TestCase):
       with self.assertRaises(curry.StaleError):
         curry.eval(old).one()
 
-  @unittest.expectedFailure
   def test_wait_for_compile(self):
     M = curry.import_('Peano')
     self.assertIsNone(curry.wait(M))
     self.assertIsNone(curry.wait(module=None))
     self.assertEqual(str(curry.eval(M.main).one()), 'S (S O)')
 
-  @unittest.expectedFailure
   def test_reset_and_import_hook(self):
     M = curry.import_('Peano'); self.edit_source()
     saved_path = list(curry.path)
@@ -126,7 +120,6 @@ class TestFlowF10(cytest.TestCase):
     self.assertEqual(str(curry.eval(M3.main).one()), 'S O')
     self.assertIs(curry.import_('Peano'), M3)
 
-  @unittest.expectedFailure
   def test_save_and_load(self):
     self.edit_source()
     M = curry.import_('Peano')
@@ -139,7 +132,6 @@ class TestFlowF10(cytest.TestCase):
     self.assertIs(curry.modules['Peano'], M)
     self.assertEqual(str(curry.eval(M.main).one()), 'S O')
 
-  @unittest.expectedFailure
   def test_missing_module(self):
     with self.assertRaises(curry.ModuleLookupError) as caught:
       curry.import_('Nosuch')

@@ -117,6 +117,8 @@ class PreRewriteCase(cytest.TestCase):
     _frontend.flat2icy(fcy, icy, _frontend.searchdirs(curryfile, [self.tmpdir]))
     converter = _curry2icurry.Curry2ICurryConverter(curry2icurry='frontend')
     converter.place_interfaces(curryfile, icy)
+    with open(icy + '.source', 'w', encoding='ascii') as stream:
+      stream.write(_curry2icurry.source_digest(curryfile))
     self.assertNotIn(b'constrEq', readbytes(fcy))
     self.assertNotIn(b'constrEq', readbytes(icy))
     self.assertTrue(filesys.newer(icy, curryfile))
@@ -150,7 +152,7 @@ class PreRewriteCase(cytest.TestCase):
     self.addCleanup(patcher.stop)
 
   def evaluate(self, name):
-    module = curry.import_(name, currypath=[self.tmpdir])
+    module = curry.import_(name, path=[self.tmpdir])
     return list(curry.eval(module.main))
 
 
@@ -404,7 +406,7 @@ class TestStaleness(PreRewriteCase):
     before = mtimes(fcy, icy)
     with self.assertLogs(_curry2icurry.logger, 'WARNING'):
       self.assertEqual(self.current(curryfile), icy)
-      curry.import_('GuardR', currypath=[self.tmpdir])
+      curry.import_('GuardR', path=[self.tmpdir])
     self.assertEqual(mtimes(fcy, icy), before)
     self.assertNotIn(b'constrEq', readbytes(icy))
     restore()

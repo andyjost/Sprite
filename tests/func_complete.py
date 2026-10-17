@@ -133,7 +133,7 @@ class SomeNumTestCase(cytest.TestCase):
     curry.import_('SomeNum') # compile once, so the child loads the cache
     code = '''
 import curry
-curry.reload({'backend': 'cxx'})
+curry.reset(**{'backend': 'cxx'})
 M = curry.import_('SomeNum')
 print(list(curry.eval(M.main)))
 '''

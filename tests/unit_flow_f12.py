@@ -137,7 +137,6 @@ class TestFlowF12(cytest.TestCase):
       self.assertIsInstance(caught.exception, curry.EvaluationError)
       self.assertEqual(str(caught.exception), 'division by zero: div 1 0')
 
-  @unittest.expectedFailure
   def test_invalid_flags_at_call(self):
     for flags in ({'nosuch': 1}, {'rotation': 'abc'}):
       with self.assertRaises(curry.FlagError) as caught:

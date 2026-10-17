@@ -519,6 +519,8 @@ class Curry2ICurryCache(object):
       self.modulename = os.path.splitext(os.path.basename(file_out))[0]
       self.anonymous = config.is_anonymous_modname(self.modulename)
       try:
+        with open(file_in, 'rb') as stream:
+          self.source_digest = hashlib.sha256(stream.read()).hexdigest()
         self.key = icurry_cache_key(file_in, currypath, options, tool)
         self.db.execute(
             'CREATE TABLE IF NOT EXISTS [%s]('
@@ -592,6 +594,7 @@ class Curry2ICurryCache(object):
             interface_filename(self.file_out, suffix), interfaces[suffix] or ''
           )
       write_file(self.file_out, text)
+      write_file(self.file_out + '.source', self.source_digest)
 
     def update(self):
       '''

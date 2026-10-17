@@ -22,7 +22,6 @@ import curry
 # Blocks.curry is next to this file, whatever the working directory is.
 Blocks = curry.import_(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Blocks.curry')
-  , is_sourcefile=True
   )
 
 STACKS = 3

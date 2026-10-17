@@ -119,7 +119,7 @@ class TestFrontendWarnings(cytest.TestCase):
     self.write('OverlapImport')
     with self.assertWarns(curry.CurryWarning):
       with self.assertLogs('curry', level='WARNING') as log:
-        M = curry.import_('OverlapImport', currypath=[self.tmpdir])
+        M = curry.import_('OverlapImport', path=[self.tmpdir])
     self.assertEqual(list(curry.eval(M.main)), [[3, 2, 1]])
     records = warnings_of(log)
     self.assertEqual(len(records), 1, records)
@@ -128,17 +128,17 @@ class TestFrontendWarnings(cytest.TestCase):
     self.assertIn('`build\'', records[0])
     self.assertNotIn(OTHER, records[0])
     # From the products.
-    curry.reload()
+    curry.reset()
     with capture_log('curry.toolchain._frontend') as log:
-      curry.import_('OverlapImport', currypath=[self.tmpdir])
+      curry.import_('OverlapImport', path=[self.tmpdir])
     self.assertEqual(warnings_of(log), [])
     # The products are gone. Requesting warnings runs the front end again,
     # even though the cache entry remains.
-    curry.reload()
+    curry.reset()
     shutil.rmtree(os.path.join(self.tmpdir, '.curry'))
     with self.assertWarns(curry.CurryWarning):
       with self.assertLogs('curry', level='WARNING') as log:
-        curry.import_('OverlapImport', currypath=[self.tmpdir])
+        curry.import_('OverlapImport', path=[self.tmpdir])
     self.assertEqual(len(warnings_of(log)), 1)
     self.assertTrue(
         os.path.exists(_frontend.flatcurryfile(os.path.join(self.tmpdir, 'OverlapImport.curry')))
@@ -151,7 +151,7 @@ class TestFrontendWarnings(cytest.TestCase):
     # runs no front end and warns no more.
     self.with_cache(os.path.join(self.tmpdir, 'cache.db'))
     with capture_log('curry.toolchain._frontend') as log:
-      M = curry.compile(OVERLAP % 'OverlapText', modulename='OverlapText')
+      M = curry.compile(OVERLAP % 'OverlapText', name='OverlapText')
     records = warnings_of(log)
     self.assertEqual(len(records), 1, records)
     self.assertIn('module OverlapText (', records[0])
@@ -160,7 +160,7 @@ class TestFrontendWarnings(cytest.TestCase):
     self.assertEqual(list(curry.eval(M.main)), [[3, 2, 1]])
     with mock.patch.dict(os.environ, {_frontend.WARNINGS_VARIABLE: '0'}):
       with capture_log('curry.toolchain._frontend') as log:
-        curry.compile(OVERLAP % 'OverlapQuiet', modulename='OverlapQuiet')
+        curry.compile(OVERLAP % 'OverlapQuiet', name='OverlapQuiet')
     self.assertEqual(warnings_of(log), [])
 
   def test_sprite_make_warns_once(self):

@@ -387,7 +387,7 @@ def getimpl(obj):
   '''
   Gets the implementation of a module or symbol as text.
 
-  For a module, the code the backend generates for it (see ``curry.save``).
+  For a module, the source code the backend generates for it.
   For a function symbol, the code of its step function.  The Python backend
   gives the generated Python function, or the Python source of a built-in.
   The C++ backend gives the generated C++ function, read from the .cpp file
@@ -413,7 +413,7 @@ def getimpl(obj):
     return interp.backend.getimpl(obj)
   elif isinstance(obj, objects.CurryModule):
     curry = __import__(__package__)
-    return curry.save(obj, module_main=False)
+    return curry._interpreter_.save(obj, module_main=False)
   elif hasattr(obj, 'getimpl'):
     return obj.getimpl()
   raise TypeError(

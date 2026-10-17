@@ -230,7 +230,7 @@ class TestPrelude(cytest.TestCase):
         e :: String
         e = show (chr 128512)
         '''
-      , modulename='ShowNonAscii'
+      , name='ShowNonAscii'
       )
     self.assertEqual(list(curry.eval(module.c)), ["'\\228'"])
     self.assertEqual(list(curry.eval(module.s)), ['"\\228\\246\\252"'])

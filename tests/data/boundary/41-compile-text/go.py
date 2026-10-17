@@ -24,9 +24,9 @@ print('anonymous module ->', curry.info(Nat).name, sorted(curry.modules))
 print('natFromInt 3 ->', list(curry.eval(Nat.natFromInt(3))))
 
 # A named module, and the same name a second time.
-Named = curry.compile('x :: Int\nx = 7', modulename='Named')
+Named = curry.compile('x :: Int\nx = 7', name='Named')
 print("'Named' in curry.modules ->", 'Named' in curry.modules)
-show('the same name again', lambda: curry.compile('x :: Int\nx = 8', modulename='Named'))
+show('the same name again', lambda: curry.compile('x :: Int\nx = 8', name='Named'))
 
 # imports=[Nat]: a module object; the text imports it under its name.
 Use = curry.compile(

@@ -32,3 +32,8 @@ def values(goal, *, interpreter=None):
 
 def show(node):
   return curry.show(node)
+
+
+def import_(descriptor, **kwds):
+  """Import an ICurry object for a test of the compiler or runtime."""
+  return interp().import_(descriptor, **kwds)

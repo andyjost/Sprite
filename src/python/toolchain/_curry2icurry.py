@@ -4,7 +4,7 @@ from . import _filenames, _frontend, _system
 from . import flat2icurry
 from .flat2icurry import flatcurry
 from ..utility import curryname, filesys
-import logging, os, re
+import hashlib, logging, os, re
 
 __all__ = [
     'CONSTR_EQ', 'EQUALITY_NAME', 'PARSE_LIMIT', 'SET0_NAME', 'curry2icurry'
@@ -283,6 +283,23 @@ def translated_before_rewrite(curryfile, icyfile):
     return False
   return True
 
+def source_digest(filename):
+  with open(filename, 'rb') as stream:
+    return hashlib.sha256(stream.read()).hexdigest()
+
+
+def source_changed(curryfile, icyfile):
+  """Compare the source with the text the ICurry was made from."""
+  if in_system_library(curryfile) or not os.path.isfile(curryfile):
+    return False
+  try:
+    with open(icyfile + '.source', encoding='ascii') as stream:
+      recorded = stream.read().strip()
+    return recorded != source_digest(curryfile)
+  except OSError:
+    return True
+
+
 def icurry_is_stale(filename, currypath=None):
   '''
   Tells whether an ICurry file must be made again, when its Curry source
@@ -303,6 +320,8 @@ def icurry_is_stale(filename, currypath=None):
     return False
   if not os.path.isfile(curryfile):
     return False
+  if source_changed(curryfile, filename):
+    return True
   if not all(os.path.isfile(cache.interface_filename(filename, suffix))
              for suffix in cache.INTERFACE_SUFFIXES):
     return True
@@ -374,10 +393,17 @@ class Curry2ICurryConverter(object):
 
   @_system.updateCheck
   def convert(self, file_in, currypath):
+    digest = source_digest(file_in)
     currypath = curryname.makeCurryPath(currypath)
     with _system.bindCurryPath(currypath):
       file_out = _filenames.icurryfilename(file_in)
       cmd = self.command(file_in, file_out, currypath)
+      if source_changed(file_in, file_out):
+        # A cache hit must not leave an interface of the old text behind.
+        try:
+          os.unlink(_frontend.flatcurryfile(file_in))
+        except FileNotFoundError:
+          pass
       slot = None
       if self.use_cache:
         slot = cache.Curry2ICurryCache.Slot(
@@ -407,6 +433,8 @@ class Curry2ICurryConverter(object):
           raise
         if slot is not None:
           slot.update()
+      if not in_system_library(file_in):
+        cache.write_file(file_out + '.source', digest.encode('ascii'))
       _note_refresh(file_out, served=bool(slot))
       return file_out
 

@@ -52,7 +52,7 @@ class TestResults(cytest.TestCase):
     self.assertEqual(curry.eval(curry.import_('Prelude').id(2)).one(), 2)
 
   def test_retired_module_stales_held_applications(self):
-    module = curry.compile('f :: Int -> Int\nf x = x', modulename='ResultsRetired')
+    module = curry.compile('f :: Int -> Int\nf x = x', name='ResultsRetired')
     old = module.f(1)
     getHandle(module).unlink(cytest.raw.interp())
     with self.assertRaisesRegex(curry.StaleError, 'reload.*build it again from ResultsRetired'):
@@ -78,7 +78,7 @@ class TestResults(cytest.TestCase):
     self.assertEqual(answer.value, (True, ''))
 
   def test_module_version_survives_rebinding_the_wrapper(self):
-    module = curry.compile('f :: Int\nf = 1', modulename='ResultsVersion')
+    module = curry.compile('f :: Int\nf = 1', name='ResultsVersion')
     old = module.f
     setattr(module, '.version', object())
     with self.assertRaisesRegex(curry.StaleError, 'reload.*build it again from ResultsVersion'):

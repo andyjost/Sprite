@@ -37,7 +37,7 @@ surface that sets a flag takes the value:
   module of the saved form.  The help and the manual of ``sprite-make``
   omit the option; ``make stage`` and the test runner use it.
 * ``Interpreter(flags={'backend': 'py'})`` and
-  ``curry.reload({'backend': 'py'})`` in the Python API.  A new interpreter
+  ``curry.reset(**{'backend': 'py'})`` in the Python API.  A new interpreter
   starts from the flags of the environment and takes its argument over
   them (:mod:`curry.interpreter.flags`).
 * ``configure --with-default-backend py`` for an installation whose default
@@ -81,20 +81,14 @@ What it is for
 
      sprite-exec -b py Peano.curry --profile --psort=calls
 
-* The saved form.  ``curry.save(M, 'M.py', goal='main')`` writes a Python
-  program that holds the generated code of the module and evaluates the
-  goal; ``curry.save(M, 'M.py', module_main=False)`` writes the module
-  alone, and ``curry.load('M.py')`` reads it back.  A saved program runs
-  under the Python of the installation and reads ``-g NAME`` and ``--help``
-  as ``sprite-exec`` does; a goal without a signature is defaulted at run
-  time from the type the file records.  ``sprite-make --py M.curry -o M.py
-  -g main`` writes the same form (the option is hidden in the help), with
-  the bytecode cache of the file beside it under ``__pycache__``, so that
-  CPython compiles a generated module once per change.  Example 04 runs the round trip.  On the C++
-  backend ``curry.save`` writes C++ source whose entry point is a stub, and
-  ``curry.load`` reads the shared object that ``sprite-make --so`` writes;
-  the C++ form of ``curry.save`` is an open decision of stage 5 of issue
-  #82.  ``tests/unit_loadsave.py`` pins both routes.
+* The saved form. ``curry.save(M, 'M.py')`` writes a module for the
+  Python backend; ``main=M.main`` writes a program that prints its answers.
+  ``curry.load('M.py')`` reads a saved module. On the C++ backend the module
+  object is a shared library; a saved program loads that library and uses
+  the command-line driver to evaluate its goal. Example 04 runs a saved
+  program. The internal ``Interpreter.save`` emits generated source for
+  the toolchain and for compiler tests.
+
 * The stepper of the test library.  ``cytest.step`` takes a bounded number
   of rewrite steps of an expression through the step limit of the generic
   evaluator (``Evaluator.set_global_step_limit``).  Both backends provide

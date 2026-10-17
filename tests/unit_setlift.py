@@ -355,7 +355,7 @@ class TestPass(cytest.TestCase):
 # and the sorted values as Curry text, or the name of the error.
 CHILD = '''
 import cytest, curry
-curry.reload(%(flags)r)
+curry.reset(**%(flags)r)
 M = curry.import_(%(module)r)
 for name in %(goals)r:
   try:
@@ -371,7 +371,7 @@ for name in %(goals)r:
 # box; the line then says None for it.
 COUNTS_CHILD = '''
 import cytest, curry
-curry.reload(%(flags)r)
+curry.reset(**%(flags)r)
 M = curry.import_(%(module)r)
 if curry.flags['backend'] == 'cxx':
   from curry.backends.cxx import cyrtbindings as cb
@@ -642,6 +642,7 @@ class TestFiles(cytest.TestCase):
     _frontend.flat2icy(fcy, icy, _frontend.searchdirs(self.curryfile, [self.tmpdir]))
     converter = _curry2icurry.Curry2ICurryConverter(curry2icurry='frontend')
     converter.place_interfaces(self.curryfile, icy)
+    cache.write_file(icy + '.source', _curry2icurry.source_digest(self.curryfile))
     self.assertNotIn(sl.SUFFIX.encode('utf-8'), readbytes(fcy))
     self.assertNotIn(sl.SUFFIX.encode('utf-8'), readbytes(icy))
     self.assertTrue(filesys.newer(icy, self.curryfile))

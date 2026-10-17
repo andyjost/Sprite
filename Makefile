@@ -184,6 +184,8 @@ endif
 # whose boundary is the packing commit prunes as a full clone does and warns
 # all the same, so the sentence is conditional.  OVERLAY_ROOT is the
 # directory that holds the extracted tests/ tree.
+# Products whose source still matches the packing commit get a digest stamp;
+# a shallow boundary cannot establish that provenance and gets no stamp.
 OVERLAY_ROOT ?= .
 overlay-prune:
 	@commit=$$(git log -1 --format=%H -- $(OVERLAY_ARCHIVE) 2>/dev/null); \
@@ -208,7 +210,8 @@ overlay-prune:
 	    case "$$dir" in tests|.) break;; esac; \
 	    rel="$$(basename "$$dir")/$$rel"; dir=$$(dirname "$$dir"); \
 	  done; \
-	done
+	done; \
+	$(PYTHON_EXECUTABLE) scripts/stamp-overlay.py "$$commit" "$(OVERLAY_ROOT)" "$(INTERMEDIATE_SUBDIR)"
 
 # Copies the interfaces of the front end beside every .icy file under
 # OVERLAY_DIR: .curry/$(FRONTEND_SUBDIR)/M.fint and M.icurry of a directory

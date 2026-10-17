@@ -106,7 +106,7 @@ TIMEOUT = 120
 # takes the first values of a goal that does not end.
 CHILD = '''
 import cytest, curry, itertools
-curry.reload(%(flags)r)
+curry.reset(**%(flags)r)
 M = curry.import_(%(module)r)
 for name, limit in %(goals)r:
   try:
@@ -497,7 +497,7 @@ class TestFirstSetFunction(cytest.TestCase):
 # ($>), whose bytecode names applyS by its table.
 RESET_CHILD = r'''
 import cytest, curry
-curry.reload(%(flags)r)
+curry.reset(**%(flags)r)
 SRC = (
     'import Control.SetFunctions\n'
     'f :: Int -> Int\nf x = x ? x + 1\n'
@@ -505,9 +505,9 @@ SRC = (
     'goalB :: [Int]\ngoalB = sortValues (evalS ((head [($>)]) (set f) 1))\n'
   )
 kept = curry.import_('Control.SetFunctions').set1
-first = curry.compile(SRC, modulename='BuiltinsAfterReset')
+first = curry.compile(SRC, name='BuiltinsAfterReset')
 curry.reset()
-second = curry.compile(SRC, modulename='BuiltinsAfterReset')
+second = curry.compile(SRC, name='BuiltinsAfterReset')
 for name in 'goalA', 'goalB':
   values = cytest.raw.values(getattr(second, name))
   print(name, sorted(str(value) for value in values))

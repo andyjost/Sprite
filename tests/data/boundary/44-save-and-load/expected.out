@@ -1,8 +1,8 @@
 % python go.py
 M.f -> [42]
 saved -> ['M.py', 'Prog.py', 'go.py']
-save with goal=M.main !! TypeError
-text of the module -> # SECTION: .header
+save with main=M.main -> program
+save without path !! TypeError
 loaded -> M ['M', 'Prelude']
 L.f -> [42]
 curry.modules['M'] is L -> True

@@ -707,6 +707,9 @@ class SignatureTable:
     handle = getHandle(module)
     if handle.is_package:
       return None
+    embedded = getattr(module, '.interface_file', None)
+    if embedded is not None:
+      return Interface.load(embedded)
     filename = handle.icurry.filename
     if filename is None:
       logger.debug('module %s has no source file', module.__name__)

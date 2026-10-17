@@ -68,12 +68,6 @@ class Interpreter(object):
   def __new__(cls, flags={}):
     self = object.__new__(cls)
     self._flags = _flagmod.get_default_flags()
-    bad_flags = set(flags) - set(self._flags)
-    if bad_flags:
-      raise ValueError('unknown flag%s: %s' % (
-          's' if len(bad_flags) > 1 else ''
-        , ', '.join(map(repr, bad_flags))
-        ))
     # The flags start from the environment, as the flags of the global
     # interpreter do: SPRITE_ROTATION, then SPRITE_INTERPRETER_FLAGS, then
     # the argument (flags.getflags).  So a fresh interpreter runs as the
@@ -82,7 +76,7 @@ class Interpreter(object):
     _flagmod.check_flags(self._flags)
     self._backend = backends.IBackend(self._flags['backend'])
     self._modules = {}
-    self._path = []
+    self._path = list(config.currypath(reset=True))
     # The steps and forks of the evaluations of this interpreter; see stats.
     self._evaluation_totals = _evaluator.EvaluationTotals()
     self._sigtable = typecheck.SignatureTable(self)
@@ -131,14 +125,14 @@ class Interpreter(object):
   @property
   def prelude(self):
     '''The built-in module Prelude.'''
-    if not hasattr(self, '__preludelib'):
+    if not hasattr(self, '_Interpreter__preludelib'):
       self.__preludelib = self.module('Prelude')
     return self.__preludelib
 
   @property
   def setfunctions(self):
     '''The built-in module Control.SetFunctions.'''
-    if not hasattr(self, '__setflib'):
+    if not hasattr(self, '_Interpreter__setflib'):
       self.__setflib = self.module('Control.SetFunctions')
     return self.__setflib
 
@@ -152,18 +146,22 @@ class Interpreter(object):
     '''
     return self._sigtable
 
-  def reset(self):
+  def reset(self, flags=None):
     '''
     Soft-resets the interpreter.
 
-    Starts a new session and clears the loaded modules except the packages.
+    Starts a new session and clears the loaded modules.
     A loaded Prelude is replaced too, so held module objects become stale.
-    Restores I/O streams to their defaults, resets the Curry path from the
-    environment, releases the expression modules, and clears the signature
+    Restores I/O streams to their defaults, keeps the Curry path, releases
+    the expression modules, and clears the signature
     table.  The names of anonymous modules are not reused; see compile.py.
     This is much faster than building a new interpreter, which loads the
     Prelude.
     '''
+    if self.flags['backend'] == 'cxx':
+      from ..backends.cxx import tiered
+      tiered.cancel()
+      tiered.wait(interp=self)
     self._session = object()
     self.stdin = sys.stdin
     self.stdout = sys.stdout
@@ -174,10 +172,16 @@ class Interpreter(object):
     prelude = self.modules.pop('Prelude', None)
     if prelude is not None:
       self.backend.module_unlinked(self, prelude)
-    for cached in ('__preludelib', '__setflib'):
+    for cached in ('_Interpreter__preludelib', '_Interpreter__setflib'):
       self.__dict__.pop(cached, None)
-    self.path[:] = config.currypath(reset=True)
 
+    for name in list(self._modules):
+      if getHandle(self._modules[name]).is_package:
+        del self._modules[name]
+    if flags is not None:
+      self._flags.clear()
+      self._flags.update(flags)
+      self._backend = backends.IBackend(self._flags['backend'])
     self.backend.init_interpreter_state(self)
     self._sigtable.clear()
     if prelude is not None:

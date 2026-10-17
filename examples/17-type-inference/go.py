@@ -17,7 +17,6 @@ import curry
 # Infer.curry is next to this file, whatever the working directory is.
 Infer = curry.import_(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Infer.curry')
-  , is_sourcefile=True
   )
 
 # Terms as nested tuples.  The first element names the constructor of Infer.Term.

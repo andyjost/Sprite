@@ -215,7 +215,7 @@ class TestHandBuilt(cytest.TestCase):
     cls.tmpdir.cleanup()
 
   def module(self):
-    return curry.import_(HAND, currypath=[self.tmpdir.name] + curry.path)
+    return curry.import_(HAND, path=[self.tmpdir.name] + curry.path)
 
   @expected_failure_on_py
   def test_values(self):

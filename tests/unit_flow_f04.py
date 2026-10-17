@@ -106,7 +106,6 @@ class TestFlowF04(cytest.TestCase):
     with self.assertRaises(curry.CurryTypeError):
       P['=:='](ins, 1)
 
-  @unittest.expectedFailure
   def test_stale_variable(self):
     ins = curry.free('ins'); curry.reset(); R = curry.import_('Rule')
     with self.assertRaises(curry.StaleError):

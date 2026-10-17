@@ -130,7 +130,7 @@ class TestPyFairness(cytest.TestCase):
         main :: Int
         main = loop ? 1
         '''
-      , modulename='SF'
+      , name='SF'
       )
     values = curry.eval(SF.main)
     self.assertEqual(next(values), 1)
@@ -152,7 +152,7 @@ class TestPyFairness(cytest.TestCase):
         main :: Int
         main = (if isEmpty (set0 loop) then 0 else 1) ? 1
         '''
-      , modulename='SF'
+      , name='SF'
       )
     values = curry.eval(SF.main)
     self.assertEqual(next(values), 1)
