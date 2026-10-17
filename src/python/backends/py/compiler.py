@@ -28,7 +28,8 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # Int are the checked primitives of currylib.prelude.math (issues #105 and
 # #106); a file of format 6 binds the operators of Python, which wrap no
 # value but raise ZeroDivisionError and give a wider integer.
-FORMAT_VERSION = 7
+# Format 8: generated modules obtain the internal interpreter directly.
+FORMAT_VERSION = 8
 
 def source_file_expr(filename):
   '''
@@ -84,7 +85,7 @@ class PyCompiler(compiler.CompilerBase):
     if self.root_isa_module:
       yield 'from %s.icurry import IModule, PUBLIC, PRIVATE' % curry
       yield "if 'interp' not in globals():"
-      yield "  interp = %s.getInterpreter()" % curry
+      yield "  interp = %s._interpreter_" % curry
 
   def vEmitFooter(self):
     return []

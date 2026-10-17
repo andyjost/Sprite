@@ -24,7 +24,7 @@ from curry.tools import make
 from curry.utility.binding import binding
 from unittest import mock
 import curry, importlib.machinery, importlib.util, itertools, json, logging
-import os, re, shutil, subprocess, sys, tempfile, unittest, zlib
+import os, re, runpy, shutil, subprocess, sys, tempfile, unittest, zlib
 
 SUBDIR = os.path.join('.curry', config.intermediate_subdir())
 
@@ -507,6 +507,12 @@ class TestFormatStamp(JsonModuleTestCase):
     self.assertFalse(json2py.is_stale(self.cached_file(name, '.json.z')))
     self.assertFalse(self.plan.is_stale(path))
     self.check_value(self.import_module(name), 1)
+
+  def test_generated_module_uses_internal_interpreter(self):
+    name = self.build(9)
+    namespace = runpy.run_path(self.cached_file(name, '.py'))
+    self.assertIs(namespace['interp'], cytest.raw.interp())
+    self.check_value(namespace['_module_'], 9)
 
   def test_other_stamp_is_regenerated(self):
     '''A file of another format is written again from the JSON file.'''

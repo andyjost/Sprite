@@ -100,10 +100,10 @@ print(repr(values))
 
   def test_flag_names(self):
     self.assertEqual(sorted(curry.flags), [
-        'backend', 'checker', 'debug', 'defaultconverter', 'inline_budget'
+        'backend', 'checker', 'debug', 'inline_budget'
       , 'interpret', 'keep_temp_files', 'lazycompile', 'postmortem'
       , 'recursion_limit', 'rotation', 'stack_limit', 'step_budget'
-      , 'telemetry_interval', 'trace', 'typed_expr'
+      , 'telemetry_interval', 'trace'
       ])
 
 

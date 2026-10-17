@@ -191,17 +191,17 @@ class TestPlainDataBOM(cytest.TestCase):
         'bom::Module const _bom_ = {%s, %s, nullptr, nullptr, 0, nullptr'
         ', nullptr, 0, nullptr, 0, nullptr, 0};'
       )
-    # The C++ DynloadError keeps RuntimeError as a base.
+    # Native load failures use the public LoadError.
     sofile = build('CxxBomOld', record % ('bom::VERSION + 1', '"CxxBomOld"'))
     with self.assertRaisesRegex(
-        RuntimeError, r'layout version \d+, and this runtime reads version \d+'
+        curry.LoadError, r'layout version \d+, and this runtime reads version \d+'
       ):
       cyrt.SharedCurryModule(sofile)
     sofile = build('CxxBomNone', 'int cxxbom_nothing = 1;')
-    with self.assertRaisesRegex(RuntimeError, '_bom_'):
+    with self.assertRaisesRegex(curry.LoadError, '_bom_'):
       cyrt.SharedCurryModule(sofile)
     sofile = build('CxxBomNoName', record % ('bom::VERSION', 'nullptr'))
-    with self.assertRaisesRegex(RuntimeError, 'no name'):
+    with self.assertRaisesRegex(curry.LoadError, 'no name'):
       cyrt.SharedCurryModule(sofile)
     sofile = build('CxxBomEmpty', record % ('bom::VERSION', '"CxxBomEmpty"'))
     shlib = cyrt.SharedCurryModule(sofile)

@@ -525,7 +525,7 @@ class TestPolicy(TieredTestCase):
   def test_strings_and_expressions_stay_interpreted(self):
     before = tiered.status()
     S = curry.compile(
-        'double :: Int -> Int\ndouble x = x + x\n', mode='module'
+        'double :: Int -> Int\ndouble x = x + x\n'
       )
     self.assertTrue(cyrt.icurry_is_interpreted(S.double.info))
     e = curry.parse('double 21', imports=[S])
@@ -974,7 +974,7 @@ curry.reset()
 curry.path.insert(0, %(tmpdir)r)
 try:
   curry.load(%(sofile)r)
-except curry.exceptions.DynloadError as exc:
+except curry.exceptions.LoadError as exc:
   print('refused' if 'runs, or ran, interpreted' in str(exc) else str(exc))
 else:
   print('not refused')
@@ -1172,7 +1172,7 @@ class TestLoadDuringCompile(TieredTestCase):
     self.assertFalse(tiered.pending(name))
     self.assertTrue(tiered.has_shim(name))
     sofile = self.compile_by_hand(name)
-    with self.assertRaises(curry.exceptions.DynloadError) as cm:
+    with self.assertRaises(curry.exceptions.LoadError) as cm:
       curry.load(sofile)
     self.assertIn('runs, or ran, interpreted in this process', str(cm.exception))
     self.assertIsNone(cyrt.SharedCurryModule.find_sofilename(name))

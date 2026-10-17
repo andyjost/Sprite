@@ -15,9 +15,10 @@ typed = expressions.typed
 fwd = expressions.fwd
 choice = expressions.choice
 free = expressions.free
+ref = expressions.ref
 
 def interp():
-  return curry.getInterpreter()
+  return curry._interpreter_
 
 def expr(*args, **kwds):
   '''Build nodes; typed=True also checks types and supplies dictionaries.'''
@@ -27,7 +28,7 @@ def expr(*args, **kwds):
 
 def values(goal, *, interpreter=None):
   '''The nodes of an evaluation, without value conversion.'''
-  return (interpreter or interp()).eval(goal, converter=None)
+  return (interpreter or interp()).eval_nodes(goal)
 
 def show(node):
   return curry.show(node)

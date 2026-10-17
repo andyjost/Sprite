@@ -23,7 +23,7 @@ unit_py_residuation.py.  unit_curry2icurry.py checks that the two routes
 write the same ICurry for the program.
 '''
 import cytest # from ./lib; must be first
-from curry.exceptions import EvaluationSuspended
+from curry.exceptions import SuspensionError
 from curry.toolchain import _frontend, flat2icurry as f2i
 from curry.toolchain.flat2icurry import __main__ as cli
 from curry.toolchain.flat2icurry import (
@@ -640,7 +640,7 @@ class TestRoute(cytest.TestCase):
   '''Programs compiled through the build route, on the backend of the run.'''
 
   def assertSuspends(self, goal):
-    with self.assertRaises(EvaluationSuspended):
+    with self.assertRaises(SuspensionError):
       values(goal)
 
   def test_one_generator(self):

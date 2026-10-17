@@ -12,7 +12,7 @@ of ``curry.eval`` and the text route.  :mod:`.engine` types one Python-built
 expression: unification over the schemes (:mod:`.unify`, :mod:`.terms`),
 context reduction and dictionary resolution (:mod:`.instances`), the
 ``exprtype`` parser (:mod:`.exprtype`) and the error catalogue
-(:mod:`.errors`).  :mod:`.builder` is the typed ``curry.expr`` over the
+(:mod:`.errors`).  :mod:`.builder` is the typed ``expressions.expr`` over the
 engine, :mod:`.serialize` prints a description as Curry text.  The names
 of the engine are imported on first use.
 '''

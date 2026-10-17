@@ -1,4 +1,4 @@
-from .. import cache, exceptions, config, getInterpreter, interpreter, toolchain, utility
+from .. import cache, exceptions, config, interpreter, toolchain, utility
 from ..interpreter import flags as _flags
 from ..toolchain import (
     plans, _curry2icurry, _filenames, _findcurry, _loadcurry, _productcache
@@ -295,7 +295,8 @@ def main(program_name, argv):
   # 'new' or 'tiered' the plan of an import ends at the JSON, and this
   # program must still write the object (the background compile of tiered
   # execution runs this program).
-  interp = getInterpreter() if args.backend_name is None else \
+  from .. import _interpreter_
+  interp = _interpreter_ if args.backend_name is None else \
            interpreter.Interpreter(
                flags=_flags.getflags(
                    {'backend': args.backend_name, 'interpret': 'off'}

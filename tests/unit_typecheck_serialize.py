@@ -296,7 +296,7 @@ class TestParameters(cytest.TestCase):
 
   def test_anchors(self):
     P = prelude()
-    anchor, ref = curry.expressions.anchor, curry.ref
+    anchor, ref = curry.expressions.anchor, cytest.raw.ref
     s = ser(P.take, 2, anchor(cytest.raw.cons(1, ref())))
     self.assertEqual(s.text, 'let a1 = 1 : a1 in take 2 a1')
     self.assertEqual(s.bindings, [('a1', '1 : a1')])

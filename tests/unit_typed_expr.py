@@ -754,6 +754,7 @@ class TestCatalogue(cytest.TestCase):
       , 1, type='Foo'
       )
     self.assertIsInstance(err, errors.UnknownTypeConstructorError)
+    self.assertIn("curry.parse('expression :: T')", str(err))
     P = prelude()
     err = self.check(r'^exprtype Int does not match the inferred type Maybe a$', P.Just, 1, type='Int')
     self.assertIsInstance(err, errors.ExprTypeMismatchError)

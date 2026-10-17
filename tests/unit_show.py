@@ -67,7 +67,7 @@ class TestSharedExpressions(cytest.TestCase):
 
   def test_shared_open_list(self):
     # let d = 1 : x in (d, d) with x free
-    e = cytest.raw.expr((ref('d'), ref('d')), d=cytest.raw.cons(1, curry.free(7)))
+    e = cytest.raw.expr((ref('d'), ref('d')), d=cytest.raw.cons(1, cytest.raw.free(7)))
     self.check(e, '(1:_a, 1:_a)')
 
   def test_shared_head_and_tail(self):

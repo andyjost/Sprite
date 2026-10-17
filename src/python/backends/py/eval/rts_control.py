@@ -33,7 +33,7 @@ def catch_control(
       Require ground terms.  Propagate E_RESIDUAL only if this is true.
 
     nondet:
-      Catch non-determinism and raise NondetMonadError if it occurs.  This takes
+      Catch non-determinism and raise NondetError if it occurs.  This takes
       priority over all other options.
 
     residual:
@@ -238,7 +238,7 @@ def make_value(rts, arg=None, config=None):
 def ready(rts):
   '''
   Checks whether the runtime is ready to continue evaluation.  Skips over
-  blocked configurations and raises EvaluationSuspended if the queue contains
+  blocked configurations and raises SuspensionError if the queue contains
   only blocked configurations.  Returns True when the queue is not empty and
   the configuration at the head is ready to be further evaluated.
   '''
@@ -253,7 +253,7 @@ def ready(rts):
       # Every configuration is blocked.  The error of a dropped alternative
       # comes first.
       rts.raise_deferred_error()
-      raise exceptions.EvaluationSuspended()
+      raise exceptions.SuspensionError()
     else:
       rts.rotate(i)
       return True

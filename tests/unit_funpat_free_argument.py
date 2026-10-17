@@ -31,7 +31,6 @@ import curry, unittest
 
 def values(*args, **kwds):
   '''The values of a goal, converted to Python.'''
-  kwds.setdefault('converter', 'topython')
   return list(curry.eval(curry.let((args[0](*args[1:]) if len(args) > 1 else args[0]), **kwds)))
 
 def texts(*args):

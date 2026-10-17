@@ -16,5 +16,4 @@ export CURRYPATH=app/
 # noise here, so the script turns it off unless the environment sets
 # the variable.
 export SPRITE_FRONTEND_WARNINGS="${SPRITE_FRONTEND_WARNINGS:-0}"
-export SPRITE_INTERPRETER_FLAGS=defaultconverter:topython
 python -m app

@@ -80,12 +80,12 @@ def source_file(record, sofile):
 
 def _refuse_other_file(name, registered, sofile):
   '''
-  Raises DynloadError when ``registered``, the file of the library loaded
+  Raises LoadError when ``registered``, the file of the library loaded
   under the module name, is not ``sofile``: the runtime keeps one library per
   module name for as long as one is loaded.
   '''
   if os.path.realpath(registered) != os.path.realpath(sofile):
-    raise exceptions.DynloadError(
+    raise exceptions.LoadError(
         'cannot load module %r from %r: it is already loaded from %r'
       % (name, sofile, registered)
       )
@@ -144,7 +144,7 @@ def _check_before_open(interp, name, sofile, from_plan=False):
           'interpreted incarnation in this process', sofile, name
         )
       return
-    raise exceptions.DynloadError(
+    raise exceptions.LoadError(
         'cannot load module %r from %r: the module runs, or ran, '
         'interpreted in this process; load the object in a new process'
       % (name, sofile)
@@ -184,7 +184,7 @@ def load_module(interp, sofile, from_plan=False):
   for modulename in needed:
     module = interp.import_(modulename, currypath=currypath)
     if getHandle(module).sofilename is None:
-      raise exceptions.DynloadError(
+      raise exceptions.LoadError(
           'cannot load %r: its import %s runs without a compiled object'
         % (sofile, modulename)
         )

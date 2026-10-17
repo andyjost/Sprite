@@ -114,7 +114,7 @@ class TestImportAfterEdit(EditedSourceTestCase):
       self.assertIs(curry.import_(name), M)
     self.assertEqual(log.data[logging.WARNING], [])
     # A module without a source file records no time and is never stale.
-    S = curry.compile('h :: Int\nh = 7\n', mode='module')
+    S = curry.compile('h :: Int\nh = 7\n')
     self.assertIsNone(importer.edited_source(S))
 
 

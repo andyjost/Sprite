@@ -86,7 +86,7 @@ class TestPyCopy(cytest.TestCase):
     The copy of ``let a = [a] in a`` is a cons node that leads back to
     itself.  The recursive copier raised RecursionError.
     '''
-    anchor, ref = curry.expressions.anchor, curry.ref
+    anchor, ref = curry.expressions.anchor, cytest.raw.ref
     node = cytest.raw.expr(anchor([ref()]))
     self.assertIs(node.successors[0], node)
     dup = node.__deepcopy__()
@@ -99,7 +99,7 @@ class TestPyCopy(cytest.TestCase):
 
   def test_cycle_of_two_nodes_copies(self):
     # let a=(0:b), b=(1:a) in a
-    cons, ref = cytest.raw.cons, curry.ref
+    cons, ref = cytest.raw.cons, cytest.raw.ref
     node = cytest.raw.expr(ref('a'), a=cons(0, ref('b')), b=cons(1, ref('a')))
     dup = node.__deepcopy__()
     self.assertIs(dup.successors[1].successors[1], dup)
@@ -135,7 +135,7 @@ class TestPyCopy(cytest.TestCase):
     still counts (see rts_control.make_value).  The C++ copier has the same
     rule.
     '''
-    var = cytest.raw.expr(curry.free(7))
+    var = cytest.raw.expr(cytest.raw.free(7))
     self.assertTrue(inspect.isa_freevar(var))
     node = cytest.raw.expr([var, 1, var])
     self.assertIs(node.successors[0], var)

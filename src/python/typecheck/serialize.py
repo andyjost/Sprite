@@ -3,7 +3,7 @@ The serializer: prints the description of a Python-built expression as
 Curry text (item Y8 of the typed boundary, epic #48).
 
 A spec tree (:mod:`.engine`, :mod:`.builder`) describes the arguments of
-``curry.expr``.  :func:`serialize` prints it in Curry syntax, so that the
+``expressions.expr``.  :func:`serialize` prints it in Curry syntax, so that the
 same expression can be compiled by the front end and evaluated by the PAKCS
 REPL, the oracles of the tests.  Python values are written as Curry
 literals.  An operand without Curry text, a Curry node of an earlier
@@ -516,7 +516,7 @@ def serialize_call(
     interp, args, anchors=None, exprtype=None, module=None, typed=True
   ):
   '''
-  Prints the arguments of ``curry.expr`` as Curry text.  ``args`` are the
+  Prints the arguments of ``expressions.expr`` as Curry text.  ``args`` are the
   positional arguments, ``anchors`` the keyword anchors as a dict.  With
   ``typed`` the tree is typed first (phase 1 of the engine), so that a
   one-character string under ``[Char]`` prints as a string; a typing

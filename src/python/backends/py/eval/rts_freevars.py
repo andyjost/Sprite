@@ -139,7 +139,7 @@ def register_freevars(rts, root):
   this state knows: a ``curry.free`` marker shared with an earlier goal,
   whose node the step of ``Prelude.unknown`` forwarded to a free variable;
   the result of the single rewrite step of a compiled expression; a raw
-  ``Free`` node of ``curry.raw_expr``; a value of an earlier evaluation.  The
+  ``Free`` node of ``expressions.raw_expr``; a value of an earlier evaluation.  The
   item of a generator node is built during the evaluation, so its step walks
   the item as well (prelude/string.py).  The walk is iterative with a
   visited set, because a goal can be cyclic.  It follows forward nodes and

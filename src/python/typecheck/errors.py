@@ -97,7 +97,7 @@ class ArityError(TypeCheckError):
 class ValueTooLargeError(TypeCheckError):
   '''
   The walk that types a Curry value stopped at its cap: ``the value at
-  argument N of S has more than 100000 nodes; pass curry.typed(node, 'T')``.
+  argument N of S has more than 100000 nodes; pass curry.term(node, type='T')``.
   With ``what='type of the value'`` the type of the value grew past the
   cap: a value that shares a node between the components of a pair at every
   level has a type exponential in its size.
@@ -105,7 +105,7 @@ class ValueTooLargeError(TypeCheckError):
   def __init__(self, where, cap, what='value', **kwds):
     TypeCheckError.__init__(
         self
-      , "the %s at %s has more than %d nodes; pass curry.typed(node, 'T')"
+      , "the %s at %s has more than %d nodes; pass curry.term(node, type='T')"
             % (what, where, cap)
       , where=where, **kwds
       )
@@ -115,7 +115,7 @@ class ValueTooLargeError(TypeCheckError):
 # The errors of exprtype strings
 # ==============================
 class ExprTypeError(exceptions.TypeSyntaxError):
-  '''A problem with an ``exprtype`` string or a ``curry.typed`` annotation.'''
+  '''A problem with an ``exprtype`` string or a ``expressions.typed`` annotation.'''
   def __init__(self, lines, text=None, **kwds):
     TypeCheckError.__init__(self, lines, **kwds)
     self.text = text
@@ -143,14 +143,14 @@ class ContextInExprTypeError(ExprTypeError):
 class UnknownTypeConstructorError(ExprTypeError):
   '''
   ``unknown type constructor T; searched the interfaces of M1, M2;
-  curry.compile(..., exprtype=...) accepts any Curry type``.
+  curry.parse('expression :: T') checks the type with the front end``.
   '''
   def __init__(self, name, searched, text=None, detail=None, **kwds):
     searched = list(searched)
     where = ', '.join(searched) if searched else 'no loaded module'
     lines = [
         'unknown type constructor %s; searched the interfaces of %s; '
-        'curry.compile(..., exprtype=...) accepts any Curry type'
+        "curry.parse('expression :: T') checks the type with the front end"
             % (name, where)
       ]
     if detail:

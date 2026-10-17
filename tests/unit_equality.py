@@ -187,7 +187,7 @@ class TestGraphComparison(cytest.expression_library.ExpressionLibTestCase):
 
   @cytest.check_predicate(mapper=cytest.raw.expr)
   def test_equals_cyclical(self):
-    cons, ref = cytest.raw.cons, curry.ref
+    cons, ref = cytest.raw.cons, cytest.raw.ref
     # let a=(0:b), b=(1:a) in a
     e0 = cytest.raw.expr(ref('a'), a=cons(0, ref('b')), b=cons(1, ref('a')))
     # let a=(0:1:a) in a

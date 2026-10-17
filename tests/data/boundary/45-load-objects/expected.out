@@ -9,6 +9,6 @@ Other.h -> [1]
 swapped modules -> 1
 objects -> ['Obj.so'] ['Obj.so']
 load of the object is Obj -> True
-load of the second copy !! DynloadError
+load of the second copy !! LoadError
 Obj.g 1 after the refusal -> [43]
 exit status 0

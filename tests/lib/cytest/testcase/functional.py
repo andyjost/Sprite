@@ -305,7 +305,7 @@ class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclas
       try:
         with self.redirect_tty(testname, check_result=True):
           results = list(self.evaluate(testname, module, goal))
-      except curry.EvaluationSuspended:
+      except curry.SuspensionError:
         if oracle_answer_raw != '!suspend':
           failures.append('\n====== %r ======\n%s'
               % (goal.name, 'evaluation suspended unexpectedly')

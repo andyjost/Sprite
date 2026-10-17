@@ -57,14 +57,6 @@ The following flags are available:
     session without the flag compiles the debug objects again, once.  See
     curry.backends.cxx.toolchain.
 
-  * ``defaultconverter`` ('topython' | **None**)
-
-    Selects the converter for an explicit ``converter='default'`` call.
-    ``eval`` otherwise defaults to ``'topython'``.
-    With no conversion a list value, for example, is returned as a Curry
-    list.  The 'topython' converter converts lists, tuples, strings,
-    numbers, and other basic objects to their Python equivalents.
-
   * ``trace`` (True | **False**)
 
     Trace computations.
@@ -202,16 +194,7 @@ The following flags are available:
     the number of nodes created or steps performed.  If None or non-positive,
     this information is not reported.
 
-  * ``typed_expr`` (**True** | False)
 
-    Whether ``curry.expr`` types the expression it builds: the type schemes
-    of the symbols are unified, Python values convert by the expected type,
-    the class dictionaries are supplied, and a typing failure is an error
-    at construction (see curry.typecheck.builder).  With False,
-    ``curry.expr`` is the untyped builder of ``curry.raw_expr`` with the
-    free and choice markers as calls of Prelude.unknown and Prelude.?, and
-    the keyword exprtype is ignored.  The flag serves bisection and the
-    performance program.
 '''.format(config.default_backend())
 
 FLAG_INFO = {
@@ -220,7 +203,6 @@ FLAG_INFO = {
     'backend'             : ({'cxx', 'py'}, config.default_backend())
   , 'checker'             : ( bool                , False )
   , 'debug'               : ( bool                , False )
-  , 'defaultconverter'    : ({'topython', None}   , None  )
   , 'inline_budget'       : ( int                 , 4     )
   , 'interpret'           : ({'off', 'new', 'all', 'tiered'}, 'tiered')
   , 'trace'               : ( bool                , False )
@@ -232,7 +214,6 @@ FLAG_INFO = {
   , 'stack_limit'         : ({None, int}          , 4194304)
   , 'step_budget'         : ({None, int}          , 2048  )
   , 'telemetry_interval'  : ({None, float}        , None  )
-  , 'typed_expr'          : ( bool                , True  )
   }
 
 def get_default_flags():

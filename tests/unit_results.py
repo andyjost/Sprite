@@ -1,4 +1,4 @@
-'''Evaluation ownership, the legacy converter and stale provenance.'''
+'''Evaluation ownership, internal node evaluation and stale provenance.'''
 import cytest # from ./lib; must be first
 import curry
 from curry import backends

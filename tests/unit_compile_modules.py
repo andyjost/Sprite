@@ -63,7 +63,7 @@ class TestCompileModules(cytest.TestCase):
     '''
     first = curry.compile('f :: Int\nf = 1', modulename='Dup')
     curry.reset()
-    with self.assertRaisesRegex(curry.exceptions.DynloadError, "'Dup'"):
+    with self.assertRaisesRegex(curry.exceptions.LoadError, "'Dup'"):
       curry.compile('f :: Int\nf = 2', modulename='Dup')
     del first
 

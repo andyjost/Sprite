@@ -169,8 +169,7 @@ class Interpreter(object):
     self.stdout = sys.stdout
     self.stderr = sys.stderr
     self.automodules = config.syslibs()
-    self._expression_modules = [] # see compile.py, mode 'expr'
-    self._lifted_goals = {} # see typecheck.goals.register_lifted
+    self._expression_modules = [] # see compile.py
     self._unlink_modules()
     prelude = self.modules.pop('Prelude', None)
     if prelude is not None:
@@ -227,7 +226,7 @@ class Interpreter(object):
   from .compile import compile
   from .conversions import currytype, topython, unbox
   from ..expressions import describe, expr, raw_expr, typeof
-  from .eval import eval, solve
+  from .eval import eval, eval_nodes, solve
   from .import_ import import_
   from .loadsave import load, save
   from .optimize import optimize

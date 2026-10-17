@@ -659,7 +659,7 @@ class SignatureTable:
   The table finds the interface of a module from the module's source file
   (:func:`interface_candidates`), indexes it once, and decodes one entry
   per symbol on first use.  It memoizes per module object, so the modules
-  of ``compile(mode='expr')`` are served while they live.  :meth:`clear`
+  of the internal expression compiler are served while they live.  :meth:`clear`
   forgets everything; ``Interpreter.reset`` calls it.
   '''
   def __init__(self, interp):

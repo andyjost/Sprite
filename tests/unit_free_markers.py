@@ -205,7 +205,7 @@ class TestFreeMarkers(cytest.TestCase):
     '''
     P = curry.import_('Prelude')
     istate = interpreter_state()
-    M = curry.compile('g :: [Int]\ng = xs where xs free\n', mode='module')
+    M = curry.compile('g :: [Int]\ng = xs where xs free\n')
     self.assertEqual(istate.external_freevars, 0)
     v, = cytest.raw.values(M.g)
     self.assertIsaFreevar(v)

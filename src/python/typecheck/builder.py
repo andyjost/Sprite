@@ -1,8 +1,8 @@
 '''
-The typed builder of ``curry.expr`` (item Y7 of the typed boundary, epic
+The typed builder of ``expressions.expr`` (item Y7 of the typed boundary, epic
 #48).
 
-``curry.expr`` describes its arguments as a tree of specs, types the tree
+``expressions.expr`` describes its arguments as a tree of specs, types the tree
 with the engine (:mod:`.engine`), defaults the class constraints, resolves
 the dictionaries, and then builds the nodes through ``make_node`` of the
 backend.  The conversion of the arguments, the typing and the
@@ -47,7 +47,7 @@ __all__ = [
   ]
 
 # The number of nodes the walk that types a Curry value visits before it
-# stops with ValueTooLargeError; curry.typed(node, 'T') states the type
+# stops with ValueTooLargeError; expressions.typed(node, 'T') states the type
 # instead.
 VALUE_WALK_CAP = 100000
 
@@ -59,7 +59,7 @@ GENERATOR_NODE = '_biGenerator'
 # The specs of the builder
 # ========================
 # The engine knows App, Lit, Free, Known, List, Tuple, Iter and Typed.  The
-# builder adds the forms of curry.expr that have no type of their own.
+# builder adds the forms of expressions.expr that have no type of their own.
 class Raw(Spec):
   '''
   A part the typed builder makes untyped.  With ``walk`` set, the payload is
@@ -109,7 +109,7 @@ class Ref(Spec):
 
 class Unboxed(Spec):
   '''
-  An :class:`unboxed <curry.expressions.unboxed>` marker the problem
+  An :class:`unboxed <expressions.expressions.unboxed>` marker the problem
   refuses; ``payload`` is the Python value.  The payload of a primitive,
   ``[Int, unboxed(3)]``, is a :class:`Raw` part instead
   (:meth:`TypedBuilder._application`), so this spec stands alone, in a list
@@ -232,7 +232,7 @@ def symbol_map(interp):
 # ==========================
 class TypeRecord:
   '''
-  The result types of the nodes ``curry.expr`` returned: the undefaulted
+  The result types of the nodes ``expressions.expr`` returned: the undefaulted
   scheme and the defaulted type.  An entry is keyed by the identity of the
   node and held by a weak reference, so it goes when the node goes and is
   never lent to a node that took the same id later.
@@ -274,7 +274,7 @@ def recorded(interp, node):
   return record_of(interp).get(node)
 
 def result_type(interp, node):
-  '''The defaulted result type of a node ``curry.expr`` built, or None.'''
+  '''The defaulted result type of a node ``expressions.expr`` built, or None.'''
   if not isinstance(node, backends.Node):
     return None
   entry = record_of(interp).get(node)
@@ -284,7 +284,7 @@ def result_type(interp, node):
 # ===========
 class TypedBuilder:
   '''
-  Builds one expression: converts the arguments of ``curry.expr`` to specs
+  Builds one expression: converts the arguments of ``expressions.expr`` to specs
   (:meth:`specs`), types them (:class:`TypedProblem`) and makes the nodes
   (:meth:`materialize`).
   '''
@@ -354,7 +354,7 @@ class TypedBuilder:
   # -----
   def specs(self, args, anchors=()):
     '''
-    The spec tree of the arguments of ``curry.expr``.  ``anchors`` are the
+    The spec tree of the arguments of ``expressions.expr``.  ``anchors`` are the
     keyword arguments, pairs of a name and a value; they come first in a
     :class:`Group`.
     '''
@@ -402,11 +402,11 @@ class TypedBuilder:
     return group
 
   def _form(self, args):
-    '''One Python value for the positional arguments of ``curry.expr``.'''
+    '''One Python value for the positional arguments of ``expressions.expr``.'''
     if len(args) == 1:
       return args[0]
     if not args:
-      raise exceptions.CurryTypeError('curry.expr takes an expression; none given')
+      raise exceptions.CurryTypeError('expressions.expr takes an expression; none given')
     head = args[0]
     from ..objects.terms import Term
     if isinstance(head, Term) and head.symbol is not None:
@@ -851,7 +851,7 @@ class TypedBuilder:
     The shared node of a free marker: a call of ``Prelude.unknown`` applied
     to the ``Data`` dictionary of its type, made at the first occurrence of
     the marker under this interpreter and reused at every later one.  See
-    :class:`curry.expressions.free`.
+    :class:`expressions.expressions.free`.
     '''
     marker = spec.payload
     node = None if marker is None else marker._shared(self.interp)
@@ -1141,7 +1141,7 @@ class TypedProblem(Problem):
     level is exponential in its size.
     '''
     interp = self.interp
-    # The record is the shortcut for a node curry.expr returned: its type
+    # The record is the shortcut for a node expressions.expr returned: its type
     # holds after an evaluation, which rewrites the node to its value.
     entry = record_of(interp).get(root)
     if entry is not None:
@@ -1276,7 +1276,7 @@ class TypedProblem(Problem):
 # ================
 def build(interp, args, anchors, exprtype=None, target=None):
   '''
-  ``curry.expr`` on the typed path.  A bare node alone passes through
+  ``expressions.expr`` on the typed path.  A bare node alone passes through
   untouched when no type is asked of it.
   '''
   if len(args) == 1 and not anchors and exprtype is None:
@@ -1295,8 +1295,8 @@ def build(interp, args, anchors, exprtype=None, target=None):
 class Description:
   '''
   The description of an expression: the spec tree of the arguments of
-  ``curry.expr``, with the anchors of its keyword arguments and its
-  ``exprtype``.  It is typed when a consumer asks: ``curry.expr(description)``
+  ``expressions.expr``, with the anchors of its keyword arguments and its
+  ``exprtype``.  It is typed when a consumer asks: ``expressions.expr(description)``
   or ``curry.eval(description)`` build its node, :meth:`typeof` gives its
   type, and each typing starts afresh.  A description may be an argument of
   a larger one; its anchors travel with it, and a reference outside the
@@ -1333,10 +1333,10 @@ def build_description(description, exprtype=None, target=None):
 def typeof(interp, e, defaulted=False):
   '''
   The type of an expression in Curry syntax: the undefaulted scheme, what
-  ``:type`` prints, or the defaulted type.  ``e`` is a node ``curry.expr``
+  ``:type`` prints, or the defaulted type.  ``e`` is a node ``expressions.expr``
   returned (its recorded type) or any other Curry node (typed by its
   content), a symbol, a :class:`Description`, or any argument of
-  ``curry.expr``.
+  ``expressions.expr``.
   '''
   from ..objects.terms import Term, Var as TermVar, signature, term
   from ..objects.results import Answer
@@ -1378,7 +1378,7 @@ def typeof(interp, e, defaulted=False):
   elif isinstance(e, Description):
     problem = TypedProblem(e.builder, e.root, e.exprtype)
   elif isinstance(e, CurryNodeInfo) and e.scheme is None:
-    # curry.expr builds a lone symbol without a scheme untyped; its type is
+    # expressions.expr builds a lone symbol without a scheme untyped; its type is
     # unknown, not a variable.
     interp.sigtable.lookup(e, required=True)
     raise exceptions.CurryTypeError('no type for %s' % _symbol_name(e))
