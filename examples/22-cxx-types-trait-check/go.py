@@ -25,12 +25,12 @@ PROPERTIES = [
 
 def text(goal, *args):
   '''The one value of a goal that returns a String, as a str.'''
-  return next(curry.eval(goal, *args, converter='topython'))
+  return next(curry.eval(goal(*args) if args else goal))
 
 def main(depth, names):
   print(text(CxxCheck.header, depth))
   for name in names:
-    # A name is a Python str; curry.expr converts it to a String, the
+    # A name is a Python str; the symbol call converts it to a String, the
     # parameter type, also for a name of one character.
     print(text(CxxCheck.check, depth, name))
 

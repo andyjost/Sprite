@@ -158,10 +158,8 @@ Its limits
   the binding, so a second reference of the same alternative to the
   capsule clones it again; a binding the alternative holds at the start
   of the capsule is absorbed then, with no clone.
-* A string built by :func:`curry.expr` is one ``_biString`` node, which
-  prints as ``_biString 'hello'`` until its first step unfolds it; on the
-  C++ backend it is the list of its characters.  The ``repr`` of a negative
-  ``Float`` node differs between the backends.
+* The internal string representation uses a ``_biString`` node until
+  demanded; public terms and converted values print with ``curry.show``.
 
 The checker mode
 ----------------

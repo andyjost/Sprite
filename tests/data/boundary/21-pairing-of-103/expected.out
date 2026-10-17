@@ -1,10 +1,10 @@
 % python go.py
 rule "a" ins -> ['cmd1', 'cmd2']
-ins afterwards -> ['_a']
+solve rule "a" ins -> [('cmd1', ['x']), ('cmd2', ['y', 'z'])]
+ins afterwards -> ['ins']
 (rule "a" ins, ins) -> [('cmd1', ['x']), ('cmd2', ['y', 'z'])]
 rulePair "a" ins -> [('cmd1', ['x']), ('cmd2', ['y', 'z'])]
-eval([rule, "a", ins], ins) !! CurryTypeError
 text route -> {ins=["x"]} "cmd1"
-  value: "cmd1"  bindings: {'ins': <: <: <Char 'x'> <[]>> <[]>>}
-text route -> {ins=["y", "z"]} "cmd2"
-  value: "cmd2"  bindings: {'ins': <: <: <Char 'y'> <[]>> <: <: <Char 'z'> <[]>> <[]>>>}
+  value: cmd1  bindings: {ins=["x"]}
+text route -> {ins=["y","z"]} "cmd2"
+  value: cmd2  bindings: {ins=["y","z"]}

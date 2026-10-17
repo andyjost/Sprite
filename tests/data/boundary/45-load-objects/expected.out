@@ -5,11 +5,8 @@ Obj.f -> [42]
 background compiles after the import -> 0
 save: first line -> /* SECTION: .header */
 save: step functions -> 4
-getimpl(Obj.f) -> /****** Obj.f ******/
 Other.h -> [1]
 swapped modules -> 1
-getimpl(Other.h) after the swap -> /****** Other.h ******/
-getimpl(Obj.f) after the swap -> /****** Obj.f ******/
 objects -> ['Obj.so'] ['Obj.so']
 load of the object is Obj -> True
 load of the second copy !! DynloadError

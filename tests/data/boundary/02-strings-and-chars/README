@@ -1,19 +1,11 @@
 Strings and characters
 ======================
 
-Seam: a Python str is a Char or a String by its length and its slot
-(catalogue P1); the typed escape curry.typed(value, 'T'); a Char out and
-back in.  Memo: A2 proposes that a str is always a String and that
-curry.char(s) spells the character.  Catalogue: P1, P11 (the length rule
-of currytype), P23 (the printed forms).  Issues: none.
-Output: curry.expr('a') prints 'a' and types as Char; 'ab' and '' are
-[Char].  ord 'a' is 97 and length 'a' is 1: the slot decides.  show 'a' is
-'a' with single quotes, and the typed String is "a".  typeof ('a', 1) is
-(Char, a) for the tuple alone; in the slot of strInTuple and names the
-same tuple holds a String, so both calls run.  A table built before the
-call keeps its Char and names refuses it with a MismatchError; the typed
-escape converts it at [(String, Int)].  chr 65 leaves as the node
-<Char 'A'> of type Char, goes back into ord as 65, and is the str 'A'
-under the converter.
-Oracle: oracle.out holds the PAKCS 3.4.1 transcripts of the goals over
-the module Str.  Backends: py and cxx, one output.
+Seam: A Python str is a String; curry.Char spells a character.
+The same rule applies to one-character strings, table fields and results.
+
+Run ./run after make stage, or run unit_boundary.py from tests/.
+The run script selects the staged Python and the session backend.
+expected.out records stdout; stderr is shown on failure by the test.
+The driver comments explain the individual probes and their order.
+The corpus README.md lists the backends and the oracle for this driver.

@@ -45,9 +45,9 @@ def solve_file(filename):
 
   # The nested Python list becomes the Curry value of type [[Int]].  The goal
   # is the expression `solve board`.  Each value of the goal is one solution,
-  # converted back to a nested Python list by converter='topython'.  The
+  # converted back to a nested Python list by the result conversion.  The
   # values are sorted because Curry promises no order among them.
-  solutions = sorted(curry.eval(Sudoku.solve, board, converter='topython'))
+  solutions = sorted(curry.eval(Sudoku.solve(board)))
 
   for i, solution in enumerate(solutions, 1):
     print('solution %d:' % i)

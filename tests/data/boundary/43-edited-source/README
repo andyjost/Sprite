@@ -1,19 +1,11 @@
-43-edited-source: an edited source is not read again by curry.import_ in
-one process; the loaded module stays and a warning says so.
+Edited source
+=============
 
-Seam: curry.import_ of a module whose file changed after the import, the
-background compile of the C++ backend (curry.backends.cxx.tiered.wait),
-curry.reset and a new import.  The run script copies go.py into a
-temporary directory because the driver writes Ed.curry there.
-Sources: memo A13; catalogue P53; issue #110 (closed; regression of the
-narrower rule of 89b82481).
-Backends: py, cxx; the output is the same on both.  Oracle: none.
+Seam: Repeated import returns the loaded module after a source edit.
+The running code stays unchanged; reset and import read the new source.
 
-Expected output: f is 1; after the edit the second import_ returns the
-same object and f is still 1, with the warning "module 'Ed' was not read
-again" on stderr, which the test does not compare; after tiered.wait f is
-still 1 (the running code is not swapped when the source changed; on the
-Python backend wait returns at once); the driver writes f = 2 again after
-the wait, so that the source postdates the products of f = 1 (an object
-written after the edit is trusted by its time: a race the driver avoids);
-after curry.reset and a new import f is 2.  Pins no defect.
+Run ./run after make stage, or run unit_boundary.py from tests/.
+The run script selects the staged Python and the session backend.
+expected.out records stdout; stderr is shown on failure by the test.
+The driver comments explain the individual probes and their order.
+The corpus README.md lists the backends and the oracle for this driver.

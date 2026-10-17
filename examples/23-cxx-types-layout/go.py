@@ -15,15 +15,15 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 curry.path.insert(0, os.path.join(HERE, '..', 'cxx'))
 from curry.lib import CxxLimits, CxxType, CxxLayout
 
-# The constructors of CxxType.Type, applied with curry.expr.
+# The constructors of CxxType.Type, applied as Python calls.
 def fund(name):
-  return curry.expr(CxxType.Fund, getattr(CxxLimits, name))
+  return CxxType.Fund(getattr(CxxLimits, name))
 
 def const(t):
-  return curry.expr(CxxType.Const, t)
+  return CxxType.Const(t)
 
 def ptr(t):
-  return curry.expr(CxxType.Ptr, t)
+  return CxxType.Ptr(t)
 
 BOOL, CHAR, SHORT, INT, DOUBLE = (
     fund(name) for name in ('Bool', 'Char', 'Short', 'Int', 'Double')
@@ -46,7 +46,7 @@ def members(struct):
 
 def value(goal, *args):
   '''The one value of a goal, converted to Python.'''
-  return next(curry.eval(goal, *args, converter='topython'))
+  return next(curry.eval(goal(*args) if args else goal))
 
 def show(t):
   '''A type in C++ syntax, printed by CxxType.showCxx.'''

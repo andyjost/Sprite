@@ -27,11 +27,11 @@ DEFAULT_INPUTS = [
 def parses(s):
   '''Returns every parse tree of s.  Each tree is a Curry value.'''
   # The scheduler does not promise an order of the values, so sort them.
-  return sorted(curry.eval(Parser.expr, s), key=str)
+  return sorted(curry.eval(Parser.expr(s)), key=str)
 
 def value(tree):
   '''Passes a parse tree back to Curry and returns its value as an int.'''
-  return next(curry.eval(Parser.eval, tree, converter='topython'))
+  return next(curry.eval(Parser.eval(tree)))
 
 def main(inputs):
   for raw in inputs:

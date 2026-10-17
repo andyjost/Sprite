@@ -1,19 +1,11 @@
 Rejected values
 ===============
 
-Seam: what the boundary refuses, and what it accepts in silence: None, a
-dict, a set, a Python function, bytes, the generator of curry.eval as an
-argument, the marker curry.unboxed outside a primitive, and the spellings
-of the converter.  Memo: A2 (the table), A6 (the converter).  Catalogue:
-P4, P9, P13, P14.  Issues: #107, fixed; this driver is its regression.
-Output: Just None is a ConversionError that names the slot; a dict, a set
-and a lambda are a CurryTypeError that names the Python type.  b'ab'
-crosses as the String "ab", a wart that A2 refuses.  length of the
-generator of coin is 2: the values of one goal became a lazy list (P9).
-id (unboxed 1) is a ConversionError at construction that names the
-spelling, where #107 was a crash of the process.  converter='bogus' and
-converter=None leave the node <Int 2>; a positional 'topython' joins the
-arguments and the ArityError names inc (P13); a callable converter takes
-the interpreter and the value, and str alone is a TypeError whose message
-names the node class of the backend, so the driver prints the class only
-(P14).  No oracle: no goal is plain Curry.  Backends: py and cxx.
+Seam: Unsupported Python values and a Results argument are refused.
+Materialize Results with list(results) before using it as a list.
+
+Run ./run after make stage, or run unit_boundary.py from tests/.
+The run script selects the staged Python and the session backend.
+expected.out records stdout; stderr is shown on failure by the test.
+The driver comments explain the individual probes and their order.
+The corpus README.md lists the backends and the oracle for this driver.

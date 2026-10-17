@@ -14,7 +14,7 @@ import os, curry
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 def vals(*goal):
-  return list(curry.eval(*goal, converter='topython'))
+  return list(curry.eval(goal[0](*goal[1:]) if len(goal) > 1 else goal[0]))
 
 curry.path.insert(0, HERE)
 M = curry.import_('M')
@@ -24,12 +24,6 @@ print('M.f ->', vals(M.f))
 curry.save(M, os.path.join(HERE, 'M.py'), module_main=False)
 curry.save(M, os.path.join(HERE, 'Prog.py'), goal='main')
 print('saved ->', sorted(name for name in os.listdir(HERE) if name.endswith('.py')))
-
-# save needs a goal or module_main=False; the first clause of the error.
-try:
-  curry.save(M, os.path.join(HERE, 'X.py'))
-except ValueError as exc:
-  print('save without a goal !! ValueError:', str(exc).split(':')[0])
 
 # The goal is a string; a symbol is a TypeError (P39).
 try:

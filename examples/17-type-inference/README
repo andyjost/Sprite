@@ -56,17 +56,17 @@ different types, and the term is ill-typed.
 
 Python is the front end and Curry is the core.  The driver go.py writes
 each term as nested tuples, for example ('lam', 'x', ('var', 'x')).  The
-function build maps a tuple to a Curry term with curry.expr:
+function build maps a tuple to a Curry term with a symbol call:
 
-    curry.expr(Infer.Lam, x, build(b))
+    Infer.Lam(x, build(b))
 
-The inner call returns a Curry expression, and the outer call nests it in a
-new one.  The name x is a Python str.  curry.expr converts it by the type
-the constructor expects, a String, also when the name has one character.
+The inner call returns a Curry term, and the outer call nests it in a new
+one.  The name x is a Python str, always a String, also when the name has
+one character.
 
 The driver calls
 
-    curry.eval(Infer.infer, [], build(term))
+    curry.eval(Infer.infer([], build(term)))
 
 The empty Python list is the empty environment.  The call returns a
 generator of types.  A well-typed term yields one type.  An ill-typed term
@@ -119,7 +119,7 @@ first run also compiles the module.  It took about a second.
 
 Larger terms: a chain of applications f (f (... x)) of length 150 took
 0.03 s, a chain of 500 took 0.3 s, and a chain of 700 took 0.5 s.  A chain
-of 1000 hit the recursion limit inside curry.expr.  A term on the command
+of 1000 reached the Python recursion limit in an earlier run.  A term on the command
 line has
 a lower limit.  A literal of 200 nested applications overflowed the parser
 of Python.

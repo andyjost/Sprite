@@ -117,7 +117,7 @@ class REPL(object):
 
   def defaultaction(self, value):
     '''The default handler for values.'''
-    print(value)
+    print(curry.show(value))
 
   def enter(self):
     '''Enter the loop.'''

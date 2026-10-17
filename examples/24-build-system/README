@@ -226,7 +226,7 @@ pay the front end again.
 The variables are read by introspection.  Every definition of the module
 whose name starts with an uppercase letter and whose type is String is a
 variable.  dir(module) lists the names, curry.typeof gives the type, and
-curry.eval(symbol, converter='topython') gives the values.  Each value is one
+curry.eval(symbol) gives the values.  Each value is one
 row of the table, so a definition with two values gives two rows.  The table
 goes to Curry for $(NAME) and into the environment of every recipe the driver
 runs.
@@ -234,14 +234,14 @@ runs.
 One build, many questions.  The driver builds the Curry value of the build
 once,
 
-    curry.expr(Make.build, module.rule, module.depends, table, goal)
+    Make.build(module.rule, module.depends, table, goal)
 
 and passes the same node to every question.  A symbol with fewer arguments
-than it takes is a partial application in curry.expr: rule and depends go
+than it takes is a partial application of a term: rule and depends go
 to Curry as relations.  A makefile without depends gets Make.noDepends.  A
 deterministic question has one value, read with
 
-    next(curry.eval(goal, *args, converter='topython'), None)
+    next(curry.eval(goal(*args) if args else goal), None)
 
 The plan has no value on a cycle, and the driver reads None then.  The
 inverse query has one value per target, and the driver sorts them, because

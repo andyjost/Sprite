@@ -1,11 +1,10 @@
 % python go.py
 x =:= 1 where x free -> ['{x=1} True']
-xs ++ [3] =:= [1,2,3] where xs free -> ['{xs=[1, 2]} True']
-(xs =:= [1], [0]) where xs free -> ['{xs=[1]} (True, [0])']
-(xs =:= [1 :: Int], [0 :: Int]) where xs free -> ['(True, [0])']
+xs ++ [3] =:= [1,2,3] where xs free -> ['{xs=[1,2]} True']
+(xs =:= [1], [0]) where xs free -> ['{xs=[1]} (True,[0])']
+(xs =:= [1 :: Int], [0 :: Int]) where xs free -> ['{xs=[1]} (True,[0])']
 x =:= 1 where x free -- comment -> ['True']
-x =:= 1 where x free (exprtype='Bool') -> ['True']
-xs ++ ys =:= [1,2] where xs, ys free -> ['{xs=[1, 2], ys=[]} True', '{xs=[1], ys=[2]} True', '{xs=[], ys=[1, 2]} True']
-converted -> ['True']
+(x =:= 1) :: Bool where x free -> ['{x=1} True']
+xs ++ ys =:= [1,2] where xs, ys free -> ['{xs=[1,2], ys=[]} True', '{xs=[1], ys=[2]} True', '{xs=[], ys=[1,2]} True']
   value: True  bindings: {xs=[1,2]}
-typeof of the lifted goal -> a
+typeof of the lifted goal -> Bool

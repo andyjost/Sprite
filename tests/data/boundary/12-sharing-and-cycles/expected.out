@@ -5,11 +5,10 @@ double coin -> [0, 2]
 coin + coin -> [0, 1, 1, 2]
 vals(t) -> [0, 1]
 vals(t), again -> [0, 1]
-str (take 3 a) -> 'take 3 [1, ...]'
+str (take 3 a) -> 'take 3 (let a = 1 : a in a)'
 take 3 a -> [[1, 1, 1]]
 (c, c) -> [(1, 1), (2, 2)]
 (1 ? 2, 1 ? 2) -> [(1, 1), (1, 2), (2, 1), (2, 2)]
-convertor='topython' -> [2]
-str (choice 1 2) -> '(?) 1 2'
+str (choice 1 2) -> '1 ? 2'
 choice 1 2 -> [1, 2]
 choice 1 2 3 -> [1, 2, 3]

@@ -41,10 +41,7 @@ def solve(addends, result):
   '''Returns the solutions as lists of numbers, one per word, sorted.'''
   # Each value of solveCrypt is one assignment, converted to a list of
   # (letter, digit) pairs.  The order of the values is not fixed, so sort.
-  values = curry.eval(
-      Crypt.solveCrypt, addends, result
-    , converter='topython'
-    )
+  values = curry.eval(Crypt.solveCrypt(addends, result))
   solutions = []
   for env in values:
     digits = dict(env)

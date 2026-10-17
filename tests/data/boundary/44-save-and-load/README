@@ -1,19 +1,11 @@
-44-save-and-load: curry.save and curry.load of a module and of a program on
-the Python backend.
+Save and load
+=============
 
-Seam: curry.save with module_main=False, with goal='main', without either,
-and with a symbol as the goal; curry.save without a file name; curry.load
-after a reset; the saved program run by the Python of the installation.
-The run script copies go.py and M.curry into a temporary directory.
-Sources: memo A16; catalogue P31, P39; example 04; Using the API,
-"Writing Compiled Code to Disk".
-Backends: py.  curry.load reads .so files alone on the C++ backend, and
-the form of a saved program there is the open decision of #82 stage 5
-(P31).  Oracle: none.
+Seam: A saved Python module round-trips; a saved program runs its named goal.
+The landed save retains goal= and module_main=False until lane 5 lands.
 
-Expected output: M.f is 42; the two saved files are M.py and Prog.py; save
-without a goal is a ValueError and goal=M.main a TypeError (P39); the text
-of the module starts with "# SECTION: .header"; after the reset load gives
-the module M with f 42, registered in curry.modules, and a second load
-returns the same object.  The saved program prints [42, 43], the values
-of main.  Pins no defect.
+Run ./run after make stage, or run unit_boundary.py from tests/.
+The run script selects the staged Python and the session backend.
+expected.out records stdout; stderr is shown on failure by the test.
+The driver comments explain the individual probes and their order.
+The corpus README.md lists the backends and the oracle for this driver.

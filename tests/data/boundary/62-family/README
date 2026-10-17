@@ -1,19 +1,11 @@
-62-family: the family databases in four styles, asked from Python.
+Family databases
+================
 
-Seam: four modules imported by name; the same questions as goals with zero
-to two free parameters, the markers from curry.free() paired with the goal
-in a tuple; persons are constructors of a user type, shown by str.
-Sources: PAKCS 3.4.1 examples family_rel.curry, family_con.curry,
-family_fun.curry, family_nd.curry (Michael Hanus, BSD license);
-catalogue P5, P7, P23.
-Backends: py, cxx.  Oracle: oracle.out (PAKCS 3.4.1 on the same goals).
+Seam: Four database styles ask corresponding questions through typed calls.
+Each module has its own Person type and its own variables.
 
-Expected output: in every style the children of John are Peter and Susan
-and the grandfather pairs are the four of PAKCS; family_fun goal4 lists the
-six ancestors of Andrew; family_nd goal2 pairs each grandparent with c.
-The order of the values is the scheduler's under step mode and differs from
-PAKCS's order.  family_nd goal3 (ancestor Andrew) is not run: the rule
-ancestor p = father (ancestor p) has no end, and under the 2 GB cap the C++
-backend raised MemoryError (std::bad_alloc) after six values, in six
-seconds.  family_fun goal5 (every ancestor pair) is left out as well.
-Pins no defect.
+Run ./run after make stage, or run unit_boundary.py from tests/.
+The run script selects the staged Python and the session backend.
+expected.out records stdout; stderr is shown on failure by the test.
+The driver comments explain the individual probes and their order.
+The corpus README.md lists the backends and the oracle for this driver.

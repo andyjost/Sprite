@@ -1,17 +1,16 @@
 % python go.py
 a == b -> True
-hash(a) == hash(b) -> False
-len({a, b}) -> 2
-a == 42 -> False
-sorted(coins) !! TypeError
-sorted(coins, key=str) -> [<Int 1>, <Int 2>]
-(str(f), bool(f)) -> ('False', True)
-len(n) !! TypeError
-n[0], n[1] -> <Int 1> <: <Int 2> <[]>>
-e -> <inc <Int 1>>
-vals(e) -> [2]
-e after -> <_Fwd <Int 2>>
-vals(e) again -> [2]
-topython(e) -> <_Fwd <Int 2>>
+hash(a) == hash(b) -> True
+len({a, b}) -> 1
+a == 42 -> True
+sorted(coins) -> [1, 2]
+sorted(coins, key=str) -> [1, 2]
+(str(f), bool(f)) -> ('False', False)
+len(n) -> 2
+n[0], n[1] -> 1 2
+e -> <Term inc 1 :: Int>
+list(eval(e)) -> [2]
+e after -> <Term inc 1 :: Int>
+list(eval(e)) again -> [2]
 typeof(e) -> Int
-typeof(typed(e, 'Bool')) -> Bool
+typeof(term(e, type='Bool')) !! ExprTypeMismatchError: exprtype Bool does not match the inferred type Int

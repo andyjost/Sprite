@@ -2,6 +2,7 @@
 map inc [1, 2] -> [[2, 3]]
 typeof inc -> 'Int -> Int'
 typeof (rule 'a') -> '[[Char]] -> [Char]'
+str (rule 'a') -> 'rule "a"'
 map (rule 'a') inputs -> [['cmd1', 'cmd2']]
 str (id inc 1) -> 'apply (id inc) 1'
 id inc 1 -> [2]

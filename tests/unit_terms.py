@@ -6,6 +6,28 @@ import os
 
 class TestTerms(cytest.TestCase):
 
+  def test_deep_values_convert_and_show(self):
+    # The tools convert and print a deep constructor value on both backends.
+    M = curry.compile("""
+      data Depth = Zero | Next Depth
+      depth :: Int -> Depth
+      depth 0 = Zero
+      depth n | n > 0 = Next (depth (n-1))
+    """)
+    value = curry.eval(M.depth(1200)).one()
+    shown = curry.show(value)
+    self.assertEqual(shown, 'Next (' * 1199 + 'Next Zero' + ')' * 1199)
+    for _ in range(1200):
+      self.assertIsInstance(value, curry.Data)
+      value, = value.args
+    self.assertEqual(value.symbol.name, 'Zero')
+
+  def test_show_deep_containers(self):
+    value = 1
+    for _ in range(1200):
+      value = [value]
+    self.assertEqual(curry.show(value), '[' * 1200 + '1' + ']' * 1200)
+
   def test_deep_container_conversion(self):
     nested = 1
     for _ in range(500):

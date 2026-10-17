@@ -15,7 +15,7 @@ from curry.backends.cxx import tiered
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 def vals(*goal):
-  return list(curry.eval(*goal, converter='topython'))
+  return list(curry.eval(goal[0](*goal[1:]) if len(goal) > 1 else goal[0]))
 
 def write(n):
   '''Writes Ed.curry with f = n.'''

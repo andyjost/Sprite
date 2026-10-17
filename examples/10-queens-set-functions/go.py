@@ -28,10 +28,10 @@ def main(sizes):
     if not first:
       print()
     first = False
-    # One Curry call is a generator of solutions.  converter='topython' turns
+    # One Curry call is a generator of solutions.  the result conversion turns
     # each Curry list of Ints into a Python list of ints.  The order of the
     # values is not promised, so sort them before taking the smallest.
-    solutions = sorted(curry.eval(Queens.queens, n, converter='topython'))
+    solutions = sorted(curry.eval(Queens.queens(n)))
     if not solutions:
       print('n=%d: 0 solutions' % n)
       continue

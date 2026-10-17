@@ -35,9 +35,9 @@ The driver go.py adds its own directory to curry.path and imports the module
 Queens.  It calls the function queens with a Python int.  One call is a
 generator of solutions.  The driver collects every value with
 
-    curry.eval(Queens.queens, n, converter='topython')
+    curry.eval(Queens.queens(n))
 
-The converter turns each Curry list of Ints into a Python list of ints.  The
+Evaluation turns each Curry list of Ints into a Python list of ints.  The
 scheduler does not promise an order of the values, so the driver sorts the
 solutions.  It then counts them and draws the smallest board.
 

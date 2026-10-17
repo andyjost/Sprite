@@ -1,16 +1,11 @@
-64-infinite-lists: infinite lists consumed lazily from Python.
+Infinite lists
+==============
 
-Seam: a goal that takes a prefix of an infinite Curry list; Prelude.take
-applied from Python to a Curry symbol that is an infinite list; a goal with
-two free parameters narrowed over an infinite list; a Python iterator
-crossing the boundary as a lazy list.
-Sources: PAKCS 3.4.1 examples inflists.curry, First.curry (Michael Hanus,
-BSD license); memo A2 (an iterator as a list); catalogue P3, P5.
-Backends: py, cxx.  Oracle: oracle.out (PAKCS 3.4.1 on the same goals; the
-iterator line is spelled as a finite list there).
+Seam: Finite prefixes of fibs, primes and hamming; a lazy Python iterator.
+Conversion is eager, so take bounds an infinite Curry result first.
 
-Expected output: ten Fibonacci numbers, five primes, ten Hamming numbers;
-take 15 fibs the fifteen Fibonacci numbers; First.goal1 [O, S O];
-First.goal2 x y binds x to S O and y to O.  take 3 over itertools.count(10)
-gives [10, 11, 12], and the next element of the iterator afterwards is 13:
-only the three elements taken were drawn.  Pins no defect.
+Run ./run after make stage, or run unit_boundary.py from tests/.
+The run script selects the staged Python and the session backend.
+expected.out records stdout; stderr is shown on failure by the test.
+The driver comments explain the individual probes and their order.
+The corpus README.md lists the backends and the oracle for this driver.

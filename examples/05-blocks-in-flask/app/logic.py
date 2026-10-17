@@ -8,12 +8,12 @@ def get_solution(data):
       tuple(build_stack(data[fld]) for fld in fields)
           for fields in FORM
     )
-  goal = curry.expr(solver.solve, *configs)
+  goal = solver.solve(*configs)
   trace = next(curry.eval(goal))
   return show_trace(trace)
 
 def build_stack(stk):
-  return [curry.expr(getattr(solver, c)) for c in stk]
+  return [getattr(solver, c) for c in stk]
 
 def show_trace(trace):
   return '\n'.join(show_config(cfg) for cfg in trace)

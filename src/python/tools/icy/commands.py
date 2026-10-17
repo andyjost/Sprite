@@ -2,7 +2,6 @@ from . import options
 from .resolve import resolve
 import importlib, os, sys, traceback
 curry = importlib.import_module(__package__[:__package__.find('.')])
-_compile = importlib.import_module(curry.__name__ + '.interpreter.compile')
 _import = importlib.import_module(curry.__name__ + '.interpreter.import_')
 
 __all__ = ['COMMANDS', 'eval', 'load']
@@ -66,9 +65,8 @@ def cmdEval(repl):
     # The expression goes to curry.eval and is not kept here.  A reference
     # to the root of the goal keeps the history of the search reachable
     # while the evaluation runs; see curry.typecheck.goals.Goal.evaluate.
-    values = iter(curry.eval(
-        curry.compile(' '.join(repl.args), mode='expr', imports=imports(repl))
-      , converter=None
+    values = iter(curry.solve(
+        curry.parse(' '.join(repl.args), imports=imports(repl))
       ))
     while True:
       try:
@@ -96,11 +94,7 @@ def cmdType(repl):
   if not repl.args:
     raise ValueError("No argument provided to ':type'")
   text = ' '.join(repl.args)
-  scheme = _compile.expression_scheme(
-      curry.getInterpreter(), text, imports=imports(repl)
-    )
-  module = None if repl.module is None else repl.module.__name__
-  print('%s :: %s' % (text, curry.typecheck.show_scheme(scheme, module=module)))
+  print('%s :: %s' % (text, curry.typeof(curry.parse(text, imports=imports(repl)))))
 
 def cmdSet(repl):
   '''Executes a :set command.  May update ``repl.options``.'''

@@ -3,14 +3,14 @@ length [1, 2, 3] -> [3]
 concat [[1, 2], [], [3]] -> [[1, 2, 3]]
 [[1, 2], [], [3]] -> [[[1, 2], [], [3]]]
 [1, 2.5] -> [[1.0, 2.5]]
-typeof [1, 2.5] -> 'Fractional a => [a]'
+typeof [1, 2.5] -> '[Float]'
 () -> [()]
 (1,) !! ConversionError: a Curry tuple has zero or 2 to 15 components
 tuple(range(14)) -> [(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)]
-typeof tuple(range(15)) -> '(Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)'
+typeof tuple(range(15)) -> '(Num a, Num b, Num c, Num d, Num e, Num f, Num g, Num h, Num i, Num j, Num k, Num l, Num m, Num n, Num o) => (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o)'
 tuple(range(15)) -> [(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)]
 tuple(range(16)) !! ConversionError: a Curry tuple has zero or 2 to 15 components
-range(3) !! CurryTypeError: cannot build a Curry expression from type 'range'
+range(3) -> [3]
 list(range(3)) -> [3]
 take 3 (count 10) -> [[10, 11, 12]]
 length it -> [2]

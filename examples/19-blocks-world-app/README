@@ -44,18 +44,17 @@ The driver go.py is a small application built with argparse:
 A world is three stacks separated by slashes.  Write each stack from its
 top block to its bottom block.  The driver checks the notation and builds
 the Curry data itself.  Each block is the expression of a constructor,
-curry.expr(Blocks.A).  A Python list whose first element is a Curry symbol
-is an application, not a list, so a stack is a list of such expressions.
+Blocks.A.  A stack is a Python list of these constructor terms.
 A Python tuple of three lists becomes the Curry tuple World.
 
 One call,
 
-    curry.eval(Blocks.plan, bound, start, goal, converter='topython')
+    curry.eval(Blocks.plan(bound, start, goal))
 
 is a generator of plans.  The driver takes the first one with next() and
 discards the generator.  This stops the search.  A bound with no plan
 yields zero values, so next() returns the default None, and the driver
-tries the next bound.  The converter turns the trace into a Python list of
+tries the next bound.  Evaluation turns the trace into a Python list of
 tuples of lists.  The blocks come back as Curry constructors.  str() of one
 gives its name, and the driver uses that to draw the stacks.
 

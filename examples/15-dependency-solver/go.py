@@ -87,8 +87,7 @@ def lockfile(plan):
   chosen = dict(plan)
   lines = []
   for name, version in sorted(plan):
-    reqs = next(curry.eval(Deps.requires, INDEX, (name, version),
-                           converter='topython'))
+    reqs = next(curry.eval(Deps.requires(INDEX, (name, version))))
     deps = ['%s %d' % (dep, chosen[dep]) for dep, _ in reqs]
     lines += ['[[package]]', 'name = "%s"' % name, 'version = %d' % version]
     if deps:
@@ -99,8 +98,7 @@ def lockfile(plan):
 
 def solvable(index, yanked, lock, roots):
   '''True when the roots have a plan over the index.'''
-  return next(curry.eval(Deps.solvable, index, yanked, lock, roots,
-                         converter='topython'))
+  return next(curry.eval(Deps.solvable(index, yanked, lock, roots)))
 
 def explain(yanked, lock, roots):
   '''Prints why the roots have no plan: the requirements whose deletion
@@ -126,8 +124,7 @@ def explain(yanked, lock, roots):
   # The better explanation.  Every branch of the search ends in a violation,
   # and every violation is one value of conflict.  The order of the values is
   # not promised, so sort them.
-  conflicts = curry.eval(Deps.conflict, INDEX, yanked, lock, roots,
-                         converter='topython')
+  conflicts = curry.eval(Deps.conflict(INDEX, yanked, lock, roots))
   lines = set()
   for (req, by), clash, trace in conflicts:
     name, (lo, hi) = req
@@ -172,16 +169,15 @@ def main(args):
     print('locked: ' + ', '.join(show_pin(pin) for pin in lock))
   # A root that the index does not know is a mistake in the question, not a
   # plan that does not exist.  Ask before the search.
-  unknown = next(curry.eval(Deps.unknown, INDEX, roots, converter='topython'))
+  unknown = next(curry.eval(Deps.unknown(INDEX, roots)))
   if unknown:
     print('no such package: ' + ', '.join(unknown))
     return 2
   # One call.  curry.eval converts the nested tuples, lists, strs and ints of
   # the index, the pins and the roots by the parameter types of preferred;
-  # converter='topython' turns the plan into a list of (str, int) pairs.
+  # the result conversion turns the plan into a list of (str, int) pairs.
   # preferred is deterministic, so the generator has one value or none.
-  plan = next(curry.eval(Deps.preferred, INDEX, yanked, lock, roots,
-                         converter='topython'), None)
+  plan = next(curry.eval(Deps.preferred(INDEX, yanked, lock, roots)), None)
   if plan is None:
     print('no plan')
     explain(yanked, lock, roots)

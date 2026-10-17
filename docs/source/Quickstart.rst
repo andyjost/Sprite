@@ -81,221 +81,258 @@ run script, a README, and its expected output.  See :doc:`Examples`.
 Python API Quickstart
 =====================
 
-The Python API is where the imperative, functional, and logic paradigms are
-integrated.  It provides the 'glue' with which one creates, compiles, saves,
-loads, and executes Curry code.
+Use ``install/bin/python`` and run the following examples from ``examples/``.
 
-To begin, start Python:
+Importing and inspecting
+========================
 
-.. code-block:: bash
-
-    % install/bin/python
-
-To import Sprite, say:
+Run these examples from a directory containing ``Peano.curry`` (the file
+in ``examples/``).  Imports search ``curry.path`` and the installed library.
+The ``curry.lib`` import hook is also available.
 
     >>> import curry
-
-Use ``dir`` and ``help`` to explore package :mod:`curry` for yourself.  To list
-the functions, submoudles, and other objects provided by Sprite, say:
-
-    >>> dir(curry)  # doctest: +SKIP
-
-To read the help documentation, pass any of these objects to the ``help``
-command.  Take this opportunity to say:
-
-    >>> help(curry)  # doctest: +SKIP
-
-.. tip::
-
-    A basic familiarity with Python is assumed.  The `Python Tutorial`_
-    provides an excellent primer.
-
-Importing Curry
----------------
-
-To load a Curry module in to Python, import it relative to the virtual package
-:mod:`curry.lib`:
-
-    >>> from curry.lib import Prelude
-
-This statement uses CURRYPATH to search for Curry files.  Sprite automatically
-appends its path to system Curry libraries, such as the Prelude.  The CURRYPATH
-is reflected in Python as the list variable :data:`curry.path`.  Updating this
-modifies the search path dynamically.
-
-To load ``Peano``, first add the current directory, ``examples/``, to the
-search path and then import it:
-
     >>> curry.path.insert(0, '.')
-    >>> from curry.lib import Peano
+    >>> P = curry.import_('Prelude')
+    >>> Peano = curry.import_('Peano')
+    >>> curry.import_('Peano') is Peano
+    True
+    >>> curry.modules['Peano'] is Peano
+    True
 
-Accessing Symbols
------------------
+A symbol is a term.  Calling it builds an application without evaluating it.
+Operators and Python keywords are available through item lookup.
+Metadata lives under ``curry.info(module)``; it includes the module's name,
+file, symbols and types.  A type is metadata rather than a module attribute.
 
-Curry symbols are constructor and function names (but not type names).  The
-public symbols of ``Peano`` are exposed as attributes of the module object:
+    >>> print(Peano.S)
+    S
+    >>> print(Peano.add)
+    add
+    >>> print(P['+'])
+    (+)
+    >>> curry.info(Peano).name
+    'Peano'
+    >>> sorted(curry.info(Peano).types)
+    ['Nat']
+    >>> [c.name for c in curry.info(Peano).types['Nat'].constructors]
+    ['O', 'S']
 
-    >>> Peano.S
-    <Term S :: Nat -> Nat>
-    >>> Peano.add
-    <Term add :: Nat -> Nat -> Nat>
+Building terms
+==============
 
-Not all Curry symbols are valid Python identifiers.  Seven names of the
-Prelude are Python keywords: ``not``, ``and``, ``or``, ``break``,
-``return``, ``True`` and ``False``.  Use ``getattr`` to access these:
+A held ``Term`` describes a computation.  It is typed at construction and
+remains unchanged by evaluation.  Partial applications are terms too.
+Use ``curry.term`` for Python values and ``type=`` for an annotation.
+A Python list always describes a list value, including a list of symbols.
 
-    >>> getattr(Prelude, '++')
-    <Term (++) :: [a] -> [a] -> [a]>
-
-You may also find symbols by their full names using :func:`curry.symbol`:
-
-    >>> curry.symbol('Prelude.++')
-    <Term (++) :: [a] -> [a] -> [a]>
-
-
-Building and Evaluating Goals
------------------------------
-
-To build a goal, use :func:`curry.compile` with mode ``'expr'``:
-
-    >>> goal = curry.compile(
-    ...     'add (S O) (S O)', mode='expr', exprtype='Nat', imports=[Peano]
-    ...   )
-
-``exprtype`` names the type of the expression.  Without it, the front end
-infers the type, and class constraints are defaulted as the REPL of PAKCS
-does: ``curry.compile('1 + 2', mode='expr')`` evaluates to the ``Int``
-``3``.
-
-To evaluate the goal, use :func:`curry.eval`.
-
-    >>> values = curry.eval(goal)
-
-Since Curry evaluations can produce multiple values, the result is an `iterable
-<https://wiki.python.org/moin/Iterator>`_ object.  To print one value, say:
-
-    >>> print(next(values))
+    >>> goal = Peano.add(Peano.S(Peano.O), Peano.S(Peano.O))
+    >>> print(goal)
+    add (S O) (S O)
+    >>> print(curry.eval(goal).one())
     S (S O)
-
-To place the values into a list, say:
-
-    >>> values = list(curry.eval(goal))
-
-To iterate over the values, write a `for
-<https://docs.python.org/3/reference/compound_stmts.html#the-for-statement>`_
-loop:
-
-    >>> for value in curry.eval(goal):
-    ...   print(value)  # your code here; use break to terminate evaluation.
-    ...   break
+    >>> print(goal)
+    add (S O) (S O)
+    >>> print(Peano.S(Peano.S(Peano.O)))
     S (S O)
+    >>> curry.eval(P.length([Peano.O, Peano.O])).one()
+    2
+    >>> curry.eval(P.map(P['+'](1), [2, 3])).one()
+    [3, 4]
+    >>> curry.eval(curry.term(1, type='Float')).one()
+    1.0
 
-To partially evaluate an expression, simply discard the iteratable before it is
-exhaused.
+Curry text uses ``curry.parse``.  Imports are a sequence of modules or module
+names.  Type annotations belong in the text.  A bare Python string passed
+to evaluation is refused: choose text parsing or a String value explicitly.
 
-.. tip::
-
-    When the number of values is known and you wish to capture them all, use
-    an unpacking assignment.  For example:
-
-        >>> result, = curry.eval(goal)
-
-    Note the comma following ``result``.  This construct completely evaluates
-    the goal, checks that it produced exactly one result, and binds that to
-    ``value``.  If multiple values are expected, use a comma-separated list:
-
-        >>> two = curry.compile(
-        ...     'S O ? S (S O)', mode='expr', exprtype='Nat', imports=[Peano]
-        ...   )
-        >>> a, b = curry.eval(two)
-        >>> print(a, b)
-        S O S (S O)
-
-Building Curry Expressions in Python
-------------------------------------
-
-:func:`curry.compile` invokes the Curry frontend, which can be quite slow (see
-:ref:`important-notes`).  To build expressions more quickly, use
-:func:`curry.expr`.
-
-    >>> goal2 = curry.expr(Peano.add, [Peano.S, Peano.O], [Peano.S, Peano.O])
-    >>> print(next(curry.eval(goal2)))
+    >>> parsed = curry.parse('add (S O) (S O)', imports=[Peano])
+    >>> print(curry.eval(parsed).one())
     S (S O)
-
-:func:`curry.expr` types the expression before it builds it.  It reads the
-type of each symbol from the interface the front end wrote, converts each
-Python value by the type its position expects, and supplies the class
-dictionaries of overloaded functions.  So a class method can be called from
-Python, and a type error is reported when the expression is built, not
-when it is evaluated:
-
-    >>> plus = curry.symbol('Prelude.+')
-    >>> print(next(curry.eval(plus, 1, 2)))
+    >>> curry.eval(curry.parse('1 + 2 :: Int')).one()
     3
-    >>> curry.typeof(curry.expr(plus, 1, 2))
+    >>> curry.eval(curry.term('hello')).one()
+    'hello'
+
+``curry.compile`` builds a module from source text.  The current session
+lane uses ``modulename=`` when a specific module name is needed.
+
+    >>> M = curry.compile('double :: Int -> Int\ndouble x = x + x', modulename='Double')
+    >>> curry.eval(M.double(4)).one()
+    8
+
+Types and conversions
+=====================
+
+Construction reads the type schemes of symbols from their FlatCurry
+interfaces, unifies the arguments, and supplies class dictionaries.
+``curry.typeof`` returns Curry type text before defaulting.
+``defaulted=True`` asks for the type evaluation will use.
+
+    >>> curry.typeof(P['+'](1, 2))
     'Num a => a'
-    >>> curry.expr(getattr(Prelude, 'not'), 1)
+    >>> curry.typeof(P['+'](1, 2), defaulted=True)
+    'Int'
+    >>> curry.typeof([1, 2.5])
+    '[Float]'
+    >>> curry.typeof((1, 2.5))
+    'Num a => (a, Float)'
+    >>> curry.typeof(curry.term(1, type='Float'))
+    'Float'
+
+Python ``bool``, ``int`` and ``float`` become Bool, a numeric literal and
+Float respectively.  An integer outside the signed 64-bit range is an
+``IntOverflowError``.  A Python ``str`` is always a String; ``curry.Char``
+spells a Char.  Lists are homogeneous, tuples have zero or two through
+fifteen components, and ranges become lists.  An iterator is consumed
+lazily; a type annotation can state its element type without consuming it.
+Bytes, dictionaries, sets and None are refused.  Use explicit data such as
+``P.Nothing`` or ``P.Just(x)`` for an optional value.
+
+    >>> curry.eval(P.ord(curry.Char('a'))).one()
+    97
+    >>> curry.eval(P.length('a')).one()
+    1
+    >>> curry.eval(P.Just(3)).one().args
+    (3,)
+    >>> curry.eval(P.take(3, iter(range(10)))).one()
+    [0, 1, 2]
+    >>> curry.eval([1, 2.5]).one()
+    [1.0, 2.5]
+
+Class constraints default as in the PAKCS REPL: Num and Integral to Int,
+Fractional and Floating to Float, Monad to IO, and a lone Data to Bool.
+Other ambiguous constraints raise ``DefaultingError``.  A held partial
+application has already been typed; a later call unifies with that type.
+
+Errors
+======
+
+All public errors descend from ``curry.CurryError``, an Exception.
+``CurryTypeError`` also derives from TypeError.  Its children distinguish
+conversion, mismatch, arity, instance and type-annotation failures.
+Construction errors name the argument and symbol.  Evaluation errors are
+raised when the Results advances.  ``NoValueError`` and ``ManyValuesError``
+are the two cardinality errors of ``one()``.
+
+    >>> issubclass(curry.ConversionError, curry.CurryTypeError)
+    True
+    >>> issubclass(curry.CurryTypeError, TypeError)
+    True
+    >>> issubclass(curry.EvaluationError, curry.CurryError)
+    True
+    >>> P['not'](1)
     Traceback (most recent call last):
       ...
-    curry.typecheck.errors.ConversionError: cannot convert 1 to Bool at argument 1 of Prelude.not :: Bool -> Bool
+    curry.typecheck.errors.ConversionError: cannot convert 1 to Bool at argument 1 of Prelude.not :: Bool -> Bool: an int is a numeric literal; write True or False
 
-See :ref:`typed-expressions` for the conversion rules.  The untyped builder
-:func:`curry.raw_expr` remains for the runtime and its tests; evaluating an
-ill-typed expression built with it results in undefined behavior.
+Choices and sharing
+===================
 
-To build an expression containing a choice, use ``Prelude.?``:
+Each choice represents a nondeterministic computation.  One held Python
+term used twice shares that computation.  Two separate reads of a function
+symbol build independent computations.  The order of search values is the
+scheduler's; sort when the order is irrelevant.
 
-    >>> print(curry.expr(getattr(Prelude, '?'), 1, 2))
-    (?) 1 2
+    >>> coin = curry.choice(0, 1)
+    >>> sorted(curry.eval((coin, coin)))
+    [(0, 0), (1, 1)]
+    >>> sorted(curry.eval((curry.choice(0, 1), curry.choice(0, 1))))
+    [(0, 0), (0, 1), (1, 0), (1, 1)]
 
-To build an expression containing a free variable, use :class:`curry.free`.
-One marker is one variable: the expression holds a call of
-``Prelude.unknown``, and the first rewrite step turns it into the variable.
+Cycles can be written in Curry text.  Consume a finite prefix before
+conversion: the outbound conversion is eager, with no lazy list view.
 
-    >>> xs = curry.free()
-    >>> print(curry.expr(xs))
-    unknown _inst#Prelude.Data#Prelude.Bool
-    >>> print(next(curry.eval(xs)))
-    _a
+    >>> cycle = curry.parse('take 4 xs where xs = 1 : xs')
+    >>> curry.eval(cycle).one()
+    [1, 1, 1, 1]
 
-To build a cons-style list, either use the symbols ``Prelude.:`` and
-``Prelude.[]`` directly or employ :class:`curry.cons` and :data:`curry.nil`:
+Variables and answers
+=====================
 
-    >>> print(curry.expr(curry.cons(1, curry.nil)))
-    [1]
-    >>> print(curry.expr(curry.cons(1, 2, 3, curry.nil)))
-    [1, 2, 3]
+``curry.free(name)`` creates one named variable.  Reusing that Python object
+shares the variable within a goal.  Bindings belong to an evaluation; the
+variable's static type persists.  ``curry.anonymous`` creates a distinct
+unnamed variable at every occurrence.  ``solve`` yields an ``Answer`` whose
+``value`` is converted and whose ``bindings`` is a ``Bindings`` mapping,
+indexed by name or by the original Var.  Evaluation alone yields values.
 
-Nonlinear expressions contain a cycles or shared subexpressions.  To build a
-nonlinear expression, define a named subexpression and refer to it with
-:class:`curry.ref`.  For example, the following constructs ``let a=(1:a) in
-a``:
+    >>> x = curry.free('x', type='Int')
+    >>> goal = P['=:='](x, 3)
+    >>> curry.eval(goal).one()
+    True
+    >>> answer = curry.solve(goal).one()
+    >>> answer.value
+    True
+    >>> answer.bindings['x'], answer.bindings[x]
+    (3, 3)
+    >>> curry.show(answer)
+    '{x=3} True'
+    >>> curry.solve(P['=:='](x, 4)).one().bindings[x]
+    4
+    >>> goal = curry.parse('xs ++ [3] =:= [1,2,3] where xs free')
+    >>> curry.show(curry.solve(goal).one())
+    '{xs=[1,2]} True'
+    >>> goal = curry.term((curry.anonymous, curry.anonymous), type='(Int, Int)')
+    >>> list(curry.solve(goal).one().bindings)
+    []
 
-    >>> cons, ref = curry.cons, curry.ref
-    >>> curry.expr(ref('a'), a=cons(1, ref('a')))
-    <: <Int 1> ...>
+Results and outbound values
+===========================
 
-Converting Values
------------------
+``curry.eval`` and ``curry.solve`` return a lazy ``Results`` iterator.
+Nothing runs until it advances.  A break preserves its position; ``close``
+ends the search, and a context manager closes it on exit.  ``one()`` checks
+that exactly one value exists.  It reads a second value to detect ambiguity
+and raises ``ManyValuesError`` if one exists.  Failure produces no value;
+a suspension raises ``SuspensionError`` under ``EvaluationError``.
 
-To convert Curry values to Python, use :func:`curry.topython`:
+    >>> results = curry.eval(curry.choice(1, 2))
+    >>> isinstance(results, curry.Results)
+    True
+    >>> next(results)
+    1
+    >>> list(results)
+    [2]
+    >>> with curry.eval(curry.choice(1, 2)) as results:
+    ...   first = next(results)
+    >>> first, list(results)
+    (1, [])
+    >>> list(curry.eval(P.failed))
+    []
 
-    >>> cy123 = curry.expr([1, 2, 3])
-    >>> cy123
-    <: <Int 1> <: <Int 2> <: <Int 3> <[]>>>>
-    >>> py123 = curry.topython(cy123)
-    >>> py123
-    [1, 2, 3]
-    >>> type(py123)
-    <class 'list'>
+Built-in values become Python scalars, lists and tuples.  A Char remains a
+``Char``, distinct in type from str but equal to the same one-character
+string.  A user constructor becomes ``Data`` with ``symbol`` and ``args``;
+a function value becomes a callable ``Function``.  Set functions produce a
+finite multiset ``Values`` collection.  Converted values can enter later
+Curry calls.  ``curry.show`` prints Curry text, including nested values;
+Python's repr of a list follows Python's spacing and quoting.
 
-You may also instruct :func:`curry.eval` to convert results as they are
-generated:
+    >>> value = curry.eval(P.Just([1, 2])).one()
+    >>> isinstance(value, curry.Data)
+    True
+    >>> value.symbol.name, value.args
+    ('Just', ([1, 2],))
+    >>> curry.show(value)
+    'Just [1,2]'
+    >>> function = curry.eval(P['+'](1)).one()
+    >>> isinstance(function, curry.Function)
+    True
+    >>> curry.eval(function(2)).one()
+    3
+    >>> curry.show(curry.eval(curry.term('', type='String')).one())
+    '""'
+    >>> SF = curry.import_('Control.SetFunctions')
+    >>> values = curry.eval(SF.set0(curry.choice(1, 2))).one()
+    >>> isinstance(values, curry.Values), sorted(values)
+    (True, [1, 2])
 
-    >>> append = getattr(Prelude, '++')
-    >>> goal3 = curry.expr(append, [1], [2,3])
-    >>> next(curry.eval(goal3, converter='topython'))
-    [1, 2, 3]
+A Python-held term shared inside and outside ``set0`` follows weak
+encapsulation: whichever evaluation owns it first determines the result.
+Use ``SF.set1(P.id, term)`` to put the choice outside deliberately.
+A free argument narrows outside a set function, giving a set per binding.
+The deferred failure rule produces no value only when nothing inside
+succeeds and an outside failure is encountered.
 
 Saving Compiled Curry
 ---------------------

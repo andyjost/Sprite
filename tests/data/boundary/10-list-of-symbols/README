@@ -1,20 +1,11 @@
-A list of symbols is an application
-===================================
+Lists of symbols
+================
 
-Seam: a Python list whose first element is a symbol is an application, so
-a list of constructors or of functions cannot be spelled directly.  Issue
-#104, open: this driver pins today's output.  Memo: A1 (a list is a list,
-M.f(x) is the application).  Catalogue: P2, P44 (the errors name the
-symptom, not the rule).
-Output today: countItems [A, B] is an ArityError on A, and applyAll
-[inc, dbl] 5 is a MismatchError on the argument of inc.  The escapes run:
-[[A], [B]] and [curry.expr(A), B] count 2, and applyAll [[inc], [dbl]] 5
-is [6, 10]; [A] alone is the value A, not a list.  A tuple is never an
-application, so typeof (A, B) is a pair of Item.  The rule at work:
-[inc, 1] is the application inc 1, which prints as 'inc 1' and is 2.
-A fixed system prints 2 for countItems [A, B] and [6, 10] for applyAll
-[inc, dbl] 5 (the first two lines of expected.out change); the [inc, 1]
-lines would then build a list and fail at the type of its elements (a
-reading of memo A1, not a decision).
-No oracle: the goals are the spellings of the Python boundary.
-Backends: py and cxx, one output.
+Seam: A Python list of symbols is a list value; a call is an application.
+Lists of constructors and functions work without wrapping their elements.
+
+Run ./run after make stage, or run unit_boundary.py from tests/.
+The run script selects the staged Python and the session backend.
+expected.out records stdout; stderr is shown on failure by the test.
+The driver comments explain the individual probes and their order.
+The corpus README.md lists the backends and the oracle for this driver.

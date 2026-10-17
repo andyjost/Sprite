@@ -1,19 +1,11 @@
-50-set-functions: set functions applied from Python.
+Set functions
+=============
 
-Seam: set0, set1 and set2 of Control.SetFunctions applied to symbols of a
-module and to Python values; sortValues, isEmpty and values2list (an IO
-goal) read the set back; a free variable from curry.free() as the argument.
-Sources: memo A1 (the call form), section 4 item 13; catalogue P24 (the
-tail); issue #117 (closed; regression); decisions D25 to D28; issues #133
-and #134 (open, related, not pinned).
-Backends: py, cxx.  Oracle: none; PAKCS 3.4.1 under --nocypm cannot load a
-module that imports Control.SetFunctions.
+Seam: set0 through set2, captured choices, free arguments and nested sets.
+Values is a finite multiset; sortValues fixes the order for comparison.
 
-Expected output: set0 coin is [0, 1]; set2 rule gives the one command;
-a function that fails gives the empty set and isEmpty True; set1 inc coin
-gives two sets, one per value of the argument, which the set function does
-not encapsulate; ord2 gives ([10], 0) and ([11], 1) (#117: the captured
-choice is made outside the set); twice is [0, 1, 1, 2]; a failing argument
-gives no value, for sortValues and for isEmpty alike (the deferred rule);
-nested is [[0, 1]]; the free argument gives 11 values, 9 empty sets and
-the sets ["cmd1"] and ["cmd2"]; values2list yields its payload.
+Run ./run after make stage, or run unit_boundary.py from tests/.
+The run script selects the staged Python and the session backend.
+expected.out records stdout; stderr is shown on failure by the test.
+The driver comments explain the individual probes and their order.
+The corpus README.md lists the backends and the oracle for this driver.

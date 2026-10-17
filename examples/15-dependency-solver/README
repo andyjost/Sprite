@@ -125,14 +125,13 @@ and a requirement is a (name, (low, high)) tuple.  The roots have the same
 shape as the requirements.  The yanked versions and the lockfile are lists
 of (name, version) pairs.  One call,
 
-    curry.eval(Deps.preferred, INDEX, yanked, lock, roots,
-               converter='topython')
+    curry.eval(Deps.preferred(INDEX, yanked, lock, roots))
 
-passes all of it to Curry.  curry.expr converts each argument by the type of
+passes all of it to Curry.  curry.term converts each argument by the type of
 its parameter: tuples become Curry tuples, lists become Curry lists, ints
 become Ints, and a str becomes a String, also when the name has one
 character.  An empty Python list becomes an empty list of the parameter
-type.  The converter turns the plan into a Python list of (str, int) pairs.
+type.  Evaluation turns the plan into a Python list of (str, int) pairs.
 preferred is deterministic, so the generator has one value or none, and
 next(..., None) reads it.
 

@@ -1,20 +1,11 @@
-33-nested-empty-lists: a value with the empty list at two types crosses
-back into a typed call.  Pins issue #108 (open).
+Nested empty lists
+==================
 
-Seam: the typed walk of a value of curry.eval, a raw node and a recorded
-curry.expr([]) with [] at two types; the shared [] node of the C++ backend.
-Sources: catalogue P19, P22; issue #108; the memo's revision note on the
-shared empty list under the identity-keyed record.  Backends: py, cxx.
-Oracle: none, the goals are Python.
+Seam: Converted values containing empty lists enter new typed calls.
+Held terms share; curry.term(value, type=...) states a checked annotation.
 
-Expected output: every line passes.  The values of the issue type as
-[[Int]], [[Char]] and ([Int], [Char]); unwords of the value ['ab', 'c']
-gives 'ab c'; a recorded curry.expr([]) reused at two types in one
-expression types as ([a], Int) and [[Char]]; one [] node of a value used
-at [Int] and at String in one call passes through id; a value with [] at
-two types types as ([a], [b]) and passes through id.  The issue says these
-lines raise MismatchError on the C++ backend.  On 2026-10-15 at ef96509d
-none did, on either backend, although the empty list is one shared node
-there (curry.expr([]) is curry.expr([]) holds on cxx and not on py, so
-that fact stays out of expected.out).  The owner decides what the issue
-pins now; a fixed or a regressed walk changes this file visibly.
+Run ./run after make stage, or run unit_boundary.py from tests/.
+The run script selects the staged Python and the session backend.
+expected.out records stdout; stderr is shown on failure by the test.
+The driver comments explain the individual probes and their order.
+The corpus README.md lists the backends and the oracle for this driver.

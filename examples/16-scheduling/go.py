@@ -44,8 +44,7 @@ def first_schedule(tasks, precedences, horizon):
   '''
   # curry.eval converts the tuples, lists, strs and ints by the parameter
   # types of schedule.
-  values = curry.eval(Sched.schedule, tasks, precedences, horizon,
-                      converter='topython')
+  values = curry.eval(Sched.schedule(tasks, precedences, horizon))
   return next(values, None)
 
 def by_start(tasks, schedule):

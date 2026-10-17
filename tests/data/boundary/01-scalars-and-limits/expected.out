@@ -13,7 +13,7 @@ sqrt 4 -> [2.0]
 1 + 2.5 -> [3.5]
 succ 1 -> [2]
 typeof 1 -> 'Num a => a'
-typeof 1, defaulted -> 'Int'
-typeof 1.5 -> 'Fractional a => a'
-typeof 1.5, defaulted -> 'Float'
-succ 1.5 !! DefaultingError: cannot handle the overloaded goal succ 1.5 of type (Enum a, Fractional a) => a
+typeof 1, defaulted -> 'int'
+typeof 1.5 -> 'Float'
+typeof 1.5, defaulted -> 'float'
+succ 1.5 !! NoInstanceError: no instance for Enum Float in argument 1 of Prelude.succ

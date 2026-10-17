@@ -29,17 +29,17 @@ constructors and functions of the module are attributes of that object.
 
 Building a goal without the front end.  The call
 
-    curry.expr(Nat.natToInt, [Nat.I, Nat.O])
+    Nat.natToInt(Nat.I(Nat.O))
 
-builds the expression natToInt (I O) directly.  A Python list whose first
-element is a Curry symbol is an application of that symbol.
+builds the expression natToInt (I O) directly.  A call applies a symbol; a
+Python list always describes a list value.
 
 Compiling an expression.  The call
 
-    curry.compile('natFromInt 3', mode='expr', imports=Nat)
+    curry.parse('natFromInt 3', imports=[Nat])
 
 passes an expression to the front end, with the module Nat in scope.  The
-front end checks the types.  curry.expr checks them too, from the type
+front end checks the types.  Symbol calls check them too, from the type
 schemes in the interface the front end wrote for Nat.  It reports an error
 when the expression is built.
 

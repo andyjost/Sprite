@@ -56,12 +56,12 @@ so the driver does not touch curry.path.
 
 Curry extracts, Python aggregates.  For each line the driver calls
 
-    curry.eval(Rules.field, 'status', line + ' ', converter='topython')
+    curry.eval(Rules.field('status', line + ' '))
 
-curry.eval converts each Python str by the type of its parameter, a String,
+The symbol call converts each Python str to a String,
 also when the str has one character.  The driver appends one space to the
 line, so the last field matches too.  The call is a generator of values.
-The converter turns each Curry String into a Python str, the empty String
+Evaluation turns each Curry String into a Python str, the empty String
 into ''.  The driver sorts the values, because the scheduler does not
 promise an order, and counts them with collections.Counter.
 

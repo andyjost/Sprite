@@ -50,14 +50,14 @@ The typed boundary
 ==================
 
 Sprite reads the type scheme of every symbol from the FlatCurry interface
-beside its module.  :func:`curry.expr` types an expression before it
-builds it, converts Python values by the expected type, supplies the class
-dictionaries, and reports a typing failure at construction with
+beside its module.  ``curry.term`` and symbol calls type expressions at construction,
+convert Python values by the expected type, supply the class
+dictionaries, and report a typing failure at construction with
 :ref:`the error catalogue <typed-errors>`.  A goal without a type signature keeps
 its class constraints, and :func:`curry.eval`, the REPL, ``sprite-exec
 -g`` and ``curry.save`` default them with the table of the PAKCS REPL
 (:ref:`goal-defaulting`).  A text goal may end in ``where x free``, and
-its values carry the bindings.  Open from the plan of epic #48: the
+``curry.solve`` reports the bindings with each value.  Open from the plan of epic #48: the
 schemes as metadata of the generated modules instead of the interface
 reads, the specialization of a saturated method call, and a random
 harness over the engine.
