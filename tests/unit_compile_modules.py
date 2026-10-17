@@ -84,7 +84,8 @@ class TestCompileModules(cytest.TestCase):
     self.assertEqual(list(curry.eval(first.f, converter='topython')), [1])
     curry.reset()
     second = curry.compile('f :: Int\nf = 2', modulename='SameNameAlive')
-    self.assertIsNot(first.f, second.f)
+    with self.assertRaises(curry.StaleError):
+      first.f
     self.assertEqual(list(curry.eval(second.f, converter='topython')), [2])
     curry.reset()
     third = curry.compile('f :: Int\nf = 3', modulename='SameNameAlive')
@@ -102,7 +103,8 @@ class TestCompileModules(cytest.TestCase):
     self.assertEqual(list(curry.eval(first.f, converter='topython')), [1])
     curry.reload()
     second = curry.compile('f :: Int\nf = 2', modulename='SameNameReload')
-    self.assertIsNot(first.f, second.f)
+    with self.assertRaises(curry.StaleError):
+      first.f
     self.assertEqual(list(curry.eval(second.f, converter='topython')), [2])
     del first, second
 
@@ -110,12 +112,11 @@ class TestCompileModules(cytest.TestCase):
       curry.flags['backend'] != 'cxx'
     , 'the second symptom of issue #114 is reported on the C++ backend'
     )
-  @unittest.expectedFailure
   def testStaleSymbolIsRefused(self):
     '''
     The second symptom of issue #114, the owner's decision: a symbol of a
-    module that left the interpreter should refuse to evaluate.  Today it
-    evaluates: it runs its old code, or the code of the current incarnation
+    module that left the interpreter refuses to evaluate.  Previously it
+    evaluated its old code, or the code of the current incarnation
     of its name when the shape agrees.  The proposed refusal is an error at
     evaluation and at expression building (see the TODO entry of
     2026-10-10).
@@ -123,6 +124,6 @@ class TestCompileModules(cytest.TestCase):
     first = curry.compile('f :: Int\nf = 1', modulename='StaleSymbol')
     self.assertEqual(list(curry.eval(first.f, converter='topython')), [1])
     curry.reset()
-    with self.assertRaises(Exception):
+    with self.assertRaises(curry.StaleError):
       list(curry.eval(first.f, converter='topython'))
     del first

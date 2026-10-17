@@ -37,7 +37,6 @@ class TestFlowF01(cytest.TestCase):
     if FLOW_PATH not in curry.path:
       curry.path.insert(0, FLOW_PATH)
 
-  @unittest.expectedFailure
   def test_numbers(self):
     P = curry.import_('Prelude'); C = curry.import_('Coin')
     x = curry.eval(C.inc(41)).one()
@@ -48,7 +47,6 @@ class TestFlowF01(cytest.TestCase):
     self.assertIs(type(y), float)
     self.assertIs(type(z), float)
 
-  @unittest.expectedFailure
   def test_strings_and_rows(self):
     P = curry.import_('Prelude'); S = curry.import_('Str')
     self.assertEqual(curry.eval(P.length('ab')).one(), 2)
@@ -68,7 +66,6 @@ class TestFlowF01(cytest.TestCase):
     self.assertIsInstance(c, curry.Char)
     self.assertEqual(c, 'a')
 
-  @unittest.expectedFailure
   def test_bool_is_not_int(self):
     P = curry.import_('Prelude')
     v = curry.eval(P['not'](True)).one()
@@ -88,14 +85,12 @@ class TestFlowF01(cytest.TestCase):
     self.assertEqual(str(v), 'Just 5')
     self.assertEqual(v, P.Just(5))
 
-  @unittest.expectedFailure
   def test_range_is_a_list(self):
     P = curry.import_('Prelude')
     v = curry.eval(P.length(range(4))).one()
     self.assertIs(type(v), int)
     self.assertEqual(v, 4)
 
-  @unittest.expectedFailure
   def test_empty_string(self):
     O = curry.import_('Out')
     v = curry.eval(O.emptyString).one()

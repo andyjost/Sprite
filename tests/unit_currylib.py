@@ -188,7 +188,7 @@ class TestCurryLib(cytest.TestCase):
       os.remove(product)
     self.assertFalse(os.path.exists(productfile('Numeric', '.icy')))
     Numeric = curry.import_('Numeric')
-    self.assertEqual(next(curry.eval([Numeric.readHex, 'ffz'])), [(255, 'z')])
+    self.assertEqual(next(curry.eval(Numeric.readHex, 'ffz')), [(255, 'z')])
     self.assertTrue(os.path.isfile(productfile('Numeric', '.icy')))
 
   def test_interfaces_installed(self):

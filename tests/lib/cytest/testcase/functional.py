@@ -260,13 +260,15 @@ class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclas
         else tty.redirect_stdout(stdout) if stdout_text is not None
         else contextlib.nullcontext()
       )
+    interp = curry.getInterpreter()
+    streams = interp.stdin, interp.stdout, interp.stderr
     try:
       with stdin_context:
         with stdout_context:
-          curry.reset() # re-read IO streams into the default interpreter
+          interp.stdin, interp.stdout, interp.stderr = sys.stdin, sys.stdout, sys.stderr
           yield
     finally:
-      curry.reset()
+      interp.stdin, interp.stdout, interp.stderr = streams
 
     if check_result and stdout_text:
       stdout_observed = stdout.getvalue().decode('utf-8')
@@ -358,7 +360,7 @@ class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclas
     Evaluates a Curry expression under Sprite.  Subclasses may override this to
     control evaluation.
     '''
-    return curry.eval(goal)
+    return curry.eval(goal, converter='default')
 
 
 def value_arity(goal):

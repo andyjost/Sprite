@@ -26,7 +26,7 @@ small data type, a primitive value of each builtin type (Char, Int inside
 a list, Float), and a linear pattern.
 '''
 import cytest # from ./lib; must be first
-from curry.typecheck.goals import Bindings
+from curry import Answer, Bindings
 import curry, unittest
 
 def values(*args, **kwds):
@@ -36,7 +36,7 @@ def values(*args, **kwds):
 
 def texts(*args):
   '''The values of a goal as Curry text.'''
-  return [str(value) for value in curry.eval(*args)]
+  return [str(value) for value in curry.eval(*args, converter=None)]
 
 class TestFunPatFreeArgument(cytest.TestCase):
   def setUp(self):
@@ -72,7 +72,8 @@ class TestFunPatFreeArgument(cytest.TestCase):
     for name, answer in self.RULES:
       goal = self.goal('%s "vec.o" ins where ins free' % name)
       self.assertEqual(
-          values(goal), [Bindings(answer, {'ins': ['vec.c']})], name
+          list(curry.solve(curry.parse('%s "vec.o" ins where ins free' % name, imports=[self.M])))
+        , [Answer(answer, Bindings({'ins': ['vec.c']}))], name
         )
       self.assertEqual(texts(goal), ['{ins=["vec.c"]} "%s"' % answer], name)
 
@@ -96,7 +97,9 @@ class TestFunPatFreeArgument(cytest.TestCase):
     self.assertEqual(values(M.count, [1, 2, 0], [2]), ['count'])
     self.assertEqual(values(M.count, [1, 2, 0], [3]), [])
     goal = self.goal('count [1,2,0] ins where ins free')
-    self.assertEqual(values(goal), [Bindings('count', {'ins': [2]})])
+    self.assertEqual(values(goal), ['count'])
+    answer = curry.solve(curry.parse('count [1,2,0] ins where ins free', imports=[M])).one()
+    self.assertEqual(answer, Answer('count', Bindings({'ins': [2]})))
     self.assertEqual(texts(goal), ['{ins=[2]} "count"'])
     self.assertEqual(values(M.countC, [1, 2, 0]), [([2], 'count')])
     self.assertEqual(values(S.countS, [1, 2, 0]), [[([2], 'count')]])
@@ -150,7 +153,9 @@ class TestFunPatFreeArgument(cytest.TestCase):
     self.assertEqual(values(M.half, 3, 1.5), ['half'])
     self.assertEqual(values(M.half, 3, 2.0), [])
     goal = self.goal('half 3 x where x free')
-    self.assertEqual(values(goal), [Bindings('half', {'x': 1.5})])
+    self.assertEqual(values(goal), ['half'])
+    answer = curry.solve(curry.parse('half 3 x where x free', imports=[M])).one()
+    self.assertEqual(answer, Answer('half', Bindings({'x': 1.5})))
     self.assertEqual(texts(goal), ['{x=1.5} "half"'])
     self.assertEqual(values(M.halfC, 3), [(1.5, 'half')])
     self.assertEqual(values(S.halfS, 3), [[(1.5, 'half')]])

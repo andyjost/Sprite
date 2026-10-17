@@ -1,5 +1,5 @@
 % python go.py
-type -> generator
+type -> Results
 next -> 1
 loop -> 2
 next after break -> 3

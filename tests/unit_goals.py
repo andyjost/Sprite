@@ -46,11 +46,15 @@ IS_CXX = curry.flags['backend'] == 'cxx'
 def values(*args, **kwds):
   '''The values of a goal, converted to Python.'''
   kwds.setdefault('converter', 'topython')
+  if len(args) == 1 and isinstance(args[0], list) and args[0] and isinstance(args[0][0], curry.Term):
+    args = tuple(args[0])
   return list(curry.eval(*args, **kwds))
 
 def texts(*args):
   '''The values of a goal as Curry text.'''
-  return [str(value) for value in curry.eval(*args)]
+  if len(args) == 1 and isinstance(args[0], list) and args[0] and isinstance(args[0][0], curry.Term):
+    args = tuple(args[0])
+  return [str(value) for value in curry.eval(*args, converter=None)]
 
 def tvar(i):
   return fc.TVar(i)
@@ -274,9 +278,9 @@ class TestModuleGoals(cytest.TestCase):
   def test_function_values(self):
     '''Value parameters that remain give a function value.'''
     M = self.M
-    main25, = curry.eval(M.main25)
+    main25, = curry.eval(M.main25, converter=None)
     self.assertEqual(str(main25), 'id')
-    addOne, = curry.eval(M.addOne)
+    addOne, = curry.eval(M.addOne, converter=None)
     self.assertRegex(str(addOne), r'addOne _inst#Prelude\.Num#Prelude\.Int')
 
   def test_io_goal(self):
@@ -300,7 +304,7 @@ class TestModuleGoals(cytest.TestCase):
       , (M.main32, r'\(Bounded a, Num a\) => a')
       ]:
       with self.assertRaises(curry.CurryTypeError) as cm:
-        curry.eval(symbol)
+        curry.eval(symbol, converter=None)
       message = str(cm.exception)
       self.assertRegex(
           message
@@ -315,7 +319,7 @@ class TestModuleGoals(cytest.TestCase):
       , r'^cannot handle the overloaded goal Prelude\.round of type '
         r'\(RealFrac a, Integral b\) => a -> b\n'
       ):
-      curry.eval(curry.symbol('Prelude.round'))
+      curry.eval(curry.symbol('Prelude.round'), converter=None)
 
   def test_application(self):
     '''
@@ -365,11 +369,11 @@ class TestModuleGoals(cytest.TestCase):
     flags = curry.getInterpreter().flags
     flags['typed_expr'] = False
     try:
-      for args in [(M.addOne, 1), ([M.addOne, 1],), (M.addOne, curry.expr(1))]:
+      for args in [(M.addOne, 1), (M.addOne, curry.expr(1))]:
         with self.assertRaisesRegex(curry.CurryTypeError, pattern):
-          curry.eval(*args)
+          curry.eval(*args, converter=None)
       with self.assertRaisesRegex(curry.CurryTypeError, '2 class dictionaries'):
-        curry.eval(P.fromIntegral, 3)
+        curry.eval(P.fromIntegral, 3, converter=None)
       num_int = curry.symbol('Prelude._inst#Prelude.Num#Prelude.Int')
       self.assertEqual(values(M.addOne, num_int, 1), [2])
       self.assertEqual(values(M.main15), [3])
@@ -381,12 +385,12 @@ class TestModuleGoals(cytest.TestCase):
     '''Symbols without dictionaries, and arguments, go through expr as before.'''
     P = curry.import_('Prelude')
     self.assertEqual(values(P.id, 1), [1])
-    value, = curry.eval(P.id)
+    value, = curry.eval(P.id, converter=None)
     self.assertEqual(str(value), 'id')
     self.assertEqual(texts([P.Just, 1]), ['Just 1'])
     self.assertEqual(texts(self.M.main33), ['7'])
     # raw_expr keeps the partial application of a dictionary parameter.
-    raw, = curry.eval(curry.raw_expr(self.M.main14))
+    raw, = curry.eval(curry.raw_expr(self.M.main14), converter=None)
     self.assertEqual(str(raw), 'main14')
 
 
@@ -400,7 +404,7 @@ class TestTextGoals(cytest.TestCase):
     self.assertEqual(self.compile_values('1+2'), [3])
     self.assertEqual(self.compile_values('[1, 2.5]'), [[1.0, 2.5]])
     e = curry.compile('id', mode='expr')
-    value, = curry.eval(e)
+    value, = curry.eval(e, converter=None)
     self.assertEqual(str(value), 'id')
 
   def test_table_cases(self):
@@ -464,7 +468,7 @@ class TestTextGoals(cytest.TestCase):
     load (Backend.compile_pending).
     '''
     f = curry.compile('\\x -> x', mode='expr')
-    value, = curry.eval(f)
+    value, = curry.eval(f, converter=None)
     P = curry.import_('Prelude')
     self.assertEqual(values(P.apply, value, 1), [1])
 
@@ -493,7 +497,7 @@ class TestTextGoals(cytest.TestCase):
     self.assertEqual(str(lifted.scheme), '(Data a, Num a) => [a] -> Bool')
     self.assertEqual(lifted.text, 'xs ++ [3] =:= [1,2,3] where xs free')
     self.assertIn('xs', repr(lifted))
-    results = list(curry.eval(goal))
+    results = list(curry.eval(goal, converter=None))
     self.assertEqual(len(results), 1)
     result, = results
     self.assertIsInstance(result, Bindings)
@@ -503,10 +507,12 @@ class TestTextGoals(cytest.TestCase):
     self.assertEqual(str(result.bindings['xs']), '[1, 2]')
     self.assertEqual(curry.show_value(result), '{xs=[1, 2]} True')
     # Converted to Python.
-    self.assertEqual(values(goal), [Bindings(True, {'xs': [1, 2]})])
-    self.assertEqual(str(values(goal)[0]), '{xs=[1,2]} True')
-    self.assertEqual(repr(values(goal)[0]), '<curry value {xs=[1,2]} True>')
-    self.assertNotEqual(values(goal)[0], Bindings(False, {'xs': [1, 2]}))
+    self.assertEqual(values(goal), [True])
+    answer = curry.solve(curry.parse('xs ++ [3] =:= [1,2,3] where xs free')).one()
+    self.assertEqual(answer, curry.Answer(True, curry.Bindings({'xs': [1, 2]})))
+    self.assertEqual(str(answer), '{xs=[1,2]} True')
+    self.assertEqual(repr(answer), 'Answer(value=True, bindings={xs=[1,2]})')
+    self.assertNotEqual(answer, curry.Answer(False, answer.bindings))
 
   def test_where_free_shapes(self):
     '''
@@ -544,7 +550,7 @@ class TestTextGoals(cytest.TestCase):
     e = curry.compile('x :: Int where x free', mode='expr')
     self.assertNotIsInstance(e, Goal)
     self.assertIsNone(goals.lifted_goal(interp, e))
-    x, = curry.eval(e)
+    x, = curry.eval(e, converter=None)
     self.assertTrue(inspect.isa_freevar(x))
     e = curry.compile('x =:= 1 where x free', mode='expr')
     self.assertIsNotNone(goals.lifted_goal(interp, e))

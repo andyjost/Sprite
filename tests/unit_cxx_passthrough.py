@@ -20,7 +20,7 @@ TIMEOUT = 120
 class TestValues(cytest.TestCase):
   '''The programs give the same values on both backends.'''
   def values(self, *goal):
-    return sorted(str(v) for v in curry.eval(*goal))
+    return sorted(str(v) for v in curry.eval(*goal, converter=None))
 
   def test_arguments(self):
     M = curry.import_('CxxPassThrough')

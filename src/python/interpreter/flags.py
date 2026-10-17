@@ -59,7 +59,8 @@ The following flags are available:
 
   * ``defaultconverter`` ('topython' | **None**)
 
-    Indicates how to convert Curry results when returning to Python.
+    Selects the converter for an explicit ``converter='default'`` call.
+    ``eval`` otherwise defaults to ``'topython'``.
     With no conversion a list value, for example, is returned as a Curry
     list.  The 'topython' converter converts lists, tuples, strings,
     numbers, and other basic objects to their Python equivalents.

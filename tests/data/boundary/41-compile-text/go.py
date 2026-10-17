@@ -23,7 +23,7 @@ def vals(*goal):
   return list(curry.eval(*goal, converter='topython'))
 
 def texts(*goal):
-  return [str(v) for v in curry.eval(*goal)]
+  return [str(v) for v in curry.eval(*goal, converter=None)]
 
 # The text of Nat.curry, compiled as an anonymous module: the name is
 # generated, and the module is in curry.modules under it.

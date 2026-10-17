@@ -11,7 +11,8 @@ one of them through prim_showFloatLiteral.
 '''
 import cytest # from ./lib; must be first
 import curry, math
-from curry import show as show_module
+import importlib
+show_module = importlib.import_module('curry.show')
 
 INF = float('inf')
 

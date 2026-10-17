@@ -21,14 +21,14 @@ def show(label, thunk):
 
 # The lines of the issue: a value of eval with [] at the end of two lists,
 # of two strings, of a list beside a string, typed and passed back in.
-v, = curry.eval([[1, 2], [3]])
+v, = curry.eval([[1, 2], [3]], converter=None)
 show('typeof [[1, 2], [3]]', lambda: curry.typeof(v))
-strs, = curry.eval(['ab', 'c'])
+strs, = curry.eval(['ab', 'c'], converter=None)
 show("typeof ['ab', 'c']", lambda: curry.typeof(strs))
 show('unwords strs', lambda: vals(P.unwords, strs))
-pair, = curry.eval(([1], 'ab'))
+pair, = curry.eval(([1], 'ab'), converter=None)
 show("typeof ([1], 'ab')", lambda: curry.typeof(pair))
-one_nil, = curry.eval([[1]])
+one_nil, = curry.eval([[1]], converter=None)
 show('typeof [[1]]', lambda: curry.typeof(one_nil))
 
 # A raw node with [] beside a list of Ints, and a recorded curry.expr([])
@@ -42,14 +42,14 @@ show("typeof [e, 'ab']", lambda: curry.typeof(curry.expr([e, 'ab'])))
 # empty list is one shared node (curry.expr([]) is curry.expr([]) holds
 # there and not on the Python backend; see the README), so this is the
 # case the issue names.
-nil, = curry.eval([])
+nil, = curry.eval([], converter=None)
 show('typeof nil', lambda: curry.typeof(nil))
 show('id ([[1], nil], [["a"], nil])', lambda: vals(P.id, ([[1], nil], [['a'], nil])))
 show("id (nil :: [Int], nil :: String)",
      lambda: vals(P.id, (curry.typed(nil, '[Int]'), curry.typed(nil, 'String'))))
 
 # A value with [] at two types, typed on the way in, typed on the way out.
-two, = curry.eval(curry.typed(([], ''), '([Int], String)'))
+two, = curry.eval(curry.typed(([], ''), '([Int], String)'), converter=None)
 show('typeof two', lambda: curry.typeof(two))
 show('id two', lambda: vals(P.id, two))
 show('id (two, strs)', lambda: vals(P.id, (two, strs)))

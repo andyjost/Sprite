@@ -33,7 +33,7 @@ def create_variable(marker):
   generator and no binding.
   '''
   P = curry.import_('Prelude')
-  value, = curry.eval(P.id, marker)
+  value, = curry.eval(P.id, marker, converter=None)
   node = inspect.fwd_chain_target(curry.expr(marker))
   assert inspect.isa_freevar(node)
   return node
@@ -83,12 +83,12 @@ class TestFreeMarkers(cytest.TestCase):
     '''
     P = curry.import_('Prelude')
     x = curry.free()
-    value, = curry.eval(P.id, x)
+    value, = curry.eval(P.id, x, converter=None)
     self.assertIsaFreevar(value)
     self.assertEqual(str(value), '_a')
     self.assertEqual(values(P.constrEq, x, 1), [True])
     y = curry.free()
-    value, = curry.eval(P.id, y)
+    value, = curry.eval(P.id, y, converter=None)
     self.assertEqual(str(value), '_a')
     dictionary = curry.symbol('Prelude._inst#Prelude.Data#Prelude.Int')
     self.assertEqual(values(getattr(P, '=:='), dictionary, y, 1), [True])
@@ -228,7 +228,7 @@ class TestFreeMarkers(cytest.TestCase):
     istate = interpreter_state()
     M = curry.compile('g :: [Int]\ng = xs where xs free\n', mode='module')
     self.assertEqual(istate.external_freevars, 0)
-    v, = curry.eval(M.g)
+    v, = curry.eval(M.g, converter=None)
     self.assertIsaFreevar(v)
     self.assertGreaterEqual(istate.external_freevars, 1)
     goal = curry.expr(
@@ -245,9 +245,10 @@ class TestFreeMarkers(cytest.TestCase):
     it does not share an id with a marker made after the reset.
     '''
     P = curry.import_('Prelude')
-    x = curry.free()
+    x = free()
     before = create_variable(x)
     curry.reset()
+    P = curry.import_('Prelude')
     y = curry.free()
     self.assertIsNot(curry.expr(x), before)
     self.assertEqual(values(P.constrEq, (x, y), (1, 2)), [True])

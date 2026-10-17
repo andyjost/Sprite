@@ -120,7 +120,7 @@ def settle():
 consistent(cyrt.gc_counters())
 consistent(cyrt.gc_last_collection())
 cyrt.gc_set_threshold(1 << 14)
-assert curry.topython(next(curry.eval(M.walk, 20000))) == 20000
+assert curry.topython(next(curry.eval(M.walk, 20000, converter=None))) == 20000
 stats = curry.stats()
 totals = consistent(cyrt.gc_counters())
 for key in COUNTERS:
@@ -143,7 +143,7 @@ cyrt.gc_set_threshold(1 << 14)
 before = consistent(cyrt.gc_counters())
 seconds0 = cyrt.gc_seconds()
 n0 = cyrt.gc_collections()
-assert curry.topython(next(curry.eval(M.walk, 100000))) == 100000
+assert curry.topython(next(curry.eval(M.walk, 100000, converter=None))) == 100000
 after = consistent(cyrt.gc_counters())
 last = consistent(cyrt.gc_last_collection())
 seconds = cyrt.gc_seconds() - seconds0
@@ -177,7 +177,7 @@ before = consistent(cyrt.gc_counters())
 def items(n):
   for i in range(n):
     yield i
-assert curry.topython(next(curry.eval(M.partial, 3, iter(items(2000))))) == 2000
+assert curry.topython(next(curry.eval(M.partial, 3, iter(items(2000)), converter=None))) == 2000
 settle()
 after = consistent(cyrt.gc_counters())
 d = delta(after, before)
@@ -199,7 +199,7 @@ print('destroyed', d['queues_destroyed'], d['configurations_destroyed'])
     self.run_child('''
 settle()
 n0 = cyrt.gc_collections()
-first = next(curry.eval(M.table, 300))
+first = next(curry.eval(M.table, 300, converter=None))
 cyrt.gc_collect()
 last = consistent(cyrt.gc_last_collection())
 old = cyrt.gc_old_node_count()
@@ -208,11 +208,11 @@ assert old == cyrt.gc_node_count(), (old, cyrt.gc_node_count())
 assert old >= 300, old
 # Below the threshold: no collection, the old nodes stay as they are.
 assert cyrt.gc_threshold() >= 1 << 20, cyrt.gc_threshold()
-assert curry.topython(next(curry.eval(M.walk, 1000))) == 1000
+assert curry.topython(next(curry.eval(M.walk, 1000, converter=None))) == 1000
 assert cyrt.gc_collections() == n0 + 1, cyrt.gc_collections()
 assert cyrt.gc_old_node_count() == old, (cyrt.gc_old_node_count(), old)
 assert cyrt.gc_node_count() > old, (cyrt.gc_node_count(), old)
-second = next(curry.eval(M.table, 100))
+second = next(curry.eval(M.table, 100, converter=None))
 cyrt.gc_collect()
 last = consistent(cyrt.gc_last_collection())
 assert 300 <= last['marked_old'] <= old, (last, old)
@@ -241,7 +241,7 @@ assert cyrt.gc_old_node_count() == cyrt.gc_node_count()
 cyrt.gc_set_threshold(1 << 14)
 before = consistent(cyrt.gc_counters())
 n = 100000
-assert curry.topython(next(curry.eval(M.thunks, n))) == n + sum(range(2, n + 2))
+assert curry.topython(next(curry.eval(M.thunks, n, converter=None))) == n + sum(range(2, n + 2))
 settle()
 after = consistent(cyrt.gc_counters())
 d = delta(after, before)
@@ -270,7 +270,7 @@ else:
 cyrt.gc_set_threshold(1 << 14)
 n0 = cyrt.gc_collections()
 before = consistent(cyrt.gc_counters())
-assert curry.topython(next(curry.eval(M.walk, 50000))) == 50000
+assert curry.topython(next(curry.eval(M.walk, 50000, converter=None))) == 50000
 after = consistent(cyrt.gc_counters())
 print('collections', cyrt.gc_collections() - n0)
 print('marked', after['marked'] - before['marked'])
@@ -326,7 +326,7 @@ for goal, args, expected in [
   , (M.spaced, (50,), 156), (M.partial, (3, [1, 2, 3, 4]), 4)
   , (M.thunks, (300,), 300 + sum(range(2, 302)))
   ]:
-  value = curry.topython(next(curry.eval(goal, *args)))
+  value = curry.topython(next(curry.eval(goal, *args, converter=None)))
   assert value == expected, (goal.name, value, expected)
   consistent(cyrt.gc_counters())
   consistent(cyrt.gc_last_collection())
@@ -360,13 +360,13 @@ inside = []
 def items():
   for i in range(3):
     n0 = cyrt.gc_collections()
-    value = curry.topython(next(curry.eval(M.walk, 500)))
+    value = curry.topython(next(curry.eval(M.walk, 500, converter=None)))
     inside.append(cyrt.gc_collections() - n0)
     consistent(cyrt.gc_counters())
     consistent(cyrt.gc_last_collection())
     yield value + i
 before = consistent(cyrt.gc_counters())
-assert curry.topython(next(curry.eval(M.lastOf, iter(items())))) == 502
+assert curry.topython(next(curry.eval(M.lastOf, iter(items()), converter=None))) == 502
 after = consistent(cyrt.gc_counters())
 assert all(n > 100 for n in inside), inside
 assert after['marked'] > before['marked'], (before, after)

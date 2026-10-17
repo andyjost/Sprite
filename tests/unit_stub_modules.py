@@ -188,12 +188,10 @@ class TestStubModules(cytest.TestCase):
     M = curry.compile('f :: Int\nf = 1')
     self.assertIs(curry.modules[curry.info(M).name], M)
 
-  @unittest.expectedFailure
   def test_compile_imports_modules(self):
     M = curry.compile('f :: Int\nf = Coin.inc 1', imports=[curry.import_('Coin')])
     self.assertEqual(curry.eval(M.f).one(), 2)
 
-  @unittest.expectedFailure
   def test_compile_imports_names(self):
     M = curry.compile('f :: Int\nf = Coin.inc 1', imports=['Coin'])
     self.assertEqual(curry.eval(M.f).one(), 2)
@@ -246,7 +244,6 @@ class TestStubModules(cytest.TestCase):
     from curry.lib import Coin as fresh
     self.assertIsNot(fresh, Coin)
 
-  @unittest.expectedFailure
   def test_reset_stales_term(self):
     M = curry.import_('Coin')
     old = M.inc(1)
@@ -254,7 +251,6 @@ class TestStubModules(cytest.TestCase):
     with self.assertRaises(curry.StaleError):
       curry.eval(old).one()
 
-  @unittest.expectedFailure
   def test_reset_stales_variable(self):
     M = curry.import_('Coin')
     old = curry.free('x')
@@ -262,7 +258,6 @@ class TestStubModules(cytest.TestCase):
     with self.assertRaises(curry.StaleError):
       curry.term(old)
 
-  @unittest.expectedFailure
   def test_reset_stales_module(self):
     M = curry.import_('Coin')
     old = M
@@ -335,7 +330,6 @@ class TestStubModules(cytest.TestCase):
     self.assertIsInstance(M, types.ModuleType)
     self.assertIsInstance(M.inc, curry.Term)
 
-  @unittest.expectedFailure
   def test_module_private_symbol_lookup(self):
     M = curry.compile('module StubPrivate (public) where\npublic :: Int\npublic = helper\nhelper :: Int\nhelper = 1')
     self.assertEqual(curry.eval(M['helper']).one(), 1)
@@ -357,7 +351,6 @@ class TestStubModules(cytest.TestCase):
       with self.assertRaises(curry.SymbolLookupError):
         getattr(M, name)
 
-  @unittest.expectedFailure
   def test_metadata_names_remain_curry_symbols(self):
     M = curry.compile('module StubMetadata where\nname = 1 :: Int\nfile = 2 :: Int\ntypes = 3 :: Int\nsymbols = 4 :: Int')
     self.assertEqual(
@@ -440,7 +433,6 @@ class TestStubModules(cytest.TestCase):
       M = curry.import_(source)
       self.assertEqual(curry.eval(M.f).one(), 1)
 
-  @unittest.expectedFailure
   def test_path_order_selects_first_module(self):
     with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
       for work, number in ((first, 1), (second, 2)):

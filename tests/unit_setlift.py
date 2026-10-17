@@ -359,7 +359,7 @@ curry.reload(%(flags)r)
 M = curry.import_(%(module)r)
 for name in %(goals)r:
   try:
-    values = curry.eval(getattr(M, name))
+    values = curry.eval(getattr(M, name), converter=None)
     print(name, sorted(str(value) for value in values))
   except Exception as exc:
     print(name, 'error', type(exc).__name__, str(exc))

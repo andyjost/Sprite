@@ -29,6 +29,7 @@ class Symbol:
   def __init__(self, info, module):
     self._info = info
     self.module = module
+    self._version = getattr(module, '.version', None)
 
   name = property(lambda self: self._info.name)
   fullname = property(lambda self: self._info.fullname)
@@ -141,7 +142,9 @@ class Term:
 
   def __init__(self, interp, form, symbol=None, args=(), annotation=None):
     from ..typecheck import builder
+    check_live(form)
     self._interp = interp
+    self._session = interp._session
     self._form = form
     self.symbol = symbol
     self._args = tuple(args)
@@ -208,6 +211,7 @@ class Term:
     from ..typecheck import builder
     result = object.__new__(Term)
     result._interp = self._interp
+    result._session = self._session
     result._node = node
     result._form = node
     result.symbol = None
@@ -228,6 +232,7 @@ class Term:
     return cls(getattr(module, '.interp'), info, sym)
 
   def __call__(self, *args):
+    check_live(self)
     if not args:
       raise TypeError('a call needs at least one argument; %s alone is the term %s' % (self, self))
     values = tuple(_convert(self._interp, a) for a in args)
@@ -364,7 +369,11 @@ def _convert(interp, value):
   if value is anonymous:
     return Var(interp)
   if isinstance(value, Term):
+    check_live(value)
     return value
+  from .results import Results
+  if isinstance(value, Results):
+    raise ConversionError('cannot convert Results to a Curry list: write list(results)')
   import types
   choice_type = getattr(types, 'ChoiceType', ())
   if isinstance(value, choice_type):
@@ -395,6 +404,7 @@ def _convert(interp, value):
 
 
 def term(interp, value, type=None):
+  check_live(value)
   check_refs(value)
   if isinstance(value, Term) and type is None:
     return value
@@ -422,6 +432,7 @@ class Var(Term):
     self._marker = free(exprtype=type)
     self._marker._var = self
     self._interp = interp
+    self._session = interp._session
     self._form = self._marker
     self._args = ()
     self.symbol = None
@@ -454,6 +465,7 @@ class Reference(Term):
   """A binding reference, resolved only by its enclosing let."""
   def __init__(self, interp, name):
     self._interp = interp
+    self._session = interp._session
     self.name = name
     self._form = self
     self._node = None
@@ -499,6 +511,42 @@ def named_vars(root):
         raise CurryTypeError('two different variables named %r in one goal; name one differently' % var.name)
       out[var.name] = var
   return out
+
+
+def check_module(module):
+  from ..exceptions import StaleError
+  interp = getattr(module, '.interp')
+  name = module.__name__
+  if getattr(module, '.session') is not interp._session:
+    raise StaleError('module %s was held before curry.reset(); build it again from %s' % (name, name))
+  if getattr(module, '.retired', False):
+    raise StaleError('module %s was held before curry.reload(%s); build it again from %s' % (name, name, name))
+
+
+def check_term(value):
+  from ..exceptions import StaleError
+  if value._session is not value._interp._session:
+    name = value.symbol.module.__name__ if value.symbol is not None else None
+    rebuild = 'build it again' if name is None else 'build it again from %s' % name
+    raise StaleError('the term%s was built before curry.reset(); %s'
+        % ('' if name is None else ' of module %s' % name, rebuild))
+  if value.symbol is not None:
+    check_module(value.symbol.module)
+    if value.symbol._version is not getattr(value.symbol.module, '.version'):
+      name = value.symbol.module.__name__
+      raise StaleError('the term of module %s was built before curry.reload(%s); build it again from %s'
+          % (name, name, name))
+
+
+def check_live(root):
+  from . import CurryModule
+  for value in walk_forms(root):
+    if isinstance(value, Term):
+      check_term(value)
+    elif isinstance(value, CurryModule):
+      check_module(value)
+    elif isinstance(value, CurryNodeInfo) and value.module is not None:
+      check_module(value.module)
 
 
 def has_refs(root):

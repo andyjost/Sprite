@@ -43,4 +43,5 @@ print('assembler (two forward jumps) ->', vals(M.assembler, program, [], 0))
 # A jump to a label that is never defined: the address stays a free
 # variable, which the value shows as an unbound variable.
 program = [curry.expr(M.Jump, M.L3)]
-print('assembler (undefined label) ->', [str(v) for v in curry.eval(M.assembler, program, [], 0)])
+print('assembler (undefined label) ->',
+      [str(v) for v in curry.eval(M.assembler, program, [], 0, converter=None)])

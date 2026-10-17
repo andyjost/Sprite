@@ -11,9 +11,10 @@ P = curry.import_('Prelude')
 eq = getattr(P, '=:=')  # an operator is a symbol of the Prelude, looked up by its name
 
 def vals(*goal, **kwds):
-  return list(curry.eval(*goal, converter='topython', **kwds))
+  return list(curry.eval(curry.expr(*goal, **kwds), converter='topython'))
 
 def texts(*goal, **kwds):
+  kwds.setdefault('converter', None)
   return [str(value) for value in curry.eval(*goal, **kwds)]
 
 def show(label, thunk):

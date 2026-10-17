@@ -21,7 +21,7 @@ def vals(*goal):
   return list(curry.eval(*goal, converter='topython'))
 
 def texts(*goal):
-  return [str(v) for v in curry.eval(*goal)]
+  return [str(v) for v in curry.eval(*goal, converter=None)]
 
 # set0 over a choice: one set with both values.
 print('sortValues (set0 coin) ->', vals(SF.sortValues, [SF.set0, M.coin]))
@@ -52,7 +52,8 @@ print('nested ->', vals(M.nested))
 # A free variable as the argument: one set per binding the rules make, and
 # an empty set for each binding that matches no rule.  The count of the
 # values and the sets that are not empty.
-sets = [str(v) for v in curry.eval(SF.sortValues, [SF.set2, M.rule, 'a', curry.free()])]
+sets = [str(v) for v in curry.eval(
+    SF.sortValues, [SF.set2, M.rule, 'a', curry.free()], converter=None)]
 print("sortValues (set2 rule 'a' x) -> %d values, %d empty sets, and %s"
       % (len(sets), sets.count('[]'), [s for s in sets if s != '[]']))
 

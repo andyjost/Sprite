@@ -58,7 +58,7 @@ class TestValues(cytest.TestCase):
     self.assertEqual(self.values(M.one), [6])
     self.assertEqual(self.values(M.two), [6])
     self.assertEqual(self.values(M.twice), [12])
-    self.assertEqual(str(next(curry.eval(M.justs))), '[Just 1, Just 2]')
+    self.assertEqual(str(next(curry.eval(M.justs, converter=None))), '[Just 1, Just 2]')
     self.assertEqual(self.values(M.sections), [[2, 3, 6]])
     self.assertEqual(self.values(M.loop, 0, 100), [100])
     self.assertEqual(self.values(M.applyInc, 5, 0), [6])
@@ -93,9 +93,9 @@ class TestValues(cytest.TestCase):
     M = curry.import_('CxxPartial')
     self.assertEqual(str(curry.raw_expr(M.plus3, 1, 2)), '(plus3 1 2)')
     self.assertEqual(str(curry.raw_expr(M.plus3)), 'plus3')
-    value, = curry.eval(M.partials)
+    value, = curry.eval(M.partials, converter=None)
     self.assertEqual(str(value), '[(plus3 1 2), (plus3 1 2)]')
-    value, = curry.eval(M.incTwice)
+    value, = curry.eval(M.incTwice, converter=None)
     self.assertEqual(str(value), '(inc, inc)')
 
   def test_equality(self):
@@ -116,9 +116,8 @@ class TestValues(cytest.TestCase):
   )
 class TestLayout(cytest.TestCase):
   '''The nodes through the bindings: the slots, the info tables, apply.'''
-  @classmethod
-  def setUpClass(cls):
-    cls.M = curry.import_('CxxPartial')
+  def setUp(self):
+    self.M = curry.import_('CxxPartial')
 
   def assertPartial(self, node, missing, args):
     self.assertEqual(node.info.name, '_PartApplic')
@@ -204,7 +203,7 @@ class TestLayout(cytest.TestCase):
         repr(curry.raw_expr(M.plus3, 1, 2))
       , '<_PartApplic 1 plus3 <Int 1> <Int 2>>'
       )
-    value, = curry.eval(M.incTwice)
+    value, = curry.eval(M.incTwice, converter=None)
     self.assertEqual(
         repr(raw(value)), '<(,) <_PartApplic 1 inc> <_PartApplic 1 inc>>'
       )
@@ -227,9 +226,8 @@ class TestSharedFunctionValues(cytest.TestCase):
   A partial application without arguments spelled by a step is a node of
   the module: made once at load, outside the heap of the collector.
   '''
-  @classmethod
-  def setUpClass(cls):
-    cls.M = curry.import_('CxxPartial')
+  def setUp(self):
+    self.M = curry.import_('CxxPartial')
 
   def function_value(self):
     '''
@@ -264,7 +262,7 @@ class TestSharedFunctionValues(cytest.TestCase):
     from curry.backends.cxx import cyrtbindings as cyrt
     n = 1000
     before = cyrt.gc_allocation_count()
-    self.assertEqual(curry.topython(next(curry.eval(self.M.loop, 0, n))), n)
+    self.assertEqual(curry.topython(next(curry.eval(self.M.loop, 0, n, converter=None))), n)
     nodes = cyrt.gc_allocation_count() - before
     self.assertLess(nodes, 6 * n)
 
@@ -293,9 +291,9 @@ M = curry.import_('CxxPartial')
 cyrt.gc_set_threshold(1 << 12)
 before = cyrt.gc_collections()
 for _ in range(8):
-  assert next(curry.eval(M.loop, 0, 3000)) == 3000
-  assert next(curry.eval(M.manyApply)) == 666
-  assert sorted(curry.eval(M.set2Many)) == [[631], [666]]
+  assert next(curry.eval(M.loop, 0, 3000, converter='topython')) == 3000
+  assert next(curry.eval(M.manyApply, converter='topython')) == 666
+  assert sorted(curry.eval(M.set2Many, converter='topython')) == [[631], [666]]
 print(cyrt.gc_collections() - before)
 ''', TIMEOUT, address_space=2 << 30)
     self.assertEqual(proc.returncode, 0, proc.stderr)

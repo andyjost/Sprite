@@ -42,7 +42,6 @@ class TestFlowF06(cytest.TestCase):
     if FLOW_PATH not in curry.path:
       curry.path.insert(0, FLOW_PATH)
 
-  @unittest.expectedFailure
   def test_finite_prefixes(self):
     P = curry.import_('Prelude'); L = curry.import_('inflists')
     self.assertEqual(curry.eval(P.take(10, L.primes)).one(), [2, 3, 5, 7, 11, 13, 17, 19, 23, 29])
@@ -59,14 +58,12 @@ class TestFlowF06(cytest.TestCase):
     self.assertIsNone(r.close())
     self.assertEqual(list(r), [])
 
-  @unittest.expectedFailure
   def test_large_finite_list(self):
     P = curry.import_('Prelude')
     self.assertEqual(len(curry.eval(P.enumFromTo(1, 100000)).one()), 100000)
     self.assertEqual(curry.eval(P.head(P.enumFromTo(1, 100000))).one(), 1)
     self.assertEqual(curry.eval(P.enumFromTo(1, 100000)).one()[:3], [1, 2, 3])
 
-  @unittest.expectedFailure
   def test_term_survives_evaluation(self):
     P = curry.import_('Prelude'); L = curry.import_('inflists'); t = P.take(3, L.fibs)
     self.assertEqual((str(t), curry.typeof(t), repr(t)),

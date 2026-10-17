@@ -22,7 +22,7 @@ Coin = curry.import_('Coin')
 
 def vals(*args, **anchors):
   '''The values of a goal as Python values, in the order of step mode.'''
-  return list(curry.eval(*args, converter='topython', **anchors))
+  return list(curry.eval(curry.expr(*args, **anchors), converter='topython'))
 
 def show(label, thunk):
   '''Prints the value of one probe, or the class and the first line of its error.'''

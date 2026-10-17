@@ -43,7 +43,6 @@ class TestFlowF04(cytest.TestCase):
     if FLOW_PATH not in curry.path:
       curry.path.insert(0, FLOW_PATH)
 
-  @unittest.expectedFailure
   def test_values_and_answers(self):
     R = curry.import_('Rule'); ins = curry.free('ins')
     self.assertEqual(list(curry.eval(R.rule('a', ins))), ['cmd1', 'cmd2'])
@@ -56,7 +55,6 @@ class TestFlowF04(cytest.TestCase):
     self.assertEqual([(cmd, b[ins]) for cmd, b in curry.solve(R.rule('a', ins))],
         [('cmd1', ['x']), ('cmd2', ['y', 'z'])])
 
-  @unittest.expectedFailure
   def test_anonymous_answers(self):
     R = curry.import_('Rule')
     self.assertEqual([str(a) for a in curry.solve(R.rule('a', curry.free()))], ['"cmd1"', '"cmd2"'])
@@ -66,7 +64,6 @@ class TestFlowF04(cytest.TestCase):
     self.assertIsNot(x, y)
     self.assertEqual(curry.show((x, y)), '(_a,_b)')
 
-  @unittest.expectedFailure
   def test_unbound_after_goal(self):
     P = curry.import_('Prelude'); R = curry.import_('Rule'); ins = curry.free('ins')
     list(curry.eval(R.rule('a', ins)))
@@ -74,7 +71,6 @@ class TestFlowF04(cytest.TestCase):
     self.assertIs(curry.eval(ins).one(), ins)
     self.assertEqual(str(next(curry.solve(P['=:='](ins, ['q'])))), '{ins=["q"]} True')
 
-  @unittest.expectedFailure
   def test_alias_is_private_to_goal(self):
     P = curry.import_('Prelude'); ins = curry.free('ins'); y = curry.free('y')
     a = next(curry.solve(P['=:='](ins, y)))
@@ -92,7 +88,6 @@ class TestFlowF04(cytest.TestCase):
     self.assertEqual(ins, ins)
     self.assertFalse(curry.free() == curry.free())
 
-  @unittest.expectedFailure
   def test_duplicate_names_at_call(self):
     x1, x2 = curry.free('x'), curry.free('x')
     with self.assertRaises(curry.CurryTypeError):
@@ -105,7 +100,6 @@ class TestFlowF04(cytest.TestCase):
     list(curry.eval(R.rule('a', ins)))
     self.assertEqual(curry.typeof(ins), '[[Char]]')
 
-  @unittest.expectedFailure
   def test_second_type_rejected_at_call(self):
     P = curry.import_('Prelude'); ins = curry.free('ins')
     next(curry.solve(P['=:='](ins, ['q'])))

@@ -32,7 +32,7 @@ def _state(goal):
   return _cb().RuntimeState(curry.getInterpreter(), goal)
 
 def _values(module, name, *args):
-  return sorted(str(v) for v in curry.eval(getattr(module, name), *args))
+  return sorted(str(v) for v in curry.eval(getattr(module, name), *args, converter=None))
 
 def _goals(module):
   '''The nullary functions of a module, by name.'''
@@ -275,7 +275,7 @@ class TestFlag(cytest.TestCase):
     curry.reload({'checker': True})
     try:
       self.assertEqual(curry.flags['checker'], True)
-      self.assertEqual([curry.topython(v) for v in curry.eval(curry.expr(1))], [1])
+      self.assertEqual([curry.topython(v) for v in curry.eval(curry.expr(1), converter=None)], [1])
     finally:
       curry.reload({'checker': False})
 
@@ -397,7 +397,7 @@ class TestKnownGood(CheckerTestCase):
       counters = {}
       for name in ('manySource', 'distinctSource', 'manySourceS', 'paired'):
         before = _totals()
-        list(curry.eval(getattr(M, name)))
+        list(curry.eval(getattr(M, name), converter=None))
         after = _totals()
         counters[name] = (after[0] - before[0], after[1] - before[1])
       return counters
@@ -440,7 +440,7 @@ def goals(M):
           if sym.info.tag == T_FUNC and sym.info.arity == 0
     )
 def values(M, name, *args):
-  return sorted(str(v) for v in curry.eval(getattr(M, name), *args))
+  return sorted(str(v) for v in curry.eval(getattr(M, name), *args, converter=None))
 def module_goals(modname, names=None):
   M = curry.import_(modname)
   return {name: values(M, name) for name in (goals(M) if names is None else names)}
@@ -560,7 +560,7 @@ class TestKnownGoodInterpreted(cytest.TestCase):
         "  return t.steps, t.forks\n"
         "for name in ('manySource', 'distinctSource', 'manySourceS', 'paired'):\n"
         "  before = totals()\n"
-        "  list(curry.eval(getattr(M, name)))\n"
+        "  list(curry.eval(getattr(M, name), converter=None))\n"
         "  after = totals()\n"
         "  out[name] = [after[0] - before[0], after[1] - before[1]]\n"
       )
@@ -1159,8 +1159,10 @@ data T3 = P | Q | R
   @classmethod
   def setUpClass(cls):
     CheckerTestCase.setUpClass()
-    cls.M = curry.compile(cls.SOURCE, modulename='CxxCheckerTree')
-    cls.interpreted = _cb().icurry_is_interpreted(cls.M.k.info)
+
+  def setUp(self):
+    self.M = curry.compile(self.SOURCE, modulename='CxxCheckerTree')
+    self.interpreted = _cb().icurry_is_interpreted(self.M.k.info)
 
   def test_tree(self):
     '''The tree of k: one case on the first argument (the inner case is

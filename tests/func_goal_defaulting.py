@@ -262,7 +262,7 @@ class TestTextGoals(cytest.TestCase):
     goal = curry.compile(text, mode='expr', imports=[module])
     lifted = goals.lifted_goal(curry.getInterpreter(), goal)
     reported = () if lifted is None else lifted.freevars
-    observed = show_values(curry.eval(goal))
+    observed = show_values(curry.eval(goal, converter=None))
     expected = drop_bindings(expected, set(names) - set(reported))
     self.assertEqual(
         normalize_values(observed, names), normalize_values(expected, names)

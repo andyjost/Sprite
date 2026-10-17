@@ -124,6 +124,7 @@ del _expressions
 # A reload replaces the interpreter.  Release the previous one's expression
 # modules first, so their libraries unload now; see interpreter/compile.py.
 if '_interpreter_' in globals():
+  _interpreter_._session = object()
   _interpreter_._expression_modules = []
   _interpreter_._unlink_modules()
   _old_prelude = _interpreter_.modules.pop('Prelude', None)
@@ -136,6 +137,7 @@ compile = _interpreter_.compile
 currytype = _interpreter_.currytype
 describe = _interpreter_.describe
 eval = _interpreter_.eval
+solve = _interpreter_.solve
 expr = _interpreter_.expr
 flags = _interpreter_.flags
 '''
@@ -293,3 +295,15 @@ __all__ += ['Term', 'Symbol', 'DataType', 'Module', 'Char', 'term', 'info', 'Con
 __all__ += ['parse', 'Var', 'Anonymous', 'anonymous', 'let']
 
 __all__ += ['DefaultingError']
+
+from .objects.results import Results, Answer, Bindings
+# Load the node printer before exporting the public function of that name.
+from .show import show as _show_node
+
+def show(value):
+  if isinstance(value, (Answer, Bindings)):
+    return str(value)
+  from .objects.termshow import show as show_term
+  return show_term(value)
+
+__all__ += ['solve', 'Results', 'Answer', 'Bindings', 'show', 'NoValueError', 'ManyValuesError', 'StaleError']

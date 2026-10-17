@@ -22,16 +22,15 @@ import curry, unittest
 
 class TestSharedValues(cytest.TestCase):
   '''The goals of the issue, evaluated.'''
-  @classmethod
-  def setUpClass(cls):
-    cls.M = curry.import_('SharedListPrinter')
+  def setUp(self):
+    self.M = curry.import_('SharedListPrinter')
 
   def test_shared_list(self):
-    values = [str(value) for value in curry.eval(self.M.goal)]
+    values = [str(value) for value in curry.eval(self.M.goal, converter=None)]
     self.assertEqual(values, ['([False], [False])'])
 
   def test_shared_choice(self):
-    values = sorted(str(value) for value in curry.eval(self.M.goal2))
+    values = sorted(str(value) for value in curry.eval(self.M.goal2, converter=None))
     self.assertEqual(values, ['([False], [False], 1)', '([], [], 1)'])
 
 

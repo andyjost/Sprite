@@ -39,21 +39,18 @@ class TestFlowF02(cytest.TestCase):
     if FLOW_PATH not in curry.path:
       curry.path.insert(0, FLOW_PATH)
 
-  @unittest.expectedFailure
   def test_symbols_in_lists(self):
     I = curry.import_('Items')
     self.assertEqual(list(curry.eval(I.countItems([I.A, I.B]))), [2])
     self.assertEqual(list(curry.eval(I.applyAll([I.inc, I.dbl], 5))), [[6, 10]])
     self.assertEqual(curry.typeof(curry.term([I.inc, I.dbl])), '[Int -> Int]')
 
-  @unittest.expectedFailure
   def test_constructor_tree(self):
     P = curry.import_('Prelude'); G = curry.import_('Geo')
     tree = G.Node(G.Node(G.Leaf, 1, G.Leaf), 2, G.Leaf)
     self.assertEqual(str(tree), 'Node (Node Leaf 1 Leaf) 2 Leaf')
     self.assertEqual(list(curry.eval(P.show(tree))), ['Node (Node Leaf 1 Leaf) 2 Leaf'])
 
-  @unittest.expectedFailure
   def test_list_is_never_application(self):
     I = curry.import_('Items')
     with self.assertRaises(curry.ConversionError):
@@ -79,7 +76,6 @@ class TestFlowF02(cytest.TestCase):
     self.assertEqual(str(curry.eval(t).one()), 'map inc')
     self.assertEqual(curry.typeof(t), '[Int] -> [Int]')
 
-  @unittest.expectedFailure
   def test_apply_result(self):
     P = curry.import_('Prelude'); I = curry.import_('Items')
     t = P.id(I.inc, 1)

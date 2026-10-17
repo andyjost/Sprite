@@ -62,7 +62,7 @@ class TestWeakTable(ChildTests):
     '''
     proc = self.run_child('''
 def live(n):
-  value = curry.topython(next(curry.eval(M.narrowMany, n)))
+  value = curry.topython(next(curry.eval(M.narrowMany, n, converter=None)))
   assert value == n, (value, n)
   gc.collect()
   cyrt.gc_collect()
@@ -92,7 +92,7 @@ def items(n, k):
   for i in range(n):
     seen.append((cyrt.gc_freevar_count(), cyrt.gc_node_count()))
     yield k
-value = curry.topython(next(curry.eval(M.narrowEach, iter(items(40, 5000)))))
+value = curry.topython(next(curry.eval(M.narrowEach, iter(items(40, 5000)), converter=None)))
 assert value == 200000, value
 peak = max(entries for entries, nodes in seen)
 # The threshold is 16384 nodes, and a narrowing allocates several nodes
@@ -115,7 +115,7 @@ print('peak', peak)
     the table was weak, that evaluation crashed in a new runtime state.
     '''
     self.run_child('''
-value = next(curry.eval(M.pairFree))
+value = next(curry.eval(M.pairFree, converter=None))
 a, b = value.successors
 assert a.info.name == '_Free', repr(value)
 assert a.id() == b.id(), repr(value)
@@ -124,7 +124,7 @@ assert a.__deepcopy__().id() == a.id()
 gc.collect()
 cyrt.gc_collect()
 assert cyrt.gc_freevar_count() == 1, cyrt.gc_freevar_count()
-values = sorted(curry.topython(x) for x in curry.eval(M.both, value))
+values = sorted(curry.topython(x) for x in curry.eval(M.both, value, converter=None))
 assert values == [2, 4], values
 del value, a, b
 gc.collect()
@@ -151,7 +151,7 @@ for goal, args in [
   , (M.triple, ()), (M.lasts, (15,))
   ]:
   before = curry.stats()['steps']
-  values = [repr(v) for v in curry.eval(goal, *args)]
+  values = [repr(v) for v in curry.eval(goal, *args, converter=None)]
   results.append((goal.name, values, curry.stats()['steps'] - before))
 gc.collect()
 cyrt.gc_collect()
@@ -206,7 +206,7 @@ class TestNarrowing(ChildTests):
     proc = self.run_child('''
 cyrt.gc_set_threshold(1 << 13)
 n0 = cyrt.gc_collections()
-assert curry.topython(next(curry.eval(M.lasts, 60))) == list(range(1, 61))
+assert curry.topython(next(curry.eval(M.lasts, 60, converter=None))) == list(range(1, 61))
 collections = cyrt.gc_collections() - n0
 assert collections > 10, collections
 assert cyrt.gc_verify() is None
@@ -235,7 +235,7 @@ def gen(n):
 # Consumed to the end: the step releases the iterator at the last item.
 g = gen(3)
 ref = weakref.ref(g)
-assert curry.topython(next(curry.eval(M.total, g))) == 3
+assert curry.topython(next(curry.eval(M.total, g, converter=None))) == 3
 del g
 gc.collect()
 assert ref() is None, 'an exhausted iterator was kept'
@@ -245,7 +245,7 @@ assert ref() is None, 'an exhausted iterator was kept'
 # as take dropped the rest, before the evaluation ended.
 g = gen(100)
 ref = weakref.ref(g)
-assert curry.topython(next(curry.eval(M.firstTwo, g))) == [0, 1]
+assert curry.topython(next(curry.eval(M.firstTwo, g, converter=None))) == [0, 1]
 del g
 gc.collect()
 if not cyrt.gc_stress():
@@ -293,17 +293,17 @@ class TestValues(cytest.TestCase):
 
   def test_values(self):
     M = curry.import_('CxxFreeVars')
-    self.assertEqual(curry.topython(next(curry.eval(M.narrowMany, 500))), 500)
-    self.assertEqual(curry.topython(next(curry.eval(M.bindMany, 500))), 500)
-    self.assertEqual(curry.topython(next(curry.eval(M.uniteMany, 100))), 100)
+    self.assertEqual(curry.topython(next(curry.eval(M.narrowMany, 500, converter=None))), 500)
+    self.assertEqual(curry.topython(next(curry.eval(M.bindMany, 500, converter=None))), 500)
+    self.assertEqual(curry.topython(next(curry.eval(M.uniteMany, 100, converter=None))), 100)
     self.assertEqual(
-        sorted(curry.topython(v) for v in curry.eval(M.triple))
+        sorted(curry.topython(v) for v in curry.eval(M.triple, converter=None))
       , [(1, 1), (2, 2), (3, 3)]
       )
     self.assertEqual(
-        sorted(str(v) for v in curry.eval(M.wakeByNarrowing))
+        sorted(str(v) for v in curry.eval(M.wakeByNarrowing, converter=None))
       , ['I', 'I', 'O', 'O']
       )
     self.assertEqual(
-        curry.topython(next(curry.eval(M.lasts, 10))), list(range(1, 11))
+        curry.topython(next(curry.eval(M.lasts, 10, converter=None))), list(range(1, 11))
       )

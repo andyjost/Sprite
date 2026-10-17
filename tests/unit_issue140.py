@@ -15,7 +15,7 @@ from curry.exceptions import CurryIndexError
 class TestNodeIndex(unittest.TestCase):
   def setUp(self):
     self.P = curry.import_('Prelude')
-    self.v = next(curry.eval(curry.expr([1, 2])))   # a cons node: two successors
+    self.v = next(curry.eval(curry.expr([1, 2]), converter=None))   # a cons node: two successors
 
   def test_in_range(self):
     self.assertEqual(self.v[0], curry.expr(1))
@@ -38,7 +38,7 @@ class TestNodeIndex(unittest.TestCase):
       self.v[-3]
 
   def test_nullary_node_has_no_index(self):
-    nil = next(curry.eval(curry.expr([])))
+    nil = next(curry.eval(curry.expr([]), converter=None))
     with self.assertRaises(CurryIndexError):
       nil[0]
 

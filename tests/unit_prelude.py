@@ -20,7 +20,7 @@ class TestPrelude(cytest.TestCase):
     '''
     Tests the built-in Prelude types and, indicentally, the ``isa`` function.
     '''
-    e2s = lambda expr: str(next(curry.eval(expr)))
+    e2s = lambda expr: str(next(curry.eval(curry.expr(expr), converter=None)))
 
     # Int, Char, Float.
     Int = curry.symbol('Prelude.Int')
@@ -80,7 +80,7 @@ class TestPrelude(cytest.TestCase):
     # The primitives are called without the $## of their Prelude wrappers,
     # so the string must be in normal form already: a list of characters,
     # not the lazy string node the typed builder makes of a str.
-    eval_ = lambda e: next(curry.eval(cells(e), converter=None))
+    eval_ = lambda e: next(curry.eval(curry.expr(cells(e)), converter=None))
     sym = lambda s: curry.symbol('Prelude.' + s)
     # Int
     self.assertEqual(eval_([sym('prim_readNatLiteral'), ['0']]), curry.raw_expr([(0, "")]))
@@ -121,7 +121,7 @@ class TestPrelude(cytest.TestCase):
     # should never occur because a lexer is used beforehand to ensure the input
     # is always valid.
     def assertNoGood(e):
-      values = list(curry.eval(cells(e), converter=None))
+      values = list(curry.eval(curry.expr(cells(e)), converter=None))
       self.assertTrue(values == [] or curry.topython(values[0][1]) == [])
     sym = lambda s: curry.symbol('Prelude.' + s)
 

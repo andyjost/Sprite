@@ -5,11 +5,11 @@ concat [[1, 2], [], [3]] -> [[1, 2, 3]]
 [1, 2.5] -> [[1.0, 2.5]]
 typeof [1, 2.5] -> 'Fractional a => [a]'
 () -> [()]
-(1,) !! ConversionError: Curry has no 1-tuple (at the expression)
+(1,) !! ConversionError: a Curry tuple has zero or 2 to 15 components
 tuple(range(14)) -> [(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)]
 typeof tuple(range(15)) -> '(Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)'
 tuple(range(15)) -> [<(,,,,,,,,,,,,,,) <Int 0> <Int 1> <Int 2> <Int 3> <Int 4> <Int 5> <Int 6> <Int 7> <Int 8> <Int 9> <Int 10> <Int 11> <Int 12> <Int 13> <Int 14>>]
-tuple(range(16)) !! SymbolLookupError: module 'Prelude' has no symbol '(,,,,,,,,,,,,,,,)'
+tuple(range(16)) !! ConversionError: a Curry tuple has zero or 2 to 15 components
 range(3) !! CurryTypeError: cannot build a Curry expression from type 'range'
 list(range(3)) -> [3]
 take 3 (count 10) -> [[10, 11, 12]]

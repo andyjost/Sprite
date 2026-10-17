@@ -68,6 +68,7 @@ def cmdEval(repl):
     # while the evaluation runs; see curry.typecheck.goals.Goal.evaluate.
     values = iter(curry.eval(
         curry.compile(' '.join(repl.args), mode='expr', imports=imports(repl))
+      , converter=None
       ))
     while True:
       try:

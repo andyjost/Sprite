@@ -29,6 +29,8 @@ def symbol(name):
 
 def values(*args, **kwds):
   '''The values of a goal, converted to Python.'''
+  if len(args) == 1 and isinstance(args[0], list) and args[0] and isinstance(args[0][0], curry.Term):
+    args = tuple(args[0])
   return list(curry.eval(*args, converter='topython', **kwds))
 
 def floats(text):
@@ -119,7 +121,7 @@ class TestAcceptance(cytest.TestCase):
       with self.assertRaises(curry.CurryTypeError):
         curry.expr(*args)
       with self.assertRaises(curry.CurryTypeError):
-        curry.eval(*args)
+        curry.eval(*args, converter=None)
     # The error is a TypeError too, as every CurryTypeError is.
     with self.assertRaises(TypeError):
       curry.expr(getattr(P, 'not'), 1)
@@ -182,12 +184,12 @@ class TestAcceptance(cytest.TestCase):
     DL = curry.import_('Data.List')
     DM = curry.import_('Data.Maybe')
     plus = symbol('+')
-    v = next(curry.eval(curry.expr([1.5, 2.5])))
+    v = next(curry.eval(curry.expr([1.5, 2.5]), converter=None))
     self.assertEqual(curry.typeof(v), '[Float]')
     total, = values(DL.sum, v)
     self.assertIsInstance(total, float)
     self.assertEqual(total, 4.0)
-    r = next(curry.eval(P.Just, 1))
+    r = next(curry.eval(P.Just, 1, converter=None))
     with self.assertRaisesRegex(
         curry.CurryTypeError
       , r'^cannot convert 1\.5 to Int at argument 2 of Prelude\.\+ :: Num a => a -> a -> a\n'
@@ -681,7 +683,7 @@ class TestValueWalk(cytest.TestCase):
   def test_kinds_of_nodes(self):
     P = prelude()
     x = curry.free()
-    v, = curry.eval(P.id, x)
+    v, = curry.eval(P.id, x, converter=None)
     self.assertTrue(inspect.isa_freevar(v))
     self.assertEqual(curry.typeof(v), 'a')
     self.assertEqual(curry.typeof(curry.raw_expr(curry.choice(1, 2))), 'Num a => a')
@@ -711,7 +713,7 @@ class TestValueWalk(cytest.TestCase):
     '''
     P = prelude()
     plus = symbol('+')
-    v = next(curry.eval(P.map, getattr(P, 'not')))
+    v = next(curry.eval(P.map, getattr(P, 'not'), converter=None))
     self.assertTrue(v.info.is_partial)
     self.assertEqual(curry.typeof(v), '[Bool] -> [Bool]')
     self.assertEqual(values(P.apply, v, [True, False]), [[False, True]])
@@ -722,14 +724,14 @@ class TestValueWalk(cytest.TestCase):
       curry.expr(P.apply, v, 1)
     # A method with its dictionary: the dictionary is skipped and the value
     # argument fixes the type.
-    incr = next(curry.eval(curry.expr(plus, 1)))
+    incr = next(curry.eval(curry.expr(plus, 1), converter=None))
     self.assertTrue(incr.info.is_partial)
     self.assertEqual(curry.typeof(incr), 'Int -> Int')
     self.assertEqual(values(P.apply, incr, 2), [3])
     with self.assertRaises(curry.CurryTypeError):
       curry.expr(P.apply, incr, 2.5)
     # A constructor with a missing argument.
-    j = next(curry.eval(curry.expr(P.Just)))
+    j = next(curry.eval(curry.expr(P.Just), converter=None))
     self.assertEqual(curry.typeof(j), 'a -> Maybe a')
     self.assertEqual(texts(P.apply, j, 'x'), ["Just 'x'"])
     # A method without its dictionary stays an opaque leaf.
@@ -888,7 +890,7 @@ class TestAPI(cytest.TestCase):
     gc.collect()
     self.assertEqual(len(record), before - 1)
     # A value of an evaluation is a copy: no record, the walk types it.
-    v = next(curry.eval(curry.expr([1.5])))
+    v = next(curry.eval(curry.expr([1.5]), converter=None))
     self.assertIsNone(builder.recorded(interp, v))
     self.assertEqual(curry.typeof(v), '[Float]')
 

@@ -135,7 +135,7 @@ class TestPyInterp(cytest.TestCase):
     self.assertEqual(interp.stats()['forks'], 0)
     choice = lambda: curry.expressions.choice(True, False)
     goal = interp.expr([interp.symbol('Prelude.not'), choice()])
-    self.assertEqual(sorted(map(str, interp.eval(goal))), ['False', 'True'])
+    self.assertEqual(sorted(map(str, interp.eval(goal, converter=None))), ['False', 'True'])
     stats = interp.stats()
     self.assertGreater(stats['steps'], 0)
     self.assertEqual(stats['forks'], 1)
@@ -148,7 +148,7 @@ class TestPyInterp(cytest.TestCase):
     self.assertEqual(interp.stats()['forks'], 1)
     # One value of a second evaluation, generator kept: the running
     # evaluation is counted.
-    values = interp.eval(interp.expr([interp.symbol('Prelude.not'), choice()]))
+    values = interp.eval(interp.expr([interp.symbol('Prelude.not'), choice()]), converter=None)
     next(values)
     self.assertEqual(interp.stats()['forks'], 2)
     self.assertGreater(interp.stats()['steps'], stats['steps'])
@@ -159,11 +159,11 @@ class TestPyInterp(cytest.TestCase):
     '''Tests to get complete line coverage.'''
     interp = Interpreter(flags=PY)
     # Run interp.eval with a literal as input (not Node).
-    self.assertEqual(list(interp.eval(1)), [interp.raw_expr(1)])
+    self.assertEqual(list(interp.eval(1, converter=None)), [interp.raw_expr(1)])
 
     # Evaluate an expression with a leading FWD node.  It should be removed.
     # W = interp.backend.fundamental_symbols.Fwd
-    # self.assertEqual(list(interp.eval([W, 1])), [interp.raw_expr(1)])
+    # self.assertEqual(list(interp.eval([W, 1], converter=None)), [interp.raw_expr(1)])
 
 
   @cytest.with_flags(defaultconverter='topython')
@@ -207,7 +207,7 @@ class TestPyInterp(cytest.TestCase):
       ]
     for expr, expected in TESTS:
       goal = interp.raw_expr(*expr)
-      result = map(str, interp.eval(goal))
+      result = map(str, interp.eval(goal, converter=None))
       expected = map(self.format_list, expected)
       self.assertEqual(set(result), set(expected))
 

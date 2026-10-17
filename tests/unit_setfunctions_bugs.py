@@ -110,7 +110,7 @@ curry.reload(%(flags)r)
 M = curry.import_(%(module)r)
 for name, limit in %(goals)r:
   try:
-    values = curry.eval(getattr(M, name))
+    values = curry.eval(getattr(M, name), converter=None)
     if limit is not None:
       values = itertools.islice(values, limit)
     print(name, sorted(str(value) for value in values))
@@ -509,7 +509,7 @@ first = curry.compile(SRC, modulename='BuiltinsAfterReset')
 curry.reset()
 second = curry.compile(SRC, modulename='BuiltinsAfterReset')
 for name in 'goalA', 'goalB':
-  values = curry.eval(getattr(second, name))
+  values = curry.eval(getattr(second, name), converter=None)
   print(name, sorted(str(value) for value in values))
 '''
 
