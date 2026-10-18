@@ -70,6 +70,26 @@ for Python values, and curry.parse for Curry text. curry.eval yields Python
 values; curry.solve also reports the bindings of named variables. Use
 curry.show for Curry text and curry.typeof for types. A list is a list value.
 
+unit_stub_*.py and unit_flow_f*.py are the frozen API acceptance tests:
+432 of 435 pass on C++. The three expected failures await the choice
+interpreter: unit_flow_f13.TestFlowF13.test_choice_protocol and
+test_fork_precedence, and unit_stub_terms.TestStubTerms.test_choice_type_conversion.
+Nine further expected failures apply only to the retired Python backend:
+eight in unit_stub_evaluation.py and unit_flow_f06.test_stream_ten_primes.
+unit_flow_f11.TestFlowF11.test_free_argument_answers
+passes on both backends; partial lists print cons without spaces in values
+and bindings (for example {x="":_a}), with nested heads parenthesized.
+Run the acceptance with ./run_tests 'unit_stub_*.py' 'unit_flow_f*.py' --backend both.
+
+unit_issue103.py, unit_issue104.py, unit_issue108.py and unit_issue137.py
+pin the tracker reproducers resolved by the API. unit_issue133.py and
+unit_issue134.py pin the LiftGuard reproducers, plain and with checker:true:
+#133 expects no value but C++ gives an empty set (two expected failures);
+#134 expects [True] once but both backends give it twice (two expected
+failures per backend). Their repair needs runtime work. The free-argument
+control in unit_issue134.py checks outside narrowing, including the empty
+set for a binding that the function refuses, under the owner's decisions.
+
 Tests of runtime nodes use cytest.raw from lib/cytest/raw.py. raw.expr
 builds nodes, raw.values yields evaluation nodes, and raw.show prints them.
 The helper also supplies the internal markers and raw.interp for tests of

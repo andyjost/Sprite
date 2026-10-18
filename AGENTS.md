@@ -13,9 +13,16 @@ over on 2026-10-17; `py314` stays as a frozen ref and is not pushed to.
 The Python API is the surface of the API review of October 2026:
 `curry/__init__.pyi` is the installed stub and `tests/unit_surface.py`
 checks the package against it. The files `tests/unit_flow_f*.py` and
-`tests/unit_stub_*.py` are its acceptance tests; 410 of 414 pass on the
-C++ backend; a test marked `expectedFailure` there waits for the choice
-interpreter, or keeps its marker on the retired Python backend alone.
+`tests/unit_stub_*.py` are its frozen acceptance tests; 432 of 435 pass on
+the C++ backend. The three `expectedFailure` markers there are F13's
+`test_choice_protocol` and `test_fork_precedence`, and
+`unit_stub_terms.py::test_choice_type_conversion`, awaiting the choice
+interpreter. Nine more markers apply only to the retired Python backend:
+eight in `unit_stub_evaluation.py` and F06's `test_stream_ten_primes`.
+F11's `test_free_argument_answers` passes:
+partial lists in values and bindings print cons without spaces, as PAKCS
+does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`;
+#133 (C++ only) and #134 retain expected failures for runtime defects.
 
 ## Layout
 

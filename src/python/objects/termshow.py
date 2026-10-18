@@ -157,7 +157,7 @@ def format_(value):
 
 def _format(value):
   from ..expressions import typed
-  from .terms import Term, ValueList, Var, Reference, LetForm, Char, Values, IteratorSource
+  from .terms import Term, Data, ValueList, Var, Reference, LetForm, Char, Values, IteratorSource
   ctx = _CONTEXT.get()
   if isinstance(value, Term):
     name = ctx.lets.get(id(value))
@@ -185,6 +185,13 @@ def _format(value):
   if isinstance(value, Term):
     if hasattr(value, '_text'):
       return value._text, APP
+    if isinstance(value, Data) and value.symbol.name == ':':
+      # A converted open list uses PAKCS's value syntax. Cons is built in;
+      # its fixity need not be declared in the Prelude interface.
+      fixity = 'infixr', 5
+      head = yield value.args[0]
+      tail = yield value.args[1]
+      return '%s:%s' % (operand(head, 'L', fixity), operand(tail, 'R', fixity)), fixity
     return (yield value._form)
   if isinstance(value, typed):
     if isinstance(value.value, str):
