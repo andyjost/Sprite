@@ -1,12 +1,10 @@
 #!/bin/bash
-# Runs the example on the reference backend (backend:py; the developer
-# notes of the documentation).  The example runs on that backend only; the
-# README says why.
+# Saves and runs the example on the backend selected by the environment
+# or the installed default.
 set -euo pipefail
 cd "$(dirname "$0")"
 : "${SPRITE_HOME:=$(cd ../.. && pwd)/install}"
 export SPRITE_HOME
-export SPRITE_INTERPRETER_FLAGS=backend:py
 export LC_ALL=C.UTF-8 PYTHONIOENCODING=utf-8
 unset CURRYPATH
 # The rules of aux in wildcard_matching overlap by design: the choice is the

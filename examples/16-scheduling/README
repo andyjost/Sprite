@@ -54,11 +54,13 @@ One call,
 
     curry.eval(Sched.schedule(tasks, precedences, horizon))
 
-is a generator of schedules.  The driver takes the first one with next() and
-discards the generator.  This stops the search.  A horizon with no schedule
-yields zero values, so next() returns the default None, and the driver tries
-the next horizon.  Evaluation turns the schedule into a Python list of
-(str, int) pairs.  The driver sorts it by start slot and draws the chart.
+returns a lazy Results iterator of schedules.  The driver takes the first
+one with next().  Taking one answer or breaking out of a loop preserves
+the iterator's position.  Use close() or leave a with block to end the
+search explicitly.  A horizon with no schedule yields zero values, so
+next() returns the default None, and the driver tries the next horizon.
+Evaluation turns the schedule into a Python list of (str, int) pairs.
+The driver sorts it by start slot and draws the chart.
 
 
 3. How to run

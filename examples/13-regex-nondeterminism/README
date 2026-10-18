@@ -166,6 +166,6 @@ has 440 hits, every substring with a b, and the grep took 0.4 s.
 A grep of ab*c in a subject of 100 x's took 2.0 s with a
 peak of 139 MB, and one of 130 x's took 3.5 s with a peak of 176 MB.
 
-curry.term builds a String in one call (the list of its characters) and a
-list in a loop, so the length of a subject is bounded by memory and time,
-not by the Python recursion limit.
+The typed symbol calls convert a Python str to a Curry String, even when
+it has one character.  A Char slot takes curry.Char instead.  Longer inputs
+cost more time and memory.
