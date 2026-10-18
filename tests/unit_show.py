@@ -20,6 +20,28 @@ import cytest # from ./lib; must be first
 from curry.expressions import ref
 import curry, unittest
 
+class TestPartialListValues(cytest.TestCase):
+  '''PAKCS writes cons without spaces, in values and answer bindings.'''
+  def test_unbound_tail(self):
+    P = curry.import_('Prelude')
+    for head, type_, text in [
+        (1, '[Int]', '1:_a'), ('', '[String]', '"":_a'),
+        ([1], '[[Int]]', '[1]:_a')]:
+      with self.subTest(type=type_):
+        tail = curry.term(curry.anonymous, type=type_)
+        goal = P[':'](head, tail)
+        value = curry.eval(goal).one()
+        self.assertEqual(curry.show(value), text)
+        self.assertEqual(str(value), text)
+        x = curry.free('x', type=type_)
+        answer = curry.solve(P['=:='](x, goal)).one()
+        self.assertEqual(str(answer), '{x=%s} True' % text)
+
+  def test_nested_cons_precedence(self):
+    goal = curry.parse('(a:b:c):d where a,b,c,d free')
+    self.assertEqual(curry.show(curry.eval(goal).one()), '(a:b:c):d')
+
+
 class TestSharedValues(cytest.TestCase):
   '''The goals of the issue, evaluated.'''
   def setUp(self):

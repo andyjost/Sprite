@@ -71,7 +71,6 @@ class TestFlowF11(cytest.TestCase):
     self.assertEqual(list(tw), [0, 1, 1, 2])
     self.assertEqual(sorted(tw), [0, 1, 1, 2])
 
-  @unittest.expectedFailure
   def test_free_argument_answers(self):
     SF = curry.import_('Control.SetFunctions'); S = curry.import_('Sets'); x = curry.free('x')
     answers = list(curry.solve(SF.set2(S.rule, 'a', x)))
