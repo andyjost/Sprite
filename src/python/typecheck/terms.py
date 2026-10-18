@@ -17,6 +17,7 @@ defaulting table.
 
 from ..toolchain.flat2icurry import flatcurry as fc
 from .sigtable import show_type
+from ..utility.trampoline import trampoline
 import itertools
 
 __all__ = [
@@ -260,6 +261,9 @@ def instantiate(typeexpr, mapping, kinds=None):
   with the kind ``kinds`` gives for the index.  A nested ``ForallType``
   quantifies fresh variables for its own indices.
   '''
+  return trampoline(_instantiate(typeexpr, mapping, kinds))
+
+def _instantiate(typeexpr, mapping, kinds):
   if isinstance(typeexpr, fc.TVar):
     var = mapping.get(typeexpr.index)
     if var is None:
@@ -268,18 +272,19 @@ def instantiate(typeexpr, mapping, kinds=None):
     return var
   if isinstance(typeexpr, fc.FuncType):
     return fc.FuncType(
-        instantiate(typeexpr.domain, mapping, kinds)
-      , instantiate(typeexpr.range, mapping, kinds)
+        (yield _instantiate(typeexpr.domain, mapping, kinds))
+      , (yield _instantiate(typeexpr.range, mapping, kinds))
       )
   if isinstance(typeexpr, fc.TCons):
-    return fc.TCons(
-        typeexpr.name, [instantiate(a, mapping, kinds) for a in typeexpr.args]
-      )
+    args = []
+    for arg in typeexpr.args:
+      args.append((yield _instantiate(arg, mapping, kinds)))
+    return fc.TCons(typeexpr.name, args)
   if isinstance(typeexpr, fc.ForallType):
     inner = dict(mapping)
     for index, kind in typeexpr.typevars:
       inner[index] = Var(kind)
-    return instantiate(typeexpr.typeexpr, inner, kinds)
+    return (yield _instantiate(typeexpr.typeexpr, inner, kinds))
   if isinstance(typeexpr, (Var, Rigid)):
     return typeexpr
   raise TypeError('not a type expression: %r' % (typeexpr,))
@@ -321,15 +326,23 @@ def zonk(term, naming=None, arity=None):
   '''
   if naming is None:
     naming = Naming()
+  return trampoline(_zonk(term, naming, arity))
+
+def _zonk(term, naming, arity):
   t = whnf(term, arity)
   if isinstance(t, (Var, Rigid)):
     return fc.TVar(naming.index(t))
   if isinstance(t, fc.FuncType):
-    return fc.FuncType(zonk(t.domain, naming, arity), zonk(t.range, naming, arity))
+    domain = yield _zonk(t.domain, naming, arity)
+    range_ = yield _zonk(t.range, naming, arity)
+    return fc.FuncType(domain, range_)
   if isinstance(t, fc.TCons):
-    return fc.TCons(t.name, [zonk(a, naming, arity) for a in t.args])
+    args = []
+    for arg in t.args:
+      args.append((yield _zonk(arg, naming, arity)))
+    return fc.TCons(t.name, args)
   if isinstance(t, fc.ForallType):
-    return fc.ForallType(t.typevars, zonk(t.typeexpr, naming, arity))
+    return fc.ForallType(t.typevars, (yield _zonk(t.typeexpr, naming, arity)))
   if isinstance(t, fc.TVar):
     return t
   raise TypeError('not a type term: %r' % (t,))

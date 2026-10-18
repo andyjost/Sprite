@@ -23,7 +23,7 @@ from curry.typecheck.engine import (
 from curry.typecheck.instances import DictTerm, InstanceEnv, Pred
 from curry.typecheck.terms import Rigid, Var, tcons
 from io import StringIO
-import curry, os, re, unittest
+import curry, os, re, sys, unittest
 
 GOLDENS = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), 'data', 'curry', 'goal_defaulting'
@@ -87,6 +87,21 @@ def show(term):
 
 class TestUnify(cytest.TestCase):
   '''Unification with the occurs check and the Apply rule.'''
+
+  def test_deep_type_resolution(self):
+    '''Resolving, instantiating and printing a type costs no Python frames.'''
+    typeexpr = fc.TVar(0)
+    for _ in range(2000):
+      typeexpr = fc.TCons(fc.prelude('[]'), [typeexpr])
+    old = sys.getrecursionlimit()
+    try:
+      sys.setrecursionlimit(200)
+      term = terms.instantiate(typeexpr, {})
+      resolved = terms.zonk(term)
+      self.assertTrue(resolved == typeexpr)
+      self.assertEqual(sigtable.show_type(resolved), '[' * 2000 + 'a' + ']' * 2000)
+    finally:
+      sys.setrecursionlimit(old)
 
   def test_variables(self):
     a, b = Var(), Var()

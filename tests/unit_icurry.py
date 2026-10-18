@@ -2,7 +2,49 @@ import cytest # from ./lib; must be first
 from cytest.logging import capture_log
 from curry import icurry
 from curry.utility.binding import binding
-import curry, importlib, sys, unittest
+import curry, importlib, json, sys, unittest
+
+class TestJSONStacks(cytest.TestCase):
+  def test_deep_round_trip(self):
+    from curry.icurry import json as ijson
+    expr = icurry.IVar(0)
+    for _ in range(2000):
+      expr = icurry.ICCall('Prelude.:', [icurry.IVar(1), expr])
+    # No raised Python recursion limit is needed on either side.
+    old = sys.getrecursionlimit()
+    try:
+      sys.setrecursionlimit(200)
+      result = ijson.loads(ijson.dumps(expr))
+      for _ in range(2000):
+        self.assertEqual(result.symbolname, 'Prelude.:')
+        result = result.exprs[1]
+      self.assertEqual(result.vid, 0)
+    finally:
+      sys.setrecursionlimit(old)
+
+  def test_standard_json_format(self):
+    from curry.icurry import json as ijson
+    value = {'text': '\"\\\n\u2603', 'values': [None, True, False, -1, 2.5, {}]}
+    for compact in (True, False):
+      expected = json.dumps(value, separators=(',', ':') if compact else None)
+      self.assertEqual(ijson.dumps(value, compact), expected)
+      self.assertEqual(ijson.loads(expected), value)
+    self.assertEqual(ijson.Encoder(compact=False, indent=2).encode(value),
+        json.dumps(value, indent=2))
+
+  def test_shared_and_cyclic_containers(self):
+    from curry.icurry import json as ijson
+    shared = [1]
+    self.assertEqual(ijson.loads(ijson.dumps([shared, shared])), [[1], [1]])
+    shared.append(shared)
+    with self.assertRaisesRegex(ValueError, 'Circular reference'):
+      ijson.dumps(shared)
+
+  def test_bad_json(self):
+    from curry.icurry import json as ijson
+    for text in ('[', '{', '[1,]', '{"a":}', '{"a" 1}', '[1 2]', '{} []'):
+      with self.subTest(text=text), self.assertRaises(json.JSONDecodeError):
+        ijson.loads(text)
 
 class ICurryTestCase(cytest.TestCase):
   def testICurryCoverage1(self):

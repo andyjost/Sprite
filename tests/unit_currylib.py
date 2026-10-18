@@ -10,6 +10,8 @@ ENV = {
   , 'LC_ALL': 'C.UTF-8'
   , 'TMPDIR': os.environ.get('TMPDIR', tempfile.gettempdir())
   }
+if 'PYTHON_GIL' in os.environ:
+  ENV['PYTHON_GIL'] = os.environ['PYTHON_GIL']
 
 # The modules whose ICurry products are committed beside their sources under
 # curry/lib.  The hash pins the source each product was made from.  After a

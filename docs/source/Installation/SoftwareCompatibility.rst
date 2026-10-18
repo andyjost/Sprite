@@ -36,7 +36,9 @@ Python
     rejects older versions.  Python 3.14 remains the development default.
     CI runs the C++ unit suites on each version.  The 3.15 lane and the
     free-threaded 3.14t lane are allowed to fail; 3.14t runs with the GIL
-    enabled.  Running Sprite without the GIL is not yet supported.
+    enabled (``PYTHON_GIL=1``), until the extension declares its thread
+    safety.  Children inherit ``PYTHON_GIL`` when set.  Running Sprite
+    without the GIL is not yet supported.
 
 ..
   Sources

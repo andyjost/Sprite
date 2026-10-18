@@ -165,7 +165,8 @@ jobs:
         run: ccache -s | head -n 6
 
   # The Python window: C++ unit suites only, on master pushes and dispatch.
-  # The 3.15 and free-threaded lanes collect evidence without gating a merge.
+  # The 3.15 and free-threaded lanes collect evidence without gating a merge;
+  # 3.11 through 3.14 gate the job.
   python-versions:
     name: python versions (${{ matrix.python }})
     if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || github.event_name == 'workflow_dispatch'

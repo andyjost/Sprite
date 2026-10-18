@@ -2,6 +2,7 @@ from . import types
 from ..utility.fmap import fmap
 from ..utility.strings import ensure_str_safe, ensure_str
 from ..utility.visitation import dispatch
+from ..utility.trampoline import trampoline
 import collections, json, traceback
 
 def _object_hook(kwds):
@@ -25,7 +26,49 @@ def _object_hook(kwds):
       )
 
 def get_decoder():
-  return json.JSONDecoder(object_hook=_object_hook)
+  return Decoder(object_hook=_object_hook)
+
+class Decoder(json.JSONDecoder):
+  '''Read containers on a heap stack; the standard decoder reads scalars.'''
+  def decode(self, text):
+    value, end = trampoline(self._value(text, 0))
+    end = json.decoder.WHITESPACE.match(text, end).end()
+    if end != len(text):
+      raise json.JSONDecodeError('Extra data', text, end)
+    return value
+
+  def _value(self, text, pos):
+    pos = json.decoder.WHITESPACE.match(text, pos).end()
+    if pos == len(text) or text[pos] not in '[{':
+      return self.raw_decode(text, pos)
+    mapping = text[pos] == '{'
+    close = '}' if mapping else ']'
+    result = {} if mapping else []
+    pos = json.decoder.WHITESPACE.match(text, pos + 1).end()
+    if text[pos:pos+1] == close:
+      value = self.object_hook(result) if mapping and self.object_hook else result
+      return value, pos + 1
+    while True:
+      if mapping:
+        if text[pos:pos+1] != '"':
+          raise json.JSONDecodeError('Expecting property name', text, pos)
+        key, pos = self.raw_decode(text, pos)
+        pos = json.decoder.WHITESPACE.match(text, pos).end()
+        if text[pos:pos+1] != ':':
+          raise json.JSONDecodeError("Expecting ':' delimiter", text, pos)
+        pos += 1
+      value, pos = yield self._value(text, pos)
+      if mapping:
+        result[key] = value
+      else:
+        result.append(value)
+      pos = json.decoder.WHITESPACE.match(text, pos).end()
+      if text[pos:pos+1] == close:
+        value = self.object_hook(result) if mapping and self.object_hook else result
+        return value, pos + 1
+      if text[pos:pos+1] != ',':
+        raise json.JSONDecodeError("Expecting ',' delimiter", text, pos)
+      pos = json.decoder.WHITESPACE.match(text, pos + 1).end()
 
 def loads(json, decoder=get_decoder()):
   '''Load ICurry encoded as JSON.'''
@@ -55,6 +98,68 @@ class Encoder(json.JSONEncoder):
     if compact:
       kwds.setdefault('separators', (',', ':'))
     json.JSONEncoder.__init__(self, **kwds)
+
+  def iterencode(self, obj, _one_shot=False):
+    # Each item is a value to expand, literal text, or an ancestor to leave.
+    # Keep circular-reference detection, including default() conversions.
+    stack = [('value', obj, 0)]
+    indent = self.indent
+    if indent is not None and not isinstance(indent, str):
+      indent = ' ' * indent
+    active = set()
+    scalar = json.JSONEncoder(ensure_ascii=self.ensure_ascii,
+        allow_nan=self.allow_nan)
+    while stack:
+      action, value, level = stack.pop()
+      if action == 'text':
+        yield value
+      elif action == 'leave':
+        active.remove(id(value))
+      elif value is None or isinstance(value, (str, int, float, bool)):
+        yield scalar.encode(value)
+      else:
+        if self.check_circular:
+          ident = id(value)
+          if ident in active:
+            raise ValueError('Circular reference detected')
+          active.add(ident)
+          stack.append(('leave', value, level))
+        if isinstance(value, (list, tuple)):
+          yield '['
+          newline = '\n' + indent * level if indent is not None and value else ''
+          stack.append(('text', newline + ']', level))
+          for i in reversed(range(len(value))):
+            stack.append(('value', value[i], level + 1))
+            if indent is not None:
+              stack.append(('text', '\n' + indent * (level + 1), level))
+            if i:
+              stack.append(('text', self.item_separator, level))
+        elif isinstance(value, dict):
+          yield '{'
+          items = sorted(value.items()) if self.sort_keys else list(value.items())
+          entries = []
+          for key, part in items:
+            if not isinstance(key, str):
+              if key is None or isinstance(key, (int, float, bool)):
+                key = scalar.encode(key)
+              elif self.skipkeys:
+                continue
+              else:
+                raise TypeError('JSON keys must be strings or scalars')
+            entries.append((key, part))
+          newline = '\n' + indent * level if indent is not None and entries else ''
+          stack.append(('text', newline + '}', level))
+          for i in reversed(range(len(entries))):
+            key, part = entries[i]
+            stack.append(('value', part, level + 1))
+            stack.append(('text', self.key_separator, level))
+            stack.append(('text', scalar.encode(key), level))
+            if indent is not None:
+              stack.append(('text', '\n' + indent * (level + 1), level))
+            if i:
+              stack.append(('text', self.item_separator, level))
+        else:
+          stack.append(('value', self.default(value), level))
 
   @dispatch.on('obj')
   def default(self, obj):
