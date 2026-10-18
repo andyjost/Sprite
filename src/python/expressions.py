@@ -570,11 +570,14 @@ class ExpressionBuilder(object):
     else:
       Cons = self.prelude.Cons
       Nil = self.prelude.Nil
-      sentinel = object()
-      seq = iter(lst)
-      f = lambda x,g: [Cons, self(x), g()] if x is not sentinel else Nil
-      g = lambda: f(next(seq, sentinel), g)
-      return self(g())
+      # Convert left to right (anchors may refer to earlier elements), then
+      # assemble the spine from the end without nested builder calls.
+      values = [self(x) for x in lst]
+      node = self._mknode(Nil, target=self.target if not values else None)
+      for i in reversed(range(len(values))):
+        node = self._mknode(Cons, values[i], node,
+            target=self.target if i == 0 else None)
+      return node
 
   @__call__.when(tuple)
   def __call__(self, tup, *trailing):
@@ -669,6 +672,11 @@ class ExpressionBuilder(object):
   def __call__(self, ti, *args):
     info = getattr(ti, 'info', ti)
     arity = info.arity
+    if info.name == '_biGenerator' and len(args) == 1:
+      # Its slot owns a Python iterator, rather than a Curry successor.
+      # Converting it to a node would pass a Node* to Py_INCREF.
+      items = (self(x) for x in args[0])
+      return self._mknode(ti, items, target=self.target)
     if info.is_primitive and len(args) == 1 and isinstance(args[0], unboxed):
       # A boxed literal over its unboxed payload, [Int, unboxed(3)]: the one
       # place of the marker.  The payload must fit the primitive.  See the

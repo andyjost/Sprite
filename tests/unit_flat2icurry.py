@@ -5,7 +5,7 @@ from curry.toolchain.flat2icurry import (
   , icurrytypes as ic, interfaces, terms
   )
 from curry.toolchain.flat2icurry import __main__ as cli
-from curry.utility import maxrecursion, readcurry
+from curry.utility import readcurry
 from curry.utility.readcurry import lex
 from curry import config
 import flat2icurry_oracle as oracle
@@ -476,10 +476,8 @@ class TestHaskellWriter(cytest.TestCase):
         'Comb ConsCall ("Prelude",":") [Lit (Intc 2999),Comb ConsCall ("Prelude",":") [Lit (Intc 2998),'
       ))
     self.assertTrue(text.endswith('Comb ConsCall ("Prelude","[]") []' + ']' * 3000))
-    # The comparison of two deep terms recurses (Term.__eq__), the reader
-    # does not.
-    with maxrecursion():
-      self.assertTrue(fc.read(text) == deep)
+    # Neither reading nor comparing the term needs a raised recursion limit.
+    self.assertTrue(fc.read(text) == deep)
 
 class TestElimNewtype(cytest.TestCase):
   '''Tests newtype elimination.'''

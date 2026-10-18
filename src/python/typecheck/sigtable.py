@@ -34,6 +34,7 @@ from ..common import T_CTOR
 from ..toolchain.flat2icurry import flatcurry as fc
 from ..toolchain.flat2icurry.terms import constructor as _term
 from ..utility import readcurry as rc
+from ..utility.trampoline import trampoline
 import logging, os, re, weakref
 
 logger = logging.getLogger(__name__)
@@ -338,17 +339,21 @@ def _qualify(qname, module):
 # Precedence levels of the printer: 0 allows an arrow, 1 is the domain of an
 # arrow or the head of an application, 2 is the argument of an application.
 def _show(te, names, prec, module):
+  return trampoline(_show_walk(te, names, prec, module))
+
+def _show_walk(te, names, prec, module):
   if isinstance(te, fc.TVar):
     return names(te.index)
   if isinstance(te, fc.FuncType):
     text = '%s -> %s' % (
-        _show(te.domain, names, 1, module), _show(te.range, names, 0, module)
+        (yield _show_walk(te.domain, names, 1, module)),
+        (yield _show_walk(te.range, names, 0, module))
       )
     return _paren(text, prec > 0)
   if isinstance(te, fc.ForallType):
     text = 'forall %s. %s' % (
         ' '.join(names(i) for i, _ in te.typevars)
-      , _show(te.typeexpr, names, 0, module)
+      , (yield _show_walk(te.typeexpr, names, 0, module))
       )
     return _paren(text, prec > 0)
   if isinstance(te, fc.TCons):
@@ -356,22 +361,29 @@ def _show(te, names, prec, module):
     args = te.args
     if modulename == PRELUDE:
       if name == '[]' and len(args) == 1:
-        return '[%s]' % _show(args[0], names, 0, module)
+        return '[%s]' % (yield _show_walk(args[0], names, 0, module))
       if name == '()' and not args:
         return '()'
       if _is_tuple_name(name) and len(args) == len(name) - 1:
-        return '(%s)' % ', '.join(_show(a, names, 0, module) for a in args)
+        parts = []
+        for arg in args:
+          parts.append((yield _show_walk(arg, names, 0, module)))
+        return '(%s)' % ', '.join(parts)
       if name == '(->)' and len(args) == 2:
-        return _show(fc.FuncType(*args), names, prec, module)
+        return (yield _show_walk(fc.FuncType(*args), names, prec, module))
       if name == 'Apply' and len(args) == 2:
         text = '%s %s' % (
-            _show(args[0], names, 1, module), _show(args[1], names, 2, module)
+            (yield _show_walk(args[0], names, 1, module)),
+            (yield _show_walk(args[1], names, 2, module))
           )
         return _paren(text, prec > 1)
     head = _qualify(te.name, module)
     if not args:
       return head
-    text = ' '.join([head] + [_show(a, names, 2, module) for a in args])
+    parts = [head]
+    for arg in args:
+      parts.append((yield _show_walk(arg, names, 2, module)))
+    text = ' '.join(parts)
     return _paren(text, prec > 1)
   raise TypeError('not a type expression: %r' % (te,))
 

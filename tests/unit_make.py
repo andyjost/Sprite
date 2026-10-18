@@ -373,7 +373,9 @@ class TestJobs(cytest.TestCase):
     self.assertEqual(cmd[cmd.index('--goal') + 1], 'main')
     self.assertNotIn('--curry2icurry', cmd)
     # The child finds this package first.
-    env = make.child_environment()
+    with binding(os.environ, 'PYTHON_GIL', '1'):
+      env = make.child_environment()
+    self.assertEqual(env['PYTHON_GIL'], '1')
     root = os.path.dirname(os.path.dirname(os.path.abspath(curry.__file__)))
     self.assertEqual(env['PYTHONPATH'].split(os.pathsep)[0], root)
 

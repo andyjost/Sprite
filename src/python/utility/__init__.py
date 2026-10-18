@@ -2,10 +2,9 @@ import contextlib, os, sys
 
 __all__ = ['cpu_count', 'formatDocstring', 'maxrecursion', 'translateKwds', 'unique']
 
-# The recursive-descent processing of ICurry necessitates a larger recursion
-# limit.  Since Python 3.12 the limit counts only Python frames; the C stack is
-# guarded separately, so a large limit no longer risks a SEGV from pure-Python
-# recursion.  This value is still a compromise against runaway recursion.
+# Extra room for the remaining recursive helpers.  This only changes the
+# Python frame limit; C calls have separate, version-dependent guards.
+# Structural walks use explicit stacks rather than relying on this limit.
 MAX_RECURSION_LIMIT = 1<<14
 
 def cpu_count():

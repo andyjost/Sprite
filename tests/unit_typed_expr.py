@@ -170,8 +170,7 @@ class TestAcceptance(cytest.TestCase):
     if IS_CXX:
       self.assertEqual(values(P.length, big), [10000])
       self.assertEqual(values(tree), [10001])
-    # The depth of a type is bounded by the recursion limit: the engine
-    # walks a type recursively.  A list nested 500 deep is fine.
+    # Type resolution and printing also keep their own stacks.
     nested = 1
     for _ in range(500):
       nested = [nested]
@@ -896,6 +895,8 @@ class TestNodeBuilder(cytest.TestCase):
     self.assertEqual(curry.typeof(cytest.raw.expr(2.5)), 'Float')
     # A function node without a scheme is an opaque leaf.
     self.assertEqual(curry.typeof(cytest.raw.expr(P._biGenerator, iter([]))), '[a]')
+    g = cytest.raw.expr(P._biGenerator, iter([3, 4]))
+    self.assertEqual(node_values(P.take, 2, g), [[3, 4]])
     # An ill-typed raw graph is reported where it fails to unify.
     bad = cytest.raw.expr(symbol('plusInt'), 1, 2.5)
     with self.assertRaisesRegex(curry.CurryTypeError, 'type mismatch in argument 1 of Prelude.id'):

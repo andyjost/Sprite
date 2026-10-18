@@ -1,6 +1,6 @@
 '''Deep evaluations escalate from the caller's stack to the heap's worker.'''
 import cytest # from ./lib; must be first
-import curry, json, unittest
+import curry, json, os, shutil, subprocess, tempfile, unittest
 
 CHILD = '''
 import cytest, curry, json
@@ -15,6 +15,77 @@ def run(n):
 
 @unittest.skipUnless(curry.flags['backend'] == 'cxx', 'C++ runtime escalation')
 class TestIssue153(cytest.TestCase):
+  def test_creation_exceptions_are_refused_reservations(self):
+    '''Exercise both exception paths at the POSIX thread adapter boundary.'''
+    compiler = curry.config.cxx_tool()
+    if compiler is None:
+      self.skipTest('a C++ compiler is required for the thread fault injector')
+    tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
+    self.addCleanup(shutil.rmtree, tmpdir)
+    source = os.path.join(tmpdir, 'refusal.cpp')
+    with open(source, 'w') as stream:
+      stream.write(r'''
+#include <pthread.h>
+#include <new>
+#include <system_error>
+#include <iostream>
+static bool all_sizes = false;
+static bool bad_alloc = false;
+static int create_worker(pthread_t *thread, pthread_attr_t const *attr,
+    void *(*entry)(void *), void *arg)
+{
+  size_t size = 0;
+  pthread_attr_getstacksize(attr, &size);
+  if(size >= (size_t(1) << 30) || all_sizes)
+  {
+    if(bad_alloc) throw std::bad_alloc();
+    throw std::system_error(std::make_error_code(std::errc::resource_unavailable_try_again));
+  }
+  return pthread_create(thread, attr, entry, arg);
+}
+// Compile the adapter with a throwing creation function.  pthread_create
+// itself returns an error code; C++ allocation and synchronization throw.
+#define pthread_create create_worker
+#include "cyrt/evaluation.cpp"
+#undef pthread_create
+int main(int argc, char **argv)
+{
+  bad_alloc = argv[1][0] == 'b';
+  all_sizes = argv[2][0] == 'a';
+  try
+  {
+    auto &w = cyrt::get_worker(size_t(1) << 30);
+    std::cout << w.attempts << '\n';
+    {
+      std::lock_guard<std::mutex> lock(w.mutex);
+      w.stop = true;
+      w.cv.notify_all();
+    }
+    pthread_join(w.thread, nullptr);
+  }
+  catch(cyrt::EvaluationError const &error)
+  { std::cout << error.what() << '\n'; }
+}
+''')
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    library = os.path.join(tmpdir, 'refusal')
+    proc = subprocess.run([compiler, '-std=c++17', source, '-o', library,
+        '-I' + os.path.join(root, 'src'), '-L' + os.path.join(curry.config.prefix(), 'lib'),
+        '-Wl,-rpath,' + os.path.join(curry.config.prefix(), 'lib'), '-lcyrt', '-pthread'],
+        capture_output=True, text=True, timeout=120)
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    for kind, name in [('b', 'std::bad_alloc'), ('s', 'std::system_error')]:
+      for all_sizes in (False, True):
+        with self.subTest(kind=name, all_sizes=all_sizes):
+          proc = subprocess.run([library, kind, 'all' if all_sizes else 'one'],
+              capture_output=True, text=True, timeout=30)
+          self.assertEqual(proc.returncode, 0, proc.stderr)
+          if all_sizes:
+            self.assertIn(name, proc.stdout)
+            self.assertIn('67108864', proc.stdout)
+          else:
+            self.assertEqual(proc.stdout.strip(), '1073741824, 536870912')
+
   def child(self, code, **flags):
     proc = cytest.run_in_subprocess(
         CHILD % {'flags': flags} + code, 120, address_space=4 << 30)
@@ -64,12 +135,16 @@ print(json.dumps([plain, deep]))
 
 
   def test_refused_reservation_halves_to_a_usable_stack(self):
-    # A fresh child has no worker.  A 1 GiB reservation cannot fit this
-    # process cap; a smaller reservation can.  The goal needs little heap.
+    # Leave less than 1 GiB beyond the current mappings: the first stack
+    # cannot fit, but a smaller one can, even with a free-threaded Python's
+    # larger initial address space.  Build the goal before imposing the cap.
     line, = self.child('''
-import resource
-resource.setrlimit(resource.RLIMIT_AS, (1 << 30, 1 << 30))
+import os, resource
 ev = Evaluator(cytest.raw.interp(), cytest.raw.expr(M.deep, 3000, typed=True))
+with open('/proc/self/statm') as stream:
+  mapped = int(stream.read().split()[0]) * os.sysconf('SC_PAGE_SIZE')
+limit = mapped + (768 << 20)
+resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
 values = [cytest.raw.interp().topython(v) for v in ev.evaluate()]
 assert values == [3000], values
 assert ev.rts._escalated

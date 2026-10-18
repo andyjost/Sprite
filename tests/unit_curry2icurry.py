@@ -15,6 +15,8 @@ MAKE_ENV = {
   , 'LC_ALL': 'C.UTF-8'
   , 'TMPDIR': os.environ.get('TMPDIR', tempfile.gettempdir())
   }
+if 'PYTHON_GIL' in os.environ:
+  MAKE_ENV['PYTHON_GIL'] = os.environ['PYTHON_GIL']
 SUBDIR = os.path.join('.curry', config.intermediate_subdir())
 FE_SUBDIR = os.path.join('.curry', config.frontend_subdir())
 

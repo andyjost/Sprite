@@ -22,6 +22,8 @@ ENV = {
   , 'LC_ALL': 'C.UTF-8'
   , 'TMPDIR': os.environ.get('TMPDIR', tempfile.gettempdir())
   }
+if 'PYTHON_GIL' in os.environ:
+  ENV['PYTHON_GIL'] = os.environ['PYTHON_GIL']
 OLD = 946684800 # 2000-01-01, older than any file of the tree.
 
 def readfile(*parts):

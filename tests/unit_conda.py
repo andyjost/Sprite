@@ -15,6 +15,8 @@ ENV = {
   , 'LC_ALL': 'C.UTF-8'
   , 'TMPDIR': os.environ.get('TMPDIR', tempfile.gettempdir())
   }
+if 'PYTHON_GIL' in os.environ:
+  ENV['PYTHON_GIL'] = os.environ['PYTHON_GIL']
 
 def readfile(*parts):
   with open(os.path.join(*parts)) as istream:
@@ -581,7 +583,9 @@ class TestCondaRecipe(cytest.TestCase):
            'import curry.backends.cxx.cyrtbindings\n'
     result = run([sys.executable, '-B', '-c', code], env=env)
     self.assertEqual(result.returncode, 0, result.stdout)
-    self.assertEqual(result.stdout.split('\n')[:2], [home, home])
+    lines = [line for line in result.stdout.splitlines()
+        if 'The global interpreter lock (GIL) has been enabled' not in line]
+    self.assertEqual(lines[:2], [home, home])
     # A SPRITE_HOME that is set wins, and a bad one is still rejected.
     result = run(
         [sys.executable, '-B', '-c', 'import curry']

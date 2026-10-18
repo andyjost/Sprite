@@ -50,7 +50,22 @@ class Term:
     self._args_ = args
 
   def __eq__(self, rhs):
-    return type(self) is type(rhs) and self._args_ == rhs._args_
+    stack = [(self, rhs)]
+    while stack:
+      lhs, rhs = stack.pop()
+      if lhs is rhs:
+        continue
+      if isinstance(lhs, Term):
+        if type(lhs) is not type(rhs):
+          return False
+        stack.extend(zip(lhs._args_, rhs._args_))
+      elif isinstance(lhs, (tuple, list)):
+        if type(lhs) is not type(rhs) or len(lhs) != len(rhs):
+          return False
+        stack.extend(zip(lhs, rhs))
+      elif lhs != rhs:
+        return False
+    return True
 
   def __ne__(self, rhs):
     return not (self == rhs)

@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include <sstream>
 #include <stdexcept>
+#include <system_error>
 
 namespace cyrt
 {
@@ -129,57 +130,90 @@ namespace cyrt
         delete retained_worker;
         retained_worker = nullptr;
       }
-      auto w = std::make_unique<Worker>();
-      w->requested = requested;
       std::ostringstream attempts;
+      std::string refusal;
       for(size_t size = requested; ; size /= 2)
       {
         if(size != requested) attempts << ", ";
         attempts << size;
-        pthread_attr_t attr;
-        int rc = pthread_attr_init(&attr);
-        if(rc == 0)
+        std::unique_ptr<Worker> w;
+        bool started = false;
+        try
         {
-          // C++17's std::thread has no stack-size constructor.  This POSIX
-          // adapter uses pthread_create with the standard stack attribute;
-          // a Windows adapter will use _beginthreadex's reserve-size option.
-          rc = size < MIN_WORKER_STACK ? EINVAL
-               : pthread_attr_setstacksize(&attr, size);
+          w = std::make_unique<Worker>();
+          w->requested = requested;
+          pthread_attr_t attr;
+          int rc = pthread_attr_init(&attr);
           if(rc == 0)
-            rc = pthread_create(&w->thread, &attr, worker_main, w.get());
-          pthread_attr_destroy(&attr);
-        }
-        if(rc == 0)
-        {
-          w->reserved = size;
-          w->attempts = attempts.str();
-          std::unique_lock<std::mutex> lock(w->mutex);
-          std::exception_ptr interrupted;
-          while(!w->ready)
           {
-            w->cv.wait_for(lock, POLL_INTERVAL);
-            lock.unlock();
-            if(!interrupted)
-              try { host_poll(); }
-              catch(...) { interrupted = std::current_exception(); }
-            lock.lock();
+            // C++17's std::thread has no stack-size constructor.  This POSIX
+            // adapter uses pthread_create with the standard stack attribute;
+            // a Windows adapter will use _beginthreadex's reserve-size option.
+            rc = size < MIN_WORKER_STACK ? EINVAL
+                 : pthread_attr_setstacksize(&attr, size);
+            if(rc == 0)
+            {
+              try { rc = pthread_create(&w->thread, &attr, worker_main, w.get()); }
+              catch(...) { pthread_attr_destroy(&attr); throw; }
+            }
+            started = rc == 0;
+            pthread_attr_destroy(&attr);
           }
-          if(interrupted)
+          if(rc == 0)
           {
+            w->reserved = size;
+            w->attempts = attempts.str();
+            std::unique_lock<std::mutex> lock(w->mutex);
+            std::exception_ptr interrupted;
+            while(!w->ready)
+            {
+              w->cv.wait_for(lock, POLL_INTERVAL);
+              lock.unlock();
+              if(!interrupted)
+                try { host_poll(); }
+                catch(...) { interrupted = std::current_exception(); }
+              lock.lock();
+            }
+            if(interrupted) std::rethrow_exception(interrupted);
+            retained_worker = w.release();
+            return *retained_worker;
+          }
+          refusal = "pthread error " + std::to_string(rc);
+        }
+        catch(std::bad_alloc const &)
+        { refusal = "std::bad_alloc"; }
+        catch(std::system_error const & error)
+        { refusal = std::string("std::system_error: ") + error.what(); }
+        catch(...)
+        {
+          if(started)
+          {
+            {
+              std::lock_guard<std::mutex> lock(w->mutex);
+              w->stop = true;
+              w->cv.notify_all();
+            }
+            pthread_join(w->thread, nullptr);
+          }
+          throw;
+        }
+        // A failure during creation or the ready handoff refuses this
+        // reservation too.  Retire a started worker before trying less.
+        if(started)
+        {
+          {
+            std::lock_guard<std::mutex> lock(w->mutex);
             w->stop = true;
             w->cv.notify_all();
-            lock.unlock();
-            pthread_join(w->thread, nullptr);
-            std::rethrow_exception(interrupted);
           }
-          retained_worker = w.release();
-          return *retained_worker;
+          pthread_join(w->thread, nullptr);
         }
         if(size <= MIN_WORKER_STACK) break;
         if(size / 2 < MIN_WORKER_STACK) size = MIN_WORKER_STACK * 2;
       }
       throw EvaluationError("cannot reserve worker stack (flag worker_stack); "
-          "attempted sizes in bytes: " + attempts.str(), ErrorKind::stack);
+          "attempted sizes in bytes: " + attempts.str()
+          + "; refused by " + refusal, ErrorKind::stack);
     }
   }
 
