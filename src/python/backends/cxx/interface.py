@@ -93,6 +93,9 @@ class IBackend(backends.IBackend):
     elif modulename == 'Control.SetFunctions':
       from ..generic.currylib import setfunctions
       return setfunctions.SetFunctionsSpecification()
+    elif modulename == 'Sprite.Stream':
+      from ..generic.currylib import stream
+      return stream.StreamSpecification()
 
   @property
   def create_evaluation_rts(self):

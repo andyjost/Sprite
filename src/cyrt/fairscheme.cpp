@@ -28,6 +28,7 @@ namespace cyrt
 {
   Expr RuntimeState::procD()
   {
+    this->stream_yielded = false;
     Queue * Q         = nullptr;
     Configuration * C = nullptr;
     tag_type tag      = NOTAG;
@@ -164,6 +165,13 @@ namespace cyrt
         // step, as after E_UNWIND.
         case E_DIVERGE : C->forced_rotate = true;
                          return this->yield_control(E_DIVERGE);
+        case E_YIELD   : {
+                           Node * event = this->stream_event;
+                           this->stream_event = nullptr;
+                           this->stream_yielded = true;
+                           C->scan.reset();
+                           return Expr{event};
+                         }
         case E_ERROR   : C->raise_error();
         case E_RESIDUAL: this->rotate(Q);
                          continue;
@@ -250,6 +258,7 @@ namespace cyrt
                          #endif
                          scan->resize(ret);
                          goto redoN;
+        case E_YIELD   :
         case E_DIVERGE :
         case E_TERMINATE:
         case E_UNWIND  :

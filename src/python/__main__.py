@@ -148,8 +148,10 @@ class Main(object):
                 t1 = time.time()
                 sys.stdout.write('%0.3f' % (t1 - t0))
               else:
+                outputs = getattr(curry._interpreter_, '_stream_outputs', 0)
                 for value in curry.eval(goal()):
-                  print(curry.show(value))
+                  if value != () or getattr(curry._interpreter_, '_stream_outputs', 0) == outputs:
+                    print(curry.show(value))
             except exceptions.EvaluationError as exc:
               sys.stderr.write('** %s **\n' % exc)
               sys.exit(1)

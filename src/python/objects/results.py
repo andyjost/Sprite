@@ -56,6 +56,33 @@ class Results(Iterator):
     return '<Results of %s%s>' % (self._text,
         ', closed' if self._values is None else '')
 
+class Stream(Iterator):
+  '''The ordered values yielded by an I/O action; result is set at its end.'''
+  def __init__(self, values):
+    self._values = values
+    self.result = None
+
+  def __iter__(self):
+    return self
+
+  def __next__(self):
+    if self._values is None:
+      raise StopIteration(self.result)
+    try:
+      return next(self._values)
+    except StopIteration as done:
+      self.result = done.value
+      self.close()
+      raise
+    except BaseException:
+      self.close()
+      raise
+
+  def close(self):
+    values, self._values = self._values, None
+    if values is not None:
+      values.close()
+
 def _key(value):
   from .. import backends
   if isinstance(value, backends.Node):

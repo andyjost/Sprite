@@ -65,6 +65,7 @@ def cmdEval(repl):
     # The expression goes to curry.eval and is not kept here.  A reference
     # to the root of the goal keeps the history of the search reachable
     # while the evaluation runs; see curry.typecheck.goals.Goal.evaluate.
+    outputs = getattr(curry._interpreter_, '_stream_outputs', 0)
     values = iter(curry.solve(
         curry.parse(' '.join(repl.args), imports=imports(repl))
       ))
@@ -82,7 +83,8 @@ def cmdEval(repl):
           msg += '  For details, rerun with ":set +internal-error-details".'
         raise RuntimeError(msg)
       else:
-        repl.action(repl, value)
+        if value.value != () or getattr(curry._interpreter_, '_stream_outputs', 0) == outputs:
+          repl.action(repl, value)
 
 def cmdType(repl):
   '''

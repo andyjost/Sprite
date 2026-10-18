@@ -80,7 +80,7 @@ class TestFlowF06(cytest.TestCase):
     self.assertEqual(t.symbol.name, 'take')
     self.assertEqual([str(a) for a in t.args], ['3', 'fibs'])
 
-  @unittest.expectedFailure
+  @(unittest.expectedFailure if curry.flags['backend'] == 'py' else lambda test: test)
   def test_stream_ten_primes(self):
     stream = curry.stream
     M = curry.import_('Primes')

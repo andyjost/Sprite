@@ -175,9 +175,14 @@ namespace cyrt
     // The checker of the run-time invariants of the Fair Scheme
     // (cyrt/checker.hpp), while the interpreter flag ``checker`` is on;
     // null otherwise.  Every hook of the runtime is one test of this
-    // pointer.  The state owns it.  The field is last among the plain
-    // fields, so the offsets generated code may read are unchanged.
+    // pointer.  The state owns it.
     Checker *              checker = nullptr;
+    // An output step hands this pair (value, printer) to procD.
+    // No collection runs between that step and the return to Python.
+    // procD takes the pointer before returning; the parked queue keeps
+    // only the continuation, through its ordinary configuration root.
+    Node *                 stream_event = nullptr;
+    bool                   stream_yielded = false;
 		#ifdef SPRITE_TRACE_ENABLED
     std::unique_ptr<Trace> trace;
     #endif

@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <string>
 #include "cyrt/builtins.hpp"
+#include "cyrt/checker.hpp"
 #include "cyrt/exceptions.hpp"
 #include "cyrt/graph/infotable.hpp"
 #include "cyrt/graph/memory.hpp"
@@ -771,6 +772,21 @@ namespace cyrt { namespace python
         >())
       .def_readonly("steps_total", &RuntimeState::steps_total)
       .def_readonly("forks_total", &RuntimeState::forks_total)
+      .def_readonly("stream_yielded", &RuntimeState::stream_yielded)
+      .def_property_readonly("queue_size", [](RuntimeState & rts)
+        { return rts.root_queue ? rts.root_queue->size() : 0; })
+      .def("close", [](RuntimeState & rts)
+        {
+          delete rts.checker;
+          rts.checker = nullptr;
+          #ifdef SPRITE_TRACE_ENABLED
+          rts.trace.reset();
+          #endif
+          rts.qstack.clear();
+          rts.root_queue.reset();
+          rts.stream_event = nullptr;
+          rts.stream_yielded = false;
+        })
       .def_readwrite("step_limit", &RuntimeState::step_limit
         , "The step limit of the evaluation: NOLIMIT, or the value of "
           "steps_total after which the scheduler stops with StepLimitReached "
@@ -788,7 +804,7 @@ namespace cyrt { namespace python
       .def("next", [](RuntimeState & rts) -> Expr
         {
           struct FlushStdout { ~FlushStdout() { std::fflush(stdout); } } flush;
-          return rts.procD();
+          return rts.root_queue ? rts.procD() : Expr{};
         })
       ;
   }

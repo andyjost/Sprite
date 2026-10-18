@@ -113,7 +113,7 @@ class TestStubEvaluation(cytest.TestCase):
     a = next(curry.solve(curry.parse('xs ++ [3] =:= [1,2,3] where xs free')))
     self.assertEqual((a.value, a.bindings['xs'], str(a)), (True, [1, 2], '{xs=[1,2]} True'))
 
-  @unittest.expectedFailure
+  @(unittest.expectedFailure if curry.flags['backend'] == 'py' else lambda test: test)
   def test_stream_primes_example(self):
     stream = curry.stream
     Primes = curry.import_('Primes')
@@ -121,7 +121,7 @@ class TestStubEvaluation(cytest.TestCase):
     self.addCleanup(r.close)
     self.assertEqual(list(itertools.islice(r, 5)), [2, 3, 5, 7, 11])
 
-  @unittest.expectedFailure
+  @(unittest.expectedFailure if curry.flags['backend'] == 'py' else lambda test: test)
   def test_stream_three_example(self):
     stream = curry.stream
     Primes = curry.import_('Primes')
@@ -229,7 +229,7 @@ class TestStubEvaluation(cytest.TestCase):
     self.assertEqual(str(bindings), '{}')
     self.assertEqual(str(a), '1')
 
-  @unittest.expectedFailure
+  @(unittest.expectedFailure if curry.flags['backend'] == 'py' else lambda test: test)
   def test_stream_result_after_end(self):
     stream = curry.stream
     Primes = curry.import_('Primes')
@@ -243,7 +243,7 @@ class TestStubEvaluation(cytest.TestCase):
     with self.assertRaises(StopIteration):
       next(r)
 
-  @unittest.expectedFailure
+  @(unittest.expectedFailure if curry.flags['backend'] == 'py' else lambda test: test)
   def test_stream_close_drops_paused_run(self):
     stream = curry.stream
     Primes = curry.import_('Primes')
@@ -252,7 +252,7 @@ class TestStubEvaluation(cytest.TestCase):
     self.assertIsNone(r.close())
     self.assertEqual(list(r), [])
 
-  @unittest.expectedFailure
+  @(unittest.expectedFailure if curry.flags['backend'] == 'py' else lambda test: test)
   def test_stream_nondeterminism_raises(self):
     stream = curry.stream
     Primes = curry.import_('Primes')
@@ -260,7 +260,7 @@ class TestStubEvaluation(cytest.TestCase):
     with self.assertRaises(curry.EvaluationError):
       next(r)
 
-  @unittest.expectedFailure
+  @(unittest.expectedFailure if curry.flags['backend'] == 'py' else lambda test: test)
   def test_stream_is_lazy(self):
     P = curry.import_('Prelude')
     r = curry.stream(P.error('boom'))
@@ -271,7 +271,7 @@ class TestStubEvaluation(cytest.TestCase):
     P = curry.import_('Prelude')
     self.assertIsNone(next(curry.eval(P.failed), None))
 
-  @unittest.expectedFailure
+  @(unittest.expectedFailure if curry.flags['backend'] == 'py' else lambda test: test)
   def test_stream_returns_whole_values_and_action_result(self):
     stream = curry.stream
     M = curry.import_('StubStream')
@@ -280,7 +280,7 @@ class TestStubEvaluation(cytest.TestCase):
     self.assertEqual(list(r), [])
     self.assertEqual(r.result, 42)
 
-  @unittest.expectedFailure
+  @(unittest.expectedFailure if curry.flags['backend'] == 'py' else lambda test: test)
   def test_stream_error_follows_prior_yields(self):
     stream = curry.stream
     M = curry.import_('StubStream')

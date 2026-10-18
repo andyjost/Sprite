@@ -4,8 +4,9 @@ The Curry library
 This directory holds the Curry library that ships with Sprite.
 
 `lib/` contains the sources.  They are a copy of the library of PAKCS 3.4.1,
-which is version 3.1.0 of the Curry package `base`, plus Sprite's own module
-`Control.SetFunctions`.  `lib/LICENSE` is the license of the origin.
+which is version 3.1.0 of the Curry package `base`, plus Sprite's own modules
+`Control.SetFunctions` and `Sprite.Stream`.  `lib/LICENSE` is the license
+of the origin.
 `lib/NOTICE` names the origin, the version, and the changes.  The Prelude
 carries a three-line prefix that defines `__KICS2__`; NOTICE explains why.
 
@@ -18,6 +19,10 @@ front end reads them later and never writes into the installation tree.
 (The compiled forms of every module are written at install time; see
 below.)  `make -C curry interfaces` writes the same files under `lib/.curry/`
 in the source tree; the overlay archive packs them for the oracle tests.
+
+The text shim in `oracle/Sprite/Stream.curry` gives PAKCS and KiCS2 the
+same module name and signature for stream programs. Put `oracle/` first
+on their Curry path. Sprite uses the runtime primitive under `lib/`.
 
 Pinned build products
 ---------------------

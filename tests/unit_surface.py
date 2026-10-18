@@ -112,6 +112,12 @@ class TestSurface(cytest.TestCase):
     self.assertEqual(curry.DataClass.__bases__, (curry.Data,))
     self.assertEqual(curry.ConstructorClass.__bases__, (curry.DataClass,))
 
+  def test_stream_surface(self):
+    self.assertIn('stream', self.names)
+    self.assertIn('Stream', self.names)
+    self.assertEqual(list(inspect.signature(curry.stream).parameters), ['action'])
+    self.assertEqual(curry.Stream.__bases__, (abc.Iterator,))
+
   def test_internal_node_evaluation(self):
     from curry import backends
     self.assertIsInstance(cytest.raw.values(curry.term(1)).one(), backends.Node)
