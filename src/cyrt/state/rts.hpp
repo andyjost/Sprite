@@ -2,7 +2,9 @@
 #include "cyrt/fwd.hpp"
 #include "cyrt/state/configuration.hpp"
 #include "cyrt/state/queue.hpp"
+#include <atomic>
 #include <cstdint>
+#include "cyrt/evaluation.hpp"
 #include <initializer_list>
 #include <memory>
 #include <string>
@@ -37,8 +39,8 @@ namespace cyrt
   // of the registered states.
   struct InterpreterState
   {
-    InterpreterState() { gc_register_istate(this); }
-    ~InterpreterState() { gc_unregister_istate(this); }
+    InterpreterState() { HeapScope heap; gc_register_istate(this); }
+    ~InterpreterState() { HeapScope heap(false); gc_unregister_istate(this); }
     InterpreterState(InterpreterState const &) = delete;
     InterpreterState & operator=(InterpreterState const &) = delete;
     xid_type    xidfactory = 0;
@@ -102,6 +104,7 @@ namespace cyrt
       , size_t rotation_steps = TIME_MODE
       , uint64_t rotation_quantum_ns = DEFAULT_QUANTUM_NS
       , bool checker = false
+      , size_t worker_stack = size_t(1) << 30
       );
     ~RuntimeState();
     RuntimeState(RuntimeState const &) = delete;
@@ -151,13 +154,15 @@ namespace cyrt
     // C-stack guard.  An evaluation may use ``stack_room`` bytes of C stack
     // below ``stack_base``, the frame of the outermost procD.  ``stack_room``
     // is ``stack_limit`` (from the flag) clamped to the stack of the thread
-    // less STACK_MARGIN; ``stack_floor`` is the lowest address of that stack,
-    // probed once per state.  NOLIMIT disables the guard.
+    // less STACK_MARGIN on the caller, or the worker reservation less its
+    // margin and existing frames; ``stack_floor`` is the lowest address of
+    // the caller stack,
+    // cached for the thread of the last entry.  NOLIMIT disables the guard.
     size_t                 stack_limit;
     size_t                 stack_room = NOLIMIT;
     char const *           stack_base = nullptr;
     char const *           stack_floor = nullptr;
-    bool                   stack_probed = false;
+    std::thread::id        stack_thread;
     // Control handed between nested schedulers.  A nested procD that must
     // yield to an enclosing queue stores E_UNWIND, E_ROTATE, or E_GC here
     // and returns no value; allValues_step returns the status to the
@@ -186,6 +191,12 @@ namespace cyrt
 		#ifdef SPRITE_TRACE_ENABLED
     std::unique_ptr<Trace> trace;
     #endif
+    size_t worker_stack;
+    std::string worker_attempts;
+    bool escalated = false;
+    bool escalation_requested = false;
+    std::atomic<bool> cancelled{false};
+
     #ifdef SPRITE_SCHEDULER_COUNTERS
     // The scheduler counters of an instrumented build (make COUNTERS=1).
     // The field is last, so the layout generated code reads is that of a
@@ -202,6 +213,7 @@ namespace cyrt
     Set * S() { return Q()->set; }
 
     Expr procD();
+    Expr procD_loop();
     tag_type procN(Configuration *, Cursor root);
     tag_type procS(Configuration *);
     // Head-normalizes the expression at ``inductive``, a position below the

@@ -1,4 +1,5 @@
 #include "pybind11/pybind11.h"
+#include "cyrt/evaluation.hpp"
 
 namespace cyrt { namespace python
 {
@@ -14,8 +15,32 @@ namespace cyrt { namespace python
   void register_tiered(pybind11::module_);
 }}
 
+namespace
+{
+  void python_wait(void (*wait)(void *), void * data)
+  {
+    // Native destructors can enter the heap without a bound-function
+    // frame.  They obey the same lock order as an ordinary Python entry.
+    if(PyGILState_Check())
+    {
+      pybind11::gil_scoped_release release;
+      wait(data);
+    }
+    else wait(data);
+  }
+
+  void python_poll()
+  {
+    pybind11::gil_scoped_acquire gil;
+    if(PyErr_CheckSignals() < 0)
+      throw pybind11::error_already_set();
+  }
+}
+
 PYBIND11_MODULE(_cyrtbindings, mod)
 {
+  cyrt::set_host_poll(&python_poll);
+  cyrt::set_host_wait(&python_wait);
   cyrt::python::register_checker(mod);
   cyrt::python::register_constants(mod);
   cyrt::python::register_dynload(mod);

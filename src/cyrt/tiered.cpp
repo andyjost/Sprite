@@ -23,6 +23,7 @@
 #include "cyrt/exceptions.hpp"
 #include "cyrt/module.hpp"
 #include "cyrt/tiered.hpp"
+#include "cyrt/evaluation.hpp"
 
 extern char ** environ;
 
@@ -517,6 +518,7 @@ namespace cyrt
 
   void tiered_apply_pending(bool in_evaluation)
   {
+    HeapScope heap;
     if(!g_tiered_pending.load(std::memory_order_relaxed))
       return;
     std::deque<Finished> finished;
@@ -553,6 +555,7 @@ namespace cyrt
 
   TieredResult tiered_adopt(TieredJob job, bool in_evaluation)
   {
+    HeapScope heap;
     Finished done{std::move(job), 0, 0, 0.0, {}, {}};
     TieredResult result;
     try

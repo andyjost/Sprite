@@ -15,6 +15,7 @@ namespace cyrt
   // stack is taken to extend RLIMIT_STACK bytes below this frame.
   static char const * stack_floor_of_this_thread()
   {
+    #if defined(__linux__)
     pthread_attr_t attr;
     if(pthread_getattr_np(pthread_self(), &attr) == 0)
     {
@@ -25,6 +26,10 @@ namespace cyrt
       if(rc == 0 && addr)
         return (char const *) addr;
     }
+    #elif defined(__APPLE__)
+    return static_cast<char const *>(pthread_get_stackaddr_np(pthread_self()))
+        - pthread_get_stacksize_np(pthread_self());
+    #endif
     struct rlimit limit;
     if(getrlimit(RLIMIT_STACK, &limit) == 0 && limit.rlim_cur != RLIM_INFINITY)
     {
@@ -40,11 +45,12 @@ namespace cyrt
       InterpreterState & istate, Node * goal, bool trace
     , size_t stack_limit
     , size_t rotation_steps, uint64_t rotation_quantum_ns, bool checker
+    , size_t worker_stack
     )
     : istate(istate), rotation_steps(rotation_steps)
     , rotation_next(rotation_steps), rotation_quantum_ns(rotation_quantum_ns)
     , root_queue(new Queue())
-    , stack_limit(stack_limit)
+    , stack_limit(stack_limit), worker_stack(worker_stack)
   {
     // Time mode needs a quantum: a ticker with none would never release its
     // mutex (cyrt/ticker.hpp).  The Python side guarantees one; this guards
@@ -74,28 +80,39 @@ namespace cyrt
   // of a set function belongs to its SetEval node; the collector frees it.
   RuntimeState::~RuntimeState()
   {
+    HeapScope heap(false);
     delete this->checker;
     gc_unregister_rts(this);
+    this->root_queue.reset();
   }
 
   // Records the frame of the outermost procD and sets the stack room for this
   // entry: the configured limit, clamped to the stack below the frame less
   // STACK_MARGIN.  The clamp keeps the guard effective when the flag names a
   // limit larger than the stack; without it, the process would overflow the
-  // stack and crash.  The floor of the stack is probed once per state, on the
-  // thread that evaluates.
+  // stack and crash.  The floor is cached for the thread of the last entry.
+  // Linux has an exact pthread probe, macOS its stack-address API, and
+  // other POSIX hosts fall back to RLIMIT_STACK with the safety margin.
+  // The worker knows its reservation and subtracts the frames already in
+  // use, including those of a re-entrant callback.
   void RuntimeState::set_stack_base(char const * base)
   {
     this->stack_base = base;
-    if(this->stack_limit == NOLIMIT)
+    if(this->stack_limit == NOLIMIT && !on_evaluation_worker())
     {
       this->stack_room = NOLIMIT;
       return;
     }
-    if(!this->stack_probed)
+    if(on_evaluation_worker())
+    {
+      this->stack_room = evaluation_worker_room(base);
+      return;
+    }
+    auto const thread = std::this_thread::get_id();
+    if(this->stack_thread != thread)
     {
       this->stack_floor = stack_floor_of_this_thread();
-      this->stack_probed = true;
+      this->stack_thread = thread;
     }
     size_t room = this->stack_limit;
     std::uintptr_t const top = (std::uintptr_t) base;

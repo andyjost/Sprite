@@ -168,10 +168,22 @@ The following flags are available:
     The number of bytes of C stack the C++ backend lets one evaluation use.
     When a nested evaluation reaches the limit, the backend unwinds to the
     scheduler and rotates the work queue.  So a deep alternative cannot crash
-    the process or starve the others.  An alternative that cannot proceed
-    within the limit is dropped.  Its error is reported after the other
-    alternatives have run.  None disables the guard.  A limit larger than the
-    stack of the thread is clamped to that stack, less a margin of 1 MiB.
+    the process or starve the others.  When a retry makes no progress,
+    evaluation escalates to the heap's worker (see ``worker_stack``).  If
+    escalation is disabled or the worker exhausts its stack too, the
+    alternative is dropped and its error follows the other values.  None
+    disables the guard.  A limit larger than the stack of the thread is clamped to that stack, less a margin of 1 MiB.
+    The Python backend ignores this flag.
+
+  * ``worker_stack`` (**1073741824** | <int> | None)
+
+    The stack reservation in bytes of the C++ backend's retained worker.
+    Evaluation starts on the caller's thread; a stalled stack unwind moves
+    it to this worker.  The default reserves 1 GiB of virtual address space;
+    pages become resident when touched.  A refused reservation is halved
+    down to 64 MiB.  If every attempt fails, StackLimitError names the sizes.
+    None disables escalation.  The worker is shared by evaluations of the
+    heap and stays alive after use; a changed size replaces the idle worker.
     The Python backend ignores this flag.
 
   * ``step_budget`` (**2048** | <int> | None)
@@ -213,6 +225,7 @@ FLAG_INFO = {
   , 'recursion_limit'     : ({None, int}          , 1 << 18)
   , 'rotation'            : ( str                 , 'time:10ms')
   , 'stack_limit'         : ({None, int}          , 4194304)
+  , 'worker_stack'        : ({None, int}          , 1 << 30)
   , 'step_budget'         : ({None, int}          , 2048  )
   , 'telemetry_interval'  : ({None, float}        , None  )
   }

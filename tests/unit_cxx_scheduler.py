@@ -188,10 +188,23 @@ class TestInterruptedStep(cytest.TestCase):
     to the enclosing queue, the alternative 7 runs, and the stuck set
     function ends with the stack error, not with a suspension.
     '''
-    results = run_child(self, [('unwound', (5000,))], stack_limit=1 << 16)
+    results = run_child(
+        self, [('unwound', (5000,))], stack_limit=1 << 16, worker_stack=None
+      )
     self.assertRegex(
         results['unwound']
       , r'^error StackLimitError stack limit of \d+ bytes exceeded'
+      )
+
+  def test_stalled_worker_inside_the_constraint(self):
+    results = run_child(
+        self, [('unwound', (300000,))]
+      , stack_limit=1 << 16, worker_stack=64 << 20
+      )
+    self.assertRegex(
+        results['unwound']
+      , r'^error StackLimitError stack limit of \d+ bytes exceeded '
+        r'\(flag stack_limit\); worker_stack reservation attempts in bytes: 67108864$'
       )
 
   @cytest.skipIfGcStress('a collection at every step hides the rotation path')

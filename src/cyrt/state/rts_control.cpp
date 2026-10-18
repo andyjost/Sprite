@@ -126,9 +126,10 @@ namespace cyrt
   // descent but loses no work, because the graph holds every result.
   //
   // In the outermost queue, a configuration that made progress runs again
-  // after the others.  A stuck one is dropped, and its error waits until the
-  // queue is empty (see procD), so the other alternatives still produce their
-  // values.  In a nested queue, a configuration cannot be dropped without
+  // after the others.  A stuck one requests the large-stack worker.  With
+  // escalation disabled, or on the worker itself, it is dropped and its
+  // error waits until the queue is empty (see procD), so the other
+  // alternatives still produce their values.  In a nested queue, a configuration cannot be dropped without
   // losing a value of the set function.  It runs again after the others when
   // any step was taken since it last unwound.  That keeps a sibling that can
   // proceed running.  When no step was taken, the enclosing queue decides.
@@ -150,11 +151,19 @@ namespace cyrt
       this->rotate(Q, true);
       return true;
     }
+    if(this->worker_stack && !on_evaluation_worker())
+    {
+      this->escalation_requested = true;
+      return false;
+    }
     if(this->deferred_error.empty())
     {
       std::stringstream ss;
       ss << "stack limit of " << this->stack_room
          << " bytes exceeded (flag stack_limit)";
+      if(on_evaluation_worker())
+        ss << "; worker_stack reservation attempts in bytes: "
+           << this->worker_attempts;
       this->deferred_error = ss.str();
     }
     SCHEDULER_COUNT_END(C, END_FAILURE);

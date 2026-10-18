@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstring>
 #include "cyrt/builtins.hpp"
+#include "cyrt/evaluation.hpp"
 #include "cyrt/currylib/prelude.hpp"
 #include "cyrt/currylib/setfunctions.hpp"
 #include "cyrt/graph/infotable.hpp"
@@ -111,6 +112,7 @@ namespace cyrt
 
   Module::~Module()
   {
+    HeapScope heap(false);
     this->clear();
   }
 

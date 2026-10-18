@@ -1,3 +1,4 @@
+#include "heap.hpp"
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
@@ -126,6 +127,8 @@ namespace
     // The step runs outside procD.  A set function inside it starts a
     // nested evaluation, whose collections must keep the nodes this step
     // holds.
+    py::gil_scoped_release release;
+    HeapScope heap;
     EvaluationScope evaluation_scope;
     rts->set_goal(root);
     info->step(rts, rts->C());
@@ -153,6 +156,8 @@ namespace
           std::string("cannot step a node that is not a function application: ")
           + (root ? root->info->name : "null")
         );
+    py::gil_scoped_release release;
+    HeapScope heap;
     EvaluationScope evaluation_scope;
     bool const own = !rts->Q()->empty() && rts->C()->root_storage == root;
     if(!own)
@@ -204,11 +209,11 @@ namespace
   struct RootHolder
   {
     explicit RootHolder(T * node) : node(node)
-      { if(node) gc_add_root(node); }
+      { if(node) { cyrt::python::HeapAccessScope lock(false); gc_add_root(node); } }
     RootHolder(RootHolder const & other) : node(other.node)
-      { if(node) gc_add_root(node); }
+      { if(node) { cyrt::python::HeapAccessScope lock(false); gc_add_root(node); } }
     RootHolder & operator=(RootHolder const &) = delete;
-    ~RootHolder() { if(node) gc_remove_root(node); }
+    ~RootHolder() { if(node) { cyrt::python::HeapAccessScope lock(false); gc_remove_root(node); } }
     T * get() const { return node; }
     T * node;
   };
@@ -273,6 +278,7 @@ namespace
 
   Node * generator_next(void * data)
   {
+    py::gil_scoped_acquire gil;
     assert(data);
     auto * pyobj = (PyObject *) data;
     py::object value = py::reinterpret_steal<py::object>(PyIter_Next(pyobj));
@@ -286,14 +292,16 @@ namespace
   // The reference a generator node owns (see biGeneratorNode in
   // builtins.hpp).  The release may run Python code: the finalizer of a
   // generator object.  The collector calls it after its sweep, with the
-  // interpreter lock held, as every entry into the runtime holds it.
+  // heap lock held; the binding acquires the GIL for the finalizer.
   void py_generator_acquire(void * data)
   {
+    py::gil_scoped_acquire gil;
     Py_INCREF((PyObject *) data);
   }
 
   void py_generator_release(void * data)
   {
+    py::gil_scoped_acquire gil;
     Py_DECREF((PyObject *) data);
   }
 }
@@ -334,6 +342,24 @@ namespace pybind11 { namespace detail
 
 namespace cyrt { namespace python
 {
+  py::object RuntimeState_next(RuntimeState & rts, bool event)
+  {
+    // Root the result while the heap is still protected. Returning a Python
+    // object lets this hot entry use a stack scope instead of a loader
+    // patient, without unlocking before pybind11 registers the node's root.
+    HeapAccessScope heap;
+    struct FlushStdout { ~FlushStdout() { std::fflush(stdout); } } flush;
+    Expr result;
+    {
+      py::gil_scoped_release release;
+      result = rts.root_queue ? rts.procD() : Expr{};
+    }
+    py::object value = py::cast(result);
+    if(event && !value.is_none())
+      return py::make_tuple(rts.stream_yielded, value);
+    return value;
+  }
+
   void register_graph(pybind11::module_ mod)
   {
     // Tell the cyrt library how to interact with a Python iterator.
@@ -342,37 +368,37 @@ namespace cyrt { namespace python
       );
 
     py::class_<InfoTable>(mod, "InfoTable")
-      .def_readonly("arity"   , &InfoTable::arity)
-      .def_readonly("flags"   , &InfoTable::flags)
-      .def_readonly("format"  , &InfoTable::format)
-      .def_readonly("name"    , &InfoTable::name)
-      .def_readonly("tag"     , &InfoTable::tag)
-      .def_readwrite("typedef", &InfoTable::type)
-      .def_property_readonly("typetag", &typetag)
-      .def_property_readonly("is_special", &is_special)
-      .def_property_readonly("is_primitive", &is_primitive)
-      .def_property_readonly("is_int", &is_int)
-      .def_property_readonly("is_char", &is_char)
-      .def_property_readonly("is_float", &is_float)
-      .def_property_readonly("is_bool", &is_bool)
-      .def_property_readonly("is_list", &is_list)
-      .def_property_readonly("is_tuple", &is_tuple)
-      .def_property_readonly("is_io", &is_io)
-      .def_property_readonly("is_partial", &is_partial)
-      .def_property_readonly("is_monadic", &is_monadic)
-      .def_property_readonly("is_operator", &is_operator)
-      .def("__repr__", &InfoTable::repr)
-      .def("step", &InfoTable_step)
+      .def_readonly("arity"   , &InfoTable::arity, cyrt::python::heap_access{})
+      .def_readonly("flags"   , &InfoTable::flags, cyrt::python::heap_access{})
+      .def_readonly("format"  , &InfoTable::format, cyrt::python::heap_access{})
+      .def_readonly("name"    , &InfoTable::name, cyrt::python::heap_access{})
+      .def_readonly("tag"     , &InfoTable::tag, cyrt::python::heap_access{})
+      .def_readwrite("typedef", &InfoTable::type, cyrt::python::heap_access{})
+      .def_property_readonly("typetag", &typetag, cyrt::python::heap_access{})
+      .def_property_readonly("is_special", &is_special, cyrt::python::heap_access{})
+      .def_property_readonly("is_primitive", &is_primitive, cyrt::python::heap_access{})
+      .def_property_readonly("is_int", &is_int, cyrt::python::heap_access{})
+      .def_property_readonly("is_char", &is_char, cyrt::python::heap_access{})
+      .def_property_readonly("is_float", &is_float, cyrt::python::heap_access{})
+      .def_property_readonly("is_bool", &is_bool, cyrt::python::heap_access{})
+      .def_property_readonly("is_list", &is_list, cyrt::python::heap_access{})
+      .def_property_readonly("is_tuple", &is_tuple, cyrt::python::heap_access{})
+      .def_property_readonly("is_io", &is_io, cyrt::python::heap_access{})
+      .def_property_readonly("is_partial", &is_partial, cyrt::python::heap_access{})
+      .def_property_readonly("is_monadic", &is_monadic, cyrt::python::heap_access{})
+      .def_property_readonly("is_operator", &is_operator, cyrt::python::heap_access{})
+      .def("__repr__", &InfoTable::repr, cyrt::python::heap_access{})
+      .def("step", &InfoTable_step, cyrt::python::heap_access{})
       .def_property_readonly("address"
         , [](InfoTable const & self) { return (uintptr_t) &self; }
         , "The address of the table in the process (see "
-          "curry.backends.cxx.tiered).")
+          "curry.backends.cxx.tiered).", cyrt::python::heap_access{})
       .def_property_readonly("has_step"
         , [](InfoTable const & self)
             { return self.step != nullptr && !is_trapped(&self); }
         , "Whether the table has a step function: compiled, interpreted, or "
           "built in.  The trap step of a function without code (see "
-          "install_trap) is not one.")
+          "install_trap) is not one.", cyrt::python::heap_access{})
       ;
 
     // Fundamental symbols.
@@ -387,30 +413,30 @@ namespace cyrt { namespace python
     mod.attr("ValueBinding")        = py::cast(&ValueBinding_Info       , reference);
 
     py::class_<Arg, ByValueHolder<Arg>>(mod, "Arg")
-      .def(py::init<Node *>())
-      .def(py::init<unboxed_int_type>())
+      .def(py::init<Node *>(), cyrt::python::heap_access{})
+      .def(py::init<unboxed_int_type>(), cyrt::python::heap_access{})
       // A Python int that the 64-bit overload refused is outside the range
       // of Int.  Without this overload the one below took it, and the node
       // held the bits of a double.
-      .def(py::init([](py::int_ value) -> Arg { raise_int_range_error(value); }))
-      .def(py::init<unboxed_float_type>())
+      .def(py::init([](py::int_ value) -> Arg { raise_int_range_error(value); }), cyrt::python::heap_access{})
+      .def(py::init<unboxed_float_type>(), cyrt::python::heap_access{})
       // A str of length one gives the code point of its character.
       .def(py::init([](py::str str) {
           if(PyUnicode_GetLength(str.ptr()) != 1)
             throw py::value_error("expected a string of length one");
           return Arg((unboxed_char_type) PyUnicode_ReadChar(str.ptr(), 0));
-        }))
+        }), cyrt::python::heap_access{})
       // An Arg borrows a Python object.  Node.create takes the reference a
       // generator node owns (see Node_create).
-      .def(py::init([](py::handle obj) { return Arg(obj.ptr()); }))
-      .def("__repr__", &Arg::repr)
+      .def(py::init([](py::handle obj) { return Arg(obj.ptr()); }), cyrt::python::heap_access{})
+      .def("__repr__", &Arg::repr, cyrt::python::heap_access{})
       ;
 
     // A wrapper keeps its node alive: see RootHolder.  The collector frees
     // the node after the last wrapper is destroyed and nothing else reaches
     // it.
     py::class_<Node, RootHolder<Node>>(mod, "Node")
-      .def_static("create", &Node_create, reference)
+      .def_static("create", &Node_create, reference, cyrt::python::heap_access{})
       // A Curry string from a Python str, in one call: the list of Char
       // nodes the step of _biString builds (build_curry_string), one node
       // per code point, with the text taken by its length, so that a NUL
@@ -444,9 +470,9 @@ namespace cyrt { namespace python
             }
           , py::arg("text"), py::arg("target") = nullptr
           , reference
-          )
-      .def("forward_to", &forward_node)
-      .def_readonly("info", &Node::info, reference_internal)
+          , cyrt::python::heap_access{})
+      .def("forward_to", &forward_node, cyrt::python::heap_access{})
+      .def_readonly("info", &Node::info, reference_internal, cyrt::python::heap_access{})
       // The info table of the head of a partial application, or None.  The
       // typed builder types such a value by the scheme of its head.
       .def_property_readonly("partial_head"
@@ -457,10 +483,10 @@ namespace cyrt { namespace python
               return NodeU{&self}.partapplic->head_info;
             }
           , reference
-          )
+          , cyrt::python::heap_access{})
       .def("successor"
           , [](Node & self, index_type pos) -> Expr { return self.successor(pos); }
-          )
+          , cyrt::python::heap_access{})
       .def_property_readonly("successors"
           , [](Node & self) -> std::vector<Expr>
             {
@@ -469,7 +495,7 @@ namespace cyrt { namespace python
                 vec.push_back(self.successor(i));
               return vec;
             }
-          )
+          , cyrt::python::heap_access{})
       .def("set_successor"
           , [](Node & self, index_type pos, Node * value)
             {
@@ -480,12 +506,12 @@ namespace cyrt { namespace python
               gc_count_write(&self);
               *self.successor(pos) = value;
             }
-          )
-      .def("__str__", (std::string(Node::*)()) &Node::str)
-      .def("__repr__", (std::string(Node::*)()) &Node::repr)
-      .def("id", [](Node * self) { return (uintptr_t) self; })
-      .def("copy", &Node::copy, reference)
-      .def("__copy__", &Node::copy, reference)
+          , cyrt::python::heap_access{})
+      .def("__str__", (std::string(Node::*)()) &Node::str, cyrt::python::heap_access{})
+      .def("__repr__", (std::string(Node::*)()) &Node::repr, cyrt::python::heap_access{})
+      .def("id", [](Node * self) { return (uintptr_t) self; }, cyrt::python::heap_access{})
+      .def("copy", &Node::copy, reference, cyrt::python::heap_access{})
+      .def("__copy__", &Node::copy, reference, cyrt::python::heap_access{})
       .def("__deepcopy__"
           , [](py::object self, py::object memo) -> py::object
             {
@@ -505,7 +531,7 @@ namespace cyrt { namespace python
               return copy;
             }
           , py::arg("memo") = py::none()
-          )
+          , cyrt::python::heap_access{})
       .def("__getitem__"
           , [](Node & self, py::int_ index) -> Expr
             {
@@ -525,42 +551,42 @@ namespace cyrt { namespace python
                 pos += arity;
               return self[static_cast<index_type>(pos)];
             }
-          )
-      .def("__hash__", &Node::hash)
+          , cyrt::python::heap_access{})
+      .def("__hash__", &Node::hash, cyrt::python::heap_access{})
       // A value that is not a node is never equal to one.  The operator tag
       // turns the failed argument cast into NotImplemented, so Python
       // answers False for == and True for != against a foreign object, as
       // its data model expects (the Python backend answers the same way).
-      .def("__eq__", &Node::operator==, py::is_operator())
-      .def("__ne__", &Node::operator!=, py::is_operator())
+      .def("__eq__", &Node::operator==, py::is_operator(), cyrt::python::heap_access{})
+      .def("__ne__", &Node::operator!=, py::is_operator(), cyrt::python::heap_access{})
       ;
 
     // The collector.  See cyrt/graph/gc/wdgc.cpp.
     mod.def("gc_collect", &gc_collect
-      , "Runs a collection between evaluations; returns the number of nodes reclaimed.");
+      , "Runs a collection between evaluations; returns the number of nodes reclaimed.", cyrt::python::heap_access{});
     mod.def("gc_verify", &gc_verify_
       , "Runs a collection with the heap verifier between evaluations; "
-        "returns the first problem found, or None.");
+        "returns the first problem found, or None.", cyrt::python::heap_access{});
     mod.def("gc_block_count", &gc_num_blocks
-      , "The number of heap blocks that hold nodes, the spans of large nodes included.");
+      , "The number of heap blocks that hold nodes, the spans of large nodes included.", cyrt::python::heap_access{});
     mod.def("gc_heap_bytes", &gc_heap_bytes
-      , "The bytes the node heap holds from the system, in use or pooled.");
+      , "The bytes the node heap holds from the system, in use or pooled.", cyrt::python::heap_access{});
     mod.def("gc_node_count", &gc_num_nodes
-      , "The number of nodes allocated and not yet reclaimed.");
+      , "The number of nodes allocated and not yet reclaimed.", cyrt::python::heap_access{});
     mod.def("gc_allocation_count", &gc_num_allocations
-      , "The number of nodes allocated since the start, reclaimed or not.");
+      , "The number of nodes allocated since the start, reclaimed or not.", cyrt::python::heap_access{});
     mod.def("gc_root_count", [](Node * node) { return node ? gc_root_count(node) : 0; }
-      , "The number of registrations of a node as a root.");
+      , "The number of registrations of a node as a root.", cyrt::python::heap_access{});
     mod.def("gc_num_roots", &gc_num_roots
-      , "The number of nodes registered as roots.");
+      , "The number of nodes registered as roots.", cyrt::python::heap_access{});
     mod.def("gc_literal_count", &gc_num_literals
       , "The number of literal nodes: the tables of the small values and the "
-        "literals of the loaded modules.");
+        "literals of the loaded modules.", cyrt::python::heap_access{});
     mod.def("gc_is_literal", [](Node * node) { return node && gc_is_literal(node); }
-      , "Whether a node is a literal node, which the collector never frees.");
+      , "Whether a node is a literal node, which the collector never frees.", cyrt::python::heap_access{});
     mod.def("gc_freevar_count", &gc_num_freevars
       , "The entries of the free-variable tables: the free variables the "
-        "collector keeps.");
+        "collector keeps.", cyrt::python::heap_access{});
     mod.def("small_int"
       , [](unboxed_int_type value) -> Node *
         {
@@ -569,7 +595,7 @@ namespace cyrt { namespace python
           return g_small_ints[value - SMALL_INT_MIN];
         }
       , reference
-      , "The shared node of an integer from SMALL_INT_MIN to SMALL_INT_MAX.");
+      , "The shared node of an integer from SMALL_INT_MIN to SMALL_INT_MAX.", cyrt::python::heap_access{});
     mod.def("small_char"
       , [](py::str str) -> Node *
         {
@@ -581,14 +607,14 @@ namespace cyrt { namespace python
           return g_small_chars[cp];
         }
       , reference
-      , "The shared node of a character up to SMALL_CHAR_MAX.");
+      , "The shared node of a character up to SMALL_CHAR_MAX.", cyrt::python::heap_access{});
     mod.def("gc_collections", &gc_num_collections
-      , "The number of collections run so far.");
+      , "The number of collections run so far.", cyrt::python::heap_access{});
     mod.def("gc_backend", &gc_backend_name
       , "The collector of the runtime: 'wdgc' (the block heap and the "
-        "mark-and-sweep collector) or 'mps' (the Memory Pool System).");
+        "mark-and-sweep collector) or 'mps' (the Memory Pool System).", cyrt::python::heap_access{});
     mod.def("gc_fault_count", &gc_fault_count
-      , "The barrier faults the collector handled; zero for wdgc.");
+      , "The barrier faults the collector handled; zero for wdgc.", cyrt::python::heap_access{});
     mod.def("gc_backend_stats"
       , []()
         {
@@ -597,32 +623,32 @@ namespace cyrt { namespace python
             stats[py::str(pair.first)] = pair.second;
           return stats;
         }
-      , "Statistics of the collector by name; empty for wdgc.");
+      , "Statistics of the collector by name; empty for wdgc.", cyrt::python::heap_access{});
     mod.def("gc_seconds", &gc_seconds
-      , "The time spent in collections, in seconds.");
+      , "The time spent in collections, in seconds.", cyrt::python::heap_access{});
     mod.def("gc_counters", []() { return counters_dict(gc_counters()); }
       , "The counters of the collector summed over the collections of the "
         "process: the seconds of the phases, the nodes marked by age, the "
         "configurations pushed, the queues and configurations destroyed, "
-        "and the writes into old nodes.");
+        "and the writes into old nodes.", cyrt::python::heap_access{});
     mod.def("gc_last_collection"
       , []() { return counters_dict(gc_last_collection()); }
-      , "The counters of the last collection.");
+      , "The counters of the last collection.", cyrt::python::heap_access{});
     mod.def("gc_old_node_count", &gc_num_old_nodes
-      , "The number of old nodes: the nodes marked in the last collection.");
+      , "The number of old nodes: the nodes marked in the last collection.", cyrt::python::heap_access{});
     mod.def("gc_write_counters_enabled", &gc_write_counters_enabled
       , "True when the runtime counts the writes into old nodes "
-        "(SPRITE_GC_WRITE_COUNTERS).");
+        "(SPRITE_GC_WRITE_COUNTERS).", cyrt::python::heap_access{});
     mod.def("gc_threshold", &gc_threshold
-      , "The number of nodes at which the next collection runs.");
+      , "The number of nodes at which the next collection runs.", cyrt::python::heap_access{});
     mod.def("gc_set_threshold", &gc_set_threshold
-      , "Sets the collection threshold; the adaptive policy never goes below it.");
+      , "Sets the collection threshold; the adaptive policy never goes below it.", cyrt::python::heap_access{});
     mod.def("gc_growth", &gc_growth
-      , "The growth factor: after a collection the threshold is this many times the survivors.");
+      , "The growth factor: after a collection the threshold is this many times the survivors.", cyrt::python::heap_access{});
     mod.def("gc_stress", &gc_stress
-      , "True when the collector runs at every safepoint (SPRITE_GC_STRESS=1).");
+      , "True when the collector runs at every safepoint (SPRITE_GC_STRESS=1).", cyrt::python::heap_access{});
     mod.def("gc_eval_depth", &gc_eval_depth
-      , "The number of evaluations on the C stack.");
+      , "The number of evaluations on the C stack.", cyrt::python::heap_access{});
     // The ticker of time mode (cyrt/ticker.hpp), for the tests.
     mod.def("ticker_status"
       , []()
@@ -639,7 +665,7 @@ namespace cyrt { namespace python
       , "The state of the ticker thread of time mode: started (the thread "
         "exists in this process), parked (it waits for an evaluation), "
         "active (the evaluations in time mode on the C stack), ticks (the "
-        "ticks set since the start of the process), and quantum_ns.");
+        "ticks set since the start of the process), and quantum_ns.", cyrt::python::heap_access{});
     // The count of the evaluations in time mode, for the tests: what the
     // outermost scheduler of such an evaluation does on entry and exit.
     mod.def("ticker_enter", &ticker_enter, py::arg("quantum_ns")
@@ -647,34 +673,34 @@ namespace cyrt { namespace python
         "scheduler of such an evaluation does: the first one starts the "
         "ticker thread or wakes it.  For the tests; every call needs a "
         "ticker_leave.  A quantum of zero is a ValueError; a thread that "
-        "cannot start is a RuntimeError, and the count is unchanged.");
+        "cannot start is a RuntimeError, and the count is unchanged.", cyrt::python::heap_access{});
     mod.def("ticker_leave", &ticker_leave
-      , "Ends the count of a ticker_enter.");
+      , "Ends the count of a ticker_enter.", cyrt::python::heap_access{});
     // The objects of the scheduler, for leak checks.  See state/queue.hpp.
     mod.def("gc_configuration_count", &gc_num_configurations
-      , "The number of configurations alive, in every queue of every evaluation.");
+      , "The number of configurations alive, in every queue of every evaluation.", cyrt::python::heap_access{});
     mod.def("gc_queue_count", &gc_num_queues
       , "The number of queues alive: the outermost queue of every evaluation, "
-        "and the queues of set functions not yet freed.");
+        "and the queues of set functions not yet freed.", cyrt::python::heap_access{});
     mod.def("gc_set_count", &gc_num_sets
-      , "The number of sets of set functions alive.");
+      , "The number of sets of set functions alive.", cyrt::python::heap_access{});
     mod.def("gc_queue_lengths", &gc_queue_lengths
-      , "The number of configurations in each queue alive, in no particular order.");
+      , "The number of configurations in each queue alive, in no particular order.", cyrt::python::heap_access{});
 
     py::class_<DataType>(mod, "DataType")
       .def_property_readonly(
           "constructors"
         , [](DataType const & self)
               { return std::vector(self.ctors, self.ctors+self.size); }
-        )
-      .def_readonly("flags", &DataType::flags)
-      .def_readonly("kind", &DataType::kind)
-      .def_readonly("name", &DataType::name)
-      .def_readonly("size", &DataType::size)
+        , cyrt::python::heap_access{})
+      .def_readonly("flags", &DataType::flags, cyrt::python::heap_access{})
+      .def_readonly("kind", &DataType::kind, cyrt::python::heap_access{})
+      .def_readonly("name", &DataType::name, cyrt::python::heap_access{})
+      .def_readonly("size", &DataType::size, cyrt::python::heap_access{})
       .def_property_readonly("address"
         , [](DataType const & self) { return (uintptr_t) &self; }
         , "The address of the type in the process (see "
-          "curry.backends.cxx.tiered).")
+          "curry.backends.cxx.tiered).", cyrt::python::heap_access{})
       ;
   }
 
@@ -744,37 +770,52 @@ namespace cyrt { namespace python
 
   void register_evaluator(pybind11::module_ mod)
   {
-    py::class_<InterpreterState>(mod, "InterpreterState")
-      .def(py::init<>())
+    py::class_<InterpreterState, HeapOwned<InterpreterState>>(mod, "InterpreterState")
+      .def(py::init<>(), cyrt::python::heap_access{})
       .def_readwrite(
           "external_freevars", &InterpreterState::external_freevars
         , "The free variables made outside an evaluation; see state/rts.hpp."
-        )
+        , cyrt::python::heap_access{})
       ;
+
+    mod.def("_heap_status", []
+      {
+        auto counts = heap_status();
+        py::dict result;
+        result["entries"] = counts.entries;
+        result["waits"] = counts.waits;
+        result["handoffs"] = counts.handoffs;
+        return result;
+      }, heap_access{});
 
     mod.def("scheduler_counters_enabled", &scheduler_counters_enabled
       , "True when the runtime was built with the scheduler counters "
-        "(make COUNTERS=1).");
+        "(make COUNTERS=1).", cyrt::python::heap_access{});
 
-    py::class_<RuntimeState>(mod, "RuntimeStateBase")
+    py::class_<RuntimeState, HeapOwned<RuntimeState>>(mod, "RuntimeStateBase")
       // The fourth and fifth arguments are the rotation cadence: the
       // completed steps between two rotation checks (0 selects time mode)
       // and the quantum of time mode in nanoseconds (see cyrt/ticker.hpp).
       // The last one turns the checker of the run-time invariants on (see
       // cyrt/checker.hpp).
       .def(py::init<
+          InterpreterState &, Node *, bool, size_t, size_t, uint64_t, bool, size_t
+        >(), cyrt::python::heap_access{})
+      .def(py::init<
           InterpreterState &, Node *, bool, size_t, size_t, uint64_t, bool
-        >())
+        >(), cyrt::python::heap_access{})
       // Without the last argument the checker is off (the tests of the
       // rotation build a state this way).
       .def(py::init<
           InterpreterState &, Node *, bool, size_t, size_t, uint64_t
-        >())
-      .def_readonly("steps_total", &RuntimeState::steps_total)
-      .def_readonly("forks_total", &RuntimeState::forks_total)
-      .def_readonly("stream_yielded", &RuntimeState::stream_yielded)
+        >(), cyrt::python::heap_access{})
+      .def_readonly("_worker_attempts", &RuntimeState::worker_attempts, heap_access{})
+      .def_readonly("_escalated", &RuntimeState::escalated, heap_access{})
+      .def_readonly("steps_total", &RuntimeState::steps_total, cyrt::python::heap_access{})
+      .def_readonly("forks_total", &RuntimeState::forks_total, cyrt::python::heap_access{})
+      .def_readonly("stream_yielded", &RuntimeState::stream_yielded, cyrt::python::heap_access{})
       .def_property_readonly("queue_size", [](RuntimeState & rts)
-        { return rts.root_queue ? rts.root_queue->size() : 0; })
+        { return rts.root_queue ? rts.root_queue->size() : 0; }, cyrt::python::heap_access{})
       .def("close", [](RuntimeState & rts)
         {
           delete rts.checker;
@@ -786,26 +827,24 @@ namespace cyrt { namespace python
           rts.root_queue.reset();
           rts.stream_event = nullptr;
           rts.stream_yielded = false;
-        })
+        }, cyrt::python::heap_access{})
       .def_readwrite("step_limit", &RuntimeState::step_limit
         , "The step limit of the evaluation: NOLIMIT, or the value of "
           "steps_total after which the scheduler stops with StepLimitReached "
-          "(see cyrt/state/rts.hpp).  RuntimeState.stepcounter sets it.")
+          "(see cyrt/state/rts.hpp).  RuntimeState.stepcounter sets it.", cyrt::python::heap_access{})
       .def_property_readonly("vtable", &RuntimeState_vtable
-        , "The variable table as a dict from id to node.")
+        , "The variable table as a dict from id to node.", cyrt::python::heap_access{})
       .def("scheduler_counters", &RuntimeState_scheduler_counters
         , "The scheduler counters of this evaluation as a dict, or None in a "
-          "plain build.")
-      .def("single_step", &RuntimeState_single_step)
+          "plain build.", cyrt::python::heap_access{})
+      .def("single_step", &RuntimeState_single_step, cyrt::python::heap_access{})
       // The Curry program writes to the C standard output, and Python keeps
       // its own buffer on the same file descriptor.  Flush the C buffer when
       // control returns to Python, with a value or with an error, so the
       // program's output precedes what Python prints next.
-      .def("next", [](RuntimeState & rts) -> Expr
-        {
-          struct FlushStdout { ~FlushStdout() { std::fflush(stdout); } } flush;
-          return rts.root_queue ? rts.procD() : Expr{};
-        })
+      .def("next", [](RuntimeState & rts) { return RuntimeState_next(rts, false); })
+      // Fetch the flag with the value, under the same lock and GIL release.
+      .def("_next_event", [](RuntimeState & rts) { return RuntimeState_next(rts, true); })
       ;
   }
 }}

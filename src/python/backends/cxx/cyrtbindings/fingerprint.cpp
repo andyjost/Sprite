@@ -1,3 +1,4 @@
+#include "heap.hpp"
 #include "pybind11/pybind11.h"
 #include "cyrt/fingerprint.hpp"
 #include <functional>
@@ -51,9 +52,9 @@ namespace cyrt { namespace python
         .export_values();
 
     py::class_<Fingerprint>(mod, "Fingerprint")
-      .def(py::init<>())
-      .def(py::init<Fingerprint const &>())
-      .def("__copy__", +[](Fingerprint const & self)->Fingerprint{return self;})
+      .def(py::init<>(), cyrt::python::heap_access{})
+      .def(py::init<Fingerprint const &>(), cyrt::python::heap_access{})
+      .def("__copy__", +[](Fingerprint const & self)->Fingerprint{return self;}, cyrt::python::heap_access{})
       .def("get", +[](Fingerprint & self, size_t id, ChoiceState default_)
           -> ChoiceState
           {
@@ -62,27 +63,27 @@ namespace cyrt { namespace python
           }
         , py::arg("id")
         , py::arg("default")=ChoiceState::UNDETERMINED
-        )
-      .def("set_left", &Fingerprint::set_left)
-      .def("set_right", &Fingerprint::set_right)
+        , cyrt::python::heap_access{})
+      .def("set_left", &Fingerprint::set_left, cyrt::python::heap_access{})
+      .def("set_right", &Fingerprint::set_right, cyrt::python::heap_access{})
       .def("__contains__", +[](Fingerprint const & self, size_t id) -> bool
           { return self.test(id) != ChoiceState::UNDETERMINED; }
-        )
-      .def("__setitem__", &Fingerprint__setitem__)
-      .def("__getitem__", &Fingerprint::test)
-      .def_property_readonly("capacity", &Fingerprint::capacity)
-      .def_property_readonly("depth", &Fingerprint::depth)
-      .def_static("BASIC_SIZE", +[]{return FP_BLOCK_SIZE;})
-      .def_static("BRANCHING_FACTOR", +[]{return FP_BRANCH_SIZE;})
+        , cyrt::python::heap_access{})
+      .def("__setitem__", &Fingerprint__setitem__, cyrt::python::heap_access{})
+      .def("__getitem__", &Fingerprint::test, cyrt::python::heap_access{})
+      .def_property_readonly("capacity", &Fingerprint::capacity, cyrt::python::heap_access{})
+      .def_property_readonly("depth", &Fingerprint::depth, cyrt::python::heap_access{})
+      .def_static("BASIC_SIZE", +[]{return FP_BLOCK_SIZE;}, cyrt::python::heap_access{})
+      .def_static("BRANCHING_FACTOR", +[]{return FP_BRANCH_SIZE;}, cyrt::python::heap_access{})
       .def("tree", Fingerprint__tree__
         , "Builds a Python representation of the internal tree.  For testing."
-        )
+        , cyrt::python::heap_access{})
       ;
 
     // For testing.
     py::class_<fingerprints::Block>(mod, "Block")
-      .def_readonly("used", &fingerprints::Block::used)
-      .def_readonly("lr", &fingerprints::Block::lr)
+      .def_readonly("used", &fingerprints::Block::used, cyrt::python::heap_access{})
+      .def_readonly("lr", &fingerprints::Block::lr, cyrt::python::heap_access{})
       .def("values", +[](fingerprints::Block const & self) -> py::object
         {
           py::list values;
@@ -91,15 +92,15 @@ namespace cyrt { namespace python
                 (self.used & (1<<i)) ? (self.lr & (1<<i)) ? 1 : -1 : 0
               );
           return values;
-        })
+        }, cyrt::python::heap_access{})
       .def("__eq__", +[](
           fingerprints::Block const & lhs, fingerprints::Block const & rhs
         ) -> bool
-        { return lhs.used == rhs.used && lhs.lr == rhs.lr; })
+        { return lhs.used == rhs.used && lhs.lr == rhs.lr; }, cyrt::python::heap_access{})
       .def("__repr__", +[](py::object const & self) -> py::object
         {
           return py::str(self.attr("values")());
-        })
+        }, cyrt::python::heap_access{})
       ;
   }
 }}

@@ -56,12 +56,12 @@ class EvaluationTotals(object):
   @property
   def steps(self):
     '''The rewrite steps taken, running evaluations included.'''
-    return self._steps + sum(rts.steps_total for rts in self._running)
+    return self._steps + sum(rts.steps_total for rts in tuple(self._running))
 
   @property
   def forks(self):
     '''The forks taken, running evaluations included.'''
-    return self._forks + sum(rts.forks_total for rts in self._running)
+    return self._forks + sum(rts.forks_total for rts in tuple(self._running))
 
   @property
   def scheduler(self):
@@ -70,7 +70,7 @@ class EvaluationTotals(object):
     the runtime has no counters or no evaluation reported any.
     '''
     total = _copy_counters(self._scheduler) if self._scheduler else None
-    for rts in self._running:
+    for rts in tuple(self._running):
       counters = rts.scheduler_counters()
       if counters is not None:
         total = merge_counters(total, counters)
@@ -78,10 +78,15 @@ class EvaluationTotals(object):
 
   def add(self, rts):
     '''Adds the counts of a runtime state that takes no more steps.'''
-    self._running.discard(rts)
-    self._steps += rts.steps_total
-    self._forks += rts.forks_total
+    # Native reads may wait for the heap with the GIL released.  Read them
+    # before changing the Python totals, so another finishing evaluation
+    # cannot overwrite a partial update or disappear from a snapshot.
+    steps = rts.steps_total
+    forks = rts.forks_total
     counters = rts.scheduler_counters()
+    self._running.discard(rts)
+    self._steps += steps
+    self._forks += forks
     if counters is not None:
       self._scheduler = merge_counters(self._scheduler, counters)
 

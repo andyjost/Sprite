@@ -1,3 +1,4 @@
+#include "heap.hpp"
 #include <string>
 #include <vector>
 #include "cyrt/graph/infotable.hpp"
@@ -179,39 +180,39 @@ namespace cyrt { namespace python
         "icurryfile, icurry_digest), the objects of the imports the "
         "interpreter runs, in dependency order: the swap maps each one whose "
         "module has no object before the object of the module, under the "
-        "same check of its ICurry.");
+        "same check of its ICurry.", cyrt::python::heap_access{});
     mod.def("tiered_file_digest", &tiered_file_digest, py::arg("path")
       , "The digest of a file for the check of the swap: its size and the "
         "CRC-32 of its bytes, as text; the empty string when the file cannot "
-        "be read.");
+        "be read.", cyrt::python::heap_access{});
     mod.attr("TIERED_EDITED") = TIERED_EDITED;
     mod.def("tiered_adopt", &tiered_adopt_
       , py::arg("module"), py::arg("shims"), py::arg("sofile"), py::arg("steps")
       , "Loads the object of a module compiled in this process and swaps the "
         "steps at once (the compile on first use under interpret:off).  shims "
         "and steps are as for tiered_submit.  Returns the result as a dict "
-        "with the keys of tiered_results.");
+        "with the keys of tiered_results.", cyrt::python::heap_access{});
     mod.def("tiered_poll", []{ tiered_apply_pending(false); }
       , "Applies the compiled objects that finished in the background.  Call "
-        "it from the thread that evaluates.");
+        "it from the thread that evaluates.", cyrt::python::heap_access{});
     mod.def("tiered_results", &tiered_results_
       , "The results applied since the last call: dicts with the keys "
         "module, sofile, ok, in_evaluation, swapped, mapped (the imports "
-        "whose objects the swap mapped), seconds, error, output.");
+        "whose objects the swap mapped), seconds, error, output.", cyrt::python::heap_access{});
     mod.def("tiered_status", &tiered_status_
       , "The counts of tiered execution: queued, running, swapped_functions, "
-        "swapped_modules, failed_modules, applied_in_evaluation.");
+        "swapped_modules, failed_modules, applied_in_evaluation.", cyrt::python::heap_access{});
     mod.def("tiered_wait", &tiered_wait_, py::arg("seconds")
       , "Waits until no job is queued or running, or until the seconds "
-        "passed.  Returns True when the worker is idle.");
+        "passed.  Returns True when the worker is idle.", cyrt::python::heap_access{});
     mod.def("tiered_cancel", &tiered_cancel
-      , "Drops the queued jobs and kills the running compile.");
+      , "Drops the queued jobs and kills the running compile.", cyrt::python::heap_access{});
     mod.def("tiered_build_shim", &tiered_build_shim_
       , py::arg("shimfile"), py::arg("argv"), py::arg("envp")
       , "Links a shim with the given command, unless the file exists.  "
-        "Raises RuntimeError when the command fails.");
+        "Raises RuntimeError when the command fails.", cyrt::python::heap_access{});
     mod.def("tiered_load_shim", &tiered_load_shim_, py::arg("shimfile")
       , "Loads a shim into the global scope; a shim loaded already is kept.  "
-        "Raises RuntimeError when the load fails.");
+        "Raises RuntimeError when the load fails.", cyrt::python::heap_access{});
   }
 }}
