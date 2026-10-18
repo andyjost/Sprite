@@ -1,5 +1,7 @@
+from ..evaluation import report_error
 from . import commands
 from . import options
+from .resolve import resolve
 import importlib, sys
 curry = importlib.import_module(__package__[:__package__.find('.')])
 
@@ -16,8 +18,7 @@ def trap(fatal=False):
         if fatal:
           sys.exit(1)
       except BaseException as e:
-        sys.stderr.write('**** ERROR ****\n%s\n' % str(e))
-        sys.stderr.flush()
+        args[0].status = report_error(e)
         if fatal:
           sys.exit(1)
     return decorated
@@ -27,11 +28,13 @@ class REPL(object):
   '''A Curry read-eval-print loop.'''
   def __new__(cls, args, **kwds):
     self = object.__new__(cls)
+    self.status = 0
     self.command = None
     self.args = None
     self.module = None
-    # The argument of the last :load, for switch_backend.
+    # The last load, retained across a reset or an unsuccessful retry.
     self.loaded = None
+    self.loaded_name = None
     self.action = kwds.pop('action', cls.defaultaction)
     self.options = options.Options(self)
     return self
@@ -63,6 +66,8 @@ class REPL(object):
       raise ValueError("Illegal arguments: %s" % (' '.join(illegal),))
     for self.command, self.args in cmds:
       self.eval()
+      if self.status:
+        sys.exit(self.status)
     if self.module is None:
       self.command = ':load'
       self.args = ['Prelude']
@@ -73,17 +78,18 @@ class REPL(object):
     try:
       line = input('%s> ' % self.module.__name__)
     except EOFError:
-      sys.exit(0)
+      sys.exit(self.status)
     if not line:
       self.command = None
       self.args = None
     elif line.startswith(':'):
-      args = line.split()
-      self.command = args[0]
-      self.args = args[1:]
+      command, *tail = line.split(maxsplit=1)
+      self.command = resolve(command, commands.COMMANDS, 'command')
+      text = tail[0] if tail else ''
+      self.args = [text] if self.command in (':eval', ':type', ':load') and text else text.split()
     else:
       self.command = ':eval'
-      self.args = line.split()
+      self.args = [line]
 
   def eval(self):
     '''Evaluate a command.'''
@@ -92,27 +98,26 @@ class REPL(object):
     else:
       commands.eval(self.command, self)
 
-  def switch_backend(self, backend):
-    '''
-    Reloads the interpreter with ``backend`` (the setter of the option
-    backend), records the backend in the options, and loads the module of
-    the session again, so that the prompt and the expressions see the new
-    interpreter.  A reload replaces the Curry path; the load puts the
-    directory of the module back.  When that load fails, the session stays
-    on the new backend with the Prelude at the prompt, keeps the argument
-    of the last :load for a switch back, and reports the error.
-    '''
-    curry.reset(**{'backend': backend})
-    self.options.values['backend'] = backend
+  def set_flags(self, **flags):
+    """Reset with validated flags, then import the session's module again."""
+    from ...interpreter.flags import get_default_flags, getflags
+    defaults = dict(get_default_flags(), **getflags())
+    flags = dict({name: value for name, value in self.options.values.items()
+        if value != defaults[name]}, **flags)
+    curry.reset(**flags)
+    self.options.values.update(curry.flags)
+    self.options.values.update(flags)
     loaded = self.loaded
+    loaded_name = self.loaded_name
     if loaded is None:
       return
     try:
-      commands.load(self, loaded)
-    except BaseException:
-      # The module object of the session belongs to the old interpreter.
+      commands.load(self, loaded_name)
+      self.loaded = loaded
+    except Exception:
       commands.load(self, 'Prelude')
       self.loaded = loaded
+      self.loaded_name = loaded_name
       raise
 
   def defaultaction(self, value):
@@ -122,8 +127,8 @@ class REPL(object):
   def enter(self):
     '''Enter the loop.'''
     @trap(fatal=False)
-    def body():
+    def body(repl):
       self.read()
       self.eval()
     while True:
-      body()
+      body(self)

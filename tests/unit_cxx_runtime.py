@@ -141,7 +141,7 @@ os._exit(1)
     cmd = ['timeout', str(self.TIMEOUT), config.sprite_exec(), '-m', 'CxxRuntime']
     proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stderr)
-    self.assertEqual(proc.stdout, 'Hello from Curry\n()\n')
+    self.assertEqual(proc.stdout, 'Hello from Curry\n')
 
 class TestBackendOption(cytest.TestCase):
   '''

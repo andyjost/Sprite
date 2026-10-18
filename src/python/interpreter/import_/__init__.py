@@ -209,6 +209,9 @@ def record_source(moduleobj):
   filename = getattr(moduleobj, '.source_file', None) or h.icurry.filename
   try:
     h.source_mtime = None if not filename else os.stat(filename).st_mtime_ns
+    if filename and filename.endswith('.curry'):
+      with open(filename, encoding='utf-8') as stream:
+        h.icurry._source_text = stream.read()
   except OSError:
     h.source_mtime = None
 

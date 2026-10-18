@@ -6,6 +6,9 @@ Session operations load, compile, reload, save and reset modules; wait
 observes background compilation. Constructor classes build values and terms,
 and expose positional and record patterns through Python match.
 Module metadata lives under the dotted slot returned by info(module).
+The REPL and sprite-exec print show(answer) per answer and suppress the
+result of IO (). Tool statuses are 2 for no value and 1 for an error or
+suspension; Python returns empty Results or raises.
 Internal builders and interpreter methods are outside this surface.
 """
 
@@ -736,3 +739,10 @@ class _ModuleInfo:
   file: str | None
   symbols: Mapping[str, Symbol]
   types: Mapping[str, DataType]
+
+# The tools: sprite-exec FILE -g EXPR and python -m curry.tools.icy print
+# show(answer) per line, with bindings. No value: *** No value found! (2).
+# EvaluationError: ERROR: msg (1). Suspension: *** Evaluation suspended! (1).
+# IO () has no result line. CompileError prints its first error line (1).
+# The REPL offers :load, :reload, :eval, :type, :set and :quit; :set uses
+# the reset flags. Errors at the prompt keep the session.

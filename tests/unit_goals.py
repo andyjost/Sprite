@@ -588,7 +588,7 @@ class TestPrograms(cytest.TestCase):
     self.assertLess(before, after)
     self.assertRegex(proc.stderr, r'backend\s+- The backend of the session')
     proc = self.repl(':set backend llvm', status=1)
-    self.assertIn("Invalid backend: 'llvm'", proc.stderr)
+    self.assertIn("'llvm' is not a value for flag 'backend'", proc.stderr)
 
   def test_repl_command_prefixes(self):
     '''A command may be given by any unambiguous prefix: :l, :e, :t, :q.'''
@@ -794,7 +794,7 @@ class TestSave(cytest.TestCase):
     self.assertEqual(self.run_saved(filename, '-g', '').stdout, '')
     proc = self.run_saved(filename, '-g', 'nosuch', status=1)
     self.assertEqual(proc.stdout, '')
-    self.assertIn("no symbol 'nosuch'", proc.stderr)
+    self.assertIn("`nosuch' is undefined", proc.stderr)
     proc = self.run_saved(filename, '-g', 'main17', status=1)
     self.assertEqual(proc.stdout, '')
     self.assertIn('Enum a => a', proc.stderr)
