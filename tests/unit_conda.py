@@ -95,8 +95,11 @@ class TestCondaRecipe(cytest.TestCase):
     self.assertIn('name: sprite', meta)
     self.assertIn('path: ../..', meta)
     self.assertIn('skip: true  # [not linux64]', meta)
-    for dep in ['python 3.14.*', 'curry-frontend 2.0.0.*', 'cxx-compiler']:
+    for dep in ['python >=3.11.4,<3.16', 'curry-frontend 2.0.0.*', 'cxx-compiler']:
       self.assertIn(dep, meta)
+    self.assertIn('python {{ python }}.*,>=3.11.4,<3.16', meta)
+    variants = readfile(RECIPE, 'conda_build_config.yaml')
+    self.assertIn('python:\n  - "3.14"\n', variants)
     self.assertIn("{{ compiler('cxx') }}", meta)
     # The runtime needs no Boost (the dependency cleanup of 2026-10-07).
     self.assertNotIn('libboost', meta)

@@ -395,10 +395,11 @@ def check_python_version(settings):
           .format(settings['PYTHON'])
     )
   vtuple = tuple(int(x) for x in vstr.split('.'))
-  minimum = 3,14,0
+  minimum = 3,11,4
   if vtuple < minimum:
     log('FAILED')
-    warn('Sprite requires Python 3.14 or newer; found %s' % vstr)
+    warn('Sprite requires Python 3.11.4 or newer '
+         '(tarfile.extractall(filter=) needs 3.11.4); found %s' % vstr)
     abort()
   else:
     log('%s, OK' % vstr)

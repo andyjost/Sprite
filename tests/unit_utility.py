@@ -1,12 +1,38 @@
 import cytest # from ./lib; must be first
-from curry import icurry
+from curry import icurry, utility
 from curry.utility.binding import binding, del_
 from curry.utility import encoding
 from curry.utility.visitation import dispatch, instance_checker
-import collections, collections.abc, re, unittest
+import collections, collections.abc, re, types, unittest
+from unittest import mock
 
 
 class TestUtility(unittest.TestCase):
+  def test_cpu_count(self):
+    '''Prefer the process count, then affinity, then the system count.'''
+    for process, affinity, system, expected in [
+        (3, {0, 1}, 8, 3), (None, {0, 1}, 8, 8)
+      , ('missing', {0, 1}, 8, 2), ('missing', 'missing', 8, 8)
+      , ('missing', 'missing', None, 1)
+      , ('missing', OSError('affinity unavailable'), 8, 8)
+      ]:
+      with self.subTest(process=process, affinity=affinity, system=system):
+        fake_os = types.SimpleNamespace(cpu_count=mock.Mock(return_value=system))
+        if process != 'missing':
+          fake_os.process_cpu_count = mock.Mock(return_value=process)
+        if affinity != 'missing':
+          fake_os.sched_getaffinity = mock.Mock(
+              side_effect=affinity if isinstance(affinity, OSError) else None
+            , return_value=affinity
+            )
+        with mock.patch.object(utility, 'os', fake_os):
+          self.assertEqual(utility.cpu_count(), expected)
+        if process != 'missing':
+          fake_os.process_cpu_count.assert_called_once_with()
+          fake_os.sched_getaffinity.assert_not_called()
+        elif affinity != 'missing':
+          fake_os.sched_getaffinity.assert_called_once_with(0)
+
   def testEncode(self):
     names = [
         # 'ni__eq__eq_'

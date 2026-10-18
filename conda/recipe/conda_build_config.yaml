@@ -1,3 +1,7 @@
+# The development default; override this variant to build another supported
+# Python.  The recipe permits 3.11.4 through 3.15; python_abi pins each build.
+python:
+  - "3.14"
 # The variant keys that {{ stdlib("c") }} needs.  conda-forge supplies them
 # through its pinning file; a build outside conda-forge needs them here.
 c_stdlib:

@@ -66,6 +66,17 @@ class TestSurface(cytest.TestCase):
       self.assertTrue(hasattr(curry, name), name)
 
   def check_function(self, node, value):
+    # Older supported Pythons omit the text signature of this inherited
+    # builtin.  Check its calling convention directly in that case.
+    if value is types.ModuleType.__dir__ and not value.__text_signature__:
+      self.assertEqual(parameters(node.args),
+          [('self', inspect.Parameter.POSITIONAL_ONLY)])
+      module = types.ModuleType('surface')
+      self.assertIsInstance(value(module), list)
+      for args, kwds in [((), {}), ((module, module), {}), ((), {'self': module})]:
+        with self.assertRaises(TypeError):
+          value(*args, **kwds)
+      return
     self.assertEqual(parameters(node.args),
         [(p.name, p.kind) for p in inspect.signature(value).parameters.values()])
 

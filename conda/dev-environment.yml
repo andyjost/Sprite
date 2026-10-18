@@ -5,8 +5,10 @@
 #
 #     conda env create -y -p PREFIX/conda/env -f conda/dev-environment.yml
 #
-# Python 3.14 is pinned: configure rejects older versions.  The other
-# packages float; configure checks that they import.
+# Python 3.14 is the development default.  An existing environment with
+# Python 3.11.4 through 3.15 is accepted by the setup script; to create one,
+# replace the Python spec below with python>=3.11.4,<3.16 (or a version in
+# that range).  The other packages float; configure checks that they import.
 name: sprite-dev
 channels:
   - conda-forge

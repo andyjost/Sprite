@@ -190,11 +190,17 @@ Dependencies:
 | Kind  | Package                 | Why                                                     |
 |-------|-------------------------|---------------------------------------------------------|
 | build | `{{ compiler('c') }}`, `{{ compiler('cxx') }}`, `{{ stdlib('c') }}`, `make` | the C++ runtime and the extension |
-| host  | `python 3.14.*`         | the extension module and the Python package             |
+| host  | `python {{ python }}.*,>=3.11.4,<3.16` | the selected variant, within the supported range |
 | host  | `curry-frontend 2.0.0.*` | `configure` checks it; `make install` runs it over the library |
-| run   | `python 3.14.*`         | `python_abi` pins the CPython 3.14 ABI                  |
+| run   | `python >=3.11.4,<3.16` | `python_abi` pins the ABI of the build                  |
 | run   | `curry-frontend 2.0.0.*` | Curry to FlatCurry; it brings `gmp` (libgmp)           |
 | run   | `cxx-compiler`          | the C++ backend compiles generated code at run time     |
+
+The default Python variant in `recipe/conda_build_config.yaml` is 3.14;
+override it to build another supported version.  Each binary package keeps
+the ABI of its build's Python, rather than serving every version at once.
+The development environment file also defaults to 3.14; its Python spec
+can be changed to any version in the supported range.
 
 `libgmp` is a dependency of the front end binary, not of Sprite, so it is a
 run dependency of `curry-frontend` (the package `gmp`) and reaches the

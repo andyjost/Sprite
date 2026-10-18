@@ -12,7 +12,8 @@ nothing.  The tools the plan depends on (dpkg-query, apt-cache, micromamba,
 swipl) are stand-ins on PATH, so the plan is the same on every machine.
 '''
 import cytest # from ./lib; must be first
-import os, re, subprocess, tempfile, unittest
+from curry.utility import cpu_count
+import os, re, shlex, subprocess, sys, tempfile, unittest
 
 ROOT = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
@@ -199,6 +200,30 @@ class TestScriptText(SetupScriptTestCase):
 class TestDryRun(SetupScriptTestCase):
   '''The plan of a dry run.'''
 
+  def test_existing_python_window(self):
+    '''Existing environments follow configure's minimum, not the dev pin.'''
+    bindir = os.path.join(self.prefix, 'conda', 'env', 'bin')
+    os.makedirs(bindir)
+    python = os.path.join(bindir, 'python')
+    for version, accepted in [
+        ((3, 10, 16), False), ((3, 11, 3), False), ((3, 11, 4), True)
+      , ((3, 12, 0), True), ((3, 13, 0), True), ((3, 14, 0), True)
+      , ((3, 15, 0), True)
+      ]:
+      with self.subTest(version=version):
+        with open(python, 'w') as stream:
+          stream.write('''#!/bin/sh
+case "$2" in
+  *sys.version_info*) exec %s -c 'import sys; sys.version_info = %r; exec(sys.argv[1])' "$2" ;;
+  *) exit 0 ;;
+esac
+''' % (shlex.quote(sys.executable), version))
+        os.chmod(python, 0o755)
+        proc = self.run_script('--dry-run', '--prefix', self.prefix, '--repo', self.repo)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual('satisfied: ' in proc.stdout, accepted, proc.stdout)
+        self.assertEqual('updating it' in proc.stdout, not accepted, proc.stdout)
+
   def test_plan(self):
     out = self.dry_run('--repo', self.repo, '--branch', 'py314', '--jobs', '3')
     prefix, repo = self.prefix, self.repo
@@ -319,8 +344,8 @@ class TestDryRun(SetupScriptTestCase):
     '''auto goes to configure as it is; the cores are printed, not baked in.'''
     out = self.dry_run('--repo', self.repo)
     # nproc honours the affinity and the cgroup limits, as
-    # os.process_cpu_count does.
-    cores = os.process_cpu_count()
+    # the package's cpu_count does.
+    cores = cpu_count()
     self.assertIn('jobs: auto (one per processor, counted by make; %d now)' % cores, out)
     self.assertIn('cores: %d ' % cores, out)
     self.assertIn('the core count (%d)' % cores, out)

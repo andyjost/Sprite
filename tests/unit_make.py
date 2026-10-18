@@ -1,6 +1,6 @@
 import cytest # from ./lib; must be first
 import curry
-from curry import config, icurry, interpreter, toolchain
+from curry import config, icurry, interpreter, toolchain, utility
 from curry.interpreter import flags as _flags
 from curry.toolchain import plans
 from curry.tools import make
@@ -332,7 +332,7 @@ class TestJobs(cytest.TestCase):
     '''--jobs takes a positive count or auto.'''
     self.assertEqual(make.parse_jobs('1'), 1)
     self.assertEqual(make.parse_jobs('12'), 12)
-    self.assertEqual(make.parse_jobs('auto'), os.process_cpu_count())
+    self.assertEqual(make.parse_jobs('auto'), utility.cpu_count())
     for text in ['0', '-2', 'x', '']:
       self.assertIsNone(make.parse_jobs(text), text)
     with contextlib.redirect_stderr(io.StringIO()) as stderr:
