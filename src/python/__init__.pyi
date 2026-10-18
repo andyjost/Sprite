@@ -6,6 +6,7 @@ Session operations load, compile, reload, save and reset modules; wait
 observes background compilation. Constructor classes build values and terms,
 and expose positional and record patterns through Python match.
 Module metadata lives under the dotted slot returned by info(module).
+The stream channel returns whole yielded values from C++ I/O actions.
 The REPL and sprite-exec print show(answer) per answer and suppress the
 result of IO (). Tool statuses are 2 for no value and 1 for an error or
 suspension; Python returns empty Results or raises.
@@ -43,6 +44,7 @@ __all__ = [
   , 'type'
   , 'eval'
   , 'solve'
+  , 'stream'
   , 'typeof'
   , 'show'
   , 'Module'
@@ -58,6 +60,7 @@ __all__ = [
   , 'Char'
   , 'Anonymous'
   , 'Results'
+  , 'Stream'
   , 'Answer'
   , 'Bindings'
   , 'CurryError'
@@ -484,6 +487,25 @@ def solve(goal: Convertible) -> Results[Answer]:
   """
 
 @final
+def stream(action: Convertible) -> Stream[PyValue]:
+  """
+  The whole values handed over by Sprite.Stream.yield, lazily and in order.
+  The action must have type IO t. Nothing runs until next(). A choice in
+  the action or its yielded value raises NondetError. The C++ backend is
+  required. An error ends the stream at that pull; close releases the run.
+
+  >>> list(itertools.islice(curry.stream(Primes.primesOut), 5))
+  [2, 3, 5, 7, 11]
+  """
+
+class Stream(Iterator[T]):
+  """An output iterator; result is the action's value after exhaustion, else None."""
+  result: PyValue | None
+  def __iter__(self) -> Stream[T]: ...
+  def __next__(self) -> T: ...
+  def close(self) -> None:
+    """Release the paused run and end the iterator."""
+
 class Results(Iterator[T]):
   """
   The lazy iterator ``eval`` and ``solve`` return.  ``next(r)`` is the next

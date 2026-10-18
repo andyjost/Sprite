@@ -230,7 +230,7 @@ class Interpreter(object):
   from .compile import compile
   from .conversions import currytype, topython, unbox
   from ..expressions import describe, expr, raw_expr, typeof
-  from .eval import eval, eval_nodes, solve
+  from .eval import eval, eval_nodes, solve, stream
   from .import_ import import_
   from .loadsave import load, save
   from .optimize import optimize

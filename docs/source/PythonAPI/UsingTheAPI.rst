@@ -314,3 +314,50 @@ See :doc:`../Quickstart` for the reload rules of the C++ backend.
 The tools print each converted answer with ``curry.show``.  The REPL uses
 ``solve`` to include named bindings.  Their exit statuses and error
 messages retain the current command-line contract.
+
+The stream channel
+==================
+
+An I/O action can hand whole values to its caller, in order, with
+``yield :: Show a => a -> IO ()`` from ``Sprite.Stream``. Use
+``mapM_ yield xs`` to hand over the elements of a list. For example::
+
+    >>> Primes = curry.compile(r'''
+    ... import Sprite.Stream (yield)
+    ... primes :: [Int]
+    ... primes = sieve [2..]
+    ...   where sieve (x:xs) = x : sieve (filter (\y -> y `mod` x > 0) xs)
+    ... primesOut :: IO ()
+    ... primesOut = mapM_ yield primes
+    ... threeOut :: IO ()
+    ... threeOut = mapM_ yield [1, 2, 3 :: Int]
+    ... ''', name='Primes')
+
+Pull a finite prefix without sending the infinite list across the boundary::
+
+    >>> from itertools import islice
+    >>> s = curry.stream(Primes.primesOut)
+    >>> list(islice(s, 10))
+    [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
+    >>> s.close()
+    >>> list(curry.stream(Primes.threeOut))
+    [1, 2, 3]
+
+``curry.stream(action)`` needs an ``IO t`` goal and the C++ backend. Nothing
+runs at the call. Each ``next`` runs to the next yield and converts that
+whole value by the usual conversion table. When the action ends,
+``Stream.result`` and the value of ``StopIteration`` hold its result.
+An unresolved type parameter uses conversion by value; an ambiguous empty
+list is ``[]``.
+An error raises at its pull and ends the stream. A choice in the action or
+in a yielded value raises ``NondetError``, as with ``print (1 ? 2)``.
+
+An open stream keeps its paused run alive. Exhaust it or call ``close()``
+to release the run; two streams can be pulled independently. A yield
+inside a set-function capsule or a nested evaluation is refused. Set
+functions inside a streamed action are allowed. Free variables cross by
+the usual value rule; the oracle shim's ``show`` may suspend on them.
+
+``sprite-exec Primes -g primesOut`` and the REPL write each yielded value
+as its Curry ``show`` text on one line as it arrives. PAKCS and KiCS2 use
+the matching text shim in ``curry/oracle/Sprite/Stream.curry``.

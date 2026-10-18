@@ -1190,3 +1190,11 @@ so its cap is larger on the next run: run those files again with
 design (unit_cxx_gc.py, unit_cxx_runtime.py) needs a cap above that sum.
 Repeat the run after a change that moves the peaks, such as a new runtime,
 and after the heavy files are split.
+
+Sprite.Stream and the I/O oracle
+-------------------------------
+The shim in ../curry/oracle/Sprite/Stream.curry is shared by PAKCS and KiCS2.
+Put ../curry/oracle first on their CURRYPATH when running an I/O stream goal;
+its yield writes show x on one line. The normal oracle script uses safe mode
+and refuses I/O, so unit_stream.py invokes PAKCS directly for this check.
+The Sprite library module lives in ../curry/lib/Sprite/Stream.curry.

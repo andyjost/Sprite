@@ -53,6 +53,9 @@ class IBackend(backends.IBackend):
       path = '.currylib.setfunctions'
       module = importlib.import_module(path, package=__package__)
       return module.SetFunctionsSpecification()
+    elif modulename == 'Sprite.Stream':
+      from ..generic.currylib.stream import StreamSpecification
+      return StreamSpecification()
 
   @property
   def create_evaluation_rts(self):

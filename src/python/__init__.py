@@ -75,6 +75,10 @@ def eval(goal):
   return _interpreter_.eval(goal)
 
 solve = _interpreter_.solve
+
+def stream(action):
+  """Return the ordered values yielded by a lazy I/O action as a Stream."""
+  return _interpreter_.stream(action)
 flags = _session.MappingProxyType(_interpreter_.flags)
 def import_(name, *, path=None):
   return _session.import_(_interpreter_, name, path=path)
@@ -162,7 +166,7 @@ def reload(module, *, text=None):
   return _session.reload(_interpreter_, module, text=text)
 
 
-from .objects.results import Results, Answer, Bindings
+from .objects.results import Results, Answer, Bindings, Stream
 # Load the node printer before exporting the public function of that name.
 from .show import show as _show_node
 
@@ -173,7 +177,6 @@ def show(value):
   return show_term(value)
 
 
-# The stream channel is not yet available.
 __all__ = [
     'import_'
   , 'compile'
@@ -197,6 +200,7 @@ __all__ = [
   , 'type'
   , 'eval'
   , 'solve'
+  , 'stream'
   , 'typeof'
   , 'show'
   , 'Module'
@@ -212,6 +216,7 @@ __all__ = [
   , 'Char'
   , 'Anonymous'
   , 'Results'
+  , 'Stream'
   , 'Answer'
   , 'Bindings'
   , 'CurryError'

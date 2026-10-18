@@ -4,10 +4,10 @@ Curry library shipped with Sprite
 Origin
 ------
 
-The Curry sources in this directory, except Control/SetFunctions.curry, are
-a copy of the library of PAKCS 3.4.1 (the lib directory of the binary
-distribution, https://www.curry-lang.org/pakcs/).  That library is version
-3.1.0 of the Curry package "base", as its VERSION file states.  The
+The Curry sources in this directory, except Control/SetFunctions.curry and
+Sprite/Stream.curry, are a copy of the library of PAKCS 3.4.1 (the lib
+directory of the binary distribution, https://www.curry-lang.org/pakcs/).
+That library is version 3.1.0 of the Curry package "base", as its VERSION file states.  The
 copyright holder is Michael Hanus, University of Kiel.  The license is the
 PAKCS license in the file LICENSE beside this notice.
 
@@ -27,12 +27,15 @@ The other sources are unchanged.  The Prolog definitions of the externals
 (*.pakcs, *.pakcs.pl), the library Makefile, and the generated umbrella
 module AllLibraries.curry of the PAKCS distribution are not included.
 
-Sprite's own module
--------------------
+Sprite's own modules
+--------------------
 
 Control/SetFunctions.curry is part of Sprite and is not covered by the
 PAKCS license.  It is covered by the BSD 3-Clause license in the LICENSE
 file at the root of the repository.
+
+Sprite/Stream.curry is also part of Sprite and uses that BSD 3-Clause
+license.
 
 Pinned build products
 ---------------------

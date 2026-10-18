@@ -73,6 +73,7 @@ class StepCounter(object):
 
 class RuntimeState(RuntimeStateBase):
   def __init__(self, interp, goal=None):
+    self.interp = interp
     istate = interp.backend.get_interpreter_state(interp)
     self.tracing = interp.flags['trace']
     limit = interp.flags['stack_limit']
@@ -104,6 +105,18 @@ class RuntimeState(RuntimeStateBase):
     '''
     RuntimeStateBase.single_step(self, node)
 
+  def generate_events(self):
+    '''Yield (is_output, node), keeping the continuation between pulls.'''
+    try:
+      while True:
+        _flush_stdout()
+        result = self.next()
+        if result is None:
+          return
+        yield self.stream_yielded, result
+    except StepLimitReached:
+      raise control.E_TERMINATE()
+
   def generate_values(self):
     '''
     Generates the values of the goal.
@@ -117,15 +130,12 @@ class RuntimeState(RuntimeStateBase):
     E_TERMINATE, the flow-control exception of the generic evaluator, as on
     the Python backend.
     '''
-    try:
-      while True:
-        _flush_stdout()
-        result = self.next()
-        if result is None:
-          return
+    from ....interpreter.eval import _print_yield
+    for output, result in self.generate_events():
+      if output:
+        _print_yield(self.interp, result)
+      else:
         yield result
-    except StepLimitReached:
-      raise control.E_TERMINATE()
 
 def _flush_stdout():
   # A closed or missing stdout is legal: some IO tests close it to provoke an
