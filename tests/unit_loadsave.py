@@ -13,6 +13,7 @@ import cytest # from ./lib; must be first
 from curry import config
 import curry, logging, os, shutil, subprocess, unittest
 import tempfile
+from unittest import mock
 from cytest.logging import capture_log
 
 IS_CXX = curry.flags['backend'] == 'cxx'
@@ -63,14 +64,15 @@ class TestRoundTrip(cytest.TestCase):
   file is the Python form.  On the C++ backend the C++ source that
   curry.save writes is compiled into a shared object by the step of the
   toolchain that sprite-make --so runs (backends.cxx.toolchain.Cpp2So), and
-  curry.load reads the object.  The child runs under interpret:new on the
-  C++ backend: the fresh module stays interpreted and no object of it is
-  loaded before curry.load, because the runtime keeps one library per
-  module name for the life of the process and refuses a second file of a
-  loaded module (the library modules of LoadSaveTestCase are such modules).
+  curry.load reads the object.  Each child has an empty product cache and
+  fresh source.  The new, tiered and off modes exercise foreground adoption
+  and an object already loaded by an import; all refuses the swap with its
+  reason and keeps the interpreted steps.
   '''
   CODE = r'''
 import os, sys, tempfile
+cache = tempfile.TemporaryDirectory(prefix='sprite-empty-products-')
+os.environ['SPRITE_PRODUCT_CACHE'] = cache.name
 os.environ['SPRITE_INTERPRETER_FLAGS'] = %(flags)r
 import cytest, curry
 tmpdir = tempfile.mkdtemp(prefix='sprite-loadsave-')
@@ -78,11 +80,19 @@ with open(os.path.join(tmpdir, 'SaveLoadFresh.curry'), 'w') as stream:
   stream.write('double :: Int -> Int\ndouble x = x + x\n\nmain :: Int\nmain = double 21\n')
 curry.path.insert(0, tmpdir)
 M = curry.import_('SaveLoadFresh')
+if curry.flags['backend'] == 'cxx' and curry.flags['interpret'] == 'tiered':
+  from curry.backends.cxx import tiered, cyrtbindings as cyrt
+  # Leave the foreground load to do the swap, independently of how quickly
+  # the background compiler runs on this machine.
+  tiered.cancel()
+  assert cyrt.icurry_is_interpreted(M.main.info)
+print([str(v) for v in curry.eval(M.main)])
 if curry.flags['backend'] == 'cxx':
   # The step reads the generated file under the product directory of the
   # source, where the import wrote the ICurry and the JSON of the module.
   from curry import config
-  from curry.backends.cxx import toolchain
+  from curry.backends.cxx import toolchain, tiered
+  tiered.wait(interp=cytest.raw.interp())
   cppfile = os.path.join(
       tmpdir, '.curry', config.intermediate_subdir(), 'SaveLoadFresh.cpp'
     )
@@ -109,9 +119,56 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(
         proc.stdout.splitlines()
-      , ['.so' if IS_CXX else '.py', "True ['42']", "True ['42']"]
+      , ["['42']", '.so' if IS_CXX else '.py', "True ['42']", "True ['42']"]
       , proc.stderr
       )
+
+  @unittest.skipUnless(IS_CXX and config.cxx_tool() is not None,
+                       'the cold object needs the C++ backend and its compiler')
+  def test_cold_cache_tiered(self):
+    self.check_cold_cache('tiered')
+
+  @unittest.skipUnless(IS_CXX and config.cxx_tool() is not None,
+                       'the cold object needs the C++ backend and its compiler')
+  def test_cold_cache_off(self):
+    self.check_cold_cache('off')
+
+  def check_cold_cache(self, mode):
+    proc = cytest.run_in_subprocess(
+        self.CODE % {'flags': 'backend:cxx,interpret:' + mode}, TIMEOUT
+      )
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    self.assertEqual(proc.stdout.splitlines(),
+                     ["['42']", '.so', "True ['42']", "True ['42']"], proc.stderr)
+
+  @unittest.skipUnless(IS_CXX and config.cxx_tool() is not None,
+                       'interpret:all belongs to the C++ backend')
+  def test_all_refuses_the_swap_with_a_reason(self):
+    code = self.CODE % {'flags': 'backend:cxx,interpret:all'}
+    code = code.replace(
+        'saved = toolchain.Cpp2So(cytest.raw.interp())(cppfile, curry.path)',
+        "import subprocess\n  env = dict(os.environ, SPRITE_INTERPRETER_FLAGS="
+        "'backend:cxx,interpret:off', CURRYPATH=os.pathsep.join(curry.path))\n  "
+        "subprocess.run([config.installed_path('bin', 'sprite-make'), '--so', "
+        "os.path.join(tmpdir, 'SaveLoadFresh.curry')], env=env, "
+        "check=True, capture_output=True, text=True)\n  "
+        "saved = os.path.splitext(cppfile)[0] + '.so'"
+      )
+    code = code[:code.index('M2 = curry._interpreter_.load(saved)')] + r'''
+from curry.backends.cxx import cyrtbindings as cyrt
+try:
+  curry._interpreter_.load(saved)
+except curry.LoadError as exc:
+  assert 'interpret:all' in str(exc), exc
+  assert 'replaces the live interpreted steps' in str(exc), exc
+else:
+  raise AssertionError('interpret:all accepted a swap')
+assert cyrt.icurry_is_interpreted(M.main.info)
+print([str(v) for v in curry.eval(M.main)])
+'''
+    proc = cytest.run_in_subprocess(code, TIMEOUT)
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    self.assertEqual(proc.stdout.splitlines(), ["['42']", '.so', "['42']"])
 
 
 @unittest.skipUnless(
@@ -389,7 +446,11 @@ class TestPublicObjects(cytest.TestCase):
       loaded = curry.load(product)
       self.assertEqual(curry.eval(loaded.f(41)).one(), 42)
       self.assertEqual(curry.typeof(loaded.f), 'Int -> Int')
-      self.assertIs(curry.load(product), loaded)
+      backend = curry._interpreter_.backend
+      with mock.patch.object(type(backend), 'load_module',
+                             side_effect=AssertionError('backend called')), \
+           mock.patch('builtins.open', side_effect=AssertionError('object read')):
+        self.assertIs(curry.load(product), loaded)
       from curry.lib import SavedTyped
       self.assertIs(SavedTyped, loaded)
 

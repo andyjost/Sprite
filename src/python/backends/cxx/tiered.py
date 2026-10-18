@@ -103,13 +103,10 @@ import in its spacing (sprite-make writes the plain form, the import the
 compact one), so a digest of the JSON refused the swap for an edit that
 changed nothing.
 
-The load.  curry.load of the object of a module that runs interpreted here
-is a swap as well: the object binds to the live tables through the shim, and
-an object dropped after such a load leaves the tables pointing into unmapped
-memory (issue #109).  The loader (loader.py) asks the registry by the module
-name before it opens an object, waits for a pending compile of the module
-(wait_for) and loads the object the compile wrote, and refuses the object of
-a module that stays interpreted (has_shim).
+The load.  curry.load uses the same adoption as a finished compile, so an
+object loaded over the shim stays with the live tables.  The loader waits
+for any pending compile and checks the registered file before opening the
+object.  prepare_adoption checks the source and the shims before the load.
 
 Failure.  When the compile, the shim, or the load fails, the module stays
 interpreted, and the failure is logged once per module (poll).  The results
@@ -371,8 +368,6 @@ def ensure_shims(interp):
   compiled object, so that the object binds its references to the tables in
   use.
   '''
-  if not enabled(interp):
-    return
   cxx = None
   for shim in list(_state.shims.values()):
     if shim.loaded or shim.blocked:
@@ -382,6 +377,41 @@ def ensure_shims(interp):
       if cxx is None:
         return
     _load_shim(shim, cxx, _environment(interp))
+
+def prepare_adoption(interp, name):
+  """Check a foreground swap and load its shims before any object opens."""
+  from ...exceptions import LoadError
+  module = interp.modules.get(name)
+  if module is not None:
+    h = getHandle(module)
+    h.backend_handle.keep_tables()
+    _register_shim(module)
+    blocked = _blocked_import(interp, h.icurry)
+    if blocked is not None:
+      raise LoadError('cannot swap module %r: its import %r changed tables' %
+                      (name, blocked))
+  shim = _state.shims.get(name)
+  if shim is not None and shim.blocked:
+    raise LoadError('cannot swap module %r: its tables changed after compiled '
+                    'code bound to them' % name)
+  record = _state.records.get(name)
+  if record is not None and record.module() is module and module is not None \
+      and record.icyfile \
+      and cyrt.tiered_file_digest(record.icyfile) != record.digest:
+    raise LoadError('cannot swap module %r: %s' % (name, cyrt.TIERED_EDITED))
+  ensure_shims(interp)
+  if shim is not None and not shim.loaded:
+    raise LoadError('cannot swap module %r: its shim cannot be linked or loaded' % name)
+  if module is None:
+    return []
+  M = getHandle(module).backend_handle
+  return [
+      (ifun.name, generic.mangle(ifun.splitname(), generic.STEP_FUNCTION), info)
+      for ifun in getHandle(module).icurry.functions.values()
+      if (info := M.get_infotable(ifun.name)) is not None
+         and (cyrt.icurry_is_interpreted(info) or cyrt.is_trapped(info))
+    ]
+
 
 def _compiles(interp, moduleobj):
   '''

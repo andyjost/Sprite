@@ -1116,7 +1116,8 @@ of the runtime outside it rebuilds the runtime library alone), the flavor
 and the installation it was compiled under, so a product compiled under
 another SPRITE_HOME is compiled again here (the object
 itself names no path: its imports enter it by SONAME).  --prepare runs
-sprite-make over the shared pool (data/curry)
+sprite-make over the shared pool (data/curry),
+the frozen API fixtures (data/curry/flows),
 and the corpus of each selected functional test, one directory and one
 process at a time, for each backend of the run, before any file starts.
 After it the parallel files only read the products.  Use it on a fresh

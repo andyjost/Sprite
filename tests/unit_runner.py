@@ -1635,6 +1635,9 @@ class TestPrepare(unittest.TestCase):
     self.assertEqual(
         dirs, ['data/curry', 'data/curry/benchmarks', 'data/curry/kiel']
       )
+    for name in ('unit_stub_modules.py', 'unit_flow_f01.py'):
+      self.assertIn('data/curry/flows',
+                    [entry[0] for entry in prepare.directories([name])])
     for directory, _, _ in prepare.CORPUS:
       path = os.path.join(testrunner.TESTDIR, directory)
       self.assertTrue(os.path.isdir(path), directory)

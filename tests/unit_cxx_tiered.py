@@ -955,10 +955,8 @@ CHILD_LOAD = "\nimport cytest, curry\ncurry.path.insert(0, %(tmpdir)r)\nM = curr
 #
 # The sequence of the review of issue #109 for a child process: the object
 # of a module that ran interpreted, loaded after a reset.  The tables of
-# the interpreted module are kept for the process and its shim names them;
-# the object bound to them, and once the new module released the object
-# the tables pointed into unmapped memory (the next use crashed, status
-# 139).  The loader refuses the object, and the module imports and runs on.
+# the interpreted module are kept for the process and its shim names them.
+# Adoption keeps the object with those tables, across subsequent resets.
 RESET_LOAD = r'''
 import gc
 import cytest, curry
@@ -971,12 +969,8 @@ del M
 gc.collect()
 curry.reset()
 curry.path.insert(0, %(tmpdir)r)
-try:
-  curry._interpreter_.load(%(sofile)r)
-except curry.exceptions.LoadError as exc:
-  print('refused' if 'runs, or ran, interpreted' in str(exc) else str(exc))
-else:
-  print('not refused')
+curry._interpreter_.load(%(sofile)r)
+print('adopted')
 M = curry.import_(%(name)r)
 print(next(curry.eval((M.total)(4))))
 print('exiting normally')
@@ -1014,8 +1008,8 @@ class TestLoadDuringCompile(TieredTestCase):
   of the import, and nothing kept the library) left the tables pointing
   into unmapped memory: the process ended at the next use of the module, or
   at its exit in Module::clear.  The loader waits for the compile and loads
-  the object the compile wrote, and it refuses the object of a module that
-  stays interpreted.
+  the object the compile wrote, or adopts a foreground object through the
+  same swap when no compile is pending.
   '''
   def compile_by_hand(self, name):
     '''
@@ -1109,7 +1103,7 @@ class TestLoadDuringCompile(TieredTestCase):
     self.assertEqual(log.data[logging.WARNING], [])
     self.assertEqual(self.py(M.total, 2), 8)
 
-  def test_reset_then_load_is_refused(self):
+  def test_reset_then_load_adopts_the_object(self):
     name = self.write_module()
     self.compile_by_hand(name)
     self.make_stale(name)
@@ -1117,7 +1111,7 @@ class TestLoadDuringCompile(TieredTestCase):
         tmpdir=self.tmpdir, name=name, sofile=self.sofile(name)
       ))
     self.assertEqual(
-        proc.stdout.splitlines(), ['True', 'refused', '40', 'exiting normally']
+        proc.stdout.splitlines(), ['True', 'adopted', '40', 'exiting normally']
       , proc.stderr
       )
 
@@ -1158,10 +1152,9 @@ class TestLoadDuringCompile(TieredTestCase):
       )
 
   @cytest.hardreset
-  def test_interpreted_module_refuses_its_object(self):
-    # The module stays interpreted: no compiler for the background compile.
-    # An object made by hand afterwards cannot be loaded over it, and the
-    # module runs on.
+  def test_interpreted_module_adopts_its_object(self):
+    # No background compiler: a foreground load must retain the object and
+    # swap the live tables, just as a finished background compile does.
     self.addCleanup(tiered._state.warned.discard, 'nocxx')
     with mock.patch.object(config, 'cxx_tool', return_value=None):
       with capture_log('curry.backends.cxx.tiered'):
@@ -1171,19 +1164,31 @@ class TestLoadDuringCompile(TieredTestCase):
     self.assertFalse(tiered.pending(name))
     self.assertTrue(tiered.has_shim(name))
     sofile = self.compile_by_hand(name)
+    loaded = curry._interpreter_.load(sofile)
+    self.assertIs(loaded, M)
+    self.assertIsNotNone(cyrt.SharedCurryModule.find_sofilename(name))
+    self.assertFalse(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertEqual(self.py(M.total, 2), 8)
+
+  @cytest.hardreset
+  def test_load_refuses_a_blocked_shim_before_open(self):
+    M = self.fresh_module()
+    tiered.cancel()
+    name = M.__name__
+    sofile = self.compile_by_hand(name)
+    shim = tiered._state.shims[name]
+    shim.blocked = True
+    self.addCleanup(setattr, shim, 'blocked', False)
     with self.assertRaises(curry.exceptions.LoadError) as cm:
       curry._interpreter_.load(sofile)
-    self.assertIn('runs, or ran, interpreted in this process', str(cm.exception))
+    self.assertIn('tables changed after compiled code bound', str(cm.exception))
     self.assertIsNone(cyrt.SharedCurryModule.find_sofilename(name))
     self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
     self.assertEqual(self.py(M.total, 2), 8)
 
   def test_import_after_reset_takes_the_object(self):
-    # The import plan is exempt from that refusal.  After a reset the module
-    # has no library registered while its tables are kept; an import of the
-    # name finds the current object and loads it, as it did before the
-    # refusal existed (func_goal_defaulting.py imports after a reset in
-    # every test).
+    # After a reset the kept tables have no registered library.  The import
+    # plan adopts the current object through the same swap as a user load.
     self.addCleanup(tiered._state.warned.discard, 'nocxx')
     with mock.patch.object(config, 'cxx_tool', return_value=None):
       with capture_log('curry.backends.cxx.tiered'):
