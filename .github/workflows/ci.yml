@@ -164,6 +164,133 @@ jobs:
         if: always()
         run: ccache -s | head -n 6
 
+  # The Python window: C++ unit suites only, on master pushes and dispatch.
+  # The 3.15 and free-threaded lanes collect evidence without gating a merge.
+  python-versions:
+    name: python versions (${{ matrix.python }})
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    continue-on-error: ${{ matrix.experimental }}
+    env:
+      # Keep the GIL enabled on 3.14t until the extension's threading audit.
+      PYTHON_GIL: '1'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { python: '3.11', experimental: false }
+          - { python: '3.12', experimental: false }
+          - { python: '3.13', experimental: false }
+          - { python: '3.14', experimental: false }
+          - { python: '3.15', experimental: true }
+          - { python: '3.14t', experimental: true }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          # The history: make overlay prunes the extracted products of the
+          # sources that changed since the commit that packed the archive,
+          # which it finds with git log; a shallow clone would prune
+          # nothing and leave stale products in place.
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          allow-prereleases: true
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make curl ccache
+          swipl --version
+      # The C++ backend compiles the shared test modules with g++ in the
+      # prepare pass of run-tests.sh, and the fresh modules of the tests at
+      # run time.  ccache in front of g++ keeps the output of unchanged
+      # modules between runs.
+      - name: Put ccache in front of the compilers
+        run: |
+          mkdir -p "$HOME/ccache-bin"
+          for cc in gcc g++ cc c++; do ln -sf "$(command -v ccache)" "$HOME/ccache-bin/$cc"; done
+          # Sprite runs the compiler for generated code through a symlink named
+          # cxx, which ccache cannot resolve by name; give it a wrapper.
+          printf '#!/bin/sh\nexec ccache g++ "$@"\n' > "$HOME/ccache-bin/sprite-cxx"
+          chmod +x "$HOME/ccache-bin/sprite-cxx"
+          echo "$HOME/ccache-bin" >> "$GITHUB_PATH"
+          echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=500M" >> "$GITHUB_ENV"
+      - name: Restore the compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-cxx-python${{ matrix.python }}-${{ github.sha }}
+          restore-keys: |
+            ccache-cxx-python${{ matrix.python }}-
+            ccache-cxx-
+      - name: Restore the Curry toolchain
+        id: toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/pakcs-${{ env.PAKCS_VERSION }}
+            ~/.cpm
+            ~/.cpmrc
+          key: curry-toolchain-ubuntu-24.04-pakcs${{ env.PAKCS_VERSION }}-icurry${{ env.ICURRY_VERSION }}-v1
+      - name: Build the Curry toolchain
+        if: steps.toolchain.outputs.cache-hit != 'true'
+        run: .github/scripts/install-curry-toolchain.sh
+      # The tests compile the same Curry texts in every run.  The ICurry cache
+      # (tests/.cache, an SQLite file keyed by the source text) keeps the
+      # output of the Curry front end between runs.  It is saved after the
+      # tests even when one fails, so a failing run still pays for the next.
+      # Each Python has its own save key and can restore another C++ lane.
+      - name: Restore the ICurry cache
+        uses: actions/cache/restore@v4
+        with:
+          path: tests/.cache
+          key: icurry-cache-cxx-python${{ matrix.python }}-${{ github.sha }}-${{ github.run_id }}
+          restore-keys: |
+            icurry-cache-cxx-python${{ matrix.python }}-
+            icurry-cache-cxx-
+            icurry-cache-
+      - name: Install Python packages
+        run: python -m pip install --quiet numpy
+      - name: Configure and stage
+        run: |
+          python ./configure \
+            --with-python="$(command -v python)" \
+            --with-cxx-postinstall="$HOME/ccache-bin/sprite-cxx" \
+            --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
+            --with-icurry="$HOME/.cpm/bin/icurry"
+          make stage
+      # The overlay archive at the root of the repository holds the
+      # FlatCurry and ICurry products of the test programs (tests/README,
+      # section 8).  It is extracted after the stage: the products are then
+      # newer than the interfaces of the installed library, so the front
+      # end leaves them alone, and sprite-make makes poker_four_of_a_kind
+      # of smap, whose preprocessor currypp the runner lacks, from its
+      # archived FlatCurry; extracted before the stage, the front end would
+      # compile the module again and fail.  The prepare pass needs it;
+      # the checkout fetches the history for its prune.  The
+      # extraction lists its members under make overlay V=1 alone.
+      - name: Extract the test products of the overlay archive
+        run: make overlay
+      - name: Unit tests
+        run: .github/scripts/run-tests.sh cxx 'unit_*.py' 1/1
+      # Nothing to save when the stage failed before any test ran: the
+      # directory does not exist then, and the save step would add a second
+      # failure.
+      - name: Save the ICurry cache
+        if: always() && hashFiles('tests/.cache/**') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: tests/.cache
+          key: icurry-cache-cxx-python${{ matrix.python }}-${{ github.sha }}-${{ github.run_id }}
+      # Only the runtime library is cached so far: Sprite compiles and links
+      # each generated module in one g++ call, which ccache does not cache.
+      - name: Compiler cache statistics
+        if: always()
+        run: ccache -s | head -n 6
+
   # The Python backend (issue #82): a frozen reference implementation
   # until the removal gate.  Its unit and functional suites run on the
   # nightly schedule and on request, not on a push; the cxx shards above

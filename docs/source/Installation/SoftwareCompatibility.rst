@@ -31,7 +31,12 @@ ICurry
     them.
 
 Python
-    Sprite requires Python 3.14.  ``configure`` rejects older versions.
+    Sprite supports Python 3.11 to 3.15, with 3.11.4 as the minimum because
+    archive extraction uses ``tarfile.extractall(filter=)``.  ``configure``
+    rejects older versions.  Python 3.14 remains the development default.
+    CI runs the C++ unit suites on each version.  The 3.15 lane and the
+    free-threaded 3.14t lane are allowed to fail; 3.14t runs with the GIL
+    enabled.  Running Sprite without the GIL is not yet supported.
 
 ..
   Sources

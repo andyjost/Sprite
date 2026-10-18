@@ -24,6 +24,7 @@ session more memory while one of them runs (see scheduler.Watchdog).
 '''
 
 import os, signal, time
+from curry.utility import cpu_count
 
 __all__ = [
     'TOOLS', 'cpu_count', 'kill_session', 'mem_available', 'mem_total'
@@ -68,13 +69,6 @@ def mem_available(path='/proc/meminfo'):
 def mem_total(path='/proc/meminfo'):
   '''MemTotal in bytes, or None when it cannot be read.'''
   return meminfo(path).get('MemTotal')
-
-def cpu_count():
-  '''The cores this process may use.'''
-  count = None
-  if hasattr(os, 'process_cpu_count'):
-    count = os.process_cpu_count()
-  return count or os.cpu_count() or 1
 
 def _stat(pid):
   '''

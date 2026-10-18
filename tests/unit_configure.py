@@ -11,7 +11,7 @@ wrapper.
 '''
 import cytest # from ./lib; must be first
 from curry import config
-import os, re, shutil, stat, subprocess, sys, tempfile, unittest
+import os, re, shlex, shutil, stat, subprocess, sys, tempfile, unittest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 CONFIGURE = os.path.join(ROOT, 'configure')
@@ -125,6 +125,32 @@ class TestConfigureOptions(ConfigureTestCase):
   The options --jobs, --with-ccache and --with-default-backend and the lines
   they write.
   '''
+
+  def test_python_window(self):
+    '''The gate accepts 3.11.4 onward and explains the patch minimum.'''
+    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
+      python = os.path.join(tmpdir, 'python')
+      for version, accepted in [
+          ('3.10.16', False), ('3.11.0', False), ('3.11.3', False)
+        , ('3.11.4', True), ('3.12.0', True), ('3.13.0', True)
+        , ('3.14.0', True), ('3.15.0', True)
+        ]:
+        with self.subTest(version=version):
+          write_script(python, '''#!/bin/sh
+case "$2" in
+  *sys.stdout.write*) echo %s ;;
+  *) exec %s "$@" ;;
+esac
+''' % (version, shlex.quote(sys.executable)))
+          result, text = self.configure(tmpdir, '--with-python=' + python)
+          self.assertEqual(result.returncode, 0 if accepted else 1, result.stdout)
+          if accepted:
+            self.assertIsNotNone(text)
+          else:
+            self.assertIsNone(text)
+            self.assertIn('Python 3.11.4 or newer', result.stdout)
+            self.assertIn('tarfile.extractall(filter=) needs 3.11.4', result.stdout)
+            self.assertIn('found ' + version, result.stdout)
 
   def test_help(self):
     '''configure -h documents the three options.'''

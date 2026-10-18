@@ -468,7 +468,7 @@ def parse_jobs(text):
   job per processor.  None for any other text.
   '''
   if text == 'auto':
-    return os.process_cpu_count() or 1
+    return utility.cpu_count()
   try:
     count = int(text)
   except ValueError:

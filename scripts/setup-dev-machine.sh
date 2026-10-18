@@ -456,7 +456,7 @@ conda_tool() {
 
 conda_env_satisfied() {
   [ -x "$python" ] \
-    && "$python" -c 'import sys; assert sys.version_info[:2] == (3, 14)' 2>/dev/null \
+    && "$python" -c 'import sys; assert sys.version_info[:3] >= (3, 11, 4)' 2>/dev/null \
     && "$python" -c 'import numpy, sphinx, sphinx_rtd_theme' 2>/dev/null
 }
 
@@ -495,7 +495,7 @@ step_conda() {
     esac
   fi
   if [ "$dry_run" = 0 ]; then
-    conda_env_satisfied || die "the conda environment is not complete: $python lacks Python 3.14, numpy, sphinx, or sphinx_rtd_theme"
+    conda_env_satisfied || die "the conda environment is not complete: $python lacks Python 3.11.4 or newer (tarfile.extractall(filter=) needs 3.11.4), numpy, sphinx, or sphinx_rtd_theme"
     note "ready: $("$python" --version)"
   fi
 }

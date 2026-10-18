@@ -51,8 +51,8 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
 
 ## Requirements and policy
 
-- Python 3.14 only. Do not add `six` or compatibility code for older
-  Pythons.
+- Python 3.11 to 3.15 (3.11.4 minimum). Do not add `six` or compatibility
+  code for Pythons older than 3.11.
 - PAKCS 3.4.1 is the pinned front end (Curry to FlatCurry) and the test
   oracle. The pin will be relaxed once the test suite passes. PAKCS itself
   is optional at build time: `configure --with-pakcs ''` with

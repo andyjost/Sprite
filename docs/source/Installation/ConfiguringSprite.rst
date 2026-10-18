@@ -135,7 +135,8 @@ The setting for development work is::
 Checking Prerequisites
 ----------------------
 
-Sprite needs few programs.  At build time: Python 3.14 with its development
+Sprite needs few programs.  At build time: Python 3.11 to 3.15 (at least
+3.11.4) with its development
 files, a C++ compiler (``g++``) with GNU make and binutils, and the Curry
 front end of PAKCS 3.4.1, ``bin/pakcs-frontend``.  At run time: the same
 Python, the front end, and, for the C++ backend, the compiler.  The C++
@@ -163,7 +164,7 @@ Omit ``--yes`` if you prefer to confirm each step.
 
 To install these yourself, follow the instructions at the links below:
 
-  * Python 3.14 with development files.
+  * Python 3.11 to 3.15 (at least 3.11.4) with development files.
       - The `deadsnakes PPA <https://github.com/deadsnakes>`__ is a good
         source.  Be sure to install the -dev package: install ``python3.14``
         `AND` ``python3.14-dev``.

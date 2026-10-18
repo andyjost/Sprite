@@ -1,12 +1,24 @@
-import contextlib, sys
+import contextlib, os, sys
 
-__all__ = ['formatDocstring', 'maxrecursion', 'translateKwds', 'unique']
+__all__ = ['cpu_count', 'formatDocstring', 'maxrecursion', 'translateKwds', 'unique']
 
 # The recursive-descent processing of ICurry necessitates a larger recursion
 # limit.  Since Python 3.12 the limit counts only Python frames; the C stack is
 # guarded separately, so a large limit no longer risks a SEGV from pure-Python
 # recursion.  This value is still a compromise against runaway recursion.
 MAX_RECURSION_LIMIT = 1<<14
+
+def cpu_count():
+  '''The cores this process may use, or one when the count is unknown.'''
+  count = None
+  if hasattr(os, 'process_cpu_count'):
+    count = os.process_cpu_count()
+  elif hasattr(os, 'sched_getaffinity'):
+    try:
+      count = len(os.sched_getaffinity(0))
+    except OSError:
+      pass
+  return count or os.cpu_count() or 1
 
 def formatDocstring(*args, **kwds):
   def decorator(arg):
