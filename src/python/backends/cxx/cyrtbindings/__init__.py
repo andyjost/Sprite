@@ -89,6 +89,7 @@ class RuntimeState(RuntimeStateBase):
     RuntimeStateBase.__init__(
         self, istate, goal, self.tracing, self.stack_limit
       , self.rotation_steps, self.rotation_quantum_ns, self.checker
+      , 0 if interp.flags['worker_stack'] is None else int(interp.flags['worker_stack'])
       )
     # The count of the stepper starts here (StepCounter.reset_global).
     self._step_base = 0
@@ -110,10 +111,10 @@ class RuntimeState(RuntimeStateBase):
     try:
       while True:
         _flush_stdout()
-        result = self.next()
+        result = self._next_event()
         if result is None:
           return
-        yield self.stream_yielded, result
+        yield result
     except StepLimitReached:
       raise control.E_TERMINATE()
 

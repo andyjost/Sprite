@@ -1,3 +1,4 @@
+#include "heap.hpp"
 #include <string>
 #include <memory>
 #include <vector>
@@ -137,7 +138,7 @@ namespace cyrt { namespace python
   {
     mod.def("checker_enabled"
       , [](RuntimeState & rts) { return rts.checker != nullptr; }
-      , "Whether the runtime state holds a checker (the flag ``checker``).");
+      , "Whether the runtime state holds a checker (the flag ``checker``).", cyrt::python::heap_access{});
     mod.def("checker_counts"
       , [](RuntimeState & rts)
         {
@@ -146,7 +147,7 @@ namespace cyrt { namespace python
             d[py::str(entry.first)] = entry.second;
           return d;
         }
-      , "The counts of the events the checker saw, by name.");
+      , "The counts of the events the checker saw, by name.", cyrt::python::heap_access{});
 
     // The corruptions of the state.
     mod.def("checker_debug_set_fp"
@@ -154,7 +155,7 @@ namespace cyrt { namespace python
         { require(rts); set_side(front(rts, index)->fingerprint, cid, side); }
       , py::arg("rts"), py::arg("cid"), py::arg("side"), py::arg("index") = 0
       , "Writes the decision of ``cid`` into the fingerprint of the "
-        "configuration at ``index`` of the current queue.");
+        "configuration at ``index`` of the current queue.", cyrt::python::heap_access{});
     mod.def("checker_debug_unite"
       , [](RuntimeState & rts, xid_type i, xid_type j)
         {
@@ -164,36 +165,36 @@ namespace cyrt { namespace python
           return C->grp_id(i);
         }
       , "Unites the groups of two identifiers in the front configuration and "
-        "returns the root of the group.");
+        "returns the root of the group.", cyrt::python::heap_access{});
     mod.def("checker_debug_united"
       , [](RuntimeState & rts)
         { require(rts); return front(rts)->strict_constraints->united; }
       , "The ids the union-find of the front configuration united, in order "
-        "and with repetitions (the ids the group check of B1 reads).");
+        "and with repetitions (the ids the group check of B1 reads).", cyrt::python::heap_access{});
     mod.def("checker_debug_bind"
       , [](RuntimeState & rts, xid_type vid, Node * node)
         { require(rts); write(front(rts)->bindings)[vid] = node; }
       , "Writes ``node`` as the binding of ``vid`` into the front "
-        "configuration.");
+        "configuration.", cyrt::python::heap_access{});
     mod.def("checker_debug_unbind"
       , [](RuntimeState & rts, xid_type vid)
         { require(rts); write(front(rts)->bindings).erase(vid); }
-      , "Removes the binding of ``vid`` from the front configuration.");
+      , "Removes the binding of ``vid`` from the front configuration.", cyrt::python::heap_access{});
     mod.def("checker_debug_update_binding"
       , [](RuntimeState & rts, xid_type vid)
         { require(rts); rts.update_binding(front(rts), vid); }
       , "Moves the binding of ``vid`` to the root of its class in the front "
         "configuration without a guard list, as the fork and get_generator "
-        "do (merge_binding without a list).");
+        "do (merge_binding without a list).", cyrt::python::heap_access{});
     mod.def("checker_debug_constrain_begin"
       , [](RuntimeState & rts) { require(rts).constrain_begin(front(rts)); }
       , "Records the bindings of the front configuration, as a constraint "
-        "step at the root does before its unions.");
+        "step at the root does before its unions.", cyrt::python::heap_access{});
     mod.def("checker_debug_merge_guard"
       , [](RuntimeState & rts, Node * dropped, Node * kept)
         { require(rts).merge_guard(front(rts), dropped, kept); }
       , "Reports a merge of two bound classes of the front configuration: "
-        "the binding dropped and the binding kept.");
+        "the binding dropped and the binding kept.", cyrt::python::heap_access{});
     mod.def("checker_debug_merge_guard_node"
       , [](RuntimeState & rts, Node * dropped, Node * kept, Node * value) -> Node *
         {
@@ -207,11 +208,11 @@ namespace cyrt { namespace python
       , reference
       , "The guard a constraint step puts above its result at the merge of "
         "two bound classes: (dropped =:= kept) &> value, with the tables of "
-        "the runtime.");
+        "the runtime.", cyrt::python::heap_access{});
     mod.def("checker_debug_check_constrained"
       , [](RuntimeState & rts) { require(rts).constrained(front(rts)); }
       , "Runs the checks of a constraint step at the root on the front "
-        "configuration.");
+        "configuration.", cyrt::python::heap_access{});
     mod.def("checker_debug_set_root"
       , [](RuntimeState & rts, Node * node)
         {
@@ -220,11 +221,11 @@ namespace cyrt { namespace python
           *C->root = node;
           C->scan.reset();
         }
-      , "Replaces the root of the front configuration.");
+      , "Replaces the root of the front configuration.", cyrt::python::heap_access{});
     mod.def("checker_debug_append"
       , [](RuntimeState & rts, Node * node)
         { require(rts); rts.append(Configuration::create(node)); }
-      , "Appends a configuration over ``node`` to the current queue.");
+      , "Appends a configuration over ``node`` to the current queue.", cyrt::python::heap_access{});
     mod.def("checker_debug_push_capsule"
       , [](RuntimeState & rts, Node * goal) -> Node *
         {
@@ -240,7 +241,7 @@ namespace cyrt { namespace python
       , reference
       , "Pushes the queue of a new capsule over ``goal`` onto the queue stack "
         "and returns its SetEval node, which keeps the queue alive while the "
-        "caller holds it.  checker_debug_pop_capsule takes the queue off.");
+        "caller holds it.  checker_debug_pop_capsule takes the queue off.", cyrt::python::heap_access{});
     mod.def("checker_debug_pop_capsule"
       , [](RuntimeState & rts)
         {
@@ -249,7 +250,7 @@ namespace cyrt { namespace python
             throw py::value_error("no capsule to pop");
           rts.pop_queue();
         }
-      , "Takes the queue of the innermost capsule off the queue stack.");
+      , "Takes the queue of the innermost capsule off the queue stack.", cyrt::python::heap_access{});
     mod.def("checker_debug_guard"
       , [](RuntimeState & rts, Node * value, size_t depth) -> Node *
         {
@@ -258,7 +259,7 @@ namespace cyrt { namespace python
         }
       , py::arg("rts"), py::arg("value"), py::arg("depth") = 0, reference
       , "A set guard of the set of the queue ``depth`` levels below the top "
-        "of the queue stack, over ``value``.");
+        "of the queue stack, over ``value``.", cyrt::python::heap_access{});
     mod.def("checker_debug_escape_insert"
       , [](RuntimeState & rts, xid_type cid, size_t depth, bool seen)
         {
@@ -272,24 +273,24 @@ namespace cyrt { namespace python
       , py::arg("seen") = false
       , "Inserts ``cid`` into the escape set of the set of the queue at "
         "``depth``: behind the back of the checker, or, with ``seen``, as an "
-        "insertion the checker saw.");
+        "insertion the checker saw.", cyrt::python::heap_access{});
     mod.def("checker_debug_escape_discard"
       , [](RuntimeState & rts, xid_type cid, size_t depth)
         { require(rts); set_at(rts, depth)->escape_set.erase(cid); }
       , py::arg("rts"), py::arg("cid"), py::arg("depth") = 0
       , "Removes ``cid`` from the escape set of the set of the queue at "
-        "``depth``.");
+        "``depth``.", cyrt::python::heap_access{});
     mod.def("checker_debug_tag"
       , [](RuntimeState & rts, xid_type cid, size_t depth)
         { require(rts).tag(cid, set_at(rts, depth)); }
       , py::arg("rts"), py::arg("cid"), py::arg("depth") = 0
       , "Tags ``cid`` as argument-derived for the set of the queue at "
-        "``depth``.");
+        "``depth``.", cyrt::python::heap_access{});
 
     // The checks on the live state.
     mod.def("checker_debug_check_yield"
       , [](RuntimeState & rts) { require(rts).yield_(front(rts)); }
-      , "Runs the checks of a yield on the front configuration.");
+      , "Runs the checks of a yield on the front configuration.", cyrt::python::heap_access{});
     mod.def("checker_debug_check_fork"
       , [](RuntimeState & rts, std::vector<int> const & sides)
         {
@@ -314,7 +315,7 @@ namespace cyrt { namespace python
       , "Runs the checks of a fork on the front configuration, whose root "
         "must be a choice, with one clone per entry of ``sides``: a clone of "
         "the front configuration that decides the choice LEFT (-1) or RIGHT "
-        "(1), or not at all (0).");
+        "(1), or not at all (0).", cyrt::python::heap_access{});
     mod.def("checker_debug_split"
       , [](RuntimeState & rts, xid_type cid)
         {
@@ -328,7 +329,7 @@ namespace cyrt { namespace python
         }
       , "Splits the queue of the innermost capsule on ``cid`` (rule SF.1) and "
         "runs the checks of the escape, with the queue off the stack as at "
-        "the escape of the runtime.");
+        "the escape of the runtime.", cyrt::python::heap_access{});
     mod.def("checker_debug_check_escape_shared"
       , [](RuntimeState & rts, xid_type cid, bool record, bool foreign
           , bool other_set)
@@ -355,7 +356,7 @@ namespace cyrt { namespace python
         "every configuration of the queue of the innermost capsule, decided "
         "or not.  Without ``record`` neither queue records the identifier; "
         "with ``foreign`` the new queue holds a configuration that was not "
-        "in the queue; with ``other_set`` it names another set.");
+        "in the queue; with ``other_set`` it names another set.", cyrt::python::heap_access{});
     mod.def("checker_debug_check_clone"
       , [](RuntimeState & rts, std::vector<std::pair<xid_type, int>> const & parent
           , std::vector<std::pair<xid_type, int>> const & clone, xid_type cid)
@@ -370,13 +371,13 @@ namespace cyrt { namespace python
           checker.check_clone(&C, cid, &P);
         }
       , "Runs the check of rule D.2 on a parent and a clone with the given "
-        "fingerprints, forked on ``cid``.");
+        "fingerprints, forked on ``cid``.", cyrt::python::heap_access{});
     mod.def("checker_debug_pulltab_begin"
       , [](RuntimeState & rts, Node * source, Node * target
           , std::vector<size_t> const & path)
         { require(rts).pulltab_begin_at(front(rts), source, target, to_path(path)); }
       , "Runs the checks before a pull-tab of ``target`` at ``path`` of "
-        "``source``.");
+        "``source``.", cyrt::python::heap_access{});
     mod.def("checker_debug_pulltab_end"
       , [](RuntimeState & rts, Node * source, Node * target
           , std::vector<size_t> const & path, Node * lhs, Node * rhs, Node * result)
@@ -388,18 +389,18 @@ namespace cyrt { namespace python
       , py::arg("rts"), py::arg("source"), py::arg("target"), py::arg("path")
       , py::arg("lhs"), py::arg("rhs"), py::arg("result") = nullptr
       , "Runs the checks after a pull-tab: ``lhs`` and ``rhs`` are the copies "
-        "and ``result`` the created choice (None skips its check).");
+        "and ``result`` the created choice (None skips its check).", cyrt::python::heap_access{});
     mod.def("checker_debug_freshvar"
       , [](RuntimeState & rts) -> Node * { require(rts); return rts.freshvar(); }
-      , reference, "A fresh free variable of the state.");
+      , reference, "A fresh free variable of the state.", cyrt::python::heap_access{});
     mod.def("checker_debug_generator"
       , [](RuntimeState & rts, Node * x, Node * gen) { require(rts).generator(x, gen); }
-      , "Runs the checks of the creation of the generator ``gen`` for ``x``.");
+      , "Runs the checks of the creation of the generator ``gen`` for ``x``.", cyrt::python::heap_access{});
     mod.def("checker_debug_attach_generator"
       , [](RuntimeState & rts, Node * x, Node * gen)
         { require(rts).attach_generator(x, gen); }
       , "Makes ``gen`` the generator of the free variable ``x`` and runs the "
-        "checks of its creation.");
+        "checks of its creation.", cyrt::python::heap_access{});
     mod.def("checker_debug_copied"
       , [](RuntimeState & rts, Node * old_root, Node * new_root
           , std::vector<size_t> const & path, Node * end, std::string const & kind)
@@ -408,7 +409,7 @@ namespace cyrt { namespace python
               front(rts), old_root, new_root, to_path(path), end, kind.c_str()
             );
         }
-      , "Runs the checks of a private copy of the spine (rule N.x).");
+      , "Runs the checks of a private copy of the spine (rule N.x).", cyrt::python::heap_access{});
     mod.def("checker_debug_instantiate_begin"
       , [](RuntimeState & rts, std::vector<size_t> const & path, Node * gen)
         {
@@ -416,14 +417,14 @@ namespace cyrt { namespace python
           require(rts).instantiate_begin(front(rts), &var, gen, "instantiation");
         }
       , "Runs the checks before the write of ``gen`` into the slot at ``path`` "
-        "of the root of the front configuration.");
+        "of the root of the front configuration.", cyrt::python::heap_access{});
     mod.def("checker_debug_instantiate_end"
       , [](RuntimeState & rts, std::vector<size_t> const & path)
         {
           Variable var = variable_at(rts, path);
           require(rts).instantiate_end(front(rts), &var, "instantiation");
         }
-      , "Runs the checks after the write into the slot at ``path``.");
+      , "Runs the checks after the write into the slot at ``path``.", cyrt::python::heap_access{});
     mod.def("checker_debug_check_hnf"
       , [](RuntimeState & rts, std::vector<size_t> const & path)
         {
@@ -431,7 +432,7 @@ namespace cyrt { namespace python
           require(rts).hnf(front(rts), &var);
         }
       , "Runs the check of an inductive position at ``path`` of the root of "
-        "the front configuration, which must be an operation.");
+        "the front configuration, which must be an operation.", cyrt::python::heap_access{});
     mod.def("checker_debug_check_failed_step"
       , [](RuntimeState & rts, Node * node)
         {
@@ -442,7 +443,7 @@ namespace cyrt { namespace python
             args.push_back(node->info->format[i] == 'p' ? node->successors()[i].node : nullptr);
           require(rts).check_failed_step(front(rts), node->info, args);
         }
-      , "Runs the check of a step that replaced ``node`` by a failure.");
+      , "Runs the check of a step that replaced ``node`` by a failure.", cyrt::python::heap_access{});
     // The checks of the failure rule F2 in its deferred form on constructed
     // records.  A set is named by its depth on the queue stack (0 is the
     // innermost capsule).
@@ -469,7 +470,7 @@ namespace cyrt { namespace python
       , "Runs the check of rule (d1) on a failure that crossed the guards of "
         "the sets at depths ``crossed`` and was recorded on the current queue "
         "as an inside failure (``guards`` None) or as an outside failure with "
-        "the guards of the sets at depths ``guards`` and ``level``.");
+        "the guards of the sets at depths ``guards`` and ``level``.", cyrt::python::heap_access{});
     mod.def("checker_debug_check_capsule_end"
       , [](RuntimeState & rts, size_t produced, bool inside_failure
           , std::vector<std::pair<size_t, std::vector<size_t>>> const & records
@@ -499,11 +500,11 @@ namespace cyrt { namespace python
         "``produced`` values and recorded ``inside_failure`` and the outside "
         "failures ``records`` (pairs of a level and the depths of the sets of "
         "the guards), and wrote the empty list (``written`` None) or a failure "
-        "under the guards of the sets at depths ``written``.");
+        "under the guards of the sets at depths ``written``.", cyrt::python::heap_access{});
     mod.def("checker_debug_tree"
       , [](RuntimeState & rts, InfoTable const * info)
         { return tree_object(require(rts).tree_of(info)); }
       , "The definitional tree of an operation as nested dicts, or None for "
-        "a built-in or a compiled function.");
+        "a built-in or a compiled function.", cyrt::python::heap_access{});
   }
 }}

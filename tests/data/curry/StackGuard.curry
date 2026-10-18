@@ -77,3 +77,7 @@ cells n xs = if n == 0 then xs =:= [] else case xs of (_:ys) -> cells (n-1) ys
 -- levels (issue #131).
 deepPair :: Int -> Bool
 deepPair n = let e = xs =:= ys in e ? (cells n xs &> e &> True) where xs, ys free
+
+-- A typed input for Python generator callbacks in the serialization tests.
+lengthInts :: [Int] -> Int
+lengthInts = length

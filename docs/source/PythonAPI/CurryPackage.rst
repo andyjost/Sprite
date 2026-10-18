@@ -61,7 +61,9 @@ Flag                         Default                What it changes
                                                     values of a search reproduces.  ``SPRITE_ROTATION``
                                                     sets it alone.
 ``stack_limit``              ``4194304``            The bytes of C stack the C++ backend lets one
-                                                    evaluation use; ``None`` disables the guard.
+                                                    use on the caller; ``None`` disables the guard.
+``worker_stack``             ``1073741824``         The retained worker's stack reservation in bytes;
+                                                    ``None`` disables escalation for deep evaluations.
 ``inline_budget``            ``4``                  The largest function body, in nodes built, that the
                                                     optimizer inlines at a call; a call of a single-case
                                                     function on a constructor becomes the branch.  ``0``

@@ -1,3 +1,4 @@
+#include "heap.hpp"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 #include "cyrt/module.hpp"
@@ -70,36 +71,36 @@ namespace cyrt { namespace python
       , py::arg("hook")
       , "Installs the hook of the trap step (cyrt/module.hpp): a callable "
         "of one info table that gives the table its code and returns None, "
-        "or returns the reason it did not.  None removes the hook.");
+        "or returns the reason it did not.  None removes the hook.", cyrt::python::heap_access{});
     mod.def("install_trap", &install_trap, py::arg("info")
       , "Gives a function table made at run time the trap step: a step that "
-        "calls the hook and raises when the table still has no code.");
+        "calls the hook and raises when the table still has no code.", cyrt::python::heap_access{});
     mod.def("is_trapped"
       , [](InfoTable const * info) { return is_trapped(info); }
       , py::arg("info")
-      , "Whether the step of an info table is the trap step.");
+      , "Whether the step of an info table is the trap step.", cyrt::python::heap_access{});
     mod.def("trap_owner", &owner_of, py::arg("info")
-      , "The name of the loaded module that owns a table, or ''.");
+      , "The name of the loaded module that owns a table, or ''.", cyrt::python::heap_access{});
     py::class_<Module, std::shared_ptr<Module>>(mod, "Module")
-      .def("create_infotable", &Module::create_infotable, reference)
-      .def("create_type", &Module::create_type, reference)
-      .def("get_infotable", &Module::get_infotable, reference)
-      .def("get_type", &Module::get_type, reference)
-      .def("get_builtin_symbol", &Module::get_builtin_symbol, reference)
-      .def("get_builtin_type", &Module::get_builtin_type, reference)
-      .def("link", &Module::link)
+      .def("create_infotable", &Module::create_infotable, reference, cyrt::python::heap_access{})
+      .def("create_type", &Module::create_type, reference, cyrt::python::heap_access{})
+      .def("get_infotable", &Module::get_infotable, reference, cyrt::python::heap_access{})
+      .def("get_type", &Module::get_type, reference, cyrt::python::heap_access{})
+      .def("get_builtin_symbol", &Module::get_builtin_symbol, reference, cyrt::python::heap_access{})
+      .def("get_builtin_type", &Module::get_builtin_type, reference, cyrt::python::heap_access{})
+      .def("link", &Module::link, cyrt::python::heap_access{})
       .def("keep_tables", &Module::keep_tables
-        , "Keeps the tables made at run time for the life of the process.")
+        , "Keeps the tables made at run time for the life of the process.", cyrt::python::heap_access{})
       .def("retire", &Module::retire
         , "Hands the tables made at run time to the kept store and clears "
           "the module, so a module of the same name made later takes them "
-          "back without their steps (issue #114).")
+          "back without their steps (issue #114).", cyrt::python::heap_access{})
 
       .def_property_readonly("shlib", &Module::shlib
-        , "The compiled object linked to the module, or None.")
-      .def_readonly("name", &Module::name)
-      .def_static("find_or_create", &Module::find_or_create)
-      .def_static("getall", &Module::getall)
+        , "The compiled object linked to the module, or None.", cyrt::python::heap_access{})
+      .def_readonly("name", &Module::name, cyrt::python::heap_access{})
+      .def_static("find_or_create", &Module::find_or_create, cyrt::python::heap_access{})
+      .def_static("getall", &Module::getall, cyrt::python::heap_access{})
       ;
   }
 }}

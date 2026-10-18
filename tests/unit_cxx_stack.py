@@ -34,7 +34,7 @@ TIMEOUT = 60
 CHILD = r'''
 import curry
 curry.reset(**{
-    'backend': 'cxx', 'stack_limit': %(limit)r
+    'backend': 'cxx', 'stack_limit': %(limit)r, 'worker_stack': None
   })
 M = curry.import_('StackGuard')
 values = curry.eval(%(goal)s)

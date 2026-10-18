@@ -163,8 +163,12 @@ The following are recognized:
   The ``stack_limit`` flag sets the number of bytes of C stack the C++ backend
   lets one evaluation use.  The default is 4194304.  When an alternative
   reaches the limit, the backend unwinds to the scheduler and runs the other
-  alternatives.  An alternative that cannot proceed within the limit is
-  dropped, and its error is reported after the others have run.  A limit
+  alternatives.  A retry without progress moves the evaluation to the
+  retained worker.  ``worker_stack`` sizes its stack reservation in bytes
+  (default 1073741824, or 1 GiB); ``None`` disables escalation.  Refused
+  reservations are halved down to 64 MiB; if none works, ``StackLimitError``
+  names the attempted sizes.  An alternative that exhausts the worker too
+  is dropped, and its error follows the other values.  A limit
   larger than the stack of the thread is clamped to that stack, less a margin
   of 1 MiB.  Set the flag to ``None`` to disable the guard.  To raise the
   limit, raise the stack size (``ulimit -s``) as well, and say::

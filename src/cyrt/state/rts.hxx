@@ -1,4 +1,5 @@
 #include "cyrt/builtins.hpp"
+#include "cyrt/exceptions.hpp"
 #include "cyrt/graph/memory.hpp"
 #include "cyrt/ticker.hpp"
 #include "cyrt/tiered.hpp"
@@ -100,6 +101,9 @@ namespace cyrt
     }
     if(due)
     {
+      if(this->cancelled.load(std::memory_order_relaxed))
+        throw EvaluationError("evaluation interrupted");
+      host_poll();
       if(g_tiered_pending.load(std::memory_order_relaxed))
         tiered_apply_pending(true);
       for(Queue * Q: this->qstack)

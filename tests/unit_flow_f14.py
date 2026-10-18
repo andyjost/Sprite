@@ -103,7 +103,7 @@ print(repr(values))
         'backend', 'checker', 'debug', 'inline_budget'
       , 'interpret', 'keep_temp_files', 'lazycompile', 'postmortem'
       , 'recursion_limit', 'rotation', 'stack_limit', 'step_budget'
-      , 'telemetry_interval', 'trace'
+      , 'telemetry_interval', 'trace', 'worker_stack'
       ])
 
 

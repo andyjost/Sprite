@@ -104,6 +104,18 @@ backend of a run and overrides a ``backend`` flag of
 default of the installation, which ``configure --with-default-backend``
 sets.
 
+The runtime serializes graph access with a recursive lock per heap.  This
+is a stopgap for the concurrent runtime of epic #28.  Open evaluations keep
+their own queues and histories; another thread waits while one steps, and
+a callback may evaluate again on the same thread.  The Python binding
+releases the GIL during stepping and waiting, acquires it for Python
+callbacks and conversion, and polls signals while waiting.  Deep goals
+start on the caller's thread.  When an unwind and retry make no progress,
+they continue on a retained worker with a large stack reservation
+(``worker_stack``, default 1 GiB; ``None`` disables escalation).  Refused
+reservations fall back by halving to 64 MiB.  ``stack_limit`` continues to
+bound the caller's stack; collection still runs after native frames unwind.
+
 See
 :ref:`Environment Variables <CommandLineInterface/EnvironmentVariables:Environment Variables>`
 for the flags.

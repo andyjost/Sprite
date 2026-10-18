@@ -1,3 +1,4 @@
+#include "heap.hpp"
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
@@ -222,17 +223,17 @@ namespace cyrt { namespace python
       , py::arg("info"), py::arg("code"), py::arg("consts"), py::arg("nregs")
       , py::arg("nvars"), py::arg("nstack")
       , "Makes a function table made at run time an interpreted function: "
-        "attaches the bytecode and the constants of its body.");
+        "attaches the bytecode and the constants of its body.", cyrt::python::heap_access{});
     mod.def("icurry_bytecode", &icurry_bytecode_
       , "The bytecode of an interpreted function as a dict (code, nregs, "
-        "nvars, nstack, nconsts), or None for any other info table.");
+        "nvars, nstack, nconsts), or None for any other info table.", cyrt::python::heap_access{});
     mod.def("icurry_is_interpreted"
       , [](InfoTable const * info) { return icurry_bytecode(info) != nullptr; }
-      , "Whether the step of an info table is the ICurry interpreter.");
+      , "Whether the step of an info table is the ICurry interpreter.", cyrt::python::heap_access{});
     mod.def("icurry_opcodes", &icurry_opcodes_
-      , "The names of the opcodes of the interpreter, in numeric order.");
+      , "The names of the opcodes of the interpreter, in numeric order.", cyrt::python::heap_access{});
     mod.def("icurry_count", &icurry_num_functions
-      , "The number of interpreted functions in the process.");
+      , "The number of interpreted functions in the process.", cyrt::python::heap_access{});
     mod.attr("ROOT_VAR") = (uint32_t) ROOT_VAR;
     mod.attr("NO_BRANCH") = (uint32_t) NO_BRANCH;
   }

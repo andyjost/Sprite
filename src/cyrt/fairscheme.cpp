@@ -28,6 +28,21 @@ namespace cyrt
 {
   Expr RuntimeState::procD()
   {
+    HeapScope lock;
+    if(this->escalated && !on_evaluation_worker())
+      return worker_evaluate(*this);
+    Expr value = this->procD_loop();
+    if(this->escalation_requested)
+    {
+      this->escalation_requested = false;
+      this->escalated = true;
+      return worker_evaluate(*this);
+    }
+    return value;
+  }
+
+  Expr RuntimeState::procD_loop()
+  {
     this->stream_yielded = false;
     Queue * Q         = nullptr;
     Configuration * C = nullptr;
@@ -150,6 +165,7 @@ namespace cyrt
         case E_UNWIND  : if(this->unwind(Q, C))
                            continue;
                          C->forced_rotate = true;
+                         if(this->escalation_requested) return Expr{};
                          return this->yield_control(E_UNWIND);
         // The step limit was reached (see step_limit).  A nested scheduler
         // hands the status out, as it hands E_UNWIND out; the outermost one
