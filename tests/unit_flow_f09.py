@@ -41,7 +41,6 @@ class TestFlowF09(cytest.TestCase):
     if FLOW_PATH not in curry.path:
       curry.path.insert(0, FLOW_PATH)
 
-  @unittest.expectedFailure
   def test_point_value(self):
     G = curry.import_('Geo'); p = curry.eval(G.origin).one(); q = curry.eval(G.Point(0, 0)).one()
     self.assertIsInstance(p, curry.Data)
@@ -102,7 +101,6 @@ class TestFlowF09(cytest.TestCase):
     self.assertIn(p, {q: 1})
     self.assertEqual({(p, c): 1}[(q, curry.Char('B'))], 1)
 
-  @unittest.expectedFailure
   def test_constructor_classes(self):
     T = curry.import_('Geo')
     def total(t):
@@ -127,7 +125,6 @@ class TestFlowF09(cytest.TestCase):
     self.assertEqual(curry.eval(tree).one(), tree)
     self.assertEqual(tree.args, (T.Node(T.Leaf, 1, T.Leaf), 2, T.Node(T.Leaf, 3, T.Leaf)))
 
-  @unittest.expectedFailure
   def test_nested_patterns(self):
     T = curry.import_('Geo')
     def describe(t):

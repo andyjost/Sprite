@@ -82,13 +82,11 @@ class TestStubValues(cytest.TestCase):
     t = curry.eval(Geo.Node(Geo.Leaf, -1, Geo.Leaf)).one()
     self.assertIsInstance(t, curry.Data)
 
-  @unittest.expectedFailure
   def test_data_tree_class_example(self):
     Geo = curry.import_('Geo')
     t = curry.eval(Geo.Node(Geo.Leaf, -1, Geo.Leaf)).one()
     self.assertEqual((type(t).__name__, isinstance(t, curry.info(Geo).types['Tree'].cls)), ('Node', True))
 
-  @unittest.expectedFailure
   def test_data_match_example(self):
     Geo = curry.import_('Geo')
     t = curry.eval(Geo.Node(Geo.Leaf, -1, Geo.Leaf)).one()
@@ -128,7 +126,6 @@ class TestStubValues(cytest.TestCase):
     with self.assertRaises(TypeError):
       a < b
 
-  @unittest.expectedFailure
   def test_data_with_ord_uses_curry_compare(self):
     M = curry.import_('StubRecord')
     a = M.Named(1)
@@ -150,7 +147,6 @@ class TestStubValues(cytest.TestCase):
     v = curry.eval(Geo.Point(2, -3)).one()
     self.assertEqual(curry.eval(Geo.norm1(v)).one(), 5)
 
-  @unittest.expectedFailure
   def test_constructor_type_and_class_relationship(self):
     Geo = curry.import_('Geo')
     tree = curry.info(Geo).types['Tree'].cls
@@ -161,7 +157,6 @@ class TestStubValues(cytest.TestCase):
     self.assertEqual(curry.Data.__match_args__, ('symbol', 'args'))
     self.assertIs(Geo.Node.datatype.cls, tree)
 
-  @unittest.expectedFailure
   def test_record_match_uses_field_names(self):
     M = curry.import_('StubRecord')
     self.assertEqual(M.Named.__match_args__, ('coordinate',))
@@ -172,7 +167,6 @@ class TestStubValues(cytest.TestCase):
       case _:
         self.fail('record pattern did not match')
 
-  @unittest.expectedFailure
   def test_constructor_values_terms_and_partial_application(self):
     Geo = curry.import_('Geo')
     Coin = curry.import_('Coin')
@@ -196,14 +190,12 @@ class TestStubValues(cytest.TestCase):
       )
     self.assertEqual(len(list(curry.eval(curry.choice(Geo.Point, Geo.Point)))), 2)
 
-  @unittest.expectedFailure
   def test_nullary_constructor_is_not_a_class(self):
     Geo = curry.import_('Geo')
     with self.assertRaises(TypeError):
       isinstance(Geo.Leaf, Geo.Leaf)
     self.assertIsInstance(Geo.Leaf, curry.info(Geo).types['Tree'].cls)
 
-  @unittest.expectedFailure
   def test_constructor_shadows_type_name(self):
     Geo = curry.import_('Geo')
     self.assertIsNot(Geo.Point, curry.info(Geo).types['Point'].cls)
@@ -336,7 +328,6 @@ class TestStubValues(cytest.TestCase):
     action = curry.term(P['return'](42), type='IO Int')
     self.assertEqual(curry.eval(action).one(), 42)
 
-  @unittest.expectedFailure
   def test_generic_data_pattern(self):
     Geo = curry.import_('Geo')
     Data = curry.Data

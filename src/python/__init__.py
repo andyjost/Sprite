@@ -97,7 +97,7 @@ def wait(module=None):
 stats = _interpreter_.stats
 from .objects import CurryModule as Module
 from .objects.terms import (
-    Term, Data, Function, Values, Symbol, DataType, Char
+    Term, Data, DataClass, ConstructorClass, Function, Values, Symbol, DataType, Char
   , Var, Anonymous, anonymous, Reference
   )
 from .typecheck.errors import ConversionError, MismatchError, ArityError, NoInstanceError
@@ -204,6 +204,8 @@ __all__ = [
   , 'DataType'
   , 'Term'
   , 'Data'
+  , 'DataClass'
+  , 'ConstructorClass'
   , 'Function'
   , 'Var'
   , 'Values'

@@ -178,7 +178,12 @@ class ToPython(object):
     from ..typecheck import builder
     if symbol is None:
       symbol = self._symbol(node.info)
-    sym = Symbol(symbol, symbol.module)
+    metadata = getattr(symbol.module, '.info')
+    sym = metadata._symbols.get(symbol.name)
+    if sym is None or sym._info is not symbol:
+      sym = metadata._symbols[symbol.name] = Symbol(symbol, symbol.module)
+    if cls is Data or cls is None:
+      cls = metadata._classes.get(symbol.name, Data)
     result = object.__new__(Data if cls is None else cls)
     result._interp = self.interp
     result._session = self.interp._session

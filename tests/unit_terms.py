@@ -6,6 +6,121 @@ import os
 
 class TestTerms(cytest.TestCase):
 
+  def test_constructor_classes_survive_conversion_and_keep_keys(self):
+    M = curry.compile('data Tree = Leaf | Node Tree Int Tree')
+    self.assertTrue(issubclass(M.Node, curry.ConstructorClass))
+    self.assertTrue(issubclass(curry.info(M).types['Tree'].cls, curry.DataClass))
+    value = M.Node(M.Leaf, -1, M.Leaf)
+    self.assertIs(M.Leaf.symbol, curry.info(M).symbols['Leaf'])
+    self.assertIs(value.symbol, curry.info(M).symbols['Node'])
+    self.assertEqual((value._0, value._1, value._2), value.args)
+    self.assertIs(type(curry.eval(value).one()), M.Node)
+    self.assertEqual({value: 7}[curry.eval(value).one()], 7)
+    self.assertEqual(curry.typeof(M.Node), 'Tree -> Int -> Tree -> Tree')
+    self.assertEqual(curry.show(M.Node), 'Node')
+    self.assertEqual(M.Node, curry.term(M.Node))
+    P = curry.import_('Prelude')
+    for term in (P.Just(1), P.Left(1), P.Right('x')):
+      self.assertIs(type(curry.eval(term).one()), getattr(P, term.symbol.name))
+
+  def test_constructor_application_does_not_evaluate_terms_or_iterators(self):
+    M = curry.compile('data Box a = Box a\ncoin = 1 ? 2')
+    value = M.Box(M.coin)
+    self.assertNotIsInstance(value, curry.Data)
+    self.assertEqual([v.args for v in curry.eval(value)], [(1,), (2,)])
+    drawn = []
+    def items():
+      drawn.append(1)
+      yield 1
+    term = M.Box(items())
+    self.assertEqual(drawn, [])
+    self.assertEqual(curry.eval(term).one().args, ([1],))
+    self.assertEqual(drawn, [1])
+
+  def test_reload_stales_constructor_classes_and_instances(self):
+    M = curry.compile('data Named = Named { first :: Int }')
+    old, oldtype, value = M.Named, curry.info(M).types['Named'].cls, M.Named(1)
+    curry.reload(M, text='data Named = Named { second :: Int }')
+    self.assertFalse(isinstance(M.Named(2), old))
+    self.assertFalse(isinstance(M.Named(2), oldtype))
+    self.assertEqual(M.Named.__match_args__, ('second',))
+    self.assertEqual(M.Named(2).second, 2)
+    self.assertIs(M.Named.datatype.module, M)
+    for use in (lambda: old(1), lambda: curry.term(old), lambda: curry.eval(value).one()):
+      with self.assertRaises(curry.StaleError):
+        use()
+
+  def test_reset_stales_constructor_classes_and_instances(self):
+    P = curry.import_('Prelude')
+    old, oldtype, value = P.Just, curry.info(P).types['Maybe'].cls, P.Just(1)
+    curry.reset()
+    P = curry.import_('Prelude')
+    self.assertFalse(isinstance(P.Just(1), old))
+    self.assertFalse(isinstance(P.Nothing, oldtype))
+    for use in (lambda: old(1), lambda: curry.term(old), lambda: curry.eval(value).one()):
+      with self.assertRaises(curry.StaleError):
+        use()
+
+  def test_runtime_raw_symbols_do_not_escape_next(self):
+    SF = curry.import_('Control.SetFunctions')
+    P = curry.import_('Prelude')
+    with curry.eval(SF.set0(P.Just(1))) as results:
+      self.assertEqual(next(iter(next(results))).args, (1,))
+      self.assertTrue(issubclass(P.Just, curry.ConstructorClass))
+
+  def test_constructor_classes_at_internal_node_boundary(self):
+    P = curry.import_('Prelude')
+    from curry.objects.terms import raw_symbols
+    interp = cytest.raw.interp()
+    for description in ((P.Just, 1), ([P.Just, 1],)):
+      for typed in (False, True):
+        node = cytest.raw.expr(*description, typed=typed)
+        self.assertEqual(curry.eval(node).one().args, (1,))
+    with raw_symbols():
+      node = interp.backend.make_node(P.Just, cytest.raw.expr(1))
+    self.assertEqual(curry.eval(node).one().args, (1,))
+    self.assertTrue(inspect.isa(node, P.Just))
+    self.assertTrue(inspect.isa(node, (P.Just,)))
+    if curry.flags['backend'] == 'py':
+      from curry.backends.py.graph import Node
+      node = Node(P.Just, cytest.raw.expr(1))
+      self.assertEqual(curry.eval(node).one().args, (1,))
+    from curry.typecheck import engine
+    for description in ((P.Just, 1), ([P.Just, 1],)):
+      node = engine.build(interp, *description)
+      self.assertEqual(curry.eval(node).one().args, (1,))
+
+  def test_constructor_values_keep_literal_polymorphism_until_evaluated(self):
+    P = curry.import_('Prelude')
+    value = P.Just(1)
+    self.assertIsInstance(value, P.Just)
+    self.assertEqual(curry.typeof(value), 'Num a => Maybe a')
+    fixed = curry.eval(curry.term(value, type='Maybe Float')).one()
+    self.assertIs(type(fixed.args[0]), float)
+    self.assertEqual(curry.typeof(fixed), 'Maybe Float')
+
+  def test_newtype_application_keeps_source_shape_and_runtime_erasure(self):
+    M = curry.import_('Data.Functor.Identity')
+    value = M.Identity(5)
+    self.assertIsInstance(value, M.Identity)
+    self.assertEqual(value.args, (5,))
+    self.assertEqual(curry.typeof(value, defaulted=True), 'Identity Int')
+    self.assertEqual(curry.eval(value).one(), 5)
+
+  def test_iterator_callbacks_see_constructor_classes(self):
+    P = curry.import_('Prelude')
+    def values():
+      self.assertTrue(issubclass(P.Just, curry.ConstructorClass))
+      yield curry.eval(P.length('abc')).one()
+    self.assertEqual(curry.eval(P.head(values())).one(), 3)
+
+  def test_record_interface_keeps_field_order_and_groups(self):
+    M = curry.compile('data Record = Record { x, y :: Int, label :: String }')
+    self.assertEqual(M.Record.__match_args__, ('x', 'y', 'label'))
+    self.assertEqual(M.Record.symbol.fields, ('x', 'y', 'label'))
+    value = M.Record(1, 2, 'r')
+    self.assertEqual((value.x, value.y, value.label), (1, 2, 'r'))
+
   def test_deep_values_convert_and_show(self):
     # The tools convert and print a deep constructor value on both backends.
     M = curry.compile("""

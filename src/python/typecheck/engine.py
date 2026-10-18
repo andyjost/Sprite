@@ -198,6 +198,9 @@ def spec_of(*args):
   a choice marker as a call of ``Prelude.?``; an iterator.
   '''
   from ..objects.terms import Term, ValueList
+  from ..objects.classes import constructor_term
+  if args:
+    args = (constructor_term(args[0]), *args[1:])
   if args and isinstance(args[0], Term):
     head = args[0]
     if len(args) > 1 and head.symbol is not None:
@@ -220,8 +223,9 @@ def spec_of(*args):
   if isinstance(arg, ValueList):
     return List(arg)
   if isinstance(arg, list):
-    if arg and isinstance(arg[0], Term) and arg[0].symbol is not None:
-      return App(arg[0].symbol._info, *arg[0]._args, *arg[1:])
+    head = constructor_term(arg[0]) if arg else None
+    if isinstance(head, Term) and head.symbol is not None:
+      return App(head.symbol._info, *head._args, *arg[1:])
     if arg and isinstance(arg[0], CurryNodeInfo):
       return App(arg[0], *arg[1:])
     return List(arg)

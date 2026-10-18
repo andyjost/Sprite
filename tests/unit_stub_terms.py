@@ -518,7 +518,6 @@ class TestStubTerms(cytest.TestCase):
     self.assertEqual(curry.term(sym), Coin.inc)
     self.assertIn('Int -> Int', Coin.inc.__doc__)
 
-  @unittest.expectedFailure
   def test_datatype_metadata_and_class(self):
     Geo = curry.import_('Geo')
     dt = curry.info(Geo).types['Tree']

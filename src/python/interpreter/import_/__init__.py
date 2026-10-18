@@ -177,6 +177,8 @@ class ImportEx(object):
         for modulename in imodule.imports:
           self.interp.import_(modulename, currypath=self.import_path)
         load.loadSymbols(self.interp, imodule, moduleobj)
+        from ...objects.classes import build_classes
+        build_classes(self.interp, moduleobj)
         from ...objects.terms import raw_symbols
         with raw_symbols():
           for name, target in imodule.aliases.items():
