@@ -19,11 +19,27 @@ The ``PATH`` line is needed only if ``install/bin`` is not already on your
 PATH.  The remaining examples on this page assume it is.  ``python -m
 curry`` under the Python of the installation is the same program.
 
-The default goal is ``main``.  To specify a different one, use the ``-g``
+The default goal is ``main``. To specify a Curry expression, use the ``-g``
 option; ``-g ''`` loads the module and evaluates nothing::
 
     sprite-exec Peano.curry -g O
     O
+
+The expression sees the loaded module and Prelude. For example,
+``sprite-exec Peano.curry -g 'O ? S O'`` prints two answers. A trailing
+``where x free`` reports bindings, as in the :doc:`REPL </REPL>`.
+Each answer prints with ``curry.show`` on its own line. An ``IO ()`` goal
+runs its effects and prints no result line; a pure ``()`` still prints
+``()``.
+
+A successful run exits with status 0. No value prints
+``*** No value found!`` on standard output and exits 2. An evaluation error
+prints ``ERROR: msg`` on standard error and exits 1. Suspension prints
+``*** Evaluation suspended!`` on standard error and exits 1. A compile
+error prints ``ERROR:`` followed by the front end's first error line,
+without a machine path, and exits 1. These statuses belong to the tools;
+Python's ``curry.eval`` returns an empty ``Results`` for no value and
+raises evaluation errors.
 
 The first run of a program also runs the Curry front end on its module.
 That takes a fraction of a second for a small module: ``Peano.curry``

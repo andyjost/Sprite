@@ -6,7 +6,7 @@ from .. import config, exceptions, objects, toolchain
 from ..objects import handle
 from ..typecheck import goals, sigtable
 from ..utility.visitation import dispatch
-import itertools, os, re, types
+import itertools, os, re, tempfile, types, weakref
 
 __all__ = ['compile', 'expression_scheme']
 
@@ -162,9 +162,7 @@ def _updateImports(interp, module, stmts, currypath):
     # If this is a dynamic module, add its directory to the search path.
     h = handle.Handle(module)
     tmpd = h.icurry.metadata.get('all.tmpd', None)
-    if tmpd is not None:
-      currypath.insert(0, tmpd)
-    elif not h.is_package and h.icurry.filename:
+    if not h.is_package and h.icurry.filename:
       # A module loaded from a file outside the search path, e.g., by the
       # :load command of the REPL: the front end must find its source.
       root = sigtable.module_root(
@@ -173,3 +171,21 @@ def _updateImports(interp, module, stmts, currypath):
       if root not in currypath:
         currypath.insert(0, root)
 
+    if tmpd is None and not h.is_package:
+      from .import_ import edited_source
+      if edited_source(module) is not None:
+        text = getattr(h.icurry, '_source_text', None)
+        if text is not None:
+          snapshot = getattr(h.icurry, '_frontend_snapshot', None)
+          if snapshot is None:
+            snapshot = tempfile.TemporaryDirectory(prefix='sprite-scope-')
+            filename = os.path.join(snapshot.name, h.fullname.replace('.', os.sep) + '.curry')
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+            with open(filename, 'w', encoding='utf-8') as stream:
+              stream.write(text)
+            h.icurry._frontend_snapshot = snapshot
+            weakref.finalize(h.icurry, snapshot.cleanup)
+          tmpd = snapshot.name
+    if tmpd is not None:
+      # The front end sees the code the loaded scope belongs to.
+      currypath.insert(0, tmpd)

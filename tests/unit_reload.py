@@ -119,7 +119,7 @@ class TestImportAfterEdit(EditedSourceTestCase):
 
 
 class TestReplLoadAfterEdit(EditedSourceTestCase):
-  def test_load_warns_once_per_load(self):
+  def test_load_warns_once_per_edit(self):
     name = self.write_module(TEXT % 1)
     filename = self.source(name)
     session = repl.REPL([':load', filename])
@@ -128,13 +128,13 @@ class TestReplLoadAfterEdit(EditedSourceTestCase):
     self.assertEqual(self.value(M.f), 1)
     self.edit_module(name, TEXT % 2)
     with capture_log(IMPORT_LOGGER) as log:
-      # Every :load after the edit prints the warning once.
+      # Like import_, :load warns once for each edit.
       commands.load(session, filename)
       self.assertIs(session.module, M)
       commands.load(session, filename)
       self.assertIs(session.module, M)
     warnings = log.data[logging.WARNING]
-    self.assertEqual(len(warnings), 2, warnings)
+    self.assertEqual(len(warnings), 1, warnings)
     for warning in warnings:
       self.assertIn('module %r was not read again' % name, warning)
       self.assertIn(filename, warning)
@@ -173,6 +173,22 @@ class TestReplLoadAfterEdit(EditedSourceTestCase):
       self.assertIn('module %r was not read from %s' % (name, second), warning)
       self.assertIn(first, warning)
     self.assertEqual(self.value(M.f), 1)
+
+
+class TestLoadedExpressionScope(EditedSourceTestCase):
+  def test_parse_keeps_loaded_scope_after_reload_refusal(self):
+    name = self.write_module(TEXT % 1)
+    module = curry.import_(name)
+    self.edit_module(name, 'module %(name)s where\nf = )\n')
+    if not IS_CXX or curry.flags['interpret'] in ('new', 'all'):
+      error = curry.CompileError
+    else:
+      error = curry.LoadError
+    with self.assertRaises(error):
+      curry.reload(module)
+    goal = curry.parse('f + 1', imports=[module])
+    self.assertEqual(curry.eval(goal).one(), 2)
+    self.assertEqual(curry.typeof(curry.parse('f', imports=[module])), 'Int')
 
 
 @unittest.skipUnless(IS_CXX, 'the background compile belongs to the C++ backend')

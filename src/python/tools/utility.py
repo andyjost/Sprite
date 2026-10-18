@@ -1,9 +1,29 @@
 from .. import config
-import contextlib, logging, os, re, signal, sys, traceback
+import contextlib, logging, os, re, signal, sys, traceback, warnings
 
 logger = logging.getLogger(__name__)
 
 __all__ = ['carp', 'handle_program_errors', 'make_exception', 'unrst']
+
+def message_text(message):
+  '''Keep filenames in tool diagnostics, without absolute directories.'''
+  return re.sub(r'''(?<![\w:/])/(?:[^\s'"<>:;,()]+/)*[^\s'"<>:;,()]+''',
+      lambda match: os.path.basename(match[0]), str(message))
+
+
+@contextlib.contextmanager
+def program_warnings():
+  '''Curry warnings at a prompt need no Python source location.'''
+  from ..exceptions import CurryWarning
+  with warnings.catch_warnings():
+    previous = warnings.showwarning
+    def showwarning(message, category, filename, lineno, file=None, line=None):
+      if issubclass(category, CurryWarning):
+        print('WARNING: %s' % message_text(message), file=file or sys.stderr)
+      else:
+        previous(message, category, filename, lineno, file=file, line=line)
+    warnings.showwarning = showwarning
+    yield
 
 def make_exception(ExcClass, message, hint=None):
   '''
@@ -24,7 +44,7 @@ def carp(exc_value, program_name=None, hint_timeout_sec=1, hint_kwds={}):
       sys.stderr.write('%s: ' % program_name)
     sys.stderr.write(*args, **kwds)
 
-  exc_message = str(exc_value)
+  exc_message = message_text(exc_value)
   for line in exc_message.split('\n'):
     line = line.strip()
     write_ln('%s\n' % line)
@@ -39,7 +59,7 @@ def carp(exc_value, program_name=None, hint_timeout_sec=1, hint_kwds={}):
         with timeout(0 and hint_timeout_sec):
           hint = hint(**hint_kwds)
       if hint:
-        write_ln('Hint: %s\n' % hint)
+        write_ln('Hint: %s\n' % message_text(hint))
     except BaseException as e:
       logger.debug(
           'An error occurred while evaluating exception hint %s: %s'
@@ -63,8 +83,11 @@ class ProgramErrorHandler(object):
         exc_value += '  Rerun with SPRITE_DEBUG=1 for details.'
     carp(exc_value, self.program_name, self.hint_timeout_sec, self.hint_kwds)
   def __enter__(self):
+    self.warnings = program_warnings()
+    self.warnings.__enter__()
     return self
   def __exit__(self, exc_type, exc_value, exc_tb):
+    self.warnings.__exit__(exc_type, exc_value, exc_tb)
     if exc_type:
       if not issubclass(exc_type, SystemExit):
         self.nerrors += 1

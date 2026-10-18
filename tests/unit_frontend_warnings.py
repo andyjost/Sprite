@@ -181,7 +181,7 @@ class TestFrontendWarnings(cytest.TestCase):
     proc = make('--icy', curryfile)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(proc.stderr.count(MESSAGE), 1, proc.stderr)
-    self.assertIn('CurryWarning: OverlapMake.curry:', proc.stderr)
+    self.assertIn('WARNING: OverlapMake.curry:', proc.stderr)
     self.assertNotIn(OTHER, proc.stderr)
     proc = make('--icy', curryfile)
     self.assertEqual(proc.returncode, 0, proc.stderr)
