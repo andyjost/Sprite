@@ -106,6 +106,12 @@ class TestSurface(cytest.TestCase):
     self.assertEqual(list(inspect.signature(curry.wait).parameters), ['module'])
     self.assertEqual(list(inspect.signature(curry.reset).parameters), ['flags'])
 
+  def test_constructor_class_surface(self):
+    for name in ('DataClass', 'ConstructorClass'):
+      self.assertIn(name, self.names)
+    self.assertEqual(curry.DataClass.__bases__, (curry.Data,))
+    self.assertEqual(curry.ConstructorClass.__bases__, (curry.DataClass,))
+
   def test_internal_node_evaluation(self):
     from curry import backends
     self.assertIsInstance(cytest.raw.values(curry.term(1)).one(), backends.Node)

@@ -213,9 +213,10 @@ def symbol_map(interp):
   '''
   A dict from the id of an info table to its symbol, over the loaded
   modules of an interpreter.  The map is built again when a module was
-  loaded or released since the last call.
+  loaded, reloaded or released since the last call.
   '''
-  names = tuple((name, id(module)) for name, module in interp.modules.items())
+  names = tuple((name, id(module), getattr(module, '.version', None))
+      for name, module in interp.modules.items())
   cache = getattr(interp, '_info_symbols', None)
   if cache is None or cache[0] != names:
     table = {}
@@ -408,6 +409,8 @@ class TypedBuilder:
     if not args:
       raise exceptions.CurryTypeError('expressions.expr takes an expression; none given')
     head = args[0]
+    from ..objects.classes import constructor_term
+    head = constructor_term(head)
     from ..objects.terms import Term
     if isinstance(head, Term) and head.symbol is not None:
       from ..objects.terms import check_term
@@ -422,6 +425,8 @@ class TypedBuilder:
     The spec of one argument and the children to convert, as triples of a
     value, a container and an index.
     '''
+    from ..objects.classes import constructor_term
+    arg = constructor_term(arg)
     X = self.X
     from ..objects.results import Results
     if isinstance(arg, Results):
@@ -494,7 +499,7 @@ class TypedBuilder:
       return self._application(arg, ())
     if isinstance(arg, list):
       if arg:
-        head = arg[0]
+        head = constructor_term(arg[0])
         if isinstance(head, Term) and head.symbol is not None and not head._args:
           from ..objects.terms import check_term
           check_term(head)

@@ -39,7 +39,7 @@ class Symbol:
   signature = property(lambda self: None if self._info.signature is None
       else unqualify(self._info.signature))
   public = property(lambda self: not getattr(self._info.icurry, 'is_private', False))
-  fields = None
+  fields = property(lambda self: getattr(self.module, '.info')._fields.get(self.name))
   info = property(lambda self: self._info.info)
 
   @property
@@ -108,6 +108,8 @@ class ModuleInfo:
     self._module = module
     self._symbols = {}
     self._types = _Types()
+    self._classes = {}
+    self._fields = {}
 
   name = property(lambda self: self._module.__name__)
 
@@ -371,6 +373,8 @@ class Term:
     return '<Term %s :: %s>' % (self, self._signature)
 
   def __eq__(self, other):
+    from .classes import constructor_term
+    other = constructor_term(other)
     if isinstance(other, Var):
       return self is other
     return isinstance(other, Term) and _graph_key(self._node, variable_nodes(self)) == _graph_key(other._node, variable_nodes(other))
@@ -433,6 +437,14 @@ class Function(Term):
 
   def __repr__(self):
     return '<Function %s :: %s>' % (self, self._signature)
+
+
+class DataClass(Data):
+  '''The base of the values of one loaded Curry data type.'''
+
+
+class ConstructorClass(DataClass):
+  '''The base of the values of one loaded Curry constructor.'''
 
 
 class Values(Term, Collection):
@@ -566,6 +578,8 @@ def _convert(interp, value):
 
 
 def _convert_leaf(interp, value):
+  from .classes import constructor_term
+  value = constructor_term(value)
   from ..expressions import typed
   from ..typecheck.errors import ConversionError
   if value is anonymous:
@@ -744,7 +758,9 @@ def check_term(value):
 
 def check_live(root):
   from . import CurryModule
+  from .classes import constructor_term
   for value in walk_forms(root):
+    value = constructor_term(value)
     if isinstance(value, Term):
       check_term(value)
     elif isinstance(value, CurryModule):

@@ -237,7 +237,8 @@ a suspension raises ``SuspensionError`` under ``EvaluationError``.
 
 Built-in values become Python scalars, lists and tuples.  A Char remains a
 ``Char``, distinct in type from str but equal to the same one-character
-string.  A user constructor becomes ``Data`` with ``symbol`` and ``args``;
+string.  A user constructor becomes an instance of its constructor class,
+a ``Data`` with ``symbol`` and ``args``;
 a function value becomes a callable ``Function``.  Set functions produce a
 finite multiset ``Values`` collection.  Converted values can enter later
 Curry calls.  ``curry.show`` prints Curry text, including nested values;
@@ -261,6 +262,26 @@ Python's repr of a list follows Python's spacing and quoting.
     >>> values = curry.eval(SF.set0(curry.choice(1, 2))).one()
     >>> isinstance(values, curry.Values), sorted(values)
     (True, [1, 2])
+
+Constructors with arguments are Python classes. A full application to
+values makes an instance; an application to a term stays a term, and a
+partial application evaluates to ``Function``. Nullary constructors are
+values. The type's class lives in ``curry.info(M).types[name].cls``; a
+constructor of the same name keeps the module attribute. Record patterns
+use field names; other constructors use ``_0``, ``_1``, and so on.
+
+    >>> isinstance(value, P.Just), isinstance(value, curry.info(P).types['Maybe'].cls)
+    (True, True)
+    >>> match value:
+    ...   case P.Just(xs): print(xs)
+    ...   case P.Nothing: print('nothing')
+    [1, 2]
+    >>> P.Just.__match_args__
+    ('_0',)
+
+Equality and hashing stay structural. Ordering uses Curry's ``compare``
+when the type has an ``Ord`` instance. Reloading or resetting makes held
+classes and their instances stale; new values belong to the new classes.
 
 A Python-held term shared inside and outside ``set0`` follows weak
 encapsulation: whichever evaluation owns it first determines the result.

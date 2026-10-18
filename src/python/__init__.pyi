@@ -3,7 +3,8 @@ The public Python surface of Sprite.
 
 This installed stub records the names and signatures that have landed.
 Session operations load, compile, reload, save and reset modules; wait
-observes background compilation. Constructors produce Term and Data.
+observes background compilation. Constructor classes build values and terms,
+and expose positional and record patterns through Python match.
 Module metadata lives under the dotted slot returned by info(module).
 Internal builders and interpreter methods are outside this surface.
 """
@@ -11,6 +12,7 @@ Internal builders and interpreter methods are outside this surface.
 from __future__ import annotations
 
 import types
+import builtins as _builtins
 from collections.abc import Collection, Iterable, Iterator, Mapping, Sequence
 from os import PathLike
 from typing import Any, ClassVar, Final, NamedTuple, NoReturn, TypeAlias, TypeVar, final
@@ -45,6 +47,8 @@ __all__ = [
   , 'DataType'
   , 'Term'
   , 'Data'
+  , 'DataClass'
+  , 'ConstructorClass'
   , 'Function'
   , 'Var'
   , 'Values'
@@ -146,6 +150,7 @@ PyValue: TypeAlias = (
 #:                      the term that holds it; an item that does not fit
 #:                      the element type is ``ConversionError`` when drawn
 #: ``Term``             itself: one object, one node
+#: constructor class    its unapplied constructor term
 #: ``types.ChoiceType`` ``a ? b`` (the fork's ``1 ? 2`` of two values)
 #: ``anonymous``        a fresh free variable per occurrence
 #: anything else        ``ConversionError`` naming the type and the
@@ -156,7 +161,7 @@ PyValue: TypeAlias = (
 #: ===================  ===================================================
 Convertible: TypeAlias = (
     'Term | bool | int | float | str | Char | Sequence[Any] | tuple[Any, ...]'
-    ' | Iterator[Any] | types.ChoiceType | Anonymous'
+    ' | Iterator[Any] | types.ChoiceType | Anonymous | _builtins.type[ConstructorClass]'
 )
 
 # ---------------------------------------------------------------------------
@@ -244,9 +249,9 @@ def let(body: Convertible, /, **bindings: Convertible) -> Term:
 def ref(name: str) -> Reference:
   """A reference to a binding of the enclosing ``let``; anywhere else a ``CurryTypeError`` that names the bindings."""
 
-def symbol(name: str) -> Term:
+def symbol(name: str) -> Term | _builtins.type[ConstructorClass]:
   """
-  The term of a qualified name, its module imported on demand by the
+  The term or constructor class of a qualified name, imported on demand by the
   longest prefix that is a module (A13).
 
   >>> str(curry.symbol('Data.List.nub'))
@@ -306,7 +311,7 @@ class Term:
   # Each builds a term through the Prelude's operator and returns
   # ``NotImplemented`` for a foreign operand.  No comparison dunder is
   # defined on a term: the comparisons are ``P['<'](a, b)`` until DL-4
-  # lands. Data ordering through Curry compare is not yet available.
+  # lands. Data ordering uses Curry compare.
   def __add__(self, other: Convertible) -> Term:
     """``self + other`` is the term ``self + other``; ``1 + Coin.coin`` is ``1 + coin``."""
   def __radd__(self, other: Convertible) -> Term: ...
@@ -344,7 +349,11 @@ class Data(Term):
   A value of a user type, with its constructor symbol and converted args.
 
   Equality is structural. Pass the value back into Curry as an argument.
-  Constructor classes and ordering through Curry compare are not yet available.
+  Ordered through Curry compare when its type has an Ord instance.
+  Constructors with arguments are classes; nullary constructors are values.
+  A constructor applied to values builds its instance, and applied to a term
+  builds a Term. Under-application builds a Term that evaluates to Function.
+  Construction keeps literal constraints; evaluation fixes the value's type.
   """
   __match_args__: ClassVar[tuple[str, ...]] = ('symbol', 'args')
   symbol: Symbol
@@ -354,6 +363,15 @@ class Data(Term):
   def __gt__(self, other: Data) -> bool: ...
   def __ge__(self, other: Data) -> bool: ...
   def __bool__(self) -> bool: ...
+
+class DataClass(Data):
+  '''The class of a loaded data type, reached through info(module).types[T].cls.'''
+
+class ConstructorClass(DataClass):
+  '''A constructor class with positional or record patterns and term operations.'''
+  __match_args__: ClassVar[tuple[str, ...]]
+  symbol: Symbol
+  datatype: DataType
 
 class Function(Term):
   """A callable function value; its application builds a typed Term."""
@@ -403,7 +421,6 @@ class Symbol:
   #: For an operator: ``'infixl 6'`` and the like; None otherwise.
   fixity: str | None
   #: For a record constructor: the field names, in order; None otherwise.
-  #: [A26; the interface carries them; not run]
   fields: tuple[str, ...] | None
 
 @final
@@ -413,17 +430,19 @@ class DataType:
   fullname: str
   module: Module
   constructors: tuple[Symbol, ...]
+  cls: _builtins.type[DataClass] | None
 
 @final
 class Module(types.ModuleType):
   """
-  A loaded Curry module; attributes and item lookup return typed terms.
+  A loaded Curry module with function terms and constructor classes or values.
 
   Metadata is read through info(module); the namespace holds Curry names.
-  Each symbol access creates a fresh term. Private symbols use item lookup.
+  Functions create fresh terms; constructors expose classes or nullary values.
+  Private symbols use item lookup. Builtin Python value types have no class.
   """
-  def __getattr__(self, name: str) -> Term: ...
-  def __getitem__(self, name: str) -> Term: ...
+  def __getattr__(self, name: str) -> Term | _builtins.type[ConstructorClass]: ...
+  def __getitem__(self, name: str) -> Term | _builtins.type[ConstructorClass]: ...
   def __dir__(self, /) -> list[str]: ...
 
 # ---------------------------------------------------------------------------

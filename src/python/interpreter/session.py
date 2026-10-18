@@ -170,6 +170,8 @@ def reload(interp, module, *, text=None):
   setattr(module, '.info', ModuleInfo(module))
   for symbol in getattr(module, '.symbols').values():
     symbol._module = weakref.ref(module)
+  from ..objects.classes import build_classes
+  build_classes(interp, module)
   # Materializers hold references to the module they built.
   setattr(module, '.replacement', fresh)
   interp.modules[name] = module
