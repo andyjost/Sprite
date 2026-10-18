@@ -23,9 +23,9 @@ test that needs the module reports the failure in its own terms.  A failed
 compile that leaves an old product in place is not seen; that test reports
 it too.
 
-The pass covers the shared pool (tests/data/curry) and the corpus of each
-selected functional test (CORPUS).  The examples under examples/ are left
-to unit_examples.py, which alone compiles them; the scheduler never runs the
+The pass covers the shared pool (tests/data/curry), the frozen API fixtures
+(tests/data/curry/flows), and each selected functional corpus (CORPUS).  The
+examples under examples/ are left to unit_examples.py, which alone compiles them; the scheduler never runs the
 two backends of one file at once.
 
 A tree made before the binding optimization rewrote the FlatCurry files,
@@ -197,6 +197,13 @@ CORPUS = [
       , 'func_eqconstr_a0b0c0_2.py', 'func_eqconstr_a0b0c0_3.py'
       , 'func_eqconstr_a2b1c0.py'
       )
+    )
+  , ( 'data/curry/flows', ()
+    , tuple('unit_flow_f%02d.py' % n for n in range(1, 15)) + (
+          'unit_stub_errors.py', 'unit_stub_evaluation.py'
+        , 'unit_stub_inspection.py', 'unit_stub_modules.py'
+        , 'unit_stub_terms.py', 'unit_stub_values.py'
+        )
     )
   , ('data/curry/examples', (), ('func_examples.py',))
   , ('data/curry/funpat', (), ('func_funpat.py',))

@@ -108,19 +108,9 @@ def _check_before_open(interp, name, sofile, from_plan=False):
   for first, whatever the registry says (after a reset the registry may name
   the kept library of an earlier incarnation while the module runs
   interpreted again), and the object the compile wrote is the one loaded.
-  A module whose tables a shim names, and whose name no library is
-  registered under, is refused when the user named the file (curry.load):
-  the module runs, or ran, interpreted in this process, and an object
-  loaded now binds to its tables, which outlive the module.  The module in
-  interp.modules does not decide it: after a reset the name is gone from
-  there while the tables are kept, and a load then accepted left them
-  pointing into the object once the new module released it (the next
-  import of the name crashed).  A load of such an object would need the
-  swap itself.  The import plan is exempt (``from_plan``): after a reset
-  it imports a module whose object is current, and the object binds to the
-  kept tables as it did before the refusal existed; the lifetime of those
-  tables is issue #114.  The refusal of that route stopped every import
-  after a reset of a module whose compile had not swapped yet.
+  An object of a module whose tables a shim names is adopted through the
+  tiered swap, which keeps the object with those tables.  All refusals
+  precede the open, including the checks of the shim in prepare_adoption.
   '''
   from . import tiered
   if tiered.pending(name):
@@ -138,18 +128,6 @@ def _check_before_open(interp, name, sofile, from_plan=False):
   registered = cyrt.SharedCurryModule.find_sofilename(name)
   if registered is not None:
     _refuse_other_file(name, registered, sofile)
-  elif tiered.has_shim(name):
-    if from_plan:
-      logger.debug(
-          'The object %r of module %s binds to the tables of its earlier '
-          'interpreted incarnation in this process', sofile, name
-        )
-      return
-    raise exceptions.LoadError(
-        'cannot load module %r from %r: the module runs, or ran, '
-        'interpreted in this process; load the object in a new process'
-      % (name, sofile)
-      )
 
 def _program_path(interp, sofile):
   '''
@@ -169,6 +147,12 @@ def load_module(interp, sofile, from_plan=False, fresh=False):
   assert sofile.endswith('.so')
   sofile = os.path.abspath(sofile)
   name, needed = _dynamic_names(sofile)
+  from . import tiered
+  if interp.flags['interpret'] == 'all':
+    raise exceptions.LoadError(
+        'cannot load %r under interpret:all: opening a compiled object '
+        'replaces the live interpreted steps' % sofile
+      )
   previous = None if name is None else cyrt.SharedCurryModule.find_sofilename(name)
   with open(sofile, 'rb') as stream:
     digest = hashlib.sha256(stream.read()).hexdigest()
@@ -176,6 +160,12 @@ def load_module(interp, sofile, from_plan=False, fresh=False):
       and (from_plan or fresh) and _objects.get(name) != (sofile, digest)
   if name is not None and not replace:
     _check_before_open(interp, name, sofile, from_plan)
+  module = interp.modules.get(name)
+  registered = cyrt.SharedCurryModule.find_sofilename(name) if name else None
+  adopt = replace or (tiered.has_shim(name) and registered is None) or (
+      module is not None and getHandle(module).sofilename is None
+    )
+  steps = tiered.prepare_adoption(interp, name) if adopt else []
   # The object names the objects of its imports by their SONAMEs, and the
   # dynamic linker satisfies such a name with an object of that name this
   # process has mapped: no search path leads to the file.  So the imports
@@ -196,14 +186,14 @@ def load_module(interp, sofile, from_plan=False, fresh=False):
         )
   # Under tiered execution the tables of the modules the interpreter runs
   # must be named before an object binds to them (see tiered.py).
-  from . import tiered
   tiered.ensure_shims(interp)
-  if replace:
+  if adopt:
     owner = cyrt.Module.find_or_create(name)
-    result = cyrt.tiered_adopt(name, [], sofile, [])
+    result = cyrt.tiered_adopt(name, [], sofile, steps)
     if not result['ok']:
       raise exceptions.LoadError('cannot load %r: %s' % (sofile, result['error']))
     shlib = owner.shlib
+    tiered._refresh(name, interp)
   else:
     shlib = cyrt.SharedCurryModule(sofile)
   # The runtime keeps one registry entry per module name for as long as a

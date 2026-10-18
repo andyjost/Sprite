@@ -234,6 +234,10 @@ def load(interp, path):
   path = os.path.abspath(os.fspath(path))
   backend = interp.flags['backend']
   try:
+    for module in interp.modules.values():
+      loaded = getattr(module, '.load_path', None) or getHandle(module).sofilename
+      if loaded is not None and os.path.realpath(loaded) == os.path.realpath(path):
+        return module
     if backend == 'cxx':
       from ..backends.cxx.loader import _dynamic_names
       name, _ = _dynamic_names(path)
