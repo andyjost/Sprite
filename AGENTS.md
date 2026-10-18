@@ -10,10 +10,12 @@ https://andrewjost.wordpress.com/wp-content/uploads/2023/05/jostthesis.final_.10
 The work happens on `master`. The refresh for current tools (Python
 3.14, PAKCS 3.4.1) was done on the branch `py314`, which `master` took
 over on 2026-10-17; `py314` stays as a frozen ref and is not pushed to.
-The Python API is being replaced by the surface of the API review: the
-files `tests/unit_flow_f*.py` and `tests/unit_stub_*.py` are its
-acceptance tests, and a test marked `expectedFailure` there names work
-that has not landed. Expect rough edges until the last marker goes.
+The Python API is the surface of the API review of October 2026:
+`curry/__init__.pyi` is the installed stub and `tests/unit_surface.py`
+checks the package against it. The files `tests/unit_flow_f*.py` and
+`tests/unit_stub_*.py` are its acceptance tests; 410 of 414 pass on the
+C++ backend; a test marked `expectedFailure` there waits for the choice
+interpreter, or keeps its marker on the retired Python backend alone.
 
 ## Layout
 
