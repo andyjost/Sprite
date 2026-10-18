@@ -23,6 +23,7 @@ is accepted.  The table never substitutes ``()``.
 
 from .. import exceptions
 from ..toolchain.flat2icurry import flatcurry as fc
+from ..utility.trampoline import trampoline
 from .sigtable import PRELUDE, Predicate, Scheme, show_scheme, show_type
 import logging
 
@@ -204,17 +205,24 @@ def _typevar(pred):
 
 def substitute(typeexpr, mapping):
   '''Replaces the type variables of ``mapping`` (index to type) in a type.'''
+  return trampoline(_substitute(typeexpr, mapping))
+
+def _substitute(typeexpr, mapping):
   if isinstance(typeexpr, fc.TVar):
     return mapping.get(typeexpr.index, typeexpr)
   if isinstance(typeexpr, fc.FuncType):
     return fc.FuncType(
-        substitute(typeexpr.domain, mapping), substitute(typeexpr.range, mapping)
+        (yield _substitute(typeexpr.domain, mapping))
+      , (yield _substitute(typeexpr.range, mapping))
       )
   if isinstance(typeexpr, fc.TCons):
-    return fc.TCons(typeexpr.name, [substitute(a, mapping) for a in typeexpr.args])
+    args = []
+    for arg in typeexpr.args:
+      args.append((yield _substitute(arg, mapping)))
+    return fc.TCons(typeexpr.name, args)
   if isinstance(typeexpr, fc.ForallType):
     inner = {k: v for k, v in mapping.items() if k not in dict(typeexpr.typevars)}
-    return fc.ForallType(typeexpr.typevars, substitute(typeexpr.typeexpr, inner))
+    return fc.ForallType(typeexpr.typevars, (yield _substitute(typeexpr.typeexpr, inner)))
   raise TypeError('not a type expression: %r' % (typeexpr,))
 
 APPLY = (PRELUDE, 'Apply')
@@ -229,14 +237,20 @@ def normalize(typeexpr, type_arity=None):
   declared arity, an application that would exceed the arity stays an
   ``Apply``; without it every such application is folded.
   '''
+  return trampoline(_normalize(typeexpr, type_arity))
+
+def _normalize(typeexpr, type_arity):
   if isinstance(typeexpr, fc.FuncType):
     return fc.FuncType(
-        normalize(typeexpr.domain, type_arity), normalize(typeexpr.range, type_arity)
+        (yield _normalize(typeexpr.domain, type_arity))
+      , (yield _normalize(typeexpr.range, type_arity))
       )
   if isinstance(typeexpr, fc.ForallType):
-    return fc.ForallType(typeexpr.typevars, normalize(typeexpr.typeexpr, type_arity))
+    return fc.ForallType(typeexpr.typevars, (yield _normalize(typeexpr.typeexpr, type_arity)))
   if isinstance(typeexpr, fc.TCons):
-    args = [normalize(a, type_arity) for a in typeexpr.args]
+    args = []
+    for arg in typeexpr.args:
+      args.append((yield _normalize(arg, type_arity)))
     if typeexpr.name == APPLY and len(args) == 2:
       head, arg = args
       if isinstance(head, fc.TCons) and head.name != APPLY:

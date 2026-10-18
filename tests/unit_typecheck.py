@@ -15,7 +15,7 @@ module of the tests is data/curry/TypeCheck.curry.
 '''
 import cytest # from ./lib; must be first
 from curry.toolchain.flat2icurry import flatcurry as fc
-from curry.typecheck import engine, errors, exprtype, instances, sigtable, terms, unify
+from curry.typecheck import defaulting, engine, errors, exprtype, instances, sigtable, terms, unify
 from curry.typecheck.defaulting import DefaultingError, ORACLE_SENTENCE
 from curry.typecheck.engine import (
     App, Free, Iter, Known, List, Lit, Problem, Tuple, Typed, describe
@@ -464,6 +464,56 @@ class TestDefaulting(cytest.TestCase):
   types before defaulting are compared with the recorded output of :type
   (func_goal_defaulting.py), the values with the recorded values.
   '''
+
+  def test_deep_defaulting(self):
+    '''Substitution, Apply folding and scheme construction use no Python frames.'''
+    identity = P('id')
+    typeexpr = fc.TVar(0)
+    spec = Lit(1)
+    for _ in range(2000):
+      typeexpr = fc.TCons(defaulting.APPLY, [tcons('[]'), typeexpr])
+      spec = List([spec])
+    scheme = sigtable.Scheme(
+        'Deep', 'goal', [(0, fc.KStar)]
+      , [sigtable.Predicate('Prelude.Num', fc.TVar(0))], typeexpr, 1, 1
+      )
+    expected = '[' * 2000 + 'Int' + ']' * 2000
+    old = sys.getrecursionlimit()
+    try:
+      sys.setrecursionlimit(200)
+      substituted = defaulting.substitute(typeexpr, {0: INT})
+      normalized = defaulting.normalize(substituted, lambda name: 1)
+      self.assertEqual(sigtable.show_type(normalized), expected)
+      result = defaulting.default_scheme(scheme, type_arity=lambda name: 1)
+      self.assertEqual(result.substitution, {0: 'Int'})
+      self.assertTrue(result.typeexpr == normalized)
+      self.assertEqual(result.show_type(), expected)
+      prob = solved(identity, spec)
+      self.assertEqual(prob.signature, 'Num a => ' + '[' * 2000 + 'a' + ']' * 2000)
+      self.assertEqual(prob.defaulted_signature, expected)
+    finally:
+      sys.setrecursionlimit(old)
+
+  def test_deep_substitution_scopes(self):
+    '''Quantifiers shadow substitutions only inside their function type.'''
+    typeexpr = expected = fc.TVar(1)
+    for _ in range(2000):
+      typeexpr = fc.ForallType(
+          [(1, fc.KStar)], fc.FuncType(typeexpr, fc.FuncType(fc.TVar(1), fc.TVar(0)))
+        )
+      expected = fc.ForallType(
+          [(1, fc.KStar)], fc.FuncType(expected, fc.FuncType(fc.TVar(1), INT))
+        )
+    typeexpr = fc.FuncType(typeexpr, fc.TVar(1))
+    expected = fc.FuncType(expected, FLOAT)
+    old = sys.getrecursionlimit()
+    try:
+      sys.setrecursionlimit(200)
+      result = defaulting.substitute(typeexpr, {0: INT, 1: FLOAT})
+      self.assertTrue(result == expected)
+      self.assertTrue(defaulting.normalize(result) == expected)
+    finally:
+      sys.setrecursionlimit(old)
 
   def check(self, name, before, after, value, *args):
     prob = problem(*args)

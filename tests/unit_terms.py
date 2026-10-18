@@ -2,7 +2,7 @@
 import cytest # from ./lib; must be first
 import curry
 from curry import inspect
-import os
+import os, sys
 
 class TestTerms(cytest.TestCase):
 
@@ -149,6 +149,14 @@ class TestTerms(cytest.TestCase):
       nested = [nested]
     term = curry.term(nested)
     self.assertEqual(curry.typeof(term, defaulted=True)[:20], '[' * 20)
+
+  def test_deep_container_conversion_with_low_recursion_limit(self):
+    old = sys.getrecursionlimit()
+    try:
+      sys.setrecursionlimit(200)
+      self.test_deep_container_conversion()
+    finally:
+      sys.setrecursionlimit(old)
 
   def test_container_conversion_keeps_scalar_errors(self):
     for value in (b'abc', [b'abc'], (b'abc', 1), (1,)):
