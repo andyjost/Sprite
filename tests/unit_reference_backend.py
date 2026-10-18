@@ -199,6 +199,4 @@ print(curry.flags['backend'], cytest.raw.interp().backend.backend_name)
         ]
       , capture_output=True, text=True
       )
-    self.assertIn("Invalid backend: 'foo'.", proc.stderr)
-    self.assertNotIn("'py'", proc.stderr)
-    self.assertNotIn('Expected one of', proc.stderr)
+    self.assertIn("'foo' is not a value for flag 'backend'", proc.stderr)

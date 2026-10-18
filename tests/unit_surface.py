@@ -118,6 +118,12 @@ class TestSurface(cytest.TestCase):
     self.assertEqual(list(inspect.signature(curry.stream).parameters), ['action'])
     self.assertEqual(curry.Stream.__bases__, (abc.Iterator,))
 
+  def test_tool_documentation(self):
+    documentation = ast.get_docstring(self.tree)
+    self.assertIn('sprite-exec', documentation)
+    self.assertIn('IO ()', documentation)
+    self.assertIn('Tool statuses', documentation)
+
   def test_internal_node_evaluation(self):
     from curry import backends
     self.assertIsInstance(cytest.raw.values(curry.term(1)).one(), backends.Node)

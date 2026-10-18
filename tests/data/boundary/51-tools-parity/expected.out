@@ -2,6 +2,8 @@
 0
 1
 % sprite-exec Tools.curry -g nothing
+*** No value found!
+exit status 2
 % sprite-exec Tools.curry -g boom
 exit status 1
 % sprite-exec Tools.curry
@@ -12,7 +14,8 @@ Prelude> Tools> 0
 Tools> {ins=["x"]} "cmd1"
 {ins=["y","z"]} "cmd2"
 Tools> coin :: Int
-Tools> Tools> Tools> 3
+Tools> *** No value found!
+Tools> Tools> 3
 Tools> 
 % python go.py
 coin:

@@ -1,7 +1,8 @@
 PROGRAM_NAME = 'sprite-exec'
 
 from . import exceptions
-from .tools.utility import handle_program_errors
+from .tools.evaluation import evaluate, report_error
+from .tools.utility import program_warnings
 import argparse, code, cProfile, os, pstats, importlib, logging, sys, time
 
 curry = importlib.import_module(__package__)
@@ -23,8 +24,12 @@ class Main(object):
   '''
   Run or inspect a Curry program.  If no module is supplied, an
   interactive prompt is started in module %r.  Otherwise, the supplied
-  Curry file or module is loaded, and the specified goal (if any) is
-  evaluated.  Set CURRYPATH to control the search for Curry code.
+  Curry file or module is loaded, and the goal expression (if any) is
+  evaluated. Answers print one per line with curry.show; IO () prints
+  no result. No value prints '*** No value found!' and exits 2; errors
+  print 'ERROR: msg' and exit 1; suspension prints
+  '*** Evaluation suspended!' and exits 1. Set CURRYPATH to control the
+  search for Curry code.
   ''' % __package__
   ARGUMENTS = 'bimgpsntS'
   def __init__(
@@ -63,7 +68,7 @@ class Main(object):
         , help='interpret the NAME argument as a module name rather than a file name')
     if 'g' in self.ARGUMENTS:
       parser.add_argument( '-g', '--goal', type=str, default=self.default_goal
-        , help='specifies the goal to evaluate; supply %r to run nothing '
+        , help='specifies the Curry expression to evaluate; supply %r to run nothing '
                '[default: %s]' % ('', self.default_goal))
     if 'p' in self.ARGUMENTS:
       parser.add_argument( '-p', '--profile', action='store_true'
@@ -101,7 +106,11 @@ class Main(object):
   def __call__(self, argv):
     args = self.parseArgs(argv)
     try:
-      self.run(args)
+      try:
+        with program_warnings():
+          self.run(args)
+      except Exception as error:
+        sys.exit(report_error(error))
     finally:
       if getattr(args, 'stats', False):
         # The last line of the program, after its output and after an error.
@@ -115,52 +124,50 @@ class Main(object):
 
   def run(self, args):
     if getattr(args, 'backend', None) is not None:
-      # Reload before any Curry code is imported.  Flags passed to reload take
+      # Reset before any Curry code is imported. Flags passed to reset take
       # precedence over SPRITE_INTERPRETER_FLAGS; the other flags set there
       # are kept.
       curry.reset(**{'backend': args.backend})
-    with handle_program_errors(self.program_name, exit_status=1):
-      if args.NAME is None:
-        code.interact(local={'__package__': curry})
-        return
-      else:
-        module = curry.import_(
-            args.NAME, path=curry.path
-          )
-        if args.goal is not None:
+    if args.NAME is None:
+      code.interact(local={'__package__': curry})
+      return
+    else:
+      module = curry.import_(
+          args.NAME, path=curry.path
+        )
+      if args.goal is not None:
+        # A saved program may carry the scheme without an interface.
+        try:
           symbol = module[args.goal]
-          goalscheme = self.goalscheme if args.goal == self.default_goal else None
-          def goal():
-            # The expression is built when the evaluation starts and is not
-            # kept in a variable: a reference to the root of the goal keeps
-            # the history of the search reachable while the evaluation runs;
-            # see curry.typecheck.goals.Goal.evaluate.
-            if goalscheme is None:
+        except exceptions.SymbolLookupError:
+          symbol = None
+        goalscheme = self.goalscheme if args.goal == self.default_goal else None
+        def goal():
+          # The expression is built when the evaluation starts and is not
+          # kept in a variable: a reference to the root of the goal keeps
+          # the history of the search reachable while the evaluation runs;
+          # see curry.typecheck.goals.Goal.evaluate.
+          if goalscheme is None:
+            if symbol is not None:
               return symbol
-            return self.goal_from_scheme(symbol, goalscheme)
-          def doeval():
-            logger.info('Evaluating %s', symbol.fullname)
-            try:
-              if args.time:
-                t0 = time.time()
-                for value in curry.eval(goal()):
-                  pass
-                t1 = time.time()
-                sys.stdout.write('%0.3f' % (t1 - t0))
-              else:
-                outputs = getattr(curry._interpreter_, '_stream_outputs', 0)
-                for value in curry.eval(goal()):
-                  if value != () or getattr(curry._interpreter_, '_stream_outputs', 0) == outputs:
-                    print(curry.show(value))
-            except exceptions.EvaluationError as exc:
-              sys.stderr.write('** %s **\n' % exc)
-              sys.exit(1)
-          if args.profile:
-            profile = cProfile.Profile()
-            profile.runctx('doeval()', globals(), locals())
-            profile.print_stats(sort=args.psort)
+            return curry.parse(args.goal, imports=[module])
+          return self.goal_from_scheme(symbol, goalscheme)
+        def doeval():
+          logger.info('Evaluating %s', args.goal)
+          if args.time:
+            t0 = time.time()
+            status = evaluate(goal(), action=lambda answer: None, quiet=True)
+            sys.stdout.write('%0.3f' % (time.time() - t0))
           else:
-            doeval()
+            status = evaluate(goal())
+          if status:
+            sys.exit(status)
+        if args.profile:
+          profile = cProfile.Profile()
+          profile.runctx('doeval()', globals(), locals())
+          profile.print_stats(sort=args.psort)
+        else:
+          doeval()
     if args.interact:
       code.interact(banner='In Curry module %s.' % module.__name__, local=module.__dict__)
 

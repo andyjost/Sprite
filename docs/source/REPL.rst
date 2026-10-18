@@ -34,8 +34,8 @@ step mode, where the schedule depends on the expression alone:
 
     % SPRITE_ROTATION=steps:65536 install/bin/python -m curry.tools.icy
 
-The REPL has no command-line options of its own; ``-h`` is an illegal
-argument.  The interpreter flags come from the environment.
+Run with ``--help`` for the commands and exit statuses. Interpreter flags
+come from the environment and may be changed with ``:set``.
 
 Commands of the REPL
 ====================
@@ -43,26 +43,25 @@ Commands of the REPL
 A line that starts with a colon is a command.  Any other line is an
 expression, which the REPL evaluates as ``:eval`` does.  A command name may
 be any unambiguous prefix, for example ``:e`` for ``:eval`` and ``:t`` for
-``:type``.  The prompt splits a line at whitespace and joins the words with
-one space before the front end sees them.  So ``putStrLn "a   b"`` prints
-``a b`` at the prompt.  An argument given on the command line is taken as
-it is.
+``:type``. Expressions keep their whitespace, including spaces inside
+strings.
 
 ``:load FILE``
     Compiles and imports the Curry module in ``FILE`` and adds its
     directory to :data:`curry.path`.  The prompt names the module.  The
     expressions of ``:eval`` and ``:type`` see the symbols of that module
     and of the Prelude, and nothing else: the imports of the module are
-    not in scope at the prompt, and no command imports another module.
-    To use a function of a library at the prompt, define a wrapper in the
-    loaded module, or re-export the library from it (``module M (module
-    M, module Control.SetFunctions) where``).  A module loaded already is
-    not read again in this process: a second ``:load`` of it after an
-    edit of the file returns the module as it was loaded and prints a
-    warning that names the module and the file, once per ``:load``.  A
-    ``:load`` of another file of the same module name does the same, and
-    the warning names both files.  Quit the REPL and start it again to
-    load the edited or the other file.
+    not in scope at the prompt. To use a library at the prompt, define a
+    wrapper or re-export the library from the loaded module. Like
+    ``curry.import_``, a second load returns the loaded module and warns
+    once per edit. Use ``:reload`` to read an edited source again.
+
+``:reload``
+    Calls ``curry.reload`` on the current module, replacing its code in
+    place. An unsuccessful reload reports its error and keeps the module
+    usable with its previous code. The C++ session can refuse replacement
+    under ``tiered`` or ``off``; ``:set interpret new`` resets the session
+    in a mode that permits reload.
 
 ``:eval EXPR``
     Compiles the expression, evaluates it, and prints each value on a line
@@ -73,32 +72,22 @@ it is.
     class context and before any defaulting: ``1+2 :: Num a => a``.
 
 ``:set OPTION VALUE``, ``:set [+|-]OPTION``
-    Sets an option.  ``:set`` alone lists the options and their state.
-    The options are:
-
-    ``backend``
-        The backend of the session.  ``:set backend NAME`` switches the
-        session to that backend: the interpreter is reloaded and the
-        module is loaded again.  If that load fails, the session stays on
-        the new backend with the Prelude at the prompt, and the next
-        ``:load`` or ``:set backend`` loads the module again.
-
-    ``internal-error-details``
-        A Boolean option.  ``:set +internal-error-details`` adds the
-        Python traceback to the report of an error during an evaluation;
-        ``:set -internal-error-details`` removes it again.
-
-    The other settings of the interpreter, such as ``rotation`` and
-    ``interpret``, are not options of ``:set``; they come from
-    ``SPRITE_INTERPRETER_FLAGS`` and ``SPRITE_ROTATION`` in the
-    environment when the REPL starts.
+    Sets a session flag using the same names and validator as
+    ``curry.reset``. ``:set`` alone lists all flags and their current
+    values. Boolean flags also take ``+`` or ``-``; for example,
+    ``:set +checker``. Examples with values are ``:set rotation steps:200``
+    and ``:set inline_budget 0``. An unknown flag raises the ``FlagError``
+    sentence. Changing a flag resets the interpreter with the current
+    settings plus the new value, then loads the session's module again.
+    If that load fails, the prompt returns to Prelude and reports the
+    error. A later ``:load`` or ``:set`` may retry it.
 
 ``:quit``
-    Exits.
+    Exits with the last evaluation status (initially 0). EOF does the same.
 
 Commands may also be given on the command line.  Each command starts with
-its colon and takes the words that follow it.  An error in such a command
-ends the REPL with the status 1.  An error at the prompt prints its message
+its colon and takes the words that follow it. An error in such a command
+ends the REPL with status 1; no value ends it with status 2.  An error at the prompt prints its message
 and the loop continues.
 
 .. code-block:: bash
@@ -109,33 +98,19 @@ and the loop continues.
 A session with a module
 =======================
 
-The transcript below is the part of one session that lists the options
-and loads a module.
-``Goals.curry`` holds ``double x = x + x`` and ``main14 = Just 5``.  The
-sections that follow quote the other exchanges of the same session.
+``Goals.curry`` holds ``double x = x + x`` and ``main14 = Just 5``:
 
 .. code-block:: text
 
     Prelude> 1 ? 2
     1
     2
-    Prelude> :set
-    Usage:
-        :set <option> <value>
-        :set [+/-]<option>        (Boolean options only)
-
-    Options for ":set" command:
-        backend                  - The backend of the session.  Setting it reloads the interpreter and the loaded module.
-        internal-error-details   - Show detailed information about internal errors.
-
-    Current settings:
-    -internal-error-details
-    backend : 'cxx'
     Prelude> :load Goals.curry
     Goals> double 21
     42
     Goals> :t double 21
     double 21 :: Num a => a
+    Goals> :reload
     Goals> :quit
 
 Defaulting in the REPL
@@ -166,8 +141,7 @@ expression resolves it.
 .. code-block:: text
 
     Prelude> toEnum 65
-    **** ERROR ****
-    cannot handle the overloaded goal toEnum 65 of type Enum a => a
+    ERROR: cannot handle the overloaded goal toEnum 65 of type Enum a => a
     Cannot handle arbitrary overloaded top-level expressions
     state the type: curry.term(goal, type='T')
     Prelude> toEnum 65 :: Char
@@ -216,10 +190,9 @@ ambiguous type ``Data a => Bool``.
 IO goals in the REPL
 ====================
 
-A goal of type ``IO t`` runs during the evaluation.  The REPL prints the
-result of the action, so ``putStrLn "x"`` prints ``x`` and then ``()``,
-where PAKCS prints ``x`` alone.  A ``Monad`` constraint defaults to ``IO``,
-so ``return 5`` runs as ``IO Int`` and prints ``5``.
+A goal of type ``IO t`` runs during evaluation. The REPL prints the result
+with ``curry.show``, except that ``IO ()`` prints no result line. A
+``Monad`` constraint defaults to ``IO``, so ``return 5`` prints ``5``.
 
 .. code-block:: text
 
@@ -229,26 +202,29 @@ so ``return 5`` runs as ``IO Int`` and prints ``5``.
     5
     Prelude> putStrLn "x"
     x
-    ()
     Prelude> mapM_ print [1, 2]
     1
     2
-    ()
 
 Errors in the REPL
 ==================
 
-An error prints ``**** ERROR ****`` and its message on the standard error.
-A compile error shows the command line of the front end and its report.
-An error during an evaluation says so; ``:set +internal-error-details``
-adds the Python traceback.  On the command line, an error ends the REPL
-with the status 1:
+An error prints ``ERROR: msg`` on standard error, without a traceback.
+A compile error prints the front end's first error line without a machine
+path. A suspension prints ``*** Evaluation suspended!`` on standard error.
+Both have status 1. A search without a value prints
+``*** No value found!`` on standard output, with status 2. Success has
+status 0, including an ``IO ()`` action whose result line is suppressed.
+
+A command-line error ends the process. At the prompt the session continues;
+``:quit`` and EOF return the status of the last evaluation. A successful
+subsequent evaluation clears an earlier failure. Type and load commands
+keep that status. For example:
 
 .. code-block:: bash
 
     % install/bin/python -m curry.tools.icy :eval 'toEnum 65' :quit
-    **** ERROR ****
-    cannot handle the overloaded goal toEnum 65 of type Enum a => a
+    ERROR: cannot handle the overloaded goal toEnum 65 of type Enum a => a
     Cannot handle arbitrary overloaded top-level expressions
     state the type: curry.term(goal, type='T')
     % echo $?
@@ -259,9 +235,7 @@ Limits of the REPL
 
 * The prompt sees the loaded module and the Prelude alone.  No command
   imports another module; see ``:load`` above for the two ways around it.
-* The REPL has no command-line options.  The interpreter flags, among them
-  ``rotation`` and ``interpret``, come from the environment, and ``:set``
-  has the two options listed above.
+* The REPL imports one module into the prompt at a time.
 * ``:type`` keeps the variables of a trailing ``where x free`` in the
   expression, so a type that depends on them alone is ambiguous there,
   while ``:eval`` of the same text prints the bindings.

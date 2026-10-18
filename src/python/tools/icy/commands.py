@@ -1,8 +1,8 @@
+from ..evaluation import evaluate
 from . import options
 from .resolve import resolve
-import importlib, os, sys, traceback
+import importlib, os, sys
 curry = importlib.import_module(__package__[:__package__.find('.')])
-_import = importlib.import_module(curry.__name__ + '.interpreter.import_')
 
 __all__ = ['COMMANDS', 'eval', 'load']
 
@@ -23,30 +23,24 @@ def load(repl, arg):
   Loads the module that the file name or module name ``arg`` names, as
   :load does.  Sets ``repl.module`` and ``repl.loaded``.
   '''
-  filename = os.path.abspath(arg)
-  dirname = os.path.dirname(filename)
-  currypath = [dirname] + curry.path
-  basename = os.path.basename(filename)
-  modulename = os.path.splitext(basename)[0]
-  # A loaded module is not read again in this process.  Every :load after an
-  # edit of its source says so (import_ says it once per edit), and so does
-  # a :load of another file of the same module name.
-  loaded = curry.modules.get(modulename)
-  if loaded is not None:
-    _import.warn_edited(loaded, always=True)
-    # The argument may be a module name; the file it names is the one in
-    # its directory, when there is one.
-    for candidate in filename, filename + '.curry':
-      if os.path.isfile(candidate):
-        _import.warn_other_file(loaded, candidate)
-        break
-  repl.module = curry.import_(modulename, path=currypath)
-  # The argument, so that a switch of the backend can load the module again.
+  repl.module = curry.import_(arg)
   repl.loaded = arg
-  # The expressions of :eval and :type import the loaded module, so the
-  # front end must find it.
-  if dirname not in curry.path:
-    curry.path.insert(0, dirname)
+  repl.loaded_name = repl.module.__name__
+  filename = curry.info(repl.module).file
+  if filename is not None:
+    dirname = os.path.dirname(os.path.abspath(filename))
+    if dirname not in curry.path:
+      curry.path.insert(0, dirname)
+
+
+def cmdReload(repl):
+  """Read the current module's source again, in place."""
+  if repl.args:
+    raise ValueError("':reload' takes no arguments")
+  if repl.module is None:
+    raise ValueError('No module loaded')
+  curry.reload(repl.module)
+
 
 def imports(repl):
   '''The modules in scope at the prompt: the loaded module.'''
@@ -62,29 +56,11 @@ def cmdEval(repl):
   '''
   assert repl.command == ':eval'
   if repl.args:
-    # The expression goes to curry.eval and is not kept here.  A reference
-    # to the root of the goal keeps the history of the search reachable
-    # while the evaluation runs; see curry.typecheck.goals.Goal.evaluate.
-    outputs = getattr(curry._interpreter_, '_stream_outputs', 0)
-    values = iter(curry.solve(
+    repl.status = evaluate(
         curry.parse(' '.join(repl.args), imports=imports(repl))
-      ))
-    while True:
-      try:
-        value = next(values)
-      except StopIteration:
-        break
-      except:
-        msg = 'An error occurred during evaluation.'
-        if repl.options['internal-error-details']:
-          msg += '  To suppress details, type ":set -internal-error-details".\n'
-          msg += traceback.format_exc()
-        else:
-          msg += '  For details, rerun with ":set +internal-error-details".'
-        raise RuntimeError(msg)
-      else:
-        if value.value != () or getattr(curry._interpreter_, '_stream_outputs', 0) == outputs:
-          repl.action(repl, value)
+      , action=lambda answer: repl.action(repl, answer)
+      )
+
 
 def cmdType(repl):
   '''
@@ -135,9 +111,8 @@ def cmdSet(repl):
         else:
           valueopts.append((name, value))
       print(' '.join(boolopts), file=sys.stderr)
-      w = max((len(name) for name, _ in valueopts), default=0)
       for name,value in valueopts:
-        print(name.ljust(w), ':', repr(value), file=sys.stderr)
+        print(name, ':', repr(value), file=sys.stderr)
       return
   else:
     if name.startswith('+') or name.startswith('-'):
@@ -148,10 +123,11 @@ def cmdSet(repl):
 def cmdQuit(repl):
   '''Executes the :quit command.'''
   assert repl.command == ':quit'
-  sys.exit(0)
+  sys.exit(repl.status)
 
 COMMANDS = {
     ':load' : cmdLoad
+  , ':reload' : cmdReload
   , ':eval' : cmdEval
   , ':type' : cmdType
   , ':set'  : cmdSet
