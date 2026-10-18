@@ -91,8 +91,9 @@ specific module name is needed.
 Types and conversions
 =====================
 
-Construction reads the type schemes of symbols from their FlatCurry
-interfaces, unifies the arguments, and supplies class dictionaries.
+Calling a symbol checks its arguments against its Curry type and converts
+Python values to the required types.  Incompatible arguments raise
+``CurryTypeError`` when the term is built.
 ``curry.typeof`` returns Curry type text before defaulting.
 ``defaulted=True`` asks for the type evaluation will use.
 
@@ -126,6 +127,12 @@ Bytes, dictionaries, sets and None are refused.  Use explicit data such as
     [0, 1, 2]
     >>> curry.eval([1, 2.5]).one()
     [1.0, 2.5]
+
+.. note::
+
+   For developers: construction reads the type schemes of symbols from
+   their FlatCurry interfaces, unifies the arguments, and supplies class
+   dictionaries.
 
 .. _goal-defaulting:
 

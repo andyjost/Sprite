@@ -1,12 +1,14 @@
 Sprite examples
 ===============
 
-Each subdirectory holds one example.  An example has a README, a run script,
-and a file expected.out with the exact output of the run script.  Most
-examples have a Python driver, go.py, and one Curry module.  Run "make stage"
-from the root of the repository first; the run scripts use the staged
-install under ../install, or the install named by SPRITE_HOME.  To run an
-example, run its script:
+Each numbered subdirectory holds one example, with a README and a run
+script.  All except 05-blocks-in-flask have an expected.out with the exact
+output of the run script; 05 is excluded from the example test.  The shared
+cxx/ modules and Peano.curry are support sources without separate run
+scripts or expected-output tests.  Most examples have a Python driver,
+go.py, and one Curry module.  Run "make stage" from the root of the
+repository first; the run scripts use the staged install under ../install,
+or the install named by SPRITE_HOME.  To run an example, run its script:
 
     ./run
 
@@ -14,8 +16,8 @@ A run script uses the installed Sprite with the flags of
 SPRITE_INTERPRETER_FLAGS.  The script of 03-inspect adds interpret:off to
 them, so the module is compiled before it runs and the example prints the
 first line of the generated C++ (its README says why).  The script of
-04-static-compile selects the reference backend of the developer notes of
-the documentation, because that example runs on it only.
+04-static-compile saves and runs a module on the selected backend,
+including C++.
 
 Python drivers use symbol calls, curry.term for values, curry.parse for
 text goals, and curry.eval or curry.solve for Results of converted values.
@@ -33,11 +35,12 @@ states what the example shows about functional logic programming, what it
 shows about calling Curry from Python, how to run it, the output to expect,
 and the sizes that keep the run short.
 
-The test tests/unit_examples.py runs every run script in a child process and
-compares its output with expected.out.  It runs 03-inspect, 11-sudoku,
-12-cryptarithm and 22-cxx-types-trait-check on the C++ backend only, and
-04-static-compile on the reference backend only.  To regenerate the expected
-output after a deliberate change, run SPRITE_UPDATE_EXPECTED=1 ./run_tests
+The test tests/unit_examples.py runs the numbered examples except 05 in
+child processes and compares their output with expected.out.  It runs
+03-inspect, 11-sudoku, 12-cryptarithm and 22-cxx-types-trait-check on the
+C++ backend only, and 04-static-compile on the reference backend only.
+To regenerate the expected output after a deliberate change, run
+SPRITE_UPDATE_EXPECTED=1 ./run_tests
 unit_examples.py from tests/, and review the diff.
 
 The list below gives each directory, the title of its README, and what it

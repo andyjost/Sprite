@@ -62,9 +62,13 @@ ready, so an installation without a C++ compiler runs every program (see
 the page "Installing and running without a C++ compiler" of the
 documentation).
 
-The examples/ directory holds runnable examples of Curry programs and of
-Curry called from Python.  Each has a run script, a README, and its expected
-output.  See examples/README for the list.
+The numbered directories under examples/ hold runnable examples of Curry
+programs and of Curry called from Python.  Each has a run script and a
+README.  tests/unit_examples.py compares their output with expected.out
+on the declared backends, except for 05-blocks-in-flask, which has no
+expected.out and is excluded.  examples/cxx/ and examples/Peano.curry are
+support sources, without separate run scripts or expected-output tests.
+See examples/README for the list.
 
 
 4. Documentation

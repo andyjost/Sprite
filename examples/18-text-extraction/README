@@ -65,9 +65,9 @@ Evaluation turns each Curry String into a Python str, the empty String
 into ''.  The driver sorts the values, because the scheduler does not
 promise an order, and counts them with collections.Counter.
 
-A compile error is not a Python Exception.  curry.CompileError derives from
-BaseException.  The driver catches it by name, reports a bad rule on stderr
-and exits with status 1.
+A compile error is a Python Exception: curry.CompileError derives from
+curry.CurryError, which derives from Exception.  The driver catches it by
+name, reports a bad rule on stderr and exits with status 1.
 
 
 3. How to run

@@ -31,7 +31,7 @@ the traces of at most n moves that reach the goal.
 
 Iterative deepening.  A bound of n moves may have no plan.  Python asks for
 bound 0, then 1, then 2, and so on.  The first bound with a plan gives a
-shortest plan.  Python takes one plan per bound and stops the search.
+shortest plan.  Python takes the first plan it finds.
 
 
 2. What the example shows about calling Curry from Python
@@ -51,12 +51,14 @@ One call,
 
     curry.eval(Blocks.plan(bound, start, goal))
 
-is a generator of plans.  The driver takes the first one with next() and
-discards the generator.  This stops the search.  A bound with no plan
-yields zero values, so next() returns the default None, and the driver
-tries the next bound.  Evaluation turns the trace into a Python list of
-tuples of lists.  The blocks come back as Curry constructors.  str() of one
-gives its name, and the driver uses that to draw the stacks.
+returns a lazy Results iterator of plans.  The driver takes the first one
+with next().  Taking one answer or breaking out of a loop preserves the
+iterator's position.  Use close() or leave a with block to end the search
+explicitly.  A bound with no plan yields zero values, so next() returns
+the default None, and the driver tries the next bound.  Evaluation turns
+the trace into a Python list of tuples of lists.  The blocks come back as
+Curry constructors.  str() of one gives its name, and the driver uses that
+to draw the stacks.
 
 The option --serve PORT starts a web form with http.server from the Python
 standard library.  The form calls the same function solve() as the command
@@ -91,11 +93,10 @@ most five moves for the first problem of the run script.  There is one
 plan, so the command prints one line:
 
     ../../install/bin/sprite-exec Blocks.curry
-    [([A, B, C], [], []), ([B, C], [A], []), ([C], [B, ...], []), ([], ..., [C]), ([], ..., [B, C]), ([], [], [A, B, C])]
+    [([A,B,C],[],[]),([B,C],[A],[]),([C],[B,A],[]),([],[B,A],[C]),([],[A],[B,C]),([],[],[A,B,C])]
 
-The worlds of a trace share their stacks, and the printer prints ... in
-place of a list that it has printed before.  For example, [B, ...] stands
-for [B, A], and a bare ... stands for a whole list printed before.
+curry.show prints ordinary Curry value text, including repeated lists.
+A shared reducible subterm in a term is printed through a let binding.
 
 
 4. Expected output

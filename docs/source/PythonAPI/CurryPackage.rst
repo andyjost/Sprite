@@ -34,16 +34,13 @@ The public error tree is rooted at ``curry.CurryError``.
 Interpreter flags
 =================
 
-An interpreter has a dict of flags.  :data:`curry.flags` is the dict of the
-global interpreter; the environment variable ``SPRITE_INTERPRETER_FLAGS``
-sets the flags of a process (``interpret:off,rotation:steps:65536``), and
-:func:`curry.reload` or ``Interpreter(flags={...})`` sets them for a new
-interpreter, over the flags of the environment.  A flag read at the start
-of an evaluation takes effect at the next one when it is changed in the
-dict.  ``backend`` is read when the interpreter is made, so a change of it
-in the dict has no effect; :func:`curry.reload` or a new interpreter
-selects a backend.  An assignment to :data:`curry.flags` rebinds the name
-in the package and changes nothing.  :mod:`curry.interpreter.flags`
+:data:`curry.flags` is a read-only mapping of the current session's flags.
+The environment variable ``SPRITE_INTERPRETER_FLAGS`` sets the initial
+flags of a process (``interpret:off,rotation:steps:65536``).  Use
+``curry.reset(**flags)`` to start a new session with changed settings,
+including the backend.  Reset retains ``curry.path`` and makes earlier
+terms stale.  ``curry.reload(module, text=...)`` replaces a module's code;
+it does not set interpreter flags.  :mod:`curry.interpreter.flags`
 describes every flag at length; the table names them with their defaults.
 
 ===========================  =====================  ========================================================
@@ -132,10 +129,8 @@ The remaining modules here are developer modules outside that surface.
     A virtual package used as the base for importing Curry modules.
 
 :mod:`curry.objects`
-    Defines the objects used to provide Python APIs to Curry objects.  For instance,
-    this defines :class:`curry.objects.CurryModule`, which is the object created by importing a
-    Curry module, and :class:`curry.objects.CurryNodeInfo`, the object of a
-    symbol.
+    Implements the modules, terms and converted values returned by the
+    public API.
 
 :mod:`curry.show`
     Code for converting Curry expressions to strings.
@@ -165,3 +160,10 @@ The remaining modules here are developer modules outside that surface.
 
 :mod:`curry.utility`
     General-purpose code.
+
+.. note::
+
+   For developers: :mod:`curry.objects` defines the classes behind the
+   public API.  :class:`curry.objects.CurryModule` is the object created by
+   importing a Curry module, and :class:`curry.objects.CurryNodeInfo` holds
+   a symbol's implementation metadata.

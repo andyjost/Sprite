@@ -2,10 +2,13 @@
 Examples
 ========
 
-The ``examples/`` directory of the repository holds runnable examples.  Each
-example has a README, a run script, and a file ``expected.out`` with the exact
-output of the run script.  Most examples have a Python driver, ``go.py``, and
-one Curry module.
+The numbered directories under ``examples/`` hold runnable examples, each
+with a README and a run script.  All except ``05-blocks-in-flask`` have an
+``expected.out`` with the exact output of that script.  Example 05 needs
+Flask and is excluded from the example test.  The shared modules under
+``examples/cxx/`` and the guide's ``examples/Peano.curry`` are support
+sources, without separate run scripts or expected-output tests.  Most
+numbered examples have a Python driver, ``go.py``, and one Curry module.
 
 To run an example, stage Sprite with ``make stage`` and run the script from
 the example directory:
@@ -19,16 +22,15 @@ A run script uses the installed Sprite with the flags of
 ``SPRITE_INTERPRETER_FLAGS``.  The script of example 03 adds
 ``interpret:off`` to them, so the module is compiled before it runs and
 the example prints the first line of the generated C++ (its README says
-why).  Example 04 runs on the reference backend of the :doc:`developer
-notes <DeveloperNotes>`, which its run script selects: it saves a module
-in the saved form of that backend.
+why).  Example 04 saves and runs a module on the selected backend,
+including C++.
 
 The first run of an example also runs the Curry front end on its module.
 That takes a fraction of a second per module: example 01 took 0.56 s on
 its first run and 0.15 s on the second, on the machine of this text.  The
-test ``tests/unit_examples.py`` runs every example on the backends it
-declares and compares the output with ``expected.out``; the backends named
-below are the ones of that test.
+test ``tests/unit_examples.py`` runs the numbered examples except 05 on
+the backends it declares and compares the output with ``expected.out``.
+It currently tests example 04 on the reference backend only.
 
 The sections below name each example, its backends, and its idea, and quote
 its README.
@@ -98,10 +100,11 @@ module compiled before it runs (the interpreter flag ``interpret:off``; see
 Save a compiled Curry module
 ============================
 
-Directory ``examples/04-static-compile``.  Runs on the reference backend
-(:doc:`DeveloperNotes`).
+Directory ``examples/04-static-compile``.  Runs on the C++ backend and the
+reference backend (:doc:`DeveloperNotes`).
 
-``curry.save`` writes the compiled module in the saved form of the reference backend, a script with a goal, and the script runs the goal.  The C++ form of ``curry.save`` is an open decision; see the :doc:`developer notes <DeveloperNotes>`.
+``curry.save`` writes a script that embeds the current backend's compiled
+module and records a goal.  Running the saved script evaluates that goal.
 
 .. code-block:: bash
 
