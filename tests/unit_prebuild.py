@@ -126,77 +126,24 @@ class TestStagedLibrary(cytest.TestCase):
     for name in config.supported_syslibs():
       self.assertIn(name, modules)
 
-  def test_prebuild_recipe_pins_the_installation(self):
-    '''
-    The prebuild recipe of the library Makefile runs sprite-make with
-    SPRITE_HOME set to the installation it builds, and without the run-time
-    variables of the shell.  sprite-invoke keeps an exported SPRITE_HOME, so
-    a stage run with the variable set would otherwise compile the library of
-    another installation.  The environment of the recipe is read through the
-    print rule of the root Make.include, which needs the configured source
-    tree.
-    '''
-    make_program = shutil.which('make')
-    if make_program is None \
-        or not os.path.isfile(os.path.join(SOURCE_ROOT, 'Make.config')):
-      self.skipTest('no make, or the source tree is not configured')
-    prefix = '/nonexistent/prefix'
-    proc = subprocess.run(
-        [ make_program, '-s', '-C', os.path.join(SOURCE_ROOT, 'curry')
-        , 'print-PREBUILD_ENV', 'PREFIX=' + prefix
-        ]
-      , capture_output=True, text=True, timeout=120
-      )
-    self.assertEqual(proc.returncode, 0, proc.stderr)
-    match = re.search(
-        r'PREBUILD_ENV is a \w+ variable set to \[(.*)\]', proc.stdout
-      )
-    self.assertIsNotNone(match, proc.stdout)
-    words = match.group(1).split()
-    self.assertEqual(words[0], 'env')
-    self.assertIn('SPRITE_HOME=' + prefix, words)
-    unset = [words[i + 1] for i, word in enumerate(words) if word == '-u']
-    for name in [ 'CURRYPATH', 'CFLAGS', 'CXXFLAGS', 'SPRITE_INTERPRETER_FLAGS'
-                , 'SPRITE_CXX_PCH_ROOT', 'SPRITE_FORCE_RECOMPILE_CXX'
-                ]:
-      self.assertIn(name, unset)
+  def test_prebuild_uses_its_own_environment(self):
+    """The Python prebuild step clears ambient runtime settings."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('build_package',
+        os.path.join(SOURCE_ROOT, 'scripts', 'build-package.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with mock.patch.dict(os.environ, {
+        'SPRITE_HOME': '/other', 'CURRYPATH': '/other',
+        'SPRITE_INTERPRETER_FLAGS': 'backend:py', 'CXXFLAGS': '-bad',
+        'SPRITE_PRODUCT_CACHE': '/products'}):
+      env = module.build_environment('/stage')
+    self.assertEqual(env['SPRITE_HOME'], '/stage')
+    self.assertEqual(env['PYTHONPATH'], '/stage/python')
+    self.assertEqual(env['SPRITE_PRODUCT_CACHE'], '/products')
+    for name in ['CURRYPATH', 'CXXFLAGS', 'SPRITE_INTERPRETER_FLAGS']:
+      self.assertNotIn(name, env)
 
-  def test_prebuild_recipe_follows_the_job_count(self):
-    '''
-    The C++ step of the prebuild recipe passes the job count of make to
-    sprite-make --jobs: the -jN that MAKEFLAGS carries, auto for a bare -j,
-    else JOBS of Make.config.  The ICurry and Python steps stay serial.
-    '''
-    make_program = shutil.which('make')
-    if make_program is None \
-        or not os.path.isfile(os.path.join(SOURCE_ROOT, 'Make.config')):
-      self.skipTest('no make, or the source tree is not configured')
-    env = dict(os.environ)
-    for name in ['MAKEFLAGS', 'MFLAGS', 'GNUMAKEFLAGS']:
-      env.pop(name, None)
-    def make(*args):
-      proc = subprocess.run(
-          [ make_program, '-C', os.path.join(SOURCE_ROOT, 'curry')
-          , 'PREFIX=/nonexistent/prefix' ] + list(args)
-        , capture_output=True, text=True, timeout=120, env=env
-        )
-      self.assertEqual(proc.returncode, 0, proc.stderr)
-      return proc.stdout
-    def flags(*args):
-      output = make('-s', 'print-PREBUILD_SO_FLAGS', *args)
-      match = re.search(r'PREBUILD_SO_FLAGS is a \w+ variable set to \[(.*)\]', output)
-      self.assertIsNotNone(match, output)
-      return match.group(1)
-    self.assertEqual(flags('-j3'), '--jobs 3 -zc')
-    self.assertEqual(flags('-j'), '--jobs auto -zc')
-    self.assertEqual(flags('JOBS=1'), '--jobs 1 -zc')
-    self.assertEqual(flags('JOBS='), '--jobs 1 -zc')
-    self.assertEqual(flags('-j2', 'JOBS=1'), '--jobs 2 -zc')
-    output = make('-n', 'prebuild', '-j3')
-    self.assertIn('sprite-make --so --jobs 3 -zc', output)
-    self.assertIn('sprite-make --json -zc', output)
-    self.assertIn('sprite-make --py -zc', output)
-    self.assertEqual(output.count('--jobs'), 2, output)
 
 class JsonModuleTestCase(cytest.TestCase):
   '''A temporary source directory of hand-written ICurry-JSON modules.'''
@@ -259,6 +206,31 @@ class JsonModuleTestCase(cytest.TestCase):
       )
 
 class TestPackagedModule(JsonModuleTestCase):
+  @cytest.with_flags(interpret='off')
+  def test_packaged_products_ignore_extraction_order(self):
+    """pip's extraction times do not force an unchanged library to compile."""
+    from curry.toolchain import _curry2icurry, _findcurry
+    name = self.build(6)
+    target = self.cached_file(name, cytest.raw.interp().backend.object_file_extension)
+    source = os.path.join(self.srcdir, name + '.curry')
+    with open(source, 'w') as stream:
+      stream.write('main :: Int\nmain = 6\n')
+    icy = self.cached_file(name, '.icy')
+    for suffix in ['.icy', '.fint', '.icurry']:
+      with open(self.cached_file(name, suffix), 'w') as stream:
+        stream.write('')
+    with open(icy + '.source', 'w') as stream:
+      stream.write(_curry2icurry.source_digest(source))
+    future = os.stat(target).st_mtime + 120
+    os.utime(source, (future, future))
+    def current():
+      return _findcurry.currentfile(self.plan, source, [self.srcdir], is_sourcefile=True)
+    with mock.patch.object(config, 'system_curry_path', return_value=self.srcdir):
+      self.assertEqual(current(), target)
+      with open(source, 'a') as stream:
+        stream.write('-- changed\n')
+      self.assertEqual(current(), source)
+
   @cytest.with_flags(interpret='off')
   def test_module_in_a_package(self):
     '''

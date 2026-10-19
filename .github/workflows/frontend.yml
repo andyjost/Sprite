@@ -83,7 +83,7 @@ jobs:
             patch gmp-devel glibc-devel zlib-devel \
             ncurses-devel ncurses-compat-libs numactl-libs patchelf file xz
           rpm -q glibc glibc-devel gmp gmp-devel
-          python -m pip install --verbose 'setuptools>=68' wheel auditwheel numpy
+          python -m pip install --verbose 'setuptools>=68' wheel auditwheel numpy cmake ninja scikit-build-core
           python -m pip list
           gcc --version
           ldd --version
@@ -184,10 +184,11 @@ jobs:
         if: ${{ !cancelled() && steps.compile.outcome == 'success' }}
         run: |
           set -euxo pipefail
-          python ./configure --with-python="$(command -v python)" \
-            --with-pakcs '' --with-icurry '' \
-            --with-curry-frontend="$PWD/frontend-work/build/curry-frontend" \
-            2>&1 | tee frontend-work/logs/configure.log
+          cmake -S . -B object-root/cmake -G Ninja \
+            -DPython_EXECUTABLE="$(command -v python)" \
+            -DWITH_PAKCS= -DWITH_ICURRY= \
+            -DWITH_CURRY_FRONTEND="$PWD/frontend-work/build/curry-frontend" \
+            2>&1 | tee frontend-work/logs/cmake.log
           make stage 2>&1 | tee frontend-work/logs/stage.log
       - name: Byte parity with pinned ICurry and FlatCurry interfaces
         id: parity
@@ -249,6 +250,6 @@ jobs:
             frontend-work/wheels/
             frontend-work/dist/
             frontend-work/parity/
-            configure.log
+            frontend-work/logs/cmake.log
             !frontend-work/fetch/source/.stack-work/**
             !frontend-work/fetch/source/dist-newstyle/**

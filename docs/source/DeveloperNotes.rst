@@ -254,7 +254,7 @@ surface that sets a flag takes the value:
   ``curry.reset(**{'backend': 'py'})`` in the Python API.  A new interpreter
   starts from the flags of the environment and takes its argument over
   them (:mod:`curry.interpreter.flags`).
-* ``configure --with-default-backend py`` for an installation whose default
+* ``-DWITH_DEFAULT_BACKEND=py`` for an installation whose default
   it is.
 * ``./run_tests --backend py`` or ``--backend both`` under ``tests/``, and
   ``run-tests.sh py`` in CI.

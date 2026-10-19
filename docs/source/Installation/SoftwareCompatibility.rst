@@ -26,13 +26,13 @@ ICurry
     Sprite translates FlatCurry to ICurry itself.  Its translation is a port
     of the ICurry Compiler 3.1.0 and writes the same files.  That program,
     installed with the Curry Package Manager, remains an optional
-    alternative; see ``configure --with-icurry``.  The output of other
+    alternative; see ``CMake WITH_ICURRY``.  The output of other
     versions of the ICurry Compiler differs, and Sprite will not work with
     them.
 
 Python
     Sprite supports Python 3.11 to 3.15, with 3.11.4 as the minimum because
-    archive extraction uses ``tarfile.extractall(filter=)``.  ``configure``
+    archive extraction uses ``tarfile.extractall(filter=)``.  CMake
     rejects older versions.  Python 3.14 remains the development default.
     CI runs the C++ unit suites on each version.  The 3.15 lane and the
     free-threaded 3.14t lane are allowed to fail; 3.14t runs with the GIL

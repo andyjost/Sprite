@@ -101,7 +101,7 @@ and an installation without a C++ compiler runs every program; see
 :doc:`/Installation/WithoutCompiler`.  The ``--backend`` option names the
 backend of a run and overrides a ``backend`` flag of
 ``SPRITE_INTERPRETER_FLAGS``.  The help of ``sprite-exec -h`` names the
-default of the installation, which ``configure --with-default-backend``
+default of the installation, which ``CMake WITH_DEFAULT_BACKEND``
 sets.
 
 The runtime serializes graph access with a recursive lock per heap.  This
@@ -229,8 +229,8 @@ The fields are:
     build reports 0.  The setting changes the
     runtime headers that generated code includes, so a module is compiled
     with the setting of the installed runtime and compiled again when it
-    changes (the ABI stamp): touch ``Make.config`` before ``make
-    GC_WRITE_COUNTERS=1 stage`` and again before the plain ``make stage``.
+    changes (the ABI stamp). Use ``make GC_WRITE_COUNTERS=1 stage`` to
+    enable it and ``make GC_WRITE_COUNTERS=0 stage`` to disable it.
     ``SPRITE_GC_REPORT=1`` prints the counters of every collection (see
     :doc:`EnvironmentVariables`).
 
@@ -244,9 +244,8 @@ Scheduler counters
 A C++ runtime built with ``make COUNTERS=1`` counts what the scheduler does
 with its queue of configurations.  The flag changes the runtime library and
 its Python bindings only; a plain build has none of the code, and the
-generated modules of a plain build serve an instrumented one.  The build
-objects do not depend on the variable: touch ``Make.config`` before ``make
-COUNTERS=1 stage`` and again before the plain ``make stage``.  The
+generated modules of a plain build serve an instrumented one.  Use ``make COUNTERS=1 stage`` to enable it and
+``make COUNTERS=0 stage`` to disable it.  The
 instrumented runtime costs about one to three percent more instructions and
 a word more per node; see the TODO entry for the measurements.
 

@@ -3,39 +3,21 @@
 Building Documentation
 ======================
 
-The user guide of the ``master`` branch is published at
-https://andyjost.github.io/Sprite/.  To read the guide of the branch you
-have, build it locally.  From the repository root, say ``make -C docs
-html``.  The HTML output is written under ``object-root/docs/html``.  The
-sources live under ``docs/`` in the `GitHub repository
-<https://github.com/andyjost/Sprite>`__.  You can also choose a different
-format, as described below.  The build regenerates the Reference pages
-from the staged installation and the usage pages from the installed tools,
-so it needs ``make stage`` first.  Sphinx does not delete the output of a
-source page that vanished, and ``make -C docs html`` has no clean step.
-After a change to the set of Reference pages, say ``make -C docs clean``
-before ``make -C docs html``.
+The user guide of ``master`` is published at
+https://andyjost.github.io/Sprite/. To build the guide of your checkout,
+stage the package and run Sphinx through the wrapper::
 
-.. important::
-   Sprite is required to build the documentation.  If needed, build and stage
-   it first.
+    make stage
+    python scripts/check-prereqs.py --doc
+    make -C docs html
 
-To check prerequisites, say::
+Install Sphinx and sphinx_rtd_theme in the build Python's environment when
+the diagnostic reports them missing. The wrapper regenerates the Reference
+from the installed package and command help from the staged tools, then
+builds HTML with warnings treated as errors. The output is
+``object-root/docs/html``. ``make docs`` builds HTML and then PDF (which also needs TeX).
 
-    ./configure --check-prereqs --doc --fast
+After removing Reference source pages, clear the old output first::
 
-If anything is missing, you can install it yourself or say::
-
-    ./configure --with-python=`pwd`/install/tools/python --install-prereqs-only --doc --fast
-
-To build PDF and HTML documentation, say::
-
-    make docs
-
-To build documentation in another format, say::
-
-    make -C docs <format-name>
-
-Many formats are available; say ``make -C docs help`` for details.
-
-
+    make -C docs clean
+    make -C docs html

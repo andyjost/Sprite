@@ -213,8 +213,8 @@ def command(file_in, currypath, quiet=False):
   '''
   if config.curry_frontend() is None:
     raise CompileError(
-        'the Curry front end is not configured; rerun configure with '
-        '--with-curry-frontend'
+        'no Curry front end found; set SPRITE_FRONTEND or put '
+        'pakcs-frontend on PATH'
       )
   name = os.path.basename(file_in)
   assert name.endswith('.curry')

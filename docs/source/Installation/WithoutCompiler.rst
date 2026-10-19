@@ -13,7 +13,7 @@ scheduler and with the same rewrite steps as compiled code (the interpreter
 flag ``interpret``; see :mod:`curry.interpreter.flags`).  So an
 installation without a C++ compiler runs every Curry program.
 
-The build itself needs the compiler: ``configure`` finds ``g++``, and
+The build itself needs the compiler: CMake finds ``g++``, and
 ``make stage`` compiles the runtime library and the Curry library.  An
 installation without a compiler is one that moved to another machine, or a
 package such as the conda package of ``conda/README.md`` installed without
@@ -95,11 +95,11 @@ Adding a compiler later
 =======================
 
 Install ``g++`` (``sudo apt-get install g++`` on Debian and Ubuntu).  In a
-source tree, run ``configure`` again with ``--with-cxx-postinstall=PATH``,
+source tree, configure CMake with ``-DWITH_CXX_POSTINSTALL=PATH``,
 or let it find ``g++`` on ``PATH``, and run ``make stage``: the staged
 installation gets its ``tools/cxx``, and the next run compiles the modules
 in the background and swaps to the compiled code when the objects are
-ready.  ``configure --with-ccache`` puts ccache in front of that compiler;
+ready.  ``CMake WITH_CCACHE`` puts ccache in front of that compiler;
 see :doc:`ConfiguringSprite`.  The conda package resolves the compiler of
 its environment at run time through a ``tools/cxx`` wrapper of its own;
 see ``conda/README.md``.

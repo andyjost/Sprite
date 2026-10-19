@@ -1,4 +1,5 @@
 import cytest # from ./lib; must be first
+from cytest.buildtools import cmake_executable
 from curry import config, icurry
 from curry.toolchain import _frontend
 import curry, glob, hashlib, os, shutil, subprocess, sys, tempfile, unittest, zlib
@@ -241,24 +242,18 @@ class TestCurryLib(cytest.TestCase):
     self.assertEqual(snapshot(copy), before)
 
   def test_install_interfaces(self):
-    '''
-    make install writes the library interfaces with the front end, and make
-    uninstall removes them.
-    '''
-    if config.curry_frontend() is None:
-      self.skipTest('the Curry front end is not configured')
-    makefile = os.path.join(ROOT, 'curry', 'Makefile')
-    if not os.path.isfile(makefile) or not os.path.isfile(os.path.join(ROOT, 'Make.config')):
-      self.skipTest('the source tree is not available')
-    def make(*args):
-      return subprocess.run(
-          ['make', '-C', os.path.dirname(makefile)] + list(args), env=ENV
-        , stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=600
-        )
+    """CMake installs the interfaces and pinned products of its build image."""
+    build = os.path.join(ROOT, 'object-root', 'cmake')
+    if not os.path.isfile(os.path.join(build, 'CMakeCache.txt')):
+      self.skipTest('the source tree has no CMake build')
+    cmake = cmake_executable(build)
+    if cmake is None:
+      self.skipTest('cmake is not available')
     with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as prefix:
-      result = make('install', 'PREFIX=' + prefix)
+      result = subprocess.run(
+          [cmake, '--install', build, '--prefix', prefix], env=ENV
+        , stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=600)
       self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertEqual(result.stdout.count('--flat'), 1, result.stdout)
       libdir = os.path.join(prefix, 'curry')
       flatdir = os.path.join(libdir, '.curry', config.frontend_subdir())
       for name in config.syslibs():
@@ -266,13 +261,18 @@ class TestCurryLib(cytest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(libdir, *parts) + '.curry'), name)
         for suffix in ['.fcy', '.fint', '.icurry']:
           self.assertTrue(os.path.isfile(os.path.join(flatdir, *parts) + suffix), name)
-      self.assertTrue(os.path.isfile(os.path.join(
-          libdir, 'Data', '.curry', config.intermediate_subdir(), 'Maybe.icy'
-        )))
-      # A second install runs the front end again only when a source changed.
-      result = make('install', 'PREFIX=' + prefix)
+        sidecars = os.path.join(libdir, *parts[:-1], '.curry',
+                                config.intermediate_subdir(), parts[-1])
+        for suffix in ['.icy', '.fint', '.icurry', '.json.z']:
+          self.assertTrue(os.path.isfile(sidecars + suffix), name + suffix)
+      for name in config.supported_syslibs():
+        parts = name.split('.')
+        stamp = os.path.join(libdir, *parts[:-1], '.curry',
+            config.intermediate_subdir(), parts[-1] + '.so.abi')
+        with open(stamp) as stream:
+          self.assertEqual(stream.read().splitlines()[1], os.path.realpath(prefix))
+      result = subprocess.run(
+          [cmake, '--install', build, '--prefix', prefix], env=ENV
+        , stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=600)
       self.assertEqual(result.returncode, 0, result.stdout)
       self.assertNotIn('--flat', result.stdout)
-      result = make('uninstall', 'PREFIX=' + prefix)
-      self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertFalse(os.path.exists(libdir), os.listdir(prefix))

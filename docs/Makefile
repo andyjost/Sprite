@@ -1,259 +1,31 @@
-# Makefile for Sphinx documentation
-#
-SUBMODULES :=
-include Make.include
-
-ifeq ($(shell [ -x $(PREFIX)/bin/sprite-invoke ] && [ -f $(PREFIX)/bin/sprite-invoke ]; echo $$?),1)
-  $(error Not an executable file: $(PREFIX)/bin/sprite-invoke.  Please `make stage` Sprite before building the documentation.)
-endif
-
-# You can set these variables from the command line.
-SPHINXOPTS    =
-ifndef SPHINXBUILD
-  SPHINXBUILD := $(PREFIX)/bin/python -m sphinx
-endif
-ifndef SPHINXAPIDOC
-  SPHINXAPIDOC := $(PREFIX)/bin/python -m sphinx.ext.apidoc
-endif
-PAPER         =
-BUILDDIR      = $(OBJECT_ROOT)/docs
-INSTALLDIR    = $(PREFIX)/docs
-
-# User-friendly checks for sphinx-build and sphinx-apidoc
-# ifeq ($(shell which $(SPHINXBUILD) >/dev/null 2>&1; echo $$?), 1)
-# $(error The \'$(SPHINXBUILD)\' command was not found. Make sure you have Sphinx installed, then set the SPHINXBUILD environment variable to point to the full path of the \'$(SPHINXBUILD)\' executable. Alternatively you can add the directory with the executable to your PATH. If you don\'t have Sphinx installed, grab it from http://sphinx-doc.org/)
-# endif
-# ifeq ($(shell which $(SPHINXAPIDOC) >/dev/null 2>&1; echo $$?), 1)
-# $(error The \'$(SPHINXAPIDOC)\' command was not found. Make sure you have Sphinx installed, then set the SPHINXAPIDOC environment variable to point to the full path of the \'$(SPHINXAPIDOC)\' executable. Alternatively you can add the directory with the executable to your PATH. If you don\'t have Sphinx installed, grab it from http://sphinx-doc.org/)
-# endif
-
-# SPHINXBUILD := $(PREFIX)/bin/sprite-invoke $(SPHINXBUILD)
-# SPHINXAPIDOC := $(PREFIX)/bin/sprite-invoke $(SPHINXAPIDOC)
-
-# Internal variables.
-PAPEROPT_a4     = -D latex_paper_size=a4
-PAPEROPT_letter = -D latex_paper_size=letter
-ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
-# the i18n builder cannot share the environment and doctrees with the others
-I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
-
-.PHONY: all
-all:: html man info
-
-$(INSTALLDIR):
-	mkdir -p $@
-
-# Runs sphinx-apidoc and other tools to build auto-generated documentation.
-.PHONY: build-module
+# Documentation uses the staged package and the tools of its interpreter.
+PREFIX ?= $(abspath ../install)
+BUILDDIR ?= $(abspath ../object-root/docs)
+SPHINXOPTS ?=
+SPHINXBUILD ?= $(PREFIX)/bin/python -m sphinx
+.DEFAULT_GOAL := all
+.NOTPARALLEL:
+.PHONY: all html clean help build-module latexpdf info install uninstall
+all: html man info
 build-module:
-	cd source/Reference/ && ./build-api.bash
+	cd source/Reference && ./build-api.bash
 	cd source/CommandLineInterface && ./build.bash
-	cd source/Installation && ./build.bash
-
-.PHONY: install
-install:: all $(INSTALLDIR)
-	rsync -az $(BUILDDIR)/ $(INSTALLDIR)
-
-.PHONY: help
-help:
-	@echo "Please use \`make <target>' where <target> is one of"
-	@echo "  all        to make the default documentation"
-	@echo "  apidocc    to run sphinx-apidoc to update the modules .rst files"
-	@echo '  install    to install documentation under $$PREFIX [$(PREFIX)]'
-	@echo '  uninstall  to uninstall documentation under $$PREFIX [$(PREFIX)]'
-	@echo "  html       to make standalone HTML files"
-	@echo "  dirhtml    to make HTML files named index.html in directories"
-	@echo "  singlehtml to make a single large HTML file"
-	@echo "  pickle     to make pickle files"
-	@echo "  json       to make JSON files"
-	@echo "  htmlhelp   to make HTML files and a HTML help project"
-	@echo "  qthelp     to make HTML files and a qthelp project"
-	@echo "  applehelp  to make an Apple Help Book"
-	@echo "  devhelp    to make HTML files and a Devhelp project"
-	@echo "  epub       to make an epub"
-	@echo "  latex      to make LaTeX files, you can set PAPER=a4 or PAPER=letter"
-	@echo "  latexpdf   to make LaTeX files and run them through pdflatex"
-	@echo "  latexpdfja to make LaTeX files and run them through platex/dvipdfmx"
-	@echo "  text       to make text files"
-	@echo "  man        to make manual pages"
-	@echo "  texinfo    to make Texinfo files"
-	@echo "  info       to make Texinfo files and run them through makeinfo"
-	@echo "  gettext    to make PO message catalogs"
-	@echo "  changes    to make an overview of all changed/added/deprecated items"
-	@echo "  xml        to make Docutils-native XML files"
-	@echo "  pseudoxml  to make pseudoxml-XML files for display purposes"
-	@echo "  linkcheck  to check all external links for integrity"
-	@echo "  doctest    to run all doctests embedded in the documentation (if enabled)"
-	@echo "  coverage   to run coverage check of the documentation (if enabled)"
-
-.PHONY: uninstall
-uninstall::
-	rm -rf $(INSTALLDIR)
-
-.PHONY: clean
-clean::
-	rm -rf $(BUILDDIR)/*
-
-.PHONY: html
 html: build-module
-	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
-	@echo
-	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
-
-.PHONY: dirhtml
-dirhtml: build-module
-	$(SPHINXBUILD) -b dirhtml $(ALLSPHINXOPTS) $(BUILDDIR)/dirhtml
-	@echo
-	@echo "Build finished. The HTML pages are in $(BUILDDIR)/dirhtml."
-
-.PHONY: singlehtml
-singlehtml: build-module
-	$(SPHINXBUILD) -b singlehtml $(ALLSPHINXOPTS) $(BUILDDIR)/singlehtml
-	@echo
-	@echo "Build finished. The HTML page is in $(BUILDDIR)/singlehtml."
-
-.PHONY: pickle
-pickle: build-module
-	$(SPHINXBUILD) -b pickle $(ALLSPHINXOPTS) $(BUILDDIR)/pickle
-	@echo
-	@echo "Build finished; now you can process the pickle files."
-
-.PHONY: json
-json: build-module
-	$(SPHINXBUILD) -b json $(ALLSPHINXOPTS) $(BUILDDIR)/json
-	@echo
-	@echo "Build finished; now you can process the JSON files."
-
-.PHONY: htmlhelp
-htmlhelp: build-module
-	$(SPHINXBUILD) -b htmlhelp $(ALLSPHINXOPTS) $(BUILDDIR)/htmlhelp
-	@echo
-	@echo "Build finished; now you can run HTML Help Workshop with the" \
-	      ".hhp project file in $(BUILDDIR)/htmlhelp."
-
-.PHONY: qthelp
-qthelp: build-module
-	$(SPHINXBUILD) -b qthelp $(ALLSPHINXOPTS) $(BUILDDIR)/qthelp
-	@echo
-	@echo "Build finished; now you can run "qcollectiongenerator" with the" \
-	      ".qhcp project file in $(BUILDDIR)/qthelp, like this:"
-	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/SpriteUserGuide.qhcp"
-	@echo "To view the help file:"
-	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/SpriteUserGuide.qhc"
-
-.PHONY: applehelp
-applehelp: build-module
-	$(SPHINXBUILD) -b applehelp $(ALLSPHINXOPTS) $(BUILDDIR)/applehelp
-	@echo
-	@echo "Build finished. The help book is in $(BUILDDIR)/applehelp."
-	@echo "N.B. You won't be able to view it unless you put it in" \
-	      "~/Library/Documentation/Help or install it in your application" \
-	      "bundle."
-
-.PHONY: devhelp
-devhelp: build-module
-	$(SPHINXBUILD) -b devhelp $(ALLSPHINXOPTS) $(BUILDDIR)/devhelp
-	@echo
-	@echo "Build finished."
-	@echo "To view the help file:"
-	@echo "# mkdir -p $$HOME/.local/share/devhelp/SpriteUserGuide"
-	@echo "# ln -s $(BUILDDIR)/devhelp $$HOME/.local/share/devhelp/SpriteUserGuide"
-	@echo "# devhelp"
-
-.PHONY: epub
-epub: build-module
-	$(SPHINXBUILD) -b epub $(ALLSPHINXOPTS) $(BUILDDIR)/epub
-	@echo
-	@echo "Build finished. The epub file is in $(BUILDDIR)/epub."
-
-.PHONY: latex
-latex: build-module
-	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) $(BUILDDIR)/latex
-	@echo
-	@echo "Build finished; the LaTeX files are in $(BUILDDIR)/latex."
-	@echo "Run \`make' in that directory to run these through (pdf)latex" \
-	      "(use \`make latexpdf' here to do that automatically)."
-
-.PHONY: latexpdf
-latexpdf: build-module
-	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) $(BUILDDIR)/latex
-	@echo "Running LaTeX files through pdflatex..."
+	$(SPHINXBUILD) -W --keep-going -b html $(SPHINXOPTS) source $(BUILDDIR)/html
+latexpdf: latex
 	$(MAKE) -C $(BUILDDIR)/latex all-pdf
-	@echo "pdflatex finished; the PDF files are in $(BUILDDIR)/latex."
-
-.PHONY: latexpdfja
-latexpdfja: build-module
-	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) $(BUILDDIR)/latex
-	@echo "Running LaTeX files through platex and dvipdfmx..."
-	$(MAKE) -C $(BUILDDIR)/latex all-pdf-ja
-	@echo "pdflatex finished; the PDF files are in $(BUILDDIR)/latex."
-
-.PHONY: text
-text: build-module
-	$(SPHINXBUILD) -b text $(ALLSPHINXOPTS) $(BUILDDIR)/text
-	@echo
-	@echo "Build finished. The text files are in $(BUILDDIR)/text."
-
-.PHONY: man
-man: build-module
-	$(SPHINXBUILD) -b man $(ALLSPHINXOPTS) $(BUILDDIR)/man
-	@echo
-	@echo "Build finished. The manual pages are in $(BUILDDIR)/man."
-
-.PHONY: texinfo
-texinfo: build-module
-	$(SPHINXBUILD) -b texinfo $(ALLSPHINXOPTS) $(BUILDDIR)/texinfo
-	@echo
-	@echo "Build finished. The Texinfo files are in $(BUILDDIR)/texinfo."
-	@echo "Run \`make' in that directory to run these through makeinfo" \
-	      "(use \`make info' here to do that automatically)."
-
-.PHONY: info
-info: build-module
-	$(SPHINXBUILD) -b texinfo $(ALLSPHINXOPTS) $(BUILDDIR)/texinfo
-	@echo "Running Texinfo files through makeinfo..."
-	make -C $(BUILDDIR)/texinfo info
-	@echo "makeinfo finished; the Info files are in $(BUILDDIR)/texinfo."
-
-.PHONY: gettext
-gettext: build-module
-	$(SPHINXBUILD) -b gettext $(I18NSPHINXOPTS) $(BUILDDIR)/locale
-	@echo
-	@echo "Build finished. The message catalogs are in $(BUILDDIR)/locale."
-
-.PHONY: changes
-changes: build-module
-	$(SPHINXBUILD) -b changes $(ALLSPHINXOPTS) $(BUILDDIR)/changes
-	@echo
-	@echo "The overview file is in $(BUILDDIR)/changes."
-
-.PHONY: linkcheck
-linkcheck: build-module
-	$(SPHINXBUILD) -b linkcheck $(ALLSPHINXOPTS) $(BUILDDIR)/linkcheck
-	@echo
-	@echo "Link check complete; look for any errors in the above output " \
-	      "or in $(BUILDDIR)/linkcheck/output.txt."
-
-.PHONY: doctest
-doctest: build-module
-	$(SPHINXBUILD) -b doctest $(ALLSPHINXOPTS) $(BUILDDIR)/doctest
-	@echo "Testing of doctests in the sources finished, look at the " \
-	      "results in $(BUILDDIR)/doctest/output.txt."
-
-.PHONY: coverage
-coverage: build-module
-	$(SPHINXBUILD) -b coverage $(ALLSPHINXOPTS) $(BUILDDIR)/coverage
-	@echo "Testing of coverage in the sources finished, look at the " \
-	      "results in $(BUILDDIR)/coverage/python.txt."
-
-.PHONY: xml
-xml: build-module
-	$(SPHINXBUILD) -b xml $(ALLSPHINXOPTS) $(BUILDDIR)/xml
-	@echo
-	@echo "Build finished. The XML files are in $(BUILDDIR)/xml."
-
-.PHONY: pseudoxml
-pseudoxml: build-module
-	$(SPHINXBUILD) -b pseudoxml $(ALLSPHINXOPTS) $(BUILDDIR)/pseudoxml
-	@echo
-	@echo "Build finished. The pseudo-XML files are in $(BUILDDIR)/pseudoxml."
+info: texinfo
+	$(MAKE) -C $(BUILDDIR)/texinfo info
+install: all
+	$(PREFIX)/bin/python -c 'import shutil; shutil.copytree("$(BUILDDIR)", "$(PREFIX)/docs", dirs_exist_ok=True)'
+uninstall:
+	rm -rf $(PREFIX)/docs
+clean:
+	rm -rf $(BUILDDIR)
+help:
+	@echo 'make html: generate the Reference and command help, then build HTML'
+	@echo 'Other Sphinx builders: dirhtml singlehtml latex text man texinfo epub linkcheck'
+builders := dirhtml singlehtml pickle json htmlhelp qthelp applehelp devhelp epub latex text man texinfo gettext changes xml pseudoxml linkcheck doctest coverage
+.PHONY: $(builders)
+$(builders): build-module
+	$(SPHINXBUILD) -W --keep-going -b $@ $(SPHINXOPTS) source $(BUILDDIR)/$@

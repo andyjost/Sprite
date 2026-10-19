@@ -76,13 +76,13 @@ jobs:
       # resolvelib is the opponent of the dependency item of the
       # applications suite; without it the harness skips that item.
       - name: Install Python packages
-        run: python -m pip install --quiet numpy resolvelib
+        run: python -m pip install --quiet cmake ninja scikit-build-core numpy resolvelib
       - name: Configure and stage
         run: |
-          python ./configure \
-            --with-python="$(command -v python)" \
-            --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
-            --with-icurry=""
+          cmake -S . -B object-root/cmake -G Ninja \
+            -DPython_EXECUTABLE="$(command -v python)" \
+            -DWITH_PAKCS="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
+            -DWITH_ICURRY=""
           make stage
       # A failed run fails the job at the end, after the records are kept
       # and the history is written.

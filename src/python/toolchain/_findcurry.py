@@ -152,7 +152,15 @@ def currentfile(
   filelist = plan.prune_stale(
       filelist, imports_path(currypath, is_sourcefile)
     )
-  prereq = os.path.abspath(filesys.newest(filelist))
+  if _curry2icurry.in_system_library(curryfile) and _curry2icurry.source_matches(
+      curryfile, _filenames.icurryfilename(curryfile)):
+    # pip extracts sources after .curry products and resets their times.
+    # An unchanged shipped source with validated products follows the plan
+    # order. prune_stale above still checks interfaces, formats and ABI.
+    prereq = next((fn for fn in reversed(filelist) if os.path.isfile(fn)), curryfile)
+  else:
+    prereq = filesys.newest(filelist)
+  prereq = os.path.abspath(prereq)
   if not os.path.exists(prereq):
     # If there is no prerequisite, then there is no Curry file or any of its
     # derivatives (it could be OK to ship Curry files with no source).  Report

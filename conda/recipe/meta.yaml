@@ -45,10 +45,12 @@ build:
 
 requirements:
   build:
+    - cmake >=3.24
+    - ninja
+    - make
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     - {{ stdlib('c') }}
-    - make
   host:
     - python {{ python }}.*,>=3.11.4,<3.16
     # configure checks the front end, and make install runs it over the

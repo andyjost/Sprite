@@ -193,7 +193,7 @@ class TestScriptText(SetupScriptTestCase):
     self.assertEqual(sections['channels'][0], 'conda-forge')
     self.assertEqual(
         sorted(sections['dependencies'])
-      , ['numpy', 'pip', 'python=3.14.*', 'sphinx', 'sphinx_rtd_theme']
+      , ['cmake>=3.24', 'ninja', 'numpy', 'pip', 'python-build', 'python=3.14.*', 'scikit-build-core', 'sphinx', 'sphinx_rtd_theme']
       )
 
 
@@ -223,6 +223,22 @@ esac
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertEqual('satisfied: ' in proc.stdout, accepted, proc.stdout)
         self.assertEqual('updating it' in proc.stdout, not accepted, proc.stdout)
+
+  def test_existing_environment_needs_build_tools(self):
+    """An older developer environment is updated for the new build backend."""
+    bindir = os.path.join(self.prefix, 'conda', 'env', 'bin')
+    os.makedirs(bindir)
+    python = os.path.join(bindir, 'python')
+    with open(python, 'w') as stream:
+      stream.write('#!/bin/sh\ncase "$2" in\n'
+                   '  *scikit_build_core*) exit 1 ;;\n'
+                   '  *) exit 0 ;;\nesac\n')
+    os.chmod(python, 0o755)
+    proc = self.run_script('--dry-run', '--prefix', self.prefix, '--repo', self.repo)
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    self.assertIn('the environment exists but lacks a package: updating it', proc.stdout)
+    self.assertIn('micromamba install -y -p', proc.stdout)
+    self.assertNotIn('satisfied:', proc.stdout)
 
   def test_plan(self):
     out = self.dry_run('--repo', self.repo, '--branch', 'py314', '--jobs', '3')
@@ -267,32 +283,31 @@ esac
       )
     # configure in the clean environment, with the flags of the personal
     # rules; no icurry.
-    configure = re.search(r'\+ \(cd %s && (.*configure.*)\)' % re.escape(repo), out)
+    configure = re.search(r'\+ \(cd %s && (.*cmake -S.*)\)' % re.escape(repo), out)
     self.assertIsNotNone(configure)
     line = configure.group(1)
-    self.assertTrue(line.startswith(CLEAN_ENV), line)
+    self.assertTrue(line.startswith('env -i PATH=%s/conda/env/bin:/usr/local/bin:/usr/bin:/bin HOME=' % prefix), line)
     self.assertIn(' LC_ALL=C.UTF-8 ', line)
     # The compiler cache lives under the prefix in every build and test.
     self.assertIn(' CCACHE_DIR=%s/ccache ' % prefix, line)
-    self.assertIn(' %s ./configure ' % python, line)
+    self.assertIn(' cmake -S . -B object-root/cmake -G Ninja ', line)
     for flag in [
-        '--with-python=' + python, '--with-cc=/usr/bin/gcc', '--with-cxx=/usr/bin/g++'
-      , '--with-cxx-postinstall=/usr/bin/g++', '--with-pakcs=%s/pakcs-3.4.1/bin/pakcs' % prefix
-      , '--with-icurry='
+        '-DPython_EXECUTABLE=' + python, '-DCMAKE_C_COMPILER=/usr/bin/gcc', '-DCMAKE_CXX_COMPILER=/usr/bin/g++'
+      , '-DWITH_CXX_POSTINSTALL=/usr/bin/g++', '-DWITH_PAKCS=%s/pakcs-3.4.1/bin/pakcs' % prefix
+      , '-DWITH_ICURRY='
       ]:
       self.assertIn(' ' + flag, line + ' ')
-    self.assertNotIn('--with-icurry=/', line)
+    self.assertNotIn('-DWITH_ICURRY=/', line)
     # No checkout yet, so configure --help cannot be probed; the options it
     # may gain later are left out.
-    self.assertIn('could not be probed', out)
-    self.assertNotIn('--jobs=', line)
-    self.assertNotIn('--with-ccache', line)
+    self.assertIn('-DJOBS=3', line)
+    self.assertIn('-DWITH_CCACHE=', line)
     # make stage in the clean environment, after configure.
-    self.assertInOrder(out, './configure', '(cd %s && %s' % (repo, CLEAN_ENV), ' make stage)')
-    self.assertRegex(out, r'CCACHE_DIR=%s/ccache make stage\)' % re.escape(prefix))
+    self.assertInOrder(out, 'cmake -S', '(cd %s && %s' % (repo, 'env -i PATH=%s/conda/env/bin:/usr/local/bin:/usr/bin:/bin HOME=' % prefix), ' make stage JOBS=3)')
+    self.assertRegex(out, r'CCACHE_DIR=%s/ccache make stage JOBS=3\)' % re.escape(prefix))
     # make overlay after make stage, in the same environment: the archived
     # products must be newer than the installed library interfaces.
-    self.assertInOrder(out, ' make stage)', '(cd %s && %s' % (repo, CLEAN_ENV), ' make overlay)')
+    self.assertInOrder(out, ' make stage JOBS=3)', '(cd %s && %s' % (repo, 'env -i PATH=%s/conda/env/bin:/usr/local/bin:/usr/bin:/bin HOME=' % prefix), ' make overlay)')
     self.assertRegex(out, r'CCACHE_DIR=%s/ccache make overlay\)' % re.escape(prefix))
     self.assertIn('the flags are recorded in %s/configure-args' % prefix, out)
     # The smoke test: one file on each backend, capped and timed.
@@ -313,7 +328,7 @@ esac
               % (prefix, repo)
         , line
         )
-    self.assertInOrder(out, ' make stage)', ' make overlay)', 'backend:py', 'backend:cxx', 'next steps')
+    self.assertInOrder(out, ' make stage JOBS=3)', ' make overlay)', 'backend:py', 'backend:cxx', 'next steps')
     # The next steps name the calibration, the baseline, and the rules file.
     self.assertIn('Calibrate the test manifest', out)
     self.assertIn('./run_tests -j 1 --backend both --update-manifest', out)
@@ -334,7 +349,7 @@ esac
     self.assertIn(' timeout 7 ', out)
     self.assertIn(' unit_plan.py)', out)
     self.assertNotIn('unit_expr.py', out)
-    self.assertIn('--with-cc=/opt/cc --with-cxx=/opt/c++ --with-cxx-postinstall=/opt/c++', out)
+    self.assertIn('-DCMAKE_C_COMPILER=/opt/cc -DCMAKE_CXX_COMPILER=/opt/c++ -DWITH_CXX_POSTINSTALL=/opt/c++', out)
     self.assertIn('git clone https://example.invalid/Sprite.git %s' % self.repo, out)
     self.assertNotIn('--branch', out.split('Step 4/9')[1])
     out = self.dry_run('--repo', self.repo, '--cap-kb', 'unlimited')
@@ -349,7 +364,7 @@ esac
     self.assertIn('jobs: auto (one per processor, counted by make; %d now)' % cores, out)
     self.assertIn('cores: %d ' % cores, out)
     self.assertIn('the core count (%d)' % cores, out)
-    self.assertNotIn('--jobs=%d' % cores, out)
+    self.assertNotIn('-DJOBS=%d' % cores, out)
 
   def test_other_pakcs_version(self):
     '''A version without a pinned hash gets its size recorded.'''
@@ -358,7 +373,7 @@ esac
     self.assertIn('no pinned checksum for PAKCS 3.9.9', out)
     self.assertIn("stat -c '%s bytes  %n'", out)
     self.assertNotIn(PAKCS_SHA256, out)
-    self.assertIn('--with-pakcs=%s/pakcs-3.9.9/bin/pakcs' % self.prefix, out)
+    self.assertIn('-DWITH_PAKCS=%s/pakcs-3.9.9/bin/pakcs' % self.prefix, out)
 
   def test_icurry(self):
     '''--icurry ports the icurry part of the CI script; HOME has no .cpmrc.'''
@@ -371,7 +386,7 @@ esac
       , 'PACKAGEINDEXURL=https://cpm.curry-lang.org/PACKAGES/INDEX.tar.gz'
       , 'cypm update', 'cypm checkout icurry 3.1.0', 'cypm install'
       , ':load ICurry.Main :save :quit', 'mv %s/cpm/src/icurry/ICurry.Main %s' % (prefix, icurry)
-      , 'Step 4/9', 'Step 6/9', '--with-icurry=' + icurry, 'icurry:      ' + icurry
+      , 'Step 4/9', 'Step 6/9', '-DWITH_ICURRY=' + icurry, 'icurry:      ' + icurry
       )
     self.assertIn('PATH=%s/pakcs-3.4.1/bin:/usr/local/bin:/usr/bin:/bin' % prefix, out)
 
@@ -392,9 +407,9 @@ esac
     self.assertNotIn('git clone', out)
     self.assertIn('skipped (--skip-apt)', out)
     self.assertNotIn('could not be probed', out)
-    self.assertIn('(cd %s && %s' % (ROOT, CLEAN_ENV), out)
+    self.assertIn('(cd %s && %s' % (ROOT, 'env -i PATH=%s/conda/env/bin:/usr/local/bin:/usr/bin:/bin HOME=' % self.prefix), out)
     # configure of this checkout has --jobs: auto goes through unchanged.
-    self.assertIn(' --jobs=auto', self.configure_line(out))
+    self.assertIn(' -DJOBS=auto', self.configure_line(out))
     # The script deletes nothing: a link of the checkout that points
     # elsewhere is reported, not replaced.
     for name in ['install', 'object-root']:
@@ -405,7 +420,7 @@ esac
 
   def configure_line(self, out):
     '''The configure command of a plan, or None.'''
-    match = re.search(r'\+ \(cd \S+ && (.*\./configure.*)\)', out)
+    match = re.search(r'\+ \(cd \S+ && (.*cmake -S.*)\)', out)
     return None if match is None else match.group(1)
 
   def test_configure_skipped_when_unchanged(self):
@@ -413,13 +428,13 @@ esac
     configure empties install and object-root.  A run with the flags of
     the last run skips it while Make.config exists; --reconfigure forces it.
     '''
-    if not os.path.isfile(os.path.join(ROOT, 'Make.config')):
+    if not os.path.isfile(os.path.join(ROOT, 'object-root/cmake/CMakeCache.txt')):
       self.skipTest('the checkout is not configured')
     out = self.dry_run('--repo', ROOT, '--skip-apt')
     line = self.configure_line(out)
     self.assertIsNotNone(line)
-    flags = line.split(' ./configure ')[1].split()
-    self.assertTrue(all(flag.startswith('--') for flag in flags), flags)
+    flags = line.split(' -G Ninja ')[1].split()
+    self.assertTrue(all(flag.startswith('-D') for flag in flags), flags)
     # The record of a previous run with the same flags.
     os.mkdir(self.prefix)
     with open(os.path.join(self.prefix, 'configure-args'), 'w') as stream:
@@ -427,14 +442,14 @@ esac
     proc = self.run_script('--dry-run', '--prefix', self.prefix, '--repo', ROOT, '--skip-apt')
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     self.assertIsNone(self.configure_line(proc.stdout))
-    self.assertIn('skipped: Make.config exists and %s/configure-args holds the same flags' % self.prefix, proc.stdout)
+    self.assertIn('skipped: CMakeCache.txt exists and %s/configure-args holds the same flags' % self.prefix, proc.stdout)
     self.assertIn('--reconfigure forces it', proc.stdout)
     # make stage still runs: it is cheap when nothing changed.
-    self.assertInOrder(proc.stdout, 'Step 6/9: configure', 'skipped', 'Step 7/9: make stage', ' make stage)')
+    self.assertInOrder(proc.stdout, 'Step 6/9: configure', 'skipped', 'Step 7/9: make stage', ' make stage JOBS=auto)')
     proc = self.run_script('--dry-run', '--prefix', self.prefix, '--repo', ROOT, '--skip-apt', '--reconfigure')
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     self.assertIsNotNone(self.configure_line(proc.stdout))
-    self.assertNotIn('skipped: Make.config', proc.stdout)
+    self.assertNotIn('skipped: CMakeCache.txt', proc.stdout)
     # Other flags: configure runs.
     proc = self.run_script('--dry-run', '--prefix', self.prefix, '--repo', ROOT, '--skip-apt', '--cc', '/opt/cc')
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)

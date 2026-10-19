@@ -22,7 +22,7 @@ Clone the repository, print the plan, then run it::
 
 The dry run prints every command and runs none.  The real run stops at the
 first problem.  Fix the cause, then run the same command again: a finished
-step is skipped, and configure runs again only when its flags changed or
+step is skipped, and CMake runs again only when its flags changed or
 ``--reconfigure`` asks for it.  The whole run takes under an hour on a
 current machine.  Most of that time goes to the PAKCS build, the conda
 solve, and the compilation of the Curry library for the C++ backend.
@@ -35,7 +35,7 @@ The script runs nine steps in this order.
 1. Machine.  Prints the OS, the cores, the memory, the swap, and the tools
    it found.  ``--jobs auto`` stays ``auto``: ``make`` counts the
    processors when it starts, so no count of this machine enters
-   ``Make.config``.
+   ``CMakeCache.txt``.
 2. apt packages.  Checks ``git swi-prolog-nox g++ make curl ccache time``
    and the ``linux-tools`` packages of the running kernel, which provide
    ``perf``.  SWI-Prolog serves PAKCS alone: the build of its saved states
@@ -60,14 +60,14 @@ The script runs nine steps in this order.
    ``conda/dev-environment.yml`` of the checkout with micromamba, mamba,
    or conda, whichever is found first.  The package cache goes to
    ``PREFIX/conda/pkgs``.  The environment holds Python 3.14, numpy,
-   Sphinx, and the Sphinx theme, and nothing else.
-6. configure.  Runs ``configure`` in the clean environment with the system
-   compilers, the PAKCS of step 3, and the Python of step 5.  The script
-   probes ``configure --help`` and adds ``--jobs`` and ``--with-ccache``
-   when configure supports them.  configure empties ``install`` and
-   ``object-root``, so the script records the flags in
-   ``PREFIX/configure-args`` and skips the step while ``Make.config``
-   exists and the flags are the same.  ``--reconfigure`` forces it.
+   Sphinx, its theme, CMake, Ninja, scikit-build-core and python-build.
+6. Configure. Runs CMake with Ninja, the system compilers, the PAKCS of
+   step 3 and the Python of step 5. CMake, Ninja and scikit-build-core come
+   from the environment, conda or the system. The script puts the conda
+   environment's tools first on PATH and selects the native compilers
+   explicitly. It records flags in ``PREFIX/configure-args`` and skips
+   configuration while ``object-root/cmake/CMakeCache.txt`` exists and
+   the flags agree. ``--reconfigure`` reruns CMake without deleting products.
 7. ``make stage``.  Builds the runtime and compiles the Curry library for
    both backends.  Then ``make overlay`` extracts the archived products of
    the test programs, after the stage so that they are newer than the
@@ -87,17 +87,16 @@ The clean environment
 =====================
 
 A conda toolchain in the login shell exports ``CC``, ``CXX``, ``CFLAGS``,
-``CXXFLAGS``, ``CPPFLAGS``, and ``LDFLAGS``.  The Makefiles of Sprite
-append those flags, so a build in that shell mixes two toolchains.  The
-script runs configure, make, and the smoke test under ``env -i`` with five
-variables: ``PATH=/usr/local/bin:/usr/bin:/bin``, ``HOME``,
+``CXXFLAGS``, ``CPPFLAGS``, and ``LDFLAGS``.  CMake honours those flags, so a build in that shell mixes two toolchains.  The
+script runs CMake, make, and the smoke test under ``env -i`` with five
+variables: ``PATH=PREFIX/conda/env/bin:/usr/local/bin:/usr/bin:/bin``, ``HOME``,
 ``LC_ALL=C.UTF-8``, ``TMPDIR``, and ``CCACHE_DIR=PREFIX/ccache``.  Use the
 same command for every later build::
 
-    env -i PATH=/usr/local/bin:/usr/bin:/bin HOME=$HOME LC_ALL=C.UTF-8 CCACHE_DIR=PREFIX/ccache make stage
+    env -i PATH=PREFIX/conda/env/bin:/usr/local/bin:/usr/bin:/bin HOME=$HOME LC_ALL=C.UTF-8 CCACHE_DIR=PREFIX/ccache make stage
 
 ``CCACHE_DIR`` keeps the compiler cache under the prefix, not under
-``HOME``.  With ``configure --with-ccache`` the compiler of the
+``HOME``.  With ``-DWITH_CCACHE=ccache`` the compiler of the
 installation runs ccache too, so every test and every program that
 compiles a module for the C++ backend reads the variable.  For a shell
 outside the clean environment, say once
@@ -121,7 +120,7 @@ Path                              Content
 ``PREFIX/cpm``                    the CPM home, with ``--icurry``
 ``PREFIX/ccache``                 the compiler cache (``CCACHE_DIR`` of the
                                   clean environment)
-``PREFIX/configure-args``         the flags of the last configure run
+``PREFIX/configure-args``         the flags of the last CMake configuration
 ================================  ==============================================
 
 Options
@@ -135,12 +134,10 @@ Option               Meaning
                      checkout that holds the script
 ``--repo-url URL``   the clone URL
 ``--branch NAME``    the branch to clone
-``--jobs N|auto``    the job count for configure, when it supports
-                     ``--jobs``; auto is one job per processor, counted
-                     by ``make`` when it starts
-``--reconfigure``    run configure although ``Make.config`` exists and the
-                     flags are the ones of the last run; ``make stage``
-                     then rebuilds everything
+``--jobs N|auto``    the job count for CMake and the Curry library; auto is
+                     one job per processor
+``--reconfigure``    rerun CMake although its cache exists and the flags
+                     are the ones of the last run
 ``--dry-run``        print every command, run none
 ``--skip-apt``       do not check the apt packages
 ``--icurry``         also install icurry 3.1.0 through cypm
@@ -202,3 +199,21 @@ Notes
   install the equivalents of the apt packages and pass ``--skip-apt``.
 - ``tests/unit_setup_script.py`` runs the script with ``--dry-run`` and
   checks the plan.  It needs no network and installs nothing.
+
+Building by hand
+================
+
+Put the environment's tools first on PATH; no absolute environment path is
+stored in source files. Keep the system C++ compiler when building in a
+conda environment::
+
+    make check-prereqs
+    make stage CMAKE_ARGS="-DCMAKE_CXX_COMPILER=/usr/bin/g++ -DWITH_CCACHE=ccache"
+    make overlay
+    cd tests && ./run_tests --prepare-only --backend both && ./run_tests --backend both
+
+``cmake -S . -B object-root/cmake -G Ninja`` configures directly;
+``cmake --build object-root/cmake --parallel`` builds;
+``cmake --install object-root/cmake --prefix install`` stages.
+``make -C docs html`` builds the documentation after staging.
+See :doc:`Installation/ConfiguringSprite` for CMake options and wheels.
