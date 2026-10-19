@@ -183,7 +183,7 @@ def get_options():
   versions.add_argument('--with-ccache'         , type=str, metavar='ccache', nargs='?', const='ccache', help='puts ccache in front of the compilers of the build and of the post-install compiler (env: CCACHE); the value names the program, by default ccache; an empty value leaves it out')
   versions.add_argument('--with-cxx'            , type=str, metavar='g++', help='specifies the C++ compiler (env: CXX)')
   versions.add_argument('--with-cxx-postinstall', type=str, metavar='g++', help='specifies the C++ compiler used after installation (env: CXX)')
-  versions.add_argument('--with-curry-frontend' , type=str, metavar='pakcs-frontend', help='specifies the Curry front end (env: CURRY_FRONTEND); by default the one of PAKCS; an empty value leaves it out')
+  versions.add_argument('--with-curry-frontend' , type=str, metavar='curry-frontend', help='specifies the Curry front end (env: SPRITE_FRONTEND, CURRY_FRONTEND); an empty value leaves it out')
   versions.add_argument('--with-icurry'         , type=str, metavar='icurry', help='specifies the icurry executable (env: ICURRY); optional when the front end is found; an empty value leaves it out')
   versions.add_argument('--with-pakcs'          , type=str, metavar='pakcs', help='specifies the PAKCS executable (env: PAKCS); optional when the front end is named; an empty value leaves it out')
   versions.add_argument('--with-prolog'         , type=str, metavar='swipl', help='specifies the Prolog executable that builds PAKCS when configure installs it (env: PROLOG); Sprite itself runs no Prolog')
@@ -582,6 +582,11 @@ def set_ccache(settings):
     )
   settings.setdefault('CCACHE', '')
 
+def requested_frontend():
+  if OPTS.with_curry_frontend is not None:
+    return OPTS.with_curry_frontend
+  return os.environ.get('SPRITE_FRONTEND', os.environ.get('CURRY_FRONTEND'))
+
 def set_frontend(settings):
   '''
   Finds the Curry front end.  By default it is the pakcs-frontend of the
@@ -589,12 +594,14 @@ def set_frontend(settings):
   (the icurry route runs it first and rewrites its FlatCurry file before
   icurry reads it; see curry.toolchain._curry2icurry).
   '''
-  given = requested(OPTS.with_curry_frontend, 'CURRY_FRONTEND')
+  given = requested_frontend()
   if given == '':
     log('The Curry front end is left out by request.')
     settings['CURRY_FRONTEND'] = ''
     return
   default = given
+  if default is None:
+    default = which('curry-frontend')
   if default is None and settings.get('PAKCS'):
     bindir = os.path.dirname(os.path.realpath(settings['PAKCS']))
     candidate = os.path.join(bindir, 'pakcs-frontend')
@@ -602,7 +609,7 @@ def set_frontend(settings):
       default = candidate
   set_from_path(settings, 'CURRY_FRONTEND', 'pakcs-frontend', 'Curry front end'
     , web='https://www.curry-lang.org/pakcs/'
-    , hint='the front end comes with PAKCS, as bin/pakcs-frontend'
+    , hint='install currylang-frontend, or use bin/pakcs-frontend of PAKCS'
     , default=default
     )
   settings.setdefault('CURRY_FRONTEND', '')
@@ -646,7 +653,7 @@ def set_pakcs(settings):
     log('PAKCS is left out by request.')
     settings['PAKCS'] = ''
     return
-  frontend_given = bool(requested(OPTS.with_curry_frontend, 'CURRY_FRONTEND'))
+  frontend_given = bool(requested_frontend() or which('curry-frontend'))
   set_from_path(settings, 'PAKCS', 'pakcs', 'PAKCS executable'
     , web='https://www.curry-lang.org/pakcs/'
     , altdir='extern/pakcs-3.4.1/bin'
@@ -688,7 +695,7 @@ def check_frontend(settings):
   GOOD_FRONTEND_VERSIONS = [PINNED_FRONTEND_VERSION]
   log('Checking the Curry front end version', '...')
   try:
-    ver = shell('%s --numeric-version' % frontend)
+    ver = subprocess.check_output([frontend, '--numeric-version'], text=True).strip()
   except subprocess.CalledProcessError:
     log('FAILED')
     warn('Failed to run the Curry front end %s' % frontend)

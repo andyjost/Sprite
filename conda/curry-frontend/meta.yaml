@@ -1,22 +1,28 @@
-# Conda recipe for the Curry front end (linux-64), repackaged from the PAKCS
-# binary distribution.  A scaffold: not published.  See ../README.md.
+# Source-built artifacts support linux-64 and linux-aarch64. The original
+# checksum-pinned x86-64 repack remains available to existing build drivers.
 {% set version = "2.0.0" %}
 {% set pakcs_version = "3.4.1" %}
+{% set artifact = environ.get("SPRITE_FRONTEND_ARTIFACT", "") %}
+{% set info = load_file_data(artifact + "/build-info.json", from_recipe_dir=True) if artifact else {} %}
 
 package:
   name: curry-frontend
   version: {{ version }}
 
 source:
+{% if artifact %}
+  path: {{ artifact | tojson }}
+{% else %}
   # The PAKCS binary distribution for Linux.  Only bin/pakcs-frontend and
   # LICENSE are used.  The hash is that of the archive dated 2021-10-26.
   url: https://www.curry-lang.org/pakcs/download/pakcs-{{ pakcs_version }}-amd64-Linux.tar.gz
   sha256: d17d8b3c30564200d5f4ee3a4ee9882fbca5ed66b77b9317050e1f71ba955db2
+{% endif %}
 
 build:
-  number: 0
-  skip: true  # [not linux64]
-  string: pakcs{{ pakcs_version | replace(".", "") }}_{{ PKG_BUILDNUM }}
+  number: 1
+  skip: true  # [not (linux64 or (linux and aarch64))]
+  string: {{ "source" if artifact else "pakcs" }}{{ pakcs_version | replace(".", "") }}_{{ PKG_BUILDNUM }}
   # The binary is a GHC program linked against libgmp.so.10 and the C
   # library.  conda-build sets its run path to the lib directory of the
   # prefix, where gmp installs libgmp.
@@ -27,10 +33,12 @@ requirements:
     # libc, libm, libpthread, and friends, and the package gets its glibc
     # constraint.
     - {{ stdlib("c") }}
+    - patchelf
   host:
     - gmp
   run:
     - gmp
+    - __glibc >={{ info.get("glibc_required") or "2.17" }}
 
 test:
   commands:
@@ -51,7 +59,8 @@ about:
   summary: The Curry front end (Curry to FlatCurry) of PAKCS {{ pakcs_version }}
   description: |
     The front end of the Curry compilers, version {{ version }}, as shipped
-    in the PAKCS {{ pakcs_version }} binary distribution for Linux.  It
+    in PAKCS {{ pakcs_version }}. Set SPRITE_FRONTEND_ARTIFACT to the
+    source build's bundle directory for linux-64 or linux-aarch64. It
     translates Curry modules to FlatCurry.  Sprite runs it and translates the
     FlatCurry to ICurry itself.  The package installs bin/pakcs-frontend and
     the link bin/curry-frontend.

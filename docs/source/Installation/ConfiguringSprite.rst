@@ -39,8 +39,8 @@ These options are summarized in the following table:
 |                           |                |                    | compile Curry modules           |
 |                           |                |                    | (``tools/cxx``)                 |
 +---------------------------+----------------+--------------------+---------------------------------+
-| ``--with-curry-frontend`` | CURRY_FRONTEND | ``pakcs-frontend`` | Selects the Curry front end.    |
-|                           |                | of PAKCS           | Both routes need it.            |
+| ``--with-curry-frontend`` | SPRITE_FRONTEND| ``curry-frontend`` | Selects the Curry front end.    |
+|                           | CURRY_FRONTEND | on PATH, or PAKCS  | Both routes need it.            |
 +---------------------------+----------------+--------------------+---------------------------------+
 | ``--with-icurry``         | ICURRY         | none               | Selects icurry, the alternative |
 |                           |                |                    | route to ICurry (optional)      |
@@ -180,6 +180,36 @@ To install these yourself, follow the instructions at the links below:
         it, and neither does Sprite.
   * Optional: `ICurry Compiler 3.1.0 <https://cpm.curry-lang.org/pkgs/icurry.html>`__,
     the alternative route from Curry to ICurry.
+
+The standalone front-end package
+--------------------------------
+
+The platform wheel ``currylang-frontend`` installs the command
+``curry-frontend`` and needs no Haskell tools at run time. Wheels built by
+the front-end CI workflow are artifacts for review; they are not published
+to PyPI. Install the wheel for your platform, then configure Sprite::
+
+    python -m pip install /path/to/currylang_frontend-2.0.0.post1-py3-none-PLATFORM.whl
+    ./configure --with-pakcs '' --with-curry-frontend curry-frontend
+    make stage
+
+``configure`` accepts a command on PATH or a path to an executable. The
+command-line option takes precedence over ``SPRITE_FRONTEND``, then the
+older ``CURRY_FRONTEND`` variable. Without an override it finds
+``curry-frontend`` on PATH, then the front end of the selected PAKCS or
+``pakcs-frontend`` on PATH. The installed ``tools/curry-frontend`` link
+points to the selected executable, including a wheel's console script.
+
+At run time ``SPRITE_FRONTEND`` overrides that link; it may also name a
+command on PATH. If the link is absent, Sprite searches PATH for
+``curry-frontend``, then ``pakcs-frontend``. An empty ``SPRITE_FRONTEND``
+disables the front end. For example::
+
+    export SPRITE_FRONTEND=curry-frontend
+    python -m curry.tools.icy
+
+The required front-end program version remains ``2.0.0``. The wheel's
+``.post1`` suffix versions Sprite's packaging, not the Curry language.
 
 Setting the Configuration
 -------------------------

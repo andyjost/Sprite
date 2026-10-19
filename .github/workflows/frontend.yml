@@ -1,0 +1,189 @@
+name: Curry front end from source
+
+'on':
+  push:
+    branches: [wt/frontend]
+  workflow_dispatch:
+    inputs:
+      source_url:
+        description: Reviewed source archive URL (requires source_sha256)
+        type: string
+        default: ''
+      source_sha256:
+        description: Reviewed source archive SHA-256 (requires source_url)
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: true
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: x86-64
+            runner: ubuntu-24.04
+            ghc: '8.8.3'
+          - name: aarch64
+            runner: ubuntu-24.04-arm
+            ghc: '9.6.7'
+    defaults:
+      run:
+        shell: bash
+    env:
+      LC_ALL: C.UTF-8
+      SPRITE_CACHE_FILE: ''
+      SPRITE_PRODUCT_CACHE: ''
+      SPRITE_CURRY2ICURRY: frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Runner and system dependencies
+        run: |
+          set -euxo pipefail
+          mkdir -p frontend-work/logs
+          exec > >(tee frontend-work/logs/runner.log) 2>&1
+          uname -a
+          cat /etc/os-release
+          python --version
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            g++ make binutils curl pkg-config patch libgmp-dev \
+            zlib1g-dev libtinfo-dev patchelf
+          python -m pip install --verbose 'setuptools>=68' wheel auditwheel numpy
+          python -m pip list
+          gcc --version
+          ldd --version
+          patchelf --version
+          python -m auditwheel --version
+      - name: Fetch and inspect source, separately from compilation
+        id: fetch
+        env:
+          SOURCE_URL: ${{ inputs.source_url }}
+          SOURCE_SHA256: ${{ inputs.source_sha256 }}
+        run: |
+          set -euxo pipefail
+          args=()
+          if [ -n "$SOURCE_URL$SOURCE_SHA256" ]; then
+            args+=(--url "$SOURCE_URL" --sha256 "$SOURCE_SHA256")
+          fi
+          python frontend/fetch.py --output frontend-work/fetch "${args[@]}" \
+            2>&1 | tee frontend-work/logs/fetch.log
+      - name: Set up the target Haskell toolchain
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: ${{ matrix.ghc }}
+          cabal-version: '3.10.3.0'
+          enable-stack: true
+          stack-version: '2.15.7'
+      - name: Build 2.0.0, static first then dynamic
+        id: compile
+        run: |
+          set -euxo pipefail
+          bash frontend/build.sh frontend-work/fetch/source frontend-work/build \
+            2>&1 | tee frontend-work/logs/build.log
+      # Packaging is independent of the parity outcome. An experimental
+      # wheel is useful even when the compiler differs; it is never released.
+      - name: Bundle the executable and build a platform wheel
+        id: wheel
+        if: ${{ !cancelled() && steps.compile.outcome == 'success' }}
+        run: |
+          set -euxo pipefail
+          python frontend/package.py --binary frontend-work/build/curry-frontend \
+            --licenses frontend-work/fetch/licenses --output frontend-work/wheels \
+            2>&1 | tee frontend-work/logs/wheel.log
+          python frontend/package.py --binary frontend-work/build/curry-frontend \
+            --licenses frontend-work/fetch/licenses --bundle-only \
+            --output frontend-work/bundle 2>&1 | tee frontend-work/logs/bundle.log
+      - name: Audit or validate and tag manylinux 2.28
+        id: tag
+        if: ${{ !cancelled() && steps.wheel.outcome == 'success' }}
+        run: |
+          set -euxo pipefail
+          python frontend/tag-wheel.py frontend-work/wheels/*.whl \
+            --info frontend-work/wheels/build-info.json \
+            --output frontend-work/dist 2>&1 | tee frontend-work/logs/auditwheel.log
+      - name: Install wheel offline and test its console script
+        if: ${{ !cancelled() && steps.wheel.outcome == 'success' }}
+        run: |
+          set -euxo pipefail
+          exec > >(tee frontend-work/logs/wheel-smoke.log) 2>&1
+          python -m venv frontend-work/smoke
+          # The original Linux wheel remains usable if a stricter tag failed.
+          frontend-work/smoke/bin/python -m pip install --no-index --no-deps \
+            frontend-work/wheels/*-linux_*.whl
+          test "$(frontend-work/smoke/bin/curry-frontend --numeric-version)" = 2.0.0
+          frontend-work/smoke/bin/curry-frontend --version
+      - name: Stage Sprite using the source-built front end
+        id: stage
+        if: ${{ !cancelled() && steps.compile.outcome == 'success' }}
+        run: |
+          set -euxo pipefail
+          python ./configure --with-python="$(command -v python)" \
+            --with-pakcs '' --with-icurry '' \
+            --with-curry-frontend="$PWD/frontend-work/build/curry-frontend" \
+            2>&1 | tee frontend-work/logs/configure.log
+          make stage 2>&1 | tee frontend-work/logs/stage.log
+      - name: Byte parity with pinned ICurry and FlatCurry interfaces
+        id: parity
+        if: ${{ !cancelled() && steps.stage.outcome == 'success' }}
+        run: |
+          set -euxo pipefail
+          install/bin/python frontend/parity.py \
+            --binary frontend-work/build/curry-frontend \
+            --baseline frontend/reference --output frontend-work/parity \
+            2>&1 | tee frontend-work/logs/parity.log
+      - name: Render conda recipe if conda-build is available
+        if: ${{ !cancelled() && steps.wheel.outcome == 'success' }}
+        run: |
+          set -euxo pipefail
+          exec > >(tee frontend-work/logs/conda-render.log) 2>&1
+          export SPRITE_FRONTEND_ARTIFACT="$PWD/frontend-work/bundle"
+          if command -v conda >/dev/null && conda render --help >/dev/null 2>&1; then
+            conda render conda/curry-frontend
+          else
+            echo 'conda-build is unavailable; no conda build was attempted.'
+          fi
+      - name: Write the entry outcome
+        if: always()
+        env:
+          FETCH: ${{ steps.fetch.outcome }}
+          COMPILE: ${{ steps.compile.outcome }}
+          WHEEL: ${{ steps.wheel.outcome }}
+          TAG: ${{ steps.tag.outcome }}
+          STAGE: ${{ steps.stage.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
+        run: |
+          mkdir -p frontend-work
+          printf 'fetch=%s\nbuild=%s\nwheel=%s\ntag=%s\nstage=%s\nparity=%s\n' \
+            "$FETCH" "$COMPILE" "$WHEEL" "$TAG" "$STAGE" "$PARITY" \
+            | tee frontend-work/outcome.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload source, logs, binary, wheels, and both sides of parity
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-${{ matrix.name }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          include-hidden-files: true
+          path: |
+            frontend-work/logs/
+            frontend-work/outcome.txt
+            frontend-work/fetch/
+            frontend-work/build/
+            frontend-work/bundle/
+            frontend-work/wheels/
+            frontend-work/dist/
+            frontend-work/parity/
+            configure.log
+            !frontend-work/fetch/source/.stack-work/**
+            !frontend-work/fetch/source/dist-newstyle/**
