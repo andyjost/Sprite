@@ -1,0 +1,102 @@
+name: Release the front end
+
+# Publishes the wheels of curry-frontend that a green run of the workflow
+# "Curry front end from source" built, to TestPyPI or to PyPI, through
+# Trusted Publishing (no token is stored; PyPI trusts this workflow file in
+# this repository, in the GitHub environment "pypi", which the maintainer
+# protects with a required review).  Started by hand with the id of the run
+# whose artifacts are published.  Issue #159 names the wheel curry_frontend;
+# a run from before that rename is refused, so the old name never reaches
+# an index.
+
+'on':
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: The id of the green run of "Curry front end from source" whose wheels are published
+        type: string
+        required: true
+      index:
+        description: The index to publish to
+        type: choice
+        options: [testpypi, pypi]
+        default: testpypi
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    name: collect the wheels of run ${{ inputs.run_id }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Check the run and download its artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          set -euxo pipefail
+          gh run view "$RUN_ID" --json workflowName,conclusion,headBranch,headSha,displayTitle
+          test "$(gh run view "$RUN_ID" --json workflowName --jq .workflowName)" = 'Curry front end from source'
+          test "$(gh run view "$RUN_ID" --json conclusion --jq .conclusion)" = success
+          gh run download "$RUN_ID" --pattern 'frontend-*' --dir artifacts
+          # The manylinux-tagged wheel of each target is under dist/; the
+          # wheels/ directory holds the linux_* wheel, which PyPI refuses.
+          mkdir -p dist
+          find artifacts -path '*/dist/*.whl' -exec cp -v '{}' dist/ ';'
+          ls -l dist
+      - name: Refuse a run from before the rename, and a count other than two
+        run: |
+          set -euxo pipefail
+          count=$(ls dist/*.whl | wc -l)
+          named=$(ls dist/curry_frontend-*.whl 2>/dev/null | wc -l)
+          if [ "$count" != 2 ] || [ "$named" != 2 ]; then
+            echo "expected two wheels named curry_frontend-*, found:" >&2
+            ls -l dist >&2
+            exit 1
+          fi
+      - name: Check the metadata and run the x86-64 wheel
+        run: |
+          set -euxo pipefail
+          python3 -m venv tools
+          tools/bin/python -m pip install --quiet twine
+          tools/bin/python -m twine check --strict dist/*.whl
+          python3 -m venv smoke
+          smoke/bin/python -m pip install --no-index --no-deps dist/curry_frontend-*x86_64.whl
+          test "$(smoke/bin/curry-frontend --numeric-version)" = 2.0.0
+          smoke/bin/curry-frontend --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-wheels-${{ inputs.run_id }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  publish:
+    name: publish to ${{ inputs.index }}
+    needs: collect
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: pypi
+      url: ${{ inputs.index == 'pypi' && 'https://pypi.org/p/curry-frontend' || 'https://test.pypi.org/p/curry-frontend' }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-wheels-${{ inputs.run_id }}
+          path: dist
+      - name: List what is published
+        run: ls -l dist
+      - name: Publish through Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: ${{ inputs.index == 'pypi' && 'https://upload.pypi.org/legacy/' || 'https://test.pypi.org/legacy/' }}
+          packages-dir: dist
+          print-hash: true
