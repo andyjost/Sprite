@@ -1,4 +1,5 @@
 import cytest # from ./lib; must be first
+from cytest.buildtools import cmake_executable
 from curry import config, icurry
 from curry.toolchain import _frontend
 import curry, glob, hashlib, os, shutil, subprocess, sys, tempfile, unittest, zlib
@@ -245,9 +246,12 @@ class TestCurryLib(cytest.TestCase):
     build = os.path.join(ROOT, 'object-root', 'cmake')
     if not os.path.isfile(os.path.join(build, 'CMakeCache.txt')):
       self.skipTest('the source tree has no CMake build')
+    cmake = cmake_executable(build)
+    if cmake is None:
+      self.skipTest('cmake is not available')
     with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as prefix:
       result = subprocess.run(
-          ['cmake', '--install', build, '--prefix', prefix], env=ENV
+          [cmake, '--install', build, '--prefix', prefix], env=ENV
         , stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=600)
       self.assertEqual(result.returncode, 0, result.stdout)
       libdir = os.path.join(prefix, 'curry')
@@ -268,7 +272,7 @@ class TestCurryLib(cytest.TestCase):
         with open(stamp) as stream:
           self.assertEqual(stream.read().splitlines()[1], os.path.realpath(prefix))
       result = subprocess.run(
-          ['cmake', '--install', build, '--prefix', prefix], env=ENV
+          [cmake, '--install', build, '--prefix', prefix], env=ENV
         , stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=600)
       self.assertEqual(result.returncode, 0, result.stdout)
       self.assertNotIn('--flat', result.stdout)

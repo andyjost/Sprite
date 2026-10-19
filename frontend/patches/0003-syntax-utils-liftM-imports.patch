@@ -1,0 +1,14 @@
+GHC 9.6.7 / mtl 2.3.1: Curry.Syntax.Utils no longer gets liftM2 and
+liftM3 from Control.Monad.State (CI run 2, errors at lines 69 and 96).
+Import the original functions explicitly; the predicates are unchanged.
+
+--- a/src/Curry/Syntax/Utils.hs
++++ b/src/Curry/Syntax/Utils.hs
+@@ -36,6 +36,7 @@
+   , shortenModuleAST
+   ) where
+ 
++import Control.Monad (liftM2, liftM3)
+ import Control.Monad.State
+ 
+ import Curry.Base.Ident

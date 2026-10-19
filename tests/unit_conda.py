@@ -199,6 +199,10 @@ class TestCondaRecipe(cytest.TestCase):
     script = readfile(FRONTEND_RECIPE, 'build.sh')
     self.assertIn('bin/pakcs-frontend', script)
     self.assertIn('curry-frontend', script)
+    self.assertIn('SPRITE_FRONTEND_ARTIFACT', meta)
+    self.assertIn('linux and aarch64', meta)
+    self.assertIn('build-info.json', script)
+    self.assertIn("patchelf --set-rpath '$ORIGIN/../lib'", script)
 
   def test_readme(self):
     '''The README covers the two recipes and the open questions.'''

@@ -1,0 +1,13 @@
+GHC 9.6.7 / mtl 2.3.1: liftM is no longer re-exported by the imports in
+Curry.Base.Monad. Import the same function explicitly; no evaluation changes.
+
+--- a/src/Curry/Base/Monad.hs
++++ b/src/Curry/Base/Monad.hs
+@@ -17,6 +17,7 @@
+   , ok, runCYIO, runCYM, runCYIOIgnWarn, runCYMIgnWarn, liftCYM, silent
+   ) where
+ 
++import Control.Monad (liftM)
+ import Control.Monad.Identity
+ import Control.Monad.Trans.Except (ExceptT, mapExceptT, runExceptT, throwE)
+ import Control.Monad.Writer

@@ -1,6 +1,7 @@
 """Native configuration, runtime facts and the thin developer wrappers."""
 import cytest # from ./lib; must be first
 from curry import config
+from cytest.buildtools import cmake_executable
 import importlib.util
 import os
 from pathlib import Path
@@ -25,13 +26,16 @@ class TestCMake(cytest.TestCase):
     self.addCleanup(self.directory.cleanup)
     self.build = Path(self.directory.name) / 'build'
     self.frontend = config.curry_frontend()
-    if not shutil.which('cmake') or not self.frontend:
+    if not cmake_executable() or not self.frontend:
       self.skipTest('CMake and the staged Curry front end are required')
 
-  def configure(self, *options):
-    return run('cmake', '-S', ROOT, '-B', self.build, '-G', 'Ninja',
-        '-DPython_EXECUTABLE=' + sys.executable, '-DWITH_PAKCS=',
-        '-DWITH_CURRY_FRONTEND=' + os.path.realpath(self.frontend), *options)
+  def configure(self, *options, build=None, env=None, frontend=True):
+    '''Configures a build directory; ``frontend=False`` leaves the choice to CMake.'''
+    args = [cmake_executable(), '-S', ROOT, '-B', self.build if build is None else build,
+            '-G', 'Ninja', '-DPython_EXECUTABLE=' + sys.executable, '-DWITH_PAKCS=']
+    if frontend:
+      args.append('-DWITH_CURRY_FRONTEND=' + os.path.realpath(self.frontend))
+    return run(*args, *options, env=env)
 
   def cache(self, name):
     for line in (self.build / 'CMakeCache.txt').read_text().splitlines():
@@ -123,6 +127,58 @@ class TestCMake(cytest.TestCase):
     self.assertEqual(result.returncode, 0, result.stdout)
     commands = result.stdout.splitlines()
     self.assertTrue(any(str(launcher) in line and ' -c ' in line for line in commands))
+
+
+  def test_frontend_selection(self):
+    '''SPRITE_FRONTEND, CURRY_FRONTEND and an explicit name select the front end.'''
+    bindir = Path(self.directory.name) / 'bin'
+    bindir.mkdir()
+    packaged = bindir / 'curry-frontend'
+    override = bindir / 'other-frontend'
+    for script in [packaged, override]:
+      script.write_text('#!/bin/sh\necho 2.0.0\n')
+      script.chmod(0o755)
+    env = dict(os.environ, PATH=str(bindir) + os.pathsep + os.environ.get('PATH', ''))
+    env.pop('SPRITE_FRONTEND', None)
+    env.pop('CURRY_FRONTEND', None)
+    cases = [
+        # The environment decides an AUTO configuration.
+        ('SPRITE_FRONTEND', 'other-frontend', [], override)
+        # The older variable is the default of the option.
+      , ('CURRY_FRONTEND', 'other-frontend', [], override)
+        # An explicit name on the command line wins over the environment.
+      , ('SPRITE_FRONTEND', 'other-frontend', ['-DWITH_CURRY_FRONTEND=curry-frontend'], packaged)
+      ]
+    for i, (variable, value, options, expected) in enumerate(cases):
+      with self.subTest(variable=variable, options=options):
+        build = Path(self.directory.name) / ('build%d' % i)
+        case_env = dict(env)
+        case_env[variable] = value
+        result = self.configure(*options, build=build, env=case_env, frontend=False)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        ninja = (build / 'build.ninja').read_text()
+        other = override if expected is packaged else packaged
+        self.assertIn(str(expected.resolve()), ninja)
+        self.assertNotIn(str(other.resolve()), ninja)
+
+  def test_frontend_runtime_selection(self):
+    '''Environment changes take effect; a missing staged link falls to PATH.'''
+    bindir = Path(self.directory.name) / 'runtime'
+    bindir.mkdir()
+    packaged = bindir / 'curry-frontend'
+    packaged.write_text('#!/bin/sh\necho 2.0.0\n')
+    packaged.chmod(0o755)
+    missing = str(bindir / 'missing')
+    with mock.patch.dict(os.environ, PATH=str(bindir)):
+      os.environ.pop('SPRITE_FRONTEND', None)
+      with mock.patch.object(config, 'installed_path', return_value=missing):
+        self.assertEqual(config.curry_frontend(), str(packaged))
+        os.environ['SPRITE_FRONTEND'] = self.frontend
+        self.assertEqual(config.curry_frontend(), self.frontend)
+        os.environ['SPRITE_FRONTEND'] = 'missing'
+        self.assertIsNone(config.curry_frontend())
+        os.environ['SPRITE_FRONTEND'] = ''
+        self.assertIsNone(config.curry_frontend())
 
 
 class TestWrappers(cytest.TestCase):

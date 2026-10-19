@@ -1,0 +1,255 @@
+name: Curry front end from source
+
+'on':
+  push:
+    branches: [master, wt/frontend]
+    paths:
+      - frontend/**
+      - conda/curry-frontend/**
+      - src/python/config.py
+      - .github/workflows/frontend.yml
+  workflow_dispatch:
+    inputs:
+      source_url:
+        description: Reviewed source archive URL (requires source_sha256)
+        type: string
+        default: ''
+      source_sha256:
+        description: Reviewed source archive SHA-256 (requires source_url)
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    # Keep the Ubuntu hosts; link dynamically against glibc 2.28 and bundle
+    # the container's GMP. AlmaLinux 8 does not provide a static GMP archive.
+    container:
+      image: ${{ matrix.image }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: x86-64
+            runner: ubuntu-24.04
+            image: quay.io/pypa/manylinux_2_28_x86_64
+            ghc: '8.8.3'
+          - name: aarch64
+            runner: ubuntu-24.04-arm
+            image: quay.io/pypa/manylinux_2_28_aarch64
+            ghc: '9.6.7'
+    defaults:
+      run:
+        shell: bash
+    env:
+      LC_ALL: C.UTF-8
+      # The container's default home has a different owner; Stack refuses it.
+      # Job scope also covers failure collection and action steps.
+      HOME: ${{ github.workspace }}/frontend-work/home
+      STACK_ROOT: ${{ github.workspace }}/frontend-work/home/.stack
+      CABAL_DIR: ${{ github.workspace }}/frontend-work/home/.cabal
+      GHCUP_INSTALL_BASE_PREFIX: ${{ github.workspace }}/frontend-work/home
+      SPRITE_CACHE_FILE: ''
+      SPRITE_PRODUCT_CACHE: ''
+      SPRITE_CURRY2ICURRY: frontend
+      # Verified in CI run 1 on both architectures. Overrides require a pair.
+      FRONTEND_SOURCE_URL: https://www.curry-lang.org/pakcs/download/pakcs-3.4.1-src.tar.gz
+      FRONTEND_SOURCE_SHA256: 71e8030e2efb2295c5862e0c09c9ea2497cfc3b971d8903ce40df66d25e47c22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Select the container's CPython 3.14
+        run: |
+          set -euxo pipefail
+          test -x /opt/python/cp314-cp314/bin/python
+          echo /opt/python/cp314-cp314/bin >> "$GITHUB_PATH"
+      - name: Runner and system dependencies
+        run: |
+          set -euxo pipefail
+          mkdir -p frontend-work/logs "$HOME" "$STACK_ROOT" "$CABAL_DIR"
+          exec > >(tee frontend-work/logs/runner.log) 2>&1
+          id
+          ls -ld "$HOME" "$STACK_ROOT" "$CABAL_DIR" "$GHCUP_INSTALL_BASE_PREFIX"
+          uname -a
+          cat /etc/os-release
+          python --version
+          dnf install -y gcc gcc-c++ make binutils curl pkgconf-pkg-config \
+            patch gmp-devel glibc-devel zlib-devel \
+            ncurses-devel ncurses-compat-libs numactl-libs patchelf file xz
+          rpm -q glibc glibc-devel gmp gmp-devel
+          python -m pip install --verbose 'setuptools>=68' wheel auditwheel numpy cmake ninja scikit-build-core
+          python -m pip list
+          gcc --version
+          ldd --version
+          patchelf --version
+          python -m auditwheel --version
+      - name: Fetch and inspect source, separately from compilation
+        id: fetch
+        env:
+          SOURCE_URL: ${{ inputs.source_url }}
+          SOURCE_SHA256: ${{ inputs.source_sha256 }}
+        run: |
+          set -euxo pipefail
+          args=(--url "$FRONTEND_SOURCE_URL" --sha256 "$FRONTEND_SOURCE_SHA256")
+          if [ -n "$SOURCE_URL$SOURCE_SHA256" ]; then
+            args=(--url "$SOURCE_URL" --sha256 "$SOURCE_SHA256")
+          fi
+          python frontend/fetch.py --output frontend-work/fetch "${args[@]}" \
+            2>&1 | tee frontend-work/logs/fetch.log
+      - name: Set up the target Haskell toolchain
+        id: toolchain
+        env:
+          EXPECTED_GHC: ${{ matrix.ghc }}
+        run: |
+          set -euxo pipefail
+          exec > >(tee frontend-work/logs/toolchain.log) 2>&1
+          # The job's writable home also holds ghcup, Cabal, and Stack state.
+          export BOOTSTRAP_HASKELL_NONINTERACTIVE=1
+          export BOOTSTRAP_HASKELL_MINIMAL=1
+          export BOOTSTRAP_HASKELL_ADJUST_BASHRC=0
+          curl --fail --location --retry 3 https://get-ghcup.haskell.org \
+            --output frontend-work/ghcup-bootstrap.sh
+          sha256sum frontend-work/ghcup-bootstrap.sh
+          bash frontend-work/ghcup-bootstrap.sh
+          export PATH="$GHCUP_INSTALL_BASE_PREFIX/.ghcup/bin:$PATH"
+          echo "$GHCUP_INSTALL_BASE_PREFIX/.ghcup/bin" >> "$GITHUB_PATH"
+          ghcup --version
+          ghcup --verbose install ghc "$EXPECTED_GHC"
+          ghcup set ghc "$EXPECTED_GHC"
+          ghcup --verbose install cabal 3.10.3.0
+          ghcup set cabal 3.10.3.0
+          if [ "$(uname -m)" = x86_64 ]; then
+            ghcup --verbose install stack 2.15.7
+            ghcup set stack 2.15.7
+            stack --version
+          fi
+          for tool in ghc ghc-pkg cabal; do
+            command -v "$tool"
+            readlink -f "$(command -v "$tool")"
+            "$tool" --version
+          done
+          test "$(ghc --numeric-version)" = "$EXPECTED_GHC"
+          test "$(cabal --numeric-version)" = 3.10.3.0
+      - name: Build 2.0.0 with dynamic system libraries in manylinux 2.28
+        id: compile
+        run: |
+          set -euxo pipefail
+          bash frontend/build.sh frontend-work/fetch/source frontend-work/build \
+            2>&1 | tee frontend-work/logs/build.log
+      # Packaging is independent of the parity outcome. An experimental
+      # wheel is useful even when the compiler differs; it is never released.
+      - name: Bundle the executable and build a platform wheel
+        id: wheel
+        if: ${{ !cancelled() && steps.compile.outcome == 'success' }}
+        run: |
+          set -euxo pipefail
+          python frontend/package.py --binary frontend-work/build/curry-frontend \
+            --licenses frontend-work/fetch/licenses --output frontend-work/wheels \
+            2>&1 | tee frontend-work/logs/wheel.log
+          python frontend/package.py --binary frontend-work/build/curry-frontend \
+            --licenses frontend-work/fetch/licenses --bundle-only \
+            --output frontend-work/bundle 2>&1 | tee frontend-work/logs/bundle.log
+          # Show which payload (executable or GMP) sets the glibc floor.
+          for elf in frontend-work/bundle/bin/*; do
+            echo "$elf"
+            readelf -d -V "$elf"
+          done 2>&1 | tee frontend-work/logs/bundled-elf.log
+      - name: Audit or validate and tag manylinux 2.28
+        id: tag
+        if: ${{ !cancelled() && steps.wheel.outcome == 'success' }}
+        run: |
+          set -euxo pipefail
+          python frontend/tag-wheel.py frontend-work/wheels/*.whl \
+            --info frontend-work/wheels/build-info.json \
+            --output frontend-work/dist 2>&1 | tee frontend-work/logs/auditwheel.log
+      - name: Install wheel offline and test its console script
+        if: ${{ !cancelled() && steps.wheel.outcome == 'success' }}
+        run: |
+          set -euxo pipefail
+          exec > >(tee frontend-work/logs/wheel-smoke.log) 2>&1
+          python -m venv frontend-work/smoke
+          # The original Linux wheel remains usable if a stricter tag failed.
+          frontend-work/smoke/bin/python -m pip install --no-index --no-deps \
+            frontend-work/wheels/*-linux_*.whl
+          test "$(frontend-work/smoke/bin/curry-frontend --numeric-version)" = 2.0.0
+          frontend-work/smoke/bin/curry-frontend --version
+      - name: Stage Sprite using the source-built front end
+        id: stage
+        if: ${{ !cancelled() && steps.compile.outcome == 'success' }}
+        run: |
+          set -euxo pipefail
+          cmake -S . -B object-root/cmake -G Ninja \
+            -DPython_EXECUTABLE="$(command -v python)" \
+            -DWITH_PAKCS= -DWITH_ICURRY= \
+            -DWITH_CURRY_FRONTEND="$PWD/frontend-work/build/curry-frontend" \
+            2>&1 | tee frontend-work/logs/cmake.log
+          make stage 2>&1 | tee frontend-work/logs/stage.log
+      - name: Byte parity with pinned ICurry and FlatCurry interfaces
+        id: parity
+        if: ${{ !cancelled() && steps.stage.outcome == 'success' }}
+        run: |
+          set -euxo pipefail
+          install/bin/python frontend/parity.py \
+            --binary frontend-work/build/curry-frontend \
+            --baseline frontend/reference --output frontend-work/parity \
+            2>&1 | tee frontend-work/logs/parity.log
+      - name: Render conda recipe if conda-build is available
+        if: ${{ !cancelled() && steps.wheel.outcome == 'success' }}
+        run: |
+          set -euxo pipefail
+          exec > >(tee frontend-work/logs/conda-render.log) 2>&1
+          export SPRITE_FRONTEND_ARTIFACT="$PWD/frontend-work/bundle"
+          if command -v conda >/dev/null && conda render --help >/dev/null 2>&1; then
+            conda render conda/curry-frontend
+          else
+            echo 'conda-build is unavailable; no conda build was attempted.'
+          fi
+      - name: Write the entry outcome
+        if: always()
+        env:
+          FETCH: ${{ steps.fetch.outcome }}
+          TOOLCHAIN: ${{ steps.toolchain.outcome }}
+          COMPILE: ${{ steps.compile.outcome }}
+          WHEEL: ${{ steps.wheel.outcome }}
+          TAG: ${{ steps.tag.outcome }}
+          STAGE: ${{ steps.stage.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
+        run: |
+          mkdir -p frontend-work
+          printf 'fetch=%s\ntoolchain=%s\nbuild=%s\nwheel=%s\ntag=%s\nstage=%s\nparity=%s\n' \
+            "$FETCH" "$TOOLCHAIN" "$COMPILE" "$WHEEL" "$TAG" "$STAGE" "$PARITY" \
+            | tee frontend-work/outcome.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Collect ghcup, Stack, and Cabal logs even after failure
+        if: always()
+        run: |
+          set -euxo pipefail
+          mkdir -p frontend-work/logs
+          python frontend/collect-logs.py --source frontend-work/fetch/source \
+            --output frontend-work/logs/haskell \
+            2>&1 | tee frontend-work/logs/collect-haskell.log
+      - name: Upload source, logs, binary, wheels, and both sides of parity
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-${{ matrix.name }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          include-hidden-files: true
+          path: |
+            frontend-work/logs/
+            frontend-work/outcome.txt
+            frontend-work/fetch/
+            frontend-work/ghcup-bootstrap.sh
+            frontend-work/build/
+            frontend-work/bundle/
+            frontend-work/wheels/
+            frontend-work/dist/
+            frontend-work/parity/
+            frontend-work/logs/cmake.log
+            !frontend-work/fetch/source/.stack-work/**
+            !frontend-work/fetch/source/dist-newstyle/**

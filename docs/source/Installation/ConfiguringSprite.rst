@@ -28,27 +28,7 @@ Use ``cmake -LAH -N object-root/cmake`` to inspect them.
 The options
 -----------
 
-==============================  ============================================================
-Option                          Meaning and default
-==============================  ============================================================
-``WITH_CURRY_FRONTEND``         Front end 2.0.0; ``AUTO`` searches PAKCS and PATH
-``WITH_PAKCS``                  Optional oracle 3.4.1; ``AUTO`` searches PATH
-``WITH_ICURRY``                 Optional translator; empty by default
-``CURRY2ICURRY_TOOL``           ``frontend`` (default) or ``icurry``
-``WITH_CCACHE``                 Compiler launcher; empty disables it (default)
-``WITH_CXX_POSTINSTALL``        Compiler for generated modules; the build compiler
-``WITH_DEFAULT_BACKEND``        ``cxx`` (default); see Developer Notes
-``GC``                          ``wdgc`` (default) or ``mps``
-``CMAKE_BUILD_TYPE``            ``Release`` (default) or ``Debug``
-``JOBS``                        Library parallelism; ``auto`` (default) or a count
-``TRACE``                       Computation tracing; ``OFF``
-``COUNTERS``                    Scheduler counters; ``OFF``
-``GC_WRITE_COUNTERS``           Old-node write counters with wdgc; ``OFF``
-``SPRITE_REBUILD_ICY``          Rebuild pinned ICurry; ``OFF``
-``ENABLE_ICURRY_CACHE``         Enable the user ICurry cache by default; ``OFF``
-``ENABLE_PARSED_JSON_CACHE``    Cache parsed JSON by default; ``OFF``
-==============================  ============================================================
-
+==============================  =====================================================
 Pass each setting as ``-DNAME=value``. An empty ``WITH_PAKCS`` disables the
 oracle. Both translation routes require the Curry front end at build time.
 The MPS collector needs the ``extern/mps`` submodule. CMake honours ``CC``,
@@ -61,6 +41,39 @@ For a parallel developer build with ccache::
 
 ``make stage JOBS=4`` or ``make -j4 stage`` limits native compilation and
 the library build. An explicit ``-j`` wins over ``JOBS``.
+
+The standalone front-end package
+--------------------------------
+
+The platform wheel ``currylang-frontend`` installs the command
+``curry-frontend`` and needs no Haskell tools at run time. The wheels that
+the front-end CI workflow builds are artifacts for review; they are not
+published to PyPI. Install the wheel for your platform, then configure
+Sprite without PAKCS::
+
+    python -m pip install /path/to/currylang_frontend-2.0.0.postN-py3-none-PLATFORM.whl
+    cmake -S . -B object-root/cmake -G Ninja -DWITH_PAKCS= -DWITH_CURRY_FRONTEND=curry-frontend
+    make stage
+
+``WITH_CURRY_FRONTEND`` accepts a command on PATH or a path to an
+executable. With ``AUTO``, the default, the configuration takes
+``SPRITE_FRONTEND`` from the environment when it is set, and otherwise
+searches the directory of the selected PAKCS, the staged ``install/tools``
+and PATH for ``pakcs-frontend`` or ``curry-frontend``. The older variable
+``CURRY_FRONTEND`` sets the default of the option. The installed
+``tools/curry-frontend`` link points to the selected executable, a wheel's
+console script included.
+
+At run time ``SPRITE_FRONTEND`` overrides that link; it may name a command
+on PATH. If the link is absent, Sprite searches PATH for ``curry-frontend``,
+then ``pakcs-frontend``. An empty ``SPRITE_FRONTEND`` disables the front
+end. For example::
+
+    export SPRITE_FRONTEND=curry-frontend
+    python -m curry.tools.icy
+
+The required front-end program version remains ``2.0.0``. The wheel's
+``.postN`` suffix versions Sprite's packaging, not the Curry language.
 
 Wheels
 ------
