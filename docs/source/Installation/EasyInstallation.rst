@@ -5,32 +5,54 @@
 Easy Installation
 =================
 
-If you don't mind letting Sprite install missing dependencies, all you need to
-do is issue `one` of the commands below.
+On Linux, choose the path that fits your Python setup.
 
-  - **Automated** (no confirmation)::
+Without a suitable Python
+-------------------------
 
-        wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite | sh
+The installer brings its own Python; you do not need to replace the Python
+of your operating system. Run::
 
-    or::
+    curl -LsSf https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite | sh
 
-        curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite | sh
+For confirmation before each installation step, use::
 
-  - **Interactive** (confirmation at each step)::
+    curl -LsSf https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite-i | sh
 
-        wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite-i | sh
+The scripts install uv if needed, then use it to download a managed CPython
+3.11.4 or newer (through 3.15) and install ``currylang`` with its dependency
+``curry-frontend`` in an isolated environment in your home directory. They
+leave the system Python alone and never use sudo. Run the script again to
+upgrade Sprite.
 
-    or::
+Add the commands ``sprite-exec`` and ``sprite-make`` to your PATH for this
+shell, and put the same line in your shell startup file::
 
-        curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite-i | sh
+    export PATH="$HOME/.local/bin:$PATH"
 
-These commands may ask for root access to install dependencies using your
-platform's package manager (currently, only apt is supported) and Python's
-package manger (pip).
+To preview the plan without installing anything, download either script
+and run ``sh getsprite --dry-run`` or ``sh getsprite-i --dry-run``.
 
-Sprite is installed under $HOME/Sprite.  If you prefer another location, you
-can afterwards say::
+With your own Python
+--------------------
 
-    make -C $HOME/Sprite install PREFIX=/path/to/sprite
+If you already have Python 3.11.4 or newer (through 3.15), install into your
+Python environment with::
 
+    pip install currylang
 
+This installs ``curry-frontend`` too. The wheels work with plain pip;
+uv is a dependency of the installer alone. See :ref:`custom-install` for
+platform support and installation from source.
+
+From Python
+-----------
+
+Python developers can use the Python they installed into as the front door.
+Run a Curry source program, or open the Curry REPL with no argument::
+
+    python -m curry MyProgram.curry
+    python -m curry
+
+A C++ compiler (``g++``) is optional. Without one, new modules run interpreted;
+see :doc:`WithoutCompiler`.

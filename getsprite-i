@@ -1,58 +1,97 @@
-# Installs Sprite interactively.
-#
-# Usage:
-#
-#     wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite-i | sh
-#     curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite-i | sh
-#
-# GitHub:
-#
-#     https://github.com/andyjost/Sprite
-#
-# Documentation:
-#
-#     Build it locally: make -C $HOME/Sprite/docs html
-#     (output under $HOME/Sprite/object-root/docs/html)
+#!/bin/sh
+# Install Sprite with uv; this file also works when piped into sh.
+interactive=1
+set -eu
 
-SCRIPT=$HOME/getsprite-i.sh
-(
-cat <<'EOF'
-if [ -d $HOME/Sprite ]; then
-  echo 1>&2 Found previous installation at $HOME/Sprite.
-  set -e
-  set -x
-  cd "$HOME/Sprite"
-  git pull
-else
-  set -e
-  set -x
-  cd $HOME
-  git clone https://github.com/andyjost/Sprite.git
-  cd "$HOME/Sprite"
+usage() {
+  cat <<'USAGE'
+Usage: sh getsprite [--dry-run] [--help]
+       sh getsprite-i [--dry-run] [--help]
+
+Install or upgrade Sprite in your home directory, with its own Python.
+--dry-run  Print the plan without running commands or asking for confirmation.
+GETSPRITE_FIND_LINKS  Directory or URL of wheels, passed to uv as --find-links.
+USAGE
+}
+
+dry_run=0
+for arg do
+  case "$arg" in
+    --dry-run) dry_run=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) printf 'Unknown option: %s\n' "$arg" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+plan() {
+  cat <<'PLAN'
+1. If uv is absent, install it in $HOME/.local/bin with the official installer:
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   (UV_INSTALL_DIR=$HOME/.local/bin; UV_NO_MODIFY_PATH=1)
+2. Install or upgrade currylang and its dependency curry-frontend in an isolated
+   tool environment in your home directory. Download managed CPython 3.11.4
+   or newer, below 3.16, if needed; leave the system Python alone:
+   uv tool install --upgrade --managed-python --python 'cpython>=3.11.4,<3.16' --no-build --with-executables-from curry-frontend currylang
+   (UV_TOOL_BIN_DIR=$HOME/.local/bin)
+PLAN
+  if [ -n "${GETSPRITE_FIND_LINKS:-}" ]; then
+    printf '   Additional wheel location (--find-links): %s\n' "$GETSPRITE_FIND_LINKS"
+  fi
+  cat <<'PLAN'
+3. Add the commands sprite-exec and sprite-make to your PATH for this shell
+   and put this line in your shell startup file:
+   export PATH="$HOME/.local/bin:$PATH"
+A C++ compiler (g++) is optional; without it new modules run interpreted.
+PLAN
+}
+
+confirm() {
+  if [ "$interactive" = 1 ]; then
+    printf '%s [y/N] ' "$1"
+    # The script may arrive on stdin from curl; answers come from the terminal.
+    answer=
+    if [ -t 0 ]; then
+      read -r answer || answer=
+    else
+      read -r answer </dev/tty || answer=
+    fi
+    case "$answer" in
+      y|Y|yes|YES) ;;
+      *) printf '\nInstallation cancelled.\n'; exit 1 ;;
+    esac
+  fi
+}
+
+plan
+if [ "$dry_run" = 1 ]; then
+  exit 0
 fi
 
-./configure --install-prereqs -i
-make
+# Keep command installation in the user's home and leave shell files untouched.
+UV_TOOL_BIN_DIR=$HOME/.local/bin
+export UV_TOOL_BIN_DIR
+if command -v uv >/dev/null 2>&1; then
+  uv=$(command -v uv)
+elif [ -x "$HOME/.local/bin/uv" ]; then
+  uv=$HOME/.local/bin/uv
+else
+  confirm 'Install uv?'
+  UV_INSTALL_DIR=$HOME/.local/bin
+  UV_NO_MODIFY_PATH=1
+  export UV_INSTALL_DIR UV_NO_MODIFY_PATH
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  uv=$HOME/.local/bin/uv
+  if [ ! -x "$uv" ]; then
+    printf 'The uv installer did not install uv in $HOME/.local/bin.\n' >&2
+    exit 1
+  fi
+fi
 
-set +x
-echo
-echo "********************************************************************************"
-echo "                            Installation succeeded!"
-echo "********************************************************************************"
-echo
-echo "Sprite is installed at $HOME/Sprite/install/bin"
-echo
-echo "Next steps:"
-echo "    - Build the documentation: make -C $HOME/Sprite/docs html"
-echo "      (output under $HOME/Sprite/object-root/docs/html; sources at https://github.com/andyjost/Sprite)"
-echo "    - Go through the Quickstart Tutorial (in the docs)."
-echo "    - Explore the Python API: $HOME/Sprite/install/bin/python -ic 'import curry'"
-echo "    - Run the examples under '$HOME/Sprite/examples/'."
-echo "    - Run the test suite: make -C $HOME/Sprite test"
-echo "    - Install it elsewhere: make -C $HOME/Sprite install PREFIX=/path/to/dir"
-echo
-rm $HOME/getsprite-i.sh
-EOF
-) > $SCRIPT
-
-exec sh $SCRIPT </dev/tty 2>&1
+confirm 'Install or upgrade Sprite and its managed Python with uv?'
+set -- tool install --upgrade --managed-python --python 'cpython>=3.11.4,<3.16' --no-build --with-executables-from curry-frontend currylang
+if [ -n "${GETSPRITE_FIND_LINKS:-}" ]; then
+  set -- "$@" --find-links "$GETSPRITE_FIND_LINKS"
+fi
+"$uv" "$@"
+printf '\nSprite installed. To use sprite-exec and sprite-make, run:\n'
+printf '  export PATH="$HOME/.local/bin:$PATH"\n'

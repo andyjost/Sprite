@@ -1,4 +1,5 @@
 import cytest # from ./lib; must be first
+from email.parser import BytesParser
 import importlib.util
 import io
 from pathlib import Path
@@ -32,7 +33,7 @@ class TestDistribution(cytest.TestCase):
     self.assertIn('Development Status :: 3 - Alpha', project['classifiers'])
     self.assertTrue((ROOT / project['readme']).is_file())
     self.assertEqual(set(project['urls']), {'Homepage', 'Documentation', 'Source', 'Issues'})
-    self.assertNotIn('dependencies', project)
+    self.assertEqual(project['dependencies'], ['curry-frontend>=2.0.0'])
     self.assertEqual(data['build-system']['requires'],
         ['scikit-build-core>=1.1', 'cmake>=3.24', 'ninja', 'curry-frontend>=2.0.0'])
     for name in project['license-files']:
@@ -55,13 +56,16 @@ class TestDistribution(cytest.TestCase):
           self.assertIn(prefix + name, names)
         self.assertNotIn(prefix + 'CODEX-REPORT.md', names)
         self.assertFalse(any('/object-root/' in n or '/install/' in n for n in names))
+        metadata = BytesParser().parsebytes(archive.extractfile(prefix + 'PKG-INFO').read())
+        self.assertEqual(metadata.get_all('Requires-Dist'), ['curry-frontend>=2.0.0'])
 
-  def distributions(self, directory):
+  def distributions(self, directory, requirements=('curry-frontend>=2.0.0',)):
     '''A matrix fixture for testing the publication gate, without native code.'''
     gate = script('check-dist')
     metadata = ('Metadata-Version: 2.4\nName: currylang\nVersion: 0.9.0a1\n'
                 'License-Expression: BSD-3-Clause\n'
-                'Classifier: Development Status :: 3 - Alpha\n\n')
+                'Classifier: Development Status :: 3 - Alpha\n'
+                + ''.join('Requires-Dist: %s\n' % req for req in requirements) + '\n')
     for py, abi in gate.PYTHONS:
       for arch in gate.ARCHES:
         path = Path(directory) / f'currylang-0.9.0a1-{py}-{abi}-manylinux_2_28_{arch}.whl'
@@ -85,6 +89,14 @@ class TestDistribution(cytest.TestCase):
       next(Path(directory).glob('*-cp314-cp314t-*x86_64.whl')).unlink()
       with self.assertRaisesRegex(AssertionError, 'twelve wheels'):
         gate.check(directory, '0.9.0a1')
+
+  def test_runtime_dependencies(self):
+    for requirements in [(), ('curry-frontend>=2.0.0', 'uv')]:
+      with self.subTest(requirements=requirements):
+        with tempfile.TemporaryDirectory() as directory:
+          gate = self.distributions(directory, requirements=requirements)
+          with self.assertRaises(AssertionError):
+            gate.check(directory, '0.9.0a1')
 
   def test_wrong_platform(self):
     with tempfile.TemporaryDirectory() as directory:
