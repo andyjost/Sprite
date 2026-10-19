@@ -75,10 +75,12 @@
 // (an expression built before a case, for example).  Those nodes were
 // allocated before the nested evaluation began.  So a nested collection
 // treats every node of every block taken before the innermost evaluation
-// began as a root (an older block; see gc/blockheap.cpp) and sweeps only
-// the blocks taken since.  See gc_enter_evaluation.  The price: the mark
-// phase pushes and traces every older node, so such a collection costs the
-// whole heap and reclaims nothing from before the nested evaluation began.
+// began as a root (an older block; see gc/blockheap.cpp, which leaves out
+// what the nested evaluation itself allocated into such a block) and sweeps
+// only the blocks taken since.  See gc_enter_evaluation.  The price: the
+// mark phase pushes and traces every older node, so such a collection costs
+// the whole heap and reclaims nothing from before the nested evaluation
+// began.
 // The scheduler of a set function therefore hands the request outward
 // (E_GC, see procD), and the outermost scheduler of the state collects with
 // no step of the state on the C stack.  Only an evaluation started from a
@@ -184,10 +186,8 @@ static size_t g_growth = GC_DEFAULT_GROWTH;
 // file.
 static bool g_stress = false;
 
-// The block sequence number at the start of the innermost nested
-// evaluation: a block taken at or before it is older (see
-// gc/blockheap.cpp).  Meaningful when g_eval_depth is above one.
-static size_t g_floor_seq = 0;
+// The block sequence number at the start of the innermost nested evaluation
+// is g_floor_seq of gc/blockheap.cpp, whose refill path reads it.
 
 static size_t g_collections = 0;
 
@@ -315,8 +315,12 @@ namespace cyrt
   {
     size_t const token = g_floor_seq;
     ++g_eval_depth;
-    // The blocks taken so far are older than this evaluation.
+    // The blocks taken so far are older than this evaluation.  The runs in
+    // progress come from them; what this evaluation allocates from them is
+    // its own, not a root of its collections (see gc/blockheap.cpp).
     g_floor_seq = g_eval_depth == 1 ? 0 : g_heap.block_seq;
+    if(g_eval_depth > 1)
+      note_runs_in_progress();
     return token;
   }
 
@@ -325,6 +329,7 @@ namespace cyrt
     assert(g_eval_depth > 0);
     --g_eval_depth;
     g_floor_seq = token;
+    lower_nested_runs(g_eval_depth);
   }
 
   // The generator nodes alive, or dead since the last collection.  See the
@@ -503,8 +508,9 @@ namespace cyrt
     auto const start = gc_clock::now();
     for(auto const & pair: g_roots)
       stack.push_back(pair.first);
-    // In a nested evaluation, every node of an older block is a root.  See
-    // the comment at the top of this file.
+    // In a nested evaluation, every node of an older block allocated before
+    // the evaluation began is a root.  See the comment at the top of this
+    // file and the header of gc/blockheap.cpp.
     if(nested)
       push_older_nodes(stack, g_floor_seq);
     g_last.roots_seconds += seconds_since(start);

@@ -89,6 +89,9 @@ REQUIRES = {}
 STRESS_EXCLUDED = {
     '11-sudoku': 'a search over a large live state'
   , '12-cryptarithm': 'a search over a large live state'
+  , '25-perfect-hash':
+        'a search over a large live state (nine alternatives per position), '
+        'unfinished after 120 s'
   , '20-cxx-types-deduction':
         'two inverse searches in (d) over every type of a depth, unfinished '
         'after 580 s'

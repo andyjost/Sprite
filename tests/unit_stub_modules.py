@@ -130,6 +130,7 @@ class TestStubModules(cytest.TestCase):
       self.assertGreater(os.path.getsize('Coin.so'), 0)
       self.assertGreater(os.path.getsize('coin.exe'), 0)
 
+  @cytest.skipUnlessObjectsLoad('curry.load opens a compiled object')
   def test_load_example(self):
     with tempfile.TemporaryDirectory() as work:
       product = os.path.join(work, 'Coin.so')
@@ -365,6 +366,7 @@ class TestStubModules(cytest.TestCase):
       with self.assertRaises(curry.LoadError):
         curry.load(product)
 
+  @cytest.skipUnlessObjectsLoad('curry.load opens a compiled object')
   def test_load_same_file_returns_registered_module(self):
     with tempfile.TemporaryDirectory() as work:
       ext = '.so' if curry.flags['backend'] == 'cxx' else '.py'
@@ -384,6 +386,7 @@ class TestStubModules(cytest.TestCase):
       with self.assertRaises(curry.LoadError):
         curry.load(product)
 
+  @cytest.skipUnlessObjectsLoad('a saved program loads its object')
   def test_saved_main_prints_goal_answers(self):
     Coin = curry.import_('Coin')
     with tempfile.TemporaryDirectory() as work:

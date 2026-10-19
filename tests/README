@@ -229,8 +229,13 @@ module loaded from its object (testGetICurry, testGetImpl) skip under
 of unit_cxx_emit.py skip whenever the flag is not 'off'.  The two tests
 of unit_cxx_bom.py that read the object of the Prelude skip when
 the Prelude is interpreted: under 'all', and under the other modes
-while its object is missing or stale.  So the unit suite passes whole
-under 'all' (issue #82).  unit_cxx_interp.py tests the
+while its object is missing or stale.  The tests that load a compiled
+object (curry.load) or run a saved program, which loads its object, skip
+under 'all', where the loader refuses to open an object
+(cytest.skipUnlessObjectsLoad); curry.save works under every mode, since
+the compile step links an interpreted import by its object on disk
+(backends/cxx/toolchain.py, Cpp2So._sofilename).  So the unit suite
+passes whole under 'all' (issue #82).  unit_cxx_interp.py tests the
 interpreter.  The nightly job "interpreter" of .github/workflows/ci.yml
 runs the unit and functional suites under interpret:all and under
 interpret:off; a workflow_dispatch with the input "interpreter" runs it on

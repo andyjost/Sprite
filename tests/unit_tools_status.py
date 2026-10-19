@@ -57,6 +57,7 @@ class TestToolsStatus(cytest.TestCase):
         self.assertEqual(proc.returncode, 1, proc.stdout)
         self.assertEqual(proc.stdout, '1\nERROR: boom\n')
 
+  @cytest.skipUnlessObjectsLoad('a saved program loads its object')
   def test_saved_program_answers_and_io_unit(self):
     module = curry.import_(TOOLS)
     with tempfile.TemporaryDirectory() as directory:

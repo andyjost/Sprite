@@ -120,6 +120,7 @@ class TestFlowF10(cytest.TestCase):
     self.assertEqual(str(curry.eval(M3.main).one()), 'S O')
     self.assertIs(curry.import_('Peano'), M3)
 
+  @cytest.skipUnlessObjectsLoad('curry.load opens a compiled object')
   def test_save_and_load(self):
     self.edit_source()
     M = curry.import_('Peano')

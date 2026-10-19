@@ -196,6 +196,9 @@ class TestInterruptedStep(cytest.TestCase):
       , r'^error StackLimitError stack limit of \d+ bytes exceeded'
       )
 
+  @cytest.skipIfGcStress(
+      'a chain of 300,000 strict applications is marked at every step'
+    )
   def test_stalled_worker_inside_the_constraint(self):
     results = run_child(
         self, [('unwound', (300000,))]

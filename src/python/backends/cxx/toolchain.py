@@ -855,18 +855,56 @@ class Cpp2So(object):
     '''
     Gets the name of the .so file implementing the given module, which is
     imported on the search path ``currypath`` and the path of the
-    interpreter (_findcurry.import_path).
+    interpreter (_findcurry.import_path).  An import that runs without a
+    compiled object (interpreted under the interpreter flag ``interpret``,
+    every module under 'all') is linked by its current object on disk, when
+    it has one (_object_on_disk): the link line names the file for its
+    SONAME, and the loader maps the imports when the object is opened.  So
+    curry.save works under every mode of the flag.
     '''
-    module = self.interp.import_(
-        modulename, currypath=_findcurry.import_path(self.interp, currypath)
-      )
+    imports = _findcurry.import_path(self.interp, currypath)
+    module = self.interp.import_(modulename, currypath=imports)
     h = getHandle(module)
     sofilename = h.sofilename
+    if sofilename is None:
+      sofilename = self._object_on_disk(modulename, imports)
     if sofilename is None:
       raise exceptions.PrerequisiteError(
           'No .so filename for module %r' % h.fullname
         )
     return sofilename
+
+  def _object_on_disk(self, modulename, currypath):
+    '''
+    The current object of the module ``modulename`` beside its products on
+    the search path ``currypath``, or None: no file of the module is found
+    (a module compiled from text), no object lies beside its products, or
+    the ABI stamp of the object is not this installation's
+    (stamp_is_current).  The plan of the lookup ends at the JSON under
+    'all' (extend_plan_skeleton), so the object is found by its name beside
+    the current product, not through the plan.
+    '''
+    plan = plans.makeplan(self.interp, plans.MAKE_ALL | plans.ZIP_JSON)
+    if currypath is None:
+      # A module given by name: its imports are searched on the path of
+      # the interpreter (_findcurry.import_path).
+      currypath = list(self.interp.path)
+    try:
+      current = _findcurry.currentfile(plan, modulename, currypath)
+    except (exceptions.ModuleLookupError, exceptions.PrerequisiteError):
+      return None
+    if os.path.isdir(current):
+      return None
+    try:
+      curryfile = _filenames.curryfilename(current)
+    except ValueError:
+      return None
+    sofile = _filenames.replacesuffix(
+        _filenames.icurryfilename(curryfile), '.so'
+      )
+    if os.path.isfile(sofile) and self.stamp_is_current(sofile):
+      return sofile
+    return None
 
   def _dependencies(self, file_in, currypath=None):
     '''
@@ -996,14 +1034,15 @@ class Cpp2So(object):
       cache.write_file(cpp, source)
       cmd = list(self._compileCommand(cpp, tmp, imports))
       with _productlock.locked(file_in) as waited:
-        # A producer that published while we prepared/waited wins, even
-        # during a forced rebuild. The stamp is checked without an import.
+        # A producer that published while we prepared or waited wins, even
+        # during a forced rebuild.  The stamp is checked without an import.
+        # An object that merely postdates the generated file is not taken:
+        # the plan calls this step when the chain of the module was made
+        # again from its source, and the time of a product does not prove
+        # its text (issue #138; unit_issue138.py under interpret:off).
         another_won = before != self.product_snapshot(file_out)
-        accept_current = ignored.get('_accept_current', False) \
-            and not config.force_recompile_cxx() \
-            and os.path.isfile(file_out) and not filesys.newer(file_in, file_out)
-        if (another_won or accept_current) \
-            and self.stamp_is_current(file_out) and os.path.isfile(file_out):
+        if another_won and os.path.isfile(file_out) \
+            and self.stamp_is_current(file_out):
           return file_out
         logger.info('Compiling %r', file_out)
         logger.debug('Command: %s', ' '.join(cmd))

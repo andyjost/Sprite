@@ -129,7 +129,7 @@ class Maker(object):
       if getattr(stage.step, 'manages_product_lock', False):
         with compile_clock:
           self.pipeline.currentfile = stage.step(
-              self.pipeline.currentfile, self.currypath, _accept_current=True, **self.kwds)
+              self.pipeline.currentfile, self.currypath, **self.kwds)
       else:
         # Advance this plan's pipeline. Re-running global timestamp
         # selection between stages could accept an old object after only

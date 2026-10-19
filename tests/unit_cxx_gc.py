@@ -258,6 +258,28 @@ else:
 assert cyrt.gc_eval_depth() == 0
 ''')
 
+  def test_callback_garbage_is_reclaimed(self):
+    '''
+    The nodes a callback's evaluation allocates into the blocks of the
+    enclosing evaluation are not roots of its collections, and its garbage
+    among them is freed (issue #160): a list the evaluation consumed does
+    not stay alive through a cell that landed in such a block.  So the
+    marks of its last collection are those of the live state, not of the
+    list, which has three nodes per cell.
+    '''
+    self.run_child('''import cytest
+
+cyrt.gc_set_threshold(1 << 12)
+marked = []
+def items():
+  for i in range(2):
+    value = cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 20000, typed=True))))
+    marked.append(cyrt.gc_last_collection()['marked'])
+    yield value + i
+assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.lastOf, iter(items()), typed=True)))) == 20001
+assert all(m < 20000 for m in marked), marked
+''')
+
   @cytest.skipIfGcStress('a test of the threshold policy; 3000 pairs live')
   @cytest.skipUnlessGcBackend(
       'wdgc', 'the threshold policy of the block heap'

@@ -436,6 +436,7 @@ else:
 
 
 class TestPublicObjects(cytest.TestCase):
+  @cytest.skipUnlessObjectsLoad('curry.load opens a compiled object')
   def test_loaded_object_keeps_its_typed_interface(self):
     module = curry.compile('f :: Int -> Int\nf x = x + 1', name='SavedTyped')
     with tempfile.TemporaryDirectory() as work:
@@ -454,6 +455,7 @@ class TestPublicObjects(cytest.TestCase):
       from curry.lib import SavedTyped
       self.assertIs(SavedTyped, loaded)
 
+  @cytest.skipUnlessObjectsLoad('a saved program loads its object')
   def test_saved_constrained_program_prints_the_defaulted_goal(self):
     module = curry.compile('main = Just 5', name='SavedConstrained')
     with tempfile.TemporaryDirectory() as work:

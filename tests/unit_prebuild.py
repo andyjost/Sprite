@@ -210,6 +210,11 @@ class TestPackagedModule(JsonModuleTestCase):
   def test_packaged_products_ignore_extraction_order(self):
     """pip's extraction times do not force an unchanged library to compile."""
     from curry.toolchain import _curry2icurry, _findcurry
+    # The plan is made here, under the flag the test sets: the plan of setUp
+    # ends at the JSON under interpret:all (toolchain.extend_plan_skeleton).
+    self.plan = plans.makeplan(
+        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
+      )
     name = self.build(6)
     target = self.cached_file(name, cytest.raw.interp().backend.object_file_extension)
     source = os.path.join(self.srcdir, name + '.curry')

@@ -57,6 +57,7 @@ class TestFlowF06(cytest.TestCase):
     self.assertIsNone(r.close())
     self.assertEqual(list(r), [])
 
+  @cytest.skipIfGcStress('a live list of 100,000 cells is marked at every step')
   def test_large_finite_list(self):
     P = curry.import_('Prelude')
     self.assertEqual(len(curry.eval(P.enumFromTo(1, 100000)).one()), 100000)

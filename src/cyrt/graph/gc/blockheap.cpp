@@ -66,13 +66,21 @@
 // enclosing evaluation may hold (see gc/wdgc.cpp).  Every block records the
 // time it was taken from the pool (``seq``, a counter of such events), and
 // gc_enter_evaluation records the counter.  A block taken before the
-// innermost evaluation began is older: every allocated slot of it is a
-// root, it is not swept, and it is not listed for allocation until the
-// outermost evaluation collects.  That is a superset of the nodes allocated
-// before the evaluation began (the free slots of an older block that were
-// filled after it began are roots too), bounded by the free room of the
-// heap at that moment.  A block keeps its ``seq`` while it holds nodes; it
-// gets a new one when it leaves the pool.
+// innermost evaluation began is older: every slot of it allocated before
+// the evaluation began is a root, it is not swept, and it is not listed
+// for allocation until the outermost evaluation collects.  The evaluation
+// itself allocates from the runs in progress at its entry and from the
+// blocks the last outermost collection listed, which are older blocks: the
+// runs it takes from them are recorded (g_nested_runs, note_nested_run),
+// push_older_nodes leaves their slots out of the roots, and sweep_blocks
+// frees the unmarked ones (free_unmarked_nested_slots), the garbage of the
+// evaluation, which would otherwise stay allocated, become roots of a later
+// nested evaluation, and point into blocks swept since.  Without the record
+// every such slot was a root, and a cell of a list the evaluation consumed,
+// allocated into an older block, kept every later cell alive: a collection
+// per step (the stress mode) then cost the length of the list at every
+// step.  A block keeps its ``seq`` while it holds nodes; it gets a new one
+// when it leaves the pool.
 //
 // Threads.  One ThreadHeap holds the runs, the class lists, the pool, and
 // the list of blocks.  Today there is one, g_heap.  A worker thread of the
@@ -532,6 +540,10 @@ namespace cyrt
     std::free(b);
   }
 
+  // Records a run a nested evaluation takes from an older block; defined
+  // with the nested-evaluation rules below.
+  static inline void note_nested_run(Block * b, AllocRun const & run);
+
   Node * node_refill(size_t bytes)
   {
     size_t const slot_bytes = std::max(round_up(bytes), MIN_SLOT_BYTES);
@@ -569,6 +581,7 @@ namespace cyrt
         }
       }
       count_handed(size_t(run.limit - run.free) / slot_bytes);
+      note_nested_run(cls.block, run);
     }
     char * const addr = run.free;
     run.free = addr + slot_bytes;
@@ -711,12 +724,95 @@ namespace cyrt
   static inline bool is_older(Block const * b, bool nested, size_t floor_seq)
     { return nested && b->seq <= floor_seq; }
 
+  // The block sequence number at the start of the innermost nested
+  // evaluation: a block taken at or before it is older.  Meaningful when
+  // g_eval_depth is above one; gc_enter_evaluation sets it.
+  static size_t g_floor_seq = 0;
+
+  // The runs handed out to a nested evaluation from older blocks (see the
+  // header of this file).  ``depth`` is the evaluation depth of the
+  // hand-out: a collection at depth d leaves out the slots of the runs
+  // recorded at a depth of d or more, the allocations of the evaluation
+  // that collects; a run recorded at a lesser depth belongs to a suspended
+  // evaluation, whose steps may hold its nodes.  gc_leave_evaluation lowers
+  // the depth of the records of the evaluation that ends to the depth of
+  // the enclosing one, whose allocations they were as well, and clears the
+  // record when no nested evaluation runs.
+  struct NestedRun
+  {
+    Block *  block;
+    uint32_t from;
+    uint32_t to;
+    size_t   depth;
+  };
+  static std::vector<NestedRun> & g_nested_runs = *new std::vector<NestedRun>();
+
+  // Records ``run``, just handed out from block ``b``, when a nested
+  // evaluation takes it from an older block.
+  static inline void note_nested_run(Block * b, AllocRun const & run)
+  {
+    if(g_eval_depth > 1 && b->seq <= g_floor_seq && run.free != run.limit)
+      g_nested_runs.push_back(
+          {b, slot_of(b, run.free), slot_of(b, run.limit), g_eval_depth}
+        );
+  }
+
+  // Records the rest of every run in progress at the entry of a nested
+  // evaluation: the evaluation consumes them first.
+  static void note_runs_in_progress()
+  {
+    for(size_t k = 0; k < g_heap.nactive; ++k)
+    {
+      size_t const c = g_heap.active[k];
+      SizeClass & cls = g_heap.classes[c];
+      if(cls.block)
+        note_nested_run(cls.block, run_of(c));
+    }
+  }
+
+  // Frees the unmarked slots of the runs recorded for the older block
+  // ``b`` at the current depth or deeper (g_nested_runs): the garbage of
+  // the nested evaluation that collects.  An older block is not swept
+  // otherwise, and such a slot, left allocated, would be a root of the
+  // collections of a later nested evaluation with pointers into the swept
+  // blocks of this one.  A marked slot of a recorded run is kept: it is
+  // reached from a root or from the live state of the evaluation.
+  static void free_unmarked_nested_slots(Block * b)
+  {
+    for(NestedRun const & record: g_nested_runs)
+    {
+      if(record.block != b || record.depth < g_eval_depth)
+        continue;
+      for(uint32_t i = record.from; i < record.to; ++i)
+        if(!test_bit(b->mark, i))
+          b->alloc[i >> 6] &= ~(uint64_t(1) << (i & 63));
+    }
+  }
+
+  // The depth of a nested evaluation ends: its records belong to the
+  // enclosing evaluation now, and none is kept once no nested evaluation
+  // runs (the outermost collection sweeps every block).
+  static void lower_nested_runs(size_t depth)
+  {
+    if(depth <= 1)
+    {
+      g_nested_runs.clear();
+      return;
+    }
+    for(NestedRun & record: g_nested_runs)
+      if(record.depth > depth)
+        record.depth = depth;
+  }
+
   // Pushes every allocated slot of every older block (see the header of
-  // this file).  retire_runs has run, so the bitmaps are complete.
+  // this file), except the slots of the runs the nested evaluations at the
+  // current depth or deeper took from the block (g_nested_runs).
+  // retire_runs has run, so the bitmaps are complete.
   static void push_older_nodes(
       std::vector<Node *> & stack, size_t floor_seq
     )
   {
+    static std::vector<uint64_t> & scratch = *new std::vector<uint64_t>();
     for(size_t k = 0; k < g_heap.nblocks; ++k)
     {
       Block * b = g_heap.blocks[k];
@@ -728,9 +824,21 @@ namespace cyrt
         continue;
       }
       size_t const words = words_of(b);
+      uint64_t const * alloc = b->alloc;
+      for(NestedRun const & record: g_nested_runs)
+      {
+        if(record.block != b || record.depth < g_eval_depth)
+          continue;
+        if(alloc == b->alloc)
+        {
+          scratch.assign(b->alloc, b->alloc + words);
+          alloc = scratch.data();
+        }
+        clear_bits(scratch.data(), record.from, record.to);
+      }
       for(uint32_t w = 0; w < words; ++w)
       {
-        uint64_t bits = b->alloc[w];
+        uint64_t bits = alloc[w];
         while(bits)
         {
           uint32_t const i = (w << 6) + (uint32_t) __builtin_ctzll(bits);
@@ -788,6 +896,9 @@ namespace cyrt
           b->young = live == 0;
           if(is_older(b, nested, floor_seq))
           {
+            // The block keeps its slots, except the garbage of the nested
+            // evaluation in the runs it took from the block.
+            free_unmarked_nested_slots(b);
             std::memset(b->mark, 0, words * sizeof(uint64_t));
             g_heap.blocks[kept++] = b;
             break;

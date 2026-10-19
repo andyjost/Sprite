@@ -248,6 +248,16 @@ def skipIfInterpreted(reason):
       mode in ('new', 'all'), 'interpret:%s: %s' % (mode, reason)
     )
 
+def skipUnlessObjectsLoad(reason):
+  '''
+  Skips a test under the interpreter flag ``interpret`` set to 'all' on the
+  C++ backend, where the loader refuses to open a compiled object
+  (backends.cxx.loader): a test of curry.load, or of a saved program, which
+  loads its object.  curry.save itself works under every mode.
+  '''
+  mode = interpret_mode()
+  return unittest.skipIf(mode == 'all', 'interpret:%s: %s' % (mode, reason))
+
 def gc_backend():
   '''
   The collector of the installed C++ runtime: 'wdgc' or 'mps' (make GC=mps).
