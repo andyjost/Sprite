@@ -15,6 +15,11 @@ upstream version `2.0.0`, and uses build number 1 for this revision.
 `2.0.0.post2` (conda build 2) adds the two source compatibility patches
 established by CI run 1. The upstream version remains `2.0.0`.
 
+`2.0.0.post3` (conda build 3) adds the `Curry.Syntax.Utils` imports found
+in run 2, verifies static linkage, and builds/bundles in manylinux 2.28
+containers on the Ubuntu 24.04 hosts. Dynamic bundles use the container's
+GMP and retain its RPM license notices. The program version stays `2.0.0`.
+
 ## Scripts
 
 * `fetch.py --output DIR` checks the PAKCS download page, tries its source
@@ -28,6 +33,9 @@ established by CI run 1. The upstream version remains `2.0.0`.
   dynamically. x86-64 uses the source's `lts-16.9` snapshot with GHC 8.8.3;
   aarch64 starts at GHC 9.6 with Cabal's dependency bounds relaxed. Solver
   and compiler errors are retained, including the failed static attempt.
+  Static mode disables shared Haskell libraries and explicitly requests a
+  static executable. Its ELF must have neither an interpreter nor a
+  `NEEDED` library. Both attempts stream to the job log and artifact logs.
 * `collect-logs.py --source SOURCE --output DIR` retains ghcup, Cabal,
   and Stack logs, including project build logs, in the uploaded artifacts
   even if toolchain setup or compilation fails.
@@ -35,8 +43,9 @@ established by CI run 1. The upstream version remains `2.0.0`.
   binary, vendors dynamically required GMP beside it with `$ORIGIN`,
   records linkage and the glibc symbol floor of **both** files, and builds
   an offline wheel. It needs `setuptools>=68`, `wheel`, `pip`, `readelf`,
-  `ldd`, and, for dynamic GMP, `patchelf` and the distributor's GMP copyright
-  at `/usr/share/doc/libgmp10/copyright`. It never downloads a dependency.
+  `ldd`, and, for dynamic GMP, `patchelf` and the distributor's GMP notices
+  at `/usr/share/doc/libgmp10/copyright` (Debian) or under
+  `/usr/share/licenses/gmp*` (RPM). It never downloads a dependency.
   The source build's license directory overrides the checked-in copies.
 * `tag-wheel.py WHEEL --info INFO --output DIR` first tries auditwheel for
   manylinux 2.28. If auditwheel refuses the native package data, the script
@@ -57,13 +66,20 @@ is `py3-none-PLATFORM`, installed in platlib; it has no Python extension.
 The raw upstream PAKCS and front-end notices are included both with the
 payload and in wheel metadata. Dynamic bundles also include the GMP notice.
 
-Run 1 installed both toolchains successfully. x86-64 passed parity and the
-wheel smoke test, but its dynamic bundle required GLIBC 2.38 and correctly
-failed the manylinux 2.28 gate. aarch64 reached compilation; the two errors
-observed under GHC 9.6.7 are addressed by the named patches. The next run
-retains verbose linker commands and tool logs to establish static linking
-and the next aarch64 result. A dynamic wheel requiring newer glibc is never
-retagged as manylinux 2.28.
+Run 2 again passed x86-64 parity and the wheel smoke test. Its executable
+required GLIBC 2.34 and its vendored Ubuntu GMP required GLIBC 2.38, so the
+manylinux 2.28 gate correctly failed. The static-link transcript was
+incomplete; it does not establish the cause of that attempt's failure.
+On aarch64 both existing patches applied, and the next errors were missing
+`liftM2` and `liftM3` imports, addressed by patch 0003.
+
+Run 3 uses `quay.io/pypa/manylinux_2_28_x86_64` and
+`quay.io/pypa/manylinux_2_28_aarch64` as job containers, including packaging
+and parity. The workflow installs GHC/Cabal with verbose ghcup commands in
+an isolated writable prefix, and Stack on x86-64. It selects the image's
+CPython 3.14. The image tag, OS, library/tool versions, bootstrap checksum,
+linker commands, actual ELF linkage and glibc requirements remain visible.
+A dynamic wheel requiring newer glibc still fails the tagging gate.
 
 ## Local packaging
 
@@ -95,7 +111,7 @@ The artifact includes `bin/`, `licenses/`, and `build-info.json`. The recipe
 checks the architecture and numeric version. It installs `pakcs-frontend`
 and the `curry-frontend` alias. For dynamic artifacts conda's GMP supplies
 the library; the installed executable gets `$ORIGIN/../lib`. The metadata
-records the artifact's glibc floor as a run dependency. Build number 2
+records the artifact's glibc floor as a run dependency. Build number 3
 supports `linux-64` and `linux-aarch64` with a native artifact for each.
 
 For compatibility with the existing conda build driver, omitting

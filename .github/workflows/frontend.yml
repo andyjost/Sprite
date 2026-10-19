@@ -21,6 +21,10 @@ jobs:
   build:
     name: build (${{ matrix.name }})
     runs-on: ${{ matrix.runner }}
+    # Keep the Ubuntu hosts; build and bundle against glibc 2.28 even when
+    # the preferred static link is unavailable. Never vendor Ubuntu's GMP.
+    container:
+      image: ${{ matrix.image }}
     continue-on-error: true
     timeout-minutes: 120
     strategy:
@@ -29,9 +33,11 @@ jobs:
         include:
           - name: x86-64
             runner: ubuntu-24.04
+            image: quay.io/pypa/manylinux_2_28_x86_64
             ghc: '8.8.3'
           - name: aarch64
             runner: ubuntu-24.04-arm
+            image: quay.io/pypa/manylinux_2_28_aarch64
             ghc: '9.6.7'
     defaults:
       run:
@@ -48,9 +54,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.14'
+      - name: Select the container's CPython 3.14
+        run: |
+          set -euxo pipefail
+          test -x /opt/python/cp314-cp314/bin/python
+          echo /opt/python/cp314-cp314/bin >> "$GITHUB_PATH"
       - name: Runner and system dependencies
         run: |
           set -euxo pipefail
@@ -59,10 +67,15 @@ jobs:
           uname -a
           cat /etc/os-release
           python --version
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            g++ make binutils curl pkg-config patch libgmp-dev \
-            zlib1g-dev libtinfo-dev libtinfo6 libnuma1 patchelf
+          dnf install -y gcc gcc-c++ make binutils curl pkgconf-pkg-config \
+            patch gmp-devel glibc-devel glibc-static zlib-devel \
+            ncurses-devel ncurses-compat-libs numactl-libs patchelf file xz
+          # Some RPM distributions split the GMP archive into gmp-static.
+          if [ ! -f "$(gcc -print-file-name=libgmp.a)" ]; then
+            dnf install -y gmp-static || echo 'No GMP archive; static attempt will diagnose it.'
+          fi
+          rpm -q glibc glibc-devel glibc-static gmp gmp-devel
+          ls -l "$(gcc -print-file-name=libgmp.a)" || true
           python -m pip install --verbose 'setuptools>=68' wheel auditwheel numpy
           python -m pip list
           gcc --version
@@ -84,19 +97,34 @@ jobs:
             2>&1 | tee frontend-work/logs/fetch.log
       - name: Set up the target Haskell toolchain
         id: toolchain
-        uses: haskell-actions/setup@v2
-        with:
-          ghc-version: ${{ matrix.ghc }}
-          cabal-version: '3.10.3.0'
-          enable-stack: true
-          stack-version: '2.15.7'
-      - name: Verify installed tools after setup's cache probes
         env:
           EXPECTED_GHC: ${{ matrix.ghc }}
         run: |
           set -euxo pipefail
           exec > >(tee frontend-work/logs/toolchain.log) 2>&1
-          for tool in ghc ghc-pkg cabal stack; do
+          # An isolated writable prefix avoids hosted ghcup cache probes.
+          export GHCUP_INSTALL_BASE_PREFIX="$PWD/frontend-work/haskell"
+          export BOOTSTRAP_HASKELL_NONINTERACTIVE=1
+          export BOOTSTRAP_HASKELL_MINIMAL=1
+          export BOOTSTRAP_HASKELL_ADJUST_BASHRC=0
+          curl --fail --location --retry 3 https://get-ghcup.haskell.org \
+            --output frontend-work/ghcup-bootstrap.sh
+          sha256sum frontend-work/ghcup-bootstrap.sh
+          bash frontend-work/ghcup-bootstrap.sh
+          export PATH="$GHCUP_INSTALL_BASE_PREFIX/.ghcup/bin:$PATH"
+          echo "GHCUP_INSTALL_BASE_PREFIX=$GHCUP_INSTALL_BASE_PREFIX" >> "$GITHUB_ENV"
+          echo "$GHCUP_INSTALL_BASE_PREFIX/.ghcup/bin" >> "$GITHUB_PATH"
+          ghcup --version
+          ghcup --verbose install ghc "$EXPECTED_GHC"
+          ghcup set ghc "$EXPECTED_GHC"
+          ghcup --verbose install cabal 3.10.3.0
+          ghcup set cabal 3.10.3.0
+          if [ "$(uname -m)" = x86_64 ]; then
+            ghcup --verbose install stack 2.15.7
+            ghcup set stack 2.15.7
+            stack --version
+          fi
+          for tool in ghc ghc-pkg cabal; do
             command -v "$tool"
             readlink -f "$(command -v "$tool")"
             "$tool" --version
@@ -195,6 +223,9 @@ jobs:
         if: always()
         run: |
           set -euxo pipefail
+          mkdir -p frontend-work/logs
+          # Also works when bootstrap failed before writing GITHUB_ENV.
+          export GHCUP_INSTALL_BASE_PREFIX="$PWD/frontend-work/haskell"
           python frontend/collect-logs.py --source frontend-work/fetch/source \
             --output frontend-work/logs/haskell \
             2>&1 | tee frontend-work/logs/collect-haskell.log
@@ -209,6 +240,7 @@ jobs:
             frontend-work/logs/
             frontend-work/outcome.txt
             frontend-work/fetch/
+            frontend-work/ghcup-bootstrap.sh
             frontend-work/build/
             frontend-work/bundle/
             frontend-work/wheels/

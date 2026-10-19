@@ -32,6 +32,22 @@ def glibc_versions(path):
       re.findall(r'\bGLIBC_(\d+(?:\.\d+)+)', output('readelf', '-V', str(path)))})
 
 
+def copy_gmp_licenses(destination, system_root=Path('/')):
+  notice = system_root / 'usr/share/doc/libgmp10/copyright'
+  if notice.is_file():
+    shutil.copy2(notice, destination / 'LICENSE-GMP')
+    return
+  # manylinux 2.28 uses RPM license directories. Carry every original
+  # notice there, including the alternative GPL/LGPL texts, verbatim.
+  license_root = system_root / 'usr/share/licenses'
+  notices = sorted(p for p in license_root.glob('gmp*/**/*') if p.is_file())
+  if not notices:
+    raise ValueError('GMP licenses missing; supply the distributor notices in this build environment')
+  for notice in notices:
+    name = 'LICENSE-GMP-' + '-'.join(notice.relative_to(license_root).parts)
+    shutil.copy2(notice, destination / name)
+
+
 def bundle(binary, destination, licenses):
   destination.mkdir(parents=True, exist_ok=True)
   target = destination / 'curry-frontend'
@@ -60,13 +76,10 @@ def bundle(binary, destination, licenses):
     # Do not embed a runner prefix or require LD_LIBRARY_PATH.
     subprocess.run(['patchelf', '--set-rpath', '$ORIGIN', str(target)], check=True)
     # Keep the distributor's notice intact when vendoring GMP.
-    notice = Path('/usr/share/doc/libgmp10/copyright')
-    if not notice.is_file():
-      raise ValueError('GMP copyright missing; supply it in this build environment')
-    shutil.copy2(notice, licenses / 'LICENSE-GMP')
+    copy_gmp_licenses(licenses)
   versions = {v for path in destination.iterdir() for v in glibc_versions(path)}
   info = dict(
-      version='2.0.0', packaging_version='2.0.0.post2', architecture=arch
+      version='2.0.0', packaging_version='2.0.0.post3', architecture=arch
     , linkage='dynamic' if needed else 'static', needed=needed
     , glibc_required='.'.join(map(str, max(versions))) if versions else None
     , rpath='$ORIGIN' if 'libgmp.so.10' in needed else None

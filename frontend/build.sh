@@ -9,7 +9,9 @@ mkdir -p "$output_dir"
 ghc --version
 ghc --info
 cabal --version
-stack --version
+if [ "$(uname -m)" = x86_64 ]; then
+  stack --version
+fi
 gcc --version
 ld --version
 ldd --version
@@ -36,7 +38,12 @@ else:
 PY
 )
 build_frontend() {
-  local options=$1
+  local linkage=$1
+  local options='-v'
+  local static_args=()
+  if [ "$linkage" = static ]; then
+    options+=' -static -optl-static -optl-pthread'
+  fi
   if [ "$(uname -m)" = x86_64 ]; then
     # Do not override the source resolver with a modern snapshot.
     python3 - <<'PY'
@@ -47,31 +54,38 @@ if not re.search(r'^resolver:\s*[\x27\x22]?lts-16\.9[\x27\x22]?\s*(?:#.*)?$', te
   raise SystemExit('Unexpected resolver; reviewer must inspect stack.yaml.')
 PY
     [ "$?" = 0 ] || return 1
-    stack --system-ghc --no-install-ghc build --verbose \
+    if [ "$linkage" = static ]; then
+      static_args=(--no-shared)
+    fi
+    stack --system-ghc --no-install-ghc build --verbose "${static_args[@]}" \
       --copy-bins --local-bin-path "$output_dir/installed" --ghc-options="$options" || return $?
     cp "$output_dir/installed/$executable" "$output_dir/curry-frontend" || return $?
   else
     # Start at GHC 9.6; retain solver/compile errors for named source fixes.
-    cabal build "exe:$executable" --verbose=3 --allow-newer --ghc-options="$options" || return $?
+    if [ "$linkage" = static ]; then
+      static_args=(--disable-shared --enable-executable-static)
+    fi
+    cabal build "exe:$executable" --verbose=3 --allow-newer \
+      "${static_args[@]}" --ghc-options="$options" || return $?
     local built_binary
     built_binary=$(cabal list-bin "exe:$executable") || return $?
     cp "$built_binary" "$output_dir/curry-frontend" || return $?
+  fi
+  readelf -l -d "$output_dir/curry-frontend" > "$output_dir/$linkage-elf.txt" || return $?
+  cat "$output_dir/$linkage-elf.txt"
+  if [ "$linkage" = static ] && grep -qE 'INTERP|\(NEEDED\)' "$output_dir/$linkage-elf.txt"; then
+    echo 'Static flags produced a dynamic executable; rejecting the static attempt.'
+    return 1
   fi
 }
 if [ "$(uname -m)" != x86_64 ]; then
   cabal update --verbose=3
 fi
-if build_frontend '-v -optl-static -optl-pthread' > "$output_dir/static.log" 2>&1; then
-  cat "$output_dir/static.log"
+if build_frontend static 2>&1 | tee "$output_dir/static.log"; then
   echo static > "$output_dir/linkage-requested.txt"
 else
-  cat "$output_dir/static.log"
   echo 'Static attempt failed; retrying dynamic link with the same source.'
-  build_frontend '-v' > "$output_dir/dynamic.log" 2>&1 || {
-    cat "$output_dir/dynamic.log"
-    exit 1
-  }
-  cat "$output_dir/dynamic.log"
+  build_frontend dynamic 2>&1 | tee "$output_dir/dynamic.log" || exit 1
   echo dynamic > "$output_dir/linkage-requested.txt"
 fi
 test "$("$output_dir/curry-frontend" --numeric-version)" = 2.0.0

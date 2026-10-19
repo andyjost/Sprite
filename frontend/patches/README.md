@@ -7,7 +7,14 @@ CI run 1 reached GHC 9.6.7 on aarch64 and established these failures:
 * `0002-as-pattern-whitespace.patch`: GHC rejects `f@ (Field _ _ _)`.
   Remove the space after `@` to retain the original as-pattern.
 
-Both changes preserve the 2.0.0 program and are valid under GHC 8.8.3 too.
+CI run 2 confirmed both patches apply and x86-64 still passes byte parity.
+It established one further missing import under GHC 9.6.7 / mtl 2.3.1:
+
+* `0003-syntax-utils-liftM-imports.patch`: `Curry.Syntax.Utils` uses
+  `liftM2` and `liftM3`, formerly re-exported by `Control.Monad.State`.
+  Import those same functions from `Control.Monad`.
+
+All three changes preserve the 2.0.0 program and are valid under GHC 8.8.3 too.
 The build applies them on both architectures in name order using
 `patch --batch --forward --fuzz=0 -p1` from the source root. Their application
 was checked against the archive whose checksum CI established; compilation
