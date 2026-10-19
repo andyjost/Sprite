@@ -127,22 +127,37 @@ class TestStagedLibrary(cytest.TestCase):
       self.assertIn(name, modules)
 
   def test_prebuild_uses_its_own_environment(self):
-    """The Python prebuild step clears ambient runtime settings."""
+    """
+    The Python prebuild step clears ambient runtime settings.  Its PYTHONPATH
+    names the package of the stage first and keeps the caller's path after
+    it: in the isolated build of pip (the sdist) that path names the site of
+    the build environment, where the console script of the front end, a
+    build requirement, finds its module.
+    """
     import importlib.util
     spec = importlib.util.spec_from_file_location('build_package',
         os.path.join(SOURCE_ROOT, 'scripts', 'build-package.py'))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    with mock.patch.dict(os.environ, {
+    ambient = {
         'SPRITE_HOME': '/other', 'CURRYPATH': '/other',
         'SPRITE_INTERPRETER_FLAGS': 'backend:py', 'CXXFLAGS': '-bad',
-        'SPRITE_PRODUCT_CACHE': '/products'}):
-      env = module.build_environment('/stage')
-    self.assertEqual(env['SPRITE_HOME'], '/stage')
-    self.assertEqual(env['PYTHONPATH'], '/stage/python')
-    self.assertEqual(env['SPRITE_PRODUCT_CACHE'], '/products')
-    for name in ['CURRYPATH', 'CXXFLAGS', 'SPRITE_INTERPRETER_FLAGS']:
-      self.assertNotIn(name, env)
+        'SPRITE_PRODUCT_CACHE': '/products'}
+    for pythonpath, expected in [
+        (None, '/stage/python'), ('', '/stage/python'),
+        ('/build-env/site', '/stage/python' + os.pathsep + '/build-env/site')]:
+      with self.subTest(pythonpath=pythonpath):
+        with mock.patch.dict(os.environ, ambient):
+          if pythonpath is None:
+            os.environ.pop('PYTHONPATH', None)
+          else:
+            os.environ['PYTHONPATH'] = pythonpath
+          env = module.build_environment('/stage')
+        self.assertEqual(env['SPRITE_HOME'], '/stage')
+        self.assertEqual(env['PYTHONPATH'], expected)
+        self.assertEqual(env['SPRITE_PRODUCT_CACHE'], '/products')
+        for name in ['CURRYPATH', 'CXXFLAGS', 'SPRITE_INTERPRETER_FLAGS']:
+          self.assertNotIn(name, env)
 
 
 class JsonModuleTestCase(cytest.TestCase):

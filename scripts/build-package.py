@@ -53,7 +53,9 @@ def build_environment(prefix):
   # The package of the stage first, then the path of the caller: in the
   # isolated build of pip (the sdist) it names the site of the build
   # environment, where the console script of the front end, a build
-  # requirement, finds its module.
+  # requirement, finds its module.  The front end runs twice in a stage,
+  # once from here over the library and once from the staged sprite-make,
+  # so the one environment of the stage carries the path.
   pythonpath = os.pathsep.join(
       p for p in [str(Path(prefix) / 'python'), os.environ.get('PYTHONPATH', '')]
         if p)
