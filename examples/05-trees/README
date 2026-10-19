@@ -1,0 +1,23 @@
+Trees: a user type on both sides of the boundary
+=================================================
+
+Tree.curry defines `data Tree a = Leaf | Node (Tree a) a (Tree a)` with
+size, depth, leaves, toList, a search-tree insert, and two generators.
+go.py evaluates them, then writes size and depth again in Python with
+`match`: `T.Node(l, _, r)` is a class pattern, because every constructor of
+positive arity is a class whose instances are its values, and `T.Leaf` is a
+value pattern, because a nullary constructor is the instance itself.  A
+tree built in Python with the same classes goes back to Curry as a term.
+
+Generation: `shapes 3` is a nondeterministic function; its five values are
+the five shapes of three nodes.  `randomTree seed n` is deterministic: a
+linear congruential step chooses the sizes and the values, so the same
+seed gives the same tree in every run and on every machine.  Nothing in
+the runtime is random.
+
+What to look at: the printed tree is Curry text; `type(t).__name__` is the
+constructor's name; `curry.info(T).types['Tree']` is the type with its
+constructors and its class.
+
+Run "make stage" from the root of the repository first, then "./run"
+from this directory.  The file expected.out records the standard output.

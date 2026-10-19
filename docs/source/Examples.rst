@@ -3,9 +3,8 @@ Examples
 ========
 
 The numbered directories under ``examples/`` hold runnable examples, each
-with a README and a run script.  All except ``05-blocks-in-flask`` have an
-``expected.out`` with the exact output of that script.  Example 05 needs
-Flask and is excluded from the example test.  The shared modules under
+with a README, a run script and an ``expected.out`` with the exact standard
+output of that script.  The shared modules under
 ``examples/cxx/`` and the guide's ``examples/Peano.curry`` are support
 sources, without separate run scripts or expected-output tests.  Most
 numbered examples have a Python driver, ``go.py``, and one Curry module.
@@ -28,7 +27,7 @@ including C++.
 The first run of an example also runs the Curry front end on its module.
 That takes a fraction of a second per module: example 01 took 0.56 s on
 its first run and 0.15 s on the second, on the machine of this text.  The
-test ``tests/unit_examples.py`` runs the numbered examples except 05 on
+test ``tests/unit_examples.py`` runs the numbered examples on
 the backends it declares and compares the output with ``expected.out``.
 It currently tests example 04 on the reference backend only.
 
@@ -112,6 +111,51 @@ module and records a goal.  Running the saved script evaluates that goal.
     ./run
 
 .. literalinclude:: ../../examples/04-static-compile/README
+   :language: text
+
+Trees: a user type on both sides of the boundary
+================================================
+
+Directory ``examples/05-trees``.
+
+Constructor classes and pattern matching carry trees both ways, then Curry generates every shape or a seeded pseudo-random tree.
+
+.. code-block:: bash
+
+    cd examples/05-trees
+    ./run
+
+.. literalinclude:: ../../examples/05-trees/README
+   :language: text
+
+Variables: narrowing and suspension
+===================================
+
+Directory ``examples/06-variables``.
+
+Named free variables expose bindings, while rigid arithmetic suspends and resumes through concurrent conjunction.
+
+.. code-block:: bash
+
+    cd examples/06-variables
+    ./run
+
+.. literalinclude:: ../../examples/06-variables/README
+   :language: text
+
+Permutation sort: generate, test, collect
+=========================================
+
+Directory ``examples/08-permutation-sort``.
+
+Permutations are values, guards keep sorted ones, and set functions collect a multiset while an outside choice stays outside.
+
+.. code-block:: bash
+
+    cd examples/08-permutation-sort
+    ./run
+
+.. literalinclude:: ../../examples/08-permutation-sort/README
    :language: text
 
 N queens with set functions
@@ -254,7 +298,7 @@ Blocks World as a command-line application
 
 Directory ``examples/19-blocks-world-app``.
 
-A non-deterministic move and a bounded search give a shortest plan by iterative deepening.  An argparse front end parses the worlds and draws the plan, and an optional form uses ``http.server``.
+A non-deterministic move and a bounded search give a shortest plan by iterative deepening.  An argparse front end parses the worlds and draws the plan, and an optional form uses ``http.server``.  This succeeds the retired Flask blocks-world example.
 
 .. code-block:: bash
 
@@ -352,4 +396,20 @@ The makefile of a toy C project is a Curry module beside its sources: the variab
     ./run
 
 .. literalinclude:: ../../examples/24-build-system/README
+   :language: text
+
+A perfect hash function, found by search
+========================================
+
+Directory ``examples/25-perfect-hash``.  Tested on C++ only; the reference
+backend was still searching length two at 60 seconds.
+
+A search by program length finds a perfect hash for Java keywords beside a Python brute force over the same space.
+
+.. code-block:: bash
+
+    cd examples/25-perfect-hash
+    ./run
+
+.. literalinclude:: ../../examples/25-perfect-hash/README
    :language: text

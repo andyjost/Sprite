@@ -1,0 +1,4 @@
+% python go.py
+length 1: 9 programs; None
+length 2: 81 programs; [Mul 31, Shr 2]
+python: length 2: (('Mul', 31), ('Shr', 2))

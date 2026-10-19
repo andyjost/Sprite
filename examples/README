@@ -2,9 +2,8 @@ Sprite examples
 ===============
 
 Each numbered subdirectory holds one example, with a README and a run
-script.  All except 05-blocks-in-flask have an expected.out with the exact
-output of the run script; 05 is excluded from the example test.  The shared
-cxx/ modules and Peano.curry are support sources without separate run
+script and an expected.out with the exact standard output of the run
+script.  The shared cxx/ modules and Peano.curry are support sources without separate run
 scripts or expected-output tests.  Most examples have a Python driver,
 go.py, and one Curry module.  Run "make stage" from the root of the
 repository first; the run scripts use the staged install under ../install,
@@ -35,18 +34,19 @@ states what the example shows about functional logic programming, what it
 shows about calling Curry from Python, how to run it, the output to expect,
 and the sizes that keep the run short.
 
-The test tests/unit_examples.py runs the numbered examples except 05 in
+The test tests/unit_examples.py runs the numbered examples in
 child processes and compares their output with expected.out.  It runs
 03-inspect, 11-sudoku, 12-cryptarithm and 22-cxx-types-trait-check on the
-C++ backend only, and 04-static-compile on the reference backend only.
+C++ backend only, as well as 25-perfect-hash (the reference backend is too slow),
+and 04-static-compile on the reference backend only.
 To regenerate the expected output after a deliberate change, run
 SPRITE_UPDATE_EXPECTED=1 ./run_tests
 unit_examples.py from tests/, and review the diff.
 
 The list below gives each directory, the title of its README, and what it
-teaches.  The numbers group the examples: 00 to 04 tour the API, 10 to 19
-and 24 are programs with a Python driver, and 20 to 23 are a series over one
-shared library.  The gaps are deliberate.
+teaches.  The numbers group the examples: 00 to 08 tour the API, 10 to 19
+and 24 to 25 are programs with a Python driver, and 20 to 23 are a series
+over one shared library.  The gaps are deliberate.
 
 00-run-curry-programs
     Run Curry programs with sprite-exec.  Call-time choice; a program by
@@ -67,6 +67,18 @@ applications.
 04-static-compile
     Save a compiled Curry module.  curry.save with a goal, and running the
     saved script.
+
+05-trees
+    Trees cross the Curry/Python boundary through constructor classes,
+    pattern matching, nondeterministic shapes and a seeded generator.
+
+06-variables
+    Named free variables, narrowing and bindings lead to suspension and
+    resumption through concurrent conjunction.
+
+08-permutation-sort
+    Permutations are values, sorting prunes them, and Values collects a
+    multiset while an outside choice stays outside the capsule.
 
 10-queens-set-functions
     N queens with set functions.  Non-determinism as values, functional
@@ -108,7 +120,8 @@ applications.
 
 19-blocks-world-app
     Blocks World as a command-line application.  Search by iterative
-    deepening; argparse; an http.server form.
+    deepening; argparse; an http.server form.  It succeeds the retired
+    Flask blocks-world example.
 
 20-cxx-types-deduction
     Template argument deduction over a model of C++ types.  Free variables
@@ -137,6 +150,10 @@ applications.
     plan, the ready set and the inverse query from the relations; three
     lints; a driver that runs the recipes.
 
+25-perfect-hash
+    Search by program length finds a perfect hash for Java keywords, beside
+    a Python brute force over the same space.
+
 Other files in this directory
 -----------------------------
 
@@ -150,7 +167,3 @@ introduces the series.
 
 Peano.curry is the program of the Quickstart in the user guide.  Run it
 with sprite-exec from this directory.
-
-05-blocks-in-flask is an older Flask application.  It needs the Flask
-package, which is not part of the staged install, and a slow solver.
-19-blocks-world-app replaces it, and the test does not run it.
