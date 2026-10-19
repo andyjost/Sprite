@@ -43,6 +43,9 @@ EXAMPLES = {
   # function, so the example runs on the C++ backend alone.
   , '03-inspect'                    : {'cxx'}
   , '04-static-compile'             : {'py'}
+  , '05-trees'                      : {'py', 'cxx'}
+  , '06-variables'                  : {'py', 'cxx'}
+  , '08-permutation-sort'           : {'py', 'cxx'}
   , '10-queens-set-functions'       : {'py', 'cxx'}
   , '11-sudoku'                     : {'cxx'}
   , '12-cryptarithm'                : {'cxx'}
@@ -58,15 +61,14 @@ EXAMPLES = {
   , '22-cxx-types-trait-check'      : {'cxx'}
   , '23-cxx-types-layout'           : {'py', 'cxx'}
   , '24-build-system'               : {'py', 'cxx'}
+  # The retired Python backend is still searching length two at 60 s;
+  # the program search is kept within its budget on C++ only.
+  , '25-perfect-hash'               : {'cxx'}
   }
 
 # Directories with a run script that the test does not run, and why.  Every
 # directory with a run script is in EXAMPLES or here; a test checks that.
-EXCLUDED = {
-    '05-blocks-in-flask':
-        'needs the Flask package and a slow solver; 19-blocks-world-app '
-        'replaces it'
-  }
+EXCLUDED = {}
 
 # Directory -> Python modules outside the standard library that the example
 # imports.  The test skips the example when one of them is missing.  No
