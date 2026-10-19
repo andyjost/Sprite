@@ -30,8 +30,9 @@ Environment Variables:
 
 from . import config
 from .utility import filesys, strings
-import glob, hashlib, logging, os, re, tempfile, time
-import pickle
+import glob, hashlib, logging, os, re, tempfile, time, uuid
+import pickle, threading
+from .utility.locking import synchronized
 
 logger = logging.getLogger(__name__)
 
@@ -53,21 +54,26 @@ except ImportError:
 # to ICurry.
 # ``reset`` clears it, so a test can change the environment.
 _memo = {}
+_memo_lock = threading.RLock()
+_connections = threading.local()
+_generation = 0
 
 def reset():
   '''
   Forgets the cache file, the update pattern, the database connection, and
   the digests of the routes.  The next use reads the environment again.
   '''
-  db = _memo.get('db')
-  if db is not None:
-    db.close()
-  _memo.clear()
+  global _generation
+  with _memo_lock:
+    _generation += 1
+    _memo.clear()
+
 
 def enabled():
   '''Whether a cache file is in use.'''
   return sqlite3 is not None and filename() is not None
 
+@synchronized(_memo_lock)
 def filename():
   '''Returns the name of the cache file or None.'''
   if 'filename' not in _memo:
@@ -105,6 +111,7 @@ def icurry_cache_enabled():
     return bool(config.enable_icurry_cache()) and filename() is not None
   return bool(name)
 
+@synchronized(_memo_lock)
 def must_force_update(filename):
   '''Tells whether SPRITE_CACHE_UPDATE selects ``filename`` for an update.'''
   if 'matcher' not in _memo:
@@ -127,18 +134,22 @@ def _getdb():
   the file is created.  A file that cannot be opened disables the cache for
   this process, with a warning.
   '''
-  if 'db' not in _memo:
+  with _memo_lock:
+    generation = _generation
+    name = filename() if enabled() else None
+  if getattr(_connections, 'generation', None) != generation:
     db = None
-    if enabled():
-      name = filename()
+    if name is not None:
       try:
         os.makedirs(os.path.dirname(name), exist_ok=True)
         db = sqlite3.connect(name, timeout=30)
       except (OSError, sqlite3.Error) as err:
         logger.warning('cannot open the cache file %s: %s', name, err)
-        db = None
-    _memo['db'] = db
-  return _memo['db']
+    # Slots in progress retain their connection; reset never closes one
+    # that another thread/transaction could still be using.
+    _connections.db = db
+    _connections.generation = generation
+  return _connections.db
 
 # ---------------------------------------------------------------------------
 # The cache key of the Curry-to-ICurry conversion.
@@ -166,6 +177,7 @@ class SourceInfo(object):
     text = data.decode('utf-8', errors='replace')
     self.imports = list(dict.fromkeys(_IMPORT.findall(text)))
 
+@synchronized(_memo_lock)
 def _sourceinfo(path):
   '''
   Reads ``path`` and returns its ``SourceInfo``.  The file is read every time:
@@ -195,6 +207,7 @@ def _digest_file(hasher, path):
     hasher.update(stream.read())
   hasher.update(b'\0')
 
+@synchronized(_memo_lock)
 def frontend_digest(tool=None):
   '''
   A digest of the route from Curry to ICurry named by ``tool`` (see
@@ -354,12 +367,6 @@ def interface_filename(icyfile, suffix):
   assert icyfile.endswith('.icy') and suffix in INTERFACE_SUFFIXES
   return icyfile[:-len('.icy')] + suffix
 
-def _umask():
-  '''The file mode creation mask of the process.'''
-  mask = os.umask(0)
-  os.umask(mask)
-  return mask
-
 def write_file(filename, content):
   '''
   Writes ``content``, a text or bytes, to ``filename`` through a temporary
@@ -369,7 +376,8 @@ def write_file(filename, content):
   '''
   dirname = os.path.dirname(filename)
   os.makedirs(dirname, exist_ok=True)
-  fd, tmpname = tempfile.mkstemp(dir=dirname, prefix='.icurry-', suffix='.tmp')
+  tmpname = os.path.join(dirname, '.icurry-%s.tmp' % uuid.uuid4().hex)
+  fd = os.open(tmpname, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
   try:
     if isinstance(content, bytes):
       stream = os.fdopen(fd, 'wb')
@@ -377,7 +385,6 @@ def write_file(filename, content):
       stream = os.fdopen(fd, 'w', encoding='utf-8')
     with stream:
       stream.write(content)
-    os.chmod(tmpname, 0o666 & ~_umask())
     os.replace(tmpname, filename)
   except BaseException:
     if os.path.exists(tmpname):
@@ -541,7 +548,8 @@ class Curry2ICurryCache(object):
         logger.warning('cannot read the cache: %s', err)
         return
       if row is None:
-        Curry2ICurryCache.stats['miss'] += 1
+        with _memo_lock:
+          Curry2ICurryCache.stats['miss'] += 1
         logger.info('ICurry cache miss for %s', self.modulename)
         return
       name, text, fint, icurry, error = row
@@ -550,7 +558,8 @@ class Curry2ICurryCache(object):
         if self.anonymous and name != self.modulename:
           error = rename_in_message(error, name, self.modulename)
         self.error = error
-        Curry2ICurryCache.stats['hit'] += 1
+        with _memo_lock:
+          Curry2ICurryCache.stats['hit'] += 1
         logger.info(
             'ICurry cache hit for %s (a program error)', self.modulename
           )
@@ -577,7 +586,8 @@ class Curry2ICurryCache(object):
         return
       self._write(text, interfaces)
       self.found = True
-      Curry2ICurryCache.stats['hit'] += 1
+      with _memo_lock:
+        Curry2ICurryCache.stats['hit'] += 1
       logger.info('ICurry cache hit for %s', self.modulename)
 
     def __bool__(self):

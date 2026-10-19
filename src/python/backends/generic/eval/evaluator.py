@@ -1,5 +1,5 @@
 from . import telemetry
-import weakref
+import weakref, threading
 
 # The keys of the scheduler counters that hold a largest value.  Over several
 # evaluations the largest of them counts; every other number adds.
@@ -51,17 +51,27 @@ class EvaluationTotals(object):
     self._steps = 0
     self._forks = 0
     self._scheduler = None
-    self._running = weakref.WeakSet()
+    self._running_refs = {}
+    self._lock = threading.Lock()
+    self._version = 0
+
+  @property
+  def _running(self):
+    # Keep the inspection view used by diagnostics; resolve weakrefs only
+    # after releasing the metadata lock, just as the counter snapshots do.
+    with self._lock:
+      refs = tuple(self._running_refs.values())
+    return tuple(rts for ref in refs if (rts := ref()) is not None)
 
   @property
   def steps(self):
     '''The rewrite steps taken, running evaluations included.'''
-    return self._steps + sum(rts.steps_total for rts in tuple(self._running))
+    return self._snapshot()[0]
 
   @property
   def forks(self):
     '''The forks taken, running evaluations included.'''
-    return self._forks + sum(rts.forks_total for rts in tuple(self._running))
+    return self._snapshot()[1]
 
   @property
   def scheduler(self):
@@ -69,12 +79,25 @@ class EvaluationTotals(object):
     The scheduler counters summed, running evaluations included; None when
     the runtime has no counters or no evaluation reported any.
     '''
-    total = _copy_counters(self._scheduler) if self._scheduler else None
-    for rts in tuple(self._running):
-      counters = rts.scheduler_counters()
-      if counters is not None:
-        total = merge_counters(total, counters)
-    return total
+    return self._snapshot()[2]
+
+  def _snapshot(self):
+    while True:
+      with self._lock:
+        version = self._version
+        steps, forks = self._steps, self._forks
+        refs = tuple(self._running_refs.values())
+        total = _copy_counters(self._scheduler) if self._scheduler else None
+      running = tuple(rts for ref in refs if (rts := ref()) is not None)
+      for rts in running:
+        steps += rts.steps_total
+        forks += rts.forks_total
+        counters = rts.scheduler_counters()
+        if counters is not None:
+          total = merge_counters(total, counters)
+      with self._lock:
+        if version == self._version:
+          return steps, forks, total
 
   def add(self, rts):
     '''Adds the counts of a runtime state that takes no more steps.'''
@@ -84,11 +107,13 @@ class EvaluationTotals(object):
     steps = rts.steps_total
     forks = rts.forks_total
     counters = rts.scheduler_counters()
-    self._running.discard(rts)
-    self._steps += steps
-    self._forks += forks
-    if counters is not None:
-      self._scheduler = merge_counters(self._scheduler, counters)
+    with self._lock:
+      self._running_refs.pop(id(rts), None)
+      self._steps += steps
+      self._forks += forks
+      if counters is not None:
+        self._scheduler = merge_counters(self._scheduler, counters)
+      self._version += 1
 
   def track(self, rts, values):
     '''
@@ -96,7 +121,15 @@ class EvaluationTotals(object):
     under ``rts``, and adds the counts of ``rts`` when the generator ends or
     is closed.
     '''
-    self._running.add(rts)
+    key = id(rts)
+    def forget(ref):
+      with self._lock:
+        if self._running_refs.get(key) is ref:
+          self._running_refs.pop(key)
+          self._version += 1
+    with self._lock:
+      self._running_refs[key] = weakref.ref(rts, forget)
+      self._version += 1
     try:
       yield from values
     finally:

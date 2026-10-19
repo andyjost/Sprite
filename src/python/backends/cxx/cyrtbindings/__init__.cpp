@@ -1,5 +1,6 @@
 #include "pybind11/pybind11.h"
 #include "cyrt/evaluation.hpp"
+#include "heap.hpp"
 
 namespace cyrt { namespace python
 {
@@ -37,8 +38,12 @@ namespace
   }
 }
 
-PYBIND11_MODULE(_cyrtbindings, mod)
+PYBIND11_MODULE(_cyrtbindings, mod, pybind11::mod_gil_not_used())
 {
+  // Group native metadata operations and their Python publication without
+  // acquiring a Python mutex before a heap wait. Never used for stepping.
+  mod.def("_metadata_call", [](pybind11::function action) { return action(); },
+      cyrt::python::heap_access());
   cyrt::set_host_poll(&python_poll);
   cyrt::set_host_wait(&python_wait);
   cyrt::python::register_checker(mod);

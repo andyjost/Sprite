@@ -1,7 +1,7 @@
 from .. import config
 from . import plans, _filenames, _findcurry, _productlock
 from ..utility import formatDocstring
-import importlib.util, logging, os, shutil, sys, time
+import importlib.util, logging, os, shutil, sys, time, threading
 
 __all__ = ['compile_seconds', 'makecurry']
 logger = logging.getLogger(__name__)
@@ -16,19 +16,21 @@ class CompileClock(object):
   '''
   def __init__(self):
     self.seconds = 0.0
-    self._depth = 0
-    self._start = None
+    self._local = threading.local()
+    self._lock = threading.Lock()
 
   def __enter__(self):
-    if self._depth == 0:
-      self._start = time.perf_counter()
-    self._depth += 1
+    if getattr(self._local, 'depth', 0) == 0:
+      self._local.start = time.perf_counter()
+    self._local.depth = getattr(self._local, 'depth', 0) + 1
     return self
 
   def __exit__(self, *exc_info):
-    self._depth -= 1
-    if self._depth == 0:
-      self.seconds += time.perf_counter() - self._start
+    self._local.depth -= 1
+    if self._local.depth == 0:
+      elapsed = time.perf_counter() - self._local.start
+      with self._lock:
+        self.seconds += elapsed
 
 compile_clock = CompileClock()
 
@@ -116,28 +118,29 @@ class Maker(object):
     placed files counts itself.  A plan that is done with nothing to
     restore costs no time on the clock.
 
-    The steps run under the lock of the products of the module
-    (``_productlock``): a second process that compiles the same module
-    waits for the first, and once it holds the lock it looks at the files
-    again, so when the first wrote a current object it makes nothing.
+    Imports and native preparation run without a product lock. Steps that
+    import own their file-publication lock; the other steps only produce
+    files and run under the module lock here.
     '''
-    if self._restored_and_done():
-      return
-    with _productlock.locked(self.pipeline.currentfile) as waited:
-      if waited:
-        self.pipeline.currentfile = _findcurry.currentfile(
-            self.plan, self.name, self.currypath, **self.kwds
-          )
-      while True:
-        if self._restored_and_done():
-          return
-        stage = self.plan.stages[self.current_position]
+    while True:
+      if self._restored_and_done():
+        return
+      stage = self.plan.stages[self.current_position]
+      if getattr(stage.step, 'manages_product_lock', False):
         with compile_clock:
           self.pipeline.currentfile = stage.step(
-              self.pipeline.currentfile, self.currypath, **self.kwds
-            )
-        if not self.done:
-          self.pipeline.intermediates.append(self.pipeline.currentfile)
+              self.pipeline.currentfile, self.currypath, _accept_current=True, **self.kwds)
+      else:
+        # Advance this plan's pipeline. Re-running global timestamp
+        # selection between stages could accept an old object after only
+        # its frontend input was refreshed (issue #138).
+        current = self.pipeline.currentfile
+        with _productlock.locked(current):
+          with compile_clock:
+            self.pipeline.currentfile = stage.step(
+                current, self.currypath, **self.kwds)
+      if not self.done:
+        self.pipeline.intermediates.append(self.pipeline.currentfile)
 
   def _restored_and_done(self):
     '''

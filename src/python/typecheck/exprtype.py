@@ -16,6 +16,10 @@ with the indices of their first occurrence, and the names of the variables.
 per name.
 '''
 
+import threading
+_synonym_lock = threading.Lock()
+
+
 from .. import exceptions
 from ..toolchain.flat2icurry import flatcurry as fc
 from .errors import (
@@ -96,7 +100,8 @@ def synonyms_of(interp, modulename):
       found[m.group('name')] = Synonym(
           modulename, m.group('name'), m.group('params').split(), m.group('rhs')
         )
-    _SYNONYMS[key] = found
+    with _synonym_lock:
+      found = _SYNONYMS.setdefault(key, found)
   return found
 
 # The parser

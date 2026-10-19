@@ -54,7 +54,7 @@ if '_interpreter_' in globals():
     _interpreter_.backend.module_unlinked(_interpreter_, _old_prelude)
   del _old_prelude
 try:
-  _interpreter_ = interpreter.Interpreter(flags=_flags.getflags())
+  _interpreter_ = interpreter.Interpreter(flags=globals().pop('_reload_flags', _flags.getflags()))
 except FlagError:
   import sys as _sys
   def _flag_error_hook(kind, value, traceback, previous=_sys.excepthook):
@@ -74,12 +74,13 @@ def eval(goal):
   """Return the converted values of a goal as a lazy Results."""
   return _interpreter_.eval(goal)
 
-solve = _interpreter_.solve
+def solve(goal):
+  return _interpreter_.solve(goal)
 
 def stream(action):
   """Return the ordered values yielded by a lazy I/O action as a Stream."""
   return _interpreter_.stream(action)
-flags = _session.MappingProxyType(_interpreter_.flags)
+flags = _session.Flags(_interpreter_)
 def import_(name, *, path=None):
   return _session.import_(_interpreter_, name, path=path)
 
@@ -98,7 +99,8 @@ def save(module, path, *, main=None):
 
 def wait(module=None):
   return _session.wait(_interpreter_, module)
-stats = _interpreter_.stats
+def stats():
+  return _interpreter_.stats()
 from .objects import CurryModule as Module
 from .objects.terms import (
     Term, Data, DataClass, ConstructorClass, Function, Values, Symbol, DataType, Char

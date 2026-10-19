@@ -18,7 +18,7 @@ defaulting table.
 from ..toolchain.flat2icurry import flatcurry as fc
 from .sigtable import show_type
 from ..utility.trampoline import trampoline
-import itertools
+import itertools, threading
 
 __all__ = [
     'APPLY', 'ARROW', 'Naming', 'Rigid', 'Var', 'arrow', 'free_vars'
@@ -48,11 +48,13 @@ class Var:
   '''
   __slots__ = ('_parent', 'binding', 'uid', 'kind', 'holders', 'preds')
   _counter = itertools.count(1)
+  _counter_lock = threading.Lock()
 
   def __init__(self, kind=None):
     self._parent = None
     self.binding = None
-    self.uid = next(Var._counter)
+    with Var._counter_lock:
+      self.uid = next(Var._counter)
     self.kind = kind
     self.holders = []
     self.preds = []

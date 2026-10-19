@@ -743,7 +743,7 @@ class TestProductLock(cytest.TestCase):
       with _productlock.locked(self.curryfile) as waited:
         self.assertFalse(waited)
         self.assertTrue(os.path.isfile(self.lock))
-        self.assertNotIn(self.lock, _productlock._held)
+        self.assertNotIn(self.lock, getattr(_productlock._local, 'held', {}))
       plan = plans.makeplan(
           None, plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON
         )

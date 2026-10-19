@@ -1,3 +1,6 @@
+import threading
+from ..utility.locking import synchronized
+_rewrite_lock = threading.RLock()
 from .. import cache, config
 from ..exceptions import CompileError
 from . import _filenames, _frontend, _system
@@ -67,6 +70,7 @@ _counts = {}
 # The files this process has warned about, so a warning comes once.
 _warned = set()
 
+@synchronized(_rewrite_lock)
 def reset_counts():
   '''Forgets the pairs found, made again and served in this process.'''
   stale_pairs.clear()
@@ -75,10 +79,12 @@ def reset_counts():
   _counts.clear()
   _warned.clear()
 
+@synchronized(_rewrite_lock)
 def pairs_refreshed():
   '''The number of pre-rewrite pairs the route translated again in this process.'''
   return len(refreshed_pairs)
 
+@synchronized(_rewrite_lock)
 def pairs_served():
   '''
   The number of pre-rewrite pairs the ICurry cache served in this process.
@@ -88,6 +94,7 @@ def pairs_served():
   '''
   return len(served_pairs)
 
+@synchronized(_rewrite_lock)
 def _note_refresh(icyfile, served):
   '''Records that the route wrote ``icyfile`` anew, when it was such a pair.'''
   path = os.path.abspath(icyfile)
@@ -95,10 +102,13 @@ def _note_refresh(icyfile, served):
     (served_pairs if served else refreshed_pairs).add(path)
 
 def _warn_once(fcyfile, message, *args):
-  if fcyfile not in _warned:
+  with _rewrite_lock:
+    warn = fcyfile not in _warned
     _warned.add(fcyfile)
+  if warn:
     logger.warning(message, *args)
 
+@synchronized(_rewrite_lock)
 def _rewrite_count(fcyfile, data, stamp):
   '''
   What the rewrite step changes in the text ``data`` of ``fcyfile``: the
@@ -416,7 +426,7 @@ class Curry2ICurryConverter(object):
         logger.debug('Found the error of %s in the cache', file_in)
         raise CompileError(slot.error, report=slot.error)
       else:
-        logger.debug('Using CURRYPATH %s', os.environ['CURRYPATH'])
+        logger.debug('Using CURRYPATH %s', ':'.join(currypath))
         _system.makeOutputDir(file_out)
         try:
           with filesys.remove_file_on_error(file_out):

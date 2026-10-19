@@ -7,7 +7,7 @@ implement.
 '''
 
 from .. import config
-import abc, importlib
+import abc, importlib, threading
 
 __all__ = ['IBackend', 'Node']
 
@@ -20,6 +20,7 @@ class IBackend(metaclass=abc.ABCMeta):
   is shared among all interpreters using the same backend.
   '''
   _instances = {}
+  _instances_lock = threading.Lock()
 
   def __new__(cls, backend=None):
     if backend not in cls._instances:
@@ -28,7 +29,9 @@ class IBackend(metaclass=abc.ABCMeta):
         # Each backend must implement this class at backends.<name>.interface.IBackend.
         currypkg = config.python_package_name()
         ifc = importlib.import_module('%s.backends.%s.interface' % (currypkg, backend))
-        cls._instances[backend] = ifc.IBackend()
+        instance = ifc.IBackend()
+        with cls._instances_lock:
+          cls._instances.setdefault(backend, instance)
       else:
         return object.__new__(cls)
     return cls._instances[backend]

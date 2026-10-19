@@ -2,27 +2,46 @@
 
 from collections.abc import Iterator, Mapping
 from typing import NamedTuple
+import functools, threading
+
+def _consuming(function):
+  @functools.wraps(function)
+  def call(self, *args, **kwds):
+    with self._lock:
+      if self._busy:
+        raise ValueError('generator already executing')
+      self._busy = True
+    try:
+      return function(self, *args, **kwds)
+    finally:
+      with self._lock:
+        self._busy = False
+  return call
+
 from ..exceptions import NoValueError, ManyValuesError, SuspensionError
 
 class Results(Iterator):
   '''A lazy search. Closing it releases the evaluation.'''
   def __init__(self, values, text):
+    self._lock = threading.Lock()
+    self._busy = False
     self._values = values
     self._text = text
 
   def __iter__(self):
     return self
 
+  @_consuming
   def __next__(self):
     if self._values is None:
       raise StopIteration
     try:
       return next(self._values)
     except SuspensionError:
-      self.close()
+      self._close()
       raise SuspensionError('Evaluation suspended: ' + self._text) from None
     except BaseException:
-      self.close()
+      self._close()
       raise
 
   def one(self):
@@ -39,7 +58,11 @@ class Results(Iterator):
     raise ManyValuesError('more than one value: %s has %s and %s'
         % (self._text, show(first), show(second)))
 
+  @_consuming
   def close(self):
+    self._close()
+
+  def _close(self):
     values, self._values = self._values, None
     if values is not None:
       close = getattr(values, 'close', None)
@@ -59,12 +82,15 @@ class Results(Iterator):
 class Stream(Iterator):
   '''The ordered values yielded by an I/O action; result is set at its end.'''
   def __init__(self, values):
+    self._lock = threading.Lock()
+    self._busy = False
     self._values = values
     self.result = None
 
   def __iter__(self):
     return self
 
+  @_consuming
   def __next__(self):
     if self._values is None:
       raise StopIteration(self.result)
@@ -72,13 +98,17 @@ class Stream(Iterator):
       return next(self._values)
     except StopIteration as done:
       self.result = done.value
-      self.close()
+      self._close()
       raise
     except BaseException:
-      self.close()
+      self._close()
       raise
 
+  @_consuming
   def close(self):
+    self._close()
+
+  def _close(self):
     values, self._values = self._values, None
     if values is not None:
       values.close()

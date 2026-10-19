@@ -379,15 +379,16 @@ class TestStore(ProductCacheTestCase):
     self.assertEqual(self.temporary_names(), [])
     self.assertEqual(_productcache.counts, {'restored': 1, 'stored': 1})
 
-  def test_store_replaces_an_entry(self):
-    '''A second store of a key replaces the entry; no temporary name remains.'''
+  def test_store_keeps_a_published_entry(self):
+    '''A second producer takes the published entry; no temporary name remains.'''
     name = self.write_json(4)
     files = self.write_products(name, so=b'first')
     entry = _productcache.store(self.DIGEST, self.KEY, files)
+    os.unlink(files[1]) # producers replace objects, never overwrite cache links
     self.write_products(name, so=b'second')
     self.assertEqual(_productcache.store(self.DIGEST, self.KEY, files), entry)
     self.assertEqual(
-        cytest.readfile(os.path.join(entry, name + '.so'), 'rb'), b'second'
+        cytest.readfile(os.path.join(entry, name + '.so'), 'rb'), b'first'
       )
     self.assertEqual(self.entries(self.DIGEST), [self.KEY])
     self.assertEqual(self.temporary_names(), [])
@@ -790,7 +791,7 @@ class TestCompile(ProductCacheTestCase):
     self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 0})
 
   def test_forced_recompile_skips_the_restore(self):
-    '''SPRITE_FORCE_RECOMPILE_CXX compiles, and the compile refreshes the entry.'''
+    '''SPRITE_FORCE_RECOMPILE_CXX compiles; an existing cache entry stays valid.'''
     name = self.write_json(8)
     sofile = makecurry(self.plan, name, [self.srcdir])
     with mock.patch.dict(os.environ, {'SPRITE_FORCE_RECOMPILE_CXX': '1'}):
@@ -798,7 +799,7 @@ class TestCompile(ProductCacheTestCase):
         self.assertEqual(makecurry(self.plan, name, [self.srcdir]), sofile)
     log.checkMessages(self, info='Compiling %r' % sofile)
     self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 2})
-    self.assertTrue(
+    self.assertFalse(
         os.path.samefile(sofile, os.path.join(self.entry(name), name + '.so'))
       )
 

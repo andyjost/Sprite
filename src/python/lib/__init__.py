@@ -18,6 +18,7 @@ Example:
 class CurryImportHook(object):
   '''An import hook that loads Curry modules into Python.'''
   import sys
+  from ..utility.locking import lib_import_lock as _lock, lib_import_names as _names
   from importlib.machinery import ModuleSpec
   from .. import config
   LIBPATH = config.python_package_name() + '.lib.'
@@ -27,6 +28,8 @@ class CurryImportHook(object):
 
   def find_spec(self, fullname, path=None, target=None):
     if fullname.startswith(self.LIBPATH):
+      with self._lock:
+        self._names.add(fullname)
       return self.ModuleSpec(fullname, self)
 
   def create_module(self, spec):
@@ -41,7 +44,7 @@ class CurryImportHook(object):
       # import is anyways cached in curry.modules.  There could be a
       # multiple-import, but it will not be expensive and updating
       # curry.import_ to handle this is not straightforward.
-      self.sys.modules[fullname] = moduleobj
+      return moduleobj
     return self.sys.modules[fullname]
 
   def exec_module(self, module):
@@ -52,8 +55,9 @@ class CurryImportHook(object):
 
 
 import sys
-if not any(getattr(hook, 'LIBPATH', None) == CurryImportHook.LIBPATH
-           for hook in sys.meta_path):
-  sys.meta_path.insert(0, CurryImportHook())
+with CurryImportHook._lock:
+  if not any(getattr(hook, 'LIBPATH', None) == CurryImportHook.LIBPATH
+             for hook in sys.meta_path):
+    sys.meta_path.insert(0, CurryImportHook())
 del config, CurryImportHook, sys # Empty this module to avoid name clashes.
 

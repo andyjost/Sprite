@@ -1,3 +1,4 @@
+from .. import cache
 from ..icurry import readcurry as iread, json as ijson
 from . import _filenames, _system
 from ..utility import filesys
@@ -60,9 +61,7 @@ class ICurry2JsonConverter(object):
     data = text.encode('utf-8')
     if self.do_zip:
       data = zlib.compress(data)
-    with filesys.remove_file_on_error(file_out):
-      with open(file_out, 'wb') as output:
-        output.write(data)
+    cache.write_file(file_out, data)
     return file_out
 
 def _getIcyOrShortcut(file_in, do_zip):
@@ -102,9 +101,5 @@ def _convertFile(file_in, file_out, convert):
   Read from file_in, apply the conversion, and write the result to file_out.
   '''
   with open(file_in, 'rb') as istream:
-    with filesys.remove_file_on_error(file_out):
-      with open(file_out, 'wb') as ostream:
-        json = istream.read()
-        json = convert(json)
-        ostream.write(json)
-
+    data = convert(istream.read())
+  cache.write_file(file_out, data)

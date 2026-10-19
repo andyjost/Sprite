@@ -2,7 +2,7 @@ from ..exceptions import CompileError
 from .. import config
 from ..tools.utility import make_exception
 from ..utility import binding, curryname, filesys, formatting, strings
-import errno, functools, logging, os, subprocess as sp, sys, time
+import contextlib, contextvars, errno, functools, logging, os, subprocess as sp, sys, time
 
 __all__ = [
     'bindCurryPath', 'makeOutputDir', 'pexec', 'pexec_message'
@@ -10,14 +10,20 @@ __all__ = [
   ]
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
+_child_currypath = contextvars.ContextVar('sprite_child_currypath', default=None)
 
+@contextlib.contextmanager
 def bindCurryPath(currypath):
   '''
   Returns a context manager that temporarily binds ``currypath`` to the
   environment variable CURRYPATH.
   '''
   value = ':'.join(curryname.makeCurryPath(currypath))
-  return binding.binding(os.environ, 'CURRYPATH', value)
+  token = _child_currypath.set(value)
+  try:
+    yield
+  finally:
+    _child_currypath.reset(token)
 
 def makeOutputDir(file_out):
   dirname, _ = os.path.split(file_out)
@@ -36,7 +42,11 @@ def pexec(cmd, cwd=None, with_stderr=False):
   carries the command, the exit status, and the standard error text as
   ``command``, ``returncode``, and ``stderr``.
   '''
-  child = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, cwd=cwd)
+  env = os.environ.copy()
+  path = _child_currypath.get()
+  if path is not None:
+    env['CURRYPATH'] = path
+  child = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, cwd=cwd, env=env)
 
   try:
     stdout,stderr = child.communicate()
