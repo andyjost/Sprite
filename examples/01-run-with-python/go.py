@@ -1,17 +1,36 @@
-'''
-Runs a Curry program from Python.
-
-Imports the module rev from the directory of this script and prints every
-value of its goal main.
-'''
 import os
 import curry
 
-# Find rev.curry next to this file, whatever the working directory is.
 curry.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from curry.lib import rev
+from curry.lib import Hello as H, Prelude as P
 
-# A Curry evaluation can produce several values, so curry.eval returns an
-# iterator.  Print each value.
-for value in curry.eval(rev.main):
-  print(value)
+print(curry.eval(H.greet('Python')).one())
+with curry.eval(H.number) as results:
+  for value in results:
+    print('first:', value)
+    break
+  print('remaining:', list(results))  # break kept the position
+print('closed:', list(results))
+print('all:', list(curry.eval(H.number)))
+print('no value:', list(curry.eval(H.nothing)))
+try:
+  curry.eval(H.nothing).one()
+except curry.NoValueError as error:
+  print(type(error).__name__, error)
+results = curry.eval(H.bad)
+print('eval returned; now next')
+try:
+  next(results)
+except curry.DivisionByZeroError as error:
+  print(type(error).__name__, error)
+try:
+  P.ord('A')
+except curry.ConversionError as error:
+  print(type(error).__name__, error)
+print(curry.eval(P.ord(curry.Char('A'))).one())
+print(curry.typeof([1, 2.5]), curry.eval([1, 2.5]).one())
+try:
+  curry.eval(P.read('5'))
+except curry.DefaultingError as error:
+  print(type(error).__name__, error)
+print(curry.eval(curry.term(P.read('5'), type='Int')).one())

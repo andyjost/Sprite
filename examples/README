@@ -1,169 +1,143 @@
 Sprite examples
 ===============
 
-Each numbered subdirectory holds one example, with a README and a run
-script and an expected.out with the exact standard output of the run
-script.  The shared cxx/ modules and Peano.curry are support sources without separate run
-scripts or expected-output tests.  Most examples have a Python driver,
-go.py, and one Curry module.  Run "make stage" from the root of the
-repository first; the run scripts use the staged install under ../install,
-or the install named by SPRITE_HOME.  To run an example, run its script:
+Run "make stage" at the repository root, then "./run" in an example's
+directory.  Each numbered directory has a README, a run script and an
+expected.out recording its exact stdout.  The scripts use the staged
+installation or SPRITE_HOME and the flags of SPRITE_INTERPRETER_FLAGS.
+The first run also compiles the Curry sources; products live under .curry/.
+Rules that overlap by design silence the front-end warning in their run
+script unless SPRITE_FRONTEND_WARNINGS is set explicitly.
 
-    ./run
+The tour runs from 00 to 09.  Follow it with an application, the optional
+C++ type series, or the build-system capstone.  The Python API guide follows
+first calls, results, values and types, logic, encapsulated search, errors,
+session control, and I/O; the Quickstart covers 01 and 02 in five minutes.
 
-A run script uses the installed Sprite with the flags of
-SPRITE_INTERPRETER_FLAGS.  The script of 03-inspect adds interpret:off to
-them, so the module is compiled before it runs and the example prints the
-first line of the generated C++ (its README says why).  The script of
-04-static-compile saves and runs a module on the selected backend,
-including C++.
+The test tests/unit_examples.py compares each run with expected.out.
+Examples 03, 09, 11, 12, 22 and 25 run on C++ only: 03 shows generated C++,
+09 needs the stream channel, and the searches in the others exceed the
+reference backend's practical budget.  Example 04 now runs on C++ too.
+To record intentional output changes, run
+SPRITE_UPDATE_EXPECTED=1 ./run_tests unit_examples.py from tests/ and review
+the diff.  The reasons for backend exclusions are beside the test entries.
 
-Python drivers use symbol calls, curry.term for values, curry.parse for
-text goals, and curry.eval or curry.solve for Results of converted values.
-Use Results.one() for a unique result and curry.show for Curry text.
-
-The first run of an example also compiles its Curry module, which takes
-about a second per module.  The build products go to .curry/ next to the
-source.  The Curry front end warns on a function whose rules overlap, and
-Sprite reports the warning on the standard error stream when it compiles
-the module.  In several examples the rules overlap by design: ndinsert in
-Queens builds a permutation by a choice.  The run scripts of those examples
-set SPRITE_FRONTEND_WARNINGS=0 unless the environment sets the variable,
-so a first run prints no warning; set it to 1 to see them.  A README
-states what the example shows about functional logic programming, what it
-shows about calling Curry from Python, how to run it, the output to expect,
-and the sizes that keep the run short.
-
-The test tests/unit_examples.py runs the numbered examples in
-child processes and compares their output with expected.out.  It runs
-03-inspect, 11-sudoku, 12-cryptarithm and 22-cxx-types-trait-check on the
-C++ backend only, as well as 25-perfect-hash (the reference backend is too slow),
-and 04-static-compile on the reference backend only.
-To regenerate the expected output after a deliberate change, run
-SPRITE_UPDATE_EXPECTED=1 ./run_tests
-unit_examples.py from tests/, and review the diff.
-
-The list below gives each directory, the title of its README, and what it
-teaches.  The numbers group the examples: 00 to 08 tour the API, 10 to 19
-and 24 to 25 are programs with a Python driver, and 20 to 23 are a series
-over one shared library.  The gaps are deliberate.
+Tour: 00 to 09
+--------------
 
 00-run-curry-programs
-    Run Curry programs with sprite-exec.  Call-time choice; a program by
-    file, by module, and by goal.
+    Run a call-time choice by file, module or goal with sprite-exec.
 
 01-run-with-python
-    Run a Curry program from Python.  Import a module and iterate over the
-    values of a goal.
+    Send Python data to Curry, consume answers and correct three boundary
+    mistakes.
 
-02-dynamic-code-generation     Compile Curry code at run time.  curry.compile
-for a module, curry.parse for text goals,     and symbol calls for
-applications.
+02-dynamic-code-generation
+    Compile a Nat module from text and build goals with symbol calls and
+    parse.
 
 03-inspect
-    Inspect Curry objects from Python.  curry.inspect: symbols, types,
-    ICurry files, generated code.
+    Read public module, symbol and type metadata before an explicitly internal
+    view of compiler products.
 
 04-static-compile
-    Save a compiled Curry module.  curry.save with a goal, and running the
-    saved script.
+    Compile, reload, recognize stale terms, reset, save, load and wait for
+    background compilation.
 
 05-trees
-    Trees cross the Curry/Python boundary through constructor classes,
-    pattern matching, nondeterministic shapes and a seeded generator.
+    Construct and match trees on either side of the boundary, then generate
+    bounded shapes and a seeded tree.
 
 06-variables
-    Named free variables, narrowing and bindings lead to suspension and
-    resumption through concurrent conjunction.
+    Read named bindings from narrowing, then observe arithmetic suspension and
+    resumption.
+
+07-choices
+    Compare shared and independent choices, observe a cyclic list and reuse a
+    returned function.
 
 08-permutation-sort
-    Permutations are values, sorting prunes them, and Values collects a
-    multiset while an outside choice stays outside the capsule.
+    Generate permutations, keep sorted ones and collect a multiset with a set
+    function.
 
-10-queens-set-functions
-    N queens with set functions.  Non-determinism as values, functional
-    patterns, set functions.
+09-streams
+    Pull finite output, a prime prefix and running totals from Curry I/O
+    actions.
 
-11-sudoku
-    Sudoku by search.  Search as the program; the most constrained cell
-    first; a dead branch dies early.
 
-12-cryptarithm
-    Cryptarithms: SEND + MORE = MONEY.  Structural permutations and
-    laziness as pruning.
-
-13-regex-nondeterminism
-    Regular expressions by non-determinism.  A semantics as a function;
-    the words of a pattern as values; matching by unification; free
-    variables.
-
-14-parser-functional-patterns
-    An expression parser from functional patterns.  Functional patterns
-    split the input; failure prunes parses.
-
-15-dependency-solver
-    A package dependency solver.  Resolution as a search over Python data;
-    the preference as the order of the candidates; the preferred plan
-    pinned by a set function; a failure explained; a lockfile.
-
-16-scheduling
-    Scheduling tasks fed from Python data.  Constraints as guards;
-    optimization by failure; guard order.
-
-17-type-inference
-    Type inference by unification.  Free variables as unknown types; =:= as
-    unification.
-
-18-text-extraction
-    Text extraction with functional patterns, compiled at run time.  Rules
-    as Curry text; Curry extracts, Python aggregates.
-
-19-blocks-world-app
-    Blocks World as a command-line application.  Search by iterative
-    deepening; argparse; an http.server form.  It succeeds the retired
-    Flask blocks-world example.
-
-20-cxx-types-deduction
-    Template argument deduction over a model of C++ types.  Free variables
-    as template parameters; deduction by unification; set functions; a
-    bounded generator for the inverse question.
-
-21-cxx-types-overloads
-    Overload resolution over a model of C++ types.  Conversions as
-    non-deterministic rules; the viable set as a set function; the inverse
-    question with a free variable.
-
-22-cxx-types-trait-check
-    Trait checking by narrowing over a model of C++ types.  A bounded
-    generator; narrowing with =:=; set functions collect counterexamples.
-
-23-cxx-types-layout
-    Member layout by search over a model of C++ types.  Non-determinism as
-    member orders; set functions; a constraint as a guard; a reflection-like
-    Python description.
-
-24-build-system
-    A makefile in Curry.  Variables as definitions with the names of make;
-    a rule as an equation of a relation with the inputs in the head; the
-    pattern rule as a functional pattern; a condition as an if or a guard,
-    reached from the command line; the header edges as a relation; the
-    plan, the ready set and the inverse query from the relations; three
-    lints; a driver that runs the recipes.
-
-25-perfect-hash
-    Search by program length finds a perfect hash for Java keywords, beside
-    a Python brute force over the same space.
-
-Other files in this directory
+Applications: 10 to 19 and 25
 -----------------------------
 
-cxx/ holds the Curry modules that the examples 20 to 23 share: the
-algebraic model of C++ types with its traits, its printer and its
-generator (CxxType), the fundamental types and the tables of the LP64 data
-model (CxxLimits), overload resolution (CxxOverload), the trait check
-(CxxCheck) and the member layout (CxxLayout).  The directory has no run
-script, so the test does not run it.  The README of 20-cxx-types-deduction
-introduces the series.
+10-queens-set-functions
+    Use a set function to reject unsafe permutations and draw a solution.
 
-Peano.curry is the program of the Quickstart in the user guide.  Run it
-with sprite-exec from this directory.
+11-sudoku
+    Fill the most constrained cell first so dead branches fail early.
+
+12-cryptarithm
+    Use structural permutations and lazy column checks to prune digit
+    assignments.
+
+13-regex-nondeterminism
+    Generate words as nondeterministic values and match by unification.
+
+14-parser-functional-patterns
+    Split input with functional patterns and let failure prune parses.
+
+15-dependency-solver
+    Search Python package data, pin a preferred plan and explain a failed
+    resolution.
+
+16-scheduling
+    Constrain task start times with guards and minimize the resulting
+    makespan.
+
+17-type-inference
+    Treat unknown types as free variables and infer them by unification.
+
+18-text-extraction
+    Compile extraction rules at run time and aggregate their answers in
+    Python.
+
+19-blocks-world-app
+    Search by iterative deepening behind a command line and an HTTP form,
+    succeeding the retired Flask example.
+
+25-perfect-hash
+    Search programs by length for a Java-keyword hash beside Python brute
+    force over the same space.
+
+
+Optional C++ type series: 20 to 23
+----------------------------------
+
+20-cxx-types-deduction
+    Deduce template parameters by unification and ask the inverse question
+    over bounded types.
+
+21-cxx-types-overloads
+    Collect viable conversions and search for argument types that make a call
+    ambiguous.
+
+22-cxx-types-trait-check
+    Collect counterexamples to a trait within a bounded type universe.
+
+23-cxx-types-layout
+    Search member orders for a smaller layout under an extra ordering
+    constraint.
+
+
+Capstone: 24
+------------
+
+24-build-system
+    Query a build relation in several directions while Python owns timestamps
+    and recipe execution.
+
+Support sources
+---------------
+
+cxx/ holds the type algebra, LP64 tables, conversions, trait checks and
+layout rules shared by 20 to 23.  Peano.curry is the small shared metadata
+fixture of 03.  These support sources have no separate run or expected.out.
+The only Nat introduction is 02.

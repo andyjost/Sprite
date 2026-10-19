@@ -44,7 +44,7 @@ schemes in the interface the front end wrote for Nat.  It reports an error
 when the expression is built.
 
 Both goals go to curry.eval, which returns an iterator over the values.  The
-script takes the first value of each with next.
+script checks the unique value of each with one().
 
 
 3. How to run

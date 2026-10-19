@@ -1,0 +1,12 @@
+% python go.py
+[1, 2]
+let x1 = coin in x1 + x1
+[0, 2]
+[0, 1, 2]
+1 + coin [1, 2]
+[1, 2, 9]
+let a = 1 : a in a
+[1, 1, 1, 1, 1]
+[2, 3, 4]
+True
+15

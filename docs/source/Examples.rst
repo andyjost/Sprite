@@ -2,414 +2,251 @@
 Examples
 ========
 
-The numbered directories under ``examples/`` hold runnable examples, each
-with a README, a run script and an ``expected.out`` with the exact standard
-output of that script.  The shared modules under
-``examples/cxx/`` and the guide's ``examples/Peano.curry`` are support
-sources, without separate run scripts or expected-output tests.  Most
-numbered examples have a Python driver, ``go.py``, and one Curry module.
+Stage Sprite with ``make stage``, then run ``./run`` in a numbered
+subdirectory of ``examples/``.  Each has a README, a run script and an
+``expected.out`` recording stdout.  The first run also compiles the Curry
+sources.  Scripts use the staged installation or ``SPRITE_HOME`` and the
+flags of ``SPRITE_INTERPRETER_FLAGS``.
 
-To run an example, stage Sprite with ``make stage`` and run the script from
-the example directory:
+Start with :doc:`Quickstart` for lessons 01 and 02 in five minutes, then
+:doc:`PythonAPI/UsingTheAPI` for the boundary in teaching order.  The tour
+below is followed by applications, an optional specialist series and the
+build-system capstone.  The README beside each script gives its scope and
+limits; ``tests/unit_examples.py`` checks the recorded output.
 
-.. code-block:: bash
+Examples 03, 09, 11, 12, 22 and 25 are tested on C++ only: 03 shows generated
+C++, 09 requires the stream channel, and the other searches exceed the
+reference backend's practical budget.  Example 03 adds ``interpret:off``
+so its internal section reads compiled code.  Example 04 saves and loads
+objects and runs a saved program on C++ as well.
 
-    cd examples/10-queens-set-functions
-    ./run
+Tour: 00 to 09
+==============
 
-A run script uses the installed Sprite with the flags of
-``SPRITE_INTERPRETER_FLAGS``.  The script of example 03 adds
-``interpret:off`` to them, so the module is compiled before it runs and
-the example prints the first line of the generated C++ (its README says
-why).  Example 04 saves and runs a module on the selected backend,
-including C++.
+.. _example-00:
 
-The first run of an example also runs the Curry front end on its module.
-That takes a fraction of a second per module: example 01 took 0.56 s on
-its first run and 0.15 s on the second, on the machine of this text.  The
-test ``tests/unit_examples.py`` runs the numbered examples on
-the backends it declares and compares the output with ``expected.out``.
-It currently tests example 04 on the reference backend only.
+00: Curry at the command line
+-----------------------------
 
-The sections below name each example, its backends, and its idea, and quote
-its README.
+``examples/00-run-curry-programs`` — Run a call-time choice by file, module or
+goal with ``sprite-exec``.
 
-Run Curry programs with sprite-exec
-===================================
+.. _example-01:
 
-Directory ``examples/00-run-curry-programs``.
+01: Hello, both ways
+--------------------
 
-One program runs three ways: by file name, by module name, and with another goal.  Its two goals show call-time choice: a shared choice gives two values, two independent choices give four.
+``examples/01-run-with-python`` — Send Python data to Curry, consume answers
+and correct three boundary mistakes.
 
-.. code-block:: bash
+.. _example-02:
 
-    cd examples/00-run-curry-programs
-    ./run
+02: Compile and parse
+---------------------
 
-.. literalinclude:: ../../examples/00-run-curry-programs/README
-   :language: text
+``examples/02-dynamic-code-generation`` — Compile a Nat module from text and
+build goals with symbol calls and parse.
 
-Run a Curry program from Python
-===============================
+.. _example-03:
 
-Directory ``examples/01-run-with-python``.
+03: Metadata
+------------
 
-The first contact with the Python API.  A script imports a Curry module from its own directory and prints every value of a goal.
+``examples/03-inspect`` — Read public module, symbol and type metadata before
+an explicitly internal view of compiler products.
 
-.. code-block:: bash
+.. _example-04:
 
-    cd examples/01-run-with-python
-    ./run
+04: Session
+-----------
 
-.. literalinclude:: ../../examples/01-run-with-python/README
-   :language: text
+``examples/04-static-compile`` — Compile, reload, recognize stale terms,
+reset, save, load and wait for background compilation.
 
-Compile Curry code at run time
-==============================
+.. _example-05:
 
-Directory ``examples/02-dynamic-code-generation``.
+05: Trees
+---------
 
-A Python program compiles a Curry module from a string and builds two goals, one with symbol calls and one with ``curry.parse``.  Each compile runs the Curry front end.
+``examples/05-trees`` — Construct and match trees on either side of the
+boundary, then generate bounded shapes and a seeded tree.
 
-.. code-block:: bash
+.. _example-06:
 
-    cd examples/02-dynamic-code-generation
-    ./run
+06: Variables
+-------------
 
-.. literalinclude:: ../../examples/02-dynamic-code-generation/README
-   :language: text
+``examples/06-variables`` — Read named bindings from narrowing, then observe
+arithmetic suspension and resumption.
 
-Inspect Curry objects from Python
-=================================
+.. _example-07:
 
-Directory ``examples/03-inspect``.  Runs on the C++ backend, with the
-module compiled before it runs (the interpreter flag ``interpret:off``; see
-:ref:`interpreter-flags`).
+07: Choices, sharing, functions
+-------------------------------
 
-``curry.info`` lists the symbols and types of a loaded module.  The developer module ``curry.inspect`` finds its ICurry files.  The example also prints the code that the backend generated for one function.
+``examples/07-choices`` — Compare shared and independent choices, observe a
+cyclic list and reuse a returned function.
 
-.. code-block:: bash
+.. _example-08:
 
-    cd examples/03-inspect
-    ./run
+08: Permutation sort
+--------------------
 
-.. literalinclude:: ../../examples/03-inspect/README
-   :language: text
+``examples/08-permutation-sort`` — Generate permutations, keep sorted ones and
+collect a multiset with a set function.
 
-Save a compiled Curry module
-============================
+.. _example-09:
 
-Directory ``examples/04-static-compile``.  Runs on the C++ backend and the
-reference backend (:doc:`DeveloperNotes`).
+09: Streams
+-----------
 
-``curry.save`` writes a script that embeds the current backend's compiled
-module and records a goal.  Running the saved script evaluates that goal.
+``examples/09-streams`` — Pull finite output, a prime prefix and running
+totals from Curry I/O actions.
 
-.. code-block:: bash
 
-    cd examples/04-static-compile
-    ./run
-
-.. literalinclude:: ../../examples/04-static-compile/README
-   :language: text
-
-Trees: a user type on both sides of the boundary
-================================================
-
-Directory ``examples/05-trees``.
-
-Constructor classes and pattern matching carry trees both ways, then Curry generates every shape or a seeded pseudo-random tree.
-
-.. code-block:: bash
-
-    cd examples/05-trees
-    ./run
-
-.. literalinclude:: ../../examples/05-trees/README
-   :language: text
-
-Variables: narrowing and suspension
-===================================
-
-Directory ``examples/06-variables``.
-
-Named free variables expose bindings, while rigid arithmetic suspends and resumes through concurrent conjunction.
-
-.. code-block:: bash
-
-    cd examples/06-variables
-    ./run
-
-.. literalinclude:: ../../examples/06-variables/README
-   :language: text
-
-Permutation sort: generate, test, collect
-=========================================
-
-Directory ``examples/08-permutation-sort``.
-
-Permutations are values, guards keep sorted ones, and set functions collect a multiset while an outside choice stays outside.
-
-.. code-block:: bash
-
-    cd examples/08-permutation-sort
-    ./run
-
-.. literalinclude:: ../../examples/08-permutation-sort/README
-   :language: text
-
-N queens with set functions
-===========================
-
-Directory ``examples/10-queens-set-functions``.
-
-A non-deterministic permutation, a functional pattern, and a set function solve the puzzle in four functions.  Python counts the solutions of each board size and draws the smallest one.
-
-.. code-block:: bash
-
-    cd examples/10-queens-set-functions
-    ./run
-
-.. literalinclude:: ../../examples/10-queens-set-functions/README
-   :language: text
-
-Sudoku by search
-================
-
-Directory ``examples/11-sudoku``.
-
-The search is the program: a choice fills the most constrained cell, and a branch dies when a cell has no candidate.  Python reads the grids, counts the solutions, and prints them.
-
-.. code-block:: bash
-
-    cd examples/11-sudoku
-    ./run
-
-.. literalinclude:: ../../examples/11-sudoku/README
-   :language: text
-
-Cryptarithms: SEND + MORE = MONEY
-=================================
-
-Directory ``examples/12-cryptarithm``.
-
-A structural permutation of the digits and a guard that checks the columns from the units column upward solve any cryptarithm.  Python validates the words and prints the completed sums.
-
-.. code-block:: bash
-
-    cd examples/12-cryptarithm
-    ./run
-
-.. literalinclude:: ../../examples/12-cryptarithm/README
-   :language: text
-
-Regular expressions by non-determinism
-======================================
-
-Directory ``examples/13-regex-nondeterminism``.
-
-A function returns one word of the language of a pattern, and every word is one value, so the function generates the words; matching is unification with the subject.  Python parses the pattern syntax into Curry data, lists the words of a star-free pattern, and lists every hit of a search.
-
-.. code-block:: bash
-
-    cd examples/13-regex-nondeterminism
-    ./run
-
-.. literalinclude:: ../../examples/13-regex-nondeterminism/README
-   :language: text
-
-An expression parser from functional patterns
-=============================================
-
-Directory ``examples/14-parser-functional-patterns``.
-
-Functional patterns split the input around an operator, and a split whose parts do not parse fails.  Python prints the parse tree and the value of each expression.
-
-.. code-block:: bash
-
-    cd examples/14-parser-functional-patterns
-    ./run
-
-.. literalinclude:: ../../examples/14-parser-functional-patterns/README
-   :language: text
-
-A package dependency solver
-===========================
-
-Directory ``examples/15-dependency-solver``.
-
-A plan picks a version for every package that the roots reach, and a search over the candidates, newest first, finds the consistent plans.  A set function pins the preferred plan, and a failure is explained.  The index is nested Python data, and the output is a lockfile.
-
-.. code-block:: bash
-
-    cd examples/15-dependency-solver
-    ./run
-
-.. literalinclude:: ../../examples/15-dependency-solver/README
-   :language: text
-
-Scheduling tasks fed from Python data
-=====================================
-
-Directory ``examples/16-scheduling``.
-
-Each task gets a start slot by a choice, and guards forbid overlap and enforce precedences.  Python grows the horizon until a schedule exists and draws a Gantt chart.
-
-.. code-block:: bash
-
-    cd examples/16-scheduling
-    ./run
-
-.. literalinclude:: ../../examples/16-scheduling/README
-   :language: text
-
-Type inference by unification
+Applications: 10 to 19 and 25
 =============================
 
-Directory ``examples/17-type-inference``.
+.. _example-10:
 
-Free variables are unknown types and ``=:=`` is unification.  Python builds lambda terms, and an ill-typed term has no value.
+10: N queens
+------------
 
-.. code-block:: bash
+``examples/10-queens-set-functions`` — Use a set function to reject unsafe
+permutations and draw a solution.
 
-    cd examples/17-type-inference
-    ./run
+.. _example-11:
 
-.. literalinclude:: ../../examples/17-type-inference/README
-   :language: text
+11: Sudoku
+----------
 
-Text extraction with functional patterns, compiled at run time
-==============================================================
+``examples/11-sudoku`` — Fill the most constrained cell first so dead branches
+fail early.
 
-Directory ``examples/18-text-extraction``.
+.. _example-12:
 
-Extraction rules are Curry text inside the Python program, compiled once with ``curry.compile``.  Curry extracts the fields and tags of each line, and Python aggregates them.
+12: SEND + MORE = MONEY
+-----------------------
 
-.. code-block:: bash
+``examples/12-cryptarithm`` — Use structural permutations and lazy column
+checks to prune digit assignments.
 
-    cd examples/18-text-extraction
-    ./run
+.. _example-13:
 
-.. literalinclude:: ../../examples/18-text-extraction/README
-   :language: text
+13: Regular expressions
+-----------------------
 
-Blocks World as a command-line application
-==========================================
+``examples/13-regex-nondeterminism`` — Generate words as nondeterministic
+values and match by unification.
 
-Directory ``examples/19-blocks-world-app``.
+.. _example-14:
 
-A non-deterministic move and a bounded search give a shortest plan by iterative deepening.  An argparse front end parses the worlds and draws the plan, and an optional form uses ``http.server``.  This succeeds the retired Flask blocks-world example.
+14: Expression parser
+---------------------
 
-.. code-block:: bash
+``examples/14-parser-functional-patterns`` — Split input with functional
+patterns and let failure prune parses.
 
-    cd examples/19-blocks-world-app
-    ./run
+.. _example-15:
 
-.. literalinclude:: ../../examples/19-blocks-world-app/README
-   :language: text
+15: Dependency solver
+---------------------
 
-C++ compile time
-================
+``examples/15-dependency-solver`` — Search Python package data, pin a
+preferred plan and explain a failed resolution.
 
-The examples 20 to 23 form a series.  They model the compile-time algorithms
-of a C++ compiler over one algebraic model of C++ types, the shared Curry
-modules under ``examples/cxx``: template argument deduction and the partial
-ordering of specializations, overload resolution, trait checking, and member
-layout.  A template parameter is a Curry free variable, search is
-non-determinism, and set functions collect the results.  The motivation is a
-future integration with the Circle C++ compiler, whose compile-time
-metaprogramming can run Python; Sprite would supply the search and the
-unification, and Circle the types.  The model is a simplification of the C++
-type system, and each README says what it leaves out.  The README of example
-20 introduces the series.
+.. _example-16:
 
-Template argument deduction over a model of C++ types
------------------------------------------------------
+16: Scheduling
+--------------
 
-Directory ``examples/20-cxx-types-deduction``.
+``examples/16-scheduling`` — Constrain task start times with guards and
+minimize the resulting makespan.
 
-A template parameter is a free variable, and deduction is unification of the parameter pattern with the argument type.  A set function turns a failed deduction into an empty set, and the partial ordering of specializations is deduction again.  Python builds the C++ types and prints the answers.
+.. _example-17:
 
-.. code-block:: bash
+17: Type inference
+------------------
 
-    cd examples/20-cxx-types-deduction
-    ./run
+``examples/17-type-inference`` — Treat unknown types as free variables and
+infer them by unification.
 
-.. literalinclude:: ../../examples/20-cxx-types-deduction/README
-   :language: text
+.. _example-18:
 
-Overload resolution over a model of C++ types
----------------------------------------------
-
-Directory ``examples/21-cxx-types-overloads``.
-
-The conversions of the standard are non-deterministic rules, a candidate with an argument that no rule converts is not viable, and a set function collects the viable set with its ranks.  The inverse question finds every argument type up to a depth that makes a call ambiguous.  Python builds the overload sets, the class hierarchy and the calls.
-
-.. code-block:: bash
-
-    cd examples/21-cxx-types-overloads
-    ./run
-
-.. literalinclude:: ../../examples/21-cxx-types-overloads/README
-   :language: text
-
-Trait checking by narrowing over a model of C++ types
------------------------------------------------------
-
-Directory ``examples/22-cxx-types-trait-check``.
-
-A bounded generator enumerates every well-formed type of the model up to a depth, one per value, and narrowing with ``=:=`` binds an unknown type to each.  A set function collects the types for which a property of a trait is False, so an empty set is the verdict that the property holds.  One trait is wrong on purpose, and the search finds every counterexample.
-
-.. code-block:: bash
-
-    cd examples/22-cxx-types-trait-check
-    ./run
-
-.. literalinclude:: ../../examples/22-cxx-types-trait-check/README
-   :language: text
-
-Member layout by search over a model of C++ types
--------------------------------------------------
-
-Directory ``examples/23-cxx-types-layout``.
-
-A non-deterministic permutation yields every order of the members of a struct, a set function collects the size of each order, and a constraint on the order is one more guard.  Python describes the struct through the annotations of a class, as a reflection would, and prints the layout tables.
-
-.. code-block:: bash
-
-    cd examples/23-cxx-types-layout
-    ./run
-
-.. literalinclude:: ../../examples/23-cxx-types-layout/README
-   :language: text
-
-A makefile in Curry
+18: Text extraction
 -------------------
 
-Directory ``examples/24-build-system``.
+``examples/18-text-extraction`` — Compile extraction rules at run time and
+aggregate their answers in Python.
 
-The makefile of a toy C project is a Curry module beside its sources: the variables are definitions with the uppercase names of make, a rule is an equation of the relation ``rule target inputs = recipe``, the pattern rule ``%.o: %.c`` is a functional pattern, a condition is an ``if`` or a guard, and the header dependencies are the relation ``depends``.  The library ``Make.curry`` asks the relation with the inputs free and answers the questions of make: what a target reads, what is stale over a table of stamps, the plan in waves, the targets that can run now, the targets a change touches, and three lints, a target with two rules, a source that is missing, and a recipe with two values or none.  The driver ``make.py``, generic, substitutes the assignments of its command line into the makefile, reads the variables by introspection, runs the recipes with them in the environment, and asks Curry for the ready set after each completion.  Nothing in Python names a file of the project.
+.. _example-19:
 
-.. code-block:: bash
+19: Blocks World application
+----------------------------
 
-    cd examples/24-build-system
-    ./run
+``examples/19-blocks-world-app`` — Search by iterative deepening behind a
+command line and an HTTP form, succeeding the retired Flask example.
 
-.. literalinclude:: ../../examples/24-build-system/README
-   :language: text
+.. _example-25:
 
-A perfect hash function, found by search
-========================================
+25: Perfect hash
+----------------
 
-Directory ``examples/25-perfect-hash``.  Tested on C++ only; the reference
-backend was still searching length two at 60 seconds.
+``examples/25-perfect-hash`` — Search programs by length for a Java-keyword
+hash beside Python brute force over the same space.
 
-A search by program length finds a perfect hash for Java keywords beside a Python brute force over the same space.
 
-.. code-block:: bash
+Optional C++ type series: 20 to 23
+==================================
 
-    cd examples/25-perfect-hash
-    ./run
+.. _example-20:
 
-.. literalinclude:: ../../examples/25-perfect-hash/README
-   :language: text
+20: C++ template deduction
+--------------------------
+
+``examples/20-cxx-types-deduction`` — Deduce template parameters by
+unification and ask the inverse question over bounded types.
+
+.. _example-21:
+
+21: C++ overload resolution
+---------------------------
+
+``examples/21-cxx-types-overloads`` — Collect viable conversions and search
+for argument types that make a call ambiguous.
+
+.. _example-22:
+
+22: C++ trait checking
+----------------------
+
+``examples/22-cxx-types-trait-check`` — Collect counterexamples to a trait
+within a bounded type universe.
+
+.. _example-23:
+
+23: C++ member layout
+---------------------
+
+``examples/23-cxx-types-layout`` — Search member orders for a smaller layout
+under an extra ordering constraint.
+
+
+Capstone: 24
+============
+
+.. _example-24:
+
+24: A makefile in Curry
+-----------------------
+
+``examples/24-build-system`` — Query a build relation in several directions
+while Python owns timestamps and recipe execution.
+
+Support sources
+===============
+
+``examples/cxx/`` contains the modules shared by 20 to 23;
+``examples/Peano.curry`` supplies the metadata fixture of 03.  These support
+sources have no separate run script or expected-output test.  Lesson 02
+contains the Nat introduction.

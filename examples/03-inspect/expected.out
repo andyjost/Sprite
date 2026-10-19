@@ -1,14 +1,13 @@
 % python go.py
-Module: Nat
-Module file: Nat.curry
-Symbols defined in Nat: I, O, natFromInt, natFromInt_COMPLEXCASE0, natFromInt_COMPLEXCASE1, natToInt
-Types defined in Nat: Nat
-Constructors of Nat.Nat: O (arity 0), I (arity 1)
+Module: Peano
+Module file: Peano.curry
+Type: Nat ['O', 'S']
+Symbols: O, S, add, main
+Qualified symbol: Data.List.nub
+Qualified type: Peano.Nat
+Operator: Prelude.=:= Data a => a -> a -> Bool
 
-ICurry file: Nat.icy
-ICurry-JSON file: Nat.json.z
-Both live under .curry/ next to Nat.curry.
-
-The C++ implementation of Nat.natToInt starts with:
-    /****** Nat.natToInt ******/
-The whole code is on the standard error stream.
+Internal: compiler products
+ICurry: Peano.icy
+JSON: Peano.json.z
+Generated code: /****** Peano.add ******/

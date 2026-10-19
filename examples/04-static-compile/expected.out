@@ -1,5 +1,10 @@
 % python go.py
-Loading and compiling wildcard_matching.curry
-Saving the program to wildcard_matching.py with goal main
-% python wildcard_matching.py
-True
+Hello, session!
+background compilation finished
+41
+StaleError the term of module Session was built before curry.reload(Session); build it again from Session
+42
+after reset: ['Prelude']
+loaded: 42
+same load: True
+saved program: 42

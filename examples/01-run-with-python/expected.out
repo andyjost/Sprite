@@ -1,2 +1,17 @@
 % python go.py
-[4, 3, 2, 1]
+Hello, Python!
+first: 1
+remaining: [2, 3]
+closed: []
+all: [1, 2, 3]
+no value: []
+NoValueError No value found: nothing
+eval returned; now next
+DivisionByZeroError division by zero: div 1 0
+ConversionError cannot convert 'A' to Char at argument 1 of Prelude.ord :: Char -> Int: a str is a String; write curry.Char('A')
+65
+[Float] [1.0, 2.5]
+DefaultingError cannot handle the overloaded goal read "5" of type Read a => a
+Cannot handle arbitrary overloaded top-level expressions
+state the type: curry.term(P.read('5'), type='Int')
+5
