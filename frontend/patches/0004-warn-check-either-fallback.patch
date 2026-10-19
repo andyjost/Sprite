@@ -1,0 +1,33 @@
+GHC 9.6.7 / mtl 2.3.1: Checks.WarnCheck:835 has no Alternative
+(Either String) instance. Replace the two uses with a local, lazy fallback
+that keeps the first Right or the last Left, as the former instance did.
+No orphan instance is added; the lookup order and diagnostics are unchanged.
+
+--- a/src/Checks/WarnCheck.hs
++++ b/src/Checks/WarnCheck.hs
+@@ -21,8 +21,6 @@
+ import Prelude hiding ((<>))
+ #endif
+ 
+-import           Control.Applicative
+-  ((<|>))
+ import           Control.Monad
+   (filterM, foldM_, guard, liftM, liftM2, when, unless, void)
+ import           Control.Monad.State.Strict    (State, execState, gets, modify)
+@@ -831,9 +829,14 @@
+         [DataType     _ _ cs] -> Right cs
+         [RenamingType _ _ nc] -> Right $ [nc]
+         _                     -> Left $ "Checks.WarnCheck.getTyCons: " ++ show tc ++ ' ' : show ti ++ '\n' : show tcEnv
++      -- Keep the first success, or the last error when every lookup fails.
++      -- mtl 2.3 no longer supplies the orphan Alternative (Either e) instance.
++      orElse :: Either a b -> Either a b -> Either a b
++      orElse (Left _) y = y
++      orElse x        _ = x
+       csResult = getTyCons' (qualLookupTypeInfo tc tcEnv)
+-             <|> getTyCons' (qualLookupTypeInfo tc' tcEnv)
+-             <|> getTyCons' (lookupTypeInfo (unqualify tc) tcEnv) -- Fall back on unqualified lookup if qualified doesn't work
++             `orElse` getTyCons' (qualLookupTypeInfo tc' tcEnv)
++             `orElse` getTyCons' (lookupTypeInfo (unqualify tc) tcEnv) -- Fall back on unqualified lookup if qualified doesn't work
+   case csResult of
+     Right cs -> return cs
+     Left err -> internalError err

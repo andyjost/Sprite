@@ -12,6 +12,7 @@ wrapper.
 import cytest # from ./lib; must be first
 from curry import config
 import os, re, shlex, shutil, stat, subprocess, sys, tempfile, unittest
+from unittest import mock
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 CONFIGURE = os.path.join(ROOT, 'configure')
@@ -94,7 +95,7 @@ class ConfigureTestCase(cytest.TestCase):
     cls.cxx_postinstall = config.cxx_tool()
     cls.frontend = os.path.realpath(config.curry_frontend())
 
-  def configure(self, tmpdir, *args, write=True, env=None):
+  def configure(self, tmpdir, *args, write=True, env=None, frontend=True):
     '''
     Runs a copy of configure in ``tmpdir`` with the staged tools and the
     checks that run the tools skipped (-f).  Returns the completed process
@@ -110,9 +111,11 @@ class ConfigureTestCase(cytest.TestCase):
       , '--with-cxx=' + self.cxx
       , '--with-cxx-postinstall=' + self.cxx_postinstall
       , '--with-pakcs='
-      , '--with-curry-frontend=' + self.frontend
       , '--with-icurry='
-      ] + list(args)
+      ]
+    if frontend:
+      cmd.append('--with-curry-frontend=' + self.frontend)
+    cmd.extend(args)
     if not write:
       cmd.append('--check-prereqs')
     conf = os.path.join(tmpdir, 'Make.config')
@@ -127,6 +130,45 @@ class TestConfigureOptions(ConfigureTestCase):
   The options --jobs, --with-ccache and --with-default-backend and the lines
   they write.
   '''
+
+  def test_frontend_selection(self):
+    '''The wheel's PATH script and SPRITE_FRONTEND work without PAKCS.'''
+    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
+      bindir = os.path.join(tmpdir, 'bin')
+      os.mkdir(bindir)
+      packaged = os.path.join(bindir, 'curry-frontend')
+      write_script(packaged, '#!/bin/sh\necho 2.0.0\n')
+      override = os.path.join(bindir, 'other-frontend')
+      write_script(override, '#!/bin/sh\necho 2.0.0\n')
+      env = dict(ENV, PATH=bindir + os.pathsep + ENV['PATH'])
+      result, text = self.configure(tmpdir, frontend=False, env=env)
+      self.assertEqual(result.returncode, 0, result.stdout)
+      self.assertEqual(make_config_value(text, 'CURRY_FRONTEND'), packaged)
+      env['SPRITE_FRONTEND'] = 'other-frontend'
+      result, text = self.configure(tmpdir, frontend=False, env=env)
+      self.assertEqual(result.returncode, 0, result.stdout)
+      self.assertEqual(make_config_value(text, 'CURRY_FRONTEND'), override)
+      result, text = self.configure(tmpdir,
+          '--with-curry-frontend=curry-frontend', frontend=False, env=env)
+      self.assertEqual(result.returncode, 0, result.stdout)
+      self.assertEqual(make_config_value(text, 'CURRY_FRONTEND'), packaged)
+
+  def test_frontend_runtime_selection(self):
+    '''Environment changes take effect; a missing staged link falls to PATH.'''
+    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
+      packaged = os.path.join(tmpdir, 'curry-frontend')
+      write_script(packaged, '#!/bin/sh\necho 2.0.0\n')
+      missing = os.path.join(tmpdir, 'missing')
+      with mock.patch.dict(os.environ, PATH=tmpdir):
+        os.environ.pop('SPRITE_FRONTEND', None)
+        with mock.patch.object(config, 'installed_path', return_value=missing):
+          self.assertEqual(config.curry_frontend(), packaged)
+          os.environ['SPRITE_FRONTEND'] = self.frontend
+          self.assertEqual(config.curry_frontend(), self.frontend)
+          os.environ['SPRITE_FRONTEND'] = 'missing'
+          self.assertIsNone(config.curry_frontend())
+          os.environ['SPRITE_FRONTEND'] = ''
+          self.assertIsNone(config.curry_frontend())
 
   def test_python_window(self):
     '''The gate accepts 3.11.4 onward and explains the patch minimum.'''

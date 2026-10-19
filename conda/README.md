@@ -302,6 +302,14 @@ most of it the compiler, its sysroot, and Python.
 
 ### `curry-frontend/`: the package `curry-frontend`
 
+The source-build CI task adds an artifact mode for `linux-64` and
+`linux-aarch64`: set `SPRITE_FRONTEND_ARTIFACT` to the bundle produced by
+`frontend/package.py --bundle-only`. The recipe installs that source-built
+binary and records its glibc floor; it uses conda's GMP for a dynamic build.
+See [the front-end packaging instructions](../frontend/README.md). Without
+the variable, the original x86-64 binary repack below remains available to
+the existing build driver. The measurements below describe that repack.
+
 Source: `pakcs-3.4.1-amd64-Linux.tar.gz` from curry-lang.org, whose SHA-256
 is in `meta.yaml`.  `build.sh` installs `bin/pakcs-frontend` (an ELF binary,
 9.2 MB, linked against libgmp.so.10 and the C library) and the link

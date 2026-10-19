@@ -424,12 +424,22 @@ def cxx_tool(cached=[]):
   return cached[0]
 
 @synchronized(_config_lock)
-def curry_frontend(cached=[]):
-  '''The Curry front end, if it is configured.  Otherwise, None.'''
-  if not cached:
-    path = installed_path('tools', 'curry-frontend')
-    cached.append(os.path.abspath(path) if os.path.exists(path) else None)
-  return cached[0]
+def curry_frontend():
+  '''The front end: SPRITE_FRONTEND, the configured tool, then PATH.
+
+  Nothing is cached: the environment and the installation may change
+  between two calls, and the lookup is cheap.
+  '''
+  import shutil
+  given = os.environ.get('SPRITE_FRONTEND')
+  if given is not None:
+    found = shutil.which(given) if given else None
+    return os.path.abspath(found) if found else None
+  path = installed_path('tools', 'curry-frontend')
+  if os.path.isfile(path) and os.access(path, os.X_OK):
+    return os.path.abspath(path)
+  found = shutil.which('curry-frontend') or shutil.which('pakcs-frontend')
+  return os.path.abspath(found) if found else None
 
 @synchronized(_config_lock)
 def icurry_tool(cached=[]):
