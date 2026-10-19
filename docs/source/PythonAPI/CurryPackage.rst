@@ -81,7 +81,7 @@ Flag                         Default                What it changes
                                                     string to the working directory.
 ===========================  =====================  ========================================================
 
-.. [1] The default of ``backend`` is the one ``configure --with-default-backend``
+.. [1] The default of ``backend`` is the one ``CMake WITH_DEFAULT_BACKEND``
    recorded in ``sysconfig/default_backend`` of the installation; ``cxx``
    unless configured otherwise.  The flags of the reference backend,
    ``step_budget`` and ``recursion_limit``, are described in the

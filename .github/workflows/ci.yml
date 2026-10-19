@@ -122,14 +122,14 @@ jobs:
             icurry-cache-${{ matrix.backend }}-${{ matrix.shard }}-
             icurry-cache-
       - name: Install Python packages
-        run: python -m pip install --quiet numpy
+        run: python -m pip install --quiet cmake ninja scikit-build-core numpy
       - name: Configure and stage
         run: |
-          python ./configure \
-            --with-python="$(command -v python)" \
-            --with-cxx-postinstall="$HOME/ccache-bin/sprite-cxx" \
-            --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
-            --with-icurry="${{ matrix.icurry }}"
+          cmake -S . -B object-root/cmake -G Ninja \
+            -DPython_EXECUTABLE="$(command -v python)" \
+            -DWITH_CXX_POSTINSTALL="$HOME/ccache-bin/sprite-cxx" \
+            -DWITH_PAKCS="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
+            -DWITH_ICURRY="${{ matrix.icurry }}"
           make stage
       # The overlay archive at the root of the repository holds the
       # FlatCurry and ICurry products of the test programs (tests/README,
@@ -254,14 +254,14 @@ jobs:
             icurry-cache-cxx-
             icurry-cache-
       - name: Install Python packages
-        run: python -m pip install --quiet numpy
+        run: python -m pip install --quiet cmake ninja scikit-build-core numpy
       - name: Configure and stage
         run: |
-          python ./configure \
-            --with-python="$(command -v python)" \
-            --with-cxx-postinstall="$HOME/ccache-bin/sprite-cxx" \
-            --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
-            --with-icurry="$HOME/.cpm/bin/icurry"
+          cmake -S . -B object-root/cmake -G Ninja \
+            -DPython_EXECUTABLE="$(command -v python)" \
+            -DWITH_CXX_POSTINSTALL="$HOME/ccache-bin/sprite-cxx" \
+            -DWITH_PAKCS="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
+            -DWITH_ICURRY="$HOME/.cpm/bin/icurry"
           make stage
       # The overlay archive at the root of the repository holds the
       # FlatCurry and ICurry products of the test programs (tests/README,
@@ -277,6 +277,9 @@ jobs:
         run: make overlay
       - name: Unit tests
         run: .github/scripts/run-tests.sh cxx 'unit_*.py' 1/1
+      - name: Build the release wheel with build isolation
+        if: matrix.python == '3.14'
+        run: python -m pip wheel . --no-deps --wheel-dir object-root/wheels
       - name: Free-threaded extension opt-in without PYTHON_GIL
         if: matrix.python == '3.14t'
         run: env -u PYTHON_GIL .github/scripts/run-tests.sh cxx unit_free_threading.py 1/1
@@ -361,14 +364,14 @@ jobs:
             icurry-cache-py-1/1-
             icurry-cache-
       - name: Install Python packages
-        run: python -m pip install --quiet numpy
+        run: python -m pip install --quiet cmake ninja scikit-build-core numpy
       - name: Configure and stage
         run: |
-          python ./configure \
-            --with-python="$(command -v python)" \
-            --with-cxx-postinstall="$HOME/ccache-bin/sprite-cxx" \
-            --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
-            --with-icurry=""
+          cmake -S . -B object-root/cmake -G Ninja \
+            -DPython_EXECUTABLE="$(command -v python)" \
+            -DWITH_CXX_POSTINSTALL="$HOME/ccache-bin/sprite-cxx" \
+            -DWITH_PAKCS="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
+            -DWITH_ICURRY=""
           make stage
       # The overlay archive, after the stage (see the test job).
       - name: Extract the test products of the overlay archive
@@ -455,14 +458,14 @@ jobs:
             icurry-cache-cxx-
             icurry-cache-
       - name: Install Python packages
-        run: python -m pip install --quiet numpy
+        run: python -m pip install --quiet cmake ninja scikit-build-core numpy
       - name: Configure and stage
         run: |
-          python ./configure \
-            --with-python="$(command -v python)" \
-            --with-cxx-postinstall="$HOME/ccache-bin/sprite-cxx" \
-            --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
-            --with-icurry="$HOME/.cpm/bin/icurry"
+          cmake -S . -B object-root/cmake -G Ninja \
+            -DPython_EXECUTABLE="$(command -v python)" \
+            -DWITH_CXX_POSTINSTALL="$HOME/ccache-bin/sprite-cxx" \
+            -DWITH_PAKCS="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
+            -DWITH_ICURRY="$HOME/.cpm/bin/icurry"
           make stage
       # The overlay archive, after the stage (see the test job).
       - name: Extract the test products of the overlay archive
@@ -549,14 +552,14 @@ jobs:
             icurry-cache-cxx-
             icurry-cache-
       - name: Install Python packages
-        run: python -m pip install --quiet numpy
+        run: python -m pip install --quiet cmake ninja scikit-build-core numpy
       - name: Configure and stage with the write counters
         run: |
-          python ./configure \
-            --with-python="$(command -v python)" \
-            --with-cxx-postinstall="$HOME/ccache-bin/sprite-cxx" \
-            --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
-            --with-icurry="$HOME/.cpm/bin/icurry"
+          cmake -S . -B object-root/cmake -G Ninja \
+            -DPython_EXECUTABLE="$(command -v python)" \
+            -DWITH_CXX_POSTINSTALL="$HOME/ccache-bin/sprite-cxx" \
+            -DWITH_PAKCS="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
+            -DWITH_ICURRY="$HOME/.cpm/bin/icurry"
           make GC_WRITE_COUNTERS=1 stage
           test "$(cat install/sysconfig/cxx_gc_write_counters)" = 1
       # The overlay archive, after the stage (see the test job).
@@ -657,14 +660,14 @@ jobs:
             icurry-cache-cxx-
             icurry-cache-
       - name: Install Python packages
-        run: python -m pip install --quiet numpy
+        run: python -m pip install --quiet cmake ninja scikit-build-core numpy
       - name: Configure and stage
         run: |
-          python ./configure \
-            --with-python="$(command -v python)" \
-            --with-cxx-postinstall="$HOME/ccache-bin/sprite-cxx" \
-            --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
-            --with-icurry="$HOME/.cpm/bin/icurry"
+          cmake -S . -B object-root/cmake -G Ninja \
+            -DPython_EXECUTABLE="$(command -v python)" \
+            -DWITH_CXX_POSTINSTALL="$HOME/ccache-bin/sprite-cxx" \
+            -DWITH_PAKCS="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
+            -DWITH_ICURRY="$HOME/.cpm/bin/icurry"
           make stage
       # The overlay archive, after the stage (see the test job).
       - name: Extract the test products of the overlay archive
@@ -715,13 +718,13 @@ jobs:
         if: steps.toolchain.outputs.cache-hit != 'true'
         run: .github/scripts/install-curry-toolchain.sh
       - name: Install Python packages
-        run: python -m pip install --quiet numpy sphinx sphinx_rtd_theme
+        run: python -m pip install --quiet cmake ninja scikit-build-core numpy sphinx sphinx_rtd_theme
       - name: Configure, stage, and build the docs
         run: |
-          python ./configure \
-            --with-python="$(command -v python)" \
-            --with-pakcs="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
-            --with-icurry=""
+          cmake -S . -B object-root/cmake -G Ninja \
+            -DPython_EXECUTABLE="$(command -v python)" \
+            -DWITH_PAKCS="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
+            -DWITH_ICURRY=""
           make stage
           make -C docs html
       - uses: actions/upload-pages-artifact@v3

@@ -1,11 +1,5 @@
-1. Makefile organization
-------------------------
+The native build is defined in ../CMakeLists.txt. It builds libcyrt and
+_cyrtbindings, then scripts/build-package.py prepares the staged package
+and compiles its Curry library using that package's own toolchain.
 
-Sprite uses GNU "make" in straightforward fashion.  There are two things to
-note:
-
-    a. Make.include.  Each Makefile includes the Make.include file found one
-       level higher in the filesystem tree.
-    b. Make.depends.  The root contains this file, which implements dependency
-       tracking.  Dependency files are placed under directories named .d.
-
+The root Makefile is a thin wrapper. See docs/source/DeveloperSetup.rst.

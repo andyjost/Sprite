@@ -149,7 +149,7 @@ The following are recognized:
      SPRITE_INTERPRETER_FLAGS=trace:True,debug:True
 
   The ``backend`` flag names the backend: ``cxx``, the C++ backend, the
-  default of an installation (``configure --with-default-backend``).
+  default of an installation (``CMake WITH_DEFAULT_BACKEND``).
 
   The ``interpret`` flag selects how the C++ backend runs a module without
   a compiled object: ``tiered`` (the default) interprets it and compiles it
@@ -262,8 +262,7 @@ with Sprite, then you should not need these.
   of a module are at hand without a run of the front end.
 
   A file name turns the cache on.  The empty string turns caching off.  When
-  the variable is not set, the installation decides: ``configure --cache
-  icurry`` or ``--cache all`` (``ENABLE_ICURRY_CACHE`` in ``Make.config``)
+  the variable is not set, the installation decides: CMake ``ENABLE_ICURRY_CACHE=ON``
   turns the cache on at ``$HOME/.sprite/cache.db``.  The test drivers set
   the variable to ``tests/.cache/icurry.db``.  The database can also hold
   Sprite's
@@ -428,13 +427,14 @@ mode, and ``SPRITE_FRONTEND_WARNINGS=0`` unless the environment sets it.  Three 
 Build Variables
 ---------------
 
-These are variables of ``make``, read when Sprite is built.  ``Make.config``
-describes them beside the settings of ``configure``.
+These are build settings. Pass CMake options as ``-DNAME=value``; the thin
+Makefile also accepts the historical variables below. See
+:doc:`../Installation/ConfiguringSprite`.
 
 ``SPRITE_REBUILD_ICY``
   ``make stage`` derives the JSON of a library module from its committed
   ``.icy`` file and never translates the module again.  With
-  ``SPRITE_REBUILD_ICY=1`` it runs the front end and the translation again
+  ``make stage SPRITE_REBUILD_ICY=1`` it runs the front end and the translation again
   and writes a new ``.icy``; the committed files are pinned artifacts of
   the front end of PAKCS 3.4.1 and of ``icurry`` 3.1.0, so this is a
   deliberate step.
@@ -462,5 +462,5 @@ describes them beside the settings of ``configure``.
   stamp, so a switch compiles every module again.
 
 ``JOBS=N``, ``PREFIX=DIR``
-  The job count of the build (``configure --jobs``) and the directory of
+  The job count of the build and the directory of
   ``make install``.

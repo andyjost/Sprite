@@ -752,6 +752,20 @@ class TestAbiStamp(ToolchainTestCase):
       self.check_value(self.import_module(name), 10)
     self.assertEqual(os.stat(sofile).st_mtime_ns, before)
 
+  def test_relative_package_stamp(self):
+    """A wheel keeps its objects after pip installs it at another prefix."""
+    name = self.build(10)
+    sofile = self.cached_file(name, '.so')
+    relative = os.path.relpath(toolchain.installation_path(), os.path.dirname(sofile))
+    with open(self.cpp2so.stampfile(sofile), 'w') as stream:
+      stream.write('%s\n%s\n' % (self.cpp2so.digest(), relative))
+    # Resolution is against the stamp, regardless of the process directory.
+    with tempfile.TemporaryDirectory() as directory, mock.patch.object(os, 'getcwd', return_value=directory):
+      self.assertTrue(self.cpp2so.stamp_is_current(sofile))
+    with open(self.cpp2so.stampfile(sofile), 'w') as stream:
+      stream.write('%s\n%s\n' % ('0' * 16, relative))
+    self.assertFalse(self.cpp2so.stamp_is_current(sofile))
+
   def test_hand_copy_is_stale(self):
     '''
     An installation copied by hand.  The copied stamp holds the right

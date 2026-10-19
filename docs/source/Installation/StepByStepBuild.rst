@@ -3,77 +3,38 @@
 Step-by-step build
 ------------------
 
-Use this method for more control over the build process.
+Initialize the native binding dependency::
 
-Step 1: Initialize submodules
-.............................
+    git submodule update --init extern/pybind11
 
-You must initialize and update the GIT submodules before building::
-
-    git submodule init
-    git submodule update
-
-Step 2: Build objects and libraries
-...................................
-
-To build object files, static libraries, and shared libraries say::
-
-    make objs libs shlibs
-
-Step 3: Stage
-.............
-
-To stage Sprite say::
+Configure and build with CMake, or use the thin wrapper::
 
     make stage
 
-This must be done before tests are run.  It creates a mock installation under
-``install/``.  This step also builds the necessary objects and libraries, so
-you can skip the previous step if you like.  Staging also compiles the
-Curry library into the installation, so that the first import compiles
-nothing.  Most of that time goes to the Prelude, about half a minute.  A
-stage that changes nothing skips it.
-``make stage`` runs with the job count of ``configure --jobs``.  Say
-``make -jN stage`` to use another count for one run.
+This configures ``object-root/cmake`` with Ninja, builds the runtime and
+extension, prepares the Curry library with the package's own tools, and
+installs into ``install/``. The library includes its pinned ICurry,
+interfaces, JSON and runtime products. Pinned ICurry is rebuilt
+only when ``SPRITE_REBUILD_ICY`` is enabled. See :doc:`ConfiguringSprite`
+for options. ``make stage JOBS=4`` or ``make -j4 stage`` limits parallelism.
 
-Step 4: Overlay ICurry files
-............................
-
-To overlay the pre-built ICurry files of the test programs, say::
+Extract the test products after staging::
 
     make overlay
 
-If you plan to run the test suite, this step **saves several hours** by
-avoiding hundreds of Curry-to-ICurry conversions.  See :ref:`important-notes`.
-Run it after the stage: the stage writes the interfaces of the installed
-Curry library, and the front end compiles a test program again when its
-products are older than them.  A plain ``make`` (the default goal) runs the
-stage and then the overlay.  ``make overlay V=1`` lists the extracted files.
+The extracted products must be newer than the installed interfaces. A plain
+``make`` stages and then extracts them. ``make overlay V=1`` lists members.
+See :ref:`important-notes` for the archive and the test oracle.
 
-To use this, your version of PAKCS must match one of the ``overlay*.tgz``
-files at the repository root.
+Run the tests::
 
-Step 5: Test (optional)
-.......................
+    cd tests
+    ./run_tests --prepare-only --backend both
+    ./run_tests --backend both
 
-To run the tests, say::
+To install the prepared tree elsewhere::
 
-    make test
+    cmake --install object-root/cmake --prefix /path/to/sprite
 
-You can also say ``cd tests && ./run_tests``.  See tests/README for fine
-control of testing.
-
-Step 6: Install (optional)
-..........................
-
-You can use Sprite directly from the staging area.  If you prefer to install it
-elsewhere, use ``make install`` while setting PREFIX to the desired location.
-
-To install Sprite under ``/path/to/sprite`` say::
-
-    make install PREFIX=/path/to/sprite
-
-Refer to the :ref:`install tree layout <install-tree-layout>` for the
-directories this creates.
-
-
+``make install PREFIX=/path/to/sprite`` also builds first. See the
+:ref:`install tree layout <install-tree-layout>` for the resulting tree.

@@ -12,20 +12,19 @@
 # The steps run in this order: machine, apt, pakcs, checkout, conda,
 # configure, stage, smoke, next.  Each step is idempotent: a finished step
 # is skipped on the next run, so the script can run again after a stop.
-# configure empties install and object-root, so it is skipped while
-# Make.config exists and the flags of the last run are the same
+# CMake configuration is skipped while its cache exists and the flags
+# of the last run are the same
 # (PREFIX/configure-args); --reconfigure forces it.  The script never runs
 # sudo.  When an apt package is missing it prints the apt command for the
 # user and stops.
 #
 # --dry-run prints every command and runs none.  The read-only probes that
-# decide the plan still run: command -v, dpkg-query, and configure --help.
+# decide the plan still run: command -v and dpkg-query.
 #
 # Sources: .github/scripts/install-curry-toolchain.sh (the PAKCS and icurry
 # steps), conda/dev-environment.yml (the Python packages), and the rule that
-# configure and make run in a clean environment: a conda toolchain in the
-# login shell exports CC, CXX, and their flags, and the Makefiles of Sprite
-# append them.
+# CMake and make run in a clean environment: a conda toolchain in the
+# login shell exports CC, CXX and their flags, which CMake honours.
 set -euo pipefail
 
 PAKCS_VERSION=${PAKCS_VERSION:-3.4.1}
@@ -70,11 +69,10 @@ options:
                      checkout that holds this script)
   --repo-url URL     the clone URL (default: $REPO_URL_DEFAULT)
   --branch NAME      the branch to clone (default: the default branch)
-  --jobs N|auto      the job count given to configure when it supports --jobs
+  --jobs N|auto      the job count given to CMake and the library build
                      (default: auto: make counts the processors when it starts)
-  --reconfigure      run configure although Make.config exists and the flags
-                     are the ones of the last run (empties install and
-                     object-root, so make stage rebuilds everything)
+  --reconfigure      rerun CMake although its cache exists and the flags
+                     are the ones of the last run
   --dry-run          print every command, run none
   --skip-apt         do not check the apt packages
   --icurry           also install icurry $ICURRY_VERSION through cypm, the
@@ -160,7 +158,7 @@ if [ -z "$prefix" ]; then
   die "--prefix is required"
 fi
 if [ -z "$repo" ]; then
-  if [ -f "$script_dir/../configure" ]; then
+  if [ -f "$script_dir/../CMakeLists.txt" ]; then
     repo=$(cd "$script_dir/.." && pwd)
   else
     usage >&2
@@ -308,7 +306,7 @@ step_machine() {
   note "os: ${os:-unknown}"
   note "cores: $cores  memory: $(gib "$mem") GiB  swap: $(gib "$swap") GiB"
   # auto goes to configure as it is: make counts the processors when it
-  # starts, so Make.config carries no count of this machine.
+  # starts, so the cache records no count of this machine.
   if [ "$jobs" = auto ]; then
     note "jobs: auto (one per processor, counted by make; $cores now)"
   else
@@ -457,7 +455,14 @@ conda_tool() {
 conda_env_satisfied() {
   [ -x "$python" ] \
     && "$python" -c 'import sys; assert sys.version_info[:3] >= (3, 11, 4)' 2>/dev/null \
-    && "$python" -c 'import numpy, sphinx, sphinx_rtd_theme' 2>/dev/null
+    && "$python" -c 'import numpy, sphinx, sphinx_rtd_theme, scikit_build_core, build' 2>/dev/null \
+    && PATH="$conda_env/bin:$CLEAN_PATH" "$python" -c '
+import shutil, subprocess
+cmake = shutil.which("cmake")
+assert cmake and shutil.which("ninja")
+version = subprocess.check_output([cmake, "--version"], text=True).split()[2]
+assert tuple(map(int, version.split(".")[:2])) >= (3, 24)
+' 2>/dev/null
 }
 
 step_conda() {
@@ -465,7 +470,7 @@ step_conda() {
   note "environment file: $env_file"
   note "package cache: $conda_pkgs (CONDA_PKGS_DIRS)"
   if conda_env_satisfied; then
-    note "satisfied: $("$python" --version) with numpy, sphinx, sphinx_rtd_theme"
+    note "satisfied: $("$python" --version) with the build and documentation tools"
     return
   fi
   local tool
@@ -495,7 +500,7 @@ step_conda() {
     esac
   fi
   if [ "$dry_run" = 0 ]; then
-    conda_env_satisfied || die "the conda environment is not complete: $python lacks Python 3.11.4 or newer (tarfile.extractall(filter=) needs 3.11.4), numpy, sphinx, or sphinx_rtd_theme"
+    conda_env_satisfied || die "the conda environment is not complete: $python lacks Python 3.11.4 or newer (tarfile.extractall(filter=) needs 3.11.4), the build backend, CMake >=3.24, Ninja, numpy, sphinx, or sphinx_rtd_theme"
     note "ready: $("$python" --version)"
   fi
 }
@@ -526,11 +531,11 @@ link_tree() {
 
 step_clone() {
   step "Step 4/$NSTEPS: checkout $repo"
-  if [ -f "$repo/configure" ]; then
+  if [ -f "$repo/CMakeLists.txt" ]; then
     note "present: $repo"
   else
     if [ -e "$repo" ]; then
-      note "$repo exists but holds no configure script"
+      note "$repo exists but holds no CMakeLists.txt"
       stop_here "clone: $repo is not a Sprite checkout"
       return
     fi
@@ -549,74 +554,36 @@ step_clone() {
 # ----------------------------------------------------------------------------
 # Step 6: configure.
 
-configure_help() {
-  # The usage text of configure, to probe for options it may gain later.
-  # Read-only; empty when the checkout or a Python is missing.
-  local py
-  for py in "$python" python3; do
-    if command -v "$py" >/dev/null 2>&1 && [ -f "$repo/configure" ]; then
-      (cd "$repo" && "$py" ./configure --help 2>/dev/null) && return
-    fi
-  done
-  return 0
-}
-
 step_configure() {
   step "Step 6/$NSTEPS: configure"
-  local help flags ccache_bin wanted recorded=
+  local flags ccache_bin wanted recorded=
   flags=(
-      "--with-python=$python"
-      "--with-cc=$cc"
-      "--with-cxx=$cxx"
-      "--with-cxx-postinstall=$cxx"
-      "--with-pakcs=$pakcs_home/bin/pakcs"
-      "--with-icurry=$icurry_path"
+      "-DPython_EXECUTABLE=$python"
+      "-DCMAKE_C_COMPILER=$cc"
+      "-DCMAKE_CXX_COMPILER=$cxx"
+      "-DWITH_CXX_POSTINSTALL=$cxx"
+      "-DWITH_PAKCS=$pakcs_home/bin/pakcs"
+      "-DWITH_ICURRY=$icurry_path"
+      "-DJOBS=$jobs"
     )
-  help=$(configure_help || true)
-  if [ -z "$help" ]; then
-    note "configure --help could not be probed (no checkout yet); --jobs and --with-ccache are left out"
-  fi
-  if grep -q -- '--jobs' <<<"$help"; then
-    flags+=("--jobs=$jobs")
-  else
-    note "configure has no --jobs option yet: the build runs as configure decides"
-  fi
   ccache_bin=$(PATH=$CLEAN_PATH command -v ccache || true)
-  if grep -q -- '--with-ccache' <<<"$help" && [ -n "$ccache_bin" ]; then
-    flags+=("--with-ccache=$ccache_bin")
-    note "compiler cache: $prefix/ccache (CCACHE_DIR of the clean environment)"
-  else
-    note "configure has no --with-ccache option yet, or ccache is missing: no compiler cache"
-  fi
+  flags+=("-DWITH_CCACHE=$ccache_bin")
+  note "compiler cache: $prefix/ccache (CCACHE_DIR of the clean environment)"
+  # CMake, Ninja and Python come from the conda environment; the native
+  # compilers are selected explicitly so conda wrappers cannot enter.
+  clean_env[2]="PATH=$conda_env/bin:$CLEAN_PATH"
   note "clean environment: ${clean_env[*]}"
-  # configure empties install and object-root when it writes Make.config.
-  # So a run with the flags of the last run skips it, and a stop after this
-  # step (a failed smoke test, say) does not cost a rebuild.
   wanted=$(printf '%s\n' "${flags[@]}")
   if [ -f "$configure_args_file" ]; then
     recorded=$(cat "$configure_args_file")
   fi
-  if [ "$reconfigure" = 0 ] && [ -f "$repo/Make.config" ] \
+  if [ "$reconfigure" = 0 ] && [ -f "$repo/object-root/cmake/CMakeCache.txt" ] \
       && [ -n "$recorded" ] && [ "$recorded" = "$wanted" ]; then
-    note "skipped: Make.config exists and $configure_args_file holds the same flags"
-    note "(configure empties install and object-root; --reconfigure forces it)"
+    note "skipped: CMakeCache.txt exists and $configure_args_file holds the same flags"
+    note "(--reconfigure forces it)"
     return
   fi
-  if [ "$dry_run" = 0 ] && [ -f "$repo/Make.config" ]; then
-    # Every object depends on Make.config.  Keep its time stamp when the
-    # text does not change, so an unchanged configuration rebuilds nothing.
-    cp -p "$repo/Make.config" "$repo/Make.config.setup-previous"
-  fi
-  run_in "$repo" "${clean_env[@]}" "$python" ./configure "${flags[@]}"
-  if [ "$dry_run" = 0 ] && [ -f "$repo/Make.config.setup-previous" ]; then
-    if cmp -s "$repo/Make.config" "$repo/Make.config.setup-previous"; then
-      mv "$repo/Make.config.setup-previous" "$repo/Make.config"
-      note "Make.config is unchanged; its time stamp is kept"
-    else
-      rm -f "$repo/Make.config.setup-previous"
-      note "Make.config changed"
-    fi
-  fi
+  run_in "$repo" "${clean_env[@]}" cmake -S . -B object-root/cmake -G Ninja "${flags[@]}"
   note "the flags are recorded in $configure_args_file"
   if [ "$dry_run" = 0 ]; then
     mkdir -p "$prefix"
@@ -630,7 +597,7 @@ step_configure() {
 step_stage() {
   step "Step 7/$NSTEPS: make stage"
   note "builds the runtime and compiles the Curry library for both backends (minutes)"
-  run_in "$repo" "${clean_env[@]}" make stage
+  run_in "$repo" "${clean_env[@]}" make stage JOBS="$jobs"
   if [ "$dry_run" = 0 ] && [ ! -r "$prefix/install/lib/libcyrt.so" ]; then
     die "make stage did not produce $prefix/install/lib/libcyrt.so"
   fi

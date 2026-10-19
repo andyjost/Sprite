@@ -18,7 +18,7 @@ Environment Variables:
     SPRITE_CACHE_FILE
       Specifies the cache file.  A file name turns the Curry-to-ICurry cache
       on.  The empty string disables caching.  When the variable is not set,
-      the settings of the installation apply (see Make.config).
+      the settings of the installation apply (see the CMake cache options).
 
     SPRITE_CACHE_UPDATE
       Specifies a glob or regex pattern.  Matching files are considered
@@ -102,7 +102,7 @@ def icurry_cache_enabled():
   '''
   Whether the Curry-to-ICurry cache is on.  A file named by SPRITE_CACHE_FILE
   turns it on.  The empty string turns it off.  Otherwise the installation
-  decides (ENABLE_ICURRY_CACHE in Make.config).
+  decides (CMake ENABLE_ICURRY_CACHE).
   '''
   if sqlite3 is None:
     return False

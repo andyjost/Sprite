@@ -633,7 +633,7 @@ def submit(interp, moduleobj, currypath):
   logfile = os.path.join(
       _tmpdir(), 'compile%d-%s.log' % (next(_state.counter), name)
     )
-  argv = [config.installed_path('bin', 'sprite-make'), '--so', '-z', '-q', source]
+  argv = [config.sprite_make(), '--so', '-z', '-q', source]
   # The ICurry file of the module and its digest: the swap refuses an object
   # of another text (see the module docstring).  The record of the module
   # names the object this job writes, for the swap of its importers.

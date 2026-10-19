@@ -30,13 +30,13 @@ translation is a Python port of the external program `icurry
 <https://cpm.curry-lang.org/pkgs/icurry.html>`__ 3.1.0, available through
 the `Curry Package Manager`_, and it writes the same ``.icy`` text.
 ``icurry`` itself remains an alternative route for the last step; see
-``configure --with-icurry`` and the environment variable
+``CMake WITH_ICURRY`` and the environment variable
 ``SPRITE_CURRY2ICURRY``.  It reads the rewritten file too, so both routes
 write the same ``.icy`` file.
 
 Sprite calls the front end as ``icurry`` under PAKCS does, with the options
 ``--extended -D__PAKCS__=<ver>`` (see ``CURRY_FRONTEND_FLAGS`` in
-``Make.config``) and the directories of the Curry path on ``-i``.  This
+the CMake configuration) and the directories of the Curry path on ``-i``.  This
 affects where certain intermediate files are placed.  For details refer to the
 `PAKCS manual`_.  In short, the front end places its files under
 ``.curry/pakcs-<ver>/``, relative to the original Curry source files, where

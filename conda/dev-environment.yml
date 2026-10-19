@@ -16,6 +16,10 @@ channels:
 dependencies:
   - python=3.14.*
   - pip
+  - cmake>=3.24
+  - ninja
+  - scikit-build-core
+  - python-build
   # Certain tests import numpy (configure: "for certain tests").
   - numpy
   # The docs: make -C docs html.

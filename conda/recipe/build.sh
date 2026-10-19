@@ -33,35 +33,21 @@ export SPRITE_PRODUCT_CACHE=
 export CFLAGS="${CFLAGS:-} -ffile-prefix-map=$SRC_DIR=."
 export CXXFLAGS="${CXXFLAGS:-} -ffile-prefix-map=$SRC_DIR=."
 
-# No PAKCS: the front end comes from the package curry-frontend, and the
-# pinned release names the intermediate directories.  No icurry, and no
-# ccache: the build runs once, and a ccache found on the build machine
-# would otherwise reach Make.config.  make runs the jobs conda-build grants
-# (CPU_COUNT); the Makefiles order the sub-makes, so a parallel build is
-# safe.  The C++ backend is the default of the package (the default of
-# configure, passed here so that the recipe says so).  The tool links that
-# this writes are replaced below.  Sprite writes compact JSON itself; no jq.
-"$PYTHON" ./configure \
-  --with-python="$PYTHON" \
-  --with-cc="$CC" \
-  --with-cxx="$CXX" \
-  --with-cxx-postinstall="$CXX" \
-  --with-ccache='' \
-  --with-pakcs='' \
-  --with-curry-frontend="$PREFIX/bin/pakcs-frontend" \
-  --with-icurry='' \
-  --with-default-backend=cxx \
-  --jobs "${CPU_COUNT:-1}"
-
-# make install builds the C++ runtime (libcyrt) and the extension module,
-# copies the Python package, the Curry library with its committed .icy and
-# .json.z files, the headers, and the sysconfig files.  It then runs the
-# front end over the library, so the package holds the FlatCurry interfaces,
-# and compiles the library for both backends (the prebuild step of
-# curry/Makefile), so the package holds the generated Python, the bytecode
-# caches, and the shared objects of every module Sprite can compile.  The
-# first program a user runs compiles nothing of the library.
-make install PREFIX="$SPRITE_HOME"
+# Reuse the developer wrapper and CMake install tree. The recipe's full
+# move to CMake targets and other architectures is a later task.
+cmake -S . -B object-root/cmake -G Ninja \
+  -DPython_EXECUTABLE="$PYTHON" \
+  -DCMAKE_C_COMPILER="$CC" \
+  -DCMAKE_CXX_COMPILER="$CXX" \
+  -DWITH_CXX_POSTINSTALL="$CXX" \
+  -DWITH_CCACHE='' \
+  -DWITH_PAKCS='' \
+  -DWITH_CURRY_FRONTEND="$PREFIX/bin/pakcs-frontend" \
+  -DWITH_ICURRY='' \
+  -DWITH_DEFAULT_BACKEND=cxx \
+  -DJOBS="${CPU_COUNT:-1}"
+make stage PYTHON="$PYTHON" JOBS="${CPU_COUNT:-1}"
+cmake --install object-root/cmake --prefix "$SPRITE_HOME"
 
 # The static archive names its members by their paths in the build tree
 # (ar -P), and nothing uses it at run time: the backend links the shared

@@ -16,6 +16,10 @@ if os.environ.get('SPRITE_ENABLE_BREAKPOINT', False):
 # that make install writes.
 if 'SPRITE_HOME' not in os.environ:
   _home = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+  _resource_home = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_sprite')
+  if os.path.isdir(os.path.join(_resource_home, 'sysconfig')):
+    _home = _resource_home
+  del _resource_home
   if os.path.isdir(os.path.join(_home, 'sysconfig')):
     os.environ['SPRITE_HOME'] = _home
   del _home

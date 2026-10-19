@@ -22,7 +22,7 @@ library of that release under ``curry/lib``, with Sprite's own
 The backend
 ===========
 
-The C++ backend is the backend (``configure --with-default-backend``
+The C++ backend is the backend (``CMake WITH_DEFAULT_BACKEND``
 records the default).  It compiles each module to C++ and links it against
 the runtime library ``libcyrt``, and its runtime also interprets the
 ICurry of a module from a bytecode.  A reference implementation of the
@@ -116,7 +116,7 @@ What is experimental
   gate, off in the default build.
 * The conda recipe under ``conda/``: a scaffold, not published.
 * The ICurry cache (``SPRITE_CACHE_FILE``): off by default outside the
-  test drivers; ``configure --cache`` turns it on (see
+  test drivers; CMake ``ENABLE_ICURRY_CACHE=ON`` turns it on (see
   :ref:`CommandLineInterface/EnvironmentVariables:Development Variables`).
 
 Where the plan lives

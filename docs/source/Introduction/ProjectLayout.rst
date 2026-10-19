@@ -9,9 +9,9 @@ The Sprite repository is organized as follows:
     Curry front end.  ``conda/README.md`` describes them and what remains
     open.  Nothing is published.
 
-``configure``
-    The script used to configure Sprite.  Run this before running ``make``.
-    Doing so creates a file ``Make.config``.
+``CMakeLists.txt``, ``pyproject.toml``
+    The native build and the scikit-build-core wheel metadata. ``make stage``
+    configures, builds and installs; its CMake cache is under ``object-root``.
 
 ``curry/``
     The built-in Curry library.  ``curry/lib/`` holds the sources: a copy of

@@ -598,7 +598,9 @@ class Cpp2So(object):
   (is_stale).  So a copy of an installation made by hand keeps objects
   whose stamps name the original and compiles them again, and a package
   whose manager rewrites the path at install time (conda lists the stamps
-  in info/has_prefix as text files) keeps its objects.  A stamp of one
+  in info/has_prefix as text files) keeps its objects. Wheel stamps instead
+  name the installation relative to their own directory, so pip needs no
+  rewrite hook. A stamp of one
   line, written before the path joined it, is stale.
 
   The link line names no path that the object keeps.  The object gets the
@@ -715,6 +717,12 @@ class Cpp2So(object):
     digest, path = self.read_stamp_lines(sofile)
     if digest not in accepted or path is None:
       return False
+    # Wheels cannot rewrite text resources at pip install time. Their
+    # shipped stamps name the installation relative to the stamp itself.
+    # Absolute stamps of developer installs and the product cache keep
+    # their existing meaning; the compatibility digest is unchanged.
+    if not os.path.isabs(path):
+      path = os.path.join(os.path.dirname(sofile), path)
     return os.path.realpath(path) == installation_path()
 
   def import_lacks_an_object(self, sofile, currypath=None):

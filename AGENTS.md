@@ -55,8 +55,8 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
   code for Pythons older than 3.11.
 - PAKCS 3.4.1 is the pinned front end (Curry to FlatCurry) and the test
   oracle. The pin will be relaxed once the test suite passes. PAKCS itself
-  is optional at build time: `configure --with-pakcs ''` with
-  `--with-curry-frontend PATH` builds without it, and the pinned release
+  is optional at build time: CMake `-DWITH_PAKCS=` with
+  `-DWITH_CURRY_FRONTEND=PATH` builds without it, and the pinned release
   then names the intermediate directories.
 - Curry is translated to ICurry in three steps: the front end
   (`bin/pakcs-frontend` of PAKCS) writes FlatCurry; the rewrite step
@@ -70,8 +70,7 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
   captured variables are arguments of the capsule, boxed at the entry;
   decision D28 of 2026-10-12); and `curry.toolchain.flat2icurry`, a
   Python port of `icurry` 3.1.0, writes ICurry. The `icurry` program is an
-  optional alternative for the last step, configured with `configure
-  --with-icurry` and selected with `SPRITE_CURRY2ICURRY=icurry` or
+  optional alternative for the last step, configured with CMake `-DWITH_ICURRY=PATH` and selected with `SPRITE_CURRY2ICURRY=icurry` or
   `sprite-make --curry2icurry icurry`; it reads the rewritten file too, so
   both routes write the same `.icy`. The translation of the port is
   byte-identical to the files of `icurry` on the oracle (`tests/README`
@@ -113,18 +112,22 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
   (`/usr/bin/time`) is optional: the benchmark harness uses it for the peak
   memory of a run.
 - Sprite needs no GPU.
-- `configure` and the Makefiles honour `CC`, `CXX`, `CFLAGS`, `CXXFLAGS`
+- CMake honours `CC`, `CXX`, `CFLAGS`, `CXXFLAGS`
   and `LDFLAGS` from the environment, so build in a clean environment when
   a conda or cross toolchain is active.
 
 ## Build and test
 
-- `./configure` writes `Make.config`. `./configure --check-prereqs` lists
-  what is missing. Use `--with-pakcs` and `--with-python` to pick tools.
+- CMake 3.24 or newer, Ninja and the build Python come from PATH (conda or
+  system). `make check-prereqs` diagnoses missing tools without installing.
+  `cmake -S . -B object-root/cmake -G Ninja` configures; use
+  `-DPython_EXECUTABLE=PATH`, `-DWITH_PAKCS=PATH`, and
+  `-DWITH_CURRY_FRONTEND=PATH` to select tools. `make stage` is a thin
+  configure/build/install wrapper, preserving the traditional tree.
 - `make stage` builds and stages a copy under `install/`. It also compiles
   the Curry library into the installation for both backends. The modules
-  Sprite cannot compile are listed in `CURRYLIB_UNSUPPORTED_MODULES` in
-  `Make.include`; they get their ICurry and JSON only.
+  Sprite cannot compile are listed in `unsupported` in
+  `CMakeLists.txt`; they get their ICurry and JSON only.
 - The `.icy` and `.json.z` files beside the sources under `curry/lib/` are
   committed artifacts of the pinned PAKCS and `icurry` versions. `make`
   derives the JSON from the committed `.icy` and never rebuilds a committed
@@ -157,13 +160,16 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
   It needs a staged install: the Reference pages are generated from the
   installed package, and the command-line pages from the installed tools.
   `docs/source/REPL.rst` describes the REPL (`python -m curry.tools.icy`).
-- `configure --jobs auto --with-ccache` is the recommended developer setting.
-  The parallel build passed its timed trial from a clean tree (see TODO),
-  so the default of `--jobs` is `auto`; `--jobs 1` is a serial build.
-  `make -jN stage` overrides the configured count for one run.
+- `make stage CMAKE_ARGS=-DWITH_CCACHE=ccache` enables compiler caching.
+  `JOBS=auto` is the default; `make stage JOBS=1` is serial. `make -jN stage`
+  overrides the count for one run. CMake `GC=wdgc` (default) or `mps`,
+  `CMAKE_BUILD_TYPE=Release` (default) or `Debug`, `TRACE`, `COUNTERS` and
+  `GC_WRITE_COUNTERS` select runtime settings. Pinned ICurry rebuilds only
+  with `-DSPRITE_REBUILD_ICY=ON`. `pip wheel .` uses scikit-build-core and
+  builds distribution `currylang`; the import remains `curry`.
 - `scripts/setup-dev-machine.sh --prefix DIR` sets up a new machine: the
   apt packages (printed, never installed by the script), PAKCS, a conda
-  environment, configure, `make stage`, and a smoke test. See the page
+  environment, CMake, `make stage`, and a smoke test. See the page
   "Developer Setup" of the documentation.
 - The test drivers cache the output of the Curry front end in
   `tests/.cache/icurry.db`, keyed by the source text, so a repeated run
@@ -192,8 +198,7 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
   which the driver does not count. `func_goal_defaulting.py` pins goal and
   type parity with the PAKCS REPL (`tests/oracle` and `tests/oracle_type`);
   its goldens are committed.
-- The C++ backend is the default (`configure --with-default-backend`,
-  `DEFAULT_BACKEND` in `Make.config`, `sysconfig/default_backend` of the
+- The C++ backend is the default (CMake `WITH_DEFAULT_BACKEND`, `sysconfig/default_backend` of the
   installation; the test runner falls back to it).
   `SPRITE_INTERPRETER_FLAGS=backend:py` selects the Python backend, which
   suits only small programs. An installation without a C++ compiler runs

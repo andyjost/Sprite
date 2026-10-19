@@ -1,560 +1,235 @@
-'''
-Tests for configure and the build settings it writes into Make.config: the
-job count of make (--jobs), ccache in front of the compilers
-(--with-ccache), and the default backend (--with-default-backend).
-
-configure runs as a copy in a scratch directory, so the staged installation
-of this tree stays as it is.  The make side is checked without a build: dry
-runs, the rule database (make -p), and a small install of src/export/tools
-into a scratch prefix, which writes five links or four links and the ccache
-wrapper.
-'''
+"""Native configuration, runtime facts and the thin developer wrappers."""
 import cytest # from ./lib; must be first
 from curry import config
-import os, re, shlex, shutil, stat, subprocess, sys, tempfile, unittest
+import importlib.util
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+from unittest import mock
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-CONFIGURE = os.path.join(ROOT, 'configure')
-MAKE_CONFIG = os.path.join(ROOT, 'Make.config')
-ENV = {
-    'PATH': os.environ.get('PATH', '/usr/local/bin:/usr/bin:/bin')
-  , 'HOME': os.environ.get('HOME', '/')
-  , 'LC_ALL': 'C.UTF-8'
-  , 'TMPDIR': os.environ.get('TMPDIR', tempfile.gettempdir())
-  }
-if 'PYTHON_GIL' in os.environ:
-  ENV['PYTHON_GIL'] = os.environ['PYTHON_GIL']
-OLD = 946684800 # 2000-01-01, older than any file of the tree.
+ROOT = Path(__file__).resolve().parents[1]
 
-def readfile(*parts):
-  with open(os.path.join(*parts)) as istream:
-    return istream.read()
 
-def run(cmd, **kwds):
-  kwds.setdefault('env', ENV)
-  kwds.setdefault('stdout', subprocess.PIPE)
-  kwds.setdefault('stderr', subprocess.STDOUT)
-  kwds.setdefault('text', True)
-  kwds.setdefault('timeout', 300)
-  return subprocess.run(cmd, **kwds)
+def run(*args, **kwds):
+  return subprocess.run(list(map(str, args)), stdout=subprocess.PIPE,
+      stderr=subprocess.STDOUT, text=True, timeout=180, **kwds)
 
-def make_config_value(text, name):
-  '''The value of a variable in a Make.config text.'''
-  m = re.search(r'^%s[ \t]*:=[ \t]*(.*)$' % re.escape(name), text, re.M)
-  assert m is not None, name
-  return m.group(1).strip()
 
-def default_jobs():
-  '''The default of --jobs, as configure defines it.'''
-  m = re.search(r"^DEFAULT_JOBS = '([^']*)'", readfile(CONFIGURE), re.M)
-  assert m is not None
-  return m.group(1)
+class TestCMake(cytest.TestCase):
+  def setUp(self):
+    self.directory = tempfile.TemporaryDirectory()
+    self.addCleanup(self.directory.cleanup)
+    self.build = Path(self.directory.name) / 'build'
+    self.frontend = config.curry_frontend()
+    if not shutil.which('cmake') or not self.frontend:
+      self.skipTest('CMake and the staged Curry front end are required')
 
-def default_backend():
-  '''The default of --with-default-backend, as configure defines it.'''
-  m = re.search(r"^DEFAULT_BACKEND = '([^']*)'", readfile(CONFIGURE), re.M)
-  assert m is not None
-  return m.group(1)
+  def configure(self, *options):
+    return run('cmake', '-S', ROOT, '-B', self.build, '-G', 'Ninja',
+        '-DPython_EXECUTABLE=' + sys.executable, '-DWITH_PAKCS=',
+        '-DWITH_CURRY_FRONTEND=' + os.path.realpath(self.frontend), *options)
 
-def write_script(filename, text):
-  with open(filename, 'w') as ostream:
-    ostream.write(text)
-  os.chmod(filename, 0o755)
+  def cache(self, name):
+    for line in (self.build / 'CMakeCache.txt').read_text().splitlines():
+      if line.startswith(name + ':'):
+        return line.split('=', 1)[1]
+    self.fail('missing cache setting ' + name)
 
-def write_stub_ccache(dirname):
-  '''
-  A stand-in for ccache.  It writes its arguments, one per line, to argv.txt
-  beside itself and runs nothing.
-  '''
-  os.makedirs(dirname, exist_ok=True)
-  stub = os.path.join(dirname, 'ccache')
-  write_script(
-      stub
-    , '#!/bin/sh\nprintf "%%s\\n" "$@" > "%s"\n' % os.path.join(dirname, 'argv.txt')
-    )
-  return stub
-
-def make(*args, **kwds):
-  '''Runs make in a directory of this tree with the clean environment.'''
-  return run(['make'] + list(args), **kwds)
-
-class ConfigureTestCase(cytest.TestCase):
-  '''Runs copies of configure in scratch directories.'''
-
-  @classmethod
-  def setUpClass(cls):
-    super().setUpClass()
-    if not os.path.isfile(MAKE_CONFIG):
-      raise unittest.SkipTest('this tree is not configured')
-    if config.curry_frontend() is None:
-      raise unittest.SkipTest('the Curry front end is not configured')
-    text = readfile(MAKE_CONFIG)
-    cls.cc = make_config_value(text, 'CC')
-    cls.cxx = make_config_value(text, 'CXX')
-    cls.cxx_postinstall = config.cxx_tool()
-    cls.frontend = os.path.realpath(config.curry_frontend())
-
-  def configure(self, tmpdir, *args, write=True, env=None):
-    '''
-    Runs a copy of configure in ``tmpdir`` with the staged tools and the
-    checks that run the tools skipped (-f).  Returns the completed process
-    and the text of Make.config, if written.
-    '''
-    script = os.path.join(tmpdir, 'configure')
-    if not os.path.exists(script):
-      shutil.copy(CONFIGURE, script)
-    cmd = [
-        sys.executable, script, '-f'
-      , '--with-python=' + sys.executable
-      , '--with-cc=' + self.cc
-      , '--with-cxx=' + self.cxx
-      , '--with-cxx-postinstall=' + self.cxx_postinstall
-      , '--with-pakcs='
-      , '--with-curry-frontend=' + self.frontend
-      , '--with-icurry='
-      ] + list(args)
-    if not write:
-      cmd.append('--check-prereqs')
-    conf = os.path.join(tmpdir, 'Make.config')
-    if os.path.exists(conf):
-      os.unlink(conf)
-    result = run(cmd, cwd=tmpdir, env=ENV if env is None else env)
-    text = readfile(conf) if os.path.isfile(conf) else None
-    return result, text
-
-class TestConfigureOptions(ConfigureTestCase):
-  '''
-  The options --jobs, --with-ccache and --with-default-backend and the lines
-  they write.
-  '''
-
-  def test_python_window(self):
-    '''The gate accepts 3.11.4 onward and explains the patch minimum.'''
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      python = os.path.join(tmpdir, 'python')
-      for version, accepted in [
-          ('3.10.16', False), ('3.11.0', False), ('3.11.3', False)
-        , ('3.11.4', True), ('3.12.0', True), ('3.13.0', True)
-        , ('3.14.0', True), ('3.15.0', True)
-        ]:
-        with self.subTest(version=version):
-          write_script(python, '''#!/bin/sh
-case "$2" in
-  *sys.stdout.write*) echo %s ;;
-  *) exec %s "$@" ;;
-esac
-''' % (version, shlex.quote(sys.executable)))
-          result, text = self.configure(tmpdir, '--with-python=' + python)
-          self.assertEqual(result.returncode, 0 if accepted else 1, result.stdout)
-          if accepted:
-            self.assertIsNotNone(text)
-          else:
-            self.assertIsNone(text)
-            self.assertIn('Python 3.11.4 or newer', result.stdout)
-            self.assertIn('tarfile.extractall(filter=) needs 3.11.4', result.stdout)
-            self.assertIn('found ' + version, result.stdout)
-
-  def test_help(self):
-    '''configure -h documents the three options.'''
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      result = run([sys.executable, CONFIGURE, '-h'], cwd=tmpdir)
+  def test_defaults_and_runtime_facts(self):
+    result = self.configure()
     self.assertEqual(result.returncode, 0, result.stdout)
-    self.assertIn('--jobs N|auto', result.stdout)
-    self.assertIn('--with-ccache', result.stdout)
-    self.assertIn('default: %s' % default_jobs(), result.stdout)
-    self.assertIn('--with-default-backend py|cxx', result.stdout)
-    self.assertIn('default: %s' % default_backend(), result.stdout)
+    for name, value in [('JOBS', 'auto'), ('WITH_DEFAULT_BACKEND', 'cxx'),
+                        ('GC', 'wdgc'), ('CMAKE_BUILD_TYPE', 'Release'),
+                        ('WITH_CCACHE', ''), ('WITH_PAKCS', ''),
+                        ('CURRY2ICURRY_TOOL', 'frontend')]:
+      self.assertEqual(self.cache(name), value)
+    facts = self.build / 'stage/sysconfig'
+    self.assertEqual(len(list(facts.iterdir())), 17)
+    for path in facts.iterdir():
+      self.assertNotIn(str(self.build), path.read_text())
+      self.assertNotIn(str(ROOT), path.read_text())
+    for name, value in [('default_backend', 'cxx'), ('cxx_gc', 'wdgc'),
+                        ('frontend_subdir', 'pakcs-3.4.1'),
+                        ('intermediate_subdir', 'sprite-pakcs-3.4.1'),
+                        ('frontend_flags', '--extended -D__PAKCS__=304')]:
+      self.assertEqual((facts / name).read_text().strip(), value)
+    self.assertEqual((facts / 'cxx_compiler').read_text().strip(), config.cxx_compiler())
+    ninja = (self.build / 'build.ninja').read_text()
+    self.assertIn('libcyrt.so', ninja)
+    self.assertIn('currylib: phony', ninja)
+    self.assertIn('_cyrtbindings', ninja)
+    self.assertIn('build-package.py', ninja)
 
-  def test_defaults(self):
-    '''
-    Without the options, Make.config names the default job count and no
-    ccache, under comments that name the options.
-    '''
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      result, text = self.configure(tmpdir)
+  def test_options_and_validation(self):
+    result = self.configure('-DJOBS=3', '-DGC=wdgc', '-DWITH_DEFAULT_BACKEND=py',
+                            '-DCMAKE_BUILD_TYPE=Debug', '-DGC_WRITE_COUNTERS=ON')
     self.assertEqual(result.returncode, 0, result.stdout)
-    self.assertIn('Configuration succeeded', result.stdout)
-    self.assertEqual(make_config_value(text, 'JOBS'), default_jobs())
-    self.assertEqual(make_config_value(text, 'CCACHE'), '')
-    self.assertEqual(make_config_value(text, 'DEFAULT_BACKEND'), default_backend())
-    self.assertEqual(default_backend(), 'cxx')
-    self.assertIn('# Parallel build (configure --jobs)', text)
-    self.assertIn('# ccache (configure --with-ccache)', text)
-    self.assertIn('# The default backend (configure --with-default-backend)', text)
-    # The compilers are not touched by the option.
-    self.assertEqual(make_config_value(text, 'CXX'), self.cxx)
-    self.assertEqual(make_config_value(text, 'CXX_POSTINSTALL'), self.cxx_postinstall)
+    facts = self.build / 'stage/sysconfig'
+    for name, value in [('default_backend', 'py'), ('cxx_gc', 'wdgc'),
+                        ('cxx_flavor', 'debug'), ('cxx_gc_write_counters', '1')]:
+      self.assertEqual((facts / name).read_text().strip(), value)
+    for option, message in [('-DJOBS=0', 'positive integer or auto'),
+                            ('-DGC=bad', 'GC must be'),
+                            ('-DWITH_DEFAULT_BACKEND=llvm', 'must be cxx or py'),
+                            ('-DCURRY2ICURRY_TOOL=bad', 'must be frontend or icurry')]:
+      result = self.configure('-DJOBS=auto', '-DGC=wdgc', '-DWITH_DEFAULT_BACKEND=cxx',
+                              '-DCURRY2ICURRY_TOOL=frontend', option)
+      self.assertNotEqual(result.returncode, 0, result.stdout)
+      self.assertIn(message, result.stdout)
 
-  def test_jobs(self):
-    '''--jobs takes a count or auto; -j is its short form.'''
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      for args, expected in [
-          (['--jobs=4'], '4'), (['--jobs', 'auto'], 'auto'), (['-j', '03'], '3')
-        ]:
-        result, text = self.configure(tmpdir, *args)
-        self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertEqual(make_config_value(text, 'JOBS'), expected, args)
-
-  def test_jobs_invalid(self):
-    '''A count below one, or a word other than auto, is refused at once.'''
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      for value in ['0', '-2', 'two', '']:
-        result, text = self.configure(tmpdir, '--jobs=' + value)
-        self.assertEqual(result.returncode, 2, (value, result.stdout))
-        self.assertIn('expected a positive integer or auto', result.stdout)
-        self.assertIsNone(text, value)
-
-  def test_with_default_backend(self):
-    '''
-    --with-default-backend takes py or cxx and writes DEFAULT_BACKEND; another
-    word is refused at once.  The value reaches the installation as
-    sysconfig/default_backend (src/export/sysconfig/default_backend.var).
-    '''
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      for value in 'py', 'cxx':
-        result, text = self.configure(tmpdir, '--with-default-backend=' + value)
-        self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertEqual(make_config_value(text, 'DEFAULT_BACKEND'), value)
-      for value in 'llvm', 'PY', '':
-        result, text = self.configure(tmpdir, '--with-default-backend=' + value)
-        self.assertEqual(result.returncode, 2, (value, result.stdout))
-        self.assertIn('invalid choice', result.stdout)
-        self.assertIsNone(text, value)
-    var = readfile(ROOT, 'src', 'export', 'sysconfig', 'default_backend.var')
-    self.assertEqual(var.strip(), '$(DEFAULT_BACKEND)')
-    # The staged installation of this tree records the value of its
-    # Make.config.
-    self.assertEqual(
-        config.default_backend(), make_config_value(readfile(MAKE_CONFIG), 'DEFAULT_BACKEND')
-      )
-
-  def test_with_ccache(self):
-    '''
-    --with-ccache names ccache by path or by name (searched in PATH), the
-    environment variable CCACHE does the same, an empty value leaves it out,
-    and a program that does not exist aborts the configuration.
-    '''
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      bindir = os.path.join(tmpdir, 'bin')
-      stub = write_stub_ccache(bindir)
-      # By path.
-      result, text = self.configure(tmpdir, '--with-ccache=' + stub)
-      self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertEqual(make_config_value(text, 'CCACHE'), stub)
-      self.assertEqual(make_config_value(text, 'CXX'), self.cxx)
-      self.assertEqual(make_config_value(text, 'CXX_POSTINSTALL'), self.cxx_postinstall)
-      # By name, through PATH.
-      env = dict(ENV, PATH=bindir + ':' + ENV['PATH'])
-      result, text = self.configure(tmpdir, '--with-ccache', env=env)
-      self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertEqual(make_config_value(text, 'CCACHE'), stub)
-      # Through the environment.
-      env = dict(ENV, CCACHE=stub)
-      result, text = self.configure(tmpdir, env=env)
-      self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertEqual(make_config_value(text, 'CCACHE'), stub)
-      # Left out by request, even with CCACHE in the environment.
-      result, text = self.configure(tmpdir, '--with-ccache=', env=env)
-      self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertEqual(make_config_value(text, 'CCACHE'), '')
-      # A program that does not exist.
-      missing = os.path.join(tmpdir, 'no-such-ccache')
-      result, text = self.configure(tmpdir, '--with-ccache=' + missing)
-      self.assertEqual(result.returncode, 1, result.stdout)
-      self.assertIn('Aborted', result.stdout)
-      self.assertIsNone(text)
-
-  def test_with_ccache_missing_prereq(self):
-    '''
-    When ccache is requested by name and PATH has none, the prerequisite
-    check reports it with its installation step.
-    '''
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      emptybin = os.path.join(tmpdir, 'emptybin')
-      os.mkdir(emptybin)
-      env = dict(ENV, PATH=emptybin)
-      result, text = self.configure(tmpdir, '--with-ccache', write=False, env=env)
-    self.assertEqual(result.returncode, 0, result.stdout)
-    self.assertIn('Missing: ccache', result.stdout)
-    self.assertIn('Install ccache', result.stdout)
-    self.assertIsNone(text)
-
-  def test_front_end_required_with_icurry(self):
-    '''
-    Both routes from Curry to ICurry run the front end (the icurry route
-    rewrites its FlatCurry file before icurry reads it), so configure
-    refuses a front end left out, also when icurry is given.
-    '''
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      result, text = self.configure(
-          tmpdir, '--with-curry-frontend=', '--with-icurry=' + sys.executable
-        )
+  def test_frontend_and_optional_route(self):
+    for option, message in [('-DWITH_CURRY_FRONTEND=', 'needs the Curry front end'),
+                            ('-DCURRY2ICURRY_TOOL=icurry', 'needs WITH_ICURRY'),
+                            ('-DWITH_ICURRY=/nonexistent/icurry', 'SPRITE_ICURRY')]:
+      result = self.configure(option)
+      self.assertNotEqual(result.returncode, 0, result.stdout)
+      self.assertIn(message, result.stdout)
+      # Remove the failed cache setting before the next case.
+      shutil.rmtree(self.build)
+    fake = Path(self.directory.name) / 'frontend'
+    fake.write_text('#!/bin/sh\necho 1.0.0\n')
+    fake.chmod(0o755)
+    result = self.configure('-DWITH_CURRY_FRONTEND=' + str(fake))
     self.assertNotEqual(result.returncode, 0, result.stdout)
-    self.assertIn('The Curry front end is not configured.', result.stdout)
-    self.assertIn('Both routes from Curry to ICurry run it', result.stdout)
-    self.assertIsNone(text)
+    self.assertIn('Expected Curry front end 2.0.0', result.stdout)
 
-class TestMakeSide(cytest.TestCase):
-  '''
-  The Makefiles under the settings of Make.config: the job count, the
-  compiler prefix, and the wrapper of the post-install compiler.
-  '''
-
-  @classmethod
-  def setUpClass(cls):
-    super().setUpClass()
-    if not os.path.isfile(MAKE_CONFIG):
-      raise unittest.SkipTest('this tree is not configured')
-    if shutil.which('make', path=ENV['PATH']) is None:
-      raise unittest.SkipTest('make is not installed')
-    cls.cxx = make_config_value(readfile(MAKE_CONFIG), 'CXX')
-
-  def print_makeflags(self, *args):
-    '''The MAKEFLAGS of the top-level make with the given arguments.'''
-    result = make('-s', *args, 'print-MAKEFLAGS', cwd=ROOT)
-    return result, result.stdout.split('set to [')[-1].split(']')[0]
-
-  def test_jobs_to_makeflags(self):
-    '''
-    JOBS becomes -j of the top-level make: a count as it is, auto as the
-    processor count, 1 as a serial build.  A -j on the command line wins.
-    An invalid value is an error with a clear message.
-    '''
-    result, flags = self.print_makeflags('JOBS=4')
+  def test_optional_icurry_probe(self):
+    """The optional route must translate into the pinned product directory."""
+    program = Path(self.directory.name) / 'icurry'
+    program.write_text('#!/bin/sh\nmkdir -p .curry/pakcs-3.4.1\n'
+                       'echo sample > .curry/pakcs-3.4.1/sample.icy\n')
+    program.chmod(0o755)
+    options = ['-DWITH_ICURRY=' + str(program), '-DCURRY2ICURRY_TOOL=icurry']
+    result = self.configure(*options)
     self.assertEqual(result.returncode, 0, result.stdout)
-    self.assertIn('-j4', flags.split())
-    result, flags = self.print_makeflags('JOBS=1')
+    self.assertEqual((self.build / 'stage/sysconfig/curry2icurry_tool').read_text().strip(), 'icurry')
+    # An old result cannot make a later broken translator pass its probe.
+    program.write_text('#!/bin/sh\nexit 0\n')
+    result = self.configure(*options)
+    self.assertNotEqual(result.returncode, 0, result.stdout)
+    self.assertIn('failed its translation probe', result.stdout)
+
+  def test_ccache_launches_native_compilation(self):
+    launcher = Path(self.directory.name) / 'ccache'
+    launcher.write_text('#!/bin/sh\nexec "$@"\n')
+    launcher.chmod(0o755)
+    result = self.configure('-DWITH_CCACHE=' + str(launcher))
     self.assertEqual(result.returncode, 0, result.stdout)
-    self.assertNotIn('-j', flags)
-    result, flags = self.print_makeflags('-j2', 'JOBS=4')
+    result = run('ninja', '-C', self.build, '-t', 'commands', 'cyrt')
     self.assertEqual(result.returncode, 0, result.stdout)
-    self.assertIn('-j2', flags.split())
-    self.assertNotIn('-j4', flags.split())
-    nproc = shutil.which('nproc', path=ENV['PATH'])
-    if nproc is not None:
-      count = run([nproc]).stdout.strip()
-      result, flags = self.print_makeflags('JOBS=auto')
+    commands = result.stdout.splitlines()
+    self.assertTrue(any(str(launcher) in line and ' -c ' in line for line in commands))
+
+
+class TestWrappers(cytest.TestCase):
+  def test_stage_order_and_parallelism(self):
+    for args, count in [(['JOBS=3'], '3'), (['-j2', 'JOBS=4'], '2'),
+                        (['-j', 'JOBS=4'], 'auto')]:
+      result = run('make', '-n', '-C', ROOT, 'stage', *args)
       self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertIn('-j' + count, flags.split())
-    for value in ['0', 'many']:
-      result = make('-s', 'JOBS=' + value, 'print-MAKEFLAGS', cwd=ROOT)
-      self.assertEqual(result.returncode, 2, (value, result.stdout))
-      self.assertIn('JOBS should be a count or auto', result.stdout)
-
-  def test_recipes_pass_the_job_server(self):
-    '''
-    The recipes of the root Makefile that run make say $(MAKE), so a
-    parallel make reaches them.  A dry run of stage shows the recursion.
-    '''
-    text = readfile(ROOT, 'Makefile')
-    self.assertIsNone(re.search(r'^\t[@+-]*make\b', text, re.M))
-    result = make('-n', 'stage', cwd=ROOT)
+      self.assertIn('SPRITE_BUILD_JOBS=' + count, result.stdout)
+      self.assertLess(result.stdout.index('cmake -S'), result.stdout.index('cmake --build'))
+      self.assertLess(result.stdout.index('cmake --build'), result.stdout.index('cmake --install'))
+    result = run('make', '-n', '-C', ROOT, 'default-goal')
     self.assertEqual(result.returncode, 0, result.stdout)
-    self.assertIn('-C src install', result.stdout)
-    self.assertIn('-C curry install', result.stdout)
+    self.assertLess(result.stdout.index('cmake --install'), result.stdout.index('scripts/overlay.py'))
 
-  def database(self, directory):
-    '''The rule database of a make in ``directory`` (make -p).'''
-    result = make('-p', '-s', 'print-ROOT_DIR', cwd=os.path.join(ROOT, directory))
-    self.assertEqual(result.returncode, 0, result.stdout[-2000:])
-    return result.stdout
-
-  def assertRule(self, database, pattern):
-    '''Asserts that one line of the database matches the pattern.'''
-    self.assertRegex(database, re.compile(pattern, re.M))
-
-  def test_build_order(self):
-    '''
-    The order-only prerequisites that keep make -j safe: curry after src,
-    python after cyrt, shlibs after libs, the nested make that archives the
-    objects of the cyrt subdirectories after the archive of cyrt itself, and
-    the installed archive after that nested make.
-    '''
-    self.assertRule(self.database('.'), r'^curry: \| src$')
-    src = self.database('src')
-    self.assertRule(src, r'^python: \| cyrt$')
-    self.assertRule(src, r'^shlibs:: \| libs$')
-    cyrt = self.database(os.path.join('src', 'cyrt'))
-    self.assertRule(cyrt, r'^shlib_extra: \| \S+/object-root/cyrt/libcyrt\.a$')
-    self.assertRule(
-        cyrt, r'^\S+/libcyrt\.so: \S+/object-root/cyrt/libcyrt\.a \| shlib_extra$'
-      )
-    self.assertRule(
-        cyrt, r'^\S+/lib/libcyrt\.a: \S+/object-root/cyrt/libcyrt\.a \| shlib_extra$'
-      )
-    self.assertIn('.NOTPARALLEL:', readfile(ROOT, 'curry', 'Makefile'))
-
-  def test_compile_through_ccache(self):
-    '''
-    With CCACHE set, an object is compiled by ccache in front of the
-    compiler; without it, by the compiler alone.  A what-if dry run (-W)
-    shows the command.  The tree may be configured with ccache, so the plain
-    case clears CCACHE on the command line.
-    '''
-    def compile_line(*args):
-      result = make(
-          '-n', '-W', 'builtins.cpp', 'objs', *args
-        , cwd=os.path.join(ROOT, 'src', 'cyrt')
-        )
-      self.assertEqual(result.returncode, 0, result.stdout)
-      lines = [
-          line for line in result.stdout.splitlines()
-          if 'builtins.o' in line and ' -c ' in line
-        ]
-      self.assertEqual(len(lines), 1, result.stdout)
-      return lines[0]
-    line = compile_line('CCACHE=')
-    self.assertTrue(line.startswith(self.cxx + ' '), line)
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      stub = write_stub_ccache(tmpdir)
-      line = compile_line('CCACHE=' + stub)
-    self.assertTrue(line.startswith(stub + ' ' + self.cxx + ' '), line)
-
-  def test_tools_cxx(self):
-    '''
-    Without ccache, tools/cxx is a link to the post-install compiler.  With
-    ccache, it is a script that runs ccache in front of that compiler, by
-    absolute paths, so no compiler-name detection is needed.  The script
-    replaces an old link without a write through it, and a configuration
-    without ccache turns it into a link again.
-    '''
-    tools_dir = os.path.join(ROOT, 'src', 'export', 'tools')
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      prefix = os.path.join(tmpdir, 'prefix')
-      os.mkdir(prefix)
-      stub = write_stub_ccache(os.path.join(tmpdir, 'bin'))
-      compiler = os.path.join(tmpdir, 'bin', 'fake-g++')
-      compiler_text = '#!/bin/sh\necho fake compiler\n'
-      write_script(compiler, compiler_text)
-      cxx = os.path.join(prefix, 'tools', 'cxx')
-      def install(*args):
-        result = make(
-            '-s', '-C', tools_dir, 'install', 'PREFIX=' + prefix
-          , 'CXX_POSTINSTALL=' + compiler, *args
-          )
+  def test_job_override_keeps_the_configured_count(self):
+    """make -jN overrides this build and leaves the CMake setting intact."""
+    with tempfile.TemporaryDirectory() as directory:
+      directory = Path(directory)
+      build = directory / 'build'
+      build.mkdir()
+      cache = build / 'CMakeCache.txt'
+      cache.write_text('JOBS:STRING=3\n')
+      cmake = directory / 'cmake'
+      cmake.write_text('#!' + sys.executable + '\n' +
+          'import json, os, pathlib, sys\n'
+          'if "-S" in sys.argv:\n'
+          '  for arg in sys.argv:\n'
+          '    if arg.startswith("-DJOBS="):\n'
+          '      pathlib.Path(sys.argv[sys.argv.index("-B")+1], "CMakeCache.txt").write_text("JOBS:STRING="+arg.split("=",1)[1]+"\\n")\n'
+          'elif "--build" in sys.argv:\n'
+          '  print("BUILD_JOBS="+os.environ.get("SPRITE_BUILD_JOBS", ""))\n')
+      cmake.chmod(0o755)
+      def stage(*args, configured='3'):
+        result = run('make', '-s', '-C', ROOT, 'stage', 'CMAKE=' + str(cmake),
+                     'BUILD_DIR=' + str(build), *args)
         self.assertEqual(result.returncode, 0, result.stdout)
-      # Without ccache: a link.
-      install('CCACHE=')
-      self.assertTrue(os.path.islink(cxx))
-      self.assertEqual(os.readlink(cxx), compiler)
-      self.assertTrue(os.path.islink(os.path.join(prefix, 'tools', 'python')))
-      # With ccache: a script, over the old link.  The link looks old, as
-      # after a new configuration, so the rule runs again.
-      os.utime(compiler, (OLD, OLD))
-      install('CCACHE=' + stub)
-      self.assertFalse(os.path.islink(cxx))
-      self.assertTrue(os.path.isfile(cxx))
-      self.assertTrue(os.stat(cxx).st_mode & stat.S_IXUSR)
-      text = readfile(cxx)
-      self.assertTrue(text.startswith('#!/bin/sh\n'), text)
-      self.assertIn('exec "%s" "%s" "$@"' % (stub, compiler), text)
-      self.assertEqual(readfile(compiler), compiler_text)
-      result = run([cxx, '-c', 'x.cpp', '-o', 'x.o'])
+        self.assertEqual(cache.read_text(), 'JOBS:STRING=' + configured + '\n')
+        return result.stdout
+      self.assertIn('BUILD_JOBS=2', stage('-j2'))
+      self.assertIn('BUILD_JOBS=3', stage())
+      self.assertIn('BUILD_JOBS=1', stage('JOBS=1'))
+      self.assertIn('BUILD_JOBS=4', stage('CMAKE_ARGS=-DJOBS=4', configured='4'))
+      self.assertIn('BUILD_JOBS=2', stage('-j2', configured='4'))
+      self.assertIn('BUILD_JOBS=4', stage(configured='4'))
+
+  def test_worktree_settings(self):
+    result = run('bash', '-n', ROOT / 'scripts/new-worktree.sh')
+    self.assertEqual(result.returncode, 0, result.stdout)
+    with tempfile.TemporaryDirectory() as directory:
+      cache = Path(directory) / 'cache'
+      cache.write_text('JOBS:STRING=3\nWITH_CCACHE:FILEPATH=/tools/ccache\n'
+                       'CMAKE_HOME_DIRECTORY:INTERNAL=/old/tree\n')
+      result = run(sys.executable, ROOT / 'scripts/build-settings.py', cache)
       self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertEqual(
-          readfile(tmpdir, 'bin', 'argv.txt').split('\n')[:-1]
-        , [compiler, '-c', 'x.cpp', '-o', 'x.o']
-        )
-      # Without ccache again: a link.  The script is older than Make.config,
-      # as after a new configuration.
-      os.utime(cxx, (OLD, OLD))
-      install('CCACHE=')
-      self.assertTrue(os.path.islink(cxx))
-      self.assertEqual(os.readlink(cxx), compiler)
+      self.assertEqual(result.stdout.splitlines(), ['-DJOBS=3', '-DWITH_CCACHE=/tools/ccache'])
 
-class TestWorktreeScript(cytest.TestCase):
-  '''scripts/new-worktree.sh passes the build settings on.'''
+  def test_runtime_compiler_alias(self):
+    """A ccache compiler alias retains its basename behind tools/cxx."""
+    spec = importlib.util.spec_from_file_location('sprite_build_package',
+        ROOT / 'scripts/build-package.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      launcher = root / 'ccache'
+      launcher.write_text('#!/bin/sh\nprintf "%s\\n" "$0" "$@"\n')
+      launcher.chmod(0o755)
+      alias = root / 'c++'
+      alias.symlink_to(launcher)
+      module.compiler_tool(root / 'prefix', str(alias))
+      result = run(root / 'prefix/tools/cxx', '-c', 'module.cpp')
+      self.assertEqual(result.returncode, 0, result.stdout)
+      self.assertEqual(result.stdout.splitlines(), [str(alias), '-c', 'module.cpp'])
+      self.assertEqual(launcher.read_text(), '#!/bin/sh\nprintf "%s\\n" "$0" "$@"\n')
 
-  def test_script(self):
-    script = os.path.join(ROOT, 'scripts', 'new-worktree.sh')
-    result = run(['bash', '-n', script])
-    self.assertEqual(result.returncode, 0, result.stdout)
-    text = readfile(script)
-    self.assertIn('cp "$here/Make.config" "$path/Make.config"', text)
-    self.assertIn('JOBS', text)
-    self.assertIn('CCACHE', text)
+  def test_compiler_discovery_respects_staged_install(self):
+    """Missing tools/cxx still disables compilation in a traditional prefix."""
+    with mock.patch.object(config, 'installed_path', return_value='/nonexistent/compiler'), \
+         mock.patch.object(config.shutil, 'which', return_value='/compiler/g++'), \
+         mock.patch.object(config, '__file__', '/package/curry/config.py'):
+      with mock.patch.object(config, 'prefix', return_value='/stage'):
+        self.assertIsNone(config.cxx_tool(cached=[]))
+      with mock.patch.object(config, 'prefix', return_value='/package/curry/_sprite'):
+        self.assertEqual(config.cxx_tool(cached=[]), '/compiler/g++')
 
-class TestDependencies(ConfigureTestCase):
-  '''
-  The dependencies that the cleanup of 2026-10-07 dropped stay dropped: the
-  Boost headers of the C++ runtime, the sqlite3 program (a prerequisite of
-  cypm, not of Sprite), and the search for icurry when nobody asked for it.
-  '''
+  def test_packaged_tool_discovery(self):
+    """Wheel launches use their interpreter's scripts and frontend override."""
+    with tempfile.TemporaryDirectory() as directory:
+      directory = Path(directory)
+      make = directory / 'sprite-make'
+      frontend = directory / 'frontend'
+      for path in [make, frontend]:
+        path.write_text('#!/bin/sh\nexit 0\n')
+        path.chmod(0o755)
+      with mock.patch.object(config, 'installed_path', return_value='/nonexistent/tool'), \
+           mock.patch.object(sys, 'executable', str(directory / 'python')), \
+           mock.patch.dict(os.environ, PATH='', SPRITE_FRONTEND=str(frontend)):
+        self.assertEqual(config.sprite_make(cached=[]), str(make))
+        self.assertEqual(config.curry_frontend(cached=[]), str(frontend))
 
-  def check_prereqs(self, tmpdir, *args, env):
-    '''
-    Runs a copy of configure --check-prereqs with the compilers and the
-    Python of this tree, and nothing else on the command line but ``args``.
-    '''
-    script = os.path.join(tmpdir, 'configure')
-    if not os.path.exists(script):
-      shutil.copy(CONFIGURE, script)
-    cmd = [
-        sys.executable, script, '-f', '--check-prereqs'
-      , '--with-python=' + sys.executable
-      , '--with-cc=' + self.cc
-      , '--with-cxx=' + self.cxx
-      , '--with-cxx-postinstall=' + self.cxx_postinstall
-      ] + list(args)
-    return run(cmd, cwd=tmpdir, env=env)
-
-  def test_missing_front_end_alone(self):
-    '''
-    Without PAKCS and without a front end on PATH, the front end is the one
-    missing prerequisite: icurry is not looked for unless --with-icurry asks
-    for it, and the sqlite3 program, a prerequisite of cypm, is not checked.
-    '''
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      emptybin = os.path.join(tmpdir, 'emptybin')
-      os.mkdir(emptybin)
-      env = dict(ENV, PATH=emptybin, HOME=tmpdir)
-      result = self.check_prereqs(tmpdir, '--with-pakcs=', env=env)
-    self.assertEqual(result.returncode, 0, result.stdout)
-    self.assertIn('Missing: pakcs-frontend\n', result.stdout)
-    self.assertIn('Found 1 problem.', result.stdout)
-    for word in ['sqlite3', 'icurry executable', 'Boost']:
-      self.assertNotIn(word, result.stdout)
-
-  def test_icurry_requested_and_missing(self):
-    '''
-    When --with-icurry names a program that PATH lacks, the check reports
-    icurry with its installation steps.  The steps note that cypm needs the
-    sqlite3 program; the program is not a prerequisite of Sprite.
-    '''
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      emptybin = os.path.join(tmpdir, 'emptybin')
-      os.mkdir(emptybin)
-      env = dict(ENV, PATH=emptybin, HOME=tmpdir)
-      result = self.check_prereqs(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + self.frontend
-        , '--with-icurry=icurry', env=env
-        )
-    self.assertEqual(result.returncode, 0, result.stdout)
-    self.assertIn('Missing: icurry\n', result.stdout)
-    self.assertIn('Found 1 problem.', result.stdout)
-    self.assertIn('needs the sqlite3 program', result.stdout)
-    self.assertNotIn('sqlite3 program\' is', result.stdout)
-
-  def test_no_boost(self):
-    '''
-    The C++ runtime includes no Boost header, configure does not look for
-    Boost, and the compiler flags of the build name no Boost directory.
-    '''
-    cyrt = os.path.join(ROOT, 'src', 'cyrt')
-    for dirpath, dirnames, filenames in os.walk(cyrt):
-      for name in filenames:
-        if name.endswith(('.hpp', '.hxx', '.h', '.cpp', '.def')):
-          text = readfile(dirpath, name)
-          self.assertNotIn('boost', text, os.path.join(dirpath, name))
-    self.assertNotIn('BOOST', readfile(CONFIGURE))
-    self.assertNotIn('BOOST', readfile(ROOT, 'Make.include'))
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      result = run([sys.executable, CONFIGURE, '-h'], cwd=tmpdir)
-    self.assertEqual(result.returncode, 0, result.stdout)
+  def test_prerequisite_diagnostic(self):
+    env = dict(os.environ, PATH='')
+    result = run(sys.executable, ROOT / 'scripts/check-prereqs.py', '--with-curry-frontend=/nonexistent/frontend', env=env)
+    self.assertEqual(result.returncode, 1, result.stdout)
+    for name in ['cmake', 'ninja', 'C++ compiler', 'Curry front end']:
+      self.assertIn(name + ': MISSING', result.stdout)
+    self.assertIn('sqlite3: available', result.stdout)
     self.assertNotIn('Boost', result.stdout)
-    if shutil.which('make', path=ENV['PATH']) is not None:
-      result = make('-s', 'NVALIDATE=1', 'print-CFLAGS', cwd=ROOT)
-      self.assertEqual(result.returncode, 0, result.stdout)
-      flags = result.stdout.split('set to [')[-1].split(']')[0].split()
-      self.assertNotIn('-I/include', flags)
-      self.assertFalse([f for f in flags if 'boost' in f.lower()], flags)
+    self.assertFalse((ROOT / 'configure').exists())

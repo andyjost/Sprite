@@ -298,16 +298,21 @@ def source_digest(filename):
     return hashlib.sha256(stream.read()).hexdigest()
 
 
+def source_matches(curryfile, icyfile):
+  """Whether the product records exactly the current Curry source text."""
+  try:
+    with open(icyfile + '.source', encoding='ascii') as stream:
+      recorded = stream.read().strip()
+    return recorded == source_digest(curryfile)
+  except OSError:
+    return False
+
+
 def source_changed(curryfile, icyfile):
   """Compare the source with the text the ICurry was made from."""
   if in_system_library(curryfile) or not os.path.isfile(curryfile):
     return False
-  try:
-    with open(icyfile + '.source', encoding='ascii') as stream:
-      recorded = stream.read().strip()
-    return recorded != source_digest(curryfile)
-  except OSError:
-    return True
+  return not source_matches(curryfile, icyfile)
 
 
 def icurry_is_stale(filename, currypath=None):
@@ -483,14 +488,14 @@ class Curry2ICurryConverter(object):
       icurry = config.icurry_tool()
       if icurry is None:
         raise CompileError(
-            'icurry is not configured; rerun configure with --with-icurry, or '
+            'icurry is not configured; set CMake WITH_ICURRY, or '
             'set SPRITE_CURRY2ICURRY=frontend to use the Curry front end'
           )
       if config.curry_frontend() is None:
         raise CompileError(
             'the icurry route needs the Curry front end as well: it runs the '
             'front end first and rewrites its FlatCurry file before icurry '
-            'reads it; rerun configure with --with-curry-frontend'
+            'reads it; set SPRITE_FRONTEND or put pakcs-frontend on PATH'
           )
       # '--optvardecls' try to use this
       cmd = [icurry] + list(self.OPTIONS)

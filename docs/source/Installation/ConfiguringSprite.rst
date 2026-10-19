@@ -3,196 +3,77 @@
 Configuring Sprite
 ==================
 
-The build system must first be configured by running ``configure``.  That
-script finds, verifies, and (optionally) installs prerequisites.
+Sprite uses CMake 3.24 or newer, Ninja, a C++17 compiler and Python 3.11.4
+or newer. The build uses vendored pybind11. CMake, Ninja and Python come
+from the active environment, whether conda or the system. Select a clean
+environment when another toolchain has exported compiler flags.
 
-``configure`` Manual
---------------------
+Check prerequisites without changing the machine::
 
-.. include:: configure-usage.rst
+    make check-prereqs
+    python scripts/check-prereqs.py --doc
 
-Configuration Options
----------------------
+Configure the build, then stage the traditional installation::
 
-Sprite relies on several external programs.  ``configure`` searches PATH for
-these, using a default name for each program.
+    cmake -S . -B object-root/cmake -G Ninja \
+      -DPython_EXECUTABLE="$(command -v python3)" \
+      -DCMAKE_CXX_COMPILER=/usr/bin/g++ \
+      -DWITH_CURRY_FRONTEND=/path/to/pakcs-frontend
+    make stage
 
-To adjust this behavior, supply one or more ``--with-*`` options or,
-equivalently, set the corresponding environment variable(s).  An absolute path
-may be supplied, or the name to search for can be changed.
+``make stage`` configures the build if needed, builds it and installs into
+``install/``. It preserves settings in ``object-root/cmake/CMakeCache.txt``.
+Use ``cmake -LAH -N object-root/cmake`` to inspect them.
 
-These options are summarized in the following table:
+The options
+-----------
 
-+---------------------------+----------------+--------------------+---------------------------------+
-| Option                    | Environment    | Default            | Description                     |
-|                           | Variable       |                    |                                 |
-+===========================+================+====================+=================================+
-| ``--with-cc``             | CC             | ``gcc``            | Selects the C compiler          |
-+---------------------------+----------------+--------------------+---------------------------------+
-| ``--with-ccache``         | CCACHE         | none               | Puts ccache in front of the     |
-|                           |                |                    | compilers (optional)            |
-+---------------------------+----------------+--------------------+---------------------------------+
-| ``--with-cxx``            | CXX            | ``g++``            | Selects the C++ compiler        |
-+---------------------------+----------------+--------------------+---------------------------------+
-| ``--with-cxx-postinstall``| CXX            | ``g++``            | Selects the C++ compiler that   |
-|                           |                |                    | the installation uses to        |
-|                           |                |                    | compile Curry modules           |
-|                           |                |                    | (``tools/cxx``)                 |
-+---------------------------+----------------+--------------------+---------------------------------+
-| ``--with-curry-frontend`` | CURRY_FRONTEND | ``pakcs-frontend`` | Selects the Curry front end.    |
-|                           |                | of PAKCS           | Both routes need it.            |
-+---------------------------+----------------+--------------------+---------------------------------+
-| ``--with-icurry``         | ICURRY         | none               | Selects icurry, the alternative |
-|                           |                |                    | route to ICurry (optional)      |
-+---------------------------+----------------+--------------------+---------------------------------+
-| ``--with-pakcs``          | PAKCS          | ``pakcs``          | Selects PAKCS.  An empty value  |
-|                           |                |                    | leaves it out                   |
-+---------------------------+----------------+--------------------+---------------------------------+
-| ``--with-prolog``         | PROLOG         | ``swipl``          | Selects Prolog                  |
-+---------------------------+----------------+--------------------+---------------------------------+
-| ``--with-python``         | PYTHON         | ``python3``        | Selects Python                  |
-+---------------------------+----------------+--------------------+---------------------------------+
+==============================  ============================================================
+Option                          Meaning and default
+==============================  ============================================================
+``WITH_CURRY_FRONTEND``         Front end 2.0.0; ``AUTO`` searches PAKCS and PATH
+``WITH_PAKCS``                  Optional oracle 3.4.1; ``AUTO`` searches PATH
+``WITH_ICURRY``                 Optional translator; empty by default
+``CURRY2ICURRY_TOOL``           ``frontend`` (default) or ``icurry``
+``WITH_CCACHE``                 Compiler launcher; empty disables it (default)
+``WITH_CXX_POSTINSTALL``        Compiler for generated modules; the build compiler
+``WITH_DEFAULT_BACKEND``        ``cxx`` (default); see Developer Notes
+``GC``                          ``wdgc`` (default) or ``mps``
+``CMAKE_BUILD_TYPE``            ``Release`` (default) or ``Debug``
+``JOBS``                        Library parallelism; ``auto`` (default) or a count
+``TRACE``                       Computation tracing; ``OFF``
+``COUNTERS``                    Scheduler counters; ``OFF``
+``GC_WRITE_COUNTERS``           Old-node write counters with wdgc; ``OFF``
+``SPRITE_REBUILD_ICY``          Rebuild pinned ICurry; ``OFF``
+``ENABLE_ICURRY_CACHE``         Enable the user ICurry cache by default; ``OFF``
+``ENABLE_PARSED_JSON_CACHE``    Cache parsed JSON by default; ``OFF``
+==============================  ============================================================
 
-The other options of ``configure`` fall into three groups.  The
-prerequisite options check or install the external programs:
-``--check-prereqs`` lists what is missing, ``--install-prereqs`` installs
-it and configures, ``--install-prereqs-only`` installs it alone, ``-y`` or
-``--yes`` skips the confirmation, and ``--pip-nosudo`` is accepted for
-compatibility.  ``-D`` or ``--doc`` adds the prerequisites of the
-documentation to the check, ``-f`` or ``--fast`` skips the expensive
-checks, and ``-i`` or ``--interactive`` asks for each setting.  The build
-options, ``--jobs`` and ``--with-default-backend``, are described under
-`Build options`_.  The development options are ``--cache``, which turns
-the caches of the toolchain on (``all``, ``icurry`` or ``json``; see
-``SPRITE_CACHE_FILE`` under :doc:`/CommandLineInterface/EnvironmentVariables`),
-and ``--curry2icurry``, which selects the route from Curry to ICurry.
+Pass each setting as ``-DNAME=value``. An empty ``WITH_PAKCS`` disables the
+oracle. Both translation routes require the Curry front end at build time.
+The MPS collector needs the ``extern/mps`` submodule. CMake honours ``CC``,
+``CXX``, ``CFLAGS``, ``CXXFLAGS`` and ``LDFLAGS`` on its first configuration.
+Standard CMake compiler and flag options override those defaults.
 
-Sprite translates Curry to ICurry in three steps: the Curry front end of
-PAKCS writes FlatCurry, the binding optimization rewrites that file in
-place, and Sprite's own code translates it to ICurry.  The ``icurry``
-program of the Curry Package Manager does the last step as well and is kept
-as an alternative; it needs the front end too, which Sprite runs first.
-``configure`` records ``icurry`` only when you pass ``--with-icurry``.  The
-option ``--curry2icurry`` names the route Sprite uses by default; the
-environment variable ``SPRITE_CURRY2ICURRY`` overrides that choice at run
-time.
+For a parallel developer build with ccache::
 
-PAKCS itself is optional.  Sprite needs its front end, which
-``--with-curry-frontend`` can name directly, and the functional tests use
-``pakcs`` as the oracle.  ``--with-pakcs ''`` builds without PAKCS; the
-intermediate directories under ``.curry`` then take their names from the
-pinned release, ``pakcs-3.4.1``, so the committed ICurry files stay valid.
-The conda recipe under ``conda/`` builds this way; see ``conda/README.md``.
+    make stage CMAKE_ARGS=-DWITH_CCACHE=ccache
 
-For example, suppose Python 3.14 is installed but it is not the system
-default.  Say::
+``make stage JOBS=4`` or ``make -j4 stage`` limits native compilation and
+the library build. An explicit ``-j`` wins over ``JOBS``.
 
-    ./configure --with-python=python3.14 [args...]
+Wheels
+------
 
-If you have a custom build of Python not in PATH, you might say::
+The distribution is ``currylang``; its Python package is ``curry``::
 
-    ./configure --with-python=/path/to/python [args...]
+    python -m pip wheel .
+    python -m pip install .
 
-To use the Clang compilers (searching PATH for them), one might say::
-
-    ./configure --with-cc=clang --with-cxx=clang++ [args...]
-
-If CC and CXX were set in the environment, this would happen anyway.
-
-Build options
--------------
-
-``configure --jobs N`` sets the number of jobs that ``make`` runs at once.
-``--jobs auto`` gives one job per processor, counted when ``make`` starts.
-It is the default; ``--jobs 1`` is a serial build.  ``configure`` writes the value to
-``Make.config`` as ``JOBS``, so ``make stage`` runs in parallel without
-``-j``.  A ``-j`` on the ``make`` command line wins, and so does
-``make JOBS=N``.
-
-``configure --with-ccache`` puts ccache in front of the compilers.  The
-build compiles every object through ccache.  The compiler of the
-installation, ``tools/cxx``, becomes a script that runs ccache in front of
-the post-install compiler, so the code of the C++ backend compiles through
-ccache as well.  The value names the program (``--with-ccache=PATH``); by
-default ``configure`` searches PATH for ``ccache``.  ccache changes nothing
-in the output of the compiler, and the ABI stamps of compiled modules do not
-depend on it.  To share one cache between several copies of the source
-tree, set ``base_dir`` in the ccache configuration to a common parent
-directory.
-
-``configure --with-default-backend NAME`` names the backend Sprite uses
-when no flag names one.  ``cxx``, the C++ backend, is the default.
-``configure`` writes the value to ``Make.config`` as ``DEFAULT_BACKEND``,
-and ``make stage`` writes it to the installation as
-``sysconfig/default_backend``, where the interpreter flag ``backend`` reads
-its default.  See :doc:`/CommandLineInterface/EnvironmentVariables` and
-:doc:`WithoutCompiler`.
-
-The setting for development work is::
-
-    ./configure --jobs auto --with-ccache [args...]
-
-Checking Prerequisites
-----------------------
-
-Sprite needs few programs.  At build time: Python 3.11 to 3.15 (at least
-3.11.4) with its development
-files, a C++ compiler (``g++``) with GNU make and binutils, and the Curry
-front end of PAKCS 3.4.1, ``bin/pakcs-frontend``.  At run time: the same
-Python, the front end, and, for the C++ backend, the compiler.  The C++
-runtime uses the C++17 standard library alone; Boost is not needed.
-Optional: ``ccache``, ``icurry``, PAKCS as the oracle of the functional
-tests (it runs on SWI-Prolog), ``numpy`` for certain tests, Sphinx for the
-documentation, and GNU time for the benchmark harness.
-
-Once you have determined your configuration options, check the prerequisites::
-
-    ./configure [your-config-options...] --check-prereqs
-
-If ``configure`` reports problems, you may need to:
-
-    1. Adjust PATH;
-    2. Change configuation options; or
-    3. Install missing software.
-
-``configure`` can attempt to install missing software for you.  If you are
-satisfied with the steps proposed by ``./configure --check-prereqs`` then say::
-
-    ./configure [your-config-options...] --install-prereqs-only --yes
-
-Omit ``--yes`` if you prefer to confirm each step.
-
-To install these yourself, follow the instructions at the links below:
-
-  * Python 3.11 to 3.15 (at least 3.11.4) with development files.
-      - The `deadsnakes PPA <https://github.com/deadsnakes>`__ is a good
-        source.  Be sure to install the -dev package: install ``python3.14``
-        `AND` ``python3.14-dev``.
-  * `PAKCS 3.4.1 <https://www.curry-lang.org/pakcs/>`__
-      - The binary distribution includes the Curry front end,
-        ``bin/pakcs-frontend``, the one program of PAKCS that Sprite runs.
-      - Prolog (`SWI <https://www.swi-prolog.org/download/stable>`__ or
-        `SICStus <https://sicstus.sics.se/download4.html>`__) runs
-        ``pakcs`` itself: the build of the saved states of the binary
-        distribution, and the test oracle.  Sprite runs no Prolog.
-      - `Haskell stack <https://docs.haskellstack.org/en/stable/install_and_upgrade>`__
-        builds PAKCS from source.  The binary distribution does not need
-        it, and neither does Sprite.
-  * Optional: `ICurry Compiler 3.1.0 <https://cpm.curry-lang.org/pkgs/icurry.html>`__,
-    the alternative route from Curry to ICurry.
-
-Setting the Configuration
--------------------------
-
-Once the prerequisite check succeeds, run ``configure`` once more to set the
-configuration::
-
-    ./configure [your-config-options...]
-
-This creates a file ``Make.config`` containing the configuration settings.
-Inspect this file and make adjustments, if you like.
-
-To install prerequisites and configure in one step, say::
-
-    ./configure [your-config-options...] --install-prereqs [--yes]
-
+The scikit-build-core backend builds the same native targets and library.
+Release builds use pip build isolation. A development environment with
+scikit-build-core already installed can use ``--no-build-isolation``.
+The installed package has no new runtime Python dependencies. Running its
+shipped modules needs no front end. Compiling Curry source searches
+``SPRITE_FRONTEND``, the package's tools directory and PATH; a missing
+front end produces an error at that compile.

@@ -6,8 +6,8 @@
 #
 # The install and object trees of the worktree go under $SPRITE_WORKTREE_ROOT
 # (default: ~/.cache/sprite/worktrees/<name>), so a small home directory does
-# not fill up.  Make.config is copied from this tree, so no configure run is
-# needed.  The script runs `make stage` in the worktree; run it under a clean
+# not fill up.  The CMake settings are reused from this tree and configured
+# in a separate build directory.  The script runs `make stage` in the worktree; run it under a clean
 # environment if a conda toolchain is active.  The submodule step is the
 # exception to the clean environment: it clones pybind11 from the checkout
 # of this tree, which needs no network, and only when this tree lacks the
@@ -77,15 +77,14 @@ fi
 mkdir -p "$root/install" "$root/object-root"
 ln -s "$root/install" "$path/install"
 ln -s "$root/object-root" "$path/object-root"
-# Make.config carries the build settings of this tree, among them JOBS
-# (configure --jobs) and CCACHE (configure --with-ccache), so the worktree
-# builds with the same job count and the same compiler cache.  To build it
-# with another count once, set MAKEFLAGS=-jN in the environment: a -j wins
-# over JOBS.
-cp "$here/Make.config" "$path/Make.config"
+# Copy only reusable settings, never CMake's source/build directory paths.
+mapfile -t cmake_args < <(python3 "$here/scripts/build-settings.py" \
+  "$here/object-root/cmake/CMakeCache.txt")
+cmake -S "$path" -B "$path/object-root/cmake" -G Ninja "${cmake_args[@]}"
 if [ -e "$here/CLAUDE.local.md" ]; then
   cp -P "$here/CLAUDE.local.md" "$path/CLAUDE.local.md"
 fi
+export SPRITE_PRODUCT_CACHE=${SPRITE_PRODUCT_CACHE-$here/tests/.cache/products}
 make -C "$path" stage
 # The generated code of both backends stays behind (see above).
 exclude=(

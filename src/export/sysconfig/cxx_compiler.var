@@ -1,1 +1,0 @@
-$(if $(strip $(CXX_POSTINSTALL)),$(shell $(CXX_POSTINSTALL) -dumpfullversion 2>/dev/null) $(shell $(CXX_POSTINSTALL) -dumpmachine 2>/dev/null),)

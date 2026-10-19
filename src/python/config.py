@@ -9,7 +9,7 @@ _config_lock = threading.RLock()
 
 ###############################
 # Logging set-up.
-import logging, os, sys
+import logging, os, shutil, sys
 
 _LOG_FILE_ = os.environ.get('SPRITE_LOG_FILE', '-')
 _LOG_LEVEL_NAME_ = os.environ.get('SPRITE_LOG_LEVEL', 'WARNING').upper()
@@ -119,7 +119,7 @@ class _Variable(object):
         except:
           logger.warning(
               'Failed to interpret %r as an integer for configuration variable '
-              '%s.  The feature will be disabled.  Please update Make.config.'
+              '%s.  The feature will be disabled.  Please update the CMake configuration.'
             , x, self.name.upper()
             )
           return False
@@ -127,10 +127,9 @@ class _Variable(object):
       x = str(x).format(**os.environ)
     return self.type(x)
 
-# These are read from under $PREFIX/sysconfig.  The source files are under
-# $ROOT/src/export/sysconfig.  They can be set in Make.config.  This machanism
-# is essentially a way of passing information contained in Make variables to
-# the Sprite runtime.
+# CMake writes these immutable facts under the installation sysconfig
+# directory (a package resource in wheels). Paths to headers and libraries
+# are resolved relative to that directory, never to the build prefix.
 
 # The default location of the cache file.
 default_sprite_cache_file = _Variable('default_sprite_cache_file', use_env=True)
@@ -157,7 +156,7 @@ currylib_version          = _Variable('currylib_version')
 # The names of all modules in the system Curry library, the Prelude first.
 currylib_module_names     = _Variable('currylib_module_names')
 # The names of the system library modules that Sprite cannot compile.  See
-# CURRYLIB_UNSUPPORTED_MODULES in Make.include.
+# the unsupported list in CMakeLists.txt.
 currylib_unsupported_modules = _Variable('currylib_unsupported_modules')
 # The name of the default backend.
 default_backend           = _Variable('default_backend')
@@ -230,8 +229,8 @@ def unsupported_syslibs():
   '''
   The names of the system library modules that Sprite cannot compile: their
   externals have no implementation in a backend, they import such a module,
-  or the importer cannot load them.  See CURRYLIB_UNSUPPORTED_MODULES in
-  Make.include.
+  or the importer cannot load them.  See the unsupported list in
+  CMakeLists.txt.
   '''
   return currylib_unsupported_modules().split()
 
@@ -253,6 +252,11 @@ def prefix():
 def force_recompile_cxx():
   return os.environ.get('SPRITE_FORCE_RECOMPILE_CXX', False)
 
+def _is_wheel_install():
+  resources = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_sprite')
+  return os.path.realpath(prefix()) == os.path.realpath(resources)
+
+
 def cxx_pch_root():
   '''
   The directory under which the C++ backend keeps its precompiled header.
@@ -271,7 +275,8 @@ def cxx_pch_root():
     root = root.strip()
     return os.path.abspath(root) if root else None
   include = installed_path('include')
-  if os.access(include, os.W_OK) and not in_conda_prefix(include):
+  if os.access(include, os.W_OK) and not in_conda_prefix(include) \
+      and not _is_wheel_install():
     return include
   return cxx_pch_cache_dir()
 
@@ -420,15 +425,21 @@ def cxx_tool(cached=[]):
   '''The C++ compiler used with the cxx backend.'''
   if not cached:
     cxx = installed_path('tools', 'cxx')
-    cached.append(cxx if os.path.exists(cxx) else None)
+    if not os.path.exists(cxx):
+      # Traditional installs deliberately use tools/cxx to select or omit
+      # the compiler. Wheels carry no builder tool links and discover one
+      # in the consumer's environment instead.
+      cxx = shutil.which(os.environ.get('CXX', 'g++')) if _is_wheel_install() else None
+    cached.append(cxx)
   return cached[0]
 
 @synchronized(_config_lock)
 def curry_frontend(cached=[]):
   '''The Curry front end, if it is configured.  Otherwise, None.'''
   if not cached:
-    path = installed_path('tools', 'curry-frontend')
-    cached.append(os.path.abspath(path) if os.path.exists(path) else None)
+    path = os.environ.get('SPRITE_FRONTEND') or installed_path('tools', 'curry-frontend')
+    cached.append(shutil.which(path) or shutil.which('pakcs-frontend')
+                  or shutil.which('curry-frontend'))
   return cached[0]
 
 @synchronized(_config_lock)
@@ -463,7 +474,7 @@ def curry2icurry_tool(name=None):
       name = 'icurry'
     else:
       raise ValueError(
-          'no route from Curry to ICurry is configured; rerun configure'
+          'no Curry front end found; set SPRITE_FRONTEND or put pakcs-frontend on PATH'
         )
   if name not in CURRY2ICURRY_TOOLS:
     raise ValueError(
@@ -477,13 +488,26 @@ def python_exe(cached=[]):
   if not cached:
     path = installed_path('bin', 'python')
     path = os.path.abspath(path)
-    cached.append(path)
+    cached.append(path if os.path.exists(path) else sys.executable)
+  return cached[0]
+
+@synchronized(_config_lock)
+def sprite_make(cached=[]):
+  if not cached:
+    path = installed_path('bin', 'sprite-make')
+    if not os.path.exists(path):
+      path = os.path.join(os.path.dirname(sys.executable), 'sprite-make')
+      if not os.path.exists(path):
+        path = shutil.which('sprite-make') or path
+    cached.append(os.path.abspath(path))
   return cached[0]
 
 @synchronized(_config_lock)
 def sprite_exec(cached=[]):
   if not cached:
     path = installed_path('bin', 'sprite-exec')
+    if not os.path.exists(path):
+      path = shutil.which('sprite-exec') or os.path.join(os.path.dirname(sys.executable), 'sprite-exec')
     path = os.path.abspath(path)
     cached.append(path)
   return cached[0]

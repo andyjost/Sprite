@@ -1,0 +1,24 @@
+[build-system]
+requires = ["scikit-build-core>=1.1"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "currylang"
+dynamic = ["version"]
+description = "The Sprite compiler and runtime for Curry"
+requires-python = ">=3.11.4"
+
+[project.scripts]
+sprite-exec = "curry.tools.entrypoints:execute"
+sprite-make = "curry.tools.entrypoints:make"
+
+[[tool.dynamic-metadata]]
+field = "version"
+provider = "scikit_build_core.metadata.regex"
+input = "VERSION"
+regex = '(?P<value>\S+)'
+
+[tool.scikit-build]
+cmake.version = ">=3.24"
+wheel.packages = []
+sdist.include = ["extern/pybind11/include/**", "extern/pybind11/tools/**", "extern/pybind11/CMakeLists.txt", "extern/pybind11/LICENSE"]

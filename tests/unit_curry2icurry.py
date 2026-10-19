@@ -255,7 +255,7 @@ class TestCurry2ICurry(cytest.TestCase):
     icyfile = os.path.join(self.tmpdir, 'hello.icy')
     with mock.patch.object(config, 'curry_frontend', return_value=None):
       with self.assertRaisesRegex(
-          exceptions.CompileError, 'not configured; rerun configure with --with-curry-frontend'
+          exceptions.CompileError, 'no Curry front end found; set SPRITE_FRONTEND'
         ):
         _frontend.command(curryfile, [])
       with mock.patch.object(config, 'icurry_tool', return_value='/no/such/icurry'):
@@ -425,7 +425,7 @@ class TestCurry2ICurry(cytest.TestCase):
     none.
     '''
     archive = os.path.join(ROOT, 'overlay-%s.tgz' % config.frontend_subdir())
-    if not os.path.isfile(archive) or not os.path.isfile(os.path.join(ROOT, 'Make.config')):
+    if not os.path.isfile(archive) or not os.path.isfile(os.path.join(ROOT, 'CMakeLists.txt')):
       self.skipTest('the source tree or the overlay archive is not available')
     def git(*args):
       proc = subprocess.run(
@@ -483,7 +483,7 @@ class TestCurry2ICurry(cytest.TestCase):
     source digest still needs to be rebuilt before import.
     '''
     archive = os.path.join(ROOT, 'overlay-%s.tgz' % config.frontend_subdir())
-    if not os.path.isfile(archive) or not os.path.isfile(os.path.join(ROOT, 'Make.config')):
+    if not os.path.isfile(archive) or not os.path.isfile(os.path.join(ROOT, 'CMakeLists.txt')):
       self.skipTest('the source tree or the overlay archive is not available')
     prefix = 'tests/data/curry/.curry/'
     with tarfile.open(archive) as tar:

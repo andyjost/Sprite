@@ -4,6 +4,9 @@ from curry.utility.binding import binding, del_
 from unittest import mock
 import curry, hashlib, json, os, re, shutil, struct, subprocess, sys
 import tempfile, unittest
+import importlib.util
+from pathlib import Path
+import tarfile
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 CONDA = os.path.join(ROOT, 'conda')
@@ -110,20 +113,20 @@ class TestCondaRecipe(cytest.TestCase):
       self.assertIn(notice, meta)
     script = readfile(RECIPE, 'build.sh')
     self.assertIn('SPRITE_HOME="$PREFIX/opt/sprite"', script)
-    self.assertIn("--with-pakcs=''", script)
-    self.assertIn('--with-curry-frontend="$PREFIX/bin/pakcs-frontend"', script)
-    self.assertIn('install PREFIX="$SPRITE_HOME"', script)
+    self.assertIn("-DWITH_PAKCS=''", script)
+    self.assertIn('-DWITH_CURRY_FRONTEND="$PREFIX/bin/pakcs-frontend"', script)
+    self.assertIn('cmake --install object-root/cmake --prefix "$SPRITE_HOME"', script)
     self.assertIn('-ffile-prefix-map=$SRC_DIR=.', script)
     self.assertIn('rm -f "$SPRITE_HOME/lib/libcyrt.a"', script)
     self.assertIn('sprite.pth', script)
     # The tool links are relative; the compiler is resolved at run time.
     self.assertIn('ln -s "../../../bin/python$pyver" "$tools/python"', script)
-    self.assertIn('\nmake install PREFIX="$SPRITE_HOME"\n', script)
+    self.assertIn('make stage PYTHON="$PYTHON" JOBS="${CPU_COUNT:-1}"', script)
     # A parallel build with the jobs conda-build grants; no ccache.
-    self.assertIn('--jobs "${CPU_COUNT:-1}"', script)
-    self.assertIn("--with-ccache=''", script)
+    self.assertIn('-DJOBS="${CPU_COUNT:-1}"', script)
+    self.assertIn("-DWITH_CCACHE=''", script)
     # The prebuild step compiles with the compiler of the build.
-    self.assertIn('--with-cxx-postinstall="$CXX"', script)
+    self.assertIn('-DWITH_CXX_POSTINSTALL="$CXX"', script)
     # The precompiled header of the build compiler goes to a cache directory
     # in the build tree, and the package holds none.
     self.assertIn('export XDG_CACHE_HOME="$SRC_DIR/cache"', script)
@@ -159,7 +162,7 @@ class TestCondaRecipe(cytest.TestCase):
     # conda relocates the compiled library modules at install time.
     self.assertIn('detect_binary_files_with_prefix: true', meta)
     # The C++ backend is the default of the package.
-    self.assertIn('--with-default-backend=cxx', script)
+    self.assertIn('-DWITH_DEFAULT_BACKEND=cxx', script)
     # Each backend is tested through the launcher and through the module:
     # the default backend without a flag, the Python backend by flag; the
     # compiler of the environment through sprite-make, which writes the
@@ -208,74 +211,7 @@ class TestCondaRecipe(cytest.TestCase):
       ]:
       self.assertIn(topic, text)
 
-  def configure(self, tmpdir, *args, write=True, fast=True):
-    '''
-    Runs a copy of configure in a scratch directory with the staged tools.
-    Returns the completed process and the text of Make.config, if written.
-    ``fast`` skips the checks that run the tools (configure -f).
-    '''
-    script = os.path.join(tmpdir, 'configure')
-    shutil.copy(os.path.join(ROOT, 'configure'), script)
-    cmd = [
-        sys.executable, script
-      , '--with-python=' + sys.executable
-      , '--with-cc=' + readfile(ROOT, 'Make.config').split('CC  := ')[1].split('\n')[0].strip()
-      , '--with-cxx=' + readfile(ROOT, 'Make.config').split('CXX := ')[1].split('\n')[0].strip()
-      , '--with-cxx-postinstall=' + config.cxx_tool()
-      , '--with-icurry='
-      ] + list(args)
-    if fast:
-      cmd.append('-f')
-    if not write:
-      cmd.append('--check-prereqs')
-    result = run(cmd, cwd=tmpdir)
-    conf = os.path.join(tmpdir, 'Make.config')
-    text = readfile(conf) if os.path.isfile(conf) else None
-    return result, text
 
-  def test_configure_without_pakcs(self):
-    '''
-    configure --with-pakcs '' builds without PAKCS when the front end is
-    named.  The pinned release names the intermediate directories.
-    '''
-    if config.curry_frontend() is None:
-      raise unittest.SkipTest('the Curry front end is not configured')
-    frontend = os.path.realpath(config.curry_frontend())
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + frontend, fast=False
-        )
-      self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertIn('Configuration succeeded', result.stdout)
-      self.assertEqual(make_config_value(text, 'PAKCS'), '')
-      self.assertEqual(make_config_value(text, 'PAKCS_HOME'), '')
-      self.assertEqual(make_config_value(text, 'PAKCS_NAME'), 'pakcs')
-      self.assertEqual(make_config_value(text, 'PAKCS_VERSION'), '3.4.1')
-      self.assertEqual(make_config_value(text, 'CURRY_FRONTEND'), frontend)
-      self.assertEqual(
-          make_config_value(text, 'CURRY_FRONTEND_FLAGS'), '--extended -D__PAKCS__=304'
-        )
-      self.assertEqual(make_config_value(text, 'CURRY2ICURRY_TOOL'), 'frontend')
-      self.assertEqual(make_config_value(text, 'ICURRY_EXECUTABLE'), '')
-      # The same subdirectory names as the committed products.
-      self.assertEqual(config.frontend_subdir(), 'pakcs-3.4.1')
-      self.assertEqual(config.intermediate_subdir(), 'sprite-pakcs-3.4.1')
-    # The prerequisite check passes without PAKCS.
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + frontend, write=False
-        )
-      self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertIn('Found 0 problems.', result.stdout)
-      self.assertIsNone(text)
-    # Without PAKCS and without the front end, nothing translates Curry.
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend='
-        )
-      self.assertNotEqual(result.returncode, 0)
-      self.assertIn('The Curry front end is not configured.', result.stdout)
-      self.assertIsNone(text)
 
   def fake_tool(self, tmpdir, name, output, with_args=False):
     '''
@@ -340,193 +276,39 @@ class TestCondaRecipe(cytest.TestCase):
           compiler(CXX=os.path.join(bindir, 'missing-c++')), ['inside-default'] + args
         )
 
-  def test_configure_frontend_version(self):
-    '''
-    configure accepts the front end of the pinned PAKCS only.  The committed
-    ICurry files and the oracle depend on its FlatCurry.
-    '''
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      fake = self.fake_tool(tmpdir, 'curry-frontend', '3.3.0')
-      result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + fake, fast=False
-        )
-      self.assertNotEqual(result.returncode, 0)
-      self.assertIn("Acceptable Curry front end versions are: ['2.0.0']", result.stdout)
-      self.assertIsNone(text)
-      # The pinned version passes.
-      fake = self.fake_tool(tmpdir, 'curry-frontend', '2.0.0')
-      result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + fake, fast=False
-        )
-      self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertEqual(make_config_value(text, 'CURRY_FRONTEND'), fake)
 
-  def test_configure_curry2icurry(self):
-    '''--curry2icurry names the default route, which must be configured.'''
-    if config.curry_frontend() is None:
-      raise unittest.SkipTest('the Curry front end is not configured')
-    frontend = os.path.realpath(config.curry_frontend())
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      # icurry is requested but not configured.
-      result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + frontend
-        , '--curry2icurry', 'icurry'
-        )
-      self.assertNotEqual(result.returncode, 0)
-      self.assertIn('--curry2icurry=icurry was requested', result.stdout)
-      self.assertIn('not configured', result.stdout)
-      self.assertIsNone(text)
-      # The front end is requested by name.
-      result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + frontend
-        , '--curry2icurry', 'frontend'
-        )
-      self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertEqual(make_config_value(text, 'CURRY2ICURRY_TOOL'), 'frontend')
-      # With the front end, icurry is recorded and is the route requested.
-      icurry = self.fake_tool(tmpdir, 'icurry', 'icurry')
-      result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend=' + frontend
-        , '--with-icurry=' + icurry, '--curry2icurry', 'icurry'
-        )
-      self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertEqual(make_config_value(text, 'CURRY_FRONTEND'), frontend)
-      self.assertEqual(make_config_value(text, 'ICURRY_EXECUTABLE'), icurry)
-      self.assertEqual(make_config_value(text, 'CURRY2ICURRY_TOOL'), 'icurry')
-    # icurry alone is not a route: both routes run the front end (the icurry
-    # route rewrites its FlatCurry file before icurry reads it).  A fresh
-    # directory: no Make.config of an earlier run is left to read.
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      icurry = self.fake_tool(tmpdir, 'icurry', 'icurry')
-      result, text = self.configure(
-          tmpdir, '--with-pakcs=', '--with-curry-frontend='
-        , '--with-icurry=' + icurry
-        )
-      self.assertNotEqual(result.returncode, 0)
-      self.assertIn('Both routes from Curry to ICurry run it', result.stdout)
-      self.assertIsNone(text)
 
-  def test_make_without_pakcs(self):
-    '''
-    make accepts an empty PAKCS and installs no pakcs link.  The tools
-    directory is installed into a scratch prefix.
-    '''
-    tools = os.path.join(ROOT, 'src', 'export', 'tools')
-    if not os.path.isfile(os.path.join(ROOT, 'Make.config')):
-      raise unittest.SkipTest('Make.config is absent')
-    # icurry is set on the command line, so the test does not depend on the
-    # value in Make.config.
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      result = run([
-          'make', '-C', tools, 'install', 'PREFIX=' + tmpdir, 'PAKCS=', 'PAKCS_HOME='
-        , 'ICURRY_EXECUTABLE='
-        ])
-      self.assertEqual(result.returncode, 0, result.stdout)
-      installed = sorted(os.listdir(os.path.join(tmpdir, 'tools')))
-      self.assertNotIn('pakcs', installed)
-      self.assertNotIn('icurry', installed)
-      self.assertIn('curry-frontend', installed)
-      self.assertIn('python', installed)
-      self.assertIn('cxx', installed)
-    # A configured icurry is linked.  Any executable file stands in for it.
-    with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
-      result = run([
-          'make', '-C', tools, 'install', 'PREFIX=' + tmpdir, 'PAKCS=', 'PAKCS_HOME='
-        , 'ICURRY_EXECUTABLE=' + sys.executable
-        ])
-      self.assertEqual(result.returncode, 0, result.stdout)
-      installed = sorted(os.listdir(os.path.join(tmpdir, 'tools')))
-      self.assertIn('icurry', installed)
-      self.assertEqual(os.readlink(os.path.join(tmpdir, 'tools', 'icurry')), sys.executable)
-    # An empty version is an error.
-    result = run(['make', '-C', tools, '-n', 'install', 'PAKCS_VERSION='])
-    self.assertNotEqual(result.returncode, 0)
-    self.assertIn('PAKCS_VERSION is not set', result.stdout)
 
-  def test_make_validate_tools(self):
-    '''Make.validate checks the route from Curry to ICurry.'''
-    tools = os.path.join(ROOT, 'src', 'export', 'tools')
-    if not os.path.isfile(os.path.join(ROOT, 'Make.config')):
-      raise unittest.SkipTest('Make.config is absent')
-    def dry_run(*settings):
-      return run(['make', '-C', tools, '-n', 'install'] + list(settings))
-    result = dry_run('CURRY2ICURRY_TOOL=bogus')
-    self.assertNotEqual(result.returncode, 0)
-    self.assertIn('CURRY2ICURRY_TOOL should be frontend or icurry, not "bogus"', result.stdout)
-    result = dry_run('CURRY_FRONTEND=', 'ICURRY_EXECUTABLE=')
-    self.assertNotEqual(result.returncode, 0)
-    self.assertIn('Neither CURRY_FRONTEND nor ICURRY_EXECUTABLE is set', result.stdout)
-    missing = os.path.join(ROOT, 'no-such-tool')
-    result = dry_run('CURRY_FRONTEND=' + missing)
-    self.assertNotEqual(result.returncode, 0)
-    self.assertIn('Not an executable file: CURRY_FRONTEND=' + missing, result.stdout)
-    result = dry_run('ICURRY_EXECUTABLE=' + missing)
-    self.assertNotEqual(result.returncode, 0)
-    self.assertIn('Not an executable file: ICURRY_EXECUTABLE=' + missing, result.stdout)
-    # Either tool alone is accepted.
-    result = dry_run('CURRY_FRONTEND=', 'ICURRY_EXECUTABLE=' + sys.executable)
-    self.assertEqual(result.returncode, 0, result.stdout)
-    result = dry_run('CURRY_FRONTEND=' + sys.executable, 'ICURRY_EXECUTABLE=')
-    self.assertEqual(result.returncode, 0, result.stdout)
 
-  def test_overlay_rules(self):
-    '''
-    make overlay extracts the test products, and lists them under V=1 alone;
-    make overlay-archive packs the five product kinds with fixed metadata and
-    the library interfaces.
-    '''
-    if not os.path.isfile(os.path.join(ROOT, 'Make.config')):
-      raise unittest.SkipTest('Make.config is absent')
-    archive = 'overlay-%s.tgz' % config.frontend_subdir()
-    result = run(['make', '-C', ROOT, '-n', 'overlay-archive'])
-    self.assertEqual(result.returncode, 0, result.stdout)
-    self.assertIn('make -C curry interfaces', result.stdout)
-    self.assertIn("find tests curry/lib -type f -path '*/.curry/*%s/*'"
-                  % config.frontend_subdir(), result.stdout)
-    for kind in ['fcy', 'fint', 'icurry', 'icy', 'json.z']:
-      self.assertIn("-name '*.%s'" % kind, result.stdout)
-    for flag in ['--sort=name', '--owner=0', '--group=0', '--numeric-owner', '--mtime=']:
-      self.assertIn(flag, result.stdout)
-    self.assertIn('gzip -n > ' + archive, result.stdout)
-    result = run(['make', '-C', ROOT, '-n', 'overlay'])
-    self.assertEqual(result.returncode, 0, result.stdout)
-    if os.path.isfile(os.path.join(ROOT, archive)):
-      # The extraction names no member: the list of about six thousand would
-      # fill the log of every CI job.  V=1 lists them.
-      self.assertIn("tar xzf %s -m --wildcards 'tests/*'" % archive, result.stdout)
-      self.assertNotIn('tar xvzf', result.stdout)
-      verbose = run(['make', '-C', ROOT, '-n', 'overlay', 'V=1'])
-      self.assertEqual(verbose.returncode, 0, verbose.stdout)
-      self.assertIn("tar xvzf %s -m --wildcards 'tests/*'" % archive, verbose.stdout)
-      # The extraction is followed by the prune and the interface copies.
-      self.assertIn('overlay-prune', result.stdout)
-      self.assertLess(
-          result.stdout.index('overlay-prune'), result.stdout.index('overlay-interfaces')
-        )
-    else:
-      self.assertNotIn('tar', result.stdout)
 
-  def test_default_goal_order(self):
-    '''
-    A plain make stages first and extracts the overlay archive after the
-    stage, in the order of the CI jobs: a product extracted before the stage
-    is older than the interfaces of the installed library, and the front end
-    would compile its module again at its first use.
-    '''
-    if not os.path.isfile(os.path.join(ROOT, 'Make.config')):
-      raise unittest.SkipTest('Make.config is absent')
-    result = run(['make', '-C', ROOT, '-n', 'default-goal'])
-    self.assertEqual(result.returncode, 0, result.stdout)
-    lines = result.stdout.split('\n')
-    def index(goal):
-      found = [
-          i for i, line in enumerate(lines)
-            if re.fullmatch(r'\S*make %s' % goal, line)
-        ]
-      self.assertEqual(len(found), 1, (goal, found))
-      return found[0]
-    self.assertLess(lines.index('git submodule update'), index('stage'))
-    self.assertLess(index('stage'), index('overlay'))
+
+  def test_overlay_archive(self):
+    """The Python packer keeps names and deterministic tar/gzip metadata."""
+    spec = importlib.util.spec_from_file_location('sprite_overlay',
+        os.path.join(ROOT, 'scripts', 'overlay.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      names = ['tests/data/curry/.curry/sprite-pakcs-3.4.1/M.icy',
+               'tests/data/curry/.curry/pakcs-3.4.1/M.fcy',
+               'install/curry/.curry/pakcs-3.4.1/Prelude.fint']
+      for name in names:
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(name)
+      archive = root / 'overlay.tgz'
+      products = module.archive_products(root)
+      module.write_archive(archive, products)
+      first = archive.read_bytes()
+      for name in names:
+        os.utime(root / name, (1, 1))
+      module.write_archive(archive, module.archive_products(root))
+      self.assertEqual(archive.read_bytes(), first)
+      with tarfile.open(archive) as stream:
+        self.assertIn('curry/lib/.curry/pakcs-3.4.1/Prelude.fint', stream.getnames())
+        for member in stream:
+          self.assertEqual((member.uid, member.gid, member.mtime), (0, 0, 946684800))
 
   def test_overlay_in_a_shallow_clone(self):
     '''
@@ -536,8 +318,6 @@ class TestCondaRecipe(cytest.TestCase):
     copied into the clone, so the test sees the Makefile of the working
     tree.  One run: the copies of the interfaces take most of its time.
     '''
-    if not os.path.isfile(os.path.join(ROOT, 'Make.config')):
-      raise unittest.SkipTest('Make.config is absent')
     archive = 'overlay-%s.tgz' % config.frontend_subdir()
     if not os.path.isfile(os.path.join(ROOT, archive)):
       raise unittest.SkipTest('%s is absent' % archive)
@@ -551,10 +331,10 @@ class TestCondaRecipe(cytest.TestCase):
       clone = os.path.join(tmpdir, 'clone')
       result = run([git, 'clone', '--quiet', '--depth', '1', 'file://' + ROOT, clone])
       self.assertEqual(result.returncode, 0, result.stdout)
-      for name in ['Makefile', 'Make.include', 'Make.rules', 'Make.validate', 'Make.config']:
+      for name in ['Makefile']:
         shutil.copy(os.path.join(ROOT, name), clone)
       shutil.copy(
-          os.path.join(ROOT, 'scripts', 'stamp-overlay.py')
+          os.path.join(ROOT, 'scripts', 'overlay.py')
         , os.path.join(clone, 'scripts')
         )
       result = run(['make', '-C', clone, 'overlay'])
@@ -743,7 +523,7 @@ class TestBuildScript(cytest.TestCase):
       self.assertRegex(exports[0], r'^sprite-[0-9a-f]{7,}$')
       src = os.path.join(tmpdir, 'src', exports[0])
       for name in [
-          'VERSION', 'configure', 'conda/recipe/meta.yaml', 'conda/recipe/build.sh'
+          'VERSION', 'Makefile', 'conda/recipe/meta.yaml', 'conda/recipe/build.sh'
         , 'conda/curry-frontend/meta.yaml'
         , 'extern/pybind11/include/pybind11/pybind11.h'
         , 'src/python/config.py', 'curry/lib/Prelude.curry', 'tests/unit_conda.py'

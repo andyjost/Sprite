@@ -1,284 +1,33 @@
-SUBMODULES := src curry
-# The Curry library is compiled into the installation with the tools that src
-# installs, so src goes first even under make -j.
-curry: | src
-
-ifeq ("$(wildcard Make.config)","")
-  $(error "Make.config not found.  Please run ./configure")
-endif
-
-DIRS_TO_CLEAN += $(OBJECT_ROOT)
-include Make.include
-
-# Parallel build
-# ==============
-# JOBS (Make.config, configure --jobs) is the job count of the top-level
-# make: a count, or auto for one job per processor.  The flag goes into
-# MAKEFLAGS here, at level 0 only: the sub-makes join the job server of this
-# make through the MAKEFLAGS they inherit.  A -j on the command line wins,
-# and so does make JOBS=N.  The recipes below that run make say $(MAKE), so
-# the job server reaches them; a plain make in a recipe runs serially, with
-# a warning.  The order of the sub-makes under -j: src before curry (above),
-# and inside src, cyrt before python (src/Makefile).  The prebuild of the
-# Curry library (curry/Makefile) reads the -j of MAKEFLAGS and passes the
-# count to sprite-make --jobs, which makes the modules in child processes.
-ifeq ($(MAKELEVEL),0)
-  ifeq ($(filter -j% --jobs%,$(MAKEFLAGS)),)
-    ifeq ($(strip $(JOBS)),auto)
-      MAKE_JOBS := $(shell nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
-    else
-      MAKE_JOBS := $(strip $(JOBS))
-    endif
-    ifneq ($(MAKE_JOBS),)
-      ifneq ($(shell [ "$(MAKE_JOBS)" -gt 0 ] 2>/dev/null && echo ok),ok)
-        $(error JOBS should be a count or auto, not "$(JOBS)".  See Make.config)
-      endif
-      ifneq ($(MAKE_JOBS),1)
-        MAKEFLAGS += -j$(MAKE_JOBS)
-      endif
-    endif
-  endif
-endif
-
+# The environment supplies CMake, a build tool and the build Python.
+CMAKE ?= cmake
+PYTHON ?= python3
+BUILD_DIR ?= object-root/cmake
+PREFIX ?= $(CURDIR)/install
+JOBS ?= $(shell $(PYTHON) scripts/build-settings.py --jobs "$(BUILD_DIR)/CMakeCache.txt")
+CMAKE_ARGS ?=
 .DEFAULT_GOAL := default-goal
-
-.PHONY: MANIFEST
-MANIFEST:
-	cd $(PREFIX) && tree -anps -o $(ROOT_DIR)/MANIFEST
-
-# Usage
-# =====
-.PHONY: help
-help:
-	@echo "Usage: make [target ...] [var=value ...]"
-	@echo ""
-	@echo "  * See Make.config for editable configuration options."
-	@echo "  * Installing to PREFIX=$(PREFIX)."
-ifeq ($(DEBUG),1)
-	@echo "  * Making *DEBUG* flavor."
-else
-	@echo "  * Making *OPTIMIZED* flavor (no assertions).  Say \`make <target> DEBUG=1\` for debug."
-endif
-ifeq ($(TRACE),1)
-	@echo "  * Computation tracing for 'cxx' is enabled."
-else
-	@echo "  * Computation tracing for 'cxx' is disabled.  Say \`make <target> TRACE=1\` to enable."
-endif
-ifeq ($(COUNTERS),1)
-	@echo "  * The scheduler counters of 'cxx' are enabled."
-else
-	@echo "  * The scheduler counters of 'cxx' are disabled.  Say \`make <target> COUNTERS=1\` to enable."
-endif
-	@echo "  * Jobs: JOBS=$(or $(strip $(JOBS)),1) (configure --jobs N|auto).  A \`make -jN\` or \`make JOBS=N\` wins."
-	@echo "    The prebuild of the Curry library runs sprite-make --jobs with the same count."
-ifneq ($(strip $(CCACHE)),)
-	@echo "  * ccache: $(CCACHE) runs in front of the compilers (configure --with-ccache)."
-else
-	@echo "  * ccache is not configured.  Say \`configure --with-ccache\` to put it in front of the compilers."
-endif
-	@echo ""
-	@echo "Targets for testing:"
-	@echo "--------------------"
-	@echo "    stage  : build a local copy for testing"
-	@echo "    test   : run unit tests (must stage first)"
-	@echo ""
-	@echo "Targets for building:"
-	@echo "---------------------"
-	@echo "    all    : build objects and libraries"
-	@echo "    clean  : remove generated files"
-	@echo "    objs   : compile object files"
-	@echo "    libs   : compile and link static libraries"
-	@echo "    shlibs : compile and link shared libraries"
-	@echo ""
-	@echo "Targets for installing:"
-	@echo "-----------------------"
-	@echo "    install PREFIX=<dirname>   : install files under <dirname>"
-	@echo "    uninstall PREFIX=<dirname> : uninstall files under <dirname>"
-	@echo ""
-	@echo "Targets to overlay prebuilt test products (improves test speed):"
-	@echo "-----------------------------------------------------------------"
-	@echo "    overlay         : extract the prebuilt products of the test programs"
-	@echo "                      (V=1 lists the extracted files)"
-	@echo "    overlay-archive : build a new archive of the test products"
-	@echo ""
-	@echo "Targets for debugging the build:"
-	@echo "--------------------------------"
-	@echo "    print-<varname> : print the value of a make variable;  E.g., say"
-	@echo "                      \`make print-CC\` to see the selected compiler."
-	@echo ""
-	@echo "For information on testing, refer to tests/README."
-	@echo ""
-# @echo "To build documentation, add WITHDOC=1 to the commandline or invoke"
-# @echo "make from the docs/ subdirectory."
-
-# The overlay archive holds the FlatCurry and ICurry products of the test
-# programs and the FlatCurry interfaces of the Curry library, for the pinned
-# PAKCS.  Extracting the test products makes the tests much faster.  The
-# archive is also the fixed oracle of the FlatCurry-to-ICurry port: its .icy
-# files were written by icurry 3.1.0 (see tests/README, section 8).
-#
-# overlay-archive packs the products on disk.  Rebuild the archive only from
-# .icy files that icurry wrote (SPRITE_CURRY2ICURRY=icurry), never from the
-# output of the port that the oracle checks.  Only the five product kinds are
-# packed; the compiled forms beside them (.py, .cpp, .so) are left out.  The
-# library interfaces come from the front end (make -C curry interfaces).  The
-# metadata is fixed, so the archive names no user, and the same products give
-# the same bytes.
-OVERLAY_ARCHIVE := overlay-$(PAKCS_SUBDIR).tgz
-OVERLAY_LIST_FILE := OVERLAY_FILES.txt
-OVERLAY_PRODUCTS := -name '*.fcy' -o -name '*.fint' -o -name '*.icurry' \
-                    -o -name '*.icy' -o -name '*.json.z'
-OVERLAY_TAR_FLAGS := --sort=name --owner=0 --group=0 --numeric-owner \
-                     --mtime='2000-01-01 00:00:00Z'
-# The extraction lists its members under V=1 alone.  The archive holds about
-# six thousand, and the list would fill the log of every CI job.
-OVERLAY_TAR_VERBOSE := $(if $(filter 1,$(V)),v)
-.PHONY: overlay overlay-archive overlay-interfaces overlay-prune \
-        $(OVERLAY_ARCHIVE) $(OVERLAY_LIST_FILE)
-$(OVERLAY_LIST_FILE):
-	$(MAKE) -C curry interfaces
-	find tests curry/lib -type f -path '*/.curry/*$(PAKCS_SUBDIR)/*' \
-	    \( $(OVERLAY_PRODUCTS) \) | LC_ALL=C sort > $@
-$(OVERLAY_ARCHIVE): $(OVERLAY_LIST_FILE)
-	tar c $(OVERLAY_TAR_FLAGS) -T $(OVERLAY_LIST_FILE) | gzip -n > $@
-	rm $(OVERLAY_LIST_FILE)
-overlay-archive: $(OVERLAY_ARCHIVE)
-ifeq ($(shell [ -e $(OVERLAY_ARCHIVE) ]; echo $$?),1)
-overlay:
-else
-# Only the test products are extracted.  The library interfaces serve the
-# oracle tests, which extract the archive into a scratch directory.  The
-# archive records one fixed time for every member (2000-01-01), and the
-# toolchain compares modification times (see newer in curry.utility.filesys),
-# so tar -m gives each extracted file the time of the extraction: the
-# products are newer than the sources of the checkout and are read.  The
-# extraction is followed by overlay-prune, which removes the products of the
-# sources that changed since the archive was packed, and by
-# overlay-interfaces: the step that writes an .icy file writes M.fint and
-# M.icurry beside it, and an .icy file without them is stale and would be
-# made again at its first import (see icurry_is_stale in
-# curry.toolchain._curry2icurry).
-overlay:
-	tar x$(OVERLAY_TAR_VERBOSE)zf $(OVERLAY_ARCHIVE) -m --wildcards 'tests/*'
-	$(MAKE) overlay-prune
-	$(MAKE) overlay-interfaces OVERLAY_DIR=tests
-endif
-
-# Removes the extracted products of every test source that changed after
-# the archive was packed: the sources that git shows changed since the
-# commit that last changed the archive, in a later commit or in the working
-# tree.  The extraction gives every product the time of the extraction (tar
-# -m, above), so by the modification times the toolchain compares an
-# extracted product is newer than its source whatever the source holds, and
-# a stale product would be read.  The products of a source lie beside it
-# (D/.curry/*/M.*) or under an enclosing directory (R/.curry/*/Sub/M.*);
-# both layouts are searched.  Without a git history nothing is pruned, and
-# the rule says so.  In a shallow clone whose history ends before the commit
-# that packed the archive (a checkout of depth 1, the default of
-# actions/checkout), git names the last commit of the history instead, the
-# diff from it shows no change, and nothing is pruned: the rule warns and
-# names fetch-depth 0.  A shallow clone that reaches the commit prunes as a
-# full clone does, without the warning.  The rule cannot tell a history that
-# ends before the commit from one that ends at it (the boundary commit shows
-# every file as added, so git names it for the archive either way); a clone
-# whose boundary is the packing commit prunes as a full clone does and warns
-# all the same, so the sentence is conditional.  OVERLAY_ROOT is the
-# directory that holds the extracted tests/ tree.
-# Products whose source still matches the packing commit get a digest stamp;
-# a shallow boundary cannot establish that provenance and gets no stamp.
-OVERLAY_ROOT ?= .
-overlay-prune:
-	@commit=$$(git log -1 --format=%H -- $(OVERLAY_ARCHIVE) 2>/dev/null); \
-	if [ -z "$$commit" ]; then \
-	  echo "overlay-prune: no git history of $(OVERLAY_ARCHIVE); nothing pruned"; \
-	  exit 0; \
-	fi; \
-	if [ "$$(git rev-parse --is-shallow-repository 2>/dev/null)" = true ] \
-	   && ! git rev-parse --verify --quiet "$$commit^" >/dev/null 2>&1; then \
-	  echo "overlay-prune: WARNING: this is a shallow clone, and its history" \
-	       "ends at $$commit, the commit git names for $(OVERLAY_ARCHIVE).  If" \
-	       "the archive was packed earlier, the products of the sources that" \
-	       "changed since then are not pruned.  Clone the whole history:" \
-	       "fetch-depth 0 in actions/checkout, or git fetch --unshallow." >&2; \
-	fi; \
-	git diff --name-only "$$commit" -- 'tests/*.curry' | while read -r src; do \
-	  dir=$$(dirname "$$src"); rel=$$(basename "$$src" .curry); \
-	  while :; do \
-	    for f in "$(OVERLAY_ROOT)/$$dir"/.curry/*/"$$rel".*; do \
-	      if [ -e "$$f" ]; then echo "rm $$f"; rm -f "$$f"; fi; \
-	    done; \
-	    case "$$dir" in tests|.) break;; esac; \
-	    rel="$$(basename "$$dir")/$$rel"; dir=$$(dirname "$$dir"); \
-	  done; \
-	done; \
-	$(PYTHON_EXECUTABLE) scripts/stamp-overlay.py "$$commit" "$(OVERLAY_ROOT)" "$(INTERMEDIATE_SUBDIR)"
-
-# Copies the interfaces of the front end beside every .icy file under
-# OVERLAY_DIR: .curry/$(FRONTEND_SUBDIR)/M.fint and M.icurry of a directory
-# go to .curry/$(INTERMEDIATE_SUBDIR)/ of the same directory.  The products
-# of the test programs use that flat layout; the products of one archive are
-# one consistent set, so the copies are sound.  A rebuilt archive packs the
-# copies too, and the rule then rewrites them with the same bytes.
-OVERLAY_DIR ?= tests
-overlay-interfaces:
-	@find $(OVERLAY_DIR) -type f -path '*/.curry/$(INTERMEDIATE_SUBDIR)/*.icy' | \
-	while read -r icy; do \
-	  fe="$$(dirname "$$(dirname "$$icy")")/$(FRONTEND_SUBDIR)/$$(basename "$$icy" .icy)"; \
-	  for suffix in fint icurry; do \
-	    if [ -f "$$fe.$$suffix" ]; then \
-	      cp -p "$$fe.$$suffix" "$${icy%.icy}.$$suffix" || exit 1; \
-	    fi; \
-	  done; \
-	done
-
-# Remove a directory.  If the path is a symlink, remove the contents of the
-# link target and keep the link.
-define remove_dir =
-@if [ -z "$(strip $1)" ]; then echo "remove_dir: empty path" 1>&2; exit 1; \
-elif [ -L "$1" ] && [ -d "$1" ]; then echo "rm -rf $$(realpath $1)/*"; \
-  find "$$(realpath $1)" -mindepth 1 -maxdepth 1 -exec rm -rf {} +; \
-elif [ -e "$1" ]; then echo rm -r $1; rm -r $1; fi
-endef
-
-.PHONY: clean
-clean:
-	$(call remove_dir,$(OBJECT_ROOT))
-
-.PHONY: test
+# An explicit make -jN takes precedence over JOBS.
+make_jobs = $(patsubst -j%,%,$(filter -j%,$(MAKEFLAGS)))
+effective_jobs = $(if $(filter -j,$(MAKEFLAGS)),auto,$(or $(make_jobs),$(JOBS),1))
+.PHONY: default-goal stage all cmake-configure install test overlay overlay-prune overlay-interfaces overlay-archive check-prereqs clean docs
+default-goal: stage
+	$(MAKE) overlay
+stage: all
+	$(CMAKE) --install $(BUILD_DIR) --prefix "$(PREFIX)"
+all: cmake-configure
+	env SPRITE_BUILD_JOBS=$(effective_jobs) $(CMAKE) --build $(BUILD_DIR) $(if $(filter-out auto,$(effective_jobs)),--parallel $(effective_jobs),--parallel)
+cmake-configure:
+	$(CMAKE) -S . -B $(BUILD_DIR) -G Ninja -DPython_EXECUTABLE="$$(command -v $(PYTHON))" $(CMAKE_ARGS) $(if $(GC),-DGC=$(GC)) $(if $(GC_WRITE_COUNTERS),-DGC_WRITE_COUNTERS=$(GC_WRITE_COUNTERS)) $(if $(COUNTERS),-DCOUNTERS=$(COUNTERS)) $(if $(TRACE),-DTRACE=$(TRACE)) $(if $(SPRITE_REBUILD_ICY),-DSPRITE_REBUILD_ICY=$(SPRITE_REBUILD_ICY)) $(if $(DEBUG),-DCMAKE_BUILD_TYPE=$(if $(filter 1,$(DEBUG)),Debug,Release))
+install: stage
 test:
-	$(MAKE) -C tests
-
-.PHONY: stage
-stage:
-	$(MAKE) install SYMLINK_INTERFACES=1
-
-.PHONY: unstage
-unstage:
-	$(call remove_dir,$(STAGE_DIR))
-
-# One goal per make: the Sphinx targets share the doctrees directory and
-# must not run at the same time under -j.
-.PHONY: docs
+	cd tests && ./run_tests
+check-prereqs:
+	$(PYTHON) scripts/check-prereqs.py
+overlay-archive: stage
+overlay overlay-prune overlay-interfaces overlay-archive:
+	$(PYTHON) scripts/overlay.py $@ $(if $(OVERLAY_ROOT),--root $(OVERLAY_ROOT)) $(if $(OVERLAY_DIR),--directory $(OVERLAY_DIR)) $(if $(V),--verbose)
+clean:
+	env SPRITE_BUILD_JOBS=$(effective_jobs) $(CMAKE) --build $(BUILD_DIR) --target clean
 docs:
 	$(MAKE) -C docs html
 	$(MAKE) -C docs latexpdf
-
-# The default goal: the submodules, the stage, then the overlay.  The
-# overlay follows the stage.  The stage writes the interfaces of the
-# installed Curry library, and the front end compiles a test program again
-# when the interfaces of its imports are newer than its FlatCurry; a
-# product extracted before the stage is older than them (tar -m gives it
-# the time of the extraction), so the front end would run on every test
-# program at its first use.  One of them, poker_four_of_a_kind under
-# tests/data/curry/smap, names the preprocessor currypp, which a machine
-# without the Curry Package Manager lacks, and its import then fails.  CI
-# runs make overlay after make stage for the same reason
-# (.github/workflows/ci.yml), and scripts/new-worktree.sh copies the
-# products after its make stage.
-.PHONY: default-goal
-default-goal:
-	git submodule init
-	git submodule update
-	$(MAKE) stage
-	$(MAKE) overlay
-
