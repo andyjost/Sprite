@@ -15,25 +15,40 @@ hybrid applications that leverage the strengths of both languages.
 2. Installation
 ---------------
 
-For common Linux platforms, all you need to do is run ONE of the commands
-below:
+On Linux, choose the path that fits your Python setup:
 
-  - Automated (no confirmation):
+  1. Without a suitable Python, let the installer bring its own:
 
-        wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite | sh
-        curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite | sh
+        curl -LsSf https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite | sh
 
-  - Interactive (confirmation at each step):
+     For confirmation before each installation step:
 
-        wget -qO- https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite-i | sh
-        curl -sSL https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite-i | sh
+        curl -LsSf https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite-i | sh
 
-Sprite will be installed under $HOME/Sprite/install.
+     The script installs uv if needed, then a managed Python 3.11.4 or newer
+     and currylang with its curry-frontend dependency, all in your home
+     directory. It leaves the system Python alone and never uses sudo.
+     Run it again to upgrade Sprite. To preview the plan, download the script
+     and run sh getsprite --dry-run (or sh getsprite-i --dry-run).
+     Add the commands to your PATH, including in your shell startup file:
 
-These commands may ask for root access to install dependencies using your
-platform's package manager (currently, only apt is supported) and Python's
-package manger (pip).  If you prefer more control, see the installation guide
-in the documentation.
+        export PATH="$HOME/.local/bin:$PATH"
+
+  2. With Python 3.11.4 or newer (through 3.15), install into your Python
+     environment with pip:
+
+        pip install currylang
+
+     This also installs curry-frontend; uv is only needed by the script.
+
+  3. Python developers can run a Curry source file or open the Curry REPL
+     through the Python they installed into:
+
+        python -m curry MyProgram.curry
+        python -m curry
+
+A C++ compiler (g++) is optional. Without one, new modules run interpreted;
+see "Installing and running without a C++ compiler" in the documentation.
 
 A conda recipe for linux-64 is under development under conda/.  It is not
 published; conda/README.md describes it.
@@ -52,8 +67,8 @@ layout of the prefix.
 3. Running a Program
 --------------------
 
-Programs run with install/bin/sprite-exec.  For example, from the repository
-root:
+Programs run with sprite-exec. In a staged source checkout, for example,
+run this from the repository root:
 
         install/bin/sprite-exec examples/Peano.curry
 
