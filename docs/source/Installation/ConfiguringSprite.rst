@@ -28,7 +28,27 @@ Use ``cmake -LAH -N object-root/cmake`` to inspect them.
 The options
 -----------
 
-==============================  =====================================================
+==============================  ============================================================
+Option                          Meaning and default
+==============================  ============================================================
+``WITH_CURRY_FRONTEND``         Front end 2.0.0; ``AUTO`` searches PAKCS and PATH
+``WITH_PAKCS``                  Optional oracle 3.4.1; ``AUTO`` searches PATH
+``WITH_ICURRY``                 Optional translator; empty by default
+``CURRY2ICURRY_TOOL``           ``frontend`` (default) or ``icurry``
+``WITH_CCACHE``                 Compiler launcher; empty disables it (default)
+``WITH_CXX_POSTINSTALL``        Compiler for generated modules; the build compiler
+``WITH_DEFAULT_BACKEND``        ``cxx`` (default); see Developer Notes
+``GC``                          ``wdgc`` (default) or ``mps``
+``CMAKE_BUILD_TYPE``            ``Release`` (default) or ``Debug``
+``JOBS``                        Library parallelism; ``auto`` (default) or a count
+``TRACE``                       Computation tracing; ``OFF``
+``COUNTERS``                    Scheduler counters; ``OFF``
+``GC_WRITE_COUNTERS``           Old-node write counters with wdgc; ``OFF``
+``SPRITE_REBUILD_ICY``          Rebuild pinned ICurry; ``OFF``
+``ENABLE_ICURRY_CACHE``         Enable the user ICurry cache by default; ``OFF``
+``ENABLE_PARSED_JSON_CACHE``    Cache parsed JSON by default; ``OFF``
+==============================  ============================================================
+
 Pass each setting as ``-DNAME=value``. An empty ``WITH_PAKCS`` disables the
 oracle. Both translation routes require the Curry front end at build time.
 The MPS collector needs the ``extern/mps`` submodule. CMake honours ``CC``,
