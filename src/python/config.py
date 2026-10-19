@@ -2,6 +2,11 @@
 Code related to the configuration of Sprite.
 '''
 
+import threading
+from .utility.locking import synchronized
+_config_lock = threading.RLock()
+
+
 ###############################
 # Logging set-up.
 import logging, os, sys
@@ -87,6 +92,7 @@ class _Variable(object):
     self.type = type
     self.value = None
 
+  @synchronized(_config_lock)
   def __call__(self):
     if self.value is None:
       filename = installed_path('sysconfig', self.name)
@@ -314,6 +320,7 @@ def cxx_pch_cache_dir():
   '''
   return os.path.join(user_cache_dir(), 'pch', installation_key())
 
+@synchronized(_config_lock)
 def cxx_compiler(cached=[]):
   '''
   The compiler the installed C++ runtime was built with, as the build
@@ -357,6 +364,7 @@ def product_cache_dir():
 def system_curry_path():
   return os.path.join(prefix(), 'curry')
 
+@synchronized(_config_lock)
 def currypath(reset=False, cache=[]):
   '''
   Gets the Curry path from the environment variable CURRYPATH and appends the
@@ -379,7 +387,7 @@ def currypath(reset=False, cache=[]):
     currypath = curryname.makeCurryPath(envpath + syspath)
     cache.append(currypath)
     verify_syslibs()
-  return cache[0]
+  return list(cache[0])
 
 def verify_syslibs():
   from .utility import filesys
@@ -407,6 +415,7 @@ def installed_path(*relpath):
   return os.path.join(prefix(), *relpath)
 
 # External tools and libraries.
+@synchronized(_config_lock)
 def cxx_tool(cached=[]):
   '''The C++ compiler used with the cxx backend.'''
   if not cached:
@@ -414,6 +423,7 @@ def cxx_tool(cached=[]):
     cached.append(cxx if os.path.exists(cxx) else None)
   return cached[0]
 
+@synchronized(_config_lock)
 def curry_frontend(cached=[]):
   '''The Curry front end, if it is configured.  Otherwise, None.'''
   if not cached:
@@ -421,6 +431,7 @@ def curry_frontend(cached=[]):
     cached.append(os.path.abspath(path) if os.path.exists(path) else None)
   return cached[0]
 
+@synchronized(_config_lock)
 def icurry_tool(cached=[]):
   '''The icurry program, if it is configured.  Otherwise, None.'''
   if not cached:
@@ -461,6 +472,7 @@ def curry2icurry_tool(name=None):
       )
   return name
 
+@synchronized(_config_lock)
 def python_exe(cached=[]):
   if not cached:
     path = installed_path('bin', 'python')
@@ -468,6 +480,7 @@ def python_exe(cached=[]):
     cached.append(path)
   return cached[0]
 
+@synchronized(_config_lock)
 def sprite_exec(cached=[]):
   if not cached:
     path = installed_path('bin', 'sprite-exec')
@@ -476,6 +489,7 @@ def sprite_exec(cached=[]):
   return cached[0]
 
 
+@synchronized(_config_lock)
 def cyrt_lib(cached=[]):
   if not cached:
     path = installed_path('lib', 'libcyrt.so')

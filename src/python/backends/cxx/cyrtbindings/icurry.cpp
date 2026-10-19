@@ -53,6 +53,8 @@ namespace
     return result;
   }
 
+  // Literal-map lookup, allocation and insertion run under icurry_attach
+  // heap_access. They do not rely on Python's GIL.
   std::unordered_map<unboxed_int_type, Node *> g_int_nodes;
   std::unordered_map<unboxed_char_type, Node *> g_char_nodes;
   std::unordered_map<uint64_t, Node *> g_float_nodes;

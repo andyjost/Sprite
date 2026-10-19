@@ -16,7 +16,8 @@ from . import backends, config, icurry, objects, utility
 from .common import T_FUNC
 from .exceptions import CurryTypeError
 from .utility import strings, visitation
-import collections.abc, itertools, numbers, weakref
+from .utility.locking import native_metadata
+import collections.abc, itertools, numbers, weakref, threading
 
 __all__ = [
     'anchor', 'choice', 'cons', 'describe', 'expr', 'fail', 'fwd', 'free'
@@ -217,12 +218,12 @@ class free(object):
   ``vid``, 0 by default; that form serves the tests of the runtime.
   '''
   def __init__(self, vid=0, exprtype=None):
+    self._type_lock = threading.Lock()
     self.vid = int(vid)
     self.exprtype = exprtype
     # The shared node and a weak reference to the interpreter state it was
     # built under.  See ExpressionBuilder.unknown.
-    self._node = None
-    self._istate = None
+    self._shared_state = None
 
   def _shared(self, interp):
     '''
@@ -232,13 +233,13 @@ class free(object):
     state would share an id with the variables of the new one.
     '''
     istate = interp.backend.get_interpreter_state(interp)
-    if self._istate is not None and self._istate() is istate:
-      return self._node
+    shared = self._shared_state
+    if shared is not None and shared[0]() is istate:
+      return shared[1]
 
   def _share(self, interp, node):
     istate = interp.backend.get_interpreter_state(interp)
-    self._istate = weakref.ref(istate)
-    self._node = node
+    self._shared_state = (weakref.ref(istate), node)
 
 class fwd(object):
   '''Used with :func:`expr` to place a forward node into a Curry expression.'''
@@ -809,6 +810,7 @@ class ExpressionBuilder(object):
       return self._mknode(self.fsyms.Fwd, node, target=self.target)
     return node
 
+  @native_metadata
   def unknown(self, marker):
     '''
     The shared node of a free marker: a call of ``Prelude.unknown`` applied
@@ -830,6 +832,7 @@ class ExpressionBuilder(object):
       marker._share(self.interp, node)
     return node
 
+  @native_metadata
   def count_freevar(self):
     '''
     Counts a free variable made outside an evaluation, so that

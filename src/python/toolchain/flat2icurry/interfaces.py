@@ -11,7 +11,8 @@ because the translation uses only names, visibilities, and data types.
 
 from . import flatcurry as fc
 from .errors import Flat2ICurryError
-import os
+import os, threading
+_loaded_lock = threading.Lock()
 
 __all__ = ['InterfaceFinder', 'load_interface', 'module_root', 'product_path']
 
@@ -25,7 +26,9 @@ def load_interface(filename):
   key = (filename, st.st_size, st.st_mtime_ns)
   prog = _LOADED.get(key)
   if prog is None:
-    prog = _LOADED[key] = fc.load(filename)
+    candidate = fc.load(filename)
+    with _loaded_lock:
+      prog = _LOADED.setdefault(key, candidate)
   return prog
 
 class InterfaceFinder:

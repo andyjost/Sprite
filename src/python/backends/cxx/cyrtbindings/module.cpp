@@ -15,6 +15,8 @@ namespace
   // The Python hook of the trap step (set_trap_hook).  A pointer, never
   // destroyed: a py::object destroyed after the interpreter ended is an
   // error.
+  // Both installation and invocation own the runtime heap gate. The
+  // Python thread-state attachment below is not a mutual-exclusion lock.
   py::object * g_trap_hook = nullptr;
 
   // Calls the Python hook with the table and returns the reason it gave,
@@ -26,7 +28,8 @@ namespace
     py::gil_scoped_acquire gil;
     try
     {
-      py::object result = (*g_trap_hook)(py::cast(info, reference));
+      py::object hook = *g_trap_hook; // retain across a reentrant replacement
+      py::object result = hook(py::cast(info, reference));
       if(result.is_none())
         return {};
       return py::str(result).cast<std::string>();

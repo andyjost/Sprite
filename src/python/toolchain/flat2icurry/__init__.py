@@ -137,5 +137,5 @@ def translate_file(fcyfile, finder, icurry_compat=True, rewrite=False):
 
 def write_icurry(iprog, filename):
   '''Writes an ICurry program to a .icy file.'''
-  with open(filename, 'w', encoding='utf-8', newline='') as ostream:
-    ostream.write(showterm(iprog))
+  from ... import cache
+  cache.write_file(filename, showterm(iprog))

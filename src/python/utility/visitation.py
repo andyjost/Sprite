@@ -1,6 +1,8 @@
 '''Implementation of the visitor pattern.'''
 # See https://chris-lamb.co.uk/posts/visitor-pattern-in-python
-import functools, inspect
+import functools, inspect, threading
+from .locking import synchronized
+_checker_lock = threading.RLock()
 
 # From http://code.activestate.com/recipes/577413-topological-sort/
 def toposort(data):
@@ -25,6 +27,7 @@ class Visitable(object):
   def __new__(cls, selector, default):
     self = object.__new__(cls)
     self.handlers = {}
+    self._handler_lock = threading.Lock()
     self._ordering = None
     self.default = default
     self.selector = selector
@@ -59,14 +62,22 @@ class Visitable(object):
     relationships.  This is used when no handler provides an exact match.
     Computing the ordering is O(n^2) w.r.t. the number of handlers.
     '''
-    if self._ordering is None:
-      classes = self.handlers.keys()
+    while True:
+      with self._handler_lock:
+        if self._ordering is not None:
+          return self._ordering
+        handlers = self.handlers.copy()
+      classes = tuple(handlers)
       data = {
           cls: set(filter(lambda subcls: issubclass(subcls, cls), classes))
               for cls in classes
         }
-      self._ordering = [item for group in toposort(data) for item in group]
-    return self._ordering
+      ordering = tuple(item for group in toposort(data) for item in group)
+      with self._handler_lock:
+        # Handler replacement keeps the order; a new type needs a new snapshot.
+        if self.handlers.keys() == handlers.keys():
+          self._ordering = ordering
+          return ordering
 
   def __call__(self, *args, **kwds):
     '''
@@ -97,8 +108,9 @@ class Visitable(object):
     if no is not None or isinstance(ty, tuple):
       ty = instance_checker(ty, no)
     def decorator(handler):
-      self.handlers[ty] = handler
-      self._ordering = None
+      with self._handler_lock:
+        self.handlers[ty] = handler
+        self._ordering = None
       return replacement
     return decorator
 
@@ -124,6 +136,7 @@ class dispatch(object):
       return replacement
     return decorator
 
+@synchronized(_checker_lock)
 def instance_checker(yes=None, no=None):
   '''
   Builds a this-but-not-that instance checker class.

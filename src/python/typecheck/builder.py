@@ -24,6 +24,10 @@ converter.  :class:`Description` holds a tree of specs for the DSL and types
 it only when a consumer asks for nodes.
 '''
 
+import threading
+from ..utility.locking import native_metadata
+
+
 from .. import backends, exceptions, inspect
 from ..common import T_FUNC
 from ..objects import CurryNodeInfo
@@ -215,12 +219,13 @@ def symbol_map(interp):
   modules of an interpreter.  The map is built again when a module was
   loaded, reloaded or released since the last call.
   '''
+  modules = interp.modules.copy()
   names = tuple((name, id(module), getattr(module, '.version', None))
-      for name, module in interp.modules.items())
+      for name, module in modules.items())
   cache = getattr(interp, '_info_symbols', None)
   if cache is None or cache[0] != names:
     table = {}
-    for module in list(interp.modules.values()):
+    for module in list(modules.values()):
       for mod in getHandle(module).itermodules():
         symbols = getattr(mod, '.symbols', None)
         if symbols:
@@ -240,35 +245,42 @@ class TypeRecord:
   '''
   def __init__(self):
     self._entries = {}
+    self._lock = threading.Lock()
 
   def put(self, node, scheme, typeexpr):
     key = node.id()
     entries = self._entries
     def forget(ref, key=key, entries=entries):
-      entry = entries.get(key)
-      if entry is not None and entry[0] is ref:
-        del entries[key]
+      with self._lock:
+        entry = entries.get(key)
+        if entry is not None and entry[0] is ref:
+          del entries[key]
     try:
       ref = weakref.ref(node, forget)
     except TypeError:
       return
-    entries[key] = (ref, scheme, typeexpr)
+    with self._lock:
+      entries[key] = (ref, scheme, typeexpr)
 
   def get(self, node):
     '''The pair of the scheme and the type of a recorded node, or None.'''
-    entry = self._entries.get(node.id())
+    key = node.id() # resolve native identity before taking the record lock
+    with self._lock:
+      entry = self._entries.get(key)
     if entry is None or entry[0]() is not node:
       return None
     return entry[1], entry[2]
 
   def __len__(self):
-    return len(self._entries)
+    with self._lock:
+      return len(self._entries)
 
 def record_of(interp):
-  record = getattr(interp, '_typed_results', None)
-  if record is None:
-    record = interp._typed_results = TypeRecord()
-  return record
+  with interp._state_lock:
+    record = getattr(interp, '_typed_results', None)
+    if record is None:
+      record = interp._typed_results = TypeRecord()
+    return record
 
 def recorded(interp, node):
   '''The recorded scheme and type of a node, or None.'''
@@ -851,6 +863,7 @@ class TypedBuilder:
     from ..backends.py.currylib.prelude.string import codepoints
     return self._mknode(self.prelude._biString, codepoints(text), target=target)
 
+  @native_metadata
   def _free_node(self, problem, spec):
     '''
     The shared node of a free marker: a call of ``Prelude.unknown`` applied
@@ -868,6 +881,7 @@ class TypedBuilder:
     self.count_freevar()
     return node
 
+  @native_metadata
   def count_freevar(self):
     '''Counts a free variable made outside an evaluation; see ``RuntimeState.set_goal``.'''
     istate = self.interp.backend.get_interpreter_state(self.interp)
@@ -935,21 +949,33 @@ class TypedBuilder:
 # =========
 class IteratorCursor:
   '''One evaluation's position in a held Python iterator.'''
-  _live = weakref.WeakValueDictionary()
+  _live = {}
+  _live_lock = threading.RLock()
 
   def __init__(self, interp, source, elemtype, where, index=0):
     self.interp, self.source = interp, source
     self.elemtype, self.where = elemtype, where
     self.index = index
     self.items = itertools.islice(iterate_typed(interp, source, elemtype, where), index, None)
-    self._live[id(self)] = self
+    key = id(self)
+    cls = type(self)
+    def forget(ref):
+      with cls._live_lock:
+        if cls._live.get(key) is ref:
+          cls._live.pop(key)
+    with self._live_lock:
+      self._live[key] = weakref.ref(self, forget)
 
   @classmethod
   def of_node(cls, node):
     payload = node.successor(0)
     # C++ exposes an opaque Python payload as its address. The runtime
     # owns its reference; the weak registry recovers our own cursors.
-    return payload if isinstance(payload, cls) else cls._live.get(payload)
+    if isinstance(payload, cls):
+      return payload
+    with cls._live_lock:
+      ref = cls._live.get(payload)
+    return None if ref is None else ref()
 
   def __iter__(self): return self
 

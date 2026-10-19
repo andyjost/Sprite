@@ -8,6 +8,220 @@ of the source tree, the Python backend, is a reference implementation behind
 a flag until its removal.  This page names the flag, says what the backend
 is for, and lists its limits.
 
+
+.. _free-threaded-audit:
+
+Free-threaded Python
+====================
+
+The C++ extension opts in with ``pybind11::mod_gil_not_used()`` (vendored
+pybind11 3.1.0). The supported C++ API permits threads to import modules,
+build terms, evaluate and consume separate results concurrently. The runtime
+serializes its process-wide heap: two evaluations still step one at a time
+per heap, while Python work outside native metadata/heap operations can run
+in parallel on a free-threaded interpreter. Parallel Curry execution is epic
+#28 and is outside this work. The retired Python backend is not a concurrent
+runtime and is not the subject of this extension opt-in.
+
+``PYTHON_GIL`` belongs to the user. Package children inherit its presence or
+absence and its value. The 3.14t CI lane runs the unit suites with
+``PYTHON_GIL=0`` and the concurrency suite again with the variable absent;
+the suite checks the actual GIL state after importing the extension. This
+lane remains ``continue-on-error`` until the reviewer observes two green
+runs. No free-threaded interpreter is available for local verification.
+
+The table inventories shared state used by the C++ Python API. Python
+builders, converters, parsers and compiler instances keep their working
+state private to each operation. Published type descriptions, compiler
+specification tables and constants are immutable by convention. Direct
+mutation of private/raw backend structures is not an additional concurrent
+API. Tests run on the ordinary interpreter too; its GIL cannot establish
+absence of races with the GIL disabled.
+
+Audit of shared state
+---------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 16 22 27 35
+
+   * - State
+     - Location (under ``src/python``)
+     - Hazard
+     - Protection
+
+   * - Singleton and hard reload
+     - ``__init__.py; interpreter.__init__``
+     - Replacing a session and bound exports could mix old/new interpreter state; temporary environment flags leaked between threads.
+     - Public functions resolve the interpreter once per call; flags/modules are live read-only views. Hard reload retires/publishes under a native metadata transaction and passes flags explicitly, without changing the environment. Initial imports use Python import serialization.
+
+   * - Session, reset, reload and flags
+     - ``interpreter/{__init__,session,flags}.py``
+     - Reset/retirement overlapped native materialization; clear/update exposed incomplete settings or module metadata.
+     - Reset and reload native/publication phases share the existing heap gate, with tiered waits outside. Settings are validated privately and published as a new dict. Reload builds privately and updates complete metadata without clearing mandatory slots; it retains module identity. Tokens/versions enforce the stale rule. FLAG_INFO/defaulting tables are immutable after initialization.
+
+   * - Paths and streams
+     - ``interpreter/session.py; config.py; toolchain/_system.py``
+     - Temporary path/environment changes affected another compilation.
+     - Imports take path snapshots. Literate-source scope and child CURRYPATH are ContextVars; subprocesses get copied environments. The public path list retains its API. Stream references publish by assignment; Python stream objects provide their own I/O synchronization.
+
+   * - Module registry and packages
+     - ``interpreter/import_/``
+     - A provisional module could escape before symbols/classes were complete; two builders could race native tables.
+     - Dependencies prepare outside the native metadata phase. A context-local provisional registry supports recursive symbol resolution. Under the heap gate, construction rechecks the session and existing module and publishes a complete canonical module; only the registry/parent update uses the short interpreter lock. Code generation keeps only its bootstrap module private and preserves real dependency imports.
+
+   * - Python import hook
+     - ``lib/__init__.py; interpreter/session.py``
+     - Reset could evict a name before Python finished publishing an old-session module; duplicate hooks could install.
+     - A short hook-registry lock tracks names/deduplicates hooks. Python owns sys.modules publication. Reset snapshots tracked names and acquires each Python module-name lock before eviction, without holding the heap or a Sprite mutex while waiting.
+
+   * - Anonymous names and expression keepalive
+     - ``interpreter/compile.py``
+     - Concurrent name allocation and registry/keepalive updates could overlap.
+     - A small counter lock allocates process-unique names. Registry removal and keepalive append use the interpreter metadata lock; no native call or evaluation is inside that lock. Reset retires the session under the heap gate.
+
+   * - Backend instances and retired libraries
+     - ``backends/__init__.py; backends/cxx/interface.py``
+     - Check/create could publish competing backend singletons; retirement must retain borrowed native names/types.
+     - Construct backends outside the singleton lock and publish with setdefault. Retirement runs in native session transactions; the retained-library list is append-only under that gate. Backend objects are stateless after construction.
+
+   * - Native object loader
+     - ``backends/cxx/loader.py``
+     - Conflicting-file checks, open/adoption and _objects publication could interleave.
+     - Dependency imports and background waits precede the native metadata transaction. File identity/stamp is rechecked after imports and at native entry; changed products retry. Registry checks/open/adoption/publication share heap ownership. No Python loader lock spans a native wait.
+
+   * - Tiered state
+     - ``backends/cxx/tiered.py``
+     - Shims/jobs/records/modules/private directories/warnings/counter updates could overlap poll, submit, cancellation or reset.
+     - Native metadata transactions serialize these updates with their native operations. Job waits remain outside transactions and poll between bounded waits. Temporary names and shim check/build/publication share the gate. No Python mutex transfers to the large-stack worker.
+
+   * - First-use materialization and bytecode
+     - ``backends/cxx/materialize.py``
+     - _PENDING, table check/create/attach and compile/adopt could race; eager preparation would move errors.
+     - Materialization and pending-registry operations use heap metadata transactions. The trap already owns the heap through compilation/adoption; lazy first-use semantics remain. BYTECODE values are complete before publication and read by a single dictionary lookup; published bytecode is immutable.
+
+   * - Product locks
+     - ``toolchain/_productlock.py``
+     - The process-wide _held bypass treated a competing thread as the owner.
+     - Per-path RLock ownership plus flock; recursion is thread-local. Registry entries are reference-counted while in use. Fork callbacks close inherited descriptors and reset locks; unwinding an inherited context does not release a parent lock. Existing unwritable/no-flock fallback retains thread exclusion and atomic publication.
+
+   * - Generated source and objects
+     - ``toolchain/_makecurry.py; backends/{generic,cxx}/toolchain.py; materialize.py``
+     - Product-lock -> heap inverted the trap order; direct writes/unlinks exposed partial or absent products.
+     - Import/render/link-command preparation happens before the file lock. Sources, objects and stamps publish through unique temporary names and rename. A contender accepts a current product another producer published. Plans advance their own pipeline instead of reselecting stale later products between stages. A reader rechecks identity/stamp after importing dependencies.
+
+   * - Product cache and pruning
+     - ``toolchain/_productcache.py``
+     - Replacement removed paths used by readers; concurrent counters lost increments.
+     - Entries are immutable, first-producer-wins directories published by rename. A thread/process lock beside the cache root covers store/restore/prune; restore pins the entry for placement. A separate counter lock protects updates/resets. Forced rebuilds still replace local products, retaining a published cache entry of the same content key.
+
+   * - Creation permissions
+     - ``cache.py; toolchain/_productcache.py``
+     - Reading umask by temporarily setting it to zero changed process-wide state.
+     - Exclusive temporary-file creation with mode 0666 and directory creation with mode 0777 obey the real umask without changing it. Native products and PCH files use unique temporary names.
+
+   * - SQLite and source memo
+     - ``cache.py``
+     - One connection had thread affinity; reset could close a connection still in use; memo/stat updates raced.
+     - Thread-local connections and a reset generation; in-progress transaction slots retain their connection. Slots are local to their creating toolchain transaction/thread. A memo RLock protects pure memo construction and counters. SourceInfo objects are read-only snapshots.
+
+   * - Configuration lazy values
+     - ``config.py``
+     - Lazy reads and cached-list reset/publication could overlap.
+     - A configuration RLock covers initialization and path reset; currypath returns a copied list. Published scalars are immutable. No native heap entry occurs under the config lock.
+
+   * - Signature tables and interfaces
+     - ``typecheck/sigtable.py; exprtype.py``
+     - Lazy interface/decoded/scheme/instance caches, weak callbacks and clear/purge could overlap.
+     - Interface-cache/decode locks and a per-table RLock protect publication. Resolve module names and native symbol tags before taking the table lock. Weak callbacks remove matching entries under the same lock. Returned instance maps are snapshots; schemes/decoded declarations/synonyms are read-only after publication.
+
+   * - Type records and symbol maps
+     - ``typecheck/builder.py; terms.py``
+     - Node identity, weak cleanup and cache construction could race or reuse an id.
+     - Resolve native node identity outside the record lock; protect record updates/weak callbacks. Interpreter publication creates one record. Symbol maps build from one registry snapshot and publish a complete tuple/map. Type-variable ids use a counter lock; inference/unification cells are private to each problem.
+
+   * - Module wrappers and constructor classes
+     - ``objects/terms.py; classes.py``
+     - Lazy wrapper caches could publish competing objects; incomplete classes could escape.
+     - ModuleInfo cache locks cover Python-only wrapper construction. Classes/fields finish before module publication and are immutable for that version. Reload prepares complete replacements and updates owner references before publication. Raw-symbol selection remains a ContextVar.
+
+   * - Shared free variables and iterator payloads
+     - ``expressions.py; typecheck/builder.py; objects/terms.py``
+     - Shared-node check/create and inferred types could race; iterator cursor weak entries could disappear.
+     - Shared node/owner publish as one tuple; node check/create and external-freevar counters use native metadata transactions. A marker lock commits compatible inferred types with pure unification. Cursor weak-registry updates/callbacks have their own lock. IteratorSource buffers/cursor consumption run in serialized C++ Python-generator callbacks under the heap gate; conversion state belongs to one evaluation.
+
+   * - Results and Stream
+     - ``objects/results.py; interpreter/eval.py``
+     - Concurrent next/close could corrupt iterator ownership; deferred evaluation could start after reset.
+     - A short per-iterator lock claims a busy flag, released before stepping/callbacks; overlapping use keeps Python generators' existing ValueError behavior. Cleanup runs under that claim. Deferred results/streams check their creation session before starting and on both sides of each native step. Separate results can be consumed concurrently.
+
+   * - Evaluation statistics
+     - ``backends/generic/eval/evaluator.py; interpreter/stats.py``
+     - Finalization could double-count a running evaluation in a snapshot or lose totals.
+     - A totals lock covers Python counters/weak registry and its version. Native counter reads happen outside the lock; version changes retry the snapshot. Direct single_step accounting remains supported. Returned stats are private snapshots, not a global pause of all activity.
+
+   * - Compilation time, warnings and parser caches
+     - ``toolchain/_makecurry.py; _curry2icurry.py; flat2icurry/interfaces.py; backends/cxx/toolchain.py``
+     - Overlapping compiles were mistaken for nesting; memo/counter/warning publication could race.
+     - Thread-local compile nesting/start with locked accumulation. Short locks cover rewrite statistics/warnings and compiler warning sets. FlatCurry caches publish complete read-only trees with setdefault; finder instances are private. PCH files publish atomically with unique names; digest lru_caches use standard-library synchronization.
+
+   * - Temporary directories and dispatch/type factories
+     - ``toolchain/_str2module.py; utility/{visitation,proptree}.py``
+     - Set iteration and lazy class/handler-order construction could race.
+     - Directory snapshots and updates share a short lock. Dynamic class factories have registry locks. Dispatch ordering computes from a handler snapshot outside its lock and publishes an immutable tuple only if the registered types still match; handlers run after releasing locks.
+
+   * - Binding trap hook
+     - ``backends/cxx/cyrtbindings/module.cpp``
+     - A process-global py::object was reassigned/invoked; attaching Python thread state is not exclusion.
+     - set_trap_hook already uses heap_access; invocation already runs under the locked rewrite step. Retain a local callable reference across reentrant replacement. Its process-lifetime storage intentionally avoids Python teardown destruction; this is not a subinterpreter opt-in.
+
+   * - Binding literals, constants and graph lifetime
+     - ``backends/cxx/cyrtbindings/{icurry,graph,dynload,tiered}.cpp; heap.hpp``
+     - Literal-map check/allocate/insert, graph/registry access and native destruction need exclusion without a GIL.
+     - Literal maps are accessed under icurry_attach heap_access; small literal/opcode/constants initialize before module publication and then stay immutable. Existing heap_access, HeapScope, rooting and HeapDeleter cover graph/native lifetime and return conversion. Callbacks attach thread state; waits/steps detach it. The runtime lock is unchanged.
+
+File publication and lock order
+-------------------------------
+
+First use remains lazy: a trapped function compiles when it is first called,
+and unused functions do not move compilation failures earlier. There is no
+product-lock-to-heap edge. Importing dependencies, materializing native
+symbols, rendering source and preparing the linker command precede the
+file-production lock. The lock covers only producing/rechecking/publishing
+files. A producer writes a unique temporary name and publishes by rename;
+another producer that finds a current published product takes it. Failed
+compilation retains the previous published object and stamp. Publication
+invalidates the old stamp, renames the completed object, then publishes its
+new stamp; a missing stamp makes the object stale.
+
+A reader checks a product before importing its dependencies and rechecks
+its file identity/stamp afterward, retrying if a producer replaced it.
+Restore similarly releases file locks before consulting interpreter/native
+state. Cache entries are immutable and first-producer-wins; a separate
+thread/process lock pins store/restore/prune operations. Lock order there
+is module product lock, then cache-root lock. No cache-root lock leads to
+an interpreter import or native heap entry. An external deletion of an
+entire cache is handled as a miss/I/O failure, as before.
+
+The trap hook already holds the heap and may take a product lock. The
+reverse order does not exist. Python interpreter/cache/counter mutexes are
+short metadata locks: no such mutex is held while waiting for the native
+heap or evaluating. Native metadata transactions acquire the existing heap
+gate first and group the associated native operations and registry
+publication. Dependency preparation and job waits are kept outside those
+transactions. Evaluation itself is never enclosed in a Python mutex or a
+metadata transaction. The large-stack worker therefore requires no Python
+lock ownership transfer.
+
+Regression coverage is in ``tests/unit_free_threading.py``: complete module
+publication, concurrent imports/builds/consumption, cross-thread reset and
+staleness, Python import-hook eviction, two-process/two-thread cache writes,
+thread-owned product locks, a forced producer under a reader, and a trapped
+first use while another producer prepares native imports. Existing
+``unit_evaluation_lock.py`` and ``unit_issue153.py`` cover reentrant callbacks
+and the worker handoff. The source-tree implementation/validation report is
+``CODEX-REPORT.md``.
+
 .. _reference-backend:
 
 The reference backend

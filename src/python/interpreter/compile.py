@@ -6,7 +6,7 @@ from .. import config, exceptions, objects, toolchain
 from ..objects import handle
 from ..typecheck import goals, sigtable
 from ..utility.visitation import dispatch
-import itertools, os, re, tempfile, types, weakref
+import itertools, os, re, tempfile, types, weakref, threading
 
 __all__ = ['compile', 'expression_scheme']
 
@@ -18,6 +18,11 @@ COMPILED_NAME = 'compiled_expression'
 # first, so a reused name could resolve to stale code.  See
 # config.expression_modname.
 _module_counter = itertools.count()
+_counter_lock = threading.Lock()
+
+def _next_module():
+  with _counter_lock:
+    return next(_module_counter)
 
 def compile(interp, string, imports=None, modulename=None):
   """Compile Curry source as a module, optionally naming it and its imports."""
@@ -25,10 +30,10 @@ def compile(interp, string, imports=None, modulename=None):
   header = re.search(r'^\s*module\s+([\w.]+)\b', string, re.M)
   generated = modulename is None and header is None
   if modulename is None:
-    modulename = header.group(1) if header else config.interactive_modname() + str(next(_module_counter))
+    modulename = header.group(1) if header else config.interactive_modname() + str(_next_module())
   if generated:
     while modulename in interp.modules:
-      modulename = config.interactive_modname() + str(next(_module_counter))
+      modulename = config.interactive_modname() + str(_next_module())
   if modulename in interp.modules:
     raise exceptions.ModuleExistsError(
         "module %r is loaded; curry.reload(curry.modules[%r], text=...) replaces its code"
@@ -83,7 +88,7 @@ def compile_expression(
   curry_code = '\n'.join(stmts)
   moduleobj, icur = toolchain.str2module(
       interp, curry_code, currypath
-    , modulename=config.expression_modname(next(_module_counter))
+    , modulename=config.expression_modname(_next_module())
     , keep_temp_files=interp.flags['keep_temp_files']
     , postmortem=interp.flags['postmortem']
     )
@@ -97,8 +102,9 @@ def compile_expression(
   # the module alive.  On the C++ backend, an unloaded module leaves
   # dangling pointers in any goal compiled from it.  The name is unique for
   # the process, so the modules cannot clash.
-  del interp.modules[icur.name]
-  interp._expression_modules.append(moduleobj)
+  with interp._state_lock:
+    interp.modules.pop(icur.name, None)
+    interp._expression_modules.append(moduleobj)
   return getattr(moduleobj, '.symbols')[COMPILED_NAME], freevars, moduleobj
 
 def expression_scheme(interp, string, imports=None):

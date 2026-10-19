@@ -1,37 +1,14 @@
 '''
-The lock of the products of a module.
+File-production locks, shared by threads and processes.
 
-Two processes may compile one module into one product directory at once:
-the background child of the tiered compile and a foreground ``sprite-make
---so`` (the sequence of the Quickstart, which saves, compiles and loads a
-module the import compiles in the background), two sessions over one tree,
-or two test processes that import one stale module.  Both would write
-``<Module>.cpp`` and ``<Module>.so`` in place: the code generator writes
-the generated file in place, so one compiler could read a torn file, and a
-failed background compile turns a later load into a refusal.
-
-So the steps of the plan for a module run under a lock: an advisory lock
-(``flock``) on a lock file beside the products, ``<Module>.lock`` in the
-product directory, held from the first step that must run to the end of
-the plan (``_makecurry.Maker.make``), and by the compile on first use
-(``backends.cxx.materialize.compile_pending``), which writes the same
-files outside the plan.  The loser waits; once it holds the lock it looks
-at the files of the module again, and when the winner wrote a current
-object it skips its compile.  The lock dies with its process, so a killed
-compile leaves no stale lock, and the lock file itself is empty and may
-stay.  A product directory that cannot be made or written gets no lock:
-nothing can be compiled into it, and the steps report that themselves.  A
-file system that refuses ``flock`` gives no lock either, and the compile
-runs unlocked, as before the lock.
-
-The lock is per module, so ``sprite-make --jobs`` compiles different
-modules at once as before, and a compile that imports the modules of its
-imports takes their locks in the order of the import graph, which is
-acyclic.  Within a process the lock is re-entrant: a nested plan of the
-same module (none is known) finds the lock held and goes on.
+Never hold one across an interpreter import or native materialization.  Prepare
+those operations first, lock only to recheck and publish files, then release
+before consulting native state.  Each entry uses an RLock for thread ownership
+and flock for process ownership; recursion belongs to the owning thread alone.
 '''
+
 from . import _filenames
-import contextlib, fcntl, logging, os
+import contextlib, fcntl, logging, os, threading
 
 __all__ = ['lockfile', 'locked']
 
@@ -39,8 +16,29 @@ logger = logging.getLogger(__name__)
 
 SUFFIX = '.lock'
 
-# The locks this process holds: the lock file to its descriptor.
-_held = {}
+_registry_lock = threading.Lock()
+_locks = {}
+_local = threading.local()
+_descriptors = set()
+
+def _after_fork():
+  global _registry_lock, _locks, _local, _descriptors
+  # Close the child copies without unlocking the parent's open description.
+  for fd in _descriptors:
+    os.close(fd)
+  _registry_lock = threading.Lock()
+  _locks = {}
+  _local = threading.local()
+  _descriptors = set()
+
+def _before_fork():
+  _registry_lock.acquire()
+
+def _parent_after_fork():
+  _registry_lock.release()
+
+os.register_at_fork(before=_before_fork,
+    after_in_parent=_parent_after_fork, after_in_child=_after_fork)
 
 def lockfile(filename):
   '''
@@ -64,45 +62,58 @@ def _open(path):
 
 @contextlib.contextmanager
 def locked(filename):
-  '''
-  Holds the lock of the module of ``filename`` for the duration of the
-  context.  Yields True when another process held the lock and this one
-  waited for it: the files of the module may have changed, and the caller
-  looks at them again before it writes.  Yields False when the lock was
-  free, is held by this process already, or cannot be made.
-  '''
-  path = lockfile(filename)
-  if path in _held:
-    yield False
-    return
-  fd = _open(path)
-  if fd is None:
-    yield False
-    return
-  waited = False
+  """Hold the file-production lock. Yield whether acquiring it waited."""
+  owner_pid = os.getpid()
+  path = os.path.realpath(lockfile(filename))
+  with _registry_lock:
+    mutex, users = _locks.get(path, (threading.RLock(), 0))
+    _locks[path] = mutex, users + 1
+  waited = not mutex.acquire(blocking=False)
+  if waited:
+    mutex.acquire()
   try:
+    held = getattr(_local, 'held', None)
+    if held is None:
+      held = _local.held = {}
+    if path in held:
+      yield False
+      return
+    fd = _open(path)
+    if fd is None:
+      yield waited
+      return
+    with _registry_lock:
+      _descriptors.add(fd)
     try:
-      fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-      waited = True
-      logger.info(
-          'Waiting for another process that compiles %s (the lock %s)'
-        , os.path.basename(filename), path
-        )
-      fcntl.flock(fd, fcntl.LOCK_EX)
-  except OSError as exc:
-    # A file system without flock (ENOLCK on a network file system
-    # without a lock service, ENOSYS, EINVAL): no lock, as in an
-    # unwritable directory, and the compile runs as it did before the
-    # lock.
-    logger.debug('No lock for %r (%s)', path, exc)
-    os.close(fd)
-    yield False
-    return
-  _held[path] = fd
-  try:
-    yield waited
+      try:
+        try:
+          fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+          waited = True
+          logger.info('Waiting for another process that compiles %s (the lock %s)',
+              os.path.basename(filename), path)
+          fcntl.flock(fd, fcntl.LOCK_EX)
+      except OSError as exc:
+        logger.debug('No advisory lock for %r (%s)', path, exc)
+        yield waited
+        return
+      held[path] = fd
+      try:
+        yield waited
+      finally:
+        if os.getpid() == owner_pid:
+          del held[path]
+    finally:
+      if os.getpid() == owner_pid:
+        with _registry_lock:
+          _descriptors.discard(fd)
+          os.close(fd)
   finally:
-    del _held[path]
-    # The close releases the lock.
-    os.close(fd)
+    if os.getpid() == owner_pid:
+      mutex.release()
+      with _registry_lock:
+        mutex, users = _locks[path]
+        if users == 1:
+          del _locks[path]
+        else:
+          _locks[path] = mutex, users - 1

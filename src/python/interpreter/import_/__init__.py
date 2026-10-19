@@ -7,7 +7,8 @@ from ...toolchain import plans, _findcurry
 from ...utility.binding import binding
 from ...utility import curryname, formatDocstring, visitation
 import collections.abc, contextlib, logging, os, warnings
-from ...exceptions import CurryWarning
+from ...exceptions import CurryWarning, StaleError
+from ...utility.locking import native_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -155,27 +156,47 @@ class ImportEx(object):
 
   @__call__.when(icurry.IPackage)
   def __call__(self, ipkg, tail=[]):
-    if ipkg.fullname not in self.interp.modules:
-      with _provisionalModule(self.interp, ipkg) as pkgobj:
-        return self(tail, rv=pkgobj)
+    if self.interp.flags['backend'] == 'cxx':
+      pkgobj = native_metadata(self._finish_package)(ipkg)
     else:
-      pkgobj = self.interp.modules[ipkg.fullname]
-      return self(tail, rv=pkgobj)
+      pkgobj = self._finish_package(ipkg)
+    return self(tail, rv=pkgobj)
+
+  def _finish_package(self, ipkg):
+    existing = self.interp.modules.get(ipkg.fullname)
+    if existing is not None:
+      return existing
+    with _provisionalModule(self.interp, ipkg) as pkgobj:
+      return pkgobj
 
   @__call__.when(icurry.IModule)
   def __call__(self, imodule, tail=[]):
+    session = self.interp._session
+    # Imports can compile or wait for a heap: finish them before entering
+    # the native metadata transaction. No partial module is published.
     if imodule.fullname not in self.interp.modules:
-      toolchain.mergebuiltins(imodule, self.interp.backend)
-      toolchain.validatemodule(imodule)
+      for modulename in imodule.imports:
+        self.interp.import_(modulename, currypath=self.import_path)
+    if self.interp.flags['backend'] == 'cxx':
+      moduleobj = native_metadata(self._finish_module)(imodule, session)
+    else:
+      moduleobj = self._finish_module(imodule, session)
+    return self(tail, rv=moduleobj)
+
+  def _finish_module(self, imodule, session):
+    if session is not self.interp._session:
+      raise StaleError('the interpreter was reset during an import; import again')
+    existing = self.interp.modules.get(imodule.fullname)
+    if existing is not None:
+      return existing
+    toolchain.mergebuiltins(imodule, self.interp.backend)
+    toolchain.validatemodule(imodule)
+    # The provisional registry is local to this context, including symbol
+    # resolution by the materializer. Other threads only see complete modules.
+    registry = self.interp.modules
+    with self.interp._private_modules():
       with _provisionalModule(self.interp, imodule) as moduleobj:
         record_source(moduleobj)
-        if imodule.imports:
-          logger.info(
-              'Processing imports for Curry module %r: %r'
-            , imodule.name, imodule.imports
-            )
-        for modulename in imodule.imports:
-          self.interp.import_(modulename, currypath=self.import_path)
         load.loadSymbols(self.interp, imodule, moduleobj)
         from ...objects.classes import build_classes
         build_classes(self.interp, moduleobj)
@@ -185,17 +206,19 @@ class ImportEx(object):
             if hasattr(moduleobj, name):
               raise ValueError("cannot alias previously defined name %r" % name)
             setattr(moduleobj, name, getattr(moduleobj, target))
-        # The backend gets the search path of the imports of the module:
-        # the compile of a module on first use and the background compile
-        # import them on it.
         imports = self.import_path
         if imports is None:
           imports = curryname.makeCurryPath(self.interp.path)
         self.interp.backend.module_loaded(self.interp, moduleobj, imports)
-        return self(tail, rv=moduleobj)
-    else:
-      moduleobj = self.interp.modules[imodule.fullname]
-      return self(tail, rv=moduleobj)
+    # Native phase and publication share heap ownership with reset. No
+    # Python lock is held while acquiring it, and evaluation is never here.
+    with self.interp._state_lock:
+      parent, _, local = imodule.fullname.rpartition('.')
+      if parent:
+        setattr(registry[parent], local, moduleobj)
+        getattr(registry[parent], '.icurry')[local] = imodule
+      registry[imodule.fullname] = moduleobj
+    return moduleobj
 
 
 def record_source(moduleobj):

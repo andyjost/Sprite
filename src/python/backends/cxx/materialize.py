@@ -49,10 +49,11 @@ from ...common import F_STATIC_OBJECT, T_FUNC
 from ...exceptions import CompileError
 from . import bytecode, cyrtbindings as cyrt
 from ..generic import compiler as generic
-from ... import config, icurry, objects
+from ... import cache, config, icurry, objects
 from ...objects import handle
 from ...toolchain import _filenames, _productlock
 from ...utility import visitation
+from ...utility.locking import native_metadata
 import logging, os, time, weakref, zlib
 
 logger = logging.getLogger(__name__)
@@ -92,6 +93,7 @@ class Materializer(object):
       # shim (tiered.py), name the tables of this module by address.
       self.M.keep_tables()
 
+  @native_metadata
   def materialize(self, iobj):
     info = iobj.metadata.get('cxx.material')
     if info is not None:
@@ -245,6 +247,7 @@ class Pending(object):
 # the entry; an entry whose module is gone is dropped when it is met.
 _PENDING = {}
 
+@native_metadata
 def module_loaded(interp, moduleobj, currypath):
   '''
   Called when the import of a module ends (IBackend.module_loaded).  Records
@@ -255,12 +258,14 @@ def module_loaded(interp, moduleobj, currypath):
   if entry is not None and entry.module() is moduleobj:
     entry.currypath = list(currypath)
 
+@native_metadata
 def is_pending(moduleobj):
   '''Tells whether ``moduleobj`` waits for its compile on first use.'''
   entry = _PENDING.get(moduleobj.__name__)
   return entry is not None and entry.module() is moduleobj \
       and not entry.compiled
 
+@native_metadata
 def _owner(info):
   '''The pending entry of the module that owns the table ``info``, or None.'''
   for name, entry in list(_PENDING.items()):
@@ -376,19 +381,12 @@ def compile_pending(entry):
   else:
     cppfile = process_file(imodule)
   if sofile is None:
-    # Under the lock of the products (toolchain._productlock): another
-    # process may compile the same module into the same directory.  After
-    # a wait the object there may be current.
-    with _productlock.locked(cppfile) as waited:
-      if waited:
-        sofile = current_object(cpp2so, cppfile, text, currypath)
-      if sofile is None:
-        logger.info('Compiling %s on its first use: %s', name, cppfile)
-        with open(cppfile, 'w', encoding='utf-8') as stream:
-          stream.write(text)
-        # The compile of the source of the module on the path of its
-        # imports (is_sourcefile; _findcurry.imports_path).
-        sofile = cpp2so(cppfile, currypath, is_sourcefile=True)
+    # Save text atomically under the file lock, then release it before
+    # Cpp2So prepares its dependencies through the interpreter. It owns the
+    # production lock for compilation/publication and accepts another winner.
+    with _productlock.locked(cppfile):
+      cache.write_file(cppfile, text)
+    sofile = cpp2so(cppfile, currypath, is_sourcefile=True)
   steps = []
   for ifun in imodule.functions.values():
     info = M.get_infotable(ifun.name)

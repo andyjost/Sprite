@@ -1,5 +1,9 @@
 '''Typed Curry terms and the metadata of their names.'''
 
+import threading
+from ..utility.locking import synchronized
+
+
 from contextlib import contextmanager
 from contextvars import ContextVar
 from collections.abc import Collection, Iterator, Sequence
@@ -110,6 +114,7 @@ class ModuleInfo:
     self._types = _Types()
     self._classes = {}
     self._fields = {}
+    self._cache_lock = threading.RLock()
 
   name = property(lambda self: self._module.__name__)
 
@@ -123,6 +128,10 @@ class ModuleInfo:
 
   @property
   def symbols(self):
+    with self._cache_lock:
+      return self._symbol_cache()
+
+  def _symbol_cache(self):
     for name, info in getattr(self._module, '.symbols').items():
       if not name.startswith(('_impl#', '_inst#')):
         if name not in self._symbols or self._symbols[name]._info is not info:
@@ -131,6 +140,10 @@ class ModuleInfo:
 
   @property
   def types(self):
+    with self._cache_lock:
+      return self._type_cache()
+
+  def _type_cache(self):
     for name, datatype in getattr(self._module, '.types').items():
       if name not in self._types:
         self._types[name] = DataType(datatype, self._module)
@@ -802,8 +815,26 @@ def fix_variable_types(problem):
     if getattr(marker, '_var', None) is not None:
       t = terms.whnf(spec.type, problem.arity)
       if not isinstance(t, terms.Var):
-        marker.exprtype = terms.zonk(t, arity=problem.arity)
-        marker._var._signature = unqualify(problem.show(t))
+        # Type work stays private. Commit a compatible type under the
+        # marker lock: two first uses cannot overwrite incompatible types.
+        inferred = terms.zonk(t, arity=problem.arity)
+        with marker._type_lock:
+          previous = marker.exprtype
+          if previous is not None and not isinstance(previous, str):
+            from ..typecheck.unify import unify, UnifyError
+            from ..typecheck.errors import MismatchError
+            old = terms.instantiate(previous, {})
+            new = terms.instantiate(inferred, {})
+            try:
+              unify(old, new)
+            except UnifyError:
+              from ..typecheck.sigtable import show_type
+              raise MismatchError('type mismatch in shared free variable: expected %s, got %s'
+                  % (show_type(previous), show_type(inferred))) from None
+            inferred = terms.zonk(new)
+          marker.exprtype = inferred
+          from ..typecheck.sigtable import show_type
+          marker._var._signature = unqualify(show_type(inferred))
 
 
 def signature(problem):
