@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.24)
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" sprite_version LIMIT_COUNT 1)
-project(Sprite VERSION ${sprite_version} LANGUAGES C CXX)
+# CMake accepts the numeric release; Python metadata retains the PEP 440 suffix.
+string(REGEX MATCH "^[0-9]+\\.[0-9]+(\\.[0-9]+)?" sprite_release "${sprite_version}")
+project(Sprite VERSION ${sprite_release} LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

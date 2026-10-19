@@ -277,9 +277,14 @@ jobs:
         run: make overlay
       - name: Unit tests
         run: .github/scripts/run-tests.sh cxx 'unit_*.py' 1/1
-      - name: Build the release wheel with build isolation
+      # Without build isolation: curry-frontend is a build requirement of the
+      # package (pyproject.toml), and it reaches PyPI only when the
+      # maintainer publishes it; the isolated builds are the job of
+      # wheels.yml, whose find-links serve the front end from the artifact
+      # of frontend.yml meanwhile.  The build tools are installed above.
+      - name: Build the release wheel
         if: matrix.python == '3.14'
-        run: python -m pip wheel . --no-deps --wheel-dir object-root/wheels
+        run: python -m pip wheel . --no-deps --no-build-isolation --wheel-dir object-root/wheels
       - name: Free-threaded extension opt-in without PYTHON_GIL
         if: matrix.python == '3.14t'
         run: env -u PYTHON_GIL .github/scripts/run-tests.sh cxx unit_free_threading.py 1/1

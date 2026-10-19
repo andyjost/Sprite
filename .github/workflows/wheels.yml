@@ -1,0 +1,303 @@
+name: Sprite distributions
+
+'on':
+  push:
+    branches: [master, wt/wheels]
+    tags: ['v*']
+    paths:
+      - .github/workflows/wheels.yml
+      - pyproject.toml
+      - VERSION
+      - LICENSE
+      - README.pypi.md
+      - CMakeLists.txt
+      - src/**
+      - curry/**
+      - extern/pybind11/**
+      - scripts/build-package.py
+      - scripts/wheels/**
+      - tests/unit_build.py
+  workflow_dispatch:
+    inputs:
+      frontend_source:
+        description: Build requirement source (use PyPI after curry-frontend is published)
+        type: choice
+        options: [artifact, pypi]
+        default: artifact
+
+permissions:
+  contents: read
+
+env:
+  LC_ALL: C.UTF-8
+
+jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Find the latest successful front-end build on master
+        if: inputs.frontend_source != 'pypi'
+        id: run
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {data} = await github.rest.actions.listWorkflowRuns({
+              ...context.repo, workflow_id: 'frontend.yml', branch: 'master',
+              status: 'success', per_page: 1
+            });
+            const run = data.workflow_runs[0];
+            if (!run) throw new Error('No successful frontend.yml run on master');
+            core.setOutput('id', run.id);
+            await core.summary.addRaw(`Front end: ${run.html_url}\n`).write();
+      - name: Download the reviewed front-end artifacts
+        if: inputs.frontend_source != 'pypi'
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.run.outputs.id }}
+          pattern: frontend-*
+          path: frontend-artifacts
+      - name: Keep only the manylinux wheels for both architectures
+        env:
+          FRONTEND_SOURCE: ${{ inputs.frontend_source }}
+        run: |
+          set -euxo pipefail
+          mkdir -p .wheelhouse
+          if [ "$FRONTEND_SOURCE" = pypi ]; then
+            # An empty directory still gives pip a valid --find-links location.
+            echo 'Resolve curry-frontend from PyPI.' > .wheelhouse/source.txt
+          else
+            python - <<'PY'
+          from pathlib import Path
+          import shutil
+          wheels = list(Path('frontend-artifacts').glob('*/dist/curry_frontend-*.whl'))
+          for arch in ('x86_64', 'aarch64'):
+              matches = [p for p in wheels if f'manylinux_2_28_{arch}'
+                         in p.stem.rsplit('-', 1)[-1].split('.')]
+              assert matches, arch
+              # A rerun keeps earlier attempt artifacts on the same run.
+              matches.sort(key=lambda p: int(p.parents[1].name.rsplit('-', 1)[1]))
+              print('Selected', matches[-1])
+              shutil.copy2(matches[-1], '.wheelhouse')
+          PY
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-wheels
+          path: .wheelhouse/
+          include-hidden-files: true
+          if-no-files-found: error
+
+  wheels:
+    needs: frontend
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {arch: x86_64, runner: ubuntu-24.04}
+          - {arch: aarch64, runner: ubuntu-24.04-arm}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-wheels
+          path: .wheelhouse
+      - name: Build and repair six wheels with the container's compiler
+        uses: pypa/cibuildwheel@v4.3.1
+        env:
+          CIBW_ARCHS_LINUX: ${{ matrix.arch }}
+          CIBW_BUILD_FRONTEND: pip
+          CIBW_BUILD: >-
+            cp311-manylinux_* cp312-manylinux_* cp313-manylinux_*
+            cp314-manylinux_* cp314t-manylinux_* cp315-manylinux_*
+          # 4.3.1 provides final CPython 3.15; free-threaded 3.14 is
+          # enabled by its explicit selector, with no experimental flag.
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
+          # pip's isolated PEP 517 environment inherits this setting too.
+          CIBW_ENVIRONMENT_LINUX: >-
+            LC_ALL=C.UTF-8
+            PIP_FIND_LINKS=/project/.wheelhouse
+            SPRITE_CACHE_FILE="" SPRITE_PRODUCT_CACHE=""
+          CIBW_BEFORE_BUILD: python -m pip install --find-links=/project/.wheelhouse 'curry-frontend>=2.0.0'
+          CIBW_CONFIG_SETTINGS: >-
+            cmake.define.WITH_PAKCS=
+            cmake.define.WITH_CURRY_FRONTEND=curry-frontend
+            cmake.define.WITH_ICURRY=
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >-
+            python /project/scripts/wheels/repair.py {wheel} {dest_dir}
+          CIBW_TEST_COMMAND: python {project}/scripts/wheels/smoke.py
+      - name: Save auditwheel show evidence beside the final wheels
+        run: |
+          set -euxo pipefail
+          python -m pip install auditwheel
+          for wheel in wheelhouse/*.whl; do
+            python scripts/wheels/repair.py --show-only "$wheel"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.arch }}
+          path: |
+            wheelhouse/*.whl
+            wheelhouse/*.auditwheel.txt
+          if-no-files-found: error
+
+  sdist:
+    needs: frontend
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-wheels
+          path: .wheelhouse
+      - name: Build the source distribution in isolation
+        run: |
+          set -euxo pipefail
+          python -m pip install build
+          export PIP_FIND_LINKS="$PWD/.wheelhouse"
+          python -m build --sdist --outdir dist .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  smoke-wheel:
+    needs: wheels
+    runs-on: ubuntu-24.04
+    container: python:3.11-slim
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheels-x86_64
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-wheels
+          path: .wheelhouse
+      - name: Run Peano without a compiler, then compile it with the user's g++
+        run: |
+          set -eu
+          ! command -v g++
+          python -m pip install --find-links=.wheelhouse curry-frontend dist/*-cp311-cp311-*.whl
+          python scripts/wheels/smoke.py --peano examples/Peano.curry
+          apt-get update
+          apt-get install -y --no-install-recommends g++
+          sprite-make --so examples/Peano.curry
+          test -s examples/.curry/sprite-pakcs-3.4.1/Peano.so
+          SPRITE_INTERPRETER_FLAGS=interpret:off python scripts/wheels/smoke.py --peano examples/Peano.curry
+
+  smoke-sdist:
+    needs: sdist
+    runs-on: ubuntu-24.04
+    container: python:3.11-slim
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-wheels
+          path: .wheelhouse
+      - name: Build from the sdist with only a compiler and the image's Python headers
+        run: |
+          set -eu
+          apt-get update
+          apt-get install -y --no-install-recommends g++
+          test -f /usr/local/include/python3.11/Python.h
+          ! command -v cmake
+          ! command -v ninja
+          ! command -v curry-frontend
+          # An empty working directory prevents use of checkout build products.
+          export PIP_FIND_LINKS="$PWD/.wheelhouse"
+          mkdir /tmp/sdist-smoke
+          cp dist/*.tar.gz /tmp/sdist-smoke/
+          cd /tmp/sdist-smoke
+          python -m pip install --verbose --no-cache-dir currylang-*.tar.gz
+          # This is a build requirement, installed only after the source build
+          # to make loading the smoke program possible at run time.
+          python -m pip install curry-frontend
+          cd "$GITHUB_WORKSPACE"
+          python scripts/wheels/smoke.py --peano examples/Peano.curry
+
+  distributions:
+    needs: [wheels, sdist, smoke-wheel, smoke-sdist]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: dist
+      - name: Require exactly twelve wheels and one complete sdist
+        env:
+          RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+        run: python scripts/wheels/check-dist.py dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          if-no-files-found: error
+
+  publish-testpypi:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: distributions
+    runs-on: ubuntu-24.04
+    environment:
+      name: pypi
+      url: https://test.pypi.org/p/currylang
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  publish-pypi:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: publish-testpypi
+    runs-on: ubuntu-24.04
+    environment:
+      name: pypi
+      url: https://pypi.org/p/currylang
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
