@@ -50,7 +50,14 @@ def build_environment(prefix):
       env.pop(key)
   for key in ['CURRYPATH', 'CFLAGS', 'CXXFLAGS']:
     env.pop(key, None)
-  env.update(SPRITE_HOME=str(prefix), PYTHONPATH=str(Path(prefix) / 'python'),
+  # The package of the stage first, then the path of the caller: in the
+  # isolated build of pip (the sdist) it names the site of the build
+  # environment, where the console script of the front end, a build
+  # requirement, finds its module.
+  pythonpath = os.pathsep.join(
+      p for p in [str(Path(prefix) / 'python'), os.environ.get('PYTHONPATH', '')]
+        if p)
+  env.update(SPRITE_HOME=str(prefix), PYTHONPATH=pythonpath,
              SPRITE_FRONTEND_WARNINGS='0')
   return env
 
