@@ -1,0 +1,30 @@
+A perfect hash function, found by search
+========================================
+
+The program space is three operations with a few constants, nine
+alternatives per position; `program n` is every program of length n, by
+nondeterminism; `perfect keys size n` keeps the programs that send the keys
+into distinct slots of a table.  go.py asks for lengths 1, 2, 3 and stops
+at the first solution: a search for a program in a dozen lines of Curry.
+The same search in Python, written out with itertools, runs beside it for
+the time (reported on standard error so expected.out is repeatable).
+
+The point is not the hash function.  It is that the enumeration, the
+failure of the candidates that collide, and the stop at the first solution
+are the language's, so the Curry text states the problem and nothing else.
+
+Run "make stage" from the root of the repository first, then "./run"
+from this directory.  The file expected.out records the standard output.
+
+The 50 keywords use a table of 512 slots.  At 128 slots none of the
+original 15 + 225 + 3375 programs of lengths one through three is perfect.
+The shift constants are now 2 and 4: nine operations per position, with
+9 programs at length one and 81 at length two.  At 512 slots length one
+has no solution; length two finds [Mul 31, Shr 2].  The Python enumeration
+finds the same program, its fifth candidate at length two.  A first C++
+run took 1.54 seconds including compilation and startup; Python's brute
+force took 0.000221 seconds; Curry's two searches took 0.71 seconds.
+Times vary.
+
+The example test uses C++: the reference backend was still searching
+length two when stopped at 60 seconds.
