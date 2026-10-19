@@ -1,7 +1,7 @@
 from ..generic.eval import evaluator
 from ... import backends
 from . import (
-    compiler, cyrtbindings, fundamental_symbols, implementation, loader
+    compiler, curryrtbindings, fundamental_symbols, implementation, loader
   , materialize, tiered, toolchain
   )
 from ...objects.handle import getHandle
@@ -29,7 +29,7 @@ class IBackend(backends.IBackend):
     # A new interpreter and a reset unload the modules whose compiles run in
     # the background.
     tiered.cancel()
-    interp._its = cyrtbindings.InterpreterState()
+    interp._its = curryrtbindings.InterpreterState()
 
   def module_loaded(self, interp, moduleobj, currypath):
     materialize.module_loaded(interp, moduleobj, currypath)
@@ -58,23 +58,23 @@ class IBackend(backends.IBackend):
     return tiered.counts()
 
   def num_collections(self):
-    return cyrtbindings.gc_collections()
+    return curryrtbindings.gc_collections()
 
   def gc_seconds(self):
-    return cyrtbindings.gc_seconds()
+    return curryrtbindings.gc_seconds()
 
   def gc_counters(self):
-    return cyrtbindings.gc_counters()
+    return curryrtbindings.gc_counters()
 
   def scheduler_counters_enabled(self):
-    return cyrtbindings.scheduler_counters_enabled()
+    return curryrtbindings.scheduler_counters_enabled()
 
   def getimpl(self, symbol):
     return implementation.getimpl(symbol)
 
   def find_or_create_internal_module(self, moduleobj):
     h = getHandle(moduleobj)
-    M = cyrtbindings.Module.find_or_create(h.fullname)
+    M = curryrtbindings.Module.find_or_create(h.fullname)
     M.link(h.icurry.metadata.get('cxx.shlib'))
     return M
 
@@ -99,11 +99,11 @@ class IBackend(backends.IBackend):
 
   @property
   def create_evaluation_rts(self):
-    return cyrtbindings.RuntimeState
+    return curryrtbindings.RuntimeState
 
   @property
   def make_node(self):
-    return cyrtbindings.make_node
+    return curryrtbindings.make_node
 
   @property
   def materialize(self):

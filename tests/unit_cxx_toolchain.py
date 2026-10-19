@@ -14,7 +14,7 @@ against a runtime it was not written for.
 
 Each compiled object carries an ABI stamp beside it: the digest of the
 runtime headers the generated code includes (the include closure of
-cyrt/cyrt.hpp; a header outside it belongs to the runtime library alone)
+curryrt/curryrt.hpp; a header outside it belongs to the runtime library alone)
 and of the flags of its flavor, and the real path of the installation as
 text.  An object whose digest differs, or whose text names another
 installation, is compiled again; the age of the runtime library does not
@@ -127,7 +127,7 @@ class TestPrecompiledHeader(ToolchainTestCase):
 
   @property
   def gch_dir(self):
-    return os.path.join(self.root, 'cyrt', 'cyrt.hpp.gch')
+    return os.path.join(self.root, 'curryrt', 'curryrt.hpp.gch')
 
   def members(self):
     '''The names of the precompiled headers under the temporary root.'''
@@ -161,7 +161,7 @@ class TestPrecompiledHeader(ToolchainTestCase):
     self.assertEqual(self.members(), members)
     self.assertEqual(os.path.getmtime(path), stamp)
     # No temporary file remains beside the directory.
-    self.assertEqual(os.listdir(os.path.join(self.root, 'cyrt')), ['cyrt.hpp.gch'])
+    self.assertEqual(os.listdir(os.path.join(self.root, 'curryrt')), ['curryrt.hpp.gch'])
 
   def test_compiler_uses_the_header(self):
     '''g++ finds the header through the include flag for the root.'''
@@ -184,7 +184,7 @@ class TestPrecompiledHeader(ToolchainTestCase):
 
   def test_stale_member_is_rebuilt(self):
     '''
-    A member older than a header is built again.  The age of libcyrt.so does
+    A member older than a header is built again.  The age of libcurryrt.so does
     not count: a relink of the library keeps the member.
     '''
     self.compile_module(4)
@@ -199,7 +199,7 @@ class TestPrecompiledHeader(ToolchainTestCase):
     self.assertTrue(headers)
     newest_header = max(os.path.getmtime(f) for f in headers)
     # Older than the library, but not older than any header: current.
-    before_library = os.path.getmtime(config.cyrt_lib()) - 1
+    before_library = os.path.getmtime(config.curryrt_lib()) - 1
     if before_library >= newest_header:
       os.utime(path, (before_library, before_library))
       self.assertTrue(pch.is_current())
@@ -290,7 +290,7 @@ class TestPrecompiledHeader(ToolchainTestCase):
     self.assertEqual(len(log.data[logging.WARNING]), 1)
     self.assertIn('the header build failed', log.data[logging.WARNING][0])
     self.assertEqual(self.members(), [])
-    self.assertEqual(os.listdir(os.path.join(self.root, 'cyrt')), ['cyrt.hpp.gch'])
+    self.assertEqual(os.listdir(os.path.join(self.root, 'curryrt')), ['curryrt.hpp.gch'])
 
   @cytest.with_flags(backend='cxx', debug=True, interpret='off')
   def test_debug_flavor(self):
@@ -316,7 +316,7 @@ class TestPrecompiledHeader(ToolchainTestCase):
     self.assertTrue(b.flavor.startswith('O0g-'))
     self.assertFalse(a.is_current())
     headers = list(a.header_files())
-    self.assertIn(config.installed_path('include', 'cyrt', 'cyrt.hpp'), headers)
+    self.assertIn(config.installed_path('include', 'curryrt', 'curryrt.hpp'), headers)
 
 @unittest.skipIf(
     curry.flags['backend'] != 'cxx', 'the toolchain belongs to the C++ backend'
@@ -533,12 +533,12 @@ def conditional_includes(headers, include):
 class TestAbiStamp(ToolchainTestCase):
   '''
   Each shared object gets an ABI stamp: the digest of the runtime headers
-  the generated code includes (the include closure of cyrt/cyrt.hpp;
+  the generated code includes (the include closure of curryrt/curryrt.hpp;
   test_closure) and of the flags of its flavor.  An object
   whose stamp is missing or differs from the digest of the installation is
   compiled again (TestFlavor covers the flavors).  An object with the
   same stamp is kept, whatever the time stamps of the runtime library and the
-  object say.  Before this, an object older than libcyrt.so was compiled
+  object say.  Before this, an object older than libcurryrt.so was compiled
   again, so every make stage that relinked the library invalidated every
   object, and the first import after it compiled the Prelude again.
   '''
@@ -594,18 +594,18 @@ class TestAbiStamp(ToolchainTestCase):
 
   def test_object_older_than_the_library_is_kept(self):
     '''
-    The age of the object against libcyrt.so does not matter.  The chain of
+    The age of the object against libcurryrt.so does not matter.  The chain of
     the module is set older than the library, in its own order, so the
     object stays its newest file.
     '''
     name = self.build(2)
     sofile = self.cached_file(name, '.so')
-    old = os.path.getmtime(config.cyrt_lib()) - 100
+    old = os.path.getmtime(config.curryrt_lib()) - 100
     for i, suffix in enumerate(['.json.z', '.cpp', '.so', '.so.abi']):
       path = self.cached_file(name, suffix)
       os.utime(path, (old + i, old + i))
     self.assertLess(
-        os.path.getmtime(sofile), os.path.getmtime(config.cyrt_lib())
+        os.path.getmtime(sofile), os.path.getmtime(config.curryrt_lib())
       )
     self.assertFalse(self.cpp2so.is_stale(sofile))
     self.assertEqual(self.prerequisite(name), sofile)
@@ -802,17 +802,17 @@ class TestAbiStamp(ToolchainTestCase):
     installation cannot compile, so a refused object could not be replaced.
     '''
     broken = os.path.join(self.tmpdir, 'broken')
-    os.makedirs(os.path.join(broken, 'cyrt'))
+    os.makedirs(os.path.join(broken, 'curryrt'))
     os.symlink(
         os.path.join(self.tmpdir, 'gone.hpp')
-      , os.path.join(broken, 'cyrt', 'cyrt.hpp')
+      , os.path.join(broken, 'curryrt', 'curryrt.hpp')
       )
     with self.assertRaises(exceptions.PrerequisiteError) as cm:
       toolchain.runtime_digest(broken)
     self.assertIn(broken, str(cm.exception))
-    self.assertIn('cyrt.hpp', str(cm.exception))
+    self.assertIn('curryrt.hpp', str(cm.exception))
     empty = os.path.join(self.tmpdir, 'empty')
-    os.makedirs(os.path.join(empty, 'cyrt'))
+    os.makedirs(os.path.join(empty, 'curryrt'))
     self.assertIsNone(toolchain.runtime_digest(empty))
     name = self.build(7)
     sofile = self.cached_file(name, '.so')
@@ -834,10 +834,10 @@ class TestAbiStamp(ToolchainTestCase):
     # search path, or fail itself.
     copy = os.path.join(self.tmpdir, 'copy')
     shutil.copytree(
-        config.installed_path('include', 'cyrt'), os.path.join(copy, 'cyrt')
+        config.installed_path('include', 'curryrt'), os.path.join(copy, 'curryrt')
       , ignore=shutil.ignore_patterns('*.gch')
       )
-    node = os.path.join(copy, 'cyrt', 'graph', 'node.hpp')
+    node = os.path.join(copy, 'curryrt', 'graph', 'node.hpp')
     os.unlink(node)
     os.symlink(os.path.join(self.tmpdir, 'gone.hpp'), node)
     with self.assertRaises(exceptions.PrerequisiteError) as cm:
@@ -849,7 +849,7 @@ class TestAbiStamp(ToolchainTestCase):
     self.assertRegex(toolchain.runtime_digest(copy), r'^[0-9a-f]{16}$')
     self.assertNotIn(node, toolchain.runtime_headers(copy))
     self.assertIn(
-        os.path.join(copy, 'cyrt', 'cyrt.hpp'), toolchain.runtime_headers(copy)
+        os.path.join(copy, 'curryrt', 'curryrt.hpp'), toolchain.runtime_headers(copy)
       )
 
   def test_digest(self):
@@ -864,11 +864,11 @@ class TestAbiStamp(ToolchainTestCase):
       )
     headers = list(toolchain.runtime_headers())
     self.assertEqual(headers, list(toolchain.runtime_headers()))
-    self.assertIn(config.installed_path('include', 'cyrt', 'cyrt.hpp'), headers)
+    self.assertIn(config.installed_path('include', 'curryrt', 'curryrt.hpp'), headers)
     # A copy of the headers with new time stamps gives the same digest.
     root = os.path.join(self.tmpdir, 'include')
     shutil.copytree(
-        config.installed_path('include', 'cyrt'), os.path.join(root, 'cyrt')
+        config.installed_path('include', 'curryrt'), os.path.join(root, 'curryrt')
       , ignore=shutil.ignore_patterns('*.gch')
       )
     copies = list(toolchain.runtime_headers(root))
@@ -878,7 +878,7 @@ class TestAbiStamp(ToolchainTestCase):
       os.utime(path, (now, now))
     self.assertEqual(toolchain.runtime_digest(root), digest)
     # A precompiled header in the tree does not count.
-    gch = os.path.join(root, 'cyrt', 'cyrt.hpp.gch')
+    gch = os.path.join(root, 'curryrt', 'curryrt.hpp.gch')
     os.mkdir(gch)
     open(os.path.join(gch, 'O3-0123456789ab.gch'), 'w').close()
     toolchain.runtime_digest.cache_clear()
@@ -923,10 +923,10 @@ class TestAbiStamp(ToolchainTestCase):
     '''
     copy = os.path.join(self.tmpdir, 'pch_copy')
     shutil.copytree(
-        config.installed_path('include', 'cyrt'), os.path.join(copy, 'cyrt')
+        config.installed_path('include', 'curryrt'), os.path.join(copy, 'curryrt')
       , ignore=shutil.ignore_patterns('*.gch')
       )
-    node = os.path.join(copy, 'cyrt', 'graph', 'node.hpp')
+    node = os.path.join(copy, 'curryrt', 'graph', 'node.hpp')
     os.unlink(node)
     os.symlink(os.path.join(self.tmpdir, 'gone.hpp'), node)
     root = os.path.join(self.tmpdir, 'pch_root')
@@ -954,7 +954,7 @@ class TestAbiStamp(ToolchainTestCase):
   def test_closure(self):
     '''
     The digest covers the headers the generated code includes and no other:
-    the include closure of cyrt/cyrt.hpp.  An edit to a header outside it,
+    the include closure of curryrt/curryrt.hpp.  An edit to a header outside it,
     one the runtime library alone uses (the equality of graphs, the walks,
     the bytecode of the interpreter), leaves the digest as it is, so no
     module is compiled again.  An edit to a header inside it (the node
@@ -964,7 +964,7 @@ class TestAbiStamp(ToolchainTestCase):
     include = config.installed_path('include')
     root = os.path.join(self.tmpdir, 'include')
     shutil.copytree(
-        os.path.join(include, 'cyrt'), os.path.join(root, 'cyrt')
+        os.path.join(include, 'curryrt'), os.path.join(root, 'curryrt')
       , ignore=shutil.ignore_patterns('*.gch')
       )
     def relative(paths, base):
@@ -974,20 +974,20 @@ class TestAbiStamp(ToolchainTestCase):
     self.assertEqual(inside, sorted(inside))
     every = sorted(
         os.path.relpath(os.path.join(dirpath, name), root)
-        for dirpath, _, filenames in os.walk(os.path.join(root, 'cyrt'))
+        for dirpath, _, filenames in os.walk(os.path.join(root, 'curryrt'))
         for name in filenames if name.endswith(('.hpp', '.hxx'))
       )
     outside = sorted(set(every) - set(inside))
     layout = [
-        'cyrt/graph/node.hpp', 'cyrt/graph/infotable.hpp', 'cyrt/state/rts.hpp'
+        'curryrt/graph/node.hpp', 'curryrt/graph/infotable.hpp', 'curryrt/state/rts.hpp'
       ]
-    for name in ['cyrt/cyrt.hpp'] + layout:
+    for name in ['curryrt/curryrt.hpp'] + layout:
       self.assertIn(name, inside)
     # The headers of the runtime's own.  The issue (#44) names the split; a
     # header that joins the closure again widens every rebuild.
     for name in [
-        'cyrt/graph/equality.hpp', 'cyrt/graph/walk.hpp', 'cyrt/icurry.hpp'
-      , 'cyrt/inspect.hpp', 'cyrt/module.hpp', 'cyrt/utf8.hpp'
+        'curryrt/graph/equality.hpp', 'curryrt/graph/walk.hpp', 'curryrt/icurry.hpp'
+      , 'curryrt/inspect.hpp', 'curryrt/module.hpp', 'curryrt/utf8.hpp'
       ]:
       self.assertIn(name, outside)
     digest = toolchain.runtime_digest(root)
@@ -997,7 +997,7 @@ class TestAbiStamp(ToolchainTestCase):
     for name in outside:
       with open(os.path.join(root, name), 'a') as stream:
         stream.write('// an edit outside the closure\n')
-    internal = os.path.join(root, 'cyrt', 'graph', 'internal.hpp')
+    internal = os.path.join(root, 'curryrt', 'graph', 'internal.hpp')
     with open(internal, 'w') as stream:
       stream.write('#pragma once\n')
     toolchain.runtime_digest.cache_clear()
@@ -1042,7 +1042,7 @@ class TestAbiStamp(ToolchainTestCase):
     name = self.build(3)
     with open(self.cached_file(name, '.cpp')) as stream:
       includes = re.findall(
-          r'^#include "(cyrt/[^"]+)"', stream.read(), re.MULTILINE
+          r'^#include "(curryrt/[^"]+)"', stream.read(), re.MULTILINE
         )
     self.assertEqual(includes, list(compiler.RUNTIME_INCLUDES))
     self.assertEqual(
@@ -1070,8 +1070,8 @@ class TestAbiStamp(ToolchainTestCase):
           if not path.startswith('..'):
             listed.add(path)
       for name in [
-          'cyrt/cyrt.hpp', 'cyrt/graph/node.hpp', 'cyrt/graph/infotable.hpp'
-        , 'cyrt/state/rts.hpp'
+          'curryrt/curryrt.hpp', 'curryrt/graph/node.hpp', 'curryrt/graph/infotable.hpp'
+        , 'curryrt/state/rts.hpp'
         ]:
         self.assertIn(name, listed, flavor)
       self.assertEqual(
@@ -1239,7 +1239,7 @@ class TestPortableObjects(ToolchainTestCase):
     self.assertEqual(toolchain.module_of_soname('sprite-intmath065.so.13'), 'intmath065')
     self.assertEqual(toolchain.module_of_soname('sprite-Data.so.so.13'), 'Data.so')
     for name in [
-        'libcyrt.so', 'libstdc++.so.6', 'libgcc_s.so.1', 'libc.so.6', 'libm.so.6'
+        'libcurryrt.so', 'libstdc++.so.6', 'libgcc_s.so.1', 'libc.so.6', 'libm.so.6'
       , 'Prelude.so.13', 'sprite-.so.13', 'sprite-X.so.1a', 'sprite-X.so'
       , 'sprite-a/b.so.13', 'sprite-a-b.so.13', ''
       ]:
@@ -1260,7 +1260,7 @@ class TestPortableObjects(ToolchainTestCase):
     dynamic = elf.read_dynamic(sofile)
     self.assertEqual(dynamic.soname, toolchain.soname(name))
     self.assertIn(toolchain.soname('Prelude'), dynamic.needed)
-    self.assertIn('libcyrt.so', dynamic.needed)
+    self.assertIn('libcurryrt.so', dynamic.needed)
     self.assertIsNone(dynamic.rpath)
     self.assertIsNone(dynamic.runpath)
     for entry in dynamic_names(dynamic):
@@ -1562,7 +1562,7 @@ class TestPortableObjects(ToolchainTestCase):
     sofile = self.cached_file(module.__name__, '.so')
     dynamic = elf.read_dynamic(sofile)
     self.assertEqual(dynamic.soname, toolchain.soname(module.__name__))
-    self.assertIn('libcyrt.so', dynamic.needed)
+    self.assertIn('libcurryrt.so', dynamic.needed)
     strip = shutil.which('strip')
     if strip is not None:
       helptext = subprocess.run(
@@ -1690,7 +1690,7 @@ class TestFlavor(ToolchainTestCase):
     self.assertEqual(
         self.cpp2so.read_stamp(prelude), toolchain.object_digest(flavor)
       )
-    for path in config.cyrt_lib(), prelude:
+    for path in config.curryrt_lib(), prelude:
       symbols = undefined_symbols(path)
       if flavor == 'release':
         self.assertNotIn(self.ASSERT, symbols, path)

@@ -69,9 +69,9 @@ def main():
     if path.suffix not in ('.py', '.pyi', '.typed') or 'llvm' in path.parts:
       continue
     copy(path, prefix / 'python/curry' / path.relative_to(source / 'src/python'))
-  for path in (source / 'src/cyrt').rglob('*'):
+  for path in (source / 'src/curryrt').rglob('*'):
     if path.suffix in ('.hpp', '.hxx', '.def'):
-      copy(path, prefix / 'include/cyrt' / path.relative_to(source / 'src/cyrt'))
+      copy(path, prefix / 'include/curryrt' / path.relative_to(source / 'src/curryrt'))
   for name, value in [('python', sys.executable),
                       ('curry-frontend', args.frontend), ('pakcs', args.pakcs),
                       ('icurry', args.icurry)]:

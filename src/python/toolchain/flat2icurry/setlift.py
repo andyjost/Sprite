@@ -17,7 +17,7 @@ PAKCS) are not the authority; the paper is.
 
 The compiler, not the runtime, makes it so.  The runtime boxes the
 arguments a function value holds (``set_step`` of
-``cyrt/currylib/setfunctions.cpp``, ``set_`` of the Python backend; issue
+``curryrt/currylib/setfunctions.cpp``, ``set_`` of the Python backend; issue
 #117), so ``set1 (f x_1 .. x_(k-1)) x_k`` and ``setk f x_1 .. x_k`` reach
 one entry state for any ``k``, and this pass turns every saturated call
 ``set0 e`` whose argument has captured variables ``x_1 .. x_k`` into that

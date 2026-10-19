@@ -1,0 +1,64 @@
+#include "curryrt/curryrt.hpp"
+#include "curryrt/currylib/prelude.hpp"
+
+using namespace curryrt;
+
+namespace curryrt
+{
+  static tag_type show_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor _0 = C->cursor();
+    Variable _1 = _0[0]; // pre-normalized with $## in the Prelude
+    std::string str = _1.target->str();
+    Node * replacement = build_curry_string(str.c_str());
+    _0->forward_to(replacement);
+    return T_FWD;
+  }
+}
+
+extern "C"
+{
+  InfoTable const prim_showCharLiteral_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "prim_showCharLiteral"
+    , /*format*/     "p"
+    , /*step*/       show_step
+    , /*type*/       nullptr
+    };
+
+  InfoTable const prim_showFloatLiteral_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "prim_showFloatLiteral"
+    , /*format*/     "p"
+    , /*step*/       show_step
+    , /*type*/       nullptr
+    };
+
+  InfoTable const prim_showIntLiteral_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "prim_showIntLiteral"
+    , /*format*/     "p"
+    , /*step*/       show_step
+    , /*type*/       nullptr
+    };
+
+  InfoTable const prim_showStringLiteral_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "prim_showStringLiteral"
+    , /*format*/     "p"
+    , /*step*/       show_step
+    , /*type*/       nullptr
+    };
+}

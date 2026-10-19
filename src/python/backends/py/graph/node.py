@@ -169,7 +169,7 @@ def new_node(cls, info, *args, target=None, partial=False):
 # The range of Int: 64 bits, as on the C++ backend (issue #105).  An Int
 # node never holds a wider integer, so the two backends agree on every
 # value.  The message is the one the C++ backend raises
-# (backends/cxx/cyrtbindings/graph.cpp).
+# (backends/cxx/curryrtbindings/graph.cpp).
 INT_MIN = -(1 << 63)
 INT_MAX = (1 << 63) - 1
 

@@ -776,7 +776,7 @@ class TestSelection(unittest.TestCase):
     return [item.filename for item in selected], selected, notes
 
   def test_rules(self):
-    names, _, notes = self.selected(['src/cyrt/graph/node.cpp'])
+    names, _, notes = self.selected(['src/curryrt/graph/node.cpp'])
     self.assertEqual(names, CXX_FILES)
     self.assertEqual(len(notes), 1)
     self.assertIn('the C++ runtime', notes[0])
@@ -1015,7 +1015,7 @@ class TestSelection(unittest.TestCase):
 
   def test_reasons_accumulate(self):
     _, selected, _ = self.selected(
-        ['src/cyrt/a.cpp', 'src/python/backends/cxx/b.py']
+        ['src/curryrt/a.cpp', 'src/python/backends/cxx/b.py']
       )
     gc = [item for item in selected if item.filename == 'unit_cxx_gc.py'][0]
     self.assertEqual(len(gc.reasons), 2)

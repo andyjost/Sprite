@@ -1,5 +1,5 @@
-The native build is defined in ../CMakeLists.txt. It builds libcyrt and
-_cyrtbindings, then scripts/build-package.py prepares the staged package
+The native build is defined in ../CMakeLists.txt. It builds libcurryrt and
+_curryrtbindings, then scripts/build-package.py prepares the staged package
 and compiles its Curry library using that package's own toolchain.
 
 The root Makefile is a thin wrapper. See docs/source/DeveloperSetup.rst.

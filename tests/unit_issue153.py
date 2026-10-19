@@ -46,7 +46,7 @@ static int create_worker(pthread_t *thread, pthread_attr_t const *attr,
 // Compile the adapter with a throwing creation function.  pthread_create
 // itself returns an error code; C++ allocation and synchronization throw.
 #define pthread_create create_worker
-#include "cyrt/evaluation.cpp"
+#include "curryrt/evaluation.cpp"
 #undef pthread_create
 int main(int argc, char **argv)
 {
@@ -54,7 +54,7 @@ int main(int argc, char **argv)
   all_sizes = argv[2][0] == 'a';
   try
   {
-    auto &w = cyrt::get_worker(size_t(1) << 30);
+    auto &w = curryrt::get_worker(size_t(1) << 30);
     std::cout << w.attempts << '\n';
     {
       std::lock_guard<std::mutex> lock(w.mutex);
@@ -63,7 +63,7 @@ int main(int argc, char **argv)
     }
     pthread_join(w.thread, nullptr);
   }
-  catch(cyrt::EvaluationError const &error)
+  catch(curryrt::EvaluationError const &error)
   { std::cout << error.what() << '\n'; }
 }
 ''')
@@ -71,7 +71,7 @@ int main(int argc, char **argv)
     library = os.path.join(tmpdir, 'refusal')
     proc = subprocess.run([compiler, '-std=c++17', source, '-o', library,
         '-I' + os.path.join(root, 'src'), '-L' + os.path.join(curry.config.prefix(), 'lib'),
-        '-Wl,-rpath,' + os.path.join(curry.config.prefix(), 'lib'), '-lcyrt', '-pthread'],
+        '-Wl,-rpath,' + os.path.join(curry.config.prefix(), 'lib'), '-lcurryrt', '-pthread'],
         capture_output=True, text=True, timeout=120)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     for kind, name in [('b', 'std::bad_alloc'), ('s', 'std::system_error')]:

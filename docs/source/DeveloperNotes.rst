@@ -171,12 +171,12 @@ Audit of shared state
      - Directory snapshots and updates share a short lock. Dynamic class factories have registry locks. Dispatch ordering computes from a handler snapshot outside its lock and publishes an immutable tuple only if the registered types still match; handlers run after releasing locks.
 
    * - Binding trap hook
-     - ``backends/cxx/cyrtbindings/module.cpp``
+     - ``backends/cxx/curryrtbindings/module.cpp``
      - A process-global py::object was reassigned/invoked; attaching Python thread state is not exclusion.
      - set_trap_hook already uses heap_access; invocation already runs under the locked rewrite step. Retain a local callable reference across reentrant replacement. Its process-lifetime storage intentionally avoids Python teardown destruction; this is not a subinterpreter opt-in.
 
    * - Binding literals, constants and graph lifetime
-     - ``backends/cxx/cyrtbindings/{icurry,graph,dynload,tiered}.cpp; heap.hpp``
+     - ``backends/cxx/curryrtbindings/{icurry,graph,dynload,tiered}.cpp; heap.hpp``
      - Literal-map check/allocate/insert, graph/registry access and native destruction need exclusion without a GIL.
      - Literal maps are accessed under icurry_attach heap_access; small literal/opcode/constants initialize before module publication and then stay immutable. Existing heap_access, HeapScope, rooting and HeapDeleter cover graph/native lifetime and return conversion. Callbacks attach thread state; waits/steps detach it. The runtime lock is unchanged.
 
@@ -308,8 +308,8 @@ What it is for
   evaluator (``Evaluator.set_global_step_limit``).  Both backends provide
   the limit: the Python ``RuntimeState`` counts in its ``StepCounter``, and
   the C++ scheduler stops after the step that reaches
-  ``RuntimeState::step_limit`` (``cyrt/state/rts.hpp``), which the adapter
-  ``cyrtbindings.StepCounter`` presents as ``rts.stepcounter``.  The graph
+  ``RuntimeState::step_limit`` (``curryrt/state/rts.hpp``), which the adapter
+  ``curryrtbindings.StepCounter`` presents as ``rts.stepcounter``.  The graph
   then holds the result of exactly that many steps on either backend, so
   the two tests that use it, ``test_interp_step`` of ``unit_py_runtime.py``
   and ``test_apply_nf`` of ``unit_prelude.py``, run on both;
@@ -378,7 +378,7 @@ of the memo on the Fair Scheme proofs.  Both backends have one.  The
 runtime state of the reference backend holds one ``Checker``
 (``curry.backends.py.eval.checker``) while the flag is on, and ``None``
 otherwise; the runtime state of the C++ backend holds one ``Checker`` of
-``src/cyrt/checker.hpp`` (``RuntimeState::checker``, a pointer that is null
+``src/curryrt/checker.hpp`` (``RuntimeState::checker``, a pointer that is null
 otherwise).  Every hook in a runtime is one test of that attribute or
 pointer, so the flag-off path costs one test per event and makes the same
 steps, values and counters as before, and the checker changes no step, no
@@ -388,7 +388,7 @@ violation raises ``InvariantViolation``, an ``AssertionError`` whose
 message names the invariant, the event, the configuration (its queue, its
 set, its fingerprint, its groups, its root), the identifiers and the goal
 position; on the C++ backend the class is
-``curry.backends.cxx.cyrtbindings.InvariantViolation``, raised from the
+``curry.backends.cxx.curryrtbindings.InvariantViolation``, raised from the
 hook through the scheduler as the step limit is.  To run a program under
 the checker::
 
@@ -511,9 +511,9 @@ flags of the capsule's arguments), which over-approximate the escape sets:
 the checks of the current capsule read the tags, the checks of the
 enclosing capsules read the escape sets, as def:s-escapes does.
 
-The checker of the C++ runtime (``src/cyrt/checker.hpp``,
-``src/cyrt/checker.cpp``) mirrors the Python checker hook by hook and check
-by check.  Its header is outside the include closure of ``cyrt/cyrt.hpp``:
+The checker of the C++ runtime (``src/curryrt/checker.hpp``,
+``src/curryrt/checker.cpp``) mirrors the Python checker hook by hook and check
+by check.  Its header is outside the include closure of ``curryrt/curryrt.hpp``:
 the generated code never sees it, and the hooks reach the checker through
 the pointer of the runtime state.  The hooks sit at the same events: the
 fork (``rts_fingerprint.cpp``, after the clones went into the queue and
@@ -661,9 +661,9 @@ policy of the instrumentation, not of the invariants.
 checker, compiled and under ``interpret:all``, with the values and the
 counters they have without it, and provokes one violation per check
 through the debug entry points of the bindings
-(``cyrtbindings.checker_debug_*``), which corrupt one configuration of a
+(``curryrtbindings.checker_debug_*``), which corrupt one configuration of a
 runtime state on purpose or run one check on constructed nodes; the
-entries refuse while the flag is off.  ``cyrtbindings.checker_counts``
+entries refuse while the flag is off.  ``curryrtbindings.checker_counts``
 gives the counts of the events a state saw.
 
 The removal gate

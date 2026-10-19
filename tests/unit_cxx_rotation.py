@@ -1,5 +1,5 @@
 '''
-Tests for the rotation modes of the C++ backend (src/cyrt/ticker.hpp; the
+Tests for the rotation modes of the C++ backend (src/curryrt/ticker.hpp; the
 flag ``rotation`` in curry.interpreter.flags; issues #68 and #69).
 
 The scheduler rotates its queue of alternatives at a safepoint, after a
@@ -68,7 +68,7 @@ import curry, json, os, sys, time
 curry.reset(**
     {'backend': 'cxx', 'rotation': %(mode)r}
   )
-from curry.backends.cxx import cyrtbindings as cyrt
+from curry.backends.cxx import curryrtbindings as curryrt
 M = curry.import_('CxxRewrite')
 def report(**fields):
   sys.stdout.write(json.dumps(fields) + '\n')
@@ -77,7 +77,7 @@ def ticker_thread():
   """The task id of the ticker thread, or None."""
   for tid in os.listdir('/proc/self/task'):
     with open('/proc/self/task/%%s/comm' %% tid) as stream:
-      if stream.read().strip() == 'cyrt-ticker':
+      if stream.read().strip() == 'curryrt-ticker':
         return tid
   return None
 def context_switches(tid):
@@ -308,7 +308,7 @@ class TestStepMode(cytest.TestCase):
     '''Step mode never starts the ticker thread.'''
     lines = run_child(self, STEP_MODE, '''
 value = next(curry.eval(M.fair))
-report(value=value, status=cyrt.ticker_status(), thread=ticker_thread())
+report(value=value, status=curryrt.ticker_status(), thread=ticker_thread())
 ''')
     (line,) = lines
     self.assertEqual(line['value'], 42)
@@ -358,7 +358,7 @@ value = next(curry.eval(M.fair))
 seconds = time.monotonic() - t0
 report(
     value=value, seconds=seconds, steps=curry.stats()['steps'] - before
-  , status=cyrt.ticker_status()
+  , status=curryrt.ticker_status()
   )
 ''')
     (line,) = lines
@@ -379,8 +379,8 @@ report(
     lines = run_child(self, TIME_MODE, '''
 value = next(curry.eval(M.fair))
 tid = ticker_thread()
-parked = wait_until(lambda: cyrt.ticker_status()['parked'], 1.0)
-status0 = cyrt.ticker_status()
+parked = wait_until(lambda: curryrt.ticker_status()['parked'], 1.0)
+status0 = curryrt.ticker_status()
 # The thread shows parked before its wait blocks: it releases the mutex
 # inside the wait and may be preempted on the way to the kernel.  The count
 # of its switches is taken once two reads a few milliseconds apart agree.
@@ -395,7 +395,7 @@ def settled_switches(tid):
   return current
 switches0 = settled_switches(tid)
 time.sleep(%(idle)r)
-status1 = cyrt.ticker_status()
+status1 = curryrt.ticker_status()
 switches1 = context_switches(tid)
 # A running evaluation ticks again.
 before = status1['ticks']
@@ -404,12 +404,12 @@ for _ in range(3):
 report(
     value=value, tid=tid, parked=parked, status0=status0, status1=status1
   , switches0=switches0, switches1=switches1
-  , ticks_after=cyrt.ticker_status()['ticks'] - before
+  , ticks_after=curryrt.ticker_status()['ticks'] - before
   )
 ''' % {'idle': IDLE_SECONDS})
     (line,) = lines
     self.assertEqual(line['value'], 42)
-    self.assertIsNotNone(line['tid'], 'no thread named cyrt-ticker')
+    self.assertIsNotNone(line['tid'], 'no thread named curryrt-ticker')
     self.assertTrue(line['parked'], line['status0'])
     self.assertEqual(line['status0']['active'], 0)
     self.assertEqual(line['status1']['ticks'], line['status0']['ticks'])
@@ -428,19 +428,19 @@ report(
     lines = run_child(self, TIME_MODE, '''
 import signal
 next(curry.eval(M.fair))
-status_parent = cyrt.ticker_status()
+status_parent = curryrt.ticker_status()
 r, w = os.pipe()
 pid = os.fork()
 if pid == 0:
   os.close(r)
   signal.alarm(60)
-  status0 = cyrt.ticker_status()
+  status0 = curryrt.ticker_status()
   t0 = time.monotonic()
   value = next(curry.eval(M.fair))
   seconds = time.monotonic() - t0
   os.write(w, json.dumps({
       'value': value, 'seconds': seconds, 'status0': status0
-    , 'status1': cyrt.ticker_status(), 'thread': ticker_thread()
+    , 'status1': curryrt.ticker_status(), 'thread': ticker_thread()
     }).encode())
   os.close(w)
   os._exit(0)
@@ -487,19 +487,19 @@ report(
     lines = run_child(self, TIME_MODE, '''
 import signal
 next(curry.eval((M.plusOne)(1)))  # the first evaluation starts the ticker
-cyrt.ticker_enter(%(quantum_ns)d)
-status_parent = cyrt.ticker_status()
+curryrt.ticker_enter(%(quantum_ns)d)
+status_parent = curryrt.ticker_status()
 r, w = os.pipe()
 pid = os.fork()
 if pid == 0:
   os.close(r)
   signal.alarm(60)
-  status0 = cyrt.ticker_status()
+  status0 = curryrt.ticker_status()
   t0 = time.monotonic()
   value = next(curry.eval(M.fair))
   seconds = time.monotonic() - t0
-  status1 = cyrt.ticker_status()
-  cyrt.ticker_leave()
+  status1 = curryrt.ticker_status()
+  curryrt.ticker_leave()
   os.write(w, json.dumps({
       'value': value, 'seconds': seconds, 'status0': status0
     , 'status1': status1, 'thread': ticker_thread()
@@ -514,11 +514,11 @@ while True:
     break
   chunks.append(chunk)
 _, status = os.waitpid(pid, 0)
-cyrt.ticker_leave()
+curryrt.ticker_leave()
 report(
     parent=status_parent, exit_status=status
   , child=json.loads(b''.join(chunks).decode() or 'null')
-  , parent_after=cyrt.ticker_status()
+  , parent_after=curryrt.ticker_status()
   )
 ''' % {'quantum_ns': QUANTUM_MS * 10**6})
     (line,) = lines
@@ -566,9 +566,9 @@ def attempt():
   except RuntimeError as error:
     return {'value': None, 'error': str(error)}
 first = attempt()
-status_first = cyrt.ticker_status()
+status_first = curryrt.ticker_status()
 second = attempt()
-status_second = cyrt.ticker_status()
+status_second = curryrt.ticker_status()
 report(
     first=first, status_first=status_first, second=second
   , status_second=status_second, thread=ticker_thread()
@@ -579,7 +579,7 @@ curry.reset(**{
   , 'interpret': 'new'
   })
 M = curry.import_('CxxRewrite')
-report(value=next(curry.eval(M.fair)), status=cyrt.ticker_status())
+report(value=next(curry.eval(M.fair)), status=curryrt.ticker_status())
 ''' % {'time': TIME_MODE, 'steps': STEP_MODE})
     first, second = lines
     if first['first']['error'] is None:
@@ -604,19 +604,19 @@ report(value=next(curry.eval(M.fair)), status=cyrt.ticker_status())
     of the ticker; the Python side never passes one (parse_rotation gives
     at least one nanosecond).
     '''
-    from curry.backends.cxx import cyrtbindings as cyrt
+    from curry.backends.cxx import curryrtbindings as curryrt
     interp = cytest.raw.interp()
     istate = interp.backend.get_interpreter_state(interp)
     M = curry.import_('CxxRewrite')
     goal = cytest.raw.expr(M.plusOne, 1, typed=True)
     with self.assertRaisesRegex(ValueError, 'quantum above zero'):
-      cyrt.RuntimeStateBase(istate, goal, False, cyrt.NOLIMIT, 0, 0)
+      curryrt.RuntimeStateBase(istate, goal, False, curryrt.NOLIMIT, 0, 0)
     with self.assertRaisesRegex(ValueError, 'quantum above zero'):
-      cyrt.ticker_enter(0)
+      curryrt.ticker_enter(0)
     # The other combinations construct: step mode needs no quantum.
     for steps, quantum_ns in [(65536, 0), (0, 10**7), (65536, 10**7)]:
-      rts = cyrt.RuntimeStateBase(
-          istate, goal, False, cyrt.NOLIMIT, steps, quantum_ns
+      rts = curryrt.RuntimeStateBase(
+          istate, goal, False, curryrt.NOLIMIT, steps, quantum_ns
         )
       del rts
 

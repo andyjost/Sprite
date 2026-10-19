@@ -214,7 +214,7 @@ def cxx_gc():
 def cxx_gc_write_counters():
   '''
   True when the installed C++ runtime counts the writes into old nodes (make
-  GC_WRITE_COUNTERS=1; see src/cyrt/graph/gc/wdgc.cpp).  Some of the counted
+  GC_WRITE_COUNTERS=1; see src/curryrt/graph/gc/wdgc.cpp).  Some of the counted
   sites are in the runtime headers, so the C++ backend compiles generated
   modules with the same macro (see curry.backends.cxx.toolchain.gc_flags).
   An installation that names no value is a build without them.
@@ -529,9 +529,9 @@ def sprite_exec(cached=[]):
 
 
 @synchronized(_config_lock)
-def cyrt_lib(cached=[]):
+def curryrt_lib(cached=[]):
   if not cached:
-    path = installed_path('lib', 'libcyrt.so')
+    path = installed_path('lib', 'libcurryrt.so')
     path = os.path.abspath(path)
     assert os.path.exists(path)
     cached.append(path)

@@ -857,9 +857,9 @@ class TypedBuilder:
     if not text:
       return self._mknode(self.prelude.Nil, target=target)
     if self.cxx:
-      from ..backends.cxx import cyrtbindings
+      from ..backends.cxx import curryrtbindings
       target = getattr(target, 'target', target)
-      return cyrtbindings.Node.create_string(text, target)
+      return curryrtbindings.Node.create_string(text, target)
     from ..backends.py.currylib.prelude.string import codepoints
     return self._mknode(self.prelude._biString, codepoints(text), target=target)
 

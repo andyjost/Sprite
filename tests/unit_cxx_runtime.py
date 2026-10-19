@@ -1,5 +1,5 @@
 import cytest # from ./lib; must be first
-from curry.backends.cxx import cyrtbindings as cyrt
+from curry.backends.cxx import curryrtbindings as curryrt
 from curry.objects.handle import getHandle
 from curry.utility.binding import binding
 from curry import common, config, inspect
@@ -10,11 +10,11 @@ DATA = os.path.join(HERE, 'data', 'curry')
 
 class TestCxxRuntime(cytest.TestCase):
   def test_exception_types_are_public(self):
-    self.assertIs(cyrt.EvaluationError, curry.exceptions.EvaluationError)
-    self.assertIs(cyrt.SuspensionError, curry.exceptions.SuspensionError)
-    self.assertTrue(issubclass(cyrt.StepLimitReached, curry.CurryError))
-    self.assertTrue(issubclass(cyrt.InvariantViolation, curry.CurryError))
-    self.assertTrue(issubclass(cyrt.InvariantViolation, AssertionError))
+    self.assertIs(curryrt.EvaluationError, curry.exceptions.EvaluationError)
+    self.assertIs(curryrt.SuspensionError, curry.exceptions.SuspensionError)
+    self.assertTrue(issubclass(curryrt.StepLimitReached, curry.CurryError))
+    self.assertTrue(issubclass(curryrt.InvariantViolation, curry.CurryError))
+    self.assertTrue(issubclass(curryrt.InvariantViolation, AssertionError))
 
   @unittest.skipUnless(curry.flags['backend'] == 'cxx', 'requires the C++ backend')
   def test_native_exceptions_are_public(self):
@@ -36,26 +36,26 @@ class TestCxxRuntime(cytest.TestCase):
 
   def test_native_load_error_is_public(self):
     with self.assertRaisesRegex(curry.LoadError, 'missing.so') as cm:
-      cyrt.SharedCurryModule('missing.so')
+      curryrt.SharedCurryModule('missing.so')
     self.assertIs(type(cm.exception), curry.LoadError)
 
   def testModuleCreation(self):
-    count_modules = lambda: len(cyrt.Module.getall())
+    count_modules = lambda: len(curryrt.Module.getall())
     # Earlier tests in the same process may leave the Prelude loaded, so count
     # relative to the state at entry.
     base = count_modules()
-    self.assertNotIn('Hello', cyrt.Module.getall())
+    self.assertNotIn('Hello', curryrt.Module.getall())
 
     # Create.
-    Hello = cyrt.Module.find_or_create('Hello')
+    Hello = curryrt.Module.find_or_create('Hello')
     self.assertEqual(count_modules(), base + 1)
-    self.assertIs(cyrt.Module.getall()['Hello'], Hello)
+    self.assertIs(curryrt.Module.getall()['Hello'], Hello)
 
     # Attributes.
     self.assertEqual(Hello.name, 'Hello')
 
     # Recreate.
-    Hello2 = cyrt.Module.find_or_create('Hello')
+    Hello2 = curryrt.Module.find_or_create('Hello')
     self.assertIs(Hello, Hello2)
 
     # Delete
@@ -63,7 +63,7 @@ class TestCxxRuntime(cytest.TestCase):
     self.assertEqual(count_modules(), base)
 
   def testTypeCreation(self):
-    Hello = cyrt.Module.find_or_create('Hello')
+    Hello = curryrt.Module.find_or_create('Hello')
 
     Cons = Hello.create_infotable(':', 2, common.T_CTOR  , common.F_LIST_TYPE)
     Nil = Hello.create_infotable('[]', 0, common.T_CTOR+1, common.F_LIST_TYPE)
@@ -243,7 +243,7 @@ class TestReloadAfterCompiledObject(cytest.TestCase):
   evaluated the same goals, died with a segmentation fault in procS at the
   goal that applies the binding of a free variable at a fork
   (RuntimeState::apply_binding).  The runtime builds that node with its own
-  table of &> (CyI7Prelude12BindingGuard of cyrt/currylib/prelude.hpp,
+  table of &> (CyI7Prelude12BindingGuard of curryrt/currylib/prelude.hpp,
   seq_Info then), which the runtime library exported under the mangled
   name of the Curry function Prelude.seq.  The compiled Prelude defines that symbol too, so its
   dynamic initializer wrote the table of seq over the table of the runtime
@@ -378,9 +378,9 @@ class TestLibraryTablesInTheirObjects(cytest.TestCase):
   '''
   def test_tables(self):
     interp = cytest.raw.interp()
-    libcyrt_path = config.installed_path('lib', 'libcyrt.so')
-    libcyrt = os.path.realpath(libcyrt_path)
-    runtime = ctypes.CDLL(libcyrt_path)
+    libcurryrt_path = config.installed_path('lib', 'libcurryrt.so')
+    libcurryrt = os.path.realpath(libcurryrt_path)
+    runtime = ctypes.CDLL(libcurryrt_path)
     checked = 0
     for M in (interp.prelude, interp.setfunctions):
       h = getHandle(M)
@@ -391,10 +391,10 @@ class TestLibraryTablesInTheirObjects(cytest.TestCase):
       for name, sym in sorted(inspect.symbols(M).items()):
         where, symbol = _symbol_of(sym.info.address)
         self.assertIn(
-            where, (libcyrt, sofile)
+            where, (libcurryrt, sofile)
           , 'the table of %s.%s lies in %s' % (h.fullname, name, where)
           )
-        if where == libcyrt and symbol is not None:
+        if where == libcurryrt and symbol is not None:
           self.assertEqual(
               _address_of(shlib, symbol), _address_of(runtime, symbol)
             , 'the object of %s and the runtime library both define %s, '

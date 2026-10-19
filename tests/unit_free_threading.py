@@ -125,7 +125,7 @@ with tempfile.TemporaryDirectory() as directory:
   json_module(directory, 'ThreadCompile')
   interp = cytest.raw.interp()
   # Every native metadata entry must be outside a file-production lock.
-  from curry.backends.cxx.cyrtbindings import _cyrtbindings as native
+  from curry.backends.cxx.curryrtbindings import _curryrtbindings as native
   original = native._metadata_call
   def metadata(action):
     assert not getattr(_productlock._local, 'held', {}), 'product -> heap'
@@ -154,7 +154,7 @@ with tempfile.TemporaryDirectory() as directory:
   interp = cytest.raw.interp()
   module = interp.import_(imodule, currypath=[directory])
   info = getHandle(module).symbols['goal'].info
-  from curry.backends.cxx import cyrtbindings as native
+  from curry.backends.cxx import curryrtbindings as native
   assert native.is_trapped(info), 'the first-use compile became eager'
   cppfile = materialize.product_file(imodule)
   interp.save(module, cppfile, module_main=False)

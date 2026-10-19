@@ -117,7 +117,7 @@ class TestCondaRecipe(cytest.TestCase):
     self.assertIn('-DWITH_CURRY_FRONTEND="$PREFIX/bin/pakcs-frontend"', script)
     self.assertIn('cmake --install object-root/cmake --prefix "$SPRITE_HOME"', script)
     self.assertIn('-ffile-prefix-map=$SRC_DIR=.', script)
-    self.assertIn('rm -f "$SPRITE_HOME/lib/libcyrt.a"', script)
+    self.assertIn('rm -f "$SPRITE_HOME/lib/libcurryrt.a"', script)
     self.assertIn('sprite.pth', script)
     # The tool links are relative; the compiler is resolved at run time.
     self.assertIn('ln -s "../../../bin/python$pyver" "$tools/python"', script)
@@ -130,7 +130,7 @@ class TestCondaRecipe(cytest.TestCase):
     # The precompiled header of the build compiler goes to a cache directory
     # in the build tree, and the package holds none.
     self.assertIn('export XDG_CACHE_HOME="$SRC_DIR/cache"', script)
-    self.assertIn('test ! -e "$SPRITE_HOME/include/cyrt/cyrt.hpp.gch"', script)
+    self.assertIn('test ! -e "$SPRITE_HOME/include/curryrt/curryrt.hpp.gch"', script)
     # The launchers and the wrapper resolve their own location, so a link
     # to a launcher from another directory works.
     self.assertEqual(script.count('$(readlink -f "$0")'), 1)
@@ -147,7 +147,7 @@ class TestCondaRecipe(cytest.TestCase):
     self.assertEqual(re.search(pattern, readfile(ROOT, 'VERSION')).group(1), version)
     # The tests of the package check the writes: no header in the tree, no
     # prefix in a generated file, and the resolved source of the Prelude.
-    self.assertIn('test ! -e "$PREFIX/opt/sprite/include/cyrt/cyrt.hpp.gch"', meta)
+    self.assertIn('test ! -e "$PREFIX/opt/sprite/include/curryrt/curryrt.hpp.gch"', meta)
     self.assertIn('test -d "${XDG_CACHE_HOME:-$HOME/.cache}/sprite/pch"', meta)
     self.assertIn(
         "grep -rlF \"$PREFIX\" \"$PREFIX/opt/sprite/curry\" --include='*.py' --include='*.cpp'"
@@ -357,14 +357,14 @@ class TestCondaRecipe(cytest.TestCase):
   def test_sprite_home_default(self):
     '''
     The package finds its home from its own location when SPRITE_HOME is not
-    set, and the extension module finds libcyrt.so without LD_LIBRARY_PATH.
+    set, and the extension module finds libcurryrt.so without LD_LIBRARY_PATH.
     '''
     home = config.prefix()
     env = dict(ENV, PYTHONPATH=os.path.join(home, 'python'))
     code = 'import curry, os\n' \
            'print(os.environ["SPRITE_HOME"])\n' \
            'print(curry.config.prefix())\n' \
-           'import curry.backends.cxx.cyrtbindings\n'
+           'import curry.backends.cxx.curryrtbindings\n'
     result = run([sys.executable, '-B', '-c', code], env=env)
     self.assertEqual(result.returncode, 0, result.stdout)
     lines = [line for line in result.stdout.splitlines()
@@ -669,7 +669,7 @@ class TestPackageRules(cytest.TestCase):
       copy = os.path.join(os.path.realpath(tmpdir), 'env', 'opt', 'sprite')
       shutil.copytree(
           original, copy, symlinks=True
-        , ignore=shutil.ignore_patterns('*.gch', '__pycache__', 'libcyrt.a')
+        , ignore=shutil.ignore_patterns('*.gch', '__pycache__', 'libcurryrt.a')
         )
       # The rewrite of the manager: the prefix of the environment in place
       # of the prefix of the build, in every stamp.

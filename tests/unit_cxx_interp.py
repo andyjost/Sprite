@@ -1,7 +1,7 @@
 '''
 Tests for the ICurry interpreter of the C++ runtime.
 
-The runtime interprets a function from a bytecode (cyrt/icurry.hpp) that the
+The runtime interprets a function from a bytecode (curryrt/icurry.hpp) that the
 emitter of the C++ backend writes from the ICurry of the function
 (backends/cxx/bytecode.py).  The interpreter flag ``interpret`` selects it:
 'new' for the modules without a compiled object, 'all' for every module.  The
@@ -11,7 +11,7 @@ interpreter are compared with the values of the compiled code.
 import cytest # from ./lib; must be first
 from curry import common, config, icurry, inspect, toolchain
 from curry.backends.cxx import bytecode, materialize, tiered
-from curry.backends.cxx import cyrtbindings as cyrt
+from curry.backends.cxx import curryrtbindings as curryrt
 from curry.backends.cxx import toolchain as cxx_toolchain
 from curry.backends.generic.eval import evaluator
 from curry.exceptions import CompileError, EvaluationError
@@ -84,9 +84,9 @@ class TestEmitter(cytest.TestCase):
   '''The emitter on hand-built ICurry.'''
 
   def test_opcodes_agree_with_runtime(self):
-    self.assertEqual(list(cyrt.icurry_opcodes()), list(bytecode.OPCODES))
-    self.assertEqual(cyrt.ROOT_VAR, bytecode.ROOT_VAR)
-    self.assertEqual(cyrt.NO_BRANCH, bytecode.NO_BRANCH)
+    self.assertEqual(list(curryrt.icurry_opcodes()), list(bytecode.OPCODES))
+    self.assertEqual(curryrt.ROOT_VAR, bytecode.ROOT_VAR)
+    self.assertEqual(curryrt.NO_BRANCH, bytecode.NO_BRANCH)
     self.assertEqual(
         sorted(bytecode.OP.values()), list(range(len(bytecode.OPCODES)))
       )
@@ -446,10 +446,10 @@ class TestValues(cytest.TestCase):
     for mode in 'new', 'all':
       M = None
       M = switch(mode)
-      interpreted = cyrt.icurry_is_interpreted(M.fact.info)
+      interpreted = curryrt.icurry_is_interpreted(M.fact.info)
       self.assertEqual(interpreted, mode == 'all', mode)
       self.assertEqual(
-          cyrt.icurry_is_interpreted(curry.import_('Prelude')['map'].info)
+          curryrt.icurry_is_interpreted(curry.import_('Prelude')['map'].info)
         , mode == 'all', mode
         )
       if mode == 'all':
@@ -486,19 +486,19 @@ main = double (CxxInterp.fact 3)
     M = switch('new')
     # The compiled object of the module was used.
     self.assertIsNotNone(getHandle(M).icurry.metadata.get('cxx.shlib'))
-    self.assertFalse(cyrt.icurry_is_interpreted(M.fact.info))
-    before = cyrt.icurry_count()
+    self.assertFalse(curryrt.icurry_is_interpreted(M.fact.info))
+    before = curryrt.icurry_count()
     N = curry.compile(self.TEXT)
     self.assertIsNone(getHandle(N).icurry.metadata.get('cxx.shlib'))
-    self.assertTrue(cyrt.icurry_is_interpreted(N.double.info))
-    self.assertTrue(cyrt.icurry_is_interpreted(N.main.info))
-    self.assertEqual(cyrt.icurry_count(), before + 2)
+    self.assertTrue(curryrt.icurry_is_interpreted(N.double.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(N.main.info))
+    self.assertEqual(curryrt.icurry_count(), before + 2)
     self.assertEqual(list(curry.eval(N.main)), [12])
     # An expression compiles to an interpreted function.
     e = curry.parse('CxxInterp.fact 5 + 1', imports=[M])
     self.assertEqual(next(curry.eval(e)), 121)
     # The bytecode of an interpreted function.
-    bc = cyrt.icurry_bytecode(N.double.info)
+    bc = curryrt.icurry_bytecode(N.double.info)
     self.assertEqual(
         sorted(bc), ['code', 'nconsts', 'nregs', 'nstack', 'nvars']
       )
@@ -508,30 +508,30 @@ main = double (CxxInterp.fact 3)
         '   0 LOAD_ROOT_SUCC r0 0', '   3 PUSH_REG r0', '   5 PUSH_REG r0'
       , '   7 RET_NODE k0 2'
       ])
-    self.assertIsNone(cyrt.icurry_bytecode(M.fact.info))
-    self.assertIsNone(cyrt.icurry_bytecode(curry.import_('Prelude')[':'].info))
+    self.assertIsNone(curryrt.icurry_bytecode(M.fact.info))
+    self.assertIsNone(curryrt.icurry_bytecode(curry.import_('Prelude')[':'].info))
 
   @cytest.hardreset
   def test_all(self):
     M = switch('all')
     self.assertIsNone(getHandle(M).icurry.metadata.get('cxx.shlib'))
-    self.assertTrue(cyrt.icurry_is_interpreted(M.fact.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(M.fact.info))
     prelude = curry.import_('Prelude')
     self.assertIsNone(getHandle(prelude).icurry.metadata.get('cxx.shlib'))
-    self.assertTrue(cyrt.icurry_is_interpreted(prelude.map.info))
-    self.assertTrue(cyrt.icurry_is_interpreted(prelude.length.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(prelude.map.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(prelude.length.info))
     # A built-in keeps the step of the runtime.
     self.assertFalse(
-        cyrt.icurry_is_interpreted(curry.import_('Prelude')['plusInt'].info)
+        curryrt.icurry_is_interpreted(curry.import_('Prelude')['plusInt'].info)
       )
     self.assertFalse(
-        cyrt.icurry_is_interpreted(curry.import_('Prelude')['apply'].info)
+        curryrt.icurry_is_interpreted(curry.import_('Prelude')['apply'].info)
       )
     # Set functions.
     setf = curry.import_('Control.SetFunctions')
-    self.assertFalse(cyrt.icurry_is_interpreted(setf.set1.info))
-    self.assertTrue(cyrt.icurry_is_interpreted(setf.sortValues.info))
-    self.assertGreater(cyrt.icurry_count(), 1000)
+    self.assertFalse(curryrt.icurry_is_interpreted(setf.set1.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(setf.sortValues.info))
+    self.assertGreater(curryrt.icurry_count(), 1000)
     self.assertEqual(
         list(curry.eval(cytest.raw.expr(prelude.length, [1, 2, 3], typed=True)))
       , [3]
@@ -544,18 +544,18 @@ main = double (CxxInterp.fact 3)
     # A static table: a compiled function, a built-in.
     for info in M.fact.info, curry.import_('Prelude')['plusInt'].info:
       self.assertRaisesRegex(
-          ValueError, 'static', cyrt.icurry_attach, info, code, [], 0, 0, 0
+          ValueError, 'static', curryrt.icurry_attach, info, code, [], 0, 0, 0
         )
     # A constructor.
     self.assertRaisesRegex(
-        ValueError, 'not a function', cyrt.icurry_attach
+        ValueError, 'not a function', curryrt.icurry_attach
       , M.Circle.info, code, [], 0, 0, 0
       )
     # A function interpreted already.
     M = None
     M = switch('all')
     self.assertRaisesRegex(
-        ValueError, 'has a step', cyrt.icurry_attach
+        ValueError, 'has a step', curryrt.icurry_attach
       , M.fact.info, code, [], 0, 0, 0
       )
     # A bad constant.
@@ -563,12 +563,12 @@ main = double (CxxInterp.fact 3)
         'fresh', 1, common.T_FUNC, 0
       )
     self.assertRaisesRegex(
-        TypeError, 'constant', cyrt.icurry_attach, info, code, [1], 0, 0, 0
+        TypeError, 'constant', curryrt.icurry_attach, info, code, [1], 0, 0, 0
       )
     self.assertRaisesRegex(
-        ValueError, 'kind', cyrt.icurry_attach, info, code, [('X', 1)], 0, 0, 0
+        ValueError, 'kind', curryrt.icurry_attach, info, code, [('X', 1)], 0, 0, 0
       )
-    self.assertFalse(cyrt.icurry_is_interpreted(info))
+    self.assertFalse(curryrt.icurry_is_interpreted(info))
     # The flag is read back.
     self.assertEqual(curry.flags['interpret'], 'all')
 
@@ -637,9 +637,9 @@ class TestSteps(cytest.TestCase):
 
   def test_tail_calls_allocate_nothing(self):
     e = cytest.raw.expr(self.M.walk, list(range(100)))
-    before = cyrt.gc_allocation_count()
+    before = curryrt.gc_allocation_count()
     self.assertEqual(next(curry.eval(e)), 0)
-    self.assertLess(cyrt.gc_allocation_count() - before, 20)
+    self.assertLess(curryrt.gc_allocation_count() - before, 20)
 
 
 @ONLY_CXX
@@ -692,7 +692,7 @@ class TestFirstUse(cytest.TestCase):
   '''
   Under 'off' a module imported from an ICurry object compiles on its first
   use (issue #102).  The toolchain never saw the module, so its functions
-  carry the trap step of the runtime (cyrt/module.hpp) until the first call
+  carry the trap step of the runtime (curryrt/module.hpp) until the first call
   of one of them writes the C++ of the ICurry object beside the source,
   compiles it and swaps the steps (materialize.first_use).  With the compile
   turned off, or failed, the trap raises the documented error instead of
@@ -749,14 +749,14 @@ boom = error "boom"
   def assertTrapped(self, M, *names):
     for name in names:
       info = getattr(M, name).info
-      self.assertTrue(cyrt.is_trapped(info), name)
+      self.assertTrue(curryrt.is_trapped(info), name)
       self.assertFalse(info.has_step, name)
     self.assertTrue(materialize.is_pending(M))
 
   def assertCompiled(self, M, *names):
     for name in names:
       info = getattr(M, name).info
-      self.assertFalse(cyrt.is_trapped(info), name)
+      self.assertFalse(curryrt.is_trapped(info), name)
       self.assertTrue(info.has_step, name)
     self.assertFalse(materialize.is_pending(M))
 
@@ -928,8 +928,8 @@ twice x = double (double x)
       curry.path.insert(0, self.tmpdir)
       self.currypath = list(curry.path)
       M = self.import_(name)
-      self.assertFalse(cyrt.is_trapped(M.main.info))
-      self.assertTrue(cyrt.icurry_is_interpreted(M.main.info))
+      self.assertFalse(curryrt.is_trapped(M.main.info))
+      self.assertTrue(curryrt.icurry_is_interpreted(M.main.info))
       self.assertFalse(materialize.is_pending(M))
       self.assertEqual(list(curry.eval(M.main)), [42])
       M = None
@@ -1098,12 +1098,12 @@ other = 2
     pattern = r"cannot evaluate function '%s\.main': .*: the compiled " \
               r"object has no step for it" % name
     with self.count_compiles() as calls:
-      with mock.patch.object(cyrt, 'tiered_adopt', return_value=adopted):
+      with mock.patch.object(curryrt, 'tiered_adopt', return_value=adopted):
         self.assertRaisesRegex(
             EvaluationError, pattern, lambda: list(cytest.raw.values(M.main))
           )
       self.assertEqual(len(calls), 1)
-      self.assertTrue(cyrt.is_trapped(M.main.info))
+      self.assertTrue(curryrt.is_trapped(M.main.info))
       self.assertFalse(materialize.is_pending(M))
       self.assertRaisesRegex(
           EvaluationError, pattern, lambda: list(cytest.raw.values(M.main))

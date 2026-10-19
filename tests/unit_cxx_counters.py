@@ -1,5 +1,5 @@
 '''
-Tests for the scheduler counters of the C++ backend (src/cyrt/state/
+Tests for the scheduler counters of the C++ backend (src/curryrt/state/
 counters.hpp), which exist in a runtime built with make COUNTERS=1: the steps
 taken while the outermost queue held one configuration, the steps inside set
 functions, the steps whose redex another configuration created, the largest
@@ -19,8 +19,8 @@ import curry, re, subprocess, unittest
 
 CXX = curry.flags['backend'] == 'cxx'
 if CXX:
-  from curry.backends.cxx import cyrtbindings as cyrt
-ENABLED = CXX and cyrt.scheduler_counters_enabled()
+  from curry.backends.cxx import curryrtbindings as curryrt
+ENABLED = CXX and curryrt.scheduler_counters_enabled()
 KEYS = statsmod.KEYS + statsmod.SCHEDULER_KEYS
 TIMEOUT = 120
 
@@ -105,7 +105,7 @@ class TestPlainBuild(cytest.TestCase):
     self.assertIsNone(raw_counters())
     self.assertFalse(cytest.raw.interp().backend.scheduler_counters_enabled())
     if CXX:
-      self.assertFalse(cyrt.scheduler_counters_enabled())
+      self.assertFalse(curryrt.scheduler_counters_enabled())
 
 
 @unittest.skipUnless(ENABLED, 'needs a runtime built with make COUNTERS=1')

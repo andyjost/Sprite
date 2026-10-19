@@ -115,7 +115,7 @@ class Main(object):
     finally:
       if getattr(args, 'stats', False):
         # The last line of the program, after its output and after an error.
-        # A closed standard output is legal; see cyrtbindings._flush_stdout.
+        # A closed standard output is legal; see curryrtbindings._flush_stdout.
         try:
           sys.stdout.flush()
         except (AttributeError, OSError, ValueError):

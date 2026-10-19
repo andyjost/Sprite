@@ -117,5 +117,5 @@ configurations, each an alternative of the computation with its
 fingerprint of the choices it made.  A step rewrites one redex; a choice
 at the root forks the configuration; a free variable that reaches a case
 suspends it.  The C++ backend runs the scheduler in the runtime library
-``libcyrt`` (``src/cyrt``), with compiled step functions or the bytecode
+``libcurryrt`` (``src/curryrt``), with compiled step functions or the bytecode
 of its ICurry interpreter.

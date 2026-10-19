@@ -146,10 +146,10 @@ class TestGuardCounts(cytest.TestCase):
     interp = cytest.raw.interp()
     node = cytest.raw.expr(goal)
     if self.backend == 'cxx':
-      from curry.backends.cxx import cyrtbindings
-      rts = cyrtbindings.RuntimeState(interp, node)
+      from curry.backends.cxx import curryrtbindings
+      rts = curryrtbindings.RuntimeState(interp, node)
       values = sorted(str(v) for v in rts.generate_values())
-      counts = cyrtbindings.checker_counts(rts)
+      counts = curryrtbindings.checker_counts(rts)
     else:
       from curry.backends.py.eval.rts import RuntimeState
       rts = RuntimeState(interp, node)

@@ -3,24 +3,24 @@
 #include "boost/iterator/transform_iterator.hpp"
 #include "llvm/IR/ValueSymbolTable.h"
 #include "python/llvm/_llvm.hpp"
-#include "cyrt/llvm/module.hpp"
-#include "cyrt/llvm/scope.hpp"
-#include "cyrt/llvm/value.hpp"
+#include "curryrt/llvm/module.hpp"
+#include "curryrt/llvm/scope.hpp"
+#include "curryrt/llvm/value.hpp"
 #include <stack>
 
 using namespace boost::python;
-using namespace cyrt::llvm;
-using module_ = ::cyrt::llvm::module;
+using namespace curryrt::llvm;
+using module_ = ::curryrt::llvm::module;
 using SymbolTable = ::llvm::ValueSymbolTable;
 using GlobalVarList = ::llvm::Module::GlobalListType;
 
 namespace
 {
-  std::stack<cyrt::llvm::scope> module_stack;
+  std::stack<curryrt::llvm::scope> module_stack;
 
   module_ module__enter__(module_ const & m)
   {
-    auto && scope = cyrt::llvm::scope(m);
+    auto && scope = curryrt::llvm::scope(m);
     module_stack.emplace(std::move(scope));
     return m;
   }
@@ -60,7 +60,7 @@ namespace boost { namespace python
   };
 }}
 
-namespace cyrt { namespace python
+namespace curryrt { namespace python
 {
   void register_module()
   {

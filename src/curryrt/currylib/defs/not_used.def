@@ -1,0 +1,65 @@
+// Note: no include guards desired.
+
+#ifndef SPEC
+#error "Define SPEC as a 2-tuple of NAME, ARITY"
+#endif
+
+// The preprocessor helpers.  APPLY expands the tuple before the element
+// macro sees it; CAT and STRINGIZE expand their argument before the paste
+// and the stringize.  They are undefined at the end with the rest.
+#define CURRYRT_DEF_APPLY(macro, args) macro args
+#define CURRYRT_DEF_ELEM0(a, b) a
+#define CURRYRT_DEF_ELEM1(a, b) b
+#define CURRYRT_DEF_CAT(a, b) CURRYRT_DEF_CAT_I(a, b)
+#define CURRYRT_DEF_CAT_I(a, b) a ## b
+#define CURRYRT_DEF_STRINGIZE(a) CURRYRT_DEF_STRINGIZE_I(a)
+#define CURRYRT_DEF_STRINGIZE_I(a) #a
+
+#define NAME     CURRYRT_DEF_APPLY(CURRYRT_DEF_ELEM0, SPEC)
+#define ARITY    CURRYRT_DEF_APPLY(CURRYRT_DEF_ELEM1, SPEC)
+
+#if ARITY != 0
+  #if ARITY != 1
+    #if ARITY != 2
+      #error "Expected arity 0, 1 or 2."
+    #endif
+  #endif
+#endif
+
+#define STEP_FUNCTION_NAME  CURRYRT_DEF_CAT(NAME, _step)
+#define INFOTABLE_NAME      CURRYRT_DEF_CAT(NAME, _Info)
+
+tag_type STEP_FUNCTION_NAME(RuntimeState * rts, Configuration * C)
+{
+  return curryrt::not_used(rts, C);
+}
+
+InfoTable const INFOTABLE_NAME {
+    /*tag*/        T_FUNC
+  , /*arity*/      ARITY
+  , /*alloc_size*/ sizeof(CURRYRT_DEF_CAT(Node, ARITY))
+  , /*flags*/      F_STATIC_OBJECT
+  , /*name*/       CURRYRT_DEF_STRINGIZE(NAME)
+#if ARITY == 0
+  , /*format*/     ""
+#elif ARITY == 1
+  , /*format*/     "p"
+#else
+  , /*format*/     "pp"
+#endif
+  , /*step*/       STEP_FUNCTION_NAME
+  , /*type*/       nullptr
+  };
+
+#undef ARITY
+#undef CURRYRT_DEF_APPLY
+#undef CURRYRT_DEF_CAT
+#undef CURRYRT_DEF_CAT_I
+#undef CURRYRT_DEF_ELEM0
+#undef CURRYRT_DEF_ELEM1
+#undef CURRYRT_DEF_STRINGIZE
+#undef CURRYRT_DEF_STRINGIZE_I
+#undef INFOTABLE_NAME
+#undef NAME
+#undef SPEC
+#undef STEP_FUNCTION_NAME

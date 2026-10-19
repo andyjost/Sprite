@@ -75,7 +75,7 @@ RULES = [
     )
   , ('tests/data/curry/*/*', ['func_{dir}*.py'], 'the corpus of a functional test')
   , ('tests/data/curry/*.curry', NAMED, 'the test files that name the module')
-  , ('src/cyrt/*', ['unit_cxx_*.py'], 'the C++ runtime')
+  , ('src/curryrt/*', ['unit_cxx_*.py'], 'the C++ runtime')
   , ('src/python/backends/cxx/*', ['unit_cxx_*.py'], 'the C++ backend')
   , ('src/python/backends/py/*', ['unit_py_*.py'], 'the Python backend')
   , ('src/python/toolchain/*', TOOLCHAIN + ['unit_plan.py'], 'the toolchain')

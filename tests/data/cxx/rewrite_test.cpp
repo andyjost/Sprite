@@ -1,14 +1,14 @@
 // Checks Node::rewrite, Node::forward_or_copy, and Node::rewrite_from_partial
-// (see cyrt/graph/node.hxx).  unit_cxx_rewrite.py compiles this program
+// (see curryrt/graph/node.hxx).  unit_cxx_rewrite.py compiles this program
 // against the installed runtime and runs it.  It prints the first failed
 // check and exits with status 1; it prints "ok" and exits with status 0 when
 // every check passes.
-#include "cyrt/cyrt.hpp"
-#include "cyrt/currylib/prelude.hpp"
+#include "curryrt/curryrt.hpp"
+#include "curryrt/currylib/prelude.hpp"
 #include <cstdio>
 #include <cstdlib>
 
-using namespace cyrt;
+using namespace curryrt;
 
 #define CHECK(cond) \
     do { if(!(cond)) { std::printf("failed: %s (line %d)\n", #cond, __LINE__); std::exit(1); } } while(0)

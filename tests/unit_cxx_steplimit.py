@@ -3,8 +3,8 @@ Tests for the step limit of an evaluation: the limit of the stepper of the
 test library (cytest.step, Evaluator.set_global_step_limit).  The generic
 evaluator sets it through ``rts.stepcounter``.  The Python RuntimeState
 counts in its StepCounter; the C++ RuntimeState has the field
-``step_limit`` (cyrt/state/rts.hpp), after which its scheduler stops with
-the status E_TERMINATE, and the adapter cyrtbindings.StepCounter presents it
+``step_limit`` (curryrt/state/rts.hpp), after which its scheduler stops with
+the status E_TERMINATE, and the adapter curryrtbindings.StepCounter presents it
 as ``rts.stepcounter``.  The file runs on both backends, so that the limit
 leaves the same graph on both.
 '''
@@ -114,12 +114,12 @@ class TestStepLimit(cytest.TestCase):
     with self.assertRaises(control.E_TERMINATE):
       ev.set_global_step_limit(0)
     if IS_CXX:
-      from curry.backends.cxx import cyrtbindings as cyrt
-      self.assertEqual(ev.rts.step_limit, cyrt.NOLIMIT)
+      from curry.backends.cxx import curryrtbindings as curryrt
+      self.assertEqual(ev.rts.step_limit, curryrt.NOLIMIT)
       ev.set_global_step_limit(7)
       self.assertEqual(ev.rts.step_limit, 7)
       ev.set_global_step_limit(None)
-      self.assertEqual(ev.rts.step_limit, cyrt.NOLIMIT)
+      self.assertEqual(ev.rts.step_limit, curryrt.NOLIMIT)
     # The steps taken count from the reset.
     ev.set_global_step_limit(1)
     with self.assertRaises(control.E_TERMINATE):

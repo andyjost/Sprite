@@ -22,7 +22,7 @@ PHASES = COUNTERS[:4]
   )
 class TestCounters(cytest.TestCase):
   '''
-  The counters of the collector (src/cyrt/graph/gc/wdgc.cpp): the seconds
+  The counters of the collector (src/curryrt/graph/gc/wdgc.cpp): the seconds
   of the phases of a collection, the nodes marked by age, the configurations
   pushed as roots, the queues and the configurations destroyed, and the
   writes into old nodes.  Every test but the one of the toolchain flags runs
@@ -35,7 +35,7 @@ class TestCounters(cytest.TestCase):
 
   PREAMBLE = '''
 import cytest, curry, gc, os, sys
-from curry.backends.cxx import cyrtbindings as cyrt
+from curry.backends.cxx import curryrtbindings as curryrt
 curry.reset(**{'backend': 'cxx'})
 M = curry.import_('CxxGc')
 COUNTERS = %r
@@ -58,7 +58,7 @@ def delta(after, before):
 
 def settle():
   gc.collect()
-  cyrt.gc_collect()
+  curryrt.gc_collect()
 ''' % (COUNTERS,)
 
   @classmethod
@@ -87,8 +87,8 @@ def settle():
     again.  The Memory Pool System never gets the flag.
     '''
     from curry import config
-    from curry.backends.cxx import cyrtbindings as cyrt, toolchain
-    enabled = cyrt.gc_write_counters_enabled()
+    from curry.backends.cxx import curryrtbindings as curryrt, toolchain
+    enabled = curryrt.gc_write_counters_enabled()
     self.assertIsInstance(enabled, bool)
     self.assertEqual(config.cxx_gc_write_counters(), enabled)
     self.assertEqual(toolchain.gc_flags('wdgc', write_counters=False), [])
@@ -118,12 +118,12 @@ def settle():
     self.assertEqual(statsmod.GC_KEYS, tuple('gc_' + key for key in COUNTERS))
     self.run_child('''import cytest
 
-consistent(cyrt.gc_counters())
-consistent(cyrt.gc_last_collection())
-cyrt.gc_set_threshold(1 << 14)
+consistent(curryrt.gc_counters())
+consistent(curryrt.gc_last_collection())
+curryrt.gc_set_threshold(1 << 14)
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 20000, typed=True)))) == 20000
 stats = curry.stats()
-totals = consistent(cyrt.gc_counters())
+totals = consistent(curryrt.gc_counters())
 for key in COUNTERS:
   assert stats['gc_' + key] == totals[key], (key, stats, totals)
 line = str(stats)
@@ -141,15 +141,15 @@ assert line.endswith(' gc_old_blocks=%d' % totals['old_blocks']) \
     '''
     self.run_child('''import cytest
 
-cyrt.gc_set_threshold(1 << 14)
-before = consistent(cyrt.gc_counters())
-seconds0 = cyrt.gc_seconds()
-n0 = cyrt.gc_collections()
+curryrt.gc_set_threshold(1 << 14)
+before = consistent(curryrt.gc_counters())
+seconds0 = curryrt.gc_seconds()
+n0 = curryrt.gc_collections()
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 100000, typed=True)))) == 100000
-after = consistent(cyrt.gc_counters())
-last = consistent(cyrt.gc_last_collection())
-seconds = cyrt.gc_seconds() - seconds0
-collections = cyrt.gc_collections() - n0
+after = consistent(curryrt.gc_counters())
+last = consistent(curryrt.gc_last_collection())
+seconds = curryrt.gc_seconds() - seconds0
+collections = curryrt.gc_collections() - n0
 d = delta(after, before)
 assert collections > 10, collections
 assert d['marked'] >= collections, d
@@ -175,19 +175,19 @@ print('collections', collections, 'marked', d['marked'], 'old', d['marked_old'])
     '''
     self.run_child('''import cytest
 
-cyrt.gc_set_threshold(1 << 14)
-before = consistent(cyrt.gc_counters())
+curryrt.gc_set_threshold(1 << 14)
+before = consistent(curryrt.gc_counters())
 def items(n):
   for i in range(n):
     yield i
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.partial, 3, iter(items(2000)), typed=True)))) == 2000
 settle()
-after = consistent(cyrt.gc_counters())
+after = consistent(curryrt.gc_counters())
 d = delta(after, before)
 assert d['queues_destroyed'] >= 2000, d
 assert 6 * 2000 <= d['configurations_destroyed'] <= 8 * d['queues_destroyed'], d
-assert cyrt.gc_queue_count() == 0, cyrt.gc_queue_count()
-assert cyrt.gc_configuration_count() == 0, cyrt.gc_configuration_count()
+assert curryrt.gc_queue_count() == 0, curryrt.gc_queue_count()
+assert curryrt.gc_configuration_count() == 0, curryrt.gc_configuration_count()
 print('destroyed', d['queues_destroyed'], d['configurations_destroyed'])
 ''')
 
@@ -202,33 +202,33 @@ print('destroyed', d['queues_destroyed'], d['configurations_destroyed'])
     self.run_child('''import cytest
 
 settle()
-n0 = cyrt.gc_collections()
+n0 = curryrt.gc_collections()
 first = next(cytest.raw.values(cytest.raw.expr(M.table, 300, typed=True)))
-cyrt.gc_collect()
-last = consistent(cyrt.gc_last_collection())
-old = cyrt.gc_old_node_count()
+curryrt.gc_collect()
+last = consistent(curryrt.gc_last_collection())
+old = curryrt.gc_old_node_count()
 assert old == last['marked'], (old, last)
-assert old == cyrt.gc_node_count(), (old, cyrt.gc_node_count())
+assert old == curryrt.gc_node_count(), (old, curryrt.gc_node_count())
 assert old >= 300, old
 # Below the threshold: no collection, the old nodes stay as they are.
-assert cyrt.gc_threshold() >= 1 << 20, cyrt.gc_threshold()
+assert curryrt.gc_threshold() >= 1 << 20, curryrt.gc_threshold()
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 1000, typed=True)))) == 1000
-assert cyrt.gc_collections() == n0 + 1, cyrt.gc_collections()
-assert cyrt.gc_old_node_count() == old, (cyrt.gc_old_node_count(), old)
-assert cyrt.gc_node_count() > old, (cyrt.gc_node_count(), old)
+assert curryrt.gc_collections() == n0 + 1, curryrt.gc_collections()
+assert curryrt.gc_old_node_count() == old, (curryrt.gc_old_node_count(), old)
+assert curryrt.gc_node_count() > old, (curryrt.gc_node_count(), old)
 second = next(cytest.raw.values(cytest.raw.expr(M.table, 100, typed=True)))
-cyrt.gc_collect()
-last = consistent(cyrt.gc_last_collection())
+curryrt.gc_collect()
+last = consistent(curryrt.gc_last_collection())
 assert 300 <= last['marked_old'] <= old, (last, old)
 assert last['marked_young'] >= 100, last
-assert cyrt.gc_old_node_count() == last['marked'] == cyrt.gc_node_count(), (
-    cyrt.gc_old_node_count(), last, cyrt.gc_node_count())
-assert cyrt.gc_verify() is None
+assert curryrt.gc_old_node_count() == last['marked'] == curryrt.gc_node_count(), (
+    curryrt.gc_old_node_count(), last, curryrt.gc_node_count())
+assert curryrt.gc_verify() is None
 assert cytest.raw.interp().topython(first)[-1] == (300, '300')
 assert cytest.raw.interp().topython(second)[-1] == (100, '100')
 del first, second
 settle()
-assert cyrt.gc_old_node_count() == cyrt.gc_node_count()
+assert curryrt.gc_old_node_count() == curryrt.gc_node_count()
 ''', env={'SPRITE_GC_STRESS': '0'})
 
   @cytest.skipIfGcStress('a collection per step over the live thunks is too slow')
@@ -243,14 +243,14 @@ assert cyrt.gc_old_node_count() == cyrt.gc_node_count()
     '''
     self.run_child('''import cytest
 
-cyrt.gc_set_threshold(1 << 14)
-before = consistent(cyrt.gc_counters())
+curryrt.gc_set_threshold(1 << 14)
+before = consistent(curryrt.gc_counters())
 n = 100000
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.thunks, n, typed=True)))) == n + sum(range(2, n + 2))
 settle()
-after = consistent(cyrt.gc_counters())
+after = consistent(curryrt.gc_counters())
 d = delta(after, before)
-enabled = cyrt.gc_write_counters_enabled()
+enabled = curryrt.gc_write_counters_enabled()
 print('enabled', enabled, 'old redexes', d['old_redexes']
      , 'old slot writes', d['old_slot_writes'], 'old blocks', d['old_blocks'])
 if enabled:
@@ -273,12 +273,12 @@ else:
     '''
     code = '''import cytest
 
-cyrt.gc_set_threshold(1 << 14)
-n0 = cyrt.gc_collections()
-before = consistent(cyrt.gc_counters())
+curryrt.gc_set_threshold(1 << 14)
+n0 = curryrt.gc_collections()
+before = consistent(curryrt.gc_counters())
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 50000, typed=True)))) == 50000
-after = consistent(cyrt.gc_counters())
-print('collections', cyrt.gc_collections() - n0)
+after = consistent(curryrt.gc_counters())
+print('collections', curryrt.gc_collections() - n0)
 print('marked', after['marked'] - before['marked'])
 '''
     plain = {'SPRITE_GC_STRESS': '0'}
@@ -325,8 +325,8 @@ print('marked', after['marked'] - before['marked'])
     '''
     self.run_child('''import cytest
 
-assert cyrt.gc_stress()
-before = consistent(cyrt.gc_counters())
+assert curryrt.gc_stress()
+before = consistent(curryrt.gc_counters())
 steps0 = curry.stats()['steps']
 for goal, args, expected in [
     (M.walk, (2000,), 2000), (M.table, (30,), [(i, str(i)) for i in range(1, 31)])
@@ -335,21 +335,21 @@ for goal, args, expected in [
   ]:
   value = cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(goal, *args, typed=True))))
   assert value == expected, (goal.name, value, expected)
-  consistent(cyrt.gc_counters())
-  consistent(cyrt.gc_last_collection())
+  consistent(curryrt.gc_counters())
+  consistent(curryrt.gc_last_collection())
 settle()
-after = consistent(cyrt.gc_counters())
+after = consistent(curryrt.gc_counters())
 steps = curry.stats()['steps'] - steps0
 d = delta(after, before)
 assert d['marked_old'] > 0, d
 assert d['queues_destroyed'] >= 4, d
-if cyrt.gc_write_counters_enabled():
+if curryrt.gc_write_counters_enabled():
   assert d['old_redexes'] >= steps // 2, (d, steps)
   assert d['old_nodes_written'] >= steps // 2, (d, steps)
 else:
   assert d['old_redexes'] == d['old_nodes_written'] == 0, d
-assert cyrt.gc_verify() is None
-assert cyrt.gc_old_node_count() == cyrt.gc_node_count()
+assert curryrt.gc_verify() is None
+assert curryrt.gc_old_node_count() == curryrt.gc_node_count()
 print('steps', steps, 'old redexes', d['old_redexes'])
 ''', env={'SPRITE_GC_STRESS': '1'})
 
@@ -363,23 +363,23 @@ print('steps', steps, 'old redexes', d['old_redexes'])
     '''
     self.run_child('''import cytest
 
-assert cyrt.gc_stress()
+assert curryrt.gc_stress()
 inside = []
 def items():
   for i in range(3):
-    n0 = cyrt.gc_collections()
+    n0 = curryrt.gc_collections()
     value = cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 500, typed=True))))
-    inside.append(cyrt.gc_collections() - n0)
-    consistent(cyrt.gc_counters())
-    consistent(cyrt.gc_last_collection())
+    inside.append(curryrt.gc_collections() - n0)
+    consistent(curryrt.gc_counters())
+    consistent(curryrt.gc_last_collection())
     yield value + i
-before = consistent(cyrt.gc_counters())
+before = consistent(curryrt.gc_counters())
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.lastOf, iter(items()), typed=True)))) == 502
-after = consistent(cyrt.gc_counters())
+after = consistent(curryrt.gc_counters())
 assert all(n > 100 for n in inside), inside
 assert after['marked'] > before['marked'], (before, after)
-assert cyrt.gc_eval_depth() == 0
+assert curryrt.gc_eval_depth() == 0
 settle()
-assert cyrt.gc_verify() is None
-assert cyrt.gc_old_node_count() == cyrt.gc_node_count()
+assert curryrt.gc_verify() is None
+assert curryrt.gc_old_node_count() == curryrt.gc_node_count()
 ''', env={'SPRITE_GC_STRESS': '1'})

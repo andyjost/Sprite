@@ -207,7 +207,7 @@ class TestSwapAfterEdit(EditedSourceTestCase):
     without a load.  The swap refuses such an object now; the module stays
     interpreted with the code the import read, and a warning says so.
     '''
-    from curry.backends.cxx import cyrtbindings as cyrt, tiered
+    from curry.backends.cxx import curryrtbindings as curryrt, tiered
     # Dep imports Base.  The compile of Dep waits behind the compile of
     # Base, so an edit of Dep right after the import lands before the child
     # of Dep runs.
@@ -234,8 +234,8 @@ class TestSwapAfterEdit(EditedSourceTestCase):
     after = tiered.status()
     self.assertEqual(after['swapped_modules'], before['swapped_modules'] + 1)
     self.assertEqual(after['failed_modules'], before['failed_modules'] + 1)
-    self.assertFalse(cyrt.icurry_is_interpreted(B.g.info))
-    self.assertTrue(cyrt.icurry_is_interpreted(D.h.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(B.g.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(D.h.info))
     self.assertFalse(tiered.pending(dep))
     warnings = log.data[logging.WARNING]
     self.assertEqual(len(warnings), 1, warnings)
@@ -257,7 +257,7 @@ class TestSwapAfterEdit(EditedSourceTestCase):
     ICurry file, not the JSON the child writes in another spacing, so the
     object is applied and the module runs compiled.
     '''
-    from curry.backends.cxx import cyrtbindings as cyrt, tiered
+    from curry.backends.cxx import curryrtbindings as curryrt, tiered
     base = self.write_module(
         'module %(name)s where\n\ng :: Int -> Int\ng x = x + 1\n'
       )
@@ -281,8 +281,8 @@ class TestSwapAfterEdit(EditedSourceTestCase):
     self.assertEqual(after['swapped_modules'], before['swapped_modules'] + 2)
     self.assertEqual(after['failed_modules'], before['failed_modules'])
     self.assertEqual(log.data[logging.WARNING], [])
-    self.assertFalse(cyrt.icurry_is_interpreted(B.g.info))
-    self.assertFalse(cyrt.icurry_is_interpreted(D.h.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(B.g.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(D.h.info))
     self.assertEqual(self.value(D.h, 1), 12)
 
 

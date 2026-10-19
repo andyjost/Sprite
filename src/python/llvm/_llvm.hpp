@@ -1,6 +1,6 @@
 #pragma once
 
-namespace cyrt { namespace python
+namespace curryrt { namespace python
 {
   void register_globalvalues();
   void register_module();

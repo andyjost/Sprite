@@ -1,14 +1,14 @@
 // Checks Node::successor_node and Variable::successor_node (see
-// cyrt/graph/node.hxx and cyrt/graph/indexing.hxx): the plain reads of an
+// curryrt/graph/node.hxx and curryrt/graph/indexing.hxx): the plain reads of an
 // argument that a step only passes on.  unit_cxx_passthrough.py compiles this
 // program against the installed runtime and runs it.  It prints the first
 // failed check and exits with status 1; it prints "ok" and exits with status
 // 0 when every check passes.
-#include "cyrt/cyrt.hpp"
+#include "curryrt/curryrt.hpp"
 #include <cstdio>
 #include <cstdlib>
 
-using namespace cyrt;
+using namespace curryrt;
 
 #define CHECK(cond) \
     do { if(!(cond)) { std::printf("failed: %s (line %d)\n", #cond, __LINE__); std::exit(1); } } while(0)

@@ -52,15 +52,15 @@ cmake --install object-root/cmake --prefix "$SPRITE_HOME"
 # The static archive names its members by their paths in the build tree
 # (ar -P), and nothing uses it at run time: the backend links the shared
 # library.  Leave it out of the package.
-rm -f "$SPRITE_HOME/lib/libcyrt.a"
+rm -f "$SPRITE_HOME/lib/libcurryrt.a"
 
-# The prebuild step precompiled cyrt/cyrt.hpp for the compiler of the build
+# The prebuild step precompiled curryrt/curryrt.hpp for the compiler of the build
 # (a member of about 70 MB, named after that compiler).  The tree lies in a
 # conda prefix, so the C++ backend put the member into the cache directory
 # named above, not into the tree (config.cxx_pch_root).  The compiler of
 # the environment cannot use it anyway; the C++ backend builds its own
 # member on the first compile, in the cache directory of the user.
-test ! -e "$SPRITE_HOME/include/cyrt/cyrt.hpp.gch"
+test ! -e "$SPRITE_HOME/include/curryrt/curryrt.hpp.gch"
 
 # make writes tools/ as absolute links into the build environments.  Replace
 # them with relative links into the prefix.  The C++ compiler gets a wrapper
@@ -82,7 +82,7 @@ sed "s|@HOST@|$HOST|g" > "$tools/cxx" <<'CXX_EOF'
 #!/bin/sh
 # The C++ compiler for the code that Sprite generates at run time.  The
 # generated code is compiled against the headers under opt/sprite/include
-# and linked against opt/sprite/lib/libcyrt.so of this environment, so the
+# and linked against opt/sprite/lib/libcurryrt.so of this environment, so the
 # compiler is the one of this environment, bin/@HOST@-g++, unless
 # SPRITE_CXX names another.  An ambient CXX counts only when it names a
 # file of this environment.  The installed headers of Sprite need no
@@ -127,7 +127,7 @@ done
 
 # import curry works in the Python of the environment: a .pth file adds the
 # package directory to sys.path.  The package finds its home by itself, and
-# the extension module finds libcyrt.so through its run path.
+# the extension module finds libcurryrt.so through its run path.
 echo "../../../opt/sprite/python" > "$SP_DIR/sprite.pth"
 
 # A check of the tree as the package will install it: compile a module that

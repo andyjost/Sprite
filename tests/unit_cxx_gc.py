@@ -15,7 +15,7 @@ class ChildTests(cytest.TestCase):
   # The children import the bindings and the test module.
   PREAMBLE = '''
 import cytest, curry, gc, os, sys
-from curry.backends.cxx import cyrtbindings as cyrt
+from curry.backends.cxx import curryrtbindings as curryrt
 curry.reset(**{'backend': 'cxx'})
 M = curry.import_('CxxGc')
 '''
@@ -43,7 +43,7 @@ M = curry.import_('CxxGc')
   )
 class TestCxxGc(ChildTests):
   '''
-  The collector of the C++ backend (src/cyrt/graph/gc/wdgc.cpp).  The nodes
+  The collector of the C++ backend (src/curryrt/graph/gc/wdgc.cpp).  The nodes
   Python holds are roots, the queue of a set function is a root, a nested
   evaluation collects, and a program that allocates many short-lived nodes
   completes under a 1 GiB address-space cap.
@@ -64,19 +64,19 @@ value = next(cytest.raw.values(cytest.raw.expr(M.table, 300, typed=True)))
 text = str(value)
 expected = [(i, str(i)) for i in range(1, 301)]
 assert cytest.raw.interp().topython(value) == expected
-cyrt.gc_set_threshold(1 << 14)
-n0 = cyrt.gc_collections()
+curryrt.gc_set_threshold(1 << 14)
+n0 = curryrt.gc_collections()
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, %d, typed=True)))) == %d
-collections = cyrt.gc_collections() - n0
+collections = curryrt.gc_collections() - n0
 assert collections > 10, collections
-cyrt.gc_collect()
+curryrt.gc_collect()
 assert str(value) == text, str(value)
 assert cytest.raw.interp().topython(value) == expected
-before = cyrt.gc_node_count()
+before = curryrt.gc_node_count()
 del value
 gc.collect()
-cyrt.gc_collect()
-after = cyrt.gc_node_count()
+curryrt.gc_collect()
+after = curryrt.gc_node_count()
 # Each entry is a pair, a list cell, and a cons cell per character of the
 # shown number.  The Int and the Char nodes are the shared literal nodes
 # of the runtime, which stay (see unit_cxx_literals.py).
@@ -95,11 +95,11 @@ print('collections', collections, 'nodes', before, after)
 value = cytest.raw.expr([(1, 'a'), (2, 'b')], typed=True)
 goal = cytest.raw.expr(M.walk, 25, typed=True)
 text, goaltext = str(value), str(goal)
-cyrt.gc_set_threshold(1 << 14)
-n0 = cyrt.gc_collections()
+curryrt.gc_set_threshold(1 << 14)
+n0 = curryrt.gc_collections()
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 100000, typed=True)))) == 100000
-assert cyrt.gc_collections() > n0
-cyrt.gc_collect()
+assert curryrt.gc_collections() > n0
+curryrt.gc_collect()
 assert str(value) == text, str(value)
 assert str(goal) == goaltext, str(goal)
 assert cytest.raw.interp().topython(next(cytest.raw.values(value))) == [(1, 'a'), (2, 'b')]
@@ -128,17 +128,17 @@ for value in [[], (), True, False]:
   copies.append((node.__deepcopy__(), text))
   for c, _ in copies[-3:]:
     assert c.id() == node.id(), (repr(c), text)
-    assert cyrt.gc_root_count(c) >= 1
-before = cyrt.gc_node_count()
-cyrt.gc_collect()
-assert cyrt.gc_node_count() == before, (before, cyrt.gc_node_count())
+    assert curryrt.gc_root_count(c) >= 1
+before = curryrt.gc_node_count()
+curryrt.gc_collect()
+assert curryrt.gc_node_count() == before, (before, curryrt.gc_node_count())
 # Fill the slots a freed copy would have left behind.
 junk = [cytest.raw.expr(i) for i in range(1000, 4000)]
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 3000, typed=True)))) == 3000
-cyrt.gc_collect()
+curryrt.gc_collect()
 for c, text in copies:
   assert repr(c) == text, (repr(c), text)
-assert cyrt.gc_verify() is None
+assert curryrt.gc_verify() is None
 assert cytest.raw.interp().topython(next(cytest.raw.values(copies[0][0]))) == []
 assert cytest.raw.interp().topython(next(cytest.raw.values(copies[6][0]))) is True
 ''')
@@ -151,21 +151,21 @@ assert cytest.raw.interp().topython(next(cytest.raw.values(copies[6][0]))) is Tr
     self.run_child('''import cytest
 
 raw = lambda e: getattr(e, 'raw_expr', e)
-r0 = cyrt.gc_num_roots()
+r0 = curryrt.gc_num_roots()
 e = cytest.raw.expr(7, typed=True)
-assert cyrt.gc_num_roots() == r0 + 1, (r0, cyrt.gc_num_roots())
-assert cyrt.gc_root_count(raw(e)) == 1
+assert curryrt.gc_num_roots() == r0 + 1, (r0, curryrt.gc_num_roots())
+assert curryrt.gc_root_count(raw(e)) == 1
 lst = cytest.raw.expr([1, 2, 3], typed=True)
-assert cyrt.gc_num_roots() == r0 + 2
+assert curryrt.gc_num_roots() == r0 + 2
 succ = raw(lst).successors
 assert len(succ) == 2
-assert cyrt.gc_num_roots() == r0 + 4
+assert curryrt.gc_num_roots() == r0 + 4
 del succ
-assert cyrt.gc_num_roots() == r0 + 2
+assert curryrt.gc_num_roots() == r0 + 2
 del e, lst
 gc.collect()
-assert cyrt.gc_num_roots() == r0, (r0, cyrt.gc_num_roots())
-assert cyrt.gc_root_count(None) == 0
+assert curryrt.gc_num_roots() == r0, (r0, curryrt.gc_num_roots())
+assert curryrt.gc_root_count(None) == 0
 ''')
 
   @cytest.skipIfGcStress('the collector runs whatever the threshold says')
@@ -183,7 +183,7 @@ assert cyrt.gc_root_count(None) == 0
     '''
     self.run_child('''import cytest
 
-cyrt.gc_set_threshold(10 ** 9)
+curryrt.gc_set_threshold(10 ** 9)
 try:
   next(cytest.raw.values(cytest.raw.expr(M.walk, 8000000, typed=True)))
 except MemoryError:
@@ -193,8 +193,8 @@ os._exit(1)
     proc = self.run_child('''import cytest
 
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 1000000, typed=True)))) == 1000000
-print('collections', cyrt.gc_collections(), 'seconds', cyrt.gc_seconds())
-assert cyrt.gc_collections() > 0
+print('collections', curryrt.gc_collections(), 'seconds', curryrt.gc_seconds())
+assert curryrt.gc_collections() > 0
 ''', address_space=1 << 30)
     self.assertIn('collections', proc.stdout)
 
@@ -207,8 +207,8 @@ assert cyrt.gc_collections() > 0
     self.run_child('''import cytest
 
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.inner, 1000000, typed=True)))) == [1000000]
-assert cyrt.gc_collections() > 0
-assert cyrt.gc_eval_depth() == 0
+assert curryrt.gc_collections() > 0
+assert curryrt.gc_eval_depth() == 0
 ''', address_space=1 << 30)
 
   def test_set_function_queue_is_a_root(self):
@@ -219,9 +219,9 @@ assert cyrt.gc_eval_depth() == 0
     '''
     self.run_child('''import cytest
 
-cyrt.gc_set_threshold(1 << 14)
+curryrt.gc_set_threshold(1 << 14)
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.spaced, 20000, typed=True)))) == 60006
-assert cyrt.gc_collections() > 10
+assert curryrt.gc_collections() > 10
 ''')
 
   def test_callback_evaluation(self):
@@ -234,18 +234,18 @@ assert cyrt.gc_collections() > 10
     '''
     self.run_child('''import cytest
 
-cyrt.gc_set_threshold(1 << 14)
+curryrt.gc_set_threshold(1 << 14)
 depths = []
 def items():
   for i in range(3):
-    depths.append(cyrt.gc_eval_depth())
+    depths.append(curryrt.gc_eval_depth())
     yield cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 50000, typed=True)))) + i
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.lastOf, iter(items()), typed=True)))) == 50002
 assert depths == [1, 1, 1], depths
-assert cyrt.gc_collections() > 0
+assert curryrt.gc_collections() > 0
 def refuse():
   try:
-    cyrt.gc_collect()
+    curryrt.gc_collect()
   except RuntimeError as err:
     raise ValueError('refused: %s' % err)
   yield 1
@@ -255,7 +255,7 @@ except ValueError as err:
   assert 'refused' in str(err), err
 else:
   assert False, 'gc_collect ran inside a callback'
-assert cyrt.gc_eval_depth() == 0
+assert curryrt.gc_eval_depth() == 0
 ''')
 
   def test_callback_garbage_is_reclaimed(self):
@@ -269,12 +269,12 @@ assert cyrt.gc_eval_depth() == 0
     '''
     self.run_child('''import cytest
 
-cyrt.gc_set_threshold(1 << 12)
+curryrt.gc_set_threshold(1 << 12)
 marked = []
 def items():
   for i in range(2):
     value = cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 20000, typed=True))))
-    marked.append(cyrt.gc_last_collection()['marked'])
+    marked.append(curryrt.gc_last_collection()['marked'])
     yield value + i
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.lastOf, iter(items()), typed=True)))) == 20001
 assert all(m < 20000 for m in marked), marked
@@ -294,17 +294,17 @@ assert all(m < 20000 for m in marked), marked
     self.run_child('''import cytest
 
 floor = 1 << 14
-cyrt.gc_set_threshold(floor)
+curryrt.gc_set_threshold(floor)
 value = next(cytest.raw.values(cytest.raw.expr(M.table, 3000, typed=True)))
-cyrt.gc_collect()
-live = cyrt.gc_node_count()
+curryrt.gc_collect()
+live = curryrt.gc_node_count()
 assert live > floor, live
-assert cyrt.gc_threshold() == 8 * live, (cyrt.gc_threshold(), live)
+assert curryrt.gc_threshold() == 8 * live, (curryrt.gc_threshold(), live)
 del value
 gc.collect()
-cyrt.gc_collect()
-assert 8 * cyrt.gc_node_count() < floor, cyrt.gc_node_count()
-assert cyrt.gc_threshold() == floor, cyrt.gc_threshold()
+curryrt.gc_collect()
+assert 8 * curryrt.gc_node_count() < floor, curryrt.gc_node_count()
+assert curryrt.gc_threshold() == floor, curryrt.gc_threshold()
 ''')
 
   def test_stats_report_collections(self):
@@ -316,12 +316,12 @@ assert cyrt.gc_threshold() == floor, cyrt.gc_threshold()
     '''
     proc = self.run_child('''import cytest
 
-cyrt.gc_set_threshold(1 << 14)
+curryrt.gc_set_threshold(1 << 14)
 before = curry.stats()
-assert before['collections'] == cyrt.gc_collections(), before
+assert before['collections'] == curryrt.gc_collections(), before
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 100000, typed=True)))) == 100000
 after = curry.stats()
-collections = cyrt.gc_collections()
+collections = curryrt.gc_collections()
 assert after['collections'] == collections, (after, collections)
 assert after['collections'] > before['collections'] + 10, (before, after)
 assert after['steps'] >= before['steps'] + 100000, (before, after)
@@ -329,7 +329,7 @@ assert after['forks'] == before['forks'], (before, after)
 assert after['peak_rss'] >= before['peak_rss'] > 0, (before, after)
 assert after['cpu'] > before['cpu'], (before, after)
 assert after['gc_seconds'] > before['gc_seconds'] >= 0.0, (before, after)
-assert after['gc_seconds'] == cyrt.gc_seconds(), (after, cyrt.gc_seconds())
+assert after['gc_seconds'] == curryrt.gc_seconds(), (after, curryrt.gc_seconds())
 print(after)
 ''')
     self.assertIn('collections', proc.stdout)
@@ -346,13 +346,13 @@ print(after)
     '''
     code = '''import cytest
 
-print('growth', cyrt.gc_growth())
-cyrt.gc_set_threshold(1 << 14)
+print('growth', curryrt.gc_growth())
+curryrt.gc_set_threshold(1 << 14)
 value = next(cytest.raw.values(cytest.raw.expr(M.table, 3000, typed=True)))
-cyrt.gc_collect()
-live = cyrt.gc_node_count()
+curryrt.gc_collect()
+live = curryrt.gc_node_count()
 assert live > 1 << 14, live
-print('threshold', cyrt.gc_threshold() // live)
+print('threshold', curryrt.gc_threshold() // live)
 '''
     with mock.patch.dict(os.environ, {'SPRITE_GC_GROWTH': '3'}):
       proc = self.run_child(code)
@@ -372,15 +372,15 @@ print('threshold', cyrt.gc_threshold() // live)
     rejects zero.
     '''
     code = '''
-print('threshold', cyrt.gc_threshold())
+print('threshold', curryrt.gc_threshold())
 try:
-  cyrt.gc_set_threshold(0)
+  curryrt.gc_set_threshold(0)
 except ValueError:
   print('zero rejected')
-cyrt.gc_set_threshold(5000)
-print('threshold', cyrt.gc_threshold())
-print('depth', cyrt.gc_eval_depth()
-     , 'reclaimed', type(cyrt.gc_collect()).__name__)
+curryrt.gc_set_threshold(5000)
+print('threshold', curryrt.gc_threshold())
+print('depth', curryrt.gc_eval_depth()
+     , 'reclaimed', type(curryrt.gc_collect()).__name__)
 '''
     with mock.patch.dict(os.environ, {'SPRITE_GC_THRESHOLD': '12345'}):
       proc = self.run_child(code)
@@ -403,7 +403,7 @@ print('depth', cyrt.gc_eval_depth()
   )
 class TestOwnership(ChildTests):
   '''
-  The ownership of configurations, queues, and sets (src/cyrt/state/queue.hpp
+  The ownership of configurations, queues, and sets (src/curryrt/state/queue.hpp
   and gc/wdgc.cpp).  A queue owns its configurations, so a fork and a drop
   free them at once; the queue and the set of a set function go when no
   SetEval node reaches them; and the counters of the bindings report what is
@@ -415,16 +415,16 @@ class TestOwnership(ChildTests):
   # split counts in both), and a queue of a set function has a set.
   COUNTS = '''
 def counts():
-  lengths = cyrt.gc_queue_lengths()
-  configurations = cyrt.gc_configuration_count()
-  assert len(lengths) == cyrt.gc_queue_count(), (lengths, cyrt.gc_queue_count())
+  lengths = curryrt.gc_queue_lengths()
+  configurations = curryrt.gc_configuration_count()
+  assert len(lengths) == curryrt.gc_queue_count(), (lengths, curryrt.gc_queue_count())
   assert configurations <= sum(lengths), (configurations, lengths)
-  return configurations, cyrt.gc_queue_count(), cyrt.gc_set_count()
+  return configurations, curryrt.gc_queue_count(), curryrt.gc_set_count()
 
 def settled():
   # Nothing of an evaluation survives its runtime state and a collection.
   gc.collect()
-  cyrt.gc_collect()
+  curryrt.gc_collect()
   return counts()
 '''
 
@@ -459,15 +459,15 @@ print('forks', stats['forks'])
     '''
     proc = self.run_child(self.COUNTS + '''import cytest
 
-cyrt.gc_set_threshold(1 << 14)
+curryrt.gc_set_threshold(1 << 14)
 seen = []
 def items(n):
   for i in range(n):
     seen.append(counts())
     yield i
-n0 = cyrt.gc_collections()
+n0 = curryrt.gc_collections()
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.partial, 3, iter(items(2000)), typed=True)))) == 2000
-collections = cyrt.gc_collections() - n0
+collections = curryrt.gc_collections() - n0
 assert collections > 0, collections
 peak_queues = max(q for c, q, s in seen)
 peak_sets = max(s for c, q, s in seen)
@@ -492,15 +492,15 @@ print('collections', collections
     '''
     proc = self.run_child(self.COUNTS + '''import cytest
 
-cyrt.gc_set_threshold(1 << 16)
+curryrt.gc_set_threshold(1 << 16)
 seen = []
 def items(n):
   for i in range(n):
-    seen.append(counts() + (cyrt.gc_node_count(),))
+    seen.append(counts() + (curryrt.gc_node_count(),))
     yield i
-n0 = cyrt.gc_collections()
+n0 = curryrt.gc_collections()
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.partial, 6, iter(items(600)), typed=True)))) == 600
-collections = cyrt.gc_collections() - n0
+collections = curryrt.gc_collections() - n0
 peak_configurations = max(c for c, q, s, n in seen)
 peak_nodes = max(n for c, q, s, n in seen)
 assert collections > 0, collections
@@ -520,9 +520,9 @@ print('collections', collections, 'peak', peak_configurations, peak_nodes)
     '''
     self.run_child(self.COUNTS + '''import cytest
 
-cyrt.gc_set_threshold(1 << 14)
+curryrt.gc_set_threshold(1 << 14)
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.countQueens, 5, typed=True)))) == 10
-assert cyrt.gc_eval_depth() == 0
+assert curryrt.gc_eval_depth() == 0
 assert settled() == (0, 0, 0), counts()
 ''')
 
@@ -541,7 +541,7 @@ except curry.exceptions.EvaluationError as err:
   assert 'boom' in str(err), err
 else:
   assert False, 'no error'
-assert cyrt.gc_eval_depth() == 0
+assert curryrt.gc_eval_depth() == 0
 assert settled() == (0, 0, 0), counts()
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.psort, 4, typed=True)))) == [1, 2, 3, 4]
 assert settled() == (0, 0, 0), counts()
@@ -590,7 +590,7 @@ class TestStress(ChildTests):
     '''
     proc = self.run_stress_child(TestOwnership.COUNTS + '''import cytest
 
-assert cyrt.gc_stress()
+assert curryrt.gc_stress()
 table = [(i, str(i)) for i in range(1, 51)]
 for goal, args, expected in [
     (M.walk, (2000,), 2000), (M.table, (50,), table), (M.spaced, (50,), 156)
@@ -601,7 +601,7 @@ for goal, args, expected in [
   assert value == expected, (value, expected)
   steps = after['steps'] - before['steps']
   collections = after['collections'] - before['collections']
-  assert collections == cyrt.gc_collections() - before['collections']
+  assert collections == curryrt.gc_collections() - before['collections']
   assert steps > 100, steps
   assert collections >= steps, (collections, steps)
   print(goal.name, 'steps', steps, 'collections', collections)
@@ -637,7 +637,7 @@ except curry.exceptions.EvaluationError as err:
   assert 'boom' in str(err), err
 else:
   assert False, 'no error'
-assert cyrt.gc_eval_depth() == 0
+assert curryrt.gc_eval_depth() == 0
 assert settled() == (0, 0, 0), counts()
 print(results)
 '''
@@ -664,11 +664,11 @@ print(results)
 depths = []
 def items():
   for i in range(3):
-    depths.append(cyrt.gc_eval_depth())
+    depths.append(curryrt.gc_eval_depth())
     yield cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 500, typed=True)))) + i
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.lastOf, iter(items()), typed=True)))) == 502
 assert depths == [1, 1, 1], depths
-assert cyrt.gc_eval_depth() == 0
+assert curryrt.gc_eval_depth() == 0
 ''')
 
   def test_off_unless_asked(self):
@@ -679,10 +679,10 @@ assert cyrt.gc_eval_depth() == 0
     '''
     code = '''import cytest
 
-print('stress', cyrt.gc_stress())
-before = cyrt.gc_collections()
+print('stress', curryrt.gc_stress())
+before = curryrt.gc_collections()
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.walk, 1000, typed=True)))) == 1000
-print('collections', cyrt.gc_collections() - before)
+print('collections', curryrt.gc_collections() - before)
 '''
     expected = ['stress False', 'collections 0']
     environment = {

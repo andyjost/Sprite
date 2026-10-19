@@ -5,7 +5,7 @@ A step builds a Variable for every argument it reads: the slot, the path from
 the redex, and the set guards crossed.  An argument that the step only passes
 on needs none of that, so the generator reads it as a plain Node * through
 Node::successor_node or Variable::successor_node (backends/cxx/passthrough.py
-states the rule; cyrt/graph/node.hxx and indexing.hxx hold the reads).  The
+states the rule; curryrt/graph/node.hxx and indexing.hxx hold the reads).  The
 programs are in data/curry/CxxPassThrough.curry.
 '''
 import cytest # from ./lib; must be first
@@ -314,7 +314,7 @@ class TestSuccessorNode(cytest.TestCase):
           config.cxx_tool(), '-std=c++17', '-O2', '-Wall'
         , '-I%s' % config.installed_path('include')
         , source, '-o', exe
-        , '-L%s' % libdir, '-lcyrt', '-Wl,-rpath,%s' % libdir
+        , '-L%s' % libdir, '-lcurryrt', '-Wl,-rpath,%s' % libdir
         ]
       proc = subprocess.run(cmd, capture_output=True, text=True)
       self.assertEqual(proc.returncode, 0, proc.stderr)

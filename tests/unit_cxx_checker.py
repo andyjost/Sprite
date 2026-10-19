@@ -1,7 +1,7 @@
 '''
 Tests for the C++ mirror of the checker mode of the Fair Scheme proofs
 program: the interpreter flag ``checker`` on the C++ backend and the checker
-of the runtime (src/cyrt/checker.hpp), section 6.5 of the memo on the Fair
+of the runtime (src/curryrt/checker.hpp), section 6.5 of the memo on the Fair
 Scheme proofs.  The checker of the Python backend and its tests
 (unit_py_checker.py) are the model.
 
@@ -9,7 +9,7 @@ Two kinds of tests.  The known-good programs of the suite (the set-function,
 functional-pattern and free-variable programs) run under the checker without
 a report, with the values and the counters they have without it, compiled
 and under interpret:all.  And one constructed violation per check, provoked
-through the debug entry points of the bindings (cyrtbindings.checker_debug_*),
+through the debug entry points of the bindings (curryrtbindings.checker_debug_*),
 which corrupt one configuration of a runtime state on purpose or run one
 check on constructed nodes; the entries work only while the flag is on.
 
@@ -24,8 +24,8 @@ CXX = curry.flags['backend'] == 'cxx'
 LEFT, RIGHT = int(LEFT), int(RIGHT)
 
 def _cb():
-  from curry.backends.cxx import cyrtbindings
-  return cyrtbindings
+  from curry.backends.cxx import curryrtbindings
+  return curryrtbindings
 
 def _state(goal):
   '''A runtime state of the global interpreter over the node ``goal``.'''
@@ -570,7 +570,7 @@ for name in ('manySource', 'distinctSource', 'manySourceS', 'paired'):
     self.assertGreater(counters['manySource'][1], 8)
     counts = self.child(
         body
-        + "import cytest\nfrom curry.backends.cxx import cyrtbindings as cb\nrts = cb.RuntimeState(cytest.raw.interp(), cytest.raw.expr(M.narrowed))\nout['values'] = sorted(str(v) for v in rts.generate_values())\nout['counts'] = cb.checker_counts(rts)\n"
+        + "import cytest\nfrom curry.backends.cxx import curryrtbindings as cb\nrts = cb.RuntimeState(cytest.raw.interp(), cytest.raw.expr(M.narrowed))\nout['values'] = sorted(str(v) for v in rts.generate_values())\nout['counts'] = cb.checker_counts(rts)\n"
       , True)
     self.assertEqual(counts['values'], ['1', '2', '3'])
     self.assertGreater(counts['counts']['hnfs'], counts['counts'].get('hnf_untracked', 0))

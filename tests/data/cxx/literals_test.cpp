@@ -1,16 +1,16 @@
 // Checks the shared literal nodes of the runtime: the tables of the small
 // integers and the ASCII characters that int_ and char_ return, and
-// literal_node (see cyrt/builtins.hpp and literal_reserve in
-// cyrt/graph/memory.hpp).  unit_cxx_literals.py compiles this program
+// literal_node (see curryrt/builtins.hpp and literal_reserve in
+// curryrt/graph/memory.hpp).  unit_cxx_literals.py compiles this program
 // against the installed runtime and runs it.  It prints the first failed
 // check and exits with status 1; it prints "ok" and exits with status 0 when
 // every check passes.
-#include "cyrt/cyrt.hpp"
-#include "cyrt/currylib/prelude.hpp"
+#include "curryrt/curryrt.hpp"
+#include "curryrt/currylib/prelude.hpp"
 #include <cstdio>
 #include <cstdlib>
 
-using namespace cyrt;
+using namespace curryrt;
 
 #define CHECK(cond) \
     do { if(!(cond)) { std::printf("failed: %s (line %d)\n", #cond, __LINE__); std::exit(1); } } while(0)

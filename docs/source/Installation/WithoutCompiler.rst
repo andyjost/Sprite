@@ -6,7 +6,7 @@ Installing and running without a C++ compiler
 
 The C++ backend, the default of Sprite, needs a C++ compiler for one thing:
 to compile a Curry module to a shared object.  The runtime library
-``libcyrt``, its Python bindings, and the Curry front end need no compiler
+``libcurryrt``, its Python bindings, and the Curry front end need no compiler
 at run time.  A module without a compiled object runs interpreted: the
 runtime interprets the ICurry of the module from a bytecode, on the same
 scheduler and with the same rewrite steps as compiled code (the interpreter

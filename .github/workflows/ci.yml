@@ -485,7 +485,7 @@ jobs:
         run: ccache -s | head -n 6
 
   # The counters of writes into old nodes (make GC_WRITE_COUNTERS=1; see
-  # src/cyrt/graph/gc/wdgc.cpp and tests/README, section 4): the branches
+  # src/curryrt/graph/gc/wdgc.cpp and tests/README, section 4): the branches
   # of unit_cxx_gc_counters.py and unit_cxx_heap.py that check the counts
   # and the calls run on this build alone.  The job runs on request; it
   # does not run on a push or on the schedule.  The steps are those of the

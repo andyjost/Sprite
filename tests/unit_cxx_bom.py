@@ -3,7 +3,7 @@ Tests of the plain-data bill of materials of a generated C++ module.
 
 A generated module spells its bill of materials (its imports, its data types,
 its functions, and the metadata of each) as static arrays of plain records
-(cyrt/bom.hpp) and exports one record, _bom_.  The compiler writes the arrays
+(curryrt/bom.hpp) and exports one record, _bom_.  The compiler writes the arrays
 as data: it instantiates no template for them, and no constructor runs when
 the module loads.  The loader reads the record, checks its layout version,
 and decodes it into the bill of materials the runtime and Python read.
@@ -13,7 +13,7 @@ their instantiation cost about half of the time g++ spent on a small module.
 import cytest # from ./lib; must be first
 from curry import common, config, exceptions, icurry
 from curry.backends.cxx import compiler
-from curry.backends.cxx import cyrtbindings as cyrt
+from curry.backends.cxx import curryrtbindings as curryrt
 from curry.objects.handle import getHandle
 from curry.toolchain._loadcurry import loadjson
 import collections, curry, os, re, shutil, subprocess, tempfile, unittest
@@ -176,7 +176,7 @@ class TestPlainDataBOM(cytest.TestCase):
       sofile = os.path.join(tmpdir, name + '.so')
       with open(src, 'w') as stream:
         stream.write(
-            '#include "cyrt/bom.hpp"\nusing namespace cyrt;\n'
+            '#include "curryrt/bom.hpp"\nusing namespace curryrt;\n'
             'extern "C" {\n%s\n}\n' % body
           )
       cmd = [
@@ -196,15 +196,15 @@ class TestPlainDataBOM(cytest.TestCase):
     with self.assertRaisesRegex(
         curry.LoadError, r'layout version \d+, and this runtime reads version \d+'
       ):
-      cyrt.SharedCurryModule(sofile)
+      curryrt.SharedCurryModule(sofile)
     sofile = build('CxxBomNone', 'int cxxbom_nothing = 1;')
     with self.assertRaisesRegex(curry.LoadError, '_bom_'):
-      cyrt.SharedCurryModule(sofile)
+      curryrt.SharedCurryModule(sofile)
     sofile = build('CxxBomNoName', record % ('bom::VERSION', 'nullptr'))
     with self.assertRaisesRegex(curry.LoadError, 'no name'):
-      cyrt.SharedCurryModule(sofile)
+      curryrt.SharedCurryModule(sofile)
     sofile = build('CxxBomEmpty', record % ('bom::VERSION', '"CxxBomEmpty"'))
-    shlib = cyrt.SharedCurryModule(sofile)
+    shlib = curryrt.SharedCurryModule(sofile)
     bom = shlib.bom
     self.assertEqual(
         (

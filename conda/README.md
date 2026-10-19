@@ -38,7 +38,7 @@ Build (`build.sh`):
    takes the job count that conda-build grants (`CPU_COUNT`); Ninja
    orders the build steps.
 2. `make install PREFIX=$PREFIX/opt/sprite` builds the C++ runtime
-   (`libcyrt`) and the pybind11 extension module, and copies the Python
+   (`libcurryrt`) and the pybind11 extension module, and copies the Python
    package, the Curry library with its committed `.icy` and `.json.z` files,
    the headers, and the sysconfig files.  It then runs the front end over
    the library, which writes the FlatCurry interfaces under
@@ -56,13 +56,13 @@ Build (`build.sh`):
    the runtime dropped Boost (2026-10-07).  Before that, a wrapper in the
    build tree added `-isystem $PREFIX/include` for the Boost headers.
 4. One build product stays out of the package: the static archive
-   `libcyrt.a` names its members by their build paths, and nothing uses it
+   `libcurryrt.a` names its members by their build paths, and nothing uses it
    at run time.  The precompiled header that the prebuild step wrote for
    the compiler of the build (about 70 MB, for that compiler only) never
    enters the tree: the tree lies in a conda prefix, so the C++ backend
    puts the header into the cache directory `$XDG_CACHE_HOME/sprite`
    (`config.cxx_pch_root`), which `build.sh` points into the build tree.
-   `build.sh` checks that `include/cyrt/cyrt.hpp.gch` does not exist.
+   `build.sh` checks that `include/curryrt/curryrt.hpp.gch` does not exist.
 5. The `tools/` links that `make` writes are absolute paths into the build
    environments.  `build.sh` replaces them: `python` and `curry-frontend`
    become relative links into `$PREFIX/bin`; `cxx` becomes a wrapper script
@@ -74,7 +74,7 @@ Build (`build.sh`):
 7. `sprite.pth` in `site-packages` adds `opt/sprite/python` to `sys.path`, so
    `import curry` works in the Python of the environment.  The package finds
    `SPRITE_HOME` from its own location when the variable is not set, and the
-   extension module finds `libcyrt.so` through a run path relative to itself
+   extension module finds `libcurryrt.so` through a run path relative to itself
    (`CMakeLists.txt`), so no activation script is needed.
 8. A check of the finished tree: `sprite-make --icy` compiles a module that
    imports every library module, in a scratch directory, through the
@@ -173,7 +173,7 @@ environment: `info/has_prefix` holds the 13 stamps as text entries and no
 binary entry; every stamp names the digest of the environment on its first
 line and `<env>/opt/sprite` on its second; `readelf -d` of `Data/List.so`
 shows the `SONAME` `sprite-Data.List.so.13` and the `NEEDED` entries
-`sprite-Prelude.so.13`, `sprite-Data.Maybe.so.13`, `libcyrt.so` and the
+`sprite-Prelude.so.13`, `sprite-Data.Maybe.so.13`, `libcurryrt.so` and the
 system libraries, no path; the first import of the Prelude loads the
 shipped object (0.13 s inside the process, no compiler command);
 `sprite-make --so` of a program compiles the program alone (5.7 s with the
@@ -222,7 +222,7 @@ environment need not be activated.  `cxx-compiler` 2.0.0 brings GCC
 15 with the conda-forge sysroot, so `conda_build_config.yaml` pins the
 compiler of the build to GCC 15 as well:
 the generated code is compiled against the headers under
-`opt/sprite/include` and linked against `opt/sprite/lib/libcyrt.so`, and one
+`opt/sprite/include` and linked against `opt/sprite/lib/libcurryrt.so`, and one
 major version keeps one libstdc++ on both sides.  Move the pin together with
 `cxx-compiler`.  The ABI stamps of the compiled library modules
 (`.so.abi`) digest the runtime headers the generated code includes, the
@@ -284,7 +284,7 @@ their bytecode caches, and `sysconfig/cxx_compiler`.
 | `opt/sprite/python/`             |   367 | 4.9 MB | the package `curry`: 183 modules, their bytecode, the extension module |
 | `opt/sprite/curry/`              |   282 |  21 MB | 22 sources with LICENSE and NOTICE; FlatCurry, interfaces, ICurry and JSON of every module; Python, bytecode, C++, shared object, and ABI stamp of the 13 compiled modules |
 | `opt/sprite/include/`            |    40 | 268 KB | the runtime headers                                        |
-| `opt/sprite/lib/`                |     1 | 708 KB | `libcyrt.so`                                               |
+| `opt/sprite/lib/`                |     1 | 708 KB | `libcurryrt.so`                                               |
 | `opt/sprite/sysconfig/`          |    17 |        | the settings Sprite reads at run time                      |
 | `opt/sprite/bin/`, `opt/sprite/tools/` | 8 |     | the scripts of the tree; the links `python` and `curry-frontend`, the wrapper `cxx` |
 
@@ -516,7 +516,7 @@ What the runs showed.  The 13 stamps of the library name the digest of the
 environment (`2481ab99fd5c34b5`) on their first line and `<env>/opt/sprite`
 on their second, and `stamp_is_current` accepts every one.  `readelf -d` of
 `Data/List.so` shows the `SONAME` `sprite-Data.List.so.13`, the `NEEDED`
-entries `sprite-Prelude.so.13`, `sprite-Data.Maybe.so.13`, `libcyrt.so`,
+entries `sprite-Prelude.so.13`, `sprite-Data.Maybe.so.13`, `libcurryrt.so`,
 `libstdc++.so.6`, `libm.so.6`, `libgcc_s.so.1` and `libc.so.6`, and the
 `RPATH` `$ORIGIN/../../../../../../lib:$ORIGIN/../../../../lib`; the ELF
 reader of the package (`curry.backends.cxx.elf.read_dynamic`) finds the

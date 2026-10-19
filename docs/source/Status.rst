@@ -24,7 +24,7 @@ The backend
 
 The C++ backend is the backend (``CMake WITH_DEFAULT_BACKEND``
 records the default).  It compiles each module to C++ and links it against
-the runtime library ``libcyrt``, and its runtime also interprets the
+the runtime library ``libcurryrt``, and its runtime also interprets the
 ICurry of a module from a bytecode.  A reference implementation of the
 same scheduler in Python stays in the tree behind a flag until the removal
 gate of issue #82, a month of green nightly runs under the interpreter

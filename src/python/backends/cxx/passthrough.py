@@ -7,7 +7,7 @@ crossed on the way.  An argument that the step only passes on to another call
 needs none of that: nothing head-normalizes it from this step (the path), and
 the value it denotes is the node in its slot (the guards).  Such a variable is
 a plain ``Node *`` in the generated code, read through Node::successor_node or
-Variable::successor_node (see cyrt/graph/node.hxx and indexing.hxx).
+Variable::successor_node (see curryrt/graph/node.hxx and indexing.hxx).
 
 The rule.  A variable is plain when all of the following hold:
 

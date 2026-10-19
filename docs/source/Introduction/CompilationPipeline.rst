@@ -247,7 +247,7 @@ interprets the ICurry of the module until the object is ready.
 The C++ backend compiles each generated module with ``g++`` into a shared
 object the first time the module is used, and again when the runtime headers
 the generated code includes change.  Each object records a digest of those
-headers (the include closure of ``cyrt/cyrt.hpp``; a header of the runtime
+headers (the include closure of ``curryrt/curryrt.hpp``; a header of the runtime
 outside it rebuilds the runtime library alone), of the flags it was
 compiled with, of the compiler the runtime was built with and of the format
 of the generated code, and the real path of the installation it was
@@ -267,7 +267,7 @@ the stamp in the product cache, and a later compile of the same module under
 the same conditions places them from there instead of running the compiler;
 see ``SPRITE_PRODUCT_CACHE`` under
 :ref:`CommandLineInterface/EnvironmentVariables:Development Variables`.
-Every module includes the header ``cyrt/cyrt.hpp``,
+Every module includes the header ``curryrt/curryrt.hpp``,
 and parsing that header is most of the compile time of a small module.  So the
 backend precompiles the header once per set of compiler flags and keeps the
 result beside the installed headers.  See ``SPRITE_CXX_PCH_ROOT`` under

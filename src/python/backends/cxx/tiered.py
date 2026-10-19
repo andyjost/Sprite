@@ -3,7 +3,7 @@ Tiered execution of the C++ backend.
 
 Under the interpreter flag ``interpret`` set to 'tiered', a module without a
 current compiled object is interpreted from its ICurry at once (see
-materialize.py and cyrt/icurry.hpp), a child process compiles it in the
+materialize.py and curryrt/icurry.hpp), a child process compiles it in the
 background, and the runtime replaces the step pointer of every function of
 the module by the compiled one when the object is ready.  A step in flight
 finishes on the bytecode; the next step of that function runs compiled.  The
@@ -14,7 +14,7 @@ prebuilds, is never interpreted unless its object is missing.
 The child.  The job of a module runs sprite-make --so on the source file of
 the module, with the search path of the import and the flag interpret:off, so
 the plan of the toolchain (Json2Cpp, Cpp2So) writes the object beside the
-JSON, with its ABI stamp.  One worker thread of the runtime (cyrt/tiered.cpp)
+JSON, with its ABI stamp.  One worker thread of the runtime (curryrt/tiered.cpp)
 runs the jobs in the order of submission, one at a time.  A module is
 submitted when its load ends, after the loads of its imports, so the object
 of an import exists when a module that imports it compiles.  The thread needs
@@ -62,7 +62,7 @@ whose tables changed shape after its shim was made stays interpreted, and so
 does every module that imports it, because their objects would bind to the
 old tables; one warning says so.  The object of an earlier incarnation of a
 module stays mapped under its path; the runtime loads the new file through a
-link of its own name (see the load in cyrt/tiered.hpp).
+link of its own name (see the load in curryrt/tiered.hpp).
 
 The imports.  A compiled object names the objects of its imports as needed
 libraries, by their SONAMEs (toolchain.soname), which the dynamic linker
@@ -93,7 +93,7 @@ The check of the swap.  The child compiles the source as it is when the
 child runs.  An edit of the source between the import and the compile would
 swap in the code of the edited file, and the module would change meaning
 without a load (issue #110).  So a job carries the digest of the ICurry
-file (.icy) of the module at the import (cyrt.tiered_file_digest), and the
+file (.icy) of the module at the import (curryrt.tiered_file_digest), and the
 swap refuses the object when the file differs (the result TIERED_EDITED):
 the module stays interpreted, and poll logs it.  A new process reads the
 edited source.  The .icy and not the JSON the import read: a touch or an
@@ -125,7 +125,7 @@ from ...toolchain import _filenames, _str2module
 from ...utility import curryname, formatting
 from ...utility.locking import native_metadata
 from ..generic import compiler as generic
-from . import cyrtbindings as cyrt
+from . import curryrtbindings as curryrt
 from ... import common, config
 import atexit, itertools, logging, os, shutil, tempfile, time, weakref, warnings
 from ...exceptions import CurryWarning
@@ -353,8 +353,8 @@ def _load_shim(shim, cxx, envp):
   if shim.loaded:
     return True
   try:
-    cyrt.tiered_build_shim(shim.path, shim.argv(cxx), envp)
-    cyrt.tiered_load_shim(shim.path)
+    curryrt.tiered_build_shim(shim.path, shim.argv(cxx), envp)
+    curryrt.tiered_load_shim(shim.path)
   except RuntimeError as exc:
     _warn_once(('shim', shim.name), '%s', exc)
     return False
@@ -406,8 +406,8 @@ def prepare_adoption(interp, name):
   record = _state.records.get(name)
   if record is not None and record.module() is module and module is not None \
       and record.icyfile \
-      and cyrt.tiered_file_digest(record.icyfile) != record.digest:
-    raise LoadError('cannot swap module %r: %s' % (name, cyrt.TIERED_EDITED))
+      and curryrt.tiered_file_digest(record.icyfile) != record.digest:
+    raise LoadError('cannot swap module %r: %s' % (name, curryrt.TIERED_EDITED))
   ensure_shims(interp)
   if shim is not None and not shim.loaded:
     raise LoadError('cannot swap module %r: its shim cannot be linked or loaded' % name)
@@ -418,7 +418,7 @@ def prepare_adoption(interp, name):
       (ifun.name, generic.mangle(ifun.splitname(), generic.STEP_FUNCTION), info)
       for ifun in getHandle(module).icurry.functions.values()
       if (info := M.get_infotable(ifun.name)) is not None
-         and (cyrt.icurry_is_interpreted(info) or cyrt.is_trapped(info))
+         and (curryrt.icurry_is_interpreted(info) or curryrt.is_trapped(info))
     ]
 
 
@@ -532,7 +532,7 @@ def _record(moduleobj, sofile=None):
   icyfile = _filenames.icurryfilename(filename)
   if not os.path.isfile(icyfile):
     icyfile = ''
-  digest = '' if not icyfile else cyrt.tiered_file_digest(icyfile)
+  digest = '' if not icyfile else curryrt.tiered_file_digest(icyfile)
   record = _Record(moduleobj, sofile, icyfile, digest)
   _state.records[imodule.fullname] = record
   return record
@@ -586,7 +586,7 @@ def submit(interp, moduleobj, currypath):
   steps = []
   for ifun in imodule.functions.values():
     info = M.get_infotable(ifun.name)
-    if info is not None and cyrt.icurry_is_interpreted(info):
+    if info is not None and curryrt.icurry_is_interpreted(info):
       steps.append((
           ifun.name, generic.mangle(ifun.splitname(), generic.STEP_FUNCTION)
         , info
@@ -639,7 +639,7 @@ def submit(interp, moduleobj, currypath):
   # names the object this job writes, for the swap of its importers.
   record = _record(moduleobj, sofile)
   logger.debug('Compiling %s in the background: %s', name, ' '.join(argv))
-  cyrt.tiered_submit(
+  curryrt.tiered_submit(
       name, _pending_shims(cxx), argv, envp, logfile, sofile, steps
     , record.icyfile, record.digest, _import_objects(interp, imodule)
     )
@@ -677,11 +677,11 @@ def _refresh(name, interp=None):
 def poll(interp=None):
   '''
   Applies the compiled objects that finished in the background, logs the
-  results, and returns them (see cyrtbindings.tiered_results).  Call it from
+  results, and returns them (see curryrtbindings.tiered_results).  Call it from
   the thread that evaluates.
   '''
-  cyrt.tiered_poll()
-  results = cyrt.tiered_results()
+  curryrt.tiered_poll()
+  results = curryrt.tiered_results()
   for result in results:
     name = result['module']
     _state.pending.pop(name, None)
@@ -710,7 +710,7 @@ def poll(interp=None):
       _refresh(name, interp)
     elif result['error'] == 'the module is no longer loaded':
       logger.debug('The background compile of %s is not needed', name)
-    elif result['error'] == cyrt.TIERED_EDITED:
+    elif result['error'] == curryrt.TIERED_EDITED:
       _warn_once(
           ('edited', name)
         , 'the background compile of module %r is not applied: its source '
@@ -740,7 +740,7 @@ def wait(timeout=None, interp=None):
       slice_ = 0.25
     else:
       slice_ = min(0.25, max(0.0, deadline - time.monotonic()))
-    idle = cyrt.tiered_wait(slice_)
+    idle = curryrt.tiered_wait(slice_)
     poll(interp)
     if idle:
       return True
@@ -772,7 +772,7 @@ def wait_for(name, timeout=None, interp=None):
       slice_ = 0.25
     else:
       slice_ = min(0.25, max(0.0, deadline - time.monotonic()))
-    idle = cyrt.tiered_wait(slice_)
+    idle = curryrt.tiered_wait(slice_)
     poll(interp)
     if idle:
       # Nothing is queued or running, and the poll applied what finished:
@@ -798,7 +798,7 @@ def status():
   swapped_functions, swapped_modules, failed_modules, applied_in_evaluation,
   and shims.
   '''
-  counts = cyrt.tiered_status()
+  counts = curryrt.tiered_status()
   counts['shims'] = len(_state.shims)
   return counts
 
@@ -807,13 +807,13 @@ def counts():
   The two counts Interpreter.stats reports: the functions swapped to
   compiled code and the background compiles that failed.
   '''
-  s = cyrt.tiered_status()
+  s = curryrt.tiered_status()
   return s['swapped_functions'], s['failed_modules']
 
 @native_metadata
 def cancel():
   '''Drops the queued compiles and kills the running one.'''
-  cyrt.tiered_cancel()
+  curryrt.tiered_cancel()
   _state.pending.clear()
   _state.modules.clear()
 

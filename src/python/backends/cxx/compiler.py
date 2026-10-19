@@ -1,7 +1,7 @@
 from ...exceptions import CompileError, CurryTypeError
 from ..generic import compiler, renderer
 from ... import common, icurry
-from . import cyrtbindings as cyrt
+from . import curryrtbindings as curryrt
 from . import passthrough
 from ...utility import formatDocstring, strings, visitation
 from ...utility.showflags import showflags
@@ -17,7 +17,7 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # depends on, changes.  Format 3: the optimizer replaces calls of alias
 # functions (interpreter.optimize.inline_aliases), so a cached file of format
 # 2 is correct but slower.  Format 4: the bill of materials is plain data
-# (cyrt/bom.hpp; vEmitMetadata and vEmitModuleDefinition).  A file of format 3
+# (curryrt/bom.hpp; vEmitMetadata and vEmitModuleDefinition).  A file of format 3
 # defines a ModuleBOM object, which the loader no longer reads.  Format 5: a
 # step writes its result into the redex when it fits (Node::rewrite,
 # vEmit_compileS_IReturn); a file of format 4 forwards every result, which is
@@ -49,14 +49,16 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # (_source_file_name), as it names a source under the installation relative
 # to it since format 12.  A file of format 12 names the objects of its
 # imports and its source by absolute path, so it serves one tree.
-FORMAT_VERSION = 13
+# Format 14 (2026-10-19): generated code includes curryrt/curryrt.hpp and
+# uses namespace curryrt, and its objects link against libcurryrt.so.
+FORMAT_VERSION = 14
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure
 # of these headers into the ABI stamp of an object (toolchain.runtime_headers
 # and runtime_digest): a header the closure does not reach belongs to the
 # runtime library alone, and an edit to it compiles no module again.
-RUNTIME_INCLUDES = ('cyrt/cyrt.hpp',)
+RUNTIME_INCLUDES = ('curryrt/curryrt.hpp',)
 
 def compile(interp, imodule):
   compileM = CxxCompiler(interp, imodule)
@@ -80,7 +82,7 @@ def replace_singletons(f):
 # Node::create returns the static object for one of these, and a step forwards
 # the redex to it.  A heap copy of a pinned node would never be marked by the
 # collector, so the generator never writes one into a redex (see
-# Node::rewrite in cyrt/graph/node.hxx).
+# Node::rewrite in curryrt/graph/node.hxx).
 PINNED_INFOS = frozenset(key[len('Node::create(&'):-1] for key in SINGLETONS)
 
 # The size of the block of a node, in bytes, as the generated info tables
@@ -99,7 +101,7 @@ class CxxCompiler(compiler.CompilerBase):
 
   def __init__(self, interp, iroot):
     super(CxxCompiler, self).__init__(interp, iroot)
-    self.cxxmodule = cyrt.Module.find_or_create(iroot.modulename) \
+    self.cxxmodule = curryrt.Module.find_or_create(iroot.modulename) \
         if isinstance(iroot, icurry.IModule) \
         else None
     # The size of the block of the redex of the step under compilation, and
@@ -134,7 +136,7 @@ class CxxCompiler(compiler.CompilerBase):
     for name in RUNTIME_INCLUDES:
       yield '#include "%s"' % name
     yield ''
-    yield 'using namespace cyrt;'
+    yield 'using namespace curryrt;'
     yield ''
     yield 'extern "C" {'
 
@@ -232,7 +234,7 @@ class CxxCompiler(compiler.CompilerBase):
       )
 
   def vEmitMetadata(self, md, h_md):
-    # A metadata object as plain data (cyrt/bom.hpp): an array of entries, in
+    # A metadata object as plain data (curryrt/bom.hpp): an array of entries, in
     # key order, and the record that names it.  The entries of an empty
     # object are a null pointer.
     if not md:
@@ -249,7 +251,7 @@ class CxxCompiler(compiler.CompilerBase):
       )
 
   def vEmitModuleDefinition(self, imodule, h_module):
-    # The module record _bom_ and its tables, as plain data (cyrt/bom.hpp).
+    # The module record _bom_ and its tables, as plain data (curryrt/bom.hpp).
     # The loader finds the record by its name, checks its version, and
     # decodes it.  A table comes before the table that points to it.
     cxx = renderer.PY_RENDERER
@@ -512,7 +514,7 @@ class CxxCompiler(compiler.CompilerBase):
   def vEmit_compileE_ILiteral(self, iliteral, h_ctor, primary):
     # A primary literal is a node.  The runtime keeps one node for each
     # small integer and each ASCII character (int_ and char_ in
-    # cyrt/builtins.hpp return them), and the module keeps one node for each
+    # curryrt/builtins.hpp return them), and the module keeps one node for each
     # of its other literals (internLiteralNode).  So a step allocates nothing
     # for a literal.  A non-primary literal is the info table and the value,
     # for a rewrite of the redex.
@@ -532,9 +534,9 @@ class CxxCompiler(compiler.CompilerBase):
     SMALL_INT_MIN to SMALL_INT_MAX or a Char up to SMALL_CHAR_MAX.
     '''
     if isinstance(iliteral, icurry.IInt):
-      return cyrt.SMALL_INT_MIN <= iliteral.value <= cyrt.SMALL_INT_MAX
+      return curryrt.SMALL_INT_MIN <= iliteral.value <= curryrt.SMALL_INT_MAX
     elif isinstance(iliteral, icurry.IChar):
-      return ord(iliteral.value) <= cyrt.SMALL_CHAR_MAX
+      return ord(iliteral.value) <= curryrt.SMALL_CHAR_MAX
     else:
       return False
 
@@ -542,7 +544,7 @@ class CxxCompiler(compiler.CompilerBase):
     '''
     The symbol of the node of a literal of this module.  The node is made
     when the module loads and lives as long as the process (literal_node in
-    cyrt/builtins.hpp).  One node serves every occurrence of the literal in
+    curryrt/builtins.hpp).  One node serves every occurrence of the literal in
     the module.  The key is the spelling: -0.0 and 0.0 are two literals.
     '''
     key = compiler.LITERAL_NODE, h_ctor, shown
@@ -588,7 +590,7 @@ class CxxCompiler(compiler.CompilerBase):
     The symbol of the node of a partial application without arguments: the
     symbol ``h_info`` as a value, as in ``map f xs``.  The node is made when
     the module loads and lives as long as the process (partial_node in
-    cyrt/builtins.hpp); one node serves every occurrence in the module.  The
+    curryrt/builtins.hpp); one node serves every occurrence in the module.  The
     missing count is spelled, because the info table of a head of this
     module is not yet initialized when the node is made.
     '''
@@ -678,7 +680,7 @@ def _char_literal(char):
 
 def _bom_entry(key, value):
   '''
-  One bom::Entry (cyrt/bom.hpp): the key, the kind, the number, and the text
+  One bom::Entry (curryrt/bom.hpp): the key, the kind, the number, and the text
   of a metadata entry.  MDValue holds a string, an int, or a bool; another
   value is an error here, not in the C++ compiler.
   '''

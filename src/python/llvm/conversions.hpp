@@ -11,7 +11,7 @@
     struct name {                                              \
       /* Register this converter. */                           \
       static void init()                                       \
-        { prereqs; ::cyrt::register_conversion<name,type>(); } \
+        { prereqs; ::curryrt::register_conversion<name,type>(); } \
                                                                \
       /* C++ to Python. */                                     \
       static PyObject * convert(type const &);                 \
@@ -27,7 +27,7 @@
 
 
 
-namespace cyrt
+namespace curryrt
 {
   using namespace ::boost::python;
 

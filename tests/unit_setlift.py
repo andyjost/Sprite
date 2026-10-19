@@ -374,7 +374,7 @@ import cytest, curry
 curry.reset(**%(flags)r)
 M = curry.import_(%(module)r)
 if curry.flags['backend'] == 'cxx':
-  from curry.backends.cxx import cyrtbindings as cb
+  from curry.backends.cxx import curryrtbindings as cb
   def run(goal):
     rts = cb.RuntimeState(cytest.raw.interp(), cytest.raw.expr(goal))
     values = sorted(str(v) for v in rts.generate_values())

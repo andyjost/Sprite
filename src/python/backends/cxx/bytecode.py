@@ -1,7 +1,7 @@
 '''
 The emitter of the ICurry interpreter of the C++ runtime.
 
-The runtime interprets a function from a compact bytecode (cyrt/icurry.hpp):
+The runtime interprets a function from a compact bytecode (curryrt/icurry.hpp):
 a sequence of 32-bit units that spell the statements of the ICurry body on
 a small machine of registers, variables, and an operand stack.  This module
 compiles an IFunction into that form.  The materializer of the C++ backend
@@ -26,7 +26,7 @@ statement, so an interpreted function takes the steps of its compiled form:
     a branch runs to its own end and needs no join.
 
 The names of the opcodes (OPCODES) and their numbers agree with the enum of
-cyrt/icurry.hpp; a unit test compares them with the runtime.
+curryrt/icurry.hpp; a unit test compares them with the runtime.
 '''
 from ...exceptions import CompileError
 from ... import icurry
@@ -39,7 +39,7 @@ __all__ = [
   , 'compile_function', 'disassemble'
   ]
 
-# The opcodes, in the order of the enum in cyrt/icurry.hpp.
+# The opcodes, in the order of the enum in curryrt/icurry.hpp.
 OPCODES = (
     'LOAD_ROOT_SUCC', 'LOAD_VAR_SUCC', 'BIND_ROOT', 'BIND_VAR', 'COPY_REG'
   , 'COPY_VAR', 'FREE_REG', 'PUSH_REG', 'PUSH_VAR', 'PUSH_ROOT', 'PUSH_CONST'
@@ -75,7 +75,7 @@ class FunctionCode(object):
   The bytecode of one function: the code units, the constants, and the
   sizes of the frame.  A constant is what the resolver gave for a symbol or
   a type, or a tuple that names a value the runtime makes when the code is
-  attached (see cyrtbindings/icurry.cpp): ('I', value), ('C', codepoint),
+  attached (see curryrtbindings/icurry.cpp): ('I', value), ('C', codepoint),
   ('F', value), ('S', text), ('P', info, missing), ('V', kind, values).
   '''
   def __init__(self, name):
@@ -194,7 +194,7 @@ def compile_function(ifun, resolver):
   stands for the info table of a function or constructor, ``tag(fullname)``
   the tag of a constructor, and ``datatype(fullname)`` the constant that
   stands for the type of a constructor.  The constants are handed to the
-  runtime as they are (see cyrtbindings/icurry.cpp); a test may pass names.
+  runtime as they are (see curryrtbindings/icurry.cpp); a test may pass names.
 
   Raises CompileError for a body the interpreter cannot run: a built-in
   without a C++ implementation, or an expression of an unknown kind.

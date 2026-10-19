@@ -133,43 +133,43 @@ endif()
 # gc/*.cpp are include fragments selected by memory.cpp, not translation units.
 # Keep the historical translation-unit order: the module registry is
 # initialized before the builtin modules register their tables.
-file(GLOB runtime_sources CONFIGURE_DEPENDS src/cyrt/*.cpp)
+file(GLOB runtime_sources CONFIGURE_DEPENDS src/curryrt/*.cpp)
 foreach(dir currylib currylib/prelude graph state)
-  file(GLOB sources CONFIGURE_DEPENDS "src/cyrt/${dir}/*.cpp")
+  file(GLOB sources CONFIGURE_DEPENDS "src/curryrt/${dir}/*.cpp")
   list(APPEND runtime_sources ${sources})
 endforeach()
 set(image "${CMAKE_CURRENT_BINARY_DIR}/stage")
-add_library(cyrt SHARED ${runtime_sources})
-target_include_directories(cyrt PUBLIC "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(cyrt PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+add_library(curryrt SHARED ${runtime_sources})
+target_include_directories(curryrt PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(curryrt PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
 # Linux linkage is retained here; Windows is a later portability step.
-target_link_options(cyrt PRIVATE -Wl,-Bsymbolic-functions -Wl,--no-undefined)
-set_target_properties(cyrt PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${image}/lib")
+target_link_options(curryrt PRIVATE -Wl,-Bsymbolic-functions -Wl,--no-undefined)
+set_target_properties(curryrt PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${image}/lib")
 if(GC STREQUAL mps)
   if(NOT EXISTS "${CMAKE_SOURCE_DIR}/extern/mps/code/mps.h")
     message(FATAL_ERROR "GC=mps needs the extern/mps submodule")
   endif()
-  target_sources(cyrt PRIVATE src/cyrt/graph/mpsgc.c)
-  target_include_directories(cyrt PRIVATE extern/mps/code)
-  target_compile_definitions(cyrt PUBLIC SPRITE_GC_MPS PRIVATE CONFIG_VAR_HOT)
+  target_sources(curryrt PRIVATE src/curryrt/graph/mpsgc.c)
+  target_include_directories(curryrt PRIVATE extern/mps/code)
+  target_compile_definitions(curryrt PUBLIC SPRITE_GC_MPS PRIVATE CONFIG_VAR_HOT)
 elseif(GC_WRITE_COUNTERS)
-  target_compile_definitions(cyrt PUBLIC SPRITE_GC_WRITE_COUNTERS)
+  target_compile_definitions(curryrt PUBLIC SPRITE_GC_WRITE_COUNTERS)
 endif()
 if(TRACE)
-  target_compile_definitions(cyrt PUBLIC SPRITE_TRACE_ENABLED)
+  target_compile_definitions(curryrt PUBLIC SPRITE_TRACE_ENABLED)
 endif()
 if(COUNTERS)
-  target_compile_definitions(cyrt PUBLIC SPRITE_SCHEDULER_COUNTERS)
+  target_compile_definitions(curryrt PUBLIC SPRITE_SCHEDULER_COUNTERS)
 endif()
-file(GLOB binding_sources CONFIGURE_DEPENDS src/python/backends/cxx/cyrtbindings/*.cpp)
-pybind11_add_module(_cyrtbindings MODULE NO_EXTRAS ${binding_sources})
-target_link_libraries(_cyrtbindings PRIVATE cyrt)
-foreach(target cyrt _cyrtbindings)
+file(GLOB binding_sources CONFIGURE_DEPENDS src/python/backends/cxx/curryrtbindings/*.cpp)
+pybind11_add_module(_curryrtbindings MODULE NO_EXTRAS ${binding_sources})
+target_link_libraries(_curryrtbindings PRIVATE curryrt)
+foreach(target curryrt _curryrtbindings)
   target_compile_options(${target} PRIVATE -Wall -Wno-register
     "$<$<CONFIG:Release>:-O2;-fno-stack-protector;-fno-plt;-fno-semantic-interposition>")
 endforeach()
-set_target_properties(_cyrtbindings PROPERTIES
-  LIBRARY_OUTPUT_DIRECTORY "${image}/python/curry/backends/cxx/cyrtbindings"
+set_target_properties(_curryrtbindings PROPERTIES
+  LIBRARY_OUTPUT_DIRECTORY "${image}/python/curry/backends/cxx/curryrtbindings"
   BUILD_WITH_INSTALL_RPATH TRUE
   INSTALL_RPATH "$ORIGIN/../../../../../lib;$ORIGIN/../../../_sprite/lib")
 
@@ -234,7 +234,7 @@ add_custom_target(currylib ALL
     --frontend "${WITH_CURRY_FRONTEND}" --pakcs "${WITH_PAKCS}"
     --icurry "${WITH_ICURRY}" --cxx "${WITH_CXX_POSTINSTALL}"
     --ccache "${WITH_CCACHE}" ${wheel_args} --jobs "${JOBS}" --rebuild-icy "${SPRITE_REBUILD_ICY}"
-  DEPENDS _cyrtbindings USES_TERMINAL VERBATIM)
+  DEPENDS _curryrtbindings USES_TERMINAL VERBATIM)
 if(SKBUILD)
   install(FILES LICENSE DESTINATION curry/_sprite/licenses)
   install(FILES extern/pybind11/LICENSE DESTINATION curry/_sprite/licenses RENAME pybind11-LICENSE)
