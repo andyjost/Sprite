@@ -278,7 +278,7 @@ class TestWrappers(cytest.TestCase):
            mock.patch.object(sys, 'executable', str(directory / 'python')), \
            mock.patch.dict(os.environ, PATH='', SPRITE_FRONTEND=str(frontend)):
         self.assertEqual(config.sprite_make(cached=[]), str(make))
-        self.assertEqual(config.curry_frontend(cached=[]), str(frontend))
+        self.assertEqual(config.curry_frontend(), str(frontend))
 
   def test_prerequisite_diagnostic(self):
     env = dict(os.environ, PATH='')
