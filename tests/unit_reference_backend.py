@@ -132,11 +132,11 @@ print(curry.flags['backend'], cytest.raw.interp().backend.backend_name)
     self.assertNotIn('{cxx,py}', proc.stdout)
     proc = subprocess.run(
         ['timeout', str(TIMEOUT), config.sprite_exec(), '-b', 'py']
-      , input="print('backend', __package__.flags['backend'])\n"
+      , input=':set\n:quit\n'
       , capture_output=True, text=True, env=env
       )
     self.assertEqual(proc.returncode, 0, proc.stderr)
-    self.assertIn('backend py', proc.stdout)
+    self.assertIn("backend : 'py'", proc.stderr)
     # The error for an unknown value names no value.
     proc = subprocess.run(
         ['timeout', str(TIMEOUT), config.sprite_exec(), '-b', 'foo', os.devnull]

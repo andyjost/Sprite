@@ -964,7 +964,7 @@ class Cpp2So(object):
     if cxx is None:
       raise exceptions.CompileError(
           'cannot compile %r: no C++ compiler is installed at %r.  Install '
-          'one and configure Sprite with --with-cxx-postinstall, or use the '
+          'one and configure Sprite with CMake -DWITH_CXX_POSTINSTALL=PATH, or use the '
           'modules that make stage compiled.'
         % (file_in, config.installed_path('tools', 'cxx'))
         )

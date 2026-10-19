@@ -14,7 +14,7 @@
 # is skipped on the next run, so the script can run again after a stop.
 # CMake configuration is skipped while its cache exists and the flags
 # of the last run are the same
-# (PREFIX/configure-args); --reconfigure forces it.  The script never runs
+# (PREFIX/cmake-args); --reconfigure forces it.  The script never runs
 # sudo.  When an apt package is missing it prints the apt command for the
 # user and stops.
 #
@@ -191,8 +191,8 @@ conda_pkgs=$prefix/conda/pkgs
 cpm_home=$prefix/cpm
 python=$conda_env/bin/python
 env_file=$repo/conda/dev-environment.yml
-# The flags of the last configure run; see step_configure.
-configure_args_file=$prefix/configure-args
+# The flags of the last CMake run; see step_configure.
+configure_args_file=$prefix/cmake-args
 icurry_path=
 # The cores of this machine, from step_machine.
 cores=
@@ -200,7 +200,7 @@ cores=
 # The clean environment.  A conda toolchain in the login shell exports CC,
 # CXX, CFLAGS, CXXFLAGS, CPPFLAGS, and LDFLAGS, and the Makefiles append them.
 # CCACHE_DIR keeps the compiler cache under the prefix in every build and
-# test run, not under HOME: with configure --with-ccache the compiler of the
+# test run, not under HOME: with CMake WITH_CCACHE the compiler of the
 # installation runs ccache too, so every process that compiles a Curry
 # module for the C++ backend reads the variable.
 clean_env=(env -i "PATH=$CLEAN_PATH" "HOME=$HOME" LC_ALL=C.UTF-8)
@@ -305,7 +305,7 @@ step_machine() {
   swap=$(awk '/^SwapTotal:/ { print $2 }' /proc/meminfo 2>/dev/null || echo 0)
   note "os: ${os:-unknown}"
   note "cores: $cores  memory: $(gib "$mem") GiB  swap: $(gib "$swap") GiB"
-  # auto goes to configure as it is: make counts the processors when it
+  # auto goes to CMake as it is: make counts the processors when it
   # starts, so the cache records no count of this machine.
   if [ "$jobs" = auto ]; then
     note "jobs: auto (one per processor, counted by make; $cores now)"

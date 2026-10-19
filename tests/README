@@ -434,9 +434,9 @@ Unit tests match the pattern unit_*.py.
     an oracle.out beside a driver is a committed transcript of the PAKCS
     REPL on the same goals.  The test also checks the rules of the corpus
     (the files of a directory, the length of go.py, no machine path).
-  - unit_configure.py runs copies of configure in scratch directories and
-    make dry runs; it builds nothing.  It checks the options --jobs and
-    --with-ccache and the ordering rules that keep make -j safe.
+  - unit_configure.py runs CMake in scratch directories and make dry runs;
+    it builds nothing.  It checks the configuration options, the installed
+    runtime facts, and the thin make wrappers.
   - unit_setup_script.py runs scripts/setup-dev-machine.sh with --dry-run
     against a temporary prefix and checks the printed plan; it installs
     nothing and needs no network.
@@ -537,7 +537,7 @@ under data/curry/flat2icurry; func_flat2icurry.py checks the whole archive.
 Sprite compiles with the port by default: the Curry front end writes the
 FlatCurry, and the port writes the .icy file.  unit_curry2icurry.py checks
 that route end to end.  SPRITE_CURRY2ICURRY=icurry selects icurry instead,
-when configure was given --with-icurry.  To check files by hand, say, e.g.,
+when CMake was given -DWITH_ICURRY=PATH.  To check files by hand, say, e.g.,
 
         ./shell
         python lib/flat2icurry_oracle.py --overlay
@@ -709,8 +709,8 @@ The archive is rebuilt with `make overlay-archive` at the root of the
 repository.  The rule packs the .fcy, .fint, .icurry, .icy, and .json.z files
 under tests/ and the library interfaces that the front end writes under
 curry/lib/.curry, with fixed owner and time stamps.  The .icy files must come
-from icurry: run the tests with SPRITE_CURRY2ICURRY=icurry (configure
---with-icurry) before the rebuild, or the port becomes its own oracle.  Two
+from icurry: run the tests with SPRITE_CURRY2ICURRY=icurry (CMake
+-DWITH_ICURRY=PATH) before the rebuild, or the port becomes its own oracle.  Two
 probe modules, TypedRoot and Externals, differ on purpose between the two
 routes; see data/curry/flat2icurry/README.md.
 
@@ -980,7 +980,7 @@ matches no test file, and 130 after Ctrl-C.
 
 Without options every unit_*.py and func_*.py file runs on the backend of
 SPRITE_INTERPRETER_FLAGS, else on the default backend of the installation
-(sysconfig/default_backend, which configure --with-default-backend
+(sysconfig/default_backend, which CMake WITH_DEFAULT_BACKEND
 writes), at the width of -j auto: the budget described
 below decides how many files run at once, up to the core count.  The
 default is the constant DEFAULT_JOBS in lib/testrunner/__init__.py; -j 1

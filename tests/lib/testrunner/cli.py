@@ -136,7 +136,7 @@ def parse_args(argv, jobs=DEFAULT_JOBS):
 def installed_backend(sprite_home):
   '''
   The default backend of the installation: the value of
-  sysconfig/default_backend, which configure --with-default-backend writes;
+  sysconfig/default_backend, which CMake WITH_DEFAULT_BACKEND writes;
   DEFAULT_BACKEND when the installation has no such file or the file names
   no backend.
   '''

@@ -74,7 +74,7 @@ command line.
 
     - JOBS
 
-				The job count of the top-level make, from configure --jobs.  Say
+				The job count of the top-level make, from CMake JOBS.  Say
 				`make JOBS=N stage` to use another count for one run.  A -j on the
 				command line wins over both.
 

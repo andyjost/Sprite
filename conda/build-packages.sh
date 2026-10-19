@@ -1,7 +1,7 @@
 #!/bin/bash
 # Builds the two conda packages of Sprite into a local channel.
 #
-# The source of the package sprite is an export of a commit (git archive of
+# The source of the package currylang is an export of a commit (git archive of
 # HEAD by default), with the pybind11 submodule exported the same way.  So an
 # untracked or a modified file of the working tree never ships, and the
 # links install and object-root of a developer tree stay out.  The recipe
@@ -10,7 +10,7 @@
 # Usage: conda/build-packages.sh --build-root DIR [options]
 # Say --help for the options.
 #
-# The steps run in this order: export, curry-frontend, sprite.  conda-build
+# The steps run in this order: export, curry-frontend, currylang.  conda-build
 # runs in a scrubbed environment (env -i with PATH, HOME, the locale, TMPDIR,
 # the proxy variables, CONDA_PKGS_DIRS, CPU_COUNT and XDG_CACHE_HOME): a
 # conda environment that is active in the shell, or the variables of a conda
@@ -36,7 +36,7 @@ usage() {
   cat <<USAGE
 usage: build-packages.sh --build-root DIR [options]
 
-Builds the conda packages curry-frontend and sprite into a local channel
+Builds the conda packages curry-frontend and currylang into a local channel
 from an export of a commit of this repository.
 
 options:
@@ -173,7 +173,7 @@ if [ -n "$pakcs_archive" ]; then
 fi
 
 # 3. The builds.  The scrubbed environment; the local channel first, so
-# that the build of sprite takes curry-frontend from it.  The cache
+# that the build of currylang takes curry-frontend from it.  The cache
 # directory of the user, where the test step writes the precompiled header,
 # is under the build root (see the head of this file).
 cache="$build_root/cache"
@@ -209,6 +209,6 @@ if [ "$skip_frontend" = 0 ]; then
   echo "2. curry-frontend"
   conda_build "$src/conda/curry-frontend"
 fi
-echo "3. sprite"
+echo "3. currylang"
 conda_build "$src/conda/recipe"
 echo "done: the packages are under $channel/linux-64"

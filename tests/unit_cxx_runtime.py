@@ -160,15 +160,15 @@ class TestBackendOption(cytest.TestCase):
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:' + flag
     cmd = ['timeout', str(self.TIMEOUT), config.sprite_exec(), '-b', option]
     proc = subprocess.run(
-        cmd, env=env, input="print('backend', __package__.flags['backend'])\n"
+        cmd, env=env, input=':set\n:quit\n'
       , capture_output=True, text=True
       )
     self.assertEqual(proc.returncode, 0, proc.stderr)
-    return proc.stdout
+    return proc.stderr
 
   def test_backend_option_overrides_flag(self):
-    self.assertIn('backend cxx', self.backend_seen('cxx', 'py'))
-    self.assertIn('backend py', self.backend_seen('py', 'cxx'))
+    self.assertIn("backend : 'cxx'", self.backend_seen('cxx', 'py'))
+    self.assertIn("backend : 'py'", self.backend_seen('py', 'cxx'))
 
 
 # Issue #124

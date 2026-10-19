@@ -1,5 +1,49 @@
 '''Frontend packaging works independently of the Sprite runtime.'''
+import importlib.util
 import json, os, pathlib, runpy, shutil, subprocess, sys, tempfile, unittest
+import sysconfig, zipfile
+
+
+class TestFrontendWheel(unittest.TestCase):
+  @unittest.skipUnless(importlib.util.find_spec('setuptools') and
+      importlib.util.find_spec('wheel'), 'requires setuptools and wheel')
+  def test_distribution_and_offline_install(self):
+    root = pathlib.Path(__file__).resolve().parent.parent
+    with tempfile.TemporaryDirectory(prefix='frontend wheel ') as tmp:
+      tmp = pathlib.Path(tmp)
+      project = tmp / 'project'
+      project.mkdir()
+      for name in ('pyproject.toml', 'setup.py'):
+        shutil.copy2(root / 'frontend' / name, project / name)
+      shutil.copytree(root / 'frontend/licenses', project / 'licenses')
+      package = project / 'curry_frontend'
+      shutil.copytree(root / 'frontend/curry_frontend', package,
+          ignore=shutil.ignore_patterns('__pycache__'))
+      (package / 'bin').mkdir()
+      binary = package / 'bin/curry-frontend'
+      binary.write_text('#!/bin/sh\necho 2.0.0\n')
+      binary.chmod(0o755)
+      wheels = tmp / 'wheels'
+      result = subprocess.run([sys.executable, '-m', 'pip', 'wheel',
+          '--no-index', '--no-deps', '--no-build-isolation',
+          '--wheel-dir', str(wheels), str(project)],
+          capture_output=True, text=True, timeout=60)
+      self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+      platform = sysconfig.get_platform().replace('-', '_').replace('.', '_')
+      wheel, = wheels.glob('*.whl')
+      self.assertEqual(wheel.name, 'curry_frontend-2.0.0.post4-py3-none-%s.whl' % platform)
+      with zipfile.ZipFile(wheel) as archive:
+        metadata = archive.read('curry_frontend-2.0.0.post4.dist-info/METADATA').decode()
+      self.assertIn('\nName: curry-frontend\n', metadata)
+      env = tmp / 'env'
+      subprocess.run([sys.executable, '-m', 'venv', str(env)], check=True, timeout=60)
+      result = subprocess.run([str(env / 'bin/python'), '-m', 'pip', 'install',
+          '--no-index', '--no-deps', str(wheel)],
+          capture_output=True, text=True, timeout=60)
+      self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+      result = subprocess.run([str(env / 'bin/curry-frontend'), '--numeric-version'],
+          capture_output=True, text=True, timeout=30)
+      self.assertEqual((result.returncode, result.stdout, result.stderr), (0, '2.0.0\n', ''))
 
 
 class TestFrontendLogs(unittest.TestCase):

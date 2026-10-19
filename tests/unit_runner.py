@@ -1208,7 +1208,7 @@ class TestCli(unittest.TestCase):
   def test_installed_backend(self):
     '''
     The backend of a run that names none: the default of the installation
-    (sysconfig/default_backend, which configure --with-default-backend
+    (sysconfig/default_backend, which CMake WITH_DEFAULT_BACKEND
     writes), else the constant of the runner.  The listing of such a run
     shows it.
     '''

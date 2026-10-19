@@ -26,6 +26,16 @@ class TestToolsStatus(cytest.TestCase):
     self.assertEqual((proc.returncode, proc.stdout, proc.stderr),
         (status, out, err))
 
+  def test_python_module_starts_repl(self):
+    self.check(self.child([sys.executable, '-m', 'curry'], ':quit\n'),
+        0, 'Prelude> ')
+
+  def test_sprite_exec_starts_repl(self):
+    self.check(self.child([config.sprite_exec()], ':quit\n'), 0, 'Prelude> ')
+
+  def test_python_module_runs_program(self):
+    self.check(self.child([sys.executable, '-m', 'curry', TOOLS]), 0, '1\n2\n')
+
   def test_answer_lines_and_statuses(self):
     cases = [
         ('main', 0, '1\n2\n', '')
@@ -72,8 +82,9 @@ class TestToolsStatus(cytest.TestCase):
         [sys.executable, '-m', 'curry.tools.icy', '--help']):
       proc = self.child(command)
       self.assertEqual(proc.returncode, 0, proc.stderr)
-      self.assertIn('No value found!', ' '.join(proc.stdout.split()))
-      self.assertIn('Evaluation suspended!', proc.stdout)
+      helptext = ' '.join(proc.stdout.split())
+      self.assertIn('No value found!', helptext)
+      self.assertIn('Evaluation suspended!', helptext)
     proc = self.child([sys.executable, '-m', 'curry.tools.icy'],
         ':eva putStrLn "a   b"\n:quit\n')
     self.check(proc, 0, 'Prelude> a   b\nPrelude> ')

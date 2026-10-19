@@ -10,13 +10,15 @@ It prints each converted answer with ``curry.show``.  The same route
 serves ``sprite-exec -g`` and the text goals of the Python API, so the
 three agree on every goal.
 
-To start the REPL, run the module ``curry.tools.icy`` with the Python of
-the installation:
+To start the REPL, run ``python -m curry`` with the Python of the
+installation, or run ``sprite-exec`` without a program:
 
 .. code-block:: bash
 
-    % install/bin/python -m curry.tools.icy
+    % install/bin/python -m curry
     Prelude>
+
+``python -m curry.tools.icy`` also starts the same REPL.
 
 The prompt names the loaded module.  The Prelude is loaded at the start.
 The REPL runs on the default backend of the installation, the C++ backend,
@@ -32,10 +34,11 @@ step mode, where the schedule depends on the expression alone:
 
 .. code-block:: bash
 
-    % SPRITE_ROTATION=steps:65536 install/bin/python -m curry.tools.icy
+    % SPRITE_ROTATION=steps:65536 install/bin/python -m curry
 
-Run with ``--help`` for the commands and exit statuses. Interpreter flags
-come from the environment and may be changed with ``:set``.
+Run ``python -m curry.tools.icy --help`` for the commands and exit
+statuses. Interpreter flags come from the environment and may be changed
+with ``:set``.
 
 Commands of the REPL
 ====================

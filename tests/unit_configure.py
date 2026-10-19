@@ -57,6 +57,8 @@ class TestCMake(cytest.TestCase):
       self.assertNotIn(str(self.build), path.read_text())
       self.assertNotIn(str(ROOT), path.read_text())
     for name, value in [('default_backend', 'cxx'), ('cxx_gc', 'wdgc'),
+                        ('default_sprite_cache_file', 'cache.db'),
+                        ('enable_icurry_cache', '0'),
                         ('frontend_subdir', 'pakcs-3.4.1'),
                         ('intermediate_subdir', 'sprite-pakcs-3.4.1'),
                         ('frontend_flags', '--extended -D__PAKCS__=304')]:
@@ -70,10 +72,13 @@ class TestCMake(cytest.TestCase):
 
   def test_options_and_validation(self):
     result = self.configure('-DJOBS=3', '-DGC=wdgc', '-DWITH_DEFAULT_BACKEND=py',
-                            '-DCMAKE_BUILD_TYPE=Debug', '-DGC_WRITE_COUNTERS=ON')
+                            '-DCMAKE_BUILD_TYPE=Debug', '-DGC_WRITE_COUNTERS=ON',
+                            '-DENABLE_ICURRY_CACHE=ON')
     self.assertEqual(result.returncode, 0, result.stdout)
     facts = self.build / 'stage/sysconfig'
     for name, value in [('default_backend', 'py'), ('cxx_gc', 'wdgc'),
+                        ('default_sprite_cache_file', 'cache.db'),
+                        ('enable_icurry_cache', '1'),
                         ('cxx_flavor', 'debug'), ('cxx_gc_write_counters', '1')]:
       self.assertEqual((facts / name).read_text().strip(), value)
     for option, message in [('-DJOBS=0', 'positive integer or auto'),

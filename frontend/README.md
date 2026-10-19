@@ -1,4 +1,4 @@
-# currylang-frontend
+# curry-frontend
 
 This directory packages the Curry front end 2.0.0 shipped with PAKCS 3.4.1.
 It does not change Sprite's build. No wheel is published by this workflow.

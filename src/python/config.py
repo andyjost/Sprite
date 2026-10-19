@@ -131,8 +131,14 @@ class _Variable(object):
 # directory (a package resource in wheels). Paths to headers and libraries
 # are resolved relative to that directory, never to the build prefix.
 
-# The default location of the cache file.
-default_sprite_cache_file = _Variable('default_sprite_cache_file', use_env=True)
+# The default cache file, relative to the user's Sprite cache directory.
+_default_sprite_cache_file = _Variable('default_sprite_cache_file')
+
+def default_sprite_cache_file():
+  """The ICurry database beside the user's other Sprite caches."""
+  name = _default_sprite_cache_file()
+  return os.path.join(user_cache_dir(), name) if name else ''
+
 # Whether to enable caching (by default).
 enable_icurry_cache       = _Variable('enable_icurry_cache', type=bool)
 # Whether to cache parsed JSON.  The stored objects are pickled Python.
@@ -146,7 +152,7 @@ frontend_subdir           = _Variable('frontend_subdir')
 # the search path, as one string.
 frontend_flags            = _Variable('frontend_flags')
 # The route from Curry to ICurry chosen at configuration time: 'frontend' or
-# 'icurry'.  Empty when configure left the choice open.
+# 'icurry'.  Empty when CMake left the choice open.
 default_curry2icurry_tool = _Variable('curry2icurry_tool')
 # The name of the top-level Python package.  By default, 'curry'.
 python_package_name       = _Variable('python_package_name')
@@ -472,7 +478,7 @@ def curry2icurry_tool(name=None):
         A name given by the caller.  It wins when it is not None.
 
   The environment variable SPRITE_CURRY2ICURRY comes next, then the choice of
-  configure, then whichever tool is installed, the front end first.
+  CMake, then whichever tool is installed, the front end first.
   '''
   if name is None:
     name = os.environ.get('SPRITE_CURRY2ICURRY') or default_curry2icurry_tool()
