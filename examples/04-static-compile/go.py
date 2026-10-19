@@ -1,20 +1,32 @@
-'''
-Compiles a Curry module to a Python script.
-
-Imports wildcard_matching.curry and writes the compiled module to
-wildcard_matching.py with curry.save.  The goal main is recorded in the
-script, so running the script evaluates main.
-'''
 import os
+import subprocess
+import tempfile
 import curry
 
-# Find wildcard_matching.curry next to this file, whatever the working
-# directory is.
 HERE = os.path.dirname(os.path.abspath(__file__))
-curry.path.insert(0, HERE)
-
-print('Loading and compiling wildcard_matching.curry')
-wildcard_matching = curry.import_('wildcard_matching')
-
-print('Saving the program to wildcard_matching.py with goal main')
-curry.save(wildcard_matching, os.path.join(HERE, 'wildcard_matching.py'), main='main')
+curry.path.insert(0, os.path.join(HERE, '..', '01-run-with-python'))
+Hello = curry.import_('Hello')
+print(curry.eval(Hello.greet('session')).one())
+curry.wait(Hello)  # join the background compiler before resetting
+print('background compilation finished')
+M = curry.compile('answer :: Int\nanswer = 41', name='Session')
+old = M.answer
+print(curry.eval(old).one())
+curry.reload(M, text='answer :: Int\nanswer = 42')
+try:
+  curry.eval(old).one()
+except curry.StaleError as error:
+  print(type(error).__name__, error)
+print(curry.eval(M.answer).one())
+with tempfile.TemporaryDirectory() as work:
+  product = os.path.join(work, 'Session.object')
+  program = os.path.join(work, 'answer.exe')
+  curry.save(M, product)
+  curry.save(M, program, main=M.answer)
+  curry.reset()
+  print('after reset:', sorted(curry.modules))
+  M = curry.load(product)
+  print('loaded:', curry.eval(M.answer).one())
+  print('same load:', curry.load(product) is M)
+  run = subprocess.run([program], check=True, capture_output=True, text=True)
+  print('saved program:', run.stdout.strip())

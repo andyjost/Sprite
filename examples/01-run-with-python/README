@@ -1,66 +1,24 @@
-Run a Curry program from Python
-===============================
+Hello, both ways
+================
 
-This example is the first contact with the Python API.  The script go.py
-imports the Curry module rev.curry and prints the values of its goal.
+Hello.curry has a greeting, a choice, a failed goal and a division by zero.
+go.py sends a Python String into greet and reads a Python String back with
+Results.one(), which checks that exactly one answer exists.
 
+The next call uses "with curry.eval(...) as results".  A break keeps the
+search at its current position; the remaining answers are read inside the
+block, and leaving it closes the search.  list consumes all answers of a
+finite search.  Failure is an empty result; one() then raises NoValueError.
+The bad goal returns Results at the call and raises DivisionByZeroError
+when next advances it.
 
-1. What the example shows about functional logic programming
--------------------------------------------------------------
+Three boundary surprises follow, each with its working spelling: a str is
+String, so ord needs curry.Char('A'); [1, 2.5] has homogeneous type [Float]
+and converts to [1.0, 2.5]; read "5" needs the annotation
+curry.term(P.read('5'), type='Int') because Read has no default.
 
-The module rev.curry defines list reversal with two functions:
-
-    append :: [t] -> [t] -> [t]
-    append []     x  = x
-    append (x:xs) ys = x : append xs ys
-
-    rev :: [t] -> [t]
-    rev []     = []
-    rev (x:xs) = append (rev xs) [x]
-
-The goal main is rev [1,2,3,4].  The functions are deterministic, so the goal
-has one value.  A Curry goal may have several values, and the Python side is
-written for that case.
-
-
-2. What the example shows about calling Curry from Python
-----------------------------------------------------------
-
-The script adds its own directory to curry.path, the search path for Curry
-modules.  Then it imports the module from the virtual package curry.lib:
-
-    from curry.lib import rev
-
-The import compiles rev.curry and loads it.  The functions of the module are
-attributes of the module object.  The call
-
-    curry.eval(rev.main)
-
-returns an iterator over the values of the goal.  The script prints each
-value.  A Curry value prints in Curry syntax, so a list of Ints prints as
-[4, 3, 2, 1].
-
-
-3. How to run
--------------
-
-Run "make stage" from the root of the repository first.  Then run
-
-    ./run
-
-
-4. Expected output
-------------------
-
-The file expected.out holds the exact output of ./run:
-
-    % python go.py
-    [4, 3, 2, 1]
-
-
-5. Limits
----------
-
-A warm run of ./run took 0.2 s.  The first run also compiles the module
-with the Curry front end,
-which takes about half a second more.
+Run "make stage" at the repository root, then "./run" here.  expected.out
+records every line, including the caught errors.  The input and all
+searches are finite.  Continue with 02-dynamic-code-generation for compile
+and parse, or 05-trees for user data.  The guide's results-lifecycle and
+typed-errors sections explain the same boundary in more detail.

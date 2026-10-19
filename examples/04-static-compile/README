@@ -1,67 +1,26 @@
-Save a compiled Curry module
-============================
+Session
+========
 
-This example writes the compiled form of a Curry module to a script with
-curry.save, and then runs that script.  Saving works on the C++ backend
-and the reference backend.
+The script evaluates Hello from lesson 01 and waits for its background
+compilation with curry.wait(Hello).  It then compiles a small text module,
+holds answer, reloads with new text, catches StaleError from the held term,
+and evaluates the rebuilt answer.  reload updates the module in place.
 
+save(M, path) writes a module object; reset starts a fresh session, retains
+the search path and leaves Prelude registered; load registers the saved
+module.  Loading the same file again returns the registered module.
+save(M, path, main=M.answer) writes an executable program that loads its
+embedded object and prints that goal's answers.  The script runs it in a
+child process.  Both forms belong to the backend that saved them.  All
+products live in a temporary directory and are removed on exit.
 
-1. What the example shows about functional logic programming
--------------------------------------------------------------
+Text modules can be reloaded with text=.  For a file module, omit text to
+read its source again; C++ with interpret tiered or off requires a fresh
+process, or reset(interpret='new') before importing it.  This lesson uses a
+text module for reload so it works under the normal tiered setting.
 
-The module wildcard_matching.curry matches a string against a pattern with
-the wildcards ? and *.  The function tails is non-deterministic: it returns
-every suffix of a string.  The matcher calls a set function, set2 aux, on
-the string and the pattern, and tests whether the set of results is empty.
-The goal main checks ten cases and is True when every case agrees.
-
-
-2. What the example shows about calling Curry from Python
-----------------------------------------------------------
-
-The script go.py imports the module and saves it:
-
-    curry.save(wildcard_matching, 'wildcard_matching.py', main='main')
-
-The saved file is a script that embeds the backend object of the module.
-The goal argument records the goal to evaluate.  When the script runs, it
-imports the Sprite runtime, loads the module, and prints every value of
-main.  The script reads -g as sprite-exec does: -g NAME evaluates another
-goal of the module. Omit main to save a module for curry.load instead.
-
-The saved module belongs to the current backend. A saved program embeds
-that object and runs through the Python API of the installation. This
-example uses the backend selected by SPRITE_INTERPRETER_FLAGS or the
-installed default.
-
-
-3. How to run
--------------
-
-Run "make stage" from the root of the repository first.  Then run
-
-    ./run
-
-The run script runs go.py and then the saved script, wildcard_matching.py.
-The saved script is a build product and is not checked in.
-
-
-4. Expected output
-------------------
-
-The file expected.out holds the output that ./run is meant to produce:
-
-    % python go.py
-    Loading and compiling wildcard_matching.curry
-    Saving the program to wildcard_matching.py with goal main
-    % python wildcard_matching.py
-    True
-
-The last line is the value of main.
-
-
-5. Limits
----------
-
-A warm run of ./run took 0.8 s.  The first run also compiles the module
-with the Curry front end, which takes about half a second more.
+Run "make stage" at the repository root, then "./run" here.  expected.out
+records the output, including the stale-term message and the saved
+program's 42.  The matching detour has been removed; see
+13-regex-nondeterminism for matching and the guide's session-control
+section for session rules.

@@ -8,9 +8,9 @@ compares the standard output of the child, decoded as UTF-8, with the text of
 expected.out.  Only the standard output is compared; the standard error is
 shown when a test fails.
 
-The file takes about 15 s warm and 30 s cold on the C++ backend, and about
-90 s on the Python backend.  The first run compiles the Curry module of each
-example, and two examples compile Curry text on every run.
+The file reports the elapsed time of every example.  The first run also
+compiles file modules; examples that compile Curry text pay the front-end
+cost again on each run.
 
 To regenerate the expected output after a deliberate change, run
 
@@ -42,10 +42,14 @@ EXAMPLES = {
   # On the Python backend the line is the signature of the generated Python
   # function, so the example runs on the C++ backend alone.
   , '03-inspect'                    : {'cxx'}
-  , '04-static-compile'             : {'py'}
+  , '04-static-compile'             : {'py', 'cxx'}
   , '05-trees'                      : {'py', 'cxx'}
   , '06-variables'                  : {'py', 'cxx'}
+  , '07-choices'                    : {'py', 'cxx'}
   , '08-permutation-sort'           : {'py', 'cxx'}
+  # Sprite.Stream's incremental output channel requires the C++ runtime;
+  # the retired Python backend does not implement curry.stream.
+  , '09-streams'                    : {'cxx'}
   , '10-queens-set-functions'       : {'py', 'cxx'}
   , '11-sudoku'                     : {'cxx'}
   , '12-cryptarithm'                : {'cxx'}

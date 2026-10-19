@@ -1,52 +1,24 @@
-'''
-Inspects a Curry module with curry.inspect.
-
-Imports the module Nat and prints its symbols, its types, the constructors
-of its type, the names of the files that hold its ICurry, and the first line
-of the C++ code that Sprite generated for one of its functions.  The whole
-generated code goes to the standard error stream.  It changes with the
-compiler, and expected.out holds the standard output only.
-'''
 import os
 import sys
 import curry
-from curry import inspect
 
-# Find Nat.curry next to this file, whatever the working directory is.
-HERE = os.path.dirname(os.path.abspath(__file__))
-curry.path.insert(0, HERE)
-from curry.lib import Nat
-
-# Public metadata names the module and its file.
-info = curry.info(Nat)
+curry.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+Peano = curry.import_('Peano')
+info = curry.info(Peano)
 print('Module:', info.name)
 print('Module file:', os.path.basename(info.file))
+for name, datatype in sorted(info.types.items()):
+  print('Type:', name, [c.name for c in datatype.constructors])
+print('Symbols:', ', '.join(sorted(info.symbols)))
+print('Qualified symbol:', curry.symbol('Data.List.nub').fullname)
+print('Qualified type:', curry.type('Peano.Nat').fullname)
+M = curry.import_('Prelude')  # operators belong to their defining module
+print('Operator:', M['=:='].symbol.fullname, M['=:='].symbol.signature)
 
-# The public symbols and the types of the module, by name.
-print('Symbols defined in Nat:', ', '.join(sorted(curry.info(Nat).symbols)))
-print('Types defined in Nat:', ', '.join(sorted(curry.info(Nat).types)))
-
-# A type object lists its constructors.  Types are not attributes of the
-# module, so look the type up in its metadata.
-nat = curry.info(Nat).types['Nat']
-print('Constructors of Nat.Nat:',
-      ', '.join('%s (arity %d)' % (c.name, c.arity) for c in nat.constructors))
-print()
-
-# The front end writes ICurry under .curry/ next to the source, in a
-# subdirectory named after the front end version.  Only the file names are
-# printed, so that the output does not change with that version.
-print('ICurry file:', os.path.basename(inspect.geticurryfile(Nat)))
-print('ICurry-JSON file:', os.path.basename(inspect.getjsonfile(Nat)))
-print('Both live under .curry/ next to Nat.curry.')
-print()
-
-# The code that the backend generated for a function.  The first line is
-# the banner that names the function.
-code = inspect.getimpl(Nat.natToInt)
-print('The C++ implementation of Nat.natToInt starts with:')
-print('   ', code.splitlines()[0].strip())
-print('The whole code is on the standard error stream.')
-print('The C++ implementation of Nat.natToInt:', file=sys.stderr)
-print('---------------------------------------', file=sys.stderr)
+print('\nInternal: compiler products')
+from curry import inspect
+print('ICurry:', os.path.basename(inspect.geticurryfile(Peano)))
+print('JSON:', os.path.basename(inspect.getjsonfile(Peano)))
+code = inspect.getimpl(Peano.add)
+print('Generated code:', code.splitlines()[0].strip())
 print(code, file=sys.stderr)

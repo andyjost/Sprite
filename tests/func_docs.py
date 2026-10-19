@@ -1,27 +1,12 @@
 '''
-Runs the two API pages of the documentation as doctests: the examples of
-docs/source/Quickstart.rst and docs/source/PythonAPI/UsingTheAPI.rst, in the
-order a reader types them.  Each page runs in a child process, from a
-directory that holds examples/Peano.curry, with ``curry`` imported, on the
-backend of the session, in step mode (the environment of the session), and
-with the doctest option ELLIPSIS.  A directive on an example is in the page:
-``# doctest: +SKIP`` on help(curry) and dir(curry), whose output varies by
-machine, and on the load of Fib.so, which needs a new process.  Every example
-of a page must pass.
-
-Using the API names an object file (Fib.so), so it runs on the C++ backend
-alone.  The Quickstart up to its section "Saving Compiled Curry" names none
-and runs on both backends.  That section saves Peano and loads Peano.so while
-the background compile of the module may run, which fails the load or ends
-the process at exit (issue #109), so the whole page is a known failure on the
-C++ backend until the issue is fixed.
-
-A functional test, because every run compiles Curry with the front end
-(Peano, Fib and the text goals of the pages); it uses no oracle.  The ICurry
-cache of the session serves the texts after the first run.
+Runs the Quickstart and Using the API as doctests, in reading order, in
+separate child processes.  The temporary examples directory holds only
+the authored Curry sources used by each page, without build products.
+Every transcript must pass.  The guide uses curry.stream and requires C++;
+the short Quickstart runs on either backend.  No oracle is needed.
 '''
 import cytest # from ./lib; must be first
-import curry, os, shutil, subprocess, sys, tempfile, unittest
+import curry, glob, os, shutil, subprocess, sys, tempfile
 
 TESTDIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(TESTDIR)
@@ -29,23 +14,18 @@ DOCS = os.path.join(ROOT, 'docs', 'source')
 EXAMPLES = os.path.join(ROOT, 'examples')
 QUICKSTART = os.path.join(DOCS, 'Quickstart.rst')
 USING_THE_API = os.path.join(DOCS, 'PythonAPI', 'UsingTheAPI.rst')
-# The heading of the section of the Quickstart that issue #109 covers.
-SAVING = 'Saving Compiled Curry'
 ADDRESS_SPACE = 2 * 1024 ** 3  # bytes; the Curry front end peaks near 1 GB
 TIMEOUT = 300                  # seconds for one page
 KILL_AFTER = 10                # seconds from SIGTERM to SIGKILL in the timeout command
 
-# The child: the examples of a page as a doctest, from the working directory,
-# up to a heading when one is given.  It prints the report of doctest and one
-# line RESULT, and exits with 1 when an example failed.
+# The child runs a page as a doctest from the working directory, prints
+# its report and one RESULT line, and exits with 1 if an example failed.
 CHILD = '''
 import doctest, os, sys
-page, workdir, stop_at = sys.argv[1:4]
+page, workdir = sys.argv[1:3]
 os.chdir(workdir)
 with open(page, encoding='utf-8') as stream:
   text = stream.read()
-if stop_at:
-  text = text[:text.index(stop_at)]
 import curry
 parser = doctest.DocTestParser()
 test = parser.get_doctest(text, {'curry': curry}, os.path.basename(page), page, 0)
@@ -66,18 +46,18 @@ def launcher():
 class TestPages(cytest.TestCase):
   '''Runs each page in a child and checks that every example passed.'''
 
-  def run_page(self, page, stop_at='', backends=('cxx', 'py')):
+  def run_page(self, page, backends=('cxx', 'py')):
     '''
-    Runs the examples of ``page`` up to the heading ``stop_at`` in a child
+    Runs all the examples of ``page`` in a child
     on the backend of the session, from a fresh directory that holds
-    Peano.curry, as a reader would, without the library path of the test
+    the lesson sources, as a reader would, without the library path of the test
     suite.  Returns the completed process.  Skips when the page does not
     run on the backend of the session.
     '''
     backend = curry.flags['backend']
     if backend not in backends:
       self.skipTest(
-          '%s names an object file and runs on the %s backend alone'
+          '%s uses the stream channel and runs on the %s backend alone'
         % (os.path.basename(page), ', '.join(backends))
         )
     workdir = tempfile.mkdtemp(prefix='func_docs-')
@@ -85,6 +65,12 @@ class TestPages(cytest.TestCase):
       examples = os.path.join(workdir, 'examples')
       os.mkdir(examples)
       shutil.copy(os.path.join(EXAMPLES, 'Peano.curry'), examples)
+      for lesson in ('01-run-with-python', '05-trees', '07-choices', '09-streams'):
+        destination = os.path.join(examples, lesson)
+        os.mkdir(destination)
+        for source in glob.glob(os.path.join(EXAMPLES, lesson, '*.curry')):
+          if os.path.isfile(source):
+            shutil.copy(source, destination)
       env = dict(
           os.environ, SPRITE_INTERPRETER_FLAGS='backend:' + backend
         , LC_ALL='C.UTF-8', PYTHONIOENCODING='utf-8'
@@ -94,7 +80,7 @@ class TestPages(cytest.TestCase):
       cmd = [
           'prlimit', '--as=%d' % ADDRESS_SPACE
         , 'timeout', '-k', str(KILL_AFTER), str(TIMEOUT)
-        , launcher(), '-c', CHILD, page, examples, stop_at
+        , launcher(), '-c', CHILD, page, examples
         ]
       return subprocess.run(
           cmd, cwd=examples, env=env, capture_output=True
@@ -103,7 +89,7 @@ class TestPages(cytest.TestCase):
     finally:
       shutil.rmtree(workdir, ignore_errors=True)
 
-  def assertPassed(self, proc, page):
+  def assertPassed(self, proc, page, minimum):
     '''The child ran every example of the page and none failed.'''
     report = 'status %d\n%s\n%s' % (proc.returncode, proc.stdout, proc.stderr)
     self.assertNotEqual(
@@ -115,24 +101,14 @@ class TestPages(cytest.TestCase):
     self.assertEqual(len(result), 1, report)
     failed, _, attempted = result[0].split()[1:4]
     self.assertEqual(int(failed), 0, report)
-    self.assertGreater(int(attempted), 30, report)
+    self.assertGreaterEqual(int(attempted), minimum, report)
 
   def test_using_the_api(self):
     '''Every example of Using the API passes, on the C++ backend.'''
     proc = self.run_page(USING_THE_API, backends=('cxx',))
-    self.assertPassed(proc, USING_THE_API)
+    self.assertPassed(proc, USING_THE_API, minimum=60)
 
   def test_quickstart(self):
-    '''Every example of the Quickstart before "Saving Compiled Curry" passes.'''
-    proc = self.run_page(QUICKSTART, stop_at=SAVING)
-    self.assertPassed(proc, QUICKSTART)
-
-  @unittest.expectedFailure
-  def test_quickstart_saving_compiled_curry(self):
-    '''
-    The whole Quickstart, with "Saving Compiled Curry": the load of Peano.so
-    during the background compile of Peano fails or ends the process at exit
-    (issue #109).  Remove the mark when the issue is fixed.
-    '''
-    proc = self.run_page(QUICKSTART, backends=('cxx',))
-    self.assertPassed(proc, QUICKSTART)
+    '''Every example of the five-minute Quickstart passes.'''
+    proc = self.run_page(QUICKSTART)
+    self.assertPassed(proc, QUICKSTART, minimum=8)

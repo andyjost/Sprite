@@ -1,0 +1,11 @@
+% python go.py
+before: None
+[1, 2, 3]
+result: ()
+[2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
+totals: [1, 3, 6]
+result: 6
+% sprite-exec Streams.curry -g threeOut
+1
+2
+3

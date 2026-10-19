@@ -2,369 +2,386 @@
 Using the API
 =============
 
-Sprite lets Python assemble typed Curry terms and consume their answers.
-Import a module with ``curry.import_``, call its symbols to build terms,
-and pass a term to ``curry.eval``.  Evaluation returns converted values.
-Use ``curry.solve`` when you also need the bindings of named variables.
-
-Importing and inspecting
-========================
-
-Run these examples from a directory containing ``Peano.curry`` (the file
-in ``examples/``).  Imports search ``curry.path`` and the installed library.
-The ``curry.lib`` import hook is also available.
-
-    >>> import curry
-    >>> curry.path.insert(0, '.')
-    >>> P = curry.import_('Prelude')
-    >>> Peano = curry.import_('Peano')
-    >>> curry.import_('Peano') is Peano
-    True
-    >>> curry.modules['Peano'] is Peano
-    True
-
-A symbol is a term.  Calling it builds an application without evaluating it.
-Operators and Python keywords are available through item lookup.
-Metadata lives under ``curry.info(module)``; it includes the module's name,
-file, symbols and types.  A type is metadata rather than a module attribute.
-
-    >>> print(Peano.S)
-    S
-    >>> print(Peano.add)
-    add
-    >>> print(P['+'])
-    (+)
-    >>> curry.info(Peano).name
-    'Peano'
-    >>> sorted(curry.info(Peano).types)
-    ['Nat']
-    >>> [c.name for c in curry.info(Peano).types['Nat'].constructors]
-    ['O', 'S']
+Sprite lets Python build typed Curry computations and consume their
+answers.  This guide follows the boundary from a first call to streams.
+Run the transcripts from ``examples/`` with ``install/bin`` on ``PATH``;
+``curry.path`` searches the lesson directories added below and the
+installed library.  :doc:`../Examples` lists every runnable lesson.
 
 .. _building-expressions:
 
-Building terms
-==============
+Import and evaluate one call
+============================
 
-A held ``Term`` describes a computation.  It is typed at construction and
-remains unchanged by evaluation.  Partial applications are terms too.
-Use ``curry.term`` for Python values and ``type=`` for an annotation.
-A Python list always describes a list value, including a list of symbols.
+:ref:`01: Hello, both ways <example-01>` is the first complete script.
+Import a module, call a symbol to build a term, then evaluate it:
 
-    >>> goal = Peano.add(Peano.S(Peano.O), Peano.S(Peano.O))
-    >>> print(goal)
-    add (S O) (S O)
-    >>> print(curry.eval(goal).one())
-    S (S O)
-    >>> print(goal)
-    add (S O) (S O)
-    >>> print(Peano.S(Peano.S(Peano.O)))
-    S (S O)
-    >>> curry.eval(P.length([Peano.O, Peano.O])).one()
-    2
-    >>> curry.eval(P.map(P['+'](1), [2, 3])).one()
-    [3, 4]
-    >>> curry.eval(curry.term(1, type='Float')).one()
-    1.0
+    >>> import curry
+    >>> curry.path.insert(0, '01-run-with-python')
+    >>> from curry.lib import Hello as H, Prelude as P
+    >>> goal = H.greet('Python')
+    >>> curry.eval(goal).one()
+    'Hello, Python!'
 
-Curry text uses ``curry.parse``.  Imports are a sequence of modules or module
-names.  Type annotations belong in the text.  A bare Python string passed
-to evaluation is refused: choose text parsing or a String value explicitly.
+The call builds a typed computation; evaluation returns converted Python
+values.  A held term stays unchanged by evaluation.  A list describes a
+list value, including a list of symbols.  Operators and Python keywords
+use item lookup, such as ``P['+']`` and ``P['not']``.
 
-    >>> parsed = curry.parse('add (S O) (S O)', imports=[Peano])
-    >>> print(curry.eval(parsed).one())
-    S (S O)
-    >>> curry.eval(curry.parse('1 + 2 :: Int')).one()
-    3
-    >>> curry.eval(curry.term('hello')).one()
-    'hello'
+:ref:`02: Compile and parse <example-02>` builds a module with
+``curry.compile(source, name='M')`` and a text goal with
+``curry.parse(text, imports=[M])``.  Use ``curry.term('hello')`` for a
+String value; a bare string passed to ``eval`` is refused because it could
+be mistaken for source text.  Symbol calls need no text compilation.
 
-``curry.compile`` builds a module from source text. Use ``name=`` when a
-specific module name is needed.
+.. _results-lifecycle:
 
-    >>> M = curry.compile('double :: Int -> Int\ndouble x = x + x', name='Double')
-    >>> curry.eval(M.double(4)).one()
-    8
+Consume results
+===============
+
+``eval`` and ``solve`` return lazy ``Results`` iterators.  ``next`` asks
+for the next answer; ``one()`` checks that exactly one answer exists by
+running to the end or finding a second.  ``list`` collects every answer of
+a finite search.  :ref:`Lesson 01 <example-01>` shows all three.
+
+    >>> with curry.eval(H.number) as results:
+    ...   for value in results:
+    ...     first = value
+    ...     break
+    ...   remaining = list(results)
+    >>> first, remaining
+    (1, [2, 3])
+    >>> list(results)
+    []
+    >>> list(curry.eval(H.number))
+    [1, 2, 3]
+    >>> list(curry.eval(H.nothing))
+    []
+
+A break preserves the search's position.  ``close()`` or leaving ``with``
+ends it; several searches may be open at once.  ``next(results, None)``
+gives the first value or None, since None is never a Curry value.
+Failure yields no value; ``one()`` raises ``NoValueError`` for none or
+``ManyValuesError`` for more than one.  Work and runtime errors occur as
+the iterator advances.  Answer order belongs to the scheduler; sort when
+order is immaterial.  The step-mode transcripts here use the test runner's
+repeatable schedule.
 
 .. _typed-expressions:
+.. _values-and-types:
 
-Types and conversions
-=====================
+Values and types
+================
 
-Calling a symbol checks its arguments against its Curry type and converts
-Python values to the required types.  Incompatible arguments raise
-``CurryTypeError`` when the term is built.
-``curry.typeof`` returns Curry type text before defaulting.
-``defaulted=True`` asks for the type evaluation will use.
+Calling a symbol checks its arguments against its Curry type.
+``curry.typeof`` returns type text; ``defaulted=True`` asks for the type
+chosen for evaluation (:ref:`goal-defaulting`).  The three recoverable
+mistakes in :ref:`01 <example-01>` introduce these rules.
 
+    >>> curry.typeof([1, 2.5])
+    '[Float]'
+    >>> curry.eval([1, 2.5]).one()
+    [1.0, 2.5]
     >>> curry.typeof(P['+'](1, 2))
     'Num a => a'
     >>> curry.typeof(P['+'](1, 2), defaulted=True)
     'Int'
-    >>> curry.typeof([1, 2.5])
-    '[Float]'
-    >>> curry.typeof((1, 2.5))
-    'Num a => (a, Float)'
-    >>> curry.typeof(curry.term(1, type='Float'))
-    'Float'
+    >>> curry.eval(curry.term(1, type='Float')).one()
+    1.0
+    >>> curry.eval(P.ord(curry.Char('A'))).one()
+    65
 
-Python ``bool``, ``int`` and ``float`` become Bool, a numeric literal and
-Float respectively.  An integer outside the signed 64-bit range is an
-``IntOverflowError``.  A Python ``str`` is always a String; ``curry.Char``
-spells a Char.  Lists are homogeneous, tuples have zero or two through
-fifteen components, and ranges become lists.  An iterator is consumed
-lazily; a type annotation can state its element type without consuming it.
-Bytes, dictionaries, sets and None are refused.  Use explicit data such as
-``P.Nothing`` or ``P.Just(x)`` for an optional value.
+Python bool, int and float become Bool, a numeric literal and Float.
+A str is always String; ``curry.Char`` spells a Char.  Lists are
+homogeneous; tuples have zero or two through fifteen components; ranges
+become lists.  Iterators enter lazily, and ``type=`` can state their element
+type without consuming them.  Bytes, dictionaries, sets and None are
+refused.  Use constructors such as ``P.Nothing`` and ``P.Just(x)`` for an
+optional value.  Built-in results become Python scalars, lists and tuples;
+a returned Char is a ``Char`` equal to the same one-character string.
+``curry.show`` prints Curry syntax, including nested values.
 
-    >>> curry.eval(P.ord(curry.Char('a'))).one()
-    97
-    >>> curry.eval(P.length('a')).one()
+.. _values-and-match:
+
+User data on either side
+------------------------
+
+:ref:`05: Trees <example-05>` develops construction and pattern matching
+on both sides of the boundary, then bounded generation.  Constructors with
+arguments are classes; nullary constructors are values.  Applying a
+constructor to values builds its instance, while an application to a term
+stays a computation.  An evaluated user value is a ``Data`` with ``symbol``
+and ``args``, and it can go back into Curry.
+
+    >>> curry.path.insert(0, '05-trees')
+    >>> from curry.lib import Tree as T
+    >>> tree = T.Node(T.Leaf, 7, T.Leaf)
+    >>> curry.eval(T.size(tree)).one()
     1
-    >>> curry.eval(P.Just(3)).one().args
-    (3,)
-    >>> curry.eval(P.take(3, iter(range(10)))).one()
+    >>> tree = curry.eval(T.fromList([7])).one()
+    >>> isinstance(tree, T.Node)
+    True
+    >>> match tree:
+    ...   case T.Node(left, x, right): print(x)
+    ...   case T.Leaf: print('empty')
+    7
+    >>> curry.show(tree)
+    'Node Leaf 7 Leaf'
+    >>> isinstance(tree, curry.info(T).types['Tree'].cls)
+    True
+
+Record patterns use field names; positional constructors expose ``_0``,
+``_1`` and so on.  Equality and hashing are structural; ordering uses
+Curry's compare when the type has an Ord instance.  Classes and values
+held across reload or reset become stale.  The public type's class lives
+in metadata, leaving a same-named constructor on the module.
+
+.. _logic-choices:
+
+Logic: choices and variables
+============================
+
+:ref:`07: Choices, sharing, functions <example-07>` is the Python
+companion to :ref:`00 <example-00>`.  One held term used twice shares a
+computation; two separate reads of a function create independent ones.
+Arithmetic builds terms, and ``__choice__`` is the explicit choice hook.
+
+    >>> curry.path.insert(0, '07-choices')
+    >>> from curry.lib import Choice as C
+    >>> t = C.coin
+    >>> str(t + t)
+    'let x1 = coin in x1 + x1'
+    >>> sorted(curry.eval(t + t))
+    [0, 2]
+    >>> sorted(set(curry.eval(C.coin + C.coin)))
     [0, 1, 2]
-    >>> curry.eval([1, 2.5]).one()
-    [1.0, 2.5]
+    >>> sorted(curry.eval((curry.term(1) + C.coin).__choice__(9)))
+    [1, 2, 9]
 
-.. note::
+The independent sum has four answers, with 1 twice; the transcript compares
+distinct values.  ``curry.choice(1, 2)`` constructs a choice directly.
+``let`` and ``ref`` also express sharing and tie cycles:
 
-   For developers: construction reads the type schemes of symbols from
-   their FlatCurry interfaces, unifies the arguments, and supplies class
-   dictionaries.
+    >>> ones = curry.let(curry.ref('a'), a=P[':'](1, curry.ref('a')))
+    >>> curry.eval(P.take(5, ones)).one()
+    [1, 1, 1, 1, 1]
 
-.. _goal-defaulting:
+Curry observes a finite prefix lazily.  Converting a whole infinite list
+would not finish: Python receives eager values.  This differs from a
+stream of separate answers.  Functions can be passed as arguments and
+returned as callable ``Function`` values:
 
-Goal defaulting
-===============
+    >>> curry.eval(P.map(C.inc, [1, 2, 3])).one()
+    [2, 3, 4]
+    >>> function = curry.eval(C.adder(10)).one()
+    >>> isinstance(function, curry.Function)
+    True
+    >>> curry.eval(function(5)).one()
+    15
 
-Class constraints default as in the PAKCS REPL: Num and Integral to Int,
-Fractional and Floating to Float, Monad to IO, and a lone Data to Bool.
-Other ambiguous constraints raise ``DefaultingError``.  A held partial
-application has already been typed; a later call unifies with that type.
+.. _logic-answers:
+
+Named variables and answers
+---------------------------
+
+:ref:`06: Variables <example-06>` shows narrowing and reading bindings.
+``free(name)`` creates a named variable; reuse the Python object to share
+it.  ``anonymous`` creates a new unnamed variable at each occurrence.
+``solve`` returns an ``Answer`` of the converted value and a ``Bindings``
+mapping, indexed by name or the original variable.  Bindings belong to
+one evaluation; the variable's static type persists.
+
+    >>> x = curry.free('x', type='Int')
+    >>> answer = curry.solve(P['=:='](x, 3)).one()
+    >>> answer.value, answer.bindings['x'], answer.bindings[x]
+    (True, 3, 3)
+    >>> curry.show(answer)
+    '{x=3} True'
+    >>> curry.solve(P['=:='](x, 4)).one().bindings[x]
+    4
+    >>> split = curry.parse('xs ++ [3] =:= [1,2,3] where xs free')
+    >>> curry.show(curry.solve(split).one())
+    '{xs=[1,2]} True'
+
+Rigid arithmetic on an unknown variable can suspend.  Lesson 06 catches
+``SuspensionError`` and then binds the variable with concurrent conjunction
+``&`` so arithmetic can resume.  See :doc:`../CurryPrimer/Semantics` for
+residuation and :ref:`13 <example-13>` and :ref:`17 <example-17>` for
+applications of unification.
+
+.. _set-functions:
+
+Encapsulated search
+===================
+
+:ref:`08: Permutation sort <example-08>` collects permutations with a set
+function and reads the returned ``Values`` multiset.  Multiplicity is
+preserved; ``len``, iteration and membership work on the finite collection.
+
+    >>> SF = curry.import_('Control.SetFunctions')
+    >>> values = curry.eval(SF.set0(curry.choice(1, 2))).one()
+    >>> isinstance(values, curry.Values), sorted(values)
+    (True, [1, 2])
+    >>> len(values), 2 in values
+    (2, True)
+
+A choice inside the capsule contributes to its collection.  An argument
+choice outside gives a collection per alternative.  A Python-held term
+shared inside and outside ``set0`` follows weak encapsulation: whichever
+evaluation owns it first determines the result.  ``SF.set1(P.id, term)``
+puts the choice outside deliberately; a free argument narrows outside too,
+giving a set per binding.  See :doc:`../CurryPrimer/Semantics` for the full
+rules, :ref:`10: N queens <example-10>` for an application, and
+:ref:`25: Perfect hash <example-25>` for program search.
 
 .. _typed-errors:
 
 Errors
 ======
 
-All public errors descend from ``curry.CurryError``, an Exception.
-``CurryTypeError`` also derives from TypeError.  Its children distinguish
-conversion, mismatch, arity, instance and type-annotation failures.
-Construction errors name the argument and symbol.  Evaluation errors are
-raised when the Results advances.  ``NoValueError`` and ``ManyValuesError``
-are the two cardinality errors of ``one()``.
+:ref:`01 <example-01>` catches errors at construction and at a pull;
+:ref:`06 <example-06>` adds suspension.  All public errors descend from
+``CurryError(Exception)``.  ``CurryTypeError`` also derives from TypeError;
+its children distinguish conversion, mismatch, arity, missing instance,
+defaulting, type syntax and interface errors.  For example:
 
-    >>> issubclass(curry.ConversionError, curry.CurryTypeError)
+    >>> try:
+    ...   P.ord('A')
+    ... except curry.ConversionError:
+    ...   print("use curry.Char('A')")
+    use curry.Char('A')
+    >>> results = curry.eval(H.bad)
+    >>> try:
+    ...   next(results)
+    ... except curry.DivisionByZeroError as error:
+    ...   print(error)
+    division by zero: div 1 0
+
+``EvaluationError`` covers errors reached while running, including
+``SuspensionError``, ``DivisionByZeroError``, I/O errors and nondeterminism
+inside I/O.  ``NoValueError`` and ``ManyValuesError`` describe ``one()``
+cardinality.  ``IntOverflowError`` marks the signed 64-bit Int boundary,
+either during construction or a runtime step.  ``CompileError`` carries
+the front end's report and source location.  Lookup, session, load and
+prerequisite errors name the operation to correct.  The complete public
+error tree is in :doc:`../Reference/curry`; callers can catch either a
+specific leaf or ``CurryError``.  A failed search remains an empty result.
+
+.. _goal-defaulting:
+
+Defaulting an ambiguous goal
+----------------------------
+
+Class constraints default as in the PAKCS REPL: Num and Integral to Int,
+Fractional and Floating to Float, Monad to IO, and a lone Data to Bool.
+Other ambiguous constraints raise ``DefaultingError`` and require a type.
+A held partial application has already been typed; a later application
+unifies with that type.
+
+    >>> try:
+    ...   curry.eval(P.read('5'))
+    ... except curry.DefaultingError:
+    ...   print('state the result type')
+    state the result type
+    >>> curry.eval(curry.term(P.read('5'), type='Int')).one()
+    5
+
+.. _session-control:
+
+Metadata and session control
+============================
+
+:ref:`03: Metadata <example-03>` reads ``info(M).name``, ``file``,
+``symbols`` and ``types``.  Types live in metadata; qualified lookup can
+import the owning module as needed.
+
+    >>> curry.path.insert(0, '.')
+    >>> Peano = curry.import_('Peano')
+    >>> curry.info(Peano).name
+    'Peano'
+    >>> [c.name for c in curry.type('Peano.Nat').constructors]
+    ['O', 'S']
+    >>> curry.symbol('Data.List.nub').fullname
+    'Data.List.nub'
+    >>> P['=:='].symbol.fullname
+    'Prelude.=:='
+
+``import_`` returns a registered module unchanged; an edited source emits
+``CurryWarning`` once.  A PathLike or a string with a source suffix or path
+separator names a file; other strings name modules on ``curry.path``.
+``curry.modules`` and ``curry.flags`` are read-only mappings.  Edit or
+replace ``curry.path`` to change the search path.
+
+:ref:`04: Session <example-04>` demonstrates the complete workflow.
+``compile`` registers source under ``name=``, its module header or a fresh
+``Interactive_N``.  ``reload`` updates the module in place and stales
+held terms:
+
+    >>> M = curry.compile('answer :: Int\nanswer = 41', name='Session')
+    >>> old = M.answer
+    >>> _ = curry.reload(M, text='answer :: Int\nanswer = 42')
+    >>> curry.eval(M.answer).one()
+    42
+    >>> try:
+    ...   curry.eval(old).one()
+    ... except curry.StaleError:
+    ...   print('build the term again from M')
+    build the term again from M
+
+Text modules require ``text=`` on reload.  File modules reread their source
+when text is omitted; C++ with ``interpret='tiered'`` or ``'off'`` requires
+a new process, or ``reset(interpret='new')`` before import, for reload.
+``wait(M)`` waits for that module's background compilation; ``wait()`` joins
+all background compilations.  ``reset(**flags)`` starts a new session,
+retains the search path, leaves Prelude registered and stales earlier
+terms, variables and modules.
+
+``save(M, path)`` writes an object for the current backend.
+``load(path)`` registers it; loading the same file again returns the same
+module.  A different backend or format, or an already registered name
+from another file, raises ``LoadError``.  ``save(M, path, main=M.answer)``
+writes an executable program that loads its embedded object and prints
+that goal's answers.  Lesson 04 runs both forms in a temporary directory.
+
+.. _io-streams:
+
+I/O and streams
+===============
+
+An ``IO t`` goal runs its effects when evaluation advances and returns its
+action result.  :ref:`09: Streams <example-09>` adds the output channel:
+``Sprite.Stream.yield`` hands whole deterministic values to Python, one at
+a time.  Start with a finite action before an infinite producer:
+
+    >>> curry.path.insert(0, '09-streams')
+    >>> from curry.lib import Streams as S
+    >>> s = curry.stream(S.threeOut)
+    >>> s.result is None
     True
-    >>> issubclass(curry.CurryTypeError, TypeError)
-    True
-    >>> issubclass(curry.EvaluationError, curry.CurryError)
-    True
-    >>> P['not'](1)
-    Traceback (most recent call last):
-      ...
-    curry.typecheck.errors.ConversionError: cannot convert 1 to Bool at argument 1 of Prelude.not :: Bool -> Bool: an int is a numeric literal; write True or False
-
-Choices and sharing
-===================
-
-Each choice represents a nondeterministic computation.  One held Python
-term used twice shares that computation.  Two separate reads of a function
-symbol build independent computations.  The order of search values is the
-scheduler's; sort when the order is irrelevant.
-
-    >>> coin = curry.choice(0, 1)
-    >>> sorted(curry.eval((coin, coin)))
-    [(0, 0), (1, 1)]
-    >>> sorted(curry.eval((curry.choice(0, 1), curry.choice(0, 1))))
-    [(0, 0), (0, 1), (1, 0), (1, 1)]
-
-Cycles can be written in Curry text.  Consume a finite prefix before
-conversion: the outbound conversion is eager, with no lazy list view.
-
-    >>> cycle = curry.parse('take 4 xs where xs = 1 : xs')
-    >>> curry.eval(cycle).one()
-    [1, 1, 1, 1]
-
-Variables and answers
-=====================
-
-``curry.free(name)`` creates one named variable.  Reusing that Python object
-shares the variable within a goal.  Bindings belong to an evaluation; the
-variable's static type persists.  ``curry.anonymous`` creates a distinct
-unnamed variable at every occurrence.  ``solve`` yields an ``Answer`` whose
-``value`` is converted and whose ``bindings`` is a ``Bindings`` mapping,
-indexed by name or by the original Var.  Evaluation alone yields values.
-
-    >>> x = curry.free('x', type='Int')
-    >>> goal = P['=:='](x, 3)
-    >>> curry.eval(goal).one()
-    True
-    >>> answer = curry.solve(goal).one()
-    >>> answer.value
-    True
-    >>> answer.bindings['x'], answer.bindings[x]
-    (3, 3)
-    >>> curry.show(answer)
-    '{x=3} True'
-    >>> curry.solve(P['=:='](x, 4)).one().bindings[x]
-    4
-    >>> goal = curry.parse('xs ++ [3] =:= [1,2,3] where xs free')
-    >>> curry.show(curry.solve(goal).one())
-    '{xs=[1,2]} True'
-    >>> goal = curry.term((curry.anonymous, curry.anonymous), type='(Int, Int)')
-    >>> list(curry.solve(goal).one().bindings)
-    []
-
-Results and outbound values
-===========================
-
-``curry.eval`` and ``curry.solve`` return a lazy ``Results`` iterator.
-Nothing runs until it advances.  A break preserves its position; ``close``
-ends the search, and a context manager closes it on exit.  ``one()`` checks
-that exactly one value exists.  It reads a second value to detect ambiguity
-and raises ``ManyValuesError`` if one exists.  Failure produces no value;
-a suspension raises ``SuspensionError`` under ``EvaluationError``.
-
-    >>> results = curry.eval(curry.choice(1, 2))
-    >>> isinstance(results, curry.Results)
-    True
-    >>> next(results)
-    1
-    >>> list(results)
-    [2]
-    >>> with curry.eval(curry.choice(1, 2)) as results:
-    ...   first = next(results)
-    >>> first, list(results)
-    (1, [])
-    >>> list(curry.eval(P.failed))
-    []
-
-Built-in values become Python scalars, lists and tuples.  A Char remains a
-``Char``, distinct in type from str but equal to the same one-character
-string.  A user constructor becomes an instance of its constructor class,
-a ``Data`` with ``symbol`` and ``args``;
-a function value becomes a callable ``Function``.  Set functions produce a
-finite multiset ``Values`` collection.  Converted values can enter later
-Curry calls.  ``curry.show`` prints Curry text, including nested values;
-Python's repr of a list follows Python's spacing and quoting.
-
-    >>> value = curry.eval(P.Just([1, 2])).one()
-    >>> isinstance(value, curry.Data)
-    True
-    >>> value.symbol.name, value.args
-    ('Just', ([1, 2],))
-    >>> curry.show(value)
-    'Just [1,2]'
-    >>> function = curry.eval(P['+'](1)).one()
-    >>> isinstance(function, curry.Function)
-    True
-    >>> curry.eval(function(2)).one()
-    3
-    >>> curry.show(curry.eval(curry.term('', type='String')).one())
-    '""'
-    >>> SF = curry.import_('Control.SetFunctions')
-    >>> values = curry.eval(SF.set0(curry.choice(1, 2))).one()
-    >>> isinstance(values, curry.Values), sorted(values)
-    (True, [1, 2])
-
-Constructors with arguments are Python classes. A full application to
-values makes an instance; an application to a term stays a term, and a
-partial application evaluates to ``Function``. Nullary constructors are
-values. The type's class lives in ``curry.info(M).types[name].cls``; a
-constructor of the same name keeps the module attribute. Record patterns
-use field names; other constructors use ``_0``, ``_1``, and so on.
-
-    >>> isinstance(value, P.Just), isinstance(value, curry.info(P).types['Maybe'].cls)
-    (True, True)
-    >>> match value:
-    ...   case P.Just(xs): print(xs)
-    ...   case P.Nothing: print('nothing')
-    [1, 2]
-    >>> P.Just.__match_args__
-    ('_0',)
-
-Equality and hashing stay structural. Ordering uses Curry's ``compare``
-when the type has an ``Ord`` instance. Reloading or resetting makes held
-classes and their instances stale; new values belong to the new classes.
-
-A Python-held term shared inside and outside ``set0`` follows weak
-encapsulation: whichever evaluation owns it first determines the result.
-Use ``SF.set1(P.id, term)`` to put the choice outside deliberately.
-A free argument narrows outside a set function, giving a set per binding.
-The deferred failure rule produces no value only when nothing inside
-succeeds and an outside failure is encountered.
-
-Saving and session control
-==========================
-
-``compile(source, name='M')`` registers a module; its own header or a
-fresh ``Interactive_N`` supplies the name when omitted. ``import_``
-recognizes a source file by its suffix or path separators; a ``PathLike``
-is always a file. Other strings are module names searched on ``curry.path``.
-Change the path in place or assign a new list.
-
-``reset(**flags)`` starts a new session, keeps the search path and leaves
-only the Prelude registered. Old terms, variables and modules raise
-``StaleError``. ``reload(M, text=source)`` updates a text module in place;
-for a file module omit ``text`` to read its source again. Earlier terms
-become stale. ``curry.wait()`` waits for background compilation.
-
-``curry.save(M, path)`` writes the object of the current backend;
-``main=M.main`` writes a program that prints the answers of that goal.
-``curry.load(path)`` registers a saved object. Another backend or format,
-or a name loaded from another file, raises ``LoadError``.
-See :doc:`../Quickstart` for the reload rules of the C++ backend.
-
-The tools print each converted answer with ``curry.show``.  The REPL uses
-``solve`` to include named bindings.  Their exit statuses and error
-messages retain the current command-line contract.
-
-The stream channel
-==================
-
-An I/O action can hand whole values to its caller, in order, with
-``yield :: Show a => a -> IO ()`` from ``Sprite.Stream``. Use
-``mapM_ yield xs`` to hand over the elements of a list. For example::
-
-    >>> Primes = curry.compile(r'''
-    ... import Sprite.Stream (yield)
-    ... primes :: [Int]
-    ... primes = sieve [2..]
-    ...   where sieve (x:xs) = x : sieve (filter (\y -> y `mod` x > 0) xs)
-    ... primesOut :: IO ()
-    ... primesOut = mapM_ yield primes
-    ... threeOut :: IO ()
-    ... threeOut = mapM_ yield [1, 2, 3 :: Int]
-    ... ''', name='Primes')
-
-Pull a finite prefix without sending the infinite list across the boundary::
-
-    >>> from itertools import islice
-    >>> s = curry.stream(Primes.primesOut)
-    >>> list(islice(s, 10))
-    [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
-    >>> s.close()
-    >>> list(curry.stream(Primes.threeOut))
+    >>> list(s)
     [1, 2, 3]
+    >>> curry.show(s.result)
+    '()'
+    >>> totals = curry.stream(S.totalsOut)
+    >>> list(totals), totals.result
+    ([1, 3, 6], 6)
+    >>> from itertools import islice
+    >>> primes = curry.stream(S.primesOut)
+    >>> try:
+    ...   print(list(islice(primes, 10)))
+    ... finally:
+    ...   primes.close()
+    [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
 
-``curry.stream(action)`` needs an ``IO t`` goal and the C++ backend. Nothing
-runs at the call. Each ``next`` runs to the next yield and converts that
-whole value by the usual conversion table. When the action ends,
-``Stream.result`` and the value of ``StopIteration`` hold its result.
-An unresolved type parameter uses conversion by value; an ambiguous empty
-list is ``[]``.
-An error raises at its pull and ends the stream. A choice in the action or
-in a yielded value raises ``NondetError``, as with ``print (1 ? 2)``.
+``curry.stream`` requires C++ and an ``IO t`` goal.  Nothing runs at the
+call; each pull runs to the next yield and converts that whole value.
+After exhaustion, ``Stream.result`` holds the action's return value.
+Exhaust a stream or close it to release its paused run.  A choice in the
+action or its yielded value raises ``NondetError`` at that pull and ends
+the stream.  Yields inside capsules or nested evaluations are refused;
+set functions inside streamed actions are allowed.
 
-An open stream keeps its paused run alive. Exhaust it or call ``close()``
-to release the run; two streams can be pulled independently. A yield
-inside a set-function capsule or a nested evaluation is refused. Set
-functions inside a streamed action are allowed. Free variables cross by
-the usual value rule; the oracle shim's ``show`` may suspend on them.
-
-``sprite-exec Primes -g primesOut`` and the REPL write each yielded value
-as its Curry ``show`` text on one line as it arrives. PAKCS and KiCS2 use
-the matching text shim in ``curry/oracle/Sprite/Stream.curry``.
+``sprite-exec Streams.curry -g threeOut`` writes one yielded value per
+line, with no result line for IO ().  :doc:`../REPL` covers interactive I/O,
+commands and exit statuses; the tools use ``curry.show`` to print values
+and named answers.
