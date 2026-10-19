@@ -590,7 +590,7 @@ jobs:
   # (see curry.interpreter.flags).  Under interpret:all every module is
   # interpreted from its ICurry, the Prelude included, and the compiled
   # objects are not used; under interpret:off every module is compiled with
-  # g++ before it runs.  The job runs the whole unit suite and the
+  # g++ before it runs.  The jobs run the whole unit suite and the
   # functional suites in each mode, on the nightly schedule and on request:
   # the removal gate of the Python backend (issue #82) asks for a month of
   # green nightly runs under off, tiered (the shards above) and all.  The
@@ -598,17 +598,27 @@ jobs:
   # (cytest.skipIfInterpreted; section 4 of tests/README).  The steps are
   # those of the stress job; run-tests.sh adds the flags of
   # SPRITE_TEST_FLAGS to the backend flag, and runs the prepare pass under
-  # off.
+  # off.  The interpreter is slow: the unit suite under all took 125
+  # minutes on one runner and the functional suites longer (2026-10-19),
+  # more than the limit of a job together, so each suite under all runs
+  # in two shards of run-tests.sh, each a job of its own; under off, a
+  # job per suite.  The tag names a job's caches.
   interpreter:
-    name: cxx backend, interpret:${{ matrix.mode }}
+    name: cxx backend, interpret:${{ matrix.mode }}, ${{ matrix.suite }} ${{ matrix.shard }}
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.interpreter)
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 240
     strategy:
       fail-fast: false
       matrix:
         # Quoted: a bare off is a Boolean in YAML.
-        mode: ['all', 'off']
+        include:
+          - {mode: 'all', suite: unit, pattern: 'unit_*.py', shard: 1/2, tag: all-unit-1}
+          - {mode: 'all', suite: unit, pattern: 'unit_*.py', shard: 2/2, tag: all-unit-2}
+          - {mode: 'all', suite: func, pattern: 'func_*.py', shard: 1/2, tag: all-func-1}
+          - {mode: 'all', suite: func, pattern: 'func_*.py', shard: 2/2, tag: all-func-2}
+          - {mode: 'off', suite: unit, pattern: 'unit_*.py', shard: 1/1, tag: off-unit}
+          - {mode: 'off', suite: func, pattern: 'func_*.py', shard: 1/1, tag: off-func}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -639,9 +649,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ccache-cxx-interpreter-${{ matrix.mode }}-${{ github.sha }}
+          key: ccache-cxx-interpreter-${{ matrix.tag }}-${{ github.sha }}
           restore-keys: |
-            ccache-cxx-interpreter-${{ matrix.mode }}-
+            ccache-cxx-interpreter-${{ matrix.tag }}-
+            ccache-cxx-interpreter-
             ccache-cxx-
       - name: Restore the Curry toolchain
         id: toolchain
@@ -659,9 +670,10 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: tests/.cache
-          key: icurry-cache-cxx-interpreter-${{ matrix.mode }}-${{ github.sha }}-${{ github.run_id }}
+          key: icurry-cache-cxx-interpreter-${{ matrix.tag }}-${{ github.sha }}-${{ github.run_id }}
           restore-keys: |
-            icurry-cache-cxx-interpreter-${{ matrix.mode }}-
+            icurry-cache-cxx-interpreter-${{ matrix.tag }}-
+            icurry-cache-cxx-interpreter-
             icurry-cache-cxx-
             icurry-cache-
       - name: Install Python packages
@@ -677,20 +689,16 @@ jobs:
       # The overlay archive, after the stage (see the test job).
       - name: Extract the test products of the overlay archive
         run: make overlay
-      - name: Unit tests under interpret:${{ matrix.mode }}
+      - name: Tests under interpret:${{ matrix.mode }}, ${{ matrix.suite }} ${{ matrix.shard }}
         env:
           SPRITE_TEST_FLAGS: interpret:${{ matrix.mode }}
-        run: .github/scripts/run-tests.sh cxx 'unit_*.py' 1/1
-      - name: Functional tests under interpret:${{ matrix.mode }}
-        env:
-          SPRITE_TEST_FLAGS: interpret:${{ matrix.mode }}
-        run: .github/scripts/run-tests.sh cxx 'func_*.py' 1/1
+        run: .github/scripts/run-tests.sh cxx '${{ matrix.pattern }}' ${{ matrix.shard }}
       - name: Save the ICurry cache
         if: always() && hashFiles('tests/.cache/**') != ''
         uses: actions/cache/save@v4
         with:
           path: tests/.cache
-          key: icurry-cache-cxx-interpreter-${{ matrix.mode }}-${{ github.sha }}-${{ github.run_id }}
+          key: icurry-cache-cxx-interpreter-${{ matrix.tag }}-${{ github.sha }}-${{ github.run_id }}
       - name: Compiler cache statistics
         if: always()
         run: ccache -s | head -n 6

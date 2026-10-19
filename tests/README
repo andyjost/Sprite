@@ -236,9 +236,10 @@ under 'all', where the loader refuses to open an object
 the compile step links an interpreted import by its object on disk
 (backends/cxx/toolchain.py, Cpp2So._sofilename).  So the unit suite
 passes whole under 'all' (issue #82).  unit_cxx_interp.py tests the
-interpreter.  The nightly job "interpreter" of .github/workflows/ci.yml
-runs the unit and functional suites under interpret:all and under
-interpret:off; a workflow_dispatch with the input "interpreter" runs it on
+interpreter.  The nightly jobs "interpreter" of .github/workflows/ci.yml
+run the unit and functional suites under interpret:all (each suite in two
+shards of its own, since the interpreter needs more than the limit of one
+job for both) and under interpret:off (a job per suite); a workflow_dispatch with the input "interpreter" runs it on
 request.  The job passes the flag to run-tests.sh through
 SPRITE_TEST_FLAGS.
 
