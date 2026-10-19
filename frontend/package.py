@@ -66,7 +66,7 @@ def bundle(binary, destination, licenses):
     shutil.copy2(notice, licenses / 'LICENSE-GMP')
   versions = {v for path in destination.iterdir() for v in glibc_versions(path)}
   info = dict(
-      version='2.0.0', packaging_version='2.0.0.post1', architecture=arch
+      version='2.0.0', packaging_version='2.0.0.post2', architecture=arch
     , linkage='dynamic' if needed else 'static', needed=needed
     , glibc_required='.'.join(map(str, max(versions))) if versions else None
     , rpath='$ORIGIN' if 'libgmp.so.10' in needed else None

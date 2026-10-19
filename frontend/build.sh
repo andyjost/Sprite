@@ -17,7 +17,7 @@ cd "$source_dir"
 for patchfile in "$scripts_dir"/patches/*.patch; do
   [ -f "$patchfile" ] || continue
   sha256sum "$patchfile"
-  patch --batch --forward -p1 < "$patchfile"
+  patch --batch --forward --fuzz=0 -p1 < "$patchfile"
 done
 cat ./*.cabal
 [ ! -f stack.yaml ] || cat stack.yaml
@@ -61,13 +61,13 @@ PY
 if [ "$(uname -m)" != x86_64 ]; then
   cabal update --verbose=3
 fi
-if build_frontend '-optl-static -optl-pthread' > "$output_dir/static.log" 2>&1; then
+if build_frontend '-v -optl-static -optl-pthread' > "$output_dir/static.log" 2>&1; then
   cat "$output_dir/static.log"
   echo static > "$output_dir/linkage-requested.txt"
 else
   cat "$output_dir/static.log"
   echo 'Static attempt failed; retrying dynamic link with the same source.'
-  build_frontend '' > "$output_dir/dynamic.log" 2>&1 || {
+  build_frontend '-v' > "$output_dir/dynamic.log" 2>&1 || {
     cat "$output_dir/dynamic.log"
     exit 1
   }

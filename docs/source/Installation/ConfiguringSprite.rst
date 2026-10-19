@@ -189,7 +189,7 @@ The platform wheel ``currylang-frontend`` installs the command
 the front-end CI workflow are artifacts for review; they are not published
 to PyPI. Install the wheel for your platform, then configure Sprite::
 
-    python -m pip install /path/to/currylang_frontend-2.0.0.post1-py3-none-PLATFORM.whl
+    python -m pip install /path/to/currylang_frontend-2.0.0.post2-py3-none-PLATFORM.whl
     ./configure --with-pakcs '' --with-curry-frontend curry-frontend
     make stage
 

@@ -1,0 +1,14 @@
+GHC 9.6.7 rejects the suffix occurrence of @ at Curry.Syntax.Type:1005.
+Remove the space inside the as-pattern; the matched value is unchanged.
+
+--- a/src/Curry/Syntax/Type.hs
++++ b/src/Curry/Syntax/Type.hs
+@@ -1002,7 +1002,7 @@
+   setSpanInfo sp (Field _ qid a) = Field sp qid a
+   updateEndPos f@(Field (SpanInfo _ ss) _ _) =
+     setEndPosition (end (last ss)) f
+-  updateEndPos f@ (Field _ _ _) = f
++  updateEndPos f@(Field _ _ _) = f
+ 
+ instance HasSpanInfo (Goal a) where
+   getSpanInfo (Goal sp _ _ _) = sp

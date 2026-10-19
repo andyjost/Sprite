@@ -12,18 +12,25 @@ changes without changing the front end's program version. This is a PEP
 print `2.0.0`. The conda package retains its name `curry-frontend` and
 upstream version `2.0.0`, and uses build number 1 for this revision.
 
+`2.0.0.post2` (conda build 2) adds the two source compatibility patches
+established by CI run 1. The upstream version remains `2.0.0`.
+
 ## Scripts
 
 * `fetch.py --output DIR` checks the PAKCS download page, tries its source
   archive links for 3.4.1 and the expected `pakcs-3.4.1-src.tar.gz`, then
   falls back to the Kiel GitLab project's exact 2.0.0 tag. It retains the
   page, archive, checksums, and tag/commit metadata. A reviewed URL and
-  checksum can later be passed with `--url URL --sha256 HASH`.
+  checksum can be passed with `--url URL --sha256 HASH`. The workflow now
+  pins the archive URL and SHA-256 established on both targets in run 1.
 * `bash frontend/build.sh SOURCE OUTPUT` prints the toolchain and source
   manifests, applies named patches, tries a static executable, and retries
   dynamically. x86-64 uses the source's `lts-16.9` snapshot with GHC 8.8.3;
   aarch64 starts at GHC 9.6 with Cabal's dependency bounds relaxed. Solver
   and compiler errors are retained, including the failed static attempt.
+* `collect-logs.py --source SOURCE --output DIR` retains ghcup, Cabal,
+  and Stack logs, including project build logs, in the uploaded artifacts
+  even if toolchain setup or compilation fails.
 * `package.py --binary BINARY --licenses LICENSES --output DIR` copies the
   binary, vendors dynamically required GMP beside it with `$ORIGIN`,
   records linkage and the glibc symbol floor of **both** files, and builds
@@ -50,9 +57,13 @@ is `py3-none-PLATFORM`, installed in platlib; it has no Python extension.
 The raw upstream PAKCS and front-end notices are included both with the
 payload and in wheel metadata. Dynamic bundles also include the GMP notice.
 
-The first run is diagnostic: source URLs, Cabal executable names, dependency
-resolution, static linking, and GHC 9.6 compatibility need runner evidence.
-No speculative Haskell source patches are included.
+Run 1 installed both toolchains successfully. x86-64 passed parity and the
+wheel smoke test, but its dynamic bundle required GLIBC 2.38 and correctly
+failed the manylinux 2.28 gate. aarch64 reached compilation; the two errors
+observed under GHC 9.6.7 are addressed by the named patches. The next run
+retains verbose linker commands and tool logs to establish static linking
+and the next aarch64 result. A dynamic wheel requiring newer glibc is never
+retagged as manylinux 2.28.
 
 ## Local packaging
 
@@ -84,7 +95,7 @@ The artifact includes `bin/`, `licenses/`, and `build-info.json`. The recipe
 checks the architecture and numeric version. It installs `pakcs-frontend`
 and the `curry-frontend` alias. For dynamic artifacts conda's GMP supplies
 the library; the installed executable gets `$ORIGIN/../lib`. The metadata
-records the artifact's glibc floor as a run dependency. Build number 1
+records the artifact's glibc floor as a run dependency. Build number 2
 supports `linux-64` and `linux-aarch64` with a native artifact for each.
 
 For compatibility with the existing conda build driver, omitting

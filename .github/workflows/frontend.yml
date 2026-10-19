@@ -41,6 +41,9 @@ jobs:
       SPRITE_CACHE_FILE: ''
       SPRITE_PRODUCT_CACHE: ''
       SPRITE_CURRY2ICURRY: frontend
+      # Verified in CI run 1 on both architectures. Overrides require a pair.
+      FRONTEND_SOURCE_URL: https://www.curry-lang.org/pakcs/download/pakcs-3.4.1-src.tar.gz
+      FRONTEND_SOURCE_SHA256: 71e8030e2efb2295c5862e0c09c9ea2497cfc3b971d8903ce40df66d25e47c22
     steps:
       - uses: actions/checkout@v4
         with:
@@ -59,7 +62,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             g++ make binutils curl pkg-config patch libgmp-dev \
-            zlib1g-dev libtinfo-dev patchelf
+            zlib1g-dev libtinfo-dev libtinfo6 libnuma1 patchelf
           python -m pip install --verbose 'setuptools>=68' wheel auditwheel numpy
           python -m pip list
           gcc --version
@@ -73,19 +76,33 @@ jobs:
           SOURCE_SHA256: ${{ inputs.source_sha256 }}
         run: |
           set -euxo pipefail
-          args=()
+          args=(--url "$FRONTEND_SOURCE_URL" --sha256 "$FRONTEND_SOURCE_SHA256")
           if [ -n "$SOURCE_URL$SOURCE_SHA256" ]; then
-            args+=(--url "$SOURCE_URL" --sha256 "$SOURCE_SHA256")
+            args=(--url "$SOURCE_URL" --sha256 "$SOURCE_SHA256")
           fi
           python frontend/fetch.py --output frontend-work/fetch "${args[@]}" \
             2>&1 | tee frontend-work/logs/fetch.log
       - name: Set up the target Haskell toolchain
+        id: toolchain
         uses: haskell-actions/setup@v2
         with:
           ghc-version: ${{ matrix.ghc }}
           cabal-version: '3.10.3.0'
           enable-stack: true
           stack-version: '2.15.7'
+      - name: Verify installed tools after setup's cache probes
+        env:
+          EXPECTED_GHC: ${{ matrix.ghc }}
+        run: |
+          set -euxo pipefail
+          exec > >(tee frontend-work/logs/toolchain.log) 2>&1
+          for tool in ghc ghc-pkg cabal stack; do
+            command -v "$tool"
+            readlink -f "$(command -v "$tool")"
+            "$tool" --version
+          done
+          test "$(ghc --numeric-version)" = "$EXPECTED_GHC"
+          test "$(cabal --numeric-version)" = 3.10.3.0
       - name: Build 2.0.0, static first then dynamic
         id: compile
         run: |
@@ -105,6 +122,11 @@ jobs:
           python frontend/package.py --binary frontend-work/build/curry-frontend \
             --licenses frontend-work/fetch/licenses --bundle-only \
             --output frontend-work/bundle 2>&1 | tee frontend-work/logs/bundle.log
+          # Show which payload (executable or GMP) sets the glibc floor.
+          for elf in frontend-work/bundle/bin/*; do
+            echo "$elf"
+            readelf -d -V "$elf"
+          done 2>&1 | tee frontend-work/logs/bundled-elf.log
       - name: Audit or validate and tag manylinux 2.28
         id: tag
         if: ${{ !cancelled() && steps.wheel.outcome == 'success' }}
@@ -158,6 +180,7 @@ jobs:
         if: always()
         env:
           FETCH: ${{ steps.fetch.outcome }}
+          TOOLCHAIN: ${{ steps.toolchain.outcome }}
           COMPILE: ${{ steps.compile.outcome }}
           WHEEL: ${{ steps.wheel.outcome }}
           TAG: ${{ steps.tag.outcome }}
@@ -165,9 +188,16 @@ jobs:
           PARITY: ${{ steps.parity.outcome }}
         run: |
           mkdir -p frontend-work
-          printf 'fetch=%s\nbuild=%s\nwheel=%s\ntag=%s\nstage=%s\nparity=%s\n' \
-            "$FETCH" "$COMPILE" "$WHEEL" "$TAG" "$STAGE" "$PARITY" \
+          printf 'fetch=%s\ntoolchain=%s\nbuild=%s\nwheel=%s\ntag=%s\nstage=%s\nparity=%s\n' \
+            "$FETCH" "$TOOLCHAIN" "$COMPILE" "$WHEEL" "$TAG" "$STAGE" "$PARITY" \
             | tee frontend-work/outcome.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Collect ghcup, Stack, and Cabal logs even after failure
+        if: always()
+        run: |
+          set -euxo pipefail
+          python frontend/collect-logs.py --source frontend-work/fetch/source \
+            --output frontend-work/logs/haskell \
+            2>&1 | tee frontend-work/logs/collect-haskell.log
       - name: Upload source, logs, binary, wheels, and both sides of parity
         if: always()
         uses: actions/upload-artifact@v4

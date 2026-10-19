@@ -1,6 +1,27 @@
 '''The wheel launcher preserves arguments and replaces its own process.'''
 import cytest # from ./lib; must be first
-import json, os, pathlib, shutil, subprocess, sys, tempfile, unittest
+import json, os, pathlib, runpy, shutil, subprocess, sys, tempfile, unittest
+
+
+class TestFrontendLogs(cytest.TestCase):
+  def test_collect_partial_build(self):
+    root = pathlib.Path(__file__).resolve().parent.parent
+    collect = runpy.run_path(str(root / 'frontend/collect-logs.py'))['collect']
+    with tempfile.TemporaryDirectory() as tmp:
+      tmp = pathlib.Path(tmp)
+      roots = {name: tmp / name for name in ('ghcup', 'stack', 'missing')}
+      for name in ('ghcup', 'stack'):
+        logs = roots[name] / 'nested'
+        logs.mkdir(parents=True)
+        (logs / 'build.log').write_text(name + ' failed\n')
+        (logs / 'object.o').write_bytes(b'not a log')
+      dest = tmp / 'artifact'
+      collect(roots, dest)
+      self.assertEqual(sorted(str(p.relative_to(dest)) for p in dest.rglob('*')
+          if p.is_file()), ['ghcup/nested/build.log', 'stack/nested/build.log'])
+      for name in ('ghcup', 'stack'):
+        self.assertEqual((dest / name / 'nested/build.log').read_text(),
+            name + ' failed\n')
 
 
 class TestFrontendLauncher(cytest.TestCase):

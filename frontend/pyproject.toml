@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "currylang-frontend"
-version = "2.0.0.post1"
+version = "2.0.0.post2"
 description = "The Curry to FlatCurry front end shipped with PAKCS 3.4.1"
 requires-python = ">=3.11"
 license = {text = "BSD-3-Clause"}
