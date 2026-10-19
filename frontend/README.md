@@ -20,6 +20,11 @@ in run 2, verifies static linkage, and builds/bundles in manylinux 2.28
 containers on the Ubuntu 24.04 hosts. Dynamic bundles use the container's
 GMP and retain its RPM license notices. The program version stays `2.0.0`.
 
+`2.0.0.post4` (conda build 4) adds the two compatibility patches found in
+run 3. Both targets now request dynamic system linkage in manylinux 2.28,
+vendoring its GMP with `$ORIGIN`. The Haskell tools share a writable home
+under the workspace. The program version remains `2.0.0`.
+
 ## Scripts
 
 * `fetch.py --output DIR` checks the PAKCS download page, tries its source
@@ -29,13 +34,14 @@ GMP and retain its RPM license notices. The program version stays `2.0.0`.
   checksum can be passed with `--url URL --sha256 HASH`. The workflow now
   pins the archive URL and SHA-256 established on both targets in run 1.
 * `bash frontend/build.sh SOURCE OUTPUT` prints the toolchain and source
-  manifests, applies named patches, tries a static executable, and retries
-  dynamically. x86-64 uses the source's `lts-16.9` snapshot with GHC 8.8.3;
+  manifests, applies named patches, and links dynamically against the
+  container's system libraries. x86-64 uses the source's `lts-16.9`
+  snapshot with GHC 8.8.3;
   aarch64 starts at GHC 9.6 with Cabal's dependency bounds relaxed. Solver
-  and compiler errors are retained, including the failed static attempt.
-  Static mode disables shared Haskell libraries and explicitly requests a
-  static executable. Its ELF must have neither an interpreter nor a
-  `NEEDED` library. Both attempts stream to the job log and artifact logs.
+  and compiler errors, linker commands, and ELF linkage are retained in
+  both the job log and artifact logs. CI run 3 established that AlmaLinux
+  8 lacks a GMP archive; the workflow accepts the dynamic route instead
+  of fetching another source dependency to build GMP.
 * `collect-logs.py --source SOURCE --output DIR` retains ghcup, Cabal,
   and Stack logs, including project build logs, in the uploaded artifacts
   even if toolchain setup or compilation fails.
@@ -81,6 +87,15 @@ CPython 3.14. The image tag, OS, library/tool versions, bootstrap checksum,
 linker commands, actual ELF linkage and glibc requirements remain visible.
 A dynamic wheel requiring newer glibc still fails the tagging gate.
 
+Run 3 failed before linking on both targets. Stack 2.15.7 rejected
+`--no-shared`, then refused the dynamic retry's root under the container's
+default home because its parent belonged to another user. ARM reported
+the missing `Alternative (Either String)` instance and the `when` import;
+patches 0004 and 0005 address both. Run 4 puts `HOME`, `STACK_ROOT`,
+`CABAL_DIR`, and `GHCUP_INSTALL_BASE_PREFIX` under `frontend-work/home`
+at job scope, including log collection after failure. It drops the static
+attempt and the unavailable `gmp-static` RPM probe on both targets.
+
 ## Local packaging
 
 With the packaging dependencies already installed:
@@ -111,7 +126,7 @@ The artifact includes `bin/`, `licenses/`, and `build-info.json`. The recipe
 checks the architecture and numeric version. It installs `pakcs-frontend`
 and the `curry-frontend` alias. For dynamic artifacts conda's GMP supplies
 the library; the installed executable gets `$ORIGIN/../lib`. The metadata
-records the artifact's glibc floor as a run dependency. Build number 3
+records the artifact's glibc floor as a run dependency. Build number 4
 supports `linux-64` and `linux-aarch64` with a native artifact for each.
 
 For compatibility with the existing conda build driver, omitting

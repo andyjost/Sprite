@@ -82,7 +82,7 @@ class TestGmpLicenses(unittest.TestCase):
 class TestFrontendLinkage(unittest.TestCase):
   @unittest.skipUnless(shutil.which('cc') and shutil.which('readelf'),
       'requires a C compiler and readelf for a real dynamic ELF')
-  def test_static_attempt_cannot_silently_deliver_dynamic_elf(self):
+  def test_dynamic_build_uses_stack_without_static_options(self):
     root = pathlib.Path(__file__).resolve().parent.parent
     with tempfile.TemporaryDirectory(prefix='frontend build ') as tmp:
       tmp = pathlib.Path(tmp)
@@ -106,6 +106,12 @@ class TestFrontendLinkage(unittest.TestCase):
         , 'cabal': '#!/bin/bash\necho fixture-cabal\n'
         , 'stack': '#!' + sys.executable + '\n'
             'import os, pathlib, shutil, sys\n'
+            'with open(os.environ["FRONTEND_TEST_COMMANDS"], "a") as log:\n'
+            '  log.write(repr(sys.argv[1:]) + "\\n")\n'
+            'if any(arg in sys.argv for arg in ("--no-shared", "--disable-shared")):\n'
+            '  sys.exit("unsupported Stack option")\n'
+            'if any("-optl-static" in arg for arg in sys.argv):\n'
+            '  sys.exit("GMP archive unavailable")\n'
             'if "--local-bin-path" in sys.argv:\n'
             '  dest = pathlib.Path(sys.argv[sys.argv.index("--local-bin-path") + 1])\n'
             '  dest.mkdir(parents=True, exist_ok=True)\n'
@@ -117,13 +123,19 @@ class TestFrontendLinkage(unittest.TestCase):
         tool.chmod(0o755)
       dest = tmp / 'output'
       env = dict(os.environ, PATH=str(tools) + os.pathsep + os.environ['PATH'],
-          FRONTEND_TEST_ELF=str(binary))
+          FRONTEND_TEST_ELF=str(binary), FRONTEND_TEST_COMMANDS=str(tmp / 'commands'))
       result = subprocess.run(['bash', str(scripts / 'build.sh'), str(source), str(dest)],
           env=env, capture_output=True, text=True, timeout=30)
       self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
       self.assertEqual((dest / 'linkage-requested.txt').read_text(), 'dynamic\n')
-      self.assertIn('rejecting the static attempt', (dest / 'static.log').read_text())
       self.assertTrue((dest / 'dynamic.log').is_file())
+      self.assertIn('INTERP', (dest / 'dynamic-elf.txt').read_text())
+      import ast
+      commands = [ast.literal_eval(line) for line in (tmp / 'commands').read_text().splitlines()]
+      builds = [args for args in commands if 'build' in args]
+      self.assertEqual(len(builds), 1)
+      self.assertIn('--system-ghc', builds[0])
+      self.assertIn('--no-install-ghc', builds[0])
 
 
 if __name__ == '__main__':

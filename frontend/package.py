@@ -79,7 +79,7 @@ def bundle(binary, destination, licenses):
     copy_gmp_licenses(licenses)
   versions = {v for path in destination.iterdir() for v in glibc_versions(path)}
   info = dict(
-      version='2.0.0', packaging_version='2.0.0.post3', architecture=arch
+      version='2.0.0', packaging_version='2.0.0.post4', architecture=arch
     , linkage='dynamic' if needed else 'static', needed=needed
     , glibc_required='.'.join(map(str, max(versions))) if versions else None
     , rpath='$ORIGIN' if 'libgmp.so.10' in needed else None

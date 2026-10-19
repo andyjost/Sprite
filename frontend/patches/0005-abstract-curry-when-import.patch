@@ -1,0 +1,18 @@
+GHC 9.6.7 / mtl 2.3.1: Control.Monad.State no longer exports when
+(Generators.GenAbstractCurry:25). Import the same function qualified from
+Control.Monad, keeping the existing S.when call unchanged.
+
+--- a/src/Generators/GenAbstractCurry.hs
++++ b/src/Generators/GenAbstractCurry.hs
+@@ -20,9 +20,10 @@
+ #if __GLASGOW_HASKELL__ < 710
+ import           Control.Applicative          ((<$>), (<*>), pure)
+ #endif
++import qualified Control.Monad as S           (when)
+ import           Control.Monad.Extra
+ import qualified Control.Monad.State as S     (State, evalState, get, gets
+-                                              , modify, put, when)
++                                              , modify, put)
+ import qualified Data.Map            as Map   (Map, empty, fromList, lookup
+                                               , union)
+ import qualified Data.Maybe          as Maybe (fromJust, fromMaybe, listToMaybe)

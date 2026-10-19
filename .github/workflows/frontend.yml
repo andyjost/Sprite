@@ -21,8 +21,8 @@ jobs:
   build:
     name: build (${{ matrix.name }})
     runs-on: ${{ matrix.runner }}
-    # Keep the Ubuntu hosts; build and bundle against glibc 2.28 even when
-    # the preferred static link is unavailable. Never vendor Ubuntu's GMP.
+    # Keep the Ubuntu hosts; link dynamically against glibc 2.28 and bundle
+    # the container's GMP. AlmaLinux 8 does not provide a static GMP archive.
     container:
       image: ${{ matrix.image }}
     continue-on-error: true
@@ -44,6 +44,12 @@ jobs:
         shell: bash
     env:
       LC_ALL: C.UTF-8
+      # The container's default home has a different owner; Stack refuses it.
+      # Job scope also covers failure collection and action steps.
+      HOME: ${{ github.workspace }}/frontend-work/home
+      STACK_ROOT: ${{ github.workspace }}/frontend-work/home/.stack
+      CABAL_DIR: ${{ github.workspace }}/frontend-work/home/.cabal
+      GHCUP_INSTALL_BASE_PREFIX: ${{ github.workspace }}/frontend-work/home
       SPRITE_CACHE_FILE: ''
       SPRITE_PRODUCT_CACHE: ''
       SPRITE_CURRY2ICURRY: frontend
@@ -62,20 +68,17 @@ jobs:
       - name: Runner and system dependencies
         run: |
           set -euxo pipefail
-          mkdir -p frontend-work/logs
+          mkdir -p frontend-work/logs "$HOME" "$STACK_ROOT" "$CABAL_DIR"
           exec > >(tee frontend-work/logs/runner.log) 2>&1
+          id
+          ls -ld "$HOME" "$STACK_ROOT" "$CABAL_DIR" "$GHCUP_INSTALL_BASE_PREFIX"
           uname -a
           cat /etc/os-release
           python --version
           dnf install -y gcc gcc-c++ make binutils curl pkgconf-pkg-config \
-            patch gmp-devel glibc-devel glibc-static zlib-devel \
+            patch gmp-devel glibc-devel zlib-devel \
             ncurses-devel ncurses-compat-libs numactl-libs patchelf file xz
-          # Some RPM distributions split the GMP archive into gmp-static.
-          if [ ! -f "$(gcc -print-file-name=libgmp.a)" ]; then
-            dnf install -y gmp-static || echo 'No GMP archive; static attempt will diagnose it.'
-          fi
-          rpm -q glibc glibc-devel glibc-static gmp gmp-devel
-          ls -l "$(gcc -print-file-name=libgmp.a)" || true
+          rpm -q glibc glibc-devel gmp gmp-devel
           python -m pip install --verbose 'setuptools>=68' wheel auditwheel numpy
           python -m pip list
           gcc --version
@@ -102,8 +105,7 @@ jobs:
         run: |
           set -euxo pipefail
           exec > >(tee frontend-work/logs/toolchain.log) 2>&1
-          # An isolated writable prefix avoids hosted ghcup cache probes.
-          export GHCUP_INSTALL_BASE_PREFIX="$PWD/frontend-work/haskell"
+          # The job's writable home also holds ghcup, Cabal, and Stack state.
           export BOOTSTRAP_HASKELL_NONINTERACTIVE=1
           export BOOTSTRAP_HASKELL_MINIMAL=1
           export BOOTSTRAP_HASKELL_ADJUST_BASHRC=0
@@ -112,7 +114,6 @@ jobs:
           sha256sum frontend-work/ghcup-bootstrap.sh
           bash frontend-work/ghcup-bootstrap.sh
           export PATH="$GHCUP_INSTALL_BASE_PREFIX/.ghcup/bin:$PATH"
-          echo "GHCUP_INSTALL_BASE_PREFIX=$GHCUP_INSTALL_BASE_PREFIX" >> "$GITHUB_ENV"
           echo "$GHCUP_INSTALL_BASE_PREFIX/.ghcup/bin" >> "$GITHUB_PATH"
           ghcup --version
           ghcup --verbose install ghc "$EXPECTED_GHC"
@@ -131,7 +132,7 @@ jobs:
           done
           test "$(ghc --numeric-version)" = "$EXPECTED_GHC"
           test "$(cabal --numeric-version)" = 3.10.3.0
-      - name: Build 2.0.0, static first then dynamic
+      - name: Build 2.0.0 with dynamic system libraries in manylinux 2.28
         id: compile
         run: |
           set -euxo pipefail
@@ -224,8 +225,6 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p frontend-work/logs
-          # Also works when bootstrap failed before writing GITHUB_ENV.
-          export GHCUP_INSTALL_BASE_PREFIX="$PWD/frontend-work/haskell"
           python frontend/collect-logs.py --source frontend-work/fetch/source \
             --output frontend-work/logs/haskell \
             2>&1 | tee frontend-work/logs/collect-haskell.log
