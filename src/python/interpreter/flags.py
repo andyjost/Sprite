@@ -31,7 +31,7 @@ The following flags are available:
     The checker mode of the Fair Scheme proofs program (section 6.5 of the
     memo on the Fair Scheme proofs).  Both backends hold a checker while
     the flag is on: the Python backend in curry.backends.py.eval.checker,
-    the C++ runtime in cyrt/checker.hpp (RuntimeState::checker).  The
+    the C++ runtime in curryrt/checker.hpp (RuntimeState::checker).  The
     checker asserts the run-time invariants of the Fair Scheme at every
     fork, escape, pull-tab, instantiation and yield: the identifier
     consistency of the fingerprints and their groups (RI B1), the
@@ -45,7 +45,7 @@ The following flags are available:
     A violation raises ``InvariantViolation``, an ``AssertionError`` whose
     message names the invariant, the event, the configuration, the
     identifiers and the goal position; the C++ backend raises
-    ``curry.backends.cxx.cyrtbindings.InvariantViolation``.  The checker
+    ``curry.backends.cxx.curryrtbindings.InvariantViolation``.  The checker
     observes: it changes no step, no value and no counter, and with the
     flag off each runtime tests one attribute or one pointer per event.
     The developer notes describe both checkers and where they differ.
@@ -97,7 +97,7 @@ The following flags are available:
     module and the reason (issue #102).  With
     'new', a module without a compiled object (a module compiled from a
     string, an expression, a source file compiled for the first time) is
-    interpreted by the ICurry interpreter of the runtime (cyrt/icurry.hpp)
+    interpreted by the ICurry interpreter of the runtime (curryrt/icurry.hpp)
     instead, and a module with a current object is loaded from it.  With
     'all', every module is interpreted, the Prelude included; the compiled
     objects are not used.  With 'tiered', the default, a module without a

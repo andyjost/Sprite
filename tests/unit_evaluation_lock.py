@@ -7,7 +7,7 @@ import cytest, curry, threading, time, os, signal
 from curry.backends.generic.eval.evaluator import Evaluator
 curry.reset(backend='cxx', interpret='off')
 M = curry.import_('StackGuard')
-from curry.backends.cxx import cyrtbindings as cyrt
+from curry.backends.cxx import curryrtbindings as curryrt
 def evaluator(n):
   return Evaluator(cytest.raw.interp(),
       cytest.raw.expr(M.lastOfRange, n, typed=True))
@@ -27,7 +27,7 @@ class TestEvaluationLock(cytest.TestCase):
 serial = evaluator(100000)
 assert run(serial) == [100000]
 expected = serial.rts.steps_total
-from curry.backends.cxx.cyrtbindings import _cyrtbindings as native
+from curry.backends.cxx.curryrtbindings import _curryrtbindings as native
 before = native._heap_status()
 runs = [evaluator(100000), evaluator(100000)]
 barrier = threading.Barrier(3)
@@ -164,7 +164,7 @@ stop = threading.Event()
 errors = []
 def collect():
   try:
-    while not stop.wait(0.001): cyrt.gc_collect()
+    while not stop.wait(0.001): curryrt.gc_collect()
   except BaseException as error: errors.append(error)
 thread = threading.Thread(target=collect)
 thread.start()

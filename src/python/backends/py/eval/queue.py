@@ -12,7 +12,7 @@ def failure_guards(outside_failures):
   development), and the union of their guards.  A record of level zero
   makes a plain failure, which escapes to no enclosing capsule.
   Queue.failure_guards and the checker (check_capsule_end) call it.  The
-  C++ runtime has the same function (cyrt::failure_guards in
+  C++ runtime has the same function (curryrt::failure_guards in
   state/queue.cpp).
   '''
   if not outside_failures:

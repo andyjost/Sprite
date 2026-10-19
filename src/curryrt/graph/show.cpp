@@ -1,0 +1,746 @@
+#include <algorithm>
+#include <cassert>
+#include <charconv>
+#include <cmath>
+#include <cstdio>
+#include <ctype.h>
+#include "curryrt/builtins.hpp"
+#include "curryrt/graph/memory.hpp"
+#include "curryrt/currylib/setfunctions.hpp"
+#include "curryrt/graph/node.hpp"
+#include "curryrt/graph/show.hpp"
+#include "curryrt/graph/walk.hpp"
+#include "curryrt/inspect.hpp"
+#include "curryrt/utf8.hpp"
+#include <cstring>
+#include <functional>
+#include <iostream>
+#include <list>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
+namespace
+{
+  using namespace curryrt;
+
+  // Writes a Float as PAKCS writes it, so that both backends print one text
+  // (issue #34).  The digits are the shortest that read back to the same
+  // value.  The point stands in the digits when the value is at least
+  // 1.0e-4 and either below 1.0e15 or not integral; otherwise the text is
+  // d.ddde<exp>, where the exponent carries its sign and no padding, and a
+  // lone digit gets ".0": 0.0001, 1.0e-5, 10000000.0, 1.0e+15, 1.0e+22.
+  // An integral value ends in ".0".  The infinities and NaN, which PAKCS
+  // cannot make, are written Infinity, -Infinity, and NaN, as KiCS2 writes
+  // them.  The Python backend has the same rule in show.show_float.
+  void show_float(std::ostream & os, unboxed_float_type value)
+  {
+    if(std::isnan(value))
+      { os << "NaN"; return; }
+    if(std::signbit(value))
+      { os << '-'; value = -value; }
+    if(std::isinf(value))
+      { os << "Infinity"; return; }
+    if(value == 0)
+      { os << "0.0"; return; }
+    // The shortest digits, from the scientific form d.ddde[+-]xx.
+    char buf[64];
+    auto const res = std::to_chars(
+        buf, buf + sizeof(buf), value, std::chars_format::scientific
+      );
+    assert(res.ec == std::errc());
+    std::string digits;
+    char const * p = buf;
+    for(; p != res.ptr && *p != 'e'; ++p)
+      if(*p != '.')
+        digits.push_back(*p);
+    assert(p != res.ptr);
+    ++p;
+    bool const negative_exponent = (*p == '-');
+    if(*p == '-' || *p == '+')
+      ++p;
+    int exp10 = 0;
+    std::from_chars(p, res.ptr, exp10);
+    if(negative_exponent)
+      exp10 = -exp10;
+    // value = 0.<digits> * 10^decpt
+    int const decpt = exp10 + 1;
+    int const n = digits.size();
+    if(decpt <= -4 || (decpt > 15 && decpt >= n))
+    {
+      os << digits[0] << '.';
+      if(n > 1)
+        os << digits.substr(1);
+      else
+        os << '0';
+      os << 'e' << (decpt - 1 < 0 ? '-' : '+')
+         << std::to_string(std::abs(decpt - 1));
+    }
+    else if(decpt <= 0)
+      os << "0." << std::string(-decpt, '0') << digits;
+    else if(decpt < n)
+      os << digits.substr(0, decpt) << '.' << digits.substr(decpt);
+    else
+      os << digits << std::string(decpt - n, '0') << ".0";
+  }
+
+  static bool constexpr ESCAPE_DQ = true;
+  static bool constexpr ESCAPE_SQ = false;
+
+  // Writes one code point as it appears in a character literal (ESCAPE_SQ)
+  // or a string literal (ESCAPE_DQ).  Printable ASCII is written as is.
+  // Every other code point is written as a decimal escape of at least two
+  // digits, as PAKCS writes it: show '\228' is "'\\228'".
+  void show_escaped(std::ostream & os, unboxed_char_type value, bool mode)
+  {
+    switch(value)
+    {
+      case '"' : if(mode)  os << '\\' << '"' ; else os << '"';
+                 return;
+      case '\'': if(!mode) os << '\\' << '\'' ; else os << '\'';
+                 return;
+      case '\\': os << '\\' << '\\'; return;
+      case '\a': os << '\\' << 'a' ; return;
+      case '\b': os << '\\' << 'b' ; return;
+      case '\f': os << '\\' << 'f' ; return;
+      case '\n': os << '\\' << 'n' ; return;
+      case '\r': os << '\\' << 'r' ; return;
+      case '\t': os << '\\' << 't' ; return;
+      case '\v': os << '\\' << 'v' ; return;
+      default  : break;
+    }
+
+    if(0x20 <= value && value < 0x7F)
+      os << (char) value;
+    else
+    {
+      os << '\\';
+      if(value < 10)
+        os << '0';
+      os << (unsigned long) value;
+    }
+  }
+
+  struct ReprStringifier
+  {
+    ReprStringifier(std::ostream & os) : os(os) {}
+    std::ostream & os;
+    // The memo is keyed by the addresses of the nodes: no node may move
+    // while the walk runs.
+    GcClamp gc_clamp;
+    std::unordered_set<void *> memo;
+
+    static void callback(void * static_data, void * id, Walk2 const *)
+    {
+      auto self = (ReprStringifier *)(static_data);
+      if(id) self->os << '>';
+      self->memo.erase(id);
+    }
+
+    void stringify(Cursor expr)
+    {
+      bool first = true;
+      for(auto && walk=curryrt::walk(expr, this, &callback); walk; ++walk)
+      {
+        auto && cur = walk.cursor();
+        if(first) first = false; else this->os << ' ';
+        switch(cur.kind)
+        {
+          case 'i': show(cur.arg->ub_int);   continue;
+          case 'f': show(cur.arg->ub_float); continue;
+          case 'c': show(cur.arg->ub_char);  continue;
+          case 'x': show(cur.arg->blob);     continue;
+        }
+        void * id = cur.id();
+        if(!this->memo.insert(id).second)
+          this->os << "...";
+        else if(is_partial(*cur->info) && !NodeU{cur}.partapplic->is_encapsulated())
+        {
+          // A partial application: the missing count, the name of the head,
+          // and the arguments, <_PartApplic 1 f <Int 1>>.  The head is an
+          // info table (slot 1), which would otherwise show as an address.
+          auto const * partial = NodeU{cur}.partapplic;
+          this->os << '<' << cur->info->name << ' ' << partial->missing
+                   << ' ' << partial->head_info->name;
+          if(partial->nargs() == 0)
+          {
+            this->os << '>';
+            this->memo.erase(id);
+          }
+          else
+          {
+            walk.extend(id);
+            ++walk; // skip #missing
+            ++walk; // skip head_info
+          }
+        }
+        else
+        {
+          // The repr form writes the bare symbol name, as the Python backend
+          // does: <? <Int 1> <Int 2>>, not <(?) <Int 1> <Int 2>>.
+          this->os << '<' << cur->info->name;
+          walk.extend(id);
+        }
+      }
+    }
+
+    void show(unboxed_int_type value) { this->os << value; }
+    void show(unboxed_float_type value) { show_float(this->os, value); }
+    void show(unboxed_char_type value)
+    {
+      this->os << '\'';
+      show_escaped(this->os, value, ESCAPE_SQ);
+      this->os << '\'';
+    }
+    void show(void const * value) { this->os << value; }
+  };
+
+  struct OStreamReverseAdaptor
+  {
+    std::stringstream ss;
+    std::vector<std::string> buffered;
+
+    void flush()
+    {
+      auto str = ss.str();
+      if(!str.empty())
+      {
+        buffered.push_back(str);
+        ss.str(""); // clear
+      }
+    }
+  };
+
+  struct StrStringifier
+  {
+    StrStringifier(std::ostream & os, SubstFreevars subst_freevars, ShowMonitor * monitor)
+      : _os(&os), subst_freevars(subst_freevars), monitor(monitor)
+    {}
+
+    std::ostream * _os;
+    SubstFreevars subst_freevars;
+    ShowMonitor * monitor;
+    GcClamp gc_clamp; // the path is keyed by the addresses of the nodes
+    std::unordered_map<xid_type, std::string> tr; // free variable translations
+    int nextid = 0;
+    // The nodes on the path from the root to the current node, outermost
+    // first, and the same nodes as a set for the lookup.  A node enters the
+    // path when the walk extends it (extend) and leaves it when the walk
+    // returns from its successors (callback).  A node met again while it is
+    // on the path closes a cycle: an ellipsis stands for it.  A node met
+    // again elsewhere is shared, not cyclic, and is written in full every
+    // time (issue #119).
+    std::vector<void *> path;
+    std::unordered_multiset<void *> on_path;
+    std::list<OStreamReverseAdaptor> ostream_adaptors;
+    union Context
+    {
+      char value;
+      void * p;
+      // values:
+      //     '\0'    top expression first term
+      //     ' '     top expression non-first term
+      //     '&'     parenthesized subexpr
+      //     '('     tuple first term
+      //     ')'     tuple non-first term
+      //     '['     square list item
+      //     ']'     square list spine
+      //     ':'     bare cons list item
+      //     '!'     bare cons list spine
+      //     '<'     parenthisized cons list item
+      //     '>'     parenthisized cons list spine
+      //     '-'     bare concat list item
+      //     'v'     bare concat list spine
+      //     '_'     parenthesized concat list item
+      //     '^'     parenthesized concat list spine
+      //     '"'     string item
+      //     '`'     string spine
+      //     'c'     char appearing in a double-quoted string
+
+      Context(char value) : value(value) {}
+      Context(void * p) : p(p) {}
+      operator void *() const { return this->p; }
+    };
+
+    std::ostream & os()
+    {
+      if(this->ostream_adaptors.empty())
+        return *_os;
+      else
+        return this->ostream_adaptors.back().ss;
+    }
+
+    void push_reverse_order()
+    {
+      this->ostream_adaptors.emplace_back();
+    }
+
+    void flush_reverse_order()
+    {
+      assert(!this->ostream_adaptors.empty());
+      this->ostream_adaptors.back().flush();
+    }
+
+    void pop_reverse_order()
+    {
+      this->flush_reverse_order();
+      assert(!this->ostream_adaptors.empty());
+      auto strings = std::move(this->ostream_adaptors.back().buffered);
+      this->ostream_adaptors.pop_back();
+      auto & out = this->os();
+      size_t const N = strings.size();
+      for(size_t i=0; i<N; ++i)
+        out << ' ' << strings[N-i-1];
+    }
+
+    static void callback(void * static_data, void * data, Walk2 const * walk)
+    {
+      auto self = (StrStringifier *)(static_data);
+      // A forwarding edge borrows its parent's context. Its target prints
+      // the separator; returning from the edge closes no delimiter.
+      bool const forwarding = !self->path.empty()
+          && static_cast<Node *>(self->path.back())->info->tag == T_FWD;
+      if(!forwarding) switch(Context(data).value)
+      {
+        case '(':
+        case ')':
+        case '>':
+        case '&': self->os() << ')'; break;
+        case '[': self->os() << ']'; break;
+      }
+      // The walk returns from the successors of the node it extended last:
+      // the node leaves the path.  The last call, for the root level of the
+      // walk, closes no extension.  (walk->cursor() is the last successor
+      // visited at this level, not the node left.)
+      if(!self->path.empty())
+      {
+        auto p = self->on_path.find(self->path.back());
+        assert(p != self->on_path.end());
+        self->on_path.erase(p);
+        self->path.pop_back();
+      }
+
+      if(self->monitor)
+        self->monitor->exit(self->os(), walk, Context(data).value);
+    }
+
+    // Extends the walk below the current node and puts the node on the path.
+    void extend(Walk2 & walk, void * data=nullptr)
+    {
+      void * id = walk.cursor().id();
+      this->path.push_back(id);
+      this->on_path.insert(id);
+      walk.extend(data);
+    }
+
+    void show_name(InfoTable const * info)
+    {
+      if(info)
+      {
+        if(is_operator(*info))
+          this->os() << '(' << info->name << ')';
+        else
+          this->os() << info->name;
+      }
+    }
+
+    void stringify(Cursor expr)
+    {
+      for(auto && walk=curryrt::walk(expr, this, &callback); walk; ++walk)
+      {
+        auto cur = walk.cursor();
+        bool cycle = false;
+        if(cur.kind == 'p')
+        {
+          if(this->on_path.count(cur.id()))
+            cycle = true;
+          else if(cur->info->tag == T_FWD)
+          {
+            auto context = walk.data();
+            switch(Context(context).value)
+            {
+              case '\0': walk.data() = Context(' '); break;
+              case '(' : walk.data() = Context(')'); break;
+              case '[' : walk.data() = Context(']'); break;
+              case '"' : walk.data() = Context('`'); break;
+              case ':' : walk.data() = Context('!'); break;
+              case '<' : walk.data() = Context('>'); break;
+              case '_' : walk.data() = Context('^'); break;
+              case '-' : walk.data() = Context('v'); break;
+            }
+            this->extend(walk, context);
+            continue;
+          }
+        }
+
+        void *& data = walk.data();
+        bool disallow_parens = false;
+
+        switch(Context(data).value)
+        {
+          case '\0': disallow_parens = true; data = Context(' '); break;
+          case ' ' :
+          case '&' : this->os() << ' ';                           break;
+          case '(' : disallow_parens = true; data = Context(')'); break;
+          case ')' : disallow_parens = true; this->os() << ", ";  break;
+
+          // Bracketed list.
+          case '[' : disallow_parens = true; data = Context(']'); break;
+          case ']' :
+            assert(is_list(*cur->info));
+            disallow_parens = true;
+            if(cur->info->tag == T_CONS)
+            {
+              this->os() << ", ";
+              if(cycle)
+              {
+                this->os() << "...]";
+                continue;
+              }
+              this->extend(walk, Context('['));
+            }
+            else
+              this->os() << ']';
+            continue;
+
+          // Concat list.
+          case '_' : data = Context('^'); break;
+          case '-' : data = Context('v'); break;
+          case '^' :
+          case 'v' :
+            assert(is_list(*cur->info));
+            if(!cycle && cur->info->tag == T_CONS)
+            {
+              this->flush_reverse_order();
+              // Items of a bare concat list ('v') get '-', items of a
+              // parenthesized one ('^') get '_'.
+              this->extend(walk, Context(data).value == '^' ? Context('_') : Context('-'));
+            }
+            else
+            {
+              this->pop_reverse_order();
+              if(cycle)
+                this->os() << "...";
+              if(Context(data).value == '^')
+                this->os() << ')';
+            }
+            continue;
+
+          // String.
+          case '"': data = Context('`'); break;
+          case '`' :
+            assert(is_list(*cur->info));
+            if(cycle)
+              this->os() << "\"...";
+            else if(cur->info->tag == T_CONS)
+              this->extend(walk, Context('"'));
+            else
+              this->os() << '"';
+            continue;
+
+          // Cons list.
+          case ':' : data = Context('!'); break;
+          case '<' : data = Context('>'); break;
+          case '!' :
+          case '>' :
+            this->os() << ':';
+            if(is_list(*cur->info))
+            {
+              if(cycle)
+              {
+                this->os() << "...";
+                if(Context(data).value == '>')
+                  this->os() << ")";
+                continue;
+              }
+              else if(cur->info->tag == T_CONS)
+              {
+                auto next = Context(data).value == '!' ? Context(':') : Context('<');
+                this->extend(walk, next);
+              }
+              else
+                this->os() << '[' << ']';
+              continue;
+            }
+            break;
+        }
+
+        if(cycle)
+        {
+          this->os() << "...";
+          continue;
+        }
+
+        if(this->monitor)
+          this->monitor->enter(this->os(), &walk, Context(data).value);
+
+        switch(cur.kind)
+        {
+          case 'i': show(cur.arg->ub_int);
+                    continue;
+          case 'f': show(cur.arg->ub_float);
+                    continue;
+          case 'c': if(Context(data).value == 'c')
+                      show_escaped(this->os(), cur.arg->ub_char, ESCAPE_DQ);
+                    else
+                      show(cur.arg->ub_char);
+                    continue;
+          case 'x': show(cur.arg->blob);
+                    continue;
+        }
+
+        auto * info = cur->info;
+        if(info->tag == T_FREE)
+        {
+          xid_type vid = NodeU{cur}.free->vid;
+          if(this->subst_freevars)
+          {
+            auto p = tr.find(vid);
+            if(p == tr.end())
+            {
+              auto label = this->next_label();
+              tr[vid] = label;
+              this->os() << label;
+            }
+            else
+              this->os() << p->second;
+          }
+          else
+            this->os() << '_' << vid;
+          continue;
+        }
+
+        switch(typetag(*info))
+        {
+          case F_INT_TYPE:
+          case F_FLOAT_TYPE:
+            this->extend(walk);
+            continue;
+          case F_CHAR_TYPE:
+            if(Context(data).value == '`')
+              this->extend(walk, Context('c'));
+            else
+              this->extend(walk);
+            continue;
+          case F_PARTIAL_TYPE:
+          {
+            // The arguments are the successors after the missing count and
+            // the head (see PartApplicNode in builtins.hpp).  The walk
+            // visits them under the '&' context: a space before each one,
+            // parentheses around a compound one, and ')' at the end.
+            auto const * partial = NodeU{cur}.partapplic;
+            if(partial->is_encapsulated())
+              goto default_case;
+            if(partial->info->type == &PartialS_Type)
+            {
+              os() << '(' << partial->info->name << ' '
+                 << partial->missing << " {";
+              show_name(partial->head_info);
+              os() << '}';
+              if(partial->nargs() == 0)
+                os() << ')';
+              else
+              {
+                this->extend(walk, Context('&'));
+                ++walk; // skip #missing
+                ++walk; // skip head_info
+              }
+            }
+            else
+            {
+              // Match the Python backend: a partial application with
+              // arguments is always written (f a b), even at the top level
+              // or inside a list; one without arguments is written f.
+              if(partial->nargs() == 0)
+                show_name(partial->head_info);
+              else
+              {
+                os() << '(';
+                show_name(partial->head_info);
+                this->extend(walk, Context('&'));
+                ++walk; // skip #missing
+                ++walk; // skip head_info
+              }
+            }
+            continue;
+          }
+          case F_IO_TYPE:
+          {
+            if(!this->path.empty())
+              goto default_case;
+            this->extend(walk);
+            continue;
+          }
+          case F_LIST_TYPE:
+            begin_list(walk, cur, disallow_parens);
+            continue;
+          case F_TUPLE_TYPE:
+            this->os() << '(';
+            this->extend(walk, Context('('));
+            continue;
+          case F_CSTRING_TYPE:
+          {
+            this->os() << '"';
+            // The data is UTF-8; each code point is shown on its own.
+            char const * p = NodeU{cur}.c_str->data;
+            char const * end = p + std::strlen(p);
+            while(p != end) show_escaped(this->os(), utf8_decode(p, end), ESCAPE_DQ);
+            this->os() << '"';
+            continue;
+          }
+          default_case:
+          default:
+            if(!disallow_parens && info->arity)
+            {
+              this->os() << '(';
+              this->show_name(info);
+              this->extend(walk, Context('&'));
+            }
+            else
+            {
+              this->show_name(info);
+              this->extend(walk, Context(' '));
+            }
+            continue;
+        }
+      }
+    }
+
+    void show(unboxed_int_type value)
+    {
+      if(value < 0)
+        this->os() << '(' << value << ')';
+      else
+        this->os() << value;
+    }
+
+    void show(unboxed_float_type value)
+    {
+      if(value < 0)
+      {
+        this->os() << '(';
+        show_float(this->os(), value);
+        this->os() << ')';
+      }
+      else
+        show_float(this->os(), value);
+    }
+
+    void show(unboxed_char_type value)
+    {
+      this->os() << '\'';
+      show_escaped(this->os(), value, ESCAPE_SQ);
+      this->os() << '\'';
+    }
+
+    void show(void const * value)
+      { this->os() << value; }
+
+    void begin_list(Walk2 & walk, Cursor cur, bool disallow_parens)
+    {
+      Node * end = cur;
+      bool is_string = true;
+      bool is_empty = true;
+      std::unordered_set<void *> memo2;
+      while(end && is_list(*end->info) && end->info->tag == T_CONS)
+      {
+        if(!memo2.insert(end).second)
+        {
+          is_string = false; // use bracket-style for cyclic lists.
+          break;
+        }
+        auto cons = NodeU{end}.cons;
+        is_string = is_string
+            && (cons->head && is_char(*cons->head->info));
+        end = cons->tail;
+        while(end && end->info->tag == T_FWD)
+          end = NodeU{end}.fwd->target;
+        is_empty = false;
+      }
+      if(end && is_list(*end->info))
+      {
+        if(is_string && !is_empty)
+        {
+          this->os() << '"';
+          this->extend(walk, Context('"'));
+        }
+        else
+        {
+          this->os() << '[';
+          this->extend(walk, Context('['));
+        }
+      }
+      else
+      {
+        if(disallow_parens)
+          this->extend(walk, Context(':'));
+        else
+        {
+          this->os() << '(';
+          this->extend(walk, Context('<'));
+        }
+      }
+    }
+
+    std::string next_label()
+    {
+      std::string label("_");
+      int n = this->nextid++;
+      while(n >= 0)
+      {
+        label.push_back('a' + n % 26);
+        n = n / 26 - 1;
+      }
+      std::reverse(label.begin()+1, label.end());
+      return label;
+    }
+  };
+}
+
+namespace curryrt
+{
+  void show(std::ostream & os, Cursor cur, ShowStyle sty, ShowMonitor * monitor)
+  {
+    auto subst_freevars = PLAIN_FREEVARS;
+    switch(sty)
+    {
+      case SHOW_STR_SUBST_FREEVARS:
+        subst_freevars = SUBST_FREEVARS;
+      case SHOW_STR:
+      {
+        auto && stringifier = StrStringifier(os, subst_freevars, monitor);
+        return stringifier.stringify(cur);
+      }
+      case SHOW_REPR:
+      {
+        auto && stringifier = ReprStringifier(os);
+        return stringifier.stringify(cur);
+      }
+    }
+  }
+
+  void show(std::ostream & os, RealPath const & path)
+  {
+    os << '[';
+    bool tail = false;
+    for(auto i: path)
+    {
+      if(tail) os << ", "; else tail = true;
+      os << i;
+    }
+    os << ']';
+  }
+
+  void show(std::ostream & os, GuardList const & guards)
+  {
+    os << '{';
+    bool tail = false;
+    for(Set * set: guards)
+    {
+      if(tail) os << ", "; else tail = true;
+      os << (void const *) set;
+    }
+    os << '}';
+  }
+}

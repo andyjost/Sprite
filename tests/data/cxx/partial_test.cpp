@@ -2,18 +2,18 @@
 // family (partapplic_info, partials_info), Node::create_partial,
 // Node::extend_partial, Node::from_partial, Node::rewrite_from_partial,
 // partial_node, the copier, the equality, and the collector on them (see
-// PartApplicNode in cyrt/builtins.hpp).  unit_cxx_partial.py compiles this
+// PartApplicNode in curryrt/builtins.hpp).  unit_cxx_partial.py compiles this
 // program against the installed runtime and runs it.  It prints the first
 // failed check and exits with status 1; it prints "ok" and exits with
 // status 0 when every check passes.
-#include "cyrt/cyrt.hpp"
-#include "cyrt/currylib/prelude.hpp"
-#include "cyrt/currylib/setfunctions.hpp"
+#include "curryrt/curryrt.hpp"
+#include "curryrt/currylib/prelude.hpp"
+#include "curryrt/currylib/setfunctions.hpp"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
-using namespace cyrt;
+using namespace curryrt;
 
 #define CHECK(cond) \
     do { if(!(cond)) { std::printf("failed: %s (line %d)\n", #cond, __LINE__); std::exit(1); } } while(0)

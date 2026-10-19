@@ -1,16 +1,16 @@
 #include "boost/python.hpp"
 #include "boost/python/enum.hpp"
-#include "cyrt/llvm/module.hpp"
-#include "cyrt/llvm/type.hpp"
-#include "cyrt/llvm/value.hpp"
+#include "curryrt/llvm/module.hpp"
+#include "curryrt/llvm/type.hpp"
+#include "curryrt/llvm/value.hpp"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/GlobalVariable.h"
 #include <string>
 #include <memory>
 
 using namespace boost::python;
-using namespace cyrt::llvm;
-// using namespace cyrt::python;
+using namespace curryrt::llvm;
+// using namespace curryrt::python;
 
 using GlobalVariable = ::llvm::GlobalVariable;
 
@@ -38,7 +38,7 @@ namespace
 }
 #endif
 
-namespace cyrt { namespace python
+namespace curryrt { namespace python
 {
   void register_globalvalues()
   {

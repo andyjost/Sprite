@@ -168,10 +168,10 @@ cap.  To change the cap, set SPRITE_TEST_MAX_VMEM_KB (in KiB, or
 The collector of the C++ backend has a stress mode.  With SPRITE_GC_STRESS=1
 it runs at every safepoint of the scheduler, after every rewrite step, so a
 missing root fails a test at once instead of once per million nodes.  Every
-collection of the mode also runs the heap verifier (src/cyrt/graph/gc/
+collection of the mode also runs the heap verifier (src/curryrt/graph/gc/
 blockheap.cpp), which checks every live node and every node Python holds
 against the block heap and aborts the process on an inconsistency;
-cyrtbindings.gc_verify() runs one such check between evaluations and
+curryrtbindings.gc_verify() runs one such check between evaluations and
 returns the problem found, or None.  To run the unit tests that way, say:
 
         SPRITE_GC_STRESS=1 SPRITE_INTERPRETER_FLAGS=backend:cxx ./run_tests 'unit_*.py'
@@ -194,13 +194,13 @@ runs the unit suite on the C++ backend in stress mode (job "stress" in
 .github/workflows/ci.yml).
 
 The C++ backend can run a module without the C++ compiler: the runtime
-interprets the ICurry of the module from a bytecode (src/cyrt/icurry.hpp,
+interprets the ICurry of the module from a bytecode (src/curryrt/icurry.hpp,
 curry.backends.cxx.bytecode).  The interpreter flag ``interpret`` selects
 how a module without a compiled object runs.  Its default, 'tiered',
 interprets the module at once, compiles it in the background in a child
 process (sprite-make --so), and swaps the functions of the module to the
 compiled code when the object is ready, also in the middle of a running
-evaluation (curry.backends.cxx.tiered, src/cyrt/tiered.hpp).  'new'
+evaluation (curry.backends.cxx.tiered, src/curryrt/tiered.hpp).  'new'
 interprets such a module and never compiles it, 'all' interprets every
 module, the Prelude included, and 'off' compiles every module with the C++
 compiler before it runs.  To run the unit tests under one of the other
@@ -288,7 +288,7 @@ its wrapper and took its place in the symbol table (the dated TODO entry
 on the saturation of apply chains).
 
 The C++ backend rotates its queue of alternatives in one of two modes (the
-interpreter flag ``rotation``; src/cyrt/ticker.hpp).  In time mode, the
+interpreter flag ``rotation``; src/curryrt/ticker.hpp).  In time mode, the
 default of the tools (time:10ms), a ticker thread sets one byte every
 quantum and the scheduler polls it after every completed step.  In step
 mode (steps:65536) the scheduler rotates every N completed steps, so the
@@ -315,7 +315,7 @@ of os.fork starts one of its own), and runs the rotation tests of the two
 files under each mode.
 
 A runtime built with make GC=mps (the Memory Pool System, an experiment
-behind a gate; see src/cyrt/graph/gc/mps.cpp and the dated TODO entry)
+behind a gate; see src/curryrt/graph/gc/mps.cpp and the dated TODO entry)
 names its collector in cytest.gc_backend().  The tests of the block heap,
 of its threshold policy, of the exact counts of queues and sets, of the
 weak free-variable table, and of the out-of-memory child hold for the
@@ -324,7 +324,7 @@ unit_cxx_mps.py tests the MPS back end.
 
 A runtime built with make GC_WRITE_COUNTERS=1 counts the writes into old
 nodes (the fields gc_old_redexes, gc_old_slot_writes, gc_old_nodes_written
-and gc_old_blocks of curry.stats; see src/cyrt/graph/gc/wdgc.cpp and the
+and gc_old_blocks of curry.stats; see src/curryrt/graph/gc/wdgc.cpp and the
 sprite-exec page of the documentation).  The default build has none of the
 code, and the push and nightly jobs of CI build the default, so the
 branches of unit_cxx_gc_counters.py that check the counts
@@ -1086,7 +1086,7 @@ few modules of the shared pool; --prepare warms the pool first.  To run
 the functional tests, name them: run_tests 'func_*.py'.  --changed REV
 maps the paths that differ from REV (HEAD by default, with the untracked
 files) to test files through RULES in lib/testrunner/selection.py:
-src/cyrt and the C++ backend select the unit_cxx files; the Python backend
+src/curryrt and the C++ backend select the unit_cxx files; the Python backend
 selects the unit_py files; the toolchain, curry/, and the ICurry reader
 select the compile, cache, toolchain, flat2icurry, curry2icurry, make, and
 prelude files, with unit_plan.py, unit_currylib.py and unit_prebuild.py,
@@ -1116,7 +1116,7 @@ writer (.json.z), the code generator (.py, .cpp), and the C++ compiler
 file for a third to read.  The ICurry cache (SQLite, busy timeout 30 s),
 the bytecode cache, the ABI stamp, and the precompiled header are written
 atomically.  The ABI stamp of a shared object names the runtime headers
-the generated code includes (the include closure of cyrt/cyrt.hpp; a header
+the generated code includes (the include closure of curryrt/curryrt.hpp; a header
 of the runtime outside it rebuilds the runtime library alone), the flavor
 and the installation it was compiled under, so a product compiled under
 another SPRITE_HOME is compiled again here (the object

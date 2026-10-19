@@ -1,10 +1,10 @@
 #include "python/llvm/utility.hpp"
-#include "cyrt/llvm/exceptions.hpp"
+#include "curryrt/llvm/exceptions.hpp"
 
 using namespace boost::python;
-using namespace cyrt::llvm;
+using namespace curryrt::llvm;
 
-namespace cyrt { namespace python
+namespace curryrt { namespace python
 {
   void reject_kwds(dict kwds)
   {

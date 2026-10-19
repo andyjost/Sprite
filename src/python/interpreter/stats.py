@@ -37,8 +37,8 @@ _START = _process_start()
 _RSS_UNIT = 1 if sys.platform == 'darwin' else 1024
 
 # The counters of the node collector of the C++ backend, summed over the
-# collections of the process (cyrtbindings.gc_counters; see
-# src/cyrt/graph/gc/wdgc.cpp).  Each is a key of the statistics with the
+# collections of the process (curryrtbindings.gc_counters; see
+# src/curryrt/graph/gc/wdgc.cpp).  Each is a key of the statistics with the
 # prefix gc_.
 GC_COUNTERS = (
     'roots_seconds', 'trace_seconds', 'sweep_seconds', 'registries_seconds'

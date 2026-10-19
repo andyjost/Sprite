@@ -2,11 +2,11 @@
 Tests for the shared literal nodes of the C++ backend.
 
 The runtime keeps one node for each small integer and each ASCII character
-(int_ and char_ in cyrt/builtins.hpp), and a generated module keeps one node
+(int_ and char_ in curryrt/builtins.hpp), and a generated module keeps one node
 for each of its other literals, made when the module loads (literal_node;
 internLiteralNode in backends/cxx/compiler.py).  The nodes live in an arena
 outside the heap of the collector for the life of the process
-(literal_reserve in cyrt/graph/memory.hpp).  So a step that spells a literal
+(literal_reserve in curryrt/graph/memory.hpp).  So a step that spells a literal
 allocates nothing.  The programs are in data/curry/CxxLiterals.curry.
 '''
 import cytest # from ./lib; must be first
@@ -23,7 +23,7 @@ ADDRESS_SPACE = 2 << 30
 TIMEOUT = 120
 
 # A child on the C++ backend with the Prelude loaded.
-CHILD = "\nimport curry\nfrom curry.backends.cxx import cyrtbindings as cyrt\ncurry.reset(**{'backend': 'cxx'})\ncurry.import_('Prelude')\n"
+CHILD = "\nimport curry\nfrom curry.backends.cxx import curryrtbindings as curryrt\ncurry.reset(**{'backend': 'cxx'})\ncurry.import_('Prelude')\n"
 
 def raw(value):
   '''The node of a value or an expression.'''
@@ -103,66 +103,66 @@ class TestTables(cytest.TestCase):
     self.M = curry.import_('CxxLiterals')
 
   def test_bounds(self):
-    from curry.backends.cxx import cyrtbindings as cyrt
-    self.assertEqual(cyrt.SMALL_INT_MIN, -128)
-    self.assertEqual(cyrt.SMALL_INT_MAX, 1023)
-    self.assertEqual(cyrt.SMALL_CHAR_MAX, 127)
+    from curry.backends.cxx import curryrtbindings as curryrt
+    self.assertEqual(curryrt.SMALL_INT_MIN, -128)
+    self.assertEqual(curryrt.SMALL_INT_MAX, 1023)
+    self.assertEqual(curryrt.SMALL_CHAR_MAX, 127)
     for value in -128, -1, 0, 1, 1023:
-      node = cyrt.small_int(value)
+      node = curryrt.small_int(value)
       self.assertEqual(node.info.name, 'Int')
       self.assertEqual(cytest.raw.interp().topython(node), value)
-      self.assertEqual(node.id(), cyrt.small_int(value).id())
-      self.assertTrue(cyrt.gc_is_literal(node))
-    self.assertEqual(str(cyrt.small_int(1023)), '1023')
-    self.assertFalse(cyrt.gc_is_literal(cytest.raw.expr(1)))
-    self.assertFalse(cyrt.gc_is_literal(None))
-    self.assertNotEqual(cyrt.small_int(0).id(), cyrt.small_int(1).id())
+      self.assertEqual(node.id(), curryrt.small_int(value).id())
+      self.assertTrue(curryrt.gc_is_literal(node))
+    self.assertEqual(str(curryrt.small_int(1023)), '1023')
+    self.assertFalse(curryrt.gc_is_literal(cytest.raw.expr(1)))
+    self.assertFalse(curryrt.gc_is_literal(None))
+    self.assertNotEqual(curryrt.small_int(0).id(), curryrt.small_int(1).id())
     for value in -129, 1024:
       with self.assertRaises(ValueError):
-        cyrt.small_int(value)
+        curryrt.small_int(value)
     for char in '\0', 'a', 'z', '\x7f':
-      node = cyrt.small_char(char)
+      node = curryrt.small_char(char)
       self.assertEqual(node.info.name, 'Char')
       self.assertEqual(cytest.raw.interp().topython(node), char)
-      self.assertEqual(node.id(), cyrt.small_char(char).id())
-    self.assertEqual(str(cyrt.small_char('a')), "'a'")
+      self.assertEqual(node.id(), curryrt.small_char(char).id())
+    self.assertEqual(str(curryrt.small_char('a')), "'a'")
     for text in '\x80', '\u03bb', 'ab', '':
       with self.assertRaises(ValueError):
-        cyrt.small_char(text)
+        curryrt.small_char(text)
 
   def test_small_values_are_shared(self):
     '''A step that spells a small literal uses the node of the table.'''
-    from curry.backends.cxx import cyrtbindings as cyrt
+    from curry.backends.cxx import curryrtbindings as curryrt
     pair = evaluated(self.M.small)
     self.assertEqual(pair.info.name, '(,)')
     seven, a = pair.successors
-    self.assertEqual(seven.id(), cyrt.small_int(7).id())
-    self.assertEqual(a.id(), cyrt.small_char('a').id())
+    self.assertEqual(seven.id(), curryrt.small_int(7).id())
+    self.assertEqual(a.id(), curryrt.small_char('a').id())
     self.assertEqual(str(seven), '7')
     self.assertEqual(str(a), "'a'")
     one, other = evaluated(self.M.twice).successors
     self.assertEqual(one.id(), other.id())
-    self.assertEqual(one.id(), cyrt.small_int(1).id())
+    self.assertEqual(one.id(), curryrt.small_int(1).id())
 
   def test_large_literals_are_module_nodes(self):
     '''
     A literal outside the tables is a node of the module: every occurrence
     in the module is the same node, and it is not a node of a table.
     '''
-    from curry.backends.cxx import cyrtbindings as cyrt
+    from curry.backends.cxx import curryrtbindings as curryrt
     big, lam, flt = evaluated(self.M.large).successors
     self.assertEqual(str(big), '100000')
     self.assertEqual(cytest.raw.interp().topython(lam), '\u03bb')
     self.assertEqual(cytest.raw.interp().topython(flt), 2.5)
     again, zero = evaluated(self.M.largeAgain).successors
     self.assertEqual(again.id(), big.id())
-    self.assertEqual(zero.id(), cyrt.small_int(0).id())
-    self.assertTrue(all(cyrt.gc_is_literal(node) for node in (big, lam, flt)))
+    self.assertEqual(zero.id(), curryrt.small_int(0).id())
+    self.assertTrue(all(curryrt.gc_is_literal(node) for node in (big, lam, flt)))
     # A second evaluation of the same function spells the same node.
     big2, _, _ = evaluated(self.M.large).successors
     self.assertEqual(big2.id(), big.id())
     last, high = self.listitems(evaluated(self.M.bounds))
-    self.assertEqual(last.id(), cyrt.small_int(1023).id())
+    self.assertEqual(last.id(), curryrt.small_int(1023).id())
     self.assertEqual(str(high), '1024')
     self.assertNotEqual(high.id(), big.id())
 
@@ -182,11 +182,11 @@ class TestTables(cytest.TestCase):
     shlib = getHandle(self.M).icurry.metadata['cxx.shlib']
     text = cytest.readfile(shlib.sofilename()[:-len('.so')] + '.cpp')
     proc = cytest.run_in_subprocess(CHILD + '''
-tables = cyrt.SMALL_INT_MAX - cyrt.SMALL_INT_MIN + 1 + cyrt.SMALL_CHAR_MAX + 1
-before = cyrt.gc_literal_count()
+tables = curryrt.SMALL_INT_MAX - curryrt.SMALL_INT_MIN + 1 + curryrt.SMALL_CHAR_MAX + 1
+before = curryrt.gc_literal_count()
 assert before >= tables, (before, tables)
 M = curry.import_('CxxLiterals')
-print(cyrt.gc_literal_count() - before)
+print(curryrt.gc_literal_count() - before)
 ''', TIMEOUT, address_space=ADDRESS_SPACE)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     # The arena also holds the partial applications without arguments of
@@ -206,13 +206,13 @@ print(cyrt.gc_literal_count() - before)
     n = 2000 if cytest.GC_STRESS else 20000
     proc = cytest.run_in_subprocess(CHILD + '''
 M = curry.import_('CxxLiterals')
-cyrt.gc_set_threshold(1 << 14)
-before = cyrt.gc_collections()
+curryrt.gc_set_threshold(1 << 14)
+before = curryrt.gc_collections()
 assert next(curry.eval((M.countDown)(%(n)d))) == 0
-collections = cyrt.gc_collections() - before
+collections = curryrt.gc_collections() - before
 assert collections > 0, collections
-assert str(cyrt.small_int(5)) == '5'
-assert str(cyrt.small_char('a')) == "'a'"
+assert str(curryrt.small_int(5)) == '5'
+assert str(curryrt.small_char('a')) == "'a'"
 assert next(curry.eval(M.small)) == (7, 'a')
 assert next(curry.eval(M.large)) == (100000, '\u03bb', 2.5)
 assert next(curry.eval(M.bounds)) == [1023, 1024]
@@ -229,11 +229,11 @@ print('collections', collections)
     function, the comparison, and the difference: three nodes.  Before the
     tables it allocated the two literal nodes as well.
     '''
-    from curry.backends.cxx import cyrtbindings as cyrt
+    from curry.backends.cxx import curryrtbindings as curryrt
     n = 1000
-    before = cyrt.gc_allocation_count()
+    before = curryrt.gc_allocation_count()
     value = next(curry.eval((self.M.countDown)(n)))
-    allocated = cyrt.gc_allocation_count() - before
+    allocated = curryrt.gc_allocation_count() - before
     self.assertEqual(value, 0)
     self.assertLess(allocated, 4 * n)
 
@@ -242,16 +242,16 @@ print('collections', collections)
     A value is never a redex.  The bindings refuse to forward a node of a
     primitive value, which may be a shared node.
     '''
-    from curry.backends.cxx import cyrtbindings as cyrt
-    one = cyrt.small_int(1)
+    from curry.backends.cxx import curryrtbindings as curryrt
+    one = curryrt.small_int(1)
     with self.assertRaisesRegex(ValueError, 'cannot forward a value'):
-      one.forward_to(cyrt.small_int(2))
+      one.forward_to(curryrt.small_int(2))
     with self.assertRaisesRegex(ValueError, 'cannot forward a value'):
       cytest.raw.expr(5).forward_to(cytest.raw.expr(6))
     with self.assertRaisesRegex(ValueError, 'cannot forward a value'):
       cytest.raw.expr('x').forward_to(cytest.raw.expr(6))
     self.assertEqual(str(one), '1')
-    self.assertEqual(str(cyrt.small_int(1)), '1')
+    self.assertEqual(str(curryrt.small_int(1)), '1')
 
   @cytest.skipIfInterpreted('the test reads the generated code of CxxLiterals')
   def test_generated_code(self):
@@ -301,7 +301,7 @@ class TestLiteralTables(cytest.TestCase):
           config.cxx_tool(), '-std=c++17', '-O2', '-Wall'
         , '-I%s' % config.installed_path('include')
         , source, '-o', exe
-        , '-L%s' % libdir, '-lcyrt', '-Wl,-rpath,%s' % libdir
+        , '-L%s' % libdir, '-lcurryrt', '-Wl,-rpath,%s' % libdir
         ]
       proc = subprocess.run(cmd, capture_output=True, text=True)
       self.assertEqual(proc.returncode, 0, proc.stderr)

@@ -2,7 +2,7 @@ from ...icurry import types as icurry_types
 from ...objects.handle import getHandle
 from ...toolchain import _filenames
 from ... import config, exceptions
-from . import cyrtbindings as cyrt
+from . import curryrtbindings as curryrt
 from . import elf
 from ...utility.locking import native_metadata
 import hashlib, logging, os
@@ -128,7 +128,7 @@ def _wait_pending(interp, name, sofile):
       tiered.wait_for(name, interp=interp)
 def _check_before_open(interp, name, sofile, from_plan=False):
   _wait_pending(interp, name, sofile)
-  registered = cyrt.SharedCurryModule.find_sofilename(name)
+  registered = curryrt.SharedCurryModule.find_sofilename(name)
   if registered is not None:
     _refuse_other_file(name, registered, sofile)
 
@@ -198,31 +198,31 @@ def _open_module(interp, sofile, name, from_plan, fresh, before):
   from .toolchain import Cpp2So
   if before != Cpp2So.product_snapshot(sofile):
     return None
-  previous = None if name is None else cyrt.SharedCurryModule.find_sofilename(name)
+  previous = None if name is None else curryrt.SharedCurryModule.find_sofilename(name)
   with open(sofile, 'rb') as stream:
     digest = hashlib.sha256(stream.read()).hexdigest()
   replace = previous is not None and name not in interp.modules \
       and (from_plan or fresh) and _objects.get(name) != (sofile, digest)
   if name is not None and not replace:
-    registered = cyrt.SharedCurryModule.find_sofilename(name)
+    registered = curryrt.SharedCurryModule.find_sofilename(name)
     if registered is not None:
       _refuse_other_file(name, registered, sofile)
   module = interp.modules.get(name)
-  registered = cyrt.SharedCurryModule.find_sofilename(name) if name else None
+  registered = curryrt.SharedCurryModule.find_sofilename(name) if name else None
   adopt = replace or (tiered.has_shim(name) and registered is None) or (
       module is not None and getHandle(module).sofilename is None
     )
   steps = tiered.prepare_adoption(interp, name) if adopt else []
   tiered.ensure_shims(interp)
   if adopt:
-    owner = cyrt.Module.find_or_create(name)
-    result = cyrt.tiered_adopt(name, [], sofile, steps)
+    owner = curryrt.Module.find_or_create(name)
+    result = curryrt.tiered_adopt(name, [], sofile, steps)
     if not result['ok']:
       raise exceptions.LoadError('cannot load %r: %s' % (sofile, result['error']))
     shlib = owner.shlib
     tiered._refresh(name, interp)
   else:
-    shlib = cyrt.SharedCurryModule(sofile)
+    shlib = curryrt.SharedCurryModule(sofile)
   # The runtime keeps one registry entry per module name for as long as a
   # library of that name is loaded, and a second library joins the entry of
   # the first.  _check_before_open refused such a file before the open; this

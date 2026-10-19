@@ -25,7 +25,7 @@ class InterpreterState(object):
     # (rts_control.make_value).  While it is zero, RuntimeState.set_goal
     # skips the walk that registers the free variables a goal already holds,
     # and the generator step skips the walk of its item.  The C++ runtime
-    # keeps the same counter (cyrt::InterpreterState).
+    # keeps the same counter (curryrt::InterpreterState).
     self.external_freevars = 0
 
 class RuntimeState(object):
@@ -125,7 +125,7 @@ class RuntimeState(object):
   def scheduler_counters(self):
     '''
     The scheduler counters of this evaluation.  The Python backend has none;
-    see cyrt/state/counters.hpp for the C++ runtime.
+    see curryrt/state/counters.hpp for the C++ runtime.
     '''
     return None
 

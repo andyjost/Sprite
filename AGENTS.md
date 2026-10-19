@@ -38,7 +38,7 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
   printer of a description as Curry text.
   `src/python/tools/icy/` is the REPL: `python -m curry.tools.icy`, with
   `:load`, `:eval`, `:type`, `:set` and `:quit`.
-- `src/cyrt/`: the C++ runtime library.
+- `src/curryrt/`: the C++ runtime library.
 - `curry/`: the Curry library. `curry/lib/` holds a copy of the library of
   the pinned PAKCS, Sprite's own `Control.SetFunctions`, the license of the
   origin, and the pinned ICurry products. See `curry/README.md`.
@@ -144,7 +144,7 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
   run; `./run_tests -v FILE` to stream the output of one file (a breakpoint
   needs it). Add `--prepare` on a fresh checkout, after a change to the
   toolchain, and after a change to a runtime header that the generated
-  code includes (the include closure of `cyrt/cyrt.hpp`; every compiled
+  code includes (the include closure of `curryrt/curryrt.hpp`; every compiled
   object is stale then, where a change to a header outside the closure
   rebuilds the runtime library alone), so the shared Curry products are
   compiled before the files run in parallel: under the tiered default a
@@ -209,7 +209,7 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
   compiled object runs. The default, `tiered`, interprets it at once from
   its ICurry, compiles it in the background (`sprite-make --so` in a child
   process), and swaps the functions to the compiled code when the object
-  is ready (`curry.backends.cxx.tiered`, `src/cyrt/tiered.hpp`). `off`
+  is ready (`curry.backends.cxx.tiered`, `src/curryrt/tiered.hpp`). `off`
   compiles it with g++ first, `new` interprets it and never compiles it,
   and `all` interprets every module. `sprite-make` and `make stage` always
   compile. `tests/README` section 4 names the tests that set `off` for

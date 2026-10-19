@@ -117,7 +117,7 @@ The following are recognized:
   safepoint, without a heap verifier.  ``SPRITE_GC_MPS_ARENA_MB`` (256),
   ``SPRITE_GC_MPS_NURSERY_KB`` (8192), and ``SPRITE_GC_MPS_GEN1_KB`` (65536)
   size its arena and its two generations.  See
-  ``src/cyrt/graph/gc/mps.cpp``.
+  ``src/curryrt/graph/gc/mps.cpp``.
 
 ``SPRITE_GC_REPORT``
   With the value ``1``, every collection of the collector of the C++
@@ -318,7 +318,7 @@ with Sprite, then you should not need these.
   next compile.  Set the variable to the empty string to compile without
   the precompiled header.  The header is built again when it is older than
   a header the generated code includes (the include closure of
-  ``cyrt/cyrt.hpp``).  A header outside the closure never makes it stale.
+  ``curryrt/curryrt.hpp``).  A header outside the closure never makes it stale.
 
 ``SPRITE_DEBUG``
   Enables debugging for Sprite internal errors.  The command-line tools

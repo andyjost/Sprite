@@ -65,9 +65,9 @@ class TestCMake(cytest.TestCase):
       self.assertEqual((facts / name).read_text().strip(), value)
     self.assertEqual((facts / 'cxx_compiler').read_text().strip(), config.cxx_compiler())
     ninja = (self.build / 'build.ninja').read_text()
-    self.assertIn('libcyrt.so', ninja)
+    self.assertIn('libcurryrt.so', ninja)
     self.assertIn('currylib: phony', ninja)
-    self.assertIn('_cyrtbindings', ninja)
+    self.assertIn('_curryrtbindings', ninja)
     self.assertIn('build-package.py', ninja)
 
   def test_options_and_validation(self):
@@ -128,7 +128,7 @@ class TestCMake(cytest.TestCase):
     launcher.chmod(0o755)
     result = self.configure('-DWITH_CCACHE=' + str(launcher))
     self.assertEqual(result.returncode, 0, result.stdout)
-    result = run('ninja', '-C', self.build, '-t', 'commands', 'cyrt')
+    result = run('ninja', '-C', self.build, '-t', 'commands', 'curryrt')
     self.assertEqual(result.returncode, 0, result.stdout)
     commands = result.stdout.splitlines()
     self.assertTrue(any(str(launcher) in line and ' -c ' in line for line in commands))

@@ -8,17 +8,17 @@ types made at run time (Module::create_infotable, Module::create_type).  Under
 the interpreter flag ``interpret`` the functions of such a module are
 interpreted: the materializer compiles the body of each function into the
 bytecode of the runtime (bytecode.py) and attaches it to the info table
-(cyrt/icurry.hpp).
+(curryrt/icurry.hpp).
 
 With the flag 'off' the plan of the toolchain compiles every module it
 loads, but a module imported from an ICurry object (curry.import_(imodule))
 never goes through the plan, and its functions got no step: the first
 evaluation of one crashed the process (issue #102).  Now such a function
-gets the trap step of the runtime (cyrt/module.hpp), and the module compiles
+gets the trap step of the runtime (curryrt/module.hpp), and the module compiles
 on its first use: the trap calls ``first_use``, which generates the C++ of
 the ICurry object in hand and compiles it with the step of the toolchain
 that sprite-make --so runs (Cpp2So), loads the object over the shim of the
-module (tiered.py) and swaps the steps (cyrt.tiered_adopt); then the step
+module (tiered.py) and swaps the steps (curryrt.tiered_adopt); then the step
 runs compiled.  So a user who asked for compiled code gets it, and the
 plan's own import of an ICurry object, which only generates code
 (Json2TargetSource), compiles nothing.
@@ -47,7 +47,7 @@ demand; the loader finds it and attaches the body when it reaches it.
 
 from ...common import F_STATIC_OBJECT, T_FUNC
 from ...exceptions import CompileError
-from . import bytecode, cyrtbindings as cyrt
+from . import bytecode, curryrtbindings as curryrt
 from ..generic import compiler as generic
 from ... import cache, config, icurry, objects
 from ...objects import handle
@@ -97,7 +97,7 @@ class Materializer(object):
   def materialize(self, iobj):
     info = iobj.metadata.get('cxx.material')
     if info is not None:
-      assert isinstance(info, (cyrt.DataType, cyrt.InfoTable))
+      assert isinstance(info, (curryrt.DataType, curryrt.InfoTable))
       return info
     else:
       return self.materializeEx(iobj)
@@ -167,7 +167,7 @@ class Materializer(object):
         'Interpreting %s: %d units, %d constants', ifun.fullname
       , len(code.code), len(code.consts)
       )
-    cyrt.icurry_attach(
+    curryrt.icurry_attach(
         info, code.code, code.consts, code.nregs, code.nvars, code.nstack
       )
     BYTECODE[ifun.fullname] = code
@@ -177,7 +177,7 @@ class Materializer(object):
     Gives ``info`` the trap step and records the module as pending its
     compile on first use (see the module docstring).
     '''
-    cyrt.install_trap(info)
+    curryrt.install_trap(info)
     name = self.imodule.fullname
     entry = _PENDING.get(name)
     if entry is None or entry.module() is not self.moduleobj:
@@ -281,7 +281,7 @@ def _owner(info):
 
 def first_use(info):
   '''
-  The hook of the trap step (cyrt.set_trap_hook): compiles the module of the
+  The hook of the trap step (curryrt.set_trap_hook): compiles the module of the
   table ``info`` and swaps its steps, so that the trap runs the compiled
   step.  Returns None when the table has its code now, else the reason it
   has not, which the error of the trap names.  Runs inside a rewrite step,
@@ -306,7 +306,7 @@ def first_use(info):
         'cannot compile module %r on its first use: %s', entry.name, exc
       )
     return 'the compile failed: %s' % exc
-  if cyrt.is_trapped(info):
+  if curryrt.is_trapped(info):
     return 'the compiled object has no step for it'
   return None
 
@@ -323,7 +323,7 @@ def compile_pending(entry):
   of the process (see the module docstring); a current object beside the
   source is adopted as it is (current_object), else Cpp2So compiles the
   file, as sprite-make --so does; the runtime loads the object and swaps the
-  steps (cyrt.tiered_adopt).  Raises CompileError when a step fails; the
+  steps (curryrt.tiered_adopt).  Raises CompileError when a step fails; the
   module then stays trapped.
   '''
   from . import tiered, toolchain
@@ -390,12 +390,12 @@ def compile_pending(entry):
   steps = []
   for ifun in imodule.functions.values():
     info = M.get_infotable(ifun.name)
-    if info is not None and cyrt.is_trapped(info):
+    if info is not None and curryrt.is_trapped(info):
       steps.append((
           ifun.name, generic.mangle(ifun.splitname(), generic.STEP_FUNCTION)
         , info
         ))
-  result = cyrt.tiered_adopt(name, [], sofile, steps)
+  result = curryrt.tiered_adopt(name, [], sofile, steps)
   if not result['ok']:
     output = result['output'].strip()
     raise CompileError(
@@ -507,4 +507,4 @@ def process_file(imodule):
   os.makedirs(directory, exist_ok=True)
   return os.path.join(directory, imodule.name + '.cpp')
 
-cyrt.set_trap_hook(first_use)
+curryrt.set_trap_hook(first_use)

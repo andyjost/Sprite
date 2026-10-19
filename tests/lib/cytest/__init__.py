@@ -205,7 +205,7 @@ class timeout(contextlib.ContextDecorator):
 TIMEOUT_STATUS = 124
 
 # True when the collector of the C++ backend runs at every safepoint
-# (SPRITE_GC_STRESS=1; see src/cyrt/graph/gc/wdgc.cpp and section 4 of
+# (SPRITE_GC_STRESS=1; see src/curryrt/graph/gc/wdgc.cpp and section 4 of
 # README).  A test whose child grows a large live heap, recurses deeply, or
 # must run out of memory does not end in reasonable time in that mode.
 GC_STRESS = os.environ.get('SPRITE_GC_STRESS') == '1'

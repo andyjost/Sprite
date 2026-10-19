@@ -11,7 +11,7 @@ when it attached the code.  A built-in of the runtime has no text.
 
 from ...common import T_FUNC
 from ...objects.handle import getHandle
-from . import bytecode, cyrtbindings as cyrt, materialize
+from . import bytecode, curryrtbindings as curryrt, materialize
 import os
 
 __all__ = ['getimpl']
@@ -24,7 +24,7 @@ def getimpl(symbol):
   info = symbol.info
   if info.tag != T_FUNC:
     raise _no_code(symbol)
-  if cyrt.icurry_is_interpreted(info):
+  if curryrt.icurry_is_interpreted(info):
     return _bytecode_text(symbol)
   moduleobj = symbol.module
   sofile = None if moduleobj is None else getHandle(moduleobj).sofilename
@@ -74,7 +74,7 @@ def _bytecode_text(symbol):
   the code attached in this process is the code the table runs.
   '''
   info = symbol.info
-  bc = cyrt.icurry_bytecode(info)
+  bc = curryrt.icurry_bytecode(info)
   code = materialize.BYTECODE.get(symbol.fullname)
   consts = None
   if code is not None and list(code.code) == list(bc['code']):

@@ -1,6 +1,6 @@
 '''
 Tests for the inline storage of Variable in the C++ runtime
-(cyrt/smallvec.hpp, cyrt/graph/indexing.hxx).  Before this, every argument
+(curryrt/smallvec.hpp, curryrt/graph/indexing.hxx).  Before this, every argument
 access in a step built a Variable with two heap-backed vectors, so a step
 made more heap calls for bookkeeping than for nodes.
 '''
@@ -16,9 +16,9 @@ ALLOCATORS = re.compile(r'^(_Znwm|_Znam|_ZdlPv|_ZdaPv|malloc|calloc|realloc|free
 # The indexer and rvalue of the former Variable, which were out of line in
 # the runtime library.  Both are inline now.
 OUT_OF_LINE = {
-    '_ZN4cyrt8VariableC1EPNS_4NodeEtb'
-  , '_ZN4cyrt8VariableC2EPNS_4NodeEtb'
-  , '_ZNK4cyrt8Variable6rvalueEv'
+    '_ZN7curryrt8VariableC1EPNS_4NodeEtb'
+  , '_ZN7curryrt8VariableC2EPNS_4NodeEtb'
+  , '_ZNK7curryrt8Variable6rvalueEv'
   }
 
 def step_function_calls(sofile):
@@ -68,7 +68,7 @@ class TestSmallVec(cytest.TestCase):
           config.cxx_tool(), '-std=c++17', '-O2', '-Wall'
         , '-I%s' % config.installed_path('include')
         , source, '-o', exe
-        , '-L%s' % libdir, '-lcyrt', '-Wl,-rpath,%s' % libdir
+        , '-L%s' % libdir, '-lcurryrt', '-Wl,-rpath,%s' % libdir
         ]
       proc = subprocess.run(cmd, capture_output=True, text=True)
       self.assertEqual(proc.returncode, 0, proc.stderr)

@@ -7,14 +7,14 @@
 #include "python/llvm/conversions.hpp"
 #include "python/llvm/_llvm.hpp"
 #include "python/llvm/utility.hpp"
-#include "cyrt/llvm/isa.hpp"
-#include "cyrt/llvm/type.hpp"
-#include "cyrt/llvm/value.hpp"
+#include "curryrt/llvm/isa.hpp"
+#include "curryrt/llvm/type.hpp"
+#include "curryrt/llvm/value.hpp"
 #include <vector>
 
 using namespace boost::python;
-using namespace cyrt::llvm;
-using namespace cyrt::python;
+using namespace curryrt::llvm;
+using namespace curryrt::python;
 
 namespace
 {
@@ -74,7 +74,7 @@ namespace
   }
 }
 
-namespace cyrt { namespace python
+namespace curryrt { namespace python
 {
   void register_type()
   {

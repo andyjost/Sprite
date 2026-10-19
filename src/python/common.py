@@ -1,4 +1,4 @@
-from .backends.cxx.cyrtbindings import (
+from .backends.cxx.curryrtbindings import (
     Fingerprint, ChoiceState, LEFT, RIGHT, UNDETERMINED
 
   # Node flags.

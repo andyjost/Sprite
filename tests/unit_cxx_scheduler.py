@@ -1,5 +1,5 @@
 '''
-Tests for the scheduler of the C++ backend (src/cyrt/fairscheme.cpp): a set
+Tests for the scheduler of the C++ backend (src/curryrt/fairscheme.cpp): a set
 guard at the root of a configuration, and a step of a nested set function
 interrupted while it holds a residual.
 

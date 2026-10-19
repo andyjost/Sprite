@@ -1,0 +1,322 @@
+#include <cassert>
+#include <cstdlib>
+#include "curryrt/curryrt.hpp"
+#include "curryrt/currylib/prelude.hpp"
+#include "curryrt/utf8.hpp"
+#include <sstream>
+#include <type_traits>
+
+using namespace curryrt;
+
+namespace curryrt
+{
+  static inline ConsNode * string_cast(Node * string)
+  {
+    assert(!string || string->info->type == &List_Type);
+    switch(string ? string->info->tag : T_NIL)
+    {
+      case T_CONS: return NodeU{string}.cons;
+      case T_NIL:  return nullptr;
+      default:     assert(0);
+                   return nullptr;
+    }
+  }
+
+  static inline unboxed_char_type head_char(ConsNode * string)
+  {
+    assert(string);
+    assert(string->info->type == &List_Type);
+    assert(string->info->tag == T_CONS);
+    return NodeU{string->head}.char_->value;
+  }
+
+  // Parses the digits of a numeric escape.  The value must be a code point;
+  // once it is too large, the remaining digits are consumed and the parse
+  // fails.
+  template<int Radix>
+  static inline Node * _parseCharOrd(ConsNode *& string, bool advance)
+  {
+    static_assert(0 <= Radix && Radix <= 10, "digits only");
+    if(advance && string)
+      string = string_cast(string->tail);
+    unboxed_char_type ord = 0;
+    while(string)
+    {
+      auto const ch = head_char(string);
+      if('0' <= ch && ch < '0' + Radix)
+      {
+        if(ord <= MAX_CODE_POINT)
+          ord = Radix * ord + (ch - '0');
+      }
+      else
+        break;
+      string = string_cast(string->tail);
+    }
+    if(ord <= MAX_CODE_POINT)
+      return char_(ord);
+    else
+      return nullptr;
+  }
+
+  template<>
+  inline Node * _parseCharOrd<16>(ConsNode *& string, bool advance)
+  {
+    unboxed_char_type ord = 0;
+    char base = 0;
+    if(advance && string)
+      string = string_cast(string->tail);
+    while(true)
+    {
+      unboxed_char_type const ch = string ? head_char(string) : 0;
+      switch(ch)
+      {
+        case '0' :
+        case '1' :
+        case '2' :
+        case '3' :
+        case '4' :
+        case '5' :
+        case '6' :
+        case '7' :
+        case '8' :
+        case '9' : base = '0'; break;
+        case 'a' :
+        case 'b' :
+        case 'c' :
+        case 'd' :
+        case 'e' :
+        case 'f' : base = 'a' - 10; break;
+        case 'A' :
+        case 'B' :
+        case 'C' :
+        case 'D' :
+        case 'E' :
+        case 'F' : base = 'A' - 10; break;
+        default  : if(ord <= MAX_CODE_POINT)
+                      return char_(ord);
+                    else
+                      return nullptr;
+      }
+      if(ord <= MAX_CODE_POINT)
+        ord = 16 * ord + (ch - base);
+      string = string_cast(string->tail);
+    }
+  }
+
+  static inline Node * _parseEscapeCode(ConsNode *& string)
+  {
+    if(!string)
+      return nullptr;
+    auto && make_result = [&](Node * rv)
+    {
+      string = string_cast(string->tail);
+      return rv;
+    };
+    switch(head_char(string))
+    {
+      case '\\':
+      case '"' :
+      case '\'': return make_result(string->head);
+      case 'a' : return make_result(char_('\a'));
+      case 'b' : return make_result(char_('\b'));
+      case 'f' : return make_result(char_('\f'));
+      case 'n' : return make_result(char_('\n'));
+      case 'r' : return make_result(char_('\r'));
+      case 't' : return make_result(char_('\t'));
+      case 'v' : return make_result(char_('\v'));
+      case 'o' : return _parseCharOrd<8>(string, true);
+      case '0' : case '1' : case '2' : case '3' : case '4' :
+      case '5' : case '6' : case '7' : case '8' : case '9' :
+                 return _parseCharOrd<10>(string, false);
+      case 'x' : return _parseCharOrd<16>(string, true);
+      default  : return nullptr;
+    }
+  }
+
+  static tag_type readCharLiteral_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor _0 = C->cursor();
+    Variable _1 = _0[0]; // pre-normalized with $## in the Prelude
+    Node * char_out = nullptr;
+    ConsNode * string = string_cast(_1.target);
+    Node * replacement = nullptr;
+
+    // Eat the opening single quote.
+    if(!string || head_char(string) != '\'') goto failed;
+    string = string_cast(string->tail);
+
+    // Parse the content.
+    if(string && head_char(string) == '\\')
+    {
+      string = string_cast(string->tail);
+      char_out = _parseEscapeCode(string);
+    }
+    else if(string && head_char(string) != '\'')
+    {
+      char_out = string->head;
+      string = string_cast(string->tail);
+    }
+    if(!char_out) goto failed;
+
+    // Eat the closing single quote.
+    if(!string || head_char(string) != '\'') goto failed;
+
+    assert(char_out);
+    replacement = cons(pair(char_out, string->tail), nil());
+    _0->forward_to(replacement);
+    return T_FWD;
+  failed:
+    return _0->make_failure();
+  }
+
+  static tag_type readFloatLiteral_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor _0 = C->cursor();
+    Variable _1 = _0[0]; // pre-normalized with $## in the Prelude
+    ConsNode * string = string_cast(_1.target);
+    std::stringstream ss;
+    while(true)
+    {
+      unboxed_char_type const ch = string ? head_char(string) : 0;
+      switch(ch)
+      {
+        case '0': case '1': case '2': case '3': case '4':
+        case '5': case '6': case '7': case '8': case '9':
+        case 'e': case 'E': case '+': case '-': case '.':
+            ss << (char) ch;
+            string = string_cast(string->tail);
+            break;
+        default:
+            goto finish;
+      }
+    }
+  finish:
+    static_assert(std::is_same<unboxed_float_type, double>::value, "stdtod assumes double");
+    unboxed_float_type const value = std::strtod(ss.str().c_str(), nullptr);
+    Node * replacement = cons(pair(float_(value), string ? (Node *) string : nil()), nil());
+    _0->forward_to(replacement);
+    return T_FWD;
+  }
+
+  static tag_type readNatLiteral_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor _0 = C->cursor();
+    Variable _1 = _0[0]; // pre-normalized with $## in the Prelude
+    ConsNode * string = string_cast(_1.target);
+    static ptrdiff_t constexpr SZ = 32;
+    char buf[SZ];
+    char * px = &buf[0];
+    while(string && px < &buf[SZ-1])
+    {
+      auto const ch = head_char(string);
+      if('0' <= ch && ch <= '9')
+      {
+        *px++ = (char) ch;
+        string = string_cast(string->tail);
+      }
+      else
+        break;
+    }
+    *px++ = '\0';
+    assert(px - &buf[0] <= SZ);
+    static_assert(std::is_same<unboxed_int_type, long>::value, "stdtol assumes long");
+    errno = 0;
+    unboxed_int_type value = std::strtol(&buf[0], nullptr, 10);
+    if(errno == ERANGE)
+      return _0->make_failure();
+    Node * replacement = cons(pair(int_(value), string ? (Node *) string : nil()), nil());
+    _0->forward_to(replacement);
+    return T_FWD;
+  }
+
+  static tag_type readStringLiteral_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor _0 = C->cursor();
+    Variable _1 = _0[0]; // pre-normalized with $## in the Prelude
+    Node * str_out = nil();
+    Node ** tail_out = &str_out;
+    ConsNode * string = string_cast(_1.target);
+    Node * replacement = nullptr;
+
+    // Eat the opening double quote.
+    if(!string || head_char(string) != '"') goto failed;
+    string = string_cast(string->tail);
+
+    // Parse the content.
+    while(true)
+    {
+      Node * char_out = nullptr;
+      if(string)
+      {
+        auto ch = head_char(string);
+        if(ch == '\\')
+        {
+          string = string_cast(string->tail);
+          char_out = _parseEscapeCode(string);
+        }
+        else if(ch == '"')
+          break;
+        else
+        {
+          char_out = string->head;
+          string = string_cast(string->tail);
+        }
+      }
+      if(!char_out) goto failed;
+      *tail_out = cons(char_out, nil());
+      tail_out = &NodeU{*tail_out}.cons->tail;
+    }
+    replacement = cons(pair(str_out, string->tail), nil());
+    _0->forward_to(replacement);
+    return T_FWD;
+  failed:
+    return _0->make_failure();
+  }
+}
+
+extern "C"
+{
+  InfoTable const prim_readCharLiteral_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "prim_readCharLiteral"
+    , /*format*/     "p"
+    , /*step*/       readCharLiteral_step
+    , /*type*/       nullptr
+    };
+
+  InfoTable const prim_readFloatLiteral_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "prim_readFloatLiteral"
+    , /*format*/     "p"
+    , /*step*/       readFloatLiteral_step
+    , /*type*/       nullptr
+    };
+
+  InfoTable const prim_readNatLiteral_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "prim_readNatLiteral"
+    , /*format*/     "p"
+    , /*step*/       readNatLiteral_step
+    , /*type*/       nullptr
+    };
+
+  InfoTable const prim_readStringLiteral_Info {
+      /*tag*/        T_FUNC
+    , /*arity*/      1
+    , /*alloc_size*/ sizeof(Node1)
+    , /*flags*/      F_STATIC_OBJECT
+    , /*name*/       "prim_readStringLiteral"
+    , /*format*/     "p"
+    , /*step*/       readStringLiteral_step
+    , /*type*/       nullptr
+    };
+}

@@ -13,7 +13,7 @@ __all__ = [
 # The range of Int: 64 bits, as on the C++ backend.  A result outside it is
 # an error, not a wider integer (issue #105), and a division by zero is an
 # error, not a Python exception (issue #106).  The messages are the ones the
-# C++ backend spells (cyrt/currylib/prelude/math.cpp), so the two backends
+# C++ backend spells (curryrt/currylib/prelude/math.cpp), so the two backends
 # agree.
 INT_MIN = -(1 << 63)
 INT_MAX = (1 << 63) - 1

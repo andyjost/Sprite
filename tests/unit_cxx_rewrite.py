@@ -2,7 +2,7 @@
 Tests for the in-place rewrite of the C++ backend.
 
 A step writes its result into the redex when the result fits the block of the
-redex (Node::rewrite in cyrt/graph/node.hxx; vEmit_compileS_IReturn in
+redex (Node::rewrite in curryrt/graph/node.hxx; vEmit_compileS_IReturn in
 backends/cxx/compiler.py), as the Python backend does.  A larger result, a
 pinned constructor, and a reference result keep the forward node; a reference
 to a primitive value is copied (Node::forward_or_copy).  The periodic rotation
@@ -24,7 +24,7 @@ ADDRESS_SPACE = 2 << 30
 TIMEOUT = 120
 
 # A child on the C++ backend with the test module imported.
-CHILD = "\nimport curry\nfrom curry.backends.cxx import cyrtbindings as cyrt\ncurry.reset(**{'backend': 'cxx'})\nM = curry.import_('CxxRewrite')\n"
+CHILD = "\nimport curry\nfrom curry.backends.cxx import curryrtbindings as curryrt\ncurry.reset(**{'backend': 'cxx'})\nM = curry.import_('CxxRewrite')\n"
 
 def step(expr, until=None, limit=64):
   '''
@@ -147,11 +147,11 @@ class TestRewrite(cytest.TestCase):
     A walk over a list by tail calls allocates no node per element.  Before
     the in-place rewrite every step allocated the next call.
     '''
-    from curry.backends.cxx import cyrtbindings as cyrt
+    from curry.backends.cxx import curryrtbindings as curryrt
     xs = cytest.raw.expr(list(range(100)))
-    before = cyrt.gc_allocation_count()
+    before = curryrt.gc_allocation_count()
     value = next(curry.eval(cytest.raw.expr(self.M.walk, xs, typed=True)))
-    allocated = cyrt.gc_allocation_count() - before
+    allocated = curryrt.gc_allocation_count() - before
     self.assertEqual(value, 0)
     self.assertLess(allocated, 20)
 
@@ -178,10 +178,10 @@ class TestRewrite(cytest.TestCase):
     proc = cytest.run_in_subprocess(
         CHILD + '''import cytest
 
-cyrt.gc_set_threshold(1 << 10)
-before = cyrt.gc_collections()
+curryrt.gc_set_threshold(1 << 10)
+before = curryrt.gc_collections()
 value = next(cytest.raw.values(M.fair))
-print(value, cyrt.gc_collections() - before)
+print(value, curryrt.gc_collections() - before)
 ''', TIMEOUT, address_space=ADDRESS_SPACE
       )
     self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -225,7 +225,7 @@ class TestNodeRewrite(cytest.TestCase):
           config.cxx_tool(), '-std=c++17', '-O2', '-Wall'
         , '-I%s' % config.installed_path('include')
         , source, '-o', exe
-        , '-L%s' % libdir, '-lcyrt', '-Wl,-rpath,%s' % libdir
+        , '-L%s' % libdir, '-lcurryrt', '-Wl,-rpath,%s' % libdir
         ]
       proc = subprocess.run(cmd, capture_output=True, text=True)
       self.assertEqual(proc.returncode, 0, proc.stderr)

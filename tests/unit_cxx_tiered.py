@@ -5,13 +5,13 @@ Under the interpreter flag ``interpret`` set to 'tiered', the default, a
 module without a compiled object is interpreted at once, a child process
 compiles it in the background, and the runtime swaps the functions of the
 module to the compiled code when the object is ready
-(curry.backends.cxx.tiered, src/cyrt/tiered.hpp).  The tests write a fresh
+(curry.backends.cxx.tiered, src/curryrt/tiered.hpp).  The tests write a fresh
 module to a temporary directory, so every import starts without an object.
 '''
 import cytest # from ./lib; must be first
 from cytest.logging import capture_log
 from curry import common, config, inspect
-from curry.backends.cxx import compiler, cyrtbindings as cyrt, tiered
+from curry.backends.cxx import compiler, curryrtbindings as curryrt, tiered
 from curry.objects.handle import getHandle
 from curry.utility.binding import binding
 import curry, gc, itertools, logging, os, shutil, subprocess, tempfile
@@ -174,7 +174,7 @@ class TestSwap(TieredTestCase):
     # Interpreted at once, with the compile queued.
     self.assertIsNone(h.icurry.metadata.get('cxx.shlib'))
     for f in M.area, M.mk, M.same, M.total, M.loop:
-      self.assertTrue(cyrt.icurry_is_interpreted(f.info), f.name)
+      self.assertTrue(curryrt.icurry_is_interpreted(f.info), f.name)
     before = tiered.status()
     swapped_stat = curry.stats()['swapped']
     # Values of the interpreted tier.
@@ -196,7 +196,7 @@ class TestSwap(TieredTestCase):
         after['swapped_functions'] - before['swapped_functions'], nfunctions
       )
     for f in M.area, M.mk, M.same, M.total, M.loop:
-      self.assertFalse(cyrt.icurry_is_interpreted(f.info), f.name)
+      self.assertFalse(curryrt.icurry_is_interpreted(f.info), f.name)
     # The stats line counts the swapped functions.
     self.assertEqual(
         curry.stats()['swapped'] - swapped_stat
@@ -225,7 +225,7 @@ class TestSwap(TieredTestCase):
     self.assertIs(self.py(M.same, v2, self.value(M.mk, 3)), True)
     self.assertIs(self.py(M.same, v1, self.value(M.mk, 4)), False)
     # The bytecode stays with the table.
-    self.assertIsNone(cyrt.icurry_bytecode(M.area.info))
+    self.assertIsNone(curryrt.icurry_bytecode(M.area.info))
 
   @cytest.hardreset
   def test_swap_within_an_evaluation(self):
@@ -239,10 +239,10 @@ class TestSwap(TieredTestCase):
     N = self.fresh_module()
     values = curry.eval((N.choices)(4))
     first = next(values)
-    self.assertTrue(cyrt.icurry_is_interpreted(N.choices.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(N.choices.info))
     self.wait()
-    self.assertFalse(cyrt.icurry_is_interpreted(N.choices.info))
-    self.assertFalse(cyrt.icurry_is_interpreted(N.loop.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(N.choices.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(N.loop.info))
     rest = list(values)
     self.assertEqual(sorted(str(v) for v in [first] + rest), expected)
 
@@ -261,7 +261,7 @@ class TestSwap(TieredTestCase):
       self.wait()
       self.skipTest('the compile took longer than the evaluation')
     self.assertEqual(after['applied_in_evaluation'], before + 1)
-    self.assertFalse(cyrt.icurry_is_interpreted(M.loop.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(M.loop.info))
     self.assertEqual(self.py(M.loop, 10), 0)
 
   @cytest.hardreset
@@ -278,12 +278,12 @@ class TestSwap(TieredTestCase):
       )
     N = self.import_module(second)
     M = curry.import_(first)
-    self.assertTrue(cyrt.icurry_is_interpreted(N.biggest.info))
-    self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(N.biggest.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(M.area.info))
     self.assertEqual(self.py(N.biggest, 4), 20)
     self.wait()
-    self.assertFalse(cyrt.icurry_is_interpreted(N.biggest.info))
-    self.assertFalse(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(N.biggest.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
     self.assertEqual(self.py(N.biggest, 4), 20)
     v = self.value(N.build, 2)
     self.assertEqual(str(v), 'Rect 2 3')
@@ -298,7 +298,7 @@ class TestSwap(TieredTestCase):
     M = self.import_module(name)
     address = M.area.info.address
     self.wait()
-    self.assertFalse(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
     shims = tiered.status()['shims']
     M = None
     self.switch('tiered')
@@ -311,12 +311,12 @@ class TestSwap(TieredTestCase):
     with capture_log('curry.backends.cxx.tiered') as log:
       M = self.import_module(name)
       self.assertEqual(M.area.info.address, address)
-      self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
+      self.assertTrue(curryrt.icurry_is_interpreted(M.area.info))
       self.assertEqual(self.py(M.area, self.value(M.mk, 3)), 12)
       self.wait()
     self.assertEqual(log.data[logging.WARNING], [])
     self.assertEqual(tiered.status()['shims'], shims)
-    self.assertFalse(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
     self.assertEqual(self.py(M.area, self.value(M.mk, 3)), 12)
 
   @cytest.hardreset
@@ -331,20 +331,20 @@ class TestSwap(TieredTestCase):
     address = M.bump.info.address
     self.assertEqual(self.py(M.bump, 1), 2)
     self.wait()
-    self.assertFalse(cyrt.icurry_is_interpreted(M.bump.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(M.bump.info))
     self.assertEqual(self.py(M.bump, 1), 2)
     M = None
     self.edit_module(name, text % 2)
     self.switch('tiered')
     M = self.import_module(name)
     self.assertEqual(M.bump.info.address, address)
-    self.assertTrue(cyrt.icurry_is_interpreted(M.bump.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(M.bump.info))
     self.assertEqual(self.py(M.bump, 1), 3)
     before = tiered.status()
     self.wait()
     after = tiered.status()
     self.assertEqual(after['swapped_modules'], before['swapped_modules'] + 1)
-    self.assertFalse(cyrt.icurry_is_interpreted(M.bump.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(M.bump.info))
     self.assertEqual(self.py(M.bump, 1), 3)
     self.assertEqual(M.bump.info.address, address)
 
@@ -365,22 +365,22 @@ class TestSwap(TieredTestCase):
     B = curry.import_(base)
     self.assertEqual(self.py(D.h, 1), 2)
     self.wait()
-    self.assertFalse(cyrt.icurry_is_interpreted(D.h.info))
-    self.assertFalse(cyrt.icurry_is_interpreted(B.g.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(D.h.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(B.g.info))
     self.assertTrue(os.path.isfile(self.stamp(dep)))
     D = B = None
     self.edit_module(base, base_text % 2)
     self.switch('tiered')
     D = self.import_module(dep)
     B = curry.import_(base)
-    self.assertTrue(cyrt.icurry_is_interpreted(B.g.info))
-    self.assertTrue(cyrt.icurry_is_interpreted(D.h.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(B.g.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(D.h.info))
     self.assertIsNone(getHandle(D).icurry.metadata.get('cxx.shlib'))
     self.assertEqual(self.py(B.g, 1), 3)
     self.assertEqual(self.py(D.h, 1), 3)
     self.wait()
-    self.assertFalse(cyrt.icurry_is_interpreted(B.g.info))
-    self.assertFalse(cyrt.icurry_is_interpreted(D.h.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(B.g.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(D.h.info))
     self.assertEqual(self.py(B.g, 1), 3)
     self.assertEqual(self.py(D.h, 1), 3)
 
@@ -439,7 +439,7 @@ class TestSwap(TieredTestCase):
     first = self.import_module(name)
     self.assertEqual(self.py(first.main), 1)
     self.wait()
-    self.assertFalse(cyrt.icurry_is_interpreted(first.f.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(first.f.info))
     addresses = first.f.info.address, first.B.info.address
     self.edit_module(name, self.EDITED % 2)
     curry.reset()
@@ -452,10 +452,10 @@ class TestSwap(TieredTestCase):
     self.assertEqual(
         (second.f.info.address, second.B.info.address), addresses
       )
-    self.assertTrue(cyrt.icurry_is_interpreted(second.f.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(second.f.info))
     self.assertEqual(self.py(second.main), 2)
     self.wait()
-    self.assertFalse(cyrt.icurry_is_interpreted(second.f.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(second.f.info))
     self.assertEqual(self.py(second.main), 2)
     del first
 
@@ -513,7 +513,7 @@ class TestPolicy(TieredTestCase):
     self.assertEqual(after['failed_modules'], before['failed_modules'] + 1)
     self.assertEqual(curry.stats()['failed_compiles'], failed_stat + 1)
     self.assertEqual(after['swapped_modules'], before['swapped_modules'])
-    self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(M.area.info))
     self.assertFalse(os.path.exists(self.stamp(M.__name__)))
     warnings = log.data[logging.WARNING]
     self.assertEqual(len(warnings), 1)
@@ -526,7 +526,7 @@ class TestPolicy(TieredTestCase):
     S = curry.compile(
         'double :: Int -> Int\ndouble x = x + x\n'
       )
-    self.assertTrue(cyrt.icurry_is_interpreted(S.double.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(S.double.info))
     e = curry.parse('double 21', imports=[S])
     self.assertEqual(next(curry.eval(e)), 42)
     self.assertTrue(tiered.wait(10))
@@ -534,7 +534,7 @@ class TestPolicy(TieredTestCase):
     self.assertEqual(after['queued'], 0)
     self.assertEqual(after['swapped_modules'], before['swapped_modules'])
     self.assertEqual(after['failed_modules'], before['failed_modules'])
-    self.assertTrue(cyrt.icurry_is_interpreted(S.double.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(S.double.info))
 
   @cytest.hardreset
   def test_reset_cancels(self):
@@ -564,11 +564,11 @@ class TestPolicy(TieredTestCase):
     self.switch('tiered')
     M = self.import_module(name)
     self.assertIsNotNone(getHandle(M).icurry.metadata.get('cxx.shlib'))
-    self.assertFalse(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
     self.assertEqual(self.py(M.total, 2), 8)
     prelude = curry.import_('Prelude')
     self.assertIsNotNone(getHandle(prelude).icurry.metadata.get('cxx.shlib'))
-    self.assertFalse(cyrt.icurry_is_interpreted(prelude.map.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(prelude.map.info))
 
   @cytest.hardreset
   def test_nondet_io_argument_error(self):
@@ -585,7 +585,7 @@ class TestPolicy(TieredTestCase):
         'main = readFile ("a.txt" ? "b.txt")\n'
       )
     tiered.cancel()
-    self.assertTrue(cyrt.icurry_is_interpreted(M.main.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(M.main.info))
     with self.assertRaises(curry.EvaluationError) as cm:
       list(curry.eval(M.main))
     self.assertIn('non-determinism', str(cm.exception))
@@ -610,7 +610,7 @@ class TestPolicy(TieredTestCase):
         'inline_budget:0', env['SPRITE_INTERPRETER_FLAGS'].split(',')
       )
     M = self.fresh_module(BUDGET_MODULE)
-    self.assertTrue(cyrt.icurry_is_interpreted(M.viaCall.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(M.viaCall.info))
     n0 = steps()
     self.assertEqual(self.py(M.direct), 3)
     direct = steps() - n0
@@ -619,7 +619,7 @@ class TestPolicy(TieredTestCase):
     interpreted = steps() - n0
     self.assertEqual(interpreted, direct + 1)
     self.wait()
-    self.assertFalse(cyrt.icurry_is_interpreted(M.viaCall.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(M.viaCall.info))
     n0 = steps()
     self.assertEqual(self.py(M.viaCall), 3)
     self.assertEqual(steps() - n0, interpreted)
@@ -637,7 +637,7 @@ class TestPolicy(TieredTestCase):
     self.assertEqual(self.py(N.viaCall), 3)
     self.assertEqual(steps() - n0, direct)
     self.wait()
-    self.assertFalse(cyrt.icurry_is_interpreted(N.viaCall.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(N.viaCall.info))
     n0 = steps()
     self.assertEqual(self.py(N.viaCall), 3)
     self.assertEqual(steps() - n0, direct)
@@ -660,7 +660,7 @@ class TestPolicy(TieredTestCase):
     self.assertIsNone(getHandle(M).sofilename)
     # The wait of the issue names no interpreter.
     self.assertTrue(tiered.wait(COMPILE_SECONDS))
-    self.assertFalse(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
     self.assertEqual(
         os.path.realpath(getHandle(M).sofilename)
       , os.path.realpath(self.sofile(name))
@@ -686,7 +686,7 @@ class TestPolicy(TieredTestCase):
     self.assertTrue(tiered._foreign_flags(cytest.raw.interp()))
     name = self.write_module(BUDGET_MODULE)
     M = self.import_module(name)
-    self.assertTrue(cyrt.icurry_is_interpreted(M.viaCall.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(M.viaCall.info))
     n0 = steps()
     self.assertEqual(self.py(M.direct), 3)
     direct = steps() - n0
@@ -694,7 +694,7 @@ class TestPolicy(TieredTestCase):
     self.assertEqual(self.py(M.viaCall), 3)
     self.assertEqual(steps() - n0, direct + 1)
     self.wait()
-    self.assertFalse(cyrt.icurry_is_interpreted(M.viaCall.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(M.viaCall.info))
     n0 = steps()
     self.assertEqual(self.py(M.viaCall), 3)
     self.assertEqual(steps() - n0, direct + 1)
@@ -715,12 +715,12 @@ class TestPolicy(TieredTestCase):
     self.switch('tiered')
     self.assertFalse(tiered._foreign_flags(cytest.raw.interp()))
     N = self.import_module(name)
-    self.assertTrue(cyrt.icurry_is_interpreted(N.viaCall.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(N.viaCall.info))
     n0 = steps()
     self.assertEqual(self.py(N.viaCall), 3)
     self.assertEqual(steps() - n0, direct)
     self.wait()
-    self.assertFalse(cyrt.icurry_is_interpreted(N.viaCall.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(N.viaCall.info))
     self.assertTrue(os.path.isfile(self.sofile(name)))
     self.assertTrue(os.path.isfile(self.stamp(name)))
     self.assertEqual(
@@ -870,8 +870,8 @@ class TestNoCompiler(TieredTestCase):
         self.assertEqual(next(curry.eval((M.total)(3))), 20)
         N = self.fresh_module()
         self.assertEqual(next(curry.eval((N.total)(2))), 8)
-    self.assertTrue(cyrt.icurry_is_interpreted(M.total.info))
-    self.assertTrue(cyrt.icurry_is_interpreted(N.total.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(M.total.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(N.total.info))
     tiered.wait(10)
     self.assertFalse(os.path.exists(self.sofile(M.__name__)))
     self.assertFalse(os.path.exists(self.sofile(N.__name__)))
@@ -1050,7 +1050,7 @@ class TestLoadDuringCompile(TieredTestCase):
     self.make_stale(name)
     M = self.import_module(name)
     self.assertTrue(tiered.pending(name))
-    self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(M.area.info))
     before = tiered.status()
     with capture_log('curry.backends.cxx.loader', 'curry.backends.cxx.tiered') as log:
       M2 = curry._interpreter_.load(self.sofile(name))
@@ -1059,7 +1059,7 @@ class TestLoadDuringCompile(TieredTestCase):
     after = tiered.status()
     self.assertEqual(after['swapped_modules'], before['swapped_modules'] + 1)
     self.assertEqual(after['failed_modules'], before['failed_modules'])
-    self.assertFalse(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
     self.assertEqual(
         os.path.realpath(getHandle(M).sofilename)
       , os.path.realpath(self.sofile(name))
@@ -1082,19 +1082,19 @@ class TestLoadDuringCompile(TieredTestCase):
     name = self.write_module()
     M = self.import_module(name)
     self.wait()
-    self.assertFalse(cyrt.icurry_is_interpreted(M.area.info))
-    self.assertIsNotNone(cyrt.SharedCurryModule.find_sofilename(name))
+    self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
+    self.assertIsNotNone(curryrt.SharedCurryModule.find_sofilename(name))
     M = None
     self.switch('tiered')
     self.make_stale(name)
     M = self.import_module(name)
     self.assertTrue(tiered.pending(name))
-    self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(M.area.info))
     with capture_log('curry.backends.cxx.loader', 'curry.backends.cxx.tiered') as log:
       M2 = curry._interpreter_.load(self.sofile(name))
     self.assertIs(M2, M)
     self.assertFalse(tiered.pending(name))
-    self.assertFalse(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
     self.assertTrue(
         any('Waiting for the background compile of module %s' % name in line
             for line in log.data[logging.INFO])
@@ -1160,14 +1160,14 @@ class TestLoadDuringCompile(TieredTestCase):
       with capture_log('curry.backends.cxx.tiered'):
         M = self.fresh_module()
     name = M.__name__
-    self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(M.area.info))
     self.assertFalse(tiered.pending(name))
     self.assertTrue(tiered.has_shim(name))
     sofile = self.compile_by_hand(name)
     loaded = curry._interpreter_.load(sofile)
     self.assertIs(loaded, M)
-    self.assertIsNotNone(cyrt.SharedCurryModule.find_sofilename(name))
-    self.assertFalse(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertIsNotNone(curryrt.SharedCurryModule.find_sofilename(name))
+    self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
     self.assertEqual(self.py(M.total, 2), 8)
 
   @cytest.hardreset
@@ -1182,8 +1182,8 @@ class TestLoadDuringCompile(TieredTestCase):
     with self.assertRaises(curry.exceptions.LoadError) as cm:
       curry._interpreter_.load(sofile)
     self.assertIn('tables changed after compiled code bound', str(cm.exception))
-    self.assertIsNone(cyrt.SharedCurryModule.find_sofilename(name))
-    self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertIsNone(curryrt.SharedCurryModule.find_sofilename(name))
+    self.assertTrue(curryrt.icurry_is_interpreted(M.area.info))
     self.assertEqual(self.py(M.total, 2), 8)
 
   def test_import_after_reset_takes_the_object(self):
@@ -1194,14 +1194,14 @@ class TestLoadDuringCompile(TieredTestCase):
       with capture_log('curry.backends.cxx.tiered'):
         M = self.fresh_module()
     name = M.__name__
-    self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(M.area.info))
     sofile = self.compile_by_hand(name)
     del M
     curry.reset()
     curry.path.insert(0, self.tmpdir)
     M2 = curry.import_(name)
     self.assertEqual(
-        os.path.realpath(cyrt.SharedCurryModule.find_sofilename(name))
+        os.path.realpath(curryrt.SharedCurryModule.find_sofilename(name))
       , os.path.realpath(sofile)
       )
     self.assertEqual(self.py(M2.total, 2), 8)
@@ -1262,7 +1262,7 @@ class TestImportObjects(TieredTestCase):
       self.assertFalse(tiered.pending(types))
       self.assertIsNone(getHandle(T).sofilename)
       self.assertTrue(tiered.pending(user))
-      self.assertTrue(cyrt.icurry_is_interpreted(U.mk.info))
+      self.assertTrue(curryrt.icurry_is_interpreted(U.mk.info))
       before = tiered.status()
       self.assertEqual(self.py(U.second, self.value(U.mk, 4)), 5)
       self.wait()
@@ -1275,8 +1275,8 @@ class TestImportObjects(TieredTestCase):
             for line in log.data[logging.INFO])
       , log.data[logging.INFO]
       )
-    self.assertFalse(cyrt.icurry_is_interpreted(U.mk.info))
-    self.assertFalse(cyrt.icurry_is_interpreted(U.second.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(U.mk.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(U.second.info))
     # The import has its object on record now.
     self.assertIsNotNone(getHandle(T).sofilename)
     self.assertEqual(self.py(U.second, self.value(U.mk, 4)), 5)
@@ -1301,7 +1301,7 @@ class TestImportObjects(TieredTestCase):
       before = tiered.status()
       # The child ends; its result waits for the poll.
       self.assertTrue(
-          cyrt.tiered_wait(COMPILE_SECONDS)
+          curryrt.tiered_wait(COMPILE_SECONDS)
         , 'the background compile did not end in %s s' % COMPILE_SECONDS
         )
       self.assertTrue(os.path.isfile(self.sofile(user)))
@@ -1321,7 +1321,7 @@ class TestImportObjects(TieredTestCase):
             for line in log.data[logging.INFO])
       , log.data[logging.INFO]
       )
-    self.assertTrue(cyrt.icurry_is_interpreted(U.mk.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(U.mk.info))
     self.assertIsNotNone(getHandle(T).sofilename)
     self.assertEqual(self.py(U.second, self.value(U.mk, 4)), 5)
 
@@ -1340,7 +1340,7 @@ class TestImportObjects(TieredTestCase):
     after = tiered.status()
     self.assertEqual(after['failed_modules'], before['failed_modules'] + 1)
     self.assertEqual(after['swapped_modules'], before['swapped_modules'])
-    self.assertTrue(cyrt.icurry_is_interpreted(U.mk.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(U.mk.info))
     self.assertTrue(
         any('cannot open shared object file' in line
             for line in log.data[logging.WARNING])
@@ -1358,14 +1358,14 @@ class TestImportObjects(TieredTestCase):
     # nothing (tiered_submit is stubbed) and record the modules.
     first = self.write_module()
     second = self.write_module(IMPORTER_MODULE % {'first': first})
-    with mock.patch.object(cyrt, 'tiered_submit'):
+    with mock.patch.object(curryrt, 'tiered_submit'):
       N = self.import_module(second)
       M = curry.import_(first)
     tiered.cancel()
     self.assertFalse(tiered.pending(first))
     self.assertFalse(tiered.pending(second))
-    self.assertTrue(cyrt.icurry_is_interpreted(N.biggest.info))
-    self.assertTrue(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(N.biggest.info))
+    self.assertTrue(curryrt.icurry_is_interpreted(M.area.info))
     interp = cytest.raw.interp()
     before = tiered.status()
     with capture_log('curry.backends.cxx.tiered') as log:
@@ -1381,8 +1381,8 @@ class TestImportObjects(TieredTestCase):
             for line in log.data[logging.INFO])
       , log.data[logging.INFO]
       )
-    self.assertFalse(cyrt.icurry_is_interpreted(N.biggest.info))
-    self.assertFalse(cyrt.icurry_is_interpreted(M.area.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(N.biggest.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
     self.assertIsNotNone(getHandle(M).sofilename)
     self.assertIsNotNone(getHandle(N).sofilename)
     self.assertEqual(self.py(N.biggest, 4), 20)

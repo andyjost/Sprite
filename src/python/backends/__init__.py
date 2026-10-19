@@ -86,7 +86,7 @@ class IBackend(metaclass=abc.ABCMeta):
     The module object may stay alive in the hands of the user.  The C++
     backend hands the tables of the module to the kept store of the
     runtime, so a module of the same name made later runs its own code
-    (issue #114; see Module::retire in cyrt/module.hpp).
+    (issue #114; see Module::retire in curryrt/module.hpp).
     '''
 
   def before_evaluation(self, interp):

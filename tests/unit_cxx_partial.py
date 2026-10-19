@@ -3,7 +3,7 @@ Tests for the flat partial applications of the C++ backend.
 
 A partial application is one node: the missing count, the info table of the
 head, and the arguments in the slots after them (PartApplicNode in
-cyrt/builtins.hpp).  Each number of arguments has an info table of its own
+curryrt/builtins.hpp).  Each number of arguments has an info table of its own
 (partapplic_info); apply appends an argument in one allocation
 (Node::extend_partial).  A function used as a value, a partial application
 without arguments, is one node per module, made when the module loads
@@ -159,13 +159,13 @@ class TestLayout(cytest.TestCase):
     apply on an incomplete partial application allocates one node, with the
     arguments inline and one argument fewer missing.
     '''
-    from curry.backends.cxx import cyrtbindings as cyrt
+    from curry.backends.cxx import curryrtbindings as curryrt
     M = self.M
     apply_ = curry.import_('Prelude')['apply']
     e = cytest.raw.expr(apply_, cytest.raw.expr(M.plus3, 1), 2)
-    before = cyrt.gc_allocation_count()
+    before = curryrt.gc_allocation_count()
     step(e)
-    self.assertEqual(cyrt.gc_allocation_count() - before, 1)
+    self.assertEqual(curryrt.gc_allocation_count() - before, 1)
     self.assertEqual(e.info.tag, common.T_FWD)
     self.assertPartial(result(e), 1, [1, 2])
     # The same for a function value.
@@ -241,16 +241,16 @@ class TestSharedFunctionValues(cytest.TestCase):
     return e.successors[0]
 
   def test_shared(self):
-    from curry.backends.cxx import cyrtbindings as cyrt
+    from curry.backends.cxx import curryrtbindings as curryrt
     node = self.function_value()
     self.assertEqual(node.info.name, '_PartApplic')
     self.assertEqual(node.successors[0], 1)
-    self.assertTrue(cyrt.gc_is_literal(node))
+    self.assertTrue(curryrt.gc_is_literal(node))
     # One node for every execution of the step.
     self.assertEqual(self.function_value().id(), node.id())
     # A node made from Python is a heap node; it is equal to the shared one.
     made = cytest.raw.expr(self.M.inc)
-    self.assertFalse(cyrt.gc_is_literal(made))
+    self.assertFalse(curryrt.gc_is_literal(made))
     self.assertEqual(made, node)
 
   def test_loop_allocates_nothing_for_the_function(self):
@@ -260,11 +260,11 @@ class TestSharedFunctionValues(cytest.TestCase):
     the difference, and the sum); the function value is not one of them (a
     file of format 7 allocated six).
     '''
-    from curry.backends.cxx import cyrtbindings as cyrt
+    from curry.backends.cxx import curryrtbindings as curryrt
     n = 1000
-    before = cyrt.gc_allocation_count()
+    before = curryrt.gc_allocation_count()
     self.assertEqual(cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(self.M.loop, 0, n, typed=True)))), n)
-    nodes = cyrt.gc_allocation_count() - before
+    nodes = curryrt.gc_allocation_count() - before
     self.assertLess(nodes, 6 * n)
 
   def test_forwarding_a_shared_node_is_refused(self):
@@ -286,16 +286,16 @@ class TestSharedFunctionValues(cytest.TestCase):
     '''The values are right after many collections in a child.'''
     proc = cytest.run_in_subprocess('''
 import cytest, curry
-from curry.backends.cxx import cyrtbindings as cyrt
+from curry.backends.cxx import curryrtbindings as curryrt
 curry.reset(**{'backend': 'cxx'})
 M = curry.import_('CxxPartial')
-cyrt.gc_set_threshold(1 << 12)
-before = cyrt.gc_collections()
+curryrt.gc_set_threshold(1 << 12)
+before = curryrt.gc_collections()
 for _ in range(8):
   assert next(curry.eval((M.loop)(0, 3000))) == 3000
   assert next(curry.eval(M.manyApply)) == 666
   assert sorted(curry.eval(M.set2Many)) == [[631], [666]]
-print(cyrt.gc_collections() - before)
+print(curryrt.gc_collections() - before)
 ''', TIMEOUT, address_space=2 << 30)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertGreaterEqual(int(proc.stdout), 4)
@@ -340,7 +340,7 @@ class TestRuntime(cytest.TestCase):
           config.cxx_tool(), '-std=c++17', '-O2', '-Wall'
         , '-I%s' % config.installed_path('include')
         , source, '-o', exe
-        , '-L%s' % libdir, '-lcyrt', '-Wl,-rpath,%s' % libdir
+        , '-L%s' % libdir, '-lcurryrt', '-Wl,-rpath,%s' % libdir
         ]
       proc = subprocess.run(cmd, capture_output=True, text=True)
       self.assertEqual(proc.returncode, 0, proc.stderr)

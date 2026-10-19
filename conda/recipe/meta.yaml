@@ -20,7 +20,7 @@ source:
 build:
   number: 0
   skip: true  # [not linux64]
-  # Sprite's tree lives under opt/sprite (see build.sh).  libcyrt.so is in
+  # Sprite's tree lives under opt/sprite (see build.sh).  libcurryrt.so is in
   # opt/sprite/lib, so the run path of the extension module names that
   # directory as well as lib.
   rpaths:
@@ -102,7 +102,7 @@ test:
       test -s .curry/sprite-pakcs-3.4.1/Smoke.so &&
       test -s .curry/sprite-pakcs-3.4.1/Smoke.so.abi &&
       sprite-exec Smoke.curry | grep -x 42 &&
-      test ! -e "$PREFIX/opt/sprite/include/cyrt/cyrt.hpp.gch" &&
+      test ! -e "$PREFIX/opt/sprite/include/curryrt/curryrt.hpp.gch" &&
       test -d "${XDG_CACHE_HOME:-$HOME/.cache}/sprite/pch"
     # The generated files of the library name their sources relative to
     # the installation, so no file of the package but the shared objects

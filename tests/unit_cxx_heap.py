@@ -18,7 +18,7 @@ class ChildTests(cytest.TestCase):
   '''
   PREAMBLE = '''
 import cytest, curry, gc, os, sys
-from curry.backends.cxx import cyrtbindings as cyrt
+from curry.backends.cxx import curryrtbindings as curryrt
 curry.reset(**{'backend': 'cxx'})
 H = curry.import_('CxxHeap')
 G = curry.import_('CxxGc')
@@ -53,7 +53,7 @@ CHUNK_BYTES = %d
   )
 class TestHeap(ChildTests):
   '''
-  The block heap (src/cyrt/graph/gc/blockheap.cpp) through the bindings:
+  The block heap (src/curryrt/graph/gc/blockheap.cpp) through the bindings:
   the counts, the memory it holds, the spans of large nodes, and the
   verifier.
   '''
@@ -71,26 +71,26 @@ class TestHeap(ChildTests):
     '''
     self.run_child('''import cytest
 
-cyrt.gc_collect()
-before = cyrt.gc_node_count()
-a0 = cyrt.gc_allocation_count()
+curryrt.gc_collect()
+before = curryrt.gc_node_count()
+a0 = curryrt.gc_allocation_count()
 e = cytest.raw.expr([(1, 'a'), (2, 'b'), (3, 'c')], typed=True)
-made = cyrt.gc_allocation_count() - a0
+made = curryrt.gc_allocation_count() - a0
 assert made >= 6, made
-assert cyrt.gc_node_count() == before + made     , (before, made, cyrt.gc_node_count())
-cyrt.gc_collect()
-assert cyrt.gc_node_count() == before + made     , (before, made, cyrt.gc_node_count())
+assert curryrt.gc_node_count() == before + made     , (before, made, curryrt.gc_node_count())
+curryrt.gc_collect()
+assert curryrt.gc_node_count() == before + made     , (before, made, curryrt.gc_node_count())
 assert str(e) == "[(1, 'a'), (2, 'b'), (3, 'c')]", str(e)
-heap = cyrt.gc_heap_bytes()
+heap = curryrt.gc_heap_bytes()
 assert heap >= CHUNK_BYTES and heap % BLOCK_BYTES == 0, heap
-assert 0 < cyrt.gc_block_count() <= heap // BLOCK_BYTES, cyrt.gc_block_count()
+assert 0 < curryrt.gc_block_count() <= heap // BLOCK_BYTES, curryrt.gc_block_count()
 del e
 gc.collect()
-reclaimed = cyrt.gc_collect()
+reclaimed = curryrt.gc_collect()
 assert reclaimed == made, (reclaimed, made)
-assert cyrt.gc_node_count() == before, (before, cyrt.gc_node_count())
-assert cyrt.gc_heap_bytes() == heap, (heap, cyrt.gc_heap_bytes())
-assert cyrt.gc_verify() is None
+assert curryrt.gc_node_count() == before, (before, curryrt.gc_node_count())
+assert curryrt.gc_heap_bytes() == heap, (heap, curryrt.gc_heap_bytes())
+assert curryrt.gc_verify() is None
 ''')
 
   @cytest.skipIfGcStress('a test of the threshold policy')
@@ -104,17 +104,17 @@ assert cyrt.gc_verify() is None
     proc = self.run_child('''import cytest
 
 assert cytest.raw.interp().topython(next(curry.eval((G.walk)(2000000)))) == 2000000
-heap = cyrt.gc_heap_bytes()
-collections = cyrt.gc_collections()
+heap = curryrt.gc_heap_bytes()
+collections = curryrt.gc_collections()
 assert collections > 10, collections
 # The threshold is 2^20 nodes of at most 32 bytes in this program, plus
 # the run in progress of each size class and the bitmaps.
 assert heap <= 48 * CHUNK_BYTES, heap
 assert cytest.raw.interp().topython(next(curry.eval((G.walk)(2000000)))) == 2000000
-assert cyrt.gc_heap_bytes() == heap, (heap, cyrt.gc_heap_bytes())
-cyrt.gc_collect()
-print('heap_mb', heap / 2.0 ** 20, 'blocks', cyrt.gc_block_count()
-     , 'collections', cyrt.gc_collections())
+assert curryrt.gc_heap_bytes() == heap, (heap, curryrt.gc_heap_bytes())
+curryrt.gc_collect()
+print('heap_mb', heap / 2.0 ** 20, 'blocks', curryrt.gc_block_count()
+     , 'collections', curryrt.gc_collections())
 ''', address_space=1 << 30)
     self.assertIn('heap_mb', proc.stdout)
 
@@ -126,26 +126,26 @@ print('heap_mb', heap / 2.0 ** 20, 'blocks', cyrt.gc_block_count()
     '''
     self.run_child('''import cytest
 
-cyrt.gc_set_threshold(1 << 14)
-cyrt.gc_collect()
-blocks = cyrt.gc_block_count()
+curryrt.gc_set_threshold(1 << 14)
+curryrt.gc_collect()
+blocks = curryrt.gc_block_count()
 sums = cytest.raw.interp().topython(next(curry.eval((H.sums)(50))))
 assert sums == [70 * i for i in range(1, 51)], sums
-n0 = cyrt.gc_collections()
+n0 = curryrt.gc_collections()
 assert cytest.raw.interp().topython(next(curry.eval((H.keepWhile)(50, %d)))) == %d + 70 * 1275
-assert cyrt.gc_collections() - n0 > 10, cyrt.gc_collections() - n0
+assert curryrt.gc_collections() - n0 > 10, curryrt.gc_collections() - n0
 value = next(curry.eval((H.keep)(30)))
 text = str(value)
 assert text.count('Big') == 30, text
-assert cyrt.gc_block_count() >= blocks + 30, (blocks, cyrt.gc_block_count())
-cyrt.gc_collect()
-assert cyrt.gc_block_count() >= blocks + 30, (blocks, cyrt.gc_block_count())
+assert curryrt.gc_block_count() >= blocks + 30, (blocks, curryrt.gc_block_count())
+curryrt.gc_collect()
+assert curryrt.gc_block_count() >= blocks + 30, (blocks, curryrt.gc_block_count())
 assert str(value) == text
-assert cyrt.gc_verify() is None
+assert curryrt.gc_verify() is None
 del value
 gc.collect()
-cyrt.gc_collect()
-assert cyrt.gc_block_count() < blocks + 30, (blocks, cyrt.gc_block_count())
+curryrt.gc_collect()
+assert curryrt.gc_block_count() < blocks + 30, (blocks, curryrt.gc_block_count())
 ''' % (self.WALK, self.WALK))
 
   def test_verifier_after_evaluations(self):
@@ -158,18 +158,18 @@ assert cyrt.gc_block_count() < blocks + 30, (blocks, cyrt.gc_block_count())
     self.run_child('''import cytest
 
 value = next(curry.eval((G.table)(300)))
-cyrt.gc_set_threshold(1 << 14)
+curryrt.gc_set_threshold(1 << 14)
 assert cytest.raw.interp().topython(next(curry.eval((G.walk)(%d)))) == %d
-assert cyrt.gc_verify() is None
+assert curryrt.gc_verify() is None
 assert cytest.raw.interp().topython(next(curry.eval((G.spaced)(%d)))) == %d
-assert cyrt.gc_verify() is None
+assert curryrt.gc_verify() is None
 def items():
   for i in range(3):
     yield cytest.raw.interp().topython(next(curry.eval((G.walk)(%d)))) + i
 assert cytest.raw.interp().topython(next(curry.eval((G.lastOf)(iter(items()))))) == %d
-assert cyrt.gc_verify() is None
+assert curryrt.gc_verify() is None
 assert cytest.raw.interp().topython(value) == [(i, str(i)) for i in range(1, 301)]
-assert cyrt.gc_collections() > 20, cyrt.gc_collections()
+assert curryrt.gc_collections() > 20, curryrt.gc_collections()
 ''' % (walk, walk, walk // 50, 3 * (walk // 50) + 6, walk // 5, walk // 5 + 2))
 
   def test_verifier_runs_in_stress_mode(self):
@@ -180,12 +180,12 @@ assert cyrt.gc_collections() > 20, cyrt.gc_collections()
     with mock.patch.dict(os.environ, {'SPRITE_GC_STRESS': '1'}):
       self.run_child('''import cytest
 
-assert cyrt.gc_stress()
+assert curryrt.gc_stress()
 table = cytest.raw.interp().topython(next(curry.eval((G.table)(50))))
 assert table == [(i, str(i)) for i in range(1, 51)], table
 assert cytest.raw.interp().topython(next(curry.eval((H.sums)(3)))) == [70, 140, 210]
-assert cyrt.gc_collections() > 100, cyrt.gc_collections()
-assert cyrt.gc_verify() is None
+assert curryrt.gc_collections() > 100, curryrt.gc_collections()
+assert curryrt.gc_verify() is None
 ''')
 
   def test_verify_refused_inside_an_evaluation(self):
@@ -193,7 +193,7 @@ assert cyrt.gc_verify() is None
     self.run_child('''
 def probe():
   try:
-    cyrt.gc_verify()
+    curryrt.gc_verify()
   except RuntimeError as err:
     raise ValueError('refused: %s' % err)
   yield 1
@@ -259,7 +259,7 @@ class TestInlineAllocation(cytest.TestCase):
         for match in re.finditer(r'<([^>@+]+)', line):
           refs.add(match.group(1))
     called = sorted(r for r in refs if 'node_' in r)
-    self.assertEqual(called, ['_ZN4cyrt11node_refillEm'], refs)
+    self.assertEqual(called, ['_ZN7curryrt11node_refillEm'], refs)
 
   def test_tak_indexes_inline(self):
     '''
@@ -268,10 +268,10 @@ class TestInlineAllocation(cytest.TestCase):
     default build: without SPRITE_GC_WRITE_COUNTERS they are empty inline
     functions (memory.hpp).  A module of the instrumented build calls them.
     '''
-    from curry.backends.cxx import cyrtbindings as cyrt
+    from curry.backends.cxx import curryrtbindings as curryrt
     symbols = set(re.findall(r'<([^>@+]+)', self.tak_disassembly()))
     hooks = sorted(s for s in symbols if 'gc_count' in s)
-    if cyrt.gc_write_counters_enabled():
+    if curryrt.gc_write_counters_enabled():
       self.assertTrue(hooks, symbols)
     else:
       self.assertEqual(hooks, [])
@@ -297,7 +297,7 @@ class TestHeapProgram(cytest.TestCase):
           config.cxx_tool(), '-std=c++17', '-O2', '-Wall'
         , '-I%s' % config.installed_path('include')
         , source, '-o', exe
-        , '-L%s' % libdir, '-lcyrt', '-Wl,-rpath,%s' % libdir
+        , '-L%s' % libdir, '-lcurryrt', '-Wl,-rpath,%s' % libdir
         ]
       proc = subprocess.run(cmd, capture_output=True, text=True)
       self.assertEqual(proc.returncode, 0, proc.stderr)

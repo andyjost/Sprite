@@ -3,7 +3,7 @@ The build steps of the C++ backend: ICurry-JSON to C++, and C++ to a shared
 object.
 
 The C++ compiler is the slow step.  Every generated module includes
-cyrt/cyrt.hpp, and parsing that header costs about two thirds of the time g++
+curryrt/curryrt.hpp, and parsing that header costs about two thirds of the time g++
 needs for a small module.  So the toolchain precompiles the header once, and
 g++ loads the result.  See PrecompiledHeader.
 
@@ -17,7 +17,7 @@ FLAVOR_FLAGS and Cpp2So.flavor.
 A compiled module stays valid as long as the runtime headers it was compiled
 against, the flags of its flavor and the installation it links against do not
 change.  The headers are those the generated code includes: the include
-closure of cyrt/cyrt.hpp (runtime_headers).  A header of the runtime outside
+closure of curryrt/curryrt.hpp (runtime_headers).  A header of the runtime outside
 that closure, one the runtime library alone uses, is not part of the stamp,
 so an edit to it rebuilds the library and no module.  Cpp2So records the
 digest of the closure and of the flags, and the installation as text, beside
@@ -109,7 +109,7 @@ def _include_closure(include_dir):
 def runtime_headers(include_dir=None):
   '''
   The runtime headers the generated code includes, in a fixed order.  Every
-  generated file includes cyrt/cyrt.hpp (compiler.RUNTIME_INCLUDES), and the
+  generated file includes curryrt/curryrt.hpp (compiler.RUNTIME_INCLUDES), and the
   list is the include closure of that header under ``include_dir``, by
   default the installed include directory: the header, every header it
   includes with a quoted directive, and so on, a conditional include
@@ -199,14 +199,14 @@ def flavor_flags(flavor):
 # The compiler flags of the collectors of the runtime (make GC=...).  The
 # inline writers of the runtime headers (Node::rewrite and the others in
 # node.hxx) differ under the Memory Pool System, so a module is compiled
-# with the macro of the installed collector.  See src/cyrt/graph/gc/mps.cpp.
+# with the macro of the installed collector.  See src/curryrt/graph/gc/mps.cpp.
 GC_FLAGS = {
     'wdgc': []
   , 'mps': ['-DSPRITE_GC_MPS']
   }
 
 # The flag of the counters of writes into old nodes of the block heap (make
-# GC_WRITE_COUNTERS=1; see src/cyrt/graph/gc/wdgc.cpp).  Their sites in the
+# GC_WRITE_COUNTERS=1; see src/curryrt/graph/gc/wdgc.cpp).  Their sites in the
 # runtime headers (the indexer of indexing.hxx, Node::successor_node) are
 # empty inline functions without it, so a module is compiled with the
 # setting of the installed runtime.
@@ -415,7 +415,7 @@ class Json2Cpp(Json2TargetSource):
     Tells whether the plan ends at ``filename``, a JSON file this step would
     compile.  Under the interpreter flag ``interpret`` set to 'new', a
     module that reached the JSON stage without a compiled object is
-    interpreted by the runtime (cyrt/icurry.hpp; see materialize.py), so
+    interpreted by the runtime (curryrt/icurry.hpp; see materialize.py), so
     this step and the C++ compiler do not run for it.  Under 'tiered' the
     same holds, and the module is compiled in the background after its load
     (see tiered.py).  A module with a current object never reaches this
@@ -435,9 +435,9 @@ class Json2Cpp(Json2TargetSource):
 
 class PrecompiledHeader(object):
   '''
-  The precompiled form of cyrt/cyrt.hpp.
+  The precompiled form of curryrt/curryrt.hpp.
 
-  The files live in <root>/cyrt/cyrt.hpp.gch/.  The root is the installed
+  The files live in <root>/curryrt/curryrt.hpp.gch/.  The root is the installed
   include directory unless SPRITE_CXX_PCH_ROOT says otherwise (see
   config.cxx_pch_root).  g++ accepts a directory of that name in place of one
   file and uses the member that matches its options.  So each flavor (the
@@ -457,7 +457,7 @@ class PrecompiledHeader(object):
   one warning per root and compiles without the header.  The generated code
   is the same either way.
   '''
-  HEADER = os.path.join('cyrt', 'cyrt.hpp')
+  HEADER = os.path.join('curryrt', 'curryrt.hpp')
 
   # The roots for which a build failed in this process.  No second attempt.
   _failed = set()
@@ -489,7 +489,7 @@ class PrecompiledHeader(object):
   def header_files():
     '''
     The headers the precompiled header depends on: the include closure of
-    cyrt/cyrt.hpp (runtime_headers).  A header outside it never makes a
+    curryrt/curryrt.hpp (runtime_headers).  A header outside it never makes a
     member stale.
     '''
     return runtime_headers()
@@ -608,7 +608,7 @@ class Cpp2So(object):
   the generated file, "// MODULE: N"), the objects of its imports stand on
   the line by their files and enter the object as their SONAMEs (the
   NEEDED entries; every import, in the order of the IMPORTS line, see
-  LINK_FLAGS), and the runtime library enters as "libcyrt.so", which
+  LINK_FLAGS), and the runtime library enters as "libcurryrt.so", which
   the extension module of the backend has loaded.  So readelf -d shows no
   absolute path, and an object compiled in one tree loads in a copy of the
   tree at another path, or from the product cache in another tree.  A
@@ -982,7 +982,7 @@ class Cpp2So(object):
     for sofilename in self._dependencies(file_in, currypath):
       yield sofilename
     yield '-L%s' % config.installed_path('lib')
-    yield '-lcyrt'
+    yield '-lcurryrt'
     yield '-o'
     yield file_out
 

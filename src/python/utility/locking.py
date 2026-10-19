@@ -11,8 +11,8 @@ def native_metadata(function):
   """
   @functools.wraps(function)
   def call(*args, **kwds):
-    from ..backends.cxx.cyrtbindings import _cyrtbindings
-    return _cyrtbindings._metadata_call(lambda: function(*args, **kwds))
+    from ..backends.cxx.curryrtbindings import _curryrtbindings
+    return _curryrtbindings._metadata_call(lambda: function(*args, **kwds))
   return call
 
 

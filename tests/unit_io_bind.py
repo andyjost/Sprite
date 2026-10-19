@@ -20,7 +20,7 @@ from curry.exceptions import NondetError
 import contextlib, curry, os, tempfile, unittest
 
 # The text of the error for a choice in a monadic action.  The C++ runtime
-# defines the same text (NONDET_MONAD_ERROR_TEXT in cyrt/builtins.hpp).
+# defines the same text (NONDET_MONAD_ERROR_TEXT in curryrt/builtins.hpp).
 NONDET_TEXT = str(NondetError())
 
 @contextlib.contextmanager

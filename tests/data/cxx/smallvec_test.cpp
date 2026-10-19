@@ -1,15 +1,15 @@
-// Checks SmallVec, the inline storage of Variable (see cyrt/smallvec.hpp).
+// Checks SmallVec, the inline storage of Variable (see curryrt/smallvec.hpp).
 // unit_cxx_variable.py compiles this program against the installed runtime
 // and runs it.  It prints the first failed check and exits with status 1;
 // it prints "ok" and exits with status 0 when every check passes.
-#include "cyrt/graph/cursor.hpp"
-#include "cyrt/smallvec.hpp"
+#include "curryrt/graph/cursor.hpp"
+#include "curryrt/smallvec.hpp"
 #include <cstdio>
 #include <cstdlib>
 #include <initializer_list>
 #include <utility>
 
-using namespace cyrt;
+using namespace curryrt;
 
 #define CHECK(cond) \
     do { if(!(cond)) { std::printf("failed: %s (line %d)\n", #cond, __LINE__); std::exit(1); } } while(0)

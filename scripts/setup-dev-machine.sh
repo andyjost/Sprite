@@ -598,8 +598,8 @@ step_stage() {
   step "Step 7/$NSTEPS: make stage"
   note "builds the runtime and compiles the Curry library for both backends (minutes)"
   run_in "$repo" "${clean_env[@]}" make stage JOBS="$jobs"
-  if [ "$dry_run" = 0 ] && [ ! -r "$prefix/install/lib/libcyrt.so" ]; then
-    die "make stage did not produce $prefix/install/lib/libcyrt.so"
+  if [ "$dry_run" = 0 ] && [ ! -r "$prefix/install/lib/libcurryrt.so" ]; then
+    die "make stage did not produce $prefix/install/lib/libcurryrt.so"
   fi
   # The archived products of the test programs, after the stage: they must
   # be newer than the installed library interfaces, or the front end makes

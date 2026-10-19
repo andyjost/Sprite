@@ -19,7 +19,7 @@ class TestStream(cytest.TestCase):
     self.M = curry.import_('StreamChannel')
 
   def test_close_releases_parked_queue(self):
-    from curry.backends.cxx import cyrtbindings as cyrt
+    from curry.backends.cxx import curryrtbindings as curryrt
     totals = curry._interpreter_._evaluation_totals
     before = len(totals._running)
     s = curry.stream(self.M.three)
@@ -28,22 +28,22 @@ class TestStream(cytest.TestCase):
     rts, = [r for r in totals._running if r.queue_size]
     held = weakref.ref(rts)
     self.assertEqual(rts.queue_size, 1)
-    configurations = cyrt.gc_configuration_count()
+    configurations = curryrt.gc_configuration_count()
     del rts
     s.close()
     self.assertEqual(len(totals._running), before)
     self.assertIsNone(held())
-    self.assertEqual(cyrt.gc_configuration_count(), configurations - 1)
+    self.assertEqual(curryrt.gc_configuration_count(), configurations - 1)
     self.assertEqual(list(s), [])
 
   def test_parked_stream_survives_collection_and_other_stream(self):
-    from curry.backends.cxx import cyrtbindings as cyrt
+    from curry.backends.cxx import curryrtbindings as curryrt
     a, b = curry.stream(self.M.three), curry.stream(self.M.three)
     self.addCleanup(a.close)
     self.addCleanup(b.close)
     self.assertEqual((next(a), next(b), next(a)), (1, 1, 2))
     gc.collect()
-    cyrt.gc_collect()
+    curryrt.gc_collect()
     self.assertEqual(list(b), [2, 3])
     self.assertEqual(list(a), [3])
     self.assertEqual((a.result, b.result), (42, 42))
@@ -113,9 +113,9 @@ out = yield (Box "")
     self.assertIsNone(s.result)
 
   def test_retained_error_releases_run(self):
-    from curry.backends.cxx import cyrtbindings as cyrt
-    configurations = cyrt.gc_configuration_count()
-    queues = cyrt.gc_queue_count()
+    from curry.backends.cxx import curryrtbindings as curryrt
+    configurations = curryrt.gc_configuration_count()
+    queues = curryrt.gc_queue_count()
     s = curry.stream(self.M.priorError)
     self.assertEqual(next(s), 1)
     try:
@@ -125,8 +125,8 @@ out = yield (Box "")
     else:
       self.fail('the action did not raise its error')
     self.assertIsNotNone(error.__traceback__)
-    self.assertEqual(cyrt.gc_configuration_count(), configurations)
-    self.assertEqual(cyrt.gc_queue_count(), queues)
+    self.assertEqual(curryrt.gc_configuration_count(), configurations)
+    self.assertEqual(curryrt.gc_queue_count(), queues)
     self.assertEqual(list(s), [])
 
   def test_catch_resumes_after_yield(self):
@@ -144,7 +144,7 @@ assert s.result == 42
     self.assertEqual(proc.returncode, 0, proc.stderr)
 
   def test_step_limit_at_output(self):
-    from curry.backends.cxx import cyrtbindings as cyrt
+    from curry.backends.cxx import curryrtbindings as curryrt
     from curry.typecheck import goals
     interp = curry._interpreter_
     def state():
@@ -155,7 +155,7 @@ assert s.result == 42
     self.assertTrue(first.stream_yielded)
     limited = state()
     limited.step_limit = first.steps_total
-    with self.assertRaises(cyrt.StepLimitReached):
+    with self.assertRaises(curryrt.StepLimitReached):
       limited.next()
     self.assertEqual(limited.steps_total, first.steps_total)
 

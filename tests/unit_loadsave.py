@@ -81,11 +81,11 @@ with open(os.path.join(tmpdir, 'SaveLoadFresh.curry'), 'w') as stream:
 curry.path.insert(0, tmpdir)
 M = curry.import_('SaveLoadFresh')
 if curry.flags['backend'] == 'cxx' and curry.flags['interpret'] == 'tiered':
-  from curry.backends.cxx import tiered, cyrtbindings as cyrt
+  from curry.backends.cxx import tiered, curryrtbindings as curryrt
   # Leave the foreground load to do the swap, independently of how quickly
   # the background compiler runs on this machine.
   tiered.cancel()
-  assert cyrt.icurry_is_interpreted(M.main.info)
+  assert curryrt.icurry_is_interpreted(M.main.info)
 print([str(v) for v in curry.eval(M.main)])
 if curry.flags['backend'] == 'cxx':
   # The step reads the generated file under the product directory of the
@@ -155,7 +155,7 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
         "saved = os.path.splitext(cppfile)[0] + '.so'"
       )
     code = code[:code.index('M2 = curry._interpreter_.load(saved)')] + r'''
-from curry.backends.cxx import cyrtbindings as cyrt
+from curry.backends.cxx import curryrtbindings as curryrt
 try:
   curry._interpreter_.load(saved)
 except curry.LoadError as exc:
@@ -163,7 +163,7 @@ except curry.LoadError as exc:
   assert 'replaces the live interpreted steps' in str(exc), exc
 else:
   raise AssertionError('interpret:all accepted a swap')
-assert cyrt.icurry_is_interpreted(M.main.info)
+assert curryrt.icurry_is_interpreted(M.main.info)
 print([str(v) for v in curry.eval(M.main)])
 '''
     proc = cytest.run_in_subprocess(code, TIMEOUT)
@@ -199,7 +199,7 @@ import os, sys
 # needs the object of the Prelude, which runs interpreted under 'all'.
 os.environ['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
 import curry
-from curry.backends.cxx import cyrtbindings as cyrt
+from curry.backends.cxx import curryrtbindings as curryrt
 soA, soB, case = %(soA)r, %(soB)r, %(case)r
 curry.path.insert(0, %(dirA)r)
 def main():
@@ -221,7 +221,7 @@ elif case == 'J':
   curry.import_('M'); refused(); curry.reset(); curry._interpreter_.load(soA); print(main())
 elif case == 'K':
   curry._interpreter_.load(soA); curry._interpreter_.load(soA); print(main())
-registered = cyrt.SharedCurryModule.find_sofilename('M')
+registered = curryrt.SharedCurryModule.find_sofilename('M')
 print(os.path.realpath(registered) == os.path.realpath(soA))
 print('exiting normally')
 '''

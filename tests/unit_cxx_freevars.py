@@ -16,7 +16,7 @@ class ChildTests(cytest.TestCase):
 
   PREAMBLE = '''
 import cytest, curry, gc, os, resource, sys, weakref
-from curry.backends.cxx import cyrtbindings as cyrt
+from curry.backends.cxx import curryrtbindings as curryrt
 curry.reset(**{'backend': 'cxx'})
 M = curry.import_('CxxFreeVars')
 '''
@@ -66,8 +66,8 @@ def live(n):
   value = cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.narrowMany, n, typed=True))))
   assert value == n, (value, n)
   gc.collect()
-  cyrt.gc_collect()
-  return cyrt.gc_node_count(), cyrt.gc_freevar_count()
+  curryrt.gc_collect()
+  return curryrt.gc_node_count(), curryrt.gc_freevar_count()
 small = live(100000)
 big = live(1000000)
 assert big[0] <= small[0] + 100, (small, big)
@@ -88,11 +88,11 @@ print('live', small, big, 'peak_rss_mb', peak
     '''
     proc = self.run_child('''import cytest
 
-cyrt.gc_set_threshold(1 << 14)
+curryrt.gc_set_threshold(1 << 14)
 seen = []
 def items(n, k):
   for i in range(n):
-    seen.append((cyrt.gc_freevar_count(), cyrt.gc_node_count()))
+    seen.append((curryrt.gc_freevar_count(), curryrt.gc_node_count()))
     yield k
 value = cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.narrowEach, iter(items(40, 5000)), typed=True))))
 assert value == 200000, value
@@ -100,10 +100,10 @@ peak = max(entries for entries, nodes in seen)
 # The threshold is 16384 nodes, and a narrowing allocates several nodes
 # per variable, so the table holds a few thousand entries at most.
 assert peak < 16384, seen
-assert cyrt.gc_collections() > 40, cyrt.gc_collections()
+assert curryrt.gc_collections() > 40, curryrt.gc_collections()
 gc.collect()
-cyrt.gc_collect()
-assert cyrt.gc_freevar_count() == 0, cyrt.gc_freevar_count()
+curryrt.gc_collect()
+assert curryrt.gc_freevar_count() == 0, curryrt.gc_freevar_count()
 print('peak', peak)
 ''')
     self.assertIn('peak', proc.stdout)
@@ -125,14 +125,14 @@ assert a.id() == b.id(), repr(value)
 assert a.copy().id() == a.id()
 assert a.__deepcopy__().id() == a.id()
 gc.collect()
-cyrt.gc_collect()
-assert cyrt.gc_freevar_count() == 1, cyrt.gc_freevar_count()
+curryrt.gc_collect()
+assert curryrt.gc_freevar_count() == 1, curryrt.gc_freevar_count()
 values = sorted(cytest.raw.interp().topython(x) for x in cytest.raw.values(cytest.raw.expr(M.both, value, typed=True)))
 assert values == [2, 4], values
 del value, a, b
 gc.collect()
-cyrt.gc_collect()
-assert cyrt.gc_freevar_count() == 0, cyrt.gc_freevar_count()
+curryrt.gc_collect()
+assert curryrt.gc_freevar_count() == 0, curryrt.gc_freevar_count()
 ''')
 
   def test_same_values_and_steps_in_stress_mode(self):
@@ -158,8 +158,8 @@ for goal, args in [
   values = [repr(v) for v in cytest.raw.values(cytest.raw.expr(goal, *args, typed=True))]
   results.append((goal.name, values, curry.stats()['steps'] - before))
 gc.collect()
-cyrt.gc_collect()
-results.append(('freevars', cyrt.gc_freevar_count()))
+curryrt.gc_collect()
+results.append(('freevars', curryrt.gc_freevar_count()))
 print(results)
 '''
     with mock.patch.dict(os.environ, {'SPRITE_GC_STRESS': '1'}):
@@ -209,12 +209,12 @@ class TestNarrowing(ChildTests):
     '''
     proc = self.run_child('''import cytest
 
-cyrt.gc_set_threshold(1 << 13)
-n0 = cyrt.gc_collections()
+curryrt.gc_set_threshold(1 << 13)
+n0 = curryrt.gc_collections()
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.lasts, 60, typed=True)))) == list(range(1, 61))
-collections = cyrt.gc_collections() - n0
+collections = curryrt.gc_collections() - n0
 assert collections > 10, collections
-assert cyrt.gc_verify() is None
+assert curryrt.gc_verify() is None
 print('collections', collections)
 ''')
     self.assertIn('collections', proc.stdout)
@@ -254,9 +254,9 @@ ref = weakref.ref(g)
 assert cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.firstTwo, g, typed=True)))) == [0, 1]
 del g
 gc.collect()
-if not cyrt.gc_stress():
+if not curryrt.gc_stress():
   assert ref() is not None, 'released before the node died'
-cyrt.gc_collect()
+curryrt.gc_collect()
 assert ref() is None, 'the iterator of a dead node was kept'
 
 # Never evaluated: the node Python holds keeps the iterator.
@@ -265,11 +265,11 @@ ref = weakref.ref(g)
 e = cytest.raw.expr(g)
 del g
 gc.collect()
-cyrt.gc_collect()
+curryrt.gc_collect()
 assert ref() is not None, 'released while a node held it'
 del e
 gc.collect()
-cyrt.gc_collect()
+curryrt.gc_collect()
 assert ref() is None, 'the iterator of a dropped node was kept'
 
 # A copy of the node owns a reference of its own.
@@ -280,15 +280,15 @@ c = e.copy()
 d = e.__deepcopy__()
 del g, e
 gc.collect()
-cyrt.gc_collect()
+curryrt.gc_collect()
 assert ref() is not None, 'released while a copy held it'
 del c
 gc.collect()
-cyrt.gc_collect()
+curryrt.gc_collect()
 assert ref() is not None, 'released while a deep copy held it'
 del d
 gc.collect()
-cyrt.gc_collect()
+curryrt.gc_collect()
 assert ref() is None, 'the iterator of the copies was kept'
 print('released')
 ''')
