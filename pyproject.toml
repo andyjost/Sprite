@@ -1,12 +1,32 @@
 [build-system]
-requires = ["scikit-build-core>=1.1"]
+requires = ["scikit-build-core>=1.1", "cmake>=3.24", "ninja", "curry-frontend>=2.0.0"]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "currylang"
 dynamic = ["version"]
 description = "The Sprite compiler and runtime for Curry"
+readme = "README.pypi.md"
 requires-python = ">=3.11.4"
+license = "BSD-3-Clause"
+license-files = ["LICENSE", "curry/lib/LICENSE", "curry/lib/NOTICE", "extern/pybind11/LICENSE"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Programming Language :: C++",
+  "Operating System :: POSIX :: Linux",
+]
+
+[project.urls]
+Homepage = "https://github.com/andyjost/Sprite"
+Documentation = "https://andyjost.github.io/Sprite/"
+Source = "https://github.com/andyjost/Sprite"
+Issues = "https://github.com/andyjost/Sprite/issues"
 
 [project.scripts]
 sprite-exec = "curry.tools.entrypoints:execute"
@@ -22,3 +42,4 @@ regex = '(?P<value>\S+)'
 cmake.version = ">=3.24"
 wheel.packages = []
 sdist.include = ["extern/pybind11/include/**", "extern/pybind11/tools/**", "extern/pybind11/CMakeLists.txt", "extern/pybind11/LICENSE"]
+sdist.exclude = ["CODEX-REPORT.md"]
