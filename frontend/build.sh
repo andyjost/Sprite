@@ -57,7 +57,9 @@ PY
     cabal build "exe:$executable" --verbose=3 --allow-newer \
       --ghc-options="$options" || return $?
     local built_binary
-    built_binary=$(cabal list-bin "exe:$executable") || return $?
+    # The same solver flags as the build: list-bin plans again.
+    built_binary=$(cabal list-bin "exe:$executable" --allow-newer \
+      --ghc-options="$options") || return $?
     cp "$built_binary" "$output_dir/curry-frontend" || return $?
   fi
   readelf -l -d "$output_dir/curry-frontend" > "$output_dir/dynamic-elf.txt" || return $?
