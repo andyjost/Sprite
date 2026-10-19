@@ -234,6 +234,11 @@ class TestPackagedModule(JsonModuleTestCase):
       self.assertEqual(current(), target)
       with open(source, 'a') as stream:
         stream.write('-- changed\n')
+      # The edited source is the newest file by its time, strictly: the
+      # kernel stamps files with a coarse clock, so an edit a moment after
+      # the products were written can share their time, and a tie goes to
+      # the product (filesys.newest).
+      os.utime(source, (future + 1, future + 1))
       self.assertEqual(current(), source)
 
   @cytest.with_flags(interpret='off')
