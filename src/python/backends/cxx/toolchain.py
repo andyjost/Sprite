@@ -43,16 +43,17 @@ curry.toolchain._productcache.
 '''
 from ..generic.toolchain import Json2TargetSource
 from . import compiler
-from ... import config, exceptions
+from ... import cache, config, exceptions
 from ...objects.handle import getHandle
 from ...utility import curryname, filesys
 from ...toolchain import (
     plans, _filenames, _findcurry, _loadcurry, _makecurry, _productcache
-  , _system
+  , _system, _productlock
   )
-import functools, hashlib, itertools, logging, os, re
+import functools, hashlib, itertools, logging, os, re, tempfile, threading
 
 logger = logging.getLogger(__name__)
+_warning_lock = threading.Lock()
 
 # A quoted include directive, the form the runtime headers use for one
 # another.  The pattern matches a directive inside an #if block as well: a
@@ -519,7 +520,11 @@ class PrecompiledHeader(object):
     try:
       self.build()
     except (OSError, exceptions.CompileError) as exc:
-      self._failed.add(self.root)
+      with _warning_lock:
+        warn = self.root not in self._failed
+        self._failed.add(self.root)
+      if not warn:
+        return False
       logger.warning(
           'cannot build the precompiled header %r (%s); generated code is '
           'compiled without it.  Set SPRITE_CXX_PCH_ROOT to a writable '
@@ -564,10 +569,9 @@ class PrecompiledHeader(object):
     os.makedirs(self.directory, exist_ok=True)
     # A partial file must never sit in the .gch directory, where g++ would
     # try it.  Build beside the directory and move the result in.
-    tmp = os.path.join(
-        os.path.dirname(self.directory)
-      , '.%s.%d.tmp' % (os.path.basename(self.filename), os.getpid())
-      )
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(self.directory),
+        prefix='.%s-' % os.path.basename(self.filename), suffix='.tmp')
+    os.close(fd)
     cmd = [self.cxx, '-x', 'c++-header'] + self.cxxflags + [header, '-o', tmp]
     logger.info('Precompiling %r', self.filename)
     logger.debug('Command: %s', ' '.join(cmd))
@@ -615,6 +619,7 @@ class Cpp2So(object):
   places the cached products of a module instead of a compile (restore).
   '''
   STAMP_SUFFIX = '.abi'
+  manages_product_lock = True
 
   def __init__(self, interp):
     self.interp = interp
@@ -690,7 +695,10 @@ class Cpp2So(object):
     if filename.endswith('.so'):
       if not self.stamp_is_current(filename):
         return True
-      return self.import_lacks_an_object(filename, currypath)
+      before = self.product_snapshot(filename)
+      lacks_object = self.import_lacks_an_object(filename, currypath)
+      return lacks_object or before != self.product_snapshot(filename) \
+          or not self.stamp_is_current(filename)
     return source_is_stale(filename)
 
   def stamp_is_current(self, sofile):
@@ -788,11 +796,7 @@ class Cpp2So(object):
     if digest is None:
       return
     stamp = self.stampfile(sofile)
-    tmp = '%s.%d.tmp' % (stamp, os.getpid())
-    with filesys.remove_file_on_error(tmp):
-      with open(tmp, 'w') as stream:
-        stream.write('%s\n%s\n' % (digest, installation_path()))
-      os.replace(tmp, stamp)
+    cache.write_file(stamp, '%s\n%s\n' % (digest, installation_path()))
 
   @classmethod
   def remove_stamp(cls, sofile):
@@ -950,6 +954,7 @@ class Cpp2So(object):
         % (file_in, self.format_version(file_in), compiler.FORMAT_VERSION)
         )
     file_out = _filenames.replacesuffix(file_in, '.so')
+    before = self.product_snapshot(file_out)
     directory = os.path.dirname(os.path.abspath(file_out))
     if not os.access(directory, os.W_OK):
       # The first write would fail with a bare "permission denied".  Name
@@ -972,24 +977,52 @@ class Cpp2So(object):
           'whose tiered default interprets a module without a current object.'
         % (file_in, directory, state)
         )
-    logger.info('Compiling %r', file_out)
-    cmd = list(self._compileCommand(file_in, file_out, imports))
-    logger.debug('Command: %s', ' '.join(cmd))
-    # The old stamp goes before the compiler runs.  An object without a stamp
-    # is stale, so a compile that stops between the compiler and the new
-    # stamp (a kill, a time limit) leaves nothing a later process would trust
-    # under the old digest.  The old object goes too: it may be a hard link
-    # into the product cache, which must not be written into (the linker
-    # writes a new file as well; this makes sure of it).
-    self.remove_stamp(file_out)
+    # Imports/native materialization must finish before taking the product
+    # lock. Pin the input bytes too: another producer can replace the name.
+    with open(file_in, 'rb') as stream:
+      source = stream.read()
+    fd, tmp = tempfile.mkstemp(dir=directory, prefix='.compile-', suffix='.so')
+    os.close(fd)
+    cpp = tmp + '.cpp'
     try:
-      os.unlink(file_out)
-    except FileNotFoundError:
-      pass
-    _system.pexec(cmd)
-    self.write_stamp(file_out)
-    self.store(file_in, file_out, currypath)
-    return file_out
+      cache.write_file(cpp, source)
+      cmd = list(self._compileCommand(cpp, tmp, imports))
+      with _productlock.locked(file_in) as waited:
+        # A producer that published while we prepared/waited wins, even
+        # during a forced rebuild. The stamp is checked without an import.
+        another_won = before != self.product_snapshot(file_out)
+        accept_current = ignored.get('_accept_current', False) \
+            and not config.force_recompile_cxx() \
+            and os.path.isfile(file_out) and not filesys.newer(file_in, file_out)
+        if (another_won or accept_current) \
+            and self.stamp_is_current(file_out) and os.path.isfile(file_out):
+          return file_out
+        logger.info('Compiling %r', file_out)
+        logger.debug('Command: %s', ' '.join(cmd))
+        _system.pexec(cmd)
+        # Invalidate the old stamp only for publication. Never unlink the
+        # live object while a reader may open it; rename the complete one.
+        self.remove_stamp(file_out)
+        os.replace(tmp, file_out)
+        self.write_stamp(file_out)
+        self.store(file_in, file_out, currypath)
+      return file_out
+    finally:
+      for path in (tmp, cpp):
+        try:
+          os.unlink(path)
+        except FileNotFoundError:
+          pass
+
+  @classmethod
+  def product_snapshot(cls, sofile):
+    """File identity and stamp, for a reader's optimistic import/recheck."""
+    try:
+      st = os.stat(sofile)
+      return (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns,
+              cls.read_stamp_lines(sofile))
+    except OSError:
+      return None
 
   # The product cache
   # =================
@@ -1089,7 +1122,7 @@ class Cpp2So(object):
       ]
     if _productcache.lookup(digest, key, names) is None:
       return None
-    with _makecurry.compile_clock:
+    with _makecurry.compile_clock, _productlock.locked(file_in):
       try:
         placed = _productcache.restore(digest, key, directory, names)
       except OSError as exc:
@@ -1102,9 +1135,12 @@ class Cpp2So(object):
         return None
       self.write_stamp(sofile)
     logger.info('Restored %r from the product cache', sofile)
+    before = self.product_snapshot(sofile)
     if self.import_lacks_an_object(
         sofile, _findcurry.imports_path(currypath, **kwds)
       ):
+      return None
+    if before != self.product_snapshot(sofile) or not self.stamp_is_current(sofile):
       return None
     return sofile
 
@@ -1127,8 +1163,10 @@ class Cpp2So(object):
         return
       _productcache.store(digest, key, [cppfile, sofile, self.stampfile(sofile)])
     except OSError as exc:
-      if 'store' not in self._warned:
+      with _warning_lock:
+        warn = 'store' not in self._warned
         self._warned.add('store')
+      if warn:
         logger.warning(
             'cannot store %r in the product cache at %r (%s); set '
             'SPRITE_PRODUCT_CACHE to a writable directory, or to the empty '

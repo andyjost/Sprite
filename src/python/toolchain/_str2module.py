@@ -4,7 +4,7 @@ from ..objects import handle
 from ..toolchain import plans
 from ..utility import filesys
 from ..utility import filesys, formatDocstring
-import logging, os, shutil, tempfile, weakref
+import logging, os, shutil, tempfile, weakref, threading
 
 __all__ = ['is_temporary', 'str2module']
 logger = logging.getLogger(__name__)
@@ -13,12 +13,15 @@ logger = logging.getLogger(__name__)
 # this process.  Tiered execution leaves such a module interpreted (see
 # backends.cxx.tiered).
 _TEMPORARY_DIRS = set()
+_dirs_lock = threading.Lock()
 
 def is_temporary(filename):
   '''Tells whether ``filename`` lies in a directory str2module made.'''
   filename = os.path.abspath(filename)
+  with _dirs_lock:
+    directories = tuple(_TEMPORARY_DIRS)
   return any(filename.startswith(directory + os.sep)
-      for directory in _TEMPORARY_DIRS)
+      for directory in directories)
 
 @formatDocstring(config.python_package_name())
 def str2module(
@@ -62,7 +65,8 @@ def str2module(
     parentdir = tempfile.gettempdir()
   moduledir = tempfile.mkdtemp(prefix='sprite-', dir=parentdir)
   logger.debug('Created directory %r for a dynamic Curry module', moduledir)
-  _TEMPORARY_DIRS.add(moduledir)
+  with _dirs_lock:
+    _TEMPORARY_DIRS.add(moduledir)
   try:
     curryfile = os.path.join(moduledir, modulename.replace('.', os.sep) + '.curry')
     os.makedirs(os.path.dirname(curryfile), exist_ok=True)
@@ -91,5 +95,6 @@ def str2module(
 
 def _rmdir(moduledir):
   logger.debug('Removing Curry module directory: %r', moduledir)
-  _TEMPORARY_DIRS.discard(moduledir)
+  with _dirs_lock:
+    _TEMPORARY_DIRS.discard(moduledir)
   shutil.rmtree(moduledir)

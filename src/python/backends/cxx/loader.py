@@ -4,6 +4,7 @@ from ...toolchain import _filenames
 from ... import config, exceptions
 from . import cyrtbindings as cyrt
 from . import elf
+from ...utility.locking import native_metadata
 import hashlib, logging, os
 
 logger = logging.getLogger(__name__)
@@ -91,7 +92,7 @@ def _refuse_other_file(name, registered, sofile):
       % (name, sofile, registered)
       )
 
-def _check_before_open(interp, name, sofile, from_plan=False):
+def _wait_pending(interp, name, sofile):
   '''
   The checks that precede the open of the object of module ``name``.
 
@@ -125,6 +126,8 @@ def _check_before_open(interp, name, sofile, from_plan=False):
           'interrupts the wait)', name, sofile, WAIT_NOTICE_SECONDS
         )
       tiered.wait_for(name, interp=interp)
+def _check_before_open(interp, name, sofile, from_plan=False):
+  _wait_pending(interp, name, sofile)
   registered = cyrt.SharedCurryModule.find_sofilename(name)
   if registered is not None:
     _refuse_other_file(name, registered, sofile)
@@ -144,8 +147,17 @@ def _program_path(interp, sofile):
   return _findcurry.program_path(curryfile, interp.path, is_sourcefile=True)
 
 def load_module(interp, sofile, from_plan=False, fresh=False):
+  while True:
+    module = _load_module_once(interp, sofile, from_plan, fresh)
+    if module is not None:
+      return module
+
+
+def _load_module_once(interp, sofile, from_plan, fresh):
   assert sofile.endswith('.so')
   sofile = os.path.abspath(sofile)
+  from .toolchain import Cpp2So
+  before = Cpp2So.product_snapshot(sofile)
   name, needed = _dynamic_names(sofile)
   from . import tiered
   if interp.flags['interpret'] == 'all':
@@ -153,19 +165,8 @@ def load_module(interp, sofile, from_plan=False, fresh=False):
         'cannot load %r under interpret:all: opening a compiled object '
         'replaces the live interpreted steps' % sofile
       )
-  previous = None if name is None else cyrt.SharedCurryModule.find_sofilename(name)
-  with open(sofile, 'rb') as stream:
-    digest = hashlib.sha256(stream.read()).hexdigest()
-  replace = previous is not None and name not in interp.modules \
-      and (from_plan or fresh) and _objects.get(name) != (sofile, digest)
-  if name is not None and not replace:
-    _check_before_open(interp, name, sofile, from_plan)
-  module = interp.modules.get(name)
-  registered = cyrt.SharedCurryModule.find_sofilename(name) if name else None
-  adopt = replace or (tiered.has_shim(name) and registered is None) or (
-      module is not None and getHandle(module).sofilename is None
-    )
-  steps = tiered.prepare_adoption(interp, name) if adopt else []
+  if name is not None:
+    _wait_pending(interp, name, sofile)
   # The object names the objects of its imports by their SONAMEs, and the
   # dynamic linker satisfies such a name with an object of that name this
   # process has mapped: no search path leads to the file.  So the imports
@@ -186,6 +187,32 @@ def load_module(interp, sofile, from_plan=False, fresh=False):
         )
   # Under tiered execution the tables of the modules the interpreter runs
   # must be named before an object binds to them (see tiered.py).
+  tiered.ensure_shims(interp)
+  if before != Cpp2So.product_snapshot(sofile):
+    return None # a producer published while dependencies were imported
+  return _open_module(interp, sofile, name, from_plan, fresh, before)
+
+@native_metadata
+def _open_module(interp, sofile, name, from_plan, fresh, before):
+  from . import tiered
+  from .toolchain import Cpp2So
+  if before != Cpp2So.product_snapshot(sofile):
+    return None
+  previous = None if name is None else cyrt.SharedCurryModule.find_sofilename(name)
+  with open(sofile, 'rb') as stream:
+    digest = hashlib.sha256(stream.read()).hexdigest()
+  replace = previous is not None and name not in interp.modules \
+      and (from_plan or fresh) and _objects.get(name) != (sofile, digest)
+  if name is not None and not replace:
+    registered = cyrt.SharedCurryModule.find_sofilename(name)
+    if registered is not None:
+      _refuse_other_file(name, registered, sofile)
+  module = interp.modules.get(name)
+  registered = cyrt.SharedCurryModule.find_sofilename(name) if name else None
+  adopt = replace or (tiered.has_shim(name) and registered is None) or (
+      module is not None and getHandle(module).sofilename is None
+    )
+  steps = tiered.prepare_adoption(interp, name) if adopt else []
   tiered.ensure_shims(interp)
   if adopt:
     owner = cyrt.Module.find_or_create(name)

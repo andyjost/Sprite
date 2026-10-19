@@ -644,12 +644,10 @@ class TestAbiStamp(ToolchainTestCase):
     self.check_value(self.import_module(name), 4)
     self.assertEqual(self.cpp2so.read_stamp(sofile), self.cpp2so.digest())
 
-  def test_stamp_is_removed_before_the_compile(self):
+  def test_failed_compile_keeps_the_published_object_and_stamp(self):
     '''
-    The old stamp goes before the compiler runs.  A compile that stops
-    between the compiler and the new stamp (a kill, a time limit) leaves an
-    object without a stamp, which is compiled again, and not an object with
-    the stamp of headers it was not compiled against.
+    A failed producer leaves the previous object and stamp intact. Here
+    its old digest is stale, so the next plan still compiles it again.
     '''
     class Interrupted(Exception):
       pass
@@ -667,7 +665,7 @@ class TestAbiStamp(ToolchainTestCase):
       with self.assertRaises(Interrupted):
         makecurry(self.plan, name, [self.srcdir])
     self.assertTrue(os.path.isfile(sofile))
-    self.assertIsNone(self.cpp2so.read_stamp(sofile))
+    self.assertEqual(self.cpp2so.read_stamp(sofile), '0123456789abcdef')
     self.assertTrue(self.cpp2so.is_stale(sofile))
     self.assertEqual(self.prerequisite(name), cppfile)
     # The next compile completes and stamps the object.

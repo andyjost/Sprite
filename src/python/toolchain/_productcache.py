@@ -48,8 +48,11 @@ a temporary name in the product directory and a rename, so a reader never
 sees a partial file.  The shared object is hard-linked, in both directions,
 when the cache and the product directory lie on one file system (the linker
 and the compile step write a new file, never into the old one), else
-copied; the generated C++ and the stamp are copied, because the emitter
-writes the generated file in place.
+copied; the generated C++ and the stamp are copied. Published cache entries
+are immutable. Store, restore and prune share an advisory lock beside the
+cache root and a thread-owned lock in this process. Lookup is a snapshot;
+restore rechecks it while holding that lock, so pruning cannot unpin its
+source files during placement.
 
 The modification times of the restored files are set in the order of the
 toolchain (the C++ after the JSON, the object after the C++), so the plan
@@ -66,8 +69,9 @@ any time.
 '''
 
 from .. import cache, config
+from . import _productlock
 from ..utility import filesys
-import hashlib, logging, os, shutil, tempfile, time
+import functools, hashlib, logging, os, shutil, tempfile, time, threading, uuid
 
 logger = logging.getLogger(__name__)
 
@@ -93,10 +97,11 @@ LINK_SUFFIXES = ('.so',)
 # The counts of this process: the products restored from the cache and the
 # products stored in it.  sprite-make reports them.
 counts = {'restored': 0, 'stored': 0}
+_counts_lock = threading.Lock()
 
 def reset_counts():
-  counts['restored'] = 0
-  counts['stored'] = 0
+  with _counts_lock:
+    counts.update(restored=0, stored=0)
 
 def root():
   '''The root directory of the cache, or None when the cache is off.'''
@@ -293,10 +298,24 @@ def _place(source, target, link):
       shutil.copymode(source, tmp)
     os.replace(tmp, target)
 
+def _cache_locked(function):
+  @functools.wraps(function)
+  def call(*args, **kwds):
+    import inspect
+    bound = inspect.signature(function).bind(*args, **kwds)
+    cache_root = bound.arguments.get('cache_root') or root()
+    if cache_root is None:
+      return function(*args, **kwds)
+    # No imports through an interpreter and no native calls in this region.
+    with _productlock.locked(cache_root.rstrip(os.sep) + '.py'):
+      return function(*args, **kwds)
+  return call
+
+@_cache_locked
 def store(digest, key, files, cache_root=None):
   '''
   Stores ``files`` (paths; their base names name them in the entry) under
-  ``digest`` and ``key``.  An entry that exists is replaced.  Two writers of
+  ``digest`` and ``key``.  A published entry is immutable; the first producer wins.  Two writers of
   one key at once both end well: the directory is renamed into place, and
   the writer that finds it there removes its own files.  Returns the
   directory of the entry.  Raises OSError when the cache cannot be written.
@@ -306,26 +325,14 @@ def store(digest, key, files, cache_root=None):
   directory = entry_dir(digest, key, cache_root)
   parent = os.path.dirname(directory)
   os.makedirs(parent, exist_ok=True)
-  tmpdir = tempfile.mkdtemp(dir=parent, prefix='.%s-' % key[:8], suffix='.tmp')
+  tmpdir = os.path.join(parent, '.%s-%s.tmp' % (key[:8], uuid.uuid4().hex))
+  os.mkdir(tmpdir, 0o777)
   try:
     for path in files:
       _place(
           path, os.path.join(tmpdir, os.path.basename(path))
         , link=path.endswith(LINK_SUFFIXES)
         )
-    os.chmod(tmpdir, 0o777 & ~_umask())
-    if os.path.isdir(directory):
-      # Replace the entry: move the old one away, then rename ours in.  A
-      # second writer may do the same in between; then ours is the one
-      # moved away, and the other's content, of the same key, stays.
-      old = tempfile.mkdtemp(dir=parent, prefix='.%s-' % key[:8], suffix='.old')
-      os.rmdir(old)
-      try:
-        os.rename(directory, old)
-      except FileNotFoundError:
-        pass
-      else:
-        shutil.rmtree(old, ignore_errors=True)
     try:
       os.rename(tmpdir, directory)
     except OSError as exc:
@@ -337,14 +344,11 @@ def store(digest, key, files, cache_root=None):
   except BaseException:
     shutil.rmtree(tmpdir, ignore_errors=True)
     raise
-  counts['stored'] += 1
+  with _counts_lock:
+    counts['stored'] += 1
   return directory
 
-def _umask():
-  mask = os.umask(0)
-  os.umask(mask)
-  return mask
-
+@_cache_locked
 def restore(digest, key, directory, names, cache_root=None):
   '''
   Places the files ``names`` of the entry under ``digest`` and ``key`` into
@@ -362,7 +366,8 @@ def restore(digest, key, directory, names, cache_root=None):
     _place(found[name], os.path.join(directory, name), link=name.endswith(LINK_SUFFIXES))
     placed[name] = os.path.join(directory, name)
   _order(directory, [placed[name] for name in names])
-  counts['restored'] += 1
+  with _counts_lock:
+    counts['restored'] += 1
   return placed
 
 def _order(directory, files):
@@ -383,6 +388,7 @@ def _order(directory, files):
     latest += 1000000
     os.utime(path, ns=(latest, latest))
 
+@_cache_locked
 def prune(keep, cache_root=None, max_age=3600):
   '''
   Removes from the cache the digest directories whose name is not in

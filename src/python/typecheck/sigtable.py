@@ -35,7 +35,8 @@ from ..toolchain.flat2icurry import flatcurry as fc
 from ..toolchain.flat2icurry.terms import constructor as _term
 from ..utility import readcurry as rc
 from ..utility.trampoline import trampoline
-import logging, os, re, weakref
+import logging, os, re, weakref, threading
+from ..utility.locking import synchronized
 
 logger = logging.getLogger(__name__)
 
@@ -463,6 +464,7 @@ class Interface:
   # The interfaces read in this process, by file.  The key holds the size
   # and the modification time, so a rewritten file is read again.
   _loaded = {}
+  _cache_lock = threading.RLock()
 
   def __init__(self, path, data=None):
     if data is None:
@@ -482,9 +484,11 @@ class Interface:
     self._types = {}
     self._ctors = {}
     self._decoded = {}
+    self._decode_lock = threading.RLock()
     self._index()
 
   @classmethod
+  @synchronized(_cache_lock)
   def load(cls, path):
     '''Reads an interface.  Files are cached by name, size, and time.'''
     st = os.stat(path)
@@ -495,6 +499,7 @@ class Interface:
     return iface
 
   @classmethod
+  @synchronized(_cache_lock)
   def purge(cls):
     '''Forgets the cached interfaces whose files are gone.'''
     for key in list(cls._loaded):
@@ -543,6 +548,10 @@ class Interface:
       pos = m.end()
 
   def _decode(self, start):
+    with self._decode_lock:
+      return self._decode_locked(start)
+
+  def _decode_locked(self, start):
     term = self._decoded.get(start)
     if term is None:
       text = self.data[start:self._end(start)].decode('utf-8')
@@ -676,8 +685,9 @@ class SignatureTable:
   '''
   def __init__(self, interp):
     self._interp = weakref.ref(interp)
-    self._modules = weakref.WeakKeyDictionary()
+    self._modules = {}
     self._instances = {}
+    self._lock = threading.RLock()
 
   @property
   def interp(self):
@@ -685,15 +695,18 @@ class SignatureTable:
 
   def clear(self):
     '''Forgets every interface, scheme and instance.'''
-    self._modules.clear()
-    self._instances.clear()
+    with self._lock:
+      self._modules.clear()
+      self._instances.clear()
     Interface.purge()
 
   def modules(self):
     '''The names of the modules whose interface the table has found.'''
+    with self._lock:
+      modules = [(ref(), entry) for ref, entry in self._modules.values()]
     return [
-        module.__name__ for module, entry in self._modules.items()
-                        if entry.interface is not None
+        module.__name__ for module, entry in modules
+                        if module is not None and entry.interface is not None
       ]
 
   # Interfaces.
@@ -708,9 +721,21 @@ class SignatureTable:
 
   def _entry(self, module):
     module = self._module(module)
-    entry = self._modules.get(module)
+    key = id(module)
+    with self._lock:
+      found = self._modules.get(key)
+      entry = None if found is None or found[0]() is not module else found[1]
     if entry is None:
-      entry = self._modules[module] = _ModuleEntry(self._find(module))
+      candidate = _ModuleEntry(self._find(module))
+      def forget(ref):
+        with self._lock:
+          found = self._modules.get(key)
+          if found is not None and found[0] is ref:
+            del self._modules[key]
+      ref = weakref.ref(module, forget)
+      with self._lock:
+        found = self._modules.setdefault(key, (ref, candidate))
+        entry = found[1]
     return entry
 
   def _find(self, module):
@@ -797,11 +822,12 @@ class SignatureTable:
     entry = self._entry(module)
     is_constructor = symbol.info.tag >= T_CTOR
     key = name, is_constructor
-    if key not in entry.schemes:
-      iface = entry.interface
-      scheme = None if iface is None else iface.scheme(name, is_constructor)
-      entry.schemes[key] = scheme
-    scheme = entry.schemes[key]
+    with self._lock:
+      if key not in entry.schemes:
+        iface = entry.interface
+        scheme = None if iface is None else iface.scheme(name, is_constructor)
+        entry.schemes[key] = scheme
+      scheme = entry.schemes[key]
     if scheme is None:
       if entry.interface is None:
         return self._missing(symbol, required, None)
@@ -843,8 +869,13 @@ class SignatureTable:
     ``_inst#Class#Type`` functions.  Two modules that declare the same
     instance are an error.
     '''
-    for modulename, module in list(self.interp.modules.items()):
-      entry = self._entry(module)
+    entries = [(name, self._entry(module))
+        for name, module in self.interp.modules.copy().items()]
+    with self._lock:
+      return self._instance_map(entries)
+
+  def _instance_map(self, entries):
+    for modulename, entry in entries:
       if entry.instances is not None:
         continue
       found = []
@@ -863,7 +894,7 @@ class SignatureTable:
           self._instances[classname, typename] = inst
           found.append(inst)
       entry.instances = found
-    return self._instances
+    return dict(self._instances)
 
   def instance(self, classname, typename):
     '''

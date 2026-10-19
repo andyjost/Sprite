@@ -10,13 +10,22 @@ from collections.abc import Mapping
 from types import MappingProxyType
 
 
+class Flags(Mapping):
+  """A live read-only view of settings published by reset."""
+  def __init__(self, interp):
+    self.interp = interp
+  def __getitem__(self, key): return self.interp.flags[key]
+  def __iter__(self): return iter(self.interp.flags.copy())
+  def __len__(self): return len(self.interp.flags)
+
+
 class Modules(Mapping):
   '''A live view of the modules, without their packages.'''
   def __init__(self, interp):
     self.interp = interp
 
   def __iter__(self):
-    return (name for name, module in self.interp.modules.items()
+    return (name for name, module in self.interp.modules.copy().items()
         if not isinstance(module, CurryPackage))
 
   def __len__(self):
@@ -45,13 +54,10 @@ def import_(interp, name, *, path=None):
       text = _source_text(name)
     except OSError as error:
       raise exceptions.ModuleLookupError('%s; searched curry.path' % error) from None
-    previous = list(interp.path)
-    try:
-      interp.path = [os.path.dirname(os.path.abspath(name))] + list(
-          previous if path is None else path)
+    search = [os.path.dirname(os.path.abspath(name))] + list(
+        interp.path if path is None else path)
+    with interp._using_path(search):
       module = compile(interp, text, name=modulename)
-    finally:
-      interp.path = previous
     setattr(module, '.source_file', os.path.abspath(name))
     from .import_ import record_source
     record_source(module)
@@ -105,16 +111,27 @@ def reset(interp, **flags):
   flagmod.check_flags(settings)
   interp.reset(flags=settings)
   interp.import_('Prelude')
-  # Python keeps the parent attributes as well as the import cache.
+  # Python owns publication of a hook result until exec_module completes.
+  # Wait for each tracked name without holding the heap or a Sprite lock.
+  from importlib._bootstrap import _get_module_lock
+  from ..utility.locking import lib_import_lock, lib_import_names
   prefix = config.python_package_name() + '.lib'
-  for name in list(sys.modules):
-    if name == prefix or name.startswith(prefix + '.'):
-      module = sys.modules.pop(name)
-      if name == prefix:
-        for key, value in list(vars(module).items()):
+  with lib_import_lock:
+    names = set(lib_import_names)
+  names.update(name for name in sys.modules.copy()
+      if name == prefix or name.startswith(prefix + '.'))
+  for name in sorted(names, reverse=True):
+    mutex = _get_module_lock(name)
+    mutex.acquire()
+    try:
+      module = sys.modules.pop(name, None)
+      if name == prefix and module is not None:
+        for key, value in vars(module).copy().items():
           from ..objects import CurryModule
           if isinstance(value, CurryModule):
             delattr(module, key)
+    finally:
+      mutex.release()
   package = sys.modules.get(config.python_package_name())
   if package is not None:
     package.__dict__.pop('lib', None)
@@ -154,26 +171,49 @@ def reload(interp, module, *, text=None):
     plan = plans.makeplan(flags=plans.MAKE_ICURRY | plans.MAKE_JSON)
     toolchain.makecurry(plan, filename, currypath, is_sourcefile=True)
   wait(interp)
+  if interp.flags['backend'] == 'cxx':
+    from ..utility.locking import native_metadata
+    return native_metadata(_replace_module)(interp, module, source, text, imports)
+  return _replace_module(interp, module, source, text, imports)
+
+
+def _replace_module(interp, module, source, text, imports):
+  check_module(module)
   name = module.__name__
-  old = dict(module.__dict__)
+  old = module.__dict__.copy()
   getHandle(module).unlink(interp, keep_package=True)
   interp.sigtable.clear()
   try:
-    fresh = import_(interp, source) if text is None else compile(interp, text, name=name, imports=imports)
+    # Only the final module is published, after its wrappers/classes refer
+    # to the original Python module object (reload preserves its identity).
+    registry = interp.modules
+    with interp._private_modules():
+      fresh = import_(interp, source) if text is None else compile(interp, text, name=name, imports=imports)
+      dependencies = interp.modules.copy()
+    registry.update((key, value) for key, value in dependencies.items() if key != name)
+    metadata = getattr(fresh, '.info')
+    metadata._module = module
+    for symbol in metadata._symbols.values():
+      symbol.module = module
+    for datatype in metadata._types.values():
+      datatype.module = module
+    for symbol in getattr(fresh, '.symbols').values():
+      symbol._module = weakref.ref(module)
+    replacement = fresh.__dict__.copy()
+    replacement['.replacement'] = fresh # keep materializers' owner alive
   except Exception:
-    module.__dict__.clear()
     module.__dict__.update(old)
+    if '.retired' not in old:
+      module.__dict__.pop('.retired', None)
     interp.modules[name] = module
     raise
-  module.__dict__.clear()
-  module.__dict__.update(fresh.__dict__)
-  setattr(module, '.info', ModuleInfo(module))
-  for symbol in getattr(module, '.symbols').values():
-    symbol._module = weakref.ref(module)
-  from ..objects.classes import build_classes
-  build_classes(interp, module)
-  # Materializers hold references to the module they built.
-  setattr(module, '.replacement', fresh)
+  # Never clear the module's mandatory metadata slots: concurrent checks
+  # see an old/new complete view or a retired module, never absent fields.
+  module.__dict__.update(replacement)
+  for key in old.keys() - replacement.keys():
+    if key != '.retired':
+      module.__dict__.pop(key, None)
+  module.__dict__.pop('.retired', None)
   interp.modules[name] = module
   parent, _, local = name.rpartition('.')
   if parent:
@@ -234,7 +274,7 @@ def load(interp, path):
   path = os.path.abspath(os.fspath(path))
   backend = interp.flags['backend']
   try:
-    for module in interp.modules.values():
+    for module in interp.modules.copy().values():
       loaded = getattr(module, '.load_path', None) or getHandle(module).sofilename
       if loaded is not None and os.path.realpath(loaded) == os.path.realpath(path):
         return module

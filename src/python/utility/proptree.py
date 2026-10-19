@@ -1,7 +1,9 @@
 '''
 Implements a property tree.  Used for metadata.
 '''
-import collections.abc
+import collections.abc, threading
+from .locking import synchronized
+_types_lock = threading.Lock()
 
 __all__ = ['proptree']
 NODE_TYPES = {}
@@ -90,6 +92,7 @@ class _PropTreeNodeGetter(object):
   def __call__(self, slots):
     return _gettype(slots)()
 
+@synchronized(_types_lock)
 def _gettype(slots):
   name = '_'.join(slots)
   if name not in NODE_TYPES:

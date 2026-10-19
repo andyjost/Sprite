@@ -123,6 +123,7 @@ compile is not written; sprite-make --so writes it.
 from ...objects.handle import getHandle
 from ...toolchain import _filenames, _str2module
 from ...utility import curryname, formatting
+from ...utility.locking import native_metadata
 from ..generic import compiler as generic
 from . import cyrtbindings as cyrt
 from ... import common, config
@@ -201,11 +202,13 @@ class _State(object):
 
 _state = _State()
 
+@native_metadata
 def _tmpdir():
   if _state.tmpdir is None:
     _state.tmpdir = tempfile.mkdtemp(prefix='sprite-tiered-')
   return _state.tmpdir
 
+@native_metadata
 def _warn_once(key, message, *args):
   if key not in _state.warned:
     _state.warned.add(key)
@@ -243,6 +246,7 @@ def _foreign_flags(interp):
   environment.update(_flags.getflags())
   return interp.flags['inline_budget'] != environment['inline_budget']
 
+@native_metadata
 def _private_copy(imodule):
   '''
   Copies the source of ``imodule`` into a directory of the process, with
@@ -290,6 +294,7 @@ def _runtime(info):
     flags = ord(flags)
   return not (flags & common.F_STATIC_OBJECT)
 
+@native_metadata
 def _register_shim(moduleobj):
   '''
   The shim of a module, made on the first call.  None when the module has no
@@ -342,6 +347,7 @@ def _register_shim(moduleobj):
   _state.shims[name] = shim
   return shim
 
+@native_metadata
 def _load_shim(shim, cxx, envp):
   '''Links a shim, unless it exists, and loads it.  False on failure.'''
   if shim.loaded:
@@ -355,6 +361,7 @@ def _load_shim(shim, cxx, envp):
   shim.loaded = True
   return True
 
+@native_metadata
 def _pending_shims(cxx):
   '''The shims not yet loaded, as (file, argv) pairs for a job.'''
   return [
@@ -362,6 +369,7 @@ def _pending_shims(cxx):
         if not shim.loaded and not shim.blocked
     ]
 
+@native_metadata
 def ensure_shims(interp):
   '''
   Loads every registered shim.  The loader calls this before it loads a
@@ -378,6 +386,7 @@ def ensure_shims(interp):
         return
     _load_shim(shim, cxx, _environment(interp))
 
+@native_metadata
 def prepare_adoption(interp, name):
   """Check a foreground swap and load its shims before any object opens."""
   from ...exceptions import LoadError
@@ -431,6 +440,7 @@ def _compiles(interp, moduleobj):
   filename = imodule.filename
   return bool(filename) and not _str2module.is_temporary(filename)
 
+@native_metadata
 def _blocked_import(interp, imodule):
   '''
   The name of an import, direct or indirect, whose shim is blocked (see
@@ -485,6 +495,7 @@ def _interpreter_setting(interp, imodule):
     return 'new'
   return 'all'
 
+@native_metadata
 def module_loaded(interp, moduleobj, currypath):
   '''
   Called when the import of a module ends (IBackend.module_loaded).
@@ -505,6 +516,7 @@ def module_loaded(interp, moduleobj, currypath):
     return False
   return submit(interp, moduleobj, currypath)
 
+@native_metadata
 def _record(moduleobj, sofile=None):
   '''
   Records the object of a module the interpreter runs (see _Record): by
@@ -525,6 +537,7 @@ def _record(moduleobj, sofile=None):
   _state.records[imodule.fullname] = record
   return record
 
+@native_metadata
 def _import_objects(interp, imodule):
   '''
   The objects of the imports of ``imodule`` that the swap maps before the
@@ -556,6 +569,7 @@ def _import_objects(interp, imodule):
     visit(depname)
   return out
 
+@native_metadata
 def submit(interp, moduleobj, currypath):
   '''
   Queues the background compile of a module the interpreter runs.  Returns
@@ -633,6 +647,7 @@ def submit(interp, moduleobj, currypath):
   _state.modules[name] = weakref.ref(moduleobj)
   return True
 
+@native_metadata
 def _refresh(name, interp=None):
   '''
   Records the object of a swapped module in its ICurry (cxx.shlib), so the
@@ -658,6 +673,7 @@ def _refresh(name, interp=None):
     if shlib is not None and h.icurry.metadata.get('cxx.shlib') is None:
       h.icurry.update_metadata({'cxx.shlib': shlib})
 
+@native_metadata
 def poll(interp=None):
   '''
   Applies the compiled objects that finished in the background, logs the
@@ -731,12 +747,17 @@ def wait(timeout=None, interp=None):
     if deadline is not None and time.monotonic() >= deadline:
       return False
 
+@native_metadata
 def pending(name):
   '''
   Tells whether a background compile of module ``name`` is queued, running,
   or finished and not yet applied.
   '''
   return name in _state.pending
+
+@native_metadata
+def _drop_pending(name):
+  _state.pending.pop(name, None)
 
 def wait_for(name, timeout=None, interp=None):
   '''
@@ -756,11 +777,12 @@ def wait_for(name, timeout=None, interp=None):
     if idle:
       # Nothing is queued or running, and the poll applied what finished:
       # a record left here is stale.
-      _state.pending.pop(name, None)
+      _drop_pending(name)
     elif deadline is not None and time.monotonic() >= deadline:
       return False
   return True
 
+@native_metadata
 def has_shim(name):
   '''
   Tells whether a shim names the tables of module ``name``: the module runs,
@@ -769,6 +791,7 @@ def has_shim(name):
   '''
   return name in _state.shims
 
+@native_metadata
 def status():
   '''
   The counts of tiered execution in this process: queued, running,
@@ -787,6 +810,7 @@ def counts():
   s = cyrt.tiered_status()
   return s['swapped_functions'], s['failed_modules']
 
+@native_metadata
 def cancel():
   '''Drops the queued compiles and kills the running one.'''
   cyrt.tiered_cancel()

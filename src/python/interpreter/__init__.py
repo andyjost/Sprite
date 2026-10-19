@@ -14,7 +14,7 @@ from ..objects.handle import getHandle
 import importlib
 from ..utility.binding import binding
 from ..utility import curryname, formatDocstring
-import logging, os, sys
+import contextlib, contextvars, logging, os, sys, threading
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +76,9 @@ class Interpreter(object):
     _flagmod.check_flags(self._flags)
     self._backend = backends.IBackend(self._flags['backend'])
     self._modules = {}
+    self._module_view = contextvars.ContextVar('sprite_module_view', default=None)
+    self._path_view = contextvars.ContextVar('sprite_path_view', default=None)
+    self._state_lock = threading.RLock()
     self._path = list(config.currypath(reset=True))
     # The steps and forks of the evaluations of this interpreter; see stats.
     self._evaluation_totals = _evaluator.EvaluationTotals()
@@ -102,7 +105,8 @@ class Interpreter(object):
     A dict containing the imported Curry modules.  Maps module names
     to :class:`CurryModule <{0}.objects.CurryModule>` objects.
     '''
-    return self._modules
+    view = self._module_view.get()
+    return self._modules if view is None else view
 
   @property
   def path(self):
@@ -111,11 +115,12 @@ class Interpreter(object):
     place to adjust where to search for Curry files.  An assignment to the
     attribute replaces the entries of the same list.
     '''
-    return self._path
+    view = self._path_view.get()
+    return self._path if view is None else view
 
   @path.setter
   def path(self, values):
-    self._path[:] = [str(x) for x in values]
+    self.path[:] = [str(x) for x in values]
 
   @property
   def backend(self):
@@ -162,6 +167,12 @@ class Interpreter(object):
       from ..backends.cxx import tiered
       tiered.cancel()
       tiered.wait(interp=self)
+    if self.flags['backend'] == 'cxx':
+      from ..utility.locking import native_metadata
+      return native_metadata(self._reset_state)(flags)
+    return self._reset_state(flags)
+
+  def _reset_state(self, flags):
     self._session = object()
     self.stdin = sys.stdin
     self.stdout = sys.stdout
@@ -179,8 +190,7 @@ class Interpreter(object):
       if getHandle(self._modules[name]).is_package:
         del self._modules[name]
     if flags is not None:
-      self._flags.clear()
-      self._flags.update(flags)
+      self._flags = dict(flags)
       self._backend = backends.IBackend(self._flags['backend'])
     self.backend.init_interpreter_state(self)
     self._sigtable.clear()
@@ -195,10 +205,26 @@ class Interpreter(object):
     runs its own code while an object of the old module is alive (issue
     #114).  ``reset`` and ``reload`` call this.
     '''
-    for name, module in list(self.modules.items()):
+    for name, module in self.modules.copy().items():
       module = getHandle(module)
       if not module.is_package and name != 'Prelude':
         module.unlink(self)
+
+  @contextlib.contextmanager
+  def _using_path(self, values):
+    token = self._path_view.set(list(values))
+    try:
+      yield
+    finally:
+      self._path_view.reset(token)
+
+  @contextlib.contextmanager
+  def _private_modules(self):
+    token = self._module_view.set(self.modules.copy())
+    try:
+      yield
+    finally:
+      self._module_view.reset(token)
 
   def module(self, name):
     '''Look up a module by name.'''
@@ -242,9 +268,9 @@ class Interpreter(object):
 def reload(name, flags={}):
   '''Hard-resets the interpreter found in module ``{}``.'''
   flags = _flagmod.getflags(flags)
-  envflags = ','.join('%s:%s' % (str(k), str(v)) for k,v in flags.items())
-  with binding(os.environ, 'SPRITE_INTERPRETER_FLAGS', envflags):
-    this = sys.modules[name]
+  this = sys.modules[name]
+  def replace():
+    this._reload_flags = flags
     old = getattr(this, '_interpreter_', None)
     if isinstance(old, Interpreter):
       # The modules of the interpreter replaced leave it as a reset
@@ -253,3 +279,8 @@ def reload(name, flags={}):
       # an object of the old module is alive (issue #114).
       old._unlink_modules()
     importlib.reload(this)
+  old = getattr(this, '_interpreter_', None)
+  if old is not None and old.flags['backend'] == 'cxx':
+    from ..utility.locking import native_metadata
+    return native_metadata(replace)()
+  return replace()

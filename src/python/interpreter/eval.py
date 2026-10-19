@@ -92,12 +92,34 @@ def _converter(interp, typeexpr, variables):
   return lambda ip, value: to_python(value, typeexpr=_under_io(typeexpr))
 
 
-def _run(interp, goal, convert, answer=False):
+def _live_values(interp, session, values):
+  """Check the session on both sides of every deferred native step."""
+  from ..exceptions import StaleError
+  while True:
+    if session is not interp._session:
+      raise StaleError('the interpreter was reset while consuming results')
+    try:
+      value = next(values)
+    except StopIteration:
+      if session is not interp._session:
+        raise StaleError('the interpreter was reset while consuming results')
+      return
+    if session is not interp._session:
+      raise StaleError('the interpreter was reset while consuming results')
+    yield value
+
+
+def _run(interp, goal, convert, answer=False, session=None):
+  if session is None:
+    session = interp._session
+  if interp._session is not session:
+    from ..exceptions import StaleError
+    raise StaleError('the interpreter was reset before consuming the results')
   # Creating a runtime state can inspect the root. Defer it until next().
   interp.backend.before_evaluation(interp)
   values = goal.evaluate(interp)
   try:
-    for value in values:
+    for value in _live_values(interp, session, values):
       bindings = Bindings() if answer else None
       if convert is not None:
         value = convert(interp, value)
@@ -132,16 +154,18 @@ def eval_nodes(interp, *args, **kwds):
 
 
 def _evaluate(interp, args, kwds, raw):
+  session = interp._session
   args = _arguments(interp, args, kwds)
   variables = [v for v in walk_forms(args) if isinstance(v, Var)]
   goal = goals.make_goal(interp, args, exprtype=kwds.pop('exprtype', None), anchors=kwds)
   text = goal.text or _text(args[0])
   convert = None if raw else _converter(interp, expressions.result_type(interp, goal.expr), variables)
-  return Results(_run(interp, goal, convert), text)
+  return Results(_run(interp, goal, convert, session=session), text)
 
 
 def solve(interp, goal):
   '''Return a Results of Answer(value, bindings), reporting every named Var.'''
+  session = interp._session
   args = _arguments(interp, (goal,), {})
   value = args[0]
   variables = tuple(named_vars(value).values())
@@ -153,7 +177,7 @@ def solve(interp, goal):
     goal = goals.make_goal(interp, ((value, bindings),))
     convert = _converter(interp, expressions.result_type(interp, goal.expr), all_vars)
     def answers():
-      values = _run(interp, goal, convert)
+      values = _run(interp, goal, convert, session=session)
       try:
         for result, bindings in values:
           parts = []
@@ -167,7 +191,7 @@ def solve(interp, goal):
   else:
     goal = goals.make_goal(interp, args)
     convert = _converter(interp, expressions.result_type(interp, goal.expr), all_vars)
-    values = _run(interp, goal, convert, answer=True)
+    values = _run(interp, goal, convert, answer=True, session=session)
   return Results(values, str(value))
 
 
@@ -187,13 +211,15 @@ def _print_yield(interp, event):
   try:
     line = conversions.ToPython(interp=interp)(next(values), typeexpr=typeexpr)
     print(line, flush=True)
-    interp._stream_outputs = getattr(interp, '_stream_outputs', 0) + 1
+    with interp._state_lock:
+      interp._stream_outputs = getattr(interp, '_stream_outputs', 0) + 1
   finally:
     values.close()
 
 
 def stream(interp, action):
   '''The output events of an IO goal, with its final value as the result.'''
+  session = interp._session
   if interp.flags['backend'] != 'cxx':
     raise NotImplementedError('curry.stream requires the C++ backend')
   args = _arguments(interp, (action,), {})
@@ -212,13 +238,16 @@ def stream(interp, action):
       interp.symbol('Prelude.returnIO'), goal.expr)
   convert = conversions.ToPython(variable=_Variables(interp, variables), interp=interp)
   def run():
+    if interp._session is not session:
+      from ..exceptions import StaleError
+      raise StaleError('the interpreter was reset before consuming the stream')
     interp.backend.before_evaluation(interp)
     expr, goal._expr = goal._expr, None
     rts = interp.backend.create_evaluation_rts(interp, expr)
     del expr
     events = interp._evaluation_totals.track(rts, rts.generate_events())
     try:
-      for output, value in events:
+      for output, value in _live_values(interp, session, events):
         if output:
           item, printer = value.successors
           yield convert(item, typeexpr=_yield_type(interp, printer))

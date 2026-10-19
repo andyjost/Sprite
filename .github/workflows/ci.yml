@@ -173,9 +173,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     continue-on-error: ${{ matrix.experimental }}
-    env:
-      # Keep the GIL enabled on 3.14t until the extension's threading audit.
-      PYTHON_GIL: '1'
     strategy:
       fail-fast: false
       matrix:
@@ -187,6 +184,9 @@ jobs:
           - { python: '3.15', experimental: false }
           - { python: '3.14t', experimental: true }
     steps:
+      - name: Disable the GIL on the free-threaded lane
+        if: matrix.python == '3.14t'
+        run: echo 'PYTHON_GIL=0' >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         with:
           submodules: true
@@ -277,6 +277,10 @@ jobs:
         run: make overlay
       - name: Unit tests
         run: .github/scripts/run-tests.sh cxx 'unit_*.py' 1/1
+      - name: Free-threaded extension opt-in without PYTHON_GIL
+        if: matrix.python == '3.14t'
+        run: env -u PYTHON_GIL .github/scripts/run-tests.sh cxx unit_free_threading.py 1/1
+
       # Nothing to save when the stage failed before any test ran: the
       # directory does not exist then, and the save step would add a second
       # failure.
