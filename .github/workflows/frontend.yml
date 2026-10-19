@@ -165,7 +165,7 @@ jobs:
         if: ${{ !cancelled() && steps.wheel.outcome == 'success' }}
         run: |
           set -euxo pipefail
-          python frontend/tag-wheel.py frontend-work/wheels/*.whl \
+          python frontend/tag-wheel.py frontend-work/wheels/curry_frontend-2.0.0.post*-py3-none-*.whl \
             --info frontend-work/wheels/build-info.json \
             --output frontend-work/dist 2>&1 | tee frontend-work/logs/auditwheel.log
       - name: Install wheel offline and test its console script
@@ -176,7 +176,7 @@ jobs:
           python -m venv frontend-work/smoke
           # The original Linux wheel remains usable if a stricter tag failed.
           frontend-work/smoke/bin/python -m pip install --no-index --no-deps \
-            frontend-work/wheels/*-linux_*.whl
+            frontend-work/wheels/curry_frontend-2.0.0.post*-py3-none-linux_*.whl
           test "$(frontend-work/smoke/bin/curry-frontend --numeric-version)" = 2.0.0
           frontend-work/smoke/bin/curry-frontend --version
       - name: Stage Sprite using the source-built front end

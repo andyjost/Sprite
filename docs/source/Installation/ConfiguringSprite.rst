@@ -65,13 +65,13 @@ the library build. An explicit ``-j`` wins over ``JOBS``.
 The standalone front-end package
 --------------------------------
 
-The platform wheel ``currylang-frontend`` installs the command
+The platform wheel ``curry-frontend`` installs the command
 ``curry-frontend`` and needs no Haskell tools at run time. The wheels that
 the front-end CI workflow builds are artifacts for review; they are not
 published to PyPI. Install the wheel for your platform, then configure
 Sprite without PAKCS::
 
-    python -m pip install /path/to/currylang_frontend-2.0.0.postN-py3-none-PLATFORM.whl
+    python -m pip install /path/to/curry_frontend-2.0.0.postN-py3-none-PLATFORM.whl
     cmake -S . -B object-root/cmake -G Ninja -DWITH_PAKCS= -DWITH_CURRY_FRONTEND=curry-frontend
     make stage
 

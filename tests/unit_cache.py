@@ -675,15 +675,17 @@ class TestSlot(cytest.TestCase):
 
   def test_unset_variable_follows_the_installation(self):
     '''
-    Without SPRITE_CACHE_FILE, Make.config decides, and nothing is created.
+    Without SPRITE_CACHE_FILE, CMake decides, and nothing is created.
     '''
     from curry.utility.binding import del_
     with tempfile.TemporaryDirectory() as home:
-      with binding(os.environ, 'HOME', home):
+      with binding(os.environ, 'HOME', home), \
+           binding(os.environ, 'XDG_CACHE_HOME', del_):
         with binding(os.environ, 'SPRITE_CACHE_FILE', del_):
           cache.reset()
           try:
             default = config.default_sprite_cache_file()
+            self.assertEqual(default, os.path.join(home, '.cache', 'sprite', 'cache.db'))
             if default:
               self.assertEqual(
                   cache.filename()
@@ -698,6 +700,25 @@ class TestSlot(cytest.TestCase):
             self.assertEqual(os.listdir(home), [])
           finally:
             cache.reset()
+
+  def test_default_cache_uses_user_cache_directory(self):
+    from curry.utility.binding import del_
+    with tempfile.TemporaryDirectory() as home:
+      for xdg in [del_, '', os.path.join(home, 'xdg')]:
+        for enabled in [False, True]:
+          with self.subTest(xdg=xdg, enabled=enabled), \
+               binding(os.environ, 'HOME', home), \
+               binding(os.environ, 'XDG_CACHE_HOME', xdg), \
+               binding(os.environ, 'SPRITE_CACHE_FILE', del_), \
+               mock.patch.object(config, 'enable_icurry_cache', return_value=enabled):
+            cache.reset()
+            try:
+              base = xdg if isinstance(xdg, str) and xdg else os.path.join(home, '.cache')
+              self.assertEqual(cache.filename(), os.path.join(base, 'sprite', 'cache.db'))
+              self.assertEqual(cache.icurry_cache_enabled(), enabled)
+              self.assertEqual(os.listdir(home), [])
+            finally:
+              cache.reset()
 
   def test_unusable_cache_file_is_a_warning(self):
     blocker = write(os.path.join(self.tmpdir, 'blocker'), '')

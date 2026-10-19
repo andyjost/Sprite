@@ -22,15 +22,15 @@ def backend_name(value):
 class Main(object):
   DESCRIPTION = \
   '''
-  Run or inspect a Curry program.  If no module is supplied, an
-  interactive prompt is started in module %r.  Otherwise, the supplied
+  Run or inspect a Curry program.  If no module is supplied, the
+  Curry REPL is started.  Otherwise, the supplied
   Curry file or module is loaded, and the goal expression (if any) is
   evaluated. Answers print one per line with curry.show; IO () prints
   no result. No value prints '*** No value found!' and exits 2; errors
   print 'ERROR: msg' and exit 1; suspension prints
   '*** Evaluation suspended!' and exits 1. Set CURRYPATH to control the
   search for Curry code.
-  ''' % __package__
+  '''
   ARGUMENTS = 'bimgpsntS'
   def __init__(
       self, program_name, module_name=None, default_goal='main', goalscheme=None
@@ -95,7 +95,8 @@ class Main(object):
           )
     if 'n' in self.ARGUMENTS:
       parser.add_argument( 'NAME', nargs='?', default=None, type=str
-        , help='a Curry file name (default) or module name to run')
+        , help='a Curry file name (default) or module name to run; '
+               'omitted: start the Curry REPL')
     return parser
 
   def parseArgs(self, argv):
@@ -129,7 +130,8 @@ class Main(object):
       # are kept.
       curry.reset(**{'backend': args.backend})
     if args.NAME is None:
-      code.interact(local={'__package__': curry})
+      from .tools.icy.__main__ import main as repl
+      repl([])
       return
     else:
       module = curry.import_(

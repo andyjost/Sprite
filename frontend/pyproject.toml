@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "currylang-frontend"
+name = "curry-frontend"
 version = "2.0.0.post4"
 description = "The Curry to FlatCurry front end shipped with PAKCS 3.4.1"
 requires-python = ">=3.11"

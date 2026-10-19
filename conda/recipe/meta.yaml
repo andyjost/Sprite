@@ -7,7 +7,7 @@
 {% set version = load_file_regex(load_file="../../VERSION", regex_pattern="(\S+)", from_recipe_dir=True).group(1) %}
 
 package:
-  name: sprite
+  name: currylang
   version: {{ version }}
 
 source:
@@ -53,7 +53,7 @@ requirements:
     - {{ stdlib('c') }}
   host:
     - python {{ python }}.*,>=3.11.4,<3.16
-    # configure checks the front end, and make install runs it over the
+    # CMake checks the front end, and make install runs it over the
     # Curry library so that the package holds the FlatCurry of the library.
     - curry-frontend 2.0.0.*
   run:

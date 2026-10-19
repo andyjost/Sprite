@@ -4,7 +4,7 @@ machine, without a network and without an installation.
 
 The tests run the script with --dry-run against a temporary prefix and check
 the printed plan: the pinned PAKCS archive and its checksum, the conda
-environment, the configure flags, make stage, the smoke test on both
+environment, the CMake flags, make stage, the smoke test on both
 backends, and the next steps.  A dry run must write nothing.  One test runs
 the script for real with a dpkg-query that reports every package as missing:
 the script must print the apt command, stop with status 1, and write
@@ -201,7 +201,7 @@ class TestDryRun(SetupScriptTestCase):
   '''The plan of a dry run.'''
 
   def test_existing_python_window(self):
-    '''Existing environments follow configure's minimum, not the dev pin.'''
+    '''Existing environments follow CMake's minimum, not the dev pin.'''
     bindir = os.path.join(self.prefix, 'conda', 'env', 'bin')
     os.makedirs(bindir)
     python = os.path.join(bindir, 'python')
@@ -281,7 +281,7 @@ esac
       , 'mkdir -p %s/install' % prefix, 'ln -s %s/install %s/install' % (prefix, repo)
       , 'mkdir -p %s/object-root' % prefix, 'ln -s %s/object-root %s/object-root' % (prefix, repo)
       )
-    # configure in the clean environment, with the flags of the personal
+    # CMake in the clean environment, with the flags of the personal
     # rules; no icurry.
     configure = re.search(r'\+ \(cd %s && (.*cmake -S.*)\)' % re.escape(repo), out)
     self.assertIsNotNone(configure)
@@ -298,18 +298,16 @@ esac
       ]:
       self.assertIn(' ' + flag, line + ' ')
     self.assertNotIn('-DWITH_ICURRY=/', line)
-    # No checkout yet, so configure --help cannot be probed; the options it
-    # may gain later are left out.
     self.assertIn('-DJOBS=3', line)
     self.assertIn('-DWITH_CCACHE=', line)
-    # make stage in the clean environment, after configure.
+    # make stage in the clean environment, after CMake.
     self.assertInOrder(out, 'cmake -S', '(cd %s && %s' % (repo, 'env -i PATH=%s/conda/env/bin:/usr/local/bin:/usr/bin:/bin HOME=' % prefix), ' make stage JOBS=3)')
     self.assertRegex(out, r'CCACHE_DIR=%s/ccache make stage JOBS=3\)' % re.escape(prefix))
     # make overlay after make stage, in the same environment: the archived
     # products must be newer than the installed library interfaces.
     self.assertInOrder(out, ' make stage JOBS=3)', '(cd %s && %s' % (repo, 'env -i PATH=%s/conda/env/bin:/usr/local/bin:/usr/bin:/bin HOME=' % prefix), ' make overlay)')
     self.assertRegex(out, r'CCACHE_DIR=%s/ccache make overlay\)' % re.escape(prefix))
-    self.assertIn('the flags are recorded in %s/configure-args' % prefix, out)
+    self.assertIn('the flags are recorded in %s/cmake-args' % prefix, out)
     # The smoke test: one file on each backend, capped and timed.
     for backend in ['py', 'cxx']:
       smoke = re.search(
@@ -356,7 +354,7 @@ esac
     self.assertIn('ulimit -v unlimited && ', out)
 
   def test_jobs_auto(self):
-    '''auto goes to configure as it is; the cores are printed, not baked in.'''
+    '''auto goes to CMake as it is; the cores are printed, not baked in.'''
     out = self.dry_run('--repo', self.repo)
     # nproc honours the affinity and the cgroup limits, as
     # the package's cpu_count does.
@@ -401,14 +399,14 @@ esac
     self.assertEqual(os.listdir(self.home), ['.cpmrc'])
 
   def test_existing_checkout(self):
-    '''An existing checkout is not cloned, and configure --help is probed.'''
+    '''An existing checkout is not cloned, and CMake configures it.'''
     out = self.dry_run('--repo', ROOT, '--skip-apt')
     self.assertIn('present: %s' % ROOT, out)
     self.assertNotIn('git clone', out)
     self.assertIn('skipped (--skip-apt)', out)
     self.assertNotIn('could not be probed', out)
     self.assertIn('(cd %s && %s' % (ROOT, 'env -i PATH=%s/conda/env/bin:/usr/local/bin:/usr/bin:/bin HOME=' % self.prefix), out)
-    # configure of this checkout has --jobs: auto goes through unchanged.
+    # CMake accepts JOBS=auto unchanged.
     self.assertIn(' -DJOBS=auto', self.configure_line(out))
     # The script deletes nothing: a link of the checkout that points
     # elsewhere is reported, not replaced.
@@ -419,14 +417,14 @@ esac
         self.assertNotIn('rm ', out)
 
   def configure_line(self, out):
-    '''The configure command of a plan, or None.'''
+    '''The CMake command of a plan, or None.'''
     match = re.search(r'\+ \(cd \S+ && (.*cmake -S.*)\)', out)
     return None if match is None else match.group(1)
 
   def test_configure_skipped_when_unchanged(self):
     '''
-    configure empties install and object-root.  A run with the flags of
-    the last run skips it while Make.config exists; --reconfigure forces it.
+    A run with the flags of the last run skips CMake while CMakeCache.txt
+    exists; --reconfigure forces it without deleting products.
     '''
     if not os.path.isfile(os.path.join(ROOT, 'object-root/cmake/CMakeCache.txt')):
       self.skipTest('the checkout is not configured')
@@ -437,12 +435,12 @@ esac
     self.assertTrue(all(flag.startswith('-D') for flag in flags), flags)
     # The record of a previous run with the same flags.
     os.mkdir(self.prefix)
-    with open(os.path.join(self.prefix, 'configure-args'), 'w') as stream:
+    with open(os.path.join(self.prefix, 'cmake-args'), 'w') as stream:
       stream.write('\n'.join(flags) + '\n')
     proc = self.run_script('--dry-run', '--prefix', self.prefix, '--repo', ROOT, '--skip-apt')
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     self.assertIsNone(self.configure_line(proc.stdout))
-    self.assertIn('skipped: CMakeCache.txt exists and %s/configure-args holds the same flags' % self.prefix, proc.stdout)
+    self.assertIn('skipped: CMakeCache.txt exists and %s/cmake-args holds the same flags' % self.prefix, proc.stdout)
     self.assertIn('--reconfigure forces it', proc.stdout)
     # make stage still runs: it is cheap when nothing changed.
     self.assertInOrder(proc.stdout, 'Step 6/9: configure', 'skipped', 'Step 7/9: make stage', ' make stage JOBS=auto)')
@@ -450,11 +448,11 @@ esac
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     self.assertIsNotNone(self.configure_line(proc.stdout))
     self.assertNotIn('skipped: CMakeCache.txt', proc.stdout)
-    # Other flags: configure runs.
+    # Other flags: CMake runs.
     proc = self.run_script('--dry-run', '--prefix', self.prefix, '--repo', ROOT, '--skip-apt', '--cc', '/opt/cc')
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     self.assertIsNotNone(self.configure_line(proc.stdout))
-    self.assertEqual(sorted(os.listdir(self.prefix)), ['configure-args'])
+    self.assertEqual(sorted(os.listdir(self.prefix)), ['cmake-args'])
 
   def test_skip_apt_without_dpkg(self):
     '''Without dpkg-query the apt step asks for --skip-apt.'''

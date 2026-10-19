@@ -5,6 +5,7 @@ import sys
 
 HELP = """usage: python -m curry.tools.icy [COMMAND ...]
 
+python -m curry or sprite-exec without a program starts this REPL too.
 Evaluate Curry expressions and print curry.show(answer) per answer.
 Commands: :load FILE, :reload, :eval EXPR, :type EXPR,
           :set FLAG VALUE, :set [+|-]FLAG, :quit.

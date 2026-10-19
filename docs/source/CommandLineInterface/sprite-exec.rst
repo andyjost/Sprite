@@ -18,6 +18,8 @@ run ``Peano.curry`` say::
 The ``PATH`` line is needed only if ``install/bin`` is not already on your
 PATH.  The remaining examples on this page assume it is.  ``python -m
 curry`` under the Python of the installation is the same program.
+Without a program, either command starts the :doc:`Curry REPL </REPL>`.
+``python -m curry.tools.icy`` also starts the REPL.
 
 The default goal is ``main``. To specify a Curry expression, use the ``-g``
 option; ``-g ''`` loads the module and evaluates nothing::
@@ -85,8 +87,7 @@ The option ``-i`` or ``--interact`` opens a Python prompt after the goal
 ran, in the namespace of the loaded module.  The symbols of the module are
 names there (``add``, ``S``, ``O`` and ``main`` for ``Peano``), and
 ``import curry`` reaches the API.  Without a module name, ``sprite-exec``
-opens the Python prompt at once; ``import curry`` there starts the
-interpreter.
+starts the Curry REPL.
 
 The option ``-t`` or ``--time`` suppresses the output of the program and
 prints the seconds of the evaluation instead, with no newline; ``--stats``

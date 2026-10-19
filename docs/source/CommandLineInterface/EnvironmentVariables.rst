@@ -263,7 +263,10 @@ with Sprite, then you should not need these.
 
   A file name turns the cache on.  The empty string turns caching off.  When
   the variable is not set, the installation decides: CMake ``ENABLE_ICURRY_CACHE=ON``
-  turns the cache on at ``$HOME/.sprite/cache.db``.  The test drivers set
+  turns the cache on at ``$XDG_CACHE_HOME/sprite/cache.db``, or
+  ``$HOME/.cache/sprite/cache.db`` when ``XDG_CACHE_HOME`` is unset or empty.
+  This is beside the precompiled headers and worktrees in the user's cache
+  directory.  The test drivers set
   the variable to ``tests/.cache/icurry.db``.  The database can also hold
   Sprite's
   :ref:`in-memory IR <Introduction/CompilationPipeline:JSON to Sprite IR>` of
@@ -295,10 +298,10 @@ with Sprite, then you should not need these.
   Names the route from Curry to ICurry.  ``frontend`` runs the Curry front
   end and then Sprite's own translation from FlatCurry
   (:mod:`curry.toolchain.flat2icurry`).  ``icurry`` runs the Curry front
-  end, then the ``icurry`` program, when ``configure`` was given
-  ``--with-icurry``; both routes need the front end.  The default is the
-  choice made by ``configure`` (option ``--curry2icurry``), else the front
-  end.  Both routes write the same files.
+  end, then the ``icurry`` program, when CMake was given
+  ``-DWITH_ICURRY=PATH``; both routes need the front end.  The default is the
+  choice made by CMake (``CURRY2ICURRY_TOOL``), else the front end.  Both
+  routes write the same files.
 
 ``SPRITE_CXX_PCH_ROOT``
   The directory under which the C++ backend keeps the precompiled form of the

@@ -72,7 +72,7 @@ The other settings of the flag:
     Every module is compiled before it runs.  Without a compiler the run
     fails with an error that names the remedy: ``cannot compile ...: no C++
     compiler is installed at .../tools/cxx.  Install one and configure
-    Sprite with --with-cxx-postinstall, or use the modules that make stage
+    Sprite with CMake -DWITH_CXX_POSTINSTALL=PATH, or use the modules that make stage
     compiled.``
 
 The flags are set in ``SPRITE_INTERPRETER_FLAGS``; see

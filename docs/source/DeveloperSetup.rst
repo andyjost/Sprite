@@ -65,7 +65,7 @@ The script runs nine steps in this order.
    step 3 and the Python of step 5. CMake, Ninja and scikit-build-core come
    from the environment, conda or the system. The script puts the conda
    environment's tools first on PATH and selects the native compilers
-   explicitly. It records flags in ``PREFIX/configure-args`` and skips
+   explicitly. It records flags in ``PREFIX/cmake-args`` and skips
    configuration while ``object-root/cmake/CMakeCache.txt`` exists and
    the flags agree. ``--reconfigure`` reruns CMake without deleting products.
 7. ``make stage``.  Builds the runtime and compiles the Curry library for
@@ -120,7 +120,7 @@ Path                              Content
 ``PREFIX/cpm``                    the CPM home, with ``--icurry``
 ``PREFIX/ccache``                 the compiler cache (``CCACHE_DIR`` of the
                                   clean environment)
-``PREFIX/configure-args``         the flags of the last CMake configuration
+``PREFIX/cmake-args``              the flags of the last CMake configuration
 ================================  ==============================================
 
 Options

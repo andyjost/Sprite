@@ -84,15 +84,8 @@ case `basename $0` in
   "valgrind_tests")
     # Run the Python unit tests under valgrind.
     #
-    # To use valgrind, follow directions in Python's Misc/README.valgrind to
-    # rebuild Python:
-    #
-    #     sudo apt-get build-dep python2.7
-    #     apt-get source python2.7
-    #     "Uncomment Py_USING_MEMORY_DEBUGGER in Objects/obmalloc.c"
-    #     ./configure --prefix=$HOME/python2.7 --without-pymalloc --with-pydebug --with-valgrind
-    #     make OPT=-g -j
-    #     make install
+    # To use valgrind, rebuild a supported Python as directed by its
+    # Misc/README.valgrind, then stage Sprite with that Python.
     #
     # You may also want to replace the valgrind-python.supp file in this
     # directory with the one that came with your version of Python.

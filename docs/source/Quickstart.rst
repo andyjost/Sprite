@@ -4,8 +4,11 @@ Quickstart
 
 After :doc:`Installation/Installation`, spend five minutes with lessons 01 and
 02.  From the repository root, run ``make stage`` and put ``install/bin``
-on ``PATH``.  Start Python from ``examples/``.  For the rest of the tour,
-continue with :doc:`PythonAPI/UsingTheAPI`; :doc:`Examples` is the catalogue.
+on ``PATH``.  ``python -m curry`` or ``sprite-exec`` without a program
+starts the :doc:`Curry REPL <REPL>`; with a filename, either runs that
+program.  Start Python from ``examples/`` for the Python API examples
+below.  For the rest of the tour, continue with :doc:`PythonAPI/UsingTheAPI`;
+:doc:`Examples` is the catalogue.
 
 1. Hello, both ways
 ===================
