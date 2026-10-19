@@ -2,7 +2,12 @@ name: Curry front end from source
 
 'on':
   push:
-    branches: [wt/frontend]
+    branches: [master, wt/frontend]
+    paths:
+      - frontend/**
+      - conda/curry-frontend/**
+      - src/python/config.py
+      - .github/workflows/frontend.yml
   workflow_dispatch:
     inputs:
       source_url:
@@ -25,7 +30,6 @@ jobs:
     # the container's GMP. AlmaLinux 8 does not provide a static GMP archive.
     container:
       image: ${{ matrix.image }}
-    continue-on-error: true
     timeout-minutes: 120
     strategy:
       fail-fast: false
