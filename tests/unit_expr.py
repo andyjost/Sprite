@@ -80,6 +80,16 @@ class TestExpr(cytest.TestCase):
     yield [True], '[True]', '<: <True> <[]>>', [True]
     yield [0,1,2], '[0, 1, 2]', '<: <Int 0> <: <Int 1> <: <Int 2> <[]>>>>', [0,1,2]
 
+  def test_long_list(self):
+    '''
+    A list of 300 elements or more builds (issue #150): the builder used to
+    recurse once per element and ran out of stack at about 300.
+    '''
+    data = list(range(300))
+    e = curry.raw_expr(data)
+    self.assertEqual(str(e), '[%s]' % ', '.join(str(i) for i in data))
+    self.assertEqual(list(curry.topython(next(curry.eval(e)))), data)
+
   @cytest.check_expressions()
   def test_cons(self):
     yield curry.nil, '[]', '<[]>', []
