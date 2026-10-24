@@ -140,8 +140,19 @@ set(image "${CMAKE_CURRENT_BINARY_DIR}/stage")
 add_library(curryrt SHARED ${runtime_sources})
 target_include_directories(curryrt PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(curryrt PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
-# Linux linkage is retained here; Windows is a later portability step.
-target_link_options(curryrt PRIVATE -Wl,-Bsymbolic-functions -Wl,--no-undefined)
+# The link flags are those of the platform's linker.  GNU ld binds the
+# functions of the runtime locally and refuses an undefined symbol; ld64 of
+# macOS does both by default (the two-level namespace, -undefined error),
+# and the run path is spelled @loader_path there.  Windows is a later step.
+if(APPLE)
+  set(sprite_origin "@loader_path")
+  set(elf_release_flags "")
+else()
+  set(sprite_origin "$ORIGIN")
+  # The procedure linkage table and semantic interposition are ELF notions.
+  set(elf_release_flags ";-fno-plt;-fno-semantic-interposition")
+  target_link_options(curryrt PRIVATE -Wl,-Bsymbolic-functions -Wl,--no-undefined)
+endif()
 set_target_properties(curryrt PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${image}/lib")
 if(GC STREQUAL mps)
   if(NOT EXISTS "${CMAKE_SOURCE_DIR}/extern/mps/code/mps.h")
@@ -164,12 +175,12 @@ pybind11_add_module(_curryrtbindings MODULE NO_EXTRAS ${binding_sources})
 target_link_libraries(_curryrtbindings PRIVATE curryrt)
 foreach(target curryrt _curryrtbindings)
   target_compile_options(${target} PRIVATE -Wall -Wno-register
-    "$<$<CONFIG:Release>:-O2;-fno-stack-protector;-fno-plt;-fno-semantic-interposition>")
+    "$<$<CONFIG:Release>:-O2;-fno-stack-protector${elf_release_flags}>")
 endforeach()
 set_target_properties(_curryrtbindings PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${image}/python/curry/backends/cxx/curryrtbindings"
   BUILD_WITH_INSTALL_RPATH TRUE
-  INSTALL_RPATH "$ORIGIN/../../../../../lib;$ORIGIN/../../../_sprite/lib")
+  INSTALL_RPATH "${sprite_origin}/../../../../../lib;${sprite_origin}/../../../_sprite/lib")
 
 # Immutable runtime facts contain no installation prefix. The Python step
 # prepares the traditional tree using these facts and the just-built package.
@@ -212,14 +223,11 @@ endforeach()
 sprite_var(frontend_flags "--extended -D__PAKCS__=304")
 sprite_var(frontend_subdir "pakcs-3.4.1")
 sprite_var(intermediate_subdir "sprite-pakcs-3.4.1")
-find_program(READELF readelf)
-set(ld_interpreter "")
-if(READELF)
-  execute_process(COMMAND "${READELF}" -l "${Python_EXECUTABLE}" OUTPUT_VARIABLE elf_headers)
-  string(REGEX MATCH "Requesting program interpreter: ([^]]+)" unused "${elf_headers}")
-  set(ld_interpreter "${CMAKE_MATCH_1}")
-endif()
-sprite_var(ld_interpreter_path "${ld_interpreter}")
+# The suffix of a shared library on this platform (.so, or .dylib on macOS):
+# the name of the runtime library, libcurryrt<suffix>, is formed from it
+# (config.shared_library_suffix).  The objects of compiled Curry modules
+# keep the suffix .so on every platform; dlopen reads the file, not its name.
+sprite_var(shared_library_suffix "${CMAKE_SHARED_LIBRARY_SUFFIX}")
 sprite_var(python_package_name "curry")
 set(wheel_args "")
 if(SKBUILD)

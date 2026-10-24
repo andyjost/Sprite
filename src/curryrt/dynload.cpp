@@ -9,7 +9,25 @@
 namespace
 {
   using namespace curryrt;
-  static SharedLib const libcurryrt("libcurryrt.so");
+
+  // The runtime library itself, opened once more with RTLD_GLOBAL at its
+  // load.  The name is the one the toolchain links against (libcurryrt.so,
+  // or .dylib on macOS); the file is the one this code was loaded from,
+  // found through dladdr, so the dynamic linker opens the mapped copy by
+  // its path and no search by name is needed on either platform.
+  #if defined(__APPLE__)
+  static char const * const CURRYRT_LIBRARY = "libcurryrt.dylib";
+  #else
+  static char const * const CURRYRT_LIBRARY = "libcurryrt.so";
+  #endif
+  static std::string curryrt_library_path()
+  {
+    Dl_info info;
+    if(dladdr((void const *) &curryrt_library_path, &info) && info.dli_fname)
+      return info.dli_fname;
+    return CURRYRT_LIBRARY;
+  }
+  static SharedLib const libcurryrt(CURRYRT_LIBRARY, curryrt_library_path());
   std::unordered_map<std::string, std::weak_ptr<SharedCurryModuleInfo const>> registry;
 
   // The decoder of one module record.  It memoizes the metadata by the

@@ -296,6 +296,97 @@ jobs:
         if: always()
         run: ccache -s | head -n 6
 
+  # macOS on Apple Silicon (issue #162), the interpreter first: the runtime
+  # and the Curry library build with the compilers of the Xcode command line
+  # tools, and the unit suite runs with every module interpreted
+  # (interpret:all), since the compiled path (the Mach-O reader of the
+  # loader, the shim of the tiered mode) is step 2 of the issue.  The front
+  # end is built from source on the runner, as frontend.yml builds it on
+  # Linux aarch64, and cached by the recipe that made it; the first run of a
+  # new recipe takes about half an hour more.  The job gates nothing until
+  # it is green twice.
+  macos:
+    name: macOS arm64, interpreter ${{ matrix.shard }}
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/wt/macos'
+    runs-on: macos-15
+    timeout-minutes: 150
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['1/2', '2/2']
+    env:
+      GHC_VERSION: '9.6.7'
+      CABAL_VERSION: '3.10.3.0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          # The history, for the prune of make overlay (see the test job).
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      # GMP for the front end, GNU coreutils for the timeout command of the
+      # test scripts, GNU make for the thin wrapper; the gnubin directories
+      # give the tools their GNU names.
+      - name: Install the Homebrew packages
+        run: |
+          set -euxo pipefail
+          brew install gmp coreutils make
+          echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+      - name: Restore the Curry front end
+        id: frontend
+        uses: actions/cache@v4
+        with:
+          path: frontend-work/bundle
+          key: curry-frontend-macos-arm64-ghc${{ env.GHC_VERSION }}-${{ hashFiles('frontend/patches/*.patch', 'frontend/build.sh', 'frontend/package.py', 'frontend/fetch.py', '.github/scripts/install-curry-frontend-macos.sh') }}
+      - name: Build the Curry front end from source
+        if: steps.frontend.outputs.cache-hit != 'true'
+        run: .github/scripts/install-curry-frontend-macos.sh
+      - name: Restore the ICurry cache
+        uses: actions/cache/restore@v4
+        with:
+          path: tests/.cache
+          key: icurry-cache-macos-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_id }}
+          restore-keys: |
+            icurry-cache-macos-${{ matrix.shard }}-
+            icurry-cache-macos-
+      - name: Install Python packages
+        run: python -m pip install --quiet cmake ninja scikit-build-core numpy
+      - name: Configure and stage
+        run: |
+          set -euxo pipefail
+          test "$(frontend-work/bundle/bin/curry-frontend --numeric-version)" = 2.0.0
+          cmake -S . -B object-root/cmake -G Ninja \
+            -DPython_EXECUTABLE="$(command -v python)" \
+            -DWITH_PAKCS= -DWITH_ICURRY= \
+            -DWITH_CURRY_FRONTEND="$PWD/frontend-work/bundle/bin/curry-frontend"
+          make stage
+      - name: Extract the test products of the overlay archive
+        run: make overlay
+      - name: Unit tests, every module interpreted
+        env:
+          SPRITE_TEST_FLAGS: interpret:all
+        run: .github/scripts/run-tests.sh cxx 'unit_*.py' ${{ matrix.shard }}
+      - name: Save the ICurry cache
+        if: always() && hashFiles('tests/.cache/**') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: tests/.cache
+          key: icurry-cache-macos-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_id }}
+      - name: Upload the logs of the front end build on a failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-frontend-logs-${{ strategy.job-index }}
+          path: |
+            frontend-work/logs/
+            frontend-work/build/*.txt
+            frontend-work/build/*.log
+          if-no-files-found: ignore
+
   # The stress mode of the collector (SPRITE_GC_STRESS=1): the C++ collector
   # runs at every safepoint, so a missing root fails a test at once instead
   # of once per million nodes.  The job runs the unit suite on the C++

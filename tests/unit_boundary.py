@@ -221,11 +221,7 @@ class TestBoundaryDrivers(cytest.TestCase):
     # without the library path of the test suite.
     env.pop('CURRYPATH', None)
     env.pop('PYTHONPATH', None)
-    cmd = [
-        'prlimit', '--as=%d' % ADDRESS_SPACE
-      , 'timeout', '-k', str(KILL_AFTER), str(TIMEOUT)
-      , 'bash', './run'
-      ]
+    cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT, KILL_AFTER) + ['bash', './run']
     start = time.time()
     proc = subprocess.run(
         cmd, cwd=exdir, env=env, capture_output=True

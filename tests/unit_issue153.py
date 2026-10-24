@@ -133,6 +133,7 @@ print(json.dumps([plain, deep]))
     self.assertEqual(plain[0], [3000])
 
 
+  @cytest.linux_only('RLIMIT_AS is not enforced on macOS, and the test reads /proc/self/statm')
   def test_refused_reservation_halves_to_a_usable_stack(self):
     # Leave less than 1 GiB beyond the current mappings: the first stack
     # cannot fit, but a smaller one can, even with a free-threaded Python's

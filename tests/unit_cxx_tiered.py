@@ -9,6 +9,12 @@ module to the compiled code when the object is ready
 module to a temporary directory, so every import starts without an object.
 '''
 import cytest # from ./lib; must be first
+import sys, unittest
+if sys.platform == 'darwin':
+  raise unittest.SkipTest(
+      'reads ELF objects or loads compiled modules; the compiled path on '
+      'macOS is issue #162, step 2'
+    )
 from cytest.logging import capture_log
 from curry import common, config, inspect
 from curry.backends.cxx import compiler, curryrtbindings as curryrt, tiered

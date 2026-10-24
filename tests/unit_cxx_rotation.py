@@ -296,6 +296,7 @@ class TestStepMode(cytest.TestCase):
     self.assertEqual(first, second)
     self.assertEqual(first[0], [count])
 
+  @cytest.linux_only('reads /proc/self/task for the ticker thread; no counterpart on macOS')
   def test_no_ticker(self):
     '''Step mode never starts the ticker thread.'''
     lines = run_child(self, STEP_MODE, '''
@@ -357,6 +358,7 @@ report(
     self.assertGreaterEqual(line['status']['ticks'], 1)
     self.assertEqual(line['status']['quantum_ns'], QUANTUM_MS * 10**6)
 
+  @cytest.linux_only('reads /proc/self/task for the ticker thread; no counterpart on macOS')
   def test_ticker_parks_when_idle(self):
     '''
     After an evaluation the thread parks within a quantum, and a parked
@@ -406,6 +408,7 @@ report(
     self.assertTrue(line['status1']['parked'])
     self.assertGreaterEqual(line['ticks_after'], 3)
 
+  @cytest.linux_only('reads /proc/self/task for the ticker thread; no counterpart on macOS')
   def test_fork_child_rotates(self):
     '''
     A thread does not survive fork.  A child of os.fork after an evaluation
@@ -462,6 +465,7 @@ report(
     self.assertGreaterEqual(child['status1']['ticks'], 1)
     self.assertIsNotNone(child['thread'])
 
+  @cytest.linux_only('reads /proc/self/task for the ticker thread; no counterpart on macOS')
   def test_fork_child_with_an_evaluation_in_flight(self):
     '''
     The count of the evaluations in flight at a fork carries over to the
@@ -528,6 +532,7 @@ report(
     self.assertEqual(child['status1']['active'], 1)
     self.assertIsNotNone(child['thread'])
 
+  @cytest.linux_only('reads /proc/self/task for the ticker thread; no counterpart on macOS')
   def test_thread_start_failure_keeps_the_count(self):
     '''
     When the ticker thread cannot start, the evaluation fails with an error

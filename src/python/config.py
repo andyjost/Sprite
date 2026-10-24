@@ -164,9 +164,9 @@ currylib_module_names     = _Variable('currylib_module_names')
 # The names of the system library modules that Sprite cannot compile.  See
 # the unsupported list in CMakeLists.txt.
 currylib_unsupported_modules = _Variable('currylib_unsupported_modules')
-# The name of the default backend.
-# The location of ld.so.
-ld_interpreter_path       = _Variable('ld_interpreter_path')
+# The suffix of a shared library on the platform of the build: '.so', or
+# '.dylib' on macOS.  See shared_library_suffix.
+_shared_library_suffix    = _Variable('shared_library_suffix')
 # The flavor of the installed C++ runtime, as the build wrote it: 'release'
 # or 'debug'.  See cxx_flavor.
 _cxx_flavor               = _Variable('cxx_flavor')
@@ -279,6 +279,12 @@ def cxx_pch_root():
   if root is not None:
     root = root.strip()
     return os.path.abspath(root) if root else None
+  if sys.platform == 'darwin':
+    # The header is kept in the directory form of GCC (<header>.gch/ with
+    # one member per flavor), which clang does not search.  macOS compiles
+    # without it until the clang form lands (issue #162, step 2); the
+    # generated code is the same either way.
+    return None
   include = installed_path('include')
   if os.access(include, os.W_OK) and not in_conda_prefix(include) \
       and not _is_wheel_install():
@@ -527,10 +533,26 @@ def sprite_exec(cached=[]):
   return cached[0]
 
 
+def shared_library_suffix():
+  '''
+  The suffix of a shared library on the platform of the installed runtime:
+  '.so', or '.dylib' on macOS.  The build writes it (CMake
+  CMAKE_SHARED_LIBRARY_SUFFIX); an installation that names none is a Linux
+  build from before the value existed.  The objects of compiled Curry
+  modules keep the suffix .so on every platform.
+  '''
+  if not os.path.exists(installed_path('sysconfig', 'shared_library_suffix')):
+    return '.so'
+  return _shared_library_suffix().strip() or '.so'
+
+def curryrt_lib_name():
+  '''The file name of the runtime library: libcurryrt.so, or .dylib on macOS.'''
+  return 'libcurryrt' + shared_library_suffix()
+
 @synchronized(_config_lock)
 def curryrt_lib(cached=[]):
   if not cached:
-    path = installed_path('lib', 'libcurryrt.so')
+    path = installed_path('lib', curryrt_lib_name())
     path = os.path.abspath(path)
     assert os.path.exists(path)
     cached.append(path)

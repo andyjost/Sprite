@@ -1,4 +1,4 @@
-'''Python bindings for libcurryrt.so.'''
+'''Python bindings for libcurryrt, the C++ runtime library.'''
 from ._curryrtbindings import *
 from ...generic.eval import control
 from ....interpreter import flags as _flags

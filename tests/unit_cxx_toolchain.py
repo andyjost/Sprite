@@ -31,6 +31,12 @@ the assertions.  A module follows the flavor of the installed runtime unless
 the interpreter flag ``debug`` is set.
 '''
 import cytest # from ./lib; must be first
+import sys, unittest
+if sys.platform == 'darwin':
+  raise unittest.SkipTest(
+      'reads ELF objects or loads compiled modules; the compiled path on '
+      'macOS is issue #162, step 2'
+    )
 from cytest.logging import capture_log
 from curry import config, exceptions
 from curry.backends.cxx import compiler, elf, loader, toolchain

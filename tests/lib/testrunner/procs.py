@@ -5,7 +5,10 @@ the memory and the cores of the machine.
 Every file runs in a session of its own (``start_new_session=True``), so the
 session id of every process it starts, directly or through a compiler, is
 the pid of the child.  The functions here walk /proc and match that id in
-/proc/<pid>/stat.  Nothing depends on cgroups or on a service manager.
+/proc/<pid>/stat.  Nothing depends on cgroups or on a service manager.  On
+macOS, which has no /proc, one run of ps(1) gives the same table, with the
+kernel's session pointer as the key of a session (see _table_darwin), and
+sysctl and vm_stat give the memory of the machine (see _meminfo_darwin).
 
 The ``timeout`` command that the tests wrap their own children in puts its
 child into a new process group.  So a kill of the process group of the child
@@ -23,7 +26,7 @@ run on swipl, and the C++ compiler and linker.  The watchdog allows a
 session more memory while one of them runs (see scheduler.Watchdog).
 '''
 
-import os, signal, time
+import os, re, signal, subprocess, sys, time
 from curry.utility import cpu_count
 
 __all__ = [
@@ -44,8 +47,38 @@ TOOLS = frozenset([
 
 PAGE_SIZE = os.sysconf('SC_PAGE_SIZE') if hasattr(os, 'sysconf') else 4096
 
+# macOS: no /proc; ps, sysctl and vm_stat stand in (issue #162).
+DARWIN = sys.platform == 'darwin'
+
+def _meminfo_darwin():
+  '''
+  The two fields the runner reads, on macOS: MemTotal from sysctl
+  hw.memsize, and MemAvailable as the free, inactive and speculative pages
+  of vm_stat, in bytes.  Empty when a command fails.
+  '''
+  fields = {}
+  try:
+    total = subprocess.run(
+        ['sysctl', '-n', 'hw.memsize'], capture_output=True, text=True, check=True
+      ).stdout
+    fields['MemTotal'] = int(total.strip())
+    stat = subprocess.run(['vm_stat'], capture_output=True, text=True, check=True).stdout
+  except (OSError, subprocess.CalledProcessError, ValueError):
+    return fields
+  match = re.search(r'page size of (\d+) bytes', stat)
+  page = int(match.group(1)) if match else PAGE_SIZE
+  pages = 0
+  for name in 'Pages free', 'Pages inactive', 'Pages speculative':
+    match = re.search(r'^%s:\s+(\d+)' % re.escape(name), stat, re.M)
+    if match:
+      pages += int(match.group(1))
+  fields['MemAvailable'] = pages * page
+  return fields
+
 def meminfo(path='/proc/meminfo'):
-  '''The fields of /proc/meminfo, in bytes.'''
+  '''The fields of /proc/meminfo, in bytes (on macOS, see _meminfo_darwin).'''
+  if DARWIN and path == '/proc/meminfo':
+    return _meminfo_darwin()
   fields = {}
   try:
     with open(path) as stream:
@@ -101,11 +134,55 @@ def _pids():
     return []
   return [int(name) for name in names if name.isdigit()]
 
+def _table_darwin():
+  '''
+  The table of _table from one run of ps(1) on macOS: the session field is
+  the kernel's session pointer, one value for every process of a session
+  (see _session_key), the resident set is reported in KiB, the state is
+  the first letter of the stat column, and the command name is the leaf
+  name of the path ps prints.  Empty when ps fails.
+  '''
+  try:
+    out = subprocess.run(
+        ['ps', '-axo', 'pid=,ppid=,sess=,rss=,stat=,comm=']
+      , capture_output=True, text=True, check=True
+      ).stdout
+  except (OSError, subprocess.CalledProcessError):
+    return {}
+  table = {}
+  for line in out.splitlines():
+    parts = line.split(None, 5)
+    if len(parts) < 6:
+      continue
+    try:
+      pid, ppid, rss = int(parts[0]), int(parts[1]), int(parts[3]) * 1024
+    except ValueError:
+      continue
+    state = parts[4][:1].encode('ascii', 'replace')
+    table[pid] = (ppid, parts[2], rss, state, os.path.basename(parts[5].strip()))
+  return table
+
+def _session_key(table, sid):
+  '''
+  The value of the session field of ``table`` for the session whose leader
+  is ``sid``: the id itself on Linux, where the field is the pid of the
+  leader; on macOS the session pointer of the leader, which every process
+  of the session shares, or None when the leader is gone (the parent links
+  from the roots then find the members).
+  '''
+  if not DARWIN:
+    return sid
+  entry = table.get(sid)
+  return None if entry is None else entry[1]
+
 def _table():
   '''
   One walk of /proc: a dict from each pid to its parent, its session id,
-  its resident set in bytes, its state, and its command name.
+  its resident set in bytes, its state, and its command name.  On macOS,
+  one run of ps (see _table_darwin).
   '''
+  if DARWIN:
+    return _table_darwin()
   table = {}
   for pid in _pids():
     stat = _stat(pid)
@@ -138,7 +215,10 @@ def scan_sessions(sids, roots=None):
     children.setdefault(entry[0], []).append(pid)
   result = {}
   for sid in sids:
-    members = set(pid for pid, entry in table.items() if entry[1] == sid)
+    key = _session_key(table, sid)
+    members = set(
+        pid for pid, entry in table.items() if key is not None and entry[1] == key
+      )
     stack = [sid] + [pid for pid in (roots or {}).get(sid, ()) if pid in table]
     seen = set()
     while stack:
@@ -196,6 +276,14 @@ def kill_session(sid, sig=signal.SIGKILL, rounds=20, pause=0.05, roots=()):
   return sorted(signalled)
 
 def _state(pid):
+  if DARWIN:
+    try:
+      out = subprocess.run(
+          ['ps', '-o', 'stat=', '-p', str(pid)], capture_output=True, text=True
+        ).stdout.strip()
+    except OSError:
+      return None
+    return out[:1].encode('ascii', 'replace') if out else None
   fields = _stat_fields(pid)
   return None if fields is None else fields[STATE]
 

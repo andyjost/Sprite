@@ -64,7 +64,7 @@ class TestCMake(cytest.TestCase):
       self.assertEqual((facts / name).read_text().strip(), value)
     self.assertEqual((facts / 'cxx_compiler').read_text().strip(), config.cxx_compiler())
     ninja = (self.build / 'build.ninja').read_text()
-    self.assertIn('libcurryrt.so', ninja)
+    self.assertIn('libcurryrt' + config.shared_library_suffix(), ninja)
     self.assertIn('currylib: phony', ninja)
     self.assertIn('_curryrtbindings', ninja)
     self.assertIn('build-package.py', ninja)

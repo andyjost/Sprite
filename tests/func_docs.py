@@ -71,10 +71,8 @@ class TestPages(cytest.TestCase):
         )
       env.pop('CURRYPATH', None)
       env.pop('PYTHONPATH', None)
-      cmd = [
-          'prlimit', '--as=%d' % ADDRESS_SPACE
-        , 'timeout', '-k', str(KILL_AFTER), str(TIMEOUT)
-        , launcher(), '-c', CHILD, page, examples
+      cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT, KILL_AFTER) + [
+          launcher(), '-c', CHILD, page, examples
         ]
       return subprocess.run(
           cmd, cwd=examples, env=env, capture_output=True

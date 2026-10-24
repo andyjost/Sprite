@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-'''Try auditwheel; validate the ELF floor before the data-only fallback.'''
+'''Try auditwheel; validate the ELF floor before the data-only fallback.
+
+A macOS wheel (build-info platform darwin) gets the tag of its minimum macOS
+and its architecture; auditwheel is a Linux tool.
+'''
 import argparse
 import json
 from pathlib import Path
@@ -14,8 +18,19 @@ def main():
   parser.add_argument('--output', type=Path, required=True)
   args = parser.parse_args()
   info = json.loads(args.info.read_text())
-  tag = 'manylinux_2_28_' + info['architecture']
   args.output.mkdir(parents=True, exist_ok=True)
+  if info.get('platform') == 'darwin':
+    floor = info.get('macos_required') or '11.0'
+    major, minor = (floor.split('.') + ['0'])[:2]
+    tag = 'macosx_%s_%s_%s' % (major, minor, info['architecture'])
+    subprocess.run([
+        sys.executable, '-m', 'wheel', 'tags', '--platform-tag', tag, str(args.wheel)
+      ], check=True)
+    tagged = args.wheel.with_name(args.wheel.name.rsplit('-', 1)[0] + '-' + tag + '.whl')
+    import shutil
+    shutil.copy2(tagged, args.output / tagged.name)
+    return
+  tag = 'manylinux_2_28_' + info['architecture']
   result = subprocess.run([
       sys.executable, '-m', 'auditwheel', 'repair', '--plat', tag
     , '--wheel-dir', str(args.output), str(args.wheel)
