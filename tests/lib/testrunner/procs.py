@@ -7,8 +7,10 @@ session id of every process it starts, directly or through a compiler, is
 the pid of the child.  The functions here walk /proc and match that id in
 /proc/<pid>/stat.  Nothing depends on cgroups or on a service manager.  On
 macOS, which has no /proc, one run of ps(1) gives the same table, with the
-kernel's session pointer as the key of a session (see _table_darwin), and
-sysctl and vm_stat give the memory of the machine (see _meminfo_darwin).
+process group of the leader as the key of a session (see _table_darwin:
+ps prints no session id there, and its session pointer is hidden from a
+user, the same for every process), and sysctl and vm_stat give the memory
+of the machine (see _meminfo_darwin).
 
 The ``timeout`` command that the tests wrap their own children in puts its
 child into a new process group.  So a kill of the process group of the child
@@ -137,14 +139,19 @@ def _pids():
 def _table_darwin():
   '''
   The table of _table from one run of ps(1) on macOS: the session field is
-  the kernel's session pointer, one value for every process of a session
-  (see _session_key), the resident set is reported in KiB, the state is
-  the first letter of the stat column, and the command name is the leaf
-  name of the path ps prints.  Empty when ps fails.
+  the process group, since ps prints no session id there and its session
+  pointer is hidden from a user (the same value for every process, which
+  would make every process a member of every session); the leader of a
+  session made with start_new_session is the leader of its process group,
+  and the processes that the timeout command moves into groups of their
+  own are found through the parent links (see scan_sessions).  The
+  resident set is reported in KiB, the state is the first letter of the
+  stat column, and the command name is the leaf name of the path ps
+  prints.  Empty when ps fails.
   '''
   try:
     out = subprocess.run(
-        ['ps', '-axo', 'pid=,ppid=,sess=,rss=,stat=,comm=']
+        ['ps', '-axo', 'pid=,ppid=,pgid=,rss=,stat=,comm=']
       , capture_output=True, text=True, check=True
       ).stdout
   except (OSError, subprocess.CalledProcessError):
@@ -166,9 +173,9 @@ def _session_key(table, sid):
   '''
   The value of the session field of ``table`` for the session whose leader
   is ``sid``: the id itself on Linux, where the field is the pid of the
-  leader; on macOS the session pointer of the leader, which every process
-  of the session shares, or None when the leader is gone (the parent links
-  from the roots then find the members).
+  leader; on macOS the process group of the leader (its own pid for a
+  leader made with start_new_session), or None when the leader is gone
+  (the parent links from the roots then find the members).
   '''
   if not DARWIN:
     return sid

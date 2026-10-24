@@ -774,9 +774,8 @@ with unittest.TestCase().assertLogs('curry', level='INFO') as log:
 for record in log.output:
   print(record, file=sys.stderr)
 """
-    cmd = [
-        'prlimit', '--as=%d' % (2 << 30), 'timeout', str(self.TIMEOUT)
-      , sys.executable, '-c', code, '--so', '-z', self.name
+    cmd = cytest.limit_prefix(2 << 30, self.TIMEOUT) + [
+        sys.executable, '-c', code, '--so', '-z', self.name
       ]
     with _productlock.locked(self.curryfile):
       children = [
@@ -854,9 +853,8 @@ class TestProgramDirectory(cytest.TestCase):
     self.env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
 
   def run_tool(self, tool, *args):
-    cmd = [
-        'prlimit', '--as=%d' % (2 << 30), 'timeout', str(self.TIMEOUT)
-      , config.installed_path('bin', tool)
+    cmd = cytest.limit_prefix(2 << 30, self.TIMEOUT) + [
+        config.installed_path('bin', tool)
       ] + list(args)
     return subprocess.run(
         cmd, env=self.env, cwd=self.cwd, capture_output=True, text=True

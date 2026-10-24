@@ -333,9 +333,10 @@ jobs:
       - name: Install the Homebrew packages
         run: |
           set -euxo pipefail
-          brew install gmp coreutils make
+          brew install gmp coreutils make gnu-time
           echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
           echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix gnu-time)/libexec/gnubin" >> "$GITHUB_PATH"
       - name: Restore the Curry front end
         id: frontend
         uses: actions/cache@v4

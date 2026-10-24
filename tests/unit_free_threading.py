@@ -140,6 +140,7 @@ with tempfile.TemporaryDirectory() as directory:
 print('ok')
 ''')
 
+  @cytest.linux_only('compiles and swaps a module through the shim of the tiered mode; macOS is issue #162, step 2')
   def test_first_use_compiles_while_a_producer_prepares_native_imports(self):
     self.child('''
 curry.reset(interpret='off')

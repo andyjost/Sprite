@@ -98,7 +98,9 @@ The following flags are available:
     compiled object is interpreted at once, as under 'new', a child process
     compiles it in the background, and the runtime swaps the functions of
     the module to the compiled code when the object is ready, during a
-    running evaluation included (see curry.backends.cxx.tiered).  An
+    running evaluation included (see curry.backends.cxx.tiered).  On macOS
+    the default is 'all' until the compiled path lands there (issue #162,
+    step 2: the shim of the tiered mode is a GNU linker construction).  An
     expression, an interactive module, and a module compiled from a string
     stay interpreted.  The interpreter takes the same steps as compiled code
     on the same runtime; it runs a few times slower, and it starts at once.
@@ -185,7 +187,7 @@ FLAG_INFO = {
   , 'checker'             : ( bool                , False )
   , 'debug'               : ( bool                , False )
   , 'inline_budget'       : ( int                 , 4     )
-  , 'interpret'           : ({'off', 'new', 'all', 'tiered'}, 'tiered')
+  , 'interpret'           : ({'off', 'new', 'all', 'tiered'}, 'all' if sys.platform == 'darwin' else 'tiered')
   , 'trace'               : ( bool                , False )
   , 'keep_temp_files'     : ((bool, str)          , False )
   , 'lazycompile'         : ( bool                , True  )

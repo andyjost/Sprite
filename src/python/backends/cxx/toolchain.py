@@ -952,6 +952,10 @@ class Cpp2So(object):
     yield '-I%s' % os.path.realpath(config.installed_path('include'))
     yield '-fPIC'
     yield '-std=c++17'
+    if IS_DARWIN:
+      # clang warns by default on the elided braces of a node's aggregate
+      # initialization (builtins.hpp); the compile of a module is silent.
+      yield '-Wno-missing-braces'
     for flag in flavor_flags(self.flavor):
       yield flag
     for flag in gc_flags():

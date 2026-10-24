@@ -36,7 +36,12 @@ static Vec make(size_t count, index_type first=0)
 }
 
 // An alias the compiler cannot see through, for the self-assignment checks.
+#if defined(__clang__)
+// clang has no noipa; noinline keeps the call opaque enough for the test.
+__attribute__((noinline)) static Vec & opaque(Vec & vec) { return vec; }
+#else
 __attribute__((noipa)) static Vec & opaque(Vec & vec) { return vec; }
+#endif
 
 // The layout that the step functions were compiled against.
 static_assert(sizeof(RealPath) == 24, "RealPath has 8 inline entries");
