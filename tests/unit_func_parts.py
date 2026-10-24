@@ -87,21 +87,3 @@ class TestFunctionalParts(cytest.TestCase):
       SOURCE_DIR = 'data/curry/math/'
       FILE_PATTERN = 'sort00.curry'
     self.assertEqual(test_methods(One), ['test_sort00'])
-
-  def test_skip_reason_names_the_file_that_holds_the_test(self):
-    '''
-    unit_io_bind.py skips its rotation test on the Python backend and names
-    the file that covers it there.  The split of unit_py_io.py moved that
-    test; the pointer must follow it.
-    '''
-    with open(os.path.join(os.path.dirname(__file__), 'unit_io_bind.py')) as stream:
-      text = stream.read()
-    match = re.search(r"'(unit_\w+) covers the Python backend", text)
-    self.assertIsNotNone(match)
-    module = importlib.import_module(match.group(1))
-    holders = [
-        obj for obj in vars(module).values()
-            if isinstance(obj, type) and issubclass(obj, unittest.TestCase)
-           and hasattr(obj, 'test_writeFile_keeps_prefix_across_rotation')
-      ]
-    self.assertEqual(len(holders), 1, match.group(1))

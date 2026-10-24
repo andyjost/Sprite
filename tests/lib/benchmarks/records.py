@@ -10,7 +10,7 @@ variant such as the state of a cache.  The fields, in order:
     suite        throughput, compile, import, memory, split, or
                  applications.
     program      The program, or the name of the item of the suite.
-    backend      cxx, py, or pakcs; in the applications suite also an
+    backend      cxx, or pakcs; in the applications suite also an
                  opponent: resolvelib, python, or clang.
     variant      The variant of the item (cold, warm, collector=off; whole
                  or K/I in the split suite; SIZE/CASE in the dependency

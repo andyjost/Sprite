@@ -30,48 +30,35 @@ TIMEOUT = 120                  # seconds for the compile and the run of one exam
 KILL_AFTER = 10                # seconds from SIGTERM to SIGKILL in the timeout command
 KILLED_STATUS = 128 + 9        # the status of timeout when its SIGKILL fires
 
-# Directory -> the backends it runs on.  expected.out is the same on each of
-# them.  An example whose set excludes the backend of the session is skipped.
-EXAMPLES = {
-    '00-run-curry-programs'         : {'py', 'cxx'}
-  , '01-run-with-python'            : {'py', 'cxx'}
-  , '02-dynamic-code-generation'    : {'py', 'cxx'}
-  # 03-inspect prints the first line of the code the backend generated for a
-  # function, and expected.out holds the banner of the generated C++; its
-  # run script adds interpret:off, so the module is compiled before it runs.
-  # On the Python backend the line is the signature of the generated Python
-  # function, so the example runs on the C++ backend alone.
-  , '03-inspect'                    : {'cxx'}
-  , '04-static-compile'             : {'py', 'cxx'}
-  , '05-trees'                      : {'py', 'cxx'}
-  , '06-variables'                  : {'py', 'cxx'}
-  , '07-choices'                    : {'py', 'cxx'}
-  , '08-permutation-sort'           : {'py', 'cxx'}
-  # Sprite.Stream's incremental output channel requires the C++ runtime;
-  # the retired Python backend does not implement curry.stream.
-  , '09-streams'                    : {'cxx'}
-  , '10-queens-set-functions'       : {'py', 'cxx'}
-  , '11-sudoku'                     : {'cxx'}
-  , '12-cryptarithm'                : {'cxx'}
-  , '13-regex-nondeterminism'       : {'py', 'cxx'}
-  , '14-parser-functional-patterns' : {'py', 'cxx'}
-  , '15-dependency-solver'          : {'py', 'cxx'}
-  , '16-scheduling'                 : {'py', 'cxx'}
-  , '17-type-inference'             : {'py', 'cxx'}
-  , '18-text-extraction'            : {'py', 'cxx'}
-  , '19-blocks-world-app'           : {'py', 'cxx'}
-  , '20-cxx-types-deduction'        : {'py', 'cxx'}
-  , '21-cxx-types-overloads'        : {'py', 'cxx'}
-  , '22-cxx-types-trait-check'      : {'cxx'}
-  , '23-cxx-types-layout'           : {'py', 'cxx'}
-  # The capstone's plan search ran past the budget of the test on the
-  # retired Python backend in three of five nightly runs (the C++ backend
-  # takes seconds), so it runs on C++ alone, as the examples plan allows.
-  , '24-build-system'               : {'cxx'}
-  # The retired Python backend is still searching length two at 60 s;
-  # the program search is kept within its budget on C++ only.
-  , '25-perfect-hash'               : {'cxx'}
-  }
+# The runnable examples.
+EXAMPLES = [
+    '00-run-curry-programs'
+  , '01-run-with-python'
+  , '02-dynamic-code-generation'
+  , '03-inspect'
+  , '04-static-compile'
+  , '05-trees'
+  , '06-variables'
+  , '07-choices'
+  , '08-permutation-sort'
+  , '09-streams'
+  , '10-queens-set-functions'
+  , '11-sudoku'
+  , '12-cryptarithm'
+  , '13-regex-nondeterminism'
+  , '14-parser-functional-patterns'
+  , '15-dependency-solver'
+  , '16-scheduling'
+  , '17-type-inference'
+  , '18-text-extraction'
+  , '19-blocks-world-app'
+  , '20-cxx-types-deduction'
+  , '21-cxx-types-overloads'
+  , '22-cxx-types-trait-check'
+  , '23-cxx-types-layout'
+  , '24-build-system'
+  , '25-perfect-hash'
+  ]
 
 # Directories with a run script that the test does not run, and why.  Every
 # directory with a run script is in EXAMPLES or here; a test checks that.
@@ -150,8 +137,6 @@ class TestExamples(cytest.TestCase):
     is missing.  A second call for the same example returns the first run.
     '''
     backend = curry.flags['backend']
-    if backend not in EXAMPLES[name]:
-      self.skipTest('%s does not run on the %s backend' % (name, backend))
     for module in REQUIRES.get(name, ()):
       if importlib.util.find_spec(module) is None:
         self.skipTest('%s needs the Python module %s' % (name, module))

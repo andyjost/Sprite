@@ -1,4 +1,3 @@
-from . import telemetry
 import weakref, threading
 
 # The keys of the scheduler counters that hold a largest value.  Over several
@@ -146,12 +145,7 @@ class Evaluator(object):
 
   def evaluate(self):
     '''Evaluate the goal.'''
-    interval = self.interp.flags['telemetry_interval']
     value_generator = self.rts.generate_values()
-    if interval is not None and interval > 0:
-      value_generator = telemetry.report_telemetry(
-          self.rts, interval, value_generator
-        )
     return self.interp._evaluation_totals.track(self.rts, value_generator)
 
   def set_global_step_limit(self, limit=None, reset=True):
@@ -181,7 +175,7 @@ def evaluate(interp, goal, steplimit=None):
 def single_step(interp, expr):
   '''
   Takes one rewrite step at the root of ``expr``, outside an evaluation, and
-  returns ``expr``.  The runtime state of either backend counts the step as
+  returns ``expr``.  The runtime state of the runtime counts the step as
   the step loop would (``RuntimeState.single_step``), and the totals of the
   interpreter take it up like the steps of an evaluation.  A free variable
   the step creates (``let x free`` in a compiled expression) outlives the

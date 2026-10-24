@@ -12,7 +12,7 @@ import curry, gc, unittest
 # library, and a second library under a live module name is refused
 # (testReusedModuleNameIsAnError); the other settings interpret it.
 REFUSED_UNDER_OFF = unittest.skipIf(
-    curry.flags['backend'] == 'cxx' and curry.flags['interpret'] == 'off'
+    curry.flags['interpret'] == 'off'
   , 'under interpret:off a second library of a live module name is refused'
   )
 
@@ -74,10 +74,6 @@ class TestCompileModules(cytest.TestCase):
     self.assertEqual(list(curry.eval(curry.parse('"second"'))), ['second'])
     del held, goal
 
-  @unittest.skipIf(
-      curry.flags['backend'] != 'cxx'
-    , 'the module registry belongs to the C++ backend'
-    )
   @cytest.with_flags(interpret='off')
   def testReusedModuleNameIsAnError(self):
     '''
@@ -132,10 +128,6 @@ class TestCompileModules(cytest.TestCase):
     self.assertEqual(list(curry.eval(second.f)), [2])
     del first, second
 
-  @unittest.skipIf(
-      curry.flags['backend'] != 'cxx'
-    , 'the second symptom of issue #114 is reported on the C++ backend'
-    )
   def testStaleSymbolIsRefused(self):
     '''
     The second symptom of issue #114, the owner's decision: a symbol of a

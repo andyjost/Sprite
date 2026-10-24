@@ -194,7 +194,7 @@ def stats(interp):
         evaluations.
     ``collections``
         The collections run in this process by the node collector of the
-        C++ backend.  The Python backend reports zero.
+        C++ backend.
     ``peak_rss``
         The peak resident set size of this process, in bytes.
     ``compile``
@@ -203,23 +203,21 @@ def stats(interp):
         C++ compiler.  Zero when every file was current.
     ``gc_seconds``
         Seconds the node collector of the C++ backend spent in its
-        collections.  The Python backend reports zero.
+        collections.
     ``swapped``
         The functions that tiered execution of the C++ backend swapped from
         the interpreter to compiled code in this process (the interpreter
-        flag ``interpret`` set to 'tiered').  The Python backend reports
-        zero.
+        flag ``interpret`` set to 'tiered').
     ``failed_compiles``
         The background compiles of tiered execution that failed in this
-        process; the modules stay interpreted.  The Python backend reports
-        zero.
+        process; the modules stay interpreted.
     ``gc_roots_seconds``, ``gc_trace_seconds``, ``gc_sweep_seconds``, ``gc_registries_seconds``
         Seconds the collections of the node collector spent in each phase:
         the roots (the configurations of the queues and the nodes Python
         holds), the trace from the roots, the block sweep, and the
         registries (the free-variable tables, the generator nodes, the
         queues and the sets).  The verifier of the stress mode is in none
-        of them.  The Python backend reports zero.
+        of them.
     ``gc_marked``, ``gc_marked_old``, ``gc_marked_young``
         The nodes the collections marked: all, those marked in the
         collection before as well (old), and those allocated since (young).

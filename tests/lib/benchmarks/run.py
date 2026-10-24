@@ -78,7 +78,7 @@ def parse_args(argv):
     , default=None
     , help='backend to measure; repeat for several; resolvelib, python and '
            'clang are the opponents of the applications suite [default: '
-           'cxx; in the applications suite cxx, py, resolvelib, python]'
+           'cxx; in the applications suite cxx, resolvelib, python]'
     )
   parser.add_argument(
       '--variant', action='append', default=None, metavar='NAME'
@@ -142,7 +142,7 @@ def parse_args(argv):
     )
   args = parser.parse_args(argv)
   if args.backend is None:
-    args.backend = suites.default_backends(args.suite)
+    args.backend = suites.backends_for_suite(args.suite)
   if args.repeat is None:
     args.repeat = suites.DEFAULT_REPEAT[args.suite]
   if args.repeat < 1:

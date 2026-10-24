@@ -7,7 +7,7 @@ queue, and the lifetimes of the configurations.  curry.stats and sprite-exec
 --stats report them after the seven fields of every build.
 
 The tests of the counters run on an instrumented runtime only.  On a plain
-runtime, and on the Python backend, the tests check that the statistics have
+runtime, and on the former runtime, the tests check that the statistics have
 the seven fields alone.  The derivations in Python (the median of a histogram
 and the sum over evaluations) are tested on every backend.
 '''
@@ -17,10 +17,8 @@ from curry.interpreter import stats as statsmod
 from curry import config
 import curry, re, subprocess, unittest
 
-CXX = curry.flags['backend'] == 'cxx'
-if CXX:
-  from curry.backends.cxx import curryrtbindings as curryrt
-ENABLED = CXX and curryrt.scheduler_counters_enabled()
+from curry.backends.cxx import curryrtbindings as curryrt
+ENABLED = curryrt.scheduler_counters_enabled()
 KEYS = statsmod.KEYS + statsmod.SCHEDULER_KEYS
 TIMEOUT = 120
 
@@ -96,7 +94,7 @@ class TestDerivations(unittest.TestCase):
 
 @unittest.skipIf(ENABLED, 'the runtime has the scheduler counters')
 class TestPlainBuild(cytest.TestCase):
-  '''A plain runtime, or the Python backend, reports the seven fields only.'''
+  '''A plain runtime, or the former runtime, reports the seven fields only.'''
 
   def test_no_counters(self):
     goal = cytest.raw.expr([curry.import_('Prelude')['not'], curry.choice(True, False)], typed=True)
@@ -104,8 +102,7 @@ class TestPlainBuild(cytest.TestCase):
     self.assertEqual(tuple(curry.stats()), statsmod.KEYS)
     self.assertIsNone(raw_counters())
     self.assertFalse(cytest.raw.interp().backend.scheduler_counters_enabled())
-    if CXX:
-      self.assertFalse(curryrt.scheduler_counters_enabled())
+    self.assertFalse(curryrt.scheduler_counters_enabled())
 
 
 @unittest.skipUnless(ENABLED, 'needs a runtime built with make COUNTERS=1')

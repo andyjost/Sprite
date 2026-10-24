@@ -10,7 +10,7 @@ for a cycle.  It kept every node met in a multiset, and when the walk left a
 node it removed the cursor of the walk, which is the last successor visited
 and not the node left, so a node stayed in the multiset after the walk left
 it: goal of data/curry/SharedListPrinter.curry printed ([False], ...) where
-the Python backend and PAKCS print ([False], [False]).  The printer keeps the
+the former runtime and PAKCS print ([False], [False]).  The printer keeps the
 path now.  The Python printer (show.py) kept the count of a spine node that
 closed a cycle, so a cyclic list shared by two positions printed as ... at
 the second: ([1, ...], ...) for let a = 1:a in (a, a).  Both backends print
@@ -137,7 +137,7 @@ class TestCyclicExpressions(cytest.TestCase):
   def test_cyclic_string(self):
     '''
     A cyclic list of Chars is no string: the string style met the cycle and
-    did not end on the Python backend.  The list style writes it.
+    did not end on the former runtime.  The list style writes it.
     '''
     # let s = 'a' : s in s
     s = cytest.raw.expr(ref('s'), s=cytest.raw.cons('a', ref('s')))

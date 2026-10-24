@@ -22,17 +22,9 @@ library of that release under ``curry/lib``, with Sprite's own
 The backend
 ===========
 
-The C++ backend is the backend (``CMake WITH_DEFAULT_BACKEND``
-records the default).  It compiles each module to C++ and links it against
-the runtime library ``libcurryrt``, and its runtime also interprets the
-ICurry of a module from a bytecode.  A reference implementation of the
-same scheduler in Python stays in the tree behind a flag until the removal
-gate of issue #82, a month of green nightly runs under the interpreter
-modes; the :doc:`developer notes <DeveloperNotes>` name the flag, what the
-implementation is for, and its limits.  :func:`curry.save` writes C++
-source, and :func:`curry.load` reads the shared object of
-``sprite-make --so``; the form of a saved program on the C++ backend is
-an open decision of that issue.
+The C++ backend is the one runtime.  Its runtime library ``libcurryrt``
+runs compiled code and interprets ICurry bytecode, including installations
+without a compiler.  See :doc:`Installation/WithoutCompiler`.
 
 The interpreter modes
 =====================

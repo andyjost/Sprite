@@ -2,7 +2,7 @@ import cytest # from ./lib; must be first
 import cytest.expression_library
 import curry
 from curry import inspect
-from curry.backends.py.graph.equality import equal
+from curry.backends.generic.graph.equality import equal
 import itertools, operator, unittest
 
 not_equal = lambda *args: not equal(*args)
@@ -228,19 +228,6 @@ class TestGraphComparison(cytest.expression_library.ExpressionLibTestCase):
     self.assertRaises(TypeError, equal, object(), one)
     self.assertRaises(TypeError, equal, cytest.raw.expr([1, 2]), [1, 2])
 
-  @unittest.skipIf(
-      curry.flags['backend'] != 'py'
-    , 'needs a node with a None placeholder, which only the Python backend builds'
-    )
-  def test_equals_visits_pairs_in_order(self):
-    # The pairs are visited left to right.  A mismatch ends the comparison
-    # before a later pair that is not a Curry expression raises TypeError.
-    from curry.backends.py.graph import Node
-    prelude = curry.import_('Prelude')
-    def cons(head):
-      return Node(prelude.Cons, Node(prelude.Int, head), None)
-    self.assertFalse(equal(cons(1), cons(2)))
-    self.assertRaises(TypeError, equal, cons(1), cons(1))
 
 
 class TestForeignObjects(cytest.TestCase):
@@ -249,7 +236,7 @@ class TestForeignObjects(cytest.TestCase):
   answers True, in both directions and through the containment test, as
   Python's data model expects of a comparison the type does not support.
   The C++ bindings raised TypeError (pybind11 refused the argument), and
-  the Python backend raised for a value that is not a Curry expression
+  the former runtime raised for a value that is not a Curry expression
   (issue #82, found in stage 3).  Both backends answer the same way now.
   '''
 

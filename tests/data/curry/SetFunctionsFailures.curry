@@ -142,7 +142,7 @@ argFail = sortValues (set1 id (0 ? failed))
 -- two classes: x is decided outside the capsule, so no narrowing with a
 -- failing sibling happens inside), beside the failure of the argument.
 -- The failed constraint is an inside failure, so the set stands empty:
--- True, [].  Before the record of a failed constraint the Python backend
+-- True, [].  Before the record of a failed constraint the former runtime
 -- failed the capsule (no value) where the C++ backend met a failure cell
 -- in a sibling alternative and printed True.  KiCS2 has no occurs check,
 -- so it is no reference here; the reading is that of rule (d1): the path

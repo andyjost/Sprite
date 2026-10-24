@@ -14,11 +14,9 @@ below is followed by applications, an optional specialist series and the
 build-system capstone.  The README beside each script gives its scope and
 limits; ``tests/unit_examples.py`` checks the recorded output.
 
-Examples 03, 09, 11, 12, 22 and 25 are tested on C++ only: 03 shows generated
-C++, 09 requires the stream channel, and the other searches exceed the
-reference backend's practical budget.  Example 03 adds ``interpret:off``
+All examples run on the C++ runtime.  Example 03 adds ``interpret:off``
 so its internal section reads compiled code.  Example 04 saves and loads
-objects and runs a saved program on C++ as well.
+objects and runs a saved program.
 
 Tour: 00 to 09
 ==============

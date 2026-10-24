@@ -122,7 +122,7 @@ exclude_patterns = []
 pygments_style = 'sphinx'
 
 # A list of ignored prefixes for module index sorting.
-modindex_common_prefix = ['curry', 'curry.backends.py', 'curry.icurry.types']
+modindex_common_prefix = ['curry', 'curry.icurry.types']
 
 # If true, keep warnings as "system message" paragraphs in the built documents.
 #keep_warnings = False

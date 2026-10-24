@@ -158,8 +158,11 @@ class TestPage(unittest.TestCase):
     memory = html[html.index('id="suite-memory"'):]
     self.assertIn('Metric: peak RSS.', memory)
     # The baseline holds three backends, so the titles name them.
+    # The throughput suite keeps its opponents as backends, so its titles
+    # carry the backend; the memory suite holds one backend since the removal
+    # of the Python backend (2026-10-24), so its titles name the program alone.
     self.assertIn('<span class="name">Fib [cxx]</span>', throughput)
-    self.assertIn('<span class="name">Half (collector=on) [cxx]</span>', memory)
+    self.assertIn('<span class="name">Half (collector=on)</span>', memory)
     key = ('throughput', 'Fib', 'cxx', None)
     fib = [r for r in recs if records.key(r) == key][0]
     label = '%s s' % float('%.3g' % fib['cpu'])
@@ -542,6 +545,10 @@ class TestWorkflow(unittest.TestCase):
     ci = read(os.path.join(WORKFLOWS, 'ci.yml'))
     self.assertNotIn('run-perf.sh', ci)
     self.assertNotIn('perf-history', ci)
+    self.assertNotIn('inputs.python', ci)
+    self.assertNotIn('  python:\n', ci)
+    self.assertEqual(ci.count('- { backend: cxx, shard:'), 3)
+    self.assertIn('  stress:\n', ci)
 
   def test_interpreter_job(self):
     '''

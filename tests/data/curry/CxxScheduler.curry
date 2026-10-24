@@ -66,7 +66,7 @@ nestedCapture = sortValues (set1 captured (1 ? 2))
 
 -- The same capture with a case on the argument, so the guard of the outer
 -- set function is not at the root of the inner configuration: the shape
--- the Python backend runs as well.
+-- the former runtime runs as well.
 constantCase :: Int -> Int -> Int
 constantCase x _ = case x of { 1 -> 1; 2 -> 2 }
 

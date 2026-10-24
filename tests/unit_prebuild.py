@@ -1,24 +1,7 @@
-'''
-Tests for the prebuilt Curry library and the bytecode cache of generated
-Python modules.
-
-make stage compiles the installed Curry library for both backends (the
-prebuild step of curry/Makefile): every module Sprite can compile
-(config.supported_syslibs).  The Python backend finds a generated
-module and its bytecode cache; the C++ backend finds the shared object, its
-ABI stamp, and the precompiled header.  So the first import after a stage
-compiles nothing.  The other modules get their ICurry and JSON only.  The toolchain writes the bytecode cache when it writes a
-Python file, and the loader of the Python backend reads the cache through
-importlib and writes a missing or stale one, with or without -B.  A generated
-Python file carries a format stamp; a cached file of another stamp, or of
-none, is written again from the JSON file.  The modules of the cache and
-stamp tests come from hand-written ICurry-JSON, so no Curry front end runs.
-'''
+'''Tests for the prebuilt Curry library and its compiled objects.'''
 import cytest # from ./lib; must be first
 from cytest.logging import capture_log
 from curry import config
-from curry.backends.py import compiler as py_compiler
-from curry.backends.py import toolchain as py_toolchain
 from curry.toolchain import plans, makecurry
 from curry.tools import make
 from curry.utility.binding import binding
@@ -43,10 +26,10 @@ def installed_file(name, suffix):
 class TestStagedLibrary(cytest.TestCase):
   '''The products that make stage leaves in the installation.'''
 
-  def test_python_files_are_staged(self):
+  def test_intermediates_are_staged(self):
     '''
-    Every supported system module has its Python file and a current bytecode
-    cache; every system module has its ICurry and JSON.
+    Every system module has its ICurry and JSON.  The library has no
+    generated Python products.
     '''
     for name in config.syslibs():
       self.assertTrue(os.path.isfile(installed_file(name, '.icy')), name)
@@ -55,11 +38,7 @@ class TestStagedLibrary(cytest.TestCase):
     self.assertEqual(supported[0], 'Prelude')
     self.assertFalse(set(supported) & set(config.unsupported_syslibs()))
     for name in supported:
-      pyfile = installed_file(name, '.py')
-      self.assertTrue(os.path.isfile(pyfile), pyfile)
-      cache = py_toolchain.bytecode_file(pyfile)
-      self.assertTrue(os.path.isfile(cache), cache)
-      self.assertTrue(py_toolchain.bytecode_is_current(pyfile), pyfile)
+      self.assertFalse(os.path.exists(installed_file(name, '.py')), name)
 
   @unittest.skipIf(config.cxx_tool() is None, 'no C++ compiler is installed')
   def test_cxx_objects_are_staged(self):
@@ -93,7 +72,7 @@ class TestStagedLibrary(cytest.TestCase):
     backend without a compiler command and without compiling a generated
     Python file.
     '''
-    if curry.flags['backend'] == 'cxx' and config.cxx_tool() is None:
+    if config.cxx_tool() is None:
       self.skipTest('no C++ compiler is installed')
     code = '\n'.join([
         'import cytest, curry, json, os'
@@ -141,7 +120,7 @@ class TestStagedLibrary(cytest.TestCase):
     spec.loader.exec_module(module)
     ambient = {
         'SPRITE_HOME': '/other', 'CURRYPATH': '/other',
-        'SPRITE_INTERPRETER_FLAGS': 'backend:py', 'CXXFLAGS': '-bad',
+        'SPRITE_INTERPRETER_FLAGS': 'backend:cxx,interpret:all', 'CXXFLAGS': '-bad',
         'SPRITE_PRODUCT_CACHE': '/products'}
     for pythonpath, expected in [
         (None, '/stage/python'), ('', '/stage/python'),
@@ -261,7 +240,7 @@ class TestPackagedModule(JsonModuleTestCase):
     '''
     The step that writes the target source imports the package of the module
     before the module itself.  An import by name does this through the name
-    prefixes; the import of the ICurry object did not, so sprite-make --py
+    prefixes; the import of the ICurry object did not, so sprite-make --so
     Data.Maybe failed with KeyError.  The step runs with the flag
     ``interpret`` off: under its default (tiered) the C++ backend ends the
     plan at the JSON.
@@ -277,266 +256,3 @@ class TestPackagedModule(JsonModuleTestCase):
     self.assertNotIn(package, curry.modules)
     self.assertNotIn(name, curry.modules)
     self.check_value(self.import_module(name), 6)
-
-@unittest.skipIf(
-    curry.flags['backend'] != 'py'
-  , 'the bytecode cache belongs to the Python backend'
-  )
-class TestBytecodeCache(JsonModuleTestCase):
-  def test_toolchain_writes_the_cache(self):
-    '''
-    The step that writes a Python file writes its bytecode cache too, whether
-    or not the process runs with -B.
-    '''
-    with mock.patch.object(sys, 'dont_write_bytecode', True):
-      name = self.build(1)
-    pyfile = self.cached_file(name, '.py')
-    cache = py_toolchain.bytecode_file(pyfile)
-    self.assertEqual(cache, importlib.util.cache_from_source(pyfile))
-    self.assertEqual(
-        os.path.dirname(cache), os.path.join(self.subdir, '__pycache__')
-      )
-    self.assertTrue(os.path.isfile(cache))
-    self.assertTrue(py_toolchain.bytecode_is_current(pyfile))
-    self.check_value(self.import_module(name), 1)
-
-  def test_loader_reads_the_cache(self):
-    '''
-    The loader reads a current cache instead of the source.  After the
-    source changes, it compiles the source once and writes the cache again,
-    although the process runs with -B.  A missing cache is written the same
-    way.
-    '''
-    name = self.build(2)
-    pyfile = self.cached_file(name, '.py')
-    cache = py_toolchain.bytecode_file(pyfile)
-    compiled = []
-    source_to_code = importlib.machinery.SourceFileLoader.source_to_code
-    def recording(loader, data, path, *args, **kwds):
-      if path == pyfile:
-        compiled.append(path)
-      return source_to_code(loader, data, path, *args, **kwds)
-    with mock.patch.object(
-        importlib.machinery.SourceFileLoader, 'source_to_code', recording
-      ), mock.patch.object(sys, 'dont_write_bytecode', True):
-      self.check_value(cytest.raw.interp().load(pyfile), 2)
-      self.assertEqual(compiled, [])
-      # The source changes, so its cache is stale.
-      stamp = os.stat(pyfile).st_mtime + 5
-      os.utime(pyfile, (stamp, stamp))
-      self.assertFalse(py_toolchain.bytecode_is_current(pyfile))
-      cytest.raw.interp().load(pyfile)
-      self.assertEqual(compiled, [pyfile])
-      self.assertTrue(py_toolchain.bytecode_is_current(pyfile))
-      cytest.raw.interp().load(pyfile)
-      self.assertEqual(compiled, [pyfile])
-      # The cache is missing: the file came from an installation that wrote
-      # none.
-      os.unlink(cache)
-      self.check_value(cytest.raw.interp().load(pyfile), 2)
-      self.assertEqual(compiled, [pyfile] * 2)
-      self.assertTrue(py_toolchain.bytecode_is_current(pyfile))
-      cytest.raw.interp().load(pyfile)
-      self.assertEqual(compiled, [pyfile] * 2)
-
-  def test_file_without_a_cache_is_compiled_once(self):
-    '''
-    A generated file without a cache, such as a test module from the overlay
-    archive, is compiled by the first process that loads it, which writes
-    the cache under -B; the next process compiles nothing.
-    '''
-    name = self.build(6)
-    pyfile = self.cached_file(name, '.py')
-    os.unlink(py_toolchain.bytecode_file(pyfile))
-    code = '\n'.join([
-        'import cytest, curry, json, sys'
-      , 'import importlib.machinery as machinery'
-      , 'compiled = []'
-      , 'source_to_code = machinery.SourceFileLoader.source_to_code'
-      , 'def counting(self, data, path, *args, **kwds):'
-      , '  if path == %r:' % pyfile
-      , '    compiled.append(path)'
-      , '  return source_to_code(self, data, path, *args, **kwds)'
-      , 'machinery.SourceFileLoader.source_to_code = counting'
-      , 'module = curry.import_(%r, path=[%r] + curry.path)'
-            % (name, self.srcdir)
-      , 'values = list(curry.eval(module.goal))'
-      , 'print(json.dumps([len(compiled), values, sys.dont_write_bytecode]))'
-      ])
-    for expected in [1, 0]:
-      proc = cytest.run_in_subprocess(code, timeout=120)
-      self.assertEqual(proc.returncode, 0, proc.stderr)
-      result = json.loads(proc.stdout.strip().splitlines()[-1])
-      self.assertEqual(result, [expected, [6], True])
-      self.assertTrue(py_toolchain.bytecode_is_current(pyfile))
-
-  def test_ensure_bytecode(self):
-    '''
-    ensure_bytecode writes a missing or stale cache and keeps a current one.
-    A cache whose header does not name the file as it is now is stale.
-    '''
-    name = self.build(3)
-    pyfile = self.cached_file(name, '.py')
-    cache = py_toolchain.bytecode_file(pyfile)
-    os.unlink(cache)
-    self.assertFalse(py_toolchain.bytecode_is_current(pyfile))
-    py_toolchain.ensure_bytecode(pyfile)
-    self.assertTrue(py_toolchain.bytecode_is_current(pyfile))
-    written = os.stat(cache).st_mtime_ns
-    py_toolchain.ensure_bytecode(pyfile)
-    self.assertEqual(os.stat(cache).st_mtime_ns, written)
-    # The size field of the header is overwritten.
-    with open(cache, 'r+b') as stream:
-      stream.seek(12)
-      stream.write(b'\0\0\0\0')
-    self.assertFalse(py_toolchain.bytecode_is_current(pyfile))
-    py_toolchain.ensure_bytecode(pyfile)
-    self.assertTrue(py_toolchain.bytecode_is_current(pyfile))
-    # A file that does not exist has no cache, and nothing is written.
-    missing = self.cached_file('Nothing', '.py')
-    self.assertFalse(py_toolchain.bytecode_is_current(missing))
-    py_toolchain.ensure_bytecode(missing)
-    self.assertFalse(os.path.exists(py_toolchain.bytecode_file(missing)))
-
-  @unittest.skipIf(
-      hasattr(os, 'geteuid') and os.geteuid() == 0
-    , 'a read-only directory does not stop the superuser'
-    )
-  def test_unwritable_cache_is_skipped(self):
-    '''
-    A cache that cannot be written gives one warning; the loader compiles
-    the source and the file still loads.
-    '''
-    name = self.build(4)
-    pyfile = self.cached_file(name, '.py')
-    cache = py_toolchain.bytecode_file(pyfile)
-    os.unlink(cache)
-    os.rmdir(os.path.dirname(cache))
-    os.chmod(self.subdir, 0o500)
-    try:
-      with capture_log('curry.backends.py.toolchain') as log:
-        self.check_value(self.import_module(name), 4)
-    finally:
-      os.chmod(self.subdir, 0o700)
-    log.checkMessages(self, warning='cannot write the bytecode cache')
-    self.assertEqual(len(log.data[logging.WARNING]), 1)
-    self.assertFalse(os.path.exists(cache))
-
-  def test_sprite_make_py_writes_a_missing_cache(self):
-    '''
-    sprite-make --py writes the bytecode cache of a Python file that is
-    current already, as an installation from before the cache was written
-    holds.  No step of the plan runs, and the file keeps its time stamp.  A
-    current cache is kept.
-    '''
-    name = self.build(7)
-    pyfile = self.cached_file(name, '.py')
-    cache = py_toolchain.bytecode_file(pyfile)
-    os.unlink(cache)
-    stamp = os.stat(pyfile).st_mtime_ns
-    def sprite_make_py():
-      # sprite-make reads CURRYPATH through config.currypath, which caches.
-      with binding(os.environ, 'CURRYPATH', self.srcdir):
-        config.currypath(reset=True)
-        with mock.patch.object(
-            py_toolchain.Json2Py, '__call__'
-          , side_effect=AssertionError('a step of the plan ran')
-          ):
-          make.main('sprite-make', ['--py', '-z', name])
-      config.currypath(reset=True)
-    sprite_make_py()
-    self.assertEqual(os.stat(pyfile).st_mtime_ns, stamp)
-    self.assertTrue(py_toolchain.bytecode_is_current(pyfile))
-    written = os.stat(cache).st_mtime_ns
-    sprite_make_py()
-    self.assertEqual(os.stat(cache).st_mtime_ns, written)
-    self.check_value(cytest.raw.interp().load(pyfile), 7)
-
-  def test_tidy_removes_the_cache(self):
-    '''A Python file that --tidy removes takes its cache along.'''
-    name = self.write_json(5)
-    output = os.path.join(self.tmpdir, 'out.py')
-    pyfile = self.cached_file(name, '.py')
-    result = makecurry(self.plan, name, [self.srcdir], tidy=True, output=output)
-    self.assertEqual(result, pyfile)
-    self.assertTrue(os.path.isfile(output))
-    self.assertFalse(os.path.exists(pyfile))
-    self.assertFalse(os.path.exists(py_toolchain.bytecode_file(pyfile)))
-
-@unittest.skipIf(
-    curry.flags['backend'] != 'py'
-  , 'the Python toolchain belongs to the Python backend'
-  )
-class TestFormatStamp(JsonModuleTestCase):
-  '''
-  The emitter stamps every generated Python file with its format.  A cached
-  file of another stamp, or of none, is written again from the JSON file: the
-  emitter writes other code now.  A file with the current stamp is loaded as
-  it is.  The C++ backend has the same rule (unit_cxx_toolchain).
-  '''
-  STALE = "raise RuntimeError('this file is stale')\n"
-  CURRENT = "raise RuntimeError('this file is current')\n"
-
-  def write_py(self, name, lines):
-    '''Writes a cached .py file for ``name``, newer than its JSON file.'''
-    path = self.cached_file(name, '.py')
-    with open(path, 'w') as stream:
-      stream.write(''.join(lines))
-    return path
-
-  def stamp(self, version):
-    return '# FORMAT: %d\n' % version
-
-  def test_stamp_is_written(self):
-    name = self.build(1)
-    path = self.cached_file(name, '.py')
-    with open(path) as stream:
-      head = [next(stream) for _ in range(3)]
-    # The stamp heads the file, before the first import.
-    self.assertIn(self.stamp(py_compiler.FORMAT_VERSION), head)
-    self.assertTrue(any(line.startswith('import') for line in head))
-    self.assertEqual(
-        py_toolchain.format_version(path), py_compiler.FORMAT_VERSION
-      )
-    self.assertFalse(py_toolchain.source_is_stale(path))
-    json2py = py_toolchain.Json2Py(cytest.raw.interp())
-    self.assertFalse(json2py.is_stale(path))
-    self.assertFalse(json2py.is_stale(self.cached_file(name, '.json.z')))
-    self.assertFalse(self.plan.is_stale(path))
-    self.check_value(self.import_module(name), 1)
-
-  def test_generated_module_uses_internal_interpreter(self):
-    name = self.build(9)
-    namespace = runpy.run_path(self.cached_file(name, '.py'))
-    self.assertIs(namespace['interp'], cytest.raw.interp())
-    self.check_value(namespace['_module_'], 9)
-
-  def test_other_stamp_is_regenerated(self):
-    '''A file of another format is written again from the JSON file.'''
-    name = self.write_json(2)
-    path = self.write_py(
-        name, [self.stamp(py_compiler.FORMAT_VERSION + 1), self.STALE]
-      )
-    self.assertTrue(py_toolchain.source_is_stale(path))
-    self.assertTrue(self.plan.is_stale(path))
-    self.check_value(self.import_module(name), 2)
-    text = cytest.readfile(path)
-    self.assertIn(self.stamp(py_compiler.FORMAT_VERSION), text)
-    self.assertNotIn('this file is stale', text)
-    self.assertTrue(py_toolchain.bytecode_is_current(path))
-
-  def test_missing_stamp_is_regenerated(self):
-    '''A file from before the stamp has format 1, and is written again.'''
-    name = self.write_json(3)
-    path = self.write_py(name, [self.STALE])
-    self.assertEqual(py_toolchain.format_version(path), 1)
-    self.assertTrue(self.plan.is_stale(path))
-    self.check_value(self.import_module(name), 3)
-    self.assertNotIn('this file is stale', cytest.readfile(path))
-
-  def test_current_stamp_is_loaded(self):
-    '''A file with the current stamp is the prerequisite, as before.'''
-    name = self.write_json(4)
-    self.write_py(name, [self.stamp(py_compiler.FORMAT_VERSION), self.CURRENT])
-    with self.assertRaisesRegex(RuntimeError, 'this file is current'):
-      self.import_module(name)

@@ -29,8 +29,8 @@ See :ref:`important-notes` for the archive and the test oracle.
 Run the tests::
 
     cd tests
-    ./run_tests --prepare-only --backend both
-    ./run_tests --backend both
+    ./run_tests --prepare-only --backend cxx
+    ./run_tests --backend cxx
 
 To install the prepared tree elsewhere::
 

@@ -143,13 +143,15 @@ The following are recognized:
   See the :mod:`list of flags <curry.interpreter.flags>` for details, and
   :ref:`interpreter-flags` for the table with the defaults.
 
-  For example, to have Sprite generate debug code and print execution traces,
-  set the following::
+  For example, to have Sprite generate debug code, set::
 
-     SPRITE_INTERPRETER_FLAGS=trace:True,debug:True
+     SPRITE_INTERPRETER_FLAGS=debug:True
+
+  Runtime execution traces require a build with ``TRACE`` enabled.  The
+  compatibility flag ``trace`` has no effect on the runtime.
 
   The ``backend`` flag names the backend: ``cxx``, the C++ backend, the
-  default of an installation (``CMake WITH_DEFAULT_BACKEND``).
+  only runtime of an installation.
 
   The ``interpret`` flag selects how the C++ backend runs a module without
   a compiled object: ``tiered`` (the default) interprets it and compiles it

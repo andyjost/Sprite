@@ -2,7 +2,7 @@
 Tests for the C++ mirror of the checker mode of the Fair Scheme proofs
 program: the interpreter flag ``checker`` on the C++ backend and the checker
 of the runtime (src/curryrt/checker.hpp), section 6.5 of the memo on the Fair
-Scheme proofs.  The checker of the Python backend and its tests
+Scheme proofs.  The checker of the former runtime and its tests
 (unit_py_checker.py) are the model.
 
 Two kinds of tests.  The known-good programs of the suite (the set-function,
@@ -14,13 +14,12 @@ which corrupt one configuration of a runtime state on purpose or run one
 check on constructed nodes; the entries work only while the flag is on.
 
 The checker drives the C++ runtime, so the white-box tests skip on the
-Python backend.
+former runtime.
 '''
 import cytest # from ./lib; must be first
 from curry.common import LEFT, RIGHT, T_FUNC
 import curry, unittest
 
-CXX = curry.flags['backend'] == 'cxx'
 LEFT, RIGHT = int(LEFT), int(RIGHT)
 
 def _cb():
@@ -225,7 +224,6 @@ bigThenOutside = let a = gBig (length [()]) in
 ''' % ', '.join('e (%s)' % ('(' * 10 + str(i) + ' + 0)' * 10) for i in range(1, 101))
 
 
-@unittest.skipIf(not CXX, 'the checker of the C++ runtime')
 class CheckerTestCase(cytest.TestCase):
   '''A test case under the checker.  The flags are set for the class.'''
   FLAGS = {'backend': 'cxx', 'checker': True}
@@ -248,7 +246,6 @@ class TestFlag(cytest.TestCase):
     from curry.interpreter import flags
     self.assertEqual(flags.get_default_flags()['checker'], False)
 
-  @unittest.skipIf(not CXX, 'the checker of the C++ runtime')
   def test_off_means_no_checker(self):
     '''With the flag off the runtime state holds no checker, and the debug
     entries refuse.'''
@@ -261,7 +258,6 @@ class TestFlag(cytest.TestCase):
     finally:
       curry.reset(**{'backend': 'cxx'})
 
-  @unittest.skipIf(not CXX, 'the checker of the C++ runtime')
   def test_on_means_checker(self):
     curry.reset(**{'backend': 'cxx', 'checker': True})
     try:
@@ -279,7 +275,6 @@ class TestFlag(cytest.TestCase):
     finally:
       curry.reset(**{'checker': False})
 
-  @unittest.skipIf(not CXX, 'the checker of the C++ runtime')
   def test_violation_is_an_assertion_error(self):
     '''A report reaches Python as an AssertionError that names the
     invariant, the event, the configuration and the goal position.'''
@@ -382,7 +377,7 @@ class TestKnownGood(CheckerTestCase):
     self.assertEqual(values['paired'], ['(Q, Q)'])
 
   def test_dropped_box(self):
-    '''The program of the defect of the Python backend: the C++ runtime
+    '''The program of the defect of the former runtime: the C++ runtime
     passes the checker with the values of weakly encapsulated search.'''
     def compute():
       M = curry.compile(DROPPED_BOX, name='CxxCheckerDroppedBox')
@@ -450,7 +445,6 @@ print(json.dumps(out))
 '''
 
 
-@unittest.skipIf(not CXX, 'the checker of the C++ runtime')
 class TestKnownGoodInterpreted(cytest.TestCase):
   '''
   The known-good programs under the ICurry interpreter of the runtime
@@ -1275,7 +1269,6 @@ class TestSharedArgument(cytest.TestCase):
     M = curry.compile(BIG_STEP, name='CxxCheckerBigStep')
     self.assertEqual(_values(M, 'bigThenOutside'), self.BIG_VALUES)
 
-  @unittest.skipIf(not CXX, 'the checker of the C++ runtime')
   def test_under_the_checker(self):
     '''No report and the same values on the three shapes.'''
     curry.reset(**{'backend': 'cxx', 'checker': True})
@@ -1285,7 +1278,6 @@ class TestSharedArgument(cytest.TestCase):
     finally:
       curry.reset(**{'backend': 'cxx', 'checker': False})
 
-  @unittest.skipIf(not CXX, 'the checker of the C++ runtime')
   def test_big_step_under_the_checker(self):
     '''A step over the budget of the walk: the walk is counted, the sets
     of the flags become unbounded, and the pull-tab across the box is not

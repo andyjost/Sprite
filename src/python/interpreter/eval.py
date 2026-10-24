@@ -220,8 +220,6 @@ def _print_yield(interp, event):
 def stream(interp, action):
   '''The output events of an IO goal, with its final value as the result.'''
   session = interp._session
-  if interp.flags['backend'] != 'cxx':
-    raise NotImplementedError('curry.stream requires the C++ backend')
   args = _arguments(interp, (action,), {})
   variables = [v for v in walk_forms(args) if isinstance(v, Var)]
   goal = goals.make_goal(interp, args)

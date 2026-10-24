@@ -102,8 +102,7 @@ and an installation without a C++ compiler runs every program; see
 :doc:`/Installation/WithoutCompiler`.  The ``--backend`` option names the
 backend of a run and overrides a ``backend`` flag of
 ``SPRITE_INTERPRETER_FLAGS``.  The help of ``sprite-exec -h`` names the
-default of the installation, which ``CMake WITH_DEFAULT_BACKEND``
-sets.
+only accepted value, ``cxx``.
 
 The runtime serializes graph access with a recursive lock per heap.  This
 is a stopgap for the concurrent runtime of epic #28.  Open evaluations keep
@@ -309,12 +308,6 @@ Python, so the profile shows the driver and not the program; ``--stats``
 Generating Traces
 =================
 
-To generate a computation trace, set SPRITE_INTERPRETER_FLAGS as shown here::
-
-    SPRITE_INTERPRETER_FLAGS=trace:true sprite-exec Peano.curry > spritelog
-
-.. note::
-
-  Vim users may wish to :ref:`install <spritelog-highlighting>`
-  ``spritelog.vim`` to view the output with syntax highlighting.
-
+Runtime computation traces require Sprite to be built with ``TRACE`` enabled
+(``make stage TRACE=1``).  The compatibility interpreter flag ``trace`` has
+no effect on the C++ runtime.

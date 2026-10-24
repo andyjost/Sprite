@@ -6,7 +6,7 @@ and the exit status.
 
 import argparse, itertools, os, resource, shutil, sys
 from . import (
-    BACKENDS, BACKSTOP, BACKSTOP_FACTOR, DEFAULT_BACKEND, DEFAULT_CAP
+    BACKENDS, BACKSTOP, BACKSTOP_FACTOR, DEFAULT_CAP
   , DEFAULT_FAST_SECONDS, DEFAULT_JOBS, DEFAULT_MEM_FRACTION
   , DEFAULT_SPRITE_HOME, DEFAULT_TIMEOUT, GIB, LOGDIR, MANIFEST_FILE, TESTDIR
   )
@@ -31,8 +31,7 @@ def epilog(jobs=DEFAULT_JOBS):
           'count' if jobs == 'auto' else '%s at a time' % jobs
   return '''
 Without options every unit_*.py and func_*.py file runs, one file per
-process, %(width)s, on the backend of SPRITE_INTERPRETER_FLAGS, else on
-the default backend of the installation (sysconfig/default_backend).  A
+process, %(width)s, on the C++ runtime.  A
 PATTERN is matched against the file names (shell style).  The output of
 each file goes to .cache/runner/<backend>/<file>.log.  See section 10 of
 README.
@@ -74,9 +73,8 @@ def build_parser(jobs=DEFAULT_JOBS):
            % round(DEFAULT_MEM_FRACTION * 100)
     )
   parser.add_argument(
-      '--backend', choices=BACKENDS + ('both',), default=None
-    , help='the backend, or both [default: from SPRITE_INTERPRETER_FLAGS, '
-           'else the default backend of the installation]'
+      '--backend', choices=BACKENDS, default=None
+    , help='the runtime [default: cxx]'
     )
   parser.add_argument(
       '--fast', nargs='?', const=DEFAULT_FAST_SECONDS, type=float
@@ -132,20 +130,6 @@ def build_parser(jobs=DEFAULT_JOBS):
 
 def parse_args(argv, jobs=DEFAULT_JOBS):
   return build_parser(jobs).parse_args(argv)
-
-def installed_backend(sprite_home):
-  '''
-  The default backend of the installation: the value of
-  sysconfig/default_backend, which CMake WITH_DEFAULT_BACKEND writes;
-  DEFAULT_BACKEND when the installation has no such file or the file names
-  no backend.
-  '''
-  try:
-    with open(os.path.join(sprite_home, 'sysconfig', 'default_backend')) as stream:
-      value = stream.read().strip()
-  except OSError:
-    return DEFAULT_BACKEND
-  return value if value in BACKENDS else DEFAULT_BACKEND
 
 def flag_value(flags, flag):
   '''The value of ``flag`` in a SPRITE_INTERPRETER_FLAGS value, or None.'''
@@ -404,15 +388,7 @@ def main(argv=None):
       % sprite_home
       )
     return 2
-  if args.backend == 'both':
-    backends = list(BACKENDS)
-  elif args.backend:
-    backends = [args.backend]
-  else:
-    backends = [
-        flag_backend(os.environ.get('SPRITE_INTERPRETER_FLAGS'))
-        or installed_backend(sprite_home)
-      ]
+  backends = [args.backend or 'cxx']
   manifest = Manifest.load(args.manifest)
   files = selection.test_files()
   if args.pattern and args.changed is None \

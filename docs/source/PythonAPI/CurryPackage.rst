@@ -66,26 +66,22 @@ Flag                         Default                What it changes
                                                     function on a constructor becomes the branch.  ``0``
                                                     turns both rules off.
 ``checker``                  ``False``              The checker mode of the Fair Scheme proofs program: the
-                                                    reference backend asserts the run-time invariants of
-                                                    the Fair Scheme at every fork, escape, pull-tab,
-                                                    instantiation and yield; the C++ backend ignores it.
+                                                    runtime asserts the run-time invariants of the Fair
+                                                    Scheme at every fork, escape, pull-tab, instantiation
+                                                    and yield.
 ``debug``                    ``False``              More consistency checks; the C++ backend compiles its
                                                     modules in the debug flavor.
-``trace``                    ``False``              Trace the computation.
-``telemetry_interval``       ``None``               Seconds between the event reports of the runtime in
-                                                    the log; ``None`` turns them off.
-``lazycompile``              ``True``               Materialize a function when it is first needed.
+``trace``                    ``False``              Reserved; runtime traces require a ``TRACE`` build.
+``telemetry_interval``       ``None``               Reserved for compatibility; use ``curry.stats`` for
+                                                    runtime counters.
+``lazycompile``              ``True``               Reserved for compatibility; has no effect.
 ``keep_temp_files``          ``False``              Keep the temporary files; a string names the
                                                     directory for them.
 ``postmortem``               ``False``              Copy the generated code of a failed compile from a
                                                     string to the working directory.
 ===========================  =====================  ========================================================
 
-.. [1] The default of ``backend`` is the one ``CMake WITH_DEFAULT_BACKEND``
-   recorded in ``sysconfig/default_backend`` of the installation; ``cxx``
-   unless configured otherwise.  The flags of the reference backend,
-   ``step_budget`` and ``recursion_limit``, are described in the
-   :doc:`developer notes </DeveloperNotes>`.
+.. [1] The only value of ``backend`` is ``cxx``.
 
 Package Structure
 =================

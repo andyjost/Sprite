@@ -12,8 +12,6 @@ from curry import config
 
 ROOT = Path(__file__).resolve().parent.parent
 
-@unittest.skipUnless(curry.flags['backend'] == 'cxx',
-    'the Python backend is retired and has no stream yield point')
 class TestStream(cytest.TestCase):
   def setUp(self):
     self.M = curry.import_('StreamChannel')

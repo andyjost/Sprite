@@ -1,7 +1,7 @@
 -- Programs for unit_setfunctions_bugs.py, issue #123: a captured choice
 -- that the walk of N reaches through a forward node in front of its box.
 -- constT x 0 rewrites to a forward node to the guarded x.  The walk of the
--- Python backend spliced the chain and the guard behind it out together,
+-- former runtime spliced the chain and the guard behind it out together,
 -- so the choice was pull-tabbed without its box and encapsulated.
 module CapturedFwd where
 

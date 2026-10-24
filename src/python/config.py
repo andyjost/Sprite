@@ -165,7 +165,6 @@ currylib_module_names     = _Variable('currylib_module_names')
 # the unsupported list in CMakeLists.txt.
 currylib_unsupported_modules = _Variable('currylib_unsupported_modules')
 # The name of the default backend.
-default_backend           = _Variable('default_backend')
 # The location of ld.so.
 ld_interpreter_path       = _Variable('ld_interpreter_path')
 # The flavor of the installed C++ runtime, as the build wrote it: 'release'
@@ -244,7 +243,7 @@ def supported_syslibs():
   '''
   The names of the system library modules that Sprite compiles, the Prelude
   first: :func:`syslibs` without :func:`unsupported_syslibs`.  The
-  installation compiles them for both backends.
+  installation compiles them for the runtime.
   '''
   unsupported = set(unsupported_syslibs())
   return [name for name in syslibs() if name not in unsupported]

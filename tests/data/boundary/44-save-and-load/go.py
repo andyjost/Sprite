@@ -1,9 +1,8 @@
 '''
-curry.save and curry.load of a module and of a program on the Python
-backend, the pair that round-trips.
+curry.save and curry.load of a module and of a program.
 
-A loaded module crosses the boundary back to disk as Python source:
-curry.save with module_main=False writes a module that curry.load reads in
+A loaded module crosses the boundary back to disk as a shared object:
+curry.save with no main argument writes a module that curry.load reads in
 a later interpreter, and curry.save with main=M.main writes a program that
 the Python of the installation runs (the run script does so after this
 driver).  The goal of save is a name and not a symbol (P39).  The driver
@@ -21,9 +20,9 @@ M = curry.import_('M')
 print('M.f ->', vals(M.f))
 
 # A module without a main program, and a program whose goal is main.
-curry.save(M, os.path.join(HERE, 'M.py'))
+curry.save(M, os.path.join(HERE, 'M.so'))
 curry.save(M, os.path.join(HERE, 'Prog.py'), main=M.main)
-print('saved ->', sorted(name for name in os.listdir(HERE) if name.endswith('.py')))
+print('saved ->', sorted(name for name in os.listdir(HERE) if name.endswith(('.py', '.so'))))
 
 # A term names the main goal; the destination path is required.
 curry.save(M, os.path.join(HERE, 'Y.py'), main=M.main)
@@ -35,8 +34,8 @@ except TypeError:
 
 # A reset forgets M; load reads the saved module back under its name.
 curry.reset()
-L = curry.load(os.path.join(HERE, 'M.py'))
+L = curry.load(os.path.join(HERE, 'M.so'))
 print('loaded ->', L.__name__, sorted(curry.modules))
 print('L.f ->', vals(L.f))
 print("curry.modules['M'] is L ->", curry.modules['M'] is L)
-print('load again is L ->', curry.load(os.path.join(HERE, 'M.py')) is L)
+print('load again is L ->', curry.load(os.path.join(HERE, 'M.so')) is L)

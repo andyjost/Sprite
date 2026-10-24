@@ -1,8 +1,8 @@
 Save and load
 =============
 
-Seam: A saved Python module round-trips; a saved program runs its named goal.
-The landed save retains goal= and module_main=False until lane 5 lands.
+Seam: A saved shared object round-trips; a saved program runs its named goal.
+The public save uses main=M.main for a program and no main for a module.
 
 Run ./run after make stage, or run unit_boundary.py from tests/.
 The run script selects the staged Python and the session backend.

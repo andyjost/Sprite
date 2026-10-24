@@ -1,8 +1,8 @@
 '''Utilities for working with Curry expressions.'''
 
 from .... import icurry
-from . import indexing, variable
-from .node import Node
+from . import indexing
+from ... import Node
 
 __all__ = ['iterexpr', 'walk']
 
@@ -63,7 +63,7 @@ class WalkState(object):
     elif isinstance(cursor, icurry.ILiteral):
       successors = []
     else:
-      successors = list(enumerate(cursor.successors))[::-1]
+      successors = []
     self.stack.append(successors)
     self.realpath.append(None)
     self.spine.append(None)

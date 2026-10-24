@@ -25,7 +25,7 @@ namespace
 {
   using namespace curryrt;
 
-  // Writes a Float as PAKCS writes it, so that both backends print one text
+  // Writes a Float as PAKCS writes it, so that the runtime print one text
   // (issue #34).  The digits are the shortest that read back to the same
   // value.  The point stands in the digits when the value is at least
   // 1.0e-4 and either below 1.0e15 or not integral; otherwise the text is
@@ -33,7 +33,7 @@ namespace
   // lone digit gets ".0": 0.0001, 1.0e-5, 10000000.0, 1.0e+15, 1.0e+22.
   // An integral value ends in ".0".  The infinities and NaN, which PAKCS
   // cannot make, are written Infinity, -Infinity, and NaN, as KiCS2 writes
-  // them.  The Python backend has the same rule in show.show_float.
+  // them.  The former runtime has the same rule in show.show_float.
   void show_float(std::ostream & os, unboxed_float_type value)
   {
     if(std::isnan(value))
@@ -177,7 +177,7 @@ namespace
         }
         else
         {
-          // The repr form writes the bare symbol name, as the Python backend
+          // The repr form writes the bare symbol name, as the former runtime
           // does: <? <Int 1> <Int 2>>, not <(?) <Int 1> <Int 2>>.
           this->os << '<' << cur->info->name;
           walk.extend(id);
@@ -549,7 +549,7 @@ namespace
             }
             else
             {
-              // Match the Python backend: a partial application with
+              // Match the former runtime: a partial application with
               // arguments is always written (f a b), even at the top level
               // or inside a list; one without arguments is written f.
               if(partial->nargs() == 0)

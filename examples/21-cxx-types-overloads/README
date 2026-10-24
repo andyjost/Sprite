@@ -213,12 +213,7 @@ one.
 A warm run of ./run took 1.0 s.  The first run also compiles the modules:
 about a second more for CxxOverload.curry and Overloads.curry, and about
 2 s more for the two shared modules of example 20 when they are not
-compiled yet.  Scenario (d) once stopped with "Evaluation Suspended" on the
-reference backend of the developer notes: the step of $## checked its
-residuals before the normalization and walked the generators of the
-narrowed type, where the fresh variables of the branches the alternative
-had not taken never get a value.  The step checks the normal form now, as
-the C++ runtime does.
+compiled yet.
 
 Scenario (d) evaluates the type to normal form with $## before the question
 sees it, for speed.  The set function gives the same answer for the

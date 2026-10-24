@@ -24,9 +24,8 @@ static auto constexpr reference_internal = py::return_value_policy::reference_in
 namespace curryrt { namespace python
 {
   // Int is 64 bits.  A Python int outside the range is refused where it
-  // would enter a node, with CurryTypeError and the message of the Python
-  // backend (backends/py/graph/node.py), so the two backends agree (issue
-  // #105).  The Arg binding below and the literals of the ICurry
+  // would enter a node, with CurryTypeError (issue #105).  The Arg
+  // binding below and the literals of the ICurry
   // interpreter (icurry.cpp) raise it.
   [[noreturn]] void raise_int_range_error(py::handle value)
   {
@@ -91,7 +90,7 @@ namespace
     // application.  Node::create packs the arguments by the format of the
     // table and never counts them, so a surplus would be dropped in silence
     // and a shortfall read past the vector.  The message is the one the
-    // Python backend raises.
+    // former runtime raises.
     size_t const nargs = args.size();
     if(partial ? nargs >= info->arity : nargs != info->arity)
       throw py::type_error(
@@ -328,7 +327,7 @@ namespace pybind11 { namespace detail
         // An unboxed pointer (a set guard's Set *, a partial application's
         // InfoTable *) is exposed as the integer value of the pointer.  A set
         // guard built from Python with an integer id yields that id, which is
-        // what inspect.get_set_id returns on the Python backend.
+        // what inspect.get_set_id returns on the former runtime.
         case 'x': return py::cast((uintptr_t) src.arg.blob).inc_ref();
         case 'u': return py::none().inc_ref();
         default :
@@ -556,7 +555,7 @@ namespace curryrt { namespace python
       // A value that is not a node is never equal to one.  The operator tag
       // turns the failed argument cast into NotImplemented, so Python
       // answers False for == and True for != against a foreign object, as
-      // its data model expects (the Python backend answers the same way).
+      // its data model expects (the former runtime answers the same way).
       .def("__eq__", &Node::operator==, py::is_operator(), curryrt::python::heap_access{})
       .def("__ne__", &Node::operator!=, py::is_operator(), curryrt::python::heap_access{})
       ;

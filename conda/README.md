@@ -42,10 +42,9 @@ Build (`build.sh`):
    package, the Curry library with its committed `.icy` and `.json.z` files,
    the headers, and the sysconfig files.  It then runs the front end over
    the library, which writes the FlatCurry interfaces under
-   `opt/sprite/curry/.curry/pakcs-3.4.1/`, and compiles the library for both
-   backends (the `prebuild` step of `curry/Makefile`): the ICurry and the
-   JSON of every module, and the generated Python, its bytecode cache, and
-   the shared object of every module Sprite can compile.  The tree keeps the
+   `opt/sprite/curry/.curry/pakcs-3.4.1/`, and compiles the library for the
+   C++ runtime: the ICurry and JSON of every module, and the generated C++
+   and shared object of every module Sprite can compile.  The tree keeps the
    layout of a staged install.  It sits under `opt/sprite` because its `bin/`
    holds the links `python` and `coverage`, which must not replace the ones
    of the environment.
@@ -81,16 +80,11 @@ Build (`build.sh`):
    relative tool links.  The front end reads the installed interfaces and
    rewrites a stale one, and the translation to ICurry runs inside the build
    environment.
-9. The generated files of the library name their sources relative to the
-   installation.  The code generators write `curry/Prelude.curry` for a
-   source under `SPRITE_HOME` (`curry.toolchain._filenames.installed_relpath`),
-   the generated Python resolves the name against the installation of the
-   process when it loads (`curry.config.installed_path`), and the loader of
-   the C++ backend resolves the name of the module record the same way.  A
-   source outside the installation keeps its absolute path in the generated
-   Python; the record of the generated C++ names it relative to the object
-   (`../../M.curry`; format 13).  So no generated text file of the package
-   holds the build prefix.
+9. The generated C++ of the library names its sources relative to the
+   installation (`curry.toolchain._filenames.installed_relpath`).  The loader
+   resolves the module record against the installation.  A source outside
+   it is named relative to the object (`../../M.curry`; format 13), so no
+   generated text file of the package holds the build prefix.
 
 Relocation.  One kind of file of the package names the build prefix: the
 ABI stamp beside each compiled library module (`.so.abi`, 13 files) names
@@ -113,26 +107,14 @@ listed the 12 objects with imports in `info/has_prefix` as binary files
 `meta.yaml` keeps `detect_binary_files_with_prefix` spelled out, the default
 on Linux, so that a binary file that holds the prefix again shows up in
 `info/has_prefix`.  Nothing else in the package names the build directory or
-the build prefix: the generated Python and C++ files name their sources
+the build prefix: the generated C++ files name their sources
 relative to the installation (step 9 above), the links and launchers are relative,
 the sysconfig values name no prefix (`ld_interpreter_path` is a path, the
 dynamic loader `/lib64/ld-linux-x86-64.so.2`; see open question 13), and
 `-ffile-prefix-map` keeps the source directory out of the runtime binaries.
-The bytecode caches (`__pycache__`) name their sources relative to the
-prefix: `co_filename` of the code object in `config.cpython-314.pyc` is
-`opt/sprite/python/curry/config.py`, and in the environment of 2026-10-07
-none of the 13 caches of the library and none of the 181 of the package
-holds an absolute path.  So they carry no path of the build machine; Python
-does not use that path to find or to validate a module, and conda does not
-rewrite them.  Since conda rewrites no `.py` file of the package, the caches
-stay valid after the install: a cache is valid while the size and the
-modification time of its `.py` file are the ones it recorded, and conda
-keeps both (the environment of 2026-10-07 holds the 13 caches of the library
-and the 181 of the package valid, that of 2026-10-08 the 13 and the 183,
-`bytecode_is_current` of `curry.backends.py.toolchain` on every file, and
-the `.py` files keep the modification times of the build).  Before step 9
-the text replacement changed the generated `.py` files, and the first
-import of a library module on the Python backend wrote its cache again.
+The Python package bytecode caches use relative source names, so they
+carry no path of the build machine and remain valid after relocation.
+The Curry library ships compiled C++ objects and their ABI stamps.
 
 The ABI stamp of a compiled module (`.so.abi`) was the one consequence of
 the relocation that remained until issue #100 (2026-10-07).  It digested
@@ -264,8 +246,7 @@ cache directory of the user and not into the tree.  Two tests check the
 relocation: no `.py` or `.cpp` file under `opt/sprite/curry` holds the
 prefix, and the Prelude module object names its source under the prefix
 and has its type signatures (`curry.typeof`, which reads the FlatCurry
-interface beside the source).  The two Python-backend tests select the
-backend with `SPRITE_INTERPRETER_FLAGS=backend:py`.  The test step of the
+interface beside the source).  The test step of the
 first build of 2026-10-07 took 1 min 1 s, and that of the build of
 2026-10-08 14 s (its shipped library objects count as current, see
 "Relocation").
@@ -429,7 +410,6 @@ Then, from a directory outside the repository and without activation of
 the environment, with a program `Smoke.curry`:
 
     /path/to/env/bin/sprite-exec Smoke.curry
-    SPRITE_INTERPRETER_FLAGS=backend:py /path/to/env/bin/sprite-exec Smoke.curry
     /path/to/env/bin/python -m curry Smoke.curry
     /path/to/env/bin/python -c 'import curry; from curry.lib import Prelude; print(next(curry.eval(curry.expr(Prelude.length, [1, 2, 3]))))'
 
@@ -612,19 +592,15 @@ the owner; the next section gives a recommendation for each.
 1. The front end is a separate package, `curry-frontend`, repackaged from
    the PAKCS binary distribution.  It is neither bundled into `currylang` nor
    downloaded at run time.
-2. Both backends are in one package.  The C++ backend is the default
-   (CMake `WITH_DEFAULT_BACKEND`; `build.sh` passes
-   `-DWITH_DEFAULT_BACKEND=cxx`, which is also its default),
-   and `cxx-compiler` is a run dependency, so the C++ backend compiles the
-   generated code after one `conda create`.  Without the compiler the C++
-   backend runs every module interpreted and prints one notice per process
-   (the page "Installing and running without a C++ compiler" of the
-   documentation).
+2. The package has one runtime, the C++ runtime.  The compiler is optional
+   at run time; without it modules run interpreted, with one notice per
+   process (the page "Installing and running without a C++ compiler" of
+   the documentation).
 3. The front end is pinned exactly: `curry-frontend 2.0.0.*`, the front end
    of PAKCS 3.4.1.
 4. The compiler of the build is GCC 15, the major version that
    `cxx-compiler` 2.0.0 brings at run time.
-5. The library is compiled into the package for both backends.  The
+5. The library is compiled into the package for the C++ runtime.  The
    precompiled header of the runtime is not; the C++ backend writes it on
    its first compile, into the cache directory of the user.
 6. Nothing is written into the package at run time (2026-10-07; the
@@ -726,21 +702,15 @@ of 2026-10-08 showed both; the entries record the decisions.
    real path of the installation, because the toolchain removes the stale
    members of the directory it uses and two installations would otherwise
    remove each other's members; `SPRITE_CXX_PCH_ROOT` keeps its meaning as
-   the override, and the empty value disables the header.  The bytecode
-   caches: the generated Python names its source relative to the
-   installation (step 9 of the build), so conda rewrites no `.py` file and
-   the shipped caches stay valid.  The shared object of a library module
+   the override, and the empty value disables the header.  The Python
+   package bytecode caches use relative source names, so conda rewrites no
+   `.py` file and the shipped caches stay valid.  The shared object of a library module
    compiled again by `sprite-make --so`, or by a process that outlived the
    background compile of its first import: the cause was the ABI stamp
    (question 2), and the build of 2026-10-08 showed the recompile gone; the
    order of the chain is no longer at stake (issue #66).  The cache
    directory of the header is not garbage-collected (see "The compiler").
-4. The Python backend.  The C++ backend is the default of the repository
-   since issue #82; CMake `WITH_DEFAULT_BACKEND` sets
-   `sysconfig/default_backend`, and `build.sh` passes `cxx`.  Keep both backends in
-   one package until the Python backend is removed (the removal gate of
-   issue #82); the Python backend is selected with the interpreter flag
-   `backend:py`.
+4. The C++ runtime is the one runtime, following issue #82.
 5. The pin of PAKCS 3.4.1.  Keep the exact pin: the committed ICurry files
    and the oracle depend on the FlatCurry of front end 2.0.0.  When a new
    PAKCS is adopted, `curry-frontend` gets a new version and the pin in
@@ -799,7 +769,7 @@ of 2026-10-08 showed both; the entries record the decisions.
     extern/pybind11`, or add the conda-forge package `pybind11` to the host
     requirements, whose headers the compiler finds under `$PREFIX/include`;
     a release tarball from GitHub lacks the submodule.
-12. Pip.  A wheel of the Python backend (roadmap issue #1) needs the front
+12. Pip.  A wheel of Sprite (roadmap issue #1) needs the front
     end on the user's machine; the conda package solves that through
     `curry-frontend`.  A wheel that bundles the front end binary would carry
     a 9 MB binary per wheel and the PAKCS license.  Decide the channel of

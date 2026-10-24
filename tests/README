@@ -74,18 +74,16 @@ unit_stub_*.py and unit_flow_f*.py are the frozen API acceptance tests:
 432 of 435 pass on C++. The three expected failures await the choice
 interpreter: unit_flow_f13.TestFlowF13.test_choice_protocol and
 test_fork_precedence, and unit_stub_terms.TestStubTerms.test_choice_type_conversion.
-Nine further expected failures apply only to the retired Python backend:
-eight in unit_stub_evaluation.py and unit_flow_f06.test_stream_ten_primes.
 unit_flow_f11.TestFlowF11.test_free_argument_answers
-passes on both backends; partial lists print cons without spaces in values
+passes; partial lists print cons without spaces in values
 and bindings (for example {x="":_a}), with nested heads parenthesized.
-Run the acceptance with ./run_tests 'unit_stub_*.py' 'unit_flow_f*.py' --backend both.
+Run the acceptance with ./run_tests 'unit_stub_*.py' 'unit_flow_f*.py' --backend cxx.
 
 unit_issue103.py, unit_issue104.py, unit_issue108.py and unit_issue137.py
 pin the tracker reproducers resolved by the API. unit_issue133.py and
 unit_issue134.py pin the LiftGuard reproducers, plain and with checker:true:
 #133 expects no value but C++ gives an empty set (two expected failures);
-#134 expects [True] once but both backends give it twice (two expected
+#134 expects [True] once but the C++ runtime give it twice (two expected
 failures per backend). Their repair needs runtime work. The free-argument
 control in unit_issue134.py checks outside narrowing, including the empty
 set for a binding that the function refuses, under the owner's decisions.
@@ -383,13 +381,12 @@ Unit tests match the pattern unit_*.py.
   - unit_goals.py runs the REPL (python -m curry.tools.icy) and sprite-exec
     in child processes on the backend of the test process, and compiles
     text goals, so the front end runs for texts the cache does not hold.
-    Its module is data/curry/UnsignedGoals.curry.  On the Python backend
-    it saves that module and runs the saved program from a temporary
-    directory.  It also pins the command prefixes of the REPL (:l, :e, :t,
+    Its module is data/curry/UnsignedGoals.curry.  It also pins the
+    command prefixes of the REPL (:l, :e, :t,
     :q): the handlers check the full command name, and commands.eval writes
     the resolved name back.
   - unit_typecheck.py tests the engine of the typed boundary
-    (curry.typecheck.engine) on both backends: unification, the Apply
+    (curry.typecheck.engine) on the C++ runtime: unification, the Apply
     rule, context reduction, the defaulting of the front end and of the
     REPL, the exprtype parser, the error catalogue, and the reference
     materializer.  Its module is data/curry/TypeCheck.curry, compiled on
@@ -398,7 +395,7 @@ Unit tests match the pattern unit_*.py.
     of func_goal_defaulting.py under data/curry/goal_defaulting/, so the
     file runs no oracle.
   - unit_typed_expr.py tests module calls, curry.term and curry.parse on
-    both backends: method dictionaries, annotations, construction errors,
+    the C++ runtime: method dictionaries, annotations, construction errors,
     the REPL defaulting table, containers, iterators, free variables,
     recursive bindings and values fed into later calls. The node builder
     checks use cytest.raw for dictionary arguments, forwarding, targets,
@@ -407,10 +404,9 @@ Unit tests match the pattern unit_*.py.
     to reach the walk cap; they take a few seconds.
   - Tests that call a Prelude primitive directly, without the $## of its
     wrapper, must pass a string in normal form: a list of characters.  The
-    typed builder makes one lazy string node of a str on the Python
-    backend (unit_prelude.py, cells).
+    typed builder makes the list of characters natively.
   - unit_typecheck_serialize.py tests the serializer of the typed boundary
-    (curry.typecheck.serialize) on both backends: the
+    (curry.typecheck.serialize) on the C++ runtime: the
     Curry literal of every Python value, the text of every kind of spec,
     the parameters of the operands without text, the let of the free
     markers and of the anchors, the annotations, and the entry points.
@@ -510,7 +506,7 @@ Functional tests match the pattern func_*.py:
     directives on single examples (SKIP on help, dir and the load of
     Fib.so) are in the pages.  Every example of a page must pass.  Using
     the API names an object file and runs on the C++ backend alone.  The
-    Quickstart runs on both backends up to its section "Saving Compiled
+    Quickstart runs on the C++ runtime up to its section "Saving Compiled
     Curry".  The load of Peano.so in that section, during the background
     compile, is a known failure (issue #109, unittest.expectedFailure).  It
     is a functional test because every run compiles Curry with the front
@@ -888,8 +884,8 @@ On a shared machine, compare with --deterministic; wall and CPU seconds vary
 with the load.  Authoritative seconds come from a quiet machine.  A smoke
 test and the two comparisons:
 
-        ./run_benchmarks -r 1 -b cxx -b py -o before.jsonl Hello Last2 Peano
-        ./run_benchmarks -r 1 -b cxx -b py -o after.jsonl Hello Last2 Peano
+        ./run_benchmarks -r 1 -b cxx -o before.jsonl Hello Last2 Peano
+        ./run_benchmarks -r 1 -b cxx -o after.jsonl Hello Last2 Peano
         ./run_benchmarks compare --deterministic before.jsonl after.jsonl
         ./run_benchmarks compare before.jsonl after.jsonl
 
@@ -974,15 +970,13 @@ output of each file goes to .cache/runner/<backend>/<file>.log.  The exit
 status is 1 when a file failed, crashed, or was killed, 2 when a pattern
 matches no test file, and 130 after Ctrl-C.
 
-        ./run_tests [-j N|auto] [--mem GB] [--backend py|cxx|both] [--fast [S]]
+        ./run_tests [-j N|auto] [--mem GB] [--backend cxx] [--fast [S]]
                     [--changed [REV]] [--prepare] [--prepare-only]
                     [--update-manifest] [--timeout S] [--list] [-v]
                     [PATTERN ...]
 
-Without options every unit_*.py and func_*.py file runs on the backend of
-SPRITE_INTERPRETER_FLAGS, else on the default backend of the installation
-(sysconfig/default_backend, which CMake WITH_DEFAULT_BACKEND
-writes), at the width of -j auto: the budget described
+Without options every unit_*.py and func_*.py file runs on the C++ runtime,
+at the width of -j auto: the budget described
 below decides how many files run at once, up to the core count.  The
 default is the constant DEFAULT_JOBS in lib/testrunner/__init__.py; -j 1
 runs the files one at a time.  The environment of a file names the
@@ -1087,8 +1081,8 @@ few modules of the shared pool; --prepare warms the pool first.  To run
 the functional tests, name them: run_tests 'func_*.py'.  --changed REV
 maps the paths that differ from REV (HEAD by default, with the untracked
 files) to test files through RULES in lib/testrunner/selection.py:
-src/curryrt and the C++ backend select the unit_cxx files; the Python backend
-selects the unit_py files; the toolchain, curry/, and the ICurry reader
+src/curryrt and the C++ backend select the unit_cxx files;
+the toolchain, curry/, and the ICurry reader
 select the compile, cache, toolchain, flat2icurry, curry2icurry, make, and
 prelude files, with unit_plan.py, unit_currylib.py and unit_prebuild.py,
 and unit_icurry.py respectively; the ICurry analyses select
@@ -1206,7 +1200,7 @@ modes under which a test process never compiles.
 Calibration of a new machine.  On a quiet machine, run every file once
 per backend with --update-manifest at width 1:
 
-        ./run_tests -j 1 --backend both --update-manifest
+        ./run_tests -j 1 --backend cxx --update-manifest
 
 Review the diff of tests/manifest.json and commit it.  The durations and
 the peaks belong to the machine size recorded in the entries.  A smaller

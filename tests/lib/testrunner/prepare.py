@@ -15,8 +15,8 @@ parallel files find their products current and only read them.  The pass
 is advisory.  sprite-make runs with -k, so a module that fails to compile
 does not stop the others, and the job of its directory ends ``incomplete``
 rather than ``FAILED``: the note of the job names the modules that have no
-product after the pass (the .py or the .so of the backend; the JSON on the
-C++ backend under the interpreter flag ``interpret`` set to new or all,
+product after the pass (the .so; the JSON under the interpreter flag
+``interpret`` set to new or all,
 where sprite-make --so ends), :func:`summary` prints one line about the
 whole pass, and the exit status of the run does not depend on it.  The
 test that needs the module reports the failure in its own terms.  A failed
@@ -25,8 +25,7 @@ it too.
 
 The pass covers the shared pool (tests/data/curry), the frozen API fixtures
 (tests/data/curry/flows), and each selected functional corpus (CORPUS).  The
-examples under examples/ are left to unit_examples.py, which alone compiles them; the scheduler never runs the
-two backends of one file at once.
+examples under examples/ are left to unit_examples.py, which alone compiles them.
 
 A tree made before the binding optimization rewrote the FlatCurry files,
 or one that holds the products of the overlay archive, has ICurry files
@@ -232,11 +231,11 @@ EXCLUDE = {
 
 # The target of sprite-make per backend.  Compact, zipped JSON is what an
 # import writes, so the products are the same files.
-TARGET = {'py': '--py', 'cxx': '--so'}
+TARGET = {'cxx': '--so'}
 
 # The suffix of the final product of a module per backend, in the product
 # directory (product_subdir) beside the source.
-PRODUCT = {'py': '.py', 'cxx': '.so'}
+PRODUCT = {'cxx': '.so'}
 
 # The JSON of a module, which ends the plan of sprite-make --so under the
 # interpreter flag ``interpret`` set to new or all: the runtime interprets

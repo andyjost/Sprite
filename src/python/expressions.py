@@ -110,8 +110,7 @@ def unboxed_fits(primitive, value):
   Whether ``value`` is the payload of the primitive named ``primitive``: a
   Python ``int`` under ``Int`` (a ``bool`` is not one), a ``str`` of length
   one under ``Char``, a ``float`` under ``Float``.  Another value makes a
-  node whose bits mean another value on the C++ backend, and a node the
-  Python backend cannot evaluate.
+  node whose bits mean another value in the runtime.
   '''
   pytype = _PRIMITIVES[primitive][0]
   if not isinstance(value, pytype) or isinstance(value, bool):
@@ -457,7 +456,7 @@ def fix_references(expr, brokenrefs, anchors):
   slot was never entered, so a placeholder below it stayed.
   '''
   if brokenrefs:
-    from .backends.py.graph.walkexpr import walk
+    from .backends.generic.graph.walkexpr import walk
     entered = set()
     for state in walk(expr):
       cursor = state.cursor
@@ -818,7 +817,7 @@ class ExpressionBuilder(object):
     under this interpreter and reused at every later one.  The rewrite step
     of ``unknown`` creates the variable with a fresh id, registers it with
     the evaluation, and forwards this node to it.  So one marker is one
-    variable, on both backends, and a later goal that holds the marker
+    variable, on the runtime, and a later goal that holds the marker
     holds the variable (see RuntimeState.set_goal).
     '''
     node = marker._shared(self.interp)
@@ -837,7 +836,7 @@ class ExpressionBuilder(object):
     '''
     Counts a free variable made outside an evaluation, so that
     ``RuntimeState.set_goal`` registers the variables a goal already holds.
-    See ``InterpreterState.external_freevars`` of either backend.
+    See ``InterpreterState.external_freevars`` of the runtime.
     '''
     istate = self.interp.backend.get_interpreter_state(self.interp)
     istate.external_freevars += 1

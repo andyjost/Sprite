@@ -167,9 +167,6 @@ class TestAnalysis(cytest.TestCase):
     self.assertEqual(passthrough.plain_variables(ifun), set())
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 @cytest.skipIfInterpreted('the tests read the generated code of CxxPassThrough')
 class TestGeneratedCode(cytest.TestCase):
   '''The generator applies the rule to each shape of use.'''
@@ -233,9 +230,6 @@ class TestGeneratedCode(cytest.TestCase):
     self.assertIn('_1 = _0->successor_node(0);', text)
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 @unittest.skipIf(shutil.which('objdump') is None, 'objdump is not installed')
 @cytest.skipIfInterpreted(
     'the tests read the objects and the generated code of Tak1 and Fib'

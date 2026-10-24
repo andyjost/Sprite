@@ -59,8 +59,7 @@ The records
 ``baseline-2026-10-03``
     The baseline before the performance program, at commit ``1780ae09``,
     on a quiet 12-core x86-64 workstation: the four suites, the C++ backend
-    with five repetitions, the reference backend of the :doc:`developer
-    notes <DeveloperNotes>` with one, and PAKCS on nine programs.  On the
+    with five repetitions and PAKCS on nine programs.  On the
     C++ backend the 30 programs of the dissertation took between 0.43 s
     (``PaliFunPats``) and 42 s (``Psort``) of CPU.  The two Poker programs
     failed on every backend for lack of the Curry preprocessor.

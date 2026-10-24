@@ -163,13 +163,11 @@ class Interpreter(object):
     This is much faster than building a new interpreter, which loads the
     Prelude.
     '''
-    if self.flags['backend'] == 'cxx':
-      from ..backends.cxx import tiered
-      tiered.cancel()
-      tiered.wait(interp=self)
-    if self.flags['backend'] == 'cxx':
-      from ..utility.locking import native_metadata
-      return native_metadata(self._reset_state)(flags)
+    from ..backends.cxx import tiered
+    tiered.cancel()
+    tiered.wait(interp=self)
+    from ..utility.locking import native_metadata
+    return native_metadata(self._reset_state)(flags)
     return self._reset_state(flags)
 
   def _reset_state(self, flags):

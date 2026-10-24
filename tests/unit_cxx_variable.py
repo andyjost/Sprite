@@ -81,9 +81,6 @@ class TestSmallVec(cytest.TestCase):
     finally:
       shutil.rmtree(tmpdir, ignore_errors=True)
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 @unittest.skipIf(shutil.which('objdump') is None, 'objdump is not installed')
 class TestStepFunctions(cytest.TestCase):
   '''

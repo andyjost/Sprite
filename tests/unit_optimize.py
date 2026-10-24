@@ -251,7 +251,7 @@ class ModuleTestCase(cytest.TestCase):
 
   def generated_text(self, name):
     '''The generated code of a module imported by name.'''
-    suffix = '.py' if curry.flags['backend'] == 'py' else '.cpp'
+    suffix = '.cpp'
     path = os.path.join(
         self.tmpdir, '.curry', config.intermediate_subdir(), name + suffix
       )

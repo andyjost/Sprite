@@ -330,27 +330,22 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     self.assertIsInstance(code, str)
     self.assertEqual(code, Peano.add.getimpl())
     prim = curry.import_('Prelude')['prim_showFloatLiteral']
-    if curry.flags['backend'] == 'py':
-      self.assertRegex(code, r'(^|\n)def \w+\(rts, _0\):')
-      self.assertIn('Peano.add', code)
-      self.assertIn('prim_showFloatLiteral', inspect.getimpl(prim))
-    else:
-      lines = code.splitlines()
-      self.assertEqual(lines[0], '/****** Peano.add ******/')
-      self.assertEqual(
-          lines[1]
-        , 'tag_type CyF5Peano3add(RuntimeState * rts, Configuration * C)'
-        )
-      self.assertEqual(lines[-1], '}')
-      self.assertIn('rts->hnf(C, &_1, &CyD5Peano3Nat);', code)
-      self.assertNotIn('Peano.main', code)
-      self.assertRaisesRegex(
-          ValueError
-        , "no implementation code available for "
-          r"'Prelude.prim_showFloatLiteral': it is a built-in of the C\+\+ "
-          "runtime"
-        , lambda: inspect.getimpl(prim)
-        )
+    lines = code.splitlines()
+    self.assertEqual(lines[0], '/****** Peano.add ******/')
+    self.assertEqual(
+        lines[1]
+      , 'tag_type CyF5Peano3add(RuntimeState * rts, Configuration * C)'
+      )
+    self.assertEqual(lines[-1], '}')
+    self.assertIn('rts->hnf(C, &_1, &CyD5Peano3Nat);', code)
+    self.assertNotIn('Peano.main', code)
+    self.assertRaisesRegex(
+        ValueError
+      , "no implementation code available for "
+        r"'Prelude.prim_showFloatLiteral': it is a built-in of the C\+\+ "
+        "runtime"
+      , lambda: inspect.getimpl(prim)
+      )
     # A constructor has no code.
     self.assertRaisesRegex(
         ValueError, "no implementation code available for 'Peano.O'"
@@ -362,10 +357,6 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
       )
     self.assertRaises(TypeError, lambda: inspect.getimpl(42))
 
-  @unittest.skipUnless(
-      curry.flags['backend'] == 'cxx'
-    , 'the ICurry interpreter belongs to the C++ runtime'
-    )
   @cytest.hardreset
   def testGetImplInterpreted(self):
     '''

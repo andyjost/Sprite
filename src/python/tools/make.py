@@ -203,9 +203,6 @@ def main(program_name, argv):
   parser.add_argument('-k', '--keep-going', action='store_true', help='keep working after an error')
   parser.add_argument('-M', '--man'    , action='store_true', help='show detailed usage')
   parser.add_argument('-o', '--output' , action='store', type=str, help='specify the output file')
-  # The target of the reference backend (issue #82).  The help omits it;
-  # the developer notes name it.
-  parser.add_argument('-p', '--py', '--python', action='store_true', help=argparse.SUPPRESS)
   parser.add_argument('-q', '--quiet'  , action='store_true', help='work quietly')
   parser.add_argument(      '--rewrite-flat', action='store_true'
     , help='run the step from Curry to ICurry again, current or not: the '
@@ -260,7 +257,7 @@ def main(program_name, argv):
   if args.rewrite_flat:
     # The option is the step from Curry to ICurry; it needs no other target.
     args.icy = True
-  if not any([args.icy, args.json, args.py, args.cxx, args.so]):
+  if not any([args.icy, args.json, args.cxx, args.so]):
     sys.stderr.write(
         program_name + ': at least one of (-i,--icy) or (-j,--json) or --cxx or '
                        '--so must be supplied.\n'
@@ -268,24 +265,17 @@ def main(program_name, argv):
     sys.exit(1)
   if args.so:
     args.cxx = True
-  if args.py or args.cxx:
+  if args.cxx:
     args.json = True
   if args.json:
     args.icy = True
 
-  CODEGEN_OPTIONS = 'py', 'cxx'
-  num_codegens = sum(getattr(args, opt) for opt in CODEGEN_OPTIONS)
-  if args.goal is not None and num_codegens == 0:
+  if args.goal is not None and not args.cxx:
     sys.stderr.write(
         program_name + ': (-g,--goal) is only allowed when --cxx is supplied.\n'
       )
     sys.exit(1)
-  elif num_codegens > 1:
-    sys.stderr.write(
-        program_name + ': at most one of the code generators can be supplied.\n'
-      )
-    sys.exit(1)
-  args.backend_name = 'py' if args.py else 'cxx' if args.cxx else None
+  args.backend_name = 'cxx' if args.cxx else None
   kwds = dict(args._get_kwargs())
   error_handler = handle_program_errors(
       program_name
@@ -400,8 +390,7 @@ def _make_one(program_name, plan, name, args, kwds):
   kwds = dict(kwds, is_sourcefile=name.endswith('.curry'))
   if args.rewrite_flat:
     _rewrite_flat(plan, name, kwds)
-  file_out = toolchain.makecurry(plan, name, config.currypath(), **kwds)
-  _ensure_bytecode(args, file_out)
+  toolchain.makecurry(plan, name, config.currypath(), **kwds)
 
 def _rewrite_flat(plan, name, kwds):
   '''
@@ -419,21 +408,12 @@ def _rewrite_flat(plan, name, kwds):
       )
   toolchain.curry2icurry(curryfile, currypath, **dict(kwds, use_cache=False))
 
-def _ensure_bytecode(args, file_out):
-  '''
-  Writes the bytecode cache of a Python file that was current already and
-  lacks it (an installation from before the cache was written).
-  '''
-  if args.py and file_out.endswith('.py'):
-    from ..backends.py.toolchain import ensure_bytecode
-    ensure_bytecode(file_out)
-
 def _convert_icy(program_name, name, args):
   '''
   Converts an ICurry file to JSON.  The JSON file is written beside the ICurry
   file and copied to the output file, if one was given.
   '''
-  if not args.json or args.py or args.cxx:
+  if not args.json or args.cxx:
     raise exceptions.CompileError(
         '%s: an .icy file can only be converted to JSON (-j,--json).'
             % program_name
@@ -450,7 +430,6 @@ KEYWORDS = {
     'cxx' : plans.MAKE_TARGET_SOURCE
   , 'icy' : plans.MAKE_ICURRY
   , 'json': plans.MAKE_JSON
-  , 'py'  : plans.MAKE_TARGET_SOURCE
   , 'so'  : plans.MAKE_TARGET_OBJECT
   , 'zip' : plans.ZIP_JSON
   }
@@ -596,7 +575,7 @@ class JobGraph(object):
 def child_command(args, job):
   '''The command that makes the module of ``job`` in a child process.'''
   cmd = [sys.executable, '-m', config.python_package_name() + '.tools.make']
-  for flag in [ 'compact', 'cxx', 'so', 'icy', 'json', 'keep_going', 'py'
+  for flag in [ 'compact', 'cxx', 'so', 'icy', 'json', 'keep_going'
               , 'quiet', 'tidy', 'zip' ]:
     if getattr(args, flag):
       cmd.append('--' + flag.replace('_', '-'))
@@ -635,8 +614,6 @@ def _make_parallel(program_name, plan, args, kwds, error_handler, jobs, counts=N
         deferred.append(name)
         if job is not None:
           graph.jobs.remove(job)
-      elif job is None:
-        _ensure_bytecode(args, currentfile)
   if graph.jobs:
     _prepare_shared(plan)
   run_jobs(program_name, graph.jobs, jobs, args, error_handler, counts=counts)

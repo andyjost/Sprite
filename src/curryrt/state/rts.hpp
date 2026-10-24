@@ -51,7 +51,7 @@ namespace curryrt
     // step (RuntimeState_single_step in the bindings); and the variables
     // copied into a value (make_value).  While it is zero, set_goal skips
     // the walk that registers the free variables a goal already holds, and
-    // the generator step skips the walk of its item.  The Python backend
+    // the generator step skips the walk of its item.  The former runtime
     // keeps the same counter.
     size_t      external_freevars = 0;
   };

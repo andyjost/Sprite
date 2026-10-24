@@ -233,7 +233,7 @@ def _open_module(interp, sofile, name, from_plan, fresh, before):
   bom = shlib.bom
   # The metadata of the record carries the keys of the optimizer passes that
   # ran on the module, so no pass runs again on a module without bodies
-  # (interpreter.optimize), as on the Python backend.  The merge key of the
+  # (interpreter.optimize), as on the former runtime.  The merge key of the
   # built-ins stays behind: the merge adds the exported built-ins, which the
   # record does not list (toolchain.mergebuiltins).
   metadata = {

@@ -35,7 +35,7 @@ print('f after the edit ->', vals(M.f))
 
 # The background compile of the C++ backend, when there is one, never swaps
 # the running code to the code of a changed source, whichever file its child
-# read.  On the Python backend wait returns at once.
+# read.  On the former runtime wait returns at once.
 curry.wait()
 print('f after the background compile ->', vals(M.f))
 

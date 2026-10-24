@@ -9,7 +9,7 @@ escape, as PAKCS does.
 
 Before this, the C++ backend stored a Char as a signed byte: ord (chr 160)
 was -96, a character above U+00FF could not exist, and a non-ASCII character
-could not be passed from Python.  The Python backend read a file byte by
+could not be passed from Python.  The former runtime read a file byte by
 byte and could not compile a string literal with a non-ASCII character.
 
 The programs are in data/curry/Chars.curry.  The module is built once; the
@@ -70,10 +70,6 @@ class TestChars(cytest.TestCase):
     self.assertEqual(self.eval_(chr_, 0x1f600), [EMOJI])
     self.assertEqual(self.eval_(chr_, 0x10ffff), ['\U0010ffff'])
 
-  @unittest.skipIf(
-      curry.flags['backend'] != 'cxx'
-    , 'the Python prim_chr rejects a code point above U+10FFFF'
-    )
   def test_code_point_above_the_maximum(self):
     '''
     chr clamps its argument to the last code point, but prim_chr does not
@@ -197,11 +193,6 @@ class TestChars(cytest.TestCase):
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(proc.stdout.split(), ['utf-8', 'utf-8'])
 
-  @unittest.skipIf(
-      curry.flags['backend'] != 'cxx'
-    , 'the Python getChar reads the decoded standard input of the interpreter, '
-      'which rejects malformed input'
-    )
   def test_getChar_stray_byte(self):
     '''
     A lead byte followed by a byte that cannot continue the sequence: getChar

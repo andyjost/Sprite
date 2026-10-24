@@ -219,7 +219,7 @@ class TestMake(cytest.TestCase):
   def test_sprite_make_so(self):
     '''
     --so runs the plan of the C++ backend to the shared object, and implies
-    --cxx.  A second run compiles nothing.  --so and --py exclude each other.
+    --cxx.  A second run compiles nothing.  The removed --py option is refused.
     The module comes from hand-written ICurry-JSON, so no front end runs.
     '''
     if config.cxx_tool() is None:
@@ -244,7 +244,7 @@ class TestMake(cytest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()) as stderr:
           with self.assertRaises(SystemExit):
             make.main('sprite-make', ['--so', '--py', name])
-        self.assertIn('at most one of', stderr.getvalue())
+        self.assertIn('unrecognized arguments: --py', stderr.getvalue())
 
 class TestJobs(cytest.TestCase):
   '''
@@ -259,13 +259,13 @@ class TestJobs(cytest.TestCase):
 
   def setUp(self):
     super().setUp()
-    if curry.flags['backend'] == 'cxx' and config.cxx_tool() is None:
+    if config.cxx_tool() is None:
       self.skipTest('no C++ compiler is installed')
     self.tmpdir = tempfile.mkdtemp(prefix='sprite-jobs-')
     self.addCleanup(shutil.rmtree, self.tmpdir, True)
     self.subdir = os.path.join(self.tmpdir, SUBDIR)
     os.makedirs(self.subdir)
-    self.target = '--py' if curry.flags['backend'] == 'py' else '--so'
+    self.target = '--so'
     self.suffix = cytest.raw.interp().backend.object_file_extension
     # The plan of sprite-make: an explicit compile compiles, so its
     # interpreter has the flag ``interpret`` off (make.main).  Under the
@@ -353,7 +353,7 @@ class TestJobs(cytest.TestCase):
     '''A child runs this program on one module with the options of the parent, less --jobs.'''
     args = argparse.Namespace(
         compact=True, cxx=True, so=True, icy=True, json=True, keep_going=True
-      , py=False, quiet=True, tidy=False, zip=True, curry2icurry='frontend'
+      , quiet=True, tidy=False, zip=True, curry2icurry='frontend'
       , goal=None
       )
     cmd = make.child_command(args, make.Job('Data.Maybe', '/x/Data/Maybe.curry'))
@@ -555,7 +555,6 @@ class TestJobs(cytest.TestCase):
       self.assertEqual(stderr.getvalue(), 'sprite-make: no plan today\n', extra)
     self.assertFalse(os.path.exists(self.product(a)))
 
-  @unittest.skipIf(curry.flags['backend'] != 'cxx', 'the precompiled header belongs to the C++ backend')
   def test_header_is_built_before_the_children(self):
     '''
     A missing precompiled header is built once, in this process, before the
@@ -604,16 +603,6 @@ class TestJobs(cytest.TestCase):
       self.assertFalse(step.prepare_header())
       self.assertEqual(list(step._pchflags()), [])
 
-  @unittest.skipIf(curry.flags['backend'] != 'py', 'the bytecode cache belongs to the Python backend')
-  def test_current_module_gets_its_bytecode(self):
-    '''A named module that is current already gets a missing bytecode cache without a child.'''
-    from curry.backends.py import toolchain as py_toolchain
-    a = self.write_module(9)
-    self.sprite_make('--py', '-z', '--jobs', '2', a)
-    cache = py_toolchain.bytecode_file(self.product(a))
-    os.unlink(cache)
-    self.assertEqual(self.sprite_make('--py', '-z', '--jobs', '2', a), [])
-    self.assertTrue(os.path.isfile(cache))
 
 
 # A child that holds the lock of a module until it reads a line.
@@ -754,7 +743,7 @@ class TestProductLock(cytest.TestCase):
     self.assertFalse(self.held())
 
   @unittest.skipIf(
-      curry.flags['backend'] != 'cxx' or config.cxx_tool() is None
+      config.cxx_tool() is None
     , 'the compile needs the C++ backend and its compiler'
     )
   @cytest.skipIfInterpreted('the test reads the object it compiled')
@@ -862,11 +851,7 @@ class TestProgramDirectory(cytest.TestCase):
         )
     self.env = dict(os.environ)
     self.env.pop('CURRYPATH', None)
-    if curry.flags['backend'] == 'cxx':
-      # The children load the objects they compile.  Under the runner's
-      # interpret:all a load is refused, so the children run under the
-      # tiered default, as the loader tests do.
-      self.env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
+    self.env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
 
   def run_tool(self, tool, *args):
     cmd = [
@@ -886,7 +871,7 @@ class TestProgramDirectory(cytest.TestCase):
     self.assertEqual(proc.stdout.split(), ['8'])
 
   @unittest.skipIf(
-      curry.flags['backend'] != 'cxx' or config.cxx_tool() is None
+      config.cxx_tool() is None
     , 'the compile needs the C++ backend and its compiler'
     )
   def test_sprite_make_so(self):
@@ -946,7 +931,7 @@ class TestProgramDirectory(cytest.TestCase):
       )
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     self.assertEqual(proc.stdout.split(), ['[8]', 'True'])
-    if curry.flags['backend'] == 'cxx' and config.cxx_tool() is not None:
+    if config.cxx_tool() is not None:
       # The compile on first use (interpret:off) imports the import from
       # beside the program as well.
       env = dict(self.env, SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:off')

@@ -32,7 +32,7 @@ main = length [1..] ? 1 ? length [1..]
 class FairnessTestCase(cytest.TestCase):
   '''
   Fairness checks.  Covers a 2023 report by Michael Hanus: ``loop ? 1 ? loop``
-  never printed on the Python backend, and ``length [1..] ? 1 ? length [1..]``
+  never printed on the former runtime, and ``length [1..] ? 1 ? length [1..]``
   died with RecursionError (Python) or a segmentation fault (C++).
 
   Each program must print ``1`` first.  The test reads the first line of
@@ -40,7 +40,7 @@ class FairnessTestCase(cytest.TestCase):
   loop`` runs on without end on both backends.  On the C++ backend it
   allocates a node per step and no collection runs, so the child that
   evaluates a program runs under an address-space cap.  ``length [1..] ? 1 ?
-  length [1..]`` ends with an error after the ``1``.  The Python backend
+  length [1..]`` ends with an error after the ``1``.  The former runtime
   reports the RecursionError of the deep alternatives once they are stuck,
   and the C++ backend reports the stack-limit error.  The test does not wait
   for that.
@@ -100,26 +100,19 @@ class FairnessTestCase(cytest.TestCase):
           )
       return line.rstrip('\n')
 
-  def test_loop_py(self):
-    self.assertEqual(self.first_line(LOOP, 'py'), '1')
 
   def test_loop_cxx(self):
     self.assertEqual(self.first_line(LOOP, 'cxx'), '1')
 
-  def test_length_py(self):
-    self.assertEqual(self.first_line(LENGTH, 'py'), '1')
 
   def test_length_cxx(self):
     self.assertEqual(self.first_line(LENGTH, 'cxx'), '1')
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'about 200 seconds on the Python backend'
-  )
 class SomeNumTestCase(cytest.TestCase):
   '''
   Covers a 2023 report by Michael Hanus at the reported size: ``isZero
-  (addSomeNum2 2000)`` never yielded a value on the Python backend.  On the
+  (addSomeNum2 2000)`` never yielded a value on the former runtime.  On the
   C++ backend the evaluation takes about two seconds and 1.4 GB of memory, so
   the check belongs to this tier.  The goal runs in a child under a cap and a
   timeout: SIGALRM does not interrupt the C++ scheduler, and a crash would end

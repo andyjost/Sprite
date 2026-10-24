@@ -43,7 +43,7 @@ applications
     Python data inside the measured time, against a plain-Python
     implementation of the same ranking and, on request, against the
     overload resolution of clang under -ftime-trace.  The opponents are backends of the suite
-    (OPPONENTS); the Sprite backends run the modules of the examples
+    (OPPONENTS); Sprite run the modules of the examples
     compiled (interpret:off) unless the environment names a mode.  An
     opponent that is not installed is skipped with a message.
 '''
@@ -54,11 +54,11 @@ from . import OPPONENTS, SPLITDIR, SUITES
 from . import measure, records
 
 __all__ = [
-    'APPLICATIONS', 'COLLECTOR_OFF', 'DEFAULT_BACKENDS', 'DEFAULT_REPEAT'
+    'APPLICATIONS', 'COLLECTOR_OFF', 'SUITE_BACKENDS', 'DEFAULT_REPEAT'
   , 'DEPENDENCY_CASES', 'DEPENDENCY_SIZES', 'EXPRESSION', 'IMPORT_ITEMS'
   , 'Item', 'NIGHTLY_DEPENDENCY_SIZES', 'OPPONENTS_OF', 'OVERLOAD_CALLS'
   , 'SPLIT_PARTS', 'SPRITE_DEPENDENCY_SIZES', 'Settings', 'all_programs'
-  , 'build', 'candidates', 'default_backends', 'dependency_sizes'
+  , 'build', 'candidates', 'backends_for_suite', 'dependency_sizes'
   , 'dependency_variants', 'nightly_items', 'select', 'set_backend_flag'
   , 'set_interpret_flag', 'split_programs', 'split_variants'
   ]
@@ -79,7 +79,7 @@ SPLIT_PARTS = (2, 4, 8)
 APPLICATIONS = ('dependency', 'overloads')
 OPPONENTS_OF = {'dependency': ('resolvelib',), 'overloads': ('python', 'clang')}
 # The sizes of the generated index of the dependency item (packages), the
-# sizes the Sprite backends run (the solver of example 15 does not end
+# sizes Sprite run (the solver of example 15 does not end
 # within minutes above them; see the README of the records), and the sizes
 # of the nightly job.
 DEPENDENCY_SIZES = (10, 20, 50, 100, 200, 800)
@@ -93,9 +93,9 @@ DEFAULT_REPEAT = {
   , 'applications': 3
   }
 # The backends of a run without -b: the C++ backend, and in the
-# applications suite both Sprite backends with the opponents that need no
+# applications suite Sprite with the opponents that need no
 # compiler.
-DEFAULT_BACKENDS = {'applications': ('cxx', 'py', 'resolvelib', 'python')}
+SUITE_BACKENDS = {'applications': ('cxx', 'resolvelib', 'python')}
 
 
 def all_programs():
@@ -116,9 +116,9 @@ def split_variants():
   return ['whole'] + ['%d/%d' % (k, i) for k in SPLIT_PARTS for i in range(k)]
 
 
-def default_backends(suite):
+def backends_for_suite(suite):
   '''The backends of a run of ``suite`` without -b.'''
-  return list(DEFAULT_BACKENDS.get(suite, ('cxx',)))
+  return list(SUITE_BACKENDS.get(suite, ('cxx',)))
 
 
 def dependency_sizes(backend, nightly=False):
@@ -272,7 +272,7 @@ class Settings:
     env.update(self.env)
     env['SPRITE_HOME'] = self.sprite_home
     env['PYTHONIOENCODING'] = 'utf-8'
-    if backend in ('cxx', 'py'):
+    if backend in ('cxx',):
       env['SPRITE_INTERPRETER_FLAGS'] = set_backend_flag(
           env.get('SPRITE_INTERPRETER_FLAGS'), backend
         )
@@ -295,7 +295,7 @@ class Settings:
     if not hasattr(self, '_resolvelib'):
       try:
         proc = subprocess.run(
-            [self.python, '-c', 'import resolvelib'], env=self.environment('py')
+            [self.python, '-c', 'import resolvelib'], env=self.environment('cxx')
           , capture_output=True, text=True, timeout=120
           )
         self._resolvelib = proc.returncode == 0
@@ -638,7 +638,7 @@ class ApplicationItem(Item):
 
   def environment(self):
     env = self.settings.environment(self.backend)
-    if self.backend in ('cxx', 'py'):
+    if self.backend in ('cxx',):
       env['SPRITE_INTERPRETER_FLAGS'] = set_interpret_flag(
           env['SPRITE_INTERPRETER_FLAGS'], 'off'
         )
@@ -744,8 +744,7 @@ def build(suite, programs, backends, settings, workdir, nightly=False):
         items.append(cls(program, backend, settings))
       elif suite == 'memory':
         items.append(MemoryItem(program, backend, settings, 'collector=on'))
-        if backend == 'cxx':
-          items.append(MemoryItem(program, backend, settings, 'collector=off'))
+        items.append(MemoryItem(program, backend, settings, 'collector=off'))
       elif suite == 'compile':
         cls = ExpressionItem if program == 'expression' else ModuleCompileItem
         for variant in 'cold', 'warm':

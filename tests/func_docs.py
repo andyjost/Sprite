@@ -46,20 +46,14 @@ def launcher():
 class TestPages(cytest.TestCase):
   '''Runs each page in a child and checks that every example passed.'''
 
-  def run_page(self, page, backends=('cxx', 'py')):
+  def run_page(self, page):
     '''
     Runs all the examples of ``page`` in a child
     on the backend of the session, from a fresh directory that holds
     the lesson sources, as a reader would, without the library path of the test
-    suite.  Returns the completed process.  Skips when the page does not
-    run on the backend of the session.
+    suite.  Returns the completed process.
     '''
     backend = curry.flags['backend']
-    if backend not in backends:
-      self.skipTest(
-          '%s uses the stream channel and runs on the %s backend alone'
-        % (os.path.basename(page), ', '.join(backends))
-        )
     workdir = tempfile.mkdtemp(prefix='func_docs-')
     try:
       examples = os.path.join(workdir, 'examples')
@@ -105,7 +99,7 @@ class TestPages(cytest.TestCase):
 
   def test_using_the_api(self):
     '''Every example of Using the API passes, on the C++ backend.'''
-    proc = self.run_page(USING_THE_API, backends=('cxx',))
+    proc = self.run_page(USING_THE_API)
     self.assertPassed(proc, USING_THE_API, minimum=60)
 
   def test_quickstart(self):

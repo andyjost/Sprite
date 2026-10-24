@@ -2,7 +2,7 @@
 -- differential harness (class FS-S, seed 83, depth 3, ops 3, free depth 2).
 -- The strict constraint x16 =:= m13 of the capsule equates a variable of
 -- the capsule with a variable of the goal reached through the box of a
--- captured argument; the Python backend built the pair with the guard and
+-- captured argument; the former runtime built the pair with the guard and
 -- read no id from it.
 module PyFingerprintNone where
 import Control.SetFunctions
@@ -44,7 +44,7 @@ goal = let x18, x19 free in (x18, x19, f3 (f2 failed Nothing) failed ((Z =:<= as
 
 -- The same cause through a value binding (found in review).  The variable
 -- of the goal, y, of the builtin type Int, is narrowed inside the capsule
--- through the box of the captured argument.  The Python backend built the
+-- through the box of the captured argument.  The former runtime built the
 -- pair of the value binding with the guard, read no id from it, and
 -- dropped the binding: the comparison then suspended.
 k2 :: Int -> Bool

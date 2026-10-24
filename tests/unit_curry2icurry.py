@@ -701,7 +701,7 @@ class TestDeepExpressions(cytest.TestCase):
   A module with a deeply nested expression imports and runs on both
   backends (issue #125).  The port of icurry recursed once per element of
   a literal list, first in the binding optimization, then in the passes
-  after it and in the reader of the ICurry text; the Python backend wrote
+  after it and in the reader of the ICurry text; the former runtime wrote
   the expression as one nested call, which the parser of Python refuses
   past 200 parentheses; the interpreter of the C++ runtime recursed in its
   emitter.  The module is written by the test, as the script of the issue

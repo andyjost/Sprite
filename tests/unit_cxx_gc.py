@@ -38,9 +38,6 @@ M = curry.import_('CxxGc')
     return proc
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 class TestCxxGc(ChildTests):
   '''
   The collector of the C++ backend (src/curryrt/graph/gc/wdgc.cpp).  The nodes
@@ -395,9 +392,6 @@ print('depth', curryrt.gc_eval_depth()
     self.assertIn('SPRITE_GC_THRESHOLD=abc', proc.stderr)
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 @cytest.skipUnlessGcBackend(
     'wdgc', 'the counts of queues and sets are exact for the block heap'
   )
@@ -563,9 +557,6 @@ assert settled() == (0, 0, 0), counts()
 ''')
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 @cytest.skipUnlessGcBackend(
     'wdgc', 'the counts of queues and sets are exact for the block heap'
   )

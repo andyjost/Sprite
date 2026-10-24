@@ -14,7 +14,6 @@ from curry.interpreter import import_ as importer
 from curry.tools.icy import commands, repl
 import curry, itertools, logging, os, shutil, tempfile, unittest
 
-IS_CXX = curry.flags['backend'] == 'cxx'
 COMPILE_SECONDS = 120
 IMPORT_LOGGER = 'curry.interpreter.import_'
 TIERED_LOGGER = 'curry.backends.cxx.tiered'
@@ -48,11 +47,9 @@ class EditedSourceTestCase(cytest.TestCase):
     curry.path.insert(0, self.tmpdir)
 
   def tearDown(self):
-    if IS_CXX:
-      # No compile may run while the directory goes.
-      from curry.backends.cxx import tiered
-      tiered.cancel()
-      tiered.wait(10)
+    from curry.backends.cxx import tiered
+    tiered.cancel()
+    tiered.wait(10)
     super().tearDown()
     shutil.rmtree(self.tmpdir, ignore_errors=True)
 
@@ -180,7 +177,7 @@ class TestLoadedExpressionScope(EditedSourceTestCase):
     name = self.write_module(TEXT % 1)
     module = curry.import_(name)
     self.edit_module(name, 'module %(name)s where\nf = )\n')
-    if not IS_CXX or curry.flags['interpret'] in ('new', 'all'):
+    if curry.flags['interpret'] in ('new', 'all'):
       error = curry.CompileError
     else:
       error = curry.LoadError
@@ -191,7 +188,6 @@ class TestLoadedExpressionScope(EditedSourceTestCase):
     self.assertEqual(curry.typeof(curry.parse('f', imports=[module])), 'Int')
 
 
-@unittest.skipUnless(IS_CXX, 'the background compile belongs to the C++ backend')
 class TestSwapAfterEdit(EditedSourceTestCase):
   def setUp(self):
     super().setUp()

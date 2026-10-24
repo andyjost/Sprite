@@ -30,9 +30,6 @@ BENCHMARKS = os.path.join(HERE, 'data', 'curry', 'benchmarks')
 ADDRESS_SPACE = 2 << 30
 TIMEOUT = 120
 
-ONLY_CXX = unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 
 def switch(mode, name='CxxInterp'):
   '''
@@ -388,9 +385,6 @@ class TestEmitter(cytest.TestCase):
     self.assertEqual(ops.count('MAKE'), depth)
     self.assertEqual(ops[-1], 'RET_NODE')
     self.assertEqual(code.nstack, depth + 1)
-
-
-@ONLY_CXX
 class TestValues(cytest.TestCase):
   '''
   The programs give the same values under the interpreter as the compiled
@@ -464,9 +458,6 @@ class TestValues(cytest.TestCase):
         EvaluationError, 'boom'
       , lambda: list(cytest.raw.values(cytest.raw.expr(M.boom, 1, typed=True)))
       )
-
-
-@ONLY_CXX
 class TestLoader(cytest.TestCase):
   '''
   The flag selects what is interpreted: with 'new', a module compiled from
@@ -571,9 +562,6 @@ main = double (CxxInterp.fact 3)
     self.assertFalse(curryrt.icurry_is_interpreted(info))
     # The flag is read back.
     self.assertEqual(curry.flags['interpret'], 'all')
-
-
-@ONLY_CXX
 class TestSteps(cytest.TestCase):
   '''
   One step of an interpreted function at the root of a raw expression: the
@@ -640,9 +628,6 @@ class TestSteps(cytest.TestCase):
     before = curryrt.gc_allocation_count()
     self.assertEqual(next(curry.eval(e)), 0)
     self.assertLess(curryrt.gc_allocation_count() - before, 20)
-
-
-@ONLY_CXX
 class TestPrograms(cytest.TestCase):
   '''
   Benchmark programs under the interpreter, in children: the values and the
@@ -685,9 +670,6 @@ class TestPrograms(cytest.TestCase):
     self.assertEqual(
         self.run_child('Last', 'all', stress=True), (expected, steps)
       )
-
-
-@ONLY_CXX
 class TestFirstUse(cytest.TestCase):
   '''
   Under 'off' a module imported from an ICurry object compiles on its first

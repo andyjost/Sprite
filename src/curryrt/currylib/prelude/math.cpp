@@ -78,8 +78,8 @@ namespace curryrt
   }
 
   // The messages.  An operand is the text of its value, in parentheses when
-  // it is negative, as Curry shows an argument.  The Python backend spells
-  // the same messages (backends/py/currylib/prelude/math.py).
+  // it is negative, as Curry shows an argument.  The former runtime spells
+  // the same messages (the former implementation).
   static std::string _operand(Node * node)
   {
     std::string const text = node->str();

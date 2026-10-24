@@ -23,7 +23,7 @@ PARTS = (2, 4, 8)
 # test_searchqueens; at five it takes about 15 s, and the partition is
 # checked at ten solutions of the queens programs.
 PERMS_SIZE = 5
-SOLUTIONS_SIZE = 6 if curry.flags['backend'] == 'cxx' and not cytest.GC_STRESS else 5
+SOLUTIONS_SIZE = 6 if not cytest.GC_STRESS else 5
 # The split module of each program, and the function of the original
 # program that takes the size.
 PROGRAMS = (

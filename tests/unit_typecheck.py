@@ -28,7 +28,6 @@ import curry, os, re, sys, unittest
 GOLDENS = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), 'data', 'curry', 'goal_defaulting'
   )
-IS_CXX = curry.flags['backend'] == 'cxx'
 MODULE = 'TypeCheck'
 
 def P(name):
@@ -46,7 +45,7 @@ def build(*args, **kwds):
 
 def floats(text):
   '''
-  A value text with the floats in the format of the Python backend.  The
+  A value text with the floats in the format of the former runtime.  The
   C++ backend prints 1.5 as 1.5000000000000000 (issue #34).
   '''
   return re.sub(r'(\d\.\d*?)0+(?!\d)', lambda m: m.group(1) if not m.group(1).endswith('.') else m.group(1) + '0', text)
@@ -308,13 +307,7 @@ class TestSchemes(cytest.TestCase):
     mapm = prob.root
     self.assertEqual(prob.show_type_of(mapm.args[0]), 'Int -> IO ()')
     self.assertEqual(prob.show_type_of(mapm.args[1]), '[Int]')
-    if IS_CXX:
-      self.assertEqual(values(P('mapM_'), P('print'), [1, 2]), ['()'])
-    else:
-      stdout = StringIO()
-      cytest.raw.interp().stdout = stdout
-      self.assertEqual(values(P('mapM_'), P('print'), [1, 2]), ['()'])
-      self.assertEqual(stdout.getvalue(), '1\n2\n')
+    self.assertEqual(values(P('mapM_'), P('print'), [1, 2]), ['()'])
 
   def test_fmap_and_return(self):
     prob = solved(P('fmap'), P('not'), [P('return'), True], exprtype='IO Bool')
@@ -914,7 +907,7 @@ class TestFreeVariables(cytest.TestCase):
     # The marker keeps its node across materializations.
     z = cytest.raw.free()
     node1 = build(P('id'), z)
-    self.assertIs(cytest.raw.expr(z, typed=True), node1.successors[0] if not IS_CXX else cytest.raw.expr(z, typed=True))
+    self.assertIs(cytest.raw.expr(z, typed=True), cytest.raw.expr(z, typed=True))
     node2 = build(P('id'), z)
     self.assertEqual(str(node2), str(node1))
     # An anonymous Free spec is a variable of its own.

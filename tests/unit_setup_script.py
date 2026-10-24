@@ -309,7 +309,7 @@ esac
     self.assertRegex(out, r'CCACHE_DIR=%s/ccache make overlay\)' % re.escape(prefix))
     self.assertIn('the flags are recorded in %s/cmake-args' % prefix, out)
     # The smoke test: one file on each backend, capped and timed.
-    for backend in ['py', 'cxx']:
+    for backend in ['cxx']:
       smoke = re.search(
           r'\+ \(cd %s/tests && ulimit -v 6291456 && (.*SPRITE_INTERPRETER_FLAGS=backend:%s .*)\)'
               % (re.escape(repo), backend)
@@ -326,11 +326,11 @@ esac
               % (prefix, repo)
         , line
         )
-    self.assertInOrder(out, ' make stage JOBS=3)', ' make overlay)', 'backend:py', 'backend:cxx', 'next steps')
+    self.assertInOrder(out, ' make stage JOBS=3)', ' make overlay)', 'backend:cxx', 'next steps')
     # The next steps name the calibration, the baseline, and the rules file.
     self.assertIn('Calibrate the test manifest', out)
-    self.assertIn('./run_tests -j 1 --backend both --update-manifest', out)
-    self.assertIn('./run_benchmarks -b cxx -b py --label baseline -o %s/baseline.jsonl' % prefix, out)
+    self.assertIn('./run_tests -j 1 --backend cxx --update-manifest', out)
+    self.assertIn('./run_benchmarks -b cxx --label baseline -o %s/baseline.jsonl' % prefix, out)
     self.assertIn('./run_benchmarks counters', out)
     self.assertIn('personal rules file', out)
     self.assertIn('python:      ' + python, out)

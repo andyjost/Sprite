@@ -35,10 +35,6 @@ def shlib_of(module):
   '''The SharedCurryModule of a loaded module.'''
   return getHandle(module).icurry.metadata['cxx.shlib']
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx'
-  , 'the module format belongs to the C++ backend'
-  )
 class TestPlainDataBOM(cytest.TestCase):
   '''
   The bill of materials of data/curry/CxxBom.curry: as the emitter writes it,
@@ -245,10 +241,6 @@ class TestPlainDataBOM(cytest.TestCase):
       compiler.compile(interp, module({'all.big': 2 ** 31}))
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx'
-  , 'the module format belongs to the C++ backend'
-  )
 class TestFunctionNames(cytest.TestCase):
   '''
   The record names a function by the name field of its table.  A primitive

@@ -17,7 +17,7 @@ which forked on the generator of a variable it had bound, and fork applied
 the binding as the constraint (generator =:<= binding) &> e.  The constraint
 pull-tabbed the same generator to the root, the fork applied the binding
 again, and so on without end: std::bad_alloc after six seconds at the 2 GB
-cap on the C++ backend, 6.9 million forks; the Python backend named a
+cap on the C++ backend, 6.9 million forks; the former runtime named a
 symbol the Prelude handle does not expose (nonstrictEq) and raised.  The
 same loop runs without a set function when one alternative binds a variable
 with =:<= and reads it after another alternative narrowed it (sibling).
@@ -61,37 +61,24 @@ CHILD = '''
 import curry
 curry.reset(**%(flags)r)
 M = curry.import_('SetFunctionsBindings')
-clones = []
-if %(clones)r:
-  # The Python backend alone: the clones of a capsule go through
-  # RuntimeState.clone_queue (eval/rts_setfunctions.py).
-  from curry.backends.py.eval import rts as rtsmod
-  orig_clone = rtsmod.RuntimeState.clone_queue
-  def clone_queue(self, *args):
-    clones.append(args)
-    return orig_clone(self, *args)
-  rtsmod.RuntimeState.clone_queue = clone_queue
 for name in %(goals)r:
-  del clones[:]
   try:
     values = curry.eval(getattr(M, name))
     print(name, sorted(str(value) for value in values))
   except curry.EvaluationError as exc:
     print(name, 'error', type(exc).__name__, str(exc))
-  if %(clones)r:
-    print(name + '.clones', len(clones))
 '''
 
 def run_child(testcase, *goals, **flags):
   '''
   Evaluates ``goals`` in a child on the backend of this test process and
   returns a dict from the name to the sorted list of values (as text) or to
-  the error line.  On the Python backend, with ``clones=True``, the dict
+  the error line.  On the former runtime, with ``clones=True``, the dict
   also maps ``NAME.clones`` to the number of capsule clones the goal made.
   '''
   flags.setdefault('backend', curry.flags['backend'])
-  clones = flags.pop('clones', False) and flags['backend'] == 'py'
-  code = CHILD % {'flags': flags, 'goals': goals, 'clones': clones}
+  flags.pop('clones', None)
+  code = CHILD % {'flags': flags, 'goals': goals}
   proc = cytest.run_in_subprocess(code, TIMEOUT, address_space=ADDRESS_SPACE)
   testcase.assertEqual(
       proc.returncode, 0
@@ -151,7 +138,7 @@ class TestBoundArgument(cytest.TestCase):
     '''
     No set function: one alternative binds x with =:<= and reads it after
     another alternative narrowed x.  The C++ backend ran out of memory on
-    the read; the Python backend raised in apply_binding.
+    the read; the former runtime raised in apply_binding.
     '''
     results = run_child(self, 'sibling')
     self.assertEqual(results, {'sibling': ['0', '1', '2', '7']})
@@ -174,15 +161,11 @@ class TestBoundArgument(cytest.TestCase):
   def check_values(self, expected, clones=None):
     '''
     Evaluates the goals of ``expected`` in a child.  ``clones`` maps a goal
-    to the number of capsule clones it makes, checked on the Python backend
+    to the number of capsule clones it makes, checked on the former runtime
     alone (the C++ runtime has no counter of them); a goal of ``expected``
     it leaves out makes none.
     '''
     goals = tuple(expected)
-    if clones and curry.flags['backend'] == 'py':
-      expected = dict(expected)
-      for name in goals:
-        expected[name + '.clones'] = clones.get(name, 0)
     results = run_child(self, *goals, clones=bool(clones))
     self.assertEqual(results, expected)
 

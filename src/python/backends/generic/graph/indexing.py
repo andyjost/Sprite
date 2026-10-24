@@ -3,7 +3,7 @@
 from ....common import T_SETGRD, T_FWD
 from ....exceptions import CurryIndexError, CurryTypeError
 from .... import inspect
-from .node import Node
+from ... import Node
 import collections, collections.abc, itertools, numbers
 
 __all__ = ['compress_fwd_chain', 'logical_subexpr', 'realpath', 'subexpr']
@@ -22,7 +22,7 @@ def compress_fwd_chain(end):
     chain.append(end)
     end = inspect.fwd_target(end)
   for node in chain:
-    # set_successor writes through on both backends; on the C++ backend
+    # set_successor writes through on the runtime; on the C++ backend
     # ``successors`` is a fresh list, so assigning into it would be lost.
     node.set_successor(0, end)
   return end

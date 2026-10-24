@@ -12,7 +12,6 @@ import cytest # from ./lib; must be first
 from curry.backends.generic.eval import control, evaluator
 import curry, cytest.step, unittest
 
-IS_CXX = curry.flags['backend'] == 'cxx'
 
 
 class TestStepLimit(cytest.TestCase):
@@ -113,13 +112,12 @@ class TestStepLimit(cytest.TestCase):
     # A limit at or below the count raises at once.
     with self.assertRaises(control.E_TERMINATE):
       ev.set_global_step_limit(0)
-    if IS_CXX:
-      from curry.backends.cxx import curryrtbindings as curryrt
-      self.assertEqual(ev.rts.step_limit, curryrt.NOLIMIT)
-      ev.set_global_step_limit(7)
-      self.assertEqual(ev.rts.step_limit, 7)
-      ev.set_global_step_limit(None)
-      self.assertEqual(ev.rts.step_limit, curryrt.NOLIMIT)
+    from curry.backends.cxx import curryrtbindings as curryrt
+    self.assertEqual(ev.rts.step_limit, curryrt.NOLIMIT)
+    ev.set_global_step_limit(7)
+    self.assertEqual(ev.rts.step_limit, 7)
+    ev.set_global_step_limit(None)
+    self.assertEqual(ev.rts.step_limit, curryrt.NOLIMIT)
     # The steps taken count from the reset.
     ev.set_global_step_limit(1)
     with self.assertRaises(control.E_TERMINATE):
@@ -127,7 +125,6 @@ class TestStepLimit(cytest.TestCase):
     self.assertEqual(counter.global_count, 1)
     self.assertEqual(ev.rts.steps_total, 1)
 
-  @unittest.skipUnless(IS_CXX, 'the counter of the C++ state is a view')
   def test_counter_keeps_no_cycle(self):
     '''
     The counter holds the state, never the other way round, so a state goes

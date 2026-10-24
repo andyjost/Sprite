@@ -68,47 +68,6 @@ class TestPlan(cytest.TestCase):
         '''
       )
 
-  def test_03_py(self):
-    interp = Interpreter(flags={'backend':'py'})
-    plan = plans.makeplan(
-        interp
-      , flags=plans.MAKE_ICURRY | plans.MAKE_JSON | plans.MAKE_TARGET_SOURCE
-      )
-    self.checkStr(plan,
-        '''
-        Build plan with 3 steps:
-            Stage Suffixes                 Step
-            ----- ------------------------ ----------------------------------------
-            0     ['.curry']               curry2icurry
-            1     ['.icy']                 icurry2json
-            2     ['.json']                json2py
-            3     ['.py']                  None
-        '''
-      )
-    plan = plans.makeplan(interp, flags=plans.MAKE_ALL)
-    self.checkStr(plan,
-        '''
-        Build plan with 3 steps:
-            Stage Suffixes                 Step
-            ----- ------------------------ ----------------------------------------
-            0     ['.curry']               curry2icurry
-            1     ['.icy']                 icurry2json
-            2     ['.json']                json2py
-            3     ['.py']                  None
-        '''
-      )
-    plan = plans.makeplan(interp, flags=plans.MAKE_ALL | plans.ZIP_JSON)
-    self.checkStr(plan,
-        '''
-        Build plan with 3 steps:
-            Stage Suffixes                 Step
-            ----- ------------------------ ----------------------------------------
-            0     ['.curry']               curry2icurry
-            1     ['.icy']                 icurry2json
-            2     ['.json.z']              json2py
-            3     ['.py']                  None
-        '''
-      )
 
   def test_04_cxx(self):
     # A fresh interpreter follows the environment; under interpret:all the

@@ -1,6 +1,6 @@
 '''Python bindings for libcurryrt.so.'''
 from ._curryrtbindings import *
-from ...generic.eval import control, trace
+from ...generic.eval import control
 from ....interpreter import flags as _flags
 from . import fingerprint
 from ... import InfoTable as _backends_InfoTable
@@ -27,15 +27,12 @@ class StepCounter(object):
   '''
   The step counter of the generic evaluator over a C++ runtime state.
 
-  Evaluator.set_global_step_limit and the telemetry read the counter of the
-  Python backend (generic.eval.stepcounter.StepCounter) as
-  ``rts.stepcounter``; this object answers for the C++ state through its
-  fields ``steps_total`` and ``step_limit``.  The count and the limit are
-  relative to the last reset (``_step_base`` of the state), and the totals
-  of the state keep every step.  A limit at or below the count raises
-  E_TERMINATE at once, as the counter of the Python backend does; else the
-  scheduler returns E_TERMINATE after the step that reaches the limit
-  (curryrt/state/rts.hpp), and generate_values raises it.
+  Evaluator.set_global_step_limit reads ``rts.stepcounter``.
+  This view uses the native ``steps_total`` and ``step_limit`` fields.
+  The count and limit are relative to the last reset (``_step_base``),
+  while the state totals keep every step.  A limit at or below the count
+  raises E_TERMINATE at once; otherwise generate_values raises it after
+  the scheduler completes the step that reaches the limit.
 
   A view: ``rts.stepcounter`` makes one per access, and the state holds no
   counter.  A counter kept by the state made a reference cycle, which
@@ -128,8 +125,7 @@ class RuntimeState(RuntimeStateBase):
     returns (see the ``next`` binding), so the output keeps its order.
 
     The step limit of the stepper (``stepcounter``) ends the evaluation with
-    E_TERMINATE, the flow-control exception of the generic evaluator, as on
-    the Python backend.
+    E_TERMINATE, the flow-control exception of the generic evaluator.
     '''
     from ....interpreter.eval import _print_yield
     for output, result in self.generate_events():

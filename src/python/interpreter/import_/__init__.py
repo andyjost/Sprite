@@ -156,10 +156,7 @@ class ImportEx(object):
 
   @__call__.when(icurry.IPackage)
   def __call__(self, ipkg, tail=[]):
-    if self.interp.flags['backend'] == 'cxx':
-      pkgobj = native_metadata(self._finish_package)(ipkg)
-    else:
-      pkgobj = self._finish_package(ipkg)
+    pkgobj = native_metadata(self._finish_package)(ipkg)
     return self(tail, rv=pkgobj)
 
   def _finish_package(self, ipkg):
@@ -177,10 +174,7 @@ class ImportEx(object):
     if imodule.fullname not in self.interp.modules:
       for modulename in imodule.imports:
         self.interp.import_(modulename, currypath=self.import_path)
-    if self.interp.flags['backend'] == 'cxx':
-      moduleobj = native_metadata(self._finish_module)(imodule, session)
-    else:
-      moduleobj = self._finish_module(imodule, session)
+    moduleobj = native_metadata(self._finish_module)(imodule, session)
     return self(tail, rv=moduleobj)
 
   def _finish_module(self, imodule, session):

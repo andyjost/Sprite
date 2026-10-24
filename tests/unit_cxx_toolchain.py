@@ -109,9 +109,6 @@ class ToolchainTestCase(cytest.TestCase):
     self.check_value(module, value)
     return module
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'the toolchain belongs to the C++ backend'
-  )
 class TestPrecompiledHeader(ToolchainTestCase):
   def setUp(self):
     super().setUp()
@@ -318,9 +315,6 @@ class TestPrecompiledHeader(ToolchainTestCase):
     headers = list(a.header_files())
     self.assertIn(config.installed_path('include', 'curryrt', 'curryrt.hpp'), headers)
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'the toolchain belongs to the C++ backend'
-  )
 class TestFormatStamp(ToolchainTestCase):
   '''
   The emitter stamps every generated file with its format.  A cached file
@@ -527,9 +521,6 @@ def conditional_includes(headers, include):
               break
   return found
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'the toolchain belongs to the C++ backend'
-  )
 class TestAbiStamp(ToolchainTestCase):
   '''
   Each shared object gets an ABI stamp: the digest of the runtime headers
@@ -1170,9 +1161,6 @@ def dynamic_names(dynamic):
   names += [n for n in (dynamic.soname, dynamic.rpath, dynamic.runpath) if n]
   return names
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'the toolchain belongs to the C++ backend'
-  )
 class TestPortableObjects(ToolchainTestCase):
   '''
   A compiled object names no path, so it serves any tree (format 13 of the
@@ -1634,9 +1622,6 @@ class TestPortableObjects(ToolchainTestCase):
     self.assertIsNone(source)
     self.assertEqual(loaded, sofile)
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'the toolchain belongs to the C++ backend'
-  )
 @unittest.skipIf(shutil.which('nm') is None, 'nm is not installed')
 class TestFlavor(ToolchainTestCase):
   '''
@@ -1910,9 +1895,6 @@ class TestFlavor(ToolchainTestCase):
     self.assertEqual(self.prerequisite(name), sofile)
     self.check_value(self.import_module(name), 4)
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'the toolchain belongs to the C++ backend'
-  )
 class TestMissingCompiler(ToolchainTestCase):
   '''
   An installation without a C++ compiler (tools/cxx does not resolve) loads

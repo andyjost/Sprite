@@ -407,7 +407,7 @@ class CxxCompiler(compiler.CompilerBase):
 
   def vEmit_compileS_IReturn(self, iret, expr):
     # The result is written into the redex when it fits the block of the
-    # redex (Node::rewrite), as the Python backend rewrites every result in
+    # redex (Node::rewrite), as the former runtime rewrites every result in
     # place.  Otherwise the redex is forwarded to a new node.  A reference
     # result is forwarded as well, unless it is a primitive value
     # (Node::forward_or_copy).

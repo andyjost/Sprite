@@ -32,8 +32,3 @@ class TestExamples(cytest.FunctionalTestCase):
               '\u00e4\u00f6\u00fc\U0001f600'.encode('utf-8')
         }
     }
-  if curry.flags['backend'] == 'py':
-    SKIP = [
-        '^catch$', 'appendFile_', 'getChar_catch', 'getChar_error'
-       , 'putChar_catch$', 'putChar_error$', 'writeFile_error'
-       ]

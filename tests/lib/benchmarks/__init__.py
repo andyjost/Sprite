@@ -59,7 +59,7 @@ EXAMPLESDIR = os.path.join(ROOTDIR, 'examples')
 DEFAULT_SPRITE_HOME = os.path.join(ROOTDIR, 'install')
 
 SUITES = ('throughput', 'compile', 'import', 'memory', 'split', 'applications')
-BACKENDS = ('cxx', 'py', 'pakcs')
+BACKENDS = ('cxx', 'pakcs')
 # The opponents of the applications suite, measured as backends of their
 # items: the resolver of pip (resolvelib) against the dependency item, a
 # plain-Python implementation and clang against the overloads item.
