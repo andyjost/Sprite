@@ -1,6 +1,6 @@
 '''
 Issues #140 and #149, the C++ bindings of a node: an index at or beyond the
-arity of a node raises CurryIndexError, as the Python backend does, instead
+arity of a node raises CurryIndexError, as the former runtime does, instead
 of reading past the node; a negative index counts from the end, as the Python
 backend does; copy.deepcopy of a node accepts the memo argument and keeps the
 sharing of one call.  The contract is the same on both backends.

@@ -37,7 +37,6 @@ Option                          Meaning and default
 ``CURRY2ICURRY_TOOL``           ``frontend`` (default) or ``icurry``
 ``WITH_CCACHE``                 Compiler launcher; empty disables it (default)
 ``WITH_CXX_POSTINSTALL``        Compiler for generated modules; the build compiler
-``WITH_DEFAULT_BACKEND``        ``cxx`` (default); see Developer Notes
 ``GC``                          ``wdgc`` (default) or ``mps``
 ``CMAKE_BUILD_TYPE``            ``Release`` (default) or ``Debug``
 ``JOBS``                        Library parallelism; ``auto`` (default) or a count

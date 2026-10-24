@@ -8,7 +8,7 @@ table of the PAKCS REPL to the constraints, and ``curry.typecheck.goals``
 applies the goal to one base instance per constraint, in the order of the
 scheme.  One path serves ``curry.eval`` of a module function,
 ``curry.parse`` without ``exprtype``, ``:eval`` and ``:type``
-of the REPL, ``sprite-exec -g``, and saved modules on the Python backend.
+of the REPL, ``sprite-exec -g``, and saved modules on the former runtime.
 A saved program reads ``-g`` as ``sprite-exec`` does; the goal it was saved
 with is the default (issue #35).  ``curry.save`` without a goal raises on
 both backends.
@@ -42,7 +42,6 @@ TIMEOUT = 300
 # The bound of the search under the stress mode of the collector; see
 # TestPrograms.test_repl_eval_under_stress.
 STRESS_TIMEOUT = 60
-IS_CXX = curry.flags['backend'] == 'cxx'
 
 def values(first, *args):
   return list(curry.eval(first(*args) if args else first))
@@ -280,13 +279,7 @@ class TestModuleGoals(cytest.TestCase):
   def test_io_goal(self):
     '''An IO goal runs during eval and yields its payload.'''
     M = self.M
-    if IS_CXX:
-      self.assertEqual(texts(M.main27), ['()'])
-    else:
-      stdout = StringIO()
-      cytest.raw.interp().stdout = stdout
-      self.assertEqual(texts(M.main27), ['()'])
-      self.assertEqual(stdout.getvalue(), '1\n2\n')
+    self.assertEqual(texts(M.main27), ['()'])
 
   def test_errors(self):
     '''A goal the table cannot default raises with the type in the message.'''
@@ -375,14 +368,7 @@ class TestTextGoals(cytest.TestCase):
   def test_io(self):
     '''IO goals: return 5 gives 5; the action runs during eval.'''
     self.assertEqual(self.compile_values('return 5'), [5])
-    if IS_CXX:
-      self.assertEqual(self.compile_values('mapM_ print [1, 2]'), [()])
-    else:
-      stdout = StringIO()
-      cytest.raw.interp().stdout = stdout
-      self.assertEqual(self.compile_values('mapM_ print [1, 2]'), [()])
-      self.assertEqual(self.compile_values('putStrLn "x"'), [()])
-      self.assertEqual(stdout.getvalue(), '1\n2\nx\n')
+    self.assertEqual(self.compile_values('mapM_ print [1, 2]'), [()])
 
   def test_errors(self):
     '''toEnum 65 and maxBound + 1 fail in the table; show [] in the front end.'''
@@ -414,7 +400,7 @@ class TestTextGoals(cytest.TestCase):
   def test_lambda_goal(self):
     '''
     A lambda is lifted; the binding has arity 0 and gives a function value.
-    On the Python backend the expression module was compiled while it
+    On the former runtime the expression module was compiled while it
     loaded, and importSymbol resolved the lifted lambda through interp.symbol
     before loadSymbols had loaded it; the module is now compiled after its
     load (Backend.compile_pending).
@@ -543,7 +529,6 @@ class TestPrograms(cytest.TestCase):
         , '{x=x} x', '[1.0,2.5]']
       )
 
-  @unittest.skipUnless(IS_CXX, 'the stress mode belongs to the collector of the C++ backend')
   def test_repl_eval_under_stress(self):
     '''
     :eval of a long search under the stress mode of the collector, within a
@@ -576,15 +561,15 @@ class TestPrograms(cytest.TestCase):
     interpreter with that backend and loads the module again; an unknown
     name is refused.
     '''
-    this = 'cxx' if IS_CXX else 'py'
-    other = 'py' if IS_CXX else 'cxx'
+    this = 'cxx'
+    other = 'cxx'
     proc = self.repl(
         ':load ' + MODULE_FILE, ':set', ':set backend ' + other, ':set'
       , ':eval main14'
       )
     self.assertEqual(proc.stdout.splitlines(), ['Just 5'])
     before = proc.stderr.index("backend : %r" % this)
-    after = proc.stderr.index("backend : %r" % other)
+    after = proc.stderr.index("backend : %r" % other, before + 1)
     self.assertLess(before, after)
     self.assertRegex(proc.stderr, r'backend\s+- The backend of the session')
     proc = self.repl(':set backend llvm', status=1)
@@ -635,7 +620,7 @@ class TestReplSession(cytest.TestCase):
     untouched.  A switch whose load succeeds shows the module again.
     '''
     this = curry.flags['backend']
-    other = 'py' if IS_CXX else 'cxx'
+    other = 'cxx'
     repl = self.repl_module.REPL([':load', MODULE_FILE])
     self.assertEqual(repl.module.__name__, MODULE)
     self.assertEqual(repl.options['backend'], this)
@@ -696,116 +681,14 @@ class TestSaveRefusals(cytest.TestCase):
     self.assertFalse(os.path.exists(self.filename))
 
 
-# The saved program belongs to the Python backend.  On the C++ backend
-# curry.save writes C++ source whose entry point is a stub
-# (backends.cxx.compiler._generate_main), so the tests that run the saved
-# file are known failures there; a C++ form of curry.save is an open decision
-# of issue #82, stage 5.
-SAVED_PROGRAM = (
-    'the saved form of the C++ backend is C++ source whose entry point is a '
-    'stub; it does not run as a program (issue #82, stage 5)'
-  )
-
 class TestSave(cytest.TestCase):
-  '''
-  Saved modules.  The tests that run the saved program hold on the Python
-  backend and are known failures on the C++ backend (SAVED_PROGRAM); the
-  rest hold on both.
-  '''
+  '''The compiler source of a saved module and its recorded goal scheme.'''
 
   def setUp(self):
     self.tmpdir = tempfile.mkdtemp(prefix='sprite-goals-')
     self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
     self.M = curry.import_(MODULE)
 
-  def run_saved(self, filename, *argv, status=0):
-    '''
-    Runs a saved module from its own directory, without the search path, and
-    returns the completed process.  ``argv`` is its command line.
-    '''
-    env = dict(os.environ)
-    env.pop('CURRYPATH', None)
-    proc = subprocess.run(
-        ['timeout', str(TIMEOUT), sys.executable, os.path.basename(filename)]
-            + list(argv)
-      , cwd=os.path.dirname(filename), env=env, capture_output=True, text=True
-      )
-    self.assertEqual(
-        proc.returncode, status
-      , 'status %s; stdout:\n%s\nstderr:\n%s' % (proc.returncode, proc.stdout, proc.stderr)
-      )
-    return proc
-
-  @cytest.expectedFailureIf(IS_CXX, SAVED_PROGRAM)
-  def test_constrained_goal(self):
-    '''A saved module with a constrained goal runs from another directory.'''
-    filename = os.path.join(self.tmpdir, MODULE + '.py')
-    curry._interpreter_.save(self.M, filename, goal='main14')
-    with open(filename, encoding='utf-8') as stream:
-      text = stream.read()
-    footer = text[text.index('# SECTION: .footer'):]
-    self.assertIn("goal='main14', goalscheme='(ForallType", footer)
-    self.assertIn('_Dict#Num', footer)
-    # The functions have bodies, not failing stubs (the defect behind the
-    # known failure of examples/04-static-compile).
-    self.assertLess(text.count('_0.rewrite(rts.Failure)'), 5)
-    self.assertEqual(self.run_saved(filename).stdout, 'Just 5\n')
-
-  @cytest.expectedFailureIf(IS_CXX, SAVED_PROGRAM)
-  def test_io_goal(self):
-    filename = os.path.join(self.tmpdir, MODULE + '.py')
-    curry._interpreter_.save(self.M, filename, goal='main16')
-    self.assertEqual(self.run_saved(filename).stdout, '5\n')
-
-  @cytest.expectedFailureIf(IS_CXX, SAVED_PROGRAM)
-  def test_signed_goal(self):
-    '''A goal without dictionaries gets no scheme in the footer.'''
-    filename = os.path.join(self.tmpdir, MODULE + '.py')
-    curry._interpreter_.save(self.M, filename, goal='main33')
-    with open(filename, encoding='utf-8') as stream:
-      text = stream.read()
-    self.assertIn("goal='main33')", text)
-    self.assertNotIn('goalscheme', text)
-    self.assertEqual(self.run_saved(filename).stdout, '7\n')
-
-  @cytest.expectedFailureIf(IS_CXX, SAVED_PROGRAM)
-  def test_command_line(self):
-    '''
-    The saved program reads its command line as sprite-exec does (issue
-    #35).  -g names the goal; the goal the module was saved with is the
-    default; the empty goal runs nothing; an unknown goal and a goal the
-    table cannot default are errors; the switches that do not apply to a
-    saved module are rejected.
-    '''
-    filename = os.path.join(self.tmpdir, MODULE + '.py')
-    curry._interpreter_.save(self.M, filename, goal='main14')
-    self.assertEqual(self.run_saved(filename).stdout, 'Just 5\n')
-    self.assertEqual(self.run_saved(filename, '-g', 'main14').stdout, 'Just 5\n')
-    # A signed goal, a constrained goal, and an IO goal print what
-    # sprite-exec prints.  The goals other than the recorded one get their
-    # types from the interface of the module, as under sprite-exec.
-    for goal, expected in [('main33', '7\n'), ('main15', '3\n'), ('main16', '5\n')]:
-      self.assertEqual(self.run_saved(filename, '-g', goal).stdout, expected)
-      proc = subprocess.run(
-          ['timeout', str(TIMEOUT), config.sprite_exec(), '-m', MODULE, '-g', goal]
-        , capture_output=True, text=True
-        )
-      self.assertEqual(proc.stdout, expected, proc.stderr)
-    self.assertEqual(self.run_saved(filename, '-g', '').stdout, '')
-    proc = self.run_saved(filename, '-g', 'nosuch', status=1)
-    self.assertEqual(proc.stdout, '')
-    self.assertIn("`nosuch' is undefined", proc.stderr)
-    proc = self.run_saved(filename, '-g', 'main17', status=1)
-    self.assertEqual(proc.stdout, '')
-    self.assertIn('Enum a => a', proc.stderr)
-    self.assertIn(ORACLE_SENTENCE, proc.stderr)
-    proc = self.run_saved(filename, '--help')
-    self.assertIn('usage: %s.py' % MODULE, proc.stdout)
-    self.assertIn('-g', proc.stdout)
-    self.assertNotIn('NAME', proc.stdout)
-    # No file name, no backend switch: the file is the module.
-    self.run_saved(filename, 'extra', status=2)
-    self.run_saved(filename, '-b', 'cxx', status=2)
 
   def test_goal_from_scheme(self):
     '''The footer's scheme rebuilds the goal without an interface file.'''
@@ -821,11 +704,9 @@ class TestSave(cytest.TestCase):
 
   def test_library(self):
     '''
-    module_main=False saves the module without a main program, on both
-    backends: no moduleMain in the Python form, no entry point in the C++
-    form.
+    module_main=False saves the module without an entry point.
     '''
-    filename = os.path.join(self.tmpdir, MODULE + ('.cpp' if IS_CXX else '.py'))
+    filename = os.path.join(self.tmpdir, MODULE + ('.cpp'))
     curry._interpreter_.save(self.M, filename, module_main=False)
     with open(filename, encoding='utf-8') as stream:
       saved = stream.read()
@@ -833,9 +714,5 @@ class TestSave(cytest.TestCase):
     for form in [saved, text, inspect.getimpl(self.M)]:
       self.assertNotIn('moduleMain', form)
       self.assertNotIn('void entry()', form)
-      if IS_CXX:
-        self.assertIn('/* SECTION: .header */', form)
-      else:
-        self.assertIn('IModule.fromBOM', form)
-    if IS_CXX:
-      self.assertIn('void entry()', curry._interpreter_.save(self.M, goal='main14'))
+      self.assertIn('/* SECTION: .header */', form)
+    self.assertIn('void entry()', curry._interpreter_.save(self.M, goal='main14'))

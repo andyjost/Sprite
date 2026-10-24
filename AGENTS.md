@@ -1,8 +1,8 @@
 # Sprite
 
 Sprite is a compiler and runtime for the Curry functional logic language,
-based on the Fair Scheme. It has a Python backend and a C++ backend behind a
-Python API. The design is described in the author's dissertation:
+based on the Fair Scheme. It has a C++ runtime behind a Python API. The
+design is described in the author's dissertation:
 https://andrewjost.wordpress.com/wp-content/uploads/2023/05/jostthesis.final_.10may23.pdf
 
 ## Status (2026)
@@ -17,8 +17,8 @@ checks the package against it. The files `tests/unit_flow_f*.py` and
 the C++ backend. The three `expectedFailure` markers there are F13's
 `test_choice_protocol` and `test_fork_precedence`, and
 `unit_stub_terms.py::test_choice_type_conversion`, awaiting the choice
-interpreter. Nine more markers apply only to the retired Python backend:
-eight in `unit_stub_evaluation.py` and F06's `test_stream_ten_primes`.
+interpreter. The Python backend was removed on 2026-10-24 at the owner's
+word (B4, issue #82).
 F11's `test_free_argument_answers` passes:
 partial lists in values and bindings print cons without spaces, as PAKCS
 does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`;
@@ -125,7 +125,7 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
   `-DWITH_CURRY_FRONTEND=PATH` to select tools. `make stage` is a thin
   configure/build/install wrapper, preserving the traditional tree.
 - `make stage` builds and stages a copy under `install/`. It also compiles
-  the Curry library into the installation for both backends. The modules
+  the Curry library into the installation for the C++ runtime. The modules
   Sprite cannot compile are listed in `unsupported` in
   `CMakeLists.txt`; they get their ICurry and JSON only.
 - The `.icy` and `.json.z` files beside the sources under `curry/lib/` are
@@ -137,8 +137,7 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
 - `make test` runs the full suite through `tests/run_tests`, which runs
   one process per test file under a memory watchdog (section 10 of
   `tests/README`). Useful forms: `./run_tests 'unit_*.py'` for the unit
-  files; `./run_tests -j auto --backend both` for a parallel run of both
-  backends under the memory budget; `./run_tests --changed` for the files
+  files; `./run_tests -j auto` for a parallel run under the memory budget; `./run_tests --changed` for the files
   that the working-tree changes touch; `./run_tests --fast` for the files
   below five seconds; `./run_tests --list` to see a selection without a
   run; `./run_tests -v FILE` to stream the output of one file (a breakpoint
@@ -198,10 +197,7 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
   which the driver does not count. `func_goal_defaulting.py` pins goal and
   type parity with the PAKCS REPL (`tests/oracle` and `tests/oracle_type`);
   its goldens are committed.
-- The C++ backend is the default (CMake `WITH_DEFAULT_BACKEND`, `sysconfig/default_backend` of the
-  installation; the test runner falls back to it).
-  `SPRITE_INTERPRETER_FLAGS=backend:py` selects the Python backend, which
-  suits only small programs. An installation without a C++ compiler runs
+- An installation without a C++ compiler runs
   the C++ backend interpreted under the tiered default and prints one
   notice per process (the page "Installing and running without a C++
   compiler" of the documentation).
@@ -218,8 +214,7 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
   default (`SPRITE_ROTATION=time:10ms`, a ticker thread, the interpreter
   flag `rotation`) and in step mode (`steps:65536`) under the test runner,
   the benchmark harness and CI, where the exact counters and the order of
-  the values of a search must reproduce; the Python backend keeps its
-  `step_budget`.
+  the values of a search must reproduce.
 - A goal without a type signature keeps its class constraints. Sprite
   defaults them as the PAKCS REPL does (`Num` to `Int`, `Fractional` to
   `Float`, `Monad` to `IO`, a lone `Data` to `Bool`) and rejects the rest

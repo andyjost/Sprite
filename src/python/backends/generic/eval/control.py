@@ -1,70 +1,10 @@
-'''Defines flow-control exceptions.'''
+'''Defines the step-limit flow-control exception.'''
 
-__all__ = [
-    'RuntimeFlowException'
-  , 'E_DIVERGE', 'E_RESIDUAL', 'E_STEPLIMIT', 'E_TERMINATE'
-  , 'E_UNWIND'
-  ]
+__all__ = ['RuntimeFlowException', 'E_TERMINATE']
 
 class RuntimeFlowException(BaseException):
-  '''
-  The base class for exceptions used by the runtime system for flow control.
-  These should always be caught and handled.
-  '''
+  '''The base class for runtime flow-control exceptions.'''
   pass
-
-class E_UNWIND(RuntimeFlowException):
-  '''
-  Raised when control must break out of the recursive match-eval loop.  This
-  occurs when a symbol requiring exceptional handing (e.g., FAIL or CHOICE) was
-  placed in a needed position, or when a variable is replaced by a value by
-  rewriting the root node.
-  '''
-  # For example, when reducing g (f (a ? b)), a pull-tab step will replace f
-  # with a choice.  Afterwards, this exception is raised to return control to
-  # g.
-
-
-class E_RESIDUAL(RuntimeFlowException):
-  '''Raised when evaluation cannot complete due to uninstantiated free variables.'''
-  def __init__(self, ids):
-    '''
-    Args:
-      ``ids``
-          A collection of free variable IDs (ints) blocking evaluation.
-    '''
-    assert all(isinstance(x, int) for x in ids)
-    self.ids = set(ids)
-
-
-class E_STEPLIMIT(RuntimeFlowException):
-  '''
-  Raised when a configuration has spent its step budget.  ``qid`` is the ID of
-  the queue to rotate.  None means the queue of the first handler.
-  '''
-  def __init__(self, qid=None):
-    self.qid = qid
-
-class E_DIVERGE(RuntimeFlowException):
-  '''
-  Raised when the nested evaluation of a set function reads a binding of an
-  enclosing configuration (get_binding in rts_bindings.py of the Python
-  backend): the capsule depends on the private state of that configuration,
-  which another configuration with another binding may share (issue #86).
-  allValues (currylib/setfunctions.py) clones the capsule for that
-  configuration.  ``qid`` is the queue to clone, ``vid`` the id under which
-  its configurations looked the variable up, and ``binding`` the binding
-  the clone absorbs.
-  '''
-  def __init__(self, qid, vid, binding):
-    self.qid = qid
-    self.vid = vid
-    self.binding = binding
 
 class E_TERMINATE(RuntimeFlowException):
   '''Raised to terminate evaluation.'''
-
-class E_RESTART(RuntimeFlowException):
-  '''
-  Raised to indicate evaluation of a configuration must restart.
-  '''

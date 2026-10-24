@@ -4,7 +4,7 @@ Assertions based on the curry.inspect module.
 
 from curry import inspect
 from curry.backends import Node
-from curry.backends.py.graph.equality import (
+from curry.backends.generic.graph.equality import (
     logically_equal, structurally_equal
   )
 

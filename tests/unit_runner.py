@@ -53,7 +53,7 @@ args = sys.argv[1:]
 if args == ['-S']:
   sys.stdout.write('.curry/stub')
   sys.exit(0)
-suffix = '.so' if '--so' in args else '.py'
+suffix = '.so'
 fail = os.environ.get('STUB_MAKE_FAIL', 'bad')
 status = 0
 for name in [arg for arg in args if arg.endswith('.curry')]:
@@ -102,7 +102,7 @@ class FakeResult:
     self.completed = completed
 
 
-def stubjob(name, cap=GIB, backend='py', exclusive=False):
+def stubjob(name, cap=GIB, backend='cxx', exclusive=False):
   '''A job that never runs; for the admission tests.'''
   return Job(
       name, backend, ['true'], cap=cap, timeout=None, logfile=None
@@ -158,11 +158,11 @@ class TestPick(unittest.TestCase):
 
   def test_longest_first(self):
     manifest = Manifest({
-        'short.py': {'py': {'duration_s': 2}}
-      , 'long.py': {'py': {'duration_s': 200}}
+        'short.py': {'cxx': {'duration_s': 2}}
+      , 'long.py': {'cxx': {'duration_s': 200}}
       })
     names = ['short.py', 'long.py', 'new.py']
-    names.sort(key=lambda name: manifest.order_key(name, 'py'))
+    names.sort(key=lambda name: manifest.order_key(name, 'cxx'))
     # The longest first; a file without an entry is assumed to take the
     # median of the measured files (101 s here).
     self.assertEqual(names, ['long.py', 'new.py', 'short.py'])
@@ -175,26 +175,25 @@ class TestPick(unittest.TestCase):
     heavy files start before the files without an entry, not after them.
     '''
     manifest = Manifest({
-        'func_eqconstr.py': {'py': {'duration_s': 323}, 'cxx': {'duration_s': 323}}
-      , 'unit_py_io.py': {'py': {'duration_s': 100}, 'cxx': {'duration_s': 100}}
+        'func_eqconstr.py': {'cxx': {'duration_s': 323}}
+      , 'unit_io_bind.py': {'cxx': {'duration_s': 100}}
       , 'unit_cxx_only.py': {'cxx': {'duration_s': 1}}
       })
-    self.assertEqual(manifest.assumed_duration('py'), 211.5)
     self.assertEqual(manifest.assumed_duration('cxx'), 100)
     self.assertEqual(manifest.assumed_duration(), 100)
-    names = ['unit_a.py', 'unit_py_io.py', 'unit_b.py', 'func_eqconstr.py']
-    names.sort(key=lambda name: manifest.order_key(name, 'py'))
+    names = ['unit_a.py', 'unit_io_bind.py', 'unit_b.py', 'func_eqconstr.py']
+    names.sort(key=lambda name: manifest.order_key(name, 'cxx'))
     self.assertEqual(
-        names, ['func_eqconstr.py', 'unit_a.py', 'unit_b.py', 'unit_py_io.py']
+        names, ['func_eqconstr.py', 'unit_a.py', 'unit_b.py', 'unit_io_bind.py']
       )
     # A backend without a measurement borrows the median of the others.
     manifest = Manifest({'a.py': {'cxx': {'duration_s': 50}}})
-    self.assertEqual(manifest.assumed_duration('py'), 50)
-    self.assertEqual(manifest.order_key('b.py', 'py'), (-50, 0))
+    self.assertEqual(manifest.assumed_duration('cxx'), 50)
+    self.assertEqual(manifest.order_key('b.py', 'cxx'), (-50, 0))
     self.assertEqual(manifest.order_key('a.py', 'cxx'), (-50, 1))
     # Nothing measured: every file is equal, and the sort keeps the names.
-    self.assertIsNone(Manifest().assumed_duration('py'))
-    self.assertEqual(Manifest().order_key('a.py', 'py'), (0, 0))
+    self.assertIsNone(Manifest().assumed_duration('cxx'))
+    self.assertEqual(Manifest().order_key('a.py', 'cxx'), (0, 0))
 
   def test_exclusive(self):
     alone = stubjob('alone', exclusive=True)
@@ -206,10 +205,10 @@ class TestPick(unittest.TestCase):
     self.assertIsNone(pick([other], [alone], 10 * GIB, 4))
 
   def test_one_file_on_one_backend_at_a_time(self):
-    py = stubjob('a.py', backend='py')
+    running = stubjob('a.py', backend='cxx')
     cxx = stubjob('a.py', backend='cxx')
     b = stubjob('b.py', backend='cxx')
-    self.assertIs(pick([cxx, b], [py], 10 * GIB, 4), b)
+    self.assertIs(pick([cxx, b], [running], 10 * GIB, 4), b)
     self.assertIs(pick([cxx], [b], 10 * GIB, 4), cxx)
 
 
@@ -220,7 +219,7 @@ class SchedulerTests(unittest.TestCase):
     self.logdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
     self.addCleanup(shutil.rmtree, self.logdir, ignore_errors=True)
 
-  def pyjob(self, name, code, cap=GIB, timeout=None, backend='py'):
+  def pyjob(self, name, code, cap=GIB, timeout=None, backend='cxx'):
     return Job(
         name, backend, [PYTHON, '-c', code], cap=cap, timeout=timeout
       , logfile=os.path.join(self.logdir, backend, name + '.log')
@@ -257,7 +256,7 @@ class TestScheduler(SchedulerTests):
       self.assertIn('FAILED (failures=1, errors=1)', stream.read())
     text = report.summary(sched.jobs, sched.wall)
     self.assertIn('2 of 2 run, 1 failed', text)
-    self.assertRegex(text, r'bad\.py\s+py\s+3\s+2\s+[\d.]+ s\s+\d+\s+FAILED')
+    self.assertRegex(text, r'bad\.py\s+cxx\s+3\s+2\s+[\d.]+ s\s+\d+\s+FAILED')
 
   def test_advisory_job(self):
     '''
@@ -267,7 +266,7 @@ class TestScheduler(SchedulerTests):
     '''
     good = self.pyjob('good.py', 'import sys; sys.stderr.write(%r)' % OK_OUTPUT)
     advice = Job(
-        'prepare x', 'py', [PYTHON, '-c', 'import sys; sys.exit(1)'], cap=GIB
+        'prepare x', 'cxx', [PYTHON, '-c', 'import sys; sys.exit(1)'], cap=GIB
       , timeout=None, logfile=os.path.join(self.logdir, 'prepare-x.log')
       , advisory=True
       )
@@ -285,11 +284,11 @@ class TestScheduler(SchedulerTests):
     text = report.summary(sched.jobs, sched.wall)
     self.assertIn('1 of 1 run, 0 failed, prepare: 1 of 1 incomplete', text)
     self.assertRegex(
-        text, r'prepare x\s+py\s+-\s+-\s+[\d.]+ s\s+\d+\s+incomplete'
+        text, r'prepare x\s+cxx\s+-\s+-\s+[\d.]+ s\s+\d+\s+incomplete'
       )
     # Every advisory job passed: no clause.
     ok = Job(
-        'prepare y', 'py', ['true'], cap=GIB, timeout=None, logfile=None
+        'prepare y', 'cxx', ['true'], cap=GIB, timeout=None, logfile=None
       , advisory=True
       )
     sched = self.run_jobs([ok, good])
@@ -570,7 +569,7 @@ class TestScheduler(SchedulerTests):
 
   def test_missing_command(self):
     job = Job(
-        'none.py', 'py', ['/nonexistent/program'], cap=GIB, timeout=None
+        'none.py', 'cxx', ['/nonexistent/program'], cap=GIB, timeout=None
       , logfile=os.path.join(self.logdir, 'none.log')
       )
     self.run_jobs([job])
@@ -618,19 +617,19 @@ class TestManifest(unittest.TestCase):
     manifest = Manifest(path=self.path)
     size = {'measured_on_cores': 4, 'measured_on_mem_gb': 16}
     manifest.update(
-        'a.py', 'py', FakeResult(12.34, 300 * MIB, tests=7, failures=1), size
+        'a.py', 'cxx', FakeResult(12.34, 300 * MIB, tests=7, failures=1), size
       )
-    manifest.update('a.py', 'cxx', FakeResult(5.0, 100 * MIB), size)
+    manifest.update('other.py', 'cxx', FakeResult(5.0, 100 * MIB), size)
     manifest.save()
     loaded = Manifest.load(self.path)
-    entry = loaded.entry('a.py', 'py')
+    entry = loaded.entry('a.py', 'cxx')
     self.assertEqual(entry['duration_s'], 12.3)
     self.assertEqual(entry['peak_rss_mb'], 300)
     self.assertEqual((entry['tests'], entry['failures']), (7, 1))
     self.assertEqual(entry['measured_on_cores'], 4)
     self.assertEqual(entry['measured_on_mem_gb'], 16)
-    self.assertEqual(loaded.duration('a.py', 'cxx'), 5.0)
-    self.assertIsNone(loaded.entry('b.py', 'py'))
+    self.assertEqual(loaded.duration('other.py', 'cxx'), 5.0)
+    self.assertIsNone(loaded.entry('b.py', 'cxx'))
     with open(self.path) as stream:
       data = json.load(stream)
     self.assertEqual(data['format'], FORMAT)
@@ -638,40 +637,40 @@ class TestManifest(unittest.TestCase):
 
   def test_caps(self):
     manifest = Manifest({
-        'small.py': {'py': {'duration_s': 1, 'peak_rss_mb': 100}}
-      , 'mid.py': {'py': {'duration_s': 1, 'peak_rss_mb': 600}}
-      , 'big.py': {'py': {'duration_s': 1, 'peak_rss_mb': 1024}}
-      , 'nopeak.py': {'py': {'duration_s': 1, 'peak_rss_mb': None}}
+        'small.py': {'cxx': {'duration_s': 1, 'peak_rss_mb': 100}}
+      , 'mid.py': {'cxx': {'duration_s': 1, 'peak_rss_mb': 600}}
+      , 'big.py': {'cxx': {'duration_s': 1, 'peak_rss_mb': 1024}}
+      , 'nopeak.py': {'cxx': {'duration_s': 1, 'peak_rss_mb': None}}
       })
     # The floor is 1 GB: it covers the toolchain inside the test process
     # on a cold tree.  The allowance of the external tools is 2 GB.
     self.assertEqual(testrunner.MIN_CAP, GIB)
     self.assertEqual(testrunner.TOOL_CAP, 2 * GIB)
-    self.assertEqual(manifest.cap('small.py', 'py'), testrunner.MIN_CAP)
-    self.assertEqual(manifest.cap('mid.py', 'py'), 1200 * MIB)
-    self.assertEqual(manifest.cap('big.py', 'py'), 2 * GIB)
-    self.assertEqual(manifest.cap('nopeak.py', 'py'), testrunner.DEFAULT_CAP)
-    self.assertEqual(manifest.cap('missing.py', 'py'), testrunner.DEFAULT_CAP)
-    self.assertEqual(manifest.cap('small.py', 'cxx'), testrunner.DEFAULT_CAP)
+    self.assertEqual(manifest.cap('small.py', 'cxx'), testrunner.MIN_CAP)
+    self.assertEqual(manifest.cap('mid.py', 'cxx'), 1200 * MIB)
+    self.assertEqual(manifest.cap('big.py', 'cxx'), 2 * GIB)
+    self.assertEqual(manifest.cap('nopeak.py', 'cxx'), testrunner.DEFAULT_CAP)
+    self.assertEqual(manifest.cap('missing.py', 'cxx'), testrunner.DEFAULT_CAP)
+    self.assertEqual(manifest.cap('absent.py', 'cxx'), testrunner.DEFAULT_CAP)
 
   def test_peak_only_grows_and_a_kill_keeps_the_duration(self):
     manifest = Manifest()
     size = {'measured_on_cores': 1, 'measured_on_mem_gb': 1}
-    manifest.update('a.py', 'py', FakeResult(10.0, 500 * MIB), size)
-    manifest.update('a.py', 'py', FakeResult(20.0, 200 * MIB), size)
-    entry = manifest.entry('a.py', 'py')
+    manifest.update('a.py', 'cxx', FakeResult(10.0, 500 * MIB), size)
+    manifest.update('a.py', 'cxx', FakeResult(20.0, 200 * MIB), size)
+    entry = manifest.entry('a.py', 'cxx')
     self.assertEqual((entry['duration_s'], entry['peak_rss_mb']), (20.0, 500))
     manifest.update(
-        'a.py', 'py', FakeResult(3.0, 900 * MIB, completed=False), size
+        'a.py', 'cxx', FakeResult(3.0, 900 * MIB, completed=False), size
       )
-    entry = manifest.entry('a.py', 'py')
+    entry = manifest.entry('a.py', 'cxx')
     self.assertEqual((entry['duration_s'], entry['peak_rss_mb']), (20.0, 900))
     # A run that ended by itself without a verdict (an ImportError, say)
     # measured nothing whole either: the duration stays.
     manifest.update(
-        'a.py', 'py', FakeResult(0.5, 950 * MIB, tests=None, failures=None), size
+        'a.py', 'cxx', FakeResult(0.5, 950 * MIB, tests=None, failures=None), size
       )
-    entry = manifest.entry('a.py', 'py')
+    entry = manifest.entry('a.py', 'cxx')
     self.assertEqual((entry['duration_s'], entry['peak_rss_mb']), (20.0, 950))
     self.assertEqual(entry['tests'], 1)
 
@@ -728,7 +727,7 @@ FILES = sorted([
   , 'unit_flat2icurry.py', 'unit_icurry.py', 'unit_inspect.py'
   , 'unit_loadsave.py', 'unit_optimize.py', 'unit_optimize_applies.py'
   , 'unit_plan.py', 'unit_prebuild.py', 'unit_product_cache.py'
-  , 'unit_py_conversions.py', 'unit_py_evaluation.py', 'unit_py_io.py'
+  , 'unit_conversions.py', 'unit_evaluation.py', 'unit_io_bind.py'
   , 'unit_utility.py'
   ])
 CXX_FILES = [
@@ -741,8 +740,7 @@ TOOLCHAIN_FILES = [
   , 'unit_product_cache.py'
   ]
 API_FILES = [
-    'unit_api.py', 'unit_expr.py', 'unit_py_conversions.py'
-  , 'unit_py_evaluation.py'
+    'unit_api.py', 'unit_conversions.py', 'unit_evaluation.py', 'unit_expr.py'
   ]
 
 def with_(names, *extra):
@@ -782,10 +780,6 @@ class TestSelection(unittest.TestCase):
     self.assertIn('the C++ runtime', notes[0])
     names, _, _ = self.selected(['src/python/backends/cxx/compiler.py'])
     self.assertEqual(names, CXX_FILES)
-    names, _, _ = self.selected(['src/python/backends/py/eval/rts.py'])
-    self.assertEqual(
-        names, ['unit_py_conversions.py', 'unit_py_evaluation.py', 'unit_py_io.py']
-      )
     names, _, _ = self.selected(['src/python/toolchain/_frontend.py'])
     self.assertEqual(names, with_(TOOLCHAIN_FILES, 'unit_plan.py'))
     names, _, _ = self.selected(['src/python/toolchain/plans.py'])
@@ -1022,27 +1016,17 @@ class TestSelection(unittest.TestCase):
 
   def test_fast_tier(self):
     manifest = Manifest({
-        'unit_api.py': {'py': {'duration_s': 2.0}, 'cxx': {'duration_s': 9.0}}
-      , 'unit_compile.py': {'py': {'duration_s': 146}, 'cxx': {'duration_s': 150}}
-      , 'unit_expr.py': {'py': {'duration_s': 4.9}}
+        'unit_api.py': {'cxx': {'duration_s': 9.0}}
+      , 'unit_compile.py': {'cxx': {'duration_s': 150}}
+      , 'unit_expr.py': {'cxx': {'duration_s': 4.9}}
       })
     files = ['unit_api.py', 'unit_compile.py', 'unit_expr.py', 'unit_new.py']
-    self.assertEqual(
-        selection.fast_tier(files, ['py'], manifest, 5.0)
-      , ['unit_api.py', 'unit_expr.py', 'unit_new.py']
-      )
     self.assertEqual(
         selection.fast_tier(files, ['cxx'], manifest, 5.0)
       , ['unit_expr.py', 'unit_new.py']
       )
-    # Both backends: a file must be fast on every backend of the run; a
-    # backend without an entry counts as fast.
     self.assertEqual(
-        selection.fast_tier(files, ['py', 'cxx'], manifest, 5.0)
-      , ['unit_expr.py', 'unit_new.py']
-      )
-    self.assertEqual(
-        selection.fast_tier(files, ['py'], manifest, 1.0), ['unit_new.py']
+        selection.fast_tier(files, ['cxx'], manifest, 1.0), ['unit_new.py']
       )
 
   def test_fast_tier_leaves_out_the_corpus_owners(self):
@@ -1052,16 +1036,16 @@ class TestSelection(unittest.TestCase):
     in the fast tier, however fast its entry, and whether it has one.
     '''
     manifest = Manifest({
-        'func_math.py': {'py': {'duration_s': 2.0}, 'cxx': {'duration_s': 2.0}}
+        'func_math.py': {'cxx': {'duration_s': 2.0}}
       , 'unit_cxx_variable.py':
-          {'py': {'duration_s': 1.0}, 'cxx': {'duration_s': 1.0}}
-      , 'unit_expr.py': {'py': {'duration_s': 0.5}, 'cxx': {'duration_s': 0.5}}
+          {'cxx': {'duration_s': 1.0}}
+      , 'unit_expr.py': {'cxx': {'duration_s': 0.5}}
       })
     files = [
         'func_math.py', 'func_new.py', 'unit_benchmarks.py'
       , 'unit_cxx_variable.py', 'unit_expr.py', 'unit_new.py'
       ]
-    for backends in ['py'], ['cxx'], ['py', 'cxx']:
+    for backends in [['cxx']]:
       self.assertEqual(
           selection.fast_tier(files, backends, manifest, 5.0)
         , ['unit_expr.py', 'unit_new.py']
@@ -1130,7 +1114,7 @@ class TestReport(unittest.TestCase):
         jobs, 2, 8 * GIB, 600, '/x/.cache/runner', available=16 * GIB
       )
     self.assertIn(
-        '2 files on cxx+py, width 2, budget 8.0 GB (of 16.0 GB available), '
+        '2 files on cxx, width 2, budget 8.0 GB (of 16.0 GB available), '
         'timeout 600 s'
       , text
       )
@@ -1180,7 +1164,7 @@ class TestCli(unittest.TestCase):
     self.assertIsNone(args.changed)
     self.assertIsNone(args.backend)
     args = cli.parse_args(
-        ['-j', 'auto', '--fast', '--changed', '--backend', 'both', 'unit_a.py']
+        ['-j', 'auto', '--fast', '--changed', '--backend', 'cxx', 'unit_a.py']
       )
     self.assertEqual(args.jobs, 'auto')
     self.assertEqual(args.fast, testrunner.DEFAULT_FAST_SECONDS)
@@ -1205,58 +1189,15 @@ class TestCli(unittest.TestCase):
     args = cli.parse_args(['-j', '2'], jobs='auto')
     self.assertEqual(args.jobs, 2)
 
-  def test_installed_backend(self):
-    '''
-    The backend of a run that names none: the default of the installation
-    (sysconfig/default_backend, which CMake WITH_DEFAULT_BACKEND
-    writes), else the constant of the runner.  The listing of such a run
-    shows it.
-    '''
-    tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
-    self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
-    home = stub_installation(tmpdir)
-    self.assertEqual(cli.installed_backend(home), testrunner.DEFAULT_BACKEND)
-    self.assertEqual(testrunner.DEFAULT_BACKEND, 'cxx')
-    os.makedirs(os.path.join(home, 'sysconfig'))
-    sysconfig = os.path.join(home, 'sysconfig', 'default_backend')
-    for value, expected in [
-        ('py\n', 'py'), ('cxx', 'cxx'), ('', testrunner.DEFAULT_BACKEND)
-      , ('llvm\n', testrunner.DEFAULT_BACKEND)
-      ]:
-      with open(sysconfig, 'w') as stream:
-        stream.write(value)
-      self.assertEqual(cli.installed_backend(home), expected, value)
-    env = {k: v for k, v in os.environ.items() if k != 'SPRITE_INTERPRETER_FLAGS'}
-    env['SPRITE_HOME'] = home
-    for value in 'py', 'cxx':
-      with open(sysconfig, 'w') as stream:
-        stream.write(value + '\n')
-      out = io.StringIO()
-      with mock.patch.dict(os.environ, env, clear=True), redirect_stdout(out):
-        status = cli.main(['--list', 'unit_runner.py'])
-      self.assertEqual(status, 0)
-      self.assertRegex(out.getvalue(), r'(?m)^%s\s+unit_runner\.py' % value)
-      # The flag wins over the installation.
-      env['SPRITE_INTERPRETER_FLAGS'] = 'backend:' + ('cxx' if value == 'py' else 'py')
-      out = io.StringIO()
-      with mock.patch.dict(os.environ, env, clear=True), redirect_stdout(out):
-        status = cli.main(['--list', 'unit_runner.py'])
-      del env['SPRITE_INTERPRETER_FLAGS']
-      self.assertEqual(status, 0)
-      self.assertNotRegex(out.getvalue(), r'(?m)^%s\s+unit_runner\.py' % value)
-    # The real installation records a backend.
-    sprite_home = os.environ.get('SPRITE_HOME')
-    if sprite_home:
-      self.assertIn(cli.installed_backend(sprite_home), testrunner.BACKENDS)
 
   def test_flags(self):
     self.assertEqual(cli.flag_backend('backend:cxx'), 'cxx')
-    self.assertEqual(cli.flag_backend('debug:1,backend:py'), 'py')
+    self.assertEqual(cli.flag_backend('debug:1,backend:cxx'), 'cxx')
     self.assertIsNone(cli.flag_backend(None))
     self.assertEqual(
-        cli.with_backend('debug:1,backend:py', 'cxx'), 'backend:cxx,debug:1'
+        cli.with_backend('debug:1,backend:cxx', 'cxx'), 'backend:cxx,debug:1'
       )
-    self.assertEqual(cli.with_backend('', 'py'), 'backend:py')
+    self.assertEqual(cli.with_backend('', 'cxx'), 'backend:cxx')
 
   def test_environment(self):
     base = {
@@ -1362,7 +1303,7 @@ class TestCli(unittest.TestCase):
     self.assertIsNone(cli.flag_value(None, 'inline_budget'))
     self.assertIsNone(cli.budget_note({'PATH': '/bin'}))
     self.assertIsNone(
-        cli.budget_note({'SPRITE_INTERPRETER_FLAGS': 'backend:py'})
+        cli.budget_note({'SPRITE_INTERPRETER_FLAGS': 'backend:cxx'})
       )
     note = cli.budget_note({'SPRITE_INTERPRETER_FLAGS': flags})
     head = 'inline budget: the environment sets inline_budget:0; '
@@ -1437,10 +1378,10 @@ class TestCli(unittest.TestCase):
 
   def test_test_job(self):
     manifest = Manifest(
-        {'unit_a.py': {'py': {'duration_s': 7, 'peak_rss_mb': 1000}}}
+        {'unit_a.py': {'cxx': {'duration_s': 7, 'peak_rss_mb': 1000}}}
       )
     env = {'A': '1'}
-    job = cli.test_job('unit_a.py', 'py', '/sprite', manifest, 60, '/logs', env)
+    job = cli.test_job('unit_a.py', 'cxx', '/sprite', manifest, 60, '/logs', env)
     self.assertEqual(
         job.argv[-5:]
       , ['unittest', 'discover', '-v', testrunner.TESTDIR, 'unit_a.py']
@@ -1448,7 +1389,7 @@ class TestCli(unittest.TestCase):
     self.assertIn('/sprite/bin/python', job.argv)
     self.assertEqual(job.cap, 2000 * MIB)
     self.assertEqual(job.hint, 7)
-    self.assertEqual(job.logfile, '/logs/py/unit_a.py.log')
+    self.assertEqual(job.logfile, '/logs/cxx/unit_a.py.log')
     self.assertEqual(job.cwd, testrunner.TESTDIR)
     self.assertIs(job.env, env)
     self.assertFalse(job.exclusive)
@@ -1468,10 +1409,10 @@ class TestCli(unittest.TestCase):
     self.assertIn('runs alone', text)
     out = io.StringIO()
     with redirect_stdout(out):
-      status = cli.main(['--list', '--backend', 'both', 'unit_runner.py'])
+      status = cli.main(['--list', '--backend', 'cxx', 'unit_runner.py'])
     self.assertEqual(status, 0)
     self.assertRegex(out.getvalue(), r'cxx\s+unit_runner\.py')
-    self.assertRegex(out.getvalue(), r'py\s+unit_runner\.py')
+    self.assertNotRegex(out.getvalue(), r'py\s+unit_runner\.py')
 
   def test_prepare_pass_is_advisory(self):
     '''
@@ -1553,7 +1494,7 @@ class TestCli(unittest.TestCase):
     self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
     manifest = os.path.join(tmpdir, 'manifest.json')
     Manifest(
-        {'unit_runner.py': {'py': {'duration_s': 100}, 'cxx': {'duration_s': 100}}}
+        {'unit_runner.py': {'cxx': {'duration_s': 100}}}
       , manifest
       ).save()
     out = io.StringIO()
@@ -1663,15 +1604,15 @@ class TestPrepare(unittest.TestCase):
   def test_jobs(self):
     env = {'CURRYPATH': '/pool', 'PATH': '/bin'}
     jobs = prepare.jobs(
-        ['func_kiel.py'], ['cxx', 'py'], '/sprite', env, '/logs', cap=GIB
+        ['func_kiel.py'], ['cxx'], '/sprite', env, '/logs', cap=GIB
       , timeout=None, prefix=['prlimit', '--as=1'], subdir='.curry/x'
       )
-    self.assertEqual([job.backend for job in jobs], ['cxx', 'cxx', 'py', 'py'])
+    self.assertEqual([job.backend for job in jobs], ['cxx', 'cxx'])
     self.assertTrue(all(isinstance(job, prepare.PrepareJob) for job in jobs))
     self.assertTrue(all(job.advisory for job in jobs))
     self.assertEqual(
         [job.filename for job in jobs]
-      , ['prepare data/curry', 'prepare data/curry/kiel'] * 2
+      , ['prepare data/curry', 'prepare data/curry/kiel']
       )
     kiel = jobs[1]
     # Without -q: the line of sprite-make about the product cache must
@@ -1690,7 +1631,6 @@ class TestPrepare(unittest.TestCase):
       ]))
     self.assertTrue(kiel.exclusive)
     self.assertEqual(kiel.logfile, '/logs/cxx/prepare-data-curry-kiel.log')
-    self.assertEqual(jobs[3].argv[6], '--py')
     # The modules of the job and their products, per backend.
     self.assertEqual(kiel.directory, 'data/curry/kiel')
     self.assertEqual(kiel.modules, kiel.argv[7:])
@@ -1699,12 +1639,6 @@ class TestPrepare(unittest.TestCase):
         kiel.product('data/curry/kiel/UseConc1.curry')
       , os.path.join(
             testrunner.TESTDIR, 'data/curry/kiel', '.curry/x', 'UseConc1.so'
-          )
-      )
-    self.assertEqual(
-        jobs[3].product('data/curry/kiel/UseConc1.curry')
-      , os.path.join(
-            testrunner.TESTDIR, 'data/curry/kiel', '.curry/x', 'UseConc1.py'
           )
       )
     # Without a product directory the products are unknown.
@@ -1720,7 +1654,7 @@ class TestPrepare(unittest.TestCase):
     '''
     Under the interpreter flag interpret set to new or all, sprite-make --so
     ends at the JSON (the runtime interprets the module), so the JSON is the
-    product the pass looks for on the C++ backend; the Python backend keeps
+    product the pass looks for on the C++ backend; the former runtime keeps
     its .py.  The flags are those of the environment of the job, which
     cli.main sets after the job is made.
     '''
@@ -1729,8 +1663,6 @@ class TestPrepare(unittest.TestCase):
     self.assertEqual(prepare.interpret_flag('backend:cxx,interpret:new'), 'new')
     self.assertEqual(prepare.interpret_flag(' interpret : all ,debug:1'), 'all')
     self.assertEqual(prepare.product_suffixes('cxx'), ('.so',))
-    self.assertEqual(prepare.product_suffixes('py'), ('.py',))
-    self.assertEqual(prepare.product_suffixes('py', 'interpret:new'), ('.py',))
     for mode in 'new', 'all':
       self.assertEqual(
           prepare.product_suffixes('cxx', 'interpret:' + mode)
@@ -1768,16 +1700,12 @@ class TestPrepare(unittest.TestCase):
           new.product('data/curry/a.curry'), os.path.join(products, 'a.json.z')
         )
     # The environment that cli.main gives the job carries the flags of the
-    # run; the Python backend is not concerned.
+    # run; the former runtime is not concerned.
     late = job('cxx', None)
     late.env = cli.environment(
         '/sprite', 'cxx', base={'SPRITE_INTERPRETER_FLAGS': 'interpret:new'}
       )
     self.assertEqual(late.missing(), ['data/curry/b.curry'])
-    self.assertEqual(
-        job('py', 'interpret:new').missing()
-      , ['data/curry/a.curry', 'data/curry/b.curry']
-      )
     # The note after a pass that did not end well names the module that
     # lacks its JSON, not every module.
     late.status = 'incomplete'
@@ -2162,8 +2090,8 @@ class TestPrepare(unittest.TestCase):
         )
       Scheduler(jobs, 16 * GIB, 1, poll=POLL).run()
       return jobs
-    jobs = run(['cxx', 'py'])
-    self.assertEqual(len(jobs), 2)
+    jobs = run(['cxx'])
+    self.assertEqual(len(jobs), 1)
     for job in jobs:
       self.assertEqual(job.status, 'incomplete', job.note)
       self.assertEqual(job.modules, [
@@ -2177,20 +2105,19 @@ class TestPrepare(unittest.TestCase):
       self.assertIn('incomplete', report.format_status(job))
     products = os.path.join(pool, '.curry', 'stub')
     self.assertTrue(os.path.isfile(os.path.join(products, 'good.so')))
-    self.assertTrue(os.path.isfile(os.path.join(products, 'good.py')))
     self.assertEqual(
         prepare.summary(jobs)
-      , 'prepare: 3 modules in 1 directory on cxx+py; 2 without a product: '
-        'data/curry/bad.curry (cxx), data/curry/bad.curry (py); the tests that '
+      , 'prepare: 3 modules in 1 directory on cxx; 1 without a product: '
+        'data/curry/bad.curry (cxx); the tests that '
         'need them report it'
       )
     self.assertEqual(cli.exit_status(jobs), 0)
-    self.assertIn('prepare: 2 of 2 incomplete', report.summary(jobs))
+    self.assertIn('prepare: 1 of 1 incomplete', report.summary(jobs))
     # Many names are cut short.
     for i in range(10):
       with open(os.path.join(pool, 'bad%d.curry' % i), 'w'):
         pass
-    job = run(['py'])[0]
+    job = run(['cxx'])[0]
     self.assertEqual(len(job.missing()), 11)
     self.assertRegex(
         job.note
@@ -2201,18 +2128,18 @@ class TestPrepare(unittest.TestCase):
     for name in os.listdir(pool):
       if name.startswith('bad'):
         os.unlink(os.path.join(pool, name))
-    jobs = run(['py'])
+    jobs = run(['cxx'])
     self.assertEqual(jobs[0].status, 'ok')
     self.assertEqual(jobs[0].note, '')
     self.assertEqual(jobs[0].missing(), [])
     self.assertEqual(
         prepare.summary(jobs)
-      , 'prepare: 2 modules in 1 directory on py, every product present'
+      , 'prepare: 2 modules in 1 directory on cxx, every product present'
       )
     self.assertEqual(prepare.summary([]), 'prepare: nothing to make')
     # A pass whose products are unknown says so.
     jobs = prepare.jobs(
-        ['unit_x.py'], ['py'], home, env, logdir, cap=GIB, timeout=60
+        ['unit_x.py'], ['cxx'], home, env, logdir, cap=GIB, timeout=60
       , testdir=testdir
       )
     jobs[0].argv = [PYTHON, '-c', 'import sys; sys.exit(1)']
@@ -2221,7 +2148,7 @@ class TestPrepare(unittest.TestCase):
     self.assertEqual(jobs[0].note, 'exit status 1; see the log')
     self.assertEqual(
         prepare.summary(jobs)
-      , 'prepare: 2 modules in 1 directory on py; 1 directory did not end '
+      , 'prepare: 2 modules in 1 directory on cxx; 1 directory did not end '
         'well, products unknown: see the log; the tests that need them '
         'report it'
       )

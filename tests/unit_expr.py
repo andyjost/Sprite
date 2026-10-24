@@ -12,7 +12,6 @@ listiterator_name = type(iter([])).__name__
 
 CLEAN_KWDS = {'standardize_floats': True, 'keep_spacing': True}
 FLOAT_CLEANER = lambda s: cytest.clean.clean(s, **CLEAN_KWDS)
-CXX = curry.flags['backend'] == 'cxx'
 
 class TestExpr(cytest.TestCase):
   '''Tests expression-building with ``cytest.raw.expr``.'''
@@ -138,10 +137,6 @@ class TestExpr(cytest.TestCase):
       , '<_NonStrictConstraint <True> <(,) <_Free 1 <()>> <False>>>'
       )
 
-  @unittest.skipIf(CXX, 'Cannot directly create C++ values sets')
-  @cytest.check_expressions()
-  def test_setgrd(self):
-    yield _setgrd(1, True), '_SetGuard 1 True', '<_SetGuard 1 <True>>'
 
   @cytest.check_expressions()
   def test_strictconstr(self):
@@ -309,7 +304,7 @@ class TestUnboxedMarker(cytest.TestCase):
   primitive, [Int, unboxed(3)].  Anywhere else both builders raise a
   CurryTypeError at construction, on both backends: the C++ backend
   dereferenced the raw value as a node and ended the process, and the
-  Python backend built an ill-formed node.
+  former runtime built an ill-formed node.
   '''
   PLACE = (
       r'the marker is the payload of an Int, Char or Float, as in '

@@ -1,6 +1,6 @@
 % python go.py
 M.f -> [42]
-saved -> ['M.py', 'Prog.py', 'go.py']
+saved -> ['M.so', 'Prog.py', 'go.py']
 save with main=M.main -> program
 save without path !! TypeError
 loaded -> M ['M', 'Prelude']

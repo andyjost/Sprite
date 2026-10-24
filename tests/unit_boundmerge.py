@@ -145,16 +145,10 @@ class TestGuardCounts(cytest.TestCase):
     '''The sorted values of ``goal`` and the counts of the checker.'''
     interp = cytest.raw.interp()
     node = cytest.raw.expr(goal)
-    if self.backend == 'cxx':
-      from curry.backends.cxx import curryrtbindings
-      rts = curryrtbindings.RuntimeState(interp, node)
-      values = sorted(str(v) for v in rts.generate_values())
-      counts = curryrtbindings.checker_counts(rts)
-    else:
-      from curry.backends.py.eval.rts import RuntimeState
-      rts = RuntimeState(interp, node)
-      values = sorted(str(v) for v in rts.generate_values())
-      counts = dict(rts.checker.counts)
+    from curry.backends.cxx import curryrtbindings
+    rts = curryrtbindings.RuntimeState(interp, node)
+    values = sorted(str(v) for v in rts.generate_values())
+    counts = curryrtbindings.checker_counts(rts)
     return values, counts
 
   def test_counts(self):

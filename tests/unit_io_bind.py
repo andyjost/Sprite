@@ -67,7 +67,7 @@ class TestIOBind(IOBindTestCase):
 
   def test_readFile_empty_file(self):
     '''
-    An audit finding: the Python backend mapped the file into memory, and
+    An audit finding: the former runtime mapped the file into memory, and
     mmap rejects an empty file.
     '''
     with fresh_directory():
@@ -80,7 +80,7 @@ class TestIOBind(IOBindTestCase):
 
   def test_readFile_utf8_length(self):
     '''
-    A file holds UTF-8, and length counts code points.  The Python backend
+    A file holds UTF-8, and length counts code points.  The former runtime
     read a file byte by byte, and the C++ backend stored each byte as a Char.
     '''
     text = '\u00e4\u00f6\u00fc\U0001f600\n'
@@ -98,23 +98,12 @@ class TestIOBind(IOBindTestCase):
       , [cytest.readfile('data/sample.txt')]
       )
 
-  @unittest.skipIf(
-      curry.flags['backend'] == 'cxx'
-    , 'the C++ getChar reads the process stdin; setio cannot redirect it'
-    )
-  @cytest.setio(stdin='mu')
-  def test_getChar_bind(self):
-    self.assertEqual(self.eval_(self.M.getCharOrd), [ord('m')])
 
   def test_appendFile_appends(self):
     with fresh_directory():
       self.eval_(self.M.writeThenAppend, 'file.txt')
       self.assertEqual(cytest.readfile('file.txt'), 'abcd')
 
-  @unittest.skipIf(
-      curry.flags['backend'] != 'cxx'
-    , 'unit_py_io_files covers the Python backend with a small step budget'
-    )
   @cytest.with_flags(rotation='steps:65536')
   def test_writeFile_keeps_prefix_across_rotation(self):
     '''
@@ -156,7 +145,7 @@ class TestIOBind(IOBindTestCase):
     root of the step and forked the action.  putChar applies prim_putChar
     with ($!), whose retry after the pull-tab read a dead variable and
     crashed the process.  Now ($!) evaluates the argument on behalf of the
-    monadic function, and hnf reports the error, as the Python backend does.
+    monadic function, and hnf reports the error, as the former runtime does.
     '''
     self.assertNondetError(self.M.putCharNondet)
 
@@ -212,11 +201,6 @@ class TestIOBind(IOBindTestCase):
           cytest.readfile('err.txt'), 'nondet error: ' + NONDET_TEXT
         )
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx'
-  , 'the Python backend keys its rule on function names, and its catch '
-    'catches only OSError and EvaluationError'
-  )
 class TestCxxMonadic(IOBindTestCase):
   '''
   The C++ runtime applies the rule to every monadic step, and its catch
@@ -236,7 +220,7 @@ class TestCxxMonadic(IOBindTestCase):
     '''
     The rule covers every function that calls an IO function: guarded has
     F_MONADIC, so the choice it evaluates in its guard is an error.  The
-    Python backend keys the rule on a list of Prelude names and forks here.
+    former runtime keys the rule on a list of Prelude names and forks here.
     '''
     with self.assertRaises(curry.EvaluationError) as cm:
       self.eval_(self.M.monadicGuard)

@@ -11,7 +11,7 @@ with the pattern on the left, so the step of ``=:<=`` meets a constructor
 or a value on the left and a free variable on the right.  Before the fix
 the C++ runtime narrowed the variable over the constructors of the type,
 which gave a Char node with no value for a Char, and the alternative died
-(no value); the Python backend narrowed a builtin type with no values and
+(no value); the former runtime narrowed a builtin type with no values and
 suspended.  ``=:=`` guided the narrowing to the constructor or the value
 of the other side (make_guides of constr.cpp, constr_eq of constr.py), and
 ``=:<=`` now does the same.

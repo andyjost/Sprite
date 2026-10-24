@@ -63,7 +63,7 @@
 // the queues of the SetEval nodes it reaches, and the sets of those queues,
 // of those nodes, and of the SetGuard nodes it reaches.  The sweep destroys
 // the queues and the sets that are not marked.  A set guard built from
-// Python may carry a number instead of a pointer (the Python backend names
+// Python may carry a number instead of a pointer (the former runtime names
 // a set by a number), so a pointer read from a node counts only when the
 // registry knows it.
 //

@@ -52,36 +52,36 @@ MACHINE_PATH = re.compile(r'(^|[\s"\'(=:])/(home|data|tmp|Users|scratch)/')
 # The writers of the corpus fill this dict, one entry per directory NN-name
 # under data/boundary, in the order of the numbers.
 DRIVERS = {
-    '01-scalars-and-limits': {'py', 'cxx'},
-    '02-strings-and-chars': {'py', 'cxx'},
-    '03-containers': {'py', 'cxx'},
-    '04-rejected-values': {'py', 'cxx'},
-    '10-list-of-symbols': {'py', 'cxx'},
-    '11-application-forms': {'py', 'cxx'},
-    '12-sharing-and-cycles': {'py', 'cxx'},
-    '20-free-markers': {'py', 'cxx'},
-    '21-pairing-of-103': {'py', 'cxx'},
-    '22-where-free-text-route': {'py', 'cxx'},
-    '30-generator-contract': {'py', 'cxx'},
-    '31-values-out': {'py', 'cxx'},
+    '01-scalars-and-limits': {'cxx'},
+    '02-strings-and-chars': {'cxx'},
+    '03-containers': {'cxx'},
+    '04-rejected-values': {'cxx'},
+    '10-list-of-symbols': {'cxx'},
+    '11-application-forms': {'cxx'},
+    '12-sharing-and-cycles': {'cxx'},
+    '20-free-markers': {'cxx'},
+    '21-pairing-of-103': {'cxx'},
+    '22-where-free-text-route': {'cxx'},
+    '30-generator-contract': {'cxx'},
+    '31-values-out': {'cxx'},
     '32-value-data-model': {'cxx'},
-    '33-nested-empty-lists': {'py', 'cxx'},
-    '34-errors-and-messages': {'py', 'cxx'},
-    '40-import-and-lookup': {'py', 'cxx'},
-    '41-compile-text': {'py', 'cxx'},
+    '33-nested-empty-lists': {'cxx'},
+    '34-errors-and-messages': {'cxx'},
+    '40-import-and-lookup': {'cxx'},
+    '41-compile-text': {'cxx'},
     '42-reset-and-stale-symbol': {'cxx'},
-    '43-edited-source': {'py', 'cxx'},
-    '44-save-and-load': {'py'},
+    '43-edited-source': {'cxx'},
+    '44-save-and-load': {'cxx'},
     '45-load-objects': {'cxx'},
-    '50-set-functions': {'py', 'cxx'},
-    '51-tools-parity': {'py', 'cxx'},
-    '60-last-member-nats': {'py', 'cxx'},
-    '61-puzzles': {'py', 'cxx'},
-    '62-family': {'py', 'cxx'},
-    '63-nondetfunc': {'py', 'cxx'},
-    '64-infinite-lists': {'py', 'cxx'},
-    '65-assembler': {'py', 'cxx'},
-    '66-residuation': {'py', 'cxx'},
+    '50-set-functions': {'cxx'},
+    '51-tools-parity': {'cxx'},
+    '60-last-member-nats': {'cxx'},
+    '61-puzzles': {'cxx'},
+    '62-family': {'cxx'},
+    '63-nondetfunc': {'cxx'},
+    '64-infinite-lists': {'cxx'},
+    '65-assembler': {'cxx'},
+    '66-residuation': {'cxx'},
   }
 
 # Directories with a run script that the test does not run, and why.  Every
@@ -137,7 +137,7 @@ class TestBoundaryDrivers(cytest.TestCase):
     self.assertTrue(set(STRESS_EXCLUDED) <= set(DRIVERS))
     for name in DRIVERS:
       self.assertRegex(name, r'^\d\d-[a-z0-9-]+$')
-      self.assertTrue(DRIVERS[name] <= {'py', 'cxx'}, name)
+      self.assertTrue(DRIVERS[name] <= {'cxx'}, name)
       self.assertTrue(DRIVERS[name], '%s declares no backend' % name)
 
   def test_coverage_table_lists_every_driver(self):

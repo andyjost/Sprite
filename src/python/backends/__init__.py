@@ -38,7 +38,7 @@ class IBackend(metaclass=abc.ABCMeta):
 
   @abc.abstractproperty
   def backend_name(self):
-    '''E.g., 'py' or 'cxx'.'''
+    '''The runtime name, 'cxx'.'''
     assert 0
 
   @abc.abstractproperty
@@ -58,16 +58,6 @@ class IBackend(metaclass=abc.ABCMeta):
   @abc.abstractmethod
   def find_or_create_internal_module(self, moduleobj):
     assert 0
-
-  def compile_pending(self, moduleobj):
-    '''
-    Compiles the functions of a loaded module whose compilation the backend
-    deferred, once every symbol of the module is registered.  The Python
-    backend compiles a step function on its first call; an expression module
-    (compile.compile_expression) leaves the registry of the interpreter after
-    this call, so its functions are compiled here.  A backend that compiles
-    whole modules ahead of time has nothing to do.
-    '''
 
   def module_loaded(self, interp, moduleobj, currypath):
     '''

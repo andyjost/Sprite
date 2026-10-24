@@ -25,11 +25,8 @@
 # default goal: the front end compiles a module again when the interfaces
 # of the installed library are newer than its products.
 #
-# The generated code of both backends is not copied.  The generated Python
-# (and its bytecode) names the source of the tree it was made in, and the
-# Python backend writes it again in a moment.  The compiled products of the
-# C++ backend (the generated C++, the shared object and its ABI stamp) are
-# not copied either: the stamp of a copied object names the installation it
+# The compiled products (the generated C++, the shared object and its ABI
+# stamp) are not copied: the stamp of a copied object names the installation it
 # was compiled under, so the copy would be stale here.  The prepare pass
 # of the test runner compiles them (tests/run_tests --prepare-only) and
 # stores them in the product cache (SPRITE_PRODUCT_CACHE); a cache the two
@@ -86,7 +83,7 @@ if [ -e "$here/CLAUDE.local.md" ]; then
 fi
 export SPRITE_PRODUCT_CACHE=${SPRITE_PRODUCT_CACHE-$here/tests/.cache/products}
 make -C "$path" stage
-# The generated code of both backends stays behind (see above).
+# The generated code of the runtime stays behind (see above).
 exclude=(
   --exclude='*.cpp' --exclude='*.so' --exclude='*.so.abi'
   --exclude='*.py' --exclude='*.pyc' --exclude='__pycache__'

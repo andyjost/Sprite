@@ -258,7 +258,7 @@ def inline_aliases(interp, ifun, imodule):
   before this pass ran.
 
   The arguments of a call do not change, so the target has the arity of the
-  alias.  The target may be private to its module: both backends resolve a
+  alias.  The target may be private to its module: the runtime resolve a
   symbol through the symbol table of its module, and the C++ backend exports
   every info table.  The target may be external: a call of it is the call of
   the built-in that the alias would have made.  When the target lives in a

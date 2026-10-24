@@ -8,7 +8,7 @@ configuration that made it, so a later read of the name resolves every
 variable again: the runtime copies the spine from the root of the
 configuration to the variable, puts the binding or the decided generator
 into the copy, and restarts the evaluation from the root (replace_freevar
-of the C++ runtime and of the Python backend).  The copy and the restart
+of the C++ runtime and of the former runtime).  The copy and the restart
 are repeated at every comparison of the name, and nothing of them goes
 back into the shared graph.  Evaluating the name to normal form with $##
 changes nothing: the normal form lives in the private copy, and the next
@@ -23,7 +23,6 @@ flips the assertions on the direct route, which is the point.
 import cytest # from ./lib; must be first
 import curry, unittest
 
-CXX = curry.flags['backend'] == 'cxx'
 
 SOURCE = '''
 import Control.SetFunctions
@@ -98,8 +97,5 @@ class TestNarrowedName(cytest.TestCase):
     per_comparison = (forks_direct - forks_once) / COMPARISONS
     self.assertGreaterEqual(per_comparison, 1)
     self.assertEqual(forks_nf, forks_direct)
-    if CXX:
-      # The restart repeats the steps of the spine, and the C++ runtime
-      # counts them (procS); the Python backend counts a rewrite alone.
-      self.assertGreater(steps_direct, 5 * steps_set)
-      self.assertGreater(steps_nf, 5 * steps_set)
+    self.assertGreater(steps_direct, 5 * steps_set)
+    self.assertGreater(steps_nf, 5 * steps_set)

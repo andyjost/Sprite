@@ -14,9 +14,6 @@ COUNTERS = (
 PHASES = COUNTERS[:4]
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 @cytest.skipUnlessGcBackend(
     'wdgc', 'the counters belong to the collector of the block heap'
   )

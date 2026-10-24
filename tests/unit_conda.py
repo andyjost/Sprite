@@ -161,23 +161,14 @@ class TestCondaRecipe(cytest.TestCase):
     self.assertNotIn('boost', script.lower())
     # conda relocates the compiled library modules at install time.
     self.assertIn('detect_binary_files_with_prefix: true', meta)
-    # The C++ backend is the default of the package.
-    self.assertIn('-DWITH_DEFAULT_BACKEND=cxx', script)
-    # Each backend is tested through the launcher and through the module:
-    # the default backend without a flag, the Python backend by flag; the
-    # compiler of the environment through sprite-make, which writes the
-    # object and its stamp.  No test names backend:cxx.
+    # The runtime is tested through the launcher and through the module.
     self.assertIn('      sprite-exec Smoke.curry | grep -x 42', meta)
     self.assertIn('      python -m curry Smoke.curry | grep -x 42', meta)
-    self.assertIn('SPRITE_INTERPRETER_FLAGS=backend:py sprite-exec Smoke.curry', meta)
-    self.assertIn(
-        'SPRITE_INTERPRETER_FLAGS=backend:py python -m curry Smoke.curry', meta
-      )
     self.assertNotIn('backend:cxx', meta)
     self.assertIn('sprite-make --so Smoke.curry &&', meta)
     self.assertEqual(meta.count('test -s .curry/sprite-pakcs-3.4.1/Smoke.so &&'), 1)
     self.assertEqual(meta.count('test -s .curry/sprite-pakcs-3.4.1/Smoke.so.abi'), 1)
-    self.assertEqual(meta.count('test -s .curry/sprite-pakcs-3.4.1/Smoke.py'), 1)
+    self.assertNotIn('Smoke.py', meta)
     self.assertNotIn('$SRC_DIR/', script.split('-ffile-prefix-map=$SRC_DIR=.')[-1])
 
   def test_frontend_recipe(self):
@@ -609,8 +600,6 @@ class TestPackageRules(cytest.TestCase):
     conda/README.md), so that sprite-make --so of any program compiles the
     Prelude again and fails.
     '''
-    if curry.flags['backend'] != 'cxx':
-      raise unittest.SkipTest('the C++ toolchain')
     if os.geteuid() == 0:
       raise unittest.SkipTest('root writes everywhere')
     from curry.backends.cxx import toolchain
@@ -655,8 +644,6 @@ class TestPackageRules(cytest.TestCase):
     header, the bytecode caches and the static archive stay out of the
     copy; the links of the tree are copied as links.
     '''
-    if curry.flags['backend'] != 'cxx':
-      raise unittest.SkipTest('the objects belong to the C++ backend')
     from curry.backends.cxx import toolchain
     from curry.objects.handle import getHandle
     original = toolchain.installation_path()
@@ -810,7 +797,7 @@ class TestPackageRules(cytest.TestCase):
     holds no path of the build machine and its bytecode caches stay valid
     after a relocation.  On the C++ backend a module outside the
     installation names its source relative to its object (format 13), and
-    the loader resolves the name from the object; on the Python backend it
+    the loader resolves the name from the object; on the former runtime it
     keeps its path.
     '''
     from curry.toolchain import _filenames
@@ -843,7 +830,7 @@ class TestPackageRules(cytest.TestCase):
     self.assertNotIn(home, text)
     self.assertNotIn(os.path.realpath(home), text)
     subdir = os.path.join(home, 'curry', '.curry', config.intermediate_subdir())
-    for name in ['Prelude.py', 'Prelude.cpp']:
+    for name in ['Prelude.cpp']:
       path = os.path.join(subdir, name)
       if os.path.isfile(path):
         product = readfile(path)
@@ -858,10 +845,7 @@ class TestPackageRules(cytest.TestCase):
     self.assertTrue(os.path.isabs(Probe.__file__), Probe.__file__)
     self.assertIsNone(_filenames.installed_relpath(Probe.__file__))
     saved = curry._interpreter_.save(Probe, module_main=False)
-    if curry.flags['backend'] == 'cxx':
-      self.assertIn('/*filename */ "../../CondaProbe.curry"', saved)
-      # The path of the source is gone from the record; the metadata of a
-      # module from text keeps its temporary directory (all.tmpd).
-      self.assertNotIn(Probe.__file__, saved)
-    else:
-      self.assertIn(Probe.__file__, saved)
+    self.assertIn('/*filename */ "../../CondaProbe.curry"', saved)
+    # The path of the source is gone from the record; the metadata of a
+    # module from text keeps its temporary directory (all.tmpd).
+    self.assertNotIn(Probe.__file__, saved)

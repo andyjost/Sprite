@@ -45,9 +45,6 @@ CHUNK_BYTES = %d
     return proc
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 @cytest.skipUnlessGcBackend(
     'wdgc', 'the block heap'
   )
@@ -206,9 +203,6 @@ else:
 ''')
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 @unittest.skipIf(shutil.which('objdump') is None, 'objdump is not installed')
 @unittest.skipUnless(
     config.cxx_flavor() == 'release' and not curry.flags['debug']

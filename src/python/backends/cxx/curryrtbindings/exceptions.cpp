@@ -58,7 +58,7 @@ namespace curryrt { namespace python
       );
     // A run-time invariant of the Fair Scheme does not hold (the flag
     // ``checker``; curryrt/checker.hpp).  An AssertionError, as the report of
-    // the checker of the Python backend is; its message names the
+    // the checker of the former runtime is; its message names the
     // invariant, the event, the configuration and the identifiers.
     auto invariant_bases = py::make_tuple(
         py::reinterpret_borrow<py::object>(PyExc_AssertionError)

@@ -367,25 +367,18 @@ for name in %(goals)r:
 
 # Evaluates goals under the checker and prints, per goal, the sorted values
 # and the counts of the capsules and of the capsules without a box.  The
-# checker of the Python backend keeps no count of the capsules without a
+# checker of the former runtime keeps no count of the capsules without a
 # box; the line then says None for it.
 COUNTS_CHILD = '''
 import cytest, curry
 curry.reset(**%(flags)r)
 M = curry.import_(%(module)r)
-if curry.flags['backend'] == 'cxx':
-  from curry.backends.cxx import curryrtbindings as cb
-  def run(goal):
-    rts = cb.RuntimeState(cytest.raw.interp(), cytest.raw.expr(goal))
-    values = sorted(str(v) for v in rts.generate_values())
-    counts = dict(cb.checker_counts(rts))
-    return values, counts.get('capsules', 0), counts.get('capsules_without_box', 0)
-else:
-  from curry.backends.py.eval.rts import RuntimeState
-  def run(goal):
-    rts = RuntimeState(cytest.raw.interp(), cytest.raw.expr(goal))
-    values = sorted(str(v) for v in rts.generate_values())
-    return values, rts.checker.counts.get('capsules', 0), None
+from curry.backends.cxx import curryrtbindings as cb
+def run(goal):
+  rts = cb.RuntimeState(cytest.raw.interp(), cytest.raw.expr(goal))
+  values = sorted(str(v) for v in rts.generate_values())
+  counts = dict(cb.checker_counts(rts))
+  return values, counts.get('capsules', 0), counts.get('capsules_without_box', 0)
 for name in %(goals)r:
   print(name, repr(run(getattr(M, name))))
 '''
@@ -563,16 +556,14 @@ class TestChecker(cytest.TestCase):
     values, capsules, without_box = self.counts['closed']
     self.assertEqual(values, ['[0, 1]'])
     self.assertEqual(capsules, 1)
-    if curry.flags['backend'] == 'cxx':
-      self.assertEqual(without_box, 1)
+    self.assertEqual(without_box, 1)
 
   def test_lifted_capsule_has_a_box(self):
     for goal, expected in [('one', ['[1]', '[2]']), ('heap2', ['[0]', '[1]'])]:
       values, capsules, without_box = self.counts[goal]
       self.assertEqual(values, expected, goal)
       self.assertGreaterEqual(capsules, 1, goal)
-      if curry.flags['backend'] == 'cxx':
-        self.assertEqual(without_box, 0, goal)
+      self.assertEqual(without_box, 0, goal)
 
 
 # FlatCurry files

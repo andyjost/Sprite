@@ -119,7 +119,7 @@ class TestStubModules(cytest.TestCase):
 
   def test_reset_example(self):
     curry.import_('Coin')
-    curry.reset(backend='py')
+    curry.reset(backend='cxx')
     self.assertEqual(sorted(curry.modules), ['Prelude'])
 
   def test_save_example(self):
@@ -357,12 +357,11 @@ class TestStubModules(cytest.TestCase):
         curry.load(path)
 
   def test_load_other_backend_is_load_error(self):
+    # The product of the retired Python backend, a Python module: the
+    # loader refuses it without running it.
     with tempfile.TemporaryDirectory() as work:
-      other = 'py' if curry.flags['backend'] == 'cxx' else 'cxx'
-      ext = '.py' if other == 'py' else '.so'
-      product = str(Path(work) / ('Coin' + ext))
-      code = "import curry; curry.reset(backend=%r); curry.path.insert(0, %r); curry.save(curry.import_('Coin'), %r)" % (other, FLOW_PATH, product)
-      subprocess.run([sys.executable, '-c', code], check=True, capture_output=True, text=True)
+      product = Path(work) / 'Coin.py'
+      product.write_text("raise AssertionError('a Python module must not run')\n")
       with self.assertRaises(curry.LoadError):
         curry.load(product)
 

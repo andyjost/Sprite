@@ -8,15 +8,14 @@ import argparse, code, cProfile, os, pstats, importlib, logging, sys, time
 curry = importlib.import_module(__package__)
 logger = logging.getLogger(__name__)
 
-BACKENDS = 'py', 'cxx'
+BACKENDS = ('cxx',)
 
 def backend_name(value):
   '''
-  The type of the option -b.  The error names no value: py is the reference
-  backend, which the developer notes name (issue #82).
+  The type of the option -b.
   '''
   if value not in BACKENDS:
-    raise argparse.ArgumentTypeError('unknown backend %r' % value)
+    raise argparse.ArgumentTypeError('unknown backend %r; expected cxx' % value)
   return value
 
 class Main(object):
@@ -53,9 +52,6 @@ class Main(object):
       , description=self.description()
       )
     if 'b' in self.ARGUMENTS:
-      # The values stay unlisted in the help and in the error: the value py
-      # selects the reference backend, which the developer notes name
-      # (issue #82).
       parser.add_argument( '-b', '--backend', type=backend_name, default=None
         , metavar='BACKEND'
         , help='selects the backend; overrides SPRITE_INTERPRETER_FLAGS '
@@ -195,9 +191,8 @@ def main(program_name, argv=None):
 class SavedMain(Main):
   '''
   The main program of a module saved with ``curry.save``.  The file is the
-  module, and it belongs to the Python backend, so the switches -b and -m
-  and the argument NAME are absent.  The goal the module was saved with is
-  the default of -g.
+  module, so the switches -b and -m and the argument NAME are absent.
+  The goal the module was saved with is the default of -g.
   '''
   DESCRIPTION = \
   '''

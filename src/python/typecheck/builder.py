@@ -57,7 +57,6 @@ VALUE_WALK_CAP = 100000
 
 BOOL, INT, FLOAT, CHAR = (fc.prelude(n) for n in ('Bool', 'Int', 'Float', 'Char'))
 LIST = fc.prelude('[]')
-STRING_NODE = '_biString'
 GENERATOR_NODE = '_biGenerator'
 
 # The specs of the builder
@@ -189,14 +188,9 @@ def _follow(node):
 def _partial_parts(node):
   '''
   The info table of the head of a partial application and the arguments it
-  holds.  On the Python backend the node holds the count of the missing
-  arguments and the term of the head; on the C++ backend it holds the
-  count, the head (``Node.partial_head``) and the arguments.
+  holds: the count, the head (``Node.partial_head``) and the arguments.
   '''
   successors = list(node.successors)
-  if len(successors) == 2 and isinstance(successors[1], backends.Node):
-    term = successors[1]
-    return term.info, list(term.successors)
   head = getattr(node, 'partial_head', None)
   return head, successors[2:]
 
@@ -309,7 +303,6 @@ class TypedBuilder:
     self.prelude = interp.prelude
     self.fsyms = interp.backend.fundamental_symbols
     self._mknode = interp.backend.make_node
-    self.cxx = interp.flags['backend'] == 'cxx'
     self.counter = itertools.count(1)
     self.anchor_vars = {}  # name -> the key of the anchor
     self.anchors = {}      # the key -> its node, None until built
@@ -848,20 +841,14 @@ class TypedBuilder:
 
   def string_node(self, text, target=None):
     '''
-    The node of a Python string at the type ``[Char]``: on the Python
-    backend one ``_biString`` node over the code points, which the step
-    unfolds one character at a time; on the C++ backend the list the step
-    of ``_biString`` would build, made natively in one call
+    A Python string at type ``[Char]``, built natively in one call
     (``Node.create_string``).  The empty string is ``[]``.
     '''
     if not text:
       return self._mknode(self.prelude.Nil, target=target)
-    if self.cxx:
-      from ..backends.cxx import curryrtbindings
-      target = getattr(target, 'target', target)
-      return curryrtbindings.Node.create_string(text, target)
-    from ..backends.py.currylib.prelude.string import codepoints
-    return self._mknode(self.prelude._biString, codepoints(text), target=target)
+    from ..backends.cxx import curryrtbindings
+    target = getattr(target, 'target', target)
+    return curryrtbindings.Node.create_string(text, target)
 
   @native_metadata
   def _free_node(self, problem, spec):
@@ -921,10 +908,7 @@ class TypedBuilder:
       copy = copies[node.id()]
       for index, child in enumerate(node.successors):
         if isinstance(child, backends.Node):
-          if self.interp.flags['backend'] == 'cxx':
-            copy.set_successor(index, copies[child.id()])
-          else:
-            copy.successors[index] = copies[child.id()]
+          copy.set_successor(index, copies[child.id()])
           pending.append(child)
     return copies[root.id()]
 
@@ -1241,8 +1225,6 @@ class TypedProblem(Problem):
         children = [_follow(node.successor(0))]
         params = [inner]
         restype = tcons('IO', inner)
-      elif info.name == STRING_NODE:
-        restype = tcons('[]', tcons('Char'))
       elif info.name == GENERATOR_NODE:
         inner = Var()
         self._env_vars.append(inner)

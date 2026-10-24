@@ -92,10 +92,6 @@ def compile_expression(
     , keep_temp_files=interp.flags['keep_temp_files']
     , postmortem=interp.flags['postmortem']
     )
-  # The step functions of the module are compiled now, while the module is
-  # in the registry, where the compiled code resolves the symbols of the
-  # module by name (a lifted lambda, a derived instance method).
-  interp.backend.compile_pending(moduleobj)
   # The module leaves the registry, but it stays loaded until the
   # interpreter resets: the goal's graph refers to the module's code and
   # data (string literals, local functions), and nothing in the goal keeps

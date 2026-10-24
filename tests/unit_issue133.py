@@ -17,11 +17,11 @@ class TestIssue133(cytest.TestCase):
     self.assertEqual(run_child(self, goals('goal0'), module='LiftGuard', checker=True),
         {'goal0': []})
 
-  @(unittest.expectedFailure if curry.flags['backend'] == 'cxx' else lambda test: test)
+  @(unittest.expectedFailure)
   def test_lifted_constraint_failure(self):
     self.assertEqual(run_child(self, goals('goal1'), module='LiftGuard'), {'goal1': []})
 
-  @(unittest.expectedFailure if curry.flags['backend'] == 'cxx' else lambda test: test)
+  @(unittest.expectedFailure)
   def test_lifted_constraint_failure_with_checker(self):
     self.assertEqual(run_child(self, goals('goal1'), module='LiftGuard', checker=True),
         {'goal1': []})

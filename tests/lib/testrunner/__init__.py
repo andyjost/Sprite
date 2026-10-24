@@ -35,12 +35,8 @@ DEFAULT_SPRITE_HOME = os.path.join(ROOTDIR, 'install')
 MANIFEST_FILE = os.path.join(TESTDIR, 'manifest.json')
 LOGDIR = os.path.join(TESTDIR, '.cache', 'runner')
 
-BACKENDS = ('py', 'cxx')
+BACKENDS = ('cxx',)
 
-# The backend of a run that names none, when the installation records no
-# default (sysconfig/default_backend, written by configure
-# --with-default-backend): the default of configure.  See cli.installed_backend.
-DEFAULT_BACKEND = 'cxx'
 
 MIB = 1024 ** 2
 GIB = 1024 ** 3

@@ -29,9 +29,6 @@ TIMEOUT = 120
 # The time a background compile may take.
 COMPILE_SECONDS = 120
 
-ONLY_CXX = unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 
 MODULE = '''
 module %(name)s where
@@ -83,9 +80,6 @@ viaCall = s 1 2
 def steps():
   '''The rewrite steps taken by the evaluations of the interpreter.'''
   return cytest.raw.interp()._evaluation_totals.steps
-
-
-@ONLY_CXX
 class TieredTestCase(cytest.TestCase):
   '''A temporary source directory with one fresh module per import.'''
   counter = itertools.count()
@@ -773,9 +767,6 @@ class TestPolicy(TieredTestCase):
     proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     self.assertTrue(os.path.isfile(self.sofile(name)))
-
-
-@ONLY_CXX
 class TestPrograms(cytest.TestCase):
   '''
   A fresh copy of a benchmark program under sprite-exec: the values and the

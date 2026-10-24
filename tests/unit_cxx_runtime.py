@@ -16,7 +16,6 @@ class TestCxxRuntime(cytest.TestCase):
     self.assertTrue(issubclass(curryrt.InvariantViolation, curry.CurryError))
     self.assertTrue(issubclass(curryrt.InvariantViolation, AssertionError))
 
-  @unittest.skipUnless(curry.flags['backend'] == 'cxx', 'requires the C++ backend')
   def test_native_exceptions_are_public(self):
     from curry.backends.generic.eval.evaluator import Evaluator
     P = curry.import_('Prelude')
@@ -81,9 +80,6 @@ class TestCxxRuntime(cytest.TestCase):
     self.assertIs(List.constructors[0], Cons)
     self.assertIs(List.constructors[1], Nil)
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 class TestCxxProcess(cytest.TestCase):
   '''
   Tests that run the C++ backend in a subprocess: a program that runs out of
@@ -167,8 +163,11 @@ class TestBackendOption(cytest.TestCase):
     return proc.stderr
 
   def test_backend_option_overrides_flag(self):
-    self.assertIn("backend : 'cxx'", self.backend_seen('cxx', 'py'))
-    self.assertIn("backend : 'py'", self.backend_seen('py', 'cxx'))
+    self.assertIn("backend : 'cxx'", self.backend_seen('cxx', 'cxx'))
+
+  def test_removed_backend_is_refused(self):
+    with self.assertRaisesRegex(curry.FlagError, "expected 'cxx'"):
+      curry.reset(backend='py')
 
 
 # Issue #124
@@ -233,9 +232,6 @@ class TestReloadBindingValues(cytest.TestCase):
     self.assertEqual(values, RELOAD_VALUES)
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 class TestReloadAfterCompiledObject(cytest.TestCase):
   '''
   Issue #124.  A process that evaluated the goals of a module loaded from
@@ -360,9 +356,6 @@ def _address_of(lib, symbol):
     return None
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 class TestLibraryTablesInTheirObjects(cytest.TestCase):
   '''
   No table of a module of the Curry library loaded from its compiled object

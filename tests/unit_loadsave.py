@@ -1,13 +1,4 @@
-'''
-curry.save and curry.load.  On the Python backend the saved form of a module
-is a Python file, which curry.load reads back; the four library modules of
-LoadSaveTestCase make that round trip.  On the C++ backend curry.save writes
-C++ source and curry.load reads a shared object, so the same round trip does
-not exist: those tests are known failures there (issue #82, stage 5: a C++
-form of curry.save is an open decision).  TestRoundTrip pins what does work
-on each backend: a module that no loaded library provides is saved, compiled
-into the object of the backend where one is needed, and loaded back.
-'''
+'''curry.save and curry.load through C++ source and shared objects.'''
 import cytest # from ./lib; must be first
 
 from curry import config
@@ -16,52 +7,16 @@ import tempfile
 from unittest import mock
 from cytest.logging import capture_log
 
-IS_CXX = curry.flags['backend'] == 'cxx'
 TIMEOUT = 300
 # The cap on the address space of a child, in bytes.
 ADDRESS_SPACE = 2 << 30
-
-NO_ROUND_TRIP = (
-    'curry.save writes C++ source on the C++ backend and curry.load reads a '
-    'shared object; the round trip exists on the Python backend alone '
-    '(issue #82, stage 5)'
-  )
-
-class LoadSaveTestCase(cytest.TestCase):
-  def check(self, modulename, has_externs):
-    with tempfile.TemporaryDirectory() as tmpdir:
-      Module = curry.import_(modulename)
-
-      # Save the module as a library: no goal, so no main program.  The file
-      # takes the suffix of the form the backend writes.
-      filename = os.path.join(tmpdir, 'Module' + ('.cpp' if IS_CXX else '.py'))
-      curry._interpreter_.save(Module, filename, module_main=False)
-
-      # Load the module.  The C++ backend refuses the file: it loads a .so.
-      Module2 = curry._interpreter_.load(filename)
-
-      # They should compare equal.
-      self.assertEqual(Module, Module2)
-
-  for name, ext in [
-      ('Control.SetFunctions', True)
-    , ('Data.Either'         , False)
-    , ('Data.List'           , False)
-    , ('Prelude'             , True)
-    ]:
-    locals()['test_' + name.replace('.', '')] = \
-        cytest.expectedFailureIf(IS_CXX, NO_ROUND_TRIP)(
-            lambda self, modulename=name, has_externs=ext:
-                self.check(modulename, has_externs)
-          )
 
 
 class TestRoundTrip(cytest.TestCase):
   '''
   The round trip of each backend, in a child process.  A module of its own
   is saved without a main program and loaded with curry.load, in the session
-  that saved it and again after a reset.  On the Python backend the saved
-  file is the Python form.  On the C++ backend the C++ source that
+  that saved it and again after a reset.  The C++ source that
   curry.save writes is compiled into a shared object by the step of the
   toolchain that sprite-make --so runs (backends.cxx.toolchain.Cpp2So), and
   curry.load reads the object.  Each child has an empty product cache and
@@ -80,27 +35,23 @@ with open(os.path.join(tmpdir, 'SaveLoadFresh.curry'), 'w') as stream:
   stream.write('double :: Int -> Int\ndouble x = x + x\n\nmain :: Int\nmain = double 21\n')
 curry.path.insert(0, tmpdir)
 M = curry.import_('SaveLoadFresh')
-if curry.flags['backend'] == 'cxx' and curry.flags['interpret'] == 'tiered':
+if curry.flags['interpret'] == 'tiered':
   from curry.backends.cxx import tiered, curryrtbindings as curryrt
   # Leave the foreground load to do the swap, independently of how quickly
   # the background compiler runs on this machine.
   tiered.cancel()
   assert curryrt.icurry_is_interpreted(M.main.info)
 print([str(v) for v in curry.eval(M.main)])
-if curry.flags['backend'] == 'cxx':
-  # The step reads the generated file under the product directory of the
-  # source, where the import wrote the ICurry and the JSON of the module.
-  from curry import config
-  from curry.backends.cxx import toolchain, tiered
-  tiered.wait(interp=cytest.raw.interp())
-  cppfile = os.path.join(
-      tmpdir, '.curry', config.intermediate_subdir(), 'SaveLoadFresh.cpp'
-    )
-  curry._interpreter_.save(M, cppfile, module_main=False)
-  saved = toolchain.Cpp2So(cytest.raw.interp())(cppfile, curry.path)
-else:
-  saved = os.path.join(tmpdir, 'SaveLoadFresh.py')
-  curry._interpreter_.save(M, saved, module_main=False)
+# The step reads the generated file under the product directory of the
+# source, where the import wrote the ICurry and the JSON of the module.
+from curry import config
+from curry.backends.cxx import toolchain, tiered
+tiered.wait(interp=cytest.raw.interp())
+cppfile = os.path.join(
+    tmpdir, '.curry', config.intermediate_subdir(), 'SaveLoadFresh.cpp'
+  )
+curry._interpreter_.save(M, cppfile, module_main=False)
+saved = toolchain.Cpp2So(cytest.raw.interp())(cppfile, curry.path)
 print(os.path.splitext(saved)[1])
 M2 = curry._interpreter_.load(saved)
 print(M2 is M, [str(v) for v in curry.eval(M2.main)])
@@ -110,25 +61,25 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
 '''
 
   @unittest.skipIf(
-      IS_CXX and config.cxx_tool() is None
+      config.cxx_tool() is None
     , 'the shared object needs the C++ compiler of the installation'
     )
   def test_round_trip(self):
-    flags = 'backend:cxx,interpret:new' if IS_CXX else 'backend:py'
+    flags = 'backend:cxx,interpret:new'
     proc = cytest.run_in_subprocess(self.CODE % {'flags': flags}, TIMEOUT)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(
         proc.stdout.splitlines()
-      , ["['42']", '.so' if IS_CXX else '.py', "True ['42']", "True ['42']"]
+      , ["['42']", '.so', "True ['42']", "True ['42']"]
       , proc.stderr
       )
 
-  @unittest.skipUnless(IS_CXX and config.cxx_tool() is not None,
+  @unittest.skipUnless(config.cxx_tool() is not None,
                        'the cold object needs the C++ backend and its compiler')
   def test_cold_cache_tiered(self):
     self.check_cold_cache('tiered')
 
-  @unittest.skipUnless(IS_CXX and config.cxx_tool() is not None,
+  @unittest.skipUnless(config.cxx_tool() is not None,
                        'the cold object needs the C++ backend and its compiler')
   def test_cold_cache_off(self):
     self.check_cold_cache('off')
@@ -141,17 +92,17 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
     self.assertEqual(proc.stdout.splitlines(),
                      ["['42']", '.so', "True ['42']", "True ['42']"], proc.stderr)
 
-  @unittest.skipUnless(IS_CXX and config.cxx_tool() is not None,
+  @unittest.skipUnless(config.cxx_tool() is not None,
                        'interpret:all belongs to the C++ backend')
   def test_all_refuses_the_swap_with_a_reason(self):
     code = self.CODE % {'flags': 'backend:cxx,interpret:all'}
     code = code.replace(
         'saved = toolchain.Cpp2So(cytest.raw.interp())(cppfile, curry.path)',
-        "import subprocess\n  env = dict(os.environ, SPRITE_INTERPRETER_FLAGS="
-        "'backend:cxx,interpret:off', CURRYPATH=os.pathsep.join(curry.path))\n  "
+        "import subprocess\nenv = dict(os.environ, SPRITE_INTERPRETER_FLAGS="
+        "'backend:cxx,interpret:off', CURRYPATH=os.pathsep.join(curry.path))\n"
         "subprocess.run([config.installed_path('bin', 'sprite-make'), '--so', "
         "os.path.join(tmpdir, 'SaveLoadFresh.curry')], env=env, "
-        "check=True, capture_output=True, text=True)\n  "
+        "check=True, capture_output=True, text=True)\n"
         "saved = os.path.splitext(cppfile)[0] + '.so'"
       )
     code = code[:code.index('M2 = curry._interpreter_.load(saved)')] + r'''
@@ -172,7 +123,7 @@ print([str(v) for v in curry.eval(M.main)])
 
 
 @unittest.skipUnless(
-    IS_CXX and config.cxx_tool() is not None
+    config.cxx_tool() is not None
   , 'the refused load belongs to the C++ backend and needs its compiler'
   )
 class TestRefusedLoad(cytest.TestCase):
@@ -289,7 +240,7 @@ print('exiting normally')
 
 
 @unittest.skipUnless(
-    IS_CXX and config.cxx_tool() is not None
+    config.cxx_tool() is not None
   , 'the saved text of a module loaded from its object belongs to the C++ '
     'backend and needs its compiler'
   )
@@ -386,7 +337,7 @@ class TestSavedProgram(cytest.TestCase):
   by the runtime, never run by the dynamic loader (pothole batch 4,
   2026-10-10).  The saved program still runs: on the C++ backend compiled
   by the step of the toolchain and loaded with curry.load after a reset, as
-  TestRoundTrip loads a module; on the Python backend as a script.
+  TestRoundTrip loads a module.
   '''
   CODE = r'''
 import os, subprocess, sys, tempfile
@@ -400,39 +351,28 @@ curry.path.insert(0, tmpdir)
 M = curry.import_('SavedProgram')
 text = curry._interpreter_.save(M, None, goal='main')
 print('.interp' in text, 'my_interp' in text, 'ld-linux' in text)
-if curry.flags['backend'] == 'cxx':
-  cppfile = os.path.join(
-      tmpdir, '.curry', config.intermediate_subdir(), 'SavedProgram.cpp'
-    )
-  curry._interpreter_.save(M, cppfile, goal='main')
-  from curry.backends.cxx import toolchain
-  saved = toolchain.Cpp2So(cytest.raw.interp())(cppfile, curry.path)
-  curry.reset()
-  M2 = curry._interpreter_.load(saved)
-  print([str(v) for v in curry.eval(M2.main)])
-else:
-  saved = os.path.join(tmpdir, 'SavedProgram.py')
-  curry._interpreter_.save(M, saved, goal='main')
-  proc = subprocess.run(
-      [sys.executable, saved], capture_output=True, text=True
-    )
-  print(proc.returncode, proc.stdout.split(), bool(proc.stderr.strip()))
+cppfile = os.path.join(
+    tmpdir, '.curry', config.intermediate_subdir(), 'SavedProgram.cpp'
+  )
+curry._interpreter_.save(M, cppfile, goal='main')
+from curry.backends.cxx import toolchain
+saved = toolchain.Cpp2So(cytest.raw.interp())(cppfile, curry.path)
+curry.reset()
+M2 = curry._interpreter_.load(saved)
+print([str(v) for v in curry.eval(M2.main)])
 '''
 
   @unittest.skipIf(
-      IS_CXX and config.cxx_tool() is None
+      config.cxx_tool() is None
     , 'the shared object needs the C++ compiler of the installation'
     )
   def test_saved_program_runs_without_an_interpreter_line(self):
-    flags = 'backend:cxx,interpret:new' if IS_CXX else 'backend:py'
+    flags = 'backend:cxx,interpret:new'
     proc = cytest.run_in_subprocess(self.CODE % {'flags': flags}, TIMEOUT)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     lines = proc.stdout.splitlines()
     self.assertEqual(lines[0], 'False False False', proc.stderr)
-    if IS_CXX:
-      self.assertEqual(lines[1:], ["['42']"], proc.stderr)
-    else:
-      self.assertEqual(lines[1:], ["0 ['42'] False"], proc.stderr)
+    self.assertEqual(lines[1:], ["['42']"], proc.stderr)
 
 
 class TestPublicObjects(cytest.TestCase):
@@ -440,7 +380,7 @@ class TestPublicObjects(cytest.TestCase):
   def test_loaded_object_keeps_its_typed_interface(self):
     module = curry.compile('f :: Int -> Int\nf x = x + 1', name='SavedTyped')
     with tempfile.TemporaryDirectory() as work:
-      suffix = '.so' if curry.flags['backend'] == 'cxx' else '.py'
+      suffix = '.so'
       product = os.path.join(work, 'SavedTyped' + suffix)
       curry.save(module, product)
       curry.reset()

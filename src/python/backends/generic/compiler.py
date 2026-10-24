@@ -2,7 +2,7 @@ from ...exceptions import CompileError
 from ... import config, icurry
 from ...utility import formatDocstring, maxrecursion, strings, visitation
 from ...utility.trampoline import trampoline
-import abc, collections, collections.abc, contextlib, itertools, logging, re
+import abc, collections, collections.abc, itertools, logging, re
 
 logger = logging.getLogger(__name__)
 
@@ -182,9 +182,6 @@ class CompilerBase(abc.ABC):
   # Customization points.
   CODE_TYPE = None
   EXCLUDED_METADATA = None
-  # The nesting at which a subexpression is hoisted into a temporary of the
-  # step function (see ``hoist``), or None for no hoisting.
-  HOIST_DEPTH = None
 
   def vGetSymbolName(self, iobj, kind):
     return mangle(iobj.splitname(), kind)
@@ -249,12 +246,6 @@ class CompilerBase(abc.ABC):
     self.counts = collections.defaultdict(itertools.count)
     self.intern_store = {}
     self._is_external_check = is_external_check(iroot)
-    # The lines hoisted out of the statement under compilation (see
-    # ``hoisting``), the nesting of the expression under compilation, and
-    # the count of the temporaries made so far.
-    self.hoisted = None
-    self.expr_depth = 0
-    self.hoist_count = 0
 
   @property
   def root_isa_module(self):
@@ -588,17 +579,15 @@ class CompilerBase(abc.ABC):
 
   @compileS.when(icurry.IVarAssign)
   def compileS(self, assign):
-    with self.hoisting() as hoisted:
-      lhs = self.compileE(assign.lhs, primary=True)
-      rhs = self.compileE(assign.rhs, primary=True)
-    return itertools.chain(hoisted, self.vEmit_compileS_IVarAssign(assign, lhs, rhs))
+    lhs = self.compileE(assign.lhs, primary=True)
+    rhs = self.compileE(assign.rhs, primary=True)
+    return self.vEmit_compileS_IVarAssign(assign, lhs, rhs)
 
   @compileS.when(icurry.INodeAssign)
   def compileS(self, assign):
-    with self.hoisting() as hoisted:
-      lhs = self.compileE(assign.lhs)
-      rhs = self.compileE(assign.rhs, primary=True)
-    return itertools.chain(hoisted, self.vEmit_compileS_INodeAssign(assign, lhs, rhs))
+    lhs = self.compileE(assign.lhs)
+    rhs = self.compileE(assign.rhs, primary=True)
+    return self.vEmit_compileS_INodeAssign(assign, lhs, rhs)
 
   @compileS.when(icurry.IBlock)
   def compileS(self, block):
@@ -613,23 +602,8 @@ class CompilerBase(abc.ABC):
   @compileS.when(icurry.IReturn)
   def compileS(self, iret):
     primary = isinstance(iret.expr, icurry.IReference)
-    with self.hoisting() as hoisted:
-      expr = self.compileE(iret.expr, primary=primary)
-    return itertools.chain(hoisted, self.vEmit_compileS_IReturn(iret, expr))
-
-  @contextlib.contextmanager
-  def hoisting(self):
-    '''
-    Collects the lines hoisted out of the statement compiled inside the
-    context (see ``hoist``): a list, complete when the context ends, that
-    the caller emits before the statement.
-    '''
-    saved = self.hoisted, self.expr_depth
-    self.hoisted, self.expr_depth = [], 0
-    try:
-      yield self.hoisted
-    finally:
-      self.hoisted, self.expr_depth = saved
+    expr = self.compileE(iret.expr, primary=primary)
+    return self.vEmit_compileS_IReturn(iret, expr)
 
   def compileArgs(self, exprs):
     '''The arguments of a node as primary expressions, one level down.'''
@@ -637,40 +611,12 @@ class CompilerBase(abc.ABC):
 
   def _compileArgs(self, exprs):
     '''
-    The walk of compileArgs (see compileE).  The nesting is counted while
-    the arguments are compiled; a walk that fails leaves the compiler, so
-    no finally clause restores it.
+    The walk of compileArgs (see compileE), using the expression trampoline.
     '''
-    self.expr_depth += 1
     args = []
     for expr in exprs:
       args.append((yield self._compileE(expr, primary=True)))
-    self.expr_depth -= 1
     return args
-
-  def hoist(self, text, primary):
-    '''
-    The text of a primary node, or the name of a temporary that holds it.
-    A backend with ``HOIST_DEPTH`` moves a node at that nesting under the
-    statement, and at every multiple of it, into a temporary assigned
-    before the statement (``vEmitHoisted``), so the nesting of the
-    generated text stays bounded whatever the depth of the expression.
-    The Python backend needs it: the parser of Python refuses more than
-    200 nested parentheses, and a literal list of 1200 elements is one
-    nested call (issue #125).
-    '''
-    limit = self.HOIST_DEPTH
-    if limit is None or not primary or self.hoisted is None \
-        or self.expr_depth == 0 or self.expr_depth % limit:
-      return text
-    name = '_h%d' % self.hoist_count
-    self.hoist_count += 1
-    self.hoisted.extend(self.vEmitHoisted(name, text))
-    return name
-
-  def vEmitHoisted(self, name, text):
-    '''The lines that assign the hoisted text to the temporary ``name``.'''
-    raise NotImplementedError('the %s backend hoists no subexpression' % self.CODE_TYPE)
 
   @compileS.when(icurry.ICaseCons)
   def compileS(self, icase):
@@ -745,20 +691,20 @@ class CompilerBase(abc.ABC):
     h_info = self.importSymbol(icall.symbolname)
     args = yield self._compileArgs(icall.exprs)
     text = self.vEmit_compileE_ICall(icall, h_info, args, primary)
-    return self.hoist(text, primary)
+    return text
 
   @_compileE.when(icurry.IPartialCall)
   def _compileE(self, ipcall, primary=False):
     h_info = self.importSymbol(ipcall.symbolname)
     args = yield self._compileArgs(ipcall.exprs)
     text = self.vEmit_compileE_IPartialCall(ipcall, h_info, args, primary)
-    return self.hoist(text, primary)
+    return text
 
   @_compileE.when(icurry.IOr)
   def _compileE(self, ior, primary=False):
     lhs, rhs = yield self._compileArgs([ior.lhs, ior.rhs])
     text = self.vEmit_compileE_IOr(ior, lhs, rhs, primary)
-    return self.hoist(text, primary)
+    return text
 
 
 @visitation.dispatch.on('iobj')

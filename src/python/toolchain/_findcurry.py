@@ -65,7 +65,7 @@ def currentfile(
 
   The file returned is the newest among the Curry source file (suffix: .curry),
   the ICurry file (suffix: .icy), the JSON file (suffix: .json or .json.z),
-  and the files of the backend (suffix: .py; or .cpp and .so), less the files
+  and the files of the backend (suffix: .cpp and .so), less the files
   that a step of the plan refuses (see ``Plan.prune_stale``) and the files
   made from them.  The files are compared by modification time (see
   ``filesys.newer``), so a step that moves the change times of the inodes

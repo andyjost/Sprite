@@ -15,7 +15,6 @@ def run(ev):
   return [cytest.raw.interp().topython(v) for v in ev.evaluate()]
 '''
 
-@unittest.skipUnless(curry.flags['backend'] == 'cxx', 'C++ heap serialization')
 class TestEvaluationLock(cytest.TestCase):
   def child(self, code):
     proc = cytest.run_in_subprocess(CHILD + code, 90, address_space=4 << 30)

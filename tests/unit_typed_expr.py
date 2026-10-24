@@ -19,7 +19,6 @@ from curry.typecheck.defaulting import DefaultingError, ORACLE_SENTENCE
 from curry.typecheck.errors import DEFAULTS_HINT
 import curry, gc, itertools, re, unittest
 
-IS_CXX = curry.flags['backend'] == 'cxx'
 
 def prelude():
   return curry.import_('Prelude')
@@ -39,7 +38,7 @@ def values(*args, type=None, **bindings):
 
 def floats(text):
   '''
-  A value text with the floats in the format of the Python backend.  The
+  A value text with the floats in the format of the former runtime.  The
   C++ backend prints 1.5 as 1.5000000000000000 (issue #34).
   '''
   return re.sub(
@@ -156,7 +155,7 @@ class TestAcceptance(cytest.TestCase):
     '''
     A list of 10000 values and a left-deep tree of 10^4 applications build:
     the conversion, the typing and the materialization walk with explicit
-    stacks.  The Python backend evaluates the small forms only.
+    stacks.  The former runtime evaluates the small forms only.
     '''
     P = prelude()
     big = curry.term(list(range(10000)))
@@ -167,9 +166,8 @@ class TestAcceptance(cytest.TestCase):
     self.assertEqual(curry.typeof(tree), 'Num a => a')
     self.assertEqual(curry.typeof(tree, defaulted=True), 'Int')
     self.assertEqual(values(curry.term(deep(100))), [101])
-    if IS_CXX:
-      self.assertEqual(values(P.length, big), [10000])
-      self.assertEqual(values(tree), [10001])
+    self.assertEqual(values(P.length, big), [10000])
+    self.assertEqual(values(tree), [10001])
     # Type resolution and printing also keep their own stacks.
     nested = 1
     for _ in range(500):

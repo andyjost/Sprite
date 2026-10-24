@@ -162,7 +162,7 @@ namespace curryrt
   // bound through that class (Def 2.74), so the walk continues into the
   // generator of that class, once per class.  A choice the configuration
   // has not decided ends the walk there: the variable is not narrowed
-  // here, and its generator is no instance of it.  The Python backend has
+  // here, and its generator is no instance of it.  The former runtime has
   // the same test (occurs in rts_constraints.py), and the checker verifies
   // the invariant (D15 (occurs check)).
   static bool occurs(

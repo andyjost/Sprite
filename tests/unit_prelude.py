@@ -1,5 +1,6 @@
 import cytest # from ./lib; must be first
-from curry.backends.py.graph import Node, equality
+from curry.backends.cxx.curryrtbindings import make_node as Node
+from curry.backends.generic.graph import equality
 from curry import config, inspect
 import curry, cytest.step, sys, unittest
 
@@ -318,7 +319,7 @@ class TestPrelude(cytest.TestCase):
   def test_partial_application_value(self):
     '''
     A partial application is a value, and its arguments are not normalized.
-    An audit finding: on the Python backend, a string literal inside it (a
+    An audit finding: on the former runtime, a string literal inside it (a
     memoryview) stopped the copier that makes the value.
     '''
     goal = curry.parse('(++) "abc"')
@@ -385,7 +386,6 @@ class TestErrorMessage(cytest.TestCase):
     with self.assertRaisesRegex(curry.EvaluationError, r'^A b'):
       list(curry.eval(M.main))
 
-  @unittest.skipUnless(curry.flags['backend'] == 'cxx', 'C++ symbol tables')
   def test_primitives_carry_their_curry_names(self):
     self.assertEqual(curry.import_('Prelude')['prim_error'].info.name, 'prim_error')
     self.assertEqual(curry.import_('Prelude')['error'].info.name, 'error')

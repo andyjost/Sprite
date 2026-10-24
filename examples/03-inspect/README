@@ -13,8 +13,7 @@ lookup: M['=:='], with M bound to Prelude, where that operator is defined.
 
 Run "make stage" at the repository root, then "./run" here.  expected.out
 records stdout.  The script uses interpret:off and the C++ runtime so the
-last section can read generated C++; the reference backend emits different
-code.  Continue with 04-static-compile for session control.  The guide's
+last section can read generated C++.  Continue with 04-static-compile for session control.  The guide's
 session-control section covers these public lookups.
 
 Internal: compiler products

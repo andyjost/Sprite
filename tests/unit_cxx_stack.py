@@ -66,9 +66,6 @@ def run_child(testcase, code):
     )
   return proc.stdout.splitlines()
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'the stack guard belongs to the C++ backend'
-  )
 class TestStackGuard(cytest.TestCase):
   # 64 KiB is far below the nesting that ``length [1..5000]`` needs, so the
   # guard fires early and the tests run fast.
@@ -109,7 +106,7 @@ class TestStackGuard(cytest.TestCase):
     '''
     A deep alternative that is stuck at the limit is dropped, and its error
     waits.  The shallow alternative, which needs many steps, still produces
-    its value.  The Python backend applies the same rule (unit_py_fairness).
+    its value.  The former runtime applies the same rule (unit_py_fairness).
     '''
     lines = self.evaluate('M.mixedAlt(%d, 200000)' % self.N, count=2)
     self.assertEqual(lines[0], 'value 200000')
@@ -209,9 +206,6 @@ class TestStackGuard(cytest.TestCase):
     self.assertEqual(values, [n, n])
     self.assertEqual(pair, 2 * single + overhead)
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'too slow on the Python backend'
-  )
 class TestDeepValue(cytest.TestCase):
   @classmethod
   def setUpClass(cls):

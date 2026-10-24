@@ -150,7 +150,7 @@ SYMBOLIC_ESCAPES = {
 
 def show_float(value):
   '''
-  The text of a Float as PAKCS writes it, so that both backends print one
+  The text of a Float as PAKCS writes it, so that the runtime print one
   text (issue #34).
 
   The digits are the shortest that read back to the same value, the digits

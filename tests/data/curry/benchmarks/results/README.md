@@ -15,15 +15,14 @@ workstation at commit `1780ae09` (Phase 0 of the program, before the
 self-contained toolchain landed).
 
 - `throughput`: the 30 dissertation programs. C++ backend: 5 repetitions,
-  300 s timeout. Python backend: 1 repetition, 120 s timeout (11 programs
-  time out, 2 fail). PAKCS: 3 repetitions, 300 s timeout, 9 programs only;
+  300 s timeout. PAKCS: 3 repetitions, 300 s timeout, 9 programs only;
   the rest is deferred. PokerChoice and PokerFree need the Curry
   preprocessor `currypp`, which the machine lacks, and fail on every
   backend.
 - `compile`: each program compiled from source with the ICurry cache cold
-  and warm, plus the expression item, both backends, 3 repetitions.
+  and warm, plus the expression item, C++, 3 repetitions.
 - `import`: interpreter start, `import curry`, the Prelude import, and
-  Hello end to end, both backends, 5 repetitions.
+  Hello end to end, C++, 5 repetitions.
 - `memory`: peak RSS per program with the node collector on and, on the
   C++ backend, off; 1 repetition, 120 s timeout. Programs that exhaust the
   6 GB address-space cap with the collector off are recorded as failures.
@@ -77,28 +76,27 @@ through resolvelib 800/solvable; `overloads`; and `-b resolvelib
 --variant 800/unsolvable dependency` (the first run reached the
 wall-clock limit of its session during that item, whose runs take over
 seven minutes each).  Another stream and the test runs of the same pass kept
-the load average between 2 and 8 during the runs: the seconds of the
-Python backend at 10 and 20 packages came out 4 to 80 percent above an
-earlier, interrupted run at load 2, the C++ backend's within 20 percent.
+the load average between 2 and 8 during the runs: the C++ times were within
+20 percent of an earlier, interrupted run at load 2.
 clang was not installed on the machine, so the clang opponent of the
 overloads item was not measured; the item skips without clang++.
 
 The dependency item (median seconds of eval_wall, the time from the index
 in Python data to the answer; "timeout" is a run past 600 s):
 
-- 10 packages, solvable: cxx 0.083 s, py 5.6 s, resolvelib 0.38 ms
-  (cxx 220x slower, py 14800x slower).
-- 10 packages, unsolvable: cxx 0.063 s, py 1.8 s, resolvelib 0.74 ms
+- 10 packages, solvable: cxx 0.083 s, resolvelib 0.38 ms
+  (cxx 220x slower).
+- 10 packages, unsolvable: cxx 0.063 s, resolvelib 0.74 ms
   (cxx 86x slower).
-- 20 packages, solvable: cxx 0.105 s, py 19.8 s, resolvelib 0.58 ms
+- 20 packages, solvable: cxx 0.105 s, resolvelib 0.58 ms
   (cxx 180x slower).
-- 20 packages, unsolvable: cxx 0.23 s, py 59 s, resolvelib 1.3 ms
+- 20 packages, unsolvable: cxx 0.23 s, resolvelib 1.3 ms
   (cxx 170x slower).
-- 50 packages, solvable: cxx 2.0 s, py 463 s, resolvelib 1.2 ms
+- 50 packages, solvable: cxx 2.0 s, resolvelib 1.2 ms
   (cxx 1700x slower).
-- 50 packages, unsolvable: cxx 10.7 s, py timeout, resolvelib 30 ms
+- 50 packages, unsolvable: cxx 10.7 s, resolvelib 30 ms
   (cxx 360x slower).
-- 100 packages: cxx and py timeout in both cases; resolvelib 6.6 ms
+- 100 packages: cxx timeout in both cases; resolvelib 6.6 ms
   (solvable) and 1.0 ms (unsolvable).
 - 200 packages: resolvelib 8.3 ms and 0.9 ms.  800 packages: resolvelib
   3.5 ms (solvable); in the unsolvable case resolvelib does not answer:
@@ -115,18 +113,16 @@ under the same newest-first preference its first plan is another plan of
 the same index (25 packages in its closure against 21).
 
 The overloads item, 1000 distinct calls against one overload set of eight
-candidates: cxx 2.08 s (2.1 ms per call, 8.67 million steps), py 80 s
-(80 ms per call), plain Python 28 ms (28 us per call); cxx 75x slower
-than plain Python, py 2900x.  The 1000 answers are the same on every side
+candidates: cxx 2.08 s (2.1 ms per call, 8.67 million steps), plain Python 28 ms (28 us per call); cxx 75x slower
+than plain Python.  The 1000 answers are the same on every side
 (708 unique, 237 ambiguous, 55 without a viable function).  The overload
 set is built once before the clock starts; a first probe that rebuilt the
 eight candidates on every call inside the time measured 6.25 s on cxx.
 
 Curry loses at every size, and there is no crossover: the solver of
 example 15 searches more as the index grows, and resolvelib stays in
-milliseconds up to 800 packages in every case but the one above.  The
-Sprite
-backends run the sizes 10 to 100 and resolvelib alone runs 200 and 800
+milliseconds up to 800 packages in every case but the one above.  The Sprite
+runtime runs the sizes 10 to 100 and resolvelib alone runs 200 and 800
 (`SPRITE_DEPENDENCY_SIZES` and `DEPENDENCY_SIZES` in
 `tests/lib/benchmarks/suites.py`).
 

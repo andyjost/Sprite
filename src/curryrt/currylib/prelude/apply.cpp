@@ -64,7 +64,7 @@ namespace curryrt { inline namespace
   // Applies a function to an argument that ``action`` evaluates first.  The
   // argument is evaluated on behalf of the function applied.  So a choice in
   // the argument of a monadic function is an error, as in a monadic step
-  // (see RuntimeState::hnf).  The Python backend applies the same rule.
+  // (see RuntimeState::hnf).  The former runtime applies the same rule.
   template<typename Action>
   static tag_type _applyspecial(
       RuntimeState * rts, Configuration * C, Action const & action
@@ -112,7 +112,7 @@ namespace curryrt { inline namespace
       // scan, which must not be the choice itself.
       tag_type tag = rts->hnf(C, var, nullptr, monadic);
       // A free variable is a normal form: ($!!) and normalForm give the
-      // variable, as the Python backend and PAKCS do.  hnf recorded a
+      // variable, as the former runtime and PAKCS do.  hnf recorded a
       // residual for it; take it back, as hnf_or_free does, and report the
       // variable.  ($##) suspends on it afterwards (applygnf_step).
       if(tag == E_RESIDUAL && inspect::isa_freevar(var->target))
@@ -172,7 +172,7 @@ namespace curryrt { inline namespace
     {
       tag_type tag = rts->hnf(C, var, nullptr, monadic);
       // A free variable is a head normal form: ($!) applies the function to
-      // the variable, as the Python backend and PAKCS do (id $! x gives x).
+      // the variable, as the former runtime and PAKCS do (id $! x gives x).
       // hnf recorded a residual for it; take it back, as hnf_or_free does,
       // and report the variable (issue #112).
       if(tag == E_RESIDUAL && inspect::isa_freevar(var->target))

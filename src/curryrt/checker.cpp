@@ -15,10 +15,8 @@
 #include <sstream>
 #include <type_traits>
 
-// The C++ mirror of the checker of the Python backend.  See checker.hpp and
-// backends/py/eval/checker.py, whose module documentation lists the events
-// and the checks at each.  The code below follows that file section by
-// section; a comment names a difference where there is one.
+// The checker of the Fair Scheme runtime invariants.  See checker.hpp
+// for the events and checks.
 namespace curryrt
 {
   namespace
@@ -1964,7 +1962,7 @@ namespace curryrt
   // After the write: the slot holds the generator, and the reduct of every
   // configuration that references the redex is unchanged under the
   // fingerprint it is compatible with (X-b).  The write changes one slot
-  // and makes no cell, so no flags propagate (the Python backend copies the
+  // and makes no cell, so no flags propagate (the former runtime copies the
   // spine there and flags the copy).
   void Checker::instantiate_end(
       Configuration * C, Variable const * var, char const * event
@@ -2174,7 +2172,7 @@ namespace curryrt
         // one, decided through its group, reads as the generator of the
         // representative of the group: that is the node the runtime puts
         // into the copy of rule N.x (get_generator reads it by the group
-        // id), where the Python backend clones a generator for the
+        // id), where the former runtime clones a generator for the
         // variable first.
         xid_type const vid = NodeU{node}.free->vid;
         Node * b = this->binding(cfg, vid);
@@ -2802,10 +2800,10 @@ namespace curryrt
   // A replacement by failure comes from an exempt leaf or from a failure at
   // an inductive position (B2 c).  The second source is a completed step
   // here: hnf forwards the redex to the failure and the step returns (the
-  // Python backend unwinds there, and its check never sees it).  A return
+  // former runtime unwinds there, and its check never sees it).  A return
   // of a reference forwards the redex to the node the reference denotes,
   // which may be a failure: such a leaf is no replacement by failure (the
-  // Python backend writes a forward node there, which its check never
+  // former runtime writes a forward node there, which its check never
   // sees).
   void Checker::check_exempt(
       InfoTable const * info, std::vector<Node *> const & args

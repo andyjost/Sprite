@@ -667,9 +667,9 @@ class TestRoute(cytest.TestCase):
     The program of the test data, as written, with (==) in the guard.  The
     pass turns the guard into constraints, the digit generators bind the
     letters, and the arithmetic conjuncts suspend and resume as the letters
-    are bound.  The C++ backend takes 0.1 s, the Python backend about 7 s.
+    are bound.  The C++ backend takes 0.1 s, the former runtime about 7 s.
     Before the fix of ($##) over a bound variable (unit_py_residuation.py)
-    the Python backend finished the search and then spun in show.
+    the former runtime finished the search and then spun in show.
     '''
     with open(SEND_MORE_MONEY, 'r', encoding='utf-8') as istream:
       M = curry.compile(istream.read())

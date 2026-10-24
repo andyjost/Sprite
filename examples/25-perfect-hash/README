@@ -25,6 +25,3 @@ finds the same program, its fifth candidate at length two.  A first C++
 run took 1.54 seconds including compilation and startup; Python's brute
 force took 0.000221 seconds; Curry's two searches took 0.71 seconds.
 Times vary.
-
-The example test uses C++: the reference backend was still searching
-length two when stopped at 60 seconds.

@@ -31,7 +31,7 @@ namespace curryrt
   Expr RuntimeState::make_value()
   {
     Cursor root = this->E();
-    // A top-level IO action yields its payload, as in the Python backend.
+    // A top-level IO action yields its payload, as in the former runtime.
     if(root.kind == 'p' && root->info == &IO_Info)
       root = root->successor(0);
     // The copies of the free variables of the value live outside this
@@ -173,7 +173,7 @@ namespace curryrt
 
   // Sets the error for a choice inside a monadic action and returns E_ERROR.
   // The error value is the Prelude's NondetError, which catch hands to the
-  // handler.  The Python backend raises NondetMonadError with the same text.
+  // handler.  The former runtime raises NondetMonadError with the same text.
   tag_type RuntimeState::nondet_monad_error(Configuration * C)
   {
     Node * value = Node::create(

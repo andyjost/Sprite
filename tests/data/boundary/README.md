@@ -38,36 +38,36 @@ issues are those of the tracker.
 
 | Driver | Seam | Sources | Backends | Oracle |
 |---|---|---|---|---|
-| 01-scalars-and-limits | Booleans, integers, floats, numeric defaulting and arithmetic errors. | A2, A3, P3, P10, P40, P42, #105, #106 | py, cxx | yes |
-| 02-strings-and-chars | A Python str is a String; curry.Char spells a character. | A2, P1, P11, P23 | py, cxx | yes |
-| 03-containers | Lists, tuples, ranges and lazy iterators enter typed terms. | A2, P8, P9 | py, cxx | yes |
-| 04-rejected-values | Unsupported Python values and a Results argument are refused. | A2, A6, P4, P9, P13, P14, #107 | py, cxx | no |
-| 10-list-of-symbols | A Python list of symbols is a list value; a call is an application. | A1, P2, P44, #104 | py, cxx | no |
-| 11-application-forms | Symbols, partial applications, surplus arguments and class methods. | A1, A4, P10, P44 | py, cxx | yes |
-| 12-sharing-and-cycles | One held Python term shares a choice; separate reads are independent. | A1, A5, P5, P6, P17 | py, cxx | yes |
-| 20-free-markers | curry.free(name) creates one Var; curry.anonymous is fresh per occurrence. | A11, P21, P24, P42 | py, cxx | yes |
-| 21-pairing-of-103 | curry.eval yields values; curry.solve pairs values with bindings. | A11, P20, P24, P42, #103 | py, cxx | yes |
-| 22-where-free-text-route | curry.parse reads goals with a trailing where x free clause. | A7, A11, P20, P25, P26 | py, cxx | yes |
-| 30-generator-contract | Results is lazy and supports next, break, close, one and a context manager. | A6, A12, P27, P42, P46 | py, cxx | yes |
-| 31-values-out | Data, Function, Values, Char, Python containers and variables come back. | A6, A9, A10, P18, P21, P23, P54 | py, cxx | yes |
+| 01-scalars-and-limits | Booleans, integers, floats, numeric defaulting and arithmetic errors. | A2, A3, P3, P10, P40, P42, #105, #106 | cxx | yes |
+| 02-strings-and-chars | A Python str is a String; curry.Char spells a character. | A2, P1, P11, P23 | cxx | yes |
+| 03-containers | Lists, tuples, ranges and lazy iterators enter typed terms. | A2, P8, P9 | cxx | yes |
+| 04-rejected-values | Unsupported Python values and a Results argument are refused. | A2, A6, P4, P9, P13, P14, #107 | cxx | no |
+| 10-list-of-symbols | A Python list of symbols is a list value; a call is an application. | A1, P2, P44, #104 | cxx | no |
+| 11-application-forms | Symbols, partial applications, surplus arguments and class methods. | A1, A4, P10, P44 | cxx | yes |
+| 12-sharing-and-cycles | One held Python term shares a choice; separate reads are independent. | A1, A5, P5, P6, P17 | cxx | yes |
+| 20-free-markers | curry.free(name) creates one Var; curry.anonymous is fresh per occurrence. | A11, P21, P24, P42 | cxx | yes |
+| 21-pairing-of-103 | curry.eval yields values; curry.solve pairs values with bindings. | A11, P20, P24, P42, #103 | cxx | yes |
+| 22-where-free-text-route | curry.parse reads goals with a trailing where x free clause. | A7, A11, P20, P25, P26 | cxx | yes |
+| 30-generator-contract | Results is lazy and supports next, break, close, one and a context manager. | A6, A12, P27, P42, P46 | cxx | yes |
+| 31-values-out | Data, Function, Values, Char, Python containers and variables come back. | A6, A9, A10, P18, P21, P23, P54 | cxx | yes |
 | 32-value-data-model | Converted scalars and containers obey the Python data model. | A9, P15, P16, P17, P18, P22 | cxx | no |
-| 33-nested-empty-lists | Converted values containing empty lists enter new typed calls. | P19, P22, #108 | py, cxx | no |
-| 34-errors-and-messages | The public error tree descends from curry.CurryError, an Exception. | A4, A20, A21, P1, P7, P41, P42, P43, P44, P45 | py, cxx | no |
-| 40-import-and-lookup | Imports, path, the registry, item lookup and curry.info metadata. | A13, A14, P33, P34, P39, P54 | py, cxx | no |
-| 41-compile-text | curry.compile builds modules; curry.parse reads expressions. | A7, A15, P12, P26, P32, P45 | py, cxx | yes |
+| 33-nested-empty-lists | Converted values containing empty lists enter new typed calls. | P19, P22, #108 | cxx | no |
+| 34-errors-and-messages | The public error tree descends from curry.CurryError, an Exception. | A4, A20, A21, P1, P7, P41, P42, P43, P44, P45 | cxx | no |
+| 40-import-and-lookup | Imports, path, the registry, item lookup and curry.info metadata. | A13, A14, P33, P34, P39, P54 | cxx | no |
+| 41-compile-text | curry.compile builds modules; curry.parse reads expressions. | A7, A15, P12, P26, P32, P45 | cxx | yes |
 | 42-reset-and-stale-symbol | A reset makes old modules stale; new modules use their own code. | A13, A17, P30, P35, #114 | cxx | no |
-| 43-edited-source | Repeated import returns the loaded module after a source edit. | A13, P53, #110 | py, cxx | no |
-| 44-save-and-load | A saved Python module round-trips; a saved program runs its named goal. | A16, P31, P39 | py | no |
+| 43-edited-source | Repeated import returns the loaded module after a source edit. | A13, P53, #110 | cxx | no |
+| 44-save-and-load | A saved Python module round-trips; a saved program runs its named goal. | A16, P31, P39 | cxx | no |
 | 45-load-objects | An object-loaded module saves; evaluation survives background compilation. | A16, P28, P29, P38, P55, #109, #113, #115 | cxx | no |
-| 50-set-functions | set0 through set2, captured choices, free arguments and nested sets. | A1, P24, #117, D25 to D28 | py, cxx | no |
-| 51-tools-parity | The tools and API print converted values through curry.show. | A22, P46, P47, P48 | py, cxx | yes |
-| 60-last-member-nats | Narrowing by inversion, Peano constructor calls and named variables. | PAKCS Last, Member, Nats; P5, P7 | py, cxx | yes |
-| 61-puzzles | Horseman and colormap use named variables and solve answers. | PAKCS horseman, colormap; P5, P7, P23 | py, cxx | yes |
-| 62-family | Four database styles ask corresponding questions through typed calls. | PAKCS family_rel, family_con, family_fun, family_nd; P5, P7 | py, cxx | yes |
-| 63-nondetfunc | Choose, insert, permutations, sorting and call-time choice. | PAKCS nondetfunc; P3, P7 | py, cxx | yes |
-| 64-infinite-lists | Finite prefixes of fibs, primes and hamming; a lazy Python iterator. | PAKCS inflists, First; A2, P3, P5 | py, cxx | yes |
-| 65-assembler | A program is a Python list of constructor applications. | PAKCS assembler; P5, P7, #104 | py, cxx | yes |
-| 66-residuation | Rigid addition, concurrent conjunction and active-object messages. | PAKCS rigidadd, rigidor, infresiduate, Account, digit; P5, P7, P21 | py, cxx | yes |
+| 50-set-functions | set0 through set2, captured choices, free arguments and nested sets. | A1, P24, #117, D25 to D28 | cxx | no |
+| 51-tools-parity | The tools and API print converted values through curry.show. | A22, P46, P47, P48 | cxx | yes |
+| 60-last-member-nats | Narrowing by inversion, Peano constructor calls and named variables. | PAKCS Last, Member, Nats; P5, P7 | cxx | yes |
+| 61-puzzles | Horseman and colormap use named variables and solve answers. | PAKCS horseman, colormap; P5, P7, P23 | cxx | yes |
+| 62-family | Four database styles ask corresponding questions through typed calls. | PAKCS family_rel, family_con, family_fun, family_nd; P5, P7 | cxx | yes |
+| 63-nondetfunc | Choose, insert, permutations, sorting and call-time choice. | PAKCS nondetfunc; P3, P7 | cxx | yes |
+| 64-infinite-lists | Finite prefixes of fibs, primes and hamming; a lazy Python iterator. | PAKCS inflists, First; A2, P3, P5 | cxx | yes |
+| 65-assembler | A program is a Python list of constructor applications. | PAKCS assembler; P5, P7, #104 | cxx | yes |
+| 66-residuation | Rigid addition, concurrent conjunction and active-object messages. | PAKCS rigidadd, rigidor, infresiduate, Account, digit; P5, P7, P21 | cxx | yes |
 
 ## Programs Sprite cannot compile or run
 

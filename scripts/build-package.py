@@ -74,6 +74,16 @@ def main():
   args = parser.parse_args()
   args.jobs = os.environ.get('SPRITE_BUILD_JOBS', args.jobs)
   source, prefix = Path(args.source).resolve(), Path(args.prefix).resolve()
+  package = prefix / 'python/curry'
+  for path in package.rglob('*.py'):
+    if not (source / 'src/python' / path.relative_to(package)).is_file():
+      path.unlink()
+      shutil.rmtree(path.parent / '__pycache__', ignore_errors=True)
+  for path in sorted(package.rglob('*'), reverse=True):
+    if path.is_dir() and not any(path.iterdir()):
+      path.rmdir()
+  for path in (prefix / 'curry').rglob('*.py'):
+    path.unlink()
   for path in (source / 'src/python').rglob('*'):
     if path.suffix not in ('.py', '.pyi', '.typed') or 'llvm' in path.parts:
       continue
@@ -135,7 +145,6 @@ def main():
   make = [sys.executable, '-m', 'curry.tools.make']
   run(*make, '--json', '-zc', *modules)
   supported = [m for m in modules if m not in unsupported]
-  run(*make, '--py', '-zc', *supported)
   run(*make, '--so', '--jobs', args.jobs, '-zc', *supported)
   # Wheel installers need not preserve file times or extraction order.
   # These existing provenance sidecars identify unchanged shipped sources.
@@ -151,7 +160,7 @@ def main():
       digest = stamp.read_text().splitlines()[0]
       stamp.write_text('%s\n%s\n' % (
           digest, os.path.relpath(prefix, stamp.parent)))
-  for suffix in ['.json.z', '.py', '.so', '.so.abi']:
+  for suffix in ['.json.z', '.so', '.so.abi']:
     if not (lib / '.curry/sprite-pakcs-3.4.1' / ('Prelude' + suffix)).is_file():
       raise RuntimeError('prebuild did not write Prelude' + suffix)
 

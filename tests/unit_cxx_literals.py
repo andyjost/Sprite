@@ -90,9 +90,6 @@ class TestValues(cytest.TestCase):
     self.assertEqual(str(value), '"hi!\\955"')
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 class TestTables(cytest.TestCase):
   '''
   The tables of the runtime and the literal nodes of a module, through the

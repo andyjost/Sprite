@@ -1,10 +1,10 @@
 '''
 Tests for defects of the set functions and the scheduler: issues #61, #32,
 and #36, whose programs are in data/curry/SetFunctionsBugs.curry, the two
-findings of the differential harness on the Python backend, issues #120
+findings of the differential harness on the former runtime, issues #120
 and #121, whose programs are data/curry/PyGeneratorAssert.curry and
 data/curry/PyFingerprintNone.curry, and the finding of the checker mode on
-the Python backend, issue #123, whose programs are
+the former runtime, issue #123, whose programs are
 data/curry/CapturedFwd.curry, and the first set function of the
 dissertation, issue #118, whose programs are in
 data/curry/SetFunctionsBugs.curry as well.
@@ -21,7 +21,7 @@ same defect.  The step that creates the SetEval rewrites through a private
 copy of the spine when the application holds a variable that the
 configuration bound, narrowed, or grouped, or a choice that it decided, as
 the step that puts a binding into an expression does (evalS_step in
-currylib/setfunctions.cpp, evalS in backends/py/currylib/setfunctions.py).
+currylib/setfunctions.cpp, evalS in the former implementation).
 That rule covers the state the configuration holds when the set function
 starts.  The general case is the escape (rule SF.1 of the dissertation): a
 choice of the escape set always leaves the capsule, whatever the enclosing
@@ -29,7 +29,7 @@ configurations decided, and the split of the queue puts a configuration
 that made the choice on its side, keeps one that has not made it in both
 queues, and records the choice in both, so that no configuration escapes
 it twice (choice_escapes and Queue::split of the C++ runtime,
-choice_escapes and split_queue of the Python backend).  So a capsule that
+choice_escapes and split_queue of the former runtime).  So a capsule that
 starts before the variable is narrowed, is consumed in part, and resumes
 under alternatives that narrowed the variable differently gives each
 alternative its side (test_narrowed_after_start and TestResumedCapsule).
@@ -67,7 +67,7 @@ sides, with the guard crossed on the way to the second, and constrain_equal
 read no id from the guard.  The pair holds the two variables themselves,
 as the pair of the C++ step does.  The pair of a value binding of a
 variable of a builtin type (make_value_bindings) had the same defect: the
-binding was dropped, and the Python backend suspended.  It holds the node
+binding was dropped, and the former runtime suspended.  It holds the node
 of the variable now.
 
 Issue #118: under the eager set-function strategy of 2021 (the interpreter
@@ -83,7 +83,7 @@ function, and the values are the sets of adj 0 and of adj 1.
 
 Issue #123: a captured choice that the walk of N reaches through a forward
 node in front of its box.  constT x 0 rewrites to a forward node to the
-guarded x.  The walk of the Python backend replaced the forward node
+guarded x.  The walk of the former runtime replaced the forward node
 through logical_subexpr, which skips the chain and the set guards behind
 it, and left the real path and the set ids of the walk short of the guard.
 The pull-tab of the choice copied the spine without the box and put
@@ -167,7 +167,7 @@ class TestBoundVariable(cytest.TestCase):
   def test_nested_set_function(self):
     '''
     The guard of the enclosing set at the root of the nested configuration:
-    the Python backend unwound to allValues there before the fix of issue
+    the former runtime unwound to allValues there before the fix of issue
     #130.
     '''
     results = run_child(self, goals('nestedBound'))
@@ -381,7 +381,7 @@ class TestShrinkingPool(cytest.TestCase):
 class TestHarnessFindings(cytest.TestCase):
   '''
   Issues #120 and #121: two programs the differential harness generated,
-  which ended with an internal error on the Python backend.  Each is pinned
+  which ended with an internal error on the former runtime.  Each is pinned
   on both backends to the values of the C++ backend.
   '''
   @classmethod
@@ -427,7 +427,7 @@ class TestHarnessFindings(cytest.TestCase):
     The same cause through a value binding: a variable of the goal of a
     builtin type is narrowed inside the capsule through the box of the
     captured argument.  The pair of the value binding held the guard, and
-    the binding was dropped: the Python backend suspended.  The binding is
+    the binding was dropped: the former runtime suspended.  The binding is
     private to the capsule, so the variable stays free outside.
     '''
     results = run_child(self, goals('valueBinding'), module='PyFingerprintNone')
@@ -440,7 +440,7 @@ class TestCapturedForward(cytest.TestCase):
   (constT x), and the step of constT leaves a forward node to the guarded
   x.  The pull-tab of x must keep the box and put x into the escape set,
   so that x escapes the capsule and each alternative of the outside sees
-  one value of f 0.  The Python backend gave (3, A) and (3, B) for
+  one value of f 0.  The former runtime gave (3, A) and (3, B) for
   oneCaptured, and ([[A], [A], [B]], A) for oneCapturedSet.  The five
   goals are pinned to the values of the C++ backend on both backends.
   '''
@@ -514,9 +514,6 @@ for name in 'goalA', 'goalB':
 '''
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'the kept tables belong to the C++ runtime'
-  )
 class TestBuiltinsAfterReset(cytest.TestCase):
   '''
   Issue #114, found in review.  Module::retire cleared the tables of a

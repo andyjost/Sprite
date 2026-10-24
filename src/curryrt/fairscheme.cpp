@@ -316,7 +316,7 @@ namespace curryrt
     // Only a rewrite counts as a step.  A status below E_RESTART means the
     // step was interrupted (E_UNWIND, E_GC, E_ROTATE, E_TERMINATE), suspended
     // (E_RESIDUAL), or raised an error (E_ERROR), and the redex is as it was.
-    // The Python backend applies the same rule (see S in fairscheme.py).
+    // The former runtime applies the same rule (see S in fairscheme.py).
     //
     // A completed step is the safepoint of the scheduler: the periodic
     // rotation and a requested collection interrupt here (check_interrupts).
@@ -356,7 +356,7 @@ namespace curryrt
     if(this->checker)
       this->checker->hnf(C, inductive);
     // A choice at the inductive position of a monadic step is an error: an
-    // I/O action cannot fork.  The Python backend raises NondetMonadError
+    // I/O action cannot fork.  The former runtime raises NondetMonadError
     // there.  The flag covers a strict application of a monadic function,
     // whose argument is evaluated by ($!) on behalf of that function.
     monadic = monadic || is_monadic(*_0->info);

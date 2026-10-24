@@ -17,21 +17,15 @@ and in the mode of the environment, unless its argument says otherwise.
 
 The following flags are available:
 
-  * ``backend`` ({0!r})
+  * ``backend`` (**'cxx'**)
 
-    The name of the backend used to compile and run Curry: 'cxx', the C++
-    backend.  The default is the one configure recorded
-    (--with-default-backend; sysconfig/default_backend of the
-    installation).  The value 'py' selects the Python backend, the
-    reference implementation kept behind this flag until its removal
-    (issue #82); the developer notes of the documentation describe it.
+    The runtime used to compile and run Curry.  Its only value is 'cxx'.
 
   * ``checker`` (True | **False**)
 
     The checker mode of the Fair Scheme proofs program (section 6.5 of the
-    memo on the Fair Scheme proofs).  Both backends hold a checker while
-    the flag is on: the Python backend in curry.backends.py.eval.checker,
-    the C++ runtime in curryrt/checker.hpp (RuntimeState::checker).  The
+    memo on the Fair Scheme proofs).  The runtime holds a checker while
+    the flag is on (curryrt/checker.hpp, RuntimeState::checker).  The
     checker asserts the run-time invariants of the Fair Scheme at every
     fork, escape, pull-tab, instantiation and yield: the identifier
     consistency of the fingerprints and their groups (RI B1), the
@@ -48,19 +42,19 @@ The following flags are available:
     ``curry.backends.cxx.curryrtbindings.InvariantViolation``.  The checker
     observes: it changes no step, no value and no counter, and with the
     flag off each runtime tests one attribute or one pointer per event.
-    The developer notes describe both checkers and where they differ.
+    The developer notes describe the checker.
 
   * ``debug`` (True | **False**)
 
     Sacrifice speed to add more consistency checks and enable debugging with
-    PDB.  The C++ backend compiles the modules it builds in the debug flavor
+    gdb.  The C++ backend compiles the modules it builds in the debug flavor
     (-O0 -g, assertions on) and keeps the objects the installation holds.  A
     session without the flag compiles the debug objects again, once.  See
     curry.backends.cxx.toolchain.
 
   * ``trace`` (True | **False**)
 
-    Trace computations.
+    Reserved for compatibility.  Runtime traces require a TRACE build.
 
   * ``inline_budget`` (**4** | <int>)
 
@@ -108,7 +102,6 @@ The following flags are available:
     expression, an interactive module, and a module compiled from a string
     stay interpreted.  The interpreter takes the same steps as compiled code
     on the same runtime; it runs a few times slower, and it starts at once.
-    The Python backend ignores this flag.
 
   * ``keep_temp_files``  (True | **False** | <str>)
 
@@ -116,28 +109,18 @@ The following flags are available:
     then it is treated as a directory name and all temporary files will be
     written there.
 
-  * ``lazycompile`` (**True** | False)
+  * ``lazycompile``
 
-    Wait to materialize Functions until they are needed.
+    Reserved for compatibility; this flag has no effect.
 
   * ``postmortem`` (True | **False**)
 
     When compiling a string of Curry code fails, copy the generated code to the
     current working directory for post-mortem analysis.
 
-  * ``recursion_limit`` (**262144** | <int> | None)
+  * ``recursion_limit``
 
-    The number of Python frames the Python backend lets one value nest: the
-    recursion limit of the interpreter while a value is computed.  The
-    backend evaluates a nested step by a recursive Python call, about eight
-    frames per element of a list under a function that is not tail
-    recursive, such as ``length`` or ``sort``, so the default covers a list
-    of about thirty thousand elements.  An alternative that reaches the
-    limit is handled as under ``step_budget``: it runs again after the
-    others and is dropped when it overflows again without progress.  A
-    larger limit costs memory, about 4 KB per nested element.  None leaves
-    the limit of the interpreter as it is.  The C++ backend ignores this
-    flag; see ``stack_limit``.
+    Reserved for compatibility; this flag has no effect.
 
   * ``rotation`` (**'time:10ms'** | 'time:<N>ms' | 'steps:<N>')
 
@@ -160,8 +143,7 @@ The following flags are available:
     evaluation.  Step mode starts no thread.  The environment variable
     SPRITE_ROTATION sets the flag below SPRITE_INTERPRETER_FLAGS (an empty
     value counts as unset); the test runner, the benchmark harness and the
-    CI jobs set ``steps:65536`` through it.  The Python backend keeps its
-    ``step_budget`` and ignores this flag.
+    CI jobs set ``steps:65536`` through it.
 
   * ``stack_limit`` (**4194304** | <int> | None)
 
@@ -173,7 +155,6 @@ The following flags are available:
     escalation is disabled or the worker exhausts its stack too, the
     alternative is dropped and its error follows the other values.  None
     disables the guard.  A limit larger than the stack of the thread is clamped to that stack, less a margin of 1 MiB.
-    The Python backend ignores this flag.
 
   * ``worker_stack`` (**1073741824** | <int> | None)
 
@@ -184,36 +165,23 @@ The following flags are available:
     down to 64 MiB.  If every attempt fails, StackLimitError names the sizes.
     None disables escalation.  The worker is shared by evaluations of the
     heap and stays alive after use; a changed size replaces the idle worker.
-    The Python backend ignores this flag.
 
-  * ``step_budget`` (**2048** | <int> | None)
+  * ``step_budget``
 
-    The number of rewrite steps the Python backend gives one configuration
-    before it rotates the work queue.  Rotation occurs only when another
-    configuration waits in the same queue or in an enclosing one.  So a
-    diverging alternative cannot starve the others, also not from inside a
-    set function.  An alternative that overflows the Python stack runs again
-    after the others.  When it overflows again without a step of progress,
-    it is dropped, and its RecursionError is reported after the other
-    alternatives have run.  None disables the step-budget rotation.  Rotation
-    on residuation and on Python stack overflow still occurs.  The C++
-    backend paces its rotation with the flag ``rotation`` and ignores this
-    flag.
+    Reserved for compatibility; this flag has no effect.
 
   * ``telemetry_interval`` (**None** | <number>)
 
-    Specifies the number of seconds between event reports in the log output.
-    Events provide information about the state of the runtime system, such as
-    the number of nodes created or steps performed.  If None or non-positive,
-    this information is not reported.
+    Reserved for compatibility; this flag has no effect.  Use curry.stats
+    or sprite-exec --stats for runtime counters.
 
 
-'''.format(config.default_backend())
+'''
 
 FLAG_INFO = {
   #  Flag                   Value Spec           Default
   #  --------------------   -------------------  ----------------------------
-    'backend'             : ({'cxx', 'py'}, config.default_backend())
+    'backend'             : ({'cxx'}, 'cxx')
   , 'checker'             : ( bool                , False )
   , 'debug'               : ( bool                , False )
   , 'inline_budget'       : ( int                 , 4     )

@@ -36,7 +36,6 @@ def json_module(directory, name, value=42):
   return path
 '''
 
-@unittest.skipUnless(curry.flags['backend'] == 'cxx', 'C++ binding concurrency')
 class TestFreeThreading(cytest.TestCase):
   def child(self, code, timeout=120):
     proc = cytest.run_in_subprocess(CHILD + code, timeout, address_space=4 << 30)

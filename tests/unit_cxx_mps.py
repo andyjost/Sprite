@@ -6,9 +6,6 @@ import cytest # from ./lib; must be first
 import curry, os, subprocess, sys, unittest
 from curry import config
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 class TestCollectorSelection(cytest.TestCase):
   '''The installed collector is named consistently everywhere.'''
 
@@ -85,9 +82,6 @@ assert curryrt.gc_backend() == 'mps'
     return proc
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 @cytest.skipUnlessGcBackend('mps', 'the Memory Pool System back end')
 class TestMps(ChildTests):
   '''

@@ -514,7 +514,7 @@ class TestRecords(unittest.TestCase):
   def test_write_and_read(self):
     filename = os.path.join(self.tmpdir, 'records.jsonl')
     first = make_record('Fib', 1.0)
-    second = make_record('Tak1', 2.0, backend='py')
+    second = make_record('Tak1', 2.0, backend='pakcs')
     with open(filename, 'w') as stream:
       records.write(stream, first)
       stream.write('\n')
@@ -730,9 +730,9 @@ class TestSuites(unittest.TestCase):
 
   def test_backend_flag(self):
     self.assertEqual(suites.set_backend_flag(None, 'cxx'), 'backend:cxx')
-    self.assertEqual(suites.set_backend_flag('', 'py'), 'backend:py')
+    self.assertEqual(suites.set_backend_flag('', 'cxx'), 'backend:cxx')
     self.assertEqual(
-        suites.set_backend_flag('backend:py,debug:1', 'cxx')
+        suites.set_backend_flag('backend:cxx,debug:1', 'cxx')
       , 'backend:cxx,debug:1'
       )
 
@@ -774,11 +774,11 @@ class TestSuites(unittest.TestCase):
     self.assertEqual(self.settings.python, '/nonexistent/home/bin/python')
 
   def test_throughput_items(self):
-    items = self.build('throughput', ['Fib', 'Tak1'], ['cxx', 'py', 'pakcs'])
+    items = self.build('throughput', ['Fib', 'Tak1'], ['cxx', 'pakcs'])
     self.assertEqual([item.key for item in items], [
         ('throughput', program, backend, None)
             for program in ['Fib', 'Tak1']
-            for backend in ['cxx', 'py', 'pakcs']
+            for backend in ['cxx', 'pakcs']
       ])
     cmd, env, cwd = items[0].command()
     self.assertEqual(
@@ -787,7 +787,7 @@ class TestSuites(unittest.TestCase):
     self.assertEqual(cwd, CURRYDIR)
     self.assertEqual(env['CURRYPATH'], CURRYDIR)
     self.assertEqual(items[0].warmup(), 2)
-    cmd, env, cwd = items[2].command()
+    cmd, env, cwd = items[1].command()
     self.assertEqual(
         cmd
       , [ '/nonexistent/pakcs', ':set', '+time', ':l', 'Fib', ':eval', 'main'
@@ -798,11 +798,10 @@ class TestSuites(unittest.TestCase):
     self.assertEqual(env['CURRYPATH'], CURRYDIR)
 
   def test_memory_items(self):
-    items = self.build('memory', ['Fib'], ['cxx', 'py'])
+    items = self.build('memory', ['Fib'], ['cxx'])
     self.assertEqual([item.key for item in items], [
         ('memory', 'Fib', 'cxx', 'collector=on')
       , ('memory', 'Fib', 'cxx', 'collector=off')
-      , ('memory', 'Fib', 'py', 'collector=on')
       ])
     env = items[0].command()[1]
     self.assertEqual(
@@ -817,10 +816,10 @@ class TestSuites(unittest.TestCase):
     The whole runs the command of the throughput suite; a part runs the
     goal of the split module with the split directory on CURRYPATH.
     '''
-    items = self.build('split', ['QueensSet'], ['cxx', 'py'])
+    items = self.build('split', ['QueensSet'], ['cxx'])
     self.assertEqual([item.key for item in items], [
         ('split', 'QueensSet', backend, variant)
-            for backend in ['cxx', 'py']
+            for backend in ['cxx']
             for variant in suites.split_variants()
       ])
     whole = items[0]
@@ -846,11 +845,11 @@ class TestSuites(unittest.TestCase):
       self.build('split', ['QueensSet'], ['pakcs'])
 
   def test_compile_items(self):
-    items = self.build('compile', ['Fib', 'expression'], ['py'])
+    items = self.build('compile', ['Fib', 'expression'], ['cxx'])
     self.assertEqual([item.key for item in items], [
-        ('compile', 'Fib', 'py', 'cold'), ('compile', 'Fib', 'py', 'warm')
-      , ('compile', 'expression', 'py', 'cold')
-      , ('compile', 'expression', 'py', 'warm')
+        ('compile', 'Fib', 'cxx', 'cold'), ('compile', 'Fib', 'cxx', 'warm')
+      , ('compile', 'expression', 'cxx', 'cold')
+      , ('compile', 'expression', 'cxx', 'warm')
       ])
     cold, warm = items[:2]
     # A cold item needs no warm-up; a warm item needs one to fill the cache.
@@ -858,7 +857,7 @@ class TestSuites(unittest.TestCase):
     self.assertEqual(warm.warmup(), 2)
     settings = suites.Settings('/nonexistent/home', warmup=0)
     self.assertEqual(
-        self.build('compile', ['Fib'], ['py'], settings)[1].warmup(), 1
+        self.build('compile', ['Fib'], ['cxx'], settings)[1].warmup(), 1
       )
     cmd, env, cwd = cold.command()
     self.assertEqual(
@@ -885,7 +884,7 @@ class TestSuites(unittest.TestCase):
     self.assertEqual(os.listdir(self.workdir), [])
 
   def test_import_items(self):
-    items = self.build('import', list(suites.IMPORT_ITEMS), ['py'])
+    items = self.build('import', list(suites.IMPORT_ITEMS), ['cxx'])
     self.assertEqual(
         [item.program for item in items], list(suites.IMPORT_ITEMS)
       )
@@ -940,7 +939,7 @@ class TestSuites(unittest.TestCase):
     self.assertEqual(item.parse(FakeRun(stderr=STATS_LINE))['compile'], 0.5)
     self.assertEqual(item.parse(FakeRun()), {})
     item = suites.ExpressionItem(
-        'expression', 'py', self.settings, 'warm', self.workdir
+        'expression', 'cxx', self.settings, 'warm', self.workdir
       )
     probe = {
         'import': 0.05, 'prelude': 0.03, 'compile': 0.9, 'first_value': 0.001
@@ -965,10 +964,10 @@ class TestSuites(unittest.TestCase):
       settings = suites.Settings(
           '/nonexistent/home', timeout=7, cap=123, perf='/nonexistent/perf'
         )
-      item = suites.CommandItem('python', 'py', settings)
+      item = suites.CommandItem('python', 'cxx', settings)
       plain, under_perf = item.measure(), item.measure(perf=True)
       without = suites.Settings('/nonexistent/home')
-      suites.CommandItem('python', 'py', without).measure(perf=True)
+      suites.CommandItem('python', 'cxx', without).measure(perf=True)
     finally:
       suites.measure.run_command = original
     self.assertEqual(calls, [
@@ -1059,10 +1058,10 @@ class TestApplications(unittest.TestCase):
       ):
       suites.select('applications', ['Fib'])
     self.assertEqual(
-        suites.default_backends('applications')
-      , ['cxx', 'py', 'resolvelib', 'python']
+        suites.backends_for_suite('applications')
+      , ['cxx', 'resolvelib', 'python']
       )
-    self.assertEqual(suites.default_backends('throughput'), ['cxx'])
+    self.assertEqual(suites.backends_for_suite('throughput'), ['cxx'])
     self.assertEqual(suites.DEFAULT_REPEAT['applications'], 3)
     self.assertEqual(suites.OPPONENTS_OF['dependency'], ('resolvelib',))
     self.assertEqual(suites.OPPONENTS_OF['overloads'], ('python', 'clang'))
@@ -1073,7 +1072,7 @@ class TestApplications(unittest.TestCase):
     self.assertEqual(suites.SPRITE_DEPENDENCY_SIZES, (10, 20, 50, 100))
     self.assertEqual(suites.NIGHTLY_DEPENDENCY_SIZES, (10, 20, 50))
     self.assertEqual(suites.dependency_sizes('cxx'), [10, 20, 50, 100])
-    self.assertEqual(suites.dependency_sizes('py'), [10, 20, 50, 100])
+    self.assertEqual(suites.dependency_sizes('cxx'), [10, 20, 50, 100])
     self.assertEqual(
         suites.dependency_sizes('resolvelib'), [10, 20, 50, 100, 200, 800]
       )
@@ -1093,12 +1092,11 @@ class TestApplications(unittest.TestCase):
     other; an opponent runs the items it opposes only; the commands run
     the child programs under apps/ with the Python of the installation.
     '''
-    backends = ['cxx', 'py', 'resolvelib', 'python', 'clang']
+    backends = ['cxx', 'resolvelib', 'python', 'clang']
     items = self.build(['dependency', 'overloads'], backends)
     keys = [item.key for item in items]
-    self.assertEqual(keys[:4], [
+    self.assertEqual(keys[:3], [
         ('applications', 'dependency', 'cxx', '10/solvable')
-      , ('applications', 'dependency', 'py', '10/solvable')
       , ('applications', 'dependency', 'resolvelib', '10/solvable')
       , ('applications', 'dependency', 'cxx', '10/unsolvable')
       ])
@@ -1109,13 +1107,12 @@ class TestApplications(unittest.TestCase):
     self.assertNotIn(
         ('applications', 'dependency', 'cxx', '200/solvable'), keys
       )
-    self.assertEqual(keys[-4:], [
+    self.assertEqual(keys[-3:], [
         ('applications', 'overloads', 'cxx', None)
-      , ('applications', 'overloads', 'py', None)
       , ('applications', 'overloads', 'python', None)
       , ('applications', 'overloads', 'clang', None)
       ])
-    self.assertEqual(len(items), 4 * 2 * 3 + 2 * 2 + 4)
+    self.assertEqual(len(items), 4 * 2 * 2 + 2 * 2 + 3)
     # A command reads the environment when it is built.  The checks below
     # run in one that names no interpreter mode, so the item adds
     # interpret:off; the mode of the environment wins (the end of the test).
@@ -1133,20 +1130,20 @@ class TestApplications(unittest.TestCase):
           env['SPRITE_INTERPRETER_FLAGS'], 'backend:cxx,interpret:off'
         )
       self.assertEqual(env['SPRITE_ROTATION'], 'steps:65536')
-      cmd, env, cwd = items[2].command()
+      cmd, env, cwd = items[1].command()
       self.assertEqual(
           cmd[1:], [suites.DEPENDENCY, 'resolvelib', '10', 'solvable']
         )
       self.assertEqual(env.get('SPRITE_INTERPRETER_FLAGS'), 'backend:cxx')
-      item = next(i for i in items if i.key[2:] == ('py', '100/unsolvable'))
+      item = next(i for i in items if i.key[2:] == ('cxx', '100/unsolvable'))
       self.assertEqual(item.size, 100)
       self.assertEqual(item.case, 'unsolvable')
       self.assertEqual(item.command()[0][2:], ['sprite', '100', 'unsolvable'])
       self.assertEqual(
           item.command()[1]['SPRITE_INTERPRETER_FLAGS']
-        , 'backend:py,interpret:off'
+        , 'backend:cxx,interpret:off'
         )
-    cmd, env, cwd = items[-4].command()
+    cmd, env, cwd = items[-3].command()
     self.assertEqual(cmd[1:], [suites.OVERLOADS, 'sprite', '1000'])
     self.assertEqual(
         items[-2].command()[0][1:], [suites.OVERLOADS, 'python', '1000']
@@ -1175,12 +1172,12 @@ class TestApplications(unittest.TestCase):
         env['SPRITE_INTERPRETER_FLAGS'], 'backend:cxx,interpret:all'
       )
     self.assertEqual(
-        suites.set_interpret_flag('backend:py', 'off'), 'backend:py,interpret:off'
+        suites.set_interpret_flag('backend:cxx', 'off'), 'backend:cxx,interpret:off'
       )
     self.assertEqual(suites.set_interpret_flag('', 'off'), 'interpret:off')
     self.assertEqual(
-        suites.set_interpret_flag('backend:py,interpret:new', 'off')
-      , 'backend:py,interpret:new'
+        suites.set_interpret_flag('backend:cxx,interpret:new', 'off')
+      , 'backend:cxx,interpret:new'
       )
 
   def test_parse(self):
@@ -1549,14 +1546,14 @@ class TestRunOptions(unittest.TestCase):
     self.assertFalse(args.no_perf)
     self.assertTrue(run.parse_args(['--no-perf']).no_perf)
     args = run.parse_args([
-        '-s', 'memory', '-b', 'py', '-b', 'cxx', '-e', 'A=1', '-e', 'B=x=y'
+        '-s', 'memory', '-b', 'cxx', '-e', 'A=1', '-e', 'B=x=y'
       , 'Fib'
       ])
     self.assertEqual(args.repeat, 1)
-    self.assertEqual(args.backend, ['py', 'cxx'])
+    self.assertEqual(args.backend, ['cxx'])
     self.assertEqual(run.parse_args(['-s', 'split']).repeat, 3)
     args_apps = run.parse_args(['-s', 'applications'])
-    self.assertEqual(args_apps.backend, ['cxx', 'py', 'resolvelib', 'python'])
+    self.assertEqual(args_apps.backend, ['cxx', 'resolvelib', 'python'])
     self.assertEqual(args_apps.repeat, 3)
     self.assertEqual(
         run.parse_args(['-s', 'applications', '-b', 'clang']).backend, ['clang']
@@ -2073,12 +2070,12 @@ class TestCompare(unittest.TestCase):
     self.assertEqual(status, 0)
     self.assertEqual(len(self.table(lines)), 4)
     self.assertIn("label 'baseline-2026-10-03'", lines[0])
-    self.assertTrue(lines[-1].startswith('instructions: missing in OLD for 8'))
+    self.assertTrue(lines[-1].startswith('instructions: missing in OLD for 4'))
     status, lines = self.run_main(
         ['--deterministic', '--strict', baseline, baseline]
       )
     self.assertEqual(status, 1)
-    self.assertIn('8 without the metric', self.summary(lines))
+    self.assertIn('4 without the metric', self.summary(lines))
 
 
 class TestCounters(unittest.TestCase):
@@ -2141,7 +2138,7 @@ class TestCounters(unittest.TestCase):
     with open(filename, 'w') as stream:
       records.write(stream, self.record('A', COUNTERS_LINE))
       records.write(stream, self.record('B', STATS_LINE))
-      records.write(stream, self.record('C', COUNTERS_LINE, backend='py'))
+      records.write(stream, self.record('C', COUNTERS_LINE, backend='pakcs'))
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
       self.assertEqual(counters.main([filename]), 0)
@@ -2158,14 +2155,14 @@ class TestCounters(unittest.TestCase):
     self.assertEqual(len(lines), 4)
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
-      self.assertEqual(counters.main(['--csv', '-b', 'py', filename]), 0)
+      self.assertEqual(counters.main(['--csv', '-b', 'pakcs', filename]), 0)
     lines = out.getvalue().splitlines()
     self.assertEqual(lines[0], ','.join(counters.HEADINGS))
     self.assertEqual(lines[1].split(',')[:4], ['C', '7', '2', '0.714'])
     self.assertEqual(len(lines), 2)
     # No record with the counters: status 1.
     with contextlib.redirect_stdout(io.StringIO()):
-      self.assertEqual(counters.main(['-b', 'pakcs', filename]), 1)
+      self.assertEqual(counters.main(['-b', 'clang', filename]), 1)
     with self.assertRaisesRegex(SystemExit, 'counters: '):
       counters.main([os.path.join(self.tmpdir, 'missing.jsonl')])
 
@@ -2188,7 +2185,7 @@ class TestSplit(unittest.TestCase):
     '''
     A: a complete split into two (bound 10/6, duplicated work 11/10), four
     parts with one missing, and eight parts with one failed.  B on the
-    Python backend: a complete split into two.  A throughput record of A
+    former runtime: a complete split into two.  A throughput record of A
     is ignored.
     '''
     recs = [
@@ -2202,9 +2199,9 @@ class TestSplit(unittest.TestCase):
     recs += [self.record('A', '8/%d' % i, 2.0, 200, 20) for i in range(7)]
     recs.append(self.record('A', '8/7', 2.0, 200, 20, status='fail'))
     recs += [
-        self.record('B', 'whole', 4.0, 400, 40, backend='py')
-      , self.record('B', '2/0', 4.0, 400, 40, backend='py')
-      , self.record('B', '2/1', 1.0, 100, 10, backend='py')
+        self.record('B', 'whole', 4.0, 400, 40, backend='pakcs')
+      , self.record('B', '2/0', 4.0, 400, 40, backend='pakcs')
+      , self.record('B', '2/1', 1.0, 100, 10, backend='pakcs')
       , make_record('A', 1.0)
       ]
     return recs
@@ -2221,7 +2218,7 @@ class TestSplit(unittest.TestCase):
     self.assertEqual(
         [(r['program'], r['backend'], r['parts'], r['ok']) for r in table]
       , [ ('A', 'cxx', 2, '2/2'), ('A', 'cxx', 4, '3/4')
-        , ('A', 'cxx', 8, '7/8'), ('B', 'py', 2, '2/2')
+        , ('A', 'cxx', 8, '7/8'), ('B', 'pakcs', 2, '2/2')
         ]
       )
     two = table[0]
@@ -2296,7 +2293,7 @@ class TestSplit(unittest.TestCase):
       )
     self.assertEqual(lines[2].split(), ['A', 'cxx', '4', '3/4'] + ['-'] * 9)
     self.assertEqual(lines[3].split()[:4], ['A', 'cxx', '8', '7/8'])
-    self.assertEqual(lines[4].split()[:4], ['B', 'py', '2', '2/2'])
+    self.assertEqual(lines[4].split()[:4], ['B', 'pakcs', '2', '2/2'])
     self.assertEqual(len(lines), 5)
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
@@ -2311,17 +2308,17 @@ class TestSplit(unittest.TestCase):
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
       self.assertEqual(
-          split.main(['--csv', '-m', 'wall', '-b', 'py', filename]), 0
+          split.main(['--csv', '-m', 'wall', '-b', 'pakcs', filename]), 0
         )
     lines = out.getvalue().splitlines()
     self.assertEqual(lines[0], ','.join(split.HEADINGS))
     self.assertEqual(
-        lines[1], 'B,py,2,2/2,8.000,8.000,2/0,1.00,1.25,400,1.00,1.25,1.25'
+        lines[1], 'B,pakcs,2,2/2,8.000,8.000,2/0,1.00,1.25,400,1.00,1.25,1.25'
       )
     self.assertEqual(len(lines), 2)
     # No complete split: status 1.
     with contextlib.redirect_stdout(io.StringIO()):
-      self.assertEqual(split.main(['-b', 'pakcs', filename]), 1)
+      self.assertEqual(split.main(['-b', 'clang', filename]), 1)
     with self.assertRaisesRegex(SystemExit, 'split: '):
       split.main([os.path.join(self.tmpdir, 'missing.jsonl')])
     with contextlib.redirect_stderr(io.StringIO()):
@@ -2372,14 +2369,14 @@ class TestHistory(unittest.TestCase):
     # variant, and date.
     recs = [
         make_record('B', 1.0, suite='import')
-      , make_record('A', 2.0, backend='py')
+      , make_record('A', 2.0, backend='pakcs')
       , make_record('A', 1.0, suite='memory', variant='collector=on')
       , make_record('A', 1.0)
       ]
     pts = history.points(recs)
     self.assertEqual(
         [(p['suite'], p['program'], p['backend'], p['variant']) for p in pts]
-      , [ ('throughput', 'A', 'cxx', None), ('throughput', 'A', 'py', None)
+      , [ ('throughput', 'A', 'cxx', None), ('throughput', 'A', 'pakcs', None)
         , ('import', 'B', 'cxx', None), ('memory', 'A', 'cxx', 'collector=on')
         ]
       )
@@ -2686,9 +2683,7 @@ class TestSmoke(cytest.TestCase):
     status, log = self.harness('-s', 'memory', 'Hello', '-o', filename)
     self.assertEqual(status, 0, log)
     recs = records.read(filename)
-    variants = ['collector=on']
-    if BACKEND == 'cxx':
-      variants.append('collector=off')
+    variants = ['collector=on', 'collector=off']
     self.assertEqual([r['variant'] for r in recs], variants)
     for record in recs:
       self.assertEqual(record['suite'], 'memory')
@@ -2734,9 +2729,6 @@ class TestSmoke(cytest.TestCase):
     # The working directory of the harness is gone.
     self.assertEqual(self.workdirs(), before)
 
-  @unittest.skipUnless(
-      BACKEND == 'cxx', 'QueensSet takes a minute on the Python backend'
-    )
   def test_split_suite(self):
     '''
     QueensSet whole and in two parts, and the split command on them.  The
@@ -2895,7 +2887,7 @@ class TestCommittedApplications(unittest.TestCase):
           self.assertIsNotNone(probe)
           self.assertGreater(record['eval_wall'], 0.0)
         if record['program'] == 'overloads' and record['status'] == 'ok' \
-            and record['backend'] in ('cxx', 'py'):
+            and record['backend'] in ('cxx',):
           self.assertTrue(probe['agree'])
       # The opponent answers every size; the Sprite backends the sizes
       # that end, and a timeout is recorded as such.
@@ -2926,8 +2918,6 @@ class TestCommittedApplications(unittest.TestCase):
             )
           plans.setdefault(int(size), {})[record['backend']] = probe['plan']
       for size, found in plans.items():
-        if 'cxx' in found and 'py' in found:
-          self.assertEqual(found['cxx'], found['py'], size)
         if 'cxx' in found and 'resolvelib' in found:
           self.assertEqual(
               found['cxx'] == found['resolvelib'], size in (10, 20), size

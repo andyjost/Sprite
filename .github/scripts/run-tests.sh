@@ -1,7 +1,7 @@
 #!/bin/bash
 # Runs the test files that match a pattern on one backend, one process per
 # file, so that an abort in the C++ runtime fails one file and not the run.
-# Usage: run-tests.sh py|cxx 'unit_*.py' [k/n]
+# Usage: run-tests.sh cxx 'unit_*.py' [k/n]
 # With k/n, only every n-th file starting at the k-th (1-based) runs, so that
 # a matrix can spread the files over several runners.  SPRITE_TEST_FLAGS in
 # the environment adds interpreter flags to the backend flag, in the syntax
@@ -19,6 +19,7 @@
 # the pass is skipped.
 set -uo pipefail
 backend=$1
+[ "$backend" = cxx ] || { echo "the backend must be cxx" >&2; exit 2; }
 pattern=$2
 shard=${3:-1/1}
 k=${shard%/*}

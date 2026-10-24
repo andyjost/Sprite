@@ -95,7 +95,7 @@ def compile(interp, source, *, name=None, imports=()):
 def wait(interp, module=None):
   if module is not None:
     check_module(module)
-  if interp.flags['backend'] == 'cxx' and interp.flags['interpret'] == 'tiered':
+  if interp.flags['interpret'] == 'tiered':
     from ..backends.cxx import tiered
     if module is None:
       tiered.wait(interp=interp)
@@ -142,7 +142,7 @@ def reload(interp, module, *, text=None):
   source = getattr(module, '.source_file', None) or ModuleInfo(module).file
   if text is None and source is None:
     raise exceptions.LoadError('cannot reload text module %r without text; use curry.reload(module, text=...)' % module.__name__)
-  if source is not None and interp.flags['backend'] == 'cxx' \
+  if source is not None \
       and interp.flags['interpret'] in ('tiered', 'off'):
     raise exceptions.LoadError(
         "cannot reload %r on backend 'cxx'; use curry.reset(interpret='new') "
@@ -171,10 +171,8 @@ def reload(interp, module, *, text=None):
     plan = plans.makeplan(flags=plans.MAKE_ICURRY | plans.MAKE_JSON)
     toolchain.makecurry(plan, filename, currypath, is_sourcefile=True)
   wait(interp)
-  if interp.flags['backend'] == 'cxx':
-    from ..utility.locking import native_metadata
-    return native_metadata(_replace_module)(interp, module, source, text, imports)
-  return _replace_module(interp, module, source, text, imports)
+  from ..utility.locking import native_metadata
+  return native_metadata(_replace_module)(interp, module, source, text, imports)
 
 
 def _replace_module(interp, module, source, text, imports):
@@ -238,14 +236,10 @@ def save(interp, module, path, *, main=None):
     with tempfile.TemporaryDirectory(prefix='sprite-save-') as work:
       directory = os.path.join(work, '.curry', config.intermediate_subdir())
       os.makedirs(directory)
-      product = os.path.join(directory, module.__name__ + ('.so' if backend == 'cxx' else '.py'))
-      if backend == 'py':
-        interp.save(module, product, module_main=False, interfaces=True)
-      else:
-        from ..backends.cxx import toolchain
-        cpp = os.path.join(directory, module.__name__ + '.cpp')
-        interp.save(module, cpp, module_main=False, interfaces=True)
-        product = toolchain.Cpp2So(interp)(cpp, interp.path)
+      from ..backends.cxx import toolchain
+      cpp = os.path.join(directory, module.__name__ + '.cpp')
+      interp.save(module, cpp, module_main=False, interfaces=True)
+      product = toolchain.Cpp2So(interp)(cpp, interp.path)
       if main is None:
         shutil.copyfile(product, path)
       else:
@@ -278,23 +272,10 @@ def load(interp, path):
       loaded = getattr(module, '.load_path', None) or getHandle(module).sofilename
       if loaded is not None and os.path.realpath(loaded) == os.path.realpath(path):
         return module
-    if backend == 'cxx':
-      from ..backends.cxx.loader import _dynamic_names
-      name, _ = _dynamic_names(path)
-      if name is None:
-        raise ValueError('no Curry module record')
-    else:
-      import ast
-      with open(path, encoding='utf-8') as stream:
-        tree = ast.parse(stream.read())
-      # Read the module record without executing an arbitrary Python file.
-      name = None
-      for node in ast.walk(tree):
-        if isinstance(node, ast.keyword) and node.arg == 'fullname' \
-            and isinstance(node.value, ast.Constant):
-          name = node.value.value
-      if name is None:
-        raise ValueError('no Curry module record')
+    from ..backends.cxx.loader import _dynamic_names
+    name, _ = _dynamic_names(path)
+    if name is None:
+      raise ValueError('no Curry module record')
     if name in interp.modules:
       module = interp.modules[name]
       loaded = getattr(module, '.load_path', None) or getHandle(module).sofilename
@@ -304,12 +285,12 @@ def load(interp, path):
     # Internal loaders require their backend suffix; save accepts any suffix.
     suffix = interp.backend.object_file_extension
     if path.endswith(suffix):
-      module = interp.load(path, **({'fresh': True} if backend == 'cxx' else {}))
+      module = interp.load(path, fresh=True)
     else:
       with tempfile.TemporaryDirectory(prefix='sprite-load-') as work:
         copy = os.path.join(work, name + suffix)
         shutil.copyfile(path, copy)
-        module = interp.load(copy, **({'fresh': True} if backend == 'cxx' else {}))
+        module = interp.load(copy, fresh=True)
     setattr(module, '.load_path', path)
     metadata = getHandle(module).icurry.metadata
     if metadata.get('all.fint'):

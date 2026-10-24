@@ -39,9 +39,6 @@ M = curry.import_('CxxFreeVars')
     return proc
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 @cytest.skipUnlessGcBackend(
     'wdgc', 'the free-variable table is a strong root under MPS'
   )
@@ -188,9 +185,6 @@ print(results)
       ))
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 class TestNarrowing(ChildTests):
   '''
   The narrowing of a variable of a constructor type with fields
@@ -220,9 +214,6 @@ print('collections', collections)
     self.assertIn('collections', proc.stdout)
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 class TestFinalizers(ChildTests):
   '''
   A generator node owns a reference to its Python iterator (biGeneratorNode

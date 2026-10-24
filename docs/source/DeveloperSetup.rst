@@ -69,7 +69,7 @@ The script runs nine steps in this order.
    configuration while ``object-root/cmake/CMakeCache.txt`` exists and
    the flags agree. ``--reconfigure`` reruns CMake without deleting products.
 7. ``make stage``.  Builds the runtime and compiles the Curry library for
-   both backends.  Then ``make overlay`` extracts the archived products of
+   the C++ runtime.  Then ``make overlay`` extracts the archived products of
    the test programs, after the stage so that they are newer than the
    installed library interfaces.
 8. Smoke test.  Runs one fast unit test file on each backend under the
@@ -168,7 +168,7 @@ The last step prints the same list with the paths of the machine.
    test runner::
 
        cd tests
-       ./run_tests -j 1 --backend both --update-manifest
+       ./run_tests -j 1 --backend cxx --update-manifest
 
    The durations and the peak memory of every test file must be measured
    there, then committed in ``tests/manifest.json``.  See ``./run_tests -h``
@@ -178,7 +178,7 @@ The last step prints the same list with the paths of the machine.
    which the compare command checks::
 
        cd tests
-       ./run_benchmarks -b cxx -b py --label baseline -o PREFIX/baseline.jsonl
+       ./run_benchmarks -b cxx --label baseline -o PREFIX/baseline.jsonl
        ./run_benchmarks counters PREFIX/baseline.jsonl
 
 3. Update the personal rules file with the new paths: the Python, the
@@ -210,7 +210,7 @@ conda environment::
     make check-prereqs
     make stage CMAKE_ARGS="-DCMAKE_CXX_COMPILER=/usr/bin/g++ -DWITH_CCACHE=ccache"
     make overlay
-    cd tests && ./run_tests --prepare-only --backend both && ./run_tests --backend both
+    cd tests && ./run_tests --prepare-only --backend cxx && ./run_tests --backend cxx
 
 ``cmake -S . -B object-root/cmake -G Ninja`` configures directly;
 ``cmake --build object-root/cmake --parallel`` builds;

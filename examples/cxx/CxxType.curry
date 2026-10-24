@@ -464,7 +464,7 @@ showBound :: Int -> String
 showBound n = if n == 0 then "[]" else "[" ++ showNat n ++ "]"
 
 -- The decimal digits of a non-negative Int, by arithmetic.  The printer does
--- not use show: on the Python backend, show does not finish on an Int inside
+-- not use show: on the former runtime, show does not finish on an Int inside
 -- a term that unification bound to a free variable, as in a deduced array
 -- type, whereas arithmetic on it does.
 showNat :: Int -> String

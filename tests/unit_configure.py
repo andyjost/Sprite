@@ -46,17 +46,16 @@ class TestCMake(cytest.TestCase):
   def test_defaults_and_runtime_facts(self):
     result = self.configure()
     self.assertEqual(result.returncode, 0, result.stdout)
-    for name, value in [('JOBS', 'auto'), ('WITH_DEFAULT_BACKEND', 'cxx'),
-                        ('GC', 'wdgc'), ('CMAKE_BUILD_TYPE', 'Release'),
+    for name, value in [('JOBS', 'auto'), ('GC', 'wdgc'), ('CMAKE_BUILD_TYPE', 'Release'),
                         ('WITH_CCACHE', ''), ('WITH_PAKCS', ''),
                         ('CURRY2ICURRY_TOOL', 'frontend')]:
       self.assertEqual(self.cache(name), value)
     facts = self.build / 'stage/sysconfig'
-    self.assertEqual(len(list(facts.iterdir())), 17)
+    self.assertEqual(len(list(facts.iterdir())), 16)
     for path in facts.iterdir():
       self.assertNotIn(str(self.build), path.read_text())
       self.assertNotIn(str(ROOT), path.read_text())
-    for name, value in [('default_backend', 'cxx'), ('cxx_gc', 'wdgc'),
+    for name, value in [('cxx_gc', 'wdgc'),
                         ('default_sprite_cache_file', 'cache.db'),
                         ('enable_icurry_cache', '0'),
                         ('frontend_subdir', 'pakcs-3.4.1'),
@@ -71,21 +70,20 @@ class TestCMake(cytest.TestCase):
     self.assertIn('build-package.py', ninja)
 
   def test_options_and_validation(self):
-    result = self.configure('-DJOBS=3', '-DGC=wdgc', '-DWITH_DEFAULT_BACKEND=py',
+    result = self.configure('-DJOBS=3', '-DGC=wdgc',
                             '-DCMAKE_BUILD_TYPE=Debug', '-DGC_WRITE_COUNTERS=ON',
                             '-DENABLE_ICURRY_CACHE=ON')
     self.assertEqual(result.returncode, 0, result.stdout)
     facts = self.build / 'stage/sysconfig'
-    for name, value in [('default_backend', 'py'), ('cxx_gc', 'wdgc'),
+    for name, value in [('cxx_gc', 'wdgc'),
                         ('default_sprite_cache_file', 'cache.db'),
                         ('enable_icurry_cache', '1'),
                         ('cxx_flavor', 'debug'), ('cxx_gc_write_counters', '1')]:
       self.assertEqual((facts / name).read_text().strip(), value)
     for option, message in [('-DJOBS=0', 'positive integer or auto'),
                             ('-DGC=bad', 'GC must be'),
-                            ('-DWITH_DEFAULT_BACKEND=llvm', 'must be cxx or py'),
                             ('-DCURRY2ICURRY_TOOL=bad', 'must be frontend or icurry')]:
-      result = self.configure('-DJOBS=auto', '-DGC=wdgc', '-DWITH_DEFAULT_BACKEND=cxx',
+      result = self.configure('-DJOBS=auto', '-DGC=wdgc',
                               '-DCURRY2ICURRY_TOOL=frontend', option)
       self.assertNotEqual(result.returncode, 0, result.stdout)
       self.assertIn(message, result.stdout)

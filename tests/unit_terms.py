@@ -81,10 +81,6 @@ class TestTerms(cytest.TestCase):
     self.assertEqual(curry.eval(node).one().args, (1,))
     self.assertTrue(inspect.isa(node, P.Just))
     self.assertTrue(inspect.isa(node, (P.Just,)))
-    if curry.flags['backend'] == 'py':
-      from curry.backends.py.graph import Node
-      node = Node(P.Just, cytest.raw.expr(1))
-      self.assertEqual(curry.eval(node).one().args, (1,))
     from curry.typecheck import engine
     for description in ((P.Just, 1), ([P.Just, 1],)):
       node = engine.build(interp, *description)

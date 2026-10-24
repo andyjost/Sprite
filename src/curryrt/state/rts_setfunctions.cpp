@@ -132,7 +132,7 @@ namespace curryrt
   // none.  A constraint that fails at the root of procD (the occurs
   // check, or the union of two classes with different instances) is a
   // failure at the root like a failure cell there: the path crossed no
-  // guard, so the record is an inside failure.  The Python backend has
+  // guard, so the record is an inside failure.  The former runtime has
   // the same rule (record_failure in rts_setfunctions.py).
   //
   // The level of an outside failure is failure_level, and the choice of
@@ -220,7 +220,7 @@ namespace curryrt
   // their queues, as after E_UNWIND; the configurations the clone shares
   // are cloned before a queue steps them (Queue::unshare_front).  A
   // nested capsule inside the clone diverges in turn, one level down, at
-  // its next read.  The Python backend has the same step (E_DIVERGE in
+  // its next read.  The former runtime has the same step (E_DIVERGE in
   // rts_bindings.py and allValues in currylib/setfunctions.py).
   tag_type RuntimeState::diverge(size_t level, xid_type vid, Node * binding)
   {

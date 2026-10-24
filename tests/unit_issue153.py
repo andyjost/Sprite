@@ -13,7 +13,6 @@ def run(n):
   return values, ev.rts.steps_total
 '''
 
-@unittest.skipUnless(curry.flags['backend'] == 'cxx', 'C++ runtime escalation')
 class TestIssue153(cytest.TestCase):
   def test_creation_exceptions_are_refused_reservations(self):
     '''Exercise both exception paths at the POSIX thread adapter boundary.'''

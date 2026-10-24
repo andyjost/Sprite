@@ -25,7 +25,7 @@ class Json2TargetSource(object):
     icurry = _loadcurry.loadjson(file_in)
     # A module inside a package needs the package imported first.  An import
     # by name does this through the name prefixes; an import of the ICurry
-    # object does not.  So sprite-make --py Data.Maybe failed with KeyError.
+    # object does not.  A compile of Data.Maybe failed with KeyError.
     packagename, _, _ = icurry.fullname.rpartition('.')
     if packagename:
       self.interp.import_(packagename, currypath=currypath)

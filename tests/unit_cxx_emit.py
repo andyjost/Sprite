@@ -26,9 +26,6 @@ from curry.objects.handle import getHandle
 from curry.toolchain import plans
 import curry, os, re, tempfile, unittest, zlib
 
-ONLY_CXX = unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 COMPILED = unittest.skipIf(
     curry.flags['interpret'] != 'off', 'the interpreter writes no C++'
   )
@@ -37,14 +34,12 @@ HAND = 'CxxEmitHand'
 
 def expected_failure_on_py(test):
   '''
-  The Python backend scrutinizes a variable through Variable.hnf
-  (vEmit_compileS_ICaseCons in backends/py/compiler.py).  A variable
+  The former runtime scrutinizes a variable through Variable.hnf
+  (vEmit_compileS_ICaseCons in the former implementation).  A variable
   assigned a new node is a raw Node there, which has no hnf, so the ICurry
   of CxxEmitHand raises AttributeError on that backend.  The front end never
   writes the shape.
   '''
-  if curry.flags['backend'] == 'py':
-    return unittest.expectedFailure(test)
   return test
 
 def generated_text(module):
@@ -231,8 +226,6 @@ class TestHandBuilt(cytest.TestCase):
       self.assertEqual(
           list(curry.eval(goal)), [value], name
         )
-
-  @ONLY_CXX
   @COMPILED
   def test_variable_targets_a_cell(self):
     text = generated_text(self.module())
@@ -243,9 +236,6 @@ class TestHandBuilt(cytest.TestCase):
       self.assertIn('%s.target = tmp%s;' % (var, var), step)
       self.assertIn('rts->hnf(C, &%s, ' % var, step)
       self.assertNotRegex(step, r'\n  %s = ' % var)
-
-
-@ONLY_CXX
 @COMPILED
 class TestGeneratedCode(cytest.TestCase):
   '''The lifted variable of the front end is a plain pointer, whatever the

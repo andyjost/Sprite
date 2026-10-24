@@ -218,9 +218,8 @@ def expectedFailureIf(condition, reason):
   '''
   Marks a test as a known failure when ``condition`` holds, and leaves it
   alone otherwise.  ``reason`` names the defect for the reader; unittest
-  reports an expected failure without one.  Use it where a test runs on
-  both backends and one of them has a known defect: the test keeps running
-  there, and a fix shows as an unexpected success.
+  reports an expected failure without one.  The condition names the setting
+  with the known defect; a fix shows as an unexpected success.
   '''
   if condition:
     return unittest.expectedFailure
@@ -228,12 +227,9 @@ def expectedFailureIf(condition, reason):
 
 def interpret_mode():
   '''
-  The value of the interpreter flag ``interpret`` of this session on the C++
-  backend, or None on the Python backend, which ignores the flag.
+  The value of the interpreter flag ``interpret`` of this session.
   '''
   import curry
-  if curry.flags['backend'] != 'cxx':
-    return None
   return curry.flags['interpret']
 
 def skipIfInterpreted(reason):

@@ -388,9 +388,7 @@ def getimpl(obj):
   Gets the implementation of a module or symbol as text.
 
   For a module, the source code the backend generates for it.
-  For a function symbol, the code of its step function.  The Python backend
-  gives the generated Python function, or the Python source of a built-in.
-  The C++ backend gives the generated C++ function, read from the .cpp file
+  For a function symbol, the generated C++ function, read from the .cpp file
   beside the compiled module, or the bytecode of an interpreted function
   (flag ``interpret``) with its constants.
 

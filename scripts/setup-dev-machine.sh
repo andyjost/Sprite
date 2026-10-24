@@ -596,7 +596,7 @@ step_configure() {
 
 step_stage() {
   step "Step 7/$NSTEPS: make stage"
-  note "builds the runtime and compiles the Curry library for both backends (minutes)"
+  note "builds the runtime and compiles the Curry library for the C++ runtime (minutes)"
   run_in "$repo" "${clean_env[@]}" make stage JOBS="$jobs"
   if [ "$dry_run" = 0 ] && [ ! -r "$prefix/install/lib/libcurryrt.so" ]; then
     die "make stage did not produce $prefix/install/lib/libcurryrt.so"
@@ -614,11 +614,11 @@ step_stage() {
 # Step 8: the smoke test.
 
 step_smoke() {
-  step "Step 8/$NSTEPS: smoke test ($smoke_file on each backend)"
+  step "Step 8/$NSTEPS: smoke test ($smoke_file on the C++ runtime)"
   local backend test_env
   note "cap: $cap_kb KiB of address space; time limit: $timeout_sec s"
   run mkdir -p "$repo/tests/.cache"
-  for backend in py cxx; do
+  for backend in cxx; do
     test_env=(
         "${clean_env[@]}"
         "SPRITE_HOME=$prefix/install"
@@ -728,11 +728,11 @@ step_next() {
         clean env:   ${clean_env[*]}
 
     1. Calibrate the test manifest on this machine: run every test file
-       once per backend on a quiet machine with the manifest update of the
+       once on a quiet machine with the manifest update of the
        test runner (see ./run_tests -h and section 10 of tests/README):
 
            cd $repo/tests
-           ./run_tests -j 1 --backend both --update-manifest
+           ./run_tests -j 1 --backend cxx --update-manifest
 
        The durations and the peak memory of the files are then measured
        here and not copied from another machine.  Commit tests/manifest.json.
@@ -741,7 +741,7 @@ step_next() {
        the compare command checks:
 
            cd $repo/tests
-           ./run_benchmarks -b cxx -b py --label baseline -o $prefix/baseline.jsonl
+           ./run_benchmarks -b cxx --label baseline -o $prefix/baseline.jsonl
            ./run_benchmarks counters $prefix/baseline.jsonl
 
     3. Update the personal rules file (CLAUDE.local.md at the checkout root)

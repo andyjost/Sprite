@@ -26,7 +26,7 @@ namespace curryrt
   // (add_binding).  The merge of two bound classes at a union no longer
   // compares the terms: it keeps one binding and guards the step with the
   // strict equality of the two (merge_binding in rts_constraints.cpp;
-  // decision D26 of 2026-10-12).  The Python backend has the same
+  // decision D26 of 2026-10-12).  The former runtime has the same
   // comparison (_same_binding in rts_bindings.py).
   static bool same_binding(Node * a, Node * b)
   {
@@ -83,7 +83,7 @@ namespace curryrt
   // that forks on the generator again applies nothing.  Applied at every
   // fork, the constraint pull-tabbed the same generator to the root, the
   // fork applied the binding once more, and so on without end (issue #97).
-  // The Python backend has the same step (rts_bindings.apply_binding).
+  // The former runtime has the same step (rts_bindings.apply_binding).
   void RuntimeState::apply_binding(Configuration * C, xid_type id)
   {
     if(C->has_binding(id))

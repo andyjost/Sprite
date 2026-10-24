@@ -104,7 +104,7 @@ class TestNestedSetGuard(cytest.TestCase):
   The inner of two nested set functions returns its argument, which carries
   the guards of both.  The inner scheduler descends into them; a choice
   below them joins the escape sets of both sets and escapes both set
-  functions.  The Python backend unwound on the guard of the enclosing set
+  functions.  The former runtime unwound on the guard of the enclosing set
   at the root before the fix of issue #130.
   '''
   @classmethod
@@ -161,9 +161,6 @@ class TestFailedSuccessorOfSharedRoot(cytest.TestCase):
     self.assertEqual(results, self.EXPECTED)
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 class TestInterruptedStep(cytest.TestCase):
   '''
   A step of a nested set function is interrupted (E_ROTATE, E_UNWIND) after

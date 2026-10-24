@@ -416,14 +416,9 @@ class TestReorderedChangeTimes(cytest.TestCase):
 
   def setUp(self):
     super().setUp()
-    if curry.flags['backend'] == 'cxx':
-      # The compile steps run in this process.  Under the default of the
-      # flag ``interpret`` (tiered) the plan of a module ends at its JSON
-      # and the object is compiled in the background; see
-      # unit_cxx_toolchain.  The cleanup restores the default.
-      curry.reset(**{'interpret': 'off'})
-      curry.import_('Prelude')
-      self.addCleanup(self.reload_curry)
+    curry.reset(**{'interpret': 'off'})
+    curry.import_('Prelude')
+    self.addCleanup(self.reload_curry)
     self.plan = plans.makeplan(
         cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
       )
@@ -487,11 +482,9 @@ class TestReorderedChangeTimes(cytest.TestCase):
     self.assertEqual(
         list(curry.eval(module.goal)), [2]
       )
-    if curry.flags['backend'] == 'cxx':
-      # An object whose ABI stamp differs goes, whatever the times say.
-      from curry.backends.cxx.toolchain import Cpp2So
-      self.assertTrue(files[-1].endswith('.so'))
-      with open(Cpp2So.stampfile(files[-1]), 'w') as stream:
-        stream.write('0123456789abcdef\n')
-      self.assertEqual(self.currentfile(), files[-2])
-      self.assertTrue(files[-2].endswith('.cpp'))
+    from curry.backends.cxx.toolchain import Cpp2So
+    self.assertTrue(files[-1].endswith('.so'))
+    with open(Cpp2So.stampfile(files[-1]), 'w') as stream:
+      stream.write('0123456789abcdef\n')
+    self.assertEqual(self.currentfile(), files[-2])
+    self.assertTrue(files[-2].endswith('.cpp'))

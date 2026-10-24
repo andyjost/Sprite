@@ -602,7 +602,7 @@ def show(value: Convertible | Answer) -> str:
 # class a Python programmer would catch.  Nothing derives from BaseException.
 # Every message names the rule, the operand, its position and the spelling
 # that follows; no message holds a machine path or a class of a backend; the
-# same class on both backends and both routes.  Warnings go through
+# same class through the API and both front-end routes.  Warnings go through
 # ``warnings.warn(CurryWarning)``; the package logs to the logger ``curry``
 # with a ``NullHandler`` and never configures the root logger.
 # ---------------------------------------------------------------------------
@@ -688,7 +688,7 @@ class DivisionByZeroError(EvaluationError, ZeroDivisionError):
   """``div 1 0``, ``mod 1 0`` and kin: ``division by zero: div 1 0``.  A ``Float`` division keeps the IEEE result and raises nothing."""
 
 class CurryIOError(EvaluationError, OSError):
-  """An uncaught I/O error of the action, the same class on both backends (A20)."""
+  """An uncaught I/O error of the action (A20)."""
 
 class CurryFileNotFoundError(CurryIOError, FileNotFoundError):
   """``readFile "/nosuch"``: ``except FileNotFoundError`` catches it and ``.filename`` is set (A20)."""

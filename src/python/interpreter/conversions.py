@@ -11,7 +11,6 @@ __all__ = ['currytype', 'topython', 'unbox']
 
 LIST = ('Prelude', '[]')
 CHAR = ('Prelude', 'Char')
-STRING_NODE = '_biString'
 
 def currytype(interp, ty):
   '''
@@ -136,10 +135,6 @@ class ToPython(object):
       for x, t in zip(value.successors, comps):
         items.append((yield x, t))
       return tuple(items)
-    elif _is_string_node(value):
-      # The string node of the Python backend, not yet unfolded.
-      from ..backends.py.currylib.prelude.string import text
-      return text(value.successor(0))
     else:
       if self.interp is None or not isinstance(value, backends.Node):
         return value
@@ -244,10 +239,6 @@ def _argument_types(scheme, typeexpr, n, partial=False):
   from ..typecheck.defaulting import substitute
   return [substitute(p, mapping) for p in params[:n]] + [None] * max(0, n - len(params))
 
-def _is_string_node(value):
-  info = inspect.info_of(value)
-  return info is not None and info.name == STRING_NODE \
-      and isinstance(value.successor(0), memoryview)
 
 _topython_converter_ = ToPython(convert_freevars=False)
 

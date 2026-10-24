@@ -2,7 +2,7 @@
 // The checker of the run-time invariants of the Fair Scheme: the checker
 // mode of section 6.5 of the memo on the Fair Scheme proofs, behind the
 // interpreter flag ``checker``.  This is the C++ mirror of the checker of
-// the Python backend (backends/py/eval/checker.py).  The runtime state holds
+// the Fair Scheme.  The runtime state holds
 // one Checker while the flag is on (RuntimeState::checker) and null
 // otherwise; every hook in the runtime is one test of that pointer.  The
 // checker observes.  It changes no step, no value and no counter.  A

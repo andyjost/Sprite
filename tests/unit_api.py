@@ -108,13 +108,6 @@ class TestStats(cytest.TestCase):
     self.assertGreater(stats['wall'], 0.0)
     self.assertGreater(stats['cpu'], 0.0)
     self.assertGreater(stats['peak_rss'], 0)
-    if curry.flags['backend'] == 'py':
-      self.assertEqual(stats['collections'], 0)
-      self.assertEqual(stats['gc_seconds'], 0.0)
-      self.assertEqual(stats['swapped'], 0)
-      self.assertEqual(stats['failed_compiles'], 0)
-      for key in self.KEYS[10:]:
-        self.assertEqual(stats[key], 0, key)
     line = str(stats)
     self.assertRegex(
         line
@@ -303,7 +296,7 @@ show(cytest.raw.interp())
 
   def test_argument_wins(self):
     '''The argument sets the backend over the environment of the session.'''
-    other = 'py' if curry.flags['backend'] == 'cxx' else 'cxx'
+    other = 'cxx'
     interp = Interpreter(flags={'backend': other})
     self.assertEqual(interp.flags['backend'], other)
     self.assertEqual(interp.backend.backend_name, other)

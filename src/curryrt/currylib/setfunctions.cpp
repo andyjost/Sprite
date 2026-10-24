@@ -214,7 +214,7 @@ namespace curryrt { inline namespace
     { return _applyS(rts, C, true); }
 
   // The number of nodes private_state visits before it gives up.  The
-  // Python backend has the same bound (currylib/setfunctions.py).
+  // former runtime has the same bound (currylib/setfunctions.py).
   static constexpr size_t PRIVATE_WALK_BUDGET = 64;
 
   // Tells whether configuration C holds private state for the expression at

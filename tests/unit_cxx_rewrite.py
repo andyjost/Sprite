@@ -3,7 +3,7 @@ Tests for the in-place rewrite of the C++ backend.
 
 A step writes its result into the redex when the result fits the block of the
 redex (Node::rewrite in curryrt/graph/node.hxx; vEmit_compileS_IReturn in
-backends/cxx/compiler.py), as the Python backend does.  A larger result, a
+backends/cxx/compiler.py), as the former runtime does.  A larger result, a
 pinned constructor, and a reference result keep the forward node; a reference
 to a primitive value is copied (Node::forward_or_copy).  The periodic rotation
 and the collection requests are checked after every completed step (procS),
@@ -60,9 +60,6 @@ class TestValues(cytest.TestCase):
     self.assertEqual([str(v) for v in cytest.raw.values(cytest.raw.expr(M.color, 1, typed=True))], ['Red'])
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 class TestRewrite(cytest.TestCase):
   '''
   One step of each program, taken at the root of a raw expression: the node

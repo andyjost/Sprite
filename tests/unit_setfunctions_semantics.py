@@ -10,7 +10,7 @@ value of a set function holds, those of a partial application and the
 variables of the enclosing context that a lambda closes over (lambda
 lifting makes them arguments), are boxed as the value arguments are
 (set_step in currylib/setfunctions.cpp; set_ in
-backends/py/currylib/setfunctions.py), so their non-determinism escapes the
+the former implementation), so their non-determinism escapes the
 capsule: ord2 = let x = 0 ? 1 in (sortValues (set1 (\\y -> x + y) 10), x)
 gives ([10], 0) and ([11], 1), where it gave ([10, 11], 0) and ([10, 11], 1)
 before, values the semantics of weakly encapsulated search does not have.
@@ -156,7 +156,7 @@ class TestCapturedArguments(GoalsCase):
   reached through a box with applyS: the boxes of the arguments it holds
   stay outermost (guard_successors; guard_held), so the inner set function
   gives them its set.  Before the fix of the review the C++ runtime read a
-  null set there (a crash) and the Python backend raised KeyError.
+  null set there (a crash) and the former runtime raised KeyError.
   '''
   GOALS = {
       's6PL': ['[10]', '[11]']

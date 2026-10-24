@@ -112,9 +112,6 @@ class TestValues(cytest.TestCase):
     self.assertNotEqual(e(M.plus3), e(M.plus2))
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 class TestLayout(cytest.TestCase):
   '''The nodes through the bindings: the slots, the info tables, apply.'''
   def setUp(self):
@@ -219,9 +216,6 @@ class TestLayout(cytest.TestCase):
       self.assertNotEqual(c.id(), e.id())
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'these tests drive the C++ backend'
-  )
 class TestSharedFunctionValues(cytest.TestCase):
   '''
   A partial application without arguments spelled by a step is a node of

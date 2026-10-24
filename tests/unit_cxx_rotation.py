@@ -55,11 +55,6 @@ IDLE_SECONDS = 2.0
 STEP_MODE = 'steps:65536'
 TIME_MODE = 'time:%dms' % QUANTUM_MS
 
-ONLY_CXX = unittest.skipIf(
-    curry.flags['backend'] != 'cxx'
-  , 'the rotation modes belong to the C++ backend; the Python backend keeps '
-    'its step budget'
-  )
 
 # A child on the C++ backend in the rotation mode %(mode)r with the rewrite
 # test module imported.  ``report`` prints one JSON line.
@@ -230,9 +225,6 @@ import curry
     proc = cytest.run_in_subprocess(code, TIMEOUT)
     self.assertNotEqual(proc.returncode, 0)
     self.assertIn("bad rotation setting 'time:10'", proc.stderr)
-
-
-@ONLY_CXX
 class TestStepMode(cytest.TestCase):
   '''Step mode: the cadence of 65536 completed steps and exact counters.'''
 
@@ -337,9 +329,6 @@ for mode in ['steps:65536', 'steps:1000']:
     self.assertLess(lines[0]['steps'], 65536 + 64)
     self.assertGreaterEqual(lines[1]['steps'], 1000)
     self.assertLess(lines[1]['steps'], 1000 + 64)
-
-
-@ONLY_CXX
 class TestTimeMode(cytest.TestCase):
   '''Time mode: the ticker thread, the value beside a diverging loop.'''
 
@@ -642,9 +631,6 @@ report(results=results)
     results = line['results']
     self.assertEqual(results['time:10ms'][0], [200000])
     self.assertEqual(results['time:10ms'], results['steps:65536'])
-
-
-@ONLY_CXX
 class TestRotationTestsInBothModes(cytest.TestCase):
   '''
   The rotation tests of the other files hold in both modes.  They need a

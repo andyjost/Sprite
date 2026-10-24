@@ -44,7 +44,6 @@ cmake -S . -B object-root/cmake -G Ninja \
   -DWITH_PAKCS='' \
   -DWITH_CURRY_FRONTEND="$PREFIX/bin/pakcs-frontend" \
   -DWITH_ICURRY='' \
-  -DWITH_DEFAULT_BACKEND=cxx \
   -DJOBS="${CPU_COUNT:-1}"
 make stage PYTHON="$PYTHON" JOBS="${CPU_COUNT:-1}"
 cmake --install object-root/cmake --prefix "$SPRITE_HOME"

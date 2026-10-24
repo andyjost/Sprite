@@ -487,9 +487,6 @@ class TestStore(ProductCacheTestCase):
         _productcache.store(self.DIGEST, self.KEY, files)
 
 
-@unittest.skipIf(
-    curry.flags['backend'] != 'cxx', 'the compile steps belong to the C++ backend'
-  )
 class TestCompile(ProductCacheTestCase):
   '''
   The compile step stores its products, and the plan places them instead of

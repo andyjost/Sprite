@@ -15,12 +15,11 @@ first calls, results, values and types, logic, encapsulated search, errors,
 session control, and I/O; the Quickstart covers 01 and 02 in five minutes.
 
 The test tests/unit_examples.py compares each run with expected.out.
-Examples 03, 09, 11, 12, 22 and 25 run on C++ only: 03 shows generated C++,
-09 needs the stream channel, and the searches in the others exceed the
-reference backend's practical budget.  Example 04 now runs on C++ too.
+All examples run on the C++ runtime.  Example 03 shows generated C++,
+09 uses the stream channel, and 04 saves and loads objects and programs.
 To record intentional output changes, run
 SPRITE_UPDATE_EXPECTED=1 ./run_tests unit_examples.py from tests/ and review
-the diff.  The reasons for backend exclusions are beside the test entries.
+the diff.  The test entries list the examples.
 
 Tour: 00 to 09
 --------------
