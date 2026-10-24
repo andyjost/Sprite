@@ -3,14 +3,14 @@ from ...objects.handle import getHandle
 from ...toolchain import _filenames
 from ... import config, exceptions
 from . import curryrtbindings as curryrt
-from . import elf
+from . import elf, macho
 from ...utility.locking import native_metadata
 import hashlib, logging, os
 
 logger = logging.getLogger(__name__)
 _objects = {}
 
-__all__ = ['load_module', 'needed_modules', 'source_file']
+__all__ = ['load_module', 'needed_modules', 'read_dynamic', 'source_file']
 
 # The keys of the optimizer passes in the metadata of a module (see
 # interpreter.optimize.default_optimizers).
@@ -20,17 +20,36 @@ OPTIMIZER_PREFIX = 'cxx.opt.'
 # the WARNING level (the first notice is at the INFO level).
 WAIT_NOTICE_SECONDS = 5
 
+def read_dynamic(sofile):
+  '''
+  The dynamic section of the object ``sofile`` (elf.DynamicSection), read by
+  the reader of its format: ELF, or Mach-O on macOS, where the install name
+  stands as the SONAME and the loaded libraries as the needed names.  The
+  format is told by the first bytes of the file.
+
+  Raises:
+    ValueError: the file is of neither format, or malformed.
+  '''
+  with open(sofile, 'rb') as stream:
+    magic = stream.read(4)
+  if magic == b'\x7fELF':
+    return elf.read_dynamic(sofile)
+  if magic in macho.MAGICS or magic in macho.MAGIC_32 or magic in macho.MAGIC_FAT:
+    return macho.read_dynamic(sofile)
+  raise ValueError('%r is neither an ELF nor a Mach-O file' % sofile)
+
 def _dynamic_names(sofile):
   '''
   The names of modules in the dynamic section of ``sofile``, read without a
   load of the object: the full name of its own module, from its SONAME
-  (toolchain.soname), or None for an object without one; and the modules
-  whose objects it needs, in the order of its NEEDED entries, the entries of
-  the form of a SONAME of a compiled module.  The other entries, the runtime
-  library and the system libraries, are left out.
+  (toolchain.soname; the install name of a Mach-O object), or None for an
+  object without one; and the modules whose objects it needs, in the order
+  of its NEEDED entries (the loaded libraries of a Mach-O object), the
+  entries of the form of a SONAME of a compiled module.  The other entries,
+  the runtime library and the system libraries, are left out.
   '''
   from . import toolchain
-  dynamic = elf.read_dynamic(sofile)
+  dynamic = read_dynamic(sofile)
   name = None if dynamic.soname is None \
       else toolchain.module_of_soname(dynamic.soname)
   needed = []
