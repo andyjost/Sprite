@@ -154,7 +154,8 @@ The following are recognized:
   only runtime of an installation.
 
   The ``interpret`` flag selects how the C++ backend runs a module without
-  a compiled object: ``tiered`` (the default) interprets it and compiles it
+  a compiled object: ``tiered`` (the default on Linux; ``all`` on macOS until the compiled
+  path lands there, issue #162) interprets it and compiles it
   in the background, ``new`` interprets it and never compiles it, ``all``
   interprets every module, and ``off`` compiles every module first (a
   module imported from an ICurry object at its first use; see the flag in
