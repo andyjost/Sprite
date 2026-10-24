@@ -3,8 +3,12 @@ from contextlib import contextmanager
 import ctypes, io, os, sys, tempfile
 
 libc = ctypes.CDLL(None)
-c_stdin = ctypes.c_void_p.in_dll(libc, 'stdin')
-c_stdout = ctypes.c_void_p.in_dll(libc, 'stdout')
+# glibc exports the C streams as stdin and stdout; the C library of macOS
+# as __stdinp and __stdoutp, for which stdin and stdout are macros there.
+_STDIN, _STDOUT = ('__stdinp', '__stdoutp') if sys.platform == 'darwin' \
+    else ('stdin', 'stdout')
+c_stdin = ctypes.c_void_p.in_dll(libc, _STDIN)
+c_stdout = ctypes.c_void_p.in_dll(libc, _STDOUT)
 
 CLOSE = object()
 
