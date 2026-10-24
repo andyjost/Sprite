@@ -219,9 +219,14 @@ namespace curryrt
     }
     *px++ = '\0';
     assert(px - &buf[0] <= SZ);
-    static_assert(std::is_same<unboxed_int_type, long>::value, "stdtol assumes long");
+    // The unboxed integer is 64 bits: long on Linux, long long on macOS.
+    static_assert(
+        std::is_signed<unboxed_int_type>::value
+          && sizeof(unboxed_int_type) == sizeof(long long)
+      , "strtoll gives the unboxed integer"
+      );
     errno = 0;
-    unboxed_int_type value = std::strtol(&buf[0], nullptr, 10);
+    unboxed_int_type value = std::strtoll(&buf[0], nullptr, 10);
     if(errno == ERANGE)
       return _0->make_failure();
     Node * replacement = cons(pair(int_(value), string ? (Node *) string : nil()), nil());
