@@ -30,12 +30,20 @@ def link(source, target):
 
 
 def compiler_tool(prefix, compiler, launcher=''):
+  """
+  tools/cxx, the compiler of generated code: a link to the compiler, or a
+  wrapper script where a link named cxx cannot run it.  ccache resolves the
+  compiler by the name it is invoked as, and the compiler shims of macOS
+  (/usr/bin/c++) dispatch on their invoked name through xcode-select, which
+  knows no tool called cxx.
+  """
   path = prefix / 'tools/cxx'
   if compiler:
     link(compiler, path)
   elif path.exists() or path.is_symlink():
     path.unlink()
-  if compiler and (launcher or Path(compiler).resolve().name == 'ccache'):
+  by_name = Path(compiler).resolve().name == 'ccache' if compiler else False
+  if compiler and (launcher or by_name or sys.platform == 'darwin'):
     import shlex
     path.unlink()
     command = ([launcher] if launcher else []) + [compiler]
