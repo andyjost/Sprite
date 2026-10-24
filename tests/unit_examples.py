@@ -69,6 +69,13 @@ EXCLUDED = {}
 # example needs one at present.
 REQUIRES = {}
 
+# Directory -> the reason the example runs on Linux alone for now: the compiled
+# path of the C++ backend on macOS (the loading of objects, the shim of the
+# tiered mode) is issue #162, step 2.
+LINUX_ONLY = {
+    '04-static-compile': 'saves, compiles or loads objects of the C++ backend',
+}
+
 # Directory -> the reason the example does not run in the stress mode of the
 # collector (SPRITE_GC_STRESS=1; see cytest.GC_STRESS).  In that mode every
 # rewrite step marks the live state, and a search that keeps thousands of
@@ -140,6 +147,8 @@ class TestExamples(cytest.TestCase):
     for module in REQUIRES.get(name, ()):
       if importlib.util.find_spec(module) is None:
         self.skipTest('%s needs the Python module %s' % (name, module))
+    if sys.platform == 'darwin' and name in LINUX_ONLY:
+      self.skipTest('%s %s (issue #162, step 2)' % (name, LINUX_ONLY[name]))
     if cytest.GC_STRESS and name in STRESS_EXCLUDED:
       self.skipTest(
           'collector stress mode: %s is %s' % (name, STRESS_EXCLUDED[name])

@@ -124,7 +124,8 @@ class TestMeasure(unittest.TestCase):
     self.assertGreater(run.cpu, 0)
     self.assertGreater(run.peak_rss, 1024 * 1024)
     self.assertEqual(run.cmd[0], 'timeout')
-    self.assertIn('--as=%d' % CAP, run.cmd)
+    if shutil.which('prlimit'):
+      self.assertIn('--as=%d' % CAP, run.cmd)
     self.assertFalse(run.perf)
     self.assertIsNone(run.instructions)
 
@@ -142,6 +143,7 @@ class TestMeasure(unittest.TestCase):
     self.assertEqual(run.error, 'timed out')
     self.assertLess(run.wall, 30)
 
+  @cytest.linux_only('the address-space limit of prlimit is not enforced on macOS')
   def test_cap(self):
     '''An allocation above the cap fails the run.'''
     run = self.run_python('x = b"x" * %d' % (3 * 1024 ** 3), cap=1024 ** 3)

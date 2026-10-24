@@ -98,6 +98,7 @@ class TestCxxProcess(cytest.TestCase):
       'wdgc', 'near the address-space cap MPS collects instead of failing; '
               'the child does not end in time'
     )
+  @cytest.linux_only('the address-space limit of prlimit is not enforced on macOS')
   def test_out_of_memory_raises_MemoryError(self):
     '''
     An audit finding: when malloc failed, node allocation returned a null
@@ -370,7 +371,7 @@ class TestLibraryTablesInTheirObjects(cytest.TestCase):
   '''
   def test_tables(self):
     interp = cytest.raw.interp()
-    libcurryrt_path = config.installed_path('lib', 'libcurryrt.so')
+    libcurryrt_path = config.curryrt_lib()
     libcurryrt = os.path.realpath(libcurryrt_path)
     runtime = ctypes.CDLL(libcurryrt_path)
     checked = 0

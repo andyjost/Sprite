@@ -313,6 +313,15 @@ namespace curryrt
     SetEvalNode       * seteval;
   };
 
+  // The aggregate initialization elides the braces of the base Head and of
+  // the array of a Node_<N>, which clang suggests by default (-Wmissing-braces,
+  // not a warning of GCC's -Wall for C++); the forms with braces would warn
+  // on a scalar member instead, so the suggestion is silenced here, for
+  // every translation unit that instantiates the template.
+  #if defined(__clang__)
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wmissing-braces"
+  #endif
   template<typename NodeType, typename ... Args>
   Node * make_node(Args && ... args)
   {
@@ -325,6 +334,9 @@ namespace curryrt
     } while(!node_commit(target, sizeof(NodeType)));
     return target;
   }
+  #if defined(__clang__)
+  #pragma clang diagnostic pop
+  #endif
 
   InfoTable const * builtin_info(char);
   ConstraintType constraint_type(Node *);

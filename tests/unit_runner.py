@@ -340,6 +340,7 @@ class TestScheduler(SchedulerTests):
       'time.sleep(%g)"])\n'
     )
 
+  @cytest.linux_only('the stub takes its name from the link it runs through only in /proc; macOS names the interpreter')
   def test_toolchain_allowance(self):
     '''
     A session over the cap of its file is not killed while a process of the

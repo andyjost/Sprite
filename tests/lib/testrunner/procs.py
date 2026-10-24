@@ -146,12 +146,12 @@ def _table_darwin():
   and the processes that the timeout command moves into groups of their
   own are found through the parent links (see scan_sessions).  The
   resident set is reported in KiB, the state is the first letter of the
-  stat column, and the command name is the leaf name of the path ps
-  prints.  Empty when ps fails.
+  stat column, and the command name comes from the command line (see
+  _darwin_name).  Empty when ps fails.
   '''
   try:
     out = subprocess.run(
-        ['ps', '-axo', 'pid=,ppid=,pgid=,rss=,stat=,comm=']
+        ['ps', '-axo', 'pid=,ppid=,pgid=,rss=,stat=,command=']
       , capture_output=True, text=True, check=True
       ).stdout
   except (OSError, subprocess.CalledProcessError):
@@ -166,8 +166,26 @@ def _table_darwin():
     except ValueError:
       continue
     state = parts[4][:1].encode('ascii', 'replace')
-    table[pid] = (ppid, parts[2], rss, state, os.path.basename(parts[5].strip()))
+    table[pid] = (ppid, parts[2], rss, state, _darwin_name(parts[5]))
   return table
+
+# The shells, whose script is the name of a process (see _darwin_name).
+SHELLS = frozenset(['sh', 'bash', 'zsh', 'dash', 'ksh'])
+
+def _darwin_name(command):
+  '''
+  The command name of a process from the command line ps prints on macOS:
+  the leaf name of its program, or of its script when the program is a
+  shell, as /proc/<pid>/comm names a script on Linux.  The wrapper scripts
+  of the toolchain (tools/cxx, curry-frontend) are found by their names so.
+  '''
+  words = command.split()
+  if not words:
+    return ''
+  name = os.path.basename(words[0])
+  if name in SHELLS and len(words) > 1 and not words[1].startswith('-'):
+    name = os.path.basename(words[1])
+  return name
 
 def _session_key(table, sid):
   '''
