@@ -13,7 +13,7 @@ class TestFrontendWheel(unittest.TestCase):
       tmp = pathlib.Path(tmp)
       project = tmp / 'project'
       project.mkdir()
-      for name in ('pyproject.toml', 'setup.py'):
+      for name in ('pyproject.toml', 'setup.py', 'README.pypi.md'):
         shutil.copy2(root / 'frontend' / name, project / name)
       shutil.copytree(root / 'frontend/licenses', project / 'licenses')
       package = project / 'curry_frontend'
@@ -31,10 +31,14 @@ class TestFrontendWheel(unittest.TestCase):
       self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
       platform = sysconfig.get_platform().replace('-', '_').replace('.', '_')
       wheel, = wheels.glob('*.whl')
-      self.assertEqual(wheel.name, 'curry_frontend-2.0.0.post4-py3-none-%s.whl' % platform)
+      self.assertEqual(wheel.name, 'curry_frontend-2.0.0.post5-py3-none-%s.whl' % platform)
       with zipfile.ZipFile(wheel) as archive:
-        metadata = archive.read('curry_frontend-2.0.0.post4.dist-info/METADATA').decode()
+        metadata = archive.read('curry_frontend-2.0.0.post5.dist-info/METADATA').decode()
       self.assertIn('\nName: curry-frontend\n', metadata)
+      # The description of the PyPI page: the release workflow's strict twine
+      # check refuses a wheel without one.
+      self.assertIn('\nDescription-Content-Type: text/markdown\n', metadata)
+      self.assertIn('# curry-frontend\n', metadata)
       env = tmp / 'env'
       subprocess.run([sys.executable, '-m', 'venv', str(env)], check=True, timeout=60)
       result = subprocess.run([str(env / 'bin/python'), '-m', 'pip', 'install',

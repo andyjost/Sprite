@@ -1,7 +1,9 @@
 # curry-frontend
 
 This directory packages the Curry front end 2.0.0 shipped with PAKCS 3.4.1.
-It does not change Sprite's build. No wheel is published by this workflow.
+It does not change Sprite's build. The workflow "Curry front end from
+source" builds the wheels; the workflow "Release the front end" publishes
+the wheels of a green run, on dispatch, through Trusted Publishing.
 
 ## Packaging epoch
 
@@ -24,6 +26,11 @@ GMP and retain its RPM license notices. The program version stays `2.0.0`.
 run 3. Both targets now request dynamic system linkage in manylinux 2.28,
 vendoring its GMP with `$ORIGIN`. The Haskell tools share a writable home
 under the workspace. The program version remains `2.0.0`.
+
+`2.0.0.post5` gives the wheel the description of its PyPI page
+(`README.pypi.md`, the `readme` of `pyproject.toml`), which the release
+workflow's strict `twine check` requires. The conda package is unchanged
+(build 4). The program version remains `2.0.0`.
 
 ## Scripts
 
