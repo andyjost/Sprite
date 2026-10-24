@@ -363,6 +363,9 @@ jobs:
             -DPython_EXECUTABLE="$(command -v python)" \
             -DWITH_PAKCS= -DWITH_ICURRY= \
             -DWITH_CURRY_FRONTEND="$PWD/frontend-work/bundle/bin/curry-frontend"
+          # The runtime first, with every translation unit compiled whatever
+          # fails, so one run of the job reports every error of a new compiler.
+          cmake --build object-root/cmake --target curryrt --parallel -- -k 0
           make stage
       - name: Extract the test products of the overlay archive
         run: make overlay

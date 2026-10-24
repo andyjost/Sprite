@@ -175,6 +175,7 @@ pybind11_add_module(_curryrtbindings MODULE NO_EXTRAS ${binding_sources})
 target_link_libraries(_curryrtbindings PRIVATE curryrt)
 foreach(target curryrt _curryrtbindings)
   target_compile_options(${target} PRIVATE -Wall -Wno-register
+    "$<$<CXX_COMPILER_ID:AppleClang,Clang>:-Wno-missing-braces>"
     "$<$<CONFIG:Release>:-O2;-fno-stack-protector${elf_release_flags}>")
 endforeach()
 set_target_properties(_curryrtbindings PROPERTIES

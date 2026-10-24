@@ -1,6 +1,7 @@
 #pragma once
 #include <cassert>
 #include "curryrt/fwd.hpp"
+#include "curryrt/graph/arg.hpp"
 #include "curryrt/graph/infotable.hpp"
 #include "curryrt/graph/memory.hpp"
 #include "curryrt/smallvec.hpp"
