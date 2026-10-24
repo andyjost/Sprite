@@ -370,6 +370,25 @@ jobs:
           make stage
       - name: Extract the test products of the overlay archive
         run: make overlay
+      # The C++ programs of the tests compile against the installed headers
+      # with -Wall and expect a silent compiler; the step shows what the
+      # compiler of the platform says about the headers, for every program
+      # at once.
+      - name: The C++ test programs compile without warnings
+        run: |
+          set -uo pipefail
+          status=0
+          for source in tests/data/cxx/*.cpp; do
+            echo "::group::$source"
+            if ! install/tools/cxx -std=c++17 -O2 -Wall -Iinstall/include "$source" \
+                 -o "${TMPDIR:-/tmp}/program" -Linstall/lib -lcurryrt 2> "${TMPDIR:-/tmp}/program.err"; then
+              status=1
+            fi
+            cat "${TMPDIR:-/tmp}/program.err"
+            test -s "${TMPDIR:-/tmp}/program.err" && status=1
+            echo "::endgroup::"
+          done
+          exit $status
       - name: Unit tests, every module interpreted
         env:
           SPRITE_TEST_FLAGS: interpret:all
