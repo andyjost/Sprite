@@ -64,7 +64,10 @@ EXAMPLES = {
   , '21-cxx-types-overloads'        : {'py', 'cxx'}
   , '22-cxx-types-trait-check'      : {'cxx'}
   , '23-cxx-types-layout'           : {'py', 'cxx'}
-  , '24-build-system'               : {'py', 'cxx'}
+  # The capstone's plan search ran past the budget of the test on the
+  # retired Python backend in three of five nightly runs (the C++ backend
+  # takes seconds), so it runs on C++ alone, as the examples plan allows.
+  , '24-build-system'               : {'cxx'}
   # The retired Python backend is still searching length two at 60 s;
   # the program search is kept within its budget on C++ only.
   , '25-perfect-hash'               : {'cxx'}
