@@ -184,8 +184,15 @@ set_target_properties(_curryrtbindings PROPERTIES
 
 # Immutable runtime facts contain no installation prefix. The Python step
 # prepares the traditional tree using these facts and the just-built package.
+# The version of the compiler of generated code: -dumpfullversion of GCC
+# and of clang proper; Apple's clang knows -dumpversion alone.
 execute_process(COMMAND "${WITH_CXX_POSTINSTALL}" -dumpfullversion
-  OUTPUT_VARIABLE compiler_version OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+  OUTPUT_VARIABLE compiler_version RESULT_VARIABLE compiler_version_result
+  OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+if(NOT compiler_version_result EQUAL 0 OR compiler_version STREQUAL "")
+  execute_process(COMMAND "${WITH_CXX_POSTINSTALL}" -dumpversion
+    OUTPUT_VARIABLE compiler_version OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+endif()
 execute_process(COMMAND "${WITH_CXX_POSTINSTALL}" -dumpmachine
   OUTPUT_VARIABLE compiler_target OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
 set(cxx_flavor release)
