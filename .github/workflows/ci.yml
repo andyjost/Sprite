@@ -375,7 +375,8 @@ jobs:
   # and the architecture; the first run of a new recipe takes about half an
   # hour more.  Apple Silicon (macos-15) gates master since its second green
   # run in the default mode (runs 40155455473 and 40161622699); Intel
-  # (macos-15-intel; step 5) gates nothing until it is green twice.
+  # (macos-15-intel; step 5) gates master since its third green run in a
+  # row (runs 40199675174, 40209733256 and 40223622532).
   macos:
     name: macOS ${{ matrix.arch }} ${{ matrix.shard }}
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/wt/macos')
@@ -393,7 +394,7 @@ jobs:
             experimental: false
           - runner: macos-15-intel
             arch: x86_64
-            experimental: true
+            experimental: false
     env:
       GHC_VERSION: '9.6.7'
       CABAL_VERSION: '3.10.3.0'
