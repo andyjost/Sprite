@@ -484,10 +484,12 @@ class TestStubTerms(cytest.TestCase):
     self.assertEqual(curry.eval(-curry.term(3)).one(), -3)
 
   def test_and_is_concurrent_conjunction(self):
-    self.assertIs(curry.eval(curry.term(True) & False).one(), False)
+    # (&) is the conjunction of constraints: a False side has no value, as in
+    # PAKCS and KiCS2 (#139; the assertion corrected on 2026-10-25).
+    self.assertEqual(list(curry.eval(curry.term(True) & False)), [])
 
   def test_rand_is_concurrent_conjunction(self):
-    self.assertIs(curry.eval(True & curry.term(False)).one(), False)
+    self.assertEqual(list(curry.eval(True & curry.term(False))), [])
 
   def test_and_foreign_operand_is_not_implemented(self):
     self.assertIs(curry.term(True).__and__(object()), NotImplemented)

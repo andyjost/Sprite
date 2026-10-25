@@ -80,10 +80,31 @@ namespace curryrt { inline namespace
                          }
                          break;
         case T_TRUE    : C->residuals.swap(residuals);
-                         _0->forward_to(_0->successor(1-i));
+                         {
+                           Variable remaining = _0[1-i];
+                           InfoTable const * info = remaining.target->info;
+                           // These constraints already succeed only with
+                           // True.  Keep their tail position: wrapping the
+                           // recursive equality of a list in one guard per
+                           // cell makes its reduction quadratic.
+                           if(info == &constrEq_Info
+                               || info == &nonstrictEq_Info
+                               || info == &concurrentAnd_Info)
+                           {
+                             _0->forward_to(_0->successor(1-i));
+                             return T_FWD;
+                           }
+                         }
+                         // Both operands are constraints: the remaining
+                         // operand must succeed with True as well.
+                         _0->forward_to(Node::create(
+                             &CyI7Prelude12BindingGuard
+                           , _0->successor(1-i), True
+                           ));
                          return T_FWD;
         case T_FALSE   : C->residuals.swap(residuals);
-                         _0->forward_to(False);
+                         rts->record_failure(C, &_1);
+                         _0->forward_to(Fail);
                          return T_FWD;
         default        : C->residuals.swap(residuals);
                          return tag;

@@ -364,6 +364,16 @@ namespace curryrt
     }
   };
 
+  // A one-constructor generator has an artificial failing right side so
+  // that its root still carries the variable's identifier.  It represents
+  // one narrowing, not a choice of the program (issue #134).
+  bool is_singleton_generator(Node * freevar)
+  {
+    Node * gen = freevar ? has_generator(freevar) : nullptr;
+    return gen && gen->info->tag == T_CHOICE
+        && NodeU{gen}.choice->rhs == Fail;
+  }
+
   Node * _make_generator(
       RuntimeState * rts, Node * freevar, ValueSet const * values
     )

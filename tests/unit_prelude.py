@@ -10,6 +10,15 @@ def cells(e):
   return [e[0]] + [list(a) if isinstance(a, str) else a for a in e[1:]]
 
 class TestPrelude(cytest.TestCase):
+  def test_concurrent_conjunction_constraints(self):
+    '''Issue #139: both constraints must succeed with True.'''
+    for checker in (False, True):
+      interp = curry.interpreter.Interpreter(flags={'checker': checker})
+      for lhs, rhs in itertools.product((False, True), repeat=2):
+        with self.subTest(lhs=lhs, rhs=rhs, checker=checker):
+          expr = interp.expr(interp.prelude['&'], lhs, rhs)
+          self.assertEqual(list(interp.eval(expr)), [True] if lhs and rhs else [])
+
   def test_base34_operations(self):
     '''The new exports, tuple equality and list helpers run through eval.'''
     checks = [

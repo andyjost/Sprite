@@ -37,10 +37,9 @@ for value, b in curry.solve(horseman.goal3(m, h, hd)):
   print('goal3 -> men %d, horses %d, feet %d' % (men, horses, feet))
 
 # colormap.goal with four named variables.  The goal is coloring & correct,
-# and correct is False for most colourings.  Sprite's (&) yields False when
-# one side is False, so the goal has a value for every one of the 256
-# colourings, 48 of them True; PAKCS's (&) has no value there and prints 48
-# rows (#139).  The driver prints both counts and the first three True values.
+# and correct is False for most colourings.  Concurrent conjunction fails
+# when either constraint is False: the goal has 48 True answers, as PAKCS
+# does (#139).  Print both counts and the first three answers.
 l = [curry.free('l%d' % i) for i in (1, 2, 3, 4)]
 answers = list(curry.solve(colormap.goal(*l)))
 correct = [a for a in answers if a.value]
