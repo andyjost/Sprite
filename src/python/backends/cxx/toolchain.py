@@ -466,7 +466,9 @@ class PrecompiledHeader(object):
   file and uses the member that matches its options.  So each flavor (the
   optimized build, the debug build, custom CXXFLAGS) gets its own member,
   named after the optimization flags and a hash of the compiler and the full
-  flag list.
+  flag list.  clang on macOS writes a member of its own format with the same
+  command and takes it by name with -include-pch (Cpp2So._pchflags); the
+  directory and the members serve both the same.
 
   A member is stale when it is older than any header, its sources.  The
   comparison uses modification times: make stage links the installed headers
@@ -963,29 +965,45 @@ class Cpp2So(object):
     for flag in os.environ.get('CXXFLAGS', '').split():
       yield flag
 
-  def prepare_header(self):
+  def _header(self):
     '''
-    Builds the precompiled header when it is missing or stale.  Returns True
-    when g++ can use it, False when the header is disabled, no compiler is
-    installed, or the build failed (then the objects compile without it).
-    sprite-make --jobs calls this once before its children start, so that
-    the children do not each build the header.
+    The precompiled header of a compile of this flavor, or None when the
+    header is disabled (config.cxx_pch_root) or no compiler is installed.
     '''
     root = config.cxx_pch_root()
     cxx = config.cxx_tool()
     if root is None or cxx is None:
-      return False
-    return PrecompiledHeader(root, cxx, self._cxxflags()).prepare()
+      return None
+    return PrecompiledHeader(root, cxx, self._cxxflags())
+
+  def prepare_header(self):
+    '''
+    Builds the precompiled header when it is missing or stale.  Returns True
+    when the compiler can use it, False when the header is disabled, no
+    compiler is installed, or the build failed (then the objects compile
+    without it).  sprite-make --jobs calls this once before its children
+    start, so that the children do not each build the header.
+    '''
+    header = self._header()
+    return header is not None and header.prepare()
 
   def _pchflags(self):
     '''
-    Prepares the precompiled header.  Yields the include flag that lets g++
-    find it when it lives outside the installed include directory.
+    Prepares the precompiled header and yields the flags that let the
+    compiler use it.  g++ searches the directory form beside the header by
+    itself, so it needs the include flag of the root alone, and only when
+    the root is not the installed include directory.  clang on macOS does
+    not search the directory form; it takes the member with -include-pch,
+    and it skips the include of the same header in the generated code.
     '''
-    if self.prepare_header():
-      root = config.cxx_pch_root()
-      if root != config.installed_path('include'):
-        yield '-I%s' % root
+    header = self._header()
+    if header is None or not header.prepare():
+      return
+    if IS_DARWIN:
+      yield '-include-pch'
+      yield header.filename
+    elif header.root != config.installed_path('include'):
+      yield '-I%s' % header.root
 
   def _compileCommand(self, file_in, file_out, currypath=None):
     cxx = config.cxx_tool()
