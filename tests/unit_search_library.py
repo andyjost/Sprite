@@ -232,12 +232,14 @@ print(json.dumps([curry.show(v) for v in curry.eval(module.main)]))
     self.assertEqual(proc.returncode, 0, proc.stderr)
     values = json.loads(proc.stdout)
     print('NativeFlightCapsule results:', dict(collections.Counter(values)))
+    self.values = values
     self.actual = '\n'.join(values)
 
   @unittest.expectedFailure
   def test_shortest_itinerary(self):
-    # Issue #171. PAKCS 3.10.0: [LH469,LH10] once. The native capsules also
-    # admit the longer [NWA92,KL1783] and repeat the answers.
+    # Issue #171. The argument shares the itinerary with the outer result;
+    # its choices escape, but F2 (d2) accepts empty sets from failed lookups.
+    self.assertEqual(len(self.values), 1)
     self.assertSameResultMultiset(self.actual, '[LH469,LH10]')
 
 
