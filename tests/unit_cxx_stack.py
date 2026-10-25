@@ -234,8 +234,12 @@ except curry.EvaluationError as error:
         print('%s: %s' % (goal, '; '.join(lines)))
         if goal == 'goal':
           self.assertEqual(lines.pop(0), 'value True')
-        self.assertEqual(len(lines), 1, lines)
-        self.assertTrue(lines[0] == 'end' or lines[0].startswith('error '), lines)
+        # The equality x' =:= y, where y is bound through the store to S x',
+        # would make a cyclic term: the occurs check at the union of the two
+        # classes fails it, so the alternative has no value (the reading of
+        # PAKCS, decision D24 of the proofs; the owner's decision of
+        # 2026-10-25 for #131).  KiCS2, without the check, gives False.
+        self.assertEqual(lines, ['end'])
 
 class TestDeepValue(cytest.TestCase):
   @classmethod
