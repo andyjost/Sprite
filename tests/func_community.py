@@ -21,10 +21,6 @@ RUNTIME_FAILURES = {
     'justZeroGoal': 'non-linear functional pattern loops (unit_community)'
   , 'justFailedGoal': 'non-linear functional pattern loops (unit_community)'
   }
-VALUE_FAILURES = {
-    ('frontend-3.1.0-test-pass/FP_Lifting.curry', 'main3'):
-        'non-linear lifted functional pattern returns an extra free value (unit_community)'
-  }
 with (ROOT / 'GOALS.tsv').open() as stream:
   GOALS = list(csv.DictReader(stream, delimiter='\t'))
 
@@ -90,24 +86,20 @@ def check_goals(self, source, entries, module, work, runtime_source=None):
       proc, actual = sprite_results(runtime_source or source, goal)
       record(entry, current, actual)
       self.assertEqual(proc.returncode, 0, proc.stderr)
-      reason = VALUE_FAILURES.get((entry['program'], goal))
-      if reason:
-        self.assertSameResultMultiset(current, expected)
-        self.skipTest(reason)
       if not expected.startswith('!error\n'):
         self.assertSameResultMultiset(current, expected)
       self.assertSameResultMultiset(actual, expected)
 
 
-def sprite_results(source, goal, timeout=30):
+def sprite_results(source, goal, timeout=30, interpret='off'):
   code = (
       'import curry, json\n'
-      "curry.reset(interpret='off')\n"
+      'curry.reset(interpret=%r)\n'
       'curry.path[:0] = %r\n'
       'module = curry.import_(%r)\n'
       'print(json.dumps([curry.show(v) for v in curry.eval('
       'getattr(module, %r))]))\n'
-    ) % (support_paths(source) if ROOT in source.parents
+    ) % (interpret, support_paths(source) if ROOT in source.parents
          else [str(source.parent)], source.stem, goal)
   proc = cytest.run_in_subprocess(code, timeout=timeout, address_space=2 << 30)
   actual = ('\n'.join(json.loads(proc.stdout)) if proc.returncode == 0

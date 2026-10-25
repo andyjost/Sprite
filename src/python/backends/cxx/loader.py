@@ -1,6 +1,7 @@
 from ...icurry import types as icurry_types
 from ...objects.handle import getHandle
-from ...toolchain import _filenames
+from ...objects import CurryPackage
+from ...toolchain import _filenames, _findcurry
 from ... import config, exceptions
 from . import curryrtbindings as curryrt
 from . import elf, macho
@@ -214,16 +215,20 @@ def _open_module(interp, sofile, name, from_plan, fresh, before):
   from .toolchain import Cpp2So
   if before != Cpp2So.product_snapshot(sofile):
     return None
+  if name is not None:
+    _findcurry.reject_library_shadow(name, sofile, interp)
   previous = None if name is None else curryrt.SharedCurryModule.find_sofilename(name)
+  module = interp.modules.get(name)
+  if isinstance(module, CurryPackage):
+    module = None # a namespace has no interpreted module to replace
   with open(sofile, 'rb') as stream:
     digest = hashlib.sha256(stream.read()).hexdigest()
-  replace = previous is not None and name not in interp.modules \
+  replace = previous is not None and module is None \
       and (from_plan or fresh) and _objects.get(name) != (sofile, digest)
   if name is not None and not replace:
     registered = curryrt.SharedCurryModule.find_sofilename(name)
     if registered is not None:
       _refuse_other_file(name, registered, sofile)
-  module = interp.modules.get(name)
   registered = curryrt.SharedCurryModule.find_sofilename(name) if name else None
   adopt = replace or (tiered.has_binding(name) and registered is None) or (
       module is not None and getHandle(module).sofilename is None

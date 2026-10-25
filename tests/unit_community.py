@@ -127,7 +127,6 @@ class TestCommunityLoading(cytest.TestCase):
     from unit_community_compile import check_source
     check_source(self, 'NegLit.curry')
 
-  @unittest.expectedFailure
   def test_frontend_pakcs_prelude(self):
     # Issue #168: a namesake of a library module (the front end's own Prelude
     # fixture) loads the library's symbols.
@@ -137,7 +136,7 @@ class TestCommunityLoading(cytest.TestCase):
 
 # Issue #168: a module named like the prefix of its hierarchical siblings
 # recurses in the importer.
-# Keep one bounded expected-failure assertion for every affected source.
+# Keep one bounded assertion for every affected source.
 for filename in ('InstanceExport.curry', 'InstanceExport/M.curry',
                  'InstanceExport/N.curry', 'InstanceExport/O.curry',
                  'InstanceExport/P.curry'):
@@ -146,17 +145,20 @@ for filename in ('InstanceExport.curry', 'InstanceExport/M.curry',
     check_source(self, filename)
   setattr(TestCommunityLoading,
       'test_frontend_' + filename[:-6].replace('/', '_'),
-      unittest.expectedFailure(test))
+      test)
 
 
 class TestCommunityRegressions(cytest.TestCase):
-  @unittest.expectedFailure
   def test_lifted_non_linear_function_pattern(self):
     # Issue #169: the lifted non-linear functional pattern gives one free value
     # where both oracles give none.
     from unit_community_compile import frontend_sources
     source = ROOT / 'frontend-3.1.0-test-pass/FP_Lifting.curry'
     with frontend_sources(source) as (local, work):
-      proc, actual = sprite_results(local, 'main3', timeout=5)
-    self.assertEqual(proc.returncode, 0, proc.stderr)
-    self.assertSameResultMultiset(actual, '')
+      for interpret in ('off', 'all'):
+        for goal, expected in (('main3', ''), ('main2', '_a')):
+          with self.subTest(interpret=interpret, goal=goal):
+            proc, actual = sprite_results(local, goal, timeout=5,
+                                           interpret=interpret)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertSameResultMultiset(actual, expected)

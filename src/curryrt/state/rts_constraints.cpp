@@ -249,6 +249,13 @@ namespace curryrt
     assert(inspect::is_nondet(x));
     xid_type const i = obj_id(x);
     xid_type const j = inspect::is_nondet(y) ? obj_id(y) : NOXID;
+    // Directed matching binds a pattern variable to the argument. Unlike
+    // strict equality, binding it to itself fails the occurs check. This
+    // also catches a repeated pattern occurrence after its first binding
+    // has been read (issue #169), including aliases in one strict class.
+    if(ctype == NONSTRICT_CONSTRAINT && j != NOXID
+        && C->grp_id(i) == C->grp_id(j))
+      return false;
     if(i != j)
     {
       if(ctype == STRICT_CONSTRAINT)
