@@ -2,6 +2,7 @@
 """Extract and maintain release-specific test products (developer tooling only)."""
 import argparse
 import gzip
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -16,7 +17,7 @@ def git(*args):
   return subprocess.check_output(['git', '-C', str(ROOT), *args], text=True).strip()
 
 
-def interfaces(directory, subdir='pakcs-3.4.1', prefix=None):
+def interfaces(directory, subdir='pakcs-3.10.0', prefix=None):
   for icy in directory.rglob('*.icy'):
     if icy.parent.name != 'sprite-' + subdir:
       continue
@@ -40,7 +41,7 @@ for line in sys.stdin:
 '''
 
 
-def provenance(directory, subdir='pakcs-3.4.1', prefix=None):
+def provenance(directory, subdir='pakcs-3.10.0', prefix=None):
   missing = [str(icy) for icy in sorted(directory.rglob('*.icy'))
              if icy.parent.name == 'sprite-' + subdir
              and not icy.with_name(icy.name + '.imports').is_file()]
@@ -56,7 +57,43 @@ def provenance(directory, subdir='pakcs-3.4.1', prefix=None):
   print('overlay-interfaces: import provenance written for %d extracted .icy files' % len(missing))
 
 
-def prune(root, subdir='pakcs-3.4.1'):
+def prune_source(root, source, subdir=None):
+  rel = source.stem
+  parent = source.parent
+  while parent != Path('.'):
+    for product in (root / parent / '.curry').glob('*/' + rel + '.*'):
+      if subdir is None or any(part in (subdir, 'sprite-' + subdir) for part in product.parts):
+        print('rm', product)
+        product.unlink()
+    if parent == Path('tests'):
+      break
+    rel = parent.name + '/' + rel
+    parent = parent.parent
+
+
+def prune_receipts(root, subdir):
+  # A newer packing commit does not prove that every archived product was
+  # refreshed. Keep the source digest recorded with the product authoritative.
+  stale = set()
+  for pattern in ('*.curry', '*.lcurry'):
+    for source in (root / 'tests').rglob(pattern):
+      if not source.is_file() or '.curry' in source.relative_to(root).parts:
+        continue
+      directory = source.parent
+      while directory != root:
+        relative = source.relative_to(directory).with_suffix('.icy.source')
+        receipt = directory / '.curry' / ('sprite-' + subdir) / relative
+        if receipt.is_file():
+          digest = hashlib.sha256(source.read_bytes()).hexdigest()
+          if receipt.read_text().strip() != digest:
+            stale.add(source.relative_to(root))
+        directory = directory.parent
+  for source in sorted(stale):
+    prune_source(root, source, subdir)
+
+
+def prune(root, subdir='pakcs-3.10.0'):
+  prune_receipts(root, subdir)
   archive = 'overlay-' + subdir + '.tgz'
   try:
     commit = git('log', '-1', '--format=%H', '--', archive)
@@ -72,22 +109,12 @@ def prune(root, subdir='pakcs-3.4.1'):
       print('overlay-prune: WARNING: this is a shallow clone; history may predate the archive; use fetch-depth 0',
             file=sys.stderr)
   for name in git('diff', '--name-only', commit, '--', 'tests/*.curry').splitlines():
-    path = Path(name)
-    rel = path.stem
-    parent = path.parent
-    while parent != Path('.'):
-      for product in (root / parent / '.curry').glob('*/' + rel + '.*'):
-        print('rm', product)
-        product.unlink()
-      if parent == Path('tests'):
-        break
-      rel = parent.name + '/' + rel
-      parent = parent.parent
+    prune_source(root, Path(name))
   subprocess.run([sys.executable, str(ROOT / 'scripts/stamp-overlay.py'),
                   commit, str(root), 'sprite-' + subdir], check=True)
 
 
-def archive_products(root, subdir='pakcs-3.4.1', prefix=None):
+def archive_products(root, subdir='pakcs-3.10.0', prefix=None):
   products = {
       str(p.relative_to(root)): p
       for p in (root / 'tests').rglob('*') if p.is_file() and '.curry' in p.parts
@@ -103,9 +130,8 @@ def archive_products(root, subdir='pakcs-3.4.1', prefix=None):
     if path.suffix in ('.fcy', '.fint', '.icurry'):
       name = 'curry/lib/.curry/' + subdir + '/' + str(path.relative_to(library))
       products[name] = path
-  # Current-tool library oracles live in the archive. The committed ICurry
-  # beside the library sources belongs only to the pinned configuration.
-  if subdir != 'pakcs-3.4.1':
+  # Both archives keep independent library oracles for their own grammar.
+  if subdir in ('pakcs-3.4.1', 'pakcs-3.10.0'):
     libroot = library.parent.parent
     for path in libroot.rglob('*'):
       if path.is_file() and 'sprite-' + subdir in path.parts \
@@ -136,7 +162,7 @@ def main():
                       default=Path(os.environ.get('SPRITE_HOME', ROOT / 'install')))
   args = parser.parse_args()
   setting = args.prefix / 'sysconfig/frontend_subdir'
-  subdir = setting.read_text().strip() if setting.is_file() else 'pakcs-3.4.1'
+  subdir = setting.read_text().strip() if setting.is_file() else 'pakcs-3.10.0'
   if subdir not in ('pakcs-3.4.1', 'pakcs-3.10.0'):
     parser.error('unsupported overlay release: ' + subdir)
   archive = ROOT / ('overlay-' + subdir + '.tgz')

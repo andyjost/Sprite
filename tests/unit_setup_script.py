@@ -26,8 +26,8 @@ ENV_FILE = os.path.join(ROOT, 'conda', 'dev-environment.yml')
 DOC_FILE = os.path.join(ROOT, 'docs', 'source', 'DeveloperSetup.rst')
 TIMEOUT = 60  # seconds for one run of the script
 
-PAKCS_URL = 'https://www.curry-lang.org/pakcs/download/pakcs-3.4.1-amd64-Linux.tar.gz'
-PAKCS_SHA256 = 'd17d8b3c30564200d5f4ee3a4ee9882fbca5ed66b77b9317050e1f71ba955db2'
+PAKCS_URL = 'https://www.curry-lang.org/pakcs/download/pakcs-3.10.0-amd64-Linux.tar.gz'
+PAKCS_SHA256 = 'ef632f91016a0c83b95b3b047421dea16556ce0107ee12834c5a969072abf51f'
 CLEAN_ENV = 'env -i PATH=/usr/local/bin:/usr/bin:/bin HOME='
 APT_PACKAGES = [
     'git', 'swi-prolog-nox', 'g++', 'make', 'curl', 'ccache', 'time'
@@ -249,7 +249,7 @@ esac
     python = prefix + '/conda/env/bin/python'
     # The steps, in order.
     self.assertInOrder(
-        out, 'Step 1/9: machine', 'Step 2/9: apt', 'Step 3/9: PAKCS 3.4.1'
+        out, 'Step 1/9: machine', 'Step 2/9: apt', 'Step 3/9: PAKCS 3.10.0'
       , 'Step 4/9: checkout', 'Step 5/9: conda', 'Step 6/9: configure'
       , 'Step 7/9: make stage', 'Step 8/9: smoke test', 'Step 9/9: next steps'
       , 'dry run complete; no stop expected'
@@ -263,11 +263,10 @@ esac
     # PAKCS: the pinned archive, its checksum, the stack limit of SWI-Prolog
     # 9, and make in the clean environment.
     self.assertInOrder(
-        out, 'curl -fsSL -o %s/downloads/pakcs-3.4.1-amd64-Linux.tar.gz %s' % (prefix, PAKCS_URL)
+        out, 'curl -fsSL -o %s/downloads/pakcs-3.10.0-amd64-Linux.tar.gz %s' % (prefix, PAKCS_URL)
       , PAKCS_SHA256, 'sha256sum -c -'
-      , 'tar xzf %s/downloads/pakcs-3.4.1-amd64-Linux.tar.gz -C %s' % (prefix, prefix)
-      , 'sed -i', 'pakcs-3.4.1/scripts/pakcs-makesavedstate.sh'
-      , '(cd %s/pakcs-3.4.1 && %s' % (prefix, CLEAN_ENV), ' make SWIPROLOG='
+      , 'tar xzf %s/downloads/pakcs-3.10.0-amd64-Linux.tar.gz -C %s' % (prefix, prefix)
+      , '(cd %s/pakcs-3.10.0 && %s' % (prefix, CLEAN_ENV), ' make SWIPROLOG='
       )
     self.assertRegex(out, r' make SWIPROLOG=\S+/swipl\)')
     # conda: created from the environment file under the prefix.
@@ -296,7 +295,7 @@ esac
     self.assertIn(' cmake -S . -B object-root/cmake -G Ninja ', line)
     for flag in [
         '-DPython_EXECUTABLE=' + python, '-DCMAKE_C_COMPILER=/usr/bin/gcc', '-DCMAKE_CXX_COMPILER=/usr/bin/g++'
-      , '-DWITH_CXX_POSTINSTALL=/usr/bin/g++', '-DWITH_PAKCS=%s/pakcs-3.4.1/bin/pakcs' % prefix
+      , '-DWITH_CXX_POSTINSTALL=/usr/bin/g++', '-DWITH_PAKCS=%s/pakcs-3.10.0/bin/pakcs' % prefix
       , '-DWITH_ICURRY='
       ]:
       self.assertIn(' ' + flag, line + ' ')
@@ -367,12 +366,13 @@ esac
     self.assertIn('the core count (%d)' % cores, out)
     self.assertNotIn('-DJOBS=%d' % cores, out)
 
-  def test_current_pakcs_version(self):
-    out = self.dry_run('--repo', self.repo, env={'PAKCS_VERSION': '3.10.0'})
-    self.assertIn('pakcs-3.10.0-amd64-Linux.tar.gz', out)
-    self.assertIn('ef632f91016a0c83b95b3b047421dea16556ce0107ee12834c5a969072abf51f', out)
+  def test_legacy_pakcs_version(self):
+    out = self.dry_run('--repo', self.repo, env={'PAKCS_VERSION': '3.4.1'})
+    self.assertIn('pakcs-3.4.1-amd64-Linux.tar.gz', out)
+    self.assertIn('d17d8b3c30564200d5f4ee3a4ee9882fbca5ed66b77b9317050e1f71ba955db2', out)
+    self.assertIn('pakcs-3.4.1/scripts/pakcs-makesavedstate.sh', out)
     self.assertNotIn('no pinned checksum for PAKCS', out)
-    self.assertIn('-DWITH_PAKCS=%s/pakcs-3.10.0/bin/pakcs' % self.prefix, out)
+    self.assertIn('-DWITH_PAKCS=%s/pakcs-3.4.1/bin/pakcs' % self.prefix, out)
 
   def test_other_pakcs_version(self):
     '''A version without a pinned hash gets its size recorded.'''
@@ -389,14 +389,14 @@ esac
     prefix = self.prefix
     icurry = prefix + '/cpm/bin/icurry'
     self.assertInOrder(
-        out, 'Step 3/9', 'icurry 3.1.0', 'cat > %s/.cpmrc' % self.home
+        out, 'Step 3/9', 'icurry 3.3.0', 'cat > %s/.cpmrc' % self.home
       , 'BININSTALLPATH=%s/cpm/bin' % prefix
       , 'PACKAGEINDEXURL=https://cpm.curry-lang.org/PACKAGES/INDEX.tar.gz'
-      , 'cypm update', 'cypm checkout icurry 3.1.0', 'cypm install'
+      , 'cypm update', 'cypm checkout icurry 3.3.0', 'cypm install'
       , ':load ICurry.Main :save :quit', 'mv %s/cpm/src/icurry/ICurry.Main %s' % (prefix, icurry)
       , 'Step 4/9', 'Step 6/9', '-DWITH_ICURRY=' + icurry, 'icurry:      ' + icurry
       )
-    self.assertIn('PATH=%s/pakcs-3.4.1/bin:/usr/local/bin:/usr/bin:/bin' % prefix, out)
+    self.assertIn('PATH=%s/pakcs-3.10.0/bin:/usr/local/bin:/usr/bin:/bin' % prefix, out)
 
   def test_existing_cpmrc_is_kept(self):
     with open(os.path.join(self.home, '.cpmrc'), 'w') as stream:

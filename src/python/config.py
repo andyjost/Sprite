@@ -143,23 +143,24 @@ def default_sprite_cache_file():
 enable_icurry_cache       = _Variable('enable_icurry_cache', type=bool)
 # Whether to cache parsed JSON.  The stored objects are pickled Python.
 enable_parsed_json_cache  = _Variable('enable_parsed_json_cache', type=bool)
-# The name of the subdirectory of .curry in which to place Sprite files.
+# The name of the subdirectory of .curry in which to place Sprite files
+# (by default sprite-pakcs-3.10.0).
 intermediate_subdir       = _Variable('intermediate_subdir')
 # The name of the subdirectory of .curry into which the Curry front end
-# writes FlatCurry.  It names the front end, e.g., pakcs-3.4.1.
+# writes FlatCurry.  It names the front end, by default pakcs-3.10.0.
 frontend_subdir           = _Variable('frontend_subdir')
 # The options passed to the Curry front end after the output directory and
 # the search path, as one string.
 frontend_flags            = _Variable('frontend_flags')
+# The default front end is 3.1.0; the legacy 2.0.0 remains supported.
 frontend_version          = _Variable('frontend_version')
 # The route from Curry to ICurry chosen at configuration time: 'frontend' or
 # 'icurry'.  Empty when CMake left the choice open.
 default_curry2icurry_tool = _Variable('curry2icurry_tool')
 # The name of the top-level Python package.  By default, 'curry'.
 python_package_name       = _Variable('python_package_name')
-# The version of the Curry library.  It names the PAKCS release whose library
-# Sprite ships under curry/lib (currently 3.10.0, base 3.4.0).  Some tests
-# key their expectations on it.
+# The version of base shipped under curry/lib (3.4.0, from PAKCS 3.10.0).
+# Some tests key their expectations on it.
 currylib_version          = _Variable('currylib_version')
 # The names of all modules in the system Curry library, the Prelude first.
 currylib_module_names     = _Variable('currylib_module_names')

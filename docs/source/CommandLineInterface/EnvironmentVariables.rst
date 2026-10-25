@@ -443,8 +443,9 @@ Makefile also accepts the historical variables below. See
   ``.icy`` file and never translates the module again.  With
   ``make stage SPRITE_REBUILD_ICY=1`` it runs the front end and the translation again
   and writes a new ``.icy``; the committed files are pinned artifacts of
-  the front end of PAKCS 3.4.1 and of ``icurry`` 3.1.0, so this is a
-  deliberate step.
+  the front end 3.1.0 of PAKCS 3.10.0 and of ``icurry`` 3.3.0, so this is a
+  deliberate step. The legacy pair compiles its library from source and
+  does not reuse these pins.
 
 ``DEBUG=1``
   The debug flavor of the runtime: the assertions on, no optimization.

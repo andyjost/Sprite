@@ -131,8 +131,8 @@ def main():
   frontend_subdir = setting('frontend_subdir')
   intermediate_subdir = setting('intermediate_subdir')
   frontend_flags = shlex.split(setting('frontend_flags'))
-  rebuild = args.rebuild_icy.upper() in ('1', 'ON', 'TRUE') \
-      or setting('frontend_version') != '2.0.0'
+  rebuild = args.rebuild_icy.upper() in ('1', 'ON', 'TRUE')
+  use_pinned = setting('frontend_version') == '3.1.0' and not rebuild
   flat = lib / '.curry' / frontend_subdir
   suffixes = ['.fcy', '.fint', '.icurry']
   needs_interfaces = any(
@@ -150,7 +150,7 @@ def main():
     for suffix in ['.fint', '.icurry']:
       copy(flat / rel.with_suffix(suffix), dest.with_suffix(suffix))
     pinned = path.with_suffix('.icy')
-    if pinned.exists() and not rebuild:
+    if pinned.exists() and use_pinned:
       icy = dest.with_suffix('.icy')
       marker = Path(str(icy) + '.pinned')
       digest = hashlib.sha256(pinned.read_bytes()).hexdigest()
@@ -169,10 +169,21 @@ def main():
       # A copied pinned artifact is current even in a fresh checkout.
       if dest.with_suffix('.icy').stat().st_mtime < (lib / rel).stat().st_mtime:
         os.utime(dest.with_suffix('.icy'), None)
-    elif pinned.exists():
-      dest.with_suffix('.icy').unlink(missing_ok=True)
+    elif pinned.exists() and rebuild:
+      # A forced retranslation can change bytes without changing the source
+      # digest. Remove derived products rather than trusting their stamps.
+      for suffix in ('.icy', '.json', '.json.z', '.cpp', '.so.abi'):
+        dest.with_suffix(suffix).unlink(missing_ok=True)
       run(sys.executable, '-m', 'curry.tools.make', '--rewrite-flat', lib / rel,
           '-o', dest.with_suffix('.icy'))
+      if setting('frontend_version') == '3.1.0':
+        # Regenerate the pinned inputs in the independent compiler's mode.
+        # Ordinary source imports retain the runtime route's case order.
+        run(sys.executable, '-m', 'curry.toolchain.flat2icurry',
+            flat / rel.with_suffix('.fcy'), '-i', lib,
+            '-o', dest.with_suffix('.icy'))
+        for suffix in ('.json', '.json.z', '.cpp', '.so.abi'):
+          dest.with_suffix(suffix).unlink(missing_ok=True)
   make = [sys.executable, '-m', 'curry.tools.make']
   # Pinned ICurry is a trusted input of the stage. Record its interfaces
   # only after all copies are installed, before planning JSON and objects.

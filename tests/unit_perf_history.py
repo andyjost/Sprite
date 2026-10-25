@@ -550,19 +550,19 @@ class TestWorkflow(unittest.TestCase):
     self.assertEqual(ci.count('- { backend: cxx, shard:'), 3)
     self.assertIn('  stress:\n', ci)
 
-  def test_current_tools_jobs(self):
+  def test_legacy_tools_jobs(self):
     ci = read(os.path.join(WORKFLOWS, 'ci.yml'))
-    job = ci.split('  current-tools:\n', 1)[1].split('  python-versions:\n', 1)[0]
+    job = ci.split('  legacy-tools:\n', 1)[1].split('  python-versions:\n', 1)[0]
     self.assertIn('continue-on-error: true', job)
-    self.assertIn("PAKCS_VERSION: '3.10.0'", job)
-    self.assertIn("ICURRY_VERSION: ''", job)
+    self.assertIn("PAKCS_VERSION: '3.4.1'", job)
+    self.assertIn("ICURRY_VERSION: '3.1.0'", job)
     self.assertIn('suite: [unit, func]', job)
     self.assertIn("shard: ['1/3', '2/3', '3/3']", job)
     self.assertIn('.github/scripts/install-curry-toolchain.sh', job)
     self.assertIn('pakcs-$PAKCS_VERSION/bin/pakcs-frontend', job)
     for pattern in ('unit_*.py', 'func_*.py'):
       self.assertIn("run-tests.sh cxx '%s' ${{ matrix.shard }}" % pattern, job)
-    self.assertIn('icurry-current-${{ env.PAKCS_VERSION }}-', job)
+    self.assertIn('icurry-legacy-${{ env.PAKCS_VERSION }}-', job)
     self.assertNotIn('restore-keys: |\n            icurry-cache-', job)
 
   def test_interpreter_job(self):

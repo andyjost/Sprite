@@ -6,8 +6,8 @@
 # Everything lands under $HOME so that a CI cache can restore it.  Requires
 # swipl, curl, and make.
 set -euo pipefail
-: "${PAKCS_VERSION:=3.4.1}"
-: "${ICURRY_VERSION=3.1.0}"
+: "${PAKCS_VERSION:=3.10.0}"
+: "${ICURRY_VERSION=}"
 export LC_ALL=C.UTF-8
 PAKCS_HOME="$HOME/pakcs-$PAKCS_VERSION"
 
@@ -16,8 +16,8 @@ cd "$HOME"
 curl -fsSL -o pakcs.tar.gz \
   "https://www.curry-lang.org/pakcs/download/pakcs-$PAKCS_VERSION-amd64-Linux.tar.gz"
 case "$PAKCS_VERSION" in
-  3.4.1) pakcs_sha256=d17d8b3c30564200d5f4ee3a4ee9882fbca5ed66b77b9317050e1f71ba955db2 ;;
-  3.10.0) pakcs_sha256=ef632f91016a0c83b95b3b047421dea16556ce0107ee12834c5a969072abf51f ;;
+  3.4.1) pakcs_sha256=d17d8b3c30564200d5f4ee3a4ee9882fbca5ed66b77b9317050e1f71ba955db2; frontend_version=2.0.0 ;;
+  3.10.0) pakcs_sha256=ef632f91016a0c83b95b3b047421dea16556ce0107ee12834c5a969072abf51f; frontend_version=3.1.0 ;;
   *) echo "No pinned PAKCS checksum: $PAKCS_VERSION" >&2; exit 2 ;;
 esac
 echo "$pakcs_sha256  pakcs.tar.gz" | sha256sum -c -
@@ -38,10 +38,10 @@ fi
 timeout 900 make SWIPROLOG="$(command -v swipl)"
 export PATH="$PAKCS_HOME/bin:$PATH"
 
-# The current-tools lane uses Sprite's translator and the shipped front end.
+# The default uses Sprite's translator and the shipped front end.
 # An empty ICURRY_VERSION skips the optional external ICurry route.
 if [ -z "$ICURRY_VERSION" ]; then
-  test "$(timeout 30 pakcs-frontend --numeric-version)" = 3.1.0
+  test "$(timeout 30 pakcs-frontend --numeric-version)" = "$frontend_version"
   test "$(timeout 30 pakcs --numeric-version)" = "$PAKCS_VERSION"
   echo "Curry toolchain ready: $PAKCS_HOME (Sprite translator)"
   exit 0

@@ -37,7 +37,8 @@ IO goals stay out.  tests/oracle runs the REPL in safe mode, which refuses an
 initial expression of an I/O type ("Only initial expressions of non I/O type
 are allowed!").  unit_goals.py covers IO goals on Sprite alone.
 
-The goldens (*.au-gen) are committed.  The oracle runs only for a golden
+The goldens (*.au-gen) are committed. Changed types and diagnostics retain
+*.pakcs-3.4.1.au-gen copies for the legacy oracle; unchanged files are shared.  The oracle runs only for a golden
 that is missing or older than the module.  The golden of a text goal records
 its text on its first line, "!goal <text>", and is made again when the text
 in TEXTS or ERRORS changes.  A run of PAKCS takes seconds.
@@ -48,6 +49,7 @@ from curry.interpreter import compile as compilemod
 from curry.typecheck import goals
 from curry.typecheck.defaulting import ORACLE_SENTENCE
 import curry, os, re, subprocess, tempfile, unittest
+from curry import config
 
 SOURCE_DIR = 'data/curry/goal_defaulting/'
 MODULE = 'defaulting'
@@ -210,6 +212,11 @@ def golden(module, goal, filename, text=None, **kwds):
   header.
   '''
   goldenfile = os.path.join(SOURCE_DIR, filename)
+  # Only changed goldens have a legacy copy; unchanged files are shared.
+  if config.frontend_subdir() == 'pakcs-3.4.1':
+    legacy = goldenfile.removesuffix('.au-gen') + '.pakcs-3.4.1.au-gen'
+    if os.path.isfile(legacy):
+      goldenfile = legacy
   header = None if text is None else '%s%s\n' % (TEXT_HEADER, text)
   if header is not None and os.path.isfile(goldenfile):
     with open(goldenfile, encoding='utf-8') as stream:

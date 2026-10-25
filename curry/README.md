@@ -31,10 +31,13 @@ Pinned build products
 
 Beside eight of the sources sit committed `.icy` (ICurry) and `.json.z`
 (compressed ICurry-JSON) files.  They are build products of the pinned PAKCS
-front end and of `icurry` 3.1.0; Sprite's own translation writes the same
-bytes.  `make install` copies them to
-`$(PREFIX)/curry/<package>/.curry/sprite-pakcs-<ver>/`.  The build never
-rebuilds a committed `.icy` file unless `SPRITE_REBUILD_ICY` is set.  A
+front end 3.1.0 (PAKCS 3.10.0), regenerated with Sprite's port.
+In compatibility mode the port is byte-identical to `icurry` 3.3.0; the
+independent references are in `overlay-pakcs-3.10.0.tgz`.  `make install` copies them to
+`$(PREFIX)/curry/<package>/.curry/sprite-pakcs-<ver>/`.  With front end 3.1.0 the build never
+rebuilds a committed `.icy` file unless `SPRITE_REBUILD_ICY` is set.
+The legacy pair, front end 2.0.0 with PAKCS 3.4.1, compiles the
+library from source at stage time; its pinned products are no longer committed.  A
 committed `.icy` file is kept even when its source has a newer time stamp.
 The `.json.z` file is derived from the `.icy` file when it is older.
 
@@ -60,17 +63,18 @@ front end reads their interfaces.
 Rebuilding the products
 -----------------------
 
-A build with front end 2.0.0 and PAKCS 3.4.1 regenerates the pinned products.
+A build with front end 3.1.0 and PAKCS 3.10.0 regenerates the pinned products.
 From the project root:
 
     make stage SPRITE_REBUILD_ICY=1
 
 This writes fresh products in the build's `stage/curry/` image and copies
 them into the installation. Copy the eight pinned `.icy` and `.json.z`
-files back beside their sources, from their `.curry/sprite-pakcs-3.4.1/`
-directories in that image. Check the `.icy` bytes against `icurry` 3.1.0
-before replacing the committed products. A build with front end 3.1.0
-always compiles the library afresh and never uses the pinned products.
+files back beside their sources, from their `.curry/sprite-pakcs-3.10.0/`
+directories in that image. Check the `.icy` bytes against `icurry` 3.3.0
+before replacing the committed products. A build with front end 2.0.0
+compiles the library from source and never uses the pinned products.
+As with other source modules, an incremental stage keeps valid products.
 
 `sprite-make --icy` compiles a module with the configured route from Curry
 to ICurry: the front end plus Sprite's translation by default, or `icurry`

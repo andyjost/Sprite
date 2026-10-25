@@ -27,7 +27,7 @@ binding optimization of PAKCS and the set0 lift (see below).  Then
 Sprite's own translation,
 :mod:`curry.toolchain.flat2icurry`, turns the FlatCurry into ICurry.  That
 translation is a Python port of the external program `icurry
-<https://cpm.curry-lang.org/pkgs/icurry.html>`__ 3.1.0, available through
+<https://cpm.curry-lang.org/pkgs/icurry.html>`__ 3.3.0 (3.1.0 for the legacy pair), available through
 the `Curry Package Manager`_, and it writes the same ``.icy`` text.
 ``icurry`` itself remains an alternative route for the last step; see
 ``CMake WITH_ICURRY`` and the environment variable
@@ -57,11 +57,11 @@ The command ``python -m curry.toolchain.flat2icurry M.fcy`` runs the
 translation by hand, and ``tests/lib/flat2icurry_oracle.py`` compares its
 output with the ``.icy`` files that ``icurry`` wrote.
 
-The oracle of the port is the overlay archive ``overlay-pakcs-3.4.1.tgz`` at
+The oracle of the port is the overlay archive ``overlay-pakcs-3.10.0.tgz`` at
 the root of the repository.  It holds the FlatCurry and ICurry files of every
-test program, written by the pinned front end and by ``icurry`` 3.1.0, and
-the FlatCurry interfaces of the Curry library.  The oracle of a library
-module is its committed ``.icy`` file under ``curry/lib``.  The modules under
+test program, written by the pinned front end and by ``icurry`` 3.3.0, and
+the FlatCurry interfaces of the Curry library.  The current archive also holds all library oracles. The legacy pair
+uses ``overlay-pakcs-3.4.1.tgz`` with ``icurry`` 3.1.0 references.  The modules under
 ``tests/data/curry/flat2icurry`` probe what the rest of the corpus does not
 use, such as negative numbers, newtypes, and recursive lets.  The unit test
 ``unit_flat2icurry.py`` checks a fixed sample of 60 files and the probes;

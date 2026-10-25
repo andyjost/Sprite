@@ -32,11 +32,14 @@ esac
 # login shell exports CC, CXX and their flags, which CMake honours.
 set -euo pipefail
 
-PAKCS_VERSION=${PAKCS_VERSION:-3.4.1}
-ICURRY_VERSION=${ICURRY_VERSION:-3.1.0}
+PAKCS_VERSION=${PAKCS_VERSION:-3.10.0}
+if [ "$PAKCS_VERSION" = 3.4.1 ]; then
+  ICURRY_VERSION=${ICURRY_VERSION:-3.1.0}
+else
+  ICURRY_VERSION=${ICURRY_VERSION:-3.3.0}
+fi
 PAKCS_URL_BASE=https://www.curry-lang.org/pakcs/download
-# SHA-256 of the PAKCS binary archive of each pinned version: the hash of
-# conda/curry-frontend/meta.yaml, the archive dated 2021-10-26.  A version
+# SHA-256 of the PAKCS binary archive of each supported version. A version
 # without a hash here gets its size recorded instead.
 declare -A PAKCS_SHA256=(
   [3.10.0]=ef632f91016a0c83b95b3b047421dea16556ce0107ee12834c5a969072abf51f
@@ -433,15 +436,15 @@ step_pakcs() {
   # The distribution sets a stack limit for SWI-Prolog 8 only.  Give 9 the
   # same (the CI script does too).  The pattern matches only before the
   # change, so the edit is idempotent.
-  if [ "$dry_run" = 1 ] || grep -q '^[[:space:]]*8 )' "$pakcs_home/scripts/pakcs-makesavedstate.sh"; then
+  if [ "$PAKCS_VERSION" = 3.4.1 ] && { [ "$dry_run" = 1 ] || grep -q '^[[:space:]]*8 )' "$pakcs_home/scripts/pakcs-makesavedstate.sh"; }; then
     run sed -i 's/^\([[:space:]]*\)8 )/\18 | 9 )/' "$pakcs_home/scripts/pakcs-makesavedstate.sh"
   fi
   note "make builds the saved states (several minutes)"
   run_in "$pakcs_home" "${clean_env[@]}" make "SWIPROLOG=$swipl"
   if [ "$dry_run" = 0 ]; then
     pakcs_built || die "PAKCS did not build: $pakcs_home/src/pakcs is missing"
-    note "pakcs --numeric-version: $(LC_ALL=C.UTF-8 "$pakcs_home/bin/pakcs" --numeric-version)"
-    note "pakcs-frontend --numeric-version: $("$pakcs_home/bin/pakcs-frontend" --numeric-version)"
+    note "pakcs --numeric-version: $(LC_ALL=C.UTF-8 timeout 30 "$pakcs_home/bin/pakcs" --numeric-version)"
+    note "pakcs-frontend --numeric-version: $(LC_ALL=C.UTF-8 timeout 30 "$pakcs_home/bin/pakcs-frontend" --numeric-version)"
   fi
 }
 

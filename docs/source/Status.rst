@@ -10,9 +10,9 @@ The front end
 =============
 
 Sprite translates Curry to FlatCurry with the Curry front end of PAKCS
-3.4.1, the pinned release.  The binding optimization of PAKCS is applied
+3.10.0, the pinned release (front end 3.1.0).  The binding optimization of PAKCS is applied
 to the FlatCurry file as PAKCS applies it.  Sprite's own port of
-``icurry`` 3.1.0 writes the ICurry.  The ``icurry`` program is an
+``icurry`` 3.3.0 writes the ICurry.  The ``icurry`` program is an
 optional second route that must write the same bytes.  PAKCS is also the
 oracle of the functional tests. The Curry library under ``curry/lib`` is
 base 3.4.0 from PAKCS 3.10.0, with Sprite's own ``Control.SetFunctions``

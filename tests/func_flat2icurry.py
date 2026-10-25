@@ -108,7 +108,7 @@ class TestWholeCorpus(cytest.TestCase):
     return sorted(fcys)
 
   def test_library(self):
-    '''The committed .icy files of the library.'''
+    '''The independent library oracles of the selected release.'''
     pairs = self.overlay.library_pairs()
     self.assertGreaterEqual(len(pairs), 8)
     self.check_pairs(pairs, self.overlay.library_dirs())
