@@ -1,8 +1,8 @@
 '''
 Oracle harness for the FlatCurry-to-ICurry port.
 
-Every committed .icy file and every .icy file in the test corpus was written
-by icurry 3.1.0 under PAKCS.  The port is right when its text is
+The pinned oracle uses front end 2.0.0 and icurry 3.1.0; the current-tool
+oracle uses front end 3.1.0 and icurry 3.3.0. The port is right when its text is
 byte-identical to those files.  For each FlatCurry file, this harness runs
 the port and compares the result with the expected .icy file.  When the bytes
 differ, it reports the first differing byte and the first differing subterm.
@@ -17,9 +17,10 @@ directories, and the system Curry path.
 
 The fixed oracle is the overlay archive ``overlay-<subdir>.tgz`` at the root
 of the repository.  It holds the ``.fcy``, ``.fint``, and ``.icy`` files of
-the test programs, written by the pinned front end and by icurry 3.1.0, and
+the test programs, written by the configured front end and matching icurry, and
 the FlatCurry interfaces of the Curry library under ``curry/lib/.curry``.
-The oracle of a library module is its committed ``.icy`` under ``curry/lib``.
+The pinned library oracle is its committed ``.icy`` under ``curry/lib``;
+the current-tool library oracle is in its release's archive.
 :class:`Overlay` extracts the archive into a scratch directory, so a check
 does not depend on the products that other tests leave behind.
 
@@ -103,6 +104,7 @@ def make_finder(fcyfile, prog, importdirs=(), subdirs=None):
 
 def check_file(
     fcyfile, importdirs=(), subdirs=None, icyfile=None, accept_unrewritten=False
+  , icurry_compat=True
   ):
   '''
   Runs the port on one file and compares the text with the oracle.  The
@@ -130,7 +132,7 @@ def check_file(
     prog = f2i.load_interface(fcyfile)
     finder = make_finder(fcyfile, prog, importdirs, subdirs)
     interfaces = [finder.find(m) for m in prog.imports]
-    actual = f2i.showterm(f2i.translate(prog, interfaces))
+    actual = f2i.showterm(f2i.translate(prog, interfaces, icurry_compat=icurry_compat))
   except BaseException as e:
     if isinstance(e, KeyboardInterrupt):
       raise
@@ -146,7 +148,7 @@ def check_file(
     optimized, _ = f2i.rewrite_prog(prog)
     if optimized is not prog:
       try:
-        rewritten = f2i.showterm(f2i.translate(optimized, interfaces))
+        rewritten = f2i.showterm(f2i.translate(optimized, interfaces, icurry_compat=icurry_compat))
       except Exception:
         # The plain difference below is the report.
         rewritten = None
@@ -298,7 +300,9 @@ class Overlay:
           committed = os.path.normpath(os.path.join(
               self.srcroot, 'curry', 'lib', moduledir, fn[:-len('.fcy')] + '.icy'
             ))
-          icy = committed if os.path.isfile(committed) else expected_icy(fcy)
+          # Committed products belong to the pinned 2.0.0 configuration.
+          icy = (committed if self.subdir == 'pakcs-3.4.1' and os.path.isfile(committed)
+                 else expected_icy(fcy))
           if icy:
             pairs.append((fcy, icy))
     return sorted(pairs)

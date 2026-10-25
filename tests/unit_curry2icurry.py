@@ -14,6 +14,7 @@ MAKE_ENV = {
   , 'HOME': os.environ.get('HOME', '/')
   , 'LC_ALL': 'C.UTF-8'
   , 'TMPDIR': os.environ.get('TMPDIR', tempfile.gettempdir())
+  , 'SPRITE_HOME': config.prefix()
   }
 if 'PYTHON_GIL' in os.environ:
   MAKE_ENV['PYTHON_GIL'] = os.environ['PYTHON_GIL']
@@ -77,6 +78,13 @@ class TestCurry2ICurry(cytest.TestCase):
     kwds.setdefault('curry2icurry', 'frontend')
     kwds.setdefault('quiet', True)
     return toolchain.curry2icurry(curryfile, list(currypath), **kwds)
+
+  def compatible(self, curryfile, currypath=()):
+    '''Translate the route's rewritten input in independent-compiler mode.'''
+    self.convert(curryfile, currypath)
+    fcy = _frontend.flatcurryfile(curryfile)
+    finder = oracle.make_finder(fcy, fc.load(fcy), _frontend.searchdirs(curryfile, currypath))
+    return oracle.f2i.showterm(oracle.f2i.translate_file(fcy, finder)).encode('utf-8')
 
   def test_configured(self):
     '''The staged installation links the front end under tools/.'''
@@ -186,7 +194,11 @@ class TestCurry2ICurry(cytest.TestCase):
     self.assertTrue(os.path.isfile(
         os.path.join(root, FE_SUBDIR, 'Sub', 'Deep.fint')
       ))
-    self.assertEqual(readbytes(out), readbytes(classes_icy))
+    # The current oracle sorts completed cases. The runtime preserves its
+    # existing order, so compare the same input in compatibility mode.
+    actual = (self.compatible(classes, [root]) if config.frontend_version() == '3.1.0'
+              else readbytes(out))
+    self.assertEqual(actual, readbytes(classes_icy))
     # Compiled by itself, the hierarchical module keeps its own directory.
     out = self.convert(deep, [root])
     self.assertEqual(out, os.path.join(root, 'Sub', SUBDIR, 'Deep.icy'))
@@ -203,10 +215,11 @@ class TestCurry2ICurry(cytest.TestCase):
     icy = self.convert(curryfile)
     text = readbytes(icy).decode('utf-8')
     self.assertIn('(IFreeDecl 2)', text)
+    suffix = '#' if config.frontend_version() == '3.1.0' else ''
     # icurry's block refers to the let variable 2 without a declaration.
     self.assertNotIn(
         '(IBlock [(IVarDecl 1)] [(IVarAssign 1 (IVarAccess 0 [0]))] (IReturn (IFCall '
-        '("Prelude","_impl#*#Prelude.Num#Prelude.Int",343) [(IVar 2),(IVar 2)])))'
+        '("Prelude","_impl#*#Prelude.Num#Prelude.Int%s",346) [(IVar 2),(IVar 2)])))' % suffix
       , text
       )
     TypedRoot = curry.import_('TypedRoot', path=[os.path.dirname(curryfile)])
@@ -306,7 +319,7 @@ class TestCurry2ICurry(cytest.TestCase):
     self.assertEqual(fcytext.count(b'constrEq'), 15)
     self.assertNotIn(b'_impl#==#', fcytext)
     self.assertEqual(icytext.count(b'constrEq'), 15)
-    result = oracle.check_file(fcy, icyfile=icy)
+    result = oracle.check_file(fcy, icyfile=icy, icurry_compat=False)
     self.assertEqual(result.status, oracle.EQUAL, result.detail)
     mtime = os.stat(fcy).st_mtime_ns
     self.assertEqual(self.convert(curryfile), icy)
@@ -326,13 +339,13 @@ class TestCurry2ICurry(cytest.TestCase):
   def test_binding_optimization_icurry(self):
     '''
     The icurry route runs the front end and the rewrite first, so the icurry
-    program reads the optimized file and writes the same ICurry as the route
-    through the port.
+    program reads the optimized file and matches the port's compatibility
+    translation of that same file.
     '''
     if config.icurry_tool() is None:
       self.skipTest('icurry is not configured')
     self.without_cache()
-    port = readbytes(self.convert(self.copy('sendMoreMoney.curry')))
+    port = self.compatible(self.copy('sendMoreMoney.curry'))
     other = os.path.join(self.tmpdir, 'other', 'sendMoreMoney.curry')
     os.makedirs(os.path.dirname(other))
     shutil.copy(os.path.join(DATA, 'sendMoreMoney.curry'), other)
@@ -377,7 +390,7 @@ class TestCurry2ICurry(cytest.TestCase):
     # the path given (a caller passes config.currypath(), which holds the
     # system path).
     library = [config.system_curry_path()]
-    port = readbytes(self.convert(self.copy('SetLift.curry'), library))
+    port = self.compatible(self.copy('SetLift.curry'), library)
     other = os.path.join(self.tmpdir, 'other', 'SetLift.curry')
     os.makedirs(os.path.dirname(other))
     shutil.copy(os.path.join(DATA, 'SetLift.curry'), other)
@@ -510,7 +523,7 @@ class TestCurry2ICurry(cytest.TestCase):
     make overlay-interfaces copies the interfaces of the front end beside
     every ICurry file of the extracted test products, and writes the import
     provenance of a file that has none (issue #164). A file without a
-    source digest still needs to be rebuilt before import.
+    matching source digest still needs to be rebuilt before import.
     '''
     archive = os.path.join(ROOT, 'overlay-%s.tgz' % config.frontend_subdir())
     if not os.path.isfile(archive) or not os.path.isfile(os.path.join(ROOT, 'CMakeLists.txt')):
@@ -524,6 +537,11 @@ class TestCurry2ICurry(cytest.TestCase):
         ]
       self.assertTrue(members)
       tar.extractall(self.tmpdir, members=members, filter='data')
+    stamps = sorted(os.path.basename(m.name) for m in members if m.name.endswith('.icy.source'))
+    for name in stamps:
+      source = os.path.join(DATA, name[:-len('.icy.source')] + '.curry')
+      stamp = os.path.join(self.tmpdir, prefix, config.intermediate_subdir(), name)
+      self.assertEqual(readbytes(stamp).decode('ascii'), _curry2icurry.source_digest(source))
     testsdir = os.path.join(self.tmpdir, 'tests')
     icys = sorted(
         os.path.join(dirpath, name)
@@ -579,9 +597,9 @@ class TestCurry2ICurry(cytest.TestCase):
       )
     self.assertEqual(
         names
-      , [ 'Peano.fint', 'Peano.icurry', 'Peano.icy', 'Peano.icy.imports', 'Peano.json.z'
+      , sorted([ 'Peano.fint', 'Peano.icurry', 'Peano.icy', 'Peano.icy.imports', 'Peano.json.z'
         , 'hello.fint', 'hello.icurry', 'hello.icy', 'hello.icy.imports', 'hello.json.z'
-        ]
+        ] + stamps)
       )
 
   def test_sprite_make(self):
@@ -694,14 +712,14 @@ class TestCurry2ICurry(cytest.TestCase):
     self.convert(impa, [self.tmpdir])
     self.assertNotEqual(os.stat(fcy_b).st_mtime_ns, stamp, 'the front end did not compile ImpB again')
     self.assertEqual(readbytes(fcy_b), rewritten)
-    result = oracle.check_file(fcy_b, [self.tmpdir], icyfile=icy_b)
+    result = oracle.check_file(fcy_b, [self.tmpdir], icyfile=icy_b, icurry_compat=False)
     self.assertEqual(result.status, oracle.EQUAL, result.detail)
     # Without the rewrite the run leaves the text of the front end.
     os.utime(_frontend.interfacefile(os.path.join(self.tmpdir, 'ImpC.curry'), '.icurry'))
     _frontend.curry2flat(impa, [self.tmpdir], quiet=True, rewrite=False)
     self.assertNotIn(b'constrEq', readbytes(fcy_b))
     self.assertEqual(
-        oracle.check_file(fcy_b, [self.tmpdir], icyfile=icy_b).status
+        oracle.check_file(fcy_b, [self.tmpdir], icyfile=icy_b, icurry_compat=False).status
       , oracle.DIFFERENT
       )
     # The rewrite reaches the directories of the Curry path, not the

@@ -124,11 +124,25 @@ if(WITH_PAKCS)
 endif()
 
 if(WITH_ICURRY)
+  # These releases expose a dated compiler banner, not a numeric version.
+  if(frontend_version STREQUAL "3.1.0")
+    set(icurry_version "3.3.0")
+    set(icurry_banner "17/10/22")
+  else()
+    set(icurry_version "3.1.0")
+    set(icurry_banner "28/07/21")
+  endif()
+  execute_process(COMMAND "${WITH_ICURRY}" --help TIMEOUT 30
+    RESULT_VARIABLE icurry_result OUTPUT_VARIABLE icurry_output ERROR_VARIABLE icurry_error)
+  string(FIND "${icurry_output}" "ICurry Compiler (Version of ${icurry_banner})" icurry_banner_pos)
+  if(NOT icurry_result EQUAL 0 OR icurry_banner_pos EQUAL -1)
+    message(FATAL_ERROR "Expected icurry ${icurry_version} with Curry front end ${frontend_version}: ${icurry_output}${icurry_error}")
+  endif()
   set(probe "${CMAKE_CURRENT_BINARY_DIR}/icurry-probe")
   file(MAKE_DIRECTORY "${probe}")
   file(REMOVE_RECURSE "${probe}/.curry")
-  file(WRITE "${probe}/sample.curry" "main :: Int\nmain = 42\n")
-  execute_process(COMMAND "${WITH_ICURRY}" sample WORKING_DIRECTORY "${probe}"
+  file(WRITE "${probe}/sample.curry" "main :: Int\nmain = x where x free\n")
+  execute_process(COMMAND "${WITH_ICURRY}" sample TIMEOUT 120 WORKING_DIRECTORY "${probe}"
     RESULT_VARIABLE icurry_result OUTPUT_VARIABLE icurry_output ERROR_VARIABLE icurry_error)
   if(NOT icurry_result EQUAL 0 OR NOT EXISTS "${probe}/.curry/pakcs-${frontend_release}/sample.icy")
     message(FATAL_ERROR "WITH_ICURRY failed its translation probe: ${icurry_output}${icurry_error}")
