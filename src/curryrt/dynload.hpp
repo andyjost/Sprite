@@ -83,12 +83,37 @@ namespace curryrt
   };
 
   // A loaded module.  The constructor opens the library, finds its record
-  // _bom_ (curryrt/bom.hpp), refuses a record of another layout version, and
-  // decodes it, unless a library of the same module name is loaded already:
-  // then the module joins the registry entry of that library.  The
-  // constructor with a load path (see SharedLib) never joins: its library
-  // gets an entry of its own, which takes the place of the entry of the
-  // name, so that the registry names the newest library of a module.
+  // _bom_ (curryrt/bom.hpp), refuses a record of another layout version,
+  // binds the slots of the module, runs its initializer, and decodes the
+  // record, unless a library of the same module name is loaded already:
+  // then the module joins the registry entry of that library, whose slots
+  // were bound at its load.  The constructor with a load path (see
+  // SharedLib) never joins: its library gets an entry of its own, which
+  // takes the place of the entry of the name, so that the registry names
+  // the newest library of a module.
+  //
+  // The binding.  The code of a generated module reads every info table and
+  // data type it names through a slot of the module (the slots in
+  // curryrt/bom.hpp).  The load fills the slots, before any code of the
+  // module runs.  A symbol the module defines takes the table of the
+  // module of its name in the registry of the runtime (Module::bind_infotable
+  // and Module::bind_type in curryrt/module.hpp): the table the interpreter
+  // made when the module runs interpreted, or a table kept from an earlier
+  // incarnation of the module, so that the nodes, the bytecode of other
+  // modules and the Python objects that hold a table keep holding the one
+  // table of the symbol, else the table of the object.  A symbol of another
+  // module, or a built-in of the runtime, takes the table of that name in
+  // the module that defines it, which the loader of the Python side imports
+  // before it opens the object, or the built-in table of the runtime; a
+  // symbol that neither has is an error of the load, DynloadError, which
+  // names the symbol and its module.  A table of the module without
+  // compiled code (the interpreter, or the trap step) takes the step of the
+  // object as it is bound: the load is the swap of tiered execution
+  // (curryrt/tiered.hpp), and Module::adopt, which follows it, counts the
+  // functions and links the object.  Then the initializer of the module,
+  // _sprite_init_, makes the nodes of its literals from the bound tables,
+  // and the record is decoded with the bound tables, so that Module::link
+  // registers them.
   struct SharedCurryModule : SharedLib
   {
     SharedCurryModule(std::string const & sofilename);

@@ -299,19 +299,22 @@ print(curryrt.gc_collections() - before)
     shlib = getHandle(self.M).icurry.metadata['cxx.shlib']
     text = cytest.readfile(shlib.sofilename()[:-len('.so')] + '.cpp')
     self.assertIn('// FORMAT: %d' % cxx_compiler.FORMAT_VERSION, text)
-    # One shared node per function value, made at load.
+    # One shared node per function value, made at load by the initializer
+    # from the bound slot of the head (issue #163).
     self.assertEqual(
-        text.count('= partial_node(&CyI10CxxPartial3inc, 1);'), 1
+        text.count('= partial_node(CyX10CxxPartial3inc, 1);'), 1
       )
-    self.assertIn('partial_node(&CyI10CxxPartial5plus3, 3);', text)
-    self.assertIn('partial_node(&CyI7Prelude4Just, 1);', text)
+    self.assertIn('partial_node(CyX10CxxPartial5plus3, 3);', text)
+    self.assertIn('partial_node(CyX7Prelude4Just, 1);', text)
+    self.assertRegex(text, r'static Node \* CyP\d+__\d+ = nullptr;')
+    self.assertIn('void _sprite_init_()', text)
     # A partial application with arguments is allocated with them inline;
     # none without arguments is allocated.
-    self.assertIn('Node::create_partial(&CyI10CxxPartial5plus3, int_(1))', text)
-    self.assertNotRegex(text, r'Node::create_partial\(&[A-Za-z0-9_]+\)')
+    self.assertIn('Node::create_partial(CyX10CxxPartial5plus3, int_(1))', text)
+    self.assertNotRegex(text, r'Node::create_partial\([A-Za-z0-9_]+\)')
     # The steps use the shared nodes.
     self.assertRegex(
-        text, r'Node::create\(&CyI7Prelude5apply, CyP[0-9]+__[0-9]+, '
+        text, r'Node::create\(CyX7Prelude5apply, CyP[0-9]+__[0-9]+, '
       )
 
 

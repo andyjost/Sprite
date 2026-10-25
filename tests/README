@@ -262,7 +262,7 @@ shard.  unit_cxx_tiered.py tests the mode: the swap and its statistics
 (tiered.status and the fields swapped and failed_compiles of curry.stats),
 the values and steps of both tiers, the swap between the values of one
 evaluation and at a safepoint of a long one, a module that imports a fresh
-module, the tables and the shim across a reload, an edited module and an
+module, the tables and the binding across a reload, an edited module and an
 edited import after a reload, a module compiled from a string made again
 after a reset, the failure path in the process and under sprite-exec, a
 fresh program under sprite-exec, a curry.load of the object of a module

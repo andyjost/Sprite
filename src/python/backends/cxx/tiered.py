@@ -35,34 +35,30 @@ the object land there, the product cache leaves them out
 that way is found by the compile of its importer through the search path of
 the child, before the original.
 
-The shim.  A compiled object names its info tables and data types by ELF
-symbol, its own included, and the dynamic linker binds a reference to the
-first definition in the global scope.  When the load of a module ends, this
-module registers a shim for it if the interpreter made any of its tables: a
-library of absolute symbols, one per table and type made at run time, with
-the address of the table (g++ -shared -nostdlib over an empty file with
---defsym; see Shim).  A job carries the shims not yet loaded, and the swap
-loads them before the object; the loader loads them before any object it
-loads (ensure_shims).  So an object binds every reference to the tables the
-nodes, the bytecode of other modules, and the Python objects already hold,
-and one table serves a symbol for the life of the process.  The runtime
-compares tables by address (the equality, the bindings of free variables,
-curry.inspect.isa), so a second table per symbol is not an option.  The load
-itself is the swap: the dynamic initializer of a static table of the object
-constructs it at the address its symbol resolves to, which is the table the
-interpreter uses, so the table carries the compiled step when dlopen returns
-(Module::adopt counts the functions and takes the rest from the object).  A
-shim is made for the process: the addresses belong to it.  The runtime keeps
-the tables of an interpreted module for the life of the process and gives
-them back to a module of the same name made after a reset
-(Module::create_infotable; the reset hands them over at once through
-Module::retire, whether or not a Python object of the module is alive,
-issue #114), so a shim stays valid across a reload.  A module
-whose tables changed shape after its shim was made stays interpreted, and so
-does every module that imports it, because their objects would bind to the
-old tables; one warning says so.  The object of an earlier incarnation of a
-module stays mapped under its path; the runtime loads the new file through a
-link of its own name (see the load in curryrt/tiered.hpp).
+The binding.  The code of a compiled object reads every info table and data
+type it names through a slot of the object, a static pointer the load fills
+(the binding in curryrt/dynload.hpp): a symbol of the module takes the table
+the module of that name has in the registry of the runtime, which is the
+table the interpreter made when the module runs or ran interpreted in this
+process, and a symbol of an import takes the table of the import.  So an
+object binds every reference to the tables the nodes, the bytecode of other
+modules, and the Python objects already hold, and one table serves a symbol
+for the life of the process, on every platform.  The runtime compares
+tables by address (the equality, the bindings of free variables,
+curry.inspect.isa), so a second table per symbol is not an option.  The
+swap is the load of the object and Module::adopt, which writes the compiled
+step of each function into its table.  The runtime keeps the tables of an
+interpreted module for the life of the process and gives them back to a
+module of the same name made after a reset (Module::create_infotable for a
+module interpreted again, Module::bind_infotable for one loaded from its
+object; the reset hands them over at once through Module::retire, whether
+or not a Python object of the module is alive, issue #114), so a table
+keeps its address across a reload.  This module records the modules whose
+tables the interpreter made (_register_binding, has_binding): the loader
+adopts an object of such a module through the swap, which keeps the object
+with the tables.  The object of an earlier incarnation of a module stays
+mapped under its path; the runtime loads the new file through a link of its
+own name (see the load in curryrt/tiered.hpp).
 
 The imports.  A compiled object names the objects of its imports as needed
 libraries, by their SONAMEs (toolchain.soname), which the dynamic linker
@@ -104,11 +100,11 @@ compact one), so a digest of the JSON refused the swap for an edit that
 changed nothing.
 
 The load.  curry.load uses the same adoption as a finished compile, so an
-object loaded over the shim stays with the live tables.  The loader waits
-for any pending compile and checks the registered file before opening the
-object.  prepare_adoption checks the source and the shims before the load.
+object loaded over the tables the interpreter made stays with them.  The
+loader waits for any pending compile and checks the registered file before
+opening the object.  prepare_adoption checks the source before the load.
 
-Failure.  When the compile, the shim, or the load fails, the module stays
+Failure.  When the compile or the load fails, the module stays
 interpreted, and the failure is logged once per module (poll).  The results
 applied at a safepoint are logged by the next poll: before and after an
 evaluation, by wait, and at the exit of the process.  Interpreter.stats
@@ -133,7 +129,7 @@ from ...exceptions import CurryWarning
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    'MODE', 'cancel', 'counts', 'enabled', 'ensure_shims', 'has_shim'
+    'MODE', 'cancel', 'counts', 'enabled', 'has_binding'
   , 'module_loaded', 'pending', 'poll', 'status', 'submit', 'wait', 'wait_for'
   ]
 
@@ -142,36 +138,6 @@ MODE = 'tiered'
 def enabled(interp):
   '''Tells whether ``interp`` runs tiered execution.'''
   return interp.flags['interpret'] == MODE
-
-
-class Shim(object):
-  '''
-  The shim of a module: the symbols of its tables and types made at run time,
-  each with the address of the object in this process, and the file of the
-  library.  See the module docstring.
-  '''
-  def __init__(self, name, path, symbols):
-    self.name = name
-    self.path = path
-    self.symbols = symbols
-    # Set once the runtime loaded the shim.  A hint: the runtime loads a
-    # shim once, whatever this says.
-    self.loaded = False
-    # Set when a module of this name was made again with other tables: the
-    # shim names the old ones, and no object may bind to it.
-    self.blocked = False
-
-  def argv(self, cxx):
-    '''
-    The command that links the shim.  It writes the file under a temporary
-    name; the runtime moves it into place (tiered_build_shim).
-    '''
-    return [
-        cxx, '-shared', '-nostdlib', '-x', 'c++', os.devnull
-      , '-o', self.path + '.tmp'
-      ] + [
-        '-Wl,--defsym=%s=0x%x' % item for item in sorted(self.symbols.items())
-      ]
 
 
 class _Record(object):
@@ -189,10 +155,10 @@ class _Record(object):
 
 
 class _State(object):
-  '''The state of the process: the shims and the logged failures.'''
+  '''The state of the process: the bindings and the logged failures.'''
   def __init__(self):
     self.tmpdir = None
-    self.shims = {}      # module name -> Shim
+    self.bindings = set() # the names of the modules whose tables the interpreter made
     self.pending = {}    # module name -> the object of a compile not applied
     self.modules = {}    # module name -> a weak reference to its module object
     self.records = {}    # module name -> _Record
@@ -295,122 +261,48 @@ def _runtime(info):
   return not (flags & common.F_STATIC_OBJECT)
 
 @native_metadata
-def _register_shim(moduleobj):
+def _register_binding(moduleobj):
   '''
-  The shim of a module, made on the first call.  None when the module has no
-  table made at run time, or when its tables changed since its shim was
-  made: the shim names the old ones, and a compiled object would bind to
-  them.  Call it for a module whose symbols are loaded.
+  Records that the interpreter made a table or a type of ``moduleobj`` in
+  this process (see "The binding" in the module docstring), when it did.
+  Returns True then.  Call it for a module whose symbols are loaded.
   '''
   h = getHandle(moduleobj)
   imodule = h.icurry
-  name = imodule.fullname
   M = h.backend_handle
-  symbols = {}
+  made = False
   for itype in imodule.types.values():
-    typedef = M.get_type(itype.name)
-    if _runtime(typedef):
-      symbols[generic.mangle(itype.splitname(), generic.DATA_TYPE)] = \
-          typedef.address
+    if _runtime(M.get_type(itype.name)):
+      made = True
     for ictor in itype.constructors:
-      info = M.get_infotable(ictor.name)
-      if _runtime(info):
-        symbols[generic.mangle(ictor.splitname(), generic.INFO_TABLE)] = \
-            info.address
+      if _runtime(M.get_infotable(ictor.name)):
+        made = True
   for ifun in imodule.functions.values():
-    info = M.get_infotable(ifun.name)
-    if _runtime(info):
-      symbols[generic.mangle(ifun.splitname(), generic.INFO_TABLE)] = \
-          info.address
-  shim = _state.shims.get(name)
-  if shim is not None:
-    # A shim is final once made: compiled code bound to its addresses.  A
-    # module of the same name made again takes its tables back (see
-    # Module::create_infotable), so the addresses agree unless the shape of
-    # a symbol changed.
-    if shim.symbols == symbols:
-      return shim
-    shim.blocked = True
-    _warn_once(
-        ('replaced', name)
-      , 'the tables of module %r changed after compiled code bound to them; '
-        'the module and the modules that import it stay interpreted in this '
-        'process', name
-      )
-    return None
-  if not symbols:
-    return None
-  path = os.path.join(
-      _tmpdir(), 'shim%d-%s.so' % (next(_state.counter), name)
-    )
-  shim = Shim(name, path, symbols)
-  _state.shims[name] = shim
-  return shim
-
-@native_metadata
-def _load_shim(shim, cxx, envp):
-  '''Links a shim, unless it exists, and loads it.  False on failure.'''
-  if shim.loaded:
-    return True
-  try:
-    curryrt.tiered_build_shim(shim.path, shim.argv(cxx), envp)
-    curryrt.tiered_load_shim(shim.path)
-  except RuntimeError as exc:
-    _warn_once(('shim', shim.name), '%s', exc)
-    return False
-  shim.loaded = True
-  return True
-
-@native_metadata
-def _pending_shims(cxx):
-  '''The shims not yet loaded, as (file, argv) pairs for a job.'''
-  return [
-      (shim.path, shim.argv(cxx)) for shim in _state.shims.values()
-        if not shim.loaded and not shim.blocked
-    ]
-
-@native_metadata
-def ensure_shims(interp):
-  '''
-  Loads every registered shim.  The loader calls this before it loads a
-  compiled object, so that the object binds its references to the tables in
-  use.
-  '''
-  cxx = None
-  for shim in list(_state.shims.values()):
-    if shim.loaded or shim.blocked:
-      continue
-    if cxx is None:
-      cxx = config.cxx_tool()
-      if cxx is None:
-        return
-    _load_shim(shim, cxx, _environment(interp))
+    if _runtime(M.get_infotable(ifun.name)):
+      made = True
+  if made:
+    _state.bindings.add(imodule.fullname)
+  return made
 
 @native_metadata
 def prepare_adoption(interp, name):
-  """Check a foreground swap and load its shims before any object opens."""
+  '''
+  The checks of a foreground swap, before any object opens: the module
+  keeps its tables and its binding goes on record, and its source is as it
+  was at the import.  Returns the steps to swap, the functions the
+  interpreter runs or the trap holds.
+  '''
   from ...exceptions import LoadError
   module = interp.modules.get(name)
   if module is not None:
     h = getHandle(module)
     h.backend_handle.keep_tables()
-    _register_shim(module)
-    blocked = _blocked_import(interp, h.icurry)
-    if blocked is not None:
-      raise LoadError('cannot swap module %r: its import %r changed tables' %
-                      (name, blocked))
-  shim = _state.shims.get(name)
-  if shim is not None and shim.blocked:
-    raise LoadError('cannot swap module %r: its tables changed after compiled '
-                    'code bound to them' % name)
+    _register_binding(module)
   record = _state.records.get(name)
   if record is not None and record.module() is module and module is not None \
       and record.icyfile \
       and curryrt.tiered_file_digest(record.icyfile) != record.digest:
     raise LoadError('cannot swap module %r: %s' % (name, curryrt.TIERED_EDITED))
-  ensure_shims(interp)
-  if shim is not None and not shim.loaded:
-    raise LoadError('cannot swap module %r: its shim cannot be linked or loaded' % name)
   if module is None:
     return []
   M = getHandle(module).backend_handle
@@ -439,28 +331,6 @@ def _compiles(interp, moduleobj):
     return False
   filename = imodule.filename
   return bool(filename) and not _str2module.is_temporary(filename)
-
-@native_metadata
-def _blocked_import(interp, imodule):
-  '''
-  The name of an import, direct or indirect, whose shim is blocked (see
-  Shim), or None.  An object of the module would bind to the old tables of
-  that import.
-  '''
-  seen = set()
-  pending = list(imodule.imports)
-  while pending:
-    name = pending.pop()
-    if name in seen:
-      continue
-    seen.add(name)
-    shim = _state.shims.get(name)
-    if shim is not None and shim.blocked:
-      return name
-    moduleobj = interp.modules.get(name)
-    if moduleobj is not None:
-      pending.extend(getHandle(moduleobj).icurry.imports)
-  return None
 
 def _prelude_compiled(interp):
   '''Tells whether the Prelude of ``interp`` was loaded from its object.'''
@@ -499,8 +369,8 @@ def _interpreter_setting(interp, imodule):
 def module_loaded(interp, moduleobj, currypath):
   '''
   Called when the import of a module ends (IBackend.module_loaded).
-  Registers the shim of the module, records its object for the swap of its
-  importers (_record) and queues its background compile.  Returns True
+  Records the binding of the module, records its object for the swap of
+  its importers (_record) and queues its background compile.  Returns True
   when a job was queued.  ``currypath`` is the search path of the imports
   of the module (IBackend.module_loaded), the CURRYPATH of the child.
   '''
@@ -510,10 +380,7 @@ def module_loaded(interp, moduleobj, currypath):
   # table made at run time too (one of type synonyms alone, say): its
   # importers name its object all the same.
   _record(moduleobj)
-  shim = _register_shim(moduleobj)
-  if shim is None and _state.shims.get(getHandle(moduleobj).icurry.fullname):
-    # The shape changed: blocked.
-    return False
+  _register_binding(moduleobj)
   return submit(interp, moduleobj, currypath)
 
 @native_metadata
@@ -574,7 +441,7 @@ def submit(interp, moduleobj, currypath):
   '''
   Queues the background compile of a module the interpreter runs.  Returns
   True when a job was queued.  ``currypath`` is the search path of the
-  import.  The shim of the module must be registered (module_loaded).
+  import.
   '''
   if not _compiles(interp, moduleobj):
     return False
@@ -609,16 +476,6 @@ def submit(interp, moduleobj, currypath):
       , _interpreter_setting(interp, imodule)
       )
     return False
-  shim = _state.shims.get(name)
-  if shim is None or shim.blocked:
-    return False
-  blocked = _blocked_import(interp, imodule)
-  if blocked is not None:
-    logger.debug(
-        'Module %s stays interpreted: its import %s changed shape', name
-      , blocked
-      )
-    return False
   source = filename
   if _foreign_flags(interp):
     # The object goes into a directory of the process (the module
@@ -640,7 +497,7 @@ def submit(interp, moduleobj, currypath):
   record = _record(moduleobj, sofile)
   logger.debug('Compiling %s in the background: %s', name, ' '.join(argv))
   curryrt.tiered_submit(
-      name, _pending_shims(cxx), argv, envp, logfile, sofile, steps
+      name, argv, envp, logfile, sofile, steps
     , record.icyfile, record.digest, _import_objects(interp, imodule)
     )
   _state.pending[name] = sofile
@@ -704,9 +561,6 @@ def poll(interp=None):
         , '' if result['swapped'] == 1 else 's'
         , ' during an evaluation' if result['in_evaluation'] else ''
         )
-      shim = _state.shims.get(name)
-      if shim is not None:
-        shim.loaded = True
       _refresh(name, interp)
     elif result['error'] == 'the module is no longer loaded':
       logger.debug('The background compile of %s is not needed', name)
@@ -783,23 +637,23 @@ def wait_for(name, timeout=None, interp=None):
   return True
 
 @native_metadata
-def has_shim(name):
+def has_binding(name):
   '''
-  Tells whether a shim names the tables of module ``name``: the module runs,
-  or ran, interpreted in this process, and an object loaded under the name
-  binds to those tables (see the module docstring).
+  Tells whether the interpreter made a table of module ``name`` in this
+  process: the module runs, or ran, interpreted, and an object loaded under
+  the name binds to those tables (see the module docstring).
   '''
-  return name in _state.shims
+  return name in _state.bindings
 
 @native_metadata
 def status():
   '''
   The counts of tiered execution in this process: queued, running,
   swapped_functions, swapped_modules, failed_modules, applied_in_evaluation,
-  and shims.
+  and bindings, the modules whose tables the interpreter made.
   '''
   counts = curryrt.tiered_status()
-  counts['shims'] = len(_state.shims)
+  counts['bindings'] = len(_state.bindings)
   return counts
 
 def counts():

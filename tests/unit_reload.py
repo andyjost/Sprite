@@ -9,9 +9,6 @@ compiled from the edited source is refused at the swap, and the module
 stays interpreted.  Both backends run the tests of the warning.
 '''
 import cytest # from ./lib; must be first
-import sys, unittest
-if sys.platform == 'darwin':
-  raise unittest.SkipTest('swaps modules through the shim of the tiered mode; macOS is issue #162, step 2')
 from cytest.logging import capture_log
 from curry.interpreter import import_ as importer
 from curry.tools.icy import commands, repl

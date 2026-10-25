@@ -9,9 +9,6 @@ programs are in data/curry/CxxInterp.curry; their values under the
 interpreter are compared with the values of the compiled code.
 '''
 import cytest # from ./lib; must be first
-import sys, unittest
-if sys.platform == 'darwin':
-  raise unittest.SkipTest('compiles modules at first use and swaps them through the shim of the tiered mode; macOS is issue #162, step 2')
 from curry import common, config, icurry, inspect, toolchain
 from curry.backends.cxx import bytecode, materialize, tiered
 from curry.backends.cxx import curryrtbindings as curryrt
@@ -754,7 +751,7 @@ boom = error "boom"
     sofile = self.product(name, '.so')
     self.assertFalse(os.path.exists(sofile))
     # An expression built before the compile holds the tables the object
-    # binds to (the shim of tiered.py).
+    # binds to (the binding of the load; curryrt/dynload.hpp).
     e = cytest.raw.expr(M.double, 5, typed=True)
     before = curry.stats()['swapped']
     self.assertEqual(list(curry.eval(M.main)), [42])

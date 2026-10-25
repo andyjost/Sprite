@@ -337,7 +337,7 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
       , 'tag_type CyF5Peano3add(RuntimeState * rts, Configuration * C)'
       )
     self.assertEqual(lines[-1], '}')
-    self.assertIn('rts->hnf(C, &_1, &CyD5Peano3Nat);', code)
+    self.assertIn('rts->hnf(C, &_1, CyY5Peano3Nat);', code)
     self.assertNotIn('Peano.main', code)
     self.assertRaisesRegex(
         ValueError

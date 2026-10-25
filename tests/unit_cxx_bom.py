@@ -128,6 +128,7 @@ class TestPlainDataBOM(cytest.TestCase):
     self.assertNotIn('std::', text)
 
   @cytest.skipIfInterpreted('the test reads the compiled object of CxxBom')
+  @cytest.linux_only('reads the dynamic symbols of an ELF object with GNU nm')
   def test_object_builds_nothing_at_load(self):
     '''
     The object of a module imports no allocator, hash table, or string of the

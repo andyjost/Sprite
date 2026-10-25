@@ -13,10 +13,11 @@ Sprite was developed and tested with the following software:
 - GNU Make 4.3
 - pybind11 v3.1.0
 
-macOS on Apple Silicon builds the runtime and runs every module
-interpreted, with the front end built from source by the CI job of the
-repository; the compiled path of the C++ backend there, and a front end
-package for macOS, are the next steps of issue #162.
+macOS on Apple Silicon builds the runtime and runs the C++ backend as
+Linux does, the compiled modules and the background compile of the tiered
+mode included (issues #162 and #163), with the front end built from source
+by the CI job of the repository; a front end package for macOS is the next
+step of issue #162.
 
 Known compatibility problems are discussed below.
 

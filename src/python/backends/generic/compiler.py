@@ -10,9 +10,9 @@ __all__ = [
     'CompilerBase', 'SymbolTable', 'TargetObject'
   , 'decode', 'demangle', 'encode', 'mangle'
 
-  , 'CONSTRUCTOR_TABLE', 'DATA_TYPE', 'DEFINED', 'INFO_TABLE', 'LITERAL_NODE'
-  , 'MODULE_DATA', 'PARTIAL_NODE', 'STEP_FUNCTION', 'STRING_DATA', 'UNDEFINED'
-  , 'VALUE_SET'
+  , 'CONSTRUCTOR_TABLE', 'DATA_TYPE', 'DEFINED', 'INFO_SLOT', 'INFO_TABLE'
+  , 'LITERAL_NODE', 'MODULE_DATA', 'PARTIAL_NODE', 'STEP_FUNCTION'
+  , 'STRING_DATA', 'TYPE_SLOT', 'UNDEFINED', 'VALUE_SET'
   ]
 
 
@@ -30,6 +30,8 @@ METADATA          = 'METADATA'          # A metadata object.
 MODULE_DATA       = 'MODULE_DATA'       # A table of the module definition.
 LITERAL_NODE      = 'LITERAL_NODE'      # A node of a literal, made at load.
 PARTIAL_NODE      = 'PARTIAL_NODE'      # A partial application without arguments, made at load.
+INFO_SLOT         = 'INFO_SLOT'         # The slot of an info table, filled at load (C++ backend).
+TYPE_SLOT         = 'TYPE_SLOT'         # The slot of a data type, filled at load (C++ backend).
 
 # Symbol status.
 DEFINED   = 'T'
@@ -87,6 +89,8 @@ KIND_CODE = {
   , STRING_DATA       : 'S'
   , VALUE_SET         : 'V'
   , VALUE_SET_DATA    : 'A'
+  , INFO_SLOT         : 'X'
+  , TYPE_SLOT         : 'Y'
 }
 
 KIND_CODE_R = {v:k for k,v in KIND_CODE.items()}
@@ -158,6 +162,7 @@ class TargetObject(object):
   ### Object definitions.
     , '.infotabs'       # InfoTable definitions.
     , '.datatypes'      # Type definitions.
+    , '.init'           # The initializer run at load (C++ backend).
     , '.moduledef'      # Module definition.
     , '.moduleimp'      # Module import.
   ###
@@ -444,11 +449,9 @@ class CompilerBase(abc.ABC):
   @compileEx.when(icurry.IFunction)
   def compileEx(self, ifun):
     if self.vIsBuiltin(ifun):
-      h_info, new = self.declareSymbol(ifun)
-      if new:
-        self.target_object['.infotabs.link'].extend(
-            self.vEmitInfotabLink(ifun, h_info)
-          )
+      # The declaration alone (declareSymbol emits it): the table is the
+      # runtime's.
+      self.declareSymbol(ifun)
     else:
       # Build the symbol and update the symbol table.
       h_stepfunc = self.vGetSymbolName(ifun, STEP_FUNCTION)
@@ -479,18 +482,12 @@ class CompilerBase(abc.ABC):
   @compileEx.when(icurry.IDataType)
   def compileEx(self, itype):
     if self.vIsBuiltin(itype):
-      h_type, new = self.declareDataType(itype)
-      if new:
-        self.target_object['.datatypes.link'].extend(
-            self.vEmitDataTypeLink(itype, h_type)
-          )
+      # The declarations alone (declareDataType and declareSymbol emit
+      # them): the type and its constructors are the runtime's.
+      self.declareDataType(itype)
       for ictor in itype.constructors:
         assert self.vIsBuiltin(ictor)
-        h_info, new = self.declareSymbol(ictor)
-        if new:
-          self.target_object['.infotabs.link'].extend(
-              self.vEmitInfotabLink(ictor, h_info)
-            )
+        self.declareSymbol(ictor)
     else:
       h_datatype, _ = self.declareDataType(itype)
       ctor_handles = []

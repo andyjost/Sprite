@@ -93,10 +93,8 @@ EXCLUDED = {}
 REQUIRES = {}
 
 # Directory -> the reason the driver runs on Linux alone, and why; empty since the
-# objects of the C++ backend load on macOS (issue #162).
-LINUX_ONLY = {
-    '45-load-objects': 'prints the count of the modules the tiered mode swapped, which macOS has no form of',
-}
+# objects of the C++ backend load and swap on macOS (issues #162 and #163).
+LINUX_ONLY = {}
 
 # Directory -> the reason the driver does not run in the stress mode of the
 # collector (SPRITE_GC_STRESS=1; see cytest.GC_STRESS).
@@ -210,7 +208,7 @@ class TestBoundaryDrivers(cytest.TestCase):
       if importlib.util.find_spec(module) is None:
         self.skipTest('%s needs the Python module %s' % (name, module))
     if sys.platform == 'darwin' and name in LINUX_ONLY:
-      self.skipTest('%s %s (issue #162, step 2)' % (name, LINUX_ONLY[name]))
+      self.skipTest('%s %s (issue #162)' % (name, LINUX_ONLY[name]))
     if cytest.GC_STRESS and name in STRESS_EXCLUDED:
       self.skipTest(
           'collector stress mode: %s is %s' % (name, STRESS_EXCLUDED[name])

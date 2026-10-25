@@ -292,8 +292,7 @@ def json_module(name, value):
 def linux_only(reason):
   '''
   Skips a test on a platform other than Linux: one that reads /proc or an
-  ELF object, or relies on a limit another kernel does not enforce.  The
-  compiled path of the C++ backend on macOS is issue #162, step 2.
+  ELF object, or relies on a limit another kernel does not enforce.
   '''
   return unittest.skipUnless(sys.platform.startswith('linux'), reason)
 

@@ -22,6 +22,11 @@ namespace curryrt
     Module & operator=(Module &&) = delete;
     ~Module();
 
+    // Links a compiled object to the module and registers the tables of
+    // its record.  A second object of the module (the compile on first use
+    // of a module whose object was loaded before) takes the place of the
+    // first, which stays mapped for the life of the process: the tables may
+    // hold the steps of either.
     void link(std::shared_ptr<SharedCurryModule> const &);
     void clear();
     // Copies the tables the runtime registered under the name of this
@@ -34,13 +39,32 @@ namespace curryrt
     // in ``steps`` (the symbol of its step function in the object, and the
     // table the interpreter made) the compiled step.  A table whose step is
     // not the interpreter, and a symbol the object lacks, are skipped.
-    // Returns the number of functions that run compiled.  The shim of the
-    // module must be loaded first, so that the object binds its table
-    // references to the tables of this registry.
+    // Returns the number of functions that run compiled.  The load of the
+    // object bound its slots to the tables of this module (the binding in
+    // curryrt/dynload.hpp), so the compiled code names the tables the
+    // interpreter made.
     size_t adopt(
         std::shared_ptr<SharedCurryModule> const &
       , std::vector<std::pair<std::string, InfoTable const *>> const & steps
       );
+    // The binding of a compiled object of this module (the binding in
+    // curryrt/dynload.hpp): the table the slot of a symbol the object
+    // defines takes, given the table of the object.  The table of this
+    // module when it has one of the name (made at run time by the
+    // materializer, or registered from a library loaded before), which
+    // takes the step of the object when it has no compiled code (the swap
+    // of tiered execution); else a kept table of the same shape (see
+    // clear), taken back with the step and the flags of the table of the
+    // object, so that a Python object of an earlier incarnation of the
+    // module holds the table of the symbol still; else the table of the
+    // object.  bind_type takes a kept type back with all its constructors
+    // or not at all, so a type and its constructors agree.  A module that
+    // took a kept table back keeps its tables for the life of the process,
+    // as the module that kept them did.  The object must be linked to the
+    // module after the binding (adopt, or link), so that it stays mapped
+    // while the tables hold its steps.
+    InfoTable const * bind_infotable(InfoTable const * object);
+    DataType const * bind_type(DataType const * object);
     // The compiled object linked to this module, or null.
     std::shared_ptr<SharedCurryModule> shlib() const;
     // Keeps the tables made at run time for the life of the process (see
@@ -94,6 +118,15 @@ namespace curryrt
     // the step function of such a symbol again (issue #113).
     InfoTable const * get_builtin_symbol(std::string const &) const;
     DataType const * get_builtin_type(std::string const &) const;
+    // The same, for a module of which no Module object is loaded: the
+    // binding of a compiled object resolves a built-in this way (the
+    // Prelude at the start of a process names its own built-ins).
+    static InfoTable const * builtin_symbol(
+        std::string const & modulename, std::string const & name
+      );
+    static DataType const * builtin_type(
+        std::string const & modulename, std::string const & name
+      );
 
     struct Impl;
     std::string name;

@@ -262,21 +262,23 @@ print('collections', collections)
       self.assertIn(lookup, text)
     for spelled in 'int_(100000)', 'int_(1024)', 'float_(', "char_(U'\\x3bb')":
       self.assertNotIn(spelled, text)
+    # The node is declared with the strings and made by the initializer,
+    # from the bound slot of the table (issue #163).
     node = r'CyL\d+__\d+'
+    self.assertRegex(text, r'static Node \* %s = nullptr;' % node)
     self.assertRegex(
-        text, r'static Node \* const %s = literal_node\(&CyI7Prelude3Int, '
-              r'Arg\(100000\)\);' % node
+        text, r'  %s = literal_node\(CyX7Prelude3Int, Arg\(100000\)\);' % node
       )
     self.assertRegex(
-        text, r'literal_node\(&CyI7Prelude4Char, Arg\(U\'\\x3bb\'\)\);'
+        text, r'literal_node\(CyX7Prelude4Char, Arg\(U\'\\x3bb\'\)\);'
       )
-    self.assertRegex(text, r'literal_node\(&CyI7Prelude5Float, Arg\(2\.5\)\);')
+    self.assertRegex(text, r'literal_node\(CyX7Prelude5Float, Arg\(2\.5\)\);')
     self.assertEqual(text.count('Arg(100000)'), 1)
     self.assertRegex(
-        text, r'_0->forward_to\(&CyI7Prelude6_Y_m_y, %s, int_\(0\)\);' % node
+        text, r'_0->forward_to\(CyX7Prelude6_Y_m_y, %s, int_\(0\)\);' % node
       )
     self.assertRegex(
-        text, r'_0->forward_to\(&CyI7Prelude8_Y_m_m_y, %s, %s, %s\);'
+        text, r'_0->forward_to\(CyX7Prelude8_Y_m_m_y, %s, %s, %s\);'
               % (node, node, node)
       )
 

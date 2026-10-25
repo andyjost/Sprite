@@ -115,22 +115,22 @@ def _wait_pending(interp, name, sofile):
   '''
   The checks that precede the open of the object of module ``name``.
 
-  An open writes tables: the dynamic initializers of the object construct
-  its tables at the addresses its symbols resolve to, which the dynamic
-  linker binds to the first definition in the global scope.  That is the
-  table of a library of the name loaded already, or the live table of an
-  interpreted module through its shim (tiered.py).  A refusal after the open
-  dropped the object, and the tables it wrote pointed into unmapped memory:
-  the next use, or the exit of the process, crashed (issue #109).  So the
-  decision is taken here, from the registry of the runtime
-  (SharedCurryModule.find_sofilename) and the state of tiered execution,
-  before any dlopen.  A pending background compile of the module is waited
-  for first, whatever the registry says (after a reset the registry may name
-  the kept library of an earlier incarnation while the module runs
-  interpreted again), and the object the compile wrote is the one loaded.
-  An object of a module whose tables a shim names is adopted through the
-  tiered swap, which keeps the object with those tables.  All refusals
-  precede the open, including the checks of the shim in prepare_adoption.
+  An open binds the slots of the object to tables (the binding in
+  curryrt/dynload.hpp): the tables of the module of its name in the registry
+  of the runtime, which are the live tables of an interpreted module, or
+  tables kept from an earlier incarnation, taken back with the steps of the
+  object.  A refusal after the open dropped the object, and a table it gave
+  a step pointed into unmapped memory: the next use, or the exit of the
+  process, crashed (issue #109).  So the decision is taken here, from the
+  registry of the runtime (SharedCurryModule.find_sofilename) and the state
+  of tiered execution, before any dlopen.  A pending background compile of
+  the module is waited for first, whatever the registry says (after a reset
+  the registry may name the kept library of an earlier incarnation while
+  the module runs interpreted again), and the object the compile wrote is
+  the one loaded.  An object of a module whose tables the interpreter made
+  (tiered.has_binding) is adopted through the tiered swap, which keeps the
+  object with those tables.  All refusals precede the open, including the
+  checks of prepare_adoption.
   '''
   from . import tiered
   if tiered.pending(name):
@@ -204,9 +204,6 @@ def _load_module_once(interp, sofile, from_plan, fresh):
           'cannot load %r: its import %s runs without a compiled object'
         % (sofile, modulename)
         )
-  # Under tiered execution the tables of the modules the interpreter runs
-  # must be named before an object binds to them (see tiered.py).
-  tiered.ensure_shims(interp)
   if before != Cpp2So.product_snapshot(sofile):
     return None # a producer published while dependencies were imported
   return _open_module(interp, sofile, name, from_plan, fresh, before)
@@ -228,14 +225,17 @@ def _open_module(interp, sofile, name, from_plan, fresh, before):
       _refuse_other_file(name, registered, sofile)
   module = interp.modules.get(name)
   registered = curryrt.SharedCurryModule.find_sofilename(name) if name else None
-  adopt = replace or (tiered.has_shim(name) and registered is None) or (
+  adopt = replace or (tiered.has_binding(name) and registered is None) or (
       module is not None and getHandle(module).sofilename is None
     )
   steps = tiered.prepare_adoption(interp, name) if adopt else []
-  tiered.ensure_shims(interp)
   if adopt:
+    # The module of the name in the registry of the runtime, which the
+    # binding of the load takes the tables from (curryrt/dynload.hpp): the
+    # one of the module that runs interpreted, or a new one that takes the
+    # kept tables of an earlier incarnation back.
     owner = curryrt.Module.find_or_create(name)
-    result = curryrt.tiered_adopt(name, [], sofile, steps)
+    result = curryrt.tiered_adopt(name, sofile, steps)
     if not result['ok']:
       raise exceptions.LoadError('cannot load %r: %s' % (sofile, result['error']))
     shlib = owner.shlib

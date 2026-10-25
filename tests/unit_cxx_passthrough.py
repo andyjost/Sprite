@@ -192,14 +192,14 @@ class TestGeneratedCode(cytest.TestCase):
       self.assertIn('Node * _%d = nullptr;' % i, text)
       self.assertIn('_%d = _0->successor_node(%d);' % (i, i - 1), text)
     self.assertIn(
-        'return _0->rewrite(&CyI7Prelude8_Y_m_m_y, _3, _1, _2);', text
+        'return _0->rewrite(CyX7Prelude8_Y_m_m_y, _3, _1, _2);', text
       )
     text = self.step('second')
     self.assertNotIn('Variable', text)
     self.assertIn('return _0->forward_or_copy(_2);', text)
     text = self.step('twiceOver')
     self.assertNotIn('Variable', text)
-    self.assertIn('Node::create_partial(&CyI14CxxPassThrough4plus, _1)', text)
+    self.assertIn('Node::create_partial(CyX14CxxPassThrough4plus, _1)', text)
 
   def test_scrutinee_is_a_variable(self):
     text = self.step('firstOf')
@@ -218,7 +218,7 @@ class TestGeneratedCode(cytest.TestCase):
     self.assertIn('Variable _2;', text)
     self.assertIn('Node * _3 = nullptr;', text)
     self.assertRegex(
-        text, r'Node \* tmp_2 = Node::create\(&CyI7Prelude2_C, _1, _3\);'
+        text, r'Node \* tmp_2 = Node::create\(CyX7Prelude2_C, _1, _3\);'
       )
     self.assertIn('_2.target = tmp_2;', text)
     self.assertIn('_2.set_successor(1, _3);', text)
@@ -231,6 +231,7 @@ class TestGeneratedCode(cytest.TestCase):
 
 
 @unittest.skipIf(shutil.which('objdump') is None, 'objdump is not installed')
+@cytest.linux_only('reads the disassembly of GNU objdump of an ELF object')
 @cytest.skipIfInterpreted(
     'the tests read the objects and the generated code of Tak1 and Fib'
   )

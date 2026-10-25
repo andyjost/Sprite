@@ -17,8 +17,9 @@ evaluation of one crashed the process (issue #102).  Now such a function
 gets the trap step of the runtime (curryrt/module.hpp), and the module compiles
 on its first use: the trap calls ``first_use``, which generates the C++ of
 the ICurry object in hand and compiles it with the step of the toolchain
-that sprite-make --so runs (Cpp2So), loads the object over the shim of the
-module (tiered.py) and swaps the steps (curryrt.tiered_adopt); then the step
+that sprite-make --so runs (Cpp2So), loads the object, whose load binds its
+slots to the tables of the module (the binding in curryrt/dynload.hpp), and
+swaps the steps (curryrt.tiered_adopt); then the step
 runs compiled.  So a user who asked for compiled code gets it, and the
 plan's own import of an ICurry object, which only generates code
 (Json2TargetSource), compiles nothing.
@@ -89,8 +90,8 @@ class Materializer(object):
     self.imodule = h.icurry
     self.interpret = interp.flags['interpret'] != 'off'
     if self.interpret:
-      # The bytecode of other modules, and a compiled object loaded over a
-      # shim (tiered.py), name the tables of this module by address.
+      # The bytecode of other modules, and a compiled object bound to them
+      # (curryrt/dynload.hpp), name the tables of this module by address.
       self.M.keep_tables()
 
   @native_metadata
@@ -315,8 +316,8 @@ def compile_pending(entry):
   Compiles a pending module and swaps its steps: the compile on first use.
   The pending imports of the module compile first, because an object names
   the objects of its imports.  The tables of the module are kept for the
-  process and its shim is linked and loaded (tiered.py), so that the object
-  binds its tables to the tables the nodes and the Python objects hold.
+  process and its binding goes on record (tiered.py); the load binds the
+  slots of the object to the tables the nodes and the Python objects hold.
   The C++ of the ICurry object in hand goes beside the source when the
   object is the translation on disk (is_translation) under the optimizer
   flags of the environment (tiered._foreign_flags), else into a directory
@@ -354,15 +355,7 @@ def compile_pending(entry):
   # tables of an interpreted module do (Module::clear), and a module of this
   # name made again takes them back.
   M.keep_tables()
-  shim = tiered._register_shim(moduleobj)
-  if shim is None:
-    raise CompileError(
-        'the tables of module %r changed after compiled code bound to them'
-      % name
-      )
-  envp = tiered._environment(interp, currypath)
-  if not tiered._load_shim(shim, cxx, envp):
-    raise CompileError('the shim of module %r cannot be linked or loaded' % name)
+  tiered._register_binding(moduleobj)
   text = interp.save(moduleobj, None, module_main=False)
   cpp2so = toolchain.Cpp2So(interp)
   # The products go beside the source when the optimizer flags are the
@@ -395,7 +388,7 @@ def compile_pending(entry):
           ifun.name, generic.mangle(ifun.splitname(), generic.STEP_FUNCTION)
         , info
         ))
-  result = curryrt.tiered_adopt(name, [], sofile, steps)
+  result = curryrt.tiered_adopt(name, sofile, steps)
   if not result['ok']:
     output = result['output'].strip()
     raise CompileError(
