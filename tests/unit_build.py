@@ -67,11 +67,11 @@ class TestDistribution(cytest.TestCase):
                 'Classifier: Development Status :: 3 - Alpha\n'
                 + ''.join('Requires-Dist: %s\n' % req for req in requirements) + '\n')
     for py, abi in gate.PYTHONS:
-      for arch in gate.ARCHES:
-        path = Path(directory) / f'currylang-0.9.0a1-{py}-{abi}-manylinux_2_28_{arch}.whl'
+      for tag, suffix in gate.PLATFORMS:
+        path = Path(directory) / f'currylang-0.9.0a1-{py}-{abi}-{tag}.whl'
         with zipfile.ZipFile(path, 'w') as archive:
           archive.writestr('currylang-0.9.0a1.dist-info/METADATA', metadata)
-        path.with_suffix('.auditwheel.txt').write_text('Audit report fixture\n')
+        path.with_suffix(suffix).write_text('Report fixture\n')
     with tarfile.open(Path(directory) / 'currylang-0.9.0a1.tar.gz', 'w:gz') as archive:
       for name in gate.SDIST_FILES:
         info = tarfile.TarInfo('currylang-0.9.0a1/' + name)
@@ -86,8 +86,8 @@ class TestDistribution(cytest.TestCase):
   def test_missing_freethreaded_wheel(self):
     with tempfile.TemporaryDirectory() as directory:
       gate = self.distributions(directory)
-      next(Path(directory).glob('*-cp314-cp314t-*x86_64.whl')).unlink()
-      with self.assertRaisesRegex(AssertionError, 'twelve wheels'):
+      next(Path(directory).glob('*-cp314-cp314t-manylinux_2_28_x86_64.whl')).unlink()
+      with self.assertRaisesRegex(AssertionError, 'twenty-four wheels'):
         gate.check(directory, '0.9.0a1')
 
   def test_runtime_dependencies(self):
