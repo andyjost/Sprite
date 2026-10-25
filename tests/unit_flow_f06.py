@@ -5,7 +5,7 @@ Trace: alt.py and alt.{cxx,py}.out.2; line numbers include the
 recorded command header when present. Each row names its flip lane.
   test_finite_prefixes: alt.py 16-17; output 1-2; lane 3.
   test_whole_primes_demands_normal_form: alt.py 12-15 (primes mode); output 17-18; lane 3.
-  test_whole_fibs_overflows: alt.py 18; output 3; lane 1.
+  test_whole_fibs_beyond_the_word: alt.py 18; output 3; lane 1 (amended 2026-10-25: Int unbounded).
   test_close_before_demand: alt.py 19-21; output 4-5; lane 3.
   test_large_finite_list: alt.py 23-25; output 6-8; lane 3.
   test_term_survives_evaluation: alt.py 27-30; output 9-11; lane 4.
@@ -47,10 +47,12 @@ class TestFlowF06(cytest.TestCase):
     self.assertEqual(curry.eval(P.take(10, L.primes)).one(), [2, 3, 5, 7, 11, 13, 17, 19, 23, 29])
     self.assertEqual(curry.eval(P.take(8, L.fibs)).one(), [1, 1, 2, 3, 5, 8, 13, 21])
 
-  def test_whole_fibs_overflows(self):
-    L = curry.import_('inflists')
-    with self.assertRaises(curry.IntOverflowError):
-      next(curry.eval(L.fibs))
+  def test_whole_fibs_beyond_the_word(self):
+    # Amended 2026-10-25: Int is unbounded since the big integers, so the
+    # whole list never overflows; the row pins the hundredth number, past
+    # the machine word, from the same list.
+    P = curry.import_('Prelude'); L = curry.import_('inflists')
+    self.assertEqual(curry.eval(P.take(100, L.fibs)).one()[-1], 354224848179261915075)
 
   def test_close_before_demand(self):
     L = curry.import_('inflists'); r = curry.eval(L.primes)

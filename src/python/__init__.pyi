@@ -142,8 +142,8 @@ PyValue: TypeAlias = (
 #: ``bool``             ``Bool`` (never an ``Int``)
 #: ``int``              the numeric literal, ``Num a => a``: ``Int`` by the
 #:                      REPL's defaulting, a ``Float`` in a ``Float`` slot,
-#:                      ``fromInt n`` at another ``Num`` instance; outside
-#:                      the signed 64-bit range ``IntOverflowError``
+#:                      ``fromInt n`` at another ``Num`` instance; a value
+#:                      of any size (past the machine word, a big integer)
 #: ``float``            ``Float`` (never an ``Int``)
 #: ``str``              ``String``, whatever its length
 #: ``Char``             ``Char``
@@ -653,11 +653,13 @@ class InterfaceError(CurryTypeError):
 
 class IntOverflowError(CurryError, OverflowError):
   """
-  An ``Int`` left the signed 64-bit range, at the boundary (raised when the
-  term is built) or in a step (raised from ``next``): one class for both.
+  A bounded conversion left its range in a step (raised from ``next``):
+  ``truncate``, ``round``, ``floor`` and ``ceiling`` of a ``Float`` that is
+  not finite. ``Int`` itself is unbounded: a result past the machine word
+  is a big integer, and a Python ``int`` of any size is an ``Int``.
 
-  >>> curry.term(2 ** 63)
-  IntOverflowError: 9223372036854775808 is outside the range of Int (-9223372036854775808 to 9223372036854775807)
+  >>> next(curry.eval(curry.parse('truncate (1.0 / 0.0 :: Float) :: Int')))
+  IntOverflowError: integer overflow: truncate Infinity
   """
 
 class CompileError(CurryError):

@@ -79,6 +79,7 @@ class TestCommunityTypes(cytest.TestCase):
         self.assertEqual(curry.typeof(expr, defaulted=True), typename)
         self.assertEqual(list(curry.eval(expr)), [expected])
 
+  @oracle.require
   @unittest.skipIf(config.frontend_version() == '2.0.0',
                    'front end 2.0.0 cannot parse multi-parameter classes')
   @cytest.with_flags(interpret='off')

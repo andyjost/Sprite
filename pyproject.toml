@@ -43,5 +43,5 @@ regex = '(?P<value>\S+)'
 [tool.scikit-build]
 cmake.version = ">=3.24"
 wheel.packages = []
-sdist.include = ["extern/pybind11/include/**", "extern/pybind11/tools/**", "extern/pybind11/CMakeLists.txt", "extern/pybind11/LICENSE"]
+sdist.include = ["extern/pybind11/include/**", "extern/pybind11/tools/**", "extern/pybind11/CMakeLists.txt", "extern/pybind11/LICENSE", "extern/libtommath/bn_*.c", "extern/libtommath/*.h", "extern/libtommath/LICENSE"]
 sdist.exclude = ["CODEX-REPORT.md"]

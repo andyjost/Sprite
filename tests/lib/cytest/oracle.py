@@ -55,24 +55,36 @@ failing oracle raises.
 '''
 
 from curry.utility import binding, filesys, strings
-import curry, glob, os, re, subprocess, sys, unittest
+import curry, glob, os, re, shutil, subprocess, sys, unittest
 
 # The exit status of the ``timeout`` command when the time limit expires.
 TIMEOUT_STATUS = 124
 
+def pakcs_available():
+  '''
+  Whether the PAKCS the oracle scripts run exists: the installed
+  ``tools/pakcs``, else ``pakcs`` on PATH (the search of the scripts).
+  '''
+  from curry import config
+  return os.path.isfile(config.installed_path('tools', 'pakcs')) \
+      or shutil.which('pakcs') is not None
+
 def oracle(flavor=None, name='oracle'):
   '''
-  Gets the path to the oracle.  Returns None if there is no oracle.  ``name``
+  Gets the path to the oracle.  Returns None if there is no oracle: the
+  script is missing, or no PAKCS is reachable for it (an installation
+  without the tool on a machine without ``pakcs`` on PATH).  ``name``
   selects another script of the test directory, e.g., ``oracle_type``, which
   prints the type of an expression (see func_goal_defaulting.py).
   '''
   # Note: the CWD is assumed to be $root/tests.
   suffix = '.' + flavor if flavor is not None else ''
   oracle = os.path.abspath(name + suffix)
-  if os.path.isfile(oracle) and os.access(oracle, os.X_OK):
-    return oracle
-  else:
+  if not (os.path.isfile(oracle) and os.access(oracle, os.X_OK)):
     return None
+  if not pakcs_available():
+    return None
+  return oracle
 
 def get_flavor(currymodule):
   filename = currymodule.__file__
