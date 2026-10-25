@@ -298,19 +298,19 @@ jobs:
 
   # macOS on Apple Silicon (issue #162): the runtime and the Curry library
   # build with the compilers of the Xcode command line tools, and the unit
-  # suite runs in the default mode of the platform, interpret:new, under
-  # which a module with a current object loads compiled and a module
-  # without one is interpreted (the swap of the tiered mode has no form on
-  # Mach-O; see curry.interpreter.flags).  The front end is built from
-  # source on the runner, as frontend.yml builds it on Linux aarch64, and
-  # cached by the recipe that made it; the first run of a new recipe takes
-  # about half an hour more.  The job gates nothing until it is green twice.
+  # suite runs in the default mode of the platform, interpret:tiered, as on
+  # Linux: the swap of the tiered mode binds a compiled object to the tables
+  # the interpreter made through slots the loader fills (issue #163; see
+  # curry.interpreter.flags).  The front end is built from source on the
+  # runner, as frontend.yml builds it on Linux aarch64, and cached by the
+  # recipe that made it; the first run of a new recipe takes about half an
+  # hour more.  The job gates master since its second green run in the
+  # default mode (runs 40155455473 and 40161622699).
   macos:
     name: macOS arm64 ${{ matrix.shard }}
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/wt/macos')
     runs-on: macos-15
     timeout-minutes: 150
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
