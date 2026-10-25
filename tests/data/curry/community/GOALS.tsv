@@ -1,0 +1,147 @@
+program	module	goal	stated	evidence
+pakcs-3.10.0-testsuite/LanguageTests/TestFuncPattern.curry	pakcs-3.10.0-testsuite/LanguageTests/TestFuncPatternGoals.curry	last1	201	LanguageTests/TestFuncPattern.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestFuncPattern.curry	pakcs-3.10.0-testsuite/LanguageTests/TestFuncPatternGoals.curry	last2	1	LanguageTests/TestFuncPattern.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestFuncPattern.curry	pakcs-3.10.0-testsuite/LanguageTests/TestFuncPatternGoals.curry	palindrome	True	LanguageTests/TestFuncPattern.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestFuncPattern.curry	pakcs-3.10.0-testsuite/LanguageTests/TestFuncPatternGoals.curry	notPalindrome	no values	LanguageTests/TestFuncPattern.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestFuncPattern.curry	pakcs-3.10.0-testsuite/LanguageTests/TestFuncPatternGoals.curry	simplified	"Var ""x"""	LanguageTests/TestFuncPattern.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestFuncPattern.curry	pakcs-3.10.0-testsuite/LanguageTests/TestFuncPatternGoals.curry	justZeroGoal	True	LanguageTests/TestFuncPattern.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestFuncPattern.curry	pakcs-3.10.0-testsuite/LanguageTests/TestFuncPatternGoals.curry	justFailedGoal	no values	LanguageTests/TestFuncPattern.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestFuncPattern.curry	pakcs-3.10.0-testsuite/LanguageTests/TestFuncPatternGoals.curry	pair00	True	LanguageTests/TestFuncPattern.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestFuncPattern.curry	pakcs-3.10.0-testsuite/LanguageTests/TestFuncPatternGoals.curry	pair01	no values	LanguageTests/TestFuncPattern.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestFuncPattern.curry	pakcs-3.10.0-testsuite/LanguageTests/TestFuncPatternGoals.curry	pairFailed	no values	LanguageTests/TestFuncPattern.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestFuncPattern.curry	pakcs-3.10.0-testsuite/LanguageTests/TestFuncPatternGoals.curry	nonlinearUnused	True	LanguageTests/TestFuncPattern.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestFuncPattern.curry	pakcs-3.10.0-testsuite/LanguageTests/TestFuncPatternGoals.curry	nonlinearUsed	no values	LanguageTests/TestFuncPattern.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestFuncPattern.curry	pakcs-3.10.0-testsuite/LanguageTests/TestFuncPatternGoals.curry	failingPatternGoal	no values	LanguageTests/TestFuncPattern.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestLetRec.curry	pakcs-3.10.0-testsuite/LanguageTests/TestLetRecGoals.curry	ones	[1,1,1,1,1]	LanguageTests/TestLetRec.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestLetRec.curry	pakcs-3.10.0-testsuite/LanguageTests/TestLetRecGoals.curry	twos	[2,2,2,2,2]	LanguageTests/TestLetRec.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestLetRec.curry	pakcs-3.10.0-testsuite/LanguageTests/TestLetRecGoals.curry	oneTwo	[1,2,1,2,1,2]	LanguageTests/TestLetRec.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestNewtype.curry	pakcs-3.10.0-testsuite/LanguageTests/TestNewtypeGoals.curry	nonStrict	42	LanguageTests/TestNewtype.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestNewtype.curry	pakcs-3.10.0-testsuite/LanguageTests/TestNewtypeGoals.curry	shownList	"""LIST [1,2]"""	LanguageTests/TestNewtype.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestNewtype.curry	pakcs-3.10.0-testsuite/LanguageTests/TestNewtypeGoals.curry	readShow	True	LanguageTests/TestNewtype.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestNewtype.curry	pakcs-3.10.0-testsuite/LanguageTests/TestNewtypeGoals.curry	doubleFalse	(False,False)	LanguageTests/TestNewtype.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestNewtype.curry	pakcs-3.10.0-testsuite/LanguageTests/TestNewtypeGoals.curry	doubleTrue	(True,True)	LanguageTests/TestNewtype.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestRecords.curry	pakcs-3.10.0-testsuite/LanguageTests/TestRecordsGoals.curry	nameEq	True	LanguageTests/TestRecords.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestRecords.curry	pakcs-3.10.0-testsuite/LanguageTests/TestRecordsGoals.curry	recordsEq	True	LanguageTests/TestRecords.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestRecords.curry	pakcs-3.10.0-testsuite/LanguageTests/TestRecordsGoals.curry	recordsNeq	True	LanguageTests/TestRecords.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestRecords.curry	pakcs-3.10.0-testsuite/LanguageTests/TestRecordsGoals.curry	update	True	LanguageTests/TestRecords.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestRecords.curry	pakcs-3.10.0-testsuite/LanguageTests/TestRecordsGoals.curry	john	True	LanguageTests/TestRecords.curry (property/example)
+pakcs-3.10.0-testsuite/LanguageTests/TestRecords.curry	pakcs-3.10.0-testsuite/LanguageTests/TestRecordsGoals.curry	bill	True	LanguageTests/TestRecords.curry (property/example)
+pakcs-3.10.0-testsuite/TypeclassTests/TestDefault.curry	pakcs-3.10.0-testsuite/TypeclassTests/TestDefaultGoals.curry	defaulted	()	TypeclassTests/TestDefault.curry (property/example)
+pakcs-3.10.0-testsuite/TypeclassTests/TestMPTCCoerce.curry	pakcs-3.10.0-testsuite/TypeclassTests/TestMPTCCoerceGoals.curry	boolToInt	1	TypeclassTests/TestMPTCCoerce.curry (property/example)
+pakcs-3.10.0-testsuite/TypeclassTests/TestMPTCCoerce.curry	pakcs-3.10.0-testsuite/TypeclassTests/TestMPTCCoerceGoals.curry	intToBool	True	TypeclassTests/TestMPTCCoerce.curry (property/example)
+pakcs-3.10.0-testsuite/TypeclassTests/TestMPTCCoerce.curry	pakcs-3.10.0-testsuite/TypeclassTests/TestMPTCCoerceGoals.curry	composeFalse	False	TypeclassTests/TestMPTCCoerce.curry (property/example)
+pakcs-3.10.0-testsuite/TypeclassTests/TestMPTCCoerce.curry	pakcs-3.10.0-testsuite/TypeclassTests/TestMPTCCoerceGoals.curry	composeTrue	True	TypeclassTests/TestMPTCCoerce.curry (property/example)
+pakcs-3.10.0-examples/HigherOrder.curry	pakcs-3.10.0-examples/HigherOrder.curry	g1	[1,3,2]	examples/TESTRESULT.txt:11 (examples/test.sh)
+pakcs-3.10.0-examples/HigherOrder.curry	pakcs-3.10.0-examples/HigherOrder.curry	g2	[1,3,2]	examples/TESTRESULT.txt:13 (examples/test.sh)
+pakcs-3.10.0-examples/HigherOrder.curry	pakcs-3.10.0-examples/HigherOrder.curry	g3	3	examples/TESTRESULT.txt:15 (examples/test.sh)
+pakcs-3.10.0-examples/HigherOrder.curry	pakcs-3.10.0-examples/HigherOrder.curry	g4	120	examples/TESTRESULT.txt:17 (examples/test.sh)
+pakcs-3.10.0-examples/HigherOrder.curry	pakcs-3.10.0-examples/HigherOrder.curry	g5	120	examples/TESTRESULT.txt:19 (examples/test.sh)
+pakcs-3.10.0-examples/Last.curry	pakcs-3.10.0-examples/Last.curry	goal	not stated by source	Last.curry:13
+pakcs-3.10.0-examples/Nats.curry	pakcs-3.10.0-examples/Nats.curry	goal1	not stated by source	Nats.curry:21
+pakcs-3.10.0-examples/Nats.curry	pakcs-3.10.0-examples/Nats.curry	goal2	not stated by source	Nats.curry:23
+pakcs-3.10.0-examples/Rev.curry	pakcs-3.10.0-examples/Rev.curry	main1	[1,2,3,4]	examples/TESTRESULT.txt:5 (same expression in main1)
+pakcs-3.10.0-examples/Rev.curry	pakcs-3.10.0-examples/Rev.curry	main2	not stated by source	Rev.curry:19
+pakcs-3.10.0-examples/Rev.curry	pakcs-3.10.0-examples/Rev.curry	main3	[10,9,8,7,6,5,4,3,2,1]	examples/TESTRESULT.txt:7 (same expression in main3)
+pakcs-3.10.0-examples/assembler.curry	pakcs-3.10.0-examples/assembler.curry	main	[9,4,9,0]	examples/TESTRESULT.txt:139 (examples/test.sh)
+pakcs-3.10.0-examples/colormap_nd.curry	pakcs-3.10.0-examples/colormap_nd.curry	main	not stated by source	colormap_nd.curry:34
+pakcs-3.10.0-examples/family_fun.curry	pakcs-3.10.0-examples/family_fun.curry	goal1	not stated by source	family_fun.curry:45
+pakcs-3.10.0-examples/inflists.curry	pakcs-3.10.0-examples/inflists.curry	goal1	[1,1,2,3,5,8,13,21,34,55]	examples/TESTRESULT.txt:31 (examples/test.sh)
+pakcs-3.10.0-examples/inflists.curry	pakcs-3.10.0-examples/inflists.curry	goal2	[2,3,5,7,11]	examples/TESTRESULT.txt:33 (examples/test.sh)
+pakcs-3.10.0-examples/inflists.curry	pakcs-3.10.0-examples/inflists.curry	goal3	not stated by source	inflists.curry:46
+pakcs-3.10.0-examples/listcomp/arithseq.curry	pakcs-3.10.0-examples/listcomp/arithseq.curry	l1	[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]	examples/TESTRESULT.txt:184 (examples/test.sh)
+pakcs-3.10.0-examples/listcomp/arithseq.curry	pakcs-3.10.0-examples/listcomp/arithseq.curry	l2	[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]	examples/TESTRESULT.txt:186 (examples/test.sh)
+pakcs-3.10.0-examples/listcomp/arithseq.curry	pakcs-3.10.0-examples/listcomp/arithseq.curry	l3	[1,5,9,13,17,21,25,29,33,37,41,45,49,53,57,61,65,69,73,77,81,85,89,93,97]	examples/TESTRESULT.txt:188 (examples/test.sh)
+pakcs-3.10.0-examples/listcomp/arithseq.curry	pakcs-3.10.0-examples/listcomp/arithseq.curry	l4	[1,5,9,13,17,21,25,29,33,37,41,45,49,53,57,61,65,69,73,77]	examples/TESTRESULT.txt:190 (examples/test.sh)
+pakcs-3.10.0-examples/maxtree.curry	pakcs-3.10.0-examples/maxtree.curry	goal1	not stated by source	maxtree.curry:24
+pakcs-3.10.0-examples/maxtree.curry	pakcs-3.10.0-examples/maxtree.curry	goal2	Node (Node (Leaf 3) (Leaf 3)) (Node (Leaf 3) (Leaf 3))	examples/TESTRESULT.txt:135 (examples/test.sh)
+pakcs-3.10.0-examples/modules/ModConc.curry	pakcs-3.10.0-examples/modules/ModConcGoals.curry	concatenation	[1,2] (private goal1-goal3)	modules/ModConc.curry (property/example)
+pakcs-3.10.0-examples/modules/UseConc1.curry	pakcs-3.10.0-examples/modules/UseConc1.curry	main1	not stated by source	modules/UseConc1.curry:3
+pakcs-3.10.0-examples/modules/UseConc1.curry	pakcs-3.10.0-examples/modules/UseConc1.curry	main2	not stated by source	modules/UseConc1.curry:5
+pakcs-3.10.0-examples/modules/UseConc1.curry	pakcs-3.10.0-examples/modules/UseConc1.curry	main3	not stated by source	modules/UseConc1.curry:7
+pakcs-3.10.0-examples/modules/UseConc2.curry	pakcs-3.10.0-examples/modules/UseConc2.curry	main1	not stated by source	modules/UseConc2.curry:6
+pakcs-3.10.0-examples/modules/UseConc2.curry	pakcs-3.10.0-examples/modules/UseConc2.curry	main2	not stated by source	modules/UseConc2.curry:9
+pakcs-3.10.0-examples/nondetfunc.curry	pakcs-3.10.0-examples/nondetfunc.curry	goal1	not stated by source	nondetfunc.curry:35
+pakcs-3.10.0-examples/nondetfunc.curry	pakcs-3.10.0-examples/nondetfunc.curry	goal2	not stated by source	nondetfunc.curry:36
+pakcs-3.10.0-examples/nondetfunc.curry	pakcs-3.10.0-examples/nondetfunc.curry	goal3	not stated by source	nondetfunc.curry:37
+pakcs-3.10.0-examples/nondetfunc.curry	pakcs-3.10.0-examples/nondetfunc.curry	goal4	not stated by source	nondetfunc.curry:52
+pakcs-3.10.0-examples/optmatch.curry	pakcs-3.10.0-examples/optmatch.curry	main	not stated by source	optmatch.curry:12
+pakcs-3.10.0-examples/qsortlet.curry	pakcs-3.10.0-examples/qsortlet.curry	goal	not stated by source	qsortlet.curry:15
+pakcs-3.10.0-examples/rectype.curry	pakcs-3.10.0-examples/rectype.curry	h	not stated by source	rectype.curry:16
+pakcs-3.10.0-examples/relational.curry	pakcs-3.10.0-examples/relational.curry	q1	not stated by source	relational.curry:31
+pakcs-3.10.0-examples/relational.curry	pakcs-3.10.0-examples/relational.curry	q7	True (comment: true)	relational.curry:48
+pakcs-3.10.0-examples/rigidadd.curry	pakcs-3.10.0-examples/rigidadd.curry	goal	not stated by source	rigidadd.curry:19
+pakcs-3.10.0-examples/rigidor.curry	pakcs-3.10.0-examples/rigidor.curry	goal	not stated by source	rigidor.curry:11
+kics2-3.5.0-testsuite/SpecialTests/TestPolySubExp.curry	kics2-3.5.0-testsuite/SpecialTests/TestPolySubExpGoals.curry	polyOne	3	SpecialTests/TestPolySubExp.curry (property/example)
+kics2-3.5.0-testsuite/SpecialTests/TestPolySubExp.curry	kics2-3.5.0-testsuite/SpecialTests/TestPolySubExpGoals.curry	polyTwo	True	SpecialTests/TestPolySubExp.curry (property/example)
+kics2-3.5.0-testsuite/SpecialTests/TestPolySubExp.curry	kics2-3.5.0-testsuite/SpecialTests/TestPolySubExpGoals.curry	polyThree	42	SpecialTests/TestPolySubExp.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkPlus	5	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkMinus	(-4)	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkCompare1	GT	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkCompare2	LT	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkCompare3	LT	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkCompare4	GT	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkCompare6	LT	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkCompare7	GT	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkDiv1	2	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkDiv2	(-4)	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkMod1	3	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkMod2	1	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkQuot1	2	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkQuot2	(-3)	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkRem1	3	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkRem2	(-3)	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkDivMod1	(3,1)	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkDivMod2	(-4,-1)	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkQuotRem1	(3,1)	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	checkQuotRem2	(-3,1)	TestPrelude.curry (property/example)
+base-3.4.0-test/TestPrelude.curry	base-3.4.0-test/TestPreludeGoals.curry	comparePartial	no values	TestPrelude.curry (property/example)
+tutorial/chapter2/absfac.curry	tutorial/chapter2/absfac.curry	main	not stated by source	chapter2/absfac.curry:11
+tutorial/chapter2/bool.curry	tutorial/chapter2/bool.curry	main	not stated by source	chapter2/bool.curry:8
+tutorial/chapter2/choose.curry	tutorial/chapter2/choose.curry	main	not stated by source	chapter2/choose.curry:9
+tutorial/chapter2/firstprog.curry	tutorial/chapter2/firstprog.curry	main	not stated by source	chapter2/firstprog.curry:6
+tutorial/chapter3/BinTree.curry	tutorial/chapter3/BinTree.curry	main	not stated by source	chapter3/BinTree.curry:22
+tutorial/chapter3/HOInsertionSort.curry	tutorial/chapter3/HOInsertionSort.curry	main1	-> [1,2,3,5,6,7,8,9]	chapter3/HOInsertionSort.curry:10
+tutorial/chapter3/HOInsertionSort.curry	tutorial/chapter3/HOInsertionSort.curry	main2	-> [9,8,7,6,5,3,2,1]	chapter3/HOInsertionSort.curry:11
+tutorial/chapter3/HOInsertionSort.curry	tutorial/chapter3/HOInsertionSort.curry	main	same as main2 (definition)	chapter3/HOInsertionSort.curry:13
+tutorial/chapter3/InsertionSort.curry	tutorial/chapter3/InsertionSort.curry	main	-> [1,2,3,5,6,7,8,9]	chapter3/InsertionSort.curry:8
+tutorial/chapter3/PowerLet.curry	tutorial/chapter3/PowerLet.curry	main	not stated by source	chapter3/PowerLet.curry:15
+tutorial/chapter3/TermParser.curry	tutorial/chapter3/TermParser.curry	main1	"Term ""f"" [Term ""g"" [Term ""a"" [],Term ""b"" []]]"	chapter3/TermParser.curry:13
+tutorial/chapter3/TermParser.curry	tutorial/chapter3/TermParser.curry	main2	"Term ""zero"" []"	chapter3/TermParser.curry:15
+tutorial/chapter3/TermParser.curry	tutorial/chapter3/TermParser.curry	main	same as main1 (definition)	chapter3/TermParser.curry:18
+tutorial/chapter3/anon.curry	tutorial/chapter3/anon.curry	main	not stated by source	chapter3/anon.curry:19
+tutorial/chapter3/consublist.curry	tutorial/chapter3/consublist.curry	main	[3,6] and [2,1,4] (introductory comment)	chapter3/consublist.curry:3 (introductory comment)
+tutorial/chapter3/exfactor.curry	tutorial/chapter3/exfactor.curry	main	-> True	chapter3/exfactor.curry:18
+tutorial/chapter3/exnondettask.curry	tutorial/chapter3/exnondettask.curry	main	not stated by source	chapter3/exnondettask.curry:19
+tutorial/chapter3/exuserlist.curry	tutorial/chapter3/exuserlist.curry	main	-> True	chapter3/exuserlist.curry:18
+tutorial/chapter3/lazy.curry	tutorial/chapter3/lazy.curry	main1	3 (preceding comment)	chapter3/lazy.curry:11
+tutorial/chapter3/lazy.curry	tutorial/chapter3/lazy.curry	main2	3 (preceding comment)	chapter3/lazy.curry:14
+tutorial/chapter3/lazy.curry	tutorial/chapter3/lazy.curry	main	same as main2 (definition)	chapter3/lazy.curry:17
+tutorial/chapter3/localvar.curry	tutorial/chapter3/localvar.curry	g	not stated by source	chapter3/localvar.curry:5
+tutorial/chapter3/localvar.curry	tutorial/chapter3/localvar.curry	main	not stated by source	chapter3/localvar.curry:10
+tutorial/chapter3/power.curry	tutorial/chapter3/power.curry	main	not stated by source	chapter3/power.curry:11
+tutorial/chapter3/xinstance.curry	tutorial/chapter3/xinstance.curry	main	not stated by source	chapter3/xinstance.curry:23
+tutorial/chapter4/TrieBuild.curry	tutorial/chapter4/TrieBuild.curry	main	not stated by source	chapter4/TrieBuild.curry:71
+tutorial/chapter4/TrieInsert.curry	tutorial/chapter4/TrieInsert.curry	main	not stated by source	chapter4/TrieInsert.curry:13
+tutorial/chapter4/TrieSearch.curry	tutorial/chapter4/TrieSearch.curry	main	not stated by source	chapter4/TrieSearch.curry:29
+tutorial/chapter4/binsearchtree.curry	tutorial/chapter4/binsearchtree.curry	main	not stated by source	chapter4/binsearchtree.curry:15
+tutorial/chapter4/comprehensions.curry	tutorial/chapter4/comprehensions.curry	main1	[2,3,5,7,11,13,17,19,23,29]	chapter4/comprehensions.curry:15
+tutorial/chapter4/comprehensions.curry	tutorial/chapter4/comprehensions.curry	main2	[(0,0),(0,1),(0,2),(0,3),(1,1),(1,2),(1,3),(2,2),(2,3),(3,3)]	chapter4/comprehensions.curry:20
+tutorial/chapter4/comprehensions.curry	tutorial/chapter4/comprehensions.curry	main	same as main1 (definition)	chapter4/comprehensions.curry:23
+tutorial/chapter4/fibocompr.curry	tutorial/chapter4/fibocompr.curry	main1	-> [0,1,1,2,1,3,2,5,3,8]	chapter4/fibocompr.curry:4
+tutorial/chapter4/fibocompr.curry	tutorial/chapter4/fibocompr.curry	main2	-> [(0,1),(1,2),(1,1),(2,3),(1,2),(3,5),(2,3),(5,8)]	chapter4/fibocompr.curry:5
+tutorial/chapter4/fibocompr.curry	tutorial/chapter4/fibocompr.curry	main	same as main2 (definition)	chapter4/fibocompr.curry:7
+tutorial/chapter4/fold.curry	tutorial/chapter4/fold.curry	main1	->  15	chapter4/fold.curry:6
+tutorial/chapter4/fold.curry	tutorial/chapter4/fold.curry	main2	-> 120	chapter4/fold.curry:7
+tutorial/chapter4/fold.curry	tutorial/chapter4/fold.curry	main3	->   5	chapter4/fold.curry:8
+tutorial/chapter4/fold.curry	tutorial/chapter4/fold.curry	main	same as main2 (definition)	chapter4/fold.curry:10
+tutorial/chapter4/lists.curry	tutorial/chapter4/lists.curry	digits	not stated by source	chapter4/lists.curry:2
+tutorial/chapter4/lists.curry	tutorial/chapter4/lists.curry	string	not stated by source	chapter4/lists.curry:5
+tutorial/chapter4/lists.curry	tutorial/chapter4/lists.curry	matrix	not stated by source	chapter4/lists.curry:8
+tutorial/chapter4/submin.curry	tutorial/chapter4/submin.curry	main	not stated by source	chapter4/submin.curry:12
+tutorial/chapter4/sumlist.curry	tutorial/chapter4/sumlist.curry	main	-> 45	chapter4/sumlist.curry:5
+tutorial/chapter4/transpose.curry	tutorial/chapter4/transpose.curry	main	not stated by source	chapter4/transpose.curry:19
+tutorial/chapter4/treesort.curry	tutorial/chapter4/treesort.curry	main	not stated by source	chapter4/treesort.curry:18
+tutorial/chapter6/blocks.curry	tutorial/chapter6/blocks.curry	main	not stated by source	chapter6/blocks.curry:25
+tutorial/chapter6/missionaries.curry	tutorial/chapter6/missionaries.curry	main	not stated by source	chapter6/missionaries.curry:81
+pakcs-3.10.0-testsuite/LanguageTests/TestFuncPattern.curry	pakcs-3.10.0-testsuite/LanguageTests/TestFuncPatternGoals.curry	variables	"""x"" (256 values, testVars1/testVars2)"	LanguageTests/TestFuncPattern.curry (property)
+pakcs-3.10.0-testsuite/LanguageTests/TestFuncPattern.curry	pakcs-3.10.0-testsuite/LanguageTests/TestFuncPatternGoals.curry	dutchFlag	[Red,Red,White,White,White,Blue,Blue]	LanguageTests/TestFuncPattern.curry (property)
