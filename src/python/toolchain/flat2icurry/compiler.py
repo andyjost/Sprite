@@ -178,9 +178,9 @@ def to_iblock(ctx, vs, e, root):
 
   decls = [ic.IVarDecl(v) for v in vs if v in evarset]
   if isinstance(e, fc.Free):
-    decls.extend(ic.IFreeDecl(v) for v in e.vars)
+    decls.extend(ic.IFreeDecl(v) for v in fc.free_vars(e.vars))
   elif isinstance(e, fc.Let):
-    decls.extend(ic.IVarDecl(v) for v, _ in e.bindings)
+    decls.extend(ic.IVarDecl(v) for v, _ in fc.let_bindings(e.bindings))
   elif isinstance(e, fc.Case) and not isinstance(e.scrutinee, fc.Var):
     decls.append(ic.IVarDecl(casevar))
 
@@ -189,7 +189,7 @@ def to_iblock(ctx, vs, e, root):
           for p, v in enumerate(vs) if v in evarset
     ]
   if isinstance(e, fc.Let):
-    bindings = [(v, to_iexpr(ctx, b)) for v, b in e.bindings]
+    bindings = [(v, to_iexpr(ctx, b)) for v, b in fc.let_bindings(e.bindings)]
     assigns.extend(ic.IVarAssign(v, be) for v, be in bindings)
     assigns.extend(recursive_assigns(bindings))
   elif isinstance(e, fc.Case) and not isinstance(e.scrutinee, fc.Var):
@@ -260,6 +260,18 @@ def _to_iexpr(ctx, e):
       args.append(arg)
     ct = e.combtype
     maps, cur = ctx.maps, ctx.qname[1]
+    # Front end 3.1 uses eqString to compile string patterns. The shipped
+    # base 3.1 Prelude predates that helper: use its Eq [Char] operation.
+    # A newer library that defines eqString follows the ordinary path.
+    if e.name == fc.prelude('eqString') and e.name not in maps.funs:
+      eq = fc.prelude('_impl#==#Prelude.Eq#[]#0##')
+      char = fc.prelude('_inst#Prelude.Eq#Prelude.Char#')
+      dictionary = ic.IFPCall((*char, maps.pos_of_fun(char, cur)), 1, [])
+      name = (*eq, maps.pos_of_fun(eq, cur))
+      if ct == fc.FuncCall:
+        return ic.IFCall(name, [dictionary] + args)
+      if isinstance(ct, fc.FuncPartCall):
+        return ic.IFPCall(name, ct.missing, [dictionary] + args)
     if ct == fc.FuncCall:
       return ic.IFCall((mn, fn, maps.pos_of_fun(e.name, cur)), args)
     elif ct == fc.ConsCall:

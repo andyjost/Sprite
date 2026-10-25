@@ -21,7 +21,7 @@ LIBRARY_DIRS = [os.path.join(ROOT, 'curry', 'lib')]
 
 def corpus_fcy(name, directory=DATA):
   '''The FlatCurry file of a test module, written by the front end.'''
-  pattern = os.path.join(directory, '.curry', '*', name + '.fcy')
+  pattern = os.path.join(directory, '.curry', config.frontend_subdir(), name + '.fcy')
   found = [
       f for f in sorted(glob.glob(pattern))
         if os.path.basename(os.path.dirname(f)) != config.intermediate_subdir()
@@ -81,11 +81,13 @@ class TestReader(cytest.TestCase):
         [(c.name, c.arity) for c in nat.constructors]
       , [(('Peano', 'O'), 0), (('Peano', 'S'), 1)]
       )
-    self.assertEqual(
-        [f.name[1] for f in p.functions]
-      , [ '_inst#Prelude.Data#Peano.Nat', '_impl#===#Prelude.Data#Peano.Nat'
-        , '_impl#aValue#Prelude.Data#Peano.Nat', 'add', 'main']
-      )
+    suffix = '#' if config.frontend_version() == '3.1.0' else ''
+    expected = [
+        name + suffix for name in (
+            '_inst#Prelude.Data#Peano.Nat', '_impl#===#Prelude.Data#Peano.Nat'
+          , '_impl#aValue#Prelude.Data#Peano.Nat')
+      ] + ['add', 'main']
+    self.assertEqual([f.name[1] for f in p.functions], expected)
     add = p.functions[3]
     self.assertEqual(add.arity, 2)
     self.assertEqual(add.rule.args, [1, 2])
@@ -1606,3 +1608,170 @@ class TestDeepTerms(cytest.TestCase):
     self.assertEqual(len(positions), depth)
     self.assertEqual(positions[0], (1, [0]))
     self.assertEqual(positions[-1], (depth, [1] * (depth - 1) + [0]))
+
+class TestBothFormats(cytest.TestCase):
+  '''The same probe sources, compiled by each supported front end.'''
+
+  FIXTURES = os.path.join(HERE, 'data', 'flatcurry')
+  NAMES = ('Classes', 'Locals', 'Incomplete', 'Funpat', 'Records')
+
+  @staticmethod
+  def walk(term):
+    stack = [term]
+    while stack:
+      x = stack.pop()
+      yield x
+      if isinstance(x, terms.Term):
+        stack.extend(reversed(x._args_))
+      elif isinstance(x, (list, tuple)):
+        stack.extend(reversed(x))
+
+  def fixture(self, version, name):
+    return fc.load(os.path.join(self.FIXTURES, version, name + '.fcy'))
+
+  def test_roundtrip_and_passes(self):
+    for version in ('2.0.0', '3.1.0'):
+      for name in self.NAMES:
+        with self.subTest(version=version, module=name):
+          filename = os.path.join(self.FIXTURES, version, name + '.fcy')
+          p = fc.load(filename)
+          with open(filename) as stream:
+            self.assertEqual(fc.show(p), stream.read())
+          for fd in p.functions:
+            if isinstance(fd.rule, fc.External):
+              continue
+            body = fd.rule.body
+            self.assertTrue(all(isinstance(v, int) for v in fc.all_vars(body)))
+            self.assertTrue(all(isinstance(v, int) for v in caselifting.unbound_vars(body)))
+            # Traversals that rebuild locals must retain their types exactly.
+            self.assertEqual(elimnewtype.elim_exp(set(), body), body)
+            self.assertEqual(elimnewtype.subst_var(-1, -2, body), body)
+          # Completion and lifting run on both formats without an installed
+          # new front end. Build a small import interface from used names.
+          constructors, functions = {}, {}
+          for x in self.walk(p):
+            if isinstance(x, fc.Comb) and x.name[0] == 'Prelude':
+              if x.combtype in (fc.ConsCall,) or isinstance(x.combtype, fc.ConsPartCall):
+                constructors[x.name] = len(x.args) + getattr(x.combtype, 'missing', 0)
+              else:
+                functions[x.name] = len(x.args) + getattr(x.combtype, 'missing', 0)
+            elif isinstance(x, fc.Pattern) and x.name[0] == 'Prelude':
+              constructors[x.name] = len(x.vars)
+          types = [BOOL, LIST] + [
+              fc.Type(qn, fc.Public, [], [fc.Cons(qn, ar, fc.Public, [fc.TVar(0)] * ar)])
+                for qn, ar in constructors.items() if qn not in (P('True'), P('False'), P(':'), P('[]'))
+            ]
+          impfuncs = [pfunc(qn[1], ar) for qn, ar in functions.items()]
+          if version == '3.1.0':
+            # The real imported Prelude identifies otherwise ambiguous
+            # programs with no local bindings, such as Incomplete.
+            impfuncs.append(pfunc('_inst#Prelude.Num#Prelude.Int#', 1))
+          imp = fc.Prog('Prelude', [], types, impfuncs, [])
+          result = f2i.translate(p, [imp], icurry_compat=False, rewrite=True)
+          self.assertEqual(result.name, name)
+          if name == 'Incomplete':
+            order = [br.name[:2] for br in result.functions[0].body.block.statement.branches]
+            self.assertEqual(order, [P('True'), P('False')] if version == '3.1.0'
+                else [P('False'), P('True')])
+          # All imperative declarations hold plain indices.
+          for x in self.walk(result):
+            if isinstance(x, (ic.IFreeDecl, ic.IVarDecl)):
+              self.assertIsInstance(x.var, int)
+
+  def test_typed_rewrites(self):
+    from curry.toolchain.flat2icurry import bindingopt, setlift
+    integer = fc.TCons(P('Int'), [])
+    body = fc.Free([(1, integer)], fc.Let([(2, integer, fc.Var(1))],
+        fcall(P('&&>'), fcall(P('_impl#===#Prelude.Data#Prelude.Int#'), fc.Var(2), fc.Lit(fc.Intc(1))),
+          fcall(setlift.SET0, fc.Var(2)))))
+    p = prog([func('f', [], body)])
+    q, counts = f2i.rewrite_prog(p)
+    self.assertEqual(counts, (1, 1))
+    self.assertEqual(q.functions[0].rule.body.vars, [(1, integer)])
+    self.assertEqual(q.functions[0].rule.body.body.bindings, [(2, integer, fc.Var(1))])
+    self.assertEqual(q.functions[1].typeexpr, fc.FuncType(integer, integer))
+    self.assertEqual(f2i.rewrite_prog(q), (q, (0, 0)))
+    self.assertEqual(fc.read(fc.show(q)), q)
+    # A capture need not use the enclosing scheme's first type variable.
+    # Its type index must still agree with annotations in the lifted body.
+    a, b = fc.TVar(0), fc.TVar(1)
+    local = fc.Free([(3, b)], fc.Var(2))
+    fd = fc.Func(M('poly'), 2, fc.Public,
+        fc.ForallType([(0, fc.KStar), (1, fc.KStar)],
+          fc.FuncType(a, fc.FuncType(b, fc.TCons(('Control.SetFunctions', 'Values'), [b])))),
+        fc.Rule([1, 2], fcall(setlift.SET0, local)))
+    lifted, count = setlift.transform_prog(prog([fd]))
+    self.assertEqual(count, 1)
+    self.assertEqual(lifted.functions[1].typeexpr,
+        fc.ForallType([(1, fc.KStar)], fc.FuncType(b, b)))
+    self.assertEqual(lifted.functions[1].rule.body, local)
+    self.assertEqual(fc.quantify_type(fc.FuncType(b, fc.TVar(-1))),
+        fc.ForallType([(1, fc.KStar), (2, fc.KStar)], fc.FuncType(b, fc.TVar(2))))
+
+  def test_newtype_synthesized_binding(self):
+    integer = fc.TCons(P('Int'), [])
+    box = fc.TypeNew(M('Box'), fc.Public, [(0, fc.KStar)],
+        fc.NewCons(M('Box'), fc.Public, fc.TVar(0)))
+    # A complex scrutinee needs a let, with the field type rather than None.
+    body = fc.Free([(1, integer)], fc.Case(fc.Flex,
+        fcall(M('makeBox'), fc.Var(1)), [fc.Branch(fc.Pattern(M('Box'), [2]), fc.Var(2))]))
+    maker = fc.Func(M('makeBox'), 1, fc.Public,
+        fc.FuncType(integer, fc.TCons(M('Box'), [integer])),
+        fc.Rule([3], ccall(M('Box'), fc.Var(3))))
+    q = elimnewtype.elim_newtype([], prog([func('unbox', [], body), maker], [box]))
+    self.assertEqual(q.functions[0].rule.body.body,
+        fc.Let([(2, integer, fcall(M('makeBox'), fc.Var(1)))], fc.Var(2)))
+
+  def test_completed_case_order(self):
+    p = self.fixture('3.1.0', 'Incomplete')
+    q = casecompletion.complete_prog(fc.data_decls_of(PRELUDE), p, preserve_completed=True)
+    self.assertEqual(q, p)
+    old = self.fixture('2.0.0', 'Incomplete')
+    done = casecompletion.complete_prog(fc.data_decls_of(PRELUDE), old)
+    branches = done.functions[0].rule.body.branches
+    self.assertEqual([br.pattern.name for br in branches], [P('False'), P('True')])
+    self.assertEqual(branches[0].body, fcall(P('failed')))
+    # Ordinary full cases (e.g. not, && and ||) have identical FlatCurry
+    # under both front ends. Keep their historical ICurry normalization.
+    full = fc.Case(fc.Flex, fc.Var(1), [
+        fc.Branch(fc.Pattern(P('True'), []), fc.Lit(fc.Intc(1)))
+      , fc.Branch(fc.Pattern(P('False'), []), fc.Lit(fc.Intc(2)))
+      ])
+    decls = fc.data_decls_of(PRELUDE)
+    self.assertEqual(casecompletion.complete_exp(decls, full, preserve_completed=True),
+        casecompletion.complete_exp(decls, full))
+
+  def test_new_frontend_integration(self):
+    if config.frontend_version() != '3.1.0':
+      self.skipTest('requires the configured Curry front end 3.1.0')
+    from curry import cache, toolchain
+    from unittest import mock
+    # This checks the front end's file, which an ICurry cache hit does
+    # not recreate (it restores the ICurry and its interface sidecars).
+    patcher = mock.patch.dict(os.environ, {'SPRITE_CACHE_FILE': ''})
+    patcher.start()
+    self.addCleanup(patcher.stop)
+    cache.reset()
+    self.addCleanup(cache.reset)
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, 'Locals.curry')
+      shutil.copyfile(os.path.join(self.FIXTURES, 'sources', 'Locals.curry'), source)
+      icy = toolchain.curry2icurry(source, [config.system_curry_path()], curry2icurry='frontend', quiet=True)
+      self.assertTrue(os.path.isfile(icy))
+      fcy = os.path.join(directory, '.curry', config.frontend_subdir(), 'Locals.fcy')
+      self.assertTrue(fc.has_typed_locals(fc.load(fcy)))
+
+  def test_old_prelude_string_equality_bridge(self):
+    maps = compiler.NameMaps()
+    eq = P('_impl#==#Prelude.Eq#[]#0##')
+    char = P('_inst#Prelude.Eq#Prelude.Char#')
+    maps.funs.update({eq: 10, char: 11})
+    ctx = compiler.Context(maps, M('f'))
+    dictionary = ic.IFPCall((*char, 11), 1, [])
+    self.assertEqual(compiler.to_iexpr(ctx, fcall(P('eqString'), fc.Var(1), fc.Var(2))),
+        ic.IFCall((*eq, 10), [dictionary, ic.IVar(1), ic.IVar(2)]))
+    partial = fc.Comb(fc.FuncPartCall(2), P('eqString'), [])
+    self.assertEqual(compiler.to_iexpr(ctx, partial), ic.IFPCall((*eq, 10), 2, [dictionary]))
+    maps.funs[P('eqString')] = 12
+    self.assertEqual(compiler.to_iexpr(ctx, fcall(P('eqString'), fc.Var(1), fc.Var(2))),
+        ic.IFCall((*P('eqString'), 12), [ic.IVar(1), ic.IVar(2)]))

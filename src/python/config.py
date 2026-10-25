@@ -151,6 +151,7 @@ frontend_subdir           = _Variable('frontend_subdir')
 # The options passed to the Curry front end after the output directory and
 # the search path, as one string.
 frontend_flags            = _Variable('frontend_flags')
+frontend_version          = _Variable('frontend_version')
 # The route from Curry to ICurry chosen at configuration time: 'frontend' or
 # 'icurry'.  Empty when CMake left the choice open.
 default_curry2icurry_tool = _Variable('curry2icurry_tool')

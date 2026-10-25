@@ -90,6 +90,15 @@ class TestCurry2ICurry(cytest.TestCase):
     self.assertTrue(config.frontend_subdir())
     self.assertNotEqual(config.frontend_subdir(), config.intermediate_subdir())
 
+  def test_release_configuration(self):
+    release, macro = {
+        '2.0.0': ('3.4.1', '304'), '3.1.0': ('3.10.0', '310')
+      }[config.frontend_version()]
+    self.assertEqual(config.frontend_subdir(), 'pakcs-' + release)
+    self.assertEqual(config.intermediate_subdir(), 'sprite-pakcs-' + release)
+    self.assertEqual(config.frontend_flags(), '--extended -D__PAKCS__=' + macro)
+    self.assertEqual(config.currylib_version(), '3.4.1')
+
   def test_command(self):
     '''The command line: --flat, the output directory, the flags, -i, name.'''
     curryfile = os.path.join(self.tmpdir, 'Sub', 'Deep.curry')

@@ -49,6 +49,9 @@ def main():
   parser.add_argument('--output', type=Path, required=True)
   parser.add_argument('--baseline', type=Path)
   args = parser.parse_args()
+  from curry import config
+  subdir = config.frontend_subdir()
+  flags = config.frontend_flags().split()
   binary = args.binary.resolve()
   dest = args.output.resolve()
   dest.mkdir(parents=True, exist_ok=True)
@@ -82,8 +85,8 @@ def main():
     source = sources / relative
     stem = str(relative.with_suffix('')).replace('/', '.')
     command = [
-        str(binary), '--flat', '-o', '.curry/pakcs-3.4.1'
-      , '--extended', '-D__PAKCS__=304', '-i', str(source.parent)
+        str(binary), '--flat', '-o', '.curry/' + subdir
+      , *flags, '-i', str(source.parent)
       , '-i', str(sources), source.stem
       ]
     if not run(command, source.parent, logs / (stem + '.frontend.log')):
@@ -92,7 +95,7 @@ def main():
     relative = original.relative_to(lib)
     source = sources / relative
     stem = str(relative.with_suffix('')).replace('/', '.')
-    flat = source.parent / '.curry/pakcs-3.4.1' / (source.stem + '.fcy')
+    flat = source.parent / '.curry' / subdir / (source.stem + '.fcy')
     target = products / relative.with_suffix('.icy')
     target.parent.mkdir(parents=True, exist_ok=True)
     if not flat.is_file():

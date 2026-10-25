@@ -252,9 +252,10 @@ def transform_exp(e, reqval, equivalence=True):
     elif isinstance(e, fc.Let):
       n = 0
       bindings = []
-      for v, b in e.bindings:
+      for binding in e.bindings:
+        v, b = binding[0], binding[-1]
         b, m = yield rec(b, ANY)
-        bindings.append((v, b))
+        bindings.append(fc.binding_expr(binding, b))
         n += m
       body, m = yield rec(e.body, reqval)
       return fc.Let(bindings, body), n + m
@@ -322,7 +323,7 @@ def contains_equality(e, equivalence=True):
       stack.extend(reversed([br.body for br in e.branches]))
       stack.append(e.scrutinee)
     elif isinstance(e, fc.Let):
-      stack.extend(reversed([b for _, b in e.bindings]))
+      stack.extend(reversed([b for _, b in fc.let_bindings(e.bindings)]))
       stack.append(e.body)
     else:
       raise TypeError('not an expression: %r' % (e,))

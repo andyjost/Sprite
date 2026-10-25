@@ -306,9 +306,8 @@ def icurry_cache_key(curryfile, currypath=(), options=(), tool=None):
   the modules it imports (see ``import_closure``), the front-end options, the
   route from Curry to ICurry with its program and flags (see
   ``frontend_digest``) and the version of its steps (see
-  ``route_version``), and the intermediate subdirectory, which names the
-  version of the Curry library.  The directory of the file is not part of the
-  key.
+  ``route_version``), the configured front-end version and its intermediate
+  subdirectory. The directory of the file is not part of the key.
   The module name is part of the key for a named module, because the front
   end writes it into the ICurry.  For an anonymous module (see
   ``config.is_anonymous_modname``) the name is left out, and the cached text
@@ -336,6 +335,7 @@ def icurry_cache_key(curryfile, currypath=(), options=(), tool=None):
     tool = config.curry2icurry_tool()
   put('sprite curry2icurry %d' % KEY_FORMAT)
   put(config.intermediate_subdir())
+  put(config.frontend_version())
   put(tool)
   put(frontend_digest(tool))
   put('route %d' % route_version())

@@ -1,0 +1,10 @@
+The same five sources compiled with Curry front end 2.0.0 (FlatCurry 3)
+and 3.1.0 (FlatCurry 5), respectively. The survey's paired probes supplied
+the files: --flat --extended, with each front end's own Prelude. These
+small text fixtures are independent of the configured compiler; they are
+not runtime products or replacements for the pinned ICurry oracle.
+
+Classes: a class and an instance; Locals: Free and Let; Incomplete: an
+incomplete Boolean case; Funpat: a functional pattern; Records: a record,
+derived instances and a newtype. Sources are in sources/. The writer must
+round-trip each file byte for byte, including the absence of a final newline.

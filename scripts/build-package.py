@@ -9,6 +9,7 @@ import hashlib
 import os
 from pathlib import Path
 import shutil
+import shlex
 import subprocess
 import sys
 
@@ -125,7 +126,14 @@ def main():
     subprocess.run(list(map(str, command)), cwd=cwd, env=env, check=True)
   modules = (prefix / 'sysconfig/currylib_module_names').read_text().split()
   unsupported = (prefix / 'sysconfig/currylib_unsupported_modules').read_text().split()
-  flat = lib / '.curry/pakcs-3.4.1'
+  def setting(name):
+    return (prefix / 'sysconfig' / name).read_text().strip()
+  frontend_subdir = setting('frontend_subdir')
+  intermediate_subdir = setting('intermediate_subdir')
+  frontend_flags = shlex.split(setting('frontend_flags'))
+  rebuild = args.rebuild_icy.upper() in ('1', 'ON', 'TRUE') \
+      or setting('frontend_version') != '2.0.0'
+  flat = lib / '.curry' / frontend_subdir
   suffixes = ['.fcy', '.fint', '.icurry']
   needs_interfaces = any(
       not (flat / path.relative_to(source / 'curry/lib').with_suffix(s)).exists()
@@ -134,14 +142,14 @@ def main():
       for path in sources for s in suffixes)
   if needs_interfaces:
     run(args.frontend, '--flat', '-o', flat, '--no-verb', '--no-warn',
-        '--no-overlap-warn', '--extended', '-D__PAKCS__=304', '-i', '.', *modules)
+        '--no-overlap-warn', *frontend_flags, '-i', '.', *modules)
   for path in sources:
     rel = path.relative_to(source / 'curry/lib')
-    dest = lib / rel.parent / '.curry/sprite-pakcs-3.4.1' / rel.stem
+    dest = lib / rel.parent / '.curry' / intermediate_subdir / rel.stem
     for suffix in ['.fint', '.icurry']:
       copy(flat / rel.with_suffix(suffix), dest.with_suffix(suffix))
     pinned = path.with_suffix('.icy')
-    if pinned.exists() and args.rebuild_icy.upper() not in ('1', 'ON', 'TRUE'):
+    if pinned.exists() and not rebuild:
       copy(pinned, dest.with_suffix('.icy'))
       # A copied pinned artifact is current even in a fresh checkout.
       if dest.with_suffix('.icy').stat().st_mtime < (lib / rel).stat().st_mtime:
@@ -158,7 +166,7 @@ def main():
   # These existing provenance sidecars identify unchanged shipped sources.
   for path in sources:
     rel = path.relative_to(source / 'curry/lib')
-    icy = lib / rel.parent / '.curry/sprite-pakcs-3.4.1' / (rel.stem + '.icy')
+    icy = lib / rel.parent / '.curry' / intermediate_subdir / (rel.stem + '.icy')
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     Path(str(icy) + '.source').write_text(digest)
   if args.wheel:
@@ -169,7 +177,7 @@ def main():
       stamp.write_text('%s\n%s\n' % (
           digest, os.path.relpath(prefix, stamp.parent)))
   for suffix in ['.json.z', '.so', '.so.abi']:
-    if not (lib / '.curry/sprite-pakcs-3.4.1' / ('Prelude' + suffix)).is_file():
+    if not (lib / '.curry' / intermediate_subdir / ('Prelude' + suffix)).is_file():
       raise RuntimeError('prebuild did not write Prelude' + suffix)
 
 

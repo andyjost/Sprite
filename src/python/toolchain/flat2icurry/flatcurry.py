@@ -27,7 +27,8 @@ __all__ = [
   , 'Expr', 'Literal', 'TypeDecl', 'TypeExpr', 'RuleDecl', 'PatternDecl'
   , 'CombType', 'CaseType', 'Visibility', 'Kind', 'Fixity'
   , 'CONSTRUCTORS', 'all_vars', 'data_decls_of', 'decode', 'load', 'prelude'
-  , 'read', 'show', 'write'
+  , 'read', 'show', 'write', 'let_bindings', 'free_vars', 'binding_expr'
+  , 'has_typed_locals', 'type_signatures', 'LocalTypes', 'typed_format', 'quantify_type'
   ]
 
 CONSTRUCTORS = {}
@@ -85,6 +86,8 @@ ConsPartCall = _cons('ConsPartCall', 'missing', CombType)
 Var          = _cons('Var', 'index', Expr)
 Lit          = _cons('Lit', 'literal', Expr)
 Comb         = _cons('Comb', 'combtype name args', Expr)
+# Retain the wire form: Let pairs / Free indices in FlatCurry 3,
+# Let (index, type, expression) / Free (index, type) in FlatCurry 5.
 Let          = _cons('Let', 'bindings body', Expr)
 Free         = _cons('Free', 'vars body', Expr)
 Or           = _cons('Or', 'lhs rhs', Expr)
@@ -96,6 +99,18 @@ LPattern     = _cons('LPattern', 'literal', PatternDecl)
 Intc         = _cons('Intc', 'value', Literal)
 Floatc       = _cons('Floatc', 'value', Literal)
 Charc        = _cons('Charc', 'value', Literal)
+
+def let_bindings(bindings):
+  """The (index, expression) pairs of old pairs or typed triples."""
+  return [(b[0], b[-1]) for b in bindings]
+
+def binding_expr(binding, expr):
+  """Replace a binding's expression, retaining its optional type slot."""
+  return binding[:-1] + (expr,)
+
+def free_vars(variables):
+  """The indices of old free declarations or typed (index, type) pairs."""
+  return [v if isinstance(v, int) else v[0] for v in variables]
 
 def prelude(name):
   '''The qualified name of a Prelude symbol.'''
@@ -210,13 +225,13 @@ def all_vars(expr):
       stack.extend(reversed(e.args))
     elif isinstance(e, Let):
       items = [e.body]
-      for v, b in e.bindings:
+      for v, b in let_bindings(e.bindings):
         items.append([v])
         items.append(b)
       stack.extend(reversed(items))
     elif isinstance(e, Free):
       stack.append(e.body)
-      stack.append(list(e.vars))
+      stack.append(free_vars(e.vars))
     elif isinstance(e, Or):
       stack.append(e.rhs)
       stack.append(e.lhs)
@@ -246,3 +261,205 @@ def data_decls_of(prog):
     elif isinstance(td, TypeNew):
       decls.append((td.name, [(td.constructor.name, 1)]))
   return decls
+
+def has_typed_locals(term):
+  '''Whether a term contains typed Free or Let declarations.'''
+  stack = [term]
+  while stack:
+    x = stack.pop()
+    if isinstance(x, Free) and any(isinstance(v, tuple) for v in x.vars):
+      return True
+    if isinstance(x, Let) and any(len(b) == 3 for b in x.bindings):
+      return True
+    if isinstance(x, Term):
+      stack.extend(x._args_)
+    elif isinstance(x, (list, tuple)):
+      stack.extend(x)
+  return False
+
+def type_signatures(progs):
+  '''Function and constructor schemes for local annotation propagation.'''
+  schemes = {}
+  for prog in progs:
+    schemes.update((fd.name, fd.typeexpr) for fd in prog.functions)
+    for td in prog.types:
+      if isinstance(td, (Type, TypeNew)):
+        result = TCons(td.name, [TVar(v) for v, _ in td.typevars])
+        constructors = td.constructors if isinstance(td, Type) else [td.constructor]
+        for c in constructors:
+          args = c.argtypes if isinstance(c, Cons) else [c.typeexpr]
+          te = result
+          for arg in reversed(args):
+            te = FuncType(arg, te)
+          schemes[c.name] = ForallType(td.typevars, te) if td.typevars else te
+  return schemes
+
+class LocalTypes:
+  '''Propagate the front end's types when a rewrite synthesizes a binding.
+
+  This is an annotation helper for already typed FlatCurry, not the Python
+  API type checker.  Its variables use the enclosing rule's type indices;
+  instantiations of called schemes have fresh indices.
+  '''
+  def __init__(self, fd, schemes):
+    self.schemes = schemes
+    self.variables = {}
+    self.substitution = {}
+    self.nextvar = -1
+    self.kinds = dict(fd.typeexpr.typevars) if isinstance(fd.typeexpr, ForallType) else {}
+    te = self.body_type(fd.typeexpr)
+    for v in fd.rule.args:
+      self.variables[v], te = te.domain, te.range
+    stack = [fd.rule.body]
+    while stack:
+      e = stack.pop()
+      if isinstance(e, Free):
+        self.variables.update(v for v in e.vars if isinstance(v, tuple))
+        stack.append(e.body)
+      elif isinstance(e, Let):
+        self.variables.update((b[0], b[1]) for b in e.bindings if len(b) == 3)
+        stack.extend(b[-1] for b in e.bindings)
+        stack.append(e.body)
+      elif isinstance(e, Case):
+        stack.append(e.scrutinee)
+        for br in e.branches:
+          if isinstance(br.pattern, Pattern):
+            if br.pattern.name not in self.schemes:
+              stack.append(br.body)
+              continue
+            ct = self.instantiate(self.schemes[br.pattern.name])
+            args = []
+            for v in br.pattern.vars:
+              args.append((v, ct.domain))
+              ct = ct.range
+            self.match(ct, self.expression(e.scrutinee))
+            self.variables.update((v, self.resolve(t)) for v, t in args)
+          stack.append(br.body)
+      elif isinstance(e, Comb):
+        stack.extend(e.args)
+      elif isinstance(e, Or):
+        stack.extend([e.lhs, e.rhs])
+      elif isinstance(e, Typed):
+        stack.append(e.expr)
+
+  @staticmethod
+  def body_type(te):
+    return te.typeexpr if isinstance(te, ForallType) else te
+
+  def fresh(self):
+    te = TVar(self.nextvar)
+    self.nextvar -= 1
+    return te
+
+  def resolve(self, te):
+    if isinstance(te, TVar):
+      if te.index in self.substitution:
+        return self.resolve(self.substitution[te.index])
+      return te
+    if isinstance(te, FuncType):
+      return FuncType(self.resolve(te.domain), self.resolve(te.range))
+    if isinstance(te, TCons):
+      return TCons(te.name, [self.resolve(t) for t in te.args])
+    return te
+
+  def instantiate(self, te):
+    variables = {}
+    kinds = dict(te.typevars) if isinstance(te, ForallType) else {}
+    def rec(t):
+      if isinstance(t, TVar):
+        if t.index not in variables:
+          variables[t.index] = self.fresh()
+          self.kinds[variables[t.index].index] = kinds.get(t.index, KStar)
+        return variables[t.index]
+      if isinstance(t, FuncType):
+        return FuncType(rec(t.domain), rec(t.range))
+      if isinstance(t, TCons):
+        return TCons(t.name, [rec(a) for a in t.args])
+      return t
+    return rec(self.body_type(te))
+
+  def match(self, formal, actual):
+    formal, actual = self.resolve(formal), self.resolve(actual)
+    if formal == actual:
+      return
+    if isinstance(formal, TVar) and formal.index < 0:
+      self.substitution[formal.index] = actual
+    elif isinstance(actual, TVar) and actual.index < 0:
+      self.substitution[actual.index] = formal
+    elif isinstance(formal, FuncType) and isinstance(actual, FuncType):
+      self.match(formal.domain, actual.domain)
+      self.match(formal.range, actual.range)
+    elif isinstance(formal, TCons) and isinstance(actual, TCons) \
+        and formal.name == actual.name:
+      for a, b in zip(formal.args, actual.args):
+        self.match(a, b)
+
+  def expression(self, expr):
+    def rec(e):
+      if isinstance(e, Var):
+        if e.index not in self.variables:
+          self.variables[e.index] = self.fresh()
+        return self.resolve(self.variables[e.index])
+      if isinstance(e, Typed):
+        return e.typeexpr
+      if isinstance(e, Lit):
+        name = 'Int' if isinstance(e.literal, Intc) else \
+               'Float' if isinstance(e.literal, Floatc) else 'Char'
+        return TCons(prelude(name), [])
+      if isinstance(e, (Free, Let)):
+        return (yield rec(e.body))
+      if isinstance(e, Or):
+        return (yield rec(e.lhs))
+      if isinstance(e, Case):
+        return (yield rec(e.branches[0].body)) if e.branches else self.fresh()
+      if isinstance(e, Comb):
+        te = self.instantiate(self.schemes[e.name]) if e.name in self.schemes else self.fresh()
+        for arg in e.args:
+          at = yield rec(arg)
+          if not isinstance(te, FuncType):
+            result = self.fresh()
+            self.match(te, FuncType(at, result))
+            te = self.resolve(result)
+          else:
+            self.match(te.domain, at)
+            te = self.resolve(te.range)
+        return self.resolve(te)
+      raise TypeError('not an expression: %r' % (e,))
+    return trampoline(rec(expr))
+
+def typed_format(prog, imports=()):
+  '''Typed locals or the delimited instance names identify the new format.'''
+  return has_typed_locals(prog) or any(
+      fd.name[1].startswith('_inst#') and fd.name[1].endswith('#')
+        for p in [prog] + list(imports) for fd in p.functions)
+
+def quantify_type(te, kinds=None):
+  '''Quantify a synthesized scheme without renumbering local annotations.'''
+  variables = {}
+  indices = set()
+  stack = [te]
+  while stack:
+    t = stack.pop()
+    if isinstance(t, TVar) and t.index >= 0:
+      indices.add(t.index)
+    elif isinstance(t, Term):
+      stack.extend(t._args_)
+    elif isinstance(t, (list, tuple)):
+      stack.extend(t)
+  nextvar = max(indices, default=-1) + 1
+  def rec(t):
+    nonlocal nextvar
+    if isinstance(t, TVar):
+      if t.index not in variables:
+        variables[t.index] = t.index if t.index >= 0 else nextvar
+        if t.index < 0:
+          nextvar += 1
+      return TVar(variables[t.index])
+    if isinstance(t, FuncType):
+      return FuncType(rec(t.domain), rec(t.range))
+    if isinstance(t, TCons):
+      return TCons(t.name, [rec(a) for a in t.args])
+    return t
+  te = rec(te)
+  kinds = kinds or {}
+  return ForallType([(i, kinds.get(v, KStar)) for v, i in variables.items()], te) if variables else te

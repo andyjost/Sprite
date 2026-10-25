@@ -103,9 +103,10 @@ def _lift(state, nested, e):
     if nested:
       return (yield from _lift_to_function(state, 'LET', e))
     bindings = []
-    for v, b in e.bindings:
+    for binding in e.bindings:
+      v, b = binding[0], binding[-1]
       b = yield _lift(state, True, b)
-      bindings.append((v, b))
+      bindings.append(fc.binding_expr(binding, b))
     body = yield _lift(state, True, e.body)
     return fc.Let(bindings, body)
   elif isinstance(e, fc.Free):
@@ -188,13 +189,13 @@ def _unbound_vars(e):
     return (yield _unbound_vars(e.expr))
   elif isinstance(e, fc.Free):
     body = yield _unbound_vars(e.body)
-    return [v for v in body if v not in e.vars]
+    return [v for v in body if v not in fc.free_vars(e.vars)]
   elif isinstance(e, fc.Let):
     parts = []
-    for sub in [e.body] + [b for _, b in e.bindings]:
+    for sub in [e.body] + [b for _, b in fc.let_bindings(e.bindings)]:
       part = yield _unbound_vars(sub)
       parts.append(part)
-    bounds = [v for v, _ in e.bindings]
+    bounds = [v for v, _ in fc.let_bindings(e.bindings)]
     return [v for v in unions(parts) if v not in bounds]
   elif isinstance(e, fc.Case):
     scrutinee = yield _unbound_vars(e.scrutinee)
