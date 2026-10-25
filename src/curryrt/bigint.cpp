@@ -1,6 +1,8 @@
 #include "curryrt/bigint.hpp"
 #include "curryrt/graph/node.hpp"
 #include "tommath.h"
+#include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <limits>
 #include <memory>
@@ -70,10 +72,24 @@ namespace curryrt
     checked(mp_read_radix(&p->number, digits, 10));
     return box(std::move(p), literal);
   }
+  // libtommath compiles mp_set_double only where the compiler announces
+  // IEC 559 (clang on macOS does not), so the conversion is done here from
+  // the decomposition of the double: an integral double is m * 2^e with an
+  // integer m of at most 53 bits, which the shift reproduces exactly.
   Node * integer(double integral)
   {
     auto p = std::make_unique<BigIntData>();
-    checked(mp_set_double(&p->number, integral));
+    int exponent = 0;
+    double const fraction = std::frexp(std::fabs(integral), &exponent);
+    auto const mantissa = static_cast<std::uint64_t>(std::ldexp(fraction, 53));
+    mp_set_u64(&p->number, mantissa);
+    int const shift = exponent - 53;
+    if(shift >= 0)
+      checked(mp_mul_2d(&p->number, shift, &p->number));
+    else
+      checked(mp_div_2d(&p->number, -shift, &p->number, nullptr));
+    if(integral < 0)
+      checked(mp_neg(&p->number, &p->number));
     return box(std::move(p));
   }
   static mp_int const * number(Node * n, BigIntData & scratch)
