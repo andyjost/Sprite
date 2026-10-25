@@ -232,8 +232,13 @@ endif()
 file(GLOB binding_sources CONFIGURE_DEPENDS src/python/backends/cxx/curryrtbindings/*.cpp)
 pybind11_add_module(_curryrtbindings MODULE NO_EXTRAS ${binding_sources})
 target_link_libraries(_curryrtbindings PRIVATE curryrt)
+# The runtime reads every node through the pointer union NodeU, and a step
+# overlays a rewritten node with another struct (Node::forward_to), accesses
+# the aliasing rules of C++ call unrelated.  Strict aliasing is therefore
+# off here, in the generated code (toolchain.py, _cxxflags) and in the C++
+# tests; GCC 14 for riscv64 kept a stale info tag without it (issue #170).
 foreach(target curryrt _curryrtbindings)
-  target_compile_options(${target} PRIVATE -Wall -Wno-register
+  target_compile_options(${target} PRIVATE -Wall -Wno-register -fno-strict-aliasing
     "$<$<CXX_COMPILER_ID:AppleClang,Clang>:-Wno-missing-braces>"
     "$<$<CONFIG:Release>:-O2;-fno-stack-protector${elf_release_flags}>")
 endforeach()
