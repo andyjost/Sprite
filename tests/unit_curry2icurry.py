@@ -97,7 +97,7 @@ class TestCurry2ICurry(cytest.TestCase):
     self.assertEqual(config.frontend_subdir(), 'pakcs-' + release)
     self.assertEqual(config.intermediate_subdir(), 'sprite-pakcs-' + release)
     self.assertEqual(config.frontend_flags(), '--extended -D__PAKCS__=' + macro)
-    self.assertEqual(config.currylib_version(), '3.4.1')
+    self.assertEqual(config.currylib_version(), '3.10.0')
 
   def test_command(self):
     '''The command line: --flat, the output directory, the flags, -i, name.'''
@@ -341,6 +341,26 @@ class TestCurry2ICurry(cytest.TestCase):
     self.assertEqual(readbytes(_frontend.flatcurryfile(other)).count(b'constrEq'), 15)
     self.assertFalse(_curry2icurry.icurry_is_stale(icy))
 
+  def test_shipped_prelude_icurry(self):
+    '''The external route resolves a new export in Sprite's shipped Prelude.'''
+    if config.icurry_tool() is None:
+      self.skipTest('icurry is not configured')
+    self.without_cache()
+    source = ('module UseNewPrelude where\n'
+              'goal :: Bool\ngoal = eqString "base" "base"\n')
+    files = []
+    for directory in ['port', 'external']:
+      path = os.path.join(self.tmpdir, directory, 'UseNewPrelude.curry')
+      os.makedirs(os.path.dirname(path))
+      with open(path, 'w') as stream:
+        stream.write(source)
+      files.append(path)
+    port = self.convert(files[0])
+    external = self.convert(files[1], curry2icurry='icurry')
+    self.assertEqual(readbytes(external), readbytes(port))
+    module = curry.import_('UseNewPrelude', path=[os.path.dirname(files[1])])
+    self.assertEqual(list(curry.eval(module.goal)), [True])
+
   def test_set0_lift_icurry(self):
     '''
     The second pass of the rewrite step, the set0 lift (decision D28 of
@@ -514,6 +534,11 @@ class TestCurry2ICurry(cytest.TestCase):
       )
     for icy in icys:
       for suffix in cache.INTERFACE_SUFFIXES:
+        # A refreshed archive may already carry the sidecars. Remove them
+        # to exercise overlay-interfaces and the stale-product check.
+        sidecar = cache.interface_filename(icy, suffix)
+        if os.path.exists(sidecar):
+          os.unlink(sidecar)
         self.assertFalse(os.path.exists(cache.interface_filename(icy, suffix)))
     # With a source beside them, the extracted files are stale until the
     # copies exist.

@@ -3,13 +3,81 @@ from cytest.classnames import operation_names
 from curry.backends.cxx.curryrtbindings import make_node as Node
 from curry.backends.generic.graph import equality
 from curry import config, inspect
-import curry, cytest.step, sys, unittest
+import curry, cytest.step, itertools, os, re, subprocess, sys, tempfile, unittest
 
 def cells(e):
   '''The expression with every string argument as a list of characters.'''
   return [e[0]] + [list(a) if isinstance(a, str) else a for a in e[1:]]
 
 class TestPrelude(cytest.TestCase):
+  def test_base34_operations(self):
+    '''The new exports, tuple equality and list helpers run through eval.'''
+    checks = [
+        ('((\\x -> Just (x+1)) =<< Just (2 :: Int)) == Just 3', True)
+      , ('ap (Just (+1)) (Just (2 :: Int)) == Just 3', True)
+      , ('eqString "abc" "abc"', True)
+      , ('eqString "abc" "abd"', False)
+      , ('(1,2,3,4,5,6 :: Int) == (1,2,3,4,5,6)', True)
+      , ('(1,2,3,4,5,6 :: Int) == (1,2,3,4,5,7)', False)
+      , ('unwords ["a", "", "bc"]', 'a  bc')
+      ]
+    for text, expected in checks:
+      self.assertEqual(list(curry.eval(curry.parse(text))), [expected], text)
+    self.assertEqual(list(curry.eval(curry.parse('anyOf [1,2,3 :: Int]'))), [1,2,3])
+
+  def test_linear_unification_fallback(self):
+    '''The exported linear matcher reaches Sprite's explicit unused stub.'''
+    with self.assertRaisesRegex(curry.EvaluationError, 'unifEqLinear.*not used'):
+      list(curry.eval(curry.parse('(1 :: Int) =:<<= 1')))
+
+  def test_base34_generators(self):
+    '''The decimal Float and refactored Int Data generators have stable order.'''
+    for type_, expected in [
+        ('Int', [1, 0, -1, 2, 3, -2, -3, 4])
+      , ('Float', [0.0, 1.1, -1.1, 2.1, 3.1, -2.1, -3.1, 4.1])
+      ]:
+      values = curry.eval(curry.parse('aValue :: ' + type_))
+      self.assertEqual(list(itertools.islice(values, 8)), expected)
+    # An unconstrained free Float remains a variable. Demand it through
+    # constructive equality with the generator to enumerate its values.
+    answers = list(curry.eval(curry.parse('x :: Float where x free')))
+    self.assertEqual(len(answers), 1)
+    self.assertIsInstance(answers[0], curry.Var)
+    values = curry.eval(curry.parse('x =:= (aValue :: Float) &> x where x free'))
+    self.assertEqual(list(itertools.islice(values, 8)),
+        [0.0, 1.1, -1.1, 2.1, 3.1, -2.1, -3.1, 4.1])
+
+  def test_float_oracle_order(self):
+    '''Pin each oracle's Float generator separately from Sprite's fair search.'''
+    pakcs = config.installed_path('tools', 'pakcs')
+    if not os.path.isfile(pakcs):
+      self.skipTest('requires the configured PAKCS oracle')
+    env = dict(os.environ, LC_ALL='C.UTF-8')
+    env.pop('CURRYPATH', None)
+    version = subprocess.check_output(
+        ['timeout', '30', pakcs, '--numeric-version'], env=env, text=True).strip()
+    if version not in ('3.4.1', '3.10.0'):
+      self.skipTest('requires a supported PAKCS oracle')
+    def values(goal):
+      with tempfile.TemporaryDirectory() as directory:
+        proc = subprocess.run(
+            ['timeout', '60', pakcs, '--nocypm', '-q', ':set', '+interactive',
+             ':set', '-first', ':eval', goal, ':quit'],
+            input='y\n' * 7 + 'n\n', capture_output=True, text=True,
+            cwd=directory, env=env)
+      self.assertIn(proc.returncode, (0, 2), proc.stdout + proc.stderr)
+      output = re.sub(r'More values\? \[[^\]]*\] ', '', proc.stdout)
+      return [line for line in output.splitlines()
+              if line and line != 'No more values.']
+    self.assertEqual(values('x :: Float where x free'), ['{x=x} x'])
+    generated = values('aValue :: Float')
+    if version == '3.4.1':
+      self.assertEqual(generated, ['_a'])
+    else:
+      self.assertEqual(len(generated), 8)
+      for actual, expected in zip(generated, [1.1, 1.2, 1.4, 1.8, 1.61, 1.23, 1.46, 1.821]):
+        self.assertAlmostEqual(float(actual), expected)
+
   @property
   def constrEq(self):
     if config.syslibversion() < (3,3,0):

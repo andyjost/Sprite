@@ -890,8 +890,8 @@ class TestPrelude(cytest.TestCase):
     modules = {'Prelude': imodule}
     before = applies(imodule, modules)
     known_before = known_applies(imodule, modules)
-    # The new front end eliminates 168 Data Char equality applies upstream.
-    counts = {'2.0.0': 266, '3.1.0': 98}
+    # The counts include the base 3.4.0 Prelude's new helpers and instances.
+    counts = {'2.0.0': 270, '3.1.0': 102}
     self.assertEqual(len(known_before), counts[config.frontend_version()])
     # chr $ ... and lex $ ...: chains through the alias of apply.
     self.assertIn('Prelude.$', [iapply.symbolname for iapply in known_before])
@@ -932,10 +932,10 @@ class TestPrelude(cytest.TestCase):
     # Lifted lambda numbers follow the front end's generated locals.
     prefix = operation_names('_impl#readsPrec#Prelude.Read#()') + '.'
     reads = [f for name, f in imodule.functions.items() if name.startswith(prefix)]
-    # New string patterns use the eqString bridge (Eq [Char]); the old
-    # front end emits individual character comparisons.
-    eqtype = '[]' if config.frontend_version() >= '3.0.0' else 'Prelude.Char'
-    equality = operation_names('Prelude._impl#==#Prelude.Eq#' + eqtype)
+    # New string patterns use the library's eqString; the old front end
+    # emits individual character comparisons.
+    equality = ('Prelude.eqString' if config.frontend_version() >= '3.0.0'
+        else operation_names('Prelude._impl#==#Prelude.Eq#Prelude.Char'))
     self.assertTrue(any(equality in ifcalls(f) for f in reads))
     self.assertFalse(any(applies(f) for f in reads))
 

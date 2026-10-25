@@ -105,7 +105,9 @@ logger = logging.getLogger(__name__)
 #      changes.
 #   3: 2026-10-24, typed FlatCurry locals and front end version in the key;
 #      library products are rebuilt separately for front end 3.1.0.
-ROUTE_VERSION = 3
+#   4: 2026-10-25, the external icurry route reads the shipped library's
+#      interfaces through the same full search path as the front end.
+ROUTE_VERSION = 4
 
 # The options that silence the front end.  They are the ones icurry passes in
 # quiet mode.

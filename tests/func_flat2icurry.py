@@ -198,9 +198,8 @@ class TestWholeCorpus(cytest.TestCase):
     gives the program back, the set0 lift over a lifted program lifts
     nothing and gives the program back, and the rewritten program survives
     the writer and the reader: the second run of a route over a rewritten
-    file changes nothing.  Every .fcy of the archive, some of which the
-    binding optimization changes; the set0 lift changes those with a set0
-    over captured variables, when the archive has one.
+    file changes nothing. Every .fcy of the refreshed archive has already
+    passed both rewrites, so neither pass should change its input.
     '''
     changed = []
     lifted = []
@@ -238,7 +237,8 @@ class TestWholeCorpus(cytest.TestCase):
           self.assertIs(liftonce, base)
         if not (n or k):
           self.assertIs(rewritten, prog)
-    self.assertTrue(changed, 'no module of the archive has a required equality')
+    self.assertFalse(changed, 'the archive has unrewritten required equalities')
+    self.assertFalse(lifted, 'the archive has unlifted captured set0 calls')
 
   def test_cli_overlay(self):
     '''The --overlay option of the harness checks the same files.'''

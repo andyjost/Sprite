@@ -100,9 +100,7 @@ static int register_prelude_builtins()
     , {"seqIO"                 , &seqIO_Info                  }
     , {"timesInt"              , &timesInt_Info               }
     // Unused functions.
-    , {"failure"               , &failure_Info                }
     , {"ifVar"                 , &ifVar_Info                  }
-    , {"letrec"                , &letrec_Info                 }
     , {"prim_readFileContents" , &prim_readFileContents_Info  }
     , {"unifEqLinear"          , &unifEqLinear_Info           }
     };

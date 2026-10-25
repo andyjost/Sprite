@@ -14,9 +14,10 @@ Sprite translates Curry to FlatCurry with the Curry front end of PAKCS
 to the FlatCurry file as PAKCS applies it.  Sprite's own port of
 ``icurry`` 3.1.0 writes the ICurry.  The ``icurry`` program is an
 optional second route that must write the same bytes.  PAKCS is also the
-oracle of the functional tests.  The Curry library is a copy of the
-library of that release under ``curry/lib``, with Sprite's own
-``Control.SetFunctions``.  See
+oracle of the functional tests. The Curry library under ``curry/lib`` is
+base 3.4.0 from PAKCS 3.10.0, with Sprite's own ``Control.SetFunctions``
+and ``Sprite.Stream``. The same sources serve front end 2.0.0 with PAKCS
+3.4.1 and front end 3.1.0 with PAKCS 3.10.0. See
 :ref:`Introduction/CompilationPipeline:Curry to ICurry`.
 
 The backend

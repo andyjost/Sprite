@@ -61,10 +61,12 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
   Since 2026-10-24 the build also accepts the front end 3.1.0 with
   PAKCS 3.10.0, the current tools, as the first stage of the upgrade:
   that configuration names its directories after 3.10.0, passes
-  `-D__PAKCS__=310`, compiles the shipped library of 3.4.1 afresh and
-  uses none of the committed `.icy` products; the reader of FlatCurry
-  accepts the typed locals of the format of `flatcurry` 5.0.0 beside
-  the old form. The typed boundary reads both grammars of instance and
+  `-D__PAKCS__=310`, compiles the shipped library afresh and uses none
+  of the committed `.icy` products, which are products of the 2.0.0
+  route; the reader of FlatCurry accepts the typed locals of the format
+  of `flatcurry` 5.0.0 beside the old form. The shipped library is base
+  3.4.0, the library of PAKCS 3.10.0, since stage D (2026-10-25); one
+  copy serves both front ends (`curry/README.md`). The typed boundary reads both grammars of instance and
   implementation names; nullary and multi-parameter classes await the next
   stage of the typed API.
 - Curry is translated to ICurry in three steps: the front end

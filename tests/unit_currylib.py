@@ -19,14 +19,14 @@ if 'PYTHON_GIL' in os.environ:
 # change to one of these sources, rebuild its products (see curry/README.md)
 # and update the hash here.
 PINNED_SHA256 = {
-    'Prelude'              : '748bf87cf8a5c197d8b6c84a20cdc12c4c4cef6ef9280287351bc8d15e180d00'
+    'Prelude'              : '0e80d110de5e2d33f6d270df7549cd56b89c22a3c81d0596261d5c56c5d4b4e4'
   , 'Control.SetFunctions' : '4d324ade06db0712738e7817b20b978fe3e3a89caabfe7c5fa78585dadcb1970'
-  , 'Data.Char'            : '11259bdd56bb7760ac3078e0ae00e1d32f28fdf3b68fc2b4cee3cdc76f8c0214'
-  , 'Data.Either'          : 'e1905d37f366c9bdb4de75e3d558bc0d090ade88b714a21109fd8ba32c0cf051'
-  , 'Data.Function'        : 'cb6a890a3d0f0524585c8437a2ed257af88331250c24d8b9efadba7da66003ee'
+  , 'Data.Char'            : 'f4d64684dff42c64eaeb62e0fe32b2cd2bf56a548913a674bc448cf9519e25f7'
+  , 'Data.Either'          : '48d4a26127999f6a67e56fa23dc67d3efedc302b9b4dee002ce9c3e22ea5cc57'
+  , 'Data.Function'        : '1c73aa4fde467d8017dbaa7be047fad96a19c0d35ae1bc774c1f00eaaf6f5182'
   , 'Data.Functor.Identity': '795b03c98f33cef6d58f6ea129d10f947ded3b992550e4d9ed7e94e8267cc7d6'
-  , 'Data.List'            : '937fdccb70b253bdbc05e655523efbd1b6e63f833882a347965c73a80ea3bdcf'
-  , 'Data.Maybe'           : 'dc5c300183d8c2bd2ec488e2ab8b1c997918f481c5e70c62e241b6978bc8cec1'
+  , 'Data.List'            : '5d5a135967e9bbc4932b439da6a4f3e687b96279ce4a4813e783a12cc437d34b'
+  , 'Data.Maybe'           : '004f7c64f9d9b214afcae95c7ff4e4c013b8fd8adba3e6a94f9a8e9c4f80e322'
   }
 
 # The vendored Prelude is the PAKCS Prelude with this prefix.  The define
@@ -81,6 +81,52 @@ def chmod_tree(root, dirmode, filemode):
 class TestCurryLib(cytest.TestCase):
   '''Tests for the Curry library installed from curry/lib.'''
 
+  def library_goal(self, imports, declarations):
+    module = curry.compile(imports + '\n' + declarations)
+    return list(curry.eval(module['goal']))
+
+  def test_compose(self):
+    '''Composition preserves the Functor and Applicative operations.'''
+    self.assertEqual(self.library_goal('import Data.Functor.Compose', '''
+goal :: [[Int]]
+goal = getCompose (fmap (+1) (Compose [[1,2],[3]]))
+'''), [[[2, 3], [4]]])
+    self.assertEqual(self.library_goal('import Data.Functor.Compose', '''
+goal :: [[Int]]
+goal = getCompose (Compose [[(+1),(*2)]] <*> Compose [[3,4]])
+'''), [[[4, 5, 6, 8]]])
+
+  def test_const(self):
+    '''Const ignores mapped functions and retains its derived instances.'''
+    self.assertEqual(self.library_goal('import Data.Functor.Const', '''
+goal :: (Bool, Bool, Int)
+goal = ( Const 3 == (Const 3 :: Const Int Bool)
+       , Const 2 < (Const 3 :: Const Int Bool)
+       , getConst (read (show (Const 5 :: Const Int Bool)) :: Const Int Bool))
+'''), [(True, True, 5)])
+    self.assertEqual(self.library_goal('import Data.Functor.Const', '''
+goal :: Int
+goal = getConst (fmap (+1) (Const 7 :: Const Int Int))
+'''), [7])
+
+  def test_monoid(self):
+    '''The six wrappers combine values with their documented identities.'''
+    self.assertEqual(self.library_goal('import Data.Monoid', '''
+goal :: (Int, Int, Bool, Bool, Int, Int)
+goal = ( getSum (mappend (Sum 2) (Sum 3))
+       , getProduct (mappend (Product 2) (Product 3))
+       , getAll (mappend (All True) (All False))
+       , getAny (mappend (Any False) (Any True))
+       , maybe 0 id (getFirst (mappend (First (Just 2)) (First (Just 3))))
+       , maybe 0 id (getLast (mappend (Last (Just 2)) (Last (Just 3)))))
+'''), [(5, 6, False, True, 2, 3)])
+    self.assertEqual(self.library_goal('import Data.Monoid', '''
+goal :: (Int, Int, Bool, Bool, Bool, Bool)
+goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
+       , getFirst (mempty :: First Int) == Nothing
+       , getLast (mempty :: Last Int) == Nothing)
+'''), [(0, 1, True, False, True, True)])
+
   def test_syslibs_installed(self):
     '''Every system library module is installed as a source, and nothing else is.'''
     syslibs = config.syslibs()
@@ -117,8 +163,8 @@ class TestCurryLib(cytest.TestCase):
     self.assertTrue(os.path.isfile(license_))
     with open(notice) as istream:
       text = istream.read()
-    self.assertIn('PAKCS 3.4.1', text)
-    self.assertIn('3.1.0', text)
+    self.assertIn('PAKCS 3.10.0', text)
+    self.assertIn('3.4.0', text)
     self.assertIn('__KICS2__', text)
     self.assertIn('Control/SetFunctions.curry', text)
     # The repository has no license file yet; the notice must not cite one.
@@ -131,7 +177,7 @@ class TestCurryLib(cytest.TestCase):
       text = istream.read()
     self.assertTrue(text.startswith(PRELUDE_PREFIX))
     rest = text[len(PRELUDE_PREFIX):]
-    self.assertTrue(rest.startswith('-' * 80 + '\n--- The standard prelude'))
+    self.assertIn('The standard prelude', rest.split('module Prelude', 1)[0])
     self.assertIn('#ifdef __KICS2__', rest)
     self.assertIn('{-# LANGUAGE CPP #-}', rest)
 
