@@ -27,7 +27,11 @@ namespace curryrt
     Arg(Node * value=nullptr)    : node(value)     {}
     Arg(int16_t value)           : ub_int(value)   {}
     Arg(int32_t value)           : ub_int(value)   {}
-    Arg(int64_t value)           : ub_int(value)   {}
+    // The 64-bit integer under both of its names: int64_t is long on Linux
+    // and long long on macOS, and a literal of the other type would have no
+    // exact match.
+    Arg(long value)              : ub_int(value)   {}
+    Arg(long long value)         : ub_int(value)   {}
     Arg(xid_type value)          : cid(value)      {}
     Arg(float value)             : ub_float(value) {}
     Arg(double value)            : ub_float(value) {}
