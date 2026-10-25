@@ -209,6 +209,9 @@ else:
   , 'the debug flavor compiles generated code without inlining'
   )
 @cytest.skipIfInterpreted('the tests read the compiled object of Tak1')
+@cytest.linux_only(
+    'reads the disassembly and the symbols of an ELF object with GNU objdump'
+  )
 class TestInlineAllocation(cytest.TestCase):
   '''
   The allocation fast path is inline in generated code: the step of tak

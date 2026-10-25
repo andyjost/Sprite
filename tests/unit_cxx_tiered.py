@@ -1333,6 +1333,11 @@ class TestImportObjects(TieredTestCase):
     self.assertEqual(self.py(U.second, self.value(U.mk, 4)), 5)
 
   @cytest.hardreset
+  @cytest.linux_only(
+      'the object of an import is a needed library of the object on ELF, '
+      'which the dynamic linker refuses to load without it; on macOS the '
+      'import is a weak library, and the swap proceeds'
+    )
   def test_swap_without_the_imports_fails(self):
     # The control: a job without the objects of its imports fails as every
     # such swap did before they were mapped, with the message of the
