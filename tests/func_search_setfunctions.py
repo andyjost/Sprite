@@ -42,6 +42,10 @@ class TestSearchSetFunctions(cytest.TestCase):
             self.skipTest('PAKCS 3.10.0 refusal: ' + expected.partition('\n')[2])
           proc, actual = sprite_results(source, goal, timeout=60)
           self.assertEqual(proc.returncode, 0, proc.stderr)
+          if source.stem == 'TestSearchSetFunctionsGoals' and goal == 'goal0':
+            # Issue #171: one shortest itinerary, including its multiplicity.
+            self.assertEqual(len(actual.splitlines()), 1)
+            self.assertSameResultMultiset(actual, '[LH469,LH10]')
           if source.parent.name == 'search_setfunctions' and (
               source.stem in FUNCTION_CHOICES or source.stem.startswith('free')):
             native = ROOT / 'setfunctions' / golden.name
@@ -84,8 +88,7 @@ for source, goals in programs:
     def test(self, source=source, goal=goal):
       self.check(source, [goal])
     if source.stem == 'TestSearchSetFunctionsGoals' and goal == 'goal0':
-      # Issue #171: the native capsules also return the longer route, with
-      # duplicate values; unit_search_library pins it through Control.SetFunctions.
+      # Issue #171: F2 (d2) accepts empty sets from failed argument lookups.
       test = unittest.expectedFailure(test)
     setattr(TestSearchSetFunctions, 'test_' + source.stem + '_' + goal,
             oracle.require(test))
