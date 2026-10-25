@@ -1,4 +1,5 @@
 '''The payload is native code, though the Python launcher has no extension.'''
+import os
 from setuptools import Distribution, setup
 from wheel.bdist_wheel import bdist_wheel
 from sysconfig import get_platform
@@ -19,4 +20,7 @@ class NativePayload(Distribution):
     return True
 
 
-setup(cmdclass={'bdist_wheel': PlatformWheel}, distclass=NativePayload)
+VERSIONS = {'2.0.0': '2.0.0.post6', '3.1.0': '3.1.0.post1'}
+
+setup(version=VERSIONS[os.environ.get('CURRY_FRONTEND_VERSION', '2.0.0')],
+    cmdclass={'bdist_wheel': PlatformWheel}, distclass=NativePayload)

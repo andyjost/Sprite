@@ -2,6 +2,10 @@
 # checksum-pinned x86-64 repack remains available to existing build drivers.
 {% set version = "2.0.0" %}
 {% set pakcs_version = "3.4.1" %}
+{% if environ.get("SPRITE_FRONTEND_VERSION", "2.0.0") == "3.1.0" %}
+{% set version = "3.1.0" %}
+{% set pakcs_version = "3.10.0" %}
+{% endif %}
 {% set artifact = environ.get("SPRITE_FRONTEND_ARTIFACT", "") %}
 {% set info = load_file_data(artifact + "/build-info.json", from_recipe_dir=True) if artifact else {} %}
 
@@ -14,13 +18,19 @@ source:
   path: {{ artifact | tojson }}
 {% else %}
   # The PAKCS binary distribution for Linux.  Only bin/pakcs-frontend and
-  # LICENSE are used.  The hash is that of the archive dated 2021-10-26.
+  # LICENSE are used. Each supported version has its own archive checksum.
   url: https://www.curry-lang.org/pakcs/download/pakcs-{{ pakcs_version }}-amd64-Linux.tar.gz
+{% if version == "3.1.0" %}
+  sha256: ef632f91016a0c83b95b3b047421dea16556ce0107ee12834c5a969072abf51f
+{% else %}
   sha256: d17d8b3c30564200d5f4ee3a4ee9882fbca5ed66b77b9317050e1f71ba955db2
+{% endif %}
 {% endif %}
 
 build:
-  number: 4
+  script_env:
+    - SPRITE_FRONTEND_VERSION={{ version }}
+  number: {{ 1 if version == "3.1.0" else 4 }}
   skip: true  # [not (linux64 or (linux and aarch64))]
   string: {{ "source" if artifact else "pakcs" }}{{ pakcs_version | replace(".", "") }}_{{ PKG_BUILDNUM }}
   # The binary is a GHC program linked against libgmp.so.10 and the C
@@ -38,7 +48,7 @@ requirements:
     - gmp
   run:
     - gmp
-    - __glibc >={{ info.get("glibc_required") or "2.17" }}
+    - __glibc >={{ info.get("glibc_required") or ("2.34" if version == "3.1.0" else "2.17") }}
 
 test:
   commands:

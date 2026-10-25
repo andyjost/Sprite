@@ -2,6 +2,8 @@
 # Installs the bundle of frontend/package.py --bundle-only, or the legacy
 # pinned x86-64 PAKCS binary distribution used by the original build driver.
 set -euo pipefail
+version=${SPRITE_FRONTEND_VERSION:-2.0.0}
+case "$version" in 2.0.0|3.1.0) ;; *) exit 2 ;; esac
 if [ -f build-info.json ]; then
   cat build-info.json
   case "${target_platform:-$(uname -m)}" in
@@ -10,7 +12,7 @@ if [ -f build-info.json ]; then
     *) echo 'Unsupported front-end artifact target' >&2; exit 1 ;;
   esac
   grep -q '"architecture": "'"$expected"'"' build-info.json
-  test "$(bin/curry-frontend --numeric-version)" = 2.0.0
+  test "$(timeout 30 bin/curry-frontend --numeric-version)" = "$version"
   install -D -m 755 bin/curry-frontend "$PREFIX/bin/pakcs-frontend"
   cp licenses/LICENSE-PAKCS LICENSE
   cp licenses/LICENSE.curry-frontend LICENSE.curry-frontend
@@ -22,4 +24,5 @@ else
   test "$(uname -m)" = x86_64
   install -D -m 755 bin/pakcs-frontend "$PREFIX/bin/pakcs-frontend"
 fi
+test "$(timeout 30 "$PREFIX/bin/pakcs-frontend" --numeric-version)" = "$version"
 ln -s pakcs-frontend "$PREFIX/bin/curry-frontend"

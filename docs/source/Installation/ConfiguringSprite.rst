@@ -31,8 +31,8 @@ The options
 ==============================  ============================================================
 Option                          Meaning and default
 ==============================  ============================================================
-``WITH_CURRY_FRONTEND``         Front end 2.0.0; ``AUTO`` searches PAKCS and PATH
-``WITH_PAKCS``                  Optional oracle 3.4.1; ``AUTO`` searches PATH
+``WITH_CURRY_FRONTEND``         Front end 2.0.0 or 3.1.0; ``AUTO`` searches PAKCS and PATH
+``WITH_PAKCS``                  Optional oracle 3.4.1 or 3.10.0; ``AUTO`` searches PATH
 ``WITH_ICURRY``                 Optional translator; empty by default
 ``CURRY2ICURRY_TOOL``           ``frontend`` (default) or ``icurry``
 ``WITH_CCACHE``                 Compiler launcher; empty disables it (default)
@@ -91,8 +91,13 @@ end. For example::
     export SPRITE_FRONTEND=curry-frontend
     python -m curry.tools.icy
 
-The required front-end program version remains ``2.0.0``. The wheel's
-``.postN`` suffix versions Sprite's packaging, not the Curry language.
+The supported pairs are front end ``2.0.0`` with PAKCS ``3.4.1`` (the
+default) and front end ``3.1.0`` with PAKCS ``3.10.0``. The current
+front-end wheel is ``3.1.0.post1``; substitute it in the command above to
+select that pair. CMake derives the intermediate directory names and CPP
+flags from the selected front end and rejects a mismatched oracle.
+The default stays on 2.0.0/3.4.1 until upgrade stage G. The wheel's
+``.postN`` suffix counts packaging revisions.
 
 Wheels
 ------

@@ -1,6 +1,6 @@
 '''Frontend packaging works independently of the Sprite runtime.'''
 import importlib.util
-import json, os, pathlib, runpy, shutil, subprocess, sys, tempfile, unittest
+import hashlib, json, os, pathlib, runpy, shutil, subprocess, sys, tempfile, unittest
 import sysconfig, zipfile
 
 
@@ -31,9 +31,9 @@ class TestFrontendWheel(unittest.TestCase):
       self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
       platform = sysconfig.get_platform().replace('-', '_').replace('.', '_')
       wheel, = wheels.glob('*.whl')
-      self.assertEqual(wheel.name, 'curry_frontend-2.0.0.post5-py3-none-%s.whl' % platform)
+      self.assertEqual(wheel.name, 'curry_frontend-2.0.0.post6-py3-none-%s.whl' % platform)
       with zipfile.ZipFile(wheel) as archive:
-        metadata = archive.read('curry_frontend-2.0.0.post5.dist-info/METADATA').decode()
+        metadata = archive.read('curry_frontend-2.0.0.post6.dist-info/METADATA').decode()
       self.assertIn('\nName: curry-frontend\n', metadata)
       # The description of the PyPI page: the release workflow's strict twine
       # check refuses a wheel without one.
@@ -131,6 +131,14 @@ class TestFrontendLinkage(unittest.TestCase):
   @unittest.skipUnless(shutil.which('cc') and shutil.which('readelf'),
       'requires a C compiler and readelf for a real dynamic ELF')
   def test_dynamic_build_uses_stack_without_static_options(self):
+    self.check_stack_build('2.0.0', 'lts-16.9', 'x86_64')
+
+  def test_current_build_uses_source_resolver_on_both_architectures(self):
+    for arch in ('x86_64', 'aarch64'):
+      with self.subTest(arch=arch):
+        self.check_stack_build('3.1.0', 'lts-23.19', arch)
+
+  def check_stack_build(self, version, resolver, arch):
     root = pathlib.Path(__file__).resolve().parent.parent
     with tempfile.TemporaryDirectory(prefix='frontend build ') as tmp:
       tmp = pathlib.Path(tmp)
@@ -139,16 +147,16 @@ class TestFrontendLinkage(unittest.TestCase):
         path.mkdir()
       shutil.copy2(root / 'frontend/build.sh', scripts / 'build.sh')
       (source / 'frontend.cabal').write_text('executable curry-frontend\n')
-      (source / 'stack.yaml').write_text('resolver: lts-16.9\n')
+      (source / 'stack.yaml').write_text('resolver: ' + resolver + '\n')
       c_source = tmp / 'frontend.c'
-      c_source.write_text('#include <stdio.h>\nint main(void) { puts("2.0.0"); }\n')
+      c_source.write_text('#include <stdio.h>\nint main(void) { puts("%s"); }\n' % version)
       binary = tmp / 'frontend'
       subprocess.run(['cc', str(c_source), '-o', str(binary)], check=True)
       elf = subprocess.check_output(['readelf', '-l', '-d', str(binary)], text=True)
       if 'INTERP' not in elf:
         self.skipTest('system C compiler defaults to static linking')
       stubs = {
-          'uname': '#!/bin/bash\necho x86_64\n'
+          'uname': '#!/bin/bash\necho ' + arch + '\n'
         , 'ghc': '#!/bin/bash\necho fixture-ghc\n'
         , 'ghc-pkg': '#!/bin/bash\necho fixture-packages\n'
         , 'cabal': '#!/bin/bash\necho fixture-cabal\n'
@@ -172,7 +180,10 @@ class TestFrontendLinkage(unittest.TestCase):
       dest = tmp / 'output'
       env = dict(os.environ, PATH=str(tools) + os.pathsep + os.environ['PATH'],
           FRONTEND_TEST_ELF=str(binary), FRONTEND_TEST_COMMANDS=str(tmp / 'commands'))
-      result = subprocess.run(['bash', str(scripts / 'build.sh'), str(source), str(dest)],
+      command = ['bash', str(scripts / 'build.sh'), str(source), str(dest)]
+      if version != '2.0.0':
+        command.append(version)
+      result = subprocess.run(command,
           env=env, capture_output=True, text=True, timeout=30)
       self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
       self.assertEqual((dest / 'linkage-requested.txt').read_text(), 'dynamic\n')
@@ -184,6 +195,55 @@ class TestFrontendLinkage(unittest.TestCase):
       self.assertEqual(len(builds), 1)
       self.assertIn('--system-ghc', builds[0])
       self.assertIn('--no-install-ghc', builds[0])
+
+
+class TestCurrentFrontend(unittest.TestCase):
+  def test_source_pins(self):
+    root = pathlib.Path(__file__).resolve().parent.parent
+    sources = runpy.run_path(str(root / 'frontend/fetch.py'))['SOURCES']
+    url, digest = sources['3.1.0']
+    self.assertEqual(url, 'https://api.github.com/repos/cau-placc/curry-frontend/tarball/v3.1.0')
+    self.assertEqual(digest, '13d68be89369a3fdfd1ef2d6e8d4657ab286876f9063bb0b27332de54c6be75c')
+
+  def test_versioned_references_cover_the_current_library(self):
+    root = pathlib.Path(__file__).resolve().parent.parent
+    sources = {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in (root / 'curry/lib').rglob('*.curry')}
+    for version, pakcs, macro in [('2.0.0', '3.4.1', '304'), ('3.1.0', '3.10.0', '310')]:
+      with self.subTest(version=version):
+        reference = root / 'frontend/reference' / version
+        manifest = json.loads((reference / 'manifest.json').read_text())
+        self.assertEqual(manifest['frontend_version'], version)
+        self.assertEqual(manifest['pakcs_version'], pakcs)
+        self.assertIn('-D__PAKCS__=' + macro, manifest['flags'])
+        self.assertEqual(manifest['sources'], sources)
+        self.assertEqual(len(manifest['products']), 3 * len(sources))
+        for name, digest in manifest['products'].items():
+          self.assertEqual(hashlib.sha256((reference / name).read_bytes()).hexdigest(), digest)
+
+  @unittest.skipUnless(os.environ.get('CURRY_FRONTEND_TEST_WHEEL'),
+      'set CURRY_FRONTEND_TEST_WHEEL to smoke the real local 3.1.0 wheel')
+  def test_local_current_wheel(self):
+    wheel = pathlib.Path(os.environ['CURRY_FRONTEND_TEST_WHEEL']).resolve()
+    with zipfile.ZipFile(wheel) as archive:
+      metadata = archive.read('curry_frontend-3.1.0.post1.dist-info/METADATA').decode()
+      self.assertIn('Version: 3.1.0.post1\n', metadata)
+      info = json.loads(archive.read('curry_frontend/build-info.json'))
+      self.assertEqual(info['version'], '3.1.0')
+      self.assertEqual(info['packaging_version'], '3.1.0.post1')
+      self.assertIn('curry_frontend/licenses/LICENSE.curry-frontend', archive.namelist())
+      if 'libgmp.so.10' in info['needed']:
+        self.assertIn('curry_frontend/bin/libgmp.so.10', archive.namelist())
+        self.assertEqual(info['rpath'], '$ORIGIN')
+    with tempfile.TemporaryDirectory() as tmp:
+      env = pathlib.Path(tmp) / 'env'
+      subprocess.run([sys.executable, '-m', 'venv', str(env)], check=True, timeout=60)
+      result = subprocess.run([str(env / 'bin/python'), '-m', 'pip', 'install',
+          '--no-index', '--no-deps', str(wheel)], capture_output=True, text=True, timeout=60)
+      self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+      result = subprocess.run(['timeout', '30', str(env / 'bin/curry-frontend'),
+          '--numeric-version'], capture_output=True, text=True, timeout=40)
+      self.assertEqual((result.returncode, result.stdout, result.stderr), (0, '3.1.0\n', ''))
 
 
 if __name__ == '__main__':

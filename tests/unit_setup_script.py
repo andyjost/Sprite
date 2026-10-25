@@ -367,6 +367,13 @@ esac
     self.assertIn('the core count (%d)' % cores, out)
     self.assertNotIn('-DJOBS=%d' % cores, out)
 
+  def test_current_pakcs_version(self):
+    out = self.dry_run('--repo', self.repo, env={'PAKCS_VERSION': '3.10.0'})
+    self.assertIn('pakcs-3.10.0-amd64-Linux.tar.gz', out)
+    self.assertIn('ef632f91016a0c83b95b3b047421dea16556ce0107ee12834c5a969072abf51f', out)
+    self.assertNotIn('no pinned checksum for PAKCS', out)
+    self.assertIn('-DWITH_PAKCS=%s/pakcs-3.10.0/bin/pakcs' % self.prefix, out)
+
   def test_other_pakcs_version(self):
     '''A version without a pinned hash gets its size recorded.'''
     out = self.dry_run('--repo', self.repo, env={'PAKCS_VERSION': '3.9.9'})

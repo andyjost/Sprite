@@ -6,6 +6,9 @@
 # time (open question 10 of ../README.md).
 {% set version = load_file_regex(load_file="../../VERSION", regex_pattern="(\S+)", from_recipe_dir=True).group(1) %}
 
+{% set current_tools = environ.get("SPRITE_FRONTEND_VERSION", "2.0.0") == "3.1.0" %}
+{% set pakcs_version = "3.10.0" if current_tools else "3.4.1" %}
+
 package:
   name: currylang
   version: {{ version }}
@@ -55,13 +58,21 @@ requirements:
     - python {{ python }}.*,>=3.11.4,<3.16
     # CMake checks the front end, and make install runs it over the
     # Curry library so that the package holds the FlatCurry of the library.
+{% if current_tools %}
+    - curry-frontend 3.1.0.*
+{% else %}
     - curry-frontend 2.0.0.*
+{% endif %}
   run:
     - python >=3.11.4,<3.16
     # The front end writes FlatCurry; Sprite translates it to ICurry.  Its
     # own run dependency is gmp (libgmp).  The ICurry oracle depends on this
     # exact front end, so the pin is exact.
+{% if current_tools %}
+    - curry-frontend 3.1.0.*
+{% else %}
     - curry-frontend 2.0.0.*
+{% endif %}
     # The C++ backend compiles the code it generates at run time against the
     # installed headers, which need the C++17 standard library alone (no
     # Boost).  The metapackage brings the compiler of the platform;
@@ -99,8 +110,13 @@ test:
       d=$(mktemp -d) && cd "$d" &&
       printf 'main :: Int\nmain = 6 * 7\n' > Smoke.curry &&
       sprite-make --so Smoke.curry &&
+{% if current_tools %}
+      test -s .curry/sprite-pakcs-3.10.0/Smoke.so &&
+      test -s .curry/sprite-pakcs-3.10.0/Smoke.so.abi &&
+{% else %}
       test -s .curry/sprite-pakcs-3.4.1/Smoke.so &&
       test -s .curry/sprite-pakcs-3.4.1/Smoke.so.abi &&
+{% endif %}
       sprite-exec Smoke.curry | grep -x 42 &&
       test ! -e "$PREFIX/opt/sprite/include/curryrt/curryrt.hpp.gch" &&
       test -d "${XDG_CACHE_HOME:-$HOME/.cache}/sprite/pch"
