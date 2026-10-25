@@ -3,7 +3,8 @@
 The Curry front end, version 2.0.0, as shipped with PAKCS 3.4.1: the
 compiler stage that parses and type-checks a Curry program and writes its
 FlatCurry. This distribution packages the upstream program for Linux as
-manylinux wheels, x86-64 and aarch64, built from the PAKCS source in the
+manylinux wheels, x86-64 and aarch64, and for macOS 15 or newer as wheels
+for Apple Silicon and Intel, built from the PAKCS source in the
 continuous integration of [Sprite](https://github.com/andyjost/Sprite), a
 Curry compiler and runtime with a Python API. Sprite's package,
 `currylang`, depends on it and runs it when it loads a Curry source file.
