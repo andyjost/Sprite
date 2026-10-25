@@ -388,11 +388,17 @@ class TestLibraryTablesInTheirObjects(cytest.TestCase):
           , 'the table of %s.%s lies in %s' % (h.fullname, name, where)
           )
         if where == libcurryrt and symbol is not None:
-          self.assertEqual(
-              _address_of(shlib, symbol), _address_of(runtime, symbol)
-            , 'the object of %s and the runtime library both define %s, '
-              'the table of %s.%s' % (h.fullname, symbol, h.fullname, name)
-            )
+          # A lookup through the handle of the object reaches the runtime's
+          # table on Linux, where the object names the runtime library as a
+          # dependency, and nothing on macOS, where it names no library; a
+          # second address would be a definition of the object's own.
+          found = _address_of(shlib, symbol)
+          if found is not None:
+            self.assertEqual(
+                found, _address_of(runtime, symbol)
+              , 'the object of %s and the runtime library both define %s, '
+                'the table of %s.%s' % (h.fullname, symbol, h.fullname, name)
+              )
         checked += 1
     if not checked:
       self.skipTest('no module of the library is loaded from its object')
