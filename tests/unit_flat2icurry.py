@@ -1427,6 +1427,9 @@ class TestOracleHarness(cytest.TestCase):
       self.assertGreater(len(pairs), 1000)
       self.assertIn((fcy, oracle.expected_icy(fcy)), pairs)
       self.assertEqual(sorted(set(icy for _, icy in pairs)), overlay.test_icys())
+      for icy in overlay.test_icys():
+        self.assertTrue(os.path.isfile(icy + '.source'), icy)
+        self.assertTrue(os.path.isfile(icy + '.imports'), icy)
       library = overlay.library_pairs()
       if config.frontend_version() == '3.1.0':
         self.assertEqual(len(library), 30)
