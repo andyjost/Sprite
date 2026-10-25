@@ -1,0 +1,44 @@
+Source: tutorial
+Tutorial draft June 24, 2025; supplied PROGRAMS archive.
+Original programs are copied byte for byte. *Goals.curry are Sprite adapters.
+
+Files:
+  chapter2/absfac.curry
+  chapter2/bool.curry
+  chapter2/choose.curry
+  chapter2/firstprog.curry
+  chapter3/BinTree.curry
+  chapter3/HOInsertionSort.curry
+  chapter3/InsertionSort.curry
+  chapter3/PowerLet.curry
+  chapter3/TermParser.curry
+  chapter3/anon.curry
+  chapter3/consublist.curry
+  chapter3/exfactor.curry
+  chapter3/exnondettask.curry
+  chapter3/exuserlist.curry
+  chapter3/lazy.curry
+  chapter3/localvar.curry
+  chapter3/power.curry
+  chapter3/xinstance.curry
+  chapter4/TrieBuild.curry
+  chapter4/TrieInsert.curry
+  chapter4/TrieSearch.curry
+  chapter4/binsearchtree.curry
+  chapter4/comprehensions.curry
+  chapter4/fibocompr.curry
+  chapter4/fold.curry
+  chapter4/lists.curry
+  chapter4/submin.curry
+  chapter4/sumlist.curry
+  chapter4/transpose.curry
+  chapter4/treesort.curry
+  chapter6/blocks.curry
+  chapter6/missionaries.curry
+
+License / terms of origin:
+Tutorial terms: the page offers the example programs for download and local
+execution. No explicit redistribution license is stated on the page or in
+the supplied ZIP. This is recorded as a provenance finding, not a BSD claim.
+https://www.curry-language.org/documentation/tutorial/
+https://www.curry-language.org/docs/tutorial/html/curry-tutorial.Chx1.html

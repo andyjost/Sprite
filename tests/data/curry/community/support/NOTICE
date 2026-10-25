@@ -1,0 +1,9 @@
+Sprite-authored support for the community fixtures.
+
+Files:
+  Test/Prop.curry
+
+This compile-only interface is used by Sprite, not by the PAKCS oracle.
+It supplies the property signatures needed by the unchanged source programs.
+Every operation raises if evaluated. The Goals adapters evaluate the original
+expressions instead of pretending to execute a CurryCheck property.
