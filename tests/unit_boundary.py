@@ -92,13 +92,9 @@ EXCLUDED = {}
 # imports.  The test skips the driver when one of them is missing.
 REQUIRES = {}
 
-# Directory -> the reason the driver runs on Linux alone for now: the compiled
-# path of the C++ backend on macOS (the loading of objects, the shim of the
-# tiered mode) is issue #162, step 2.
-LINUX_ONLY = {
-    '44-save-and-load': 'saves, compiles or loads objects of the C++ backend',
-    '45-load-objects': 'saves, compiles or loads objects of the C++ backend',
-}
+# Directory -> the reason the driver runs on Linux alone, and why; empty since the
+# objects of the C++ backend load on macOS (issue #162).
+LINUX_ONLY = {}
 
 # Directory -> the reason the driver does not run in the stress mode of the
 # collector (SPRITE_GC_STRESS=1; see cytest.GC_STRESS).

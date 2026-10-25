@@ -69,12 +69,9 @@ EXCLUDED = {}
 # example needs one at present.
 REQUIRES = {}
 
-# Directory -> the reason the example runs on Linux alone for now: the compiled
-# path of the C++ backend on macOS (the loading of objects, the shim of the
-# tiered mode) is issue #162, step 2.
-LINUX_ONLY = {
-    '04-static-compile': 'saves, compiles or loads objects of the C++ backend',
-}
+# Directory -> the reason the example runs on Linux alone, and why; empty since the
+# objects of the C++ backend load on macOS (issue #162).
+LINUX_ONLY = {}
 
 # Directory -> the reason the example does not run in the stress mode of the
 # collector (SPRITE_GC_STRESS=1; see cytest.GC_STRESS).  In that mode every

@@ -200,13 +200,18 @@ ELF_ONLY_FLAGS = frozenset(['-fno-plt', '-fno-semantic-interposition'])
 # (loader.needed_modules), so the form is pinned here.  The flags enter the
 # digest of the stamp (object_digest).
 #
-# ld64 of macOS needs neither flag: its two-level namespace binds a
-# reference to the image that defines the symbol, and it records every
-# dylib of the link line unless -dead_strip_dylibs says otherwise.  The
-# name of an object is given with -install_name there, in place of -soname
-# (see Cpp2So._compileCommand).
+# On macOS the object names no library to load.  Its references to the
+# runtime and to the tables of its imports are resolved when it is loaded,
+# among the images the process has mapped (-undefined dynamic_lookup): the
+# runtime library, which the extension loaded, and the objects of the
+# imports, which the loader opens first.  The imports are recorded as weak
+# dependents by their names (-weak_library; see _compileCommand), so the
+# loader reads them from the load commands as it reads the NEEDED entries
+# of an ELF object, and dyld passes over a name it cannot find.  The name
+# of an object is given with -install_name, in place of -soname.
 GNU_LINK_FLAGS = ['-Wl,-Bsymbolic-functions', '-Wl,--no-as-needed']
-LINK_FLAGS = [] if IS_DARWIN else GNU_LINK_FLAGS
+DARWIN_LINK_FLAGS = ['-Wl,-undefined,dynamic_lookup']
+LINK_FLAGS = DARWIN_LINK_FLAGS if IS_DARWIN else GNU_LINK_FLAGS
 
 def flavor_flags(flavor):
   '''
@@ -633,9 +638,11 @@ class Cpp2So(object):
   the generated file, "// MODULE: N"), the objects of its imports stand on
   the line by their files and enter the object as their SONAMEs (the
   NEEDED entries; every import, in the order of the IMPORTS line, see
-  LINK_FLAGS), and the runtime library enters as -lcurryrt (libcurryrt.so, or
-  .dylib on macOS), which
-  the extension module of the backend has loaded.  So readelf -d shows no
+  LINK_FLAGS), and the runtime library enters as -lcurryrt (libcurryrt.so),
+  which the extension module of the backend has loaded.  On macOS the
+  imports enter as weak dependents by their names and the runtime by no
+  entry at all; both are resolved among the mapped images when the object
+  is loaded (DARWIN_LINK_FLAGS).  So readelf -d shows no
   absolute path, and an object compiled in one tree loads in a copy of the
   tree at another path, or from the product cache in another tree.  A
   program that opens such an object with dlopen and without the loader
@@ -1031,9 +1038,13 @@ class Cpp2So(object):
       yield flag
     yield file_in
     for sofilename in self._dependencies(file_in, currypath):
-      yield sofilename
-    yield '-L%s' % config.installed_path('lib')
-    yield '-lcurryrt'
+      if IS_DARWIN:
+        yield '-Wl,-weak_library,%s' % sofilename
+      else:
+        yield sofilename
+    if not IS_DARWIN:
+      yield '-L%s' % config.installed_path('lib')
+      yield '-lcurryrt'
     yield '-o'
     yield file_out
 

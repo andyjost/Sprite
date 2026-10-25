@@ -99,8 +99,13 @@ The following flags are available:
     compiles it in the background, and the runtime swaps the functions of
     the module to the compiled code when the object is ready, during a
     running evaluation included (see curry.backends.cxx.tiered).  On macOS
-    the default is 'all' until the compiled path lands there (issue #162,
-    step 2: the shim of the tiered mode is a GNU linker construction).  An
+    the default is 'new': a module with a current object loads compiled,
+    the Curry library that the installation compiled and every module that
+    sprite-make --so compiled, a module without one is interpreted, and no
+    compile runs in the background.  The swap of the tiered mode binds a
+    compiled object to the tables the interpreter made through a shim of
+    absolute symbols, which the dynamic linker of macOS does not bind
+    (issue #162).  An
     expression, an interactive module, and a module compiled from a string
     stay interpreted.  The interpreter takes the same steps as compiled code
     on the same runtime; it runs a few times slower, and it starts at once.
@@ -187,7 +192,7 @@ FLAG_INFO = {
   , 'checker'             : ( bool                , False )
   , 'debug'               : ( bool                , False )
   , 'inline_budget'       : ( int                 , 4     )
-  , 'interpret'           : ({'off', 'new', 'all', 'tiered'}, 'all' if sys.platform == 'darwin' else 'tiered')
+  , 'interpret'           : ({'off', 'new', 'all', 'tiered'}, 'new' if sys.platform == 'darwin' else 'tiered')
   , 'trace'               : ( bool                , False )
   , 'keep_temp_files'     : ((bool, str)          , False )
   , 'lazycompile'         : ( bool                , True  )

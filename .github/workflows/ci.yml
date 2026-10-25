@@ -296,17 +296,17 @@ jobs:
         if: always()
         run: ccache -s | head -n 6
 
-  # macOS on Apple Silicon (issue #162), the interpreter first: the runtime
-  # and the Curry library build with the compilers of the Xcode command line
-  # tools, and the unit suite runs with every module interpreted
-  # (interpret:all), since the compiled path (the Mach-O reader of the
-  # loader, the shim of the tiered mode) is step 2 of the issue.  The front
-  # end is built from source on the runner, as frontend.yml builds it on
-  # Linux aarch64, and cached by the recipe that made it; the first run of a
-  # new recipe takes about half an hour more.  The job gates nothing until
-  # it is green twice.
+  # macOS on Apple Silicon (issue #162): the runtime and the Curry library
+  # build with the compilers of the Xcode command line tools, and the unit
+  # suite runs in the default mode of the platform, interpret:new, under
+  # which a module with a current object loads compiled and a module
+  # without one is interpreted (the swap of the tiered mode has no form on
+  # Mach-O; see curry.interpreter.flags).  The front end is built from
+  # source on the runner, as frontend.yml builds it on Linux aarch64, and
+  # cached by the recipe that made it; the first run of a new recipe takes
+  # about half an hour more.  The job gates nothing until it is green twice.
   macos:
-    name: macOS arm64, interpreter ${{ matrix.shard }}
+    name: macOS arm64 ${{ matrix.shard }}
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/wt/macos')
     runs-on: macos-15
     timeout-minutes: 150
@@ -389,9 +389,7 @@ jobs:
             echo "::endgroup::"
           done
           exit $status
-      - name: Unit tests, every module interpreted
-        env:
-          SPRITE_TEST_FLAGS: interpret:all
+      - name: Unit tests, the default mode of the platform
         run: .github/scripts/run-tests.sh cxx 'unit_*.py' ${{ matrix.shard }}
       - name: Save the ICurry cache
         if: always() && hashFiles('tests/.cache/**') != ''
@@ -409,19 +407,6 @@ jobs:
             frontend-work/build/*.txt
             frontend-work/build/*.log
           if-no-files-found: ignore
-
-  # Step 2 of issue #162: which link forms let a shim of absolute symbols
-  # stand in for the tables of a loaded object on macOS.  A job of its own,
-  # since it needs the compiler alone; informative, never failing; it goes
-  # once the design is settled.
-  dyld-experiment:
-    name: dyld experiment
-    if: startsWith(github.ref, 'refs/heads/wt/macos')
-    runs-on: macos-15
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - run: python3 .github/scripts/macos-dyld-experiment.py
 
   # The stress mode of the collector (SPRITE_GC_STRESS=1): the C++ collector
   # runs at every safepoint, so a missing root fails a test at once instead

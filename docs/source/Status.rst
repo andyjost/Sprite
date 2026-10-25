@@ -35,8 +35,10 @@ compiles it in the background, and swaps its functions to the compiled
 code when the object is ready.  ``new`` interprets it and never compiles
 it.  ``all`` interprets every module.  ``off`` compiles every module first.
 The interpreter takes the same steps as the compiled code and about 1.1 to
-1.5 times its time.  On macOS the default is ``all`` until the compiled path lands there (issue
-#162, step 2).  An installation without a C++ compiler runs every
+1.5 times its time.  On macOS the default is ``new``: a module with a current object loads
+compiled, one without is interpreted, and nothing compiles in the
+background, since the shim of the tiered mode has no form on Mach-O (issue
+#162).  An installation without a C++ compiler runs every
 program interpreted; see :doc:`Installation/WithoutCompiler`.
 
 The typed boundary
