@@ -267,7 +267,9 @@ class typed(object):
   syntax, and unifies ``T`` with the type the context expects.  So
   ``expressions.typed('a', 'String')`` is the string ``"a"``, and
   ``expressions.typed(node, '[Int]')`` states the type of a large value instead of
-  a walk of its content.  ``raw_expr`` builds the value and ignores the
+  a walk of its content.  A node with a recorded type must agree with the
+  annotation; a conflicting annotation raises ``MismatchError``.
+  ``raw_expr`` builds the value and ignores the
   annotation.
   '''
   def __init__(self, value, exprtype):

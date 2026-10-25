@@ -682,6 +682,17 @@ class TypedBuilder:
     problem.solve()
     from ..objects.terms import fix_variable_types
     fix_variable_types(problem)
+    # Low-level free markers share a runtime node too.  Keep its concrete
+    # type across builds, just as the public Var does.
+    for spec in problem.frees:
+      marker = spec.payload
+      if marker is not None and getattr(marker, '_var', None) is None:
+        inferred = problem.type_of(spec)
+        with marker._type_lock:
+          if marker.exprtype is not None:
+            old = problem._parse(marker.exprtype)
+            problem._unify(old, problem._parse(inferred), spec)
+          marker.exprtype = inferred
     node = self.materialize(problem)
     if isinstance(node, backends.Node):
       record_of(self.interp).put(node, problem.scheme, problem.typeexpr)
@@ -1013,18 +1024,15 @@ def item_converter(interp, elemtype, surface=False):
   from .terms import instantiate, zonk
   expected = instantiate(elemtype, {})
   def general(item):
-    nonlocal expected
-    if not surface:
-      return build(interp, (item,), {}, exprtype=elemtype)
     with raw_symbols():
       b = TypedBuilder(interp)
-      problem = TypedProblem(b, b.specs((_convert(interp, item),)), zonk(expected))
-      problem.solve()
+      value = _convert(interp, item) if surface else item
+      node = b.run(b.specs((value,)), zonk(expected))
       # Retain the element type chosen by earlier items, including nested
       # positions. An iterator is one homogeneous Curry list.
       from .unify import unify
-      unify(expected, instantiate(problem.typeexpr, {}))
-      return b.materialize(problem)
+      unify(expected, instantiate(result_type(interp, node), {}))
+      return node
   def reject(item, what):
     raise exceptions.CurryTypeError(
         'cannot convert %r to %s' % (item, what)
@@ -1083,7 +1091,8 @@ class TypedProblem(Problem):
 
   def _enter(self, spec, expected):
     if isinstance(spec, Raw):
-      if spec.walk and not isinstance(spec.parent, Typed):
+      entry = recorded(self.interp, spec.payload) if spec.walk else None
+      if spec.walk and (entry is not None or not isinstance(spec.parent, Typed)):
         spec.type = self._walk(spec, spec.payload)
       elif spec.typeexpr is not None:
         spec.type = spec.typeexpr
@@ -1240,9 +1249,13 @@ class TypedProblem(Problem):
         symbol = None if head is None else symbols.get(id(head))
         scheme = None if symbol is None else table.lookup(symbol)
         skip = scheme.ndicts if scheme is not None and head.tag == T_FUNC else 0
-        if scheme is None or (info.is_partial and len(stored) < skip):
-          # No scheme, or a partial application of a method without its
-          # dictionaries: an opaque leaf.
+        if scheme is not None and info.is_partial and len(stored) < skip:
+          raise errors.ConversionError(
+              'partial application of %s is missing a class dictionary'
+                  % scheme.fullname, where=self.location(spec)
+            )
+        if scheme is None:
+          # A node without a scheme is an opaque leaf.
           self._env_vars.append(var)
           continue
         mapping = {}

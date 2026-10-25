@@ -2640,6 +2640,17 @@ namespace curryrt
     ++this->counts["unguarded_merges"];
   }
 
+  void Checker::normalization_failure(Configuration * C, Node * destination)
+  {
+    ++this->counts["normalization_failures"];
+    if(this->step_stack.empty() || this->step_stack.back().redex != destination)
+      this->violation(
+          "step writes redex", "normalization failure"
+        , "normalization would overwrite an argument instead of its redex"
+        , C
+        );
+  }
+
   void Checker::step_begin(Configuration * C)
   {
     Node * redex = C->cursor().arg ? *C->cursor() : nullptr;

@@ -4,6 +4,7 @@
 #include "curryrt/graph/indexing.hpp"
 #include "curryrt/inspect.hpp"
 #include "curryrt/state/rts.hpp"
+#include <cstring>
 #include <iostream>
 
 #ifdef SPRITE_GC_WRITE_COUNTERS
@@ -246,14 +247,13 @@ namespace curryrt
         // the root is a cell a sibling configuration shares after a
         // fork, and a failure written over it took the sibling's value
         // (issue #126).  procD drops the configuration on T_FAIL.  A step
-        // that normalizes its argument (applynf_step) scans from its
-        // redex, an operation cell, which becomes a failure as in hnf.
+        // that normalizes its argument (applynf_step) receives T_FAIL and
+        // writes failure into its own redex, as hnf does.  The scan's root
+        // can be a shared constructor argument and must not be overwritten.
         // Inside a set function the failure goes into the record of the
         // capsule first (record_failure).
         case T_FAIL    : this->record_failure(C, nullptr);
-                         if(root == C->root)
-                           return T_FAIL;
-                         return root->make_failure();
+                         return T_FAIL;
         case T_CONSTR  : *root = this->lift_constraint(C, root, scan->cursor());
                          return inspect::tag_of(root);
         case T_FREE    : tag = this->replace_freevar(C, root);
@@ -408,7 +408,22 @@ namespace curryrt
                        while(tag == T_FUNC);
                        C->scan.pop();
                        continue;
-        default      : return tag;
+        default      :
+          // A class selector needs its dictionary before reading method
+          // slots.  Constructor guides in general serve narrowing; this
+          // check concerns the dictionary representation alone.
+          if(tag >= T_CTOR && guides)
+          {
+            auto const * values = static_cast<ValueSet const *>(guides);
+            if(values->kind == 't')
+            {
+              auto const * type = static_cast<DataType const *>(guides);
+              if(type->name && std::strncmp(type->name, "_Dict#", 6) == 0
+                  && inductive->target->info->type != type)
+                throw EvaluationError("ill-typed application: unexpected constructor type");
+            }
+          }
+          return tag;
       }
     }
   }
