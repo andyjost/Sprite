@@ -143,8 +143,16 @@ namespace curryrt
     {
       if(this->impl->shlib)
       {
-        assert(this->impl->shlib->bom() == shlib->bom());
-        return;
+        // The library linked already, or one that joined its registry
+        // entry: nothing changes.
+        if(this->impl->shlib == shlib || this->impl->shlib->bom() == shlib->bom())
+          return;
+        // A second library of the module: the object of a later compile,
+        // loaded over the tables of the first (the compile on first use of
+        // a module whose object was loaded before, say).  The tables may
+        // hold steps of either, so the first stays mapped for the life of
+        // the process, and the module names the newest.
+        g_kept_libraries.push_back(this->impl->shlib);
       }
       this->impl->shlib = shlib;
       for(auto && typedef_: shlib->info()->bom->types)
@@ -247,18 +255,16 @@ namespace curryrt
     return this->impl->shlib;
   }
 
-  // The load of the object bound its slots to the tables of this module
-  // (the binding in curryrt/dynload.hpp), so its code makes nodes of the
-  // tables the interpreter made; the tables of the object itself serve the
-  // symbols this module had no table for.  A table whose step is the
-  // interpreter takes the step function of the object by its symbol, and
-  // its aux field is cleared, so a swapped table looks like a table of a
-  // module loaded from its object.  The bytecode stays allocated
-  // (curryrt/icurry.cpp): a step in flight finishes on it.  A table with the
-  // trap step (no code; see trap_step) is swapped the same way: the compile
-  // on first use under interpret:off ends here.  The tables keep their
-  // flags: they stay tables made at run time, which clear frees or keeps,
-  // and which the materializer never takes for built-ins.
+  // The load of the object did the work already: it bound the slots of the
+  // object to the tables of this module (the binding in
+  // curryrt/dynload.hpp), so its code makes nodes of the tables the
+  // interpreter made, and it gave every table without compiled code (the
+  // interpreter, or the trap step of the compile on first use under
+  // interpret:off) the step of the object (bind_infotable).  A table in
+  // ``steps`` that still lacks code, a symbol the binding did not reach,
+  // takes the step function of the object by its symbol.  The tables keep
+  // their flags: they stay tables made at run time, which clear frees or
+  // keeps, and which the materializer never takes for built-ins.
   size_t Module::adopt(
       std::shared_ptr<SharedCurryModule> const & shlib
     , std::vector<std::pair<std::string, InfoTable const *>> const & steps
@@ -293,8 +299,22 @@ namespace curryrt
   InfoTable const * Module::bind_infotable(InfoTable const * object)
   {
     assert(object);
-    if(InfoTable const * live = this->get_infotable(object->name))
+    if(InfoTable const * found = this->get_infotable(object->name))
+    {
+      // The swap of tiered execution: a table of this module without
+      // compiled code (the interpreter, the trap, or no step yet) takes the
+      // step of the object.  The bytecode stays allocated (curryrt/icurry.cpp):
+      // a step in flight finishes on it.
+      InfoTable * live = const_cast<InfoTable *>(found);
+      if(live != object && live->tag == T_FUNC && object->step
+          && (!live->step || live->step == &icurry_step
+              || live->step == &trap_step))
+      {
+        live->step = object->step;
+        live->aux  = nullptr;
+      }
       return live;
+    }
     InfoTable * kept = take_kept_symbol(
         this->name, object->name, object->tag, object->arity
       );

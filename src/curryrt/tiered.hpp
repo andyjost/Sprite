@@ -22,11 +22,12 @@
 // The swap.  tiered_apply_pending runs on the thread that evaluates: the
 // scheduler calls it at its periodic safepoint (RuntimeState::check_interrupts)
 // and the Python side calls it between evaluations.  For each finished job it
-// loads the object, whose slots the load binds to the tables the interpreter
-// made (see the binding below), and writes the compiled step of each
-// function into its table (Module::adopt).  A step pointer is one word, and
-// the bytecode of a function outlives the swap, so a step in flight finishes
-// on the bytecode and the next step of the function runs compiled.
+// loads the object, whose load binds its slots to the tables the interpreter
+// made and writes the compiled step of each function into its table (see
+// the binding below), and counts the functions swapped (Module::adopt).  A
+// step pointer is one word, and the bytecode of a function outlives the
+// swap, so a step in flight finishes on the bytecode and the next step of
+// the function runs compiled.
 //
 // The load.  dlopen names a loaded object by its path.  A file written over
 // the path of an object this process maps (the object of an earlier
@@ -47,8 +48,9 @@
 // a symbol for the life of the process, on every platform.  Without the
 // binding the swap would leave two tables per symbol, and the runtime
 // compares tables by address (the equality, the bindings of free
-// variables, curry.inspect.isa).  The swap is then the load of the object
-// and Module::adopt, which writes the compiled steps into the tables.
+// variables, curry.inspect.isa).  The binding writes the compiled step of
+// the object into every table without compiled code, so the load is the
+// swap, and Module::adopt counts the functions and links the object.
 //
 // The imports.  An object names the objects of its imports by SONAME, and
 // the dynamic linker satisfies each name with an object of that name the

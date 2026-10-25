@@ -106,13 +106,14 @@ namespace curryrt
   // the module that defines it, which the loader of the Python side imports
   // before it opens the object, or the built-in table of the runtime; a
   // symbol that neither has is an error of the load, DynloadError, which
-  // names the symbol and its module.  Then the initializer of the module,
+  // names the symbol and its module.  A table of the module without
+  // compiled code (the interpreter, or the trap step) takes the step of the
+  // object as it is bound: the load is the swap of tiered execution
+  // (curryrt/tiered.hpp), and Module::adopt, which follows it, counts the
+  // functions and links the object.  Then the initializer of the module,
   // _sprite_init_, makes the nodes of its literals from the bound tables,
   // and the record is decoded with the bound tables, so that Module::link
-  // registers them.  The bytecode of an interpreted function names the
-  // same tables, so the swap of tiered execution (curryrt/tiered.hpp) is
-  // the load of the object followed by Module::adopt, which writes the
-  // compiled steps into the tables the interpreter made.
+  // registers them.
   struct SharedCurryModule : SharedLib
   {
     SharedCurryModule(std::string const & sofilename);

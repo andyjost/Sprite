@@ -287,13 +287,10 @@ namespace curryrt
       Binder binder(sofilename, *record);
       binder.run();
       // The initializer makes the nodes of the literals of the module from
-      // the bound tables (see backends/cxx/compiler.py).
-      auto init = dlsym(this->handle(), "_sprite_init_");
-      if(!init)
-        throw DynloadError(
-            "cannot load " + sofilename + ": the module has no initializer"
-          );
-      ((void (*)()) init)();
+      // the bound tables (see backends/cxx/compiler.py).  A library without
+      // one (a record written by hand) makes no nodes.
+      if(auto init = dlsym(this->handle(), "_sprite_init_"))
+        ((void (*)()) init)();
       this->_info = std::make_shared<SharedCurryModuleInfo>(
           record->fullname, sofilename, ModuleBOM::decode(*record)
         , this->handle()
