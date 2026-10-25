@@ -8,6 +8,11 @@ Run the transcripts from ``examples/`` with ``install/bin`` on ``PATH``;
 ``curry.path`` searches the lesson directories added below and the
 installed library.  :doc:`../Examples` lists every runnable lesson.
 
+Curry ``Int`` is unbounded and converts to and from Python ``int`` without
+loss. The runtime keeps signed 64-bit values inline, promotes overflowing
+arithmetic to libtommath integers, and demotes results that fit inline.
+``Char`` retains its Unicode code point range.
+
 .. _building-expressions:
 
 Import and evaluate one call
@@ -260,8 +265,9 @@ defaulting, type syntax and interface errors.  For example:
 ``EvaluationError`` covers errors reached while running, including
 ``SuspensionError``, ``DivisionByZeroError``, I/O errors and nondeterminism
 inside I/O.  ``NoValueError`` and ``ManyValuesError`` describe ``one()``
-cardinality.  ``IntOverflowError`` marks the signed 64-bit Int boundary,
-either during construction or a runtime step.  ``CompileError`` carries
+cardinality. ``IntOverflowError`` marks bounded conversions, such as a
+conversion to Char, and conversions of a non-finite Float to Int. It can
+arise during construction or a runtime step.  ``CompileError`` carries
 the front end's report and source location.  Lookup, session, load and
 prerequisite errors name the operation to correct.  The complete public
 error tree is in :doc:`../Reference/curry`; callers can catch either a

@@ -126,7 +126,9 @@ reproducers pass.
   (`defaulted=True` applies the table) and `curry.show` complete the
   API; the installed stub `curry/__init__.pyi` is the surface.
 - Other tools: a C++ compiler (g++), GNU make, and binutils (`ar`). The
-  C++ runtime uses the C++17 standard library alone: Boost is not needed.
+  C++ runtime uses C++17 and privately links the public domain libtommath
+  1.3.0 submodule at extern/libtommath. It is shipped beside extern/mps and
+  extern/pybind11; no system libtommath is needed. Boost is not needed.
   jq is not needed: Sprite writes compact JSON itself. SWI-Prolog runs
   PAKCS, the test oracle, and the build of its saved states; Haskell Stack
   builds PAKCS from source; Sprite itself needs neither. GNU time

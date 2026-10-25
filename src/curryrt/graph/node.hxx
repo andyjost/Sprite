@@ -130,7 +130,7 @@ namespace curryrt
   {
     assert(target);
     InfoTable const * info = target->info;
-    if(is_primitive(*info))
+    if(is_primitive(*info) && info->format[0] != 'x')
     {
       // One size for the three kinds, so the copy is two words, not a call.
       static_assert(sizeof(IntNode) == sizeof(FloatNode), "");
@@ -280,7 +280,6 @@ namespace curryrt
   inline index_type Node::size() const { return this->info->arity; }
   inline Arg * Node::begin() { return successors(); }
   inline Arg * Node::end() { return begin() + size(); }
-  inline std::size_t Node::hash() const { return std::hash<Node const *>()(this); }
   inline bool Node::operator!=(Node & arg) { return !(*this == arg); }
 }
 

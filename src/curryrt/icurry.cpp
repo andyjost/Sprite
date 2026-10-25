@@ -1,3 +1,4 @@
+#include "curryrt/bigint.hpp"
 #include <alloca.h>
 #include <cassert>
 #include <cstring>
@@ -315,8 +316,16 @@ namespace curryrt
           uint32_t const * entry = op + 5;
           switch(op[3])
           {
+            case 'p':
+            {
+              for(uint32_t i=0; i<n; ++i, entry += 3)
+                if(integer_compare(node, (Node *) K[read_u64(entry)]) == 0)
+                  goto found;
+              break;
+            }
             case 'i':
             {
+              if(is_bigint(node)) break;
               uint64_t const value = (uint64_t) NodeU{node}.int_->value;
               for(uint32_t i=0; i<n; ++i, entry += 3)
                 if(read_u64(entry) == value)

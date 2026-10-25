@@ -38,8 +38,8 @@ conda-forge needs them in the recipe.
 
 ### `recipe/`: the package `currylang`
 
-Source: the repository (`path: ../..`).  The pybind11 submodule under
-`extern/pybind11` must be present.
+Source: the repository (`path: ../..`). The pybind11 and libtommath
+submodules under `extern/` must be present.
 
 Build (`build.sh`):
 
@@ -198,7 +198,8 @@ the ABI of its build's Python, rather than serving every version at once.
 The development environment file also defaults to 3.14; its Python spec
 can be changed to any version in the supported range.
 
-`libgmp` is a dependency of the front end binary, not of Sprite, so it is a
+`libgmp` is a dependency of the front end binary. Sprite never used GMP;
+its unbounded Int runtime privately links the libtommath submodule. GMP is a
 run dependency of `curry-frontend` (the package `gmp`) and reaches the
 environment through it.  The run exports of the build compiler add
 `libgcc >=15` and `libstdcxx >=15`, and `{{ stdlib('c') }}` adds

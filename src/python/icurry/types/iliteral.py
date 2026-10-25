@@ -1,6 +1,7 @@
 from .iobject import IObject
 from .isymbol import ISymbol
 from ...common import Fingerprint
+from ...utility.strings import parse_int
 import abc, collections.abc
 
 __all__ = ['IChar', 'IFloat', 'IInt', 'ILiteral', 'IString', 'IUnboxedLiteral']
@@ -8,7 +9,7 @@ __all__ = ['IChar', 'IFloat', 'IInt', 'ILiteral', 'IString', 'IUnboxedLiteral']
 class IInt(ISymbol):
   def __init__(self, value, **kwds):
     ISymbol.__init__(self, 'Prelude.Int', **kwds)
-    self.value = int(value)
+    self.value = parse_int(value)
   @property
   def _fields_(self):
     return 'value',

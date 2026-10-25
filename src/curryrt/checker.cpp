@@ -1,3 +1,4 @@
+#include "curryrt/bigint.hpp"
 #include "curryrt/builtins.hpp"
 #include "curryrt/checker.hpp"
 #include "curryrt/currylib/prelude.hpp"
@@ -255,7 +256,7 @@ namespace curryrt
       switch(typetag(*cell->info))
       {
         case F_INT_TYPE:
-          key = (uint64_t) NodeU{cell}.int_->value;
+          key = integer_hash(cell);
           return true;
         case F_CHAR_TYPE:
           key = (uint64_t) NodeU{cell}.char_->value;
@@ -484,7 +485,18 @@ namespace curryrt
             {
               uint64_t const value = uint64_t(entry[0]) | (uint64_t(entry[1]) << 32);
               if(entry[2] < n)
-                tree->branches[value] = build_tree(bc, entry[2], env, depth + 1);
+              {
+                if(op[3] == 'p')
+                {
+                  Node * literal = (Node *) bc.consts[value];
+                  if(is_bigint(literal))
+                    tree->bigbranches[integer_string(literal)] = build_tree(bc, entry[2], env, depth + 1);
+                  else
+                    tree->branches[integer_hash(literal)] = build_tree(bc, entry[2], env, depth + 1);
+                }
+                else
+                  tree->branches[value] = build_tree(bc, entry[2], env, depth + 1);
+              }
             }
             return tree;
           }
@@ -646,6 +658,7 @@ namespace curryrt
           switch(info->format[0])
           {
             case 'i': os << data[0].ub_int; return;
+            case 'x': if(is_bigint(n)) { os << integer_string(n); return; } break;
             case 'f': os << data[0].ub_float; return;
             case 'c': os << "'" << (unsigned long) data[0].ub_char << "'"; return;
             default: break;
@@ -2219,6 +2232,13 @@ namespace curryrt
     {
       InfoTable const * info = node->info;
       h = label('N', (uint64_t) (uintptr_t) info);
+      if(is_bigint(node))
+      {
+        h = combine(h, integer_hash(node));
+        state.onstack.erase(node);
+        state.memo[node] = h;
+        return h;
+      }
       Arg const * data = node->successors();
       if(info == &SetEval_Info && state.queues)
       {
@@ -2796,8 +2816,18 @@ namespace curryrt
             + " above it, which holds " + this->text(cell)
           , C, {}, {matched_text(matched)}
           );
-      auto branch = node->branches.find(key);
-      if(branch == node->branches.end())
+      CheckerTree const * branch = nullptr;
+      if(node->literal && is_bigint(cell))
+      {
+        auto found = node->bigbranches.find(integer_string(cell));
+        if(found != node->bigbranches.end()) branch = found->second.get();
+      }
+      else
+      {
+        auto found = node->branches.find(key);
+        if(found != node->branches.end()) branch = found->second.get();
+      }
+      if(!branch)
         this->violation(
             "B2", "hnf"
           , std::string("operation ") + name + " demands position " + path_text(path)
@@ -2806,7 +2836,7 @@ namespace curryrt
           , C, {}, {matched_text(matched)}
           );
       matched.push_back(path_text(node->path) + ":" + std::to_string(key));
-      node = branch->second.get();
+      node = branch;
     }
     this->violation(
         "B2", "hnf"
@@ -2848,8 +2878,18 @@ namespace curryrt
             + " holds " + this->text(cell)
           , C, {}, {matched_text(matched)}
           );
-      auto branch = node->branches.find(key);
-      if(branch == node->branches.end())
+      CheckerTree const * branch = nullptr;
+      if(node->literal && is_bigint(cell))
+      {
+        auto found = node->bigbranches.find(integer_string(cell));
+        if(found != node->bigbranches.end()) branch = found->second.get();
+      }
+      else
+      {
+        auto found = node->branches.find(key);
+        if(found != node->branches.end()) branch = found->second.get();
+      }
+      if(!branch)
       {
         if(node->literal)
           return;
@@ -2862,7 +2902,7 @@ namespace curryrt
           );
       }
       matched.push_back(path_text(node->path) + ":" + std::to_string(key));
-      node = branch->second.get();
+      node = branch;
     }
     if(node->kind != CheckerTree::EXEMPT && node->kind != CheckerTree::RETURN_REF)
       this->violation(

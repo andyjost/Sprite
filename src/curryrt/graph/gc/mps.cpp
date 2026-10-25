@@ -1,3 +1,4 @@
+#include "curryrt/bigint.hpp"
 // The Memory Pool System (MPS) as the node heap and the collector of the C++
 // runtime.  Selected with make GC=mps (SPRITE_GC_MPS; see Make.config), in
 // place of gc/blockheap.cpp and gc/wdgc.cpp, which stay the default.  An
@@ -697,6 +698,8 @@ namespace curryrt
       Node * node = (Node *) ref;
       if(node->info == &_biGenerator_Info)
         g_pending_releases.push_back(NodeU{node}.generator->data);
+      else if(is_bigint(node))
+        bigint_release(node);
       else if(node->info == &SetEval_Info)
         release_queue(NodeU{node}.seteval->queue);
       // A node that was stepped is a forward node now: the node of the
@@ -779,6 +782,8 @@ namespace curryrt
     if(res != MPS_RES_OK)
       fail("the registration of a node for finalization", res);
   }
+
+  void gc_register_bigint(Node * node) { finalize(node); }
 
   void gc_register_generator(Node * node)
   {

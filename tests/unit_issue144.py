@@ -31,11 +31,16 @@ class TestCatch(cytest.TestCase):
           next(curry.eval(P.ioError(P.userError(message))))
         self.assertIs(type(caught.exception), curry.CurryIOError)
 
-  def test_catch_arithmetic_overflow(self):
-    goal = curry.parse('catch (print ((9223372036854775807 :: Int) + 1) '
+  def test_promotion_does_not_run_handler(self):
+    goal = curry.parse('catch (return (show ((9223372036854775807 :: Int) + 1))) '
+        '(\\e -> return (show e)) :: IO String')
+    self.assertEqual(curry.eval(goal).one(), '9223372036854775808')
+
+  def test_catch_arithmetic_error(self):
+    goal = curry.parse('catch (print ((1 :: Int) `div` 0) '
         '>> return "") (\\e -> return (show e)) :: IO String')
     self.assertEqual(curry.eval(goal).one(),
-        'i/o error: integer overflow: 9223372036854775807 + 1')
+        'i/o error: division by zero: div 1 0')
 
   def test_handler_can_raise(self):
     goal = curry.parse('catch (error "first") (\\_ -> ioError (userError "second"))')

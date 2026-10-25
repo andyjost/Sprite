@@ -1,3 +1,4 @@
+#include "curryrt/bigint.hpp"
 #include <algorithm>
 #include <cassert>
 #include <charconv>
@@ -151,6 +152,11 @@ namespace
           case 'f': show(cur.arg->ub_float); continue;
           case 'c': show(cur.arg->ub_char);  continue;
           case 'x': show(cur.arg->blob);     continue;
+        }
+        if(is_bigint(*cur))
+        {
+          this->os << "<Int " << integer_string(*cur) << ">";
+          continue;
         }
         void * id = cur.id();
         if(!this->memo.insert(id).second)
@@ -490,6 +496,13 @@ namespace
                     continue;
         }
 
+        if(is_bigint(*cur))
+        {
+          auto text = integer_string(*cur);
+          if(text[0] == '-') this->os() << '(' << text << ')';
+          else this->os() << text;
+          continue;
+        }
         auto * info = cur->info;
         if(info->tag == T_FREE)
         {

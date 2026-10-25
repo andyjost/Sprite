@@ -158,7 +158,15 @@ foreach(dir currylib currylib/prelude graph state)
   list(APPEND runtime_sources ${sources})
 endforeach()
 set(image "${CMAKE_CURRENT_BINARY_DIR}/stage")
+# Build the pinned, private C99 arithmetic library into the runtime.
+file(GLOB tommath_sources CONFIGURE_DEPENDS extern/libtommath/bn_*.c)
+add_library(sprite_tommath STATIC ${tommath_sources})
+set_target_properties(sprite_tommath PROPERTIES POSITION_INDEPENDENT_CODE ON
+  C_STANDARD 99 C_STANDARD_REQUIRED ON)
+target_include_directories(sprite_tommath PRIVATE extern/libtommath)
 add_library(curryrt SHARED ${runtime_sources})
+target_include_directories(curryrt PRIVATE extern/libtommath)
+target_link_libraries(curryrt PRIVATE sprite_tommath)
 target_include_directories(curryrt PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(curryrt PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
 # The link flags are those of the platform's linker.  GNU ld binds the
@@ -199,6 +207,9 @@ foreach(target curryrt _curryrtbindings)
     "$<$<CXX_COMPILER_ID:AppleClang,Clang>:-Wno-missing-braces>"
     "$<$<CONFIG:Release>:-O2;-fno-stack-protector${elf_release_flags}>")
 endforeach()
+# The private C objects obey the same release flavor as libcurryrt.
+target_compile_options(sprite_tommath PRIVATE -Wall
+  "$<$<CONFIG:Release>:-O2;-fno-stack-protector${elf_release_flags}>")
 set_target_properties(_curryrtbindings PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${image}/python/curry/backends/cxx/curryrtbindings"
   BUILD_WITH_INSTALL_RPATH TRUE
@@ -270,7 +281,9 @@ add_custom_target(currylib ALL
     --icurry "${WITH_ICURRY}" --cxx "${WITH_CXX_POSTINSTALL}"
     --ccache "${WITH_CCACHE}" ${wheel_args} --jobs "${JOBS}" --rebuild-icy "${SPRITE_REBUILD_ICY}"
   DEPENDS _curryrtbindings USES_TERMINAL VERBATIM)
+install(FILES extern/libtommath/LICENSE DESTINATION licenses RENAME libtommath-LICENSE)
 if(SKBUILD)
+  install(FILES extern/libtommath/LICENSE DESTINATION curry/_sprite/licenses RENAME libtommath-LICENSE)
   install(FILES LICENSE DESTINATION curry/_sprite/licenses)
   install(FILES extern/pybind11/LICENSE DESTINATION curry/_sprite/licenses RENAME pybind11-LICENSE)
   install(DIRECTORY "${image}/python/curry/" DESTINATION curry

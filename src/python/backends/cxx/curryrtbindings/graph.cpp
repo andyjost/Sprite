@@ -1,3 +1,4 @@
+#include "curryrt/bigint.hpp"
 #include "heap.hpp"
 #include <cassert>
 #include <cstdint>
@@ -23,10 +24,9 @@ static auto constexpr reference_internal = py::return_value_policy::reference_in
 
 namespace curryrt { namespace python
 {
-  // Int is 64 bits.  A Python int outside the range is refused where it
-  // would enter a node, with CurryTypeError (issue #105).  The Arg
-  // binding below and the literals of the ICurry
-  // interpreter (icurry.cpp) raise it.
+  // An unboxed Arg integer is still a machine word. Big Curry Int values
+  // use make_integer before packing an Arg; an explicit raw word slot
+  // retains its historical range error.
   [[noreturn]] void raise_int_range_error(py::handle value)
   {
     std::string const message = std::string(py::str(value))
@@ -414,9 +414,9 @@ namespace curryrt { namespace python
     py::class_<Arg, ByValueHolder<Arg>>(mod, "Arg")
       .def(py::init<Node *>(), curryrt::python::heap_access{})
       .def(py::init<unboxed_int_type>(), curryrt::python::heap_access{})
-      // A Python int that the 64-bit overload refused is outside the range
-      // of Int.  Without this overload the one below took it, and the node
-      // held the bits of a double.
+      // A Python int refused by the machine-word overload cannot fit this
+      // raw slot. Without this overload the float overload took it, and
+      // the slot held the bits of a double.
       .def(py::init([](py::int_ value) -> Arg { raise_int_range_error(value); }), curryrt::python::heap_access{})
       .def(py::init<unboxed_float_type>(), curryrt::python::heap_access{})
       // A str of length one gives the code point of its character.
@@ -484,14 +484,20 @@ namespace curryrt { namespace python
           , reference
           , curryrt::python::heap_access{})
       .def("successor"
-          , [](Node & self, index_type pos) -> Expr { return self.successor(pos); }
+          , [](Node & self, index_type pos) -> py::object {
+              if(is_bigint(&self) && pos == 0)
+                return py::module_::import("curry.utility.strings").attr("parse_int")(integer_string(&self));
+              return py::cast(Expr(self.successor(pos)));
+            }
           , curryrt::python::heap_access{})
       .def_property_readonly("successors"
-          , [](Node & self) -> std::vector<Expr>
+          , [](Node & self) -> std::vector<py::object>
             {
-              std::vector<Expr> vec;
+              if(is_bigint(&self))
+                return {py::module_::import("curry.utility.strings").attr("parse_int")(integer_string(&self))};
+              std::vector<py::object> vec;
               for(index_type i=0; i<self.size(); ++i)
-                vec.push_back(self.successor(i));
+                vec.push_back(py::cast(Expr(self.successor(i))));
               return vec;
             }
           , curryrt::python::heap_access{})
@@ -532,7 +538,7 @@ namespace curryrt { namespace python
           , py::arg("memo") = py::none()
           , curryrt::python::heap_access{})
       .def("__getitem__"
-          , [](Node & self, py::int_ index) -> Expr
+          , [](Node & self, py::int_ index) -> py::object
             {
               int overflow = 0;
               long pos = PyLong_AsLongAndOverflow(index.ptr(), &overflow);
@@ -548,7 +554,9 @@ namespace curryrt { namespace python
               }
               if(pos < 0)
                 pos += arity;
-              return self[static_cast<index_type>(pos)];
+              if(is_bigint(&self))
+                return py::module_::import("curry.utility.strings").attr("parse_int")(integer_string(&self));
+              return py::cast(Expr(self[static_cast<index_type>(pos)]));
             }
           , curryrt::python::heap_access{})
       .def("__hash__", &Node::hash, curryrt::python::heap_access{})
@@ -559,6 +567,11 @@ namespace curryrt { namespace python
       .def("__eq__", &Node::operator==, py::is_operator(), curryrt::python::heap_access{})
       .def("__ne__", &Node::operator!=, py::is_operator(), curryrt::python::heap_access{})
       ;
+
+    mod.def("make_integer", [](std::string const & digits) {
+      return integer(digits.c_str());
+    }, reference, curryrt::python::heap_access{});
+    mod.def("bigint_live_count", &bigint_live_count, curryrt::python::heap_access{});
 
     // The collector.  See curryrt/graph/gc/wdgc.cpp.
     mod.def("gc_collect", &gc_collect

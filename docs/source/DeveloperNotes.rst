@@ -555,3 +555,26 @@ machine of that lane:
   bounds such a chain first: it is quadratic in the chain, 74 s of the
   118 s of the import of a chain of 2000 levels; a chain of 3500 levels
   imports in 255 s.
+
+Unbounded integers
+==================
+
+Curry ``Int`` is unbounded. The existing two-word inline Int node holds
+signed 64-bit values. Arithmetic keeps the checked inline fast path and
+promotes overflow to a BigInt node. Every result that fits the inline range
+is demoted, including the negative endpoint. Comparisons and constraints
+therefore have a canonical representation for each value.
+
+A BigInt node owns immutable libtommath storage outside the GC heap. Heap
+nodes register a finalizer with either collector; copies of immutable
+integer values share their node. Module constants live in the literal
+arena for the process lifetime. The runtime privately links the public
+domain libtommath 1.3.0 sources from ``extern/libtommath``; generated code
+and installed headers do not depend on its headers. Its origin is
+https://github.com/libtom/libtommath and its license is in
+``extern/libtommath/LICENSE``.
+
+Integer literals beyond the inline range are stored as decimal strings in
+ICurry JSON and constructed when the module loads. The compiler and the
+ICurry interpreter use the same canonical runtime factory. Python values
+use decimal conversion at the boundary to preserve every digit.

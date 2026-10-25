@@ -370,5 +370,6 @@ namespace curryrt
     bool literal = false;
     char litkind = 0;
     std::map<uint64_t, std::unique_ptr<CheckerTree>> branches;
+    std::map<std::string, std::unique_ptr<CheckerTree>> bigbranches;
   };
 }

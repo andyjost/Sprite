@@ -1,10 +1,10 @@
 '''
 Scalar Python values cross the boundary by the conversion table (the
 public API): a bool is a Bool, an int a polymorphic literal, a
-float a concrete Float.  An int past 64 bits is an IntOverflowError when
-the term is built; an overflow or a division by zero in Curry is raised
-from next.  Each line prints a label and the value, or the class of the
-error and the first line of its message.
+float a concrete Float. Int values past 64 bits promote without changing
+their value. A division by zero in Curry is raised from next. Each line
+prints a label and the value, or the class of the error and the first line
+of its message.
 '''
 import curry
 

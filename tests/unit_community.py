@@ -121,9 +121,8 @@ class TestCommunityIO(cytest.TestCase):
 
 
 class TestCommunityLoading(cytest.TestCase):
-  @unittest.expectedFailure
   def test_frontend_large_negative_literal(self):
-    # Issue #167: an Int literal beyond 64 bits fails the load of the module.
+    # Issue #167: an Int literal beyond 64 bits loads without narrowing.
     from unit_community_compile import check_source
     check_source(self, 'NegLit.curry')
 
