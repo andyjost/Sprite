@@ -236,8 +236,8 @@ print(json.dumps([curry.show(v) for v in curry.eval(module.main)]))
 
   @unittest.expectedFailure
   def test_shortest_itinerary(self):
-    # PAKCS 3.10.0: [LH469,LH10] once. Native capsules also admit the longer
-    # [NWA92,KL1783] and repeat the answers. Runtime repair is outside lane E.
+    # Issue #171. PAKCS 3.10.0: [LH469,LH10] once. The native capsules also
+    # admit the longer [NWA92,KL1783] and repeat the answers.
     self.assertSameResultMultiset(self.actual, '[LH469,LH10]')
 
 

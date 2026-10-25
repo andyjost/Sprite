@@ -84,8 +84,8 @@ for source, goals in programs:
     def test(self, source=source, goal=goal):
       self.check(source, [goal])
     if source.stem == 'TestSearchSetFunctionsGoals' and goal == 'goal0':
-      # Native capsules also return the longer route, with duplicate values.
-      # unit_search_library pins the same defect through Control.SetFunctions.
+      # Issue #171: the native capsules also return the longer route, with
+      # duplicate values; unit_search_library pins it through Control.SetFunctions.
       test = unittest.expectedFailure(test)
     setattr(TestSearchSetFunctions, 'test_' + source.stem + '_' + goal,
             oracle.require(test))
