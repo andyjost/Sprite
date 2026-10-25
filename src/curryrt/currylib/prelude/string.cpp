@@ -93,8 +93,24 @@ extern "C" InfoTable const _biGenerator_Info{
 
 extern "C"
 {
-  #define UBSPEC (prim_chr, unboxed_char_type, 1, int_)
-  #include "curryrt/currylib/defs/unboxed.def"
+  static tag_type prim_chr_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor root = C->cursor();
+    Variable x = root[0];
+    auto tag = rts->hnf(C, &x);
+    if(tag < T_CTOR) return tag;
+    // Keep the existing primitive word cast. The public chr wrapper
+    // clamps inline operands before calling it. A big operand cannot fit.
+    if(is_bigint(x.target))
+    {
+      C->set_error("integer overflow: chr " + x.target->str(), ErrorKind::overflow);
+      return E_ERROR;
+    }
+    return root->rewrite(&Char_Info, unboxed_char_type(NodeU{x.target}.int_->value));
+  }
+  InfoTable const prim_chr_Info {
+      T_FUNC, 1, sizeof(Node1), F_STATIC_OBJECT, "prim_chr", "p", prim_chr_step, nullptr
+    };
 
   #define UBSPEC (prim_ord, unboxed_int_type, 1, char_)
   #include "curryrt/currylib/defs/unboxed.def"

@@ -38,7 +38,7 @@ namespace curryrt { inline namespace
       case F_INT_TYPE:
         vs->args = &NodeU{cur}.nodeN->data[0];
         vs->size = 1;
-        vs->kind = 'i';
+        vs->kind = is_bigint(*cur) ? 'b' : 'i';
         return vs;
       case F_CHAR_TYPE:
         vs->args = &NodeU{cur}.nodeN->data[0];
@@ -119,7 +119,7 @@ namespace curryrt { inline namespace
     switch(typetag(*lhs.target->info))
     {
       case F_INT_TYPE:
-        return (NodeU{lhs.target}.int_->value == NodeU{rhs.target}.int_->value) ? True : Fail;
+        return (integer_compare(lhs.target, rhs.target) == 0) ? True : Fail;
       case F_CHAR_TYPE:
         return (NodeU{lhs.target}.char_->value == NodeU{rhs.target}.char_->value) ? True : Fail;
       case F_FLOAT_TYPE:
@@ -323,7 +323,8 @@ namespace curryrt { inline namespace
       _0->forward_to(Fail);
     else
     {
-      assert(lhs.target->info == rhs.target->info);
+      assert(lhs.target->info == rhs.target->info
+          || (is_int(*lhs.target->info) && is_int(*rhs.target->info)));
       index_type arity = lhs.target->info->arity;
       if(!arity)
         _0->forward_to(True);

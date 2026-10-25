@@ -1,3 +1,4 @@
+#include "curryrt/bigint.hpp"
 // The collector: mark and sweep over the block heap of gc/blockheap.cpp.
 // There are no generations and nothing is moved.
 //
@@ -341,6 +342,17 @@ namespace curryrt
   {
     assert(node->info == &_biGenerator_Info);
     g_generators.push_back(node);
+  }
+
+  static std::vector<Node *> & g_bigints = *new std::vector<Node *>();
+  void gc_register_bigint(Node * node) { g_bigints.push_back(node); }
+  static void sweep_bigints()
+  {
+    size_t kept = 0;
+    for(Node * node: g_bigints)
+      if(heap_marked(node)) g_bigints[kept++] = node;
+      else bigint_release(node);
+    g_bigints.resize(kept);
   }
 
   // The strict constraints read in this collection.  The configurations of
@@ -757,6 +769,7 @@ namespace curryrt
     auto const tables_start = gc_clock::now();
     sweep_freevar_tables();
     sweep_generators();
+    sweep_bigints();
     g_last.registries_seconds += seconds_since(tables_start);
     if(g_verifying)
     {

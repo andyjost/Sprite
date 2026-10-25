@@ -1,3 +1,4 @@
+#include "curryrt/bigint.hpp"
 #include "heap.hpp"
 #include <cstdint>
 #include <memory>
@@ -38,9 +39,8 @@ namespace
 {
   using namespace curryrt;
 
-  // The value of an Int literal.  A value outside the 64-bit range is a
-  // CurryTypeError, as it is where a Python int enters a node (issue #105);
-  // the cast of pybind11 raised a RuntimeError without the value.
+  // Decode an inline literal or an entry of a word-only case table. Big
+  // literals take the canonical digit factory before reaching this helper.
   unboxed_int_type int_literal_value(py::handle value)
   {
     static_assert(sizeof(unboxed_int_type) == sizeof(long), "assumes long");
@@ -119,7 +119,13 @@ namespace
       throw py::value_error("a constant tuple needs a kind and a value");
     std::string const kind = tup[0].cast<std::string>();
     if(kind == "I")
+    {
+      int overflow = 0;
+      PyLong_AsLongAndOverflow(tup[1].ptr(), &overflow);
+      if(overflow)
+        return integer(py::module_::import("curry.utility.strings").attr("int_text")(tup[1]).cast<std::string>().c_str(), true);
       return int_literal(int_literal_value(tup[1]));
+    }
     if(kind == "C")
       return char_literal(code_point(tup[1]));
     if(kind == "F")
@@ -142,7 +148,7 @@ namespace
         throw py::value_error("a value set is ('V', kind, values)");
       std::string const vkind = tup[1].cast<std::string>();
       if(vkind.size() != 1
-          || std::string("icf").find(vkind) == std::string::npos)
+          || std::string("icfp").find(vkind) == std::string::npos)
         throw py::value_error("the kind of a value set is 'i', 'c', or 'f'");
       py::sequence values = tup[2].cast<py::sequence>();
       bc.valuesets.emplace_back();
@@ -151,6 +157,9 @@ namespace
       {
         switch(vkind[0])
         {
+          case 'p':
+            data.args.push_back(Arg((Node *) make_constant(bc, py::make_tuple("I", value))));
+            break;
           case 'i':
             data.args.push_back(Arg(int_literal_value(value)));
             break;

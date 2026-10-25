@@ -1,21 +1,9 @@
-'''
-Tests of the Int of both backends: a signed 64-bit integer with an error at
-the boundary (issue #105), and the integer division by zero (issue #106).
-
-A Python int outside the range is a CurryTypeError where it enters a node.
-An addition, a subtraction, a multiplication, or a negation whose result is
-outside the range raises EvaluationError, as do div and quot of the minimum
-by -1 and the conversions of a Float outside the range; a division by zero
-raises EvaluationError.  The messages name the operation and its operands,
-and they are the same on both backends.
-'''
+'''Unbounded Int arithmetic and retained errors for invalid conversions and division.'''
 import cytest # from ./lib; must be first
-import curry, math, re, textwrap, unittest
+import curry, math, textwrap, unittest
 
 INT_MIN = -(1 << 63)
 INT_MAX = (1 << 63) - 1
-RANGE_TEXT = \
-    'is outside the range of Int (-9223372036854775808 to 9223372036854775807)'
 
 def values(*goal):
   '''The values of a goal as Python objects.'''
@@ -45,55 +33,30 @@ class TestIntSemantics(cytest.TestCase):
     self.assertEqual(values(self.P.negate, INT_MIN + 1), [INT_MAX])
 
   def test_int_outside_the_range(self):
-    # The typed and the raw routes refuse the value where it enters a node.
     for value in [INT_MAX + 1, INT_MIN - 1, 10**30, -(10**30), 2**64]:
-      with self.assertRaises(curry.IntOverflowError):
-        curry.term(value)
-      with self.assertRaises(curry.IntOverflowError):
-        cytest.raw.expr(value)
-      with self.assertRaises(curry.IntOverflowError):
-        list(curry.eval(value))
-      with self.assertRaises(curry.IntOverflowError):
-        (self.P.Just)(value)
-      with self.assertRaises(curry.IntOverflowError):
-        curry.term([1, value])
-    # The message, at the node.
-    make_node = cytest.raw.interp().backend.make_node
-    with self.assertRaises(curry.IntOverflowError) as cm:
-      make_node(self.P.Int, INT_MAX + 1)
-    self.assertEqual(str(cm.exception), '9223372036854775808 ' + RANGE_TEXT)
-    with self.assertRaises(curry.IntOverflowError) as cm:
-      make_node(self.P.Int, INT_MIN - 1)
-    self.assertEqual(str(cm.exception), '-9223372036854775809 ' + RANGE_TEXT)
-    with self.assertRaises(curry.IntOverflowError) as cm:
-      make_node(self.P.Int, 10**30)
-    self.assertEqual(str(cm.exception), '%d %s' % (10**30, RANGE_TEXT))
-    # The ends of the range are values.
-    self.assertEqual(cytest.raw.interp().topython(make_node(self.P.Int, INT_MAX)), INT_MAX)
-    self.assertEqual(cytest.raw.interp().topython(make_node(self.P.Int, INT_MIN)), INT_MIN)
+      self.assertEqual(values(curry.term(value)), [value])
+      self.assertEqual(cytest.raw.interp().topython(cytest.raw.expr(value)), value)
+      self.assertEqual(values(value), [value])
+      self.assertEqual(values(self.P.Just(value))[0].args, (value,))
+      self.assertEqual(values(curry.term([1, value])), [[1, value]])
+      node = cytest.raw.interp().backend.make_node(self.P.Int, value)
+      self.assertEqual(cytest.raw.interp().topython(node), value)
 
   def test_addition(self):
     plus = self.sym('+')
-    self.assertError('integer overflow: 9223372036854775807 + 1', plus, INT_MAX, 1)
-    self.assertError('integer overflow: 1 + 9223372036854775807', plus, 1, INT_MAX)
-    self.assertError(
-        'integer overflow: 4611686018427387904 + 4611686018427387904'
-      , plus, 2**62, 2**62
-      )
-    self.assertError(
-        'integer overflow: (-9223372036854775808) + (-1)', plus, INT_MIN, -1
-      )
+    self.assertEqual(values(plus, INT_MAX, 1), [(INT_MAX) + (1)])
+    self.assertEqual(values(plus, 1, INT_MAX), [(1) + (INT_MAX)])
+    self.assertEqual(values(plus, 2**62, 2**62), [(2**62) + (2**62)])
+    self.assertEqual(values(plus, INT_MIN, -1), [(INT_MIN) + (-1)])
 
   def test_subtraction(self):
     minus = self.sym('-')
     self.assertEqual(values(minus, INT_MIN, -1), [INT_MIN + 1])
     self.assertEqual(values(minus, INT_MAX, INT_MAX), [0])
-    self.assertError('integer overflow: (-9223372036854775808) - 1', minus, INT_MIN, 1)
-    self.assertError('integer overflow: 9223372036854775807 - (-1)', minus, INT_MAX, -1)
+    self.assertEqual(values(minus, INT_MIN, 1), [(INT_MIN) - (1)])
+    self.assertEqual(values(minus, INT_MAX, -1), [(INT_MAX) - (-1)])
     self.assertEqual(values(minus, -1, INT_MAX), [INT_MIN])
-    self.assertError(
-        'integer overflow: (-2) - 9223372036854775807', minus, -2, INT_MAX
-      )
+    self.assertEqual(values(minus, -2, INT_MAX), [(-2) - (INT_MAX)])
 
   def test_multiplication(self):
     times = self.sym('*')
@@ -102,16 +65,15 @@ class TestIntSemantics(cytest.TestCase):
     self.assertEqual(values(times, INT_MIN, 1), [INT_MIN])
     self.assertEqual(values(times, 3037000499, 3037000499), [3037000499**2])
     self.assertEqual(values(times, INT_MAX, 0), [0])
-    self.assertError('integer overflow: 4294967296 * 2147483648', times, 2**32, 2**31)
-    self.assertError('integer overflow: 3037000500 * 3037000500', times, 3037000500, 3037000500)
-    self.assertError('integer overflow: (-9223372036854775808) * (-1)', times, INT_MIN, -1)
-    self.assertError('integer overflow: 2 * (-9223372036854775808)', times, 2, INT_MIN)
+    self.assertEqual(values(times, 2**32, 2**31), [(2**32) * (2**31)])
+    self.assertEqual(values(times, 3037000500, 3037000500), [(3037000500) * (3037000500)])
+    self.assertEqual(values(times, INT_MIN, -1), [(INT_MIN) * (-1)])
+    self.assertEqual(values(times, 2, INT_MIN), [(2) * (INT_MIN)])
 
   def test_negate(self):
-    # negate x is 0 - x in the Prelude, and the message names that
-    # subtraction; abs of a negative value is negate.
-    self.assertError('integer overflow: 0 - (-9223372036854775808)', self.P.negate, INT_MIN)
-    self.assertError('integer overflow: 0 - (-9223372036854775808)', self.P.abs, INT_MIN)
+    # Negation and abs promote the inline negative endpoint.
+    self.assertEqual(values(self.P.negate, INT_MIN), [abs(INT_MIN)])
+    self.assertEqual(values(self.P.abs, INT_MIN), [abs(INT_MIN)])
     self.assertEqual(values(self.P.abs, INT_MIN + 1), [INT_MAX])
 
   def test_division_semantics(self):
@@ -137,12 +99,8 @@ class TestIntSemantics(cytest.TestCase):
     # The one quotient outside the range; its remainder is zero.
     self.assertEqual(values(self.P.mod, INT_MIN, -1), [0])
     self.assertEqual(values(self.P.rem, INT_MIN, -1), [0])
-    self.assertError(
-        'integer overflow: div (-9223372036854775808) (-1)', self.P.div, INT_MIN, -1
-      )
-    self.assertError(
-        'integer overflow: quot (-9223372036854775808) (-1)', self.P.quot, INT_MIN, -1
-      )
+    self.assertEqual(values(self.P.div, INT_MIN, -1), [(INT_MIN) // (-1)])
+    self.assertEqual(values(self.P.quot, INT_MIN, -1), [(INT_MIN) // (-1)])
 
   def test_division_by_zero(self):
     for name in ['div', 'mod', 'quot', 'rem']:
@@ -180,11 +138,9 @@ class TestIntSemantics(cytest.TestCase):
       self.assertEqual(values(convert, 0.0), [0], name)
       # ceiling and floor convert through truncate, and the message names it.
       named = 'round' if name == 'round' else 'truncate'
-      self.assertError('integer overflow: %s 1.0e+30' % named, convert, 1e30)
-      self.assertError('integer overflow: %s (-1.0e+30)' % named, convert, -1e30)
-      self.assertError(
-          'integer overflow: %s 9.223372036854776e+18' % named, convert, 2.0**63
-        )
+      self.assertEqual(values(convert, 1e30), [int(1e30)])
+      self.assertEqual(values(convert, -1e30), [int(-1e30)])
+      self.assertEqual(values(convert, 2.0**63), [int(2.0**63)])
       self.assertError('integer overflow: %s Infinity' % named, convert, math.inf)
       self.assertError('integer overflow: %s (-Infinity)' % named, convert, -math.inf)
       self.assertError('integer overflow: %s NaN' % named, convert, math.nan)
@@ -199,50 +155,16 @@ class TestIntSemantics(cytest.TestCase):
     self.assertEqual(values(P.floor, -2.1), [-3])
 
   def test_literal_outside_the_range(self):
-    # A Curry Int literal outside the range is IntOverflowError at the
-    # build, just as a Python int is. Case patterns are checked too.
-    big_text = re.escape('99999999999999999999 ' + RANGE_TEXT)
-    with self.assertRaisesRegex(curry.IntOverflowError, big_text):
-      module = curry.compile(textwrap.dedent('''
-          big :: Int
-          big = 99999999999999999999
-          '''), name='BigLiteral')
-      values(module.big)
-    with self.assertRaisesRegex(curry.IntOverflowError, big_text):
-      values(curry.parse('99999999999999999999 :: Int'))
-    # A literal of a case pattern is checked as well: the C++ generator
-    # spells it as a constant of the switch.
-    with self.assertRaisesRegex(curry.IntOverflowError, big_text):
-      module = curry.compile(textwrap.dedent('''
-          isBig :: Int -> Bool
-          isBig 99999999999999999999 = True
-          isBig _ = False
-          '''), name='BigPattern')
-      values(module.isBig, 1)
-    # The maximum is a literal.  The minimum is not: -9223372036854775808
-    # is the negation of the literal 9223372036854775808, which is outside
-    # the range; -9223372036854775807 - 1 spells it.
-    module = curry.compile(textwrap.dedent('''
-        top :: Int
-        top = 9223372036854775807
-
-        bottom :: Int
-        bottom = -9223372036854775807 - 1
-        '''), name='EdgeLiteral')
-    self.assertEqual(values(module.top), [INT_MAX])
+    module = curry.compile(textwrap.dedent('\n        big :: Int\n        big = 99999999999999999999\n        isBig :: Int -> Bool\n        isBig 99999999999999999999 = True\n        isBig _ = False\n        bottom :: Int\n        bottom = -9223372036854775808\n        '), name='BigLiterals')
+    self.assertEqual(values(module.big), [99999999999999999999])
+    self.assertEqual(values(module.isBig, 1), [False])
+    # Curry keeps both overlapping rules for the matching literal.
+    self.assertCountEqual(values(module.isBig, 99999999999999999999), [True, False])
     self.assertEqual(values(module.bottom), [INT_MIN])
-    with self.assertRaisesRegex(
-        curry.IntOverflowError, re.escape('9223372036854775808 ' + RANGE_TEXT)
-      ):
-      module = curry.compile(textwrap.dedent('''
-          bottom :: Int
-          bottom = -9223372036854775808
-          '''), name='MinLiteral')
-      values(module.bottom)
+    self.assertEqual(values(curry.parse('99999999999999999999 :: Int')), [99999999999999999999])
 
   def test_read_outside_the_range(self):
-    # read of a numeral outside the range fails the parse, on both backends:
-    # the primitive fails, so reads and read of it have no value.
+    # Reading crosses the inline boundary without losing digits.
     module = curry.compile(textwrap.dedent('''
         readsOk, readsBig :: [(Int, String)]
         readsOk = reads "9223372036854775807"
@@ -254,8 +176,8 @@ class TestIntSemantics(cytest.TestCase):
         '''), name='ReadBig')
     self.assertEqual(values(module.readsOk), [[(INT_MAX, '')]])
     self.assertEqual(values(module.readOk), [INT_MAX])
-    self.assertEqual(values(module.readsBig), [])
-    self.assertEqual(values(module.readBig), [])
+    self.assertEqual(values(module.readsBig), [[(INT_MAX + 1, '')]])
+    self.assertEqual(values(module.readBig), [INT_MAX + 1])
 
   def test_compiled_program(self):
     # A program reaches the same primitives as a goal built from Python.
@@ -274,9 +196,9 @@ class TestIntSemantics(cytest.TestCase):
         '''), name='IntSemantics')
     self.assertEqual(values(module.ok), [INT_MAX])
     self.assertEqual(values(module.fac, 20), [math.factorial(20)])
-    self.assertError('integer overflow: 9223372036854775807 + 1', module.big)
+    self.assertEqual(values(module.big), [INT_MAX + 1])
     self.assertError('division by zero: div 1 0', module.zero)
-    self.assertError('integer overflow: 21 * 2432902008176640000', module.fac, 21)
+    self.assertEqual(values(module.fac, 21), [math.factorial(21)])
 
 if __name__ == '__main__':
   unittest.main()

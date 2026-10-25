@@ -1,6 +1,6 @@
 from . import types
 from ..utility.fmap import fmap
-from ..utility.strings import ensure_str_safe, ensure_str
+from ..utility.strings import ensure_str_safe, ensure_str, int_text
 from ..utility.visitation import dispatch
 from ..utility.trampoline import trampoline
 import collections, json, traceback
@@ -187,6 +187,8 @@ class Encoder(json.JSONEncoder):
     data['__class__'] = self.KEY_MAP.get(clsname, clsname)
     for k in getattr(iobj, '_fields_', iobj.__dict__):
       v = getattr(iobj, k)
+      if isinstance(iobj, types.IInt) and k == 'value' and not -2 ** 63 <= v < 2 ** 63:
+        v = int_text(v)
       vmapper = self.VALUE_MAP.get(k)
       k = self.KEY_MAP.get(k, k)
       if k is not None:

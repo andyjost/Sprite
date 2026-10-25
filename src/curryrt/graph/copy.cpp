@@ -1,3 +1,4 @@
+#include "curryrt/bigint.hpp"
 #include <cstring>
 #include "curryrt/builtins.hpp"
 #include "curryrt/currylib/setfunctions.hpp"
@@ -25,7 +26,7 @@ namespace curryrt
   // table would be freed under its holder (see gc/wdgc.cpp).
   static inline bool is_shared(Node * node)
   {
-    return node->info->tag == T_FREE || is_pinned(*node->info);
+    return is_bigint(node) || node->info->tag == T_FREE || is_pinned(*node->info);
   }
 
   // A copy of a generator node owns a reference of its own (see

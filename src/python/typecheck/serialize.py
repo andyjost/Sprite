@@ -97,7 +97,8 @@ def curry_literal(value, as_char=None):
     return 'True' if value else 'False'
   if isinstance(value, numbers.Integral):
     value = int(value)
-    return '(%d)' % value if value < 0 else '%d' % value
+    text = strings.int_text(value)
+    return '(' + text + ')' if value < 0 else text
   if isinstance(value, numbers.Real):
     return float_text(value)
   if isinstance(value, (str, bytes)):

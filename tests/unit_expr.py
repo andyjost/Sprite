@@ -432,11 +432,10 @@ class TestUnboxedMarker(cytest.TestCase):
       cytest.raw.expr(P.Just, [P.Int, cytest.raw.unboxed(2.5)], typed=True)
     self.assertEqual(cm.exception.where, 'argument 1 of Prelude.Just :: a -> Maybe a')
     self.assertEqual(cm.exception.value, 2.5)
-    # The range of Int is checked where the node is made, on both backends.
-    with self.assertRaisesRegex(curry.IntOverflowError, 'outside the range of Int'):
-      cytest.raw.expr([P.Int, cytest.raw.unboxed(2 ** 64)], typed=True)
-    with self.assertRaisesRegex(curry.IntOverflowError, 'outside the range of Int'):
-      cytest.raw.expr([P.Int, cytest.raw.unboxed(2 ** 64)])
+    # Both builders preserve an integer beyond the inline representation.
+    for typed in [False, True]:
+      node = cytest.raw.expr([P.Int, cytest.raw.unboxed(2 ** 64)], typed=typed)
+      self.assertEqual(interp.topython(node), 2 ** 64)
 
   def test_iterator(self):
     '''An item of an iterator converts when the list is demanded: the error names the marker.'''

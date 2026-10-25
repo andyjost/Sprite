@@ -93,7 +93,8 @@ namespace curryrt
   , OP_CASE_CONS
     // v k kind n (lo hi pc)...  head-normalize vars[v] with the value set
     //           consts[k]; continue at the branch whose 64-bit value (lo,
-    //           hi) is the value of the node; no branch: the step fails
+    //           hi) is the value of the node; kind 'p' stores an index of an
+    //           Int node in consts instead. No branch: the step fails
   , OP_CASE_LIT
   , NUM_OPCODES
   };

@@ -116,7 +116,9 @@ def disassemble(code, consts=None):
       entries = []
       for i in range(count):
         lo, hi, target = code[pc + 5 + 3 * i: pc + 8 + 3 * i]
-        entries.append('%s:%d' % (_show_value(kind, lo | (hi << 32)), target))
+        bits = lo | (hi << 32)
+        value = _show_const(consts, bits) if kind == 'p' else _show_value(kind, bits)
+        entries.append('%s:%d' % (value, target))
       yield '%4d %s v%d %s %s [%s]' % (
           pc, name, code[pc + 1], _show_const(consts, code[pc + 2]), kind
         , ', '.join(entries)
@@ -485,7 +487,11 @@ class _Emitter(object):
       from .compiler import _check_int_literal
       for lit in lits:
         _check_int_literal(lit.value)
-      bits = [lit.value & MASK64 for lit in lits]
+      if any(not -(1 << 63) <= lit.value < (1 << 63) for lit in lits):
+        kind = 'p'
+        bits = [self.literal(lit) for lit in lits]
+      else:
+        bits = [lit.value & MASK64 for lit in lits]
     elif all(isinstance(lit, icurry.IChar) for lit in lits):
       kind = 'c'
       bits = [ord(lit.value) for lit in lits]

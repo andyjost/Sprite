@@ -1,3 +1,4 @@
+#include "curryrt/bigint.hpp"
 #include <cassert>
 #include "curryrt/builtins.hpp"
 #include "curryrt/state/rts.hpp"
@@ -39,6 +40,12 @@ namespace curryrt
       stack.pop_back();
       if(p == q)
         continue;
+      if(p && q && is_int(*p->info) && is_int(*q->info))
+      {
+        if(++cells > SAME_BINDING_BUDGET || integer_compare(p, q) != 0)
+          return false;
+        continue;
+      }
       if(!p || !q || p->info != q->info || p->info->tag < T_CTOR)
         return false;
       if(++cells > SAME_BINDING_BUDGET)
@@ -111,7 +118,7 @@ namespace curryrt
       assert(size);
       if(size==1)
       {
-        Node * value = Node::create(this->info, data[0]);
+        Node * value = this->info ? Node::create(this->info, data[0]) : data[0].node;
         Node * binding = pair(freevar, value);
         return Node::create(&ValueBinding_Info, value, binding);
       }
@@ -130,7 +137,7 @@ namespace curryrt
 
   Node * RuntimeState::make_value_bindings(Node * freevar, ValueSet const * values)
   {
-    ValueBindingsMaker maker(this, freevar, builtin_info(values->kind));
+    ValueBindingsMaker maker(this, freevar, values->kind == 'p' ? nullptr : builtin_info(values->kind));
     return maker.make(values->args, values->size);
   }
 }

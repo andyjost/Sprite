@@ -621,10 +621,6 @@ def _convert_leaf(interp, value):
     return typed(value, 'Bool')
   if isinstance(value, float):
     return typed(value, 'Float')
-  if isinstance(value, int) and not -2 ** 63 <= value < 2 ** 63:
-    from ..exceptions import IntOverflowError
-    raise IntOverflowError('%s is outside the range of Int (%s to %s)'
-        % (value, -2 ** 63, 2 ** 63 - 1))
   if isinstance(value, IteratorSource):
     return value
   if isinstance(value, Iterator):
