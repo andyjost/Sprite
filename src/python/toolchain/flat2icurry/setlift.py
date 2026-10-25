@@ -25,8 +25,9 @@ call:
 
   - A new function ``L x_1 .. x_k = e``, ``Private``, with the arity ``k``
     and a fresh polymorphic type ``forall a_0 .. a_k. a_0 -> .. -> a_k``
-    (the file is written to disk, and a reader of the file may read the
-    type; the ICurry compiler ignores it).  A type annotation at the root
+    for old-format input. Typed input uses the captured parameter types
+    and the expression's result type instead (the file is written to disk,
+    and a reader may read the type; the ICurry compiler ignores it).  A type annotation at the root
     of ``e`` is removed first: a root annotation over a let, a free
     declaration or a case meets a defect of ``icurry`` 3.1.0 (see
     ``compiler.to_iblock``).
@@ -158,11 +159,11 @@ def captured_vars(e):
     elif isinstance(x, fc.Comb):
       stack.extend((arg, bound) for arg in reversed(x.args))
     elif isinstance(x, fc.Let):
-      inner = bound | frozenset(v for v, _ in x.bindings)
-      items = [b for _, b in x.bindings] + [x.body]
+      inner = bound | frozenset(v for v, _ in fc.let_bindings(x.bindings))
+      items = [b for _, b in fc.let_bindings(x.bindings)] + [x.body]
       stack.extend((item, inner) for item in reversed(items))
     elif isinstance(x, fc.Free):
-      stack.append((x.body, bound | frozenset(x.vars)))
+      stack.append((x.body, bound | frozenset(fc.free_vars(x.vars))))
     elif isinstance(x, fc.Or):
       stack.append((x.rhs, bound))
       stack.append((x.lhs, bound))
@@ -204,7 +205,7 @@ def contains_set0(e):
       stack.extend(reversed([br.body for br in e.branches]))
       stack.append(e.scrutinee)
     elif isinstance(e, fc.Let):
-      stack.extend(reversed([b for _, b in e.bindings]))
+      stack.extend(reversed([b for _, b in fc.let_bindings(e.bindings)]))
       stack.append(e.body)
     else:
       raise TypeError('not an expression: %r' % (e,))
@@ -218,11 +219,12 @@ class LiftState:
   creation (an inner ``set0`` before the ``set0`` around it).
   '''
 
-  def __init__(self, qname, names):
+  def __init__(self, qname, names, types=None):
     self.modname, self.funcname = qname
     self.names = names
     self.index = 0
     self.lifted = []
+    self.types = types
 
   def gen_name(self):
     while True:
@@ -241,8 +243,15 @@ class LiftState:
     assert vs
     name = self.gen_name()
     k = len(vs)
+    te = lift_type(k)
+    if self.types is not None:
+      te = self.types.expression(arg)
+      for v in reversed(vs):
+        te = fc.FuncType(self.types.resolve(self.types.variables[v]), te)
+      te = fc.quantify_type(te, self.types.kinds)
+      self.types.schemes[name] = te
     self.lifted.append(
-        fc.Func(name, k, fc.Private, lift_type(k), fc.Rule(list(vs), strip_typed(arg)))
+        fc.Func(name, k, fc.Private, te, fc.Rule(list(vs), strip_typed(arg)))
       )
     if k <= MAX_ARITY:
       head = fc.Comb(fc.FuncPartCall(k), name, [])
@@ -290,16 +299,17 @@ def transform_exp(state, e):
       return fc.Case(e.casetype, scrutinee, branches)
     elif isinstance(e, fc.Let):
       bindings = []
-      for v, b in e.bindings:
+      for binding in e.bindings:
+        v, b = binding[0], binding[-1]
         b = yield rec(b)
-        bindings.append((v, b))
+        bindings.append(fc.binding_expr(binding, b))
       body = yield rec(e.body)
       return fc.Let(bindings, body)
     raise TypeError('not an expression: %r' % (e,))
 
   return trampoline(rec(e))
 
-def transform_func(fd, names):
+def transform_func(fd, names, schemes=None):
   '''
   Transforms a function declaration.  Returns the declaration and the list
   of the functions lifted out of it.  ``names`` is the set of the qualified
@@ -309,7 +319,8 @@ def transform_func(fd, names):
   '''
   if isinstance(fd.rule, fc.External) or not contains_set0(fd.rule.body):
     return fd, []
-  state = LiftState(fd.name, names)
+  types = fc.LocalTypes(fd, schemes) if schemes is not None else None
+  state = LiftState(fd.name, names, types)
   body = transform_exp(state, fd.rule.body)
   if not state.lifted:
     return fd, []
@@ -318,17 +329,18 @@ def transform_func(fd, names):
     )
   return newfd, state.lifted
 
-def transform_prog(prog):
+def transform_prog(prog, interfaces=()):
   '''
   Transforms a FlatCurry program.  Returns the new program and the number
   of ``set0`` calls lifted, or the program itself and zero.  A lifted
   function follows the function it was lifted out of.
   '''
   names = set(fd.name for fd in prog.functions)
+  schemes = fc.type_signatures([prog] + list(interfaces)) if fc.typed_format(prog, interfaces) else None
   functions = []
   total = 0
   for fd in prog.functions:
-    fd, lifted = transform_func(fd, names)
+    fd, lifted = transform_func(fd, names, schemes)
     functions.append(fd)
     functions.extend(lifted)
     total += len(lifted)
@@ -358,7 +370,9 @@ def optimize_file(fcyfile):
   number of calls lifted.
   '''
   prog = fc.load(fcyfile)
-  newprog, n = transform_prog(prog)
+  from .interfaces import local_type_interfaces
+  interfaces = local_type_interfaces(fcyfile, prog)
+  newprog, n = transform_prog(prog, interfaces)
   if n:
     fc.write(newprog, fcyfile)
   return n

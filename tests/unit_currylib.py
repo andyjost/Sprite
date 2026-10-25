@@ -243,7 +243,7 @@ class TestCurryLib(cytest.TestCase):
 
   def test_install_interfaces(self):
     """CMake installs the interfaces and pinned products of its build image."""
-    build = os.path.join(ROOT, 'object-root', 'cmake')
+    build = os.environ.get('SPRITE_TEST_BUILD_DIR', os.path.join(ROOT, 'object-root', 'cmake'))
     if not os.path.isfile(os.path.join(build, 'CMakeCache.txt')):
       self.skipTest('the source tree has no CMake build')
     cmake = cmake_executable(build)

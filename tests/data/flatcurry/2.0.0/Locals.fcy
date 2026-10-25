@@ -1,0 +1,1 @@
+Prog "Locals" ["Prelude"] [] [Func ("Locals","goal") 0 Public (TCons ("Prelude","Int") []) (Rule [] (Free [1] (Let [(2,Comb FuncCall ("Prelude","_impl#+#Prelude.Num#Prelude.Int") [Var 1,Lit (Intc 1)])] (Comb FuncCall ("Prelude","_impl#+#Prelude.Num#Prelude.Int") [Var 2,Var 2]))))] []
