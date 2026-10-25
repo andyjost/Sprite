@@ -29,8 +29,12 @@ if [ ! -d "$PAKCS_HOME" ]; then
   exit 1
 fi
 cd "$PAKCS_HOME"
-# The distribution sets a stack limit for SWI-Prolog 8 only.  Give 9 the same.
-sed -i 's/^\([[:space:]]*\)8 )/\18 | 9 )/' scripts/pakcs-makesavedstate.sh
+# The 3.4.1 distribution sets a stack limit for SWI-Prolog 8 only.  Give 9
+# the same.  The 3.10.0 distribution has no such script (its saved-state
+# script is made by its own configure step and knows 9).
+if [ -f scripts/pakcs-makesavedstate.sh ]; then
+  sed -i 's/^\([[:space:]]*\)8 )/\18 | 9 )/' scripts/pakcs-makesavedstate.sh
+fi
 timeout 900 make SWIPROLOG="$(command -v swipl)"
 export PATH="$PAKCS_HOME/bin:$PATH"
 
