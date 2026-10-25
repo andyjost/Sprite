@@ -736,12 +736,12 @@ step_next() {
         ccache:      $prefix/ccache (CCACHE_DIR)
         clean env:   ${clean_env[*]}
 
-    1. Compile the shared Curry products once (the prepare pass; a fresh
-       checkout needs it before the files run, and before a calibration,
-       whose durations would otherwise include it), then calibrate the
-       test manifest on this machine: run every test file once on a
-       quiet machine with the manifest update of the test runner (see
-       ./run_tests -h and section 10 of tests/README):
+    1. Calibrate the test manifest on this machine, after the prepare
+       pass, which compiles the shared Curry products once (a fresh
+       checkout needs it before the files run, and the durations of a
+       calibration would include it otherwise): run every test file
+       once on a quiet machine with the manifest update of the test
+       runner (see ./run_tests -h and section 10 of tests/README):
 
            cd $repo/tests
            ./run_tests --prepare-only --backend cxx
