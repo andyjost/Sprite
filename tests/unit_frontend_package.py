@@ -31,9 +31,9 @@ class TestFrontendWheel(unittest.TestCase):
       self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
       platform = sysconfig.get_platform().replace('-', '_').replace('.', '_')
       wheel, = wheels.glob('*.whl')
-      self.assertEqual(wheel.name, 'curry_frontend-2.0.0.post5-py3-none-%s.whl' % platform)
+      self.assertEqual(wheel.name, 'curry_frontend-2.0.0.post6-py3-none-%s.whl' % platform)
       with zipfile.ZipFile(wheel) as archive:
-        metadata = archive.read('curry_frontend-2.0.0.post5.dist-info/METADATA').decode()
+        metadata = archive.read('curry_frontend-2.0.0.post6.dist-info/METADATA').decode()
       self.assertIn('\nName: curry-frontend\n', metadata)
       # The description of the PyPI page: the release workflow's strict twine
       # check refuses a wheel without one.

@@ -10,7 +10,7 @@ workflow after reviewing the source-build artifacts.
 
 | Program | Package | Source | Stack resolver | GHC |
 | --- | --- | --- | --- | --- |
-| 2.0.0 | 2.0.0.post5 | PAKCS 3.4.1 source archive | lts-16.9 on Linux x86-64 | 8.8.3; Cabal with 9.6.7 on aarch64/macOS |
+| 2.0.0 | 2.0.0.post6 | PAKCS 3.4.1 source archive | lts-16.9 on Linux x86-64 | 8.8.3; Cabal with 9.6.7 on aarch64/macOS |
 | 3.1.0 | 3.1.0.post1 | cau-placc/curry-frontend tag v3.1.0 on GitHub | lts-23.19 on both Linux architectures | 9.8.4 expected; Stack must confirm against the locked snapshot |
 
 `fetch.py` pins the URLs and SHA-256 values for both sources. The 3.1.0
@@ -39,6 +39,15 @@ PAKCS binary's measured floor is not a source-build portability result.
 Mach-O bundling retains the maximum deployment target of executable and
 vendored GMP, `@loader_path` relocation and ad hoc signing. No new macOS
 source-build lane is added for 3.1.0.
+
+`2.0.0.post6` adds the two macOS wheels (issue #162, step 3): the job
+`macos` of the workflow builds the same source on `macos-15` (Apple
+Silicon) and `macos-15-intel` with GHC 9.6.7 and Cabal from ghcup, vendors
+the GMP of Homebrew beside the executable with `@loader_path`
+(`package.py`), and tags the wheel with the floor of its files
+(`tag-wheel.py`), the macOS of the Homebrew bottle, 15.0 on those runners.
+Parity runs on both architectures. The release workflow expects four
+wheels. The conda package is unchanged.
 
 ## Scripts
 
@@ -73,7 +82,7 @@ source-build lane is added for 3.1.0.
 
 The native payload installs in platlib as `py3-none-PLATFORM`, with a Python
 console script that replaces its process with the executable. Direct
-`setup.py` builds default to 2.0.0.post5; `CURRY_FRONTEND_VERSION=3.1.0`
+`setup.py` builds default to 2.0.0.post6; `CURRY_FRONTEND_VERSION=3.1.0`
 selects 3.1.0.post1. `package.py` sets it from the validated binary.
 Packaging revisions increment `.postN`; the program's `--numeric-version`
 stays 2.0.0 or 3.1.0 respectively.
@@ -94,8 +103,9 @@ named artifacts, and leaves 3.1.0 advisory. Default artifacts start with
 so the existing Sprite wheel workflow continues selecting only 2.0.0. Review source pins, compiler
 logs, ELF floors, versioned byte parity and wheel smoke results twice.
 `release-frontend.yml` takes a source run id, version (default 2.0.0), and
-index. It collects only that version's two tagged wheels, checks metadata,
-installs the x86-64 wheel and checks its numeric version before the
+index. It collects the tagged wheels of that version (four for 2.0.0, the
+macOS wheels included; two for 3.1.0), checks metadata, installs the
+manylinux x86-64 wheel and checks its numeric version before the
 protected `pypi` environment permits Trusted Publishing. Publishing is
 always the owner's dispatch.
 

@@ -28,7 +28,7 @@ PAKCS
     Curry to FlatCurry, and the test oracle.  The supported configurations are front end 2.0.0 with PAKCS
     3.4.1 (the default) and front end 3.1.0 with PAKCS 3.10.0. The latter
     has advisory Linux unit and functional CI shards; it becomes the default
-    only at upgrade stage G. Front-end packages are 2.0.0.post5 and
+    only at upgrade stage G. Front-end packages are 2.0.0.post6 and
     3.1.0.post1, with separate parity references.
 
 ICurry

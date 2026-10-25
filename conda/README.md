@@ -7,7 +7,7 @@ front-end recipe selects the corresponding checksum-pinned PAKCS archive
 or checks a source-built `SPRITE_FRONTEND_ARTIFACT`; the Sprite recipe
 pins the same front-end version and smokes `.curry/sprite-pakcs-3.10.0/`.
 The default smoke path remains `.curry/sprite-pakcs-3.4.1/`. Source wheel
-versions are 2.0.0.post5 and 3.1.0.post1; conda uses upstream versions and
+versions are 2.0.0.post6 and 3.1.0.post1; conda uses upstream versions and
 build numbers 4 and 1 respectively. The 3.1.0 binary repack needs glibc 2.34, measured from the pinned
 PAKCS executable; source artifacts use their recorded floor. The 3.1.0
 recipes have not been built.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "curry-frontend"
-# setup.py selects 2.0.0.post5 (default) or 3.1.0.post1.
+# setup.py selects 2.0.0.post6 (default) or 3.1.0.post1.
 dynamic = ["version"]
 description = "The Curry to FlatCurry front end shipped with PAKCS 3.4.1 or 3.10.0"
 readme = "README.pypi.md"

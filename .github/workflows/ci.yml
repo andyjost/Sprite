@@ -365,25 +365,35 @@ jobs:
         if: always()
         run: ccache -s | head -n 6
 
-  # macOS on Apple Silicon (issue #162): the runtime and the Curry library
-  # build with the compilers of the Xcode command line tools, and the unit
-  # suite runs in the default mode of the platform, interpret:tiered, as on
-  # Linux: the swap of the tiered mode binds a compiled object to the tables
-  # the interpreter made through slots the loader fills (issue #163; see
+  # macOS (issue #162): the runtime and the Curry library build with the
+  # compilers of the Xcode command line tools, and the unit suite runs in
+  # the default mode of the platform, interpret:tiered, as on Linux: the
+  # swap of the tiered mode binds a compiled object to the tables the
+  # interpreter made through slots the loader fills (issue #163; see
   # curry.interpreter.flags).  The front end is built from source on the
-  # runner, as frontend.yml builds it on Linux aarch64, and cached by the
-  # recipe that made it; the first run of a new recipe takes about half an
-  # hour more.  The job gates master since its second green run in the
-  # default mode (runs 40155455473 and 40161622699).
+  # runner, as frontend.yml builds it, and cached by the recipe that made it
+  # and the architecture; the first run of a new recipe takes about half an
+  # hour more.  Apple Silicon (macos-15) gates master since its second green
+  # run in the default mode (runs 40155455473 and 40161622699); Intel
+  # (macos-15-intel; step 5) gates nothing until it is green twice.
   macos:
-    name: macOS arm64 ${{ matrix.shard }}
+    name: macOS ${{ matrix.arch }} ${{ matrix.shard }}
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/wt/macos')
-    runs-on: macos-15
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 150
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
+        runner: [macos-15, macos-15-intel]
         shard: ['1/2', '2/2']
+        include:
+          - runner: macos-15
+            arch: arm64
+            experimental: false
+          - runner: macos-15-intel
+            arch: x86_64
+            experimental: true
     env:
       GHC_VERSION: '9.6.7'
       CABAL_VERSION: '3.10.3.0'
@@ -411,7 +421,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: frontend-work/bundle
-          key: curry-frontend-macos-arm64-ghc${{ env.GHC_VERSION }}-${{ hashFiles('frontend/patches/*.patch', 'frontend/build.sh', 'frontend/package.py', 'frontend/fetch.py', '.github/scripts/install-curry-frontend-macos.sh') }}
+          key: curry-frontend-macos-${{ matrix.arch }}-ghc${{ env.GHC_VERSION }}-${{ hashFiles('frontend/patches/*.patch', 'frontend/build.sh', 'frontend/package.py', 'frontend/fetch.py', '.github/scripts/install-curry-frontend-macos.sh') }}
       - name: Build the Curry front end from source
         if: steps.frontend.outputs.cache-hit != 'true'
         run: .github/scripts/install-curry-frontend-macos.sh
@@ -419,10 +429,10 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: tests/.cache
-          key: icurry-cache-macos-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_id }}
+          key: icurry-cache-macos-${{ matrix.arch }}-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_id }}
           restore-keys: |
-            icurry-cache-macos-${{ matrix.shard }}-
-            icurry-cache-macos-
+            icurry-cache-macos-${{ matrix.arch }}-${{ matrix.shard }}-
+            icurry-cache-macos-${{ matrix.arch }}-
       - name: Install Python packages
         run: python -m pip install --quiet cmake ninja scikit-build-core numpy
       - name: Configure and stage
@@ -465,7 +475,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: tests/.cache
-          key: icurry-cache-macos-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_id }}
+          key: icurry-cache-macos-${{ matrix.arch }}-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_id }}
       - name: Upload the logs of the front end build on a failure
         if: failure()
         uses: actions/upload-artifact@v4

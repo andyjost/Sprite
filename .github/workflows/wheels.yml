@@ -60,7 +60,7 @@ jobs:
           run-id: ${{ steps.run.outputs.id }}
           pattern: frontend-*
           path: frontend-artifacts
-      - name: Keep only the manylinux wheels for both architectures
+      - name: Keep the tagged wheels, the manylinux ones for both architectures and the macOS ones
         env:
           FRONTEND_SOURCE: ${{ inputs.frontend_source }}
         run: |
@@ -74,10 +74,19 @@ jobs:
           from pathlib import Path
           import shutil
           wheels = list(Path('frontend-artifacts').glob('*/dist/curry_frontend-*.whl'))
-          for arch in ('x86_64', 'aarch64'):
-              matches = [p for p in wheels if f'manylinux_2_28_{arch}'
-                         in p.stem.rsplit('-', 1)[-1].split('.')]
-              assert matches, arch
+          def tagged(p, prefix, arch):
+              tags = p.stem.rsplit('-', 1)[-1].split('.')
+              return any(t.startswith(prefix) and t.endswith('_' + arch) for t in tags)
+          # The two manylinux wheels are required; the macOS wheels (issue
+          # #162, step 3) are kept when the run has them.
+          for prefix, arch, required in (
+                  ('manylinux_2_28', 'x86_64', True), ('manylinux_2_28', 'aarch64', True)
+                , ('macosx', 'arm64', False), ('macosx', 'x86_64', False)):
+              matches = [p for p in wheels if tagged(p, prefix, arch)]
+              assert matches or not required, (prefix, arch)
+              if not matches:
+                  print('No wheel for', prefix, arch)
+                  continue
               # A rerun keeps earlier attempt artifacts on the same run.
               matches.sort(key=lambda p: int(p.parents[1].name.rsplit('-', 1)[1]))
               print('Selected', matches[-1])
