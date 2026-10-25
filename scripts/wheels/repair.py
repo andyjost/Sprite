@@ -133,13 +133,23 @@ def run_paths(path):
   return re.findall(r'LC_RPATH.*?path (\S+)', otool('-l', str(path)), re.S)
 
 
-def inspect_wheel_darwin(wheel):
-  """Check every Mach-O file of the wheel; return the report of their load commands."""
+def wheel_tag_floor(wheel):
+  """The macOS floor and the architecture of the platform tag of a wheel."""
   match = re.search(r'-macosx_(\d+)_(\d+)_(arm64|x86_64)\.whl$', wheel.name)
   assert match, wheel.name
-  tag_floor = (int(match.group(1)), int(match.group(2)))
-  assert match.group(3) == {'arm64': 'arm64', 'x86_64': 'x86_64'}[platform.machine()], wheel.name
+  return (int(match.group(1)), int(match.group(2))), match.group(3)
+
+
+def inspect_wheel_darwin(wheel, check_floor=True):
+  """
+  Check every Mach-O file of the wheel; return the report of their load
+  commands and the highest floor among them.  With ``check_floor`` a floor
+  above the tag's is an error.
+  """
+  tag_floor, arch = wheel_tag_floor(wheel)
+  assert arch == platform.machine(), wheel.name
   report = []
+  highest = (0, 0)
   with tempfile.TemporaryDirectory() as directory, zipfile.ZipFile(wheel) as archive:
     names = archive.namelist()
     assert names.count('curry/_sprite/lib/libcurryrt.dylib') == 1, names
@@ -161,27 +171,48 @@ def inspect_wheel_darwin(wheel):
         assert name.startswith(MACOS_SYSTEM_DIRS) \
             or name.startswith(('@rpath/', '@loader_path/')) \
             or name in install_names, (str(relative), name)
-      assert floor is None or floor <= tag_floor, (str(relative), floor, tag_floor)
+      if floor is not None:
+        highest = max(highest, floor)
+        assert not check_floor or floor <= tag_floor, (str(relative), floor, tag_floor)
       if '_curryrtbindings.' in path.name:
         extension_seen = True
         assert '@loader_path/../../../_sprite/lib' in run_paths(path), run_paths(path)
         assert any(name.endswith('libcurryrt.dylib') for name in libraries), libraries
     assert extension_seen, 'Missing Python extension'
-  return '\n'.join(report) + '\n'
+  return '\n'.join(report) + '\n', highest
 
 
 def save_report_darwin(wheel):
-  report = inspect_wheel_darwin(wheel)
+  report, _ = inspect_wheel_darwin(wheel)
   print(report, flush=True)
   wheel.with_suffix('.otool.txt').write_text(report)
 
 
 def repair_darwin(wheel, output):
-  """The wheel is checked and copied: there is nothing to vendor and the tag is the build's."""
-  inspect_wheel_darwin(wheel)
+  """
+  The wheel is checked and copied: there is nothing to vendor.  A wheel
+  whose tag claims a floor below the highest floor of its files is tagged
+  with that floor first (the deployment target of the build), as the wheel
+  of the front end is (frontend/tag-wheel.py).
+  """
+  report, highest = inspect_wheel_darwin(wheel, check_floor=False)
+  tag_floor, arch = wheel_tag_floor(wheel)
   output.mkdir(parents=True, exist_ok=True)
-  target = output / wheel.name
-  shutil.copy2(wheel, target)
+  if highest > tag_floor:
+    tag = 'macosx_%d_%d_%s' % (highest[0], highest[1], arch)
+    print('Tagging %s with %s, the floor of its files' % (wheel.name, tag), flush=True)
+    with tempfile.TemporaryDirectory() as directory:
+      staged = Path(directory) / wheel.name
+      shutil.copy2(wheel, staged)
+      subprocess.run([sys.executable, '-m', 'wheel', 'tags', '--remove',
+                      '--platform-tag', tag, str(staged)], check=True)
+      tagged = list(Path(directory).glob('*.whl'))
+      assert len(tagged) == 1, tagged
+      target = output / tagged[0].name
+      shutil.copy2(tagged[0], target)
+  else:
+    target = output / wheel.name
+    shutil.copy2(wheel, target)
   save_report_darwin(target)
 
 

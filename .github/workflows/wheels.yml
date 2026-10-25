@@ -130,6 +130,12 @@ jobs:
     needs: frontend
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 150
+    env:
+      # Read by cibuildwheel itself before it names the host platform of the
+      # build, so the tag of a macOS wheel is 13.3 as well (the setting in
+      # CIBW_ENVIRONMENT_MACOS reaches the compiler alone; the first run at
+      # 13.3 built files with that floor under the tags 11.0 and 10.9).
+      MACOSX_DEPLOYMENT_TARGET: '13.3'
     strategy:
       fail-fast: false
       matrix:
@@ -186,6 +192,7 @@ jobs:
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: >-
             python /project/scripts/wheels/repair.py {wheel} {dest_dir}
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >-
+            python -m pip install --quiet wheel &&
             python {project}/scripts/wheels/repair.py {wheel} {dest_dir}
           CIBW_TEST_COMMAND: python {project}/scripts/wheels/smoke.py
       - name: Save the evidence beside the final wheels, auditwheel show or the load commands
