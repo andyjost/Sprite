@@ -192,16 +192,16 @@ print(value, curryrt.gc_collections() - before)
     shlib = getHandle(self.M).icurry.metadata['cxx.shlib']
     text = cytest.readfile(shlib.sofilename()[:-len('.so')] + '.cpp')
     self.assertRegex(
-        text, r'return _0->rewrite\(&CyI10CxxRewrite4walk, _\d+\);'
+        text, r'return _0->rewrite\(CyX10CxxRewrite4walk, _\d+\);'
       )
-    self.assertRegex(text, r'return _0->rewrite\(&CyI7Prelude4Just, _\d+\);')
+    self.assertRegex(text, r'return _0->rewrite\(CyX7Prelude4Just, _\d+\);')
     self.assertRegex(
-        text, r'_0->forward_to\(&CyI10CxxRewrite5Three, _\d+, _\d+, _\d+\);'
+        text, r'_0->forward_to\(CyX10CxxRewrite5Three, _\d+, _\d+, _\d+\);'
       )
     self.assertRegex(text, r'return _0->forward_or_copy\(_\d+\);')
-    self.assertIn('_0->forward_to(&CyI7Prelude4True);\n', text)
-    self.assertIn('return _0->rewrite(&CyI10CxxRewrite3Red);', text)
-    self.assertIn('return _0->rewrite(&CyI7Prelude3Int, Arg(5));', text)
+    self.assertIn('_0->forward_to(CyX7Prelude4True);\n', text)
+    self.assertIn('return _0->rewrite(CyX10CxxRewrite3Red);', text)
+    self.assertIn('return _0->rewrite(CyX7Prelude3Int, Arg(5));', text)
     self.assertNotIn('forward_or_copy(int_(', text)
 
 

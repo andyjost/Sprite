@@ -1,6 +1,7 @@
 #include <cassert>
 #include "curryrt/dynload.hpp"
 #include "curryrt/exceptions.hpp"
+#include "curryrt/module.hpp"
 #include <dlfcn.h>
 #include <iostream>
 #include <sstream>
@@ -93,6 +94,8 @@ namespace
         this->out.aliases.emplace(
             text(record.aliases[i].name), text(record.aliases[i].target)
           );
+      // The bound tables (see the binding in dynload.hpp): the slots were
+      // filled before the record is decoded.
       for(unsigned i=0; i<record.n_types; ++i)
       {
         bom::Type const & type = record.types[i];
@@ -101,7 +104,7 @@ namespace
           for(index_type j=0; j<type.type->size; ++j)
             ctors.push_back(this->metadata(type.constructors[j]));
         this->out.types.emplace_back(
-            this->metadata(type.metadata), std::move(ctors), type.type
+            this->metadata(type.metadata), std::move(ctors), *type.slot
           );
       }
       for(unsigned i=0; i<record.n_functions; ++i)
@@ -109,8 +112,86 @@ namespace
         bom::Function const & function = record.functions[i];
         this->out.functions.emplace_back(
             bool(function.visibility), this->metadata(function.metadata)
-          , function.info
+          , *function.slot
           );
+      }
+    }
+  };
+
+  // The binder of one module record; see the binding in dynload.hpp.  The
+  // tables of the symbols the module defines come from the module of its
+  // name in the registry (Module::bind_infotable, Module::bind_type), when
+  // one is loaded: the Python side makes it before it loads an object over
+  // the tables the interpreter made (loader.py and tiered.py); the load of
+  // a module nobody interprets, the Prelude at the start of a process, say,
+  // finds none and takes the tables of the object.  The tables of the
+  // other symbols come from the modules that define them, or from the
+  // built-ins of the runtime.
+  struct Binder
+  {
+    std::string const & sofilename;
+    bom::Module const & record;
+    std::shared_ptr<Module> owner;
+
+    Binder(std::string const & sofilename, bom::Module const & record)
+      : sofilename(sofilename), record(record)
+      , owner(Module::find(record.fullname))
+    {}
+
+    [[noreturn]] void unresolved(
+        char const * what, char const * module, char const * name
+      )
+    {
+      std::stringstream ss;
+      ss << "cannot load " << sofilename << ": the " << what << " "
+         << (name ? name : "") << " of module " << (module ? module : "")
+         << " is not loaded";
+      throw DynloadError(ss.str());
+    }
+
+    void run()
+    {
+      for(unsigned i=0; i<record.n_types; ++i)
+      {
+        bom::Type const & type = record.types[i];
+        DataType const * bound = owner ? owner->bind_type(type.type)
+                                       : type.type;
+        *type.slot = bound;
+        for(index_type j=0; j<type.type->size; ++j)
+        {
+          assert(std::string(bound->ctors[j]->name) == type.type->ctors[j]->name);
+          *type.ctor_slots[j] = bound->ctors[j];
+        }
+      }
+      for(unsigned i=0; i<record.n_functions; ++i)
+      {
+        bom::Function const & function = record.functions[i];
+        *function.slot = owner ? owner->bind_infotable(function.info)
+                               : function.info;
+      }
+      for(unsigned i=0; i<record.n_info_slots; ++i)
+      {
+        bom::InfoSlot const & slot = record.info_slots[i];
+        InfoTable const * info = nullptr;
+        if(auto module = Module::find(slot.module))
+          info = module->get_infotable(slot.name);
+        if(!info)
+          info = Module::builtin_symbol(slot.module, slot.name);
+        if(!info)
+          this->unresolved("symbol", slot.module, slot.name);
+        *slot.slot = info;
+      }
+      for(unsigned i=0; i<record.n_type_slots; ++i)
+      {
+        bom::TypeSlot const & slot = record.type_slots[i];
+        DataType const * type = nullptr;
+        if(auto module = Module::find(slot.module))
+          type = module->get_type(slot.name);
+        if(!type)
+          type = Module::builtin_type(slot.module, slot.name);
+        if(!type)
+          this->unresolved("type", slot.module, slot.name);
+        *slot.slot = type;
       }
     }
   };
@@ -169,8 +250,11 @@ namespace curryrt
     this->init(true);
   }
 
-  // Reads the record of the module and registers the library.  With
-  // ``fresh`` the library never joins the entry of its name.
+  // Reads the record of the module, binds its slots, runs its initializer
+  // and registers the library.  With ``fresh`` the library never joins the
+  // entry of its name.  A library that joins an entry was bound at its own
+  // load (dlopen of a mapped file gives the mapped library), so its slots
+  // are left as they are.
   void SharedCurryModule::init(bool fresh)
   {
     std::string const & sofilename = this->sofilename();
@@ -200,6 +284,16 @@ namespace curryrt
       this->_info = pinfo->second.lock();
     if(!this->_info)
     {
+      Binder binder(sofilename, *record);
+      binder.run();
+      // The initializer makes the nodes of the literals of the module from
+      // the bound tables (see backends/cxx/compiler.py).
+      auto init = dlsym(this->handle(), "_sprite_init_");
+      if(!init)
+        throw DynloadError(
+            "cannot load " + sofilename + ": the module has no initializer"
+          );
+      ((void (*)()) init)();
       this->_info = std::make_shared<SharedCurryModuleInfo>(
           record->fullname, sofilename, ModuleBOM::decode(*record)
         , this->handle()

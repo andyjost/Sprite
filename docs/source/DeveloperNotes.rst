@@ -86,8 +86,8 @@ Audit of shared state
 
    * - Tiered state
      - ``backends/cxx/tiered.py``
-     - Shims/jobs/records/modules/private directories/warnings/counter updates could overlap poll, submit, cancellation or reset.
-     - Native metadata transactions serialize these updates with their native operations. Job waits remain outside transactions and poll between bounded waits. Temporary names and shim check/build/publication share the gate. No Python mutex transfers to the large-stack worker.
+     - Bindings/jobs/records/modules/private directories/warnings/counter updates could overlap poll, submit, cancellation or reset.
+     - Native metadata transactions serialize these updates with their native operations. Job waits remain outside transactions and poll between bounded waits. Temporary names share the gate. No Python mutex transfers to the large-stack worker.
 
    * - First-use materialization and bytecode
      - ``backends/cxx/materialize.py``

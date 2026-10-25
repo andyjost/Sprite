@@ -1,6 +1,6 @@
 from .. import config
 from ..exceptions import FlagError
-import logging, os, sys
+import logging, os
 
 logger = logging.getLogger(__name__)
 
@@ -94,21 +94,17 @@ The following flags are available:
     interpreted by the ICurry interpreter of the runtime (curryrt/icurry.hpp)
     instead, and a module with a current object is loaded from it.  With
     'all', every module is interpreted, the Prelude included; the compiled
-    objects are not used.  With 'tiered', the default, a module without a
-    compiled object is interpreted at once, as under 'new', a child process
-    compiles it in the background, and the runtime swaps the functions of
-    the module to the compiled code when the object is ready, during a
-    running evaluation included (see curry.backends.cxx.tiered).  On macOS
-    the default is 'new': a module with a current object loads compiled,
-    the Curry library that the installation compiled and every module that
-    sprite-make --so compiled, a module without one is interpreted, and no
-    compile runs in the background.  The swap of the tiered mode binds a
-    compiled object to the tables the interpreter made through a shim of
-    absolute symbols, which the dynamic linker of macOS does not bind
-    (issue #162).  An
-    expression, an interactive module, and a module compiled from a string
-    stay interpreted.  The interpreter takes the same steps as compiled code
-    on the same runtime; it runs a few times slower, and it starts at once.
+    objects are not used.  With 'tiered', the default on every platform, a
+    module without a compiled object is interpreted at once, as under
+    'new', a child process compiles it in the background, and the runtime
+    swaps the functions of the module to the compiled code when the object
+    is ready, during a running evaluation included (see
+    curry.backends.cxx.tiered): the load of the object binds its slots to
+    the tables the interpreter made (the binding in curryrt/dynload.hpp;
+    issue #163).  An expression, an interactive module, and a module
+    compiled from a string stay interpreted.  The interpreter takes the
+    same steps as compiled code on the same runtime; it runs a few times
+    slower, and it starts at once.
 
   * ``keep_temp_files``  (True | **False** | <str>)
 
@@ -192,7 +188,7 @@ FLAG_INFO = {
   , 'checker'             : ( bool                , False )
   , 'debug'               : ( bool                , False )
   , 'inline_budget'       : ( int                 , 4     )
-  , 'interpret'           : ({'off', 'new', 'all', 'tiered'}, 'new' if sys.platform == 'darwin' else 'tiered')
+  , 'interpret'           : ({'off', 'new', 'all', 'tiered'}, 'tiered')
   , 'trace'               : ( bool                , False )
   , 'keep_temp_files'     : ((bool, str)          , False )
   , 'lazycompile'         : ( bool                , True  )

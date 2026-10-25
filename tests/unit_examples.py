@@ -145,7 +145,7 @@ class TestExamples(cytest.TestCase):
       if importlib.util.find_spec(module) is None:
         self.skipTest('%s needs the Python module %s' % (name, module))
     if sys.platform == 'darwin' and name in LINUX_ONLY:
-      self.skipTest('%s %s (issue #162, step 2)' % (name, LINUX_ONLY[name]))
+      self.skipTest('%s %s (issue #162)' % (name, LINUX_ONLY[name]))
     if cytest.GC_STRESS and name in STRESS_EXCLUDED:
       self.skipTest(
           'collector stress mode: %s is %s' % (name, STRESS_EXCLUDED[name])

@@ -51,7 +51,16 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # imports and its source by absolute path, so it serves one tree.
 # Format 14 (2026-10-19): generated code includes curryrt/curryrt.hpp and
 # uses namespace curryrt, and its objects link against libcurryrt.so.
-FORMAT_VERSION = 14
+# Format 15 (2026-10-24): the code reads every info table and data type
+# through a slot of the module, a static pointer the loader fills at the
+# load (the binding in curryrt/dynload.hpp; issue #163), and the nodes of
+# the literals are made by the initializer _sprite_init_, which the loader
+# calls once it bound the slots; the bill of materials has layout version 2
+# (curryrt/bom.hpp), with the slots.  A file of format 14 names the tables
+# by dynamic symbol and defines no slot: the loader refuses its record, and
+# the runtime has no other way (the shim of before is gone) to bind such an
+# object to the tables of an interpreted module.
+FORMAT_VERSION = 15
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure
@@ -64,12 +73,34 @@ def compile(interp, imodule):
   compileM = CxxCompiler(interp, imodule)
   return compileM.compile()
 
+def _slot(h_table):
+  '''
+  The slot of an info table or a data type: the symbol of the static pointer
+  through which the code reads the table, which the loader fills at the
+  load (the binding in curryrt/dynload.hpp; vEmitInfotabLink and
+  vEmitDataTypeLink define it).  The slot of CyI... is CyX..., the slot of
+  CyD... is CyY....
+  '''
+  kind = {'I': compiler.INFO_SLOT, 'D': compiler.TYPE_SLOT}[h_table[2]]
+  return 'Cy' + compiler.KIND_CODE[kind] + h_table[3:]
+
+# The pinned nullary constructors, by info table, and the function of the
+# runtime that returns the static node of each.  Node::create returns that
+# node for one of these, and a step forwards the redex to it.  A heap copy of
+# a pinned node would never be marked by the collector, so the generator
+# never writes one into a redex (see Node::rewrite in curryrt/graph/node.hxx).
+PINNED = {
+    'CyI7Prelude4_K_k' : 'nil()'
+  , 'CyI7Prelude4_Y_y' : 'unit()'
+  , 'CyI7Prelude4True' : 'true_()'
+  , 'CyI7Prelude5False': 'false_()'
+  , 'CyI7Prelude4Fail' : 'fail()'
+  }
+PINNED_INFOS = frozenset(PINNED)
+
+# The rendered node of a pinned constructor, and the call that replaces it.
 SINGLETONS = {
-    'Node::create(&CyI7Prelude4_K_k)' : 'nil()'
-  , 'Node::create(&CyI7Prelude4_Y_y)' : 'unit()'
-  , 'Node::create(&CyI7Prelude4True)' : 'true_()'
-  , 'Node::create(&CyI7Prelude5False)': 'false_()'
-  , 'Node::create(&CyI7Prelude4Fail)' : 'fail()'
+    'Node::create(%s)' % _slot(h_info): node for h_info, node in PINNED.items()
   }
 
 def replace_singletons(f):
@@ -77,13 +108,6 @@ def replace_singletons(f):
     result = f(*args, **kwds)
     return SINGLETONS.get(result, result)
   return emitter
-
-# The pinned nullary constructors, the info tables behind SINGLETONS.
-# Node::create returns the static object for one of these, and a step forwards
-# the redex to it.  A heap copy of a pinned node would never be marked by the
-# collector, so the generator never writes one into a redex (see
-# Node::rewrite in curryrt/graph/node.hxx).
-PINNED_INFOS = frozenset(key[len('Node::create(&'):-1] for key in SINGLETONS)
 
 # The size of the block of a node, in bytes, as the generated info tables
 # spell it: sizeof(Head) + sizeof(Arg[max(1, arity)]), one word each.  The
@@ -110,6 +134,19 @@ class CxxCompiler(compiler.CompilerBase):
     self.redex_alloc_size = None
     self.plain_vars = frozenset()
     self.free_vars = frozenset()
+    # The slots of the info tables and data types the module names, by the
+    # symbol of the table: the module and the name of the symbol, for the
+    # record (vEmitInfotabLink, vEmitDataTypeLink, vEmitModuleDefinition).
+    self.slots = {}
+    self.type_slots = {}
+    # The body of the initializer of the module, _sprite_init_, which the
+    # loader calls once it bound the slots: the nodes of the literals and of
+    # the partial applications without arguments (internLiteralNode,
+    # internPartialNode).
+    self.init_body = []
+    self.target_object['.init'].extend(
+        ['void _sprite_init_()', self.init_body]
+      )
 
   def vIsBuiltin(self, iobj):
     if self.cxxmodule is not None:
@@ -150,10 +187,20 @@ class CxxCompiler(compiler.CompilerBase):
     yield 'tag_type %s(RuntimeState *, Configuration *);' % h_stepfunc
 
   def vEmitInfotabLink(self, isym, h_info):
+    # The declaration of the table, which the constructor tables and the
+    # record of the module name before its definition, and the slot through
+    # which the code reads it (the binding in curryrt/dynload.hpp).  A
+    # table of another module, or of the runtime, is declared and never
+    # defined: no code names it, and the record lists its slot for the
+    # loader (vEmitModuleDefinition).
+    self.slots[h_info] = isym.modulename, isym.name
     yield 'extern InfoTable const %s;' % h_info
+    yield 'static InfoTable const * %s = nullptr;' % _slot(h_info)
 
   def vEmitDataTypeLink(self, itype, h_datatype):
+    self.type_slots[h_datatype] = itype.modulename, itype.name
     yield 'extern DataType const %s;' % h_datatype
+    yield 'static DataType const * %s = nullptr;' % _slot(h_datatype)
 
   def vEmitStepfuncHeader(self, ifun, h_stepfunc):
     # The redex of this step is a node of the function's own info table,
@@ -289,9 +336,14 @@ class CxxCompiler(compiler.CompilerBase):
                 for k, v in imodule.aliases.items()
           )
       )
+    # The symbols of the module, each with its table and its slot; the
+    # loader binds the slot to the table of the symbol in the process (the
+    # binding in curryrt/dynload.hpp).
+    own = set()
     type_rows = []
     for itype in imodule.types.values():
       h_type = self.vGetSymbolName(itype, compiler.DATA_TYPE)
+      own.add(h_type)
       type_md = self.internMetadata(itype.metadata)
       ctor_mds = [
           self.internMetadata(ictor.metadata) for ictor in itype.constructors
@@ -301,7 +353,20 @@ class CxxCompiler(compiler.CompilerBase):
         , 'constructor metadata of %r' % itype.fullname
         , ('&%s' % md for md in ctor_mds)
         )
-      type_rows.append('{&%s, %s, &%s}' % (type_md, ctors, h_type))
+      h_ctors = [
+          self.vGetSymbolName(ictor, compiler.INFO_TABLE)
+              for ictor in itype.constructors
+        ]
+      own.update(h_ctors)
+      ctor_slots, _ = table(
+          'InfoTable const * * const', 'ctorslots'
+        , 'constructor slots of %r' % itype.fullname
+        , ('&%s' % _slot(h) for h in h_ctors)
+        )
+      type_rows.append(
+          '{&%s, %s, &%s, &%s, %s}'
+              % (type_md, ctors, h_type, _slot(h_type), ctor_slots)
+        )
     types = table(
         'bom::Type const', 'types', 'types of %r' % imodule.fullname, type_rows
       )
@@ -309,11 +374,34 @@ class CxxCompiler(compiler.CompilerBase):
     for ifun in imodule.functions.values():
       vis = 'PRIVATE' if ifun.is_private else 'PUBLIC '
       h_info = self.vGetSymbolName(ifun, compiler.INFO_TABLE)
+      own.add(h_info)
       fun_md = self.internMetadata(ifun.metadata)
-      function_rows.append('{%s, &%s, &%s}' % (vis, fun_md, h_info))
+      function_rows.append(
+          '{%s, &%s, &%s, &%s}' % (vis, fun_md, h_info, _slot(h_info))
+        )
     functions = table(
         'bom::Function const', 'functions'
       , 'functions of %r' % imodule.fullname, function_rows
+      )
+    # The slots of the symbols of other modules and of the runtime, which
+    # the loader fills from the modules that define them.
+    info_slots = table(
+        'bom::InfoSlot const', 'infoslots'
+      , 'slots of the symbols %r names' % imodule.fullname
+      , (
+            '{%s, %s, &%s}' % (_dquote(module), _dquote(name), _slot(h))
+                for h, (module, name) in sorted(self.slots.items())
+                if h not in own
+          )
+      )
+    type_slots = table(
+        'bom::TypeSlot const', 'typeslots'
+      , 'slots of the types %r names' % imodule.fullname
+      , (
+            '{%s, %s, &%s}' % (_dquote(module), _dquote(name), _slot(h))
+                for h, (module, name) in sorted(self.type_slots.items())
+                if h not in own
+          )
       )
     # A source under the installation is named relative to SPRITE_HOME, and
     # another source relative to the directory of the object; the loader
@@ -332,6 +420,8 @@ class CxxCompiler(compiler.CompilerBase):
     lines.append('  , /*aliases  */ %s' % with_length(aliases))
     lines.append('  , /*types    */ %s' % with_length(types))
     lines.append('  , /*functions*/ %s' % with_length(functions))
+    lines.append('  , /*info_slots*/ %s' % with_length(info_slots))
+    lines.append('  , /*type_slots*/ %s' % with_length(type_slots))
     lines.append('  };')
     return lines
 
@@ -452,7 +542,7 @@ class CxxCompiler(compiler.CompilerBase):
     return size <= self.redex_alloc_size
 
   def vEmit_compileS_ICaseCons(self, icase, h_datatype, varident):
-    yield 'auto tag = rts->hnf(C, &%s, &%s);' % (varident, h_datatype)
+    yield 'auto tag = rts->hnf(C, &%s, %s);' % (varident, _slot(h_datatype))
     yield 'switch(tag)'
     switchbody = []
     for branch in icase.branches:
@@ -516,13 +606,13 @@ class CxxCompiler(compiler.CompilerBase):
     # small integer and each ASCII character (int_ and char_ in
     # curryrt/builtins.hpp return them), and the module keeps one node for each
     # of its other literals (internLiteralNode).  So a step allocates nothing
-    # for a literal.  A non-primary literal is the info table and the value,
-    # for a rewrite of the redex.
+    # for a literal.  A non-primary literal is the info table, read through
+    # its slot, and the value, for a rewrite of the redex.
     if isinstance(iliteral, icurry.IInt):
       _check_int_literal(iliteral.value)
     shown = _cxxshow(iliteral.value, use_char=True)
     if not primary:
-      return '&%s, Arg(%s)' % (h_ctor, shown)
+      return '%s, Arg(%s)' % (_slot(h_ctor), shown)
     elif self.isSmallValue(iliteral):
       return '%s(%s)' % (self.LIT_CONSTRUCTOR[h_ctor], shown)
     else:
@@ -543,9 +633,11 @@ class CxxCompiler(compiler.CompilerBase):
   def internLiteralNode(self, h_ctor, shown):
     '''
     The symbol of the node of a literal of this module.  The node is made
-    when the module loads and lives as long as the process (literal_node in
-    curryrt/builtins.hpp).  One node serves every occurrence of the literal in
-    the module.  The key is the spelling: -0.0 and 0.0 are two literals.
+    when the module loads, by the initializer _sprite_init_ once the loader
+    bound the slots (the binding in curryrt/dynload.hpp), and lives as long
+    as the process (literal_node in curryrt/builtins.hpp).  One node serves
+    every occurrence of the literal in the module.  The key is the spelling:
+    -0.0 and 0.0 are two literals.
     '''
     key = compiler.LITERAL_NODE, h_ctor, shown
     existing = self.intern_store.get(key)
@@ -555,9 +647,9 @@ class CxxCompiler(compiler.CompilerBase):
     self.symtab.insert(
         h_lit, compiler.LITERAL_NODE, '<literal node: %s>' % shown
       )
-    self.target_object['.strings'].append(
-        'static Node * const %s = literal_node(&%s, Arg(%s));'
-            % (h_lit, h_ctor, shown)
+    self.target_object['.strings'].append('static Node * %s = nullptr;' % h_lit)
+    self.init_body.append(
+        '%s = literal_node(%s, Arg(%s));' % (h_lit, _slot(h_ctor), shown)
       )
     self.symtab.make_defined(h_lit)
     self.intern_store[key] = h_lit
@@ -572,7 +664,8 @@ class CxxCompiler(compiler.CompilerBase):
 
   @replace_singletons
   def vEmit_compileE_ICall(self, icall, h_info, args, primary):
-    text = '&%s%s' % (h_info, ''.join(', ' + e for e in args))
+    # The table is read through its slot (see vEmitInfotabLink).
+    text = '%s%s' % (_slot(h_info), ''.join(', ' + e for e in args))
     return 'Node::create(%s)' % text if primary else text
 
   def vEmit_compileE_IPartialCall(self, ipcall, h_info, args, primary):
@@ -582,17 +675,18 @@ class CxxCompiler(compiler.CompilerBase):
     # the arguments inline (Node::create_partial).
     if not ipcall.exprs:
       return self.internPartialNode(h_info, ipcall.missing)
-    text = '&%s%s' % (h_info, ''.join(', ' + e for e in args))
+    text = '%s%s' % (_slot(h_info), ''.join(', ' + e for e in args))
     return 'Node::create_partial(%s)' % text
 
   def internPartialNode(self, h_info, missing):
     '''
     The symbol of the node of a partial application without arguments: the
     symbol ``h_info`` as a value, as in ``map f xs``.  The node is made when
-    the module loads and lives as long as the process (partial_node in
+    the module loads, by the initializer _sprite_init_ once the loader
+    bound the slots, and lives as long as the process (partial_node in
     curryrt/builtins.hpp); one node serves every occurrence in the module.  The
-    missing count is spelled, because the info table of a head of this
-    module is not yet initialized when the node is made.
+    missing count is spelled: it is the arity of the head, which the
+    emitter knows.
     '''
     key = compiler.PARTIAL_NODE, h_info
     existing = self.intern_store.get(key)
@@ -603,8 +697,10 @@ class CxxCompiler(compiler.CompilerBase):
         h_partial, compiler.PARTIAL_NODE, '<partial node: %s>' % h_info
       )
     self.target_object['.strings'].append(
-        'static Node * const %s = partial_node(&%s, %d);'
-            % (h_partial, h_info, missing)
+        'static Node * %s = nullptr;' % h_partial
+      )
+    self.init_body.append(
+        '%s = partial_node(%s, %d);' % (h_partial, _slot(h_info), missing)
       )
     self.symtab.make_defined(h_partial)
     self.intern_store[key] = h_partial
@@ -612,7 +708,7 @@ class CxxCompiler(compiler.CompilerBase):
 
   def vEmit_compileE_IOr(self, ior, lhs, rhs, primary):
     h_choice = self.importSymbol('Prelude.?')
-    text = "&%s, %s, %s" % (h_choice, lhs, rhs)
+    text = "%s, %s, %s" % (_slot(h_choice), lhs, rhs)
     return 'Node::create(%s)' % text if primary else text
 
 # The bytes that a C++ string literal spells with a symbolic escape.

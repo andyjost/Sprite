@@ -9,12 +9,6 @@ module to the compiled code when the object is ready
 module to a temporary directory, so every import starts without an object.
 '''
 import cytest # from ./lib; must be first
-import sys, unittest
-if sys.platform == 'darwin':
-  raise unittest.SkipTest(
-      'reads ELF objects or loads compiled modules; the compiled path on '
-      'macOS is issue #162, step 2'
-    )
 from cytest.logging import capture_log
 from curry import common, config, inspect
 from curry.backends.cxx import compiler, curryrtbindings as curryrt, tiered
@@ -215,8 +209,8 @@ class TestSwap(TieredTestCase):
     self.assertEqual(self.py(M.total, 4), 40)
     self.assertEqual(steps() - n0, steps_interpreted)
     # One table per symbol: the compiled code binds to the tables the
-    # interpreter made (the shim), so a value of each tier has the same
-    # constructor, isa holds, and the two compare equal.
+    # interpreter made (the binding of the load), so a value of each tier
+    # has the same constructor, isa holds, and the two compare equal.
     self.assertEqual(v2.info.address, v1.info.address)
     self.assertEqual(v2.info.address, M.Rect.info.address)
     self.assertTrue(inspect.isa(v2, M.Rect))
@@ -293,19 +287,19 @@ class TestSwap(TieredTestCase):
   @cytest.hardreset
   def test_tables_survive_a_reload(self):
     # After a reload, a module of the same name takes its tables back, so
-    # the shim stays valid and the second incarnation is swapped as well.
+    # the second incarnation is swapped as well, to the same tables.
     name = self.write_module()
     M = self.import_module(name)
     address = M.area.info.address
     self.wait()
     self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
-    shims = tiered.status()['shims']
+    bindings = tiered.status()['bindings']
     M = None
     self.switch('tiered')
     # The object exists now, so a plain import loads it compiled.  Remove
     # it: the module is interpreted again, from the JSON beside the
-    # generated file, and the compile starts from that file.  The shim of
-    # the first incarnation serves; no warning is logged.
+    # generated file, and the compile starts from that file.  The tables of
+    # the first incarnation serve; no warning is logged.
     os.unlink(self.sofile(name))
     os.unlink(self.stamp(name))
     with capture_log('curry.backends.cxx.tiered') as log:
@@ -315,7 +309,7 @@ class TestSwap(TieredTestCase):
       self.assertEqual(self.py(M.area, self.value(M.mk, 3)), 12)
       self.wait()
     self.assertEqual(log.data[logging.WARNING], [])
-    self.assertEqual(tiered.status()['shims'], shims)
+    self.assertEqual(tiered.status()['bindings'], bindings)
     self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
     self.assertEqual(self.py(M.area, self.value(M.mk, 3)), 12)
 
@@ -432,9 +426,8 @@ class TestSwap(TieredTestCase):
     # incarnation is swapped to compiled code before the edit; the second
     # takes its tables back without the steps, runs the new code
     # interpreted, and is swapped to the new object in turn.  The data type
-    # takes its tables back too, so the shim serves and no warning is
-    # logged (the type got new tables before, and the module stayed
-    # interpreted with the warning of a changed shape).
+    # takes its tables back too, so the two incarnations share every table,
+    # and no warning is logged.
     name = self.write_module(self.EDITED % 1)
     first = self.import_module(name)
     self.assertEqual(self.py(first.main), 1)
@@ -766,9 +759,8 @@ class TestPolicy(TieredTestCase):
     env = dict(os.environ)
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
     env['CURRYPATH'] = self.tmpdir
-    cmd = [
-        'prlimit', '--as=%d' % ADDRESS_SPACE, 'timeout', str(TIMEOUT)
-      , config.installed_path('bin', 'sprite-make'), '--so', '-z', name
+    cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
+        config.installed_path('bin', 'sprite-make'), '--so', '-z', name
       ]
     proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
@@ -795,9 +787,8 @@ class TestPrograms(cytest.TestCase):
     env['CURRYPATH'] = currypath
     env.pop('SPRITE_GC_STRESS', None)
     env.update(extra)
-    cmd = [
-        'prlimit', '--as=%d' % ADDRESS_SPACE, 'timeout', str(TIMEOUT)
-      , config.installed_path('bin', 'sprite-exec'), '--stats', '-m', program
+    cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
+        config.installed_path('bin', 'sprite-exec'), '--stats', '-m', program
       ]
     proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
@@ -952,8 +943,9 @@ CHILD_LOAD = "\nimport cytest, curry\ncurry.path.insert(0, %(tmpdir)r)\nM = curr
 #
 # The sequence of the review of issue #109 for a child process: the object
 # of a module that ran interpreted, loaded after a reset.  The tables of
-# the interpreted module are kept for the process and its shim names them.
-# Adoption keeps the object with those tables, across subsequent resets.
+# the interpreted module are kept for the process and its binding is on
+# record.  Adoption keeps the object with those tables, across subsequent
+# resets.
 RESET_LOAD = r'''
 import gc
 import cytest, curry
@@ -961,7 +953,7 @@ from curry.backends.cxx import tiered
 curry.path.insert(0, %(tmpdir)r)
 M = curry.import_(%(name)r)
 tiered.cancel()
-print(tiered.has_shim(%(name)r))
+print(tiered.has_binding(%(name)r))
 del M
 gc.collect()
 curry.reset()
@@ -1000,11 +992,11 @@ class TestLoadDuringCompile(TieredTestCase):
   '''
   curry.load of the object of a module while its background compile runs,
   and of the object of a module that stays interpreted (issue #109).  The
-  object binds to the live tables of the interpreted module through its
-  shim, so a load that dropped the object (the import returned the module
-  of the import, and nothing kept the library) left the tables pointing
-  into unmapped memory: the process ended at the next use of the module, or
-  at its exit in Module::clear.  The loader waits for the compile and loads
+  object binds to the live tables of the interpreted module at its load,
+  so a load that dropped the object (the import returned the module of the
+  import, and nothing kept the library) left the tables pointing into
+  unmapped memory: the process ended at the next use of the module, or at
+  its exit in Module::clear.  The loader waits for the compile and loads
   the object the compile wrote, or adopts a foreground object through the
   same swap when no compile is pending.
   '''
@@ -1016,9 +1008,8 @@ class TestLoadDuringCompile(TieredTestCase):
     env = dict(os.environ)
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
     env['CURRYPATH'] = self.tmpdir
-    cmd = [
-        'prlimit', '--as=%d' % ADDRESS_SPACE, 'timeout', str(TIMEOUT)
-      , config.installed_path('bin', 'sprite-make'), '--so', '-z', name
+    cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
+        config.installed_path('bin', 'sprite-make'), '--so', '-z', name
       ]
     proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
@@ -1159,7 +1150,7 @@ class TestLoadDuringCompile(TieredTestCase):
     name = M.__name__
     self.assertTrue(curryrt.icurry_is_interpreted(M.area.info))
     self.assertFalse(tiered.pending(name))
-    self.assertTrue(tiered.has_shim(name))
+    self.assertTrue(tiered.has_binding(name))
     sofile = self.compile_by_hand(name)
     loaded = curry._interpreter_.load(sofile)
     self.assertIs(loaded, M)
@@ -1168,20 +1159,39 @@ class TestLoadDuringCompile(TieredTestCase):
     self.assertEqual(self.py(M.total, 2), 8)
 
   @cytest.hardreset
-  def test_load_refuses_a_blocked_shim_before_open(self):
-    M = self.fresh_module()
-    tiered.cancel()
-    name = M.__name__
-    sofile = self.compile_by_hand(name)
-    shim = tiered._state.shims[name]
-    shim.blocked = True
-    self.addCleanup(setattr, shim, 'blocked', False)
-    with self.assertRaises(curry.exceptions.LoadError) as cm:
-      curry._interpreter_.load(sofile)
-    self.assertIn('tables changed after compiled code bound', str(cm.exception))
-    self.assertIsNone(curryrt.SharedCurryModule.find_sofilename(name))
-    self.assertTrue(curryrt.icurry_is_interpreted(M.area.info))
-    self.assertEqual(self.py(M.total, 2), 8)
+  def test_changed_shape_swaps_after_a_reset(self):
+    # The first incarnation is swapped to compiled code; the source then
+    # changes the arity of a function, so the second incarnation, after a
+    # reset, gets a new table for it and takes the other tables back.  The
+    # object of the second compile binds to the tables of the second
+    # incarnation, whatever their addresses, so the module swaps with no
+    # warning.  (The shim of the tiered mode of before named the old
+    # addresses, and the module stayed interpreted with a warning.)
+    text = (
+        'module %%(name)s where\n\nf :: %s\nf %s = %s\n\n'
+        'g :: Int\ng = 7\n\nmain :: Int\nmain = %s\n'
+      )
+    name = self.write_module(text % ('Int', '', '1', 'f + g'))
+    first = self.import_module(name)
+    self.assertEqual(self.py(first.main), 8)
+    self.wait()
+    self.assertFalse(curryrt.icurry_is_interpreted(first.f.info))
+    f_address, g_address = first.f.info.address, first.g.info.address
+    self.edit_module(name, text % ('Int -> Int', 'x', 'x + 1', 'f g'))
+    first = None
+    curry.reset()
+    curry.path.insert(0, self.tmpdir)
+    with capture_log('curry.backends.cxx.tiered') as log:
+      second = self.import_module(name)
+      self.assertTrue(curryrt.icurry_is_interpreted(second.f.info))
+      self.assertNotEqual(second.f.info.address, f_address)
+      self.assertEqual(second.g.info.address, g_address)
+      self.assertEqual(self.py(second.main), 8)
+      self.wait()
+    self.assertEqual(log.data[logging.WARNING], [])
+    self.assertFalse(curryrt.icurry_is_interpreted(second.f.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(second.g.info))
+    self.assertEqual(self.py(second.main), 8)
 
   def test_import_after_reset_takes_the_object(self):
     # After a reset the kept tables have no registered library.  The import
@@ -1206,7 +1216,7 @@ class TestLoadDuringCompile(TieredTestCase):
 
 # A module without a function and without a table: a type synonym alone
 # (a data type derives its Data instance, which is a function).  Nothing
-# to swap, so its load queues no compile (submit) and registers no shim,
+# to swap, so its load queues no compile (submit) and records no binding,
 # while its importers name its object by SONAME.
 TYPES_MODULE = '''
 module %(name)s where
@@ -1253,9 +1263,9 @@ class TestImportObjects(TieredTestCase):
     with capture_log('curry.backends.cxx.tiered') as log:
       U = self.import_module(user)
       T = curry.import_(types)
-      # The import has neither a shim nor a job; the child of the importer
-      # compiles its object.
-      self.assertFalse(tiered.has_shim(types))
+      # The import has neither a binding nor a job; the child of the
+      # importer compiles its object.
+      self.assertFalse(tiered.has_binding(types))
       self.assertFalse(tiered.pending(types))
       self.assertIsNone(getHandle(T).sofilename)
       self.assertTrue(tiered.pending(user))

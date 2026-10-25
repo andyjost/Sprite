@@ -14,11 +14,11 @@ namespace
 {
   using namespace curryrt;
 
-  // The job of a module: the shims (file, argv), the steps (name, symbol,
-  // info) and the imports (module, sofile, icurryfile, icurry_digest) come
-  // as sequences of tuples.
+  // The job of a module: the steps (name, symbol, info) and the imports
+  // (module, sofile, icurryfile, icurry_digest) come as sequences of
+  // tuples.
   TieredJob make_job(
-      std::string module, py::sequence shims, std::vector<std::string> argv
+      std::string module, std::vector<std::string> argv
     , std::vector<std::string> envp, std::string logfile, std::string sofile
     , py::sequence steps, std::string icurryfile, std::string icurry_digest
     , py::sequence imports
@@ -26,15 +26,6 @@ namespace
   {
     TieredJob job;
     job.module = std::move(module);
-    for(py::handle item: shims)
-    {
-      py::tuple tup = item.cast<py::tuple>();
-      if(tup.size() != 2)
-        throw py::value_error("a shim is (file, argv)");
-      job.shims.push_back(TieredJob::Shim{
-          tup[0].cast<std::string>(), tup[1].cast<std::vector<std::string>>()
-        });
-    }
     job.argv = std::move(argv);
     job.envp = std::move(envp);
     job.logfile = std::move(logfile);
@@ -69,14 +60,14 @@ namespace
   }
 
   void tiered_submit_(
-      std::string module, py::sequence shims, std::vector<std::string> argv
+      std::string module, std::vector<std::string> argv
     , std::vector<std::string> envp, std::string logfile, std::string sofile
     , py::sequence steps, std::string icurryfile, std::string icurry_digest
     , py::sequence imports
     )
   {
     tiered_submit(make_job(
-        std::move(module), shims, std::move(argv), std::move(envp)
+        std::move(module), std::move(argv), std::move(envp)
       , std::move(logfile), std::move(sofile), steps, std::move(icurryfile)
       , std::move(icurry_digest), imports
       ));
@@ -98,12 +89,11 @@ namespace
   }
 
   py::dict tiered_adopt_(
-      std::string module, py::sequence shims, std::string sofile
-    , py::sequence steps
+      std::string module, std::string sofile, py::sequence steps
     )
   {
     TieredJob job = make_job(
-        std::move(module), shims, {}, {}, {}, std::move(sofile), steps, {}, {}
+        std::move(module), {}, {}, {}, std::move(sofile), steps, {}, {}
       , py::tuple()
       );
     return result_dict(tiered_adopt(std::move(job), true));
@@ -136,29 +126,6 @@ namespace
     return tiered_wait(seconds);
   }
 
-  void tiered_build_shim_(
-      std::string const & shimfile, std::vector<std::string> const & argv
-    , std::vector<std::string> const & envp
-    )
-  {
-    std::string output;
-    bool ok;
-    {
-      py::gil_scoped_release release;
-      ok = tiered_build_shim(shimfile, argv, envp, &output);
-    }
-    if(!ok)
-      throw std::runtime_error(
-          "cannot link the shim " + shimfile + ":\n" + output
-        );
-  }
-
-  void tiered_load_shim_(std::string const & shimfile)
-  {
-    std::string error;
-    if(!tiered_load_shim(shimfile, &error))
-      throw std::runtime_error(error);
-  }
 }
 
 namespace curryrt { namespace python
@@ -166,12 +133,11 @@ namespace curryrt { namespace python
   void register_tiered(pybind11::module_ mod)
   {
     mod.def("tiered_submit", &tiered_submit_
-      , py::arg("module"), py::arg("shims"), py::arg("argv"), py::arg("envp")
+      , py::arg("module"), py::arg("argv"), py::arg("envp")
       , py::arg("logfile"), py::arg("sofile"), py::arg("steps")
       , py::arg("icurryfile") = "", py::arg("icurry_digest") = ""
       , py::arg("imports") = py::tuple()
-      , "Queues the background compile of a module.  shims is a sequence of "
-        "(file, argv): the shims to link and load before the object.  steps "
+      , "Queues the background compile of a module.  steps "
         "is a sequence of (name, symbol, info): the functions to swap when "
         "the object is ready.  icurryfile and icurry_digest name the ICurry "
         "file (.icy) of the module at the import and its tiered_file_digest; "
@@ -187,10 +153,10 @@ namespace curryrt { namespace python
         "be read.", curryrt::python::heap_access{});
     mod.attr("TIERED_EDITED") = TIERED_EDITED;
     mod.def("tiered_adopt", &tiered_adopt_
-      , py::arg("module"), py::arg("shims"), py::arg("sofile"), py::arg("steps")
+      , py::arg("module"), py::arg("sofile"), py::arg("steps")
       , "Loads the object of a module compiled in this process and swaps the "
-        "steps at once (the compile on first use under interpret:off).  shims "
-        "and steps are as for tiered_submit.  Returns the result as a dict "
+        "steps at once (the compile on first use under interpret:off).  steps "
+        "is as for tiered_submit.  Returns the result as a dict "
         "with the keys of tiered_results.", curryrt::python::heap_access{});
     mod.def("tiered_poll", []{ tiered_apply_pending(false); }
       , "Applies the compiled objects that finished in the background.  Call "
@@ -207,12 +173,5 @@ namespace curryrt { namespace python
         "passed.  Returns True when the worker is idle.", curryrt::python::heap_access{});
     mod.def("tiered_cancel", &tiered_cancel
       , "Drops the queued jobs and kills the running compile.", curryrt::python::heap_access{});
-    mod.def("tiered_build_shim", &tiered_build_shim_
-      , py::arg("shimfile"), py::arg("argv"), py::arg("envp")
-      , "Links a shim with the given command, unless the file exists.  "
-        "Raises RuntimeError when the command fails.", curryrt::python::heap_access{});
-    mod.def("tiered_load_shim", &tiered_load_shim_, py::arg("shimfile")
-      , "Loads a shim into the global scope; a shim loaded already is kept.  "
-        "Raises RuntimeError when the load fails.", curryrt::python::heap_access{});
   }
 }}

@@ -29,15 +29,37 @@ namespace
   // The tables and types kept when a module with interpreted functions was
   // cleared (Module::clear), by module name and symbol name.  A module of the
   // same name made later takes them back (Module::create_infotable,
-  // Module::create_type), so a symbol keeps its address across a reload of
-  // the interpreter: the shim of tiered execution names the tables by
-  // address (curryrt/tiered.hpp).
+  // Module::create_type, and Module::bind_infotable and Module::bind_type
+  // for the load of a compiled object), so a symbol keeps its address across
+  // a reload of the interpreter: the bytecode of other modules, the Python
+  // objects and the slots of the compiled objects (curryrt/dynload.hpp) name
+  // the tables by address.
   std::unordered_map<std::string, SymbolTable> g_kept_symbols;
   std::unordered_map<std::string, TypeTable> g_kept_types;
   // The compiled objects of the modules whose tables were kept: the kept
-  // tables hold their steps and their names, so an object bound over a shim
+  // tables hold their steps and their names, so an object bound to them
   // stays loaded for the life of the process.
   std::vector<std::shared_ptr<SharedCurryModule>> g_kept_libraries;
+
+  // The kept table of a symbol with the given shape, taken out of the kept
+  // store, or null.  See Module::clear.
+  InfoTable * take_kept_symbol(
+      std::string const & modulename, std::string const & name
+    , tag_type tag, index_type arity
+    )
+  {
+    auto kept_module = g_kept_symbols.find(modulename);
+    if(kept_module == g_kept_symbols.end())
+      return nullptr;
+    auto kept = kept_module->second.find(name);
+    if(kept == kept_module->second.end())
+      return nullptr;
+    InfoTable * info = const_cast<InfoTable *>(kept->second);
+    if(info->tag != tag || info->arity != arity)
+      return nullptr;
+    kept_module->second.erase(kept);
+    return info;
+  }
 }
 
 namespace curryrt
@@ -49,9 +71,8 @@ namespace curryrt
     std::shared_ptr<SharedCurryModule> shlib;
     bool keep = false;
     // The tables and types made at run time by this module, which clear
-    // frees or keeps.  The flags do not tell them apart from the static
-    // tables of an object: the load of an object over a shim writes the
-    // flags of its static tables into these (see adopt).
+    // frees or keeps.  A table taken back from the kept store (see
+    // create_infotable and bind_infotable) is one of these as well.
     std::vector<InfoTable *> owned_tables;
     std::vector<DataType *> owned_types;
   };
@@ -154,8 +175,9 @@ namespace curryrt
   // its functions is interpreted (curryrt/icurry.hpp) or the materializer asked
   // to keep them (keep_tables).  The bytecode of an interpreted function
   // names the tables and types of the modules it uses by pointer, and so
-  // does a compiled object loaded over a shim (curryrt/tiered.hpp), so a module
-  // whose functions another module interprets must outlive that module.
+  // do the slots of a compiled object bound to them (curryrt/dynload.hpp), so
+  // a module whose functions another module interprets must outlive that
+  // module.
   // Such tables are kept for the life of the process, as the static tables
   // of a compiled module are kept with its library, and a module of the same
   // name made later takes them back.  A kept table keeps its step: a swapped
@@ -225,18 +247,18 @@ namespace curryrt
     return this->impl->shlib;
   }
 
-  // The load of the object did most of the work already: the dynamic
-  // initializer of a static table of the object constructs it at the address
-  // the symbol resolves to, which the shim made the table the interpreter
-  // uses.  So the table holds the step, the name, the format, and the flags
-  // of the compiled module when dlopen returns, and its aux field is null;
-  // the static table inside the object stays blank.  A table whose step is
-  // still the interpreter (a symbol the shim does not name) takes the step
-  // function of the object by its own symbol, and its aux field is cleared
-  // as well, so a swapped table looks the same on both paths.  The bytecode
-  // stays allocated (curryrt/icurry.cpp): a step in flight finishes on it.  A
-  // table with the trap step (no code; see trap_step) is swapped the same
-  // way: the compile on first use under interpret:off ends here.
+  // The load of the object bound its slots to the tables of this module
+  // (the binding in curryrt/dynload.hpp), so its code makes nodes of the
+  // tables the interpreter made; the tables of the object itself serve the
+  // symbols this module had no table for.  A table whose step is the
+  // interpreter takes the step function of the object by its symbol, and
+  // its aux field is cleared, so a swapped table looks like a table of a
+  // module loaded from its object.  The bytecode stays allocated
+  // (curryrt/icurry.cpp): a step in flight finishes on it.  A table with the
+  // trap step (no code; see trap_step) is swapped the same way: the compile
+  // on first use under interpret:off ends here.  The tables keep their
+  // flags: they stay tables made at run time, which clear frees or keeps,
+  // and which the materializer never takes for built-ins.
   size_t Module::adopt(
       std::shared_ptr<SharedCurryModule> const & shlib
     , std::vector<std::pair<std::string, InfoTable const *>> const & steps
@@ -263,16 +285,79 @@ namespace curryrt
           && info->step != &trap_step)
         ++swapped;
     }
-    // The initializers wrote the flags of the static tables, the static
-    // object flag included.  These stay tables made at run time: clear
-    // frees or keeps them, and the materializer must not take them for
-    // built-ins.
-    for(InfoTable * info: this->impl->owned_tables)
-      info->flags &= ~F_STATIC_OBJECT;
-    for(DataType * type: this->impl->owned_types)
-      type->flags &= ~F_STATIC_OBJECT;
     this->link(shlib);
     return swapped;
+  }
+
+  // The binding of a compiled object; see module.hpp.
+  InfoTable const * Module::bind_infotable(InfoTable const * object)
+  {
+    assert(object);
+    if(InfoTable const * live = this->get_infotable(object->name))
+      return live;
+    InfoTable * kept = take_kept_symbol(
+        this->name, object->name, object->tag, object->arity
+      );
+    if(!kept)
+      return object;
+    kept->flags = object->flags & ~F_STATIC_OBJECT;
+    kept->step  = object->step;
+    kept->type  = object->type;
+    kept->aux   = nullptr;
+    this->impl->symbols[kept->name] = kept;
+    this->impl->owned_tables.push_back(kept);
+    this->impl->keep = true;
+    return kept;
+  }
+
+  DataType const * Module::bind_type(DataType const * object)
+  {
+    assert(object);
+    if(DataType const * live = this->get_type(object->name))
+      return live;
+    // A kept type is taken back with every constructor, each of the shape
+    // the object gives it, or not at all.
+    auto kept_module = g_kept_types.find(this->name);
+    if(kept_module == g_kept_types.end())
+      return object;
+    auto kept = kept_module->second.find(object->name);
+    if(kept == kept_module->second.end() || kept->second->size != object->size)
+      return object;
+    auto kept_symbols = g_kept_symbols.find(this->name);
+    for(index_type j=0; j<object->size; ++j)
+    {
+      InfoTable const * ctor = object->ctors[j];
+      if(kept_symbols == g_kept_symbols.end())
+        return object;
+      auto found = kept_symbols->second.find(ctor->name);
+      if(found == kept_symbols->second.end()
+          || found->second->tag != ctor->tag
+          || found->second->arity != ctor->arity)
+        return object;
+    }
+    DataType * type = const_cast<DataType *>(kept->second);
+    kept_module->second.erase(kept);
+    InfoTable const ** ctor_list = const_cast<InfoTable const **>(type->ctors);
+    type->flags = char(object->flags & ~F_STATIC_OBJECT);
+    for(index_type j=0; j<object->size; ++j)
+    {
+      InfoTable const * ctor = object->ctors[j];
+      InfoTable * taken = take_kept_symbol(
+          this->name, ctor->name, ctor->tag, ctor->arity
+        );
+      assert(taken);
+      taken->flags = ctor->flags & ~F_STATIC_OBJECT;
+      taken->step  = ctor->step;
+      taken->type  = type;
+      taken->aux   = nullptr;
+      ctor_list[j] = taken;
+      this->impl->symbols[taken->name] = taken;
+      this->impl->owned_tables.push_back(taken);
+    }
+    this->impl->types[type->name] = type;
+    this->impl->owned_types.push_back(type);
+    this->impl->keep = true;
+    return type;
   }
 
   InfoTable const * Module::get_infotable(std::string const & name) const
@@ -407,20 +492,34 @@ namespace curryrt
   // (issue #113).
   DataType const * Module::get_builtin_type(std::string const & name) const
   {
-    auto bi = g_builtin_modules.find(this->name);
-    if(bi == g_builtin_modules.end())
-      return nullptr;
-    auto p = bi->second.types.find(name);
-    return (p != bi->second.types.end()) ? p->second : nullptr;
+    return Module::builtin_type(this->name, name);
   }
 
   InfoTable const * Module::get_builtin_symbol(std::string const & name) const
   {
-    auto bi = g_builtin_modules.find(this->name);
+    return Module::builtin_symbol(this->name, name);
+  }
+
+  InfoTable const * Module::builtin_symbol(
+      std::string const & modulename, std::string const & name
+    )
+  {
+    auto bi = g_builtin_modules.find(modulename);
     if(bi == g_builtin_modules.end())
       return nullptr;
     auto p = bi->second.symbols.find(name);
     return (p != bi->second.symbols.end()) ? p->second : nullptr;
+  }
+
+  DataType const * Module::builtin_type(
+      std::string const & modulename, std::string const & name
+    )
+  {
+    auto bi = g_builtin_modules.find(modulename);
+    if(bi == g_builtin_modules.end())
+      return nullptr;
+    auto p = bi->second.types.find(name);
+    return (p != bi->second.types.end()) ? p->second : nullptr;
   }
 
   // The trap step (see module.hpp).

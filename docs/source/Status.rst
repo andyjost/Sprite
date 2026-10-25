@@ -30,16 +30,16 @@ The interpreter modes
 =====================
 
 The flag ``interpret`` of the C++ backend selects how a module without a
-compiled object runs.  ``tiered``, the default on Linux, interprets it at once,
+compiled object runs.  ``tiered``, the default, interprets it at once,
 compiles it in the background, and swaps its functions to the compiled
 code when the object is ready.  ``new`` interprets it and never compiles
 it.  ``all`` interprets every module.  ``off`` compiles every module first.
 The interpreter takes the same steps as the compiled code and about 1.1 to
-1.5 times its time.  On macOS the default is ``new``: a module with a current object loads
-compiled, one without is interpreted, and nothing compiles in the
-background, since the shim of the tiered mode has no form on Mach-O (issue
-#162).  An installation without a C++ compiler runs every
-program interpreted; see :doc:`Installation/WithoutCompiler`.
+1.5 times its time.  The swap binds the compiled object to the tables the
+interpreter made through slots of the object that the loader fills, on
+Linux and macOS alike (issue #163).  An installation without a C++
+compiler runs every program interpreted; see
+:doc:`Installation/WithoutCompiler`.
 
 The typed boundary
 ==================
@@ -87,9 +87,7 @@ Known limits
   comparison of it resolves the narrowing again; read such a result
   through a set function (issue #86; the note in
   :ref:`CurryPrimer/Syntax:Pattern Matching`).
-* The mixed mode of tiered execution has gaps.  A module whose tables
-  changed shape after its shim was made stays interpreted, with the
-  modules that import it, and one warning says so.  A swapped module keeps
+* The mixed mode of tiered execution has gaps.  A swapped module keeps
   its registry entry for the life of the process, so a later load of the
   same name from another directory is refused, before the object is
   opened.  :func:`curry.load` of the object of a module whose background

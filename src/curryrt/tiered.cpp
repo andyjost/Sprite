@@ -63,9 +63,6 @@ namespace curryrt
       // Incremented by tiered_cancel.  A job of an older generation is
       // dropped when it finishes.
       uint64_t                  generation = 0;
-
-      std::mutex                              shim_mutex;
-      std::unordered_map<std::string, void *> shims;
     };
 
     Shared & shared()
@@ -241,26 +238,11 @@ namespace curryrt
         }
         Finished done{std::move(job), generation, -1, 0.0, {}, {}};
         auto const t0 = std::chrono::steady_clock::now();
-        bool ok = true;
-        for(auto const & shim: done.job.shims)
-        {
-          std::string output;
-          ok = tiered_build_shim(shim.file, shim.argv, done.job.envp, &output);
-          if(!ok)
-          {
-            done.error = "the shim " + shim.file + " could not be linked";
-            done.output = output;
-            break;
-          }
-        }
-        if(ok)
-        {
-          done.status = run(
-              done.job.argv, done.job.envp, done.job.logfile, &done.error
-            , &generation
-            );
-          done.output = take_output(done.job.logfile);
-        }
+        done.status = run(
+            done.job.argv, done.job.envp, done.job.logfile, &done.error
+          , &generation
+          );
+        done.output = take_output(done.job.logfile);
         done.seconds = std::chrono::duration<double>(
             std::chrono::steady_clock::now() - t0
           ).count();
@@ -327,9 +309,10 @@ namespace curryrt
           return nullptr;
         loadpath = linkpath;
       }
-      // The first dlopen runs the initializers of the object, which write
-      // the live tables.  Its handle is never closed on a failure after
-      // this point, so the object stays mapped.
+      // The first dlopen maps the object; the binding of its load, which
+      // follows (SharedCurryModule), may give kept tables steps that point
+      // into it.  The handle is never closed on a failure after this
+      // point, so the object stays mapped.
       void * raw = dlopen(loadpath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
       if(!raw)
       {
@@ -412,19 +395,15 @@ namespace curryrt
         result.error = "the module is no longer loaded";
         return result;
       }
-      // The tables must be the ones the job was made for: the shim of the
-      // module names them by address.
+      // The tables must be the ones the job was made for: the swap writes
+      // the steps of the job into them.  A module made again with other
+      // tables submits a job of its own.
       for(auto const & step: job.steps)
         if(module->get_infotable(step.name) != step.info)
         {
           result.error = "the tables of the module were replaced";
           return result;
         }
-      // The shims are loaded whatever the compile did: an object loaded
-      // later must bind to the live tables of an interpreted module.
-      for(auto const & shim: job.shims)
-        if(!tiered_load_shim(shim.file, &result.error))
-          return result;
       if(done.status != 0)
       {
         result.error = "the compile exited with status "
@@ -623,52 +602,5 @@ namespace curryrt
     g_tiered_pending.store(false);
     if(shared().child)
       kill(-shared().child, SIGKILL);
-  }
-
-  bool tiered_build_shim(
-      std::string const & shimfile, std::vector<std::string> const & argv
-    , std::vector<std::string> const & envp, std::string * output
-    )
-  {
-    std::lock_guard<std::mutex> lock(shared().shim_mutex);
-    if(file_exists(shimfile))
-      return true;
-    // The command writes the file under a temporary name (see tiered.py),
-    // which is moved into place when the linker succeeded, so that a loader
-    // never sees a partial file.
-    std::string const tmp = shimfile + ".tmp";
-    std::string const logfile = shimfile + ".log";
-    std::string error;
-    int status = run(argv, envp, logfile, &error, nullptr);
-    *output = take_output(logfile);
-    if(status != 0)
-    {
-      if(!error.empty())
-        *output = error + "\n" + *output;
-      unlink(tmp.c_str());
-      return false;
-    }
-    if(rename(tmp.c_str(), shimfile.c_str()) != 0)
-    {
-      *output = errno_text("cannot move the shim into place");
-      return false;
-    }
-    return true;
-  }
-
-  bool tiered_load_shim(std::string const & shimfile, std::string * error)
-  {
-    std::lock_guard<std::mutex> lock(shared().shim_mutex);
-    if(shared().shims.count(shimfile))
-      return true;
-    void * handle = dlopen(shimfile.c_str(), RTLD_NOW | RTLD_GLOBAL);
-    if(!handle)
-    {
-      char const * msg = dlerror();
-      *error = std::string("cannot load the shim: ") + (msg ? msg : "");
-      return false;
-    }
-    shared().shims[shimfile] = handle;
-    return true;
   }
 }

@@ -2,8 +2,7 @@ import cytest # from ./lib; must be first
 import sys, unittest
 if sys.platform == 'darwin':
   raise unittest.SkipTest(
-      'reads ELF objects or loads compiled modules; the compiled path on '
-      'macOS is issue #162, step 2'
+      'reads ELF objects with readelf, which macOS has no form of'
     )
 from curry import config, exceptions
 from curry.utility.binding import binding, del_
