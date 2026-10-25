@@ -1340,7 +1340,7 @@ class TestProbes(OverlayTestCase):
     text = self.oracle_text('flat2icurry', 'TypedRoot')
     self.assertIn(
         '(IBlock [(IVarDecl 1)] [(IVarAssign 1 (IVarAccess 0 [0]))] (IReturn (IFCall '
-        '("Prelude","_impl#*#Prelude.Num#Prelude.Int",343) [(IVar 2),(IVar 2)])))'
+        '("Prelude","_impl#*#Prelude.Num#Prelude.Int",346) [(IVar 2),(IVar 2)])))'
       , text
       )
     self.assertNotIn('IFreeDecl', text)
@@ -1775,3 +1775,29 @@ class TestBothFormats(cytest.TestCase):
     maps.funs[P('eqString')] = 12
     self.assertEqual(compiler.to_iexpr(ctx, fcall(P('eqString'), fc.Var(1), fc.Var(2))),
         ic.IFCall((*P('eqString'), 12), [ic.IVar(1), ic.IVar(2)]))
+
+  def test_library_string_equality(self):
+    '''New string patterns use the real library helper, bypassing the bridge.'''
+    if config.frontend_version() != '3.1.0':
+      self.skipTest('requires the configured Curry front end 3.1.0')
+    from curry import toolchain
+    from unittest import mock
+    original = compiler._to_iexpr
+    calls = []
+    def checked(ctx, expr):
+      if isinstance(expr, fc.Comb) and expr.name == P('eqString'):
+        self.assertIn(expr.name, ctx.maps.funs)
+        calls.append(expr)
+      return original(ctx, expr)
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, 'StringPattern.curry')
+      with open(source, 'w') as stream:
+        stream.write('module StringPattern where\n'
+                     'match :: String -> Bool\n'
+                     'match s = case s of { "yes" -> True; _ -> False }\n')
+      with mock.patch.object(compiler, '_to_iexpr', checked):
+        icy = toolchain.curry2icurry(source, [config.system_curry_path()],
+            curry2icurry='frontend', use_cache=False, quiet=True)
+      self.assertTrue(calls)
+      with open(icy) as stream:
+        self.assertIn('"eqString"', stream.read())

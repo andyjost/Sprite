@@ -126,7 +126,7 @@ class TestCMake(cytest.TestCase):
                     ('frontend_subdir', 'pakcs-' + release),
                     ('intermediate_subdir', 'sprite-pakcs-' + release),
                     ('frontend_flags', '--extended -D__PAKCS__=' + macro),
-                    ('currylib_version', '3.4.1')]
+                    ('currylib_version', '3.10.0')]
         for name, value in expected:
           self.assertEqual((facts / name).read_text().strip(), value)
         other = '3.10.0' if release == '3.4.1' else '3.4.1'

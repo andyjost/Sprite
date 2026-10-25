@@ -260,7 +260,7 @@ def _to_iexpr(ctx, e):
       args.append(arg)
     ct = e.combtype
     maps, cur = ctx.maps, ctx.qname[1]
-    # Front end 3.1 uses eqString to compile string patterns. The shipped
+    # Front end 3.1 uses eqString to compile string patterns. An older
     # base 3.1 Prelude predates that helper: use its Eq [Char] operation.
     # A newer library that defines eqString follows the ordinary path.
     if e.name == fc.prelude('eqString') and e.name not in maps.funs:

@@ -312,12 +312,12 @@ class TestInstances(cytest.TestCase):
     self.assertIsNone(table.instance('Prelude.Num', 'Prelude.Bool'))
     self.assertIn('Prelude.Float', table.instances_of('Prelude.Fractional'))
     self.assertNotIn('Prelude.Int', table.instances_of('Prelude.Fractional'))
-    # The Prelude declares 124 instances.
+    # Base 3.4.0 adds Eq for six-tuples to the Prelude's instances.
     prelude_instances = [
         inst for inst in table.instances().values()
              if inst.modulename == 'Prelude'
       ]
-    self.assertEqual(len(prelude_instances), 124)
+    self.assertEqual(len(prelude_instances), 125)
     for inst in prelude_instances:
       cls, types = sigtable.parse_instance_types(inst.name, 'Prelude')
       self.assertEqual(sigtable.instance_name(cls, *types), inst.name)
@@ -504,11 +504,11 @@ class TestInterface(cytest.TestCase):
     self.assertEqual(set(iface.function_names()), set(funcs))
     self.assertEqual(set(iface.type_names()), set(types))
     self.assertEqual(set(iface.constructor_names()), set(ctors))
-    self.assertEqual(len(funcs), 1267)
+    self.assertEqual(len(funcs), 1272)
     self.assertEqual(iface.function('(,)'), None)
     self.assertEqual(iface.constructor('(,)')[1], ctors['(,)'][1])
     self.assertEqual(iface.type_decl('_Dict#Ord'), types['_Dict#Ord'])
-    self.assertEqual(len(iface.instance_names()), 124)
+    self.assertEqual(len(iface.instance_names()), 125)
 
   def test_timing(self):
     '''
