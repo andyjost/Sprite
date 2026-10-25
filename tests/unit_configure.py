@@ -159,7 +159,14 @@ class TestCMake(cytest.TestCase):
                         ('currylib_version', '3.4.0')]:
       self.assertEqual((facts / name).read_text().strip(), value)
     ninja = (self.build / 'build.ninja').read_text()
-    self.assertIn(str(bindir / 'curry-frontend'), ninja)
+    # AUTO looks at the installation's tools before PATH: a tree whose own
+    # installation holds the current pair selects that front end; otherwise
+    # the current one on PATH. Never the legacy executable beside them.
+    installed = ROOT / 'install' / 'tools' / 'curry-frontend'
+    accepted = [str(bindir / 'curry-frontend')]
+    if installed.exists():
+      accepted.append(str(installed.resolve()))
+    self.assertTrue(any(path in ninja for path in accepted), accepted)
     self.assertNotIn(str(bindir / 'pakcs-frontend'), ninja)
 
   def test_optional_icurry_probe(self):
