@@ -1,0 +1,20 @@
+Source: https://github.com/curry-language/curry2go
+Version: 1.7.0 (master snapshot e3a903e)
+Directory: benchmarks/suite
+License: BSD-3-Clause; see LICENSE (copied unchanged).
+
+Upstream files, copied byte for byte with their headers:
+  AddNum.curry
+  NRev.curry
+  PermSort.curry
+  PermSortPeano.curry
+  PrimesHO.curry
+  Queens.curry
+  ReverseHO.curry
+  Select.curry
+  SortPrimes.curry
+  TakInt.curry
+  TakPeano.curry
+
+Sprite wrapper: SelectBench.curry (see the benchmark README).
+Excluded sources are retained for provenance, but never loaded by the suite.

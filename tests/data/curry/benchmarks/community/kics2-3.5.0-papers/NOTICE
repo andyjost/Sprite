@@ -1,0 +1,14 @@
+Source: https://github.com/curry-language/kics2
+Version: 3.5.0 (master snapshot 40383b5)
+Directory: benchmarks/benchmark_papers/kics2
+License: BSD-3-Clause; see LICENSE (copied unchanged).
+
+Upstream files, copied byte for byte with their headers:
+  Data/Format.curry
+  DistInfo.curry
+  NRev.curry
+
+No Sprite wrapper is added to this origin.
+BenchKiCS2.curry is not vendored: it requires currypp and external harness
+packages and embeds an upstream machine-specific installation path.
+Excluded sources are retained for provenance, but never loaded by the suite.

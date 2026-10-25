@@ -137,6 +137,8 @@ reproducers pass.
   builds PAKCS from source; Sprite itself needs neither. GNU time
   (`/usr/bin/time`) is optional: the benchmark harness uses it for the peak
   memory of a run.
+  The benchmark harness also has a separate community suite; its manifest
+  and wrapper rules are in `tests/data/curry/benchmarks/README.md`.
 - Sprite needs no GPU.
 - CMake honours `CC`, `CXX`, `CFLAGS`, `CXXFLAGS`
   and `LDFLAGS` from the environment, so build in a clean environment when

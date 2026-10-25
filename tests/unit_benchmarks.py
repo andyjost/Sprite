@@ -679,6 +679,44 @@ class TestSuites(unittest.TestCase):
     # The split modules are not programs of the other suites.
     self.assertNotIn('QueensSetSplit', suites.all_programs())
 
+  def test_community(self):
+    '''Origin names, wrapper goals and long-program selection stay separate.'''
+    programs = suites.community_programs()
+    self.assertEqual(len(programs), 16)
+    self.assertEqual(len(set(programs)), 16)
+    self.assertEqual(suites.select('community', ['*/Queens']), [
+        'curry2go-1.7.0-suite/Queens', 'kics2-3.5.0-suite/Queens'
+      ])
+    self.assertEqual(suites.select('community', [], nightly=True), [])
+    self.assertFalse(set(programs).intersection(DISSERTATION))
+    self.assertTrue(all(os.path.isfile(p) for p in programs.values()))
+    name = 'curry2go-1.7.0-suite/Select'
+    item, = self.build('community', [name], ['cxx'])
+    with mock.patch.dict(os.environ, {'SPRITE_INTERPRETER_FLAGS': 'backend:cxx'}):
+      cmd, env, cwd = item.command()
+    self.assertEqual(item.key, ('community', name, 'cxx', None))
+    self.assertEqual(cmd[-2:], ['-m', 'SelectBench'])
+    self.assertEqual(env['CURRYPATH'], cwd)
+    self.assertIn('interpret:off', env['SPRITE_INTERPRETER_FLAGS'])
+    with mock.patch.dict(os.environ, {'SPRITE_INTERPRETER_FLAGS': 'interpret:new'}):
+      _, override, _ = item.command()
+    self.assertIn('interpret:new', override['SPRITE_INTERPRETER_FLAGS'])
+    self.assertNotIn('interpret:off', override['SPRITE_INTERPRETER_FLAGS'])
+    self.assertEqual(os.path.basename(cwd), 'curry2go-1.7.0-suite')
+    parsed = item.parse(FakeRun(stdout='1.5\n', stderr=STATS_LINE))
+    self.assertEqual(parsed['eval_wall'], 1.5)
+    self.assertEqual(parsed['steps'], 7)
+    with self.assertRaisesRegex(ValueError, 'throughput suite only'):
+      self.build('community', [name], ['pakcs'])
+    # A manifest entry over budget is opt-in, without losing its source.
+    manifest = 'source\tpath\tstatus\n' + (
+        'curry2go-1.7.0/benchmarks/suite\tSelect.curry\t'
+        'long: Sprite timeout at 600 seconds\n'
+      )
+    with mock.patch('builtins.open', mock.mock_open(read_data=manifest)):
+      self.assertEqual(suites.select('community', []), [])
+      self.assertEqual(suites.select('community', ['*/Select']), [name])
+
   def test_nightly_items(self):
     '''The fixed set of the nightly job, and --nightly.'''
     self.assertEqual(len(NIGHTLY), 10)
@@ -709,6 +747,25 @@ class TestSuites(unittest.TestCase):
       suites.select('throughput', ['Hello'], nightly=True)
     # Without the flag nothing changes.
     self.assertEqual(suites.select('throughput', []), list(DISSERTATION))
+
+  def test_community_table_names(self):
+    '''Qualified names survive the run, comparison and counters tables.'''
+    name = 'curry2go-1.7.0-suite/PermSortPeano'
+    record = make_record(name, 1.0, suite='community')
+    legacy = make_record('Queens10', 1.0)
+    width = records.program_width([record, legacy])
+    self.assertEqual(width, len(name))
+    self.assertEqual(records.program_width([legacy]), 16)
+    output = io.StringIO()
+    run.write_row(output, record, program_width=width)
+    self.assertIn(name, output.getvalue().split())
+    output = io.StringIO()
+    compared = compare.compare(record, record, 'cpu', 0.1)
+    compare.write_row(output, compared, 'cpu', program_width=width)
+    self.assertIn(name, output.getvalue().split())
+    output = io.StringIO()
+    counters.write_table(output, [counters.row(record)], program_width=width)
+    self.assertIn(name, output.getvalue().split())
 
   def test_select(self):
     self.assertEqual(
