@@ -64,6 +64,7 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
       config.cxx_tool() is None
     , 'the shared object needs the C++ compiler of the installation'
     )
+  @cytest.linux_only('loads the object of a module the interpreter ran, which is the swap of the tiered mode; macOS gets it with issue #163')
   def test_round_trip(self):
     flags = 'backend:cxx,interpret:new'
     proc = cytest.run_in_subprocess(self.CODE % {'flags': flags}, TIMEOUT)
@@ -76,6 +77,7 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
 
   @unittest.skipUnless(config.cxx_tool() is not None,
                        'the cold object needs the C++ backend and its compiler')
+  @cytest.linux_only('loads the object of a module the interpreter ran, which is the swap of the tiered mode; macOS gets it with issue #163')
   def test_cold_cache_tiered(self):
     self.check_cold_cache('tiered')
 
