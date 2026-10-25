@@ -34,11 +34,12 @@ reproducers pass.
   the type schemes from the FlatCurry interfaces (`symbol.signature`),
   `defaulting.py` applies the table of the PAKCS REPL to the class
   constraints of a goal, `goals.py` builds the goal with its dictionaries
-  for `curry.eval`, `curry.compile(mode='expr')`, the REPL, `sprite-exec
+  for `curry.eval`, `curry.parse`, the REPL, `sprite-exec
   -g` and saved modules, and the engine types a Python-built expression
   (`engine`, `terms`, `unify`, `instances`, `exprtype`, `errors`), with
-  `builder.py` as the typed `curry.expr` over it and `serialize.py` as the
-  printer of a description as Curry text.
+  `builder.py` as the typed construction behind `curry.term` and the
+  calls of a symbol over it, and `serialize.py` as the printer of a
+  description as Curry text.
   `src/python/tools/icy/` is the REPL: `python -m curry.tools.icy`, with
   `:load`, `:eval`, `:type`, `:set` and `:quit`.
 - `src/curryrt/`: the C++ runtime library.
@@ -114,14 +115,16 @@ reproducers pass.
   WARNING level; `SPRITE_FRONTEND_WARNINGS=0` silences it, and the test
   runner, the test library, the benchmark harness and the run scripts of
   the examples whose rules overlap by design set it.
-- `curry.expr` is typed (`src/python/typecheck/builder.py`): it reads the
-  schemes of the FlatCurry interfaces, unifies the arguments with the
-  parameter types, converts Python values by the expected type, defaults
-  the class constraints with the table of the PAKCS REPL and supplies the
-  dictionaries. A typing failure is a `CurryTypeError` at construction.
-  `curry.raw_expr` is the untyped builder; the flag `typed_expr` turns the
-  typing off for a whole interpreter. `curry.typeof`, `curry.typed` and
-  `curry.describe` complete the API.
+- The construction of a term from Python is typed
+  (`src/python/typecheck/builder.py`): `curry.term(value, type=...)`
+  converts a Python value by its type or the stated one; a call of a
+  symbol, `M.f(1)`, reads the scheme of the FlatCurry interface, unifies
+  the arguments with the parameter types, defaults the class constraints
+  with the table of the PAKCS REPL and supplies the dictionaries;
+  `curry.parse(text, imports=...)` builds a term from Curry text. A
+  typing failure is a `CurryTypeError` at construction. `curry.typeof`
+  (`defaulted=True` applies the table) and `curry.show` complete the
+  API; the installed stub `curry/__init__.pyi` is the surface.
 - Other tools: a C++ compiler (g++), GNU make, and binutils (`ar`). The
   C++ runtime uses the C++17 standard library alone: Boost is not needed.
   jq is not needed: Sprite writes compact JSON itself. SWI-Prolog runs
@@ -243,11 +246,11 @@ reproducers pass.
   defaults them as the PAKCS REPL does (`Num` to `Int`, `Fractional` to
   `Float`, `Monad` to `IO`, a lone `Data` to `Bool`) and rejects the rest
   with the REPL's sentence. `curry.eval` supplies the dictionaries of such
-  a goal; a call with arguments, `curry.eval(M.f, 1)`, is typed like any
-  expression of `curry.expr`. A text
-  goal of `curry.compile(mode='expr')` may end in `where x free`; its
-  values then carry the bindings. `curry.save` needs a goal; pass
-  `module_main=False` to save a module without a main program.
+  a goal; an application, `curry.eval(M.f(1))`, is typed like any term.
+  A text goal of `curry.parse` may end in `where x free`; `curry.solve`
+  then reports the bindings beside each value. `curry.save(module, path,
+  main=...)` writes a program that prints the answers of `main`, or the
+  object of the module alone without `main`.
 
 ## Conventions
 
