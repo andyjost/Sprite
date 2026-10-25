@@ -297,7 +297,7 @@ class TestLiteralTables(cytest.TestCase):
     try:
       exe = os.path.join(tmpdir, 'literals_test')
       cmd = [
-          config.cxx_tool(), '-std=c++17', '-O2', '-Wall'
+          config.cxx_tool(), '-std=c++17', '-O2', '-Wall', '-fno-strict-aliasing'
         , '-I%s' % config.installed_path('include')
         , source, '-o', exe
         , '-L%s' % libdir, '-lcurryrt', '-Wl,-rpath,%s' % libdir

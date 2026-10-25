@@ -105,6 +105,12 @@ same command for every later build::
 
     env -i PATH=PREFIX/conda/env/bin:/usr/local/bin:/usr/bin:/bin HOME=$HOME LC_ALL=C.UTF-8 CCACHE_DIR=PREFIX/ccache make stage
 
+The runtime library, the bindings, the generated code and the C++ tests
+compile with ``-fno-strict-aliasing``: the node graph is read through the
+pointer union ``NodeU``, which the aliasing rules of C++ do not describe.
+``CXXFLAGS`` in the environment adds to the flags of the generated code
+and cannot remove it.
+
 ``CCACHE_DIR`` keeps the compiler cache under the prefix, not under
 ``HOME``.  With ``-DWITH_CCACHE=ccache`` the compiler of the
 installation runs ccache too, so every test and every program that

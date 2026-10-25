@@ -280,6 +280,19 @@ class TestCMake(cytest.TestCase):
         os.environ['SPRITE_FRONTEND'] = ''
         self.assertIsNone(config.curry_frontend())
 
+  def test_runtime_compiles_without_strict_aliasing(self):
+    '''The runtime and the bindings compile with -fno-strict-aliasing (issue #170).'''
+    result = self.configure()
+    self.assertEqual(result.returncode, 0, result.stdout)
+    flagged = set()
+    target = None
+    for line in (self.build / 'build.ninja').read_text().splitlines():
+      if line.startswith('build CMakeFiles/'):
+        target = line.split('/', 2)[1]
+      elif line.strip().startswith('FLAGS =') and '-fno-strict-aliasing' in line:
+        flagged.add(target)
+    self.assertTrue({'curryrt.dir', '_curryrtbindings.dir'} <= flagged, flagged)
+
 
 class TestWrappers(cytest.TestCase):
   def test_stage_order_and_parallelism(self):

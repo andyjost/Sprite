@@ -1007,6 +1007,11 @@ class Cpp2So(object):
     yield '-I%s' % os.path.realpath(config.installed_path('include'))
     yield '-fPIC'
     yield '-std=c++17'
+    # The node graph is read through the pointer union NodeU, and a rewritten
+    # node is overlaid with another struct (Node::forward_to): accesses the
+    # aliasing rules of C++ call unrelated.  The runtime library compiles with
+    # the same flag (CMakeLists.txt); issue #170.
+    yield '-fno-strict-aliasing'
     if IS_DARWIN:
       # clang warns by default on the elided braces of a node's aggregate
       # initialization (builtins.hpp); the compile of a module is silent.

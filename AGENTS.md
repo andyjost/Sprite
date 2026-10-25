@@ -126,6 +126,10 @@ reproducers pass.
   API; the installed stub `curry/__init__.pyi` is the surface.
 - Other tools: a C++ compiler (g++), GNU make, and binutils (`ar`). The
   C++ runtime uses the C++17 standard library alone: Boost is not needed.
+  The runtime, the bindings, the generated code and the C++ tests compile
+  with `-fno-strict-aliasing`: the node graph is read through the pointer
+  union `NodeU`, which the aliasing rules of C++ do not describe (issue
+  #170, found on riscv64).
   jq is not needed: Sprite writes compact JSON itself. SWI-Prolog runs
   PAKCS, the test oracle, and the build of its saved states; Haskell Stack
   builds PAKCS from source; Sprite itself needs neither. GNU time
