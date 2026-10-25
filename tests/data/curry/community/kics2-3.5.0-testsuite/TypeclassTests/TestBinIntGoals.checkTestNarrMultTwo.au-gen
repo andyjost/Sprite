@@ -1,0 +1,4 @@
+(Pos IHi,Pos (O IHi))
+(Pos (O IHi),Pos IHi)
+(Neg IHi,Neg (O IHi))
+(Neg (O IHi),Neg IHi)
