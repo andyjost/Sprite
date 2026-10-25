@@ -736,11 +736,15 @@ step_next() {
         ccache:      $prefix/ccache (CCACHE_DIR)
         clean env:   ${clean_env[*]}
 
-    1. Calibrate the test manifest on this machine: run every test file
-       once on a quiet machine with the manifest update of the
-       test runner (see ./run_tests -h and section 10 of tests/README):
+    1. Compile the shared Curry products once (the prepare pass; a fresh
+       checkout needs it before the files run, and before a calibration,
+       whose durations would otherwise include it), then calibrate the
+       test manifest on this machine: run every test file once on a
+       quiet machine with the manifest update of the test runner (see
+       ./run_tests -h and section 10 of tests/README):
 
            cd $repo/tests
+           ./run_tests --prepare-only --backend cxx
            ./run_tests -j 1 --backend cxx --update-manifest
 
        The durations and the peak memory of the files are then measured
