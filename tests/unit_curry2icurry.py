@@ -497,7 +497,7 @@ class TestCurry2ICurry(cytest.TestCase):
     with tarfile.open(archive) as tar:
       tar.extractall(self.tmpdir, members=chosen, filter='data')
       # The source digests the archive carries are its own record of what
-      # each product was made from; the stamp of the prune keeps them.
+      # each product was made from; pruning keeps that record.
       records = {m.name: tar.extractfile(m).read() for m in chosen if m.name.endswith('.icy.source')}
     def products(name):
       return sorted(

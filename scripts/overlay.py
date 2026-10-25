@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Extract and maintain release-specific test products (developer tooling only)."""
+"""Extract and maintain release-specific test products (developer tooling only).
+
+Only the converter writes a test product's source receipt (M.icy.source).
+Extraction prunes a test product without a matching receipt; packing refuses one
+without a receipt.
+"""
 import argparse
 import gzip
 import hashlib
@@ -75,6 +80,15 @@ def prune_receipts(root, subdir):
   # A newer packing commit does not prove that every archived product was
   # refreshed. Keep the source digest recorded with the product authoritative.
   stale = set()
+  # Include orphaned products: their source may have been removed since packing.
+  for product in (root / 'tests').rglob('*.icy'):
+    if product.with_name(product.name + '.source').is_file():
+      continue
+    for directory in product.parents:
+      if directory.name == 'sprite-' + subdir and directory.parent.name == '.curry':
+        source = directory.parent.parent / product.relative_to(directory).with_suffix('.curry')
+        stale.add(source.relative_to(root))
+        break
   for pattern in ('*.curry', '*.lcurry'):
     for source in (root / 'tests').rglob(pattern):
       if not source.is_file() or '.curry' in source.relative_to(root).parts:
@@ -100,7 +114,7 @@ def prune(root, subdir='pakcs-3.10.0'):
   except subprocess.CalledProcessError:
     commit = ''
   if not commit:
-    print('overlay-prune: no git history; nothing pruned')
+    print('overlay-prune: no git history; only source receipts checked')
     return
   if git('rev-parse', '--is-shallow-repository') == 'true':
     result = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', '--verify',
@@ -110,8 +124,6 @@ def prune(root, subdir='pakcs-3.10.0'):
             file=sys.stderr)
   for name in git('diff', '--name-only', commit, '--', 'tests/*.curry').splitlines():
     prune_source(root, Path(name))
-  subprocess.run([sys.executable, str(ROOT / 'scripts/stamp-overlay.py'),
-                  commit, str(root), 'sprite-' + subdir], check=True)
 
 
 def archive_products(root, subdir='pakcs-3.10.0', prefix=None):
@@ -121,6 +133,12 @@ def archive_products(root, subdir='pakcs-3.10.0', prefix=None):
       and any(part in (subdir, 'sprite-' + subdir) for part in p.parts)
       and any(p.name.endswith(s) for s in ['.fcy', '.fint', '.icurry', '.icy', '.icy.imports', '.icy.source', '.json.z'])
     }
+  missing = [name for name, path in sorted(products.items())
+             if name.endswith('.icy')
+             and not path.with_name(path.name + '.source').is_file()]
+  if missing:
+    raise RuntimeError('regenerate test products without source receipts (%d):\n%s'
+                       % (len(missing), '\n'.join(missing[:10])))
   # The library is built out of source now. Keep its interfaces under the
   # historical curry/lib names in the test archive.
   library = (root / 'install' if prefix is None else prefix) / 'curry/.curry' / subdir
