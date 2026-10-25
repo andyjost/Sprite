@@ -30,7 +30,8 @@ int main(int argc, char ** argv)
     if(marker == "marker")
       s << ".section __DATA,__data\n.globl _shim_marker\n.weak_definition _shim_marker\n_shim_marker:\n.quad 0\n";
   }
-  std::string cmd = "c++ -shared -nostdlib -x assembler " + shim + ".s -o " + shim + " 2>&1";
+  // Apple's linker refuses a dylib without the system library (-nostdlib).
+  std::string cmd = "c++ -shared -x assembler " + shim + ".s -o " + shim + " 2>&1";
   if(int status = system(cmd.c_str())) { printf("  shim link failed (%d)\n", status); return 0; }
   void * sh = dlopen(shim.c_str(), RTLD_NOW | RTLD_GLOBAL);
   if(!sh) { printf("  shim load failed: %s\n", dlerror()); return 0; }
