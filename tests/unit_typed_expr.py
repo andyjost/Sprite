@@ -555,8 +555,9 @@ class TestValueWalk(cytest.TestCase):
     j = next(curry.eval(curry.term(P.Just)))
     self.assertEqual(curry.typeof(j), 'a -> Maybe a')
     self.assertEqual(texts(P.apply, j, curry.Char('x')), ["Just 'x'"])
-    # A method without its dictionary stays an opaque leaf.
-    self.assertEqual(curry.typeof(cytest.raw.expr(plus)), 'a')
+    # A method without its dictionary cannot enter a typed application.
+    with self.assertRaisesRegex(curry.CurryTypeError, 'missing a class dictionary'):
+      curry.typeof(cytest.raw.expr(plus))
 
 
 

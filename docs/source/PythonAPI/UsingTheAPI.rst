@@ -267,6 +267,13 @@ prerequisite errors name the operation to correct.  The complete public
 error tree is in :doc:`../Reference/curry`; callers can catch either a
 specific leaf or ``CurryError``.  A failed search remains an empty result.
 
+A shared free variable keeps the type inferred by its first use.  Reusing
+it at an incompatible type raises ``CurryTypeError`` during construction.
+An iterator represents one homogeneous Curry list: its context fixes the
+element type, or its first item fixes it when the context leaves it open.
+A later incompatible item raises ``ConversionError`` when it is drawn;
+``typeof`` does not draw items.
+
 .. _goal-defaulting:
 
 Defaulting an ambiguous goal

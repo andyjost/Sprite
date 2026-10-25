@@ -10,7 +10,8 @@ namespace curryrt { inline namespace
 {
   bool ub_equals(Cursor & lhs, Cursor & rhs)
   {
-    assert(lhs.kind == rhs.kind);
+    if(lhs.kind != rhs.kind)
+      throw EvaluationError("ill-typed equality");
     switch(lhs.kind)
     {
       case 'i': return (lhs.arg->ub_int == rhs.arg->ub_int);
@@ -223,6 +224,9 @@ namespace curryrt { inline namespace
       default: break;
     }
     assert(tagl >= T_CTOR && tagr >= T_CTOR);
+    if(lhs.target->info->type != rhs.target->info->type
+        || (tagl == tagr && lhs.target->info->arity != rhs.target->info->arity))
+      throw EvaluationError("ill-typed equality");
     if(tagl != tagr)
       _0->forward_to(Fail);
     else
@@ -291,6 +295,9 @@ namespace curryrt { inline namespace
     // constraint have one representation, so this does not occur.
     if(code)
       throw InstantiationError("=:<= cannot compare an unboxed value with a node");
+    if(lhs.target->info->type != rhs.target->info->type
+        || (tagl == tagr && lhs.target->info->arity != rhs.target->info->arity))
+      throw EvaluationError("ill-typed equality");
     if(tagl != tagr)
       _0->forward_to(Fail);
     else

@@ -1,5 +1,7 @@
 #include "curryrt/curryrt.hpp"
+#include "curryrt/checker.hpp"
 #include "curryrt/currylib/prelude.hpp"
+#include "curryrt/exceptions.hpp"
 #include "curryrt/graph/walk.hpp"
 #include "curryrt/inspect.hpp"
 
@@ -29,8 +31,9 @@ namespace curryrt { inline namespace
     auto tag = rts->hnf(C, &_1);
     if(tag != T_CTOR)
       return tag;
+    if(_1.target->info->type != &PartApplic_Type)
+      throw EvaluationError("ill-typed application: expected a partial application");
     PartApplicNode * partial = NodeU{_1.target}.partapplic;
-    assert(partial->info->type == &PartApplic_Type);
     Node * arg = _0->successor(1);
     // A partial application reached through set guards (a function value
     // that is an argument of a set function, or that such an argument holds)
@@ -75,6 +78,8 @@ namespace curryrt { inline namespace
     auto tag = rts->hnf(C, &_1);
     if(tag != T_CTOR)
       return tag;
+    if(_1.target->info->type != &PartApplic_Type)
+      throw EvaluationError("ill-typed application: expected a partial application");
     PartApplicNode * partial = NodeU{_1.target}.partapplic;
     bool const monadic = partial->head_info
         && is_monadic(*partial->head_info);
@@ -122,9 +127,18 @@ namespace curryrt { inline namespace
       }
       if(tag < T_CTOR)
         return tag;
+      // Keep the scan rooted at the argument: a replacement there updates
+      // var's slot before a restart.  Only failure belongs to the redex.
+      Cursor redex = C->cursor();
       C->scan.push(var);
       tag = rts->procN(C, var->target);
       C->scan.pop();
+      if(tag == T_FAIL)
+      {
+        if(rts->checker)
+          rts->checker->normalization_failure(C, redex);
+        return redex->make_failure();
+      }
       if(tag == E_RESTART)
         goto redo;
       return tag;

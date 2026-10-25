@@ -433,6 +433,15 @@ namespace curryrt { namespace python
         }
       , "Runs the check of an inductive position at ``path`` of the root of "
         "the front configuration, which must be an operation.", curryrt::python::heap_access{});
+    mod.def("checker_debug_normalization_failure"
+      , [](RuntimeState & rts, Node * destination)
+        {
+          Checker & checker = require(rts);
+          checker.step_begin(front(rts));
+          checker.normalization_failure(front(rts), destination);
+          checker.step_end(front(rts), E_RESTART);
+        }
+      , "Checks that a failed normalization writes the active redex.", curryrt::python::heap_access{});
     mod.def("checker_debug_check_failed_step"
       , [](RuntimeState & rts, Node * node)
         {

@@ -206,6 +206,37 @@ class TestStackGuard(cytest.TestCase):
     self.assertEqual(values, [n, n])
     self.assertEqual(pair, 2 * single + overhead)
 
+class TestIssue131(cytest.TestCase):
+  def test_cyclic_strict_equality(self):
+    program = '''
+module Cycle where
+data N = Z | S N
+k :: N -> N -> Bool -> Bool
+k (S x') y e = (x' =:= y) &> (e &> False)
+goal :: Bool
+goal = let e = x =:= y in e ? k x y e  where x, y free
+goalR :: Bool
+goalR = let e = x =:= y in k x y e  where x, y free
+'''
+    for goal in ('goalR', 'goal'):
+      with self.subTest(goal=goal):
+        code = '''
+import curry
+M = curry.compile(%r)
+try:
+  for value in curry.eval(getattr(M, %r)):
+    print('value', value, flush=True)
+  print('end')
+except curry.EvaluationError as error:
+  print('error', error)
+''' % (program, goal)
+        lines = run_child(self, code)
+        print('%s: %s' % (goal, '; '.join(lines)))
+        if goal == 'goal':
+          self.assertEqual(lines.pop(0), 'value True')
+        self.assertEqual(len(lines), 1, lines)
+        self.assertTrue(lines[0] == 'end' or lines[0].startswith('error '), lines)
+
 class TestDeepValue(cytest.TestCase):
   @classmethod
   def setUpClass(cls):

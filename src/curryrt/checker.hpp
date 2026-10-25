@@ -117,6 +117,8 @@ namespace curryrt
     void generator(Node * x, Node * gen);
     // The value bindings of a variable of a built-in type (replace_freevar).
     void value_bindings(Node * x, Node * tree);
+    // A failed normalization writes only the redex of the active step.
+    void normalization_failure(Configuration *, Node * destination);
     // The write of a generator into the slot of a variable, rule S.x
     // (instantiate, and the slot write of an existing generator in
     // replace_freevar): before and after the write.  ``event`` names the
