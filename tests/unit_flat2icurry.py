@@ -1338,9 +1338,10 @@ class TestProbes(OverlayTestCase):
     '''
     fcy = self.overlay.fcy('flat2icurry', 'TypedRoot')
     text = self.oracle_text('flat2icurry', 'TypedRoot')
+    suffix = '#' if config.frontend_version() == '3.1.0' else ''
     self.assertIn(
         '(IBlock [(IVarDecl 1)] [(IVarAssign 1 (IVarAccess 0 [0]))] (IReturn (IFCall '
-        '("Prelude","_impl#*#Prelude.Num#Prelude.Int",346) [(IVar 2),(IVar 2)])))'
+        '("Prelude","_impl#*#Prelude.Num#Prelude.Int%s",346) [(IVar 2),(IVar 2)])))' % suffix
       , text
       )
     self.assertNotIn('IFreeDecl', text)
@@ -1427,13 +1428,17 @@ class TestOracleHarness(cytest.TestCase):
       self.assertIn((fcy, oracle.expected_icy(fcy)), pairs)
       self.assertEqual(sorted(set(icy for _, icy in pairs)), overlay.test_icys())
       library = overlay.library_pairs()
-      self.assertEqual(
+      if config.frontend_version() == '3.1.0':
+        self.assertEqual(len(library), 30)
+        self.assertTrue(all(icy.startswith(tmpdir) for _, icy in library))
+      else:
+        self.assertEqual(
           sorted(os.path.basename(icy) for _, icy in library)
         , ['AllValues.icy', 'Char.icy', 'Either.icy', 'Function.icy', 'Identity.icy', 'List.icy'
           , 'Maybe.icy', 'Prelude.icy', 'SetFunctions.icy', 'SetFunctions.icy', 'Unsafe.icy']
-        )
-      for fcy, icy in library:
-        self.assertTrue(icy.startswith(os.path.join(ROOT, 'curry', 'lib')), icy)
+          )
+        for fcy, icy in library:
+          self.assertTrue(icy.startswith(os.path.join(ROOT, 'curry', 'lib')), icy)
       libdir, = overlay.library_dirs()
       self.assertTrue(
           os.path.isfile(os.path.join(libdir, '.curry', overlay.subdir, 'Prelude.fint'))
@@ -1740,6 +1745,20 @@ class TestBothFormats(cytest.TestCase):
     decls = fc.data_decls_of(PRELUDE)
     self.assertEqual(casecompletion.complete_exp(decls, full, preserve_completed=True),
         casecompletion.complete_exp(decls, full))
+
+  def test_icurry33_completed_case_order(self):
+    '''Compatibility sorts completed cases; the runtime keeps its order.'''
+    from unittest import mock
+    p = self.fixture('3.1.0', 'Incomplete')
+    # The typed Prelude interface distinguishes this otherwise untyped goal.
+    imported = fc.Prog('Prelude', [], [BOOL],
+        [pfunc('failed', 0), pfunc('_inst#Prelude.Num#Prelude.Int#', 1)], [])
+    with mock.patch.object(config, 'frontend_version', return_value='3.1.0'):
+      for compat, names in [(True, [P('False'), P('True')]),
+                            (False, [P('True'), P('False')])]:
+        result = f2i.translate(p, [imported], icurry_compat=compat)
+        branches = result.functions[0].body.block.statement.branches
+        self.assertEqual([br.name[:2] for br in branches], names)
 
   def test_new_frontend_integration(self):
     if config.frontend_version() != '3.1.0':

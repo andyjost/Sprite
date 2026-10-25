@@ -3,8 +3,45 @@ Version: kics2-3.5.0
 Original programs are copied byte for byte. *Goals.curry are Sprite adapters.
 
 Files:
+  LanguageTests/TestAsPattern.curry
+  LanguageTests/TestAsPatternGoals.curry
+  LanguageTests/TestCase.curry
+  LanguageTests/TestCaseGoals.curry
+  LanguageTests/TestFCase.curry
+  LanguageTests/TestFCaseGoals.curry
+  LanguageTests/TestFunctional.curry
+  LanguageTests/TestFunctionalGoals.curry
+  LanguageTests/TestHigher.curry
+  LanguageTests/TestHigherGoals.curry
+  LanguageTests/TestInfinite.curry
+  LanguageTests/TestInfiniteGoals.curry
+  LanguageTests/TestListComprehension.curry
+  LanguageTests/TestListComprehensionGoals.curry
+  LanguageTests/TestNarrowing.curry
+  LanguageTests/TestNarrowingGoals.curry
+  LanguageTests/TestNonLinearPattern.curry
+  LanguageTests/TestNonLinearPatternGoals.curry
+  LanguageTests/TestNondet.curry
+  LanguageTests/TestNondetGoals.curry
   SpecialTests/TestPolySubExp.curry
   SpecialTests/TestPolySubExpGoals.curry
+  SpecialTests/TestUnification.curry
+  SpecialTests/TestUnificationGoals.curry
+  SpecialTests/rev.curry
+  TypeclassTests/TestBinInt.curry
+  TypeclassTests/TestBinIntGoals.curry
+  TypeclassTests/TestClassInst.curry
+  TypeclassTests/TestClassInstGoals.curry
+  TypeclassTests/TestDeriving.curry
+  TypeclassTests/TestDerivingGoals.curry
+  TypeclassTests/TestDoList.curry
+  TypeclassTests/TestDoListGoals.curry
+  TypeclassTests/TestMaybeMonad.curry
+  TypeclassTests/TestMaybeMonadGoals.curry
+  TypeclassTests/TestNat.curry
+  TypeclassTests/TestNatGoals.curry
+  TypeclassTests/TestReadShow.curry
+  TypeclassTests/TestReadShowGoals.curry
 
 License / terms of origin:
 KiCS2: The Kiel Curry System (Version 2) License

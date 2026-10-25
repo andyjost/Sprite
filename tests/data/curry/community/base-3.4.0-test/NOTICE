@@ -3,8 +3,16 @@ Version: base-3.4.0
 Original programs are copied byte for byte. *Goals.curry are Sprite adapters.
 
 Files:
+  TestDataFunction.curry
+  TestDataFunctionGoals.curry
+  TestDataList.curry
+  TestDataListGoals.curry
+  TestFunction.curry
+  TestFunctionGoals.curry
   TestPrelude.curry
   TestPreludeGoals.curry
+  TestTextShow.curry
+  TestTextShowGoals.curry
 
 License / terms of origin:
 Copyright (c) 2011-2023, Michael Hanus

@@ -315,6 +315,7 @@ namespace curryrt
   };
 
   Node * has_generator(Node * freevar);
+  bool is_singleton_generator(Node * freevar);
 }
 
 // The hooks of the scheduler counters.  They vanish in a plain build.

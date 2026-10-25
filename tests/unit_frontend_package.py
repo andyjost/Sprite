@@ -133,6 +133,8 @@ class TestFrontendLinkage(unittest.TestCase):
   def test_dynamic_build_uses_stack_without_static_options(self):
     self.check_stack_build('2.0.0', 'lts-16.9', 'x86_64')
 
+  @unittest.skipUnless(shutil.which('cc') and shutil.which('readelf'),
+      'requires a C compiler and readelf for a real dynamic ELF')
   def test_current_build_uses_source_resolver_on_both_architectures(self):
     for arch in ('x86_64', 'aarch64'):
       with self.subTest(arch=arch):

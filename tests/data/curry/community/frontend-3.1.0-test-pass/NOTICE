@@ -1,0 +1,112 @@
+Source: frontend-3.1.0/test/pass
+Version: frontend-3.1.0
+Original programs are copied byte for byte. *Goals.curry are Sprite adapters.
+
+Files:
+  ACVisibility.curry
+  AbstractCurryBug.curry
+  AnonymVar.curry
+  B/C.curry
+  CaseComplete.curry
+  CaseModeTypeVarDisambiguation.curry
+  ClassHiddenExport.curry
+  ClassHiddenPass.curry
+  DataPass.curry
+  DefaultPrecedence.curry
+  Dequeue.curry
+  EmptyWhere.curry
+  ExplicitLayout.curry
+  FCase.curry
+  FD_ListLike.curry
+  FD_ListLike2.curry
+  FI_Collects.curry
+  FP_Lifting.curry
+  FP_NonCyclic.curry
+  FP_NonLinearity.curry
+  FlexC_ListLike.curry
+  FlexI_ListLike.curry
+  FlexI_ListLike2.curry
+  FunDepExample.curry
+  FunDepImpliesMPTC.curry
+  FunctionalPatterns.curry
+  HaskellRecords.curry
+  HaskellRecordsPass.curry
+  Hierarchical.curry
+  ImportRestricted.curry
+  ImportRestricted2.curry
+  ImportRestrictedExport.curry
+  Infix.curry
+  Inline.curry
+  InstanceExport.curry
+  InstanceExport/M.curry
+  InstanceExport/N.curry
+  InstanceExport/O.curry
+  InstanceExport/P.curry
+  Lambda.curry
+  List.curry
+  LiterateExport.curry
+  MPTCCoercible.curry
+  MPTCConstrainedMethods.curry
+  MPTCDefaultMethodImpls.curry
+  MPTCDeriving.curry
+  MPTCNoExtension.curry
+  MPTCNullary.curry
+  MPTCNullaryClasses.curry
+  MPTCPotentialInstanceOverlap.curry
+  MPTCSuperClasses.curry
+  Maybe.curry
+  NegLit.curry
+  Newtype1.curry
+  Newtype2.curry
+  NonLinearLHS.curry
+  OperatorDefinition.curry
+  OverloadedLocal.curry
+  PatDecl.curry
+  PolyNumFunPat.curry
+  Prelude.curry
+  Pretty.curry
+  RecordTest1.curry
+  RecordTest2.curry
+  RecordTest3.curry
+  RecordsPolymorphism.curry
+  ReexportTest.curry
+  SelfExport.curry
+  Set.curry
+  SpaceLeak.curry
+  StringGap.curry
+  TyConsTest.curry
+  TypeConstrainedInFunPat.curry
+  TypedExpr.curry
+  UntypedAcy.curry
+  Unzip.curry
+  WhereAfterDo.curry
+
+License / terms of origin:
+Copyright (c) 1998-2004, Wolfgang Lux
+Copyright (c) 2005-2016, Michael Hanus
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+1. Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+2.  Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+3. None of the names of the copyright holders and contributors may be
+used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

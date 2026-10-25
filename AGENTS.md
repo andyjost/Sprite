@@ -17,12 +17,15 @@ checks the package against it. The files `tests/unit_flow_f*.py` and
 the C++ backend. The three `expectedFailure` markers there are F13's
 `test_choice_protocol` and `test_fork_precedence`, and
 `unit_stub_terms.py::test_choice_type_conversion`, awaiting the choice
-interpreter. The Python backend was removed on 2026-10-24 at the owner's
+interpreter. Two assertions of `unit_stub_terms.py` were corrected on
+2026-10-25: `True & False` has no value (#139), as in PAKCS and KiCS2. The Python backend was removed on 2026-10-24 at the owner's
 word (B4, issue #82).
 F11's `test_free_argument_answers` passes:
 partial lists in values and bindings print cons without spaces, as PAKCS
 does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`;
-#133 (C++ only) and #134 retain expected failures for runtime defects.
+#133 and #134 were fixed on 2026-10-25 (a lifted constraint keeps its set
+guards; a one-constructor generator forks to its one instance); their
+reproducers pass.
 
 ## Layout
 
@@ -80,13 +83,17 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
   `setk L x1 .. xk` with a new private function `L x1 .. xk = e`, so the
   captured variables are arguments of the capsule, boxed at the entry;
   decision D28 of 2026-10-12); and `curry.toolchain.flat2icurry`, a
-  Python port of `icurry` 3.1.0, writes ICurry. The `icurry` program is an
+  Python port of `icurry` 3.1.0/3.3.0, writes ICurry. The `icurry` program is an
   optional alternative for the last step, configured with CMake `-DWITH_ICURRY=PATH` and selected with `SPRITE_CURRY2ICURRY=icurry` or
   `sprite-make --curry2icurry icurry`; it reads the rewritten file too, so
-  both routes write the same `.icy`. The translation of the port is
-  byte-identical to the files of `icurry` on the oracle (`tests/README`
-  describes it). The route of the port differs from the `icurry` route in
-  one setting, `icurry_compat=False` (see
+  both routes translate the same input. In compatibility mode the port is
+  byte-identical to icurry 3.1.0 with front end 2.0.0 and icurry 3.3.0 with
+  front end 3.1.0, checked against `overlay-pakcs-3.4.1.tgz` and
+  `overlay-pakcs-3.10.0.tgz`, respectively (`tests/README`). CMake rejects
+  mismatched version pairs. The archives are selected by the configured
+  release; the current-tool archive includes all 30 library oracles.
+  The runtime route uses `icurry_compat=False`: it looks through root type
+  annotations and keeps the new front end's completed case order (see
   `src/python/toolchain/_frontend.py`). An `.icy` translated before a
   pass of the rewrite existed is stale (its `.fcy` holds an equality the
   binding optimization replaces and neither file holds `constrEq`, or

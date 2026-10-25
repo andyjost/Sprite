@@ -11,12 +11,19 @@ from cytest.clean import clean
 import contextlib, csv, json, os, pathlib, shutil, tempfile
 from types import SimpleNamespace
 import curry
+from unit_community_compile import (
+    current_only, frontend_sources, support_paths, ORIGIN
+  )
 
 ROOT = pathlib.Path('data/curry/community')
 # Reproduced with a 30-second bound; unit_community retains an expected failure.
 RUNTIME_FAILURES = {
     'justZeroGoal': 'non-linear functional pattern loops (unit_community)'
   , 'justFailedGoal': 'non-linear functional pattern loops (unit_community)'
+  }
+VALUE_FAILURES = {
+    ('frontend-3.1.0-test-pass/FP_Lifting.curry', 'main3'):
+        'non-linear lifted functional pattern returns an extra free value (unit_community)'
   }
 with (ROOT / 'GOALS.tsv').open() as stream:
   GOALS = list(csv.DictReader(stream, delimiter='\t'))
@@ -25,26 +32,36 @@ with (ROOT / 'GOALS.tsv').open() as stream:
 @cytest.with_flags(interpret='off')
 def check_program(self, filename, entries):
   source = ROOT / filename
-  curry.path[:0] = [str(source.parent), str(ROOT / 'support')]
-  curry.import_(source.stem)
-  with oracle_source(source) as (module, work):
-    check_goals(self, source, entries, module, work)
+  reason = current_only(source)
+  if reason and curry.config.frontend_version() == '2.0.0':
+    self.skipTest(reason)
+  if ORIGIN in source.parts:
+    with frontend_sources(source) as (local, root):
+      curry.path.insert(0, str(root))
+      with oracle_source(local) as (module, work):
+        check_goals(self, source, entries, module, work, local)
+  else:
+    curry.path[:0] = support_paths(source)
+    with oracle_source(source) as (module, work):
+      check_goals(self, source, entries, module, work)
 
 
 @contextlib.contextmanager
 def oracle_source(source):
   # PAKCS must not read the sidecars Sprite generated against its own base.
   with tempfile.TemporaryDirectory() as work:
-    for original in source.parent.glob('*.curry'):
-      if not original.is_file():
+    for original in source.parent.rglob('*.curry'):
+      if not original.is_file() or original.name == 'Prelude.curry':
         continue
-      shutil.copyfile(original, pathlib.Path(work) / original.name)
+      target = pathlib.Path(work) / original.relative_to(source.parent)
+      target.parent.mkdir(parents=True, exist_ok=True)
+      shutil.copyfile(original, target)
     module = SimpleNamespace(__name__=source.stem,
         __file__=str(pathlib.Path(work) / source.name))
     yield module, work
 
 
-def check_goals(self, source, entries, module, work):
+def check_goals(self, source, entries, module, work, runtime_source=None):
   for entry in entries:
     goal = entry['goal']
     with self.subTest(goal=goal):
@@ -62,16 +79,21 @@ def check_goals(self, source, entries, module, work):
       if expected.startswith('!error\n'):
         self.assertEqual(clean(expected), clean(current))
         record(entry, current, 'skipped: oracle rejection')
-        self.skipTest(expected.partition('\n')[2].strip())
+        self.skipTest(expected.partition('\n')[2].strip()
+                      or 'oracle rejected the goal without a diagnostic')
       if source.stem == 'TestFuncPatternGoals' and goal in RUNTIME_FAILURES:
         self.assertSameResultMultiset(current, expected)
         record(entry, current, 'known runtime timeout; see unit_community')
         self.skipTest(RUNTIME_FAILURES[goal])
       # A community example may expose a looping or crashing runtime defect.
       # Keep that goal within the runner's process limits and give it a timeout.
-      proc, actual = sprite_results(source, goal)
+      proc, actual = sprite_results(runtime_source or source, goal)
       record(entry, current, actual)
       self.assertEqual(proc.returncode, 0, proc.stderr)
+      reason = VALUE_FAILURES.get((entry['program'], goal))
+      if reason:
+        self.assertSameResultMultiset(current, expected)
+        self.skipTest(reason)
       if not expected.startswith('!error\n'):
         self.assertSameResultMultiset(current, expected)
       self.assertSameResultMultiset(actual, expected)
@@ -85,7 +107,8 @@ def sprite_results(source, goal, timeout=30):
       'module = curry.import_(%r)\n'
       'print(json.dumps([curry.show(v) for v in curry.eval('
       'getattr(module, %r))]))\n'
-    ) % ([str(source.parent), str(ROOT / 'support')], source.stem, goal)
+    ) % (support_paths(source) if ROOT in source.parents
+         else [str(source.parent)], source.stem, goal)
   proc = cytest.run_in_subprocess(code, timeout=timeout, address_space=2 << 30)
   actual = ('\n'.join(json.loads(proc.stdout)) if proc.returncode == 0
             else '!status %s\n%s' % (proc.returncode, proc.stderr))

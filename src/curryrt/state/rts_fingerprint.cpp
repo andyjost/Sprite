@@ -86,7 +86,11 @@ namespace curryrt
       }
     };
     process_one(choice->lhs, LEFT);
-    process_one(choice->rhs, RIGHT);
+    // A one-constructor generator uses a failing right side only to keep
+    // a choice cell with the variable's id.  It is no alternative and
+    // must not run a second capsule or enter a failure record (#134).
+    if(!is_singleton_generator(this->get_freevar(choice->cid)))
+      process_one(choice->rhs, RIGHT);
     // The checker sees the parent and its clones together, before the
     // parent leaves the queue.
     if(this->checker)

@@ -1114,6 +1114,13 @@ namespace curryrt
         , C, {cid}
         );
     }
+    if(is_singleton_generator(this->rts.get_freevar(cid))
+        && (n > 1 || (n == 1 && sides[0] != LEFT)))
+      this->violation(
+          "X1 (singleton narrowing)", "fork"
+        , "a one-constructor generator has only its left instance"
+        , C, {cid}
+        );
     if(this->rts.in_recursive_call() && !Q->decided(cid))
     {
       // def:s-escapes: the choice escapes when it is argument-derived for
@@ -1628,6 +1635,8 @@ namespace curryrt
       Node * cond = nullptr;
       if(node && node->info == &CyI7Prelude12BindingGuard)
         cond = deref_fwd(node->successors()[0].node);
+      while(cond && cond->info->tag == T_SETGRD)
+        cond = deref_fwd(NodeU{cond}.setgrd->value);
       Arg const * args = cond && cond->info == &constrEq_Info
           ? cond->successors() : nullptr;
       if(!args || args[0].node != g.first || args[1].node != g.second)

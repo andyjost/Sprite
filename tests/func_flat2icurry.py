@@ -15,8 +15,14 @@ DATA = os.path.join(HERE, 'data')
 LIBRARY_DIRS = [os.path.join(ROOT, 'curry', 'lib')]
 # The import directories of the corpora under tests/data/curry: a module
 # of the kiel corpus imports from kiel/lib (CURRYPATH of func_kiel.py), so
-# its FlatCurry resolves against that directory as well.
-CORPUS_IMPORT_DIRS = [os.path.join(DATA, 'curry', 'kiel', 'lib')]
+# its FlatCurry resolves against that directory as well; a module of the
+# community corpus imports the compile-only Test.Prop of community/support
+# (the path of func_community.py), which shadows the library's module, so
+# these directories come before the library's.
+CORPUS_IMPORT_DIRS = [
+    os.path.join(DATA, 'curry', 'kiel', 'lib')
+  , os.path.join(DATA, 'curry', 'community', 'support')
+  ]
 
 # The route through the front end looks through a type annotation at the root
 # of a rule, which icurry 3.1.0 does not (see curry.toolchain._frontend).  The
@@ -55,6 +61,12 @@ def check_on_disk(pairs, importdirs):
   for accept in (True, False):
     selected = [pair for pair in pairs if oracle_wrote(pair[0]) == accept]
     for pair, result in zip(selected, oracle.check_pairs(selected, importdirs, accept_unrewritten=accept)):
+      if result.status == oracle.DIFFERENT and config.frontend_version() == '3.1.0':
+        # On-disk products can be from the runtime route, which retains
+        # the front end's completed branch order. Archive checks above
+        # always require the independent compiler's compatibility output.
+        result = oracle.check_file(pair[0], importdirs=importdirs, icyfile=pair[1],
+            accept_unrewritten=accept, icurry_compat=False)
       results[pair] = result
   return [results[pair] for pair in pairs]
 
@@ -154,7 +166,7 @@ class TestWholeCorpus(cytest.TestCase):
     if not pairs:
       self.skipTest('no front-end products under tests/data')
     results = check_on_disk(
-        pairs, self.overlay.library_dirs() + LIBRARY_DIRS + CORPUS_IMPORT_DIRS
+        pairs, CORPUS_IMPORT_DIRS + self.overlay.library_dirs() + LIBRARY_DIRS
       )
     self.assertEqual(
         oracle.summarize(results), (len(pairs), 0, 0), oracle.report(results)
@@ -287,7 +299,7 @@ class TestUnrewrittenFile(cytest.TestCase):
     with open(fcy, 'rb') as istream:
       rewritten = istream.read()
     self.assertIn(b'constrEq', rewritten)
-    self.assertEqual(oracle.check_file(fcy, icyfile=icy).status, oracle.EQUAL)
+    self.assertEqual(oracle.check_file(fcy, icyfile=icy, icurry_compat=False).status, oracle.EQUAL)
     # A writer outside the toolchain: the front end alone, as PAKCS runs it.
     os.unlink(fcy)
     _system.pexec(
@@ -296,17 +308,17 @@ class TestUnrewrittenFile(cytest.TestCase):
     with open(fcy, 'rb') as istream:
       unrewritten = istream.read()
     self.assertNotIn(b'constrEq', unrewritten)
-    plain = oracle.check_file(fcy, icyfile=icy)
+    plain = oracle.check_file(fcy, icyfile=icy, icurry_compat=False)
     self.assertEqual(plain.status, oracle.DIFFERENT)
     self.assertFalse(plain.unrewritten)
-    accepted = oracle.check_file(fcy, icyfile=icy, accept_unrewritten=True)
+    accepted = oracle.check_file(fcy, icyfile=icy, accept_unrewritten=True, icurry_compat=False)
     self.assertEqual(accepted.status, oracle.EQUAL, accepted.detail)
     self.assertTrue(accepted.unrewritten)
     self.assertIn('unrewritten', accepted.detail)
     # The check leaves the file as it is; check_pairs takes the keyword too.
     with open(fcy, 'rb') as istream:
       self.assertEqual(istream.read(), unrewritten)
-    results = oracle.check_pairs([(fcy, icy)], accept_unrewritten=True)
+    results = oracle.check_pairs([(fcy, icy)], accept_unrewritten=True, icurry_compat=False)
     self.assertEqual(oracle.summarize(results), (1, 0, 0))
     # The on-disk check accepts the file beside a product of the PAKCS
     # oracle alone: without one the pair is DIFFERENT, as it is for a
@@ -332,7 +344,7 @@ class TestUnrewrittenFile(cytest.TestCase):
     other = os.path.join(self.tmpdir, 'other.icy')
     with open(other, 'w', encoding='utf-8', newline='') as ostream:
       ostream.write(text.replace('constrEq', 'constrEQ'))
-    corrupted = oracle.check_file(fcy, icyfile=other, accept_unrewritten=True)
+    corrupted = oracle.check_file(fcy, icyfile=other, accept_unrewritten=True, icurry_compat=False)
     self.assertEqual(corrupted.status, oracle.DIFFERENT)
     self.assertFalse(corrupted.unrewritten)
 
@@ -355,7 +367,7 @@ class TestUnrewrittenFile(cytest.TestCase):
     fcy = _frontend.flatcurryfile(curryfile)
     prog = fc.load(fcy)
     self.assertIs(bo.optimize_bindings(prog), prog)
-    self.assertEqual(oracle.check_file(fcy, icyfile=icy).status, oracle.EQUAL)
+    self.assertEqual(oracle.check_file(fcy, icyfile=icy, icurry_compat=False).status, oracle.EQUAL)
     with open(icy, 'r', encoding='utf-8', newline='') as istream:
       text = istream.read()
     self.assertIn('"Plain"', text)
@@ -363,6 +375,6 @@ class TestUnrewrittenFile(cytest.TestCase):
     with open(other, 'w', encoding='utf-8', newline='') as ostream:
       ostream.write(text.replace('"Plain"', '"Plane"'))
     for accept in False, True:
-      result = oracle.check_file(fcy, icyfile=other, accept_unrewritten=accept)
+      result = oracle.check_file(fcy, icyfile=other, accept_unrewritten=accept, icurry_compat=False)
       self.assertEqual(result.status, oracle.DIFFERENT)
       self.assertFalse(result.unrewritten)

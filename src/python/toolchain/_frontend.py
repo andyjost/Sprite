@@ -72,7 +72,11 @@ through the annotation here.  Only the oracle tests keep the defect.  Two
 probe modules of the oracle hold the construct, and their output differs
 from the files ``icurry`` wrote: TypedRoot, and Externals, where
 ``failed :: Int`` becomes ``IExempt`` instead of a call of ``failed``.  No
-other file of the oracle changes.
+other file of the pinned oracle changes.
+With front end 3.1.0, the runtime also keeps the front end's completed case
+order, while compatibility mode sorts it as icurry 3.3.0 does. This retains
+the existing runtime answer order. The archive checks use compatibility
+mode; on-disk checks distinguish the two translations.
 '''
 
 from .. import config

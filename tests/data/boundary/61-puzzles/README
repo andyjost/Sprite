@@ -2,7 +2,8 @@ Puzzles
 -------
 
 Seam: Horseman and colormap use named variables and solve answers.
-The concurrent conjunction difference from PAKCS remains pinned (#139).
+Concurrent conjunction (&) requires both constraints to yield True; a
+False side fails. Colormap has 48 answers, as in PAKCS (#139).
 
 Run ./run after make stage, or run unit_boundary.py from tests/.
 The run script selects the staged Python and the session backend.

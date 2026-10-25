@@ -5,5 +5,7 @@ Files:
 
 This compile-only interface is used by Sprite, not by the PAKCS oracle.
 It supplies the property signatures needed by the unchanged source programs.
-Every operation raises if evaluated. The Goals adapters evaluate the original
+Every operation raises if evaluated; the second batch added the signatures
+of is, solutionOf and (<=>) after the first batch's, so the operation indices
+of the first batch's products are unchanged. The Goals adapters evaluate the original
 expressions instead of pretending to execute a CurryCheck property.

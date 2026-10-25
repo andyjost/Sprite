@@ -140,7 +140,11 @@ class TestCMake(cytest.TestCase):
     """The optional route must translate into the pinned product directory."""
     program = Path(self.directory.name) / 'icurry'
     subdir = '.curry/' + config.frontend_subdir()
-    program.write_text('#!/bin/sh\nmkdir -p ' + subdir + '\n'
+    date = '17/10/22' if config.frontend_version() == '3.1.0' else '28/07/21'
+    help_command = ('if [ "$1" = --help ]; then\n'
+                    '  echo "ICurry Compiler (Version of ' + date + ')"\n'
+                    '  exit 0\nfi\n')
+    program.write_text('#!/bin/sh\n' + help_command + 'mkdir -p ' + subdir + '\n'
                        'echo sample > ' + subdir + '/sample.icy\n')
     program.chmod(0o755)
     options = ['-DWITH_ICURRY=' + str(program), '-DCURRY2ICURRY_TOOL=icurry']
@@ -148,10 +152,34 @@ class TestCMake(cytest.TestCase):
     self.assertEqual(result.returncode, 0, result.stdout)
     self.assertEqual((self.build / 'stage/sysconfig/curry2icurry_tool').read_text().strip(), 'icurry')
     # An old result cannot make a later broken translator pass its probe.
-    program.write_text('#!/bin/sh\nexit 0\n')
+    program.write_text('#!/bin/sh\n' + help_command + 'exit 0\n')
     result = self.configure(*options)
     self.assertNotEqual(result.returncode, 0, result.stdout)
     self.assertIn('failed its translation probe', result.stdout)
+
+  def test_icurry_version_pairs(self):
+    """Reject mismatched compilers even if their product directory matches."""
+    frontend = Path(self.directory.name) / 'frontend'
+    program = Path(self.directory.name) / 'icurry'
+    for version, release, expected, date in [
+        ('2.0.0', '3.4.1', '3.1.0', '28/07/21'),
+        ('3.1.0', '3.10.0', '3.3.0', '17/10/22')]:
+      frontend.write_text('#!/bin/sh\necho ' + version + '\n')
+      frontend.chmod(0o755)
+      for banner in [date, '17/10/22' if date == '28/07/21' else '28/07/21']:
+        with self.subTest(frontend=version, banner=banner):
+          program.write_text('#!/bin/sh\nif [ "$1" = --help ]; then\n'
+              'echo "ICurry Compiler (Version of ' + banner + ')"\nexit 0\nfi\n'
+              'mkdir -p .curry/pakcs-' + release + '\n'
+              'echo sample > .curry/pakcs-' + release + '/sample.icy\n')
+          program.chmod(0o755)
+          result = self.configure('-DWITH_CURRY_FRONTEND=' + str(frontend),
+                                  '-DWITH_ICURRY=' + str(program))
+          if banner == date:
+            self.assertEqual(result.returncode, 0, result.stdout)
+          else:
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+            self.assertIn('Expected icurry ' + expected, result.stdout)
 
   def test_ccache_launches_native_compilation(self):
     launcher = Path(self.directory.name) / 'ccache'
