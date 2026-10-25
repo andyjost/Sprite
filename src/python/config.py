@@ -443,8 +443,12 @@ def cxx_tool(cached=[]):
 
 @synchronized(_config_lock)
 def curry_frontend():
-  '''The front end: SPRITE_FRONTEND, the configured tool, then PATH.
+  '''The front end: SPRITE_FRONTEND, the configured tool, the script beside
+  the interpreter, then PATH.
 
+  A wheel installed in a virtual environment puts the console script of
+  curry-frontend beside the interpreter, so ``venv/bin/python -m curry``
+  finds the front end whether or not the environment is activated.
   Nothing is cached: the environment and the installation may change
   between two calls, and the lookup is cheap.
   '''
@@ -456,6 +460,9 @@ def curry_frontend():
   path = installed_path('tools', 'curry-frontend')
   if os.path.isfile(path) and os.access(path, os.X_OK):
     return os.path.abspath(path)
+  beside = os.path.join(os.path.dirname(sys.executable), 'curry-frontend')
+  if os.path.isfile(beside) and os.access(beside, os.X_OK):
+    return os.path.abspath(beside)
   found = shutil.which('curry-frontend') or shutil.which('pakcs-frontend')
   return os.path.abspath(found) if found else None
 

@@ -19,152 +19,47 @@
 -- Author : Michael Hanus
 -- Version: October 2026
 ------------------------------------------------------------------------------
-{-# LANGUAGE CPP #-}
-
+-- Sprite compatibility: the upstream interface describes strong search,
+-- enumerating free variables inside the expression. Sprite uses weak native
+-- capsules: free variables are not enumerated inside, and argument choices
+-- stay outside. DFS names are advisory; scheduling and order are Sprite's.
 module Control.Search.Unsafe
-  ( allValues, allValuesDFS, oneValue, oneValueDFS, someValue, isFail
-  , rewriteAll, rewriteSome
-  ) where
+  (allValues, allValuesDFS, oneValue, oneValueDFS, someValue, isFail
+  , rewriteAll, rewriteSome) where
 
-#ifdef __KICS2__
-import qualified Control.Search.SearchTree as ST
-#endif
+import qualified Control.SetFunctions as Native
 
-------------------------------------------------------------------------------
-
--- | Returns all values of an expression.
--- Conceptually, the value is computed on a copy of the expression,
--- i.e., the evaluation of the expression does not share any results.
---
--- The strategy to search for all values depends on the Curry system:
---
--- * PAKCS uses a depth-first search strategy and computes all values at once,
--- * KiCS2 uses a breadth-first search strategy and computes all values lazily.
--- * Curry2Go uses a fair search strategy and computes all values lazily.
---
--- In PAKCS, the evaluation suspends as long as the expression
--- or its computed value contain unbound variables.
---
--- Note that this operation is not purely declarative since the ordering
--- of the computed values depends on the ordering of the program rules.
 allValues :: a -> [a]
-#ifdef __KICS2__
-allValues e = ST.allValuesBFS (ST.someSearchTree e)
-#else
-allValues external
-#endif
+allValues e = Native.valuesOf (Native.evalS (Native.exprS e))
 
--- | Returns all values of an expression.
--- This operation is similar to 'allValues' but uses a depth-first search
--- strategy (if available).
--- Thus, it could be more efficient than 'allValues' but it might
--- not terminate (instead of computing of all values) if the search space
--- is infinite.
 allValuesDFS :: a -> [a]
-#ifdef __KICS2__
-allValuesDFS e = ST.allValuesDFS (ST.someSearchTree e)
-#elif defined(__PAKCS__)
-allValuesDFS x = allValues x  -- PAKCS supports only depth-first search
-#elif defined(__CURRY2GO__)
-allValuesDFS x = allValues x  -- TODO: implement as external operation
-#else
-allValuesDFS external
-#endif
+allValuesDFS e = allValues e
 
--- | Returns just one value for an expression or `Nothing`
--- if the expression has no value.
--- Conceptually, the value is computed on a copy of the expression,
--- i.e., the evaluation of the expression does not share any results.
---
--- The strategy to search for a value depends on the Curry system:
---
--- * PAKCS uses a depth-first search strategy,
--- * KiCS2 uses a breadth-first search strategy, and
--- * Curry2Go uses a fair search strategy.
---
--- In PAKCS, the evaluation suspends as long as the expression
--- or its computed value contain unbound variables.
---
--- Note that this operation is not purely declarative since
--- the computed value depends on the ordering of the program rules.
--- Thus, this operation should be used only if the expression
--- has at most one value.
 oneValue :: a -> Maybe a
-#ifdef __KICS2__
-oneValue x =
-  let vals = ST.allValuesWith ST.bfsStrategy (ST.someSearchTree x)
-  in (if null vals then Nothing else Just (head vals))
-#else
-oneValue external
-#endif
+oneValue e = first (allValues e)
+ where
+  first [] = Nothing
+  first (x:_) = Just x
 
--- | Returns just one value for an expression or `Nothing`
--- if the expression has no value.
--- This operation is similar to 'oneValue' but uses a depth-first search
--- strategy (if available).
--- Thus, it could be more efficient than 'oneValue' but it might not terminate
--- (instead of computing of value) if the search space is infinite.
 oneValueDFS :: a -> Maybe a
-#ifdef __KICS2__
-oneValueDFS x =
-  let vals = ST.allValuesWith ST.dfsStrategy (ST.someSearchTree x)
-  in (if null vals then Nothing else Just (head vals))
-#elif defined(__PAKCS__)
-oneValueDFS x = oneValue x  -- PAKCS supports only depth-first search
-#elif defined(__CURRY2GO__)
-oneValueDFS x = oneValue x  -- TODO: implement as external operation
-#elif defined(__KMCC__)
-oneValueDFS x = oneValue x  -- TODO: implement as external operation
-#else
-oneValueDFS external
-#endif
+oneValueDFS e = oneValue e
 
--- | Returns some value for an expression.
--- If the expression has no value, the computation fails.
--- Conceptually, the value is computed on a copy of the expression,
--- i.e., the evaluation of the expression does not share any results.
---
--- In PAKCS, the evaluation suspends as long as the expression
--- or its computed value contain unbound variables.
---
--- Note that this operation is not purely declarative since
--- the computed value depends on the ordering of the program rules.
--- Thus, this operation should be used only if the expression
--- has a single value.
 someValue :: a -> a
-someValue x = case oneValue x of Just v  -> v
-                                 Nothing -> failed
+someValue e = case oneValue e of
+  Nothing -> failed
+  Just x -> x
 
--- | Does the computation of the argument to a value fail?
--- Thus, `isFail e` returns `True` if the expression `e`
--- has no value. For instance, `isFail (head [])` evaluates to `True`.
---
--- Conceptually, the argument is evaluated on a copy, i.e.,
--- even if the computation does not fail, it has not been evaluated.
 isFail :: a -> Bool
-isFail x = case oneValue x of Nothing -> True
-                              Just _  -> False
+isFail e = case oneValue e of
+  Nothing -> True
+  Just _ -> False
 
-------------------------------------------------------------------------------
--- | Gets all values computable by term rewriting.
--- In contrast to `allValues`, this operation does not wait
--- until all "outside" variables are bound to values,
--- but it returns all values computable by term rewriting
--- and ignores all computations that requires bindings for outside variables.
+-- Rewriting must discard computations requiring bindings of outside
+-- variables. Native capsules instead propagate those demands outside;
+-- they cannot implement this operation. Report not implemented at call time.
 rewriteAll :: a -> [a]
-#ifdef __PAKCS__
 rewriteAll external
-#else
-rewriteAll _ = error "Control.Search.Unsafe.rewriteAll: not yet implemented"
-#endif
 
--- | Similarly to 'rewriteAll' but returns only some value computable
--- by term rewriting. Returns `Nothing` if there is no such value.
+-- The same limitation applies when only the first rewrite is requested.
 rewriteSome :: a -> Maybe a
-#ifdef __PAKCS__
 rewriteSome external
-#else
-rewriteSome _ = error "Control.Search.Unsafe.rewriteSome: not yet implemented"
-#endif
-
-------------------------------------------------------------------------------

@@ -20,9 +20,10 @@ def main():
   assert list(curry.eval(Prelude.id(42))) == [42]
   if args.peano:
     result = subprocess.run([sys.executable, '-m', 'curry', str(args.peano)],
-                            text=True, capture_output=True, check=True)
+                            text=True, capture_output=True)
     print(result.stdout, end='')
     print(result.stderr, end='', file=sys.stderr)
+    assert result.returncode == 0, result.returncode
     assert result.stdout.strip() == 'S (S O)', result
 
 

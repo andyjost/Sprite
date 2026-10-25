@@ -13,11 +13,12 @@ Sprite was developed and tested with the following software:
 - GNU Make 4.3
 - pybind11 v3.1.0
 
-macOS on Apple Silicon builds the runtime and runs the C++ backend as
-Linux does, the compiled modules and the background compile of the tiered
-mode included (issues #162 and #163), with the front end built from source
-by the CI job of the repository; a front end package for macOS is the next
-step of issue #162.
+macOS, Apple Silicon and Intel, builds the runtime and runs the C++
+backend as Linux does, the compiled modules and the background compile of
+the tiered mode included (issues #162 and #163), with the front end built
+from source by the CI job of the repository.  The workflows of the
+repository build the wheels of both packages, ``currylang`` and
+``curry-frontend``, for macOS 15 or newer on both architectures.
 
 Known compatibility problems are discussed below.
 
@@ -50,28 +51,45 @@ Python
 ..
   Sources
   =======
-  
+
   - Python is available through most software package managers.  For fine control
     over the version on Ubuntu, consider using the `deadsnakes PPA
     <https://github.com/deadsnakes>`_.  To build from source, download Python
     `here <https://www.python.org/downloads/>`__.
-  
+
   - Prolog is available `here <https://www.swi-prolog.org>`__.  It is a
     prerequisite of PAKCS.
-  
+
   - Download PAKCS `here <https://www.curry-lang.org/pakcs/>`__.
-  
+
   - The ICurry Compiler (optional) is available through the `Curry Package
     Manager`_.  After installing PAKCS, say the following from your home
     directory:
-  
+
     .. code:: bash
-  
+
         cypm update
         cypm add icurry
-  
+
   - `pybind11 <https://github.com/pybind/pybind11>`_ is automatically cloned into
     Sprite via the ``git submodules`` command the first time ``make`` is run.
-  
+
 
   .. _Curry Package Manager: https://www.curry-lang.org/tools/cpm/
+
+Search library
+    ``Control.SetFunctions`` remains Sprite's extension.
+    ``Control.Search.SetFunctions``, ``Control.Search.Unsafe``, and
+    ``Control.Search.AllValues`` are supported over its native capsules.
+    The two set-function modules share ``Values a = Values [a]``, preserve
+    multiplicities, capture body choices, and leave argument choices outside.
+    Strategies and DFS names are advisory: Sprite uses its fair scheduler
+    and its own value order. ``getSomeValue`` and ``getSome`` select in IO.
+
+    Upstream Unsafe and AllValues describe strong encapsulation, enumerating
+    free variables inside an expression. Sprite provides weak encapsulation:
+    free variables are not enumerated inside and can demand outside bindings.
+    ``rewriteAll`` and ``rewriteSome`` report not implemented at the call,
+    since capsules cannot discard computations that demand such bindings.
+    ``Control.Search.SearchTree`` remains unsupported; strong search is
+    future work.

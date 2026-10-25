@@ -15,10 +15,25 @@ to the FlatCurry file as PAKCS applies it.  Sprite's own port of
 ``icurry`` 3.3.0 writes the ICurry.  The ``icurry`` program is an
 optional second route that must write the same bytes.  PAKCS is also the
 oracle of the functional tests. The Curry library under ``curry/lib`` is
-base 3.4.0 from PAKCS 3.10.0, with Sprite's own ``Control.SetFunctions``
-and ``Sprite.Stream``. The same sources serve front end 2.0.0 with PAKCS
+base 3.4.0 from PAKCS 3.10.0, with Sprite's own ``Control.SetFunctions``,
+``Control.Search.SetFunctions``, and ``Sprite.Stream``. The same sources
+serve front end 2.0.0 with PAKCS
 3.4.1 and front end 3.1.0 with PAKCS 3.10.0. See
 :ref:`Introduction/CompilationPipeline:Curry to ICurry`.
+
+The search library
+==================
+
+``Control.Search.SetFunctions``, ``Control.Search.Unsafe``, and
+``Control.Search.AllValues`` run over the native weak capsules. The facade
+shares ``Control.SetFunctions.Values a = Values [a]`` with Sprite's extension.
+Body choices are captured, argument choices stay outside, and duplicates
+are retained. Strategies and DFS names are advisory: all use Sprite's fair
+scheduler and value order. Unsafe and AllValues upstream describe strong
+encapsulation; Sprite does not enumerate expression free variables inside.
+``rewriteAll`` and ``rewriteSome`` report not implemented when called,
+since capsules cannot suppress outside binding demands.
+``Control.Search.SearchTree`` remains unsupported, pending strong search.
 
 The backend
 ===========

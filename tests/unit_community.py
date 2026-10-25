@@ -44,7 +44,7 @@ class TestCommunityTypes(cytest.TestCase):
     module = self.load_fixture('base-3.4.0-test', 'TestPreludeGoals')
     self.assert_typed_value(curry.term(module.checkPlus), 'Int', 5)
 
-  @unittest.skip('unsupported module Control.Search.SetFunctions; stage G')
+  @unittest.skip('unsupported module Control.Search.SetFunctions; stage E')
   def test_set_functions(self):
     pass
 
@@ -102,3 +102,61 @@ class TestCommunityTypes(cytest.TestCase):
     with self.assertRaisesRegex(InterfaceError,
         'multi-parameter class TestMPTCCoerce.Coerce is not supported'):
       original.coerce(True)
+
+
+class TestCommunityIO(cytest.TestCase):
+  @cytest.with_flags(interpret='off')
+  def test_diamond_one_line(self):
+    # The original size/spacing algorithm at n=1 is a bounded IO harness.
+    code = (
+        'import curry\n'
+        "curry.reset(interpret='off')\n"
+        "curry.path.insert(0, 'data/curry/community/curry2go-1.7.0-examples')\n"
+        "module = curry.import_('DiamondGoals')\n"
+        'list(curry.eval(module.diamondOne))\n'
+      )
+    proc = cytest.run_in_subprocess(code, timeout=30, address_space=2 << 30)
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    self.assertEqual(proc.stdout, ' 1  \n')
+
+
+class TestCommunityLoading(cytest.TestCase):
+  @unittest.expectedFailure
+  def test_frontend_large_negative_literal(self):
+    # Issue #167: an Int literal beyond 64 bits fails the load of the module.
+    from unit_community_compile import check_source
+    check_source(self, 'NegLit.curry')
+
+  @unittest.expectedFailure
+  def test_frontend_pakcs_prelude(self):
+    # Issue #168: a namesake of a library module (the front end's own Prelude
+    # fixture) loads the library's symbols.
+    from unit_community_compile import check_source
+    check_source(self, 'Prelude.curry')
+
+
+# Issue #168: a module named like the prefix of its hierarchical siblings
+# recurses in the importer.
+# Keep one bounded expected-failure assertion for every affected source.
+for filename in ('InstanceExport.curry', 'InstanceExport/M.curry',
+                 'InstanceExport/N.curry', 'InstanceExport/O.curry',
+                 'InstanceExport/P.curry'):
+  def test(self, filename=filename):
+    from unit_community_compile import check_source
+    check_source(self, filename)
+  setattr(TestCommunityLoading,
+      'test_frontend_' + filename[:-6].replace('/', '_'),
+      unittest.expectedFailure(test))
+
+
+class TestCommunityRegressions(cytest.TestCase):
+  @unittest.expectedFailure
+  def test_lifted_non_linear_function_pattern(self):
+    # Issue #169: the lifted non-linear functional pattern gives one free value
+    # where both oracles give none.
+    from unit_community_compile import frontend_sources
+    source = ROOT / 'frontend-3.1.0-test-pass/FP_Lifting.curry'
+    with frontend_sources(source) as (local, work):
+      proc, actual = sprite_results(local, 'main3', timeout=5)
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    self.assertSameResultMultiset(actual, '')

@@ -5,7 +5,7 @@ This directory holds the Curry library that ships with Sprite.
 
 `lib/` contains the sources.  They are a copy of the library of PAKCS 3.10.0,
 which is version 3.4.0 of the Curry package `base`, plus Sprite's own modules
-`Control.SetFunctions` and `Sprite.Stream`.  `lib/LICENSE` is the license
+`Control.SetFunctions`, `Control.Search.SetFunctions`, and `Sprite.Stream`.  `lib/LICENSE` is the license
 of the origin.
 `lib/NOTICE` names the origin, the version, and the changes.  The Prelude
 carries a three-line prefix that defines `__KICS2__`; NOTICE explains why.
@@ -29,7 +29,7 @@ on their Curry path. Sprite uses the runtime primitive under `lib/`.
 Pinned build products
 ---------------------
 
-Beside eight of the sources sit committed `.icy` (ICurry) and `.json.z`
+Beside eleven of the sources sit committed `.icy` (ICurry) and `.json.z`
 (compressed ICurry-JSON) files.  They are build products of the pinned PAKCS
 front end 3.1.0 (PAKCS 3.10.0), regenerated with Sprite's port.
 In compatibility mode the port is byte-identical to `icurry` 3.3.0; the
@@ -48,17 +48,28 @@ module for the C++ runtime. So the first use of Sprite
 compiles nothing, and a user without the privileges of the installer needs
 no compile.
 
-Thirteen modules are left out of that compile (the `unsupported` list
-in `CMakeLists.txt`).  Seven have externals that no backend
-implements, or import such a module: `Curry.Compiler.Distribution`,
-`Data.IORef`, `Debug.Trace`, `System.CPUTime`, `System.Environment`,
-`System.IO`, and `System.IO.Unsafe`.  `Test.Prop` is a module and a package
-and imports its own submodule `Test.Prop.Types`, which the importer cannot
-load (see TODO). The four `Control.Search.*` modules need strong
-encapsulation and search-tree primitives that Sprite does not yet implement.
-A program that imports one of them fails when Sprite
-compiles it.  Their ICurry and JSON are installed all the same, and the
-front end reads their interfaces.
+Ten modules are left out of that compile (the `unsupported` list in
+`CMakeLists.txt`): `Curry.Compiler.Distribution`, `Data.IORef`, `Debug.Trace`,
+`System.CPUTime`, `System.Environment`, `System.IO`, `System.IO.Unsafe`,
+`Test.Prop`, `Test.Prop.Types`, and `Control.Search.SearchTree`.
+Their ICurry and JSON are installed, but their native primitives are absent.
+
+`Control.Search.SetFunctions` is Sprite's facade over its native capsules.
+It shares the canonical `Control.SetFunctions.Values a = Values [a]` type.
+Both surfaces use weak encapsulation: body choices are captured, argument
+choices stay outside, and duplicates are kept. The `Strategy` values
+`dfsStrategy`, `bfsStrategy`, `idsStrategy`, `idsStrategyWith`, and
+`diagStrategy` are advisory; all use Sprite's fair scheduler and value order.
+`getSomeValue` and `getSome` select from that same list in IO.
+
+`Control.Search.Unsafe` and `Control.Search.AllValues` also use these weak
+capsules. Their upstream interface describes strong encapsulation, including
+enumeration of free variables inside the expression. Sprite does not
+provide that enumeration: a free variable can remain free or demand an
+outside binding. The DFS names are advisory. `rewriteAll` and `rewriteSome`
+remain externals that report not implemented when called: capsules cannot
+suppress computations that demand bindings of outside variables. Strong
+search and `Control.Search.SearchTree` remain future work.
 
 Rebuilding the products
 -----------------------
@@ -69,7 +80,7 @@ From the project root:
     make stage SPRITE_REBUILD_ICY=1
 
 This writes fresh products in the build's `stage/curry/` image and copies
-them into the installation. Copy the eight pinned `.icy` and `.json.z`
+them into the installation. Copy the eleven pinned `.icy` and `.json.z`
 files back beside their sources, from their `.curry/sprite-pakcs-3.10.0/`
 directories in that image. Check the `.icy` bytes against `icurry` 3.3.0
 before replacing the committed products. A build with front end 2.0.0
@@ -89,5 +100,6 @@ Updating the library
 
 Copy the `.curry` files of the new PAKCS `lib` directory over `lib/`.  Add
 the prefix to `Prelude.curry`.  Update `lib/NOTICE`.  Rebuild the pinned
-products and run the tests.  `tests/unit_currylib.py` pins the sources of the
-eight modules by hash; update the hashes there.
+products and run the tests. `tests/unit_currylib.py` and
+`tests/unit_search_library.py` pin the sources of the eleven modules by
+hash; update the hashes there.

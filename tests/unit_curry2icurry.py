@@ -496,6 +496,9 @@ class TestCurry2ICurry(cytest.TestCase):
     chosen = [m for m in members if stem(m) in (stale[0], kept[0])]
     with tarfile.open(archive) as tar:
       tar.extractall(self.tmpdir, members=chosen, filter='data')
+      # The source digests the archive carries are its own record of what
+      # each product was made from; the stamp of the prune keeps them.
+      records = {m.name: tar.extractfile(m).read() for m in chosen if m.name.endswith('.icy.source')}
     def products(name):
       return sorted(
           os.path.join(dirpath, filename)
@@ -513,6 +516,9 @@ class TestCurry2ICurry(cytest.TestCase):
     self.assertIn('rm ', result.stdout)
     self.assertEqual(products(stale[0]), [])
     self.assertTrue(products(kept[0]))
+    for name, record in records.items():
+      if stem(tarfile.TarInfo(name)) == kept[0]:
+        self.assertEqual(readbytes(os.path.join(self.tmpdir, name)), record, name)
     icy = next(name for name in products(kept[0]) if name.endswith('.icy'))
     source = os.path.join(ROOT, 'tests', 'data', 'curry', kept[0] + '.curry')
     with open(icy + '.source') as stream:
