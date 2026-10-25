@@ -526,15 +526,22 @@ have similar features.
 --------------------
 
 The Python port of the FlatCurry-to-ICurry translation (the package
-curry.toolchain.flat2icurry) is checked against the ICurry files that icurry
-3.1.0 wrote.  Those files, with the FlatCurry files they were made from, are
-in the overlay archive at the root of the repository.  The test
+curry.toolchain.flat2icurry) is byte-identical in compatibility mode to
+icurry 3.1.0 with front end 2.0.0 (PAKCS 3.4.1), and to icurry 3.3.0 with
+front end 3.1.0 (PAKCS 3.10.0). The rewritten FlatCurry inputs and independent
+ICurry outputs are in overlay-pakcs-3.4.1.tgz and overlay-pakcs-3.10.0.tgz,
+respectively. make overlay and the harness select the configured release
+from SPRITE_HOME (or the Makefile PREFIX); products of both can coexist.
+The current-tool archive also holds all 30 library oracles; the committed
+library ICurry belongs to the pinned configuration. The test
 unit_flat2icurry.py checks a fixed sample of 60 files and the probe modules
 under data/curry/flat2icurry; func_flat2icurry.py checks the whole archive.
 Sprite compiles with the port by default: the Curry front end writes the
 FlatCurry, and the port writes the .icy file.  unit_curry2icurry.py checks
 that route end to end.  SPRITE_CURRY2ICURRY=icurry selects icurry instead,
-when CMake was given -DWITH_ICURRY=PATH.  To check files by hand, say, e.g.,
+when CMake was given -DWITH_ICURRY=PATH. CMake checks the version pair and
+runs a translation probe; mismatches are configuration errors. To check
+files by hand, say, e.g.,
 
         ./shell
         python lib/flat2icurry_oracle.py --overlay
@@ -559,7 +566,13 @@ reproduces the text of the front end: a file of the front end read and
 written again is byte-identical, which func_flat2icurry.py checks over the
 whole archive and the products on disk, with the idempotence of both
 passes.  The icurry program reads the rewritten file as well, so the two
-routes write the same .icy file.  The PAKCS oracle shares the .fcy under
+routes translate the same input. Compatibility mode reproduces icurry's
+bytes. The runtime mode looks through root type annotations (both icurry
+versions lose the enclosed bindings) and, with front end 3.1.0, retains
+the front end's completed case order instead of sorting it. This keeps
+the runtime's existing answer order. Archive comparisons always use
+compatibility mode; the on-disk check also recognizes runtime products.
+The PAKCS oracle shares the .fcy under
 .curry/pakcs-3.4.1/ with the routes, so for a module with a set0 over
 captured variables it reads a lifted file: the lifted function is private,
 has a type the front end could have written, and the interface M.fint is

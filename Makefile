@@ -25,7 +25,7 @@ check-prereqs:
 	$(PYTHON) scripts/check-prereqs.py
 overlay-archive: stage
 overlay overlay-prune overlay-interfaces overlay-archive:
-	$(PYTHON) scripts/overlay.py $@ $(if $(OVERLAY_ROOT),--root $(OVERLAY_ROOT)) $(if $(OVERLAY_DIR),--directory $(OVERLAY_DIR)) $(if $(V),--verbose)
+	$(PYTHON) scripts/overlay.py $@ --prefix "$(or $(SPRITE_HOME),$(PREFIX))" $(if $(OVERLAY_ROOT),--root $(OVERLAY_ROOT)) $(if $(OVERLAY_DIR),--directory $(OVERLAY_DIR)) $(if $(V),--verbose)
 clean:
 	env SPRITE_BUILD_JOBS=$(effective_jobs) $(CMAKE) --build $(BUILD_DIR) --target clean
 docs:

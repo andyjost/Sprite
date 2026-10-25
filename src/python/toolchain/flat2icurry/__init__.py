@@ -1,7 +1,7 @@
 '''
 The translation from FlatCurry to ICurry.
 
-This is a port of the Curry package ``icurry`` 3.1.0 by Michael Hanus.  It
+This is a port of the Curry package ``icurry`` 3.1.0/3.3.0 by Michael Hanus. It
 reads the FlatCurry of a module and the FlatCurry interfaces of its imports,
 and it produces the ICurry term that ``icurry`` writes to a .icy file.  The
 passes run in this order:
@@ -30,13 +30,15 @@ passes run in this order:
 text is byte-identical to the output of ``icurry`` under PAKCS.
 :func:`write_flatcurry` writes a FlatCurry program as the front end does.
 
-One defect of ``icurry`` 3.1.0 is kept behind the flag ``icurry_compat``,
+One defect of both ``icurry`` releases is kept behind ``icurry_compat``,
 which is on by default: a type annotation at the root of a rule hides a
 case, a let, or a free declaration from the block builder.  See
 :func:`compiler.to_iblock`.  The oracle tests keep the flag on, so the
 output stays byte-identical to the files ``icurry`` wrote.  The build route
 (:mod:`curry.toolchain._frontend`) turns it off, so the programs it compiles
 run.
+Under front end 3.1.0, compatibility mode also sorts completed cases as
+icurry 3.3.0 does. The runtime keeps the front end's existing branch order.
 '''
 
 from . import bindingopt, setlift, flatcurry as fc
@@ -127,7 +129,10 @@ def translate(prog, interfaces, icurry_compat=True, rewrite=False):
   for p in [prog] + interfaces:
     datadecls.extend(data_decls_of(p))
   from .flatcurry import typed_format
-  ccprog = complete_prog(datadecls, prog, preserve_completed=typed_format(prog, interfaces))
+  from ... import config
+  preserve_completed = typed_format(prog, interfaces) and not (
+      icurry_compat and config.frontend_version() == '3.1.0')
+  ccprog = complete_prog(datadecls, prog, preserve_completed=preserve_completed)
   clprog = lift_prog(ccprog)
   maps = NameMaps.build(prog, interfaces, clprog)
   return flat2icurry(maps, clprog, icurry_compat)

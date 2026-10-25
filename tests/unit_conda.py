@@ -272,6 +272,7 @@ class TestCondaRecipe(cytest.TestCase):
     with tempfile.TemporaryDirectory() as directory:
       root = Path(directory)
       names = ['tests/data/curry/.curry/sprite-pakcs-3.4.1/M.icy',
+               'tests/data/curry/.curry/sprite-pakcs-3.4.1/M.icy.source',
                'tests/data/curry/.curry/pakcs-3.4.1/M.fcy',
                'install/curry/.curry/pakcs-3.4.1/Prelude.fint']
       for name in names:
@@ -290,6 +291,18 @@ class TestCondaRecipe(cytest.TestCase):
         self.assertIn('curry/lib/.curry/pakcs-3.4.1/Prelude.fint', stream.getnames())
         for member in stream:
           self.assertEqual((member.uid, member.gid, member.mtime), (0, 0, 946684800))
+      # Both product trees can coexist. Packing selects only the configured
+      # release and reads that installation's library interfaces.
+      new = root / 'new-install'
+      for name in names:
+        target = name.replace('pakcs-3.4.1', 'pakcs-3.10.0')
+        path = (new / target.removeprefix('install/') if target.startswith('install/')
+                else root / target)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(target)
+      selected = module.archive_products(root, 'pakcs-3.10.0', new)
+      self.assertEqual(len(selected), 4)
+      self.assertTrue(all('pakcs-3.10.0' in name for name, _ in selected))
 
   def test_overlay_in_a_shallow_clone(self):
     '''
@@ -308,6 +321,9 @@ class TestCondaRecipe(cytest.TestCase):
     inside = run([git, '-C', ROOT, 'rev-parse', '--is-inside-work-tree'])
     if inside.returncode != 0 or inside.stdout.strip() != 'true':
       raise unittest.SkipTest('not a git work tree')
+    history = run([git, '-C', ROOT, 'log', '-1', '--format=%H', '--', archive])
+    if not history.stdout.strip():
+      raise unittest.SkipTest('the selected archive has no committed history yet')
     with tempfile.TemporaryDirectory() as tmpdir:
       clone = os.path.join(tmpdir, 'clone')
       result = run([git, 'clone', '--quiet', '--depth', '1', 'file://' + ROOT, clone])
@@ -318,7 +334,7 @@ class TestCondaRecipe(cytest.TestCase):
           os.path.join(ROOT, 'scripts', 'overlay.py')
         , os.path.join(clone, 'scripts')
         )
-      result = run(['make', '-C', clone, 'overlay'])
+      result = run(['make', '-C', clone, 'overlay', 'PREFIX=' + config.prefix()])
       self.assertEqual(result.returncode, 0, result.stdout)
       self.assertIn('overlay-prune: WARNING: this is a shallow clone', result.stdout)
       self.assertIn('fetch-depth 0', result.stdout)

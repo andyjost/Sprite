@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract and maintain the pinned test products (developer tooling only)."""
+"""Extract and maintain release-specific test products (developer tooling only)."""
 import argparse
 import gzip
 import os
@@ -10,23 +10,21 @@ import sys
 import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
-ARCHIVE = 'overlay-pakcs-3.4.1.tgz'
-INTERMEDIATE = 'sprite-pakcs-3.4.1'
 
 
 def git(*args):
   return subprocess.check_output(['git', '-C', str(ROOT), *args], text=True).strip()
 
 
-def interfaces(directory):
+def interfaces(directory, subdir='pakcs-3.4.1', prefix=None):
   for icy in directory.rglob('*.icy'):
-    if icy.parent.name != INTERMEDIATE:
+    if icy.parent.name != 'sprite-' + subdir:
       continue
     for suffix in ['.fint', '.icurry']:
-      src = icy.parent.parent / 'pakcs-3.4.1' / (icy.stem + suffix)
+      src = icy.parent.parent / subdir / (icy.stem + suffix)
       if src.is_file():
         shutil.copy2(src, icy.with_suffix(suffix))
-  provenance(directory)
+  provenance(directory, subdir, prefix)
 
 
 # The import provenance of an extracted .icy (issue #164): the products of
@@ -42,12 +40,13 @@ for line in sys.stdin:
 '''
 
 
-def provenance(directory):
+def provenance(directory, subdir='pakcs-3.4.1', prefix=None):
   missing = [str(icy) for icy in sorted(directory.rglob('*.icy'))
-             if icy.parent.name == INTERMEDIATE and not icy.with_name(icy.name + '.imports').is_file()]
+             if icy.parent.name == 'sprite-' + subdir
+             and not icy.with_name(icy.name + '.imports').is_file()]
   if not missing:
     return
-  python = ROOT / 'install/bin/python'
+  python = (ROOT / 'install' if prefix is None else prefix) / 'bin/python'
   if not python.is_file():
     print('overlay-interfaces: WARNING: no installation: %d extracted .icy files keep no import'
           ' provenance and are stale (make stage, then make overlay-interfaces)' % len(missing),
@@ -57,9 +56,10 @@ def provenance(directory):
   print('overlay-interfaces: import provenance written for %d extracted .icy files' % len(missing))
 
 
-def prune(root):
+def prune(root, subdir='pakcs-3.4.1'):
+  archive = 'overlay-' + subdir + '.tgz'
   try:
-    commit = git('log', '-1', '--format=%H', '--', ARCHIVE)
+    commit = git('log', '-1', '--format=%H', '--', archive)
   except subprocess.CalledProcessError:
     commit = ''
   if not commit:
@@ -84,24 +84,33 @@ def prune(root):
       rel = parent.name + '/' + rel
       parent = parent.parent
   subprocess.run([sys.executable, str(ROOT / 'scripts/stamp-overlay.py'),
-                  commit, str(root), INTERMEDIATE], check=True)
+                  commit, str(root), 'sprite-' + subdir], check=True)
 
 
-def archive_products(root):
+def archive_products(root, subdir='pakcs-3.4.1', prefix=None):
   products = {
       str(p.relative_to(root)): p
       for p in (root / 'tests').rglob('*') if p.is_file() and '.curry' in p.parts
-      and any(p.name.endswith(s) for s in ['.fcy', '.fint', '.icurry', '.icy', '.icy.imports', '.json.z'])
+      and any(part in (subdir, 'sprite-' + subdir) for part in p.parts)
+      and any(p.name.endswith(s) for s in ['.fcy', '.fint', '.icurry', '.icy', '.icy.imports', '.icy.source', '.json.z'])
     }
   # The library is built out of source now. Keep its interfaces under the
   # historical curry/lib names in the test archive.
-  library = root / 'install/curry/.curry/pakcs-3.4.1'
+  library = (root / 'install' if prefix is None else prefix) / 'curry/.curry' / subdir
   if not library.is_dir():
     raise RuntimeError('make stage before packing the overlay: library interfaces are missing')
   for path in library.rglob('*'):
     if path.suffix in ('.fcy', '.fint', '.icurry'):
-      name = 'curry/lib/.curry/pakcs-3.4.1/' + str(path.relative_to(library))
+      name = 'curry/lib/.curry/' + subdir + '/' + str(path.relative_to(library))
       products[name] = path
+  # Current-tool library oracles live in the archive. The committed ICurry
+  # beside the library sources belongs only to the pinned configuration.
+  if subdir != 'pakcs-3.4.1':
+    libroot = library.parent.parent
+    for path in libroot.rglob('*'):
+      if path.is_file() and 'sprite-' + subdir in path.parts \
+          and any(path.name.endswith(s) for s in ('.icy', '.json.z', '.fint', '.icurry')):
+        products['curry/lib/' + str(path.relative_to(libroot))] = path
   return sorted(products.items())
 
 
@@ -123,8 +132,14 @@ def main():
   parser.add_argument('--root', type=Path, default=ROOT)
   parser.add_argument('--directory', type=Path, default=Path('tests'))
   parser.add_argument('--verbose', action='store_true')
+  parser.add_argument('--prefix', type=Path,
+                      default=Path(os.environ.get('SPRITE_HOME', ROOT / 'install')))
   args = parser.parse_args()
-  archive = ROOT / ARCHIVE
+  setting = args.prefix / 'sysconfig/frontend_subdir'
+  subdir = setting.read_text().strip() if setting.is_file() else 'pakcs-3.4.1'
+  if subdir not in ('pakcs-3.4.1', 'pakcs-3.10.0'):
+    parser.error('unsupported overlay release: ' + subdir)
+  archive = ROOT / ('overlay-' + subdir + '.tgz')
   if args.action == 'overlay':
     if archive.exists():
       with tarfile.open(archive) as stream:
@@ -137,14 +152,14 @@ def main():
             os.utime(path, None)
           if args.verbose:
             print(member.name)
-      prune(args.root)
-      interfaces(args.root / args.directory)
+      prune(args.root, subdir)
+      interfaces(args.root / args.directory, subdir, args.prefix)
   elif args.action == 'overlay-prune':
-    prune(args.root)
+    prune(args.root, subdir)
   elif args.action == 'overlay-interfaces':
-    interfaces(args.root / args.directory)
+    interfaces(args.root / args.directory, subdir, args.prefix)
   elif args.action == 'overlay-archive':
-    write_archive(archive, archive_products(ROOT))
+    write_archive(archive, archive_products(ROOT, subdir, args.prefix))
 
 
 if __name__ == '__main__':
