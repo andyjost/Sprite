@@ -1,0 +1,1 @@
+Prog "System.CPUTime" ["Prelude"] [] [Func ("System.CPUTime","getCPUTime") 0 Public (TCons ("Prelude","IO") [TCons ("Prelude","Int") []]) (Rule [] (Var 0)),Func ("System.CPUTime","getElapsedTime") 0 Public (TCons ("Prelude","IO") [TCons ("Prelude","Int") []]) (Rule [] (Var 0))] []

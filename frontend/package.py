@@ -23,7 +23,7 @@ SYSTEM_LIBS = {
     'libc.so.6', 'libm.so.6', 'libpthread.so.0', 'libdl.so.2', 'librt.so.1'
   , 'libutil.so.1', 'libgcc_s.so.1'
   }
-PACKAGING_VERSION = '2.0.0.post6'
+PACKAGING_VERSIONS = {'2.0.0': '2.0.0.post6', '3.1.0': '3.1.0.post1'}
 # Mach-O 64-bit, little-endian magic and the cputype field that follows it.
 MACHO_MAGIC_64 = b'\xcf\xfa\xed\xfe'
 MACHO_CPUTYPES = {0x0100000c: 'arm64', 0x01000007: 'x86_64'}
@@ -33,7 +33,7 @@ MACOS_SYSTEM_DIRS = ('/usr/lib/', '/System/Library/')
 
 
 def output(*args):
-  return subprocess.check_output(args, text=True, stderr=subprocess.STDOUT)
+  return subprocess.check_output(args, text=True, stderr=subprocess.STDOUT, timeout=30)
 
 
 def glibc_versions(path):
@@ -81,7 +81,7 @@ def macos_min_version(path):
   return match.group(1) if match else None
 
 
-def bundle_macho(target, destination, licenses, head):
+def bundle_macho(target, destination, licenses, head, version):
   '''
   The bundle of a Mach-O executable (macOS): the system libraries stay, GMP
   from Homebrew is vendored beside the executable with @loader_path, and the
@@ -117,7 +117,7 @@ def bundle_macho(target, destination, licenses, head):
   versions = [v for v in (macos_min_version(p) for p in destination.iterdir()) if v]
   floor = max(versions, key=lambda v: tuple(map(int, v.split('.')))) if versions else None
   info = dict(
-      version='2.0.0', packaging_version=PACKAGING_VERSION, architecture=arch
+      version=version, packaging_version=PACKAGING_VERSIONS[version], architecture=arch
     , platform='darwin', linkage='dynamic', needed=needed, glibc_required=None
     , macos_required=floor, rpath=rpath
     )
@@ -132,10 +132,11 @@ def bundle(binary, destination, licenses):
   shutil.copy2(binary, target)
   target.chmod(0o755)
   elf = target.read_bytes()[:20]
-  if output(str(target), '--numeric-version').strip() != '2.0.0':
-    raise ValueError('the executable must be front end 2.0.0')
+  version = output(str(target), '--numeric-version').strip()
+  if version not in PACKAGING_VERSIONS:
+    raise ValueError('the executable must be front end 2.0.0 or 3.1.0')
   if elf[:4] == MACHO_MAGIC_64:
-    return bundle_macho(target, destination, licenses, elf)
+    return bundle_macho(target, destination, licenses, elf, version)
   if elf[:5] != b'\x7fELF\x02':
     raise ValueError('expected an ELF64 or a 64-bit Mach-O executable')
   machine = struct.unpack('<H' if elf[5] == 1 else '>H', elf[18:20])[0]
@@ -159,7 +160,7 @@ def bundle(binary, destination, licenses):
     copy_gmp_licenses(licenses)
   versions = {v for path in destination.iterdir() for v in glibc_versions(path)}
   info = dict(
-      version='2.0.0', packaging_version=PACKAGING_VERSION, architecture=arch
+      version=version, packaging_version=PACKAGING_VERSIONS[version], architecture=arch
     , platform='linux', linkage='dynamic' if needed else 'static', needed=needed
     , glibc_required='.'.join(map(str, max(versions))) if versions else None
     , rpath='$ORIGIN' if 'libgmp.so.10' in needed else None
@@ -201,7 +202,7 @@ def main():
           sys.executable, '-m', 'pip', 'wheel', '--no-index', '--no-deps'
         , '--no-build-isolation', '--wheel-dir', str(args.output.resolve())
         , str(project)
-        ], check=True)
+        ], check=True, env=dict(os.environ, CURRY_FRONTEND_VERSION=info['version']))
 
 
 if __name__ == '__main__':

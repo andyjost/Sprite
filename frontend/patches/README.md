@@ -34,3 +34,20 @@ was checked against the archive whose checksum CI established; compilation
 and byte parity remain CI checks. Each future patch must name the failing
 GHC version, the error, and why the change preserves the program.
 Dependency bound relaxation on aarch64 remains a Cabal command-line option.
+
+## Audit for 3.1.0 (tag v3.1.0)
+
+The 3.1.0 build applies none of the five 2.0.0 patches. The source already
+supports mtl ^>=2.3 and base ^>=4.19; no bounds are relaxed. Audited outcomes:
+
+| Patch | Disposition | Upstream evidence |
+| --- | --- | --- |
+| 0001 | Dropped | `Curry.Base.Monad` no longer calls `liftM`. |
+| 0002 | Dropped | `Curry.Syntax.Type` already spells `f@(Field _ _ _)`. |
+| 0003 | Dropped | `Curry.Syntax.Utils` no longer calls `liftM2` or `liftM3`. |
+| 0004 | Dropped | `Curry.Frontend.Checks.WarnCheck` defines a local `<||>` on `Either` that keeps the first `Right` or last `Left`. |
+| 0005 | Dropped | `Curry.Frontend.Generators.GenAbstractCurry` imports `when` from `Control.Monad` and calls it unqualified. |
+
+The namespace of checks and generators is now `Curry.Frontend`. The base
+and syntax modules above retain their paths. These are source audit
+results; both native source builds and parity still require CI dispatch.

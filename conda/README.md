@@ -1,4 +1,18 @@
 Conda recipes
+
+The supported pairs are front end 2.0.0 / PAKCS 3.4.1 (default) and
+front end 3.1.0 / PAKCS 3.10.0. Set `SPRITE_FRONTEND_VERSION=3.1.0` when
+rendering or building either recipe to select the current pair. The
+front-end recipe selects the corresponding checksum-pinned PAKCS archive
+or checks a source-built `SPRITE_FRONTEND_ARTIFACT`; the Sprite recipe
+pins the same front-end version and smokes `.curry/sprite-pakcs-3.10.0/`.
+The default smoke path remains `.curry/sprite-pakcs-3.4.1/`. Source wheel
+versions are 2.0.0.post6 and 3.1.0.post1; conda uses upstream versions and
+build numbers 4 and 1 respectively. The 3.1.0 binary repack needs glibc 2.34, measured from the pinned
+PAKCS executable; source artifacts use their recorded floor. The 3.1.0
+recipes have not been built.
+The default stays on the older pair until upgrade stage G. Historical
+measurements and open questions below describe the earlier scaffold.
 =============
 
 This directory holds the recipes of two conda packages for Sprite on

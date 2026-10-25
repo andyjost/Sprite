@@ -39,6 +39,7 @@ PAKCS_URL_BASE=https://www.curry-lang.org/pakcs/download
 # conda/curry-frontend/meta.yaml, the archive dated 2021-10-26.  A version
 # without a hash here gets its size recorded instead.
 declare -A PAKCS_SHA256=(
+  [3.10.0]=ef632f91016a0c83b95b3b047421dea16556ce0107ee12834c5a969072abf51f
   [3.4.1]=d17d8b3c30564200d5f4ee3a4ee9882fbca5ed66b77b9317050e1f71ba955db2
 )
 # The Kiel mirrors of CPM do not answer; curry-lang.org does.

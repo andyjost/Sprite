@@ -16,6 +16,11 @@ name: Release the front end
         description: The id of the green run of "Curry front end from source" whose wheels are published
         type: string
         required: true
+      version:
+        description: Front-end version built by the selected run
+        type: choice
+        options: ['2.0.0', '3.1.0']
+        default: '2.0.0'
       index:
         description: The index to publish to
         type: choice
@@ -29,6 +34,13 @@ jobs:
   collect:
     name: collect the wheels of run ${{ inputs.run_id }}
     runs-on: ubuntu-24.04
+    env:
+      FRONTEND_VERSION: ${{ inputs.version }}
+      FRONTEND_ARTIFACT_PREFIX: ${{ inputs.version == '3.1.0' && 'curry-frontend' || 'frontend' }}
+      # Four wheels for 2.0.0: manylinux_2_28 x86-64 and aarch64, macOS
+      # arm64 and x86-64 (issue #162, step 3); two for 3.1.0, manylinux only.
+      EXPECTED_WHEELS: ${{ inputs.version == '3.1.0' && '2' || '4' }}
+      EXPECTED_MACOS: ${{ inputs.version == '3.1.0' && '0' || '2' }}
     timeout-minutes: 20
     permissions:
       actions: read
@@ -44,23 +56,40 @@ jobs:
           gh run view "$RUN_ID" --json workflowName,conclusion,headBranch,headSha,displayTitle
           test "$(gh run view "$RUN_ID" --json workflowName --jq .workflowName)" = 'Curry front end from source'
           test "$(gh run view "$RUN_ID" --json conclusion --jq .conclusion)" = success
-          gh run download "$RUN_ID" --pattern 'frontend-*' --dir artifacts
+          gh run download "$RUN_ID" --pattern "${FRONTEND_ARTIFACT_PREFIX}-${FRONTEND_VERSION}-*" --dir artifacts
+          if [ "$FRONTEND_VERSION" = 2.0.0 ]; then
+            # The macOS wheels of 2.0.0 come from the job macos of the run.
+            gh run download "$RUN_ID" --pattern 'frontend-macos-*' --dir artifacts
+          fi
+          # A rerun keeps the artifacts of the earlier attempts on the run:
+          # keep the latest attempt of each target.
+          for dir in artifacts/*-[0-9]*; do
+            latest=$(ls -d "${dir%-*}"-[0-9]* | sed 's/.*-//' | sort -n | tail -n 1)
+            [ "${dir##*-}" = "$latest" ] || rm -r "$dir"
+          done
+          # Advisory jobs can fail while the run remains green. Require
+          # every gate of the selected version to have passed on every target.
+          outcomes=$(find artifacts -name outcome.txt | wc -l)
+          test "$outcomes" = "$EXPECTED_WHEELS"
+          for outcome in artifacts/*/outcome.txt; do
+            for gate in fetch toolchain build wheel tag smoke stage parity; do
+              grep -qx "$gate=success" "$outcome"
+            done
+          done
           # The tagged wheel of each target is under dist/ (manylinux_2_28 on
           # Linux, the macOS floor on macOS); the wheels/ directory holds the
           # untagged wheel, which PyPI refuses or which claims a wrong floor.
           mkdir -p dist
-          find artifacts -path '*/dist/*.whl' -exec cp -v '{}' dist/ ';'
+          find artifacts -path "*/dist/curry_frontend-${FRONTEND_VERSION}.post*-*.whl" -exec cp -v '{}' dist/ ';'
           ls -l dist
-      # Four wheels: manylinux_2_28 x86-64 and aarch64, macOS arm64 and
-      # x86-64 (issue #162, step 3).
-      - name: Refuse a run from before the rename, and a count other than four
+      - name: Refuse a run from before the rename, and a count other than the version's
         run: |
           set -euxo pipefail
           count=$(ls dist/*.whl | wc -l)
           named=$(ls dist/curry_frontend-*.whl 2>/dev/null | wc -l)
           macos=$(ls dist/curry_frontend-*macosx_*.whl 2>/dev/null | wc -l)
-          if [ "$count" != 4 ] || [ "$named" != 4 ] || [ "$macos" != 2 ]; then
-            echo "expected four wheels named curry_frontend-*, two of them macOS, found:" >&2
+          if [ "$count" != "$EXPECTED_WHEELS" ] || [ "$named" != "$EXPECTED_WHEELS" ] || [ "$macos" != "$EXPECTED_MACOS" ]; then
+            echo "expected $EXPECTED_WHEELS wheels named curry_frontend-*, $EXPECTED_MACOS of them macOS, found:" >&2
             ls -l dist >&2
             exit 1
           fi
@@ -71,9 +100,9 @@ jobs:
           tools/bin/python -m pip install --quiet twine
           tools/bin/python -m twine check --strict dist/*.whl
           python3 -m venv smoke
-          smoke/bin/python -m pip install --no-index --no-deps dist/curry_frontend-*manylinux*x86_64.whl
-          test "$(smoke/bin/curry-frontend --numeric-version)" = 2.0.0
-          smoke/bin/curry-frontend --version
+          smoke/bin/python -m pip install --no-index --no-deps dist/curry_frontend-${FRONTEND_VERSION}.post*-*manylinux*x86_64.whl
+          test "$(timeout 30 smoke/bin/curry-frontend --numeric-version)" = "$FRONTEND_VERSION"
+          timeout 30 smoke/bin/curry-frontend --version
       - uses: actions/upload-artifact@v4
         with:
           name: release-wheels-${{ inputs.run_id }}
