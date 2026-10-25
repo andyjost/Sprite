@@ -307,7 +307,7 @@ jobs:
   # it is green twice.
   macos:
     name: macOS arm64, interpreter ${{ matrix.shard }}
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/wt/macos'
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/wt/macos')
     runs-on: macos-15
     timeout-minutes: 150
     continue-on-error: true
