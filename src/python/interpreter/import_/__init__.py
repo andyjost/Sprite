@@ -47,9 +47,22 @@ def import_(interp, arg, currypath=None, is_sourcefile=False):
 @import_.when(str)
 def import_(interp, name, currypath=None, is_sourcefile=False):
   modulename = curryname.getModuleName(name, is_sourcefile)
+  if is_sourcefile:
+    _findcurry.reject_library_shadow(modulename, name, interp)
+  elif modulename in config.syslibs():
+    path = curryname.makeCurryPath(interp.path if currypath is None else currypath)
+    filename = next(utility.filesys.findfiles(
+        path, modulename.replace('.', os.sep) + '.curry'), None)
+    if filename is not None:
+      _findcurry.reject_library_shadow(modulename, filename, interp)
   moduleobj = interp.modules.get(modulename)
-  if moduleobj is None:
+  if moduleobj is None or isinstance(moduleobj, objects.CurryPackage):
     importEx = ImportEx(interp, currypath)
+    if moduleobj is not None and not is_sourcefile:
+      filename = next(_findcurry._modulefiles(
+          importEx.plan, modulename, importEx.currypath), None)
+      if filename is None or os.path.isdir(filename):
+        return moduleobj
     if is_sourcefile:
       return importEx(name, is_sourcefile=is_sourcefile)
     else:
@@ -138,6 +151,15 @@ class ImportEx(object):
   @__call__.when(str)
   def __call__(self, modulename, tail=[], is_sourcefile=False):
     logger.info('Importing %s', modulename)
+    if tail and not is_sourcefile:
+      # A prefix denotes a namespace here, even when a module of that
+      # name exists too. Loading that module can import this very child.
+      for directory in utility.filesys.findfiles(
+          self.currypath, modulename.replace('.', os.sep)):
+        if os.path.isdir(directory):
+          package = icurry.IPackage(modulename)
+          package.filename = directory
+          return self(package, tail)
     if is_sourcefile:
       self.currypath = _findcurry.program_path(
           modulename, self.currypath, is_sourcefile=True
@@ -169,9 +191,21 @@ class ImportEx(object):
   @__call__.when(icurry.IModule)
   def __call__(self, imodule, tail=[]):
     session = self.interp._session
+    if imodule.filename:
+      _findcurry.reject_library_shadow(
+          imodule.fullname, imodule.filename, self.interp)
+    parents = list(curryname.prefixes(imodule.fullname))[:-1]
+    for index, name in enumerate(parents):
+      directory = os.path.dirname(imodule.filename or '')
+      for _ in range(len(parents) - index - 1):
+        directory = os.path.dirname(directory)
+      package = icurry.IPackage(name)
+      package.filename = directory
+      native_metadata(self._finish_package)(package)
     # Imports can compile or wait for a heap: finish them before entering
     # the native metadata transaction. No partial module is published.
-    if imodule.fullname not in self.interp.modules:
+    existing = self.interp.modules.get(imodule.fullname)
+    if existing is None or isinstance(existing, objects.CurryPackage):
       for modulename in imodule.imports:
         self.interp.import_(modulename, currypath=self.import_path)
     moduleobj = native_metadata(self._finish_module)(imodule, session)
@@ -181,7 +215,7 @@ class ImportEx(object):
     if session is not self.interp._session:
       raise StaleError('the interpreter was reset during an import; import again')
     existing = self.interp.modules.get(imodule.fullname)
-    if existing is not None:
+    if existing is not None and not isinstance(existing, objects.CurryPackage):
       return existing
     toolchain.mergebuiltins(imodule, self.interp.backend)
     toolchain.validatemodule(imodule)
@@ -190,6 +224,11 @@ class ImportEx(object):
     registry = self.interp.modules
     with self.interp._private_modules():
       with _provisionalModule(self.interp, imodule) as moduleobj:
+        # A namespace may have been needed by the imports of this module.
+        # Its children stay reachable when the module takes its name.
+        if isinstance(existing, objects.CurryPackage):
+          for name in getHandle(existing).icurry:
+            setattr(moduleobj, name, getattr(existing, name))
         record_source(moduleobj)
         load.loadSymbols(self.interp, imodule, moduleobj)
         from ...objects.classes import build_classes
@@ -210,7 +249,8 @@ class ImportEx(object):
       parent, _, local = imodule.fullname.rpartition('.')
       if parent:
         setattr(registry[parent], local, moduleobj)
-        getattr(registry[parent], '.icurry')[local] = imodule
+        if isinstance(registry[parent], objects.CurryPackage):
+          getattr(registry[parent], '.icurry')[local] = imodule
       registry[imodule.fullname] = moduleobj
     return moduleobj
 
@@ -325,9 +365,12 @@ def _provisionalModule(interp, imodule):
       packageobj = interp.modules[packagename]
       packageicur = getattr(packageobj, '.icurry')
       with binding(packageobj.__dict__, modulename, obj) as bind2:
-        with binding(packageicur, modulename, imodule) as bind3:
+        if isinstance(packageicur, icurry.IPackage):
+          with binding(packageicur, modulename, imodule) as bind3:
+            yield obj
+            bind3.commit()
+        else:
           yield obj
-          bind3.commit()
         bind2.commit()
     else:
       yield obj
