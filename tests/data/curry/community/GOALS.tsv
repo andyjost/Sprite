@@ -145,3 +145,199 @@ tutorial/chapter6/blocks.curry	tutorial/chapter6/blocks.curry	main	not stated by
 tutorial/chapter6/missionaries.curry	tutorial/chapter6/missionaries.curry	main	not stated by source	chapter6/missionaries.curry:81
 pakcs-3.10.0-testsuite/LanguageTests/TestFuncPattern.curry	pakcs-3.10.0-testsuite/LanguageTests/TestFuncPatternGoals.curry	variables	"""x"" (256 values, testVars1/testVars2)"	LanguageTests/TestFuncPattern.curry (property)
 pakcs-3.10.0-testsuite/LanguageTests/TestFuncPattern.curry	pakcs-3.10.0-testsuite/LanguageTests/TestFuncPatternGoals.curry	dutchFlag	[Red,Red,White,White,White,Blue,Blue]	LanguageTests/TestFuncPattern.curry (property)
+kics2-3.5.0-testsuite/LanguageTests/TestListComprehension.curry	kics2-3.5.0-testsuite/LanguageTests/TestListComprehensionGoals.curry	checkTestSquareOdds	[1,9,25,49,81,121,169,225,289,361]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestListComprehension.curry	kics2-3.5.0-testsuite/LanguageTests/TestListComprehensionGoals.curry	checkTestPairs	[(1,2),(1,3),(1,4),(2,3),(2,4),(3,2),(3,4)]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestListComprehension.curry	kics2-3.5.0-testsuite/LanguageTests/TestListComprehensionGoals.curry	checkTestFacs	[1,2,6,24,120,720,5040,40320,362880,3628800]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestListComprehension.curry	kics2-3.5.0-testsuite/LanguageTests/TestListComprehensionGoals.curry	checkTestLetComp	[(1,2,3),(1,3,4),(1,4,5),(1,5,6),(1,6,7),(2,3,5),(2,4,6),(2,5,7),(2,6,8) ,(3,2,5),(3,4,7),(3,5,8),(3,6,9),(4,2,6),(4,3,7),(4,5,9),(4,6,10)]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestFunctional.curry	kics2-3.5.0-testsuite/LanguageTests/TestFunctionalGoals.curry	checkTestAppend1234	[1,2,3,4]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestFunctional.curry	kics2-3.5.0-testsuite/LanguageTests/TestFunctionalGoals.curry	checkTestRev1234	[4,3,2,1]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestNarrowing.curry	kics2-3.5.0-testsuite/LanguageTests/TestNarrowingGoals.curry	checkTestAdd	S (S O)	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestNarrowing.curry	kics2-3.5.0-testsuite/LanguageTests/TestNarrowingGoals.curry	checkTestDiff	S O	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestNarrowing.curry	kics2-3.5.0-testsuite/LanguageTests/TestNarrowingGoals.curry	checkTestSub	S O	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestNarrowing.curry	kics2-3.5.0-testsuite/LanguageTests/TestNarrowingGoals.curry	checkTestLeq	(O ? S O ? S (S O))	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestNarrowing.curry	kics2-3.5.0-testsuite/LanguageTests/TestNarrowingGoals.curry	checkTestLast1234	4	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestInfinite.curry	kics2-3.5.0-testsuite/LanguageTests/TestInfiniteGoals.curry	checkTestFibs10	[1,1,2,3,5,8,13,21,34,55]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestInfinite.curry	kics2-3.5.0-testsuite/LanguageTests/TestInfiniteGoals.curry	checkTestPrimes5	[2,3,5,7,11]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestInfinite.curry	kics2-3.5.0-testsuite/LanguageTests/TestInfiniteGoals.curry	checkTestHamming10	[1,2,3,4,5,6,8,9,10,12]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestNonLinearPattern.curry	kics2-3.5.0-testsuite/LanguageTests/TestNonLinearPatternGoals.curry	checkTestNonLinearSimple1	no values	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestNonLinearPattern.curry	kics2-3.5.0-testsuite/LanguageTests/TestNonLinearPatternGoals.curry	checkTestNonLinearSimple2	[2]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestNonLinearPattern.curry	kics2-3.5.0-testsuite/LanguageTests/TestNonLinearPatternGoals.curry	checkTestNonLinearFirst	no values	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestNonLinearPattern.curry	kics2-3.5.0-testsuite/LanguageTests/TestNonLinearPatternGoals.curry	checkTestMember	(1 ? 2 ? 3)	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestHigher.curry	kics2-3.5.0-testsuite/LanguageTests/TestHigherGoals.curry	checkTestMapInc	[1,3,2]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestHigher.curry	kics2-3.5.0-testsuite/LanguageTests/TestHigherGoals.curry	checkTestMapPlus1	[1,3,2]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestHigher.curry	kics2-3.5.0-testsuite/LanguageTests/TestHigherGoals.curry	checkTestFoldrPlus	3	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestHigher.curry	kics2-3.5.0-testsuite/LanguageTests/TestHigherGoals.curry	checkTestFoldrMult	120	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestHigher.curry	kics2-3.5.0-testsuite/LanguageTests/TestHigherGoals.curry	checkTestFoldrLambda	120	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestAsPattern.curry	kics2-3.5.0-testsuite/LanguageTests/TestAsPatternGoals.curry	checkTestSimple	[1,1,2]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestAsPattern.curry	kics2-3.5.0-testsuite/LanguageTests/TestAsPatternGoals.curry	checkTestNonLinearAs1	[1,1,1,2]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestAsPattern.curry	kics2-3.5.0-testsuite/LanguageTests/TestAsPatternGoals.curry	checkTestNonLinearAs2	no values	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestAsPattern.curry	kics2-3.5.0-testsuite/LanguageTests/TestAsPatternGoals.curry	checkTestFuncPatAs1	[(3,13)]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestAsPattern.curry	kics2-3.5.0-testsuite/LanguageTests/TestAsPatternGoals.curry	checkTestFuncPatAs2	([[(2,3),(42,99)]],[(42,99)])	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestAsPattern.curry	kics2-3.5.0-testsuite/LanguageTests/TestAsPatternGoals.curry	checkTestFuncPatAs3	no values	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestNondet.curry	kics2-3.5.0-testsuite/LanguageTests/TestNondetGoals.curry	checkCoinYields0	0	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestNondet.curry	kics2-3.5.0-testsuite/LanguageTests/TestNondetGoals.curry	checkCoinYields1	1	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestNondet.curry	kics2-3.5.0-testsuite/LanguageTests/TestNondetGoals.curry	checkTestCoinValues	(1 ? 0)	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestNondet.curry	kics2-3.5.0-testsuite/LanguageTests/TestNondetGoals.curry	checkAddCoinCoin	(0 ? 1 ? 2)	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestNondet.curry	kics2-3.5.0-testsuite/LanguageTests/TestNondetGoals.curry	checkAddCoinCoinMulti	(0 ? 1 ? 1 ? 2)	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestNondet.curry	kics2-3.5.0-testsuite/LanguageTests/TestNondetGoals.curry	checkDoubleCoin	(0 ? 2)	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestNondet.curry	kics2-3.5.0-testsuite/LanguageTests/TestNondetGoals.curry	checkTestSort1234	[1,2,3,4]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestFCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestFCaseGoals.curry	checkTestNot1	True	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestFCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestFCaseGoals.curry	checkTestNot2	(True ? False)	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestFCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestFCaseGoals.curry	checkTestABool1	(True ? False)	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestFCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestFCaseGoals.curry	checkTestABool2	(True ? False)	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestFCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestFCaseGoals.curry	checkTestFirstOrSecond	(1 ? 2)	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestFCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestFCaseGoals.curry	checkTestPosFirstOrSecond	2	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestCaseGoals.curry	checkTestSwap1	[]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestCaseGoals.curry	checkTestSwap2	[1]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestCaseGoals.curry	checkTestSwap3	[2,1]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestCaseGoals.curry	checkTestSwap4	[1,2,3]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestCaseGoals.curry	checkTestf1	0	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestCaseGoals.curry	checkTestf2	no values	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestCaseGoals.curry	checkTestf3	152	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestCaseGoals.curry	checkTestg1	True	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestCaseGoals.curry	checkTestg2	False	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestCaseGoals.curry	checkTesth1	True	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestCaseGoals.curry	checkTesth2	False	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestCaseGoals.curry	checkTesth3	False	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestCaseGoals.curry	checkTestFirstOrSecond	1	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/LanguageTests/TestCase.curry	kics2-3.5.0-testsuite/LanguageTests/TestCaseGoals.curry	checkTestPosFirstOrSecond	2	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestClassInst.curry	kics2-3.5.0-testsuite/TypeclassTests/TestClassInstGoals.curry	checkTestChoiceInt	(1?0)	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestClassInst.curry	kics2-3.5.0-testsuite/TypeclassTests/TestClassInstGoals.curry	checkTestTwoChoices	([0,0]?[0,1]?[1,0]?[1,1])	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestNat.curry	kics2-3.5.0-testsuite/TypeclassTests/TestNatGoals.curry	checkTestZeroPlus3	3 + Zero	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestNat.curry	kics2-3.5.0-testsuite/TypeclassTests/TestNatGoals.curry	checkTestZeroMult3	0	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestNat.curry	kics2-3.5.0-testsuite/TypeclassTests/TestNatGoals.curry	checkTestElem1	True	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestNat.curry	kics2-3.5.0-testsuite/TypeclassTests/TestNatGoals.curry	checkTestElem42	True	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestDeriving.curry	kics2-3.5.0-testsuite/TypeclassTests/TestDerivingGoals.curry	checkTestOrd1	True	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestDeriving.curry	kics2-3.5.0-testsuite/TypeclassTests/TestDerivingGoals.curry	checkTestOrd2	True	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestDeriving.curry	kics2-3.5.0-testsuite/TypeclassTests/TestDerivingGoals.curry	readColor	Red	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestDeriving.curry	kics2-3.5.0-testsuite/TypeclassTests/TestDerivingGoals.curry	readTree	Leaf Red	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestReadShow.curry	kics2-3.5.0-testsuite/TypeclassTests/TestReadShowGoals.curry	readBool	True	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestReadShow.curry	kics2-3.5.0-testsuite/TypeclassTests/TestReadShowGoals.curry	readInt	-42	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestReadShow.curry	kics2-3.5.0-testsuite/TypeclassTests/TestReadShowGoals.curry	readString	"""Curry"""	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestReadShow.curry	kics2-3.5.0-testsuite/TypeclassTests/TestReadShowGoals.curry	readMaybe	Just 42	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestReadShow.curry	kics2-3.5.0-testsuite/TypeclassTests/TestReadShowGoals.curry	readPair	(42,True)	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestDoList.curry	kics2-3.5.0-testsuite/TypeclassTests/TestDoListGoals.curry	checkTestList42Comp	[42]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestDoList.curry	kics2-3.5.0-testsuite/TypeclassTests/TestDoListGoals.curry	checkTestList42Do	[42]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestDoList.curry	kics2-3.5.0-testsuite/TypeclassTests/TestDoListGoals.curry	checkTestListEmptyComp	[]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestDoList.curry	kics2-3.5.0-testsuite/TypeclassTests/TestDoListGoals.curry	checkTestListEmptyDo	[]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestBinInt.curry	kics2-3.5.0-testsuite/TypeclassTests/TestBinIntGoals.curry	checkTestZeroPlus3	3 + Zero	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestBinInt.curry	kics2-3.5.0-testsuite/TypeclassTests/TestBinIntGoals.curry	checkTestZeroMult3	0	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestBinInt.curry	kics2-3.5.0-testsuite/TypeclassTests/TestBinIntGoals.curry	checkTestNarrMultTwo	((1,2) ? (2,1) ? (-2,-1) ? (-1,-2))	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestMaybeMonad.curry	kics2-3.5.0-testsuite/TypeclassTests/TestMaybeMonadGoals.curry	checkTestDoMaybe1	Nothing	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/TypeclassTests/TestMaybeMonad.curry	kics2-3.5.0-testsuite/TypeclassTests/TestMaybeMonadGoals.curry	checkTestDoMaybe2	Just (True,42)	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest0	True	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest1	no values	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest2	True	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest3	True	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest4	[True,True]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest5	[True,True]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest6	[True,True]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest7	True	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest8	[True,True]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest9	[True,True]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest10	[False,False]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest11	[False,False,False]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest12	[False,False,False]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest13	[False,False,False]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest14	False	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest15	(False ? True)	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest16	[True]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest17	[True]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest18	[True]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest19	no values	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest20	[True]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest21	([True] ? [False])	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest22	True	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest24	[True]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest26	([False] ? [True])	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest27	[False,True,True]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest28	[True]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest29	[True]	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest30	no values	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest31	no values	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest32	no values	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest33	no values	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/TestUnification.curry	kics2-3.5.0-testsuite/SpecialTests/TestUnificationGoals.curry	checkTest34	no values	upstream property instantiated as shown in adapter
+kics2-3.5.0-testsuite/SpecialTests/rev.curry	kics2-3.5.0-testsuite/SpecialTests/rev.curry	goal1	not stated by source	source example
+kics2-3.5.0-testsuite/SpecialTests/rev.curry	kics2-3.5.0-testsuite/SpecialTests/rev.curry	goal2	not stated by source	source example
+kics2-3.5.0-testsuite/SpecialTests/rev.curry	kics2-3.5.0-testsuite/SpecialTests/rev.curry	goal3	not stated by source	source example
+base-3.4.0-test/TestDataFunction.curry	base-3.4.0-test/TestDataFunctionGoals.curry	factorial	720 (fac <=> facFix instantiated at 6)	upstream property instantiated as shown in adapter
+base-3.4.0-test/TestDataFunction.curry	base-3.4.0-test/TestDataFunctionGoals.curry	onIncrement	12	upstream property instantiated as shown in adapter
+base-3.4.0-test/TestDataFunction.curry	base-3.4.0-test/TestDataFunctionGoals.curry	sortOnFirst	True	upstream property instantiated as shown in adapter
+base-3.4.0-test/TestDataList.curry	base-3.4.0-test/TestDataListGoals.curry	appendGoal	[1,2,3,4]	upstream property instantiated as shown in adapter
+base-3.4.0-test/TestDataList.curry	base-3.4.0-test/TestDataListGoals.curry	nubGoal	[1,3,2,4]	upstream property instantiated as shown in adapter
+base-3.4.0-test/TestDataList.curry	base-3.4.0-test/TestDataListGoals.curry	allGoal	True	upstream property instantiated as shown in adapter
+base-3.4.0-test/TestDataList.curry	base-3.4.0-test/TestDataListGoals.curry	lastGoal	4	upstream property instantiated as shown in adapter
+base-3.4.0-test/TestDataList.curry	base-3.4.0-test/TestDataListGoals.curry	initGoal	[1,2,3]	upstream property instantiated as shown in adapter
+base-3.4.0-test/TestFunction.curry	base-3.4.0-test/TestFunctionGoals.curry	multiplyOn	12	upstream property instantiated as shown in adapter
+base-3.4.0-test/TestFunction.curry	base-3.4.0-test/TestFunctionGoals.curry	addEnum	2	upstream property instantiated as shown in adapter
+base-3.4.0-test/TestFunction.curry	base-3.4.0-test/TestFunctionGoals.curry	addSquare	13	upstream property instantiated as shown in adapter
+base-3.4.0-test/TestTextShow.curry	base-3.4.0-test/TestTextShowGoals.curry	stringGoal	"""Curry"""	upstream property instantiated as shown in adapter
+base-3.4.0-test/TestTextShow.curry	base-3.4.0-test/TestTextShowGoals.curry	concatGoal	"""Curry"""	upstream property instantiated as shown in adapter
+base-3.4.0-test/TestTextShow.curry	base-3.4.0-test/TestTextShowGoals.curry	replicateGoal	"""ababab"""	upstream property instantiated as shown in adapter
+base-3.4.0-test/TestTextShow.curry	base-3.4.0-test/TestTextShowGoals.curry	concatList	"""Curry"""	upstream property instantiated as shown in adapter
+curry2go-1.7.0-examples/CaseLiteral.curry	curry2go-1.7.0-examples/CaseLiteral.curry	main	0; 2	examples/TESTANYSTRAT.txt
+curry2go-1.7.0-examples/CharFuns.curry	curry2go-1.7.0-examples/CharFuns.curry	newLine	not stated by source	examples/CharFuns.curry
+curry2go-1.7.0-examples/CharFuns.curry	curry2go-1.7.0-examples/CharFuns.curry	hello	not stated by source	examples/CharFuns.curry
+curry2go-1.7.0-examples/Colormap.curry	curry2go-1.7.0-examples/Colormap.curry	main	[Red, Blue, Green, Red]; [Red, Green, Blue, Red]; [Blue, Green, Red, Blue]; [Blue, Red, Green, Blue]; [Green, Blue, Red, Green]; [Green, Red, Blue, Green]	examples/TESTDFS.txt
+curry2go-1.7.0-examples/ColormapFree.curry	curry2go-1.7.0-examples/ColormapFree.curry	main	[Red, Blue, Green, Red]; [Red, Green, Blue, Red]; [Green, Blue, Red, Green]; [Green, Red, Blue, Green]; [Blue, Green, Red, Blue]; [Blue, Red, Green, Blue]	examples/TESTDFS.txt
+curry2go-1.7.0-examples/Data.curry	curry2go-1.7.0-examples/Data.curry	main	Black; White	examples/TESTDFS.txt
+curry2go-1.7.0-examples/Diamond.curry	curry2go-1.7.0-examples/DiamondGoals.curry	oneDigit	not stated by source (bounded IO/decimal-width harness)	n=1 harness derived from the original Diamond algorithm
+curry2go-1.7.0-examples/Diamond.curry	curry2go-1.7.0-examples/DiamondGoals.curry	twoDigits	not stated by source (bounded IO/decimal-width harness)	n=1 harness derived from the original Diamond algorithm
+curry2go-1.7.0-examples/Diamond.curry	curry2go-1.7.0-examples/DiamondGoals.curry	diamondOne	not stated by source (bounded IO/decimal-width harness)	n=1 harness derived from the original Diamond algorithm
+curry2go-1.7.0-examples/Dutch.curry	curry2go-1.7.0-examples/Dutch.curry	main	[Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]; [Red, Red, White, White, Blue, Blue]	examples/TESTFUNPATS.txt
+curry2go-1.7.0-examples/Fac.curry	curry2go-1.7.0-examples/Fac.curry	main	720	examples/TESTANYSTRAT.txt
+curry2go-1.7.0-examples/FloatFuns.curry	curry2go-1.7.0-examples/FloatFuns.curry	pi	not stated by source	examples/FloatFuns.curry
+curry2go-1.7.0-examples/FloatFuns.curry	curry2go-1.7.0-examples/FloatFuns.curry	someFloats	not stated by source	examples/FloatFuns.curry
+curry2go-1.7.0-examples/FreeBool.curry	curry2go-1.7.0-examples/FreeBool.curry	main	False; False	examples/TESTANYSTRAT.txt
+curry2go-1.7.0-examples/FunPatsExpVar.curry	curry2go-1.7.0-examples/FunPatsExpVar.curry	main	X1	FunPatsExpVar.curry:31
+curry2go-1.7.0-examples/FunPatsLast.curry	curry2go-1.7.0-examples/FunPatsLast.curry	main	42	examples/TESTFUNPATS.txt
+curry2go-1.7.0-examples/Half.curry	curry2go-1.7.0-examples/Half.curry	main	S (S O); S (S (S O))	examples/TESTDFS.txt
+curry2go-1.7.0-examples/Higher.curry	curry2go-1.7.0-examples/Higher.curry	main	[False, True]	examples/TESTANYSTRAT.txt
+curry2go-1.7.0-examples/InfList.curry	curry2go-1.7.0-examples/InfList.curry	main	1	examples/TESTANYSTRAT.txt
+curry2go-1.7.0-examples/Last.curry	curry2go-1.7.0-examples/Last.curry	main	(True, 25)	examples/TESTANYSTRAT.txt
+curry2go-1.7.0-examples/NonDet.curry	curry2go-1.7.0-examples/NonDet.curry	main	False; True; False; False	examples/TESTDFS.txt
+curry2go-1.7.0-examples/Perm.curry	curry2go-1.7.0-examples/Perm.curry	main	[1, 2, 3, 4]; [1, 2, 4, 3]; [1, 3, 2, 4]; [1, 3, 4, 2]; [1, 4, 2, 3]; [1, 4, 3, 2]; [2, 1, 3, 4]; [2, 1, 4, 3]; [2, 3, 1, 4]; [2, 3, 4, 1]; [2, 4, 1, 3]; [2, 4, 3, 1]; [3, 1, 2, 4]; [3, 1, 4, 2]; [3, 2, 1, 4]; [3, 2, 4, 1]; [3, 4, 1, 2]; [3, 4, 2, 1]; [4, 1, 2, 3]; [4, 1, 3, 2]; [4, 2, 1, 3]; [4, 2, 3, 1]; [4, 3, 1, 2]; [4, 3, 2, 1]	examples/TESTDFS.txt
+curry2go-1.7.0-examples/PermSort.curry	curry2go-1.7.0-examples/PermSort.curry	main	[O, S O, S (S O), S (S (S O)), S (S (S (S O)))]	examples/TESTANYSTRAT.txt
+curry2go-1.7.0-examples/PermSortInt.curry	curry2go-1.7.0-examples/PermSortInt.curry	main	[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]	examples/TESTANYSTRAT.txt
+curry2go-1.7.0-examples/PullTabOwnerTask.curry	curry2go-1.7.0-examples/PullTabOwnerTask.curry	main	(F, F); (T, T)	examples/TESTDFS.txt
+curry2go-1.7.0-examples/Queens.curry	curry2go-1.7.0-examples/Queens.curry	main	not stated by source	examples/Queens.curry
+curry2go-1.7.0-examples/Rev.curry	curry2go-1.7.0-examples/Rev.curry	main	[9, 8, 7, 6, 5, 4, 3, 2, 1, 0]	examples/TESTANYSTRAT.txt
+curry2go-1.7.0-examples/Xor.curry	curry2go-1.7.0-examples/Xor.curry	main	False; False	examples/TESTANYSTRAT.txt
+curry2go-1.7.0-examples/Zip.curry	curry2go-1.7.0-examples/Zip.curry	main	[(1, 1), (2, 1), (3, 1)]	examples/TESTANYSTRAT.txt
+frontend-3.1.0-test-pass/FP_Lifting.curry	frontend-3.1.0-test-pass/FP_Lifting.curry	main	not stated by source	frontend source main/Expected result comment
+frontend-3.1.0-test-pass/FP_Lifting.curry	frontend-3.1.0-test-pass/FP_Lifting.curry	main2	not stated by source	frontend source main/Expected result comment
+frontend-3.1.0-test-pass/FP_Lifting.curry	frontend-3.1.0-test-pass/FP_Lifting.curry	main3	not stated by source	frontend source main/Expected result comment
+frontend-3.1.0-test-pass/Hierarchical.curry	frontend-3.1.0-test-pass/Hierarchical.curry	main	not stated by source	frontend source main/Expected result comment
+frontend-3.1.0-test-pass/MPTCDeriving.curry	frontend-3.1.0-test-pass/MPTCDeriving.curry	testExp1	"""Bar (Foo False 'f')"""	frontend source main/Expected result comment
+frontend-3.1.0-test-pass/MPTCDeriving.curry	frontend-3.1.0-test-pass/MPTCDeriving.curry	testExp2	"""Baz (Foo (True 'b', 'a' eslaF))"""	frontend source main/Expected result comment
+frontend-3.1.0-test-pass/MPTCNullaryClasses.curry	frontend-3.1.0-test-pass/MPTCNullaryClasses.curry	testExp1	True	frontend source main/Expected result comment
+frontend-3.1.0-test-pass/MPTCNullaryClasses.curry	frontend-3.1.0-test-pass/MPTCNullaryClasses.curry	testExp2	True	frontend source main/Expected result comment
+frontend-3.1.0-test-pass/MPTCPotentialInstanceOverlap.curry	frontend-3.1.0-test-pass/MPTCPotentialInstanceOverlap.curry	testExp1	True	frontend source main/Expected result comment
+frontend-3.1.0-test-pass/MPTCPotentialInstanceOverlap.curry	frontend-3.1.0-test-pass/MPTCPotentialInstanceOverlap.curry	testExp2	False	frontend source main/Expected result comment
+frontend-3.1.0-test-pass/MPTCPotentialInstanceOverlap.curry	frontend-3.1.0-test-pass/MPTCPotentialInstanceOverlap.curry	testExp3	True	frontend source main/Expected result comment
+frontend-3.1.0-test-pass/MPTCPotentialInstanceOverlap.curry	frontend-3.1.0-test-pass/MPTCPotentialInstanceOverlap.curry	testExp4	False	frontend source main/Expected result comment
+frontend-3.1.0-test-pass/MPTCPotentialInstanceOverlap.curry	frontend-3.1.0-test-pass/MPTCPotentialInstanceOverlap.curry	testExp5	[True, False, True, True, False]	frontend source main/Expected result comment
+frontend-3.1.0-test-pass/MPTCSuperClasses.curry	frontend-3.1.0-test-pass/MPTCSuperClasses.curry	testExp1	(False, Right True)	frontend source main/Expected result comment
+frontend-3.1.0-test-pass/MPTCSuperClasses.curry	frontend-3.1.0-test-pass/MPTCSuperClasses.curry	testExp2	(True, True)	frontend source main/Expected result comment
+frontend-3.1.0-test-pass/MPTCSuperClasses.curry	frontend-3.1.0-test-pass/MPTCSuperClasses.curry	testExp3	(True, [], [])	frontend source main/Expected result comment
+frontend-3.1.0-test-pass/Newtype2.curry	frontend-3.1.0-test-pass/Newtype2.curry	main	not stated by source	frontend source main/Expected result comment
+frontend-3.1.0-test-pass/WhereAfterDo.curry	frontend-3.1.0-test-pass/WhereAfterDo.curry	main	not stated by source	frontend source main/Expected result comment
+kics2-3.5.0-testsuite/TypeclassTests/TestClassInst.curry	kics2-3.5.0-testsuite/TypeclassTests/TestClassInstGoals.curry	dupInt	42	upstream quantified property at the adapter arguments
+kics2-3.5.0-testsuite/TypeclassTests/TestClassInst.curry	kics2-3.5.0-testsuite/TypeclassTests/TestClassInstGoals.curry	dupBool	True	upstream quantified property at the adapter arguments
+kics2-3.5.0-testsuite/TypeclassTests/TestNat.curry	kics2-3.5.0-testsuite/TypeclassTests/TestNatGoals.curry	multiplyAny	Zero	upstream quantified property at the adapter arguments
+kics2-3.5.0-testsuite/TypeclassTests/TestBinInt.curry	kics2-3.5.0-testsuite/TypeclassTests/TestBinIntGoals.curry	signedAddition	2	upstream quantified property at the adapter arguments
+kics2-3.5.0-testsuite/TypeclassTests/TestBinInt.curry	kics2-3.5.0-testsuite/TypeclassTests/TestBinIntGoals.curry	signedMultiplication	-15	upstream quantified property at the adapter arguments
+curry2go-1.7.0-examples/CaseLiteral.curry	curry2go-1.7.0-examples/CaseLiteral.curry	main1	not stated by source	explicit upstream main family
+curry2go-1.7.0-examples/CaseLiteral.curry	curry2go-1.7.0-examples/CaseLiteral.curry	main2	not stated by source	explicit upstream main family
+curry2go-1.7.0-examples/Higher.curry	curry2go-1.7.0-examples/Higher.curry	main1	not stated by source	explicit upstream main family
+curry2go-1.7.0-examples/Higher.curry	curry2go-1.7.0-examples/Higher.curry	main2	not stated by source	explicit upstream main family
+curry2go-1.7.0-examples/Last.curry	curry2go-1.7.0-examples/Last.curry	main0	not stated by source	explicit upstream main family
+curry2go-1.7.0-examples/Last.curry	curry2go-1.7.0-examples/Last.curry	main1	not stated by source	explicit upstream main family
+curry2go-1.7.0-examples/Last.curry	curry2go-1.7.0-examples/Last.curry	main2	not stated by source	explicit upstream main family
+curry2go-1.7.0-examples/Last.curry	curry2go-1.7.0-examples/Last.curry	main3	not stated by source	explicit upstream main family
+curry2go-1.7.0-examples/Last.curry	curry2go-1.7.0-examples/Last.curry	main4	not stated by source	explicit upstream main family
+curry2go-1.7.0-examples/Last.curry	curry2go-1.7.0-examples/Last.curry	main5	not stated by source	explicit upstream main family
+curry2go-1.7.0-examples/Last.curry	curry2go-1.7.0-examples/Last.curry	main6	not stated by source	explicit upstream main family
+curry2go-1.7.0-examples/Last.curry	curry2go-1.7.0-examples/Last.curry	main7	not stated by source	explicit upstream main family
+curry2go-1.7.0-examples/FunPatsExpVar.curry	curry2go-1.7.0-examples/FunPatsExpVar.curry	test7	X2 ? X1	FunPatsExpVar.curry:28
