@@ -184,6 +184,12 @@ jobs:
             PIP_FIND_LINKS=$GITHUB_WORKSPACE/.wheelhouse
             SPRITE_CACHE_FILE="" SPRITE_PRODUCT_CACHE=""
             MACOSX_DEPLOYMENT_TARGET=13.3
+            _PYTHON_HOST_PLATFORM=macosx-13.3-${{ matrix.arch }}
+          # cibuildwheel tests a macOS wheel in a venv whose host platform it
+          # pins to the interpreter's default target (11.0, 10.9), where pip
+          # refuses a wheel tagged 13.3; the step after this one installs the
+          # cp311 wheel in a venv of the runner, which sees macOS 15.
+          CIBW_TEST_SKIP: '*-macosx_*'
           CIBW_BEFORE_BUILD_MACOS: python -m pip install --find-links={project}/.wheelhouse 'curry-frontend>=2.0.0'
           CIBW_CONFIG_SETTINGS: >-
             cmake.define.WITH_PAKCS=
@@ -195,6 +201,15 @@ jobs:
             python -m pip install --quiet wheel &&
             python {project}/scripts/wheels/repair.py {wheel} {dest_dir}
           CIBW_TEST_COMMAND: python {project}/scripts/wheels/smoke.py
+      - name: Install the cp311 wheel on the runner and run the smoke test (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          set -euxo pipefail
+          sw_vers
+          python -m venv smoke
+          smoke/bin/python -m pip install --find-links=.wheelhouse wheelhouse/currylang-*-cp311-cp311-macosx_*.whl
+          smoke/bin/python -m pip list
+          smoke/bin/python scripts/wheels/smoke.py --peano examples/Peano.curry
       - name: Save the evidence beside the final wheels, auditwheel show or the load commands
         run: |
           set -euxo pipefail
