@@ -231,6 +231,7 @@ class TestGeneratedCode(cytest.TestCase):
 
 
 @unittest.skipIf(shutil.which('objdump') is None, 'objdump is not installed')
+@cytest.linux_only('reads the disassembly of GNU objdump of an ELF object')
 @cytest.skipIfInterpreted(
     'the tests read the objects and the generated code of Tak1 and Fib'
   )
