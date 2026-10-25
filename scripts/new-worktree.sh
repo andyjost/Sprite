@@ -49,9 +49,10 @@ name=$(basename "$path")
 root=${SPRITE_WORKTREE_ROOT:-$HOME/.cache/sprite/worktrees}/$name
 
 git -C "$here" worktree add -b "$branch" "$path" "$start"
-# A worktree starts with empty submodule directories.  Only pybind11 is
-# needed for the build; initializing it alone writes nothing to the
-# repository's config when the main tree has it registered already.  The
+# A worktree starts with empty submodule directories.  pybind11 and
+# libtommath are needed for the build (mps is optional); initializing them
+# alone writes nothing to the repository's config when the main tree has
+# them registered already.  The
 # clone comes from the checkout of this tree (the URL of the submodule is
 # overridden for this one command, and the file transport allowed, which
 # git refuses for a submodule by default), so the step needs no network;
@@ -60,17 +61,18 @@ git -C "$here" worktree add -b "$branch" "$path" "$start"
 # configuration of the repository as well).  When this tree has no
 # checkout of the submodule, or lacks the commit the worktree pins, the
 # plain update fetches from the URL.
-submodule=extern/pybind11
-if [ -e "$here/$submodule/.git" ] \
-   && git -C "$path" -c protocol.file.allow=always \
-        -c "submodule.$submodule.url=$here/$submodule" \
-        submodule update --init "$submodule"; then
-  url=$(git -C "$path" config -f .gitmodules "submodule.$submodule.url")
-  git -C "$path/$submodule" remote set-url origin "$url"
-else
-  echo "cloning $submodule from its URL (the checkout of $here did not serve)" >&2
-  git -C "$path" submodule update --init "$submodule"
-fi
+for submodule in extern/pybind11 extern/libtommath; do
+  if [ -e "$here/$submodule/.git" ] \
+     && git -C "$path" -c protocol.file.allow=always \
+          -c "submodule.$submodule.url=$here/$submodule" \
+          submodule update --init "$submodule"; then
+    url=$(git -C "$path" config -f .gitmodules "submodule.$submodule.url")
+    git -C "$path/$submodule" remote set-url origin "$url"
+  else
+    echo "cloning $submodule from its URL (the checkout of $here did not serve)" >&2
+    git -C "$path" submodule update --init "$submodule"
+  fi
+done
 mkdir -p "$root/install" "$root/object-root"
 ln -s "$root/install" "$path/install"
 ln -s "$root/object-root" "$path/object-root"
