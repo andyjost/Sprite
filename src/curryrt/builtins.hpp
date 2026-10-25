@@ -131,9 +131,17 @@ namespace curryrt
   struct ConstrNode : Head
   {
     Node * value;
+    // Set guards on the pair record the provenance of a lifted constraint.
     Node * pair;
-    Node * lhs() const { return ((PairNode *) this->pair)->lhs; }
-    Node * rhs() const { return ((PairNode *) this->pair)->rhs; }
+    PairNode const * operands() const
+    {
+      Node * node = this->pair;
+      while(((Head *) node)->info->tag == T_SETGRD)
+        node = ((SetGrdNode *) node)->value;
+      return (PairNode *) node;
+    }
+    Node * lhs() const { return this->operands()->lhs; }
+    Node * rhs() const { return this->operands()->rhs; }
   };
 
   struct FreeNode : Head

@@ -129,11 +129,9 @@ namespace curryrt
   // with a shorter path (hnf forwards the redex to the failure, and the
   // caller meets the failure at the redex).  The first observation makes
   // the record and sets Configuration::failure_recorded; the rest make
-  // none.  A constraint that fails at the root of procD (the occurs
-  // check, or the union of two classes with different instances) is a
-  // failure at the root like a failure cell there: the path crossed no
-  // guard, so the record is an inside failure.  The former runtime has
-  // the same rule (record_failure in rts_setfunctions.py).
+  // none.  A lifted constraint keeps the guards of its original position
+  // on its operand pair.  constrain_equal records a failing union with
+  // those guards before procD drops the configuration (issue #133).
   //
   // The level of an outside failure is failure_level, and the choice of
   // the records at the end of the capsule is failure_guards (queue.cpp);

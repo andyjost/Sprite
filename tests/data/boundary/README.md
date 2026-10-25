@@ -81,15 +81,12 @@ the same way, and its own test script does not load it.
 | `mergesort.curry` | does not compile: `Type signature too general` for `sort`; the inferred type needs `Data a` for the `=:=` on the elements |
 | `colormap_nd.curry` | does not compile: `Missing instance for Prelude.Eq Color` at `correct aColor ...`; the data type derives no `Eq` |
 
-## Values that differ from PAKCS
+## Concurrent conjunction
 
-The concurrent conjunction `(&)` yields `False` in Sprite when one side is
-`False`, on both backends (`concurrent_and` of the Python Prelude and the
-C++ step function), where PAKCS 3.4.1 has no value: `False & True` prints
-`*** No value found!` there (oracle of 61).  PAKCS 3.10.0 and KiCS2 3.5.0
-agree with PAKCS 3.4.1.  `colormap.goal` in 61 has 256 values in Sprite,
-48 of them `True`, and PAKCS prints 48 rows.  Recorded on 2026-10-15 as
-issue #139; the driver pins the counts.
+Concurrent conjunction `(&)` requires both constraints to yield `True`.
+A `False` side fails, as in PAKCS 3.4.1, PAKCS 3.10.0 and KiCS2 3.5.0
+(#139). `colormap.goal` in 61 has 48 answers, all `True`, as PAKCS does;
+the driver pins the count.
 
 ## Attribution
 

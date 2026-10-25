@@ -100,9 +100,8 @@ namespace curryrt
         // Rule D.3: the configuration is dropped.  Inside a set function
         // the failure goes into the record of the capsule first
         // (record_failure).  A failed constraint, which falls through
-        // from the case above, is a failure at the root like a failure
-        // cell there: its path crossed no guard, so the record is an
-        // inside failure.
+        // from the case above, was recorded with the guards kept by the
+        // lift; record_failure leaves that first observation in place.
         case T_FAIL    : this->record_failure(C, nullptr);
                          SCHEDULER_COUNT_END(C, END_FAILURE);
                          if(this->checker)
