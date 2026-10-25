@@ -279,12 +279,6 @@ def cxx_pch_root():
   if root is not None:
     root = root.strip()
     return os.path.abspath(root) if root else None
-  if sys.platform == 'darwin':
-    # The header is kept in the directory form of GCC (<header>.gch/ with
-    # one member per flavor), which clang does not search.  macOS compiles
-    # without it until the clang form lands (issue #162, step 2); the
-    # generated code is the same either way.
-    return None
   include = installed_path('include')
   if os.access(include, os.W_OK) and not in_conda_prefix(include) \
       and not _is_wheel_install():

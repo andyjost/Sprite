@@ -1,11 +1,5 @@
 '''curry.save and curry.load through C++ source and shared objects.'''
 import cytest # from ./lib; must be first
-import sys, unittest
-if sys.platform == 'darwin':
-  raise unittest.SkipTest(
-      'reads ELF objects or loads compiled modules; the compiled path on '
-      'macOS is issue #162, step 2'
-    )
 
 from curry import config
 import curry, logging, os, shutil, subprocess, unittest
@@ -70,6 +64,7 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
       config.cxx_tool() is None
     , 'the shared object needs the C++ compiler of the installation'
     )
+  @cytest.linux_only('loads the object of a module the interpreter ran, which is the swap of the tiered mode; macOS gets it with issue #163')
   def test_round_trip(self):
     flags = 'backend:cxx,interpret:new'
     proc = cytest.run_in_subprocess(self.CODE % {'flags': flags}, TIMEOUT)
@@ -82,6 +77,7 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
 
   @unittest.skipUnless(config.cxx_tool() is not None,
                        'the cold object needs the C++ backend and its compiler')
+  @cytest.linux_only('loads the object of a module the interpreter ran, which is the swap of the tiered mode; macOS gets it with issue #163')
   def test_cold_cache_tiered(self):
     self.check_cold_cache('tiered')
 
@@ -195,9 +191,8 @@ print('exiting normally')
         stream.write(cls.SOURCE)
       env = dict(os.environ, CURRYPATH=directory)
       env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
-      cmd = [
-          'prlimit', '--as=%d' % ADDRESS_SPACE, 'timeout', str(TIMEOUT)
-        , config.installed_path('bin', 'sprite-make'), '--so', '-z', 'M'
+      cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
+          config.installed_path('bin', 'sprite-make'), '--so', '-z', 'M'
         ]
       proc = subprocess.run(
           cmd, cwd=directory, env=env, capture_output=True, text=True
@@ -314,9 +309,8 @@ print('values', [str(v) for v in curry.eval(M.main)])
     # The object, as sprite-make --so writes it beside the source.
     env = dict(os.environ, CURRYPATH=tmpdir)
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
-    cmd = [
-        'prlimit', '--as=%d' % ADDRESS_SPACE, 'timeout', str(TIMEOUT)
-      , config.installed_path('bin', 'sprite-make'), '--so', '-z'
+    cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
+        config.installed_path('bin', 'sprite-make'), '--so', '-z'
       , 'SaveFromObject'
       ]
     proc = subprocess.run(

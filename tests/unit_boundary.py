@@ -92,12 +92,10 @@ EXCLUDED = {}
 # imports.  The test skips the driver when one of them is missing.
 REQUIRES = {}
 
-# Directory -> the reason the driver runs on Linux alone for now: the compiled
-# path of the C++ backend on macOS (the loading of objects, the shim of the
-# tiered mode) is issue #162, step 2.
+# Directory -> the reason the driver runs on Linux alone, and why; empty since the
+# objects of the C++ backend load on macOS (issue #162).
 LINUX_ONLY = {
-    '44-save-and-load': 'saves, compiles or loads objects of the C++ backend',
-    '45-load-objects': 'saves, compiles or loads objects of the C++ backend',
+    '45-load-objects': 'prints the count of the modules the tiered mode swapped, which macOS has no form of',
 }
 
 # Directory -> the reason the driver does not run in the stress mode of the
