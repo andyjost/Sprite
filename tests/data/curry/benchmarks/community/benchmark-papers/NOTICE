@@ -1,0 +1,14 @@
+Source: https://github.com/curry-packages/benchmark-papers
+Version: 3.0.0 (master snapshot 6ab86d8)
+Directory: .
+License: BSD-3-Clause; see LICENSE (copied unchanged).
+
+Upstream files, copied byte for byte with their headers:
+  examples/NRev.curry
+  examples/NRevBench.curry
+  src/ExecuteBenchmarkPaper.curry
+  src/Test/Benchmark/Goodies.curry
+  src/Test/Benchmark.curry
+
+No Sprite wrapper is added to this origin.
+Excluded sources are retained for provenance, but never loaded by the suite.

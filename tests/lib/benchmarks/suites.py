@@ -8,6 +8,10 @@ The suites:
 throughput
     ``sprite-exec -t --stats -m PROGRAM`` in the benchmark directory, or
     PAKCS with ``:set +time``.  The dissertation programs by default.
+community
+    The community programs listed in community/MANIFEST.tsv, as value
+    goals in their origin directories. Long programs are opt-in; record
+    names include the origin so duplicate module names cannot collide.
 compile
     ``PROGRAM.curry`` copied to an empty directory and compiled without an
     evaluation (``sprite-exec --stats -g '' PROGRAM.curry``), with the
@@ -48,7 +52,7 @@ applications
     opponent that is not installed is skipped with a message.
 '''
 
-import fnmatch, glob, os, platform, shutil, subprocess, tempfile
+import csv, fnmatch, glob, os, platform, shutil, subprocess, tempfile
 from . import APPDIR, BACKENDS, CURRYDIR, DISSERTATION, HERE, NIGHTLY
 from . import OPPONENTS, SPLITDIR, SUITES
 from . import measure, records
@@ -58,8 +62,9 @@ __all__ = [
   , 'DEPENDENCY_CASES', 'DEPENDENCY_SIZES', 'EXPRESSION', 'IMPORT_ITEMS'
   , 'Item', 'NIGHTLY_DEPENDENCY_SIZES', 'OPPONENTS_OF', 'OVERLOAD_CALLS'
   , 'SPLIT_PARTS', 'SPRITE_DEPENDENCY_SIZES', 'Settings', 'all_programs'
-  , 'build', 'candidates', 'backends_for_suite', 'dependency_sizes'
-  , 'dependency_variants', 'nightly_items', 'select', 'set_backend_flag'
+  , 'build', 'candidates', 'backends_for_suite', 'community_programs'
+  , 'dependency_sizes', 'dependency_variants', 'nightly_items', 'select'
+  , 'set_backend_flag'
   , 'set_interpret_flag', 'split_programs', 'split_variants'
   ]
 
@@ -90,7 +95,7 @@ DEPENDENCY_CASES = ('solvable', 'unsolvable')
 OVERLOAD_CALLS = 1000
 DEFAULT_REPEAT = {
     'throughput': 5, 'compile': 3, 'import': 5, 'memory': 1, 'split': 3
-  , 'applications': 3
+  , 'applications': 3, 'community': 5
   }
 # The backends of a run without -b: the C++ backend, and in the
 # applications suite Sprite with the opponents that need no
@@ -102,6 +107,41 @@ def all_programs():
   '''The top-level programs of the benchmark directory, sorted.'''
   files = sorted(glob.glob(os.path.join(CURRYDIR, '*.curry')))
   return [os.path.basename(f)[:-len('.curry')] for f in files]
+
+
+COMMUNITY = os.path.join(CURRYDIR, 'community')
+COMMUNITY_ORIGINS = {
+    'kics2-3.5.0/benchmarks/suite': 'kics2-3.5.0-suite'
+  , 'kics2-3.5.0/benchmarks/benchmark_papers': 'kics2-3.5.0-papers'
+  , 'curry2go-1.7.0/benchmarks/suite': 'curry2go-1.7.0-suite'
+  , 'benchmark-papers': 'benchmark-papers'
+  }
+
+
+def community_programs(default=False):
+  '''
+  Qualified names mapped to value-goal sources. The manifest is the source
+  of membership; long programs remain selectable explicitly. A wrapper
+  beside the original supplies main when the original has none.
+  '''
+  programs = {}
+  with open(os.path.join(COMMUNITY, 'MANIFEST.tsv')) as stream:
+    for row in csv.DictReader(stream, delimiter='\t'):
+      status = row['status']
+      if status != 'added' and not status.startswith('long:'):
+        continue
+      if default and status != 'added':
+        continue
+      origin = COMMUNITY_ORIGINS[row['source']]
+      path = row['path']
+      if origin == 'kics2-3.5.0-papers':
+        path = path.removeprefix('kics2/')
+      source = os.path.join(COMMUNITY, origin, path)
+      wrapper = source[:-len('.curry')] + 'Bench.curry'
+      programs[origin + '/' + path[:-len('.curry')]] = (
+          wrapper if os.path.isfile(wrapper) else source
+        )
+  return dict(sorted(programs.items()))
 
 
 def split_programs():
@@ -148,6 +188,8 @@ def candidates(suite):
   The names a PROGRAM argument can select in ``suite``, and the names run
   without an argument.
   '''
+  if suite == 'community':
+    return list(community_programs()), list(community_programs(default=True))
   if suite == 'import':
     return list(IMPORT_ITEMS), list(IMPORT_ITEMS)
   if suite == 'split':
@@ -167,6 +209,8 @@ def nightly_items(suite):
   NIGHTLY programs, with the expression item in the compile suite; every
   item of the import suite; the split programs of the split suite.
   '''
+  if suite == 'community':
+    return [] # The performance workflow retains the dissertation baseline.
   if suite == 'import':
     return list(IMPORT_ITEMS)
   if suite == 'split':
@@ -468,6 +512,25 @@ class PakcsItem(Item):
     return {'eval_cpu': cpu, 'eval_wall': wall}
 
 
+class CommunityItem(SpriteExecItem):
+  '''A value goal in its origin directory, with a qualified record name.'''
+  suite = 'community'
+
+  def command(self):
+    source = community_programs()[self.program]
+    directory, filename = os.path.split(source)
+    module = filename[:-len('.curry')]
+    cmd = [self.settings.sprite_exec, '-t', '--stats', '-m', module]
+    env = self.settings.environment(self.backend, CURRYPATH=directory)
+    # A short tiered warm-up can exit before its background compile ends.
+    # Compile during warm-up, as for the applications suite; explicit
+    # interpreter settings in the environment still take precedence.
+    env['SPRITE_INTERPRETER_FLAGS'] = set_interpret_flag(
+        env.get('SPRITE_INTERPRETER_FLAGS'), 'off'
+      )
+    return cmd, env, directory
+
+
 class MemoryItem(SpriteExecItem):
   '''The throughput command with the collector on or off.'''
   suite = 'memory'
@@ -742,6 +805,8 @@ def build(suite, programs, backends, settings, workdir, nightly=False):
       if suite == 'throughput':
         cls = PakcsItem if backend == 'pakcs' else SpriteExecItem
         items.append(cls(program, backend, settings))
+      elif suite == 'community':
+        items.append(CommunityItem(program, backend, settings))
       elif suite == 'memory':
         items.append(MemoryItem(program, backend, settings, 'collector=on'))
         items.append(MemoryItem(program, backend, settings, 'collector=off'))

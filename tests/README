@@ -772,6 +772,17 @@ for the programs of a suite.  The suites are selected with --suite (-s):
                     Two programs of the examples against the tools of their
                     trade, in one process each, the same question and the
                     same data on every side (below).
+        community   Value goals from the KiCS2 and Curry2Go community
+                    benchmarks, with qualified origin/program names and a
+                    separate suite in every record. The manifest under
+                    data/curry/benchmarks/community records exclusions and
+                    long programs (explicit selection only). Five measured
+                    repetitions follow one warm-up, as in throughput.
+
+func_benchmarks_community.py checks one main value goal per community program
+that the PAKCS 3.4.1 oracle finishes within 20 seconds. Goldens live beside
+the sources; the benchmark README describes wrappers, exclusions and the
+3.10.0 parity check. Sprite evaluations run in bounded subprocesses.
 
 Every measurement runs in a child process under a cap on its address space
 (--cap, default 6G) and a timeout (--timeout, default 600 seconds).  The
@@ -780,7 +791,7 @@ peak RSS of the child and its descendants comes from GNU time
 chain; without it the peak comes from wait4, which never reports a child
 below the size of the harness itself, and the record says so
 (meta.rss_source).  An item gets N measured repetitions (--repeat; the
-defaults are 5, 3, 5, 1, 3, and 3 for the six suites) after warm-up runs
+defaults are 5, 3, 5, 1, 3, 3, and 5 for the seven suites) after warm-up runs
 that are not recorded (--warmup, default 1).  The warm-up compiles a module
 on its first use, so the measured runs find the cached files.  A run that
 times out ends its item: a warm-up that timed out is the one sample of the
