@@ -10,7 +10,12 @@ import zipfile
 
 PYTHONS = [('cp311', 'cp311'), ('cp312', 'cp312'), ('cp313', 'cp313'),
            ('cp314', 'cp314'), ('cp314', 'cp314t'), ('cp315', 'cp315')]
-ARCHES = ['x86_64', 'aarch64']
+# The platform tag of each target and the report beside its wheels:
+# auditwheel show on Linux, the load commands on macOS (repair.py).
+PLATFORMS = [('manylinux_2_28_x86_64', '.auditwheel.txt'),
+             ('manylinux_2_28_aarch64', '.auditwheel.txt'),
+             ('macosx_11_0_arm64', '.otool.txt'),
+             ('macosx_11_0_x86_64', '.otool.txt')]
 SDIST_FILES = ['pyproject.toml', 'VERSION', 'README.pypi.md', 'LICENSE',
                'CMakeLists.txt', 'scripts/build-package.py',
                'src/curryrt/curryrt.hpp', 'src/python/__init__.pyi',
@@ -22,18 +27,20 @@ SDIST_FILES = ['pyproject.toml', 'VERSION', 'README.pypi.md', 'LICENSE',
 
 def check(directory, version, tag=''):
   directory = Path(directory)
-  expected = {(py, abi, arch) for py, abi in PYTHONS for arch in ARCHES}
+  expected = {(py, abi, tag) for py, abi in PYTHONS for tag, _ in PLATFORMS}
   found = set()
   wheels = sorted(directory.glob('*.whl'))
-  assert len(wheels) == 12, f'Expected twelve wheels, got {len(wheels)}'
+  assert len(wheels) == 24, f'Expected twenty-four wheels, got {len(wheels)}'
   for wheel in wheels:
-    report = wheel.with_suffix('.auditwheel.txt')
-    assert report.is_file(), f'Missing auditwheel show report for {wheel.name}'
     name, actual_version, py, abi, platform = wheel.stem.split('-')
     assert (name, actual_version) == ('currylang', version), wheel
-    arch = next((a for a in ARCHES if platform.endswith('_' + a)), None)
-    assert 'manylinux_2_28_' + str(arch) in platform.split('.'), wheel
-    entry = (py, abi, arch)
+    tags = platform.split('.')
+    matches = [(tag, suffix) for tag, suffix in PLATFORMS if tag in tags]
+    assert len(matches) == 1, wheel
+    tag, suffix = matches[0]
+    report = wheel.with_suffix(suffix)
+    assert report.is_file(), f'Missing report {report.name} for {wheel.name}'
+    entry = (py, abi, tag)
     assert entry in expected and entry not in found, entry
     found.add(entry)
     with zipfile.ZipFile(wheel) as archive:
@@ -51,7 +58,7 @@ def check(directory, version, tag=''):
       assert f'currylang-{version}/' + name in names, name
   if tag:
     assert tag == 'v' + version, (tag, version)
-  print(f'Validated twelve manylinux_2_28 wheels and the sdist for {version}.')
+  print(f'Validated twenty-four wheels, manylinux_2_28 and macOS, and the sdist for {version}.')
 
 
 if __name__ == '__main__':
