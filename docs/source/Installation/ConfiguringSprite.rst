@@ -28,11 +28,11 @@ Use ``cmake -LAH -N object-root/cmake`` to inspect them.
 The options
 -----------
 
-==============================  ============================================================
+==============================  ============================================================================
 Option                          Meaning and default
-==============================  ============================================================
-``WITH_CURRY_FRONTEND``         Front end 2.0.0 or 3.1.0; ``AUTO`` searches PAKCS and PATH
-``WITH_PAKCS``                  Optional oracle 3.4.1 or 3.10.0; ``AUTO`` searches PATH
+==============================  ============================================================================
+``WITH_CURRY_FRONTEND``         Front end 3.1.0 (legacy 2.0.0); ``AUTO`` searches PAKCS and PATH
+``WITH_PAKCS``                  Optional oracle 3.10.0 (legacy 3.4.1); ``AUTO`` searches PATH
 ``WITH_ICURRY``                 Optional translator; empty by default
 ``CURRY2ICURRY_TOOL``           ``frontend`` (default) or ``icurry``
 ``WITH_CCACHE``                 Compiler launcher; empty disables it (default)
@@ -46,7 +46,7 @@ Option                          Meaning and default
 ``SPRITE_REBUILD_ICY``          Rebuild pinned ICurry; ``OFF``
 ``ENABLE_ICURRY_CACHE``         Enable the user ICurry cache by default; ``OFF``
 ``ENABLE_PARSED_JSON_CACHE``    Cache parsed JSON by default; ``OFF``
-==============================  ============================================================
+==============================  ============================================================================
 
 Pass each setting as ``-DNAME=value``. An empty ``WITH_PAKCS`` disables the
 oracle. Both translation routes require the Curry front end at build time.
@@ -70,7 +70,7 @@ the front-end CI workflow builds are artifacts for review; they are not
 published to PyPI. Install the wheel for your platform, then configure
 Sprite without PAKCS::
 
-    python -m pip install /path/to/curry_frontend-2.0.0.postN-py3-none-PLATFORM.whl
+    python -m pip install /path/to/curry_frontend-3.1.0.post1-py3-none-PLATFORM.whl
     cmake -S . -B object-root/cmake -G Ninja -DWITH_PAKCS= -DWITH_CURRY_FRONTEND=curry-frontend
     make stage
 
@@ -78,7 +78,8 @@ Sprite without PAKCS::
 executable. With ``AUTO``, the default, the configuration takes
 ``SPRITE_FRONTEND`` from the environment when it is set, and otherwise
 searches the directory of the selected PAKCS, the staged ``install/tools``
-and PATH for ``pakcs-frontend`` or ``curry-frontend``. The older variable
+and PATH for ``pakcs-frontend`` or ``curry-frontend`` of the matching
+version. Without an explicit selection, AUTO finds only the current pair. The older variable
 ``CURRY_FRONTEND`` sets the default of the option. The installed
 ``tools/curry-frontend`` link points to the selected executable, a wheel's
 console script included.
@@ -91,13 +92,13 @@ end. For example::
     export SPRITE_FRONTEND=curry-frontend
     python -m curry.tools.icy
 
-The supported pairs are front end ``2.0.0`` with PAKCS ``3.4.1`` (the
-default) and front end ``3.1.0`` with PAKCS ``3.10.0``. The current
-front-end wheel is ``3.1.0.post1``; substitute it in the command above to
-select that pair. CMake derives the intermediate directory names and CPP
+The default pair is front end ``3.1.0`` with PAKCS ``3.10.0``. The legacy
+pair, front end ``2.0.0`` with PAKCS ``3.4.1``, remains supported through the
+same options. CMake derives the intermediate directory names and CPP
 flags from the selected front end and rejects a mismatched oracle.
-The default stays on 2.0.0/3.4.1 until upgrade stage G. The wheel's
-``.postN`` suffix counts packaging revisions.
+The front-end package ``3.1.0.post1`` is available as a CI artifact; the
+package defaults change after publication. The ``.postN`` suffix counts
+packaging revisions.
 
 Wheels
 ------

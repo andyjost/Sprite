@@ -1,21 +1,11 @@
 !goal x =:= y where x, y free
 !error
 
-PAKCS_Main_Exp.curry:3:1-3:39 Error:
+PAKCS_Main_Exp.curry:3:1-3:38 Error:
     Ambiguous type variable _5
     in type Prelude.Data _5 => Prelude.Bool
-    inferred for equation
-    pakcsMainGoal = x =:= y
-      where x, y free
-   | 
- 3 | pakcsMainGoal = x =:= y where x, y free
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-PAKCS_Main_Exp.curry:3:1-3:39 Error:
-    Ambiguous type variable _5
-    in type Prelude.Data _5 => Prelude.Bool
-    inferred for function `pakcsMainGoal'
-   | 
- 3 | pakcsMainGoal = x =:= y where x, y free
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    inferred for function `pakcsMainExp'
+   |
+ 3 | pakcsMainExp = x =:= y where x, y free
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ERROR occurred during parsing!

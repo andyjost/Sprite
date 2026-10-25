@@ -1,3 +1,9 @@
+The default tools are front end 3.1.0 and PAKCS 3.10.0. The legacy pair,
+front end 2.0.0 and PAKCS 3.4.1, remains supported through the same CMake
+options and advisory legacy-tools CI shards. The library is base 3.4.0.
+Committed library products use the default pair; legacy staging translates
+the library afresh. The selected installation chooses the overlay archive.
+
 Sprite unit tests
 =================
 
@@ -545,7 +551,7 @@ files by hand, say, e.g.,
 
         ./shell
         python lib/flat2icurry_oracle.py --overlay
-        python lib/flat2icurry_oracle.py data/curry/.curry/pakcs-3.4.1/Peano.fcy
+        python lib/flat2icurry_oracle.py data/curry/.curry/pakcs-3.10.0/Peano.fcy
 
 The harness prints the first differing byte and the first differing subterm
 of each file that differs.
@@ -573,7 +579,7 @@ the front end's completed case order instead of sorting it. This keeps
 the runtime's existing answer order. Archive comparisons always use
 compatibility mode; the on-disk check also recognizes runtime products.
 The PAKCS oracle shares the .fcy under
-.curry/pakcs-3.4.1/ with the routes, so for a module with a set0 over
+.curry/pakcs-3.10.0/ with the routes, so for a module with a set0 over
 captured variables it reads a lifted file: the lifted function is private,
 has a type the front end could have written, and the interface M.fint is
 never rewritten.  That PAKCS accepts such a file is not yet verified: the
@@ -640,7 +646,7 @@ step from Curry to ICurry again: the front end leaves the current file,
 the step rewrites it, and the translation follows; sprite-make prints
 "sprite-make: pre-rewrite pairs: N translated again", and the prepare
 pass repeats the count on the line of the directory and in its summary.
-The check on an import reads the .fcy under .curry/pakcs-3.4.1/ beside
+The check on an import reads the .fcy under .curry/pakcs-3.10.0/ beside
 the source: a file without an equality name and without set0 has nothing
 to rewrite, and a file with constrEq and without set0 was rewritten (a
 fraction of a millisecond); else the step runs over the text in memory,

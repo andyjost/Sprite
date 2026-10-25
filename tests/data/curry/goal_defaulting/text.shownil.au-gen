@@ -1,20 +1,11 @@
 !goal show []
 !error
 
-PAKCS_Main_Exp.curry:3:1-3:23 Error:
+PAKCS_Main_Exp.curry:3:1-3:22 Error:
     Ambiguous type variable _3
     in type Prelude.Show _3 => [Prelude.Char]
-    inferred for equation
-    pakcsMainGoal = show []
-   | 
- 3 | pakcsMainGoal = show []
-   | ^^^^^^^^^^^^^^^^^^^^^^^
-
-PAKCS_Main_Exp.curry:3:1-3:23 Error:
-    Ambiguous type variable _3
-    in type Prelude.Show _3 => [Prelude.Char]
-    inferred for function `pakcsMainGoal'
-   | 
- 3 | pakcsMainGoal = show []
-   | ^^^^^^^^^^^^^^^^^^^^^^^
+    inferred for function `pakcsMainExp'
+   |
+ 3 | pakcsMainExp = show []
+   | ^^^^^^^^^^^^^^^^^^^^^^
 ERROR occurred during parsing!

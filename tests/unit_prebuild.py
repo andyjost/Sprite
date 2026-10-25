@@ -27,6 +27,29 @@ def installed_file(name, suffix):
 class TestStagedLibrary(cytest.TestCase):
   '''The products that make stage leaves in the installation.'''
 
+  def test_pinned_products_match_selected_grammar(self):
+    """The default stage reuses pins; legacy staging translates its own."""
+    for pinned in sorted((Path(SOURCE_ROOT) / 'curry/lib').rglob('*.icy')):
+      if '.curry' in pinned.parts:
+        continue
+      rel = pinned.relative_to(Path(SOURCE_ROOT) / 'curry/lib')
+      name = '.'.join(rel.with_suffix('').parts)
+      installed = Path(installed_file(name, '.icy')).read_bytes()
+      if config.frontend_version() == '3.1.0':
+        self.assertEqual(installed, pinned.read_bytes(), name)
+      elif name == 'Prelude':
+        self.assertNotEqual(installed, pinned.read_bytes(), name)
+
+  def test_pinned_json_is_derived_from_icurry(self):
+    """Regenerating ICurry must replace JSON from an earlier route too."""
+    from curry.icurry import readcurry, json as icurry_json
+    for pinned in sorted((Path(SOURCE_ROOT) / 'curry/lib').rglob('*.icy')):
+      if '.curry' in pinned.parts:
+        continue
+      expected = (icurry_json.dumps(readcurry.load(str(pinned))) + '\n').encode()
+      self.assertEqual(zlib.decompress(pinned.with_suffix('.json.z').read_bytes()),
+          expected, str(pinned.relative_to(SOURCE_ROOT)))
+
   def test_intermediates_are_staged(self):
     '''
     Every system module has its ICurry and JSON.  The library has no
@@ -190,11 +213,11 @@ class TestStagedLibrary(cytest.TestCase):
       self.assertEqual([p.stat().st_mtime_ns for p in products], current)
 
 
-class TestCurrentToolsPrebuild(unittest.TestCase):
-  def test_current_tools_stage_precedes_shards(self):
+class TestDefaultToolsPrebuild(unittest.TestCase):
+  def test_legacy_tools_stage_precedes_shards(self):
     with open(os.path.join(SOURCE_ROOT, '.github/workflows/ci.yml')) as stream:
       ci = stream.read()
-    job = ci.split('  current-tools:\n', 1)[1].split('  python-versions:\n', 1)[0]
+    job = ci.split('  legacy-tools:\n', 1)[1].split('  python-versions:\n', 1)[0]
     stage = job.index('          make stage\n')
     overlay = job.index('        run: make overlay\n')
     unit = job.index("run-tests.sh cxx 'unit_*.py'")
@@ -202,7 +225,9 @@ class TestCurrentToolsPrebuild(unittest.TestCase):
     self.assertLess(stage, overlay)
     self.assertLess(overlay, unit)
     self.assertLess(overlay, functional)
-    self.assertIn('-DWITH_ICURRY=', job)
+    self.assertIn('continue-on-error: true', job)
+    self.assertIn("PAKCS_VERSION: '3.4.1'", job)
+    self.assertIn('-DWITH_ICURRY=\"$HOME/.cpm/bin/icurry\"', job)
 
 
 class JsonModuleTestCase(cytest.TestCase):

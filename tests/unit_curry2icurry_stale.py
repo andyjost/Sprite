@@ -463,8 +463,8 @@ class TestCacheKey(PreRewriteCase):
     product cache digests the ICurry text itself.
     '''
     # Version 5 records imported interface provenance (#164).
-    self.assertEqual(_frontend.ROUTE_VERSION, 5)
-    self.assertEqual(cache.route_version(), 5)
+    self.assertEqual(_frontend.ROUTE_VERSION, 6)
+    self.assertEqual(cache.route_version(), 6)
     curryfile = self.write('GuardK', guard('GuardK'))
     key = lambda: cache.icurry_cache_key(curryfile, [self.tmpdir], (), 'frontend')
     digest = cache.frontend_digest('frontend')

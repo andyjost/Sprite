@@ -1438,7 +1438,7 @@ class TestOracleHarness(cytest.TestCase):
           , 'Maybe.icy', 'Prelude.icy', 'SetFunctions.icy', 'SetFunctions.icy', 'Unsafe.icy']
           )
         for fcy, icy in library:
-          self.assertTrue(icy.startswith(os.path.join(ROOT, 'curry', 'lib')), icy)
+          self.assertTrue(icy.startswith(tmpdir), icy)
       libdir, = overlay.library_dirs()
       self.assertTrue(
           os.path.isfile(os.path.join(libdir, '.curry', overlay.subdir, 'Prelude.fint'))

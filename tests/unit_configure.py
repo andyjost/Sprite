@@ -126,7 +126,7 @@ class TestCMake(cytest.TestCase):
                     ('frontend_subdir', 'pakcs-' + release),
                     ('intermediate_subdir', 'sprite-pakcs-' + release),
                     ('frontend_flags', '--extended -D__PAKCS__=' + macro),
-                    ('currylib_version', '3.10.0')]
+                    ('currylib_version', '3.4.0')]
         for name, value in expected:
           self.assertEqual((facts / name).read_text().strip(), value)
         other = '3.10.0' if release == '3.4.1' else '3.4.1'
@@ -135,6 +135,32 @@ class TestCMake(cytest.TestCase):
                                 '-DWITH_PAKCS=' + str(pakcs))
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertIn('Expected PAKCS ' + release, result.stdout)
+
+  def test_auto_uses_current_pair(self):
+    """AUTO ignores a legacy executable beside the current tools."""
+    bindir = Path(self.directory.name) / 'current-bin'
+    bindir.mkdir()
+    for name, version in [('pakcs', '3.10.0'), ('pakcs-frontend', '2.0.0'),
+                          ('curry-frontend', '3.1.0')]:
+      script = bindir / name
+      script.write_text('#!/bin/sh\ncase "$1" in\n'
+          '  --compiler-name) echo pakcs ;;\n'
+          '  --numeric-version) echo ' + version + ' ;;\nesac\n')
+      script.chmod(0o755)
+    env = dict(os.environ, PATH=str(bindir) + os.pathsep + os.environ['PATH'])
+    for name in ('SPRITE_FRONTEND', 'CURRY_FRONTEND', 'PAKCS'):
+      env.pop(name, None)
+    result = self.configure('-DWITH_PAKCS=AUTO', frontend=False, env=env)
+    self.assertEqual(result.returncode, 0, result.stdout)
+    facts = self.build / 'stage/sysconfig'
+    for name, value in [('frontend_version', '3.1.0'),
+                        ('frontend_subdir', 'pakcs-3.10.0'),
+                        ('intermediate_subdir', 'sprite-pakcs-3.10.0'),
+                        ('currylib_version', '3.4.0')]:
+      self.assertEqual((facts / name).read_text().strip(), value)
+    ninja = (self.build / 'build.ninja').read_text()
+    self.assertIn(str(bindir / 'curry-frontend'), ninja)
+    self.assertNotIn(str(bindir / 'pakcs-frontend'), ninja)
 
   def test_optional_icurry_probe(self):
     """The optional route must translate into the pinned product directory."""

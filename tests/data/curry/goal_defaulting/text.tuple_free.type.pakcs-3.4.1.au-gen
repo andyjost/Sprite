@@ -1,0 +1,2 @@
+!goal (x, y) where x, y free
+(Data a, Data b) => (a,b)

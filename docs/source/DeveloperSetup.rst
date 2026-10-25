@@ -27,16 +27,16 @@ step is skipped, and CMake runs again only when its flags changed or
 current machine.  Most of that time goes to the PAKCS build, the conda
 solve, and the compilation of the Curry library for the C++ backend.
 
-The default toolchain is PAKCS 3.4.1 with front end 2.0.0. To select
-PAKCS 3.10.0 with front end 3.1.0, using its pinned archive checksum::
+The default toolchain is PAKCS 3.10.0 with front end 3.1.0. To select
+PAKCS 3.4.1 with front end 2.0.0, using its pinned archive checksum::
 
-    PAKCS_VERSION=3.10.0 scripts/setup-dev-machine.sh --prefix /path/to/scratch --dry-run
-    PAKCS_VERSION=3.10.0 scripts/setup-dev-machine.sh --prefix /path/to/scratch
+    PAKCS_VERSION=3.4.1 scripts/setup-dev-machine.sh --prefix /path/to/scratch --dry-run
+    PAKCS_VERSION=3.4.1 scripts/setup-dev-machine.sh --prefix /path/to/scratch
 
-Both pairs are supported. The default changes only at upgrade stage G.
-The standalone front-end wheels are 2.0.0.post6 and 3.1.0.post1; this script
-uses the binary shipped by the selected PAKCS instead. Current-tools CI
-runs the Linux unit and functional shards as advisory jobs.
+Both pairs are supported. The standalone front-end wheels are 2.0.0.post6
+and 3.1.0.post1; this script uses the binary shipped by the selected PAKCS
+instead. CI runs the legacy Linux unit and functional shards as advisory
+``legacy-tools`` jobs.
 
 The steps
 =========
@@ -55,11 +55,10 @@ The script runs nine steps in this order.
    benchmark harness uses for the peak memory of a run.  A missing package
    stops the script.  The printed command installs the missing ones.
    ``--skip-apt`` skips the check on a system without dpkg.
-3. PAKCS 3.4.1.  Downloads the binary archive from curry-lang.org into
-   ``PREFIX/downloads`` and verifies its SHA-256.  The hash is the one of
-   ``conda/curry-frontend/meta.yaml``.  The archive unpacks to
-   ``PREFIX/pakcs-3.4.1``.  The script gives SWI-Prolog 9 the stack limit
-   that the distribution sets for version 8, then runs ``make`` there.
+3. PAKCS 3.10.0.  Downloads the binary archive from curry-lang.org into
+   ``PREFIX/downloads`` and verifies its SHA-256.  The hash is pinned in the script.  The archive unpacks to
+   ``PREFIX/pakcs-3.10.0``. The script runs ``make`` there. For the legacy
+   release it also extends the SWI-Prolog 8 stack-limit setting to version 9.
    The build takes about five minutes.  Sprite takes the Curry front end
    and the test oracle from this tree.
 4. Checkout.  Clones the repository when ``--repo`` names a missing
@@ -88,7 +87,7 @@ The script runs nine steps in this order.
 9. Next steps.  Prints the paths for the personal rules file and the runs
    to make next.
 
-With ``--icurry`` the script also installs ``icurry`` 3.1.0 through the
+With ``--icurry`` the script also installs ``icurry`` 3.3.0 through the
 Curry Package Manager, after step 3.  That is the optional second route
 from Curry to ICurry.  The step follows the CI script
 ``.github/scripts/install-curry-toolchain.sh``.  It writes ``~/.cpmrc``
@@ -121,7 +120,7 @@ Layout of the prefix
 Path                              Content
 ================================  ==============================================
 ``PREFIX/downloads``              the PAKCS archive
-``PREFIX/pakcs-3.4.1``            PAKCS: ``bin/pakcs``, ``bin/pakcs-frontend``,
+``PREFIX/pakcs-3.10.0``           PAKCS: ``bin/pakcs``, ``bin/pakcs-frontend``,
                                   ``bin/cypm``
 ``PREFIX/conda/env``              the conda environment; ``bin/python`` is the
                                   Python of Sprite
@@ -131,7 +130,7 @@ Path                              Content
 ``PREFIX/cpm``                    the CPM home, with ``--icurry``
 ``PREFIX/ccache``                 the compiler cache (``CCACHE_DIR`` of the
                                   clean environment)
-``PREFIX/cmake-args``              the flags of the last CMake configuration
+``PREFIX/cmake-args``             the flags of the last CMake configuration
 ================================  ==============================================
 
 Options
@@ -151,7 +150,7 @@ Option               Meaning
                      are the ones of the last run
 ``--dry-run``        print every command, run none
 ``--skip-apt``       do not check the apt packages
-``--icurry``         also install icurry 3.1.0 through cypm
+``--icurry``         also install icurry 3.3.0 through cypm
 ``--smoke-file F``   the unit test file of the smoke test; the default is
                      ``unit_expr.py``
 ``--cap-kb N``       the address-space cap of each smoke run in KiB, or
