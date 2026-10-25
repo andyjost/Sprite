@@ -35,12 +35,13 @@ def check(directory, version, tag=''):
     name, actual_version, py, abi, platform = wheel.stem.split('-')
     assert (name, actual_version) == ('currylang', version), wheel
     tags = platform.split('.')
-    matches = [(tag, suffix) for tag, suffix in PLATFORMS if tag in tags]
+    matches = [(t, suffix) for t, suffix in PLATFORMS if t in tags]
     assert len(matches) == 1, wheel
-    tag, suffix = matches[0]
+    platform_tag, suffix = matches[0]
     report = wheel.with_suffix(suffix)
-    assert report.is_file(), f'Missing report {report.name} for {wheel.name}'
-    entry = (py, abi, tag)
+    kind = 'auditwheel show' if suffix == '.auditwheel.txt' else 'load commands'
+    assert report.is_file(), f'Missing {kind} report for {wheel.name}'
+    entry = (py, abi, platform_tag)
     assert entry in expected and entry not in found, entry
     found.add(entry)
     with zipfile.ZipFile(wheel) as archive:

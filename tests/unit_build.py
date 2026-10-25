@@ -101,7 +101,7 @@ class TestDistribution(cytest.TestCase):
   def test_wrong_platform(self):
     with tempfile.TemporaryDirectory() as directory:
       gate = self.distributions(directory)
-      path = next(Path(directory).glob('*-cp311-*x86_64.whl'))
+      path = next(Path(directory).glob('*-cp311-*manylinux_2_28_x86_64.whl'))
       renamed = path.with_name(path.name.replace('manylinux_2_28', 'linux'))
       path.rename(renamed)
       path.with_suffix('.auditwheel.txt').rename(renamed.with_suffix('.auditwheel.txt'))
