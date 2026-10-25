@@ -169,6 +169,7 @@ assert curryrt.gc_root_count(None) == 0
   @cytest.skipUnlessGcBackend(
       'wdgc', 'the threshold policy of the block heap'
     )
+  @cytest.linux_only('the address-space limit of prlimit is not enforced on macOS')
   def test_short_lived_nodes_complete_under_1GiB(self):
     '''
     A walk over list cells allocates about 7 short-lived nodes per cell

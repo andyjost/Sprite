@@ -12,6 +12,9 @@ nothing.  The tools the plan depends on (dpkg-query, apt-cache, micromamba,
 swipl) are stand-ins on PATH, so the plan is the same on every machine.
 '''
 import cytest # from ./lib; must be first
+import sys, unittest
+if sys.platform == 'darwin':
+  raise unittest.SkipTest('the developer setup script sets up an Ubuntu machine with apt')
 from curry.utility import cpu_count
 import os, re, shlex, subprocess, sys, tempfile, unittest
 

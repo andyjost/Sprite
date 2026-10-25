@@ -57,7 +57,9 @@ class TestStagedLibrary(cytest.TestCase):
     # The member name follows the compiler flags.  make stage does not pass
     # CXXFLAGS on, so a test run with CXXFLAGS set would look for another
     # member.
-    if not os.environ.get('CXXFLAGS') and not curry.flags['debug']:
+    # No header where the platform compiles without one (config.cxx_pch_root).
+    if config.cxx_pch_root() is not None and not os.environ.get('CXXFLAGS') \
+        and not curry.flags['debug']:
       cpp2so = cxx_toolchain.Cpp2So(cytest.raw.interp())
       pch = cxx_toolchain.PrecompiledHeader(
           config.installed_path('include'), config.cxx_tool()

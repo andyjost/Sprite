@@ -62,11 +62,11 @@ namespace curryrt
     assert(!gc_is_literal(this));
     size_t bytes = this->info->alloc_size;
     if(bytes == sizeof(FwdNode))
-		  new(this) FwdNode{&Fwd_Info, target};
+		  new(this) FwdNode{{&Fwd_Info}, target};
     else
     {
       assert(bytes >= sizeof(FwdSzNode));
-		  new(this) FwdSzNode{&FwdSz_Info, target, bytes};
+		  new(this) FwdSzNode{{&FwdSz_Info}, target, bytes};
     }
 	}
 

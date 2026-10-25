@@ -41,7 +41,13 @@ namespace curryrt
 
     void ticker()
     {
+      // The thread names itself.  macOS names the calling thread alone and
+      // takes the name as the one argument.
+      #if defined(__APPLE__)
+      pthread_setname_np("curryrt-ticker");
+      #else
       pthread_setname_np(pthread_self(), "curryrt-ticker");
+      #endif
       State & st = *state_ptr();
       std::unique_lock<std::mutex> lock(st.mutex);
       while(true)

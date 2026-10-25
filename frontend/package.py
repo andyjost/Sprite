@@ -3,7 +3,9 @@
 
 Example: python frontend/package.py --binary install/tools/curry-frontend
   --output /tmp/frontend-wheel
-Requires setuptools, wheel, and (for dynamic GMP) patchelf.
+Requires setuptools, wheel, and (for dynamic GMP) patchelf on Linux, or
+install_name_tool and codesign of the Xcode command line tools on macOS,
+where the executable is a Mach-O file and GMP comes from Homebrew.
 '''
 import argparse
 import json
@@ -21,6 +23,13 @@ SYSTEM_LIBS = {
     'libc.so.6', 'libm.so.6', 'libpthread.so.0', 'libdl.so.2', 'librt.so.1'
   , 'libutil.so.1', 'libgcc_s.so.1'
   }
+PACKAGING_VERSION = '2.0.0.post5'
+# Mach-O 64-bit, little-endian magic and the cputype field that follows it.
+MACHO_MAGIC_64 = b'\xcf\xfa\xed\xfe'
+MACHO_CPUTYPES = {0x0100000c: 'arm64', 0x01000007: 'x86_64'}
+# The directories of the system libraries of macOS; anything else that a
+# binary loads must be vendored.
+MACOS_SYSTEM_DIRS = ('/usr/lib/', '/System/Library/')
 
 
 def output(*args):
@@ -48,18 +57,89 @@ def copy_gmp_licenses(destination, system_root=Path('/')):
     shutil.copy2(notice, destination / name)
 
 
+def copy_gmp_licenses_darwin(destination, dylib):
+  '''Homebrew keeps the notices of GMP (COPYING*) in the prefix of the formula.'''
+  prefix = Path(os.path.realpath(dylib)).parent.parent
+  notices = sorted(p for p in prefix.glob('COPYING*') if p.is_file())
+  if not notices:
+    raise ValueError('GMP licenses missing under ' + str(prefix))
+  for notice in notices:
+    shutil.copy2(notice, destination / ('LICENSE-GMP-' + notice.name))
+
+
+def macho_dylibs(path):
+  '''The libraries a Mach-O file loads, as otool -L names them.'''
+  lines = output('otool', '-L', str(path)).splitlines()[1:]
+  return [line.split()[0] for line in lines if line.strip()]
+
+
+def macos_min_version(path):
+  '''The minimum macOS of a Mach-O file (LC_BUILD_VERSION or the older command), or None.'''
+  commands = output('otool', '-l', str(path))
+  match = re.search(r'LC_BUILD_VERSION.*?minos (\d+(?:\.\d+)*)', commands, re.S) \
+      or re.search(r'LC_VERSION_MIN_MACOSX.*?version (\d+(?:\.\d+)*)', commands, re.S)
+  return match.group(1) if match else None
+
+
+def bundle_macho(target, destination, licenses, head):
+  '''
+  The bundle of a Mach-O executable (macOS): the system libraries stay, GMP
+  from Homebrew is vendored beside the executable with @loader_path, and the
+  two files are signed again ad hoc, since install_name_tool invalidates the
+  signature and arm64 refuses an unsigned executable.  The floor is the
+  minimum macOS of the files.
+  '''
+  cputype = struct.unpack('<I', head[4:8])[0]
+  arch = MACHO_CPUTYPES.get(cputype)
+  if arch is None:
+    raise ValueError('unknown Mach-O cputype 0x%x' % cputype)
+  needed = macho_dylibs(target)
+  system = [d for d in needed if d.startswith(MACOS_SYSTEM_DIRS)]
+  gmp = [d for d in needed if os.path.basename(d).startswith('libgmp')]
+  unknown = set(needed) - set(system) - set(gmp)
+  if unknown:
+    raise ValueError('unhandled shared libraries: ' + repr(sorted(unknown)))
+  rpath = None
+  if gmp:
+    source = Path(gmp[0])
+    if not source.is_file():
+      raise ValueError('cannot locate ' + str(source))
+    vendored = destination / source.name
+    shutil.copy2(source, vendored)
+    vendored.chmod(0o755)
+    loader_name = '@loader_path/' + source.name
+    subprocess.run(['install_name_tool', '-id', loader_name, str(vendored)], check=True)
+    subprocess.run(['install_name_tool', '-change', str(source), loader_name, str(target)], check=True)
+    for path in vendored, target:
+      subprocess.run(['codesign', '--force', '--sign', '-', str(path)], check=True)
+    copy_gmp_licenses_darwin(licenses, source)
+    rpath = '@loader_path'
+  versions = [v for v in (macos_min_version(p) for p in destination.iterdir()) if v]
+  floor = max(versions, key=lambda v: tuple(map(int, v.split('.')))) if versions else None
+  info = dict(
+      version='2.0.0', packaging_version=PACKAGING_VERSION, architecture=arch
+    , platform='darwin', linkage='dynamic', needed=needed, glibc_required=None
+    , macos_required=floor, rpath=rpath
+    )
+  print(json.dumps(info, indent=2), flush=True)
+  print(output('otool', '-L', str(target)), flush=True)
+  return info
+
+
 def bundle(binary, destination, licenses):
   destination.mkdir(parents=True, exist_ok=True)
   target = destination / 'curry-frontend'
   shutil.copy2(binary, target)
   target.chmod(0o755)
   elf = target.read_bytes()[:20]
-  if elf[:5] != b'\x7fELF\x02':
-    raise ValueError('expected a Linux ELF64 executable')
-  machine = struct.unpack('<H' if elf[5] == 1 else '>H', elf[18:20])[0]
-  arch = {62: 'x86_64', 183: 'aarch64'}[machine]
   if output(str(target), '--numeric-version').strip() != '2.0.0':
     raise ValueError('the executable must be front end 2.0.0')
+  if elf[:4] == MACHO_MAGIC_64:
+    return bundle_macho(target, destination, licenses, elf)
+  if elf[:5] != b'\x7fELF\x02':
+    raise ValueError('expected an ELF64 or a 64-bit Mach-O executable')
+  machine = struct.unpack('<H' if elf[5] == 1 else '>H', elf[18:20])[0]
+  arch = {62: 'x86_64', 183: 'aarch64'}[machine]
   dynamic = output('readelf', '-d', str(target))
   needed = re.findall(r'\(NEEDED\).*\[(.*?)\]', dynamic)
   unknown = set(needed) - SYSTEM_LIBS - {'libgmp.so.10'}
@@ -79,8 +159,8 @@ def bundle(binary, destination, licenses):
     copy_gmp_licenses(licenses)
   versions = {v for path in destination.iterdir() for v in glibc_versions(path)}
   info = dict(
-      version='2.0.0', packaging_version='2.0.0.post5', architecture=arch
-    , linkage='dynamic' if needed else 'static', needed=needed
+      version='2.0.0', packaging_version=PACKAGING_VERSION, architecture=arch
+    , platform='linux', linkage='dynamic' if needed else 'static', needed=needed
     , glibc_required='.'.join(map(str, max(versions))) if versions else None
     , rpath='$ORIGIN' if 'libgmp.so.10' in needed else None
     )

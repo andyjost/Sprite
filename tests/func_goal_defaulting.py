@@ -404,7 +404,8 @@ class TestGoldens(cytest.TestCase):
       with open(os.path.join(tmpd, 'a'), 'w'):
         pass
       proc = subprocess.run(
-          ['timeout', str(ORACLE_TIMEOUT), oracle.oracle(), 'Prelude', '1 ? 2']
+          cytest.limit_prefix(timeout=ORACLE_TIMEOUT)
+          + [oracle.oracle(), 'Prelude', '1 ? 2']
         , cwd=tmpd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
     self.assertEqual(proc.returncode, 0, proc.stderr)

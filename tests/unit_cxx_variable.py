@@ -82,6 +82,7 @@ class TestSmallVec(cytest.TestCase):
       shutil.rmtree(tmpdir, ignore_errors=True)
 
 @unittest.skipIf(shutil.which('objdump') is None, 'objdump is not installed')
+@cytest.linux_only('reads the disassembly of GNU objdump of an ELF object')
 class TestStepFunctions(cytest.TestCase):
   '''
   The step functions of two benchmark programs make no heap call for an

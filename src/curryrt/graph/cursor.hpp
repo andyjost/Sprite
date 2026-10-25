@@ -4,44 +4,10 @@
 #include "curryrt/smallvec.hpp"
 #include <string>
 #include <utility>
+#include "curryrt/graph/arg.hpp"
 
 namespace curryrt
 {
-  union Arg
-  {
-    Node *             node;
-    unboxed_int_type   ub_int;
-    unboxed_float_type ub_float;
-    unboxed_char_type  ub_char;
-    xid_type           cid;
-    void const *       blob;
-    Head *             head;
-    InfoTable const *  xinfo;
-
-    Arg(Node * value=nullptr)    : node(value)     {}
-    Arg(int16_t value)           : ub_int(value)   {}
-    Arg(int32_t value)           : ub_int(value)   {}
-    Arg(int64_t value)           : ub_int(value)   {}
-    Arg(xid_type value)          : cid(value)      {}
-    Arg(float value)             : ub_float(value) {}
-    Arg(double value)            : ub_float(value) {}
-    // A char holds one byte; a Char node holds a code point.  The byte is
-    // taken unsigned, so that a value above 127 does not sign-extend.
-    Arg(char value)              : ub_char((unsigned char) value) {}
-    Arg(signed char value)       : ub_char((unsigned char) value) {}
-    Arg(unsigned char value)     : ub_char(value)  {}
-    Arg(char32_t value)          : ub_char(value)  {}
-    Arg(InfoTable const * value) : xinfo(value)    {}
-    template<typename T>
-    Arg(T const * value)         : blob(value)     {}
-    Arg(std::nullptr_t)          : blob(nullptr)   {}
-    Arg(Cursor const &);
-    Arg(Variable const &);
-
-    template<typename T> Arg & operator=(T &&);
-    std::string repr() const;
-  };
-
   struct Cursor
   {
     Arg * arg;

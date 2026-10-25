@@ -76,15 +76,20 @@ _PERF = []
 def gnu_time():
   '''The path of GNU time, or None when it is not installed.'''
   if not _GNU_TIME:
-    path = shutil.which('time') or '/usr/bin/time'
-    try:
-      proc = subprocess.run(
-          [path, '--version'], capture_output=True, text=True, timeout=30
-        )
-      found = 'GNU' in proc.stdout + proc.stderr
-    except (OSError, subprocess.TimeoutExpired):
-      found = False
-    _GNU_TIME.append(path if found else None)
+    # Homebrew installs GNU time as gtime on macOS, where time is BSD's.
+    candidates = [p for p in (shutil.which('time'), shutil.which('gtime'), '/usr/bin/time') if p]
+    found = None
+    for path in candidates:
+      try:
+        proc = subprocess.run(
+            [path, '--version'], capture_output=True, text=True, timeout=30
+          )
+      except (OSError, subprocess.TimeoutExpired):
+        continue
+      if 'GNU' in proc.stdout + proc.stderr:
+        found = path
+        break
+    _GNU_TIME.append(found)
   return _GNU_TIME[0]
 
 
@@ -207,7 +212,8 @@ def run_command(cmd, env=None, cwd=None, timeout=600, cap=None, perf=None):
     handle, rssfile = tempfile.mkstemp(prefix='rss-', suffix='.txt')
     os.close(handle)
     wrapper += [gnu_time(), '-q', '-f', '%M', '-o', rssfile]
-  if cap:
+  if cap and shutil.which('prlimit'):
+    # macOS has no prlimit and enforces no address-space limit.
     wrapper += ['prlimit', '--as=%d' % cap]
   if perf:
     handle, perffile = tempfile.mkstemp(prefix='perf-', suffix='.txt')

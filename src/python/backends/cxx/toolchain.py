@@ -50,7 +50,7 @@ from ...toolchain import (
     plans, _filenames, _findcurry, _loadcurry, _makecurry, _productcache
   , _system, _productlock
   )
-import functools, hashlib, itertools, logging, os, re, tempfile, threading
+import functools, hashlib, itertools, logging, os, re, sys, tempfile, threading
 
 logger = logging.getLogger(__name__)
 _warning_lock = threading.Lock()
@@ -178,6 +178,15 @@ FLAVOR_FLAGS = {
   , 'debug': ['-O0', '-g']
   }
 
+# Whether the platform links Mach-O with ld64 (macOS) rather than ELF with
+# GNU ld.  The flags below follow the linker; the generated code is the same.
+IS_DARWIN = sys.platform == 'darwin'
+
+# The flags of the release flavor that are notions of ELF: the procedure
+# linkage table and semantic interposition.  Mach-O has neither, and clang
+# on macOS warns on them, so the flavor leaves them out there.
+ELF_ONLY_FLAGS = frozenset(['-fno-plt', '-fno-semantic-interposition'])
+
 # The link flags of a module.  A module binds its own functions locally.  So a
 # call to a function of the runtime headers that the compiler did not inline
 # does not go through the procedure linkage table to the copy in the module
@@ -190,11 +199,25 @@ FLAVOR_FLAGS = {
 # the loader reads the imports of an object from these entries
 # (loader.needed_modules), so the form is pinned here.  The flags enter the
 # digest of the stamp (object_digest).
-LINK_FLAGS = ['-Wl,-Bsymbolic-functions', '-Wl,--no-as-needed']
+#
+# ld64 of macOS needs neither flag: its two-level namespace binds a
+# reference to the image that defines the symbol, and it records every
+# dylib of the link line unless -dead_strip_dylibs says otherwise.  The
+# name of an object is given with -install_name there, in place of -soname
+# (see Cpp2So._compileCommand).
+GNU_LINK_FLAGS = ['-Wl,-Bsymbolic-functions', '-Wl,--no-as-needed']
+LINK_FLAGS = [] if IS_DARWIN else GNU_LINK_FLAGS
 
 def flavor_flags(flavor):
-  '''The compiler flags of a flavor of generated code: 'release' or 'debug'.'''
-  return list(FLAVOR_FLAGS[flavor])
+  '''
+  The compiler flags of a flavor of generated code: 'release' or 'debug'.
+  On macOS the release flavor leaves out the flags that are ELF notions
+  (ELF_ONLY_FLAGS).
+  '''
+  flags = list(FLAVOR_FLAGS[flavor])
+  if IS_DARWIN:
+    flags = [flag for flag in flags if flag not in ELF_ONLY_FLAGS]
+  return flags
 
 # The compiler flags of the collectors of the runtime (make GC=...).  The
 # inline writers of the runtime headers (Node::rewrite and the others in
@@ -608,7 +631,8 @@ class Cpp2So(object):
   the generated file, "// MODULE: N"), the objects of its imports stand on
   the line by their files and enter the object as their SONAMEs (the
   NEEDED entries; every import, in the order of the IMPORTS line, see
-  LINK_FLAGS), and the runtime library enters as "libcurryrt.so", which
+  LINK_FLAGS), and the runtime library enters as -lcurryrt (libcurryrt.so, or
+  .dylib on macOS), which
   the extension module of the backend has loaded.  So readelf -d shows no
   absolute path, and an object compiled in one tree loads in a copy of the
   tree at another path, or from the product cache in another tree.  A
@@ -928,6 +952,10 @@ class Cpp2So(object):
     yield '-I%s' % os.path.realpath(config.installed_path('include'))
     yield '-fPIC'
     yield '-std=c++17'
+    if IS_DARWIN:
+      # clang warns by default on the elided braces of a node's aggregate
+      # initialization (builtins.hpp); the compile of a module is silent.
+      yield '-Wno-missing-braces'
     for flag in flavor_flags(self.flavor):
       yield flag
     for flag in gc_flags():
@@ -974,8 +1002,13 @@ class Cpp2So(object):
     yield '-shared'
     for flag in self._cxxflags():
       yield flag
-    yield '-Wl,-eentry'
-    yield '-Wl,-soname,%s' % soname(self._moduleName(file_in))
+    if IS_DARWIN:
+      # ld64 names a library with -install_name, and takes an entry point
+      # for an executable alone.
+      yield '-Wl,-install_name,%s' % soname(self._moduleName(file_in))
+    else:
+      yield '-Wl,-eentry'
+      yield '-Wl,-soname,%s' % soname(self._moduleName(file_in))
     for flag in LINK_FLAGS:
       yield flag
     yield file_in

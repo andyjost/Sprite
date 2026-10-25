@@ -9,6 +9,9 @@ programs are in data/curry/CxxInterp.curry; their values under the
 interpreter are compared with the values of the compiled code.
 '''
 import cytest # from ./lib; must be first
+import sys, unittest
+if sys.platform == 'darwin':
+  raise unittest.SkipTest('compiles modules at first use and swaps them through the shim of the tiered mode; macOS is issue #162, step 2')
 from curry import common, config, icurry, inspect, toolchain
 from curry.backends.cxx import bytecode, materialize, tiered
 from curry.backends.cxx import curryrtbindings as curryrt
@@ -643,9 +646,8 @@ class TestPrograms(cytest.TestCase):
     env.pop('SPRITE_GC_STRESS', None)
     if stress:
       env['SPRITE_GC_STRESS'] = '1'
-    cmd = [
-        'prlimit', '--as=%d' % ADDRESS_SPACE, 'timeout', str(TIMEOUT)
-      , config.installed_path('bin', 'sprite-exec'), '--stats', '-m', program
+    cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
+        config.installed_path('bin', 'sprite-exec'), '--stats', '-m', program
       ]
     proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)

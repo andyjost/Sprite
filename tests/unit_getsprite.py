@@ -183,6 +183,7 @@ INSTALLER
     self.assertEqual(self.log(), ['curl', '-LsSf',
                                  'https://astral.sh/uv/install.sh'])
 
+  @cytest.linux_only('the piped run makes the pty the controlling terminal with TIOCSCTTY, which hangs the read from /dev/tty on macOS')
   def test_interactive_accept_from_terminal_and_pipe(self):
     for piped in [False, True]:
       with self.subTest(piped=piped):

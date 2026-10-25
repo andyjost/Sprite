@@ -1,4 +1,9 @@
 #!/bin/bash
+# An Ubuntu machine (apt); the associative arrays below need bash 4.
+case $(uname -s) in
+  Linux) ;;
+  *) echo "setup-dev-machine.sh: this script sets up a Linux machine; see the page Developer Setup" >&2; exit 2 ;;
+esac
 # Sets up a development machine for Sprite.
 #
 # One scratch prefix holds every bulky product: the pinned PAKCS, the conda

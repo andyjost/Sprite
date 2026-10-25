@@ -788,12 +788,12 @@ of 2026-10-08 showed both; the entries record the decisions.
     programs had one, `readelf -S`; the sentence of 2026-10-07 that said
     `Smoke.so` carries the path was wrong), and nothing read it.  The line
     is gone: the saved text of a program names no loader, and the objects
-    are loaded by the runtime, never run by the dynamic loader.  The
-    sysconfig value stays, unused by the code: it is the one sysconfig
-    value that names a path of the machine, and `tests/unit_conda.py`
-    (`test_ld_interpreter_path`) still checks that it is the `PT_INTERP` of
-    the Python of the installation and a file that exists.  Whether to drop
-    the value, its file and the test is the owner's.
+    are loaded by the runtime, never run by the dynamic loader.  Dropped
+    on 2026-10-24 with the macOS work (issue #162): the value, the
+    `readelf` probe of CMake that wrote it and the test went, since nothing
+    read it and it was the one sysconfig value that named a path of the
+    machine.  `sysconfig/shared_library_suffix` (`.so`, or `.dylib` on
+    macOS) is the one platform fact of the sysconfig now.
 14. The sysroot at run time.  Documented on 2026-10-07 as a fact.  The
     build compiles against the conda-forge sysroot 2.17
     (`c_stdlib_version`).  The C++ backend compiles generated code against

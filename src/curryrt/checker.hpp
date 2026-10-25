@@ -15,6 +15,7 @@
 // pointer in the runtime state.  The events and the checks are those of the
 // Python checker; its module documentation lists them, and the developer
 // notes state where the two differ.
+#include "curryrt/exceptions.hpp"
 #include "curryrt/fwd.hpp"
 #include "curryrt/graph/cursor.hpp"
 #include "curryrt/graph/memory.hpp"
@@ -50,7 +51,7 @@ namespace curryrt
   static constexpr size_t CHECKER_TEXT_LIMIT = 48;
 
   // A run-time invariant of the Fair Scheme does not hold.
-  struct InvariantViolation : std::logic_error
+  struct CURRYRT_EXCEPTION InvariantViolation : std::logic_error
   {
     InvariantViolation(
         std::string invariant, std::string event, std::string detail

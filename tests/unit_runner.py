@@ -340,6 +340,7 @@ class TestScheduler(SchedulerTests):
       'time.sleep(%g)"])\n'
     )
 
+  @cytest.linux_only('the stub takes its name from the link it runs through only in /proc; macOS names the interpreter')
   def test_toolchain_allowance(self):
     '''
     A session over the cap of its file is not killed while a process of the
@@ -591,8 +592,13 @@ class TestProcs(unittest.TestCase):
     self.assertIn(os.getpid(), pids)
     self.assertGreater(rss, 0)
     self.assertTrue(procs.is_alive(os.getpid()))
-    with open('/proc/self/comm') as stream:
-      self.assertEqual(comms[os.getpid()], stream.read().strip())
+    if sys.platform.startswith('linux'):
+      with open('/proc/self/comm') as stream:
+        self.assertEqual(comms[os.getpid()], stream.read().strip())
+    else:
+      # ps names the process by the path of its executable; the leaf name
+      # is recorded, and a framework Python's differs from sys.executable.
+      self.assertTrue(comms[os.getpid()])
 
   def test_toolchain_in(self):
     self.assertEqual(procs.toolchain_in([]), [])

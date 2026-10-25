@@ -1,4 +1,10 @@
 import cytest # from ./lib; must be first
+import sys, unittest
+if sys.platform == 'darwin':
+  raise unittest.SkipTest(
+      'reads ELF objects or loads compiled modules; the compiled path on '
+      'macOS is issue #162, step 2'
+    )
 from curry import config, exceptions
 from curry.utility.binding import binding, del_
 from unittest import mock
@@ -46,25 +52,6 @@ def launcher_text(name):
   '''
   text = heredoc(readfile(RECIPE, 'build.sh'), 'LAUNCHER_EOF')
   return text.replace('$name', name).replace('\\$', '$') + '\n'
-
-def elf_interpreter(path):
-  '''The dynamic loader an ELF64 program names (PT_INTERP), or None.'''
-  with open(path, 'rb') as stream:
-    header = stream.read(64)
-    if header[:4] != b'\x7fELF' or header[4] != 2:
-      return None
-    order = '<' if header[5] == 1 else '>'
-    phoff, = struct.unpack_from(order + 'Q', header, 0x20)
-    phentsize, phnum = struct.unpack_from(order + 'HH', header, 0x36)
-    for i in range(phnum):
-      stream.seek(phoff + i * phentsize)
-      p_type, _, p_offset, _, _, p_filesz = struct.unpack_from(
-          order + 'IIQQQQ', stream.read(56), 0
-        )
-      if p_type == 3:
-        stream.seek(p_offset)
-        return stream.read(p_filesz).rstrip(b'\0').decode()
-  return None
 
 def make_config_value(text, name):
   '''The value of a variable in a Make.config text.'''
@@ -201,7 +188,7 @@ class TestCondaRecipe(cytest.TestCase):
     for topic in [
         'curry-frontend', 'opt/sprite', 'macOS', 'Windows', 'compiler'
       , 'LICENSE', 'Nothing here is published', 'build-packages.sh'
-      , 'XDG_CACHE_HOME', 'has_prefix', 'ld_interpreter_path', 'sysroot'
+      , 'XDG_CACHE_HOME', 'has_prefix', 'sysroot'
       , 'before publication'
       ]:
       self.assertIn(topic, text)
@@ -773,22 +760,6 @@ class TestPackageRules(cytest.TestCase):
           result = run([program, 'Smoke.curry', '-x'], env=env, cwd=elsewhere)
           self.assertEqual(result.returncode, 0, result.stdout)
           self.assertEqual(result.stdout, '%s Smoke.curry -x\n' % home)
-
-  def test_ld_interpreter_path(self):
-    '''
-    The sysconfig value ld_interpreter_path is the dynamic loader of this
-    machine: the one the Python of the installation names, and a file that
-    exists.  The C++ backend writes it into the shared object of a program
-    with a main goal (open question 13 of conda/README.md).
-    '''
-    path = config.ld_interpreter_path()
-    self.assertTrue(os.path.isabs(path), path)
-    self.assertTrue(os.path.exists(path), path)
-    python = os.path.realpath(sys.executable)
-    interpreter = elf_interpreter(python)
-    if interpreter is None:
-      raise unittest.SkipTest('%s is not an ELF64 program' % python)
-    self.assertEqual(interpreter, path)
 
   def test_generated_files_name_no_prefix(self):
     '''

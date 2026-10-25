@@ -1,5 +1,11 @@
 '''curry.save and curry.load through C++ source and shared objects.'''
 import cytest # from ./lib; must be first
+import sys, unittest
+if sys.platform == 'darwin':
+  raise unittest.SkipTest(
+      'reads ELF objects or loads compiled modules; the compiled path on '
+      'macOS is issue #162, step 2'
+    )
 
 from curry import config
 import curry, logging, os, shutil, subprocess, unittest

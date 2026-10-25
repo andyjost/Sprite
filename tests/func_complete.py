@@ -65,9 +65,8 @@ class FairnessTestCase(cytest.TestCase):
       env['SPRITE_INTERPRETER_FLAGS'] = 'backend:' + backend
       env['PYTHONUNBUFFERED'] = '1'
       # Compile the program first.  The second child loads it from the cache.
-      cmd = [
-          'timeout', str(self.TIMEOUT), config.sprite_exec(), '-g', ''
-        , 'Fair.curry'
+      cmd = cytest.limit_prefix(timeout=self.TIMEOUT) + [
+          config.sprite_exec(), '-g', '', 'Fair.curry'
         ]
       proc = subprocess.run(
           cmd, cwd=tmpdir, env=env, capture_output=True, text=True
@@ -77,9 +76,8 @@ class FairnessTestCase(cytest.TestCase):
         , 'compilation failed on the %s backend; stderr:\n%s'
               % (backend, proc.stderr)
         )
-      cmd = [
-          'prlimit', '--as=%d' % self.ADDRESS_SPACE
-        , 'timeout', str(self.TIMEOUT), config.sprite_exec(), 'Fair.curry'
+      cmd = cytest.limit_prefix(self.ADDRESS_SPACE, self.TIMEOUT) + [
+          config.sprite_exec(), 'Fair.curry'
         ]
       proc = subprocess.Popen(
           cmd, cwd=tmpdir, env=env, start_new_session=True

@@ -32,6 +32,7 @@ import contextlib
 import functools
 import gc
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -288,6 +289,36 @@ def json_module(name, value):
       '"IInt","value":%(value)d}}}}}}],"aliases":[]}'
     ) % {'name': name, 'value': value}
 
+def linux_only(reason):
+  '''
+  Skips a test on a platform other than Linux: one that reads /proc or an
+  ELF object, or relies on a limit another kernel does not enforce.  The
+  compiled path of the C++ backend on macOS is issue #162, step 2.
+  '''
+  return unittest.skipUnless(sys.platform.startswith('linux'), reason)
+
+def limit_prefix(address_space=None, timeout=None, kill_after=None):
+  '''
+  The command prefix that caps a child on this platform: ``prlimit --as=N``
+  for an address space of N bytes where prlimit exists (Linux; macOS has no
+  prlimit and does not enforce the limit), then the timeout command of GNU
+  coreutils (``timeout``, or ``gtimeout`` from Homebrew on macOS) with
+  ``-k kill_after`` when given.  A part whose tool is missing is left out.
+  A caller appends its own command.
+  '''
+  prefix = []
+  if address_space is not None and shutil.which('prlimit'):
+    prefix += ['prlimit', '--as=%d' % address_space]
+  if timeout is not None:
+    for name in 'timeout', 'gtimeout':
+      if shutil.which(name):
+        prefix.append(name)
+        if kill_after is not None:
+          prefix += ['-k', str(kill_after)]
+        prefix.append(str(timeout))
+        break
+  return prefix
+
 def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
   '''
   Runs Python ``code`` in a fresh interpreter and returns the
@@ -297,7 +328,8 @@ def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
 
   The child runs under the ``timeout`` command, which kills it after
   ``timeout`` seconds (exit status TIMEOUT_STATUS).  ``address_space`` caps
-  its virtual memory in bytes through ``prlimit``.  The child inherits the
+  its virtual memory in bytes through ``prlimit``, where the platform has it
+  (see limit_prefix).  The child inherits the
   environment and the working directory, so SPRITE_INTERPRETER_FLAGS selects
   the backend and CURRYPATH finds the test modules.  PYTHONIOENCODING is set
   to UTF-8, so the standard streams of a Python-backend child hold UTF-8 under
@@ -307,10 +339,7 @@ def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
   SIGALRM does not interrupt the C++ scheduler, so the ``timeout`` context
   manager cannot stop such a test, and a crash would end the test runner.
   '''
-  cmd = ['timeout', str(timeout)]
-  if address_space is not None:
-    cmd = ['prlimit', '--as=%d' % address_space] + cmd
-  cmd += [sys.executable, '-B', '-c', code]
+  cmd = limit_prefix(address_space, timeout) + [sys.executable, '-B', '-c', code]
   kwds = {} if input is None else {'input': input}
   env = dict(os.environ, PYTHONIOENCODING='utf-8')
   return subprocess.run(cmd, capture_output=True, text=text, env=env, **kwds)

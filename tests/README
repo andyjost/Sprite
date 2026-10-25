@@ -1028,7 +1028,8 @@ products of every module were current when they were measured, except
 the peaks that a cold calibration raised.
 
 The budget.  A watchdog thread polls every half second.  It walks /proc
-once, matches the session id of each running file in /proc/<pid>/stat,
+once (on macOS, one run of ps; a session is the process group of its
+leader there, see lib/testrunner/procs.py), matches the session id of each running file in /proc/<pid>/stat,
 walks the parent links down from the file's process, and sums the
 resident sets of the processes it found: the test process, the Curry
 front end, the C++ compiler, and the children of the tests, also one that

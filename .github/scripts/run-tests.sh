@@ -43,8 +43,13 @@ export SPRITE_ROTATION="${SPRITE_ROTATION:-steps:65536}"
 export SPRITE_CACHE_FILE="${SPRITE_CACHE_FILE-$PWD/.cache/icurry.db}"
 mkdir -p "$(dirname "$SPRITE_CACHE_FILE")"
 # A diverging program fails with an allocation error instead of taking the
-# machine down.
-ulimit -v 6291456
+# machine down.  macOS does not enforce the address-space limit, and its
+# shell refuses to set it; the memory watchdog of the runner is the cap
+# there.  The timeout command is GNU coreutils' (gtimeout from Homebrew on
+# macOS).
+ulimit -v 6291456 2>/dev/null || echo "note: no address-space cap on this platform"
+timeout=$(command -v timeout || command -v gtimeout) \
+  || { echo "the timeout command of GNU coreutils is needed" >&2; exit 2; }
 # The files of the shard: every n-th file of the pattern from the k-th.
 files=()
 index=0
@@ -62,7 +67,7 @@ esac
 if [ "$prepare" = yes ] && [ ${#files[@]} -gt 0 ]; then
   echo "::group::$backend prepare pass"
   start=$(date +%s)
-  if timeout 3600 "$SPRITE_HOME/bin/python" -B -m testrunner -v \
+  if "$timeout" 3600 "$SPRITE_HOME/bin/python" -B -m testrunner -v \
        --backend "$backend" --prepare-only "${files[@]}"; then
     status=ok
   else
@@ -79,7 +84,7 @@ failed=()
 for file in "${files[@]}"; do
   echo "::group::$backend $file"
   start=$(date +%s)
-  if timeout 1800 "$SPRITE_HOME/bin/python" -B -m unittest discover "$PWD" "$file"; then
+  if "$timeout" 1800 "$SPRITE_HOME/bin/python" -B -m unittest discover "$PWD" "$file"; then
     status=ok
   else
     status=FAILED

@@ -30,12 +30,13 @@ The interpreter modes
 =====================
 
 The flag ``interpret`` of the C++ backend selects how a module without a
-compiled object runs.  ``tiered``, the default, interprets it at once,
+compiled object runs.  ``tiered``, the default on Linux, interprets it at once,
 compiles it in the background, and swaps its functions to the compiled
 code when the object is ready.  ``new`` interprets it and never compiles
 it.  ``all`` interprets every module.  ``off`` compiles every module first.
 The interpreter takes the same steps as the compiled code and about 1.1 to
-1.5 times its time.  An installation without a C++ compiler runs every
+1.5 times its time.  On macOS the default is ``all`` until the compiled path lands there (issue
+#162, step 2).  An installation without a C++ compiler runs every
 program interpreted; see :doc:`Installation/WithoutCompiler`.
 
 The typed boundary
