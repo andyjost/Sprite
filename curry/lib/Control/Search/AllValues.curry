@@ -11,6 +11,10 @@
 -- Version: October 2026
 ------------------------------------------------------------------------------
 
+-- Sprite uses weak native capsules, rather than the strong encapsulation
+-- described by the upstream interface: free variables are not enumerated
+-- inside, and argument nondeterminism stays outside. DFS is advisory; all
+-- operations use Sprite's fair scheduler and value order. See Unsafe.
 module Control.Search.AllValues
   ( getAllValues, getAllValuesDFS, getOneValue, getOneValueDFS, getAllFailures )
  where

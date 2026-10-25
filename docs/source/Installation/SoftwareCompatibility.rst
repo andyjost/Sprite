@@ -52,28 +52,45 @@ Python
 ..
   Sources
   =======
-  
+
   - Python is available through most software package managers.  For fine control
     over the version on Ubuntu, consider using the `deadsnakes PPA
     <https://github.com/deadsnakes>`_.  To build from source, download Python
     `here <https://www.python.org/downloads/>`__.
-  
+
   - Prolog is available `here <https://www.swi-prolog.org>`__.  It is a
     prerequisite of PAKCS.
-  
+
   - Download PAKCS `here <https://www.curry-lang.org/pakcs/>`__.
-  
+
   - The ICurry Compiler (optional) is available through the `Curry Package
     Manager`_.  After installing PAKCS, say the following from your home
     directory:
-  
+
     .. code:: bash
-  
+
         cypm update
         cypm add icurry
-  
+
   - `pybind11 <https://github.com/pybind/pybind11>`_ is automatically cloned into
     Sprite via the ``git submodules`` command the first time ``make`` is run.
-  
+
 
   .. _Curry Package Manager: https://www.curry-lang.org/tools/cpm/
+
+Search library
+    ``Control.SetFunctions`` remains Sprite's extension.
+    ``Control.Search.SetFunctions``, ``Control.Search.Unsafe``, and
+    ``Control.Search.AllValues`` are supported over its native capsules.
+    The two set-function modules share ``Values a = Values [a]``, preserve
+    multiplicities, capture body choices, and leave argument choices outside.
+    Strategies and DFS names are advisory: Sprite uses its fair scheduler
+    and its own value order. ``getSomeValue`` and ``getSome`` select in IO.
+
+    Upstream Unsafe and AllValues describe strong encapsulation, enumerating
+    free variables inside an expression. Sprite provides weak encapsulation:
+    free variables are not enumerated inside and can demand outside bindings.
+    ``rewriteAll`` and ``rewriteSome`` report not implemented at the call,
+    since capsules cannot discard computations that demand such bindings.
+    ``Control.Search.SearchTree`` remains unsupported; strong search is
+    future work.

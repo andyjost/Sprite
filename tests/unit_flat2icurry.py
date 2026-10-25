@@ -1434,8 +1434,8 @@ class TestOracleHarness(cytest.TestCase):
       else:
         self.assertEqual(
           sorted(os.path.basename(icy) for _, icy in library)
-        , ['Char.icy', 'Either.icy', 'Function.icy', 'Identity.icy', 'List.icy', 'Maybe.icy'
-          , 'Prelude.icy', 'SetFunctions.icy']
+        , ['AllValues.icy', 'Char.icy', 'Either.icy', 'Function.icy', 'Identity.icy', 'List.icy'
+          , 'Maybe.icy', 'Prelude.icy', 'SetFunctions.icy', 'SetFunctions.icy', 'Unsafe.icy']
           )
         for fcy, icy in library:
           self.assertTrue(icy.startswith(os.path.join(ROOT, 'curry', 'lib')), icy)

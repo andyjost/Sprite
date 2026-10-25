@@ -35,3 +35,15 @@ class SetFunctionsSpecification(ModuleSpecification):
   FUNCTIONS = FUNCTIONS
   IMPORTS   = []
 
+
+class SearchSetFunctionsSpecification(ModuleSpecification):
+  NAME      = 'Control.Search.SetFunctions'
+  TYPES     = []
+  FUNCTIONS = [('set%d' % n, n + 1, {}) for n in range(8)]
+  IMPORTS   = ['Control.SetFunctions']
+
+class SearchUnsafeSpecification(ModuleSpecification):
+  NAME      = 'Control.Search.Unsafe'
+  TYPES     = []
+  FUNCTIONS = [('rewriteAll', 1, {}), ('rewriteSome', 1, {})]
+  IMPORTS   = []

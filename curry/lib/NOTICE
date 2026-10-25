@@ -25,7 +25,12 @@ rest of the file is unchanged. The same sources serve both supported front
 ends, with the global __PAKCS__ macro set to 304 or 310 respectively.
 
 GetOpt has trailing whitespace removed. AllValues uses ASCII quotes in
-two documentation comments. The other sources are unchanged.
+two documentation comments. Control/Search/Unsafe.curry and
+Control/Search/AllValues.curry adapt the upstream interface to Sprite's weak
+native capsules; strong search and rewriting primitives remain unavailable.
+Control/Search/SetFunctions.curry retains the upstream documentation header
+but replaces the implementation with Sprite's facade and advisory strategies.
+The other sources are unchanged.
 The Prolog definitions of the externals
 (*.pakcs, *.pakcs.pl), the library Makefile, and the generated umbrella
 module AllLibraries.curry of the PAKCS distribution are not included.
@@ -36,6 +41,10 @@ Sprite's own modules
 Control/SetFunctions.curry is part of Sprite and is not covered by the
 PAKCS license.  It is covered by the BSD 3-Clause license in the LICENSE
 file at the root of the repository.
+
+Control/Search/SetFunctions.curry is Sprite's implementation, under the same
+BSD 3-Clause license as Control/SetFunctions.curry. The upstream header is
+retained above the facade and remains covered by the PAKCS license.
 
 Sprite/Stream.curry is also part of Sprite and uses that BSD 3-Clause
 license.
