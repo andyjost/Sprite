@@ -23,11 +23,11 @@ repository build the wheels of both packages, ``currylang`` and
 Known compatibility problems are discussed below.
 
 PAKCS
-    Sprite ships a copy of the Curry library of PAKCS 3.4.1 under
+    Sprite ships a copy of the Curry library of PAKCS 3.10.0 (base 3.4.0) under
     ``curry/lib`` and relies on the internal interface of that Prelude, which
     is unstable.  PAKCS itself provides the Curry front end, which translates
-    Curry to FlatCurry, and the test oracle.  Sprite will almost certainly not
-    work with any other version of PAKCS.
+    Curry to FlatCurry, and the test oracle.  The supported configurations are front end 2.0.0 with PAKCS
+    3.4.1 and front end 3.1.0 with PAKCS 3.10.0.
 
 ICurry
     Sprite translates FlatCurry to ICurry itself.  Its translation is a port

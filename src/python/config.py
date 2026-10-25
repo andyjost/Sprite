@@ -158,7 +158,8 @@ default_curry2icurry_tool = _Variable('curry2icurry_tool')
 # The name of the top-level Python package.  By default, 'curry'.
 python_package_name       = _Variable('python_package_name')
 # The version of the Curry library.  It names the PAKCS release whose library
-# Sprite ships under curry/lib.  Some tests key their expectations on it.
+# Sprite ships under curry/lib (currently 3.10.0, base 3.4.0).  Some tests
+# key their expectations on it.
 currylib_version          = _Variable('currylib_version')
 # The names of all modules in the system Curry library, the Prelude first.
 currylib_module_names     = _Variable('currylib_module_names')

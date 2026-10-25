@@ -410,7 +410,9 @@ class Curry2ICurryConverter(object):
   def convert(self, file_in, currypath):
     digest = source_digest(file_in)
     currypath = curryname.makeCurryPath(currypath)
-    with _system.bindCurryPath(currypath):
+    # Both translators read the interfaces selected by the front end,
+    # including those of Sprite's shipped library.
+    with _system.bindCurryPath(_frontend.searchdirs(file_in, currypath)):
       file_out = _filenames.icurryfilename(file_in)
       cmd = self.command(file_in, file_out, currypath)
       if source_changed(file_in, file_out):
