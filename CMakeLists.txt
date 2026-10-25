@@ -270,6 +270,6 @@ else()
     PATTERN "*.gch" EXCLUDE)
   install(CODE "
     execute_process(COMMAND \"${Python_EXECUTABLE}\" \"${CMAKE_SOURCE_DIR}/scripts/install-package.py\"
-      \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}\" COMMAND_ERROR_IS_FATAL ANY)
+      \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}\" \"${image}\" COMMAND_ERROR_IS_FATAL ANY)
   ")
 endif()

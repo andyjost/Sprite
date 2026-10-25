@@ -3,7 +3,7 @@ from ..utility.locking import synchronized
 _rewrite_lock = threading.RLock()
 from .. import cache, config
 from ..exceptions import CompileError
-from . import _filenames, _frontend, _system
+from . import _filenames, _frontend, _interfaces, _system
 from . import flat2icurry
 from .flat2icurry import flatcurry
 from ..utility import curryname, filesys
@@ -325,7 +325,8 @@ def icurry_is_stale(filename, currypath=None):
   step rewrote the FlatCurry file (``translated_before_rewrite``); the
   file is then noted in ``stale_pairs``.  The plan asks this of the
   ``.curry`` input of the step as well; a source is never refused.  The
-  search path ``currypath`` is not needed here.
+  search path ``currypath`` selects the imported interfaces recorded in
+  ``M.icy.imports``; a missing record or a changed interface is stale too.
   '''
   if not filename.endswith('.icy'):
     return False
@@ -343,7 +344,7 @@ def icurry_is_stale(filename, currypath=None):
   if translated_before_rewrite(curryfile, filename):
     stale_pairs.add(os.path.abspath(filename))
     return True
-  return False
+  return not _interfaces.is_current(filename, currypath)
 
 # The plan asks the step that made an .icy file whether the file is usable;
 # see ``plans.Plan.is_stale``.
@@ -415,8 +416,15 @@ class Curry2ICurryConverter(object):
     with _system.bindCurryPath(_frontend.searchdirs(file_in, currypath)):
       file_out = _filenames.icurryfilename(file_in)
       cmd = self.command(file_in, file_out, currypath)
-      if source_changed(file_in, file_out):
+      if source_changed(file_in, file_out) or (
+          not in_system_library(file_in)
+          and not _interfaces.is_current(file_out, currypath)):
+        # Force elaboration against the new imports even when restored
+        # interface timestamps are older than the module's FlatCurry.
         # A cache hit must not leave an interface of the old text behind.
+        # The file of a module of the shipped library is the stage's and
+        # stays, as its source digest is never compared: the front end
+        # reads it for every program, and a cache hit would not remake it.
         try:
           os.unlink(_frontend.flatcurryfile(file_in))
         except FileNotFoundError:
@@ -444,6 +452,7 @@ class Curry2ICurryConverter(object):
             else:
               _frontend.curry2icurry(file_in, file_out, currypath, self.quiet)
             self.place_interfaces(file_in, file_out)
+            _interfaces.write(file_out, currypath, frontend=True)
         except CompileError as err:
           if slot is not None:
             slot.update_error(err)

@@ -596,6 +596,7 @@ class TestPackageRules(cytest.TestCase):
       sofile = os.path.join(tmpdir, 'M.so')
       with open(cppfile, 'w') as ostream:
         ostream.write('// FORMAT: %d\n// IMPORTS: \n' % cxxcompiler.FORMAT_VERSION)
+        ostream.write('// INTERFACES: {"version":1,"imports":{}}\n')
       def compile_fails(state):
         os.chmod(tmpdir, 0o555)
         try:
@@ -653,9 +654,10 @@ class TestPackageRules(cytest.TestCase):
             continue
           path = os.path.join(dirpath, filename)
           lines = readfile(path).splitlines()
-          if len(lines) == 2 and lines[1] == original:
+          if len(lines) == 3 and lines[1] == original:
+            lines[1] = copy
             with open(path, 'w') as ostream:
-              ostream.write('%s\n%s\n' % (lines[0], copy))
+              ostream.write('\n'.join(lines) + '\n')
             rewritten += 1
       self.assertGreater(rewritten, 0)
       code = '\n'.join([

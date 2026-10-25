@@ -3,7 +3,7 @@ from cytest.logging import capture_log
 from import_blocker import with_import_blocked
 import curry
 from curry import cache, config, toolchain
-from curry.toolchain import _curry2icurry, _filenames, _frontend, _system
+from curry.toolchain import _curry2icurry, _filenames, _frontend, _interfaces, _system
 from curry.utility.binding import binding
 from unittest import mock
 import contextlib, importlib, json, os, re, shutil, sqlite3, tempfile
@@ -220,6 +220,19 @@ class TestKey(cytest.TestCase):
         keys.append(self.key('version/M.curry', 'f :: Int\nf = 1\n'))
     self.assertNotEqual(*keys)
 
+  def test_installed_interfaces_are_part_of_the_key(self):
+    '''Identical installed sources can have separately regenerated interfaces.'''
+    system = os.path.join(self.tmpdir, 'system')
+    stem = os.path.join(system, SUBDIR, 'Prelude')
+    write(os.path.join(system, 'Prelude.curry'), 'module Prelude where\n')
+    write(stem + '.fint', 'first')
+    write(stem + '.icurry', 'types')
+    with mock.patch.object(config, 'system_curry_path', return_value=system):
+      before = self.key('src/M.curry', 'f = 1\n', [system])
+      write(stem + '.fint', 'other')
+      after = self.key('src/M.curry', 'f = 1\n', [system])
+    self.assertNotEqual(before, after)
+
   def test_route_is_part_of_the_key(self):
     '''
     The key names the route from Curry to ICurry and carries the digest of
@@ -299,7 +312,7 @@ class TestKey(cytest.TestCase):
     # The closure holds the imports found in the path, two levels deep; the
     # Prelude and a module that is nowhere are left out.
     closure = cache.import_closure(mainfile, [lib])
-    self.assertEqual(sorted(closure), ['A', 'B'])
+    self.assertEqual(sorted(closure), ['A', 'B', 'Prelude'])
     # A change two imports away changes the key.
     write(os.path.join(lib, 'A.curry'), 'a :: Int\na = 2\n')
     key2 = self.key('app/Main.curry', main, currypath=[lib])
@@ -346,7 +359,7 @@ class TestKey(cytest.TestCase):
     closure = cache.import_closure(
         os.path.join(self.tmpdir, 'one', 'sprite__expression_1.curry'), [dyn]
       )
-    self.assertEqual(sorted(closure), ['sprite__interactive_0'])
+    self.assertEqual(sorted(closure), ['Prelude', 'sprite__interactive_0'])
     write(module, 'f :: Int -> [Int]\nf x = [x, x]\n')
     key2 = self.key('two/sprite__expression_1.curry', text, currypath=[dyn])
     self.assertNotEqual(key1, key2)
@@ -409,6 +422,7 @@ class TestSlot(cytest.TestCase):
     '''Writes the products beside the output file of a slot and updates it.'''
     for suffix, content in products.items():
       write(slot.file_out[:-len('.icy')] + suffix, content)
+    _interfaces.write(slot.file_out, slot.key_args[1])
     slot.update()
 
   def test_miss_update_hit(self):

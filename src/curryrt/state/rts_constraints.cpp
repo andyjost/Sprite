@@ -197,6 +197,7 @@ namespace curryrt
   bool RuntimeState::constrain_equal(Configuration * C, Cursor cur)
   {
     ConstrNode * constr = NodeU{cur}.constr;
+    Variable pair = cur[1];
     MergeGuards guards;
     if(this->checker)
       this->checker->constrain_begin(C);
@@ -204,16 +205,27 @@ namespace curryrt
         this, C, constr->lhs(), constr->rhs(), constraint_type(cur), false
       , &guards
       ))
+    {
+      // The pair keeps the boxes crossed by the lift.  The union can
+      // fail here (in particular at the occurs check), after the original
+      // path is gone, but it is still a failure from that position.
+      this->record_failure(C, &pair);
       return false;
+    }
     if(!guards.empty())
     {
       Node * value = constr->value;
       for(auto g = guards.rbegin(); g != guards.rend(); ++g)
+      {
+        Node * equality = Node::create(&constrEq_Info, g->first, g->second);
+        for(Set * set: pair.guards)
+          equality = guard(set, equality);
         value = Node::create(
             &CyI7Prelude12BindingGuard
-          , Node::create(&constrEq_Info, g->first, g->second)
+          , equality
           , value
           );
+      }
       *cur = Node::create(constr->info, value, constr->pair);
     }
     return true;
@@ -380,7 +392,20 @@ namespace curryrt
     assert(target->info->tag == T_CONSTR);
     ConstrNode * constr = NodeU{target}.constr;
     Node * value = C->scan.copy_spine(source, constr->value);
-    return Node::create(constr->info, value, constr->pair);
+    // Keep the provenance on the pair, separately from the continuation:
+    // a failing union belongs to the boxed position, whereas a later
+    // failure in the continuation may belong to the function itself.
+    Node * pair = constr->pair;
+    auto const & frames = C->scan.frames();
+    for(size_t i = frames.size() - 1; i-- > 0;)
+    {
+      auto const & level = frames[i];
+      if(level.cur.kind == 'p' && level.cur->info->tag == T_SETGRD)
+        pair = guard(NodeU{level.cur}.setgrd->set, pair);
+      if(*level.cur == source)
+        break;
+    }
+    return Node::create(constr->info, value, pair);
   }
 
   Node * RuntimeState::lift_constraint(Configuration * C, Variable * inductive)

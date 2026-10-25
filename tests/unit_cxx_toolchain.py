@@ -40,7 +40,7 @@ from cytest.logging import capture_log
 from curry import config, exceptions
 from curry.backends.cxx import compiler, elf, loader, toolchain
 from curry.objects.handle import getHandle
-from curry.toolchain import plans, _findcurry, makecurry
+from curry.toolchain import plans, _findcurry, _interfaces, makecurry
 from curry.utility import curryname
 from curry.utility.binding import binding, del_
 from unittest import mock
@@ -107,6 +107,9 @@ class ToolchainTestCase(cytest.TestCase):
     self.assertEqual(
         list(curry.eval(module.goal)), [value]
       )
+
+  def import_stamp(self, sofile):
+    return _interfaces.encode(toolchain.source_interfaces(sofile[:-3] + '.cpp')) + '\n'
 
   def compile_module(self, value):
     '''Compiles a module whose goal returns ``value`` and checks the value.'''
@@ -336,6 +339,8 @@ class TestFormatStamp(ToolchainTestCase):
     '''Writes a cached .cpp file for ``name``, newer than its JSON file.'''
     path = self.cached_file(name, '.cpp')
     with open(path, 'w') as stream:
+      stream.write('// INTERFACES: ' + _interfaces.encode(
+          _interfaces.object_snapshot(['Prelude'], curry.path)) + '\n')
       stream.write(''.join(lines))
     return path
 
@@ -346,7 +351,7 @@ class TestFormatStamp(ToolchainTestCase):
     module = self.compile_module(1)
     path = self.cached_file(module.__name__, '.cpp')
     with open(path) as stream:
-      head = [next(stream) for _ in range(5)]
+      head = [next(stream) for _ in range(6)]
     # The stamp follows the import list; the module name follows the stamp,
     # before the first include.
     i = head.index(self.IMPORTS)
@@ -571,7 +576,9 @@ class TestAbiStamp(ToolchainTestCase):
     # Two lines: the digest, and the real path of the installation.
     installation = toolchain.installation_path()
     self.assertEqual(installation, os.path.realpath(config.prefix()))
-    self.assertEqual(cytest.readfile(stamp), '%s\n%s\n' % (digest, installation))
+    self.assertEqual(cytest.readfile(stamp), '%s\n%s\n%s\n' % (
+        digest, installation, _interfaces.encode(toolchain.source_interfaces(
+            self.cached_file(module.__name__, '.cpp')))))
     self.assertEqual(self.cpp2so.read_stamp(sofile), digest)
     self.assertEqual(self.cpp2so.read_stamp_lines(sofile), (digest, installation))
     self.assertTrue(self.cpp2so.stamp_is_current(sofile))
@@ -670,6 +677,28 @@ class TestAbiStamp(ToolchainTestCase):
     self.assertEqual(self.prerequisite(name), sofile)
     self.check_value(self.import_module(name), 6)
 
+  def test_stamp_names_the_captured_cpp(self):
+    '''Publication records the compiled input, even if its live name changed.'''
+    name = self.build(6)
+    cppfile, sofile = self.cached_file(name, '.cpp'), self.cached_file(name, '.so')
+    original = toolchain.source_interfaces(cppfile)
+    replacement = dict(original, Prelude='0' * 64)
+    source = cytest.readfile(cppfile)
+    stamp = os.stat(cppfile)
+    real_pexec = toolchain._system.pexec
+    def changed_pexec(cmd, *args, **kwds):
+      result = real_pexec(cmd, *args, **kwds)
+      if '-shared' in cmd:
+        with open(cppfile, 'w') as stream:
+          stream.write(source.replace(_interfaces.encode(original),
+              _interfaces.encode(replacement)))
+        os.utime(cppfile, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+      return result
+    with mock.patch.object(toolchain._system, 'pexec', changed_pexec):
+      self.cpp2so(cppfile, [self.srcdir])
+    self.assertEqual(toolchain.source_interfaces(cppfile), replacement)
+    self.assertEqual(self.cpp2so.read_import_stamp(sofile), original)
+
   def test_stamp_lines(self):
     '''
     The reader of the stamp.  A missing stamp reads as two Nones; a stamp
@@ -697,7 +726,7 @@ class TestAbiStamp(ToolchainTestCase):
         stream.write(text)
       self.assertEqual(self.cpp2so.read_stamp_lines(sofile), lines, repr(text))
       self.assertEqual(
-          self.cpp2so.stamp_is_current(sofile), lines == (digest, installation)
+          self.cpp2so.stamp_is_current(sofile), False
         , repr(text)
         )
 
@@ -716,7 +745,7 @@ class TestAbiStamp(ToolchainTestCase):
     digest = self.cpp2so.digest()
     build_prefix = os.path.join(self.tmpdir, 'bld', 'opt', 'sprite')
     with open(self.cpp2so.stampfile(sofile), 'w') as stream:
-      stream.write('%s\n%s\n' % (digest, build_prefix))
+      stream.write('%s\n%s\n' % (digest, build_prefix) + self.import_stamp(sofile))
     self.assertFalse(self.cpp2so.stamp_is_current(sofile))
     self.assertTrue(self.cpp2so.is_stale(sofile))
     self.assertEqual(self.prerequisite(name), cppfile)
@@ -737,7 +766,7 @@ class TestAbiStamp(ToolchainTestCase):
     link = os.path.join(self.tmpdir, 'env-link')
     os.symlink(toolchain.installation_path(), link)
     with open(self.cpp2so.stampfile(sofile), 'w') as stream:
-      stream.write('%s\n%s\n' % (digest, link))
+      stream.write('%s\n%s\n' % (digest, link) + self.import_stamp(sofile))
     self.assertTrue(self.cpp2so.stamp_is_current(sofile))
     self.assertFalse(self.cpp2so.is_stale(sofile))
     before = os.stat(sofile).st_mtime_ns
@@ -754,7 +783,7 @@ class TestAbiStamp(ToolchainTestCase):
     sofile = self.cached_file(name, '.so')
     relative = os.path.relpath(toolchain.installation_path(), os.path.dirname(sofile))
     with open(self.cpp2so.stampfile(sofile), 'w') as stream:
-      stream.write('%s\n%s\n' % (self.cpp2so.digest(), relative))
+      stream.write('%s\n%s\n' % (self.cpp2so.digest(), relative) + self.import_stamp(sofile))
     # Resolution is against the stamp, regardless of the process directory.
     with tempfile.TemporaryDirectory() as directory, mock.patch.object(os, 'getcwd', return_value=directory):
       self.assertTrue(self.cpp2so.stamp_is_current(sofile))
@@ -793,9 +822,8 @@ class TestAbiStamp(ToolchainTestCase):
   def test_header_tree_problems(self):
     '''
     A header that cannot be read (a staged link into a source tree that is
-    gone) is an error that names the installation.  A tree without headers
-    gives no digest, and the objects are trusted as they are: such an
-    installation cannot compile, so a refused object could not be replaced.
+    gone) is an error that names the installation. A tree without headers
+    gives no runtime digest; a missing provenance stamp remains stale.
     '''
     broken = os.path.join(self.tmpdir, 'broken')
     os.makedirs(os.path.join(broken, 'curryrt'))
@@ -817,8 +845,8 @@ class TestAbiStamp(ToolchainTestCase):
     with mock.patch.object(
         toolchain, 'runtime_digest', lambda include_dir=None: None
       ):
-      self.assertFalse(self.cpp2so.is_stale(sofile))
-      self.assertEqual(self.prerequisite(name), sofile)
+      self.assertTrue(self.cpp2so.is_stale(sofile))
+      self.assertEqual(self.prerequisite(name), self.cached_file(name, '.cpp'))
       # Without a digest no stamp is written.
       self.cpp2so.write_stamp(sofile)
       self.assertIsNone(self.cpp2so.read_stamp(sofile))
@@ -1384,7 +1412,7 @@ class TestPortableObjects(ToolchainTestCase):
     digest = self.cpp2so.digest()
     build_prefix = os.path.join(self.tmpdir, 'bld', 'opt', 'sprite')
     with open(self.cpp2so.stampfile(sofile), 'w') as stream:
-      stream.write('%s\n%s\n' % (digest, build_prefix))
+      stream.write('%s\n%s\n' % (digest, build_prefix) + self.import_stamp(sofile))
     self.assertTrue(self.cpp2so.is_stale(sofile))
     text = cytest.readfile(self.cpp2so.stampfile(sofile))
     with open(self.cpp2so.stampfile(sofile), 'w') as stream:
@@ -1876,6 +1904,7 @@ class TestFlavor(ToolchainTestCase):
     # staleness check imports the imports of a module (import_lacks_an_object).
     debug = toolchain.Cpp2So(types.SimpleNamespace(
         flags={'debug': True}, import_=cytest.raw.interp().import_
+      , path=cytest.raw.interp().path
       ))
     self.assertEqual(release.flavor, 'release')
     self.assertEqual(debug.flavor, 'debug')

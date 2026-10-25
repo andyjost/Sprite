@@ -252,6 +252,9 @@ outside it rebuilds the runtime library alone), of the flags it was
 compiled with, of the compiler the runtime was built with and of the format
 of the generated code, and the real path of the installation it was
 compiled under, in a file beside it (``<module>.so.abi``, the ABI stamp).
+ICurry records its direct imports' interface digests in ``<module>.icy.imports``;
+generated C++ and ABI stamps also record imported ICurry content for inlining,
+and a missing record or a changed import makes the corresponding product stale.
 An object whose digest differs from the installed headers of the closure,
 or whose path is not this installation, is compiled again; a new copy of
 the same runtime keeps

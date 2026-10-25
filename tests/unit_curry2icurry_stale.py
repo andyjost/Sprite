@@ -18,10 +18,10 @@ the cache served, and the prepare pass of the test runner reads the line
 '''
 import cytest # from ./lib; must be first
 from curry import cache, config, toolchain
-from curry.toolchain import _curry2icurry, _frontend, _system, plans
+from curry.toolchain import _curry2icurry, _frontend, _interfaces, _system, plans
 from curry.toolchain.flat2icurry import bindingopt as bo
 from curry.utility import filesys
-import curry, os, shutil, sqlite3, subprocess, tempfile, time, unittest
+import curry, os, shutil, sqlite3, subprocess, sys, tempfile, time, unittest
 from unittest import mock
 
 SUBDIR = os.path.join('.curry', config.intermediate_subdir())
@@ -117,6 +117,7 @@ class PreRewriteCase(cytest.TestCase):
     _frontend.flat2icy(fcy, icy, _frontend.searchdirs(curryfile, [self.tmpdir]))
     converter = _curry2icurry.Curry2ICurryConverter(curry2icurry='frontend')
     converter.place_interfaces(curryfile, icy)
+    _interfaces.write(icy, [self.tmpdir], frontend=True)
     with open(icy + '.source', 'w', encoding='ascii') as stream:
       stream.write(_curry2icurry.source_digest(curryfile))
     self.assertNotIn(b'constrEq', readbytes(fcy))
@@ -461,10 +462,9 @@ class TestCacheKey(PreRewriteCase):
     route alone: the version is in the key of the ICurry cache alone, the
     product cache digests the ICurry text itself.
     '''
-    # Version 2 since the set0 lift joined the step (decision D28 of
-    # 2026-10-12).
-    self.assertEqual(_frontend.ROUTE_VERSION, 4)
-    self.assertEqual(cache.route_version(), 4)
+    # Version 5 records imported interface provenance (#164).
+    self.assertEqual(_frontend.ROUTE_VERSION, 5)
+    self.assertEqual(cache.route_version(), 5)
     curryfile = self.write('GuardK', guard('GuardK'))
     key = lambda: cache.icurry_cache_key(curryfile, [self.tmpdir], (), 'frontend')
     digest = cache.frontend_digest('frontend')
@@ -725,6 +725,105 @@ class TestCacheHit(PreRewriteCase):
     self.assertIn(b'constrEq', readbytes(icy))
     self.assertEqual((readbytes(fcy), mtimes(fcy)), before)
     self.assertEqual(self.evaluate('HitR'), [3])
+
+class TestImportedInterfaces(PreRewriteCase):
+  '''A changed import invalidates all three products, even with old objects present.'''
+
+  def child(self, code):
+    result = subprocess.run(['timeout', '120', sys.executable, '-c', code],
+        cwd=self.tmpdir, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    self.assertEqual(result.returncode, 0, result.stdout)
+
+  def test_sidecar_and_each_interface_text(self):
+    source = self.write('B', 'module B where\nimport A\nmain = f\n')
+    icy = toolchain.icurryfilename(source)
+    os.makedirs(os.path.dirname(icy), exist_ok=True)
+    with open(icy, 'w') as stream:
+      stream.write('(IProg "B" ["A"] [] [])')
+    for name in ('A', 'B'):
+      for suffix in cache.INTERFACE_SUFFIXES:
+        with open(os.path.join(os.path.dirname(icy), name + suffix), 'w') as stream:
+          stream.write('first')
+    cache.write_file(icy + '.source', _curry2icurry.source_digest(source))
+    self.assertTrue(_curry2icurry.icurry_is_stale(icy, [self.tmpdir]))
+    _interfaces.write(icy, [self.tmpdir])
+    self.assertFalse(_curry2icurry.icurry_is_stale(icy, [self.tmpdir]))
+    from curry.backends.cxx import toolchain as cxx
+    cppstep = cxx.Cpp2So(cytest.raw.interp())
+    for suffix in cache.INTERFACE_SUFFIXES:
+      key = cppstep.product_key(icy, [self.tmpdir])
+      path = os.path.join(os.path.dirname(icy), 'A' + suffix)
+      before = os.stat(path)
+      with open(path, 'w') as stream:
+        stream.write('other')
+      os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))
+      self.assertTrue(_curry2icurry.icurry_is_stale(icy, [self.tmpdir]))
+      self.assertNotEqual(key, cppstep.product_key(icy, [self.tmpdir]))
+      _interfaces.write(icy, [self.tmpdir])
+      self.assertFalse(_curry2icurry.icurry_is_stale(icy, [self.tmpdir]))
+    for text in ('', '{', '{"version":0,"imports":{}}',
+                 '{"version":1,"imports":{}}'):
+      cache.write_file(icy + '.imports', text)
+      self.assertTrue(_curry2icurry.icurry_is_stale(icy, [self.tmpdir]))
+
+  def test_import_change_off_and_tiered(self):
+    from curry.backends.cxx import toolchain as cxx
+    from curry.toolchain import _interfaces
+    for mode, prebuild, tidy, body_only in (
+        ('off', True, False, False), ('tiered', True, False, False),
+        ('off', False, False, False), ('tiered', False, False, False),
+        ('off', True, True, False), ('tiered', True, True, False),
+        ('off', True, False, True), ('tiered', True, False, True)):
+      with self.subTest(mode=mode, prebuild=prebuild, tidy=tidy, body_only=body_only):
+        directory = os.path.join(self.tmpdir,
+            mode + str(prebuild) + str(tidy) + str(body_only))
+        os.makedirs(directory)
+        a = os.path.join(directory, 'A.curry')
+        b = os.path.join(directory, 'B.curry')
+        with open(a, 'w') as stream:
+          stream.write('module A where\nf :: Int\nf = 1\n')
+        with open(b, 'w') as stream:
+          stream.write('module B where\nimport A\nmain :: Int\nmain = f\n')
+        setup = ('import curry\ncurry.path.insert(0, %r)\n' % directory)
+        self.child(setup + 'curry.reset(interpret="off")\n'
+            'm = curry.import_("B")\nassert list(curry.eval(m.main)) == [1]\n')
+        icy = os.path.join(directory, SUBDIR, 'B.icy')
+        cpp, so = icy[:-4] + '.cpp', icy[:-4] + '.so'
+        self.assertTrue(os.path.isfile(so))
+        before = mtimes(icy, cpp, so)
+        a_stem = os.path.join(directory, SUBDIR, 'A')
+        interfaces = [readbytes(a_stem + suffix) for suffix in cache.INTERFACE_SUFFIXES]
+        stamp = cxx.Cpp2So.read_import_stamp(so)
+        with open(a, 'w') as stream:
+          stream.write('module A where\n' + ('' if body_only else
+              'added :: Int\nadded = 0\n') + 'f :: Int\nf = 2\n')
+        if prebuild:
+          self.child(setup + 'curry.reset(interpret="off")\ncurry.import_("A")\n')
+        self.assertEqual(mtimes(icy, cpp, so), before)
+        if prebuild:
+          self.assertEqual(_curry2icurry.icurry_is_stale(icy, [directory]), not body_only)
+          if body_only:
+            self.assertEqual(interfaces,
+                [readbytes(a_stem + suffix) for suffix in cache.INTERFACE_SUFFIXES])
+          self.assertFalse(_interfaces.objects_current(stamp,
+              _interfaces.search_path(so, [directory])))
+          self.assertTrue(cxx.source_is_stale(cpp, [directory]))
+        if tidy:
+          os.unlink(icy)
+        self.child(setup + 'curry.reset(interpret=%r)\n' % mode +
+            'from curry.backends.cxx import tiered\n'
+            'from curry.objects.handle import getHandle\n'
+            'm = curry.import_("B")\n'
+            'assert list(curry.eval(m.main)) == [2]\n'
+            'assert tiered.wait(60, curry._interpreter_)\n'
+            'assert getHandle(m).sofilename is not None\n'
+            'assert list(curry.eval(m.main)) == [2]\n')
+        after = mtimes(icy, cpp, so)
+        self.assertEqual(before[0] == after[0], body_only)
+        self.assertTrue(all(x != y for x, y in zip(before[1:], after[1:])))
+        self.assertFalse(_curry2icurry.icurry_is_stale(icy, [directory]))
+        self.assertTrue(_interfaces.objects_current(cxx.Cpp2So.read_import_stamp(so),
+            _interfaces.search_path(so, [directory])))
 
 if __name__ == '__main__':
   unittest.main()

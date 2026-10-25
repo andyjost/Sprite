@@ -17,12 +17,15 @@ checks the package against it. The files `tests/unit_flow_f*.py` and
 the C++ backend. The three `expectedFailure` markers there are F13's
 `test_choice_protocol` and `test_fork_precedence`, and
 `unit_stub_terms.py::test_choice_type_conversion`, awaiting the choice
-interpreter. The Python backend was removed on 2026-10-24 at the owner's
+interpreter. Two assertions of `unit_stub_terms.py` were corrected on
+2026-10-25: `True & False` has no value (#139), as in PAKCS and KiCS2. The Python backend was removed on 2026-10-24 at the owner's
 word (B4, issue #82).
 F11's `test_free_argument_answers` passes:
 partial lists in values and bindings print cons without spaces, as PAKCS
 does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`;
-#133 (C++ only) and #134 retain expected failures for runtime defects.
+#133 and #134 were fixed on 2026-10-25 (a lifted constraint keeps its set
+guards; a one-constructor generator forks to its one instance); their
+reproducers pass.
 
 ## Layout
 
@@ -191,7 +194,8 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
   store the shared object, the generated C++ and the ABI stamp after. The
   runner and `scripts/new-worktree.sh` use `tests/.cache/products`. The
   stamp names the installation as text beside a prefix-free digest of the
-  runtime headers the generated code includes and of the flags, so a
+  runtime headers the generated code includes and of the flags, plus the
+  interface and ICurry fingerprints of its imports, so a
   relocated installation keeps its objects; an object names its imports
   by SONAME, so an entry serves every tree with the same stamp.
 - The step that writes `M.icy` writes `M.fint` and `M.icurry` beside it, on
@@ -199,9 +203,14 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
   cache). Code that needs the type of a symbol reads those copies, never
   the front end's own copy under `.curry/pakcs-3.4.1/`, which can belong to
   another version of the source after a hit. An `.icy` without the two
-  files beside it is stale and is converted again. `make stage` copies the
+  files beside it is stale and is converted again. ICurry records the digests
+  of its direct imports' `.fint` and `.icurry` interfaces in `.icy.imports`;
+  generated C++ and ABI stamps also record imported ICurry for inlining, and
+  a missing record or changed import makes the corresponding product stale.
+  `make stage` copies the
   interfaces of the installed library beside its `.icy` files, and
-  `make overlay` copies them beside the extracted test products. An empty
+  `make overlay` copies them beside the extracted test products and writes
+  the `.icy.imports` of an extracted `.icy` that has none. An empty
   interface file means the front end wrote none.
 - A functional test runs every goal without value parameters; a goal
   without a signature keeps its class constraints as dictionary parameters,

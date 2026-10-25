@@ -916,6 +916,7 @@ class TestNoCompiler(TieredTestCase):
       # A generated file of the current format is compiled under new.
       with open(cppfile, 'w') as stream:
         stream.write('// FORMAT: %d\n' % compiler.FORMAT_VERSION)
+        stream.write('// INTERFACES: {"version":1,"imports":{}}\n')
       self.assertTrue(tiered._current_source(imodule))
       self.assertEqual(tiered._interpreter_setting(interp, imodule), 'all')
       # A generated file of another format is stale: interpreted under new.

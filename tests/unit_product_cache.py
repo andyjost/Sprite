@@ -543,7 +543,7 @@ class TestCompile(ProductCacheTestCase):
     self.assertTrue(os.path.samefile(sofile, os.path.join(entry, name + '.so')))
     self.assertEqual(
         cytest.readfile(os.path.join(entry, name + '.so.abi'))
-      , '%s\n%s\n' % (self.cpp2so.digest(), self.toolchain.installation_path())
+      , cytest.readfile(self.cached_file(name, '.so.abi'))
       )
     self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 1})
     # The facts of the key name the format, the generator, the optimizer,

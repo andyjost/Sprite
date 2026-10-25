@@ -153,9 +153,13 @@ class TestTermMarkers(cytest.TestCase):
     for expression, value in [(t + 2, 9), (2 + t, 9), (t - 2, 5),
         (9 - t, 2), (t * 2, 14), (2 * t, 14), (t / 2, 3.5),
         (14 / t, 2.0), (t // 2, 3), (14 // t, 2), (t % 2, 1),
-        (14 % t, 0), (-t, -7), (curry.term(True) & False, False),
-        (True & curry.term(False), False)]:
+        (14 % t, 0), (-t, -7), (curry.term(True) & True, True),
+        (True & curry.term(True), True)]:
       self.assertEqual(self.values(expression), [value])
+    # Concurrent conjunction requires both constraints to succeed (#139).
+    for lhs, rhs in ((False, True), (True, False), (False, False)):
+      self.assertEqual(self.values(curry.term(lhs) & rhs), [])
+      self.assertEqual(self.values(lhs & curry.term(rhs)), [])
     C = curry.import_('Coin')
     self.assertEqual(str(C.inc(1) + 2 * C.coin), 'inc 1 + 2 * coin')
     self.assertEqual(str(curry.term([1]).__infix__('++', [2])), '[1] ++ [2]')

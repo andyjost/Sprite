@@ -238,6 +238,12 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     Numeric = curry.import_('Numeric')
     self.assertEqual(next(curry.eval((Numeric.readHex)('ffz'))), [(255, 'z')])
     self.assertTrue(os.path.isfile(productfile('Numeric', '.icy')))
+    # The import leaves the installed FlatCurry file of the module in place:
+    # the front end reads it for every program, and a cache hit would not
+    # make it again (the staleness rule of #164 forces the elaboration of a
+    # module whose imports changed by removing that file, never for a module
+    # of the shipped library).
+    self.assertTrue(os.path.isfile(interfacefile('Numeric', '.fcy')))
 
   def test_interfaces_installed(self):
     '''

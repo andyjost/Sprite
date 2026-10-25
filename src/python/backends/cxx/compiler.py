@@ -170,6 +170,10 @@ class CxxCompiler(compiler.CompilerBase):
     yield '// IMPORTS: ' + ' '.join(str(mod) for mod in self.iroot.imports)
     yield '// FORMAT: %d' % FORMAT_VERSION
     yield '// MODULE: ' + self.iroot.fullname
+    from ...toolchain import _interfaces
+    yield '// INTERFACES: ' + _interfaces.encode(_interfaces.object_snapshot(
+        self.iroot.imports,
+        _interfaces.search_path(self.iroot.filename or '.', self.interp.path)))
     for name in RUNTIME_INCLUDES:
       yield '#include "%s"' % name
     yield ''
