@@ -389,6 +389,12 @@ jobs:
             echo "::endgroup::"
           done
           exit $status
+      # Step 2 of issue #162: which link forms let a shim of absolute symbols
+      # stand in for the tables of a loaded object on macOS.  Informative;
+      # it never fails the job, and it goes once the design is settled.
+      - name: The dyld experiment of step 2
+        if: matrix.shard == '1/2'
+        run: python3 .github/scripts/macos-dyld-experiment.py
       - name: Unit tests, every module interpreted
         env:
           SPRITE_TEST_FLAGS: interpret:all
