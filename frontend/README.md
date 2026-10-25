@@ -32,6 +32,15 @@ under the workspace. The program version remains `2.0.0`.
 workflow's strict `twine check` requires. The conda package is unchanged
 (build 4). The program version remains `2.0.0`.
 
+`2.0.0.post6` adds the two macOS wheels (issue #162, step 3): the job
+`macos` of the workflow builds the same source on `macos-15` (Apple
+Silicon) and `macos-15-intel` with GHC 9.6.7 and Cabal from ghcup, vendors
+the GMP of Homebrew beside the executable with `@loader_path`
+(`package.py`), and tags the wheel with the floor of its files
+(`tag-wheel.py`), the macOS of the Homebrew bottle, 15.0 on those runners.
+Parity runs on both architectures. The release workflow expects four
+wheels. The conda package is unchanged.
+
 ## Scripts
 
 * `fetch.py --output DIR` checks the PAKCS download page, tries its source

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "curry-frontend"
-version = "2.0.0.post5"
+version = "2.0.0.post6"
 description = "The Curry to FlatCurry front end shipped with PAKCS 3.4.1"
 readme = "README.pypi.md"
 requires-python = ">=3.11"

@@ -23,7 +23,7 @@ SYSTEM_LIBS = {
     'libc.so.6', 'libm.so.6', 'libpthread.so.0', 'libdl.so.2', 'librt.so.1'
   , 'libutil.so.1', 'libgcc_s.so.1'
   }
-PACKAGING_VERSION = '2.0.0.post5'
+PACKAGING_VERSION = '2.0.0.post6'
 # Mach-O 64-bit, little-endian magic and the cputype field that follows it.
 MACHO_MAGIC_64 = b'\xcf\xfa\xed\xfe'
 MACHO_CPUTYPES = {0x0100000c: 'arm64', 0x01000007: 'x86_64'}
