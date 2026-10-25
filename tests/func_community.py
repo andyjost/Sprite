@@ -11,6 +11,7 @@ from cytest.clean import clean
 import contextlib, csv, json, os, pathlib, shutil, tempfile
 from types import SimpleNamespace
 import curry
+from curry.toolchain import _preprocessor
 from unit_community_compile import (
     current_only, frontend_sources, support_paths, ORIGIN
   )
@@ -66,6 +67,11 @@ def check_goals(self, source, entries, module, work, runtime_source=None):
     goal = entry['goal']
     with self.subTest(goal=goal):
       golden = source.with_name(source.stem + '.' + goal + '.au-gen')
+      reason = (_preprocessor.missing(ROOT / entry['program'])
+                or _preprocessor.missing(source))
+      if reason and (not golden.exists()
+                     or os.environ.get('SPRITE_COMMUNITY_VERIFY_ORACLE') == '1'):
+        self.skipTest(reason)
       if not golden.exists():
         oracle.divine(module, module.__name__ + '.' + goal, [work], timeout=20,
                       goldenfile=str(golden), record_errors=True)
@@ -88,6 +94,12 @@ def check_goals(self, source, entries, module, work, runtime_source=None):
       # A community example may expose a looping or crashing runtime defect.
       # Keep that goal within the runner's process limits and give it a timeout.
       proc, actual = sprite_results(runtime_source or source, goal)
+      if proc.returncode != 0 and reason and (
+          reason in proc.stderr
+          or 'Preprocessor exited with exit code 127' in proc.stderr
+        ):
+        record(entry, current, 'skipped: ' + reason)
+        self.skipTest(reason)
       record(entry, current, actual)
       self.assertEqual(proc.returncode, 0, proc.stderr)
       reason = VALUE_FAILURES.get((entry['program'], goal))
@@ -99,7 +111,7 @@ def check_goals(self, source, entries, module, work, runtime_source=None):
       self.assertSameResultMultiset(actual, expected)
 
 
-def sprite_results(source, goal, timeout=30):
+def sprite_results(source, goal, timeout=30, address_space=2 << 30):
   code = (
       'import curry, json\n'
       "curry.reset(interpret='off')\n"
@@ -109,7 +121,7 @@ def sprite_results(source, goal, timeout=30):
       'getattr(module, %r))]))\n'
     ) % (support_paths(source) if ROOT in source.parents
          else [str(source.parent)], source.stem, goal)
-  proc = cytest.run_in_subprocess(code, timeout=timeout, address_space=2 << 30)
+  proc = cytest.run_in_subprocess(code, timeout=timeout, address_space=address_space)
   actual = ('\n'.join(json.loads(proc.stdout)) if proc.returncode == 0
             else '!status %s\n%s' % (proc.returncode, proc.stderr))
   return proc, actual

@@ -3,7 +3,7 @@ from ..utility.locking import synchronized
 _rewrite_lock = threading.RLock()
 from .. import cache, config
 from ..exceptions import CompileError
-from . import _filenames, _frontend, _interfaces, _system
+from . import _filenames, _frontend, _interfaces, _preprocessor, _system
 from . import flat2icurry
 from .flat2icurry import flatcurry
 from ..utility import curryname, filesys
@@ -437,10 +437,13 @@ class Curry2ICurryConverter(object):
       if slot:
         logger.debug('Found %s in the cache', file_out)
         rewrite_on_hit(file_in)
-      elif slot is not None and slot.error is not None:
+      elif (slot is not None and slot.error is not None
+            and not _preprocessor.preprocessor(file_in)):
         logger.debug('Found the error of %s in the cache', file_in)
         raise CompileError(slot.error, report=slot.error)
       else:
+        # A cached preprocessor failure may be resolved by a change to
+        # PATH. Retry it; successful cached products remain usable.
         logger.debug('Using CURRYPATH %s', ':'.join(currypath))
         _system.makeOutputDir(file_out)
         try:
@@ -454,7 +457,7 @@ class Curry2ICurryConverter(object):
             self.place_interfaces(file_in, file_out)
             _interfaces.write(file_out, currypath, frontend=True)
         except CompileError as err:
-          if slot is not None:
+          if slot is not None and not _preprocessor.missing(file_in):
             slot.update_error(err)
           raise
         if slot is not None:

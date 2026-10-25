@@ -7,7 +7,9 @@ whose measured repetitions succeeded gets one more repetition under perf,
 which counts the instructions (see measure.py); --no-perf leaves it out.
 An item that cannot run on this machine (Item.unavailable: a tool of the
 applications suite is missing) is skipped: its row says why, and no record
-is written.  A run that times out ends the repetitions of its item, so a
+is written. An unavailable source preprocessor instead writes an excluded
+record, so the baseline retains the reason and eligible coverage.
+A run that times out ends the repetitions of its item, so a
 program past the limit costs one timeout, not one per repetition; the
 record holds that sample.
 '''
@@ -191,11 +193,11 @@ def write_row(stream, record):
   stream.flush()
 
 
-def write_skip(stream, item, reason):
+def write_skip(stream, item, reason, status='skipped'):
   '''The row of an item that cannot run on this machine.'''
   stream.write(COLUMNS % (
       item.suite, item.program[:16], item.backend, item.variant or '-'
-    , '-', '-', '-', '-', '-', '-', 'skipped'
+    , '-', '-', '-', '-', '-', '-', status
     ) + '\n')
   stream.write('    %s\n' % reason)
   stream.flush()
@@ -278,12 +280,23 @@ def main(argv=None):
     log.write('records: %s\n' % (args.output or 'standard output'))
     log.write(COLUMNS % HEADINGS + '\n')
     failures = 0
+    covered = excluded = eligible = 0
     try:
       for item in items:
         reason = item.unavailable()
         if reason:
-          write_skip(log, item, reason)
+          preprocessor = 'needs the preprocessor ' in reason
+          write_skip(log, item, reason, 'excluded' if preprocessor else 'skipped')
+          if preprocessor:
+            record = records.exclusion(
+                item.suite, item.program, item.backend, item.variant, reason,
+                meta, label=settings.label, commit=commit
+              )
+            records.write(out, record)
+            out.flush()
+            excluded += 1
           continue
+        eligible += 1
         samples = measure_item(item, args.repeat, perf)
         record = records.summarize(
             item.suite, item.program, item.backend, item.variant, samples
@@ -293,6 +306,8 @@ def main(argv=None):
         out.flush()
         write_row(log, record)
         failures += record['status'] != 'ok'
+        covered += record['status'] == 'ok'
+      log.write('%d of %d covered, %d excluded\n' % (covered, eligible, excluded))
     finally:
       if out is not sys.stdout:
         out.close()

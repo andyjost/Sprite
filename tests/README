@@ -1188,16 +1188,26 @@ the module from them without the front end, and no line names it.
 The overlay records a source digest only when the source matches the
 commit that packed the archive. A shallow history ending at that commit
 cannot establish this provenance and leaves the products without a stamp.
-Without them the front end runs currypp and fails, and the module is
-without a product as any other: the pass fails, and the line of the
-directory adds the cause when the log shows it ("poker_four_of_a_kind.curry
-needs currypp, which the PATH lacks; make overlay after make stage
-supplies its products").  The examples under examples/ are not covered;
+Without usable products, the toolchain and sprite-make report
+"poker_four_of_a_kind.curry needs the preprocessor currypp, which is not on
+PATH." The prepare pass and functional drivers skip the module for that
+reason; other compilation errors still fail. currypp is optional, found
+on PATH, and shipped by neither Sprite nor the front-end package. Install
+it with PAKCS's package manager (cypm install currypp). Both configurations
+have test archives; make overlay-archive packs products and their source
+provenance using the selected installation. The examples under examples/ are not covered;
 unit_examples.py alone compiles them.
+
+The benchmark harness records PokerChoice and PokerFree as excluded when
+currypp is absent, including the reason and no timing samples in the
+baseline records. A successful dissertation run then reports 28 of 28
+covered and 2 excluded; with currypp it reports 30 of 30 and 0 excluded.
+Historical baseline timings are unchanged.
 
 --prepare-only runs the pass alone, for the pool and the corpus of each
 selected functional test, one process at a time, and exits with its
-status: 0 when every directory compiled whole, 1 when one did not, 130
+status: 0 when every directory compiled or skipped unavailable
+preprocessors, 1 when another compilation failed, 130
 after an interrupt.  No test file runs; --list shows the directories.  The
 CI script (.github/scripts/run-tests.sh) runs it on the C++ backend before
 its loop over the files of a shard, each in a process of its own: a fresh

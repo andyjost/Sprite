@@ -396,10 +396,14 @@ class Item:
   def unavailable(self):
     '''
     One line that says why the item cannot run on this machine (a tool it
-    needs is missing), or None when it can.  The run command skips such an
-    item and writes no record for it.
+    needs is missing), or None when it can. Missing source preprocessors
+    produce excluded records; other unavailable items are skipped.
     '''
-    return None
+    from curry.toolchain import _preprocessor
+    env = self.settings.environment(self.backend)
+    return _preprocessor.missing(
+        os.path.join(CURRYDIR, self.program + '.curry'), path=env.get('PATH')
+      )
 
   def measure(self, perf=False):
     '''

@@ -47,7 +47,7 @@ ADVISORY = ('cpu', 'wall')
 THRESHOLD = 0.10
 DETERMINISTIC_THRESHOLD = 0.01
 VERDICTS = (
-    'same', 'faster', 'slower', 'fail', 'no-metric', 'only-old', 'only-new'
+    'same', 'faster', 'slower', 'fail', 'no-metric', 'only-old', 'only-new', 'excluded'
   )
 COLUMNS = '%-10s %-16s %-7s %-13s %10s %10s %6s %6s  %-9s %s'
 HEADINGS = (
@@ -155,6 +155,9 @@ def compare(old, new, metric, threshold, counters=COUNTERS, tolerance=0.0):
       'key': records.key(old or new), 'old': None, 'new': None, 'ratio': None
     , 'verdict': None, 'counters': [], 'within': [], 'ratios': {}
     }
+  if any(record and record['status'] == 'excluded' for record in (old, new)):
+    row['verdict'] = 'excluded'
+    return row
   if old is None:
     row['verdict'] = 'only-new'
     return row
@@ -205,7 +208,7 @@ def write_row(stream, row, metric, deterministic=False):
   suite, program, backend, variant = row['key']
   if row['counters']:
     counters = ', '.join(row['counters'])
-  elif row['verdict'] in ('only-old', 'only-new', 'fail'):
+  elif row['verdict'] in ('only-old', 'only-new', 'fail', 'excluded'):
     counters = '-'
   elif row['within']:
     counters = 'within'
@@ -304,6 +307,8 @@ def summary(rows, metric, threshold, deterministic=False):
         , counts['only-old'] + counts['only-new'], counts['changed'], settings
         )
     )
+  if counts['excluded']:
+    line += '; %d excluded' % counts['excluded']
   return counts, line
 
 

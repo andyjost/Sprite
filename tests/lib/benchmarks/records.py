@@ -22,7 +22,9 @@ variant such as the state of a cache.  The fields, in order:
     repeat       The number of measured repetitions.
     warmup       The number of warm-up runs before them.
     status       ok when every measured repetition succeeded; else the
-                 status of the first failure, fail or timeout.
+                 status of the first failure, fail or timeout. excluded
+                 records name an unavailable preprocessor in error, have
+                 no samples, repeat=warmup=0, and null measurements.
     error        One line about the first failure, or None.
     wall         Median wall seconds of the child process.
     cpu          Median CPU seconds (user plus system) of the child process
@@ -76,7 +78,7 @@ from . import BACKENDS, OPPONENTS, SUITES
 
 __all__ = [
     'ADDED', 'COUNTERS', 'FIELDS', 'MEDIANS', 'SCHEMA', 'SCHEMAS', 'STATUSES'
-  , 'commit', 'cpu_model', 'key', 'machine', 'median', 'memory_gb', 'now'
+  , 'commit', 'cpu_model', 'exclusion', 'key', 'machine', 'median', 'memory_gb', 'now'
   , 'read', 'sample', 'summarize', 'upgrade', 'validate', 'write'
   ]
 
@@ -84,7 +86,7 @@ SCHEMA = 2
 SCHEMAS = (1, 2)
 MEDIANS = ('wall', 'cpu', 'peak_rss', 'eval_wall', 'eval_cpu', 'compile')
 COUNTERS = ('steps', 'forks', 'collections')
-STATUSES = ('ok', 'fail', 'timeout')
+STATUSES = ('ok', 'fail', 'timeout', 'excluded')
 # The fields that a later schema added, with the schema that added them.  A
 # record of an earlier schema may lack them.
 ADDED = {'instructions': 2}
@@ -103,6 +105,18 @@ FIELDS = (
   , ('collections', (int, _NONE)), ('instructions', (int, _NONE))
   , ('samples', list), ('warnings', list), ('meta', dict)
   )
+
+
+def exclusion(suite, program, backend, variant, reason, meta, label='', commit=None):
+  '''A baseline entry for an optional preprocessor absent from PATH.'''
+  record = {name: None for name, _ in FIELDS}
+  record.update(
+      schema=SCHEMA, suite=suite, program=program, backend=backend,
+      variant=variant, commit=commit, date=now(), label=label, repeat=0,
+      warmup=0, status='excluded', error=reason, samples=[], warnings=[],
+      meta=meta
+    )
+  return record
 
 
 def median(values):

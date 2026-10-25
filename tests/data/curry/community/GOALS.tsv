@@ -341,3 +341,8 @@ curry2go-1.7.0-examples/Last.curry	curry2go-1.7.0-examples/Last.curry	main5	not 
 curry2go-1.7.0-examples/Last.curry	curry2go-1.7.0-examples/Last.curry	main6	not stated by source	explicit upstream main family
 curry2go-1.7.0-examples/Last.curry	curry2go-1.7.0-examples/Last.curry	main7	not stated by source	explicit upstream main family
 curry2go-1.7.0-examples/FunPatsExpVar.curry	curry2go-1.7.0-examples/FunPatsExpVar.curry	test7	X2 ? X1	FunPatsExpVar.curry:28
+tutorial/chapter4/fullHouse.curry	tutorial/chapter4/fullHouse.curry	main	not stated by source	upstream main: default-rule success and failure
+tutorial/chapter4/poker.curry	tutorial/chapter4/poker.curry	main	not stated by source	upstream main: default-rule success and failure
+tutorial/chapter6/betterblocks.curry	tutorial/chapter6/BetterBlocksGoals.curry	moveToFinal	not stated by source	one-block preferred move
+tutorial/chapter6/betterblocks.curry	tutorial/chapter6/BetterBlocksGoals.curry	fallbackMove	not stated by source	two alternatives of the default move
+tutorial/chapter6/betterblocks.curry	tutorial/chapter6/BetterBlocksGoals.curry	noMoveFromFinal	no values	no legal move away from the completed goal

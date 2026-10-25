@@ -40,6 +40,23 @@ ICurry
     versions of the ICurry Compiler differs, and Sprite will not work with
     them.
 
+Curry preprocessor
+    ``currypp`` is optional and is shipped by neither Sprite nor the
+    front-end package. Modules whose OPTIONS_CYMAKE pragma names
+    ``--pgmF=currypp`` need it on PATH when compiling from source.
+    Install the preprocessor for your PAKCS installation with its Curry
+    Package Manager, then put the package manager's executable directory
+    on PATH:
+
+    .. code:: bash
+
+        cypm update
+        cypm install currypp
+
+    The tests skip source compilation when the tool is absent and can use
+    the precompiled products in the test archives. The benchmark harness
+    records these programs as excluded, with the missing tool as the reason.
+
 Python
     Sprite supports Python 3.11 to 3.15, with 3.11.4 as the minimum because
     archive extraction uses ``tarfile.extractall(filter=)``.  CMake

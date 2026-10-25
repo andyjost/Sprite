@@ -45,18 +45,10 @@ that carries it) does not grow with every change to the runtime headers.  A
 cache the environment named is left alone: it may serve other
 installations.
 
-A module whose source names a preprocessor the machine lacks, through
-the pragma OPTIONS_CYMAKE -F --pgmF=TOOL (poker_four_of_a_kind of smap
-names currypp), cannot be made from its source.  The overlay archive
-holds its FlatCurry and its ICurry (make overlay, run after make stage;
-section 8 of README), and sprite-make makes the module from them without
-the front end.  Without them the front end runs the tool and fails; the
-module is then without a product, as any other, and the pass fails.  The
-note of the job adds the cause when the log shows it ("poker.curry needs
-currypp, which the PATH lacks; make overlay after make stage supplies its
-products"): the source names the tool, the PATH lacks it, and the log
-holds the message of the front end (PREPROCESSOR_FAILURE).  The status
-does not change for it: a failed pass keeps its meaning.
+A module whose source names an unavailable preprocessor is skipped when
+it has no usable products. The note names the tool. Archived products
+remain usable without the preprocessor; other compilation failures still
+fail the prepare pass.
 '''
 
 import os, re, shutil, subprocess
@@ -217,17 +209,11 @@ CORPUS = [
   , ('data/curry/smap', (), ('func_smap.py',))
   ]
 
-# Sources that must fail to compile, or that need a tool the machine may
-# lack.  A test checks the failure: badimport imports a module that does
+# Sources that must fail to compile. A test checks the failure: badimport
+# imports a module that does
 # not exist; helloExternal declares an external function that no backend
-# resolves (unit_icurry.py).  PokerChoice and PokerFree of the benchmark
-# programs need the Curry preprocessor currypp (see
-# data/curry/benchmarks/results/README.md); the harness compiles them in
-# its warm-up and records the failure itself.
-EXCLUDE = {
-    'badimport.curry', 'helloExternal.curry', 'PokerChoice.curry'
-  , 'PokerFree.curry'
-  }
+# resolves (unit_icurry.py). Optional preprocessors are handled as skips.
+EXCLUDE = {'badimport.curry', 'helloExternal.curry'}
 
 # The target of sprite-make per backend.  Compact, zipped JSON is what an
 # import writes, so the products are the same files.
@@ -243,15 +229,6 @@ PRODUCT = {'cxx': '.so'}
 # C++ toolchain).  The pass asks for zipped JSON (-z); the plain form is
 # accepted too.
 JSON_PRODUCTS = ('.json.z', '.json')
-
-# The pragma that names a preprocessor the Curry front end runs over a
-# source, -F --pgmF=TOOL: OPTIONS_CYMAKE in the sources of PAKCS,
-# OPTIONS_FRONTEND in the current front end.  poker_four_of_a_kind of smap
-# names currypp.
-PRAGMA = re.compile(
-    r'\{-#\s*OPTIONS_(?:CYMAKE|FRONTEND)\b(?P<options>.*?)#-\}', re.DOTALL
-  )
-PGMF = re.compile(r'--pgmF(?:=|\s+)(?P<tool>\S+)')
 
 # What the log holds when the front end could not run the preprocessor:
 # the message of the shell ("currypp: not found") or the line of the
@@ -273,19 +250,11 @@ def preprocessor_failed(text, tool):
 def preprocessor(path):
   '''
   The preprocessor that the Curry source at ``path`` names in an OPTIONS
-  pragma (PRAGMA, PGMF), or None.  The front end runs the tool over the
+  pragma, or None.  The front end runs the tool over the
   source, so a machine without it cannot make the module from its source.
   '''
-  try:
-    with open(path, 'r', errors='replace') as stream:
-      text = stream.read()
-  except OSError:
-    return None
-  for match in PRAGMA.finditer(text):
-    found = PGMF.search(match.group('options'))
-    if found:
-      return found.group('tool')
-  return None
+  from curry.toolchain import _preprocessor
+  return _preprocessor.preprocessor(path)
 
 def interpret_flag(flags):
   '''
@@ -462,10 +431,15 @@ class PrepareJob(Job):
     the log ``text`` shows (preprocessor_failed).  A dict of module to
     tool, in the order of ``missing``.
     '''
+    from curry.toolchain import _preprocessor
     found = {}
     for module in missing:
       tool = self.tool_lacking(module)
-      if tool is not None and preprocessor_failed(text, tool):
+      if tool is not None and (
+          preprocessor_failed(text, tool)
+          or _preprocessor.missing(os.path.join(self.testdir, module),
+                                  path=(self.env or os.environ).get('PATH')) in text
+        ):
         found[module] = tool
     return found
 
@@ -528,13 +502,18 @@ class PrepareJob(Job):
             len(missing), len(self.modules), _names(missing)
           ))
         self.lacking = self.lacking_tools(missing, self.log_text())
+        if len(self.lacking) == len(missing):
+          self.status = 'ok'
+          self.returncode = 0
+          self.note = None
+          details = ['%d module%s skipped' % (
+              len(missing), '' if len(missing) == 1 else 's'
+            )]
         for tool in sorted(set(self.lacking.values())):
           names = [m for m, t in self.lacking.items() if t == tool]
           details.append(
-              '%s need%s %s, which the PATH lacks; make overlay after make '
-              'stage supplies %s products' % (
+              '%s need%s the preprocessor %s, which is not on PATH.' % (
                   _names(names), 's' if len(names) == 1 else '', tool
-                , 'its' if len(names) == 1 else 'their'
                 ))
       else:
         details.append('every product is present')
@@ -564,6 +543,9 @@ def summary(jobs):
     head += ', %d from the product cache' % restored
   refreshed = sum(job.refreshed or 0 for job in jobs)
   served = sum(job.served or 0 for job in jobs)
+  skipped = sum(len(job.lacking) for job in jobs if job.status == 'ok')
+  if skipped:
+    head += ', %d skipped for an unavailable preprocessor' % skipped
   for part in _pairs(refreshed, served):
     head += ', ' + part
   missing = []
@@ -577,7 +559,7 @@ def summary(jobs):
     else:
       missing.extend('%s (%s)' % (module, job.backend) for module in found)
   if not missing and not unknown:
-    return head + ', every product present'
+    return head + (', every other product present' if skipped else ', every product present')
   parts = [head]
   if missing:
     parts.append('%d without a product: %s' % (len(missing), _some(missing)))
