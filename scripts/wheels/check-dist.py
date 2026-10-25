@@ -14,8 +14,8 @@ PYTHONS = [('cp311', 'cp311'), ('cp312', 'cp312'), ('cp313', 'cp313'),
 # auditwheel show on Linux, the load commands on macOS (repair.py).
 PLATFORMS = [('manylinux_2_28_x86_64', '.auditwheel.txt'),
              ('manylinux_2_28_aarch64', '.auditwheel.txt'),
-             ('macosx_11_0_arm64', '.otool.txt'),
-             ('macosx_11_0_x86_64', '.otool.txt')]
+             ('macosx_13_3_arm64', '.otool.txt'),
+             ('macosx_13_3_x86_64', '.otool.txt')]
 SDIST_FILES = ['pyproject.toml', 'VERSION', 'README.pypi.md', 'LICENSE',
                'CMakeLists.txt', 'scripts/build-package.py',
                'src/curryrt/curryrt.hpp', 'src/python/__init__.pyi',

@@ -118,9 +118,11 @@ jobs:
 
   # The wheels: six interpreters on each of manylinux x86-64 and aarch64,
   # and on macOS Apple Silicon and Intel (issue #162, step 4).  On macOS
-  # the deployment target is 11.0 (std::filesystem and aligned_alloc need
-  # 10.15); the wheel of the front end, which the Homebrew bottle of GMP
-  # pins to the macOS of its runner, sets the floor a user sees.  Nothing is
+  # the deployment target is 13.3: std::to_chars of a floating-point value,
+  # which show.cpp uses, is in the libc++ of macOS 13.3 (std::filesystem
+  # and aligned_alloc need 10.15); the wheel of the front end, which the
+  # Homebrew bottle of GMP pins to the macOS of its runner, sets the floor
+  # a user sees.  Nothing is
   # vendored into a macOS wheel: the runtime library and the compiled
   # Curry library are its own files, named by @rpath and by install name,
   # so the repair command checks the payload in place of delocate.
@@ -175,7 +177,7 @@ jobs:
             LC_ALL=C.UTF-8
             PIP_FIND_LINKS=$GITHUB_WORKSPACE/.wheelhouse
             SPRITE_CACHE_FILE="" SPRITE_PRODUCT_CACHE=""
-            MACOSX_DEPLOYMENT_TARGET=11.0
+            MACOSX_DEPLOYMENT_TARGET=13.3
           CIBW_BEFORE_BUILD_MACOS: python -m pip install --find-links={project}/.wheelhouse 'curry-frontend>=2.0.0'
           CIBW_CONFIG_SETTINGS: >-
             cmake.define.WITH_PAKCS=
