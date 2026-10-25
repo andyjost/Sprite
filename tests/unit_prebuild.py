@@ -141,6 +141,21 @@ class TestStagedLibrary(cytest.TestCase):
           self.assertNotIn(name, env)
 
 
+class TestCurrentToolsPrebuild(unittest.TestCase):
+  def test_current_tools_stage_precedes_shards(self):
+    with open(os.path.join(SOURCE_ROOT, '.github/workflows/ci.yml')) as stream:
+      ci = stream.read()
+    job = ci.split('  current-tools:\n', 1)[1].split('  python-versions:\n', 1)[0]
+    stage = job.index('          make stage\n')
+    overlay = job.index('        run: make overlay\n')
+    unit = job.index("run-tests.sh cxx 'unit_*.py'")
+    functional = job.index("run-tests.sh cxx 'func_*.py'")
+    self.assertLess(stage, overlay)
+    self.assertLess(overlay, unit)
+    self.assertLess(overlay, functional)
+    self.assertIn('-DWITH_ICURRY=', job)
+
+
 class JsonModuleTestCase(cytest.TestCase):
   '''A temporary source directory of hand-written ICurry-JSON modules.'''
   # The C++ runtime keeps one entry per module name, so every module built in

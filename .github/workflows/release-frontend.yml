@@ -16,6 +16,11 @@ name: Release the front end
         description: The id of the green run of "Curry front end from source" whose wheels are published
         type: string
         required: true
+      version:
+        description: Front-end version built by the selected run
+        type: choice
+        options: ['2.0.0', '3.1.0']
+        default: '2.0.0'
       index:
         description: The index to publish to
         type: choice
@@ -29,6 +34,9 @@ jobs:
   collect:
     name: collect the wheels of run ${{ inputs.run_id }}
     runs-on: ubuntu-24.04
+    env:
+      FRONTEND_VERSION: ${{ inputs.version }}
+      FRONTEND_ARTIFACT_PREFIX: ${{ inputs.version == '3.1.0' && 'curry-frontend' || 'frontend' }}
     timeout-minutes: 20
     permissions:
       actions: read
@@ -44,11 +52,20 @@ jobs:
           gh run view "$RUN_ID" --json workflowName,conclusion,headBranch,headSha,displayTitle
           test "$(gh run view "$RUN_ID" --json workflowName --jq .workflowName)" = 'Curry front end from source'
           test "$(gh run view "$RUN_ID" --json conclusion --jq .conclusion)" = success
-          gh run download "$RUN_ID" --pattern 'frontend-*' --dir artifacts
+          gh run download "$RUN_ID" --pattern "${FRONTEND_ARTIFACT_PREFIX}-${FRONTEND_VERSION}-*" --dir artifacts
+          # Advisory jobs can fail while the run remains green. Require
+          # every gate of the selected version to have passed on both targets.
+          outcomes=$(find artifacts -name outcome.txt | wc -l)
+          test "$outcomes" = 2
+          for outcome in artifacts/*/outcome.txt; do
+            for gate in fetch toolchain build wheel tag smoke stage parity; do
+              grep -qx "$gate=success" "$outcome"
+            done
+          done
           # The manylinux-tagged wheel of each target is under dist/; the
           # wheels/ directory holds the linux_* wheel, which PyPI refuses.
           mkdir -p dist
-          find artifacts -path '*/dist/*.whl' -exec cp -v '{}' dist/ ';'
+          find artifacts -path "*/dist/curry_frontend-${FRONTEND_VERSION}.post*-*.whl" -exec cp -v '{}' dist/ ';'
           ls -l dist
       - name: Refuse a run from before the rename, and a count other than two
         run: |
@@ -67,9 +84,9 @@ jobs:
           tools/bin/python -m pip install --quiet twine
           tools/bin/python -m twine check --strict dist/*.whl
           python3 -m venv smoke
-          smoke/bin/python -m pip install --no-index --no-deps dist/curry_frontend-*x86_64.whl
-          test "$(smoke/bin/curry-frontend --numeric-version)" = 2.0.0
-          smoke/bin/curry-frontend --version
+          smoke/bin/python -m pip install --no-index --no-deps dist/curry_frontend-${FRONTEND_VERSION}.post*-*x86_64.whl
+          test "$(timeout 30 smoke/bin/curry-frontend --numeric-version)" = "$FRONTEND_VERSION"
+          timeout 30 smoke/bin/curry-frontend --version
       - uses: actions/upload-artifact@v4
         with:
           name: release-wheels-${{ inputs.run_id }}

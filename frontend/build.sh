@@ -6,6 +6,12 @@ source_dir=$(cd "$1" && pwd -P)
 mkdir -p "$2"
 output_dir=$(cd "$2" && pwd -P)
 scripts_dir=$(cd "$(dirname "$0")" && pwd)
+version=${3:-2.0.0}
+case "$version" in
+  2.0.0) resolver=lts-16.9 ;;
+  3.1.0) resolver=lts-23.19 ;;
+  *) echo "unsupported front end: $version" >&2; exit 2 ;;
+esac
 os=$(uname -s)
 arch=$(uname -m)
 # macOS has shasum, not sha256sum, unless GNU coreutils is installed.
@@ -23,7 +29,7 @@ describe_binary() {
 ghc --version
 ghc --info
 cabal --version
-if [ "$os" != Darwin ] && [ "$arch" = x86_64 ]; then
+if [ "$version" = 3.1.0 ] || { [ "$os" != Darwin ] && [ "$arch" = x86_64 ]; }; then
   stack --version
 fi
 gcc --version
@@ -34,13 +40,17 @@ else
   ldd --version
 fi
 cd "$source_dir"
-for patchfile in "$scripts_dir"/patches/*.patch; do
+# All five 2.0.0 fixes are already resolved upstream in 3.1.0; see patches/README.md.
+patch_dir="$scripts_dir/patches/$version"
+if [ "$version" = 2.0.0 ]; then patch_dir="$scripts_dir/patches"; fi
+for patchfile in "$patch_dir"/*.patch; do
   [ -f "$patchfile" ] || continue
   sha256 "$patchfile"
   patch --batch --forward --fuzz=0 -p1 < "$patchfile"
 done
 cat ./*.cabal
 [ ! -f stack.yaml ] || cat stack.yaml
+[ ! -f stack.yaml.lock ] || cat stack.yaml.lock
 executable=$(python3 - <<'PY'
 from pathlib import Path
 import re
@@ -64,17 +74,18 @@ build_frontend() {
     gmp=$(brew --prefix gmp)
     extra="--extra-lib-dirs=$gmp/lib --extra-include-dirs=$gmp/include"
   fi
-  if [ "$os" != Darwin ] && [ "$arch" = x86_64 ]; then
+  if [ "$version" = 3.1.0 ] || { [ "$os" != Darwin ] && [ "$arch" = x86_64 ]; }; then
     # Do not override the source resolver with a modern snapshot.
-    python3 - <<'PY'
+    python3 - "$resolver" <<'PY'
 from pathlib import Path
-import re
+import re, sys
 text = Path('stack.yaml').read_text()
-if not re.search(r'^resolver:\s*[\x27\x22]?lts-16\.9[\x27\x22]?\s*(?:#.*)?$', text, re.M):
+if not re.search(r'^resolver:\s*[\x27\x22]?' + re.escape(sys.argv[1]) + r'[\x27\x22]?\s*(?:#.*)?$', text, re.M):
   raise SystemExit('Unexpected resolver; reviewer must inspect stack.yaml.')
 PY
     [ "$?" = 0 ] || return 1
-    stack --system-ghc --no-install-ghc build --verbose \
+    # shellcheck disable=SC2086
+    stack --system-ghc --no-install-ghc $extra build --verbose \
       --copy-bins --local-bin-path "$output_dir/installed" --ghc-options="$options" || return $?
     cp "$output_dir/installed/$executable" "$output_dir/curry-frontend" || return $?
   else
@@ -92,15 +103,15 @@ PY
   describe_binary "$output_dir/curry-frontend" > "$output_dir/dynamic-elf.txt" || return $?
   cat "$output_dir/dynamic-elf.txt"
 }
-if [ "$os" = Darwin ] || [ "$arch" != x86_64 ]; then
+if [ "$version" = 2.0.0 ] && { [ "$os" = Darwin ] || [ "$arch" != x86_64 ]; }; then
   cabal update --verbose=3
 fi
 # CI run 3 established that AlmaLinux 8 has no GMP archive. Use its shared
 # GMP and glibc; package.py vendors GMP with $ORIGIN and verifies the ELF floor.
 build_frontend 2>&1 | tee "$output_dir/dynamic.log"
 echo dynamic > "$output_dir/linkage-requested.txt"
-test "$("$output_dir/curry-frontend" --numeric-version)" = 2.0.0
-"$output_dir/curry-frontend" --version
+test "$(timeout 30 "$output_dir/curry-frontend" --numeric-version)" = "$version"
+timeout 30 "$output_dir/curry-frontend" --version
 file "$output_dir/curry-frontend"
 if [ "$os" = Darwin ]; then
   describe_binary "$output_dir/curry-frontend" > "$output_dir/elf.txt"

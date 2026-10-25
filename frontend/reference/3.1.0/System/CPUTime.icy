@@ -1,0 +1,1 @@
+(IProg "System.CPUTime" ["Prelude"] [] [(IFunction ("System.CPUTime","getCPUTime",0) 0 Public [] (IExternal "System.CPUTime.getCPUTime")),(IFunction ("System.CPUTime","getElapsedTime",1) 0 Public [] (IExternal "System.CPUTime.getElapsedTime"))])
