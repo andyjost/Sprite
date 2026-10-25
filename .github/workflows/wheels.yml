@@ -24,6 +24,10 @@ name: Sprite distributions
         type: choice
         options: [artifact, pypi]
         default: artifact
+      frontend_run_id:
+        description: A run of "Curry front end from source" whose wheels are the build requirement (default the latest successful run on master)
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -38,18 +42,30 @@ jobs:
       contents: read
       actions: read
     steps:
-      - name: Find the latest successful front-end build on master
+      - name: Find the front-end build, the latest successful one on master unless a run is given
         if: inputs.frontend_source != 'pypi'
         id: run
         uses: actions/github-script@v7
+        env:
+          FRONTEND_RUN_ID: ${{ inputs.frontend_run_id }}
         with:
           script: |
-            const {data} = await github.rest.actions.listWorkflowRuns({
-              ...context.repo, workflow_id: 'frontend.yml', branch: 'master',
-              status: 'success', per_page: 1
-            });
-            const run = data.workflow_runs[0];
-            if (!run) throw new Error('No successful frontend.yml run on master');
+            let run;
+            if (process.env.FRONTEND_RUN_ID) {
+              const {data} = await github.rest.actions.getWorkflowRun({
+                ...context.repo, run_id: Number(process.env.FRONTEND_RUN_ID)
+              });
+              run = data;
+              if (run.name !== 'Curry front end from source' || run.conclusion !== 'success')
+                throw new Error(`Run ${run.id} is ${run.name}, ${run.conclusion}`);
+            } else {
+              const {data} = await github.rest.actions.listWorkflowRuns({
+                ...context.repo, workflow_id: 'frontend.yml', branch: 'master',
+                status: 'success', per_page: 1
+              });
+              run = data.workflow_runs[0];
+              if (!run) throw new Error('No successful frontend.yml run on master');
+            }
             core.setOutput('id', run.id);
             await core.summary.addRaw(`Front end: ${run.html_url}\n`).write();
       - name: Download the reviewed front-end artifacts
@@ -100,16 +116,35 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
 
+  # The wheels: six interpreters on each of manylinux x86-64 and aarch64,
+  # and on macOS Apple Silicon and Intel (issue #162, step 4).  On macOS
+  # the deployment target is 14.0: std::to_chars of a floating-point value,
+  # which show.cpp uses, is in the libc++ of macOS 13.3, and the tags of
+  # macOS 11 and later name a major version alone, so 13.3 means the wheel
+  # of 14.0 (std::filesystem and aligned_alloc need 10.15); the wheel of
+  # the front end, which the Homebrew bottle of GMP pins to the macOS of
+  # its runner, sets the floor a user sees.  Nothing is
+  # vendored into a macOS wheel: the runtime library and the compiled
+  # Curry library are its own files, named by @rpath and by install name,
+  # so the repair command checks the payload in place of delocate.
   wheels:
     needs: frontend
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 120
+    timeout-minutes: 150
+    env:
+      # For cibuildwheel itself as well as the build (the setting in
+      # CIBW_ENVIRONMENT_MACOS reaches the compiler alone; the first run
+      # built files with a floor of 13.3 under the tags 11.0 and 10.9, which
+      # the repair command corrects to the floor of the files).
+      MACOSX_DEPLOYMENT_TARGET: '14.0'
     strategy:
       fail-fast: false
       matrix:
         include:
-          - {arch: x86_64, runner: ubuntu-24.04}
-          - {arch: aarch64, runner: ubuntu-24.04-arm}
+          - {name: linux-x86_64, arch: x86_64, runner: ubuntu-24.04}
+          - {name: linux-aarch64, arch: aarch64, runner: ubuntu-24.04-arm}
+          - {name: macos-arm64, arch: arm64, runner: macos-15}
+          - {name: macos-x86_64, arch: x86_64, runner: macos-15-intel}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -121,14 +156,17 @@ jobs:
         with:
           name: frontend-wheels
           path: .wheelhouse
-      - name: Build and repair six wheels with the container's compiler
+      - name: Build and repair six wheels with the compiler of the container or of Xcode
         uses: pypa/cibuildwheel@v4.3.1
         env:
           CIBW_ARCHS_LINUX: ${{ matrix.arch }}
+          CIBW_ARCHS_MACOS: ${{ matrix.arch }}
           CIBW_BUILD_FRONTEND: pip
           CIBW_BUILD: >-
             cp311-manylinux_* cp312-manylinux_* cp313-manylinux_*
             cp314-manylinux_* cp314t-manylinux_* cp315-manylinux_*
+            cp311-macosx_* cp312-macosx_* cp313-macosx_*
+            cp314-macosx_* cp314t-macosx_* cp315-macosx_*
           # 4.3.1 provides final CPython 3.15; free-threaded 3.14 is
           # enabled by its explicit selector, with no experimental flag.
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
@@ -138,15 +176,48 @@ jobs:
             LC_ALL=C.UTF-8
             PIP_FIND_LINKS=/project/.wheelhouse
             SPRITE_CACHE_FILE="" SPRITE_PRODUCT_CACHE=""
-          CIBW_BEFORE_BUILD: python -m pip install --find-links=/project/.wheelhouse 'curry-frontend>=2.0.0'
+          CIBW_BEFORE_BUILD_LINUX: python -m pip install --find-links=/project/.wheelhouse 'curry-frontend>=2.0.0'
+          # The macOS build runs on the runner itself: the project directory
+          # is the workspace, and the environment reaches the build and the
+          # tests, as on Linux.
+          CIBW_ENVIRONMENT_MACOS: >-
+            LC_ALL=C.UTF-8
+            PIP_FIND_LINKS=$GITHUB_WORKSPACE/.wheelhouse
+            SPRITE_CACHE_FILE="" SPRITE_PRODUCT_CACHE=""
+            MACOSX_DEPLOYMENT_TARGET=14.0
+            _PYTHON_HOST_PLATFORM=macosx-14.0-${{ matrix.arch }}
+          # cibuildwheel tests a macOS wheel in a venv whose host platform it
+          # pins to the interpreter's default target (11.0, 10.9), where pip
+          # refuses a wheel tagged 14.0; the step after this one installs the
+          # cp311 wheel in a venv of the runner, which sees macOS 15.
+          CIBW_TEST_SKIP: '*-macosx_*'
+          CIBW_BEFORE_BUILD_MACOS: python -m pip install --find-links={project}/.wheelhouse 'curry-frontend>=2.0.0'
           CIBW_CONFIG_SETTINGS: >-
             cmake.define.WITH_PAKCS=
             cmake.define.WITH_CURRY_FRONTEND=curry-frontend
             cmake.define.WITH_ICURRY=
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: >-
             python /project/scripts/wheels/repair.py {wheel} {dest_dir}
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >-
+            python -m pip install --quiet wheel &&
+            python {project}/scripts/wheels/repair.py {wheel} {dest_dir}
           CIBW_TEST_COMMAND: python {project}/scripts/wheels/smoke.py
-      - name: Save auditwheel show evidence beside the final wheels
+      - name: Install the cp311 wheel on the runner and run the smoke test (macOS)
+        if: runner.os == 'macOS'
+        # The environment is not activated on purpose: python -m curry finds
+        # the front end beside its interpreter. Then the compiler of Xcode
+        # compiles Peano, as the user's g++ does in the Linux smoke test.
+        run: |
+          set -euxo pipefail
+          sw_vers
+          python -m venv smoke
+          smoke/bin/python -m pip install --find-links=.wheelhouse wheelhouse/currylang-*-cp311-cp311-macosx_*.whl
+          smoke/bin/python -m pip list
+          smoke/bin/python scripts/wheels/smoke.py --peano examples/Peano.curry
+          smoke/bin/sprite-make --so examples/Peano.curry
+          test -s examples/.curry/sprite-pakcs-3.4.1/Peano.so
+          SPRITE_INTERPRETER_FLAGS=interpret:off smoke/bin/python scripts/wheels/smoke.py --peano examples/Peano.curry
+      - name: Save the evidence beside the final wheels, auditwheel show or the load commands
         run: |
           set -euxo pipefail
           python -m pip install auditwheel
@@ -155,10 +226,11 @@ jobs:
           done
       - uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.arch }}
+          name: wheels-${{ matrix.name }}
           path: |
             wheelhouse/*.whl
             wheelhouse/*.auditwheel.txt
+            wheelhouse/*.otool.txt
           if-no-files-found: error
 
   sdist:
@@ -195,7 +267,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: wheels-x86_64
+          name: wheels-linux-x86_64
           path: dist
       - uses: actions/download-artifact@v4
         with:
@@ -265,7 +337,7 @@ jobs:
         with:
           name: sdist
           path: dist
-      - name: Require exactly twelve wheels and one complete sdist
+      - name: Require exactly twenty-four wheels and one complete sdist
         env:
           RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
         run: python scripts/wheels/check-dist.py dist

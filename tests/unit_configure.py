@@ -233,7 +233,10 @@ class TestCMake(cytest.TestCase):
     packaged.write_text('#!/bin/sh\necho 2.0.0\n')
     packaged.chmod(0o755)
     missing = str(bindir / 'missing')
-    with mock.patch.dict(os.environ, PATH=str(bindir)):
+    # No script beside the interpreter: the lookup falls to PATH.
+    interpreter = str(Path(self.directory.name) / 'interpreter' / 'python')
+    with mock.patch.dict(os.environ, PATH=str(bindir)), \
+         mock.patch.object(sys, 'executable', interpreter):
       os.environ.pop('SPRITE_FRONTEND', None)
       with mock.patch.object(config, 'installed_path', return_value=missing):
         self.assertEqual(config.curry_frontend(), str(packaged))
@@ -335,7 +338,8 @@ class TestWrappers(cytest.TestCase):
       directory = Path(directory)
       make = directory / 'sprite-make'
       frontend = directory / 'frontend'
-      for path in [make, frontend]:
+      beside = directory / 'curry-frontend'
+      for path in [make, frontend, beside]:
         path.write_text('#!/bin/sh\nexit 0\n')
         path.chmod(0o755)
       with mock.patch.object(config, 'installed_path', return_value='/nonexistent/tool'), \
@@ -343,6 +347,10 @@ class TestWrappers(cytest.TestCase):
            mock.patch.dict(os.environ, PATH='', SPRITE_FRONTEND=str(frontend)):
         self.assertEqual(config.sprite_make(cached=[]), str(make))
         self.assertEqual(config.curry_frontend(), str(frontend))
+        # The console script of curry-frontend beside the interpreter serves
+        # a virtual environment that is not activated; PATH is empty here.
+        del os.environ['SPRITE_FRONTEND']
+        self.assertEqual(config.curry_frontend(), str(beside))
 
   def test_prerequisite_diagnostic(self):
     env = dict(os.environ, PATH='')
