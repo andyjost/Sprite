@@ -33,7 +33,9 @@ generated code, and names the real path of
 the installation as text, which a package manager rewrites at install time,
 so the library loads compiled where it was built or where its package
 installed it, and counts as stale when the installation is copied by hand to
-another path.  Under the default of the flag
+another path. Changed imported interfaces or ICurry also invalidate an
+object's ABI stamp, so it follows the same interpretation and rebuild rule.
+Under the default of the flag
 ``interpret``, ``tiered``, a module without a current object is interpreted
 at once.  With a compiler, a child process compiles the module in the
 background, and the runtime swaps its functions to the compiled code when

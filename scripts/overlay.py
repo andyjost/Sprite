@@ -26,6 +26,35 @@ def interfaces(directory):
       src = icy.parent.parent / 'pakcs-3.4.1' / (icy.stem + suffix)
       if src.is_file():
         shutil.copy2(src, icy.with_suffix(suffix))
+  provenance(directory)
+
+
+# The import provenance of an extracted .icy (issue #164): the products of
+# the archive are trusted as made against the interfaces beside them, as the
+# pinned library's are at the stage.  An archive packed by the current
+# toolchain carries the records; this writes the missing ones, after every
+# interface of the directory is in place.
+SEED = '''
+import sys
+from curry.toolchain import _interfaces
+for line in sys.stdin:
+  _interfaces.write(line.rstrip('\\n'))
+'''
+
+
+def provenance(directory):
+  missing = [str(icy) for icy in sorted(directory.rglob('*.icy'))
+             if icy.parent.name == INTERMEDIATE and not icy.with_name(icy.name + '.imports').is_file()]
+  if not missing:
+    return
+  python = ROOT / 'install/bin/python'
+  if not python.is_file():
+    print('overlay-interfaces: WARNING: no installation: %d extracted .icy files keep no import'
+          ' provenance and are stale (make stage, then make overlay-interfaces)' % len(missing),
+          file=sys.stderr)
+    return
+  subprocess.run([str(python), '-c', SEED], input='\n'.join(missing) + '\n', text=True, check=True)
+  print('overlay-interfaces: import provenance written for %d extracted .icy files' % len(missing))
 
 
 def prune(root):
@@ -62,7 +91,7 @@ def archive_products(root):
   products = {
       str(p.relative_to(root)): p
       for p in (root / 'tests').rglob('*') if p.is_file() and '.curry' in p.parts
-      and any(p.name.endswith(s) for s in ['.fcy', '.fint', '.icurry', '.icy', '.json.z'])
+      and any(p.name.endswith(s) for s in ['.fcy', '.fint', '.icurry', '.icy', '.icy.imports', '.json.z'])
     }
   # The library is built out of source now. Keep its interfaces under the
   # historical curry/lib names in the test archive.

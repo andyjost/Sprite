@@ -8,11 +8,35 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import shutil
+import tempfile
 
 prefix = Path(sys.argv[1]).resolve()
+if len(sys.argv) > 2:
+  image = Path(sys.argv[2])
+  # CMake's timestamp comparison can retain a stamp rewritten by an old
+  # installer in the same clock second. Copy changed content as a whole,
+  # including the object it describes, before rewriting any prefixes.
+  for source in image.rglob('*'):
+    relative = source.relative_to(image)
+    if source.is_symlink() or not source.is_file() \
+        or any(part.endswith('.gch') for part in relative.parts):
+      continue
+    target = prefix / relative
+    if target.is_file() and target.read_bytes() == source.read_bytes():
+      continue
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(dir=target.parent, prefix='.install-')
+    os.close(fd)
+    try:
+      shutil.copy2(source, temporary)
+      os.replace(temporary, target)
+    finally:
+      Path(temporary).unlink(missing_ok=True)
 for stamp in (prefix / 'curry').rglob('*.so.abi'):
-  digest = stamp.read_text().splitlines()[0]
-  text = '%s\n%s\n' % (digest, prefix)
+  lines = stamp.read_text().splitlines()
+  lines[1] = str(prefix)
+  text = '\n'.join(lines) + '\n'
   if stamp.read_text() != text:
     stamp.write_text(text)
 

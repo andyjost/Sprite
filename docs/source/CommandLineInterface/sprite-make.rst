@@ -81,6 +81,8 @@ ABI stamp (``Peano.so.abi``): a digest of the runtime headers the
 generated code includes, the flags it was compiled with, the compiler of
 the build and the format of the
 generated code, and the real path of the installation.  The object has
+provenance for the interfaces and ICurry of its imports in the stamp, and
+is rebuilt when that provenance differs from the installed imports. It has
 the ``SONAME`` ``sprite-Peano.so.<format>`` and names the objects of the
 modules it imports by their ``SONAME``, so it holds no path (``readelf -d``
 shows none).  The compile

@@ -143,6 +143,7 @@ def main():
   if needs_interfaces:
     run(args.frontend, '--flat', '-o', flat, '--no-verb', '--no-warn',
         '--no-overlap-warn', *frontend_flags, '-i', '.', *modules)
+  pinned_products = []
   for path in sources:
     rel = path.relative_to(source / 'curry/lib')
     dest = lib / rel.parent / '.curry' / intermediate_subdir / rel.stem
@@ -150,7 +151,21 @@ def main():
       copy(flat / rel.with_suffix(suffix), dest.with_suffix(suffix))
     pinned = path.with_suffix('.icy')
     if pinned.exists() and not rebuild:
-      copy(pinned, dest.with_suffix('.icy'))
+      icy = dest.with_suffix('.icy')
+      marker = Path(str(icy) + '.pinned')
+      digest = hashlib.sha256(pinned.read_bytes()).hexdigest()
+      if not icy.exists() or not marker.exists() or marker.read_text() != digest:
+        if icy.exists() and icy.read_bytes() != pinned.read_bytes():
+          # Package extraction can preserve older times, and .source may
+          # still match: invalidate derivatives of changed pinned bytes.
+          # Keep the published object until its replacement is ready.
+          for suffix in ('.json', '.json.z', '.cpp', '.so.abi'):
+            dest.with_suffix(suffix).unlink(missing_ok=True)
+        copy(pinned, icy)
+        marker.write_text(digest)
+        pinned_products.append(icy)
+      elif not Path(str(icy) + '.imports').exists():
+        pinned_products.append(icy)
       # A copied pinned artifact is current even in a fresh checkout.
       if dest.with_suffix('.icy').stat().st_mtime < (lib / rel).stat().st_mtime:
         os.utime(dest.with_suffix('.icy'), None)
@@ -159,6 +174,14 @@ def main():
       run(sys.executable, '-m', 'curry.tools.make', '--rewrite-flat', lib / rel,
           '-o', dest.with_suffix('.icy'))
   make = [sys.executable, '-m', 'curry.tools.make']
+  # Pinned ICurry is a trusted input of the stage. Record its interfaces
+  # only after all copies are installed, before planning JSON and objects.
+  # Translated products already carry provenance; never relabel those.
+  if pinned_products:
+    run(sys.executable, '-c',
+        'import sys; from curry.toolchain import _interfaces; '
+        '[_interfaces.write(p, ["."]) for p in sys.argv[1:]]',
+        *pinned_products)
   run(*make, '--json', '-zc', *modules)
   supported = [m for m in modules if m not in unsupported]
   run(*make, '--so', '--jobs', args.jobs, '-zc', *supported)
@@ -173,9 +196,9 @@ def main():
     # pip has no post-install prefix rewrite. Keep the digest and express
     # its installation provenance relative to the stamp's own directory.
     for stamp in lib.rglob('*.so.abi'):
-      digest = stamp.read_text().splitlines()[0]
-      stamp.write_text('%s\n%s\n' % (
-          digest, os.path.relpath(prefix, stamp.parent)))
+      lines = stamp.read_text().splitlines()
+      lines[1] = os.path.relpath(prefix, stamp.parent)
+      stamp.write_text('\n'.join(lines) + '\n')
   for suffix in ['.json.z', '.so', '.so.abi']:
     if not (lib / '.curry' / intermediate_subdir / ('Prelude' + suffix)).is_file():
       raise RuntimeError('prebuild did not write Prelude' + suffix)

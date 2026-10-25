@@ -107,7 +107,8 @@ logger = logging.getLogger(__name__)
 #      library products are rebuilt separately for front end 3.1.0.
 #   4: 2026-10-25, the external icurry route reads the shipped library's
 #      interfaces through the same full search path as the front end.
-ROUTE_VERSION = 4
+#   5: imported interface provenance travels with ICurry (#164).
+ROUTE_VERSION = 5
 
 # The options that silence the front end.  They are the ones icurry passes in
 # quiet mode.

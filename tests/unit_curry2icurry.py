@@ -1,6 +1,6 @@
 import cytest # from ./lib; must be first
 from curry import cache, config, exceptions, toolchain
-from curry.toolchain import _curry2icurry, _frontend, plans
+from curry.toolchain import _curry2icurry, _frontend, _interfaces, plans
 from curry.toolchain.flat2icurry import flatcurry as fc, setlift as sl
 from curry.utility import binding
 import flat2icurry_oracle as oracle
@@ -508,7 +508,8 @@ class TestCurry2ICurry(cytest.TestCase):
   def test_overlay_interfaces(self):
     '''
     make overlay-interfaces copies the interfaces of the front end beside
-    every ICurry file of the extracted test products. A file without a
+    every ICurry file of the extracted test products, and writes the import
+    provenance of a file that has none (issue #164). A file without a
     source digest still needs to be rebuilt before import.
     '''
     archive = os.path.join(ROOT, 'overlay-%s.tgz' % config.frontend_subdir())
@@ -545,14 +546,26 @@ class TestCurry2ICurry(cytest.TestCase):
     with open(os.path.join(testsdir, 'data', 'curry', 'Peano.curry'), 'w'):
       pass
     peano = os.path.join(testsdir, 'data', 'curry', SUBDIR, 'Peano.icy')
+    hello = os.path.join(testsdir, 'data', 'curry', SUBDIR, 'hello.icy')
     self.assertTrue(_curry2icurry.icurry_is_stale(peano))
+    # The archive's products carry no import provenance until the step
+    # writes it from the interfaces beside them.
+    for icy in icys:
+      if os.path.exists(icy + _interfaces.SUFFIX):
+        os.unlink(icy + _interfaces.SUFFIX)
+    self.assertFalse(_interfaces.is_current(hello))
     result = subprocess.run(
         ['make', '-C', ROOT, 'overlay-interfaces', 'OVERLAY_DIR=' + testsdir]
       , env=MAKE_ENV, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
       , timeout=300
       )
     self.assertEqual(result.returncode, 0, result.stdout)
+    self.assertIn('import provenance written for 2 extracted .icy files', result.stdout)
     self.assertTrue(_curry2icurry.icurry_is_stale(peano))
+    self.assertTrue(_interfaces.is_current(hello))
+    self.assertEqual(
+        sorted(_interfaces.read(hello + _interfaces.SUFFIX)), sorted(_interfaces.imports(hello))
+      )
     for icy in icys:
       stem = os.path.basename(icy)[:-len('.icy')]
       for suffix, content in interfaces_beside(icy).items():
@@ -566,8 +579,8 @@ class TestCurry2ICurry(cytest.TestCase):
       )
     self.assertEqual(
         names
-      , [ 'Peano.fint', 'Peano.icurry', 'Peano.icy', 'Peano.json.z'
-        , 'hello.fint', 'hello.icurry', 'hello.icy', 'hello.json.z'
+      , [ 'Peano.fint', 'Peano.icurry', 'Peano.icy', 'Peano.icy.imports', 'Peano.json.z'
+        , 'hello.fint', 'hello.icurry', 'hello.icy', 'hello.icy.imports', 'hello.json.z'
         ]
       )
 

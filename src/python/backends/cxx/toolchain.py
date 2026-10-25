@@ -26,6 +26,8 @@ again when the installation gives another digest or another path.
 See runtime_digest, object_digest, and Cpp2So.is_stale.  A generated .cpp
 file carries a format stamp; Json2Cpp, which writes the file, refuses one of
 another format.  See Json2Cpp.is_stale.
+Generated C++ and ABI stamps also name imported interfaces and ICurry
+bodies; changed imports invalidate the generated file and the object.
 
 An object names no path, so it serves any tree (format 13 of the generated
 code).  Each object carries a SONAME, the full name of its module and the
@@ -48,7 +50,7 @@ from ...objects.handle import getHandle
 from ...utility import curryname, filesys
 from ...toolchain import (
     plans, _filenames, _findcurry, _loadcurry, _makecurry, _productcache
-  , _system, _productlock
+  , _system, _productlock, _interfaces
   )
 import functools, hashlib, itertools, logging, os, re, sys, tempfile, threading
 
@@ -142,8 +144,8 @@ def runtime_digest(include_dir=None):
   it (the equality of graphs, the walks, the bytecode of the interpreter)
   gives the same.  The result is cached for the life of the process.
 
-  Returns None when the tree holds no header.  Such an installation cannot
-  compile, so its objects are trusted as they are (see Cpp2So.is_stale).
+  Returns None when the tree holds no header. Such an installation cannot
+  compile; import provenance and stamp format are still checked.
 
   Raises:
     PrerequisiteError: a header cannot be read.  make stage links the
@@ -294,7 +296,7 @@ def object_digest(flavor=None, include_dir=None, gc=None, write_counters=None):
     digest.update(flag.encode('utf-8'))
   digest.update(b'\0compiler ')
   digest.update(config.cxx_compiler().encode('utf-8'))
-  digest.update(b'\0format %d' % compiler.FORMAT_VERSION)
+  digest.update(b'\0format %d\0stamp 2' % compiler.FORMAT_VERSION)
   return digest.hexdigest()[:16]
 
 def installation_path():
@@ -426,13 +428,28 @@ def format_version(file_in):
         return int(m.group(1))
   return 1
 
-def source_is_stale(file_in):
+def source_interfaces(file_in):
+  with open(file_in, encoding='utf-8') as stream:
+    return _source_interfaces(itertools.islice(stream, 16))
+
+def _source_interfaces(lines):
+  for line in lines:
+    if line.startswith('// INTERFACES: '):
+      return _interfaces.decode(line[len('// INTERFACES: '):])
+  return None
+
+def import_search_path(interp, filename, currypath=None):
+  path = _findcurry.import_path(interp, currypath)
+  return _interfaces.search_path(filename, interp.path if path is None else path)
+
+def source_is_stale(file_in, currypath=None):
   '''
-  Tells whether a generated .cpp file is unusable: its format stamp is not
-  the emitter's (compiler.FORMAT_VERSION).  It was written for another
-  runtime, and the runtime would read its static data with the wrong layout.
+  Whether generated C++ has another format or imported interface/body
+  provenance, including a file written before that provenance was recorded.
   '''
-  return format_version(file_in) != compiler.FORMAT_VERSION
+  return format_version(file_in) != compiler.FORMAT_VERSION or not \
+      _interfaces.objects_current(source_interfaces(file_in),
+          _interfaces.search_path(file_in, currypath))
 
 class Json2Cpp(Json2TargetSource):
   NAME = 'json2cpp'
@@ -459,7 +476,13 @@ class Json2Cpp(Json2TargetSource):
     with a compile step after it, Cpp2So asks the same question.  The plan
     asks about the JSON input of this step as well, which is never refused.
     '''
-    return filename.endswith('.cpp') and source_is_stale(filename)
+    if not filename.endswith('.cpp'):
+      return False
+    recorded = source_interfaces(filename)
+    if recorded:
+      self.interp.import_(list(recorded),
+          currypath=_findcurry.import_path(self.interp, currypath))
+    return source_is_stale(filename, import_search_path(self.interp, filename, currypath))
 
 class PrecompiledHeader(object):
   '''
@@ -614,10 +637,11 @@ class Cpp2So(object):
   Compiles a generated .cpp file into a shared object, in the flavor of the
   installed runtime or, under the interpreter flag ``debug``, in the debug
   flavor (see flavor).  Each object gets an ABI stamp, a text file beside it
-  (<module>.so.abi) of two lines::
+  (<module>.so.abi) of three lines::
 
       <digest>
       <installation>
+      {"version": 1, "imports": {"Module": "<digest>", ...}}
 
   The first line is the digest of the runtime headers the generated code
   includes and of the flags the object was compiled with (object_digest),
@@ -631,7 +655,10 @@ class Cpp2So(object):
   in info/has_prefix as text files) keeps its objects. Wheel stamps instead
   name the installation relative to their own directory, so pip needs no
   rewrite hook. A stamp of one
-  line, written before the path joined it, is stale.
+  line, or two lines without import provenance, is stale. The third line
+  records direct imported interfaces and ICurry bodies, also recorded in
+  generated C++ (source_interfaces); changed imports regenerate that file
+  before recompiling the object.
 
   The link line names no path that the object keeps.  The object gets the
   SONAME of its module (soname; the module name comes from the header of
@@ -722,33 +749,33 @@ class Cpp2So(object):
     the flags of another flavor, or under another installation.  The check
     reads the headers, not time stamps, so a new copy of the same runtime
     keeps every object, and a relocated package keeps its objects.  An
-    installation without headers (runtime_digest gives None) cannot compile
-    anything, so its objects are trusted as they are.  A .so file is stale
+    installation without headers (runtime_digest gives None) checks the
+    installation and imported interfaces, without a header comparison.
+    A .so file is stale
     as well when an import of its module runs without an object
     (import_lacks_an_object).
     '''
     if filename.endswith('.so'):
-      if not self.stamp_is_current(filename):
+      if not self.stamp_is_current(filename, currypath):
         return True
       before = self.product_snapshot(filename)
       lacks_object = self.import_lacks_an_object(filename, currypath)
       return lacks_object or before != self.product_snapshot(filename) \
-          or not self.stamp_is_current(filename)
-    return source_is_stale(filename)
+          or not self.stamp_is_current(filename, currypath)
+    return source_is_stale(filename, import_search_path(self.interp, filename, currypath))
 
-  def stamp_is_current(self, sofile):
+  def stamp_is_current(self, sofile, currypath=None):
     '''
     Tells whether the ABI stamp of ``sofile`` holds a digest this step
     accepts and names this installation.  The paths are compared as real
     paths, so a stamp that spells the installation through a link (the
-    prefix a package manager wrote) names it all the same.  True without
-    a digest to compare (an installation without headers).
+    prefix a package manager wrote) names it all the same. Without headers,
+    only the runtime digest comparison is skipped; import provenance stays
+    mandatory, including the new stamp format.
     '''
     accepted = self.accepted_digests()
-    if not accepted:
-      return True
     digest, path = self.read_stamp_lines(sofile)
-    if digest not in accepted or path is None:
+    if (accepted and digest not in accepted) or path is None:
       return False
     # Wheels cannot rewrite text resources at pip install time. Their
     # shipped stamps name the installation relative to the stamp itself.
@@ -756,7 +783,10 @@ class Cpp2So(object):
     # their existing meaning; the compatibility digest is unchanged.
     if not os.path.isabs(path):
       path = os.path.join(os.path.dirname(sofile), path)
-    return os.path.realpath(path) == installation_path()
+    if os.path.realpath(path) != installation_path():
+      return False
+    return _interfaces.objects_current(self.read_import_stamp(sofile),
+        import_search_path(self.interp, sofile, currypath))
 
   def import_lacks_an_object(self, sofile, currypath=None):
     '''
@@ -827,7 +857,16 @@ class Cpp2So(object):
     '''The digest recorded in the ABI stamp of ``sofile``, or None.'''
     return cls.read_stamp_lines(sofile)[0]
 
-  def write_stamp(self, sofile):
+  @classmethod
+  def read_import_stamp(cls, sofile):
+    try:
+      with open(cls.stampfile(sofile), encoding='utf-8') as stream:
+        lines = stream.read().splitlines()
+      return _interfaces.decode(lines[2]) if len(lines) == 3 else None
+    except (OSError, UnicodeError):
+      return None
+
+  def write_stamp(self, sofile, imports=None):
     '''
     Records the stamp of this step beside ``sofile``: its digest and the
     real path of this installation (see the class).  Without headers there
@@ -837,7 +876,14 @@ class Cpp2So(object):
     if digest is None:
       return
     stamp = self.stampfile(sofile)
-    cache.write_file(stamp, '%s\n%s\n' % (digest, installation_path()))
+    if imports is None:
+      cppfile = _filenames.replacesuffix(sofile, '.cpp')
+      if os.path.isfile(cppfile):
+        imports = source_interfaces(cppfile)
+      else:
+        imports = self.read_import_stamp(sofile)
+    cache.write_file(stamp, '%s\n%s\n%s\n' % (
+        digest, installation_path(), _interfaces.encode(imports or {})))
 
   @classmethod
   def remove_stamp(cls, sofile):
@@ -1054,6 +1100,10 @@ class Cpp2So(object):
     # those of a module given by name on the path of the interpreter.
     imports = _findcurry.imports_path(currypath, **ignored)
     if self.is_stale(file_in):
+      if self.format_version(file_in) == compiler.FORMAT_VERSION:
+        raise exceptions.CompileError(
+            'the imported interfaces of %r changed after code generation; '
+            'run sprite-make again' % file_in)
       # The emitter wrote this file, or the plan accepted it.  If its stamp
       # does not read back, every process would write and compile every
       # module again.  Stop here instead.
@@ -1089,6 +1139,7 @@ class Cpp2So(object):
     # lock. Pin the input bytes too: another producer can replace the name.
     with open(file_in, 'rb') as stream:
       source = stream.read()
+    provenance = _source_interfaces(source.decode('utf-8').splitlines()[:16])
     fd, tmp = tempfile.mkstemp(dir=directory, prefix='.compile-', suffix='.so')
     os.close(fd)
     cpp = tmp + '.cpp'
@@ -1113,8 +1164,10 @@ class Cpp2So(object):
         # live object while a reader may open it; rename the complete one.
         self.remove_stamp(file_out)
         os.replace(tmp, file_out)
-        self.write_stamp(file_out)
-        self.store(file_in, file_out, currypath)
+        self.write_stamp(file_out, provenance)
+        with open(file_in, 'rb') as stream:
+          if stream.read() == source:
+            self.store(file_in, file_out, currypath)
       return file_out
     finally:
       for path in (tmp, cpp):
@@ -1129,7 +1182,7 @@ class Cpp2So(object):
     try:
       st = os.stat(sofile)
       return (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns,
-              cls.read_stamp_lines(sofile))
+              cls.read_stamp_lines(sofile), cls.read_import_stamp(sofile))
     except OSError:
       return None
 
@@ -1179,8 +1232,17 @@ class Cpp2So(object):
     no text to digest.
     '''
     curryfile = _filenames.curryfilename(filename)
+    path = _findcurry.import_path(self.interp, currypath)
+    currypath = self.interp.path if path is None else path
+    names = set(_productcache._imports(curryfile))
+    names.update(_productcache.import_closure(curryfile, currypath))
+    if os.path.basename(curryfile) != 'Prelude.curry':
+      names.add('Prelude')
     return _productcache.product_key(
-        curryfile, currypath, self.product_facts(curryfile)
+        curryfile, currypath, self.product_facts(curryfile) + [
+            _interfaces.encode(_interfaces.object_snapshot(
+                names,
+                _interfaces.search_path(curryfile, currypath)))]
       )
 
   def restore(self, file_in, currypath, **kwds):

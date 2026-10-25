@@ -8,6 +8,7 @@ from curry.utility.binding import binding
 from unittest import mock
 import curry, importlib.machinery, importlib.util, itertools, json, logging
 import os, re, runpy, shutil, subprocess, sys, tempfile, unittest, zlib
+from pathlib import Path
 
 SUBDIR = os.path.join('.curry', config.intermediate_subdir())
 
@@ -54,6 +55,7 @@ class TestStagedLibrary(cytest.TestCase):
       self.assertTrue(os.path.isfile(sofile), sofile)
       self.assertTrue(os.path.isfile(installed_file(name, '.cpp')), name)
       self.assertEqual(cxx_toolchain.Cpp2So.read_stamp(sofile), digest, sofile)
+      self.assertTrue(cxx_toolchain.Cpp2So(cytest.raw.interp()).stamp_is_current(sofile), sofile)
     # The member name follows the compiler flags.  make stage does not pass
     # CXXFLAGS on, so a test run with CXXFLAGS set would look for another
     # member.
@@ -140,6 +142,53 @@ class TestStagedLibrary(cytest.TestCase):
         for name in ['CURRYPATH', 'CXXFLAGS', 'SPRITE_INTERPRETER_FLAGS']:
           self.assertNotIn(name, env)
 
+  @unittest.skipIf(config.cxx_tool() is None, 'no C++ compiler is installed')
+  def test_stage_rebuilds_dependents_of_changed_interface(self):
+    '''The actual prebuild step keeps B's source but replaces its old object.'''
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      source, prefix = root / 'source', root / 'prefix'
+      shutil.copytree(config.prefix(), prefix, symlinks=True)
+      (source / 'src').mkdir(parents=True)
+      for name in ('python', 'curryrt', 'export'):
+        (source / 'src' / name).symlink_to(Path(SOURCE_ROOT) / 'src' / name,
+            target_is_directory=True)
+      lib = source / 'curry/lib'
+      lib.mkdir(parents=True)
+      for name in ('Prelude.curry', 'Prelude.icy', 'LICENSE', 'NOTICE'):
+        shutil.copy2(Path(SOURCE_ROOT) / 'curry/lib' / name, lib / name)
+      (lib / 'A.curry').write_text(
+          'module A where\nf :: Int\nf = 1\noldExport :: Int\noldExport = 0\n')
+      (lib / 'B.curry').write_text('module B where\nimport A\nmain :: Int\nmain = f\n')
+      (prefix / 'sysconfig/currylib_module_names').write_text('Prelude A B\n')
+      (prefix / 'sysconfig/currylib_unsupported_modules').write_text('')
+      command = ['timeout', '180', sys.executable,
+          str(Path(SOURCE_ROOT) / 'scripts/build-package.py'),
+          '--source', str(source), '--prefix', str(prefix), '--jobs', '1',
+          '--frontend', config.curry_frontend(), '--cxx', config.cxx_tool()]
+      def stage():
+        result = subprocess.run(command, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+      stage()
+      products = [prefix / 'curry' / SUBDIR / ('B' + suffix)
+          for suffix in ('.icy', '.cpp', '.so', '.so.abi')]
+      self.assertTrue(all(p.is_file() for p in products))
+      # Establish an unchanged pinned B, as in an incremental library stage.
+      shutil.copy2(products[0], lib / 'B.icy')
+      stage()
+      before = [p.stat().st_mtime_ns for p in products]
+      text = (lib / 'B.curry').read_bytes()
+      (lib / 'A.curry').write_text(
+          'module A where\nadded :: Int\nadded = 0\nf :: Int\nf = 2\n')
+      stage()
+      self.assertEqual((lib / 'B.curry').read_bytes(), text)
+      self.assertTrue(all(p.stat().st_mtime_ns != old
+          for p, old in zip(products, before)))
+      # An unchanged pinned input must not overwrite B's valid retranslation.
+      current = [p.stat().st_mtime_ns for p in products]
+      stage()
+      self.assertEqual([p.stat().st_mtime_ns for p in products], current)
+
 
 class JsonModuleTestCase(cytest.TestCase):
   '''A temporary source directory of hand-written ICurry-JSON modules.'''
@@ -205,7 +254,7 @@ class TestPackagedModule(JsonModuleTestCase):
   @cytest.with_flags(interpret='off')
   def test_packaged_products_ignore_extraction_order(self):
     """pip's extraction times do not force an unchanged library to compile."""
-    from curry.toolchain import _curry2icurry, _findcurry
+    from curry.toolchain import _curry2icurry, _findcurry, _interfaces
     # The plan is made here, under the flag the test sets: the plan of setUp
     # ends at the JSON under interpret:all (toolchain.extend_plan_skeleton).
     self.plan = plans.makeplan(
@@ -220,6 +269,9 @@ class TestPackagedModule(JsonModuleTestCase):
     for suffix in ['.icy', '.fint', '.icurry']:
       with open(self.cached_file(name, suffix), 'w') as stream:
         stream.write('')
+    with open(icy, 'w') as stream:
+      stream.write('(IProg "%s" [] [] [])' % name)
+    _interfaces.write(icy, [self.srcdir])
     with open(icy + '.source', 'w') as stream:
       stream.write(_curry2icurry.source_digest(source))
     future = os.stat(target).st_mtime + 120

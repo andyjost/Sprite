@@ -157,7 +157,8 @@ def _getdb():
 # The format of the key and of the stored row.  Raise it when either changes;
 # the entries of the old format are then left alone in their own table.
 # Format 3 added the texts of the two interface files to the row.
-KEY_FORMAT = 3
+# Format 4 adds imported interface digests to the key and provenance to rows.
+KEY_FORMAT = 4
 
 # An import declaration.  The scan is lenient: a match inside a comment or a
 # string adds a module to the closure, which can only make the key more
@@ -271,8 +272,8 @@ def import_closure(curryfile, currypath=()):
   '''
   Finds the modules that ``curryfile`` imports, transitively, as Curry source
   files in the Curry path.  The Prelude is implicit.  A module without a source
-  file in the path (a library of the Curry system) is left out.  The directory
-  of ``curryfile`` is searched first.
+  file in the path or installed library is left out. The directory of
+  ``curryfile`` is searched first.
 
   Returns:
     A dict from module name to ``SourceInfo``.
@@ -280,6 +281,7 @@ def import_closure(curryfile, currypath=()):
   curryfile = os.path.abspath(curryfile)
   searchpaths = [os.path.dirname(curryfile)]
   searchpaths += [os.path.abspath(p) for p in currypath if p]
+  searchpaths.append(os.path.abspath(config.system_curry_path()))
   closure = {}
   pending = ['Prelude'] + _sourceinfo(curryfile).imports
   seen = set()
@@ -343,9 +345,19 @@ def icurry_cache_key(curryfile, currypath=(), options=(), tool=None):
   modulename = os.path.basename(curryfile)[:-len('.curry')]
   put('' if config.is_anonymous_modname(modulename) else modulename)
   put(_sourceinfo(curryfile).digest)
-  for name, info in sorted(import_closure(curryfile, currypath).items()):
+  closure = import_closure(curryfile, currypath)
+  for name, info in sorted(closure.items()):
     put(name)
     put(info.digest)
+  # Interfaces can be regenerated or shipped separately from the sources
+  # (notably pinned ICurry), so source texts alone cannot name them.
+  from .toolchain import _interfaces
+  names = {'Prelude'} | set(_sourceinfo(curryfile).imports)
+  names.update(closure)
+  paths = _interfaces.search_path(curryfile, currypath)
+  for name in sorted(names):
+    put(name)
+    put(_interfaces.digest(name, paths) or 'missing interface')
   return hasher.hexdigest()
 
 # ---------------------------------------------------------------------------
@@ -520,6 +532,7 @@ class Curry2ICurryCache(object):
       self.found = False
       self.error = None
       self.key = None
+      self.key_args = (file_in, currypath, options, tool)
       self.db = _getdb()
       if self.db is None:
         return
@@ -532,7 +545,7 @@ class Curry2ICurryCache(object):
         self.db.execute(
             'CREATE TABLE IF NOT EXISTS [%s]('
             'key TEXT PRIMARY KEY, name TEXT NOT NULL, text TEXT NOT NULL'
-            ', fint TEXT, icurry TEXT, error TEXT, created REAL)'
+            ', fint TEXT, icurry TEXT, imports TEXT, error TEXT, created REAL)'
                 % Curry2ICurryCache.TABLE
           )
         self.db.commit()
@@ -540,7 +553,7 @@ class Curry2ICurryCache(object):
           logger.info('file %s is being forced to update', file_in)
           return
         row = self.db.execute(
-            'SELECT name, text, fint, icurry, error FROM [%s] WHERE key=?'
+            'SELECT name, text, fint, icurry, imports, error FROM [%s] WHERE key=?'
                 % Curry2ICurryCache.TABLE
           , (self.key,)
           ).fetchone()
@@ -552,7 +565,7 @@ class Curry2ICurryCache(object):
           Curry2ICurryCache.stats['miss'] += 1
         logger.info('ICurry cache miss for %s', self.modulename)
         return
-      name, text, fint, icurry, error = row
+      name, text, fint, icurry, imports, error = row
       interfaces = dict(zip(INTERFACE_SUFFIXES, (fint, icurry)))
       if error is not None:
         if self.anonymous and name != self.modulename:
@@ -585,6 +598,8 @@ class Curry2ICurryCache(object):
           )
         return
       self._write(text, interfaces)
+      if imports is not None:
+        write_file(self.file_out + '.imports', imports)
       self.found = True
       with _memo_lock:
         Curry2ICurryCache.stats['hit'] += 1
@@ -625,6 +640,9 @@ class Curry2ICurryCache(object):
           suffix: _read_interface(interface_filename(self.file_out, suffix))
               for suffix in INTERFACE_SUFFIXES
         }
+      # The first front-end run may have created interfaces of imports.
+      # Publish under their resulting content, never the pre-run absence.
+      self.key = icurry_cache_key(*self.key_args)
       self._store(name, text, None, interfaces)
 
     def update_error(self, err):
@@ -644,14 +662,15 @@ class Curry2ICurryCache(object):
 
     def _store(self, name, text, error, interfaces=None):
       interfaces = interfaces or {}
+      imports = _read_interface(self.file_out + '.imports') if error is None else None
       try:
         self.db.execute(
             'INSERT OR REPLACE INTO [%s]'
-            '(key, name, text, fint, icurry, error, created) '
-            'VALUES(?, ?, ?, ?, ?, ?, ?)' % Curry2ICurryCache.TABLE
+            '(key, name, text, fint, icurry, imports, error, created) '
+            'VALUES(?, ?, ?, ?, ?, ?, ?, ?)' % Curry2ICurryCache.TABLE
           , ( self.key, name, text
             , interfaces.get('.fint'), interfaces.get('.icurry')
-            , error, time.time()
+            , imports, error, time.time()
             )
           )
         self.db.commit()
