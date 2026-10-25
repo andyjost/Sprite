@@ -15,8 +15,14 @@ DATA = os.path.join(HERE, 'data')
 LIBRARY_DIRS = [os.path.join(ROOT, 'curry', 'lib')]
 # The import directories of the corpora under tests/data/curry: a module
 # of the kiel corpus imports from kiel/lib (CURRYPATH of func_kiel.py), so
-# its FlatCurry resolves against that directory as well.
-CORPUS_IMPORT_DIRS = [os.path.join(DATA, 'curry', 'kiel', 'lib')]
+# its FlatCurry resolves against that directory as well; a module of the
+# community corpus imports the compile-only Test.Prop of community/support
+# (the path of func_community.py), which shadows the library's module, so
+# these directories come before the library's.
+CORPUS_IMPORT_DIRS = [
+    os.path.join(DATA, 'curry', 'kiel', 'lib')
+  , os.path.join(DATA, 'curry', 'community', 'support')
+  ]
 
 # The route through the front end looks through a type annotation at the root
 # of a rule, which icurry 3.1.0 does not (see curry.toolchain._frontend).  The
@@ -160,7 +166,7 @@ class TestWholeCorpus(cytest.TestCase):
     if not pairs:
       self.skipTest('no front-end products under tests/data')
     results = check_on_disk(
-        pairs, self.overlay.library_dirs() + LIBRARY_DIRS + CORPUS_IMPORT_DIRS
+        pairs, CORPUS_IMPORT_DIRS + self.overlay.library_dirs() + LIBRARY_DIRS
       )
     self.assertEqual(
         oracle.summarize(results), (len(pairs), 0, 0), oracle.report(results)
