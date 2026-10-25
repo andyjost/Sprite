@@ -204,6 +204,9 @@ jobs:
           CIBW_TEST_COMMAND: python {project}/scripts/wheels/smoke.py
       - name: Install the cp311 wheel on the runner and run the smoke test (macOS)
         if: runner.os == 'macOS'
+        # The environment is not activated on purpose: python -m curry finds
+        # the front end beside its interpreter. Then the compiler of Xcode
+        # compiles Peano, as the user's g++ does in the Linux smoke test.
         run: |
           set -euxo pipefail
           sw_vers
@@ -211,6 +214,9 @@ jobs:
           smoke/bin/python -m pip install --find-links=.wheelhouse wheelhouse/currylang-*-cp311-cp311-macosx_*.whl
           smoke/bin/python -m pip list
           smoke/bin/python scripts/wheels/smoke.py --peano examples/Peano.curry
+          smoke/bin/sprite-make --so examples/Peano.curry
+          test -s examples/.curry/sprite-pakcs-3.4.1/Peano.so
+          SPRITE_INTERPRETER_FLAGS=interpret:off smoke/bin/python scripts/wheels/smoke.py --peano examples/Peano.curry
       - name: Save the evidence beside the final wheels, auditwheel show or the load commands
         run: |
           set -euxo pipefail
