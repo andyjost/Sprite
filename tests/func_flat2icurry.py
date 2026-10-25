@@ -156,6 +156,17 @@ class TestWholeCorpus(cytest.TestCase):
     TestUnrewrittenFile pins the acceptance, and its narrowing to the
     oracle, on a pair of its own.
     '''
+    # The community programs import the compile-only Test.Prop of
+    # community/support ahead of the library's, and the check resolves it
+    # there too; its interface exists once the fixture was compiled, which
+    # a worktree that copied the programs' products may not have done.
+    support = os.path.join(DATA, 'curry', 'community', 'support')
+    fixture = os.path.join(support, 'Test', 'Prop.curry')
+    interface = os.path.join(
+        support, 'Test', '.curry', config.frontend_subdir(), 'Prop.fint'
+      )
+    if os.path.isfile(fixture) and not os.path.isfile(interface):
+      _frontend.curry2flat(fixture, [support], quiet=True)
     pairs = []
     for fcy in self.on_disk_fcys():
       if os.path.basename(fcy)[:-len('.fcy')] in ROUTE_DIFFERS:
