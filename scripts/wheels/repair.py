@@ -199,6 +199,11 @@ def repair_darwin(wheel, output):
   tag_floor, arch = wheel_tag_floor(wheel)
   output.mkdir(parents=True, exist_ok=True)
   if highest > tag_floor:
+    # The tags of macOS 11 and later name a major version alone (pip lists
+    # macosx_15_0, macosx_14_0, ...), so a floor with a minor version
+    # means the next major.
+    if highest[0] >= 11 and highest[1] > 0:
+      highest = (highest[0] + 1, 0)
     tag = 'macosx_%d_%d_%s' % (highest[0], highest[1], arch)
     print('Tagging %s with %s, the floor of its files' % (wheel.name, tag), flush=True)
     with tempfile.TemporaryDirectory() as directory:
