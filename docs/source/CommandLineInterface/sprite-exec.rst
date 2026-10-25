@@ -103,6 +103,8 @@ and an installation without a C++ compiler runs every program; see
 backend of a run and overrides a ``backend`` flag of
 ``SPRITE_INTERPRETER_FLAGS``.  The help of ``sprite-exec -h`` names the
 only accepted value, ``cxx``.
+An object whose ABI stamp records different imported interfaces or ICurry
+is stale and follows the same interpretation and background rebuild rule.
 
 The runtime serializes graph access with a recursive lock per heap.  This
 is a stopgap for the concurrent runtime of epic #28.  Open evaluations keep

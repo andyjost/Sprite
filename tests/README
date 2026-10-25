@@ -686,7 +686,13 @@ against icurry, and the translation stays checked against icurry.
 front end, M.fint and M.icurry, beside each extracted .icy file (the target
 overlay-interfaces of the root Makefile): an .icy file without them is stale
 and would be made again at its first import.  The committed archive predates
-the copies; a rebuilt archive packs them.
+the copies; a rebuilt archive packs them.  The same target writes the import
+provenance of an extracted .icy that has none, M.icy.imports (issue #164):
+the archive's products are trusted as made against the interfaces beside
+them, the installed library's included, as the pinned library's products
+are at the stage; an archive packed by the current toolchain carries the
+records.  The step needs the installation (install/bin/python); without
+one it says how many products stay stale.
 
 Between the two steps, the target overlay-prune removes the extracted
 products of every test source that git shows changed since the commit that
@@ -703,7 +709,8 @@ tree) nothing is pruned, and the rule says so.  OVERLAY_ROOT names the
 directory that holds an extracted tests/ tree, for a scratch extraction.
 
 The archive is rebuilt with `make overlay-archive` at the root of the
-repository.  The rule packs the .fcy, .fint, .icurry, .icy, and .json.z files
+repository.  The rule packs the .fcy, .fint, .icurry, .icy, .icy.imports and
+.json.z files
 under tests/ and the library interfaces that the front end writes under
 curry/lib/.curry, with fixed owner and time stamps.  The .icy files must come
 from icurry: run the tests with SPRITE_CURRY2ICURRY=icurry (CMake

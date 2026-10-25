@@ -187,6 +187,9 @@ another producer that finds a current published product takes it. Failed
 compilation retains the previous published object and stamp. Publication
 invalidates the old stamp, renames the completed object, then publishes its
 new stamp; a missing stamp makes the object stale.
+The ICurry sidecar, generated C++ and ABI stamp record imported interface
+digests (and imported ICurry for C++ inlining), so changed imports make
+the corresponding products stale too.
 
 A reader checks a product before importing its dependencies and rechecks
 its file identity/stamp afterward, retrying if a producer replaced it.

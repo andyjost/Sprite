@@ -357,7 +357,9 @@ with Sprite, then you should not need these.
   of the code generator) and of the modules it imports, the format of the
   generated code and the sources of the code generator and of the ICurry
   reader, the flags of the optimizer and the inline budget, and the route
-  from Curry to ICurry.  No part of the key names a tree, and the products
+  from Curry to ICurry. Imported interface and ICurry digests enter the
+  provenance and cache key, so changed imports cannot serve an old entry.
+  No part of the key names a tree, and the products
   name no path: an object names the objects of its imports by their
   ``SONAME`` (``sprite-<module>.so.<format>``), not by path, and its record
   names the source relative to the installation or to the object.  So an

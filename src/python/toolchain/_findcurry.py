@@ -135,9 +135,12 @@ def currentfile(
     raise ModuleLookupError('expected .curry extension in %r' % curryfile)
   curryfile = os.path.abspath(curryfile)
   filelist = plan.filelist(curryfile)
-  from . import _curry2icurry
+  from . import _curry2icurry, _interfaces
+  icyfile = _filenames.icurryfilename(curryfile)
   if plan.stages[0].step is _curry2icurry.curry2icurry \
-      and _curry2icurry.source_changed(curryfile, _filenames.icurryfilename(curryfile)):
+      and (_curry2icurry.source_changed(curryfile, icyfile) or (
+          os.path.isfile(curryfile) and not os.path.isfile(icyfile)
+          and not _interfaces.is_current(icyfile, currypath))):
     # Check even when tidy removed the ICurry prerequisite.
     filelist = [curryfile]
   # Force recompile, if requested.
@@ -149,6 +152,22 @@ def currentfile(
   # Disregard a file the toolchain no longer accepts, and everything made
   # from it: a .cpp file of another format, or a .so file compiled against
   # other runtime headers.  The age of the runtime library does not count.
+  from . import plans
+  if plan.interp is not None and plan.flags & plans.MAKE_TARGET_SOURCE \
+      and not _curry2icurry.source_changed(curryfile, icyfile):
+    # Refresh direct imports before judging their interfaces. Importing an
+    # unchanged B must also see A's newly translated interface when A's
+    # source changed but nobody has imported A yet.
+    try:
+      names = _interfaces.imports(icyfile) if os.path.isfile(icyfile) else \
+          list(_interfaces.read(icyfile + _interfaces.SUFFIX) or {})
+    except (OSError, ValueError):
+      names = [] # the normal reader diagnoses a malformed ICurry file
+    plan.interp.import_(names, currypath=import_path(plan.interp,
+        imports_path(currypath, is_sourcefile)))
+    if os.path.isfile(curryfile) and not os.path.isfile(icyfile) \
+        and not _interfaces.is_current(icyfile, currypath):
+      filelist = [curryfile]
   filelist = plan.prune_stale(
       filelist, imports_path(currypath, is_sourcefile)
     )
