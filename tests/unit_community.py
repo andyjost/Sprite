@@ -123,18 +123,20 @@ class TestCommunityIO(cytest.TestCase):
 class TestCommunityLoading(cytest.TestCase):
   @unittest.expectedFailure
   def test_frontend_large_negative_literal(self):
-    # Finding: community compile: out-of-range Int literal; reviewer filing.
+    # Issue #167: an Int literal beyond 64 bits fails the load of the module.
     from unit_community_compile import check_source
     check_source(self, 'NegLit.curry')
 
   @unittest.expectedFailure
   def test_frontend_pakcs_prelude(self):
-    # Finding: community compile: PAKCS Prelude external primitives; reviewer filing.
+    # Issue #168: a namesake of a library module (the front end's own Prelude
+    # fixture) loads the library's symbols.
     from unit_community_compile import check_source
     check_source(self, 'Prelude.curry')
 
 
-# Finding: community hierarchical import: module/namespace prefix collision.
+# Issue #168: a module named like the prefix of its hierarchical siblings
+# recurses in the importer.
 # Keep one bounded expected-failure assertion for every affected source.
 for filename in ('InstanceExport.curry', 'InstanceExport/M.curry',
                  'InstanceExport/N.curry', 'InstanceExport/O.curry',
@@ -150,7 +152,8 @@ for filename in ('InstanceExport.curry', 'InstanceExport/M.curry',
 class TestCommunityRegressions(cytest.TestCase):
   @unittest.expectedFailure
   def test_lifted_non_linear_function_pattern(self):
-    # Finding: lifted non-linear functional pattern returns an extra free value.
+    # Issue #169: the lifted non-linear functional pattern gives one free value
+    # where both oracles give none.
     from unit_community_compile import frontend_sources
     source = ROOT / 'frontend-3.1.0-test-pass/FP_Lifting.curry'
     with frontend_sources(source) as (local, work):
