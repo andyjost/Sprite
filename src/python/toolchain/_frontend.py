@@ -103,7 +103,9 @@ logger = logging.getLogger(__name__)
 #      call set0 e over the captured variables of e becomes setk L xs in
 #      the FlatCurry file, so the ICurry of a module with such a call
 #      changes.
-ROUTE_VERSION = 2
+#   3: 2026-10-24, typed FlatCurry locals and front end version in the key;
+#      library products are rebuilt separately for front end 3.1.0.
+ROUTE_VERSION = 3
 
 # The options that silence the front end.  They are the ones icurry passes in
 # quiet mode.
@@ -260,13 +262,13 @@ def curry2flat(file_in, currypath, quiet=False, rewrite=True):
   if not os.path.isfile(fcyfile):
     raise CompileError('the front end did not write %s' % fcyfile)
   if rewrite:
-    optimize_flatcurry(fcyfile)
+    optimize_flatcurry(fcyfile, dirs)
     own = os.path.realpath(fcyfile)
     for written in written_flatcurry(before, _flatcurry_stamps(dirs)):
       if os.path.realpath(written) == own:
         continue
       try:
-        optimize_flatcurry(written)
+        optimize_flatcurry(written, dirs)
       except Exception as err:
         logger.warning(
             'cannot rewrite %s, which the front end wrote for an import of '
@@ -274,7 +276,7 @@ def curry2flat(file_in, currypath, quiet=False, rewrite=True):
           )
   return fcyfile
 
-def optimize_flatcurry(fcyfile):
+def optimize_flatcurry(fcyfile, searchdirs=()):
   '''
   Applies the rewrite step to the FlatCurry file in place, as PAKCS applies
   its preprocessing before any compiler reads a file: the binding
@@ -282,7 +284,7 @@ def optimize_flatcurry(fcyfile):
   Returns the pair of counts (equalities replaced, set0 calls lifted); the
   file is written again only when one of them is not zero.
   '''
-  counts = flat2icurry.rewrite_file(fcyfile)
+  counts = flat2icurry.rewrite_file(fcyfile, searchdirs=searchdirs)
   n, m = counts
   if n:
     logger.debug('Rewrote %s: %d equalities replaced by constrEq', fcyfile, n)

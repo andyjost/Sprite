@@ -665,8 +665,11 @@ class TestFiles(cytest.TestCase):
     the closed points unchanged; idempotent; and the lifted program
     survives the writer and the reader.
     '''
-    prog = fc.load(self.fresh_flatcurry())
-    lifted, n = sl.transform_prog(prog)
+    fcy = self.fresh_flatcurry()
+    prog = fc.load(fcy)
+    from curry.toolchain.flat2icurry.interfaces import local_type_interfaces
+    imports = local_type_interfaces(fcy, prog)
+    lifted, n = sl.transform_prog(prog, imports)
     self.assertEqual(n, sum(LIFTED_POINTS.values()))
     names = {fd.name[1]: fd for fd in lifted.functions}
     new = set(names) - set(fd.name[1] for fd in prog.functions)
@@ -675,12 +678,16 @@ class TestFiles(cytest.TestCase):
     for name in new:
       fd = names[name]
       self.assertEqual(fd.visibility, fc.Private, name)
-      self.assertEqual(fd.typeexpr, sl.lift_type(fd.arity), name)
+      if config.frontend_version() == '2.0.0':
+        self.assertEqual(fd.typeexpr, sl.lift_type(fd.arity), name)
       self.assertEqual(len(fd.rule.args), fd.arity, name)
       self.assertNotIsInstance(fd.rule.body, fc.Typed, name)
       self.assertEqual(sl.captured_vars(fd.rule.body), fd.rule.args, name)
     # The dictionary of showD is its first parameter, the free variable of
     # freeS its one parameter, and the lambda of lam captures y before z.
+    if config.frontend_version() == '3.1.0':
+      integer = fc.TCons(fc.prelude('Int'), [])
+      self.assertEqual(names['one_SET00'].typeexpr, fc.FuncType(integer, integer))
     self.assertEqual(names['showD_SET00'].arity, 2)
     self.assertEqual(names['freeS_SET00'].arity, 1)
     self.assertEqual(names['lam._#lambda1_SET00'].arity, 2)
@@ -721,11 +728,15 @@ class TestFiles(cytest.TestCase):
     self.assertNotEqual(after, before[0])
     for name in lifted_names():
       self.assertIn(quoted(name), after, name)
-    self.assertTrue(after.startswith(b'Prog "SetLift" ["Prelude","Control.SetFunctions"] '))
+    self.assertEqual(fc.read(after.decode('utf-8')).imports,
+        fc.read(before[0].decode('utf-8')).imports)
     self.assertFalse(after.endswith(b'\n'))
     prog = fc.load(fcy)
     self.assertEqual(fc.show(prog).encode('utf-8'), after)
-    self.assertEqual(prog, sl.optimize_set0(fc.read(before[0].decode('utf-8'))))
+    from curry.toolchain.flat2icurry.interfaces import local_type_interfaces
+    original = fc.read(before[0].decode('utf-8'))
+    imports = local_type_interfaces(fcy, original)
+    self.assertEqual(prog, sl.transform_prog(original, imports)[0])
     self.assertEqual(sl.optimize_file(fcy), 0)
     self.assertEqual(snapshot(fcy), (after, mtime))
     self.assertEqual((snapshot(fint), snapshot(icurry)), interfaces)
@@ -841,8 +852,8 @@ class TestFiles(cytest.TestCase):
   def test_route_version(self):
     '''The lift joined the step with version 2 of the route, in the key of
     the ICurry cache.'''
-    self.assertEqual(_frontend.ROUTE_VERSION, 2)
-    self.assertEqual(cache.route_version(), 2)
+    self.assertEqual(_frontend.ROUTE_VERSION, 3)
+    self.assertEqual(cache.route_version(), 3)
     self.assertIn('setlift.py', cache.REWRITE_SOURCES)
     key = lambda: cache.icurry_cache_key(self.curryfile, [self.tmpdir], (), 'frontend')
     now = key()

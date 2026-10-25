@@ -39,7 +39,7 @@ output stays byte-identical to the files ``icurry`` wrote.  The build route
 run.
 '''
 
-from . import bindingopt, setlift
+from . import bindingopt, setlift, flatcurry as fc
 from .bindingopt import optimize_bindings, optimize_file
 from .casecompletion import complete_prog
 from .caselifting import lift_prog
@@ -62,7 +62,7 @@ __all__ = [
   , 'translate_file', 'write_flatcurry', 'write_icurry'
   ]
 
-def rewrite_prog(prog, equivalence=True):
+def rewrite_prog(prog, equivalence=True, interfaces=()):
   '''
   Applies the rewrite step of the routes to a FlatCurry program in memory:
   the binding optimization, then the set0 lift.  Returns the program and
@@ -78,10 +78,10 @@ def rewrite_prog(prog, equivalence=True):
   optimized, n = bindingopt.transform_prog(prog, equivalence)
   if not n:
     optimized = prog
-  lifted, m = setlift.transform_prog(optimized)
+  lifted, m = setlift.transform_prog(optimized, interfaces)
   return lifted, (n, m)
 
-def rewrite_file(fcyfile, equivalence=True):
+def rewrite_file(fcyfile, equivalence=True, searchdirs=()):
   '''
   Applies the rewrite step to the FlatCurry file ``fcyfile`` in place, as
   the routes do after the front end wrote it.  The file is written again,
@@ -90,7 +90,12 @@ def rewrite_file(fcyfile, equivalence=True):
   :func:`rewrite_prog`.
   '''
   prog = load_flatcurry(fcyfile)
-  newprog, counts = rewrite_prog(prog, equivalence)
+  interfaces = []
+  if any(setlift.contains_set0(fd.rule.body) for fd in prog.functions
+      if not isinstance(fd.rule, fc.External)):
+    from .interfaces import local_type_interfaces
+    interfaces = local_type_interfaces(fcyfile, prog, searchdirs)
+  newprog, counts = rewrite_prog(prog, equivalence, interfaces)
   if any(counts):
     write_flatcurry(newprog, fcyfile)
   return counts
@@ -116,12 +121,13 @@ def translate(prog, interfaces, icurry_compat=True, rewrite=False):
   '''
   interfaces = list(interfaces)
   if rewrite:
-    prog, _ = rewrite_prog(prog)
+    prog, _ = rewrite_prog(prog, interfaces=interfaces)
   prog = elim_newtype(interfaces, prog)
   datadecls = []
   for p in [prog] + interfaces:
     datadecls.extend(data_decls_of(p))
-  ccprog = complete_prog(datadecls, prog)
+  from .flatcurry import typed_format
+  ccprog = complete_prog(datadecls, prog, preserve_completed=typed_format(prog, interfaces))
   clprog = lift_prog(ccprog)
   maps = NameMaps.build(prog, interfaces, clprog)
   return flat2icurry(maps, clprog, icurry_compat)

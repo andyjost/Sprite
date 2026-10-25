@@ -14,7 +14,7 @@ from .errors import Flat2ICurryError
 import os, threading
 _loaded_lock = threading.Lock()
 
-__all__ = ['InterfaceFinder', 'load_interface', 'module_root', 'product_path']
+__all__ = ['InterfaceFinder', 'load_interface', 'local_type_interfaces', 'module_root', 'product_path']
 
 SUFFIXES = ('.fint', '.fcy')
 
@@ -113,3 +113,19 @@ def module_root(fcyfile, modname):
   if tail and root.endswith(os.sep + tail):
     root = root[:-len(tail) - 1]
   return root
+
+def local_type_interfaces(filename, prog, searchdirs=()):
+  '''Imports for type annotations synthesized by the typed-local rewrites.
+
+  Old files need no annotation inference. Search both front-end interfaces
+  and the versioned copies restored beside cached ICurry products.
+  '''
+  from ... import config
+  location = product_path(filename)
+  if location is None or location[1] != config.frontend_subdir() \
+      or config.frontend_version() != '3.1.0':
+    return []
+  finder = InterfaceFinder(
+      [module_root(filename, prog.name)] + list(searchdirs) + config.currypath()
+    , [location[1], config.intermediate_subdir()])
+  return [finder.find(name) for name in prog.imports]

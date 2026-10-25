@@ -51,16 +51,17 @@ class TestCMake(cytest.TestCase):
                         ('CURRY2ICURRY_TOOL', 'frontend')]:
       self.assertEqual(self.cache(name), value)
     facts = self.build / 'stage/sysconfig'
-    self.assertEqual(len(list(facts.iterdir())), 16)
+    self.assertEqual(len(list(facts.iterdir())), 17)
     for path in facts.iterdir():
       self.assertNotIn(str(self.build), path.read_text())
       self.assertNotIn(str(ROOT), path.read_text())
     for name, value in [('cxx_gc', 'wdgc'),
                         ('default_sprite_cache_file', 'cache.db'),
                         ('enable_icurry_cache', '0'),
-                        ('frontend_subdir', 'pakcs-3.4.1'),
-                        ('intermediate_subdir', 'sprite-pakcs-3.4.1'),
-                        ('frontend_flags', '--extended -D__PAKCS__=304')]:
+                        ('frontend_version', config.frontend_version()),
+                        ('frontend_subdir', config.frontend_subdir()),
+                        ('intermediate_subdir', config.intermediate_subdir()),
+                        ('frontend_flags', config.frontend_flags())]:
       self.assertEqual((facts / name).read_text().strip(), value)
     self.assertEqual((facts / 'cxx_compiler').read_text().strip(), config.cxx_compiler())
     ninja = (self.build / 'build.ninja').read_text()
@@ -104,11 +105,43 @@ class TestCMake(cytest.TestCase):
     self.assertNotEqual(result.returncode, 0, result.stdout)
     self.assertIn('Expected Curry front end 2.0.0', result.stdout)
 
+  def test_release_pairs(self):
+    """Each accepted front end selects its matching release and macro."""
+    frontend = Path(self.directory.name) / 'frontend'
+    pakcs = Path(self.directory.name) / 'pakcs'
+    for version, release, macro in [('2.0.0', '3.4.1', '304'),
+                                    ('3.1.0', '3.10.0', '310')]:
+      with self.subTest(frontend=version):
+        frontend.write_text('#!/bin/sh\necho ' + version + '\n')
+        frontend.chmod(0o755)
+        pakcs.write_text('#!/bin/sh\ncase "$1" in\n'
+                         '  --compiler-name) echo pakcs ;;\n'
+                         '  --numeric-version) echo ' + release + ' ;;\nesac\n')
+        pakcs.chmod(0o755)
+        result = self.configure('-DWITH_CURRY_FRONTEND=' + str(frontend),
+                                '-DWITH_PAKCS=' + str(pakcs))
+        self.assertEqual(result.returncode, 0, result.stdout)
+        facts = self.build / 'stage/sysconfig'
+        expected = [('frontend_version', version),
+                    ('frontend_subdir', 'pakcs-' + release),
+                    ('intermediate_subdir', 'sprite-pakcs-' + release),
+                    ('frontend_flags', '--extended -D__PAKCS__=' + macro),
+                    ('currylib_version', '3.4.1')]
+        for name, value in expected:
+          self.assertEqual((facts / name).read_text().strip(), value)
+        other = '3.10.0' if release == '3.4.1' else '3.4.1'
+        pakcs.write_text(pakcs.read_text().replace(release, other))
+        result = self.configure('-DWITH_CURRY_FRONTEND=' + str(frontend),
+                                '-DWITH_PAKCS=' + str(pakcs))
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn('Expected PAKCS ' + release, result.stdout)
+
   def test_optional_icurry_probe(self):
     """The optional route must translate into the pinned product directory."""
     program = Path(self.directory.name) / 'icurry'
-    program.write_text('#!/bin/sh\nmkdir -p .curry/pakcs-3.4.1\n'
-                       'echo sample > .curry/pakcs-3.4.1/sample.icy\n')
+    subdir = '.curry/' + config.frontend_subdir()
+    program.write_text('#!/bin/sh\nmkdir -p ' + subdir + '\n'
+                       'echo sample > ' + subdir + '/sample.icy\n')
     program.chmod(0o755)
     options = ['-DWITH_ICURRY=' + str(program), '-DCURRY2ICURRY_TOOL=icurry']
     result = self.configure(*options)

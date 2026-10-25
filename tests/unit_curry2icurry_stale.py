@@ -463,8 +463,8 @@ class TestCacheKey(PreRewriteCase):
     '''
     # Version 2 since the set0 lift joined the step (decision D28 of
     # 2026-10-12).
-    self.assertEqual(_frontend.ROUTE_VERSION, 2)
-    self.assertEqual(cache.route_version(), 2)
+    self.assertEqual(_frontend.ROUTE_VERSION, 3)
+    self.assertEqual(cache.route_version(), 3)
     curryfile = self.write('GuardK', guard('GuardK'))
     key = lambda: cache.icurry_cache_key(curryfile, [self.tmpdir], (), 'frontend')
     digest = cache.frontend_digest('frontend')

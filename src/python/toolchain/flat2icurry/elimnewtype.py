@@ -41,10 +41,11 @@ def elim_newtype(impprogs, prog):
   if not nti:
     return prog
   newcons = {consname for _, consname, _ in nti.values()}
+  schemes = fc.type_signatures([prog] + list(impprogs)) if fc.typed_format(prog, impprogs) else None
   return fc.Prog(
       prog.name, prog.imports
     , [replace_newtype_decl(td) for td in prog.types]
-    , [elim_newtype_in_func(nti, newcons, fd) for fd in prog.functions]
+    , [elim_newtype_in_func(nti, newcons, fd, schemes) for fd in prog.functions]
     , prog.operators
     )
 
@@ -60,12 +61,13 @@ def replace_newtype_decl(td):
 def is_class_instance_op(qname):
   return qname[1].startswith('_inst#')
 
-def elim_newtype_in_func(nti, newcons, fd):
+def elim_newtype_in_func(nti, newcons, fd, schemes=None):
   if isinstance(fd.rule, fc.External) or is_class_instance_op(fd.name):
     return fd
   return fc.Func(
       fd.name, fd.arity, fd.visibility, elim_type(nti, fd.typeexpr)
-    , fc.Rule(fd.rule.args, elim_exp(newcons, fd.rule.body))
+    , fc.Rule(fd.rule.args, elim_exp(
+        newcons, fd.rule.body, fc.LocalTypes(fd, schemes) if schemes is not None else None))
     )
 
 def elim_type(nti, te):
@@ -100,46 +102,52 @@ def subst_tvars(mapping, te):
     raise TypeError('not a type expression: %r' % (texp,))
   return subst(te)
 
-def elim_exp(newcons, e):
+def elim_exp(newcons, e, types=None):
   '''
   Eliminates the newtype constructors of an expression.  The walk runs on
   a stack of its own (:func:`utility.trampoline.trampoline`), so a nested
   application of any depth needs no recursion (issue #125).
   '''
-  return trampoline(_elim_exp(newcons, e))
+  return trampoline(_elim_exp(newcons, e, types))
 
-def _elim_exp(newcons, e):
+def _elim_exp(newcons, e, types=None):
   if isinstance(e, (fc.Var, fc.Lit)):
     return e
   elif isinstance(e, fc.Comb):
     args = []
     for arg in e.args:
-      arg = yield _elim_exp(newcons, arg)
+      arg = yield _elim_exp(newcons, arg, types)
       args.append(arg)
     return elim_comb(newcons, e.combtype, e.name, args)
   elif isinstance(e, fc.Let):
     bindings = []
-    for v, b in e.bindings:
-      b = yield _elim_exp(newcons, b)
-      bindings.append((v, b))
-    body = yield _elim_exp(newcons, e.body)
+    for binding in e.bindings:
+      v, b = binding[0], binding[-1]
+      b = yield _elim_exp(newcons, b, types)
+      bindings.append(fc.binding_expr(binding, b))
+    body = yield _elim_exp(newcons, e.body, types)
     return fc.Let(bindings, body)
   elif isinstance(e, fc.Free):
-    body = yield _elim_exp(newcons, e.body)
+    body = yield _elim_exp(newcons, e.body, types)
     return fc.Free(e.vars, body)
   elif isinstance(e, fc.Or):
-    lhs = yield _elim_exp(newcons, e.lhs)
-    rhs = yield _elim_exp(newcons, e.rhs)
+    lhs = yield _elim_exp(newcons, e.lhs, types)
+    rhs = yield _elim_exp(newcons, e.rhs, types)
     return fc.Or(lhs, rhs)
   elif isinstance(e, fc.Case):
-    scrutinee = yield _elim_exp(newcons, e.scrutinee)
+    binding_type = None
+    if types is not None and len(e.branches) == 1:
+      pat = e.branches[0].pattern
+      if isinstance(pat, fc.Pattern) and pat.name in newcons and len(pat.vars) == 1:
+        binding_type = types.resolve(types.variables[pat.vars[0]])
+    scrutinee = yield _elim_exp(newcons, e.scrutinee, types)
     branches = []
     for br in e.branches:
-      body = yield _elim_exp(newcons, br.body)
+      body = yield _elim_exp(newcons, br.body, types)
       branches.append(fc.Branch(br.pattern, body))
-    return elim_case(newcons, e.casetype, scrutinee, branches)
+    return elim_case(newcons, e.casetype, scrutinee, branches, binding_type)
   elif isinstance(e, fc.Typed):
-    expr = yield _elim_exp(newcons, e.expr)
+    expr = yield _elim_exp(newcons, e.expr, types)
     return fc.Typed(expr, e.typeexpr)
   raise TypeError('not an expression: %r' % (e,))
 
@@ -150,14 +158,14 @@ def elim_comb(newcons, ct, qn, es):
     return fc.Comb(fc.FuncPartCall(1), fc.prelude('id'), [])
   return fc.Comb(ct, qn, es)
 
-def elim_case(newcons, ct, ce, bs):
+def elim_case(newcons, ct, ce, bs, binding_type=None):
   if len(bs) == 1:
     pat, be = bs[0].pattern, bs[0].body
     if isinstance(pat, fc.Pattern) and len(pat.vars) == 1 and pat.name in newcons:
       v, = pat.vars
       if isinstance(ce, fc.Var):
         return subst_var(v, ce.index, be)
-      return fc.Let([(v, ce)], be)
+      return fc.Let([(v, ce) if binding_type is None else (v, binding_type, ce)], be)
   return fc.Case(ct, ce, bs)
 
 def subst_var(x, y, e0):
@@ -178,9 +186,10 @@ def subst_var(x, y, e0):
       return fc.Comb(e.combtype, e.name, args)
     elif isinstance(e, fc.Let):
       bindings = []
-      for v, b in e.bindings:
+      for binding in e.bindings:
+        v, b = binding[0], binding[-1]
         b = yield subst(b)
-        bindings.append((v, b))
+        bindings.append(fc.binding_expr(binding, b))
       body = yield subst(e.body)
       return fc.Let(bindings, body)
     elif isinstance(e, fc.Free):

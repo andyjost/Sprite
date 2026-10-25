@@ -213,6 +213,13 @@ class TestKey(cytest.TestCase):
     path = write(os.path.join(self.tmpdir, relpath), text)
     return cache.icurry_cache_key(path, currypath, options, tool)
 
+  def test_frontend_version_is_part_of_the_key(self):
+    keys = []
+    for version in ('2.0.0', '3.1.0'):
+      with mock.patch.object(config, 'frontend_version', return_value=version):
+        keys.append(self.key('version/M.curry', 'f :: Int\nf = 1\n'))
+    self.assertNotEqual(*keys)
+
   def test_route_is_part_of_the_key(self):
     '''
     The key names the route from Curry to ICurry and carries the digest of
