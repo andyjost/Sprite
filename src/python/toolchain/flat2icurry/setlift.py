@@ -15,6 +15,14 @@ section 3.3): ``let x = coin in allValues x`` yields {0} and {1}, and
 implementations that scope by the time of the first evaluation (KiCS2,
 PAKCS) are not the authority; the paper is.
 
+The same rule covers Control.Search.SetFunctions.set0 and set0With.
+The strategy of set0With is advisory, so it is not an argument of the
+capsule. Unsafe's expression observers and AllValues' corresponding IO
+wrappers also preserve the expression boundary at the caller: they observe
+that same lifted capsule as a list, Maybe, value, Boolean or IO action.
+The bodies of Unsafe and AllValues themselves are left alone; their exprS
+wrappers must not box their formal expression arguments a second time.
+
 The compiler, not the runtime, makes it so.  The runtime boxes the
 arguments a function value holds (``set_step`` of
 ``curryrt/currylib/setfunctions.cpp``, ``set_`` of the former runtime; issue
@@ -83,7 +91,30 @@ __all__ = [
 
 SETFUNCTIONS = 'Control.SetFunctions'
 SET0 = (SETFUNCTIONS, 'set0')
+SEARCH_SET0 = ('Control.Search.SetFunctions', 'set0')
+SET0_NAMES = (SET0, SEARCH_SET0)
+# The advisory strategy is deliberately not part of the captured expression.
+SEARCH_SET0_WITH = ('Control.Search.SetFunctions', 'set0With')
+# These wrappers must preserve the expression boundary at their caller too.
+# Their own implementation modules use exprS and are not rewritten here.
+SEARCH_WRAPPERS = {
+    ('Control.Search.Unsafe', name): kind
+    for name, kind in [('allValues', 'list'), ('allValuesDFS', 'list'),
+                       ('oneValue', 'maybe'), ('oneValueDFS', 'maybe'),
+                       ('someValue', 'some'), ('isFail', 'fail')]
+  }
+SEARCH_WRAPPERS.update({
+    ('Control.Search.AllValues', name): kind
+    for name, kind in [('getAllValues', 'ioList'), ('getAllValuesDFS', 'ioList'),
+                       ('getOneValue', 'ioMaybe'), ('getOneValueDFS', 'ioMaybe')]
+  })
+SEARCH_IMPLEMENTATIONS = (
+    'Control.Search.Unsafe', 'Control.Search.AllValues'
+  , 'Control.Search.SetFunctions'
+  )
+
 DOLLAR = fc.prelude('$')
+CAPSULE_ENTRIES = set(SET0_NAMES) | {SEARCH_SET0_WITH} | set(SEARCH_WRAPPERS)
 
 # The largest arity the library has a set function for (set1 .. set7).
 MAX_ARITY = 7
@@ -91,9 +122,9 @@ MAX_ARITY = 7
 # The suffix of the name of a lifted function: f_SET0n.
 SUFFIX = '_SET0'
 
-def setk(k):
+def setk(k, module=SETFUNCTIONS):
   '''The qualified name of the set function of arity ``k``.'''
-  return (SETFUNCTIONS, 'set%d' % k)
+  return (module, 'set%d' % k)
 
 def is_lifted_name(name):
   '''Whether the local name ``name`` is the name of a lifted function.'''
@@ -126,13 +157,18 @@ def set0_call(e):
   '''
   if not isinstance(e, fc.Comb) or e.combtype != fc.FuncCall:
     return None
-  if e.name == SET0:
+  if e.name == SEARCH_SET0_WITH and len(e.args) == 2:
+    return fc.Comb(fc.FuncCall, SEARCH_SET0, [e.args[1]])
+  if e.name in SET0_NAMES:
     return e if len(e.args) == 1 else None
   if e.name == DOLLAR and len(e.args) == 2:
     head, arg = e.args
-    if isinstance(head, fc.Comb) and head.name == SET0 \
+    if isinstance(head, fc.Comb) and head.name == SEARCH_SET0_WITH \
+        and head.combtype == fc.FuncPartCall(1) and len(head.args) == 1:
+      return fc.Comb(fc.FuncCall, SEARCH_SET0, [arg])
+    if isinstance(head, fc.Comb) and head.name in SET0_NAMES \
         and head.combtype == fc.FuncPartCall(1) and not head.args:
-      return fc.Comb(fc.FuncCall, SET0, [arg])
+      return fc.Comb(fc.FuncCall, head.name, [arg])
   return None
 
 def captured_vars(e):
@@ -180,18 +216,19 @@ def captured_vars(e):
       raise TypeError('not an expression: %r' % (x,))
   return out
 
-def contains_set0(e):
+def contains_set0(e, names=None):
   '''
   Whether an expression holds a call or a partial application of ``set0``.
   The walk keeps its own stack.
   '''
+  names = CAPSULE_ENTRIES if names is None else names
   stack = [e]
   while stack:
     e = stack.pop()
     if isinstance(e, (fc.Var, fc.Lit)):
       continue
     elif isinstance(e, fc.Comb):
-      if e.name == SET0:
+      if e.name in names:
         return True
       stack.extend(reversed(e.args))
     elif isinstance(e, fc.Free):
@@ -225,6 +262,7 @@ class LiftState:
     self.index = 0
     self.lifted = []
     self.types = types
+    self.nextvar = 0
 
   def gen_name(self):
     while True:
@@ -234,7 +272,7 @@ class LiftState:
         self.names.add(name)
         return name
 
-  def lift(self, arg):
+  def lift(self, arg, module=SETFUNCTIONS):
     '''
     Lifts the argument ``arg`` of a saturated call of ``set0`` with the
     captured variables ``vs`` and returns the call that takes its place.
@@ -255,9 +293,36 @@ class LiftState:
       )
     if k <= MAX_ARITY:
       head = fc.Comb(fc.FuncPartCall(k), name, [])
-      return fc.Comb(fc.FuncCall, setk(k), [head] + [fc.Var(v) for v in vs])
+      return fc.Comb(fc.FuncCall, setk(k, module), [head] + [fc.Var(v) for v in vs])
     head = fc.Comb(fc.FuncPartCall(1), name, [fc.Var(v) for v in vs[:-1]])
-    return fc.Comb(fc.FuncCall, setk(1), [head, fc.Var(vs[-1])])
+    return fc.Comb(fc.FuncCall, setk(1, module), [head, fc.Var(vs[-1])])
+
+  def observe(self, kind, capsule):
+    """Observe a lifted capsule without capturing its outside arguments again."""
+    def call(module, name, arg):
+      return fc.Comb(fc.FuncCall, (module, name), [arg])
+    if kind == 'ioList':
+      return call(SETFUNCTIONS, 'values2list', capsule)
+    if kind == 'ioMaybe':
+      return call(SEARCH_SET0[0], 'getSomeValue', capsule)
+    values = call(SETFUNCTIONS, 'valuesOf', capsule)
+    if kind == 'list':
+      return values
+    head, tail = self.nextvar, self.nextvar + 1
+    self.nextvar += 2
+    def cons(name, args=()):
+      return fc.Comb(fc.ConsCall, fc.prelude(name), list(args))
+    if kind == 'maybe':
+      empty, nonempty = cons('Nothing'), cons('Just', [fc.Var(head)])
+    elif kind == 'fail':
+      empty, nonempty = cons('True'), cons('False')
+    else:
+      empty = fc.Comb(fc.FuncCall, fc.prelude('failed'), [])
+      nonempty = fc.Var(head)
+    return fc.Case(fc.Rigid, values, [
+        fc.Branch(fc.Pattern(fc.prelude('[]'), []), empty),
+        fc.Branch(fc.Pattern(fc.prelude(':'), [head, tail]), nonempty)
+      ])
 
 def transform_exp(state, e):
   '''
@@ -276,9 +341,18 @@ def transform_exp(state, e):
         arg = yield rec(arg)
         args.append(arg)
       e = fc.Comb(e.combtype, e.name, args)
+      if e.name == DOLLAR and len(e.args) == 2:
+        head, arg = e.args
+        if isinstance(head, fc.Comb) and head.name in SEARCH_WRAPPERS \
+            and head.combtype == fc.FuncPartCall(1) and not head.args:
+          e = fc.Comb(fc.FuncCall, head.name, [arg])
+      kind = SEARCH_WRAPPERS.get(e.name)
+      if kind is not None and state.modname not in SEARCH_IMPLEMENTATIONS \
+          and len(e.args) == 1 and captured_vars(e.args[0]):
+        return state.observe(kind, state.lift(e.args[0]))
       call = set0_call(e)
       if call is not None and captured_vars(call.args[0]):
-        return state.lift(call.args[0])
+        return state.lift(call.args[0], call.name[0])
       return e
     elif isinstance(e, fc.Free):
       body = yield rec(e.body)
@@ -321,6 +395,7 @@ def transform_func(fd, names, schemes=None):
     return fd, []
   types = fc.LocalTypes(fd, schemes) if schemes is not None else None
   state = LiftState(fd.name, names, types)
+  state.nextvar = max(fd.rule.args + fc.all_vars(fd.rule.body), default=0) + 1
   body = transform_exp(state, fd.rule.body)
   if not state.lifted:
     return fd, []
@@ -346,8 +421,16 @@ def transform_prog(prog, interfaces=()):
     total += len(lifted)
   if total == 0:
     return prog, 0
+  imports = list(prog.imports)
+  # Wrapper lowering introduces these existing public library operations.
+  for module in (SETFUNCTIONS, SEARCH_SET0[0]):
+    if module != prog.name and module not in imports:
+      if any(fd.name[0] not in SEARCH_IMPLEMENTATIONS and
+             not isinstance(fd.rule, fc.External) and
+             contains_set0(fd.rule.body, SEARCH_WRAPPERS) for fd in prog.functions):
+        imports.append(module)
   return fc.Prog(
-      prog.name, prog.imports, prog.types, functions, prog.operators
+      prog.name, imports, prog.types, functions, prog.operators
     ), total
 
 def lifted_functions(prog):

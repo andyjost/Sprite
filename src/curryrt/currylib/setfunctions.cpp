@@ -672,6 +672,36 @@ extern "C"
   DataType const Values_Type { Values_Ctors, 1, 't', F_STATIC_OBJECT, "Values" };
 }
 
+extern "C"
+{
+  // Export the facade symbols with the native step functions.
+  extern InfoTable const CyI7Control6Search12SetFunctions4set0 = set0_Info;
+  extern InfoTable const CyI7Control6Search12SetFunctions4set1 = set1_Info;
+  extern InfoTable const CyI7Control6Search12SetFunctions4set2 = set2_Info;
+  extern InfoTable const CyI7Control6Search12SetFunctions4set3 = set3_Info;
+  extern InfoTable const CyI7Control6Search12SetFunctions4set4 = set4_Info;
+  extern InfoTable const CyI7Control6Search12SetFunctions4set5 = set5_Info;
+  extern InfoTable const CyI7Control6Search12SetFunctions4set6 = set6_Info;
+  extern InfoTable const CyI7Control6Search12SetFunctions4set7 = set7_Info;
+  // Rewriting without outside-variable binding has no capsule equivalent.
+  extern InfoTable const CyI7Control6Search6Unsafe10rewriteAll {
+      T_FUNC, 1, sizeof(Node1), F_STATIC_OBJECT, "rewriteAll", "p"
+    , [](RuntimeState *, Configuration * C) -> tag_type {
+        C->set_error("Control.Search.Unsafe.rewriteAll: not implemented "
+                     "(native capsules cannot suppress outside bindings)");
+        return E_ERROR;
+      }, nullptr
+    };
+  extern InfoTable const CyI7Control6Search6Unsafe11rewriteSome {
+      T_FUNC, 1, sizeof(Node1), F_STATIC_OBJECT, "rewriteSome", "p"
+    , [](RuntimeState *, Configuration * C) -> tag_type {
+        C->set_error("Control.Search.Unsafe.rewriteSome: not implemented "
+                     "(native capsules cannot suppress outside bindings)");
+        return E_ERROR;
+      }, nullptr
+    };
+}
+
 static int register_setfunction_builtins()
 {
   TypeTable && builtin_setfunction_types{
@@ -706,6 +736,25 @@ static int register_setfunction_builtins()
       "Control.SetFunctions"
     , std::move(builtin_setfunction_types)
     , std::move(builtin_setfunction_symbols)
+    );
+  // Both library surfaces enter the same native capsules and Values type.
+  Module::register_builtin_module(
+      "Control.Search.SetFunctions", {}
+    , { {"set0", &CyI7Control6Search12SetFunctions4set0}
+      , {"set1", &CyI7Control6Search12SetFunctions4set1}
+      , {"set2", &CyI7Control6Search12SetFunctions4set2}
+      , {"set3", &CyI7Control6Search12SetFunctions4set3}
+      , {"set4", &CyI7Control6Search12SetFunctions4set4}
+      , {"set5", &CyI7Control6Search12SetFunctions4set5}
+      , {"set6", &CyI7Control6Search12SetFunctions4set6}
+      , {"set7", &CyI7Control6Search12SetFunctions4set7}
+      }
+    );
+  Module::register_builtin_module(
+      "Control.Search.Unsafe", {}
+    , { {"rewriteAll", &CyI7Control6Search6Unsafe10rewriteAll}
+      , {"rewriteSome", &CyI7Control6Search6Unsafe11rewriteSome}
+      }
     );
   return 0;
 }

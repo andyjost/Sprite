@@ -213,7 +213,7 @@ if(GC STREQUAL wdgc AND GC_WRITE_COUNTERS)
 endif()
 execute_process(COMMAND "${Python_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/curry/module_names.py"
   OUTPUT_VARIABLE module_names OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
-set(unsupported "Control.Search.AllValues Control.Search.SearchTree Control.Search.SetFunctions Control.Search.Unsafe Curry.Compiler.Distribution Data.IORef Debug.Trace System.CPUTime System.Environment System.IO System.IO.Unsafe Test.Prop Test.Prop.Types")
+set(unsupported "Control.Search.SearchTree Curry.Compiler.Distribution Data.IORef Debug.Trace System.CPUTime System.Environment System.IO System.IO.Unsafe Test.Prop Test.Prop.Types")
 file(MAKE_DIRECTORY "${image}/sysconfig")
 function(sprite_var name value)
   file(CONFIGURE OUTPUT "${image}/sysconfig/${name}" CONTENT "${value}\n" @ONLY)

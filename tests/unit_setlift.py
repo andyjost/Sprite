@@ -154,6 +154,36 @@ class TestPass(cytest.TestCase):
     self.assertIsNone(sl.set0_call(fcall(P('$'), pcall(P('id'), 1), var(1))))
     self.assertIsNone(sl.set0_call(var(1)))
 
+  def test_search_entry_points(self):
+    search = 'Control.Search.SetFunctions'
+    for call in (fcall((search, 'set0'), var(1)),
+                 fcall(P('$'), pcall((search, 'set0'), 1), var(1)),
+                 fcall((search, 'set0With'), var(2), var(1)),
+                 fcall(P('$'), pcall((search, 'set0With'), 1, var(2)), var(1))):
+      with self.subTest(call=call):
+        original = prog(func('f', [1, 2], call))
+        result, count = sl.transform_prog(original)
+        self.assertEqual(count, 1)
+        self.assertEqual(result.functions[0].rule.body.name, (search, 'set1'))
+        self.assertEqual(result.functions[1].rule.args, [1])
+        self.assertEqual(sl.transform_prog(result)[1], 0)
+
+  def test_search_wrapper_boundaries(self):
+    for name in sl.SEARCH_WRAPPERS:
+      with self.subTest(name=name):
+        original = prog(func('f', [1], fcall(name, var(1))))
+        result, count = sl.transform_prog(original)
+        self.assertEqual(count, 1)
+        self.assertIn('Control.SetFunctions', result.imports)
+        self.assertEqual(result.functions[1].rule.args, [1])
+        self.assertEqual(sl.transform_prog(result)[1], 0)
+    # Wrappers do not box their own formal expression argument.
+    fd = fc.Func(('Control.Search.Unsafe', 'oneValue'), 1, fc.Public,
+                 fc.TVar(0), fc.Rule([1], fcall(
+                     ('Control.Search.Unsafe', 'allValues'), var(1))))
+    original = fc.Prog('Control.Search.Unsafe', ['Prelude'], [], [fd], [])
+    self.assertEqual(sl.transform_prog(original), (original, 0))
+
   def test_names(self):
     self.assertTrue(sl.is_lifted_name('f_SET00'))
     self.assertTrue(sl.is_lifted_name('f._#lambda1_SET012'))
