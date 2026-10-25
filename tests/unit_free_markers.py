@@ -12,6 +12,7 @@ marker used after ``curry.reset`` evaluate too.  ``raw_expr`` keeps the raw
 ``Free`` and ``Choice`` nodes, which unit_expr.py pins.
 '''
 import cytest # from ./lib; must be first
+from cytest.classnames import operation_names
 from curry.backends.generic.eval import evaluator
 from curry.expressions import anchor, choice, cons, free, ref
 from curry import inspect
@@ -87,7 +88,7 @@ class TestFreeMarkers(cytest.TestCase):
     y = curry.free('y')
     value, = cytest.raw.values(cytest.raw.expr(P.id, y, typed=True))
     self.assertEqual(str(value), '_a')
-    dictionary = curry.import_('Prelude')['_inst#Prelude.Data#Prelude.Int']
+    dictionary = curry.import_('Prelude')[operation_names('_inst#Prelude.Data#Prelude.Int')]
     self.assertEqual(values(getattr(P, '=:='), dictionary, y, 1), [True])
 
   def test_goal_evaluated_twice(self):

@@ -176,7 +176,9 @@ class InstanceEnv:
         for name in iface.function_names():
           if name.startswith(SUPER_PREFIX) and '._#' not in name:
             parts = name.split('#')
-            if len(parts) == 3:
+            # New selectors append the encoded superclass variables (#0#).
+            # Only unary identity projections are meaningful to this API.
+            if len(parts) == 3 or parts[3:] == ['0', '']:
               direct.setdefault(parts[1], set()).add(parts[2])
       closure = {}
       def close(cls):

@@ -64,9 +64,9 @@ does. The tracker reproducers are `tests/unit_issue{103,104,108,133,134,137}.py`
   `-D__PAKCS__=310`, compiles the shipped library of 3.4.1 afresh and
   uses none of the committed `.icy` products; the reader of FlatCurry
   accepts the typed locals of the format of `flatcurry` 5.0.0 beside
-  the old form. The typed boundary does not yet read the instance names
-  of the new front end, so most typed tests fail in that configuration
-  until the next stage.
+  the old form. The typed boundary reads both grammars of instance and
+  implementation names; nullary and multi-parameter classes await the next
+  stage of the typed API.
 - Curry is translated to ICurry in three steps: the front end
   (`bin/pakcs-frontend` of PAKCS) writes FlatCurry; the rewrite step
   (`flat2icurry.rewrite_file`) rewrites the `.fcy` file in place, when a

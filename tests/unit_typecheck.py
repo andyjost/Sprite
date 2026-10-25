@@ -14,6 +14,7 @@ The reference materializer builds the node of a solved problem through
 module of the tests is data/curry/TypeCheck.curry.
 '''
 import cytest # from ./lib; must be first
+from cytest.classnames import operation_names
 from curry.toolchain.flat2icurry import flatcurry as fc
 from curry.typecheck import defaulting, engine, errors, exprtype, instances, sigtable, terms, unify
 from curry.typecheck.defaulting import DefaultingError, ORACLE_SENTENCE
@@ -247,7 +248,7 @@ class TestNormalization(cytest.TestCase):
     prob.solve()
     self.assertEqual(prob.defaulted_signature, 'IO Int')
     self.assertEqual(prob.typeexpr, tcons('IO', INT))
-    self.assertEqual(dicts(prob), ['_inst#Prelude.Monad#Prelude.IO'])
+    self.assertEqual(dicts(prob), [operation_names('_inst#Prelude.Monad#Prelude.IO')])
     self.assertEqual(values(P('return'), 5), ['5'])
 
   def test_fmap(self):
@@ -258,7 +259,7 @@ class TestNormalization(cytest.TestCase):
     self.assertEqual(prob.defaulted_signature, 'Maybe Int')
     self.assertEqual(
         dicts(prob)
-      , ['_inst#Prelude.Functor#Prelude.Maybe', '_inst#Prelude.Num#Prelude.Int']
+      , [operation_names('_inst#Prelude.Functor#Prelude.Maybe'), operation_names('_inst#Prelude.Num#Prelude.Int')]
       )
     self.assertEqual(values(P('fmap'), [P('+'), 1], [P('Just'), 1]), ['Just 2'])
 
@@ -276,7 +277,7 @@ class TestNormalization(cytest.TestCase):
       )
     prob = solved(P('pure'), 1, exprtype='Maybe Int')
     self.assertEqual(prob.signature, 'Maybe Int')
-    self.assertEqual(dicts(prob), ['_inst#Prelude.Applicative#Prelude.Maybe'])
+    self.assertEqual(dicts(prob), [operation_names('_inst#Prelude.Applicative#Prelude.Maybe')])
     self.assertEqual(values(P('pure'), 1, exprtype='Maybe Int'), ['Just 1'])
     prob = solved(P('pure'), 1, exprtype='IO Int')
     self.assertEqual(prob.defaulted_signature, 'IO Int')
@@ -293,7 +294,7 @@ class TestSchemes(cytest.TestCase):
     self.assertEqual(prob.show_type_of(bind.args[0]), 'Maybe Int')
     self.assertEqual(prob.show_type_of(bind.args[1]), 'Int -> Maybe Int')
     self.assertEqual(prob.defaulted_signature, 'Maybe Int')
-    self.assertEqual(dicts(prob), ['_inst#Prelude.Monad#Prelude.Maybe'])
+    self.assertEqual(dicts(prob), [operation_names('_inst#Prelude.Monad#Prelude.Maybe')])
     self.assertEqual(values(P('>>='), [P('Just'), 1], P('Just')), ['Just 1'])
 
   def test_mapm(self):
@@ -302,7 +303,7 @@ class TestSchemes(cytest.TestCase):
     prob.solve()
     self.assertEqual(
         dicts(prob)
-      , ['_inst#Prelude.Monad#Prelude.IO', '_inst#Prelude.Show#Prelude.Int']
+      , [operation_names('_inst#Prelude.Monad#Prelude.IO'), operation_names('_inst#Prelude.Show#Prelude.Int')]
       )
     mapm = prob.root
     self.assertEqual(prob.show_type_of(mapm.args[0]), 'Int -> IO ()')
@@ -314,7 +315,7 @@ class TestSchemes(cytest.TestCase):
     self.assertEqual(prob.defaulted_signature, 'IO Bool')
     self.assertEqual(
         dicts(prob)
-      , ['_inst#Prelude.Functor#Prelude.IO', '_inst#Prelude.Monad#Prelude.IO']
+      , [operation_names('_inst#Prelude.Functor#Prelude.IO'), operation_names('_inst#Prelude.Monad#Prelude.IO')]
       )
     self.assertEqual(values(P('fmap'), P('not'), [P('return'), True], exprtype='IO Bool'), ['False'])
     # The kind of the variable of fmap comes from the scheme.
@@ -350,15 +351,15 @@ class TestReduction(cytest.TestCase):
     prob.solve()
     d, = prob.dictionaries(prob.root)
     self.assertIsInstance(d, DictTerm)
-    self.assertEqual(d.fullname, 'Prelude._inst#Prelude.Show#[]')
-    self.assertEqual([a.fullname for a in d.args], ['Prelude._inst#Prelude.Show#Prelude.Int'])
-    self.assertEqual(str(d), '_inst#Prelude.Show#[] _inst#Prelude.Show#Prelude.Int')
+    self.assertEqual(d.fullname, operation_names('Prelude._inst#Prelude.Show#[]'))
+    self.assertEqual([a.fullname for a in d.args], [operation_names('Prelude._inst#Prelude.Show#Prelude.Int')])
+    self.assertEqual(str(d), operation_names('_inst#Prelude.Show#[] _inst#Prelude.Show#Prelude.Int'))
     self.assertEqual(values(P('show'), [1, 2]), ['"[1,2]"'])
     self.assertEqual(values(P('show'), [[1], [2, 3]]), ['"[[1],[2,3]]"'])
 
   def test_show_maybe(self):
     prob = solved(P('show'), [P('Just'), 1])
-    self.assertEqual(dicts(prob), ['_inst#Prelude.Show#Prelude.Maybe _inst#Prelude.Show#Prelude.Int'])
+    self.assertEqual(dicts(prob), [operation_names('_inst#Prelude.Show#Prelude.Maybe _inst#Prelude.Show#Prelude.Int')])
     self.assertEqual(values(P('show'), [P('Just'), 1]), ['"Just 1"'])
     self.assertEqual(values(P('show'), [P('Just'), [P('Just'), 'a']]), ['"Just (Just \'a\')"'])
 
@@ -367,13 +368,13 @@ class TestReduction(cytest.TestCase):
     d, = prob.dictionaries(prob.root)
     self.assertEqual(
         str(d)
-      , '_inst#Prelude.Eq#(,) _inst#Prelude.Eq#Prelude.Int _inst#Prelude.Eq#Prelude.Char'
+      , operation_names('_inst#Prelude.Eq#(,) _inst#Prelude.Eq#Prelude.Int _inst#Prelude.Eq#Prelude.Char')
       )
     self.assertEqual(values(P('=='), (1, 'a'), (2, 'b')), ['False'])
     self.assertEqual(values(P('=='), (1, 'a'), (1, 'a')), ['True'])
     # The predicates record the instance and its context.
     pred, = prob.root.preds
-    self.assertEqual(pred.instance.fullname, 'Prelude._inst#Prelude.Eq#(,)')
+    self.assertEqual(pred.instance.fullname, operation_names('Prelude._inst#Prelude.Eq#(,)'))
     self.assertEqual([p.classname for p in pred.subpreds], ['Prelude.Eq', 'Prelude.Eq'])
     self.assertIs(pred.subpreds[0].parent, pred)
     self.assertIs(pred.subpreds[0].root(), pred)
@@ -425,7 +426,7 @@ class TestReduction(cytest.TestCase):
     M = curry.import_(MODULE)
     prob = solved(M.pretty, [True, False])
     self.assertEqual(
-        dicts(prob), ['_inst#TypeCheck.Pretty#[] _inst#TypeCheck.Pretty#Prelude.Bool']
+        dicts(prob), [operation_names('_inst#TypeCheck.Pretty#[] _inst#TypeCheck.Pretty#Prelude.Bool')]
       )
     self.assertEqual(values(M.pretty, [True, False]), ['"yesno"'])
     # No instance of Pretty at Int or Float: the variable is ambiguous.
@@ -520,12 +521,12 @@ class TestDefaulting(cytest.TestCase):
 
   def test_plus(self):
     prob = self.check('plus', 'Num a => a', 'Int', '3', P('+'), 1, 2)
-    self.assertEqual(dicts(prob), ['_inst#Prelude.Num#Prelude.Int'])
+    self.assertEqual(dicts(prob), [operation_names('_inst#Prelude.Num#Prelude.Int')])
     self.assertEqual(prob.literal_type(prob.root.args[0]), INT)
 
   def test_divide(self):
     prob = self.check('divide', 'Fractional a => a', 'Float', '1.5', P('/'), 3, 2)
-    self.assertEqual(dicts(prob), ['_inst#Prelude.Fractional#Prelude.Float'])
+    self.assertEqual(dicts(prob), [operation_names('_inst#Prelude.Fractional#Prelude.Float')])
     self.assertEqual(prob.literal_type(prob.root.args[0]), FLOAT)
 
   def test_fromintegral(self):
@@ -533,7 +534,7 @@ class TestDefaulting(cytest.TestCase):
     prob = self.check('fromintegral', 'Num a => a', 'Int', '3', P('fromIntegral'), 3)
     self.assertEqual(
         dicts(prob)
-      , ['_inst#Prelude.Integral#Prelude.Int', '_inst#Prelude.Num#Prelude.Int']
+      , [operation_names('_inst#Prelude.Integral#Prelude.Int'), operation_names('_inst#Prelude.Num#Prelude.Int')]
       )
 
   def test_nil(self):
@@ -553,7 +554,7 @@ class TestDefaulting(cytest.TestCase):
     self.assertEqual(squeeze(oracle('free', 'type')), 'Dataa=>a')
     prob.solve()
     self.assertEqual(prob.defaulted_signature, 'a')
-    self.assertEqual(str(prob.free_dictionary(prob.root)), '_inst#Prelude.Data#Prelude.Bool')
+    self.assertEqual(str(prob.free_dictionary(prob.root)), operation_names('_inst#Prelude.Data#Prelude.Bool'))
     self.assertEqual(values(x), ['_a'])
     self.assertEqual(oracle('free'), '{x=x} x')
 
@@ -626,11 +627,11 @@ class TestDefaulting(cytest.TestCase):
     # Data alone defaults to Bool; Data with Num follows Num.
     prob = solved(P('=:='), cytest.raw.free(), cytest.raw.free())
     self.assertEqual(prob.signature, 'Data a => Bool')
-    self.assertEqual(dicts(prob), ['_inst#Prelude.Data#Prelude.Bool'])
+    self.assertEqual(dicts(prob), [operation_names('_inst#Prelude.Data#Prelude.Bool')])
     self.assertEqual(values(P('=:='), cytest.raw.free(), cytest.raw.free()), ['True'])
     prob = solved(P('=:='), cytest.raw.free(), 1)
     self.assertEqual(prob.signature, '(Data a, Num a) => Bool')
-    self.assertEqual(dicts(prob), ['_inst#Prelude.Data#Prelude.Int'])
+    self.assertEqual(dicts(prob), [operation_names('_inst#Prelude.Data#Prelude.Int')])
     self.assertEqual(prob.defaulting[0].substitution, {0: 'Int'})
 
   def test_what_and_hint(self):
@@ -656,7 +657,7 @@ class TestDefaulting(cytest.TestCase):
       ):
       solved(P('read'), '5')
     self.assertEqual(values(P('read'), '5', exprtype='Int'), ['5'])
-    self.assertEqual(dicts(solved(P('read'), '5', exprtype='Int')), ['_inst#Prelude.Read#Prelude.Int'])
+    self.assertEqual(dicts(solved(P('read'), '5', exprtype='Int')), [operation_names('_inst#Prelude.Read#Prelude.Int')])
 
   def test_show_return(self):
     '''show (return 1): the monad is ambiguous, as in the front end.'''
@@ -699,7 +700,7 @@ class TestConversionRules(cytest.TestCase):
     prob = solved(M.toInt, 3)
     lit = prob.root.args[0]
     self.assertEqual(prob.show_type_of(lit), 'TypeCheck.Nat')
-    self.assertEqual(str(prob.literal_dictionary(lit)), '_inst#Prelude.Num#TypeCheck.Nat')
+    self.assertEqual(str(prob.literal_dictionary(lit)), operation_names('_inst#Prelude.Num#TypeCheck.Nat'))
     self.assertEqual(values(M.toInt, 3), ['3'])
     self.assertEqual(values(P('+'), [M.S, M.Z], 2), ['S (S (S Z))'])
     self.assertEqual(values(M.twice, [M.S, M.Z]), ['S (S Z)'])
@@ -842,7 +843,7 @@ class TestConversionRules(cytest.TestCase):
     node = cytest.raw.expr([1.5, 2.5])
     prob = solved(DL.sum, Known('[Float]', node))
     self.assertEqual(prob.signature, 'Float')
-    self.assertEqual(dicts(prob), ['_inst#Prelude.Num#Prelude.Float'])
+    self.assertEqual(dicts(prob), [operation_names('_inst#Prelude.Num#Prelude.Float')])
     self.assertEqual(values(DL.sum, Known('[Float]', node)), ['4.0'])
     self.assertEqual(values(P('+'), Known(INT, cytest.raw.expr(3)), 4), ['7'])
     # The variables of a known type belong to the environment: no defaulting.
@@ -881,7 +882,7 @@ class TestFreeVariables(cytest.TestCase):
     self.assertIsInstance(free, Free)
     self.assertEqual(prob.show_type_of(free), '[Int]')
     self.assertEqual(
-        str(prob.free_dictionary(free)), '_inst#Prelude.Data#[] _inst#Prelude.Data#Prelude.Int'
+        str(prob.free_dictionary(free)), operation_names('_inst#Prelude.Data#[] _inst#Prelude.Data#Prelude.Int')
       )
     self.assertEqual(values(P('=:='), x, [1, 2]), ['True'])
     # A type with a polymorphic part gets the placeholder inside.
@@ -889,10 +890,10 @@ class TestFreeVariables(cytest.TestCase):
     prob = solved(P('length'), [y])
     self.assertEqual(prob.show_type_of(prob.root.args[0].items[0]), 'a')
     self.assertEqual(
-        str(prob.free_dictionary(prob.root.args[0].items[0])), '_inst#Prelude.Data#Prelude.Bool'
+        str(prob.free_dictionary(prob.root.args[0].items[0])), operation_names('_inst#Prelude.Data#Prelude.Bool')
       )
     prob = solved(cytest.raw.free(), exprtype='[Int]')
-    self.assertEqual(str(prob.free_dictionary(prob.root)), '_inst#Prelude.Data#[] _inst#Prelude.Data#Prelude.Int')
+    self.assertEqual(str(prob.free_dictionary(prob.root)), operation_names('_inst#Prelude.Data#[] _inst#Prelude.Data#Prelude.Int'))
     self.assertEqual(values(cytest.raw.free(), exprtype='[Int]'), ['_a'])
 
   def test_one_variable_per_marker(self):
@@ -1399,11 +1400,11 @@ class TestAPI(cytest.TestCase):
     self.assertEqual(prob.defaulted_signature, 'Float')
     self.assertEqual(str(prob.scheme), 'Fractional a => a')
     self.assertEqual(prob.dictionaries(app), app.dicts)
-    self.assertEqual([str(d) for d in prob.dictionaries(app)], ['_inst#Prelude.Num#Prelude.Float'])
+    self.assertEqual([str(d) for d in prob.dictionaries(app)], [operation_names('_inst#Prelude.Num#Prelude.Float')])
     self.assertEqual(prob.literal_type(app.args[0]), FLOAT)
     self.assertEqual(prob.literal_type(app.args[1]), FLOAT)
-    self.assertEqual(str(prob.literal_dictionary(app.args[0])), '_inst#Prelude.Num#Prelude.Float')
-    self.assertEqual(str(prob.literal_dictionary(app.args[1])), '_inst#Prelude.Fractional#Prelude.Float')
+    self.assertEqual(str(prob.literal_dictionary(app.args[0])), operation_names('_inst#Prelude.Num#Prelude.Float'))
+    self.assertEqual(str(prob.literal_dictionary(app.args[1])), operation_names('_inst#Prelude.Fractional#Prelude.Float'))
     self.assertEqual(prob.show_type_of(app.args[0]), 'Float')
     self.assertEqual([type(s).__name__ for s in prob.specs], ['App', 'Lit', 'Lit'])
     self.assertEqual(prob.apps, [app])
@@ -1483,32 +1484,32 @@ class TestAPI(cytest.TestCase):
 
   def test_materialize_shapes(self):
     '''The shapes of the reference materializer.'''
-    self.assertEqual(str(build(P('+'), 1, 2)), 'apply (apply ((+) _inst#Prelude.Num#Prelude.Int) 1) 2')
-    self.assertEqual(str(build(P('=:='), 1, 2)), '(=:=) _inst#Prelude.Data#Prelude.Int 1 2')
+    self.assertEqual(str(build(P('+'), 1, 2)), operation_names('apply (apply ((+) _inst#Prelude.Num#Prelude.Int) 1) 2'))
+    self.assertEqual(str(build(P('=:='), 1, 2)), operation_names('(=:=) _inst#Prelude.Data#Prelude.Int 1 2'))
     # The Python runtime prints a partial application in parentheses of
     # its own; the C++ runtime does not.
     self.assertIn(
         str(build(P('show'), [1]))
-      , [ 'apply (show ((_inst#Prelude.Show#[] _inst#Prelude.Show#Prelude.Int))) [1]'
-        , 'apply (show (_inst#Prelude.Show#[] _inst#Prelude.Show#Prelude.Int)) [1]'
+      , [ operation_names('apply (show ((_inst#Prelude.Show#[] _inst#Prelude.Show#Prelude.Int))) [1]')
+        , operation_names('apply (show (_inst#Prelude.Show#[] _inst#Prelude.Show#Prelude.Int)) [1]')
         ]
       )
     # A method takes its dictionary alone; the value goes through apply.
-    self.assertEqual(str(build(P('+'), 1)), 'apply ((+) _inst#Prelude.Num#Prelude.Int) 1')
+    self.assertEqual(str(build(P('+'), 1)), operation_names('apply ((+) _inst#Prelude.Num#Prelude.Int) 1'))
     self.assertEqual(str(build(P('not'))), 'not')
     self.assertEqual(values(P('apply'), [P('not')], True), ['False'])
-    self.assertEqual(str(build(P('fromIntegral'), 3)), 'apply (fromIntegral _inst#Prelude.Integral#Prelude.Int _inst#Prelude.Num#Prelude.Int) 3')
+    self.assertEqual(str(build(P('fromIntegral'), 3)), operation_names('apply (fromIntegral _inst#Prelude.Integral#Prelude.Int _inst#Prelude.Num#Prelude.Int) 3'))
     self.assertEqual(
         floats(str(build(P('round'), 2.5)))
-      , 'apply (apply (round _inst#Prelude.RealFrac#Prelude.Float) '
-        '_inst#Prelude.Integral#Prelude.Int) 2.5'
+      , operation_names('apply (apply (round _inst#Prelude.RealFrac#Prelude.Float) '
+        '_inst#Prelude.Integral#Prelude.Int) 2.5')
       )
     # The backends round a half differently; 2.7 rounds alike.
     self.assertEqual(values(P('round'), 2.7), ['3'])
     self.assertEqual(str(build((1, 'a'))), "(1, 'a')")
     self.assertEqual(str(build([1, 2])), '[1, 2]')
     self.assertEqual(str(build('ab')), '"ab"')
-    self.assertEqual(str(build(cytest.raw.free())), 'unknown _inst#Prelude.Data#Prelude.Bool')
+    self.assertEqual(str(build(cytest.raw.free())), operation_names('unknown _inst#Prelude.Data#Prelude.Bool'))
     self.assertEqual(values(P('negate'), 5), ['(-5)'])
     self.assertEqual(values(P('Just'), [P('Just'), 'a']), ["Just (Just 'a')"])
     self.assertEqual(values(P('length'), [P('map'), P('not'), [True, False]]), ['2'])

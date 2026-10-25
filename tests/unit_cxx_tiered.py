@@ -1263,6 +1263,7 @@ class TestImportObjects(TieredTestCase):
     with capture_log('curry.backends.cxx.tiered') as log:
       U = self.import_module(user)
       T = curry.import_(types)
+      needs_types = types in getHandle(U).icurry.imports
       # The import has neither a binding nor a job; the child of the
       # importer compiles its object.
       self.assertFalse(tiered.has_binding(types))
@@ -1277,15 +1278,15 @@ class TestImportObjects(TieredTestCase):
     self.assertEqual(after['swapped_modules'], before['swapped_modules'] + 1)
     self.assertEqual(after['failed_modules'], before['failed_modules'])
     self.assertEqual(log.data[logging.WARNING], [])
-    self.assertTrue(
+    self.assertEqual(
         any('Mapped the object of %s' % types in line
             for line in log.data[logging.INFO])
-      , log.data[logging.INFO]
+      , needs_types, log.data[logging.INFO]
       )
     self.assertFalse(curryrt.icurry_is_interpreted(U.mk.info))
     self.assertFalse(curryrt.icurry_is_interpreted(U.second.info))
     # The import has its object on record now.
-    self.assertIsNotNone(getHandle(T).sofilename)
+    self.assertEqual(getHandle(T).sofilename is not None, needs_types)
     self.assertEqual(self.py(U.second, self.value(U.mk, 4)), 5)
     self.assertEqual(self.py(U.second, self.value(U.mk, 7)), 8)
 
@@ -1303,6 +1304,7 @@ class TestImportObjects(TieredTestCase):
     with capture_log('curry.backends.cxx.tiered') as log:
       U = self.import_module(user)
       T = curry.import_(types)
+      needs_types = types in getHandle(U).icurry.imports
       self.assertTrue(tiered.pending(user))
       self.assertIsNone(getHandle(T).sofilename)
       before = tiered.status()
@@ -1323,13 +1325,13 @@ class TestImportObjects(TieredTestCase):
             for line in log.data[logging.WARNING])
       , log.data[logging.WARNING]
       )
-    self.assertTrue(
+    self.assertEqual(
         any('Mapped the object of %s' % types in line
             for line in log.data[logging.INFO])
-      , log.data[logging.INFO]
+      , needs_types, log.data[logging.INFO]
       )
     self.assertTrue(curryrt.icurry_is_interpreted(U.mk.info))
-    self.assertIsNotNone(getHandle(T).sofilename)
+    self.assertEqual(getHandle(T).sofilename is not None, needs_types)
     self.assertEqual(self.py(U.second, self.value(U.mk, 4)), 5)
 
   @cytest.hardreset
@@ -1347,16 +1349,18 @@ class TestImportObjects(TieredTestCase):
     with mock.patch.object(tiered, '_import_objects', return_value=[]):
       with capture_log('curry.backends.cxx.tiered') as log:
         U = self.import_module(user)
+        needs_types = types in getHandle(U).icurry.imports
         before = tiered.status()
         self.wait()
     after = tiered.status()
-    self.assertEqual(after['failed_modules'], before['failed_modules'] + 1)
-    self.assertEqual(after['swapped_modules'], before['swapped_modules'])
-    self.assertTrue(curryrt.icurry_is_interpreted(U.mk.info))
-    self.assertTrue(
+    # Expanded synonyms no longer create an object dependency in 3.1.0.
+    self.assertEqual(after['failed_modules'], before['failed_modules'] + needs_types)
+    self.assertEqual(after['swapped_modules'], before['swapped_modules'] + (not needs_types))
+    self.assertEqual(curryrt.icurry_is_interpreted(U.mk.info), needs_types)
+    self.assertEqual(
         any('cannot open shared object file' in line
             for line in log.data[logging.WARNING])
-      , log.data[logging.WARNING]
+      , needs_types, log.data[logging.WARNING]
       )
     self.assertEqual(self.py(U.second, self.value(U.mk, 4)), 5)
 

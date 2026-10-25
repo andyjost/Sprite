@@ -119,12 +119,24 @@ def normalize_values(text, names=()):
   return clean.clean(lines, standardize_floats=True)
 
 def normalize_type(text):
-  '''A type modulo the names of its variables and whitespace.'''
+  '''A type modulo variables, whitespace and independent constraint order.'''
+  context, arrow, body = text.partition('=>')
+  if not arrow:
+    context, body = '', context
   seen = {}
   def rename(match):
     return seen.setdefault(match.group(0), 'v%d' % (len(seen) + 1))
-  text = re.sub(r"(?<![%s.])[a-z][%s]*" % (_IDENT_CHARS, _IDENT_CHARS), rename, text)
-  return re.sub(r'\s+', '', text)
+  def normalize(part):
+    part = re.sub(r"(?<![%s.])[a-z][%s]*" % (_IDENT_CHARS, _IDENT_CHARS), rename, part)
+    return re.sub(r'\s+', '', part)
+  # Name variables from the result, so reordering constraints cannot rename
+  # the two independent variables in (Data a, Data b) => (a, b).
+  body = normalize(body)
+  context = context.strip()
+  if context.startswith('(') and context.endswith(')'):
+    context = context[1:-1]
+  constraints = sorted(normalize(c) for c in _split_entries(context))
+  return (','.join(constraints) + '=>' if arrow else '') + body
 
 def drop_bindings(text, omitted):
   '''
@@ -367,6 +379,14 @@ class TestGoldens(cytest.TestCase):
       , '{xs=[1,2], ys=[]} True\n{xs=[], ys=[1,2]} True'
       )
     self.assertEqual(drop_bindings('3', {'x'}), '3')
+
+  def test_constraint_order(self):
+    self.assertEqual(normalize_type('(Data b, Data a) => (a, b)'),
+        normalize_type('(Data x, Data y) => (x,y)'))
+    self.assertEqual(normalize_type('(Show a, Num a) => a -> [Char]'),
+        normalize_type('(Num b, Show b) => b -> [Char]'))
+    self.assertNotEqual(normalize_type('Data a => (a, b)'),
+        normalize_type('Data b => (a, b)'))
 
   @oracle.require
   def test_text_header(self):

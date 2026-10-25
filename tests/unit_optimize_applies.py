@@ -23,6 +23,7 @@ from its ICurry object with the key of the pass already set, which the
 framework reads as "this pass ran".
 '''
 import cytest # from ./lib; must be first
+from cytest.classnames import operation_names
 from curry import config, icurry, toolchain
 from curry.icurry import analysis, types
 from curry.interpreter import optimize
@@ -739,12 +740,11 @@ class TestSaturateApplies(ApplyTestCase):
       )
     self.assertTrue(getattr(middle_module, '.icurry').metadata[passkey()])
     imodule = self.load_icurry(top)
-    self.assertNotIn(base, imodule.imports)
     imports = imodule.imports
     cytest.raw.import_(imodule, currypath=self.currypath)
     self.assertEqual(ifcalls(imodule.functions['main']), ['%s.f' % base])
     self.assertEqual(ifcalls(imodule.functions['viaPrefix']), ['Prelude.++'])
-    self.assertEqual(imodule.imports, imports + (base,))
+    self.assertEqual(imodule.imports, imports + (() if base in imports else (base,)))
     # The values, from a module of the same text imported by name.
     module = self.import_(self.write('Use', '''
       import %s
@@ -837,10 +837,10 @@ class TestPrelude(cytest.TestCase):
   '''The Prelude: the installed one, and its ICurry as the toolchain reads it.
   '''
 
-  IMPL_NE_INT = '_impl#/=#Prelude.Eq#Prelude.Int'
+  IMPL_NE_INT = operation_names('_impl#/=#Prelude.Eq#Prelude.Int')
   UNFOLDING_NE_INT = types.IFPCall(
       'Prelude._def#/=#Prelude.Eq', 2
-    , [types.IFPCall('Prelude._inst#Prelude.Eq#Prelude.Int', 1, [])]
+    , [types.IFPCall(operation_names('Prelude._inst#Prelude.Eq#Prelude.Int'), 1, [])]
     )
 
   def prelude_json(self):
@@ -890,7 +890,9 @@ class TestPrelude(cytest.TestCase):
     modules = {'Prelude': imodule}
     before = applies(imodule, modules)
     known_before = known_applies(imodule, modules)
-    self.assertGreaterEqual(len(known_before), 100)
+    # The new front end eliminates 168 Data Char equality applies upstream.
+    counts = {'2.0.0': 266, '3.1.0': 98}
+    self.assertEqual(len(known_before), counts[config.frontend_version()])
     # chr $ ... and lex $ ...: chains through the alias of apply.
     self.assertIn('Prelude.$', [iapply.symbolname for iapply in known_before])
     interp = cytest.raw.interp()
@@ -899,7 +901,7 @@ class TestPrelude(cytest.TestCase):
     after = applies(imodule, modules)
     self.assertFalse(known_applies(imodule, modules))
     self.assertNotIn('Prelude.$', [iapply.symbolname for iapply in after])
-    self.assertLess(len(after), len(before) - 200)
+    self.assertLessEqual(len(after), len(before) - len(known_before))
     # The heads that stay: a variable, a call with arguments, or a call of a
     # nullary function whose body is not a partial application.
     for iapply in after:
@@ -927,11 +929,15 @@ class TestPrelude(cytest.TestCase):
       , analysis.unfolding_text(self.UNFOLDING_NE_INT)
       )
     # x === '(' in the Read instance of () was apply (apply (_impl#===) x) '('.
-    reads = imodule.functions[
-        '_impl#readsPrec#Prelude.Read#()._#lambda41._#lambda44_CASE0'
-      ]
-    self.assertIn('Prelude._impl#==#Prelude.Eq#Prelude.Char', ifcalls(reads))
-    self.assertFalse(applies(reads))
+    # Lifted lambda numbers follow the front end's generated locals.
+    prefix = operation_names('_impl#readsPrec#Prelude.Read#()') + '.'
+    reads = [f for name, f in imodule.functions.items() if name.startswith(prefix)]
+    # New string patterns use the eqString bridge (Eq [Char]); the old
+    # front end emits individual character comparisons.
+    eqtype = '[]' if config.frontend_version() >= '3.0.0' else 'Prelude.Char'
+    equality = operation_names('Prelude._impl#==#Prelude.Eq#' + eqtype)
+    self.assertTrue(any(equality in ifcalls(f) for f in reads))
+    self.assertFalse(any(applies(f) for f in reads))
 
 
 class TestCompiledModules(cytest.TestCase):
@@ -1042,4 +1048,4 @@ class TestBenchmarkShapes(cytest.TestCase):
       self.assertFalse(applies(ifun))
       calls = ifcalls(ifun)
       self.assertEqual([c for c in calls if c in (ne, mod)], defaults)
-      self.assertNotIn('Prelude._impl#/=#Prelude.Eq#Prelude.Int', calls)
+      self.assertNotIn(operation_names('Prelude._impl#/=#Prelude.Eq#Prelude.Int'), calls)

@@ -1,7 +1,7 @@
 import cytest # from ./lib; must be first
-from curry import icurry
+from curry import config, icurry
 from glob import glob
-import curry, gzip, os, zlib
+import curry, gzip, os, unittest, zlib
 
 GENERATE_GOLDENS = False
 
@@ -45,6 +45,8 @@ class ParseJSON(cytest.TestCase):
   def test_btable(self):
     curry.import_('btable')
 
+  @unittest.skipIf(config.frontend_version() >= '3.0.0',
+      'Kiel JSON fixtures are products of front end 2.0.0')
   def testKielExamples(self):
     '''Parse example programs from Kiel.'''
     for jsonfile in glob('data/json/kiel-*.json'):

@@ -56,7 +56,7 @@ class TestPlainDataBOM(cytest.TestCase):
     bom = shlib.bom
     self.assertEqual(bom.fullname, 'CxxBom')
     self.assertTrue(bom.filename.endswith('CxxBom.curry'), bom.filename)
-    self.assertEqual(sorted(bom.imports), ['Data.Maybe', 'Prelude'])
+    self.assertEqual(tuple(bom.imports), getHandle(module).icurry.imports)
     self.assertEqual(bom.aliases, {})
     self.assertIs(bom.metadata['cxx.is_merged'], True)
     # The type, with the metadata of the type and of each constructor.
@@ -91,7 +91,7 @@ class TestPlainDataBOM(cytest.TestCase):
   @cytest.skipIfInterpreted('the test reads the compiled object of CxxBom')
   def test_generated_file(self):
     '''The emitter writes the record and its tables as plain data.'''
-    _, shlib = self.load()
+    module, shlib = self.load()
     text = cytest.readfile(shlib.sofilename()[:-len('.so')] + '.cpp')
     self.assertIn('// FORMAT: %d\n' % compiler.FORMAT_VERSION, text)
     self.assertIn('extern bom::Module const _bom_;\n', text)
@@ -105,7 +105,12 @@ class TestPlainDataBOM(cytest.TestCase):
       , 'static bom::Entry const '
       ]:
       self.assertIn(table, text)
-    self.assertIn('    "Prelude"\n', text)
+    imports = re.search(
+        r'static char const \* const \w+imports\[\] = \{(.*?)\n  \};'
+      , text, re.S)
+    self.assertIsNotNone(imports)
+    self.assertEqual(tuple(re.findall(r'"([^"]+)"', imports.group(1))),
+        getHandle(module).icurry.imports)
     # One entry of each kind.
     functions = {info.name: md for _, md, info in shlib.bom.functions}
     self.assertIn(

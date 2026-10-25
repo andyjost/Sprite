@@ -499,7 +499,8 @@ def _anchor_node(key, brokenrefs, anchors):
 # free variable and returns it; it never reads the dictionary.  The untyped
 # builder does not know the type of a marker, so the dictionary of Bool
 # stands in.
-UNKNOWN_DICTIONARY = 'Prelude._inst#Prelude.Data#Prelude.Bool'
+UNKNOWN_DICTIONARY = 'Prelude._inst#Prelude.Data#Prelude.Bool' + (
+    '#' if config.frontend_version() >= '3.0.0' else '')
 
 class ExpressionBuilder(object):
   '''

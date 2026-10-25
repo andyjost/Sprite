@@ -19,6 +19,7 @@ unit_optimize_applies.py tests the saturation of apply chains with the
 helpers of this file, and unit_optimize_inline.py the inliner.
 '''
 import cytest # from ./lib; must be first
+from cytest.classnames import operation_names
 from curry import common, config, icurry, toolchain
 from curry.backends.generic import compiler as generic_compiler
 from curry.icurry import analysis, types
@@ -423,11 +424,10 @@ class TestInlineAliases(ModuleTestCase):
     self.assertNotIsInstance(f.body.block, types.IBlock)
     self.assertEqual(f.metadata[analysis.ALIAS_KEY], '%s.g' % base)
     imodule = self.load_icurry(top)
-    self.assertNotIn(base, imodule.imports)
     imports = imodule.imports
     cytest.raw.import_(imodule, currypath=self.currypath)
     self.assertEqual(ifcalls(imodule.functions['main']), ['%s.g' % base])
-    self.assertEqual(imodule.imports, imports + (base,))
+    self.assertEqual(imodule.imports, imports + (() if base in imports else (base,)))
 
 
 class TestEvaluation(ModuleTestCase):
@@ -466,10 +466,10 @@ class TestEvaluation(ModuleTestCase):
     for target in 'Prelude.ltEqInt', 'Prelude.minusInt', 'Prelude.plusInt':
       self.assertIn(infotable_handle(target), text)
     for alias in [
-        'Prelude._impl#<=#Prelude.Ord#Prelude.Int'
-      , 'Prelude._impl#-#Prelude.Num#Prelude.Int'
-      , 'Prelude._impl#+#Prelude.Num#Prelude.Int'
-      , 'Prelude._impl#==#Prelude.Eq#Prelude.Int'
+        operation_names('Prelude._impl#<=#Prelude.Ord#Prelude.Int')
+      , operation_names('Prelude._impl#-#Prelude.Num#Prelude.Int')
+      , operation_names('Prelude._impl#+#Prelude.Num#Prelude.Int')
+      , operation_names('Prelude._impl#==#Prelude.Eq#Prelude.Int')
       ]:
       self.assertNotIn(infotable_handle(alias), text)
 
@@ -581,22 +581,22 @@ class TestEvaluation(ModuleTestCase):
 class TestPreludeAliases(cytest.TestCase):
   '''The aliases of the installed Prelude.'''
   ALIASES = {
-      '_impl#==#Prelude.Eq#Prelude.Int'       : 'Prelude.eqInt'
-    , '_impl#==#Prelude.Eq#Prelude.Char'      : 'Prelude.eqChar'
-    , '_impl#==#Prelude.Eq#Prelude.Float'     : 'Prelude.eqFloat'
-    , '_impl#<=#Prelude.Ord#Prelude.Int'      : 'Prelude.ltEqInt'
-    , '_impl#<=#Prelude.Ord#Prelude.Char'     : 'Prelude.ltEqChar'
-    , '_impl#<=#Prelude.Ord#Prelude.Float'    : 'Prelude.ltEqFloat'
-    , '_impl#+#Prelude.Num#Prelude.Int'       : 'Prelude.plusInt'
-    , '_impl#-#Prelude.Num#Prelude.Int'       : 'Prelude.minusInt'
-    , '_impl#*#Prelude.Num#Prelude.Int'       : 'Prelude.timesInt'
-    , '_impl#+#Prelude.Num#Prelude.Float'     : 'Prelude.plusFloat'
-    , '_impl#-#Prelude.Num#Prelude.Float'     : 'Prelude.minusFloat'
-    , '_impl#*#Prelude.Num#Prelude.Float'     : 'Prelude.timesFloat'
-    , '_impl#/#Prelude.Fractional#Prelude.Float': 'Prelude.divFloat'
-    , '_impl#fromInt#Prelude.Num#Prelude.Float': 'Prelude.intToFloat'
+      operation_names('_impl#==#Prelude.Eq#Prelude.Int')       : 'Prelude.eqInt'
+    , operation_names('_impl#==#Prelude.Eq#Prelude.Char')      : 'Prelude.eqChar'
+    , operation_names('_impl#==#Prelude.Eq#Prelude.Float')     : 'Prelude.eqFloat'
+    , operation_names('_impl#<=#Prelude.Ord#Prelude.Int')      : 'Prelude.ltEqInt'
+    , operation_names('_impl#<=#Prelude.Ord#Prelude.Char')     : 'Prelude.ltEqChar'
+    , operation_names('_impl#<=#Prelude.Ord#Prelude.Float')    : 'Prelude.ltEqFloat'
+    , operation_names('_impl#+#Prelude.Num#Prelude.Int')       : 'Prelude.plusInt'
+    , operation_names('_impl#-#Prelude.Num#Prelude.Int')       : 'Prelude.minusInt'
+    , operation_names('_impl#*#Prelude.Num#Prelude.Int')       : 'Prelude.timesInt'
+    , operation_names('_impl#+#Prelude.Num#Prelude.Float')     : 'Prelude.plusFloat'
+    , operation_names('_impl#-#Prelude.Num#Prelude.Float')     : 'Prelude.minusFloat'
+    , operation_names('_impl#*#Prelude.Num#Prelude.Float')     : 'Prelude.timesFloat'
+    , operation_names('_impl#/#Prelude.Fractional#Prelude.Float'): 'Prelude.divFloat'
+    , operation_names('_impl#fromInt#Prelude.Num#Prelude.Float'): 'Prelude.intToFloat'
     # Through _impl#fromInt#Prelude.Num#Prelude.Float.
-    , '_impl#toFloat#Prelude.Real#Prelude.Int': 'Prelude.intToFloat'
+    , operation_names('_impl#toFloat#Prelude.Real#Prelude.Int'): 'Prelude.intToFloat'
     }
 
   def test_installed_prelude(self):
@@ -629,8 +629,8 @@ class TestPreludeAliases(cytest.TestCase):
     interp = cytest.raw.interp()
     length = imodule.functions['length']
     take = imodule.functions['take']
-    self.assertIn('Prelude._impl#+#Prelude.Num#Prelude.Int', ifcalls(length))
-    self.assertIn('Prelude._impl#<=#Prelude.Ord#Prelude.Int', ifcalls(take))
+    self.assertIn(operation_names('Prelude._impl#+#Prelude.Num#Prelude.Int'), ifcalls(length))
+    self.assertIn(operation_names('Prelude._impl#<=#Prelude.Ord#Prelude.Int'), ifcalls(take))
     optimize.inline_aliases(interp, length, imodule)
     optimize.inline_aliases(interp, take, imodule)
     self.assertCountEqual(ifcalls(length), ['Prelude.plusInt', 'Prelude.length'])

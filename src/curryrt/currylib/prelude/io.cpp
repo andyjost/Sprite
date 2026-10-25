@@ -152,6 +152,10 @@ namespace curryrt
         "Prelude", "_impl#show#Prelude.Show#Prelude.IOError"
       );
     if(!show_Info)
+      show_Info = Module::find_symbol(
+          "Prelude", "_impl#show#Prelude.Show#Prelude.IOError#"
+        );
+    if(!show_Info)
       throw std::logic_error("the Prelude is not loaded: no show for IOError");
     // (error2 err) $## (show err)
     Node * error_msg = Node::create(show_Info, _1);
