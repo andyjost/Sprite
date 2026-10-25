@@ -130,7 +130,7 @@ HAND_SPELLINGS = {
   , 'floatVar': ('_1', r'CyL\w+')
   , 'nilVar'  : ('_1', r'nil\(\)')
   , 'unitVar' : ('_1', r'unit\(\)')
-  , 'ctorVar' : ('_1', r'Node::create\(&\w+Green\)')
+  , 'ctorVar' : ('_1', r'Node::create\(\w+Green\)')
   }
 
 # The values of the functions of CxxEmitHand.
@@ -246,7 +246,7 @@ class TestGeneratedCode(cytest.TestCase):
         ('isPtr', '_2', r'false_\(\)')
       , ('rank', '_2', r'int_\(2\)')
       , ('code', '_2', r"char_\(U'z'\)")
-      , ('paint', '_2', r'Node::create\(&\w+Green\)')
+      , ('paint', '_2', r'Node::create\(\w+Green\)')
       , ('nested', '_3', r'int_\(12\)')
       , ('nested_LET1', '_5', r'int_\(11\)')
       , ('big', '_2', r'CyL\w+')

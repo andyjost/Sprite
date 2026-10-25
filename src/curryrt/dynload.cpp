@@ -253,8 +253,12 @@ namespace curryrt
   // Reads the record of the module, binds its slots, runs its initializer
   // and registers the library.  With ``fresh`` the library never joins the
   // entry of its name.  A library that joins an entry was bound at its own
-  // load (dlopen of a mapped file gives the mapped library), so its slots
-  // are left as they are.
+  // load (dlopen of a mapped file gives the mapped library), and its slots
+  // are bound again all the same, against the registry of the moment: a
+  // table of the module that an incarnation interpreted since then takes
+  // the step of the object back, so the load of an object is the swap
+  // whether or not a library of the name is mapped.  The initializer runs
+  // once: the nodes of the literals exist.
   void SharedCurryModule::init(bool fresh)
   {
     std::string const & sofilename = this->sofilename();
@@ -282,10 +286,10 @@ namespace curryrt
     auto pinfo = registry.find(record->fullname);
     if(pinfo != registry.end() && !fresh)
       this->_info = pinfo->second.lock();
+    Binder binder(sofilename, *record);
+    binder.run();
     if(!this->_info)
     {
-      Binder binder(sofilename, *record);
-      binder.run();
       // The initializer makes the nodes of the literals of the module from
       // the bound tables (see backends/cxx/compiler.py).  A library without
       // one (a record written by hand) makes no nodes.

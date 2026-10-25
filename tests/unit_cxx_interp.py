@@ -532,11 +532,18 @@ main = double (CxxInterp.fact 3)
   def test_attach_refusals(self):
     M = switch('off')
     code = [bytecode.OP['EXEMPT']]
-    # A static table: a compiled function, a built-in.
-    for info in M.fact.info, curry.import_('Prelude')['plusInt'].info:
-      self.assertRaisesRegex(
-          ValueError, 'static', curryrt.icurry_attach, info, code, [], 0, 0, 0
-        )
+    # A built-in: a static table.
+    self.assertRaisesRegex(
+        ValueError, 'static', curryrt.icurry_attach
+      , curry.import_('Prelude')['plusInt'].info, code, [], 0, 0, 0
+      )
+    # A compiled function: the table of the object, or, when an earlier
+    # incarnation of the module ran interpreted in this process, its table,
+    # taken back with the step of the object at the load (issue #163).
+    self.assertRaisesRegex(
+        ValueError, 'static|has a step', curryrt.icurry_attach
+      , M.fact.info, code, [], 0, 0, 0
+      )
     # A constructor.
     self.assertRaisesRegex(
         ValueError, 'not a function', curryrt.icurry_attach
