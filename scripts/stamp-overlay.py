@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-'''Record the source of archived products verified against their packing commit.'''
+'''Record the source of archived products verified against their packing commit.
+
+An archive packed by the current toolchain carries the digest of the source
+each product was made from (M.icy.source); that record is kept, since the
+product may be older than the commit that holds the archive.  A product
+without one gets the digest of the source at the commit.
+'''
 import argparse
 import hashlib
 from pathlib import Path
@@ -34,7 +40,7 @@ def main():
     while directory != Path('.'):
       relative = source.relative_to(directory).with_suffix('.icy')
       product = args.root / directory / '.curry' / args.intermediate / relative
-      if product.is_file():
+      if product.is_file() and not Path(str(product) + '.source').is_file():
         Path(str(product) + '.source').write_text(digest)
       directory = directory.parent
 

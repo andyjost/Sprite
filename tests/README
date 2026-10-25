@@ -709,7 +709,12 @@ one it says how many products stay stale.
 
 Between the two steps, the target overlay-prune removes the extracted
 products of every test source that git shows changed since the commit that
-last changed the archive, in a later commit or in the working tree.  The
+last changed the archive, in a later commit or in the working tree.  An
+archive packed by the current toolchain carries the source digest of each
+product (M.icy.source); the stamp of the prune keeps such a record and
+writes the digest of the source at the archive's commit for a product
+without one, so a product packed from an older text than the commit's is
+stale and is made again at its first import.  The
 extraction gives every product the time of the extraction (tar -m; the
 archive records one fixed time, 2000-01-01, for every member), so by the
 modification times the toolchain compares an extracted product is newer
