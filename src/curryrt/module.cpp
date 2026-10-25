@@ -313,6 +313,13 @@ namespace curryrt
         live->step = object->step;
         live->aux  = nullptr;
       }
+      // The slots of the object name the table now: it lives for the
+      // process, whatever becomes of this module (a module of the code
+      // generator's import, say, which goes before the module loaded from
+      // the object links it; clear keeps the tables of a module that
+      // keeps).
+      if(!is_static(*live))
+        this->impl->keep = true;
       return live;
     }
     InfoTable * kept = take_kept_symbol(
@@ -334,7 +341,13 @@ namespace curryrt
   {
     assert(object);
     if(DataType const * live = this->get_type(object->name))
+    {
+      // As in bind_infotable: a type made at run time lives for the
+      // process once an object names it.
+      if(!is_static(*live))
+        this->impl->keep = true;
       return live;
+    }
     // A kept type is taken back with every constructor, each of the shape
     // the object gives it, or not at all.
     auto kept_module = g_kept_types.find(this->name);
