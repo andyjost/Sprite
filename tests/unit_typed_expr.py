@@ -13,6 +13,7 @@ empty ``[Char]`` to ``''``.  The tests run on both backends; the modules
 UnsignedGoals and TypeCheck come from unit_goals.py and unit_typecheck.py.
 '''
 import cytest # from ./lib; must be first
+from cytest.classnames import operation_names
 from curry import inspect
 from curry.typecheck import builder, engine, errors
 from curry.typecheck.defaulting import DefaultingError, ORACLE_SENTENCE
@@ -79,7 +80,7 @@ class TestAcceptance(cytest.TestCase):
     '''
     plus = symbol('+')
     e = (plus)(1, 2)
-    self.assertEqual(str(cytest.raw.expr(e)), 'apply (apply ((+) _inst#Prelude.Num#Prelude.Int) 1) 2')
+    self.assertEqual(str(cytest.raw.expr(e)), operation_names('apply (apply ((+) _inst#Prelude.Num#Prelude.Int) 1) 2'))
     self.assertEqual(curry.typeof(e), 'Num a => a')
     self.assertEqual(curry.typeof(e, defaulted=True), 'Int')
     # Evaluation preserves the held term.
@@ -87,7 +88,7 @@ class TestAcceptance(cytest.TestCase):
     self.assertEqual(str(e), '1 + 2')
     self.assertEqual(values(plus, 1, 2), [3])
     e = (plus)(1.5, 1)
-    self.assertIn('_inst#Prelude.Num#Prelude.Float', str(cytest.raw.expr(e)))
+    self.assertIn(operation_names('_inst#Prelude.Num#Prelude.Float'), str(cytest.raw.expr(e)))
     self.assertEqual(curry.typeof(e), 'Float')
     self.assertEqual(curry.typeof(e, defaulted=True), 'Float')
     self.assertEqual(values(e), [2.5])
@@ -96,8 +97,8 @@ class TestAcceptance(cytest.TestCase):
     '''show over Maybe Int: the dictionary of Maybe takes the dictionary of Int.'''
     P = prelude()
     e = (P.show)(P.Just(1))
-    self.assertIn('_inst#Prelude.Show#Prelude.Maybe', str(cytest.raw.expr(e)))
-    self.assertIn('_inst#Prelude.Show#Prelude.Int', str(cytest.raw.expr(e)))
+    self.assertIn(operation_names('_inst#Prelude.Show#Prelude.Maybe'), str(cytest.raw.expr(e)))
+    self.assertIn(operation_names('_inst#Prelude.Show#Prelude.Int'), str(cytest.raw.expr(e)))
     self.assertEqual(curry.typeof(e, defaulted=True), '[Char]')
     self.assertEqual(values(e), ['Just 1'])
     self.assertEqual(values(P.show, P.Just(1)), ['Just 1'])
@@ -405,7 +406,7 @@ class TestConversion(cytest.TestCase):
     w = curry.free('w')
     e = P.constrEq(w, [1, 2])
     self.assertEqual(curry.typeof(e), 'Bool')
-    self.assertIn('_inst#Prelude.Data#[]', str(cytest.raw.expr(e)))
+    self.assertIn(operation_names('_inst#Prelude.Data#[]'), str(cytest.raw.expr(e)))
     self.assertEqual(values(e), [True])
 
 class TestForms(cytest.TestCase):
@@ -822,7 +823,7 @@ class TestNodeBuilder(cytest.TestCase):
     target = node_expr(P.id, 0)
     e = node_expr(plus, 1, 2, target=target)
     self.assertIs(e, target)
-    self.assertEqual(str(target), 'apply (apply ((+) _inst#Prelude.Num#Prelude.Int) 1) 2')
+    self.assertEqual(str(target), operation_names('apply (apply ((+) _inst#Prelude.Num#Prelude.Int) 1) 2'))
     self.assertEqual(node_values(target), [3])
     target = node_expr(P.id, 0)
     node_expr([1, 2], target=target)
@@ -862,10 +863,10 @@ class TestNodeBuilder(cytest.TestCase):
     parameters; the scheme is then taken without its context.
     '''
     P = prelude()
-    num_int = symbol('_inst#Prelude.Num#Prelude.Int')
+    num_int = symbol(operation_names('_inst#Prelude.Num#Prelude.Int'))
     plus = symbol('+')
     self.assertEqual(node_values(P.apply, [P.apply, [plus, num_int], 1], 2), [3])
-    data_int = symbol('_inst#Prelude.Data#Prelude.Int')
+    data_int = symbol(operation_names('_inst#Prelude.Data#Prelude.Int'))
     x = cytest.raw.free()
     self.assertEqual(node_values(getattr(P, '=:='), data_int, x, 1), [True])
     self.assertEqual(node_values(getattr(P, '=:='), node_expr(data_int), x, 1), [True])

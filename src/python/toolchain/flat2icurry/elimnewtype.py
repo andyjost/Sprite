@@ -59,6 +59,7 @@ def replace_newtype_decl(td):
   return td
 
 def is_class_instance_op(qname):
+  # Both front ends keep this prefix; recursive type delimiters are a suffix.
   return qname[1].startswith('_inst#')
 
 def elim_newtype_in_func(nti, newcons, fd, schemes=None):

@@ -19,6 +19,7 @@ the result type is left in the value.  ``parse`` returns a
 node; the goal objects stay inside ``curry.eval``.
 '''
 import cytest # from ./lib; must be first
+from cytest.classnames import operation_names
 from curry.backends.generic.eval import evaluator
 from curry import config, inspect
 from curry.interpreter import compile as compilemod
@@ -315,7 +316,7 @@ class TestModuleGoals(cytest.TestCase):
     self.assertEqual(values(M.addOne(curry.term(1))), [2])
     self.assertEqual(values(M.addOne(1.5)), [2.5])
     self.assertEqual(values(P.fromIntegral(3)), [3])
-    num_int = P['_inst#Prelude.Num#Prelude.Int']
+    num_int = P[operation_names('_inst#Prelude.Num#Prelude.Int')]
     self.assertTrue(goals.is_dictionary(num_int))
     self.assertTrue(goals.is_dictionary(cytest.raw.expr(num_int)))
     self.assertFalse(goals.is_dictionary(M.addOne))

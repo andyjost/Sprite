@@ -1,4 +1,5 @@
 import cytest # from ./lib; must be first
+from cytest.classnames import operation_names
 from curry.backends.cxx.curryrtbindings import make_node as Node
 from curry.backends.generic.graph import equality
 from curry import config, inspect
@@ -168,7 +169,7 @@ class TestPrelude(cytest.TestCase):
     #
     e = cytest.raw.expr(add, 1, 2, typed=True)
     self.assertEqual(
-        str(e), 'apply (apply ((+) _inst#Prelude.Num#Prelude.Int) 1) 2'
+        str(e), operation_names('apply (apply ((+) _inst#Prelude.Num#Prelude.Int) 1) 2')
       )
     self.assertEqual(list(curry.eval(e)), [3])
     self.assertEqual(curry.typeof(e), 'Num a => a')
@@ -179,7 +180,7 @@ class TestPrelude(cytest.TestCase):
     #
     incr = cytest.raw.expr(add, 1, typed=True)
     self.assertEqual(curry.typeof(incr, defaulted=True), 'Int -> Int')
-    self.assertEqual(str(incr), 'apply ((+) _inst#Prelude.Num#Prelude.Int) 1')
+    self.assertEqual(str(incr), operation_names('apply ((+) _inst#Prelude.Num#Prelude.Int) 1'))
     e = cytest.raw.expr(apply_, incr, 6, typed=True)
     self.assertEqual(list(curry.eval(e)), [7])
 
@@ -342,7 +343,7 @@ class TestPrelude(cytest.TestCase):
     interp = cytest.raw.interp()
     # Note: a type dictionary is needed to call Prelude.unknown, but the type
     # is irrelevant for these tests.
-    inst_unit = curry.import_('Prelude')['_inst#Prelude.Data#()']
+    inst_unit = curry.import_('Prelude')[operation_names('_inst#Prelude.Data#()')]
     unknown = cytest.raw.expr([interp.prelude.unknown, inst_unit])
 
     # First, test with no free variable constraints.

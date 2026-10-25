@@ -10,6 +10,7 @@ the PAKCS REPL for the values.  These tests pin the text of every kind of
 spec without a front end; they run on both backends.
 '''
 import cytest # from ./lib; must be first
+from cytest.classnames import operation_names
 from curry.toolchain.flat2icurry import flatcurry as fc
 from curry.typecheck import builder, engine, serialize
 from curry.typecheck.serialize import (
@@ -155,9 +156,9 @@ class TestApplications(cytest.TestCase):
     '''Dictionaries passed before the value arguments have no Curry text.'''
     P = prelude()
     plus = symbol('+')
-    num_int = symbol('_inst#Prelude.Num#Prelude.Int')
+    num_int = symbol(operation_names('_inst#Prelude.Num#Prelude.Int'))
     self.assertEqual(text(P.apply, [P.apply, [plus, num_int], 1], 2), 'apply (apply (+) 1) 2')
-    self.assertEqual(text(P.show, symbol('_inst#Prelude.Show#Prelude.Int'), 1), 'show 1')
+    self.assertEqual(text(P.show, symbol(operation_names('_inst#Prelude.Show#Prelude.Int')), 1), 'show 1')
     # A dictionary on its own is an operand without text.
     self.assertEqual(text(P.id, num_int), 'id p1')
 

@@ -17,11 +17,9 @@ is a parameter of type ``() -> _Dict#C a``.  The scheme of a constructor
 comes from its ``Type`` entry.  :func:`show_scheme` prints a scheme in Curry
 syntax, for example ``Num a => a -> a -> a``.
 
-The instances come from the names ``_inst#Class#Type`` of the loaded
-modules; the context of an instance comes from its type.  The naming
-convention is the one of curry-frontend 2.0.0, the front end of PAKCS 3.4.1.
-The table checks for ``_inst#Prelude.Num#Prelude.Int`` when it reads the
-interface of the Prelude.
+The instances come from the operation names of the loaded modules; their
+contexts come from their types. Both the head-only names of front end 2.0.0
+and the recursively delimited type names of front end 3.1.0 are read.
 
 One :class:`SignatureTable` belongs to one interpreter, as
 ``interp.sigtable``.  ``Interpreter.reset`` clears it.  A symbol without a
@@ -49,16 +47,13 @@ __all__ = [
 PRELUDE = 'Prelude'
 DICT_PREFIX = '_Dict#'
 INST_PREFIX = '_inst#'
-# The instance the table looks for when it reads the interface of the
-# Prelude.  The name follows curry-frontend 2.0.0; version 3.0.0 renames the
-# instance functions.
 NUM_INT_INSTANCE = '_inst#Prelude.Num#Prelude.Int'
 UNIT = fc.TCons(fc.prelude('()'), [])
 
 class InterfaceError(exceptions.CurryTypeError):
   '''
   An interface is missing or unreadable, a needed entry is absent, or a name
-  does not follow the convention of the pinned front end.
+  does not follow either supported front end's convention.
   '''
 
 # Types without an interface entry.  Sprite's Prelude declares the boxed
@@ -209,10 +204,12 @@ def dict_predicate(typeexpr):
   '''
   if isinstance(typeexpr, fc.FuncType) and typeexpr.domain == UNIT:
     rng = typeexpr.range
-    if isinstance(rng, fc.TCons) and len(rng.args) == 1:
+    if isinstance(rng, fc.TCons):
       modulename, name = rng.name
       if name.startswith(DICT_PREFIX):
         classname = '%s.%s' % (modulename, name[len(DICT_PREFIX):])
+        if len(rng.args) != 1:
+          unsupported_class(classname, len(rng.args))
         return Predicate(classname, rng.args[0])
   return None
 
@@ -662,16 +659,113 @@ class _ModuleEntry:
     self.schemes = {}
     self.instances = None
 
-def parse_instance_name(name, modulename):
-  '''Splits ``_inst#Class#Type`` into the class and the type names.'''
-  parts = name.split('#')
-  if len(parts) != 3 or parts[0] != INST_PREFIX[:-1] or not all(parts[1:]):
+def unsupported_class(classname, arity):
+  raise InterfaceError(
+      '%s class %s is not supported by the typed API'
+          % ('nullary' if arity == 0 else 'multi-parameter', classname))
+
+def _type_name(te):
+  if isinstance(te, fc.TVar):
+    return str(te.index)
+  if isinstance(te, fc.FuncType):
+    return '(->)'
+  if isinstance(te, fc.TCons) and te.name == fc.prelude('Apply'):
+    return _type_name(te.args[0])
+  module, name = te.name
+  return name if not module or module == PRELUDE and (
+      name in ('[]', '()', '(->)') or _is_tuple_name(name)
+    ) else '%s.%s' % te.name
+
+def _named_type(name, args=()):
+  if name.isdecimal():
+    if args:
+      # A higher-kinded variable applied to types.
+      return fc.TCons(fc.prelude('Apply'), [fc.TVar(int(name))] + list(args))
+    return fc.TVar(int(name))
+  if name == '(->)' and len(args) == 2:
+    return fc.FuncType(*args)
+  module, sep, short = name.rpartition('.')
+  if sep:
+    qname = module, short
+  elif name in ('[]', '()', '(->)') or _is_tuple_name(name):
+    qname = fc.prelude(name)
+  else:
+    qname = '', name
+  return fc.TCons(qname, list(args))
+
+def _encoded_type(te):
+  if isinstance(te, fc.ForallType):
+    return _encoded_type(te.typeexpr)
+  if isinstance(te, fc.FuncType):
+    args = (te.domain, te.range)
+  else:
+    args = te.args if isinstance(te, fc.TCons) else ()
+  if isinstance(te, fc.TCons) and te.name == fc.prelude('Apply'):
+    head, *args = te.args
+    atom = _encoded_type(head)[1:-1]
+  else:
+    atom = _type_name(te)
+  return '#' + atom + ''.join(_encoded_type(arg) for arg in args) + '#'
+
+def instance_name(classname, *types, version=None):
+  '''Build an instance identifier in the configured front end's spelling.'''
+  version = config.frontend_version() if version is None else version
+  if version < '3.0.0':
+    if len(types) != 1:
+      unsupported_class(classname, len(types))
+    return INST_PREFIX + classname + '#' + _type_name(types[0])
+  return INST_PREFIX + classname + ''.join(map(_encoded_type, types))
+
+def implementation_name(method, classname, *types, version=None):
+  return '_impl#' + method + '#' + instance_name(
+      classname, *types, version=version)[len(INST_PREFIX):]
+
+def parse_instance_types(name, modulename):
+  '''Read old head-only names or Dictionary.typeId's recursive #type# form.'''
+  try:
+    prefix, suffix = name.split('#', 1)
+    classname, sep, tail = suffix.partition('#')
+    if prefix != INST_PREFIX[:-1] or not classname:
+      raise ValueError()
+    if not sep:
+      if re.fullmatch(r'[^\s()\[\]]+', classname) is None:
+        raise ValueError()
+      return classname, ()
+    if not tail:
+      raise ValueError()
+    if '#' not in tail:
+      return classname, (_named_type(tail),)
+    text = '#' + tail
+    def read(pos):
+      if text[pos] != '#':
+        raise ValueError()
+      end = text.index('#', pos + 1)
+      atom = text[pos + 1:end]
+      if not atom:
+        raise ValueError()
+      args = []
+      while end + 1 < len(text) and text[end + 1] != '#':
+        arg, end = read(end)
+        args.append(arg)
+      if end >= len(text) or text[end] != '#':
+        raise ValueError()
+      return _named_type(atom, args), end + 1
+    types, pos = [], 0
+    while pos < len(text):
+      ty, pos = read(pos)
+      types.append(ty)
+    return classname, tuple(types)
+  except (ValueError, IndexError):
     raise InterfaceError(
-        'cannot read the instance name %r of module %s; the table expects '
-        'the names of curry-frontend 2.0.0, _inst#Class#Type'
-            % (name, modulename)
-      )
-  return parts[1], parts[2]
+        'cannot read the instance name %r of module %s' % (name, modulename)
+      ) from None
+
+def parse_instance_name(name, modulename):
+  '''The unary class and head atom, rejecting non-unary classes.'''
+  classname, types = parse_instance_types(name, modulename)
+  if len(types) != 1:
+    unsupported_class(classname, len(types))
+  return classname, _type_name(types[0])
 
 class SignatureTable:
   '''
@@ -687,6 +781,7 @@ class SignatureTable:
     self._interp = weakref.ref(interp)
     self._modules = {}
     self._instances = {}
+    self._unsupported_classes = {}
     self._lock = threading.RLock()
 
   @property
@@ -698,6 +793,7 @@ class SignatureTable:
     with self._lock:
       self._modules.clear()
       self._instances.clear()
+      self._unsupported_classes.clear()
     Interface.purge()
 
   def modules(self):
@@ -768,13 +864,14 @@ class SignatureTable:
   def check_frontend(iface):
     '''
     Checks that an interface of the Prelude names its instances as
-    curry-frontend 2.0.0 does.  Raises :class:`InterfaceError` otherwise.
+    either supported front end does. Raises :class:`InterfaceError` otherwise.
     '''
-    if NUM_INT_INSTANCE not in iface.function_names():
+    if not any(name in iface.function_names()
+        for name in (NUM_INT_INSTANCE, NUM_INT_INSTANCE + '#')):
       raise InterfaceError(
           'the FlatCurry interface %s has no entry %s; the signature table '
-          'expects the naming convention of curry-frontend 2.0.0, the front '
-          'end of PAKCS 3.4.1' % (iface.path, NUM_INT_INSTANCE)
+          'expects the naming convention of curry-frontend 2.0.0 or 3.1.0'
+              % (iface.path, NUM_INT_INSTANCE)
         )
 
   def interface(self, module):
@@ -882,7 +979,11 @@ class SignatureTable:
       iface = entry.interface
       if iface is not None:
         for name in iface.instance_names():
-          classname, typename = parse_instance_name(name, modulename)
+          classname, types = parse_instance_types(name, modulename)
+          if len(types) != 1:
+            self._unsupported_classes[classname] = len(types)
+            continue
+          typename = _type_name(types[0])
           scheme = scheme_of_function(iface.function(name))
           inst = Instance(classname, typename, modulename, name, scheme)
           prev = self._instances.get((classname, typename))
@@ -902,7 +1003,10 @@ class SignatureTable:
     class is qualified, e.g., ``Prelude.Show``; the type constructor is
     qualified or special, e.g., ``Prelude.Maybe`` or ``[]``.
     '''
-    return self.instances().get((classname, typename))
+    instances = self.instances()
+    if classname in self._unsupported_classes:
+      unsupported_class(classname, self._unsupported_classes[classname])
+    return instances.get((classname, typename))
 
   def instances_of(self, classname):
     '''The instances of one class, by type constructor name.'''

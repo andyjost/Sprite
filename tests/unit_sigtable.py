@@ -9,12 +9,13 @@ from the ``_inst#Class#Type`` names, and prints a scheme in Curry syntax.
 ``interp.sigtable`` is the table; ``Interpreter.reset`` clears it.
 '''
 import cytest # from ./lib; must be first
+from cytest.classnames import operation_names
 from curry import cache
 from curry.objects.handle import Handle
 from curry.toolchain.flat2icurry import flatcurry as fc
 from curry.typecheck import sigtable
 from curry.utility.binding import binding
-import curry, logging, os, re, time
+import curry, logging, os, re, time, unittest
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ class TestSchemes(cytest.TestCase):
     , 'unknown'              : 'Data a => a'
     , 'Just'                 : 'a -> Maybe a'
     , '[]'                   : '[a]'
-    , '_inst#Prelude.Show#[]': 'Show a => () -> _Dict#Show [a]'
+    , operation_names('_inst#Prelude.Show#[]'): 'Show a => () -> _Dict#Show [a]'
     , 'round'                : '(RealFrac a, Integral b) => a -> b'
     }
 
@@ -136,7 +137,7 @@ class TestSchemes(cytest.TestCase):
     self.assertEqual(
         (constreq.arity, constreq.ndicts, constreq.source_arity), (3, 1, 2)
       )
-    inst = curry.import_('Prelude')['_inst#Prelude.Show#[]'].scheme
+    inst = curry.import_('Prelude')[operation_names('_inst#Prelude.Show#[]')].scheme
     self.assertEqual((inst.arity, inst.ndicts), (2, 1))
     fmap = curry.import_('Prelude')['fmap'].scheme
     self.assertEqual(
@@ -289,7 +290,7 @@ class TestInstances(cytest.TestCase):
     interp = cytest.raw.interp()
     table = interp.sigtable
     inst = table.instance('Prelude.Num', 'Prelude.Int')
-    self.assertEqual(inst.fullname, 'Prelude._inst#Prelude.Num#Prelude.Int')
+    self.assertEqual(inst.fullname, operation_names('Prelude._inst#Prelude.Num#Prelude.Int'))
     self.assertEqual(inst.modulename, 'Prelude')
     self.assertEqual(inst.context, ())
     self.assertEqual(inst.head, fc.TCons(fc.prelude('Int'), []))
@@ -317,6 +318,9 @@ class TestInstances(cytest.TestCase):
              if inst.modulename == 'Prelude'
       ]
     self.assertEqual(len(prelude_instances), 124)
+    for inst in prelude_instances:
+      cls, types = sigtable.parse_instance_types(inst.name, 'Prelude')
+      self.assertEqual(sigtable.instance_name(cls, *types), inst.name)
 
   def test_loaded_modules(self):
     '''A module loaded later adds its instances on the next call.'''
@@ -333,18 +337,124 @@ class TestInstances(cytest.TestCase):
 
   def test_bad_names(self):
     '''A name outside the convention of curry-frontend 2.0.0 is an error.'''
-    for name in ['_inst#M.C(Prelude.Int)', '_inst#M.C', '_inst##', 'inst#A#B']:
+    for name in ['_inst#M.C(Prelude.Int)', '_inst##', 'inst#A#B']:
       with self.assertRaisesRegex(sigtable.InterfaceError, 'cannot read'):
         sigtable.parse_instance_name(name, 'M')
     self.assertEqual(
         sigtable.parse_instance_name('_inst#Prelude.Show#[]', 'Prelude')
       , ('Prelude.Show', '[]')
       )
+    for name in ['_inst#C#T', '_inst#C#T#']:
+      self.assertEqual(sigtable.parse_instance_name(name, 'M'), ('C', 'T'))
+
+  def test_delimited_types(self):
+    '''Dictionary.typeId: applications, variables, lists, tuples and arrows.'''
+    var = fc.TVar
+    con = lambda n, *args: sigtable._named_type(n, args)
+    cases = [
+        ('Prelude.Int', con('Prelude.Int'))
+      , ('T', con('T'))
+      , ('[]#0#', con('[]', var(0)))
+      , ('M.T#Prelude.Maybe#[]#0###',
+          con('M.T', con('Prelude.Maybe', con('[]', var(0)))))
+      , ('(,)#0##1#', con('(,)', var(0), var(1)))
+      , ('()', con('()'))
+      , ('(->)#0##[]#1##', fc.FuncType(var(0), con('[]', var(1))))
+      , ('0#1#', fc.TCons(fc.prelude('Apply'), [var(0), var(1)]))
+      , ('12', var(12))
+      ]
+    for encoded, ty in cases:
+      name = '_inst#M.C#' + encoded + '#'
+      with self.subTest(name=name):
+        self.assertEqual(sigtable.parse_instance_types(name, 'M'), ('M.C', (ty,)))
+        self.assertEqual(sigtable.instance_name('M.C', ty, version='3.1.0'), name)
+        self.assertEqual(sigtable.implementation_name('m', 'M.C', ty,
+            version='3.1.0'), name.replace('_inst#', '_impl#m#', 1))
+        old = sigtable.instance_name('M.C', ty, version='2.0.0')
+        self.assertEqual(sigtable.parse_instance_name(old, 'M'),
+            ('M.C', sigtable._type_name(ty)))
+    self.assertEqual(sigtable.instance_name('M.C',
+        fc.ForallType([(0, fc.KStar)], con('[]', var(0))), version='3.1.0'),
+        '_inst#M.C#[]#0##')
+    for name in ['_inst#M.C#[]#0#', '_inst#M.C##', '_inst#M.C#T###']:
+      with self.subTest(name=name):
+        with self.assertRaisesRegex(curry.CurryTypeError, 'cannot read'):
+          sigtable.parse_instance_types(name, 'M')
+
+  def test_multi_parameter_rejection(self):
+    name = '_inst#M.C#Prelude.Int##[]#0##'
+    cls, types = sigtable.parse_instance_types(name, 'M')
+    self.assertEqual(cls, 'M.C')
+    self.assertEqual(len(types), 2)
+    self.assertEqual(sigtable.instance_name(cls, *types, version='3.1.0'), name)
+    with self.assertRaisesRegex(curry.CurryTypeError, 'multi-parameter class M.C'):
+      sigtable.parse_instance_name(name, 'M')
+    dictionary = fc.FuncType(sigtable.UNIT,
+        fc.TCons(('M', '_Dict#C'), [fc.TVar(0), fc.TVar(1)]))
+    with self.assertRaisesRegex(curry.CurryTypeError, 'multi-parameter class M.C'):
+      sigtable.dict_predicate(dictionary)
+    # MultiParamTypeClasses also permits an empty type vector.
+    self.assertEqual(sigtable.parse_instance_types('_inst#M.C', 'M'), ('M.C', ()))
+    self.assertEqual(sigtable.instance_name('M.C', version='3.1.0'), '_inst#M.C')
+    self.assertEqual(sigtable.implementation_name('m', 'M.C', version='3.1.0'),
+        '_impl#m#M.C')
+    with self.assertRaisesRegex(curry.CurryTypeError, 'nullary class M.C'):
+      sigtable.parse_instance_name('_inst#M.C', 'M')
+    with self.assertRaisesRegex(curry.CurryTypeError, 'nullary class M.C'):
+      sigtable.dict_predicate(fc.FuncType(sigtable.UNIT,
+          fc.TCons(('M', '_Dict#C'), [])))
+
+  def test_fixture_names(self):
+    '''Both paired fixture sets are read, regardless of the configured tools.'''
+    for version in ['2.0.0', '3.1.0']:
+      import glob
+      for path in glob.glob('data/flatcurry/%s/*.fcy' % version):
+        iface = sigtable.Interface(path)
+        for name in iface.instance_names():
+          cls, types = sigtable.parse_instance_types(name, iface.name)
+          self.assertEqual(sigtable.instance_name(cls, *types, version=version), name)
+
+  @unittest.skipIf(curry.config.frontend_version() < '3.0.0',
+      'multi-parameter syntax requires front end 3.1.0')
+  @cytest.with_flags(interpret='off')
+  def test_compiled_multi_parameter_class(self):
+    module = curry.compile('''
+      {-# LANGUAGE MultiParamTypeClasses #-}
+      class C a b where
+        f :: a -> b
+      instance C Int Bool where
+        f x = x == 1
+      goal :: Bool
+      goal = f (1 :: Int)
+      ''')
+    self.assertEqual(list(curry.eval(module.goal)), [True])
+    with self.assertRaisesRegex(curry.CurryTypeError, 'multi-parameter class .*C'):
+      module.f(1)
+    nullary = curry.compile('''
+      {-# LANGUAGE MultiParamTypeClasses #-}
+      class Z where
+        z :: Bool
+      instance Z where
+        z = True
+      goal :: Bool
+      goal = z
+      ''')
+    self.assertEqual(list(curry.eval(nullary.goal)), [True])
+    with self.assertRaisesRegex(curry.CurryTypeError, 'nullary class .*Z'):
+      curry.typeof(nullary.z)
+    # An unrelated unary expression still works with this module loaded.
+    self.assertEqual(list(curry.eval(curry.import_('Prelude').id(3))), [3])
 
   def test_frontend_check(self):
     '''The interface of the Prelude must hold _inst#Prelude.Num#Prelude.Int.'''
     iface = cytest.raw.interp().sigtable.interface('Prelude')
     sigtable.SignatureTable.check_frontend(iface)
+    for suffix in ['', '#']:
+      good = sigtable.Interface('<text>', (
+          'Prog "Prelude" [] [] [Func ("Prelude","%s%s") 1 Public '
+          '(TVar 0) (Rule [] (Var 0))] []'
+              % (sigtable.NUM_INT_INSTANCE, suffix)).encode('ascii'))
+      sigtable.SignatureTable.check_frontend(good)
     text = (
         b'Prog "Prelude" [] [] [Func ("Prelude","id") 1 Public (ForallType '
         b'[(0,KStar)] (FuncType (TVar 0) (TVar 0))) (Rule [] (Var 0))] []'
@@ -481,7 +591,9 @@ class TestModules(cytest.TestCase):
         (M.twice.scheme.arity, M.twice.scheme.ndicts, M.twice.scheme.source_arity)
       , (2, 1, 1)
       )
-    self.assertEqual(M.showTwice.signature, '(Num a, Show a) => a -> [Char]')
+    context, result = M.showTwice.signature.split(' => ')
+    self.assertCountEqual(context.strip('()').split(', '), ['Num a', 'Show a'])
+    self.assertEqual(result, 'a -> [Char]')
     self.assertEqual(M.showTwice.scheme.ndicts, 2)
     self.assertEqual(M.unsigned.signature, 'Num a => Maybe a')
     self.assertEqual(
@@ -513,7 +625,7 @@ class TestModules(cytest.TestCase):
       )
     # The instances of the module.
     shape = interp.sigtable.instance('SigTable.Pretty', 'SigTable.Shape')
-    self.assertEqual(shape.fullname, 'SigTable._inst#SigTable.Pretty#SigTable.Shape')
+    self.assertEqual(shape.fullname, operation_names('SigTable._inst#SigTable.Pretty#SigTable.Shape'))
     self.assertEqual(shape.context, ())
     maybe = interp.sigtable.instance('SigTable.Pretty', 'Prelude.Maybe')
     self.assertEqual(
