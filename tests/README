@@ -1,3 +1,9 @@
+The default tools are front end 3.1.0 and PAKCS 3.10.0. The legacy pair,
+front end 2.0.0 and PAKCS 3.4.1, remains supported through the same CMake
+options and advisory legacy-tools CI shards. The library is base 3.4.0.
+Committed library products use the default pair; legacy staging translates
+the library afresh. The selected installation chooses the overlay archive.
+
 Sprite unit tests
 =================
 
@@ -545,7 +551,7 @@ files by hand, say, e.g.,
 
         ./shell
         python lib/flat2icurry_oracle.py --overlay
-        python lib/flat2icurry_oracle.py data/curry/.curry/pakcs-3.4.1/Peano.fcy
+        python lib/flat2icurry_oracle.py data/curry/.curry/pakcs-3.10.0/Peano.fcy
 
 The harness prints the first differing byte and the first differing subterm
 of each file that differs.
@@ -573,7 +579,7 @@ the front end's completed case order instead of sorting it. This keeps
 the runtime's existing answer order. Archive comparisons always use
 compatibility mode; the on-disk check also recognizes runtime products.
 The PAKCS oracle shares the .fcy under
-.curry/pakcs-3.4.1/ with the routes, so for a module with a set0 over
+.curry/pakcs-3.10.0/ with the routes, so for a module with a set0 over
 captured variables it reads a lifted file: the lifted function is private,
 has a type the front end could have written, and the interface M.fint is
 never rewritten.  That PAKCS accepts such a file is not yet verified: the
@@ -640,7 +646,7 @@ step from Curry to ICurry again: the front end leaves the current file,
 the step rewrites it, and the translation follows; sprite-make prints
 "sprite-make: pre-rewrite pairs: N translated again", and the prepare
 pass repeats the count on the line of the directory and in its summary.
-The check on an import reads the .fcy under .curry/pakcs-3.4.1/ beside
+The check on an import reads the .fcy under .curry/pakcs-3.10.0/ beside
 the source: a file without an equality name and without set0 has nothing
 to rewrite, and a file with constrEq and without set0 was rewritten (a
 fraction of a millisecond); else the step runs over the text in memory,
@@ -710,11 +716,10 @@ one it says how many products stay stale.
 Between the two steps, the target overlay-prune removes the extracted
 products of every test source that git shows changed since the commit that
 last changed the archive, in a later commit or in the working tree.  An
-archive packed by the current toolchain carries the source digest of each
-product (M.icy.source); the stamp of the prune keeps such a record and
-writes the digest of the source at the archive's commit for a product
-without one, so a product packed from an older text than the commit's is
-stale and is made again at its first import.  The
+archive carries the converter's source receipt (M.icy.source) for every test
+product; only the converter writes that receipt when it makes the product.
+Extraction prunes a test product with a missing or mismatched receipt, and
+packing refuses a test product without a receipt.  The
 extraction gives every product the time of the extraction (tar -m; the
 archive records one fixed time, 2000-01-01, for every member), so by the
 modification times the toolchain compares an extracted product is newer
@@ -723,14 +728,13 @@ read: CxxGc.curry changed after the archive was packed, and a fresh
 checkout followed by `make overlay` failed unit_cxx_gc.py on the old
 module.  The rule prints each file it removes; the front end makes the
 products again at the first import.  Without a git history (an exported
-tree) nothing is pruned, and the rule says so.  OVERLAY_ROOT names the
-directory that holds an extracted tests/ tree, for a scratch extraction.
+tree) only the receipt check runs, and the rule says so.  OVERLAY_ROOT names
+the directory that holds an extracted tests/ tree, for a scratch extraction.
 
 The archive is rebuilt with `make overlay-archive` at the root of the
-repository.  The rule packs the .fcy, .fint, .icurry, .icy, .icy.imports and
-.json.z files
-under tests/ and the library interfaces that the front end writes under
-curry/lib/.curry, with fixed owner and time stamps.  The .icy files must come
+repository.  The rule packs the .fcy, .fint, .icurry, .icy, .icy.source,
+.icy.imports and .json.z files under tests/ and the library interfaces that
+the front end writes under curry/lib/.curry, with fixed owner and time stamps.  The .icy files must come
 from icurry: run the tests with SPRITE_CURRY2ICURRY=icurry (CMake
 -DWITH_ICURRY=PATH) before the rebuild, or the port becomes its own oracle.  Two
 probe modules, TypedRoot and Externals, differ on purpose between the two
@@ -772,6 +776,17 @@ for the programs of a suite.  The suites are selected with --suite (-s):
                     Two programs of the examples against the tools of their
                     trade, in one process each, the same question and the
                     same data on every side (below).
+        community   Value goals from the KiCS2 and Curry2Go community
+                    benchmarks, with qualified origin/program names and a
+                    separate suite in every record. The manifest under
+                    data/curry/benchmarks/community records exclusions and
+                    long programs (explicit selection only). Five measured
+                    repetitions follow one warm-up, as in throughput.
+
+func_benchmarks_community.py checks one main value goal per community program
+that the PAKCS 3.4.1 oracle finishes within 20 seconds. Goldens live beside
+the sources; the benchmark README describes wrappers, exclusions and the
+3.10.0 parity check. Sprite evaluations run in bounded subprocesses.
 
 Every measurement runs in a child process under a cap on its address space
 (--cap, default 6G) and a timeout (--timeout, default 600 seconds).  The
@@ -780,7 +795,7 @@ peak RSS of the child and its descendants comes from GNU time
 chain; without it the peak comes from wait4, which never reports a child
 below the size of the harness itself, and the record says so
 (meta.rss_source).  An item gets N measured repetitions (--repeat; the
-defaults are 5, 3, 5, 1, 3, and 3 for the six suites) after warm-up runs
+defaults are 5, 3, 5, 1, 3, 3, and 5 for the seven suites) after warm-up runs
 that are not recorded (--warmup, default 1).  The warm-up compiles a module
 on its first use, so the measured runs find the cached files.  A run that
 times out ends its item: a warm-up that timed out is the one sample of the
@@ -1185,17 +1200,16 @@ source: poker_four_of_a_kind under data/curry/smap names currypp in its
 pragma OPTIONS_CYMAKE -F --pgmF=currypp.  make overlay, run after make
 stage, supplies its FlatCurry and ICurry (section 8); the pass then makes
 the module from them without the front end, and no line names it.
-The overlay records a source digest only when the source matches the
-commit that packed the archive. A shallow history ending at that commit
-cannot establish this provenance and leaves the products without a stamp.
-Without usable products, the toolchain and sprite-make report
-"poker_four_of_a_kind.curry needs the preprocessor currypp, which is not on
-PATH." The prepare pass and functional drivers skip the module for that
-reason; other compilation errors still fail. currypp is optional, found
-on PATH, and shipped by neither Sprite nor the front-end package. Install
-it with PAKCS's package manager (cypm install currypp). Both configurations
-have test archives; make overlay-archive packs products and their source
-provenance using the selected installation. The examples under examples/ are not covered;
+The archive carries the converter's source receipts, which remain valid
+with a shallow history. Without the products the front end would run
+currypp; when it is not on PATH the toolchain and sprite-make report
+"poker_four_of_a_kind.curry needs the preprocessor currypp, which is not
+on PATH." and the prepare pass and the functional drivers skip the module
+for that reason; other compilation errors still fail. currypp is optional,
+found on PATH, and shipped by neither Sprite nor the front-end package.
+Install it with PAKCS's package manager (cypm install currypp); make
+overlay after make stage supplies the products of these modules from the
+archive. The examples under examples/ are not covered;
 unit_examples.py alone compiles them.
 
 The benchmark harness records PokerChoice and PokerFree as excluded when

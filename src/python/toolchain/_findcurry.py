@@ -9,6 +9,42 @@ __all__ = ['currentfile', 'import_path', 'imports_path', 'program_path']
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
 
+def reject_library_shadow(modulename, filename, interp):
+  # Ordinary library modules follow the Curry path. Native implementations
+  # are merged by module name, and a loaded library module also owns that
+  # name for the session: neither can represent a second user module.
+  if interp is None or modulename not in config.syslibs() \
+      or _installed_library_file(filename):
+    return
+  loaded = interp.modules.get(modulename)
+  if interp.backend.lookup_builtin_module(modulename) is not None \
+      or (loaded is not None and _installed_library_file(loaded.__file__)):
+    raise ModuleLookupError(
+        "Curry module %r conflicts with the installed library module." % modulename
+      )
+
+def _installed_library_file(filename):
+  if filename is None:
+    return False
+  # Native module identity belongs to this installation. The source path
+  # used to classify build products can be a different tree.
+  root = os.path.realpath(config.installed_path('curry'))
+  path = os.path.realpath(filename)
+  return path == root or path.startswith(root + os.sep)
+
+def _modulefiles(plan, name, currypath):
+  '''Candidates in path order; a namespace follows its module files.'''
+  curryname.validateModulename(name)
+  parts = name.split('.')
+  package_path, local = os.sep.join(parts[:-1]), parts[-1]
+  names = [
+      os.path.join(package_path, '.curry', SUBDIR, local + suffix)
+          for suffix in reversed(plan.suffixes[1:])
+    ]
+  names += [os.path.join(package_path, local + '.curry')]
+  names += [os.path.join(package_path, local, '')]
+  return filesys.findfiles(currypath, names)
+
 def program_path(name, currypath, is_sourcefile=False, **ignored):
   '''
   The search path of a program.  For a module given as a source file
@@ -98,6 +134,7 @@ def currentfile(
     Curry file is returned if it exists.  If neither of those applies, the
     package directory name is returned, if it exists.
   '''
+  modulename = curryname.getModuleName(name, is_sourcefile)
   currypath = program_path(name, currypath, is_sourcefile)
   if not is_sourcefile:
     # If name is a module name, then search CURRYPATH for the source file or
@@ -105,17 +142,7 @@ def currentfile(
     # is_sourcefile=True.  It is acceptable to use a JSON file that has no
     # corresponding source file.  This means a library could be installed as
     # JSON only, without needing to install its source.
-    curryname.validateModulename(name)
-    # Search for the JSON file first, then ICurry, then .curry.
-    parts = name.split('.')
-    package_path, name = os.sep.join(parts[:-1]), parts[-1]
-    search_names = [
-        os.path.join(package_path, '.curry', SUBDIR, name + suffix)
-            for suffix in reversed(plan.suffixes[1:])
-      ]
-    search_names += [os.path.join(package_path, name + '.curry')]
-    search_names += [os.path.join(package_path, name, '')]
-    files = filesys.findfiles(currypath, search_names)
+    files = _modulefiles(plan, name, currypath)
     try:
       name = next(files)
     except StopIteration:
@@ -134,6 +161,7 @@ def currentfile(
   if not curryfile.endswith('.curry'):
     raise ModuleLookupError('expected .curry extension in %r' % curryfile)
   curryfile = os.path.abspath(curryfile)
+  reject_library_shadow(modulename, curryfile, plan.interp)
   filelist = plan.filelist(curryfile)
   from . import _curry2icurry, _interfaces
   icyfile = _filenames.icurryfilename(curryfile)

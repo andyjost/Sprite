@@ -175,7 +175,7 @@ print('missing preprocessor detected and skipped')
     self.assertEqual(config.frontend_subdir(), 'pakcs-' + release)
     self.assertEqual(config.intermediate_subdir(), 'sprite-pakcs-' + release)
     self.assertEqual(config.frontend_flags(), '--extended -D__PAKCS__=' + macro)
-    self.assertEqual(config.currylib_version(), '3.10.0')
+    self.assertEqual(config.currylib_version(), '3.4.0')
 
   def test_command(self):
     '''The command line: --flat, the output directory, the flags, -i, name.'''
@@ -567,7 +567,7 @@ print('missing preprocessor detected and skipped')
     with tarfile.open(archive) as tar:
       tar.extractall(self.tmpdir, members=chosen, filter='data')
       # The source digests the archive carries are its own record of what
-      # each product was made from; the stamp of the prune keeps them.
+      # each product was made from; pruning keeps that record.
       records = {m.name: tar.extractfile(m).read() for m in chosen if m.name.endswith('.icy.source')}
     def products(name):
       return sorted(

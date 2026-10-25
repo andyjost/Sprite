@@ -236,19 +236,24 @@ class Interpreter(object):
   def symbol(self, name, modulename=None):
     '''
     Look up a symbol by its fully-qualified name, ``'Prelude.+'``.  The
-    name splits at its first dot into a module and a name in it, so
-    ``'Data.List.nub'`` needs the package ``Data`` loaded, as an import of
-    ``Data.List`` leaves it.  The second parameter has no effect.
+    longest loaded module prefix identifies the module, so a module may
+    also be the namespace of another module. The second parameter has no
+    effect.
     '''
-    modulename, _, objname = name.partition('.')
-    moduleobj = self.module(modulename)
+    moduleobj, objname = self._qualified_name(name)
     return getHandle(moduleobj).getsymbol(objname)
 
   def type(self, name):
     '''Returns the constructor info tables for the named type.'''
-    modulename, _, name = name.partition('.')
-    moduleobj = self.module(modulename)
+    moduleobj, name = self._qualified_name(name)
     return getHandle(moduleobj).gettype(name)
+
+  def _qualified_name(self, name):
+    for prefix in reversed(list(curryname.prefixes(name))[:-1]):
+      if prefix in self.modules:
+        return self.modules[prefix], name[len(prefix) + 1:]
+    modulename, _, local = name.partition('.')
+    return self.module(modulename), local
 
   # Externally-implemented methods.
   from .compile import compile

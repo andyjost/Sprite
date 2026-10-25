@@ -117,6 +117,7 @@ compile is not written; sprite-make --so writes it.
 '''
 
 from ...objects.handle import getHandle
+from ...objects import CurryPackage
 from ...toolchain import _filenames, _str2module
 from ...utility import curryname, formatting
 from ...utility.locking import native_metadata
@@ -294,6 +295,8 @@ def prepare_adoption(interp, name):
   '''
   from ...exceptions import LoadError
   module = interp.modules.get(name)
+  if isinstance(module, CurryPackage):
+    module = None # a namespace has no function tables to adopt
   if module is not None:
     h = getHandle(module)
     h.backend_handle.keep_tables()
@@ -523,7 +526,7 @@ def _refresh(name, interp=None):
   if interp is not None:
     candidates.append(interp.modules.get(name))
   for moduleobj in candidates:
-    if moduleobj is None:
+    if moduleobj is None or isinstance(moduleobj, CurryPackage):
       continue
     h = getHandle(moduleobj)
     shlib = h.backend_handle.shlib

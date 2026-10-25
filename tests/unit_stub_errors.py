@@ -38,13 +38,13 @@ python-api-implementation-plan.md. Section 12 amends metadata access.
   test_CurryWarning_bases: lines 6574; lane 1.
   test_conversion_message_example: lines 6445-6446; lane 1.
   test_defaulting_message_example: lines 6467-6470; lane 1.
-  test_int_overflow_message_example: lines 6484-6485; lane 1.
+  test_int_overflow_message_example: lines 6484-6485; lane 1 (amended 2026-10-25: Int unbounded).
   test_arity_message: lines 6455-6456; lane 1.
   test_no_instance_message: lines 6458-6459; lane 1.
   test_type_syntax_rejects_invalid_annotation: lines 6473-6474; lane 1.
   test_type_syntax_rejects_unknown_type: lines 6473-6474; lane 1.
   test_type_syntax_rejects_wrong_kind: lines 6473-6474; lane 1.
-  test_int_overflow_during_step_has_same_class: lines 6481-6482; lane 1.
+  test_int_overflow_during_step_has_same_class: lines 6481-6482; lane 1 (amended 2026-10-25: Int unbounded).
   test_compile_error_has_report_and_position: lines 6488-6496; lane 1.
   test_evaluation_error_message: lines 6498-6503; lane 1.
   test_user_io_error_message: lines 6500-6502; lane 1.
@@ -70,7 +70,7 @@ python-api-implementation-plan.md. Section 12 amends metadata access.
   test_free_function_cannot_be_instantiated: lines 6530-6531; lane 1.
   test_import_does_not_configure_root_logger: lines 6431-6432; lane 1.
   test_frontend_warning_uses_curry_warning: lines 6430-6431; 6574-6575; lane 1.
-  test_int_boundary_is_signed_64_bits: lines 5740-5741; 6481-6482; lane 1.
+  test_int_past_the_word_is_exact: lines 5740-5741; 6481-6482; lane 1 (amended 2026-10-25: Int unbounded).
 
 Examples left out: none. Setup prompts have their own tests; result
 tests repeat their setup so they can run independently.
@@ -250,12 +250,11 @@ class TestStubErrors(cytest.TestCase):
       )
 
   def test_int_overflow_message_example(self):
+    # Amended 2026-10-25: Int is unbounded since the big integers; the class
+    # marks the bounded conversions, here a Float that is not finite.
     with self.assertRaises(curry.IntOverflowError) as caught:
-      curry.term(2 ** 63)
-    self.assertEqual(
-        str(caught.exception)
-      , '9223372036854775808 is outside the range of Int (-9223372036854775808 to 9223372036854775807)'
-      )
+      curry.eval(curry.parse('truncate (1.0 / 0.0 :: Float) :: Int')).one()
+    self.assertEqual(str(caught.exception), 'integer overflow: truncate Infinity')
 
   def test_arity_message(self):
     Items = curry.import_('Items')
@@ -282,8 +281,11 @@ class TestStubErrors(cytest.TestCase):
       curry.term([], type='Maybe')
 
   def test_int_overflow_during_step_has_same_class(self):
+    # Amended 2026-10-25: the step past the machine word promotes its result;
+    # the class is raised from next by a bounded conversion in a step.
     P = curry.import_('Prelude')
-    r = curry.eval(P['+'](curry.term(2 ** 63 - 1, type='Int'), 1))
+    self.assertEqual(curry.eval(P['+'](curry.term(2 ** 63 - 1, type='Int'), 1)).one(), 2 ** 63)
+    r = curry.eval(curry.parse('round (0.0 / 0.0 :: Float) :: Int'))
     with self.assertRaises(curry.IntOverflowError):
       next(r)
 
@@ -450,11 +452,11 @@ class TestStubErrors(cytest.TestCase):
       with self.assertWarns(curry.CurryWarning):
         curry.compile('f :: Int -> Int\nf 0 = 1\nf x = 2')
 
-  def test_int_boundary_is_signed_64_bits(self):
-    for value in (-2 ** 63, 2 ** 63 - 1):
+  def test_int_past_the_word_is_exact(self):
+    # Amended 2026-10-25: Int is unbounded; the values around the machine
+    # word and far past it round-trip exactly.
+    for value in (-2 ** 63 - 1, -2 ** 63, 2 ** 63 - 1, 2 ** 63, 2 ** 200, -3 ** 150):
       self.assertEqual(curry.eval(curry.term(value)).one(), value)
-    with self.assertRaises(curry.IntOverflowError):
-      curry.term(-2 ** 63 - 1)
 
 
 if __name__ == '__main__':

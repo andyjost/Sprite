@@ -6,7 +6,7 @@ Sprite was developed and tested with the following software:
 
 - Ubuntu Linux 24.04 LTS
 - Python 3.14
-- PAKCS 3.4.1, with the Curry front end 2.0.0 that it ships
+- PAKCS 3.10.0, with the Curry front end 3.1.0 that it ships
 - SWI-Prolog 9.0.4, which runs PAKCS (the test oracle); Sprite itself runs
   no Prolog
 - g++ 13.3
@@ -26,19 +26,17 @@ PAKCS
     Sprite ships a copy of the Curry library of PAKCS 3.10.0 (base 3.4.0) under
     ``curry/lib`` and relies on the internal interface of that Prelude, which
     is unstable.  PAKCS itself provides the Curry front end, which translates
-    Curry to FlatCurry, and the test oracle.  The supported configurations are front end 2.0.0 with PAKCS
-    3.4.1 (the default) and front end 3.1.0 with PAKCS 3.10.0. The latter
-    has advisory Linux unit and functional CI shards; it becomes the default
-    only at upgrade stage G. Front-end packages are 2.0.0.post6 and
-    3.1.0.post1, with separate parity references.
+    Curry to FlatCurry, and the test oracle.  The default configuration is front end 3.1.0 with PAKCS
+    3.10.0. Front end 2.0.0 with PAKCS 3.4.1 remains supported, with advisory
+    ``legacy-tools`` Linux unit and functional shards. Front-end packages
+    are 2.0.0.post6 and 3.1.0.post1, with separate parity references.
 
 ICurry
     Sprite translates FlatCurry to ICurry itself.  Its translation is a port
-    of the ICurry Compiler 3.1.0 and writes the same files.  That program,
+    of the ICurry Compiler 3.3.0 (3.1.0 for the legacy pair) and writes
+    the same files in compatibility mode.  That program,
     installed with the Curry Package Manager, remains an optional
-    alternative; see ``CMake WITH_ICURRY``.  The output of other
-    versions of the ICurry Compiler differs, and Sprite will not work with
-    them.
+    alternative; see ``CMake WITH_ICURRY``.  CMake checks the compiler version against the selected front end.
 
 Curry preprocessor
     ``currypp`` is optional and is shipped by neither Sprite nor the

@@ -96,7 +96,7 @@ The children run under prlimit and timeout, because a regression can spin
 inside C++ (see cytest.run_in_subprocess).
 '''
 import cytest # from ./lib; must be first
-import curry, unittest
+import curry, json, unittest
 
 ADDRESS_SPACE = 2 << 30
 TIMEOUT = 120
@@ -536,6 +536,63 @@ class TestBuiltinsAfterReset(cytest.TestCase):
     self.assertEqual(
         proc.stdout.splitlines(), ["goalA ['[1, 2]']", "goalB ['[1, 2]']"]
       )
+
+
+class TestSharedNondeterministicArgument(cytest.TestCase):
+  '''Issue #171: a nondeterministic lookup in a shared capsule argument.
+
+  Choices of the argument escape correctly. Failed lookup alternatives
+  leave empty capsules with both inside and outside failures, which F2
+  (d2) accepts. The expected failure records the desired PAKCS result
+  pending a decision on that rule; a direct duration definition works.
+  '''
+  SOURCE = '''
+import Control.SetFunctions
+
+data Route = Short | Long deriving (Eq, Show)
+
+route :: Route
+route = Short ? Long
+
+flight :: (Route, Int)
+flight = (Short, 1) ? (Long, 2)
+
+duration :: Route -> Int
+duration r | flight =:= (r, n) = n where n free
+
+shorter :: Int -> Route
+shorter limit | duration candidate < limit = candidate
+  where candidate = route
+
+main :: Route
+main | isEmpty (set1 shorter (duration result)) = result
+  where result = route
+'''
+
+  def setUp(self):
+    super().setUp()
+    # Compilation, process completion and checker errors must be real
+    # failures, outside the expected-failure assertion on the answers.
+    code = '''
+import curry, json
+results = []
+for checked in (False, True):
+  curry.reset(backend='cxx', interpret='off', checker=checked)
+  name = 'SharedSetArgumentChecked' if checked else 'SharedSetArgument'
+  module = curry.compile(%r, name=name)
+  results.append([curry.show(v) for v in curry.eval(module.main)])
+  del module
+print(json.dumps(results))
+''' % self.SOURCE
+    proc = cytest.run_in_subprocess(code, TIMEOUT, address_space=ADDRESS_SPACE)
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    self.results = json.loads(proc.stdout)
+
+  @unittest.expectedFailure
+  def test_shortest_route(self):
+    for values in self.results:
+      self.assertEqual(len(values), 1)
+      self.assertEqual(values, ['Short'])
 
 
 if __name__ == '__main__':

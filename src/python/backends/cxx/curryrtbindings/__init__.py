@@ -18,8 +18,13 @@ def make_node(info, *args, **kwds):
   target = getattr(target, 'target', target)
   from ....common import F_INT_TYPE
   if info.flags & 0xf == F_INT_TYPE and args and isinstance(args[0], int):
-    from ..compiler import _check_int_literal
-    _check_int_literal(args[0])
+    if not -2 ** 63 <= args[0] < 2 ** 63:
+      from ....utility.strings import int_text
+      node = make_integer(int_text(args[0]))
+      if target is not None:
+        target.forward_to(node)
+        return target
+      return node
   args = [Arg(arg) for arg in args]
   return Node.create(info, args, target, bool(partial_info))
 

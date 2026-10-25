@@ -14,10 +14,9 @@ package:
   version: {{ version }}
 
 source:
-  # The repository, two levels up.  The source must carry the pybind11
-  # submodule under extern/pybind11.  A release tarball from GitHub does not;
-  # build from a clone, or add pybind11 to the host requirements and point
-  # the include path at it (see ../README.md).
+  # The repository, two levels up. The source must carry the pybind11 and
+  # libtommath submodules under extern/. A release tarball from GitHub does not;
+  # build from a clone with both submodules present (see ../README.md).
   path: ../..
 
 build:
@@ -66,8 +65,9 @@ requirements:
   run:
     - python >=3.11.4,<3.16
     # The front end writes FlatCurry; Sprite translates it to ICurry.  Its
-    # own run dependency is gmp (libgmp).  The ICurry oracle depends on this
-    # exact front end, so the pin is exact.
+    # own run dependency is gmp (libgmp), never a Sprite runtime dependency.
+    # Sprite privately links the libtommath submodule. The ICurry oracle
+    # depends on this exact front end, so the pin is exact.
 {% if current_tools %}
     - curry-frontend 3.1.0.*
 {% else %}
@@ -137,6 +137,7 @@ about:
     - curry/lib/LICENSE
     - curry/lib/NOTICE
     - extern/pybind11/LICENSE
+    - extern/libtommath/LICENSE
   home: https://github.com/andyjost/Sprite
   summary: Sprite, a compiler and runtime for the Curry language
   description: |

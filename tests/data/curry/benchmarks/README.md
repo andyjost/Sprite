@@ -101,6 +101,64 @@ under `results/`.  Section 9 of `tests/README` describes the suites, the
 records, and the comparison.  The harness is the package
 `tests/lib/benchmarks`.
 
+## Community suite
+
+`community/` retains the 34 rows proposed for benchmarking by the community
+survey of 2026-10-24: 14 KiCS2 3.5.0 suite sources, four KiCS2 benchmark-paper
+sources, 11 Curry2Go 1.7.0 suite sources, and five benchmark-papers 3.0.0
+sources. Each origin has a NOTICE and the upstream license. Original sources
+and their headers are copied byte for byte, including upstream whitespace.
+The excluded external harness BenchKiCS2.curry is not vendored because it
+embeds an upstream machine-specific installation path; its manifest row and
+origin NOTICE retain the exclusion and provenance.
+`community/MANIFEST.tsv` retains the survey columns and adds `status`:
+`added` runs by default, `long:` is selectable explicitly but exceeds the
+recorded Sprite budget, and `left-out:` explains a missing dependency,
+unsupported module, or incompatible upstream type declaration. Eight old
+KiCS2 suite sources lack Data/Eq constraints or Eq instances required by the
+front ends; they remain unchanged and excluded. Other excluded sources are retained
+for provenance only.
+
+    cd tests
+    ./run_benchmarks list -s community
+    ./run_benchmarks -s community -o community.jsonl
+    ./run_benchmarks -s community '*/Queens' -o queens.jsonl
+    ./run_benchmarks -s community '*' -o including-long.jsonl
+
+Community records have `suite: community` and names such as
+`kics2-3.5.0-suite/Queens`, so neither duplicate names nor comparisons with
+the dissertation baseline can collide. Console tables widen to keep those
+qualified names visible. Settings are the throughput settings:
+one warm-up, five measured repetitions, 600 seconds and 6 GiB per process,
+and step rotation. Community runs use compiled C++ (`interpret:off`),
+as the applications suite does, unless the environment selects a mode.
+The warm-up completes compilation even for goals that end before a tiered
+background compile could finish. A timeout ends that item's repetitions and
+records its budget in `meta.timeout`. Long programs retain their original
+workload; select them explicitly with a suitable `--timeout`. The nightly performance
+workflow continues to select only its existing suites and programs.
+
+The harness times a value goal named `main`, evaluates every answer to normal
+form and consumes every answer. A printing IO `main` needs a separate
+`<Program>Bench.curry` wrapper importing the unchanged source and returning
+the expression it prints or forces, with explicit, documented arguments.
+A source without `main` also gets a wrapper choosing one named upstream
+workload. `ShareNonDetBench` selects `goal3` (sort four computed primes),
+and `SelectBench` selects `select_50` (the smallest named input). No workload
+is reduced merely to make a timing finish. The two command-line NRev examples
+import legacy modules absent from Sprite and remain excluded. `benchmark-papers` is
+itself a benchmark harness: its libraries require unsupported System.IO and
+unshipped packages, and its plotting example cannot run unchanged here.
+
+`func_benchmarks_community.py` checks one goal per supported program when
+PAKCS finishes within the functional oracle budget (20 seconds). Its committed
+goldens come from PAKCS 3.4.1; the lane report records the check with 3.10.0,
+both values of any difference (stage G), and bounded Sprite findings.
+Oracle verification compiles temporary source copies so native PAKCS and
+Sprite keep separate interfaces for their respective Prelude libraries.
+Timings from this lane live in the report, not in `results/`; a reviewed
+baseline requires a quiet measured run.
+
 The harness runs the C++ backend in step mode (`SPRITE_ROTATION=steps:65536`
 in the environment of every run): the scheduler rotates its alternatives
 every 65536 completed steps, so the counters `steps` and `forks` of a record

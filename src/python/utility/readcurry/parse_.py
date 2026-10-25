@@ -1,4 +1,5 @@
 from . import lex, types
+from ..strings import parse_int
 
 __all__ = ['Parser', 'parse']
 
@@ -76,7 +77,7 @@ class Parser(object):
           frames[-1].terms.append(frame.value())
       elif isinstance(tok, lex.NumberToken):
         try:
-          value = types.Int(tok)
+          value = types.Int(parse_int(tok))
         except ValueError:
           value = types.Float(tok)
         frame.terms.append(value)

@@ -7,9 +7,10 @@ variant such as the state of a cache.  The fields, in order:
 
     schema       The number of this format: 2.  Schema 1 lacked the field
                  instructions; see below.
-    suite        throughput, compile, import, memory, split, or
-                 applications.
-    program      The program, or the name of the item of the suite.
+    suite        throughput, compile, import, memory, split, applications,
+                 or community.
+    program      The program, or the name of the item of the suite; an
+                 origin/program name in the community suite.
     backend      cxx, or pakcs; in the applications suite also an
                  opponent: resolvelib, python, or clang.
     variant      The variant of the item (cold, warm, collector=off; whole
@@ -79,7 +80,7 @@ from . import BACKENDS, OPPONENTS, SUITES
 __all__ = [
     'ADDED', 'COUNTERS', 'FIELDS', 'MEDIANS', 'SCHEMA', 'SCHEMAS', 'STATUSES'
   , 'commit', 'cpu_model', 'exclusion', 'key', 'machine', 'median', 'memory_gb', 'now'
-  , 'read', 'sample', 'summarize', 'upgrade', 'validate', 'write'
+  , 'program_width', 'read', 'sample', 'summarize', 'upgrade', 'validate', 'write'
   ]
 
 SCHEMA = 2
@@ -242,6 +243,13 @@ def key(record):
   return (
       record['suite'], record['program'], record['backend'], record['variant']
     )
+
+
+def program_width(records):
+  '''Keep qualified community names visible in console tables.'''
+  return max([16] + [
+      len(r['program']) for r in records if r['suite'] == 'community'
+    ])
 
 
 def machine(record):

@@ -9,8 +9,8 @@ recorded command header when present. Each row names its flip lane.
   test_suspension_at_next: alt.py 22; output 9-10; lane 1.
   test_file_error_at_next: alt.py 23; output 11-12; lane 1.
   test_user_io_error_at_next: alt.py 24; output 13-14; lane 1.
-  test_overflow_at_next: alt.py 25; output 15-16; lane 1.
-  test_literal_overflow_at_build: alt.py 26; output 17-18; lane 1.
+  test_promotion_at_next: alt.py 25; output 15-16; lane 1 (amended 2026-10-25: Int unbounded).
+  test_big_literal_at_build: alt.py 26; output 17-18; lane 1 (amended 2026-10-25: Int unbounded).
   test_division_by_zero_at_next: alt.py 27; output 19-20; lane 1.
   test_invalid_flags_at_call: alt.py 28-29; output 21-22; lane 5.
   test_missing_modules_at_build: alt.py 30-31; output 23-25; lane 1.
@@ -23,8 +23,9 @@ facade README marks message translation approximate.
 Departures and rules: Appendix A 6435-6436 renames Error to CurryError. Outputs 11-14
 become CurryFileNotFoundError/CurryIOError (6515-6519), including filename and standard
 mixins. Outputs 21-22 become FlagError (6565-6566), rather than the README
-approximations TypeError/_FlagValueError. The literal overflow is IntOverflowError on
-both routes (6479-6486).
+approximations TypeError/_FlagValueError. The literal overflow of 6479-6486 was
+IntOverflowError on both routes until the big integers of 2026-10-25: Int is unbounded
+since, the two rows pin the promotion, and IntOverflowError marks the bounded conversions.
 
 Lanes refer to the Python API implementation plan. Tests import curry,
 the package. Missing proposed names are only used inside test methods.
@@ -109,23 +110,19 @@ class TestFlowF12(cytest.TestCase):
       self.assertIsInstance(caught.exception, curry.EvaluationError)
       self.assertEqual(str(caught.exception), 'user error: x')
 
-  def test_overflow_at_next(self):
+  def test_promotion_at_next(self):
+    # Amended 2026-10-25: Int is unbounded since the big integers; the step
+    # that overflowed the machine word promotes its result instead.
     P = curry.import_('Prelude')
     expr = P['+'](curry.term(2**63 - 1, type='Int'), 1)
     for g in (expr, curry.parse('9223372036854775807 + 1')):
-      r = curry.eval(g)
-      with self.assertRaises(curry.IntOverflowError) as caught:
-        next(r)
-      self.assertIsInstance(caught.exception, OverflowError)
-      self.assertIsInstance(caught.exception, curry.CurryError)
-      self.assertEqual(str(caught.exception), 'integer overflow: 9223372036854775807 + 1')
+      self.assertEqual(curry.eval(g).one(), 2**63)
 
-  def test_literal_overflow_at_build(self):
+  def test_big_literal_at_build(self):
+    # Amended 2026-10-25: a literal past the machine word is an Int on both routes.
     P = curry.import_('Prelude')
-    with self.assertRaises(curry.IntOverflowError):
-      P['+'](2**63, 1)
-    with self.assertRaises(curry.IntOverflowError):
-      curry.parse('9223372036854775808 + 1')
+    self.assertEqual(curry.eval(P['+'](2**63, 1)).one(), 2**63 + 1)
+    self.assertEqual(curry.eval(curry.parse('9223372036854775808 + 1')).one(), 2**63 + 1)
 
   def test_division_by_zero_at_next(self):
     P = curry.import_('Prelude')

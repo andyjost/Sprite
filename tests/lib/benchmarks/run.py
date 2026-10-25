@@ -90,7 +90,7 @@ def parse_args(argv):
   parser.add_argument(
       '-r', '--repeat', type=int, default=None, metavar='N'
     , help='measured repetitions per item [default: throughput 5, compile 3, '
-           'import 5, memory 1, split 3, applications 3]'
+           'import 5, memory 1, split 3, applications 3, community 5]'
     )
   parser.add_argument(
       '-w', '--warmup', type=int, default=1, metavar='N'
@@ -178,9 +178,10 @@ def count(value):
   return '-' if value is None else str(value)
 
 
-def write_row(stream, record):
-  stream.write(COLUMNS % (
-      record['suite'], record['program'][:16], record['backend']
+def write_row(stream, record, program_width=16):
+  columns = COLUMNS.replace('%-16s', '%%-%ds' % program_width)
+  stream.write(columns % (
+      record['suite'], record['program'][:program_width], record['backend']
     , record['variant'] or '-', seconds(record['wall']), seconds(record['cpu'])
     , seconds(record['eval_wall']), megabytes(record['peak_rss'])
     , count(record['steps']), millions(record['instructions'])
@@ -193,10 +194,11 @@ def write_row(stream, record):
   stream.flush()
 
 
-def write_skip(stream, item, reason, status='skipped'):
+def write_skip(stream, item, reason, status='skipped', *, program_width=16):
   '''The row of an item that cannot run on this machine.'''
-  stream.write(COLUMNS % (
-      item.suite, item.program[:16], item.backend, item.variant or '-'
+  columns = COLUMNS.replace('%-16s', '%%-%ds' % program_width)
+  stream.write(columns % (
+      item.suite, item.program[:program_width], item.backend, item.variant or '-'
     , '-', '-', '-', '-', '-', '-', status
     ) + '\n')
   stream.write('    %s\n' % reason)
@@ -278,7 +280,11 @@ def main(argv=None):
         source, ', in one repetition after the measured ones' if perf else ''
       ))
     log.write('records: %s\n' % (args.output or 'standard output'))
-    log.write(COLUMNS % HEADINGS + '\n')
+    program_width = records.program_width([
+        {'suite': args.suite, 'program': p} for p in programs
+      ])
+    columns = COLUMNS.replace('%-16s', '%%-%ds' % program_width)
+    log.write(columns % HEADINGS + '\n')
     failures = 0
     covered = excluded = eligible = 0
     try:
@@ -286,7 +292,8 @@ def main(argv=None):
         reason = item.unavailable()
         if reason:
           preprocessor = 'needs the preprocessor ' in reason
-          write_skip(log, item, reason, 'excluded' if preprocessor else 'skipped')
+          write_skip(log, item, reason, 'excluded' if preprocessor else 'skipped',
+                     program_width=program_width)
           if preprocessor:
             record = records.exclusion(
                 item.suite, item.program, item.backend, item.variant, reason,
@@ -304,7 +311,7 @@ def main(argv=None):
           )
         records.write(out, record)
         out.flush()
-        write_row(log, record)
+        write_row(log, record, program_width)
         failures += record['status'] != 'ok'
         covered += record['status'] == 'ok'
       log.write('%d of %d covered, %d excluded\n' % (covered, eligible, excluded))

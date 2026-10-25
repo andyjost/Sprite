@@ -19,7 +19,7 @@ if(DEFINED ENV{CURRY_FRONTEND})
   set(default_frontend "$ENV{CURRY_FRONTEND}")
 endif()
 set(WITH_PAKCS "${default_pakcs}" CACHE STRING "Optional PAKCS oracle")
-set(WITH_CURRY_FRONTEND "${default_frontend}" CACHE STRING "Curry front end (2.0.0 or 3.1.0)")
+set(WITH_CURRY_FRONTEND "${default_frontend}" CACHE STRING "Curry front end (default 3.1.0; also accepts 2.0.0)")
 set(WITH_ICURRY "$ENV{ICURRY}" CACHE FILEPATH "Optional icurry translator")
 set(WITH_CCACHE "$ENV{CCACHE}" CACHE FILEPATH "Optional compiler launcher (ccache)")
 set(default_postinstall "${CMAKE_CXX_COMPILER}")
@@ -63,22 +63,51 @@ if(WITH_CCACHE)
   set(CMAKE_C_COMPILER_LAUNCHER "${SPRITE_CCACHE}")
   set(CMAKE_CXX_COMPILER_LAUNCHER "${SPRITE_CCACHE}")
 endif()
+# AUTO selects the pinned current pair, even beside a stale legacy install.
+# Explicit options and environment overrides continue to accept either pair.
+function(sprite_find_versioned_tool output version)
+  cmake_parse_arguments(ARG "" "" "NAMES;HINTS" ${ARGN})
+  cmake_path(CONVERT "$ENV{PATH}" TO_CMAKE_PATH_LIST tool_path NORMALIZE)
+  foreach(directory IN LISTS ARG_HINTS CMAKE_PROGRAM_PATH tool_path CMAKE_SYSTEM_PROGRAM_PATH)
+    foreach(name IN LISTS ARG_NAMES)
+      unset(candidate)
+      find_program(candidate NAMES "${name}" PATHS "${directory}" NO_DEFAULT_PATH NO_CACHE)
+      if(candidate)
+        execute_process(COMMAND "${CMAKE_COMMAND}" -E env LC_ALL=C.UTF-8
+          "${candidate}" --numeric-version TIMEOUT 30
+          RESULT_VARIABLE result OUTPUT_VARIABLE found_version
+          OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+        if(result EQUAL 0 AND found_version STREQUAL version)
+          file(REAL_PATH "${candidate}" resolved)
+          set(${output} "${resolved}" PARENT_SCOPE)
+          return()
+        endif()
+      endif()
+    endforeach()
+  endforeach()
+  set(${output} "" PARENT_SCOPE)
+endfunction()
 if(WITH_PAKCS STREQUAL "AUTO")
-  find_program(SPRITE_PAKCS NAMES pakcs HINTS "${CMAKE_SOURCE_DIR}/install/tools")
-  set(WITH_PAKCS "")
-  if(SPRITE_PAKCS)
-    file(REAL_PATH "${SPRITE_PAKCS}" WITH_PAKCS)
-  endif()
+  sprite_find_versioned_tool(WITH_PAKCS "3.10.0" NAMES pakcs
+    HINTS "${CMAKE_SOURCE_DIR}/install/tools")
 endif()
 if(WITH_CURRY_FRONTEND STREQUAL "AUTO")
   set(WITH_CURRY_FRONTEND "")
-  get_filename_component(pakcs_bin "${WITH_PAKCS}" DIRECTORY)
-  find_program(SPRITE_FRONTEND NAMES pakcs-frontend curry-frontend
-    HINTS "$ENV{SPRITE_FRONTEND}" "${pakcs_bin}" "${CMAKE_SOURCE_DIR}/install/tools")
   if(DEFINED ENV{SPRITE_FRONTEND})
     set(WITH_CURRY_FRONTEND "$ENV{SPRITE_FRONTEND}")
-  elseif(SPRITE_FRONTEND)
-    file(REAL_PATH "${SPRITE_FRONTEND}" WITH_CURRY_FRONTEND)
+  else()
+    set(expected_frontend "3.1.0")
+    get_filename_component(pakcs_bin "${WITH_PAKCS}" DIRECTORY)
+    if(WITH_PAKCS)
+      execute_process(COMMAND "${WITH_PAKCS}" --numeric-version TIMEOUT 30
+        OUTPUT_VARIABLE selected_release OUTPUT_STRIP_TRAILING_WHITESPACE)
+      if(selected_release STREQUAL "3.4.1")
+        set(expected_frontend "2.0.0")
+      endif()
+    endif()
+    sprite_find_versioned_tool(WITH_CURRY_FRONTEND "${expected_frontend}"
+      NAMES pakcs-frontend curry-frontend
+      HINTS "${pakcs_bin}" "${CMAKE_SOURCE_DIR}/install/tools")
   endif()
 endif()
 if(NOT WITH_CURRY_FRONTEND)
@@ -101,12 +130,13 @@ execute_process(COMMAND "${Python_EXECUTABLE}" -c "import json, zlib"
 execute_process(COMMAND "${WITH_CURRY_FRONTEND}" --numeric-version
   TIMEOUT 30
   OUTPUT_VARIABLE frontend_version OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
-if(frontend_version STREQUAL "2.0.0")
-  set(frontend_release "3.4.1")
-  set(frontend_pakcs_macro 304)
-elseif(frontend_version STREQUAL "3.1.0")
+# The current pair owns the pinned products; explicit tools can select legacy.
+if(frontend_version STREQUAL "3.1.0")
   set(frontend_release "3.10.0")
   set(frontend_pakcs_macro 310)
+elseif(frontend_version STREQUAL "2.0.0")
+  set(frontend_release "3.4.1")
+  set(frontend_pakcs_macro 304)
 else()
   message(FATAL_ERROR "Expected Curry front end 2.0.0 or 3.1.0, found ${frontend_version}")
 endif()
@@ -158,7 +188,15 @@ foreach(dir currylib currylib/prelude graph state)
   list(APPEND runtime_sources ${sources})
 endforeach()
 set(image "${CMAKE_CURRENT_BINARY_DIR}/stage")
+# Build the pinned, private C99 arithmetic library into the runtime.
+file(GLOB tommath_sources CONFIGURE_DEPENDS extern/libtommath/bn_*.c)
+add_library(sprite_tommath STATIC ${tommath_sources})
+set_target_properties(sprite_tommath PROPERTIES POSITION_INDEPENDENT_CODE ON
+  C_STANDARD 99 C_STANDARD_REQUIRED ON)
+target_include_directories(sprite_tommath PRIVATE extern/libtommath)
 add_library(curryrt SHARED ${runtime_sources})
+target_include_directories(curryrt PRIVATE extern/libtommath)
+target_link_libraries(curryrt PRIVATE sprite_tommath)
 target_include_directories(curryrt PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(curryrt PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
 # The link flags are those of the platform's linker.  GNU ld binds the
@@ -194,11 +232,19 @@ endif()
 file(GLOB binding_sources CONFIGURE_DEPENDS src/python/backends/cxx/curryrtbindings/*.cpp)
 pybind11_add_module(_curryrtbindings MODULE NO_EXTRAS ${binding_sources})
 target_link_libraries(_curryrtbindings PRIVATE curryrt)
+# The runtime reads every node through the pointer union NodeU, and a step
+# overlays a rewritten node with another struct (Node::forward_to), accesses
+# the aliasing rules of C++ call unrelated.  Strict aliasing is therefore
+# off here, in the generated code (toolchain.py, _cxxflags) and in the C++
+# tests; GCC 14 for riscv64 kept a stale info tag without it (issue #170).
 foreach(target curryrt _curryrtbindings)
-  target_compile_options(${target} PRIVATE -Wall -Wno-register
+  target_compile_options(${target} PRIVATE -Wall -Wno-register -fno-strict-aliasing
     "$<$<CXX_COMPILER_ID:AppleClang,Clang>:-Wno-missing-braces>"
     "$<$<CONFIG:Release>:-O2;-fno-stack-protector${elf_release_flags}>")
 endforeach()
+# The private C objects obey the same release flavor as libcurryrt.
+target_compile_options(sprite_tommath PRIVATE -Wall
+  "$<$<CONFIG:Release>:-O2;-fno-stack-protector${elf_release_flags}>")
 set_target_properties(_curryrtbindings PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${image}/python/curry/backends/cxx/curryrtbindings"
   BUILD_WITH_INSTALL_RPATH TRUE
@@ -235,7 +281,7 @@ endfunction()
 sprite_var(curry2icurry_tool "${CURRY2ICURRY_TOOL}")
 sprite_var(currylib_module_names "${module_names}")
 sprite_var(currylib_unsupported_modules "${unsupported}")
-sprite_var(currylib_version "3.10.0")
+sprite_var(currylib_version "3.4.0")
 sprite_var(cxx_compiler "${compiler_version} ${compiler_target}")
 sprite_var(cxx_flavor "${cxx_flavor}")
 sprite_var(cxx_gc "${GC}")
@@ -270,7 +316,9 @@ add_custom_target(currylib ALL
     --icurry "${WITH_ICURRY}" --cxx "${WITH_CXX_POSTINSTALL}"
     --ccache "${WITH_CCACHE}" ${wheel_args} --jobs "${JOBS}" --rebuild-icy "${SPRITE_REBUILD_ICY}"
   DEPENDS _curryrtbindings USES_TERMINAL VERBATIM)
+install(FILES extern/libtommath/LICENSE DESTINATION licenses RENAME libtommath-LICENSE)
 if(SKBUILD)
+  install(FILES extern/libtommath/LICENSE DESTINATION curry/_sprite/licenses RENAME libtommath-LICENSE)
   install(FILES LICENSE DESTINATION curry/_sprite/licenses)
   install(FILES extern/pybind11/LICENSE DESTINATION curry/_sprite/licenses RENAME pybind11-LICENSE)
   install(DIRECTORY "${image}/python/curry/" DESTINATION curry

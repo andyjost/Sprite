@@ -80,7 +80,10 @@ namespace curryrt
     // guards at the target; ``parent`` is the node whose slot the target is,
     // or null at the root.
     void index(Node * root, index_type pos, bool update_fwd_nodes);
-    void skip(Node *& parent, bool update_fwd_nodes);
+    // Always inline: an argument access of a step makes no call (see
+    // indexing.hxx), whatever the optimizer decides; without strict
+    // aliasing GCC left it out of line (unit_cxx_heap.py checks).
+    __attribute__((always_inline)) void skip(Node *& parent, bool update_fwd_nodes);
     Node * guarded_rvalue() const; // cursor.cpp
   };
 

@@ -343,8 +343,7 @@ class TestTerms(cytest.TestCase):
     for value in (None, b'a', {}, set(), (1,)):
       with self.subTest(value=value), self.assertRaises(curry.ConversionError):
         curry.typeof(value)
-    with self.assertRaises(curry.IntOverflowError):
-      curry.typeof(2 ** 63)
+    self.assertEqual(curry.typeof(2 ** 63), 'Num a => a')
 
   def test_typeof_internal_markers_retains_node_path(self):
     raw = cytest.raw

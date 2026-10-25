@@ -266,18 +266,19 @@ class TestForeignObjects(cytest.TestCase):
             op(node, rhs)
 
   def test_hash(self):
-    '''
-    A node hashes by identity on both backends while equality is
-    structural, the rule the owner kept (the entry of 2026-10-08 on issue
-    #82): two equal nodes hash differently, a set keyed by nodes keeps
-    both, and a dict keyed by one node does not find the other.  A node is
-    not meant as a dictionary key; the API page says so.
-    '''
-    node = cytest.raw.expr(1)
-    same = cytest.raw.expr(1)
-    self.assertEqual(hash(node), hash(node))
-    self.assertEqual(len({node, node}), 1)
-    self.assertTrue(node == same)
+    # Int values hash by value, including values allocated by different
+    # routes. Other raw nodes retain their legacy identity hashes.
+    for value in [1, 10**30]:
+      node = cytest.raw.expr(value)
+      same = cytest.raw.expr(value)
+      self.assertEqual(node, same)
+      self.assertEqual(hash(node), hash(same))
+      self.assertEqual(len({node, same}), 1)
+      self.assertIn(same, {node})
+      self.assertEqual({node: 1}.get(same), 1)
+    node = cytest.raw.expr(1.0)
+    same = cytest.raw.expr(1.0)
+    self.assertEqual(node, same)
     self.assertNotEqual(hash(node), hash(same))
     self.assertEqual(len({node, same}), 2)
     self.assertNotIn(same, {node})

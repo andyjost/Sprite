@@ -15,11 +15,13 @@ class TestIssue166(cytest.TestCase):
     self.assertEqual(run_child(self, goals('plain2', 'inside2'), module='LiftGuardB1'),
         {'plain2': ['[True]'], 'inside2': ['[]']})
 
-  @unittest.expectedFailure
   def test_values_with_the_checker(self):
-    self.assertEqual(
-        run_child(self, goals('plain2', 'inside2'), module='LiftGuardB1', checker=True),
-        {'plain2': ['[True]'], 'inside2': ['[]']})
+    for interpret in ('off', 'all'):
+      with self.subTest(interpret=interpret):
+        self.assertEqual(
+            run_child(self, goals('plain2', 'inside2'), module='LiftGuardB1',
+                      checker=True, interpret=interpret),
+            {'plain2': ['[True]'], 'inside2': ['[]']})
 
 
 if __name__ == '__main__':

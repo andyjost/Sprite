@@ -1,3 +1,4 @@
+#include "curryrt/bigint.hpp"
 #include <cassert>
 #include <cstring>
 #include "curryrt/builtins.hpp"
@@ -357,6 +358,7 @@ namespace curryrt
     switch(kind)
     {
       case 'i': return &Int_Info;
+      case 'b': return &BigInt_Info;
       case 'f': return &Float_Info;
       case 'c': return &Char_Info;
       default: assert(0); __builtin_unreachable();

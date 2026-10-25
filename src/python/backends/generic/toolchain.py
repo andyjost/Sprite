@@ -1,5 +1,6 @@
 from ...toolchain import _filenames, _findcurry, _loadcurry, _system, _productlock
 from ... import cache
+from ...objects import CurryPackage
 from ...utility import binding, filesys
 
 class Json2TargetSource(object):
@@ -13,6 +14,7 @@ class Json2TargetSource(object):
   @_system.updateCheck
   def __call__(self, file_in, currypath, **ignored):
     icurry = _loadcurry.loadjson(file_in)
+    _findcurry.reject_library_shadow(icurry.fullname, icurry.filename, self.interp)
     # Dependencies are real imports. Only the bootstrap module stays in a
     # private registry; dropping its imports would lose source-relative scope.
     imports = _findcurry.imports_path(currypath, **ignored)
@@ -23,15 +25,12 @@ class Json2TargetSource(object):
 
   def _generate(self, file_in, currypath, **ignored):
     icurry = _loadcurry.loadjson(file_in)
-    # A module inside a package needs the package imported first.  An import
-    # by name does this through the name prefixes; an import of the ICurry
-    # object does not.  A compile of Data.Maybe failed with KeyError.
-    packagename, _, _ = icurry.fullname.rpartition('.')
-    if packagename:
-      self.interp.import_(packagename, currypath=currypath)
+    # The importer creates parent namespaces without loading their modules:
+    # a parent module may itself import this child (issue #168).
     # The module is imported only to bootstrap the call to 'save'.  Remove it
     # when done so that a subsequent step can import the real module produced.
-    assert icurry.fullname not in self.interp.modules
+    assert icurry.fullname not in self.interp.modules or isinstance(
+        self.interp.modules[icurry.fullname], CurryPackage)
     with binding.binding(self.interp.modules, icurry.fullname, binding.del_):
       # The imports of a program given as a file are searched on the path
       # of the step, which names its directory first; those of a module
@@ -51,6 +50,7 @@ class Json2TargetSource(object):
         current = None
       if current != text or filesys.newer(file_in, file_out):
         cache.write_file(file_out, text)
-    assert icurry.fullname not in self.interp.modules
+    assert icurry.fullname not in self.interp.modules or isinstance(
+        self.interp.modules[icurry.fullname], CurryPackage)
     return file_out
 

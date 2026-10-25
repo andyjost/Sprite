@@ -1965,3 +1965,16 @@ class TestMissingCompiler(ToolchainTestCase):
     proc = cytest.run_in_subprocess(code, timeout=300)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(json.loads(proc.stdout.strip().splitlines()[-1]), [13])
+
+
+class TestCompileFlags(cytest.TestCase):
+  def test_strict_aliasing_is_off(self):
+    '''
+    The generated code compiles with -fno-strict-aliasing: the node graph is
+    read through the pointer union NodeU, and a rewritten node is overlaid
+    with another struct (Node::forward_to), accesses the aliasing rules of
+    C++ call unrelated.  GCC 14 for riscv64 kept a stale info tag without
+    the flag (issue #170).
+    '''
+    flags = list(toolchain.Cpp2So(cytest.raw.interp())._cxxflags())
+    self.assertIn('-fno-strict-aliasing', flags)

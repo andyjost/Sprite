@@ -119,17 +119,18 @@ def text(value, heading):
   return str(value)
 
 
-def write_table(stream, rows, csv=False):
+def write_table(stream, rows, csv=False, program_width=16):
   if csv:
     stream.write(','.join(HEADINGS) + '\n')
     for r in rows:
       stream.write(','.join(text(r[h], h) for h in HEADINGS) + '\n')
   else:
-    stream.write(COLUMNS % HEADINGS + '\n')
+    columns = COLUMNS.replace('%-16s', '%%-%ds' % program_width)
+    stream.write(columns % HEADINGS + '\n')
     for r in rows:
       values = [text(r[h], h) for h in HEADINGS]
-      values[0] = values[0][:16]
-      stream.write(COLUMNS % tuple(values) + '\n')
+      values[0] = values[0][:program_width]
+      stream.write(columns % tuple(values) + '\n')
   stream.flush()
 
 
@@ -142,7 +143,8 @@ def main(argv=None):
   if args.backend:
     recs = [r for r in recs if r['backend'] == args.backend]
   rows = [row(r) for r in recs]
-  write_table(sys.stdout, rows, csv=args.csv)
+  write_table(sys.stdout, rows, csv=args.csv,
+              program_width=records.program_width(recs))
   return 0 if any(r['steps'] is not None for r in rows) else 1
 
 

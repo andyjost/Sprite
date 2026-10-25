@@ -29,8 +29,8 @@ on:
         default: false
 
 env:
-  PAKCS_VERSION: '3.4.1'
-  ICURRY_VERSION: '3.1.0'
+  PAKCS_VERSION: '3.10.0'
+  ICURRY_VERSION: ''
   LC_ALL: C.UTF-8
 
 jobs:
@@ -40,12 +40,12 @@ jobs:
     timeout-minutes: 150
     strategy:
       fail-fast: false
-      # The three C++ shards compare both routes from Curry to ICurry.
+      # The default shards use the front end shipped by PAKCS and Sprite's port.
       matrix:
         include:
-          - { backend: cxx, shard: '1/3', icurry: '$HOME/.cpm/bin/icurry' }
-          - { backend: cxx, shard: '2/3', icurry: '$HOME/.cpm/bin/icurry' }
-          - { backend: cxx, shard: '3/3', icurry: '$HOME/.cpm/bin/icurry' }
+          - { backend: cxx, shard: '1/3', icurry: '' }
+          - { backend: cxx, shard: '2/3', icurry: '' }
+          - { backend: cxx, shard: '3/3', icurry: '' }
     steps:
       - uses: actions/checkout@v4
         with:
@@ -156,9 +156,9 @@ jobs:
         if: always()
         run: ccache -s | head -n 6
 
-  # Current tools stay advisory until the reviewer has seen two green runs.
-  current-tools:
-    name: current tools, ${{ matrix.suite }} ${{ matrix.shard }}
+  # Keep the old pair advisory until the owner retires it.
+  legacy-tools:
+    name: legacy tools, ${{ matrix.suite }} ${{ matrix.shard }}
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     continue-on-error: true
@@ -168,9 +168,9 @@ jobs:
         suite: [unit, func]
         shard: ['1/3', '2/3', '3/3']
     env:
-      PAKCS_VERSION: '3.10.0'
-      # Use the front end shipped by PAKCS and Sprite's translator.
-      ICURRY_VERSION: ''
+      PAKCS_VERSION: '3.4.1'
+      # Exercise the optional external translator as well.
+      ICURRY_VERSION: '3.1.0'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -183,23 +183,26 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make curl
-      - name: Restore the current Curry toolchain
+      - name: Restore the legacy Curry toolchain
         id: toolchain
         uses: actions/cache@v4
         with:
-          path: ~/pakcs-${{ env.PAKCS_VERSION }}
-          key: curry-toolchain-ubuntu-24.04-pakcs${{ env.PAKCS_VERSION }}-sprite-v1
-      - name: Build the current Curry toolchain
+          path: |
+            ~/pakcs-${{ env.PAKCS_VERSION }}
+            ~/.cpm
+            ~/.cpmrc
+          key: curry-toolchain-ubuntu-24.04-pakcs${{ env.PAKCS_VERSION }}-icurry${{ env.ICURRY_VERSION }}-v1
+      - name: Build the legacy Curry toolchain
         if: steps.toolchain.outputs.cache-hit != 'true'
         run: .github/scripts/install-curry-toolchain.sh
-      - name: Restore the current-tools ICurry cache
+      - name: Restore the legacy-tools ICurry cache
         uses: actions/cache/restore@v4
         with:
           path: tests/.cache
-          key: icurry-current-${{ env.PAKCS_VERSION }}-${{ matrix.suite }}-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_id }}
+          key: icurry-legacy-${{ env.PAKCS_VERSION }}-${{ matrix.suite }}-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_id }}
           restore-keys: |
-            icurry-current-${{ env.PAKCS_VERSION }}-${{ matrix.suite }}-${{ matrix.shard }}-
-            icurry-current-${{ env.PAKCS_VERSION }}-
+            icurry-legacy-${{ env.PAKCS_VERSION }}-${{ matrix.suite }}-${{ matrix.shard }}-
+            icurry-legacy-${{ env.PAKCS_VERSION }}-
       - name: Install Python packages
         run: python -m pip install --quiet cmake ninja scikit-build-core numpy
       - name: Configure and stage
@@ -208,7 +211,7 @@ jobs:
             -DPython_EXECUTABLE="$(command -v python)" \
             -DWITH_PAKCS="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
             -DWITH_CURRY_FRONTEND="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs-frontend" \
-            -DWITH_ICURRY=
+            -DWITH_ICURRY="$HOME/.cpm/bin/icurry"
           make stage
       - name: Extract the test products of the overlay archive
         run: make overlay
@@ -218,12 +221,12 @@ jobs:
       - name: Functional shard
         if: matrix.suite == 'func' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.functional))
         run: .github/scripts/run-tests.sh cxx 'func_*.py' ${{ matrix.shard }}
-      - name: Save the current-tools ICurry cache
+      - name: Save the legacy-tools ICurry cache
         if: always() && hashFiles('tests/.cache/**') != ''
         uses: actions/cache/save@v4
         with:
           path: tests/.cache
-          key: icurry-current-${{ env.PAKCS_VERSION }}-${{ matrix.suite }}-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_id }}
+          key: icurry-legacy-${{ env.PAKCS_VERSION }}-${{ matrix.suite }}-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_id }}
 
   # The Python window: C++ unit suites only, on master pushes and dispatch.
   # Every lane gates the job: 3.11 through 3.15, and the free-threaded
@@ -322,7 +325,7 @@ jobs:
             -DPython_EXECUTABLE="$(command -v python)" \
             -DWITH_CXX_POSTINSTALL="$HOME/ccache-bin/sprite-cxx" \
             -DWITH_PAKCS="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
-            -DWITH_ICURRY="$HOME/.cpm/bin/icurry"
+            -DWITH_ICURRY=
           make stage
       # The overlay archive at the root of the repository holds the
       # FlatCurry and ICurry products of the test programs (tests/README,
@@ -375,7 +378,8 @@ jobs:
   # and the architecture; the first run of a new recipe takes about half an
   # hour more.  Apple Silicon (macos-15) gates master since its second green
   # run in the default mode (runs 40155455473 and 40161622699); Intel
-  # (macos-15-intel; step 5) gates nothing until it is green twice.
+  # (macos-15-intel; step 5) gates master since its third green run in a
+  # row (runs 40199675174, 40209733256 and 40223622532).
   macos:
     name: macOS ${{ matrix.arch }} ${{ matrix.shard }}
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/wt/macos')
@@ -393,10 +397,11 @@ jobs:
             experimental: false
           - runner: macos-15-intel
             arch: x86_64
-            experimental: true
+            experimental: false
     env:
-      GHC_VERSION: '9.6.7'
+      GHC_VERSION: '9.8.4'
       CABAL_VERSION: '3.10.3.0'
+      FRONTEND_VERSION: '3.1.0'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -421,7 +426,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: frontend-work/bundle
-          key: curry-frontend-macos-${{ matrix.arch }}-ghc${{ env.GHC_VERSION }}-${{ hashFiles('frontend/patches/*.patch', 'frontend/build.sh', 'frontend/package.py', 'frontend/fetch.py', '.github/scripts/install-curry-frontend-macos.sh') }}
+          key: curry-frontend-macos-${{ env.FRONTEND_VERSION }}-${{ matrix.arch }}-ghc${{ env.GHC_VERSION }}-${{ hashFiles('frontend/patches/*.patch', 'frontend/build.sh', 'frontend/package.py', 'frontend/fetch.py', '.github/scripts/install-curry-frontend-macos.sh') }}
       - name: Build the Curry front end from source
         if: steps.frontend.outputs.cache-hit != 'true'
         run: .github/scripts/install-curry-frontend-macos.sh
@@ -438,7 +443,7 @@ jobs:
       - name: Configure and stage
         run: |
           set -euxo pipefail
-          test "$(frontend-work/bundle/bin/curry-frontend --numeric-version)" = 2.0.0
+          test "$(timeout 30 frontend-work/bundle/bin/curry-frontend --numeric-version)" = 3.1.0
           cmake -S . -B object-root/cmake -G Ninja \
             -DPython_EXECUTABLE="$(command -v python)" \
             -DWITH_PAKCS= -DWITH_ICURRY= \
@@ -561,7 +566,7 @@ jobs:
             -DPython_EXECUTABLE="$(command -v python)" \
             -DWITH_CXX_POSTINSTALL="$HOME/ccache-bin/sprite-cxx" \
             -DWITH_PAKCS="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
-            -DWITH_ICURRY="$HOME/.cpm/bin/icurry"
+            -DWITH_ICURRY=
           make stage
       # The overlay archive, after the stage (see the test job).
       - name: Extract the test products of the overlay archive
@@ -655,7 +660,7 @@ jobs:
             -DPython_EXECUTABLE="$(command -v python)" \
             -DWITH_CXX_POSTINSTALL="$HOME/ccache-bin/sprite-cxx" \
             -DWITH_PAKCS="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
-            -DWITH_ICURRY="$HOME/.cpm/bin/icurry"
+            -DWITH_ICURRY=
           make GC_WRITE_COUNTERS=1 stage
           test "$(cat install/sysconfig/cxx_gc_write_counters)" = 1
       # The overlay archive, after the stage (see the test job).
@@ -773,7 +778,7 @@ jobs:
             -DPython_EXECUTABLE="$(command -v python)" \
             -DWITH_CXX_POSTINSTALL="$HOME/ccache-bin/sprite-cxx" \
             -DWITH_PAKCS="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
-            -DWITH_ICURRY="$HOME/.cpm/bin/icurry"
+            -DWITH_ICURRY=
           make stage
       # The overlay archive, after the stage (see the test job).
       - name: Extract the test products of the overlay archive

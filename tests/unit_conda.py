@@ -271,10 +271,12 @@ class TestCondaRecipe(cytest.TestCase):
     spec.loader.exec_module(module)
     with tempfile.TemporaryDirectory() as directory:
       root = Path(directory)
-      names = ['tests/data/curry/.curry/sprite-pakcs-3.4.1/M.icy',
-               'tests/data/curry/.curry/sprite-pakcs-3.4.1/M.icy.source',
-               'tests/data/curry/.curry/pakcs-3.4.1/M.fcy',
-               'install/curry/.curry/pakcs-3.4.1/Prelude.fint']
+      names = ['tests/data/curry/.curry/sprite-pakcs-3.10.0/M.icy',
+               'tests/data/curry/.curry/sprite-pakcs-3.10.0/M.icy.source',
+               'tests/data/curry/.curry/sprite-pakcs-3.10.0/M.icy.imports',
+               'tests/data/curry/.curry/pakcs-3.10.0/M.fcy',
+               'install/curry/.curry/pakcs-3.10.0/Prelude.fint',
+               'install/curry/.curry/sprite-pakcs-3.10.0/Prelude.icy']
       for name in names:
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -288,21 +290,106 @@ class TestCondaRecipe(cytest.TestCase):
       module.write_archive(archive, module.archive_products(root))
       self.assertEqual(archive.read_bytes(), first)
       with tarfile.open(archive) as stream:
-        self.assertIn('curry/lib/.curry/pakcs-3.4.1/Prelude.fint', stream.getnames())
+        self.assertIn('curry/lib/.curry/pakcs-3.10.0/Prelude.fint', stream.getnames())
+        self.assertIn(names[2], stream.getnames())
         for member in stream:
           self.assertEqual((member.uid, member.gid, member.mtime), (0, 0, 946684800))
       # Both product trees can coexist. Packing selects only the configured
       # release and reads that installation's library interfaces.
       new = root / 'new-install'
       for name in names:
-        target = name.replace('pakcs-3.4.1', 'pakcs-3.10.0')
+        target = name.replace('pakcs-3.10.0', 'pakcs-3.4.1')
         path = (new / target.removeprefix('install/') if target.startswith('install/')
                 else root / target)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(target)
-      selected = module.archive_products(root, 'pakcs-3.10.0', new)
-      self.assertEqual(len(selected), 4)
-      self.assertTrue(all('pakcs-3.10.0' in name for name, _ in selected))
+      selected = module.archive_products(root, 'pakcs-3.4.1', new)
+      self.assertEqual(len(selected), 6)
+      self.assertTrue(all('pakcs-3.4.1' in name for name, _ in selected))
+
+  def test_overlay_requires_source_receipts(self):
+    """Extraction discards receipt-less products; packing names them."""
+    spec = importlib.util.spec_from_file_location('sprite_overlay',
+        os.path.join(ROOT, 'scripts', 'overlay.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      source = root / 'tests/Sub/M.curry'
+      source.parent.mkdir(parents=True)
+      source.write_text('module Sub.M where\nnewExport = True\n')
+      flat = root / 'tests/.curry/pakcs-3.10.0/Sub/M.fcy'
+      icy = root / 'tests/Sub/.curry/sprite-pakcs-3.10.0/M.icy'
+      for product in (flat, icy):
+        product.parent.mkdir(parents=True, exist_ok=True)
+        product.write_text('old product without newExport')
+      with self.assertRaisesRegex(RuntimeError, 'regenerate.*without source receipts') as error:
+        module.archive_products(root)
+      self.assertIn(str(icy.relative_to(root)), str(error.exception))
+      archive = root / 'overlay-pakcs-3.10.0.tgz'
+      module.write_archive(archive, [(str(p.relative_to(root)), p) for p in (flat, icy)])
+      # Run the actual extraction path without history or an installation.
+      with mock.patch.object(module, 'ROOT', root), \
+           mock.patch.object(module, 'git', return_value=''), \
+           mock.patch('sys.argv', ['overlay.py', 'overlay', '--root', str(root),
+                                   '--prefix', str(root / 'install')]):
+        module.main()
+      self.assertFalse(flat.exists())
+      self.assertFalse(icy.exists())
+      self.assertFalse(Path(str(icy) + '.source').exists())
+      self.assertTrue(source.is_file())
+      # A removed source cannot leave a receipt-less orphan in the overlay.
+      source.unlink()
+      with tarfile.open(archive) as stream:
+        stream.extractall(root, filter='data')
+      module.prune_receipts(root, 'pakcs-3.10.0')
+      self.assertFalse(flat.exists())
+      self.assertFalse(icy.exists())
+
+  def test_overlay_preserves_recorded_source_provenance(self):
+    """An older product cannot acquire the packing commit's newer source."""
+    spec = importlib.util.spec_from_file_location('sprite_overlay',
+        os.path.join(ROOT, 'scripts', 'overlay.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      source = root / 'tests/M.curry'
+      source.parent.mkdir()
+      source.write_text('module M where\nnewExport = True\n')
+      flat = root / 'tests/.curry/pakcs-3.10.0/M.fcy'
+      icy = root / 'tests/.curry/sprite-pakcs-3.10.0/M.icy'
+      for product in (flat, icy):
+        product.parent.mkdir(parents=True, exist_ok=True)
+        product.write_text('old product without newExport')
+      receipt = Path(str(icy) + '.source')
+      receipt.write_text(hashlib.sha256(source.read_bytes()).hexdigest())
+      with mock.patch.object(module, 'git', return_value=''):
+        module.prune(root)
+      self.assertTrue(flat.is_file())
+      self.assertTrue(icy.is_file())
+      old_source = b'module M where\noldExport = True\n'
+      receipt.write_text(hashlib.sha256(old_source).hexdigest())
+      archive = root / 'overlay-pakcs-3.10.0.tgz'
+      module.write_archive(archive,
+          [(str(p.relative_to(root)), p) for p in (flat, icy, receipt)])
+      with mock.patch.object(module, 'ROOT', root), \
+           mock.patch.object(module, 'git', return_value=''), \
+           mock.patch('sys.argv', ['overlay.py', 'overlay', '--root', str(root),
+                                   '--prefix', str(root / 'install')]):
+        module.main()
+      self.assertFalse(flat.exists())
+      self.assertFalse(icy.exists())
+      self.assertFalse(receipt.exists())
+      self.assertIn('newExport', source.read_text())
+      # A stale receipt also invalidates JSON when ICurry was tidied away.
+      flat.write_text('old FlatCurry')
+      jsonfile = icy.with_suffix('.json.z')
+      jsonfile.write_bytes(b'old JSON')
+      receipt.write_text(hashlib.sha256(old_source).hexdigest())
+      module.prune_receipts(root, 'pakcs-3.10.0')
+      for product in (flat, jsonfile, receipt):
+        self.assertFalse(product.exists())
 
   def test_overlay_in_a_shallow_clone(self):
     '''
@@ -328,7 +415,7 @@ class TestCondaRecipe(cytest.TestCase):
       clone = os.path.join(tmpdir, 'clone')
       result = run([git, 'clone', '--quiet', '--depth', '1', 'file://' + ROOT, clone])
       self.assertEqual(result.returncode, 0, result.stdout)
-      for name in ['Makefile']:
+      for name in ['Makefile', archive]:
         shutil.copy(os.path.join(ROOT, name), clone)
       shutil.copy(
           os.path.join(ROOT, 'scripts', 'overlay.py')

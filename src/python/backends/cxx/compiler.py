@@ -60,7 +60,9 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # by dynamic symbol and defines no slot: the loader refuses its record, and
 # the runtime has no other way (the shim of before is gone) to bind such an
 # object to the tables of an interpreted module.
-FORMAT_VERSION = 15
+# Format 16: Int cases guard the inline representation and big constants
+# are constructed from decimal digits at module load.
+FORMAT_VERSION = 16
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure
@@ -269,6 +271,15 @@ class CxxCompiler(compiler.CompilerBase):
     yield 'static char const * %s = %s;' % (h_string, _dquote(string))
 
   def vEmitValueSetLiteral(self, values, h_valueset, h_valueset_data):
+    if values and isinstance(values[0], int) and any(
+        not INT_MIN <= v <= INT_MAX for v in values):
+      yield 'static Arg %s[%d];' % (h_valueset_data, len(values))
+      for i, value in enumerate(values):
+        literal = self.compileE(icurry.IInt(value), primary=True)
+        self.init_body.append('%s[%d] = Arg(%s);' % (h_valueset_data, i, literal))
+      yield "static ValueSet const %s{%s, %d, 'p'};" % (
+          h_valueset, h_valueset_data, len(values))
+      return
     if len(values) == 0 or isinstance(values[0], int):
       dt_code = 'i'
     elif isinstance(values[0], float):
@@ -542,6 +553,8 @@ class CxxCompiler(compiler.CompilerBase):
           lit, (icurry.IInt, icurry.IChar, icurry.IFloat, icurry.IString)
         ):
         return False
+      if isinstance(lit, icurry.IInt) and not INT_MIN <= lit.value <= INT_MAX:
+        return False
       size = alloc_size(1)
     return size <= self.redex_alloc_size
 
@@ -561,7 +574,14 @@ class CxxCompiler(compiler.CompilerBase):
     yield 'if(tag < T_CTOR) return tag;'
     assert icase.branches
     br = icase.branches[0]
-    if isinstance(br.lit, icurry.IFloat):
+    if isinstance(br.lit, icurry.IInt) and any(
+        not INT_MIN <= b.lit.value <= INT_MAX for b in icase.branches):
+      for branch in icase.branches:
+        literal = self.compileE(branch.lit, primary=True)
+        yield 'if(integer_compare(%s.target, %s) == 0)' % (h_sel, literal)
+        yield list(self.compileS(branch.block))
+      yield 'return _0->make_failure();'
+    elif isinstance(br.lit, icurry.IFloat):
       yield 'auto switch_value = NodeU{%s.target}.float_->value;' % h_sel
       for branch in icase.branches:
         yield 'if(switch_value == %r)' % branch.lit.value
@@ -571,8 +591,7 @@ class CxxCompiler(compiler.CompilerBase):
       if isinstance(br.lit, icurry.IChar):
         yield 'switch(NodeU{%s.target}.char_->value)' % h_sel
       elif isinstance(br.lit, icurry.IInt):
-        for branch in icase.branches:
-          _check_int_literal(branch.lit.value)
+        yield 'if(is_bigint(%s.target)) return _0->make_failure();' % h_sel
         yield 'switch(NodeU{%s.target}.int_->value)' % h_sel
       else:
         raise CompileError('bad switch type: %r' % type(br.lit))
@@ -612,8 +631,8 @@ class CxxCompiler(compiler.CompilerBase):
     # of its other literals (internLiteralNode).  So a step allocates nothing
     # for a literal.  A non-primary literal is the info table, read through
     # its slot, and the value, for a rewrite of the redex.
-    if isinstance(iliteral, icurry.IInt):
-      _check_int_literal(iliteral.value)
+    if isinstance(iliteral, icurry.IInt) and not INT_MIN <= iliteral.value <= INT_MAX:
+      return self.internBigInt(iliteral.value)
     shown = _cxxshow(iliteral.value, use_char=True)
     if not primary:
       return '%s, Arg(%s)' % (_slot(h_ctor), shown)
@@ -621,6 +640,19 @@ class CxxCompiler(compiler.CompilerBase):
       return '%s(%s)' % (self.LIT_CONSTRUCTOR[h_ctor], shown)
     else:
       return self.internLiteralNode(h_ctor, shown)
+
+  def internBigInt(self, value):
+    key = compiler.LITERAL_NODE, 'bigint', value
+    existing = self.intern_store.get(key)
+    if existing is not None:
+      return existing
+    name = self.next_private_symbolname(compiler.LITERAL_NODE)
+    self.symtab.insert(name, compiler.LITERAL_NODE, '<big Int literal>')
+    self.target_object['.strings'].append('static Node * %s = nullptr;' % name)
+    self.init_body.append('%s = integer("%s", true);' % (name, strings.int_text(value)))
+    self.symtab.make_defined(name)
+    self.intern_store[key] = name
+    return name
 
   def isSmallValue(self, iliteral):
     '''
@@ -804,20 +836,14 @@ def _bom_entry(key, value):
 def _cxxshow(arg, use_char=False):
   assert False
 
-# The range of Int (issue #105).  The generated code spells an Int literal
-# as a C++ constant, which the C++ compiler narrows in silence when it does
-# not fit, so a literal outside the range is refused here, with the message
-# of the node (the materializer refuses the same literal at load).  The
-# minimum has no literal of its own in C++: it is spelled as an expression.
+# The inline representation's range. Larger literals use integer(digits).
+# The minimum has no signed literal of its own in C++.
 INT_MIN = -(1 << 63)
 INT_MAX = (1 << 63) - 1
 
 def _check_int_literal(value):
-  if not INT_MIN <= value <= INT_MAX:
-    from ...exceptions import IntOverflowError
-    raise IntOverflowError(
-        '%d is outside the range of Int (%d to %d)' % (value, INT_MIN, INT_MAX)
-      )
+  # Kept for callers of the internal emitter helper; every Python int fits Int.
+  return value
 
 @_cxxshow.when(bool)
 def _cxxshow(bit, use_char=False):

@@ -8,15 +8,8 @@ ROOT = pathlib.Path('data/curry/community')
 ORIGIN = 'frontend-3.1.0-test-pass'
 # Reproduced in unit_community; the reviewer files the named findings.
 KNOWN_LOAD_FAILURES = {
-    'NegLit.curry': 'community compile: out-of-range Int literal (unit_community)',
-    'Prelude.curry': 'community compile: PAKCS Prelude external primitives (unit_community)'
+    'NegLit.curry': 'community compile: out-of-range Int literal (unit_community)'
   }
-for filename in ('InstanceExport.curry', 'InstanceExport/M.curry',
-                 'InstanceExport/N.curry', 'InstanceExport/O.curry',
-                 'InstanceExport/P.curry'):
-  KNOWN_LOAD_FAILURES[filename] = (
-      'community hierarchical import: module/namespace prefix collision (unit_community)'
-    )
 with (ROOT / 'MANIFEST.tsv').open() as stream:
   MANIFEST = list(csv.DictReader(stream, delimiter='\t'))
 
@@ -77,6 +70,11 @@ def check_source(self, filename):
         'print(handle.getHandle(module).icurry.filename)\n'
       ) % (str(work), name)
     proc = cytest.run_in_subprocess(code, timeout=60, address_space=2 << 30)
+    if source.name == 'Prelude.curry':
+      self.assertNotEqual(proc.returncode, 0)
+      self.assertIn("Curry module 'Prelude' conflicts with the installed library module.",
+                    proc.stderr)
+      return
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     # Verify the fixture was loaded rather than an installed namesake.
     self.assertIn(str(work), proc.stdout)

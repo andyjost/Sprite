@@ -9,8 +9,12 @@ namespace curryrt
 {
   bool RuntimeState::equate_fp(Configuration * C, xid_type i, xid_type j)
   {
-    return this->update_fp(C, i, this->read_fp(C, j))
-        && this->update_fp(C, j, this->read_fp(C, i));
+    ChoiceState lr = this->read_fp(C, i);
+    if(lr == UNDETERMINED)
+      lr = this->read_fp(C, j);
+    // A union may keep either root. Copy the common decision to both
+    // classes locally, even when it was read from an enclosing queue.
+    return this->update_fp(C, i, lr) && this->update_fp(C, j, lr);
   }
 
   static bool is_consistent(Fingerprint const & fp, xid_type id, ChoiceState expected)
@@ -158,18 +162,20 @@ namespace curryrt
         switch(this->read_fp(C, cid))
         {
           case RIGHT:        return false;
+          case LEFT:
           case UNDETERMINED: C->fingerprint.set_left(cid);
                              C->fingerprint.set_left(C->grp_id(cid));
-          case LEFT:         return true;
+                             return true;
           default: assert(0); __builtin_unreachable();
         }
       case RIGHT:
         switch(this->read_fp(C, cid))
         {
           case LEFT:         return false;
+          case RIGHT:
           case UNDETERMINED: C->fingerprint.set_right(cid);
                              C->fingerprint.set_right(C->grp_id(cid));
-          case RIGHT:        return true;
+                             return true;
           default: assert(0); __builtin_unreachable();
         }
       case UNDETERMINED: return true;

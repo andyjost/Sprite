@@ -70,7 +70,7 @@ class CurryWarning(UserWarning):
   '''A warning of the front end or loader.'''
 
 class IntOverflowError(CurryError, OverflowError):
-  '''An Int is outside the signed 64-bit range.'''
+  '''A bounded conversion is out of range, or a Float is not finite.'''
 
 class NoValueError(CurryError, LookupError):
   '''Results.one found no value.'''

@@ -126,6 +126,8 @@ namespace
       py::dict branches;
       for(auto const & branch: tree->branches)
         branches[py::int_(branch.first)] = tree_object(branch.second.get());
+      for(auto const & branch: tree->bigbranches)
+        branches[py::module_::import("curry.utility.strings").attr("parse_int")(branch.first)] = tree_object(branch.second.get());
       d["branches"] = branches;
     }
     return std::move(d);

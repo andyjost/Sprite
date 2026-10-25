@@ -203,33 +203,16 @@ namespace curryrt
     Cursor _0 = C->cursor();
     Variable _1 = _0[0]; // pre-normalized with $## in the Prelude
     ConsNode * string = string_cast(_1.target);
-    static ptrdiff_t constexpr SZ = 32;
-    char buf[SZ];
-    char * px = &buf[0];
-    while(string && px < &buf[SZ-1])
+    std::string digits;
+    while(string)
     {
-      auto const ch = head_char(string);
-      if('0' <= ch && ch <= '9')
-      {
-        *px++ = (char) ch;
-        string = string_cast(string->tail);
-      }
-      else
-        break;
+      auto ch = head_char(string);
+      if(ch < '0' || ch > '9') break;
+      digits += char(ch);
+      string = string_cast(string->tail);
     }
-    *px++ = '\0';
-    assert(px - &buf[0] <= SZ);
-    // The unboxed integer is 64 bits: long on Linux, long long on macOS.
-    static_assert(
-        std::is_signed<unboxed_int_type>::value
-          && sizeof(unboxed_int_type) == sizeof(long long)
-      , "strtoll gives the unboxed integer"
-      );
-    errno = 0;
-    unboxed_int_type value = std::strtoll(&buf[0], nullptr, 10);
-    if(errno == ERANGE)
-      return _0->make_failure();
-    Node * replacement = cons(pair(int_(value), string ? (Node *) string : nil()), nil());
+    Node * value = integer(digits.empty() ? "0" : digits.c_str());
+    Node * replacement = cons(pair(value, string ? (Node *) string : nil()), nil());
     _0->forward_to(replacement);
     return T_FWD;
   }

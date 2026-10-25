@@ -204,7 +204,7 @@ def fraction(value):
   return '-' if value is None else '%.2f' % value
 
 
-def write_row(stream, row, metric, deterministic=False):
+def write_row(stream, row, metric, deterministic=False, program_width=16):
   suite, program, backend, variant = row['key']
   if row['counters']:
     counters = ', '.join(row['counters'])
@@ -215,7 +215,7 @@ def write_row(stream, row, metric, deterministic=False):
   else:
     counters = 'equal'
   fields = [
-      suite, program[:16], backend, variant or '-', number(row['old'], metric)
+      suite, program[:program_width], backend, variant or '-', number(row['old'], metric)
     , number(row['new'], metric), fraction(row['ratio'])
     ]
   if deterministic:
@@ -225,6 +225,7 @@ def write_row(stream, row, metric, deterministic=False):
     fields.append(fraction(row['ratios'].get('instructions')))
     columns = COLUMNS
   fields += [row['verdict'], counters]
+  columns = columns.replace('%-16s', '%%-%ds' % program_width)
   stream.write(columns % tuple(fields) + '\n')
 
 
@@ -320,6 +321,7 @@ def main(argv=None):
   except (OSError, ValueError) as exc:
     sys.exit('compare: %s' % exc)
   old, new = latest(old_recs), latest(new_recs)
+  program_width = records.program_width(old_recs + new_recs)
   if args.deterministic:
     counters, tolerance = DETERMINISTIC_COUNTERS, args.threshold
   else:
@@ -353,11 +355,13 @@ def main(argv=None):
         'lists steps, forks, and collections beyond it; ~cpu and ~wall are '
         'advisory\n' % percent
       )
-    out.write(DETERMINISTIC_COLUMNS % DETERMINISTIC_HEADINGS + '\n')
+    columns = DETERMINISTIC_COLUMNS.replace('%-16s', '%%-%ds' % program_width)
+    out.write(columns % DETERMINISTIC_HEADINGS + '\n')
   else:
-    out.write(COLUMNS % HEADINGS + '\n')
+    columns = COLUMNS.replace('%-16s', '%%-%ds' % program_width)
+    out.write(columns % HEADINGS + '\n')
   for row in rows:
-    write_row(out, row, args.metric, args.deterministic)
+    write_row(out, row, args.metric, args.deterministic, program_width)
   counts, line = summary(rows, args.metric, args.threshold, args.deterministic)
   out.write(line + '\n')
   missing = {}

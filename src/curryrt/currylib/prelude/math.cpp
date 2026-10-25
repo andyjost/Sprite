@@ -13,14 +13,9 @@ namespace curryrt
   static inline unboxed_float_type _builtin_divFloat(unboxed_float_type x, unboxed_float_type y)
     { return y / x; }
 
-  // The checked primitives on Int (currylib/defs/checked.def).  Int is 64
-  // bits, and a result outside the range is an error, not a wrapped value
-  // (issue #105); a division by zero is an error, not a signal (issue
-  // #106).  Each function returns true when the result exists.  The
-  // divisions follow the Prelude: div and mod round toward minus infinity,
-  // quot and rem toward zero.  The one quotient that overflows is the
-  // minimum divided by -1; its remainder is zero, and it is taken before
-  // the division, which traps on it.
+  // Checked word arithmetic is the fast path.  Overflow promotes through
+  // integer_binary; division by zero remains an evaluation error.  div/mod
+  // round toward minus infinity, and quot/rem toward zero.
   static inline bool _checked_plusInt(unboxed_int_type x, unboxed_int_type y, unboxed_int_type & r)
     { return !__builtin_add_overflow(x, y, &r); }
   static inline bool _checked_minusInt(unboxed_int_type x, unboxed_int_type y, unboxed_int_type & r)
@@ -85,23 +80,15 @@ namespace curryrt
     std::string const text = node->str();
     return (!text.empty() && text[0] == '-') ? "(" + text + ")" : text;
   }
-  static std::string _overflow_message(char const * op, Node * x, Node * y)
-    { return "integer overflow: " + _operand(x) + " " + op + " " + _operand(y); }
   static std::string _division_message(char const * name, Node * x, Node * y)
   {
-    bool const zero = NodeU{y}.int_->value == 0;
+    bool const zero = !is_bigint(y) && NodeU{y}.int_->value == 0;
     return std::string(zero ? "division by zero: " : "integer overflow: ")
         + name + " " + _operand(x) + " " + _operand(y);
   }
   static std::string _conversion_message(char const * name, Node * x)
     { return std::string("integer overflow: ") + name + " " + _operand(x); }
 
-  static std::string _message_plusInt(Node * x, Node * y)
-    { return _overflow_message("+", x, y); }
-  static std::string _message_minusInt(Node * x, Node * y)
-    { return _overflow_message("-", x, y); }
-  static std::string _message_timesInt(Node * x, Node * y)
-    { return _overflow_message("*", x, y); }
   static std::string _message_divInt(Node * x, Node * y)
     { return _division_message("div", x, y); }
   static std::string _message_modInt(Node * x, Node * y)
@@ -145,8 +132,32 @@ extern "C"
   #define UBSPEC (prim_divFloat, _builtin_divFloat, 2, float_)
   #include "curryrt/currylib/defs/unboxed.def"
 
-  #define CHECKED_SPEC (divInt, _checked_divInt, 2, int_, _message_divInt)
-  #include "curryrt/currylib/defs/checked.def"
+  static tag_type divInt_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor root = C->cursor();
+    Variable x = root[0];
+    auto tag = rts->hnf(C, &x);
+    if(tag < T_CTOR) return tag;
+    Variable y = root[1];
+    tag = rts->hnf(C, &y);
+    if(tag < T_CTOR) return tag;
+    unboxed_int_type value;
+    if(!is_bigint(x.target) && !is_bigint(y.target)
+        && _checked_divInt(NodeU{x.target}.int_->value,
+             NodeU{y.target}.int_->value, value))
+      return root->rewrite(&Int_Info, value);
+    if(!is_bigint(y.target) && NodeU{y.target}.int_->value == 0)
+    {
+      C->set_error(_message_divInt(x.target, y.target), ErrorKind::division);
+      return E_ERROR;
+    }
+    root->forward_to(integer_binary('d', x.target, y.target));
+    return T_FWD;
+  }
+  InfoTable const divInt_Info {
+      T_FUNC, 2, sizeof(Node2), F_STATIC_OBJECT, "divInt", "pp"
+    , divInt_step, nullptr
+    };
 
   #define UBSPEC (eqChar, std::equal_to<void>(), 2, char_)
   #include "curryrt/currylib/defs/unboxed.def"
@@ -154,14 +165,38 @@ extern "C"
   #define UBSPEC (eqFloat, std::equal_to<void>(), 2, float_)
   #include "curryrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (eqInt, std::equal_to<void>(), 2, int_)
-  #include "curryrt/currylib/defs/unboxed.def"
+  static tag_type eqInt_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor root = C->cursor();
+    Variable x = root[0];
+    auto tag = rts->hnf(C, &x);
+    if(tag < T_CTOR) return tag;
+    Variable y = root[1];
+    tag = rts->hnf(C, &y);
+    if(tag < T_CTOR) return tag;
+    root->forward_to(integer_compare(x.target, y.target) == 0 ? True : False);
+    return T_FWD;
+  }
+  InfoTable const eqInt_Info {
+      T_FUNC, 2, sizeof(Node2), F_STATIC_OBJECT, "eqInt", "pp"
+    , eqInt_step, nullptr
+    };
 
   #define UBSPEC (prim_expFloat, std::exp, 1, float_)
   #include "curryrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (prim_intToFloat, unboxed_float_type, 1, int_)
-  #include "curryrt/currylib/defs/unboxed.def"
+  static tag_type prim_intToFloat_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor root = C->cursor();
+    Variable x = root[0];
+    auto tag = rts->hnf(C, &x);
+    if(tag < T_CTOR) return tag;
+    return root->rewrite(&Float_Info, integer_float(x.target));
+  }
+  InfoTable const prim_intToFloat_Info {
+      T_FUNC, 1, sizeof(Node1), F_STATIC_OBJECT, "prim_intToFloat", "p"
+    , prim_intToFloat_step, nullptr
+    };
 
   #define UBSPEC (prim_logFloat, std::log, 1, float_)
   #include "curryrt/currylib/defs/unboxed.def"
@@ -172,17 +207,74 @@ extern "C"
   #define UBSPEC (ltEqFloat, std::less_equal<void>(), 2, float_)
   #include "curryrt/currylib/defs/unboxed.def"
 
-  #define UBSPEC (ltEqInt, std::less_equal<void>(), 2, int_)
-  #include "curryrt/currylib/defs/unboxed.def"
+  static tag_type ltEqInt_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor root = C->cursor();
+    Variable x = root[0];
+    auto tag = rts->hnf(C, &x);
+    if(tag < T_CTOR) return tag;
+    Variable y = root[1];
+    tag = rts->hnf(C, &y);
+    if(tag < T_CTOR) return tag;
+    root->forward_to(integer_compare(x.target, y.target) <= 0 ? True : False);
+    return T_FWD;
+  }
+  InfoTable const ltEqInt_Info {
+      T_FUNC, 2, sizeof(Node2), F_STATIC_OBJECT, "ltEqInt", "pp"
+    , ltEqInt_step, nullptr
+    };
 
   #define UBSPEC (prim_minusFloat, _builtin_minusFloat, 2, float_)
   #include "curryrt/currylib/defs/unboxed.def"
 
-  #define CHECKED_SPEC (minusInt, _checked_minusInt, 2, int_, _message_minusInt)
-  #include "curryrt/currylib/defs/checked.def"
+  static tag_type minusInt_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor root = C->cursor();
+    Variable x = root[0];
+    auto tag = rts->hnf(C, &x);
+    if(tag < T_CTOR) return tag;
+    Variable y = root[1];
+    tag = rts->hnf(C, &y);
+    if(tag < T_CTOR) return tag;
+    unboxed_int_type value;
+    if(!is_bigint(x.target) && !is_bigint(y.target)
+        && _checked_minusInt(NodeU{x.target}.int_->value,
+             NodeU{y.target}.int_->value, value))
+      return root->rewrite(&Int_Info, value);
+    root->forward_to(integer_binary('-', x.target, y.target));
+    return T_FWD;
+  }
+  InfoTable const minusInt_Info {
+      T_FUNC, 2, sizeof(Node2), F_STATIC_OBJECT, "minusInt", "pp"
+    , minusInt_step, nullptr
+    };
 
-  #define CHECKED_SPEC (modInt, _checked_modInt, 2, int_, _message_modInt)
-  #include "curryrt/currylib/defs/checked.def"
+  static tag_type modInt_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor root = C->cursor();
+    Variable x = root[0];
+    auto tag = rts->hnf(C, &x);
+    if(tag < T_CTOR) return tag;
+    Variable y = root[1];
+    tag = rts->hnf(C, &y);
+    if(tag < T_CTOR) return tag;
+    unboxed_int_type value;
+    if(!is_bigint(x.target) && !is_bigint(y.target)
+        && _checked_modInt(NodeU{x.target}.int_->value,
+             NodeU{y.target}.int_->value, value))
+      return root->rewrite(&Int_Info, value);
+    if(!is_bigint(y.target) && NodeU{y.target}.int_->value == 0)
+    {
+      C->set_error(_message_modInt(x.target, y.target), ErrorKind::division);
+      return E_ERROR;
+    }
+    root->forward_to(integer_binary('m', x.target, y.target));
+    return T_FWD;
+  }
+  InfoTable const modInt_Info {
+      T_FUNC, 2, sizeof(Node2), F_STATIC_OBJECT, "modInt", "pp"
+    , modInt_step, nullptr
+    };
 
   #define UBSPEC (negateFloat, std::negate<void>(), 1, float_)
   #include "curryrt/currylib/defs/unboxed.def"
@@ -190,17 +282,102 @@ extern "C"
   #define UBSPEC (prim_plusFloat, std::plus<void>(), 2, float_)
   #include "curryrt/currylib/defs/unboxed.def"
 
-  #define CHECKED_SPEC (plusInt, _checked_plusInt, 2, int_, _message_plusInt)
-  #include "curryrt/currylib/defs/checked.def"
+  static tag_type plusInt_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor root = C->cursor();
+    Variable x = root[0];
+    auto tag = rts->hnf(C, &x);
+    if(tag < T_CTOR) return tag;
+    Variable y = root[1];
+    tag = rts->hnf(C, &y);
+    if(tag < T_CTOR) return tag;
+    unboxed_int_type value;
+    if(!is_bigint(x.target) && !is_bigint(y.target)
+        && _checked_plusInt(NodeU{x.target}.int_->value,
+             NodeU{y.target}.int_->value, value))
+      return root->rewrite(&Int_Info, value);
+    root->forward_to(integer_binary('+', x.target, y.target));
+    return T_FWD;
+  }
+  InfoTable const plusInt_Info {
+      T_FUNC, 2, sizeof(Node2), F_STATIC_OBJECT, "plusInt", "pp"
+    , plusInt_step, nullptr
+    };
 
-  #define CHECKED_SPEC (quotInt, _checked_quotInt, 2, int_, _message_quotInt)
-  #include "curryrt/currylib/defs/checked.def"
+  static tag_type quotInt_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor root = C->cursor();
+    Variable x = root[0];
+    auto tag = rts->hnf(C, &x);
+    if(tag < T_CTOR) return tag;
+    Variable y = root[1];
+    tag = rts->hnf(C, &y);
+    if(tag < T_CTOR) return tag;
+    unboxed_int_type value;
+    if(!is_bigint(x.target) && !is_bigint(y.target)
+        && _checked_quotInt(NodeU{x.target}.int_->value,
+             NodeU{y.target}.int_->value, value))
+      return root->rewrite(&Int_Info, value);
+    if(!is_bigint(y.target) && NodeU{y.target}.int_->value == 0)
+    {
+      C->set_error(_message_quotInt(x.target, y.target), ErrorKind::division);
+      return E_ERROR;
+    }
+    root->forward_to(integer_binary('q', x.target, y.target));
+    return T_FWD;
+  }
+  InfoTable const quotInt_Info {
+      T_FUNC, 2, sizeof(Node2), F_STATIC_OBJECT, "quotInt", "pp"
+    , quotInt_step, nullptr
+    };
 
-  #define CHECKED_SPEC (remInt, _checked_remInt, 2, int_, _message_remInt)
-  #include "curryrt/currylib/defs/checked.def"
+  static tag_type remInt_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor root = C->cursor();
+    Variable x = root[0];
+    auto tag = rts->hnf(C, &x);
+    if(tag < T_CTOR) return tag;
+    Variable y = root[1];
+    tag = rts->hnf(C, &y);
+    if(tag < T_CTOR) return tag;
+    unboxed_int_type value;
+    if(!is_bigint(x.target) && !is_bigint(y.target)
+        && _checked_remInt(NodeU{x.target}.int_->value,
+             NodeU{y.target}.int_->value, value))
+      return root->rewrite(&Int_Info, value);
+    if(!is_bigint(y.target) && NodeU{y.target}.int_->value == 0)
+    {
+      C->set_error(_message_remInt(x.target, y.target), ErrorKind::division);
+      return E_ERROR;
+    }
+    root->forward_to(integer_binary('r', x.target, y.target));
+    return T_FWD;
+  }
+  InfoTable const remInt_Info {
+      T_FUNC, 2, sizeof(Node2), F_STATIC_OBJECT, "remInt", "pp"
+    , remInt_step, nullptr
+    };
 
-  #define CHECKED_SPEC (prim_roundFloat, _checked_roundFloat, 1, float_, _message_roundFloat)
-  #include "curryrt/currylib/defs/checked.def"
+  static tag_type prim_roundFloat_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor root = C->cursor();
+    Variable x = root[0];
+    auto tag = rts->hnf(C, &x);
+    if(tag < T_CTOR) return tag;
+    auto t = std::round(NodeU{x.target}.float_->value);
+    if(_int_range(t)) return root->rewrite(&Int_Info, unboxed_int_type(t));
+    if(!std::isfinite(t))
+    {
+      C->set_error(_message_roundFloat(x.target), ErrorKind::overflow);
+      return E_ERROR;
+    }
+    root->forward_to(integer(t));
+    return T_FWD;
+  }
+  InfoTable const prim_roundFloat_Info {
+      T_FUNC, 1, sizeof(Node1), F_STATIC_OBJECT, "prim_roundFloat", "p"
+    , prim_roundFloat_step, nullptr
+    };
 
   #define UBSPEC (prim_sinFloat, std::sin, 1, float_)
   #include "curryrt/currylib/defs/unboxed.def"
@@ -220,9 +397,46 @@ extern "C"
   #define UBSPEC (prim_timesFloat, std::multiplies<void>(), 2, float_)
   #include "curryrt/currylib/defs/unboxed.def"
 
-  #define CHECKED_SPEC (timesInt, _checked_timesInt, 2, int_, _message_timesInt)
-  #include "curryrt/currylib/defs/checked.def"
+  static tag_type timesInt_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor root = C->cursor();
+    Variable x = root[0];
+    auto tag = rts->hnf(C, &x);
+    if(tag < T_CTOR) return tag;
+    Variable y = root[1];
+    tag = rts->hnf(C, &y);
+    if(tag < T_CTOR) return tag;
+    unboxed_int_type value;
+    if(!is_bigint(x.target) && !is_bigint(y.target)
+        && _checked_timesInt(NodeU{x.target}.int_->value,
+             NodeU{y.target}.int_->value, value))
+      return root->rewrite(&Int_Info, value);
+    root->forward_to(integer_binary('*', x.target, y.target));
+    return T_FWD;
+  }
+  InfoTable const timesInt_Info {
+      T_FUNC, 2, sizeof(Node2), F_STATIC_OBJECT, "timesInt", "pp"
+    , timesInt_step, nullptr
+    };
 
-  #define CHECKED_SPEC (prim_truncateFloat, _checked_truncateFloat, 1, float_, _message_truncateFloat)
-  #include "curryrt/currylib/defs/checked.def"
+  static tag_type prim_truncateFloat_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor root = C->cursor();
+    Variable x = root[0];
+    auto tag = rts->hnf(C, &x);
+    if(tag < T_CTOR) return tag;
+    auto t = std::trunc(NodeU{x.target}.float_->value);
+    if(_int_range(t)) return root->rewrite(&Int_Info, unboxed_int_type(t));
+    if(!std::isfinite(t))
+    {
+      C->set_error(_message_truncateFloat(x.target), ErrorKind::overflow);
+      return E_ERROR;
+    }
+    root->forward_to(integer(t));
+    return T_FWD;
+  }
+  InfoTable const prim_truncateFloat_Info {
+      T_FUNC, 1, sizeof(Node1), F_STATIC_OBJECT, "prim_truncateFloat", "p"
+    , prim_truncateFloat_step, nullptr
+    };
 }

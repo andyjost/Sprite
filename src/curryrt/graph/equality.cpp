@@ -1,3 +1,4 @@
+#include "curryrt/bigint.hpp"
 #include "curryrt/graph/equality.hpp"
 #include "curryrt/graph/memory.hpp"
 #include "curryrt/inspect.hpp"
@@ -62,6 +63,8 @@ namespace
       assert(lhs.kind == 'p');
       auto && bucket = p==memo.end() ? memo[lhs.id()] : p->second;
       bucket.insert(rhs.id());
+      if(is_int(*lhs->info) && is_int(*rhs->info))
+        return integer_compare(*lhs, *rhs) == 0;
       if(lhs->info != rhs->info)
         return false;
       for(index_type i=lhs->info->arity; i-->0;)

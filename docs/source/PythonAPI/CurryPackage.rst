@@ -23,6 +23,11 @@ uniqueness.  User data is ``Data``, callable function values are
 ``Function``, finite set values are ``Values``, and ``Char`` is distinct
 from String.  ``curry.show`` prints Curry text.
 
+Curry ``Int`` is unbounded and maps to Python ``int`` in both directions.
+Signed 64-bit values use the runtime's inline fast path. Arithmetic
+promotes an overflowing result to libtommath and demotes a result that fits
+inline. ``Char`` retains its Unicode code point range.
+
 ``curry.compile`` creates modules.  The current session signatures of
 ``save``, ``load``, ``reset`` and ``reload`` are described in
 :doc:`UsingTheAPI`.  ``curry.path`` controls imports, ``curry.flags`` holds

@@ -1,3 +1,4 @@
+#include "curryrt/bigint.hpp"
 #include <cassert>
 #include <cstring>
 #include <vector>
@@ -33,7 +34,12 @@ namespace curryrt
       // unstepped (see gc/wdgc.cpp).  The bindings and the graph copier
       // make such nodes here; generator() in builtins.hpp registers its
       // own.
-      if(info == &_biGenerator_Info)
+      if(info == &BigInt_Info)
+      {
+        bigint_acquire(target);
+        gc_register_bigint(target);
+      }
+      else if(info == &_biGenerator_Info)
         gc_register_generator(target);
       // The MPS back end finalizes a SetEval node to free its queue (see
       // gc_register_seteval); the graph copier and the bindings make such
@@ -175,6 +181,12 @@ namespace curryrt
     fill_from_partial(this, partial, arg);
     gc_pad_slack(this, old_bytes, partial->head_info->alloc_size);
     return partial->head_info->tag;
+  }
+
+  std::size_t Node::hash() const
+  {
+    return is_int(*info) ? integer_hash(const_cast<Node *>(this))
+                        : std::hash<Node const *>()(this);
   }
 
   bool Node::operator==(Node & arg)

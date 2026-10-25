@@ -1,8 +1,8 @@
 '''
 Oracle harness for the FlatCurry-to-ICurry port.
 
-The pinned oracle uses front end 2.0.0 and icurry 3.1.0; the current-tool
-oracle uses front end 3.1.0 and icurry 3.3.0. The port is right when its text is
+The default oracle uses front end 3.1.0 and icurry 3.3.0; the legacy
+oracle uses front end 2.0.0 and icurry 3.1.0. The port is right when its text is
 byte-identical to those files.  For each FlatCurry file, this harness runs
 the port and compares the result with the expected .icy file.  When the bytes
 differ, it reports the first differing byte and the first differing subterm.
@@ -19,8 +19,8 @@ The fixed oracle is the overlay archive ``overlay-<subdir>.tgz`` at the root
 of the repository.  It holds the ``.fcy``, ``.fint``, and ``.icy`` files of
 the test programs, written by the configured front end and matching icurry, and
 the FlatCurry interfaces of the Curry library under ``curry/lib/.curry``.
-The pinned library oracle is its committed ``.icy`` under ``curry/lib``;
-the current-tool library oracle is in its release's archive.
+Both release archives retain their own independent library oracles.
+The adjacent committed ``.icy`` files belong to the default pair only.
 :class:`Overlay` extracts the archive into a scratch directory, so a check
 does not depend on the products that other tests leave behind.
 
@@ -280,10 +280,10 @@ class Overlay:
 
   def library_pairs(self):
     '''
-    Every library ``.fcy`` of the archive with its oracle: the committed
-    ``.icy`` under ``curry/lib`` of the repository, or the copy in the
-    archive when the repository has none.  A module without either is left
-    out.
+    Every library ``.fcy`` of the archive with its independent oracle.
+    Prefer the copy in the archive; the default pair may fall back to a
+    committed ``.icy`` under ``curry/lib`` of the repository. A module
+    without either is left out.
     '''
     pairs = []
     for libdir in self.library_dirs():
@@ -300,9 +300,10 @@ class Overlay:
           committed = os.path.normpath(os.path.join(
               self.srcroot, 'curry', 'lib', moduledir, fn[:-len('.fcy')] + '.icy'
             ))
-          # Committed products belong to the pinned 2.0.0 configuration.
-          icy = (committed if self.subdir == 'pakcs-3.4.1' and os.path.isfile(committed)
-                 else expected_icy(fcy))
+          # Committed products belong to the pinned 3.1.0 configuration.
+          icy = expected_icy(fcy)
+          if icy is None and self.subdir == 'pakcs-3.10.0' and os.path.isfile(committed):
+            icy = committed
           if icy:
             pairs.append((fcy, icy))
     return sorted(pairs)

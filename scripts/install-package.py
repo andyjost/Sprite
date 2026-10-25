@@ -33,6 +33,14 @@ if len(sys.argv) > 2:
       os.replace(temporary, target)
     finally:
       Path(temporary).unlink(missing_ok=True)
+  # A tool the configuration no longer names (icurry after a reconfigure
+  # without it) has no link in the image; the install keeps nothing of it.
+  tools = image / 'tools'
+  if tools.is_dir() and (prefix / 'tools').is_dir():
+    present = {entry.name for entry in tools.iterdir()}
+    for entry in (prefix / 'tools').iterdir():
+      if entry.name not in present and (entry.is_symlink() or entry.is_file()):
+        entry.unlink()
 for stamp in (prefix / 'curry').rglob('*.so.abi'):
   lines = stamp.read_text().splitlines()
   lines[1] = str(prefix)

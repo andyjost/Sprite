@@ -7,6 +7,9 @@ https://andrewjost.wordpress.com/wp-content/uploads/2023/05/jostthesis.final_.10
 
 ## Status (2026)
 
+The default tool pair is front end 3.1.0 with PAKCS 3.10.0; CI keeps
+front end 2.0.0 with PAKCS 3.4.1 in advisory `legacy-tools` shards.
+
 The work happens on `master`. The refresh for current tools (Python
 3.14, PAKCS 3.4.1) was done on the branch `py314`, which `master` took
 over on 2026-10-17; `py314` stays as a frozen ref and is not pushed to.
@@ -57,22 +60,18 @@ reproducers pass.
 
 - Python 3.11 to 3.15 (3.11.4 minimum). Do not add `six` or compatibility
   code for Pythons older than 3.11.
-- PAKCS 3.4.1 is the pinned front end (Curry to FlatCurry) and the test
-  oracle. The pin will be relaxed once the test suite passes. PAKCS itself
-  is optional at build time: CMake `-DWITH_PAKCS=` with
-  `-DWITH_CURRY_FRONTEND=PATH` builds without it, and the pinned release
-  then names the intermediate directories.
-  Since 2026-10-24 the build also accepts the front end 3.1.0 with
-  PAKCS 3.10.0, the current tools, as the first stage of the upgrade:
-  that configuration names its directories after 3.10.0, passes
-  `-D__PAKCS__=310`, compiles the shipped library afresh and uses none
-  of the committed `.icy` products, which are products of the 2.0.0
-  route; the reader of FlatCurry accepts the typed locals of the format
-  of `flatcurry` 5.0.0 beside the old form. The shipped library is base
-  3.4.0, the library of PAKCS 3.10.0, since stage D (2026-10-25); one
-  copy serves both front ends (`curry/README.md`). The typed boundary reads both grammars of instance and
-  implementation names; nullary and multi-parameter classes await the next
-  stage of the typed API.
+- The pinned front end is 3.1.0 with PAKCS 3.10.0 as the test oracle.
+  The legacy pair, front end 2.0.0 with PAKCS 3.4.1, remains accepted
+  through the same CMake options. PAKCS itself is optional at build time:
+  `-DWITH_PAKCS=` with `-DWITH_CURRY_FRONTEND=PATH` builds without it.
+  The selected pair names the intermediate directories and the PAKCS CPP
+  macro (310 by default, 304 for the legacy pair). The committed `.icy`
+  products belong to front end 3.1.0; the legacy pair compiles the library
+  afresh at stage time. The reader accepts both FlatCurry grammars.
+  One copy of base 3.4.0, from PAKCS 3.10.0, serves both front ends
+  (`curry/README.md`). The typed boundary reads both grammars of instance
+  and implementation names; nullary and multi-parameter classes await the
+  next stage of the typed API.
 - Curry is translated to ICurry in three steps: the front end
   (`bin/pakcs-frontend` of PAKCS) writes FlatCurry; the rewrite step
   (`flat2icurry.rewrite_file`) rewrites the `.fcy` file in place, when a
@@ -129,12 +128,20 @@ reproducers pass.
   (`defaulted=True` applies the table) and `curry.show` complete the
   API; the installed stub `curry/__init__.pyi` is the surface.
 - Other tools: a C++ compiler (g++), GNU make, and binutils (`ar`). The
-  C++ runtime uses the C++17 standard library alone: Boost is not needed.
+  C++ runtime uses the C++17 standard library and privately links the
+  public domain libtommath 1.3.0, the submodule at extern/libtommath,
+  shipped beside extern/mps and extern/pybind11 (no system libtommath is
+  needed); Boost is not needed. The runtime, the bindings, the generated
+  code and the C++ tests compile with `-fno-strict-aliasing`: the node
+  graph is read through the pointer union `NodeU`, which the aliasing
+  rules of C++ do not describe (issue #170, found on riscv64).
   jq is not needed: Sprite writes compact JSON itself. SWI-Prolog runs
   PAKCS, the test oracle, and the build of its saved states; Haskell Stack
   builds PAKCS from source; Sprite itself needs neither. GNU time
   (`/usr/bin/time`) is optional: the benchmark harness uses it for the peak
   memory of a run.
+  The benchmark harness also has a separate community suite; its manifest
+  and wrapper rules are in `tests/data/curry/benchmarks/README.md`.
 - Sprite needs no GPU.
 - CMake honours `CC`, `CXX`, `CFLAGS`, `CXXFLAGS`
   and `LDFLAGS` from the environment, so build in a clean environment when
@@ -211,7 +218,7 @@ reproducers pass.
 - The step that writes `M.icy` writes `M.fint` and `M.icurry` beside it, on
   a cache miss (copies of the front end's files) and on a hit (from the
   cache). Code that needs the type of a symbol reads those copies, never
-  the front end's own copy under `.curry/pakcs-3.4.1/`, which can belong to
+  the front end's own copy under `.curry/pakcs-3.10.0/`, which can belong to
   another version of the source after a hit. An `.icy` without the two
   files beside it is stale and is converted again. ICurry records the digests
   of its direct imports' `.fint` and `.icurry` interfaces in `.icy.imports`;

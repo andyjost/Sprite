@@ -108,7 +108,7 @@ class TestWholeCorpus(cytest.TestCase):
     return sorted(fcys)
 
   def test_library(self):
-    '''The committed .icy files of the library.'''
+    '''The independent library oracles of the selected release.'''
     pairs = self.overlay.library_pairs()
     self.assertGreaterEqual(len(pairs), 8)
     self.check_pairs(pairs, self.overlay.library_dirs())
@@ -156,6 +156,17 @@ class TestWholeCorpus(cytest.TestCase):
     TestUnrewrittenFile pins the acceptance, and its narrowing to the
     oracle, on a pair of its own.
     '''
+    # The community programs import the compile-only Test.Prop of
+    # community/support ahead of the library's, and the check resolves it
+    # there too; its interface exists once the fixture was compiled, which
+    # a worktree that copied the programs' products may not have done.
+    support = os.path.join(DATA, 'curry', 'community', 'support')
+    fixture = os.path.join(support, 'Test', 'Prop.curry')
+    interface = os.path.join(
+        support, 'Test', '.curry', config.frontend_subdir(), 'Prop.fint'
+      )
+    if os.path.isfile(fixture) and not os.path.isfile(interface):
+      _frontend.curry2flat(fixture, [support], quiet=True)
     pairs = []
     for fcy in self.on_disk_fcys():
       if os.path.basename(fcy)[:-len('.fcy')] in ROUTE_DIFFERS:
@@ -165,8 +176,15 @@ class TestWholeCorpus(cytest.TestCase):
         pairs.append((fcy, icy))
     if not pairs:
       self.skipTest('no front-end products under tests/data')
+    # The products on disk were made against the installed library, so its
+    # interfaces resolve their imports first: the library oracles of the
+    # archive may predate a change of the library (the facade of
+    # Control.Search.SetFunctions since stage E lists more functions, and a
+    # call carries the index of the callee in its module's interface).
+    installed = [config.installed_path('curry')]
     results = check_on_disk(
-        pairs, CORPUS_IMPORT_DIRS + self.overlay.library_dirs() + LIBRARY_DIRS
+        pairs,
+        CORPUS_IMPORT_DIRS + installed + self.overlay.library_dirs() + LIBRARY_DIRS
       )
     self.assertEqual(
         oracle.summarize(results), (len(pairs), 0, 0), oracle.report(results)

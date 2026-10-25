@@ -1,0 +1,23 @@
+Source: https://github.com/curry-language/kics2
+Version: 3.5.0 (master snapshot 40383b5)
+Directory: benchmarks/suite
+License: BSD-3-Clause; see LICENSE (copied unchanged).
+
+Upstream files, copied byte for byte with their headers:
+  Last.curry
+  PaliFunPats.curry
+  PrimesPeano.curry
+  Queens.curry
+  QueensUser.curry
+  RegExp.curry
+  SatSolver.curry
+  SearchGraph.curry
+  SearchKanMis.curry
+  SearchMAC.curry
+  SearchQueens.curry
+  ShareNonDet.curry
+  TakPeano.curry
+  UnificationBench.curry
+
+Sprite wrapper: ShareNonDetBench.curry (see the benchmark README).
+Excluded sources are retained for provenance, but never loaded by the suite.

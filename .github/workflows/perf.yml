@@ -33,8 +33,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PAKCS_VERSION: '3.4.1'
-  ICURRY_VERSION: '3.1.0'
+  PAKCS_VERSION: '3.10.0'
+  ICURRY_VERSION: ''
   LC_ALL: C.UTF-8
   HISTORY_BRANCH: perf-history
   # The rotation of the C++ backend in step mode, so that the counters

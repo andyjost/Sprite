@@ -15,3 +15,5 @@
 #include "curryrt/graph/infotable.hpp"
 #include "curryrt/graph/node.hpp"
 #include "curryrt/state/rts.hpp"
+
+#include "curryrt/bigint.hpp"
