@@ -1,0 +1,69 @@
+/*
+ * palette.css: the palette of the logo (assets/logo/README.md) on the
+ * Read the Docs theme.  The header's forest green is the theme option
+ * style_nav_header_background in conf.py; this sheet colors what that
+ * option leaves: the links, the headings and the code of the pages, and
+ * the caption and the search box of the sidebar.  Sphinx loads it after
+ * the sheets of the theme and of Pygments, so an equal selector wins by
+ * order.
+ */
+:root {
+  --sprite-forest: #2F5D3A;       /* the letters of the logo */
+  --sprite-forest-deep: #1F4027;  /* forest, darker: a hovered link */
+  --sprite-forest-dim: #55735F;   /* forest, greyed: a visited link */
+  --sprite-twig: #8B6A4E;         /* the twig: inline code */
+  --sprite-mint: #D7F0E3;         /* the ground of light pages */
+  --sprite-mint-pale: #EBF7F1;    /* mint at half strength over white: code blocks */
+  --sprite-mint-line: #B8DCC7;    /* the border of a code block */
+}
+
+/* The links of the page.  The sidebar keeps the greys of the theme. */
+.rst-content a { color: var(--sprite-forest); }
+.rst-content a:visited { color: var(--sprite-forest-dim); }
+.rst-content a:hover,
+.rst-content a:focus { color: var(--sprite-forest-deep); }
+
+/* The two top levels of headings.  The lower levels keep the text color. */
+.rst-content h1,
+.rst-content h2 { color: var(--sprite-forest); }
+
+/* Code blocks.  The Pygments style "sphinx" paints them a pale lime, which
+   the rules of the logo keep away from the mark. */
+.highlight,
+.rst-content pre.literal-block { background: var(--sprite-mint-pale); }
+.rst-content div[class^="highlight"],
+.rst-content pre.literal-block { border-color: var(--sprite-mint-line); }
+
+/* Inline code: the twig instead of the red of the theme. */
+.rst-content code.literal,
+.rst-content tt.literal { color: var(--sprite-twig); }
+
+/* The sidebar: the caption of the contents and the border of the search
+   box were the blues of the theme beside the forest header. */
+.wy-menu-vertical p.caption { color: var(--sprite-mint); }
+.wy-side-nav-search input[type="text"] { border-color: var(--sprite-forest-deep); }
+
+/* The signature of a documented class, function or exception in the API
+   Reference: the selector is the theme's own, so the rule outranks it by
+   order alone. */
+html.writer-html5 .rst-content dl[class]:not(.option-list):not(.field-list):not(.footnote):not(.citation):not(.glossary):not(.simple) > dt {
+  background: var(--sprite-mint-pale);
+  color: var(--sprite-forest);
+  border-top-color: var(--sprite-forest);
+}
+html.writer-html5 .rst-content dl[class]:not(.option-list):not(.field-list):not(.footnote):not(.citation):not(.glossary):not(.simple) > dt:before {
+  color: var(--sprite-forest);
+}
+
+/* Notes and tips: a mint ground with a forest or a twig title.  Warnings
+   and errors keep the colors of the theme, which carry their meaning. */
+.rst-content .note,
+.rst-content .seealso,
+.rst-content .tip,
+.rst-content .hint,
+.rst-content .important { background: var(--sprite-mint-pale); }
+.rst-content .note .admonition-title,
+.rst-content .seealso .admonition-title { background: var(--sprite-forest); }
+.rst-content .tip .admonition-title,
+.rst-content .hint .admonition-title,
+.rst-content .important .admonition-title { background: var(--sprite-twig); }
