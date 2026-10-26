@@ -355,7 +355,7 @@ jobs:
     runs-on: ubuntu-24.04
     environment:
       name: pypi
-      url: https://test.pypi.org/p/currylang
+      url: https://test.pypi.org/p/curry
     permissions:
       id-token: write
     steps:
@@ -373,7 +373,7 @@ jobs:
     runs-on: ubuntu-24.04
     environment:
       name: pypi
-      url: https://pypi.org/p/currylang
+      url: https://pypi.org/p/curry
     permissions:
       id-token: write
     steps:

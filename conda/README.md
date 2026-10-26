@@ -784,7 +784,9 @@ of 2026-10-08 showed both; the entries record the decisions.
     extern/pybind11`, or add the conda-forge package `pybind11` to the host
     requirements, whose headers the compiler finds under `$PREFIX/include`;
     a release tarball from GitHub lacks the submodule.
-12. Pip.  A wheel of Sprite (roadmap issue #1) needs the front
+12. Pip.  The pip distribution is `curry` (`pip install curry`); the conda
+    scaffold keeps `currylang`, whose name is a separate decision.
+    A wheel of Sprite (roadmap issue #1) needs the front
     end on the user's machine; the conda package solves that through
     `curry-frontend`.  A wheel that bundles the front end binary would carry
     a 9 MB binary per wheel and the PAKCS license.  Decide the channel of

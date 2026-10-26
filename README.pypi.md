@@ -7,7 +7,7 @@
 
 # Sprite for Curry
 
-`currylang` provides Sprite, a compiler and runtime for the
+`curry` provides Sprite, a compiler and runtime for the
 [Curry functional logic language](https://www.curry-lang.org/). Its Python API
 combines Curry's nondeterministic search and logic variables with Python
 programs. The import name is `curry`.
@@ -16,7 +16,7 @@ This is an alpha release. Linux wheels target glibc 2.28 or newer on x86-64
 and aarch64, for CPython 3.11 through 3.15, including free-threaded 3.14.
 
 ```sh
-python -m pip install --pre currylang curry-frontend
+python -m pip install --pre curry curry-frontend
 python -m curry Peano.curry
 ```
 
@@ -44,7 +44,9 @@ See the [documentation](https://andyjost.github.io/Sprite/) and
 Sprite uses the BSD 3-Clause license; the distribution includes the notices
 for its vendored Curry library and pybind11.
 
-The `currylang` package on PyPI is Sprite. The Curry community also uses
-`currylang` as its namespace on Docker Hub. The name `curry` on PyPI was held
-from 2009 by Malthe Borch for his package of partial application; he agreed to
-its transfer to this project, for which we thank him.
+The `curry` package on PyPI is Sprite. `currylang` was its name until
+0.9.0a1 and remains for one more release as an alias that depends on `curry`.
+The Curry community also uses `currylang` as its namespace on Docker Hub.
+The name `curry` on PyPI was held from 2009 by Malthe Borch for his package
+of partial application; he agreed to its transfer to this project, for
+which we thank him.

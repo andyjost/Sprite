@@ -28,10 +28,10 @@ plan() {
 1. If uv is absent, install it in $HOME/.local/bin with the official installer:
    curl -LsSf https://astral.sh/uv/install.sh | sh
    (UV_INSTALL_DIR=$HOME/.local/bin; UV_NO_MODIFY_PATH=1)
-2. Install or upgrade currylang and its dependency curry-frontend in an isolated
+2. Install or upgrade curry and its dependency curry-frontend in an isolated
    tool environment in your home directory. Download managed CPython 3.11.4
    or newer, below 3.16, if needed; leave the system Python alone:
-   uv tool install --upgrade --managed-python --python 'cpython>=3.11.4,<3.16' --no-build --with-executables-from curry-frontend currylang
+   uv tool install --upgrade --managed-python --python 'cpython>=3.11.4,<3.16' --no-build --with-executables-from curry-frontend curry
    (UV_TOOL_BIN_DIR=$HOME/.local/bin)
 PLAN
   if [ -n "${GETSPRITE_FIND_LINKS:-}" ]; then
@@ -88,7 +88,7 @@ else
 fi
 
 confirm 'Install or upgrade Sprite and its managed Python with uv?'
-set -- tool install --upgrade --managed-python --python 'cpython>=3.11.4,<3.16' --no-build --with-executables-from curry-frontend currylang
+set -- tool install --upgrade --managed-python --python 'cpython>=3.11.4,<3.16' --no-build --with-executables-from curry-frontend curry
 if [ -n "${GETSPRITE_FIND_LINKS:-}" ]; then
   set -- "$@" --find-links "$GETSPRITE_FIND_LINKS"
 fi
