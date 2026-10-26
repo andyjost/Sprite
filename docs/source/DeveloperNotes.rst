@@ -230,6 +230,23 @@ interpreter for installations without a compiler.  The earlier evaluator,
 generated Python form, debugging aids and migration stages are documented
 in the Git history before this removal and in issue #82.
 
+Normalization
+-------------
+
+Decision D53 (2026-10-25) makes ``RuntimeState::procN`` test the tags of all
+direct successors of a constructor cell before the scan descends, including
+when a step returns a constructor at the cursor.  A failure tag returns
+``T_FAIL``, recording the failure for an enclosing capsule; ``procD_loop``
+drops the configuration without overwriting a shared cell.  Each constructor
+visit costs one pass over its direct successors, with no recursion or
+allocation.  Choices are still pull-tabbed only at the scan cursor (N.2),
+and the one-step rule is unchanged.  Compiled functions and the ICurry
+interpreter (``icurry_step``) share this normalization loop.  The regression
+programs ``CursorFail`` and ``CursorBeta`` require termination with no value
+and exactly ``Pair True True``, respectively, on both routes; a literal
+direct-tag test still misses failures represented by forwarding nodes, so
+their treatment needs clarification before this change meets D53.
+
 The checker mode
 ----------------
 
