@@ -21,7 +21,10 @@ the C++ backend. The three `expectedFailure` markers there are F13's
 `test_choice_protocol` and `test_fork_precedence`, and
 `unit_stub_terms.py::test_choice_type_conversion`, awaiting the choice
 interpreter. Two assertions of `unit_stub_terms.py` were corrected on
-2026-10-25: `True & False` has no value (#139), as in PAKCS and KiCS2. The Python backend was removed on 2026-10-24 at the owner's
+2026-10-25: `True & False` has no value (#139), as in PAKCS and KiCS2.
+D45 fixes #171: a capsule with no value and an outside failure fails even
+when it also recorded inside failures.
+The Python backend was removed on 2026-10-24 at the owner's
 word (B4, issue #82).
 F11's `test_free_argument_answers` passes:
 partial lists in values and bindings print cons without spaces, as PAKCS

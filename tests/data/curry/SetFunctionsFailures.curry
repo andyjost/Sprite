@@ -4,9 +4,10 @@
 -- on both backends.  A failure that comes from an argument (a boxed
 -- failure) drops the configuration that met it, as every failure does, and
 -- the capsule records it; the capsule becomes a failure when its queue
--- empties with no value, no inside failure and some outside failure, and
--- its set stands otherwise.  The values in the comments are those of KiCS2
--- 3.5.0, observed through the harness of the Fair Scheme proofs.  The
+-- empties with no value and some outside failure, whatever inside failures
+-- it recorded (D45, 2026-10-25), and its set stands otherwise.  The values
+-- in the comments follow D45 where it changes the original KiCS2 3.5.0
+-- observations through the harness of the Fair Scheme proofs.  The
 -- probe modules of the audit of 2026-10-12 define the goals.
 module SetFunctionsFailures where
 import Control.SetFunctions
@@ -30,7 +31,7 @@ t4 :: Bool
 t4 = isEmpty (set1 (\a -> True ? a) failed)
 
 -- d2a, d2b: an inside failure beside the outside one, in both orders: the
--- set is empty.  True, True.
+-- capsule fails in either order (D45).  No value.
 d2a :: Bool
 d2a = isEmpty (set1 (\a -> a ? failed) failed)
 
@@ -124,7 +125,7 @@ set0InnerV = sortValues (set1 (\a -> sortValues (set0 (id a ? 7))) (failed :: In
 mixed :: [Int]
 mixed = sortValues (set1 (\a -> (a + 1) ? (failed ? 2)) failed)
 
--- mixedE: the same without the value: the set is empty.  True
+-- mixedE: the same without the value: the capsule fails (D45).  No value.
 mixedE :: Bool
 mixedE = isEmpty (set1 (\a -> (a + 1) ? failed) failed)
 
@@ -141,12 +142,12 @@ argFail = sortValues (set1 id (0 ? failed))
 -- a failed constraint step at the root (the occurs check of the union of
 -- two classes: x is decided outside the capsule, so no narrowing with a
 -- failing sibling happens inside), beside the failure of the argument.
--- The failed constraint is an inside failure, so the set stands empty:
--- True, [].  Before the record of a failed constraint the former runtime
--- failed the capsule (no value) where the C++ backend met a failure cell
--- in a sibling alternative and printed True.  KiCS2 has no occurs check,
--- so it is no reference here; the reading is that of rule (d1): the path
--- of the failure crossed no guard.
+-- The failed constraint is an inside failure, but the outside failure
+-- still fails the capsule when it produced no value (D45).  Both goals
+-- have no value.  The old deferred rule kept the empty set (True, []).
+-- KiCS2 has no occurs check, so it is no reference here; both PAKCS
+-- versions give no value.  Rule (d1) still records the inside failure:
+-- its path crossed no guard.
 data T = T T
 
 isT :: T -> Bool

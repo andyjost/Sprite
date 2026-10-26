@@ -92,20 +92,20 @@ namespace curryrt
     // allValues_step in currylib/setfunctions.cpp reads it on the empty
     // queue).  ``produced`` counts the values the queue gave (rule SF.3),
     // ``inside_failure`` tells whether a configuration met a failure of the
-    // function's own, and ``outside_failures`` are the failures that came
-    // from an argument, each with its level.  The queues of a split and the
-    // clones of a queue share the record made before, as the mechanization
+    // function's own (kept for checker diagnostics).  ``outside_failures``
+    // are the failures that came from an argument, each with its level.
+    // The queues of a split and the clones of a queue share the record
+    // made before, as the mechanization
     // keeps it (Capsule.split and the clone of the Lean development).
     size_t produced = 0;
     bool inside_failure = false;
     std::vector<FailureRecord> outside_failures;
     // Rule (d2): on the empty queue the capsule is a failure when it
-    // produced no value, recorded no inside failure and recorded some
-    // outside failure; its set stands otherwise.
+    // produced no value and recorded some outside failure, whatever inside
+    // failures it recorded (D45, 2026-10-25); its set stands otherwise.
     bool fails_at_end() const
     {
-      return this->produced == 0 && !this->inside_failure
-          && !this->outside_failures.empty();
+      return this->produced == 0 && !this->outside_failures.empty();
     }
     // Rule (d3): the guards of the failure the capsule becomes
     // (curryrt::failure_guards over outside_failures).
