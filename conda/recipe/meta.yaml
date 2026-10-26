@@ -10,7 +10,7 @@
 {% set pakcs_version = "3.10.0" if current_tools else "3.4.1" %}
 
 package:
-  name: currylang
+  name: curry
   version: {{ version }}
 
 source:

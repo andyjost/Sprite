@@ -38,7 +38,7 @@ On Linux, choose the path that fits your Python setup:
    ```
 
    The script installs uv if needed, then a managed Python 3.11.4 or newer
-   and currylang with its curry-frontend dependency, all in your home
+   and curry with its curry-frontend dependency, all in your home
    directory. It leaves the system Python alone and never uses sudo. Run
    it again to upgrade Sprite. To preview the plan, download the script
    and run `sh getsprite --dry-run` (or `sh getsprite-i --dry-run`). Add
@@ -52,7 +52,7 @@ On Linux, choose the path that fits your Python setup:
    environment with pip:
 
    ```sh
-   pip install currylang
+   pip install curry
    ```
 
    This also installs curry-frontend; uv is only needed by the script.

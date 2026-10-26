@@ -9,7 +9,7 @@ as wheels for Apple Silicon and Intel, built from the pinned PAKCS source
 (2.0.0) or the GitHub tag v3.1.0 (3.1.0) in the
 continuous integration of [Sprite](https://github.com/andyjost/Sprite), a
 Curry compiler and runtime with a Python API. Sprite's package,
-`currylang`, depends on it and runs it when it loads a Curry source file.
+`curry`, depends on it and runs it when it loads a Curry source file.
 
 The wheel installs one command:
 

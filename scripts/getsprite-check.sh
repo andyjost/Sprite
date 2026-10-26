@@ -42,13 +42,13 @@ sh /src/getsprite
 sprite-exec --help
 sprite-make --help
 test "$(curry-frontend --numeric-version)" = 2.0.0
-tool_python="$(uv tool dir)/currylang/bin/python"
+tool_python="$(uv tool dir)/curry/bin/python"
 "$tool_python" - <<'PY'
 import importlib.metadata as metadata
 import sys
 assert (3, 11, 4) <= sys.version_info < (3, 16)
 assert sys.prefix != sys.base_prefix
-requirements = metadata.requires('currylang')
+requirements = metadata.requires('curry')
 assert any(req.startswith('curry-frontend') for req in requirements), requirements
 assert not any(req.startswith('uv') for req in requirements), requirements
 assert metadata.version('curry-frontend')

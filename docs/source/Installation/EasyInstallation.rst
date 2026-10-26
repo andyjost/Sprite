@@ -20,7 +20,7 @@ For confirmation before each installation step, use::
     curl -LsSf https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite-i | sh
 
 The scripts install uv if needed, then use it to download a managed CPython
-3.11.4 or newer (through 3.15) and install ``currylang`` with its dependency
+3.11.4 or newer (through 3.15) and install ``curry`` with its dependency
 ``curry-frontend`` in an isolated environment in your home directory. They
 leave the system Python alone and never use sudo. Run the script again to
 upgrade Sprite.
@@ -39,7 +39,7 @@ With your own Python
 If you already have Python 3.11.4 or newer (through 3.15), install into your
 Python environment with::
 
-    pip install currylang
+    pip install curry
 
 This installs ``curry-frontend`` too. The wheels work with plain pip;
 uv is a dependency of the installer alone. See :ref:`custom-install` for
