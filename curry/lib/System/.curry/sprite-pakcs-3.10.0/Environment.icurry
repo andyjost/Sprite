@@ -1,0 +1,14 @@
+interface System.Environment where {
+import Prelude;
+getArgs 0 :: Prelude.IO [[Prelude.Char]];
+getEnv 1 :: [Prelude.Char] -> Prelude.IO [Prelude.Char];
+getHostname 0 :: Prelude.IO [Prelude.Char];
+getProgName 0 :: Prelude.IO [Prelude.Char];
+isPosix 0 :: Prelude.Bool;
+isWindows 0 :: Prelude.Bool;
+setEnv 2 :: [Prelude.Char] -> [Prelude.Char] -> Prelude.IO ();
+unsetEnv 1 :: [Prelude.Char] -> Prelude.IO ();
+hiding data Prelude.IO a;
+hiding data Prelude.Char;
+hiding data Prelude.Bool
+}

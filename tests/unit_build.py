@@ -3,6 +3,9 @@ from email.parser import BytesParser
 import importlib.util
 import io
 from pathlib import Path
+from cytest.buildtools import cmake_executable
+import os
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -35,7 +38,7 @@ class TestDistribution(cytest.TestCase):
     self.assertEqual(set(project['urls']), {'Homepage', 'Documentation', 'Source', 'Issues'})
     self.assertEqual(project['dependencies'], ['curry-frontend>=2.0.0'])
     self.assertEqual(data['build-system']['requires'],
-        ['scikit-build-core>=1.1', 'cmake>=3.24', 'ninja', 'curry-frontend>=2.0.0'])
+        ['scikit-build-core>=1.1', 'cmake>=3.24', 'ninja'])
     for name in project['license-files']:
       self.assertTrue((ROOT / name).is_file(), name)
 
@@ -55,9 +58,71 @@ class TestDistribution(cytest.TestCase):
         for name in script('check-dist').SDIST_FILES:
           self.assertIn(prefix + name, names)
         self.assertNotIn(prefix + 'CODEX-REPORT.md', names)
+        self.assertFalse(any(n.startswith(prefix + 'curry/lib/')
+                             and n.endswith('.json.z') for n in names))
+        for source in (ROOT / 'curry/lib').rglob('*.curry'):
+          if '.curry' in source.relative_to(ROOT / 'curry/lib').parts:
+            continue
+          stem = source.parent / '.curry/sprite-pakcs-3.10.0' / source.stem
+          for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source'):
+            self.assertIn(prefix + str(stem.with_suffix(suffix).relative_to(ROOT)), names)
         self.assertFalse(any('/object-root/' in n or '/install/' in n for n in names))
         metadata = BytesParser().parsebytes(archive.extractfile(prefix + 'PKG-INFO').read())
         self.assertEqual(metadata.get_all('Requires-Dist'), ['curry-frontend>=2.0.0'])
+
+  def test_stage_without_frontend(self):
+    '''A fresh native build uses only shipped products, including typed calls.'''
+    cmake = cmake_executable()
+    if not cmake or not shutil.which('ninja'):
+      self.skipTest('CMake and Ninja are required')
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      bindir = root / 'bin'
+      bindir.mkdir()
+      # Keep the build tools and Python, hiding both names of the front end
+      # even when one shares their directory. Do not inherit runtime overrides.
+      for directory in os.get_exec_path():
+        if not Path(directory).is_dir():
+          continue
+        for tool in Path(directory).iterdir():
+          if tool.name not in ('curry-frontend', 'pakcs-frontend', 'pakcs') \
+              and tool.is_file() and os.access(tool, os.X_OK):
+            target = bindir / tool.name
+            if not target.exists():
+              target.symlink_to(tool.resolve())
+      python = bindir / 'build-python'
+      python.symlink_to(sys.executable)
+      env = {k: v for k, v in os.environ.items()
+             if not k.startswith(('SPRITE_', 'CURRY', 'PAKCS', 'PYTHONPATH'))}
+      env.update(PATH=str(bindir), LC_ALL='C.UTF-8')
+      build, prefix = root / 'build', root / 'install'
+      def run(*command):
+        result = subprocess.run(['timeout', '600', *map(str, command)],
+            env=env, text=True, capture_output=True, timeout=610)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return result
+      run(cmake, '-S', ROOT, '-B', build, '-G', 'Ninja',
+          '-DPython_EXECUTABLE=' + str(python), '-DWITH_PAKCS=',
+          '-DWITH_CURRY_FRONTEND=', '-DWITH_ICURRY=', '-DJOBS=1')
+      run(cmake, '--build', build, '--parallel', '1')
+      run(cmake, '--install', build, '--prefix', prefix)
+      env.update(SPRITE_HOME=str(prefix), PYTHONPATH=str(prefix / 'python'))
+      result = run(python, '-c', '''
+import curry
+from curry import config
+assert config.curry_frontend() is None
+module = curry.import_('Data.List')
+assert list(curry.eval(module.intersperse(0, [1, 2, 3]))) == [[1, 0, 2, 0, 3]]
+try:
+  curry.compile('main = 42')
+except Exception as error:
+  assert str(error) == 'no Curry front end found; set SPRITE_FRONTEND or put pakcs-frontend on PATH', str(error)
+  print(error)
+else:
+  raise AssertionError('new Curry text needs a front end')
+''')
+      self.assertIn('no Curry front end found;', result.stdout)
+      run(python, ROOT / 'scripts/wheels/smoke.py')
 
   def distributions(self, directory, requirements=('curry-frontend>=2.0.0',)):
     '''A matrix fixture for testing the publication gate, without native code.'''

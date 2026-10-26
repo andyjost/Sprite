@@ -272,12 +272,12 @@
     },
     "unit_build.py": {
       "cxx": {
-        "duration_s": 2.0,
+        "duration_s": 170.1,
         "failures": 0,
-        "measured_on_cores": 24,
-        "measured_on_mem_gb": 123,
-        "peak_rss_mb": 103,
-        "tests": 10
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 668,
+        "tests": 11
       }
     },
     "unit_cache.py": {

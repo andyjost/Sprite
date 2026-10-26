@@ -210,7 +210,7 @@ class TestCurrentFrontend(unittest.TestCase):
   def test_versioned_references_cover_the_current_library(self):
     root = pathlib.Path(__file__).resolve().parent.parent
     sources = {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
-        for p in (root / 'curry/lib').rglob('*.curry')}
+        for p in (root / 'curry/lib').rglob('*.curry') if p.is_file()}
     for version, pakcs, macro in [('2.0.0', '3.4.1', '304'), ('3.1.0', '3.10.0', '310')]:
       with self.subTest(version=version):
         reference = root / 'frontend/reference' / version

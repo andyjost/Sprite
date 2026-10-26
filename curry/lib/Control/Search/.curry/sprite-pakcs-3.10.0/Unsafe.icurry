@@ -1,0 +1,13 @@
+interface Control.Search.Unsafe where {
+import Prelude;
+allValues 1 :: a -> [a];
+allValuesDFS 1 :: a -> [a];
+isFail 1 :: a -> Prelude.Bool;
+oneValue 1 :: a -> Prelude.Maybe a;
+oneValueDFS 1 :: a -> Prelude.Maybe a;
+rewriteAll 1 :: a -> [a];
+rewriteSome 1 :: a -> Prelude.Maybe a;
+someValue 1 :: a -> a;
+hiding data Prelude.Bool;
+hiding data Prelude.Maybe a
+}

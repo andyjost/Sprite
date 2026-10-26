@@ -19,7 +19,9 @@ PLATFORMS = [('manylinux_2_28_x86_64', '.auditwheel.txt'),
 SDIST_FILES = ['pyproject.toml', 'VERSION', 'README.pypi.md', 'LICENSE',
                'CMakeLists.txt', 'scripts/build-package.py',
                'src/curryrt/curryrt.hpp', 'src/python/__init__.pyi',
-               'curry/lib/Prelude.curry', 'curry/lib/Prelude.icy',
+               'scripts/library_pins.py', 'curry/lib/Prelude.curry',
+               *['curry/lib/.curry/sprite-pakcs-3.10.0/Prelude' + suffix
+                 for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source')],
                'extern/pybind11/include/pybind11/pybind11.h',
                'extern/pybind11/tools/pybind11Common.cmake',
                'extern/pybind11/CMakeLists.txt', 'extern/pybind11/LICENSE']

@@ -14,9 +14,9 @@ ENV = {
 if 'PYTHON_GIL' in os.environ:
   ENV['PYTHON_GIL'] = os.environ['PYTHON_GIL']
 
-# The modules whose ICurry products are committed beside their sources under
-# curry/lib.  The hash pins the source each product was made from.  After a
-# change to one of these sources, rebuild its products (see curry/README.md)
+# Historical source checks for the original subset of library pins.
+# Every module now has products and a source receipt under curry/lib.
+# After a change to one of these sources, rebuild its products (see curry/README.md)
 # and update the hash here.
 PINNED_SHA256 = {
     'Prelude'              : '0e80d110de5e2d33f6d270df7549cd56b89c22a3c81d0596261d5c56c5d4b4e4'
@@ -53,10 +53,6 @@ def interfacefile(modulename, suffix='.fint'):
       config.system_curry_path(), '.curry', config.frontend_subdir(), *parts[:-1]
     , parts[-1] + suffix
     )
-
-def unit_currylib_pinned():
-  '''The names of the modules with committed products.'''
-  return set(PINNED_SHA256)
 
 def sha256(filename):
   with open(filename, 'rb') as istream:
@@ -187,7 +183,7 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
       self.assertEqual(sha256(sourcefile(name)), digest, name)
 
   def test_pinned_products(self):
-    '''The committed .icy and .json.z files of the pinned modules are installed.'''
+    '''The pinned ICurry and its derived JSON are installed.'''
     for name in PINNED_SHA256:
       self.assertTrue(os.path.isfile(productfile(name, '.icy')), name)
       self.assertTrue(os.path.isfile(productfile(name, '.json.z')), name)
@@ -199,14 +195,14 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
         ijson = icurry.json.loads(zlib.decompress(istream.read()))
       self.assertEqual(ijson, imodule)
 
-  def test_import_source_only_module(self):
+  def test_rebuild_library_module(self):
     '''
-    A module shipped as source only (no committed products) compiles on
-    first use.  The products that the installation holds for it are set
+    A library module compiles from source when its installed products are set
     aside, so the import compiles the module, and they are put back
     afterwards: unit_prebuild.py expects the products of every module.
     '''
-    self.assertNotIn('Numeric', unit_currylib_pinned())
+    if config.curry_frontend() is None:
+      self.skipTest('rebuilding a library module requires the front end')
     saved = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
     # The products and the bytecode cache of the Python file.  The cache goes
     # with the file: a cache of another copy of the file is stale.
@@ -311,7 +307,10 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
       for name in config.syslibs():
         parts = name.split('.')
         self.assertTrue(os.path.isfile(os.path.join(libdir, *parts) + '.curry'), name)
-        for suffix in ['.fcy', '.fint', '.icurry']:
+        suffixes = ['.fint', '.icurry']
+        if config.curry_frontend():
+          suffixes.append('.fcy')
+        for suffix in suffixes:
           self.assertTrue(os.path.isfile(os.path.join(flatdir, *parts) + suffix), name)
         sidecars = os.path.join(libdir, *parts[:-1], '.curry',
                                 config.intermediate_subdir(), parts[-1])

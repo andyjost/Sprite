@@ -1,0 +1,64 @@
+interface Data.Functor.Compose where {
+import Prelude;
+newtype (Compose :: (* -> *) -> (* -> *) -> * -> *) a b c =
+  Compose { getCompose :: a (b c) };
+instance (Prelude.Functor a,
+          Prelude.Functor b) => Prelude.Functor (Compose a b) {
+  fmap 2
+};
+instance (Prelude.Applicative a,
+          Prelude.Applicative b) => Prelude.Applicative (Compose a b) {
+  liftA2 3;
+  (<*>) 2;
+  pure 1
+};
+hiding class (Prelude.Functor :: (* -> *) -> Constraint) a;
+hiding class Prelude.Functor a => (Prelude.Applicative :: (* ->
+                                                           *) ->
+                                                          Constraint) a;
+instance Prelude.Functor (Prelude.Either a) {
+  fmap 2
+} {-# MODULE Prelude #-};
+instance Prelude.Functor ((->) a) {
+  fmap 0
+} {-# MODULE Prelude #-};
+instance Prelude.Functor Prelude.Maybe {
+  fmap 2
+} {-# MODULE Prelude #-};
+instance Prelude.Functor Prelude.IO {
+  fmap 2
+} {-# MODULE Prelude #-};
+instance Prelude.Functor [] {
+  fmap 0
+} {-# MODULE Prelude #-};
+instance Prelude.Applicative (Prelude.Either a) {
+  (<*>) 0;
+  pure 0
+} {-# MODULE Prelude #-};
+instance Prelude.Applicative ((->) a) {
+  liftA2 4;
+  (<*>) 3;
+  pure 0
+} {-# MODULE Prelude #-};
+instance Prelude.Applicative Prelude.Maybe {
+  liftA2 3;
+  (*>) 2;
+  (<*>) 2;
+  pure 0
+} {-# MODULE Prelude #-};
+instance Prelude.Applicative Prelude.IO {
+  liftA2 0;
+  (<*>) 0;
+  (*>) 2;
+  pure 0
+} {-# MODULE Prelude #-};
+instance Prelude.Applicative [] {
+  liftA2 3;
+  (*>) 2;
+  (<*>) 2;
+  pure 1
+} {-# MODULE Prelude #-};
+hiding data Prelude.Either a b;
+hiding data Prelude.Maybe a;
+hiding data Prelude.IO a
+}

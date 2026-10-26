@@ -1,0 +1,10 @@
+interface Numeric where {
+import Prelude;
+readBin 1 :: [Prelude.Char] -> [(Prelude.Int, [Prelude.Char])];
+readHex 1 :: [Prelude.Char] -> [(Prelude.Int, [Prelude.Char])];
+readInt 1 :: [Prelude.Char] -> [(Prelude.Int, [Prelude.Char])];
+readNat 1 :: [Prelude.Char] -> [(Prelude.Int, [Prelude.Char])];
+readOct 1 :: [Prelude.Char] -> [(Prelude.Int, [Prelude.Char])];
+hiding data Prelude.Char;
+hiding data Prelude.Int
+}

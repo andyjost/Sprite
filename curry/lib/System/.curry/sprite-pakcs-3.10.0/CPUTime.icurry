@@ -1,0 +1,7 @@
+interface System.CPUTime where {
+import Prelude;
+getCPUTime 0 :: Prelude.IO Prelude.Int;
+getElapsedTime 0 :: Prelude.IO Prelude.Int;
+hiding data Prelude.IO a;
+hiding data Prelude.Int
+}

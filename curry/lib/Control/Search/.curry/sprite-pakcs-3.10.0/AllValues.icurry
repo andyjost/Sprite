@@ -1,0 +1,11 @@
+interface Control.Search.AllValues where {
+import Prelude;
+getAllFailures 2 :: a -> (a -> Prelude.Bool) -> Prelude.IO [a];
+getAllValues 1 :: a -> Prelude.IO [a];
+getAllValuesDFS 1 :: a -> Prelude.IO [a];
+getOneValue 1 :: a -> Prelude.IO (Prelude.Maybe a);
+getOneValueDFS 1 :: a -> Prelude.IO (Prelude.Maybe a);
+hiding data Prelude.Bool;
+hiding data Prelude.IO a;
+hiding data Prelude.Maybe a
+}

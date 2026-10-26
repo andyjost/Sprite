@@ -314,7 +314,7 @@ jobs:
           cp dist/*.tar.gz /tmp/sdist-smoke/
           cd /tmp/sdist-smoke
           python -m pip install --verbose --no-cache-dir currylang-*.tar.gz
-          # This is a build requirement, installed only after the source build
+          # This is a runtime dependency, installed after the source build
           # to make loading the smoke program possible at run time.
           python -m pip install curry-frontend
           cd "$GITHUB_WORKSPACE"

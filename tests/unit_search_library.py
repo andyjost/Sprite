@@ -32,12 +32,16 @@ import qualified Control.Search.AllValues as A
     for name, digest in hashes.items():
       with self.subTest(module=name):
         self.assertEqual(hashlib.sha256((root / (name + '.curry')).read_bytes()).hexdigest(), digest)
-        text = icurry.readcurry.load(str(root / (name + '.icy')))
-        data = icurry.json.loads(zlib.decompress((root / (name + '.json.z')).read_bytes()))
-        self.assertEqual(text, data)
-        self.assertEqual(text.fullname, 'Control.Search.' + name)
+        pinned = root / '.curry/sprite-pakcs-3.10.0' / (name + '.icy')
+        text = icurry.readcurry.load(str(pinned))
         installed = pathlib.Path(config.system_curry_path()) / 'Control/Search/.curry'
-        product = installed / config.intermediate_subdir() / (name + '.so')
+        installed = installed / config.intermediate_subdir()
+        data = icurry.json.loads(zlib.decompress((installed / (name + '.json.z')).read_bytes()))
+        expected = text if config.frontend_version() == '3.1.0' else \
+            icurry.readcurry.load(str(installed / (name + '.icy')))
+        self.assertEqual(expected, data)
+        self.assertEqual(text.fullname, 'Control.Search.' + name)
+        product = installed / (name + '.so')
         self.assertTrue(product.is_file(), name)
 
   def test_canonical_values_and_types(self):
