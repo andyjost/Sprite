@@ -119,10 +119,10 @@ namespace curryrt
   // which it entered the chain of the capsules.  A failure that crossed no
   // guard is the function's own: the capsule records an inside failure
   // (rule SF.5 of the dissertation drops the alternative).  A capsule
-  // whose queue empties with no value, no inside failure and some outside
-  // failure is itself a failure, the semantics of weakly encapsulated
-  // search (Christiansen, Hanus, Reck and Seidel, PPDP 2013), as KiCS2
-  // behaves.  Outside every set function nothing is recorded.
+  // whose queue empties with no value and some outside failure is itself
+  // a failure, whatever inside failures it recorded (D45, 2026-10-25).
+  // Inside failures remain recorded for checker diagnostics.  Outside
+  // every set function nothing is recorded.
   //
   // A failure is observed at the position that met it first, with the
   // whole path, and again at each level above it on the way to the root,

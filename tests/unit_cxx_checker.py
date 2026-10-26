@@ -1103,9 +1103,9 @@ class TestSetFunctions(CheckerTestCase):
 
   def test_capsule_end(self):
     '''F2 (d2): the capsule is a failure when it produced no value,
-    recorded no inside failure and recorded some outside failure, and the
-    empty set otherwise.  F2 (d3): the failure goes under the guards of
-    the records at the least level, together.'''
+    recorded some outside failure, whatever inside failures it recorded
+    (D45), and the empty set otherwise.  F2 (d3): the failure goes under the
+    guards of the records at the least level, together.'''
     cb = _cb()
     rts = _state(_node(1))
     outer = cb.checker_debug_push_capsule(rts, _node(1))
@@ -1117,13 +1117,15 @@ class TestSetFunctions(CheckerTestCase):
       check(0, False, [(1, [1]), (0, [])], [])
       check(0, False, [(1, [1])], [1])
       check(1, False, [(1, [1])], None)
-      check(0, True, [(1, [1])], None)
+      check(0, True, [], None)
+      check(0, True, [(1, [1])], [1])
+      check(1, True, [(1, [1])], None)
       with self.assertRaisesRegex(cb.InvariantViolation, r'F2 \(d2\).*wrote the empty set'):
         check(0, False, [(1, [1])], None)
       with self.assertRaisesRegex(cb.InvariantViolation, r'F2 \(d2\).*produced 1 values.*wrote a failure'):
         check(1, False, [(1, [1])], [1])
-      with self.assertRaisesRegex(cb.InvariantViolation, r'F2 \(d2\).*an inside failure.*wrote a failure'):
-        check(0, True, [(1, [1])], [1])
+      with self.assertRaisesRegex(cb.InvariantViolation, r'F2 \(d2\).*an inside failure.*wrote the empty set'):
+        check(0, True, [(1, [1])], None)
       with self.assertRaisesRegex(cb.InvariantViolation, r'F2 \(d3\).*least level 0'):
         check(0, False, [(1, [1]), (0, [])], [1])
     finally:

@@ -245,8 +245,10 @@ class TestStepMode(cytest.TestCase):
   # immediate trigger of 2026-10-10 failed the set function at once, with
   # (2020742, 461457), and the rule of the dissertation before it, which
   # never failed a capsule, took (2112920, 511484).  The values are the
-  # same under every rule.
-  COUNT_QUEENS_COUNTERS = (2112920, 511384)
+  # same under every rule.  D45 (2026-10-25) also fails mixed inside/outside
+  # failure capsules: the steps stay the same, but it avoids 39858 forks
+  # that the old deferred rule made (2112920, 511384).
+  COUNT_QUEENS_COUNTERS = (2112920, 471526)
 
   def check_count_queens(self):
     '''countQueens 8 under the cadence of 65536 steps.'''
@@ -271,7 +273,7 @@ class TestStepMode(cytest.TestCase):
     T4 entry of the TODO), when the inliner landed (the O2 and O3 entry:
     fewer steps, so the rotations fall elsewhere and the forks move with
     them), and with the failure rule of the set functions (the entries of
-    2026-10-10 and 2026-10-12; COUNT_QUEENS_COUNTERS).  psort 8 ends
+    2026-10-10, 2026-10-12 and D45; COUNT_QUEENS_COUNTERS).  psort 8 ends
     within one period.  The stress mode of the collector checks psort 8
     and skips countQueens 8.
     '''

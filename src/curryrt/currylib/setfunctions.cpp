@@ -94,10 +94,11 @@ namespace curryrt { inline namespace
       // The queue is empty: rule SF.5 in the deferred form of the failure
       // rule F2 (Definition 2.94 of the note on the Fair Scheme; the record
       // is made by RuntimeState::record_failure).  (d2): the set function
-      // is a failure when the capsule produced no value, recorded no
-      // inside failure and recorded some outside failure; the list ends
-      // otherwise, so an empty set is a value.  (d3): the failure goes
-      // under the guards of the enclosing sets that the recorded failures
+      // is a failure when the capsule produced no value and recorded some
+      // outside failure, whatever inside failures it recorded (D45,
+      // 2026-10-25); the list ends otherwise, so an empty set is a value.
+      // (d3): the failure goes under the guards of the enclosing sets that
+      // the recorded failures
       // at the innermost level crossed (Queue::failure_guards, the one
       // place of that choice), so an enclosing set function whose argument
       // the failure came from fails in turn when it demands it, and a

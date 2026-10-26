@@ -183,8 +183,10 @@ namespace curryrt
       , FailureRecord const * record
       );
     // The end of a capsule on the empty queue (allValues_step), rules (d2)
-    // and (d3): after the verdict, with the node written, a failure under
-    // the guards of enclosing sets or the empty list.
+    // and (d3): no value and some outside failure mean failure, whatever
+    // inside failures were recorded (D45, 2026-10-25).  After the verdict,
+    // the node written is a failure under the guards of enclosing sets or
+    // the empty list.
     void capsule_end(Queue *, Node * written);
 
     // For the tests: the pieces of the checks on constructed objects.

@@ -542,9 +542,8 @@ class TestSharedNondeterministicArgument(cytest.TestCase):
   '''Issue #171: a nondeterministic lookup in a shared capsule argument.
 
   Choices of the argument escape correctly. Failed lookup alternatives
-  leave empty capsules with both inside and outside failures, which F2
-  (d2) accepts. The expected failure records the desired PAKCS result
-  pending a decision on that rule; a direct duration definition works.
+  leave empty capsules with both inside and outside failures. D45 makes
+  F2 (d2) fail those capsules, giving the one shortest route as in PAKCS.
   '''
   SOURCE = '''
 import Control.SetFunctions
@@ -571,8 +570,7 @@ main | isEmpty (set1 shorter (duration result)) = result
 
   def setUp(self):
     super().setUp()
-    # Compilation, process completion and checker errors must be real
-    # failures, outside the expected-failure assertion on the answers.
+    # Check both the ordinary runtime and its checker on the same answers.
     code = '''
 import curry, json
 results = []
@@ -588,7 +586,6 @@ print(json.dumps(results))
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.results = json.loads(proc.stdout)
 
-  @unittest.expectedFailure
   def test_shortest_route(self):
     for values in self.results:
       self.assertEqual(len(values), 1)

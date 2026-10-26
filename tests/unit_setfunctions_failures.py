@@ -14,23 +14,23 @@ outside failure with the sets of the enclosing guards the failure crossed,
 less its own, and the level at which the failure entered the chain of the
 capsules; a failure that crossed no guard is the function's own, and the
 capsule records an inside failure.  (d2) When the queue of the capsule is
-empty, the capsule is a failure when it produced no value, recorded no
-inside failure and recorded some outside failure; its set stands
-otherwise, empty or not.  (d3) The failure goes under the guards of the
+empty, the capsule is a failure when it produced no value and recorded
+some outside failure, whatever inside failures it recorded (D45); its set
+stands otherwise, empty or not.  (d3) The failure goes under the guards of the
 records at the innermost level (the failures that entered the chain
 innermost; deviation 147 of the README of the Lean development), together,
 so it escapes to the capsule whose argument it came from; a failure that
 crossed the guard of the capsule alone is a plain failure of the enclosing
-configuration.  record_failure (state/rts_setfunctions.cpp,
-eval/rts_setfunctions.py) makes the record, and allValues
-(currylib/setfunctions.cpp, currylib/setfunctions.py) gives the verdict.
+configuration.  record_failure (state/rts_setfunctions.cpp) makes the
+record, and allValues (currylib/setfunctions.cpp) gives the verdict.
 
-Before the change the runtime failed the set function at the first boxed
+Before the 2026-10-12 deferred rule the runtime failed at the first boxed
 failure it met: t1, t2, t3, d2a, lazyT, valThenFail and level had no value,
 t4 gave False and levelB [], so the value depended on the order of the
 alternatives, which the schedule-independence theorem forbids.  The
-expected values are those of KiCS2 3.5.0, observed through the harness of
-the Fair Scheme proofs on 2026-10-12.
+original expected values were those of KiCS2 3.5.0, observed through the
+harness of the Fair Scheme proofs on 2026-10-12; D45 updates the mixed
+inside/outside failure cases on 2026-10-25.
 '''
 import cytest # from ./lib; must be first
 import curry
@@ -91,7 +91,7 @@ class TestOneCapsule(GoalsCase):
   '''
   One capsule.  The example of CHRS13 in both orders (t1, t2) and its
   isEmpty (t3, t4); an inside failure beside the outside one in both
-  orders (d2a, d2b: the set is empty); a value produced before the failing
+  orders (d2a, d2b: no value); a value produced before the failing
   argument is demanded (lazyT) and one beside a later demand through an
   arithmetic step (valThenFail); an inside failure, an outside failure and
   a value in one capsule (mixed) and without the value (mixedE); the
@@ -105,16 +105,16 @@ class TestOneCapsule(GoalsCase):
     , 't2': ['[True]']
     , 't3': ['False']
     , 't4': ['False']
-    , 'd2a': ['True']
-    , 'd2b': ['True']
+    , 'd2a': [] # D45: an inside failure does not mask the outside failure.
+    , 'd2b': [] # D45: swapping the alternatives still gives no value.
     , 'lazyT': ['[True]']
     , 'valThenFail': ['[1]']
     , 'mixed': ['[2]']
-    , 'mixedE': ['True']
+    , 'mixedE': [] # D45: without a value, the outside failure fails the capsule.
     , 't1c': ['[True]']
     , 'argFail': ['[0]']
-    , 'cycleInside': ['True']
-    , 'cycleInsideS': ['[]']
+    , 'cycleInside': [] # D45 also applies when an occurs check fails inside.
+    , 'cycleInsideS': []
     }
 
   def test_t1(self): self.check('t1')
@@ -132,8 +132,8 @@ class TestOneCapsule(GoalsCase):
 
   def test_cycle_inside(self):
     '''An alternative that dies through a failed constraint step at the
-    root (no failure cell) records an inside failure: the set stands empty
-    beside the outside failure.'''
+    root (no failure cell) records an inside failure: D45 still fails the
+    capsule on the outside failure when no value was produced.'''
     self.check('cycleInside')
     self.check('cycleInsideS')
 

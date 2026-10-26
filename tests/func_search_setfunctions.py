@@ -7,7 +7,7 @@ import cytest # from ./lib; must be first
 from cytest import oracle
 from curry import config
 from func_community import oracle_source, sprite_results
-import curry, pathlib, unittest
+import curry, pathlib
 from curry.utility.readcurry import parse, show
 
 ROOT = pathlib.Path('data/curry')
@@ -87,8 +87,5 @@ for source, goals in programs:
   for goal in goals:
     def test(self, source=source, goal=goal):
       self.check(source, [goal])
-    if source.stem == 'TestSearchSetFunctionsGoals' and goal == 'goal0':
-      # Issue #171: F2 (d2) accepts empty sets from failed argument lookups.
-      test = unittest.expectedFailure(test)
     setattr(TestSearchSetFunctions, 'test_' + source.stem + '_' + goal,
             oracle.require(test))

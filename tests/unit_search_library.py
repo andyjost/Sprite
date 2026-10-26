@@ -223,8 +223,7 @@ goal = do
 
 class TestNativeCapsuleFinding(cytest.TestCase):
   def setUp(self):
-    # Check compilation and process completion outside the expected-failure
-    # test body, so a crash or timeout is a real error rather than an xfail.
+    # Keep compilation and evaluation within the child's resource limits.
     code = """
 import curry, json
 curry.reset(interpret='off')
@@ -239,10 +238,9 @@ print(json.dumps([curry.show(v) for v in curry.eval(module.main)]))
     self.values = values
     self.actual = '\n'.join(values)
 
-  @unittest.expectedFailure
   def test_shortest_itinerary(self):
     # Issue #171. The argument shares the itinerary with the outer result;
-    # its choices escape, but F2 (d2) accepts empty sets from failed lookups.
+    # D45 makes F2 (d2) fail the empty capsules from failed lookups.
     self.assertEqual(len(self.values), 1)
     self.assertSameResultMultiset(self.actual, '[LH469,LH10]')
 

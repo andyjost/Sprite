@@ -369,6 +369,15 @@ flags of the capsule's arguments), which over-approximate the escape sets:
 the checks of the current capsule read the tags, the checks of the
 enclosing capsules read the escape sets, as def:s-escapes does.
 
+The deferred failure rule F2 records an argument failure when its path
+crosses a set guard (d1).  On the empty queue, a capsule fails exactly when
+it produced no value and recorded some outside failure, whatever inside
+failures it recorded (d2; D45, 2026-10-25, issue #171).  Otherwise its set
+stands, possibly empty.  The failure goes under the enclosing guards of
+the records at the innermost level (d3).  Inside failures remain recorded
+for checker diagnostics; splitting and cloning preserve the record as
+before.
+
 The checker of the runtime (``src/curryrt/checker.hpp``,
 ``src/curryrt/checker.cpp``) mirrors the Python checker hook by hook and check
 by check.  Its header is outside the include closure of ``curryrt/curryrt.hpp``:

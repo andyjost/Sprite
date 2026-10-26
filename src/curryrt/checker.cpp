@@ -2414,9 +2414,10 @@ namespace curryrt
   }
 
   // The end of a capsule, rules (d2) and (d3): the capsule is a failure
-  // when it produced no value, recorded no inside failure and recorded some
-  // outside failure, and the empty list otherwise; the failure goes under
-  // the guards of the sets of the records at the least level, the failures
+  // when it produced no value and recorded some outside failure, whatever
+  // inside failures it recorded (D45, 2026-10-25), and the empty list
+  // otherwise; the failure goes under the guards of the sets of the
+  // records at the least level, the failures
   // that entered the chain innermost (deviation 147 of the README of the
   // Lean development), together.
   void Checker::capsule_end(Queue * Q, Node * written)
@@ -2432,8 +2433,7 @@ namespace curryrt
     )
   {
     ++this->counts["capsule_ends"];
-    bool const expected = produced == 0 && !inside_failure
-        && !outside_failures.empty();
+    bool const expected = produced == 0 && !outside_failures.empty();
     SetList guards;
     Node * node = written;
     while(node && node->info->tag == T_SETGRD)
