@@ -184,7 +184,13 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
 
   def test_pinned_products(self):
     '''The pinned ICurry and its derived JSON are installed.'''
-    for name in PINNED_SHA256:
+    for name in config.syslibs():
+      if config.frontend_version() == '3.1.0':
+        source = os.path.join(ROOT, 'curry', 'lib', *name.split('.')) + '.curry'
+        pinned = os.path.join(os.path.dirname(source), '.curry',
+            'sprite-pakcs-3.10.0', os.path.basename(source)[:-6] + '.icy')
+        with open(pinned, 'rb') as expected, open(productfile(name, '.icy'), 'rb') as actual:
+          self.assertEqual(expected.read(), actual.read(), name)
       self.assertTrue(os.path.isfile(productfile(name, '.icy')), name)
       self.assertTrue(os.path.isfile(productfile(name, '.json.z')), name)
     # The products of a small module parse, name the module, and agree.
@@ -234,6 +240,9 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     Numeric = curry.import_('Numeric')
     self.assertEqual(next(curry.eval((Numeric.readHex)('ffz'))), [(255, 'z')])
     self.assertTrue(os.path.isfile(productfile('Numeric', '.icy')))
+    with open(productfile('Numeric', '.icy'), 'rb') as rebuilt:
+      with open(os.path.join(saved, 'Numeric.icy'), 'rb') as staged:
+        self.assertEqual(rebuilt.read(), staged.read())
     # The import leaves the installed FlatCurry file of the module in place:
     # the front end reads it for every program, and a cache hit would not
     # make it again (the staleness rule of #164 forces the elaboration of a

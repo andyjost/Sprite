@@ -539,7 +539,12 @@ ICurry outputs are in overlay-pakcs-3.4.1.tgz and overlay-pakcs-3.10.0.tgz,
 respectively. make overlay and the harness select the configured release
 from SPRITE_HOME (or the Makefile PREFIX); products of both can coexist.
 The current-tool archive also holds all 30 library oracles; the committed
-library ICurry belongs to the pinned configuration. The test
+library ICurry is the installed runtime route's output (icurry_compat=False),
+including its completed case order and root annotation handling.
+unit_prebuild.py regenerates the pins through that route and checks the
+installed ICurry and derived JSON. The archive's independent icurry outputs
+are checked in compatibility mode by func_flat2icurry.py::test_library;
+the installed pins are not identity oracles for icurry. The test
 unit_flat2icurry.py checks a fixed sample of 60 files and the probe modules
 under data/curry/flat2icurry; func_flat2icurry.py checks the whole archive.
 Sprite compiles with the port by default: the Curry front end writes the

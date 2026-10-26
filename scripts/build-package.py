@@ -189,14 +189,6 @@ def main():
         dest.with_suffix(suffix).unlink(missing_ok=True)
       run(sys.executable, '-m', 'curry.tools.make', '--rewrite-flat', lib / rel,
           '-o', dest.with_suffix('.icy'))
-      if setting('frontend_version') == '3.1.0':
-        # Regenerate the pinned inputs in the independent compiler's mode.
-        # Ordinary source imports retain the runtime route's case order.
-        run(sys.executable, '-m', 'curry.toolchain.flat2icurry',
-            flat / rel.with_suffix('.fcy'), '-i', lib,
-            '-o', dest.with_suffix('.icy'))
-        for suffix in ('.json', '.json.z', '.cpp', '.so.abi'):
-          dest.with_suffix(suffix).unlink(missing_ok=True)
   make = [sys.executable, '-m', 'curry.tools.make']
   run(*make, '--json', '-zc', *modules)
   supported = [m for m in modules if m not in unsupported]

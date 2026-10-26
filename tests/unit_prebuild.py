@@ -28,7 +28,7 @@ class TestStagedLibrary(cytest.TestCase):
   '''The products that make stage leaves in the installation.'''
 
   def test_pinned_products_match_selected_grammar(self):
-    """The default stage reuses pins; legacy staging translates its own."""
+    """The current stage installs runtime-route pins and their provenance."""
     pins = sorted((Path(SOURCE_ROOT) / 'curry/lib').rglob('*.icy'))
     self.assertEqual(len(pins), len(config.syslibs()))
     for pinned in pins:
@@ -37,11 +37,14 @@ class TestStagedLibrary(cytest.TestCase):
       installed = Path(installed_file(name, '.icy')).read_bytes()
       if config.frontend_version() == '3.1.0':
         self.assertEqual(installed, pinned.read_bytes(), name)
+        for suffix in ('.fint', '.icurry', '.icy.imports', '.icy.source'):
+          self.assertEqual(Path(installed_file(name, suffix)).read_bytes(),
+              pinned.with_suffix(suffix).read_bytes(), name + suffix)
       elif name == 'Prelude':
         self.assertNotEqual(installed, pinned.read_bytes(), name)
 
   def test_pins_regenerate_identically(self):
-    '''Every shipped current-pair pin is the port's compatibility output.'''
+    '''Every shipped current-pair pin is the runtime route's output.'''
     if config.frontend_version() != '3.1.0' or config.curry_frontend() is None:
       self.skipTest('regeneration needs current-pair FlatCurry')
     from curry.toolchain import flat2icurry as f2i
@@ -54,7 +57,7 @@ class TestStagedLibrary(cytest.TestCase):
       rel = source.relative_to(root)
       flat = Path(config.system_curry_path()) / '.curry' / config.frontend_subdir() / rel.with_suffix('.fcy')
       expected = source.parent / '.curry/sprite-pakcs-3.10.0' / (source.stem + '.icy')
-      result = f2i.showterm(f2i.translate_file(str(flat), finder))
+      result = f2i.showterm(f2i.translate_file(str(flat), finder, icurry_compat=False))
       self.assertEqual(result.encode(), expected.read_bytes(), str(rel))
 
   def test_pinned_json_is_derived_from_icurry(self):

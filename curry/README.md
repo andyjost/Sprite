@@ -32,7 +32,8 @@ Every library module has committed products under its package's
 `.curry/sprite-pakcs-3.10.0/` directory: `.icy` (ICurry), `.fint` and
 `.icurry` (interfaces), `.icy.imports` (import provenance), and `.icy.source`
 (the SHA-256 receipt of its Curry source). They belong to front end 3.1.0
-with PAKCS 3.10.0 and base 3.4.0, regenerated with Sprite's port.
+with PAKCS 3.10.0 and base 3.4.0, regenerated with Sprite's runtime route
+(`icurry_compat=False`).
 In compatibility mode the port is byte-identical to `icurry` 3.3.0; the
 independent references are in `overlay-pakcs-3.10.0.tgz`.
 
@@ -75,7 +76,10 @@ search and `Control.Search.SearchTree` remain future work.
 Rebuilding the products
 -----------------------
 
-A build with front end 3.1.0 and PAKCS 3.10.0 regenerates the pinned products.
+The installed pins are products of Sprite's runtime route
+(`icurry_compat=False`), which looks through root type annotations and keeps
+completed case order. A build with front end 3.1.0 and PAKCS 3.10.0
+regenerates these products.
 From the project root:
 
     make stage SPRITE_REBUILD_ICY=1
@@ -84,8 +88,11 @@ This writes fresh products in the build's `stage/curry/` image and copies
 them into the installation. Copy every module's `.icy`, `.fint`, `.icurry`,
 `.icy.imports`, and `.icy.source` back to the matching
 `.curry/sprite-pakcs-3.10.0/` directory under `lib/`. Check the ICurry bytes
-by regenerating them with the port, and against `icurry` 3.3.0 where an
-independent reference exists, before replacing the committed products.
+by regenerating them with the runtime route before replacing the committed
+products. The independent outputs of `icurry` 3.3.0 are the 30 library
+oracles in `overlay-pakcs-3.10.0.tgz` at the repository root;
+`func_flat2icurry.py::test_library` checks the port's compatibility mode
+against those oracles. The installed pins are not compatibility-mode oracles.
 A build with front end 2.0.0 never uses the current pair's pins.
 As with other source modules, an incremental stage keeps valid products.
 
