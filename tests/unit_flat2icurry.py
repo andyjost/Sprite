@@ -1132,10 +1132,10 @@ class TestEndToEnd(cytest.TestCase):
   The tests skip when the inputs are absent.
   '''
 
-  def check(self, fcyfile):
+  def check(self, fcyfile, icurry_compat=True):
     if fcyfile is None:
       self.skipTest('the FlatCurry file is not available')
-    result = oracle.check_file(fcyfile, LIBRARY_DIRS)
+    result = oracle.check_file(fcyfile, LIBRARY_DIRS, icurry_compat=icurry_compat)
     if result.status == oracle.FAILED and 'no FlatCurry interface' in result.detail:
       self.skipTest(result.detail.splitlines()[0])
     self.assertEqual(result.status, oracle.EQUAL, result.detail)
@@ -1151,15 +1151,12 @@ class TestEndToEnd(cytest.TestCase):
     self.check(corpus_fcy('Chars'))
 
   def test_library_module(self):
-    # The front end writes the hierarchical layout (.curry/<subdir>/Data/Maybe.fcy)
-    # under the library root; an older run may have left the per-directory one.
-    for directory in LIBRARY_DIRS:
-      for name, where in [('Data/Maybe', directory), ('Maybe', os.path.join(directory, 'Data'))]:
-        fcyfile = corpus_fcy(name, where)
-        if fcyfile and oracle.expected_icy(fcyfile):
-          self.check(fcyfile)
-          return
-    self.skipTest('no FlatCurry for Data.Maybe')
+    # Staged library products use the runtime route; the archive's library
+    # oracles are checked in compatibility mode by func_flat2icurry.py.
+    for name in config.syslibs():
+      with self.subTest(module=name):
+        fcyfile = corpus_fcy(name.replace('.', '/'), config.system_curry_path())
+        self.check(fcyfile, icurry_compat=False)
 
   def test_cli(self):
     fcyfile = corpus_fcy('Peano')

@@ -124,6 +124,11 @@ def main():
       ]
     if not run(command, ROOT, logs / (stem + '.translator.log')):
       failures.append(stem + ': translator failed')
+    # Current-pair pins must agree with the runtime route used above.
+    if version == '3.1.0':
+      pinned = original.parent / '.curry/sprite-pakcs-3.10.0' / (original.stem + '.icy')
+      if not compare(pinned, target, diffs / (stem + '.pinned.diff')):
+        failures.append(stem + ': pinned .icy differs')
     interface = flat.with_suffix('.fint')
     actual = products / relative.with_suffix('.fint')
     if interface.is_file():
