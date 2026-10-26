@@ -110,9 +110,8 @@ narrowedAfter = let s = set1 first x
 bindA :: Bit -> Bool
 bindA x = (x =:= A) &> True
 
--- Reading bindingEscape: ["(A,[True])"] or ["(A,[True])", "(B,[])"]
--- A constraint inside the function relates a context variable to A.
--- Does its binding escape, or is only its externally chosen basis tested?
+-- Value bindingEscape: ["(A,[True])", "(B,[])"]
+-- D54: D48's wider escape condition gives both bases; follows D48 if revised.
 bindingEscape :: (Bit, [Bool])
 bindingEscape = let xs = sortValues (set1 bindA x)
                 in if null xs then (x,[]) else (x,xs)
@@ -122,20 +121,18 @@ select :: Bit -> Int
 select A = 7
 select B = failed
 
--- Reading insideAfterOutside: ["(A,[7])"] or ["(A,[7])", "(B,[])"]
--- The outer choice is decided first; B fails inside the function.
--- Eq. 2.1's empty-to-failure clause versus an observable empty set.
+-- Value insideAfterOutside: ["(A,[7])", "(B,[])"]
+-- D54: total outside B fails only inside, yielding an observable empty set.
 insideAfterOutside :: (Bit, [Int])
 insideAfterOutside = (x, sortValues (set1 select x)) where x = A ? B
 
--- Reading emptyIsEmpty: [] or ["True"]
--- never has no values. Literal eq. 2.1 erases its empty set; the library
--- instead exposes that set to isEmpty. Owner reading needed.
+-- Value emptyIsEmpty: ["True"]
+-- D54: without outside failure, D45 leaves the empty capsule observable.
 emptyIsEmpty :: Bool
 emptyIsEmpty = isEmpty (set1 never 0)
 
--- Reading emptyNotEmpty: [] or ["False"]
--- The same empty-set question through the complementary observer.
+-- Value emptyNotEmpty: ["False"]
+-- D54: without outside failure, the observable empty set is not nonempty.
 emptyNotEmpty :: Bool
 emptyNotEmpty = notEmpty (set1 never 0)
 
