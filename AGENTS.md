@@ -257,7 +257,12 @@ reproducers pass.
   compiled object runs. The default, `tiered`, interprets it at once from
   its ICurry, compiles it in the background (`sprite-make --so` in a child
   process), and swaps the functions to the compiled code when the object
-  is ready (`curry.backends.cxx.tiered`, `src/curryrt/tiered.hpp`). `off`
+  is ready (`curry.backends.cxx.tiered`, `src/curryrt/tiered.hpp`). The
+  child compiles a private copy of the module in a directory of the
+  process; the swap publishes the object, its stamp and the generated file
+  beside the source, when the source is still there, before it opens the
+  object, so a removed directory never gets half-written products (#173).
+  `off`
   compiles it with g++ first, `new` interprets it and never compiles it,
   and `all` interprets every module. `sprite-make` and `make stage` always
   compile. `tests/README` section 4 names the tests that set `off` for

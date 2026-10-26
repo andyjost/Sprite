@@ -1,4 +1,5 @@
 #include <array>
+#include <atomic>
 #include <cerrno>
 #include <chrono>
 #include <cstdint>
@@ -324,6 +325,61 @@ namespace curryrt
       return raw;
     }
 
+    // Publishes the products of a private compile beside the source (see
+    // TieredJob::publish): the generated file, the ABI stamp, then the
+    // object, each copied under a temporary name in the target directory
+    // and renamed into place, when the source's ICurry file is the one of
+    // the import and the directory exists.  Returns the path to open: the
+    // published object, or the private one when nothing was published, a
+    // removed directory included (issue #173).  Runs on the thread of the
+    // swap, so the files beside the source change only at a safepoint of
+    // the interpreter.
+    std::string publish_products(
+        std::string const & sofile, std::string const & publish
+      , std::string const & icurryfile, std::string const & digest
+      )
+    {
+      if(publish.empty() || publish == sofile)
+        return sofile;
+      namespace fs = std::filesystem;
+      std::error_code ec;
+      fs::path directory = fs::path(publish).parent_path();
+      if(icurryfile.empty() || !file_exists(icurryfile)
+          || !fs::is_directory(directory, ec)
+          || tiered_file_digest(icurryfile) != digest)
+        return sofile;
+      auto stem = [](std::string const & path)
+      {
+        return path.size() > 3 && path.compare(path.size() - 3, 3, ".so") == 0
+            ? path.substr(0, path.size() - 3) : path;
+      };
+      static std::atomic<unsigned> counter{0};
+      std::pair<std::string, std::string> const pairs[] = {
+          {stem(sofile) + ".cpp", stem(publish) + ".cpp"}
+        , {sofile + ".abi", publish + ".abi"}
+        , {sofile, publish}
+        };
+      for(auto const & pair: pairs)
+      {
+        if(!file_exists(pair.first))
+          continue;
+        fs::path target(pair.second);
+        fs::path tmp = target.parent_path()
+            / ("." + target.filename().string() + ".publish-"
+               + std::to_string(getpid()) + "-" + std::to_string(counter++));
+        fs::copy_file(pair.first, tmp, fs::copy_options::overwrite_existing, ec);
+        if(!ec)
+          fs::rename(tmp, target, ec);
+        if(ec)
+        {
+          std::error_code ignored;
+          fs::remove(tmp, ignored);
+          return sofile;
+        }
+      }
+      return publish;
+    }
+
     // Maps the object of an import of a job (see the imports in
     // tiered.hpp), unless the import has one: it was loaded from its
     // object, swapped, or mapped by an earlier swap.  Nothing when the
@@ -346,8 +402,11 @@ namespace curryrt
                      + " changed after the import";
         return false;
       }
+      std::string const path = publish_products(
+          imp.sofile, imp.publish, imp.icurryfile, imp.icurry_digest
+        );
       std::string loadpath;
-      void * raw = open_object(imp.sofile, loadpath, &result.error);
+      void * raw = open_object(path, loadpath, &result.error);
       if(!raw)
       {
         result.error = "the import " + imp.module + ": " + result.error;
@@ -358,7 +417,7 @@ namespace curryrt
       {
         if(module)
         {
-          auto shlib = std::make_shared<SharedCurryModule>(imp.sofile, loadpath);
+          auto shlib = std::make_shared<SharedCurryModule>(path, loadpath);
           module->adopt(shlib, {});
           dlclose(raw);
         }
@@ -369,7 +428,7 @@ namespace curryrt
       {
         result.error = "the import " + imp.module + ": " + e.what();
       }
-      if(loadpath != imp.sofile)
+      if(loadpath != path)
         unlink(loadpath.c_str());
       return ok;
     }
@@ -410,6 +469,15 @@ namespace curryrt
                      + std::to_string(done.status);
         return result;
       }
+      // The products go beside the source now, when the source is still
+      // there (publish_products), whatever comes of the swap below: the
+      // object is the translation of the ICurry the import read, and the
+      // next process loads it.  The object opened is the published one,
+      // else the private one.
+      std::string const path = publish_products(
+          job.sofile, job.publish, job.icurryfile, job.icurry_digest
+        );
+      result.sofile = path;
       // The object must be the translation of the ICurry the import read:
       // the child compiles the source as it is when the child runs (see
       // TieredJob).
@@ -430,7 +498,7 @@ namespace curryrt
       // importer mapped it (map_import).  Then the steps are adopted from
       // it.
       if(auto shlib = module->shlib())
-        if(shlib->sofilename() == job.sofile)
+        if(shlib->sofilename() == path || shlib->sofilename() == job.sofile)
         {
           try
           {
@@ -446,12 +514,12 @@ namespace curryrt
       // The load; see tiered.hpp.  On success the library owns the object
       // and the handle is released.
       std::string loadpath;
-      void * raw = open_object(job.sofile, loadpath, &result.error);
+      void * raw = open_object(path, loadpath, &result.error);
       if(!raw)
         return result;
       try
       {
-        auto shlib = std::make_shared<SharedCurryModule>(job.sofile, loadpath);
+        auto shlib = std::make_shared<SharedCurryModule>(path, loadpath);
         result.swapped = module->adopt(shlib, steps);
         result.ok = true;
         dlclose(raw);
@@ -460,7 +528,7 @@ namespace curryrt
       {
         result.error = e.what();
       }
-      if(loadpath != job.sofile)
+      if(loadpath != path)
         unlink(loadpath.c_str());
       return result;
     }
