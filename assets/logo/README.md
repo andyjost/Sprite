@@ -32,7 +32,8 @@ outlines, so no font needs to be installed to render them.
 - `favicon.svg`, `favicon.ico` (16, 32 and 48 px), `icon.svg`,
   `icon-180.png`, `icon-192.png`, `icon-512.png`: the burst on a forest
   rounded square, the grains enlarged for small sizes. The docs use the
-  favicon.
+  favicon, and `docs/source/_static/palette.css` puts the palette on
+  their theme.
 - `social-preview.png` (1280 by 640) and its source: the lockup on mint,
   for the link card of the repository (uploaded once in the repository's
   settings).
