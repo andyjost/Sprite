@@ -144,12 +144,14 @@ LOCKUP, LVB = lockup(GOLD, FOREST, BROWN)
 write('lockup.svg', LOCKUP)
 write('lockup-dark.svg', lockup(GOLD, WHITE, WOOD)[0])
 
-# 4. Icons: the burst alone on a forest rounded square, the grains enlarged for small sizes.
+# 4. Icons: the burst alone on a forest rounded square, the grains enlarged
+# for small sizes. The burst takes two thirds of the square, so it keeps the
+# margin the bare mark has.
 def icon(size, boost):
-  body = '<rect x="0" y="0" width="100" height="100" rx="22" fill="%s"></rect>\n%s' % (FOREST, dust(50, 50, 0.9, GOLD, boost))
+  body = '<rect x="0" y="0" width="100" height="100" rx="22" fill="%s"></rect>\n%s' % (FOREST, dust(50, 50, 0.68, GOLD, boost))
   return svg(size, size, body, 'Sprite', (0, 0, 100, 100))
 write('favicon.svg', icon(64, 1.6))
-write('icon.svg', icon(512, 1.25))
+write('icon.svg', icon(512, 1.3))
 
 # 5. The social preview, 1280 by 640: the lockup on the mint field.
 def place(inner_svg, inner_vb, box_x, box_y, box_w, box_h):

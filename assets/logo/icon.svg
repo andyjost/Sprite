@@ -1,19 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0.000 0.000 100.000 100.000" width="512" height="512" role="img" aria-label="Sprite">
 <rect x="0" y="0" width="100" height="100" rx="22" fill="#2F5D3A"></rect>
 <g fill="#D6B35A">
-<circle cx="50.000" cy="30.200" r="3.600"></circle>
-<circle cx="50.000" cy="10.400" r="7.312"></circle>
-<circle cx="64.001" cy="35.999" r="3.600"></circle>
-<circle cx="71.637" cy="28.363" r="4.500"></circle>
-<circle cx="69.800" cy="50.000" r="3.600"></circle>
-<circle cx="84.200" cy="50.000" r="5.625"></circle>
-<circle cx="62.727" cy="65.168" r="3.600"></circle>
-<circle cx="68.512" cy="72.062" r="3.938"></circle>
-<circle cx="43.228" cy="68.606" r="3.600"></circle>
-<circle cx="37.072" cy="85.520" r="6.750"></circle>
-<circle cx="31.394" cy="56.772" r="3.600"></circle>
-<circle cx="19.554" cy="61.081" r="5.062"></circle>
-<circle cx="37.273" cy="34.832" r="3.600"></circle>
-<circle cx="26.860" cy="22.422" r="6.188"></circle>
+<circle cx="50.000" cy="35.040" r="2.829"></circle>
+<circle cx="50.000" cy="20.080" r="5.746"></circle>
+<circle cx="60.578" cy="39.422" r="2.829"></circle>
+<circle cx="66.348" cy="33.652" r="3.536"></circle>
+<circle cx="64.960" cy="50.000" r="2.829"></circle>
+<circle cx="75.840" cy="50.000" r="4.420"></circle>
+<circle cx="59.616" cy="61.460" r="2.829"></circle>
+<circle cx="63.987" cy="66.669" r="3.094"></circle>
+<circle cx="44.883" cy="64.058" r="2.829"></circle>
+<circle cx="40.232" cy="76.838" r="5.304"></circle>
+<circle cx="35.942" cy="55.117" r="2.829"></circle>
+<circle cx="26.996" cy="58.373" r="3.978"></circle>
+<circle cx="40.384" cy="38.540" r="2.829"></circle>
+<circle cx="32.516" cy="29.164" r="4.862"></circle>
 </g>
 </svg>
