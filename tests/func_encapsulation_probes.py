@@ -25,15 +25,15 @@ DIVERGENCES = {
   }
 DIVERGENCES['pakcs', 'narrowedAfter'] = (
     'unbound outside argument suspends before the outer constraint')
+DIVERGENCES['pakcs', 'bindingEscape'] = (
+    'unbound outside argument suspends; this is a suspension, not a value; '
+    'D54 follows D48\'s wider escape condition')
 for goal in ('mixedFailure', 'mixedFailureReversed'):
   DIVERGENCES['kics2', goal] = (
       'an inside failure masks the argument failure; Sprite has D45')
 VALUES = dict((name, json.loads(value)) for name, value in re.findall(
     r'^-- Value (\w+): (.*)$', SOURCE.read_text(), re.MULTILINE))
-READINGS = dict(re.findall(
-    r'^-- Reading (\w+): (.*)$', SOURCE.read_text(), re.MULTILINE))
-GOALS = list(re.findall(r'^-- (?:Value|Reading) (\w+):',
-                        SOURCE.read_text(), re.MULTILINE))
+GOALS = list(VALUES)
 
 
 def observations():
@@ -108,8 +108,6 @@ class TestEncapsulationOracles(cytest.TestCase):
     proc, actual = sprite_results(SOURCE, goal, timeout=TIMEOUT)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(normalized(actual.splitlines()), normalized(row['sprite']))
-    if goal in READINGS:
-      self.skipTest('reading needed: ' + READINGS[goal])
     if goal in DEFECTS:
       self.skipTest('open issue exemption: ' + DEFECTS[goal])
     if (system, goal) in DIVERGENCES:

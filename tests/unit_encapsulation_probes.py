@@ -3,10 +3,11 @@
 Process/compilation failures are checked separately in setUp.
 After D45 both mixed-failure orderings require no value, and sharedLookup
 requires exactly Short. All three now pass without expectedFailure.
+D54 specifies the four former reading goals on both routes.
 '''
 import cytest # from ./lib; must be first
 from func_encapsulation_probes import (
-    GOALS, READINGS, SOURCE, TIMEOUT, VALUES, normalized, observations
+    GOALS, SOURCE, TIMEOUT, VALUES, normalized
   )
 from func_community import sprite_results
 import json, os, unittest
@@ -26,12 +27,7 @@ class ProbeCase(cytest.TestCase):
                                      values=self.actual)) + '\n')
 
   def check(self, goal):
-    if goal in READINGS:
-      # Preserve the measured behavior while its declarative reading is open.
-      expected = observations()[goal]['sprite']
-    else:
-      expected = VALUES[goal]
-    self.assertEqual(self.actual, normalized(expected))
+    self.assertEqual(self.actual, normalized(VALUES[goal]))
 
 
 class TestCompiled(ProbeCase):
