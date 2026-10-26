@@ -45,4 +45,6 @@ Sprite uses the BSD 3-Clause license; the distribution includes the notices
 for its vendored Curry library and pybind11.
 
 The `currylang` package on PyPI is Sprite. The Curry community also uses
-`currylang` as its namespace on Docker Hub.
+`currylang` as its namespace on Docker Hub. The name `curry` on PyPI was held
+from 2009 by Malthe Borch for his package of partial application; he agreed to
+its transfer to this project, for which we thank him.

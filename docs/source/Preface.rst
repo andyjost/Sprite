@@ -57,7 +57,9 @@ thoroughly document Curry over many years, plus his countless useful
 suggestions, bug fixes, and other improvements (especially with respect to
 ICurry) made this work possible.  Thanks also go to the many people who
 developed and supported Curry, PAKCS and KiCS2, but particularly Bernd Brassel,
-whose prior work deeply informed my understanding.
+whose prior work deeply informed my understanding.  Malthe Borch held the
+name ``curry`` on PyPI from 2009 for his package of partial application and
+agreed to its transfer to this project; I am grateful for his generosity.
 
 
 .. _Fair Scheme: https://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf
