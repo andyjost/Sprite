@@ -28,8 +28,9 @@ without a C++ compiler. Install `g++` to compile your own modules with
 the Curry front end used when loading source programs.
 
 The source distribution builds with pip, a C++ compiler, and Python development
-headers. Pip installs CMake, Ninja, and `curry-frontend` in its isolated build
-environment; PAKCS, Prolog, and Haskell are unnecessary.
+headers. Pip installs CMake and Ninja in its isolated build environment and
+uses the shipped current-pair library products. The Curry front end is needed
+at run time for new Curry text; PAKCS, Prolog, and Haskell are unnecessary.
 
 See the [documentation](https://andyjost.github.io/Sprite/) and
 [source and issue tracker](https://github.com/andyjost/Sprite).

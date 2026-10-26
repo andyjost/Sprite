@@ -1,0 +1,14 @@
+interface Curry.Compiler.Distribution where {
+import Prelude;
+baseVersion 0 :: [Prelude.Char];
+curryCompiler 0 :: [Prelude.Char];
+curryCompilerMajorVersion 0 :: Prelude.Int;
+curryCompilerMinorVersion 0 :: Prelude.Int;
+curryCompilerRevisionVersion 0 :: Prelude.Int;
+curryRuntime 0 :: [Prelude.Char];
+curryRuntimeMajorVersion 0 :: Prelude.Int;
+curryRuntimeMinorVersion 0 :: Prelude.Int;
+installDir 0 :: [Prelude.Char];
+hiding data Prelude.Char;
+hiding data Prelude.Int
+}

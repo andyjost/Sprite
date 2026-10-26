@@ -110,9 +110,6 @@ if(WITH_CURRY_FRONTEND STREQUAL "AUTO")
       HINTS "${pakcs_bin}" "${CMAKE_SOURCE_DIR}/install/tools")
   endif()
 endif()
-if(NOT WITH_CURRY_FRONTEND)
-  message(FATAL_ERROR "Building library interfaces needs the Curry front end. Set WITH_CURRY_FRONTEND or SPRITE_FRONTEND.")
-endif()
 foreach(tool WITH_PAKCS WITH_CURRY_FRONTEND WITH_ICURRY WITH_CXX_POSTINSTALL)
   if(${tool})
     unset(resolved_tool)
@@ -127,9 +124,23 @@ foreach(tool WITH_PAKCS WITH_CURRY_FRONTEND WITH_ICURRY WITH_CXX_POSTINSTALL)
 endforeach()
 execute_process(COMMAND "${Python_EXECUTABLE}" -c "import json, zlib"
   COMMAND_ERROR_IS_FATAL ANY)
-execute_process(COMMAND "${WITH_CURRY_FRONTEND}" --numeric-version
-  TIMEOUT 30
-  OUTPUT_VARIABLE frontend_version OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+if(WITH_CURRY_FRONTEND)
+  execute_process(COMMAND "${WITH_CURRY_FRONTEND}" --numeric-version
+    TIMEOUT 30
+    OUTPUT_VARIABLE frontend_version OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+else()
+  if(SPRITE_REBUILD_ICY)
+    message(FATAL_ERROR "SPRITE_REBUILD_ICY needs the Curry front end")
+  endif()
+  execute_process(COMMAND "${Python_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/library_pins.py"
+    "${CMAKE_SOURCE_DIR}/curry/lib" RESULT_VARIABLE pins_result
+    OUTPUT_VARIABLE pins_output ERROR_VARIABLE pins_error)
+  if(NOT pins_result EQUAL 0)
+    message(FATAL_ERROR "${pins_output}${pins_error}")
+  endif()
+  set(frontend_version "3.1.0")
+  message(STATUS "Building from the shipped current-pair library products (no Curry front end)")
+endif()
 # The current pair owns the pinned products; explicit tools can select legacy.
 if(frontend_version STREQUAL "3.1.0")
   set(frontend_release "3.10.0")

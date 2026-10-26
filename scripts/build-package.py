@@ -61,8 +61,8 @@ def build_environment(prefix):
     env.pop(key, None)
   # The package of the stage first, then the path of the caller: in the
   # isolated build of pip (the sdist) it names the site of the build
-  # environment, where the console script of the front end, a build
-  # requirement, finds its module.  The front end runs twice in a stage,
+  # environment, where an explicitly selected front-end console script
+  # finds its module. The front end can run twice in a stage,
   # once from here over the library and once from the staged sprite-make,
   # so the one environment of the stage carries the path.
   pythonpath = os.pathsep.join(
@@ -74,6 +74,7 @@ def build_environment(prefix):
 
 
 def main():
+  import library_pins
   parser = argparse.ArgumentParser(description=__doc__)
   for name in ['source', 'prefix', 'frontend', 'pakcs', 'icurry', 'cxx', 'ccache']:
     parser.add_argument('--' + name, default='')
@@ -140,20 +141,30 @@ def main():
       or (flat / path.relative_to(source / 'curry/lib').with_suffix(s)).stat().st_mtime
           < path.stat().st_mtime
       for path in sources for s in suffixes)
-  if needs_interfaces:
+  if needs_interfaces and args.frontend:
     run(args.frontend, '--flat', '-o', flat, '--no-verb', '--no-warn',
         '--no-overlap-warn', *frontend_flags, '-i', '.', *modules)
-  pinned_products = []
   for path in sources:
     rel = path.relative_to(source / 'curry/lib')
     dest = lib / rel.parent / '.curry' / intermediate_subdir / rel.stem
+    pinned = library_pins.product(path)
+    valid_pin = use_pinned and library_pins.problem(path) is None
+    if not args.frontend and not valid_pin:
+      raise RuntimeError('%s: %s' % (rel, library_pins.problem(path)))
     for suffix in ['.fint', '.icurry']:
-      copy(flat / rel.with_suffix(suffix), dest.with_suffix(suffix))
-    pinned = path.with_suffix('.icy')
-    if pinned.exists() and use_pinned:
+      interface = flat / rel.with_suffix(suffix) if args.frontend else pinned.with_suffix(suffix)
+      copy(interface, dest.with_suffix(suffix))
+      if not args.frontend:
+        copy(interface, flat / rel.with_suffix(suffix))
+    if valid_pin:
       icy = dest.with_suffix('.icy')
       marker = Path(str(icy) + '.pinned')
-      digest = hashlib.sha256(pinned.read_bytes()).hexdigest()
+      bundle = hashlib.sha256()
+      for suffix in library_pins.SUFFIXES:
+        bundle.update(suffix.encode('ascii') + b'\0')
+        bundle.update(pinned.with_suffix(suffix).read_bytes())
+        bundle.update(b'\0')
+      digest = bundle.hexdigest()
       if not icy.exists() or not marker.exists() or marker.read_text() != digest:
         if icy.exists() and icy.read_bytes() != pinned.read_bytes():
           # Package extraction can preserve older times, and .source may
@@ -162,14 +173,16 @@ def main():
           for suffix in ('.json', '.json.z', '.cpp', '.so.abi'):
             dest.with_suffix(suffix).unlink(missing_ok=True)
         copy(pinned, icy)
+        for suffix in ('.icy.source', '.icy.imports'):
+          copy(pinned.with_suffix(suffix), dest.with_suffix(suffix))
         marker.write_text(digest)
-        pinned_products.append(icy)
+        # The pin already carries the import record of these interfaces.
       elif not Path(str(icy) + '.imports').exists():
-        pinned_products.append(icy)
+        copy(pinned.with_suffix('.icy.imports'), dest.with_suffix('.icy.imports'))
       # A copied pinned artifact is current even in a fresh checkout.
       if dest.with_suffix('.icy').stat().st_mtime < (lib / rel).stat().st_mtime:
         os.utime(dest.with_suffix('.icy'), None)
-    elif pinned.exists() and rebuild:
+    elif rebuild:
       # A forced retranslation can change bytes without changing the source
       # digest. Remove derived products rather than trusting their stamps.
       for suffix in ('.icy', '.json', '.json.z', '.cpp', '.so.abi'):
@@ -185,14 +198,6 @@ def main():
         for suffix in ('.json', '.json.z', '.cpp', '.so.abi'):
           dest.with_suffix(suffix).unlink(missing_ok=True)
   make = [sys.executable, '-m', 'curry.tools.make']
-  # Pinned ICurry is a trusted input of the stage. Record its interfaces
-  # only after all copies are installed, before planning JSON and objects.
-  # Translated products already carry provenance; never relabel those.
-  if pinned_products:
-    run(sys.executable, '-c',
-        'import sys; from curry.toolchain import _interfaces; '
-        '[_interfaces.write(p, ["."]) for p in sys.argv[1:]]',
-        *pinned_products)
   run(*make, '--json', '-zc', *modules)
   supported = [m for m in modules if m not in unsupported]
   run(*make, '--so', '--jobs', args.jobs, '-zc', *supported)

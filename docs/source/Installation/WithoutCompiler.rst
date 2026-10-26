@@ -20,6 +20,18 @@ package such as the conda package of ``conda/README.md`` installed without
 ``cxx-compiler``.  Sprite looks for its compiler at ``tools/cxx`` under
 ``SPRITE_HOME``; when that file is missing, the installation has none.
 
+The Curry front end is a separate runtime tool. The source distribution
+ships the current pair's ICurry, interfaces, import records and source
+receipts for every library module. Building it needs Python and a C++
+compiler, without a Curry front end or PAKCS. CMake checks the receipts
+before using the pins. Library modules and programs with existing products
+run without the front end; new Curry text reports::
+
+    no Curry front end found; set SPRITE_FRONTEND or put pakcs-frontend on PATH
+
+Install ``curry-frontend`` to compile new Curry text. The legacy tool pair
+still needs its front end to build the library.
+
 What runs interpreted
 =====================
 

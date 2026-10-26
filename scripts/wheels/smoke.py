@@ -14,7 +14,7 @@ def main():
   from curry.backends.cxx.toolchain import Cpp2So
   from curry.lib import Prelude
   assert curry.config.cxx_compiler(), 'Missing build compiler record'
-  prelude = Path(curry.config.prefix()) / 'curry/.curry/sprite-pakcs-3.4.1/Prelude.so'
+  prelude = Path(curry.config.prefix()) / 'curry/.curry' / curry.config.intermediate_subdir() / 'Prelude.so'
   assert prelude.is_file(), prelude
   assert Cpp2So(curry._interpreter_).stamp_is_current(str(prelude))
   assert list(curry.eval(Prelude.id(42))) == [42]

@@ -65,9 +65,12 @@ reproducers pass.
   through the same CMake options. PAKCS itself is optional at build time:
   `-DWITH_PAKCS=` with `-DWITH_CURRY_FRONTEND=PATH` builds without it.
   The selected pair names the intermediate directories and the PAKCS CPP
-  macro (310 by default, 304 for the legacy pair). The committed `.icy`
-  products belong to front end 3.1.0; the legacy pair compiles the library
-  afresh at stage time. The reader accepts both FlatCurry grammars.
+  macro (310 by default, 304 for the legacy pair). Every library module
+  ships pinned `.icy`, `.fint`, `.icurry`,
+  `.icy.imports` and `.icy.source` products for front end 3.1.0, so a build
+  without a front end uses them after checking source receipts; the legacy
+  pair compiles the library afresh at stage time. The reader accepts both
+  FlatCurry grammars.
   One copy of base 3.4.0, from PAKCS 3.10.0, serves both front ends
   (`curry/README.md`). The typed boundary reads both grammars of instance
   and implementation names; nullary and multi-parameter classes await the
@@ -156,10 +159,10 @@ reproducers pass.
   the Curry library into the installation for the C++ runtime. The modules
   Sprite cannot compile are listed in `unsupported` in
   `CMakeLists.txt`; they get their ICurry and JSON only.
-- The `.icy` and `.json.z` files beside the sources under `curry/lib/` are
-  committed artifacts of the pinned PAKCS and `icurry` versions. `make`
-  derives the JSON from the committed `.icy` and never rebuilds a committed
-  `.icy` unless you set `SPRITE_REBUILD_ICY=1`. After a change to the ICurry
+- The products under `curry/lib/**/.curry/sprite-pakcs-3.10.0/` are
+  committed artifacts of the pinned current pair; `.json.z` stays derived.
+  `make` derives the JSON and keeps valid pins unless you set
+  `SPRITE_REBUILD_ICY=1`. After a change to the ICurry
   reader, regenerate the JSON: delete the `.json.z` files and run
   `make stage`.
 - `make test` runs the full suite through `tests/run_tests`, which runs

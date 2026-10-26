@@ -29,25 +29,44 @@ class TestStagedLibrary(cytest.TestCase):
 
   def test_pinned_products_match_selected_grammar(self):
     """The default stage reuses pins; legacy staging translates its own."""
-    for pinned in sorted((Path(SOURCE_ROOT) / 'curry/lib').rglob('*.icy')):
-      if '.curry' in pinned.parts:
-        continue
+    pins = sorted((Path(SOURCE_ROOT) / 'curry/lib').rglob('*.icy'))
+    self.assertEqual(len(pins), len(config.syslibs()))
+    for pinned in pins:
       rel = pinned.relative_to(Path(SOURCE_ROOT) / 'curry/lib')
-      name = '.'.join(rel.with_suffix('').parts)
+      name = '.'.join((*rel.parts[:-3], rel.stem))
       installed = Path(installed_file(name, '.icy')).read_bytes()
       if config.frontend_version() == '3.1.0':
         self.assertEqual(installed, pinned.read_bytes(), name)
       elif name == 'Prelude':
         self.assertNotEqual(installed, pinned.read_bytes(), name)
 
+  def test_pins_regenerate_identically(self):
+    '''Every shipped current-pair pin is the port's compatibility output.'''
+    if config.frontend_version() != '3.1.0' or config.curry_frontend() is None:
+      self.skipTest('regeneration needs current-pair FlatCurry')
+    from curry.toolchain import flat2icurry as f2i
+    root = Path(SOURCE_ROOT) / 'curry/lib'
+    finder = f2i.InterfaceFinder([config.system_curry_path()],
+        [config.frontend_subdir(), config.intermediate_subdir()])
+    for source in sorted(root.rglob('*.curry')):
+      if '.curry' in source.relative_to(root).parts:
+        continue
+      rel = source.relative_to(root)
+      flat = Path(config.system_curry_path()) / '.curry' / config.frontend_subdir() / rel.with_suffix('.fcy')
+      expected = source.parent / '.curry/sprite-pakcs-3.10.0' / (source.stem + '.icy')
+      result = f2i.showterm(f2i.translate_file(str(flat), finder))
+      self.assertEqual(result.encode(), expected.read_bytes(), str(rel))
+
   def test_pinned_json_is_derived_from_icurry(self):
     """Regenerating ICurry must replace JSON from an earlier route too."""
+    if config.frontend_version() != '3.1.0':
+      self.skipTest('the shipped pins belong to the current pair')
     from curry.icurry import readcurry, json as icurry_json
     for pinned in sorted((Path(SOURCE_ROOT) / 'curry/lib').rglob('*.icy')):
-      if '.curry' in pinned.parts:
-        continue
+      rel = pinned.relative_to(Path(SOURCE_ROOT) / 'curry/lib')
+      name = '.'.join((*rel.parts[:-3], rel.stem))
       expected = (icurry_json.dumps(readcurry.load(str(pinned))) + '\n').encode()
-      self.assertEqual(zlib.decompress(pinned.with_suffix('.json.z').read_bytes()),
+      self.assertEqual(zlib.decompress(Path(installed_file(name, '.json.z')).read_bytes()),
           expected, str(pinned.relative_to(SOURCE_ROOT)))
 
   def test_intermediates_are_staged(self):
@@ -137,8 +156,8 @@ class TestStagedLibrary(cytest.TestCase):
     The Python prebuild step clears ambient runtime settings.  Its PYTHONPATH
     names the package of the stage first and keeps the caller's path after
     it: in the isolated build of pip (the sdist) that path names the site of
-    the build environment, where the console script of the front end, a
-    build requirement, finds its module.
+    the build environment, where an explicitly selected front-end console
+    script finds its module.
     """
     import importlib.util
     spec = importlib.util.spec_from_file_location('build_package',
@@ -166,6 +185,7 @@ class TestStagedLibrary(cytest.TestCase):
           self.assertNotIn(name, env)
 
   @unittest.skipIf(config.cxx_tool() is None, 'no C++ compiler is installed')
+  @unittest.skipIf(config.curry_frontend() is None, 'interface changes need the front end')
   def test_stage_rebuilds_dependents_of_changed_interface(self):
     '''The actual prebuild step keeps B's source but replaces its old object.'''
     with tempfile.TemporaryDirectory() as directory:
@@ -178,8 +198,9 @@ class TestStagedLibrary(cytest.TestCase):
             target_is_directory=True)
       lib = source / 'curry/lib'
       lib.mkdir(parents=True)
-      for name in ('Prelude.curry', 'Prelude.icy', 'LICENSE', 'NOTICE'):
+      for name in ('Prelude.curry', 'LICENSE', 'NOTICE'):
         shutil.copy2(Path(SOURCE_ROOT) / 'curry/lib' / name, lib / name)
+      shutil.copytree(Path(SOURCE_ROOT) / 'curry/lib/.curry', lib / '.curry')
       (lib / 'A.curry').write_text(
           'module A where\nf :: Int\nf = 1\noldExport :: Int\noldExport = 0\n')
       (lib / 'B.curry').write_text('module B where\nimport A\nmain :: Int\nmain = f\n')
@@ -197,12 +218,18 @@ class TestStagedLibrary(cytest.TestCase):
           for suffix in ('.icy', '.cpp', '.so', '.so.abi')]
       self.assertTrue(all(p.is_file() for p in products))
       # Establish an unchanged pinned B, as in an incremental library stage.
-      shutil.copy2(products[0], lib / 'B.icy')
+      pinned = lib / SUBDIR / 'B.icy'
+      pinned.parent.mkdir(parents=True, exist_ok=True)
+      for suffix in ('.icy', '.fint', '.icurry', '.icy.source', '.icy.imports'):
+        shutil.copy2(products[0].with_suffix(suffix), pinned.with_suffix(suffix))
       stage()
       before = [p.stat().st_mtime_ns for p in products]
       text = (lib / 'B.curry').read_bytes()
       (lib / 'A.curry').write_text(
           'module A where\nadded :: Int\nadded = 0\nf :: Int\nf = 2\n')
+      # Restore missing provenance from the pin, whose recorded A is old;
+      # relabelling the old B with A's new interface would hide its staleness.
+      products[0].with_suffix('.icy.imports').unlink()
       stage()
       self.assertEqual((lib / 'B.curry').read_bytes(), text)
       self.assertTrue(all(p.stat().st_mtime_ns != old

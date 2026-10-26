@@ -90,8 +90,11 @@ class TestCMake(cytest.TestCase):
       self.assertIn(message, result.stdout)
 
   def test_frontend_and_optional_route(self):
-    for option, message in [('-DWITH_CURRY_FRONTEND=', 'needs the Curry front end'),
-                            ('-DCURRY2ICURRY_TOOL=icurry', 'needs WITH_ICURRY'),
+    result = self.configure('-DWITH_CURRY_FRONTEND=', '-DWITH_ICURRY=')
+    self.assertEqual(result.returncode, 0, result.stdout)
+    self.assertIn('shipped current-pair library products', result.stdout)
+    shutil.rmtree(self.build)
+    for option, message in [('-DCURRY2ICURRY_TOOL=icurry', 'needs WITH_ICURRY'),
                             ('-DWITH_ICURRY=/nonexistent/icurry', 'SPRITE_ICURRY')]:
       result = self.configure(option)
       self.assertNotEqual(result.returncode, 0, result.stdout)
@@ -104,6 +107,28 @@ class TestCMake(cytest.TestCase):
     result = self.configure('-DWITH_CURRY_FRONTEND=' + str(fake))
     self.assertNotEqual(result.returncode, 0, result.stdout)
     self.assertIn('Expected Curry front end 2.0.0', result.stdout)
+
+  def test_stale_and_missing_pins(self):
+    '''Configure names the module whose shipped source receipt is stale.'''
+    source = Path(self.directory.name) / 'source'
+    shutil.copytree(ROOT / 'curry', source / 'curry')
+    for name in ('CMakeLists.txt', 'VERSION'):
+      shutil.copy2(ROOT / name, source / name)
+    for name in ('extern', 'scripts', 'src'):
+      (source / name).symlink_to(ROOT / name, target_is_directory=True)
+    prelude = source / 'curry/lib/Prelude.curry'
+    prelude.write_text(prelude.read_text() + '\n-- stale pin\n')
+    args = [cmake_executable(), '-S', source, '-B', self.build, '-G', 'Ninja',
+            '-DPython_EXECUTABLE=' + sys.executable, '-DWITH_PAKCS=',
+            '-DWITH_CURRY_FRONTEND=', '-DWITH_ICURRY=']
+    result = run(*args)
+    self.assertNotEqual(result.returncode, 0, result.stdout)
+    self.assertIn('Prelude: source receipt differs', result.stdout)
+    shutil.copy2(ROOT / 'curry/lib/Prelude.curry', prelude)
+    (source / 'curry/lib/.curry/sprite-pakcs-3.10.0/Prelude.fint').unlink()
+    result = run(*args)
+    self.assertNotEqual(result.returncode, 0, result.stdout)
+    self.assertIn('Prelude: missing .fint', result.stdout)
 
   def test_release_pairs(self):
     """Each accepted front end selects its matching release and macro."""

@@ -176,8 +176,12 @@ class TestWholeCorpus(cytest.TestCase):
         pairs.append((fcy, icy))
     if not pairs:
       self.skipTest('no front-end products under tests/data')
+    # These programs were built against the current installed library.
+    # The independent archive can predate its interfaces (in particular
+    # Sprite's search facade), and remains the oracle of the archive tests.
     results = check_on_disk(
-        pairs, CORPUS_IMPORT_DIRS + self.overlay.library_dirs() + LIBRARY_DIRS
+        pairs, CORPUS_IMPORT_DIRS + oracle.system_curry_path()
+             + self.overlay.library_dirs() + LIBRARY_DIRS
       )
     self.assertEqual(
         oracle.summarize(results), (len(pairs), 0, 0), oracle.report(results)

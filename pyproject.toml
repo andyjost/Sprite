@@ -1,5 +1,5 @@
 [build-system]
-requires = ["scikit-build-core>=1.1", "cmake>=3.24", "ninja", "curry-frontend>=2.0.0"]
+requires = ["scikit-build-core>=1.1", "cmake>=3.24", "ninja"]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -43,5 +43,18 @@ regex = '(?P<value>\S+)'
 [tool.scikit-build]
 cmake.version = ">=3.24"
 wheel.packages = []
-sdist.include = ["extern/pybind11/include/**", "extern/pybind11/tools/**", "extern/pybind11/CMakeLists.txt", "extern/pybind11/LICENSE", "extern/libtommath/bn_*.c", "extern/libtommath/*.h", "extern/libtommath/LICENSE"]
+sdist.include = [
+  "extern/pybind11/include/**",
+  "extern/pybind11/tools/**",
+  "extern/pybind11/CMakeLists.txt",
+  "extern/pybind11/LICENSE",
+  "extern/libtommath/bn_*.c",
+  "extern/libtommath/*.h",
+  "extern/libtommath/LICENSE",
+  "curry/lib/**/.curry/sprite-pakcs-3.10.0/*.icy",
+  "curry/lib/**/.curry/sprite-pakcs-3.10.0/*.fint",
+  "curry/lib/**/.curry/sprite-pakcs-3.10.0/*.icurry",
+  "curry/lib/**/.curry/sprite-pakcs-3.10.0/*.icy.imports",
+  "curry/lib/**/.curry/sprite-pakcs-3.10.0/*.icy.source",
+]
 sdist.exclude = ["CODEX-REPORT.md"]

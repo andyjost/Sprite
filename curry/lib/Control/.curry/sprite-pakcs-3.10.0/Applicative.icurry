@@ -1,0 +1,70 @@
+interface Control.Applicative where {
+import Prelude;
+infixl 4 Prelude.<*>;
+infixl 4 Prelude.*>;
+infixl 4 Prelude.<*;
+class Prelude.Functor a => (Prelude.Applicative :: (* -> *) ->
+                                                   Constraint) a {
+  pure :: b -> a b;
+  (<*>) 0 :: a (b -> c) -> a b -> a c;
+  (*>) 2 :: a b -> a c -> a c;
+  (<*) 0 :: a b -> a c -> a b;
+  liftA2 2 :: (b -> c -> d) -> a b -> a c -> a d
+};
+liftA 2 :: Prelude.Applicative c => (a -> b) -> c a -> c b;
+liftA3
+4
+::
+Prelude.Applicative e => (a -> b -> c -> d) -> e a -> e b -> e c ->
+                         e d;
+sequenceA 1 :: Prelude.Applicative a => [a b] -> a [b];
+sequenceA_ 0 :: Prelude.Applicative a => [a b] -> a ();
+when 2 :: Prelude.Applicative a => Prelude.Bool -> a () -> a ();
+hiding class (Prelude.Functor :: (* -> *) -> Constraint) a;
+instance Prelude.Applicative (Prelude.Either a) {
+  (<*>) 0;
+  pure 0
+} {-# MODULE Prelude #-};
+instance Prelude.Applicative ((->) a) {
+  liftA2 4;
+  (<*>) 3;
+  pure 0
+} {-# MODULE Prelude #-};
+instance Prelude.Applicative Prelude.Maybe {
+  liftA2 3;
+  (*>) 2;
+  (<*>) 2;
+  pure 0
+} {-# MODULE Prelude #-};
+instance Prelude.Applicative Prelude.IO {
+  liftA2 0;
+  (<*>) 0;
+  (*>) 2;
+  pure 0
+} {-# MODULE Prelude #-};
+instance Prelude.Applicative [] {
+  liftA2 3;
+  (*>) 2;
+  (<*>) 2;
+  pure 1
+} {-# MODULE Prelude #-};
+hiding data Prelude.Bool;
+instance Prelude.Functor (Prelude.Either a) {
+  fmap 2
+} {-# MODULE Prelude #-};
+instance Prelude.Functor ((->) a) {
+  fmap 0
+} {-# MODULE Prelude #-};
+instance Prelude.Functor Prelude.Maybe {
+  fmap 2
+} {-# MODULE Prelude #-};
+instance Prelude.Functor Prelude.IO {
+  fmap 2
+} {-# MODULE Prelude #-};
+instance Prelude.Functor [] {
+  fmap 0
+} {-# MODULE Prelude #-};
+hiding data Prelude.Either a b;
+hiding data Prelude.Maybe a;
+hiding data Prelude.IO a
+}

@@ -68,7 +68,7 @@ def main():
   sources = dest / 'sources'
   sources.mkdir()
   lib = ROOT / 'curry' / 'lib'
-  originals = sorted(lib.rglob('*.curry'))
+  originals = sorted(p for p in lib.rglob('*.curry') if p.is_file())
   if baseline:
     manifest = json.loads((baseline / 'manifest.json').read_text())
     if manifest['frontend_version'] != version:

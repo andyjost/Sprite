@@ -18,6 +18,13 @@ configure.log
 robots.txt*
 **/.src/**
 **/.curry/**
+!curry/lib/**/.curry/
+!curry/lib/**/.curry/sprite-pakcs-3.10.0/
+!curry/lib/**/.curry/sprite-pakcs-3.10.0/*.icy
+!curry/lib/**/.curry/sprite-pakcs-3.10.0/*.fint
+!curry/lib/**/.curry/sprite-pakcs-3.10.0/*.icurry
+!curry/lib/**/.curry/sprite-pakcs-3.10.0/*.icy.imports
+!curry/lib/**/.curry/sprite-pakcs-3.10.0/*.icy.source
 !tests/data
 !currylib/**
 /currylib/Prelude.curry

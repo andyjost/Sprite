@@ -1,0 +1,27 @@
+interface System.Console.GetOpt where {
+import Prelude;
+data ArgDescr a
+  = NoArg a
+  | ReqArg ([Prelude.Char] -> a) [Prelude.Char]
+  | OptArg (Prelude.Maybe [Prelude.Char] -> a) [Prelude.Char];
+data ArgOrder a
+  = RequireOrder
+  | Permute
+  | ReturnInOrder ([Prelude.Char] -> a);
+data OptDescr a
+  = Option [Prelude.Char] [[Prelude.Char]] (ArgDescr a)
+           [Prelude.Char];
+getOpt
+3
+::
+ArgOrder a -> [OptDescr a] -> [[Prelude.Char]] ->
+([a], [[Prelude.Char]], [[Prelude.Char]]);
+getOpt'
+3
+::
+ArgOrder a -> [OptDescr a] -> [[Prelude.Char]] ->
+([a], [[Prelude.Char]], [[Prelude.Char]], [[Prelude.Char]]);
+usageInfo 2 :: [Prelude.Char] -> [OptDescr a] -> [Prelude.Char];
+hiding data Prelude.Char;
+hiding data Prelude.Maybe a
+}
