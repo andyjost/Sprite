@@ -284,12 +284,14 @@ namespace curryrt
           if(!is_partial(*scan->cursor()->info))
           {
             // D53: test the whole constructor cell before descending.
-            // Read direct successor tags only; N.2 still pull-tabs a
-            // choice only when the scan reaches that successor.  This
+            // Forward chains denote the rewritten shared cell; inspect
+            // its tag without evaluating any successor.  N.2 still
+            // pull-tabs a choice only when the scan reaches it.  This
             // also runs when procS returns a constructor at the cursor.
             Node * const cell = *scan->cursor();
             for(index_type i = 0; i < cell->info->arity; ++i)
-              if(inspect::tag_of(cell->successor(i)) == T_FAIL)
+              if(inspect::tag_of(inspect::fwd_chain_target(cell->successor(i)))
+                    == T_FAIL)
               {
                 this->record_failure(C, nullptr);
                 return T_FAIL;

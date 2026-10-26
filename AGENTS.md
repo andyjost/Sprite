@@ -24,9 +24,10 @@ interpreter. Two assertions of `unit_stub_terms.py` were corrected on
 2026-10-25: `True & False` has no value (#139), as in PAKCS and KiCS2.
 D45 fixes #171: a capsule with no value and an outside failure fails even
 when it also recorded inside failures.
-D53 requires testing every direct successor of a constructor for failure
-before N descends; CursorFail and CursorBeta pin exhaustion with no value
-and with Pair True True, pending the treatment of forwarded failures.
+D53 tests every direct successor of a constructor for failure through
+transparent forward chains before N descends; CursorFail exhausts with no
+value, while CursorBeta's shared constraint still blocks exhaustion after
+Pair True True.
 The Python backend was removed on 2026-10-24 at the owner's
 word (B4, issue #82).
 F11's `test_free_argument_answers` passes:

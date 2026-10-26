@@ -235,17 +235,23 @@ Normalization
 
 Decision D53 (2026-10-25) makes ``RuntimeState::procN`` test the tags of all
 direct successors of a constructor cell before the scan descends, including
-when a step returns a constructor at the cursor.  A failure tag returns
+when a step returns a constructor at the cursor.  The existing
+``inspect::fwd_chain_target`` dereferences transparent forwarding chains:
+each successor denotes the shared cell at the end of its chain, as in the
+theory's ``Heap.BotRooted`` entry test.  A failure tag returns
 ``T_FAIL``, recording the failure for an enclosing capsule; ``procD_loop``
 drops the configuration without overwriting a shared cell.  Each constructor
-visit costs one pass over its direct successors, with no recursion or
-allocation.  Choices are still pull-tabbed only at the scan cursor (N.2),
-and the one-step rule is unchanged.  Compiled functions and the ICurry
+visit costs one pass over its direct successors and their forward chains,
+with no recursion, allocation, descent into constructors, or evaluation of
+guards or functions.  Choices are still pull-tabbed only at the scan cursor
+(N.2), and the one-step rule is unchanged.  Compiled functions and the ICurry
 interpreter (``icurry_step``) share this normalization loop.  The regression
 programs ``CursorFail`` and ``CursorBeta`` require termination with no value
-and exactly ``Pair True True``, respectively, on both routes; a literal
-direct-tag test still misses failures represented by forwarding nodes, so
-their treatment needs clarification before this change meets D53.
+and exactly ``Pair True True``, respectively, on both routes.  The forward
+test fixes ``CursorFail``; ``CursorBeta`` still yields its answer without
+exhausting because its second field dereferences to ``_StrictConstraint``
+(``T_CONSTR``), rather than failure.  Processing that constraint before the
+cursor reaches it requires a decision beyond this failure-tag test.
 
 The checker mode
 ----------------
