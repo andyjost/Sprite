@@ -55,6 +55,10 @@ reproducers pass.
 - `tests/`: unit tests (`unit_*.py`) and functional tests (`func_*.py`).
   `tests/README` explains the layout, the drivers, and the oracle.
 - `docs/`: Sphinx sources.
+- `assets/`: the logo (`assets/logo/`): a twig wand with a burst of dust,
+  the wordmark with the wand in place of the i, the icons, the palette and
+  the generator; `assets/logo/README.md` describes them and the rules of
+  use. The sdist leaves the directory out.
 - `examples/`: runnable examples.
 - `conda/`: the scaffold of a conda package for linux-64, not published.
   `conda/README.md` describes the two recipes and the open questions.

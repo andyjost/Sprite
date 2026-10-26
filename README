@@ -2,7 +2,8 @@
 -----------
 
 Sprite is an implementation of the Curry programming language
-(https://www.curry-lang.org/).  It is based
+(https://www.curry-lang.org/).  Its logo, a twig wand with a burst of
+dust, and the files of its identity are under assets/logo/.  It is based
 on an evaluation strategy called the Fair Scheme.  You can read about it at
 http://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf.
 

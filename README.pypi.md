@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/andyjost/Sprite/master/assets/logo/wordmark-dark.svg">
+    <img alt="Sprite" src="https://raw.githubusercontent.com/andyjost/Sprite/master/assets/logo/wordmark.svg" width="360">
+  </picture>
+</p>
+
 # Sprite for Curry
 
 `currylang` provides Sprite, a compiler and runtime for the
