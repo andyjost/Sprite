@@ -1,27 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0.000 0.000 100.000 100.000" width="64" height="64" role="img" aria-label="Sprite">
 <rect x="0" y="0" width="100" height="100" rx="22" fill="#2F5D3A"></rect>
-<g transform="rotate(-25 50 60)">
-<g stroke="#C9A27E" stroke-linecap="round" fill="none">
-<line x1="52.000" y1="92.200" x2="50.800" y2="79.000" stroke-width="9.600"></line>
-<line x1="50.800" y1="79.000" x2="53.200" y2="59.800" stroke-width="8.400"></line>
-<line x1="53.200" y1="59.800" x2="51.400" y2="43.000" stroke-width="7.200"></line>
-<line x1="51.400" y1="67.000" x2="44.800" y2="59.200" stroke-width="4.200"></line>
-</g>
 <g fill="#D6B35A">
-<circle cx="52.000" cy="3.100" r="2.448"></circle>
-<circle cx="52.000" cy="-6.800" r="4.972"></circle>
-<circle cx="59.000" cy="6.000" r="2.448"></circle>
-<circle cx="62.819" cy="2.181" r="3.060"></circle>
-<circle cx="61.900" cy="13.000" r="2.448"></circle>
-<circle cx="69.100" cy="13.000" r="3.825"></circle>
-<circle cx="58.364" cy="20.584" r="2.448"></circle>
-<circle cx="61.256" cy="24.031" r="2.677"></circle>
-<circle cx="48.614" cy="22.303" r="2.448"></circle>
-<circle cx="45.536" cy="30.760" r="4.590"></circle>
-<circle cx="42.697" cy="16.386" r="2.448"></circle>
-<circle cx="36.777" cy="18.541" r="3.442"></circle>
-<circle cx="45.636" cy="5.416" r="2.448"></circle>
-<circle cx="40.430" cy="-0.789" r="4.207"></circle>
-</g>
+<circle cx="50.000" cy="30.200" r="4.608"></circle>
+<circle cx="50.000" cy="10.400" r="9.360"></circle>
+<circle cx="64.001" cy="35.999" r="4.608"></circle>
+<circle cx="71.637" cy="28.363" r="5.760"></circle>
+<circle cx="69.800" cy="50.000" r="4.608"></circle>
+<circle cx="84.200" cy="50.000" r="7.200"></circle>
+<circle cx="62.727" cy="65.168" r="4.608"></circle>
+<circle cx="68.512" cy="72.062" r="5.040"></circle>
+<circle cx="43.228" cy="68.606" r="4.608"></circle>
+<circle cx="37.072" cy="85.520" r="8.640"></circle>
+<circle cx="31.394" cy="56.772" r="4.608"></circle>
+<circle cx="19.554" cy="61.081" r="6.480"></circle>
+<circle cx="37.273" cy="34.832" r="4.608"></circle>
+<circle cx="26.860" cy="22.422" r="7.920"></circle>
 </g>
 </svg>

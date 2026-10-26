@@ -1,9 +1,11 @@
 # The Sprite logo
 
-The mark is a wand: a slender twig with a burst of dust at its tip, seven
-grains of light thrown in seven directions drawn by hand. The wordmark is
-"Sprite" in Nunito ExtraBold with the wand in place of the i. The letters
-are outlines, so no font needs to be installed to render them.
+The mark is a burst of dust: seven grains of light thrown in seven
+directions drawn by hand. The wordmark is "Sprite" in Nunito ExtraBold
+with a wand, a slender twig carrying the same burst, in place of the i.
+The lockup sets the burst, large, beside the wordmark. The letters are
+outlines, so no font needs to be installed to render them.
+`specimen.png` shows every file of the family on one sheet.
 
 ## Palette
 
@@ -18,26 +20,31 @@ are outlines, so no font needs to be installed to render them.
 
 ## Files
 
-- `wordmark.svg`: the name with the wand, forest letters, for white and
-  mint grounds. `wordmark-dark.svg`: white letters, the twig in light
-  wood, for forest and other dark grounds. The README of the
+- `lockup.svg`: the burst beside the wordmark, forest letters, for white
+  and mint grounds; `lockup-dark.svg`: white letters and a light-wood
+  twig, for forest and other dark grounds. The README of the
   distribution shows the first and, to a viewer in dark mode, the second.
-- `mark.svg`, `mark-dark.svg`: the wand alone, upright, for light and
-  dark grounds; `mark-dust.svg`: the burst alone, for places too small
-  for a twig.
+- `wordmark.svg`, `wordmark-dark.svg`: the name with the wand alone.
+- `mark.svg`: the burst in gold, for white and dark grounds;
+  `mark-white.svg`: in white, for the mint ground; `mark-forest.svg`: in
+  forest, for one-color uses. `wand.svg`: the twig wand of the wordmark,
+  for a place that wants it alone.
 - `favicon.svg`, `favicon.ico` (16, 32 and 48 px), `icon.svg`,
-  `icon-180.png`, `icon-192.png`, `icon-512.png`: the wand tilted on a
-  forest rounded square, the grains enlarged for small sizes. The docs
-  use the favicon.
-- `social-preview.png` (1280 by 640) and its source: the wordmark on
-  mint, for the link card of the repository (uploaded once in the
-  repository's settings).
+  `icon-180.png`, `icon-192.png`, `icon-512.png`: the burst on a forest
+  rounded square, the grains enlarged for small sizes. The docs use the
+  favicon.
+- `social-preview.png` (1280 by 640) and its source: the lockup on mint,
+  for the link card of the repository (uploaded once in the repository's
+  settings).
+- `specimen.svg`, `specimen.png`: the whole family on one sheet, with the
+  palette.
 
 ## Rules
 
-The twig stays slender, about half a letter stem, with its one stub; the
-dust stays gold and keeps its seven directions. Give the wand clear
-space of one burst on every side. Do not add a dot or a star to the tip.
+The dust stays gold and keeps its seven directions; the twig stays
+slender, about half a letter stem, with its one stub, and lives only in
+the wordmark. Give the burst clear space of half its width on every
+side. Do not add a dot or a star to the wand's tip.
 No lime or yellow-green anywhere near the mark: the project shares its
 name with a soft drink.
 
@@ -54,6 +61,7 @@ mkdir -p font && curl -sSL -o 'font/Nunito[wght].ttf' \
   'https://github.com/google/fonts/raw/main/ofl/nunito/Nunito%5Bwght%5D.ttf'
 python make_logo.py
 for s in 16 32 48; do rsvg-convert -w $s -h $s out/favicon.svg -o out/favicon-$s.png; done
+rsvg-convert -w 1600 out/specimen.svg -o out/specimen.png
 ```
 
 Nunito is by Vernon Adams, Cyreal and Jacques Le Bailly, under the SIL

@@ -147,7 +147,7 @@ else:
 # documentation.
 html_theme_options = {
     'navigation_depth': 20,
-    # The wordmark carries the name; the theme would print it a second time.
+    # The lockup carries the name; the theme would print it a second time.
     'logo_only': True,
     # The header takes the forest green of the logo (assets/logo/README.md).
     'style_nav_header_background': '#2F5D3A',
@@ -165,8 +165,8 @@ html_theme_options = {
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-# The wordmark for dark grounds, on the forest header (assets/logo/README.md).
-html_logo = '../../assets/logo/wordmark-dark.svg'
+# The lockup for dark grounds, on the forest header (assets/logo/README.md).
+html_logo = '../../assets/logo/lockup-dark.svg'
 
 # The name of an image file (relative to this directory) to use as a favicon of
 # the docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32

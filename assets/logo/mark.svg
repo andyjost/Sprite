@@ -1,24 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0.000 0.000 100.000 100.000" width="200" height="200" role="img" aria-label="Sprite: a twig wand with a burst of dust">
-<g stroke="#8B6A4E" stroke-linecap="round" fill="none">
-<line x1="50.000" y1="91.360" x2="48.840" y2="78.600" stroke-width="9.280"></line>
-<line x1="48.840" y1="78.600" x2="51.160" y2="60.040" stroke-width="8.120"></line>
-<line x1="51.160" y1="60.040" x2="49.420" y2="43.800" stroke-width="6.960"></line>
-<line x1="49.420" y1="67.000" x2="43.040" y2="59.460" stroke-width="4.060"></line>
-</g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0.000 0.000 100.000 100.000" width="200" height="200" role="img" aria-label="Sprite: a burst of gold dust">
 <g fill="#D6B35A">
-<circle cx="50.000" cy="5.230" r="1.879"></circle>
-<circle cx="50.000" cy="-4.340" r="3.817"></circle>
-<circle cx="56.767" cy="8.033" r="1.879"></circle>
-<circle cx="60.458" cy="4.342" r="2.349"></circle>
-<circle cx="59.570" cy="14.800" r="1.879"></circle>
-<circle cx="66.530" cy="14.800" r="2.936"></circle>
-<circle cx="56.151" cy="22.131" r="1.879"></circle>
-<circle cx="58.948" cy="25.463" r="2.055"></circle>
-<circle cx="46.727" cy="23.793" r="1.879"></circle>
-<circle cx="43.751" cy="31.968" r="3.524"></circle>
-<circle cx="41.007" cy="18.073" r="1.879"></circle>
-<circle cx="35.284" cy="20.156" r="2.643"></circle>
-<circle cx="43.849" cy="7.469" r="1.879"></circle>
-<circle cx="38.815" cy="1.471" r="3.230"></circle>
+<circle cx="50.000" cy="28.000" r="3.200"></circle>
+<circle cx="50.000" cy="6.000" r="6.500"></circle>
+<circle cx="65.556" cy="34.444" r="3.200"></circle>
+<circle cx="74.042" cy="25.958" r="4.000"></circle>
+<circle cx="72.000" cy="50.000" r="3.200"></circle>
+<circle cx="88.000" cy="50.000" r="5.000"></circle>
+<circle cx="64.141" cy="66.853" r="3.200"></circle>
+<circle cx="70.569" cy="74.513" r="3.500"></circle>
+<circle cx="42.476" cy="70.673" r="3.200"></circle>
+<circle cx="35.635" cy="89.467" r="6.000"></circle>
+<circle cx="29.327" cy="57.524" r="3.200"></circle>
+<circle cx="16.171" cy="62.313" r="4.500"></circle>
+<circle cx="35.859" cy="33.147" r="3.200"></circle>
+<circle cx="24.288" cy="19.358" r="5.500"></circle>
 </g>
 </svg>
