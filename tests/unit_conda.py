@@ -811,10 +811,11 @@ class TestPackageRules(cytest.TestCase):
           'SPRITE_HOME': copy
         , 'PYTHONPATH': relocated('PYTHONPATH', 'python')
         , 'LD_LIBRARY_PATH': relocated('LD_LIBRARY_PATH', 'lib')
+        , 'CURRYPATH': relocated('CURRYPATH', 'curry')
         , 'SPRITE_INTERPRETER_FLAGS': 'backend:cxx'
         }):
         proc = cytest.run_in_subprocess(code, timeout=300)
-      self.assertEqual(proc.returncode, 0, proc.stderr)
+      self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
       result = json.loads(proc.stdout.strip().splitlines()[-1])
       self.assertEqual(result['commands'], [])
       self.assertEqual(result['value'], [3])
