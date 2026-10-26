@@ -104,6 +104,31 @@ object loaded over the tables the interpreter made stays with them.  The
 loader waits for any pending compile and checks the registered file before
 opening the object.  prepare_adoption checks the source before the load.
 
+The products.  The child compiles a private copy of the module, made in a
+directory of the process with the ICurry file, the interface files and the
+JSON of the import beside it (_private_copy), so nothing is written under
+the source while the compile runs: a search path entry that goes meanwhile,
+the temporary directory of a test, say, never finds a half-written product
+(issue #173).  The object lands in the private directory and the swap loads
+it from there.  Before it opens the object, the swap publishes the
+generated file, the ABI stamp and the object beside the source
+(publish_products in curryrt/tiered.cpp), each under a temporary name and
+renamed into place, when the source and its ICurry file are still there and
+the file is the one of the import, and opens the published object, so the
+module is loaded from the file beside its source, as before, and the next
+process loads it; else it opens the private object.  The swap runs on the
+thread that evaluates, at a safepoint, so the files beside a source change
+on that thread alone.  Under foreign flags (below) nothing is published.
+Since the child compiles the ICurry of the import, an edit of the source
+after the import no longer reaches the swap: the module swaps to the code
+the import read.  The check of the swap (below) stays for an ICurry file
+that another import or process wrote again.
+
+The flags.  An interpreter whose optimizer flags differ from the ones a
+child reads from the environment (the inline budget, _foreign_flags) gets
+the object of its private copy and nothing beside the source, which another
+process would read (issue #116).
+
 Failure.  When the compile or the load fails, the module stays
 interpreted, and the failure is logged once per module (poll).  The results
 applied at a safepoint are logged by the next poll: before and after an
@@ -153,6 +178,9 @@ class _Record(object):
     self.sofile = sofile
     self.icyfile = icyfile
     self.digest = digest
+    # The object beside the source that the swap publishes (_publish), or
+    # None when nothing is published: a compile under foreign flags.
+    self.publish = None
 
 
 class _State(object):
@@ -236,9 +264,15 @@ def _private_copy(imodule):
   directory = os.path.join(_tmpdir(), 'private%d' % next(_state.counter))
   copy = os.path.join(directory, relpath)
   os.makedirs(os.path.dirname(copy), exist_ok=True)
-  shutil.copy2(filename, copy)
+  # A module without a source file (one built by hand from its ICurry) gets
+  # its products alone; the child then fails as it did on the original.
+  if os.path.isfile(filename):
+    shutil.copy2(filename, copy)
   stem = _filenames.icurryfilename(filename)[:-len('.icy')]
-  products = [stem + suffix for suffix in ('.icy', '.fint', '.icurry')]
+  products = [
+      stem + suffix
+      for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source')
+    ]
   products += list(_filenames.jsonfilenames(filename))
   productdir = os.path.dirname(_filenames.icurryfilename(copy))
   os.makedirs(productdir, exist_ok=True)
@@ -411,7 +445,8 @@ def _record(moduleobj, sofile=None):
 def _import_objects(interp, imodule):
   '''
   The objects of the imports of ``imodule`` that the swap maps before the
-  object of the module, as tuples (module, sofile, icurryfile, digest), in
+  object of the module, as tuples (module, sofile, icurryfile, digest,
+  publish), in
   dependency order, an import before the modules that import it, each
   once: the imports the interpreter runs in this process, direct and
   indirect, that have a record (_record) for their module object.  A module
@@ -434,7 +469,10 @@ def _import_objects(interp, imodule):
       visit(depname)
     record = _state.records.get(name)
     if record is not None and record.module() is moduleobj:
-      out.append((name, record.sofile, record.icyfile, record.digest))
+      out.append((
+          name, record.sofile, record.icyfile, record.digest
+        , record.publish or ''
+        ))
   for depname in imodule.imports:
     visit(depname)
   return out
@@ -479,15 +517,14 @@ def submit(interp, moduleobj, currypath):
       , _interpreter_setting(interp, imodule)
       )
     return False
-  source = filename
-  if _foreign_flags(interp):
-    # The object goes into a directory of the process (the module
-    # docstring, "The flags").  The digest below is still the one of the
-    # ICurry file beside the original: the copy is of this moment.
-    source, searchdirs = _private_copy(imodule)
-    currypath = searchdirs + list(
-        currypath if currypath is not None else interp.path
-      )
+  # The child compiles a private copy (the module docstring, "The
+  # products"): nothing is written under the source while it runs.  The
+  # digest below is still the one of the ICurry file beside the original:
+  # the copy is of this moment.
+  source, searchdirs = _private_copy(imodule)
+  currypath = searchdirs + list(
+      currypath if currypath is not None else interp.path
+    )
   envp = _environment(interp, currypath)
   sofile = _filenames.replacesuffix(_filenames.icurryfilename(source), '.so')
   logfile = os.path.join(
@@ -498,9 +535,13 @@ def submit(interp, moduleobj, currypath):
   # of another text (see the module docstring).  The record of the module
   # names the object this job writes, for the swap of its importers.
   record = _record(moduleobj, sofile)
+  if not _foreign_flags(interp):
+    record.publish = _filenames.replacesuffix(
+        _filenames.icurryfilename(filename), '.so'
+      )
   logger.debug('Compiling %s in the background: %s', name, ' '.join(argv))
   curryrt.tiered_submit(
-      name, argv, envp, logfile, sofile, steps
+      name, argv, envp, logfile, sofile, record.publish or '', steps
     , record.icyfile, record.digest, _import_objects(interp, imodule)
     )
   _state.pending[name] = sofile
@@ -532,6 +573,10 @@ def _refresh(name, interp=None):
     shlib = h.backend_handle.shlib
     if shlib is not None and h.icurry.metadata.get('cxx.shlib') is None:
       h.icurry.update_metadata({'cxx.shlib': shlib})
+    # The record names the object the module runs from now, published or
+    # private, for the swap of its importers.
+    if shlib is not None and record is not None and record.module() is moduleobj:
+      record.sofile = shlib
 
 @native_metadata
 def poll(interp=None):

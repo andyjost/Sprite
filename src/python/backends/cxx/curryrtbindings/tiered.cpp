@@ -15,13 +15,14 @@ namespace
   using namespace curryrt;
 
   // The job of a module: the steps (name, symbol, info) and the imports
-  // (module, sofile, icurryfile, icurry_digest) come as sequences of
-  // tuples.
+  // (module, sofile, icurryfile, icurry_digest, publish) come as sequences
+  // of tuples; ``publish`` names the object beside the source the swap
+  // publishes, or is empty (TieredJob::publish).
   TieredJob make_job(
       std::string module, std::vector<std::string> argv
     , std::vector<std::string> envp, std::string logfile, std::string sofile
-    , py::sequence steps, std::string icurryfile, std::string icurry_digest
-    , py::sequence imports
+    , std::string publish, py::sequence steps, std::string icurryfile
+    , std::string icurry_digest, py::sequence imports
     )
   {
     TieredJob job;
@@ -30,6 +31,7 @@ namespace
     job.envp = std::move(envp);
     job.logfile = std::move(logfile);
     job.sofile = std::move(sofile);
+    job.publish = std::move(publish);
     job.icurryfile = std::move(icurryfile);
     job.icurry_digest = std::move(icurry_digest);
     for(py::handle item: steps)
@@ -47,13 +49,14 @@ namespace
     for(py::handle item: imports)
     {
       py::tuple tup = item.cast<py::tuple>();
-      if(tup.size() != 4)
+      if(tup.size() != 5)
         throw py::value_error(
-            "an import is (module, sofile, icurryfile, icurry_digest)"
+            "an import is (module, sofile, icurryfile, icurry_digest, publish)"
           );
       job.imports.push_back(TieredJob::Import{
           tup[0].cast<std::string>(), tup[1].cast<std::string>()
         , tup[2].cast<std::string>(), tup[3].cast<std::string>()
+        , tup[4].cast<std::string>()
         });
     }
     return job;
@@ -62,14 +65,14 @@ namespace
   void tiered_submit_(
       std::string module, std::vector<std::string> argv
     , std::vector<std::string> envp, std::string logfile, std::string sofile
-    , py::sequence steps, std::string icurryfile, std::string icurry_digest
-    , py::sequence imports
+    , std::string publish, py::sequence steps, std::string icurryfile
+    , std::string icurry_digest, py::sequence imports
     )
   {
     tiered_submit(make_job(
         std::move(module), std::move(argv), std::move(envp)
-      , std::move(logfile), std::move(sofile), steps, std::move(icurryfile)
-      , std::move(icurry_digest), imports
+      , std::move(logfile), std::move(sofile), std::move(publish), steps
+      , std::move(icurryfile), std::move(icurry_digest), imports
       ));
   }
 
@@ -93,7 +96,7 @@ namespace
     )
   {
     TieredJob job = make_job(
-        std::move(module), {}, {}, {}, std::move(sofile), steps, {}, {}
+        std::move(module), {}, {}, {}, std::move(sofile), {}, steps, {}, {}
       , py::tuple()
       );
     return result_dict(tiered_adopt(std::move(job), true));
@@ -134,16 +137,20 @@ namespace curryrt { namespace python
   {
     mod.def("tiered_submit", &tiered_submit_
       , py::arg("module"), py::arg("argv"), py::arg("envp")
-      , py::arg("logfile"), py::arg("sofile"), py::arg("steps")
+      , py::arg("logfile"), py::arg("sofile"), py::arg("publish") = ""
+      , py::arg("steps")
       , py::arg("icurryfile") = "", py::arg("icurry_digest") = ""
       , py::arg("imports") = py::tuple()
-      , "Queues the background compile of a module.  steps "
+      , "Queues the background compile of a module.  sofile is the object "
+        "the compile writes, in a private directory; publish names the "
+        "object beside the source the swap publishes before it opens the "
+        "object, or is empty.  steps "
         "is a sequence of (name, symbol, info): the functions to swap when "
         "the object is ready.  icurryfile and icurry_digest name the ICurry "
         "file (.icy) of the module at the import and its tiered_file_digest; "
         "the swap refuses the object when the file differs (the error "
         "TIERED_EDITED).  imports is a sequence of (module, sofile, "
-        "icurryfile, icurry_digest), the objects of the imports the "
+        "icurryfile, icurry_digest, publish), the objects of the imports the "
         "interpreter runs, in dependency order: the swap maps each one whose "
         "module has no object before the object of the module, under the "
         "same check of its ICurry.", curryrt::python::heap_access{});

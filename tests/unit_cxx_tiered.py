@@ -153,6 +153,47 @@ class TieredTestCase(cytest.TestCase):
       )
 
 
+class TestRemovedDirectory(TieredTestCase):
+  '''
+  A search path entry that goes while its module compiles in the background
+  (issue #173).  The child compiles a private copy and writes nothing under
+  the directory, so its removal never finds a half-written product, and the
+  products are published beside the source only at the swap, when the
+  source is still there.
+  '''
+  def test_removed_directory_gets_no_products(self):
+    work = tempfile.mkdtemp(prefix='sprite-tiered-removed-')
+    curry.path.insert(0, work)
+    name = 'CxxTieredRemoved%d' % next(self.counter)
+    with open(os.path.join(work, name + '.curry'), 'w') as stream:
+      stream.write(MODULE % {'name': name})
+    M = curry.import_(name)
+    self.assertTrue(tiered.pending(name))
+    # The directory goes at once, as a TemporaryDirectory of a test does at
+    # the end of its block: the compile is still running.
+    shutil.rmtree(work)
+    self.wait()
+    self.assertFalse(os.path.exists(work))
+    # The module runs on, interpreted or swapped to the private object.  The
+    # untyped builder: the interface files went with the directory.
+    goal = cytest.raw.expr(M.total, 3, typed=False)
+    self.assertEqual(
+        cytest.raw.interp().topython(next(cytest.raw.values(goal))), 20
+      )
+
+  def test_products_published_at_the_swap(self):
+    '''A module whose source stays gets its object and stamp beside it.'''
+    name = self.write_module()
+    M = self.import_module(name)
+    private = os.path.realpath(tiered._tmpdir()) + os.sep
+    record = tiered._state.records[name]
+    self.assertTrue(os.path.realpath(record.sofile).startswith(private), record.sofile)
+    self.wait()
+    self.assertTrue(os.path.isfile(self.sofile(name)))
+    self.assertTrue(os.path.isfile(self.stamp(name)))
+    self.assertEqual(self.py(M.total, 3), 20)
+
+
 class TestSwap(TieredTestCase):
   '''
   A fresh module is interpreted at once.  Its functions run compiled after
@@ -1294,8 +1335,9 @@ class TestImportObjects(TieredTestCase):
   @cytest.hardreset
   def test_import_mapped_before_a_failed_load(self):
     # The swap maps the object of the import before it loads the object of
-    # the importer.  When that load fails (the object is cut short here
-    # after the child wrote it), the importer stays interpreted and the
+    # the importer.  When that load fails (the private object is cut short
+    # here after the child wrote it, before the swap publishes and opens
+    # it), the importer stays interpreted and the
     # import runs compiled all the same: poll refreshes its record whatever
     # came of the importer.  Before, the record of the import was refreshed
     # only after a swap of the importer, and a later load of another
@@ -1314,8 +1356,10 @@ class TestImportObjects(TieredTestCase):
           curryrt.tiered_wait(COMPILE_SECONDS)
         , 'the background compile did not end in %s s' % COMPILE_SECONDS
         )
-      self.assertTrue(os.path.isfile(self.sofile(user)))
-      with open(self.sofile(user), 'wb') as stream:
+      private = tiered._state.records[user].sofile
+      self.assertTrue(os.path.isfile(private))
+      self.assertFalse(os.path.exists(self.sofile(user)))
+      with open(private, 'wb') as stream:
         stream.write(b'not an object\n')
       tiered.poll(cytest.raw.interp())
     after = tiered.status()
