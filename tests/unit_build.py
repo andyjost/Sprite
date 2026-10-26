@@ -30,6 +30,10 @@ class TestDistribution(cytest.TestCase):
     data = tomllib.loads((ROOT / 'pyproject.toml').read_text())
     project = data['project']
     self.assertEqual(project['name'], 'curry')
+    self.assertEqual(project['authors'], [{'name': 'Andy Jost'}])
+    frontend = tomllib.loads((ROOT / 'frontend/pyproject.toml').read_text())['project']
+    self.assertEqual(frontend['name'], 'curry-frontend')
+    self.assertEqual(frontend['authors'], [{'name': 'Andy Jost'}])
     self.assertIn('Sprite', project['description'])
     self.assertEqual((ROOT / 'VERSION').read_text().strip(), '0.9.0a2')
     self.assertEqual(project['license'], 'BSD-3-Clause')
@@ -68,6 +72,8 @@ class TestDistribution(cytest.TestCase):
             self.assertIn(prefix + str(stem.with_suffix(suffix).relative_to(ROOT)), names)
         self.assertFalse(any('/object-root/' in n or '/install/' in n for n in names))
         metadata = BytesParser().parsebytes(archive.extractfile(prefix + 'PKG-INFO').read())
+        self.assertEqual(metadata['Author'], 'Andy Jost')
+        self.assertIsNone(metadata['Author-email'])
         self.assertEqual(metadata.get_all('Requires-Dist'), ['curry-frontend>=2.0.0'])
 
   def test_stage_without_frontend(self):
@@ -134,6 +140,7 @@ else:
     '''A matrix fixture for testing the publication gate, without native code.'''
     gate = script('check-dist')
     metadata = ('Metadata-Version: 2.4\nName: curry\nVersion: 0.9.0a2\n'
+                'Author: Andy Jost\n'
                 'License-Expression: BSD-3-Clause\n'
                 'Classifier: Development Status :: 3 - Alpha\n'
                 + ''.join('Requires-Dist: %s\n' % req for req in requirements) + '\n')

@@ -83,7 +83,7 @@ class TestCondaRecipe(cytest.TestCase):
   def test_sprite_recipe(self):
     '''The Sprite recipe names the dependencies and the layout of the task.'''
     meta = readfile(RECIPE, 'meta.yaml')
-    self.assertIn('name: currylang', meta)
+    self.assertIn('name: curry', meta)
     self.assertIn('path: ../..', meta)
     self.assertIn('skip: true  # [not linux64]', meta)
     for dep in ['python >=3.11.4,<3.16', 'curry-frontend 2.0.0.*', 'cxx-compiler']:

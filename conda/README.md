@@ -23,9 +23,9 @@ rattler-build is straightforward.
 Two recipes
 -----------
 
-`recipe/` builds the package `currylang` from this repository.  `curry-frontend/`
+`recipe/` builds the package `curry` from this repository.  `curry-frontend/`
 repackages the Curry front end from the PAKCS binary distribution.  Sprite
-needs the front end at run time, so `currylang` depends on `curry-frontend`.
+needs the front end at run time, so `curry` depends on `curry-frontend`.
 The two packages are separate because they have different licenses and
 origins, and because the front end changes with PAKCS, not with Sprite.
 
@@ -36,7 +36,7 @@ Each recipe directory holds `meta.yaml`, `build.sh`, and a
 conda-forge supplies those keys through its pinning file.  A build outside
 conda-forge needs them in the recipe.
 
-### `recipe/`: the package `currylang`
+### `recipe/`: the package `curry`
 
 Source: the repository (`path: ../..`). The pybind11 and libtommath
 submodules under `extern/` must be present.
@@ -358,7 +358,7 @@ built.  The export was preferred.)
         --jobs 4 --memory-limit 16
 
 The script exports the commit to `BUILD_ROOT/src/sprite-<commit>`, builds
-`curry-frontend` and then `currylang` from the recipes of the export, with
+`curry-frontend` and then `curry` from the recipes of the export, with
 `--croot BUILD_ROOT/bld` and the output folder `BUILD_ROOT/channel`
 (`--channel` names another), the local channel first and conda-forge
 second.  `--pakcs-archive` copies a PAKCS archive that is already on disk
@@ -367,7 +367,7 @@ with the first ten characters of its SHA-256 (the script checks the hash
 against `curry-frontend/meta.yaml`), so the build downloads nothing but
 conda packages.  `--jobs` sets `CPU_COUNT`, `--timeout` the time limit of
 each build (3600 s by default), and `--memory-limit GB` runs each build
-under `prlimit --as`.  `--skip-frontend` builds `currylang` alone, from the
+under `prlimit --as`.  `--skip-frontend` builds `curry` alone, from the
 `curry-frontend` the channel holds; `--export-only` stops after the
 export; `--dry-run` prints the plan.  `--overlay PATH` takes a file or a
 directory of the working tree in place of the exported one, for a build of
@@ -402,7 +402,7 @@ By hand, the same build is
 from the working tree, with whatever it holds.
 
 The `curry-frontend` build takes about two minutes (2 min 19 s on
-2026-10-07).  The `currylang` build of record of 2026-10-08 took 5 min 24 s
+2026-10-07).  The `curry` build of record of 2026-10-08 took 5 min 24 s
 of conda-build from the creation of its environments to the end of its
 tests (the build step 2 min 30 s, the test step 14 s, the rest the
 environments and the packaging; the script with the export and
@@ -419,7 +419,7 @@ Testing the packages
 
 An environment with both packages, from the local channel:
 
-    conda create -p /path/to/env --override-channels -c file://$channel -c conda-forge currylang python=3.14
+    conda create -p /path/to/env --override-channels -c file://$channel -c conda-forge curry python=3.14
 
 Then, from a directory outside the repository and without activation of
 the environment, with a program `Smoke.curry`:
@@ -552,7 +552,7 @@ files, and the build options the recipe relies on, not a build.
 Status
 ------
 
-The build of record is the `currylang` build of 2026-10-08: conda-build
+The build of record is the `curry` build of 2026-10-08: conda-build
 26.9.1 (conda 26.9.1, Python 3.13) on linux-64 with `build-packages.sh
 --skip-frontend --jobs 4 --memory-limit 16`, from the export of commit
 c8c17fa1 (the merge of the format-13 change into the branch), without
@@ -575,7 +575,7 @@ Both recipes were built on 2026-10-07 with conda-build 26.9.1 (conda
 of commit f9ce8077 with the uncommitted files of the working tree as
 overlays (a development build: the packaging work of this directory and
 the dependency cleanup that dropped Boost, both uncommitted at the time),
-and from the PAKCS archive of the source cache.  `currylang` was built three
+and from the PAKCS archive of the source cache.  `curry` was built three
 times that day: first with `libboost-headers` (the overlays of the
 packaging work alone), then without it (every changed path of the working
 tree), and a third time after the review of the two lanes (every changed
@@ -592,7 +592,7 @@ modification times of their sources; `toolchain.py` and its cache, the
 one change of size, 1,929 bytes), and the compressed archive is 44,053
 bytes larger.  All three
 builds passed their tests.
-An environment made from each `currylang` build and `curry-frontend` ran the
+An environment made from each `curry` build and `curry-frontend` ran the
 test of the section above on both backends without activation, with no
 `SPRITE_HOME` set.  The ICurry oracle of `tests/README` was not run against
 these builds.  The build of 2026-10-05 (conda-build 26.9.1, the working
@@ -605,7 +605,7 @@ These choices make the package install and run today.  Each one is open to
 the owner; the next section gives a recommendation for each.
 
 1. The front end is a separate package, `curry-frontend`, repackaged from
-   the PAKCS binary distribution.  It is neither bundled into `currylang` nor
+   the PAKCS binary distribution.  It is neither bundled into `curry` nor
    downloaded at run time.
 2. The package has one runtime, the C++ runtime.  The compiler is optional
    at run time; without it modules run interpreted, with one notice per
@@ -658,10 +658,10 @@ of 2026-10-08 showed both; the entries record the decisions.
    lts-16.9).  Open.
 2. The compiler at run time, and the ABI stamp.  Keep `cxx-compiler` as a
    run dependency for now: the first user must get compiled code from one
-   command.  Later, split the package: `currylang` with the C++ runtime, its
+   command.  Later, split the package: `curry` with the C++ runtime, its
    ICurry interpreter (the interpreter flag `interpret`) and the compiled
    library objects, which runs without a compiler, and a metapackage
-   `currylang-cxx` that adds `cxx-compiler` for the background compile of the
+   `curry-cxx` that adds `cxx-compiler` for the background compile of the
    user's modules.  The split is a follow-up of the packaging issue #1;
    stage 2 of issue #82 (the compiler-free mode) documented the behaviour
    and did not split the package.  The stamp: decided on 2026-10-07 under
@@ -784,8 +784,8 @@ of 2026-10-08 showed both; the entries record the decisions.
     extern/pybind11`, or add the conda-forge package `pybind11` to the host
     requirements, whose headers the compiler finds under `$PREFIX/include`;
     a release tarball from GitHub lacks the submodule.
-12. Pip.  The pip distribution is `curry` (`pip install curry`); the conda
-    scaffold keeps `currylang`, whose name is a separate decision.
+12. Pip.  The pip distribution and the unpublished conda scaffold both use
+    `curry` (`pip install curry`).
     A wheel of Sprite (roadmap issue #1) needs the front
     end on the user's machine; the conda package solves that through
     `curry-frontend`.  A wheel that bundles the front end binary would carry
@@ -845,7 +845,7 @@ list.  Before publication:
 
 1. The front end (question 1): a feedstock `curry-frontend`, and a build
    of the front end from source for a second platform.
-2. The split into `currylang` and `currylang-cxx` (question 2).
+2. The split into `curry` and `curry-cxx` (question 2).
 3. The compiler pin (question 6): take the compiler of the pinning file on
    both sides, or tie them with `run_constrained`; the probe with GCC 16
    is recorded in the entry.
