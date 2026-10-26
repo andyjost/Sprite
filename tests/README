@@ -535,8 +535,8 @@ The Python port of the FlatCurry-to-ICurry translation (the package
 curry.toolchain.flat2icurry) is byte-identical in compatibility mode to
 icurry 3.1.0 with front end 2.0.0 (PAKCS 3.4.1), and to icurry 3.3.0 with
 front end 3.1.0 (PAKCS 3.10.0). The rewritten FlatCurry inputs and independent
-ICurry outputs are in overlay-pakcs-3.4.1.tgz and overlay-pakcs-3.10.0.tgz,
-respectively. make overlay and the harness select the configured release
+ICurry outputs are in tests/overlay/overlay-pakcs-3.4.1.tgz and
+tests/overlay/overlay-pakcs-3.10.0.tgz, respectively. make overlay and the harness select the configured release
 from SPRITE_HOME (or the Makefile PREFIX); products of both can coexist.
 The current-tool archive also holds all 30 library oracles; the committed
 library ICurry is the installed runtime route's output (icurry_compat=False),

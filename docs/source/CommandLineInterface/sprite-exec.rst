@@ -249,7 +249,7 @@ its Python bindings only; a plain build has none of the code, and the
 generated modules of a plain build serve an instrumented one.  Use ``make COUNTERS=1 stage`` to enable it and
 ``make COUNTERS=0 stage`` to disable it.  The
 instrumented runtime costs about one to three percent more instructions and
-a word more per node; see the TODO entry for the measurements.
+a word more per node.
 
 With the counters, ``--stats`` appends these fields after
 ``gc_old_blocks``, and

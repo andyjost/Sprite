@@ -2,9 +2,8 @@
 Status
 ======
 
-This page says what Sprite is today, in one place.  The dated entries of
-the file ``TODO`` at the root of the repository hold the record behind each
-statement; the code wins over both when they disagree.
+This page says what Sprite is today, in one place.  The code wins when
+this page disagrees with it.
 
 The front end
 =============
@@ -87,7 +86,7 @@ three repetitions.  The baseline before the program is the label
 Two measured facts.  In the memory record of that label ``Tak1`` peaks at
 68 MB with the collector and 1009 MB without it.  The rotation check of
 the scheduler costs 3 to 5 instructions per completed step over the build
-before the ticker (the ``TODO`` entry on K1 and K2).
+before the ticker.
 
 Known limits
 ============

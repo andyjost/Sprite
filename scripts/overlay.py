@@ -108,9 +108,14 @@ def prune_receipts(root, subdir):
 
 def prune(root, subdir='pakcs-3.10.0'):
   prune_receipts(root, subdir)
-  archive = 'overlay-' + subdir + '.tgz'
+  archive = 'tests/overlay/overlay-' + subdir + '.tgz'
   try:
-    commit = git('log', '-1', '--format=%H', '--', archive)
+    # The last commit that packed the archive: a content change, followed
+    # across the move of the archives from the root to tests/overlay
+    # (a rename packs nothing); the first commit of an archive that was
+    # never packed again.
+    commit = (git('log', '-1', '--format=%H', '--follow', '--diff-filter=M', '--', archive)
+              or git('log', '-1', '--format=%H', '--follow', '--', archive))
   except subprocess.CalledProcessError:
     commit = ''
   if not commit:
@@ -183,7 +188,7 @@ def main():
   subdir = setting.read_text().strip() if setting.is_file() else 'pakcs-3.10.0'
   if subdir not in ('pakcs-3.4.1', 'pakcs-3.10.0'):
     parser.error('unsupported overlay release: ' + subdir)
-  archive = ROOT / ('overlay-' + subdir + '.tgz')
+  archive = ROOT / 'tests' / 'overlay' / ('overlay-' + subdir + '.tgz')
   if args.action == 'overlay':
     if archive.exists():
       with tarfile.open(archive) as stream:

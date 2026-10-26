@@ -95,7 +95,7 @@ def main():
   for path in (prefix / 'curry').rglob('*.py'):
     path.unlink()
   for path in (source / 'src/python').rglob('*'):
-    if path.suffix not in ('.py', '.pyi', '.typed') or 'llvm' in path.parts:
+    if path.suffix not in ('.py', '.pyi', '.typed'):
       continue
     copy(path, prefix / 'python/curry' / path.relative_to(source / 'src/python'))
   for path in (source / 'src/curryrt').rglob('*'):

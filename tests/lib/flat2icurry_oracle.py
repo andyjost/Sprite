@@ -15,7 +15,7 @@ The expected file of ``<dir>/.curry/<subdir>/M.fcy`` is
 interfaces of imports are searched under the root of the module, the ``-i``
 directories, and the system Curry path.
 
-The fixed oracle is the overlay archive ``overlay-<subdir>.tgz`` at the root
+The fixed oracle is the overlay archive ``tests/overlay/overlay-<subdir>.tgz``
 of the repository.  It holds the ``.fcy``, ``.fint``, and ``.icy`` files of
 the test programs, written by the configured front end and matching icurry, and
 the FlatCurry interfaces of the Curry library under ``curry/lib/.curry``.
@@ -207,7 +207,7 @@ def frontend_subdir():
 
 def overlay_archive(root=ROOT):
   '''The overlay archive for the pinned front end, or None.'''
-  path = os.path.join(root, 'overlay-%s.tgz' % frontend_subdir())
+  path = os.path.join(root, 'tests', 'overlay', 'overlay-%s.tgz' % frontend_subdir())
   return path if os.path.isfile(path) else None
 
 class Overlay:
