@@ -80,7 +80,7 @@ mode; on-disk checks distinguish the two translations.
 '''
 
 from .. import config
-from . import _system, flat2icurry
+from . import _preprocessor, _system, flat2icurry
 from ..exceptions import CompileError, CurryWarning
 import warnings
 from ..utility import curryname
@@ -257,6 +257,9 @@ def curry2flat(file_in, currypath, quiet=False, rewrite=True):
   be read is reported and left; the module's own file raises.  A caller
   that needs the text of the front end passes ``rewrite=False``.
   '''
+  reason = _preprocessor.missing(file_in)
+  if reason:
+    raise CompileError(reason)
   cmd = command(file_in, currypath, quiet)
   logger.debug('Command: %s', ' '.join(cmd))
   moduledir = os.path.dirname(os.path.abspath(file_in))

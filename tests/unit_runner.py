@@ -1600,12 +1600,12 @@ class TestPrepare(unittest.TestCase):
     self.assertTrue(all(name.endswith('.curry') for name in files))
     self.assertEqual(files, sorted(files))
     self.assertEqual(prepare.modules('data/curry/nosuch'), [])
-    # The two programs that need the Curry preprocessor are left to the
-    # benchmark harness.
+    # Optional preprocessors are handled by the pass, rather than a
+    # permanent exclusion that also applies on development machines.
     benchmarks = prepare.modules('data/curry/benchmarks')
     self.assertIn('data/curry/benchmarks/Last.curry', benchmarks)
-    self.assertNotIn('data/curry/benchmarks/PokerChoice.curry', benchmarks)
-    self.assertNotIn('data/curry/benchmarks/PokerFree.curry', benchmarks)
+    self.assertIn('data/curry/benchmarks/PokerChoice.curry', benchmarks)
+    self.assertIn('data/curry/benchmarks/PokerFree.curry', benchmarks)
 
   def test_jobs(self):
     env = {'CURRYPATH': '/pool', 'PATH': '/bin'}
@@ -1916,12 +1916,8 @@ class TestPrepare(unittest.TestCase):
 
   def test_preprocessor_lacking(self):
     '''
-    A module whose source names a preprocessor the PATH lacks, and whose
-    log shows that the front end could not run it, is without a product as
-    any other: the pass fails, and the note adds the cause and the remedy
-    (poker_four_of_a_kind of smap, currypp, in the nightly functional
-    shards before the workflow extracted the overlay archive).  Another
-    failure of such a module, or the tool on the PATH, gets no such hint.
+    A missing preprocessor skips the module. Other compile failures still
+    fail the pass, including failures when the tool is on PATH.
     '''
     self.assertIsNone(prepare.preprocessor('/no/such/file.curry'))
     tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
@@ -2005,21 +2001,21 @@ class TestPrepare(unittest.TestCase):
       , ['data/curry/smap/plain.curry', 'data/curry/smap/poker.curry']
       )
     self.assertEqual(lacking.lacking, {'data/curry/smap/poker.curry': 'currypp'})
-    self.assertEqual(lacking.status, 'FAILED')
+    self.assertEqual(lacking.status, 'ok')
     self.assertEqual(
         lacking.note
-      , 'exit status 1; 1 of 2 modules without a product: poker.curry; '
-        'poker.curry needs currypp, which the PATH lacks; make overlay after '
-        'make stage supplies its products'
+      , '1 module skipped; poker.curry needs the preprocessor currypp, '
+        'which is not on PATH.'
       )
-    self.assertEqual(cli.exit_status([lacking]), 1)
+    self.assertEqual(cli.exit_status([lacking]), 0)
     self.assertEqual(
         prepare.summary([lacking])
-      , 'prepare: 2 modules in 1 directory on cxx; 1 without a product: '
-        'data/curry/smap/poker.curry (cxx); the tests that need them report it'
+      , 'prepare: 2 modules in 1 directory on cxx, 1 skipped for an unavailable '
+        'preprocessor, every other product present'
       )
-    # An advisory job (--prepare) keeps its status as well.
-    self.assertEqual(job(nowhere, shell, 'incomplete').status, 'incomplete')
+    self.assertEqual(job(nowhere, shell, 'incomplete').status, 'ok')
+    diagnostic = 'poker.curry needs the preprocessor currypp, which is not on PATH.'
+    self.assertEqual(job(nowhere, diagnostic).status, 'ok')
     # A failure after the ICurry step is not blamed on the tool.
     plain = job(nowhere, other)
     self.assertEqual(plain.lacking, {})
@@ -2043,8 +2039,8 @@ class TestPrepare(unittest.TestCase):
     self.assertEqual(
         both.note
       , 'exit status 1; 2 of 2 modules without a product: plain.curry, '
-        'poker.curry; poker.curry needs currypp, which the PATH lacks; make '
-        'overlay after make stage supplies its products'
+        'poker.curry; poker.curry needs the preprocessor currypp, which is '
+        'not on PATH.'
       )
     self.assertEqual(
         prepare.summary([both])

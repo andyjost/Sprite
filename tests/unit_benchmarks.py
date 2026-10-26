@@ -1308,6 +1308,31 @@ class TestApplications(unittest.TestCase):
     with self.assertRaisesRegex(SystemExit, 'applications suite only'):
       run.main(['-s', 'import', '-b', 'python', 'hello'])
 
+  def test_preprocessor_exclusions(self):
+    filename = os.path.join(self.workdir, 'excluded.jsonl')
+    log = io.StringIO()
+    from curry.toolchain import _preprocessor
+    with mock.patch.object(_preprocessor.shutil, 'which', return_value=None), \
+         contextlib.redirect_stderr(log):
+      status = run.main([
+          '--sprite-home', config.prefix(), '--no-perf', '-o', filename,
+          'PokerChoice', 'PokerFree'
+        ])
+    self.assertEqual(status, 0)
+    self.assertIn('0 of 0 covered, 2 excluded', log.getvalue())
+    entries = records.read(filename)
+    self.assertEqual(len(entries), 2)
+    for entry in entries:
+      self.assertEqual(entry['status'], 'excluded')
+      self.assertIn('needs the preprocessor currypp', entry['error'])
+      self.assertEqual(entry['samples'], [])
+      self.assertIsNone(entry['wall'])
+      row = compare.compare(entry, entry, 'cpu', compare.THRESHOLD)
+      self.assertEqual(row['verdict'], 'excluded')
+    with mock.patch.object(_preprocessor.shutil, 'which', return_value='/tool'):
+      item = suites.SpriteExecItem('PokerChoice', 'cxx', self.settings)
+      self.assertIsNone(item.unavailable())
+
   def test_index_generator(self):
     '''
     The generated indexes: the same from one seed, the shape of example 15,

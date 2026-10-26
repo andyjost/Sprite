@@ -59,6 +59,15 @@ set functions.
 
 ## Timing one program with Sprite
 
+`PokerChoice` and `PokerFree` use default rules through the optional Curry
+preprocessor `currypp`. Install it with PAKCS's package manager (`cypm install
+currypp`) and put its executable on PATH. Sprite does not ship it. When it
+is absent, the harness writes `excluded` records for these two programs,
+with the missing tool as the reason and no measured samples. They do not
+count against coverage: a successful dissertation run covers 28 of 28
+eligible programs with 2 excluded, or 30 of 30 with the preprocessor.
+The records form the next baseline; historical measurements stay unchanged.
+
 Stage Sprite first (`make stage`).  Then, from the repository root, set
 `CURRYPATH` to this directory and run the module with the C++ backend.  The
 `-t` option suppresses the program output and prints the execution time in

@@ -1,6 +1,9 @@
 Source: tutorial
 Tutorial draft June 24, 2025; supplied PROGRAMS archive.
 Original programs are copied byte for byte. *Goals.curry are Sprite adapters.
+The default-rule examples fullHouse, poker, and betterblocks are copied from
+the program data embedded in the official tutorial's Browse links. Their
+byte counts match the PROGRAMS survey: 970, 901, and 1627, respectively.
 
 Files:
   chapter2/absfac.curry
@@ -28,11 +31,14 @@ Files:
   chapter4/comprehensions.curry
   chapter4/fibocompr.curry
   chapter4/fold.curry
+  chapter4/fullHouse.curry
   chapter4/lists.curry
+  chapter4/poker.curry
   chapter4/submin.curry
   chapter4/sumlist.curry
   chapter4/transpose.curry
   chapter4/treesort.curry
+  chapter6/betterblocks.curry
   chapter6/blocks.curry
   chapter6/missionaries.curry
 
@@ -42,3 +48,5 @@ execution. No explicit redistribution license is stated on the page or in
 the supplied ZIP. This is recorded as a provenance finding, not a BSD claim.
 https://www.curry-language.org/documentation/tutorial/
 https://www.curry-language.org/docs/tutorial/html/curry-tutorial.Chx1.html
+https://www.curry-lang.org/docs/tutorial/html/curry-tutorial.Ch4.S2.html
+https://www.curry-language.org/docs/tutorial/html/curry-tutorial.Ch6.S1.html

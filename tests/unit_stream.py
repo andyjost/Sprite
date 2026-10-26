@@ -209,10 +209,19 @@ else:
     pakcs = Path(config.installed_path('tools/pakcs'))
     if not pakcs.exists():
       self.skipTest('PAKCS is unavailable; the shim was not run')
-    env = dict(os.environ, CURRYPATH=str(ROOT / 'curry/oracle') + os.pathsep + os.environ.get('CURRYPATH', ''))
-    proc = subprocess.run([str(pakcs), '--nocypm', '-q', ':load',
-        str(ROOT / 'tests/data/curry/flows/Primes.curry'), ':eval', 'threeOut', ':quit'],
-        env=env, capture_output=True, text=True, timeout=120)
+    # Give the oracle source-only inputs and its own base library even when
+    # the caller's CURRYPATH includes the Sprite installation.
+    with tempfile.TemporaryDirectory() as dirname:
+      work = Path(dirname)
+      (work / 'Sprite').mkdir()
+      (work / 'Primes.curry').write_bytes(
+          (ROOT / 'tests/data/curry/flows/Primes.curry').read_bytes())
+      (work / 'Sprite/Stream.curry').write_bytes(
+          (ROOT / 'curry/oracle/Sprite/Stream.curry').read_bytes())
+      env = dict(os.environ, CURRYPATH=dirname)
+      proc = subprocess.run([str(pakcs), '--nocypm', '-q', ':load',
+          'Primes', ':eval', 'threeOut', ':quit'], cwd=dirname,
+          env=env, capture_output=True, text=True, timeout=120)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(proc.stdout, '1\n2\n3\n')
     self.assertEqual(proc.stdout, self.run_tool(config.sprite_exec(),

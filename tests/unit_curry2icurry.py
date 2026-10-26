@@ -54,6 +54,76 @@ class TestCurry2ICurry(cytest.TestCase):
     self.tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
     self.addCleanup(shutil.rmtree, self.tmpdir, True)
 
+  def test_missing_preprocessor(self):
+    source = os.path.join(self.tmpdir, 'NeedsCPP.curry')
+    with open(source, 'w') as stream:
+      stream.write('{-# OPTIONS_CYMAKE -F --pgmF=currypp --optF=defaultrules #-}\n'
+                   'module NeedsCPP where\nmain = True\n')
+    # Remove the tool in the child even on a development machine with it.
+    code = r'''
+import curry, os, unittest
+from curry import cache, exceptions
+from curry.toolchain import _frontend, _preprocessor
+from cytest.testcase.functional import FunctionalTestCase
+os.environ['PATH'] = %r
+os.environ['SPRITE_CACHE_FILE'] = ''
+cache.reset()
+source = %r
+reason = 'NeedsCPP.curry needs the preprocessor currypp, which is not on PATH.'
+assert _preprocessor.preprocessor(source) == 'currypp'
+assert _preprocessor.missing(source) == reason
+for pragma in (
+    '{-# OPTIONS_FRONTEND -F --pgmF "currypp" #-}',
+    '{-# OPTIONS_CYMAKE\n-F --pgmF=currypp\n#-}'):
+  with open(source, 'w') as stream:
+    stream.write(pragma + '\nmodule NeedsCPP where\nmain = True\n')
+  assert _preprocessor.preprocessor(source) == 'currypp'
+try:
+  _frontend.curry2flat(source, [])
+except exceptions.CompileError as error:
+  assert str(error) == reason, str(error)
+else:
+  raise AssertionError('front end ran without currypp')
+class Check(FunctionalTestCase):
+  SOURCE_DIR = %r
+curry.path.insert(0, os.path.dirname(source))
+case = Check()
+try:
+  case.import_program('NeedsCPP')
+except unittest.SkipTest as error:
+  assert str(error) == reason, str(error)
+else:
+  raise AssertionError('functional driver did not skip')
+from func_community import check_goals
+from pathlib import Path
+try:
+  check_goals(case, Path(source), [{'program': 'NeedsCPP.curry', 'goal': 'main'}],
+              None, None)
+except unittest.SkipTest as error:
+  assert str(error) == reason, str(error)
+else:
+  raise AssertionError('community driver called the oracle without currypp')
+from unittest import mock
+from types import SimpleNamespace
+Path(source).with_name('NeedsCPP.main.au-gen').write_text('True\n')
+# An adapter's front-end invocation can fail in its imported source.
+failure = SimpleNamespace(returncode=1,
+    stderr='Preprocessor exited with exit code 127')
+with mock.patch('func_community.sprite_results', return_value=(failure, '')), \
+     mock.patch('func_community.record'):
+  try:
+    check_goals(case, Path(source), [{'program': 'NeedsCPP.curry', 'goal': 'main'}],
+                None, None)
+  except unittest.SkipTest as error:
+    assert str(error) == reason, str(error)
+  else:
+    raise AssertionError('community driver did not skip imported preprocessor')
+print('missing preprocessor detected and skipped')
+''' % (self.tmpdir, source, self.tmpdir)
+    proc = cytest.run_in_subprocess(code, timeout=30)
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    self.assertIn('detected and skipped', proc.stdout)
+
   def copy(self, relpath):
     '''Copies a test module into the scratch directory.'''
     dst = os.path.join(self.tmpdir, relpath)

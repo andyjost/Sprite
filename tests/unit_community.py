@@ -5,6 +5,7 @@ from cytest.clean import clean
 from func_community import GOALS, oracle_source, record, sprite_results
 from curry import config
 from curry.typecheck.sigtable import InterfaceError
+from curry.toolchain import _preprocessor
 import pathlib, unittest
 import curry
 
@@ -149,6 +150,23 @@ for filename in ('InstanceExport.curry', 'InstanceExport/M.curry',
 
 
 class TestCommunityRegressions(cytest.TestCase):
+  @unittest.expectedFailure
+  @cytest.with_flags(interpret='off')
+  def test_default_rule_blocks_solver(self):
+    # Both PAKCS oracles enumerate six finite two-block solutions. Sprite
+    # does not finish the search; retain a bounded reproducer for review.
+    source = ROOT / 'tutorial/chapter6/BetterBlocksGoals.curry'
+    reason = _preprocessor.missing(source.with_name('betterblocks.curry'))
+    if reason:
+      self.skipTest(reason)
+    curry.path.insert(0, str(source.parent))
+    curry.import_(source.stem)
+    expected = source.with_name('BetterBlocksGoals.solveSimple.au-gen').read_text()
+    proc, actual = sprite_results(source, 'solveSimple', timeout=5,
+                                  address_space=256 << 20)
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    self.assertSameResultMultiset(actual, expected)
+
   def test_lifted_non_linear_function_pattern(self):
     # Issue #169: the lifted non-linear functional pattern gives one free value
     # where both oracles give none.

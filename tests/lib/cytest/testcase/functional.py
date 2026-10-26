@@ -20,6 +20,7 @@ from . import testcase
 from .. import tty
 import curry, contextlib, functools, inspect, io, os, re, sys, unittest
 from curry import exceptions
+from curry.toolchain import _preprocessor
 
 __all__ = ['FunctionalTestCase']
 
@@ -198,6 +199,8 @@ class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclas
     def wrapper(self, testname, *args, **kwds):
       try:
         f(self, testname, *args, **kwds)
+      except unittest.SkipTest:
+        raise
       except:
         self.failed.append(testname)
         raise
@@ -274,7 +277,7 @@ class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclas
     etype, emsg = error_desc       if isinstance(error_desc, tuple) else \
                   (error_desc, '') if isinstance(error_desc, BaseException) else \
                   (exceptions.EvaluationError, error_desc)
-    module = curry.import_(testname)
+    module = self.import_program(testname)
     with self.assertRaisesRegex(etype, emsg):
       for goal in self.iterate_goals(module):
         with self.redirect_tty(testname, check_result=False):
@@ -287,7 +290,7 @@ class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclas
     Load the specified module, execute each goal, and compare with goldens
     provided by the oracle.
     '''
-    module = curry.import_(testname)
+    module = self.import_program(testname)
     num_tests_run = 0
     failures = []
     if self.CREATES_FILE[testname]:
@@ -348,6 +351,17 @@ class FunctionalTestCase(testcase.TestCase, metaclass=FunctionalTestCaseMetaclas
 
     if failures:
       self.fail('the following tests failed:\n%s' % '\n\n'.join(failures))
+
+  def import_program(self, testname):
+    try:
+      return curry.import_(testname)
+    except exceptions.CompileError as error:
+      reason = _preprocessor.missing(
+          os.path.join(self.SOURCE_DIR, testname + '.curry')
+        )
+      if reason and reason in str(error):
+        self.skipTest(reason)
+      raise
 
   def evaluate(self, testname, module, goal):
     '''
