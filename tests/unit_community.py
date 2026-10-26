@@ -158,7 +158,10 @@ class TestCommunityRegressions(cytest.TestCase):
       for interpret in ('off', 'all'):
         for goal, expected in (('main3', ''), ('main2', '_a')):
           with self.subTest(interpret=interpret, goal=goal):
-            proc, actual = sprite_results(local, goal, timeout=5,
+            # The bound guards against a divergence; the interpreted route of
+            # every module takes tens of seconds on the Intel macOS runner of
+            # CI (run 40245416616 timed out at five).
+            proc, actual = sprite_results(local, goal, timeout=90,
                                            interpret=interpret)
             self.assertEqual(proc.returncode, 0, proc.stderr)
             self.assertSameResultMultiset(actual, expected)
