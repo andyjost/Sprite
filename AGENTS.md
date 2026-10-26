@@ -211,7 +211,7 @@ reproducers pass.
   `CMAKE_BUILD_TYPE=Release` (default) or `Debug`, `TRACE`, `COUNTERS` and
   `GC_WRITE_COUNTERS` select runtime settings. Pinned ICurry rebuilds only
   with `-DSPRITE_REBUILD_ICY=ON`. `pip wheel .` uses scikit-build-core and
-  builds distribution `currylang`; the import remains `curry`.
+  builds distribution `curry`; the import remains `curry`.
 - `scripts/setup-dev-machine.sh --prefix DIR` sets up a new machine: the
   apt packages (printed, never installed by the script), PAKCS, a conda
   environment, CMake, `make stage`, and a smoke test. See the page

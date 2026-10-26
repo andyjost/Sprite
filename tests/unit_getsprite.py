@@ -76,7 +76,7 @@ INSTALLER
   def expected_uv(self):
     return ['uv', str(self.home / '.local/bin'), 'tool', 'install', '--upgrade',
             '--managed-python', '--python', PYTHON, '--no-build',
-            '--with-executables-from', 'curry-frontend', 'currylang']
+            '--with-executables-from', 'curry-frontend', 'curry']
 
   def test_posix_syntax(self):
     for name in SCRIPTS + ['scripts/getsprite-check.sh']:
@@ -97,7 +97,7 @@ INSTALLER
           self.assertOK(proc)
           for part in ['curl -LsSf https://astral.sh/uv/install.sh | sh',
                        'managed CPython 3.11.4', PYTHON, 'curry-frontend',
-                       'uv tool install --upgrade', '--with-executables-from curry-frontend currylang',
+                       'uv tool install --upgrade', '--with-executables-from curry-frontend curry',
                        'export PATH="$HOME/.local/bin:$PATH"']:
             self.assertIn(part, proc.stdout)
           self.assertEqual(self.log(), [])

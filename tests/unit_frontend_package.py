@@ -35,6 +35,8 @@ class TestFrontendWheel(unittest.TestCase):
       with zipfile.ZipFile(wheel) as archive:
         metadata = archive.read('curry_frontend-2.0.0.post6.dist-info/METADATA').decode()
       self.assertIn('\nName: curry-frontend\n', metadata)
+      self.assertIn('\nAuthor: Andy Jost\n', metadata)
+      self.assertNotIn('\nAuthor-email:', metadata)
       # The description of the PyPI page: the release workflow's strict twine
       # check refuses a wheel without one.
       self.assertIn('\nDescription-Content-Type: text/markdown\n', metadata)

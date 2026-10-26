@@ -8,10 +8,10 @@ Manual Installation
 PyPI wheels and source distribution
 -----------------------------------
 
-The ``currylang`` package provides Sprite and is imported as ``curry``.
-The initial release is ``0.9.0a1`` (alpha). Install it with::
+The ``curry`` package provides Sprite and is imported as ``curry``.
+The next release is ``0.9.0a2`` (alpha). Install it with::
 
-  python -m pip install --pre currylang
+  python -m pip install --pre curry
 
 The manylinux_2_28 wheels support Linux with glibc 2.28 or newer on x86-64
 and aarch64, for CPython 3.11, 3.12, 3.13, 3.14, free-threaded 3.14t,
@@ -27,7 +27,7 @@ using the user's compiler. Run a source program with
 The sdist builds with pip, a C++ compiler and the Python development
 headers::
 
-  python -m pip install --pre --no-binary=currylang currylang
+  python -m pip install --pre --no-binary=curry curry
 
 Pip supplies CMake, Ninja and ``curry-frontend`` as build requirements.
 It is also a runtime dependency, installed automatically to load source

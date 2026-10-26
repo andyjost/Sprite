@@ -103,7 +103,7 @@ packaging revisions.
 Wheels
 ------
 
-The distribution is ``currylang``; its Python package is ``curry``::
+The distribution is ``curry``; its Python package is ``curry``::
 
     python -m pip wheel .
     python -m pip install .

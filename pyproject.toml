@@ -3,7 +3,8 @@ requires = ["scikit-build-core>=1.1", "cmake>=3.24", "ninja"]
 build-backend = "scikit_build_core.build"
 
 [project]
-name = "currylang"
+authors = [{name = "Andy Jost"}]
+name = "curry"
 dynamic = ["version"]
 description = "The Sprite compiler and runtime for Curry"
 readme = "README.pypi.md"

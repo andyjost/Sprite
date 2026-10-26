@@ -211,7 +211,7 @@ jobs:
           set -euxo pipefail
           sw_vers
           python -m venv smoke
-          smoke/bin/python -m pip install --find-links=.wheelhouse wheelhouse/currylang-*-cp311-cp311-macosx_*.whl
+          smoke/bin/python -m pip install --find-links=.wheelhouse wheelhouse/curry-*-cp311-cp311-macosx_*.whl
           smoke/bin/python -m pip list
           smoke/bin/python scripts/wheels/smoke.py --peano examples/Peano.curry
           smoke/bin/sprite-make --so examples/Peano.curry
@@ -313,7 +313,7 @@ jobs:
           mkdir /tmp/sdist-smoke
           cp dist/*.tar.gz /tmp/sdist-smoke/
           cd /tmp/sdist-smoke
-          python -m pip install --verbose --no-cache-dir currylang-*.tar.gz
+          python -m pip install --verbose --no-cache-dir curry-*.tar.gz
           # This is a runtime dependency, installed after the source build
           # to make loading the smoke program possible at run time.
           python -m pip install curry-frontend
@@ -355,7 +355,7 @@ jobs:
     runs-on: ubuntu-24.04
     environment:
       name: pypi
-      url: https://test.pypi.org/p/currylang
+      url: https://test.pypi.org/p/curry
     permissions:
       id-token: write
     steps:
@@ -373,7 +373,7 @@ jobs:
     runs-on: ubuntu-24.04
     environment:
       name: pypi
-      url: https://pypi.org/p/currylang
+      url: https://pypi.org/p/curry
     permissions:
       id-token: write
     steps:
