@@ -233,8 +233,9 @@ in the Git history before this removal and in issue #82.
 Normalization
 -------------
 
-Decision D53 (2026-10-25) makes ``RuntimeState::procN`` test the tags of all
-direct successors of a constructor cell before the scan descends, including
+The failure half of the whole-cell read of N is implemented by decision D53
+(2026-10-25): ``RuntimeState::procN`` tests the tags of all direct successors
+of a constructor cell before the scan descends, including
 when a step returns a constructor at the cursor.  The existing
 ``inspect::fwd_chain_target`` dereferences transparent forwarding chains:
 each successor denotes the shared cell at the end of its chain, as in the
@@ -245,13 +246,16 @@ visit costs one pass over its direct successors and their forward chains,
 with no recursion, allocation, descent into constructors, or evaluation of
 guards or functions.  Choices are still pull-tabbed only at the scan cursor
 (N.2), and the one-step rule is unchanged.  Compiled functions and the ICurry
-interpreter (``icurry_step``) share this normalization loop.  The regression
-programs ``CursorFail`` and ``CursorBeta`` require termination with no value
-and exactly ``Pair True True``, respectively, on both routes.  The forward
-test fixes ``CursorFail``; ``CursorBeta`` still yields its answer without
-exhausting because its second field dereferences to ``_StrictConstraint``
-(``T_CONSTR``), rather than failure.  Processing that constraint before the
-cursor reaches it requires a decision beyond this failure-tag test.
+interpreter (``icurry_step``) share this normalization loop.  ``CursorFail``
+tests this failure half and exhausts with no value on both routes.  The
+constraint half of the whole-cell read (N.beta) awaits decision D59, pending
+with the owner.  Its regression program ``CursorBeta`` asserts exactly
+``Pair True True`` and termination on both routes, as expected failures:
+it yields that answer without exhausting because its second field is a live
+``_StrictConstraint`` (``T_CONSTR``) behind a forward chain, which only the
+cursor lifts.  Processing it before descent would require position
+bookkeeping, a constructor spine copy and a constraint lift in ``procN``;
+that rule is outside D53 and is not implemented here.
 
 The checker mode
 ----------------
