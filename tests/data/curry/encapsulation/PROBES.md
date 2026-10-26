@@ -22,8 +22,9 @@ This base has D45 (SETARG2). Both mixed-failure orderings now give no
 value on Sprite, compiled and interpreted, agreeing with PAKCS. Their old
 Sprite answer was True; KiCS2's measured True answers are retained.
 The sharedLookup probe also now returns exactly Short, replacing Long,
-Short, Short. Issue #171 remains open and retains its oracle comparison
-exemption. No runtime changes were made.
+Short, Short. Issue #171 is closed; its PAKCS comparison now runs, while
+KiCS2's Long, Short, Short remains a named divergence. No runtime changes
+were made.
 
 | Goal | Dissertation value | Sprite | PAKCS | KiCS2 | Verdict |
 | --- | --- | --- | --- | --- | --- |
@@ -31,7 +32,7 @@ exemption. No runtime changes were made.
 | `neededFailure` | `[]` | `[]` | `[]` | `[]` | Sprite right and oracle right |
 | `outsideChoice` | `["[2]", "[4]"]` | `["[2]", "[4]"]` | `["[2]", "[4]"]` | `["[2]", "[4]"]` | Sprite right and oracle right |
 | `sharedChoice` | `["(1,[2])", "(2,[4])"]` | `["(1,[2])", "(2,[4])"]` | `["(1,[2])", "(2,[4])"]` | `["(1,[2])", "(2,[4])"]` | Sprite right and oracle right |
-| `sharedLookup` | `["Short"]` | `["Short"]` | `["Short"]` | `["Long", "Short", "Short"]` | probe passes; issue #171 open |
+| `sharedLookup` | `["Short"]` | `["Short"]` | `["Short"]` | `["Long", "Short", "Short"]` | Sprite right and PAKCS right; KiCS2 divergence |
 | `mixedFailure` | `[]` | `[]` | `[]` | `["True"]` | Sprite right and PAKCS right; KiCS2 divergence |
 | `mixedFailureReversed` | `[]` | `[]` | `[]` | `["True"]` | Sprite right and PAKCS right; KiCS2 divergence |
 | `mixedValue` | `["[2]"]` | `["[2]"]` | `[]` | `["[2]"]` | documented divergence |
@@ -65,7 +66,8 @@ no defect exemption or expectedFailure marker on Sprite. Their KiCS2
 snapshot checks remain active, with named divergence exemptions for the
 retained True answers: an inside failure masks the argument failure there.
 The sharedLookup unit markers are also removed because this probe now
-passes in both modes; its open-issue oracle exemption remains. The other
+passes in both modes; its PAKCS comparison now runs. Its KiCS2 snapshot
+check remains active before the named divergence exemption. The other
 21 Sprite answers are unchanged.
 
 D54 applies D45's failure rule: an empty capsule without an outside failure

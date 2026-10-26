@@ -14,9 +14,6 @@ ROOT = pathlib.Path('data/curry/encapsulation')
 SOURCE = ROOT / 'Probes.curry'
 TIMEOUT = 60
 ADDRESS_SPACE = 2 << 30
-DEFECTS = {
-    'sharedLookup': 'issue #171 remains open; this probe passes after D45'
-  }
 # Each exemption names a measured disagreement and its operational reason.
 DIVERGENCES = {
     ('pakcs', goal): 'strict argument evaluation demands an unneeded failure'
@@ -31,6 +28,8 @@ DIVERGENCES['pakcs', 'bindingEscape'] = (
 for goal in ('mixedFailure', 'mixedFailureReversed'):
   DIVERGENCES['kics2', goal] = (
       'an inside failure masks the argument failure; Sprite has D45')
+DIVERGENCES['kics2', 'sharedLookup'] = (
+    'returns Long, Short, Short; Sprite has exactly Short after D45')
 VALUES = dict((name, json.loads(value)) for name, value in re.findall(
     r'^-- Value (\w+): (.*)$', SOURCE.read_text(), re.MULTILINE))
 GOALS = list(VALUES)
@@ -108,8 +107,6 @@ class TestEncapsulationOracles(cytest.TestCase):
     proc, actual = sprite_results(SOURCE, goal, timeout=TIMEOUT)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(normalized(actual.splitlines()), normalized(row['sprite']))
-    if goal in DEFECTS:
-      self.skipTest('open issue exemption: ' + DEFECTS[goal])
     if (system, goal) in DIVERGENCES:
       self.skipTest('documented divergence: ' + DIVERGENCES[system, goal])
     self.assertEqual(current, normalized(VALUES[goal]))
