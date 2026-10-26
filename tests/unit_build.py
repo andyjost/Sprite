@@ -81,15 +81,21 @@ class TestDistribution(cytest.TestCase):
       bindir.mkdir()
       # Keep the build tools and Python, hiding both names of the front end
       # even when one shares their directory. Do not inherit runtime overrides.
+      # A ccache masquerade (``/usr/lib/ccache/cc`` on the CI runners) is
+      # skipped: linked under the compiler's name, ccache finds only itself
+      # on this PATH; the real compiler is linked from its own directory.
       for directory in os.get_exec_path():
         if not Path(directory).is_dir():
           continue
         for tool in Path(directory).iterdir():
           if tool.name not in ('curry-frontend', 'pakcs-frontend', 'pakcs') \
               and tool.is_file() and os.access(tool, os.X_OK):
+            resolved = tool.resolve()
+            if resolved.name == 'ccache' and tool.name != 'ccache':
+              continue
             target = bindir / tool.name
             if not target.exists():
-              target.symlink_to(tool.resolve())
+              target.symlink_to(resolved)
       python = bindir / 'build-python'
       python.symlink_to(sys.executable)
       env = {k: v for k, v in os.environ.items()
