@@ -13,8 +13,9 @@ Cells are JSON arrays of top-level Curry answers with insignificant spaces
 removed. `[]` means no value line; `["[]"]` means one empty-list answer.
 Multiplicity is preserved, including within sorted list observations of sets.
 KiCS2's `!` and `(!)` failure markers are treated as absence of a value.
-For reading questions the dissertation column gives both candidate answers;
-unit tests preserve the measured behavior without declaring it correct.
+The four former readings (`emptyIsEmpty`, `emptyNotEmpty`,
+`insideAfterOutside`, `bindingEscape`) were decided by D54 on 2026-10-25;
+the dissertation column and unit tests now specify their decided answers.
 `null` means an unavailable measurement, never a failed computation.
 
 This base has D45 (SETARG2). Both mixed-failure orderings now give no
@@ -39,10 +40,10 @@ exemption. No runtime changes were made.
 | `nestedUnusedFailure` | `["[[1]]"]` | `["[[1]]"]` | `[]` | `["[[1]]"]` | documented divergence |
 | `narrowedBefore` | `["(A,[A])", "(B,[B])"]` | `["(A,[A])", "(B,[B])"]` | `["(A,[A])", "(B,[B])"]` | `["(A,[A])", "(B,[B])"]` | Sprite right and oracle right |
 | `narrowedAfter` | `["[A,A]", "[A,B]"]` | `["[A,A]", "[A,B]"]` | `[]` | `["[A,A]", "[A,B]"]` | documented divergence |
-| `bindingEscape` | `["(A,[True])"] or ["(A,[True])", "(B,[])"]` | `["(A,[True])", "(B,[])"]` | `[]` | `["(A,[True])", "(B,[])"]` | reading needed |
-| `insideAfterOutside` | `["(A,[7])"] or ["(A,[7])", "(B,[])"]` | `["(A,[7])", "(B,[])"]` | `["(A,[7])", "(B,[])"]` | `["(A,[7])", "(B,[])"]` | reading needed |
-| `emptyIsEmpty` | `[] or ["True"]` | `["True"]` | `["True"]` | `["True"]` | reading needed |
-| `emptyNotEmpty` | `[] or ["False"]` | `["False"]` | `["False"]` | `["False"]` | reading needed |
+| `bindingEscape` | `["(A,[True])", "(B,[])"]` | `["(A,[True])", "(B,[])"]` | `[]` | `["(A,[True])", "(B,[])"]` | documented divergence |
+| `insideAfterOutside` | `["(A,[7])", "(B,[])"]` | `["(A,[7])", "(B,[])"]` | `["(A,[7])", "(B,[])"]` | `["(A,[7])", "(B,[])"]` | Sprite right and oracle right |
+| `emptyIsEmpty` | `["True"]` | `["True"]` | `["True"]` | `["True"]` | Sprite right and oracle right |
+| `emptyNotEmpty` | `["False"]` | `["False"]` | `["False"]` | `["False"]` | Sprite right and oracle right |
 | `infiniteIsEmpty` | `["False"]` | `["False"]` | `["False"]` | `["False"]` | Sprite right and oracle right |
 | `chrsInc12` | `["[2,3]", "[6,7]"]` | `["[2,3]", "[6,7]"]` | `["[2,3]", "[6,7]"]` | `["[2,3]", "[6,7]"]` | Sprite right and oracle right |
 | `chrsAllCoins` | `["[0]", "[1]"]` | `["[0]", "[1]"]` | `["[0]", "[1]"]` | `["[0]", "[1]"]` | Sprite right and oracle right |
@@ -51,13 +52,13 @@ exemption. No runtime changes were made.
 | `chrsFailureChoice` | `["[True]"]` | `["[True]"]` | `[]` | `["[True]"]` | documented divergence |
 | `chrsFailureChoiceReversed` | `["[True]"]` | `["[True]"]` | `[]` | `["[True]"]` | documented divergence |
 
-The six PAKCS comparison exemptions are explicit in the driver:
+The seven PAKCS comparison exemptions are explicit in the driver:
 `unusedFailure`, `nestedUnusedFailure`, `mixedValue`, `chrsFailureChoice`,
 `chrsFailureChoiceReversed` (strict evaluation discards an unneeded failing
-argument), and `narrowedAfter` (the unbound argument suspends when the
-capsule starts). The oracle's empty answer is kept in each case.
-`bindingEscape` likewise has no PAKCS value line (suspension); it is a
-reading question rather than an exemption asserting correctness.
+argument), `narrowedAfter`, and `bindingEscape` (the unbound argument
+suspends when the capsule starts). The oracle's absence of a value line
+is kept in each case. For `bindingEscape` this is a suspension, not a value;
+its named divergence exemption leaves the KiCS2 semantic comparison active.
 
 Both mixed-failure goals now run the PAKCS semantic comparison. They have
 no defect exemption or expectedFailure marker on Sprite. Their KiCS2
@@ -67,9 +68,10 @@ The sharedLookup unit markers are also removed because this probe now
 passes in both modes; its open-issue oracle exemption remains. The other
 21 Sprite answers are unchanged.
 
-The four reading questions concern whether an empty value set can be
-observed before its value is identified with failure, and whether a
-context-variable binding made inside a capsule must escape. In particular,
-`insideAfterOutside` separates a total outside B from an outside failure:
-its function has no values at B. The owner must distinguish this from the
-D45 case whose argument itself has no value.
+D54 applies D45's failure rule: an empty capsule without an outside failure
+is an observable empty set, so `emptyIsEmpty` is True and `emptyNotEmpty`
+is False. `insideAfterOutside` separates total outside B from outside
+failure: its function has no values at B, yielding `(B,[])` alongside
+`(A,[7])`. Under D48's wider escape condition, `bindingEscape` likewise
+has `(A,[True])` and `(B,[])`. This last reading follows D48 if that rule
+ever changes.

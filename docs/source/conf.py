@@ -147,6 +147,10 @@ else:
 # documentation.
 html_theme_options = {
     'navigation_depth': 20,
+    # The lockup carries the name; the theme would print it a second time.
+    'logo_only': True,
+    # The header takes the forest green of the logo (assets/logo/README.md).
+    'style_nav_header_background': '#2F5D3A',
   }
 
 # Add any paths that contain custom themes here, relative to this directory.
@@ -161,12 +165,13 @@ html_theme_options = {
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-#html_logo = None
+# The lockup for dark grounds, on the forest header (assets/logo/README.md).
+html_logo = '../../assets/logo/lockup-dark.svg'
 
 # The name of an image file (relative to this directory) to use as a favicon of
 # the docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
 # pixels large.
-#html_favicon = None
+html_favicon = '../../assets/logo/favicon.ico'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
