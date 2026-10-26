@@ -80,6 +80,14 @@ namespace curryrt
     std::vector<std::string> envp;
     std::string logfile;
     std::string sofile;
+    // The object beside the source that the swap publishes before it opens
+    // the object: the child compiled a private copy and wrote nothing under
+    // the source (issue #173), and the swap copies the object, its ABI
+    // stamp and the generated file there, each under a temporary name and
+    // renamed into place, when the source's ICurry file is the one of the
+    // import and its directory exists; else it opens the private object.
+    // Empty: nothing is published (a compile under foreign flags, #116).
+    std::string publish;
     // The ICurry file (.icy) of the module at the import, and its digest
     // then (tiered_file_digest).  The swap refuses the object when the file
     // differs: the child compiled the source as it was when the child ran,
@@ -102,6 +110,7 @@ namespace curryrt
       std::string sofile;
       std::string icurryfile;
       std::string icurry_digest;
+      std::string publish; // as the job's, for the object of the import
     };
     std::vector<Import> imports;
     // The functions to swap: the name of the function in its module, the

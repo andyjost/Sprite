@@ -195,13 +195,14 @@ class TestSwapAfterEdit(EditedSourceTestCase):
     curry.path.insert(0, self.tmpdir)
 
   @cytest.hardreset
-  def test_swap_refused_after_an_edit(self):
+  def test_swap_after_an_edit_keeps_the_imported_code(self):
     '''
-    The child of the background compile reads the source as it is when the
-    child runs.  An edit between the import and the compile gave the swap
-    the code of the edited file, and a loaded module changed meaning
-    without a load.  The swap refuses such an object now; the module stays
-    interpreted with the code the import read, and a warning says so.
+    The child of the background compile compiles a private copy of the
+    module as the import read it (issue #173), so an edit between the
+    import and the compile never reaches the swap: the module swaps to the
+    code the import read, with no warning.  Before, the child read the
+    edited source and the swap refused its object (issue #110); the check
+    of the ICurry digest stays for a file another process writes again.
     '''
     from curry.backends.cxx import curryrtbindings as curryrt, tiered
     # Dep imports Base.  The compile of Dep waits behind the compile of
@@ -228,15 +229,12 @@ class TestSwapAfterEdit(EditedSourceTestCase):
         , 'the background compiles did not end in %s s' % COMPILE_SECONDS
         )
     after = tiered.status()
-    self.assertEqual(after['swapped_modules'], before['swapped_modules'] + 1)
-    self.assertEqual(after['failed_modules'], before['failed_modules'] + 1)
+    self.assertEqual(after['swapped_modules'], before['swapped_modules'] + 2)
+    self.assertEqual(after['failed_modules'], before['failed_modules'])
     self.assertFalse(curryrt.icurry_is_interpreted(B.g.info))
-    self.assertTrue(curryrt.icurry_is_interpreted(D.h.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(D.h.info))
     self.assertFalse(tiered.pending(dep))
-    warnings = log.data[logging.WARNING]
-    self.assertEqual(len(warnings), 1, warnings)
-    self.assertIn('the background compile of module %r is not applied' % dep, warnings[0])
-    self.assertIn('never changes what a loaded module means', warnings[0])
+    self.assertEqual(log.data[logging.WARNING], [])
     # The values are the ones the import read, and the import after the
     # edit returns the loaded module and says so.
     self.assertEqual(self.value(D.h, 1), 12)
