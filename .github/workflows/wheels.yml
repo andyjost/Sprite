@@ -2,7 +2,7 @@ name: Sprite distributions
 
 'on':
   push:
-    branches: [master, wt/wheels]
+    branches: [master, 'wt/wheels*']
     tags: ['v*']
     paths:
       - .github/workflows/wheels.yml
@@ -94,8 +94,9 @@ jobs:
               tags = p.stem.rsplit('-', 1)[-1].split('.')
               return any(t.startswith(prefix) and t.endswith('_' + arch) for t in tags)
           # The two manylinux wheels are required; the macOS wheels are kept
-          # when the run has them. The front-end workflow builds 3.1.0 on
-          # Linux only so far; its macOS job builds 2.0.0 (issue #162, step 3).
+          # when the run has them (the front-end workflow builds 3.1.0 on
+          # macOS since 2026-10-26, issue #162; a run from before has none,
+          # and the macOS smoke test then takes the front end from PyPI).
           for prefix, arch, required in (
                   ('manylinux_2_28', 'x86_64', True), ('manylinux_2_28', 'aarch64', True)
                 , ('macosx', 'arm64', False), ('macosx', 'x86_64', False)):
@@ -209,20 +210,21 @@ jobs:
           CIBW_TEST_COMMAND: python {project}/scripts/wheels/smoke.py --peano {project}/examples/Peano.curry
       - name: Install the cp311 wheel on the runner and run the smoke test (macOS)
         if: runner.os == 'macOS'
-        # The front end 3.1.0 has no macOS wheel yet (the front-end workflow
-        # builds 2.0.0 on macOS), so the wheel is installed without its
-        # dependency and the smoke test covers the shipped compiled code.
-        # The compile of Peano with the compiler of Xcode, as the user's g++
-        # does in the Linux smoke test, returns with those wheels: the
-        # environment is not activated on purpose, since python -m curry
-        # finds the front end beside its interpreter.
+        # The environment is not activated on purpose: python -m curry finds
+        # the front end beside its interpreter. Then the compiler of Xcode
+        # compiles Peano, as the user's g++ does in the Linux smoke test.
+        # The front end 3.1.0 comes from the wheelhouse, or from PyPI when
+        # the front-end run has no macOS wheels.
         run: |
           set -euxo pipefail
           sw_vers
           python -m venv smoke
-          smoke/bin/python -m pip install --no-deps wheelhouse/curry-*-cp311-cp311-macosx_*.whl
+          smoke/bin/python -m pip install --find-links=.wheelhouse wheelhouse/curry-*-cp311-cp311-macosx_*.whl
           smoke/bin/python -m pip list
-          smoke/bin/python scripts/wheels/smoke.py
+          smoke/bin/python scripts/wheels/smoke.py --peano examples/Peano.curry
+          smoke/bin/sprite-make --so examples/Peano.curry
+          test -s examples/.curry/sprite-pakcs-3.10.0/Peano.so
+          SPRITE_INTERPRETER_FLAGS=interpret:off smoke/bin/python scripts/wheels/smoke.py --peano examples/Peano.curry
       - name: Save the evidence beside the final wheels, auditwheel show or the load commands
         run: |
           set -euxo pipefail
