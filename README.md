@@ -6,79 +6,117 @@
 </p>
 
 **Sprite brings the Curry language to Python.** [Curry](https://www.curry-lang.org/)
-is a functional logic language: it has the functions, the types and the lazy
-evaluation of Haskell, and it builds two ideas from logic programming into the
-language itself, *logic variables* and *nondeterministic choice*. With Sprite, a
-Curry module is imported like a Python module and its functions are called from
-Python. A function with several results gives Python all of them, and an
-argument that is left unknown is solved for.
+is a functional logic language. It has the strongly typed functions and the
+lazy evaluation of Haskell, and it adds two ideas from logic programming to
+the language itself: a function may have several results, and a value may be
+left unknown for the program to find.
 
-Sprite is a compiler and runtime for Curry built on the Fair Scheme, an
-evaluation strategy that Sergio Antoy and Andy Jost proved correct and
-complete: a computation produces every value of an expression and nothing
-else, and no alternative can starve the others. The strategy and this
-implementation are the subject of the
+Sprite compiles Curry modules to native code by way of C++ and runs them in
+its own runtime, and its Python API imports a Curry module like a Python
+module. Underneath is the Fair Scheme, an evaluation strategy that has been
+proved correct and complete: a computation finds every value of an
+expression and nothing else, in whatever order the alternatives are
+explored. The strategy and its proofs are written up in a
 [dissertation](https://andrewjost.wordpress.com/wp-content/uploads/2023/05/jostthesis.final_.10may23.pdf)
-behind Sprite; the
-[LoPSTR 2013 paper](http://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf)
-is the short account.
+and a shorter
+[paper](http://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf).
 
-## Hello, Curry
+## Curry from Python
 
-Save this as `Hello.curry`:
+With Sprite, Curry code is a module that Python imports. The functions live
+in a Curry file, with their types:
 
 ```curry
+-- Hello.curry
 greet :: String -> String
 greet name = "Hello, " ++ name ++ "!"
 ```
 
-Then, from Python in the same directory:
+Python imports the module directly. The first import translates it and
+compiles it to native code in the background; every later import reuses
+the result.
 
 ```python
 import curry
-curry.path.insert(0, '.')        # where Sprite looks for Curry modules
-from curry.lib import Hello      # translates and compiles Hello.curry
+curry.path.insert(0, '.')      # the directories where Curry modules are found
+from curry.lib import Hello
 
-curry.eval(Hello.greet('World')).one()
+goal = Hello.greet('World')    # a Curry expression, typed from the signature
+results = curry.eval(goal)     # evaluate it
+results.one()                  # take its one value
 # 'Hello, World!'
 ```
 
-A Python string goes in and a Python string comes out: Sprite types the call
-from the Curry signature and converts the values both ways.
+A Curry expression has any number of values, zero or more. `curry.eval`
+returns all of them, and `.one()` takes the first; here there is exactly
+one. Python values are converted both ways by the Curry types: a Python
+string goes in, and a Python string comes out.
 
-## A taste of logic programming
+## Logic programming, from Python
 
-Add a function with three results to `Hello.curry`:
+Python needs little new to use the logic side of Curry: a function with
+several results is iterated like any sequence, and an unknown is a value
+that Python creates and hands in.
+
+**Several results.** `perm` returns a permutation of a list, any of them:
+the two rules of `insert` overlap, and Curry takes both. Python sees every
+result:
 
 ```curry
-color :: String
-color = "red" ? "green" ? "blue"
+perm :: [a] -> [a]
+perm []     = []
+perm (x:xs) = insert (perm xs)
+ where insert ys     = x : ys
+       insert (y:ys) = y : insert ys
 ```
-
-`?` is the choice operator of Curry. Python iterates over every result:
 
 ```python
-list(curry.eval(Hello.greet(Hello.color)))
-# ['Hello, red!', 'Hello, green!', 'Hello, blue!']
+list(curry.eval(Hello.perm([1, 2, 3])))
+# [[1, 2, 3], [2, 1, 3], [1, 3, 2], [3, 1, 2], [2, 3, 1], [3, 2, 1]]
 ```
 
-Now run `greet` backwards. Leave its argument free and state the result;
-Curry finds the argument:
+**Patterns that describe a shape.** A functional pattern matches a list that
+ends in `x`, whatever comes before it:
+
+```curry
+last :: [Int] -> Int
+last (_ ++ [x]) = x
+```
 
 ```python
-goal = curry.parse('greet who =:= "Hello, Curry!" where who free', imports=[Hello])
-for answer in curry.solve(goal):
-    print(answer.bindings['who'])
-# Curry
+curry.eval(Hello.last([1, 2, 3])).one()
+# 3
 ```
 
-`=:=` is an equational constraint, `where who free` declares a logic
-variable, and `curry.solve` yields each solution with its bindings. These two
-ideas, choice and free variables, solve puzzles, parse text and search: the
-[examples](examples/README) include sudoku, cryptarithms, n-queens with set
-functions, a regular-expression matcher and a parser built from functional
-patterns. The [Quickstart](https://andyjost.github.io/Sprite/Quickstart.html)
-continues from here.
+**Unknowns.** Three switches light a lamp when exactly two of them are up.
+`lit` returns the positions of the switches when the lamp is on. Hand it
+unknowns, and Curry finds every setting that lights the lamp:
+
+```curry
+lampOn :: Bool -> Bool -> Bool -> Bool
+lampOn True  True  False = True
+lampOn True  False True  = True
+lampOn False True  True  = True
+
+lit :: Bool -> Bool -> Bool -> (Bool, Bool, Bool)
+lit a b c | lampOn a b c = (a, b, c)
+```
+
+```python
+a, b, c = curry.free(), curry.free(), curry.free()
+for setting in curry.eval(Hello.lit(a, b, c)):
+    print(setting)
+# (False, True, True)
+# (True, False, True)
+# (True, True, False)
+```
+
+Fix the first switch up, `Hello.lit(True, b, c)`, and two settings remain.
+The same ideas carry real programs: the [examples](examples/README) include
+a sudoku solver, cryptarithms, n-queens, a regular-expression matcher and a
+parser built from functional patterns. The
+[Quickstart](https://andyjost.github.io/Sprite/Quickstart.html) continues
+from here.
 
 ## Installation
 
