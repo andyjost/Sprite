@@ -293,4 +293,7 @@ reproducers pass.
   corpus in `tests/func_typed_expr.py`. Edit the corpus and run
   `python func_typed_expr.py --write` from `tests/`; do not edit the
   modules.
+- Work lands on `master`. A topic branch holds the progress of one lane
+  until its merge (`--no-ff`) and is deleted, local and on origin, in
+  the same step; `py314` stays as a frozen ref.
 - Keep commits free of machine-specific paths and environment details.
