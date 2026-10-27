@@ -29,7 +29,30 @@ add (S n) m = S (add n m)
 main = add (S O) (S O)
 ```
 
-The result is `S (S O)`. Wheels include the compiled Curry library and run
+The result is `S (S O)`.
+
+The same module answers a logic question from Python. Leave the two numbers
+unknown, and Sprite finds every pair that adds up to two:
+
+```python
+import curry
+curry.path.insert(0, '.')            # the directory of Peano.curry
+from curry.lib import Peano, Prelude
+
+x, y = curry.free('x'), curry.free('y')
+two = Peano.S(Peano.S(Peano.O))
+goal = Prelude['=:='](Peano.add(x, y), two)
+for value, bindings in curry.solve(goal):
+    print(f'{value=} with {bindings=}')
+```
+
+```
+value=True with bindings={x=O, y=S (S O)}
+value=True with bindings={x=S O, y=S O}
+value=True with bindings={x=S (S O), y=O}
+```
+
+Wheels include the compiled Curry library and run
 without a C++ compiler. Install `g++` to compile your own modules with
 `sprite-make --so Peano.curry`. The separate `curry-frontend` package provides
 the Curry front end used when loading source programs.
