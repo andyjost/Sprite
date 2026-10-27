@@ -20,12 +20,12 @@ name: Sprite distributions
   workflow_dispatch:
     inputs:
       frontend_source:
-        description: Build requirement source (use PyPI after curry-frontend is published)
+        description: Source of the curry-frontend wheels that the smoke tests install (use PyPI after curry-frontend 3.1.0 is published)
         type: choice
         options: [artifact, pypi]
         default: artifact
       frontend_run_id:
-        description: A run of "Curry front end from source" whose wheels are the build requirement (default the latest successful run on master)
+        description: A run of "Curry front end from source" whose 3.1.0 wheels the smoke tests install (default the latest successful run on master)
         type: string
         default: ''
 
@@ -68,13 +68,13 @@ jobs:
             }
             core.setOutput('id', run.id);
             await core.summary.addRaw(`Front end: ${run.html_url}\n`).write();
-      - name: Download the reviewed front-end artifacts
+      - name: Download the reviewed wheels of the front end 3.1.0, the version of the pinned library
         if: inputs.frontend_source != 'pypi'
         uses: actions/download-artifact@v4
         with:
           github-token: ${{ github.token }}
           run-id: ${{ steps.run.outputs.id }}
-          pattern: frontend-*
+          pattern: curry-frontend-3.1.0-*
           path: frontend-artifacts
       - name: Keep the tagged wheels, the manylinux ones for both architectures and the macOS ones
         env:
@@ -93,8 +93,9 @@ jobs:
           def tagged(p, prefix, arch):
               tags = p.stem.rsplit('-', 1)[-1].split('.')
               return any(t.startswith(prefix) and t.endswith('_' + arch) for t in tags)
-          # The two manylinux wheels are required; the macOS wheels (issue
-          # #162, step 3) are kept when the run has them.
+          # The two manylinux wheels are required; the macOS wheels are kept
+          # when the run has them. The front-end workflow builds 3.1.0 on
+          # Linux only so far; its macOS job builds 2.0.0 (issue #162, step 3).
           for prefix, arch, required in (
                   ('manylinux_2_28', 'x86_64', True), ('manylinux_2_28', 'aarch64', True)
                 , ('macosx', 'arm64', False), ('macosx', 'x86_64', False)):
@@ -171,12 +172,12 @@ jobs:
           # enabled by its explicit selector, with no experimental flag.
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
-          # pip's isolated PEP 517 environment inherits this setting too.
+          # The test venv of cibuildwheel resolves the run-time dependency
+          # curry-frontend from the wheelhouse through PIP_FIND_LINKS.
           CIBW_ENVIRONMENT_LINUX: >-
             LC_ALL=C.UTF-8
             PIP_FIND_LINKS=/project/.wheelhouse
             SPRITE_CACHE_FILE="" SPRITE_PRODUCT_CACHE=""
-          CIBW_BEFORE_BUILD_LINUX: python -m pip install --find-links=/project/.wheelhouse 'curry-frontend>=2.0.0'
           # The macOS build runs on the runner itself: the project directory
           # is the workspace, and the environment reaches the build and the
           # tests, as on Linux.
@@ -191,32 +192,37 @@ jobs:
           # refuses a wheel tagged 14.0; the step after this one installs the
           # cp311 wheel in a venv of the runner, which sees macOS 15.
           CIBW_TEST_SKIP: '*-macosx_*'
-          CIBW_BEFORE_BUILD_MACOS: python -m pip install --find-links={project}/.wheelhouse 'curry-frontend>=2.0.0'
+          # The build uses the pinned products of the library and no front
+          # end, as a build from the sdist does: the front end is a run-time
+          # dependency. (A console script installed before the build cannot
+          # run under pip's build isolation, and the pinned products belong
+          # to the front end 3.1.0.)
           CIBW_CONFIG_SETTINGS: >-
             cmake.define.WITH_PAKCS=
-            cmake.define.WITH_CURRY_FRONTEND=curry-frontend
+            cmake.define.WITH_CURRY_FRONTEND=
             cmake.define.WITH_ICURRY=
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: >-
             python /project/scripts/wheels/repair.py {wheel} {dest_dir}
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >-
             python -m pip install --quiet wheel &&
             python {project}/scripts/wheels/repair.py {wheel} {dest_dir}
-          CIBW_TEST_COMMAND: python {project}/scripts/wheels/smoke.py
+          CIBW_TEST_COMMAND: python {project}/scripts/wheels/smoke.py --peano {project}/examples/Peano.curry
       - name: Install the cp311 wheel on the runner and run the smoke test (macOS)
         if: runner.os == 'macOS'
-        # The environment is not activated on purpose: python -m curry finds
-        # the front end beside its interpreter. Then the compiler of Xcode
-        # compiles Peano, as the user's g++ does in the Linux smoke test.
+        # The front end 3.1.0 has no macOS wheel yet (the front-end workflow
+        # builds 2.0.0 on macOS), so the wheel is installed without its
+        # dependency and the smoke test covers the shipped compiled code.
+        # The compile of Peano with the compiler of Xcode, as the user's g++
+        # does in the Linux smoke test, returns with those wheels: the
+        # environment is not activated on purpose, since python -m curry
+        # finds the front end beside its interpreter.
         run: |
           set -euxo pipefail
           sw_vers
           python -m venv smoke
-          smoke/bin/python -m pip install --find-links=.wheelhouse wheelhouse/curry-*-cp311-cp311-macosx_*.whl
+          smoke/bin/python -m pip install --no-deps wheelhouse/curry-*-cp311-cp311-macosx_*.whl
           smoke/bin/python -m pip list
-          smoke/bin/python scripts/wheels/smoke.py --peano examples/Peano.curry
-          smoke/bin/sprite-make --so examples/Peano.curry
-          test -s examples/.curry/sprite-pakcs-3.4.1/Peano.so
-          SPRITE_INTERPRETER_FLAGS=interpret:off smoke/bin/python scripts/wheels/smoke.py --peano examples/Peano.curry
+          smoke/bin/python scripts/wheels/smoke.py
       - name: Save the evidence beside the final wheels, auditwheel show or the load commands
         run: |
           set -euxo pipefail
@@ -282,7 +288,7 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends g++
           sprite-make --so examples/Peano.curry
-          test -s examples/.curry/sprite-pakcs-3.4.1/Peano.so
+          test -s examples/.curry/sprite-pakcs-3.10.0/Peano.so
           SPRITE_INTERPRETER_FLAGS=interpret:off python scripts/wheels/smoke.py --peano examples/Peano.curry
 
   smoke-sdist:

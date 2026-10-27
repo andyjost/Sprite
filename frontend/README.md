@@ -1,8 +1,11 @@
 # curry-frontend
 
 The package supports front end 2.0.0 with PAKCS 3.4.1 (the default) and
-front end 3.1.0 with PAKCS 3.10.0 (advisory CI until two reviewed green
-runs). Sprite's default dependency stays on 2.0.0 until upgrade stage G.
+front end 3.1.0 with PAKCS 3.10.0. Since 2026-10-26 the distribution
+`curry` depends on `curry-frontend>=3.1.0` at run time: its wheels carry
+the pinned library products of that front end, whose interfaces and
+instance names the front end 2.0.0 cannot read. 2.0.0 serves the legacy
+pair of a checkout build.
 Nothing is published by a push: the owner dispatches the protected release
 workflow after reviewing the source-build artifacts.
 

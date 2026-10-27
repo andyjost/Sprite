@@ -29,12 +29,14 @@ headers::
 
   python -m pip install --pre --no-binary=curry curry
 
-Pip supplies CMake, Ninja and ``curry-frontend`` as build requirements.
-It is also a runtime dependency, installed automatically to load source
-programs after the build. PAKCS, SWI-Prolog, Haskell and GNU make are
-unnecessary for this route. Before ``curry-frontend`` is published, download
-its wheel from a successful ``frontend.yml`` run on master and pass its directory with
-``--find-links`` to the pip command.
+Pip supplies CMake and Ninja as build requirements; the build uses the
+pinned products of the Curry library and needs no front end. The front
+end ``curry-frontend`` 3.1.0, the version of those products, is a runtime
+dependency, installed automatically to load source programs after the
+build. PAKCS, SWI-Prolog, Haskell and GNU make are unnecessary for this
+route. Before ``curry-frontend`` 3.1.0 is published, download its wheel
+from a successful ``frontend.yml`` run on master and pass its directory
+with ``--find-links`` to the pip command.
 
 Building a checkout
 -------------------

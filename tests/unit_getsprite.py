@@ -205,7 +205,7 @@ INSTALLER
   def test_runtime_dependency(self):
     with (ROOT / 'pyproject.toml').open('rb') as stream:
       project = tomllib.load(stream)['project']
-    self.assertIn('curry-frontend>=2.0.0', project['dependencies'])
+    self.assertIn('curry-frontend>=3.1.0', project['dependencies'])
     self.assertFalse(any(dep.split('>')[0] == 'uv'
                          for dep in project['dependencies']))
 

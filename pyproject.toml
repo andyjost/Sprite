@@ -9,7 +9,7 @@ dynamic = ["version"]
 description = "The Sprite compiler and runtime for Curry"
 readme = "README.pypi.md"
 requires-python = ">=3.11.4"
-dependencies = ["curry-frontend>=2.0.0"]
+dependencies = ["curry-frontend>=3.1.0"]
 license = "BSD-3-Clause"
 license-files = ["LICENSE", "curry/lib/LICENSE", "curry/lib/NOTICE", "extern/pybind11/LICENSE"]
 classifiers = [
