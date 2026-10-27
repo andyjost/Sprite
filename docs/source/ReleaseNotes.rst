@@ -9,9 +9,11 @@ Release Notes
   The name ``currylang`` of the first alpha is retired; the import name
   was ``curry`` from the start.
 - Wheels for macOS 15 or newer, Apple silicon and Intel, beside the Linux
-  wheels.  The matching front end is ``curry-frontend`` 2.0.0.post6.
-- The current tools are the default: the Curry front end 3.1.0 with the
-  ``base`` library 3.4.0 of PAKCS 3.10.0.  The pair of front end 2.0.0
+  wheels; pip can install them once the Curry front end 3.1.0 has a macOS
+  build.
+- The current tools are the default: the Curry front end 3.1.0 (the
+  package ``curry-frontend`` 3.1.0) with the ``base`` library 3.4.0 of
+  PAKCS 3.10.0.  The pair of front end 2.0.0
   and PAKCS 3.4.1 remains accepted.
 - The source distribution builds without a Curry front end: the pinned
   products of the library ship with it.
