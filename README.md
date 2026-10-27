@@ -124,10 +124,10 @@ from here.
 pip install curry
 ```
 
-Sprite supports Python 3.11 to 3.15 on Linux (x86-64 and aarch64). Wheels
-for macOS 15 or newer (Apple silicon and Intel) follow with the macOS build
-of the Curry front end. The wheels include the compiled Curry library, and
-pip installs the Curry front end beside them (the package `curry-frontend`). A C++ compiler (g++) is optional: without one, new modules
+Sprite supports Python 3.11 to 3.15 on Linux (x86-64 and aarch64) and on
+macOS 15 or newer (Apple silicon and Intel). The wheels include the compiled
+Curry library, and pip installs the Curry front end beside them (the package
+`curry-frontend`). A C++ compiler (g++) is optional: without one, new modules
 run interpreted.
 
 Without a suitable Python, let the installer bring its own. It installs
