@@ -274,15 +274,19 @@ jobs:
             !frontend-work/fetch/source/dist-newstyle/**
 
   # macOS (issue #162, step 3): the same build on the two architectures of
-  # the GitHub runners, without a container.  GHC and Cabal come from ghcup
-  # into the work directory, GMP from Homebrew, vendored beside the
-  # executable with @loader_path (frontend/package.py), and the wheel takes
-  # the tag of the floor of its files, the macOS of the Homebrew bottle of
-  # GMP (frontend/tag-wheel.py).  The steps are those of the Linux job,
-  # auditwheel aside; parity runs on both architectures.
+  # the GitHub runners, without a container.  GHC, Cabal and, for 3.1.0,
+  # Stack come from ghcup into the work directory, GMP from Homebrew,
+  # vendored beside the executable with @loader_path (frontend/package.py),
+  # and the wheel takes the tag of the floor of its files, the macOS of the
+  # Homebrew bottle of GMP (frontend/tag-wheel.py).  The steps are those of
+  # the Linux job, auditwheel aside; parity runs on both architectures.  The
+  # 2.0.0 entries keep the artifact name frontend-macos-*; the 3.1.0 entries
+  # take curry-frontend-3.1.0-*, the prefix of the Linux 3.1.0 artifacts, so
+  # that the release workflow collects the four wheels of 3.1.0 together.
   macos:
-    name: build (${{ matrix.name }})
+    name: build (${{ matrix.version }}, ${{ matrix.name }})
     runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ matrix.experimental }}
     timeout-minutes: 180
     strategy:
       fail-fast: false
@@ -290,22 +294,37 @@ jobs:
         include:
           - name: macos-arm64
             runner: macos-15
+            version: '2.0.0'
+            experimental: false
           - name: macos-x86_64
             runner: macos-15-intel
+            version: '2.0.0'
+            experimental: false
+          - name: macos-arm64
+            runner: macos-15
+            version: '3.1.0'
+            experimental: true
+          - name: macos-x86_64
+            runner: macos-15-intel
+            version: '3.1.0'
+            experimental: true
     defaults:
       run:
         shell: bash
     env:
       LC_ALL: C.UTF-8
-      GHC_VERSION: '9.6.7'
+      # GHC 9.6.7 builds 2.0.0 with the five patches; 3.1.0 builds with
+      # GHC 9.8.4 through Stack and the resolver of its source, as on Linux.
+      GHC_VERSION: ${{ matrix.version == '3.1.0' && '9.8.4' || '9.6.7' }}
       CABAL_VERSION: '3.10.3.0'
+      STACK_VERSION: '2.15.7'
       CABAL_DIR: ${{ github.workspace }}/frontend-work/home/.cabal
+      STACK_ROOT: ${{ github.workspace }}/frontend-work/home/.stack
       GHCUP_INSTALL_BASE_PREFIX: ${{ github.workspace }}/frontend-work/home
       SPRITE_CACHE_FILE: ''
       SPRITE_PRODUCT_CACHE: ''
       SPRITE_CURRY2ICURRY: frontend
-      FRONTEND_SOURCE_URL: https://www.curry-lang.org/pakcs/download/pakcs-3.4.1-src.tar.gz
-      FRONTEND_SOURCE_SHA256: 71e8030e2efb2295c5862e0c09c9ea2497cfc3b971d8903ce40df66d25e47c22
+      FRONTEND_VERSION: ${{ matrix.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -318,7 +337,7 @@ jobs:
       - name: Runner and system dependencies
         run: |
           set -euxo pipefail
-          mkdir -p frontend-work/logs "$CABAL_DIR" "$GHCUP_INSTALL_BASE_PREFIX"
+          mkdir -p frontend-work/logs "$CABAL_DIR" "$STACK_ROOT" "$GHCUP_INSTALL_BASE_PREFIX"
           exec > >(tee frontend-work/logs/runner.log) 2>&1
           uname -a
           sw_vers
@@ -340,9 +359,9 @@ jobs:
           SOURCE_SHA256: ${{ inputs.source_sha256 }}
         run: |
           set -euxo pipefail
-          args=(--url "$FRONTEND_SOURCE_URL" --sha256 "$FRONTEND_SOURCE_SHA256")
+          args=(--version "$FRONTEND_VERSION")
           if [ -n "$SOURCE_URL$SOURCE_SHA256" ]; then
-            args=(--url "$SOURCE_URL" --sha256 "$SOURCE_SHA256")
+            args+=(--url "$SOURCE_URL" --sha256 "$SOURCE_SHA256")
           fi
           python frontend/fetch.py --output frontend-work/fetch "${args[@]}" \
             2>&1 | tee frontend-work/logs/fetch.log
@@ -365,17 +384,22 @@ jobs:
           ghcup set ghc "$GHC_VERSION"
           ghcup --verbose install cabal "$CABAL_VERSION"
           ghcup set cabal "$CABAL_VERSION"
+          if [ "$FRONTEND_VERSION" = 3.1.0 ]; then
+            ghcup --verbose install stack "$STACK_VERSION"
+            ghcup set stack "$STACK_VERSION"
+            stack --version
+          fi
           for tool in ghc ghc-pkg cabal; do
             command -v "$tool"
             "$tool" --version
           done
           test "$(ghc --numeric-version)" = "$GHC_VERSION"
           test "$(cabal --numeric-version)" = "$CABAL_VERSION"
-      - name: Build 2.0.0 with the system libraries of macOS and the GMP of Homebrew
+      - name: Build the selected version with the system libraries of macOS and the GMP of Homebrew
         id: compile
         run: |
           set -euxo pipefail
-          bash frontend/build.sh frontend-work/fetch/source frontend-work/build \
+          bash frontend/build.sh frontend-work/fetch/source frontend-work/build "$FRONTEND_VERSION" \
             2>&1 | tee frontend-work/logs/build.log
       - name: Bundle the executable and build a platform wheel
         id: wheel
@@ -400,7 +424,7 @@ jobs:
         if: ${{ !cancelled() && steps.wheel.outcome == 'success' }}
         run: |
           set -euxo pipefail
-          python frontend/tag-wheel.py frontend-work/wheels/curry_frontend-2.0.0.post*-py3-none-*.whl \
+          python frontend/tag-wheel.py frontend-work/wheels/curry_frontend-${FRONTEND_VERSION}.post*-py3-none-*.whl \
             --info frontend-work/wheels/build-info.json \
             --output frontend-work/dist 2>&1 | tee frontend-work/logs/tag.log
           ls -l frontend-work/dist
@@ -412,8 +436,8 @@ jobs:
           exec > >(tee frontend-work/logs/wheel-smoke.log) 2>&1
           python -m venv frontend-work/smoke
           frontend-work/smoke/bin/python -m pip install --no-index --no-deps \
-            frontend-work/dist/curry_frontend-2.0.0.post*-py3-none-macosx_*.whl
-          test "$(frontend-work/smoke/bin/curry-frontend --numeric-version)" = 2.0.0
+            frontend-work/dist/curry_frontend-${FRONTEND_VERSION}.post*-py3-none-macosx_*.whl
+          test "$(frontend-work/smoke/bin/curry-frontend --numeric-version)" = "$FRONTEND_VERSION"
           frontend-work/smoke/bin/curry-frontend --version
       - name: Stage Sprite using the source-built front end
         id: stage
@@ -426,7 +450,7 @@ jobs:
             -DWITH_CURRY_FRONTEND="$PWD/frontend-work/build/curry-frontend" \
             2>&1 | tee frontend-work/logs/cmake.log
           make stage 2>&1 | tee frontend-work/logs/stage.log
-      - name: Byte parity with pinned ICurry and FlatCurry interfaces
+      - name: Byte parity with the versioned PAKCS references
         id: parity
         if: ${{ !cancelled() && steps.stage.outcome == 'success' }}
         run: |
@@ -451,7 +475,7 @@ jobs:
           printf 'fetch=%s\ntoolchain=%s\nbuild=%s\nwheel=%s\ntag=%s\nsmoke=%s\nstage=%s\nparity=%s\n' \
             "$FETCH" "$TOOLCHAIN" "$COMPILE" "$WHEEL" "$TAG" "$SMOKE" "$STAGE" "$PARITY" \
             | tee frontend-work/outcome.txt >> "$GITHUB_STEP_SUMMARY"
-      - name: Collect ghcup and Cabal logs even after failure
+      - name: Collect ghcup, Stack, and Cabal logs even after failure
         if: always()
         run: |
           set -euxo pipefail
@@ -463,7 +487,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: frontend-${{ matrix.name }}-${{ github.run_attempt }}
+          name: ${{ matrix.version == '2.0.0' && format('frontend-{0}', matrix.name) || format('curry-frontend-{0}-{1}', matrix.version, matrix.name) }}-${{ github.run_attempt }}
           if-no-files-found: warn
           include-hidden-files: true
           path: |
@@ -477,3 +501,4 @@ jobs:
             frontend-work/dist/
             frontend-work/parity/
             !frontend-work/fetch/source/dist-newstyle/**
+            !frontend-work/fetch/source/.stack-work/**

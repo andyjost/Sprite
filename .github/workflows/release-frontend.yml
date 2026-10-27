@@ -26,6 +26,10 @@ name: Release the front end
         type: choice
         options: [testpypi, pypi]
         default: testpypi
+      macos:
+        description: Include the macOS wheels of the run (four wheels in all); off for a Linux-only release of two
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -37,10 +41,12 @@ jobs:
     env:
       FRONTEND_VERSION: ${{ inputs.version }}
       FRONTEND_ARTIFACT_PREFIX: ${{ inputs.version == '3.1.0' && 'curry-frontend' || 'frontend' }}
-      # Four wheels for 2.0.0: manylinux_2_28 x86-64 and aarch64, macOS
-      # arm64 and x86-64 (issue #162, step 3); two for 3.1.0, manylinux only.
-      EXPECTED_WHEELS: ${{ inputs.version == '3.1.0' && '2' || '4' }}
-      EXPECTED_MACOS: ${{ inputs.version == '3.1.0' && '0' || '2' }}
+      # Four wheels for either version: manylinux_2_28 x86-64 and aarch64,
+      # macOS arm64 and x86-64 (issue #162); two, manylinux only, when the
+      # input macos is off.
+      INCLUDE_MACOS: ${{ inputs.macos }}
+      EXPECTED_WHEELS: ${{ inputs.macos && '4' || '2' }}
+      EXPECTED_MACOS: ${{ inputs.macos && '2' || '0' }}
     timeout-minutes: 20
     permissions:
       actions: read
@@ -57,9 +63,13 @@ jobs:
           test "$(gh run view "$RUN_ID" --json workflowName --jq .workflowName)" = 'Curry front end from source'
           test "$(gh run view "$RUN_ID" --json conclusion --jq .conclusion)" = success
           gh run download "$RUN_ID" --pattern "${FRONTEND_ARTIFACT_PREFIX}-${FRONTEND_VERSION}-*" --dir artifacts
-          if [ "$FRONTEND_VERSION" = 2.0.0 ]; then
-            # The macOS wheels of 2.0.0 come from the job macos of the run.
+          if [ "$FRONTEND_VERSION" = 2.0.0 ] && [ "$INCLUDE_MACOS" = true ]; then
+            # The macOS wheels of 2.0.0 come from the job macos of the run
+            # under their own prefix; those of 3.1.0 share the prefix above.
             gh run download "$RUN_ID" --pattern 'frontend-macos-*' --dir artifacts
+          fi
+          if [ "$INCLUDE_MACOS" != true ]; then
+            rm -rf artifacts/*macos*
           fi
           # A rerun keeps the artifacts of the earlier attempts on the run:
           # keep the latest attempt of each target.
