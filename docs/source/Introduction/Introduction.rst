@@ -1,5 +1,5 @@
-Introduction
-============
+How Sprite works
+================
 
 Sprite is a compiler and runtime for Curry programs.  It is based on the
 `Fair Scheme`_, a compilation strategy for transforming declarative,
@@ -72,15 +72,14 @@ extension, it instantly becomes more approachable to a huge number of
 programmers.  With Sprite, anyone can use Functional and Logic Programming
 where it makes sense, while relying on Python where they prefer.
 
-The remainder of this introduction gives a high-level overview of Sprite.  It
-is intended to orient new users so that they may understand Sprite well enough
+The pages of this section give a high-level overview of Sprite.  They are
+intended to orient new users so that they may understand Sprite well enough
 to begin using it.
 
 .. toctree::
    :maxdepth: 1
 
    MajorFeatures
-   ProjectLayout
    CompilationPipeline
 
 .. _Fair Scheme: https://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf
