@@ -5,134 +5,178 @@
   </picture>
 </p>
 
-## Overview
+**Sprite brings the Curry language to Python.** [Curry](https://www.curry-lang.org/)
+is a functional logic language. It has the strongly typed functions and the
+lazy evaluation of Haskell, and it adds two ideas from logic programming to
+the language itself: a function may have several results, and a value may be
+left unknown for the program to find.
 
-Sprite is an implementation of the Curry programming language
-(https://www.curry-lang.org/). It is based on an evaluation strategy
-called the Fair Scheme. You can read about it at
-http://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf.
+Sprite compiles Curry modules to native code by way of C++ and runs them in
+its own runtime, and its Python API imports a Curry module like a Python
+module. Underneath is the Fair Scheme, an evaluation strategy that has been
+proved correct and complete: a computation finds every value of an
+expression and nothing else, in whatever order the alternatives are
+explored. The strategy and its proofs are written up in a
+[dissertation](https://andrewjost.wordpress.com/wp-content/uploads/2023/05/jostthesis.final_.10may23.pdf)
+and a shorter
+[paper](http://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf).
 
-In addition to command-line tools for compiling and running Curry
-programs, the Python API provides access to a Curry interpreter, (JIT)
-compiler, and runtime. Curry code modules can thus be imported directly
-into Python, enabling hybrid applications that leverage the strengths of
-both languages.
+## Curry from Python
 
-The logo, a burst of dust beside the name, and the files of its identity
-are under `assets/logo/`.
+With Sprite, Curry code is a module that Python imports. The functions live
+in a Curry file, with their types:
+
+```curry
+-- Hello.curry
+greet :: String -> String
+greet name = "Hello, " ++ name ++ "!"
+```
+
+Python imports the module directly. The first import translates it and
+compiles it to native code in the background; every later import reuses
+the result.
+
+```python
+import curry
+curry.path.insert(0, '.')      # the directories where Curry modules are found
+from curry.lib import Hello
+
+goal = Hello.greet('World')    # a Curry expression, typed from the signature
+results = curry.eval(goal)     # evaluate it
+results.one()                  # take its one value
+# 'Hello, World!'
+```
+
+A Curry expression has any number of values, zero or more. `curry.eval`
+returns all of them, and `.one()` takes the first; here there is exactly
+one. Python values are converted both ways by the Curry types: a Python
+string goes in, and a Python string comes out.
+
+## Logic programming, from Python
+
+Python needs little new to use the logic side of Curry: a function with
+several results is iterated like any sequence, and an unknown is a value
+that Python creates and hands in.
+
+**Several results.** `perm` returns a permutation of a list, any of them:
+the two rules of `insert` overlap, and Curry takes both. Python sees every
+result:
+
+```curry
+perm :: [a] -> [a]
+perm []     = []
+perm (x:xs) = insert (perm xs)
+ where insert ys     = x : ys
+       insert (y:ys) = y : insert ys
+```
+
+```python
+list(curry.eval(Hello.perm([1, 2, 3])))
+# [[1, 2, 3], [2, 1, 3], [1, 3, 2], [3, 1, 2], [2, 3, 1], [3, 2, 1]]
+```
+
+**Patterns that describe a shape.** A functional pattern matches a list that
+ends in `x`, whatever comes before it:
+
+```curry
+last :: [Int] -> Int
+last (_ ++ [x]) = x
+```
+
+```python
+curry.eval(Hello.last([1, 2, 3])).one()
+# 3
+```
+
+**Unknowns.** Three switches light a lamp when exactly two of them are up.
+`lit` returns the positions of the switches when the lamp is on. Hand it
+unknowns, and Curry finds every setting that lights the lamp:
+
+```curry
+lampOn :: Bool -> Bool -> Bool -> Bool
+lampOn True  True  False = True
+lampOn True  False True  = True
+lampOn False True  True  = True
+
+lit :: Bool -> Bool -> Bool -> (Bool, Bool, Bool)
+lit a b c | lampOn a b c = (a, b, c)
+```
+
+```python
+a, b, c = curry.free(), curry.free(), curry.free()
+for setting in curry.eval(Hello.lit(a, b, c)):
+    print(setting)
+# (False, True, True)
+# (True, False, True)
+# (True, True, False)
+```
+
+Fix the first switch up, `Hello.lit(True, b, c)`, and two settings remain.
+The same ideas carry real programs: the [examples](examples/README) include
+a sudoku solver, cryptarithms, n-queens, a regular-expression matcher and a
+parser built from functional patterns. The
+[Quickstart](https://andyjost.github.io/Sprite/Quickstart.html) continues
+from here.
 
 ## Installation
 
-On Linux, choose the path that fits your Python setup:
-
-1. Without a suitable Python, let the installer bring its own:
-
-   ```sh
-   curl -LsSf https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite | sh
-   ```
-
-   For confirmation before each installation step:
-
-   ```sh
-   curl -LsSf https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite-i | sh
-   ```
-
-   The script installs uv if needed, then a managed Python 3.11.4 or newer
-   and curry with its curry-frontend dependency, all in your home
-   directory. It leaves the system Python alone and never uses sudo. Run
-   it again to upgrade Sprite. To preview the plan, download the script
-   and run `sh getsprite --dry-run` (or `sh getsprite-i --dry-run`). Add
-   the commands to your PATH, including in your shell startup file:
-
-   ```sh
-   export PATH="$HOME/.local/bin:$PATH"
-   ```
-
-2. With Python 3.11.4 or newer (through 3.15), install into your Python
-   environment with pip:
-
-   ```sh
-   pip install curry
-   ```
-
-   This also installs curry-frontend; uv is only needed by the script.
-
-3. Python developers can run a Curry source file or open the Curry REPL
-   through the Python they installed into:
-
-   ```sh
-   python -m curry MyProgram.curry
-   python -m curry
-   ```
-
-A C++ compiler (g++) is optional. Without one, new modules run
-interpreted; see "Installing and running without a C++ compiler" in the
-documentation.
-
-A conda recipe for linux-64 is under development under `conda/`. It is not
-published; `conda/README.md` describes it.
-
-A developer who sets up a new machine runs
-`scripts/setup-dev-machine.sh --prefix DIR`. The script checks the apt
-packages and prints the apt command when one is missing; it never runs
-sudo. It installs PAKCS 3.4.1 and a conda environment
-(`conda/dev-environment.yml`) under the prefix, links `install/` and
-`object-root/` of the checkout into it, runs CMake and `make stage` in a
-clean environment, and runs a smoke test. Say `--dry-run` to print the
-plan first. The page "Developer Setup" of the documentation
-(`docs/source/DeveloperSetup.rst`) describes the steps, the options, and
-the layout of the prefix.
-
-## Running a program
-
-Programs run with `sprite-exec`. In a staged source checkout, for example,
-run this from the repository root:
-
 ```sh
-install/bin/sprite-exec examples/Peano.curry
+pip install curry
 ```
 
-The C++ backend runs a module interpreted until the compiled code is
-ready, so an installation without a C++ compiler runs every program (see
-the page "Installing and running without a C++ compiler" of the
-documentation).
+Sprite supports Python 3.11 to 3.15 on Linux (x86-64 and aarch64) and on
+macOS 15 or newer (Apple silicon and Intel). The wheels include the compiled
+Curry library, and pip installs the Curry front end beside them (the package
+`curry-frontend`). A C++ compiler (g++) is optional: without one, new modules
+run interpreted.
 
-The numbered directories under `examples/` hold runnable examples of
-Curry programs and of Curry called from Python. Each has a run script and
-a README. `tests/unit_examples.py` compares their output with
-`expected.out` on the declared backends. Example 19 is the successor to
-the retired Flask blocks-world example. `examples/cxx/` and
-`examples/Peano.curry` are support sources, without separate run scripts
-or expected-output tests. See `examples/README` for the list.
+Without a suitable Python, let the installer bring its own. It installs
+[uv](https://docs.astral.sh/uv/), a managed Python and Sprite under your home
+directory, and it never uses sudo:
 
-## Documentation
+```sh
+curl -LsSf https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite | sh
+```
 
-The user guide is published at https://andyjost.github.io/Sprite/ from
-the master branch. To build it yourself, run `make -C docs html` from the
-repository root after `make stage`. The output is written under
-`object-root/docs/html`. The sources are hosted at
-https://github.com/andyjost/Sprite.
+The [Installation Guide](https://andyjost.github.io/Sprite/Installation/Installation.html)
+covers the options of the installer, building from source and running without
+a C++ compiler. `python -m curry` opens the Curry REPL, and
+`python -m curry Program.curry` runs a program.
 
-## Contact and bug reporting
+## Learn more
 
-Sprite was developed and is maintained by Andy Jost
-(andy.m.jost@gmail.com). Feel free to contact him with questions, bug
-reports, feature requests, and other miscellania. Direct general
-questions about Curry to the Curry mailing list
-(curry@lists.RWTH-Aachen.DE).
+- [Quickstart](https://andyjost.github.io/Sprite/Quickstart.html): five minutes with the Python API.
+- [Examples](https://andyjost.github.io/Sprite/Examples.html): twenty-six runnable programs, from a first Curry program to applications.
+- [The Python Interface](https://andyjost.github.io/Sprite/PythonAPI/index.html): terms, evaluation, answers and bindings, set functions and streams.
+- [The REPL](https://andyjost.github.io/Sprite/REPL.html) and the [command-line tools](https://andyjost.github.io/Sprite/CommandLineInterface/index.html).
+- [Curry Primer](https://andyjost.github.io/Sprite/CurryPrimer/index.html): the language for a Python programmer.
+- [API Reference](https://andyjost.github.io/Sprite/Reference/index.html).
 
-If you find a bug, please report it. The easiest way is to create a
-minimal unit test decorated with `unittest.expectedFailure`. Further
-instructions on developing and running tests can be found under
-`tests/README`. Once you have written the test, submit a pull request or
-send the diff by email.
+**For Curry researchers.** Sprite uses the Curry front end of PAKCS and ships
+the `base` library of PAKCS 3.10.0, so most programs written for PAKCS run
+unchanged, with the same answers in another order. The runtime is a C++ graph
+rewriting engine that implements the Fair Scheme with pull-tabbing; set
+functions follow the weak encapsulation of the dissertation. The
+[Status](https://andyjost.github.io/Sprite/Status.html) page lists what
+differs and the known limits, and
+[Performance](https://andyjost.github.io/Sprite/Performance.html) holds the
+measurements.
 
-## Contributing to Sprite
+## Support
 
-Contributions are welcome! For more information, see `CONTRIBUTING.md`.
+Questions, bug reports and feature requests go to the
+[issue tracker](https://github.com/andyjost/Sprite/issues). The best bug
+report is a small Curry program or Python snippet with the answer you
+expected; `tests/README` shows how to turn it into a unit test. Questions
+about the Curry language itself go to the Curry mailing list
+(curry@lists.RWTH-Aachen.DE). Sprite is developed and maintained by Andy Jost
+(andy.m.jost@gmail.com).
+
+## Contributing
+
+Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-Sprite is distributed under the BSD 3-Clause License; see the `LICENSE`
-file. The vendored Curry library under `curry/lib` carries its own BSD
-license and notice.
+Sprite is distributed under the BSD 3-Clause License; see [LICENSE](LICENSE).
+The Curry library under `curry/lib` carries its own BSD license and notice.
