@@ -398,3 +398,30 @@ set functions inside streamed actions are allowed.
 line, with no result line for IO ().  :doc:`../REPL` covers interactive I/O,
 commands and exit statuses; the tools use ``curry.show`` to print values
 and named answers.
+
+.. _important-notes:
+
+Two notes
+=========
+
+[1] Type signatures are optional for goals.
+    Sprite reads the type of every function and constructor from the
+    interface that the Curry front end writes beside a module.  A goal
+    without a type signature keeps its class constraints, and Sprite
+    defaults them as the REPL of PAKCS does: ``Num`` to ``Int``,
+    ``Fractional`` to ``Float``, ``Monad`` to ``IO``, a lone ``Data`` to
+    ``Bool``.  A constraint outside that table, such as ``Enum a`` for
+    ``toEnum 65``, is an error that asks for a type annotation.
+    Expressions built in Python with ``curry.term`` and symbol calls are typed before
+    they are built; see :ref:`typed-expressions`.
+
+
+[2] The front end runs once per change.
+    Sprite relies on an external program, the Curry front end of PAKCS, to
+    convert Curry source code into FlatCurry, from which it writes an
+    intermediate representation called ICurry.  The front end is the
+    slowest step of the compilation: a fraction of a second for a small
+    module (0.6 s for ``Peano``), seconds for a large one, and nothing when
+    the files are current.  It does not affect the performance of programs
+    compiled by Sprite.  On the C++ backend a module runs interpreted at
+    once, and its compilation to native code happens in the background.

@@ -10,4 +10,3 @@ Installation Guide
     WithoutCompiler
     BuildingDocumentation
     SyntaxHighlighting
-    SoftwareCompatibility
