@@ -96,8 +96,7 @@ The cost
 ========
 
 The interpreter takes about 1.1 to 1.5 times the time of compiled code for
-the evaluation of a program (the measurements are in the ``TODO`` entries
-on issues #31 and #64).  A process that interprets the Prelude, under
+the evaluation of a program (measured on issues #31 and #64).  A process that interprets the Prelude, under
 ``interpret:all`` or when the library objects are missing, first reads the
 ICurry of the Prelude and emits its bytecode.  That costs about 0.3 to
 0.55 s per process; the compiled library objects avoid it.  So a

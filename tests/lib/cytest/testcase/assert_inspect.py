@@ -3,16 +3,9 @@ Assertions based on the curry.inspect module.
 '''
 
 from curry import inspect
-from curry.backends import Node
 from curry.backends.generic.graph.equality import (
     logically_equal, structurally_equal
   )
-
-try:
-  from curry.llvm import isa as llvm_isa
-except ImportError:
-  def llvm_isa(*args, **kwds):
-    raise RuntimeError('LLVM is not available')
 
 def assertStructEqual(tc, e0, e1):
   '''Compare two Curry expressions for exact structural equality.'''
@@ -33,12 +26,10 @@ def assertNotStructEqual(tc, e0, e1):
   tc.assertFalse(structurally_equal(e0, e1))
 
 def assertIsa(tc, obj, ty):
-  isa = inspect.isa if isinstance(obj, Node) else llvm_isa
-  tc.assertTrue(isa(obj, ty))
+  tc.assertTrue(inspect.isa(obj, ty))
 
 def assertIsNotA(tc, obj, ty):
-  isa = inspect.isa if isinstance(obj, Node) else llvm_isa
-  tc.assertFalse(isa(obj, ty))
+  tc.assertFalse(inspect.isa(obj, ty))
 
 def assertIsaBoxedPrimitive(tc, obj):
   if not inspect.isa_boxed_primitive(obj):

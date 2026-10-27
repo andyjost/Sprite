@@ -90,7 +90,7 @@ them into the installation. Copy every module's `.icy`, `.fint`, `.icurry`,
 `.curry/sprite-pakcs-3.10.0/` directory under `lib/`. Check the ICurry bytes
 by regenerating them with the runtime route before replacing the committed
 products. The independent outputs of `icurry` 3.3.0 are the 30 library
-oracles in `overlay-pakcs-3.10.0.tgz` at the repository root;
+oracles in `tests/overlay/overlay-pakcs-3.10.0.tgz`;
 `func_flat2icurry.py::test_library` checks the port's compatibility mode
 against those oracles. The installed pins are not compatibility-mode oracles.
 A build with front end 2.0.0 never uses the current pair's pins.

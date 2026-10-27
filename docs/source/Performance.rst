@@ -94,17 +94,15 @@ The records
     without.  ``Primes`` peaks at 65 MB and 1863 MB, and ``Queens10`` at
     63 MB and 1512 MB.  Both files are of schema 1, without the
     instructions column; a comparison by instructions needs a newer
-    baseline.  The later entries
-    of the ``TODO`` (the saturation of apply chains, the repair of the set
-    functions, tiered execution) moved the counters of some of these
+    baseline.  Later changes (the saturation of apply chains, the repair of
+    the set functions, tiered execution) moved the counters of some of these
     programs; a compare against this record reports them.
 
 The step cost
 =============
 
 The runtime counts a rewrite step at every return of a step function.
-The dated entries of the ``TODO`` give these costs per completed step on
-``Tak1`` (33.6 million steps):
+The measured costs per completed step on ``Tak1`` (33.6 million steps):
 
 * The rotation check of the scheduler: 3 instructions per step in step
   mode and 5 in time mode, over the build before the ticker.

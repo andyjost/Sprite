@@ -123,7 +123,7 @@ jobs:
             -DWITH_PAKCS="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
             -DWITH_ICURRY="${{ matrix.icurry }}"
           make stage
-      # The overlay archive at the root of the repository holds the
+      # The overlay archive under tests/overlay holds the
       # FlatCurry and ICurry products of the test programs (tests/README,
       # section 8).  It is extracted after the stage: the products are then
       # newer than the interfaces of the installed library, so the front
@@ -327,7 +327,7 @@ jobs:
             -DWITH_PAKCS="$HOME/pakcs-$PAKCS_VERSION/bin/pakcs" \
             -DWITH_ICURRY=
           make stage
-      # The overlay archive at the root of the repository holds the
+      # The overlay archive under tests/overlay holds the
       # FlatCurry and ICurry products of the test programs (tests/README,
       # section 8).  It is extracted after the stage: the products are then
       # newer than the interfaces of the installed library, so the front

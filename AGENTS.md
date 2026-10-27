@@ -64,6 +64,8 @@ reproducers pass.
   the two, the palette, the generator and a specimen sheet;
   `assets/logo/README.md` describes them and the rules of use. The sdist
   leaves the directory out.
+- `contrib/`: editor support outside the package: the Vim syntax of the
+  trace log (`contrib/vim/`, with its `ftdetect` file).
 - `examples/`: runnable examples.
 - `conda/`: the scaffold of a conda package for linux-64, not published.
   `conda/README.md` describes the two recipes and the open questions.
@@ -106,8 +108,9 @@ reproducers pass.
   tests skip modules that need it when absent, and benchmarks exclude them.
   In compatibility mode the port is
   byte-identical to icurry 3.1.0 with front end 2.0.0 and icurry 3.3.0 with
-  front end 3.1.0, checked against `overlay-pakcs-3.4.1.tgz` and
-  `overlay-pakcs-3.10.0.tgz`, respectively (`tests/README`). CMake rejects
+  front end 3.1.0, checked against the archives `overlay-pakcs-3.4.1.tgz`
+  and `overlay-pakcs-3.10.0.tgz` under `tests/overlay/` (`tests/README`).
+  CMake rejects
   mismatched version pairs. The archives are selected by the configured
   release; the current-tool archive includes all 30 library oracles.
   The runtime route uses `icurry_compat=False`: it looks through root type
@@ -286,8 +289,6 @@ reproducers pass.
 
 - Every new feature or fixed bug gets a unit test. Mark a known failure
   with `unittest.expectedFailure` instead of deleting the test.
-- `NOTES` and `TODO` are historical work logs. Verify a claim there before
-  you act on it.
 - The modules under `tests/data/curry/typed_expr/` are generated from the
   corpus in `tests/func_typed_expr.py`. Edit the corpus and run
   `python func_typed_expr.py --write` from `tests/`; do not edit the

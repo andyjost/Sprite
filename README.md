@@ -129,7 +129,7 @@ send the diff by email.
 
 ## Contributing to Sprite
 
-Contributions are welcome! For more information, see `README.contrib`.
+Contributions are welcome! For more information, see `CONTRIBUTING.md`.
 
 ## License
 

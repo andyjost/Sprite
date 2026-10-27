@@ -326,7 +326,8 @@ class TestCondaRecipe(cytest.TestCase):
       with self.assertRaisesRegex(RuntimeError, 'regenerate.*without source receipts') as error:
         module.archive_products(root)
       self.assertIn(str(icy.relative_to(root)), str(error.exception))
-      archive = root / 'overlay-pakcs-3.10.0.tgz'
+      archive = root / 'tests' / 'overlay' / 'overlay-pakcs-3.10.0.tgz'
+      archive.parent.mkdir(parents=True, exist_ok=True)
       module.write_archive(archive, [(str(p.relative_to(root)), p) for p in (flat, icy)])
       # Run the actual extraction path without history or an installation.
       with mock.patch.object(module, 'ROOT', root), \
@@ -370,7 +371,8 @@ class TestCondaRecipe(cytest.TestCase):
       self.assertTrue(icy.is_file())
       old_source = b'module M where\noldExport = True\n'
       receipt.write_text(hashlib.sha256(old_source).hexdigest())
-      archive = root / 'overlay-pakcs-3.10.0.tgz'
+      archive = root / 'tests' / 'overlay' / 'overlay-pakcs-3.10.0.tgz'
+      archive.parent.mkdir(parents=True, exist_ok=True)
       module.write_archive(archive,
           [(str(p.relative_to(root)), p) for p in (flat, icy, receipt)])
       with mock.patch.object(module, 'ROOT', root), \
@@ -399,7 +401,7 @@ class TestCondaRecipe(cytest.TestCase):
     copied into the clone, so the test sees the Makefile of the working
     tree.  One run: the copies of the interfaces take most of its time.
     '''
-    archive = 'overlay-%s.tgz' % config.frontend_subdir()
+    archive = os.path.join('tests', 'overlay', 'overlay-%s.tgz' % config.frontend_subdir())
     if not os.path.isfile(os.path.join(ROOT, archive)):
       raise unittest.SkipTest('%s is absent' % archive)
     git = shutil.which('git', path=ENV['PATH'])
@@ -415,8 +417,10 @@ class TestCondaRecipe(cytest.TestCase):
       clone = os.path.join(tmpdir, 'clone')
       result = run([git, 'clone', '--quiet', '--depth', '1', 'file://' + ROOT, clone])
       self.assertEqual(result.returncode, 0, result.stdout)
+      # The Makefile and the archive of the working tree, at their places.
       for name in ['Makefile', archive]:
-        shutil.copy(os.path.join(ROOT, name), clone)
+        os.makedirs(os.path.dirname(os.path.join(clone, name)), exist_ok=True)
+        shutil.copy(os.path.join(ROOT, name), os.path.join(clone, name))
       shutil.copy(
           os.path.join(ROOT, 'scripts', 'overlay.py')
         , os.path.join(clone, 'scripts')

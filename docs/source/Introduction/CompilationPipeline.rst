@@ -57,8 +57,8 @@ The command ``python -m curry.toolchain.flat2icurry M.fcy`` runs the
 translation by hand, and ``tests/lib/flat2icurry_oracle.py`` compares its
 output with the ``.icy`` files that ``icurry`` wrote.
 
-The oracle of the port is the overlay archive ``overlay-pakcs-3.10.0.tgz`` at
-the root of the repository.  It holds the FlatCurry and ICurry files of every
+The oracle of the port is the overlay archive ``overlay-pakcs-3.10.0.tgz``
+under ``tests/overlay/``.  It holds the FlatCurry and ICurry files of every
 test program, written by the pinned front end and by ``icurry`` 3.3.0, and
 the FlatCurry interfaces of the Curry library.  The current archive also holds all library oracles. The legacy pair
 uses ``overlay-pakcs-3.4.1.tgz`` with ``icurry`` 3.1.0 references.  The modules under
