@@ -2,7 +2,7 @@
 Release Notes
 =============
 
-0.9.0a2 (2026-10-26)
+0.9.0a2 (2026-10-27)
 ====================
 
 - The distribution is named ``curry`` on PyPI: ``pip install curry``.
