@@ -5,60 +5,29 @@
   </picture>
 </p>
 
-<p align="center"><em>Programs that search, as a Python import.</em></p>
+Sprite is a compiler and runtime for the Curry language, with a Python API.
+Curry is a typed, lazy functional language with the syntax of Haskell and two
+things that Python and C++ lack: a function may have several rules that apply
+at once, and an argument may be an unknown. So a function written once runs
+forwards and backwards, and an expression has zero, one or many values. Few
+teams reach for that, because it has meant a dependency on Prolog, or a
+language nobody else on the team reads. With Sprite it is `pip install curry`
+and `import curry`.
 
-Some problems are searches. Parse this text. Infer that type. Pick versions
-that fit together. Find the overload a call resolves to. Imperative code
-spells the search out, with loops, state, backtracking and special cases. A
-logic program states the relation between a question and its answers and
-lets an engine do the searching. Few teams reach for that, because it has
-meant a dependency on Prolog, or a language nobody else on the team reads.
+## The printer, run backwards
 
-Sprite removes the dependency. It is a compiler and runtime for
-[Curry](https://www.curry-lang.org/), a small, typed language of the Haskell
-family in which a function may have several results, an argument may be left
-unknown, and a pattern may describe the shape of a result. Sprite compiles
-Curry modules to native code and runs them in its own runtime, and its
-Python API imports such a module like any other. The results come back as
-Python values.
+Your project has a data type and a printer for it: one function writes every
+node of an IR, a type or a schema as text. One day you need the text back as
+data, for a round-trip test or for a user's input. The parser is the printer
+run backwards, and no function in C++ or Python runs backwards. So you write
+a tokenizer and a recursive-descent parser, a second copy of the grammar, and
+you keep both copies in step.
 
-## Patterns that search
-
-One function, one rule, and the rule's pattern has a hole on each side:
-
-```curry
--- Flags.curry: the argument that follows a flag, wherever the flag is.
-after :: String -> [String] -> String
-after flag (_ ++ [flag, value] ++ _) = value
-```
-
-```python
-import curry
-curry.path.insert(0, '.')          # where Sprite looks for Curry modules
-from curry.lib import Flags
-
-curry.eval(Flags.after('--out', ['nvcc', '-O3', '--out', 'a.o', 'x.cu'])).one()
-# 'a.o'
-list(curry.eval(Flags.after('-I', ['-I', 'inc', '-I', 'more', 'x.cu'])))
-# ['inc', 'more']
-list(curry.eval(Flags.after('--out', ['x.cu'])))
-# []
-```
-
-The pattern `_ ++ [flag, value] ++ _` describes a list that contains the flag
-and a value after it, with anything before and after them. The engine finds
-every place where the pattern fits. Two fits are two results. No fit is no
-result, which is not an error. A Curry expression has any number of values,
-zero or more; `curry.eval` hands Python all of them, and `.one()` takes the
-first.
-
-## Programs that run backwards
-
-A printer for Boolean formulas, and a parser that is the printer run in
-reverse:
+With Sprite the parser is one line. Here is the printer, as a Curry module.
 
 ```curry
--- Logic.curry
+module Logic where
+
 data Formula = T | F | Not Formula | And Formula Formula | Or Formula Formula
   deriving (Eq, Show)
 
@@ -74,108 +43,175 @@ parse s | render p =:= s = p  where p free
 ```
 
 ```python
+import curry
+curry.path.insert(0, '.')
 from curry.lib import Logic
 
-tree = curry.eval(Logic.parse('((T|F)&!(F&T))')).one()
-print(tree)
-# And (Or T F) (Not (And F T))
+goal = Logic.parse('((T|F)&!(F&T))')
+tree = curry.eval(goal).one()
+print(tree)   # And (Or T F) (Not (And F T))
 ```
 
-`p free` declares an unknown formula, and `render p =:= s` asks for its
-rendering to equal the input. The engine finds the formula. There is no
-parser; the printer is the grammar, read in the other direction. The
-strategy that does this, the Fair Scheme, is proved correct and complete:
-every solution is found and nothing else is, whatever the order in which the
-alternatives are explored.
+The last line of the module is the parser. `where p free` declares `p` as an
+unknown formula. The guard `render p =:= s` asks that `render p` and `s` be
+equal, and the engine binds `p` to make it so. There is no parsing code: the
+five rules of the printer are the grammar, read in the other direction.
+`render` is lazy and `=:=` compares the strings character by character. A
+candidate that starts wrong is dropped before the rest of it is built. The
+answer comes back at once.
 
-## Where this leads
+The Python side is small:
 
-The runtime is a term graph rewriting engine. A Curry function is a set of
-rewrite rules, the rules may overlap, and the engine explores the
-alternatives fairly. That is the shape of a compiler's work, and the larger
-examples lean that way: [template argument deduction](examples/20-cxx-types-deduction),
-[overload resolution](examples/21-cxx-types-overloads),
-[trait checking by narrowing](examples/22-cxx-types-trait-check) and
-[member layout by search](examples/23-cxx-types-layout), over one model of
-C++ types; [type inference by unification](examples/17-type-inference) in a
-dozen rules; [a parser from functional patterns](examples/14-parser-functional-patterns).
-Searches under constraints read the same way: [a package dependency solver](examples/15-dependency-solver)
-that is the relation and nothing else, [a scheduler](examples/16-scheduling),
-[a makefile written in Curry](examples/24-build-system) and
-[a perfect hash function found by search](examples/25-perfect-hash). Term
-graphs are a natural home for symbolic tensor expressions, too; that work is
-ahead.
+- `from curry.lib import Logic` imports a Curry module from a directory on
+  `curry.path`. The first import translates and compiles it.
+- `Logic.parse(text)` builds a typed Curry expression and runs nothing. Python
+  `str`, `int`, `bool`, `list` and `tuple` convert by the Curry types.
+- `curry.eval(goal)` returns its values, and `.one()` takes the first. An
+  expression has zero or more values, and zero is not an error:
+  `list(curry.eval(goal))` is then empty.
 
-Every example is a directory with a README, a run script and its recorded
-output. The [catalogue](examples/README) lists all twenty-six.
+## Overload resolution, both ways
 
-## What you install
+A compiler is full of functions that run in one direction, and of questions
+that go the other way. Here is a small model of C++ overload resolution:
+five arithmetic types, three ranks of conversion, a call with one argument.
+
+```curry
+module Overloads where
+
+data Type = Char | Int | Long | Float | Double  deriving (Eq, Show)
+data Rank = Exact | Promotion | Conversion  deriving (Eq, Ord, Show)
+
+rank :: Type -> Type -> Rank
+rank a p | a == p = Exact
+         | (a, p) `elem` [(Char, Int), (Float, Double)] = Promotion
+         | otherwise = Conversion
+
+overloads :: [(String, Type)]
+overloads = [("f(int)", Int), ("f(long)", Long), ("f(double)", Double)]
+
+resolve :: Type -> String
+resolve a | all (\(_, p) -> rank a p >= r) overloads
+          && length [p | (_, p) <- overloads, rank a p == r] == 1 = name
+  where (name, param) = anyOf overloads
+        r = rank a param
+
+picks :: String -> Type
+picks name | resolve a =:= name = a  where a free
+```
+
+`anyOf overloads` stands for any one candidate, and each candidate runs as
+its own branch. The guard keeps the candidate whose rank is the best and
+shared by no other. An ambiguous call has no value, with no error code and
+no else branch. `picks` asks the same function backwards: `where a free`
+leaves the argument type unknown, and `resolve a =:= name` asks for every
+type that picks the named overload. The runtime narrows `a` to each
+constructor of `Type` and keeps the ones that fit, in no fixed order.
+
+```python
+import curry
+curry.path.insert(0, '.')
+from curry.lib import Overloads as Ov
+
+curry.eval(Ov.resolve(Ov.Char)).one()    # 'f(int)'     char promotes to int
+curry.eval(Ov.resolve(Ov.Float)).one()   # 'f(double)'
+
+goal = Ov.picks('f(double)')
+[str(t) for t in curry.eval(goal)]                 # ['Double', 'Float']
+[str(t) for t in curry.eval(Ov.picks('f(int)'))]   # ['Int', 'Char']
+```
+
+The full model, with the standard conversion sequences, is
+[examples/21-cxx-types-overloads](examples/21-cxx-types-overloads). Three more
+share its model of C++ types. [Example 20](examples/20-cxx-types-deduction) deduces
+template arguments by unification. [Example 22](examples/22-cxx-types-trait-check)
+finds counterexamples to type traits over every type up to a depth.
+[Example 23](examples/23-cxx-types-layout) lays out a struct by search, with the
+struct described from Python as a reflection would. A compiler that embeds
+Python could hand such a model the types under compilation, and ask the
+questions a compiler does not answer, such as which argument types would
+make a call ambiguous.
+
+## Where it helps
+
+- Compilers and IR. An intermediate representation is a term graph, and many
+  passes are conditional rewrite rules. [Example 14](examples/14-parser-functional-patterns)
+  parses expressions with three rules with functional patterns and no parser
+  library. [Example 17](examples/17-type-inference) infers the types of lambda
+  terms by unification, with free variables as the unknown types.
+- Packaging and builds. [Example 15](examples/15-dependency-solver) is a
+  package dependency solver: the plan is a value of the relation it states,
+  and there is no search code. [Example 24](examples/24-build-system) is a
+  makefile written in Curry: the pattern rule `%.o: %.c` is a functional
+  pattern, and the same rules answer who needs a header.
+
+The nodes of a term graph can stand for types, as above, for lambda terms or
+for tensor expressions. The [Examples](https://andyjost.github.io/Sprite/Examples.html)
+page lists all 26, each with a README, a run script and its recorded output.
+
+## How it works
+
+The runtime rewrites term graphs. When two rules apply to one node, it keeps
+both as a choice. The branches advance in turns, so no branch waits forever
+on another. This strategy, the Fair Scheme, is proved correct and complete:
+every value of an expression is found and nothing else, whatever the order
+of exploration. A
+[dissertation](https://andrewjost.wordpress.com/wp-content/uploads/2023/05/jostthesis.final_.10may23.pdf)
+and a [paper](http://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf)
+describe the scheme.
+
+The Curry front end reads a module and writes FlatCurry. Sprite translates
+it to ICurry, then to C++, then to a shared object. A module runs
+interpreted the moment it is imported, and it swaps to the compiled code
+when the background compile finishes. A C++ compiler is optional.
+
+The runtime is about 23,000 lines of C++ and the Python side about 34,000.
+The suite has 154 unit test files and 27 functional test files. It runs on
+every change, on Linux and macOS and on every Python from 3.11 to 3.15.
+Sprite uses the front end and the base library of PAKCS 3.10.0. The
+translator is checked byte for byte against the tools of PAKCS over the 30
+modules of that library.
+
+## Installation
 
 ```sh
 pip install curry
 ```
 
-Two wheels and nothing else. `curry`, about 3 MB, holds the runtime, the
-compiled Curry library and the Python API; `curry-frontend` holds the Curry
-compiler front end as a native executable. No Prolog, no Haskell toolchain,
-no JVM. Python 3.11 to 3.15, the free-threaded build included, on Linux
-x86-64 and aarch64 and on macOS 15 or newer, Apple silicon and Intel. A C++
-compiler is optional: a
-module runs interpreted at once and swaps to compiled code when the
-background compile finishes. Without a suitable Python, a one-line installer
-brings its own; the
-[Installation Guide](https://andyjost.github.io/Sprite/Installation/Installation.html)
-has it, with the build from source and the run without a compiler.
+Two wheels and nothing else. `curry` holds the runtime, the compiled Curry
+library and the Python API, 2.9 to 3.1 MB per Python version.
+`curry-frontend`, the only dependency, holds the Curry front end as a native
+executable: 3.1 MB on Linux x86-64, 6.3 MB on Linux aarch64, 8.3 MB on macOS
+arm64 and 2.6 MB on macOS x86-64. At run time there is no Prolog, no Haskell
+toolchain and no JVM. The wheels cover Python 3.11 to 3.15, the
+free-threaded build included: manylinux_2_28 wheels for Linux x86-64 and
+aarch64, and macOS wheels for macOS 15 or newer, Apple silicon and Intel.
 
-## How it is built
+Without a suitable Python, a one-line installer brings its own, installs
+Sprite under your home directory and leaves the system Python alone:
 
-A Curry module goes through the Curry front end to FlatCurry, through
-Sprite's translator to ICurry, and through C++ to a shared object; the typed
-boundary reads the Curry types and converts Python values in both
-directions. The runtime is about 23,000 lines of C++ and the Python side
-about 34,000. About 180 test files run on every change, on Linux and macOS
-and on every Python from 3.11 to 3.15, and the translator is checked byte
-for byte against the tools of PAKCS over the whole Curry library. The design
-is the subject of a
-[dissertation](https://andrewjost.wordpress.com/wp-content/uploads/2023/05/jostthesis.final_.10may23.pdf)
-and a shorter
-[paper](http://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf).
-
-## About Curry
-
-Curry has the functions, the types and the lazy evaluation of Haskell, with
-nondeterministic choice and logic variables built into the language. Sprite
-uses the Curry front end and the `base` library of PAKCS 3.10.0, so most
-programs written for PAKCS run unchanged, with the same answers in another
-order; set functions follow the weak encapsulation of the dissertation, and
-the [Status](https://andyjost.github.io/Sprite/Status.html) page lists what
-differs and the known limits. The
-[Curry Primer](https://andyjost.github.io/Sprite/CurryPrimer/index.html)
-teaches the language to a Python programmer in an afternoon.
-
-## Learn more
-
-- [Quickstart](https://andyjost.github.io/Sprite/Quickstart.html): five minutes with the Python API.
-- [Examples](https://andyjost.github.io/Sprite/Examples.html): the twenty-six programs, from a first Curry program to applications.
-- [The Python Interface](https://andyjost.github.io/Sprite/PythonAPI/index.html): terms, evaluation, answers and bindings, set functions and streams.
-- [The REPL](https://andyjost.github.io/Sprite/REPL.html) and the [command-line tools](https://andyjost.github.io/Sprite/CommandLineInterface/index.html).
-- [API Reference](https://andyjost.github.io/Sprite/Reference/index.html).
+```sh
+curl -LsSf https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite | sh
+```
 
 ## Support
 
 Questions, bug reports and feature requests go to the
-[issue tracker](https://github.com/andyjost/Sprite/issues). The best bug
-report is a small Curry program or Python snippet with the answer you
-expected; `tests/README` shows how to turn it into a unit test. Questions
-about the Curry language itself go to the Curry mailing list
-(curry@lists.RWTH-Aachen.DE). Sprite is developed and maintained by Andy Jost
-(andy.m.jost@gmail.com).
+[issue tracker](https://github.com/andyjost/Sprite/issues). The
+[documentation](https://andyjost.github.io/Sprite/) has a
+[Quickstart](https://andyjost.github.io/Sprite/Quickstart.html), a
+[Curry primer](https://andyjost.github.io/Sprite/CurryPrimer/index.html), the
+Python API, the REPL, the [Installation](https://andyjost.github.io/Sprite/Installation/Installation.html)
+page with the build from source, and the [Status](https://andyjost.github.io/Sprite/Status.html) page.
 
 ## Contributing
 
-Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
+Pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) names the pages
+to read first and the conventions. Every new feature or fixed bug comes with
+a unit test.
 
 ## License
 
-Sprite is distributed under the BSD 3-Clause License; see [LICENSE](LICENSE).
-The Curry library under `curry/lib` carries its own BSD license and notice.
+Sprite is distributed under the [BSD 3-Clause License](LICENSE). The Curry
+library under `curry/lib` is the base library of PAKCS and carries the
+license of PAKCS and a notice of its origin.
