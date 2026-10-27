@@ -40,7 +40,7 @@ class TestDistribution(cytest.TestCase):
     self.assertIn('Development Status :: 3 - Alpha', project['classifiers'])
     self.assertTrue((ROOT / project['readme']).is_file())
     self.assertEqual(set(project['urls']), {'Homepage', 'Documentation', 'Source', 'Issues'})
-    self.assertEqual(project['dependencies'], ['curry-frontend>=2.0.0'])
+    self.assertEqual(project['dependencies'], ['curry-frontend>=3.1.0'])
     self.assertEqual(data['build-system']['requires'],
         ['scikit-build-core>=1.1', 'cmake>=3.24', 'ninja'])
     for name in project['license-files']:
@@ -74,7 +74,7 @@ class TestDistribution(cytest.TestCase):
         metadata = BytesParser().parsebytes(archive.extractfile(prefix + 'PKG-INFO').read())
         self.assertEqual(metadata['Author'], 'Andy Jost')
         self.assertIsNone(metadata['Author-email'])
-        self.assertEqual(metadata.get_all('Requires-Dist'), ['curry-frontend>=2.0.0'])
+        self.assertEqual(metadata.get_all('Requires-Dist'), ['curry-frontend>=3.1.0'])
 
   def test_stage_without_frontend(self):
     '''A fresh native build uses only shipped products, including typed calls.'''
@@ -136,7 +136,7 @@ else:
       self.assertIn('no Curry front end found;', result.stdout)
       run(python, ROOT / 'scripts/wheels/smoke.py')
 
-  def distributions(self, directory, requirements=('curry-frontend>=2.0.0',)):
+  def distributions(self, directory, requirements=('curry-frontend>=3.1.0',)):
     '''A matrix fixture for testing the publication gate, without native code.'''
     gate = script('check-dist')
     metadata = ('Metadata-Version: 2.4\nName: curry\nVersion: 0.9.0a2\n'
@@ -181,7 +181,7 @@ else:
         gate.check(directory, '0.9.0a2')
 
   def test_runtime_dependencies(self):
-    for requirements in [(), ('curry-frontend>=2.0.0', 'uv')]:
+    for requirements in [(), ('curry-frontend>=3.1.0', 'uv')]:
       with self.subTest(requirements=requirements):
         with tempfile.TemporaryDirectory() as directory:
           gate = self.distributions(directory, requirements=requirements)
