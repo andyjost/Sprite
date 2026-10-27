@@ -29,15 +29,26 @@ add (S n) m = S (add n m)
 main = add (S O) (S O)
 ```
 
-The result is `S (S O)`.
-
-The same module answers a logic question from Python. Leave the two numbers
-unknown, and Sprite finds every pair that adds up to two:
+`python -m curry Peano.curry` prints `S (S O)`. The same program runs from
+Python. A Curry module imports like a Python module once its directory is on
+`curry.path`:
 
 ```python
 import curry
 curry.path.insert(0, '.')            # the directory of Peano.curry
-from curry.lib import Peano, Prelude
+from curry.lib import Peano
+
+result = curry.eval(Peano.main).one()
+print(result)                        # S (S O)
+```
+
+`curry.eval` returns every value of an expression, and `.one()` takes the
+first; `main` has exactly one. Now ask the module a question it was not
+written for. Leave the two numbers unknown, and Sprite finds every pair that
+adds up to two:
+
+```python
+from curry.lib import Prelude
 
 x, y = curry.free('x'), curry.free('y')
 two = Peano.S(Peano.S(Peano.O))
