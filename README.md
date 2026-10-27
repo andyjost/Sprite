@@ -119,8 +119,8 @@ Two wheels and nothing else. `curry`, about 3 MB, holds the runtime, the
 compiled Curry library and the Python API; `curry-frontend` holds the Curry
 compiler front end as a native executable. No Prolog, no Haskell toolchain,
 no JVM. Python 3.11 to 3.15, the free-threaded build included, on Linux
-x86-64 and aarch64; wheels for macOS 15 or newer (Apple silicon and Intel)
-follow with the macOS build of the front end. A C++ compiler is optional: a
+x86-64 and aarch64 and on macOS 15 or newer, Apple silicon and Intel. A C++
+compiler is optional: a
 module runs interpreted at once and swaps to compiled code when the
 background compile finishes. Without a suitable Python, a one-line installer
 brings its own; the
