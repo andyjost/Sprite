@@ -2,15 +2,15 @@
 Release Notes
 =============
 
-0.9.0a2 (2026-10-26)
+0.9.0a2 (2026-10-27)
 ====================
 
 - The distribution is named ``curry`` on PyPI: ``pip install curry``.
   The name ``currylang`` of the first alpha is retired; the import name
   was ``curry`` from the start.
 - Wheels for macOS 15 or newer, Apple silicon and Intel, beside the Linux
-  wheels; pip can install them once the Curry front end 3.1.0 has a macOS
-  build.
+  wheels; the Curry front end 3.1.0 ships for both as ``curry-frontend``
+  3.1.0.post1.
 - The current tools are the default: the Curry front end 3.1.0 (the
   package ``curry-frontend`` 3.1.0) with the ``base`` library 3.4.0 of
   PAKCS 3.10.0.  The pair of front end 2.0.0

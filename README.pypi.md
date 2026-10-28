@@ -29,7 +29,41 @@ add (S n) m = S (add n m)
 main = add (S O) (S O)
 ```
 
-The result is `S (S O)`. Wheels include the compiled Curry library and run
+`python -m curry Peano.curry` prints `S (S O)`. The same program runs from
+Python. A Curry module imports like a Python module once its directory is on
+`curry.path`:
+
+```python
+import curry
+curry.path.insert(0, '.')            # the directory of Peano.curry
+from curry.lib import Peano
+
+result = curry.eval(Peano.main).one()
+print(result)                        # S (S O)
+```
+
+`curry.eval` returns every value of an expression, and `.one()` takes the
+first; `main` has exactly one. Now ask the module a question it was not
+written for. Leave the two numbers unknown, and Sprite finds every pair that
+adds up to two:
+
+```python
+from curry.lib import Prelude
+
+x, y = curry.free('x'), curry.free('y')
+two = Peano.S(Peano.S(Peano.O))
+goal = Prelude['=:='](Peano.add(x, y), two)
+for value, bindings in curry.solve(goal):
+    print(f'{value=} with {bindings=}')
+```
+
+```
+value=True with bindings={x=O, y=S (S O)}
+value=True with bindings={x=S O, y=S O}
+value=True with bindings={x=S (S O), y=O}
+```
+
+Wheels include the compiled Curry library and run
 without a C++ compiler. Install `g++` to compile your own modules with
 `sprite-make --so Peano.curry`. The separate `curry-frontend` package provides
 the Curry front end used when loading source programs.
