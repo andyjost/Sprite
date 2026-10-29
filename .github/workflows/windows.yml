@@ -1,0 +1,87 @@
+name: Windows spike
+
+# The runtime and its Python bindings compiled on Windows, for the report of
+# what the port is (the portability memo of 2026-10-18, step 4; the owner's
+# go of 2026-10-29).  Two compilers: clang-cl, which knows the GNU builtins
+# of the runtime, and cl.  The job builds the two targets alone with the
+# Visual Studio generator, which finds the toolchain without a developer
+# prompt, lets every translation unit report, and uploads the logs.  No
+# front end: the configure takes the pinned library products.
+
+'on':
+  push:
+    branches: [wt/windows, 'wt/windows-*']
+    paths:
+      - CMakeLists.txt
+      - src/curryrt/**
+      - src/python/backends/cxx/curryrtbindings/**
+      - extern/**
+      - .github/workflows/windows.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: runtime (${{ matrix.name }})
+    runs-on: windows-2025
+    continue-on-error: true
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: clang-cl
+            toolset: ClangCL
+          - name: msvc
+            toolset: v143
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Tools
+        run: |
+          set -euxo pipefail
+          python -m pip install --quiet cmake ninja scikit-build-core numpy
+          cmake --version
+          python -c "import sys, platform; print(sys.version); print(platform.machine())"
+      - name: Configure with the Visual Studio generator
+        id: configure
+        run: |
+          set -euxo pipefail
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -T "${{ matrix.toolset }}" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPython_EXECUTABLE="$(python -c 'import sys; print(sys.executable)')" \
+            -DWITH_PAKCS= -DWITH_CURRY_FRONTEND= -DWITH_ICURRY= \
+            2>&1 | tee configure.log
+      - name: Build the runtime and the bindings, every error reported
+        id: build
+        if: ${{ !cancelled() && steps.configure.outcome == 'success' }}
+        run: |
+          set -uxo pipefail
+          cmake --build build --config Release --target curryrt _curryrtbindings --parallel \
+            -- -p:ContinueOnError=true -p:StopOnFirstFailure=false 2>&1 | tee build.log
+          status=${PIPESTATUS[0]}
+          echo "== errors by file:"
+          grep -oE '[A-Za-z0-9_./\\-]+\.(cpp|hpp|h)\([0-9]+(,[0-9]+)?\): (fatal )?error' build.log \
+            | sed -E 's/\([0-9,]+\): (fatal )?error//' | sort | uniq -c | sort -rn | head -60
+          echo "== error kinds:"
+          grep -oE 'error C[0-9]+|error: [^\[]{0,60}' build.log | sort | uniq -c | sort -rn | head -40
+          exit "$status"
+      - name: Upload the logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.name }}-${{ github.run_attempt }}
+          path: |
+            configure.log
+            build.log
+            build/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: warn

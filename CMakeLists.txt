@@ -217,6 +217,11 @@ target_link_libraries(curryrt PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
 if(APPLE)
   set(sprite_origin "@loader_path")
   set(elf_release_flags "")
+elseif(WIN32)
+  # PE has no run path: the runtime library is found beside the extension
+  # or through the directories that the package adds (the Windows spike).
+  set(sprite_origin "")
+  set(elf_release_flags "")
 else()
   set(sprite_origin "$ORIGIN")
   # The procedure linkage table and semantic interposition are ELF notions.
@@ -248,14 +253,24 @@ target_link_libraries(_curryrtbindings PRIVATE curryrt)
 # the aliasing rules of C++ call unrelated.  Strict aliasing is therefore
 # off here, in the generated code (toolchain.py, _cxxflags) and in the C++
 # tests; GCC 14 for riscv64 kept a stale info tag without it (issue #170).
-foreach(target curryrt _curryrtbindings)
-  target_compile_options(${target} PRIVATE -Wall -Wno-register -fno-strict-aliasing
+if(MSVC)
+  # cl and clang-cl: the MSVC spelling.  cl has no strict-aliasing
+  # optimization to turn off; clang-cl takes the GNU flag through /clang:.
+  set(sprite_cxx_flags /W3 /EHsc /bigobj
+    "$<$<CXX_COMPILER_ID:Clang>:/clang:-fno-strict-aliasing>"
+    "$<$<CONFIG:Release>:/O2>")
+  set(sprite_c_flags /W3 "$<$<CONFIG:Release>:/O2>")
+else()
+  set(sprite_cxx_flags -Wall -Wno-register -fno-strict-aliasing
     "$<$<CXX_COMPILER_ID:AppleClang,Clang>:-Wno-missing-braces>"
     "$<$<CONFIG:Release>:-O2;-fno-stack-protector${elf_release_flags}>")
+  set(sprite_c_flags -Wall "$<$<CONFIG:Release>:-O2;-fno-stack-protector${elf_release_flags}>")
+endif()
+foreach(target curryrt _curryrtbindings)
+  target_compile_options(${target} PRIVATE ${sprite_cxx_flags})
 endforeach()
 # The private C objects obey the same release flavor as libcurryrt.
-target_compile_options(sprite_tommath PRIVATE -Wall
-  "$<$<CONFIG:Release>:-O2;-fno-stack-protector${elf_release_flags}>")
+target_compile_options(sprite_tommath PRIVATE ${sprite_c_flags})
 set_target_properties(_curryrtbindings PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${image}/python/curry/backends/cxx/curryrtbindings"
   BUILD_WITH_INSTALL_RPATH TRUE
@@ -265,15 +280,21 @@ set_target_properties(_curryrtbindings PROPERTIES
 # prepares the traditional tree using these facts and the just-built package.
 # The version of the compiler of generated code: -dumpfullversion of GCC
 # and of clang proper; Apple's clang knows -dumpversion alone.
-execute_process(COMMAND "${WITH_CXX_POSTINSTALL}" -dumpfullversion
-  OUTPUT_VARIABLE compiler_version RESULT_VARIABLE compiler_version_result
-  OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-if(NOT compiler_version_result EQUAL 0 OR compiler_version STREQUAL "")
-  execute_process(COMMAND "${WITH_CXX_POSTINSTALL}" -dumpversion
-    OUTPUT_VARIABLE compiler_version OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+if(MSVC)
+  set(compiler_version "${CMAKE_CXX_COMPILER_VERSION}")
+  string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" compiler_target)
+  string(APPEND compiler_target "-pc-windows-msvc")
+else()
+  execute_process(COMMAND "${WITH_CXX_POSTINSTALL}" -dumpfullversion
+    OUTPUT_VARIABLE compiler_version RESULT_VARIABLE compiler_version_result
+    OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+  if(NOT compiler_version_result EQUAL 0 OR compiler_version STREQUAL "")
+    execute_process(COMMAND "${WITH_CXX_POSTINSTALL}" -dumpversion
+      OUTPUT_VARIABLE compiler_version OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+  endif()
+  execute_process(COMMAND "${WITH_CXX_POSTINSTALL}" -dumpmachine
+    OUTPUT_VARIABLE compiler_target OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
 endif()
-execute_process(COMMAND "${WITH_CXX_POSTINSTALL}" -dumpmachine
-  OUTPUT_VARIABLE compiler_target OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
 set(cxx_flavor release)
 if(CMAKE_BUILD_TYPE STREQUAL Debug)
   set(cxx_flavor debug)
