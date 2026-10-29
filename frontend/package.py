@@ -30,6 +30,80 @@ MACHO_CPUTYPES = {0x0100000c: 'arm64', 0x01000007: 'x86_64'}
 # The directories of the system libraries of macOS; anything else that a
 # binary loads must be vendored.
 MACOS_SYSTEM_DIRS = ('/usr/lib/', '/System/Library/')
+# The DLLs of Windows itself and of its C runtime, by lower-case name; the
+# api-ms-win-* and ext-ms-* families of the universal C runtime are matched
+# by prefix.  Anything else that the executable imports is vendored beside it.
+WINDOWS_SYSTEM_DLLS = {
+    'kernel32.dll', 'kernelbase.dll', 'ntdll.dll', 'user32.dll', 'advapi32.dll'
+  , 'shell32.dll', 'shlwapi.dll', 'ws2_32.dll', 'wsock32.dll', 'mswsock.dll'
+  , 'ole32.dll', 'oleaut32.dll', 'rpcrt4.dll', 'dbghelp.dll', 'msvcrt.dll'
+  , 'ucrtbase.dll', 'bcrypt.dll', 'crypt32.dll', 'iphlpapi.dll', 'psapi.dll'
+  , 'userenv.dll', 'version.dll', 'winmm.dll', 'secur32.dll', 'gdi32.dll'
+  , 'imm32.dll', 'netapi32.dll', 'comdlg32.dll', 'wtsapi32.dll', 'powrprof.dll'
+  , 'setupapi.dll', 'cfgmgr32.dll', 'ncrypt.dll', 'normaliz.dll', 'wldap32.dll'
+  }
+PE_MACHINES = {0x8664: 'x86_64', 0xaa64: 'arm64'}
+
+
+def pe_machine(path):
+  '''The machine of a PE executable, from the COFF header that e_lfanew names.'''
+  with path.open('rb') as stream:
+    head = stream.read(64)
+    if head[:2] != b'MZ':
+      raise ValueError('not a PE executable: ' + str(path))
+    offset = struct.unpack('<I', head[60:64])[0]
+    stream.seek(offset)
+    signature = stream.read(6)
+  if signature[:4] != b'PE\0\0':
+    raise ValueError('no PE signature: ' + str(path))
+  return struct.unpack('<H', signature[4:6])[0]
+
+
+def pe_imports(path):
+  '''The DLLs a PE file imports, as objdump of the GHC toolchain lists them, or dumpbin.'''
+  try:
+    text = output('objdump', '-p', str(path))
+    return re.findall(r'DLL Name: (\S+)', text)
+  except (OSError, subprocess.CalledProcessError):
+    text = output('dumpbin', '/DEPENDENTS', str(path))
+    return re.findall(r'^\s+(\S+\.dll)\s*$', text, re.M | re.I)
+
+
+def windows_system_dll(name):
+  lower = name.lower()
+  return lower in WINDOWS_SYSTEM_DLLS or lower.startswith(('api-ms-win-', 'ext-ms-'))
+
+
+def bundle_pe(binary, destination, licenses):
+  '''Windows: the executable keeps its .exe; a DLL outside the system set is
+  vendored beside it (PE loads from the executable's directory first), and
+  its notice is the reviewer's to add.'''
+  destination.mkdir(parents=True, exist_ok=True)
+  target = destination / 'curry-frontend.exe'
+  shutil.copy2(binary, target)
+  version = output(str(target), '--numeric-version').strip()
+  if version not in PACKAGING_VERSIONS:
+    raise ValueError('the executable must be front end 2.0.0 or 3.1.0')
+  arch = PE_MACHINES[pe_machine(target)]
+  needed = pe_imports(target)
+  vendored = []
+  for name in needed:
+    if windows_system_dll(name):
+      continue
+    found = shutil.which(name)
+    if not found:
+      raise ValueError('unhandled DLL, not on PATH: ' + name)
+    shutil.copy2(found, destination / name)
+    vendored.append(name)
+  if vendored:
+    print('vendored beside the executable, notices to review: ' + ', '.join(vendored), flush=True)
+  info = dict(
+      version=version, packaging_version=PACKAGING_VERSIONS[version], architecture=arch
+    , platform='win32', linkage='dynamic' if vendored else 'system', needed=needed
+    , vendored=vendored, glibc_required=None, rpath=None
+    )
+  print(json.dumps(info, indent=2), flush=True)
+  return info
 
 
 def output(*args):
@@ -127,6 +201,8 @@ def bundle_macho(target, destination, licenses, head, version):
 
 
 def bundle(binary, destination, licenses):
+  if binary.read_bytes()[:2] == b'MZ':
+    return bundle_pe(binary, destination, licenses)
   destination.mkdir(parents=True, exist_ok=True)
   target = destination / 'curry-frontend'
   shutil.copy2(binary, target)

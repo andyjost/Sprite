@@ -13,7 +13,11 @@ case "$version" in
   *) echo "unsupported front end: $version" >&2; exit 2 ;;
 esac
 os=$(uname -s)
+# The bash of Git for Windows and MSYS2 name the system MINGW64_NT or MSYS_NT.
+case "$os" in MINGW*|MSYS*|CYGWIN*) os=Windows ;; esac
 arch=$(uname -m)
+exe=''
+if [ "$os" = Windows ]; then exe=.exe; fi
 # macOS has shasum, not sha256sum, unless GNU coreutils is installed.
 sha256() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi; }
 # The linkage of a binary: the ELF program headers and the dynamic section
@@ -22,6 +26,9 @@ describe_binary() {
   if [ "$os" = Darwin ]; then
     otool -L "$1"
     otool -l "$1" | grep -A 4 -E 'LC_BUILD_VERSION|LC_VERSION_MIN_MACOSX|LC_RPATH|LC_LOAD_DYLIB|LC_ID_DYLIB' || true
+  elif [ "$os" = Windows ]; then
+    # The PE headers and the import table, as objdump of the GHC toolchain prints them.
+    objdump -p "$1" | grep -E 'Magic|Subsystem|MajorOSystemVersion|ImageBase|DLL Name' || true
   else
     readelf -l -d "$1"
   fi
@@ -35,6 +42,8 @@ fi
 gcc --version
 if [ "$os" = Darwin ]; then
   ld -v
+elif [ "$os" = Windows ]; then
+  ld --version | head -n 1
 else
   ld --version
   ldd --version
@@ -84,10 +93,14 @@ if not re.search(r'^resolver:\s*[\x27\x22]?' + re.escape(sys.argv[1]) + r'[\x27\
   raise SystemExit('Unexpected resolver; reviewer must inspect stack.yaml.')
 PY
     [ "$?" = 0 ] || return 1
+    # Stack on Windows looks for an MSYS2 of its own unless told not to;
+    # the GHC toolchain's mingw is on PATH for the C parts of the packages.
+    local skip_msys=''
+    if [ "$os" = Windows ]; then skip_msys=--skip-msys; fi
     # shellcheck disable=SC2086
-    stack --system-ghc --no-install-ghc $extra build --verbose \
+    stack $skip_msys --system-ghc --no-install-ghc $extra build --verbose \
       --copy-bins --local-bin-path "$output_dir/installed" --ghc-options="$options" || return $?
-    cp "$output_dir/installed/$executable" "$output_dir/curry-frontend" || return $?
+    cp "$output_dir/installed/$executable$exe" "$output_dir/curry-frontend$exe" || return $?
   else
     # Start at GHC 9.6; retain solver/compile errors for named source fixes.
     # shellcheck disable=SC2086
@@ -100,7 +113,7 @@ PY
       --ghc-options="$options") || return $?
     cp "$built_binary" "$output_dir/curry-frontend" || return $?
   fi
-  describe_binary "$output_dir/curry-frontend" > "$output_dir/dynamic-elf.txt" || return $?
+  describe_binary "$output_dir/curry-frontend$exe" > "$output_dir/dynamic-elf.txt" || return $?
   cat "$output_dir/dynamic-elf.txt"
 }
 if [ "$version" = 2.0.0 ] && { [ "$os" = Darwin ] || [ "$arch" != x86_64 ]; }; then

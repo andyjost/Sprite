@@ -7,6 +7,7 @@ and its architecture; auditwheel is a Linux tool.
 import argparse
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -19,6 +20,14 @@ def main():
   args = parser.parse_args()
   info = json.loads(args.info.read_text())
   args.output.mkdir(parents=True, exist_ok=True)
+  if info.get('platform') == 'win32':
+    # setup.py's bdist_wheel names the platform of the build, win_amd64 or
+    # win_arm64; there is no floor to compute and no auditwheel.
+    if not re.search(r'-win_(amd64|arm64)\.whl$', args.wheel.name):
+      raise SystemExit('expected a win_amd64 or win_arm64 wheel: ' + args.wheel.name)
+    import shutil
+    shutil.copy2(args.wheel, args.output / args.wheel.name)
+    return
   if info.get('platform') == 'darwin':
     floor = info.get('macos_required') or '11.0'
     major, minor = (floor.split('.') + ['0'])[:2]

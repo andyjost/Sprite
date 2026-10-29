@@ -502,3 +502,172 @@ jobs:
             frontend-work/parity/
             !frontend-work/fetch/source/dist-newstyle/**
             !frontend-work/fetch/source/.stack-work/**
+
+  # Windows x64: the front end 3.1.0 with GHC 9.8.4, Cabal and Stack from
+  # ghcup, as on Linux and macOS, under the bash of Git for Windows; the GHC
+  # toolchain's mingw supplies gcc and objdump.  The wheel takes the tag of
+  # the Python platform, win_amd64 (frontend/setup.py).  Sprite does not run
+  # on Windows yet, so the stage and the parity gates are skipped here, which
+  # keeps this wheel out of a release until they run; the artifact's prefix
+  # frontend-windows-* is outside the patterns of release-frontend.yml.
+  windows:
+    name: build (3.1.0, windows-x86_64)
+    runs-on: windows-2025
+    continue-on-error: true
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: bash
+    env:
+      LC_ALL: C.UTF-8
+      GHC_VERSION: '9.8.4'
+      CABAL_VERSION: '3.10.3.0'
+      STACK_VERSION: '2.15.7'
+      FRONTEND_VERSION: '3.1.0'
+      SPRITE_CACHE_FILE: ''
+      SPRITE_PRODUCT_CACHE: ''
+      SPRITE_CURRY2ICURRY: frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Runner and system dependencies
+        run: |
+          set -euxo pipefail
+          mkdir -p frontend-work/logs
+          exec > >(tee frontend-work/logs/runner.log) 2>&1
+          uname -a
+          python --version
+          python -m pip install --verbose 'setuptools>=68' wheel
+          command -v ghcup && ghcup --version || echo 'ghcup is not on the runner'
+      - name: Fetch and inspect source, separately from compilation
+        id: fetch
+        env:
+          SOURCE_URL: ${{ inputs.source_url }}
+          SOURCE_SHA256: ${{ inputs.source_sha256 }}
+        run: |
+          set -euxo pipefail
+          args=(--version "$FRONTEND_VERSION")
+          if [ -n "$SOURCE_URL$SOURCE_SHA256" ]; then
+            args+=(--url "$SOURCE_URL" --sha256 "$SOURCE_SHA256")
+          fi
+          python frontend/fetch.py --output frontend-work/fetch "${args[@]}" \
+            2>&1 | tee frontend-work/logs/fetch.log
+      - name: Set up the target Haskell toolchain
+        id: toolchain
+        run: |
+          set -euxo pipefail
+          exec > >(tee frontend-work/logs/toolchain.log) 2>&1
+          if ! command -v ghcup >/dev/null; then
+            # The image lacks ghcup: the bootstrap of the Haskell site, unattended.
+            powershell -NoProfile -ExecutionPolicy Bypass -Command \
+              "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; Invoke-Command -ScriptBlock ([ScriptBlock]::Create((Invoke-WebRequest https://www.haskell.org/ghcup/sh/bootstrap-haskell.ps1 -UseBasicParsing))) -ArgumentList \$false,\$true,\$false,\$false,\$false,\$false,\$false,'C:\'"
+            export PATH="/c/ghcup/bin:$PATH"
+          fi
+          ghcup --version
+          ghcup install ghc "$GHC_VERSION"
+          ghcup set ghc "$GHC_VERSION"
+          ghcup install cabal "$CABAL_VERSION"
+          ghcup set cabal "$CABAL_VERSION"
+          ghcup install stack "$STACK_VERSION"
+          ghcup set stack "$STACK_VERSION"
+          bindir=$(cygpath -u "$(ghcup whereis bindir)")
+          export PATH="$bindir:$PATH"
+          libdir=$(cygpath -u "$(ghc --print-libdir)")
+          mingw="$libdir/../mingw/bin"
+          [ -d "$mingw" ] || mingw="$libdir/../../mingw/bin"
+          ls "$mingw" | head -n 5
+          export PATH="$mingw:$PATH"
+          cygpath -w "$bindir" >> "$GITHUB_PATH"
+          cygpath -w "$mingw" >> "$GITHUB_PATH"
+          for tool in ghc ghc-pkg cabal stack gcc objdump; do
+            command -v "$tool"
+            "$tool" --version | head -n 1
+          done
+          test "$(ghc --numeric-version)" = "$GHC_VERSION"
+          test "$(cabal --numeric-version)" = "$CABAL_VERSION"
+      - name: Build the selected version with the GHC toolchain of Windows
+        id: compile
+        run: |
+          set -euxo pipefail
+          bash frontend/build.sh frontend-work/fetch/source frontend-work/build "$FRONTEND_VERSION" \
+            2>&1 | tee frontend-work/logs/build.log
+      - name: Bundle the executable and build a platform wheel
+        id: wheel
+        if: ${{ !cancelled() && steps.compile.outcome == 'success' }}
+        run: |
+          set -euxo pipefail
+          python frontend/package.py --binary frontend-work/build/curry-frontend.exe \
+            --licenses frontend-work/fetch/licenses --output frontend-work/wheels \
+            2>&1 | tee frontend-work/logs/wheel.log
+          python frontend/package.py --binary frontend-work/build/curry-frontend.exe \
+            --licenses frontend-work/fetch/licenses --bundle-only \
+            --output frontend-work/bundle 2>&1 | tee frontend-work/logs/bundle.log
+          for file in frontend-work/bundle/bin/*; do
+            echo "$file"
+            objdump -p "$file" | grep -E 'Magic|Subsystem|MajorOSystemVersion|DLL Name' || true
+          done 2>&1 | tee frontend-work/logs/bundled-pe.log
+      - name: Tag the wheel with the platform of the build
+        id: tag
+        if: ${{ !cancelled() && steps.wheel.outcome == 'success' }}
+        run: |
+          set -euxo pipefail
+          python frontend/tag-wheel.py frontend-work/wheels/curry_frontend-${FRONTEND_VERSION}.post*-py3-none-*.whl \
+            --info frontend-work/wheels/build-info.json \
+            --output frontend-work/dist 2>&1 | tee frontend-work/logs/tag.log
+          ls -l frontend-work/dist
+      - name: Install wheel offline and test its console script
+        id: smoke
+        if: ${{ !cancelled() && steps.tag.outcome == 'success' }}
+        run: |
+          set -euxo pipefail
+          exec > >(tee frontend-work/logs/wheel-smoke.log) 2>&1
+          python -m venv frontend-work/smoke
+          frontend-work/smoke/Scripts/python -m pip install --no-index --no-deps \
+            frontend-work/dist/curry_frontend-${FRONTEND_VERSION}.post*-py3-none-win_*.whl
+          test "$(frontend-work/smoke/Scripts/curry-frontend --numeric-version)" = "$FRONTEND_VERSION"
+          frontend-work/smoke/Scripts/curry-frontend --version
+      - name: Write the entry outcome
+        if: always()
+        env:
+          FETCH: ${{ steps.fetch.outcome }}
+          TOOLCHAIN: ${{ steps.toolchain.outcome }}
+          COMPILE: ${{ steps.compile.outcome }}
+          WHEEL: ${{ steps.wheel.outcome }}
+          TAG: ${{ steps.tag.outcome }}
+          SMOKE: ${{ steps.smoke.outcome }}
+        run: |
+          mkdir -p frontend-work
+          # Sprite does not stage on Windows yet: the two gates are skipped,
+          # and the release workflow refuses this wheel until they pass.
+          printf 'fetch=%s\ntoolchain=%s\nbuild=%s\nwheel=%s\ntag=%s\nsmoke=%s\nstage=skipped\nparity=skipped\n' \
+            "$FETCH" "$TOOLCHAIN" "$COMPILE" "$WHEEL" "$TAG" "$SMOKE" \
+            | tee frontend-work/outcome.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Collect ghcup, Stack, and Cabal logs even after failure
+        if: always()
+        run: |
+          set -euxo pipefail
+          mkdir -p frontend-work/logs
+          python frontend/collect-logs.py --source frontend-work/fetch/source \
+            --output frontend-work/logs/haskell \
+            2>&1 | tee frontend-work/logs/collect-haskell.log
+      - name: Upload source, logs, binary, wheels, and the bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-windows-x86_64-${{ github.run_attempt }}
+          if-no-files-found: warn
+          include-hidden-files: true
+          path: |
+            frontend-work/logs/
+            frontend-work/outcome.txt
+            frontend-work/fetch/
+            frontend-work/build/
+            frontend-work/bundle/
+            frontend-work/wheels/
+            frontend-work/dist/
+            !frontend-work/fetch/source/dist-newstyle/**
+            !frontend-work/fetch/source/.stack-work/**
