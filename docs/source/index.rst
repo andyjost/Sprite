@@ -4,51 +4,67 @@
 Sprite
 ======
 
-**Sprite brings the Curry language to Python.** `Curry`_ is a functional
-logic language.  It has the strongly typed functions and the lazy
-evaluation of Haskell, and it adds two ideas from logic programming to the
-language itself: a function may have several results, and a value may be
-left unknown for the program to find.
+Sprite is an implementation of the multi-paradigm programming language
+`Curry`_ exposed to Python. It seamlessly integrates features of functional
+programming (algebraic data types, pattern matching, strong typing, type
+inference, lazy evaluation) and logic programming (nondeterminism, logic
+variables, search) into your Python project without adding heavy dependencies.
+You state what a desired value has to satisfy and leave the search to Sprite.
+As a result, many programs are trivial to construct and obviously correct.
+Sprite's evaluation strategy, the Fair Scheme, is proved sound, complete, and
+optimal, meaning it finds exactly the values of any expression, and it
+executes only the steps needed to produce them. The strategy and its proofs
+are written up in a `dissertation`_ and a shorter `paper`_.
 
-Sprite compiles Curry modules to native code by way of C++ and runs them in
-its own runtime, and its Python API imports a Curry module like a Python
-module.  Underneath is the Fair Scheme, an evaluation strategy that has
-been proved correct and complete: a computation finds every value of an
-expression and nothing else, in whatever order the alternatives are
-explored.  The strategy and its proofs are written up in a `dissertation`_
-and a shorter `paper`_.
+Curry imports directly into Python. Your project uses it at whatever granularity
+it chooses, freely mixing imperative, functional, and logic styles. In other
+words, you always get to use the best tool exactly where it makes sense.
 
-A first program
+Sprite is in alpha. Install it with ``pip install --pre curry``. Try it and
+tell us what breaks on the `issue tracker`_.
+
+Getting started
 ===============
 
-The functions live in a Curry file, with their types:
+The following Curry module defines a small type of Boolean formulas along with
+a printer.
 
 .. code-block:: haskell
 
-   -- Hello.curry
-   greet :: String -> String
-   greet name = "Hello, " ++ name ++ "!"
+   -- Logic.curry
+   data Formula = T | F | Not Formula | And Formula Formula | Or Formula Formula
 
-Python imports the module directly.  The first import translates it and
-compiles it to native code in the background; every later import reuses
-the result.
+   render :: Formula -> String
+   render T = "T"
+   render F = "F"
+   render (Not p) = "!" ++ render p
+   render (And p q) = "(" ++ render p ++ " & " ++ render q ++ ")"
+   render (Or p q) = "(" ++ render p ++ " | " ++ render q ++ ")"
+
+So far this is ordinary Haskell code. Save it next to your Python code, then
+import it, construct a formula, and render it as a string:
 
 .. code-block:: python
 
    import curry
-   curry.path.insert(0, '.')      # the directories where Curry modules are found
-   from curry.lib import Hello
+   curry.path.insert(0, '.')          # Curry's sys.path
+   from curry.lib import Logic as L   # compiles and imports ./Logic.curry
 
-   goal = Hello.greet('World')    # a Curry expression, typed from the signature
-   curry.eval(goal).one()         # evaluate it and take its one value
-   # 'Hello, World!'
+   formula = L.And(L.Or(L.T, L.F), L.Not(L.F))
+   goal = L.render(formula)
+   curry.eval(goal).one()             # the one value: '((T | F) & !F)'
+
+The import compiles the Curry module to native code and loads it. The
+constructors of ``Formula`` appear as ``L.T``, ``L.And``, and so on.
+``L.render(formula)`` builds an expression without running it, ``curry.eval``
+evaluates it, and Sprite converts the result to a Python string.
 
 Where to go next
 ================
 
 - :doc:`Installation/Installation` installs Sprite with pip, or from
   source.
-- The :doc:`Quickstart` continues from the program above.  The
+- The :doc:`Quickstart` takes the next steps.  The
   :doc:`Examples` are the tutorial: twenty-six programs, from a first
   Curry program to applications.
 - The :doc:`CurryPrimer/index` teaches the language to a Python
@@ -103,7 +119,8 @@ runs Curry in a browser.
    Preface
 
 .. _Curry: https://www.curry-lang.org/
-.. _dissertation: https://andrewjost.wordpress.com/wp-content/uploads/2023/05/jostthesis.final_.10may23.pdf
+.. _dissertation: https://doi.org/10.15760/etd.3564
 .. _paper: http://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf
 .. _Curry homepage: https://www.curry-lang.org/
 .. _live demo: https://smap.curry-lang.org/smap.cgi?new/curry
+.. _issue tracker: https://github.com/andyjost/Sprite/issues

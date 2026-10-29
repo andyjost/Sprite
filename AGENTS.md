@@ -3,7 +3,7 @@
 Sprite is a compiler and runtime for the Curry functional logic language,
 based on the Fair Scheme. It has a C++ runtime behind a Python API. The
 design is described in the author's dissertation:
-https://andrewjost.wordpress.com/wp-content/uploads/2023/05/jostthesis.final_.10may23.pdf
+https://doi.org/10.15760/etd.3564
 
 ## Status (2026)
 

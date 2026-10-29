@@ -7,8 +7,8 @@ the repository.
 
 The best bug report is a small Curry program or Python snippet with the
 answer you expected and the answer you got.  Section 6 of ``tests/README``
-shows how to turn it into a unit test; a test marked
-``unittest.expectedFailure`` is a welcome pull request.
+shows how to turn it into a unit test; a test attached to the issue is the
+best reproducer of all.
 
 Questions about the Curry language itself, rather than about Sprite, go to
 the Curry mailing list, curry@lists.RWTH-Aachen.DE.  The `Curry homepage`_

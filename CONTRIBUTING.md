@@ -1,7 +1,10 @@
 # Contributing to Sprite
 
-Sprite is hosted at https://github.com/andyjost/Sprite. Pull requests are
-welcome.
+Sprite is hosted at https://github.com/andyjost/Sprite. Bug reports with a
+reproducer are the most useful contribution right now; file them on the
+[issue tracker](https://github.com/andyjost/Sprite/issues). The semantics of
+the runtime are delicate, so we don't take unsolicited pull requests: open an
+issue first, and we'll talk. The rest of this page is for work agreed that way.
 
 ## Where to start
 

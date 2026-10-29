@@ -3,7 +3,7 @@
 Measured on 2026-10-25 with front end 3.1.0, Sprite's C++ backend
 (compiled and interpreted), PAKCS 3.10.0, and KiCS2 3.5.0.
 
-The specification is [the dissertation](https://andrewjost.wordpress.com/wp-content/uploads/2023/05/jostthesis.final_.10may23.pdf),
+The specification is [the dissertation](https://doi.org/10.15760/etd.3564),
 chapter 2, equation 2.1, pp. 73-74, with the owner's principle that a
 failure decides nothing until demanded. Other systems are evidence.
 The named CHRS13 adaptations are from [sections 3.1-3.4 of the paper](https://www.michaelhanus.de/papers/PPDP13.pdf).
