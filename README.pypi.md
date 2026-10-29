@@ -5,21 +5,30 @@
   </picture>
 </p>
 
+<p align="center">
+  <a href="https://pypi.org/project/curry/"><img src="https://img.shields.io/pypi/v/curry" alt="PyPI"></a>
+  <a href="https://pypi.org/project/curry/"><img src="https://img.shields.io/pypi/pyversions/curry" alt="Python versions"></a>
+  <img src="https://img.shields.io/badge/platforms-Linux%20%7C%20macOS-blue" alt="Platforms">
+  <a href="https://github.com/andyjost/Sprite/actions/workflows/ci.yml"><img src="https://github.com/andyjost/Sprite/actions/workflows/ci.yml/badge.svg?branch=master&event=push" alt="CI"></a>
+  <a href="https://github.com/andyjost/Sprite/blob/master/LICENSE"><img src="https://img.shields.io/github/license/andyjost/Sprite" alt="License"></a>
+</p>
+
 The `curry` package is Sprite. Sprite compiles and runs
-[Curry](https://www.curry-lang.org/), and lets you call it from Python. Curry
-is a functional logic programming language. Its functional half is Haskell's,
-syntax included: algebraic data types, pattern matching, type inference, lazy
-evaluation. Its logic half adds nondeterminism, logic variables and search: a
-function may have several results, a value may be left unknown, and the
-runtime finds the values that fit by unification. So you can state what a
-result has to satisfy and leave the search to the language. Sprite's
-evaluation strategy, the Fair Scheme, is proved correct and optimal: it finds
-exactly the values of an expression, and it executes only the steps needed to
-produce them.
+[Curry](https://www.curry-lang.org/), and lets you call it from Python. Curry is a functional logic programming language. On the
+functional side it follows Haskell down to the syntax: algebraic data types,
+pattern matching, type inference, lazy evaluation. On the logic side it adds
+nondeterminism, logic variables and search: an expression may have any number
+of values, an argument may be left unknown, and the runtime finds the values
+that fit by unification. So you can state what a result has to satisfy and
+leave the search to the language. Sprite's evaluation strategy, the Fair
+Scheme, is proved sound, complete and optimal: it finds exactly the values of
+any expression, and it executes only the steps needed to produce them.
 
-Sprite is in alpha. Try it, and [tell us what breaks](https://github.com/andyjost/Sprite/issues).
+Sprite is in alpha. It installs with `pip install --pre curry`, two small
+wheels and nothing else. Try it, and
+[tell us what breaks](https://github.com/andyjost/Sprite/issues).
 
-## A first module
+## Import Curry into Python
 
 Here is a Curry module. It defines a small type of Boolean formulas and a
 function that prints one.
@@ -32,8 +41,8 @@ render :: Formula -> String
 render T = "T"
 render F = "F"
 render (Not p) = "!" ++ render p
-render (And p q) = "(" ++ render p ++ "&" ++ render q ++ ")"
-render (Or p q) = "(" ++ render p ++ "|" ++ render q ++ ")"
+render (And p q) = "(" ++ render p ++ " & " ++ render q ++ ")"
+render (Or p q) = "(" ++ render p ++ " | " ++ render q ++ ")"
 ```
 
 If you've read Haskell, nothing here is new. Save it next to your Python code
@@ -41,44 +50,34 @@ and import it:
 
 ```python
 import curry
-curry.path.insert(0, '.')
-from curry.lib import Logic as L
+curry.path.insert(0, '.')          # Curry's sys.path
+from curry.lib import Logic as L   # compiles and imports ./Logic.curry
 
-f = L.And(L.Or(L.T, L.F), L.Not(L.F))
-goal = L.render(f)
-curry.eval(goal).one()    # '((T|F)&!F)'
+formula = L.And(L.Or(L.T, L.F), L.Not(L.F))
+goal = L.render(formula)
+curry.eval(goal).one()             # the one value: '((T | F) & !F)'
 ```
 
 The constructors of `Formula` are there as `L.T`, `L.And` and so on, and the
-result comes back as a Python string. `L.render(f)` builds an expression
-without running it; `curry.eval` runs it, and `.one()` returns its value when
-there is exactly one. The first import translates and compiles the module;
-later imports reuse the result.
+result comes back as a Python string. `L.render(formula)` builds an expression
+without running it, and `curry.eval` runs it. The first import translates the
+module and compiles it to native code; on a machine without a C++ compiler,
+Sprite interprets it instead. Later imports reuse the result.
 
-We've tried to make Sprite easy to depend on. `pip install` brings two wheels
-and nothing else: `curry`, which holds the runtime, the compiled Curry library
-and the Python API in about 3 MB, and `curry-frontend`, the Curry front end as
-a native executable, between 2.6 and 8.3 MB depending on the platform. There's
-no Prolog, no Haskell toolchain and no JVM behind it. Curry code compiles
-through C++ to native machine code, and on a machine without a C++ compiler
-Sprite interprets the same modules instead. The wheels cover Python 3.11 to
-3.15, the free-threaded build included, on Linux (x86-64 and aarch64) and
-macOS 15 or newer, and the test suite runs on all of them on every change.
-The license is BSD 3-Clause.
+## Nondeterminism
 
-## More than one answer
-
-A Curry function can have more than one result for the same input. The `++`
-in this pattern is list concatenation, the same `++` as in `render`:
+Curry is nondeterministic: every expression may have any number of values.
+The pattern here is `xs ++ ys`, a call of list concatenation. You can't write
+that in Haskell, where a pattern is built from constructors only. Curry lets
+you, and reads it as: this rule applies whenever the argument can be taken
+apart as `xs ++ ys`, once for each way of taking it apart:
 
 ```haskell
 -- Lists.curry
 split (xs ++ ys) = (xs, ys)
 ```
 
-The rule says: if the argument is some `xs` followed by some `ys`, return the
-pair. A list of three can be read that way four times, and Sprite gives you
-all of them:
+A list of three splits four ways, and Sprite's search finds all four:
 
 ```python
 from curry.lib import Lists
@@ -91,16 +90,16 @@ for xs, ys in curry.eval(Lists.split([1, 2, 3])):
 # [1, 2, 3] []
 ```
 
-An expression has zero or more values, and `curry.eval` hands them over as
-they're found. Zero values isn't an error: the loop just doesn't run. `.one()`
-is for the case where you expect exactly one, and it complains otherwise.
+`curry.eval` hands the values over as they're found, each as a Python tuple
+of two lists, which is why the loop can unpack it. When you expect exactly
+one value, as in the first example, `.one()` takes it and complains if there
+are more; use `next` to take the first of many values.
 
 ## Running a function backwards
 
-Back to `Logic`. We have a printer. We'd like a parser too, which in Python or
-C++ means a tokenizer and a recursive descent over the same grammar, kept in
-step with the printer by hand. In Curry the parser is one line, added to
-`Logic.curry`:
+Back to `Logic`. To build a toy parser from `render`, write the call of
+`render` as the pattern and leave the formula unknown. That's the whole
+parser, one line added to `Logic.curry`:
 
 ```haskell
 -- Logic.curry, continued
@@ -108,18 +107,21 @@ parse :: String -> Formula
 parse (render p) = p
 ```
 
-The pattern is a call of `render`. To match it, Sprite finds a formula `p`
-whose rendering is the given string, and that `p` is the answer:
+`p` is a logic variable. To match the pattern, Sprite solves for the formula
+whose rendering is the given string, and that formula is the answer:
 
 ```python
-tree = curry.eval(L.parse('((T|F)&!F)')).one()
+tree = curry.eval(L.parse('((T | F) & !F)')).one()
 print(tree)                            # And (Or T F) (Not F)
-tree == f                              # True
-list(curry.eval(L.parse('(T&')))       # []
+tree == formula                        # True
+list(curry.eval(L.parse('(T &')))      # []
 ```
 
-The five rules of `render` are the whole grammar, read right to left, and
-malformed input gives you an empty list.
+The five rules of `render` serve as the grammar, read right to left, and
+malformed input gives you an empty list. There's no second copy of the
+grammar to keep in step, and the parser can't disagree with the printer,
+because it is the printer. This is where Curry excels: the specification is
+the program. There's nothing more to write, and nothing more to get wrong.
 
 The same trick applies wherever you have one direction of a relation and want
 the other. The repository has small examples of a

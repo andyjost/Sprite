@@ -5,21 +5,24 @@ Sprite
 ======
 
 Sprite compiles and runs `Curry`_, and lets you call it from Python. Curry is
-a functional logic programming language. Its functional half is Haskell's,
-syntax included: algebraic data types, pattern matching, type inference, lazy
-evaluation. Its logic half adds nondeterminism, logic variables and search: a
-function may have several results, a value may be left unknown, and the
-runtime finds the values that fit by unification. So you can state what a
-result has to satisfy and leave the search to the language. Sprite's
-evaluation strategy, the Fair Scheme, is proved correct and optimal: it finds
-exactly the values of an expression, and it executes only the steps needed to
-produce them. The strategy and its proofs are written up in a `dissertation`_
-and a shorter `paper`_.
+a functional logic programming language. On the functional side it follows
+Haskell down to the syntax: algebraic data types, pattern matching, type
+inference, lazy evaluation. On the logic side it adds nondeterminism, logic
+variables and search: an expression may have any number of values, an
+argument may be left unknown, and the runtime finds the values that fit by
+unification. So you can state what a result has to satisfy and leave the
+search to the language. Sprite's evaluation strategy, the Fair Scheme, is
+proved sound, complete and optimal: it finds exactly the values of any
+expression, and it executes only the steps needed to produce them. The
+strategy and its proofs are written up in a `dissertation`_ and a shorter
+`paper`_.
 
-Sprite is in alpha. Try it, and tell us what breaks on the `issue tracker`_.
+Sprite is in alpha. It installs with ``pip install --pre curry``, two small
+wheels and nothing else. Try it, and tell us what breaks on the
+`issue tracker`_.
 
-A first module
-==============
+Import Curry into Python
+========================
 
 Here is a Curry module. It defines a small type of Boolean formulas and a
 function that prints one.
@@ -33,8 +36,8 @@ function that prints one.
    render T = "T"
    render F = "F"
    render (Not p) = "!" ++ render p
-   render (And p q) = "(" ++ render p ++ "&" ++ render q ++ ")"
-   render (Or p q) = "(" ++ render p ++ "|" ++ render q ++ ")"
+   render (And p q) = "(" ++ render p ++ " & " ++ render q ++ ")"
+   render (Or p q) = "(" ++ render p ++ " | " ++ render q ++ ")"
 
 If you've read Haskell, nothing here is new. Save it next to your Python
 code and import it:
@@ -42,18 +45,19 @@ code and import it:
 .. code-block:: python
 
    import curry
-   curry.path.insert(0, '.')
-   from curry.lib import Logic as L
+   curry.path.insert(0, '.')          # Curry's sys.path
+   from curry.lib import Logic as L   # compiles and imports ./Logic.curry
 
-   f = L.And(L.Or(L.T, L.F), L.Not(L.F))
-   goal = L.render(f)
-   curry.eval(goal).one()    # '((T|F)&!F)'
+   formula = L.And(L.Or(L.T, L.F), L.Not(L.F))
+   goal = L.render(formula)
+   curry.eval(goal).one()             # the one value: '((T | F) & !F)'
 
 The constructors of ``Formula`` are there as ``L.T``, ``L.And`` and so on,
-and the result comes back as a Python string. ``L.render(f)`` builds an
-expression without running it; ``curry.eval`` runs it, and ``.one()``
-returns its value when there is exactly one. The first import translates
-and compiles the module; later imports reuse the result.
+and the result comes back as a Python string. ``L.render(formula)`` builds
+an expression without running it, and ``curry.eval`` runs it. The first
+import translates the module and compiles it to native code; on a machine
+without a C++ compiler, Sprite interprets it instead. Later imports reuse
+the result.
 
 Where to go next
 ================
