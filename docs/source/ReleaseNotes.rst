@@ -5,7 +5,8 @@ Release Notes
 0.9.0a2 (2026-10-27)
 ====================
 
-- The distribution is named ``curry`` on PyPI: ``pip install curry``.
+- The distribution is named ``curry`` on PyPI: ``pip install --pre curry``
+  (the flag while Sprite is in alpha).
   The name ``currylang`` of the first alpha is retired; the import name
   was ``curry`` from the start.
 - Wheels for macOS 15 or newer, Apple silicon and Intel, beside the Linux

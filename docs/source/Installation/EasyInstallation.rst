@@ -39,9 +39,10 @@ With your own Python
 If you already have Python 3.11.4 or newer (through 3.15), install into your
 Python environment with::
 
-    pip install curry
+    pip install --pre curry
 
-This installs ``curry-frontend`` too. The wheels work with plain pip;
+The ``--pre`` flag is needed while Sprite is in alpha. This installs
+``curry-frontend`` too. The wheels work with plain pip;
 uv is a dependency of the installer alone. See :ref:`custom-install` for
 platform support and installation from source.
 

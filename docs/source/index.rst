@@ -4,51 +4,62 @@
 Sprite
 ======
 
-**Sprite brings the Curry language to Python.** `Curry`_ is a functional
-logic language.  It has the strongly typed functions and the lazy
-evaluation of Haskell, and it adds two ideas from logic programming to the
-language itself: a function may have several results, and a value may be
-left unknown for the program to find.
+Sprite compiles and runs `Curry`_, and lets you call it from Python. Curry
+is a declarative language that looks like Haskell: algebraic data types,
+pattern matching, type inference, lazy evaluation. It adds two things
+Haskell doesn't have. A function may return more than one result, and an
+argument may be left unknown for the runtime to fill in. You write down
+what the answer is, and Sprite finds it. The strategy underneath, the Fair
+Scheme, is proved correct and optimal: it finds every value of an
+expression and nothing else, and computes nothing a value doesn't need.
+The strategy and its proofs are written up in a `dissertation`_ and a
+shorter `paper`_.
 
-Sprite compiles Curry modules to native code by way of C++ and runs them in
-its own runtime, and its Python API imports a Curry module like a Python
-module.  Underneath is the Fair Scheme, an evaluation strategy that has
-been proved correct and complete: a computation finds every value of an
-expression and nothing else, in whatever order the alternatives are
-explored.  The strategy and its proofs are written up in a `dissertation`_
-and a shorter `paper`_.
+Sprite is in alpha. Try it, and tell us what breaks on the `issue tracker`_.
 
-A first program
-===============
+A first module
+==============
 
-The functions live in a Curry file, with their types:
+Here is a Curry module. It defines a small type of Boolean formulas and a
+function that prints one.
 
 .. code-block:: haskell
 
-   -- Hello.curry
-   greet :: String -> String
-   greet name = "Hello, " ++ name ++ "!"
+   -- Logic.curry
+   data Formula = T | F | Not Formula | And Formula Formula | Or Formula Formula
 
-Python imports the module directly.  The first import translates it and
-compiles it to native code in the background; every later import reuses
-the result.
+   render :: Formula -> String
+   render T = "T"
+   render F = "F"
+   render (Not p) = "!" ++ render p
+   render (And p q) = "(" ++ render p ++ "&" ++ render q ++ ")"
+   render (Or p q) = "(" ++ render p ++ "|" ++ render q ++ ")"
+
+If you've read Haskell, nothing here is new. Save it next to your Python
+code and import it:
 
 .. code-block:: python
 
    import curry
-   curry.path.insert(0, '.')      # the directories where Curry modules are found
-   from curry.lib import Hello
+   curry.path.insert(0, '.')
+   from curry.lib import Logic as L
 
-   goal = Hello.greet('World')    # a Curry expression, typed from the signature
-   curry.eval(goal).one()         # evaluate it and take its one value
-   # 'Hello, World!'
+   f = L.And(L.Or(L.T, L.F), L.Not(L.F))
+   goal = L.render(f)
+   curry.eval(goal).one()    # '((T|F)&!F)'
+
+The constructors of ``Formula`` are there as ``L.T``, ``L.And`` and so on,
+and the result comes back as a Python string. ``L.render(f)`` builds an
+expression without running it; ``curry.eval`` runs it, and ``.one()``
+returns its value when there is exactly one. The first import translates
+and compiles the module; later imports reuse the result.
 
 Where to go next
 ================
 
 - :doc:`Installation/Installation` installs Sprite with pip, or from
   source.
-- The :doc:`Quickstart` continues from the program above.  The
+- The :doc:`Quickstart` takes the next steps.  The
   :doc:`Examples` are the tutorial: twenty-six programs, from a first
   Curry program to applications.
 - The :doc:`CurryPrimer/index` teaches the language to a Python
@@ -107,3 +118,4 @@ runs Curry in a browser.
 .. _paper: http://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf
 .. _Curry homepage: https://www.curry-lang.org/
 .. _live demo: https://smap.curry-lang.org/smap.cgi?new/curry
+.. _issue tracker: https://github.com/andyjost/Sprite/issues
