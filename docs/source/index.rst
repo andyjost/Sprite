@@ -4,16 +4,17 @@
 Sprite
 ======
 
-Sprite compiles and runs `Curry`_, and lets you call it from Python. Curry
-is a declarative language that looks like Haskell: algebraic data types,
-pattern matching, type inference, lazy evaluation. It adds two things
-Haskell doesn't have. A function may return more than one result, and an
-argument may be left unknown for the runtime to fill in. You write down
-what the answer is, and Sprite finds it. The strategy underneath, the Fair
-Scheme, is proved correct and optimal: it finds every value of an
-expression and nothing else, and computes nothing a value doesn't need.
-The strategy and its proofs are written up in a `dissertation`_ and a
-shorter `paper`_.
+Sprite compiles and runs `Curry`_, and lets you call it from Python. Curry is
+a functional logic programming language. Its functional half is Haskell's,
+syntax included: algebraic data types, pattern matching, type inference, lazy
+evaluation. Its logic half adds nondeterminism, logic variables and search: a
+function may have several results, a value may be left unknown, and the
+runtime finds the values that fit by unification. So you can state what a
+result has to satisfy and leave the search to the language. Sprite's
+evaluation strategy, the Fair Scheme, is proved correct and optimal: it finds
+exactly the values of an expression, and it executes only the steps needed to
+produce them. The strategy and its proofs are written up in a `dissertation`_
+and a shorter `paper`_.
 
 Sprite is in alpha. Try it, and tell us what breaks on the `issue tracker`_.
 
