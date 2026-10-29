@@ -4,27 +4,30 @@
 Sprite
 ======
 
-Sprite puts a logic engine in your Python program. You write what an answer
-has to satisfy, as ordinary typed code, and the runtime finds it. Write a
-printer and the parser comes with it. Write the rule for a dependency once
-and ask it in either direction. The language is `Curry`_: it looks like
-Haskell, and it adds nondeterminism, logic variables and search to the
-language itself. Sprite compiles Curry to native code and imports it like a
-Python module. Underneath is the Fair Scheme, an evaluation strategy proved
-sound, complete and optimal; the strategy and its proofs are written up in a
-`dissertation`_ and a shorter `paper`_.
+Sprite is an implementation of the multi-paradigm programming language
+`Curry`_ exposed to Python. It seamlessly integrates features of functional
+programming (algebraic data types, pattern matching, strong typing, type
+inference, lazy evaluation) and logic programming (nondeterminism, logic
+variables, search) into your Python project without adding heavy dependencies.
+You state what a desired value has to satisfy and leave the search to Sprite.
+As a result, many programs are trivial to construct and obviously correct.
+Sprite's evaluation strategy, the Fair Scheme, is proved sound, complete, and
+optimal, meaning it finds exactly the values of any expression, and it
+executes only the steps needed to produce them. The strategy and its proofs
+are written up in a `dissertation`_ and a shorter `paper`_.
 
-Sprite is in alpha. ``pip install --pre curry`` brings two small wheels and
-nothing else. Try it, and tell us what breaks on the `issue tracker`_.
+Curry imports directly into Python. Your project uses it at whatever granularity
+it chooses, freely mixing imperative, functional, and logic styles. In other
+words, you always get to use the best tool exactly where it makes sense.
 
-The printer and the parser
-==========================
+Sprite is in alpha. Install it with ``pip install --pre curry``. Try it and
+tell us what breaks on the `issue tracker`_.
 
-Say you have a data type and a function that prints it. One day you need
-the text back as data, for a round trip or a config file. In Python you'd
-write a tokenizer and a recursive-descent parser, and keep them in step
-with the printer by hand. In Curry it's one line, the last one in this
-module:
+Getting started
+===============
+
+The following Curry module defines a small type of Boolean formulas along with
+a printer.
 
 .. code-block:: haskell
 
@@ -38,13 +41,8 @@ module:
    render (And p q) = "(" ++ render p ++ " & " ++ render q ++ ")"
    render (Or p q) = "(" ++ render p ++ " | " ++ render q ++ ")"
 
-   parse :: String -> Formula
-   parse (render p) = p
-
-The data type and ``render`` are plain functional code, as in Haskell. The
-pattern of ``parse`` is where Curry departs: it's a call of ``render`` with
-an unknown argument. To match it, Sprite solves for the formula ``p`` whose
-rendering is the input, and that ``p`` is the result. From Python:
+So far this is ordinary Haskell code. Save it next to your Python code, then
+import it, construct a formula, and render it as a string:
 
 .. code-block:: python
 
@@ -54,23 +52,12 @@ rendering is the input, and that ``p`` is the result. From Python:
 
    formula = L.And(L.Or(L.T, L.F), L.Not(L.F))
    goal = L.render(formula)
-   text = curry.eval(goal).one()        # the one value: '((T | F) & !F)'
-   tree = curry.eval(L.parse(text)).one()
-   print(tree)                          # And (Or T F) (Not F)
-   tree == formula                      # True
-   list(curry.eval(L.parse('(T &')))    # []
+   curry.eval(goal).one()             # the one value: '((T | F) & !F)'
 
-That's the whole parser. There's no second copy of the grammar to keep in
-step, and the parser can't disagree with the printer, because it is the
-printer. Malformed input has no value, so the list comes back empty. This
-is where Curry excels: the specification is the program, and there's
-nothing more to write and nothing more to get wrong.
-
-The Python side is as thin as it looks. ``curry.path`` is Curry's
-``sys.path``; the first import compiled ``Logic.curry`` to native code, or
-interprets it on a machine without a C++ compiler, and later imports reuse
-the result; the constructors are there as ``L.And`` and friends; and the
-string came back as a plain ``str``.
+The import compiles the Curry module to native code and loads it. The
+constructors of ``Formula`` appear as ``L.T``, ``L.And``, and so on.
+``L.render(formula)`` builds an expression without running it, ``curry.eval``
+evaluates it, and Sprite converts the result to a Python string.
 
 Where to go next
 ================
@@ -132,7 +119,7 @@ runs Curry in a browser.
    Preface
 
 .. _Curry: https://www.curry-lang.org/
-.. _dissertation: https://andrewjost.wordpress.com/wp-content/uploads/2023/05/jostthesis.final_.10may23.pdf
+.. _dissertation: https://doi.org/10.15760/etd.3564
 .. _paper: http://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf
 .. _Curry homepage: https://www.curry-lang.org/
 .. _live demo: https://smap.curry-lang.org/smap.cgi?new/curry
