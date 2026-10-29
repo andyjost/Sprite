@@ -123,11 +123,12 @@ fi
 # GMP and glibc; package.py vendors GMP with $ORIGIN and verifies the ELF floor.
 build_frontend 2>&1 | tee "$output_dir/dynamic.log"
 echo dynamic > "$output_dir/linkage-requested.txt"
-test "$(timeout 30 "$output_dir/curry-frontend" --numeric-version)" = "$version"
-timeout 30 "$output_dir/curry-frontend" --version
-file "$output_dir/curry-frontend"
-if [ "$os" = Darwin ]; then
-  describe_binary "$output_dir/curry-frontend" > "$output_dir/elf.txt"
+test "$(timeout 30 "$output_dir/curry-frontend$exe" --numeric-version)" = "$version"
+timeout 30 "$output_dir/curry-frontend$exe" --version
+file "$output_dir/curry-frontend$exe"
+if [ "$os" = Darwin ] || [ "$os" = Windows ]; then
+  # Mach-O and PE: describe_binary reads them; readelf reads ELF alone.
+  describe_binary "$output_dir/curry-frontend$exe" > "$output_dir/elf.txt"
 else
   readelf -d -V "$output_dir/curry-frontend" > "$output_dir/elf.txt"
 fi
