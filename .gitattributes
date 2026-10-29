@@ -1,0 +1,17 @@
+# Every text file is checked out with LF on every platform.  The receipts of
+# the pinned library products, the ICurry cache and the overlay archives key
+# on the bytes of the sources, and the Windows default of CRLF on checkout
+# made every receipt differ (the Windows spike, 2026-10-29).  Git tells a
+# binary by its content; the known binary kinds are marked anyway.
+* text=auto eol=lf
+*.tgz -text
+*.gz -text
+*.z -text
+*.png -text
+*.ico -text
+*.whl -text
+*.so -text
+*.dylib -text
+*.dll -text
+*.exe -text
+*.pdf -text
