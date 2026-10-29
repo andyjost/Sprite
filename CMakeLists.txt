@@ -258,6 +258,7 @@ if(MSVC)
   # optimization to turn off; clang-cl takes the GNU flag through /clang:.
   set(sprite_cxx_flags /W3 /EHsc /bigobj
     "$<$<CXX_COMPILER_ID:Clang>:/clang:-fno-strict-aliasing>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>"
     "$<$<CONFIG:Release>:/O2>")
   set(sprite_c_flags /W3 "$<$<CONFIG:Release>:/O2>")
 else()

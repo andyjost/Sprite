@@ -43,9 +43,9 @@ namespace
   // literals take the canonical digit factory before reaching this helper.
   unboxed_int_type int_literal_value(py::handle value)
   {
-    static_assert(sizeof(unboxed_int_type) == sizeof(long), "assumes long");
+    static_assert(sizeof(unboxed_int_type) == sizeof(long long), "assumes a 64-bit long long");
     int overflow = 0;
-    long const result = PyLong_AsLongAndOverflow(value.ptr(), &overflow);
+    long long const result = PyLong_AsLongLongAndOverflow(value.ptr(), &overflow);
     if(overflow)
       curryrt::python::raise_int_range_error(value);
     if(result == -1 && PyErr_Occurred())

@@ -8,7 +8,7 @@
 #include "curryrt/icurry.hpp"
 #include "curryrt/module.hpp"
 #include "curryrt/state/configuration.hpp"
-#include <dlfcn.h>
+#include "curryrt/platform.hpp"
 #include <iostream>
 #include <stdexcept>
 #include <unordered_map>
@@ -279,7 +279,7 @@ namespace curryrt
         continue;
       if(info->step == &icurry_step || info->step == &trap_step)
       {
-        auto compiled = (stepfunc_type) dlsym(
+        auto compiled = (stepfunc_type) platform::symbol(
             shlib->handle(), step.first.c_str()
           );
         if(!compiled)

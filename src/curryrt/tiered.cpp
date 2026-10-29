@@ -7,26 +7,30 @@
 #include <condition_variable>
 #include <cstring>
 #include <deque>
-#include <dlfcn.h>
-#include <fcntl.h>
 #include <filesystem>
 #include <fstream>
 #include <mutex>
+#include <sstream>
+#include <thread>
+#include <unordered_map>
+#if !defined(_WIN32)
+#include <fcntl.h>
 #include <signal.h>
 #include <spawn.h>
-#include <sstream>
 #include <sys/stat.h>
 #include <sys/wait.h>
-#include <thread>
 #include <unistd.h>
-#include <unordered_map>
+#endif
+#include "curryrt/platform.hpp"
 #include "curryrt/dynload.hpp"
 #include "curryrt/exceptions.hpp"
 #include "curryrt/module.hpp"
 #include "curryrt/tiered.hpp"
 #include "curryrt/evaluation.hpp"
 
+#if !defined(_WIN32)
 extern char ** environ;
+#endif
 
 // The worker thread and the swap of tiered execution.  See tiered.hpp.
 namespace curryrt
@@ -60,7 +64,7 @@ namespace curryrt
       TieredStatus              counts;
       bool                      thread_started = false;
       bool                      running = false;
-      pid_t                     child = 0;
+      long long                 child = 0;   // the process id of the running compile
       // Incremented by tiered_cancel.  A job of an older generation is
       // dropped when it finishes.
       uint64_t                  generation = 0;
@@ -92,7 +96,8 @@ namespace curryrt
         if(text.size() > 32768)
           text = text.substr(0, 32768) + "\n...";
       }
-      unlink(logfile.c_str());
+      std::error_code ignored;
+      std::filesystem::remove(logfile, ignored);
       return text;
     }
 
@@ -105,9 +110,22 @@ namespace curryrt
       return out;
     }
 
+#if defined(_WIN32)
+    // Windows runs the interpreter in this release: no compile child.
+    long long spawn(
+        std::vector<std::string>, std::vector<std::string>
+      , std::string const &, std::string * error
+      )
+    {
+      *error = "the background compile is not available on Windows; the module runs interpreted";
+      return 0;
+    }
+
+    int wait_status(long long) { return -1; }
+#else
     // Starts a command with its output appended to ``logfile`` and no input.
     // Returns the process id, or zero with ``error`` set.
-    pid_t spawn(
+    long long spawn(
         std::vector<std::string> argv, std::vector<std::string> envp
       , std::string const & logfile, std::string * error
       )
@@ -154,8 +172,9 @@ namespace curryrt
     }
 
     // Waits for a child.  Returns its exit status, or 128 plus the signal.
-    int wait_status(pid_t pid)
+    int wait_status(long long child)
     {
+      pid_t const pid = (pid_t) child;
       int status = 0;
       while(waitpid(pid, &status, 0) < 0)
         if(errno != EINTR)
@@ -167,6 +186,8 @@ namespace curryrt
       return -1;
     }
 
+#endif
+
     // Runs a command to its end.  Returns the exit status; -1 when it could
     // not run.  A command of a job (``generation`` set) is started under the
     // lock, so that tiered_cancel either sees the child on record or
@@ -177,7 +198,7 @@ namespace curryrt
       , std::string * error, uint64_t const * generation
       )
     {
-      pid_t pid = 0;
+      long long pid = 0;
       {
         std::lock_guard<std::mutex> lock(shared().mutex);
         if(generation && *generation != shared().generation)
@@ -275,12 +296,15 @@ namespace curryrt
     std::string unique_link(std::string const & path, std::string * error)
     {
       static std::atomic<unsigned> counter{0};
-      std::string const linkpath = path + "." + std::to_string(getpid())
+      std::string const linkpath = path + "." + std::to_string(platform::process_id())
           + "." + std::to_string(++counter) + ".tiered";
-      unlink(linkpath.c_str());
-      if(link(path.c_str(), linkpath.c_str()) == 0)
-        return linkpath;
       std::error_code ec;
+      std::filesystem::remove(linkpath, ec);
+      ec.clear();
+      std::filesystem::create_hard_link(path, linkpath, ec);
+      if(!ec)
+        return linkpath;
+      ec.clear();
       std::filesystem::copy_file(path, linkpath, ec);
       if(ec)
       {
@@ -302,9 +326,8 @@ namespace curryrt
     {
       loadpath = sofile;
       std::string linkpath;
-      if(void * mapped = dlopen(sofile.c_str(), RTLD_LAZY | RTLD_NOLOAD))
+      if(platform::loaded(sofile))
       {
-        dlclose(mapped);
         linkpath = unique_link(sofile, error);
         if(linkpath.empty())
           return nullptr;
@@ -314,13 +337,16 @@ namespace curryrt
       // follows (SharedCurryModule), may give kept tables steps that point
       // into it.  The handle is never closed on a failure after this
       // point, so the object stays mapped.
-      void * raw = dlopen(loadpath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+      std::string msg;
+      void * raw = platform::load(loadpath, &msg);
       if(!raw)
       {
-        char const * msg = dlerror();
-        *error = std::string("cannot load the object: ") + (msg ? msg : "");
+        *error = "cannot load the object: " + msg;
         if(!linkpath.empty())
-          unlink(linkpath.c_str());
+        {
+          std::error_code ignored;
+          std::filesystem::remove(linkpath, ignored);
+        }
       }
       return raw;
     }
@@ -366,7 +392,7 @@ namespace curryrt
         fs::path target(pair.second);
         fs::path tmp = target.parent_path()
             / ("." + target.filename().string() + ".publish-"
-               + std::to_string(getpid()) + "-" + std::to_string(counter++));
+               + std::to_string(platform::process_id()) + "-" + std::to_string(counter++));
         fs::copy_file(pair.first, tmp, fs::copy_options::overwrite_existing, ec);
         if(!ec)
           fs::rename(tmp, target, ec);
@@ -419,7 +445,7 @@ namespace curryrt
         {
           auto shlib = std::make_shared<SharedCurryModule>(path, loadpath);
           module->adopt(shlib, {});
-          dlclose(raw);
+          platform::unload(raw, nullptr);
         }
         result.mapped.push_back(imp.module);
         ok = true;
@@ -429,7 +455,10 @@ namespace curryrt
         result.error = "the import " + imp.module + ": " + e.what();
       }
       if(loadpath != path)
-        unlink(loadpath.c_str());
+      {
+        std::error_code ignored;
+        std::filesystem::remove(loadpath, ignored);
+      }
       return ok;
     }
 
@@ -522,14 +551,17 @@ namespace curryrt
         auto shlib = std::make_shared<SharedCurryModule>(path, loadpath);
         result.swapped = module->adopt(shlib, steps);
         result.ok = true;
-        dlclose(raw);
+        platform::unload(raw, nullptr);
       }
       catch(std::exception const & e)
       {
         result.error = e.what();
       }
       if(loadpath != path)
-        unlink(loadpath.c_str());
+      {
+        std::error_code ignored;
+        std::filesystem::remove(loadpath, ignored);
+      }
       return result;
     }
   }
@@ -663,12 +695,17 @@ namespace curryrt
     ++shared().generation;
     for(auto const & job: shared().queue)
       if(!job.logfile.empty())
-        unlink(job.logfile.c_str());
+      {
+        std::error_code ignored;
+        std::filesystem::remove(job.logfile, ignored);
+      }
     shared().queue.clear();
     shared().finished.clear();
     shared().results.clear();
     g_tiered_pending.store(false);
+    #if !defined(_WIN32)
     if(shared().child)
-      kill(-shared().child, SIGKILL);
+      kill(-(pid_t) shared().child, SIGKILL);
+    #endif
   }
 }

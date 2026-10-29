@@ -2,7 +2,7 @@
 #include "curryrt/dynload.hpp"
 #include "curryrt/exceptions.hpp"
 #include "curryrt/module.hpp"
-#include <dlfcn.h>
+#include "curryrt/platform.hpp"
 #include <iostream>
 #include <sstream>
 #include <unordered_map>
@@ -18,15 +18,15 @@ namespace
   // its path and no search by name is needed on either platform.
   #if defined(__APPLE__)
   static char const * const CURRYRT_LIBRARY = "libcurryrt.dylib";
+  #elif defined(_WIN32)
+  static char const * const CURRYRT_LIBRARY = "libcurryrt.dll";
   #else
   static char const * const CURRYRT_LIBRARY = "libcurryrt.so";
   #endif
   static std::string curryrt_library_path()
   {
-    Dl_info info;
-    if(dladdr((void const *) &curryrt_library_path, &info) && info.dli_fname)
-      return info.dli_fname;
-    return CURRYRT_LIBRARY;
+    std::string const path = platform::path_of_object_holding((void const *) &curryrt_library_path);
+    return path.empty() ? std::string(CURRYRT_LIBRARY) : path;
   }
   static SharedLib const libcurryrt(CURRYRT_LIBRARY, curryrt_library_path());
   std::unordered_map<std::string, std::weak_ptr<SharedCurryModuleInfo const>> registry;
@@ -216,24 +216,17 @@ namespace curryrt
     )
     : _handle(nullptr), _sofilename(sofilename)
   {
-    this->_handle = dlopen(loadpath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+    std::string error;
+    this->_handle = platform::load(loadpath, &error);
     if(!this->_handle)
-    {
-      char const * msg = dlerror();
-      assert(msg);
-      throw DynloadError(msg);
-    }
+      throw DynloadError(error);
   }
 
   SharedLib::~SharedLib()
   {
-    auto err = dlclose(this->_handle);
-    if(err)
-    {
-      char const * msg = dlerror();
-      assert(msg);
-      std::cerr << msg << std::endl;
-    }
+    std::string error;
+    if(!platform::unload(this->_handle, &error))
+      std::cerr << error << std::endl;
   }
 
   SharedCurryModule::SharedCurryModule(std::string const & sofilename)
@@ -262,13 +255,9 @@ namespace curryrt
   void SharedCurryModule::init(bool fresh)
   {
     std::string const & sofilename = this->sofilename();
-    auto addr = dlsym(this->handle(), "_bom_");
+    auto addr = platform::symbol(this->handle(), "_bom_");
     if(!addr)
-    {
-      char const * msg = dlerror();
-      assert(msg);
-      throw DynloadError(msg);
-    }
+      throw DynloadError("no symbol _bom_ in " + sofilename);
     bom::Module const * record = (bom::Module const *) addr;
     if(record->version != bom::VERSION)
     {
@@ -293,7 +282,7 @@ namespace curryrt
       // The initializer makes the nodes of the literals of the module from
       // the bound tables (see backends/cxx/compiler.py).  A library without
       // one (a record written by hand) makes no nodes.
-      if(auto init = dlsym(this->handle(), "_sprite_init_"))
+      if(auto init = platform::symbol(this->handle(), "_sprite_init_"))
         ((void (*)()) init)();
       this->_info = std::make_shared<SharedCurryModuleInfo>(
           record->fullname, sofilename, ModuleBOM::decode(*record)
@@ -336,7 +325,7 @@ namespace curryrt
   {
     auto * info = SharedCurryModule::find(module_fullname);
     if(info)
-      return (InfoTable const *) dlsym(info->dlhandle, symbolname);
+      return (InfoTable const *) platform::symbol(info->dlhandle, symbolname);
     else
       return nullptr;
   }

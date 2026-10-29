@@ -83,7 +83,7 @@ namespace curryrt
   size_t constexpr FP_BRANCH_SIZE = 1<<FP_BRANCH_SHIFT;
   size_t constexpr FP_BRANCH_MASK = FP_BRANCH_SIZE-1;
 
-  size_t constexpr FP_CACHE_WRITABLE = (1L<<(8*sizeof(size_t)-1));
+  size_t constexpr FP_CACHE_WRITABLE = (size_t(1)<<(8*sizeof(size_t)-1));
   size_t constexpr FP_CACHE_TAG_MASK = ~(FP_BLOCK_MASK | FP_CACHE_WRITABLE);
 
   namespace fingerprints

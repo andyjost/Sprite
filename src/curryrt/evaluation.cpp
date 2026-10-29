@@ -8,7 +8,7 @@
 #include <condition_variable>
 #include <exception>
 #include <mutex>
-#include <pthread.h>
+#include "curryrt/platform.hpp"
 #include <sstream>
 #include <stdexcept>
 #include <system_error>
@@ -36,7 +36,7 @@ namespace curryrt
       static bool const registered = []
       {
         (void) gate_ptr();
-        pthread_atfork(before_fork, parent_after_fork, child_after_fork);
+        platform::at_fork(before_fork, parent_after_fork, child_after_fork);
         return true;
       }();
       (void) registered;
@@ -52,7 +52,7 @@ namespace curryrt
     {
       std::mutex mutex;
       std::condition_variable cv;
-      pthread_t thread;
+      platform::Thread thread;
       std::thread::id id;
       RuntimeState * job = nullptr;
       Expr value;
@@ -126,7 +126,7 @@ namespace curryrt
           retained_worker->stop = true;
           retained_worker->cv.notify_all();
         }
-        pthread_join(retained_worker->thread, nullptr);
+        platform::join(retained_worker->thread);
         delete retained_worker;
         retained_worker = nullptr;
       }
@@ -142,23 +142,14 @@ namespace curryrt
         {
           w = std::make_unique<Worker>();
           w->requested = requested;
-          pthread_attr_t attr;
-          int rc = pthread_attr_init(&attr);
-          if(rc == 0)
-          {
-            // C++17's std::thread has no stack-size constructor.  This POSIX
-            // adapter uses pthread_create with the standard stack attribute;
-            // a Windows adapter will use _beginthreadex's reserve-size option.
-            rc = size < MIN_WORKER_STACK ? EINVAL
-                 : pthread_attr_setstacksize(&attr, size);
-            if(rc == 0)
-            {
-              try { rc = pthread_create(&w->thread, &attr, worker_main, w.get()); }
-              catch(...) { pthread_attr_destroy(&attr); throw; }
-            }
-            started = rc == 0;
-            pthread_attr_destroy(&attr);
-          }
+          // C++17's std::thread has no stack-size constructor: the platform
+          // layer reserves the stack (pthread_attr_setstacksize on POSIX,
+          // the reservation flag of _beginthreadex on Windows).
+          std::string thread_error;
+          int rc = EINVAL;
+          if(size >= MIN_WORKER_STACK)
+            rc = platform::start(w->thread, size, worker_main, w.get(), &thread_error) ? 0 : EAGAIN;
+          started = rc == 0;
           if(rc == 0)
           {
             w->reserved = size;
@@ -178,7 +169,7 @@ namespace curryrt
             retained_worker = w.release();
             return *retained_worker;
           }
-          refusal = "pthread error " + std::to_string(rc);
+          refusal = thread_error.empty() ? "thread error " + std::to_string(rc) : thread_error;
         }
         catch(std::bad_alloc const &)
         { refusal = "std::bad_alloc"; }
@@ -193,7 +184,7 @@ namespace curryrt
               w->stop = true;
               w->cv.notify_all();
             }
-            pthread_join(w->thread, nullptr);
+            platform::join(w->thread);
           }
           throw;
         }
@@ -206,7 +197,7 @@ namespace curryrt
             w->stop = true;
             w->cv.notify_all();
           }
-          pthread_join(w->thread, nullptr);
+          platform::join(w->thread);
         }
         if(size <= MIN_WORKER_STACK) break;
         if(size / 2 < MIN_WORKER_STACK) size = MIN_WORKER_STACK * 2;

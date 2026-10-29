@@ -105,6 +105,7 @@
 // node_refill: the heap never publishes a run, so every allocation goes
 // through it.  Generated code is the same in both builds.
 
+#include "curryrt/platform.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -368,7 +369,7 @@ namespace curryrt
   static void take_chunk()
   {
     reserve_blocks(BLOCKS_PER_CHUNK);
-    void * mem = std::aligned_alloc(BLOCK_BYTES, CHUNK_BYTES);
+    void * mem = platform::aligned_allocate(BLOCK_BYTES, CHUNK_BYTES);
     if(!mem)
       throw std::bad_alloc();
     try
@@ -378,7 +379,7 @@ namespace curryrt
     }
     catch(...)
     {
-      std::free(mem);
+      platform::aligned_release(mem);
       throw;
     }
     for(size_t k = 0; k < BLOCKS_PER_CHUNK; ++k)
@@ -489,7 +490,7 @@ namespace curryrt
     size_t const spans
         = (DATA_OFFSET + slot_bytes + BLOCK_BYTES - 1) / BLOCK_BYTES;
     reserve_blocks(1);
-    void * mem = std::aligned_alloc(BLOCK_BYTES, spans * BLOCK_BYTES);
+    void * mem = platform::aligned_allocate(BLOCK_BYTES, spans * BLOCK_BYTES);
     if(!mem)
       throw std::bad_alloc();
     try
@@ -500,7 +501,7 @@ namespace curryrt
     }
     catch(...)
     {
-      std::free(mem);
+      platform::aligned_release(mem);
       throw;
     }
     Block * b = (Block *) mem;
@@ -518,7 +519,7 @@ namespace curryrt
     b->creators = (size_t *) std::malloc(sizeof(size_t));
     if(!b->creators)
     {
-      std::free(mem);
+      platform::aligned_release(mem);
       throw std::bad_alloc();
     }
     b->creators[0] = g_creator_serial;
@@ -537,7 +538,8 @@ namespace curryrt
     #ifdef SPRITE_SCHEDULER_COUNTERS
     std::free(b->creators);
     #endif
-    std::free(b);
+    // The block is the aligned memory of allocate_large.
+    platform::aligned_release(b);
   }
 
   // Records a run a nested evaluation takes from an older block; defined

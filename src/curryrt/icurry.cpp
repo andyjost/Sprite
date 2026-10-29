@@ -1,5 +1,9 @@
 #include "curryrt/bigint.hpp"
+#if defined(_WIN32)
+#include <malloc.h>
+#else
 #include <alloca.h>
+#endif
 #include <cassert>
 #include <cstring>
 #include <new>
