@@ -9,14 +9,10 @@ name: Windows spike
 # front end: the configure takes the pinned library products.
 
 'on':
+  # Every push of the spike branches runs it: the line endings of the
+  # checkout and the attributes matter as much as the sources.
   push:
     branches: [wt/windows, 'wt/windows-*']
-    paths:
-      - CMakeLists.txt
-      - src/curryrt/**
-      - src/python/backends/cxx/curryrtbindings/**
-      - extern/**
-      - .github/workflows/windows.yml
   workflow_dispatch:
 
 permissions:
