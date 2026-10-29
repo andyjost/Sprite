@@ -33,9 +33,9 @@ jobs:
       matrix:
         include:
           - name: clang-cl
-            toolset: ClangCL
+            cc: clang-cl
           - name: msvc
-            toolset: v143
+            cc: cl
     defaults:
       run:
         shell: bash
@@ -51,30 +51,43 @@ jobs:
           set -euxo pipefail
           python -m pip install --quiet cmake ninja scikit-build-core numpy
           cmake --version
+          ninja --version
           python -c "import sys, platform; print(sys.version); print(platform.machine())"
-      - name: Configure with the Visual Studio generator
-        id: configure
-        run: |
-          set -euxo pipefail
-          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -T "${{ matrix.toolset }}" \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DPython_EXECUTABLE="$(python -c 'import sys; print(sys.executable)')" \
-            -DWITH_PAKCS= -DWITH_CURRY_FRONTEND= -DWITH_ICURRY= \
-            2>&1 | tee configure.log
-      - name: Build the runtime and the bindings, every error reported
+          "/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -property installationPath || true
+          clang-cl --version || echo "no clang-cl on PATH"
+      # The developer environment of Visual Studio (INCLUDE, LIB, PATH) comes
+      # from vcvars64.bat, which only cmd can call; Ninja then builds with the
+      # compiler of the matrix and keeps going past errors, so one run
+      # reports every translation unit.
+      - name: Configure and build in the developer environment
         id: build
-        if: ${{ !cancelled() && steps.configure.outcome == 'success' }}
+        shell: cmd
         run: |
-          set -uxo pipefail
-          cmake --build build --config Release --target curryrt _curryrtbindings --parallel \
-            -- -p:ContinueOnError=true -p:StopOnFirstFailure=false 2>&1 | tee build.log
-          status=${PIPESTATUS[0]}
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
+          echo Visual Studio: %VSPATH%
+          call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
+          set "CC=${{ matrix.cc }}"
+          set "CXX=${{ matrix.cc }}"
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DPython_EXECUTABLE=%pythonLocation%\python.exe -DWITH_PAKCS= -DWITH_CURRY_FRONTEND= -DWITH_ICURRY= > configure.log 2>&1
+          set "CONFIGURE_STATUS=%errorlevel%"
+          type configure.log
+          if not "%CONFIGURE_STATUS%"=="0" exit /b %CONFIGURE_STATUS%
+          cmake --build build --target curryrt _curryrtbindings --parallel -- -k 0 > build.log 2>&1
+          set "BUILD_STATUS=%errorlevel%"
+          type build.log
+          exit /b %BUILD_STATUS%
+      - name: Errors by file and by kind
+        if: always()
+        run: |
+          set -uo pipefail
+          [ -f build.log ] || { echo "no build log (the configure failed)"; exit 0; }
           echo "== errors by file:"
-          grep -oE '[A-Za-z0-9_./\\-]+\.(cpp|hpp|h)\([0-9]+(,[0-9]+)?\): (fatal )?error' build.log \
-            | sed -E 's/\([0-9,]+\): (fatal )?error//' | sort | uniq -c | sort -rn | head -60
+          grep -oE '[A-Za-z0-9_./\\-]+\.(cpp|hpp|h)\([0-9]+(,[0-9]+)?\): (fatal )?error|[A-Za-z0-9_./\\-]+\.(cpp|hpp|h):[0-9]+:[0-9]+: (fatal )?error' build.log \
+            | sed -E 's/(\([0-9,]+\)|:[0-9]+:[0-9]+): (fatal )?error//' | sort | uniq -c | sort -rn | head -60
           echo "== error kinds:"
-          grep -oE 'error C[0-9]+|error: [^\[]{0,60}' build.log | sort | uniq -c | sort -rn | head -40
-          exit "$status"
+          grep -oE 'error C[0-9]+: [^\[]{0,70}|error: [^\[]{0,70}' build.log | sort | uniq -c | sort -rn | head -50
+          echo "== totals:"
+          grep -cE '(: |\): )(fatal )?error' build.log || true
       - name: Upload the logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -84,4 +97,5 @@ jobs:
             configure.log
             build.log
             build/CMakeFiles/CMakeConfigureLog.yaml
+            build/CMakeCache.txt
           if-no-files-found: warn
