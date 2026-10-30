@@ -129,17 +129,19 @@ def _hot_loop():
         # of the table would wait for the evaluation to end.
         jit.compile_batch([(info, curryrt.icurry_name(info)) for info in hot], post=True)
         jit.hot += len(hot)
-      except Exception:
+      except Exception as exc:
+        jit.errors += 1
+        jit.last_error = '%s: %s' % (type(exc).__name__, exc)
         logger.exception('The hot tier of the JIT failed; the functions stay interpreted')
 
 def statistics():
   '''The counts and the seconds of the JIT of this process.'''
   jit = _jit
   if jit is None:
-    return {'functions': 0, 'batches': 0, 'hot': 0, 'seconds': 0.0}
+    return {'functions': 0, 'batches': 0, 'hot': 0, 'errors': 0, 'last_error': None, 'seconds': 0.0}
   return {
       'functions': jit.functions, 'batches': jit.batches, 'hot': jit.hot
-    , 'seconds': jit.seconds
+    , 'errors': jit.errors, 'last_error': jit.last_error, 'seconds': jit.seconds
     }
 
 def _get():
@@ -185,10 +187,15 @@ class _JIT(object):
     llvm.load_library_permanently(
         config.installed_path('lib', config.curryrt_lib_name())
       )
-    self.target = llvm.Target.from_default_triple()
+    # The target of the bitcode is the target of the JIT: the two must share
+    # one data layout, and on Windows the default triple of llvmlite names
+    # an ELF layout where clang's bitcode names the COFF one.
+    self.triple = self.helpers.triple or llvm.get_default_triple()
+    self.target = llvm.Target.from_triple(self.triple)
     self.machine = self.target.create_target_machine(
         cpu=llvm.get_host_cpu_name(), opt=2
       )
+    self.data_layout = str(self.machine.target_data)
     self.lljit = llvm.create_lljit_compiler(self.machine)
     self.sizes = curryrt.jit_sizes()
     self.trackers = []   # the code lives as long as the process
@@ -196,6 +203,8 @@ class _JIT(object):
     self.functions = 0
     self.batches = 0
     self.hot = 0
+    self.errors = 0        # the batches of the hot tier that failed
+    self.last_error = None
     self.seconds = 0.0
 
   def compile_batch(self, items, post=False):
@@ -304,7 +313,8 @@ class _Batch(object):
       , 'd': self.f64, 'v': ir.VoidType()
       }
     self.module = ir.Module(name=name)
-    self.module.triple = jit.llvm.get_default_triple()
+    self.module.triple = jit.triple
+    self.module.data_layout = jit.data_layout
     self.helpers = {}
     for hname, (result, args) in _HELPERS.items():
       fnty = ir.FunctionType(self.types[result], [self.types[a] for a in args])
