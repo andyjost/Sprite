@@ -10,12 +10,6 @@ description = "The Sprite compiler and runtime for Curry"
 readme = "README.pypi.md"
 requires-python = ">=3.11.4"
 dependencies = ["curry-frontend>=3.1.0"]
-
-[project.optional-dependencies]
-# The JIT of the C++ backend (the flag jit; issue #65): LLVM through
-# llvmlite, about 60 MB per wheel.  Without it the interpreter and the
-# compiled mode run as before.
-jit = ["llvmlite>=0.50"]
 license = "BSD-3-Clause"
 license-files = ["LICENSE", "curry/lib/LICENSE", "curry/lib/NOTICE", "extern/pybind11/LICENSE"]
 classifiers = [
@@ -30,6 +24,12 @@ classifiers = [
   "Operating System :: POSIX :: Linux",
   "Operating System :: MacOS",
 ]
+
+[project.optional-dependencies]
+# The JIT of the C++ backend (the flag jit; issue #65): LLVM through
+# llvmlite, about 60 MB per wheel.  Without it the interpreter and the
+# compiled mode run as before.
+jit = ["llvmlite>=0.50"]
 
 [project.urls]
 Homepage = "https://github.com/andyjost/Sprite"
