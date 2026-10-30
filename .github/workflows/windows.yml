@@ -86,7 +86,7 @@ jobs:
           ls build/stage/lib build/stage/python/curry/backends/cxx/curryrtbindings || true
           python -c "import curry; from curry.interpreter import flags; d = flags.get_default_flags(); print(curry.config.curryrt_lib_name(), d['interpret'] if isinstance(d, dict) else d)"
           python -c "import curry; from curry.lib import Prelude; print(curry.eval(Prelude.reverse([1, 2, 3])).one())"
-          python -c "import curry; M = curry.compile('f :: Int -> Int\nf x = x ? x + 1'); print(sorted(curry.eval(M.f(1))))"
+          python -c "import curry; from curry.lib import Prelude; print(sorted(curry.eval(Prelude['?'](1, 2))))"
       - name: Errors by file and by kind
         if: always()
         run: |

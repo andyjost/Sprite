@@ -222,7 +222,8 @@ def main():
       lines = stamp.read_text().splitlines()
       lines[1] = os.path.relpath(prefix, stamp.parent)
       stamp.write_text('\n'.join(lines) + '\n')
-  for suffix in ['.json.z', '.so', '.so.abi']:
+  expected = ['.json.z', '.so', '.so.abi'] if args.cxx else ['.json.z']
+  for suffix in expected:
     if not (lib / '.curry' / intermediate_subdir / ('Prelude' + suffix)).is_file():
       raise RuntimeError('prebuild did not write Prelude' + suffix)
 
