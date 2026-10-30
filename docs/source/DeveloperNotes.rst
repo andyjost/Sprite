@@ -379,10 +379,10 @@ the implementation; the memo states them in its sections 2.1 to 2.5):
   for the operations with an ICurry body alone.  The built-in steps of
   ``currylib`` are native code outside the generated code, have
   no tree and are not checked; they are most of the ``hnf`` calls of a
-  run (on the set-function and functional-pattern goals of the suite,
-  10773 of 16492 calls: ``plusInt``, ``nonstrictEq``, ``apply``, ``cond``,
+  run (on the known-good set-function goals of ``tests/unit_cxx_checker.py``,
+  4558 of 7487 calls on 2026-10-30; when first measured ``plusInt``, ``nonstrictEq``, ``apply``, ``cond``,
   ``eqChar``, ``allValues``, ``_biString``, ``&``, ``constrEq``,
-  ``ltEqInt``, ``evalS``, ``applyS``, ``set``, ``$!``, ``eqInt`` lead).
+  ``ltEqInt``, ``evalS``, ``applyS``, ``set``, ``$!``, ``eqInt`` led).
 
 ``tests/unit_cxx_checker.py`` holds one constructed violation per check and
 runs the known-good programs of the suite under the checker.  The checker
@@ -462,11 +462,11 @@ Notes on the checker of the runtime:
   (the swap clears ``aux`` today), the ICurry of the module handed down
   from the Python side when the flag is on, or a tree table the emitter
   writes into the object.  Under ``interpret:all`` every operation with an
-  ICurry body is checked.  The measure, on the 165 known-good goals of the
-  test file (one runtime state per goal, ``steps:65536``): under the tiered
-  default after the prepare pass of the runner, 411 of 66545 ``hnf`` calls
-  are checked (0.6%; the rest are compiled steps and built-ins), under
-  ``interpret:all`` 22254 of 66538 (33.4%; the rest are the built-ins of
+  ICurry body is checked.  The measure, on the 129 known-good goals of the
+  test file (one runtime state per goal, ``steps:65536``, 2026-10-30): under the tiered
+  default after the prepare pass of the runner, 0 of 7487 ``hnf``
+  calls are checked (every step is compiled or built in), under
+  ``interpret:all`` 2929 of 7487 (39%; the rest are the built-ins of
   ``currylib``, which have no tree).  A run that checks
   B2 on the C++ backend therefore uses
   ``backend:cxx,checker:true,interpret:all``; the tiered pair exercises
