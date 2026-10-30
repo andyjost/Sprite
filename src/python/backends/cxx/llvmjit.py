@@ -93,6 +93,8 @@ def flush():
     pending, jit.pending = jit.pending, []
     if pending:
       jit.compile_batch(pending)
+  # The swaps the hot tier posted since the last evaluation.
+  curryrt.icurry_apply_posted()
 
 _hot_thread = None
 
@@ -100,9 +102,10 @@ def start_hot_tier(threshold):
   '''
   Starts the hot tier once: the runtime counts the calls of every
   interpreted function, and a thread of this process compiles the functions
-  that reach ``threshold`` calls and swaps their steps while the evaluation
-  runs (the evaluation holds no GIL; a step pointer is read at each call).
-  Raises Unavailable when the JIT cannot run.
+  that reach ``threshold`` calls while the evaluation runs (which holds no
+  GIL) and posts the swaps, which the scheduler applies at the head of its
+  loop, where no step of its state is on the C stack, or the backend before
+  the next evaluation.  Raises Unavailable when the JIT cannot run.
   '''
   global _hot_thread
   _get()
@@ -124,7 +127,7 @@ def _hot_loop():
       try:
         # The names through a binding without the heap lock: an attribute
         # of the table would wait for the evaluation to end.
-        jit.compile_batch([(info, curryrt.icurry_name(info)) for info in hot])
+        jit.compile_batch([(info, curryrt.icurry_name(info)) for info in hot], post=True)
         jit.hot += len(hot)
       except Exception:
         logger.exception('The hot tier of the JIT failed; the functions stay interpreted')
@@ -195,8 +198,13 @@ class _JIT(object):
     self.hot = 0
     self.seconds = 0.0
 
-  def compile_batch(self, items):
-    '''Compiles the functions of ``items`` in one LLVM module.'''
+  def compile_batch(self, items, post=False):
+    '''
+    Compiles the functions of ``items`` in one LLVM module and swaps their
+    steps; with ``post`` the swaps are posted for a scheduler to apply at
+    its safepoint (the thread of the hot tier), else set at once (the
+    thread that loads a module, with no evaluation of its own running).
+    '''
     start = time.perf_counter()
     batch = _Batch(self, 'jit%d' % self.batches)
     symbols = []
@@ -238,8 +246,9 @@ class _JIT(object):
       library.export_symbol(symbol)
     tracker = library.link(self.lljit, batch.name)
     self.trackers.append(tracker)
+    swap = curryrt.icurry_post_step if post else curryrt.icurry_set_step
     for info, name, symbol in symbols:
-      curryrt.icurry_set_step(info, tracker[symbol])
+      swap(info, tracker[symbol])
     self.functions += len(symbols)
     self.batches += 1
     end = time.perf_counter()

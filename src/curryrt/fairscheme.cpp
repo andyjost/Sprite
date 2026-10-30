@@ -1,3 +1,4 @@
+#include "curryrt/icurry.hpp"
 #include "curryrt/builtins.hpp"
 #include "curryrt/checker.hpp"
 #include "curryrt/exceptions.hpp"
@@ -75,6 +76,11 @@ namespace curryrt
 
     while(this->ready())
     {
+      // The safepoint of the hot tier of the JIT: no step of this state is
+      // on the C stack here, so the swaps its thread posted are applied by
+      // this thread (curryrt/icurry.hpp).
+      if(g_icurry_posted.load(std::memory_order_acquire))
+        icurry_apply_posted();
       Q = this->Q();
       C = Q->front();
       #ifdef SPRITE_SCHEDULER_COUNTERS

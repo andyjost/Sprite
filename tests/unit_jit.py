@@ -127,12 +127,14 @@ class TestJIT(cytest.TestCase):
       curry.reset(backend='cxx', interpret='new', inline_budget=0)
       M = curry.compile(PROGRAM)
     self.assertEqual(curry.eval(M.fib(15)).one(), 610)
+    # The thread compiles the hot functions; the swap is applied at a
+    # safepoint of a scheduler, at the latest before the next evaluation.
     deadline = time.monotonic() + 30
-    while not curryrt.icurry_is_jit(M.fib.info) and time.monotonic() < deadline:
+    while llvmjit.statistics()['hot'] == 0 and time.monotonic() < deadline:
       time.sleep(0.02)
-    self.assertTrue(curryrt.icurry_is_jit(M.fib.info))
-    self.assertEqual(curry.eval(M.fib(15)).one(), 610)
     self.assertGreater(llvmjit.statistics()['hot'], 0)
+    self.assertEqual(curry.eval(M.fib(15)).one(), 610)
+    self.assertTrue(curryrt.icurry_is_jit(M.fib.info))
 
   @cytest.hardreset
   def test_unavailable_jit_leaves_the_function_interpreted(self):
