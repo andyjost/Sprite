@@ -56,6 +56,21 @@ The following flags are available:
 
     Reserved for compatibility.  Runtime traces require a TRACE build.
 
+  * ``jit`` (**'off'** | 'eager' | 'hot')
+
+    The JIT of the C++ backend (curry.backends.cxx.llvmjit; issue #65),
+    under the modes 'new' and 'all' of ``interpret``.  With 'eager', every
+    function of a module is compiled to machine code through LLVM when the
+    module is loaded; with 'hot', a thread of the process compiles the
+    functions that reach SPRITE_JIT_THRESHOLD calls (100 by default) while
+    the evaluation runs, and the scheduler swaps their steps at its
+    safepoint.  The JIT needs the extra ``curry[jit]`` (llvmlite) and the
+    bitcode of the helpers of the runtime, which the build makes when
+    CMake finds clang (WITH_CLANG); without them the functions stay
+    interpreted and the reason is logged once.  Under 'tiered' the
+    background compile swaps the steps itself, so the flag has no effect
+    there, nor under 'off'.
+
   * ``inline_budget`` (**4** | <int>)
 
     The largest function body, in nodes built, that the optimizer inlines at
@@ -191,6 +206,7 @@ FLAG_INFO = {
   , 'debug'               : ( bool                , False )
   , 'inline_budget'       : ( int                 , 4     )
   , 'interpret'           : ({'off', 'new', 'all', 'tiered'}, 'all' if sys.platform == 'win32' else 'tiered')
+  , 'jit'                 : ({'off', 'eager', 'hot'}, 'off')
   , 'trace'               : ( bool                , False )
   , 'keep_temp_files'     : ((bool, str)          , False )
   , 'lazycompile'         : ( bool                , True  )

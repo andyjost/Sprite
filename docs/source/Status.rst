@@ -132,9 +132,10 @@ What is experimental
 * The ICurry cache (``SPRITE_CACHE_FILE``): off by default outside the
   test drivers; CMake ``ENABLE_ICURRY_CACHE=ON`` turns it on (see
   :ref:`CommandLineInterface/EnvironmentVariables:Development Variables`).
-* The JIT of the C++ backend (``SPRITE_JIT``, issue #65): the bytecode of
-  a function to machine code through LLVM, eagerly or by call count; merged
-  on 2026-10-30, off by default.
+* The JIT of the C++ backend (the flag ``jit``, the extra ``curry[jit]``,
+  issue #65): the bytecode of a function to machine code through LLVM,
+  eagerly or by call count, on Linux, macOS arm64 and Windows; merged on
+  2026-10-30, off by default.
 
 Where the plan lives
 ====================

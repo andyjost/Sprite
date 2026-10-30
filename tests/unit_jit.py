@@ -7,18 +7,14 @@ interpreter and on the JIT, over every kind of opcode: the cases on
 constructors and on literals of each kind (Int, big Int, Char, Float), the
 nondeterminism of ?, a recursive let, a partial application, a failure, a
 free variable and a string literal.  The file skips where the JIT is
-unavailable: without llvmlite, or without the bitcode of the helpers that
-CMake builds when it finds clang.
+unavailable: without llvmlite (the extra curry[jit]), or without the
+bitcode of the helpers that CMake builds when it finds clang.
 '''
 import cytest # from ./lib; must be first
 import curry, os, unittest
 from curry import inspect
 from curry.backends.cxx import curryrtbindings as curryrt, llvmjit
 from unittest import mock
-
-def jit_switch(on):
-  '''The environment switch of the JIT (SPRITE_JIT) for one reset.'''
-  return mock.patch.dict(os.environ, {'SPRITE_JIT': '1' if on else '0'})
 
 PROGRAM = r'''
 fib :: Int -> Int
@@ -88,9 +84,8 @@ class TestJIT(cytest.TestCase):
       raise unittest.SkipTest('the JIT is unavailable in this installation')
 
   def evaluate(self, jit):
-    with jit_switch(jit):
-      curry.reset(backend='cxx', interpret='new')
-      M = curry.compile(PROGRAM)
+    curry.reset(backend='cxx', interpret='new', jit=jit)
+    M = curry.compile(PROGRAM)
     results = {}
     for goal, _ in GOALS:
       results[goal] = sorted(curry.eval(curry.parse(goal, imports=[M])), key=repr)
@@ -98,9 +93,9 @@ class TestJIT(cytest.TestCase):
 
   @cytest.hardreset
   def test_values_match_the_interpreter(self):
-    expected = self.evaluate(False)
+    expected = self.evaluate('off')
     before = llvmjit.statistics()['functions']
-    actual = self.evaluate(True)
+    actual = self.evaluate('eager')
     self.assertGreater(llvmjit.statistics()['functions'], before)
     for goal, values in GOALS:
       self.assertEqual(expected[goal], values, goal)
@@ -109,9 +104,8 @@ class TestJIT(cytest.TestCase):
   @cytest.hardreset
   def test_a_jit_function_keeps_its_bytecode(self):
     '''The table reports the JIT step; inspect shows the bytecode it ran from.'''
-    with jit_switch(True):
-      curry.reset(backend='cxx', interpret='new', inline_budget=0)
-      M = curry.compile('double :: Int -> Int\ndouble x = x + x')
+    curry.reset(backend='cxx', interpret='new', inline_budget=0, jit='eager')
+    M = curry.compile('double :: Int -> Int\ndouble x = x + x')
     self.assertEqual(curry.eval(M.double(21)).one(), 42)
     self.assertTrue(curryrt.icurry_is_jit(M.double.info))
     self.assertFalse(curryrt.icurry_is_interpreted(M.double.info))
@@ -123,8 +117,8 @@ class TestJIT(cytest.TestCase):
   def test_hot_tier_compiles_a_hot_function(self):
     '''A function that reaches the threshold is compiled on the JIT thread.'''
     import time
-    with mock.patch.dict(os.environ, {'SPRITE_JIT': 'hot', 'SPRITE_JIT_THRESHOLD': '5'}):
-      curry.reset(backend='cxx', interpret='new', inline_budget=0)
+    with mock.patch.dict(os.environ, {'SPRITE_JIT_THRESHOLD': '5'}):
+      curry.reset(backend='cxx', interpret='new', inline_budget=0, jit='hot')
       M = curry.compile(PROGRAM)
     self.assertEqual(curry.eval(M.fib(15)).one(), 610)
     # The thread compiles the hot functions; the swap is applied at a
@@ -145,11 +139,10 @@ class TestJIT(cytest.TestCase):
     try:
       llvmjit._jit, llvmjit._reason = None, 'a test'
       materialize._JIT_WARNED = False
-      with jit_switch(True):
-        curry.reset(backend='cxx', interpret='new')
-        with self.assertLogs('curry.backends.cxx.materialize', level=logging.WARNING) as logs:
-          M = curry.compile('double :: Int -> Int\ndouble x = x + x')
-          self.assertEqual(curry.eval(M.double(21)).one(), 42)
+      curry.reset(backend='cxx', interpret='new', jit='eager')
+      with self.assertLogs('curry.backends.cxx.materialize', level=logging.WARNING) as logs:
+        M = curry.compile('double :: Int -> Int\ndouble x = x + x')
+        self.assertEqual(curry.eval(M.double(21)).one(), 42)
       self.assertEqual(len(logs.records), 1)
       self.assertIn('a test', logs.output[0])
     finally:

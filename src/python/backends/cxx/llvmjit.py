@@ -4,10 +4,9 @@ function, compiled in process on llvmlite (the spike of issue #65).
 
 The JIT plugs in where the interpreter plugs in.  The materializer builds
 the info tables of a module and attaches the bytecode of each function
-(materialize.py, bytecode.py); with the environment variable SPRITE_JIT
-set (the switch of the spike, outside the frozen flags of the interpreter)
-it queues each function (:func:`enqueue`), and when the module is loaded
-the backend compiles the queue (:func:`flush`): one LLVM module whose
+(materialize.py, bytecode.py); under the flag ``jit`` set to 'eager' it
+queues each function (:func:`enqueue`), and when the module is loaded the
+backend compiles the queue (:func:`flush`): one LLVM module whose
 functions are read back from the runtime (``icurry_bytecode``, the
 constants as addresses), one function with the signature of a step each,
 linked with the bitcode of the helpers (src/curryrt/jit/helpers.cpp,
