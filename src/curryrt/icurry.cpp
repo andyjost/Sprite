@@ -11,6 +11,7 @@
 #include <new>
 #include <stdexcept>
 #include <unordered_set>
+#include <utility>
 #include "curryrt/builtins.hpp"
 #include "curryrt/currylib/setfunctions.hpp"
 #include "curryrt/graph/node.hpp"
@@ -403,6 +404,47 @@ namespace curryrt
       return false;
     std::lock_guard<std::mutex> lock(g_jit_mutex);
     return g_jit_steps.count(info) != 0;
+  }
+
+  namespace
+  {
+    std::mutex g_posted_mutex;
+    std::vector<std::pair<InfoTable *, stepfunc_type>> g_posted;
+  }
+
+  std::atomic<bool> g_icurry_posted{false};
+
+  void icurry_post_step(InfoTable * info, stepfunc_type step)
+  {
+    if(!info || !step)
+      throw std::invalid_argument("icurry_post_step: a null argument");
+    std::lock_guard<std::mutex> lock(g_posted_mutex);
+    g_posted.emplace_back(info, step);
+    g_icurry_posted.store(true, std::memory_order_release);
+  }
+
+  size_t icurry_apply_posted()
+  {
+    std::vector<std::pair<InfoTable *, stepfunc_type>> posted;
+    {
+      std::lock_guard<std::mutex> lock(g_posted_mutex);
+      posted.swap(g_posted);
+      g_icurry_posted.store(false, std::memory_order_relaxed);
+    }
+    size_t applied = 0;
+    for(auto const & entry: posted)
+    {
+      // A table swapped meanwhile, or never interpreted, keeps its step.
+      if(entry.first->step != &icurry_step)
+        continue;
+      {
+        std::lock_guard<std::mutex> lock(g_jit_mutex);
+        g_jit_steps.insert(entry.first);
+      }
+      entry.first->step = entry.second;
+      ++applied;
+    }
+    return applied;
   }
 
   void icurry_attach(InfoTable * info, std::unique_ptr<Bytecode> code)

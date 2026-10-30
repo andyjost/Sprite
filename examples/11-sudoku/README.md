@@ -1,19 +1,21 @@
-Sudoku by search
-================
+# Sudoku by search
 
-1. What the example shows about functional logic programming
--------------------------------------------------------------
+## 1. What the example shows about functional logic programming
 
 The search is the program.  Sudoku.curry holds five short functions:
 
-  * candidates lists the digits that fit one blank cell.  It is
-    deterministic.
-  * blanks lists the blank cells, each with its candidates.
-  * place writes one digit into the board.
-  * solve picks the blank cell with the fewest candidates and calls fill.
-  * fill chooses one candidate for that cell and calls solve again:
+  \* candidates lists the digits that fit one blank cell.  It is
+```
+deterministic.
+```
+  \* blanks lists the blank cells, each with its candidates.
+  \* place writes one digit into the board.
+  \* solve picks the blank cell with the fewest candidates and calls fill.
+  \* fill chooses one candidate for that cell and calls solve again:
 
-        fill b r c (d:ds) = solve (place b r c d) ? fill b r c ds
+```
+fill b r c (d:ds) = solve (place b r c d) ? fill b r c ds
+```
 
 The operator ? is a non-deterministic choice.  Because of it, solve returns
 every completion of the board.  The source has no loop, no stack of partial
@@ -23,13 +25,14 @@ A branch dies as soon as a cell has no candidate, because no rule of fill
 matches an empty list.  The most-constrained-cell order finds such a cell
 first, so a dead branch dies early.
 
-2. What the example shows about calling Curry from Python
-----------------------------------------------------------
+## 2. What the example shows about calling Curry from Python
 
 go.py reads each puzzle file into a nested Python list of ints, with 0 for a
 blank.  The call
 
-    curry.eval(Sudoku.solve(board))
+```
+curry.eval(Sudoku.solve(board))
+```
 
 turns the nested list into the Curry value of type [[Int]], applies solve to
 it, and returns a generator.  Each value of the generator is one solution,
@@ -38,62 +41,69 @@ and prints their number.  That number is the number of solutions.  The first
 grid, puzzle.txt, is a proper puzzle: it has one solution.  The second grid,
 ambiguous.txt, drops four givens from the first: it has two.
 
-3. How to run
--------------
+## 3. How to run
 
 Run "make stage" from the root of the repository first.  Then, from this
 directory:
 
-    ./run
+```
+./run
+```
 
 To solve other puzzles, pass their files to go.py.  A file holds nine lines
 of nine characters, with a dot for a blank cell:
 
-    ../../install/bin/python go.py mypuzzle.txt
+```
+../../install/bin/python go.py mypuzzle.txt
+```
 
-4. Expected output
-------------------
+## 4. Expected output
 
 The complete output is in expected.out.  The key lines are:
 
-    puzzle puzzle.txt:
-    ...
-    solution 1:
-    534678912
-    672195348
-    198342567
-    859761423
-    426853791
-    713924856
-    961537284
-    287419635
-    345286179
-    solutions: 1
+```
+puzzle puzzle.txt:
+...
+solution 1:
+534678912
+672195348
+198342567
+859761423
+426853791
+713924856
+961537284
+287419635
+345286179
+solutions: 1
 
-    puzzle ambiguous.txt:
-    ...
-    solution 1:
-    345678912
-    ...
-    solution 2:
-    534678912
-    ...
-    solutions: 2
+puzzle ambiguous.txt:
+...
+solution 1:
+345678912
+...
+solution 2:
+534678912
+...
+solutions: 2
+```
 
 The two solutions of ambiguous.txt differ in six cells: the first three
 cells of the first row and of the last row.
 
-5. Limits
----------
+## 5. Limits
 
 Measured on the C++ backend with a 2 GiB address-space cap:
 
-  * puzzle.txt, 30 givens, 1 solution: about 1 second.
-  * ambiguous.txt, 26 givens, 2 solutions: about 3 seconds.
-  * puzzle.txt with six more givens removed, 24 givens, 64 solutions:
-    20 seconds.
-  * A 21-clue puzzle and a 17-clue puzzle: more than 30 seconds, so they
-    are not part of the run.
+  \* puzzle.txt, 30 givens, 1 solution: about 1 second.
+  \* ambiguous.txt, 26 givens, 2 solutions: about 3 seconds.
+  \* puzzle.txt with six more givens removed, 24 givens, 64 solutions:
+```
+20 seconds.
+```
+  \* A 21-clue puzzle and a 17-clue puzzle: more than 30 seconds, so they
+```
+are not part of the run.
+```
 
 The first run adds about a second to compile the module.
 
@@ -104,7 +114,9 @@ takes tens of seconds.
 The choice lives at the top of fill, not inside the board.  An earlier
 version wrote the choice into the cell:
 
-    place b r c (anyOf cands)
+```
+place b r c (anyOf cands)
+```
 
 Under call-time choice that program has the same solutions.  In Sprite it
 ran out of 2 GiB of memory on a puzzle with a few real choice points before

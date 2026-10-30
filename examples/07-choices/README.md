@@ -1,5 +1,4 @@
-Choices, sharing, functions
-===========================
+# Choices, sharing, functions
 
 This is the Python companion to 00-run-curry-programs.  Choice.curry has
 coin = 0 ? 1, inc and a function returning an adder.  Python's
@@ -9,7 +8,7 @@ Holding t = C.coin and using t twice shares one computation: t + t has
 values 0 and 2 and prints "let x1 = coin in x1 + x1".  Two reads of C.coin
 are independent: their sum has three distinct values, 0, 1 and 2 (1 occurs
 twice in the four answers).  The script uses set only for that comparison.
-Arithmetic on terms builds Curry computations; __choice__ is the explicit
+Arithmetic on terms builds Curry computations; \_\_choice_\_ is the explicit
 choice hook available on ordinary Python.  The script sorts answers where
 the scheduler's order is immaterial.
 

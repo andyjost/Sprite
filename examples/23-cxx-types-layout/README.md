@@ -1,5 +1,4 @@
-Member layout by search over a model of C++ types
-=================================================
+# Member layout by search over a model of C++ types
 
 This example lays out a struct and searches for the member order of the
 smallest size.  It closes the series of four that opens with
@@ -21,15 +20,16 @@ The module CxxLayout.curry under ../cxx holds the layout and the search.
 This directory holds the driver only.
 
 
-1. What the example shows about functional logic programming
--------------------------------------------------------------
+## 1. What the example shows about functional logic programming
 
 Non-determinism as values.  The function perm builds one order of the
 members with insert.  Both rules of insert apply to a non-empty list, so each
 call is a choice.  An expression over perm means every order at once:
 
-    sizeOfOrder ss = (structSize (layoutSized order), order)
-      where order = perm ss
+```
+sizeOfOrder ss = (structSize (layoutSized order), order)
+  where order = perm ss
+```
 
 One value of sizeOfOrder is the size of one order, paired with that order.
 The function has 720 values for six members.
@@ -38,9 +38,11 @@ Set functions.  The set function set1 sizeOfOrder is the set of every such
 pair.  The search sorts the set by size, counts the run of the smallest size,
 and takes the first order of that run in the order of the member names:
 
-    bySize = sortValuesBy (\p q -> fst p <= fst q) pairs
-    best   = [order | (size, order) <- bySize, size == fst (head bySize)]
-    result = (length bySize, length best, layoutSized (minimum best))
+```
+bySize = sortValuesBy (\p q -> fst p <= fst q) pairs
+best   = [order | (size, order) <- bySize, size == fst (head bySize)]
+result = (length bySize, length best, layoutSized (minimum best))
+```
 
 The sort compares sizes only.  The scheduler does not promise an order of the
 values, so minimum picks the order to print.  The names are unique, and
@@ -49,8 +51,10 @@ minimum compares them first.
 Constraints as rules.  Scenario (c) keeps the member tag first.  The search
 is the same with one more rule, a guard on the generated order:
 
-    sizeOfOrderFirst first ss | nameOf (head order) == first = (size, order)
-      where (size, order) = sizeOfOrder ss
+```
+sizeOfOrderFirst first ss | nameOf (head order) == first = (size, order)
+  where (size, order) = sizeOfOrder ss
+```
 
 An order with another member in front fails.  A failure is not a value, so
 the set function does not see it, and the set shrinks from 720 values to
@@ -62,34 +66,39 @@ fill the eight bytes behind tag, and both searches reach 24 bytes.  The pin
 costs orders: 2 of 120 reach 24 bytes, against 48 of 720.
 
 
-2. What the example shows about calling Curry from Python
-----------------------------------------------------------
+## 2. What the example shows about calling Curry from Python
 
 The driver go.py adds ../cxx to curry.path and imports CxxLimits, CxxType and
 CxxLayout from curry.lib.  The struct is a Python class whose annotations are
 its members:
 
-    class Packet:
-      tag: CHAR
-      stamp: DOUBLE
-      ...
+```
+class Packet:
+  tag: CHAR
+  stamp: DOUBLE
+  ...
+```
 
-The dictionary Packet.__annotations__ keeps the declaration order.  That is
+The dictionary Packet.\_\_annotations_\_ keeps the declaration order.  That is
 the reflection of Python, and it stands in for the reflection of a compiler:
 Circle would hand over the members of the struct under compilation in the
 same shape.  Each type is a Curry expression built by calling constructors from the
 constructors of CxxType, for example
 
-    CxxType.Ptr(CxxType.Const(CHAR))
+```
+CxxType.Ptr(CxxType.Const(CHAR))
+```
 
-for char const*.  The function members turns the annotations into a Python
+for char const\*.  The function members turns the annotations into a Python
 list of (name, type) pairs, and curry.eval converts it to a Curry list of
 tuples.  A name is a Python str, which curry.term converts by the type the
 tuple expects, a String, also for a name of one character.
 
 A layout comes back as nested tuples and lists.  The call
 
-    curry.eval(CxxLayout.layout(members))
+```
+curry.eval(CxxLayout.layout(members))
+```
 
 yields a Python tuple of the placed members, each a tuple of name, offset,
 size and padding, then the size, the alignment and the padding at the end.
@@ -100,12 +109,13 @@ tuple converts both ways.  Evaluation turns a Curry String into a str
 inside a tuple or a list alike, and the empty String into ''.
 
 
-3. How to run
--------------
+## 3. How to run
 
 Run "make stage" from the root of the repository first.  Then run
 
-    ./run
+```
+./run
+```
 
 The first run also compiles CxxLayout.curry, and the two shared modules when
 no earlier example of the series has run.  The build products go to .curry/
@@ -117,42 +127,46 @@ members.  A member of a class type has no size in the model, so a struct with
 one has no layout, and the driver stops with StopIteration.
 
 
-4. Expected output
-------------------
+## 4. Expected output
 
 The file expected.out holds the exact output of ./run.  Scenario (a) prints
 the struct in declaration order, one row per member and one per hole:
 
-    (a) struct Packet in declaration order
-      offset  size  member
-           0     1  char         tag
-           1     7  (padding)
-           8     8  double       stamp
-          16     1  bool         urgent
-          17     3  (padding)
-          20     4  int          length
-          24     2  short        port
-          26     6  (padding)
-          32     8  char const*  payload
-      sizeof 40, alignof 8, padding 16
+```
+(a) struct Packet in declaration order
+  offset  size  member
+       0     1  char         tag
+       1     7  (padding)
+       8     8  double       stamp
+      16     1  bool         urgent
+      17     3  (padding)
+      20     4  int          length
+      24     2  short        port
+      26     6  (padding)
+      32     8  char const*  payload
+  sizeof 40, alignof 8, padding 16
+```
 
 Scenario (b) searches every order:
 
-    (b) the order of the smallest size
-      smallest sizeof 24, reached by 48 of 720 orders
-      the first of those orders: length, port, tag, urgent, payload, stamp
+```
+(b) the order of the smallest size
+  smallest sizeof 24, reached by 48 of 720 orders
+  the first of those orders: length, port, tag, urgent, payload, stamp
+```
 
 Scenario (c) searches the orders with tag first:
 
-    (c) the order of the smallest size with tag first
-      smallest sizeof 24, reached by 2 of 120 orders
-      the first of those orders: tag, urgent, port, length, payload, stamp
+```
+(c) the order of the smallest size with tag first
+  smallest sizeof 24, reached by 2 of 120 orders
+  the first of those orders: tag, urgent, port, length, payload, stamp
+```
 
 The table of the chosen order follows each summary.
 
 
-5. Limits
----------
+## 5. Limits
 
 A warm run of ./run took 0.6 s.  The first run also compiles
 CxxLayout.curry.  It took 2.6 s, with the shared modules compiled by an

@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <cstdint>
 #include <deque>
 #include <memory>
@@ -175,6 +176,16 @@ namespace curryrt
   void icurry_set_hot_threshold(uint32_t);
   uint32_t icurry_hot_threshold();
   std::vector<InfoTable *> icurry_take_hot();
+
+  // The posted swaps of the hot tier.  The thread of the JIT posts a step for
+  // a table (icurry_post_step); a scheduler applies the posted swaps at the
+  // head of its loop, where no step of its state is on the C stack
+  // (RuntimeState::procD_loop), and the backend applies them before an
+  // evaluation.  g_icurry_posted is the flag the scheduler reads per
+  // iteration; icurry_apply_posted returns the count applied.
+  extern CURRYRT_DATA std::atomic<bool> g_icurry_posted;
+  void icurry_post_step(InfoTable *, stepfunc_type);
+  size_t icurry_apply_posted();
 
   // Gives an interpreted function the step ``step``: the code a JIT made from
   // its bytecode (backends/cxx/llvmjit.py).  The bytecode stays in aux, so

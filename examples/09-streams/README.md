@@ -1,5 +1,4 @@
-Streams
-========
+# Streams
 
 Streams.curry imports Sprite.Stream (yield).  threeOut yields 1, 2 and 3;
 primesOut yields an infinite lazy sieve.  totalsOut threads a running total

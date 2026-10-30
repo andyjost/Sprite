@@ -236,6 +236,18 @@ namespace
     }
   }
 
+  void icurry_post_step_(InfoTable * info, std::uintptr_t address)
+  {
+    try
+    {
+      icurry_post_step(info, reinterpret_cast<stepfunc_type>(address));
+    }
+    catch(std::invalid_argument const & e)
+    {
+      throw py::value_error(e.what());
+    }
+  }
+
   py::dict jit_sizes_()
   {
     py::dict d;
@@ -269,6 +281,14 @@ namespace curryrt { namespace python
         "made from its bytecode.  The function must be interpreted at the "
         "call.  No heap lock: the hot tier swaps a step while an evaluation "
         "runs, and the evaluation reads the pointer at each call.");
+    mod.def("icurry_post_step", &icurry_post_step_
+      , "Posts the step at an address for an interpreted function: a "
+        "scheduler applies it at the head of its loop, or "
+        "icurry_apply_posted does.  No heap lock: the thread of the hot "
+        "tier posts while an evaluation runs.");
+    mod.def("icurry_apply_posted", &icurry_apply_posted
+      , "Applies the posted steps; returns the count applied.  The backend "
+        "calls it before an evaluation.");
     mod.def("jit_sizes", &jit_sizes_
       , "The sizes the JIT needs: the bytes of a Cursor and of a Variable, "
         "the bits of a tag and of a pointer.");

@@ -9,8 +9,8 @@
   <a href="https://pypi.org/project/curry/"><img src="https://img.shields.io/pypi/v/curry" alt="PyPI"></a>
   <a href="https://pypi.org/project/curry/"><img src="https://img.shields.io/pypi/pyversions/curry" alt="Python versions"></a>
   <img src="https://img.shields.io/badge/platforms-Linux%20%7C%20macOS-blue" alt="Platforms">
-  <a href="https://github.com/andyjost/Sprite/actions/workflows/ci.yml"><img src="https://github.com/andyjost/Sprite/actions/workflows/ci.yml/badge.svg?branch=master&event=push" alt="CI"></a>
-  <a href="https://github.com/andyjost/Sprite/actions/workflows/windows.yml"><img src="https://github.com/andyjost/Sprite/actions/workflows/windows.yml/badge.svg?branch=master&event=push" alt="Windows"></a>
+  <a href="https://github.com/andyjost/Sprite/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/andyjost/Sprite/ci.yml?branch=master&event=push&label=CI%20Linux%20%7C%20macOS" alt="CI on Linux and macOS"></a>
+  <a href="https://github.com/andyjost/Sprite/actions/workflows/windows.yml"><img src="https://img.shields.io/github/actions/workflow/status/andyjost/Sprite/windows.yml?branch=master&event=push&label=CI%20Windows" alt="CI on Windows"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/andyjost/Sprite" alt="License"></a>
 </p>
 
@@ -126,12 +126,12 @@ because it is the printer. This is where Curry excels: the specification is
 the program. There's nothing more to write, and nothing more to get wrong.
 
 The same trick applies wherever you have one direction of a relation and want
-the other. The repository has small examples of a
-[build system](https://andyjost.github.io/Sprite/Examples.html#example-24)
+the other. The repository has small [examples](https://andyjost.github.io/Sprite/Examples.html) of a
+[build system](examples/24-build-system)
 whose pattern rules run both ways, a
-[package dependency solver](https://andyjost.github.io/Sprite/Examples.html#example-15)
+[package dependency solver](examples/15-dependency-solver)
 with no search code, and
-[C++ overload resolution](https://andyjost.github.io/Sprite/Examples.html#example-21)
+[C++ overload resolution](examples/21-cxx-types-overloads)
 that can also tell you which argument types pick a given overload. We think
 compiler IR, where passes are rewrite rules over a term graph, is another
 natural fit.
