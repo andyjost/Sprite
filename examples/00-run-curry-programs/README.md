@@ -1,16 +1,16 @@
-Run Curry programs with sprite-exec
-===================================
+# Run Curry programs with sprite-exec
 
 This example runs one Curry program in three ways with sprite-exec, the
 command-line interpreter of Sprite.  The program is program.curry.
 
 
-1. What the example shows about functional logic programming
--------------------------------------------------------------
+## 1. What the example shows about functional logic programming
 
 Call-time choice.  The program defines
 
-    flip = True ? False
+```
+flip = True ? False
+```
 
 The operator ? is a non-deterministic choice.  The goal main binds x to flip
 once and returns (x, x).  Both components share the one choice, so main has
@@ -21,8 +21,7 @@ choices, so mainalt has four values.  The difference between the two goals
 is the whole point of call-time choice.
 
 
-2. What the example shows about running Curry
-----------------------------------------------
+## 2. What the example shows about running Curry
 
 sprite-exec runs a program by file name.  With the -m switch it runs a module
 that it finds on CURRYPATH.  It evaluates the goal main by default.  The -g
@@ -30,34 +29,35 @@ switch names another goal.  sprite-exec prints every value of the goal, one
 per line.  The example uses no Python code.
 
 
-3. How to run
--------------
+## 3. How to run
 
 Run "make stage" from the root of the repository first.  Then run
 
-    ./run
+```
+./run
+```
 
 
-4. Expected output
-------------------
+## 4. Expected output
 
 The file expected.out holds the exact output of ./run:
 
-    % sprite-exec program.curry
-    (True,True)
-    (False,False)
-    % CURRYPATH=. sprite-exec -m program
-    (True,True)
-    (False,False)
-    % sprite-exec program.curry -g mainalt
-    (True,True)
-    (True,False)
-    (False,True)
-    (False,False)
+```
+% sprite-exec program.curry
+(True,True)
+(False,False)
+% CURRYPATH=. sprite-exec -m program
+(True,True)
+(False,False)
+% sprite-exec program.curry -g mainalt
+(True,True)
+(True,False)
+(False,True)
+(False,False)
+```
 
 
-5. Limits
----------
+## 5. Limits
 
 The program is tiny.  A warm run of ./run took 0.4 s on the C++ backend.  The
 first run also compiles the program with the Curry front end, which takes

@@ -1,18 +1,18 @@
-An expression parser from functional patterns
-=============================================
+# An expression parser from functional patterns
 
-This example parses arithmetic expressions such as 1+2*3 with three Curry
+This example parses arithmetic expressions such as 1+2\*3 with three Curry
 functions and no parser library.  Each function has a rule with a functional
 pattern that splits the input around an operator.  Python prints the parse
 tree and the value of each expression.
 
 
-1. What the example shows about functional logic programming
--------------------------------------------------------------
+## 1. What the example shows about functional logic programming
 
 Functional patterns.  The rule
 
-    expr (l ++ "+" ++ r) = Add (expr l) (term r)
+```
+expr (l ++ "+" ++ r) = Add (expr l) (term r)
+```
 
 matches every way to split the input around a '+'.  The pattern contains the
 function ++ and the variables l and r.  The system matches the input against
@@ -25,27 +25,30 @@ survives.  The parse of 1+2+3 is therefore Add (Add (Num 1) (Num 2)) (Num 3),
 and the operators associate to the left.
 
 Precedence from the grammar levels.  The right operand of '+' and '-' is a
-term.  The right operand of '*' is a factor.  A term never contains a sum
-unless parentheses enclose it.  So '*' binds tighter than '+' and '-' without
+term.  The right operand of '\*' is a factor.  A term never contains a sum
+unless parentheses enclose it.  So '\*' binds tighter than '+' and '-' without
 a precedence table.
 
 The grammar is:
 
-    expr   ::= expr '+' term | expr '-' term | term
-    term   ::= term '*' factor | factor
-    factor ::= '(' expr ')' | digits
+```
+expr   ::= expr '+' term | expr '-' term | term
+term   ::= term '*' factor | factor
+factor ::= '(' expr ')' | digits
+```
 
 The three Curry functions expr, term and factor follow it line by line.
 There is no lexer.  The function eval computes the value of a tree.
 
 
-2. What the example shows about calling Curry from Python
-----------------------------------------------------------
+## 2. What the example shows about calling Curry from Python
 
 The driver go.py adds its own directory to curry.path and imports the module
 Parser.  For each input it calls
 
-    curry.eval(Parser.expr(s))
+```
+curry.eval(Parser.expr(s))
+```
 
 The symbol call converts the Python str s to a
 String, also when s has one character.  The call is a generator of parse
@@ -57,42 +60,47 @@ A parse tree comes back as a Curry value.  Its str form prints the
 constructors, such as Add (Num 1) (Num 2).  The driver passes the tree back
 to Curry:
 
-    curry.eval(Parser.eval(tree)).one()
+```
+curry.eval(Parser.eval(tree)).one()
+```
 
 Evaluation turns the Curry Int into a Python int.
 
 
-3. How to run
--------------
+## 3. How to run
 
 Run "make stage" from the root of the repository first.  Then run
 
-    ./run
+```
+./run
+```
 
 To parse other expressions, pass them to go.py.  Use the Python of the staged
 install.  The driver removes spaces from each expression.  For example, on
 the C++ backend:
 
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ../../install/bin/python go.py '2 * (3 + 4)' '8-1-1'
+```
+SPRITE_INTERPRETER_FLAGS=backend:cxx ../../install/bin/python go.py '2 * (3 + 4)' '8-1-1'
+```
 
 
-4. Expected output
-------------------
+## 4. Expected output
 
 The file expected.out holds the exact output of ./run.  The key lines are:
 
-    1+2*3  ->  Add (Num 1) (Mul (Num 2) (Num 3))  =  7  (1 parse)
-    2*(3+4)-5  ->  Sub (Mul (Num 2) (Add (Num 3) (Num 4))) (Num 5)  =  9  (1 parse)
-    10-2-3  ->  Sub (Sub (Num 10) (Num 2)) (Num 3)  =  5  (1 parse)
-    2*(3+4  ->  no parse
+```
+1+2*3  ->  Add (Num 1) (Mul (Num 2) (Num 3))  =  7  (1 parse)
+2*(3+4)-5  ->  Sub (Mul (Num 2) (Add (Num 3) (Num 4))) (Num 5)  =  9  (1 parse)
+10-2-3  ->  Sub (Sub (Num 10) (Num 2)) (Num 3)  =  5  (1 parse)
+2*(3+4  ->  no parse
+```
 
-The tree for 1+2*3 shows that '*' binds tighter than '+'.  The tree for
+The tree for 1+2\*3 shows that '\*' binds tighter than '+'.  The tree for
 10-2-3 shows that '-' associates to the left.  The last input lacks its right
 parenthesis.  No split parses, so Python reports no parse.
 
 
-5. Limits
----------
+## 5. Limits
 
 The number of splits grows with the length of the input.  A warm run of
 ./run took 0.2 s.  The first run also compiles the module.  It took about

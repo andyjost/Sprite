@@ -1,5 +1,4 @@
-Variables: narrowing and suspension
-===================================
+# Variables: narrowing and suspension
 
 Two relations in Vars.curry: `last` by a functional pattern, and `split`,
 which narrows two free variables to every way of splitting a list.

@@ -1,5 +1,4 @@
-Type inference by unification
-=============================
+# Type inference by unification
 
 This example infers the types of small lambda terms.  The Curry function
 infer has one rule for each kind of term.  A free variable stands for a
@@ -8,13 +7,14 @@ builds the terms, calls infer, and prints each term with its type.  A term
 with no type prints "ill-typed".
 
 
-1. What the example shows about functional logic programming
--------------------------------------------------------------
+## 1. What the example shows about functional logic programming
 
 Free variables are unknown types.  The rule for a lambda is
 
-    infer env (Lam x b) = Fun a (infer ((x, a) : env) b)
-      where a free
+```
+infer env (Lam x b) = Fun a (infer ((x, a) : env) b)
+  where a free
+```
 
 The bound variable x gets the fresh type a.  Nothing is known about a yet.
 The body is inferred under that assumption.  Each use of x in the body adds
@@ -22,19 +22,21 @@ a constraint on a.
 
 Unification is =:=.  The rule for an application is
 
-    infer env (App f x) | infer env f =:= Fun (infer env x) r = r
-      where r free
+```
+infer env (App f x) | infer env f =:= Fun (infer env x) r = r
+  where r free
+```
 
 The type of f must be a function type.  Its argument type must equal the
 type of x.  The constraint binds r to the result type.  It can also bind
 variables inside the type of f or the type of x.  In \f -> \x -> f (f x)
 the inner application binds the type of f to Fun a r.  The outer one binds
-r to a.  The result is Fun (Fun _a _a) (Fun _a _a).
+r to a.  The result is Fun (Fun \_a \_a) (Fun \_a \_a).
 
 A variable that no constraint binds stays free.  The identity \x -> x has
-the type Fun _a _a.  The printer names the unbound variables _a, _b, _c in
+the type Fun \_a \_a.  The printer names the unbound variables \_a, \_b, \_c in
 the order of their first appearance.  Such a type is polymorphic.  The
-term works for every choice of _a.
+term works for every choice of \_a.
 
 A term with no type has no value.  In 1 2 the type of 1 is TInt, and the
 constraint TInt =:= Fun TInt r fails.  Failure is not an error in Curry.
@@ -51,14 +53,15 @@ lambda has one type.  In \f -> f 1 + f True the two uses of f need
 different types, and the term is ill-typed.
 
 
-2. What the example shows about calling Curry from Python
-----------------------------------------------------------
+## 2. What the example shows about calling Curry from Python
 
 Python is the front end and Curry is the core.  The driver go.py writes
 each term as nested tuples, for example ('lam', 'x', ('var', 'x')).  The
 function build maps a tuple to a Curry term with a symbol call:
 
-    Infer.Lam(x, build(b))
+```
+Infer.Lam(x, build(b))
+```
 
 The inner call returns a Curry term, and the outer call nests it in a new
 one.  The name x is a Python str, always a String, also when the name has
@@ -66,7 +69,9 @@ one character.
 
 The driver calls
 
-    curry.eval(Infer.infer([], build(term)))
+```
+curry.eval(Infer.infer([], build(term)))
+```
 
 The empty Python list is the empty environment.  The call returns a
 generator of types.  A well-typed term yields one type.  An ill-typed term
@@ -74,35 +79,39 @@ yields none, and the driver prints ill-typed.
 
 A type comes back as a Curry value.  Its str form prints the constructors,
 such as Fun TBool (Fun TInt TInt).  An unbound free variable in the value
-prints as _a, _b, and so on.  The driver prints the term itself in lambda
+prints as \_a, \_b, and so on.  The driver prints the term itself in lambda
 syntax with its own function show.
 
 
-3. How to run
--------------
+## 3. How to run
 
 Run "make stage" from the root of the repository first.  Then run
 
-    ./run
+```
+./run
+```
 
 To infer other terms, pass them to go.py as Python literals.  Use the
 Python of the staged install.  For example, on the C++ backend:
 
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ../../install/bin/python go.py "('app', ('lam', 'x', ('var', 'x')), ('lit', 7))"
+```
+SPRITE_INTERPRETER_FLAGS=backend:cxx ../../install/bin/python go.py "('app', ('lam', 'x', ('var', 'x')), ('lit', 7))"
+```
 
 The constructors are var, lam, app, lit, bool, if and add.  They follow the
 data type Term in Infer.curry.
 
 
-4. Expected output
-------------------
+## 4. Expected output
 
 The file expected.out holds the exact output of ./run.  The key lines are:
 
-    \x -> x : Fun _a _a
-    \f -> \x -> f (f x) : Fun (Fun _a _a) (Fun _a _a)
-    \b -> \x -> if b then x + 1 else x : Fun TBool (Fun TInt TInt)
-    1 2 : ill-typed
+```
+\x -> x : Fun _a _a
+\f -> \x -> f (f x) : Fun (Fun _a _a) (Fun _a _a)
+\b -> \x -> if b then x + 1 else x : Fun TBool (Fun TInt TInt)
+1 2 : ill-typed
+```
 
 The first line shows an unbound type variable.  The second shows a variable
 that unification links across three positions.  The third shows how the
@@ -110,8 +119,7 @@ constants fix every variable.  The last term applies a number as a
 function, so it has no type.
 
 
-5. Limits
----------
+## 5. Limits
 
 Inference does not search.  Each term has at most one type, and the cost
 grows with the size of the term.  A warm run of ./run took 0.15 s.  The

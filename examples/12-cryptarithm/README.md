@@ -1,5 +1,4 @@
-Cryptarithms: SEND + MORE = MONEY
-=================================
+# Cryptarithms: SEND + MORE = MONEY
 
 A cryptarithm replaces the digits of a sum with letters.  Every letter stands
 for one digit.  Different letters stand for different digits.  No word starts
@@ -7,30 +6,34 @@ with 0.  The puzzle is to find the digits.  SEND + MORE = MONEY has one
 solution, 9567 + 1085 = 10652.
 
 
-1. What the example shows about functional logic programming
--------------------------------------------------------------
+## 1. What the example shows about functional logic programming
 
 Crypt.curry solves any cryptarithm with one non-deterministic function and
 one guard.
 
-  * Non-determinism as values.  "perm [0 .. 9]" is one permutation of the
-    digits, and every permutation is one value of that expression.  The
-    function is built structurally: "ndinsert" puts a digit at each position
-    of a permutation of the remaining digits.  The program contains no loop
-    and no backtracking code.
+  \* Non-determinism as values.  "perm [0 .. 9]" is one permutation of the
+```
+digits, and every permutation is one value of that expression.  The
+function is built structurally: "ndinsert" puts a digit at each position
+of a permutation of the remaining digits.  The program contains no loop
+and no backtracking code.
+```
 
-  * Laziness as pruning.  The solver lists the letters units column first and
-    pairs them with the permutation.  The guard checks the columns from the
-    units column upward.  A permutation whose first digits break the units
-    column fails before the remaining letters receive a digit.  The search
-    never builds most of the 10! permutations.
+  \* Laziness as pruning.  The solver lists the letters units column first and
+```
+pairs them with the permutation.  The guard checks the columns from the
+units column upward.  A permutation whose first digits break the units
+column fails before the remaining letters receive a digit.  The search
+never builds most of the 10! permutations.
+```
 
-  * A general solver.  "solveCrypt" takes any list of addends and any result.
-    Each solution of the puzzle is one value of the call.
+  \* A general solver.  "solveCrypt" takes any list of addends and any result.
+```
+Each solution of the puzzle is one value of the call.
+```
 
 
-2. What the example shows about calling Curry from Python
-----------------------------------------------------------
+## 2. What the example shows about calling Curry from Python
 
 go.py reads the words from the command line and checks them in Python: upper
 case letters only, at most ten distinct letters.  It passes each word to Curry
@@ -43,43 +46,46 @@ returns an iterator.  Each item is one solution, converted to a list of
 go.py sorts them before it prints them.
 
 
-3. How to run
--------------
+## 3. How to run
 
 Run "make stage" from the root of the repository first.  Then run the script:
 
-    ./run
+```
+./run
+```
 
 To solve another puzzle, give the words on the command line.  The last word
 is the result:
 
-    ../../install/bin/python go.py TO GO OUT
+```
+../../install/bin/python go.py TO GO OUT
+```
 
 
-4. Expected output
-------------------
+## 4. Expected output
 
-    % python go.py
-    SEND + MORE = MONEY
-      9567 + 1085 = 10652
-    solutions: 1
+```
+% python go.py
+SEND + MORE = MONEY
+  9567 + 1085 = 10652
+solutions: 1
 
-    TWO + TWO = FOUR
-      734 + 734 = 1468
-      765 + 765 = 1530
-      836 + 836 = 1672
-      846 + 846 = 1692
-      867 + 867 = 1734
-      928 + 928 = 1856
-      938 + 938 = 1876
-    solutions: 7
+TWO + TWO = FOUR
+  734 + 734 = 1468
+  765 + 765 = 1530
+  836 + 836 = 1672
+  846 + 846 = 1692
+  867 + 867 = 1734
+  928 + 928 = 1856
+  938 + 938 = 1876
+solutions: 7
+```
 
 The file expected.out holds this output.  The test tests/unit_examples.py runs
 ./run and compares its output with the file.
 
 
-5. Limits
----------
+## 5. Limits
 
 On the C++ backend the run takes about 1 s after the first compile.  The first
 run also compiles Crypt.curry and takes about 2 s.  SEND + MORE = MONEY needs

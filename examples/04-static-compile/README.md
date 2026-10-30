@@ -1,5 +1,4 @@
-Session
-========
+# Session
 
 The script evaluates Hello from lesson 01 and waits for its background
 compilation with curry.wait(Hello).  It then compiles a small text module,
