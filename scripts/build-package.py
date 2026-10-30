@@ -27,7 +27,17 @@ def link(source, target):
   target.parent.mkdir(parents=True, exist_ok=True)
   if target.is_symlink() or target.exists():
     target.unlink()
-  target.symlink_to(source)
+  try:
+    target.symlink_to(source)
+  except OSError:
+    # Windows grants symbolic links to administrators and to developer mode
+    # alone; the stage copies a file it cannot link and skips the rest.
+    if sys.platform != 'win32':
+      raise
+    if Path(source).is_file():
+      shutil.copy2(source, target)
+    else:
+      print('cannot link %s -> %s; skipped' % (target, source), flush=True)
 
 
 def compiler_tool(prefix, compiler, launcher=''):
@@ -192,7 +202,12 @@ def main():
   make = [sys.executable, '-m', 'curry.tools.make']
   run(*make, '--json', '-zc', *modules)
   supported = [m for m in modules if m not in unsupported]
-  run(*make, '--so', '--jobs', args.jobs, '-zc', *supported)
+  if args.cxx:
+    run(*make, '--so', '--jobs', args.jobs, '-zc', *supported)
+  else:
+    # No compiler of generated code (Windows in this release): the library
+    # ships its ICurry and JSON, and every module runs interpreted.
+    print('no compiler of generated code: the library is not compiled', flush=True)
   # Wheel installers need not preserve file times or extraction order.
   # These existing provenance sidecars identify unchanged shipped sources.
   for path in sources:
@@ -207,7 +222,8 @@ def main():
       lines = stamp.read_text().splitlines()
       lines[1] = os.path.relpath(prefix, stamp.parent)
       stamp.write_text('\n'.join(lines) + '\n')
-  for suffix in ['.json.z', '.so', '.so.abi']:
+  expected = ['.json.z', '.so', '.so.abi'] if args.cxx else ['.json.z']
+  for suffix in expected:
     if not (lib / '.curry' / intermediate_subdir / ('Prelude' + suffix)).is_file():
       raise RuntimeError('prebuild did not write Prelude' + suffix)
 

@@ -41,7 +41,7 @@ def makeCurryPath(currypath):
     A list of absolute paths.
   '''
   if isinstance(currypath, str):
-    currypath = currypath.split(':')
+    currypath = currypath.split(os.pathsep)
   try:
     currypath = [str(x) for x in currypath]
   except:

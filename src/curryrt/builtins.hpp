@@ -1,4 +1,5 @@
 #pragma once
+#include "curryrt/export.hpp"
 #include <cassert>
 #include "curryrt/fwd.hpp"
 #include "curryrt/graph/arg.hpp"
@@ -48,42 +49,42 @@ extern "C"
 {
   using namespace curryrt;
 
-  extern InfoTable const Char_Info;
-  extern InfoTable const Choice_Info;
-  extern InfoTable const Cons_Info;
-  extern InfoTable const _biString_Info;
-  extern InfoTable const _biGenerator_Info;
-  extern InfoTable const Fail_Info;
-  extern InfoTable const False_Info;
-  extern InfoTable const Float_Info;
-  extern InfoTable const Free_Info;
-  extern InfoTable const Fwd_Info;
-  extern InfoTable const FwdSz_Info;
-  extern InfoTable const Int_Info;
-  extern InfoTable const IO_Info;
-  extern InfoTable const Nil_Info;
-  extern InfoTable const NonStrictConstraint_Info;
-  extern InfoTable const Pad_Info;
-  extern InfoTable const PadSz_Info;
-  extern InfoTable const Pair_Info;
-  extern InfoTable const PartApplic_Info;
-  extern InfoTable const SetGuard_Info;
-  extern InfoTable const StrictConstraint_Info;
-  extern InfoTable const True_Info;
-  extern InfoTable const Unit_Info;
-  extern InfoTable const ValueBinding_Info;
+  extern CURRYRT_DATA InfoTable const Char_Info;
+  extern CURRYRT_DATA InfoTable const Choice_Info;
+  extern CURRYRT_DATA InfoTable const Cons_Info;
+  extern CURRYRT_DATA InfoTable const _biString_Info;
+  extern CURRYRT_DATA InfoTable const _biGenerator_Info;
+  extern CURRYRT_DATA InfoTable const Fail_Info;
+  extern CURRYRT_DATA InfoTable const False_Info;
+  extern CURRYRT_DATA InfoTable const Float_Info;
+  extern CURRYRT_DATA InfoTable const Free_Info;
+  extern CURRYRT_DATA InfoTable const Fwd_Info;
+  extern CURRYRT_DATA InfoTable const FwdSz_Info;
+  extern CURRYRT_DATA InfoTable const Int_Info;
+  extern CURRYRT_DATA InfoTable const IO_Info;
+  extern CURRYRT_DATA InfoTable const Nil_Info;
+  extern CURRYRT_DATA InfoTable const NonStrictConstraint_Info;
+  extern CURRYRT_DATA InfoTable const Pad_Info;
+  extern CURRYRT_DATA InfoTable const PadSz_Info;
+  extern CURRYRT_DATA InfoTable const Pair_Info;
+  extern CURRYRT_DATA InfoTable const PartApplic_Info;
+  extern CURRYRT_DATA InfoTable const SetGuard_Info;
+  extern CURRYRT_DATA InfoTable const StrictConstraint_Info;
+  extern CURRYRT_DATA InfoTable const True_Info;
+  extern CURRYRT_DATA InfoTable const Unit_Info;
+  extern CURRYRT_DATA InfoTable const ValueBinding_Info;
 
-  extern DataType const Bool_Type;
-  extern DataType const Char_Type;
-  extern DataType const CStaticString_Type;
-  extern DataType const Float_Type;
-  extern DataType const IO_Type;
-  extern DataType const Int_Type;
-  extern DataType const List_Type;
-  extern DataType const Pair_Type;
-  extern DataType const PartApplic_Type;
-  extern DataType const SetGuard_Type;
-  extern DataType const Unit_Type;
+  extern CURRYRT_DATA DataType const Bool_Type;
+  extern CURRYRT_DATA DataType const Char_Type;
+  extern CURRYRT_DATA DataType const CStaticString_Type;
+  extern CURRYRT_DATA DataType const Float_Type;
+  extern CURRYRT_DATA DataType const IO_Type;
+  extern CURRYRT_DATA DataType const Int_Type;
+  extern CURRYRT_DATA DataType const List_Type;
+  extern CURRYRT_DATA DataType const Pair_Type;
+  extern CURRYRT_DATA DataType const PartApplic_Type;
+  extern CURRYRT_DATA DataType const SetGuard_Type;
+  extern CURRYRT_DATA DataType const Unit_Type;
 }
 
 namespace curryrt
@@ -96,11 +97,11 @@ namespace curryrt
   static constexpr tag_type T_TRUE  = T_CTOR + 1;
   static constexpr tag_type T_UNIT  = T_CTOR;
 
-  extern Node * Fail;
-  extern Node * False;
-  extern Node * Nil;
-  extern Node * True;
-  extern Node * Unit;
+  extern CURRYRT_DATA Node * Fail;
+  extern CURRYRT_DATA Node * False;
+  extern CURRYRT_DATA Node * Nil;
+  extern CURRYRT_DATA Node * True;
+  extern CURRYRT_DATA Node * Unit;
 
   template<index_type N>
   struct Node_ : Head
@@ -118,14 +119,17 @@ namespace curryrt
   {
     Node * lhs;
     Node * rhs;
-    static constexpr InfoTable const * static_info = &Pair_Info;
+    // Not constexpr: the address of an imported data symbol is no constant
+    // expression on Windows (CURRYRT_DATA), where the pointer is set when
+    // the object loads; elsewhere it is a constant.
+    static inline InfoTable const * const static_info = &Pair_Info;
   };
 
   struct SetGrdNode : Head
   {
     Set  * set;
     Node * value;
-    static constexpr InfoTable const * static_info = &SetGuard_Info;
+    static inline InfoTable const * const static_info = &SetGuard_Info;
   };
 
   struct ConstrNode : Head
@@ -148,20 +152,20 @@ namespace curryrt
   {
     xid_type vid;
     Node *  genexpr;
-    static constexpr InfoTable const * static_info = &Free_Info;
+    static inline InfoTable const * const static_info = &Free_Info;
   };
 
   struct FwdNode : Head
   {
     Node * target;
-    static constexpr InfoTable const * static_info = &Fwd_Info;
+    static inline InfoTable const * const static_info = &Fwd_Info;
   };
 
   struct FwdSzNode : Head
   {
     Node * target;
     size_t bytes;
-    static constexpr InfoTable const * static_info = &FwdSz_Info;
+    static inline InfoTable const * const static_info = &FwdSz_Info;
   };
 
   struct ChoiceNode : Head
@@ -169,42 +173,42 @@ namespace curryrt
     xid_type cid;
     Node *  lhs;
     Node *  rhs;
-    static constexpr InfoTable const * static_info = &Choice_Info;
+    static inline InfoTable const * const static_info = &Choice_Info;
   };
 
   struct IONode : Head
   {
     Node * value;
-    static constexpr InfoTable const * static_info = &IO_Info;
+    static inline InfoTable const * const static_info = &IO_Info;
   };
 
   struct IntNode : Head
   {
     unboxed_int_type value;
-    static constexpr InfoTable const * static_info = &Int_Info;
+    static inline InfoTable const * const static_info = &Int_Info;
   };
 
   struct FloatNode : Head
   {
     unboxed_float_type value;
-    static constexpr InfoTable const * static_info = &Float_Info;
+    static inline InfoTable const * const static_info = &Float_Info;
   };
 
   struct CharNode : Head
   {
     unboxed_char_type value;
-    static constexpr InfoTable const * static_info = &Char_Info;
+    static inline InfoTable const * const static_info = &Char_Info;
   };
 
   struct PadNode : Head
   {
-    static constexpr InfoTable const * static_info = &Pad_Info;
+    static inline InfoTable const * const static_info = &Pad_Info;
   };
 
   struct PadSzNode : Head
   {
     size_t bytes;
-    static constexpr InfoTable const * static_info = &PadSz_Info;
+    static inline InfoTable const * const static_info = &PadSz_Info;
   };
 
   // A partial application: a function or constructor applied to fewer
@@ -261,14 +265,14 @@ namespace curryrt
   };
 
   // The family of Prelude._PartApplic.
-  extern PartialInfoFamily g_partapplic_infos;
+  extern CURRYRT_DATA PartialInfoFamily g_partapplic_infos;
   inline InfoTable const * partapplic_info(index_type nargs)
     { return g_partapplic_infos.get(nargs); }
 
   struct biStringNode : Head
   {
     char const * data;
-    static constexpr InfoTable const * static_info = &_biString_Info;
+    static inline InfoTable const * const static_info = &_biString_Info;
   };
 
   // A Python iterator as a lazy Curry list.  ``data`` is a PyObject *, kept
@@ -282,14 +286,14 @@ namespace curryrt
   struct biGeneratorNode : Head
   {
     void * data;
-    static constexpr InfoTable const * static_info = &_biGenerator_Info;
+    static inline InfoTable const * const static_info = &_biGenerator_Info;
   };
 
   struct ConsNode : Head
   {
     Node * head;
     Node * tail;
-    static constexpr InfoTable const * static_info = &Cons_Info;
+    static inline InfoTable const * const static_info = &Cons_Info;
   };
 
   struct SetEvalNode : Head
@@ -385,8 +389,8 @@ namespace curryrt
   static constexpr unboxed_int_type SMALL_INT_MIN = -128;
   static constexpr unboxed_int_type SMALL_INT_MAX = 1023;
   static constexpr unboxed_char_type SMALL_CHAR_MAX = 127;
-  extern Node * g_small_ints[SMALL_INT_MAX - SMALL_INT_MIN + 1];
-  extern Node * g_small_chars[SMALL_CHAR_MAX + 1];
+  extern CURRYRT_DATA Node * g_small_ints[SMALL_INT_MAX - SMALL_INT_MIN + 1];
+  extern CURRYRT_DATA Node * g_small_chars[SMALL_CHAR_MAX + 1];
 
   // A node of a primitive value that lives as long as the process, from the
   // arena of literal_reserve.  The tables above are made of these, and a

@@ -1,4 +1,5 @@
 #pragma once
+#include "curryrt/export.hpp"
 #include "curryrt/fwd.hpp"
 #include <string>
 #include <utility>
@@ -36,7 +37,7 @@ namespace curryrt
     char * free;
     char * limit;
   };
-  extern AllocRun g_alloc_runs[NUM_SIZE_CLASSES];
+  extern CURRYRT_DATA AllocRun g_alloc_runs[NUM_SIZE_CLASSES];
 
   // The slow path of node_reserve: finds the next run of free slots of the
   // size class, or takes a block, and returns the first slot.  Throws
@@ -100,8 +101,8 @@ namespace curryrt
   // of the collector in the slack of its block: a pad of 8 bytes is the
   // table GcPad_Info alone, a larger one records its size in its second
   // word.  See gc/mps.cpp.
-  extern InfoTable const GcPad_Info;
-  extern InfoTable const GcPadSz_Info;
+  extern CURRYRT_DATA InfoTable const GcPad_Info;
+  extern CURRYRT_DATA InfoTable const GcPadSz_Info;
   inline void gc_pad(void * addr, size_t bytes)
   {
     InfoTable const ** words = (InfoTable const **) addr;
@@ -122,7 +123,7 @@ namespace curryrt
   inline void gc_pad_slack(Node *, size_t, size_t) {}
   #endif
 
-  extern bool g_gc_collect;
+  extern CURRYRT_DATA bool g_gc_collect;
   void gc_register_rts(RuntimeState *);
   void gc_unregister_rts(RuntimeState *);
 
@@ -315,7 +316,7 @@ namespace curryrt
   // node_refill records it for every node it hands out, in a table beside
   // the block of the node (see gc/blockheap.cpp).  Zero means no
   // configuration: a node built outside the scheduler, or a literal node.
-  extern size_t g_creator_serial;
+  extern CURRYRT_DATA size_t g_creator_serial;
   size_t node_creator(Node const *);
   #endif
 

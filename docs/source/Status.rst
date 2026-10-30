@@ -48,7 +48,9 @@ The flag ``interpret`` of the C++ backend selects how a module without a
 compiled object runs.  ``tiered``, the default, interprets it at once,
 compiles it in the background, and swaps its functions to the compiled
 code when the object is ready.  ``new`` interprets it and never compiles
-it.  ``all`` interprets every module.  ``off`` compiles every module first.
+it.  ``all`` interprets every module; it is the default on Windows, where
+the compile of generated code is not available in this release.  ``off``
+compiles every module first.
 The interpreter takes the same steps as the compiled code and about 1.1 to
 1.5 times its time.  The swap binds the compiled object to the tables the
 interpreter made through slots of the object that the loader fills, on

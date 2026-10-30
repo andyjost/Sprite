@@ -1,4 +1,5 @@
 #pragma once
+#include "curryrt/export.hpp"
 #include "curryrt/builtins.hpp"
 #include "curryrt/graph/infotable.hpp"
 
@@ -28,34 +29,34 @@ using namespace curryrt;
 
 extern "C"
 {
-  extern DataType const PartialS_Type;
-  extern DataType const SetEval_Type;
-  extern DataType const Values_Type;
+  extern CURRYRT_DATA DataType const PartialS_Type;
+  extern CURRYRT_DATA DataType const SetEval_Type;
+  extern CURRYRT_DATA DataType const Values_Type;
 
-  extern InfoTable const allValues_Info;
-  extern InfoTable const applyS_Info;
-  extern InfoTable const captureS_Info;
-  extern InfoTable const evalS_Info;
-  extern InfoTable const exprS_Info;
-  extern InfoTable const PartialS_Info;
-  extern InfoTable const set0_Info;
-  extern InfoTable const set1_Info;
-  extern InfoTable const set2_Info;
-  extern InfoTable const set3_Info;
-  extern InfoTable const set4_Info;
-  extern InfoTable const set5_Info;
-  extern InfoTable const set6_Info;
-  extern InfoTable const set7_Info;
-  extern InfoTable const SetEval_Info;
-  extern InfoTable const set_Info;
-  extern InfoTable const Values_Info;
+  extern CURRYRT_DATA InfoTable const allValues_Info;
+  extern CURRYRT_DATA InfoTable const applyS_Info;
+  extern CURRYRT_DATA InfoTable const captureS_Info;
+  extern CURRYRT_DATA InfoTable const evalS_Info;
+  extern CURRYRT_DATA InfoTable const exprS_Info;
+  extern CURRYRT_DATA InfoTable const PartialS_Info;
+  extern CURRYRT_DATA InfoTable const set0_Info;
+  extern CURRYRT_DATA InfoTable const set1_Info;
+  extern CURRYRT_DATA InfoTable const set2_Info;
+  extern CURRYRT_DATA InfoTable const set3_Info;
+  extern CURRYRT_DATA InfoTable const set4_Info;
+  extern CURRYRT_DATA InfoTable const set5_Info;
+  extern CURRYRT_DATA InfoTable const set6_Info;
+  extern CURRYRT_DATA InfoTable const set7_Info;
+  extern CURRYRT_DATA InfoTable const SetEval_Info;
+  extern CURRYRT_DATA InfoTable const set_Info;
+  extern CURRYRT_DATA InfoTable const Values_Info;
 }
 
 namespace curryrt
 {
   // The family of Control.SetFunctions.PartialS: the layout of
   // PartApplicNode under its own info tables (see builtins.hpp).
-  extern PartialInfoFamily g_partials_infos;
+  extern CURRYRT_DATA PartialInfoFamily g_partials_infos;
   inline InfoTable const * partials_info(index_type nargs)
     { return g_partials_infos.get(nargs); }
 }

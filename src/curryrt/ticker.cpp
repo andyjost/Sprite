@@ -1,7 +1,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
-#include <pthread.h>
+#include "curryrt/platform.hpp"
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -41,13 +41,8 @@ namespace curryrt
 
     void ticker()
     {
-      // The thread names itself.  macOS names the calling thread alone and
-      // takes the name as the one argument.
-      #if defined(__APPLE__)
-      pthread_setname_np("curryrt-ticker");
-      #else
-      pthread_setname_np(pthread_self(), "curryrt-ticker");
-      #endif
+      // The thread names itself (the platform layer knows the call).
+      platform::set_current_thread_name("curryrt-ticker");
       State & st = *state_ptr();
       std::unique_lock<std::mutex> lock(st.mutex);
       while(true)
@@ -114,7 +109,7 @@ namespace curryrt
       static bool atfork_registered = false;
       if(!atfork_registered)
       {
-        pthread_atfork(nullptr, nullptr, &child_after_fork);
+        platform::at_fork(nullptr, nullptr, &child_after_fork);
         atfork_registered = true;
       }
       std::thread(ticker).detach();

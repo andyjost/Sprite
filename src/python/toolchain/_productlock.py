@@ -8,7 +8,11 @@ and flock for process ownership; recursion belongs to the owning thread alone.
 '''
 
 from . import _filenames
-import contextlib, fcntl, logging, os, threading
+import contextlib, logging, os, threading
+try:
+  import fcntl
+except ImportError:  # Windows: no advisory lock; nothing compiles there yet
+  fcntl = None
 
 __all__ = ['lockfile', 'locked']
 
@@ -37,7 +41,8 @@ def _before_fork():
 def _parent_after_fork():
   _registry_lock.release()
 
-os.register_at_fork(before=_before_fork,
+if hasattr(os, 'register_at_fork'):
+  os.register_at_fork(before=_before_fork,
     after_in_parent=_parent_after_fork, after_in_child=_after_fork)
 
 def lockfile(filename):
@@ -77,6 +82,9 @@ def locked(filename):
       held = _local.held = {}
     if path in held:
       yield False
+      return
+    if fcntl is None:
+      yield waited
       return
     fd = _open(path)
     if fd is None:

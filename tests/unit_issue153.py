@@ -42,11 +42,13 @@ static int create_worker(pthread_t *thread, pthread_attr_t const *attr,
   }
   return pthread_create(thread, attr, entry, arg);
 }
-// Compile the adapter with a throwing creation function.  pthread_create
-// itself returns an error code; C++ allocation and synchronization throw.
+// Compile the platform layer and the adapter with a throwing creation
+// function.  pthread_create itself returns an error code; C++ allocation and
+// synchronization throw.  The layer makes the call (platform::start).
 #define pthread_create create_worker
-#include "curryrt/evaluation.cpp"
+#include "curryrt/platform.cpp"
 #undef pthread_create
+#include "curryrt/evaluation.cpp"
 int main(int argc, char **argv)
 {
   bad_alloc = argv[1][0] == 'b';
@@ -60,7 +62,7 @@ int main(int argc, char **argv)
       w.stop = true;
       w.cv.notify_all();
     }
-    pthread_join(w.thread, nullptr);
+    curryrt::platform::join(w.thread);
   }
   catch(curryrt::EvaluationError const &error)
   { std::cout << error.what() << '\n'; }

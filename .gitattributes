@@ -1,0 +1,28 @@
+# Every text file is checked out with LF on every platform.  The receipts of
+# the pinned library products, the ICurry cache and the overlay archives key
+# on the bytes of the sources, and the Windows default of CRLF on checkout
+# made every receipt differ (the Windows spike, 2026-10-29).  Git tells a
+# binary by its content; the known binary kinds are marked anyway.
+* text=auto eol=lf
+*.tgz -text
+*.gz -text
+*.z -text
+*.png -text
+*.ico -text
+*.whl -text
+*.so -text
+*.dylib -text
+*.dll -text
+*.exe -text
+*.pdf -text
+# Eight test programs arrived from upstream with CRLF, and the receipts of
+# their products in the overlay archive were taken on those bytes: they
+# keep them on every platform.
+tests/data/curry/benchmarks/PokerFree.curry -text
+tests/data/curry/benchmarks/failing/sendMoreMoney.curry -text
+tests/data/curry/dnadecoder.curry -text
+tests/data/curry/sendMoreMoney.curry -text
+tests/data/curry/smap/arithmetic_expression_transform.curry -text
+tests/data/curry/smap/flight_itinerary.curry -text
+tests/data/curry/smap/poker_four_of_a_kind.curry -text
+tests/data/curry/smap/queens.curry -text

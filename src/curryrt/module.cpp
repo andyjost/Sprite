@@ -8,7 +8,7 @@
 #include "curryrt/icurry.hpp"
 #include "curryrt/module.hpp"
 #include "curryrt/state/configuration.hpp"
-#include <dlfcn.h>
+#include "curryrt/platform.hpp"
 #include <iostream>
 #include <stdexcept>
 #include <unordered_map>
@@ -172,7 +172,7 @@ namespace curryrt
         // Curry name of the function; a primitive behind an external must
         // carry its Curry name as well, or it shadows the function that
         // wraps it (prim_error against error).
-        auto found = this->impl->symbols.find(info->name);
+        [[maybe_unused]] auto found = this->impl->symbols.find(info->name);
         assert(found == this->impl->symbols.end() || found->second == info);
         this->impl->symbols[info->name] = info;
       }
@@ -279,7 +279,7 @@ namespace curryrt
         continue;
       if(info->step == &icurry_step || info->step == &trap_step)
       {
-        auto compiled = (stepfunc_type) dlsym(
+        auto compiled = (stepfunc_type) platform::symbol(
             shlib->handle(), step.first.c_str()
           );
         if(!compiled)

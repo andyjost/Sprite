@@ -1,4 +1,10 @@
 '''Python bindings for libcurryrt, the C++ runtime library.'''
+import os as _os, sys as _sys
+if _sys.platform == 'win32':
+  # An extension finds its DLLs in the directories the process declares, not
+  # on PATH (Python 3.8); the runtime library is lib/ of the installation.
+  from .... import config as _config
+  _os.add_dll_directory(_config.installed_path('lib'))
 from ._curryrtbindings import *
 from ...generic.eval import control
 from ....interpreter import flags as _flags

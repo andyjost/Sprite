@@ -1,4 +1,5 @@
 #pragma once
+#include "curryrt/export.hpp"
 #include "curryrt/builtins.hpp"
 
 // prelude/apply.cpp
@@ -111,101 +112,101 @@ extern "C"
   using namespace curryrt;
 
   // prelude/apply.cpp
-  extern InfoTable const apply_Info;
-  extern InfoTable const applygnf_Info;
-  extern InfoTable const applyhnf_Info;
-  extern InfoTable const applynf_Info;
-  extern InfoTable const cond_Info;
-  extern InfoTable const ensureNotFree_Info;
+  extern CURRYRT_DATA InfoTable const apply_Info;
+  extern CURRYRT_DATA InfoTable const applygnf_Info;
+  extern CURRYRT_DATA InfoTable const applyhnf_Info;
+  extern CURRYRT_DATA InfoTable const applynf_Info;
+  extern CURRYRT_DATA InfoTable const cond_Info;
+  extern CURRYRT_DATA InfoTable const ensureNotFree_Info;
 
   // prelude/basic.cpp
-  extern InfoTable const choice_Info;
-  extern InfoTable const prim_error_Info;
-  extern InfoTable const prim_error2_Info;
-  extern InfoTable const failed_Info;
-  extern InfoTable const notused_Info;
+  extern CURRYRT_DATA InfoTable const choice_Info;
+  extern CURRYRT_DATA InfoTable const prim_error_Info;
+  extern CURRYRT_DATA InfoTable const prim_error2_Info;
+  extern CURRYRT_DATA InfoTable const failed_Info;
+  extern CURRYRT_DATA InfoTable const notused_Info;
 
   // prelude/constr.cpp
-  extern InfoTable const concurrentAnd_Info;
-  extern InfoTable const constrEq_Info;
-  extern InfoTable const nonstrictEq_Info;
-  extern InfoTable const CyI7Prelude12BindingGuard;
+  extern CURRYRT_DATA InfoTable const concurrentAnd_Info;
+  extern CURRYRT_DATA InfoTable const constrEq_Info;
+  extern CURRYRT_DATA InfoTable const nonstrictEq_Info;
+  extern CURRYRT_DATA InfoTable const CyI7Prelude12BindingGuard;
 
   // prelude/io.cpp
-  extern InfoTable const prim_appendFile_Info;
-  extern InfoTable const bindIO_Info;
-  extern InfoTable const catch_Info;
-  extern InfoTable const getChar_Info;
-  extern InfoTable const prim_ioError_Info;
-  extern InfoTable const prim_putChar_Info;
-  extern InfoTable const prim_readFile_Info;
-  extern InfoTable const prim_readFileContents_Info;
-  extern InfoTable const returnIO_Info;
-  extern InfoTable const seqIO_Info;
-  extern InfoTable const prim_writeFile_Info;
+  extern CURRYRT_DATA InfoTable const prim_appendFile_Info;
+  extern CURRYRT_DATA InfoTable const bindIO_Info;
+  extern CURRYRT_DATA InfoTable const catch_Info;
+  extern CURRYRT_DATA InfoTable const getChar_Info;
+  extern CURRYRT_DATA InfoTable const prim_ioError_Info;
+  extern CURRYRT_DATA InfoTable const prim_putChar_Info;
+  extern CURRYRT_DATA InfoTable const prim_readFile_Info;
+  extern CURRYRT_DATA InfoTable const prim_readFileContents_Info;
+  extern CURRYRT_DATA InfoTable const returnIO_Info;
+  extern CURRYRT_DATA InfoTable const seqIO_Info;
+  extern CURRYRT_DATA InfoTable const prim_writeFile_Info;
 
   // prelude/math.cpp
-  extern InfoTable const prim_acosFloat_Info;
-  extern InfoTable const prim_acoshFloat_Info;
-  extern InfoTable const prim_asinFloat_Info;
-  extern InfoTable const prim_asinhFloat_Info;
-  extern InfoTable const prim_atanFloat_Info;
-  extern InfoTable const prim_atanhFloat_Info;
-  extern InfoTable const prim_cosFloat_Info;
-  extern InfoTable const prim_coshFloat_Info;
-  extern InfoTable const prim_divFloat_Info;
-  extern InfoTable const divInt_Info;
-  extern InfoTable const eqChar_Info;
-  extern InfoTable const eqFloat_Info;
-  extern InfoTable const eqInt_Info;
-  extern InfoTable const prim_expFloat_Info;
-  extern InfoTable const prim_intToFloat_Info;
-  extern InfoTable const prim_logFloat_Info;
-  extern InfoTable const ltEqChar_Info;
-  extern InfoTable const ltEqFloat_Info;
-  extern InfoTable const ltEqInt_Info;
-  extern InfoTable const prim_minusFloat_Info;
-  extern InfoTable const minusInt_Info;
-  extern InfoTable const modInt_Info;
-  extern InfoTable const negateFloat_Info;
-  extern InfoTable const prim_plusFloat_Info;
-  extern InfoTable const plusInt_Info;
-  extern InfoTable const quotInt_Info;
-  extern InfoTable const remInt_Info;
-  extern InfoTable const prim_roundFloat_Info;
-  extern InfoTable const prim_sinFloat_Info;
-  extern InfoTable const prim_sinhFloat_Info;
-  extern InfoTable const prim_sqrtFloat_Info;
-  extern InfoTable const prim_tanFloat_Info;
-  extern InfoTable const prim_tanhFloat_Info;
-  extern InfoTable const prim_timesFloat_Info;
-  extern InfoTable const timesInt_Info;
-  extern InfoTable const prim_truncateFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_acosFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_acoshFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_asinFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_asinhFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_atanFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_atanhFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_cosFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_coshFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_divFloat_Info;
+  extern CURRYRT_DATA InfoTable const divInt_Info;
+  extern CURRYRT_DATA InfoTable const eqChar_Info;
+  extern CURRYRT_DATA InfoTable const eqFloat_Info;
+  extern CURRYRT_DATA InfoTable const eqInt_Info;
+  extern CURRYRT_DATA InfoTable const prim_expFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_intToFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_logFloat_Info;
+  extern CURRYRT_DATA InfoTable const ltEqChar_Info;
+  extern CURRYRT_DATA InfoTable const ltEqFloat_Info;
+  extern CURRYRT_DATA InfoTable const ltEqInt_Info;
+  extern CURRYRT_DATA InfoTable const prim_minusFloat_Info;
+  extern CURRYRT_DATA InfoTable const minusInt_Info;
+  extern CURRYRT_DATA InfoTable const modInt_Info;
+  extern CURRYRT_DATA InfoTable const negateFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_plusFloat_Info;
+  extern CURRYRT_DATA InfoTable const plusInt_Info;
+  extern CURRYRT_DATA InfoTable const quotInt_Info;
+  extern CURRYRT_DATA InfoTable const remInt_Info;
+  extern CURRYRT_DATA InfoTable const prim_roundFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_sinFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_sinhFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_sqrtFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_tanFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_tanhFloat_Info;
+  extern CURRYRT_DATA InfoTable const prim_timesFloat_Info;
+  extern CURRYRT_DATA InfoTable const timesInt_Info;
+  extern CURRYRT_DATA InfoTable const prim_truncateFloat_Info;
 
   // prelude/read.cpp
-  extern InfoTable const prim_readCharLiteral_Info;
-  extern InfoTable const prim_readFloatLiteral_Info;
-  extern InfoTable const prim_readNatLiteral_Info;
-  extern InfoTable const prim_readStringLiteral_Info;
+  extern CURRYRT_DATA InfoTable const prim_readCharLiteral_Info;
+  extern CURRYRT_DATA InfoTable const prim_readFloatLiteral_Info;
+  extern CURRYRT_DATA InfoTable const prim_readNatLiteral_Info;
+  extern CURRYRT_DATA InfoTable const prim_readStringLiteral_Info;
 
   // prelude/show.cpp
-  extern InfoTable const prim_showCharLiteral_Info;
-  extern InfoTable const prim_showFloatLiteral_Info;
-  extern InfoTable const prim_showIntLiteral_Info;
-  extern InfoTable const prim_showStringLiteral_Info;
+  extern CURRYRT_DATA InfoTable const prim_showCharLiteral_Info;
+  extern CURRYRT_DATA InfoTable const prim_showFloatLiteral_Info;
+  extern CURRYRT_DATA InfoTable const prim_showIntLiteral_Info;
+  extern CURRYRT_DATA InfoTable const prim_showStringLiteral_Info;
 
   // prelude/string.cpp
-  extern InfoTable const _biGenerator_Info;
-  extern InfoTable const _biString_Info;
-  extern InfoTable const prim_chr_Info;
-  extern InfoTable const prim_ord_Info;
+  extern CURRYRT_DATA InfoTable const _biGenerator_Info;
+  extern CURRYRT_DATA InfoTable const _biString_Info;
+  extern CURRYRT_DATA InfoTable const prim_chr_Info;
+  extern CURRYRT_DATA InfoTable const prim_ord_Info;
 
   // prelude/testing.cpp -- OK TO REMOVE
-  extern InfoTable const not_Info;
+  extern CURRYRT_DATA InfoTable const not_Info;
 
   // prelude/unused.cpp
-  extern InfoTable const failure_Info;
-  extern InfoTable const ifVar_Info;
-  extern InfoTable const letrec_Info;
-  extern InfoTable const unifEqLinear_Info;
+  extern CURRYRT_DATA InfoTable const failure_Info;
+  extern CURRYRT_DATA InfoTable const ifVar_Info;
+  extern CURRYRT_DATA InfoTable const letrec_Info;
+  extern CURRYRT_DATA InfoTable const unifEqLinear_Info;
 }
