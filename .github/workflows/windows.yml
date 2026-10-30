@@ -50,8 +50,9 @@ jobs:
       - name: Tools
         run: |
           set -euxo pipefail
-          python -m pip install --quiet cmake ninja scikit-build-core numpy
+          python -m pip install --quiet cmake ninja scikit-build-core numpy llvmlite
           cmake --version
+          clang++ --version || echo "no clang++ on PATH"
           ninja --version
           python -c "import sys, platform; print(sys.version); print(platform.machine())"
           "/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -property installationPath || true
@@ -69,7 +70,7 @@ jobs:
           call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
           set "CC=${{ matrix.cc }}"
           set "CXX=${{ matrix.cc }}"
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DPython_EXECUTABLE=%pythonLocation%\python.exe -DWITH_PAKCS= -DWITH_CURRY_FRONTEND= -DWITH_ICURRY= > configure.log 2>&1
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DPython_EXECUTABLE=%pythonLocation%\python.exe -DWITH_PAKCS= -DWITH_CURRY_FRONTEND= -DWITH_ICURRY= -DWITH_CLANG=clang++ > configure.log 2>&1
           set "CONFIGURE_STATUS=%errorlevel%"
           type configure.log
           if not "%CONFIGURE_STATUS%"=="0" exit /b %CONFIGURE_STATUS%
@@ -90,6 +91,34 @@ jobs:
           python -c "import curry; from curry.interpreter import flags; d = flags.get_default_flags(); print(curry.config.curryrt_lib_name(), d['interpret'] if isinstance(d, dict) else d)"
           python -c "import curry; from curry.lib import Prelude; print(curry.eval(Prelude.reverse([1, 2, 3])).one())"
           python -c "import curry; from curry.lib import Prelude; print(sorted(curry.eval(Prelude['?'](1, 2))))"
+      # The JIT on Windows: the bitcode of the helpers from the clang of the
+      # runner, llvmlite's LLJIT, the hot tier beside an evaluation long
+      # enough to cross the threshold.
+      - name: Smoke test of the JIT
+        if: always()
+        env:
+          SPRITE_HOME: ${{ github.workspace }}\build\stage
+          PYTHONPATH: ${{ github.workspace }}\build\stage\python
+          SPRITE_JIT: hot
+          SPRITE_JIT_THRESHOLD: '20'
+        run: |
+          set -uxo pipefail
+          ls -l build/stage/lib/curryrt-helpers.bc
+          python - <<'EOF'
+          import curry, time
+          from curry.lib import Prelude
+          from curry.backends.cxx import llvmjit
+          print('available:', llvmjit.available())
+          t0 = time.perf_counter()
+          print(curry.eval(Prelude.length(Prelude.replicate(2000000, 0))).one())
+          print('eval %.2f s' % (time.perf_counter() - t0))
+          deadline = time.monotonic() + 60
+          while llvmjit.statistics()['hot'] == 0 and time.monotonic() < deadline:
+            time.sleep(0.05)
+          print(llvmjit.statistics())
+          print(curry.eval(Prelude.length(Prelude.replicate(2000000, 0))).one())
+          assert llvmjit.statistics()['hot'] > 0, 'the hot tier compiled nothing'
+          EOF
       - name: Errors by file and by kind
         if: always()
         run: |

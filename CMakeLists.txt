@@ -375,6 +375,13 @@ if(WITH_CLANG STREQUAL "AUTO")
 endif()
 if(WITH_CLANG)
   separate_arguments(jit_clang_flags NATIVE_COMMAND "${WITH_CLANG_FLAGS}")
+  if(WIN32)
+    # The code the JIT makes resolves the data symbols of the runtime
+    # library by name, through the exports of the loaded DLL, not through
+    # import thunks: the helpers see the declarations without dllimport,
+    # as the library itself does.
+    list(APPEND jit_clang_flags -DCURRYRT_BUILDING -D_CRT_SECURE_NO_WARNINGS)
+  endif()
   set(jit_bitcode "${image}/lib/curryrt-helpers.bc")
   set(jit_defs "$<TARGET_PROPERTY:curryrt,INTERFACE_COMPILE_DEFINITIONS>")
   add_custom_command(OUTPUT "${jit_bitcode}"
