@@ -554,8 +554,8 @@ step_clone() {
       run git clone "$repo_url" "$repo"
     fi
   fi
-  # Only pybind11 is needed for the build.
-  run git -C "$repo" submodule update --init extern/pybind11
+  # The build needs pybind11 and libtommath; mps serves the optional collector.
+  run git -C "$repo" submodule update --init extern/pybind11 extern/libtommath
   link_tree install
   link_tree object-root
 }

@@ -4,6 +4,10 @@ Project Layout
 
 The Sprite repository is organized as follows:
 
+``assets/``
+    The logo: the mark, the wordmark, the lockup, the palette and the
+    generator.  ``assets/logo/README.md`` describes them.
+
 ``conda/``
     The scaffold of a conda package: a recipe for Sprite and one for the
     Curry front end.  ``conda/README.md`` describes them and what remains
@@ -12,6 +16,13 @@ The Sprite repository is organized as follows:
 ``CMakeLists.txt``, ``pyproject.toml``
     The native build and the scikit-build-core wheel metadata. ``make stage``
     configures, builds and installs; its CMake cache is under ``object-root``.
+
+``README.md``, ``README.pypi.md``, ``VERSION``
+    The README of the repository, the page of the PyPI distribution, and
+    the version of the distribution.
+
+``getsprite``, ``getsprite-i``
+    The one-line installers; see :doc:`../Installation/EasyInstallation`.
 
 ``curry/``
     The built-in Curry library.  ``curry/lib/`` holds the sources: a copy of
@@ -26,10 +37,17 @@ The Sprite repository is organized as follows:
     Examples demonstrating Sprite.
 
 ``extern/``
-    External projects used by Sprite.  The GIT `submodules` subcommand
-    populates this on the first build.
+    External projects used by Sprite, as Git submodules: ``pybind11`` and
+    ``libtommath`` are needed by the build, ``mps`` by the optional
+    collector.  Run ``git submodule update --init extern/pybind11
+    extern/libtommath`` before the first build.
 
 .. _install-tree-layout:
+
+``frontend/``
+    The packaging of the Curry front end as the distribution
+    ``curry-frontend``: the build script, the source and compiler pins, the
+    patches and the parity check.  ``frontend/README.md`` describes it.
 
 ``install/`` (dynamically created)
     The staging area created by the ``make stage`` command.  Sprite is
@@ -45,9 +63,16 @@ The Sprite repository is organized as follows:
         The built-in Curry library.  Sprite automatically adds this to the end
         of the search path used to locate Curry modules.
 
+    ``include/``
+        The headers of the runtime, which the generated code of a module
+        includes.
+
     ``lib/``
         The Sprite runtime libraries.  The contents of this directory are
         needed to run programs compiled by Sprite.
+
+    ``licenses/``
+        The licenses of the vendored components.
 
     ``python/``
         The Sprite Python API.  Contains the code loaded by the Python

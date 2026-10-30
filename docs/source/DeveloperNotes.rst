@@ -20,9 +20,8 @@ in parallel on a free-threaded interpreter. Parallel Curry execution is epic
 ``PYTHON_GIL`` belongs to the user. Package children inherit its presence or
 absence and its value. The 3.14t CI lane runs the unit suites with
 ``PYTHON_GIL=0`` and the concurrency suite again with the variable absent;
-the suite checks the actual GIL state after importing the extension. This
-lane remains ``continue-on-error`` until the reviewer observes two green
-runs. No free-threaded interpreter is available for local verification.
+the suite checks the actual GIL state after importing the extension. The
+lane gates the job since the two green runs of 2026-10-18.
 
 The table inventories shared state used by the C++ Python API. Python
 builders, converters, parsers and compiler instances keep their working
@@ -216,8 +215,7 @@ staleness, Python import-hook eviction, two-process/two-thread cache writes,
 thread-owned product locks, a forced producer under a reader, and a trapped
 first use while another producer prepares native imports. Existing
 ``unit_evaluation_lock.py`` and ``unit_issue153.py`` cover reentrant callbacks
-and the worker handoff. The source-tree implementation/validation report is
-``CODEX-REPORT.md``.
+and the worker handoff.
 
 .. _reference-backend:
 
@@ -379,14 +377,14 @@ the implementation; the memo states them in its sections 2.1 to 2.5):
   from the ICurry case structure, under branches that match the
   constructors already at the positions above it (B2).  B2 is asserted
   for the operations with an ICurry body alone.  The built-in steps of
-  ``currylib`` are hand-written Python outside the generated code, have
+  ``currylib`` are native code outside the generated code, have
   no tree and are not checked; they are most of the ``hnf`` calls of a
   run (on the set-function and functional-pattern goals of the suite,
   10773 of 16492 calls: ``plusInt``, ``nonstrictEq``, ``apply``, ``cond``,
   ``eqChar``, ``allValues``, ``_biString``, ``&``, ``constrEq``,
   ``ltEqInt``, ``evalS``, ``applyS``, ``set``, ``$!``, ``eqInt`` lead).
 
-``tests/unit_py_checker.py`` holds one constructed violation per check and
+``tests/unit_cxx_checker.py`` holds one constructed violation per check and
 runs the known-good programs of the suite under the checker.  The checker
 does not check the lifts of the constraints of ``=:=`` and ``=:<=`` (the
 memo's FS-β), the schedule replay of section 6.5, or the private copies
@@ -406,8 +404,7 @@ for checker diagnostics; splitting and cloning preserve the record as
 before.
 
 The checker of the runtime (``src/curryrt/checker.hpp``,
-``src/curryrt/checker.cpp``) mirrors the Python checker hook by hook and check
-by check.  Its header is outside the include closure of ``curryrt/curryrt.hpp``:
+``src/curryrt/checker.cpp``) implements these hooks and checks.  Its header is outside the include closure of ``curryrt/curryrt.hpp``:
 the generated code never sees it, and the hooks reach the checker through
 the pointer of the runtime state.  The hooks sit at the same events: the
 fork (``rts_fingerprint.cpp``, after the clones went into the queue and
@@ -432,7 +429,7 @@ every capsule it enters, so that the addresses in its tables stay those of
 the objects they name (the table of the generators compares addresses
 alone and roots nothing); under the MPS collector it also clamps the arena
 for the life of the runtime state.  The checks of B1 at a fork cost the
-same along a long chain of narrowings, where the Python checker reads
+same along a long chain of narrowings, where a naive check would read
 every entry of the fingerprint: the group invariant is read over the ids
 the union-find united, the dispatch chain only inside a capsule, and rule
 D.2 from a diff of the clone's fingerprint tree against its parent's that
@@ -449,7 +446,7 @@ as a violation of X-b' (``copy_spine`` copies the levels of the scan from
 the slot down, so such a slot is a defect of the copy, not a case the check
 can skip); no program of the suite reaches it.
 
-Where the two checkers differ:
+Notes on the checker of the runtime:
 
 * B2 is checked for the operations the ICurry interpreter of the runtime
   runs: the definitional tree is rebuilt from the bytecode of the
@@ -470,7 +467,7 @@ Where the two checkers differ:
   default after the prepare pass of the runner, 411 of 66545 ``hnf`` calls
   are checked (0.6%; the rest are compiled steps and built-ins), under
   ``interpret:all`` 22254 of 66538 (33.4%; the rest are the built-ins of
-  ``currylib``, which have no tree on either backend).  A run that checks
+  ``currylib``, which have no tree).  A run that checks
   B2 on the C++ backend therefore uses
   ``backend:cxx,checker:true,interpret:all``; the tiered pair exercises
   the compiled steps under the other invariants.
@@ -504,8 +501,8 @@ Where the two checkers differ:
 * The private copies that a set function makes for a configuration
   (``evalS_step``, the clone of a capsule) are not checked.
 
-One false alarm was shared by the two checkers, found in the review of the
-C++ mirror and fixed on 2026-10-09.  The step propagation of the flags was
+One false alarm was found in the review of the checker and fixed on
+2026-10-09.  The step propagation of the flags was
 a no-op on the runtime: the walk started at the redex, which carries the
 flags, and stopped there, so a cell a step made at a flagged redex
 inherited nothing (the pull-tabs, the copies and the generators

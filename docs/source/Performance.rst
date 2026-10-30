@@ -33,6 +33,8 @@ The suites are:
 * ``import``: the start of the interpreter and the first imports.
 * ``memory``: the peak memory with the collector on and off.
 * ``split``: a search program whole and in parts.
+* ``applications``: the application programs beside opponent
+  implementations in other tools (section 9 of ``tests/README``).
 
 Every run is a child process under a cap on its address space and
 a timeout, in step mode of the rotation, so the counters of a record
@@ -97,6 +99,19 @@ The records
     baseline.  Later changes (the saturation of apply chains, the repair of
     the set functions, tiered execution) moved the counters of some of these
     programs; a compare against this record reports them.
+
+``apps-2026-10-06``
+    The applications suite at that date; ``results/README.md`` describes
+    the programs and the opponents.
+
+``phase3-2026-10-10``
+    The current record of the C++ backend, after the inliner and the
+    known-constructor rule of Phase 3 and the step-mode rotation, at commit
+    ``24b0507a`` on the same workstation: the nightly set of ten programs
+    with three repetitions, and the memory suite.  Schema 2: every record
+    carries the instruction count, so a later compare can use
+    ``--deterministic``.  The counters that moved against
+    ``phase2-2026-10-04`` are listed in ``results/README.md``.
 
 The step cost
 =============

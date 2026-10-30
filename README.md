@@ -162,7 +162,7 @@ works today. The twenty-six [examples](https://andyjost.github.io/Sprite/Example
 each come with a README, a run script, and recorded output. The Fair Scheme
 and its proofs are written up in a
 [dissertation](https://doi.org/10.15760/etd.3564)
-and a shorter [paper](http://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf).
+and a shorter [paper](https://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf).
 
 Questions and bug reports go to the
 [issue tracker](https://github.com/andyjost/Sprite/issues).

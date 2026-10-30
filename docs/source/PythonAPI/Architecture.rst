@@ -63,9 +63,10 @@ The interface includes the following:
         The steps the backend adds to the compilation pipeline of
         :ref:`sprite-make <sprite-make>`.
 
-      - ``compile_pending``, ``module_loaded``:
-        The hooks of a load.  The C++ backend queues the background
-        compile of a module it interprets in ``module_loaded`` (tiered
+      - ``module_loaded``:
+        The hook of a load.  The C++ backend queues the background
+        compile of a module it interprets from it, through
+        ``compile_pending`` of its ``materialize`` module (tiered
         execution; see :mod:`curry.backends.cxx.tiered`).
 
   * **Evaluation**

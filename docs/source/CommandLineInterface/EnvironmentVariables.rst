@@ -199,26 +199,17 @@ The following are recognized:
   sets the same flag alone.
 
 ``SPRITE_LOG_FILE``
-  The file to which logging output is directed.  The default, ``-``, directs
-  this to the standard error stream.  ``import curry`` configures the root
-  logger of Python (``logging.basicConfig``): a handler on that file or
-  stream with the format ``%(asctime)s [%(levelname)s] %(message)s``, and
-  the level of ``SPRITE_LOG_LEVEL``.  A program that configured logging
-  before the import keeps its configuration.  The two variables change
-  nothing then.  An unknown level name still stops the import with an
-  error.
+  Reserved.  The variable is read at import; the default, ``-``, names the
+  standard error stream.  Sprite logs to the Python logger ``curry`` with a
+  ``NullHandler`` and never configures the root logger, so the variable has
+  no effect today.  A program that wants Sprite's messages adds a handler
+  to the logger ``curry``.
 
 ``SPRITE_LOG_LEVEL``
-  Sets the logging verbosity.  The **default** level is ``WARNING``.  Supported
-  values are:
-
-  - ``CRITICAL`` Log only critical (usually fatal) problems.
-  - ``ERROR``    Log errors.
-  - ``WARNING``  Log warnings.
-  - ``INFO``     Log information about what Sprite is doing.
-  - ``DEBUG``    Log detailed information about everything.
-
-  Each of these includes all output from levels listed above it.
+  Reserved.  The name is validated at import, ``WARNING`` by default, one
+  of ``CRITICAL``, ``ERROR``, ``WARNING``, ``INFO`` and ``DEBUG``; an
+  unknown name stops the import with an error.  The level is applied to
+  no logger today; set the level of the logger ``curry`` in the program.
 
 ``SPRITE_ROTATION``
   The rotation mode of the C++ backend: ``time:10ms`` (time mode, the
@@ -242,6 +233,23 @@ Development Variables
 Additional environment variables are recognized.  These are intended for people
 developing Sprite itself.  If you plan only to compile and run Curry programs
 with Sprite, then you should not need these.
+
+``SPRITE_JIT``
+  The JIT of the C++ backend, experimental (issue #65).  With ``1``,
+  ``true``, ``on`` or ``yes``, every function of a module is compiled to
+  machine code through LLVM when the module is loaded; with ``hot``, a
+  thread compiles the functions that reach ``SPRITE_JIT_THRESHOLD`` calls
+  while the evaluation runs.  Unset, the interpreter and the compiled
+  objects run as before.  The JIT needs ``llvmlite`` and the bitcode of the
+  runtime helpers, which the build makes when CMake finds clang
+  (``WITH_CLANG``); without them it declines and logs that once.
+
+``SPRITE_JIT_THRESHOLD``
+  The call count at which the hot tier compiles a function; 100 by default.
+
+``SPRITE_JIT_DUMP``
+  A directory into which the JIT writes the optimized LLVM IR, and the
+  assembly, of each batch it compiles.
 
 ``SPRITE_CACHE_FILE``
   Names the cache database, an SQLite file.  The database stores the output
@@ -429,7 +437,7 @@ mode, and ``SPRITE_FRONTEND_WARNINGS=0`` unless the environment sets it.  Three 
 ``SPRITE_UPDATE_EXPECTED``
   With the value ``1``, ``tests/unit_examples.py`` writes the output of
   each run script of ``examples/`` to its ``expected.out`` instead of
-  comparing with it; run it once per backend and review the diff.
+  comparing with it; run it once and review the diff.
 
 Build Variables
 ---------------

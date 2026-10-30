@@ -36,8 +36,9 @@ Important characteristics of this API include the following:
   and tuples.  Types defined in Curry are reflected in Python.
 
 - Semantics are preserved when crossing the Curry-Python boundary.  Curry
-  computations are represented in Python as generators, which are lazy objects
-  whose only method is a function ``next`` that produces the next result.  This
+  computations are represented in Python as lazy ``Results`` iterators:
+  ``next`` produces the next value, ``one()`` the value of an expression
+  that has exactly one, and ``close()`` ends the search.  This
   preserves the essential semantics of Curry, namely lazy evaluation and
   multi-valued expressions.  The reciprocal relation also holds: delayed Python
   computations are represented in Curry as infinite lists.
@@ -51,11 +52,11 @@ Important characteristics of this API include the following:
 The Backend
 -----------
 
-A backend of Sprite comprises a compiler and a runtime library.  The
+The backend of Sprite comprises a compiler and a runtime library.  The
 compiler translates Sprite Intermediate Representation (IR) to the IR of
-the backend.  The runtime library runs Curry programs.  The backends live
-under ``src/python/backends``, behind the interface
-:class:`IBackend <curry.backends.IBackend>`.
+the backend.  The runtime library runs Curry programs.  The one backend,
+``cxx``, lives under ``src/python/backends`` beside the shared ``generic``
+code, behind the interface :class:`IBackend <curry.backends.IBackend>`.
 
 **C++ Backend**
     The C++ backend compiles each Curry module to C++ and links it against
@@ -91,8 +92,8 @@ Sprite provides the following command-line tools:
 
 ``sprite-invoke``
     A wrapper script that configures the runtime environment for Sprite and
-    then executes another program.  Environment variables such as PYTHONPATH,
-    CURRYPATH, and LD_LIBRARY_PATH may be modified.
+    then executes another program.  It prepends to PYTHONPATH and
+    LD_LIBRARY_PATH.
 
 ``sprite-make``
     Invokes the Sprite compilation pipeline.  This can be used to convert Curry

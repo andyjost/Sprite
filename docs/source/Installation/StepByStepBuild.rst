@@ -3,9 +3,10 @@
 Step-by-step build
 ------------------
 
-Initialize the native binding dependency::
+Initialize the two submodules the build needs, the Python binding and the
+big-integer library::
 
-    git submodule update --init extern/pybind11
+    git submodule update --init extern/pybind11 extern/libtommath
 
 Configure and build with CMake, or use the thin wrapper::
 

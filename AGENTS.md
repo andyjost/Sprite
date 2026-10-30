@@ -54,7 +54,7 @@ reproducers pass.
   calls of a symbol over it, and `serialize.py` as the printer of a
   description as Curry text.
   `src/python/tools/icy/` is the REPL: `python -m curry.tools.icy`, with
-  `:load`, `:eval`, `:type`, `:set` and `:quit`.
+  `:load`, `:reload`, `:eval`, `:type`, `:set` and `:quit`.
 - `src/curryrt/`: the C++ runtime library.
 - `curry/`: the Curry library. `curry/lib/` holds a copy of the library of
   the pinned PAKCS, Sprite's own `Control.SetFunctions`, the license of the
@@ -288,7 +288,7 @@ reproducers pass.
   the benchmark harness and CI, where the exact counters and the order of
   the values of a search must reproduce.
 - A goal without a type signature keeps its class constraints. Sprite
-  defaults them as the PAKCS REPL does (`Num` to `Int`, `Fractional` to
+  defaults them as the PAKCS REPL does (`Num` and `Integral` to `Int`, `Fractional` and `Floating` to
   `Float`, `Monad` to `IO`, a lone `Data` to `Bool`) and rejects the rest
   with the REPL's sentence. `curry.eval` supplies the dictionaries of such
   a goal; an application, `curry.eval(M.f(1))`, is typed like any term.
