@@ -64,11 +64,27 @@ _JIT_WARNED = False
 
 def jit_enabled():
   '''
-  Whether the environment switches the JIT on: SPRITE_JIT set to 1, true,
-  on or yes.  The spike of issue #65 keeps the switch out of the flags of
-  the interpreter, whose names the API review froze.
+  The mode of the JIT from the environment: 'eager' for SPRITE_JIT set to
+  1, true, on or yes (every function of a module is compiled when the
+  module is loaded), 'hot' for SPRITE_JIT=hot (a thread compiles the
+  functions that reach SPRITE_JIT_THRESHOLD calls, 100 by default, while
+  the evaluation runs), and '' otherwise.  The spike of issue #65 keeps the
+  switch out of the flags of the interpreter, whose names the API review
+  froze.
   '''
-  return os.environ.get('SPRITE_JIT', '').strip().lower() in ('1', 'true', 'on', 'yes')
+  value = os.environ.get('SPRITE_JIT', '').strip().lower()
+  if value in ('1', 'true', 'on', 'yes'):
+    return 'eager'
+  if value == 'hot':
+    return 'hot'
+  return ''
+
+def jit_threshold():
+  '''The call count of the hot tier (SPRITE_JIT_THRESHOLD, 100 by default).'''
+  try:
+    return max(1, int(os.environ.get('SPRITE_JIT_THRESHOLD', '100')))
+  except ValueError:
+    return 100
 
 # The bytecode of every interpreted function, by full name, for
 # inspect.getimpl (implementation.py).  An interpreted table lives for the
@@ -107,7 +123,7 @@ class Materializer(object):
     # the background compile swaps the steps itself, so the switch applies
     # to the modes new and all.
     self.jit = (
-        interp.flags['interpret'] in ('new', 'all') and jit_enabled()
+        jit_enabled() if interp.flags['interpret'] in ('new', 'all') else ''
       )
     if self.interpret:
       # The bytecode of other modules, and a compiled object bound to them
@@ -193,17 +209,22 @@ class Materializer(object):
       )
     BYTECODE[ifun.fullname] = code
     if self.jit:
-      # Queued: the backend compiles the queue in one LLVM module when the
-      # module is loaded (module_loaded), or before an evaluation.
+      # Eager: queued, and the backend compiles the queue in one LLVM
+      # module when the module is loaded (module_loaded) or before an
+      # evaluation.  Hot: the thread of the hot tier compiles the function
+      # when its calls reach the threshold.
       from . import llvmjit
       try:
-        llvmjit.enqueue(info, ifun.fullname)
+        if self.jit == 'hot':
+          llvmjit.start_hot_tier(jit_threshold())
+        else:
+          llvmjit.enqueue(info, ifun.fullname)
       except llvmjit.Unavailable as exc:
         global _JIT_WARNED
         if not _JIT_WARNED:
           _JIT_WARNED = True
           logger.warning('The JIT is unavailable; the functions stay interpreted: %s', exc)
-        self.jit = False
+        self.jit = ''
 
   def trap(self, info):
     '''

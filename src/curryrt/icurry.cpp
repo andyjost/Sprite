@@ -6,6 +6,7 @@
 #endif
 #include <cassert>
 #include <cstring>
+#include <atomic>
 #include <mutex>
 #include <new>
 #include <stdexcept>
@@ -88,11 +89,38 @@ namespace curryrt
     }
   }
 
+  namespace
+  {
+    std::atomic<uint32_t> g_hot_threshold{0};
+    std::mutex g_hot_mutex;
+    std::vector<InfoTable *> g_hot;
+  }
+
+  void icurry_set_hot_threshold(uint32_t threshold)
+    { g_hot_threshold.store(threshold, std::memory_order_relaxed); }
+  uint32_t icurry_hot_threshold()
+    { return g_hot_threshold.load(std::memory_order_relaxed); }
+  std::vector<InfoTable *> icurry_take_hot()
+  {
+    std::vector<InfoTable *> hot;
+    std::lock_guard<std::mutex> lock(g_hot_mutex);
+    hot.swap(g_hot);
+    return hot;
+  }
+
   tag_type icurry_step(RuntimeState * rts, Configuration * C)
   {
     Cursor const _0 = C->cursor();
     Bytecode const * bc = (Bytecode const *) _0->info->aux;
     assert(bc);
+    if(uint32_t const threshold = g_hot_threshold.load(std::memory_order_relaxed))
+    {
+      if(++bc->calls == threshold)
+      {
+        std::lock_guard<std::mutex> lock(g_hot_mutex);
+        g_hot.push_back(const_cast<InfoTable *>(_0->info));
+      }
+    }
     uint32_t const * const code = bc->code.data();
     void const * const * const K = bc->consts.data();
     // The frame.  The registers start null: a plain variable not yet

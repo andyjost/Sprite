@@ -267,16 +267,35 @@ namespace curryrt { namespace python
     mod.def("icurry_set_step", &icurry_set_step_
       , "Gives an interpreted function the step at an address: the code a JIT "
         "made from its bytecode.  The function must be interpreted at the "
-        "call.", curryrt::python::heap_access{});
+        "call.  No heap lock: the hot tier swaps a step while an evaluation "
+        "runs, and the evaluation reads the pointer at each call.");
     mod.def("jit_sizes", &jit_sizes_
       , "The sizes the JIT needs: the bytes of a Cursor and of a Variable, "
         "the bits of a tag and of a pointer.");
     mod.def("icurry_bytecode", &icurry_bytecode_
       , "The bytecode of an interpreted function as a dict (code, nregs, "
-        "nvars, nstack, nconsts), or None for any other info table.", curryrt::python::heap_access{});
+        "nvars, nstack, nconsts, consts), or None for any other info table.  "
+        "No heap lock: the thread of the hot tier reads it.");
+    // The entry points of the JIT take no heap lock: the thread of the hot
+    // tier calls them while an evaluation owns the lock.  They read a table
+    // and the lists of the interpreter, under their own mutexes, and write
+    // one step pointer.
+    mod.def("icurry_take_hot", &icurry_take_hot
+      , "The interpreted functions whose call count reached the threshold of "
+        "the hot tier since the last call; the list is cleared."
+      , py::return_value_policy::reference);
+    mod.def("icurry_set_hot_threshold", &icurry_set_hot_threshold
+      , "Sets the call count at which an interpreted function joins the hot "
+        "list; 0 turns the count off.");
+    mod.def("icurry_hot_threshold", &icurry_hot_threshold
+      , "The call count of the hot tier.");
+    mod.def("icurry_name"
+      , [](InfoTable const * info) { return std::string(info && info->name ? info->name : ""); }
+      , "The name of an info table, without the heap lock (the thread of the "
+        "hot tier).");
     mod.def("icurry_is_jit", &icurry_is_jit
       , "Whether the step of an info table is code the JIT made from its "
-        "bytecode (icurry_set_step).", curryrt::python::heap_access{});
+        "bytecode (icurry_set_step).");
     mod.def("icurry_is_interpreted"
       , [](InfoTable const * info)
           { return icurry_bytecode(info) != nullptr && !icurry_is_jit(info); }

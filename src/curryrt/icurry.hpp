@@ -123,6 +123,12 @@ namespace curryrt
     uint32_t                  nregs = 0;
     uint32_t                  nvars = 0;
     uint32_t                  nstack = 0;
+    // The steps taken through this bytecode, for the hot tier of the JIT:
+    // at the threshold (icurry_set_hot_threshold) the function joins the
+    // list icurry_take_hot reads.  Counted without synchronization: an
+    // approximate count serves, and the worker of an evaluation is one
+    // thread at a time.
+    mutable uint32_t          calls = 0;
     // The storage behind the constants that are not nodes or tables.
     std::deque<std::string>   strings;
     std::deque<ValueSetData>  valuesets;
@@ -160,6 +166,15 @@ namespace curryrt
 
   // The step function of every interpreted function.
   tag_type icurry_step(RuntimeState *, Configuration *);
+
+  // The hot tier.  A step counts the calls of its bytecode; at the
+  // threshold (0 turns the count off) the function joins a list, which
+  // icurry_take_hot hands over and clears.  The JIT of the Python package
+  // reads the list from a thread of its own, compiles the functions, and
+  // swaps their steps while the evaluation runs (backends/cxx/llvmjit.py).
+  void icurry_set_hot_threshold(uint32_t);
+  uint32_t icurry_hot_threshold();
+  std::vector<InfoTable *> icurry_take_hot();
 
   // Gives an interpreted function the step ``step``: the code a JIT made from
   // its bytecode (backends/cxx/llvmjit.py).  The bytecode stays in aux, so

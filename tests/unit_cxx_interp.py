@@ -491,8 +491,11 @@ main = double (CxxInterp.fact 3)
     # The bytecode of an interpreted function.
     bc = curryrt.icurry_bytecode(N.double.info)
     self.assertEqual(
-        sorted(bc), ['code', 'nconsts', 'nregs', 'nstack', 'nvars']
+        sorted(bc), ['code', 'consts', 'nconsts', 'nregs', 'nstack', 'nvars']
       )
+    # The constants as addresses, for the JIT.
+    self.assertEqual(len(bc['consts']), bc['nconsts'])
+    self.assertTrue(all(isinstance(k, int) and k > 0 for k in bc['consts']))
     self.assertEqual(bc['nregs'], 1)
     self.assertEqual(bc['nvars'], 0)
     self.assertEqual(list(bytecode.disassemble(bc['code'])), [

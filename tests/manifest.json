@@ -1257,7 +1257,7 @@
         "measured_on_cores": 12,
         "measured_on_mem_gb": 23,
         "peak_rss_mb": 800,
-        "tests": 3
+        "tests": 4
       }
     },
     "unit_loadsave.py": {

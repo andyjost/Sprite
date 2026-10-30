@@ -360,6 +360,11 @@ sprite_var(python_package_name "curry")
 # outside the system needs (a --gcc-install-dir, a sysroot).
 set(WITH_CLANG "AUTO" CACHE STRING "clang++ for the bitcode of the JIT helpers; AUTO finds one on PATH, empty disables")
 set(WITH_CLANG_FLAGS "" CACHE STRING "Extra flags for the clang of the JIT helpers")
+if(WITH_CLANG STREQUAL "AUTO" AND WIN32)
+  # The bitcode of Windows needs the flags of clang-cl and the developer
+  # environment: an explicit WITH_CLANG, in a lane of its own.
+  set(WITH_CLANG "")
+endif()
 if(WITH_CLANG STREQUAL "AUTO")
   find_program(jit_clang NAMES clang++ clang++-21 clang++-20 clang++-19 clang++-18 clang++-17 NO_CACHE)
   if(jit_clang)

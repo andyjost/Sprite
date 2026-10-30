@@ -34,7 +34,10 @@ from . import bytecode
 from . import curryrtbindings as curryrt
 import logging, os, threading, time
 
-__all__ = ['Unavailable', 'available', 'compile', 'enqueue', 'flush', 'statistics']
+__all__ = [
+    'Unavailable', 'available', 'compile', 'enqueue', 'flush', 'start_hot_tier'
+  , 'statistics'
+  ]
 
 logger = logging.getLogger(__name__)
 
@@ -91,12 +94,50 @@ def flush():
     if pending:
       jit.compile_batch(pending)
 
+_hot_thread = None
+
+def start_hot_tier(threshold):
+  '''
+  Starts the hot tier once: the runtime counts the calls of every
+  interpreted function, and a thread of this process compiles the functions
+  that reach ``threshold`` calls and swaps their steps while the evaluation
+  runs (the evaluation holds no GIL; a step pointer is read at each call).
+  Raises Unavailable when the JIT cannot run.
+  '''
+  global _hot_thread
+  _get()
+  with _lock:
+    if _hot_thread is not None:
+      return
+    curryrt.icurry_set_hot_threshold(int(threshold))
+    _hot_thread = threading.Thread(target=_hot_loop, name='curry-jit', daemon=True)
+    _hot_thread.start()
+
+def _hot_loop():
+  jit = _jit
+  while True:
+    hot = curryrt.icurry_take_hot()
+    if not hot:
+      time.sleep(0.005)
+      continue
+    with _lock:
+      try:
+        # The names through a binding without the heap lock: an attribute
+        # of the table would wait for the evaluation to end.
+        jit.compile_batch([(info, curryrt.icurry_name(info)) for info in hot])
+        jit.hot += len(hot)
+      except Exception:
+        logger.exception('The hot tier of the JIT failed; the functions stay interpreted')
+
 def statistics():
   '''The counts and the seconds of the JIT of this process.'''
   jit = _jit
   if jit is None:
-    return {'functions': 0, 'batches': 0, 'seconds': 0.0}
-  return {'functions': jit.functions, 'batches': jit.batches, 'seconds': jit.seconds}
+    return {'functions': 0, 'batches': 0, 'hot': 0, 'seconds': 0.0}
+  return {
+      'functions': jit.functions, 'batches': jit.batches, 'hot': jit.hot
+    , 'seconds': jit.seconds
+    }
 
 def _get():
   global _jit, _reason
@@ -151,6 +192,7 @@ class _JIT(object):
     self.pending = []    # (info, name) queued for the next flush
     self.functions = 0
     self.batches = 0
+    self.hot = 0
     self.seconds = 0.0
 
   def compile_batch(self, items):
