@@ -1,292 +1,102 @@
 # Overload resolution over a model of C++ types
 
-This example is the second of a series of four.  The series models the
-compile-time algorithms of a C++ compiler in Curry: template argument
-deduction (20), overload resolution (this example), trait checking (22), and
-member layout (23).  All four work on one algebraic model of C++ types, the
-shared modules under ../cxx.  CxxType.curry holds the type algebra, the
-traits, a printer and a bounded generator; CxxLimits.curry holds the
-fundamental types and the tables of the LP64 data model.  This example
-adds CxxOverload.curry: the standard conversion sequences, the viable
-candidates of a call, and the best viable function.
+A C++ compiler decides which overload a call picks: a candidate is viable
+when every argument converts to its parameter, each conversion has a rank,
+and the best viable function beats every other candidate in some argument
+and loses in none.  This example writes those rules as Curry rules over an
+algebraic model of C++ types, asks them from Python, and then asks the
+question a compiler never answers: which argument types would make this
+call ambiguous?
 
-Overload resolution is a search.  A candidate function is viable when every
-argument converts to its parameter.  Each conversion has a rank: exact
-match, promotion or conversion.  The best viable function is the candidate
-that is not worse than any other in any argument and better in at least one.
-In Curry the conversions are non-deterministic rules, the choice of a
-candidate is a choice, and a set function collects the viable set.
+It is the second of four examples on one model of C++ types, the shared
+modules under `../cxx`: template argument deduction (20), overload
+resolution (this one), trait checking (22) and member layout (23).  This
+example adds `CxxOverload.curry`: the standard conversion sequences, the
+viable candidates of a call, and the best viable function.
 
-The motivation is a future integration with the Circle C++ compiler.  Circle
-can run Python during compilation, inside its metaprogramming features.  A
-Python program there sees the types of the program under compilation.  With
-Sprite in that Python, a metaprogram could ask the questions of this series:
-which specialization is chosen, which overload wins, which types satisfy a
-constraint, and the inverse questions that a compiler never answers, such as
-which argument types make a call ambiguous.  Sprite would supply the search
-and the unification; Circle would supply the types.  No such integration
-exists yet.  The value today is as an analysis, testing and metaprogramming
-tool.
+## Conversions are rules
 
-The model is a simplification of overload resolution in C++: it has no
-user-defined conversions, no templates, no argument-dependent lookup, and
-references and value categories only in the simple cases.  Section 5 lists
-what it leaves out.
+`standard` has one rule per conversion of the standard, each with a guard
+that names its case:
 
-
-## 1. What the example shows about functional logic programming
-
-Conversions are rules, and the rules are alternatives.  The function
-standard of CxxOverload has one rule per conversion of the standard:
-
-```
+```curry
 standard _ a p | a == p = Exact
 standard _ a p | a /= p && qualifies a p = Exact
 standard _ a p | promotes a p = Promotion
 ...
 ```
 
-In Curry, two rules with the same left-hand side are alternatives, not a
-fall-through chain.  Each rule has a guard that names its case: the
-identity, a qualification conversion, a promotion, an arithmetic conversion,
-a pointer conversion, a derived-to-base conversion, a null pointer
-conversion, a boolean conversion.  The guards do not overlap, so a pair of
-types has at most one sequence.  A pair that no guard accepts has no value
-at all.  There is no Maybe, no error code and no "else" branch.
+In Curry two rules with the same left-hand side are alternatives, not a
+chain of fall-throughs.  The guards do not overlap, so a pair of types has
+at most one conversion, and a pair that no guard accepts has no value at
+all: no `Maybe`, no error code, no `else`.
 
-Failure makes a candidate not viable.  The function viable picks a
-candidate with anyOf and converts every argument:
+That absence does the work in `viable`, which picks a candidate and converts
+every argument:
 
-```
+```curry
 viable h cands args
   | length params == length args = (cand, zipWith (convert h) args params)
   where cand = anyOf cands
         params = snd cand
 ```
 
-When one argument has no conversion, the value of viable for that candidate
-fails.  Nothing else happens: the candidate is gone from the search.  The
-set function set3 viable collects the values that remain.  That set is the
-viable set of the call, each candidate with the rank of each argument.  An
-empty set is the case "no viable function".
+When one argument has no conversion, the value for that candidate fails and
+the candidate is gone from the search.  A set function collects what
+remains: the viable set of the call, each candidate with the rank of each
+argument.  An empty set is "no viable function".  `better` compares two
+sequences for the same argument by rank, then by the tie-breakers of the
+standard: a pointer conversion that does not go to `bool` beats one that
+does, `Derived*` to `Base*` beats `Derived*` to `void*`, and a sequence
+without a qualification conversion beats the same sequence with one.
 
-Ranks are compared, and sequences of the same rank are ordered by the rules
-of the standard.  The function better compares two sequences for the same
-argument.  A better rank wins.  For two sequences of the same rank the
-tie-breakers of [over.ics.rank] apply: a conversion of a pointer that does
-not go to bool beats one that does, Derived\* to Base\* beats Derived\* to
-void\*, and a sequence without a qualification conversion beats the same
-sequence with one.  The second overload set of scenario (c) shows the three
-rules.  The call k(Derived\*) has three viable candidates of rank conversion,
-and k(Base\*) wins.  The call k(int\*) has two exact matches, and k(int\*)
-beats k(int const\*).
+## The question a compiler never answers
 
-The inverse question.  Scenario (d) asks which argument types make a call
-ambiguous.  Overload resolution is a function from a call to a result, and
-a function does not run backwards.  A free variable and a bounded generator
-turn it round:
+Overload resolution maps a call to a result.  A free variable and a bounded
+generator run it backwards:
 
-```
+```curry
 ambiguousArg n cands
   | t =:= anyType n && (ambiguousCall cands $## t) = t
   where t free
 ```
 
-anyType n is every type of depth at most n, one per value.  The first
-equation binds the unknown t to one of them.  The second equation is the
-question.  Each solution is one value, and a set function collects them.
-The operator \$## evaluates the type to normal form before the question sees
-it.  The question runs a set function, and the set function would give the
-right answer for the variable t as well; the normal form saves the work
-that the variable costs.  Section 5 says how much.
+`anyType n` is every type of depth at most `n`, one per value; `t` is bound
+to each in turn, and the guard keeps the types whose call is ambiguous.  A
+set function collects them.
 
+## From Python
 
-## 2. What the example shows about calling Curry from Python
-
-The driver go.py adds two directories to curry.path: its own, for
-Overloads.curry, and ../cxx, for the shared modules.  It imports CxxLimits,
-CxxType and Overloads from curry.lib.
-
-Python builds the data.  A type is built with the constructors of
-CxxType.Type, for example CxxType.Ptr(INT) for int\*, where INT
-is CxxType.Fund(CxxLimits.Int).  An overload set is a Python
-list of tuples (name, [parameter types]), and a class hierarchy is a list
-of tuples (derived, base).  curry.eval turns a Python tuple into a Curry
-tuple and a Python list into a Curry list, so the Curry goals receive
-values of the types [Candidate] and Hierarchy with no conversion code.  A
-name is a Python str, which curry.term converts by the type the goal
-expects, a String, also for a name of one character such as "f".  Python
-can make a free variable: curry.free('x') in a goal is one variable (Y1), and
-the typed builder (#56) will give it its type.  This driver keeps its free
-variables in Overloads.curry by choice, and Python passes concrete types.
-
-Every goal returns a String, and the driver reads it with
-
-```
-curry.eval(goal(*args) if args else goal).one()
-```
-
-Evaluation turns the Curry String into a str.  The driver prints the
-calls and the overload sets through the Curry printer,
-curry.eval(CxxType.showCxx(t)), so that Python holds no knowledge of C++
-syntax.  The whole driver builds the data, calls the goals and prints.
-
-
-## 3. How to run
-
-Run "make stage" from the root of the repository first.  Then run
-
-```
-./run
-```
-
-The first run also compiles the three shared modules and Overloads.curry.
-The build products go to .curry/ next to each source.
-
-
-## 4. Expected output
-
-The file expected.out holds the exact output of ./run.  For each call the
-driver prints the viable candidates with the rank of each argument, then
-the result of overload resolution.  Scenario (a) shows the three ranks:
+The overload sets, the class hierarchy and the calls are Python lists and
+tuples built from the constructors of the model, `Overloads` converts them
+by the types of its parameters, and every answer comes back as text.  The
+driver `go.py` runs four scenarios; `expected.out` records them:
 
 ```
 (a) overloads f(int), f(long), f(double)
-  f(int)    viable: f(int) [exact], f(long) [conversion], f(double) [conversion]
-            result: f(int) [exact]
   f(char)   viable: f(int) [promotion], f(long) [conversion], f(double) [conversion]
             result: f(int) [promotion]
-  f(float)  viable: f(int) [conversion], f(long) [conversion], f(double) [promotion]
-            result: f(double) [promotion]
+  f(int*)   viable: none
+            result: no viable function
+(b) overloads f(long), f(double)
+  f(int)    viable: f(long) [conversion], f(double) [conversion]
+            result: ambiguous: f(long), f(double)
+(c) class Derived : Base; overloads k(int*), k(int const*), k(void*), k(Base*), k(bool)
+  k(Derived*)        result: k(Base*) [conversion]
+  k(int*)            result: k(int*) [exact]
+(d) the argument types of depth at most 2 that make the call ambiguous for f(long), f(double), f(int const*)
+  120 types; after the lvalue transformations, 12: bool, char, signed char, unsigned char, short, ...
 ```
 
-char and bool promote to int, and float promotes to double.  The call
-f(int\*) has no viable function: a pointer converts to bool, but no
-candidate takes bool.
+Scenario (d) tries the 1245 types of depth at most two and finds the 120
+that make the call ambiguous.  A compiler that runs Python during
+compilation could hand such a model its own types and ask it.
 
-Scenario (b) is the classic ambiguity.  With f(long) and f(double), the
-call f(int) has two conversions of the same rank:
+## Limits
 
-```
-f(int)    viable: f(long) [conversion], f(double) [conversion]
-          result: ambiguous: f(long), f(double)
-```
-
-Scenario (c) works with pointers and the class Derived derived from Base.
-The call g(Derived\*) picks the exact match g(Derived\*).  The call
-g(std::nullptr_t) is ambiguous: a null pointer converts to every pointer
-type with the same rank.  The call g(Derived const\*) has no viable
-function: a qualification conversion adds const, and never removes it.  The
-second set shows the tie-breakers among sequences of the same rank:
-
-```
-k(Derived*)        viable: k(void*) [conversion], k(Base*) [conversion], k(bool) [conversion]
-                   result: k(Base*) [conversion]
-k(int*)            viable: k(int*) [exact], k(int const*) [exact], k(void*) [conversion], k(bool) [conversion]
-                   result: k(int*) [exact]
-k(std::nullptr_t)  viable: k(int*) [conversion], k(int const*) [conversion], k(void*) [conversion], k(Base*) [conversion]
-                   result: ambiguous: k(int*), k(int const*), k(void*), k(Base*)
-```
-
-The null pointer converts to every pointer with the same rank, and not to
-bool: std::nullptr_t converts to bool in a direct-initialization only, and
-the initialization of a parameter is not one.  The third set binds a
-reference to const of array type:
-
-```
-h(int[3])        viable: h(int const (&)[3]) [exact], h(int*) [exact]
-                 result: ambiguous: h(int const (&)[3]), h(int*)
-h(int const[3])  viable: h(int const (&)[3]) [exact]
-                 result: h(int const (&)[3]) [exact]
-h(int[4])        viable: h(int*) [exact]
-                 result: h(int*) [exact]
-```
-
-The reference binds the array lvalue directly, with no array-to-pointer
-conversion.  So the call with int[3] has two exact matches and is
-ambiguous, as in C++.  A const array binds, and int const\* does not convert
-to int\*.  An array of another bound does not bind at all.
-
-Scenario (d) prints one line:
-
-```
-120 types; after the lvalue transformations, 12: bool, char, signed char, unsigned char, short, unsigned short, int, unsigned int, unsigned long, long long, unsigned long long, long double
-```
-
-Of the 1245 types of depth at most 2, 120 make the call ambiguous for
-f(long), f(double), f(int const\*).  Every one of them is a cv-qualified or
-reference form of one of 12 arithmetic prvalue types: the integer types
-that promote to int or that are neither long nor double, and long double.
-No pointer, array, function or class type is in the list: a pointer
-converts to int const\* at most, and that candidate is then the only viable
-one.
-
-
-## 5. Limits
-
-A warm run of ./run took 1.0 s.  The first run also compiles the modules:
-about a second more for CxxOverload.curry and Overloads.curry, and about
-2 s more for the two shared modules of example 20 when they are not
-compiled yet.
-
-Scenario (d) evaluates the type to normal form with \$## before the question
-sees it, for speed.  The set function gives the same answer for the
-variable t: the choices that bound t escape the set function, one per
-alternative.  But a narrowed variable costs.  Every choice of the generator
-of t, and of the generators of its parts, escapes the capsule when the
-question needs it, and each escape splits the capsule and restarts the
-computation around it, in every candidate.  Measured: the question for
-one type, int\*, takes 1472 rewrite steps and 81 forks through the normal
-form and 91618 steps and 14825 forks through the variable; scenario (d) at
-depth 1 takes 0.08 s (425 thousand steps) through the normal form and 22 s
-(118 million steps) through the variable, and at depth 2 0.24 s against
-94 s.
-
-The generator grows by a factor of six per level of depth.  Depth 2 has
-1245 types, and scenario (d) over them took 0.3 s; depth 3 has 7330 types.
-
-A measurement of this example against other implementations belongs in
-the benchmark harness, not here.  The applications suite of the harness
-(tests/README, section 9) resolves a thousand distinct calls with
-Overloads.resultLine against a plain-Python implementation of the same
-ranking.  The benchmark record of this example is
-tests/data/curry/benchmarks/results/apps-2026-10-06-applications.jsonl.
-
-The model leaves out:
-
-  \* User-defined conversions: constructors and conversion functions, and
-```
-so the second standard conversion sequence and the ranking of
-user-defined conversion sequences.
-```
-  \* References and value categories beyond the simple cases.  An argument
-```
-type written as a reference is an lvalue or an xvalue, and the
-lvalue-to-rvalue conversion turns it into a prvalue.  A parameter
-T const& binds the converted argument with the rank of the conversion,
-unless T is an array or a function type: then the reference binds an
-argument of that type directly, and nothing else.  A reference to a
-function type binds the same way.  A parameter T& or T&& has no rule,
-so a candidate with one is never viable.  The reference binding rules
-of [over.ics.ref] and their tie-breakers are not modelled.
-```
-  \* Templates: deduction of a candidate's parameters, the preference for a
-```
-non-template, and partial ordering.  Example 20 has the deduction.
-```
-  \* Argument-dependent lookup, member functions and the implied object
-```
-parameter, default arguments and ellipses.
-```
-  \* Pointer-to-member conversions, except the null pointer conversion to a
-```
-pointer to member, and the conversions of enumerations.
-```
-  \* Null pointer constants other than std::nullptr_t: the literal 0 is not
-```
-a type.  std::nullptr_t converts to every pointer and pointer to
-member, and not to bool, as in a call.
-```
-
-Two sequences of the same rank from an arithmetic argument are never
-ordered, as in C++: f(long) and f(bool) are ambiguous for an int argument.
+The model has no user-defined conversions, no templates, no
+argument-dependent lookup, and references and value categories only in the
+simple cases: a parameter `T&` or `T&&` has no rule, so a candidate with one
+is never viable.  The benchmark harness compares `resultLine` over a
+thousand calls with a plain-Python implementation of the same ranking
+(`tests/README`, section 9).
