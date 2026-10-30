@@ -126,12 +126,12 @@ because it is the printer. This is where Curry excels: the specification is
 the program. There's nothing more to write, and nothing more to get wrong.
 
 The same trick applies wherever you have one direction of a relation and want
-the other. The repository has small examples of a
-[build system](https://andyjost.github.io/Sprite/Examples.html#example-24)
+the other. The repository has small [examples](https://andyjost.github.io/Sprite/Examples.html) of a
+[build system](examples/24-build-system)
 whose pattern rules run both ways, a
-[package dependency solver](https://andyjost.github.io/Sprite/Examples.html#example-15)
+[package dependency solver](examples/15-dependency-solver)
 with no search code, and
-[C++ overload resolution](https://andyjost.github.io/Sprite/Examples.html#example-21)
+[C++ overload resolution](examples/21-cxx-types-overloads)
 that can also tell you which argument types pick a given overload. We think
 compiler IR, where passes are rewrite rules over a term graph, is another
 natural fit.
