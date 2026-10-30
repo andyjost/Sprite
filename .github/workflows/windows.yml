@@ -99,7 +99,7 @@ jobs:
         env:
           SPRITE_HOME: ${{ github.workspace }}\build\stage
           PYTHONPATH: ${{ github.workspace }}\build\stage\python
-          SPRITE_JIT: hot
+          SPRITE_INTERPRETER_FLAGS: jit:hot
           SPRITE_JIT_THRESHOLD: '20'
         run: |
           set -uxo pipefail
@@ -110,7 +110,7 @@ jobs:
           threading.excepthook = lambda args: print('thread error:', args.exc_type.__name__, args.exc_value)
           from curry.lib import Prelude
           from curry.backends.cxx import curryrtbindings, llvmjit, materialize
-          print('available:', llvmjit.available(), 'mode:', repr(materialize.jit_enabled()), 'threshold:', materialize.jit_threshold())
+          print('available:', llvmjit.available(), 'flag:', curry.flags['jit'], 'threshold:', materialize.jit_threshold())
           print('threads:', [t.name for t in threading.enumerate()], 'runtime threshold:', curryrtbindings.icurry_hot_threshold())
           import llvmlite.binding as llvm
           print('triples: default', llvm.get_default_triple(), 'process', llvm.get_process_triple(), 'bitcode', llvmjit._jit.triple, 'layout', llvmjit._jit.data_layout)

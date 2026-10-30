@@ -56,6 +56,11 @@ Flag                         Default                What it changes
                                                     compiles it in the background; ``'new'`` interprets
                                                     it and never compiles it; ``'all'`` interprets every
                                                     module; ``'off'`` compiles every module first.
+``jit``                      ``'off'``              The JIT of the C++ backend, under ``'new'`` and
+                                                    ``'all'``: ``'eager'`` compiles every function of a
+                                                    module to machine code when the module loads;
+                                                    ``'hot'`` compiles the functions that run, beside
+                                                    the evaluation.  Needs the extra ``curry[jit]``.
 ``rotation``                 ``'time:10ms'``        How the C++ backend paces the rotation of its queue
                                                     of alternatives: time mode (``time:<N><unit>``) or
                                                     step mode (``steps:<N>``), in which the order of the

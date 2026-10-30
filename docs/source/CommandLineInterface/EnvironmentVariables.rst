@@ -234,18 +234,14 @@ Additional environment variables are recognized.  These are intended for people
 developing Sprite itself.  If you plan only to compile and run Curry programs
 with Sprite, then you should not need these.
 
-``SPRITE_JIT``
-  The JIT of the C++ backend, experimental (issue #65).  With ``1``,
-  ``true``, ``on`` or ``yes``, every function of a module is compiled to
-  machine code through LLVM when the module is loaded; with ``hot``, a
-  thread compiles the functions that reach ``SPRITE_JIT_THRESHOLD`` calls
-  while the evaluation runs.  Unset, the interpreter and the compiled
-  objects run as before.  The JIT needs ``llvmlite`` and the bitcode of the
-  runtime helpers, which the build makes when CMake finds clang
-  (``WITH_CLANG``); without them it declines and logs that once.
-
 ``SPRITE_JIT_THRESHOLD``
-  The call count at which the hot tier compiles a function; 100 by default.
+  The call count at which the hot tier of the JIT compiles a function; 100
+  by default.  The JIT itself is the interpreter flag ``jit`` (``off``,
+  ``eager`` or ``hot``; see :ref:`interpreter-flags`), set through
+  ``SPRITE_INTERPRETER_FLAGS=jit:hot`` or ``curry.reset(jit='hot')``, and
+  needs the extra ``curry[jit]`` (llvmlite) and the bitcode of the runtime
+  helpers, which the build makes when CMake finds clang (``WITH_CLANG``);
+  without them it declines and logs that once.
 
 ``SPRITE_JIT_DUMP``
   A directory into which the JIT writes the optimized LLVM IR, and the

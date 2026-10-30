@@ -62,23 +62,6 @@ logger = logging.getLogger(__name__)
 # Whether the unavailability of the JIT was logged in this process.
 _JIT_WARNED = False
 
-def jit_enabled():
-  '''
-  The mode of the JIT from the environment: 'eager' for SPRITE_JIT set to
-  1, true, on or yes (every function of a module is compiled when the
-  module is loaded), 'hot' for SPRITE_JIT=hot (a thread compiles the
-  functions that reach SPRITE_JIT_THRESHOLD calls, 100 by default, while
-  the evaluation runs), and '' otherwise.  The spike of issue #65 keeps the
-  switch out of the flags of the interpreter, whose names the API review
-  froze.
-  '''
-  value = os.environ.get('SPRITE_JIT', '').strip().lower()
-  if value in ('1', 'true', 'on', 'yes'):
-    return 'eager'
-  if value == 'hot':
-    return 'hot'
-  return ''
-
 def jit_threshold():
   '''The call count of the hot tier (SPRITE_JIT_THRESHOLD, 100 by default).'''
   try:
@@ -116,14 +99,15 @@ class Materializer(object):
     self.M = h.backend_handle
     self.imodule = h.icurry
     self.interpret = interp.flags['interpret'] != 'off'
-    # The JIT compiles the functions of the module when it is loaded (the
-    # environment variable SPRITE_JIT, the spike of issue #65;
+    # The JIT (the flag jit: 'eager' compiles the functions of the module
+    # when it is loaded, 'hot' compiles the functions that run; issue #65,
     # curry.backends.cxx.llvmjit).  When it cannot run, the functions stay
     # interpreted and the reason is logged once per process.  Under tiered
-    # the background compile swaps the steps itself, so the switch applies
+    # the background compile swaps the steps itself, so the flag applies
     # to the modes new and all.
+    jit = interp.flags.get('jit', 'off')
     self.jit = (
-        jit_enabled() if interp.flags['interpret'] in ('new', 'all') else ''
+        jit if jit != 'off' and interp.flags['interpret'] in ('new', 'all') else ''
       )
     if self.interpret:
       # The bytecode of other modules, and a compiled object bound to them

@@ -25,6 +25,12 @@ classifiers = [
   "Operating System :: MacOS",
 ]
 
+[project.optional-dependencies]
+# The JIT of the C++ backend (the flag jit; issue #65): LLVM through
+# llvmlite, about 60 MB per wheel.  Without it the interpreter and the
+# compiled mode run as before.
+jit = ["llvmlite>=0.50"]
+
 [project.urls]
 Homepage = "https://github.com/andyjost/Sprite"
 Documentation = "https://andyjost.github.io/Sprite/"
