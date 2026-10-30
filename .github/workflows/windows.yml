@@ -112,6 +112,8 @@ jobs:
           from curry.backends.cxx import curryrtbindings, llvmjit, materialize
           print('available:', llvmjit.available(), 'mode:', repr(materialize.jit_enabled()), 'threshold:', materialize.jit_threshold())
           print('threads:', [t.name for t in threading.enumerate()], 'runtime threshold:', curryrtbindings.icurry_hot_threshold())
+          import llvmlite.binding as llvm
+          print('triples: default', llvm.get_default_triple(), 'process', llvm.get_process_triple(), 'bitcode', llvmjit._jit.triple, 'layout', llvmjit._jit.data_layout)
           t0 = time.perf_counter()
           # A linear scan of a lazy list: many steps, a bounded depth (the
           # length of a list two million long overflows the worker's stack
