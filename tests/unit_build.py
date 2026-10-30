@@ -139,13 +139,16 @@ else:
       self.assertIn('no Curry front end found;', result.stdout)
       run(python, ROOT / 'scripts/wheels/smoke.py')
 
-  def distributions(self, directory, requirements=('curry-frontend>=3.1.0',)):
+  REQUIREMENTS = ('curry-frontend>=3.1.0', 'llvmlite>=0.50; extra == "jit"')
+
+  def distributions(self, directory, requirements=REQUIREMENTS):
     '''A matrix fixture for testing the publication gate, without native code.'''
     gate = script('check-dist')
     metadata = ('Metadata-Version: 2.4\nName: curry\nVersion: 0.9.0a2\n'
                 'Author: Andy Jost\n'
                 'License-Expression: BSD-3-Clause\n'
                 'Classifier: Development Status :: 3 - Alpha\n'
+                'Provides-Extra: jit\n'
                 + ''.join('Requires-Dist: %s\n' % req for req in requirements) + '\n')
     for py, abi in gate.PYTHONS:
       for tag, suffix in gate.PLATFORMS:
