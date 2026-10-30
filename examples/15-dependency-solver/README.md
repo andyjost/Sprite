@@ -1,5 +1,4 @@
-A package dependency solver
-===========================
+# A package dependency solver
 
 This example resolves the dependencies of a package.  An index lists the
 versions of every package with their requirements, and a requirement names a
@@ -12,21 +11,22 @@ The output is a lockfile.  When no plan exists, the program says which
 requirement breaks the plan and where the search fails.
 
 
-1. What the example shows about functional logic programming
--------------------------------------------------------------
+## 1. What the example shows about functional logic programming
 
 The relation is a search.  The function solveFrom keeps the demands still to
 meet, in order, and the versions chosen so far:
 
-    solveFrom _   _      _    []                 plan = plan
-    solveFrom idx yanked lock ((p, r) : pending) plan =
-      case lookup p plan of
-        Just v  -> if inRange r v then solveFrom idx yanked lock pending plan
-                                  else failed
-        Nothing -> solveFrom idx yanked lock (requires idx (p, v) ++ pending)
-                                             (plan ++ [(p, v)])
-      where
-        v = anyOf (candidates idx yanked lock (p, r))
+```
+solveFrom _   _      _    []                 plan = plan
+solveFrom idx yanked lock ((p, r) : pending) plan =
+  case lookup p plan of
+    Just v  -> if inRange r v then solveFrom idx yanked lock pending plan
+                              else failed
+    Nothing -> solveFrom idx yanked lock (requires idx (p, v) ++ pending)
+                                         (plan ++ [(p, v)])
+  where
+    v = anyOf (candidates idx yanked lock (p, r))
+```
 
 A demand on a package that is in the plan is a test: the chosen version
 meets it, or the branch fails.  A demand on a new package is a choice: anyOf
@@ -45,12 +45,14 @@ roots app 1 and cli 1 shows that case.
 
 The preference is the order of the candidates:
 
-    candidates idx yanked lock (p, (lo, hi)) = locked ++ fresh
-      where
-        versions = [ v | (q, v, _) <- idx, q == p, lo <= v, v <= hi ]
-        locked   = [ v | v <- versions, (p, v) `elem` lock ]
-        fresh    = [ v | v <- sortBy (>=) versions, v `notElem` locked
-                       , (p, v) `notElem` yanked || lo == hi ]
+```
+candidates idx yanked lock (p, (lo, hi)) = locked ++ fresh
+  where
+    versions = [ v | (q, v, _) <- idx, q == p, lo <= v, v <= hi ]
+    locked   = [ v | v <- versions, (p, v) `elem` lock ]
+    fresh    = [ v | v <- sortBy (>=) versions, v `notElem` locked
+                   , (p, v) `notElem` yanked || lo == hi ]
+```
 
 The version of the lockfile comes first, then the others newest first.  A
 yanked version is a candidate only when the lockfile names it or the range
@@ -65,20 +67,22 @@ finishes first, not the first branch in the order of the candidates.  The
 order of the values is not promised.  The example pins the plan with a
 second function:
 
-    preferredFrom idx yanked lock ((p, r) : pending) plan =
-      case lookup p plan of
-        Just v  -> if inRange r v
-                     then preferredFrom idx yanked lock pending plan
-                     else failed
-        Nothing -> preferredFrom idx yanked lock
-                     (requires idx (p, chosen) ++ pending)
-                     (plan ++ [(p, chosen)])
-      where
-        chosen = head [ c | c <- candidates idx yanked lock (p, r)
-                          , leavesAPlan c ]
-        leavesAPlan c = notEmpty (set5 solveFrom idx yanked lock
-                                       (requires idx (p, c) ++ pending)
-                                       (plan ++ [(p, c)]))
+```
+preferredFrom idx yanked lock ((p, r) : pending) plan =
+  case lookup p plan of
+    Just v  -> if inRange r v
+                 then preferredFrom idx yanked lock pending plan
+                 else failed
+    Nothing -> preferredFrom idx yanked lock
+                 (requires idx (p, chosen) ++ pending)
+                 (plan ++ [(p, chosen)])
+  where
+    chosen = head [ c | c <- candidates idx yanked lock (p, r)
+                      , leavesAPlan c ]
+    leavesAPlan c = notEmpty (set5 solveFrom idx yanked lock
+                                   (requires idx (p, c) ++ pending)
+                                   (plan ++ [(p, c)]))
+```
 
 Every choice takes the first candidate that still leaves a plan.  The
 lookahead is a set function: set5 solveFrom encapsulates the search from the
@@ -96,12 +100,14 @@ conflict runs the search of solve with the requirer beside every demand and
 every choice, and returns the first violation of a branch instead of
 failing there:
 
-    conflictFrom idx yanked lock (((p, r), by) : pending) plan =
-      case lookup p plan of
-        Just (v, by') -> if inRange r v
-                           then conflictFrom idx yanked lock pending plan
-                           else (((p, r), by), [(v, by')], trace)
-        ...
+```
+conflictFrom idx yanked lock (((p, r), by) : pending) plan =
+  case lookup p plan of
+    Just (v, by') -> if inRange r v
+                       then conflictFrom idx yanked lock pending plan
+                       else (((p, r), by), [(v, by')], trace)
+    ...
+```
 
 A branch that reaches a plan has no violation and fails in conflict.  So
 when the roots have no plan, the values of conflict are the ends of every
@@ -117,15 +123,16 @@ driver asks it before the search, so that "no such package" and "no plan"
 differ.
 
 
-2. What the example shows about calling Curry from Python
-----------------------------------------------------------
+## 2. What the example shows about calling Curry from Python
 
 The index is Python data: a list of (name, version, requirements) tuples,
 and a requirement is a (name, (low, high)) tuple.  The roots have the same
 shape as the requirements.  The yanked versions and the lockfile are lists
 of (name, version) pairs.  One call,
 
-    curry.eval(Deps.preferred(INDEX, yanked, lock, roots))
+```
+curry.eval(Deps.preferred(INDEX, yanked, lock, roots))
+```
 
 passes all of it to Curry.  curry.term converts each argument by the type of
 its parameter: tuples become Curry tuples, lists become Curry lists, ints
@@ -150,55 +157,61 @@ Curry decides, Python asks.  The exit status is 0 with a plan, 1 without
 one, and 2 for a root that the index does not know.
 
 
-3. How to run
--------------
+## 3. How to run
 
 Run "make stage" from the root of the repository first.  Then run
 
-    ./run
+```
+./run
+```
 
 To ask other questions, pass them to go.py.  Use the Python of the staged
 install.  A root is NAME=V or NAME=LO..HI, --yank NAME=V marks a version of
 the index as yanked, --lock FILE prefers the versions of a lockfile that an
 earlier run printed, and --index prints the index first.  For example:
 
-    ../../install/bin/python go.py --index
-    ../../install/bin/python go.py app=2
-    ../../install/bin/python go.py --yank web=3 app=1
-    ../../install/bin/python go.py --lock plan.lock > new.lock
+```
+../../install/bin/python go.py --index
+../../install/bin/python go.py app=2
+../../install/bin/python go.py --yank web=3 app=1
+../../install/bin/python go.py --lock plan.lock > new.lock
+```
 
 To change the index, edit INDEX at the top of go.py.
 
 
-4. Expected output
-------------------
+## 4. Expected output
 
 The file expected.out holds the exact output of ./run, which runs go.py
 seven times.  The first run prints the index, the roots and the preferred
 plan of app 1..2, as one line and as a lockfile:
 
-    roots: app 1..2
-    plan: app 1, web 3, http 2, db 1
-    [[package]]
-    name = "app"
-    version = 1
-    dependencies = ["web 3", "db 1"]
-    ...
+```
+roots: app 1..2
+plan: app 1, web 3, http 2, db 1
+[[package]]
+name = "app"
+version = 1
+dependencies = ["web 3", "db 1"]
+...
+```
 
 app 2 is the newest version of app, and it has no plan, so the plan takes
 app 1.  web 3 is the newest version that app 1 accepts, and it needs http 2.
 db 2 needs http 1, so the plan takes db 1.  The second run asks for app 2:
 
-    roots: app 2
-    no plan
-    a plan exists without any one of these requirements:
-      app 2 needs web 3
-      app 2 needs db 2
-      web 3 needs http 2
-      db 2 needs http 1
-    every branch of the search ends in a conflict:
-      app 2 > db 2 needs http 1, but app 2 > web 3 picked http 2
-    exit status 1
+```
+roots: app 2
+no plan
+a plan exists without any one of these requirements:
+  app 2 needs web 3
+  app 2 needs db 2
+  web 3 needs http 2
+  db 2 needs http 1
+every branch of the search ends in a conflict:
+  app 2 > db 2 needs http 1, but app 2 > web 3 picked http 2
+exit status 1
+```
 
 The four requirements form the conflict: without any one of them a plan
 exists.  The search has one branch, because every choice has one candidate,
@@ -207,8 +220,10 @@ yanked, and the plan takes web 2.  The fourth run reads plan.lock, an older
 lockfile with web 2, http 1 and db 2.  Those versions still satisfy the
 roots, so the plan keeps them all:
 
-    locked: app 1, db 2, http 1, web 2
-    plan: app 1, web 2, http 1, db 2
+```
+locked: app 1, db 2, http 1, web 2
+plan: app 1, web 2, http 1, db 2
+```
 
 The fifth run asks for app 1 and cli 1 together.  cli 1 needs web 1 and
 app 1 needs web 2 or 3, so the six branches of the search all end in a
@@ -216,21 +231,24 @@ conflict, four distinct ones.  The sixth run asks for a version that the
 index does not have.  No deletion of a requirement restores a plan, and
 the one branch of the search fails at the demand of the roots:
 
-    roots: app 5
-    no plan
-    every branch of the search ends in a conflict:
-      the roots need app 5, and the index has no such version
-    exit status 1
+```
+roots: app 5
+no plan
+every branch of the search ends in a conflict:
+  the roots need app 5, and the index has no such version
+exit status 1
+```
 
 The seventh run asks for a package that the index does not know:
 
-    roots: tls 1
-    no such package: tls
-    exit status 2
+```
+roots: tls 1
+no such package: tls
+exit status 2
+```
 
 
-5. Limits
----------
+## 5. Limits
 
 A warm run of ./run, seven processes, took 1.7 s.  The first run also
 compiles the module, which
@@ -256,20 +274,26 @@ tests/data/curry/benchmarks/results/apps-2026-10-06-applications.jsonl.
 
 What other resolvers do that this example does not:
 
-  * resolvelib, the resolver of pip, lets its provider order the open
-    requirements as well as the candidates, so that the package with the
-    fewest candidates is resolved first, and it backjumps to the cause of a
-    conflict instead of trying the alternatives in between.  This example
-    resolves the demands in the order it meets them and lets the scheduler
-    try every branch.
-  * PubGrub, the resolver of Dart, Cargo and uv, learns an incompatibility
-    from every conflict and never meets the same conflict twice.  It
-    explains a failure as a derivation of incompatibilities.  Here a
-    conflict that recurs in many branches is met again in every branch, and
-    the explanation names the first violation of each branch and the
-    requirements whose deletion restores a plan.
-  * Both work with version sets, pre-releases and semantic versions.  A
-    version here is an Int, and a range is one closed interval.
+  \* resolvelib, the resolver of pip, lets its provider order the open
+```
+requirements as well as the candidates, so that the package with the
+fewest candidates is resolved first, and it backjumps to the cause of a
+conflict instead of trying the alternatives in between.  This example
+resolves the demands in the order it meets them and lets the scheduler
+try every branch.
+```
+  \* PubGrub, the resolver of Dart, Cargo and uv, learns an incompatibility
+```
+from every conflict and never meets the same conflict twice.  It
+explains a failure as a derivation of incompatibilities.  Here a
+conflict that recurs in many branches is met again in every branch, and
+the explanation names the first violation of each branch and the
+requirements whose deletion restores a plan.
+```
+  \* Both work with version sets, pre-releases and semantic versions.  A
+```
+version here is an Int, and a range is one closed interval.
+```
 
 Out of scope: features and extras, platform conditions, optional
 dependencies, several versions of one package in one plan, and the sources

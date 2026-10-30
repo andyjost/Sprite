@@ -1,5 +1,4 @@
-Trees: a user type on both sides of the boundary
-=================================================
+# Trees: a user type on both sides of the boundary
 
 Tree.curry defines `data Tree a = Leaf | Node (Tree a) a (Tree a)` with
 size, depth, leaves, toList, a search-tree insert, and two generators.

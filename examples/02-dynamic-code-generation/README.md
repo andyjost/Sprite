@@ -1,42 +1,47 @@
-Compile Curry code at run time
-==============================
+# Compile Curry code at run time
 
 This example compiles Curry code from strings inside a Python program.  It
 builds a module, builds two goals, and evaluates them.
 
 
-1. What the example shows about functional logic programming
--------------------------------------------------------------
+## 1. What the example shows about functional logic programming
 
 The module defines the natural numbers as data:
 
-    data Nat = O | I Nat deriving Show
+```
+data Nat = O | I Nat deriving Show
+```
 
 and two functions, natToInt and natFromInt, that convert between Nat and
 Int.  The functions are deterministic.  The point of the example is the
 Python side.
 
 
-2. What the example shows about calling Curry from Python
-----------------------------------------------------------
+## 2. What the example shows about calling Curry from Python
 
 Compiling a module.  The call
 
-    Nat = curry.compile('''...''')
+```
+Nat = curry.compile('''...''')
+```
 
 passes Curry source text to the front end and returns a module object.  The
 constructors and functions of the module are attributes of that object.
 
 Building a goal without the front end.  The call
 
-    Nat.natToInt(Nat.I(Nat.O))
+```
+Nat.natToInt(Nat.I(Nat.O))
+```
 
 builds the expression natToInt (I O) directly.  A call applies a symbol; a
 Python list always describes a list value.
 
 Compiling an expression.  The call
 
-    curry.parse('natFromInt 3', imports=[Nat])
+```
+curry.parse('natFromInt 3', imports=[Nat])
+```
 
 passes an expression to the front end, with the module Nat in scope.  The
 front end checks the types.  Symbol calls check them too, from the type
@@ -47,28 +52,29 @@ Both goals go to curry.eval, which returns an iterator over the values.  The
 script checks the unique value of each with one().
 
 
-3. How to run
--------------
+## 3. How to run
 
 Run "make stage" from the root of the repository first.  Then run
 
-    ./run
+```
+./run
+```
 
 
-4. Expected output
-------------------
+## 4. Expected output
 
 The file expected.out holds the exact output of ./run:
 
-    % python go.py
-    goal1: natToInt (I O)
-    1
-    goal2: natFromInt 3
-    I (I (I O))
+```
+% python go.py
+goal1: natToInt (I O)
+1
+goal2: natFromInt 3
+I (I (I O))
+```
 
 
-5. Limits
----------
+## 5. Limits
 
 Each call of curry.compile runs the Curry front end, which costs about a
 third of a second.  The script compiles twice on every run, so ./run took

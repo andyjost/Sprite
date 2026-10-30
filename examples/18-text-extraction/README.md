@@ -1,5 +1,4 @@
-Text extraction with functional patterns, compiled at run time
-==============================================================
+# Text extraction with functional patterns, compiled at run time
 
 This example reads a small log file with two Curry rules and no regular
 expressions.  The rule field reads the value of a key from a line of
@@ -8,13 +7,14 @@ The rules are Curry text inside go.py.  Python compiles them at run time,
 applies them to every line of sample.log, and counts the matches.
 
 
-1. What the example shows about functional logic programming
--------------------------------------------------------------
+## 1. What the example shows about functional logic programming
 
 Functional patterns as an extraction language.  The rule
 
-    field :: String -> String -> String
-    field k (_ ++ k ++ "=" ++ v ++ " " ++ _) | ' ' `notElem` v = v
+```
+field :: String -> String -> String
+field k (_ ++ k ++ "=" ++ v ++ " " ++ _) | ' ' `notElem` v = v
+```
 
 matches a line that contains the key k, then "=", then a value v, then a
 space, at any position.  The pattern contains the function ++ and the
@@ -23,10 +23,12 @@ pattern can denote.  Each match binds v to one candidate value.
 
 Non-determinism returns every match.  The rule
 
-    tag :: String -> String
-    tag (_ ++ "<" ++ t ++ ">" ++ _) | '<' `notElem` t && '>' `notElem` t = t
+```
+tag :: String -> String
+tag (_ ++ "<" ++ t ++ ">" ++ _) | '<' `notElem` t && '>' `notElem` t = t
+```
 
-yields one value per tag.  On the line <p>Hello, <em>world</em>!</p> it
+yields one value per tag.  On the line \<p>Hello, \<em>world\</em>!\</p> it
 yields p, em, /em and /p.  A tag that occurs twice yields two values.
 
 The guard removes the longer matches.  Without its guard, field "host" on
@@ -40,13 +42,14 @@ Failure is not an error.  A line without the key yields no value.  The
 driver prints "-" for such a cell.
 
 
-2. What the example shows about calling Curry from Python
-----------------------------------------------------------
+## 2. What the example shows about calling Curry from Python
 
 Compiling Curry text at run time.  The rules are a string in go.py.  The
 driver passes the string to
 
-    curry.compile(source, name='Rules')
+```
+curry.compile(source, name='Rules')
+```
 
 which runs the Curry front end and returns a module object.  The functions
 of the module are attributes of that object: Rules.field and Rules.tag.  An
@@ -56,7 +59,9 @@ so the driver does not touch curry.path.
 
 Curry extracts, Python aggregates.  For each line the driver calls
 
-    curry.eval(Rules.field('status', line + ' '))
+```
+curry.eval(Rules.field('status', line + ' '))
+```
 
 The symbol call converts each Python str to a String,
 also when the str has one character.  The driver appends one space to the
@@ -70,57 +75,66 @@ curry.CurryError, which derives from Exception.  The driver catches it by
 name, reports a bad rule on stderr and exits with status 1.
 
 
-3. How to run
--------------
+## 3. How to run
 
 Run "make stage" from the root of the repository first.  Then run
 
-    ./run
+```
+./run
+```
 
 To add a rule, pass --rule with a name and the body of a Curry equation of
 type String -> String.  The driver applies the rule to every line, with one
 space appended, and adds a column and a total for it.  For example:
 
-    ./run --rule path '(_ ++ "path=" ++ p ++ " " ++ _) = p'
+```
+./run --rule path '(_ ++ "path=" ++ p ++ " " ++ _) = p'
+```
 
 To see the matches that the guard of field removes, add a rule without a
 guard:
 
-    ./run --rule hostAny '(_ ++ "host=" ++ v ++ " " ++ _) = v'
+```
+./run --rule hostAny '(_ ++ "host=" ++ v ++ " " ++ _) = v'
+```
 
 The hostAny cell of the first line then reads
 
-    alpha,alpha status=200,alpha status=200 path=/index.html
+```
+alpha,alpha status=200,alpha status=200 path=/index.html
+```
 
 To read another file, pass its name after the options.
 
 
-4. Expected output
-------------------
+## 4. Expected output
 
 The file expected.out holds the exact output of ./run.  The table has one
 row per line of sample.log.  The key rows are:
 
-    line                                    status  host   tags
-    host=alpha status=200 path=/index.html  200     alpha  -
-    status=200 host=beta path=/index.html   200     beta   -
-    host=beta path=/robots.txt              -       beta   -
-    <p>Hello, <em>world</em>!</p>           -       -      /em,/p,em,p
-    <ul><li>one</li><li>two</li></ul>       -       -      /li,/li,/ul,li,li,ul
+```
+line                                    status  host   tags
+host=alpha status=200 path=/index.html  200     alpha  -
+status=200 host=beta path=/index.html   200     beta   -
+host=beta path=/robots.txt              -       beta   -
+<p>Hello, <em>world</em>!</p>           -       -      /em,/p,em,p
+<ul><li>one</li><li>two</li></ul>       -       -      /li,/li,/ul,li,li,ul
+```
 
 The totals follow the table:
 
-    status: 200 (6), 301 (1), 404 (1), 500 (1)
-    host: alpha (4), beta (3), gamma (3)
-    tags: /li (2), li (2), /em (1), /p (1), /ul (1), em (1), p (1), ul (1)
+```
+status: 200 (6), 301 (1), 404 (1), 500 (1)
+host: alpha (4), beta (3), gamma (3)
+tags: /li (2), li (2), /em (1), /p (1), /ul (1), em (1), p (1), ul (1)
+```
 
 The second row shows that the position of a field does not matter.  The
 third row has no status, so its status cell is "-".  The tags li and /li
 count twice, because each occurrence of a tag is one match.
 
 
-5. Limits
----------
+## 5. Limits
 
 The compile of the rules costs about half a second on every run.  The
 module is built in a temporary directory, so there is no cache.  A run of
@@ -132,7 +146,7 @@ occurs as a parameter and inside the pattern.  The front end turns the rule
 into a lazy unification of the pair (pattern, k') with (line, k), where k'
 is a fresh variable.  The pattern therefore tries every substring of the
 line as the key before k' meets k.  A rule with a literal key, such as
-(_ ++ "status=" ++ v ++ " " ++ _), tries no substring as the key.
+(\_ ++ "status=" ++ v ++ " " ++ \_), tries no substring as the key.
 
 The pattern of field also matches a key that ends with k, such as vhost=
 for k = "host".  To require a whole key, put " " before k in the pattern

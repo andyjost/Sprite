@@ -1,5 +1,4 @@
-Hello, both ways
-================
+# Hello, both ways
 
 Hello.curry has a greeting, a choice, a failed goal and a division by zero.
 go.py sends a Python String into greet and reads a Python String back with

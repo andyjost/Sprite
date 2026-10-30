@@ -1,5 +1,4 @@
-Permutation sort: generate, test, collect
-=========================================
+# Permutation sort: generate, test, collect
 
 `perm` is a nondeterministic function: each value is a permutation.  `sort`
 takes a permutation and keeps it only if it is sorted; every other

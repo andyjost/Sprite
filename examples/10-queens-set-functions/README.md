@@ -1,5 +1,4 @@
-N queens with set functions
-===========================
+# N queens with set functions
 
 This example places N queens on an N by N board so that no queen attacks
 another.  The program is the QueensSet program from the 2009 paper "Set
@@ -7,8 +6,7 @@ Functions for Functional Logic Programming" by Antoy and Hanus.  It solves the
 puzzle in four short functions.
 
 
-1. What the example shows about functional logic programming
--------------------------------------------------------------
+## 1. What the example shows about functional logic programming
 
 Non-determinism as values.  The function perm builds one permutation of
 [1..n] with ndinsert.  Both rules of ndinsert apply to a non-empty list, so
@@ -16,7 +14,9 @@ each call is a choice.  The program means every permutation at once.
 
 Functional patterns.  The pattern in
 
-    unsafe (_ ++ [x] ++ y ++ [z] ++ _)
+```
+unsafe (_ ++ [x] ++ y ++ [z] ++ _)
+```
 
 names any two queens x and z, with the queens y between them.  The two queens
 share a diagonal when abs (x - z) equals length y + 1.
@@ -28,55 +28,61 @@ non-deterministic predicate unsafe.  A placement is a solution when it has no
 unsafe pair.
 
 
-2. What the example shows about calling Curry from Python
-----------------------------------------------------------
+## 2. What the example shows about calling Curry from Python
 
 The driver go.py adds its own directory to curry.path and imports the module
 Queens.  It calls the function queens with a Python int.  One call is a
 generator of solutions.  The driver collects every value with
 
-    curry.eval(Queens.queens(n))
+```
+curry.eval(Queens.queens(n))
+```
 
 Evaluation turns each Curry list of Ints into a Python list of ints.  The
 scheduler does not promise an order of the values, so the driver sorts the
 solutions.  It then counts them and draws the smallest board.
 
 
-3. How to run
--------------
+## 3. How to run
 
 Run "make stage" from the root of the repository first.  Then run
 
-    ./run
+```
+./run
+```
 
 To try other board sizes, pass them to go.py.  Use the Python of the staged
 install.  For example, on the C++ backend:
 
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ../../install/bin/python go.py 7 8
+```
+SPRITE_INTERPRETER_FLAGS=backend:cxx ../../install/bin/python go.py 7 8
+```
 
 
-4. Expected output
-------------------
+## 4. Expected output
 
 The file expected.out holds the exact output of ./run.  The key lines are:
 
-    n=4: 2 solutions, smallest [2, 4, 1, 3]
-    n=5: 10 solutions, smallest [1, 3, 5, 2, 4]
-    n=6: 4 solutions, smallest [2, 4, 6, 1, 3, 5]
+```
+n=4: 2 solutions, smallest [2, 4, 1, 3]
+n=5: 10 solutions, smallest [1, 3, 5, 2, 4]
+n=6: 4 solutions, smallest [2, 4, 6, 1, 3, 5]
+```
 
 The smallest board follows each line.  Each row holds one Q for the queen in
 that row.  For n = 4 the board is:
 
-    . Q . .
-    . . . Q
-    Q . . .
-    . . Q .
+```
+. Q . .
+. . . Q
+Q . . .
+. . Q .
+```
 
 A size with no solution, such as 3, prints "n=3: 0 solutions" and no board.
 
 
-5. Limits
----------
+## 5. Limits
 
 The run script uses n = 4, 5, 6.  A warm run of ./run took 0.2 s.  The
 first run also compiles the module.  It took about a second more.

@@ -1,5 +1,4 @@
-Regular expressions by non-determinism
-======================================
+# Regular expressions by non-determinism
 
 A regular expression denotes a set of words.  This example writes that
 meaning as a Curry function: sem returns one word of the set, and every word
@@ -8,19 +7,20 @@ functions, match and grep, use the words to test a subject and to search it.
 A small Python parser turns the usual pattern syntax into Curry data.
 
 
-1. What the example shows about functional logic programming
--------------------------------------------------------------
+## 1. What the example shows about functional logic programming
 
 Non-determinism as meaning.  The function sem maps a pattern to one of its
 words:
 
-    sem (Lit c)   = [c]
-    sem Any       = [c] where c free
-    sem (Alt a b) = sem a ? sem b
-    sem (Seq a b) = sem a ++ sem b
-    sem (Star a)  = [] ? (nonEmpty (sem a) ++ sem (Star a))
-    sem (Plus a)  = sem a ++ sem (Star a)
-    sem (Opt a)   = [] ? sem a
+```
+sem (Lit c)   = [c]
+sem Any       = [c] where c free
+sem (Alt a b) = sem a ? sem b
+sem (Seq a b) = sem a ++ sem b
+sem (Star a)  = [] ? (nonEmpty (sem a) ++ sem (Star a))
+sem (Plus a)  = sem a ++ sem (Star a)
+sem (Opt a)   = [] ? sem a
+```
 
 The choice operator ? stands for alternation and for the two cases of a
 star.  The list concatenation ++ stands for sequence.  A free Char stands
@@ -29,14 +29,16 @@ for the wildcard.  It unifies with any character of the subject.
 Generation.  The values of sem r are the words of r.  The pattern (cat|dog)s?
 has four words, cat, cats, dog and dogs, and the call sem on it has those
 four values.  A word of a pattern with Any holds a free character: a word of
-a. is ['a', _a], where _a stands for any character.  A star makes the stream
-of words infinite: the words of ab* are a, ab, abb, and so on without end.
+a. is ['a', \_a], where \_a stands for any character.  A star makes the stream
+of words infinite: the words of ab\* are a, ab, abb, and so on without end.
 The driver prints the first few of them and stops.
 
 Matching by unification.  The function match asks a word of the pattern to
 be the subject:
 
-    match r s | sem r =:= s = True
+```
+match r s | sem r =:= s = True
+```
 
 The non-deterministic evaluation of sem r picks the word.  Each unfolding
 of a star is a choice.  Unification with the subject prunes a branch at the
@@ -46,8 +48,10 @@ subject, the guard fails and the call has no value.
 Search with free variables.  The function grep splits the subject into three
 free parts and asks the middle part to be a word:
 
-    grep r s | pre ++ hit ++ post =:= s & hit =:= sem r = (pre, hit, post)
-      where pre, hit, post free
+```
+grep r s | pre ++ hit ++ post =:= s & hit =:= sem r = (pre, hit, post)
+  where pre, hit, post free
+```
 
 Narrowing binds the free variables: the call pre ++ hit ++ post =:= s
 instantiates them to each split of the subject into three parts.  The
@@ -57,22 +61,23 @@ backtracking.
 
 A star repeats only non-empty words of its body.  The helper nonEmpty fails
 on the empty word.  Without it a body that matches the empty word, as in
-(a?)*, would unfold forever and consume no character.  The language stays
+(a?)\*, would unfold forever and consume no character.  The language stays
 the same.
 
 
-2. What the example shows about calling Curry from Python
-----------------------------------------------------------
+## 2. What the example shows about calling Curry from Python
 
 The driver go.py adds its own directory to curry.path and imports the module
 Regex.  It parses a pattern with a recursive-descent parser of about forty
 lines.  The syntax: a character stands for itself, . is any character, | is
-alternation, * + ? repeat the item before them, parentheses group, and a
+alternation, \* + ? repeat the item before them, parentheses group, and a
 backslash makes the next character literal.  The parser returns nested
 tuples.  The first item of each tuple is the name of a constructor of
 Regex.RE.  The function build turns each tuple into Curry data:
 
-    Regex[tag](*args)
+```
+Regex[tag](*args)
+```
 
 A constructor without fields is Regex[tag] itself.
 The argument of Lit is wrapped in curry.Char; a Python str is a String.  A
@@ -91,51 +96,57 @@ search.  A goal with no value means False.  A failed guard is not an error.
 The Python function grep iterates over every value of the goal with
 curry.eval, which turns the tuple of three Strings into Python
 strings.  Curry does not promise an order of the values, so go.py sorts the
-hits by position and length.  A pattern such as a*a* derives one hit in
+hits by position and length.  A pattern such as a\*a\* derives one hit in
 several ways.  Each derivation is one value, so go.py keeps one copy of each
 hit.
 
 
-3. How to run
--------------
+## 3. How to run
 
 Run "make stage" from the root of the repository first.  Then run
 
-    ./run
+```
+./run
+```
 
 To try your own pattern and subject, pass both to go.py.  It runs match and
 grep on the pair.  Quote the pattern for the shell:
 
-    ../../install/bin/python go.py 'a.*c' xabcacx
+```
+../../install/bin/python go.py 'a.*c' xabcacx
+```
 
 To list the words of a pattern, pass --words and the pattern, and the number
 of words to print after it (10 by default).  A pattern with a star has no
 last word, so the number is the only end:
 
-    ../../install/bin/python go.py --words '(cat|dog)s?'
-    ../../install/bin/python go.py --words 'a.b*' 4
+```
+../../install/bin/python go.py --words '(cat|dog)s?'
+../../install/bin/python go.py --words 'a.b*' 4
+```
 
 
-4. Expected output
-------------------
+## 4. Expected output
 
 The file expected.out holds the exact output of ./run.  The key lines are:
 
-    words (cat|dog)s?: cat cats dog dogs
-    match ab*c abbbc: True
-    match a.c axc: True
-    match a.c abbc: False
-    grep ab*c in xxxxxxxabbbcyyyyyyyy: 1 hit
-      xxxxxxx[abbbc]yyyyyyyy
-    grep a+b? in zzaaabzz: 9 hits
-      zz[a]aabzz
-      zz[aa]abzz
-      ...
-      zzaa[ab]zz
-    grep (cat|dog)s? in cats, dogs and a dog: 5 hits
-      [cat]s, dogs and a dog
-      [cats], dogs and a dog
-      ...
+```
+words (cat|dog)s?: cat cats dog dogs
+match ab*c abbbc: True
+match a.c axc: True
+match a.c abbc: False
+grep ab*c in xxxxxxxabbbcyyyyyyyy: 1 hit
+  xxxxxxx[abbbc]yyyyyyyy
+grep a+b? in zzaaabzz: 9 hits
+  zz[a]aabzz
+  zz[aa]abzz
+  ...
+  zzaa[ab]zz
+grep (cat|dog)s? in cats, dogs and a dog: 5 hits
+  [cat]s, dogs and a dog
+  [cats], dogs and a dog
+  ...
+```
 
 The first line is the generation: the four words of a star-free pattern.
 grep lists every substring that is a word of the pattern, not only the
@@ -144,8 +155,7 @@ longest one at each position.  So a+b? has nine hits in zzaaabzz, and
 characters; section 5 says why.
 
 
-5. Limits
----------
+## 5. Limits
 
 A warm run of ./run took 0.2 s on the C++ backend.  The first run also
 compiles the module, which adds about half a second.
@@ -156,14 +166,14 @@ grows with the number of those ways, and no bound that is linear in the
 subject holds, as it does for an automaton.  grep adds the split
 pre ++ hit ++ post, which has a number of cases that is quadratic in the
 length of the subject, and asks the pattern at every split.  The subjects of
-the run script have twenty characters: a grep of ab*c or of (cat|dog)s? in
-one of them took 0.01 s.  A grep of ab*c took 0.04 s in a 41-character
+the run script have twenty characters: a grep of ab\*c or of (cat|dog)s? in
+one of them took 0.01 s.  A grep of ab\*c took 0.04 s in a 41-character
 subject, and 0.6 s in an 80-character subject.  A pattern with many hits
 costs more.
-In the 40-character subject of 25 x's, a b, 9 x's, a b and 4 x's, .*b.*
+In the 40-character subject of 25 x's, a b, 9 x's, a b and 4 x's, .\*b.\*
 has 440 hits, every substring with a b, and the grep took 0.4 s.
 
-A grep of ab*c in a subject of 100 x's took 2.0 s with a
+A grep of ab\*c in a subject of 100 x's took 2.0 s with a
 peak of 139 MB, and one of 130 x's took 3.5 s with a peak of 176 MB.
 
 The typed symbol calls convert a Python str to a Curry String, even when

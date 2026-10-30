@@ -1,5 +1,4 @@
-Template argument deduction over a model of C++ types
-=====================================================
+# Template argument deduction over a model of C++ types
 
 This example opens a series of four.  The series models the compile-time
 algorithms of a C++ compiler in Curry: template argument deduction and the
@@ -13,7 +12,7 @@ LRef, RRef, Arr, Fun, MemPtr, and Class for a class or a class template
 applied to arguments.  CxxLimits.curry holds the fundamental types and the
 tables of the LP64 data model of the x86-64 ABI: sizes, alignments, digits,
 signedness, ranges and conversion ranks.  CxxType adds a normal form, the
-traits of <type_traits> as functions, a printer that writes C++ syntax, and
+traits of \<type_traits> as functions, a printer that writes C++ syntax, and
 the deduction and ordering algorithms.
 
 A template parameter is a Curry free variable.  Deduction is unification of
@@ -38,14 +37,15 @@ argument of type int& is an lvalue of type int, int&& an xvalue, and int a
 prvalue.  Section 5 lists what deduction leaves out.
 
 
-1. What the example shows about functional logic programming
--------------------------------------------------------------
+## 1. What the example shows about functional logic programming
 
 Deduction is unification.  The function template f(T const&) has one
 template parameter, T, and one function parameter, the pattern T const by
 lvalue reference.  For an argument type a, Python asks the goal
 
-    call ["T"] [ByLRef (Const (Class "T" []))] [a]
+```
+call ["T"] [ByLRef (Const (Class "T" []))] [a]
+```
 
 The class named T stands for the template parameter.  The library function
 deduceCall makes one fresh free variable per name, puts it in place of the
@@ -62,21 +62,23 @@ function type argument gives T = void (int).
 
 Names, not free variables, in the pattern.  A rule of deduction looks into
 the pattern: a forwarding reference is an rvalue reference to a bare
-template parameter, and the const of the pattern T const* comes off the
+template parameter, and the const of the pattern T const\* comes off the
 argument.  A function that looks at a free variable narrows it: Curry binds
 the variable to every constructor in turn, and each binding is a solution.
 A pattern over free variables would then also yield bindings that no
-compiler picks, such as T = int const for f(T*) from int*.  So the pattern
+compiler picks, such as T = int const for f(T\*) from int\*.  So the pattern
 names its parameters, deduceCall inspects it with the names in place, and
 the names become free variables when the unification starts.  The library
 also has deduce, the same deduction over a pattern with free variables; its
 comment in CxxType.curry describes where that pattern is exact.
 
 A shared variable is a shared constraint.  Scenario (b) deduces the call
-g(pair<T, U*>, T).  Both parameters are patterns over the name T, and the
+g(pair\<T, U\*>, T).  Both parameters are patterns over the name T, and the
 name maps to one variable:
 
-    call ["T", "U"] [ByValue (Class "pair" [t, Ptr u]), ByValue t] [a1, a2]
+```
+call ["T", "U"] [ByValue (Class "pair" [t, Ptr u]), ByValue t] [a1, a2]
+```
 
 with t = Class "T" [] and u = Class "U" [].  A by-value parameter unifies
 with the decayed argument.  The first argument binds T to int and U to char.
@@ -89,22 +91,26 @@ Failure is a value of a set function.  A failed deduction has no value, and
 a goal with no value prints nothing.  So the goal wraps its deduction in a
 set function:
 
-    call names params args =
-      report (sortValues (set3 bindCall names params args))
+```
+call names params args =
+  report (sortValues (set3 bindCall names params args))
+```
 
 The set holds every binding.  An empty set prints "no deduction".  The
 bindings are sorted, because the scheduler does not promise an order of the
 values.
 
-Partial ordering by deduction.  A partial specialization S<T*> is more
-specialized than S<T> when S<T> can be deduced from S<T*> and not the other
+Partial ordering by deduction.  A partial specialization S\<T\*> is more
+specialized than S\<T> when S\<T> can be deduced from S\<T\*> and not the other
 way round ([temp.class.order]).  The library tests the direction with a
-synthesized class: it instantiates the pattern T* with the class __synth1
-and deduces the other pattern from __synth1*.  Each test needs a fresh copy
+synthesized class: it instantiates the pattern T\* with the class \_\_synth1
+and deduces the other pattern from \_\_synth1\*.  Each test needs a fresh copy
 of a pattern, and a pattern with free variables cannot be copied.  So a
 Template names its parameters:
 
-    Template ["T"] (Ptr (Const (Class "T" [])))
+```
+Template ["T"] (Ptr (Const (Class "T" [])))
+```
 
 The library replaces the name by a fresh free variable before it deduces
 and by a synthesized class before it instantiates.  The match test
@@ -113,13 +119,15 @@ does not unify gives False, not failure.  mostSpecialized collects the
 matching specializations and keeps those that no other match beats.
 
 The inverse question.  Scenario (d) asks two questions that a compiler never
-answers: which types decay to int*, and from which types does f(T const&)
+answers: which types decay to int\*, and from which types does f(T const&)
 deduce T = int.  The trait decay is a function from types to types, and
 deduction is a function from a call to bindings.  A function does not run
 backwards.  A free variable and a bounded generator turn it round:
 
-    decaysTo n target | t =:= anyType n && decay t =:= target = t
-      where t free
+```
+decaysTo n target | t =:= anyType n && decay t =:= target = t
+  where t free
+```
 
 anyType n is every well-formed type of depth at most n, one per value.  It
 is the generator of CxxType, which the README of example 22 describes.  The
@@ -129,8 +137,7 @@ them.  The second question has the same shape with deduceCall in place of
 decay: the bindings for the bound type must unify with [("T", int)].
 
 
-2. What the example shows about calling Curry from Python
-----------------------------------------------------------
+## 2. What the example shows about calling Curry from Python
 
 The driver go.py adds two directories to curry.path: its own, for
 Deduction.curry, and ../cxx, for the shared modules.  It imports CxxLimits,
@@ -139,13 +146,15 @@ CxxType and Deduction from curry.lib.
 Python builds the types and the patterns.  Each constructor of CxxType.Type
 is applied as a Python call, for example
 
-    CxxType.Ptr(CxxType.Const(INT))
+```
+CxxType.Ptr(CxxType.Const(INT))
+```
 
-for int const*, where INT is CxxType.Fund(CxxLimits.Int).  A
+for int const\*, where INT is CxxType.Fund(CxxLimits.Int).  A
 template parameter is the class of its name, cls('T'), and a function
 parameter is a pattern under ByValue, ByLRef or ByRRef: by_lref(const(T))
 is the parameter T const&.  A partial specialization is a Template with the
-names of its parameters: template(['T'], ptr(T)) is S<T*>.  A name is a
+names of its parameters: template(['T'], ptr(T)) is S\<T\*>.  A name is a
 Python str, which curry.term converts by the type the constructor expects,
 a String, also for a name of one character such as "T"; a list of names is
 a list of such strings.  Python can make a free variable: curry.free('x') in a
@@ -156,7 +165,9 @@ declare one.  Python passes concrete types and patterns.
 
 Every goal returns a String, and the driver reads it with
 
-    curry.eval(goal(*args) if args else goal).one()
+```
+curry.eval(goal(*args) if args else goal).one()
+```
 
 Evaluation turns the Curry String into a str.  The driver prints the
 parameters of a template through Deduction.signature and the argument types
@@ -165,134 +176,156 @@ holds no knowledge of C++ syntax.  The whole driver builds the data, calls
 the goals and aligns the columns.
 
 
-3. How to run
--------------
+## 3. How to run
 
 Run "make stage" from the root of the repository first.  Then run
 
-    ./run
+```
+./run
+```
 
 The first run also compiles the two shared modules and Deduction.curry.
 The build products go to .curry/ next to each source.
 
 
-4. Expected output
-------------------
+## 4. Expected output
 
 The file expected.out holds the exact output of ./run.  Scenario (a) has
 one template parameter.  Each row gives the parameters of f, the argument
 types of the call, and the deduction.  An argument type int& is an lvalue
 of type int, int&& an xvalue, and int a prvalue.
 
-    (a) deduce T from the parameters of f and the argument types of a call
-      f(T const&)  int              T = int
-      f(T const&)  int const&       T = int
-      f(T const&)  int[3]           T = int[3]
-      f(T const&)  int const[3]     T = int[3]
-      f(T const&)  void (int)       T = void (int)
-      f(T&&)       int&             T = int&
-      f(T&&)       int&&            T = int
-      f(T&&)       int              T = int
-      f(T)         int const        T = int
-      f(T)         int const&       T = int
-      f(T)         int[3]           T = int*
-      f(T)         void (int)       T = void (*)(int)
-      f(T const*)  char*            T = char
-      f(T*)        int[3]           T = int
-      f(T, T)      int, double      no deduction
-      f(T, T)      int, int const&  T = int
+```
+(a) deduce T from the parameters of f and the argument types of a call
+  f(T const&)  int              T = int
+  f(T const&)  int const&       T = int
+  f(T const&)  int[3]           T = int[3]
+  f(T const&)  int const[3]     T = int[3]
+  f(T const&)  void (int)       T = void (int)
+  f(T&&)       int&             T = int&
+  f(T&&)       int&&            T = int
+  f(T&&)       int              T = int
+  f(T)         int const        T = int
+  f(T)         int const&       T = int
+  f(T)         int[3]           T = int*
+  f(T)         void (int)       T = void (*)(int)
+  f(T const*)  char*            T = char
+  f(T*)        int[3]           T = int
+  f(T, T)      int, double      no deduction
+  f(T, T)      int, int const&  T = int
+```
 
 The rows show the rules of [temp.deduct.call]:
 
-  * f(T const&): a reference parameter deduces from the type of the
-    argument without its reference, and the deduced type may be more
-    cv-qualified than the argument ([temp.deduct.call]/3 and /4).  No
-    array or function decays: T = int[3] and T = void (int).  The const of
-    an array is the const of its elements ([basic.type.qualifier]), so
-    int const[3] gives T = int[3] too.
-  * f(T&&): a forwarding reference.  With an lvalue argument of type int,
-    the type int& is used in place of int, and T = int&; the parameter
-    type T&& is then int& &&, which collapses to int& ([temp.deduct.call]/3,
-    [dcl.ref]).  With an xvalue or a prvalue of type int, T = int.
-  * f(T): a by-value parameter deduces from the decayed argument.  The
-    top-level const of int const goes, from the prvalue and from the
-    lvalue; an array becomes a pointer to its element, int*; a function
-    becomes a pointer to the function, void (*)(int) ([temp.deduct.call]/2).
-  * f(T const*): the deduced type char const* differs from the argument
-    char* by a qualification conversion, which [temp.deduct.call]/4 allows
-    for a pointer, so T = char.
-  * f(T*): the array decays before deduction, and T* matches int*
-    ([temp.deduct.call]/2).
-  * f(T, T): both parameters deduce T, and the deductions must agree
-    ([temp.deduct.type]/2).  int and double disagree, and deduction has no
-    promotion or conversion to reconcile them.  int and int const& agree,
-    because the by-value rule drops the reference and the const first.
+  \* f(T const&): a reference parameter deduces from the type of the
+```
+argument without its reference, and the deduced type may be more
+cv-qualified than the argument ([temp.deduct.call]/3 and /4).  No
+array or function decays: T = int[3] and T = void (int).  The const of
+an array is the const of its elements ([basic.type.qualifier]), so
+int const[3] gives T = int[3] too.
+```
+  \* f(T&&): a forwarding reference.  With an lvalue argument of type int,
+```
+the type int& is used in place of int, and T = int&; the parameter
+type T&& is then int& &&, which collapses to int& ([temp.deduct.call]/3,
+[dcl.ref]).  With an xvalue or a prvalue of type int, T = int.
+```
+  \* f(T): a by-value parameter deduces from the decayed argument.  The
+```
+top-level const of int const goes, from the prvalue and from the
+lvalue; an array becomes a pointer to its element, int*; a function
+becomes a pointer to the function, void (*)(int) ([temp.deduct.call]/2).
+```
+  \* f(T const\*): the deduced type char const\* differs from the argument
+```
+char* by a qualification conversion, which [temp.deduct.call]/4 allows
+for a pointer, so T = char.
+```
+  \* f(T\*): the array decays before deduction, and T\* matches int\*
+```
+([temp.deduct.call]/2).
+```
+  \* f(T, T): both parameters deduce T, and the deductions must agree
+```
+([temp.deduct.type]/2).  int and double disagree, and deduction has no
+promotion or conversion to reconcile them.  int and int const& agree,
+because the by-value rule drops the reference and the const first.
+```
 
 Scenario (b) has two template parameters, or a parameter inside a class
 template argument:
 
-    (b) deduce the template parameters from the parameters of g and the argument types of a call
-      g(pair<T, U*>, T)  pair<int, char*>, int   T = int, U = char
-      g(pair<T, U*>, T)  pair<int, char*>, long  no deduction
-      g(vector<T>)       vector<int const*>      T = int const*
+```
+(b) deduce the template parameters from the parameters of g and the argument types of a call
+  g(pair<T, U*>, T)  pair<int, char*>, int   T = int, U = char
+  g(pair<T, U*>, T)  pair<int, char*>, long  no deduction
+  g(vector<T>)       vector<int const*>      T = int const*
+```
 
 Section 1 explains the first two rows.  In the third, T occurs only inside
 the template argument list of vector, where the match is exact
-([temp.deduct.type], the form TT<T>): T = int const*, and no conversion
+([temp.deduct.type], the form TT\<T>): T = int const\*, and no conversion
 applies inside the list.
 
-Scenario (c) orders the specializations S<T>, S<T*> and S<T const*>:
+Scenario (c) orders the specializations S\<T>, S\<T\*> and S\<T const\*>:
 
-    (c) the most specialized of S<T>, S<T*>, S<T const*> for S<...> with
-      int                unique: S<T>
-      int*               unique: S<T*>
-      int const*         unique: S<T const*>
-      char const* const  unique: S<T>
+```
+(c) the most specialized of S<T>, S<T*>, S<T const*> for S<...> with
+  int                unique: S<T>
+  int*               unique: S<T*>
+  int const*         unique: S<T const*>
+  char const* const  unique: S<T>
+```
 
-The last line is the surprise of the scenario.  The pattern T* does not
-match char const* const, because the match of a partial specialization is
+The last line is the surprise of the scenario.  The pattern T\* does not
+match char const\* const, because the match of a partial specialization is
 exact and the target is a const pointer ([temp.class.spec.match]).  The
 primary template is chosen.  This is why the standard library spells out
-four specializations for is_pointer: T*, T* const, T* volatile and
-T* const volatile.
+four specializations for is_pointer: T\*, T\* const, T\* volatile and
+T\* const volatile.
 
-The second set, S<pair<T, int>> and S<pair<int, T>>, shows the other two
-outcomes.  pair<int, int> matches both and neither is more specialized:
-ambiguous.  pair<char, int> matches the first only: unique.  pair<char, char>
+The second set, S\<pair\<T, int>> and S\<pair\<int, T>>, shows the other two
+outcomes.  pair\<int, int> matches both and neither is more specialized:
+ambiguous.  pair\<char, int> matches the first only: unique.  pair\<char, char>
 matches neither: no match.
 
 Three more sets order one pair of specializations at a time:
 
-    (c) the most specialized of S<T>, S<T*> for S<...> with
-      int*  unique: S<T*>
-    (c) the most specialized of S<T&>, S<T const&> for S<...> with
-      int&        unique: S<T&>
-      int const&  unique: S<T const&>
-    (c) the most specialized of S<vector<T>>, S<vector<T*>> for S<...> with
-      vector<int*>  unique: S<vector<T*>>
-      vector<int>   unique: S<vector<T>>
+```
+(c) the most specialized of S<T>, S<T*> for S<...> with
+  int*  unique: S<T*>
+(c) the most specialized of S<T&>, S<T const&> for S<...> with
+  int&        unique: S<T&>
+  int const&  unique: S<T const&>
+(c) the most specialized of S<vector<T>>, S<vector<T*>> for S<...> with
+  vector<int*>  unique: S<vector<T*>>
+  vector<int>   unique: S<vector<T>>
+```
 
-S<T*> is more specialized than S<T>: T can be deduced from a synthesized
-type U*, and T* cannot be deduced from a synthesized U ([temp.class.order],
-[temp.func.order]).  S<T const&> matches int const& with T = int, and S<T&>
+S\<T\*> is more specialized than S\<T>: T can be deduced from a synthesized
+type U\*, and T\* cannot be deduced from a synthesized U ([temp.class.order],
+[temp.func.order]).  S\<T const&> matches int const& with T = int, and S\<T&>
 matches it with T = int const; the first is more specialized and wins.  For
-int& only S<T&> matches, because the match is exact and T const& does not
+int& only S\<T&> matches, because the match is exact and T const& does not
 match a reference to a non-const int.  The same holds one level down,
-inside vector<...>.
+inside vector\<...>.
 
 Scenario (d) prints two lines:
 
-    (d) the types of depth at most 2 that decay to int*: int (&&)[3], int (&)[3], int*, int* const, int* volatile, int*&, int*&&, int[3]
-    (d) the types of depth at most 1 from which f(T const&) deduces T = int: int, int const, int&, int&&
+```
+(d) the types of depth at most 2 that decay to int*: int (&&)[3], int (&)[3], int*, int* const, int* volatile, int*&, int*&&, int[3]
+(d) the types of depth at most 1 from which f(T const&) deduces T = int: int, int const, int&, int&&
+```
 
-Arrays are generated with the bound 3.  The depth excludes int* const& and
-int* const volatile, which have depth 3.  The second line is small enough
+Arrays are generated with the bound 3.  The depth excludes int\* const& and
+int\* const volatile, which have depth 3.  The second line is small enough
 to check by hand.  The types of depth at most 1 are the fundamental types,
 the class Foo of the generator, and one constructor over one of them.
 f(T const&) deduces T = int from int itself, from int const, whose const
 comes off by the rule of the first rows of (a), and from int& and int&&, an
 lvalue and an xvalue of type int.  Every other type gives another T:
-int volatile gives T = int volatile, and int* gives T = int*.  The lvalue
+int volatile gives T = int volatile, and int\* gives T = int\*.  The lvalue
 of type int const, int const&, has depth 2 and is outside the bound; at
 depth 2 the question also finds int const& and int const&&, and nothing
 else.  The bare type int const is not the type of a C++ expression: a
@@ -301,8 +334,7 @@ prvalue of a cv-qualified scalar type is adjusted to the unqualified type
 for an expression of type int const of any value category.
 
 
-5. Limits
----------
+## 5. Limits
 
 A warm run of ./run took 0.6 s.  The first run also compiles the three
 modules; it took about 3 s more.
@@ -310,38 +342,52 @@ modules; it took about 3 s more.
 The generator grows by a factor of six per level of depth.  Depth 0 holds
 the 17 fundamental types and one class; depth 1 has 194 types, depth 2 has
 1245, and depth 3 has 7330.  The inverse question at depth 3 took 1.2 s,
-and it finds 13 types: the cv-qualified and reference forms of int* and of
+and it finds 13 types: the cv-qualified and reference forms of int\* and of
 int[3] up to that depth.
 
 Deduction follows [temp.deduct.call] for a call and [temp.deduct.type] for
 the match of a partial specialization.  What the model leaves out:
 
-  * Value categories beyond the encoding of the argument types: a
-    reference type is an lvalue or an xvalue, a bare type a prvalue.  A
-    bare cv-qualified scalar type, such as int const in scenario (a), is
-    not the type of a C++ expression; the model deduces from the written
-    type.  Deduction does not check that the reference can bind: f(T&)
-    deduces T = int from a prvalue int, and overload resolution would then
-    reject the call.
-  * Non-deduced contexts.  Every occurrence of a template parameter in a
-    pattern is deduced; a nested-name-specifier or an expression cannot be
-    written in a pattern.
-  * The derived-to-base conversion: a class argument Derived does not
-    match the pattern Base<T>, and Derived* does not match Base<T>*
-    ([temp.deduct.call]/4).  The model knows no class hierarchy in
-    deduction.
-  * The function pointer conversion: the model has no noexcept, so there
-    is nothing to convert.
-  * The qualification conversion covers pointers and pointers to members
-    at every level, with the rule of [conv.qual] that an extra qualifier
-    below the first level needs const at every level above it:
-    f(T const* const*) deduces T = int from int**, and f(T const**)
-    deduces nothing.  Inside a class template argument, an array or a
-    function type the match is exact.
-  * Non-type template parameters: the bound of an array is a number, not
-    a parameter, so f(T (&)[N]) cannot be written.  No default template
-    arguments, explicit template arguments or parameter packs.
-  * The partial ordering compares the patterns of class template
-    specializations, as [temp.class.order] rewrites them.  Function
-    templates are not ordered, and overload resolution (example 21) does
-    not consult deduction.
+  \* Value categories beyond the encoding of the argument types: a
+```
+reference type is an lvalue or an xvalue, a bare type a prvalue.  A
+bare cv-qualified scalar type, such as int const in scenario (a), is
+not the type of a C++ expression; the model deduces from the written
+type.  Deduction does not check that the reference can bind: f(T&)
+deduces T = int from a prvalue int, and overload resolution would then
+reject the call.
+```
+  \* Non-deduced contexts.  Every occurrence of a template parameter in a
+```
+pattern is deduced; a nested-name-specifier or an expression cannot be
+written in a pattern.
+```
+  \* The derived-to-base conversion: a class argument Derived does not
+```
+match the pattern Base<T>, and Derived* does not match Base<T>*
+([temp.deduct.call]/4).  The model knows no class hierarchy in
+deduction.
+```
+  \* The function pointer conversion: the model has no noexcept, so there
+```
+is nothing to convert.
+```
+  \* The qualification conversion covers pointers and pointers to members
+```
+at every level, with the rule of [conv.qual] that an extra qualifier
+below the first level needs const at every level above it:
+f(T const* const*) deduces T = int from int**, and f(T const**)
+deduces nothing.  Inside a class template argument, an array or a
+function type the match is exact.
+```
+  \* Non-type template parameters: the bound of an array is a number, not
+```
+a parameter, so f(T (&)[N]) cannot be written.  No default template
+arguments, explicit template arguments or parameter packs.
+```
+  \* The partial ordering compares the patterns of class template
+```
+specializations, as [temp.class.order] rewrites them.  Function
+templates are not ordered, and overload resolution (example 21) does
+not consult deduction.
+```

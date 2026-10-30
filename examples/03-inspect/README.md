@@ -1,5 +1,4 @@
-Metadata
-=========
+# Metadata
 
 The script reads the shared Peano module's public metadata; the Nat
 introduction and its conversions belong to 02-dynamic-code-generation.
@@ -16,8 +15,7 @@ records stdout.  The script uses interpret:off and the C++ runtime so the
 last section can read generated C++.  Continue with 04-static-compile for session control.  The guide's
 session-control section covers these public lookups.
 
-Internal: compiler products
----------------------------
+## Internal: compiler products
 
 The last section uses curry.inspect, a developer module outside the public
 API, to find the ICurry and JSON files and read the implementation of add.

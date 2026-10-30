@@ -1,5 +1,4 @@
-Scheduling tasks fed from Python data
-=====================================
+# Scheduling tasks fed from Python data
 
 This example schedules five kitchen tasks.  Each task has a duration and
 needs one resource.  Some tasks must follow others.  Python holds the data
@@ -8,12 +7,13 @@ grows the horizon until a schedule exists and draws that schedule as a
 Gantt chart.
 
 
-1. What the example shows about functional logic programming
--------------------------------------------------------------
+## 1. What the example shows about functional logic programming
 
 Constraint solving by search.  The schedule in
 
-    starts = [ (n, anyOf [0 .. horizon - d]) | (n, d, _) <- tasks ]
+```
+starts = [ (n, anyOf [0 .. horizon - d]) | (n, d, _) <- tasks ]
+```
 
 gives each task anyOf the start slots that keep it inside the horizon.  The
 call anyOf xs is a choice among the elements of xs.  So the one expression
@@ -21,7 +21,9 @@ starts means every assignment at once.
 
 Lazy generate and test.  The guard
 
-    all ordered prec && all noOverlap pairs
+```
+all ordered prec && all noOverlap pairs
+```
 
 keeps the assignments where every precedence holds and no two tasks on one
 resource overlap.  A failed guard is not an error.  It produces no value.
@@ -39,8 +41,7 @@ the call yields zero values.  Python counts upward from the longest task.
 The first horizon with a schedule is the shortest one.
 
 
-2. What the example shows about calling Curry from Python
-----------------------------------------------------------
+## 2. What the example shows about calling Curry from Python
 
 The tasks and the precedences are Python data: a list of (name, duration,
 resource) tuples and a list of (before, after) pairs.  The driver go.py
@@ -52,7 +53,9 @@ A name is a Python str, always a String, also when it has one character.
 
 One call,
 
-    curry.eval(Sched.schedule(tasks, precedences, horizon))
+```
+curry.eval(Sched.schedule(tasks, precedences, horizon))
+```
 
 returns a lazy Results iterator of schedules.  The driver takes the first
 one with next().  Taking one answer or breaking out of a loop preserves
@@ -63,41 +66,44 @@ Evaluation turns the schedule into a Python list of (str, int) pairs.
 The driver sorts it by start slot and draws the chart.
 
 
-3. How to run
--------------
+## 3. How to run
 
 Run "make stage" from the root of the repository first.  Then run
 
-    ./run
+```
+./run
+```
 
 To try other tasks, edit TASKS and PRECEDENCES at the top of go.py.  If
 several schedules of the same length exist, the first one found may differ
 from one run to the next.
 
 
-4. Expected output
-------------------
+## 4. Expected output
 
 The file expected.out holds the exact output of ./run.  The driver prints
 the tasks and the precedences first.  Then it prints one line per horizon:
 
-    horizon 8: none
-    horizon 9: mix@0 bake@2 cool@5 frost@7 pack@8
+```
+horizon 8: none
+horizon 9: mix@0 bake@2 cool@5 frost@7 pack@8
+```
 
 The chain mix, bake, cool, frost, pack has a total duration of 9.  So no
 schedule fits 8 slots, and exactly one fits 9.  The chart follows, with one
 row per task in order of start:
 
-    slot   012345678
-    mix    ##.......  bowl
-    bake   ..###....  oven
-    cool   .....##..  rack
-    frost  .......#.  bowl
-    pack   ........#  table
+```
+slot   012345678
+mix    ##.......  bowl
+bake   ..###....  oven
+cool   .....##..  rack
+frost  .......#.  bowl
+pack   ........#  table
+```
 
 
-5. Limits
----------
+## 5. Limits
 
 The work depends on how early the guards prune.  The precedences prune
 early, so a chain of tasks is cheap.  A chain of eight tasks on four

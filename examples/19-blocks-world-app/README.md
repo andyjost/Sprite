@@ -1,5 +1,4 @@
-Blocks World as a command-line application
-==========================================
+# Blocks World as a command-line application
 
 This example plans moves in the Blocks World.  A world is three stacks of
 blocks.  One move takes the top block of a stack and puts it on another
@@ -8,15 +7,16 @@ world.  Curry states what a legal move is.  Python parses the worlds,
 drives the search, and draws the plan.
 
 
-1. What the example shows about functional logic programming
--------------------------------------------------------------
+## 1. What the example shows about functional logic programming
 
 Non-determinism as search.  The function move has one rule per source
 stack:
 
-    move (x:xs, ys, zs) = (xs, x:ys, zs) ? (xs, ys, x:zs)
-    move (xs, y:ys, zs) = (y:xs, ys, zs) ? (xs, ys, y:zs)
-    move (xs, ys, z:zs) = (z:xs, ys, zs) ? (xs, z:ys, zs)
+```
+move (x:xs, ys, zs) = (xs, x:ys, zs) ? (xs, ys, x:zs)
+move (xs, y:ys, zs) = (y:xs, ys, zs) ? (xs, ys, y:zs)
+move (xs, ys, z:zs) = (z:xs, ys, zs) ? (xs, z:ys, zs)
+```
 
 The rules overlap, so every rule that matches applies.  Each rule offers a
 choice of two target stacks with ?.  So move w means every legal move from
@@ -34,12 +34,13 @@ bound 0, then 1, then 2, and so on.  The first bound with a plan gives a
 shortest plan.  Python takes the first plan it finds.
 
 
-2. What the example shows about calling Curry from Python
-----------------------------------------------------------
+## 2. What the example shows about calling Curry from Python
 
 The driver go.py is a small application built with argparse:
 
-    python go.py ABC// //ABC
+```
+python go.py ABC// //ABC
+```
 
 A world is three stacks separated by slashes.  Write each stack from its
 top block to its bottom block.  The driver checks the notation and builds
@@ -49,7 +50,9 @@ A Python tuple of three lists becomes the Curry tuple World.
 
 One call,
 
-    curry.eval(Blocks.plan(bound, start, goal))
+```
+curry.eval(Blocks.plan(bound, start, goal))
+```
 
 returns a lazy Results iterator of plans.  The driver takes the first one
 with next().  Taking one answer or breaking out of a loop preserves the
@@ -66,17 +69,20 @@ line does.  A Flask front end would call the same function.  The run
 script does not start the server.
 
 
-3. How to run
--------------
+## 3. How to run
 
 Run "make stage" from the root of the repository first.  Then run
 
-    ./run
+```
+./run
+```
 
 To plan other problems, pass a start world and a goal world to go.py.  Use
 the Python of the staged install.  For example, on the C++ backend:
 
-    SPRITE_INTERPRETER_FLAGS=backend:cxx ../../install/bin/python go.py ABCD// //ABCD
+```
+SPRITE_INTERPRETER_FLAGS=backend:cxx ../../install/bin/python go.py ABCD// //ABCD
+```
 
 The blocks are A, B, C, D, and E.  The start and the goal must hold the
 same blocks.  The option --max-moves N sets the bound at which the search
@@ -84,7 +90,9 @@ gives up.  The default is 12.
 
 To use the web form, run
 
-    ../../install/bin/python go.py --serve 8000
+```
+../../install/bin/python go.py --serve 8000
+```
 
 and open http://127.0.0.1:8000/ in a browser.  Press Ctrl-C to stop it.
 
@@ -92,58 +100,64 @@ The module has a goal main for sprite-exec.  It prints every plan of at
 most five moves for the first problem of the run script.  There is one
 plan, so the command prints one line:
 
-    ../../install/bin/sprite-exec Blocks.curry
-    [([A,B,C],[],[]),([B,C],[A],[]),([C],[B,A],[]),([],[B,A],[C]),([],[A],[B,C]),([],[],[A,B,C])]
+```
+../../install/bin/sprite-exec Blocks.curry
+[([A,B,C],[],[]),([B,C],[A],[]),([C],[B,A],[]),([],[B,A],[C]),([],[A],[B,C]),([],[],[A,B,C])]
+```
 
 curry.show prints ordinary Curry value text, including repeated lists.
 A shared reducible subterm in a term is printed through a let binding.
 
 
-4. Expected output
-------------------
+## 4. Expected output
 
 The file expected.out holds the exact output of ./run.  The script plans
 two problems.  The first carries A, B, C from the first stack to the third
 stack in the same order.  The key lines are:
 
-    start ABC//  goal //ABC
-    bound 0: no plan
-    bound 1: no plan
-    bound 2: no plan
-    bound 3: no plan
-    bound 4: no plan
-    shortest plan: 5 moves
-      1. A to stack 2  BC/A/
-      2. B to stack 2  C/BA/
-      3. C to stack 3  /BA/C
-      4. B to stack 3  /A/BC
-      5. A to stack 3  //ABC
+```
+start ABC//  goal //ABC
+bound 0: no plan
+bound 1: no plan
+bound 2: no plan
+bound 3: no plan
+bound 4: no plan
+shortest plan: 5 moves
+  1. A to stack 2  BC/A/
+  2. B to stack 2  C/BA/
+  3. C to stack 3  /BA/C
+  4. B to stack 3  /A/BC
+  5. A to stack 3  //ABC
+```
 
 Each move names the block and the stack it moves to.  Then it shows the
 world after the move in the input notation.  A picture of the trace
 follows.  Each world is drawn as three stacks with the top block on top:
 
-    step 0   step 1   step 2   step 3   step 4   step 5
-    A . .    . . .    . . .    . . .    . . .    . . A
-    B . .    B . .    . B .    . B .    . . B    . . B
-    C . .    C A .    C A .    . A C    . A C    . . C
-    1 2 3    1 2 3    1 2 3    1 2 3    1 2 3    1 2 3
+```
+step 0   step 1   step 2   step 3   step 4   step 5
+A . .    . . .    . . .    . . .    . . .    . . A
+B . .    B . .    . B .    . B .    . . B    . . B
+C . .    C A .    C A .    . A C    . A C    . . C
+1 2 3    1 2 3    1 2 3    1 2 3    1 2 3    1 2 3
+```
 
 The second problem reverses the stack onto the third stack.  It takes
 3 moves:
 
-    shortest plan: 3 moves
-      1. A to stack 3  BC//A
-      2. B to stack 3  C//BA
-      3. C to stack 3  //CBA
+```
+shortest plan: 3 moves
+  1. A to stack 3  BC//A
+  2. B to stack 3  C//BA
+  3. C to stack 3  //CBA
+```
 
 Each of the two problems has exactly one shortest plan.  For a problem with
 several shortest plans, the first one found may differ from one run to the
 next.
 
 
-5. Limits
----------
+## 5. Limits
 
 The work grows with the bound.  Each world has up to six moves, and the
 runtime keeps the open alternatives in memory.  Three blocks are cheap: a

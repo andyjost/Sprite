@@ -1,5 +1,4 @@
-A perfect hash function, found by search
-========================================
+# A perfect hash function, found by search
 
 The program space is three operations with a few constants, nine
 alternatives per position; `program n` is every program of length n, by
