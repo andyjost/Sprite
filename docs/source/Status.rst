@@ -52,8 +52,8 @@ it.  ``all`` interprets every module; it is the default on Windows, a port on
 master that no release covers yet, where the compile of generated code is
 not available.  ``off``
 compiles every module first.
-The interpreter takes the same steps as the compiled code and about 1.1 to
-1.5 times its time.  The swap binds the compiled object to the tables the
+The interpreter takes the same steps as the compiled code and about 1.5
+times its time.  The swap binds the compiled object to the tables the
 interpreter made through slots of the object that the loader fills, on
 Linux and macOS alike (issue #163).  An installation without a C++
 compiler runs every program interpreted; see

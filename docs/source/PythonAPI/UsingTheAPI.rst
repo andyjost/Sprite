@@ -421,7 +421,7 @@ Two notes
     convert Curry source code into FlatCurry, from which it writes an
     intermediate representation called ICurry.  The front end is the
     slowest step of the compilation: a fraction of a second for a small
-    module (0.6 s for ``Peano``), seconds for a large one, and nothing when
+    module (0.7 s for ``Peano``), seconds for a large one, and nothing when
     the files are current.  It does not affect the performance of programs
     compiled by Sprite.  On the C++ backend a module runs interpreted at
     once, and its compilation to native code happens in the background.

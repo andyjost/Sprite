@@ -175,9 +175,9 @@ the argument, and the Curry front end rejects the signature without it.
        sourceOf t = case sortValues (set1 source t) of [s] -> s
 
    The capsule of the set function resolves the variables once, and its
-   values leave it as plain data.  One name compared 200 times took 222141
-   rewrite steps through ``source``, 180362 with ``$##`` on the result,
-   and 14723 through ``sourceOf`` on the C++ backend; the forks of the
+   values leave it as plain data.  One name compared 200 times took 219524
+   rewrite steps through ``source``, 177745 with ``$##`` on the result,
+   and 12102 through ``sourceOf`` on the C++ backend (2026-10-30); the forks of the
    first two grew with the comparisons and those of the third stayed at
    the match (``tests/unit_funcpat_narrowed.py``).  The build system of
    example 24 reads its rules this way.
