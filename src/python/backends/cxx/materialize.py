@@ -62,6 +62,14 @@ logger = logging.getLogger(__name__)
 # Whether the unavailability of the JIT was logged in this process.
 _JIT_WARNED = False
 
+def jit_enabled():
+  '''
+  Whether the environment switches the JIT on: SPRITE_JIT set to 1, true,
+  on or yes.  The spike of issue #65 keeps the switch out of the flags of
+  the interpreter, whose names the API review froze.
+  '''
+  return os.environ.get('SPRITE_JIT', '').strip().lower() in ('1', 'true', 'on', 'yes')
+
 # The bytecode of every interpreted function, by full name, for
 # inspect.getimpl (implementation.py).  An interpreted table lives for the
 # life of the process (Module::clear keeps it), so its code is kept as long.
@@ -92,14 +100,14 @@ class Materializer(object):
     self.M = h.backend_handle
     self.imodule = h.icurry
     self.interpret = interp.flags['interpret'] != 'off'
-    # The JIT compiles each function as its bytecode is attached (the flag
-    # jit; curry.backends.cxx.llvmjit).  When it cannot run, the functions
-    # stay interpreted and the reason is logged once per process.
-    # Under tiered the background compile swaps the steps itself, so the
-    # flag applies to the modes new and all.
+    # The JIT compiles the functions of the module when it is loaded (the
+    # environment variable SPRITE_JIT, the spike of issue #65;
+    # curry.backends.cxx.llvmjit).  When it cannot run, the functions stay
+    # interpreted and the reason is logged once per process.  Under tiered
+    # the background compile swaps the steps itself, so the switch applies
+    # to the modes new and all.
     self.jit = (
-        interp.flags['interpret'] in ('new', 'all')
-        and bool(interp.flags.get('jit', False))
+        interp.flags['interpret'] in ('new', 'all') and jit_enabled()
       )
     if self.interpret:
       # The bytecode of other modules, and a compiled object bound to them
@@ -185,9 +193,11 @@ class Materializer(object):
       )
     BYTECODE[ifun.fullname] = code
     if self.jit:
+      # Queued: the backend compiles the queue in one LLVM module when the
+      # module is loaded (module_loaded), or before an evaluation.
       from . import llvmjit
       try:
-        llvmjit.compile(info, ifun.fullname)
+        llvmjit.enqueue(info, ifun.fullname)
       except llvmjit.Unavailable as exc:
         global _JIT_WARNED
         if not _JIT_WARNED:

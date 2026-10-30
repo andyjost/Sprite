@@ -1,7 +1,7 @@
 from ..generic.eval import evaluator
 from ... import backends
 from . import (
-    compiler, curryrtbindings, fundamental_symbols, implementation, loader
+    compiler, curryrtbindings, fundamental_symbols, implementation, llvmjit, loader
   , materialize, tiered, toolchain
   )
 from ...objects.handle import getHandle
@@ -34,6 +34,9 @@ class IBackend(backends.IBackend):
   def module_loaded(self, interp, moduleobj, currypath):
     materialize.module_loaded(interp, moduleobj, currypath)
     tiered.module_loaded(interp, moduleobj, currypath)
+    # The functions the materializer queued for the JIT (the flag jit) are
+    # compiled in one LLVM module now that the module is loaded.
+    llvmjit.flush()
 
   def module_unlinked(self, interp, moduleobj):
     # The tables of the module go to the kept store now, not when the last
@@ -49,6 +52,7 @@ class IBackend(backends.IBackend):
   def before_evaluation(self, interp):
     if tiered.enabled(interp):
       tiered.poll(interp)
+    llvmjit.flush()   # a function attached outside a module load
 
   def after_evaluation(self, interp):
     if tiered.enabled(interp):

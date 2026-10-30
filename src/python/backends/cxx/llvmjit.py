@@ -4,13 +4,15 @@ function, compiled in process on llvmlite (the spike of issue #65).
 
 The JIT plugs in where the interpreter plugs in.  The materializer builds
 the info tables of a module and attaches the bytecode of each function
-(materialize.py, bytecode.py); under the flag ``jit`` it then hands the
-function to :func:`compile`, which reads the bytecode back from the
-runtime (``icurry_bytecode``, the constants as addresses), writes one LLVM
-function with the signature of a step, links the bitcode of the helpers
-(src/curryrt/jit/helpers.cpp, ``lib/curryrt-helpers.bc``), optimizes,
-compiles with the ORC JIT of LLVM, and swaps the step of the table to the
-code (``icurry_set_step``).  Every helper is inlined, so the step holds the
+(materialize.py, bytecode.py); with the environment variable SPRITE_JIT
+set (the switch of the spike, outside the frozen flags of the interpreter)
+it queues each function (:func:`enqueue`), and when the module is loaded
+the backend compiles the queue (:func:`flush`): one LLVM module whose
+functions are read back from the runtime (``icurry_bytecode``, the
+constants as addresses), one function with the signature of a step each,
+linked with the bitcode of the helpers (src/curryrt/jit/helpers.cpp,
+``lib/curryrt-helpers.bc``), optimized, compiled with the ORC JIT of LLVM,
+and the step of each table swapped to the code (``icurry_set_step``).  Every helper is inlined, so the step holds the
 inline code of the runtime headers as compiled code does: the allocation
 fast path, the reads of the successors, the rewrite of the redex.  What the
 headers declare out of line is a call into the runtime library, resolved
@@ -30,9 +32,9 @@ function interpreted and logs the reason once.
 from ... import config
 from . import bytecode
 from . import curryrtbindings as curryrt
-import logging, threading, time
+import logging, os, threading, time
 
-__all__ = ['Unavailable', 'available', 'compile', 'statistics']
+__all__ = ['Unavailable', 'available', 'compile', 'enqueue', 'flush', 'statistics']
 
 logger = logging.getLogger(__name__)
 
@@ -62,14 +64,39 @@ def compile(info, name):
   '''
   jit = _get()
   with _lock:
-    jit.compile(info, name)
+    jit.compile_batch([(info, name)])
+
+def enqueue(info, name):
+  '''
+  Queues the interpreted function of ``info`` for the next :func:`flush`.
+  The function runs interpreted until then.  Raises Unavailable when the
+  JIT cannot run.
+  '''
+  jit = _get()
+  with _lock:
+    jit.pending.append((info, name))
+
+def flush():
+  '''
+  Compiles the queued functions in one LLVM module and swaps their steps:
+  the backend calls it when a module is loaded and before an evaluation.
+  One module amortizes the fixed cost of the optimizer and the code
+  generator over the functions of a Curry module.
+  '''
+  jit = _jit
+  if jit is None:
+    return
+  with _lock:
+    pending, jit.pending = jit.pending, []
+    if pending:
+      jit.compile_batch(pending)
 
 def statistics():
   '''The counts and the seconds of the JIT of this process.'''
   jit = _jit
   if jit is None:
-    return {'functions': 0, 'seconds': 0.0}
-  return {'functions': jit.functions, 'seconds': jit.seconds}
+    return {'functions': 0, 'batches': 0, 'seconds': 0.0}
+  return {'functions': jit.functions, 'batches': jit.batches, 'seconds': jit.seconds}
 
 def _get():
   global _jit, _reason
@@ -121,24 +148,33 @@ class _JIT(object):
     self.lljit = llvm.create_lljit_compiler(self.machine)
     self.sizes = curryrt.jit_sizes()
     self.trackers = []   # the code lives as long as the process
+    self.pending = []    # (info, name) queued for the next flush
     self.functions = 0
+    self.batches = 0
     self.seconds = 0.0
 
-  def compile(self, info, name):
+  def compile_batch(self, items):
+    '''Compiles the functions of ``items`` in one LLVM module.'''
     start = time.perf_counter()
-    bc = curryrt.icurry_bytecode(info)
-    if bc is None:
-      raise ValueError('%s is not an interpreted function' % name)
-    symbol = 'jit%d_%s' % (self.functions, _identifier(name))
-    module = _Emitter(self, symbol, bc).emit()
-    llmod = self.llvm.parse_assembly(str(module))
+    batch = _Batch(self, 'jit%d' % self.batches)
+    symbols = []
+    for info, name in items:
+      bc = curryrt.icurry_bytecode(info)
+      if bc is None:
+        raise ValueError('%s is not an interpreted function' % name)
+      if curryrt.icurry_is_jit(info):
+        continue   # queued twice, or compiled by an earlier flush
+      symbols.append((info, name, batch.emit(name, bc)))
+    if not symbols:
+      return
+    llmod = self.llvm.parse_assembly(str(batch.module))
     t_ir = time.perf_counter()
     llmod.link_in(self.helpers, preserve=True)
     # The helpers are internal to the module once linked: the inliner folds
-    # the ones the step calls into it, and the dead-code pass drops the
-    # rest, so the optimizer and the code generator see the step alone.
+    # the ones the steps call into them, and the dead-code pass drops the
+    # rest, so the optimizer and the code generator see the steps alone.
     for fn in llmod.functions:
-      if fn.name.startswith('jit_') and not fn.is_declaration and fn.name != symbol:
+      if fn.name.startswith('jit_') and not fn.is_declaration:
         fn.linkage = 'internal'
     llmod.verify()
     t_link = time.perf_counter()
@@ -146,18 +182,29 @@ class _JIT(object):
     builder = self.llvm.create_pass_builder(self.machine, options)
     builder.getModulePassManager().run(llmod, builder)
     t_opt = time.perf_counter()
-    library = self.llvm.JITLibraryBuilder().add_ir(llmod) \
-        .add_current_process().export_symbol(symbol)
-    tracker = library.link(self.lljit, symbol)
-    address = tracker[symbol]
+    dump = os.environ.get('SPRITE_JIT_DUMP')
+    if dump:
+      # The optimized IR and the assembly of each batch, for the study of
+      # the code (the spike).
+      os.makedirs(dump, exist_ok=True)
+      with open(os.path.join(dump, batch.name + '.ll'), 'w') as stream:
+        stream.write(str(llmod))
+      with open(os.path.join(dump, batch.name + '.s'), 'w') as stream:
+        stream.write(self.machine.emit_assembly(llmod))
+    library = self.llvm.JITLibraryBuilder().add_ir(llmod).add_current_process()
+    for _, _, symbol in symbols:
+      library.export_symbol(symbol)
+    tracker = library.link(self.lljit, batch.name)
     self.trackers.append(tracker)
-    curryrt.icurry_set_step(info, address)
-    self.functions += 1
+    for info, name, symbol in symbols:
+      curryrt.icurry_set_step(info, tracker[symbol])
+    self.functions += len(symbols)
+    self.batches += 1
     end = time.perf_counter()
     self.seconds += end - start
     logger.debug(
-        'JIT %s: %d units, %.1f ms (IR %.1f, link %.1f, optimize %.1f, code %.1f)'
-      , name, len(bc['code']), 1000 * (end - start), 1000 * (t_ir - start)
+        'JIT batch %s: %d functions, %.1f ms (IR %.1f, link %.1f, optimize %.1f, code %.1f)'
+      , batch.name, len(symbols), 1000 * (end - start), 1000 * (t_ir - start)
       , 1000 * (t_link - t_ir), 1000 * (t_opt - t_link), 1000 * (end - t_opt)
       )
 
@@ -192,15 +239,11 @@ ROOT_VAR = bytecode.ROOT_VAR
 NO_BRANCH = bytecode.NO_BRANCH
 
 
-class _Emitter(object):
-  '''Writes the LLVM function of one bytecode.'''
-  def __init__(self, jit, symbol, bc):
+class _Batch(object):
+  '''One LLVM module: the helper declarations and the steps of a flush.'''
+  def __init__(self, jit, name):
     ir = jit.ir
-    self.jit, self.ir = jit, ir
-    self.symbol = symbol
-    self.code = list(bc['code'])
-    self.consts = list(bc['consts'])
-    self.nregs, self.nvars, self.nstack = bc['nregs'], bc['nvars'], bc['nstack']
+    self.jit, self.ir, self.name = jit, ir, name
     self.ptr = ir.PointerType()
     self.i8, self.i16 = ir.IntType(8), ir.IntType(16)
     self.i32, self.i64 = ir.IntType(32), ir.IntType(64)
@@ -209,14 +252,36 @@ class _Emitter(object):
         'p': self.ptr, 'i': self.i32, 't': self.i16, 'q': self.i64
       , 'd': self.f64, 'v': ir.VoidType()
       }
-    self.module = ir.Module(name=symbol)
+    self.module = ir.Module(name=name)
     self.module.triple = jit.llvm.get_default_triple()
     self.helpers = {}
-    for name, (result, args) in _HELPERS.items():
+    for hname, (result, args) in _HELPERS.items():
       fnty = ir.FunctionType(self.types[result], [self.types[a] for a in args])
-      self.helpers[name] = ir.Function(self.module, fnty, name=name)
-    self.fn = ir.Function(
-        self.module, ir.FunctionType(self.i16, [self.ptr, self.ptr]), name=symbol
+      self.helpers[hname] = ir.Function(self.module, fnty, name=hname)
+    self.count = 0
+
+  def emit(self, name, bc):
+    '''Adds the step of ``name`` to the module; returns its symbol.'''
+    symbol = '%s_%d_%s' % (self.name, self.count, _identifier(name))
+    self.count += 1
+    _Emitter(self, symbol, bc).emit()
+    return symbol
+
+
+class _Emitter(object):
+  '''Writes the LLVM function of one bytecode into the module of a batch.'''
+  def __init__(self, batch, symbol, bc):
+    self.batch, self.jit, self.ir = batch, batch.jit, batch.ir
+    self.symbol = symbol
+    self.code = list(bc['code'])
+    self.consts = list(bc['consts'])
+    self.nregs, self.nvars, self.nstack = bc['nregs'], bc['nvars'], bc['nstack']
+    self.ptr, self.i8, self.i16 = batch.ptr, batch.i8, batch.i16
+    self.i32, self.i64, self.f64 = batch.i32, batch.i64, batch.f64
+    self.module = batch.module
+    self.helpers = batch.helpers
+    self.fn = self.ir.Function(
+        self.module, self.ir.FunctionType(self.i16, [self.ptr, self.ptr]), name=symbol
       )
     self.rts, self.C = self.fn.args
     self.rts.name, self.C.name = 'rts', 'C'
@@ -242,11 +307,15 @@ class _Emitter(object):
     self.cursor.align = 8
     vartype = ir.ArrayType(self.i8, sizes['variable'])
     self.vars = []
-    for v in range(self.nvars + 1):     # one more: the temporary of a path
+    # One Variable more when the code indexes a path into a temporary
+    # (PUSH_PATH, SET_SUCC with a path): the generated C++ has the same
+    # temporaries, and a function without them pays for no Variable.
+    nvars = self.nvars + (1 if self.needs_temporary() else 0)
+    for v in range(nvars):
       var = b.alloca(vartype, name='var%d' % v)
       var.align = 8
       self.vars.append(var)
-    self.tmpvar = self.vars[self.nvars]
+    self.tmpvar = self.vars[self.nvars] if nvars > self.nvars else None
     self.cells = [b.alloca(self.ptr, name='cell%d' % v) for v in range(self.nvars)]
     self.regs = [b.alloca(self.ptr, name='reg%d' % r) for r in range(self.nregs)]
     for reg in self.regs:
@@ -280,6 +349,16 @@ class _Emitter(object):
     if count_at is not None:
       length += code[pc + 1 + count_at]
     return name, code[pc + 1:pc + length], length
+
+  def needs_temporary(self):
+    '''Whether an opcode indexes a path into a temporary variable.'''
+    pc = 0
+    while pc < len(self.code):
+      name, ops, length = self.decode(pc)
+      if name == 'PUSH_PATH' or (name == 'SET_SUCC' and ops[1] > 1):
+        return True
+      pc += length
+    return False
 
   def block_starts(self):
     starts = {0}
