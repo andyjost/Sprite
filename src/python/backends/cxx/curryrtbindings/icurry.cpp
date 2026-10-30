@@ -214,7 +214,36 @@ namespace
     d["nvars"] = bc->nvars;
     d["nstack"] = bc->nstack;
     d["nconsts"] = bc->consts.size();
+    // The constants as addresses, for the JIT (backends/cxx/llvmjit.py):
+    // an info table, a data type, a value set, a node, or a text, each of
+    // which lives as long as the process.
+    std::vector<std::uintptr_t> consts;
+    for(void const * k: bc->consts)
+      consts.push_back(reinterpret_cast<std::uintptr_t>(k));
+    d["consts"] = consts;
     return std::move(d);
+  }
+
+  void icurry_set_step_(InfoTable * info, std::uintptr_t address)
+  {
+    try
+    {
+      icurry_set_step(info, reinterpret_cast<stepfunc_type>(address));
+    }
+    catch(std::invalid_argument const & e)
+    {
+      throw py::value_error(e.what());
+    }
+  }
+
+  py::dict jit_sizes_()
+  {
+    py::dict d;
+    d["cursor"] = sizeof(Cursor);
+    d["variable"] = sizeof(Variable);
+    d["tag_bits"] = 8 * sizeof(tag_type);
+    d["pointer_bits"] = 8 * sizeof(void *);
+    return d;
   }
 
   std::vector<std::string> icurry_opcodes_()
@@ -235,11 +264,22 @@ namespace curryrt { namespace python
       , py::arg("nvars"), py::arg("nstack")
       , "Makes a function table made at run time an interpreted function: "
         "attaches the bytecode and the constants of its body.", curryrt::python::heap_access{});
+    mod.def("icurry_set_step", &icurry_set_step_
+      , "Gives an interpreted function the step at an address: the code a JIT "
+        "made from its bytecode.  The function must be interpreted at the "
+        "call.", curryrt::python::heap_access{});
+    mod.def("jit_sizes", &jit_sizes_
+      , "The sizes the JIT needs: the bytes of a Cursor and of a Variable, "
+        "the bits of a tag and of a pointer.");
     mod.def("icurry_bytecode", &icurry_bytecode_
       , "The bytecode of an interpreted function as a dict (code, nregs, "
         "nvars, nstack, nconsts), or None for any other info table.", curryrt::python::heap_access{});
+    mod.def("icurry_is_jit", &icurry_is_jit
+      , "Whether the step of an info table is code the JIT made from its "
+        "bytecode (icurry_set_step).", curryrt::python::heap_access{});
     mod.def("icurry_is_interpreted"
-      , [](InfoTable const * info) { return icurry_bytecode(info) != nullptr; }
+      , [](InfoTable const * info)
+          { return icurry_bytecode(info) != nullptr && !icurry_is_jit(info); }
       , "Whether the step of an info table is the ICurry interpreter.", curryrt::python::heap_access{});
     mod.def("icurry_opcodes", &icurry_opcodes_
       , "The names of the opcodes of the interpreter, in numeric order.", curryrt::python::heap_access{});

@@ -59,6 +59,9 @@ import logging, os, time, weakref, zlib
 
 logger = logging.getLogger(__name__)
 
+# Whether the unavailability of the JIT was logged in this process.
+_JIT_WARNED = False
+
 # The bytecode of every interpreted function, by full name, for
 # inspect.getimpl (implementation.py).  An interpreted table lives for the
 # life of the process (Module::clear keeps it), so its code is kept as long.
@@ -89,6 +92,15 @@ class Materializer(object):
     self.M = h.backend_handle
     self.imodule = h.icurry
     self.interpret = interp.flags['interpret'] != 'off'
+    # The JIT compiles each function as its bytecode is attached (the flag
+    # jit; curry.backends.cxx.llvmjit).  When it cannot run, the functions
+    # stay interpreted and the reason is logged once per process.
+    # Under tiered the background compile swaps the steps itself, so the
+    # flag applies to the modes new and all.
+    self.jit = (
+        interp.flags['interpret'] in ('new', 'all')
+        and bool(interp.flags.get('jit', False))
+      )
     if self.interpret:
       # The bytecode of other modules, and a compiled object bound to them
       # (curryrt/dynload.hpp), name the tables of this module by address.
@@ -172,6 +184,16 @@ class Materializer(object):
         info, code.code, code.consts, code.nregs, code.nvars, code.nstack
       )
     BYTECODE[ifun.fullname] = code
+    if self.jit:
+      from . import llvmjit
+      try:
+        llvmjit.compile(info, ifun.fullname)
+      except llvmjit.Unavailable as exc:
+        global _JIT_WARNED
+        if not _JIT_WARNED:
+          _JIT_WARNED = True
+          logger.warning('The JIT is unavailable; the functions stay interpreted: %s', exc)
+        self.jit = False
 
   def trap(self, info):
     '''

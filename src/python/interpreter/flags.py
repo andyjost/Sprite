@@ -56,6 +56,18 @@ The following flags are available:
 
     Reserved for compatibility.  Runtime traces require a TRACE build.
 
+  * ``jit`` (True | **False**)
+
+    Compiles every interpreted function with the JIT of the C++ backend
+    (curry.backends.cxx.llvmjit) when its bytecode is attached, under the
+    modes 'new' and 'all' of ``interpret`` (under 'tiered' the background
+    compile swaps the steps itself): LLVM code
+    from the bytecode, compiled in process on llvmlite and linked with the
+    bitcode of the helpers of the runtime (lib/curryrt-helpers.bc, built
+    when CMake finds clang).  Without llvmlite or without the bitcode the
+    function stays interpreted and the reason is logged once.  The spike of
+    issue #65.
+
   * ``inline_budget`` (**4** | <int>)
 
     The largest function body, in nodes built, that the optimizer inlines at
@@ -191,6 +203,7 @@ FLAG_INFO = {
   , 'debug'               : ( bool                , False )
   , 'inline_budget'       : ( int                 , 4     )
   , 'interpret'           : ({'off', 'new', 'all', 'tiered'}, 'all' if sys.platform == 'win32' else 'tiered')
+  , 'jit'                 : ( bool                , False )
   , 'trace'               : ( bool                , False )
   , 'keep_temp_files'     : ((bool, str)          , False )
   , 'lazycompile'         : ( bool                , True  )

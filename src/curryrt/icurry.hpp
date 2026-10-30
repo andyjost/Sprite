@@ -5,7 +5,11 @@
 #include <string>
 #include <vector>
 #include "curryrt/fwd.hpp"
+#include "curryrt/builtins.hpp"
+#include "curryrt/currylib/setfunctions.hpp"
 #include "curryrt/graph/infotable.hpp"
+#include "curryrt/graph/memory.hpp"
+#include "curryrt/graph/node.hpp"
 
 // The ICurry interpreter of the runtime.
 //
@@ -124,8 +128,45 @@ namespace curryrt
     std::deque<ValueSetData>  valuesets;
   };
 
+  // A node of ``info`` with the ``n`` successors ``args``, as Node::create
+  // makes it: the static object of a pinned constructor, and otherwise a
+  // new block.  Every slot of a node ICurry spells holds a node.  Shared by
+  // the interpreter (OP_MAKE, OP_RET_NODE) and the helpers of the JIT
+  // (jit/helpers.cpp).
+  inline Node * icurry_make_node(
+      InfoTable const * info, Node * const * args, uint32_t n
+    )
+  {
+    if(is_pinned(*info))
+      return (Node *) info->step;
+    assert(n == info->arity);
+    Node * node;
+    do
+    {
+      node = node_reserve(info->alloc_size);
+      assert(node);
+      RawNodeMemory mem{node};
+      *mem.info++ = info;
+      for(uint32_t i=0; i<n; ++i)
+        *mem.boxed++ = args[i];
+    } while(!node_commit(node, info->alloc_size));
+    // The two kinds of node the collector finalizes (see Node::create).
+    if(info == &_biGenerator_Info)
+      gc_register_generator(node);
+    else if(info == &SetEval_Info)
+      gc_register_seteval(node);
+    return node;
+  }
+
   // The step function of every interpreted function.
   tag_type icurry_step(RuntimeState *, Configuration *);
+
+  // Gives an interpreted function the step ``step``: the code a JIT made from
+  // its bytecode (backends/cxx/llvmjit.py).  The bytecode stays in aux, so
+  // the disassembler and a later JIT read it; icurry_bytecode answers null
+  // for the function, since its step is not the interpreter any more.
+  // ``info`` must be interpreted at the call (std::invalid_argument).
+  void icurry_set_step(InfoTable * info, stepfunc_type step);
 
   // Makes ``info`` an interpreted function: its step becomes icurry_step and
   // its bytecode ``code``, which lives as long as the process.  ``info`` must
@@ -133,7 +174,11 @@ namespace curryrt
   // step.  Throws std::invalid_argument otherwise.
   void icurry_attach(InfoTable *, std::unique_ptr<Bytecode> code);
 
-  // The bytecode of an interpreted function, or null.
+  // Whether the step of ``info`` is one the JIT made (icurry_set_step).
+  bool icurry_is_jit(InfoTable const *);
+
+  // The bytecode of an interpreted function, or of a function the JIT
+  // compiled from it, or null.
   Bytecode const * icurry_bytecode(InfoTable const *);
 
   // The number of interpreted functions in the process.

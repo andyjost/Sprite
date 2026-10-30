@@ -6,8 +6,10 @@
 #endif
 #include <cassert>
 #include <cstring>
+#include <mutex>
 #include <new>
 #include <stdexcept>
+#include <unordered_set>
 #include "curryrt/builtins.hpp"
 #include "curryrt/currylib/setfunctions.hpp"
 #include "curryrt/graph/node.hpp"
@@ -63,34 +65,6 @@ namespace curryrt
       Variable * vars;
       uint32_t   n;
     };
-
-    // A node of ``info`` with the ``n`` successors ``args``, as Node::create
-    // makes it: the static object of a pinned constructor, and otherwise a
-    // new block.  Every slot of a node ICurry spells holds a node.
-    inline Node * make_node(
-        InfoTable const * info, Node * const * args, uint32_t n
-      )
-    {
-      if(is_pinned(*info))
-        return (Node *) info->step;
-      assert(n == info->arity);
-      Node * node;
-      do
-      {
-        node = node_reserve(info->alloc_size);
-        assert(node);
-        RawNodeMemory mem{node};
-        *mem.info++ = info;
-        for(uint32_t i=0; i<n; ++i)
-          *mem.boxed++ = args[i];
-      } while(!node_commit(node, info->alloc_size));
-      // The two kinds of node the collector finalizes (see Node::create).
-      if(info == &_biGenerator_Info)
-        gc_register_generator(node);
-      else if(info == &SetEval_Info)
-        gc_register_seteval(node);
-      return node;
-    }
 
     // The variable at the end of ``path`` from the redex (ROOT_VAR) or from
     // a variable of the frame: the indexer of Variable, one entry at a time.
@@ -195,7 +169,7 @@ namespace curryrt
         {
           uint32_t const n = op[2];
           assert(sp >= n);
-          Node * node = make_node(
+          Node * node = icurry_make_node(
               (InfoTable const *) K[op[1]], stack + sp - n, n
             );
           sp -= n;
@@ -285,7 +259,7 @@ namespace curryrt
             gc_pad_slack(redex, old_bytes, info->alloc_size);
             return info->tag;
           }
-          redex->forward_to(make_node(info, stack, n));
+          redex->forward_to(icurry_make_node(info, stack, n));
           return T_FWD;
         }
         case OP_RET_STRING:
@@ -373,6 +347,36 @@ namespace curryrt
     }
   }
 
+  namespace
+  {
+    // The tables whose step the JIT made; their bytecode stays in aux.
+    std::mutex g_jit_mutex;
+    std::unordered_set<InfoTable const *> g_jit_steps;
+  }
+
+  void icurry_set_step(InfoTable * info, stepfunc_type step)
+  {
+    if(!info || !step)
+      throw std::invalid_argument("icurry_set_step: a null argument");
+    if(info->step != &icurry_step)
+      throw std::invalid_argument(
+          std::string("icurry_set_step: ") + info->name + " is not interpreted"
+        );
+    {
+      std::lock_guard<std::mutex> lock(g_jit_mutex);
+      g_jit_steps.insert(info);
+    }
+    info->step = step;
+  }
+
+  bool icurry_is_jit(InfoTable const * info)
+  {
+    if(!info || info->step == &icurry_step)
+      return false;
+    std::lock_guard<std::mutex> lock(g_jit_mutex);
+    return g_jit_steps.count(info) != 0;
+  }
+
   void icurry_attach(InfoTable * info, std::unique_ptr<Bytecode> code)
   {
     if(!info || !code)
@@ -399,7 +403,7 @@ namespace curryrt
 
   Bytecode const * icurry_bytecode(InfoTable const * info)
   {
-    if(info && info->step == &icurry_step)
+    if(info && (info->step == &icurry_step || icurry_is_jit(info)))
       return (Bytecode const *) info->aux;
     return nullptr;
   }
