@@ -49,7 +49,11 @@ def check(directory, version, tag=''):
     with zipfile.ZipFile(wheel) as archive:
       metadata = BytesParser().parsebytes(archive.read(f'curry-{version}.dist-info/METADATA'))
       assert metadata['Name'] == 'curry' and metadata['Version'] == version
-      assert metadata.get_all('Requires-Dist') == ['curry-frontend>=3.1.0'], metadata.get_all('Requires-Dist')
+      # The front end the package needs, and the extra jit (llvmlite).
+      assert metadata.get_all('Requires-Dist') == [
+          'curry-frontend>=3.1.0', 'llvmlite>=0.50; extra == "jit"'
+        ], metadata.get_all('Requires-Dist')
+      assert metadata.get_all('Provides-Extra') == ['jit'], metadata.get_all('Provides-Extra')
       assert 'Development Status :: 3 - Alpha' in metadata.get_all('Classifier')
       assert metadata['License-Expression'] == 'BSD-3-Clause'
   assert found == expected, expected - found
