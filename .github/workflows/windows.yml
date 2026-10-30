@@ -105,10 +105,12 @@ jobs:
           set -uxo pipefail
           ls -l build/stage/lib/curryrt-helpers.bc
           python - <<'EOF'
-          import curry, time
+          import curry, threading, time
+          threading.excepthook = lambda args: print('thread error:', args.exc_type.__name__, args.exc_value)
           from curry.lib import Prelude
-          from curry.backends.cxx import llvmjit
-          print('available:', llvmjit.available())
+          from curry.backends.cxx import curryrtbindings, llvmjit, materialize
+          print('available:', llvmjit.available(), 'mode:', repr(materialize.jit_enabled()), 'threshold:', materialize.jit_threshold())
+          print('threads:', [t.name for t in threading.enumerate()], 'runtime threshold:', curryrtbindings.icurry_hot_threshold())
           t0 = time.perf_counter()
           # A linear scan of a lazy list: many steps, a bounded depth (the
           # length of a list two million long overflows the worker's stack
@@ -119,6 +121,7 @@ jobs:
           while llvmjit.statistics()['hot'] == 0 and time.monotonic() < deadline:
             time.sleep(0.05)
           print(llvmjit.statistics())
+          print('threads:', [t.name for t in threading.enumerate()], 'runtime threshold:', curryrtbindings.icurry_hot_threshold(), 'hot list:', len(curryrtbindings.icurry_take_hot()))
           print(curry.eval(Prelude.elem(999999, Prelude.enumFromTo(1, 1000000))).one())
           assert llvmjit.statistics()['hot'] > 0, 'the hot tier compiled nothing'
           EOF
