@@ -105,7 +105,8 @@ jobs:
           set -uxo pipefail
           ls -l build/stage/lib/curryrt-helpers.bc
           python - <<'EOF'
-          import curry, threading, time
+          import curry, logging, threading, time
+          logging.basicConfig(level=logging.WARNING)
           threading.excepthook = lambda args: print('thread error:', args.exc_type.__name__, args.exc_value)
           from curry.lib import Prelude
           from curry.backends.cxx import curryrtbindings, llvmjit, materialize

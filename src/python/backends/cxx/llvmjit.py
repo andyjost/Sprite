@@ -126,17 +126,19 @@ def _hot_loop():
         # of the table would wait for the evaluation to end.
         jit.compile_batch([(info, curryrt.icurry_name(info)) for info in hot])
         jit.hot += len(hot)
-      except Exception:
+      except Exception as exc:
+        jit.errors += 1
+        jit.last_error = '%s: %s' % (type(exc).__name__, exc)
         logger.exception('The hot tier of the JIT failed; the functions stay interpreted')
 
 def statistics():
   '''The counts and the seconds of the JIT of this process.'''
   jit = _jit
   if jit is None:
-    return {'functions': 0, 'batches': 0, 'hot': 0, 'seconds': 0.0}
+    return {'functions': 0, 'batches': 0, 'hot': 0, 'errors': 0, 'last_error': None, 'seconds': 0.0}
   return {
       'functions': jit.functions, 'batches': jit.batches, 'hot': jit.hot
-    , 'seconds': jit.seconds
+    , 'errors': jit.errors, 'last_error': jit.last_error, 'seconds': jit.seconds
     }
 
 def _get():
@@ -193,6 +195,8 @@ class _JIT(object):
     self.functions = 0
     self.batches = 0
     self.hot = 0
+    self.errors = 0        # the batches of the hot tier that failed
+    self.last_error = None
     self.seconds = 0.0
 
   def compile_batch(self, items):
