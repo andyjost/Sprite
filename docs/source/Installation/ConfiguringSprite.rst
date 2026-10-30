@@ -46,10 +46,14 @@ Option                          Meaning and default
 ``SPRITE_REBUILD_ICY``          Rebuild pinned ICurry; ``OFF``
 ``ENABLE_ICURRY_CACHE``         Enable the user ICurry cache by default; ``OFF``
 ``ENABLE_PARSED_JSON_CACHE``    Cache parsed JSON by default; ``OFF``
+``WITH_CLANG``                  clang++ for the bitcode of the JIT helpers (experimental); ``AUTO`` finds one on PATH, empty disables
+``WITH_CLANG_FLAGS``            Extra flags for that clang; empty (default)
 ==============================  ============================================================================
 
 Pass each setting as ``-DNAME=value``. An empty ``WITH_PAKCS`` disables the
-oracle. Both translation routes require the Curry front end at build time.
+oracle. A build needs no front end: CMake builds the library from the
+pinned products. The front end is needed at run time for new Curry text, and
+when ``SPRITE_REBUILD_ICY`` rebuilds the pins.
 The MPS collector needs the ``extern/mps`` submodule. CMake honours ``CC``,
 ``CXX``, ``CFLAGS``, ``CXXFLAGS`` and ``LDFLAGS`` on its first configuration.
 Standard CMake compiler and flag options override those defaults.
@@ -65,12 +69,11 @@ The standalone front-end package
 --------------------------------
 
 The platform wheel ``curry-frontend`` installs the command
-``curry-frontend`` and needs no Haskell tools at run time. The wheels that
-the front-end CI workflow builds are artifacts for review; they are not
-published to PyPI. Install the wheel for your platform, then configure
-Sprite without PAKCS::
+``curry-frontend`` and needs no Haskell tools at run time. ``frontend.yml``
+builds the wheels and ``release-frontend.yml`` publishes them to PyPI.
+Install the package, then configure Sprite without PAKCS::
 
-    python -m pip install /path/to/curry_frontend-3.1.0.post1-py3-none-PLATFORM.whl
+    python -m pip install curry-frontend
     cmake -S . -B object-root/cmake -G Ninja -DWITH_PAKCS= -DWITH_CURRY_FRONTEND=curry-frontend
     make stage
 
@@ -96,9 +99,8 @@ The default pair is front end ``3.1.0`` with PAKCS ``3.10.0``. The legacy
 pair, front end ``2.0.0`` with PAKCS ``3.4.1``, remains supported through the
 same options. CMake derives the intermediate directory names and CPP
 flags from the selected front end and rejects a mismatched oracle.
-The front-end package ``3.1.0.post1`` is available as a CI artifact; the
-package defaults change after publication. The ``.postN`` suffix counts
-packaging revisions.
+The front-end package ``3.1.0.post1`` is on PyPI. The ``.postN`` suffix
+counts packaging revisions.
 
 Wheels
 ------
@@ -111,7 +113,8 @@ The distribution is ``curry``; its Python package is ``curry``::
 The scikit-build-core backend builds the same native targets and library.
 Release builds use pip build isolation. A development environment with
 scikit-build-core already installed can use ``--no-build-isolation``.
-The installed package has no new runtime Python dependencies. Running its
+The installed package depends on ``curry-frontend`` at run time and on
+nothing else. Running its
 shipped modules needs no front end. Compiling Curry source searches
 ``SPRITE_FRONTEND``, the package's tools directory and PATH; a missing
 front end produces an error at that compile.

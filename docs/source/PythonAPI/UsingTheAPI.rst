@@ -408,9 +408,9 @@ Two notes
     Sprite reads the type of every function and constructor from the
     interface that the Curry front end writes beside a module.  A goal
     without a type signature keeps its class constraints, and Sprite
-    defaults them as the REPL of PAKCS does: ``Num`` to ``Int``,
-    ``Fractional`` to ``Float``, ``Monad`` to ``IO``, a lone ``Data`` to
-    ``Bool``.  A constraint outside that table, such as ``Enum a`` for
+    defaults them as the REPL of PAKCS does: ``Num`` and ``Integral`` to
+    ``Int``, ``Fractional`` and ``Floating`` to ``Float``, ``Monad`` to
+    ``IO``, a lone ``Data`` to ``Bool``.  A constraint outside that table, such as ``Enum a`` for
     ``toEnum 65``, is an error that asks for a type annotation.
     Expressions built in Python with ``curry.term`` and symbol calls are typed before
     they are built; see :ref:`typed-expressions`.

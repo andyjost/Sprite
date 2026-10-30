@@ -5,7 +5,7 @@
 Easy Installation
 =================
 
-On Linux, choose the path that fits your Python setup.
+On Linux or macOS, choose the path that fits your Python setup.
 
 Without a suitable Python
 -------------------------

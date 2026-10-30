@@ -35,8 +35,8 @@ the `Curry Package Manager`_, and it writes the same ``.icy`` text.
 write the same ``.icy`` file.
 
 Sprite calls the front end as ``icurry`` under PAKCS does, with the options
-``--extended -D__PAKCS__=<ver>`` (see ``CURRY_FRONTEND_FLAGS`` in
-the CMake configuration) and the directories of the Curry path on ``-i``.  This
+``--extended -D__PAKCS__=<ver>`` (see ``frontend_flags`` in the
+``sysconfig`` directory of the installation) and the directories of the Curry path on ``-i``.  This
 affects where certain intermediate files are placed.  For details refer to the
 `PAKCS manual`_.  In short, the front end places its files under
 ``.curry/pakcs-<ver>/``, relative to the original Curry source files, where

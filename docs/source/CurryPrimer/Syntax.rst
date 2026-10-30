@@ -154,8 +154,7 @@ two values::
     find "b" [("a", 1), ("b", 2), ("b", 3)]   -- 2, 3
 
 The constraint ``Data a`` is required: the match unifies the pattern with
-the argument, and the front end of PAKCS 3.4.1 rejects the signature
-without it.
+the argument, and the Curry front end rejects the signature without it.
 
 .. note::
    The variables that a functional pattern binds stay in the result.  A

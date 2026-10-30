@@ -42,8 +42,7 @@ Interpreter flags
 :data:`curry.flags` is a read-only mapping of the current session's flags.
 The environment variable ``SPRITE_INTERPRETER_FLAGS`` sets the initial
 flags of a process (``interpret:off,rotation:steps:65536``).  Use
-``curry.reset(**flags)`` to start a new session with changed settings,
-including the backend.  Reset retains ``curry.path`` and makes earlier
+``curry.reset(**flags)`` to start a new session with changed settings.  Reset retains ``curry.path`` and makes earlier
 terms stale.  ``curry.reload(module, text=...)`` replaces a module's code;
 it does not set interpreter flags.  :mod:`curry.interpreter.flags`
 describes every flag at length; the table names them with their defaults.
@@ -66,6 +65,8 @@ Flag                         Default                What it changes
                                                     use on the caller; ``None`` disables the guard.
 ``worker_stack``             ``1073741824``         The retained worker's stack reservation in bytes;
                                                     ``None`` disables escalation for deep evaluations.
+``recursion_limit``          ``262144``             Reserved for compatibility; has no effect.
+``step_budget``              ``2048``               Reserved for compatibility; has no effect.
 ``inline_budget``            ``4``                  The largest function body, in nodes built, that the
                                                     optimizer inlines at a call; a call of a single-case
                                                     function on a constructor becomes the branch.  ``0``

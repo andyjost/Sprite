@@ -29,7 +29,9 @@ PAKCS
     Curry to FlatCurry, and the test oracle.  The default configuration is front end 3.1.0 with PAKCS
     3.10.0. Front end 2.0.0 with PAKCS 3.4.1 remains supported, with advisory
     ``legacy-tools`` Linux unit and functional shards. Front-end packages
-    are 2.0.0.post6 and 3.1.0.post1, with separate parity references.
+    are 2.0.0.post6 and 3.1.0.post1, with separate parity references; the
+    distribution ``curry`` depends on 3.1.0, the version of its pinned
+    library products, which 2.0.0 cannot read.
 
 ICurry
     Sprite translates FlatCurry to ICurry itself.  Its translation is a port
@@ -59,11 +61,10 @@ Python
     Sprite supports Python 3.11 to 3.15, with 3.11.4 as the minimum because
     archive extraction uses ``tarfile.extractall(filter=)``.  CMake
     rejects older versions.  Python 3.14 remains the development default.
-    CI runs the C++ unit suites on each version.  The 3.15 lane and the
-    free-threaded 3.14t lane are allowed to fail; 3.14t runs with the GIL
-    enabled (``PYTHON_GIL=1``), until the extension declares its thread
-    safety.  Children inherit ``PYTHON_GIL`` when set.  Running Sprite
-    without the GIL is not yet supported.
+    CI runs the C++ unit suites on each version, and every lane gates the
+    job: 3.11 to 3.15, and the free-threaded 3.14t without the GIL
+    (``PYTHON_GIL=0``), green since 2026-10-18.  Children inherit
+    ``PYTHON_GIL`` when set.
 
 ..
   Sources

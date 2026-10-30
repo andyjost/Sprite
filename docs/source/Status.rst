@@ -48,8 +48,9 @@ The flag ``interpret`` of the C++ backend selects how a module without a
 compiled object runs.  ``tiered``, the default, interprets it at once,
 compiles it in the background, and swaps its functions to the compiled
 code when the object is ready.  ``new`` interprets it and never compiles
-it.  ``all`` interprets every module; it is the default on Windows, where
-the compile of generated code is not available in this release.  ``off``
+it.  ``all`` interprets every module; it is the default on Windows, a port on
+master that no release covers yet, where the compile of generated code is
+not available.  ``off``
 compiles every module first.
 The interpreter takes the same steps as the compiled code and about 1.1 to
 1.5 times its time.  The swap binds the compiled object to the tables the
@@ -83,7 +84,11 @@ after Phase 2 of the performance program is the label
 ``phase2-2026-10-04``, in the files ``phase2-2026-10-04-throughput.jsonl``
 and ``phase2-2026-10-04-memory.jsonl``: the nightly set of ten programs,
 three repetitions.  The baseline before the program is the label
-``baseline-2026-10-03`` (four suites, Sprite and PAKCS).
+``baseline-2026-10-03`` (four suites, Sprite and PAKCS).  The current
+record is ``phase3-2026-10-10`` (the inliner, the known-constructor rule
+and the step-mode rotation; throughput and memory, with instruction
+counts), and ``apps-2026-10-06`` holds the applications suite;
+``tests/data/curry/benchmarks/results/README.md`` describes each.
 :doc:`Performance` tabulates the records and names the harness commands.
 Two measured facts.  In the memory record of that label ``Tak1`` peaks at
 68 MB with the collector and 1009 MB without it.  The rotation check of
@@ -97,9 +102,8 @@ Known limits
   evaluation; ``==`` on such a variable in a required position binds it
   through the binding optimization, and ``=:=`` always does (issue #37).
 * There is no debugger for a non-deterministic computation.  The aids are
-  ``sprite-exec --stats``, the counters of ``make COUNTERS=1``, the
-  generated code of a function (``curry.inspect.getimpl``), and the
-  reference implementation of the :doc:`developer notes <DeveloperNotes>`.
+  ``sprite-exec --stats``, the counters of ``make COUNTERS=1``, and the
+  generated code of a function (``curry.inspect.getimpl``).
 * A name produced by a functional pattern stays narrowed, and every later
   comparison of it resolves the narrowing again; read such a result
   through a set function (issue #86; the note in
@@ -128,6 +132,9 @@ What is experimental
 * The ICurry cache (``SPRITE_CACHE_FILE``): off by default outside the
   test drivers; CMake ``ENABLE_ICURRY_CACHE=ON`` turns it on (see
   :ref:`CommandLineInterface/EnvironmentVariables:Development Variables`).
+* The JIT of the C++ backend (``SPRITE_JIT``, issue #65): the bytecode of
+  a function to machine code through LLVM, eagerly or by call count; merged
+  on 2026-10-30, off by default.
 
 Where the plan lives
 ====================
@@ -142,8 +149,7 @@ epics are these issues:
 * #19, throughput of the C++ runtime.
 * #24, memory management.
 * #28, parallel evaluation, behind a gate.
-* #30, the future of the reference implementation (its retirement is
-  #82).
+* #30 and #82, closed: the Python backend was removed on 2026-10-24.
 * #40, developer velocity.
 * #48, the typed boundary between Python and Curry.
 * #67, Phase 3: optimizer passes, native workers, ticker rotation, pointer

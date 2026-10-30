@@ -71,7 +71,7 @@ The script runs nine steps in this order.
    The build takes about five minutes.  Sprite takes the Curry front end
    and the test oracle from this tree.
 4. Checkout.  Clones the repository when ``--repo`` names a missing
-   directory.  Initializes the pybind11 submodule only.  Links ``install``
+   directory.  Initializes the ``pybind11`` and ``libtommath`` submodules.  Links ``install``
    and ``object-root`` of the checkout to ``PREFIX/install`` and
    ``PREFIX/object-root``.  A link that points elsewhere stops the script.
    The script deletes nothing.
@@ -91,7 +91,7 @@ The script runs nine steps in this order.
    the C++ runtime.  Then ``make overlay`` extracts the archived products of
    the test programs, after the stage so that they are newer than the
    installed library interfaces.
-8. Smoke test.  Runs one fast unit test file on each backend under the
+8. Smoke test.  Runs one fast unit test file on the C++ backend under the
    address-space cap and the time limit of the test drivers.
 9. Next steps.  Prints the paths for the personal rules file and the runs
    to make next.
@@ -189,10 +189,11 @@ After the setup
 The last step prints the same list with the paths of the machine.
 
 1. Calibrate the test manifest on the new machine.  Run every test file
-   once per backend on a quiet machine with the manifest update of the
-   test runner::
+   once on a quiet machine with the manifest update of the test runner,
+   after the prepare pass, so that the durations exclude it::
 
        cd tests
+       ./run_tests --prepare-only --backend cxx
        ./run_tests -j 1 --backend cxx --update-manifest
 
    The durations and the peak memory of every test file must be measured

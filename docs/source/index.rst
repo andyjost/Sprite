@@ -120,7 +120,7 @@ runs Curry in a browser.
 
 .. _Curry: https://www.curry-lang.org/
 .. _dissertation: https://doi.org/10.15760/etd.3564
-.. _paper: http://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf
+.. _paper: https://web.cecs.pdx.edu/~antoy/homepage/publications/lopstr13/long.pdf
 .. _Curry homepage: https://www.curry-lang.org/
 .. _live demo: https://smap.curry-lang.org/smap.cgi?new/curry
 .. _issue tracker: https://github.com/andyjost/Sprite/issues

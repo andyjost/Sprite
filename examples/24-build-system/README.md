@@ -1,37 +1,16 @@
 # A makefile in Curry
 
-A Curry script is to make as bash is to the file system.  Make reads a
-makefile, decides what to build, and runs the commands.  Here the makefile
-is a Curry module beside the sources of a toy C project,
-project/Makefile.curry.  It is written over a small library, Make.curry,
-and run by a generic driver, make.py, which knows nothing of the project.
-The makefile reads as a makefile.  The variables are definitions with the
-names of make.  A rule is an equation of a relation, in make's order:
-target, inputs, recipe.  The pattern rule %.o: %.c is a functional pattern.
-A condition is an if or a guard, and the command line reaches it.  The
-header dependencies are a relation too.  The library asks the relation
-with the inputs free, and Curry's narrowing fills them in.  Sprite itself
-builds with configure and GNU make.  This example does not replace them.
+Make reads a makefile, decides what to build, and runs the commands.  Here
+the makefile is a Curry module beside the sources of a small C project,
+`project/Makefile.curry`.  Its rules are the equations of a relation, in
+make's order: target, inputs, recipe.  A library, `Make.curry`, answers the
+questions of make over that relation, and a driver, `make.py`, runs the
+recipes.  The point of the example is the relation: a rule written once
+answers questions in every direction.
 
+## The makefile
 
-## 1. The project
-
-Five C sources and two headers: main.c, vec.c, shape.c, report.c, and the
-optional plot.c, with vec.h and shape.h.  shape.h includes vec.h.  The
-static library libgeom.a holds vec.o and shape.o, and plot.o when
-WITH_PLOT is set.  The program demo links main.o, report.o and libgeom.a
-with \$(CC).  Two knobs: DEBUG=1 switches CFLAGS from -O2 -Wall to -O0 -g
--Wall.  WITH_PLOT=1 adds plot.o to the library and -DWITH_PLOT to
-CPPFLAGS, and main.c calls plot under #ifdef WITH_PLOT, so the program
-prints one line more.  The run script builds the program with cc and runs
-it, and its output is part of expected.out.
-
-
-## 2. Reading the makefile
-
-This is project/Makefile.curry in full:
-
-```
+```curry
 module Makefile where
 
 CC = "cc"
@@ -63,383 +42,104 @@ depends "report.c" = "vec.h"
 depends "plot.c"   = "shape.h"
 ```
 
-The comment on each rule is the make line it stands for.  The makefile has
-no type signatures.  The front end infers them.
+Read it as a makefile.  `CC = "cc"` is a variable and `goal = "demo"` names
+the default goal.  Each `rule` equation is one rule of make: the target, the
+list of inputs, and the recipe with make's `$@`, `$<`, `$^` and `$(NAME)`.
+The first equation is the pattern rule `%.o: %.c`: `stem` appears in the
+target and in the input, so the equation applies to any `X.o` whose input
+is `X.c`.  It is a functional pattern, and `stem` is solved, not
+substituted.  The guard on the second `libgeom.a` rule is make's `ifdef`.
+Each `depends` equation is one include edge.
 
-The variables.  CC = "cc" is make's CC = cc: a definition with the name of
-make.  Curry proper reserves an uppercase name for a constructor, and the
-front end of the pinned PAKCS accepts these as definitions.  CFLAGS is
-make's ifeq (\$(DEBUG),1) block, written as an if.  CPPFLAGS is make's ifdef
-WITH_PLOT block.  A variable is a string, and a recipe reads it as
-\$(NAME), as in make.  The definition goal names the default goal.
+## Asking the relation
 
-The rules.  A rule is an equation of the relation rule.  The target and the
-inputs stand in the head and the recipe on the right, in make's order:
+`rule` is a relation, so it can be asked with any argument left unknown.
+`Make.curry` asks it the way make reads a makefile, with the inputs free:
+which inputs does this target have, and what is its recipe?
 
-```
-rule "libgeom.a" ["vec.o", "shape.o"] = "$(AR) rcs $@ $^"
-```
+```python
+import os; os.environ['SPRITE_FRONTEND_WARNINGS'] = '0'   # the rules overlap by design
+import curry
+curry.path.insert(0, 'project')
+from curry.lib import Makefile
 
-The library never calls rule with the inputs in hand.  It asks the relation
-with the inputs free,
+def ask(text):
+    for answer in curry.solve(curry.parse(text, imports=[Makefile])):
+        print(answer)
 
-```
-candidate rule t = (ins, rule t ins) where ins free
-```
-
-and collects the answers with a set function.  Narrowing fills the inputs
-in: the answer for "libgeom.a" is (["vec.o", "shape.o"], "\$(AR) rcs \$@
-\$^").  Every equation that matches the target is one answer.  The first
-takeaway: a rule is an equation of a relation, so the same text answers
-"what does demo need" and "who needs shape.h".  The second question is
-the inverse query of the library.  It draws a target from the targets of
-the build and keeps it when it reads the file, directly or through another
-target.  No second table and no index from files to targets.
-
-The pattern rule.  The first equation is make's %.o: %.c:
-
-```
-rule (stem ++ ".o") [stem ++ ".c"] = "$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@"
+ask('rule "demo" ins  where ins free')
+# {ins=["main.o","report.o","libgeom.a"]} "$(CC) -o $@ $^"
 ```
 
-Its head is a functional pattern, and the pattern is non-linear: stem
-occurs twice.  For the target "vec.o", the first occurrence binds stem to
-"vec", and the second binds the free inputs to ["vec.c"].  The second
-takeaway: a functional pattern is solved, not formatted.  Make substitutes
-the stem into a template.  Curry solves stem ++ ".o" against "vec.o", and
-then [stem ++ ".c"] against the free inputs.  A bare identifier in a
-pattern is a variable, so the explicit rules name their targets as string
-literals.
+The pattern rule answers the same question for an object file:
 
-The conditional rule.  The equation
-
-```
-rule "libgeom.a" ["plot.o"] | WITH_PLOT /= "" = ""
+```python
+ask('rule "vec.o" ins  where ins free')
+# {ins=["vec.c"]} "$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@"
 ```
 
-is make's ifdef WITH_PLOT block around the line libgeom.a: plot.o.  The guard
-reads the variable.  /= is not-equal, so the guard holds when WITH_PLOT is
-set.  An empty recipe is a prerequisite line.  When WITH_PLOT is set, both
-equations for libgeom.a answer.  The library merges their
-inputs, as make merges the prerequisite lines of a target: libgeom.a reads
-vec.o shape.o plot.o.  The third takeaway: a condition is an if or a guard,
-and the command line reaches it because the driver substitutes the
-assignment.  make.py WITH_PLOT=1 replaces the line WITH_PLOT = "" with
-WITH_PLOT = "1" and compiles the text.  That is what make does when the
-command line overrides a variable.  The file's assignment is replaced, then
-the file is read.
+The unknown can itself be a pattern.  This asks for a rule for `main.o`
+with a C file among its inputs, and the stem comes back with the answer;
+`rule t [x]` would ask for a rule with exactly one input:
 
-The header dependencies.  The relation depends has one equation per edge.
-A file with two headers has two equations, main.c here, and the set of
-answers is its dependency list.  The transitive closure follows the
-headers' own edges: shape.h includes vec.h, so shape.o reads shape.c
-shape.h vec.h.  The sources include exactly the headers the edges declare.
-Make reads these lines from the .d files of the compiler.
+```python
+ask('rule "main.o" (xs ++ [stem ++ ".c"] ++ ys)  where xs, stem, ys free')
+# {xs=[], stem="main", ys=[]} "$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@"
+```
 
-Two traps.  First, every matching equation answers.  A second equation is not
-an else.  The two equations for libgeom.a both answer when WITH_PLOT is set,
-and that is the merge you want.  Two equations for CFLAGS both answer as well
-(step 7 of the output).  A variable with two equations has two values, and
-every recipe that reads it has two.  So the else of a condition belongs in
-the if, as CFLAGS writes it.  Second, a variable or a target defined twice is
-two answers, and the lints say so.  A second rule with a recipe for main.o
-(step 6), CFLAGS twice (step 7), and CC = "gcc" ? "clang" (step 8) all stop
-the build before the plan.
+A target with two rules gets two answers.  `libgeom.a` gets one here,
+because the guard of its second rule fails while `WITH_PLOT` is empty.
+`depends` is a function with several values:
 
+```python
+ask('depends "main.c"')
+# "shape.h"
+# "vec.h"
+```
 
-## 3. The interpolator
+## What the library asks
 
-The library expands a recipe once per target.  \$@ is the target.  \$\< is
-the first input of the rule that has the recipe, or nothing when the rule
-has no input, as in make.  \$^ is everything the target reads: the merged
-inputs of its rules with the headers behind them, as make's \$^ with .d
-files.  \$(NAME) is the value of NAME from the table the driver passes.  Any
-other \$x stays as written.  \$(NAME) is strict: an undefined variable is no
-recipe, and the lint names it.  An empty variable leaves its space,
-cc  -O2 -Wall, as make leaves it.  The catch-all of the interpolator is a
-guard in the same equation.  A second equation that also matched \$ would be
-a second answer per token.
+`Make.curry` builds make's database from the goal down, asking `rule t ins`
+with `ins` free for every name it meets, and answers over that database:
+what a target reads (`needs`, with the headers behind each input), what is
+stale, the plan in waves, what can run now, which targets two rules claim,
+which sources are missing, and what a change touches.  The last one is the
+relation read backwards: the target is the unknown, drawn from the targets
+of the build, and the question is whether it reads the file.  The library
+never touches the file system; the driver supplies the variables and the
+stamps of the files, and it runs the recipes.
 
+## Running it
 
-## 4. The lints, and what make does instead
-
-Three lints run before the plan, and any answer refuses the build.  ambiguous
-lists a target with two rules with a recipe.  missing lists a name with no
-rule that does not exist.  The recipe lint lists a target whose recipe has
-two values, from a variable defined twice, or none, from an undefined
-\$(NAME).  The driver prints one sentence each and the exit status 2 of make.
-GNU make 4.3 does otherwise.  It takes the last explicit recipe with a
-warning, "overriding recipe for target", and lets an explicit rule beat a
-pattern rule in silence.  It takes the last assignment of a variable in
-silence and expands an undefined variable to nothing in silence.  On a
-missing source it stops with "No rule to make target 'vec.o', needed by
-'libgeom.a'" when the makefile has no prerequisite line for vec.o.  It names
-the object, because its pattern rule does not apply without the source.  With
-the .d-style line vec.o: vec.h it counts vec.o as made, plans the ar line,
-and fails when ar runs.  It drops a circular dependency with a warning and
-builds on.
-
-
-## 5. What make has that this does not
-
-Make's += is ++ in the expression.  Make's ?= and the process environment
-have no form here: only the NAME=value arguments of the command line enter
-the makefile.  A target-specific variable has no form: a rule writes its
-flags in its recipe.  .PHONY, order-only prerequisites, \$(wildcard) and VPATH
-are facts about the file system, which the driver owns.  The makefile has no
-form for them.  A recipe runs as one process without a shell, so a pipe or a
-redirection has no form.  One pattern rule serves the objects.  The choice
-among several pattern rules by which source exists, make's rule search, is
-not modelled.
-
-
-## 6. The driver: calling Curry from Python
-
-make.py reads
+`./run` builds the project in temporary copies and shows ten situations:
+the build from scratch, nothing to do, a touched header with the inverse
+query, `DEBUG=1` from the command line, `WITH_PLOT=1` adding a source and a
+define, an ambiguous target, a variable defined twice, the compiler as a
+choice (`CC = "gcc" ? "clang"`), a cycle of rules, and a missing source.
+`expected.out` records the output.  The driver takes make's arguments:
 
 ```
 python make.py [-f FILE] [-C DIR] [-j N] [-n] [--touch FILE]
                [--affected FILE] [--trace] [GOAL] [NAME=value ...]
 ```
 
-as make does:
-
-  \* -C DIR names the project directory.
-  \* -f FILE names the makefile in it, Makefile.curry by default.
-  \* -n prints the plan and stops.
-  \* -j N sets how many recipes run at once.
-  \* GOAL names the target.  The default is the definition goal of the
 ```
-makefile.
-```
-  \* NAME=value replaces the assignment of NAME in the makefile.
-  \* --touch FILE gives a file a stamp newer than every other file of the
-```
-build before anything else.
-```
-  \* --affected FILE prints the targets that read the file.
-  \* --trace prints each ready set to stderr.
-
-A command-line assignment replaces the file's, then the file is compiled.
-For every NAME=value, the driver reads the text of the makefile and
-replaces the line that starts with NAME and = by NAME = "value".  It drops
-any other assignment of NAME, as make's command line overrides every
-assignment of the file.  A file without such a line gets it at the end.
-Without assignments the driver imports the module from its directory, with
-the cached products of the last run.  With assignments it writes the
-substituted text under .curry/overrides/HASH beside the makefile, where
-HASH names the text, and imports the module from there.  A second run with
-the same assignments finds the compiled products of the first and does not
-pay the front end again.
-
-The variables are read by introspection.  Every definition of the module
-whose name starts with an uppercase letter and whose type is String is a
-variable.  dir(module) lists the names, curry.typeof gives the type, and
-curry.eval(symbol) gives the values.  Each value is one
-row of the table, so a definition with two values gives two rows.  The table
-goes to Curry for \$(NAME) and into the environment of every recipe the driver
-runs.
-
-One build, many questions.  The driver builds the Curry value of the build
-once,
-
-```
-Make.build(module.rule, module.depends, table, goal)
-```
-
-and passes the same node to every question.  A symbol with fewer arguments
-than it takes is a partial application of a term: rule and depends go
-to Curry as relations.  A makefile without depends gets Make.noDepends.  A
-deterministic question has one value, read with
-
-```
-next(curry.eval(goal(*args) if args else goal), None)
-```
-
-The plan has no value on a cycle, and the driver reads None then.  The
-inverse query has one value per target, and the driver sorts them, because
-Curry promises no order.
-
-The build loop asks Curry for the ready set: the stale targets whose inputs
-are all up to date.  It submits each new one to a thread pool, waits for the
-first completion, and asks again with the new stamps.  The table it hands to
-Curry omits the targets whose recipes run or failed, so a half-written object
-does not read as up to date.  Each recipe is printed when it starts, as make
-prints it.  It runs as one process in the project directory, without a shell,
-split into words as a shell would split them.  When a recipe completes, the
-loop prints its output, stdout to stdout and stderr to stderr, so the recipes
-of one wave do not interleave.  A program that cannot start is a failed
-recipe with the status 127.  The exit status is that of make.  It is 2 when
-the build does not start, when a recipe fails, or when a target of the plan
-never ran, and 0 otherwise.
-
-
-## 7. How to run
-
-Run "make stage" from the root of the repository first.  Then run
-
-```
-./run
-```
-
-The script copies the sources of project/ into four temporary directories,
-one of them without vec.c, and links the makefiles into each copy.  So Sprite
-compiles each makefile once, into project/.curry, and the build leaves
-nothing in the repository.  It runs make.py eleven times there and the
-program twice.  The example needs cc and ar on the PATH.
-
-To build in project/ itself, run make.py from this directory:
-
-```
-../../install/bin/python make.py -C project
-../../install/bin/python make.py -C project -n
-../../install/bin/python make.py -C project DEBUG=1 WITH_PLOT=1
-../../install/bin/python make.py -C project --touch shape.h --affected shape.h
-```
-
-and remove the objects, the library and the program afterwards.
-
-
-## 8. Expected output
-
-The file expected.out holds the exact output of ./run.  Every step prints
-its command line first.  Step 1 is the build from scratch: the plan, the
-recipes as they run, and the program's output:
-
-```
-1. the build from scratch
-% python make.py -C project
-plan: 6 targets
-  main.o    <- main.c shape.h vec.h       cc  -O2 -Wall -c main.c -o main.o
-  report.o  <- report.c vec.h             cc  -O2 -Wall -c report.c -o report.o
-  vec.o     <- vec.c vec.h                cc  -O2 -Wall -c vec.c -o vec.o
-  shape.o   <- shape.c shape.h vec.h      cc  -O2 -Wall -c shape.c -o shape.o
-  libgeom.a <- vec.o shape.o              ar rcs libgeom.a vec.o shape.o
-  demo      <- main.o report.o libgeom.a  cc -o demo main.o report.o libgeom.a
-waves: [main.o report.o vec.o shape.o] [libgeom.a] [demo]
-cc  -O2 -Wall -c main.c -o main.o
-...
-% project/demo
-c = (0, 3)
-area = 6
-```
-
-Each object reads its source and the headers behind it.  The six recipes
-are the six lines that GNU make 4.3 prints for the same project with
-make -rn.  Step 2 builds again, and the plan is "nothing to do".  Step 3
-touches shape.h, asks the inverse query, and rebuilds the four targets it
-names:
-
-```
-3. touch shape.h: the inverse query, then the rebuild
 % python make.py -C project --touch shape.h --affected shape.h
 affected: demo libgeom.a main.o shape.o
 plan: 4 targets
-...
 ```
 
-Step 4 plans a fresh copy with DEBUG=1, and every object's recipe reads
--O0 -g -Wall.  Step 5 builds a fresh copy with WITH_PLOT=1: seven
-targets, -DWITH_PLOT in every compile, plot.o in the library, and the
-program prints a third line:
+Three lints run before the plan, and any answer refuses the build: a
+target claimed by two rules with a recipe, a missing source, and a recipe
+with two values or none (a variable defined twice, or undefined).  GNU
+make takes the last recipe and the last assignment in silence; here two
+equations are two answers, and the lint names them.
 
-```
-5. WITH_PLOT=1: plot.o joins the library, the define, one line more
-% python make.py -C plot WITH_PLOT=1
-plan: 7 targets
-  main.o    <- main.c shape.h vec.h       cc -DWITH_PLOT -O2 -Wall -c main.c -o main.o
-...
-  plot.o    <- plot.c shape.h vec.h       cc -DWITH_PLOT -O2 -Wall -c plot.c -o plot.o
-  libgeom.a <- vec.o shape.o plot.o       ar rcs libgeom.a vec.o shape.o plot.o
-...
-% plot/demo
-c = (0, 3)
-area = 6
-plot: (0,0) (4,0) (0,3)
-```
+## Limits
 
-Steps 6 to 8 are the lints.  Each variant makefile is a copy of the
-makefile with one change.  Makefile_ambiguous.curry adds a second rule
-with a recipe for main.o:
-
-```
-6. a second rule with a recipe for main.o: the ambiguity lint
-% python make.py -C project -f Makefile_ambiguous.curry
-ambiguous: main.o has 2 rules
-  main.o <- main.c  $(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
-  main.o <- main.c  $(CC) -O3 -c $< -o $@
-refused: the build does not start
-exit status 2
-```
-
-Makefile_twice.curry defines CFLAGS twice, and every recipe that reads it
-has two values:
-
-```
-7. CFLAGS defined twice: two values, two recipes, the recipe lint
-% python make.py -C project -f Makefile_twice.curry
-main.o has 2 recipes
-report.o has 2 recipes
-vec.o has 2 recipes
-shape.o has 2 recipes
-refused: the build does not start
-exit status 2
-```
-
-The lint prints one line per target: the recipes themselves when they fit
-in 79 columns, else their count, as here.
-
-Makefile_toolchain.curry writes CC = "gcc" ? "clang".  The choice is two
-answers, so the same lint refuses, and the command line decides:
-
-```
-8. the compiler as a choice, CC = "gcc" ? "clang": two answers, and the command line decides
-% python make.py -C project -f Makefile_toolchain.curry -n
-main.o has 2 recipes
-...
-demo has 2 recipes
-refused: the build does not start
-exit status 2
-% python make.py -C fresh -f Makefile_toolchain.curry CC=clang -n
-plan: 6 targets
-  main.o    <- main.c shape.h vec.h       clang  -O2 -Wall -c main.c -o main.o
-...
-```
-
-Step 9 plans Makefile_cycle.curry in a fresh copy, where every target of the
-cycle is stale.  Its extra rule has the program write the header its own
-objects read.  The plan has no value, and the driver says so.  Step 10 builds
-the copy without vec.c, and the build stops before the plan:
-
-```
-10. a source that is missing: no rule to make it
-% python make.py -C incomplete
-no rule to make vec.c, needed by vec.o
-refused: the build does not start
-exit status 2
-```
-
-
-## 9. Limits
-
-Warm runs of ./run took 4.8 s and 6.9 s.  A first run took 10.3 s.  It
-also converts the library, the five
-makefiles and the three substituted copies to ICurry.  The run starts eleven
-make.py processes.
-
-The library reads the rules of a target through a set function, whose values
-are plain data, and every later question compares plain strings.  That is the
-idiom for a functional pattern's result in Sprite today.  A name that a
-functional pattern produced carries its narrowing into every later comparison
-(#86).  A set function applied to such a name exhausted memory on the C++
-backend before the fix of #97.  The pattern rule binds the free inputs of the
-relation (#98).
-
-A stamp is an integer that Python computes, here the modification time in
-nanoseconds.  A target with the same stamp as an input is up to date, as
-in make.  --touch waits until the file is newer than every other file of
-the build.  The plan sees a cycle when a target of the cycle is stale.  A
-cycle among targets that are up to date is nothing to do.  The project is
-a toy by design.  A real project would read its header edges from the
-dependency output of the compiler and would need the features that
-section 5 lists.  The relations do not change.  Only the equations grow.
+The project is a toy by design.  Make's `+=`, `?=`, target-specific
+variables, `.PHONY`, order-only prerequisites, `$(wildcard)`, VPATH and the
+search among several pattern rules have no form here, and a recipe runs as
+one process without a shell.  A real project would read its header edges
+from the dependency output of the compiler and would need those features.
+The relations would not change; only the equations would grow.
