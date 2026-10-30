@@ -119,14 +119,17 @@ namespace curryrt
   {
     Node * lhs;
     Node * rhs;
-    static constexpr InfoTable const * static_info = &Pair_Info;
+    // Not constexpr: the address of an imported data symbol is no constant
+    // expression on Windows (CURRYRT_DATA), where the pointer is set when
+    // the object loads; elsewhere it is a constant.
+    static inline InfoTable const * const static_info = &Pair_Info;
   };
 
   struct SetGrdNode : Head
   {
     Set  * set;
     Node * value;
-    static constexpr InfoTable const * static_info = &SetGuard_Info;
+    static inline InfoTable const * const static_info = &SetGuard_Info;
   };
 
   struct ConstrNode : Head
@@ -149,20 +152,20 @@ namespace curryrt
   {
     xid_type vid;
     Node *  genexpr;
-    static constexpr InfoTable const * static_info = &Free_Info;
+    static inline InfoTable const * const static_info = &Free_Info;
   };
 
   struct FwdNode : Head
   {
     Node * target;
-    static constexpr InfoTable const * static_info = &Fwd_Info;
+    static inline InfoTable const * const static_info = &Fwd_Info;
   };
 
   struct FwdSzNode : Head
   {
     Node * target;
     size_t bytes;
-    static constexpr InfoTable const * static_info = &FwdSz_Info;
+    static inline InfoTable const * const static_info = &FwdSz_Info;
   };
 
   struct ChoiceNode : Head
@@ -170,42 +173,42 @@ namespace curryrt
     xid_type cid;
     Node *  lhs;
     Node *  rhs;
-    static constexpr InfoTable const * static_info = &Choice_Info;
+    static inline InfoTable const * const static_info = &Choice_Info;
   };
 
   struct IONode : Head
   {
     Node * value;
-    static constexpr InfoTable const * static_info = &IO_Info;
+    static inline InfoTable const * const static_info = &IO_Info;
   };
 
   struct IntNode : Head
   {
     unboxed_int_type value;
-    static constexpr InfoTable const * static_info = &Int_Info;
+    static inline InfoTable const * const static_info = &Int_Info;
   };
 
   struct FloatNode : Head
   {
     unboxed_float_type value;
-    static constexpr InfoTable const * static_info = &Float_Info;
+    static inline InfoTable const * const static_info = &Float_Info;
   };
 
   struct CharNode : Head
   {
     unboxed_char_type value;
-    static constexpr InfoTable const * static_info = &Char_Info;
+    static inline InfoTable const * const static_info = &Char_Info;
   };
 
   struct PadNode : Head
   {
-    static constexpr InfoTable const * static_info = &Pad_Info;
+    static inline InfoTable const * const static_info = &Pad_Info;
   };
 
   struct PadSzNode : Head
   {
     size_t bytes;
-    static constexpr InfoTable const * static_info = &PadSz_Info;
+    static inline InfoTable const * const static_info = &PadSz_Info;
   };
 
   // A partial application: a function or constructor applied to fewer
@@ -269,7 +272,7 @@ namespace curryrt
   struct biStringNode : Head
   {
     char const * data;
-    static constexpr InfoTable const * static_info = &_biString_Info;
+    static inline InfoTable const * const static_info = &_biString_Info;
   };
 
   // A Python iterator as a lazy Curry list.  ``data`` is a PyObject *, kept
@@ -283,14 +286,14 @@ namespace curryrt
   struct biGeneratorNode : Head
   {
     void * data;
-    static constexpr InfoTable const * static_info = &_biGenerator_Info;
+    static inline InfoTable const * const static_info = &_biGenerator_Info;
   };
 
   struct ConsNode : Head
   {
     Node * head;
     Node * tail;
-    static constexpr InfoTable const * static_info = &Cons_Info;
+    static inline InfoTable const * const static_info = &Cons_Info;
   };
 
   struct SetEvalNode : Head
