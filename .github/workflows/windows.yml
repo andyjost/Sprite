@@ -1,4 +1,4 @@
-name: Windows spike
+name: Windows
 
 # The runtime, its Python bindings and the staged package built on Windows
 # (the portability memo of 2026-10-18, step 4; the owner's go of 2026-10-29).
@@ -11,10 +11,11 @@ name: Windows spike
 # generated code: every module runs interpreted (interpret 'all').
 
 'on':
-  # Every push of the spike branches runs it: the line endings of the
-  # checkout and the attributes matter as much as the sources.
+  # Every push of master and of the Windows branches runs it: the line
+  # endings of the checkout and the attributes matter as much as the
+  # sources.  The clang-cl job is the port's gate; cl is experimental.
   push:
-    branches: [wt/windows, 'wt/windows-*']
+    branches: [master, wt/windows, 'wt/windows-*']
   workflow_dispatch:
 
 permissions:
@@ -24,7 +25,7 @@ jobs:
   build:
     name: runtime (${{ matrix.name }})
     runs-on: windows-2025
-    continue-on-error: true
+    continue-on-error: ${{ matrix.experimental }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -32,8 +33,10 @@ jobs:
         include:
           - name: clang-cl
             cc: clang-cl
+            experimental: false
           - name: msvc
             cc: cl
+            experimental: true
     defaults:
       run:
         shell: bash

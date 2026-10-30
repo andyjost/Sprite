@@ -163,6 +163,15 @@ reproducers pass.
   memory of a run.
   The benchmark harness also has a separate community suite; its manifest
   and wrapper rules are in `tests/data/curry/benchmarks/README.md`.
+  On Windows, clang-cl of Visual Studio builds the runtime and the
+  bindings (the workflow `windows.yml`, on windows-2025, in the developer
+  environment of vcvars64; cl is experimental); the services of the
+  operating system are behind `curryrt/platform.hpp`, the data symbols
+  that other objects read carry `CURRYRT_DATA` (`curryrt/export.hpp`),
+  and the compile of generated code is not available there: the library
+  ships its ICurry and JSON, every module runs interpreted (the flag
+  `interpret` defaults to `all` on Windows), and there are no Windows
+  wheels yet.
 - Sprite needs no GPU.
 - CMake honours `CC`, `CXX`, `CFLAGS`, `CXXFLAGS`
   and `LDFLAGS` from the environment, so build in a clean environment when
