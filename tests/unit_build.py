@@ -74,7 +74,10 @@ class TestDistribution(cytest.TestCase):
         metadata = BytesParser().parsebytes(archive.extractfile(prefix + 'PKG-INFO').read())
         self.assertEqual(metadata['Author'], 'Andy Jost')
         self.assertIsNone(metadata['Author-email'])
-        self.assertEqual(metadata.get_all('Requires-Dist'), ['curry-frontend>=3.1.0'])
+        # The extra jit (llvmlite) beside the front end the package needs.
+    self.assertEqual(metadata.get_all('Requires-Dist'),
+        ['curry-frontend>=3.1.0', 'llvmlite>=0.50; extra == "jit"'])
+    self.assertEqual(metadata.get_all('Provides-Extra'), ['jit'])
 
   def test_stage_without_frontend(self):
     '''A fresh native build uses only shipped products, including typed calls.'''
