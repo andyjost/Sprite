@@ -104,11 +104,15 @@ class timeout:
   def handle_timeout(self, signum, frame):
     raise TimeoutError(self.message)
   def __enter__(self):
-    self.prev = signal.signal(signal.SIGALRM, self.handle_timeout)
-    signal.alarm(self.seconds)
+    # SIGALRM is POSIX; a zero timeout and Windows set no alarm.
+    self.armed = bool(self.seconds) and hasattr(signal, 'SIGALRM')
+    if self.armed:
+      self.prev = signal.signal(signal.SIGALRM, self.handle_timeout)
+      signal.alarm(self.seconds)
   def __exit__(self, type, value, traceback):
-    signal.alarm(0)
-    signal.signal(signal.SIGALRM, self.prev)
+    if self.armed:
+      signal.alarm(0)
+      signal.signal(signal.SIGALRM, self.prev)
 
 P_LINK = re.compile(r':\w+:`(\S+)\s*(<[^>]+>)?`')
 def unrst(text):

@@ -1,4 +1,5 @@
 #pragma once
+#include "curryrt/export.hpp"
 #include <cstdint>
 #include <limits>
 #include <string>

@@ -3,7 +3,11 @@ Implements Interpreter.stats, the statistics of a run.
 '''
 
 from .. import toolchain
-import os, resource, sys, time
+import os, sys, time
+try:
+  import resource
+except ImportError:  # Windows has no resource module; see _usage
+  resource = None
 
 __all__ = [
     'GC_COUNTERS', 'GC_KEYS', 'KEYS', 'SCHEDULER_KEYS', 'Stats'
@@ -168,9 +172,39 @@ def scheduler_fields(counters):
   assert tuple(key for key, _ in fields) == SCHEDULER_KEYS
   return fields
 
+def _usage():
+  '''
+  The CPU seconds and the peak resident set size of this process, in bytes.
+  POSIX reads getrusage; Windows reads the times of the process and the peak
+  working set of its memory counters.
+  '''
+  if resource is not None:
+    usage = resource.getrusage(resource.RUSAGE_SELF)
+    return usage.ru_utime + usage.ru_stime, usage.ru_maxrss * _RSS_UNIT
+  times = os.times()
+  peak = 0
+  if sys.platform == 'win32':
+    import ctypes
+    from ctypes import wintypes
+    class Counters(ctypes.Structure):
+      _fields_ = [
+          ('cb', wintypes.DWORD), ('PageFaultCount', wintypes.DWORD)
+        , ('PeakWorkingSetSize', ctypes.c_size_t), ('WorkingSetSize', ctypes.c_size_t)
+        , ('QuotaPeakPagedPoolUsage', ctypes.c_size_t), ('QuotaPagedPoolUsage', ctypes.c_size_t)
+        , ('QuotaPeakNonPagedPoolUsage', ctypes.c_size_t), ('QuotaNonPagedPoolUsage', ctypes.c_size_t)
+        , ('PagefileUsage', ctypes.c_size_t), ('PeakPagefileUsage', ctypes.c_size_t)
+        ]
+    counters = Counters()
+    counters.cb = ctypes.sizeof(counters)
+    kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+    if kernel32.K32GetProcessMemoryInfo(
+        kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb):
+      peak = counters.PeakWorkingSetSize
+  return times.user + times.system, peak
+
 def peak_rss():
   '''The peak resident set size of this process, in bytes.'''
-  return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * _RSS_UNIT
+  return _usage()[1]
 
 def stats(interp):
   '''
@@ -237,15 +271,15 @@ def stats(interp):
     A C++ runtime built with the scheduler counters (make COUNTERS=1) adds
     the keys of :data:`SCHEDULER_KEYS`; see :func:`scheduler_fields`.
   '''
-  usage = resource.getrusage(resource.RUSAGE_SELF)
+  cpu, peak = _usage()
   totals = interp._evaluation_totals
   fields = [
       ('wall', time.monotonic() - _START)
-    , ('cpu', usage.ru_utime + usage.ru_stime)
+    , ('cpu', cpu)
     , ('steps', totals.steps)
     , ('forks', totals.forks)
     , ('collections', interp.backend.num_collections())
-    , ('peak_rss', usage.ru_maxrss * _RSS_UNIT)
+    , ('peak_rss', peak)
     , ('compile', toolchain.compile_seconds())
     , ('gc_seconds', interp.backend.gc_seconds())
     ]

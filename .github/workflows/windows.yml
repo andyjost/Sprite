@@ -1,12 +1,14 @@
 name: Windows spike
 
-# The runtime and its Python bindings compiled on Windows, for the report of
-# what the port is (the portability memo of 2026-10-18, step 4; the owner's
-# go of 2026-10-29).  Two compilers: clang-cl, which knows the GNU builtins
-# of the runtime, and cl.  The job builds the two targets alone with the
-# Visual Studio generator, which finds the toolchain without a developer
-# prompt, lets every translation unit report, and uploads the logs.  No
-# front end: the configure takes the pinned library products.
+# The runtime, its Python bindings and the staged package built on Windows
+# (the portability memo of 2026-10-18, step 4; the owner's go of 2026-10-29).
+# Two compilers: clang-cl, the compiler of the port, which knows the GNU
+# builtins of the runtime, and cl, experimental.  The job configures in the
+# developer environment of Visual Studio, builds every target with Ninja
+# past the first error so one run reports every translation unit, runs the
+# interpreter on a Prelude function, and uploads the logs.  No front end:
+# the configure takes the pinned library products, and no compile of
+# generated code: every module runs interpreted (interpret 'all').
 
 'on':
   # Every push of the spike branches runs it: the line endings of the
@@ -68,20 +70,37 @@ jobs:
           set "CONFIGURE_STATUS=%errorlevel%"
           type configure.log
           if not "%CONFIGURE_STATUS%"=="0" exit /b %CONFIGURE_STATUS%
-          cmake --build build --target curryrt _curryrtbindings --parallel -- -k 0 > build.log 2>&1
+          cmake --build build --parallel -- -k 0 > build.log 2>&1
           set "BUILD_STATUS=%errorlevel%"
           type build.log
           exit /b %BUILD_STATUS%
+      # The interpreter over the staged tree: the extension loads the runtime
+      # library from lib/, the Prelude comes from its pinned ICurry.
+      - name: Smoke test of the interpreter
+        if: always()
+        env:
+          SPRITE_HOME: ${{ github.workspace }}\build\stage
+          PYTHONPATH: ${{ github.workspace }}\build\stage\python
+        run: |
+          set -uxo pipefail
+          ls build/stage/lib build/stage/python/curry/backends/cxx/curryrtbindings || true
+          python -c "import curry; from curry.interpreter import flags; d = flags.get_default_flags(); print(curry.config.curryrt_lib_name(), d['interpret'] if isinstance(d, dict) else d)"
+          python -c "import curry; from curry.lib import Prelude; print(curry.eval(Prelude.reverse([1, 2, 3])).one())"
+          python -c "import curry; M = curry.compile('f :: Int -> Int\nf x = x ? x + 1'); print(sorted(curry.eval(M.f(1))))"
       - name: Errors by file and by kind
         if: always()
         run: |
           set -uo pipefail
           [ -f build.log ] || { echo "no build log (the configure failed)"; exit 0; }
           echo "== errors by file:"
-          grep -oE '[A-Za-z0-9_./\\-]+\.(cpp|hpp|h)\([0-9]+(,[0-9]+)?\): (fatal )?error|[A-Za-z0-9_./\\-]+\.(cpp|hpp|h):[0-9]+:[0-9]+: (fatal )?error' build.log \
+          { grep -oE '[A-Za-z0-9_./\\-]+\.(cpp|hpp|h)\([0-9]+(,[0-9]+)?\): (fatal )?error|[A-Za-z0-9_./\\-]+\.(cpp|hpp|h):[0-9]+:[0-9]+: (fatal )?error' build.log || true; } \
             | sed -E 's/(\([0-9,]+\)|:[0-9]+:[0-9]+): (fatal )?error//' | sort | uniq -c | sort -rn | head -60
           echo "== error kinds:"
-          grep -oE 'error C[0-9]+: [^\[]{0,70}|error: [^\[]{0,70}' build.log | sort | uniq -c | sort -rn | head -50
+          { grep -oE 'error C[0-9]+: [^\[]{0,70}|error: [^\[]{0,70}' build.log || true; } | sort | uniq -c | sort -rn | head -50
+          echo "== link errors:"
+          { grep -E 'lld-link: error|error LNK[0-9]+|LINK : fatal' build.log || true; } | sed -E 's/>>> referenced.*//' | sort | uniq -c | sort -rn | head -40
+          echo "== failed steps of ninja:"
+          { grep -E '^FAILED:' build.log || true; } | head -20
           echo "== totals:"
           grep -cE '(: |\): )(fatal )?error' build.log || true
       - name: Upload the logs

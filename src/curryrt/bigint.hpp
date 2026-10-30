@@ -1,9 +1,10 @@
 #pragma once
+#include "curryrt/export.hpp"
 #include "curryrt/builtins.hpp"
 #include <cstdint>
 #include <string>
 
-extern "C" { extern curryrt::InfoTable const BigInt_Info; }
+extern "C" { extern CURRYRT_DATA curryrt::InfoTable const BigInt_Info; }
 
 namespace curryrt
 {

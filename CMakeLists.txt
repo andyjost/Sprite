@@ -218,10 +218,23 @@ if(APPLE)
   set(sprite_origin "@loader_path")
   set(elf_release_flags "")
 elseif(WIN32)
-  # PE has no run path: the runtime library is found beside the extension
-  # or through the directories that the package adds (the Windows spike).
+  # PE has no run path: the Python package declares lib/ to the loader
+  # (os.add_dll_directory) before it imports the extension.  A DLL is a
+  # runtime output; it keeps the name libcurryrt of the other platforms.
+  # CMake writes the definition file that exports every function; the data
+  # symbols that other objects read carry CURRYRT_DATA (curryrt/export.hpp).
   set(sprite_origin "")
   set(elf_release_flags "")
+  set_target_properties(curryrt PROPERTIES
+    WINDOWS_EXPORT_ALL_SYMBOLS ON
+    PREFIX "lib"
+    RUNTIME_OUTPUT_DIRECTORY "${image}/lib"
+    ARCHIVE_OUTPUT_DIRECTORY "${image}/lib")
+  target_compile_definitions(curryrt PRIVATE CURRYRT_BUILDING)
+  # The compile of generated code (sprite-make --so, the tiered compile) is
+  # not available on Windows in this release: the library ships its ICurry
+  # and JSON, every module runs interpreted, and no tools/cxx is installed.
+  set(WITH_CXX_POSTINSTALL "")
 else()
   set(sprite_origin "$ORIGIN")
   # The procedure linkage table and semantic interposition are ELF notions.
@@ -256,11 +269,11 @@ target_link_libraries(_curryrtbindings PRIVATE curryrt)
 if(MSVC)
   # cl and clang-cl: the MSVC spelling.  cl has no strict-aliasing
   # optimization to turn off; clang-cl takes the GNU flag through /clang:.
-  set(sprite_cxx_flags /W3 /EHsc /bigobj
+  set(sprite_cxx_flags /W3 /EHsc /bigobj /D_CRT_SECURE_NO_WARNINGS
     "$<$<CXX_COMPILER_ID:Clang>:/clang:-fno-strict-aliasing>"
     "$<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>"
     "$<$<CONFIG:Release>:/O2>")
-  set(sprite_c_flags /W3 "$<$<CONFIG:Release>:/O2>")
+  set(sprite_c_flags /W3 /D_CRT_SECURE_NO_WARNINGS "$<$<CONFIG:Release>:/O2>")
 else()
   set(sprite_cxx_flags -Wall -Wno-register -fno-strict-aliasing
     "$<$<CXX_COMPILER_ID:AppleClang,Clang>:-Wno-missing-braces>"

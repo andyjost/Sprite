@@ -1,6 +1,6 @@
 from .. import config
 from ..exceptions import FlagError
-import logging, os
+import logging, os, sys
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +94,9 @@ The following flags are available:
     interpreted by the ICurry interpreter of the runtime (curryrt/icurry.hpp)
     instead, and a module with a current object is loaded from it.  With
     'all', every module is interpreted, the Prelude included; the compiled
-    objects are not used.  With 'tiered', the default on every platform, a
+    objects are not used; it is the default on Windows, where the compile of
+    generated code is not available in this release.  With 'tiered', the
+    default on the other platforms, a
     module without a compiled object is interpreted at once, as under
     'new', a child process compiles it in the background, and the runtime
     swaps the functions of the module to the compiled code when the object
@@ -188,7 +190,7 @@ FLAG_INFO = {
   , 'checker'             : ( bool                , False )
   , 'debug'               : ( bool                , False )
   , 'inline_budget'       : ( int                 , 4     )
-  , 'interpret'           : ({'off', 'new', 'all', 'tiered'}, 'tiered')
+  , 'interpret'           : ({'off', 'new', 'all', 'tiered'}, 'all' if sys.platform == 'win32' else 'tiered')
   , 'trace'               : ( bool                , False )
   , 'keep_temp_files'     : ((bool, str)          , False )
   , 'lazycompile'         : ( bool                , True  )

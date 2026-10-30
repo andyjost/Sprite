@@ -1,4 +1,5 @@
 #pragma once
+#include "curryrt/export.hpp"
 #include <atomic>
 #include <string>
 #include <vector>
@@ -197,5 +198,5 @@ namespace curryrt
 
   // Set by the worker when a job finished; cleared by tiered_apply_pending.
   // The scheduler checks it at its periodic safepoint.
-  extern std::atomic<bool> g_tiered_pending;
+  extern CURRYRT_DATA std::atomic<bool> g_tiered_pending;
 }

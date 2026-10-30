@@ -1,4 +1,5 @@
 #pragma once
+#include "curryrt/export.hpp"
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -40,7 +41,7 @@
 namespace curryrt
 {
   // The byte the ticker sets every quantum.  Only the safepoint clears it.
-  extern std::atomic<unsigned char> g_tick;
+  extern CURRYRT_DATA std::atomic<unsigned char> g_tick;
 
   // The hook of the safepoint and of the native workers: true when a quantum
   // passed since the last clear.

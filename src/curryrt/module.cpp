@@ -172,7 +172,7 @@ namespace curryrt
         // Curry name of the function; a primitive behind an external must
         // carry its Curry name as well, or it shadows the function that
         // wraps it (prim_error against error).
-        auto found = this->impl->symbols.find(info->name);
+        [[maybe_unused]] auto found = this->impl->symbols.find(info->name);
         assert(found == this->impl->symbols.end() || found->second == info);
         this->impl->symbols[info->name] = info;
       }

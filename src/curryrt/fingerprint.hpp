@@ -54,6 +54,7 @@
 //    =========    =========    =========    =========
 //
 #pragma once
+#include "curryrt/export.hpp"
 
 // The cache is broken.  The unit tests will fail if it is activated.
 // #define USE_FP_CACHE
@@ -134,7 +135,7 @@ namespace curryrt
     };
 
     // The pool used to allocate branches.
-    extern BranchPool branch_pool;
+    extern CURRYRT_DATA BranchPool branch_pool;
 
     // Stores FP_BLOCK_SIZE bits of fingerprint data.  If the @p used bit is set,
     // then the corresponding choice is made.  If so, then @p lr indicates
@@ -201,9 +202,9 @@ namespace curryrt
       );
 
     #if defined(USE_FP_CACHE) && defined(FP_CACHE_DIAGNOSTICS)
-    extern size_t cache_tries;
-    extern size_t cache_hits;
-    extern size_t cache_total_depth;
+    extern CURRYRT_DATA size_t cache_tries;
+    extern CURRYRT_DATA size_t cache_hits;
+    extern CURRYRT_DATA size_t cache_total_depth;
     #endif
   }
 

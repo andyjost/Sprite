@@ -395,8 +395,8 @@ def currypath(reset=False, cache=[]):
     cache[:] = ()
   if not cache:
     from .utility import curryname
-    envpath = os.environ.get('CURRYPATH', '').split(':')
-    syspath = system_curry_path().split(':')
+    envpath = os.environ.get('CURRYPATH', '').split(os.pathsep)
+    syspath = system_curry_path().split(os.pathsep)
     currypath = curryname.makeCurryPath(envpath + syspath)
     cache.append(currypath)
     verify_syslibs()
@@ -407,7 +407,7 @@ def verify_syslibs():
   if 'SPRITE_DISABLE_SYSLIB_CHECKS' in os.environ:
     return
   cypath = currypath()
-  syspath = system_curry_path().split(':')
+  syspath = system_curry_path().split(os.pathsep)
   for name in syslibs():
     name = name.replace('.', os.sep) + '.curry'
     found = list(filesys.findfiles(cypath, name))
