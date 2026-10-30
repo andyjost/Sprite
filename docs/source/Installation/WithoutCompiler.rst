@@ -95,11 +95,13 @@ The flags are set in ``SPRITE_INTERPRETER_FLAGS``; see
 The cost
 ========
 
-The interpreter takes about 1.1 to 1.5 times the time of compiled code for
-the evaluation of a program (measured on issues #31 and #64).  A process that interprets the Prelude, under
+The interpreter takes about 1.5 times the time of compiled code for the
+evaluation of a program (``Tak1``: 1.9 s against 1.3 s on 2026-10-30; the
+measurements of issues #31 and #64 gave 1.1 to 1.5).  A process that interprets the Prelude, under
 ``interpret:all`` or when the library objects are missing, first reads the
-ICurry of the Prelude and emits its bytecode.  That costs about 0.3 to
-0.55 s per process; the compiled library objects avoid it.  So a
+ICurry of the Prelude and emits its bytecode.  That cost about 1.5 s per
+process on 2026-10-30 (0.3 to 0.55 s when first measured); the compiled
+library objects avoid it.  So a
 compiler-free installation that stayed in place should keep the library
 objects that ``make stage`` compiled, and ``interpret:new`` is then the
 cheaper explicit setting.

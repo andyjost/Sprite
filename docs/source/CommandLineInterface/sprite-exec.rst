@@ -45,8 +45,8 @@ raises evaluation errors.
 
 The first run of a program also runs the Curry front end on its module.
 That takes a fraction of a second for a small module: ``Peano.curry``
-took 0.64 s on its first run and 0.17 s on the second, on the machine of
-this text.
+took 0.72 s on its first run and 0.20 s on the second, on the machine of
+this text (2026-10-30).
 
 For detailed usage, say::
 
