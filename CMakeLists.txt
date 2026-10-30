@@ -379,8 +379,19 @@ if(WITH_CLANG)
     # The code the JIT makes resolves the data symbols of the runtime
     # library by name, through the exports of the loaded DLL, not through
     # import thunks: the helpers see the declarations without dllimport,
-    # as the library itself does.
-    list(APPEND jit_clang_flags -DCURRYRT_BUILDING -D_CRT_SECURE_NO_WARNINGS)
+    # as the library itself does.  The object format is ELF: llvmlite's
+    # target machines on Windows carry the ELF data layout (as the JITs
+    # of Numba do), so the bitcode names the same, and the COFF linker
+    # directives of the MSVC headers (/DEFAULTLIB) are left out, since the
+    # ELF code generator rejects them.
+    string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" jit_arch)
+    if(jit_arch STREQUAL "amd64" OR jit_arch STREQUAL "x86_64")
+      set(jit_arch x86_64)
+    elseif(jit_arch STREQUAL "arm64" OR jit_arch STREQUAL "aarch64")
+      set(jit_arch aarch64)
+    endif()
+    list(APPEND jit_clang_flags "--target=${jit_arch}-pc-windows-msvc-elf" -fno-autolink
+      -DCURRYRT_BUILDING -D_CRT_SECURE_NO_WARNINGS)
   endif()
   set(jit_bitcode "${image}/lib/curryrt-helpers.bc")
   set(jit_defs "$<TARGET_PROPERTY:curryrt,INTERFACE_COMPILE_DEFINITIONS>")
