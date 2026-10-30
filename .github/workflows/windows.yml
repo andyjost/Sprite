@@ -110,13 +110,16 @@ jobs:
           from curry.backends.cxx import llvmjit
           print('available:', llvmjit.available())
           t0 = time.perf_counter()
-          print(curry.eval(Prelude.length(Prelude.replicate(2000000, 0))).one())
+          # A linear scan of a lazy list: many steps, a bounded depth (the
+          # length of a list two million long overflows the worker's stack
+          # of 1 GiB on Windows, where the frames are larger).
+          print(curry.eval(Prelude.elem(999999, Prelude.enumFromTo(1, 1000000))).one())
           print('eval %.2f s' % (time.perf_counter() - t0))
           deadline = time.monotonic() + 60
           while llvmjit.statistics()['hot'] == 0 and time.monotonic() < deadline:
             time.sleep(0.05)
           print(llvmjit.statistics())
-          print(curry.eval(Prelude.length(Prelude.replicate(2000000, 0))).one())
+          print(curry.eval(Prelude.elem(999999, Prelude.enumFromTo(1, 1000000))).one())
           assert llvmjit.statistics()['hot'] > 0, 'the hot tier compiled nothing'
           EOF
       - name: Errors by file and by kind
