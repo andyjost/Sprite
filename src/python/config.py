@@ -170,6 +170,9 @@ currylib_unsupported_modules = _Variable('currylib_unsupported_modules')
 # The suffix of a shared library on the platform of the build: '.so', or
 # '.dylib' on macOS.  See shared_library_suffix.
 _shared_library_suffix    = _Variable('shared_library_suffix')
+# The bitcode of the JIT helpers, relative to the installation, or empty
+# when the build found no clang.  See jit_bitcode.
+_jit_bitcode              = _Variable('jit_bitcode')
 # The flavor of the installed C++ runtime, as the build wrote it: 'release'
 # or 'debug'.  See cxx_flavor.
 _cxx_flavor               = _Variable('cxx_flavor')
@@ -548,6 +551,21 @@ def shared_library_suffix():
   if not os.path.exists(installed_path('sysconfig', 'shared_library_suffix')):
     return '.so'
   return _shared_library_suffix().strip() or '.so'
+
+def jit_bitcode():
+  '''
+  The path of the bitcode of the JIT helpers (lib/curryrt-helpers.bc), or
+  None when the build wrote none: CMake compiles it when it finds clang
+  (WITH_CLANG).  The JIT of the C++ backend (backends/cxx/llvmjit.py) links
+  it into the code it makes.
+  '''
+  if not os.path.exists(installed_path('sysconfig', 'jit_bitcode')):
+    return None
+  relpath = _jit_bitcode().strip()
+  if not relpath:
+    return None
+  path = installed_path(relpath)
+  return path if os.path.exists(path) else None
 
 def curryrt_lib_name():
   '''The file name of the runtime library: libcurryrt.so, or .dylib on macOS.'''

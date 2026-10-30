@@ -214,7 +214,36 @@ namespace
     d["nvars"] = bc->nvars;
     d["nstack"] = bc->nstack;
     d["nconsts"] = bc->consts.size();
+    // The constants as addresses, for the JIT (backends/cxx/llvmjit.py):
+    // an info table, a data type, a value set, a node, or a text, each of
+    // which lives as long as the process.
+    std::vector<std::uintptr_t> consts;
+    for(void const * k: bc->consts)
+      consts.push_back(reinterpret_cast<std::uintptr_t>(k));
+    d["consts"] = consts;
     return std::move(d);
+  }
+
+  void icurry_set_step_(InfoTable * info, std::uintptr_t address)
+  {
+    try
+    {
+      icurry_set_step(info, reinterpret_cast<stepfunc_type>(address));
+    }
+    catch(std::invalid_argument const & e)
+    {
+      throw py::value_error(e.what());
+    }
+  }
+
+  py::dict jit_sizes_()
+  {
+    py::dict d;
+    d["cursor"] = sizeof(Cursor);
+    d["variable"] = sizeof(Variable);
+    d["tag_bits"] = 8 * sizeof(tag_type);
+    d["pointer_bits"] = 8 * sizeof(void *);
+    return d;
   }
 
   std::vector<std::string> icurry_opcodes_()
@@ -235,11 +264,41 @@ namespace curryrt { namespace python
       , py::arg("nvars"), py::arg("nstack")
       , "Makes a function table made at run time an interpreted function: "
         "attaches the bytecode and the constants of its body.", curryrt::python::heap_access{});
+    mod.def("icurry_set_step", &icurry_set_step_
+      , "Gives an interpreted function the step at an address: the code a JIT "
+        "made from its bytecode.  The function must be interpreted at the "
+        "call.  No heap lock: the hot tier swaps a step while an evaluation "
+        "runs, and the evaluation reads the pointer at each call.");
+    mod.def("jit_sizes", &jit_sizes_
+      , "The sizes the JIT needs: the bytes of a Cursor and of a Variable, "
+        "the bits of a tag and of a pointer.");
     mod.def("icurry_bytecode", &icurry_bytecode_
       , "The bytecode of an interpreted function as a dict (code, nregs, "
-        "nvars, nstack, nconsts), or None for any other info table.", curryrt::python::heap_access{});
+        "nvars, nstack, nconsts, consts), or None for any other info table.  "
+        "No heap lock: the thread of the hot tier reads it.");
+    // The entry points of the JIT take no heap lock: the thread of the hot
+    // tier calls them while an evaluation owns the lock.  They read a table
+    // and the lists of the interpreter, under their own mutexes, and write
+    // one step pointer.
+    mod.def("icurry_take_hot", &icurry_take_hot
+      , "The interpreted functions whose call count reached the threshold of "
+        "the hot tier since the last call; the list is cleared."
+      , py::return_value_policy::reference);
+    mod.def("icurry_set_hot_threshold", &icurry_set_hot_threshold
+      , "Sets the call count at which an interpreted function joins the hot "
+        "list; 0 turns the count off.");
+    mod.def("icurry_hot_threshold", &icurry_hot_threshold
+      , "The call count of the hot tier.");
+    mod.def("icurry_name"
+      , [](InfoTable const * info) { return std::string(info && info->name ? info->name : ""); }
+      , "The name of an info table, without the heap lock (the thread of the "
+        "hot tier).");
+    mod.def("icurry_is_jit", &icurry_is_jit
+      , "Whether the step of an info table is code the JIT made from its "
+        "bytecode (icurry_set_step).");
     mod.def("icurry_is_interpreted"
-      , [](InfoTable const * info) { return icurry_bytecode(info) != nullptr; }
+      , [](InfoTable const * info)
+          { return icurry_bytecode(info) != nullptr && !icurry_is_jit(info); }
       , "Whether the step of an info table is the ICurry interpreter.", curryrt::python::heap_access{});
     mod.def("icurry_opcodes", &icurry_opcodes_
       , "The names of the opcodes of the interpreter, in numeric order.", curryrt::python::heap_access{});

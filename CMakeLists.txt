@@ -351,6 +351,50 @@ sprite_var(intermediate_subdir "sprite-pakcs-${frontend_release}")
 # keep the suffix .so on every platform; dlopen reads the file, not its name.
 sprite_var(shared_library_suffix "${CMAKE_SHARED_LIBRARY_SUFFIX}")
 sprite_var(python_package_name "curry")
+# The bitcode of the JIT helpers (src/curryrt/jit/helpers.cpp): clang
+# compiles the helper surface over the runtime headers to LLVM bitcode,
+# which the JIT of the Python package (backends/cxx/llvmjit.py, on llvmlite)
+# links into the code it makes from the bytecode of a function.  Without
+# clang there is no bitcode and the JIT declines; the interpreter and the
+# compiled code are unaffected.  WITH_CLANG_FLAGS carries what a clang
+# outside the system needs (a --gcc-install-dir, a sysroot).
+set(WITH_CLANG "AUTO" CACHE STRING "clang++ for the bitcode of the JIT helpers; AUTO finds one on PATH, empty disables")
+set(WITH_CLANG_FLAGS "" CACHE STRING "Extra flags for the clang of the JIT helpers")
+if(WITH_CLANG STREQUAL "AUTO" AND WIN32)
+  # The bitcode of Windows needs the flags of clang-cl and the developer
+  # environment: an explicit WITH_CLANG, in a lane of its own.
+  set(WITH_CLANG "")
+endif()
+if(WITH_CLANG STREQUAL "AUTO")
+  find_program(jit_clang NAMES clang++ clang++-21 clang++-20 clang++-19 clang++-18 clang++-17 NO_CACHE)
+  if(jit_clang)
+    set(WITH_CLANG "${jit_clang}")
+  else()
+    set(WITH_CLANG "")
+  endif()
+endif()
+if(WITH_CLANG)
+  separate_arguments(jit_clang_flags NATIVE_COMMAND "${WITH_CLANG_FLAGS}")
+  set(jit_bitcode "${image}/lib/curryrt-helpers.bc")
+  set(jit_defs "$<TARGET_PROPERTY:curryrt,INTERFACE_COMPILE_DEFINITIONS>")
+  add_custom_command(OUTPUT "${jit_bitcode}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${image}/lib"
+    COMMAND "${WITH_CLANG}" ${jit_clang_flags} -std=c++17 -O2 -DNDEBUG -fno-strict-aliasing
+      "$<$<BOOL:${jit_defs}>:-D$<JOIN:${jit_defs},;-D>>"
+      -I "${CMAKE_SOURCE_DIR}/src" -I "${CMAKE_SOURCE_DIR}/extern/libtommath"
+      -emit-llvm -c -MD -MF "${CMAKE_CURRENT_BINARY_DIR}/curryrt-helpers.d"
+      "${CMAKE_SOURCE_DIR}/src/curryrt/jit/helpers.cpp" -o "${jit_bitcode}"
+    DEPENDS "${CMAKE_SOURCE_DIR}/src/curryrt/jit/helpers.cpp"
+    DEPFILE "${CMAKE_CURRENT_BINARY_DIR}/curryrt-helpers.d"
+    COMMENT "Compiling the JIT helpers to LLVM bitcode"
+    COMMAND_EXPAND_LISTS VERBATIM)
+  add_custom_target(jit_helpers ALL DEPENDS "${jit_bitcode}")
+  sprite_var(jit_bitcode "lib/curryrt-helpers.bc")
+  message(STATUS "JIT helpers: ${WITH_CLANG}")
+else()
+  sprite_var(jit_bitcode "")
+  message(STATUS "JIT helpers: no clang, the bitcode is not built")
+endif()
 set(wheel_args "")
 if(SKBUILD)
   list(APPEND wheel_args --wheel)

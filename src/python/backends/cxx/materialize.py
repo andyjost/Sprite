@@ -59,6 +59,33 @@ import logging, os, time, weakref, zlib
 
 logger = logging.getLogger(__name__)
 
+# Whether the unavailability of the JIT was logged in this process.
+_JIT_WARNED = False
+
+def jit_enabled():
+  '''
+  The mode of the JIT from the environment: 'eager' for SPRITE_JIT set to
+  1, true, on or yes (every function of a module is compiled when the
+  module is loaded), 'hot' for SPRITE_JIT=hot (a thread compiles the
+  functions that reach SPRITE_JIT_THRESHOLD calls, 100 by default, while
+  the evaluation runs), and '' otherwise.  The spike of issue #65 keeps the
+  switch out of the flags of the interpreter, whose names the API review
+  froze.
+  '''
+  value = os.environ.get('SPRITE_JIT', '').strip().lower()
+  if value in ('1', 'true', 'on', 'yes'):
+    return 'eager'
+  if value == 'hot':
+    return 'hot'
+  return ''
+
+def jit_threshold():
+  '''The call count of the hot tier (SPRITE_JIT_THRESHOLD, 100 by default).'''
+  try:
+    return max(1, int(os.environ.get('SPRITE_JIT_THRESHOLD', '100')))
+  except ValueError:
+    return 100
+
 # The bytecode of every interpreted function, by full name, for
 # inspect.getimpl (implementation.py).  An interpreted table lives for the
 # life of the process (Module::clear keeps it), so its code is kept as long.
@@ -89,6 +116,15 @@ class Materializer(object):
     self.M = h.backend_handle
     self.imodule = h.icurry
     self.interpret = interp.flags['interpret'] != 'off'
+    # The JIT compiles the functions of the module when it is loaded (the
+    # environment variable SPRITE_JIT, the spike of issue #65;
+    # curry.backends.cxx.llvmjit).  When it cannot run, the functions stay
+    # interpreted and the reason is logged once per process.  Under tiered
+    # the background compile swaps the steps itself, so the switch applies
+    # to the modes new and all.
+    self.jit = (
+        jit_enabled() if interp.flags['interpret'] in ('new', 'all') else ''
+      )
     if self.interpret:
       # The bytecode of other modules, and a compiled object bound to them
       # (curryrt/dynload.hpp), name the tables of this module by address.
@@ -172,6 +208,23 @@ class Materializer(object):
         info, code.code, code.consts, code.nregs, code.nvars, code.nstack
       )
     BYTECODE[ifun.fullname] = code
+    if self.jit:
+      # Eager: queued, and the backend compiles the queue in one LLVM
+      # module when the module is loaded (module_loaded) or before an
+      # evaluation.  Hot: the thread of the hot tier compiles the function
+      # when its calls reach the threshold.
+      from . import llvmjit
+      try:
+        if self.jit == 'hot':
+          llvmjit.start_hot_tier(jit_threshold())
+        else:
+          llvmjit.enqueue(info, ifun.fullname)
+      except llvmjit.Unavailable as exc:
+        global _JIT_WARNED
+        if not _JIT_WARNED:
+          _JIT_WARNED = True
+          logger.warning('The JIT is unavailable; the functions stay interpreted: %s', exc)
+        self.jit = ''
 
   def trap(self, info):
     '''

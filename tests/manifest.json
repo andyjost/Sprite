@@ -1250,6 +1250,16 @@
         "tests": 3
       }
     },
+    "unit_jit.py": {
+      "cxx": {
+        "duration_s": 8.0,
+        "failures": 0,
+        "measured_on_cores": 12,
+        "measured_on_mem_gb": 23,
+        "peak_rss_mb": 800,
+        "tests": 4
+      }
+    },
     "unit_loadsave.py": {
       "cxx": {
         "duration_s": 5.5,

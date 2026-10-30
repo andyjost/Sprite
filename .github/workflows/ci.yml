@@ -114,7 +114,9 @@ jobs:
             icurry-cache-${{ matrix.backend }}-${{ matrix.shard }}-
             icurry-cache-
       - name: Install Python packages
-        run: python -m pip install --quiet cmake ninja scikit-build-core numpy
+        # llvmlite serves tests/unit_jit.py; the bitcode of the JIT helpers
+        # comes from the clang of the runner (CMake WITH_CLANG=AUTO).
+        run: python -m pip install --quiet cmake ninja scikit-build-core numpy llvmlite
       - name: Configure and stage
         run: |
           cmake -S . -B object-root/cmake -G Ninja \

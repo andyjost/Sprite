@@ -24,7 +24,8 @@ def getimpl(symbol):
   info = symbol.info
   if info.tag != T_FUNC:
     raise _no_code(symbol)
-  if curryrt.icurry_is_interpreted(info):
+  if curryrt.icurry_is_interpreted(info) or curryrt.icurry_is_jit(info):
+    # The JIT compiled the bytecode; the disassembly is the code it holds.
     return _bytecode_text(symbol)
   moduleobj = symbol.module
   sofile = None if moduleobj is None else getHandle(moduleobj).sofilename
