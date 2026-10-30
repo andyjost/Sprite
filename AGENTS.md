@@ -282,6 +282,27 @@ reproducers pass.
   and `all` interprets every module. `sprite-make` and `make stage` always
   compile. `tests/README` section 4 names the tests that set `off` for
   themselves and the tests that fail under `new` and `all` by design.
+- The JIT of the C++ backend (issue #65; `curry.backends.cxx.llvmjit`)
+  compiles the bytecode of an interpreted function to machine code
+  through LLVM on llvmlite, in process, and swaps the step of its table.
+  The flag `jit` selects it under the modes `new` and `all`: `off` (the
+  default), `eager` (every function of a module when the module loads,
+  one LLVM module per Curry module) and `hot` (a thread compiles the
+  functions that reach `SPRITE_JIT_THRESHOLD` calls, 100 by default, and
+  the scheduler applies the swaps at the head of its loop). It needs the
+  extra `curry[jit]` (llvmlite 0.50 or newer, LLVM 22) and the bitcode of
+  the helpers (`src/curryrt/jit/helpers.cpp`, 29 always_inline functions
+  over the opcodes), which CMake compiles with clang to
+  `lib/curryrt-helpers.bc` when it finds one (`WITH_CLANG`; AUTO on Linux
+  and macOS, explicit on Windows, where the bitcode targets the `-elf`
+  flavour of the MSVC triple); without them the functions stay
+  interpreted and the reason is logged once. The code the JIT makes runs
+  at the speed of g++'s on the benchmark programs and the hot tier
+  answers from an interpreted start without a compiler on the user's
+  machine, which is the compiled mode of Windows. `tests/unit_jit.py`
+  covers every kind of opcode, the hot tier and the fallback;
+  `SPRITE_JIT_DUMP=dir` writes the optimized IR and the assembly of each
+  batch. The result note of the spike is in the owner's notebook.
 - The C++ backend rotates its queue of alternatives in time mode by
   default (`SPRITE_ROTATION=time:10ms`, a ticker thread, the interpreter
   flag `rotation`) and in step mode (`steps:65536`) under the test runner,
