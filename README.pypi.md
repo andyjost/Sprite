@@ -20,6 +20,11 @@ Curry imports directly into Python. Your project uses it at whatever granularity
 it chooses, freely mixing imperative, functional, and logic styles. In other
 words, you always get to use the best tool exactly where it makes sense.
 
+Curry code can be compiled ahead of time, [embedded in an
+application](https://andyjost.github.io/Sprite/PythonAPI/UsingTheAPI.html) as a
+saved object or program, interpreted where no compiler is installed, or compiled
+just in time. You choose per deployment; the evaluation is the same in each.
+
 Sprite is in alpha. Install it with `pip install --pre curry`. Try it and [tell
 us what breaks](https://github.com/andyjost/Sprite/issues).
 
