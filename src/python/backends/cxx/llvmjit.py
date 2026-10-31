@@ -31,7 +31,7 @@ function interpreted and logs the reason once.
 from ... import config
 from . import bytecode
 from . import curryrtbindings as curryrt
-import logging, os, threading, time
+import atexit, logging, os, threading, time
 
 __all__ = [
     'Unavailable', 'available', 'compile', 'enqueue', 'flush', 'start_hot_tier'
@@ -120,6 +120,14 @@ def start_hot_tier(threshold):
       return
     _hot_thread = threading.Thread(target=_hot_loop, name='curry-jit', daemon=True)
     _hot_thread.start()
+    atexit.register(_stop_hot_tier)
+
+def _stop_hot_tier():
+  # Wait for native compilation before Python destroys its LLVM context.
+  global _hot_enabled
+  _hot_enabled = False
+  with _lock:
+    pass
 
 def _hot_loop():
   jit = _jit

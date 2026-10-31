@@ -1,5 +1,4 @@
 '''Portable, content-validated module images. See DeveloperNotes.rst.'''
-import atexit
 import contextlib
 import hashlib
 import json
@@ -7,7 +6,7 @@ import logging
 import os
 import struct
 
-from ... import cache, icurry
+from ... import cache, exceptions, icurry
 from ...objects.handle import getHandle
 from ...utility.binding import binding
 from ...utility.strings import int_text
@@ -18,19 +17,11 @@ logger = logging.getLogger(__name__)
 MAGIC = b'SPRTIMG\0'
 VERSION = 3
 PREFIX = struct.Struct('<8sII')
-_SHUTDOWN_REGISTERED = False
-
-
-def _stop_hot_tier():
-  # Native LLVM compilation releases the GIL. Let it finish before Python
-  # destroys the LLVM context and its libraries at interpreter shutdown.
-  from . import llvmjit
-  llvmjit._hot_enabled = False
-  with llvmjit._lock:
-    pass
 
 
 def digest(filename):
+  if filename is None:
+    return None
   try:
     with open(filename, 'rb') as stream:
       return hashlib.sha256(stream.read()).hexdigest()
@@ -39,7 +30,7 @@ def digest(filename):
 
 
 def filename(source):
-  return _filenames.replacesuffix(source, '.img')
+  return _filenames.replacesuffix(source, '.img') if source else None
 
 
 def read(path):
@@ -72,23 +63,56 @@ def _facts(interp, source, imports):
       budget=interp.flags['inline_budget'], imports=imports)
 
 
+def writable(source):
+  if not source:
+    return False
+  path = os.path.abspath(os.path.dirname(filename(source)))
+  while not os.path.exists(path):
+    path = os.path.dirname(path)
+  return os.access(path, os.W_OK)
+
+
+def _private_path(interp, source):
+  from . import tiered
+  key = '%s:%s' % (os.path.realpath(source), interp.flags['inline_budget'])
+  return os.path.join(tiered._tmpdir(), hashlib.sha256(key.encode()).hexdigest() + '.img')
+
+
+def _path(interp, source):
+  if not source:
+    return None
+  from . import tiered
+  private = _private_path(interp, source)
+  return private if tiered._foreign_flags(interp) or os.path.isfile(private) else filename(source)
+
+
+def _check(interp, source, path, imports=None):
+  header = read(path)
+  # Check local facts before resolving any dependency of an old source.
+  facts = _facts(interp, source, {})
+  if any(header[k] != facts[k] for k in ('source', 'route', 'budget')):
+    raise ValueError('stale module image')
+  if imports is not None and header['imports'] != imports:
+    raise ValueError('stale module image imports')
+  return header
+
+
 def _import_images(interp, names, currypath):
   result = {}
   for name in names:
     module = interp.import_(name, currypath=currypath)
     h = getHandle(module)
-    path = filename(h.icurry.filename)
+    if not h.icurry.filename:
+      result[name] = None
+      continue
+    path = _path(interp, h.icurry.filename)
     try:
-      header = read(path)
-      expected = _facts(interp, h.icurry.filename,
-          {dep: digest(filename(getHandle(interp.modules[dep]).icurry.filename))
-           for dep in header['imports']})
-      current = all(header[k] == v for k, v in expected.items())
-    except (OSError, ValueError, KeyError):
-      current = False
-    if not current:
-      # A compiled import also needs a translation summary. Recover its
-      # translation input, then use image summaries for its own imports.
+      header = _check(interp, h.icurry.filename, path)
+      imports = {dep: digest(_path(interp, getHandle(interp.modules[dep]).icurry.filename))
+          if getHandle(interp.modules[dep]).icurry.filename else None
+          for dep in header['imports']}
+      _check(interp, h.icurry.filename, path, imports)
+    except (OSError, ValueError, KeyError, exceptions.CurryError):
       from ... import toolchain
       from ...toolchain import plans
       jsonfile = next((candidate for candidate in
@@ -99,11 +123,7 @@ def _import_images(interp, names, currypath):
             plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON)
         jsonfile = toolchain.makecurry(plan, h.icurry.filename,
             currypath or interp.path, is_sourcefile=True)
-      complete = _loadcurry.loadjson(jsonfile)
-      toolchain.mergebuiltins(complete, interp.backend)
-      toolchain.validatemodule(complete)
-      optimize(interp, complete, currypath)
-      write(interp, complete, currypath)
+      path, _ = ensure(interp, jsonfile, currypath, importing=True)
     result[name] = digest(path)
   return result
 
@@ -114,9 +134,8 @@ def _from_bom(bom, source):
       metadata=dict(bom.metadata, **{'cxx.is_merged': True}))
 
 
-def optimize(interp, module, currypath=None):
-  '''Run the passes against image summaries, including for AOT imports.'''
-  from ...interpreter.import_ import _provisionalModule
+def _summaries(interp, module, currypath=None):
+  '''Prepare read-only import summaries before taking a product lock.'''
   from ...utility import curryname
   _import_images(interp, module.imports, currypath)
   summaries = []
@@ -129,14 +148,17 @@ def optimize(interp, module, currypath=None):
     seen.add(name)
     dep = interp.modules[name]
     h = getHandle(dep)
-    path = filename(h.icurry.filename)
+    if not h.icurry.filename:
+      continue
+    path = _path(interp, h.icurry.filename)
     while True:
       header = read(path)
       expected = _facts(interp, h.icurry.filename,
-          {dep: digest(filename(getHandle(interp.modules[dep]).icurry.filename))
+          {dep: digest(_path(interp, getHandle(interp.modules[dep]).icurry.filename))
            for dep in header['imports']})
       if any(header[k] != value for k, value in expected.items()):
         _import_images(interp, [name], currypath)
+        path = _path(interp, h.icurry.filename)
         continue
       try:
         bom = curryrt.load_image(h.backend_handle, path,
@@ -151,18 +173,27 @@ def optimize(interp, module, currypath=None):
   for prefix in list(curryname.prefixes(module.fullname))[:-1]:
     if prefix not in interp.modules:
       package = icurry.IPackage(prefix)
-      package.filename = os.path.dirname(module.filename)
+      package.filename = os.path.dirname(module.filename or '')
       interp.import_(package)
-  with interp._private_modules():
-    with _provisionalModule(interp, module), contextlib.ExitStack() as stack:
-      for dep, summary in summaries:
-        h = getHandle(dep)
-        stack.enter_context(binding(interp.modules, h.fullname, summary))
-        package = interp.modules.get(h.packagename())
-        package_ir = getattr(package, '.icurry', None)
-        if isinstance(package_ir, icurry.IPackage):
-          stack.enter_context(binding(package_ir, h.name, summary))
-      interp.optimize(module)
+  return summaries
+
+
+def optimize(interp, module, currypath=None, summaries=None):
+  if summaries is None:
+    summaries = _summaries(interp, module, currypath)
+  with interp._private_modules(), contextlib.ExitStack() as stack:
+    # The passes only need ICurry declarations, including for the local
+    # module. Do not create runtime tables while holding a product lock.
+    entries = [(module.fullname, module)] + [
+        (getHandle(dep).fullname, summary) for dep, summary in summaries]
+    for name, summary in entries:
+      stack.enter_context(binding(interp.modules, name, summary))
+      parent, _, local = name.rpartition('.')
+      package = interp.modules.get(parent)
+      package_ir = getattr(package, '.icurry', package)
+      if isinstance(package_ir, icurry.IPackage):
+        stack.enter_context(binding(package_ir, local, summary))
+    interp.optimize(module)
 
 
 class Encoder:
@@ -262,8 +293,29 @@ class Resolver:
     return ('T', ref[1], ref[2])
 
 
-def write(interp, module, currypath=None):
-  imports = _import_images(interp, module.imports, currypath)
+def write(interp, module, currypath=None, path=None, imports=None):
+  if not module.filename:
+    return None
+  if path is None:
+    from ...toolchain._curry2icurry import in_system_library
+    path = _path(interp, module.filename)
+    if in_system_library(module.filename) or not writable(module.filename):
+      path = _private_path(interp, module.filename)
+  if imports is None:
+    imports = _import_images(interp, module.imports, currypath)
+  native = curryrt.Module.find_or_create(module.fullname)
+  builtins = {f.name for f in module.functions.values()
+      if native.get_builtin_symbol(f.name) is not None}
+  with _productlock.locked(path):
+    try:
+      _check(interp, module.filename, path, imports)
+      return path
+    except (OSError, ValueError, KeyError, exceptions.CurryError):
+      pass
+    return _write(interp, module, path, imports, builtins)
+
+
+def _write(interp, module, path, imports, builtins):
   out = Encoder()
   out.text(module.fullname)
   out.word(len(module.imports))
@@ -288,14 +340,13 @@ def write(interp, module, currypath=None):
   out.word(len(module.functions))
   codes = []
   resolver = Resolver(interp, module)
-  native = curryrt.Module.find_or_create(module.fullname)
   for function in module.functions.values():
     out.text(function.name)
     out.word(function.arity)
     out.word(function.metadata.get('all.flags', 0))
     out.word(not function.is_private)
     out.metadata({})
-    if native.get_builtin_symbol(function.name) is None:
+    if function.name not in builtins:
       codes.append(bytecode.compile_function(function, resolver))
     else:
       codes.append(bytecode.FunctionCode(function.fullname))
@@ -316,38 +367,57 @@ def write(interp, module, currypath=None):
   header['body'] = hashlib.sha256(out.data).hexdigest()
   header = json.dumps(header, sort_keys=True, separators=(',', ':')).encode('ascii')
   data = PREFIX.pack(MAGIC, VERSION, len(header)) + header + out.data
-  path = filename(module.filename)
-  with _productlock.locked(path):
-    cache.write_file(path, bytes(data))
+  cache.write_file(path, bytes(data))
   return path
 
 
-def ensure(interp, jsonfile, currypath=None):
+def ensure(interp, jsonfile, currypath=None, importing=False):
   source = _filenames.curryfilename(jsonfile)
-  path = filename(source)
+  path = _path(interp, source)
+  if not importing:
+    from . import tiered
+    if not tiered._foreign_flags(interp):
+      path = filename(source)
   try:
-    header = read(path)
+    header = _check(interp, source, path)
     imports = _import_images(interp, header['imports'], currypath)
-    expected = _facts(interp, source, imports)
-    if any(header[key] != value for key, value in expected.items()):
-      raise ValueError('stale module image')
-  except (OSError, ValueError, KeyError) as exc:
+    return path, _check(interp, source, path, imports)
+  except (OSError, ValueError, KeyError, exceptions.CurryError) as exc:
     log = logger.warning if os.path.isfile(path) and str(exc) != 'stale module image' else logger.info
-    log('module image %s: %s; translating again', path, exc)
-    from ... import toolchain
-    raw = _loadcurry.loadjson(jsonfile)
-    interp.import_(raw.imports, currypath=currypath)
-    toolchain.mergebuiltins(raw, interp.backend)
-    toolchain.validatemodule(raw)
-    optimize(interp, raw, currypath)
-    write(interp, raw, currypath)
-    header = read(path)
-  return path, header
+    log('module image %s: %s: %s; translating again', path, type(exc).__name__, exc)
+  from ... import toolchain
+  from ...toolchain._curry2icurry import in_system_library
+  if not writable(source) or (importing and in_system_library(source)):
+    path = _private_path(interp, source)
+  raw = _loadcurry.loadjson(jsonfile)
+  interp.import_(raw.imports, currypath=currypath)
+  imports = _import_images(interp, raw.imports, currypath)
+  toolchain.mergebuiltins(raw, interp.backend)
+  toolchain.validatemodule(raw)
+  summaries = _summaries(interp, raw, currypath)
+  imports.update({getHandle(dep).fullname:
+      digest(_path(interp, getHandle(dep).icurry.filename)) for dep, _ in summaries})
+  native = curryrt.Module.find_or_create(raw.fullname)
+  builtins = {f.name for f in raw.functions.values()
+      if native.get_builtin_symbol(f.name) is not None}
+  # Imports and native summary reads precede the file lock. Only this
+  # module's passes, bytecode emission and publication need serialization.
+  with _productlock.locked(path):
+    try:
+      header = _check(interp, source, path)
+      return path, _check(interp, source, path,
+          {name: imports[name] for name in header['imports']})
+    except (OSError, ValueError, KeyError, exceptions.CurryError):
+      pass
+    optimize(interp, raw, currypath, summaries=summaries)
+    imports = {name: imports[name] for name in raw.imports}
+    _write(interp, raw, path, imports, builtins)
+    return path, _check(interp, source, path, imports)
 
 
 def load(interp, jsonfile, currypath=None):
   while True:
-    path, header = ensure(interp, jsonfile, currypath)
+    path, header = ensure(interp, jsonfile, currypath, importing=True)
     try:
       return attach(interp, _filenames.curryfilename(jsonfile), path, header)
     except ValueError as exc:
@@ -356,13 +426,15 @@ def load(interp, jsonfile, currypath=None):
 
 
 def current(interp, source, currypath=None):
-  path = filename(source)
+  if not source:
+    return None
+  path = _path(interp, source)
   try:
-    header = read(path)
+    header = _check(interp, source, path)
     imports = _import_images(interp, header['imports'], currypath)
     if any(header[k] != v for k, v in _facts(interp, source, imports).items()):
       return None
-  except (OSError, ValueError, KeyError):
+  except (OSError, ValueError, KeyError, exceptions.CurryError):
     return None
   try:
     return attach(interp, source, path, header)
@@ -387,10 +459,6 @@ def attach(interp, source, path, header):
     try:
       if jit == 'hot':
         llvmjit.start_hot_tier(materialize.jit_threshold())
-        global _SHUTDOWN_REGISTERED
-        if not _SHUTDOWN_REGISTERED:
-          atexit.register(_stop_hot_tier)
-          _SHUTDOWN_REGISTERED = True
       else:
         for _, _, info in bom.functions:
           if curryrt.icurry_bytecode(info) is not None:

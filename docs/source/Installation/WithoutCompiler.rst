@@ -84,8 +84,12 @@ its optimizer passes and bytecode emission already done. On 2026-10-31,
 system before images. A trivial ``sprite-exec`` process took 0.142 s.
 These figures exclude translation: a missing or stale image is rebuilt
 once at the first import, by ``sprite-make`` or by the prepare pass.
-The installation retains the library images alongside its compiled
-objects, so compiler-free execution can start directly from bytecode.
+Library images are products of the stage and ship in the wheel alongside
+compiled objects, so compiler-free execution can start directly from
+bytecode. A read-only product directory uses JSON instead, running the
+optimizer passes and attaching bytecode at load. Importers rebuild stale
+library images privately; ``sprite-make`` can refresh them in a writable
+installation. A foreign inline budget also uses private images.
 
 Adding a compiler later
 =======================

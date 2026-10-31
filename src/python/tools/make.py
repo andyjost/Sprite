@@ -396,7 +396,8 @@ def _make_one(program_name, plan, name, args, kwds):
     jsonfile = next((path for path in _filenames.jsonfilenames(product)
         if os.path.isfile(path)), None)
     if jsonfile is not None and _filenames.logging_module_name(jsonfile) \
-        not in config.unsupported_syslibs():
+        not in config.unsupported_syslibs() and image.writable(
+            _filenames.curryfilename(jsonfile)):
       image.ensure(plan.interp, jsonfile, config.currypath())
 
 def _rewrite_flat(plan, name, kwds):
@@ -512,19 +513,22 @@ def imports_of(curryfile):
     names.insert(0, 'Prelude')
   return names
 
-def is_done(plan, currentfile):
+def is_done(plan, currentfile, currypath=None):
   '''Tells whether ``currentfile`` ends ``plan``, so that nothing is to be made.'''
   if plan.flags & plans.MAKE_JSON and not os.path.isdir(currentfile) \
       and _filenames.logging_module_name(currentfile) not in config.unsupported_syslibs():
     from ..backends.cxx import image
-    try:
-      header = image.read(image.filename(currentfile))
-      expected = image._facts(plan.interp, _filenames.curryfilename(currentfile),
-          image._import_images(plan.interp, header['imports'], config.currypath()))
-      if any(header[k] != value for k, value in expected.items()):
+    if image.writable(_filenames.curryfilename(currentfile)):
+      try:
+        source = _filenames.curryfilename(currentfile)
+        header = image._check(plan.interp, source, image.filename(currentfile))
+        search = _findcurry.program_path(source,
+            config.currypath() if currypath is None else currypath, is_sourcefile=True)
+        imports = {name: image.digest(image.filename(_findcurry.currentfile(
+            plan, name, search))) for name in header['imports']}
+        image._check(plan.interp, source, image.filename(currentfile), imports)
+      except (OSError, ValueError, KeyError, exceptions.CurryError):
         return False
-    except (OSError, ValueError, KeyError):
-      return False
   return Maker(plan, ToolchainContext(currentfile=currentfile), None, None, {}).done
 
 class JobGraph(object):
@@ -580,7 +584,7 @@ class JobGraph(object):
       self._visit(name, imported, currypath)
       waits.extend(self._deps[_filenames.curryfilename(imported)])
     waits = list(dict.fromkeys(waits))
-    if is_done(self.plan, currentfile):
+    if is_done(self.plan, currentfile, currypath):
       self._deps[curryfile] = waits
       return None
     job = Job(arg, currentfile)

@@ -252,6 +252,10 @@ reproducers pass.
 - Module images (`M.img`) live beside the ICurry products. Their headers
   name source and import-image digests, the route and the inline budget.
   The C++ runtime reads the symbol records and attaches interpreter bytecode;
+  The library images are products of the stage and ship in the wheel.
+  A read-only product directory falls back to JSON at import. Importers
+  rebuild stale library images privately; sprite-make may refresh them in
+  a writable installation. Foreign inline budgets use private images.
   JSON remains available to the translator and tools. See the section
   "The module image" in the developer notes.
 - The step that writes `M.icy` writes `M.fint` and `M.icurry` beside it, on

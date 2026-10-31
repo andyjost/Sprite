@@ -231,13 +231,13 @@ namespace curryrt
         auto cflags = r.word();
         cmd.push_back(r.metadata(*bom));
         auto info = owner.get_builtin_symbol(cname);
-        if(!info && !attach_code) info = owner.get_infotable(cname);
+        if(!info) info = owner.get_infotable(cname);
         if(!info && attach_code) info = owner.create_infotable(cname, arity, i, cflags);
         if(!info) Reader::fail("missing summary constructor");
         ctors.push_back(info);
       }
       auto type = owner.get_builtin_type(name);
-      if(!type && !attach_code) type = owner.get_type(name);
+      if(!type) type = owner.get_type(name);
       if(!type && attach_code) type = owner.create_type(name, ctors, flags);
       if(!type) Reader::fail("missing summary type");
       bom->types.emplace_back(md, std::move(cmd), type);

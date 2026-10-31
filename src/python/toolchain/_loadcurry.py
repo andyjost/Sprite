@@ -38,7 +38,8 @@ def loadcurry(plan, name, currypath=None, **kwds):
         _findcurry.program_path(name, currypath or plan.interp.path, **kwds), **kwds))
     from ..backends.cxx import image
     candidate = _findcurry.currentfile(plan, name, currypath, **kwds)
-    if not os.path.isdir(candidate) and not candidate.endswith('.so'):
+    if not os.path.isdir(candidate) and not candidate.endswith('.so') \
+        and image.writable(_filenames.curryfilename(candidate)):
       module = image.current(plan.interp, _filenames.curryfilename(candidate), imagepath)
       if module is not None:
         return module
@@ -52,7 +53,9 @@ def loadcurry(plan, name, currypath=None, **kwds):
     if plan.interp is not None and plan.interp.backend.backend_name == 'cxx' \
         and plan.interp.flags['interpret'] != 'off':
       from ..backends.cxx import image
-      return image.load(plan.interp, filename, imagepath)
+      if image.writable(_filenames.curryfilename(filename)):
+        return image.load(plan.interp, filename, imagepath)
+      logger.info('module %s: product directory is read-only; loading JSON', name)
     return loadjson(filename)
   elif filename.endswith('.cpp'):
     # The plan ended at a generated file (Cpp2So.ends_plan of the C++

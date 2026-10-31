@@ -444,8 +444,12 @@ def import_search_path(interp, filename, currypath=None):
 
 def input_record(interp, source):
   from ...toolchain._frontend import ROUTE_VERSION
-  from . import image
-  return dict(source=image.digest(source) if source else None,
+  try:
+    with open(_filenames.icurryfilename(source) + '.source', encoding='ascii') as stream:
+      recorded = stream.read().strip()
+  except (OSError, ValueError, AttributeError):
+    recorded = None
+  return dict(source=recorded,
       route=ROUTE_VERSION, budget=interp.flags['inline_budget'])
 
 def source_record(filename):
@@ -801,17 +805,10 @@ class Cpp2So(object):
     if _curry2icurry.source_changed(source, icyfile) or (
         os.path.isfile(source) and os.path.getmtime(source) > os.path.getmtime(sofile)):
       return 'the source'
-    digest, path = self.read_stamp_lines(sofile)
-    try:
-      with open(self.stampfile(sofile), encoding='utf-8') as stream:
-        lines = stream.read().splitlines()
-      record = json.loads(lines[2]).get('input') if len(lines) == 3 else None
-    except (OSError, ValueError, IndexError, AttributeError):
-      record = None
+    digest, path, recorded, record = self._read_stamp_records(sofile)
     if not input_current(record, sofile, self.interp):
       return 'the translation input'
     accepted = self.accepted_digests()
-    recorded = self.read_import_stamp(sofile)
     if path is None or recorded is None or (accepted and digest not in accepted):
       return 'the ABI stamp'
     search = import_search_path(self.interp, sofile, currypath)
@@ -829,13 +826,7 @@ class Cpp2So(object):
     mandatory, including the new stamp format.
     '''
     accepted = self.accepted_digests()
-    digest, path = self.read_stamp_lines(sofile)
-    try:
-      with open(self.stampfile(sofile), encoding='utf-8') as stream:
-        lines = stream.read().splitlines()
-      record = json.loads(lines[2]).get('input') if len(lines) == 3 else None
-    except (OSError, ValueError, IndexError, AttributeError):
-      record = None
+    digest, path, recorded, record = self._read_stamp_records(sofile)
     if not input_current(record, sofile, self.interp):
       return False
     if (accepted and digest not in accepted) or path is None:
@@ -852,7 +843,6 @@ class Cpp2So(object):
       logger.debug('ABI stamp %s: installation=%r expected=%r',
           sofile, path, installation_path())
       return False
-    recorded = self.read_import_stamp(sofile)
     search = import_search_path(self.interp, sofile, currypath)
     current = _interfaces.objects_current(recorded, search)
     if not current and logger.isEnabledFor(logging.DEBUG):
@@ -908,6 +898,18 @@ class Cpp2So(object):
   def stampfile(cls, sofile):
     '''The ABI stamp of a shared object.'''
     return sofile + cls.STAMP_SUFFIX
+
+  @classmethod
+  def _read_stamp_records(cls, sofile):
+    try:
+      with open(cls.stampfile(sofile), encoding='utf-8') as stream:
+        lines = stream.read().splitlines()
+      digest, path = (lines + ['', ''])[:2]
+      imports = _interfaces.decode(lines[2]) if len(lines) == 3 else None
+      record = json.loads(lines[2]).get('input') if len(lines) == 3 else None
+      return digest.strip() or None, path.strip() or None, imports, record
+    except (OSError, ValueError, IndexError, AttributeError):
+      return None, None, None, None
 
   @classmethod
   def read_stamp_lines(cls, sofile):
