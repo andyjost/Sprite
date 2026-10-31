@@ -7,6 +7,15 @@ the wheel is tagged with its deployment target by the build.  The repair
 checks every Mach-O file of the wheel (the libraries it loads, its floor,
 the run path of the extension) and copies the wheel; --show-only writes the
 load commands beside it, as auditwheel show is written on Linux.
+
+On Windows the runtime library is a file of the wheel that the package opens
+through os.add_dll_directory before the extension imports; delvewheel vendors
+the C and C++ runtimes of Visual Studio (MSVCP140, VCRUNTIME140), which a
+machine without the redistributable lacks, into curry.libs under their own
+names and makes the package's __init__ add that directory.  The repair checks
+the files of the wheel before and after, lists the imports of every DLL and
+extension with dumpbin when the developer environment provides it, and
+--show-only writes that listing beside the wheel.
 """
 import argparse
 from pathlib import Path
@@ -221,6 +230,93 @@ def repair_darwin(wheel, output):
   save_report_darwin(target)
 
 
+# Windows (the wheels of windows-2025, clang-cl).  The DLLs a file of the
+# wheel may import: the system's, the C and C++ runtimes of Visual Studio,
+# Python's, and the runtime library of the wheel.
+WINDOWS_SYSTEM_DLLS = re.compile(
+    r'^(api-ms-win-.*|ext-ms-.*|kernel32|user32|advapi32|ws2_32|shell32|ole32'
+    r'|oleaut32|bcrypt|ntdll|msvcrt|ucrtbase|vcruntime140(_1)?|msvcp140(_\d)?'
+    r'|concrt140|python3\d*t?|libcurryrt)\.dll$', re.I)
+
+
+def windows_binaries(directory):
+  for path in sorted(Path(directory).rglob('*')):
+    if path.is_file() and path.suffix.lower() in ('.dll', '.pyd'):
+      yield path
+
+
+def dumpbin_dependents(path):
+  """The DLLs a PE file imports, by dumpbin; None without dumpbin."""
+  if shutil.which('dumpbin') is None:
+    return None
+  text = subprocess.check_output(['dumpbin', '/nologo', '/dependents', str(path)], text=True)
+  return re.findall(r'^\s+(\S+\.dll)\s*$', text, re.M | re.I)
+
+
+# The DLLs delvewheel may vendor into curry.libs: the runtimes of Visual Studio.
+WINDOWS_VENDORED = {'msvcp140.dll', 'msvcp140_1.dll', 'msvcp140_2.dll', 'concrt140.dll',
+                    'vcruntime140.dll', 'vcruntime140_1.dll'}
+
+
+def inspect_wheel_windows(wheel, vendored=None):
+  """
+  Check the files of the wheel; return the listing of their imports.  With
+  ``vendored`` True the runtimes of Visual Studio must be in curry.libs,
+  with False nothing may be vendored, with None either is accepted.
+  """
+  report = []
+  with tempfile.TemporaryDirectory() as directory, zipfile.ZipFile(wheel) as archive:
+    names = archive.namelist()
+    assert names.count('curry/_sprite/lib/libcurryrt.dll') == 1, names
+    assert any('_curryrtbindings.' in n and n.endswith('.pyd') for n in names), names
+    assert not any(n.endswith('.so') or 'libcurryrt-' in n for n in names), names
+    libs = [n for n in names if '.libs/' in n and not n.endswith('/')]
+    assert all(n.startswith('curry.libs/') and n.rsplit('/', 1)[1].lower() in WINDOWS_VENDORED
+               for n in libs), libs
+    if vendored is True:
+      assert libs, 'delvewheel vendored nothing'
+    elif vendored is False:
+      assert not libs, libs
+    assert not any(n.endswith('.gch') or n.startswith('curry/_sprite/tools/') for n in names)
+    archive.extractall(directory)
+    for path in windows_binaries(directory):
+      relative = path.relative_to(directory)
+      report.append(str(relative))
+      dependents = dumpbin_dependents(path)
+      if dependents is None:
+        report.append('    (dumpbin is not available; the imports were not listed)')
+        continue
+      report.extend('    ' + name for name in dependents)
+      for name in dependents:
+        assert WINDOWS_SYSTEM_DLLS.match(name), (str(relative), name)
+      if '_curryrtbindings.' in path.name:
+        assert any(name.lower() == 'libcurryrt.dll' for name in dependents), dependents
+  return '\n'.join(report) + '\n'
+
+
+def save_report_windows(wheel):
+  report = inspect_wheel_windows(wheel)
+  print(report, flush=True)
+  wheel.with_suffix('.dumpbin.txt').write_text(report)
+
+
+def repair_windows(wheel, output):
+  """
+  delvewheel vendors the runtimes of Visual Studio into curry.libs, their
+  names kept because the runtime library imports them by name, the runtime
+  library itself left where the package opens it.
+  """
+  inspect_wheel_windows(wheel, vendored=False)
+  output.mkdir(parents=True, exist_ok=True)
+  subprocess.run([sys.executable, '-m', 'delvewheel', 'repair', '--no-mangle-all',
+                  '--exclude', 'libcurryrt.dll', '--wheel-dir', str(output), str(wheel)],
+                 check=True)
+  target = output / wheel.name
+  assert target.is_file(), sorted(output.glob('*.whl'))
+  inspect_wheel_windows(target, vendored=True)
+  save_report_windows(target)
+
+
 def main():
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument('wheel', type=Path)
@@ -234,6 +330,14 @@ def main():
       parser.error('repair needs an output directory')
     else:
       repair_darwin(args.wheel, args.output)
+    return
+  if sys.platform == 'win32':
+    if args.show_only:
+      save_report_windows(args.wheel)
+    elif args.output is None:
+      parser.error('repair needs an output directory')
+    else:
+      repair_windows(args.wheel, args.output)
     return
   if args.show_only:
     save_report(args.wheel)

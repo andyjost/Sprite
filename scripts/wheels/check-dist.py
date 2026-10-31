@@ -15,7 +15,8 @@ PYTHONS = [('cp311', 'cp311'), ('cp312', 'cp312'), ('cp313', 'cp313'),
 PLATFORMS = [('manylinux_2_28_x86_64', '.auditwheel.txt'),
              ('manylinux_2_28_aarch64', '.auditwheel.txt'),
              ('macosx_14_0_arm64', '.otool.txt'),
-             ('macosx_14_0_x86_64', '.otool.txt')]
+             ('macosx_14_0_x86_64', '.otool.txt'),
+             ('win_amd64', '.dumpbin.txt')]
 SDIST_FILES = ['pyproject.toml', 'VERSION', 'README.pypi.md', 'LICENSE',
                'CMakeLists.txt', 'scripts/build-package.py',
                'src/curryrt/curryrt.hpp', 'src/python/__init__.pyi',
@@ -32,7 +33,7 @@ def check(directory, version, tag=''):
   expected = {(py, abi, tag) for py, abi in PYTHONS for tag, _ in PLATFORMS}
   found = set()
   wheels = sorted(directory.glob('*.whl'))
-  assert len(wheels) == 24, f'Expected twenty-four wheels, got {len(wheels)}'
+  assert len(wheels) == 30, f'Expected thirty wheels, got {len(wheels)}'
   for wheel in wheels:
     name, actual_version, py, abi, platform = wheel.stem.split('-')
     assert (name, actual_version) == ('curry', version), wheel
@@ -65,7 +66,7 @@ def check(directory, version, tag=''):
       assert f'curry-{version}/' + name in names, name
   if tag:
     assert tag == 'v' + version, (tag, version)
-  print(f'Validated twenty-four wheels, manylinux_2_28 and macOS, and the sdist for {version}.')
+  print(f'Validated thirty wheels, manylinux_2_28, macOS and Windows, and the sdist for {version}.')
 
 
 if __name__ == '__main__':

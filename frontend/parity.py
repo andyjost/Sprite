@@ -20,8 +20,15 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def run(command, cwd, logfile):
   print('+ ' + repr(command), flush=True)
+  # Python's own timeout: the command timeout of the shell is GNU's on Linux
+  # and macOS and another program on Windows.
   with logfile.open('w') as log:
-    result = subprocess.run(['timeout', '300', *command], cwd=cwd, stdout=log, stderr=subprocess.STDOUT)
+    try:
+      result = subprocess.run(command, cwd=cwd, stdout=log, stderr=subprocess.STDOUT, timeout=300)
+    except subprocess.TimeoutExpired:
+      log.write('timed out after 300 s\n')
+      print(logfile.read_text(), flush=True)
+      return False
   if result.returncode:
     print(logfile.read_text(), flush=True)
   return result.returncode == 0
@@ -54,8 +61,8 @@ def main():
   subdir = config.frontend_subdir()
   flags = shlex.split(config.frontend_flags())
   binary = args.binary.resolve()
-  version = subprocess.check_output(['timeout', '30', str(binary), '--numeric-version'],
-      text=True).strip()
+  version = subprocess.check_output([str(binary), '--numeric-version'],
+      text=True, timeout=30).strip()
   if version != config.frontend_version():
     raise SystemExit('Use a Sprite installation configured for front end ' + version)
   baseline = args.baseline / version
@@ -97,7 +104,7 @@ def main():
   for original in originals:
     relative = original.relative_to(lib)
     source = sources / relative
-    stem = str(relative.with_suffix('')).replace('/', '.')
+    stem = '.'.join(relative.with_suffix('').parts)  # the module name on every platform
     command = [
         str(binary), '--flat', '-o', '.curry/' + subdir
       , *flags, '-i', str(source.parent)
@@ -108,7 +115,7 @@ def main():
   for original in originals:
     relative = original.relative_to(lib)
     source = sources / relative
-    stem = str(relative.with_suffix('')).replace('/', '.')
+    stem = '.'.join(relative.with_suffix('').parts)  # the module name on every platform
     flat = source.parent / '.curry' / subdir / (source.stem + '.fcy')
     target = products / relative.with_suffix('.icy')
     target.parent.mkdir(parents=True, exist_ok=True)

@@ -8,7 +8,7 @@
 <p align="center">
   <a href="https://pypi.org/project/curry/"><img src="https://img.shields.io/pypi/v/curry" alt="PyPI"></a>
   <a href="https://pypi.org/project/curry/"><img src="https://img.shields.io/pypi/pyversions/curry" alt="Python versions"></a>
-  <img src="https://img.shields.io/badge/platforms-Linux%20%7C%20macOS-blue" alt="Platforms">
+  <img src="https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-blue" alt="Platforms">
   <a href="https://github.com/andyjost/Sprite/actions/workflows/ci.yml"><img src="https://github.com/andyjost/Sprite/actions/workflows/ci.yml/badge.svg?branch=master&event=push" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/andyjost/Sprite" alt="License"></a>
 </p>

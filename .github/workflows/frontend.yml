@@ -506,10 +506,12 @@ jobs:
   # Windows x64: the front end 3.1.0 with GHC 9.8.4, Cabal and Stack from
   # ghcup, as on Linux and macOS, under the bash of Git for Windows; the GHC
   # toolchain's mingw supplies gcc and objdump.  The wheel takes the tag of
-  # the Python platform, win_amd64 (frontend/setup.py).  Sprite does not run
-  # on Windows yet, so the stage and the parity gates are skipped here, which
-  # keeps this wheel out of a release until they run; the artifact's prefix
-  # frontend-windows-* is outside the patterns of release-frontend.yml.
+  # the Python platform, win_amd64 (frontend/setup.py).  Sprite stages on
+  # Windows with clang-cl in the developer environment of Visual Studio (the
+  # workflow Windows), so the stage and the parity gates run here as on the
+  # other platforms; the release workflow takes this wheel through its input
+  # windows when both passed.  The artifact's prefix frontend-windows-* is
+  # outside the default patterns of release-frontend.yml.
   windows:
     name: build (3.1.0, windows-x86_64)
     runs-on: windows-2025
@@ -630,6 +632,33 @@ jobs:
             frontend-work/dist/curry_frontend-${FRONTEND_VERSION}.post*-py3-none-win_*.whl
           test "$(frontend-work/smoke/Scripts/curry-frontend --numeric-version)" = "$FRONTEND_VERSION"
           frontend-work/smoke/Scripts/curry-frontend --version
+      # The developer environment of Visual Studio (INCLUDE, LIB, PATH) comes
+      # from vcvars64.bat, which only cmd can call; clang-cl and Ninja build
+      # the runtime and the bindings and stage the tree under build\stage, as
+      # the workflow Windows does, with the source-built front end configured.
+      - name: Stage Sprite using the source-built front end
+        id: stage
+        if: ${{ !cancelled() && steps.compile.outcome == 'success' }}
+        shell: cmd
+        run: |
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
+          call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
+          python -m pip install --quiet cmake ninja || exit /b 1
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DPython_EXECUTABLE=%pythonLocation%\python.exe -DWITH_PAKCS= -DWITH_ICURRY= -DWITH_CURRY_FRONTEND=%GITHUB_WORKSPACE%\frontend-work\build\curry-frontend.exe > frontend-work\logs\cmake.log 2>&1 || (type frontend-work\logs\cmake.log & exit /b 1)
+          cmake --build build --parallel > frontend-work\logs\stage.log 2>&1 || (type frontend-work\logs\stage.log & exit /b 1)
+          dir build\stage
+      - name: Byte parity with the versioned PAKCS references
+        id: parity
+        if: ${{ !cancelled() && steps.stage.outcome == 'success' }}
+        env:
+          SPRITE_HOME: ${{ github.workspace }}\build\stage
+          PYTHONPATH: ${{ github.workspace }}\build\stage\python
+        run: |
+          set -euxo pipefail
+          python frontend/parity.py \
+            --binary frontend-work/build/curry-frontend.exe \
+            --baseline frontend/reference --output frontend-work/parity \
+            2>&1 | tee frontend-work/logs/parity.log
       - name: Write the entry outcome
         if: always()
         env:
@@ -639,12 +668,12 @@ jobs:
           WHEEL: ${{ steps.wheel.outcome }}
           TAG: ${{ steps.tag.outcome }}
           SMOKE: ${{ steps.smoke.outcome }}
+          STAGE: ${{ steps.stage.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
         run: |
           mkdir -p frontend-work
-          # Sprite does not stage on Windows yet: the two gates are skipped,
-          # and the release workflow refuses this wheel until they pass.
-          printf 'fetch=%s\ntoolchain=%s\nbuild=%s\nwheel=%s\ntag=%s\nsmoke=%s\nstage=skipped\nparity=skipped\n' \
-            "$FETCH" "$TOOLCHAIN" "$COMPILE" "$WHEEL" "$TAG" "$SMOKE" \
+          printf 'fetch=%s\ntoolchain=%s\nbuild=%s\nwheel=%s\ntag=%s\nsmoke=%s\nstage=%s\nparity=%s\n' \
+            "$FETCH" "$TOOLCHAIN" "$COMPILE" "$WHEEL" "$TAG" "$SMOKE" "$STAGE" "$PARITY" \
             | tee frontend-work/outcome.txt >> "$GITHUB_STEP_SUMMARY"
       - name: Collect ghcup, Stack, and Cabal logs even after failure
         if: always()
@@ -669,5 +698,6 @@ jobs:
             frontend-work/bundle/
             frontend-work/wheels/
             frontend-work/dist/
+            frontend-work/parity/diffs/
             !frontend-work/fetch/source/dist-newstyle/**
             !frontend-work/fetch/source/.stack-work/**

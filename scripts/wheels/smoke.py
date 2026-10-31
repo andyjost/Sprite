@@ -13,12 +13,17 @@ def main():
   parser.add_argument('--peano', type=Path)
   args = parser.parse_args()
   import curry
-  from curry.backends.cxx.toolchain import Cpp2So
   from curry.lib import Prelude
-  assert curry.config.cxx_compiler(), 'Missing build compiler record'
-  prelude = Path(curry.config.prefix()) / 'curry/.curry' / curry.config.intermediate_subdir() / 'Prelude.so'
-  assert prelude.is_file(), prelude
-  assert Cpp2So(curry._interpreter_).stamp_is_current(str(prelude))
+  if sys.platform == 'win32':
+    # No generated code is compiled on Windows: the library runs
+    # interpreted from its ICurry, which is what the wheel ships.
+    assert curry._interpreter_.flags['interpret'] == 'all', curry._interpreter_.flags
+  else:
+    from curry.backends.cxx.toolchain import Cpp2So
+    assert curry.config.cxx_compiler(), 'Missing build compiler record'
+    prelude = Path(curry.config.prefix()) / 'curry/.curry' / curry.config.intermediate_subdir() / 'Prelude.so'
+    assert prelude.is_file(), prelude
+    assert Cpp2So(curry._interpreter_).stamp_is_current(str(prelude))
   assert list(curry.eval(Prelude.id(42))) == [42]
   if args.peano:
     with tempfile.TemporaryDirectory() as directory:

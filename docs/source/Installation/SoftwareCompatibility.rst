@@ -20,6 +20,12 @@ from source by the CI job of the repository.  The workflows of the
 repository build the wheels of both packages, ``curry`` and
 ``curry-frontend``, for macOS 15 or newer on both architectures.
 
+Windows x64 builds the runtime and the bindings with clang-cl of Visual
+Studio on windows-2025 and runs every module interpreted: no generated
+code is compiled there, and the JIT (``llvmlite``) is the compiled mode.
+The workflows build the wheels of both packages for Windows as well; the
+wheels vendor the C and C++ runtimes of Visual Studio.
+
 Known compatibility problems are discussed below.
 
 PAKCS
