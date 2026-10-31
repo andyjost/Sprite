@@ -204,6 +204,13 @@ class CxxCompiler(compiler.CompilerBase):
   def vEmitStepfuncLink(self, ifun, h_stepfunc):
     yield 'SPRITE_MODULE_EXPORT tag_type %s(RuntimeState *, Configuration *);' % h_stepfunc
 
+  def table_attribute(self, iobj):
+    # Windows requires dllexport on the first declaration. Runtime tables
+    # retain their import attribute; other modules are bound through slots.
+    if self.vIsBuiltin(iobj):
+      return 'CURRYRT_DATA '
+    return '' if self.isExternal(iobj) else 'SPRITE_MODULE_EXPORT '
+
   def vEmitInfotabLink(self, isym, h_info):
     # The declaration of the table, which the constructor tables and the
     # record of the module name before its definition, and the slot through
@@ -212,13 +219,13 @@ class CxxCompiler(compiler.CompilerBase):
     # defined: no code names it, and the record lists its slot for the
     # loader (vEmitModuleDefinition).
     self.slots[h_info] = isym.modulename, isym.name
-    imported = 'CURRYRT_DATA ' if self.vIsBuiltin(isym) else ''
+    imported = self.table_attribute(isym)
     yield 'extern %sInfoTable const %s;' % (imported, h_info)
     yield 'static InfoTable const * %s = nullptr;' % _slot(h_info)
 
   def vEmitDataTypeLink(self, itype, h_datatype):
     self.type_slots[h_datatype] = itype.modulename, itype.name
-    imported = 'CURRYRT_DATA ' if self.vIsBuiltin(itype) else ''
+    imported = self.table_attribute(itype)
     yield 'extern %sDataType const %s;' % (imported, h_datatype)
     yield 'static DataType const * %s = nullptr;' % _slot(h_datatype)
 
@@ -439,7 +446,7 @@ class CxxCompiler(compiler.CompilerBase):
           else _dquote(_source_file_name(imodule.filename))
     # A const object at namespace scope has internal linkage unless it is
     # declared extern; the loader looks the record up by name.
-    lines.append('extern bom::Module const _bom_;')
+    lines.append('extern SPRITE_MODULE_EXPORT bom::Module const _bom_;')
     lines.append('SPRITE_MODULE_EXPORT bom::Module const _bom_ = {')
     lines.append('    /*version  */ bom::VERSION')
     lines.append('  , /*fullname */ %s' % _dquote(imodule.fullname))

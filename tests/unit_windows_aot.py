@@ -6,6 +6,7 @@ from curry.backends.cxx import toolchain
 from curry.objects.handle import getHandle
 from pathlib import Path
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -36,6 +37,37 @@ class TestWindowsCommand(cytest.TestCase):
       before = toolchain.object_digest()
       with mock.patch.object(toolchain, 'MSVC_FLAGS', toolchain.MSVC_FLAGS + ['/DABI_TEST']):
         self.assertNotEqual(toolchain.object_digest(), before)
+
+
+class TestTableExports(cytest.TestCase):
+  def test_first_declarations_of_defined_tables_are_exported(self):
+    from curry.backends.cxx import compiler
+    from curry.interpreter.loadsave import compilable_icurry
+    for name in ['CxxBom', 'Prelude']:
+      with self.subTest(module=name):
+        module = curry.import_(name)
+        interp = cytest.raw.interp()
+        target = compiler.compile(interp, compilable_icurry(
+            interp, module, getHandle(module).icurry))
+        self.assertIn('extern SPRITE_MODULE_EXPORT bom::Module const _bom_;',
+                      target['.moduledef'])
+        for links, definitions in [('.infotabs.link', '.infotabs'),
+                                    ('.datatypes.link', '.datatypes')]:
+          defined = set(re.findall(
+              r'SPRITE_MODULE_EXPORT (?:InfoTable|DataType) const (Cy\w+)\s*\{',
+              '\n'.join(target[definitions])))
+          self.assertTrue(defined)
+          declared = set()
+          for line in target[links]:
+            match = re.match(r'extern (.*?)(?:InfoTable|DataType) const (Cy\w+);', line)
+            if match:
+              attribute, symbol = match.groups()
+              declared.add(symbol)
+              self.assertEqual(attribute == 'SPRITE_MODULE_EXPORT ', symbol in defined)
+              if symbol not in defined:
+                self.assertIn(attribute, ['', 'CURRYRT_DATA '])
+          self.assertTrue(defined <= declared)
+          self.assertTrue(declared - defined)
 
 
 class TestPERecord(cytest.TestCase):
@@ -82,6 +114,15 @@ class TestPERecord(cytest.TestCase):
 
   def test_record_names_without_loading_the_dll(self):
     self.assertEqual(self.read(self.image()), ('Test.Module', ['Prelude', 'Data.Maybe']))
+
+  def test_loader_dispatches_by_object_magic(self):
+    from curry.backends.cxx import loader
+    with tempfile.TemporaryDirectory(prefix='sprite-pe-dispatch-') as work:
+      path = Path(work) / 'Module.dll'
+      path.write_bytes(self.image())
+      with mock.patch.object(loader.sys, 'platform', 'linux'):
+        self.assertEqual(loader._dynamic_names(path),
+                         ('Test.Module', ['Prelude', 'Data.Maybe']))
 
   def test_invalid_record_is_refused(self):
     import struct

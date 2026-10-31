@@ -4,7 +4,7 @@
 Obj.f -> [42]
 background compiles after the import -> 0
 save: first line -> /* SECTION: .header */
-save: step functions -> 4
+save: step functions -> 2
 Other.h -> [1]
 swapped modules -> 1
 objects -> ['Obj.so'] ['Obj.so']

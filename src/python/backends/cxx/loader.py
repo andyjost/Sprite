@@ -49,7 +49,9 @@ def _dynamic_names(sofile):
   entries of the form of a SONAME of a compiled module.  The other entries,
   the runtime library and the system libraries, are left out.
   '''
-  if sys.platform == 'win32':
+  with open(sofile, 'rb') as stream:
+    magic = stream.read(2)
+  if magic == b'MZ':
     return pe.record_names(sofile)
   from . import toolchain
   dynamic = read_dynamic(sofile)
