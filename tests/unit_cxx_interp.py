@@ -473,6 +473,35 @@ main = double (CxxInterp.fact 3)
 '''
 
   @cytest.hardreset
+  def test_new_overrides_environment(self):
+    # Use a fresh module so its first compiled load binds to tables made
+    # by the interpreter, regardless of the shared test products (#177).
+    with tempfile.TemporaryDirectory(prefix='sprite-switch-') as work:
+      filename = os.path.join(work, 'InterpSwitch.curry')
+      with open(filename, 'w') as stream:
+        stream.write(
+            'module InterpSwitch where\nf :: Int -> Int\nf x = x + 1\n')
+      with mock.patch.dict(os.environ, {
+          'SPRITE_INTERPRETER_FLAGS': 'backend:cxx,interpret:all'
+          }):
+        for mode in ('all', 'off', 'all', 'new'):
+          curry.reset(interpret=mode)
+          self.assertEqual(curry._interpreter_.flags['interpret'], mode)
+          # Drop the retired module before opening its object again: the
+          # library can outlive the runtime module that bound its tables.
+          gc.collect()
+          M = curry.import_(filename)
+          if mode == 'new':
+            self.assertIsNotNone(getHandle(M).icurry.metadata.get('cxx.shlib'))
+          self.assertEqual(curryrt.icurry_is_interpreted(M.f.info),
+              mode == 'all', mode)
+          if mode == 'new':
+            self.assertFalse(curryrt.icurry_is_interpreted(
+                curry.import_('Prelude').map.info))
+            self.assertEqual(list(curry.eval(M.f(41))), [42])
+          del M
+
+  @cytest.hardreset
   def test_new(self):
     M = switch('new')
     # The compiled object of the module was used.

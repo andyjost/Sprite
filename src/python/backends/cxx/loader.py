@@ -234,12 +234,12 @@ def _open_module(interp, sofile, name, from_plan, fresh, before):
       module is not None and getHandle(module).sofilename is None
     )
   steps = tiered.prepare_adoption(interp, name) if adopt else []
+  # A mapped library can outlive its runtime module.  Give the binder an
+  # owner on an ordinary reload too, so it takes back the kept tables and
+  # restores their compiled steps before the cached bill of materials is
+  # imported.  Keep the owner alive through that import (#177).
+  owner = curryrt.Module.find_or_create(name) if name is not None else None
   if adopt:
-    # The module of the name in the registry of the runtime, which the
-    # binding of the load takes the tables from (curryrt/dynload.hpp): the
-    # one of the module that runs interpreted, or a new one that takes the
-    # kept tables of an earlier incarnation back.
-    owner = curryrt.Module.find_or_create(name)
     result = curryrt.tiered_adopt(name, sofile, steps)
     if not result['ok']:
       raise exceptions.LoadError('cannot load %r: %s' % (sofile, result['error']))
