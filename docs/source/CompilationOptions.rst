@@ -29,7 +29,9 @@ Compiled just in time
   the scheduler.  Two backends do this: LLVM, through the Python package
   ``llvmlite``, compiles single functions in the process; the C++ backend
   writes the generated C++ of a module and compiles it with ``g++`` in a
-  child process, then adopts the object.
+  child process, then adopts the object.  The C++ backend compiles the
+  modules of the program; the modules of the Curry library run from the
+  objects of the installation.
 
 Compiled ahead of time
   ``sprite-make --so M.curry`` compiles a module to a shared object beside
