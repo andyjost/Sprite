@@ -104,7 +104,7 @@ def main():
   for original in originals:
     relative = original.relative_to(lib)
     source = sources / relative
-    stem = str(relative.with_suffix('')).replace('/', '.')
+    stem = '.'.join(relative.with_suffix('').parts)  # the module name on every platform
     command = [
         str(binary), '--flat', '-o', '.curry/' + subdir
       , *flags, '-i', str(source.parent)
@@ -115,7 +115,7 @@ def main():
   for original in originals:
     relative = original.relative_to(lib)
     source = sources / relative
-    stem = str(relative.with_suffix('')).replace('/', '.')
+    stem = '.'.join(relative.with_suffix('').parts)  # the module name on every platform
     flat = source.parent / '.curry' / subdir / (source.stem + '.fcy')
     target = products / relative.with_suffix('.icy')
     target.parent.mkdir(parents=True, exist_ok=True)
