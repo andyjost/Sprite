@@ -40,7 +40,7 @@ class TestImporter(cytest.TestCase):
         interp.path.insert(0, work)
         with self.subTest(loaded=loaded):
           with self.assertRaisesRegex(ModuleLookupError,
-              "^Curry module 'Prelude' conflicts with the installed library module[.]$"):
+              "Curry module 'Prelude'.*conflicts with the installed library module"):
             interp.import_(str(source), is_sourcefile=True)
           with self.assertRaisesRegex(ModuleLookupError, 'conflicts with the installed library'):
             interp.import_('Prelude')
@@ -51,20 +51,17 @@ class TestImporter(cytest.TestCase):
       directory.mkdir()
       source = directory / 'List.curry'
       source.write_text('module Data.List where\nuserValue :: Bool\nuserValue = True\n')
-      interp = interpreter.Interpreter(flags={'interpret': 'off'})
-      interp.path.insert(0, work)
-      module = interp.import_('Data.List')
-      self.assertEqual(module.__file__, str(source))
-      self.assertEqual(list(interp.eval(module.userValue)), [True])
       for interpret in ('off', 'all'):
-        interp = interpreter.Interpreter(flags={'interpret': interpret})
-        interp.import_('Data.List')
-        interp.path.insert(0, work)
-        for name, isfile in (('Data.List', False), (str(source), True)):
-          with self.subTest(interpret=interpret, isfile=isfile):
-            with self.assertRaisesRegex(ModuleLookupError,
-                "Curry module 'Data.List' conflicts with the installed library module[.]"):
-              interp.import_(name, is_sourcefile=isfile)
+        for loaded in (False, True):
+          interp = interpreter.Interpreter(flags={'interpret': interpret})
+          if loaded:
+            interp.import_('Data.List')
+          interp.path.insert(0, work)
+          for name, isfile in (('Data.List', False), (str(source), True)):
+            with self.subTest(interpret=interpret, loaded=loaded, isfile=isfile):
+              with self.assertRaisesRegex(ModuleLookupError,
+                  "Curry module 'Data.List'.*conflicts with the installed library module"):
+                interp.import_(name, is_sourcefile=isfile)
 
   def test_automodules(self):
     interp = interpreter.Interpreter()

@@ -10,18 +10,17 @@ logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
 
 def reject_library_shadow(modulename, filename, interp):
-  # Ordinary library modules follow the Curry path. Native implementations
-  # are merged by module name, and a loaded library module also owns that
-  # name for the session: neither can represent a second user module.
+  # Library names are reserved regardless of which modules are already
+  # loaded: the runtime registry and native implementations use those names.
   if interp is None or modulename not in config.syslibs() \
       or _installed_library_file(filename):
     return
-  loaded = interp.modules.get(modulename)
-  if interp.backend.lookup_builtin_module(modulename) is not None \
-      or (loaded is not None and _installed_library_file(loaded.__file__)):
-    raise ModuleLookupError(
-        "Curry module %r conflicts with the installed library module." % modulename
-      )
+  libraryfile = config.installed_path(
+      'curry', modulename.replace('.', os.sep) + '.curry')
+  raise ModuleLookupError(
+      "Curry module %r from %r conflicts with the installed library module %r."
+      % (modulename, os.path.abspath(filename), libraryfile)
+    )
 
 def _installed_library_file(filename):
   if filename is None:

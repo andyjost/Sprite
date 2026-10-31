@@ -17,7 +17,9 @@ The following are recognized:
   directory searched first, before the entries of CURRYPATH, as PAKCS
   searches: the modules beside the program are found without a CURRYPATH
   that names their directory.  A module given by name is searched on
-  CURRYPATH alone.
+  CURRYPATH alone.  A hierarchical name ``A.B`` resolves to ``A/B.curry``
+  beside an optional ``A.curry``; a user module with a system library's
+  name is refused with a message naming both files.
 
 ``SPRITE_HOME``
   The installation tree of Sprite: the directory that holds ``bin``,

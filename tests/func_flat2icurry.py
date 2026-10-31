@@ -15,13 +15,10 @@ DATA = os.path.join(HERE, 'data')
 LIBRARY_DIRS = [os.path.join(ROOT, 'curry', 'lib')]
 # The import directories of the corpora under tests/data/curry: a module
 # of the kiel corpus imports from kiel/lib (CURRYPATH of func_kiel.py), so
-# its FlatCurry resolves against that directory as well; a module of the
-# community corpus imports the compile-only Test.Prop of community/support
-# (the path of func_community.py), which shadows the library's module, so
-# these directories come before the library's.
+# its FlatCurry resolves against that directory as well. Community modules
+# use the installed Test.Prop hierarchy, like the runtime fixtures.
 CORPUS_IMPORT_DIRS = [
     os.path.join(DATA, 'curry', 'kiel', 'lib')
-  , os.path.join(DATA, 'curry', 'community', 'support')
   ]
 
 # The route through the front end looks through a type annotation at the root
@@ -156,17 +153,6 @@ class TestWholeCorpus(cytest.TestCase):
     TestUnrewrittenFile pins the acceptance, and its narrowing to the
     oracle, on a pair of its own.
     '''
-    # The community programs import the compile-only Test.Prop of
-    # community/support ahead of the library's, and the check resolves it
-    # there too; its interface exists once the fixture was compiled, which
-    # a worktree that copied the programs' products may not have done.
-    support = os.path.join(DATA, 'curry', 'community', 'support')
-    fixture = os.path.join(support, 'Test', 'Prop.curry')
-    interface = os.path.join(
-        support, 'Test', '.curry', config.frontend_subdir(), 'Prop.fint'
-      )
-    if os.path.isfile(fixture) and not os.path.isfile(interface):
-      _frontend.curry2flat(fixture, [support], quiet=True)
     pairs = []
     for fcy in self.on_disk_fcys():
       if os.path.basename(fcy)[:-len('.fcy')] in ROUTE_DIFFERS:
