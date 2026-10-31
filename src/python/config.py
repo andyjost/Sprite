@@ -467,8 +467,9 @@ def curry_frontend():
   if os.path.isfile(path) and os.access(path, os.X_OK):
     return os.path.abspath(path)
   beside = os.path.join(os.path.dirname(sys.executable), 'curry-frontend')
-  if os.path.isfile(beside) and os.access(beside, os.X_OK):
-    return os.path.abspath(beside)
+  for candidate in ((beside, beside + '.exe') if sys.platform == 'win32' else (beside,)):
+    if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+      return os.path.abspath(candidate)
   found = shutil.which('curry-frontend') or shutil.which('pakcs-frontend')
   return os.path.abspath(found) if found else None
 

@@ -30,6 +30,10 @@ name: Release the front end
         description: Include the macOS wheels of the run (four wheels in all); off for a Linux-only release of two
         type: boolean
         default: true
+      windows:
+        description: Include the Windows wheel of the run (the job windows, 3.1.0 only); it needs the stage and parity gates of that job
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -45,7 +49,8 @@ jobs:
       # macOS arm64 and x86-64 (issue #162); two, manylinux only, when the
       # input macos is off.
       INCLUDE_MACOS: ${{ inputs.macos }}
-      EXPECTED_WHEELS: ${{ inputs.macos && '4' || '2' }}
+      INCLUDE_WINDOWS: ${{ inputs.windows }}
+      EXPECTED_WHEELS: ${{ inputs.macos && (inputs.windows && '5' || '4') || (inputs.windows && '3' || '2') }}
       EXPECTED_MACOS: ${{ inputs.macos && '2' || '0' }}
     timeout-minutes: 20
     permissions:
@@ -70,6 +75,11 @@ jobs:
           fi
           if [ "$INCLUDE_MACOS" != true ]; then
             rm -rf artifacts/*macos*
+          fi
+          if [ "$INCLUDE_WINDOWS" = true ] && [ "$FRONTEND_VERSION" = 3.1.0 ]; then
+            # The Windows wheel of 3.1.0 comes from the job windows under its
+            # own prefix; the release takes it when its gates passed.
+            gh run download "$RUN_ID" --pattern 'frontend-windows-*' --dir artifacts
           fi
           # A rerun keeps the artifacts of the earlier attempts on the run:
           # keep the latest attempt of each target.

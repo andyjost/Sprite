@@ -76,7 +76,15 @@ jobs:
           run-id: ${{ steps.run.outputs.id }}
           pattern: curry-frontend-3.1.0-*
           path: frontend-artifacts
-      - name: Keep the tagged wheels, the manylinux ones for both architectures and the macOS ones
+      - name: Download the Windows wheel of the front end 3.1.0, from the job windows of the same run
+        if: inputs.frontend_source != 'pypi'
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.run.outputs.id }}
+          pattern: frontend-windows-*
+          path: frontend-artifacts
+      - name: Keep the tagged wheels, the manylinux ones for both architectures, the macOS ones and the Windows one
         env:
           FRONTEND_SOURCE: ${{ inputs.frontend_source }}
         run: |
@@ -99,7 +107,8 @@ jobs:
           # and the macOS smoke test then takes the front end from PyPI).
           for prefix, arch, required in (
                   ('manylinux_2_28', 'x86_64', True), ('manylinux_2_28', 'aarch64', True)
-                , ('macosx', 'arm64', False), ('macosx', 'x86_64', False)):
+                , ('macosx', 'arm64', False), ('macosx', 'x86_64', False)
+                , ('win', 'amd64', False)):
               matches = [p for p in wheels if tagged(p, prefix, arch)]
               assert matches or not required, (prefix, arch)
               if not matches:
@@ -241,6 +250,70 @@ jobs:
             wheelhouse/*.otool.txt
           if-no-files-found: error
 
+  # Windows x64: cibuildwheel from pip inside the developer environment of
+  # Visual Studio, which only cmd can enter (vcvars64.bat); clang-cl
+  # compiles the runtime and the bindings with Ninja, as the workflow
+  # Windows does.  No generated code is compiled on Windows: the library
+  # ships its ICurry and runs interpreted, so the build needs no Curry
+  # front end, and the smoke test exercises the interpreter with the
+  # front end of the wheelhouse.  The repair checks the wheel and lists the
+  # imports of its binaries; nothing is vendored (repair.py).
+  wheels-windows:
+    needs: frontend
+    runs-on: windows-2025
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-wheels
+          path: .wheelhouse
+      - name: Build six wheels with clang-cl in the developer environment of Visual Studio
+        shell: cmd
+        env:
+          CIBW_ARCHS_WINDOWS: AMD64
+          CIBW_BUILD_FRONTEND: pip
+          CIBW_BUILD: >-
+            cp311-win_amd64 cp312-win_amd64 cp313-win_amd64
+            cp314-win_amd64 cp314t-win_amd64 cp315-win_amd64
+          CIBW_ENVIRONMENT_WINDOWS: >-
+            LC_ALL=C.UTF-8
+            PIP_FIND_LINKS=${{ github.workspace }}\.wheelhouse
+            SPRITE_CACHE_FILE="" SPRITE_PRODUCT_CACHE=""
+            CMAKE_GENERATOR=Ninja
+          CIBW_CONFIG_SETTINGS: >-
+            cmake.define.CMAKE_C_COMPILER=clang-cl
+            cmake.define.CMAKE_CXX_COMPILER=clang-cl
+            cmake.define.WITH_PAKCS=
+            cmake.define.WITH_CURRY_FRONTEND=
+            cmake.define.WITH_ICURRY=
+            cmake.define.WITH_CLANG=clang++
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: python {project}\scripts\wheels\repair.py {wheel} {dest_dir}
+          CIBW_TEST_COMMAND: python {project}\scripts\wheels\smoke.py --peano {project}\examples\Peano.curry
+        run: |
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
+          call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
+          python -m pip install --quiet cibuildwheel==4.3.1 || exit /b 1
+          python -m cibuildwheel --output-dir wheelhouse || exit /b 1
+      - name: Save the evidence beside the final wheels, the imports of their binaries
+        shell: cmd
+        run: |
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
+          call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
+          for %%w in (wheelhouse\*.whl) do python scripts\wheels\repair.py --show-only %%w || exit /b 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-x86_64
+          path: |
+            wheelhouse/*.whl
+            wheelhouse/*.dumpbin.txt
+          if-no-files-found: error
+
   sdist:
     needs: frontend
     runs-on: ubuntu-24.04
@@ -329,7 +402,7 @@ jobs:
           python scripts/wheels/smoke.py --peano examples/Peano.curry
 
   distributions:
-    needs: [wheels, sdist, smoke-wheel, smoke-sdist]
+    needs: [wheels, wheels-windows, sdist, smoke-wheel, smoke-sdist]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -345,7 +418,7 @@ jobs:
         with:
           name: sdist
           path: dist
-      - name: Require exactly twenty-four wheels and one complete sdist
+      - name: Require exactly thirty wheels and one complete sdist
         env:
           RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
         run: python scripts/wheels/check-dist.py dist

@@ -174,7 +174,7 @@ else:
         path = next(Path(directory).glob('*.whl'))
         renamed = path.with_name(path.name.replace(old, new))
         path.rename(renamed)
-        suffix = '.otool.txt' if 'macosx' in path.name else '.auditwheel.txt'
+        suffix = next(s for tag, s in gate.PLATFORMS if tag in path.name)
         path.with_suffix(suffix).rename(renamed.with_suffix(suffix))
         with self.assertRaises(AssertionError):
           gate.check(directory, '0.9.0a2')
@@ -183,7 +183,7 @@ else:
     with tempfile.TemporaryDirectory() as directory:
       gate = self.distributions(directory)
       next(Path(directory).glob('*-cp314-cp314t-manylinux_2_28_x86_64.whl')).unlink()
-      with self.assertRaisesRegex(AssertionError, 'twenty-four wheels'):
+      with self.assertRaisesRegex(AssertionError, 'thirty wheels'):
         gate.check(directory, '0.9.0a2')
 
   def test_runtime_dependencies(self):
