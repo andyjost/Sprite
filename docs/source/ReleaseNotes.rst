@@ -6,8 +6,14 @@ Release Notes
 ====================
 
 - Windows: the runtime and the bindings build with clang-cl on
-  windows-2025 and every module runs interpreted there; the wheels and the
-  front end's Windows wheel follow.
+  windows-2025 and every module runs interpreted there; wheels for Windows
+  x64, CPython 3.11 to 3.15 with the free-threaded 3.14t, which vendor the
+  C and C++ runtimes of Visual Studio; the front end's Windows wheel is
+  built and gated by the same workflow and ships with its next release.
+- A user module named like any module of the installed library is refused
+  at import with a message that names both files (#168); the fix of a
+  lifted non-linear functional pattern that answered where the oracles
+  fail is covered by a direct test (#169).
 - A JIT for the C++ backend: the bytecode of an interpreted function
   compiles to machine code through LLVM (``llvmlite``, the extra
   ``curry[jit]``).  The flag ``jit`` selects ``off``, ``eager`` or ``hot``;
