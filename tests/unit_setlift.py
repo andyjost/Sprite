@@ -885,7 +885,7 @@ class TestFiles(cytest.TestCase):
     # 7 (2026-10-30): the community corpus resolves Test.Prop to the
     # installed library (#168); the arities of its products changed.
     self.assertEqual(_frontend.ROUTE_VERSION, 7)
-    self.assertEqual(cache.route_version(), 6)
+    self.assertEqual(cache.route_version(), 7)
     self.assertIn('setlift.py', cache.REWRITE_SOURCES)
     key = lambda: cache.icurry_cache_key(self.curryfile, [self.tmpdir], (), 'frontend')
     now = key()
