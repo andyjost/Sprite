@@ -14,6 +14,11 @@ Release Notes
   at import with a message that names both files (#168); the fix of a
   lifted non-linear functional pattern that answered where the oracles
   fail is covered by a direct test (#169).
+- Set functions keep the call-time sharing of a caller whose choice escapes
+  a capsule: the shortcut that took the side of such a choice through a
+  private copy of the spine is gone, and the entry of a capsule no longer
+  copies the state behind a set guard; the two-block search of the
+  tutorial's betterblocks solver finishes with its six solutions (#172).
 - Non-linear functional patterns: the non-strict unification linearizes
   the repeated variables of a pattern and checks them by strict equality
   after the match, as PAKCS does, so ``isJust justZero`` of the PAKCS test
