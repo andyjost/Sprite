@@ -133,7 +133,9 @@ curry.compile('main = 42', name='LoggingPending')
     proc = self.child("""
 import curry
 from curry.backends.cxx import tiered
-curry.reset(interpret='tiered')
+# The compile of the module in a child at load, as the retired tiered mode
+# did: the gxx backend of the eager tier (jit-modes, 2026-10-31).
+curry.reset(interpret='new', jit='eager', jit_backend='gxx')
 curry.path.insert(0, %r)
 module = curry.import_('LoggingBackground')
 assert tiered.wait(timeout=90)
