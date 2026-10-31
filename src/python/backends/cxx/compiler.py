@@ -64,7 +64,8 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # are constructed from decimal digits at module load.
 # Format 17: calls inside a non-strict pattern retain their boundaries for
 # non-linear matching; an older object may have inlined those calls away.
-FORMAT_VERSION = 17
+# Format 18: export the module record, initializer and tables for PE DLLs.
+FORMAT_VERSION = 18
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure
@@ -149,7 +150,7 @@ class CxxCompiler(compiler.CompilerBase):
     # internPartialNode).
     self.init_body = []
     self.target_object['.init'].extend(
-        ['void _sprite_init_()', self.init_body]
+        ['SPRITE_MODULE_EXPORT void _sprite_init_()', self.init_body]
       )
 
   def vIsBuiltin(self, iobj):
@@ -185,6 +186,11 @@ class CxxCompiler(compiler.CompilerBase):
     for name in RUNTIME_INCLUDES:
       yield '#include "%s"' % name
     yield ''
+    yield '#if defined(_WIN32)'
+    yield '#define SPRITE_MODULE_EXPORT __declspec(dllexport)'
+    yield '#else'
+    yield '#define SPRITE_MODULE_EXPORT'
+    yield '#endif'
     yield 'using namespace curryrt;'
     yield ''
     yield 'extern "C" {'
@@ -196,7 +202,7 @@ class CxxCompiler(compiler.CompilerBase):
     return []
 
   def vEmitStepfuncLink(self, ifun, h_stepfunc):
-    yield 'tag_type %s(RuntimeState *, Configuration *);' % h_stepfunc
+    yield 'SPRITE_MODULE_EXPORT tag_type %s(RuntimeState *, Configuration *);' % h_stepfunc
 
   def vEmitInfotabLink(self, isym, h_info):
     # The declaration of the table, which the constructor tables and the
@@ -206,12 +212,14 @@ class CxxCompiler(compiler.CompilerBase):
     # defined: no code names it, and the record lists its slot for the
     # loader (vEmitModuleDefinition).
     self.slots[h_info] = isym.modulename, isym.name
-    yield 'extern InfoTable const %s;' % h_info
+    imported = 'CURRYRT_DATA ' if self.vIsBuiltin(isym) else ''
+    yield 'extern %sInfoTable const %s;' % (imported, h_info)
     yield 'static InfoTable const * %s = nullptr;' % _slot(h_info)
 
   def vEmitDataTypeLink(self, itype, h_datatype):
     self.type_slots[h_datatype] = itype.modulename, itype.name
-    yield 'extern DataType const %s;' % h_datatype
+    imported = 'CURRYRT_DATA ' if self.vIsBuiltin(itype) else ''
+    yield 'extern %sDataType const %s;' % (imported, h_datatype)
     yield 'static DataType const * %s = nullptr;' % _slot(h_datatype)
 
   def vEmitStepfuncHeader(self, ifun, h_stepfunc):
@@ -231,7 +239,7 @@ class CxxCompiler(compiler.CompilerBase):
 
   def vEmitFunctionInfotab(self, ifun, h_info, h_stepfunc):
     flags = ifun.metadata.get('all.flags', 0) | common.F_STATIC_OBJECT
-    yield 'InfoTable const %s{'                 % h_info
+    yield 'SPRITE_MODULE_EXPORT InfoTable const %s{'                 % h_info
     yield '    /*tag*/        T_FUNC'
     yield '  , /*arity*/      %s'               % ifun.arity
     yield '  , /*alloc_size*/ sizeof(Head) + sizeof(Arg[%s])' % max(1, ifun.arity)
@@ -245,7 +253,7 @@ class CxxCompiler(compiler.CompilerBase):
 
   def vEmitConstructorInfotab(self, ictor, h_info, h_datatype):
     flags = ictor.metadata.get('all.flags', 0) | common.F_STATIC_OBJECT
-    yield 'InfoTable const %s{'                     % h_info
+    yield 'SPRITE_MODULE_EXPORT InfoTable const %s{'                     % h_info
     yield '    /*tag*/        T_CTOR + %r'          % ictor.index
     yield '  , /*arity*/      %s'                   % ictor.arity
     yield '  , /*alloc_size*/ sizeof(Head) + sizeof(Arg[%s])' % max(1, ictor.arity)
@@ -267,7 +275,7 @@ class CxxCompiler(compiler.CompilerBase):
         h_ctortable, ', '.join('&%s' % h for h in ctor_handles)
       )
     self.symtab.make_defined(h_ctortable)
-    yield 'DataType const %s { %s, %r, %r, F_STATIC_OBJECT, %s };' % (
+    yield 'SPRITE_MODULE_EXPORT DataType const %s { %s, %r, %r, F_STATIC_OBJECT, %s };' % (
         h_datatype, h_ctortable, len(itype.constructors), 't'
       , _dquote(itype.name)
       )
@@ -432,7 +440,7 @@ class CxxCompiler(compiler.CompilerBase):
     # A const object at namespace scope has internal linkage unless it is
     # declared extern; the loader looks the record up by name.
     lines.append('extern bom::Module const _bom_;')
-    lines.append('bom::Module const _bom_ = {')
+    lines.append('SPRITE_MODULE_EXPORT bom::Module const _bom_ = {')
     lines.append('    /*version  */ bom::VERSION')
     lines.append('  , /*fullname */ %s' % _dquote(imodule.fullname))
     lines.append('  , /*filename */ %s' % filename)

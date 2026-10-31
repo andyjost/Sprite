@@ -38,7 +38,7 @@ def loadcurry(plan, name, currypath=None, **kwds):
         _findcurry.program_path(name, currypath or plan.interp.path, **kwds), **kwds))
     from ..backends.cxx import image
     candidate = _findcurry.currentfile(plan, name, currypath, **kwds)
-    if not os.path.isdir(candidate) and not candidate.endswith('.so') \
+    if not os.path.isdir(candidate) and not candidate.endswith(config.module_object_suffix()) \
         and image.writable(_filenames.curryfilename(candidate)):
       module = image.current(plan.interp, _filenames.curryfilename(candidate), imagepath)
       if module is not None:

@@ -176,7 +176,7 @@ def currentfile(
   if config.force_recompile_cxx():
     filelist = [
         fn for fn in filelist
-           if not any(fn.endswith(suffix) for suffix in ['.cpp', '.so'])
+           if not any(fn.endswith(suffix) for suffix in ['.cpp', config.module_object_suffix()])
       ]
   # Disregard a file the toolchain no longer accepts, and everything made
   # from it: a .cpp file of another format, or a .so file compiled against

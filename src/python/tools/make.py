@@ -39,7 +39,7 @@ the prerequisite of JSON, meaning that ``--json`` implies ``--icy``.
 
 C++ (extension: ``.cpp``) is generated with the ``--cxx`` option, which implies
 ``--json`` and ``--icy``.  The shared object of the C++ backend (extension:
-``.so``) is generated with the ``--so`` option, which implies ``--cxx`` and
+``.so``, or ``.dll`` on Windows) is generated with the ``--so`` option, which implies ``--cxx`` and
 needs the C++ compiler that Sprite was configured with.  The installation
 procedure uses ``--so`` to compile the Curry library.  The ``-g,--goal``
 option names the goal of a generated program.

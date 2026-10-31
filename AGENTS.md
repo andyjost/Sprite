@@ -170,10 +170,9 @@ reproducers pass.
   environment of vcvars64; cl is experimental); the services of the
   operating system are behind `curryrt/platform.hpp`, the data symbols
   that other objects read carry `CURRYRT_DATA` (`curryrt/export.hpp`),
-  and the compile of generated code is not available there: the library
-  ships its ICurry and JSON, every module runs interpreted (the flag
-  `interpret` defaults to `all` on Windows), and there are no Windows
-  wheels yet.
+  and generated code compiles to DLLs with clang-cl in a developer prompt
+  initialized by vcvars64. The library ships compiled in Windows wheels;
+  `interpret` defaults to `new` on every platform.
 - Sprite needs no GPU.
 - CMake honours `CC`, `CXX`, `CFLAGS`, `CXXFLAGS`
   and `LDFLAGS` from the environment, so build in a clean environment when
@@ -281,8 +280,7 @@ reproducers pass.
   With neither backend it runs interpreted and logs one WARNING per process
   (the page "Installing and running without a C++ compiler" of the
   documentation).
-- The flag `interpret` of the C++ backend defaults to `new` (`all` on
-  Windows). `new` loads current ahead-of-time objects and interprets the
+- The flag `interpret` of the C++ backend defaults to `new` everywhere. `new` loads current ahead-of-time objects and interprets the
   rest; `all` starts every module interpreted and never opens an AOT
   object; `off` compiles missing objects with the C++ compiler before running and
   errors without one. Background compilation uses `jit:hot,jit_backend:cxx`.
@@ -294,8 +292,8 @@ reproducers pass.
   defaults to `auto`: LLVM when llvmlite imports, else the C++ compiler backend (`cxx`) when
   `config.cxx_tool` is available, else interpreter alone with one WARNING
   notice per process. Forced `llvm` and `cxx` error if unavailable;
-  install `curry[jit]` or a C++ compiler respectively (the C++ compiler
-  backend is unavailable on Windows). LLVM compiles functions in process using llvmlite 0.50 or
+  install `curry[jit]` or a C++ compiler respectively (clang-cl of Visual
+  Studio in a developer prompt on Windows). LLVM compiles functions in process using llvmlite 0.50 or
   newer (LLVM 22) and `lib/curryrt-helpers.bc`, built with clang through
   `WITH_CLANG`. The C++ compiler backend compiles whole modules in a child
   when their first function becomes hot; eager compilation waits at load. Its

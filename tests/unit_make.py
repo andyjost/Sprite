@@ -8,9 +8,15 @@ from curry.toolchain import _productlock, _system
 from curry.utility.binding import binding
 from curry.utility.strings import ensure_str
 from unittest import mock
-import argparse, contextlib, errno, fcntl, glob, io, itertools, json, os
+import argparse, contextlib, errno, glob, io, itertools, json, os
 import shutil, subprocess, sys, tempfile, threading, time, unittest, zlib
 
+try:
+  import fcntl
+except ImportError:
+  fcntl = None
+
+OBJECT_SUFFIX = config.module_object_suffix()
 SUBDIR = os.path.join('.curry', config.intermediate_subdir())
 
 class TestMake(cytest.TestCase):
@@ -18,7 +24,7 @@ class TestMake(cytest.TestCase):
 
   def test_filename_funcs(self):
     '''Checks derivation of intermediate file names.'''
-    prefixes = ['', '/path/to', 'a/b', '.', '..']
+    prefixes = ['', os.path.join('path', 'to'), os.path.join('a', 'b'), '.', '..']
     for prefix in prefixes:
       curry_file = os.path.join(prefix, 'foo.curry')
       icy_file   = os.path.join(prefix, SUBDIR, 'foo.icy')
@@ -26,7 +32,7 @@ class TestMake(cytest.TestCase):
       jsonz_file = os.path.join(prefix, SUBDIR, 'foo.json.z')
       py_file    = os.path.join(prefix, SUBDIR, 'foo.py')
       cpp_file   = os.path.join(prefix, SUBDIR, 'foo.cpp')
-      so_file    = os.path.join(prefix, SUBDIR, 'foo.so')
+      so_file    = os.path.join(prefix, SUBDIR, 'foo' + OBJECT_SUFFIX)
       files = [
           curry_file, icy_file, json_file, jsonz_file, py_file, cpp_file, so_file
         ]
@@ -232,7 +238,7 @@ class TestMake(cytest.TestCase):
         stream.write(zlib.compress(cytest.json_module(name, 5).encode('utf-8')))
       with binding(os.environ, 'CURRYPATH', tmpdir):
         make.main('sprite-make', ['--so', '-z', name])
-        for suffix in ['.cpp', '.so', '.so.abi']:
+        for suffix in ['.cpp', OBJECT_SUFFIX, OBJECT_SUFFIX + '.abi']:
           self.assertTrue(
               os.path.isfile(os.path.join(subdir, name + suffix)), suffix
             )
@@ -573,6 +579,7 @@ class TestJobs(cytest.TestCase):
       self.assertEqual(stderr.getvalue(), 'sprite-make: no plan today\n', extra)
     self.assertFalse(os.path.exists(self.product(a)))
 
+  @unittest.skipIf(sys.platform == 'win32', 'Windows compiles without a PCH')
   def test_header_is_built_before_the_children(self):
     '''
     A missing precompiled header is built once, in this process, before the
@@ -633,6 +640,7 @@ with _productlock.locked(sys.argv[1]) as waited:
 print('released', flush=True)
 '''
 
+@unittest.skipUnless(fcntl is not None, 'POSIX advisory-lock semantics')
 class TestProductLock(cytest.TestCase):
   '''
   The lock of the products of a module (curry.toolchain._productlock): two
@@ -668,7 +676,7 @@ class TestProductLock(cytest.TestCase):
       , os.path.join(subdir, self.name + '.icy')
       , os.path.join(subdir, self.name + '.json.z')
       , os.path.join(subdir, self.name + '.cpp')
-      , os.path.join(subdir, self.name + '.so')
+      , os.path.join(subdir, self.name + OBJECT_SUFFIX)
       ]:
       self.assertEqual(_productlock.lockfile(filename), self.lock, filename)
 
@@ -808,7 +816,7 @@ for record in log.output:
     outputs = [child.communicate(timeout=self.TIMEOUT) for child in children]
     for child, (out, err) in zip(children, outputs):
       self.assertEqual(child.returncode, 0, out + err)
-    sofile = os.path.join(subdir, self.name + '.so')
+    sofile = os.path.join(subdir, self.name + OBJECT_SUFFIX)
     cppfile = os.path.join(subdir, self.name + '.cpp')
     self.assertTrue(os.path.isfile(sofile))
     self.assertTrue(os.path.isfile(cppfile))
@@ -819,7 +827,7 @@ for record in log.output:
     logs = [err for _, err in outputs]
     compiled = sum(
         line.count('Compiling ') for log in logs for line in log.splitlines()
-        if self.name + ".so'" in line
+        if self.name + (OBJECT_SUFFIX + "'") in line
       )
     self.assertEqual(compiled, 1, logs)
     waited = sum(
@@ -872,14 +880,14 @@ class TestProgramDirectory(cytest.TestCase):
 
   def run_tool(self, tool, *args):
     cmd = cytest.limit_prefix(2 << 30, self.TIMEOUT) + [
-        config.installed_path('bin', tool)
+        sys.executable, '-m', {'sprite-make': 'curry.tools.make', 'sprite-exec': 'curry'}[tool]
       ] + list(args)
     return subprocess.run(
         cmd, env=self.env, cwd=self.cwd, capture_output=True, text=True
       )
 
   def sofile(self, name):
-    return os.path.join(self.progdir, SUBDIR, name + '.so')
+    return os.path.join(self.progdir, SUBDIR, name + OBJECT_SUFFIX)
 
   def test_sprite_exec(self):
     proc = self.run_tool('sprite-exec', self.program)

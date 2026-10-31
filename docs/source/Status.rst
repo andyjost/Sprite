@@ -39,7 +39,10 @@ The backend
 
 The C++ backend is the one runtime.  Its runtime library ``libcurryrt``
 runs compiled code and interprets ICurry bytecode, including installations
-without a compiler.  See :doc:`Installation/WithoutCompiler`.
+without a compiler. Windows x64 uses clang-cl of Visual Studio, in a
+developer prompt initialized by ``vcvars64.bat``, for generated DLLs and
+the C++ compiler backend of the JIT. The library ships compiled, and
+``interpret`` defaults to ``new`` everywhere. See :doc:`Installation/WithoutCompiler`.
 
 The interpreter modes
 =====================

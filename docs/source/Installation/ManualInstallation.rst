@@ -19,10 +19,10 @@ and 3.15. The macOS wheels support macOS 15 or newer on Apple Silicon and
 Intel, for the same interpreters (the wheel of the front end sets that
 floor: its GMP is the Homebrew bottle of macOS 15). They include the
 compiled Curry library. The Windows wheels support x64 for the same
-interpreters; no generated code is compiled on Windows, so the library
-runs interpreted there, and the JIT compiles the functions that run when
-``llvmlite`` is installed (``pip install --pre 'curry[jit]'``). A C++
-compiler is optional at run time on Linux and macOS: without one, Sprite
+interpreters and include the compiled Curry library as DLLs. To compile
+new modules on Windows, use clang-cl of Visual Studio in a developer
+prompt initialized by ``vcvars64.bat`` (cl is experimental). A C++
+compiler is optional at run time on every platform: without one, Sprite
 interprets new modules; with
 a C++ compiler installed, ``sprite-make --so Peano.curry`` compiles a module
 using the user's compiler. Run a source program with

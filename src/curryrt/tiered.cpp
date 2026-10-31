@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cerrno>
@@ -13,7 +14,11 @@
 #include <sstream>
 #include <thread>
 #include <unordered_map>
-#if !defined(_WIN32)
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#else
 #include <fcntl.h>
 #include <signal.h>
 #include <spawn.h>
@@ -68,7 +73,7 @@ namespace curryrt
       TieredStatus              counts;
       bool                      thread_started = false;
       bool                      running = false;
-      long long                 child = 0;   // the process id of the running compile
+      long long                 child = 0;   // POSIX pid, or a Windows Child pointer
       // Incremented by tiered_cancel.  A job of an older generation is
       // dropped when it finishes.
       uint64_t                  generation = 0;
@@ -115,17 +120,112 @@ namespace curryrt
     }
 
 #if defined(_WIN32)
-    // Windows runs the interpreter in this release: no compile child.
-    long long spawn(
-        std::vector<std::string>, std::vector<std::string>
-      , std::string const &, std::string * error
-      )
+    // Keep the compiler and its descendants in a job: cancelling a session
+    // must also stop clang-cl and the linker started by the Python child.
+    struct Child { HANDLE process; HANDLE job; };
+
+    std::wstring widen(std::string const & text)
     {
-      *error = "the background compile is not available on Windows; the module runs interpreted";
-      return 0;
+      int size = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+                                    text.data(), int(text.size()), nullptr, 0);
+      std::wstring result(size, L'\0');
+      MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text.data(),
+                          int(text.size()), result.data(), size);
+      return result;
     }
 
-    int wait_status(long long) { return -1; }
+    // The quoting rules of the Microsoft C runtime (including trailing
+    // backslashes and embedded quotes); CreateProcess takes one command line.
+    std::wstring quote(std::string const & arg)
+    {
+      std::wstring out = L"\"";
+      unsigned slashes = 0;
+      for(auto ch: widen(arg))
+      {
+        if(ch == L'\\') { ++slashes; continue; }
+        out.append(ch == L'"' ? 2 * slashes + 1 : slashes, L'\\');
+        slashes = 0;
+        out += ch;
+      }
+      out.append(2 * slashes, L'\\');
+      return out + L"\"";
+    }
+
+    long long spawn(
+        std::vector<std::string> argv, std::vector<std::string> envp
+      , std::string const & logfile, std::string * error
+      )
+    {
+      if(argv.empty()) { *error = "an empty command"; return 0; }
+      std::wstring command;
+      for(auto const & arg: argv)
+      {
+        if(!command.empty()) command += L' ';
+        command += quote(arg);
+      }
+      // Windows requires the environment block sorted without regard to case.
+      std::vector<std::wstring> variables;
+      for(auto const & entry: envp) variables.push_back(widen(entry));
+      std::sort(variables.begin(), variables.end(), [](auto const & a, auto const & b) {
+        return _wcsicmp(a.c_str(), b.c_str()) < 0;
+      });
+      std::wstring environment;
+      for(auto const & entry: variables) { environment += entry; environment += L'\0'; }
+      environment += L'\0';
+      SECURITY_ATTRIBUTES security{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
+      HANDLE input = CreateFileW(L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                &security, OPEN_EXISTING, 0, nullptr);
+      HANDLE output = CreateFileW(logfile.empty() ? L"NUL" : widen(logfile).c_str(),
+          FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, &security,
+          OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+      HANDLE job = CreateJobObjectW(nullptr, nullptr);
+      JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
+      limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+      bool ready = input != INVALID_HANDLE_VALUE && output != INVALID_HANDLE_VALUE
+          && job && SetInformationJobObject(job, JobObjectExtendedLimitInformation,
+                                            &limits, sizeof(limits));
+      STARTUPINFOW startup{};
+      startup.cb = sizeof(startup);
+      startup.dwFlags = STARTF_USESTDHANDLES;
+      startup.hStdInput = input;
+      startup.hStdOutput = startup.hStdError = output;
+      PROCESS_INFORMATION process{};
+      bool started = ready && CreateProcessW(nullptr, command.data(), nullptr, nullptr,
+          TRUE, CREATE_SUSPENDED | CREATE_NO_WINDOW | CREATE_UNICODE_ENVIRONMENT,
+          envp.empty() ? nullptr : environment.data(), nullptr, &startup, &process);
+      DWORD failure = GetLastError();
+      if(started && !AssignProcessToJobObject(job, process.hProcess))
+      { failure = GetLastError(); TerminateProcess(process.hProcess, 1); started = false; }
+      if(started && ResumeThread(process.hThread) == DWORD(-1))
+      { failure = GetLastError(); TerminateJobObject(job, 1); started = false; }
+      if(input != INVALID_HANDLE_VALUE) CloseHandle(input);
+      if(output != INVALID_HANDLE_VALUE) CloseHandle(output);
+      if(process.hThread) CloseHandle(process.hThread);
+      if(!started)
+      {
+        if(process.hProcess) CloseHandle(process.hProcess);
+        if(job) CloseHandle(job);
+        *error = "cannot start compile (Windows error " + std::to_string(failure) + ")";
+        return 0;
+      }
+      return reinterpret_cast<long long>(new Child{process.hProcess, job});
+    }
+
+    int wait_status(long long child)
+    {
+      auto process = reinterpret_cast<Child *>(child)->process;
+      if(WaitForSingleObject(process, INFINITE) != WAIT_OBJECT_0) return -1;
+      DWORD status = 0;
+      return GetExitCodeProcess(process, &status) ? int(status) : -1;
+    }
+
+    void close_child(long long child)
+    {
+      auto ptr = reinterpret_cast<Child *>(child);
+      CloseHandle(ptr->process);
+      CloseHandle(ptr->job);
+      delete ptr;
+    }
 #else
     // Starts a command with its output appended to ``logfile`` and no input.
     // Returns the process id, or zero with ``error`` set.
@@ -221,14 +321,20 @@ namespace curryrt
       {
         std::lock_guard<std::mutex> lock(shared().mutex);
         shared().child = 0;
+#if defined(_WIN32)
+        close_child(pid);
+#endif
       }
+#if defined(_WIN32)
+      else close_child(pid);
+#endif
       return status;
     }
 
     bool file_exists(std::string const & filename)
     {
-      struct stat st;
-      return stat(filename.c_str(), &st) == 0;
+      std::error_code error;
+      return std::filesystem::exists(std::filesystem::u8path(filename), error);
     }
 
     // The table of the CRC-32 (the polynomial of zlib), made on first use.
@@ -381,8 +487,9 @@ namespace curryrt
         return sofile;
       auto stem = [](std::string const & path)
       {
-        return path.size() > 3 && path.compare(path.size() - 3, 3, ".so") == 0
-            ? path.substr(0, path.size() - 3) : path;
+        auto source = fs::u8path(path);
+        source.replace_extension();
+        return source.u8string();
       };
       static std::atomic<unsigned> counter{0};
       std::pair<std::string, std::string> const pairs[] = {
@@ -733,7 +840,10 @@ namespace curryrt
     shared().finished.clear();
     shared().results.clear();
     g_tiered_pending.store(false);
-    #if !defined(_WIN32)
+    #if defined(_WIN32)
+    if(shared().child)
+      TerminateJobObject(reinterpret_cast<Child *>(shared().child)->job, 1);
+    #else
     if(shared().child)
       kill(-(pid_t) shared().child, SIGKILL);
     #endif

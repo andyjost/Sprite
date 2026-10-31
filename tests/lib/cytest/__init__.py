@@ -305,6 +305,9 @@ def limit_prefix(address_space=None, timeout=None, kill_after=None):
   ``-k kill_after`` when given.  A part whose tool is missing is left out.
   A caller appends its own command.
   '''
+  # Windows timeout.exe waits for a key; it is not GNU timeout.
+  if sys.platform == 'win32':
+    return []
   prefix = []
   if address_space is not None and shutil.which('prlimit'):
     prefix += ['prlimit', '--as=%d' % address_space]
@@ -340,6 +343,8 @@ def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
   '''
   cmd = limit_prefix(address_space, timeout) + [sys.executable, '-B', '-c', code]
   kwds = {} if input is None else {'input': input}
+  if sys.platform == 'win32':
+    kwds['timeout'] = timeout
   env = dict(os.environ, PYTHONIOENCODING='utf-8')
   return subprocess.run(cmd, capture_output=True, text=text, env=env, **kwds)
 

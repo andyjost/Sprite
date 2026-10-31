@@ -12,6 +12,7 @@ import shutil
 import shlex
 import subprocess
 import sys
+import time
 
 
 def copy(source, target):
@@ -49,6 +50,12 @@ def compiler_tool(prefix, compiler, launcher=''):
   knows no tool called cxx.
   """
   path = prefix / 'tools/cxx'
+  if compiler and sys.platform == 'win32':
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists() or path.is_symlink():
+      path.unlink()
+    path.write_text(compiler, encoding='utf-8')
+    return
   if compiler:
     link(compiler, path)
   elif path.exists() or path.is_symlink():
@@ -93,6 +100,7 @@ def main():
   parser.add_argument('--rebuild-icy', default='OFF')
   args = parser.parse_args()
   args.jobs = os.environ.get('SPRITE_BUILD_JOBS', args.jobs)
+  object_suffix = '.dll' if sys.platform == 'win32' else '.so'
   source, prefix = Path(args.source).resolve(), Path(args.prefix).resolve()
   package = prefix / 'python/curry'
   for path in package.rglob('*.py'):
@@ -180,7 +188,7 @@ def main():
           # Package extraction can preserve older times, and .source may
           # still match: invalidate derivatives of changed pinned bytes.
           # Keep the published object until its replacement is ready.
-          for suffix in ('.json', '.json.z', '.cpp', '.so.abi'):
+          for suffix in ('.json', '.json.z', '.cpp', object_suffix + '.abi'):
             dest.with_suffix(suffix).unlink(missing_ok=True)
         copy(pinned, icy)
         for suffix in ('.icy.source', '.icy.imports'):
@@ -195,7 +203,7 @@ def main():
     elif rebuild:
       # A forced retranslation can change bytes without changing the source
       # digest. Remove derived products rather than trusting their stamps.
-      for suffix in ('.icy', '.json', '.json.z', '.cpp', '.so.abi'):
+      for suffix in ('.icy', '.json', '.json.z', '.cpp', object_suffix + '.abi'):
         dest.with_suffix(suffix).unlink(missing_ok=True)
       run(sys.executable, '-m', 'curry.tools.make', '--rewrite-flat', lib / rel,
           '-o', dest.with_suffix('.icy'))
@@ -209,20 +217,23 @@ def main():
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     Path(str(icy) + '.source').write_text(digest)
   supported = [m for m in modules if m not in unsupported]
+  library_start = time.perf_counter()
   if args.cxx:
     run(*make, '--so', '--jobs', args.jobs, '-zc', *supported)
   else:
-    # No compiler of generated code (Windows in this release): the library
-    # ships its ICurry and JSON, and every module runs interpreted.
+    # An explicitly compiler-free stage keeps ICurry, JSON and images.
     print('no compiler of generated code: the library is not compiled', flush=True)
   if args.wheel:
     # pip has no post-install prefix rewrite. Keep the digest and express
     # its installation provenance relative to the stamp's own directory.
-    for stamp in lib.rglob('*.so.abi'):
+    for stamp in lib.rglob('*' + object_suffix + '.abi'):
       lines = stamp.read_text().splitlines()
       lines[1] = os.path.relpath(prefix, stamp.parent)
       stamp.write_text('\n'.join(lines) + '\n')
-  expected = ['.json.z', '.img', '.so', '.so.abi'] if args.cxx else ['.json.z', '.img']
+  library_seconds = time.perf_counter() - library_start
+  (prefix / 'sysconfig/cxx_library_build_seconds').write_text('%.3f\n' % library_seconds)
+  print('Curry library build: %.3f seconds' % library_seconds, flush=True)
+  expected = ['.json.z', '.img', object_suffix, object_suffix + '.abi'] if args.cxx else ['.json.z', '.img']
   for path in sources:
     rel = path.relative_to(source / 'curry/lib')
     if '.'.join(rel.with_suffix('').parts) not in unsupported:

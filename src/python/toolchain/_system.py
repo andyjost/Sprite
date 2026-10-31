@@ -18,7 +18,7 @@ def bindCurryPath(currypath):
   Returns a context manager that temporarily binds ``currypath`` to the
   environment variable CURRYPATH.
   '''
-  value = ':'.join(curryname.makeCurryPath(currypath))
+  value = os.pathsep.join(curryname.makeCurryPath(currypath))
   token = _child_currypath.set(value)
   try:
     yield

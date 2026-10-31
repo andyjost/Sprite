@@ -11,19 +11,18 @@ import tempfile
 def main():
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument('--peano', type=Path)
+  parser.add_argument('--compile', action='store_true')
   args = parser.parse_args()
   import curry
   from curry.lib import Prelude
-  if sys.platform == 'win32':
-    # No generated code is compiled on Windows: the library runs
-    # interpreted from its ICurry, which is what the wheel ships.
-    assert curry._interpreter_.flags['interpret'] == 'all', curry._interpreter_.flags
-  else:
-    from curry.backends.cxx.toolchain import Cpp2So
-    assert curry.config.cxx_compiler(), 'Missing build compiler record'
-    prelude = Path(curry.config.prefix()) / 'curry/.curry' / curry.config.intermediate_subdir() / 'Prelude.so'
-    assert prelude.is_file(), prelude
-    assert Cpp2So(curry._interpreter_).stamp_is_current(str(prelude))
+  from curry.backends.cxx.toolchain import Cpp2So
+  assert curry.flags['interpret'] == 'new', curry.flags
+  assert curry.config.cxx_compiler(), 'Missing build compiler record'
+  prelude = Path(curry.config.prefix()) / 'curry/.curry' / curry.config.intermediate_subdir() / ('Prelude' + curry.config.module_object_suffix())
+  assert prelude.is_file(), prelude
+  assert Cpp2So(curry._interpreter_).stamp_is_current(str(prelude))
+  from curry.objects.handle import getHandle
+  assert getHandle(Prelude).icurry.metadata.get('cxx.shlib') is not None
   assert list(curry.eval(Prelude.id(42))) == [42]
   if args.peano:
     with tempfile.TemporaryDirectory() as directory:
@@ -31,6 +30,9 @@ def main():
       # interpreter of a build matrix compiles the program afresh.
       source = Path(directory) / args.peano.name
       shutil.copy(args.peano, source)
+      if args.compile:
+        subprocess.run([sys.executable, '-m', 'curry.tools.make', '--so', str(source)], check=True)
+        assert (source.parent / '.curry' / curry.config.intermediate_subdir() / (source.stem + curry.config.module_object_suffix())).is_file()
       expect(source, 'S (S O)')
       # A program with type classes. Its FlatCurry names the dictionaries
       # of the Prelude in the spelling of the front end that compiled it,

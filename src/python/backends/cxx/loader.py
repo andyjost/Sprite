@@ -4,9 +4,9 @@ from ...objects import CurryPackage
 from ...toolchain import _filenames, _findcurry
 from ... import config, exceptions
 from . import curryrtbindings as curryrt
-from . import elf, macho
+from . import elf, macho, pe
 from ...utility.locking import native_metadata
-import hashlib, logging, os
+import hashlib, logging, os, sys
 
 logger = logging.getLogger(__name__)
 _objects = {}
@@ -49,6 +49,8 @@ def _dynamic_names(sofile):
   entries of the form of a SONAME of a compiled module.  The other entries,
   the runtime library and the system libraries, are left out.
   '''
+  if sys.platform == 'win32':
+    return pe.record_names(sofile)
   from . import toolchain
   dynamic = read_dynamic(sofile)
   name = None if dynamic.soname is None \
@@ -174,17 +176,17 @@ def load_module(interp, sofile, from_plan=False, fresh=False):
 
 
 def _load_module_once(interp, sofile, from_plan, fresh):
-  assert sofile.endswith('.so')
+  assert sofile.endswith(config.module_object_suffix())
   sofile = os.path.abspath(sofile)
   from .toolchain import Cpp2So
   before = Cpp2So.product_snapshot(sofile)
-  name, needed = _dynamic_names(sofile)
   from . import tiered
   if interp.flags['interpret'] == 'all':
     raise exceptions.LoadError(
         'cannot load %r under interpret:all: opening a compiled object '
         'replaces the live interpreted steps' % sofile
       )
+  name, needed = _dynamic_names(sofile)
   if name is not None:
     _wait_pending(interp, name, sofile)
   # The object names the objects of its imports by their SONAMEs, and the

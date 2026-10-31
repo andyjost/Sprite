@@ -6,7 +6,9 @@ Release Notes
 ====================
 
 - Windows: the runtime and the bindings build with clang-cl on
-  windows-2025 and every module runs interpreted there; wheels for Windows
+  windows-2025; generated modules compile to DLLs with clang-cl in a
+  developer prompt (``vcvars64.bat``), including the hot and eager C++
+  compiler tiers. ``interpret`` defaults to ``new`` everywhere. Wheels for Windows
   x64, CPython 3.11 to 3.15 with the free-threaded 3.14t, which vendor the
   C and C++ runtimes of Visual Studio; the front end's Windows wheel is
   built and gated by the same workflow and ships as ``curry-frontend``
@@ -58,8 +60,8 @@ Release Notes
   when it is installed, else the generated C++ through the C++ compiler, else the
   interpreter alone with one notice.  The value ``tiered`` of ``interpret``
   retires: its live compile is the ``cxx`` backend of the hot tier, the C++ compiler, which
-  swaps at a safepoint of the scheduler; ``new`` is the default (``all`` on
-  Windows); a current ahead-of-time object always loads.
+  swaps at a safepoint of the scheduler; ``new`` is the default on every
+  platform; a current ahead-of-time object always loads.
 - ``SPRITE_LOG_FILE`` and ``SPRITE_LOG_LEVEL`` configure a handler on the
   logger ``curry``, which keeps its ``NullHandler`` without them; at INFO
   the package logs its own decisions: how each module runs and why, the

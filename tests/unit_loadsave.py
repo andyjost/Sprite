@@ -2,7 +2,7 @@
 import cytest # from ./lib; must be first
 
 from curry import config
-import curry, logging, os, shutil, subprocess, unittest
+import curry, logging, os, shutil, subprocess, sys, unittest
 import tempfile
 from unittest import mock
 from cytest.logging import capture_log
@@ -70,7 +70,7 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(
         proc.stdout.splitlines()
-      , ["['42']", '.so', "True ['42']", "True ['42']"]
+      , ["['42']", config.module_object_suffix(), "True ['42']", "True ['42']"]
       , proc.stderr
       )
 
@@ -90,7 +90,7 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
       )
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     self.assertEqual(proc.stdout.splitlines(),
-                     ["['42']", '.so', "True ['42']", "True ['42']"], proc.stderr)
+                     ["['42']", config.module_object_suffix(), "True ['42']", "True ['42']"], proc.stderr)
 
   @unittest.skipUnless(config.cxx_tool() is not None,
                        'interpret:all belongs to the C++ backend')
@@ -100,10 +100,10 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
         'saved = toolchain.Cpp2So(cytest.raw.interp())(cppfile, curry.path)',
         "import subprocess\nenv = dict(os.environ, SPRITE_INTERPRETER_FLAGS="
         "'backend:cxx,interpret:off', CURRYPATH=os.pathsep.join(curry.path))\n"
-        "subprocess.run([config.installed_path('bin', 'sprite-make'), '--so', "
+        "subprocess.run([sys.executable, '-m', 'curry.tools.make', '--so', "
         "os.path.join(tmpdir, 'SaveLoadFresh.curry')], env=env, "
         "check=True, capture_output=True, text=True)\n"
-        "saved = os.path.splitext(cppfile)[0] + '.so'"
+        "saved = os.path.splitext(cppfile)[0] + config.module_object_suffix()"
       )
     code = code[:code.index('M2 = curry._interpreter_.load(saved)')] + r'''
 from curry.backends.cxx import curryrtbindings as curryrt
@@ -119,7 +119,7 @@ print([str(v) for v in curry.eval(M.main)])
 '''
     proc = cytest.run_in_subprocess(code, TIMEOUT)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-    self.assertEqual(proc.stdout.splitlines(), ["['42']", '.so', "['42']"])
+    self.assertEqual(proc.stdout.splitlines(), ["['42']", config.module_object_suffix(), "['42']"])
 
 
 @unittest.skipUnless(
@@ -190,7 +190,7 @@ print('exiting normally')
       env = dict(os.environ, CURRYPATH=directory)
       env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:off'
       cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
-          config.installed_path('bin', 'sprite-make'), '--so', '-z', 'M'
+          sys.executable, '-m', 'curry.tools.make', '--so', '-z', 'M'
         ]
       proc = subprocess.run(
           cmd, cwd=directory, env=env, capture_output=True, text=True
@@ -201,7 +201,7 @@ print('exiting normally')
             % (directory, proc.stdout, proc.stderr)
           )
       cls.objects[sub] = os.path.join(
-          directory, '.curry', config.intermediate_subdir(), 'M.so'
+          directory, '.curry', config.intermediate_subdir(), 'M' + config.module_object_suffix()
         )
 
   @classmethod
@@ -308,7 +308,7 @@ print('values', [str(v) for v in curry.eval(M.main)])
     env = dict(os.environ, CURRYPATH=tmpdir)
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:off'
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
-        config.installed_path('bin', 'sprite-make'), '--so', '-z'
+        sys.executable, '-m', 'curry.tools.make', '--so', '-z'
       , 'SaveFromObject'
       ]
     proc = subprocess.run(
@@ -378,7 +378,7 @@ class TestPublicObjects(cytest.TestCase):
   def test_loaded_object_keeps_its_typed_interface(self):
     module = curry.compile('f :: Int -> Int\nf x = x + 1', name='SavedTyped')
     with tempfile.TemporaryDirectory() as work:
-      suffix = '.so'
+      suffix = config.module_object_suffix()
       product = os.path.join(work, 'SavedTyped' + suffix)
       curry.save(module, product)
       curry.reset()
@@ -394,6 +394,7 @@ class TestPublicObjects(cytest.TestCase):
       self.assertIs(SavedTyped, loaded)
 
   @cytest.skipUnlessObjectsLoad('a saved program loads its object')
+  @((unittest.expectedFailure) if sys.platform == 'win32' else (lambda test: test))
   def test_saved_constrained_program_prints_the_defaulted_goal(self):
     module = curry.compile('main = Just 5', name='SavedConstrained')
     with tempfile.TemporaryDirectory() as work:

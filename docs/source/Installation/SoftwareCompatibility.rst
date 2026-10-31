@@ -21,8 +21,10 @@ repository build the wheels of both packages, ``curry`` and
 ``curry-frontend``, for macOS 15 or newer on both architectures.
 
 Windows x64 builds the runtime and the bindings with clang-cl of Visual
-Studio on windows-2025 and runs every module interpreted: no generated
-code is compiled there, and the JIT (``llvmlite``) is the compiled mode.
+Studio on windows-2025. It compiles Curry modules to DLLs with the same
+compiler, including ahead-of-time and hot or eager C++ compilation. Use
+a developer prompt initialized by ``vcvars64.bat``; cl is experimental.
+The default ``interpret:new`` loads current objects and interprets new code.
 The workflows build the wheels of both packages for Windows as well; the
 wheels vendor the C and C++ runtimes of Visual Studio.
 

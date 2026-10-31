@@ -41,7 +41,8 @@ if len(sys.argv) > 2:
     for entry in (prefix / 'tools').iterdir():
       if entry.name not in present and (entry.is_symlink() or entry.is_file()):
         entry.unlink()
-for stamp in (prefix / 'curry').rglob('*.so.abi'):
+object_suffix = '.dll' if sys.platform == 'win32' else '.so'
+for stamp in (prefix / 'curry').rglob('*' + object_suffix + '.abi'):
   lines = stamp.read_text().splitlines()
   lines[1] = str(prefix)
   text = '\n'.join(lines) + '\n'

@@ -228,13 +228,10 @@ elseif(WIN32)
   set_target_properties(curryrt PROPERTIES
     WINDOWS_EXPORT_ALL_SYMBOLS ON
     PREFIX "lib"
+    IMPORT_PREFIX "lib"
     RUNTIME_OUTPUT_DIRECTORY "${image}/lib"
     ARCHIVE_OUTPUT_DIRECTORY "${image}/lib")
   target_compile_definitions(curryrt PRIVATE CURRYRT_BUILDING)
-  # The compile of generated code (sprite-make --so, the tiered compile) is
-  # not available on Windows in this release: the library ships its ICurry
-  # and JSON, every module runs interpreted, and no tools/cxx is installed.
-  set(WITH_CXX_POSTINSTALL "")
 else()
   set(sprite_origin "$ORIGIN")
   # The procedure linkage table and semantic interposition are ELF notions.
@@ -348,7 +345,7 @@ sprite_var(intermediate_subdir "sprite-pakcs-${frontend_release}")
 # The suffix of a shared library on this platform (.so, or .dylib on macOS):
 # the name of the runtime library, libcurryrt<suffix>, is formed from it
 # (config.shared_library_suffix).  The objects of compiled Curry modules
-# keep the suffix .so on every platform; dlopen reads the file, not its name.
+# use .dll on Windows and retain .so on ELF and Mach-O.
 sprite_var(shared_library_suffix "${CMAKE_SHARED_LIBRARY_SUFFIX}")
 sprite_var(python_package_name "curry")
 # The bitcode of the JIT helpers (src/curryrt/jit/helpers.cpp): clang

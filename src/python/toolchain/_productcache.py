@@ -93,7 +93,7 @@ KEY_FORMAT = 3
 # The suffixes of the files a store and a restore may hard-link.  The others
 # are copied: the emitter writes a generated file in place, and a link would
 # carry the next generation into the entry.
-LINK_SUFFIXES = ('.so',)
+LINK_SUFFIXES = (config.module_object_suffix(),)
 
 # The counts of this process: the products restored from the cache and the
 # products stored in it.  sprite-make reports them.

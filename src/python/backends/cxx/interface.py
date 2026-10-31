@@ -128,7 +128,8 @@ class IBackend(backends.IBackend):
 
   @property
   def object_file_extension(self):
-    return '.so'
+    from ... import config
+    return config.module_object_suffix()
 
   @property
   def write_module(self):

@@ -52,7 +52,7 @@ from ...toolchain import (
     plans, _filenames, _findcurry, _loadcurry, _makecurry, _productcache
   , _system, _productlock, _interfaces
   )
-import functools, hashlib, itertools, json, logging, os, re, sys, tempfile, threading
+import functools, hashlib, itertools, json, logging, os, re, sys, tempfile, threading, time
 
 logger = logging.getLogger(__name__)
 _warning_lock = threading.Lock()
@@ -183,6 +183,9 @@ FLAVOR_FLAGS = {
 # Whether the platform links Mach-O with ld64 (macOS) rather than ELF with
 # GNU ld.  The flags below follow the linker; the generated code is the same.
 IS_DARWIN = sys.platform == 'darwin'
+IS_WINDOWS = sys.platform == 'win32'
+MSVC_FLAGS = ['/std:c++17', '/EHsc', '/MD', '/bigobj',
+              '/D_CRT_SECURE_NO_WARNINGS', '/clang:-fno-strict-aliasing']
 
 # The flags of the release flavor that are notions of ELF: the procedure
 # linkage table and semantic interposition.  Mach-O has neither, and clang
@@ -213,7 +216,7 @@ ELF_ONLY_FLAGS = frozenset(['-fno-plt', '-fno-semantic-interposition'])
 # of an object is given with -install_name, in place of -soname.
 GNU_LINK_FLAGS = ['-Wl,-Bsymbolic-functions', '-Wl,--no-as-needed']
 DARWIN_LINK_FLAGS = ['-Wl,-undefined,dynamic_lookup']
-LINK_FLAGS = DARWIN_LINK_FLAGS if IS_DARWIN else GNU_LINK_FLAGS
+LINK_FLAGS = [] if IS_WINDOWS else DARWIN_LINK_FLAGS if IS_DARWIN else GNU_LINK_FLAGS
 
 def flavor_flags(flavor):
   '''
@@ -221,6 +224,8 @@ def flavor_flags(flavor):
   On macOS the release flavor leaves out the flags that are ELF notions
   (ELF_ONLY_FLAGS).
   '''
+  if IS_WINDOWS:
+    return ['/O2', '/DNDEBUG'] if flavor == 'release' else ['/Od', '/Zi']
   flags = list(FLAVOR_FLAGS[flavor])
   if IS_DARWIN:
     flags = [flag for flag in flags if flag not in ELF_ONLY_FLAGS]
@@ -257,7 +262,7 @@ def gc_flags(gc=None, write_counters=None):
   flags = list(GC_FLAGS[gc])
   if gc == 'wdgc' and write_counters:
     flags += GC_WRITE_COUNTERS_FLAGS
-  return flags
+  return [flag.replace('-D', '/D', 1) for flag in flags] if IS_WINDOWS else flags
 
 def object_digest(flavor=None, include_dir=None, gc=None, write_counters=None):
   '''
@@ -291,7 +296,7 @@ def object_digest(flavor=None, include_dir=None, gc=None, write_counters=None):
   if flavor is None:
     flavor = config.cxx_flavor()
   digest = hashlib.sha256(headers.encode('utf-8'))
-  for flag in flavor_flags(flavor) + gc_flags(gc, write_counters) + LINK_FLAGS:
+  for flag in flavor_flags(flavor) + gc_flags(gc, write_counters) + LINK_FLAGS + (MSVC_FLAGS if IS_WINDOWS else []):
     digest.update(b'\0')
     digest.update(flag.encode('utf-8'))
   digest.update(b'\0compiler ')
@@ -414,7 +419,7 @@ def extend_plan_skeleton(interp, skeleton):
   flag, suffixes, _ = skeleton[-1]
   skeleton[-1] = flag, suffixes, Json2Cpp(interp)
   skeleton.append((plans.MAKE_TARGET_OBJECT, ['.cpp'], Cpp2So(interp)))
-  skeleton.append((plans.UNCONDITIONAL, ['.so'] , None))
+  skeleton.append((plans.UNCONDITIONAL, [config.module_object_suffix()] , None))
 
 # The format stamp of a generated .cpp file.  The stamp heads the file.
 FORMAT_PAT = re.compile(r'// FORMAT: (\d+)')
@@ -788,7 +793,7 @@ class Cpp2So(object):
     as well when an import of its module runs without an object
     (import_lacks_an_object).
     '''
-    if filename.endswith('.so'):
+    if filename.endswith(config.module_object_suffix()):
       if not self.stamp_is_current(filename, currypath):
         return True
       before = self.product_snapshot(filename)
@@ -1057,7 +1062,7 @@ class Cpp2So(object):
     except ValueError:
       return None
     sofile = _filenames.replacesuffix(
-        _filenames.icurryfilename(curryfile), '.so'
+        _filenames.icurryfilename(curryfile), config.module_object_suffix()
       )
     if os.path.isfile(sofile) and self.stamp_is_current(sofile):
       return sofile
@@ -1070,6 +1075,8 @@ class Cpp2So(object):
     its SONAME (soname) in the NEEDED entries of the object (LINK_FLAGS),
     so the object names no path of this tree.
     '''
+    if IS_WINDOWS:
+      return
     for modulename in self._importedModules(file_in):
       yield self._sofilename(modulename, currypath)
 
@@ -1082,6 +1089,13 @@ class Cpp2So(object):
     the installation through the link install/, the test drivers through its
     real path, and both must find the member the stage built.
     '''
+    if IS_WINDOWS:
+      yield '/I%s' % os.path.realpath(config.installed_path('include'))
+      yield from MSVC_FLAGS
+      yield from flavor_flags(self.flavor)
+      yield from gc_flags()
+      yield from os.environ.get('CXXFLAGS', '').split()
+      return
     yield '-I%s' % os.path.realpath(config.installed_path('include'))
     yield '-fPIC'
     yield '-std=c++17'
@@ -1106,6 +1120,8 @@ class Cpp2So(object):
     The precompiled header of a compile of this flavor, or None when the
     header is disabled (config.cxx_pch_root) or no compiler is installed.
     '''
+    if IS_WINDOWS:
+      return None
     root = config.cxx_pch_root()
     cxx = config.cxx_tool()
     if root is None or cxx is None:
@@ -1146,11 +1162,23 @@ class Cpp2So(object):
     if cxx is None:
       raise exceptions.CompileError(
           'cannot compile %r: no C++ compiler is installed at %r.  Install '
-          'one and configure Sprite with CMake -DWITH_CXX_POSTINSTALL=PATH, or use the '
+          'one (on Windows, clang-cl of Visual Studio in a developer prompt '
+          'initialized by vcvars64) and configure Sprite with CMake '
+          '-DWITH_CXX_POSTINSTALL=PATH, or use the '
           'modules that make stage compiled.'
         % (file_in, config.installed_path('tools', 'cxx'))
         )
     yield cxx
+    if IS_WINDOWS:
+      yield '/LD'
+      yield from self._cxxflags()
+      yield '/Fo' + file_out + '.obj'
+      yield file_in
+      yield '/link'
+      yield '/OUT:' + file_out
+      yield '/IMPLIB:' + file_out + '.lib'
+      yield config.installed_path('lib', 'libcurryrt.lib')
+      return
     for flag in self._pchflags():
       yield flag
     yield '-shared'
@@ -1194,7 +1222,7 @@ class Cpp2So(object):
           'the format stamp of %r reads as %r, but the emitter writes %r'
         % (file_in, self.format_version(file_in), compiler.FORMAT_VERSION)
         )
-    file_out = _filenames.replacesuffix(file_in, '.so')
+    file_out = _filenames.replacesuffix(file_in, config.module_object_suffix())
     before = self.product_snapshot(file_out)
     directory = os.path.dirname(os.path.abspath(file_out))
     if not os.access(directory, os.W_OK):
@@ -1223,7 +1251,7 @@ class Cpp2So(object):
     with open(file_in, 'rb') as stream:
       source = stream.read()
     provenance = _source_interfaces(source.decode('utf-8').splitlines()[:16])
-    fd, tmp = tempfile.mkstemp(dir=directory, prefix='.compile-', suffix='.so')
+    fd, tmp = tempfile.mkstemp(dir=directory, prefix='.compile-', suffix=config.module_object_suffix())
     os.close(fd)
     cpp = tmp + '.cpp'
     try:
@@ -1243,7 +1271,9 @@ class Cpp2So(object):
         logger.info('Compiling %r', file_out)
         if logger.isEnabledFor(logging.DEBUG):
           logger.debug('Command: %s', ' '.join(cmd))
+        compile_start = time.monotonic()
         _system.pexec(cmd)
+        logger.info('Compiled %r in %.3f s', file_out, time.monotonic() - compile_start)
         # Invalidate the old stamp only for publication. Never unlink the
         # live object while a reader may open it; rename the complete one.
         self.remove_stamp(file_out)
@@ -1254,7 +1284,7 @@ class Cpp2So(object):
             self.store(file_in, file_out, currypath)
       return file_out
     finally:
-      for path in (tmp, cpp):
+      for path in (tmp, cpp, tmp + '.obj', tmp + '.lib', tmp + '.exp'):
         try:
           os.unlink(path)
         except FileNotFoundError:
@@ -1279,7 +1309,7 @@ class Cpp2So(object):
   # (plans.Plan.restore, _makecurry.Maker.make).  See
   # curry.toolchain._productcache.
 
-  PRODUCT_SUFFIXES = ('.cpp', '.so')
+  PRODUCT_SUFFIXES = ('.cpp', config.module_object_suffix())
 
   def product_facts(self, curryfile):
     '''
@@ -1360,7 +1390,7 @@ class Cpp2So(object):
     digest = self.digest()
     if digest is None:
       return None
-    sofile = _filenames.replacesuffix(file_in, '.so')
+    sofile = _filenames.replacesuffix(file_in, config.module_object_suffix())
     directory = os.path.dirname(os.path.abspath(sofile))
     if not os.access(directory, os.W_OK):
       return None

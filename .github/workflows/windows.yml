@@ -6,9 +6,8 @@ name: Windows
 # builtins of the runtime, and cl, experimental.  The job configures in the
 # developer environment of Visual Studio, builds every target with Ninja
 # past the first error so one run reports every translation unit, runs the
-# interpreter on a Prelude function, and uploads the logs.  No front end:
-# the configure takes the pinned library products, and no compile of
-# generated code: every module runs interpreted (interpret 'all').
+# interpreter, generated DLLs and C++ JIT, and uploads the logs. The
+# library uses its pinned products; curry-frontend compiles test sources.
 
 'on':
   # Every push of master and of the Windows branches runs it: the line
@@ -50,7 +49,7 @@ jobs:
       - name: Tools
         run: |
           set -euxo pipefail
-          python -m pip install --quiet cmake ninja scikit-build-core numpy llvmlite
+          python -m pip install --quiet cmake ninja scikit-build-core numpy llvmlite curry-frontend==3.1.0.post2
           cmake --version
           clang++ --version || echo "no clang++ on PATH"
           ninja --version
@@ -99,7 +98,7 @@ jobs:
         env:
           SPRITE_HOME: ${{ github.workspace }}\build\stage
           PYTHONPATH: ${{ github.workspace }}\build\stage\python
-          SPRITE_INTERPRETER_FLAGS: jit:hot
+          SPRITE_INTERPRETER_FLAGS: interpret:all,jit:hot,jit_backend:llvm
           SPRITE_JIT_THRESHOLD: '20'
         run: |
           set -uxo pipefail
@@ -128,6 +127,20 @@ jobs:
           print(curry.eval(Prelude.elem(999999, Prelude.enumFromTo(1, 1000000))).one())
           assert llvmjit.statistics()['hot'] > 0, 'the hot tier compiled nothing'
           EOF
+      - name: Generated DLLs and C++ compiler tiers
+        shell: cmd
+        env:
+          SPRITE_HOME: ${{ github.workspace }}\build\stage
+          PYTHONPATH: ${{ github.workspace }}\build\stage\python;${{ github.workspace }}\tests\lib
+          SPRITE_INTERPRETER_FLAGS: interpret:new,jit:off
+          SPRITE_ROTATION: steps:65536
+          SPRITE_PRODUCT_CACHE: ''
+        run: |
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
+          call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
+          python -c "import curry; print(curry.flags['interpret']); assert curry.flags['interpret'] == 'new'" || exit /b 1
+          cd tests
+          python -m unittest -v unit_windows_aot unit_make.TestMake.test_sprite_make_so unit_cxx_interp.TestFirstUse.test_compiled_on_first_use unit_cxx_interp.TestFirstUse.test_pending_import_compiles_first unit_loadsave.TestRoundTrip.test_round_trip unit_loadsave.TestRoundTrip.test_cold_cache_hot_cxx unit_loadsave.TestRoundTrip.test_all_refuses_the_swap_with_a_reason unit_loadsave.TestSavedProgram || exit /b 1
       - name: Errors by file and by kind
         if: always()
         run: |
