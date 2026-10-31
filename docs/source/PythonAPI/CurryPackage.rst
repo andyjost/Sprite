@@ -51,16 +51,15 @@ describes every flag at length; the table names them with their defaults.
 Flag                         Default                What it changes
 ===========================  =====================  ========================================================
 ``backend``                  ``'cxx'`` [1]_         The backend: ``'cxx'``, the C++ backend.
-``interpret``                ``'tiered'``           How the C++ backend runs a module without a compiled
-                                                    object: ``'tiered'`` interprets it at once and
-                                                    compiles it in the background; ``'new'`` interprets
-                                                    it and never compiles it; ``'all'`` interprets every
-                                                    module; ``'off'`` compiles every module first.
-``jit``                      ``'off'``              The JIT of the C++ backend, under ``'new'`` and
-                                                    ``'all'``: ``'eager'`` compiles every function of a
-                                                    module to machine code when the module loads;
-                                                    ``'hot'`` compiles the functions that run, beside
-                                                    the evaluation.  Needs the extra ``curry[jit]``.
+``interpret``                ``'new'``              ``'new'`` loads current objects and interprets the rest;
+                                                    ``'all'`` interprets every module (Windows default);
+                                                    ``'off'`` compiles missing objects before running.
+``jit``                      ``'hot'``              Interpreted functions compile at load (``'eager'``),
+                                                    after the hot threshold (``'hot'``), or stay
+                                                    interpreted (``'off'``). Current AOT objects still load.
+``jit_backend``              ``'auto'``             ``'auto'`` selects llvmlite, then a C++ compiler, then
+                                                    the interpreter alone with one warning. Forced
+                                                    ``'llvm'`` and ``'gxx'`` error when unavailable.
 ``rotation``                 ``'time:10ms'``        How the C++ backend paces the rotation of its queue
                                                     of alternatives: time mode (``time:<N><unit>``) or
                                                     step mode (``steps:<N>``), in which the order of the

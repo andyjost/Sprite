@@ -498,7 +498,7 @@ class TestCompile(ProductCacheTestCase):
     if config.cxx_tool() is None:
       self.skipTest('no C++ compiler is installed')
     # The flag ``interpret`` off, as unit_cxx_toolchain.py has it: the plan
-    # of an import then compiles (a test of the tiered default reloads).
+    # of an import then compiles (a test of the new default reloads).
     curry.reset(**{'interpret': 'off'})
     curry.import_('Prelude')
     from curry.backends.cxx import toolchain
@@ -832,16 +832,16 @@ class TestCompile(ProductCacheTestCase):
     self.assertIn('SPRITE_PRODUCT_CACHE', messages[0])
     self.assertTrue(os.path.isfile(sofile))
 
-  def test_first_import_under_tiered_loads_the_cached_object(self):
+  def test_first_import_under_off_loads_the_cached_object(self):
     '''
-    Under the tiered default an import of a module without an object
-    interprets it.  With the products in the cache the import places them
-    first and loads the module from its object, and no compiler runs.
+    Under interpret:off an import requires an object. With products in
+    the cache the import restores them and loads the module from its
+    object, and no compiler runs.
     '''
     name = self.write_json(11)
     sofile = makecurry(self.plan, name, [self.srcdir])
     self.remove_products(name)
-    curry.reset(**{'interpret': 'tiered'})
+    curry.reset(**{'interpret': 'off', 'jit': 'off'})
     from curry.objects.handle import getHandle
     with self.no_compiler():
       module = curry.import_(name, path=[self.srcdir] + curry.path)

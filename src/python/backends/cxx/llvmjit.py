@@ -91,11 +91,16 @@ def flush():
   with _lock:
     pending, jit.pending = jit.pending, []
     if pending:
+      start = time.perf_counter()
       jit.compile_batch(pending)
+      name = pending[0][1].rsplit('.', 1)[0]
+      logger.info('jit eager: module %s, %d functions, %.1f ms',
+          name, len(pending), 1000 * (time.perf_counter() - start))
   # The swaps the hot tier posted since the last evaluation.
   curryrt.icurry_apply_posted()
 
 _hot_thread = None
+_hot_enabled = False
 
 def start_hot_tier(threshold):
   '''
@@ -106,27 +111,37 @@ def start_hot_tier(threshold):
   loop, where no step of its state is on the C stack, or the backend before
   the next evaluation.  Raises Unavailable when the JIT cannot run.
   '''
-  global _hot_thread
+  global _hot_thread, _hot_enabled
+  _hot_enabled = True
   _get()
   with _lock:
+    curryrt.icurry_set_hot_threshold(int(threshold))
     if _hot_thread is not None:
       return
-    curryrt.icurry_set_hot_threshold(int(threshold))
     _hot_thread = threading.Thread(target=_hot_loop, name='curry-jit', daemon=True)
     _hot_thread.start()
 
 def _hot_loop():
   jit = _jit
   while True:
+    if not _hot_enabled:
+      time.sleep(0.005)
+      continue
     hot = curryrt.icurry_take_hot()
     if not hot:
       time.sleep(0.005)
       continue
     with _lock:
+      if not _hot_enabled:
+        continue
       try:
         # The names through a binding without the heap lock: an attribute
         # of the table would wait for the evaluation to end.
+        start = time.perf_counter()
         jit.compile_batch([(info, curryrt.icurry_name(info)) for info in hot], post=True)
+        logger.info('jit hot: compiled %s in %.1f ms',
+            ', '.join(curryrt.icurry_name(info) for info in hot),
+            1000 * (time.perf_counter() - start))
         jit.hot += len(hot)
       except Exception as exc:
         jit.errors += 1

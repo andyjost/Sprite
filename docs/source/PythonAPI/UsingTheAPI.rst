@@ -342,7 +342,7 @@ held terms:
     build the term again from M
 
 Text modules require ``text=`` on reload.  File modules reread their source
-when text is omitted; C++ with ``interpret='tiered'`` or ``'off'`` requires
+when text is omitted; C++ with ``interpret='off'`` requires
 a new process, or ``reset(interpret='new')`` before import, for reload.
 ``wait(M)`` waits for that module's background compilation; ``wait()`` joins
 all background compilations.  ``reset(**flags)`` starts a new session,

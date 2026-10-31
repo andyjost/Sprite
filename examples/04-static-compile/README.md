@@ -14,9 +14,9 @@ child process.  Both forms belong to the backend that saved them.  All
 products live in a temporary directory and are removed on exit.
 
 Text modules can be reloaded with text=.  For a file module, omit text to
-read its source again; C++ with interpret tiered or off requires a fresh
+read its source again; C++ with interpret off requires a fresh
 process, or reset(interpret='new') before importing it.  This lesson uses a
-text module for reload so it works under the normal tiered setting.
+text module for reload so it works under the normal interpret:new setting.
 
 Run "make stage" at the repository root, then "./run" here.  expected.out
 records the output, including the stale-term message and the saved

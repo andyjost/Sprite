@@ -20,7 +20,7 @@ class TestRoundTrip(cytest.TestCase):
   curry.save writes is compiled into a shared object by the step of the
   toolchain that sprite-make --so runs (backends.cxx.toolchain.Cpp2So), and
   curry.load reads the object.  Each child has an empty product cache and
-  fresh source.  The new, tiered and off modes exercise foreground adoption
+  fresh source.  The new, hot gxx and off modes exercise foreground adoption
   and an object already loaded by an import; all refuses the swap with its
   reason and keeps the interpreted steps.
   '''
@@ -35,7 +35,7 @@ with open(os.path.join(tmpdir, 'SaveLoadFresh.curry'), 'w') as stream:
   stream.write('double :: Int -> Int\ndouble x = x + x\n\nmain :: Int\nmain = double 21\n')
 curry.path.insert(0, tmpdir)
 M = curry.import_('SaveLoadFresh')
-if curry.flags['interpret'] == 'tiered':
+if curry.flags['jit_backend'] == 'gxx' and curry.flags['jit'] == 'hot':
   from curry.backends.cxx import tiered, curryrtbindings as curryrt
   # Leave the foreground load to do the swap, independently of how quickly
   # the background compiler runs on this machine.
@@ -65,7 +65,7 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
     , 'the shared object needs the C++ compiler of the installation'
     )
   def test_round_trip(self):
-    flags = 'backend:cxx,interpret:new'
+    flags = 'backend:cxx,interpret:new,jit:off'
     proc = cytest.run_in_subprocess(self.CODE % {'flags': flags}, TIMEOUT)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(
@@ -76,8 +76,8 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
 
   @unittest.skipUnless(config.cxx_tool() is not None,
                        'the cold object needs the C++ backend and its compiler')
-  def test_cold_cache_tiered(self):
-    self.check_cold_cache('tiered')
+  def test_cold_cache_hot_gxx(self):
+    self.check_cold_cache('new,jit:hot,jit_backend:gxx')
 
   @unittest.skipUnless(config.cxx_tool() is not None,
                        'the cold object needs the C++ backend and its compiler')
@@ -95,7 +95,7 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
   @unittest.skipUnless(config.cxx_tool() is not None,
                        'interpret:all belongs to the C++ backend')
   def test_all_refuses_the_swap_with_a_reason(self):
-    code = self.CODE % {'flags': 'backend:cxx,interpret:all'}
+    code = self.CODE % {'flags': 'backend:cxx,interpret:all,jit:off'}
     code = code.replace(
         'saved = toolchain.Cpp2So(cytest.raw.interp())(cppfile, curry.path)',
         "import subprocess\nenv = dict(os.environ, SPRITE_INTERPRETER_FLAGS="
@@ -138,7 +138,7 @@ class TestRefusedLoad(cytest.TestCase):
   exit status 139).  Each sequence runs in a child process, so that a
   regression ends the child and not the test runner.  The two objects of
   the module are compiled with sprite-make, once for the class.  The child
-  runs under interpret:tiered whatever the mode of the runner, since a load
+  runs under interpret:new,jit:off whatever the mode of the runner, since a load
   needs the compiled object of the Prelude (under 'all' it runs
   interpreted, and the nightly job of 2026-10-09 failed these four cases
   that way).
@@ -146,9 +146,9 @@ class TestRefusedLoad(cytest.TestCase):
   SOURCE = 'module M where\n\nf :: Int -> Int\nf x = x + 1\n\nmain :: Int\nmain = f 41\n'
   CODE = r'''
 import os, sys
-# The child runs under tiered execution whatever the runner's mode: a load
+# The child runs under interpret:new with jit:off whatever the runner's mode: a load
 # needs the object of the Prelude, which runs interpreted under 'all'.
-os.environ['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
+os.environ['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:off'
 import curry
 from curry.backends.cxx import curryrtbindings as curryrt
 soA, soB, case = %(soA)r, %(soB)r, %(case)r
@@ -188,7 +188,7 @@ print('exiting normally')
       with open(os.path.join(directory, 'M.curry'), 'w') as stream:
         stream.write(cls.SOURCE)
       env = dict(os.environ, CURRYPATH=directory)
-      env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
+      env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:off'
       cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
           config.installed_path('bin', 'sprite-make'), '--so', '-z', 'M'
         ]
@@ -257,7 +257,7 @@ class TestSaveFromObject(cytest.TestCase):
   record agrees too.  Two children save the same module: the first before
   any object exists, under interpret:new, where the module is interpreted
   and never compiled; sprite-make --so then compiles the object; the second,
-  under the default interpret:tiered, loads the object.  The texts must
+  under the default interpret:new,jit:off, loads the object.  The texts must
   agree.
   '''
   SOURCE = (
@@ -298,7 +298,7 @@ print('values', [str(v) for v in curry.eval(M.main)])
     with open(os.path.join(tmpdir, 'SaveFromObject.curry'), 'w') as stream:
       stream.write(self.SOURCE)
     lines, before = self.save_in_child(
-        'backend:cxx,interpret:new', tmpdir, os.path.join(tmpdir, 'before.cpp')
+        'backend:cxx,interpret:new,jit:off', tmpdir, os.path.join(tmpdir, 'before.cpp')
       )
     self.assertEqual(lines[0], 'object False')
     self.assertEqual(lines[2], "values ['Blue']")
@@ -306,7 +306,7 @@ print('values', [str(v) for v in curry.eval(M.main)])
     self.assertGreater(nsteps, 0)
     # The object, as sprite-make --so writes it beside the source.
     env = dict(os.environ, CURRYPATH=tmpdir)
-    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
+    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:off'
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
         config.installed_path('bin', 'sprite-make'), '--so', '-z'
       , 'SaveFromObject'
@@ -316,7 +316,7 @@ print('values', [str(v) for v in curry.eval(M.main)])
       )
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     lines, after = self.save_in_child(
-        'backend:cxx,interpret:tiered', tmpdir
+        'backend:cxx,interpret:new,jit:off', tmpdir
       , os.path.join(tmpdir, 'after.cpp')
       )
 
@@ -365,7 +365,7 @@ print([str(v) for v in curry.eval(M2.main)])
     , 'the shared object needs the C++ compiler of the installation'
     )
   def test_saved_program_runs_without_an_interpreter_line(self):
-    flags = 'backend:cxx,interpret:new'
+    flags = 'backend:cxx,interpret:new,jit:off'
     proc = cytest.run_in_subprocess(self.CODE % {'flags': flags}, TIMEOUT)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     lines = proc.stdout.splitlines()

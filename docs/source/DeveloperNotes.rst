@@ -471,9 +471,9 @@ Notes on the checker of the runtime:
   operation (``BIND_ROOT`` and ``BIND_VAR`` give a variable its position,
   ``COPY_VAR`` an alias, ``STORE_VAR`` a value that is not a position,
   ``CASE_CONS`` and ``CASE_LIT`` the cases) at its first use and kept, so
-  an operation the tiered mode swaps to compiled code afterwards keeps its
+  an operation the hot gxx backend swaps to compiled code afterwards keeps its
   tree.  A compiled operation has no bytecode and no tree: under
-  ``interpret:off``, and under ``tiered`` for a module loaded from its
+  ``interpret:off``, and under ``interpret:new`` for a module loaded from its
   object, the ``hnf`` calls of the generated step functions are counted as
   untracked (``hnf_untracked``), not checked.  A compiled check would need
   the tree from another source: the bytecode kept beside the compiled step
@@ -481,13 +481,13 @@ Notes on the checker of the runtime:
   from the Python side when the flag is on, or a tree table the emitter
   writes into the object.  Under ``interpret:all`` every operation with an
   ICurry body is checked.  The measure, on the 129 known-good goals of the
-  test file (one runtime state per goal, ``steps:65536``, 2026-10-30): under the tiered
+  test file (one runtime state per goal, ``steps:65536``, 2026-10-30): under the ``interpret:new``
   default after the prepare pass of the runner, 0 of 7487 ``hnf``
   calls are checked (every step is compiled or built in), under
   ``interpret:all`` 2929 of 7487 (39%; the rest are the built-ins of
   ``currylib``, which have no tree).  A run that checks
   B2 on the C++ backend therefore uses
-  ``backend:cxx,checker:true,interpret:all``; the tiered pair exercises
+  ``backend:cxx,checker:true,interpret:all``; the compiled run exercises
   the compiled steps under the other invariants.
 * A replacement by failure has three sources in the runtime.  An exempt
   leaf is one.  A failure at an inductive position is a completed step

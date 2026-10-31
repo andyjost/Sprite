@@ -39,7 +39,7 @@ def switch(mode, name='CxxInterp'):
   first: the garbage is collected before the reload.
   '''
   gc.collect()
-  curry.reset(**{'backend': 'cxx', 'interpret': mode})
+  curry.reset(**{'backend': 'cxx', 'interpret': mode, 'jit': 'off'})
   return curry.import_(name)
 
 
@@ -485,7 +485,7 @@ main = double (CxxInterp.fact 3)
           'SPRITE_INTERPRETER_FLAGS': 'backend:cxx,interpret:all'
           }):
         for mode in ('all', 'off', 'all', 'new'):
-          curry.reset(interpret=mode)
+          curry.reset(interpret=mode, jit='off')
           self.assertEqual(curry._interpreter_.flags['interpret'], mode)
           # Drop the retired module before opening its object again: the
           # library can outlive the runtime module that bound its tables.
@@ -533,6 +533,25 @@ main = double (CxxInterp.fact 3)
       ])
     self.assertIsNone(curryrt.icurry_bytecode(M.fact.info))
     self.assertIsNone(curryrt.icurry_bytecode(curry.import_('Prelude')[':'].info))
+
+  @cytest.hardreset
+  def test_new_with_generated_source_but_no_object(self):
+    # A cancelled compile can leave a current .cpp. new still interprets it.
+    with tempfile.TemporaryDirectory(prefix='sprite-no-object-') as work:
+      filename = os.path.join(work, 'NoObject.curry')
+      with open(filename, 'w') as stream:
+        stream.write('module NoObject where\nf :: Int -> Int\nf x = x + 1\n')
+      curry.reset(interpret='off', jit='off')
+      M = curry.import_(filename)
+      sofile = getHandle(M).sofilename
+      self.assertTrue(os.path.isfile(sofile[:-3] + '.cpp'))
+      curry.reset(interpret='new', jit='off')
+      os.unlink(sofile)
+      with mock.patch.object(config, 'cxx_tool', return_value=None):
+        M = curry.import_(filename)
+        self.assertIsNone(getHandle(M).sofilename)
+        self.assertTrue(curryrt.icurry_is_interpreted(M.f.info))
+        self.assertEqual(curry.eval(M.f(41)).one(), 42)
 
   @cytest.hardreset
   def test_all(self):
@@ -941,9 +960,9 @@ twice x = double (double x)
   def test_other_modes_do_not_trap(self):
     '''Under the interpreter the functions get bytecode, as before.'''
     name = self.write()
-    for mode in 'new', 'tiered':
+    for mode in 'new', 'all':
       gc.collect()
-      curry.reset(**{'backend': 'cxx', 'interpret': mode})
+      curry.reset(**{'backend': 'cxx', 'interpret': mode, 'jit': 'off'})
       gc.collect()
       curry.path.insert(0, self.tmpdir)
       self.currypath = list(curry.path)

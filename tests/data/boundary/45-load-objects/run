@@ -5,7 +5,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 : "${SPRITE_HOME:=$(cd ../../../.. && pwd)/install}"
 export SPRITE_HOME
-export SPRITE_INTERPRETER_FLAGS="${SPRITE_INTERPRETER_FLAGS:-backend:cxx}"
+export SPRITE_INTERPRETER_FLAGS="${SPRITE_INTERPRETER_FLAGS:-backend:cxx},interpret:new,jit:hot,jit_backend:gxx"
+export SPRITE_JIT_THRESHOLD=1
 export SPRITE_ROTATION="${SPRITE_ROTATION:-steps:65536}"
 export LC_ALL=C.UTF-8 PYTHONIOENCODING=utf-8
 unset CURRYPATH

@@ -13,6 +13,7 @@ from cytest.logging import capture_log
 from curry.interpreter import import_ as importer
 from curry.tools.icy import commands, repl
 import curry, itertools, logging, os, shutil, tempfile, unittest
+from unittest import mock
 
 COMPILE_SECONDS = 120
 IMPORT_LOGGER = 'curry.interpreter.import_'
@@ -191,7 +192,11 @@ class TestLoadedExpressionScope(EditedSourceTestCase):
 class TestSwapAfterEdit(EditedSourceTestCase):
   def setUp(self):
     super().setUp()
-    curry.reset(**{'backend': 'cxx', 'interpret': 'tiered'})
+    threshold = mock.patch.dict(os.environ, {'SPRITE_JIT_THRESHOLD': '1'})
+    threshold.start()
+    self.addCleanup(threshold.stop)
+    curry.reset(backend='cxx', interpret='new', jit='hot',
+                jit_backend='gxx', inline_budget=0)
     curry.path.insert(0, self.tmpdir)
 
   @cytest.hardreset
@@ -266,6 +271,7 @@ class TestSwapAfterEdit(EditedSourceTestCase):
     self.assertTrue(tiered.pending(dep))
     before = tiered.status()
     self.edit_module(dep, dep_text('-- a comment, no code changed'))
+    self.assertEqual(self.value(D.h, 1), 12)
     with capture_log(TIERED_LOGGER) as log:
       self.assertTrue(
           tiered.wait(COMPILE_SECONDS, cytest.raw.interp())

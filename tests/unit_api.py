@@ -182,7 +182,7 @@ class TestStats(cytest.TestCase):
     The compile field is the time spent in the steps of the toolchain.  A
     hand-written ICurry-JSON module costs the code generator, and on the C++
     backend the compiler; an import that finds every file current costs
-    nothing.  Under the default of the flag ``interpret`` (tiered) the C++
+    nothing.  Under the default of the flag ``interpret`` (new) the C++
     backend interprets the module and no step runs, so the flag is off.
     '''
     tmpdir = tempfile.mkdtemp(prefix='sprite-stats-')

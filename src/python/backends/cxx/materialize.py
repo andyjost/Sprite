@@ -102,12 +102,13 @@ class Materializer(object):
     # The JIT (the flag jit: 'eager' compiles the functions of the module
     # when it is loaded, 'hot' compiles the functions that run; issue #65,
     # curry.backends.cxx.llvmjit).  When it cannot run, the functions stay
-    # interpreted and the reason is logged once per process.  Under tiered
-    # the background compile swaps the steps itself, so the flag applies
-    # to the modes new and all.
+    # interpreted and the reason is logged once per process. The gxx
+    # backend registers whole-module jobs at module_loaded instead.
+    from .jit import backend
     jit = interp.flags.get('jit', 'off')
     self.jit = (
-        jit if jit != 'off' and interp.flags['interpret'] in ('new', 'all') else ''
+        jit if jit != 'off' and interp.flags['interpret'] in ('new', 'all')
+        and backend(interp) == 'llvm' else ''
       )
     if self.interpret:
       # The bytecode of other modules, and a compiled object bound to them

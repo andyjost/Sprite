@@ -95,8 +95,8 @@ def compile(interp, source, *, name=None, imports=()):
 def wait(interp, module=None):
   if module is not None:
     check_module(module)
-  if interp.flags['interpret'] == 'tiered':
-    from ..backends.cxx import tiered
+  from ..backends.cxx import tiered
+  if tiered.enabled(interp):
     if module is None:
       tiered.wait(interp=interp)
     else:
@@ -143,7 +143,7 @@ def reload(interp, module, *, text=None):
   if text is None and source is None:
     raise exceptions.LoadError('cannot reload text module %r without text; use curry.reload(module, text=...)' % module.__name__)
   if source is not None \
-      and interp.flags['interpret'] in ('tiered', 'off'):
+      and interp.flags['interpret'] == 'off':
     raise exceptions.LoadError(
         "cannot reload %r on backend 'cxx'; use curry.reset(interpret='new') "
         'or a new process' % source)

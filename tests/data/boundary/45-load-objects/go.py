@@ -39,7 +39,7 @@ print('save: step functions ->'
 # Other is compiled in the background; wait for the swap.
 Other = curry.import_('Other')
 print('Other.h ->', vals(Other.h))
-tiered.wait()
+assert tiered.wait(300, curry._interpreter_)
 print('swapped modules ->', tiered.status()['swapped_modules'])
 
 # curry.load of the object: the same module.  The object of the second

@@ -461,12 +461,11 @@ class Json2Cpp(Json2TargetSource):
     compile.  Under the interpreter flag ``interpret`` set to 'new', a
     module that reached the JSON stage without a compiled object is
     interpreted by the runtime (curryrt/icurry.hpp; see materialize.py), so
-    this step and the C++ compiler do not run for it.  Under 'tiered' the
-    same holds, and the module is compiled in the background after its load
-    (see tiered.py).  A module with a current object never reaches this
+    this step and the C++ compiler do not run for it. The jit flags may
+    compile its interpreted functions after loading (see tiered.py).  A module with a current object never reaches this
     step: the object is the newest file.
     '''
-    return self.interp.flags['interpret'] in ('new', 'tiered') \
+    return self.interp.flags['interpret'] == 'new' \
         and filename.endswith(('.json', '.json.z'))
 
   def is_stale(self, filename, currypath=None):
@@ -694,12 +693,11 @@ class Cpp2So(object):
     '''
     Tells whether the plan ends at ``filename``, a generated .cpp file this
     step would compile.  Under the interpreter flag ``interpret`` set to
-    'tiered', a module with a generated file and no object (a background
+    'new', a module with a generated file and no object (a background
     compile that was cancelled) is interpreted from the JSON beside the
-    file, which loadcurry reads, and the background compile starts from the
-    generated file.  Without the JSON the plan goes on.
+    file, which loadcurry reads. The jit flags select any later compile.  Without the JSON the plan goes on.
     '''
-    return self.interp.flags['interpret'] == 'tiered' \
+    return self.interp.flags['interpret'] == 'new' \
         and filename.endswith('.cpp') \
         and _loadcurry.json_beside(filename) is not None
 
@@ -1166,7 +1164,7 @@ class Cpp2So(object):
       raise exceptions.CompileError(
           'cannot compile %r: the directory %r cannot be written, and %s.  '
           'Make the directory writable, or run the program with sprite-exec, '
-          'whose tiered default interprets a module without a current object.'
+          'whose default interprets a module without a current object.'
         % (file_in, directory, state)
         )
     # Imports/native materialization must finish before taking the product

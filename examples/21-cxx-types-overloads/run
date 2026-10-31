@@ -4,7 +4,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 : "${SPRITE_HOME:=$(cd ../.. && pwd)/install}"
 export SPRITE_HOME
-export SPRITE_INTERPRETER_FLAGS="${SPRITE_INTERPRETER_FLAGS:-backend:cxx}"
+# This example demonstrates overload search from source without an object.
+export SPRITE_INTERPRETER_FLAGS="${SPRITE_INTERPRETER_FLAGS:-backend:cxx},interpret:new,jit:off"
 export LC_ALL=C.UTF-8 PYTHONIOENCODING=utf-8
 unset CURRYPATH
 # The rules of constReferee in CxxOverload under ../cxx overlap by design: the choice is the

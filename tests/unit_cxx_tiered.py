@@ -1,12 +1,9 @@
 '''
-Tests for tiered execution on the C++ backend.
+Tests for the gxx worker, safepoint adoption and publication.
 
-Under the interpreter flag ``interpret`` set to 'tiered', the default, a
-module without a compiled object is interpreted at once, a child process
-compiles it in the background, and the runtime swaps the functions of the
-module to the compiled code when the object is ready
-(curry.backends.cxx.tiered, src/curryrt/tiered.hpp).  The tests write a fresh
-module to a temporary directory, so every import starts without an object.
+The worker tests dispatch armed jobs immediately to isolate publication,
+loader and table-lifetime regressions. unit_jit covers the actual hot
+threshold trigger and synchronous eager compilation from text.
 '''
 import cytest # from ./lib; must be first
 from cytest.logging import capture_log
@@ -87,7 +84,16 @@ class TieredTestCase(cytest.TestCase):
   def setUp(self):
     super().setUp()
     self.tmpdir = tempfile.mkdtemp(prefix='sprite-tiered-test-')
-    self.switch('tiered')
+    # Exercise worker/publication regressions without waiting for hot calls.
+    # Actual threshold gating is covered in unit_jit.
+    arm = curryrt.gxx_arm
+    def dispatch(name, *args):
+      # Expressions remain cold in these worker-only regression fixtures.
+      return (arm if config.is_expression_modname(name) else curryrt.tiered_submit)(name, *args)
+    patch = mock.patch.object(curryrt, 'gxx_arm', side_effect=dispatch)
+    patch.start()
+    self.addCleanup(patch.stop)
+    self.switch('gxx')
 
   def switch(self, mode, **flags):
     '''
@@ -97,7 +103,9 @@ class TieredTestCase(cytest.TestCase):
     its module objects first (see unit_cxx_interp.switch).
     '''
     gc.collect()
-    curry.reset(**dict(flags, backend='cxx', interpret=mode))
+    flags.setdefault('jit', 'hot' if mode == 'gxx' else 'off')
+    flags.setdefault('jit_backend', 'gxx')
+    curry.reset(**dict(flags, backend='cxx', interpret='new' if mode == 'gxx' else mode))
     # The old interpreter is garbage now; its modules go before a module of
     # the same name is made again.
     gc.collect()
@@ -202,7 +210,7 @@ class TestSwap(TieredTestCase):
   '''
   @cytest.hardreset
   def test_swap(self):
-    self.assertEqual(curry.flags['interpret'], 'tiered')
+    self.assertEqual(curry.flags['interpret'], 'new')
     M = self.fresh_module()
     name = M.__name__
     h = getHandle(M)
@@ -300,6 +308,31 @@ class TestSwap(TieredTestCase):
     self.assertEqual(self.py(M.loop, 10), 0)
 
   @cytest.hardreset
+  def test_llvm_flush_preserves_a_ready_gxx_swap(self):
+    # A gxx result can arrive between the foreground poll and LLVM flush.
+    # Its wakeup must survive that flush until the scheduler reaches it.
+    from curry.backends.cxx import llvmjit
+    M = self.fresh_module()
+    goal = cytest.raw.expr(M.loop, 10, typed=True)
+    before = tiered.status()['applied_in_evaluation']
+    poll = tiered.poll
+    first = True
+    def delayed_poll(interp=None):
+      nonlocal first
+      if first:
+        first = False
+        return []
+      return poll(interp)
+    def flush_ready():
+      self.assertTrue(curryrt.tiered_wait(COMPILE_SECONDS))
+      curryrt.icurry_apply_posted()
+    with mock.patch.object(tiered, 'poll', side_effect=delayed_poll):
+      with mock.patch.object(llvmjit, 'flush', side_effect=flush_ready):
+        self.assertEqual([str(v) for v in cytest.raw.values(goal)], ['0'])
+    self.assertEqual(tiered.status()['applied_in_evaluation'], before + 1)
+    self.assertFalse(curryrt.icurry_is_interpreted(M.loop.info))
+
+  @cytest.hardreset
   def test_module_imports_fresh_module(self):
     # A fresh module imports another: both are interpreted, the import
     # compiles first, and both are swapped.  Compiled code of the second
@@ -336,7 +369,7 @@ class TestSwap(TieredTestCase):
     self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
     bindings = tiered.status()['bindings']
     M = None
-    self.switch('tiered')
+    self.switch('gxx')
     # The object exists now, so a plain import loads it compiled.  Remove
     # it: the module is interpreted again, from the JSON beside the
     # generated file, and the compile starts from that file.  The tables of
@@ -370,7 +403,7 @@ class TestSwap(TieredTestCase):
     self.assertEqual(self.py(M.bump, 1), 2)
     M = None
     self.edit_module(name, text % 2)
-    self.switch('tiered')
+    self.switch('gxx')
     M = self.import_module(name)
     self.assertEqual(M.bump.info.address, address)
     self.assertTrue(curryrt.icurry_is_interpreted(M.bump.info))
@@ -405,7 +438,7 @@ class TestSwap(TieredTestCase):
     self.assertTrue(os.path.isfile(self.stamp(dep)))
     D = B = None
     self.edit_module(base, base_text % 2)
-    self.switch('tiered')
+    self.switch('gxx')
     D = self.import_module(dep)
     B = curry.import_(base)
     self.assertTrue(curryrt.icurry_is_interpreted(B.g.info))
@@ -502,7 +535,7 @@ class TestSwap(TieredTestCase):
     first = self.import_module(name)
     self.assertEqual(self.py(first.main), 1)
     self.edit_module(name, self.EDITED % 2)
-    self.switch('tiered')
+    self.switch('gxx')
     second = self.import_module(name)
     with self.assertRaises(curry.StaleError):
       first.f
@@ -557,6 +590,7 @@ class TestPolicy(TieredTestCase):
   @cytest.hardreset
   def test_strings_and_expressions_stay_interpreted(self):
     before = tiered.status()
+    self.switch('new', jit='off')
     S = curry.compile(
         'double :: Int -> Int\ndouble x = x + x\n'
       )
@@ -595,7 +629,7 @@ class TestPolicy(TieredTestCase):
     M = self.import_module(name)
     self.wait()
     M = None
-    self.switch('tiered')
+    self.switch('gxx')
     M = self.import_module(name)
     self.assertIsNotNone(getHandle(M).icurry.metadata.get('cxx.shlib'))
     self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
@@ -634,7 +668,7 @@ class TestPolicy(TieredTestCase):
     of a module interpreted with the inliner off by code compiled under
     the default budget.
     '''
-    self.switch('tiered', inline_budget=0)
+    self.switch('gxx', inline_budget=0)
     self.assertEqual(curry.flags['inline_budget'], 0)
     env = dict(
         item.split('=', 1)
@@ -658,7 +692,7 @@ class TestPolicy(TieredTestCase):
     self.assertEqual(self.py(M.viaCall), 3)
     self.assertEqual(steps() - n0, interpreted)
     # Under the default budget the call is inlined on both tiers.
-    self.switch('tiered')
+    self.switch('gxx')
     env = dict(
         item.split('=', 1)
           for item in tiered._environment(cytest.raw.interp())
@@ -716,7 +750,7 @@ class TestPolicy(TieredTestCase):
     under the budget of the environment then finds no object, compiles the
     module beside the source, and runs the inlined code on both tiers.
     '''
-    self.switch('tiered', inline_budget=0)
+    self.switch('gxx', inline_budget=0)
     self.assertTrue(tiered._foreign_flags(cytest.raw.interp()))
     name = self.write_module(BUDGET_MODULE)
     M = self.import_module(name)
@@ -746,7 +780,7 @@ class TestPolicy(TieredTestCase):
       )
     # The same module under the budget of the environment.
     del M
-    self.switch('tiered')
+    self.switch('gxx')
     self.assertFalse(tiered._foreign_flags(cytest.raw.interp()))
     N = self.import_module(name)
     self.assertTrue(curryrt.icurry_is_interpreted(N.viaCall.info))
@@ -798,7 +832,7 @@ class TestPolicy(TieredTestCase):
     # An explicit compile writes the object under the flag.
     name = self.write_module()
     env = dict(os.environ)
-    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
+    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:hot,jit_backend:gxx'
     env['CURRYPATH'] = self.tmpdir
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
         config.installed_path('bin', 'sprite-make'), '--so', '-z', name
@@ -824,7 +858,7 @@ class TestPrograms(cytest.TestCase):
     # The child collects at every step only when asked: a program of a few
     # million steps does not end in time otherwise.
     env = dict(os.environ)
-    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:%s' % mode
+    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:%s,jit:hot,jit_backend:gxx' % ('new' if mode == 'gxx' else mode)
     env['CURRYPATH'] = currypath
     env.pop('SPRITE_GC_STRESS', None)
     env.update(extra)
@@ -843,7 +877,7 @@ class TestPrograms(cytest.TestCase):
   def test_fresh_program(self):
     expected = self.run_child('Fib', 'off', BENCHMARKS)
     shutil.copy(os.path.join(BENCHMARKS, 'Fib.curry'), self.tmpdir)
-    self.assertEqual(self.run_child('Fib', 'tiered', self.tmpdir), expected)
+    self.assertEqual(self.run_child('Fib', 'gxx', self.tmpdir), expected)
     sofile = os.path.join(
         self.tmpdir, '.curry', config.intermediate_subdir(), 'Fib.so'
       )
@@ -861,7 +895,7 @@ class TestPrograms(cytest.TestCase):
     expected = self.run_child('Tak1', 'off', BENCHMARKS)
     shutil.copy(os.path.join(BENCHMARKS, 'Tak1.curry'), self.tmpdir)
     actual = self.run_child(
-        'Tak1', 'tiered', self.tmpdir, CXXFLAGS='-fno-such-flag-of-sprite'
+        'Tak1', 'gxx', self.tmpdir, CXXFLAGS='-fno-such-flag-of-sprite'
       )
     self.assertEqual(actual, expected)
     stderr = self.last_stderr
@@ -872,106 +906,6 @@ class TestPrograms(cytest.TestCase):
     stats = stderr.strip().splitlines()[-1]
     self.assertIn(' swapped=0 ', stats)
     self.assertIn(' failed_compiles=1', stats)
-
-
-class TestNoCompiler(TieredTestCase):
-  '''
-  An installation without a C++ compiler (config.cxx_tool() is None): a
-  fresh module stays interpreted, no object is written, and one notice names
-  the first such module, once per process, with the setting of the flag
-  that selects the interpreter without a compile.  interpret:new and
-  interpret:all select the behaviour without the notice.
-  '''
-  def setUp(self):
-    super().setUp()
-    # The notice is once per process; each test starts afresh.
-    tiered._state.warned.discard('nocxx')
-    self.addCleanup(tiered._state.warned.discard, 'nocxx')
-
-  def run_without_compiler(self):
-    '''
-    Imports two fresh modules with the compiler patched away and evaluates
-    a goal of each.  Returns the modules and the warnings logged.
-    '''
-    with mock.patch.object(config, 'cxx_tool', return_value=None):
-      with capture_log('curry.backends.cxx.tiered') as log:
-        M = self.fresh_module()
-        self.assertEqual(next(curry.eval((M.total)(3))), 20)
-        N = self.fresh_module()
-        self.assertEqual(next(curry.eval((N.total)(2))), 8)
-    self.assertTrue(curryrt.icurry_is_interpreted(M.total.info))
-    self.assertTrue(curryrt.icurry_is_interpreted(N.total.info))
-    tiered.wait(10)
-    self.assertFalse(os.path.exists(self.sofile(M.__name__)))
-    self.assertFalse(os.path.exists(self.sofile(N.__name__)))
-    return M, N, log.data[logging.WARNING]
-
-  def test_notice_once(self):
-    M, N, warnings = self.run_without_compiler()
-    self.assertEqual(len(warnings), 1, warnings)
-    notice, = warnings
-    self.assertIn('no C++ compiler is installed at', notice)
-    self.assertIn(config.installed_path('tools', 'cxx'), notice)
-    self.assertIn('module %r and the modules after it run interpreted' % M.__name__, notice)
-    self.assertNotIn(N.__name__, notice)
-    # The setting named: new where the Prelude loaded from its object (a
-    # fresh module has no generated file), else all.  The flag is added to
-    # the variable, not set in place of it.
-    setting = 'new' if tiered._prelude_compiled(cytest.raw.interp()) else 'all'
-    self.assertIn(
-        'add interpret:%s to SPRITE_INTERPRETER_FLAGS' % setting, notice
-      )
-    self.assertNotIn('SPRITE_INTERPRETER_FLAGS=', notice)
-    self.assertEqual(notice.count('\n'), 0)
-    # A third module in the same process adds no second notice.
-    with mock.patch.object(config, 'cxx_tool', return_value=None):
-      with capture_log('curry.backends.cxx.tiered') as log:
-        self.fresh_module()
-    self.assertEqual(log.data[logging.WARNING], [])
-
-  def test_notice_setting(self):
-    '''
-    The setting the notice names.  interpret:new where the Prelude loaded
-    from its object and the module has no current generated file: it keeps
-    the compiled library.  interpret:all where the Prelude is interpreted
-    (the library objects are stale, and new would compile them) or a
-    current generated file lies beside the module (new would compile it).
-    '''
-    interp = cytest.raw.interp()
-    with mock.patch.object(config, 'cxx_tool', return_value=None):
-      with capture_log('curry.backends.cxx.tiered'):
-        M = self.fresh_module()
-    imodule = getHandle(M).icurry
-    self.assertFalse(tiered._current_source(imodule))
-    compiled = tiered._prelude_compiled(interp)
-    self.assertEqual(
-        tiered._interpreter_setting(interp, imodule)
-      , 'new' if compiled else 'all'
-      )
-    with mock.patch.object(tiered, '_prelude_compiled', return_value=False):
-      self.assertEqual(tiered._interpreter_setting(interp, imodule), 'all')
-    cppfile = os.path.join(
-        self.tmpdir, '.curry', config.intermediate_subdir(), M.__name__ + '.cpp'
-      )
-    with mock.patch.object(tiered, '_prelude_compiled', return_value=True):
-      # A generated file of the current format is compiled under new.
-      with open(cppfile, 'w') as stream:
-        stream.write('// FORMAT: %d\n' % compiler.FORMAT_VERSION)
-        stream.write('// INTERFACES: {"version":1,"imports":{}}\n')
-      self.assertTrue(tiered._current_source(imodule))
-      self.assertEqual(tiered._interpreter_setting(interp, imodule), 'all')
-      # A generated file of another format is stale: interpreted under new.
-      with open(cppfile, 'w') as stream:
-        stream.write('// FORMAT: %d\n' % (compiler.FORMAT_VERSION + 1))
-      self.assertFalse(tiered._current_source(imodule))
-      self.assertEqual(tiered._interpreter_setting(interp, imodule), 'new')
-
-  def test_flag_silences_the_notice(self):
-    for mode in 'new', 'all':
-      self.switch(mode)
-      tiered._state.warned.discard('nocxx')
-      M, N, warnings = self.run_without_compiler()
-      self.assertEqual(warnings, [], mode)
 
 
 # The sequence of the API study's probe (P55) for a child process: the
@@ -1048,7 +982,7 @@ class TestLoadDuringCompile(TieredTestCase):
     the object.
     '''
     env = dict(os.environ)
-    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
+    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:hot,jit_backend:gxx'
     env['CURRYPATH'] = self.tmpdir
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
         config.installed_path('bin', 'sprite-make'), '--so', '-z', name
@@ -1067,7 +1001,7 @@ class TestLoadDuringCompile(TieredTestCase):
 
   def run_child(self, code):
     with binding(
-        os.environ, 'SPRITE_INTERPRETER_FLAGS', 'backend:cxx,interpret:tiered'
+        os.environ, 'SPRITE_INTERPRETER_FLAGS', 'backend:cxx,interpret:new,jit:hot,jit_backend:gxx'
       ):
       proc = cytest.run_in_subprocess(code, TIMEOUT, address_space=ADDRESS_SPACE)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
@@ -1115,7 +1049,7 @@ class TestLoadDuringCompile(TieredTestCase):
     self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
     self.assertIsNotNone(curryrt.SharedCurryModule.find_sofilename(name))
     M = None
-    self.switch('tiered')
+    self.switch('gxx')
     self.make_stale(name)
     M = self.import_module(name)
     self.assertTrue(tiered.pending(name))
@@ -1185,10 +1119,8 @@ class TestLoadDuringCompile(TieredTestCase):
   def test_interpreted_module_adopts_its_object(self):
     # No background compiler: a foreground load must retain the object and
     # swap the live tables, just as a finished background compile does.
-    self.addCleanup(tiered._state.warned.discard, 'nocxx')
-    with mock.patch.object(config, 'cxx_tool', return_value=None):
-      with capture_log('curry.backends.cxx.tiered'):
-        M = self.fresh_module()
+    with mock.patch.object(tiered, 'submit', return_value=False):
+      M = self.fresh_module()
     name = M.__name__
     self.assertTrue(curryrt.icurry_is_interpreted(M.area.info))
     self.assertFalse(tiered.pending(name))
@@ -1238,10 +1170,8 @@ class TestLoadDuringCompile(TieredTestCase):
   def test_import_after_reset_takes_the_object(self):
     # After a reset the kept tables have no registered library.  The import
     # plan adopts the current object through the same swap as a user load.
-    self.addCleanup(tiered._state.warned.discard, 'nocxx')
-    with mock.patch.object(config, 'cxx_tool', return_value=None):
-      with capture_log('curry.backends.cxx.tiered'):
-        M = self.fresh_module()
+    with mock.patch.object(tiered, 'submit', return_value=False):
+      M = self.fresh_module()
     name = M.__name__
     self.assertTrue(curryrt.icurry_is_interpreted(M.area.info))
     sofile = self.compile_by_hand(name)

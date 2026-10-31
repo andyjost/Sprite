@@ -101,10 +101,12 @@ print(repr(values))
   def test_flag_names(self):
     self.assertEqual(sorted(curry.flags), [
         'backend', 'checker', 'debug', 'inline_budget'
-      , 'interpret', 'jit', 'keep_temp_files', 'lazycompile', 'postmortem'
+      , 'interpret', 'jit', 'jit_backend', 'keep_temp_files', 'lazycompile', 'postmortem'
       , 'recursion_limit', 'rotation', 'stack_limit', 'step_budget'
       , 'telemetry_interval', 'trace', 'worker_stack'
       ])
+    with self.assertRaisesRegex(curry.FlagError, 'jit:hot.*jit_backend:gxx'):
+      curry.reset(interpret=''.join(('tier', 'ed')))
 
 
 if __name__ == '__main__':

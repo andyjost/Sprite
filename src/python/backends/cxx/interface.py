@@ -2,7 +2,7 @@ from ..generic.eval import evaluator
 from ... import backends
 from . import (
     compiler, curryrtbindings, fundamental_symbols, implementation, llvmjit, loader
-  , materialize, tiered, toolchain
+  , materialize, tiered, toolchain, jit
   )
 from ...objects.handle import getHandle
 
@@ -29,6 +29,13 @@ class IBackend(backends.IBackend):
     # A new interpreter and a reset unload the modules whose compiles run in
     # the background.
     tiered.cancel()
+    with llvmjit._lock:
+      llvmjit._hot_enabled = False
+      curryrtbindings.icurry_set_hot_threshold(0)
+      curryrtbindings.icurry_take_hot()
+      curryrtbindings.icurry_apply_posted()
+    jit.select(interp)
+    interp._jit_selection = interp.flags['jit_backend']
     interp._its = curryrtbindings.InterpreterState()
 
   def module_loaded(self, interp, moduleobj, currypath):

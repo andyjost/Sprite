@@ -216,8 +216,11 @@ class TestBoundaryDrivers(cytest.TestCase):
     if name in self.procs:
       return self.procs[name]
     exdir = os.path.join(BOUNDARY_DIR, name)
+    # Golden output uses source interpretation; the swap driver selects gxx.
     env = dict(
-        os.environ, SPRITE_INTERPRETER_FLAGS='backend:' + backend
+        os.environ, SPRITE_INTERPRETER_FLAGS=(
+            'backend:' + backend + ',interpret:new,jit:off'
+          )
       , LC_ALL='C.UTF-8', PYTHONIOENCODING='utf-8'
       )
     # The order of the values of a search must reproduce: step mode, as the

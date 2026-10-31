@@ -153,8 +153,11 @@ class TestExamples(cytest.TestCase):
     if name in self.procs:
       return self.procs[name]
     exdir = os.path.join(EXAMPLES_DIR, name)
+    # Golden output exercises source execution; JIT behavior has its own tests.
     env = dict(
-        os.environ, SPRITE_INTERPRETER_FLAGS='backend:' + backend
+        os.environ, SPRITE_INTERPRETER_FLAGS=(
+            'backend:' + backend + ',interpret:new,jit:off'
+          )
       , LC_ALL='C.UTF-8', PYTHONIOENCODING='utf-8'
       )
     # An example finds its own modules, and it runs as a user would run it,

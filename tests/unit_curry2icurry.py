@@ -849,7 +849,7 @@ class TestDeepExpressions(cytest.TestCase):
   does, and the ICurry cache is off, so the route runs every time.  The
   tests run under interpret:new: they pin the import, the emitters and the
   evaluation, not the compile with g++ (about 18 s and 800 MB of resident
-  memory per module in a background child under the tiered default).
+  memory per module in a background child under the new default).
   '''
 
   @classmethod

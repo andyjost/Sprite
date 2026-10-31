@@ -54,7 +54,7 @@ Release Notes
 - Unbounded integers: an ``Int`` that overflows the machine word
   promotes to a big integer.
 - The Curry preprocessor ``currypp`` is an optional tool found on PATH.
-- The tiered compile writes its products beside a source only when the
+- The background gxx compile writes its products beside a source only when the
   compile is done, so a removed directory never holds half-written files
   (#173).  The runtime compiles without strict aliasing (#170).
 - Set functions: #133, #134, #139 and #171 fixed.
