@@ -79,7 +79,15 @@ its record either way); its own job, if any, then adopts the mapped object.
 What is not compiled. Modules without source products and modules whose
 functions are all built in. Modules
 compiled from text get private snapshots while their source still exists;
-nothing is published beside those temporary sources.
+nothing is published beside those temporary sources.  The modules of the
+Curry library (config.syslibs) are not compiled either: their objects come
+with the installation (make stage), and the swap maps the object of such an
+import for its importers (above), so a library module an interpreter runs
+(interpret:all, or a stale object) runs compiled once an importer swaps.  A
+private copy of a library source would be refused by the namesake check of
+the child (issue #168), and the copy on the search path of the children
+that followed it shadowed the library for them, so every compile of the
+process failed.
 
 The check of the swap.  The child compiles the source as it is when the
 child runs.  An edit of the source between the import and the compile would
@@ -131,7 +139,8 @@ applied at a safepoint are logged by the next poll: before and after an
 evaluation, by wait, and at the exit of the process.  Interpreter.stats
 reports the functions swapped and the compiles that failed.
 
-Cancel.  A reset, a reload, and the exit of the process drop the queue and
+Cancel.  A reset, a reload, and the exit of the process (finish, which
+sprite-exec --stats calls before its line of statistics) drop the queue and
 kill the running compile, so no compiler outlives the interpreter and a short
 program never waits for one.  The object of a program that ends before its
 compile is not written; sprite-make --so writes it.
@@ -151,7 +160,7 @@ from ...exceptions import CurryWarning
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    'MODE', 'cancel', 'counts', 'enabled', 'has_binding'
+    'MODE', 'cancel', 'counts', 'enabled', 'finish', 'has_binding'
   , 'module_loaded', 'pending', 'poll', 'status', 'submit', 'wait', 'wait_for'
   ]
 
@@ -465,6 +474,15 @@ def submit(interp, moduleobj, currypath, hot=False):
   imodule = h.icurry
   name = imodule.fullname
   filename = imodule.filename
+  if name in config.syslibs():
+    # The library is left to the objects of the installation (the module
+    # docstring, "What is not compiled"); its record, made by module_loaded,
+    # names the object the swap of an importer maps.
+    logger.info(
+        'gxx: module %s is a module of the Curry library; it is not compiled '
+        'in the background, its object comes with the installation', name
+      )
+    return False
   M = h.backend_handle
   steps = []
   for ifun in imodule.functions.values():
@@ -698,10 +716,16 @@ def cancel():
   _state.pending.clear()
   _state.modules.clear()
 
-def _at_exit():
-  # The compiles that ended are applied and logged, so that a failure
-  # reaches the log of a process that evaluates once; then the rest is
-  # cancelled.
+def finish():
+  '''
+  Ends the background compiles of the process.  The compiles that ended are
+  applied and logged, so that a failure reaches the log of a process that
+  evaluates once; then the rest is cancelled and the private directory is
+  removed.  The exit of the process calls it, and sprite-exec --stats calls
+  it before its line of statistics, so the warning of a failed compile
+  precedes the line and the line counts the compile.  A later compile
+  starts afresh.
+  '''
   try:
     poll()
   except Exception:  # pragma: no cover
@@ -709,5 +733,7 @@ def _at_exit():
   cancel()
   if _state.tmpdir is not None:
     shutil.rmtree(_state.tmpdir, ignore_errors=True)
+    _state.tmpdir = None
+    _state.private.clear()
 
-atexit.register(_at_exit)
+atexit.register(finish)

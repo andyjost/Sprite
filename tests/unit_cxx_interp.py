@@ -18,7 +18,8 @@ from curry.exceptions import CompileError, EvaluationError
 from curry.objects.handle import getHandle
 from curry.toolchain import _makecurry, _productcache, plans
 from unittest import mock
-import contextlib, curry, gc, importlib, itertools, os, shutil, subprocess
+import contextlib, curry, gc, importlib, io, itertools, os, shutil, subprocess
+import sys
 import tempfile
 import unittest
 
@@ -692,11 +693,12 @@ class TestPrograms(cytest.TestCase):
   step counts of the compiled code, in plain mode and in the stress mode of
   the collector.
   '''
-  def run_child(self, program, mode, stress=False):
+  def run_child(self, program, mode, stress=False, flags=''):
     # The child collects at every step only when asked: a program of a few
-    # million steps does not end in time otherwise.
+    # million steps does not end in time otherwise.  ``flags`` adds to the
+    # interpreter flags of the child.
     env = dict(os.environ)
-    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:%s' % mode
+    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:%s%s' % (mode, flags)
     env['CURRYPATH'] = BENCHMARKS
     env.pop('SPRITE_GC_STRESS', None)
     if stress:
@@ -706,10 +708,13 @@ class TestPrograms(cytest.TestCase):
       ]
     proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-    stats = dict(
-        item.split('=', 1)
-          for item in proc.stderr.strip().splitlines()[-1].split()
-      )
+    self.last_stderr = proc.stderr
+    # The line of statistics is the last line of the standard error: the
+    # background compiles end before it (tiered.finish), so the warning of
+    # a failed one precedes it.
+    lines = proc.stderr.strip().splitlines()
+    self.assertTrue(lines and lines[-1].startswith('wall='), proc.stderr)
+    stats = dict(item.split('=', 1) for item in lines[-1].split())
     return proc.stdout.strip(), int(stats['steps'])
 
   def test_programs(self):
@@ -721,6 +726,46 @@ class TestPrograms(cytest.TestCase):
         self.assertEqual(
             self.run_child(program, mode), (expected, steps), program
           )
+
+  def test_library_modules_stay_with_the_installation(self):
+    # Under 'all' with the gxx backend the Prelude is interpreted and hot,
+    # and it is not compiled in the background: its object comes with the
+    # installation.  A private copy of its source was refused by the
+    # namesake check of the child (#168) and shadowed the library for the
+    # compiles that followed, so every compile of the process failed and
+    # the warning came after the line of statistics.  Under 'eager' the
+    # compile of the program waits at the load, so the run is
+    # deterministic: nothing fails, and the functions of the program swap.
+    expected = self.run_child('Fib', 'off')
+    self.assertEqual(
+        self.run_child('Fib', 'all', flags=',jit:eager,jit_backend:gxx')
+      , expected
+      )
+    stderr = self.last_stderr
+    self.assertNotIn('stays interpreted', stderr)
+    stats = stderr.strip().splitlines()[-1]
+    self.assertIn(' failed_compiles=0', stats)
+    self.assertNotIn(' swapped=0 ', stats)
+
+  def test_stats_line_after_the_background_compiles(self):
+    # sprite-exec --stats ends the background compiles (tiered.finish)
+    # before it prints its line, so what finish prints precedes the line,
+    # and the line is the last one.
+    from curry import __main__ as sprite_exec
+    stderr = io.StringIO()
+    def finish():
+      sys.stderr.write('finish\n')
+    curry.path.insert(0, BENCHMARKS)
+    try:
+      with mock.patch.object(tiered, 'finish', finish), \
+           contextlib.redirect_stdout(io.StringIO()), \
+           contextlib.redirect_stderr(stderr):
+        sprite_exec.main('sprite-exec', ['--stats', '-m', 'Fib'])
+    finally:
+      curry.path.remove(BENCHMARKS)
+    lines = stderr.getvalue().splitlines()
+    self.assertTrue(lines[-1].startswith('wall='), lines)
+    self.assertEqual(lines[-2], 'finish', lines)
 
   def test_stress_mode(self):
     expected, steps = self.run_child('Last', 'off')

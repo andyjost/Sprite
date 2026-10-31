@@ -111,6 +111,12 @@ class Main(object):
     finally:
       if getattr(args, 'stats', False):
         # The last line of the program, after its output and after an error.
+        # The background compiles of the gxx backend end first (finish): the
+        # warning of a failed one comes before this line, and the line
+        # counts it.
+        tiered = sys.modules.get('curry.backends.cxx.tiered')
+        if tiered is not None:
+          tiered.finish()
         # A closed standard output is legal; see curryrtbindings._flush_stdout.
         try:
           sys.stdout.flush()

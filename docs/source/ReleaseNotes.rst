@@ -29,6 +29,13 @@ Release Notes
   ``curry[jit]``).  The flag ``jit`` selects ``off``, ``eager`` or ``hot``;
   the hot tier compiles the functions that run and swaps their steps at a
   safepoint of the scheduler.
+- The gxx backend of the JIT leaves the modules of the Curry library to the
+  objects of the installation: the private copy of a library source that
+  its background compile made was refused by the namesake check, and the
+  copy shadowed the library for the compiles that followed, so every
+  compile of a process that interpreted the Prelude failed.
+  ``sprite-exec --stats`` ends the background compiles before it prints
+  its line, so the warning of a failed compile precedes the line.
 - A value binding of a big integer keeps its payload across a collection
   (#176); a compiled module reloaded after a reset runs its compiled steps
   (#177); a failed system-library check at import raises ``ImportError``
