@@ -28,6 +28,14 @@ Release Notes
   (#176); a compiled module reloaded after a reset runs its compiled steps
   (#177); a failed system-library check at import raises ``ImportError``
   with the reason instead of exiting silently (#174).
+- Three ways to run a function, over two backends: the flag ``jit``
+  (``off``, ``eager``, ``hot``; ``hot`` is the default) and the new flag
+  ``jit_backend`` (``auto``, ``llvm``, ``gxx``): LLVM through ``llvmlite``
+  when it is installed, else the generated C++ with ``g++``, else the
+  interpreter alone with one notice.  The value ``tiered`` of ``interpret``
+  retires: its live compile is the ``gxx`` backend of the hot tier, which
+  swaps at a safepoint of the scheduler; ``new`` is the default (``all`` on
+  Windows); a current ahead-of-time object always loads.
 - ``SPRITE_LOG_FILE`` and ``SPRITE_LOG_LEVEL`` configure a handler on the
   logger ``curry``, which keeps its ``NullHandler`` without them; at INFO
   the package logs its own decisions: how each module runs and why, the
