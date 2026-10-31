@@ -53,12 +53,11 @@ class ProductCacheTestCase(cytest.TestCase):
       stream.write(text)
     return path
 
-  def write_json(self, value, name=None):
-    '''Writes the JSON of a module whose goal returns ``value``.  Returns its name.'''
+  def write_image(self, value, name=None):
+    '''Writes the image of a module whose goal returns ``value``.  Returns its name.'''
     if name is None:
       name = self.new_name()
-    with open(self.cached_file(name, '.json.z'), 'wb') as stream:
-      stream.write(zlib.compress(cytest.json_module(name, value).encode('utf-8')))
+    cytest.write_module_image(self.cached_file(name, '.img'), cytest.json_module(name, value))
     return name
 
   def cached_file(self, name, suffix):
@@ -68,7 +67,7 @@ class ProductCacheTestCase(cytest.TestCase):
       self, name, so=b'object', cpp='// FORMAT: 12\n// IMPORTS: Prelude\n'
     , abi='digest\n/install\n'
     ):
-    '''Stand-in products of a module beside its JSON.  Returns their paths.'''
+    '''Stand-in products of a module beside its image.  Returns their paths.'''
     files = []
     for suffix, content in [('.cpp', cpp), ('.so', so), ('.so.abi', abi)]:
       path = self.cached_file(name, suffix)
@@ -184,21 +183,21 @@ class TestKey(ProductCacheTestCase):
       stream.write('-- ICurry 1\n')
     with_icy = _productcache.chain_digest(a, [self.srcdir])
     self.assertNotEqual(with_icy, source_only)
-    self.write_json(1, name='A')
+    self.write_image(1, name='A')
     self.assertEqual(
         [label for label, _ in _productcache._module_texts(a)]
-      , ['curry', 'icy', 'json']
+      , ['curry', 'icy', 'image']
       )
     with_json = _productcache.chain_digest(a, [self.srcdir])
     self.assertNotEqual(with_json, with_icy)
     # The source unchanged, the JSON changed: another chain.
-    self.write_json(2, name='A')
+    self.write_image(2, name='A')
     self.assertNotEqual(_productcache.chain_digest(a, [self.srcdir]), with_json)
     self.assertEqual(cytest.readfile(a), 'main = 1\n')
     # The same files again give the same chain.
-    self.write_json(1, name='A')
+    self.write_image(1, name='A')
     self.assertEqual(_productcache.chain_digest(a, [self.srcdir]), with_json)
-    self.assertEqual(_productcache.KEY_FORMAT, 3)
+    self.assertEqual(_productcache.KEY_FORMAT, 4)
 
   def test_module_without_a_source(self):
     '''
@@ -206,7 +205,7 @@ class TestKey(ProductCacheTestCase):
     JSON; its imports come from the JSON.  A module without any text has no
     key.
     '''
-    name = self.write_json(1)
+    name = self.write_image(1)
     curryfile = os.path.join(self.srcdir, name + '.curry')
     self.assertFalse(os.path.exists(curryfile))
     self.assertEqual(
@@ -261,7 +260,7 @@ class TestStore(ProductCacheTestCase):
   KEY = 'f' * 64
 
   def test_store_lookup_restore(self):
-    name = self.write_json(1)
+    name = self.write_image(1)
     files = self.write_products(name, so=b'the object')
     names = [os.path.basename(path) for path in files]
     self.assertIsNone(_productcache.lookup(self.DIGEST, self.KEY, names))
@@ -292,8 +291,8 @@ class TestStore(ProductCacheTestCase):
         self.base, 'other', '.curry', config.intermediate_subdir()
       )
     os.makedirs(other)
-    jsonfile = os.path.join(other, name + '.json.z')
-    shutil.copy(self.cached_file(name, '.json.z'), jsonfile)
+    jsonfile = os.path.join(other, name + '.img')
+    shutil.copy(self.cached_file(name, '.img'), jsonfile)
     later = time.time_ns() + 3 * 10 ** 9
     os.utime(jsonfile, ns=(later, later))
     placed = _productcache.restore(self.DIGEST, self.KEY, other, names[:2])
@@ -325,7 +324,7 @@ class TestStore(ProductCacheTestCase):
     An old object beside the source may be a hard link into the cache; a
     restore replaces the name, and the old inode keeps its content.
     '''
-    name = self.write_json(2)
+    name = self.write_image(2)
     files = self.write_products(name, so=b'new object')
     names = [os.path.basename(path) for path in files[:2]]
     _productcache.store(self.DIGEST, self.KEY, files)
@@ -345,7 +344,7 @@ class TestStore(ProductCacheTestCase):
 
   def test_copy_across_file_systems(self):
     '''Without one file system the files are copied, with their mode.'''
-    name = self.write_json(3)
+    name = self.write_image(3)
     files = self.write_products(name, so=b'object')
     os.chmod(files[1], 0o755)
     with mock.patch.object(_productcache, '_same_device', lambda a, b: False):
@@ -363,7 +362,7 @@ class TestStore(ProductCacheTestCase):
 
   def test_link_refused_is_a_copy(self):
     '''A file system that refuses the hard link gets a copy, and the entry is whole.'''
-    name = self.write_json(7)
+    name = self.write_image(7)
     files = self.write_products(name, so=b'object')
     def refuse(src, dst, *args, **kwds):
       raise PermissionError('no links here')
@@ -381,7 +380,7 @@ class TestStore(ProductCacheTestCase):
 
   def test_store_keeps_a_published_entry(self):
     '''A second producer takes the published entry; no temporary name remains.'''
-    name = self.write_json(4)
+    name = self.write_image(4)
     files = self.write_products(name, so=b'first')
     entry = _productcache.store(self.DIGEST, self.KEY, files)
     os.unlink(files[1]) # producers replace objects, never overwrite cache links
@@ -401,7 +400,7 @@ class TestStore(ProductCacheTestCase):
     finds the entry there removes its own files, and the entry is whole.
     Here the other writer is simulated between the write and the rename.
     '''
-    name = self.write_json(5)
+    name = self.write_image(5)
     files = self.write_products(name, so=b'mine')
     entry = _productcache.entry_dir(self.DIGEST, self.KEY)
     real_rename = os.rename
@@ -438,7 +437,7 @@ class TestStore(ProductCacheTestCase):
     interrupted store under a kept one; a fresh leftover (a store under
     way) and the kept entries stay.  Nothing without a root.
     '''
-    name = self.write_json(7)
+    name = self.write_image(7)
     files = self.write_products(name)
     other = 'fedcba9876543210'
     _productcache.store(self.DIGEST, self.KEY, files)
@@ -478,7 +477,7 @@ class TestStore(ProductCacheTestCase):
     self.addCleanup(os.chmod, parent, 0o755)
     if os.access(parent, os.W_OK):
       self.skipTest('the directory stays writable (root)')
-    name = self.write_json(6)
+    name = self.write_image(6)
     files = self.write_products(name)
     with mock.patch.dict(
         os.environ, {'SPRITE_PRODUCT_CACHE': os.path.join(parent, 'cache')}
@@ -504,7 +503,7 @@ class TestCompile(ProductCacheTestCase):
     from curry.backends.cxx import toolchain
     self.toolchain = toolchain
     self.plan = plans.makeplan(
-        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL
       )
     self.cpp2so = toolchain.Cpp2So(cytest.raw.interp())
 
@@ -527,13 +526,13 @@ class TestCompile(ProductCacheTestCase):
 
   def entry(self, name):
     key = self.cpp2so.product_key(
-        self.cached_file(name, '.json.z'), [self.srcdir]
+        self.cached_file(name, '.img'), [self.srcdir]
       )
     return _productcache.entry_dir(self.cpp2so.digest(), key)
 
   def test_compile_stores(self):
     '''A compile stores the generated file, the object and its stamp.'''
-    name = self.write_json(1)
+    name = self.write_image(1)
     sofile = makecurry(self.plan, name, [self.srcdir])
     self.assertEqual(sofile, self.cached_file(name, '.so'))
     entry = self.entry(name)
@@ -575,7 +574,7 @@ class TestCompile(ProductCacheTestCase):
     # changes the JSON or its reading, and the key must see it.
     self.assertIn(os.path.join('icurry', 'json.py'), files)
     self.assertIn(os.path.join('icurry', 'types', 'imodule.py'), files)
-    self.assertIn(os.path.join('toolchain', '_icurry2json.py'), files)
+    self.assertIn(os.path.join('toolchain', '_icurry2image.py'), files)
     self.assertIn(os.path.join('toolchain', '_loadcurry.py'), files)
     for relpath, path in files.items():
       self.assertTrue(os.path.isfile(path), relpath)
@@ -587,10 +586,10 @@ class TestCompile(ProductCacheTestCase):
     is the newest file of the module, and the module runs from it.  The
     restore counts on the compile clock.
     '''
-    name = self.write_json(2)
+    name = self.write_image(2)
     sofile = makecurry(self.plan, name, [self.srcdir])
     self.remove_products(name)
-    self.assertEqual(self.prerequisite(name), self.cached_file(name, '.json.z'))
+    self.assertEqual(self.prerequisite(name), self.cached_file(name, '.img'))
     before = curry.stats()['compile']
     with self.no_compiler(), capture_log('curry.backends.cxx.toolchain') as log:
       self.assertEqual(makecurry(self.plan, name, [self.srcdir]), sofile)
@@ -613,7 +612,7 @@ class TestCompile(ProductCacheTestCase):
     An object with the stamp of another runtime beside the source goes;
     the cached one takes its place.
     '''
-    name = self.write_json(3)
+    name = self.write_image(3)
     sofile = makecurry(self.plan, name, [self.srcdir])
     with open(self.cpp2so.stampfile(sofile), 'w') as stream:
       stream.write('0123456789abcdef\n/elsewhere\n')
@@ -626,11 +625,11 @@ class TestCompile(ProductCacheTestCase):
 
   def test_miss_on_a_changed_source(self):
     '''A change to the text of the module is a miss: a compile, and a second entry.'''
-    name = self.write_json(4)
+    name = self.write_image(4)
     makecurry(self.plan, name, [self.srcdir])
     first = self.entry(name)
     self.remove_products(name)
-    self.write_json(5, name=name)
+    self.write_image(5, name=name)
     with capture_log('curry.backends.cxx.toolchain') as log:
       sofile = makecurry(self.plan, name, [self.srcdir])
     log.checkMessages(self, info='Compiling %r' % sofile)
@@ -650,14 +649,14 @@ class TestCompile(ProductCacheTestCase):
     source = self.write_source(name, 'goal :: Int\ngoal = 1\n')
     past = time.time() - 100
     os.utime(source, (past, past))
-    self.write_json(1, name=name)
+    self.write_image(1, name=name)
     sofile = makecurry(self.plan, name, [self.srcdir])
     first = self.entry(name)
     self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 1})
     self.remove_products(name)
-    self.write_json(2, name=name)
+    self.write_image(2, name=name)
     self.assertEqual(cytest.readfile(source), 'goal :: Int\ngoal = 1\n')
-    self.assertEqual(self.prerequisite(name), self.cached_file(name, '.json.z'))
+    self.assertEqual(self.prerequisite(name), self.cached_file(name, '.img'))
     with capture_log('curry.backends.cxx.toolchain') as log:
       self.assertEqual(makecurry(self.plan, name, [self.srcdir]), sofile)
     log.checkMessages(self, info='Compiling %r' % sofile)
@@ -672,7 +671,7 @@ class TestCompile(ProductCacheTestCase):
     and never compiled (section 4 of README); the cache places nothing for
     it, so the mode keeps its meaning with a warm cache.
     '''
-    name = self.write_json(15)
+    name = self.write_image(15)
     sofile = makecurry(self.plan, name, [self.srcdir])
     self.remove_products(name)
     curry.reset(**{'interpret': 'new'})
@@ -694,7 +693,7 @@ class TestCompile(ProductCacheTestCase):
     runs in the second from the restored object, which names the source of
     the second.
     '''
-    name = self.write_json(14)
+    name = self.write_image(14)
     first = makecurry(self.plan, name, [self.srcdir])
     other = os.path.join(self.base, 'other')
     shutil.copytree(self.srcdir, other)
@@ -758,7 +757,7 @@ class TestCompile(ProductCacheTestCase):
 
   def test_miss_on_another_digest(self):
     '''An entry of another runtime is not seen: the digest heads the key.'''
-    name = self.write_json(6)
+    name = self.write_image(6)
     makecurry(self.plan, name, [self.srcdir])
     self.remove_products(name)
     other = 'fedcba9876543210'
@@ -777,7 +776,7 @@ class TestCompile(ProductCacheTestCase):
 
   def test_cache_off(self):
     '''The empty string: nothing is stored and nothing is looked up.'''
-    name = self.write_json(7)
+    name = self.write_image(7)
     with mock.patch.dict(os.environ, {'SPRITE_PRODUCT_CACHE': ''}):
       sofile = makecurry(self.plan, name, [self.srcdir])
       self.assertFalse(os.path.exists(self.root))
@@ -789,7 +788,7 @@ class TestCompile(ProductCacheTestCase):
 
   def test_forced_recompile_skips_the_restore(self):
     '''SPRITE_FORCE_RECOMPILE_CXX compiles; an existing cache entry stays valid.'''
-    name = self.write_json(8)
+    name = self.write_image(8)
     sofile = makecurry(self.plan, name, [self.srcdir])
     with mock.patch.dict(os.environ, {'SPRITE_FORCE_RECOMPILE_CXX': '1'}):
       with capture_log('curry.backends.cxx.toolchain') as log:
@@ -807,15 +806,14 @@ class TestCompile(ProductCacheTestCase):
     subdir = os.path.join(tmpdir, '.curry', config.intermediate_subdir())
     os.makedirs(subdir)
     name = self.new_name()
-    with open(os.path.join(subdir, name + '.json.z'), 'wb') as stream:
-      stream.write(zlib.compress(cytest.json_module(name, 9).encode('utf-8')))
+    cytest.write_module_image(os.path.join(subdir, name + '.img'), cytest.json_module(name, 9))
     makecurry(self.plan, name, [tmpdir])
     self.assertFalse(os.path.exists(self.root))
     self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 0})
 
   def test_unwritable_cache_is_a_warning(self):
     '''A cache that cannot be written is logged once; the compile ends well.'''
-    name = self.write_json(10)
+    name = self.write_image(10)
     with mock.patch.object(
         _productcache, 'store', side_effect=PermissionError('no')
       ):
@@ -838,7 +836,7 @@ class TestCompile(ProductCacheTestCase):
     the cache the import restores them and loads the module from its
     object, and no compiler runs.
     '''
-    name = self.write_json(11)
+    name = self.write_image(11)
     sofile = makecurry(self.plan, name, [self.srcdir])
     self.remove_products(name)
     curry.reset(**{'interpret': 'off', 'jit': 'off'})
@@ -856,8 +854,8 @@ class TestCompile(ProductCacheTestCase):
     stored or restored a product, not under -q; under --jobs the counts of
     the children are summed into one line.
     '''
-    first = self.write_json(12)
-    second = self.write_json(13)
+    first = self.write_image(12)
+    second = self.write_image(13)
     def run(*args):
       out = io.StringIO()
       with binding(os.environ, 'CURRYPATH', self.srcdir):
@@ -868,22 +866,22 @@ class TestCompile(ProductCacheTestCase):
         finally:
           config.currypath(reset=True)
       return out.getvalue()
-    text = run('--so', '-z', first)
+    text = run('--so', first)
     self.assertEqual(text, 'sprite-make: product cache: 0 restored, 1 stored\n')
     # Current: nothing to say.
-    self.assertEqual(run('--so', '-z', first), '')
+    self.assertEqual(run('--so', first), '')
     self.remove_products(first)
-    self.assertEqual(run('--so', '-z', '-q', first), '')
+    self.assertEqual(run('--so', '-q', first), '')
     self.assertEqual(_productcache.counts['restored'], 1)
     self.remove_products(first)
     self.assertEqual(
-        run('--so', '-z', first)
+        run('--so', first)
       , 'sprite-make: product cache: 1 restored, 0 stored\n'
       )
     # The parallel run: the children print the line for the parent, which
     # sums them and prints one line.
     self.remove_products(first)
-    text = run('--so', '-z', '--jobs', '2', first, second)
+    text = run('--so', '--jobs', '2', first, second)
     self.assertEqual(text, 'sprite-make: product cache: 1 restored, 1 stored\n')
     self.assertRegex(
         make.cache_line('sprite-make', {'restored': 3, 'stored': 4})

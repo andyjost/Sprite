@@ -484,7 +484,7 @@ print('missing preprocessor detected and skipped')
     '''
     curryfile = self.copy('hello.curry')
     icy = self.convert(curryfile)
-    full = plans.makeplan(None, plans.MAKE_ICURRY | plans.MAKE_JSON)
+    full = plans.makeplan(None, plans.MAKE_ICURRY | plans.MAKE_IMAGE)
     icy_only = plans.makeplan(None, plans.MAKE_ICURRY)
     current = lambda plan: toolchain.currentfile(
         plan, curryfile, [], is_sourcefile=True
@@ -503,7 +503,7 @@ print('missing preprocessor detected and skipped')
     # The source is never refused, and a file that is not an ICurry file is
     # not asked about.
     self.assertFalse(_curry2icurry.icurry_is_stale(curryfile))
-    self.assertFalse(_curry2icurry.icurry_is_stale(icy[:-4] + '.json'))
+    self.assertFalse(_curry2icurry.icurry_is_stale(icy[:-4] + '.img'))
     # Without a source, the ICurry file stands as it is.
     os.unlink(fint)
     os.unlink(curryfile)
@@ -610,6 +610,7 @@ print('missing preprocessor detected and skipped')
           m for m in tar.getmembers()
             if m.name.startswith(prefix) and m.name[len(prefix):].count('/') == 1
                and os.path.basename(m.name).split('.')[0] in ('Peano', 'hello')
+               and '.json' not in m.name.split('/')[-1]
         ]
       self.assertTrue(members)
       tar.extractall(self.tmpdir, members=members, filter='data')
@@ -673,8 +674,8 @@ print('missing preprocessor detected and skipped')
       )
     self.assertEqual(
         names
-      , sorted([ 'Peano.fint', 'Peano.icurry', 'Peano.icy', 'Peano.icy.imports', 'Peano.json.z'
-        , 'hello.fint', 'hello.icurry', 'hello.icy', 'hello.icy.imports', 'hello.json.z'
+      , sorted([ 'Peano.fint', 'Peano.icurry', 'Peano.icy', 'Peano.icy.imports'
+        , 'hello.fint', 'hello.icurry', 'hello.icy', 'hello.icy.imports'
         ] + stamps)
       )
 
@@ -733,12 +734,12 @@ print('missing preprocessor detected and skipped')
     self.assertEqual(make('--icy', curryfile).returncode, 0)
     self.assertEqual(readbytes(fcy), unoptimized)
     self.assertEqual(os.stat(icy).st_mtime_ns, mtime)
-    proc = make('--rewrite-flat', '--json', curryfile)
+    proc = make('--rewrite-flat', '--image', curryfile)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(readbytes(fcy), optimized)
     self.assertEqual(readbytes(icy), icytext)
     self.assertGreater(os.stat(icy).st_mtime_ns, mtime)
-    self.assertTrue(os.path.isfile(icy[:-4] + '.json'))
+    self.assertTrue(os.path.isfile(icy[:-4] + '.img'))
     # The option stands alone: it is the step from Curry to ICurry (#99).
     with open(fcy, 'wb') as ostream:
       ostream.write(unoptimized)

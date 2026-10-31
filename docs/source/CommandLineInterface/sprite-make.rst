@@ -9,7 +9,7 @@
 ``sprite-make`` is used to convert Curry files into various other formats.  One
 may select which stages of the :ref:`Compilation Pipeline
 <Introduction/CompilationPipeline:The Curry Compilation Pipeline>` to run.
-The targets are ICurry (``--icy``), JSON (``--json``), C++ (``--cxx``) and
+The targets are ICurry (``--icy``), module images (``--image``), C++ (``--cxx``) and
 the shared object of the C++ backend (``--so``); the options ``--jobs``,
 ``--curry2icurry`` and ``--rewrite-flat`` are described in the manual
 below.
@@ -52,20 +52,16 @@ You can specify the output file with ``-o``::
 
     sprite-make --icy Peano.curry -o Peano.icy
 
-Generating JSON
-===============
+Generating module images
+========================
 
-To generate JSON, supply ``--json``::
+To generate a runtime module image, supply ``--image``::
 
-    sprite-make --json Peano.curry -o Peano.json
+    sprite-make --image Peano.curry -o Peano.img
 
-Since ICurry is a prerequisite of JSON in the compilation pipeline, building
-JSON implies building ICurry.
-
-Additional options are provided to compact JSON (``--compact``),
-compress it with ``zlib`` (``--zip``), and remove intermediate files
-(``--tidy``).
-
+This is also the default target. It implies ``--icy``; ``--cxx`` and
+``--so`` imply ``--image``. The translation record stays beside the image
+for inspection and saving, including with ``--tidy``.
 
 Generating Shared Objects
 =========================

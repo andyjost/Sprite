@@ -45,26 +45,26 @@ class TestPlan(cytest.TestCase):
       )
 
   def test_02_json(self):
-    plan = plans.makeplan(flags=plans.MAKE_ICURRY | plans.MAKE_JSON)
+    plan = plans.makeplan(flags=plans.MAKE_ICURRY | plans.MAKE_IMAGE)
     self.checkStr(plan,
         '''
         Build plan with 2 steps:
             Stage Suffixes                 Step
             ----- ------------------------ ----------------------------------------
             0     ['.curry']               curry2icurry
-            1     ['.icy']                 icurry2json
-            2     ['.json']                None
+            1     ['.icy']                 icurry2image
+            2     ['.img']                None
         '''
       )
-    plan = plans.makeplan(flags=plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON)
+    plan = plans.makeplan(flags=plans.MAKE_ICURRY | plans.MAKE_IMAGE)
     self.checkStr(plan,
         '''
         Build plan with 2 steps:
             Stage Suffixes                 Step
             ----- ------------------------ ----------------------------------------
             0     ['.curry']               curry2icurry
-            1     ['.icy']                 icurry2json
-            2     ['.json.z']              None
+            1     ['.icy']                 icurry2image
+            2     ['.img']              None
         '''
       )
 
@@ -76,7 +76,7 @@ class TestPlan(cytest.TestCase):
     interp = Interpreter(flags={'backend':'cxx', 'interpret':'off'})
     plan = plans.makeplan(
         interp
-      , flags=plans.MAKE_ICURRY | plans.MAKE_JSON | plans.MAKE_TARGET_SOURCE
+      , flags=plans.MAKE_ICURRY | plans.MAKE_IMAGE | plans.MAKE_TARGET_SOURCE
       )
     self.checkStr(plan,
         '''
@@ -84,14 +84,14 @@ class TestPlan(cytest.TestCase):
             Stage Suffixes                 Step
             ----- ------------------------ ----------------------------------------
             0     ['.curry']               curry2icurry
-            1     ['.icy']                 icurry2json
-            2     ['.json']                json2cpp
+            1     ['.icy']                 icurry2image
+            2     ['.img']                icurry2cpp
             3     ['.cpp']                 None
         '''
       )
     plan = plans.makeplan(
         interp
-      , flags=plans.MAKE_ICURRY | plans.MAKE_JSON | plans.MAKE_TARGET_SOURCE
+      , flags=plans.MAKE_ICURRY | plans.MAKE_IMAGE | plans.MAKE_TARGET_SOURCE
             | plans.MAKE_TARGET_OBJECT
       )
     self.checkStr(plan,
@@ -100,8 +100,8 @@ class TestPlan(cytest.TestCase):
             Stage Suffixes                 Step
             ----- ------------------------ ----------------------------------------
             0     ['.curry']               curry2icurry
-            1     ['.icy']                 icurry2json
-            2     ['.json']                json2cpp
+            1     ['.icy']                 icurry2image
+            2     ['.img']                icurry2cpp
             3     ['.cpp']                 cpp2so
             4     ['.so']                  None
         '''
@@ -113,28 +113,28 @@ class TestPlan(cytest.TestCase):
             Stage Suffixes                 Step
             ----- ------------------------ ----------------------------------------
             0     ['.curry']               curry2icurry
-            1     ['.icy']                 icurry2json
-            2     ['.json']                json2cpp
+            1     ['.icy']                 icurry2image
+            2     ['.img']                icurry2cpp
             3     ['.cpp']                 cpp2so
             4     ['.so']                  None
         '''
       )
-    plan = plans.makeplan(interp, flags=plans.MAKE_ALL | plans.ZIP_JSON)
+    plan = plans.makeplan(interp, flags=plans.MAKE_ALL)
     self.checkStr(plan,
         '''
         Build plan with 4 steps:
             Stage Suffixes                 Step
             ----- ------------------------ ----------------------------------------
             0     ['.curry']               curry2icurry
-            1     ['.icy']                 icurry2json
-            2     ['.json.z']              json2cpp
+            1     ['.icy']                 icurry2image
+            2     ['.img']              icurry2cpp
             3     ['.cpp']                 cpp2so
             4     ['.so']                  None
         '''
       )
 
   def test_05_truncated(self):
-    plan = plans.makeplan(flags=plans.MAKE_JSON)
+    plan = plans.makeplan(flags=plans.MAKE_IMAGE)
     self.checkStr(plan,
         '''
         Build plan with 0 steps:
@@ -152,8 +152,8 @@ class TestPlan(cytest.TestCase):
             Stage Suffixes                 Step
             ----- ------------------------ ----------------------------------------
             0     ['.curry']               curry2icurry
-            1     ['.icy']                 icurry2json
-            2     ['.json']                None
+            1     ['.icy']                 icurry2image
+            2     ['.img']                None
         '''
       )
 
@@ -173,13 +173,13 @@ class TestPlan(cytest.TestCase):
     plan = plans.Plan(None, 0, [
         plans.Stage(['.curry'], object())
       , plans.Stage(['.icy'], Step({'A.icy'}))
-      , plans.Stage(['.json'], Step(set()))
+      , plans.Stage(['.img'], Step(set()))
       , plans.Stage(['.so'], None)
       ])
     with tempfile.TemporaryDirectory() as tmpdir:
       files = lambda stem: [
           os.path.join(tmpdir, stem + suffix)
-              for suffix in ['.curry', '.icy', '.json', '.so']
+              for suffix in ['.curry', '.icy', '.img', '.so']
         ]
       self.assertEqual(plan.prune_stale(files('A')), files('A'))
       for filename in files('A') + files('B'):
@@ -199,14 +199,14 @@ class TestPlan(cytest.TestCase):
         return os.path.basename(filename) in self.stale
     plan = plans.Plan(None, 0, [
         plans.Stage(['.curry'], object())
-      , plans.Stage(['.json'], Step(set()))
+      , plans.Stage(['.img'], Step(set()))
       , plans.Stage(['.cpp'], Step({'A.so'}))
       , plans.Stage(['.so'], None)
       ])
     with tempfile.TemporaryDirectory() as tmpdir:
       files = lambda stem: [
           os.path.join(tmpdir, stem + suffix)
-              for suffix in ['.curry', '.json', '.cpp', '.so']
+              for suffix in ['.curry', '.img', '.cpp', '.so']
         ]
       for filename in files('A') + files('B'):
         open(filename, 'w').close()

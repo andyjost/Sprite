@@ -180,7 +180,7 @@ def main():
           # Package extraction can preserve older times, and .source may
           # still match: invalidate derivatives of changed pinned bytes.
           # Keep the published object until its replacement is ready.
-          for suffix in ('.json', '.json.z', '.cpp', '.so.abi'):
+          for suffix in ('.img', '.cpp', '.so.abi'):
             dest.with_suffix(suffix).unlink(missing_ok=True)
         copy(pinned, icy)
         for suffix in ('.icy.source', '.icy.imports'):
@@ -195,12 +195,13 @@ def main():
     elif rebuild:
       # A forced retranslation can change bytes without changing the source
       # digest. Remove derived products rather than trusting their stamps.
-      for suffix in ('.icy', '.json', '.json.z', '.cpp', '.so.abi'):
+      for suffix in ('.icy', '.img', '.cpp', '.so.abi'):
         dest.with_suffix(suffix).unlink(missing_ok=True)
       run(sys.executable, '-m', 'curry.tools.make', '--rewrite-flat', lib / rel,
           '-o', dest.with_suffix('.icy'))
   make = [sys.executable, '-m', 'curry.tools.make']
-  run(*make, '--json', '-zc', *modules)
+  supported = [m for m in modules if m not in unsupported]
+  run(*make, '--image', *supported)
   # Wheel installers need not preserve file times or extraction order.
   # These existing provenance sidecars identify unchanged shipped sources.
   for path in sources:
@@ -208,12 +209,11 @@ def main():
     icy = lib / rel.parent / '.curry' / intermediate_subdir / (rel.stem + '.icy')
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     Path(str(icy) + '.source').write_text(digest)
-  supported = [m for m in modules if m not in unsupported]
   if args.cxx:
-    run(*make, '--so', '--jobs', args.jobs, '-zc', *supported)
+    run(*make, '--so', '--jobs', args.jobs, *supported)
   else:
     # No compiler of generated code (Windows in this release): the library
-    # ships its ICurry and JSON, and every module runs interpreted.
+    # ships its ICurry and module images, and every module runs interpreted.
     print('no compiler of generated code: the library is not compiled', flush=True)
   if args.wheel:
     # pip has no post-install prefix rewrite. Keep the digest and express
@@ -222,7 +222,7 @@ def main():
       lines = stamp.read_text().splitlines()
       lines[1] = os.path.relpath(prefix, stamp.parent)
       stamp.write_text('\n'.join(lines) + '\n')
-  expected = ['.json.z', '.img', '.so', '.so.abi'] if args.cxx else ['.json.z', '.img']
+  expected = ['.img', '.so', '.so.abi'] if args.cxx else ['.img']
   for path in sources:
     rel = path.relative_to(source / 'curry/lib')
     if '.'.join(rel.with_suffix('').parts) not in unsupported:

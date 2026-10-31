@@ -45,7 +45,6 @@ Option                          Meaning and default
 ``GC_WRITE_COUNTERS``           Old-node write counters with wdgc; ``OFF``
 ``SPRITE_REBUILD_ICY``          Rebuild pinned ICurry; ``OFF``
 ``ENABLE_ICURRY_CACHE``         Enable the user ICurry cache by default; ``OFF``
-``ENABLE_PARSED_JSON_CACHE``    Cache parsed JSON by default; ``OFF``
 ``WITH_CLANG``                  clang++ for the bitcode of the JIT helpers (experimental); ``AUTO`` finds one on PATH, empty disables
 ``WITH_CLANG_FLAGS``            Extra flags for that clang; empty (default)
 ==============================  ============================================================================

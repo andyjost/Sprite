@@ -1,4 +1,4 @@
-from .. import config
+from .. import config, exceptions
 from . import plans, _filenames, _findcurry, _productlock
 from ..utility import formatDocstring
 import importlib.util, logging, os, shutil, sys, time, threading
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class CompileClock(object):
   '''
   Accumulates the wall time this process spends in the steps of the
-  toolchain: the Curry front end, the ICurry-JSON conversion, the code
+  toolchain: the Curry front end, the module image conversion, the code
   generator, and the C++ compiler.  A nested call (a step that imports a
   package) counts once, within the outermost call.  ``Interpreter.stats``
   reports the total as ``compile``.
@@ -74,14 +74,20 @@ def makecurry(plan, name, currypath=None, **kwds):
   currypath = _findcurry.program_path(name, currypath, **kwds)
   do_tidy = kwds.pop('tidy', False)
   output = kwds.pop('output', None)
-  kwds['zip'] = bool(kwds.get('zip', plan.flags & plans.ZIP_JSON))
   with ToolchainContext(tidy=do_tidy, output=output) as pipeline:
-    pipeline.currentfile = _findcurry.currentfile(
-        plan, name, currypath, **kwds
-      )
-    if not os.path.isdir(pipeline.currentfile):
-      Maker(plan, pipeline, name, currypath, kwds).make()
-    return pipeline.currentfile
+    for attempt in range(3):
+      pipeline.currentfile = _findcurry.currentfile(
+          plan, name, currypath, **kwds
+        )
+      try:
+        if not os.path.isdir(pipeline.currentfile):
+          Maker(plan, pipeline, name, currypath, kwds).make()
+        return pipeline.currentfile
+      except exceptions.CompileError as exc:
+        # Another producer can replace an imported image after generation.
+        # Re-select the prerequisite so the emitter records its new digest.
+        if not getattr(exc, 'retry_pipeline', False) or attempt == 2:
+          raise
 
 class Maker(object):
   '''
@@ -104,7 +110,7 @@ class Maker(object):
     if position == len(self.plan):
       return True
     # A step may end the plan at its input: the C++ backend interprets a
-    # module from its JSON instead of compiling it (see Json2Cpp.ends_plan).
+    # module from its image instead of compiling it (see ICurry2Cpp.ends_plan).
     step = self.plan.stages[position].step
     ends_plan = getattr(step, 'ends_plan', None)
     return ends_plan is not None and ends_plan(self.pipeline.currentfile)
@@ -185,7 +191,9 @@ class ToolchainContext(object):
         if self.currentfile not in self.intermediates:
           self.intermediates.append(self.currentfile)
     if self.tidy:
-      for intermediate in self.intermediates:
+      for intermediate in dict.fromkeys(self.intermediates):
+        if intermediate.endswith(('.icy', '.img')):
+          continue
         logger.debug('Removing intermediate %r', intermediate)
         os.unlink(intermediate)
         if intermediate.endswith('.py'):
@@ -201,4 +209,3 @@ class ToolchainContext(object):
     else:
       return not (os.path.exists(self.output) and
                   os.path.samefile(self.output, self.currentfile))
-

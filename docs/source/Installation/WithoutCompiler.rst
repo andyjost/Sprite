@@ -86,8 +86,8 @@ These figures exclude translation: a missing or stale image is rebuilt
 once at the first import, by ``sprite-make`` or by the prepare pass.
 Library images are products of the stage and ship in the wheel alongside
 compiled objects, so compiler-free execution can start directly from
-bytecode. A read-only product directory uses JSON instead, running the
-optimizer passes and attaching bytecode at load. Importers rebuild stale
+bytecode. A read-only product directory uses a private image, built from ICurry
+text when its shared image is missing or stale. Importers rebuild stale
 library images privately; ``sprite-make`` can refresh them in a writable
 installation. A foreign inline budget also uses private images.
 

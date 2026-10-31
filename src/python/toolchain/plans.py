@@ -1,5 +1,5 @@
 from ..backends import IBackend
-from . import _curry2icurry, _filenames, _icurry2json
+from . import _curry2icurry, _filenames, _icurry2image
 from ..utility import curryname
 import collections, itertools, os
 
@@ -10,41 +10,42 @@ Stage = collections.namedtuple('Stage', ['suffixes', 'step'])
 # Stage flags.
 UNCONDITIONAL      = 0x0
 MAKE_ICURRY        = 0x1
-MAKE_JSON          = 0x2
+MAKE_IMAGE         = 0x2
 MAKE_TARGET_SOURCE = 0x4
 MAKE_TARGET_OBJECT = 0x8
-ZIP_JSON           = 0x1000
-MAKE_ALL           = MAKE_ICURRY | MAKE_JSON | MAKE_TARGET_SOURCE | MAKE_TARGET_OBJECT
+MAKE_ALL           = MAKE_ICURRY | MAKE_IMAGE | MAKE_TARGET_SOURCE | MAKE_TARGET_OBJECT
 
 def makeplan(interp=None, flags=0):
   '''
   Make a ``Plan`` object, which describes the compilation pipeline.
 
-  If ``interp`` is None, then the plan can only go as far as building ICurry-JSON.
+  If ``interp`` is None, then the plan can only go as far as building a module image.
 
   Args:
     interp:
       An optional interpreter used to assist in building objects.  This defines
       the backend and is needed to perform certain build steps, such as the
-      conversion from JSON to target code.
+      conversion from ICurry to target code.
     flags:
       Indicates which build stages are enabled.
   '''
-  assert not (flags &~ (MAKE_ALL | ZIP_JSON))
+  assert not (flags &~ MAKE_ALL)
   if interp is None:
     flags &= ~MAKE_TARGET_SOURCE
     flags &= ~MAKE_TARGET_OBJECT
+  if interp is None and flags & MAKE_IMAGE:
+    from ..interpreter import Interpreter
+    interp = Interpreter(flags={'backend': 'cxx', 'interpret': 'all', 'jit': 'off'})
   stages = list(_getstages(interp, flags))
   return Plan(interp, flags, stages)
 
 def _getstages(interp, flags):
-  json_suffix = '.json.z' if (flags & ZIP_JSON) else '.json'
   skeleton = [
     #  Flag                Suffixes     Step (if enabled)
     #  ------------------  ------------ -----------------------------
       (MAKE_ICURRY       , ['.curry']   , _curry2icurry.curry2icurry)
-    , (MAKE_JSON         , ['.icy']     , _icurry2json.icurry2json)
-    , (MAKE_TARGET_SOURCE, [json_suffix], None)
+    , (MAKE_IMAGE        , ['.icy']     , _icurry2image.ICurry2Image(interp))
+    , (MAKE_TARGET_SOURCE, ['.img'], None)
     ]
   if interp is not None:
     interp.backend.extend_plan_skeleton(interp, skeleton)
@@ -116,7 +117,7 @@ class Plan(object):
   def is_stale(self, filename, currypath=None):
     '''
     Tells whether a step of this plan refuses ``filename``.  A step refuses a
-    file through its ``is_stale`` method, when it has one; see ``Json2Cpp``
+    file through its ``is_stale`` method, when it has one; see ``ICurry2Cpp``
     and ``Cpp2So`` of the C++ backend and ``curry2icurry`` of the toolchain.
     The step of the file's stage, which reads the file, is asked, and so is
     the step before it, which made the file.  A step that answers for both

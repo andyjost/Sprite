@@ -41,7 +41,7 @@ instead. CI runs the legacy Linux unit and functional shards as advisory
 The source distribution also builds without a Curry front end or PAKCS:
 it ships every library module's current-pair ICurry, interfaces, import
 records and source receipts. CMake checks those receipts and builds the
-native library from the pins. JSON is derived during the build. Explicit
+native library from the pins. Module images are derived during the build. Explicit
 ``-DWITH_PAKCS= -DWITH_CURRY_FRONTEND= -DWITH_ICURRY=`` selects this route.
 New Curry text still needs the front end at run time; the setup script
 installs it and PAKCS for development and oracle tests. The legacy pair

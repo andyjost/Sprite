@@ -11,8 +11,8 @@ Hot adoption runs at the scheduler's JIT safepoint (g_icurry_posted).
 
 The child.  The job of a module runs sprite-make --so on the source file of
 the module, with the search path of the import and the flag interpret:off, so
-the plan of the toolchain (Json2Cpp, Cpp2So) writes the object beside the
-JSON, with its ABI stamp.  One worker thread of the runtime (curryrt/tiered.cpp)
+the plan of the toolchain (ICurry2Cpp, Cpp2So) writes the object beside the
+image, with its ABI stamp.  One worker thread of the runtime (curryrt/tiered.cpp)
 runs the jobs in the order of submission, one at a time.  A module is
 registered when its load ends, after the loads of its imports. A hot
 importer may compile a cold dependency through its private search path.  The thread needs
@@ -97,12 +97,8 @@ without a load (issue #110).  So a job carries the digest of the ICurry
 file (.icy) of the module at the import (curryrt.tiered_file_digest), and the
 swap refuses the object when the file differs (the result TIERED_EDITED):
 the module stays interpreted, and poll logs it.  A new process reads the
-edited source.  The .icy and not the JSON the import read: a touch or an
-edit of a comment makes the child run the front end again, which writes the
-same .icy for the same program, while its JSON differs from the one of the
-import in its spacing (sprite-make writes the plain form, the import the
-compact one), so a digest of the JSON refused the swap for an edit that
-changed nothing.
+edited source. The check uses the ICurry translation record, so a source
+comment edit that leaves the translated program unchanged permits the swap.
 
 The load.  curry.load uses the same adoption as a finished compile, so an
 object loaded over the tables the interpreter made stays with them.  The
@@ -111,7 +107,7 @@ opening the object.  prepare_adoption checks the source before the load.
 
 The products.  The child compiles a private copy of the module, made in a
 directory of the process with the ICurry file, the interface files and the
-JSON of the import beside it (_private_copy), so nothing is written under
+image of the import beside it (_private_copy), so nothing is written under
 the source while the compile runs: a search path entry that goes meanwhile,
 the temporary directory of a test, say, never finds a half-written product
 (issue #173).  The object lands in the private directory and the swap loads
@@ -253,7 +249,7 @@ def _foreign_flags(interp):
 def _private_copy(imodule):
   '''
   Copies the source of ``imodule`` into a directory of the process, with
-  its current ICurry file, interface files and JSON beside it, in the
+  its current ICurry file, interface files and image beside it, in the
   layout of a search path entry.  Returns the copy and the search
   directories of the child: the private directories made before this one,
   the newest first, so an import compiled this way is found with its
@@ -281,7 +277,7 @@ def _private_copy(imodule):
       stem + suffix
       for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source')
     ]
-  products += list(_filenames.jsonfilenames(filename))
+  products.append(_filenames.replacesuffix(filename, '.img'))
   productdir = os.path.dirname(_filenames.icurryfilename(copy))
   os.makedirs(productdir, exist_ok=True)
   for product in products:
@@ -513,7 +509,7 @@ def submit(interp, moduleobj, currypath, hot=False):
   logfile = os.path.join(
       _tmpdir(), 'compile%d-%s.log' % (next(_state.counter), name)
     )
-  argv = [config.sprite_make(), '--so', '-z', '-q', source]
+  argv = [config.sprite_make(), '--so', '-q', source]
   # The ICurry file of the module and its digest: the swap refuses an object
   # of another text (see the module docstring).  The record of the module
   # names the object this job writes, for the swap of its importers.

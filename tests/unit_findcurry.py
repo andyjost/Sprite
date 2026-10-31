@@ -116,7 +116,7 @@ class TestFindCurry(cytest.TestCase):
     super().setUp()
     # currentfile needs a build plan.  Searching for the ICurry-JSON file
     # requires a plan that reaches the JSON stage.
-    self.plan = plans.makeplan(flags=plans.MAKE_ICURRY | plans.MAKE_JSON)
+    self.plan = plans.makeplan(flags=plans.MAKE_ICURRY | plans.MAKE_IMAGE)
     # Copy the findFile tree to a temporary directory and add the gitignored
     # fixture a/.curry/<intermediate_subdir>/a.json, which has no a.curry.
     self.tmpdir = tempfile.TemporaryDirectory()
@@ -129,9 +129,8 @@ class TestFindCurry(cytest.TestCase):
         self.root, 'a', '.curry', config.intermediate_subdir()
       )
     os.makedirs(self.jsondir_a)
-    self.json_a = os.path.join(self.jsondir_a, 'a.json')
-    with open(self.json_a, 'w') as ostream:
-      ostream.write('{}')
+    self.json_a = os.path.join(self.jsondir_a, 'a.img')
+    cytest.write_module_image(self.json_a, cytest.json_module('a', 1))
 
   def test_findCurry(self):
     sub = lambda *parts: os.path.join(self.root, *parts)
@@ -166,7 +165,7 @@ class TestFindCurry(cytest.TestCase):
     os.makedirs(srcdir)
     shutil.copy('data/curry/hello.curry', srcdir)
     jsonfile = os.path.join(
-        srcdir, '.curry', config.intermediate_subdir(), 'hello.json'
+        srcdir, '.curry', config.intermediate_subdir(), 'hello.img'
       )
     goldenfile = 'data/curry/hello.json.au'
     self.assertFalse(os.path.exists(jsonfile))
@@ -175,14 +174,8 @@ class TestFindCurry(cytest.TestCase):
       , jsonfile
       )
     self.assertTrue(os.path.exists(jsonfile))
-    # The golden tracks the output of Sprite's own icurry.json encoder
-    # (toolchain._icurry2json writes the file internally).  The "aliases" key
-    # comes from IModule._fields_.
-    self.assertEqualToFile(cytest.readfile(jsonfile), goldenfile, GENERATE_GOLDENS)
-    icur = toolchain.loadcurry(self.plan, 'hello', [srcdir])
-    icur.filename = None
-    au = icurry.json.loads(cytest.readfile(goldenfile))
-    self.assertEqual(icur, au)
+    from curry.backends.cxx import image
+    self.assertEqual(image.read(jsonfile)['name'], 'hello')
 
   def test_program_path(self):
     '''
@@ -315,7 +308,7 @@ class TestFindCurry(cytest.TestCase):
     plan = plans.Plan(None, 0, [
         plans.Stage(['.curry'], object())
       , plans.Stage(['.icy'], icy_step)
-      , plans.Stage(['.json'], json_step)
+      , plans.Stage(['.img'], json_step)
       , plans.Stage(['.so'], None)
       ])
     srcdir = os.path.join(self.tmpdir.name, 'refused')
@@ -324,7 +317,7 @@ class TestFindCurry(cytest.TestCase):
     curryfile = os.path.join(srcdir, 'm.curry')
     files = [curryfile] + [
         os.path.join(subdir, 'm' + suffix)
-            for suffix in ['.icy', '.json', '.so']
+            for suffix in ['.icy', '.img', '.so']
       ]
     self.assertEqual(plan.filelist(curryfile), files)
     # Make the files in the order of the plan, so that the object is the
@@ -367,7 +360,7 @@ class TestFindCurry(cytest.TestCase):
     plan = plans.Plan(None, 0, [
         plans.Stage(['.curry'], object())
       , plans.Stage(['.icy'], object())
-      , plans.Stage(['.json'], json_step)
+      , plans.Stage(['.img'], json_step)
       , plans.Stage(['.so'], None)
       ])
     srcdir = os.path.join(self.tmpdir.name, 'reordered')
@@ -420,7 +413,7 @@ class TestReorderedChangeTimes(cytest.TestCase):
     curry.import_('Prelude')
     self.addCleanup(self.reload_curry)
     self.plan = plans.makeplan(
-        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL
       )
     self.tmpdir = tempfile.mkdtemp(prefix='sprite-findcurry-')
     self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)

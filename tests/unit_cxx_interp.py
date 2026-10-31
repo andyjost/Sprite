@@ -817,9 +817,9 @@ boom = error "boom"
   def icurry(self, name):
     '''The ICurry of the module ``name``, as the plan writes it: no object.'''
     plan = plans.makeplan(
-        None, plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON
+        None, plans.MAKE_ICURRY
       )
-    return toolchain.loadcurry(plan, name, self.currypath)
+    return toolchain.loadicurry(toolchain.makecurry(plan, name, self.currypath))
 
   def import_(self, name):
     '''Imports the module ``name`` from its ICurry object.'''
@@ -1023,7 +1023,7 @@ twice x = double (double x)
   def object_of(self, name):
     '''Compiles the module ``name`` as the plan does.  Nothing is loaded.'''
     plan = plans.makeplan(
-        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL
       )
     sofile = _makecurry.makecurry(plan, name, self.currypath)
     self.assertEqual(os.path.realpath(sofile), os.path.realpath(self.product(name, '.so')))
@@ -1115,7 +1115,7 @@ other = 2
     self.assertFalse(materialize.is_translation(interp, imodule))
     main.body = body
     self.assertTrue(materialize.is_translation(interp, imodule))
-    for suffix in '.json.z', '.json':
+    for suffix in ('.icy',):
       try:
         os.unlink(self.product(name, suffix))
       except FileNotFoundError:

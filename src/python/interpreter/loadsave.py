@@ -159,7 +159,7 @@ def compilable_icurry(interp, cymodule, icy):
   code holds its bill of materials: every function body is ``IExempt`` and
   the code lives in the metadata, so compiling it again would write a
   failing stub for every function.  The ICurry with the bodies is read from
-  the JSON file of the module in that case, and taken through the steps of
+  the ICurry file of the module in that case, and taken through the steps of
   an import (the merge of the built-ins, the validation, the passes of the
   optimizer), so the text saved from a module that runs from its object is
   the text saved from the same module interpreted (issue #113).
@@ -171,15 +171,15 @@ def compilable_icurry(interp, cymodule, icy):
     ]
   if not exempt:
     return icy
-  jsonfile = inspect.getjsonfile(cymodule)
-  if jsonfile is None:
+  icyfile = inspect.geticurryfile(cymodule)
+  if icyfile is None:
     raise exceptions.CompileError(
         'cannot save %s: %d of its %d functions have no ICurry body and no '
-        'ICurry-JSON file is found beside %r'
+        'ICurry text file is found beside %r'
             % (icy.fullname, len(exempt), len(functions), icy.filename)
       )
-  logger.info('Reading the ICurry of %s from %s', icy.fullname, jsonfile)
-  complete = toolchain.loadjson(jsonfile)
+  logger.info('Reading the ICurry of %s from %s', icy.fullname, icyfile)
+  complete = toolchain.loadicurry(icyfile)
   toolchain.mergebuiltins(complete, interp.backend)
   toolchain.validatemodule(complete)
   # The passes read the module under its name among the loaded modules

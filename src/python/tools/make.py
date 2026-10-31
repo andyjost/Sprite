@@ -20,47 +20,15 @@ ICurry file (extension: ``.icy``).  Modules are located by searching the
 CURRYPATH environment variable; the imports of a program given as a source
 file are searched in the directory of the file first, as PAKCS searches, so
 a program and the modules beside it need no CURRYPATH.  An ICurry file can
-only be converted to JSON; the JSON file is written beside it.
+be translated to a module image beside it.
 
-Two processes that compile one module into one product directory, such as
-a background compile of the C++ backend and this program, never write at
-once: the compile runs under a lock file beside the products
-(``<Module>.lock``), the second process waits for the first, and it
-compiles nothing when the first wrote a current object.
-
-The target formats follow.  Curry-formatted ICurry (extension:
-``.icy``) is generated with the ``-i,--icy`` option.  These files can be read
-into Curry programs using the standard module ICurry.Files.readICurry.
-
-JSON-formatted ICurry (extension: ``.json``) is generated with the
-``-j,--json`` option.  This format is more suitable when a Curry interpreter is
-not available.  Sprite only reads the JSON format.  Note that an ICY file is
-the prerequisite of JSON, meaning that ``--json`` implies ``--icy``.
-
-C++ (extension: ``.cpp``) is generated with the ``--cxx`` option, which implies
-``--json`` and ``--icy``.  The shared object of the C++ backend (extension:
-``.so``) is generated with the ``--so`` option, which implies ``--cxx`` and
-needs the C++ compiler that Sprite was configured with.  The installation
-procedure uses ``--so`` to compile the Curry library.  The ``-g,--goal``
-option names the goal of a generated program.
-
-Following the conventions of other Curry systems, output files are by default
-written to ``<dir>/.curry/{intermediate_subdir}``, where ``<dir>`` is the
-directory containing the source code.  For example, a curry file
-``/path/to/A.curry`` gives rise to
-``/path/to/.curry/{intermediate_subdir}/A.icy`` and
-``/path/to/.curry/{intermediate_subdir}/A.json``.  The ``-o,--output`` option
-can be used to specify the output file.
-
-The ``-c,--compact`` option causes JSON output to be compacted by removing
-insignificant whitespace.  Compacted JSON is less human-readable but smaller.
-
-The ``-t,--tidy`` option removes intermediate files generated in the
-compilation process.
-
-The ``-z,--zip`` option causes JSON output to be compressed, in which case a
-``.z`` extension is appended to the JSON file.  JSON that is both compacted and
-zipped is often smaller than JSON that is only zipped.
+The targets are ``--icy`` (the translation record), ``--image`` (the
+runtime module image), ``--cxx`` (generated C++) and ``--so`` (a shared
+object). Each target implies its prerequisites. With no target option,
+the default is ``--image``. Output lives under
+``<dir>/.curry/{intermediate_subdir}``; ``--output`` copies the final
+product to the requested path. ``--tidy`` removes newly generated
+intermediates, retaining the ICurry text required by inspection and save.
 
 The ``--curry2icurry`` option names the route from Curry to ICurry.
 ``frontend`` runs the Curry front end and then the built-in translation from
@@ -85,7 +53,7 @@ The ``--jobs N`` option makes up to ``N`` modules at once.  Each module is
 made by a child process that runs this program on that module alone;
 ``auto`` is one child per processor.  The imports of a module are made
 before the module, so no two children write the files that this program
-makes for one module (the ICurry, JSON, C++ and shared-object
+makes for one module (the ICurry, image, C++ and shared-object
 files).  A module whose files are current gets no child.  The order does
 not cover the interface files of the Curry front end (``.fint``, ``.fcy``):
 the front end writes those of an import on its own when they are missing,
@@ -165,13 +133,9 @@ containing ``A.curry``::
 
     % sprite-make --icy A.curry
 
-The following creates a compacted, zipped JSON file::
+The following creates a runtime module image::
 
-    % sprite-make --json -czt /path/to/A.curry
-
-The output is written to ``/path/to/.curry/{intermediate_subdir}/A.json.z``.
-The intermediate file ``/path/to/.curry/{intermediate_subdir}/A.icy`` will be
-removed unless it was up-to-date prior to the command running.
+    % sprite-make --image A.curry
 
 '''.format(
     intermediate_subdir=config.intermediate_subdir()
@@ -186,8 +150,6 @@ def main(program_name, argv):
       prog=program_name
     , description='Make ICurry files.'
     )
-  # E.g., sprite-make --icurry Prelude --json Nat
-  parser.add_argument('-c', '--compact', action='store_true', help='compact JSON output')
   parser.add_argument(      '--curry2icurry', choices=config.CURRY2ICURRY_TOOLS, default=None, metavar='TOOL'
     , help='the route from Curry to ICurry: frontend (the Curry front end and '
            'the built-in translation) or icurry (the icurry program)')
@@ -196,7 +158,6 @@ def main(program_name, argv):
     , help='make shared objects for the C++ backend (implies --cxx)')
   parser.add_argument('-g', '--goal'   , default=None, help='specifies the goal of a generated program')
   parser.add_argument('-i', '--icy'    , action='store_true', help='make ICY files')
-  parser.add_argument('-j', '--json'   , action='store_true', help='make JSON files')
   parser.add_argument(      '--jobs'   , default='1', metavar='N'
     , help='make up to N modules at once, each in a child process (auto: one '
            'per processor); the imports of a module are made first')
@@ -213,8 +174,7 @@ def main(program_name, argv):
     , help='print the subdirectory to which output files are written then exit')
   parser.add_argument('-t', '--tidy'   , action='store_true'
     , help='remove intermediate files generated by this program')
-  parser.add_argument('-z', '--zip'    , action='store_true'
-    , help='zip JSON output with zlib (adds .z extension)')
+  parser.add_argument('--image', action='store_true', help='make runtime module images')
   parser.add_argument('names', nargs='*', help='Curry modules or source files to process')
   parser.add_argument('--no-header'  , action='store_true', help=argparse.SUPPRESS)
   parser.add_argument('--with-rst'   , action='store_true', help=argparse.SUPPRESS)
@@ -257,17 +217,13 @@ def main(program_name, argv):
   if args.rewrite_flat:
     # The option is the step from Curry to ICurry; it needs no other target.
     args.icy = True
-  if not any([args.icy, args.json, args.cxx, args.so]):
-    sys.stderr.write(
-        program_name + ': at least one of (-i,--icy) or (-j,--json) or --cxx or '
-                       '--so must be supplied.\n'
-      )
-    sys.exit(1)
+  if not any([args.icy, args.image, args.cxx, args.so]):
+    args.image = True
   if args.so:
     args.cxx = True
   if args.cxx:
-    args.json = True
-  if args.json:
+    args.image = True
+  if args.image:
     args.icy = True
 
   if args.goal is not None and not args.cxx:
@@ -282,7 +238,7 @@ def main(program_name, argv):
     , exit_status=None if args.keep_going else 1
     )
   # An explicit compile compiles: under the interpreter flag interpret set to
-  # 'new' or 'all' the plan of an import ends at the JSON, and this
+  # 'new' or 'all' the plan of an import ends at the image, and this
   # program must still write the object (the hot tier of the C++ compiler backend runs this
   # program for its background compile).
   from .. import _interpreter_
@@ -383,7 +339,7 @@ def report_rewrites(program_name, args, counts):
 def _make_one(program_name, plan, name, args, kwds):
   '''Makes one named module, source file, or ICurry file in this process.'''
   if name.endswith('.icy'):
-    # A committed ICurry file.  The JSON is written beside it, so the Curry
+    # A committed ICurry file.  The image is written beside it, so the Curry
     # library can be rebuilt without icurry.
     _convert_icy(program_name, name, args)
     return
@@ -391,14 +347,9 @@ def _make_one(program_name, plan, name, args, kwds):
   if args.rewrite_flat:
     _rewrite_flat(plan, name, kwds)
   product = toolchain.makecurry(plan, name, config.currypath(), **kwds)
-  if args.json and not os.path.isdir(product):
+  if args.image and not os.path.isdir(product):
     from ..backends.cxx import image
-    jsonfile = next((path for path in _filenames.jsonfilenames(product)
-        if os.path.isfile(path)), None)
-    if jsonfile is not None and _filenames.logging_module_name(jsonfile) \
-        not in config.unsupported_syslibs() and image.writable(
-            _filenames.curryfilename(jsonfile)):
-      image.ensure(plan.interp, jsonfile, config.currypath())
+    image.ensure(plan.interp, _filenames.icurryfilename(product), config.currypath())
 
 def _rewrite_flat(plan, name, kwds):
   '''
@@ -418,28 +369,28 @@ def _rewrite_flat(plan, name, kwds):
 
 def _convert_icy(program_name, name, args):
   '''
-  Converts an ICurry file to JSON.  The JSON file is written beside the ICurry
+  Converts an ICurry file to an image.  The image file is written beside the ICurry
   file and copied to the output file, if one was given.
   '''
-  if not args.json or args.cxx:
-    raise exceptions.CompileError(
-        '%s: an .icy file can only be converted to JSON (-j,--json).'
-            % program_name
-      )
-  jsonfile = toolchain.icurry2json(
-      name, config.currypath(), compact=args.compact, zip=args.zip
-    )
-  if args.output:
-    if not (os.path.exists(args.output) and
-            os.path.samefile(args.output, jsonfile)):
-      shutil.copy(jsonfile, args.output)
+  from .. import _interpreter_
+  from ..backends.cxx import image
+  if args.icy and not (args.image or args.cxx):
+    product = name
+  else:
+    product, _ = image.ensure(_interpreter_, name, config.currypath())
+  if args.cxx:
+    from ..backends.cxx.toolchain import ICurry2Cpp, Cpp2So
+    product = ICurry2Cpp(_interpreter_)(product, config.currypath())
+    if args.so:
+      product = Cpp2So(_interpreter_)(product, config.currypath())
+  if args.output and os.path.abspath(args.output) != os.path.abspath(product):
+    shutil.copy(product, args.output)
 
 KEYWORDS = {
     'cxx' : plans.MAKE_TARGET_SOURCE
   , 'icy' : plans.MAKE_ICURRY
-  , 'json': plans.MAKE_JSON
+  , 'image': plans.MAKE_IMAGE
   , 'so'  : plans.MAKE_TARGET_OBJECT
-  , 'zip' : plans.ZIP_JSON
   }
 
 def _buildplan(interp, **kwds):
@@ -495,27 +446,27 @@ def imports_of(curryfile):
   The names of the modules that the module of ``curryfile`` imports, the
   Prelude among them.  The names come from the source when it exists (a scan
   of the import declarations; see curry.cache.SourceInfo), else from the
-  JSON file beside the products.  Nothing when neither exists.
+  image file beside the products.  Nothing when neither exists.
   '''
   if os.path.isfile(curryfile):
     with open(curryfile, 'rb') as stream:
       names = cache.SourceInfo(curryfile, stream.read()).imports
   else:
-    jsonfiles = [f for f in _filenames.jsonfilenames(curryfile) if os.path.isfile(f)]
-    if not jsonfiles:
-      return []
     try:
-      names = list(_loadcurry.loadjson(jsonfiles[0]).imports)
-    except Exception:
-      # The child that makes the module reports the unreadable file.
-      return []
+      from ..backends.cxx import image
+      names = list(image.read(_filenames.replacesuffix(curryfile, '.img'))['imports'])
+    except (OSError, ValueError):
+      try:
+        names = list(_loadcurry.loadicurry(curryfile).imports)
+      except (OSError, ValueError):
+        return []
   if 'Prelude' not in names and os.path.basename(curryfile) != 'Prelude.curry':
     names.insert(0, 'Prelude')
   return names
 
 def is_done(plan, currentfile, currypath=None):
   '''Tells whether ``currentfile`` ends ``plan``, so that nothing is to be made.'''
-  if plan.flags & plans.MAKE_JSON and not os.path.isdir(currentfile) \
+  if plan.flags & plans.MAKE_IMAGE and not os.path.isdir(currentfile) \
       and _filenames.logging_module_name(currentfile) not in config.unsupported_syslibs():
     from ..backends.cxx import image
     if image.writable(_filenames.curryfilename(currentfile)):
@@ -597,8 +548,7 @@ class JobGraph(object):
 def child_command(args, job):
   '''The command that makes the module of ``job`` in a child process.'''
   cmd = [sys.executable, '-m', config.python_package_name() + '.tools.make']
-  for flag in [ 'compact', 'cxx', 'so', 'icy', 'json', 'keep_going'
-              , 'quiet', 'tidy', 'zip' ]:
+  for flag in [ 'cxx', 'so', 'icy', 'image', 'keep_going', 'quiet', 'tidy' ]:
     if getattr(args, flag):
       cmd.append('--' + flag.replace('_', '-'))
   cmd.append('--child')

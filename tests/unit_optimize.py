@@ -25,7 +25,7 @@ from curry.backends.generic import compiler as generic_compiler
 from curry.icurry import analysis, types
 from curry.interpreter import optimize
 from curry.toolchain import plans
-from curry.toolchain._loadcurry import loadjson
+from curry.toolchain._loadcurry import loadicurry
 import curry, itertools, os, shutil, tempfile, unittest
 
 def ifcalls(iobj):
@@ -226,9 +226,9 @@ class ModuleTestCase(cytest.TestCase):
   def load_icurry(self, name):
     '''The ICurry of the module ``name``, as the front end wrote it.'''
     plan = plans.makeplan(
-        None, plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON
+        None, plans.MAKE_ICURRY
       )
-    return toolchain.loadcurry(plan, name, self.currypath)
+    return toolchain.loadicurry(toolchain.makecurry(plan, name, self.currypath))
 
   def icurry_of(self, name, inline=False):
     '''
@@ -622,9 +622,9 @@ class TestPreludeAliases(cytest.TestCase):
     '''
     jsonfile = os.path.join(
         config.system_curry_path(), '.curry', config.intermediate_subdir()
-      , 'Prelude.json.z'
+      , 'Prelude.img'
       )
-    imodule = loadjson(jsonfile)
+    imodule = loadicurry(jsonfile)
     imports = imodule.imports
     interp = cytest.raw.interp()
     length = imodule.functions['length']

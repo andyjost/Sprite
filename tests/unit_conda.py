@@ -328,7 +328,15 @@ class TestCondaRecipe(cytest.TestCase):
       self.assertIn(str(icy.relative_to(root)), str(error.exception))
       archive = root / 'tests' / 'overlay' / 'overlay-pakcs-3.10.0.tgz'
       archive.parent.mkdir(parents=True, exist_ok=True)
-      module.write_archive(archive, [(str(p.relative_to(root)), p) for p in (flat, icy)])
+      retired = root / 'tests/Other/.curry/sprite-pakcs-3.10.0/Old.json'
+      compressed = Path(str(retired) + '.z')
+      retired.parent.mkdir(parents=True)
+      for product in (retired, compressed):
+        product.write_bytes(b'obsolete module product')
+      module.write_archive(archive, [(str(p.relative_to(root)), p)
+          for p in (flat, icy, retired, compressed)])
+      retired.unlink()
+      compressed.unlink()
       # Run the actual extraction path without history or an installation.
       with mock.patch.object(module, 'ROOT', root), \
            mock.patch.object(module, 'git', return_value=''), \
@@ -337,6 +345,8 @@ class TestCondaRecipe(cytest.TestCase):
         module.main()
       self.assertFalse(flat.exists())
       self.assertFalse(icy.exists())
+      self.assertFalse(retired.exists())
+      self.assertFalse(compressed.exists())
       self.assertFalse(Path(str(icy) + '.source').exists())
       self.assertTrue(source.is_file())
       # A removed source cannot leave a receipt-less orphan in the overlay.
@@ -386,7 +396,7 @@ class TestCondaRecipe(cytest.TestCase):
       self.assertIn('newExport', source.read_text())
       # A stale receipt also invalidates JSON when ICurry was tidied away.
       flat.write_text('old FlatCurry')
-      jsonfile = icy.with_suffix('.json.z')
+      jsonfile = icy.with_suffix('.img')
       jsonfile.write_bytes(b'old JSON')
       receipt.write_text(hashlib.sha256(old_source).hexdigest())
       module.prune_receipts(root, 'pakcs-3.10.0')

@@ -835,7 +835,7 @@ class TestPolicy(TieredTestCase):
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:hot,jit_backend:cxx'
     env['CURRYPATH'] = self.tmpdir
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
-        config.installed_path('bin', 'sprite-make'), '--so', '-z', name
+        config.installed_path('bin', 'sprite-make'), '--so', name
       ]
     proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
@@ -885,7 +885,7 @@ class TestPrograms(cytest.TestCase):
     # finished object (one with its ABI stamp) is left behind.
     self.assertFalse(os.path.exists(sofile + '.abi'))
     # The run was interpreted from the JSON.
-    self.assertTrue(os.path.exists(sofile[:-3] + '.json.z'))
+    self.assertTrue(os.path.exists(sofile[:-3] + '.img'))
 
   def test_failed_compile_is_logged(self):
     # A compile that fails during the evaluation of a program is reported
@@ -985,7 +985,7 @@ class TestLoadDuringCompile(TieredTestCase):
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:hot,jit_backend:cxx'
     env['CURRYPATH'] = self.tmpdir
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
-        config.installed_path('bin', 'sprite-make'), '--so', '-z', name
+        config.installed_path('bin', 'sprite-make'), '--so', name
       ]
     proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)

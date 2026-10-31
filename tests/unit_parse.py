@@ -164,27 +164,3 @@ class EncodeJSON(cytest.TestCase):
     self.assertEqual(imodule.imports, tuple(names))
     imodule = icurry.IModule('M', names + names[:3], [], [])
     self.assertEqual(imodule.imports, tuple(names))
-
-  def test_library_caches(self):
-    '''
-    The JSON cache of every library module is the compact form of its ICurry
-    file, byte for byte, with a trailing newline.
-    '''
-    from curry import config, toolchain
-    for name in config.syslibs():
-      curryfile = os.path.join(
-          config.system_curry_path(), name.replace('.', os.sep) + '.curry'
-        )
-      icyfile = toolchain.icurryfilename(curryfile)
-      jsonfile = icyfile[:-4] + '.json.z'
-      with open(jsonfile, 'rb') as istream:
-        cached = zlib.decompress(istream.read())
-      fresh = icurry.json.dumps(icurry.readcurry.load(icyfile)) + '\n'
-      fresh = fresh.encode('utf-8')
-      if cached != fresh:
-        pairs = zip(cached, fresh)
-        offset = next((i for i, (a, b) in enumerate(pairs) if a != b), None)
-        self.fail(
-            '%s: the cache differs from the encoder output at byte %s'
-                % (jsonfile, offset)
-          )

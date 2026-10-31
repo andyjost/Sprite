@@ -192,14 +192,15 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
         with open(pinned, 'rb') as expected, open(productfile(name, '.icy'), 'rb') as actual:
           self.assertEqual(expected.read(), actual.read(), name)
       self.assertTrue(os.path.isfile(productfile(name, '.icy')), name)
-      self.assertTrue(os.path.isfile(productfile(name, '.json.z')), name)
+      if name not in config.unsupported_syslibs():
+        self.assertTrue(os.path.isfile(productfile(name, '.img')), name)
     # The products of a small module parse, name the module, and agree.
     for name in ['Data.Function', 'Data.Either', 'Data.Maybe']:
       imodule = icurry.readcurry.load(productfile(name, '.icy'))
       self.assertEqual(imodule.fullname, name)
-      with open(productfile(name, '.json.z'), 'rb') as istream:
-        ijson = icurry.json.loads(zlib.decompress(istream.read()))
-      self.assertEqual(ijson, imodule)
+      from curry.backends.cxx import image
+      self.assertEqual(image.read(productfile(name, '.img'))['source'],
+          image.digest(productfile(name, '.icy')))
 
   def test_rebuild_library_module(self):
     '''
@@ -219,7 +220,7 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     # The products in the order of the toolchain.  copy2 keeps their
     # modification times, which the staleness rule of the toolchain compares,
     # and each product is put back after the one it is made from.
-    order = ['.icy', '.json.z', '.py', '.pyc', '.cpp', '.so', '.so.abi']
+    order = ['.icy', '.img', '.py', '.pyc', '.cpp', '.so', '.so.abi']
     def rank(path):
       return next((i for i, s in enumerate(order) if path.endswith(s)), len(order))
     def found():
@@ -323,7 +324,7 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
           self.assertTrue(os.path.isfile(os.path.join(flatdir, *parts) + suffix), name)
         sidecars = os.path.join(libdir, *parts[:-1], '.curry',
                                 config.intermediate_subdir(), parts[-1])
-        for suffix in ['.icy', '.fint', '.icurry', '.json.z']:
+        for suffix in ['.icy', '.fint', '.icurry']:
           self.assertTrue(os.path.isfile(sidecars + suffix), name + suffix)
       for name in config.supported_syslibs():
         parts = name.split('.')

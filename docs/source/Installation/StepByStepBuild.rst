@@ -15,7 +15,7 @@ Configure and build with CMake, or use the thin wrapper::
 This configures ``object-root/cmake`` with Ninja, builds the runtime and
 extension, prepares the Curry library with the package's own tools, and
 installs into ``install/``. The library includes its pinned ICurry,
-interfaces, JSON and runtime products. Pinned ICurry is rebuilt
+interfaces, module images and runtime products. Pinned ICurry is rebuilt
 only when ``SPRITE_REBUILD_ICY`` is enabled for the default pair, front end
 3.1.0 with PAKCS 3.10.0. The legacy pair (2.0.0 with 3.4.1) builds its
 library products from source. See :doc:`ConfiguringSprite`

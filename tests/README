@@ -31,7 +31,7 @@ Module images (`M.img`) are derived products beside `M.icy`. They hold
 optimized interpreter bytecode and symbol metadata. The loader validates
 source, route, inline budget and import-image digests, rebuilding stale or
 invalid images. `unit_image.py` checks round trips, corruption, old versions,
-source edits and compilation from text. JSON remains for the other tools.
+source edits and compilation from text. ICurry text remains for inspection and saving.
 
 An entry holds the ICurry of a module and the two interface files the front
 end wrote for it, M.fint and M.icurry.  A hit writes all three beside each
@@ -62,7 +62,7 @@ The C++ backend keeps a second cache, the product cache, under
 cytest set it unless the environment names a directory, and the empty string
 turns it off).  A compile stores the shared object of a module, its ABI
 stamp and the generated C++ there, keyed by the stamp and by the texts of
-the module (its source, its ICurry and its JSON) and of its imports, and a
+the module (its source, its ICurry and its image) and of its imports, and a
 later compile of the same module places them from there instead of running
 g++: a pool whose compiled products were removed comes back in under a
 second (section 10).  No part of the key names a tree, and an object names
@@ -545,7 +545,7 @@ The current-tool archive also holds all 30 library oracles; the committed
 library ICurry is the installed runtime route's output (icurry_compat=False),
 including its completed case order and root annotation handling.
 unit_prebuild.py regenerates the pins through that route and checks the
-installed ICurry and derived JSON. The archive's independent icurry outputs
+installed ICurry and derived images. The archive's independent icurry outputs
 are checked in compatibility mode by func_flat2icurry.py::test_library;
 the installed pins are not identity oracles for icurry. The test
 unit_flat2icurry.py checks a fixed sample of 60 files and the probe modules
@@ -741,7 +741,7 @@ the directory that holds an extracted tests/ tree, for a scratch extraction.
 
 The archive is rebuilt with `make overlay-archive` at the root of the
 repository.  The rule packs the .fcy, .fint, .icurry, .icy, .icy.source,
-.icy.imports and .json.z files under tests/ and the library interfaces that
+.icy.imports files under tests/ and the library interfaces that
 the front end writes under curry/lib/.curry, with fixed owner and time stamps.  The .icy files must come
 from icurry: run the tests with SPRITE_CURRY2ICURRY=icurry (CMake
 -DWITH_ICURRY=PATH) before the rebuild, or the port becomes its own oracle.  Two
@@ -1062,7 +1062,7 @@ first, and selects the fast tier; a file without a duration is assumed to
 take the median of the measured ones, so a measured heavy file starts
 before it.  The peak sets the cap of the file: twice the peak, at least
 1 GB.  The floor covers the part of the toolchain that runs inside the
-test process on a cold tree (the translation of FlatCurry, the JSON
+test process on a cold tree (the translation of FlatCurry, the image
 writer, the code generators), which a warm measurement never saw.  The
 floor costs width where the budget binds, because the budget sums the
 caps: a budget of 3.6 GB (60 percent of 6 GB available) admits three files
@@ -1107,7 +1107,7 @@ percent of MemAvailable at the start, by default) and fewer than -j files
 run.  -j auto lets the budget decide, up to the core count.  When nothing
 runs, a file starts whatever its cap.  Two rules protect shared files.
 The py and the cxx run of one file never overlap, because they share the
-ICurry and JSON products of its modules.  A file in EXCLUSIVE
+ICurry and image products of its modules.  A file in EXCLUSIVE
 (lib/testrunner/selection.py) runs alone; unit_currylib.py is there
 because it removes products of the installed library.  ulimit -v stays as
 a backstop: 6 GB or three times the cap, whichever is larger, or
@@ -1153,11 +1153,10 @@ files do not exist, select everything.  The runner prints the mapping.
 --list shows the selection with the manifest numbers, the caps, and the
 reasons, and exits.
 
-The prepare pass.  A product under a .curry directory is written in
-place by the front end (.fcy, .fint), the ICurry writer (.icy), the JSON
-writer (.json.z), the code generator (.py, .cpp), and the C++ compiler
-(.so).  Two files that write the same product at once can leave a torn
-file for a third to read.  The ICurry cache (SQLite, busy timeout 30 s),
+The prepare pass. The front end writes .fcy and .fint in place. Module
+product locks serialize producers; images, generated C++ and shared objects
+are published atomically. The prepare pass warms the shared modules before
+test files start and avoids overlapping front-end writes and duplicate work.  The ICurry cache (SQLite, busy timeout 30 s),
 the bytecode cache, the ABI stamp, and the precompiled header are written
 atomically.  The ABI stamp of a shared object names the runtime headers
 the generated code includes (the include closure of curryrt/curryrt.hpp; a header
@@ -1178,7 +1177,7 @@ to compile does not stop the others.  The job of its directory ends
 "incomplete", not "FAILED": its line names the modules that have no
 product after the pass (the .py or the .so under the product directory,
 which sprite-make -S names; on the C++ backend under the interpreter flag
-interpret set to new or all, the JSON, where sprite-make --so ends because
+interpret set to new or all, the image, where sprite-make --so ends because
 the runtime interprets the module) and its log
 (.cache/runner/<backend>/prepare-<directory>.log); one line after the
 pass sums it up ("prepare: 37 modules in 1 directory on cxx, every
@@ -1278,6 +1277,7 @@ its yield writes show x on one line. The normal oracle script uses safe mode
 and refuses I/O, so unit_stream.py invokes PAKCS directly for this check.
 The Sprite library module lives in ../curry/lib/Sprite/Stream.curry.
 
-Derived JSON has a .input receipt of its ICurry content. Plain and compressed
-JSON stay consistent when both exist; JSON-only fixtures need no
-receipt. Image tests cover saving after a source edit with both forms.
+Module images record the digest of their ICurry input, route, inline budget
+and imported images. The runtime loads images; inspection and save read
+ICurry text. Pinned overlay archives are unchanged, but extraction ignores
+module JSON entries and the oracle comparisons still use ICurry text.

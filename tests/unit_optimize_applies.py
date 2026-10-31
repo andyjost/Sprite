@@ -28,7 +28,7 @@ from curry import config, icurry, toolchain
 from curry.icurry import analysis, types
 from curry.interpreter import optimize
 from curry.toolchain import plans
-from curry.toolchain._loadcurry import loadjson
+from curry.toolchain._loadcurry import loadicurry
 from unit_optimize import ModuleTestCase, function, ifcalls, infotable_handle
 import collections, curry, os
 
@@ -846,9 +846,9 @@ class TestPrelude(cytest.TestCase):
   def prelude_json(self):
     jsonfile = os.path.join(
         config.system_curry_path(), '.curry', config.intermediate_subdir()
-      , 'Prelude.json.z'
+      , 'Prelude.img'
       )
-    return loadjson(jsonfile)
+    return loadicurry(jsonfile)
 
   def test_installed_prelude(self):
     '''
@@ -1029,7 +1029,7 @@ class TestBenchmarkShapes(cytest.TestCase):
         os.path.join(os.path.dirname(__file__), 'data', 'curry', 'benchmarks')
       ]
     plan = plans.makeplan(
-        None, plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON
+        None, plans.MAKE_ICURRY
       )
     interp = cytest.raw.interp()
     # The heads are nullary functions of the Prelude, known through the
@@ -1041,7 +1041,7 @@ class TestBenchmarkShapes(cytest.TestCase):
       , ('Primes', 'isdivs', [mod, ne])
       ]
     for name, fname, defaults in cases:
-      imodule = toolchain.loadcurry(plan, name, currypath)
+      imodule = toolchain.loadicurry(toolchain.makecurry(plan, name, currypath))
       ifun = imodule.functions[fname]
       self.assertEqual(len(applies(ifun)), 2 * len(defaults))
       optimize.saturate_applies(interp, ifun, imodule)

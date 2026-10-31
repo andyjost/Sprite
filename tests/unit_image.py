@@ -1,7 +1,7 @@
 '''The native module image and its content receipts.'''
 import cytest # from ./lib; must be first
 import curry
-from curry import inspect
+from curry import inspect, toolchain
 from curry.backends.cxx import image, curryrtbindings as curryrt
 from curry.objects.handle import getHandle
 from unittest import mock
@@ -11,7 +11,6 @@ import subprocess
 import sys
 import struct
 import tempfile
-import zlib
 
 
 class TestImage(cytest.TestCase):
@@ -23,8 +22,8 @@ class TestImage(cytest.TestCase):
     path = image.filename(getHandle(module).icurry.filename)
     self.assertEqual(image.read(path)['name'], 'Prelude')
     curry.reset(backend='cxx', interpret='all', jit='off')
-    with mock.patch('curry.toolchain._loadcurry.loadjson',
-        side_effect=AssertionError('image load read JSON')):
+    with mock.patch('curry.toolchain._loadcurry.loadicurry',
+        side_effect=AssertionError('image load read ICurry text')):
       module = curry.import_('Prelude')
     self.assertEqual(curry.eval(getattr(module, 'not')(True)).one(), False)
     self.assertIsNotNone(curryrt.icurry_bytecode(curry.symbol('Prelude.map').info))
@@ -58,10 +57,10 @@ class TestImage(cytest.TestCase):
             stream.write(data)
         module = curry.import_(source)
         self.assertEqual(curry.eval(module.answer).one(), 42)
-        self.assertEqual(image.read(path)['source'], image.digest(source))
+        self.assertEqual(image.read(path)['source'], image.digest(toolchain.icurryfilename(source)))
       curry.reset(backend='cxx', interpret='all', jit='off')
-      with mock.patch('curry.toolchain._loadcurry.loadjson',
-          side_effect=AssertionError('image load read JSON')):
+      with mock.patch('curry.toolchain._loadcurry.loadicurry',
+          side_effect=AssertionError('image load read ICurry text')):
         module = curry.import_(source)
       self.assertEqual([x.name for x in getattr(module, '.types')['T'].constructors],
           ['A', 'B'])
@@ -90,35 +89,13 @@ class TestImage(cytest.TestCase):
       self.assertNotEqual(image.read(path)['budget'], 0)
       self.assertEqual(image.read(image._path(curry._interpreter_, source))['budget'], 0)
       self.assertEqual(curry.eval(module.answer).one(), 43)
-      from curry.toolchain import _filenames
-      for product in _filenames.jsonfilenames(source):
-        if os.path.exists(product):
-          os.unlink(product)
       curry.reset(backend='cxx', interpret='all', jit='off', inline_budget=0)
-      with mock.patch('curry.toolchain._loadcurry.loadjson',
-          side_effect=AssertionError('image load read JSON')):
+      with mock.patch('curry.toolchain._loadcurry.loadicurry',
+          side_effect=AssertionError('image load read ICurry text')):
         module = curry.import_(source)
       self.assertEqual(curry.eval(module.answer).one(), 43)
 
-  def test_readonly_uses_json(self):
-    from curry.toolchain import _loadcurry
-    prelude = curry.import_('Prelude')
-    source = getHandle(prelude).icurry.filename
-    product_dir = os.path.dirname(image.filename(source))
-    access = os.access
-    for missing in (False, True):
-      with mock.patch.object(os, 'access', side_effect=lambda path, mode:
-          False if os.path.realpath(path) == os.path.realpath(product_dir) else access(path, mode)), \
-          mock.patch.object(image, 'load', side_effect=AssertionError('image write')), \
-          mock.patch.object(_loadcurry, 'loadjson', wraps=_loadcurry.loadjson) as loader:
-        with mock.patch.object(image, 'current', return_value=None) if missing else \
-            mock.patch.object(image, 'current', wraps=image.current):
-          curry.reset(backend='cxx', interpret='all', jit='off')
-          module = curry.import_('Prelude')
-      self.assertTrue(loader.called)
-      self.assertEqual(curry.eval(getattr(module, 'not')(True)).one(), False)
-
-  def test_readonly_missing_image(self):
+  def test_readonly_private_image(self):
     with tempfile.TemporaryDirectory() as directory:
       source = os.path.join(directory, 'ImageReadonly.curry')
       with open(source, 'w') as stream:
@@ -127,13 +104,63 @@ class TestImage(cytest.TestCase):
       path = image.filename(source)
       os.unlink(path)
       curry.reset(backend='cxx', interpret='all', jit='off')
-      access = os.access
-      with mock.patch.object(os, 'access', side_effect=lambda name, mode:
-          False if name == os.path.dirname(path) else access(name, mode)), \
-          mock.patch.object(image, 'load', side_effect=AssertionError('image write')):
+      with mock.patch.object(image, 'writable', return_value=False):
         module = curry.import_(source)
       self.assertEqual(curry.eval(module.answer).one(), 42)
       self.assertFalse(os.path.exists(path))
+      private = image._private_path(curry._interpreter_, source)
+      self.assertTrue(os.path.exists(private))
+
+  def test_text_private_image(self):
+    module = curry.compile('answer :: Int\nanswer = 42\n')
+    source = getHandle(module).icurry.filename
+    from curry.toolchain._str2module import is_temporary
+    self.assertTrue(is_temporary(source))
+    self.assertTrue(os.path.isfile(image._path(curry._interpreter_, source)))
+    self.assertIsNotNone(curryrt.icurry_bytecode(getHandle(module).symbols['answer'].info))
+    self.assertEqual(curry.eval(module.answer).one(), 42)
+
+  def test_sprite_make_image(self):
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, 'ImageCommand.curry')
+      with open(source, 'w') as stream:
+        stream.write('module ImageCommand where\nanswer = True\n')
+      subprocess.check_call([os.path.join(os.environ['SPRITE_HOME'], 'bin',
+          'sprite-make'), '--image', source])
+      self.assertEqual(image.read(image.filename(source))['name'], 'ImageCommand')
+
+  def test_import_image_changes_before_compile(self):
+    from curry.backends.cxx import toolchain as cxx_toolchain
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, 'ImageCompileRetry.curry')
+      dependency = os.path.join(directory, 'ImageCompileDependency.curry')
+      with open(dependency, 'w') as stream:
+        stream.write('module ImageCompileDependency where\nvalue :: Int\nvalue = 42\n')
+      with open(source, 'w') as stream:
+        stream.write('module ImageCompileRetry where\nimport ImageCompileDependency\n'
+            'answer :: Int\nanswer = value\n')
+      curry.reset(backend='cxx', interpret='off', jit='off')
+      compile_object = cxx_toolchain.Cpp2So.__call__
+      changed = []
+      def compile_after_publication(step, path, *args, **kwds):
+        if path.endswith('ImageCompileRetry.cpp') and not changed:
+          imported = image.filename(dependency)
+          with open(imported, 'rb') as stream:
+            data = stream.read()
+          header = image.read(imported)
+          header['generation'] = 1
+          encoded = json.dumps(header, sort_keys=True, separators=(',', ':')).encode('ascii')
+          _, _, size = image.PREFIX.unpack_from(data)
+          with open(imported, 'wb') as stream:
+            stream.write(image.PREFIX.pack(image.MAGIC, image.VERSION, len(encoded))
+                + encoded + data[image.PREFIX.size + size:])
+          changed.append(imported)
+        return compile_object(step, path, *args, **kwds)
+      with mock.patch.object(cxx_toolchain.Cpp2So, '__call__', compile_after_publication):
+        module = curry.import_(source)
+      self.assertEqual(len(changed), 1)
+      self.assertIsNotNone(getHandle(module).sofilename)
+      self.assertEqual(curry.eval(module.answer).one(), 42)
 
   def test_module_without_file_has_no_image(self):
     from curry import icurry
@@ -182,6 +209,22 @@ class TestImage(cytest.TestCase):
       self.assertEqual(image.digest(shared), before)
       self.assertEqual(image.read(shared)['budget'], budget)
 
+  def test_library_import_keeps_environment_budget_private(self):
+    prelude = curry.import_('Prelude')
+    source = getHandle(prelude).icurry.filename
+    shared = image.filename(source)
+    before = image.digest(shared)
+    budget = image.read(shared)['budget'] + 1
+    flags = 'backend:cxx,interpret:all,jit:off,inline_budget:%d' % budget
+    with mock.patch.dict(os.environ, {'SPRITE_INTERPRETER_FLAGS': flags}):
+      curry.reset(backend='cxx', interpret='all', jit='off', inline_budget=budget)
+      from curry.backends.cxx import tiered
+      self.assertFalse(tiered._foreign_flags(curry._interpreter_))
+      private = image._path(curry._interpreter_, source)
+      self.assertNotEqual(private, shared)
+      self.assertEqual(image.read(private)['budget'], budget)
+      self.assertEqual(image.digest(shared), before)
+
   def test_two_writers_translate_once(self):
     with tempfile.TemporaryDirectory() as directory:
       source = os.path.join(directory, 'ImageWriters.curry')
@@ -218,7 +261,7 @@ assert curry.eval(module.answer).one() == 42
             child.wait()
       with open(counter) as stream:
         self.assertEqual(stream.read().splitlines(), ['translation'])
-      self.assertEqual(image.read(image.filename(source))['source'], image.digest(source))
+      self.assertEqual(image.read(image.filename(source))['source'], image.digest(toolchain.icurryfilename(source)))
 
   def test_stamp_without_input_is_stale(self):
     from curry.backends.cxx import toolchain
@@ -259,11 +302,6 @@ assert curry.eval(module.answer).one() == 42
       self.assertIsNotNone(getHandle(module).sofilename)
       self.assertEqual(curry.eval(module.answer).one(), 1)
       from curry.toolchain import _filenames
-      plain, zipped = _filenames.jsonfilenames(source)
-      with open(zipped, 'rb') as stream:
-        data = zlib.decompress(stream.read())
-      with open(plain, 'wb') as stream:
-        stream.write(data)
       write(2)
       # Content receipts also reject objects after timestamp-preserving edits.
       os.utime(source, (1000000000, 1000000000))
@@ -282,9 +320,7 @@ assert curry.eval(module.answer).one() == 42
       module = curry.import_(source)
       self.assertEqual(curry.eval(module.answer).one(), 2)
       from curry.toolchain import _filenames
-      for product in _filenames.jsonfilenames(source):
-        if os.path.exists(product):
-          os.utime(product, (2000000000, 2000000000))
+      os.utime(image.filename(source), (2000000000, 2000000000))
       curry.reset(backend='cxx', interpret='new', jit='off')
       module = curry.import_(source)
       self.assertIsNotNone(getHandle(module).sofilename)
@@ -317,14 +353,13 @@ assert curry.eval(module.answer).one() == 42
     prelude = curry.import_('Prelude')
     self.assertIsNotNone(getHandle(prelude).sofilename)
     image._import_images(curry._interpreter_, ['Prelude'], None)
-    original = image._loadcurry.loadjson
+    original = image._loadcurry.loadicurry
     def own_json(path):
-      self.assertNotEqual(os.path.basename(path), 'Prelude.json.z')
-      self.assertNotEqual(os.path.basename(path), 'Prelude.json')
+      self.assertNotEqual(os.path.basename(path), 'Prelude.icy')
       return original(path)
     with mock.patch.object(image.curryrt, 'load_image',
         wraps=image.curryrt.load_image) as reader, \
-        mock.patch.object(image._loadcurry, 'loadjson', side_effect=own_json):
+        mock.patch.object(image._loadcurry, 'loadicurry', side_effect=own_json):
       module = curry.compile('answer :: Int\nanswer = id 42\n')
     self.assertEqual(curry.eval(module.answer).one(), 42)
     self.assertTrue(any(call.kwargs.get('attach_code') is False

@@ -189,10 +189,8 @@ class TestStats(cytest.TestCase):
     self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
     subdir = os.path.join(tmpdir, '.curry', config.intermediate_subdir())
     os.makedirs(subdir)
-    with open(os.path.join(subdir, self.MODULE + '.json.z'), 'wb') as stream:
-      stream.write(
-          zlib.compress(cytest.json_module(self.MODULE, 3).encode('utf-8'))
-        )
+    cytest.write_module_image(os.path.join(subdir, self.MODULE + '.img'),
+        cytest.json_module(self.MODULE, 3))
     before = curry.stats()['compile']
     module = curry.import_(self.MODULE, path=[tmpdir] + curry.path)
     after = curry.stats()['compile']

@@ -190,7 +190,7 @@ print('exiting normally')
       env = dict(os.environ, CURRYPATH=directory)
       env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:off'
       cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
-          config.installed_path('bin', 'sprite-make'), '--so', '-z', 'M'
+          config.installed_path('bin', 'sprite-make'), '--so', 'M'
         ]
       proc = subprocess.run(
           cmd, cwd=directory, env=env, capture_output=True, text=True
@@ -308,7 +308,7 @@ print('values', [str(v) for v in curry.eval(M.main)])
     env = dict(os.environ, CURRYPATH=tmpdir)
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:off'
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
-        config.installed_path('bin', 'sprite-make'), '--so', '-z'
+        config.installed_path('bin', 'sprite-make'), '--so'
       , 'SaveFromObject'
       ]
     proc = subprocess.run(

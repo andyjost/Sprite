@@ -5,9 +5,9 @@ The tests compile the modules under tests/data/curry into product
 directories (.curry/<subdir>/) beside the sources.  Every file of a run
 reads the same products, and a file writes one only when it is missing or
 stale.  Two files that write the same product at once can leave a torn file
-for a third to read: the front end, the ICurry writer, the JSON writer, and
-the C++ compiler all write in place (see section 10 of README).  The ICurry
-cache is safe: SQLite with a busy timeout.
+for a third to read when the front end writes interfaces in place. Module
+products publish atomically under product locks (see section 10 of README).
+The ICurry cache is safe: SQLite with a busy timeout.
 
 So the pass runs sprite-make, one directory at a time and one process at a
 time, for the backend of the run, before any file starts.  After it, the
@@ -15,7 +15,7 @@ parallel files find their products current and only read them.  The pass
 is advisory.  sprite-make runs with -k, so a module that fails to compile
 does not stop the others, and the job of its directory ends ``incomplete``
 rather than ``FAILED``: the note of the job names the modules that have no
-product after the pass (the .so; the JSON under the interpreter flag
+product after the pass (the .so; the image under the interpreter flag
 ``interpret`` set to new or all,
 where sprite-make --so ends), :func:`summary` prints one line about the
 whole pass, and the exit status of the run does not depend on it.  The
@@ -56,7 +56,7 @@ from . import TESTDIR
 from .scheduler import Job
 
 __all__ = [
-    'CACHE_LINE', 'CORPUS', 'DEFAULT_PRODUCT_CACHE', 'EXCLUDE', 'JSON_PRODUCTS'
+    'CACHE_LINE', 'CORPUS', 'DEFAULT_PRODUCT_CACHE', 'EXCLUDE', 'IMAGE_PRODUCTS'
   , 'PGMF', 'PRAGMA', 'PREPROCESSOR_FAILURE', 'PRODUCT', 'PRUNE'
   , 'REWRITE_LINE', 'PrepareJob'
   , 'cache_counts', 'corpus_owners', 'directories', 'interpret_flag', 'jobs'
@@ -215,7 +215,7 @@ CORPUS = [
 # resolves (unit_icurry.py). Optional preprocessors are handled as skips.
 EXCLUDE = {'badimport.curry', 'helloExternal.curry'}
 
-# The target of sprite-make per backend.  Compact, zipped JSON is what an
+# The target of sprite-make per backend.  The module image is what an
 # import writes, so the products are the same files.
 TARGET = {'cxx': '--so'}
 
@@ -223,12 +223,11 @@ TARGET = {'cxx': '--so'}
 # directory (product_subdir) beside the source.
 PRODUCT = {'cxx': '.so'}
 
-# The JSON of a module, which ends the plan of sprite-make --so under the
+# The image of a module, which ends the plan of sprite-make --so under the
 # interpreter flag ``interpret`` set to new or all: the runtime interprets
-# the module from it, and no object is written (Json2Cpp.ends_plan of the
-# C++ toolchain).  The pass asks for zipped JSON (-z); the plain form is
-# accepted too.
-JSON_PRODUCTS = ('.json.z', '.json')
+# the module from it, and no object is written (ICurry2Cpp.ends_plan of the
+# C++ toolchain). The bytecode and summaries share one product.
+IMAGE_PRODUCTS = ('.img',)
 
 # What the log holds when the front end could not run the preprocessor:
 # the message of the shell ("currypp: not found") or the line of the
@@ -272,10 +271,10 @@ def product_suffixes(backend, flags=None):
   The suffixes of the final product of a module on ``backend`` under the
   interpreter flags ``flags`` (a SPRITE_INTERPRETER_FLAGS value): one of
   them exists after a pass that made the module.  The C++ backend under
-  interpret:new or interpret:all ends at the JSON.
+  interpret:new or interpret:all ends at the image.
   '''
   if backend == 'cxx' and interpret_flag(flags) in ('new', 'all'):
-    return JSON_PRODUCTS
+    return IMAGE_PRODUCTS
   return (PRODUCT[backend],)
 
 def corpus_owners():
@@ -337,7 +336,7 @@ def command(sprite_home, backend, files):
   run (SPRITE_FRONTEND_WARNINGS; cli.environment).
   '''
   make = os.path.join(sprite_home, 'bin', 'sprite-make')
-  return [make, '-k', '-c', '-z', TARGET[backend]] + list(files)
+  return [make, '-k', TARGET[backend]] + list(files)
 
 def _some(items, limit=8):
   '''The first ``limit`` of ``items``, joined, and the count of the rest.'''

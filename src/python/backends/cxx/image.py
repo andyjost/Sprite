@@ -59,7 +59,7 @@ def read(path):
 
 def _facts(interp, source, imports):
   from ...toolchain._frontend import ROUTE_VERSION
-  return dict(source=digest(source), route=ROUTE_VERSION,
+  return dict(source=digest(_filenames.icurryfilename(source)), route=ROUTE_VERSION,
       budget=interp.flags['inline_budget'], imports=imports)
 
 
@@ -74,6 +74,7 @@ def writable(source):
 
 def _private_path(interp, source):
   from . import tiered
+  source = _filenames.sourcefilename(source)
   key = '%s:%s' % (os.path.realpath(source), interp.flags['inline_budget'])
   return os.path.join(tiered._tmpdir(), hashlib.sha256(key.encode()).hexdigest() + '.img')
 
@@ -115,15 +116,12 @@ def _import_images(interp, names, currypath):
     except (OSError, ValueError, KeyError, exceptions.CurryError):
       from ... import toolchain
       from ...toolchain import plans
-      jsonfile = next((candidate for candidate in
-          reversed(_filenames.jsonfilenames(h.icurry.filename))
-          if os.path.isfile(candidate)), None)
-      if jsonfile is None:
-        plan = plans.makeplan(interp,
-            plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON)
-        jsonfile = toolchain.makecurry(plan, h.icurry.filename,
+      icyfile = _filenames.icurryfilename(h.icurry.filename)
+      if not os.path.isfile(icyfile):
+        plan = plans.makeplan(interp, plans.MAKE_ICURRY)
+        icyfile = toolchain.makecurry(plan, h.icurry.filename,
             currypath or interp.path, is_sourcefile=True)
-      path, _ = ensure(interp, jsonfile, currypath, importing=True)
+      path, _ = ensure(interp, icyfile, currypath, importing=True)
     result[name] = digest(path)
   return result
 
@@ -371,8 +369,8 @@ def _write(interp, module, path, imports, builtins):
   return path
 
 
-def ensure(interp, jsonfile, currypath=None, importing=False):
-  source = _filenames.curryfilename(jsonfile)
+def ensure(interp, icyfile, currypath=None, importing=False):
+  source = _filenames.sourcefilename(icyfile)
   path = _path(interp, source)
   if not importing:
     from . import tiered
@@ -389,7 +387,7 @@ def ensure(interp, jsonfile, currypath=None, importing=False):
   from ...toolchain._curry2icurry import in_system_library
   if not writable(source) or (importing and in_system_library(source)):
     path = _private_path(interp, source)
-  raw = _loadcurry.loadjson(jsonfile)
+  raw = _loadcurry.loadicurry(icyfile)
   interp.import_(raw.imports, currypath=currypath)
   imports = _import_images(interp, raw.imports, currypath)
   toolchain.mergebuiltins(raw, interp.backend)
@@ -415,11 +413,11 @@ def ensure(interp, jsonfile, currypath=None, importing=False):
     return path, _check(interp, source, path, imports)
 
 
-def load(interp, jsonfile, currypath=None):
+def load(interp, icyfile, currypath=None):
   while True:
-    path, header = ensure(interp, jsonfile, currypath, importing=True)
+    path, header = ensure(interp, icyfile, currypath, importing=True)
     try:
-      return attach(interp, _filenames.curryfilename(jsonfile), path, header)
+      return attach(interp, _filenames.sourcefilename(icyfile), path, header)
     except ValueError as exc:
       if 'image changed before attachment' not in str(exc):
         raise
@@ -437,7 +435,7 @@ def current(interp, source, currypath=None):
   except (OSError, ValueError, KeyError, exceptions.CurryError):
     return None
   try:
-    return attach(interp, source, path, header)
+    return attach(interp, _filenames.sourcefilename(source), path, header)
   except ValueError as exc:
     if 'image changed before attachment' not in str(exc):
       raise

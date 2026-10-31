@@ -15,7 +15,7 @@ from curry import common, config, exceptions, icurry
 from curry.backends.cxx import compiler
 from curry.backends.cxx import curryrtbindings as curryrt
 from curry.objects.handle import getHandle
-from curry.toolchain._loadcurry import loadjson
+from curry.toolchain._loadcurry import loadicurry
 import collections, curry, os, re, shutil, subprocess, tempfile, unittest
 
 # The undefined symbols a module of the old format imported for its metadata
@@ -331,9 +331,9 @@ class TestFunctionNames(cytest.TestCase):
     M = getHandle(interp.prelude).backend_handle
     jsonfile = os.path.join(
         config.system_curry_path(), '.curry', config.intermediate_subdir()
-      , 'Prelude.json.z'
+      , 'Prelude.img'
       )
-    imodule = loadjson(jsonfile)
+    imodule = loadicurry(jsonfile)
     builtins = []
     for name in imodule.functions:
       info = M.get_builtin_symbol(name)

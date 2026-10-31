@@ -36,7 +36,7 @@ import qualified Control.Search.AllValues as A
         text = icurry.readcurry.load(str(pinned))
         installed = pathlib.Path(config.system_curry_path()) / 'Control/Search/.curry'
         installed = installed / config.intermediate_subdir()
-        data = icurry.json.loads(zlib.decompress((installed / (name + '.json.z')).read_bytes()))
+        data = icurry.readcurry.load(str(installed / (name + '.icy')))
         expected = text if config.frontend_version() == '3.1.0' else \
             icurry.readcurry.load(str(installed / (name + '.icy')))
         self.assertEqual(expected, data)

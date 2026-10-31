@@ -269,7 +269,7 @@ class TestReloadAfterCompiledObject(cytest.TestCase):
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:off'
     env['CURRYPATH'] = self.tmpdir
     cmd = cytest.limit_prefix(self.ADDRESS_SPACE, self.TIMEOUT) + [
-        config.installed_path('bin', 'sprite-make'), '--so', '-z', 'ReloadBinding'
+        config.installed_path('bin', 'sprite-make'), '--so', 'ReloadBinding'
       ]
     proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
