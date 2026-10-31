@@ -28,6 +28,10 @@ Release Notes
   (#176); a compiled module reloaded after a reset runs its compiled steps
   (#177); a failed system-library check at import raises ``ImportError``
   with the reason instead of exiting silently (#174).
+- ``SPRITE_LOG_FILE`` and ``SPRITE_LOG_LEVEL`` configure a handler on the
+  logger ``curry``, which keeps its ``NullHandler`` without them; at INFO
+  the package logs its own decisions: how each module runs and why, the
+  background compiles, the caches, the front end's runs.
 - The README and the documentation state the ways Curry code runs:
   compiled ahead of time, embedded, interpreted, or compiled just in time.
 
