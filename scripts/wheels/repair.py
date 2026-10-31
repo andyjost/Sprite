@@ -270,7 +270,7 @@ def inspect_wheel_windows(wheel, vendored=None):
     assert names.count('curry/_sprite/lib/libcurryrt.dll') == 1, names
     assert any('_curryrtbindings.' in n and n.endswith('.pyd') for n in names), names
     assert not any(n.endswith('.so') or 'libcurryrt-' in n for n in names), names
-    libs = [n for n in names if '.libs/' in n]
+    libs = [n for n in names if '.libs/' in n and not n.endswith('/')]
     assert all(n.startswith('curry.libs/') and n.rsplit('/', 1)[1].lower() in WINDOWS_VENDORED
                for n in libs), libs
     if vendored is True:
