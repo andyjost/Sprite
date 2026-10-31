@@ -35,7 +35,7 @@ PAKCS
     Curry to FlatCurry, and the test oracle.  The default configuration is front end 3.1.0 with PAKCS
     3.10.0. Front end 2.0.0 with PAKCS 3.4.1 remains supported, with advisory
     ``legacy-tools`` Linux unit and functional shards. Front-end packages
-    are 2.0.0.post6 and 3.1.0.post1, with separate parity references; the
+    are 2.0.0.post6 and 3.1.0.post2, with separate parity references; the
     distribution ``curry`` depends on 3.1.0, the version of its pinned
     library products, which 2.0.0 cannot read.
 

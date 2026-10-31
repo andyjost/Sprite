@@ -230,11 +230,11 @@ class TestCurrentFrontend(unittest.TestCase):
   def test_local_current_wheel(self):
     wheel = pathlib.Path(os.environ['CURRY_FRONTEND_TEST_WHEEL']).resolve()
     with zipfile.ZipFile(wheel) as archive:
-      metadata = archive.read('curry_frontend-3.1.0.post1.dist-info/METADATA').decode()
-      self.assertIn('Version: 3.1.0.post1\n', metadata)
+      metadata = archive.read('curry_frontend-3.1.0.post2.dist-info/METADATA').decode()
+      self.assertIn('Version: 3.1.0.post2\n', metadata)
       info = json.loads(archive.read('curry_frontend/build-info.json'))
       self.assertEqual(info['version'], '3.1.0')
-      self.assertEqual(info['packaging_version'], '3.1.0.post1')
+      self.assertEqual(info['packaging_version'], '3.1.0.post2')
       self.assertIn('curry_frontend/licenses/LICENSE.curry-frontend', archive.namelist())
       if 'libgmp.so.10' in info['needed']:
         self.assertIn('curry_frontend/bin/libgmp.so.10', archive.namelist())
