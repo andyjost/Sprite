@@ -480,17 +480,22 @@ class TestScheduler(SchedulerTests):
       child.stdout.close()
 
   def test_width_two_runs_two_at_once(self):
-    jobs = [
-        self.pyjob('s%d.py' % i, 'import time; time.sleep(1)') for i in range(2)
-      ]
-    sched = self.run_jobs(jobs, width=2)
-    self.assertLess(sched.wall, 1.9)
-    self.assertTrue(all(job.ok for job in jobs))
+    # The serial run first: the saving of the parallel run is measured
+    # against it, so a slow start of Python on a loaded machine (an Intel
+    # macOS runner took 2.3 s for the two jobs at width two) does not fail
+    # the test; two one-second jobs side by side still save most of a second.
     jobs = [
         self.pyjob('t%d.py' % i, 'import time; time.sleep(1)') for i in range(2)
       ]
-    sched = self.run_jobs(jobs, width=1)
-    self.assertGreater(sched.wall, 1.9)
+    serial = self.run_jobs(jobs, width=1)
+    self.assertGreater(serial.wall, 1.9)
+    self.assertTrue(all(job.ok for job in jobs))
+    jobs = [
+        self.pyjob('s%d.py' % i, 'import time; time.sleep(1)') for i in range(2)
+      ]
+    parallel = self.run_jobs(jobs, width=2)
+    self.assertLess(parallel.wall, serial.wall - 0.5)
+    self.assertTrue(all(job.ok for job in jobs))
 
   def test_budget_serializes_two_big_files(self):
     jobs = [
