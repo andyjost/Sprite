@@ -15,7 +15,8 @@ wheels for Linux x86-64 and aarch64 and for macOS 15 or newer on Python
 
 The work happens on `master`. The refresh for current tools (Python
 3.14, PAKCS 3.4.1) was done on the branch `py314`, which `master` took
-over on 2026-10-17; `py314` stays as a frozen ref and is not pushed to.
+over on 2026-10-17; the branch was deleted on 2026-10-30, its history is
+in `master`.
 The Python API is the surface of the API review of October 2026:
 `curry/__init__.pyi` is the installed stub and `tests/unit_surface.py`
 checks the package against it. The files `tests/unit_flow_f*.py` and
@@ -328,5 +329,5 @@ reproducers pass.
   modules.
 - Work lands on `master`. A topic branch holds the progress of one lane
   until its merge (`--no-ff`) and is deleted, local and on origin, in
-  the same step; `py314` stays as a frozen ref.
+  the same step.
 - Keep commits free of machine-specific paths and environment details.
