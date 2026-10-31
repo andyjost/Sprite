@@ -61,11 +61,9 @@ class TestCommunityTypes(cytest.TestCase):
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertSameResultMultiset(actual, expected)
 
-  @unittest.expectedFailure
   def test_non_linear_function_pattern_just_zero(self):
     self.check_non_linear_function_pattern('justZeroGoal')
 
-  @unittest.expectedFailure
   def test_non_linear_function_pattern_just_failed(self):
     self.check_non_linear_function_pattern('justFailedGoal')
 

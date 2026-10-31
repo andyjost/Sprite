@@ -62,7 +62,9 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # object to the tables of an interpreted module.
 # Format 16: Int cases guard the inline representation and big constants
 # are constructed from decimal digits at module load.
-FORMAT_VERSION = 16
+# Format 17: calls inside a non-strict pattern retain their boundaries for
+# non-linear matching; an older object may have inlined those calls away.
+FORMAT_VERSION = 17
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure

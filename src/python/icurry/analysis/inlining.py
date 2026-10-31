@@ -629,8 +629,16 @@ class Inliner(object):
     '''The walk of ``expr``: a generator over the nested calls and choices.'''
     if isinstance(expr, types.ICall):
       exprs = []
-      for e in expr.exprs:
-        exprs.append((yield self._expr(e, pending, depth)))
+      # A functional pattern is inspected before its calls are evaluated.
+      # Erasing a call here changes which repeated occurrences require the
+      # non-linear matching rules (FP_Lifting.main3, issue #169).
+      pattern = len(expr.exprs) - 2 if (
+          isinstance(expr, types.IFCall)
+          and expr.symbolname in ('Prelude.=:<=', 'Prelude.nonstrictEq')
+          ) else -1
+      for index, e in enumerate(expr.exprs):
+        exprs.append(e if index == pattern else
+                     (yield self._expr(e, pending, depth)))
       expr.exprs = exprs
       if depth < self.depth:
         result = self.rules(expr, pending, depth)

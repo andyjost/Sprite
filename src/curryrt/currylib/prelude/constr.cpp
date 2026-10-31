@@ -1,4 +1,6 @@
 #include <cassert>
+#include <unordered_map>
+#include <vector>
 #include "curryrt/curryrt.hpp"
 #include "curryrt/currylib/prelude.hpp"
 #include "curryrt/exceptions.hpp"
@@ -8,6 +10,69 @@ using namespace curryrt;
 
 namespace curryrt { inline namespace
 {
+  extern InfoTable const linearMatch_Info;
+
+  // Linearize the exposed constructor pattern before any of its variables
+  // are bound. A repeated occurrence gets a fresh variable and a strict
+  // equality, checked after matching. Do not evaluate function arguments:
+  // their resulting patterns are handled when matching demands them.
+  static Node * linearize(RuntimeState * rts, Node * pattern, Node * & guards)
+  {
+    struct Frame { Node * node; Node * copy; index_type next; };
+    std::vector<Frame> stack{{pattern, pattern, 0}};
+    std::unordered_map<xid_type, Node *> variables;
+    Node * result = pattern;
+    while(!stack.empty())
+    {
+      Frame & frame = stack.back();
+      Node * node = frame.node;
+      while(node->info->tag == T_FWD)
+        node = NodeU{node}.fwd->target;
+      if(frame.copy == frame.node)
+        frame.copy = node;
+      frame.node = node;
+      if(node->info->tag == T_FREE)
+      {
+        auto inserted = variables.emplace(obj_id(node), node);
+        result = node;
+        if(!inserted.second)
+        {
+          result = rts->freshvar();
+          Node * eq = Node::create(&constrEq_Info, inserted.first->second, result);
+          guards = guards ? Node::create(&concurrentAnd_Info, guards, eq) : eq;
+        }
+      }
+      else if(node->info->tag >= T_CTOR)
+      {
+        while(frame.next < node->info->arity
+            && node->info->format[frame.next] != 'p')
+          ++frame.next;
+        if(frame.next < node->info->arity)
+        {
+          Node * child = node->successor_node(frame.next++);
+          stack.push_back({child, child, 0});
+          continue;
+        }
+        result = frame.copy;
+      }
+      else
+        result = frame.copy;
+      stack.pop_back();
+      if(!stack.empty())
+      {
+        Frame & parent = stack.back();
+        index_type const pos = parent.next - 1;
+        if(result != parent.node->successor_node(pos))
+        {
+          if(parent.copy == parent.node)
+            parent.copy = parent.node->copy();
+          parent.copy->successors()[pos].node = result;
+        }
+      }
+    }
+    return result;
+  }
+
   bool ub_equals(Cursor & lhs, Cursor & rhs)
   {
     if(lhs.kind != rhs.kind)
@@ -89,6 +154,7 @@ namespace curryrt { inline namespace
                            // cell makes its reduction quadratic.
                            if(info == &constrEq_Info
                                || info == &nonstrictEq_Info
+                               || info == &linearMatch_Info
                                || info == &concurrentAnd_Info)
                            {
                              _0->forward_to(_0->successor(1-i));
@@ -126,12 +192,20 @@ namespace curryrt { inline namespace
         return (NodeU{lhs.target}.float_->value == NodeU{rhs.target}.float_->value) ? True : Fail;
       default:
       {
-        Node * result = Node::create(_0->info, lhs[0], rhs[0]);
+        auto equation = [&](index_type i) {
+          InfoTable const * info = _0->info;
+          if(info == &linearMatch_Info
+              && (inspect::tag_of(lhs[i].target) < T_CTOR
+                  || !lhs[i].guards.empty()))
+            info = &nonstrictEq_Info;
+          return Node::create(info, lhs[i], rhs[i]);
+        };
+        Node * result = equation(0);
         for(index_type i=1; i<arity; ++i)
           result = Node::create(
               &concurrentAnd_Info
             , result
-            , Node::create(_0->info, lhs[i], rhs[i])
+            , equation(i)
             );
         return result;
       }
@@ -303,6 +377,18 @@ namespace curryrt { inline namespace
       }
       else if(tagl < T_CTOR)
         return tagl;
+      if(_0->info != &linearMatch_Info)
+      {
+        Node * guards = nullptr;
+        Node * pattern = linearize(rts, lhs.target, guards);
+        Node * match = Node::create(&linearMatch_Info, pattern, rhs.rvalue());
+        Node * result = guards
+            ? Node::create(&CyI7Prelude12BindingGuard, match, guards) : match;
+        for(Set * set: lhs.guards)
+          result = guard(set, result);
+        _0->forward_to(result);
+        return T_FWD;
+      }
     }
     if(code != 1)
     {
@@ -336,6 +422,13 @@ namespace curryrt { inline namespace
     }
     return T_FWD;
   }
+
+  // Constructor descendants have already been linearized by their parent.
+  // Keeping that fact in the equation avoids rescanning every list suffix.
+  InfoTable const linearMatch_Info {
+      T_FUNC, 2, sizeof(Node2), F_STATIC_OBJECT, "linearMatch", "pp"
+    , nonstrictEq_step, nullptr
+    };
 
   // The step of the &> of the runtime (CyI7Prelude12BindingGuard; see
   // prelude.hpp).

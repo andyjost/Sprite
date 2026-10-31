@@ -248,14 +248,17 @@ class TestStepMode(cytest.TestCase):
   # same under every rule.  D45 (2026-10-25) also fails mixed inside/outside
   # failure capsules: the steps stay the same, but it avoids 39858 forks
   # that the old deferred rule made (2112920, 511384).
-  COUNT_QUEENS_COUNTERS = (2112920, 471526)
+  # Non-linear matching (issues #165 and #169) keeps calls in functional
+  # patterns and linearizes their constructor results. The extra steps
+  # move the rotation points; countQueens still returns 92.
+  COUNT_QUEENS_COUNTERS = (2199184, 471438)
 
   def check_count_queens(self):
     '''countQueens 8 under the cadence of 65536 steps.'''
     if cytest.GC_STRESS:
       self.skipTest(
-          'collector stress mode: countQueens 8 takes 2.1 million steps over '
-          'the live state of its search; the stress mode repeats the counters '
+          'collector stress mode: countQueens 8 takes over two million steps '
+          'across the live state of its search; the stress mode repeats the counters '
           'of the default mode'
         )
     G = curry.import_('CxxGc')
@@ -267,7 +270,7 @@ class TestStepMode(cytest.TestCase):
   def test_counters_of_a_search(self):
     '''
     The counters of a search program under the cadence of 65536 steps, as
-    they were before time mode existed.  countQueens 8 crosses about 31
+    they were before time mode existed.  countQueens 8 crosses more than 30
     rotation periods with queues of several configurations inside its set
     functions; its steps and forks moved when the cadence last moved (the
     T4 entry of the TODO), when the inliner landed (the O2 and O3 entry:
