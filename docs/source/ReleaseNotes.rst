@@ -14,6 +14,11 @@ Release Notes
   at import with a message that names both files (#168); the fix of a
   lifted non-linear functional pattern that answered where the oracles
   fail is covered by a direct test (#169).
+- Non-linear functional patterns: the non-strict unification linearizes
+  the repeated variables of a pattern and checks them by strict equality
+  after the match, as PAKCS does, so ``isJust justZero`` of the PAKCS test
+  suite answers where it did not finish before (#165); the inliner keeps
+  the calls inside a pattern argument.
 - A JIT for the C++ backend: the bytecode of an interpreted function
   compiles to machine code through LLVM (``llvmlite``, the extra
   ``curry[jit]``).  The flag ``jit`` selects ``off``, ``eager`` or ``hot``;
