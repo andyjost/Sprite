@@ -129,6 +129,17 @@ def _stop_hot_tier():
   with _lock:
     pass
 
+def _after_fork_in_child():
+  # The threads of the parent do not exist in the child, and a lock that
+  # one of them held at the fork would never open: the child starts with a
+  # fresh lock and no hot thread, and the next start_hot_tier starts one.
+  global _lock, _hot_thread
+  _lock = threading.Lock()
+  _hot_thread = None
+
+if hasattr(os, "register_at_fork"):
+  os.register_at_fork(after_in_child=_after_fork_in_child)
+
 def _hot_loop():
   jit = _jit
   while True:
