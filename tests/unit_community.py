@@ -14,7 +14,7 @@ ROOT = pathlib.Path('data/curry/community')
 
 class TestCommunityTypes(cytest.TestCase):
   def load_fixture(self, path, name):
-    curry.path[:0] = [str(ROOT / path), str(ROOT / 'support')]
+    curry.path.insert(0, str(ROOT / path))
     return curry.import_(name)
 
   def assert_typed_value(self, expression, typename, value):
@@ -70,7 +70,6 @@ class TestCommunityTypes(cytest.TestCase):
     self.check_non_linear_function_pattern('justFailedGoal')
 
   def test_local_polymorphism(self):
-    curry.path.insert(0, str(ROOT / 'support'))
     curry.path.insert(0, str(ROOT / 'kics2-3.5.0-testsuite/SpecialTests'))
     module = curry.import_('TestPolySubExp')
     for name, expected, typename in (
@@ -85,7 +84,6 @@ class TestCommunityTypes(cytest.TestCase):
                    'front end 2.0.0 cannot parse multi-parameter classes')
   @cytest.with_flags(interpret='off')
   def test_multi_parameter_boundary(self):
-    curry.path.insert(0, str(ROOT / 'support'))
     curry.path.insert(0, str(ROOT / 'pakcs-3.10.0-testsuite/TypeclassTests'))
     module = curry.import_('TestMPTCCoerceGoals')
     source = ROOT / 'pakcs-3.10.0-testsuite/TypeclassTests/TestMPTCCoerceGoals.curry'
@@ -130,13 +128,13 @@ class TestCommunityLoading(cytest.TestCase):
 
   def test_frontend_pakcs_prelude(self):
     # Issue #168: a namesake of a library module (the front end's own Prelude
-    # fixture) loads the library's symbols.
+    # fixture) is refused with both paths in the diagnostic.
     from unit_community_compile import check_source
     check_source(self, 'Prelude.curry')
 
 
 # Issue #168: a module named like the prefix of its hierarchical siblings
-# recurses in the importer.
+# must not recurse in the importer.
 # Keep one bounded assertion for every affected source.
 for filename in ('InstanceExport.curry', 'InstanceExport/M.curry',
                  'InstanceExport/N.curry', 'InstanceExport/O.curry',

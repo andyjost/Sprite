@@ -3,7 +3,7 @@
 from ... import config, icurry, objects, toolchain, utility
 from . import load
 from ...objects.handle import getHandle
-from ...toolchain import plans, _findcurry
+from ...toolchain import plans, _filenames, _findcurry
 from ...utility.binding import binding
 from ...utility import curryname, formatDocstring, visitation
 import collections.abc, contextlib, logging, os, warnings
@@ -51,10 +51,11 @@ def import_(interp, name, currypath=None, is_sourcefile=False):
     _findcurry.reject_library_shadow(modulename, name, interp)
   elif modulename in config.syslibs():
     path = curryname.makeCurryPath(interp.path if currypath is None else currypath)
-    filename = next(utility.filesys.findfiles(
-        path, modulename.replace('.', os.sep) + '.curry'), None)
-    if filename is not None:
-      _findcurry.reject_library_shadow(modulename, filename, interp)
+    plan = plans.makeplan(interp, plans.MAKE_ALL | plans.ZIP_JSON)
+    filename = next(_findcurry._modulefiles(plan, modulename, path), None)
+    if filename is not None and not os.path.isdir(filename):
+      _findcurry.reject_library_shadow(
+          modulename, _filenames.curryfilename(filename), interp)
   moduleobj = interp.modules.get(modulename)
   if moduleobj is None or isinstance(moduleobj, objects.CurryPackage):
     importEx = ImportEx(interp, currypath)

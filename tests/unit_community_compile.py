@@ -30,7 +30,8 @@ def current_only(source):
 
 
 def support_paths(source):
-  return [str(source.parent), str(ROOT / 'support')]
+  # The installed Test.Prop hierarchy loads now; a local namesake is refused.
+  return [str(source.parent)]
 
 
 @contextlib.contextmanager
@@ -72,8 +73,10 @@ def check_source(self, filename):
     proc = cytest.run_in_subprocess(code, timeout=60, address_space=2 << 30)
     if source.name == 'Prelude.curry':
       self.assertNotEqual(proc.returncode, 0)
-      self.assertIn("Curry module 'Prelude' conflicts with the installed library module.",
-                    proc.stderr)
+      self.assertIn("Curry module 'Prelude'", proc.stderr)
+      self.assertIn('conflicts with the installed library module', proc.stderr)
+      self.assertIn(str(local), proc.stderr)
+      self.assertIn(config.installed_path('curry', 'Prelude.curry'), proc.stderr)
       return
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     # Verify the fixture was loaded rather than an installed namesake.
