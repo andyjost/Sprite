@@ -150,12 +150,10 @@ for filename in ('InstanceExport.curry', 'InstanceExport/M.curry',
 
 
 class TestCommunityRegressions(cytest.TestCase):
-  @unittest.expectedFailure
   @cytest.with_flags(interpret='off')
   def test_default_rule_blocks_solver(self):
-    # Issue #172: both PAKCS oracles enumerate six finite two-block
-    # solutions. Sprite does not finish the search; retain a bounded
-    # reproducer for review.
+    # Issue #172: preserve sharing across the default rule's set test.
+    # Both PAKCS oracles enumerate these six finite two-block solutions.
     source = ROOT / 'tutorial/chapter6/BetterBlocksGoals.curry'
     reason = _preprocessor.missing(source.with_name('betterblocks.curry'))
     if reason:

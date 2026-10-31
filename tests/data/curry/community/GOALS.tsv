@@ -346,3 +346,4 @@ tutorial/chapter4/poker.curry	tutorial/chapter4/poker.curry	main	not stated by s
 tutorial/chapter6/betterblocks.curry	tutorial/chapter6/BetterBlocksGoals.curry	moveToFinal	not stated by source	one-block preferred move
 tutorial/chapter6/betterblocks.curry	tutorial/chapter6/BetterBlocksGoals.curry	fallbackMove	not stated by source	two alternatives of the default move
 tutorial/chapter6/betterblocks.curry	tutorial/chapter6/BetterBlocksGoals.curry	noMoveFromFinal	no values	no legal move away from the completed goal
+tutorial/chapter6/betterblocks.curry	tutorial/chapter6/BetterBlocksGoals.curry	solveSimple	not stated by source	six solutions of the two-block problem

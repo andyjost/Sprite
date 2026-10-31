@@ -33,13 +33,10 @@ choice_escapes and split_queue of the former runtime).  So a capsule that
 starts before the variable is narrowed, is consumed in part, and resumes
 under alternatives that narrowed the variable differently gives each
 alternative its side (test_narrowed_after_start and TestResumedCapsule).
-Two more rules keep a configuration from writing the side of a choice that
-the outside decided into state the alternatives share: a choice in no escape
-set that an enclosing configuration decided, a captured occurrence, escapes
-as well, and a configuration takes the side of an escaped choice at once
-only when it owns the decision (owns_decision): it made the choice, or its
-queue was split on it.  Otherwise the choice node escapes in turn, up to the
-configuration that decided it.
+A choice in no escape set that an enclosing configuration decided, a
+captured occurrence, escapes as well. The escaped choice stays in the
+shared graph and escapes in turn up to the configuration that decided it.
+Pruning it through a private caller spine lost call-time sharing (#172).
 
 Issue #32: a set function whose values are sub-terms of its guarded argument
 put the guard at the root of the nested configuration, where the C++
@@ -323,8 +320,7 @@ class TestResumedCapsule(cytest.TestCase):
   def test_outer_capsule_alive(self):
     '''
     The escape from the inner capsule reaches a configuration of the outer
-    capsule, which both alternatives share.  That configuration owns no
-    decision of the choice (owns_decision), so it escapes the choice in
+    capsule, which both alternatives share. It escapes the choice in
     turn instead of taking the side of the alternative that runs it.
     Before the test both alternatives got [A, A].
     '''
@@ -590,6 +586,42 @@ print(json.dumps(results))
     for values in self.results:
       self.assertEqual(len(values), 1)
       self.assertEqual(values, ['Short'])
+
+
+class TestDefaultRuleSharing(cytest.TestCase):
+  # The set test of a preprocessed default rule, followed by a choice.
+  # Reading the shared result twice must reuse that choice. No functional
+  # patterns, free variables, or preprocessor are needed to expose #172.
+  SOURCE = '''
+import Control.SetFunctions
+data P = P Bool Bool
+applicable :: P -> ()
+applicable (P True _) = ()
+fallback x | isEmpty (set1 applicable x) = P False True ? P False False
+first (P a _) = a
+main = let w = P False True ? P False False
+           x = fallback w
+       in if first w then failed else
+          if first x then failed else (x,x)
+'''
+
+  def test_shared_result_after_set_test(self):
+    expected = sorted(['(P False True, P False True)',
+                       '(P False False, P False False)'] * 2)
+    for mode in ('off', 'all'):
+      for checked in (False, True):
+        with self.subTest(interpret=mode, checker=checked):
+          code = '''
+import curry, json
+curry.reset(interpret=%r, checker=%r)
+module = curry.compile(%r, name='DefaultRuleSharing')
+print(json.dumps(sorted(curry.show(v) for v in curry.eval(module.main))))
+''' % (mode, checked, self.SOURCE)
+          proc = cytest.run_in_subprocess(code, TIMEOUT,
+                                         address_space=ADDRESS_SPACE)
+          self.assertEqual(proc.returncode, 0, proc.stderr)
+          self.assertSameResultMultiset('\n'.join(json.loads(proc.stdout)),
+                                        '\n'.join(expected))
 
 
 if __name__ == '__main__':
