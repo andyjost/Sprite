@@ -882,7 +882,9 @@ class TestFiles(cytest.TestCase):
   def test_route_version(self):
     '''The lift joined the step with version 2 of the route, in the key of
     the ICurry cache.'''
-    self.assertEqual(_frontend.ROUTE_VERSION, 6)
+    # 7 (2026-10-30): the community corpus resolves Test.Prop to the
+    # installed library (#168); the arities of its products changed.
+    self.assertEqual(_frontend.ROUTE_VERSION, 7)
     self.assertEqual(cache.route_version(), 6)
     self.assertIn('setlift.py', cache.REWRITE_SOURCES)
     key = lambda: cache.icurry_cache_key(self.curryfile, [self.tmpdir], (), 'frontend')
