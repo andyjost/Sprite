@@ -28,7 +28,9 @@ class TestSearchSetFunctions(cytest.TestCase):
     if config.frontend_subdir() == 'pakcs-3.4.1':
       self.skipTest('PAKCS 3.4.1 refuses Control.Search.SetFunctions; '
                     'goldens are from PAKCS 3.10.0')
-    curry.path[:0] = [str(source.parent), str(ROOT / 'community/support')]
+    # The installed Test.Prop hierarchy loads; the corpus's namesake under
+    # community/support is refused since #168.
+    curry.path[:0] = [str(source.parent)]
     curry.import_(source.stem)
     with oracle_source(source) as (oracle_module, work):
       for goal in goals:
