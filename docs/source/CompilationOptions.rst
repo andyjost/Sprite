@@ -141,15 +141,3 @@ bindings of the runtime answer for a function::
 
     >>> from curry.backends.cxx import curryrtbindings as rt
     >>> rt.icurry_is_interpreted(M.f.info), rt.icurry_is_jit(M.f.info)
-
-What comes next
-===============
-
-The stages between the Curry source and the bytecode are being redesigned
-(October 2026): the ICurry of a module will be stored as a binary image
-that the runtime reads directly, the optimizer passes will run once at
-translation time, and the compiled code of the JIT will be cached beside
-the module.  The flags of this page and the three ways to run a function
-stay; the start of an interpreted module becomes much faster.  The plan
-is recorded in the project's notes; the pipeline page describes the stages
-as they are today.

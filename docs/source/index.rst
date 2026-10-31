@@ -5,12 +5,15 @@ Sprite
 ======
 
 Sprite is an implementation of the multi-paradigm programming language
-`Curry`_ exposed to Python. It seamlessly integrates features of functional
+`Curry`_, embedded in Python. It seamlessly integrates features of functional
 programming (algebraic data types, pattern matching, strong typing, type
 inference, lazy evaluation) and logic programming (nondeterminism, logic
 variables, search) into your Python project without adding heavy dependencies.
-You state what a desired value has to satisfy and leave the search to Sprite.
-As a result, many programs are trivial to construct and obviously correct.
+The functional side rests on a powerful and efficient term rewriting engine: a
+program is a set of rewrite rules, applied lazily and only as far as a result
+demands. For the logic side, you state what a desired value has to satisfy and
+leave the search to Sprite. As a result, many programs are trivial to construct
+and obviously correct.
 Sprite's evaluation strategy, the Fair Scheme, is proved sound, complete, and
 optimal, meaning it finds exactly the values of any expression, and it
 executes only the steps needed to produce them. The strategy and its proofs
@@ -20,10 +23,10 @@ Curry imports directly into Python. Your project uses it at whatever granularity
 it chooses, freely mixing imperative, functional, and logic styles. In other
 words, you always get to use the best tool exactly where it makes sense.
 
-Curry code can be compiled ahead of time, :doc:`embedded in an application
-<PythonAPI/UsingTheAPI>` as a saved object or program, interpreted where no
-compiler is installed, or compiled just in time. You choose per deployment; the
-evaluation is the same in each.
+Curry code runs the way Python code does: import it and it runs, with no build
+step and no compiler. For speed, the same code compiles to native machine code,
+just in time as the program runs or ahead of time into an object you can
+:doc:`embed in an application <PythonAPI/UsingTheAPI>`.
 
 Sprite is in alpha. Install it with ``pip install --pre curry``. Try it and
 tell us what breaks on the `issue tracker`_.
@@ -59,7 +62,7 @@ import it, construct a formula, and render it as a string:
    goal = L.render(formula)
    curry.eval(goal).one()             # the one value: '((T | F) & !F)'
 
-The import compiles the Curry module to native code and loads it. The
+The import translates the Curry module and loads it. The
 constructors of ``Formula`` appear as ``L.T``, ``L.And``, and so on.
 ``L.render(formula)`` builds an expression without running it, ``curry.eval``
 evaluates it, and Sprite converts the result to a Python string.
