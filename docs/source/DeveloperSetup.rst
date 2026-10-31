@@ -34,7 +34,7 @@ PAKCS 3.4.1 with front end 2.0.0, using its pinned archive checksum::
     PAKCS_VERSION=3.4.1 scripts/setup-dev-machine.sh --prefix /path/to/scratch
 
 Both pairs are supported. The standalone front-end wheels are 2.0.0.post6
-and 3.1.0.post1; this script uses the binary shipped by the selected PAKCS
+and 3.1.0.post2; this script uses the binary shipped by the selected PAKCS
 instead. CI runs the legacy Linux unit and functional shards as advisory
 ``legacy-tools`` jobs.
 

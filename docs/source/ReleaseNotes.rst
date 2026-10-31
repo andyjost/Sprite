@@ -2,14 +2,15 @@
 Release Notes
 =============
 
-0.9.0a3 (unreleased)
+0.9.0a3 (2026-10-31)
 ====================
 
 - Windows: the runtime and the bindings build with clang-cl on
   windows-2025 and every module runs interpreted there; wheels for Windows
   x64, CPython 3.11 to 3.15 with the free-threaded 3.14t, which vendor the
   C and C++ runtimes of Visual Studio; the front end's Windows wheel is
-  built and gated by the same workflow and ships with its next release.
+  built and gated by the same workflow and ships as ``curry-frontend``
+  3.1.0.post2, on PyPI since 2026-10-31.
 - A user module named like any module of the installed library is refused
   at import with a message that names both files (#168); the fix of a
   lifted non-linear functional pattern that answered where the oracles

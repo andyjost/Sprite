@@ -9,9 +9,10 @@ https://doi.org/10.15760/etd.3564
 
 The default tool pair is front end 3.1.0 with PAKCS 3.10.0; CI keeps
 front end 2.0.0 with PAKCS 3.4.1 in advisory `legacy-tools` shards.
-The distribution `curry` 0.9.0a2 is on PyPI since 2026-10-27, with
-wheels for Linux x86-64 and aarch64 and for macOS 15 or newer on Python
-3.11 to 3.15, and `curry-frontend` 3.1.0.post1 for the same platforms.
+The distribution `curry` 0.9.0a3 is the current release (the tag of
+2026-10-31), with wheels for Linux x86-64 and aarch64, macOS 15 or newer
+and Windows x64 on Python 3.11 to 3.15, and `curry-frontend` 3.1.0.post2
+for the same platforms, on PyPI since 2026-10-31.
 
 The work happens on `master`. The refresh for current tools (Python
 3.14, PAKCS 3.4.1) was done on the branch `py314`, which `master` took

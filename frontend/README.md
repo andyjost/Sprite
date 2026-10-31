@@ -14,7 +14,7 @@ workflow after reviewing the source-build artifacts.
 | Program | Package | Source | Stack resolver | GHC |
 | --- | --- | --- | --- | --- |
 | 2.0.0 | 2.0.0.post6 | PAKCS 3.4.1 source archive | lts-16.9 on Linux x86-64 | 8.8.3; Cabal with 9.6.7 on aarch64/macOS |
-| 3.1.0 | 3.1.0.post1 | cau-placc/curry-frontend tag v3.1.0 on GitHub | lts-23.19 on both Linux architectures | 9.8.4 expected; Stack must confirm against the locked snapshot |
+| 3.1.0 | 3.1.0.post2 | cau-placc/curry-frontend tag v3.1.0 on GitHub | lts-23.19 on both Linux architectures | 9.8.4 expected; Stack must confirm against the locked snapshot |
 
 `fetch.py` pins the URLs and SHA-256 values for both sources. The 3.1.0
 archive pin is `13d68be89369a3fdfd1ef2d6e8d4657ab286876f9063bb0b27332de54c6be75c`.
@@ -86,7 +86,7 @@ wheels. The conda package is unchanged.
 The native payload installs in platlib as `py3-none-PLATFORM`, with a Python
 console script that replaces its process with the executable. Direct
 `setup.py` builds default to 2.0.0.post6; `CURRY_FRONTEND_VERSION=3.1.0`
-selects 3.1.0.post1. `package.py` sets it from the validated binary.
+selects 3.1.0.post2. `package.py` sets it from the validated binary.
 Packaging revisions increment `.postN`; the program's `--numeric-version`
 stays 2.0.0 or 3.1.0 respectively.
 

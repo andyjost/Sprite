@@ -9,7 +9,7 @@ PyPI wheels and source distribution
 -----------------------------------
 
 The ``curry`` package provides Sprite and is imported as ``curry``.
-The current release is ``0.9.0a2`` (alpha). Install it with::
+The current release is ``0.9.0a3`` (alpha). Install it with::
 
   python -m pip install --pre curry
 
