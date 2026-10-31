@@ -17,11 +17,6 @@ from unit_community_compile import (
   )
 
 ROOT = pathlib.Path('data/curry/community')
-# Reproduced with a 30-second bound; unit_community retains an expected failure.
-RUNTIME_FAILURES = {
-    'justZeroGoal': 'non-linear functional pattern loops (unit_community)'
-  , 'justFailedGoal': 'non-linear functional pattern loops (unit_community)'
-  }
 with (ROOT / 'GOALS.tsv').open() as stream:
   GOALS = list(csv.DictReader(stream, delimiter='\t'))
 
@@ -83,10 +78,6 @@ def check_goals(self, source, entries, module, work, runtime_source=None):
         record(entry, current, 'skipped: oracle rejection')
         self.skipTest(expected.partition('\n')[2].strip()
                       or 'oracle rejected the goal without a diagnostic')
-      if source.stem == 'TestFuncPatternGoals' and goal in RUNTIME_FAILURES:
-        self.assertSameResultMultiset(current, expected)
-        record(entry, current, 'known runtime timeout; see unit_community')
-        self.skipTest(RUNTIME_FAILURES[goal])
       # A community example may expose a looping or crashing runtime defect.
       # Keep that goal within the runner's process limits and give it a timeout.
       proc, actual = sprite_results(runtime_source or source, goal)

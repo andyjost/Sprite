@@ -328,7 +328,10 @@ the implementation; the memo states them in its sections 2.1 to 2.5):
   is free in the configuration against a constructor alone; two free
   variables make a constraint cell, and a free left side of ``=:<=`` takes
   the right side as a binding without a step at it (Def 2.62 (equality
-  step); issue #129).  A step of ``=:=`` that meets a decided variable and
+  step); issue #129).  Repeated variables in an exposed constructor pattern
+  are linearized with strict equality guards, and calls inside the pattern
+  retain their boundaries through inlining (issues #165 and #169).
+  A step of ``=:=`` that meets a decided variable and
   a variable that is free in the configuration records the pair: it
   neither narrows the free one against the instance nor replaces the
   decided one by its generator (decision D25 of 2026-10-12).
