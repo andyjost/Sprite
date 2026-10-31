@@ -13,7 +13,7 @@ scheduler and with the same rewrite steps as compiled code (the interpreter
 flag ``interpret``; see :doc:`/CompilationOptions`).  So an
 installation without a C++ compiler runs every Curry program.
 
-The build itself needs the compiler: CMake finds ``g++``, and
+The build itself needs the compiler: CMake finds a C++ compiler, and
 ``make stage`` compiles the runtime library and the Curry library.  An
 installation without a compiler is one that moved to another machine, or a
 package such as the conda package of ``conda/README.md`` installed without
@@ -63,9 +63,10 @@ whole modules in a child process after the first hot function. With
 neither backend, the interpreter runs alone and the ``curry`` logger emits
 one WARNING notice per process: ``jit: no backend, interpreter only``
 with the missing prerequisites. ``jit:off`` keeps interpreted functions
-interpreted. Forced ``jit_backend:llvm`` or ``jit_backend:gxx`` fails at
+interpreted. Forced ``jit_backend:llvm`` or ``jit_backend:cxx`` fails at
 reset or first import if unavailable; the error names ``pip install
-curry[jit]`` or a C++ compiler. gxx is unavailable on Windows.
+curry[jit]`` or a C++ compiler. The C++ compiler backend is unavailable on
+Windows.
 
 The flags are set in ``SPRITE_INTERPRETER_FLAGS``; see
 :doc:`/CommandLineInterface/EnvironmentVariables`.
@@ -90,7 +91,7 @@ Adding a compiler later
 
 Install ``g++`` (``sudo apt-get install g++`` on Debian and Ubuntu).  In a
 source tree, configure CMake with ``-DWITH_CXX_POSTINSTALL=PATH``,
-or let it find ``g++`` on ``PATH``, and run ``make stage``: the staged
+or let it find a C++ compiler on ``PATH``, and run ``make stage``: the staged
 installation gets its ``tools/cxx``, and the next run without llvmlite compiles hot modules
 in the background and swaps to the compiled code when the objects are
 ready.  ``CMake WITH_CCACHE`` puts ccache in front of that compiler;

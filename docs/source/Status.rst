@@ -45,11 +45,11 @@ The interpreter modes
 =====================
 
 A function runs interpreted, compiled just in time (LLVM through
-``llvmlite``, or the generated C++ with ``g++`` in a child process) or
+``llvmlite``, or the generated C++ through the C++ compiler in a child process) or
 compiled ahead of time; the flags ``interpret``, ``jit`` and
 ``jit_backend`` choose, and what is installed decides what ``auto`` can
 choose.  :doc:`CompilationOptions` describes the flags, the platforms and
-how to watch the choice; the gxx backend keeps the publication protocol of
+how to watch the choice; the C++ compiler backend keeps the publication protocol of
 #173.
 
 The typed boundary
@@ -101,7 +101,7 @@ Known limits
   comparison of it resolves the narrowing again; read such a result
   through a set function (issue #86; the note in
   :ref:`CurryPrimer/Syntax:Pattern Matching`).
-* The gxx hot tier has gaps.  A swapped module keeps
+* The hot tier of the C++ compiler backend has gaps.  A swapped module keeps
   its registry entry for the life of the process, so a later load of the
   same name from another directory is refused, before the object is
   opened.  :func:`curry.load` of the object of a module whose background

@@ -57,5 +57,5 @@ Run a Curry source program, or open the Curry REPL with no argument::
     python -m curry MyProgram.curry
     python -m curry
 
-A C++ compiler (``g++``) is optional. Without one, new modules run interpreted;
+A C++ compiler is optional. Without one, new modules run interpreted;
 see :doc:`WithoutCompiler`.

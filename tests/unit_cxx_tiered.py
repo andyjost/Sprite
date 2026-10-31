@@ -1,5 +1,5 @@
 '''
-Tests for the gxx worker, safepoint adoption and publication.
+Tests for the cxx worker, safepoint adoption and publication.
 
 The worker tests dispatch armed jobs immediately to isolate publication,
 loader and table-lifetime regressions. unit_jit covers the actual hot
@@ -86,14 +86,14 @@ class TieredTestCase(cytest.TestCase):
     self.tmpdir = tempfile.mkdtemp(prefix='sprite-tiered-test-')
     # Exercise worker/publication regressions without waiting for hot calls.
     # Actual threshold gating is covered in unit_jit.
-    arm = curryrt.gxx_arm
+    arm = curryrt.cxx_arm
     def dispatch(name, *args):
       # Expressions remain cold in these worker-only regression fixtures.
       return (arm if config.is_expression_modname(name) else curryrt.tiered_submit)(name, *args)
-    patch = mock.patch.object(curryrt, 'gxx_arm', side_effect=dispatch)
+    patch = mock.patch.object(curryrt, 'cxx_arm', side_effect=dispatch)
     patch.start()
     self.addCleanup(patch.stop)
-    self.switch('gxx')
+    self.switch('cxx')
 
   def switch(self, mode, **flags):
     '''
@@ -103,9 +103,9 @@ class TieredTestCase(cytest.TestCase):
     its module objects first (see unit_cxx_interp.switch).
     '''
     gc.collect()
-    flags.setdefault('jit', 'hot' if mode == 'gxx' else 'off')
-    flags.setdefault('jit_backend', 'gxx')
-    curry.reset(**dict(flags, backend='cxx', interpret='new' if mode == 'gxx' else mode))
+    flags.setdefault('jit', 'hot' if mode == 'cxx' else 'off')
+    flags.setdefault('jit_backend', 'cxx')
+    curry.reset(**dict(flags, backend='cxx', interpret='new' if mode == 'cxx' else mode))
     # The old interpreter is garbage now; its modules go before a module of
     # the same name is made again.
     gc.collect()
@@ -308,8 +308,8 @@ class TestSwap(TieredTestCase):
     self.assertEqual(self.py(M.loop, 10), 0)
 
   @cytest.hardreset
-  def test_llvm_flush_preserves_a_ready_gxx_swap(self):
-    # A gxx result can arrive between the foreground poll and LLVM flush.
+  def test_llvm_flush_preserves_a_ready_cxx_swap(self):
+    # A cxx result can arrive between the foreground poll and LLVM flush.
     # Its wakeup must survive that flush until the scheduler reaches it.
     from curry.backends.cxx import llvmjit
     M = self.fresh_module()
@@ -369,7 +369,7 @@ class TestSwap(TieredTestCase):
     self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
     bindings = tiered.status()['bindings']
     M = None
-    self.switch('gxx')
+    self.switch('cxx')
     # The object exists now, so a plain import loads it compiled.  Remove
     # it: the module is interpreted again, from the JSON beside the
     # generated file, and the compile starts from that file.  The tables of
@@ -403,7 +403,7 @@ class TestSwap(TieredTestCase):
     self.assertEqual(self.py(M.bump, 1), 2)
     M = None
     self.edit_module(name, text % 2)
-    self.switch('gxx')
+    self.switch('cxx')
     M = self.import_module(name)
     self.assertEqual(M.bump.info.address, address)
     self.assertTrue(curryrt.icurry_is_interpreted(M.bump.info))
@@ -438,7 +438,7 @@ class TestSwap(TieredTestCase):
     self.assertTrue(os.path.isfile(self.stamp(dep)))
     D = B = None
     self.edit_module(base, base_text % 2)
-    self.switch('gxx')
+    self.switch('cxx')
     D = self.import_module(dep)
     B = curry.import_(base)
     self.assertTrue(curryrt.icurry_is_interpreted(B.g.info))
@@ -535,7 +535,7 @@ class TestSwap(TieredTestCase):
     first = self.import_module(name)
     self.assertEqual(self.py(first.main), 1)
     self.edit_module(name, self.EDITED % 2)
-    self.switch('gxx')
+    self.switch('cxx')
     second = self.import_module(name)
     with self.assertRaises(curry.StaleError):
       first.f
@@ -629,7 +629,7 @@ class TestPolicy(TieredTestCase):
     M = self.import_module(name)
     self.wait()
     M = None
-    self.switch('gxx')
+    self.switch('cxx')
     M = self.import_module(name)
     self.assertIsNotNone(getHandle(M).icurry.metadata.get('cxx.shlib'))
     self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
@@ -668,7 +668,7 @@ class TestPolicy(TieredTestCase):
     of a module interpreted with the inliner off by code compiled under
     the default budget.
     '''
-    self.switch('gxx', inline_budget=0)
+    self.switch('cxx', inline_budget=0)
     self.assertEqual(curry.flags['inline_budget'], 0)
     env = dict(
         item.split('=', 1)
@@ -692,7 +692,7 @@ class TestPolicy(TieredTestCase):
     self.assertEqual(self.py(M.viaCall), 3)
     self.assertEqual(steps() - n0, interpreted)
     # Under the default budget the call is inlined on both tiers.
-    self.switch('gxx')
+    self.switch('cxx')
     env = dict(
         item.split('=', 1)
           for item in tiered._environment(cytest.raw.interp())
@@ -750,7 +750,7 @@ class TestPolicy(TieredTestCase):
     under the budget of the environment then finds no object, compiles the
     module beside the source, and runs the inlined code on both tiers.
     '''
-    self.switch('gxx', inline_budget=0)
+    self.switch('cxx', inline_budget=0)
     self.assertTrue(tiered._foreign_flags(cytest.raw.interp()))
     name = self.write_module(BUDGET_MODULE)
     M = self.import_module(name)
@@ -780,7 +780,7 @@ class TestPolicy(TieredTestCase):
       )
     # The same module under the budget of the environment.
     del M
-    self.switch('gxx')
+    self.switch('cxx')
     self.assertFalse(tiered._foreign_flags(cytest.raw.interp()))
     N = self.import_module(name)
     self.assertTrue(curryrt.icurry_is_interpreted(N.viaCall.info))
@@ -832,7 +832,7 @@ class TestPolicy(TieredTestCase):
     # An explicit compile writes the object under the flag.
     name = self.write_module()
     env = dict(os.environ)
-    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:hot,jit_backend:gxx'
+    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:hot,jit_backend:cxx'
     env['CURRYPATH'] = self.tmpdir
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
         config.installed_path('bin', 'sprite-make'), '--so', '-z', name
@@ -858,7 +858,7 @@ class TestPrograms(cytest.TestCase):
     # The child collects at every step only when asked: a program of a few
     # million steps does not end in time otherwise.
     env = dict(os.environ)
-    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:%s,jit:hot,jit_backend:gxx' % ('new' if mode == 'gxx' else mode)
+    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:%s,jit:hot,jit_backend:cxx' % ('new' if mode == 'cxx' else mode)
     env['CURRYPATH'] = currypath
     env.pop('SPRITE_GC_STRESS', None)
     env.update(extra)
@@ -877,7 +877,7 @@ class TestPrograms(cytest.TestCase):
   def test_fresh_program(self):
     expected = self.run_child('Fib', 'off', BENCHMARKS)
     shutil.copy(os.path.join(BENCHMARKS, 'Fib.curry'), self.tmpdir)
-    self.assertEqual(self.run_child('Fib', 'gxx', self.tmpdir), expected)
+    self.assertEqual(self.run_child('Fib', 'cxx', self.tmpdir), expected)
     sofile = os.path.join(
         self.tmpdir, '.curry', config.intermediate_subdir(), 'Fib.so'
       )
@@ -895,7 +895,7 @@ class TestPrograms(cytest.TestCase):
     expected = self.run_child('Tak1', 'off', BENCHMARKS)
     shutil.copy(os.path.join(BENCHMARKS, 'Tak1.curry'), self.tmpdir)
     actual = self.run_child(
-        'Tak1', 'gxx', self.tmpdir, CXXFLAGS='-fno-such-flag-of-sprite'
+        'Tak1', 'cxx', self.tmpdir, CXXFLAGS='-fno-such-flag-of-sprite'
       )
     self.assertEqual(actual, expected)
     stderr = self.last_stderr
@@ -982,7 +982,7 @@ class TestLoadDuringCompile(TieredTestCase):
     the object.
     '''
     env = dict(os.environ)
-    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:hot,jit_backend:gxx'
+    env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:hot,jit_backend:cxx'
     env['CURRYPATH'] = self.tmpdir
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
         config.installed_path('bin', 'sprite-make'), '--so', '-z', name
@@ -1001,7 +1001,7 @@ class TestLoadDuringCompile(TieredTestCase):
 
   def run_child(self, code):
     with binding(
-        os.environ, 'SPRITE_INTERPRETER_FLAGS', 'backend:cxx,interpret:new,jit:hot,jit_backend:gxx'
+        os.environ, 'SPRITE_INTERPRETER_FLAGS', 'backend:cxx,interpret:new,jit:hot,jit_backend:cxx'
       ):
       proc = cytest.run_in_subprocess(code, TIMEOUT, address_space=ADDRESS_SPACE)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
@@ -1049,7 +1049,7 @@ class TestLoadDuringCompile(TieredTestCase):
     self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
     self.assertIsNotNone(curryrt.SharedCurryModule.find_sofilename(name))
     M = None
-    self.switch('gxx')
+    self.switch('cxx')
     self.make_stale(name)
     M = self.import_module(name)
     self.assertTrue(tiered.pending(name))

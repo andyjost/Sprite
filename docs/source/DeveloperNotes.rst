@@ -471,7 +471,8 @@ Notes on the checker of the runtime:
   operation (``BIND_ROOT`` and ``BIND_VAR`` give a variable its position,
   ``COPY_VAR`` an alias, ``STORE_VAR`` a value that is not a position,
   ``CASE_CONS`` and ``CASE_LIT`` the cases) at its first use and kept, so
-  an operation the hot gxx backend swaps to compiled code afterwards keeps its
+  an operation the hot tier of the C++ compiler backend swaps to compiled
+  code afterwards keeps its
   tree.  A compiled operation has no bytecode and no tree: under
   ``interpret:off``, and under ``interpret:new`` for a module loaded from its
   object, the ``hnf`` calls of the generated step functions are counted as

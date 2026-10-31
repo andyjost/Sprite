@@ -600,7 +600,7 @@ namespace curryrt
     shared().work_cv.notify_one();
   }
 
-  void gxx_arm(TieredJob job)
+  void cxx_arm(TieredJob job)
   {
     std::lock_guard<std::mutex> lock(shared().mutex);
     for(auto const & step: job.steps)
@@ -608,7 +608,7 @@ namespace curryrt
     hot_jobs[job.module] = std::move(job);
   }
 
-  void gxx_hot(InfoTable const * info)
+  void cxx_hot(InfoTable const * info)
   {
     std::lock_guard<std::mutex> lock(shared().mutex);
     auto module = hot_modules.find(info);

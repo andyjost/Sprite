@@ -119,7 +119,7 @@ namespace curryrt
     {
       if(++bc->calls == threshold)
       {
-        gxx_hot(_0->info);
+        cxx_hot(_0->info);
         std::lock_guard<std::mutex> lock(g_hot_mutex);
         g_hot.push_back(const_cast<InfoTable *>(_0->info));
       }
@@ -402,7 +402,8 @@ namespace curryrt
 
   bool icurry_is_jit(InfoTable const * info)
   {
-    // A table can be reused by an AOT/gxx module after an LLVM incarnation.
+    // A table can be reused by a module compiled ahead of time or by the C++
+    // compiler backend after an LLVM incarnation.
     // Such a step has no bytecode; the old membership alone is insufficient.
     if(!info || !info->step || !info->aux || info->step == &icurry_step)
       return false;
@@ -435,7 +436,7 @@ namespace curryrt
       posted.swap(g_posted);
       g_icurry_posted.store(false, std::memory_order_relaxed);
     }
-    // Clearing LLVM's queue must not consume the gxx worker's wakeup.
+    // Clearing LLVM's queue must not consume the wakeup of the worker of the C++ compiler backend.
     // Clear first, then rearm: a worker publishing after this check sets
     // the flag itself, while an earlier publication is observed here.
     if(g_tiered_pending.load(std::memory_order_acquire))

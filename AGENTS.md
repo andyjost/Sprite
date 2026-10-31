@@ -150,7 +150,7 @@ reproducers pass.
   typing failure is a `CurryTypeError` at construction. `curry.typeof`
   (`defaulted=True` applies the table) and `curry.show` complete the
   API; the installed stub `curry/__init__.pyi` is the surface.
-- Other tools: a C++ compiler (g++), GNU make, and binutils (`ar`). The
+- Other tools: a C++ compiler (g++ or clang++; clang-cl on Windows), GNU make, and binutils (`ar`). The
   C++ runtime uses the C++17 standard library and privately links the
   public domain libtommath 1.3.0, the submodule at extern/libtommath,
   shipped beside extern/mps and extern/pybind11 (no system libtommath is
@@ -238,7 +238,7 @@ reproducers pass.
   compiles only the Curry texts that changed. Set `SPRITE_CACHE_FILE=` (the
   empty string) to run without the cache.
 - The C++ backend has a product cache (`SPRITE_PRODUCT_CACHE`, off unless
-  it names a directory): `sprite-make`, the gxx compile and the prepare
+  it names a directory): `sprite-make`, the background compile of the C++ compiler backend and the prepare
   pass of the test runner look there before they compile a module and
   store the shared object, the generated C++ and the ABI stamp after. The
   runner and `scripts/new-worktree.sh` use `tests/.cache/products`. The
@@ -273,21 +273,22 @@ reproducers pass.
 - The flag `interpret` of the C++ backend defaults to `new` (`all` on
   Windows). `new` loads current ahead-of-time objects and interprets the
   rest; `all` starts every module interpreted and never opens an AOT
-  object; `off` compiles missing objects with g++ before running and errors
-  without a compiler. Background compilation uses `jit:hot,jit_backend:gxx`.
+  object; `off` compiles missing objects with the C++ compiler before running and
+  errors without one. Background compilation uses `jit:hot,jit_backend:cxx`.
   `sprite-make` and `make stage` always compile.
 - The flag `jit` selects compilation of interpreted functions: `hot`
   (default) compiles after `SPRITE_JIT_THRESHOLD` calls (100 by default),
   `eager` compiles at load, and `off` leaves them interpreted. Current AOT
   objects load under `new` and `off` whatever `jit` says. `jit_backend`
-  defaults to `auto`: LLVM when llvmlite imports, else gxx when
+  defaults to `auto`: LLVM when llvmlite imports, else the C++ compiler backend (`cxx`) when
   `config.cxx_tool` is available, else interpreter alone with one WARNING
-  notice per process. Forced `llvm` and `gxx` error if unavailable;
-  install `curry[jit]` or a C++ compiler respectively (gxx is unavailable
-  on Windows). LLVM compiles functions in process using llvmlite 0.50 or
+  notice per process. Forced `llvm` and `cxx` error if unavailable;
+  install `curry[jit]` or a C++ compiler respectively (the C++ compiler
+  backend is unavailable on Windows). LLVM compiles functions in process using llvmlite 0.50 or
   newer (LLVM 22) and `lib/curryrt-helpers.bc`, built with clang through
-  `WITH_CLANG`. gxx compiles whole modules in a child when their first
-  function becomes hot; eager gxx waits at load. The gxx machinery remains
+  `WITH_CLANG`. The C++ compiler backend compiles whole modules in a child
+  when their first function becomes hot; eager compilation waits at load. Its
+  machinery remains
   in `curry.backends.cxx.tiered` and `src/curryrt/tiered.hpp`; private
   snapshots and publication preserve #173. Hot swaps run at the scheduler
   safepoint. `SPRITE_JIT_DUMP` writes LLVM IR and assembly, for LLVM only.

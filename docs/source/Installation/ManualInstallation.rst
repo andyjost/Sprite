@@ -24,7 +24,7 @@ runs interpreted there, and the JIT compiles the functions that run when
 ``llvmlite`` is installed (``pip install --pre 'curry[jit]'``). A C++
 compiler is optional at run time on Linux and macOS: without one, Sprite
 interprets new modules; with
-``g++`` installed, ``sprite-make --so Peano.curry`` compiles a module
+a C++ compiler installed, ``sprite-make --so Peano.curry`` compiles a module
 using the user's compiler. Run a source program with
 ``python -m curry Peano.curry``.
 

@@ -64,13 +64,13 @@ The following flags are available:
     safepoint. Current ahead-of-time objects still load under 'new' and
     'off', whatever this flag says.
 
-  * ``jit_backend`` (**'auto'** | 'llvm' | 'gxx')
+  * ``jit_backend`` (**'auto'** | 'llvm' | 'cxx')
 
     'auto' selects LLVM when llvmlite imports, else the installation's C++
     compiler, else the interpreter alone with one warning per process.
     A forced backend must be available: install curry[jit] for LLVM or a
-    C++ compiler for gxx (unavailable on Windows). LLVM compiles functions
-    in process and needs the runtime helpers' bitcode. gxx compiles a
+    C++ compiler for cxx (unavailable on Windows). LLVM compiles functions
+    in process and needs the runtime helpers' bitcode. cxx compiles a
     module in a child process, synchronously for 'eager', or after its
     first hot function for 'hot'.
 
@@ -85,7 +85,7 @@ The following flags are available:
     the branch of that constructor, up to a fixed limit of its own.  0 turns
     both rules off.  The compiled form of a module records the keys of the
     passes, not the budget, so a module compiled under one budget runs as it
-    was compiled under another; the background gxx compile
+    was compiled under another; the background cxx compile
     runs under the budget of the interpreter.  The flag serves bisection and
     the performance program.
 
@@ -114,7 +114,7 @@ The following flags are available:
     'all', every module is interpreted, the Prelude included; the compiled
     objects are not used; it is the default on Windows, where the compile of
     generated code is not available in this release. 'new' is the default
-    elsewhere. Use jit:hot with jit_backend:gxx for background C++ compilation.
+    elsewhere. Use jit:hot with jit_backend:cxx for background C++ compilation.
     The jit tiers govern functions that start interpreted in 'new' or 'all'.
 
   * ``keep_temp_files``  (True | **False** | <str>)
@@ -201,7 +201,7 @@ FLAG_INFO = {
   , 'inline_budget'       : ( int                 , 4     )
   , 'interpret'           : ({'off', 'new', 'all'}, 'all' if sys.platform == 'win32' else 'new')
   , 'jit'                 : ({'off', 'eager', 'hot'}, 'hot')
-  , 'jit_backend'         : ({'auto', 'llvm', 'gxx'}, 'auto')
+  , 'jit_backend'         : ({'auto', 'llvm', 'cxx'}, 'auto')
   , 'trace'               : ( bool                , False )
   , 'keep_temp_files'     : ((bool, str)          , False )
   , 'lazycompile'         : ( bool                , True  )
@@ -257,7 +257,7 @@ def check_flags(flags):
   """Validate session flags, including values supplied directly by Python."""
   for flag, value in flags.items():
     if flag == 'interpret' and value == "tiered":
-      raise FlagError("interpret value tiered is retired; use jit:hot with jit_backend:gxx")
+      raise FlagError("interpret value tiered is retired; use jit:hot with jit_backend:cxx")
     if flag not in FLAG_INFO:
       raise FlagError('%r is not a flag; the flags are %s' %
           (flag, ', '.join(FLAG_INFO)))

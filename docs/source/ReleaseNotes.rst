@@ -30,7 +30,11 @@ Release Notes
   ``curry[jit]``).  The flag ``jit`` selects ``off``, ``eager`` or ``hot``;
   the hot tier compiles the functions that run and swaps their steps at a
   safepoint of the scheduler.
-- The gxx backend of the JIT leaves the modules of the Curry library to the
+- The second backend of the JIT is named for what it is: the value ``cxx``
+  of ``jit_backend`` (``gxx`` before) compiles the generated C++ of a module
+  with the C++ compiler of the installation, g++ or clang++, and the docs
+  say "the C++ compiler" where any compiler serves.
+- The C++ compiler backend of the JIT leaves the modules of the Curry library to the
   objects of the installation: the private copy of a library source that
   its background compile made was refused by the namesake check, and the
   copy shadowed the library for the compiles that followed, so every
@@ -43,10 +47,10 @@ Release Notes
   with the reason instead of exiting silently (#174).
 - Three ways to run a function, over two backends: the flag ``jit``
   (``off``, ``eager``, ``hot``; ``hot`` is the default) and the new flag
-  ``jit_backend`` (``auto``, ``llvm``, ``gxx``): LLVM through ``llvmlite``
-  when it is installed, else the generated C++ with ``g++``, else the
+  ``jit_backend`` (``auto``, ``llvm``, ``cxx``): LLVM through ``llvmlite``
+  when it is installed, else the generated C++ through the C++ compiler, else the
   interpreter alone with one notice.  The value ``tiered`` of ``interpret``
-  retires: its live compile is the ``gxx`` backend of the hot tier, which
+  retires: its live compile is the ``cxx`` backend of the hot tier, the C++ compiler, which
   swaps at a safepoint of the scheduler; ``new`` is the default (``all`` on
   Windows); a current ahead-of-time object always loads.
 - ``SPRITE_LOG_FILE`` and ``SPRITE_LOG_LEVEL`` configure a handler on the
@@ -75,7 +79,7 @@ Release Notes
 - Unbounded integers: an ``Int`` that overflows the machine word
   promotes to a big integer.
 - The Curry preprocessor ``currypp`` is an optional tool found on PATH.
-- The background gxx compile writes its products beside a source only when the
+- The background compile of the C++ compiler backend writes its products beside a source only when the
   compile is done, so a removed directory never holds half-written files
   (#173).  The runtime compiles without strict aliasing (#170).
 - Set functions: #133, #134, #139 and #171 fixed.

@@ -159,10 +159,10 @@ class TestSelection(cytest.TestCase):
     self.assertEqual(defaults['jit'], 'hot')
     self.assertEqual(defaults['jit_backend'], 'auto')
     self.assertEqual(defaults['interpret'], 'all' if os.name == 'nt' else 'new')
-    with self.assertRaisesRegex(curry.FlagError, 'jit:hot.*jit_backend:gxx'):
+    with self.assertRaisesRegex(curry.FlagError, 'jit:hot.*jit_backend:cxx'):
       curry.reset(interpret=''.join(('tier', 'ed')))
     with mock.patch.dict(os.environ, {'SPRITE_INTERPRETER_FLAGS': 'interpret:' + ''.join(('tier', 'ed'))}):
-      with self.assertRaisesRegex(curry.FlagError, 'jit:hot.*jit_backend:gxx'):
+      with self.assertRaisesRegex(curry.FlagError, 'jit:hot.*jit_backend:cxx'):
         curry.reset(backend='cxx')
 
   def missing_llvm(self):
@@ -185,15 +185,15 @@ class TestSelection(cytest.TestCase):
       with mock.patch.object(config, 'cxx_tool', return_value='c++'):
         with mock.patch.object(jit.sys, 'platform', 'linux'):
           curry.reset(jit_backend='auto')
-          self.assertEqual(jit.backend(cytest.raw.interp()), 'gxx')
+          self.assertEqual(jit.backend(cytest.raw.interp()), 'cxx')
       with self.assertRaisesRegex(curry.FlagError, r'pip install curry\[jit\]'):
         curry.reset(jit_backend='llvm')
     with mock.patch.object(config, 'cxx_tool', return_value=None):
       with self.assertRaisesRegex(curry.FlagError, r'C\+\+ compiler'):
-        curry.reset(jit_backend='gxx')
+        curry.reset(jit_backend='cxx')
     with mock.patch.object(jit.sys, 'platform', 'win32'):
       with self.assertRaisesRegex(curry.FlagError, 'Windows'):
-        curry.reset(jit_backend='gxx')
+        curry.reset(jit_backend='cxx')
 
   @cytest.hardreset
   def test_forced_llvm_requires_usable_helpers(self):
@@ -224,11 +224,11 @@ class TestGxx(cytest.TestCase):
   def setUpClass(cls):
     from curry import config
     if os.name == 'nt' or config.cxx_tool() is None:
-      raise unittest.SkipTest('gxx needs a C++ compiler')
+      raise unittest.SkipTest('cxx needs a C++ compiler')
 
   @cytest.hardreset
   def test_eager_text(self):
-    curry.reset(interpret='new', jit='eager', jit_backend='gxx', inline_budget=0)
+    curry.reset(interpret='new', jit='eager', jit_backend='cxx', inline_budget=0)
     with self.assertLogs('curry.backends.cxx.tiered', level='INFO') as logs:
       M = curry.compile('double :: Int -> Int\ndouble x = x + x')
     self.assertEqual(curry.eval(M.double(21)).one(), 42)
@@ -245,7 +245,7 @@ class TestGxx(cytest.TestCase):
     import time
     from curry.backends.cxx import tiered
     with mock.patch.dict(os.environ, {'SPRITE_JIT_THRESHOLD': '5'}):
-      curry.reset(interpret='new', jit='hot', jit_backend='gxx', inline_budget=0)
+      curry.reset(interpret='new', jit='hot', jit_backend='cxx', inline_budget=0)
       M = curry.compile('double :: Int -> Int\ndouble x = x + x')
     self.assertEqual(tiered.status()['queued'], 0)
     self.assertEqual(tiered.status()['running'], 0)
@@ -263,7 +263,7 @@ class TestGxx(cytest.TestCase):
     with mock.patch.dict(os.environ, {
         'SPRITE_JIT_THRESHOLD': '1', 'CXXFLAGS': '-fno-such-flag-of-sprite'
         }):
-      curry.reset(interpret='new', jit='hot', jit_backend='gxx', inline_budget=0)
+      curry.reset(interpret='new', jit='hot', jit_backend='cxx', inline_budget=0)
       M = curry.compile('double :: Int -> Int\ndouble x = x + x')
     before = tiered.status()['failed_modules']
     with self.assertLogs('curry.backends.cxx.tiered', level='INFO') as logs:
@@ -287,7 +287,7 @@ class TestGxx(cytest.TestCase):
       M = curry.import_(filename)
       address = M.f.info.address
       self.assertTrue(curryrt.icurry_is_jit(M.f.info))
-      curry.reset(interpret='off', jit='off', jit_backend='gxx')
+      curry.reset(interpret='off', jit='off', jit_backend='cxx')
       M = curry.import_(filename)
       self.assertIsNotNone(getHandle(M).sofilename)
       self.assertEqual(M.f.info.address, address)
@@ -297,7 +297,7 @@ class TestGxx(cytest.TestCase):
   @cytest.hardreset
   def test_current_aot_loads_whatever_jit_says(self):
     from curry.objects.handle import getHandle
-    for backend in ('gxx', 'llvm') if llvmjit.available() else ('gxx',):
+    for backend in ('cxx', 'llvm') if llvmjit.available() else ('cxx',):
       for mode in ('new', 'off'):
         for tier in ('off', 'hot', 'eager'):
           curry.reset(interpret=mode, jit=tier, jit_backend=backend)

@@ -18,16 +18,16 @@ def select(interp):
   cxx = None if sys.platform == 'win32' else config.cxx_tool()
   backend = requested
   if requested == 'auto':
-    backend = 'llvm' if llvm is not None else 'gxx' if cxx else None
+    backend = 'llvm' if llvm is not None else 'cxx' if cxx else None
   if backend == 'llvm' and llvm is None:
     raise FlagError('jit_backend:llvm needs llvmlite; pip install curry[jit]')
-  if backend == 'gxx' and sys.platform == 'win32':
+  if backend == 'cxx' and sys.platform == 'win32':
     raise FlagError(
-        'jit_backend:gxx is unavailable on Windows; use jit_backend:llvm '
+        'jit_backend:cxx is unavailable on Windows; use jit_backend:llvm '
         'and pip install curry[jit]'
       )
-  if backend == 'gxx' and cxx is None:
-    raise FlagError('jit_backend:gxx needs a C++ compiler; install a C++ compiler')
+  if backend == 'cxx' and cxx is None:
+    raise FlagError('jit_backend:cxx needs a C++ compiler; install a C++ compiler')
   if requested == 'llvm':
     from . import llvmjit
     try:

@@ -728,7 +728,7 @@ class TestPrograms(cytest.TestCase):
           )
 
   def test_library_modules_stay_with_the_installation(self):
-    # Under 'all' with the gxx backend the Prelude is interpreted and hot,
+    # Under 'all' with the cxx backend the Prelude is interpreted and hot,
     # and it is not compiled in the background: its object comes with the
     # installation.  A private copy of its source was refused by the
     # namesake check of the child (#168) and shadowed the library for the
@@ -738,7 +738,7 @@ class TestPrograms(cytest.TestCase):
     # deterministic: nothing fails, and the functions of the program swap.
     expected = self.run_child('Fib', 'off')
     self.assertEqual(
-        self.run_child('Fib', 'all', flags=',jit:eager,jit_backend:gxx')
+        self.run_child('Fib', 'all', flags=',jit:eager,jit_backend:cxx')
       , expected
       )
     stderr = self.last_stderr

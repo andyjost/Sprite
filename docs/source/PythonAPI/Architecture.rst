@@ -65,8 +65,8 @@ The interface includes the following:
 
       - ``module_loaded``:
         The hook of a load. The C++ backend arms interpreted modules for
-        hot gxx compilation through ``module_loaded`` of
-        :mod:`curry.backends.cxx.tiered`; eager gxx compilation waits here
+        hot compilation by the C++ compiler backend through ``module_loaded``
+        of :mod:`curry.backends.cxx.tiered`; eager compilation waits here
         for the object before returning.
 
   * **Evaluation**

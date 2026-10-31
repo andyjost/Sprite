@@ -1,7 +1,8 @@
 '''
-The gxx backend of compiled execution.
+The C++ compiler backend of the JIT (jit_backend:cxx): compiled execution
+through the generated C++ of a module.
 
-With jit:hot,jit_backend:gxx, a module starts interpreted and its private
+With jit:hot,jit_backend:cxx, a module starts interpreted and its private
 compile job is armed at load. The runtime starts that job when the first
 function reaches SPRITE_JIT_THRESHOLD calls. jit:eager submits and waits
 at module load instead. The worker and adoption API keep their internal
@@ -164,10 +165,10 @@ __all__ = [
   , 'module_loaded', 'pending', 'poll', 'status', 'submit', 'wait', 'wait_for'
   ]
 
-MODE = 'gxx'
+MODE = 'cxx'
 
 def enabled(interp):
-  '''Whether interpreted functions use the gxx backend.'''
+  '''Whether interpreted functions use the C++ compiler backend.'''
   from .jit import backend
   return interp.flags['interpret'] != 'off' and interp.flags['jit'] != 'off' \
       and backend(interp) == MODE
@@ -360,7 +361,7 @@ def prepare_adoption(interp, name):
 
 def _compiles(interp, moduleobj):
   '''
-  Whether the gxx backend can compile this module: not a package, not
+  Whether the C++ compiler backend can compile this module: not a package, not
   loaded from an object, and has source products.
   '''
   if not enabled(interp):
@@ -398,7 +399,7 @@ def module_loaded(interp, moduleobj, currypath):
     wait(interp=interp)
     if getHandle(moduleobj).backend_handle.shlib is None:
       from ...exceptions import CompileError
-      raise CompileError('gxx eager: module %s compile failed' % moduleobj.__name__)
+      raise CompileError('cxx eager: module %s compile failed' % moduleobj.__name__)
     n = _state.records[moduleobj.__name__].functions
     logger.info('jit eager: module %s, %d functions, %.1f ms',
         moduleobj.__name__, n, 1000 * (time.monotonic() - start))
@@ -479,7 +480,7 @@ def submit(interp, moduleobj, currypath, hot=False):
     # docstring, "What is not compiled"); its record, made by module_loaded,
     # names the object the swap of an importer maps.
     logger.info(
-        'gxx: module %s is a module of the Curry library; it is not compiled '
+        'cxx: module %s is a module of the Curry library; it is not compiled '
         'in the background, its object comes with the installation', name
       )
     return False
@@ -497,7 +498,7 @@ def submit(interp, moduleobj, currypath, hot=False):
   cxx = config.cxx_tool()
   if cxx is None:
     from ...exceptions import CompileError
-    raise CompileError('gxx needs a C++ compiler; install a C++ compiler')
+    raise CompileError('jit_backend:cxx needs a C++ compiler; install one')
   # The child compiles a private copy (the module docstring, "The
   # products"): nothing is written under the source while it runs.  The
   # digest below is still the one of the ICurry file beside the original:
@@ -525,7 +526,7 @@ def submit(interp, moduleobj, currypath, hot=False):
       )
   if logger.isEnabledFor(logging.DEBUG):
     logger.debug('Compiling %s in the background: %s', name, ' '.join(argv))
-  dispatch = curryrt.gxx_arm if hot else curryrt.tiered_submit
+  dispatch = curryrt.cxx_arm if hot else curryrt.tiered_submit
   dispatch(
       name, argv, envp, logfile, sofile, record.publish or '', steps
     , record.icyfile, record.digest, _import_objects(interp, imodule)
@@ -582,7 +583,7 @@ def poll(interp=None):
       _state.modules.pop(name, None)
       if hot:
         output = result['output'].strip()
-        logger.info('gxx hot: module %s compile failed: %s', name,
+        logger.info('cxx hot: module %s compile failed: %s', name,
             (output or result['error']).splitlines()[0])
     for imported in result['mapped']:
       # The swap mapped the object of an import (see the module docstring,
@@ -598,7 +599,7 @@ def poll(interp=None):
       logger.info('module %s: background compile finished in %.2f s, swapped',
           name, result['seconds'])
       if hot:
-        logger.info('gxx hot: module %s compiled in %.2f s, swapped',
+        logger.info('cxx hot: module %s compiled in %.2f s, swapped',
             name, result['seconds'])
       _refresh(name, interp)
     elif result['error'] == 'the module is no longer loaded':

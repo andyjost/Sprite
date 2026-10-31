@@ -28,8 +28,8 @@ Compiled just in time
   while the program runs and swaps the compiled code in at a safepoint of
   the scheduler.  Two backends do this: LLVM, through the Python package
   ``llvmlite``, compiles single functions in the process; the C++ backend
-  writes the generated C++ of a module and compiles it with ``g++`` in a
-  child process, then adopts the object.  The C++ backend compiles the
+  writes the generated C++ of a module and compiles it with the C++ compiler
+  (g++ or clang++) in a child process, then adopts the object.  The C++ backend compiles the
   modules of the program; the modules of the Curry library run from the
   objects of the installation.  A compile still running when the program
   ends is cancelled, so a short program never waits for a compiler and
@@ -65,15 +65,15 @@ Flag                 Values                 Meaning
                      ``all``, ``off``       interprets the rest.  ``all`` interprets every
                                             module and opens no object; it is the default
                                             on Windows.  ``off`` compiles a module that has
-                                            no current object with ``g++`` before it runs.
+                                            no current object with the C++ compiler before it runs.
 ``jit``              ``hot`` (default),     ``hot`` compiles an interpreted function after
                      ``eager``, ``off``     it has run ``SPRITE_JIT_THRESHOLD`` times (100).
                                             ``eager`` compiles every function of a module
                                             when the module loads.  ``off`` leaves the
                                             interpreter alone.
 ``jit_backend``      ``auto`` (default),    ``auto`` takes LLVM when ``llvmlite`` imports,
-                     ``llvm``, ``gxx``      else ``g++`` when the installation has a C++
-                                            compiler, else no backend.  A forced backend
+                     ``llvm``, ``cxx``      else the C++ compiler when the installation
+                                            has one, else no backend.  A forced backend
                                             that is not available is an error at
                                             ``curry.reset`` or at the first import.
 ===================  =====================  ================================================
@@ -89,14 +89,14 @@ The backends are optional.  What you install selects them:
 
 - ``pip install --pre 'curry[jit]'`` adds ``llvmlite`` and with it the
   LLVM backend, on every platform that has a wheel for it.
-- A C++ compiler on the machine (``g++``, or the compiler of Xcode) adds the
-  ``g++`` backend and compilation ahead of time.  The installation records
+- A C++ compiler on the machine (g++, or clang++ from Xcode) adds the C++
+  compiler backend and compilation ahead of time.  The installation records
   the compiler of its build; ``sprite-make`` uses the one it finds.
 - Neither is needed to run Curry code: :doc:`Installation/WithoutCompiler`
   describes an installation with the interpreter alone.
 
 ==================  ===========  ===========  ==========  ======================
-Platform            Interpreter  JIT: LLVM    JIT: g++    Ahead of time
+Platform            Interpreter  JIT: LLVM    JIT: C++    Ahead of time
 ==================  ===========  ===========  ==========  ======================
 Linux x86-64        yes          yes          yes         yes
 Linux aarch64       yes          yes          yes         yes
@@ -106,7 +106,7 @@ Windows x64         yes          yes          no [2]_     no [2]_
 ==================  ===========  ===========  ==========  ======================
 
 .. [1] ``llvmlite`` ships no wheel for Intel macOS on PyPI; the conda-forge
-   package provides it.  Without it, ``auto`` takes ``g++``.
+   package provides it.  Without it, ``auto`` takes the C++ compiler.
 .. [2] No generated code is compiled on Windows: the runtime and its
    bindings build with clang-cl, but the compile of a Curry module to an
    object is not available there, so ``interpret`` defaults to ``all`` and
@@ -126,7 +126,7 @@ The lines name the backend chosen and why (``jit: backend llvm ...``, or
 (``module Peano: compiled object loaded ...`` or ``module Peano:
 interpreted ...`` with the reason: no object, a stale object, the
 ``interpret`` policy), the hot compiles (``jit hot: compiled ...`` with the
-functions and the time; ``gxx hot: module ... compiled ... swapped``), the
+functions and the time; ``cxx hot: module ... compiled ... swapped``), the
 product cache's hits and misses, and the runs of the front end.
 ``SPRITE_LOG_FILE`` sends the records to a file instead; child processes
 write to the same file with their process id.

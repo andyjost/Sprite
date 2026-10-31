@@ -5,9 +5,10 @@
 #include <vector>
 #include "curryrt/fwd.hpp"
 
-// The gxx backend of compiled execution.
+// The C++ compiler backend of the JIT (jit_backend:cxx): compiled execution
+// through the generated C++ of a module.
 //
-// gxx_arm registers the private job of an interpreted module; gxx_hot queues
+// cxx_arm registers the private job of an interpreted module; cxx_hot queues
 // it when the first function reaches the shared JIT threshold. Eager mode
 // queues the job immediately with tiered_submit and waits at module load.
 // The internal tiered names also serve foreground AOT adoption.
@@ -169,8 +170,8 @@ namespace curryrt
   void tiered_submit(TieredJob);
 
   // Register a module job until one of its functions reaches the threshold.
-  void gxx_arm(TieredJob);
-  void gxx_hot(InfoTable const *);
+  void cxx_arm(TieredJob);
+  void cxx_hot(InfoTable const *);
 
   // Applies the finished jobs on the calling thread, which must be the
   // thread that evaluates.  Returns at once when no job finished.  Never

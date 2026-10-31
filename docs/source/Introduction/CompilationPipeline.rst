@@ -246,7 +246,7 @@ Target IR to Executable Code
 The C++ backend compiles the generated C++ into a shared object (below), or
 interprets the ICurry of the module until the object is ready.
 
-The C++ backend compiles each generated module with ``g++`` into a shared
+The C++ backend compiles each generated module with the C++ compiler into a shared
 object the first time the module is used, and again when the runtime headers
 the generated code includes change.  Each object records a digest of those
 headers (the include closure of ``curryrt/curryrt.hpp``; a header of the runtime
@@ -284,8 +284,8 @@ first import after an installation
 compiles nothing of the library. Under the default ``interpret:new``, a
 module without a current object starts interpreted from its ICurry.
 The default ``jit:hot,jit_backend:auto`` compiles hot functions with LLVM
-when llvmlite imports, otherwise whole modules in a child process with gxx
-when a C++ compiler is available. Compiled steps are adopted at a scheduler
+when llvmlite imports, otherwise whole modules in a child process through the C++ compiler
+when one is available. Compiled steps are adopted at a scheduler
 safepoint. With neither backend the interpreter runs alone with one notice;
 see :doc:`/Installation/WithoutCompiler`.
 

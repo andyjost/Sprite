@@ -159,7 +159,7 @@ The following are recognized:
   The ``interpret`` flag defaults to ``new`` (``all`` on Windows): current
   objects load and the rest start interpreted. ``all`` starts every module
   interpreted, and ``off`` compiles missing objects first. Background C++
-  compilation uses ``jit:hot,jit_backend:gxx`` (see
+  compilation uses ``jit:hot,jit_backend:cxx`` (see
   :mod:`curry.interpreter.flags`).  An
   installation without a C++ compiler uses LLVM when available, or runs
   interpreted with one notice; see :doc:`/Installation/WithoutCompiler`.
@@ -249,14 +249,14 @@ with Sprite, then you should not need these.
 ``SPRITE_JIT_THRESHOLD``
   The number of calls that makes an interpreted function hot; 100 by
   default. With ``jit:hot`` (the default), LLVM compiles that function;
-  gxx starts the module's child compile when its first function becomes
-  hot. ``jit_backend:auto`` selects llvmlite, then the installation's C++
+  the C++ compiler backend starts the module's child compile when its first
+  function becomes hot. ``jit_backend:auto`` selects llvmlite, then the installation's C++
   compiler, then the interpreter alone with one warning. Force ``llvm``
-  or ``gxx`` to require that backend; ``jit:off`` disables both tiers.
+  or ``cxx`` to require that backend; ``jit:off`` disables both tiers.
 
 ``SPRITE_JIT_DUMP``
   A directory into which the LLVM backend writes the optimized LLVM IR
-  and assembly of each batch. It has no effect on the gxx backend.
+  and assembly of each batch. It has no effect on the C++ compiler backend.
 
 ``SPRITE_CACHE_FILE``
   Names the cache database, an SQLite file.  The database stores the output
@@ -380,7 +380,7 @@ with Sprite, then you should not need these.
   entry serves every tree of one runtime: the same tree after its products
   were removed or after an edit and its revert, and a second worktree,
   which compiles nothing the first compiled.  ``sprite-make``, the
-  background compile of the gxx hot tier and the prepare pass of the test
+  background compile of the C++ compiler backend and the prepare pass of the test
   runner look in the cache before they compile.  A module whose entry is
   there is neither generated nor compiled: its files are placed beside the
   source, the object as a hard link when the two lie on one file system,

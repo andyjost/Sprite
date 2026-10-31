@@ -20,7 +20,7 @@ class TestRoundTrip(cytest.TestCase):
   curry.save writes is compiled into a shared object by the step of the
   toolchain that sprite-make --so runs (backends.cxx.toolchain.Cpp2So), and
   curry.load reads the object.  Each child has an empty product cache and
-  fresh source.  The new, hot gxx and off modes exercise foreground adoption
+  fresh source.  The new, hot cxx and off modes exercise foreground adoption
   and an object already loaded by an import; all refuses the swap with its
   reason and keeps the interpreted steps.
   '''
@@ -35,7 +35,7 @@ with open(os.path.join(tmpdir, 'SaveLoadFresh.curry'), 'w') as stream:
   stream.write('double :: Int -> Int\ndouble x = x + x\n\nmain :: Int\nmain = double 21\n')
 curry.path.insert(0, tmpdir)
 M = curry.import_('SaveLoadFresh')
-if curry.flags['jit_backend'] == 'gxx' and curry.flags['jit'] == 'hot':
+if curry.flags['jit_backend'] == 'cxx' and curry.flags['jit'] == 'hot':
   from curry.backends.cxx import tiered, curryrtbindings as curryrt
   # Leave the foreground load to do the swap, independently of how quickly
   # the background compiler runs on this machine.
@@ -76,8 +76,8 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
 
   @unittest.skipUnless(config.cxx_tool() is not None,
                        'the cold object needs the C++ backend and its compiler')
-  def test_cold_cache_hot_gxx(self):
-    self.check_cold_cache('new,jit:hot,jit_backend:gxx')
+  def test_cold_cache_hot_cxx(self):
+    self.check_cold_cache('new,jit:hot,jit_backend:cxx')
 
   @unittest.skipUnless(config.cxx_tool() is not None,
                        'the cold object needs the C++ backend and its compiler')
