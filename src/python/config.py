@@ -410,22 +410,25 @@ def verify_syslibs():
   if 'SPRITE_DISABLE_SYSLIB_CHECKS' in os.environ:
     return
   cypath = currypath()
-  syspath = system_curry_path().split(os.pathsep)
+  syspath = [os.path.join(os.path.normcase(os.path.realpath(p)), '')
+             for p in system_curry_path().split(os.pathsep)]
   for name in syslibs():
     name = name.replace('.', os.sep) + '.curry'
-    found = list(filesys.findfiles(cypath, name))
-    if not found or not (found[-1].startswith(p) for p in syspath):
-      logger.critical('System library %r was not found in the CURRYPATH' % name)
-      logger.critical('The CURRYPATH is %r' % ':'.join(cypath))
+    found = [os.path.normcase(os.path.realpath(p))
+             for p in filesys.findfiles(cypath, name)]
+    if not found or not any(found[-1].startswith(p) for p in syspath):
+      message = ['System library %r was not found in the CURRYPATH' % name,
+                 'The CURRYPATH is %r' % os.pathsep.join(cypath)]
     elif not any(found[0].startswith(p) for p in syspath):
-      logger.critical('System library %r is shadowed by a file from the CURRYPATH.' % name)
-      logger.critical('The CURRYPATH is %r' % ':'.join(cypath))
-      logger.critical('The system %r is %r' % (name, found[-1]))
-      logger.critical('%r was found at %r' % (name, found[0]))
+      message = [
+          'System library %r is shadowed by a file from the CURRYPATH.' % name,
+          'The CURRYPATH is %r' % os.pathsep.join(cypath),
+          'The system %r is %r' % (name, found[-1]),
+          '%r was found at %r' % (name, found[0])]
     else:
       continue
-    logger.critical('Set SPRITE_DISABLE_SYSLIB_CHECKS to ignore')
-    sys.exit(1)
+    message.append('Set SPRITE_DISABLE_SYSLIB_CHECKS to ignore')
+    raise ImportError('\n'.join(message))
 
 def installed_path(*relpath):
   return os.path.join(prefix(), *relpath)

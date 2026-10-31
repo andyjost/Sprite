@@ -25,6 +25,7 @@ The following are recognized:
   launchers under ``bin`` set it.  When it is not set, the Python package
   finds the tree from its own location, so ``import curry`` works with the
   package directory on ``PYTHONPATH``.
+  A failed system library check raises ``ImportError`` with the reason.
 
 ``SPRITE_FRONTEND_WARNINGS``
   The Curry front end warns on overlapping rules ("Function f is
@@ -336,9 +337,8 @@ with Sprite, then you should not need these.
   When the variable is set, Sprite skips the check of the system libraries,
   the Prelude and the other modules of ``curry/`` in the installation.  The
   check finds each of them on the Curry path and confirms that no file
-  earlier on the path shadows it.  Without the variable a missing or
-  shadowed system library ends the process with a message that names the
-  paths.
+  earlier on the path shadows it.  Without the variable a failed library
+  check raises ``ImportError`` with the reason and the paths.
 
 ``SPRITE_ENABLE_BREAKPOINT``
   When the variable is set, ``import curry`` installs a ``breakpoint``
