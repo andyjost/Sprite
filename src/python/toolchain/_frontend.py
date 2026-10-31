@@ -113,7 +113,10 @@ logger = logging.getLogger(__name__)
 #      interfaces through the same full search path as the front end.
 #   5: imported interface provenance travels with ICurry (#164).
 #   6: the default pair is front end 3.1.0 with PAKCS 3.10.0.
-ROUTE_VERSION = 6
+#   7: 2026-10-30, the community corpus resolves Test.Prop to the installed
+#      library, not to the compile-only module of community/support (#168);
+#      products made with the support module name other arities.
+ROUTE_VERSION = 7
 
 # The options that silence the front end.  They are the ones icurry passes in
 # quiet mode.
