@@ -11,6 +11,8 @@ inspect the build process.  A transformation might be implemented by Sprite or
 performed by an external program.  Taken in order, the stages form the
 compilation pipeline.  Sprite chooses as its starting point the newest
 among a Curry source file and all its intermediates along the pipeline.
+How the result runs, interpreted, compiled just in time or compiled ahead
+of time, and how to choose, is the subject of :doc:`/CompilationOptions`.
 
 The following sections discuss the compilation stages in detail.
 

@@ -44,21 +44,13 @@ without a compiler.  See :doc:`Installation/WithoutCompiler`.
 The interpreter modes
 =====================
 
-The flag ``interpret`` defaults to ``new``: current ahead-of-time objects
-load, and other modules start interpreted. ``all`` starts every module
-interpreted and never opens an ahead-of-time object; it is the Windows
-default. ``off`` compiles missing objects before running.
-
-The flag ``jit`` defaults to ``hot``. Interpreted functions compile after
-100 calls (``SPRITE_JIT_THRESHOLD``), with swaps at the scheduler's
-safepoint. ``eager`` compiles at module load; ``off`` keeps the interpreter.
-``jit_backend:auto`` selects LLVM when llvmlite imports, else gxx when a
-C++ compiler is available, else the interpreter alone with one warning per
-process. Forced ``llvm`` and ``gxx`` report unavailable prerequisites as
-errors. LLVM compiles functions in process; gxx compiles whole modules in
-a child, preserving the private-copy and publication protocol of #173.
-Background C++ compilation uses ``jit:hot,jit_backend:gxx``.
-See :doc:`Installation/WithoutCompiler`.
+A function runs interpreted, compiled just in time (LLVM through
+``llvmlite``, or the generated C++ with ``g++`` in a child process) or
+compiled ahead of time; the flags ``interpret``, ``jit`` and
+``jit_backend`` choose, and what is installed decides what ``auto`` can
+choose.  :doc:`CompilationOptions` describes the flags, the platforms and
+how to watch the choice; the gxx backend keeps the publication protocol of
+#173.
 
 The typed boundary
 ==================
