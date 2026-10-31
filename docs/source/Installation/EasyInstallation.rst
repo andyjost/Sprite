@@ -5,7 +5,9 @@
 Easy Installation
 =================
 
-On Linux or macOS, choose the path that fits your Python setup.
+On Linux or macOS, choose the path that fits your Python setup. On Windows,
+take the pip path with a Python of your own: the one-line installer is for
+Linux and macOS.
 
 Without a suitable Python
 -------------------------
