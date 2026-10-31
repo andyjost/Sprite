@@ -47,7 +47,21 @@ class TestLogging(cytest.TestCase):
     self.decisions(proc.stderr)
 
   def test_default_is_quiet(self):
-    proc = self.child(self.code)
+    proc = self.child("""
+import logging
+root = logging.getLogger()
+before = (list(root.handlers), root.level)
+import curry, importlib
+importlib.reload(curry.config)
+logger = logging.getLogger('curry')
+assert len(logger.handlers) == 1
+assert isinstance(logger.handlers[0], logging.NullHandler)
+assert not logger.filters and not logger.handlers[0].filters
+assert logger.level == logging.NOTSET and logger.propagate
+assert (root.handlers, root.level) == before
+curry.compile('main = 42', name='LoggingText')
+logger.warning('logging default record marker')
+""")
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(proc.stderr, '')
 

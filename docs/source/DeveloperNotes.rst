@@ -9,9 +9,10 @@ Logging
 
 Set ``SPRITE_LOG_LEVEL=INFO`` to see the decisions behind module execution,
 cache use and toolchain work. ``SPRITE_LOG_FILE`` appends the records to a
-file shared by the process and its compile children; the default destination
-is standard error. Records include a timestamp, severity, process ID and
-logger name. ``DEBUG`` includes command lines and differing stamp components.
+file shared by the process and its compile children, at WARNING unless a
+level is set. A level alone enables logging to standard error. With neither
+variable set, the package keeps only its ``NullHandler``. Records include a
+timestamp, severity, process ID and logger name. ``DEBUG`` includes command lines and differing stamp components.
 The package logger is ``curry``; modules use ``logging.getLogger(__name__)``.
 Configuration happens once at import. Keep messages at module and toolchain
 decision sites, with the module name first, and guard expensive diagnostic

@@ -29,23 +29,16 @@ else:
 logger = logging.getLogger(__name__)
 _package_logger = logging.getLogger('curry')
 if not getattr(_package_logger, '_sprite_configured', False):
-  _handler = (logging.FileHandler(_LOG_FILE_, mode='a')
-              if _LOG_FILE_ != '-' else logging.StreamHandler())
-  _handler.setFormatter(logging.Formatter(
-      '%(asctime)s %(levelname)s %(process)d %(name)s: %(message)s'))
-  if 'SPRITE_LOG_FILE' not in os.environ and 'SPRITE_LOG_LEVEL' not in os.environ:
-    # These helpers already send the same notice through CurryWarning.
-    # Preserve the default warning path (including CLI path sanitization).
-    def _default_log_record(record):
-      return not (record.levelno == logging.WARNING and
-          (record.name, record.funcName) in (
-              ('curry.interpreter.import_', '_warn'),
-              ('curry.backends.cxx.tiered', '_warn_once'),
-              ('curry.toolchain._frontend', 'report_warnings')))
-    _handler.addFilter(_default_log_record)
+  if 'SPRITE_LOG_FILE' in os.environ or 'SPRITE_LOG_LEVEL' in os.environ:
+    _handler = (logging.FileHandler(_LOG_FILE_, mode='a')
+                if _LOG_FILE_ != '-' else logging.StreamHandler())
+    _handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s %(process)d %(name)s: %(message)s'))
+    _package_logger.setLevel(_LOG_LEVEL_)
+    _package_logger.propagate = False
+  else:
+    _handler = logging.NullHandler()
   _package_logger.addHandler(_handler)
-  _package_logger.setLevel(_LOG_LEVEL_)
-  _package_logger.propagate = False
   _package_logger._sprite_configured = True
 
 if os.environ.get('_SPRITE_BACKGROUND_MODULE'):

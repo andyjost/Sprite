@@ -199,9 +199,10 @@ The following are recognized:
   sets the same flag alone.
 
 ``SPRITE_LOG_FILE``
-  Append log records to this path. Without the variable (or with ``-``),
-  records go to standard error. Sprite configures one handler on the Python
-  logger ``curry`` at import, without configuring Python's root logger.
+  Enable logging and append records to this path; ``-`` selects standard
+  error. With neither logging variable set, the Python logger ``curry`` has
+  only a ``NullHandler``. Setting either variable at import configures one
+  real handler, without propagation to Python's root logger or configuring it.
   Each record uses the format
   ``%(asctime)s %(levelname)s %(process)d %(name)s: %(message)s``.
   The process ID distinguishes children writing to the same file.
@@ -209,14 +210,16 @@ The following are recognized:
 ``SPRITE_LOG_LEVEL``
   The minimum severity, case-insensitive: ``DEBUG``, ``INFO``, ``WARNING``,
   ``ERROR`` or ``CRITICAL``. The default is ``WARNING``; an unknown name
-  stops the import with an error. At ``INFO``, Sprite reports interpreter
+  stops the import with an error. Setting this variable alone enables a
+  handler on standard error at that level. Setting only ``SPRITE_LOG_FILE``
+  enables a file handler at ``WARNING``. At ``INFO``, Sprite reports interpreter
   flags and the installation, compiled or interpreted module loads and
   their reasons, background compile results, cache hits and misses,
   front-end timing and warning counts, rewrite decisions, and ICurry and
   JSON writes. ``DEBUG`` adds stamp differences and tool command lines.
   Existing ``CurryWarning`` notices also reach the log at ``WARNING``.
-  With neither variable set, their existing display is preserved without
-  duplicating the notices on standard error.
+  With neither variable set, notices keep their existing display through
+  ``warnings.warn`` on standard error.
 
 ``SPRITE_ROTATION``
   The rotation mode of the C++ backend: ``time:10ms`` (time mode, the
