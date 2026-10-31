@@ -20,7 +20,7 @@ class NativePayload(Distribution):
     return True
 
 
-VERSIONS = {'2.0.0': '2.0.0.post6', '3.1.0': '3.1.0.post1'}
+VERSIONS = {'2.0.0': '2.0.0.post6', '3.1.0': '3.1.0.post2'}
 
 setup(version=VERSIONS[os.environ.get('CURRY_FRONTEND_VERSION', '2.0.0')],
     cmdclass={'bdist_wheel': PlatformWheel}, distclass=NativePayload)
