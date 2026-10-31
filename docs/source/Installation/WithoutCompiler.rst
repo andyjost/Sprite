@@ -10,7 +10,7 @@ to compile a Curry module to a shared object.  The runtime library
 at run time.  A module without a compiled object runs interpreted: the
 runtime interprets the ICurry of the module from a bytecode, on the same
 scheduler and with the same rewrite steps as compiled code (the interpreter
-flag ``interpret``; see :mod:`curry.interpreter.flags`).  So an
+flag ``interpret``; see :doc:`/CompilationOptions`).  So an
 installation without a C++ compiler runs every Curry program.
 
 The build itself needs the compiler: CMake finds ``g++``, and

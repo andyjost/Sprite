@@ -96,6 +96,7 @@ runs Curry in a browser.
    :caption: User guide
 
    PythonAPI/index
+   CompilationOptions
    REPL
    CommandLineInterface/index
    Introduction/Introduction
