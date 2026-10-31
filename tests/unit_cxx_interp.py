@@ -16,7 +16,7 @@ from curry.backends.cxx import toolchain as cxx_toolchain
 from curry.backends.generic.eval import evaluator
 from curry.exceptions import CompileError, EvaluationError
 from curry.objects.handle import getHandle
-from curry.toolchain import _makecurry, _productcache, plans
+from curry.toolchain import _makecurry, _productcache, _system, plans
 from unittest import mock
 import contextlib, curry, gc, importlib, io, itertools, os, shutil, subprocess
 import sys
@@ -1193,3 +1193,53 @@ other = 2
           EvaluationError, pattern, lambda: list(cytest.raw.values(M.main))
         )
       self.assertEqual(len(calls), 1)
+
+  @cytest.hardreset
+  def test_trapped_table_takes_the_image(self):
+    '''
+    The plan's import of an ICurry object under 'off' (Json2TargetSource,
+    which generates the C++) leaves the interpreter without the unlink of a
+    reset: a deletion from interp.modules, no Module::retire.  While an
+    object of that module is alive (it lives in a cycle with its
+    ModuleInfo, so until a cyclic collection), its runtime module stays
+    registered under the name with the trap steps of its tables.  An import
+    of the module under 'new' loads the image of its translation over those
+    tables (image.attach, load_image of the runtime).  The trap step is no
+    code (curryrt/module.hpp): the bytecode replaces it, as the
+    materializer replaces it on the JSON route, so the function runs
+    interpreted and no compiler runs.  The image kept the trap before, and
+    the first use compiled where the mode interprets; the ordinary build
+    hid it behind a cyclic collection, the free-threaded build did not
+    (unit_product_cache.test_interpret_new_does_not_restore).
+    '''
+    name = self.write()
+    plan = plans.makeplan(
+        cytest.raw.interp()
+      , plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON
+          | plans.MAKE_TARGET_SOURCE
+      )
+    gc.disable()  # the module of the plan's import stays alive, as in a run without a collection
+    try:
+      toolchain.makecurry(plan, name, self.currypath)
+      old = materialize._PENDING[name].module()
+      self.assertIsNotNone(old)
+      self.assertNotIn(name, cytest.raw.interp().modules)
+      self.assertTrapped(old, 'double', 'main', 'boom')
+      info = old.main.info
+      os.unlink(self.product(name, '.cpp'))
+      curry.reset(**{'backend': 'cxx', 'interpret': 'new', 'jit': 'off'})
+      # ``old`` is alive: its runtime module keeps the trapped tables.
+      self.assertTrue(curryrt.is_trapped(info))
+      with mock.patch.object(
+          _system, 'pexec', side_effect=AssertionError('a compiler ran')
+        ):
+        M = curry.import_(name, path=self.currypath)
+        # The same table, with the bytecode of the image in place of the trap.
+        self.assertEqual(M.main.info.address, info.address)
+        self.assertFalse(curryrt.is_trapped(info))
+        self.assertTrue(info.has_step)
+        self.assertFalse(materialize.is_pending(M))
+        self.assertEqual(list(curry.eval(M.main)), [42])
+    finally:
+      gc.enable()
+    self.assertFalse(os.path.exists(self.product(name, '.so')))

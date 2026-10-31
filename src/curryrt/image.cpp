@@ -274,7 +274,15 @@ namespace curryrt
       bc->nstack = r.word();
       for(auto n=r.count(); n; --n) bc->code.push_back(r.word());
       for(auto n=r.count(); n; --n) bc->consts.push_back(r.constant(*bc));
-      if(!bc->code.empty() && !info->step)
+      // A table with code keeps it, as the materializer keeps it
+      // (materialize.py): the function of a module of this name that
+      // another incarnation interpreted or swapped to compiled code runs as
+      // it did.  The trap step of the compile on first use is no code
+      // (curryrt/module.hpp): the bytecode replaces it, as icurry_attach
+      // allows, else a module that left an interpreter under interpret:off
+      // while an object of it was alive keeps its trap into an import under
+      // interpret:new, and its first use compiles where it must interpret.
+      if(!bc->code.empty() && (!info->step || is_trapped(info)))
         icurry_attach(const_cast<InfoTable *>(info), std::move(bc));
     }
     if(r.word() != bom->functions.size()) Reader::fail("wrong summary count");
