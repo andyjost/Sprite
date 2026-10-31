@@ -30,6 +30,13 @@ Release Notes
   ``curry[jit]``).  The flag ``jit`` selects ``off``, ``eager`` or ``hot``;
   the hot tier compiles the functions that run and swaps their steps at a
   safepoint of the scheduler.
+- A module is translated once into a binary image that the C++ runtime
+  reads directly, with the optimizer passes run at translation time: the
+  interpreted start of the Prelude falls from 0.73 s to 0.04 s. The images
+  of the library are products of the stage and ship in the wheels; an
+  installation whose directory is read-only runs from the JSON as before;
+  compiled products carry receipts of the translation that made them
+  (#175).
 - The second backend of the JIT is named for what it is: the value ``cxx``
   of ``jit_backend`` (``gxx`` before) compiles the generated C++ of a module
   with the C++ compiler of the installation, g++ or clang++, and the docs
