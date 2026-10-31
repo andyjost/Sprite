@@ -196,7 +196,7 @@ class TestSwapAfterEdit(EditedSourceTestCase):
     threshold.start()
     self.addCleanup(threshold.stop)
     curry.reset(backend='cxx', interpret='new', jit='hot',
-                jit_backend='gxx', inline_budget=0)
+                jit_backend='cxx', inline_budget=0)
     curry.path.insert(0, self.tmpdir)
 
   @cytest.hardreset

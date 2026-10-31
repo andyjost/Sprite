@@ -105,7 +105,7 @@ print(repr(values))
       , 'recursion_limit', 'rotation', 'stack_limit', 'step_budget'
       , 'telemetry_interval', 'trace', 'worker_stack'
       ])
-    with self.assertRaisesRegex(curry.FlagError, 'jit:hot.*jit_backend:gxx'):
+    with self.assertRaisesRegex(curry.FlagError, 'jit:hot.*jit_backend:cxx'):
       curry.reset(interpret=''.join(('tier', 'ed')))
 
 

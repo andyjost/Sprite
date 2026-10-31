@@ -59,7 +59,7 @@ Flag                         Default                What it changes
                                                     interpreted (``'off'``). Current AOT objects still load.
 ``jit_backend``              ``'auto'``             ``'auto'`` selects llvmlite, then a C++ compiler, then
                                                     the interpreter alone with one warning. Forced
-                                                    ``'llvm'`` and ``'gxx'`` error when unavailable.
+                                                    ``'llvm'`` and ``'cxx'`` error when unavailable.
 ``rotation``                 ``'time:10ms'``        How the C++ backend paces the rotation of its queue
                                                     of alternatives: time mode (``time:<N><unit>``) or
                                                     step mode (``steps:<N>``), in which the order of the

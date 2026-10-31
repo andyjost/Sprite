@@ -102,7 +102,7 @@ class Materializer(object):
     # The JIT (the flag jit: 'eager' compiles the functions of the module
     # when it is loaded, 'hot' compiles the functions that run; issue #65,
     # curry.backends.cxx.llvmjit).  When it cannot run, the functions stay
-    # interpreted and the reason is logged once per process. The gxx
+    # interpreted and the reason is logged once per process. The cxx
     # backend registers whole-module jobs at module_loaded instead.
     from .jit import backend
     jit = interp.flags.get('jit', 'off')

@@ -15,7 +15,7 @@ Sprite was developed and tested with the following software:
 
 macOS, Apple Silicon and Intel, builds the runtime and runs the C++
 backend as Linux does, the compiled modules and the background compile of
-the gxx JIT included (issues #162 and #163), with the front end built
+the C++ compiler backend of the JIT included (issues #162 and #163), with the front end built
 from source by the CI job of the repository.  The workflows of the
 repository build the wheels of both packages, ``curry`` and
 ``curry-frontend``, for macOS 15 or newer on both architectures.

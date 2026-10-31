@@ -1,7 +1,8 @@
 '''
-The gxx backend of compiled execution.
+The C++ compiler backend of the JIT (jit_backend:cxx): compiled execution
+through the generated C++ of a module.
 
-With jit:hot,jit_backend:gxx, a module starts interpreted and its private
+With jit:hot,jit_backend:cxx, a module starts interpreted and its private
 compile job is armed at load. The runtime starts that job when the first
 function reaches SPRITE_JIT_THRESHOLD calls. jit:eager submits and waits
 at module load instead. The worker and adoption API keep their internal
@@ -79,7 +80,15 @@ its record either way); its own job, if any, then adopts the mapped object.
 What is not compiled. Modules without source products and modules whose
 functions are all built in. Modules
 compiled from text get private snapshots while their source still exists;
-nothing is published beside those temporary sources.
+nothing is published beside those temporary sources.  The modules of the
+Curry library (config.syslibs) are not compiled either: their objects come
+with the installation (make stage), and the swap maps the object of such an
+import for its importers (above), so a library module an interpreter runs
+(interpret:all, or a stale object) runs compiled once an importer swaps.  A
+private copy of a library source would be refused by the namesake check of
+the child (issue #168), and the copy on the search path of the children
+that followed it shadowed the library for them, so every compile of the
+process failed.
 
 The check of the swap.  The child compiles the source as it is when the
 child runs.  An edit of the source between the import and the compile would
@@ -131,7 +140,8 @@ applied at a safepoint are logged by the next poll: before and after an
 evaluation, by wait, and at the exit of the process.  Interpreter.stats
 reports the functions swapped and the compiles that failed.
 
-Cancel.  A reset, a reload, and the exit of the process drop the queue and
+Cancel.  A reset, a reload, and the exit of the process (finish, which
+sprite-exec --stats calls before its line of statistics) drop the queue and
 kill the running compile, so no compiler outlives the interpreter and a short
 program never waits for one.  The object of a program that ends before its
 compile is not written; sprite-make --so writes it.
@@ -151,14 +161,14 @@ from ...exceptions import CurryWarning
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    'MODE', 'cancel', 'counts', 'enabled', 'has_binding'
+    'MODE', 'cancel', 'counts', 'enabled', 'finish', 'has_binding'
   , 'module_loaded', 'pending', 'poll', 'status', 'submit', 'wait', 'wait_for'
   ]
 
-MODE = 'gxx'
+MODE = 'cxx'
 
 def enabled(interp):
-  '''Whether interpreted functions use the gxx backend.'''
+  '''Whether interpreted functions use the C++ compiler backend.'''
   from .jit import backend
   return interp.flags['interpret'] != 'off' and interp.flags['jit'] != 'off' \
       and backend(interp) == MODE
@@ -351,7 +361,7 @@ def prepare_adoption(interp, name):
 
 def _compiles(interp, moduleobj):
   '''
-  Whether the gxx backend can compile this module: not a package, not
+  Whether the C++ compiler backend can compile this module: not a package, not
   loaded from an object, and has source products.
   '''
   if not enabled(interp):
@@ -389,7 +399,7 @@ def module_loaded(interp, moduleobj, currypath):
     wait(interp=interp)
     if getHandle(moduleobj).backend_handle.shlib is None:
       from ...exceptions import CompileError
-      raise CompileError('gxx eager: module %s compile failed' % moduleobj.__name__)
+      raise CompileError('cxx eager: module %s compile failed' % moduleobj.__name__)
     n = _state.records[moduleobj.__name__].functions
     logger.info('jit eager: module %s, %d functions, %.1f ms',
         moduleobj.__name__, n, 1000 * (time.monotonic() - start))
@@ -465,6 +475,15 @@ def submit(interp, moduleobj, currypath, hot=False):
   imodule = h.icurry
   name = imodule.fullname
   filename = imodule.filename
+  if name in config.syslibs():
+    # The library is left to the objects of the installation (the module
+    # docstring, "What is not compiled"); its record, made by module_loaded,
+    # names the object the swap of an importer maps.
+    logger.info(
+        'cxx: module %s is a module of the Curry library; it is not compiled '
+        'in the background, its object comes with the installation', name
+      )
+    return False
   M = h.backend_handle
   steps = []
   for ifun in imodule.functions.values():
@@ -479,7 +498,7 @@ def submit(interp, moduleobj, currypath, hot=False):
   cxx = config.cxx_tool()
   if cxx is None:
     from ...exceptions import CompileError
-    raise CompileError('gxx needs a C++ compiler; install a C++ compiler')
+    raise CompileError('jit_backend:cxx needs a C++ compiler; install one')
   # The child compiles a private copy (the module docstring, "The
   # products"): nothing is written under the source while it runs.  The
   # digest below is still the one of the ICurry file beside the original:
@@ -507,7 +526,7 @@ def submit(interp, moduleobj, currypath, hot=False):
       )
   if logger.isEnabledFor(logging.DEBUG):
     logger.debug('Compiling %s in the background: %s', name, ' '.join(argv))
-  dispatch = curryrt.gxx_arm if hot else curryrt.tiered_submit
+  dispatch = curryrt.cxx_arm if hot else curryrt.tiered_submit
   dispatch(
       name, argv, envp, logfile, sofile, record.publish or '', steps
     , record.icyfile, record.digest, _import_objects(interp, imodule)
@@ -564,7 +583,7 @@ def poll(interp=None):
       _state.modules.pop(name, None)
       if hot:
         output = result['output'].strip()
-        logger.info('gxx hot: module %s compile failed: %s', name,
+        logger.info('cxx hot: module %s compile failed: %s', name,
             (output or result['error']).splitlines()[0])
     for imported in result['mapped']:
       # The swap mapped the object of an import (see the module docstring,
@@ -580,7 +599,7 @@ def poll(interp=None):
       logger.info('module %s: background compile finished in %.2f s, swapped',
           name, result['seconds'])
       if hot:
-        logger.info('gxx hot: module %s compiled in %.2f s, swapped',
+        logger.info('cxx hot: module %s compiled in %.2f s, swapped',
             name, result['seconds'])
       _refresh(name, interp)
     elif result['error'] == 'the module is no longer loaded':
@@ -698,10 +717,16 @@ def cancel():
   _state.pending.clear()
   _state.modules.clear()
 
-def _at_exit():
-  # The compiles that ended are applied and logged, so that a failure
-  # reaches the log of a process that evaluates once; then the rest is
-  # cancelled.
+def finish():
+  '''
+  Ends the background compiles of the process.  The compiles that ended are
+  applied and logged, so that a failure reaches the log of a process that
+  evaluates once; then the rest is cancelled and the private directory is
+  removed.  The exit of the process calls it, and sprite-exec --stats calls
+  it before its line of statistics, so the warning of a failed compile
+  precedes the line and the line counts the compile.  A later compile
+  starts afresh.
+  '''
   try:
     poll()
   except Exception:  # pragma: no cover
@@ -709,5 +734,7 @@ def _at_exit():
   cancel()
   if _state.tmpdir is not None:
     shutil.rmtree(_state.tmpdir, ignore_errors=True)
+    _state.tmpdir = None
+    _state.private.clear()
 
-atexit.register(_at_exit)
+atexit.register(finish)

@@ -44,21 +44,13 @@ without a compiler.  See :doc:`Installation/WithoutCompiler`.
 The interpreter modes
 =====================
 
-The flag ``interpret`` defaults to ``new``: current ahead-of-time objects
-load, and other modules start interpreted. ``all`` starts every module
-interpreted and never opens an ahead-of-time object; it is the Windows
-default. ``off`` compiles missing objects before running.
-
-The flag ``jit`` defaults to ``hot``. Interpreted functions compile after
-100 calls (``SPRITE_JIT_THRESHOLD``), with swaps at the scheduler's
-safepoint. ``eager`` compiles at module load; ``off`` keeps the interpreter.
-``jit_backend:auto`` selects LLVM when llvmlite imports, else gxx when a
-C++ compiler is available, else the interpreter alone with one warning per
-process. Forced ``llvm`` and ``gxx`` report unavailable prerequisites as
-errors. LLVM compiles functions in process; gxx compiles whole modules in
-a child, preserving the private-copy and publication protocol of #173.
-Background C++ compilation uses ``jit:hot,jit_backend:gxx``.
-See :doc:`Installation/WithoutCompiler`.
+A function runs interpreted, compiled just in time (LLVM through
+``llvmlite``, or the generated C++ through the C++ compiler in a child process) or
+compiled ahead of time; the flags ``interpret``, ``jit`` and
+``jit_backend`` choose, and what is installed decides what ``auto`` can
+choose.  :doc:`CompilationOptions` describes the flags, the platforms and
+how to watch the choice; the C++ compiler backend keeps the publication protocol of
+#173.
 
 The typed boundary
 ==================
@@ -109,7 +101,7 @@ Known limits
   comparison of it resolves the narrowing again; read such a result
   through a set function (issue #86; the note in
   :ref:`CurryPrimer/Syntax:Pattern Matching`).
-* The gxx hot tier has gaps.  A swapped module keeps
+* The hot tier of the C++ compiler backend has gaps.  A swapped module keeps
   its registry entry for the life of the process, so a later load of the
   same name from another directory is refused, before the object is
   opened.  :func:`curry.load` of the object of a module whose background

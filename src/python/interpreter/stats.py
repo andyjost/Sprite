@@ -239,11 +239,11 @@ def stats(interp):
         Seconds the node collector of the C++ backend spent in its
         collections.
     ``swapped``
-        The functions that the gxx backend swapped from
+        The functions that the C++ compiler backend of the JIT swapped from
         the interpreter to compiled code in this process (the interpreter
-        flags ``jit:hot,jit_backend:gxx``).
+        flags ``jit:hot,jit_backend:cxx``).
     ``failed_compiles``
-        The background gxx compiles that failed in this
+        The background compiles of the C++ compiler backend that failed in this
         process; the modules stay interpreted.
     ``gc_roots_seconds``, ``gc_trace_seconds``, ``gc_sweep_seconds``, ``gc_registries_seconds``
         Seconds the collections of the node collector spent in each phase:

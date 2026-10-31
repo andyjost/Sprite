@@ -56,8 +56,8 @@ def loadcurry(plan, name, currypath=None, **kwds):
     return loadjson(filename)
   elif filename.endswith('.cpp'):
     # The plan ended at a generated file (Cpp2So.ends_plan of the C++
-    # backend, under hot gxx execution): attach the image emitted alongside
-    # the generated source.
+    # backend, under the hot tier of the C++ compiler backend): attach the
+    # image emitted alongside the generated source.
     from ..backends.cxx import image
     return image.load(plan.interp, json_beside(filename), imagepath)
   else:

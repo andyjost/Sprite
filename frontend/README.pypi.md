@@ -21,6 +21,6 @@ curry-frontend --flat Prog.curry   # writes .curry/Prog.fcy and its interface
 The program is the work of the Curry group at the University of Kiel
 (the upstream project `curry-frontend`; 3.1.0 is sourced from GitHub); its license and the notices of the
 libraries bundled with the executable are in the wheel. The version's
-`post` number counts Sprite's packaging revisions of each upstream version: 2.0.0.post6 and 3.1.0.post1.
+`post` number counts Sprite's packaging revisions of each upstream version: 2.0.0.post6 and 3.1.0.post2.
 Sprite keeps 2.0.0/3.4.1 as its default until upgrade stage G.
 The executable prints its upstream version without the packaging suffix.

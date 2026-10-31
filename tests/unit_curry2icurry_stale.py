@@ -766,7 +766,7 @@ class TestImportedInterfaces(PreRewriteCase):
       cache.write_file(icy + '.imports', text)
       self.assertTrue(_curry2icurry.icurry_is_stale(icy, [self.tmpdir]))
 
-  def test_import_change_off_and_hot_gxx(self):
+  def test_import_change_off_and_hot_cxx(self):
     from curry.backends.cxx import toolchain as cxx
     from curry.toolchain import _interfaces
     for mode, prebuild, tidy, body_only in (
@@ -810,7 +810,7 @@ class TestImportedInterfaces(PreRewriteCase):
           self.assertTrue(cxx.source_is_stale(cpp, [directory]))
         if tidy:
           os.unlink(icy)
-        self.child(setup + 'curry.reset(interpret=%r, jit="hot", jit_backend="gxx")\n' % mode +
+        self.child(setup + 'curry.reset(interpret=%r, jit="hot", jit_backend="cxx")\n' % mode +
             'from curry.backends.cxx import tiered\n'
             'from curry.objects.handle import getHandle\n'
             'import os\nos.environ["SPRITE_JIT_THRESHOLD"] = "1"\n'

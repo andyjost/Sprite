@@ -99,7 +99,7 @@ The default pair is front end ``3.1.0`` with PAKCS ``3.10.0``. The legacy
 pair, front end ``2.0.0`` with PAKCS ``3.4.1``, remains supported through the
 same options. CMake derives the intermediate directory names and CPP
 flags from the selected front end and rejects a mismatched oracle.
-The front-end package ``3.1.0.post1`` is on PyPI. The ``.postN`` suffix
+The front-end package ``3.1.0.post2`` is on PyPI. The ``.postN`` suffix
 counts packaging revisions.
 
 Wheels

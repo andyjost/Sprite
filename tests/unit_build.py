@@ -35,7 +35,7 @@ class TestDistribution(cytest.TestCase):
     self.assertEqual(frontend['name'], 'curry-frontend')
     self.assertEqual(frontend['authors'], [{'name': 'Andy Jost'}])
     self.assertIn('Sprite', project['description'])
-    self.assertEqual((ROOT / 'VERSION').read_text().strip(), '0.9.0a2')
+    self.assertEqual((ROOT / 'VERSION').read_text().strip(), '0.9.0a3')
     self.assertEqual(project['license'], 'BSD-3-Clause')
     self.assertIn('Development Status :: 3 - Alpha', project['classifiers'])
     self.assertTrue((ROOT / project['readme']).is_file())
@@ -144,7 +144,7 @@ else:
   def distributions(self, directory, requirements=REQUIREMENTS):
     '''A matrix fixture for testing the publication gate, without native code.'''
     gate = script('check-dist')
-    metadata = ('Metadata-Version: 2.4\nName: curry\nVersion: 0.9.0a2\n'
+    metadata = ('Metadata-Version: 2.4\nName: curry\nVersion: 0.9.0a3\n'
                 'Author: Andy Jost\n'
                 'License-Expression: BSD-3-Clause\n'
                 'Classifier: Development Status :: 3 - Alpha\n'
@@ -152,23 +152,23 @@ else:
                 + ''.join('Requires-Dist: %s\n' % req for req in requirements) + '\n')
     for py, abi in gate.PYTHONS:
       for tag, suffix in gate.PLATFORMS:
-        path = Path(directory) / f'curry-0.9.0a2-{py}-{abi}-{tag}.whl'
+        path = Path(directory) / f'curry-0.9.0a3-{py}-{abi}-{tag}.whl'
         with zipfile.ZipFile(path, 'w') as archive:
-          archive.writestr('curry-0.9.0a2.dist-info/METADATA', metadata)
+          archive.writestr('curry-0.9.0a3.dist-info/METADATA', metadata)
         path.with_suffix(suffix).write_text('Report fixture\n')
-    with tarfile.open(Path(directory) / 'curry-0.9.0a2.tar.gz', 'w:gz') as archive:
+    with tarfile.open(Path(directory) / 'curry-0.9.0a3.tar.gz', 'w:gz') as archive:
       for name in gate.SDIST_FILES:
-        info = tarfile.TarInfo('curry-0.9.0a2/' + name)
+        info = tarfile.TarInfo('curry-0.9.0a3/' + name)
         archive.addfile(info, io.BytesIO())
     return gate
 
   def test_complete_matrix(self):
     with tempfile.TemporaryDirectory() as directory:
       gate = self.distributions(directory)
-      gate.check(directory, '0.9.0a2', 'v0.9.0a2')
+      gate.check(directory, '0.9.0a3', 'v0.9.0a3')
 
   def test_wrong_distribution_identity(self):
-    for old, new in [('curry-', 'currylang-'), ('0.9.0a2', '0.9.0a1')]:
+    for old, new in [('curry-', 'currylang-'), ('0.9.0a3', '0.9.0a1')]:
       with self.subTest(replacement=new), tempfile.TemporaryDirectory() as directory:
         gate = self.distributions(directory)
         path = next(Path(directory).glob('*.whl'))
@@ -177,14 +177,14 @@ else:
         suffix = next(s for tag, s in gate.PLATFORMS if tag in path.name)
         path.with_suffix(suffix).rename(renamed.with_suffix(suffix))
         with self.assertRaises(AssertionError):
-          gate.check(directory, '0.9.0a2')
+          gate.check(directory, '0.9.0a3')
 
   def test_missing_freethreaded_wheel(self):
     with tempfile.TemporaryDirectory() as directory:
       gate = self.distributions(directory)
       next(Path(directory).glob('*-cp314-cp314t-manylinux_2_28_x86_64.whl')).unlink()
       with self.assertRaisesRegex(AssertionError, 'thirty wheels'):
-        gate.check(directory, '0.9.0a2')
+        gate.check(directory, '0.9.0a3')
 
   def test_runtime_dependencies(self):
     for requirements in [(), ('curry-frontend>=3.1.0', 'uv')]:
@@ -192,7 +192,7 @@ else:
         with tempfile.TemporaryDirectory() as directory:
           gate = self.distributions(directory, requirements=requirements)
           with self.assertRaises(AssertionError):
-            gate.check(directory, '0.9.0a2')
+            gate.check(directory, '0.9.0a3')
 
   def test_wrong_platform(self):
     with tempfile.TemporaryDirectory() as directory:
@@ -202,20 +202,20 @@ else:
       path.rename(renamed)
       path.with_suffix('.auditwheel.txt').rename(renamed.with_suffix('.auditwheel.txt'))
       with self.assertRaises(AssertionError):
-        gate.check(directory, '0.9.0a2')
+        gate.check(directory, '0.9.0a3')
 
   def test_missing_auditwheel_evidence(self):
     with tempfile.TemporaryDirectory() as directory:
       gate = self.distributions(directory)
       next(Path(directory).glob('*.auditwheel.txt')).unlink()
       with self.assertRaisesRegex(AssertionError, 'Missing auditwheel show report'):
-        gate.check(directory, '0.9.0a2')
+        gate.check(directory, '0.9.0a3')
 
   def test_wrong_release_tag(self):
     with tempfile.TemporaryDirectory() as directory:
       gate = self.distributions(directory)
       with self.assertRaises(AssertionError):
-        gate.check(directory, '0.9.0a2', 'v0.9.0')
+        gate.check(directory, '0.9.0a3', 'v0.9.0')
 
   def test_elf_symbol_floor(self):
     repair = script('repair')
@@ -227,7 +227,7 @@ else:
   def test_auditwheel_symbol_verdict(self):
     repair = script('repair')
     # The filename alone must never be enough to pass an audit.
-    report = ('curry-0.9.0a2-cp311-cp311-manylinux_2_28_x86_64.whl is '
+    report = ('curry-0.9.0a3-cp311-cp311-manylinux_2_28_x86_64.whl is '
               'consistent with the following platform tag: "linux_x86_64".')
     with self.assertRaises(AssertionError):
       repair.check_auditwheel_report(report)

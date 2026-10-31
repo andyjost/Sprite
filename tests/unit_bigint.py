@@ -115,7 +115,7 @@ f 7 = 12
 '''
     for mode, jit in [('new', 'off'), ('new', 'hot'), ('off', 'off')]:
       with self.subTest(mode=mode, jit=jit):
-        curry.reset(backend='cxx', interpret=mode, jit=jit, jit_backend='gxx', checker=True)
+        curry.reset(backend='cxx', interpret=mode, jit=jit, jit_backend='cxx', checker=True)
         M = curry.compile(source, name='BigMode' + mode + jit)
         self.assertEqual(curry.eval(M.answer).one(), [2**200, math.factorial(30), 11, 12])
         if jit == 'hot':

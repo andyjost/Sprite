@@ -186,12 +186,12 @@ The fields are:
     Seconds the node collector spent in its collections.
 
 ``swapped``
-    The functions that the gxx backend swapped from the interpreter to
-    compiled code (``jit:hot,jit_backend:gxx`` compiles a module in the
+    The functions that the C++ compiler backend swapped from the interpreter to
+    compiled code (``jit:hot,jit_backend:cxx`` compiles a module in the
     background after its first hot function).
 
 ``failed_compiles``
-    The background gxx compiles that failed; their modules stay interpreted,
+    The background compiles of the C++ compiler backend that failed; their modules stay interpreted,
     and the failure is logged once per module.
 
 ``gc_roots_seconds``, ``gc_trace_seconds``, ``gc_sweep_seconds``, ``gc_registries_seconds``

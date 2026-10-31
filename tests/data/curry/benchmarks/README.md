@@ -132,7 +132,7 @@ qualified names visible. Settings are the throughput settings:
 one warm-up, five measured repetitions, 600 seconds and 6 GiB per process,
 and step rotation. Community runs use compiled C++ (`interpret:off`),
 as the applications suite does, unless the environment selects a mode.
-The warm-up completes compilation even for goals that end before a hot gxx
+The warm-up completes compilation even for goals that end before a hot cxx
 background compile could finish. A timeout ends that item's repetitions and
 records its budget in `meta.timeout`. Long programs retain their original
 workload; select them explicitly with a suitable `--timeout`. The nightly performance
