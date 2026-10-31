@@ -2,6 +2,24 @@
 Release Notes
 =============
 
+0.9.0a3 (unreleased)
+====================
+
+- Windows: the runtime and the bindings build with clang-cl on
+  windows-2025 and every module runs interpreted there; the wheels and the
+  front end's Windows wheel follow.
+- A JIT for the C++ backend: the bytecode of an interpreted function
+  compiles to machine code through LLVM (``llvmlite``, the extra
+  ``curry[jit]``).  The flag ``jit`` selects ``off``, ``eager`` or ``hot``;
+  the hot tier compiles the functions that run and swaps their steps at a
+  safepoint of the scheduler.
+- A value binding of a big integer keeps its payload across a collection
+  (#176); a compiled module reloaded after a reset runs its compiled steps
+  (#177); a failed system-library check at import raises ``ImportError``
+  with the reason instead of exiting silently (#174).
+- The README and the documentation state the ways Curry code runs:
+  compiled ahead of time, embedded, interpreted, or compiled just in time.
+
 0.9.0a2 (2026-10-27)
 ====================
 
