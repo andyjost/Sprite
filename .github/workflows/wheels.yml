@@ -273,19 +273,23 @@ jobs:
         with:
           name: frontend-wheels
           path: .wheelhouse
+      # The build and the test venv of cibuildwheel run in the environment of
+      # the step on Windows (no container), so the variables they need are
+      # the step's; a path inside CIBW_ENVIRONMENT would lose its
+      # backslashes to the quoting rules of that setting.
       - name: Build six wheels with clang-cl in the developer environment of Visual Studio
         shell: cmd
         env:
+          LC_ALL: C.UTF-8
+          PIP_FIND_LINKS: ${{ github.workspace }}\.wheelhouse
+          SPRITE_CACHE_FILE: ''
+          SPRITE_PRODUCT_CACHE: ''
+          CMAKE_GENERATOR: Ninja
           CIBW_ARCHS_WINDOWS: AMD64
           CIBW_BUILD_FRONTEND: pip
           CIBW_BUILD: >-
             cp311-win_amd64 cp312-win_amd64 cp313-win_amd64
             cp314-win_amd64 cp314t-win_amd64 cp315-win_amd64
-          CIBW_ENVIRONMENT_WINDOWS: >-
-            LC_ALL=C.UTF-8
-            PIP_FIND_LINKS=${{ github.workspace }}\.wheelhouse
-            SPRITE_CACHE_FILE="" SPRITE_PRODUCT_CACHE=""
-            CMAKE_GENERATOR=Ninja
           CIBW_CONFIG_SETTINGS: >-
             cmake.define.CMAKE_C_COMPILER=clang-cl
             cmake.define.CMAKE_CXX_COMPILER=clang-cl
