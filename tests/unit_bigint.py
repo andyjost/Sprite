@@ -91,6 +91,15 @@ class TestBigInt(cytest.TestCase):
     self.assertEqual(answer.value, BIG)
     self.assertEqual(answer.bindings['x'], BIG)
 
+  def test_binding_payload_survives_collection(self):
+    goal = curry.parse('x =:= 10^30 &> (x, x) where x free')
+    value = cytest.raw.values(goal).one()
+    # Keep the answer's nodes alive while collecting the original value
+    # used to narrow x, then read both occurrences of the bound variable.
+    rt.gc_collect()
+    for node in value.successors:
+      self.assertEqual(node.successor(0), BIG)
+
   def test_module_modes_and_checker(self):
     source = '''
 import Data.List (product)

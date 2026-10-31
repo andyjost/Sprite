@@ -22,6 +22,8 @@
 // modules; see literal_reserve in graph/memory.cpp) are not in the heap of
 // this collector: the mark phase skips them by their address, and the sweep
 // never sees them.
+// Every heap big-integer node, including a boxed free-variable binding,
+// acquires and registers its own payload reference until that node dies.
 //
 // Free variables.  The free-variable table of an interpreter state
 // (InterpreterState::vtable, state/rts.hpp) maps the id of a free variable
