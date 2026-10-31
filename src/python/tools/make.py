@@ -390,7 +390,14 @@ def _make_one(program_name, plan, name, args, kwds):
   kwds = dict(kwds, is_sourcefile=name.endswith('.curry'))
   if args.rewrite_flat:
     _rewrite_flat(plan, name, kwds)
-  toolchain.makecurry(plan, name, config.currypath(), **kwds)
+  product = toolchain.makecurry(plan, name, config.currypath(), **kwds)
+  if args.json and not os.path.isdir(product):
+    from ..backends.cxx import image
+    jsonfile = next((path for path in _filenames.jsonfilenames(product)
+        if os.path.isfile(path)), None)
+    if jsonfile is not None and _filenames.logging_module_name(jsonfile) \
+        not in config.unsupported_syslibs():
+      image.ensure(plan.interp, jsonfile, config.currypath())
 
 def _rewrite_flat(plan, name, kwds):
   '''
@@ -507,6 +514,17 @@ def imports_of(curryfile):
 
 def is_done(plan, currentfile):
   '''Tells whether ``currentfile`` ends ``plan``, so that nothing is to be made.'''
+  if plan.flags & plans.MAKE_JSON and not os.path.isdir(currentfile) \
+      and _filenames.logging_module_name(currentfile) not in config.unsupported_syslibs():
+    from ..backends.cxx import image
+    try:
+      header = image.read(image.filename(currentfile))
+      expected = image._facts(plan.interp, _filenames.curryfilename(currentfile),
+          image._import_images(plan.interp, header['imports'], config.currypath()))
+      if any(header[k] != value for k, value in expected.items()):
+        return False
+    except (OSError, ValueError, KeyError):
+      return False
   return Maker(plan, ToolchainContext(currentfile=currentfile), None, None, {}).done
 
 class JobGraph(object):

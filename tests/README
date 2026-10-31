@@ -27,6 +27,12 @@ route from Curry to ICurry (see section 8), so the two routes never share an
 entry.  Set SPRITE_CACHE_FILE to the empty string to run without the cache,
 or delete the file to start over.
 
+Module images (`M.img`) are derived products beside `M.icy`. They hold
+optimized interpreter bytecode and symbol metadata. The loader validates
+source, route, inline budget and import-image digests, rebuilding stale or
+invalid images. `unit_image.py` checks round trips, corruption, old versions,
+source edits and compilation from text. JSON remains for the other tools.
+
 An entry holds the ICurry of a module and the two interface files the front
 end wrote for it, M.fint and M.icurry.  A hit writes all three beside each
 other under .curry/sprite-<pakcs>/, and runs the binding optimization over
@@ -1271,3 +1277,7 @@ Put ../curry/oracle first on their CURRYPATH when running an I/O stream goal;
 its yield writes show x on one line. The normal oracle script uses safe mode
 and refuses I/O, so unit_stream.py invokes PAKCS directly for this check.
 The Sprite library module lives in ../curry/lib/Sprite/Stream.curry.
+
+Derived JSON has a .input receipt of its ICurry content. Plain and compressed
+JSON stay consistent when both exist; JSON-only fixtures need no
+receipt. Image tests cover saving after a source edit with both forms.

@@ -10,7 +10,7 @@ __all__ = [
   ]
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
-KNOWN_SUFFIXES = set(['.py', '.json', '.json.z', '.icy', '.icy.z', '.cpp', '.so'])
+KNOWN_SUFFIXES = set(['.img', '.py', '.json', '.json.z', '.icy', '.icy.z', '.cpp', '.so'])
 
 def curryfilename(filename):
   '''

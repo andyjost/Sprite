@@ -174,6 +174,10 @@ class CxxCompiler(compiler.CompilerBase):
     yield '// IMPORTS: ' + ' '.join(str(mod) for mod in self.iroot.imports)
     yield '// FORMAT: %d' % FORMAT_VERSION
     yield '// MODULE: ' + self.iroot.fullname
+    from .toolchain import input_record
+    import json
+    yield '// INPUT: ' + json.dumps(input_record(
+        self.interp, self.iroot.filename), sort_keys=True)
     from ...toolchain import _interfaces
     yield '// INTERFACES: ' + _interfaces.encode(_interfaces.object_snapshot(
         self.iroot.imports,

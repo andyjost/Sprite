@@ -31,6 +31,13 @@ class Json2TargetSource(object):
     # when done so that a subsequent step can import the real module produced.
     assert icurry.fullname not in self.interp.modules or isinstance(
         self.interp.modules[icurry.fullname], CurryPackage)
+    if self.interp.backend.backend_name == 'cxx':
+      from ... import toolchain
+      from ..cxx import image
+      toolchain.mergebuiltins(icurry, self.interp.backend)
+      toolchain.validatemodule(icurry)
+      image.optimize(self.interp, icurry,
+          _findcurry.imports_path(currypath, **ignored))
     with binding.binding(self.interp.modules, icurry.fullname, binding.del_):
       # The imports of a program given as a file are searched on the path
       # of the step, which names its directory first; those of a module
@@ -38,6 +45,9 @@ class Json2TargetSource(object):
       module = self.interp.import_(
           icurry, currypath=_findcurry.imports_path(currypath, **ignored)
         )
+      if self.interp.backend.backend_name == 'cxx':
+        from ..cxx import image
+        image.write(self.interp, getattr(module, '.icurry'), currypath)
       file_out = _filenames.replacesuffix(file_in, self.SUFFIX)
       _system.makeOutputDir(file_out)
       text = self.interp.save(module, None, module_main=False)

@@ -52,7 +52,7 @@ from ...toolchain import (
     plans, _filenames, _findcurry, _loadcurry, _makecurry, _productcache
   , _system, _productlock, _interfaces
   )
-import functools, hashlib, itertools, logging, os, re, sys, tempfile, threading
+import functools, hashlib, itertools, json, logging, os, re, sys, tempfile, threading
 
 logger = logging.getLogger(__name__)
 _warning_lock = threading.Lock()
@@ -442,12 +442,42 @@ def import_search_path(interp, filename, currypath=None):
   path = _findcurry.import_path(interp, currypath)
   return _interfaces.search_path(filename, interp.path if path is None else path)
 
-def source_is_stale(file_in, currypath=None):
+def input_record(interp, source):
+  from ...toolchain._frontend import ROUTE_VERSION
+  from . import image
+  return dict(source=image.digest(source) if source else None,
+      route=ROUTE_VERSION, budget=interp.flags['inline_budget'])
+
+def source_record(filename):
+  try:
+    with open(filename, encoding='utf-8') as stream:
+      for line in itertools.islice(stream, 16):
+        if line.startswith('// INPUT: '):
+          return json.loads(line[len('// INPUT: '):])
+  except (OSError, ValueError):
+    pass
+  return None
+
+def input_current(record, filename, interp=None):
+  try:
+    source = _filenames.curryfilename(filename)
+  except ValueError:
+    return True # an explicitly saved object outside the product tree
+  if not isinstance(record, dict):
+    return False
+  from ...toolchain._frontend import ROUTE_VERSION
+  from . import image
+  digest = image.digest(source)
+  return record.get('route') == ROUTE_VERSION \
+      and (digest is None or record.get('source') == digest)
+
+def source_is_stale(file_in, currypath=None, interp=None):
   '''
   Whether generated C++ has another format or imported interface/body
   provenance, including a file written before that provenance was recorded.
   '''
-  return format_version(file_in) != compiler.FORMAT_VERSION or not \
+  return not input_current(source_record(file_in), file_in, interp) or \
+      format_version(file_in) != compiler.FORMAT_VERSION or not \
       _interfaces.objects_current(source_interfaces(file_in),
           _interfaces.search_path(file_in, currypath))
 
@@ -481,7 +511,7 @@ class Json2Cpp(Json2TargetSource):
     if recorded:
       self.interp.import_(list(recorded),
           currypath=_findcurry.import_path(self.interp, currypath))
-    return source_is_stale(filename, import_search_path(self.interp, filename, currypath))
+    return source_is_stale(filename, import_search_path(self.interp, filename, currypath), self.interp)
 
 class PrecompiledHeader(object):
   '''
@@ -761,7 +791,7 @@ class Cpp2So(object):
       lacks_object = self.import_lacks_an_object(filename, currypath)
       return lacks_object or before != self.product_snapshot(filename) \
           or not self.stamp_is_current(filename, currypath)
-    return source_is_stale(filename, import_search_path(self.interp, filename, currypath))
+    return source_is_stale(filename, import_search_path(self.interp, filename, currypath), self.interp)
 
   def stale_reason(self, sofile, currypath=None):
     '''Explain an interpreted import without changing the plan's decisions.'''
@@ -772,6 +802,14 @@ class Cpp2So(object):
         os.path.isfile(source) and os.path.getmtime(source) > os.path.getmtime(sofile)):
       return 'the source'
     digest, path = self.read_stamp_lines(sofile)
+    try:
+      with open(self.stampfile(sofile), encoding='utf-8') as stream:
+        lines = stream.read().splitlines()
+      record = json.loads(lines[2]).get('input') if len(lines) == 3 else None
+    except (OSError, ValueError, IndexError, AttributeError):
+      record = None
+    if not input_current(record, sofile, self.interp):
+      return 'the translation input'
     accepted = self.accepted_digests()
     recorded = self.read_import_stamp(sofile)
     if path is None or recorded is None or (accepted and digest not in accepted):
@@ -792,6 +830,14 @@ class Cpp2So(object):
     '''
     accepted = self.accepted_digests()
     digest, path = self.read_stamp_lines(sofile)
+    try:
+      with open(self.stampfile(sofile), encoding='utf-8') as stream:
+        lines = stream.read().splitlines()
+      record = json.loads(lines[2]).get('input') if len(lines) == 3 else None
+    except (OSError, ValueError, IndexError, AttributeError):
+      record = None
+    if not input_current(record, sofile, self.interp):
+      return False
     if (accepted and digest not in accepted) or path is None:
       logger.debug('ABI stamp %s: digest=%r accepted=%r installation=%r',
           sofile, digest, accepted, path)
@@ -893,7 +939,7 @@ class Cpp2So(object):
     except (OSError, UnicodeError):
       return None
 
-  def write_stamp(self, sofile, imports=None):
+  def write_stamp(self, sofile, imports=None, input_receipt=None):
     '''
     Records the stamp of this step beside ``sofile``: its digest and the
     real path of this installation (see the class).  Without headers there
@@ -909,8 +955,11 @@ class Cpp2So(object):
         imports = source_interfaces(cppfile)
       else:
         imports = self.read_import_stamp(sofile)
+    record = json.loads(_interfaces.encode(imports or {}))
+    cppfile = _filenames.replacesuffix(sofile, '.cpp')
+    record['input'] = source_record(cppfile) if input_receipt is None else input_receipt
     cache.write_file(stamp, '%s\n%s\n%s\n' % (
-        digest, installation_path(), _interfaces.encode(imports or {})))
+        digest, installation_path(), json.dumps(record, sort_keys=True)))
 
   @classmethod
   def remove_stamp(cls, sofile):
@@ -1197,7 +1246,7 @@ class Cpp2So(object):
         # live object while a reader may open it; rename the complete one.
         self.remove_stamp(file_out)
         os.replace(tmp, file_out)
-        self.write_stamp(file_out, provenance)
+        self.write_stamp(file_out, provenance, source_record(cpp))
         with open(file_in, 'rb') as stream:
           if stream.read() == source:
             self.store(file_in, file_out, currypath)

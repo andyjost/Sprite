@@ -25,8 +25,12 @@ class TestLogging(cytest.TestCase):
     self.assertIn('jit=', text)
     self.assertIn('rotation=', text)
     self.assertIn('installation=', text)
-    self.assertIn('module Prelude: compiled object loaded (', text)
-    self.assertIn('module LoggingText: interpreted (no object)', text)
+    if curry._interpreter_.flags['interpret'] == 'all':
+      for name in ('Prelude', 'LoggingText'):
+        self.assertIn('module %s: interpreted (policy interpret:all)' % name, text)
+    else:
+      self.assertIn('module Prelude: compiled object loaded (', text)
+      self.assertIn('module LoggingText: interpreted (no object)', text)
 
   code = "import curry; curry.compile('main = 42', name='LoggingText')"
 

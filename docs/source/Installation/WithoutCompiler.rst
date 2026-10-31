@@ -75,15 +75,16 @@ The cost
 
 The interpreter takes about 1.5 times the time of compiled code for the
 evaluation of a program (``Tak1``: 1.9 s against 1.3 s on 2026-10-30; the
-measurements of issues #31 and #64 gave 1.1 to 1.5).  A process that interprets the Prelude, under
-``interpret:all`` or when the library objects are missing, first reads the
-ICurry of the Prelude and emits its bytecode.  That cost about 1.5 s per
-process on 2026-10-30 (0.3 to 0.55 s when first measured; the optimizer
-passes that run over the Prelude's ICurry at load account for the
-difference, issue #175); the compiled library objects avoid it.  So a
-compiler-free installation that stayed in place should keep the library
-objects that ``make stage`` compiled, and ``interpret:new`` is then the
-cheaper explicit setting.
+measurements of issues #31 and #64 gave 1.1 to 1.5). A process that
+interprets the Prelude reads a native module image with
+its optimizer passes and bytecode emission already done. On 2026-10-31,
+``curry.import_('Prelude')`` under ``interpret:all`` took 0.039 s in process
+(median of three runs after warm-up), compared with 0.729 s on the same
+system before images. A trivial ``sprite-exec`` process took 0.142 s.
+These figures exclude translation: a missing or stale image is rebuilt
+once at the first import, by ``sprite-make`` or by the prepare pass.
+The installation retains the library images alongside its compiled
+objects, so compiler-free execution can start directly from bytecode.
 
 Adding a compiler later
 =======================

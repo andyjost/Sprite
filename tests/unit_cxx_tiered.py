@@ -993,11 +993,10 @@ class TestLoadDuringCompile(TieredTestCase):
     return self.sofile(name)
 
   def make_stale(self, name):
-    '''Moves the source of a module past its object, so the object is stale.'''
+    '''Changes source content, so its compiled receipt is stale.'''
     source = os.path.join(self.tmpdir, name + '.curry')
-    st = os.stat(source)
-    newer = max(st.st_mtime_ns, os.stat(self.sofile(name)).st_mtime_ns) + 1
-    os.utime(source, ns=(st.st_atime_ns, newer))
+    with open(source, 'a') as stream:
+      stream.write('\n-- invalidate the compiled source receipt\n')
 
   def run_child(self, code):
     with binding(

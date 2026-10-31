@@ -324,7 +324,8 @@ class TestPackagedModule(JsonModuleTestCase):
   @cytest.with_flags(interpret='off')
   def test_packaged_products_ignore_extraction_order(self):
     """pip's extraction times do not force an unchanged library to compile."""
-    from curry.toolchain import _curry2icurry, _findcurry, _interfaces
+    from curry.toolchain import _curry2icurry, _findcurry, _interfaces, _icurry2json
+    from curry.backends.cxx import toolchain
     # The plan is made here, under the flag the test sets: the plan of setUp
     # ends at the JSON under interpret:all (toolchain.extend_plan_skeleton).
     self.plan = plans.makeplan(
@@ -342,8 +343,19 @@ class TestPackagedModule(JsonModuleTestCase):
     with open(icy, 'w') as stream:
       stream.write('(IProg "%s" [] [] [])' % name)
     _interfaces.write(icy, [self.srcdir])
+    _icurry2json.write_receipt(self.cached_file(name, '.json.z'), icy)
     with open(icy + '.source', 'w') as stream:
       stream.write(_curry2icurry.source_digest(source))
+    # This fixture starts with JSON-only products and then supplies their
+    # packaged source. Supply the matching compiled input receipt as well.
+    cpp = self.cached_file(name, '.cpp')
+    record = toolchain.input_record(cytest.raw.interp(), source)
+    text = cytest.readfile(cpp)
+    text = re.sub(r'^// INPUT: .*$', '// INPUT: ' + json.dumps(record,
+        sort_keys=True), text, flags=re.MULTILINE)
+    with open(cpp, 'w') as stream:
+      stream.write(text)
+    toolchain.Cpp2So(cytest.raw.interp()).write_stamp(target)
     future = os.stat(target).st_mtime + 120
     os.utime(source, (future, future))
     def current():
@@ -352,11 +364,8 @@ class TestPackagedModule(JsonModuleTestCase):
       self.assertEqual(current(), target)
       with open(source, 'a') as stream:
         stream.write('-- changed\n')
-      # The edited source is the newest file by its time, strictly: the
-      # kernel stamps files with a coarse clock, so an edit a moment after
-      # the products were written can share their time, and a tie goes to
-      # the product (filesys.newest).
-      os.utime(source, (future + 1, future + 1))
+      # A content change invalidates the products even with an older time.
+      os.utime(source, (1000000000, 1000000000))
       self.assertEqual(current(), source)
 
   @cytest.with_flags(interpret='off')

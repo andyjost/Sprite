@@ -109,7 +109,10 @@ class ToolchainTestCase(cytest.TestCase):
       )
 
   def import_stamp(self, sofile):
-    return _interfaces.encode(toolchain.source_interfaces(sofile[:-3] + '.cpp')) + '\n'
+    cppfile = sofile[:-3] + '.cpp'
+    record = json.loads(_interfaces.encode(toolchain.source_interfaces(cppfile)))
+    record['input'] = toolchain.source_record(cppfile)
+    return json.dumps(record, sort_keys=True) + '\n'
 
   def compile_module(self, value):
     '''Compiles a module whose goal returns ``value`` and checks the value.'''
@@ -339,6 +342,8 @@ class TestFormatStamp(ToolchainTestCase):
     '''Writes a cached .cpp file for ``name``, newer than its JSON file.'''
     path = self.cached_file(name, '.cpp')
     with open(path, 'w') as stream:
+      stream.write('// INPUT: ' + json.dumps(toolchain.input_record(
+          cytest.raw.interp(), None), sort_keys=True) + '\n')
       stream.write('// INTERFACES: ' + _interfaces.encode(
           _interfaces.object_snapshot(['Prelude'], curry.path)) + '\n')
       stream.write(''.join(lines))
@@ -351,7 +356,7 @@ class TestFormatStamp(ToolchainTestCase):
     module = self.compile_module(1)
     path = self.cached_file(module.__name__, '.cpp')
     with open(path) as stream:
-      head = [next(stream) for _ in range(6)]
+      head = [next(stream) for _ in range(7)]
     # The stamp follows the import list; the module name follows the stamp,
     # before the first include.
     i = head.index(self.IMPORTS)
@@ -573,12 +578,11 @@ class TestAbiStamp(ToolchainTestCase):
     digest = self.cpp2so.digest()
     self.assertEqual(digest, toolchain.object_digest(config.cxx_flavor()))
     self.assertNotEqual(digest, toolchain.runtime_digest())
-    # Two lines: the digest, and the real path of the installation.
+    # Three lines: runtime, installation, and import/input provenance.
     installation = toolchain.installation_path()
     self.assertEqual(installation, os.path.realpath(config.prefix()))
     self.assertEqual(cytest.readfile(stamp), '%s\n%s\n%s\n' % (
-        digest, installation, _interfaces.encode(toolchain.source_interfaces(
-            self.cached_file(module.__name__, '.cpp')))))
+        digest, installation, self.import_stamp(sofile).rstrip('\n')))
     self.assertEqual(self.cpp2so.read_stamp(sofile), digest)
     self.assertEqual(self.cpp2so.read_stamp_lines(sofile), (digest, installation))
     self.assertTrue(self.cpp2so.stamp_is_current(sofile))
@@ -591,7 +595,7 @@ class TestAbiStamp(ToolchainTestCase):
     self.assertEqual(
         names, sorted(
             module.__name__ + suffix
-            for suffix in ['.json.z', '.cpp', '.lock', '.so', '.so.abi']
+            for suffix in ['.json.z', '.img', '.cpp', '.lock', '.so', '.so.abi']
           )
       )
 
@@ -682,7 +686,9 @@ class TestAbiStamp(ToolchainTestCase):
     name = self.build(6)
     cppfile, sofile = self.cached_file(name, '.cpp'), self.cached_file(name, '.so')
     original = toolchain.source_interfaces(cppfile)
+    original_input = toolchain.source_record(cppfile)
     replacement = dict(original, Prelude='0' * 64)
+    replacement_input = dict(original_input, route=-1)
     source = cytest.readfile(cppfile)
     stamp = os.stat(cppfile)
     real_pexec = toolchain._system.pexec
@@ -691,13 +697,17 @@ class TestAbiStamp(ToolchainTestCase):
       if '-shared' in cmd:
         with open(cppfile, 'w') as stream:
           stream.write(source.replace(_interfaces.encode(original),
-              _interfaces.encode(replacement)))
+              _interfaces.encode(replacement)).replace(
+                  json.dumps(original_input, sort_keys=True),
+                  json.dumps(replacement_input, sort_keys=True)))
         os.utime(cppfile, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
       return result
     with mock.patch.object(toolchain._system, 'pexec', changed_pexec):
       self.cpp2so(cppfile, [self.srcdir])
     self.assertEqual(toolchain.source_interfaces(cppfile), replacement)
     self.assertEqual(self.cpp2so.read_import_stamp(sofile), original)
+    receipt = json.loads(cytest.readfile(self.cpp2so.stampfile(sofile)).splitlines()[2])
+    self.assertEqual(receipt['input'], original_input)
 
   def test_stamp_lines(self):
     '''

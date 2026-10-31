@@ -9,8 +9,9 @@ transformation, called a `stage`, is associated with certain type of
 intermediate file.  Intermediate files are used to checkpoint, debug, and
 inspect the build process.  A transformation might be implemented by Sprite or
 performed by an external program.  Taken in order, the stages form the
-compilation pipeline.  Sprite chooses as its starting point the newest
-among a Curry source file and all its intermediates along the pipeline.
+compilation pipeline.  The C++ backend prefers the last current product in pipeline order,
+validating source and imported interfaces before accepting compiled code.
+Interpreted loads use content-validated module images.
 
 The following sections discuss the compilation stages in detail.
 
@@ -294,3 +295,19 @@ see :doc:`/Installation/WithoutCompiler`.
 .. _zlib: https://zlib.net/
 .. _ICurry package: https://cpm.curry-lang.org/pkgs/icurry.html
 .. _Curry Package Manager: https://www.curry-lang.org/tools/cpm/
+
+Module images
+-------------
+
+The C++ backend writes ``M.img`` beside the other products after the six
+optimizer passes. The native runtime loads its symbol declarations and
+bytecode directly. Source, route, inline budget and imported-image digests
+validate an image; a miss translates again. ``interpret:all`` uses images,
+and ``interpret:new`` prefers a current compiled object. The translator
+and inspection tools retain ICurry and JSON, while the typed boundary
+retains ``.fint`` and ``.icurry``. See :doc:`../DeveloperNotes` for the format.
+
+Derived JSON records its ICurry digest in a ``.input`` sidecar. If plain
+and compressed JSON both exist, translation refreshes both. This keeps
+inspection and saving consistent with image loading without choosing
+products by sibling modification times.

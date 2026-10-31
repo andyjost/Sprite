@@ -629,3 +629,91 @@ Integer literals beyond the inline range are stored as decimal strings in
 ICurry JSON and constructed when the module loads. The compiler and the
 ICurry interpreter use the same canonical runtime factory. Python values
 use decimal conversion at the boundary to preserve every digit.
+
+The module image
+================
+
+Format 3 (2026-10-31)
+---------------------
+
+A module image, ``M.img``, lives beside ``M.icy``. The translator writes it
+atomically after merging runtime built-ins and running the six optimizer
+passes. ICurry text and its compatibility translation remain unchanged;
+JSON is still written for the tools which use it.
+
+The format is independent of pointer size and native byte order. Integers
+are little-endian; strings are UTF-8 with a 32-bit byte count. The prefix
+contains an eight-byte magic, a 32-bit format version and the length of a
+header. The header records the source SHA-256, route version, inline budget,
+and each direct import's image SHA-256. No field records a machine path.
+Sections contain imports and aliases, ordered data types and constructors,
+function declarations, bytecode and constants, and translation metadata.
+Strings are length-delimited and record arrays begin with a 32-bit count.
+Unknown versions, truncation and invalid section lengths are rejected.
+
+Function bytecode uses the interpreter's existing 32-bit code units and
+frame sizes. Constants have explicit tags: symbol, constructor data type,
+integer (decimal text, including large integers), character (code point),
+float (IEEE binary64), string, argument-free partial application, or literal
+case value set. Symbol and type references carry qualified names, never
+addresses. The native reader creates all local tables before resolving
+constants against those tables and imported runtime modules. Built-ins use
+the runtime's existing tables. Attachment uses ``icurry_attach``; the JIT
+continues to obtain code and bound constants through ``icurry_bytecode``.
+
+The native reader also has a read-only summary mode. It reuses the loaded
+symbol tables and skips code and constants, without attaching or allocating
+literal nodes. Translation uses that mode for the complete import closure,
+even when the imports run from AOT objects, and temporarily supplies those
+summary records to the existing passes. Each pass runs once before emission.
+
+The last section is an array of function metadata records, in declaration
+order. It retains the optimizer's inline-body, alias, unfolding and
+monadic metadata. Importer translation reads this section, without decoding
+JSON or reconstructing executable ICurry bodies. Python receives symbol
+records with names, arities, visibility, flags and constructor order. The
+``.fint`` remains the typed boundary's input; ``.icurry`` remains the source
+of record fields and synonyms.
+
+Currency is determined by content: source, route, budget and imported image
+digests must agree. A malformed or old image is diagnosed and regenerated
+through translation. A current compiled object takes precedence over a
+current image under ``interpret:new`` and ``interpret:off``; sibling product
+modification times do not decide that precedence. ``interpret:all`` uses
+images. Modules compiled from text use the same writer and native reader.
+
+The eight-byte magic is ``SPRTIMG`` followed by a zero byte. The header is
+ASCII JSON, with its length in the prefix; its ``body`` field is the SHA-256
+of everything after the header. The native reader compares the header with
+the header the plan validated before creating tables, rejecting a replacement
+between validation and attachment. The body order is: module name, imports, aliases,
+module metadata, types and constructors, function declarations, one bytecode
+record per function, then function translation summaries. Metadata entries
+are key strings followed by a 32-bit kind (0 string, 1 signed 32-bit integer,
+2 boolean) and a value. Constant tags are 32-bit character codes: ``R``
+(symbol), ``T`` (the type of a named constructor), ``I``, ``C``, ``F``,
+``S``, ``P`` and ``V``. Built-in function bytecode records are empty. Small
+literals use the runtime tables; larger literals are interned across the
+functions of the image. Parent and child module names are bound separately.
+
+The symbol layer currently uses the same lightweight ``IModule.fromBOM``
+declarations as compiled objects; it does not reconstruct executable ICurry
+bodies. Unsupported library modules retain their existing JSON products.
+
+Generated C++ carries an ``INPUT`` record (source SHA-256, route and inline
+budget). The ABI stamp retains it in its import-provenance JSON. Both
+records are checked before pipeline-order selection, so translating a new
+image cannot make an old object current. A newer sibling JSON timestamp
+does not invalidate an otherwise current object. Explicitly saved objects
+outside the product tree continue to load explicitly.
+
+Image loading registers a shutdown barrier for the LLVM hot tier: it turns
+off new hot work and waits for any native compilation to leave the LLVM
+context before Python destroys that context. This matters when image
+loading makes short processes exit while a compile is still in flight.
+
+JSON remains a translation/tool product. Its ``.input`` sidecar holds the
+SHA-256 of the ICurry text it describes. The plan checks that receipt instead
+of comparing sibling times. A JSON-only input needs no receipt. Deriving
+JSON also refreshes its other compression form when that form exists, so
+inspection and saving an image-backed module cannot recover an older body.
