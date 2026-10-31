@@ -256,8 +256,9 @@ jobs:
   # Windows does.  No generated code is compiled on Windows: the library
   # ships its ICurry and runs interpreted, so the build needs no Curry
   # front end, and the smoke test exercises the interpreter with the
-  # front end of the wheelhouse.  The repair checks the wheel and lists the
-  # imports of its binaries; nothing is vendored (repair.py).
+  # front end of the wheelhouse.  The repair vendors the C and C++ runtimes
+  # of Visual Studio with delvewheel and lists the imports of the binaries
+  # (repair.py).
   wheels-windows:
     needs: frontend
     runs-on: windows-2025
@@ -290,6 +291,8 @@ jobs:
           CIBW_BUILD: >-
             cp311-win_amd64 cp312-win_amd64 cp313-win_amd64
             cp314-win_amd64 cp314t-win_amd64 cp315-win_amd64
+          # The repair vendors the runtimes of Visual Studio (repair.py).
+          CIBW_BEFORE_BUILD_WINDOWS: pip install delvewheel
           CIBW_CONFIG_SETTINGS: >-
             cmake.define.CMAKE_C_COMPILER=clang-cl
             cmake.define.CMAKE_CXX_COMPILER=clang-cl
