@@ -155,11 +155,11 @@ The following are recognized:
 
   The ``interpret`` flag defaults to ``new`` (``all`` on Windows): current
   objects load and the rest start interpreted. ``all`` starts every module
-  interpreted, and ``off`` compiles missing objects first. ``tiered`` is
-  retired; use ``jit:hot,jit_backend:gxx`` (see
+  interpreted, and ``off`` compiles missing objects first. Background C++
+  compilation uses ``jit:hot,jit_backend:gxx`` (see
   :mod:`curry.interpreter.flags`).  An
-  installation without a C++ compiler runs under the default with one
-  notice; see :doc:`/Installation/WithoutCompiler`.
+  installation without a C++ compiler uses LLVM when available, or runs
+  interpreted with one notice; see :doc:`/Installation/WithoutCompiler`.
 
   The ``stack_limit`` flag sets the number of bytes of C stack the C++ backend
   lets one evaluation use.  The default is 4194304.  When an alternative

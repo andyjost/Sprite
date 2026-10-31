@@ -57,7 +57,7 @@ C++ compiler is available, else the interpreter alone with one warning per
 process. Forced ``llvm`` and ``gxx`` report unavailable prerequisites as
 errors. LLVM compiles functions in process; gxx compiles whole modules in
 a child, preserving the private-copy and publication protocol of #173.
-``interpret:tiered`` is retired: use ``jit:hot,jit_backend:gxx``.
+Background C++ compilation uses ``jit:hot,jit_backend:gxx``.
 See :doc:`Installation/WithoutCompiler`.
 
 The typed boundary

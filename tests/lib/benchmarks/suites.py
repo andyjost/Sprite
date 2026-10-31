@@ -526,7 +526,7 @@ class CommunityItem(SpriteExecItem):
     module = filename[:-len('.curry')]
     cmd = [self.settings.sprite_exec, '-t', '--stats', '-m', module]
     env = self.settings.environment(self.backend, CURRYPATH=directory)
-    # A short tiered warm-up can exit before its background compile ends.
+    # A short hot gxx warm-up can exit before its background compile ends.
     # Compile during warm-up, as for the applications suite; explicit
     # interpreter settings in the environment still take precedence.
     env['SPRITE_INTERPRETER_FLAGS'] = set_interpret_flag(

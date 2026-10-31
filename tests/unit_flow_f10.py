@@ -91,7 +91,7 @@ class TestFlowF10(cytest.TestCase):
   def test_reload_file_and_old_term(self):
     M = curry.import_('Peano'); old = M.main
     self.edit_source()
-    if curry.flags['backend'] == 'cxx' and curry.flags['interpret'] in ('tiered', 'off'):
+    if curry.flags['backend'] == 'cxx' and curry.flags['interpret'] == 'off':
       with self.assertRaises(curry.LoadError):
         curry.reload(M)
       self.assertEqual(str(curry.eval(old).one()), 'S (S O)')

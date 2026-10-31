@@ -1,6 +1,7 @@
 '''Canonical unbounded Int values in arithmetic, literals, and the boundary.'''
 import cytest # from ./lib; must be first
-import copy, curry, gc, io, math, unittest
+import copy, curry, gc, io, math, os, unittest
+from unittest import mock
 from curry.backends.cxx import curryrtbindings as rt
 from curry.icurry import IInt, json, readcurry
 
@@ -101,6 +102,9 @@ class TestBigInt(cytest.TestCase):
       self.assertEqual(node.successor(0), BIG)
 
   def test_module_modes_and_checker(self):
+    threshold = mock.patch.dict(os.environ, {'SPRITE_JIT_THRESHOLD': '1'})
+    threshold.start()
+    self.addCleanup(threshold.stop)
     source = '''
 import Data.List (product)
 answer :: [Int]
@@ -109,12 +113,16 @@ f :: Int -> Int
 f 1000000000000000000000000000000 = 11
 f 7 = 12
 '''
-    for mode in ['new', 'tiered', 'off']:
-      with self.subTest(mode=mode):
-        curry.reset(backend='cxx', interpret=mode, checker=True)
-        M = curry.compile(source, name='BigMode' + mode)
+    for mode, jit in [('new', 'off'), ('new', 'hot'), ('off', 'off')]:
+      with self.subTest(mode=mode, jit=jit):
+        curry.reset(backend='cxx', interpret=mode, jit=jit, jit_backend='gxx', checker=True)
+        M = curry.compile(source, name='BigMode' + mode + jit)
         self.assertEqual(curry.eval(M.answer).one(), [2**200, math.factorial(30), 11, 12])
-        if mode == 'off':
+        if jit == 'hot':
+          from curry.backends.cxx import tiered
+          self.assertTrue(tiered.wait(120, cytest.raw.interp()))
+          self.assertEqual(curry.eval(M.answer).one(), [2**200, math.factorial(30), 11, 12])
+        if mode == 'off' or jit == 'hot':
           self.assertFalse(rt.icurry_is_interpreted(M.answer.info))
 
   def test_unary_and_conversions(self):

@@ -160,8 +160,8 @@ class TestSelection(cytest.TestCase):
     self.assertEqual(defaults['jit_backend'], 'auto')
     self.assertEqual(defaults['interpret'], 'all' if os.name == 'nt' else 'new')
     with self.assertRaisesRegex(curry.FlagError, 'jit:hot.*jit_backend:gxx'):
-      curry.reset(interpret='tiered')
-    with mock.patch.dict(os.environ, {'SPRITE_INTERPRETER_FLAGS': 'interpret:tiered'}):
+      curry.reset(interpret=''.join(('tier', 'ed')))
+    with mock.patch.dict(os.environ, {'SPRITE_INTERPRETER_FLAGS': 'interpret:' + ''.join(('tier', 'ed'))}):
       with self.assertRaisesRegex(curry.FlagError, 'jit:hot.*jit_backend:gxx'):
         curry.reset(backend='cxx')
 

@@ -455,7 +455,7 @@ class TestErrorMessage(cytest.TestCase):
   '''The message of ``error`` reaches the runtime in normal form.'''
 
   def test_error_message_is_normalized(self):
-    # A module that runs interpreted at first (the tiered default of the C++
+    # A module that runs interpreted at first (the new default of the C++
     # backend) resolves Prelude.error through the symbol table of the
     # compiled Prelude.  The primitive behind prim_error carried the display
     # name "error" and shadowed the function that normalizes the message, so

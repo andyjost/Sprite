@@ -269,7 +269,7 @@ class TestJobs(cytest.TestCase):
     self.suffix = cytest.raw.interp().backend.object_file_extension
     # The plan of sprite-make: an explicit compile compiles, so its
     # interpreter has the flag ``interpret`` off (make.main).  Under the
-    # tiered default of the C++ backend the plan of an import ends at the
+    # new default of the C++ backend the plan of an import ends at the
     # JSON, and a module made here, which has its JSON alone, would count as
     # current.
     self.plan = plans.makeplan(
@@ -850,7 +850,7 @@ class TestProgramDirectory(cytest.TestCase):
         )
     self.env = dict(os.environ)
     self.env.pop('CURRYPATH', None)
-    self.env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:tiered'
+    self.env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:off'
 
   def run_tool(self, tool, *args):
     cmd = cytest.limit_prefix(2 << 30, self.TIMEOUT) + [

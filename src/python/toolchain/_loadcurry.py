@@ -41,7 +41,7 @@ def loadcurry(plan, name, currypath=None, **kwds):
     return loadjson(filename)
   elif filename.endswith('.cpp'):
     # The plan ended at a generated file (Cpp2So.ends_plan of the C++
-    # backend, under tiered execution): the module is interpreted from the
+    # backend, under hot gxx execution): the module is interpreted from the
     # JSON beside it.
     return loadjson(json_beside(filename))
   else:

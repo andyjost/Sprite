@@ -186,14 +186,13 @@ The fields are:
     Seconds the node collector spent in its collections.
 
 ``swapped``
-    The functions that tiered execution swapped from the interpreter to
-    compiled code (the interpreter flag ``interpret``, by default
-    ``tiered``: a module without a compiled object is interpreted at once
-    and compiled in the background).
+    The functions that the gxx backend swapped from the interpreter to
+    compiled code (``jit:hot,jit_backend:gxx`` compiles a module in the
+    background after its first hot function).
 
 ``failed_compiles``
-    The background compiles of tiered execution that failed; their modules
-    stay interpreted, and the failure is logged once per module.
+    The background gxx compiles that failed; their modules stay interpreted,
+    and the failure is logged once per module.
 
 ``gc_roots_seconds``, ``gc_trace_seconds``, ``gc_sweep_seconds``, ``gc_registries_seconds``
     Seconds the collections of the node collector spent in each phase: the

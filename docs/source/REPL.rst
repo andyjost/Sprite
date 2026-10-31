@@ -63,7 +63,7 @@ strings.
     Calls ``curry.reload`` on the current module, replacing its code in
     place. An unsuccessful reload reports its error and keeps the module
     usable with its previous code. The C++ session can refuse replacement
-    under ``tiered`` or ``off``; ``:set interpret new`` resets the session
+    under ``off``; ``:set interpret new`` resets the session
     in a mode that permits reload.
 
 ``:eval EXPR``

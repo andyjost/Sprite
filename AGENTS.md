@@ -273,7 +273,7 @@ reproducers pass.
   Windows). `new` loads current ahead-of-time objects and interprets the
   rest; `all` starts every module interpreted and never opens an AOT
   object; `off` compiles missing objects with g++ before running and errors
-  without a compiler. `tiered` is retired: use `jit:hot,jit_backend:gxx`.
+  without a compiler. Background compilation uses `jit:hot,jit_backend:gxx`.
   `sprite-make` and `make stage` always compile.
 - The flag `jit` selects compilation of interpreted functions: `hot`
   (default) compiles after `SPRITE_JIT_THRESHOLD` calls (100 by default),

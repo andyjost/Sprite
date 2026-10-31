@@ -66,7 +66,7 @@ class ToolchainTestCase(cytest.TestCase):
   def setUp(self):
     super().setUp()
     # These tests drive the compile steps.  Under the default of the flag
-    # ``interpret`` (tiered) the plan of an import ends at the JSON and the
+    # ``interpret`` (new) the plan of an import ends at the JSON and the
     # module is interpreted, so the flag is off here; tearDown restores the
     # default.  A test that reloads with flags of its own passes the flag
     # as well.  The Prelude is imported now: a new interpreter loads it on

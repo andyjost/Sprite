@@ -213,7 +213,7 @@ class TestStubModules(cytest.TestCase):
 
   def test_reload_file_limit_names_ways_out(self):
     Coin = curry.import_('Coin')
-    if curry.flags['backend'] == 'cxx' and curry.flags['interpret'] in ('tiered', 'off'):
+    if curry.flags['backend'] == 'cxx' and curry.flags['interpret'] == 'off':
       with self.assertRaises(curry.LoadError) as caught:
         curry.reload(Coin)
       self.assertIn("curry.reset(interpret='new')", str(caught.exception))

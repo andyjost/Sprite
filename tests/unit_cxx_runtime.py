@@ -208,7 +208,7 @@ def mapped():
     ))
 out = {'values': [], 'mapped': []}
 for mode in %(modes)r:
-  curry.reset(**{'backend': 'cxx', 'interpret': mode})
+  curry.reset(**{'backend': 'cxx', 'interpret': mode, 'jit': 'hot', 'jit_backend': 'gxx'})
   gc.collect()
   out['mapped'].append(mapped())
   out['values'].append(run())
@@ -247,7 +247,7 @@ class TestReloadAfterCompiledObject(cytest.TestCase):
   when the object was loaded, and the unload of the object at the reload
   left the step of the table pointing into unmapped memory.  The table
   carries a name of its own now.  The tests run the sequence in a child,
-  from interpret:off and from tiered, with the object of the module
+  from interpret:off and from hot gxx execution, with the object of the module
   compiled first; the trigger is the compiled Prelude, not the object of
   the module.
   '''
@@ -303,8 +303,8 @@ class TestReloadAfterCompiledObject(cytest.TestCase):
   def test_reload_from_compiled_into_interpreter(self):
     self.check(('off', 'all'))
 
-  def test_reload_from_tiered_into_interpreter(self):
-    self.check(('tiered', 'all'))
+  def test_reload_from_hot_gxx_into_interpreter(self):
+    self.check(('new', 'all'))
 
 
 class _DlInfo(ctypes.Structure):
@@ -416,7 +416,7 @@ class TestLibraryTablesInTheirObjects(cytest.TestCase):
     per type and constructor, which replaced the entry of the module, and
     under tiered execution the clear at a reload kept the tables and the
     object with them (the regression of
-    test_reload_from_tiered_into_interpreter).
+    test_reload_from_hot_gxx_into_interpreter).
     '''
     interp = cytest.raw.interp()
     checked = 0

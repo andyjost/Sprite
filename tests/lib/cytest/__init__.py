@@ -236,9 +236,9 @@ def interpret_mode():
 def skipIfInterpreted(reason):
   '''
   Skips a test under the interpreter flag ``interpret`` set to 'new' or 'all'
-  on the C++ backend.  A module loaded in those modes has no compiled object,
-  and the test reads one.  Under 'tiered' the object exists once the prepare
-  pass of the runner compiled the corpus (section 4 of README).
+  on the C++ backend when the test requires generated code. 'new' permits
+  modules without objects and 'all' ignores objects. The prepare pass can
+  supply corpus objects under 'new' (section 4 of README).
   '''
   mode = interpret_mode()
   return unittest.skipIf(

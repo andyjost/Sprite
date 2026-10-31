@@ -366,7 +366,7 @@ class TestPackagedModule(JsonModuleTestCase):
     before the module itself.  An import by name does this through the name
     prefixes; the import of the ICurry object did not, so sprite-make --so
     Data.Maybe failed with KeyError.  The step runs with the flag
-    ``interpret`` off: under its default (tiered) the C++ backend ends the
+    ``interpret`` off: under its default (new) the C++ backend ends the
     plan at the JSON.
     '''
     plan = plans.makeplan(

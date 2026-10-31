@@ -85,7 +85,7 @@ The following flags are available:
     the branch of that constructor, up to a fixed limit of its own.  0 turns
     both rules off.  The compiled form of a module records the keys of the
     passes, not the budget, so a module compiled under one budget runs as it
-    was compiled under another; the background compile of the tiered mode
+    was compiled under another; the background gxx compile
     runs under the budget of the interpreter.  The flag serves bisection and
     the performance program.
 
@@ -114,7 +114,7 @@ The following flags are available:
     'all', every module is interpreted, the Prelude included; the compiled
     objects are not used; it is the default on Windows, where the compile of
     generated code is not available in this release. 'new' is the default
-    elsewhere. 'tiered' is retired: use jit:hot with jit_backend:gxx.
+    elsewhere. Use jit:hot with jit_backend:gxx for background C++ compilation.
     The jit tiers govern functions that start interpreted in 'new' or 'all'.
 
   * ``keep_temp_files``  (True | **False** | <str>)
@@ -256,8 +256,8 @@ def parse_rotation(text):
 def check_flags(flags):
   """Validate session flags, including values supplied directly by Python."""
   for flag, value in flags.items():
-    if flag == 'interpret' and value == 'tiered':
-      raise FlagError("interpret:tiered retired; use jit:hot with jit_backend:gxx")
+    if flag == 'interpret' and value == "tiered":
+      raise FlagError("interpret value tiered is retired; use jit:hot with jit_backend:gxx")
     if flag not in FLAG_INFO:
       raise FlagError('%r is not a flag; the flags are %s' %
           (flag, ', '.join(FLAG_INFO)))

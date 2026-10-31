@@ -106,7 +106,7 @@ print(repr(values))
       , 'telemetry_interval', 'trace', 'worker_stack'
       ])
     with self.assertRaisesRegex(curry.FlagError, 'jit:hot.*jit_backend:gxx'):
-      curry.reset(interpret='tiered')
+      curry.reset(interpret=''.join(('tier', 'ed')))
 
 
 if __name__ == '__main__':

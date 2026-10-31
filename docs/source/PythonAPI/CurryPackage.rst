@@ -54,7 +54,6 @@ Flag                         Default                What it changes
 ``interpret``                ``'new'``              ``'new'`` loads current objects and interprets the rest;
                                                     ``'all'`` interprets every module (Windows default);
                                                     ``'off'`` compiles missing objects before running.
-                                                    ``'tiered'`` is retired; use ``jit:hot,jit_backend:gxx``.
 ``jit``                      ``'hot'``              Interpreted functions compile at load (``'eager'``),
                                                     after the hot threshold (``'hot'``), or stay
                                                     interpreted (``'off'``). Current AOT objects still load.

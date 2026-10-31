@@ -279,13 +279,13 @@ result beside the installed headers.  See ``SPRITE_CXX_PCH_ROOT`` under
 ``make stage`` and ``make install`` compile the Curry library into the
 installation with ``sprite-make --so`` (see :ref:`sprite-make`).  So the
 first import after an installation
-compiles nothing of the library.  Under the default of the interpreter flag
-``interpret``, ``tiered``, a module without a current object runs
-interpreted from its ICurry at once, a child process compiles it in the
-background, and the runtime swaps the functions of the module to the
-compiled code when the object is ready.  On a machine without a C++
-compiler the module stays interpreted and no object is written; see
-:doc:`/Installation/WithoutCompiler`.
+compiles nothing of the library. Under the default ``interpret:new``, a
+module without a current object starts interpreted from its ICurry.
+The default ``jit:hot,jit_backend:auto`` compiles hot functions with LLVM
+when llvmlite imports, otherwise whole modules in a child process with gxx
+when a C++ compiler is available. Compiled steps are adopted at a scheduler
+safepoint. With neither backend the interpreter runs alone with one notice;
+see :doc:`/Installation/WithoutCompiler`.
 
 
 .. _FlatCurry: https://cpm.curry-lang.org/pkgs/flatcurry.html

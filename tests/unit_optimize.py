@@ -201,7 +201,7 @@ class ModuleTestCase(cytest.TestCase):
     Reloads the interpreter with the flag ``interpret`` off, and ``flags``.
     A test that reads the generated code of a module, or needs a module
     loaded from its compiled form, calls this first: under the default of
-    the flag (tiered) a module is interpreted and no code is generated for
+    the flag (new) a module is interpreted and no code is generated for
     it.  The caller is decorated with cytest.hardreset, which restores the
     default.
     '''

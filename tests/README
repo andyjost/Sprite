@@ -200,14 +200,16 @@ runs the unit suite on the C++ backend in stress mode (job "stress" in
 The C++ backend can run a module without the C++ compiler: the runtime
 interprets the ICurry of the module from a bytecode (src/curryrt/icurry.hpp,
 curry.backends.cxx.bytecode).  The interpreter flag ``interpret`` selects
-how a module without a compiled object runs.  Its default, 'tiered',
-interprets the module at once, compiles it in the background in a child
-process (sprite-make --so), and swaps the functions of the module to the
-compiled code when the object is ready, also in the middle of a running
-evaluation (curry.backends.cxx.tiered, src/curryrt/tiered.hpp).  'new'
-interprets such a module and never compiles it, 'all' interprets every
-module, the Prelude included, and 'off' compiles every module with the C++
-compiler before it runs.  To run the unit tests under one of the other
+how a module without a compiled object runs. Its default, 'new', loads
+current objects and starts other modules interpreted; 'all' starts every
+module interpreted, and 'off' compiles missing objects before running.
+The independent jit flag defaults to 'hot': jit_backend 'auto' chooses
+LLVM when llvmlite imports, otherwise gxx when a compiler is available,
+otherwise the interpreter alone with one notice. Hot LLVM compiles functions;
+hot gxx compiles a whole module in a child after its first hot function.
+Both adopt compiled steps at the scheduler safepoint. jit 'eager' compiles
+at load and jit 'off' leaves interpreted functions interpreted.
+To run the unit tests under one of the other
 modes, say, for example:
 
         SPRITE_INTERPRETER_FLAGS=backend:cxx,interpret:all ./run_tests 'unit_*.py'
@@ -247,24 +249,19 @@ job for both) and under interpret:off (a job per suite); a workflow_dispatch wit
 request.  The job passes the flag to run-tests.sh through
 SPRITE_TEST_FLAGS.
 
-Under 'tiered', a module compiled from a string and an expression stay
-interpreted; a compiled object is loaded only when every import of its
-module was loaded from an object, else the module is interpreted too; a
-reset, a reload, and the exit of the process cancel the compiles in
-flight, so a test that writes a fresh module must wait for its compile
-(tiered.wait) before it removes the directory, and a short program under
-sprite-exec ends interpreted with no object written.  So a test process
-never compiles a shared corpus module whose object is missing or stale,
-and a test that inspects the compiled object of a corpus module
-(unit_cxx_bom.py, unit_cxx_heap.py, unit_cxx_literals.py,
-unit_cxx_partial.py, unit_cxx_passthrough.py, unit_cxx_rewrite.py)
-finds it interpreted until the object exists.  The prepare pass of
+Under 'new' with jit 'off', modules without current objects stay
+interpreted. Hot gxx jobs use private snapshots, including text modules;
+a reset, reload or process exit cancels pending compiles. Tests needing a
+swap explicitly select jit:hot,jit_backend:gxx, trigger the threshold and
+wait (tiered.wait) before removing their source directory. The shared corpus
+is compiled before tests run so tests inspecting its objects find them.
+The prepare pass of
 the runner (--prepare, section 10) runs sprite-make, which always
 compiles; run it once after a make stage that changed a runtime
 header, which makes every object stale, and the files find the
 corpus compiled.  --prepare-only runs the pass alone and exits with
 its status; the CI script runs it before the files of a C++
-shard.  unit_cxx_tiered.py tests the mode: the swap and its statistics
+shard.  unit_cxx_tiered.py tests the gxx backend: the swap and its statistics
 (tiered.status and the fields swapped and failed_compiles of curry.stats),
 the values and steps of both tiers, the swap between the values of one
 evaluation and at a safepoint of a long one, a module that imports a fresh
@@ -1230,8 +1227,8 @@ preprocessors, 1 when another compilation failed, 130
 after an interrupt.  No test file runs; --list shows the directories.  The
 CI script (.github/scripts/run-tests.sh) runs it on the C++ backend before
 its loop over the files of a shard, each in a process of its own: a fresh
-checkout has no compiled objects, and under the tiered default a test
-process never compiles a shared corpus module (section 4).  A failed pass
+checkout has no compiled objects, and a test process with jit:off never
+compiles a shared corpus module (section 4).  A failed pass
 fails the shard.  The workflow extracts the overlay archive (make overlay)
 after make stage in every job that runs tests: the products are then newer
 than the interfaces of the installed library, so the front end leaves them

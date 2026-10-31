@@ -282,9 +282,9 @@ def main(program_name, argv):
     , exit_status=None if args.keep_going else 1
     )
   # An explicit compile compiles: under the interpreter flag interpret set to
-  # 'new' or 'tiered' the plan of an import ends at the JSON, and this
-  # program must still write the object (the background compile of tiered
-  # execution runs this program).
+  # 'new' or 'all' the plan of an import ends at the JSON, and this
+  # program must still write the object (the hot gxx backend runs this
+  # program for its background compile).
   from .. import _interpreter_
   interp = _interpreter_ if args.backend_name is None else \
            interpreter.Interpreter(

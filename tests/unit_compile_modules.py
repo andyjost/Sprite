@@ -79,7 +79,7 @@ class TestCompileModules(cytest.TestCase):
     '''
     A second library under a live module name is refused.  The runtime would
     otherwise resolve the new module to the code of the first one.  Under
-    the default of the flag ``interpret`` (tiered) a module compiled from a
+    the default of the flag ``interpret`` (new) a module compiled from a
     string is interpreted and makes no library; a module of the same name
     made again takes the tables of the first back (unit_cxx_tiered.py).
     '''
