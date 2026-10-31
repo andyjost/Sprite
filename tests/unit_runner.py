@@ -1629,12 +1629,12 @@ class TestPrepare(unittest.TestCase):
     # Without -q: the line of sprite-make about the product cache must
     # reach the log (cache_counts).
     self.assertEqual(
-        kiel.argv[:7]
+        kiel.argv[:5]
       , ['prlimit', '--as=1', '/sprite/bin/sprite-make', '-k', '--so']
       )
     self.assertNotIn('-q', kiel.argv)
     self.assertTrue(
-        all(name.startswith('data/curry/kiel/') for name in kiel.argv[7:])
+        all(name.startswith('data/curry/kiel/') for name in kiel.argv[5:])
       )
     self.assertEqual(kiel.env['CURRYPATH'], ':'.join([
         os.path.join(testrunner.TESTDIR, 'data/curry/kiel/lib')
@@ -1644,7 +1644,7 @@ class TestPrepare(unittest.TestCase):
     self.assertEqual(kiel.logfile, '/logs/cxx/prepare-data-curry-kiel.log')
     # The modules of the job and their products, per backend.
     self.assertEqual(kiel.directory, 'data/curry/kiel')
-    self.assertEqual(kiel.modules, kiel.argv[7:])
+    self.assertEqual(kiel.modules, kiel.argv[5:])
     self.assertIn('data/curry/kiel/UseConc1.curry', kiel.modules)
     self.assertEqual(
         kiel.product('data/curry/kiel/UseConc1.curry')

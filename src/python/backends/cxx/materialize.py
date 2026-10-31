@@ -382,7 +382,7 @@ def compile_pending(entry):
   steps (curryrt.tiered_adopt).  Raises CompileError when a step fails; the
   module then stays trapped.
   '''
-  from . import tiered, toolchain
+  from . import image, tiered, toolchain
   interp = entry.interp()
   moduleobj = entry.module()
   if interp is None or moduleobj is None:
@@ -411,6 +411,10 @@ def compile_pending(entry):
   # name made again takes them back.
   M.keep_tables()
   tiered._register_binding(moduleobj)
+  # ICurry-object imports may have compiled without ever needing an image.
+  # Establish their summaries before save records the import provenance;
+  # is_translation below can otherwise create an image after that snapshot.
+  image._import_images(interp, imodule.imports, currypath)
   text = interp.save(moduleobj, None, module_main=False)
   cpp2so = toolchain.Cpp2So(interp)
   # The products go beside the source when the optimizer flags are the

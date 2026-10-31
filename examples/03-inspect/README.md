@@ -18,6 +18,6 @@ session-control section covers these public lookups.
 ## Internal: compiler products
 
 The last section uses curry.inspect, a developer module outside the public
-API, to find the ICurry and JSON files and read the implementation of add.
+API, to find the ICurry and image files and read the implementation of add.
 Only the stable first-line banner goes into expected.out; the complete
 implementation goes to stderr.  Its details can change with the compiler.

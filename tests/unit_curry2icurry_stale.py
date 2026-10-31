@@ -189,7 +189,7 @@ class TestStaleness(PreRewriteCase):
     self.no_front_end()
     self.assertNotEqual(self.current(curryfile), curryfile)
     made = toolchain.makecurry(icurry_plan(), curryfile, [self.tmpdir], is_sourcefile=True)
-    self.assertTrue(made.endswith('.json'), made)
+    self.assertTrue(made.endswith('GuardA.img'), made)
     self.assertEqual(mtimes(fcy, icy), after)
     self.assertEqual(_curry2icurry.pairs_refreshed(), 1)
 

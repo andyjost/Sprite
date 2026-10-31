@@ -5,8 +5,9 @@ from . import _filenames
 class ICurry2Image:
   manages_product_lock = True
 
-  def __init__(self, interp):
+  def __init__(self, interp, check_budget=True):
     self.interp = interp
+    self.check_budget = check_budget
 
   def __repr__(self):
     return 'icurry2image'
@@ -25,7 +26,16 @@ class ICurry2Image:
       return False
     from ..backends.cxx import image
     try:
-      header = image._check(self.interp, _filenames.icurryfilename(filename), filename)
+      source = _filenames.icurryfilename(filename)
+      header = image.read(filename)
+      facts = image._facts(self.interp, source, {})
+      # A current compiled product is accepted regardless of inline budget.
+      # A foreign image budget must not prune that later product and cause
+      # an implicit import to replace it. Image attachment still checks the
+      # budget and builds a private image when interpreted code is needed.
+      keys = ('source', 'route', 'budget') if self.check_budget else ('source', 'route')
+      if any(header[key] != facts[key] for key in keys):
+        return True
       from . import _interfaces
       import os
       search = _interfaces.search_path(_filenames.curryfilename(filename), currypath)

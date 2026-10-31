@@ -972,6 +972,26 @@ twice x = double (double x)
     self.assertTrue(os.path.isfile(sofile))
 
   @cytest.hardreset
+  def test_foreign_budget_keeps_existing_object(self):
+    '''A foreign image budget does not invalidate an accepted AOT object.'''
+    name = self.write()
+    M = curry.import_(name)
+    self.assertEqual(list(curry.eval(M.main)), [42])
+    cppfile = self.product(name, '.cpp')
+    with open(cppfile, 'rb') as stream:
+      before = stream.read()
+    M = None
+    gc.collect()
+    curry.reset(backend='cxx', interpret='off', inline_budget=0, jit='off')
+    curry.path.insert(0, self.tmpdir)
+    with mock.patch.object(cxx_toolchain.Cpp2So, '__call__',
+        side_effect=AssertionError('current object compiled again')):
+      M = curry.import_(name)
+      self.assertEqual(list(curry.eval(M.main)), [42])
+    with open(cppfile, 'rb') as stream:
+      self.assertEqual(stream.read(), before)
+
+  @cytest.hardreset
   def test_foreign_budget_compiles_into_the_process_directory(self):
     '''
     Under an inline budget other than the environment's, the translation of

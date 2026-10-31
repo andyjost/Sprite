@@ -44,7 +44,8 @@ def _getstages(interp, flags):
     #  Flag                Suffixes     Step (if enabled)
     #  ------------------  ------------ -----------------------------
       (MAKE_ICURRY       , ['.curry']   , _curry2icurry.curry2icurry)
-    , (MAKE_IMAGE        , ['.icy']     , _icurry2image.ICurry2Image(interp))
+    , (MAKE_IMAGE        , ['.icy']     , _icurry2image.ICurry2Image(
+          interp, check_budget=not (flags & MAKE_TARGET_SOURCE)))
     , (MAKE_TARGET_SOURCE, ['.img'], None)
     ]
   if interp is not None:
