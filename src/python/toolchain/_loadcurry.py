@@ -1,6 +1,6 @@
 from ..icurry import json as icurry_json, types as icurry_types
 from .. import cache, config, exceptions
-from . import _filenames, _makecurry
+from . import _filenames, _findcurry, _makecurry
 from ..utility import formatDocstring
 import logging, os, zlib
 
@@ -31,6 +31,18 @@ def loadcurry(plan, name, currypath=None, **kwds):
   Returns:
     A Python object containing the ICurry for the given name.
   '''
+  imagepath = None
+  if plan.interp is not None and plan.interp.backend.backend_name == 'cxx' \
+      and plan.interp.flags['interpret'] != 'off':
+    imagepath = _findcurry.import_path(plan.interp, _findcurry.imports_path(
+        _findcurry.program_path(name, currypath or plan.interp.path, **kwds), **kwds))
+    from ..backends.cxx import image
+    candidate = _findcurry.currentfile(plan, name, currypath, **kwds)
+    if not os.path.isdir(candidate) and not candidate.endswith('.so') \
+        and image.writable(_filenames.curryfilename(candidate)):
+      module = image.current(plan.interp, _filenames.curryfilename(candidate), imagepath)
+      if module is not None:
+        return module
   filename = _makecurry.makecurry(plan, name, currypath, **kwds)
   logger.debug('Found module %s at %s', name, filename)
   if os.path.isdir(filename):
@@ -38,12 +50,19 @@ def loadcurry(plan, name, currypath=None, **kwds):
     package.filename = filename
     return package
   elif filename.endswith('.json') or filename.endswith('.json.z'):
+    if plan.interp is not None and plan.interp.backend.backend_name == 'cxx' \
+        and plan.interp.flags['interpret'] != 'off':
+      from ..backends.cxx import image
+      if image.writable(_filenames.curryfilename(filename)):
+        return image.load(plan.interp, filename, imagepath)
+      logger.info('module %s: product directory is read-only; loading JSON', name)
     return loadjson(filename)
   elif filename.endswith('.cpp'):
     # The plan ended at a generated file (Cpp2So.ends_plan of the C++
-    # backend, under the hot tier of the C++ compiler backend): the module is interpreted from the
-    # JSON beside it.
-    return loadjson(json_beside(filename))
+    # backend, under the hot tier of the C++ compiler backend): attach the
+    # image emitted alongside the generated source.
+    from ..backends.cxx import image
+    return image.load(plan.interp, json_beside(filename), imagepath)
   else:
     # The plan's own route: the object is the current product of an import,
     # not a file the user named (loader.load_module of the C++ backend).

@@ -54,9 +54,10 @@ cache root and a thread-owned lock in this process. Lookup is a snapshot;
 restore rechecks it while holding that lock, so pruning cannot unpin its
 source files during placement.
 
-The modification times of the restored files are set in the order of the
-toolchain (the C++ after the JSON, the object after the C++), so the plan
-finds the object the newest file of the module (``_findcurry.currentfile``).
+The modification times of restored files retain pipeline order for other
+readers. The C++ plan selects by pipeline order after validating source,
+route and budget receipts (``_findcurry.currentfile``). Images are derived
+separately from their own content receipts.
 
 Growth.  Nothing in the toolchain removes an entry: each change to a
 runtime header the generated code includes, to the compiler or to the flags

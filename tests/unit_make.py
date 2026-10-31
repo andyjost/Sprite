@@ -444,6 +444,24 @@ class TestJobs(cytest.TestCase):
     self.assertEqual(graph.jobs[0].imports, [])
     self.assertEqual(graph.jobs[1].imports, [graph.jobs[0]])
 
+  def test_image_plan_of_complete_library_imports_nothing(self):
+    from curry.backends.cxx import image
+    plan = plans.makeplan(self.plan.interp,
+        plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON)
+    graph = make.JobGraph(plan, config.currypath())
+    with mock.patch.object(plan.interp, 'import_',
+        side_effect=AssertionError('planner imported a module')):
+      for name in config.syslibs():
+        graph.add(name)
+    self.assertEqual(graph.jobs, [])
+    # A read-only installation does not queue missing images for repair.
+    graph = make.JobGraph(plan, config.currypath())
+    with mock.patch.object(image, 'writable', return_value=False), \
+        mock.patch.object(image, 'read', side_effect=AssertionError('read-only image check')):
+      graph.add('Prelude')
+    self.assertEqual(graph.jobs, [])
+    self.assertEqual(self.sprite_make('--json', '-zc', '--jobs', '3', 'Prelude'), [])
+
   def test_imports_are_made_first(self):
     '''
     One child per stale module of the closure, a module after its imports,

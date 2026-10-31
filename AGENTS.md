@@ -191,6 +191,8 @@ reproducers pass.
   the Curry library into the installation for the C++ runtime. The modules
   Sprite cannot compile are listed in `unsupported` in
   `CMakeLists.txt`; they get their ICurry and JSON only.
+- Derived JSON carries a `.input` receipt naming its ICurry digest; the
+  two compression forms stay consistent when both exist.
 - The products under `curry/lib/**/.curry/sprite-pakcs-3.10.0/` are
   committed artifacts of the pinned current pair; `.json.z` stays derived.
   `make` derives the JSON and keeps valid pins unless you set
@@ -247,6 +249,15 @@ reproducers pass.
   interface and ICurry fingerprints of its imports, so a
   relocated installation keeps its objects; an object names its imports
   by SONAME, so an entry serves every tree with the same stamp.
+- Module images (`M.img`) live beside the ICurry products. Their headers
+  name source and import-image digests, the route and the inline budget.
+  The C++ runtime reads the symbol records and attaches interpreter bytecode;
+  The library images are products of the stage and ship in the wheel.
+  A read-only product directory falls back to JSON at import. Importers
+  rebuild stale library images privately; sprite-make may refresh them in
+  a writable installation. Foreign inline budgets use private images.
+  JSON remains available to the translator and tools. See the section
+  "The module image" in the developer notes.
 - The step that writes `M.icy` writes `M.fint` and `M.icurry` beside it, on
   a cache miss (copies of the front end's files) and on a hit (from the
   cache). Code that needs the type of a symbol reads those copies, never

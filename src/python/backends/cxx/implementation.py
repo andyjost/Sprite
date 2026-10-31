@@ -77,6 +77,17 @@ def _bytecode_text(symbol):
   info = symbol.info
   bc = curryrt.icurry_bytecode(info)
   code = materialize.BYTECODE.get(symbol.fullname)
+  if code is None and symbol.module is not None:
+    # Images deliberately build no Python emitter objects at load. Restore
+    # one only when inspection asks for its symbolic constants.
+    from ...interpreter.loadsave import compilable_icurry
+    interp = symbol.interpreter
+    module = symbol.module
+    complete = compilable_icurry(interp, module, getHandle(module).icurry)
+    function = complete.functions.get(symbol.name)
+    if function is not None:
+      code = bytecode.compile_function(function, materialize.Materializer(interp, module))
+      materialize.BYTECODE[symbol.fullname] = code
   consts = None
   if code is not None and list(code.code) == list(bc['code']):
     consts = code.consts

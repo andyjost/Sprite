@@ -96,16 +96,16 @@ def currentfile(
     plan, name, currypath, is_sourcefile=False, **ignored
   ):
   '''
-  Finds the newest prerequisite along the Curry build pipeline.
+  Finds a current prerequisite along the Curry build pipeline.
 
   The file returned is the newest among the Curry source file (suffix: .curry),
   the ICurry file (suffix: .icy), the JSON file (suffix: .json or .json.z),
   and the files of the backend (suffix: .cpp and .so), less the files
   that a step of the plan refuses (see ``Plan.prune_stale``) and the files
-  made from them.  The files are compared by modification time (see
-  ``filesys.newer``), so a step that moves the change times of the inodes
-  (a chmod, a rename, the prefix patch of a package manager) does not make
-  a product stale.
+  made from them.  The C++ backend selects the last accepted stage in pipeline order.
+  Generated C++ and objects carry source, route and budget receipts, so
+  a newer sibling JSON does not hide a current object. Other backends
+  retain modification-time selection.
 
   Args:
     plan:
@@ -155,7 +155,7 @@ def currentfile(
     else:
       name = _filenames.curryfilename(name)
 
-  # Find the newest prerequisite.
+  # Select a current prerequisite.
   curryfile = name
   if not curryfile.endswith('.curry'):
     raise ModuleLookupError('expected .curry extension in %r' % curryfile)
@@ -164,8 +164,10 @@ def currentfile(
   filelist = plan.filelist(curryfile)
   from . import _curry2icurry, _interfaces
   icyfile = _filenames.icurryfilename(curryfile)
+  source_changed = os.path.isfile(curryfile) and not \
+      _curry2icurry.source_matches(curryfile, icyfile)
   if plan.stages[0].step is _curry2icurry.curry2icurry \
-      and (_curry2icurry.source_changed(curryfile, icyfile) or (
+      and (source_changed or (
           os.path.isfile(curryfile) and not os.path.isfile(icyfile)
           and not _interfaces.is_current(icyfile, currypath))):
     # Check even when tidy removed the ICurry prerequisite.
@@ -181,7 +183,7 @@ def currentfile(
   # other runtime headers.  The age of the runtime library does not count.
   from . import plans
   if plan.interp is not None and plan.flags & plans.MAKE_TARGET_SOURCE \
-      and not _curry2icurry.source_changed(curryfile, icyfile):
+      and not source_changed:
     # Refresh direct imports before judging their interfaces. Importing an
     # unchanged B must also see A's newly translated interface when A's
     # source changed but nobody has imported A yet.
@@ -205,7 +207,10 @@ def currentfile(
     # order. prune_stale above still checks interfaces, formats and ABI.
     prereq = next((fn for fn in reversed(filelist) if os.path.isfile(fn)), curryfile)
   else:
-    prereq = filesys.newest(filelist)
+    if plan.interp is not None and plan.interp.backend.backend_name == 'cxx':
+      prereq = next((fn for fn in reversed(filelist) if os.path.isfile(fn)), curryfile)
+    else:
+      prereq = filesys.newest(filelist)
   prereq = os.path.abspath(prereq)
   if not os.path.exists(prereq):
     # If there is no prerequisite, then there is no Curry file or any of its

@@ -201,13 +201,6 @@ def main():
           '-o', dest.with_suffix('.icy'))
   make = [sys.executable, '-m', 'curry.tools.make']
   run(*make, '--json', '-zc', *modules)
-  supported = [m for m in modules if m not in unsupported]
-  if args.cxx:
-    run(*make, '--so', '--jobs', args.jobs, '-zc', *supported)
-  else:
-    # No compiler of generated code (Windows in this release): the library
-    # ships its ICurry and JSON, and every module runs interpreted.
-    print('no compiler of generated code: the library is not compiled', flush=True)
   # Wheel installers need not preserve file times or extraction order.
   # These existing provenance sidecars identify unchanged shipped sources.
   for path in sources:
@@ -215,6 +208,13 @@ def main():
     icy = lib / rel.parent / '.curry' / intermediate_subdir / (rel.stem + '.icy')
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     Path(str(icy) + '.source').write_text(digest)
+  supported = [m for m in modules if m not in unsupported]
+  if args.cxx:
+    run(*make, '--so', '--jobs', args.jobs, '-zc', *supported)
+  else:
+    # No compiler of generated code (Windows in this release): the library
+    # ships its ICurry and JSON, and every module runs interpreted.
+    print('no compiler of generated code: the library is not compiled', flush=True)
   if args.wheel:
     # pip has no post-install prefix rewrite. Keep the digest and express
     # its installation provenance relative to the stamp's own directory.
@@ -222,7 +222,13 @@ def main():
       lines = stamp.read_text().splitlines()
       lines[1] = os.path.relpath(prefix, stamp.parent)
       stamp.write_text('\n'.join(lines) + '\n')
-  expected = ['.json.z', '.so', '.so.abi'] if args.cxx else ['.json.z']
+  expected = ['.json.z', '.img', '.so', '.so.abi'] if args.cxx else ['.json.z', '.img']
+  for path in sources:
+    rel = path.relative_to(source / 'curry/lib')
+    if '.'.join(rel.with_suffix('').parts) not in unsupported:
+      product = lib / rel.parent / '.curry' / intermediate_subdir / (rel.stem + '.img')
+      if not product.is_file():
+        raise RuntimeError('prebuild did not write image for ' + str(rel))
   for suffix in expected:
     if not (lib / '.curry' / intermediate_subdir / ('Prelude' + suffix)).is_file():
       raise RuntimeError('prebuild did not write Prelude' + suffix)

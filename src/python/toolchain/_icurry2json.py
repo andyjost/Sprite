@@ -2,10 +2,29 @@ from .. import cache
 from ..icurry import readcurry as iread, json as ijson
 from . import _filenames, _system
 from ..utility import filesys
-import logging, zlib
+import hashlib, logging, os, zlib
 
 __all__ = ['icurry2json']
 logger = logging.getLogger(__name__)
+
+def write_receipt(jsonfile, icyfile):
+  with open(icyfile, 'rb') as stream:
+    digest = hashlib.sha256(stream.read()).hexdigest()
+  cache.write_file(jsonfile + '.input', digest + '\n')
+
+def json_is_stale(filename, currypath=None):
+  if not filename.endswith(('.json', '.json.z')):
+    return False
+  icyfile = _filenames.icurryfilename(filename)
+  if not os.path.isfile(icyfile):
+    return False # JSON-only inputs remain valid translation inputs.
+  try:
+    with open(icyfile, 'rb') as stream:
+      digest = hashlib.sha256(stream.read()).hexdigest()
+    with open(filename + '.input', encoding='ascii') as stream:
+      return stream.read().strip() != digest
+  except OSError:
+    return True
 
 def icurry2json(icurryfile, currypath, **kwds):
   '''
@@ -58,10 +77,18 @@ class ICurry2JsonConverter(object):
       )
     rcdata = iread.load(file_in)
     text = ijson.dumps(rcdata, compact=self.do_compact) + '\n'
-    data = text.encode('utf-8')
+    plain = text.encode('utf-8')
+    data = plain
     if self.do_zip:
       data = zlib.compress(data)
     cache.write_file(file_out, data)
+    write_receipt(file_out, file_in)
+    # Both spellings must describe the same ICurry. Inspection and save
+    # can request either one after an interpreted image load.
+    sibling = file_out[:-2] if self.do_zip else file_out + '.z'
+    if os.path.isfile(sibling):
+      cache.write_file(sibling, plain if self.do_zip else zlib.compress(plain))
+      write_receipt(sibling, file_in)
     logger.info('module %s: JSON written', rcdata.fullname)
     return file_out
 
@@ -104,5 +131,10 @@ def _convertFile(file_in, file_out, convert):
   with open(file_in, 'rb') as istream:
     data = convert(istream.read())
   cache.write_file(file_out, data)
+  if os.path.isfile(file_in + '.input'):
+    with open(file_in + '.input', encoding='ascii') as stream:
+      cache.write_file(file_out + '.input', stream.read())
   if logger.isEnabledFor(logging.INFO):
     logger.info('module %s: JSON written', _filenames.logging_module_name(file_out))
+
+icurry2json.is_stale = json_is_stale
