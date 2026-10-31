@@ -164,27 +164,13 @@ namespace curryrt { inline namespace
         choice->cid, lhs_view, rhs_view
       );
     _0->forward_to(replacement);
-    // When this configuration owns the decision of the choice
-    // (owns_decision: it made the choice, or its queue is bound to the
-    // side), it takes its side at once, through a private copy of the
-    // spine, as a binding goes into the expression (replace_freevar);
-    // E_RESTART tells the enclosing steps that the root was replaced.  The
-    // fork would prune the choice node to the same side, but it sends the
-    // configuration to the back of its queue, and a search with many
-    // alternatives then advances them in lockstep, with every capsule alive
-    // at once.  When the choice is undecided here, or an enclosing
-    // configuration alone decided it (read_fp walks the queue stack), the
-    // choice node stays: in the second case this configuration may be in a
-    // capsule that enclosing configurations with different decisions share,
-    // so it takes no side; the node reaches its root and escapes in turn
-    // (choice_escapes), up to the configuration that decided it.
-    ChoiceState const lr = rts->read_fp(C, choice->cid);
-    if(lr == UNDETERMINED || !rts->owns_decision(C, choice->cid))
-      return T_FWD;
-    *C->root = C->scan.copy_spine(
-        C->root, lr == LEFT ? lhs_view : rhs_view
-      );
-    return E_RESTART;
+    // Keep the escaped choice in the shared graph, even when C already
+    // decided it. A private copy of the caller's spine would leave its
+    // other uses unevaluated. A later choice made by that caller would
+    // then be created again at each use, losing call-time sharing (#172).
+    // Pull-tabs distribute the shared caller over this choice; the fork
+    // prunes it according to the configuration's fingerprint.
+    return T_FWD;
   }
 
   tag_type _applyS(RuntimeState * rts, Configuration * C, bool capture)
@@ -233,9 +219,10 @@ namespace curryrt { inline namespace
   // the capsule C itself runs in: the walk returns E_DIVERGE after
   // RuntimeState::diverge, and the step runs again inside the clone.
   //
-  // The walk follows forward nodes and every pointer successor, so it
-  // crosses set guards, partial applications, data, and the alternatives of
-  // an undecided choice.  It does not enter the generator of a free
+  // The walk follows forward nodes and pointer successors up to set guards,
+  // through partial applications, data, and the alternatives of a choice.
+  // Boxed arguments escape their choices and absorb bindings at first read.
+  // It does not enter the generator of a free
   // variable: the variable itself is the test, and nothing below its
   // generator is decided while the variable is not.  It stops after
   // PRIVATE_WALK_BUDGET nodes with the conservative answer: a long argument
@@ -278,6 +265,11 @@ namespace curryrt { inline namespace
         return alone ? 0 : 1;
       --budget;
       InfoTable const * info = node->info;
+      // Boxed arguments belong to the caller. Their choices escape the
+      // capsule and their bindings are absorbed at the first read, so they
+      // do not require a private capsule at entry.
+      if(info == &SetGuard_Info)
+        continue;
       if(info->tag == T_FREE)
       {
         xid_type const vid = NodeU{node}.free->vid;
@@ -376,8 +368,8 @@ namespace curryrt { inline namespace
     // needs no copy: its choice escapes the capsule (rule SF.1,
     // allValues_step) and the choice node is pruned by each configuration,
     // and a variable the capsule returns is resolved by each configuration
-    // that reads the value.  The walk takes the copy in both cases, which
-    // only loses the sharing of the capsule.
+    // that reads the value. The entry walk stops at those guards so the
+    // caller keeps the sharing of its computation after the set test.
     if(state)
     {
       *C->root = C->scan.copy_spine(C->root, replacement);
