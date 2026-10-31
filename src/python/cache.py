@@ -563,7 +563,9 @@ class Curry2ICurryCache(object):
       if row is None:
         with _memo_lock:
           Curry2ICurryCache.stats['miss'] += 1
-        logger.info('ICurry cache miss for %s', self.modulename)
+        if logger.isEnabledFor(logging.INFO):
+          from .toolchain._filenames import logging_module_name
+          logger.info('module %s: ICurry cache miss', logging_module_name(file_in))
         return
       name, text, fint, icurry, imports, error = row
       interfaces = dict(zip(INTERFACE_SUFFIXES, (fint, icurry)))
@@ -574,7 +576,8 @@ class Curry2ICurryCache(object):
         with _memo_lock:
           Curry2ICurryCache.stats['hit'] += 1
         logger.info(
-            'ICurry cache hit for %s (a program error)', self.modulename
+            'module %s: ICurry cache hit (a program error)',
+            self.modulename if self.anonymous else name
           )
         return
       if self.anonymous:
@@ -603,7 +606,7 @@ class Curry2ICurryCache(object):
       self.found = True
       with _memo_lock:
         Curry2ICurryCache.stats['hit'] += 1
-      logger.info('ICurry cache hit for %s', self.modulename)
+      logger.info('module %s: ICurry cache hit', name if not self.anonymous else self.modulename)
 
     def __bool__(self):
       return self.found

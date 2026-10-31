@@ -450,10 +450,14 @@ class Curry2ICurryConverter(object):
           with filesys.remove_file_on_error(file_out):
             if self.tool == 'icurry':
               _frontend.curry2flat(file_in, currypath, self.quiet)
-              logger.debug('Command: %s', ' '.join(cmd))
+              if logger.isEnabledFor(logging.DEBUG):
+                logger.debug('Command: %s', ' '.join(cmd))
               _system.pexec(cmd)
             else:
               _frontend.curry2icurry(file_in, file_out, currypath, self.quiet)
+            if logger.isEnabledFor(logging.INFO):
+              logger.info('module %s: ICurry written (%s)',
+                  _filenames.logging_module_name(file_in), file_out)
             self.place_interfaces(file_in, file_out)
             _interfaces.write(file_out, currypath, frontend=True)
         except CompileError as err:

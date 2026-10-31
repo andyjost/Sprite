@@ -98,6 +98,11 @@ def rewrite_file(fcyfile, equivalence=True, searchdirs=()):
     from .interfaces import local_type_interfaces
     interfaces = local_type_interfaces(fcyfile, prog, searchdirs)
   newprog, counts = rewrite_prog(prog, equivalence, interfaces)
+  import logging
+  logger = logging.getLogger(__name__)
+  for name, count in zip(('bindingopt', 'setlift'), counts):
+    logger.info('module %s: rewrite pass %s %s', prog.name, name,
+        'changed the program' if count else 'made no change')
   if any(counts):
     write_flatcurry(newprog, fcyfile)
   return counts

@@ -4,6 +4,20 @@ Developer Notes
 
 This page holds the facts a developer of Sprite needs and a user does not.
 
+Logging
+========
+
+Set ``SPRITE_LOG_LEVEL=INFO`` to see the decisions behind module execution,
+cache use and toolchain work. ``SPRITE_LOG_FILE`` appends the records to a
+file shared by the process and its compile children; the default destination
+is standard error. Records include a timestamp, severity, process ID and
+logger name. ``DEBUG`` includes command lines and differing stamp components.
+The package logger is ``curry``; modules use ``logging.getLogger(__name__)``.
+Configuration happens once at import. Keep messages at module and toolchain
+decision sites, with the module name first, and guard expensive diagnostic
+work with ``logger.isEnabledFor``. Evaluation steps and graph nodes do not
+emit records.
+
 .. _free-threaded-audit:
 
 Free-threaded Python

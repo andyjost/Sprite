@@ -627,7 +627,8 @@ class PrecompiledHeader(object):
     os.close(fd)
     cmd = [self.cxx, '-x', 'c++-header'] + self.cxxflags + [header, '-o', tmp]
     logger.info('Precompiling %r', self.filename)
-    logger.debug('Command: %s', ' '.join(cmd))
+    if logger.isEnabledFor(logging.DEBUG):
+      logger.debug('Command: %s', ' '.join(cmd))
     with filesys.remove_file_on_error(tmp):
       _system.pexec(cmd)
       os.replace(tmp, self.filename)
@@ -764,6 +765,24 @@ class Cpp2So(object):
           or not self.stamp_is_current(filename, currypath)
     return source_is_stale(filename, import_search_path(self.interp, filename, currypath))
 
+  def stale_reason(self, sofile, currypath=None):
+    '''Explain an interpreted import without changing the plan's decisions.'''
+    source = _filenames.curryfilename(sofile)
+    icyfile = _filenames.icurryfilename(source)
+    from ...toolchain import _curry2icurry
+    if _curry2icurry.source_changed(source, icyfile) or (
+        os.path.isfile(source) and os.path.getmtime(source) > os.path.getmtime(sofile)):
+      return 'the source'
+    digest, path = self.read_stamp_lines(sofile)
+    accepted = self.accepted_digests()
+    recorded = self.read_import_stamp(sofile)
+    if path is None or recorded is None or (accepted and digest not in accepted):
+      return 'the ABI stamp'
+    search = import_search_path(self.interp, sofile, currypath)
+    if not _interfaces.objects_current(recorded, search):
+      return "an import's interface"
+    return 'the ABI stamp'
+
   def stamp_is_current(self, sofile, currypath=None):
     '''
     Tells whether the ABI stamp of ``sofile`` holds a digest this step
@@ -776,6 +795,8 @@ class Cpp2So(object):
     accepted = self.accepted_digests()
     digest, path = self.read_stamp_lines(sofile)
     if (accepted and digest not in accepted) or path is None:
+      logger.debug('ABI stamp %s: digest=%r accepted=%r installation=%r',
+          sofile, digest, accepted, path)
       return False
     # Wheels cannot rewrite text resources at pip install time. Their
     # shipped stamps name the installation relative to the stamp itself.
@@ -784,9 +805,17 @@ class Cpp2So(object):
     if not os.path.isabs(path):
       path = os.path.join(os.path.dirname(sofile), path)
     if os.path.realpath(path) != installation_path():
+      logger.debug('ABI stamp %s: installation=%r expected=%r',
+          sofile, path, installation_path())
       return False
-    return _interfaces.objects_current(self.read_import_stamp(sofile),
-        import_search_path(self.interp, sofile, currypath))
+    recorded = self.read_import_stamp(sofile)
+    search = import_search_path(self.interp, sofile, currypath)
+    current = _interfaces.objects_current(recorded, search)
+    if not current and logger.isEnabledFor(logging.DEBUG):
+      logger.debug('ABI stamp %s: recorded imports=%r current imports=%r',
+          sofile, recorded, None if recorded is None else
+          _interfaces.object_snapshot(recorded, search))
+    return current
 
   def import_lacks_an_object(self, sofile, currypath=None):
     '''
@@ -1163,7 +1192,8 @@ class Cpp2So(object):
             and self.stamp_is_current(file_out):
           return file_out
         logger.info('Compiling %r', file_out)
-        logger.debug('Command: %s', ' '.join(cmd))
+        if logger.isEnabledFor(logging.DEBUG):
+          logger.debug('Command: %s', ' '.join(cmd))
         _system.pexec(cmd)
         # Invalidate the old stamp only for publication. Never unlink the
         # live object while a reader may open it; rename the complete one.
@@ -1297,6 +1327,8 @@ class Cpp2So(object):
         for suffix in self.PRODUCT_SUFFIXES
       ]
     if _productcache.lookup(digest, key, names) is None:
+      if logger.isEnabledFor(logging.INFO):
+        logger.info('module %s: product cache miss', _filenames.logging_module_name(file_in))
       return None
     with _makecurry.compile_clock, _productlock.locked(file_in):
       try:
@@ -1311,6 +1343,9 @@ class Cpp2So(object):
         return None
       self.write_stamp(sofile)
     logger.info('Restored %r from the product cache', sofile)
+    if logger.isEnabledFor(logging.INFO):
+      logger.info('module %s: product cache hit (%s)',
+          _filenames.logging_module_name(file_in), key)
     before = self.product_snapshot(sofile)
     if self.import_lacks_an_object(
         sofile, _findcurry.imports_path(currypath, **kwds)
@@ -1350,7 +1385,8 @@ class Cpp2So(object):
           , sofile, _productcache.root(), exc
           )
       return
-    logger.debug('Stored %r in the product cache', sofile)
+    if logger.isEnabledFor(logging.INFO):
+      logger.info('module %s: product cache stored', _filenames.logging_module_name(cppfile))
 
   # The warnings this process logged once about the cache.
   _warned = set()
