@@ -31,7 +31,9 @@ Compiled just in time
   writes the generated C++ of a module and compiles it with ``g++`` in a
   child process, then adopts the object.  The C++ backend compiles the
   modules of the program; the modules of the Curry library run from the
-  objects of the installation.
+  objects of the installation.  A compile still running when the program
+  ends is cancelled, so a short program never waits for a compiler and
+  leaves no object behind; ``sprite-make --so`` writes one.
 
 Compiled ahead of time
   ``sprite-make --so M.curry`` compiles a module to a shared object beside
