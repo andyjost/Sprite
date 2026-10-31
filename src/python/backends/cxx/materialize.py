@@ -292,6 +292,23 @@ def module_loaded(interp, moduleobj, currypath):
   the search path of the import for the compile on first use of a pending
   module.
   '''
+  h = handle.getHandle(moduleobj)
+  if interp.flags['interpret'] != 'off' and not h.is_package \
+      and h.icurry.metadata.get('cxx.shlib') is None \
+      and logger.isEnabledFor(logging.INFO):
+    from . import toolchain
+    reason = 'no object'
+    if interp.flags['interpret'] == 'all':
+      reason = 'policy interpret:all'
+    elif config.cxx_tool() is None:
+      reason = 'compiler is missing'
+    elif h.icurry.filename:
+      sofile = _filenames.replacesuffix(
+          _filenames.icurryfilename(h.icurry.filename), '.so')
+      if os.path.isfile(sofile):
+        reason = 'stale object (%s)' % toolchain.Cpp2So(interp=interp).stale_reason(
+            sofile, currypath)
+    logger.info('module %s: interpreted (%s)', h.icurry.fullname, reason)
   entry = _PENDING.get(moduleobj.__name__)
   if entry is not None and entry.module() is moduleobj:
     entry.currypath = list(currypath)

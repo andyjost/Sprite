@@ -604,7 +604,8 @@ def show(value: Convertible | Answer) -> str:
 # that follows; no message holds a machine path or a class of a backend; the
 # same class through the API and both front-end routes.  Warnings go through
 # ``warnings.warn(CurryWarning)``; the package logs to the logger ``curry``
-# with a ``NullHandler`` and never configures the root logger.
+# with a ``NullHandler`` by default; ``SPRITE_LOG_FILE`` or ``SPRITE_LOG_LEVEL``
+# adds a real handler without configuring the root logger.
 # ---------------------------------------------------------------------------
 
 class CurryError(Exception):

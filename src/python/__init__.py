@@ -68,6 +68,16 @@ except FlagError:
   _sys.excepthook = _flag_error_hook
   raise
 
+from . import config as _config
+if not getattr(_config._package_logger, '_sprite_process_logged', False):
+  _config._package_logger._sprite_process_logged = True
+  if _config._package_logger.isEnabledFor(_config.logging.INFO):
+    _config._package_logger.info(
+        'process: %s installation=%s',
+        ' '.join('%s=%s' % (key, _interpreter_.flags[key])
+                 for key in ('backend', 'interpret', 'jit', 'jit_backend', 'rotation')
+                 if key in _interpreter_.flags), _config.prefix())
+
 from .interpreter import session as _session
 
 def compile(source, *, name=None, imports=()):

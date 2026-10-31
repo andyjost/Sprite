@@ -526,6 +526,7 @@ def submit(interp, moduleobj, currypath):
       currypath if currypath is not None else interp.path
     )
   envp = _environment(interp, currypath)
+  envp.append('_SPRITE_BACKGROUND_MODULE=' + name)
   sofile = _filenames.replacesuffix(_filenames.icurryfilename(source), '.so')
   logfile = os.path.join(
       _tmpdir(), 'compile%d-%s.log' % (next(_state.counter), name)
@@ -539,7 +540,8 @@ def submit(interp, moduleobj, currypath):
     record.publish = _filenames.replacesuffix(
         _filenames.icurryfilename(filename), '.so'
       )
-  logger.debug('Compiling %s in the background: %s', name, ' '.join(argv))
+  if logger.isEnabledFor(logging.DEBUG):
+    logger.debug('Compiling %s in the background: %s', name, ' '.join(argv))
   curryrt.tiered_submit(
       name, argv, envp, logfile, sofile, record.publish or '', steps
     , record.icyfile, record.digest, _import_objects(interp, imodule)
@@ -603,6 +605,8 @@ def poll(interp=None):
         )
       _refresh(imported, interp)
     if result['ok']:
+      logger.info('module %s: background compile finished in %.2f s, swapped',
+          name, result['seconds'])
       logger.info(
           'Compiled %s in the background in %.2f s; %d function%s swapped%s'
         , name, result['seconds'], result['swapped']
@@ -611,8 +615,9 @@ def poll(interp=None):
         )
       _refresh(name, interp)
     elif result['error'] == 'the module is no longer loaded':
-      logger.debug('The background compile of %s is not needed', name)
+      logger.info('module %s: background compile not applied (%s)', name, result['error'])
     elif result['error'] == curryrt.TIERED_EDITED:
+      logger.info('module %s: background compile not applied (%s)', name, result['error'])
       _warn_once(
           ('edited', name)
         , 'the background compile of module %r is not applied: its source '
@@ -622,6 +627,11 @@ def poll(interp=None):
         )
     else:
       output = result['output'].strip()
+      if logger.isEnabledFor(logging.INFO):
+        logger.info('module %s: background compile failed: %s', name,
+            next((line for line in output.splitlines()
+                  if 'error:' in line.lower() or line.startswith('sprite-make:')),
+                 result['error'].splitlines()[0]))
       _warn_once(
           ('failed', name)
         , 'the background compile of module %r failed; the module stays '

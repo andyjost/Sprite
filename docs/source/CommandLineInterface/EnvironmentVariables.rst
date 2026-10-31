@@ -202,17 +202,27 @@ The following are recognized:
   sets the same flag alone.
 
 ``SPRITE_LOG_FILE``
-  Reserved.  The variable is read at import; the default, ``-``, names the
-  standard error stream.  Sprite logs to the Python logger ``curry`` with a
-  ``NullHandler`` and never configures the root logger, so the variable has
-  no effect today.  A program that wants Sprite's messages adds a handler
-  to the logger ``curry``.
+  Enable logging and append records to this path; ``-`` selects standard
+  error. With neither logging variable set, the Python logger ``curry`` has
+  only a ``NullHandler``. Setting either variable at import configures one
+  real handler, without propagation to Python's root logger or configuring it.
+  Each record uses the format
+  ``%(asctime)s %(levelname)s %(process)d %(name)s: %(message)s``.
+  The process ID distinguishes children writing to the same file.
 
 ``SPRITE_LOG_LEVEL``
-  Reserved.  The name is validated at import, ``WARNING`` by default, one
-  of ``CRITICAL``, ``ERROR``, ``WARNING``, ``INFO`` and ``DEBUG``; an
-  unknown name stops the import with an error.  The level is applied to
-  no logger today; set the level of the logger ``curry`` in the program.
+  The minimum severity, case-insensitive: ``DEBUG``, ``INFO``, ``WARNING``,
+  ``ERROR`` or ``CRITICAL``. The default is ``WARNING``; an unknown name
+  stops the import with an error. Setting this variable alone enables a
+  handler on standard error at that level. Setting only ``SPRITE_LOG_FILE``
+  enables a file handler at ``WARNING``. At ``INFO``, Sprite reports interpreter
+  flags and the installation, compiled or interpreted module loads and
+  their reasons, background compile results, cache hits and misses,
+  front-end timing and warning counts, rewrite decisions, and ICurry and
+  JSON writes. ``DEBUG`` adds stamp differences and tool command lines.
+  Existing ``CurryWarning`` notices also reach the log at ``WARNING``.
+  With neither variable set, notices keep their existing display through
+  ``warnings.warn`` on standard error.
 
 ``SPRITE_ROTATION``
   The rotation mode of the C++ backend: ``time:10ms`` (time mode, the

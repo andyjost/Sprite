@@ -73,10 +73,8 @@ def loadjson(jsonfile):
   else:
     cached = None
   if cached:
-    logger.info('Loading cached ICurry-JSON for %s', jsonfile)
+    logger.info('module %s: parsed JSON cache hit (%s)', cached.icur.fullname, jsonfile)
     return cached.icur
-  else:
-    logger.info('Reading ICurry-JSON from %s', jsonfile)
   if jsonfile.endswith('.z'):
     with open(jsonfile, 'rb') as istream:
       json = istream.read()
@@ -86,6 +84,7 @@ def loadjson(jsonfile):
       json = istream.read()
   icur = icurry_json.loads(json)
   icur.filename = _filenames.curryfilename(jsonfile)
+  logger.info('module %s: parsed JSON read (%s)', icur.fullname, jsonfile)
   if cached is not None:
     cached.update(icur)
   return icur

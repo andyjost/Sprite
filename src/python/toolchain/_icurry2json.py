@@ -62,6 +62,7 @@ class ICurry2JsonConverter(object):
     if self.do_zip:
       data = zlib.compress(data)
     cache.write_file(file_out, data)
+    logger.info('module %s: JSON written', rcdata.fullname)
     return file_out
 
 def _getIcyOrShortcut(file_in, do_zip):
@@ -103,3 +104,5 @@ def _convertFile(file_in, file_out, convert):
   with open(file_in, 'rb') as istream:
     data = convert(istream.read())
   cache.write_file(file_out, data)
+  if logger.isEnabledFor(logging.INFO):
+    logger.info('module %s: JSON written', _filenames.logging_module_name(file_out))

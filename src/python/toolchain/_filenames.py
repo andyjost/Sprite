@@ -88,3 +88,20 @@ def replacesuffix(filename, suffix):
   assert icyname.endswith('.icy')
   return icyname[:-4] + suffix
 
+
+def logging_module_name(filename):
+  """The declared module name, or the product's basename when source is absent."""
+  import re
+  try:
+    source = curryfilename(filename)
+  except ValueError:
+    return os.path.splitext(os.path.basename(filename.removesuffix('.z')))[0]
+  try:
+    with open(source, encoding='utf-8') as stream:
+      text = stream.read()
+    match = re.search(r'^\s*module\s+([\w.]+)\b', text, re.MULTILINE)
+    if match:
+      return match.group(1)
+  except (OSError, UnicodeError):
+    pass
+  return os.path.basename(source)[:-len('.curry')]

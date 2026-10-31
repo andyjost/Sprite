@@ -26,9 +26,24 @@ if _LOG_LEVEL_NAME_ not in _LOG_LEVEL_NAMES_:
 else:
   _LOG_LEVEL_ = getattr(logging, _LOG_LEVEL_NAME_)
 
-logging.getLogger('curry').addHandler(logging.NullHandler())
-
 logger = logging.getLogger(__name__)
+_package_logger = logging.getLogger('curry')
+if not getattr(_package_logger, '_sprite_configured', False):
+  if 'SPRITE_LOG_FILE' in os.environ or 'SPRITE_LOG_LEVEL' in os.environ:
+    _handler = (logging.FileHandler(_LOG_FILE_, mode='a')
+                if _LOG_FILE_ != '-' else logging.StreamHandler())
+    _handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s %(process)d %(name)s: %(message)s'))
+    _package_logger.setLevel(_LOG_LEVEL_)
+    _package_logger.propagate = False
+  else:
+    _handler = logging.NullHandler()
+  _package_logger.addHandler(_handler)
+  _package_logger._sprite_configured = True
+
+if os.environ.get('_SPRITE_BACKGROUND_MODULE'):
+  _package_logger.info('module %s: background compile started (pid %d)',
+      os.environ.pop('_SPRITE_BACKGROUND_MODULE'), os.getpid())
 
 # Logging query API.
 

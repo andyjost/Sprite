@@ -275,4 +275,6 @@ def _open_module(interp, sofile, name, from_plan, fresh, before):
     , aliases   = bom.aliases
     , metadata  = metadata
     )
-  return interp.import_(imodule)
+  result = interp.import_(imodule)
+  logger.info('module %s: compiled object loaded (%s)', imodule.fullname, sofile)
+  return result

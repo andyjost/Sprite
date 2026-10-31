@@ -84,7 +84,7 @@ from . import _preprocessor, _system, flat2icurry
 from ..exceptions import CompileError, CurryWarning
 import warnings
 from ..utility import curryname
-import logging, os, re, shlex
+import logging, os, re, shlex, time
 
 __all__ = [
     'QUIET_FLAGS', 'ROUTE_VERSION', 'WARNINGS_VARIABLE', 'WARNING_FLAGS'
@@ -264,11 +264,18 @@ def curry2flat(file_in, currypath, quiet=False, rewrite=True):
   if reason:
     raise CompileError(reason)
   cmd = command(file_in, currypath, quiet)
-  logger.debug('Command: %s', ' '.join(cmd))
+  if logger.isEnabledFor(logging.DEBUG):
+    logger.debug('Command: %s', ' '.join(cmd))
   moduledir = os.path.dirname(os.path.abspath(file_in))
   dirs = flatcurry_dirs(file_in, currypath)
   before = _flatcurry_stamps(dirs)
+  started = time.monotonic()
   stdout, stderr = _system.pexec(cmd, cwd=moduledir, with_stderr=True)
+  if logger.isEnabledFor(logging.INFO):
+    from ._filenames import logging_module_name
+    logger.info('module %s: front end ran in %.2f s (%d warnings)',
+        logging_module_name(file_in), time.monotonic() - started,
+        sum(bool(WARNING_HEAD.match(line)) for line in stderr.splitlines()))
   if stdout:
     logger.debug('Front end output:\n%s', stdout)
   report_warnings(stderr, moduledir)
