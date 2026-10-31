@@ -1,23 +1,20 @@
 '''
-Tiered execution of the C++ backend.
+The gxx backend of compiled execution.
 
-Under the interpreter flag ``interpret`` set to 'tiered', a module without a
-current compiled object is interpreted from its ICurry at once (see
-materialize.py and curryrt/icurry.hpp), a child process compiles it in the
-background, and the runtime replaces the step pointer of every function of
-the module by the compiled one when the object is ready.  A step in flight
-finishes on the bytecode; the next step of that function runs compiled.  The
-values and the rewrite steps are the same in both tiers.  A module with a
-current object loads compiled, as under 'new': the Prelude, which make stage
-prebuilds, is never interpreted unless its object is missing.
+With jit:hot,jit_backend:gxx, a module starts interpreted and its private
+compile job is armed at load. The runtime starts that job when the first
+function reaches SPRITE_JIT_THRESHOLD calls. jit:eager submits and waits
+at module load instead. The worker and adoption API keep their internal
+"tiered" names for the AOT loader and compile-on-first-use clients too.
+Hot adoption runs at the scheduler's JIT safepoint (g_icurry_posted).
 
 The child.  The job of a module runs sprite-make --so on the source file of
 the module, with the search path of the import and the flag interpret:off, so
 the plan of the toolchain (Json2Cpp, Cpp2So) writes the object beside the
 JSON, with its ABI stamp.  One worker thread of the runtime (curryrt/tiered.cpp)
 runs the jobs in the order of submission, one at a time.  A module is
-submitted when its load ends, after the loads of its imports, so the object
-of an import exists when a module that imports it compiles.  The thread needs
+registered when its load ends, after the loads of its imports. A hot
+importer may compile a cold dependency through its private search path.  The thread needs
 no GIL: it spawns processes and waits.  So the swap reaches a running
 evaluation: the scheduler applies a finished job at its periodic safepoint
 (RuntimeState::check_interrupts), and Interpreter.eval applies the finished
@@ -79,11 +76,10 @@ importer compiles).  An import mapped that way is swapped, with no step to
 count, whatever comes of the load of the importer after it (poll refreshes
 its record either way); its own job, if any, then adopts the mapped object.
 
-What is not compiled.  An expression module (curry.compile in mode 'expr'),
-an interactive module, and a module compiled from a string (str2module): the
-source lives in a temporary directory the interpreter removes, and an
-expression is evaluated once.  A module whose functions are all built in has
-nothing to swap.
+What is not compiled. Modules without source products and modules whose
+functions are all built in. Modules
+compiled from text get private snapshots while their source still exists;
+nothing is published beside those temporary sources.
 
 The check of the swap.  The child compiles the source as it is when the
 child runs.  An edit of the source between the import and the compile would
@@ -159,11 +155,13 @@ __all__ = [
   , 'module_loaded', 'pending', 'poll', 'status', 'submit', 'wait', 'wait_for'
   ]
 
-MODE = 'tiered'
+MODE = 'gxx'
 
 def enabled(interp):
-  '''Tells whether ``interp`` runs tiered execution.'''
-  return interp.flags['interpret'] == MODE
+  '''Whether interpreted functions use the gxx backend.'''
+  from .jit import backend
+  return interp.flags['interpret'] != 'off' and interp.flags['jit'] != 'off' \
+      and backend(interp) == MODE
 
 
 class _Record(object):
@@ -353,8 +351,8 @@ def prepare_adoption(interp, name):
 
 def _compiles(interp, moduleobj):
   '''
-  Tells whether a module takes part in tiered execution: not a package, not
-  loaded from an object, not anonymous, not compiled from a string.
+  Whether the gxx backend can compile this module: not a package, not
+  loaded from an object, and has source products.
   '''
   if not enabled(interp):
     return False
@@ -364,43 +362,8 @@ def _compiles(interp, moduleobj):
   imodule = h.icurry
   if imodule.metadata.get('cxx.shlib') is not None:
     return False
-  if config.is_anonymous_modname(imodule.fullname):
-    return False
   filename = imodule.filename
-  return bool(filename) and not _str2module.is_temporary(filename)
-
-def _prelude_compiled(interp):
-  '''Tells whether the Prelude of ``interp`` was loaded from its object.'''
-  prelude = interp.modules.get('Prelude')
-  return prelude is not None \
-      and getHandle(prelude).icurry.metadata.get('cxx.shlib') is not None
-
-def _current_source(imodule):
-  '''
-  Tells whether a current generated file (.cpp) lies beside the ICurry of
-  ``imodule``.  Under the flag set to 'new' such a module is compiled from
-  that file, not interpreted (toolchain.Json2Cpp.ends_plan), which fails
-  without a compiler.
-  '''
-  from . import toolchain
-  cppfile = _filenames.replacesuffix(
-      _filenames.icurryfilename(imodule.filename), '.cpp'
-    )
-  return os.path.isfile(cppfile) and not toolchain.source_is_stale(cppfile)
-
-def _interpreter_setting(interp, imodule):
-  '''
-  The setting of the flag ``interpret`` that the notice of a missing
-  compiler names: the one that selects the interpreter without a compile.
-  'all' never compiles.  'new' keeps the compiled library, so the bytecode
-  of the Prelude costs nothing, but it compiles a module whose object is
-  stale and whose generated file is current; so it is named only where the
-  Prelude loaded from its object and ``imodule`` has no current generated
-  file.
-  '''
-  if _prelude_compiled(interp) and not _current_source(imodule):
-    return 'new'
-  return 'all'
+  return bool(filename)
 
 @native_metadata
 def module_loaded(interp, moduleobj, currypath):
@@ -418,7 +381,19 @@ def module_loaded(interp, moduleobj, currypath):
   # importers name its object all the same.
   _record(moduleobj)
   _register_binding(moduleobj)
-  return submit(interp, moduleobj, currypath)
+  from .materialize import jit_threshold
+  curryrt.icurry_set_hot_threshold(jit_threshold() if interp.flags['jit'] == 'hot' else 0)
+  queued = submit(interp, moduleobj, currypath, hot=interp.flags['jit'] == 'hot')
+  if queued and interp.flags['jit'] == 'eager':
+    start = time.monotonic()
+    wait(interp=interp)
+    if getHandle(moduleobj).backend_handle.shlib is None:
+      from ...exceptions import CompileError
+      raise CompileError('gxx eager: module %s compile failed' % moduleobj.__name__)
+    n = _state.records[moduleobj.__name__].functions
+    logger.info('jit eager: module %s, %d functions, %.1f ms',
+        moduleobj.__name__, n, 1000 * (time.monotonic() - start))
+  return queued
 
 @native_metadata
 def _record(moduleobj, sofile=None):
@@ -478,7 +453,7 @@ def _import_objects(interp, imodule):
   return out
 
 @native_metadata
-def submit(interp, moduleobj, currypath):
+def submit(interp, moduleobj, currypath, hot=False):
   '''
   Queues the background compile of a module the interpreter runs.  Returns
   True when a job was queued.  ``currypath`` is the search path of the
@@ -503,20 +478,8 @@ def submit(interp, moduleobj, currypath):
     return False
   cxx = config.cxx_tool()
   if cxx is None:
-    # The notice of an installation without a compiler: once per process,
-    # at the first module that stays interpreted for the lack of one.  It
-    # names the setting of the flag that selects the interpreter without a
-    # compile (_interpreter_setting; the page "Installing and running
-    # without a C++ compiler" of the documentation).
-    _warn_once(
-        'nocxx'
-      , 'no C++ compiler is installed at %s; module %r and the modules after '
-        'it run interpreted (add interpret:%s to SPRITE_INTERPRETER_FLAGS to '
-        'select the interpreter without this notice)'
-      , config.installed_path('tools', 'cxx'), name
-      , _interpreter_setting(interp, imodule)
-      )
-    return False
+    from ...exceptions import CompileError
+    raise CompileError('gxx needs a C++ compiler; install a C++ compiler')
   # The child compiles a private copy (the module docstring, "The
   # products"): nothing is written under the source while it runs.  The
   # digest below is still the one of the ICurry file beside the original:
@@ -535,12 +498,15 @@ def submit(interp, moduleobj, currypath):
   # of another text (see the module docstring).  The record of the module
   # names the object this job writes, for the swap of its importers.
   record = _record(moduleobj, sofile)
-  if not _foreign_flags(interp):
+  record.hot = hot
+  record.functions = len(steps)
+  if not _foreign_flags(interp) and not _str2module.is_temporary(filename):
     record.publish = _filenames.replacesuffix(
         _filenames.icurryfilename(filename), '.so'
       )
   logger.debug('Compiling %s in the background: %s', name, ' '.join(argv))
-  curryrt.tiered_submit(
+  dispatch = curryrt.gxx_arm if hot else curryrt.tiered_submit
+  dispatch(
       name, argv, envp, logfile, sofile, record.publish or '', steps
     , record.icyfile, record.digest, _import_objects(interp, imodule)
     )
@@ -589,9 +555,15 @@ def poll(interp=None):
   results = curryrt.tiered_results()
   for result in results:
     name = result['module']
+    record = _state.records.get(name)
+    hot = record is not None and getattr(record, 'hot', False)
     _state.pending.pop(name, None)
     if not result['ok']:
       _state.modules.pop(name, None)
+      if hot:
+        output = result['output'].strip()
+        logger.info('gxx hot: module %s compile failed: %s', name,
+            (output or result['error']).splitlines()[0])
     for imported in result['mapped']:
       # The swap mapped the object of an import (see the module docstring,
       # "The imports") before it loaded the object of the module: the
@@ -603,12 +575,9 @@ def poll(interp=None):
         )
       _refresh(imported, interp)
     if result['ok']:
-      logger.info(
-          'Compiled %s in the background in %.2f s; %d function%s swapped%s'
-        , name, result['seconds'], result['swapped']
-        , '' if result['swapped'] == 1 else 's'
-        , ' during an evaluation' if result['in_evaluation'] else ''
-        )
+      if hot:
+        logger.info('gxx hot: module %s compiled in %.2f s, swapped',
+            name, result['seconds'])
       _refresh(name, interp)
     elif result['error'] == 'the module is no longer loaded':
       logger.debug('The background compile of %s is not needed', name)

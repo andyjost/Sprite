@@ -47,47 +47,25 @@ so the library loads compiled where it was built or where its package
 installed it, and counts as stale when the installation is copied by hand to
 another path. Changed imported interfaces or ICurry also invalidate an
 object's ABI stamp, so it follows the same interpretation and rebuild rule.
-Under the default of the flag
-``interpret``, ``tiered``, a module without a current object is interpreted
-at once.  With a compiler, a child process compiles the module in the
-background, and the runtime swaps its functions to the compiled code when
-the object is ready.  Without one, the module stays interpreted, nothing is
-compiled, and no object is written.  The first time this happens in a
-process, Sprite prints one notice on the standard error stream::
+The default ``interpret:new`` loads current objects and starts other
+modules interpreted. ``interpret:all`` starts every module interpreted and
+never opens an ahead-of-time object. ``interpret:off`` requires a C++
+compiler for every missing object and fails with an error if it is absent.
 
-    [WARNING] no C++ compiler is installed at .../tools/cxx; module 'Peano' and the modules after it run interpreted (add interpret:new to SPRITE_INTERPRETER_FLAGS to select the interpreter without this notice)
+The default ``jit:hot,jit_backend:auto`` selects LLVM when llvmlite
+imports, so installing ``curry[jit]`` provides compiled execution without
+a C++ compiler. The installation must include ``lib/curryrt-helpers.bc``
+(the build makes it with clang). Hot functions compile in process and
+swap at a scheduler safepoint; ``jit:eager`` compiles at module load.
 
-The notice names the setting of the flag that selects the interpreter
-without a compile.  Where the library loaded compiled and no generated
-file lies beside the ICurry of the module, as here, it names
-``interpret:new``, which keeps the compiled library.  On an installation
-that moved, the module the notice names is the Prelude: every library
-object is stale, the whole program runs interpreted, and the notice names
-``interpret:all``.
-
-The other settings of the flag:
-
-``interpret:all``
-    Every module is interpreted, the library included, and no compiled
-    object is used.  This is the explicit setting of an installation
-    without a compiler: it never compiles, so it serves an installation
-    that moved as well, and it silences the notice.  It is also the mode
-    under which the test suites run the interpreter (section 4 of
-    ``tests/README``).
-
-``interpret:new``
-    No background compile and no notice: a module with a current object
-    loads compiled, a module without one is interpreted.  A module whose
-    object is stale is compiled, which fails without a compiler, so this
-    setting suits an installation whose library objects are current, one
-    that stayed in place, and not one that moved.
-
-``interpret:off``
-    Every module is compiled before it runs.  Without a compiler the run
-    fails with an error that names the remedy: ``cannot compile ...: no C++
-    compiler is installed at .../tools/cxx.  Install one and configure
-    Sprite with CMake -DWITH_CXX_POSTINSTALL=PATH, or use the modules that make stage
-    compiled.``
+Without llvmlite, auto selects the installation's C++ compiler and compiles
+whole modules in a child process after the first hot function. With
+neither backend, the interpreter runs alone and the ``curry`` logger emits
+one WARNING notice per process: ``jit: no backend, interpreter only``
+with the missing prerequisites. ``jit:off`` keeps interpreted functions
+interpreted. Forced ``jit_backend:llvm`` or ``jit_backend:gxx`` fails at
+reset or first import if unavailable; the error names ``pip install
+curry[jit]`` or a C++ compiler. gxx is unavailable on Windows.
 
 The flags are set in ``SPRITE_INTERPRETER_FLAGS``; see
 :doc:`/CommandLineInterface/EnvironmentVariables`.
@@ -113,7 +91,7 @@ Adding a compiler later
 Install ``g++`` (``sudo apt-get install g++`` on Debian and Ubuntu).  In a
 source tree, configure CMake with ``-DWITH_CXX_POSTINSTALL=PATH``,
 or let it find ``g++`` on ``PATH``, and run ``make stage``: the staged
-installation gets its ``tools/cxx``, and the next run compiles the modules
+installation gets its ``tools/cxx``, and the next run without llvmlite compiles hot modules
 in the background and swaps to the compiled code when the objects are
 ready.  ``CMake WITH_CCACHE`` puts ccache in front of that compiler;
 see :doc:`ConfiguringSprite`.  The conda package resolves the compiler of

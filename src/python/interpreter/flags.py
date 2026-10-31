@@ -56,20 +56,23 @@ The following flags are available:
 
     Reserved for compatibility.  Runtime traces require a TRACE build.
 
-  * ``jit`` (**'off'** | 'eager' | 'hot')
+  * ``jit`` ('off' | 'eager' | **'hot'**)
 
-    The JIT of the C++ backend (curry.backends.cxx.llvmjit; issue #65),
-    under the modes 'new' and 'all' of ``interpret``.  With 'eager', every
-    function of a module is compiled to machine code through LLVM when the
-    module is loaded; with 'hot', a thread of the process compiles the
-    functions that reach SPRITE_JIT_THRESHOLD calls (100 by default) while
-    the evaluation runs, and the scheduler swaps their steps at its
-    safepoint.  The JIT needs the extra ``curry[jit]`` (llvmlite) and the
-    bitcode of the helpers of the runtime, which the build makes when
-    CMake finds clang (WITH_CLANG); without them the functions stay
-    interpreted and the reason is logged once.  Under 'tiered' the
-    background compile swaps the steps itself, so the flag has no effect
-    there, nor under 'off'.
+    Compilation of interpreted functions. 'off' leaves them interpreted;
+    'eager' compiles at module load; 'hot' compiles after
+    SPRITE_JIT_THRESHOLD calls (100 by default), and swaps at a scheduler
+    safepoint. Current ahead-of-time objects still load under 'new' and
+    'off', whatever this flag says.
+
+  * ``jit_backend`` (**'auto'** | 'llvm' | 'gxx')
+
+    'auto' selects LLVM when llvmlite imports, else the installation's C++
+    compiler, else the interpreter alone with one warning per process.
+    A forced backend must be available: install curry[jit] for LLVM or a
+    C++ compiler for gxx (unavailable on Windows). LLVM compiles functions
+    in process and needs the runtime helpers' bitcode. gxx compiles a
+    module in a child process, synchronously for 'eager', or after its
+    first hot function for 'hot'.
 
   * ``inline_budget`` (**4** | <int>)
 
@@ -86,7 +89,7 @@ The following flags are available:
     runs under the budget of the interpreter.  The flag serves bisection and
     the performance program.
 
-  * ``interpret`` ('off' | 'new' | 'all' | **'tiered'**)
+  * ``interpret`` ('off' | **'new'** | 'all')
 
     How the C++ backend runs a module whose code is not compiled.  With
     'off', the toolchain compiles every module with the C++ compiler.  A
@@ -110,18 +113,9 @@ The following flags are available:
     instead, and a module with a current object is loaded from it.  With
     'all', every module is interpreted, the Prelude included; the compiled
     objects are not used; it is the default on Windows, where the compile of
-    generated code is not available in this release.  With 'tiered', the
-    default on the other platforms, a
-    module without a compiled object is interpreted at once, as under
-    'new', a child process compiles it in the background, and the runtime
-    swaps the functions of the module to the compiled code when the object
-    is ready, during a running evaluation included (see
-    curry.backends.cxx.tiered): the load of the object binds its slots to
-    the tables the interpreter made (the binding in curryrt/dynload.hpp;
-    issue #163).  An expression, an interactive module, and a module
-    compiled from a string stay interpreted.  The interpreter takes the
-    same steps as compiled code on the same runtime; it runs a few times
-    slower, and it starts at once.
+    generated code is not available in this release. 'new' is the default
+    elsewhere. 'tiered' is retired: use jit:hot with jit_backend:gxx.
+    The jit tiers govern functions that start interpreted in 'new' or 'all'.
 
   * ``keep_temp_files``  (True | **False** | <str>)
 
@@ -205,8 +199,9 @@ FLAG_INFO = {
   , 'checker'             : ( bool                , False )
   , 'debug'               : ( bool                , False )
   , 'inline_budget'       : ( int                 , 4     )
-  , 'interpret'           : ({'off', 'new', 'all', 'tiered'}, 'all' if sys.platform == 'win32' else 'tiered')
-  , 'jit'                 : ({'off', 'eager', 'hot'}, 'off')
+  , 'interpret'           : ({'off', 'new', 'all'}, 'all' if sys.platform == 'win32' else 'new')
+  , 'jit'                 : ({'off', 'eager', 'hot'}, 'hot')
+  , 'jit_backend'         : ({'auto', 'llvm', 'gxx'}, 'auto')
   , 'trace'               : ( bool                , False )
   , 'keep_temp_files'     : ((bool, str)          , False )
   , 'lazycompile'         : ( bool                , True  )
@@ -261,6 +256,8 @@ def parse_rotation(text):
 def check_flags(flags):
   """Validate session flags, including values supplied directly by Python."""
   for flag, value in flags.items():
+    if flag == 'interpret' and value == 'tiered':
+      raise FlagError("interpret:tiered retired; use jit:hot with jit_backend:gxx")
     if flag not in FLAG_INFO:
       raise FlagError('%r is not a flag; the flags are %s' %
           (flag, ', '.join(FLAG_INFO)))
@@ -409,6 +406,8 @@ def getflags(flags={}, weakflags={}):
       if not colon:
         raise FlagError('%r is not a flag setting; expected name:value' % item)
       check_flags({flag: FLAG_INFO[flag][1]} if flag in FLAG_INFO else {flag: None})
+      if flag == "interpret" and given == "tiered":
+        check_flags({flag: given})
       converted = _convert(given, FLAG_INFO[flag][0])
       if converted is NotImplemented:
         raise FlagError('%r is not a value for flag %r; expected %s' %

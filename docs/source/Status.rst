@@ -44,20 +44,21 @@ without a compiler.  See :doc:`Installation/WithoutCompiler`.
 The interpreter modes
 =====================
 
-The flag ``interpret`` of the C++ backend selects how a module without a
-compiled object runs.  ``tiered``, the default, interprets it at once,
-compiles it in the background, and swaps its functions to the compiled
-code when the object is ready.  ``new`` interprets it and never compiles
-it.  ``all`` interprets every module; it is the default on Windows, a port on
-master that no release covers yet, where the compile of generated code is
-not available.  ``off``
-compiles every module first.
-The interpreter takes the same steps as the compiled code and about 1.5
-times its time.  The swap binds the compiled object to the tables the
-interpreter made through slots of the object that the loader fills, on
-Linux and macOS alike (issue #163).  An installation without a C++
-compiler runs every program interpreted; see
-:doc:`Installation/WithoutCompiler`.
+The flag ``interpret`` defaults to ``new``: current ahead-of-time objects
+load, and other modules start interpreted. ``all`` starts every module
+interpreted and never opens an ahead-of-time object; it is the Windows
+default. ``off`` compiles missing objects before running.
+
+The flag ``jit`` defaults to ``hot``. Interpreted functions compile after
+100 calls (``SPRITE_JIT_THRESHOLD``), with swaps at the scheduler's
+safepoint. ``eager`` compiles at module load; ``off`` keeps the interpreter.
+``jit_backend:auto`` selects LLVM when llvmlite imports, else gxx when a
+C++ compiler is available, else the interpreter alone with one warning per
+process. Forced ``llvm`` and ``gxx`` report unavailable prerequisites as
+errors. LLVM compiles functions in process; gxx compiles whole modules in
+a child, preserving the private-copy and publication protocol of #173.
+``interpret:tiered`` is retired: use ``jit:hot,jit_backend:gxx``.
+See :doc:`Installation/WithoutCompiler`.
 
 The typed boundary
 ==================
@@ -108,12 +109,12 @@ Known limits
   comparison of it resolves the narrowing again; read such a result
   through a set function (issue #86; the note in
   :ref:`CurryPrimer/Syntax:Pattern Matching`).
-* The mixed mode of tiered execution has gaps.  A swapped module keeps
+* The gxx hot tier has gaps.  A swapped module keeps
   its registry entry for the life of the process, so a later load of the
   same name from another directory is refused, before the object is
   opened.  :func:`curry.load` of the object of a module whose background
-  compile runs waits for the compile; the object of a module that stays
-  interpreted is refused, and a new process loads it.  An edited source
+  compile runs waits for the compile; an explicit load adopts the object
+  over the live interpreted tables.  An edited source
   is not read again in one process: the import says so, and the swap
   refuses an object compiled from the edited file.  A program shorter
   than its compile ends interpreted with no object written.
@@ -135,7 +136,7 @@ What is experimental
 * The JIT of the C++ backend (the flag ``jit``, the extra ``curry[jit]``,
   issue #65): the bytecode of a function to machine code through LLVM,
   eagerly or by call count, on Linux, macOS arm64 and Windows; merged on
-  2026-10-30, off by default.
+  2026-10-30, hot by default.
 
 Where the plan lives
 ====================

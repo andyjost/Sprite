@@ -153,11 +153,10 @@ The following are recognized:
   The ``backend`` flag names the backend: ``cxx``, the C++ backend, the
   only runtime of an installation.
 
-  The ``interpret`` flag selects how the C++ backend runs a module without
-  a compiled object: ``tiered`` (the default) interprets it and compiles it
-  in the background, ``new`` interprets it and never compiles it, ``all``
-  interprets every module, and ``off`` compiles every module first (a
-  module imported from an ICurry object at its first use; see the flag in
+  The ``interpret`` flag defaults to ``new`` (``all`` on Windows): current
+  objects load and the rest start interpreted. ``all`` starts every module
+  interpreted, and ``off`` compiles missing objects first. ``tiered`` is
+  retired; use ``jit:hot,jit_backend:gxx`` (see
   :mod:`curry.interpreter.flags`).  An
   installation without a C++ compiler runs under the default with one
   notice; see :doc:`/Installation/WithoutCompiler`.
@@ -235,17 +234,16 @@ developing Sprite itself.  If you plan only to compile and run Curry programs
 with Sprite, then you should not need these.
 
 ``SPRITE_JIT_THRESHOLD``
-  The call count at which the hot tier of the JIT compiles a function; 100
-  by default.  The JIT itself is the interpreter flag ``jit`` (``off``,
-  ``eager`` or ``hot``; see :ref:`interpreter-flags`), set through
-  ``SPRITE_INTERPRETER_FLAGS=jit:hot`` or ``curry.reset(jit='hot')``, and
-  needs the extra ``curry[jit]`` (llvmlite) and the bitcode of the runtime
-  helpers, which the build makes when CMake finds clang (``WITH_CLANG``);
-  without them it declines and logs that once.
+  The number of calls that makes an interpreted function hot; 100 by
+  default. With ``jit:hot`` (the default), LLVM compiles that function;
+  gxx starts the module's child compile when its first function becomes
+  hot. ``jit_backend:auto`` selects llvmlite, then the installation's C++
+  compiler, then the interpreter alone with one warning. Force ``llvm``
+  or ``gxx`` to require that backend; ``jit:off`` disables both tiers.
 
 ``SPRITE_JIT_DUMP``
-  A directory into which the JIT writes the optimized LLVM IR, and the
-  assembly, of each batch it compiles.
+  A directory into which the LLVM backend writes the optimized LLVM IR
+  and assembly of each batch. It has no effect on the gxx backend.
 
 ``SPRITE_CACHE_FILE``
   Names the cache database, an SQLite file.  The database stores the output
@@ -370,13 +368,13 @@ with Sprite, then you should not need these.
   entry serves every tree of one runtime: the same tree after its products
   were removed or after an edit and its revert, and a second worktree,
   which compiles nothing the first compiled.  ``sprite-make``, the
-  background compile of the tiered mode and the prepare pass of the test
+  background compile of the gxx hot tier and the prepare pass of the test
   runner look in the cache before they compile.  A module whose entry is
   there is neither generated nor compiled: its files are placed beside the
   source, the object as a hard link when the two lie on one file system,
   with a stamp for this installation.  Under the interpreter flag
   ``interpret`` set to ``new`` nothing is placed: that mode interprets a
-  module without a current object and never compiles it.  Without the
+  module without a current object; the jit tiers select later compilation.  Without the
   variable, or with the empty string, the cache is off; every product is
   then compiled in place, as before the cache existed.
   The test runner and the worktree script name a directory of their own

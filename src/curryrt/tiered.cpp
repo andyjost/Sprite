@@ -26,6 +26,7 @@
 #include "curryrt/exceptions.hpp"
 #include "curryrt/module.hpp"
 #include "curryrt/tiered.hpp"
+#include "curryrt/icurry.hpp"
 #include "curryrt/evaluation.hpp"
 
 #if !defined(_WIN32)
@@ -39,6 +40,9 @@ namespace curryrt
 
   namespace
   {
+    std::unordered_map<InfoTable const *, std::string> hot_modules;
+    std::unordered_map<std::string, TieredJob> hot_jobs;
+
     struct Finished
     {
       TieredJob   job;
@@ -275,6 +279,7 @@ namespace curryrt
           {
             shared().finished.push_back(std::move(done));
             g_tiered_pending.store(true);
+            g_icurry_posted.store(true, std::memory_order_release);
           }
         }
         shared().idle_cv.notify_all();
@@ -595,6 +600,29 @@ namespace curryrt
     shared().work_cv.notify_one();
   }
 
+  void gxx_arm(TieredJob job)
+  {
+    std::lock_guard<std::mutex> lock(shared().mutex);
+    for(auto const & step: job.steps)
+      hot_modules[step.info] = job.module;
+    hot_jobs[job.module] = std::move(job);
+  }
+
+  void gxx_hot(InfoTable const * info)
+  {
+    std::lock_guard<std::mutex> lock(shared().mutex);
+    auto module = hot_modules.find(info);
+    if(module == hot_modules.end())
+      return;
+    auto job = hot_jobs.find(module->second);
+    if(job == hot_jobs.end())
+      return;
+    start_worker();
+    shared().queue.push_back(std::move(job->second));
+    hot_jobs.erase(job);
+    shared().work_cv.notify_one();
+  }
+
   void tiered_apply_pending(bool in_evaluation)
   {
     HeapScope heap;
@@ -699,6 +727,8 @@ namespace curryrt
         std::error_code ignored;
         std::filesystem::remove(job.logfile, ignored);
       }
+    hot_modules.clear();
+    hot_jobs.clear();
     shared().queue.clear();
     shared().finished.clear();
     shared().results.clear();

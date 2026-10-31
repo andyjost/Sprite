@@ -5,23 +5,23 @@
 #include <vector>
 #include "curryrt/fwd.hpp"
 
-// Tiered execution.
+// The gxx backend of compiled execution.
 //
-// Under the interpreter flag ``interpret`` set to 'tiered', a module without a
-// compiled object is interpreted at once (curryrt/icurry.hpp), a child process
-// compiles it in the background, and the compiled steps replace the
-// interpreted ones in the running process.  This file holds the runtime side:
-// the worker thread that runs the child processes, and the swap.
+// gxx_arm registers the private job of an interpreted module; gxx_hot queues
+// it when the first function reaches the shared JIT threshold. Eager mode
+// queues the job immediately with tiered_submit and waits at module load.
+// The internal tiered names also serve foreground AOT adoption.
 //
 // The worker.  tiered_submit queues a job: the command that makes the object
 // of a module, and the functions to swap.  One detached thread
 // runs the jobs in the order of submission, one at a time, so that the object
 // of a module exists before a module that imports it is compiled.  A finished
-// job sets g_tiered_pending.  The thread touches no structure of the runtime:
+// job sets g_tiered_pending and g_icurry_posted. The worker touches no
+// structure of the runtime:
 // it spawns processes and reads files.
 //
 // The swap.  tiered_apply_pending runs on the thread that evaluates: the
-// scheduler calls it at its periodic safepoint (RuntimeState::check_interrupts)
+// scheduler calls it at the JIT safepoint (RuntimeState::procD_loop)
 // and the Python side calls it between evaluations.  For each finished job it
 // loads the object, whose load binds its slots to the tables the interpreter
 // made and writes the compiled step of each function into its table (see
@@ -168,6 +168,10 @@ namespace curryrt
   // Queues a job.  Starts the worker thread on the first call.
   void tiered_submit(TieredJob);
 
+  // Register a module job until one of its functions reaches the threshold.
+  void gxx_arm(TieredJob);
+  void gxx_hot(InfoTable const *);
+
   // Applies the finished jobs on the calling thread, which must be the
   // thread that evaluates.  Returns at once when no job finished.  Never
   // throws: a failure goes into the result of the job.
@@ -197,6 +201,6 @@ namespace curryrt
   void tiered_cancel();
 
   // Set by the worker when a job finished; cleared by tiered_apply_pending.
-  // The scheduler checks it at its periodic safepoint.
+  // The scheduler checks the shared g_icurry_posted flag at its JIT safepoint.
   extern CURRYRT_DATA std::atomic<bool> g_tiered_pending;
 }

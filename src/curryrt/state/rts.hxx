@@ -104,8 +104,6 @@ namespace curryrt
       if(this->cancelled.load(std::memory_order_relaxed))
         throw EvaluationError("evaluation interrupted");
       host_poll();
-      if(g_tiered_pending.load(std::memory_order_relaxed))
-        tiered_apply_pending(true);
       for(Queue * Q: this->qstack)
         if(Q->size() > 1)
         {

@@ -76,6 +76,20 @@ namespace
       ));
   }
 
+  void gxx_arm_(
+      std::string module, std::vector<std::string> argv
+    , std::vector<std::string> envp, std::string logfile, std::string sofile
+    , std::string publish, py::sequence steps, std::string icurryfile
+    , std::string icurry_digest, py::sequence imports
+    )
+  {
+    gxx_arm(make_job(
+        std::move(module), std::move(argv), std::move(envp)
+      , std::move(logfile), std::move(sofile), std::move(publish), steps
+      , std::move(icurryfile), std::move(icurry_digest), imports
+      ));
+  }
+
   py::dict result_dict(TieredResult const & r)
   {
     py::dict d;
@@ -142,6 +156,26 @@ namespace curryrt { namespace python
       , py::arg("icurryfile") = "", py::arg("icurry_digest") = ""
       , py::arg("imports") = py::tuple()
       , "Queues the background compile of a module.  sofile is the object "
+        "the compile writes, in a private directory; publish names the "
+        "object beside the source the swap publishes before it opens the "
+        "object, or is empty.  steps "
+        "is a sequence of (name, symbol, info): the functions to swap when "
+        "the object is ready.  icurryfile and icurry_digest name the ICurry "
+        "file (.icy) of the module at the import and its tiered_file_digest; "
+        "the swap refuses the object when the file differs (the error "
+        "TIERED_EDITED).  imports is a sequence of (module, sofile, "
+        "icurryfile, icurry_digest, publish), the objects of the imports the "
+        "interpreter runs, in dependency order: the swap maps each one whose "
+        "module has no object before the object of the module, under the "
+        "same check of its ICurry.", curryrt::python::heap_access{});
+    mod.def("gxx_arm", &gxx_arm_
+      , py::arg("module"), py::arg("argv"), py::arg("envp")
+      , py::arg("logfile"), py::arg("sofile"), py::arg("publish") = ""
+      , py::arg("steps")
+      , py::arg("icurryfile") = "", py::arg("icurry_digest") = ""
+      , py::arg("imports") = py::tuple()
+      , "Arms the background compile until a function becomes hot. sofile is "
+        "the object "
         "the compile writes, in a private directory; publish names the "
         "object beside the source the swap publishes before it opens the "
         "object, or is empty.  steps "

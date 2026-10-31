@@ -208,7 +208,7 @@ reproducers pass.
   code includes (the include closure of `curryrt/curryrt.hpp`; every compiled
   object is stale then, where a change to a header outside the closure
   rebuilds the runtime library alone), so the shared Curry products are
-  compiled before the files run in parallel: under the tiered default a
+  compiled before the files run in parallel: under the default a
   test process interprets a stale module and never compiles it.
   `--prepare-only` runs
   the pass alone and exits with its status; CI runs it before the files
@@ -237,7 +237,7 @@ reproducers pass.
   compiles only the Curry texts that changed. Set `SPRITE_CACHE_FILE=` (the
   empty string) to run without the cache.
 - The C++ backend has a product cache (`SPRITE_PRODUCT_CACHE`, off unless
-  it names a directory): `sprite-make`, the tiered compile and the prepare
+  it names a directory): `sprite-make`, the gxx compile and the prepare
   pass of the test runner look there before they compile a module and
   store the shared object, the generated C++ and the ABI stamp after. The
   runner and `scripts/new-worktree.sh` use `tests/.cache/products`. The
@@ -265,45 +265,32 @@ reproducers pass.
   which the driver does not count. `func_goal_defaulting.py` pins goal and
   type parity with the PAKCS REPL (`tests/oracle` and `tests/oracle_type`);
   its goldens are committed.
-- An installation without a C++ compiler runs
-  the C++ backend interpreted under the tiered default and prints one
-  notice per process (the page "Installing and running without a C++
-  compiler" of the documentation).
-- The flag `interpret` of the C++ backend selects how a module without a
-  compiled object runs. The default, `tiered`, interprets it at once from
-  its ICurry, compiles it in the background (`sprite-make --so` in a child
-  process), and swaps the functions to the compiled code when the object
-  is ready (`curry.backends.cxx.tiered`, `src/curryrt/tiered.hpp`). The
-  child compiles a private copy of the module in a directory of the
-  process; the swap publishes the object, its stamp and the generated file
-  beside the source, when the source is still there, before it opens the
-  object, so a removed directory never gets half-written products (#173).
-  `off`
-  compiles it with g++ first, `new` interprets it and never compiles it,
-  and `all` interprets every module. `sprite-make` and `make stage` always
-  compile. `tests/README` section 4 names the tests that set `off` for
-  themselves and the tests that fail under `new` and `all` by design.
-- The JIT of the C++ backend (issue #65; `curry.backends.cxx.llvmjit`)
-  compiles the bytecode of an interpreted function to machine code
-  through LLVM on llvmlite, in process, and swaps the step of its table.
-  The flag `jit` selects it under the modes `new` and `all`: `off` (the
-  default), `eager` (every function of a module when the module loads,
-  one LLVM module per Curry module) and `hot` (a thread compiles the
-  functions that reach `SPRITE_JIT_THRESHOLD` calls, 100 by default, and
-  the scheduler applies the swaps at the head of its loop). It needs the
-  extra `curry[jit]` (llvmlite 0.50 or newer, LLVM 22) and the bitcode of
-  the helpers (`src/curryrt/jit/helpers.cpp`, 29 always_inline functions
-  over the opcodes), which CMake compiles with clang to
-  `lib/curryrt-helpers.bc` when it finds one (`WITH_CLANG`; AUTO on Linux
-  and macOS, explicit on Windows, where the bitcode targets the `-elf`
-  flavour of the MSVC triple); without them the functions stay
-  interpreted and the reason is logged once. The code the JIT makes runs
-  at the speed of g++'s on the benchmark programs and the hot tier
-  answers from an interpreted start without a compiler on the user's
-  machine, which is the compiled mode of Windows. `tests/unit_jit.py`
-  covers every kind of opcode, the hot tier and the fallback;
-  `SPRITE_JIT_DUMP=dir` writes the optimized IR and the assembly of each
-  batch. The result note of the spike is in the owner's notebook.
+- An installation without a C++ compiler uses LLVM when llvmlite imports.
+  With neither backend it runs interpreted and logs one WARNING per process
+  (the page "Installing and running without a C++ compiler" of the
+  documentation).
+- The flag `interpret` of the C++ backend defaults to `new` (`all` on
+  Windows). `new` loads current ahead-of-time objects and interprets the
+  rest; `all` starts every module interpreted and never opens an AOT
+  object; `off` compiles missing objects with g++ before running and errors
+  without a compiler. `tiered` is retired: use `jit:hot,jit_backend:gxx`.
+  `sprite-make` and `make stage` always compile.
+- The flag `jit` selects compilation of interpreted functions: `hot`
+  (default) compiles after `SPRITE_JIT_THRESHOLD` calls (100 by default),
+  `eager` compiles at load, and `off` leaves them interpreted. Current AOT
+  objects load under `new` and `off` whatever `jit` says. `jit_backend`
+  defaults to `auto`: LLVM when llvmlite imports, else gxx when
+  `config.cxx_tool` is available, else interpreter alone with one WARNING
+  notice per process. Forced `llvm` and `gxx` error if unavailable;
+  install `curry[jit]` or a C++ compiler respectively (gxx is unavailable
+  on Windows). LLVM compiles functions in process using llvmlite 0.50 or
+  newer (LLVM 22) and `lib/curryrt-helpers.bc`, built with clang through
+  `WITH_CLANG`. gxx compiles whole modules in a child when their first
+  function becomes hot; eager gxx waits at load. The gxx machinery remains
+  in `curry.backends.cxx.tiered` and `src/curryrt/tiered.hpp`; private
+  snapshots and publication preserve #173. Hot swaps run at the scheduler
+  safepoint. `SPRITE_JIT_DUMP` writes LLVM IR and assembly, for LLVM only.
+  Backend and compilation decisions emit INFO messages on the curry logger.
 - The C++ backend rotates its queue of alternatives in time mode by
   default (`SPRITE_ROTATION=time:10ms`, a ticker thread, the interpreter
   flag `rotation`) and in step mode (`steps:65536`) under the test runner,

@@ -80,7 +80,10 @@ namespace curryrt
       // on the C stack here, so the swaps its thread posted are applied by
       // this thread (curryrt/icurry.hpp).
       if(g_icurry_posted.load(std::memory_order_acquire))
+      {
         icurry_apply_posted();
+        tiered_apply_pending(true);
+      }
       Q = this->Q();
       C = Q->front();
       #ifdef SPRITE_SCHEDULER_COUNTERS

@@ -16,6 +16,7 @@
 #include "curryrt/currylib/setfunctions.hpp"
 #include "curryrt/graph/node.hpp"
 #include "curryrt/icurry.hpp"
+#include "curryrt/tiered.hpp"
 #include "curryrt/module.hpp"
 #include "curryrt/state/rts.hpp"
 
@@ -118,6 +119,7 @@ namespace curryrt
     {
       if(++bc->calls == threshold)
       {
+        gxx_hot(_0->info);
         std::lock_guard<std::mutex> lock(g_hot_mutex);
         g_hot.push_back(const_cast<InfoTable *>(_0->info));
       }
@@ -400,7 +402,9 @@ namespace curryrt
 
   bool icurry_is_jit(InfoTable const * info)
   {
-    if(!info || info->step == &icurry_step)
+    // A table can be reused by an AOT/gxx module after an LLVM incarnation.
+    // Such a step has no bytecode; the old membership alone is insufficient.
+    if(!info || !info->step || !info->aux || info->step == &icurry_step)
       return false;
     std::lock_guard<std::mutex> lock(g_jit_mutex);
     return g_jit_steps.count(info) != 0;
@@ -431,6 +435,11 @@ namespace curryrt
       posted.swap(g_posted);
       g_icurry_posted.store(false, std::memory_order_relaxed);
     }
+    // Clearing LLVM's queue must not consume the gxx worker's wakeup.
+    // Clear first, then rearm: a worker publishing after this check sets
+    // the flag itself, while an earlier publication is observed here.
+    if(g_tiered_pending.load(std::memory_order_acquire))
+      g_icurry_posted.store(true, std::memory_order_release);
     size_t applied = 0;
     for(auto const & entry: posted)
     {
