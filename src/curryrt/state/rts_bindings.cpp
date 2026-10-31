@@ -118,7 +118,9 @@ namespace curryrt
       assert(size);
       if(size==1)
       {
-        Node * value = this->info ? Node::create(this->info, data[0]) : data[0].node;
+        // The array overload acquires and registers an owning node for a
+        // big-integer payload; the allocation-only overload does neither.
+        Node * value = this->info ? Node::create(this->info, data) : data[0].node;
         Node * binding = pair(freevar, value);
         return Node::create(&ValueBinding_Info, value, binding);
       }
