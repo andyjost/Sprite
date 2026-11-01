@@ -1286,11 +1286,14 @@ Windows object publication
 --------------------------
 
 Loads map the canonical object directly, including in read-only installations.
-Under the product lock, Windows publication renames an existing DLL to
+Under the product lock, Windows first tries direct replacement; on access
+denied or a sharing violation it renames the existing DLL to
 <Module>.dll.old-<pid>-<counter> before replacing its canonical name.
 The next publication collects generations owned by exited processes and
 keeps those of live processes. Loads create no files. The regression switch
-SPRITE_TEST_WINDOWS_PUBLICATION=1 forces this publication protocol on POSIX;
-it does not change loading. Tests cover mapped readers, live/dead generation
-collection and read-only products. Neither generations nor old private
+SPRITE_TEST_WINDOWS_PUBLICATION=1 forces retirement on POSIX; it does not
+change loading. A reader retries a failed open when the product snapshot
+changed, with three attempts at most; a second adoption under an already
+mapped name on Windows is refused and leaves the module interpreted. Tests
+cover mapped readers, live/dead generation collection and read-only products. Neither generations nor old private
 .tiered copies may appear in a staged library or Windows wheel.

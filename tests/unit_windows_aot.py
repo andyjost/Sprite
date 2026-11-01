@@ -92,7 +92,8 @@ class TestWindowsCommand(cytest.TestCase):
         self.assertIn('remove_all(directory', text)
         self.assertNotIn('TemporaryDirectory(', text)
       program = "#!/python\nimport base64, os, tempfile\nwith tempfile.TemporaryDirectory(prefix='sprite-program-') as work:\n  pass\n"
-      with mock.patch.object(toolchain, 'IS_WINDOWS', True), \
+      with mock.patch.object(sys, 'executable', 'C:\\SCRIPTS\\SCRIPT\\python.exe'), \
+           mock.patch.object(toolchain, 'IS_WINDOWS', True), \
            mock.patch.object(config, 'cxx_tool', return_value='clang-cl'), \
            mock.patch('curry.toolchain._system.pexec', side_effect=compile), \
            mock.patch.object(shutil, 'copyfile') as copy:

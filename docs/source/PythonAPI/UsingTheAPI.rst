@@ -360,7 +360,7 @@ that goal's answers.  Lesson 04 runs both forms in a temporary directory.
 
 On Windows, ``curry.save(..., main=...)`` builds a small native launcher
 that runs the program with Python. It embeds the module and uses the saving
-interpreter, falling back to ``python`` on PATH if that interpreter is gone.
+interpreter and falls back to ``python`` on PATH when that file is gone.
 It needs a matching Sprite installation. The launcher has no runtime DLL
 dependency; the Python child loads the runtime from the installation.
 

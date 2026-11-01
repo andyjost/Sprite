@@ -31,7 +31,7 @@ Release Notes
   stage and the wheel gates reject such files. A saved program
   (``curry.save(main=...)``) is a small native launcher that runs the
   program with Python. It uses the saving interpreter,
-  falls back to ``python`` on PATH if needed, and has no runtime DLL
+  falls back to ``python`` on PATH if needed and has no runtime DLL
   dependency. Wheels support Windows x64 and CPython 3.11 to
   3.15, including free-threaded 3.14t, and ship the compiled library and
   the C and C++ runtime libraries of Visual Studio. The front end's

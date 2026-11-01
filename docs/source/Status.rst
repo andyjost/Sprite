@@ -44,7 +44,7 @@ defaults to ``new`` there as everywhere. A load maps the canonical DLL, and
 a publication retires a mapped DLL under a generation name before it
 replaces the canonical name. A saved program is a small native launcher
 that runs the program with Python. It uses the saving interpreter,
-falls back to ``python`` on PATH if needed, and has no runtime DLL
+falls back to ``python`` on PATH if needed and has no runtime DLL
 dependency. The Windows workflow gates the native
 run; Microsoft's cl is experimental.
 

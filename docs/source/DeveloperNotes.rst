@@ -224,7 +224,8 @@ no file. The regression switch ``SPRITE_TEST_WINDOWS_PUBLICATION=1`` forces
 the retirement protocol, including on POSIX; it does not change loading.
 Readers retry a failed open when the product snapshot changed, with at most
 three attempts. Tiered publication tries the product lock without blocking;
-a busy lock leaves the private object usable and publication to its owner.
+a busy lock leaves the private object in use and the publication to the
+holder of the lock.
 A tiered reload on POSIX uses a distinct spelling of the canonical path,
 so that ``dlopen`` opens the new file instead of returning the old mapping;
 it creates no link and no copy. Windows normalizes that spelling, so a

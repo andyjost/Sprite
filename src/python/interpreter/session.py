@@ -5,7 +5,7 @@ from ..objects import CurryPackage
 from ..objects.handle import getHandle
 from ..objects.terms import check_live, check_module, ModuleInfo, Term
 from . import flags as flagmod
-import base64, os, shutil, sys, tempfile, weakref
+import base64, os, re, shutil, sys, tempfile, weakref
 from collections.abc import Mapping
 from types import MappingProxyType
 
@@ -336,7 +336,12 @@ int wmain(int argc, wchar_t ** argv)
 }
 '''
   with open(source, 'w', encoding='ascii') as stream:
-    stream.write(text.replace('PYTHON', 'L' + json.dumps(sys.executable, ensure_ascii=True)).replace('SCRIPT', json.dumps(program, ensure_ascii=True)))
+    replacements = {
+        'PYTHON': 'L' + json.dumps(sys.executable, ensure_ascii=True),
+        'SCRIPT': json.dumps(program, ensure_ascii=True)
+      }
+    stream.write(re.sub(r'\b(PYTHON|SCRIPT)\b',
+                        lambda match: replacements[match.group()], text))
   step = toolchain.Cpp2So(interp)
   command = list(step._compileCommand(source, path))
   command.remove('/LD')

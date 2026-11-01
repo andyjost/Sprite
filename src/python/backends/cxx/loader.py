@@ -254,6 +254,13 @@ def _open_module(interp, sofile, name, from_plan, fresh, before):
   if adopt:
     result = curryrt.tiered_adopt(name, sofile, steps)
     if not result['ok']:
+      if (result['error'].startswith('the object is mapped under this name')
+          and interp.flags['interpret'] != 'off'):
+        from . import image
+        tiered.warn_mapped_name(name, result['error'])
+        imodule = image.load(interp, _filenames.icurryfilename(sofile),
+                             _program_path(interp, sofile))
+        return interp.import_(imodule)
       raise exceptions.LoadError('cannot load %r: %s' % (sofile, result['error']))
     shlib = owner.shlib
     tiered._refresh(name, interp)

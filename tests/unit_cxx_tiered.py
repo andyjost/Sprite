@@ -466,6 +466,8 @@ class TestSwap(TieredTestCase):
     if windows:
       self.assertIn('the object is mapped under this name in this process',
                     str(log.data[logging.WARNING]))
+      self.assertIn('was not adopted', str(log.data[logging.WARNING]))
+      self.assertNotIn('compile failed', str(log.data))
     self.assertEqual(after['swapped_modules'], before['swapped_modules'] + (not windows))
     self.assertEqual(curryrt.icurry_is_interpreted(M.bump.info), windows)
     self.assertEqual(self.py(M.bump, 1), 3)
@@ -1046,6 +1048,48 @@ class TestLoadDuringCompile(TieredTestCase):
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     self.assertTrue(os.path.isfile(self.sofile(name)))
     return self.sofile(name)
+
+  @cytest.hardreset
+  def test_mapped_name_decline_loads_edited_image(self):
+    from curry.backends.cxx import image
+    text = 'module %%(name)s where\nanswer :: Int\nanswer = %d\n'
+    name = self.write_module(text % 1)
+    self.switch('off')
+    first = self.import_module(name)
+    self.assertEqual(self.py(first.answer), 1)
+    self.edit_module(name, text % 2)
+    self.compile_by_hand(name)
+    error = 'the object is mapped under this name in this process; use a new process'
+    with mock.patch.object(curryrt, 'tiered_adopt',
+                           return_value={'ok': False, 'error': error}) as adopt, \
+         mock.patch.object(image, 'current', return_value=None), \
+         capture_log('curry.backends.cxx.tiered') as log:
+      for _ in range(2):
+        self.switch('new')
+        second = self.import_module(name)
+        self.assertTrue(curryrt.icurry_is_interpreted(second.answer.info))
+        self.assertEqual(self.py(second.answer), 2)
+      self.assertEqual(adopt.call_count, 2)
+      self.assertEqual(len(log.data[logging.WARNING]), 1)
+      self.assertIn('was not adopted', log.data[logging.WARNING][0])
+      self.assertIn(error, log.data[logging.WARNING][0])
+      self.switch('off')
+      with self.assertRaisesRegex(curry.LoadError, 'the object is mapped'):
+        self.import_module(name)
+
+  def test_mapped_name_poll_reports_adoption_decline_once(self):
+    name = self.write_module()
+    error = 'the object is mapped under this name in this process'
+    result = dict(module=name, ok=False, error=error, output='', mapped=[])
+    with mock.patch.object(curryrt, 'tiered_poll'), \
+         mock.patch.object(curryrt, 'tiered_results', return_value=[result]), \
+         capture_log('curry.backends.cxx.tiered') as log:
+      tiered.poll()
+      tiered.poll()
+    self.assertEqual(len(log.data[logging.WARNING]), 1)
+    self.assertIn('was not adopted', log.data[logging.WARNING][0])
+    self.assertIn('not applied', str(log.data[logging.INFO]))
+    self.assertNotIn('compile failed', str(log.data))
 
   def make_stale(self, name):
     '''Changes source content, so its compiled receipt is stale.'''

@@ -223,6 +223,13 @@ def _warn_once(key, message, *args):
     logger.warning(message, *args)
     warnings.warn(message % args, CurryWarning, stacklevel=2)
 
+def warn_mapped_name(name, error):
+  _warn_once(
+      ('mapped', name)
+    , 'the compiled object of module %r was not adopted; the module stays '
+      'interpreted: %s', name, error
+    )
+
 def _environment(interp, currypath=None):
   '''
   The environment of the child: the flags of a compile, and the search path
@@ -587,7 +594,7 @@ def poll(interp=None):
     _state.pending.pop(name, None)
     if not result['ok']:
       _state.modules.pop(name, None)
-      if hot:
+      if hot and not result['error'].startswith('the object is mapped under this name'):
         output = result['output'].strip()
         logger.info('cxx hot: module %s compile failed: %s', name,
             (output or result['error']).splitlines()[0])
@@ -610,6 +617,9 @@ def poll(interp=None):
       _refresh(name, interp)
     elif result['error'] == 'the module is no longer loaded':
       logger.info('module %s: background compile not applied (%s)', name, result['error'])
+    elif result['error'].startswith('the object is mapped under this name'):
+      logger.info('module %s: background compile not applied (%s)', name, result['error'])
+      warn_mapped_name(name, result['error'])
     elif result['error'] == curryrt.TIERED_EDITED:
       logger.info('module %s: background compile not applied (%s)', name, result['error'])
       _warn_once(
