@@ -293,7 +293,9 @@ reproducers pass.
   install `curry[jit]` or a C++ compiler respectively (clang-cl of Visual
   Studio in a developer prompt on Windows). LLVM compiles functions in process using llvmlite 0.50 or
   newer (LLVM 22) and `lib/curryrt-helpers.bc`, built with clang through
-  `WITH_CLANG`. The C++ compiler backend compiles whole modules in a child
+  `WITH_CLANG`; every wheel carries it (the Linux wheel builds install
+  clang in the manylinux image, and the distributions gate requires the
+  file). The C++ compiler backend compiles whole modules in a child
   when their first function becomes hot; eager compilation waits at load. Its
   machinery remains
   in `curry.backends.cxx.tiered` and `src/curryrt/tiered.hpp`; private

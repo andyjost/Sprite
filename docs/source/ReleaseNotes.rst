@@ -11,7 +11,10 @@ Release Notes
 - The JIT compiles interpreted functions through LLVM (``llvmlite``, the
   extra ``curry[jit]``) or the C++ compiler. ``jit`` selects ``off``,
   ``eager`` or ``hot`` (default); ``jit_backend`` selects ``auto``,
-  ``llvm`` or ``cxx``. Hot swaps run at a scheduler safepoint.
+  ``llvm`` or ``cxx``. Hot swaps run at a scheduler safepoint. Every
+  wheel carries the bitcode of the JIT helpers, so ``curry[jit]`` compiles
+  hot functions on each platform where llvmlite has a wheel; the
+  distributions gate requires the bitcode.
   ``interpret:tiered`` is retired; ``interpret:new`` is the default
   on every platform and current ahead-of-time objects still load. A
   background compile of the C++ backend whose thread cannot start (a

@@ -199,6 +199,8 @@ else:
         path = Path(directory) / f'curry-0.9.0a3-{py}-{abi}-{tag}.whl'
         with zipfile.ZipFile(path, 'w') as archive:
           archive.writestr('curry-0.9.0a3.dist-info/METADATA', metadata)
+          archive.writestr('curry/_sprite/lib/curryrt-helpers.bc', b'BC')
+          archive.writestr('curry/_sprite/sysconfig/jit_bitcode', 'lib/curryrt-helpers.bc\n')
         path.with_suffix(suffix).write_text('Report fixture\n')
     with tarfile.open(Path(directory) / 'curry-0.9.0a3.tar.gz', 'w:gz') as archive:
       for name in gate.SDIST_FILES:
@@ -228,6 +230,20 @@ else:
       gate = self.distributions(directory)
       next(Path(directory).glob('*-cp314-cp314t-manylinux_2_28_x86_64.whl')).unlink()
       with self.assertRaisesRegex(AssertionError, 'thirty wheels'):
+        gate.check(directory, '0.9.0a3')
+
+  def test_missing_jit_bitcode(self):
+    '''A wheel without the bitcode of the JIT helpers fails the gate.'''
+    with tempfile.TemporaryDirectory() as directory:
+      gate = self.distributions(directory)
+      path = next(Path(directory).glob('*-cp312-cp312-manylinux_2_28_aarch64.whl'))
+      with zipfile.ZipFile(path) as archive:
+        entries = [(info.filename, archive.read(info.filename)) for info in archive.infolist()]
+      with zipfile.ZipFile(path, 'w') as archive:
+        for name, data in entries:
+          if name != 'curry/_sprite/lib/curryrt-helpers.bc':
+            archive.writestr(name, data)
+      with self.assertRaisesRegex(AssertionError, 'no bitcode of the JIT helpers'):
         gate.check(directory, '0.9.0a3')
 
   def test_runtime_dependencies(self):
