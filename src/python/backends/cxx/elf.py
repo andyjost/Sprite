@@ -22,7 +22,7 @@ the C++ compiler writes on the platforms Sprite supports.
 '''
 import struct
 
-__all__ = ['DynamicSection', 'read_dynamic']
+__all__ = ['DynamicSection', 'read_dynamic', 'read_symbols']
 
 # The tags of the dynamic section that name a string, and the two that
 # locate the string table.
@@ -135,3 +135,37 @@ def read_dynamic(filename):
     elif tag == DT_RUNPATH:
       runpath = string(value)
   return DynamicSection(needed, soname, rpath, runpath)
+
+
+def read_symbols(data):
+  '''Return symbol-table names from a 64-bit ELF object's bytes.'''
+  import io
+  stream = io.BytesIO(data)
+  header = _read(stream, 0, 64, 'ELF header', '<object>')
+  if header[:5] != b'\x7fELF\x02' or header[5] not in (1, 2):
+    raise ValueError('not a 64-bit ELF object')
+  order = '<' if header[5] == 1 else '>'
+  shoff, = struct.unpack_from(order + 'Q', header, 0x28)
+  shentsize, shnum = struct.unpack_from(order + 'HH', header, 0x3a)
+  if shentsize < 64 or not shoff or not shnum:
+    raise ValueError('missing ELF section table')
+  sections = [struct.unpack(order + 'IIQQQQIIQQ',
+      _read(stream, shoff + k * shentsize, 64, 'section header', '<object>'))
+      for k in range(shnum)]
+  names = []
+  for section in sections:
+    if section[1] not in (2, 11):  # SHT_SYMTAB, SHT_DYNSYM
+      continue
+    offset, size, link, entsize = section[4], section[5], section[6], section[9]
+    if link >= shnum or entsize < 24 or size % entsize:
+      raise ValueError('invalid ELF symbol table')
+    strings = sections[link]
+    table = _read(stream, strings[4], strings[5], 'symbol strings', '<object>')
+    symbols = _read(stream, offset, size, 'symbol table', '<object>')
+    for pos in range(0, size, entsize):
+      start, = struct.unpack_from(order + 'I', symbols, pos)
+      end = table.find(b'\0', start)
+      if start >= len(table) or end < 0:
+        raise ValueError('invalid ELF symbol name')
+      names.append(table[start:end].decode('ascii'))
+  return names
