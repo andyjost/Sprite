@@ -58,6 +58,7 @@ EXAMPLES = [
   , '23-cxx-types-layout'
   , '24-build-system'
   , '25-perfect-hash'
+  , '26-ir-canonicalization'
   ]
 
 # Directories with a run script that the test does not run, and why.  Every
@@ -86,6 +87,9 @@ STRESS_EXCLUDED = {
   , '25-perfect-hash':
         'a search over a large live state (nine alternatives per position), '
         'unfinished after 120 s'
+  , '26-ir-canonicalization':
+        'a census over 1,179 terms, each a set function over every rewrite '
+        'order, unfinished after 300 s'
   , '20-cxx-types-deduction':
         'two inverse searches in (d) over every type of a depth, unfinished '
         'after 580 s'

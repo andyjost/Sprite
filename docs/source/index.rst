@@ -79,7 +79,7 @@ Where to go next
 - :doc:`Installation/Installation` installs Sprite with pip, or from
   source.
 - The :doc:`Quickstart` takes the next steps.  The
-  :doc:`Examples` are the tutorial: twenty-six programs, from a first
+  :doc:`Examples` are the tutorial: twenty-seven programs, from a first
   Curry program to applications.
 - The :doc:`CurryPrimer/index` teaches the language to a Python
   programmer.
