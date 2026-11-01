@@ -20,9 +20,8 @@ For confirmation before each installation step, use::
     curl -LsSf https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite-i | sh
 
 The scripts install uv if needed, then use it to download a managed CPython
-3.11.4 or newer (through 3.15) and install ``curry`` with its dependencies
-``curry-frontend`` and ``llvmlite`` in an isolated environment in your home
-directory. They
+3.11.4 or newer (through 3.15) and install ``curry`` with its dependency
+``curry-frontend`` in an isolated environment in your home directory. They
 never use sudo. Run the script again to
 upgrade Sprite.
 
@@ -43,8 +42,9 @@ Python environment with::
     pip install --pre curry
 
 The ``--pre`` flag is needed while Sprite is in alpha. This installs
-``curry-frontend`` and ``llvmlite`` too (llvmlite has no wheel for Intel
-macOS; Sprite runs without it). The wheels work with plain pip;
+``curry-frontend`` too. If you want better performance and your platform
+supports llvmlite, add the ``jit`` extra: ``pip install --pre
+"curry[jit]"``. The wheels work with plain pip;
 uv is a dependency of the installer alone. See :doc:`SoftwareCompatibility` for platform support and
 :doc:`ManualInstallation` for installation from source.
 

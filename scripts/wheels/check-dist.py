@@ -50,12 +50,9 @@ def check(directory, version, tag=''):
     with zipfile.ZipFile(wheel) as archive:
       metadata = BytesParser().parsebytes(archive.read(f'curry-{version}.dist-info/METADATA'))
       assert metadata['Name'] == 'curry' and metadata['Version'] == version
-      # The front end the package needs, llvmlite for the LLVM backend (no
-      # wheel for Intel macOS), and the alias extra jit.
+      # The front end the package needs, and the extra jit (llvmlite).
       assert metadata.get_all('Requires-Dist') == [
-          'curry-frontend>=3.1.0',
-          'llvmlite>=0.50; sys_platform != "darwin" or platform_machine != "x86_64"',
-          'llvmlite>=0.50; extra == "jit"'
+          'curry-frontend>=3.1.0', 'llvmlite>=0.50; extra == "jit"'
         ], metadata.get_all('Requires-Dist')
       assert metadata.get_all('Provides-Extra') == ['jit'], metadata.get_all('Provides-Extra')
       assert 'Development Status :: 3 - Alpha' in metadata.get_all('Classifier')

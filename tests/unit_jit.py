@@ -7,7 +7,7 @@ interpreter and on the JIT, over every kind of opcode: the cases on
 constructors and on literals of each kind (Int, big Int, Char, Float), the
 nondeterminism of ?, a recursive let, a partial application, a failure, a
 free variable and a string literal.  The file skips where the JIT is
-unavailable: without llvmlite (a dependency of the wheels), or without the
+unavailable: without llvmlite (the extra "curry[jit]"), or without the
 bitcode of the helpers that CMake builds when it finds clang.
 '''
 import cytest # from ./lib; must be first
@@ -186,7 +186,7 @@ class TestSelection(cytest.TestCase):
         with mock.patch.object(jit.sys, 'platform', 'linux'):
           curry.reset(jit_backend='auto')
           self.assertEqual(jit.backend(cytest.raw.interp()), 'cxx')
-      with self.assertRaisesRegex(curry.FlagError, r'needs llvmlite; pip install llvmlite'):
+      with self.assertRaisesRegex(curry.FlagError, r'pip install --pre "curry\[jit\]"'):
         curry.reset(jit_backend='llvm')
     with mock.patch.object(config, 'cxx_tool', return_value=None):
       with self.assertRaisesRegex(curry.FlagError, r'C\+\+ compiler'):
@@ -201,7 +201,7 @@ class TestSelection(cytest.TestCase):
     from curry.backends.cxx import jit
     with mock.patch.object(jit.importlib, 'import_module', return_value=mock.Mock(__version__='0.50.0')):
       with mock.patch.object(llvmjit, '_get', side_effect=llvmjit.Unavailable('missing helpers')):
-        with self.assertRaisesRegex(curry.FlagError, r'jit_backend:llvm.*missing helpers.*pip install llvmlite'):
+        with self.assertRaisesRegex(curry.FlagError, r'jit_backend:llvm.*missing helpers.*"curry\[jit\]"'):
           curry.reset(jit_backend='llvm')
 
   @cytest.hardreset
@@ -210,14 +210,16 @@ class TestSelection(cytest.TestCase):
     from curry import config
     with mock.patch.object(jit, '_warned', False), self.missing_llvm():
       with mock.patch.object(config, 'cxx_tool', return_value=None):
-        with self.assertLogs('curry.backends.cxx.jit', level='WARNING') as logs:
+        with self.assertLogs('curry.backends.cxx.jit', level='INFO') as logs:
           for _ in range(2):
             curry.reset(interpret='new', jit='hot', jit_backend='auto')
             M = curry.compile('double :: Int -> Int\ndouble x = x + x')
             self.assertEqual(curry.eval(M.double(21)).one(), 42)
             self.assertTrue(curryrt.icurry_is_interpreted(M.double.info))
         self.assertEqual(len(logs.records), 1)
+        self.assertEqual(logs.records[0].levelname, 'INFO')
         self.assertIn('jit: no backend, interpreter only', logs.output[0])
+        self.assertIn('"curry[jit]"', logs.output[0])
 
 
 class TestHelpers(cytest.TestCase):

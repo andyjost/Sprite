@@ -20,7 +20,7 @@ def select(interp):
   if requested == 'auto':
     backend = 'llvm' if llvm is not None else 'cxx' if cxx else None
   if backend == 'llvm' and llvm is None:
-    raise FlagError('jit_backend:llvm needs llvmlite; pip install llvmlite')
+    raise FlagError('jit_backend:llvm needs llvmlite; pip install --pre "curry[jit]"')
   if backend == 'cxx' and cxx is None:
     raise FlagError('jit_backend:cxx needs a C++ compiler; on Windows use clang-cl '
                     'of Visual Studio in a developer prompt initialized by vcvars64')
@@ -30,15 +30,17 @@ def select(interp):
       llvmjit._get()
     except llvmjit.Unavailable as exc:
       raise FlagError(
-          'jit_backend:llvm is unavailable: %s; pip install llvmlite '
+          'jit_backend:llvm is unavailable: %s; pip install --pre "curry[jit]" '
           'and use an installation built with the clang JIT helpers' % exc
         ) from None
   interp._jit_backend = backend
   if backend is None:
-    reason = 'llvmlite and a C++ compiler are unavailable; pip install llvmlite or install a C++ compiler'
+    reason = ('llvmlite and a C++ compiler are unavailable; '
+              'pip install --pre "curry[jit]" or install a C++ compiler')
     if not _warned:
       _warned = True
-      logger.warning('jit: no backend, interpreter only (%s)', reason)
+      # A notice, not a warning: a user who leaves the extra out did so on purpose.
+      logger.info('jit: no backend, interpreter only (%s)', reason)
     return None
   detail = 'llvmlite %s' % llvm.__version__ if backend == 'llvm' else str(cxx)
   if (backend, detail) not in _logged:

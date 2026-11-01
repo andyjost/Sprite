@@ -9,13 +9,7 @@ dynamic = ["version"]
 description = "The Sprite compiler and runtime for Curry"
 readme = "README.pypi.md"
 requires-python = ">=3.11.4"
-# llvmlite brings the LLVM backend of the JIT (the flag jit; issue #65),
-# about 60 MB per wheel; it has no wheel for Intel macOS, where conda-forge
-# provides it and the C++ compiler backend serves otherwise.
-dependencies = [
-  "curry-frontend>=3.1.0",
-  "llvmlite>=0.50; sys_platform != 'darwin' or platform_machine != 'x86_64'",
-]
+dependencies = ["curry-frontend>=3.1.0"]
 license = "BSD-3-Clause"
 license-files = ["LICENSE", "curry/lib/LICENSE", "curry/lib/NOTICE", "extern/pybind11/LICENSE"]
 classifiers = [
@@ -33,8 +27,9 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-# An alias from the releases before llvmlite was a dependency: curry[jit]
-# installs the same package, on Intel macOS too, where pip then has no wheel.
+# The LLVM backend of the JIT (the flag jit; issue #65) through llvmlite,
+# a heavy package that has no wheel for every platform; without it the
+# interpreter and the C++ compiler backend serve.
 jit = ["llvmlite>=0.50"]
 
 [project.urls]

@@ -149,9 +149,15 @@ natural fit.
 pip install --pre curry
 ```
 
-The `--pre` flag is needed while Sprite is in alpha. If you'd rather not touch
-your Python at all, a one-line installer brings its own and installs Sprite
-under your home directory:
+The `--pre` flag is needed while Sprite is in alpha. If you want better
+performance and your platform supports llvmlite, add the `jit` extra:
+
+```sh
+pip install --pre "curry[jit]"
+```
+
+If you'd rather not touch your Python at all, a one-line installer brings its
+own and installs Sprite under your home directory:
 
 ```sh
 curl -LsSf https://raw.githubusercontent.com/andyjost/Sprite/master/getsprite | sh

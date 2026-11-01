@@ -67,8 +67,9 @@ The following flags are available:
   * ``jit_backend`` (**'auto'** | 'llvm' | 'cxx')
 
     'auto' selects LLVM when llvmlite imports, else the installation's C++
-    compiler, else the interpreter alone with one warning per process.
-    A forced backend must be available: install llvmlite for LLVM or a
+    compiler, else the interpreter alone with one notice per process in
+    the log. A forced backend must be available: install the extra
+    (pip install --pre "curry[jit]") for LLVM or a
     C++ compiler for cxx (clang-cl in a developer prompt on Windows). LLVM compiles functions
     in process and needs the runtime helpers' bitcode. cxx compiles a
     module in a child process, synchronously for 'eager', or after its
