@@ -236,7 +236,7 @@ def save(interp, module, path, *, main=None):
     with tempfile.TemporaryDirectory(prefix='sprite-save-') as work:
       directory = os.path.join(work, '.curry', config.intermediate_subdir())
       os.makedirs(directory)
-      from ..backends.cxx import toolchain
+      from ..backends.cxx import toolchain, msvc
       cpp = os.path.join(directory, module.__name__ + '.cpp')
       interp.save(module, cpp, module_main=False, interfaces=True)
       product = toolchain.Cpp2So(interp)(cpp, interp.path)
@@ -272,7 +272,7 @@ def _save_windows_program(interp, path, program, work):
   # launcher owns the temporary directory so mapped DLLs are removed only
   # after the Python child has exited.
   import json
-  from ..backends.cxx import toolchain
+  from ..backends.cxx import toolchain, msvc
   from ..toolchain import _system
   program = program[program.index('import base64'):]
   program = program.replace("with tempfile.TemporaryDirectory(prefix='sprite-program-') as work:",
@@ -348,7 +348,7 @@ int wmain(int argc, wchar_t ** argv)
   command = [arg for arg in command if not arg.startswith('/IMPLIB:')
              and arg != config.installed_path('lib', 'libcurryrt.lib')]
   try:
-    _system.pexec(command)
+    _system.pexec(command, env=msvc.environment())
   finally:
     for suffix in ('.obj', '.pdb', '.lib', '.exp'):
       try:

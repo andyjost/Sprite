@@ -37,9 +37,10 @@ llvmlite and C++ through a compiler in a child process. The flags
 ``interpret``, ``jit`` and ``jit_backend`` choose; :doc:`CompilationOptions`
 describes them and the supported platforms.
 
+Sprite finds Visual Studio with ``vswhere`` and captures the developer
+environment of ``vcvars64.bat``; no developer prompt is needed.
 On Windows x64 the generated modules compile to DLLs with clang-cl of
-Visual Studio in a developer prompt (``vcvars64.bat``), ahead of time and
-in the C++ tier of the JIT; the library ships compiled and ``interpret``
+Visual Studio, ahead of time and in the C++ tier of the JIT; the library ships compiled and ``interpret``
 defaults to ``new`` there as everywhere. A load maps the canonical DLL, and
 a publication retires a mapped DLL under a generation name before it
 replaces the canonical name. A saved program is a small native launcher

@@ -5,6 +5,10 @@ Release Notes
 0.9.0a3 (2026-11-01)
 ====================
 
+- Windows: Sprite discovers Visual Studio with ``vswhere`` and captures
+  the developer environment of ``vcvars64.bat`` for clang-cl. AOT builds,
+  the C++ JIT and saved-program launchers no longer need a developer prompt.
+
 - ``curry.solve`` reports every held variable used in the goal, including
   unnamed variables under display names such as ``_a``.
 

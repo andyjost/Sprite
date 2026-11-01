@@ -69,7 +69,8 @@ The following flags are available:
     'auto' selects LLVM when llvmlite imports, else the installation's C++
     compiler, else the interpreter alone with one warning per process.
     A forced backend must be available: install curry[jit] for LLVM or a
-    C++ compiler for cxx (clang-cl in a developer prompt on Windows). LLVM compiles functions
+    C++ compiler for cxx (Visual Studio clang-cl on Windows, found with vswhere
+    and the vcvars64 developer environment; no developer prompt needed). LLVM compiles functions
     in process and needs the runtime helpers' bitcode. cxx compiles a
     module in a child process, synchronously for 'eager', or after its
     first hot function for 'hot'.

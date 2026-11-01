@@ -124,8 +124,9 @@ Windows x64         yes          yes          yes [2]_    yes [2]_
 
 .. [1] ``llvmlite`` ships no wheel for Intel macOS on PyPI; the conda-forge
    package provides it.  Without it, ``auto`` takes the C++ compiler.
-.. [2] Use clang-cl of Visual Studio in a developer prompt initialized
-   by ``vcvars64.bat``. ``sprite-make --so`` writes a DLL; the library
+.. [2] Sprite finds Visual Studio with ``vswhere`` and captures the developer
+   environment of ``vcvars64.bat`` for clang-cl; no developer prompt is
+   needed. ``sprite-make --so`` writes a DLL; the library
    ships compiled, and ``interpret`` defaults to ``new`` on every platform.
    Microsoft cl remains experimental.
 

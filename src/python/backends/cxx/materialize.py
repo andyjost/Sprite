@@ -400,7 +400,7 @@ def compile_pending(entry):
   if cxx is None:
     raise CompileError(
         'no C++ compiler is installed at %r; on Windows use clang-cl of '
-        'Visual Studio in a developer prompt initialized by vcvars64'
+        'Visual Studio; Sprite uses vswhere and vcvars64 without a developer prompt'
       % config.installed_path('tools', 'cxx')
       )
   currypath = entry.currypath

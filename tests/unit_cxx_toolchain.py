@@ -120,6 +120,16 @@ class ToolchainTestCase(cytest.TestCase):
     return module
 
 class TestCompilerDiagnostics(ToolchainTestCase):
+  def test_compile_child_receives_captured_environment(self):
+    from curry.backends.cxx import msvc
+    env = dict(os.environ, SPRITE_TEST_COMPILER_ENV='captured')
+    real_pexec = toolchain._system.pexec
+    with mock.patch.object(msvc, 'environment', return_value=env), \
+         mock.patch.object(toolchain._system, 'pexec', wraps=real_pexec) as pexec:
+      self.compile_module(42)
+    compiles = [call for call in pexec.call_args_list if call.kwargs.get('env') == env]
+    self.assertTrue(compiles)
+
   def test_failed_compiler_preserves_both_streams(self):
     from curry.tools import make
     stub = os.path.join(self.tmpdir, 'compiler.py')

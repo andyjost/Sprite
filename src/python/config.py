@@ -453,8 +453,8 @@ def cxx_tool(cached=[]):
   if not cached:
     cxx = installed_path('tools', 'cxx')
     if not os.path.exists(cxx):
-      # Traditional installs deliberately use tools/cxx to select or omit
-      # the compiler. Wheels carry no builder tool links and discover one
+      # Traditional installs use tools/cxx to select the compiler. Windows
+      # can also discover Visual Studio when no compiler was configured. Wheels carry no builder tool links and discover one
       # in the consumer's environment instead.
       candidates = [os.environ.get('CXX')] + (['clang-cl', 'cl'] if sys.platform == 'win32' else ['g++'])
       cxx = next((found for name in candidates if name
@@ -464,6 +464,10 @@ def cxx_tool(cached=[]):
       # executable whose adjacent toolchain DLLs would be lost.
       with open(cxx, encoding='utf-8') as stream:
         cxx = stream.read().strip()
+    if sys.platform == 'win32':
+      from .backends.cxx import msvc
+      discovered, _ = msvc.discover()
+      cxx = cxx or discovered
     cached.append(cxx)
   return cached[0]
 

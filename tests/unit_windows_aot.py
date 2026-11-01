@@ -73,7 +73,8 @@ class TestWindowsCommand(cytest.TestCase):
     with tempfile.TemporaryDirectory() as work:
       output = os.path.join(work, 'saved.exe')
       captured = []
-      def compile(command):
+      def compile(command, env=None):
+        self.assertIsNotNone(env)
         captured.extend(command)
         text = Path(work, 'launcher.cpp').read_text()
         self.assertIn('int wmain(', text)
