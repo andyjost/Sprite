@@ -5,6 +5,9 @@ Release Notes
 0.9.0a3 (2026-11-01)
 ====================
 
+- Every module of the Curry library ships compiled. An external function
+  without a primitive in the runtime raises ``not implemented`` at its call;
+  before, eight modules failed at import.
 - The front end uses ``C.UTF-8`` when the selected locale is not UTF-8,
   so non-ASCII Curry source also compiles under C and POSIX locales.
 - Local CPM projects add their source directories and installed packages
@@ -15,9 +18,12 @@ Release Notes
   unnamed variables under display names such as ``_a``.
 
 - The JIT compiles interpreted functions through LLVM (``llvmlite``, the
-  extra ``curry[jit]``) or the C++ compiler. ``jit`` selects ``off``,
-  ``eager`` or ``hot`` (default); ``jit_backend`` selects ``auto``,
-  ``llvm`` or ``cxx``. Hot swaps run at a scheduler safepoint.
+  new extra ``"curry[jit]"``) or the C++ compiler. ``jit`` selects
+  ``off``, ``eager`` or ``hot`` (default); ``jit_backend`` selects
+  ``auto``, ``llvm`` or ``cxx``. Hot swaps run at a scheduler safepoint.
+  Without a backend the process says so once in its log, at INFO. Every
+  wheel carries the bitcode of the JIT helpers, which the distributions
+  gate requires.
   ``interpret:tiered`` is retired; ``interpret:new`` is the default
   on every platform and current ahead-of-time objects still load. A
   background compile of the C++ backend whose thread cannot start (a
@@ -27,6 +33,9 @@ Release Notes
   object per function in the envelope; a start reads the index alone. CI
   fills the library's cache in one job (``SPRITE_STAGE_JIT_CACHE=0`` skips
   the fill of a stage).
+- The LLVM cache uses smaller module-local symbols and per-function zlib
+  payloads (``SPRTJIT4``). Cached calls can resolve between hot optimizer
+  batches; pinned cache files close after resolution or image detach.
 - LLVM JIT batches persist as relocatable ``.jit`` objects beside module
   images, resolve on first use on a warm start and use
   ``SPRITE_JIT_CACHE`` for read-only products. Local stages fill the library

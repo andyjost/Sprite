@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise shipped compiled code, and optionally a newly loaded Curry source."""
+"""Exercise shipped compiled code, the JIT, and optionally a newly loaded Curry source."""
 import argparse
 import os
 from pathlib import Path
@@ -13,6 +13,8 @@ def main():
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument('--peano', type=Path)
   parser.add_argument('--compile', action='store_true')
+  parser.add_argument('--jit', action='store_true',
+      help='the bitcode of the JIT helpers ships; with llvmlite, a child compiles a hot function')
   args = parser.parse_args()
   import curry
   from curry.lib import Prelude
@@ -28,6 +30,8 @@ def main():
   from curry.objects.handle import getHandle
   assert getHandle(Prelude).icurry.metadata.get('cxx.shlib') is not None
   assert list(curry.eval(Prelude.id(42))) == [42]
+  if args.jit:
+    check_jit(curry)
   if args.peano:
     with tempfile.TemporaryDirectory() as directory:
       # A copy: the compile leaves no products in the checkout, and every
@@ -45,6 +49,49 @@ def main():
       classes = Path(directory) / 'Classes.curry'
       classes.write_text(CLASSES)
       expect(classes, '"3False[Red,Green]"')
+
+
+def check_jit(curry):
+  """The installation has the bitcode of the JIT helpers; with llvmlite, the hot tier compiles."""
+  bitcode = curry.config.jit_bitcode()
+  assert bitcode and Path(bitcode).is_file(), \
+      'the installation has no bitcode of the JIT helpers (lib/curryrt-helpers.bc)'
+  print('JIT helpers:', bitcode)
+  try:
+    import llvmlite
+  except ImportError:
+    print('llvmlite is not installed; the check of the JIT stops at the bitcode')
+    return
+  print('llvmlite', llvmlite.__version__)
+  # A child: the flags are read at import, and the Prelude must run interpreted
+  # for one of its functions to become hot. A local stage has the library's
+  # cache, and then the code links from it instead; a wheel ships no cache.
+  env = dict(os.environ, SPRITE_INTERPRETER_FLAGS='interpret:all,jit:hot,jit_backend:llvm',
+             SPRITE_JIT_THRESHOLD='20')
+  result = subprocess.run([sys.executable, '-c', HOT], env=env, capture_output=True, text=True)
+  print(result.stdout, end='')
+  print(result.stderr, end='', file=sys.stderr)
+  assert result.returncode == 0, 'the LLVM JIT failed'
+
+
+HOT = """\
+import time
+import curry
+from curry.lib import Prelude
+from curry.backends.cxx import llvmjit
+assert llvmjit.available(), llvmjit._reason
+print(curry.eval(Prelude.elem(999999, Prelude.enumFromTo(1, 1000000))).one())
+deadline = time.monotonic() + 60
+def compiled():
+  stats = llvmjit.statistics()
+  return stats['hot'] + stats['linked'] > 0
+while not compiled() and time.monotonic() < deadline:
+  time.sleep(0.05)
+stats = llvmjit.statistics()
+print('jit:', stats)
+assert stats['errors'] == 0, stats['last_error']
+assert compiled(), 'the LLVM JIT compiled and linked nothing'
+"""
 
 
 CLASSES = """\

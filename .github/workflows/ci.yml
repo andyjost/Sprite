@@ -444,7 +444,12 @@ jobs:
             icurry-cache-macos-${{ matrix.arch }}-${{ matrix.shard }}-
             icurry-cache-macos-${{ matrix.arch }}-
       - name: Install Python packages
-        run: python -m pip install --quiet cmake ninja scikit-build-core numpy
+        # llvmlite serves tests/unit_jit.py on arm64, with the bitcode of the
+        # JIT helpers from Xcode's clang; llvmlite has no wheel for Intel
+        # macOS, where the C++ compiler backend serves.
+        run: |
+          python -m pip install --quiet cmake ninja scikit-build-core numpy
+          if [ "${{ matrix.arch }}" = arm64 ]; then python -m pip install --quiet llvmlite; fi
       - name: Configure and stage
         run: |
           set -euxo pipefail

@@ -22,7 +22,10 @@ following:
 ``SPRITE_JIT_CACHE``
   A writable per-user directory for LLVM JIT objects when the module's
   attached image directory is read-only. Entries live at
-  ``<Full.Name>/<key>.jit`` (the function index and one object per function).
+  ``<Full.Name>/<key>.jit`` (a ``SPRTJIT4`` function index and one
+  independently zlib-compressed object per function, with short module-local
+  symbols). Objects are verified and decompressed on first use. The pinned
+  file closes after the last object is read or dropped, or at image detach.
   An unset or empty value disables this fallback. Writable image
   directories always keep their object beside ``M.img``. ``jit:off``
   reads and writes neither location. Objects may be deleted at any time;

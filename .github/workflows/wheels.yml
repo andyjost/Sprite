@@ -184,6 +184,15 @@ jobs:
           CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
           # The test venv of cibuildwheel resolves the run-time dependency
           # curry-frontend from the wheelhouse through PIP_FIND_LINKS.
+          # The bitcode of the JIT helpers needs clang (CMake WITH_CLANG=AUTO);
+          # the manylinux image has none, so dnf installs it. Xcode's clang
+          # serves on macOS. The test venv installs the wheel with the extra
+          # jit (llvmlite), so the smoke runs the hot tier of the LLVM JIT.
+          # A mirror of the image's repositories answers empty now and then;
+          # three attempts with a clean cache between them.
+          CIBW_BEFORE_ALL_LINUX: >-
+            for i in 1 2 3; do dnf -y install clang && break; dnf clean all; sleep 30; done;
+            clang++ --version
           CIBW_ENVIRONMENT_LINUX: >-
             LC_ALL=C.UTF-8
             PIP_FIND_LINKS=/project/.wheelhouse
@@ -202,6 +211,7 @@ jobs:
           # refuses a wheel tagged 14.0; the step after this one installs the
           # cp311 wheel in a venv of the runner, which sees macOS 15.
           CIBW_TEST_SKIP: '*-macosx_*'
+          CIBW_TEST_EXTRAS: jit
           # The build uses the pinned products of the library and no front
           # end, as a build from the sdist does: the front end is a run-time
           # dependency. (A console script installed before the build cannot
@@ -216,7 +226,7 @@ jobs:
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >-
             python -m pip install --quiet wheel &&
             python {project}/scripts/wheels/repair.py {wheel} {dest_dir}
-          CIBW_TEST_COMMAND: python {project}/scripts/wheels/smoke.py --peano {project}/examples/Peano.curry
+          CIBW_TEST_COMMAND: python {project}/scripts/wheels/smoke.py --jit --peano {project}/examples/Peano.curry
       - name: Install the cp311 wheel on the runner and run the smoke test (macOS)
         if: runner.os == 'macOS'
         # The environment is not activated on purpose: python -m curry finds
@@ -228,9 +238,12 @@ jobs:
           set -euxo pipefail
           sw_vers
           python -m venv smoke
-          smoke/bin/python -m pip install --find-links=.wheelhouse wheelhouse/curry-*-cp311-cp311-macosx_*.whl
+          # The extra jit on arm64; llvmlite has no wheel for Intel macOS, where
+          # the smoke checks the bitcode alone.
+          extra=; if [ "${{ matrix.arch }}" = arm64 ]; then extra='[jit]'; fi
+          smoke/bin/python -m pip install --find-links=.wheelhouse "$(ls wheelhouse/curry-*-cp311-cp311-macosx_*.whl)$extra"
           smoke/bin/python -m pip list
-          smoke/bin/python scripts/wheels/smoke.py --peano examples/Peano.curry
+          smoke/bin/python scripts/wheels/smoke.py --jit --peano examples/Peano.curry
           smoke/bin/sprite-make --so examples/Peano.curry
           test -s examples/.curry/sprite-pakcs-3.10.0/Peano.so
           SPRITE_INTERPRETER_FLAGS=interpret:off smoke/bin/python scripts/wheels/smoke.py --peano examples/Peano.curry
@@ -292,6 +305,7 @@ jobs:
             cp314-win_amd64 cp314t-win_amd64 cp315-win_amd64
           # The repair vendors the runtimes of Visual Studio (repair.py).
           CIBW_BEFORE_BUILD_WINDOWS: pip install delvewheel
+          CIBW_TEST_EXTRAS: jit
           CIBW_CONFIG_SETTINGS: >-
             cmake.define.CMAKE_C_COMPILER=clang-cl
             cmake.define.CMAKE_CXX_COMPILER=clang-cl
@@ -300,7 +314,7 @@ jobs:
             cmake.define.WITH_ICURRY=
             cmake.define.WITH_CLANG=clang++
           CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: python {project}\scripts\wheels\repair.py {wheel} {dest_dir}
-          CIBW_TEST_COMMAND: python {project}\scripts\wheels\smoke.py --compile --peano {project}\examples\Peano.curry
+          CIBW_TEST_COMMAND: python {project}\scripts\wheels\smoke.py --jit --compile --peano {project}\examples\Peano.curry
         run: |
           for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
           call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
@@ -360,12 +374,13 @@ jobs:
         with:
           name: frontend-wheels
           path: .wheelhouse
-      - name: Run Peano without a compiler, then compile it with the user's g++
+      - name: Run Peano with the LLVM JIT and without a compiler, then compile it with the user's g++
         run: |
           set -eu
           ! command -v g++
-          python -m pip install --find-links=.wheelhouse curry-frontend dist/*-cp311-cp311-*.whl
-          python scripts/wheels/smoke.py --peano examples/Peano.curry
+          python -m pip install --find-links=.wheelhouse curry-frontend "$(ls dist/*-cp311-cp311-*.whl)[jit]"
+          python -m pip list
+          python scripts/wheels/smoke.py --jit --peano examples/Peano.curry
           apt-get update
           apt-get install -y --no-install-recommends g++
           sprite-make --so examples/Peano.curry
