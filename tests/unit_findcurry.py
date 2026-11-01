@@ -308,7 +308,7 @@ class TestFindCurry(cytest.TestCase):
         plans.Stage(['.curry'], object())
       , plans.Stage(['.icy'], icy_step)
       , plans.Stage(['.img'], image_step)
-      , plans.Stage(['.so'], None)
+      , plans.Stage([config.module_object_suffix()], None)
       ])
     srcdir = os.path.join(self.tmpdir.name, 'refused')
     subdir = os.path.join(srcdir, '.curry', config.intermediate_subdir())
@@ -316,7 +316,7 @@ class TestFindCurry(cytest.TestCase):
     curryfile = os.path.join(srcdir, 'm.curry')
     files = [curryfile] + [
         os.path.join(subdir, 'm' + suffix)
-            for suffix in ['.icy', '.img', '.so']
+            for suffix in ['.icy', '.img', config.module_object_suffix()]
       ]
     self.assertEqual(plan.filelist(curryfile), files)
     # Make the files in the order of the plan, so that the object is the
@@ -329,7 +329,7 @@ class TestFindCurry(cytest.TestCase):
       )
     self.assertEqual(current(), files[3])
     # The step that made the object refuses it.
-    image_step.stale.add('m.so')
+    image_step.stale.add('m' + config.module_object_suffix())
     self.assertEqual(current(), files[2])
     # A refused file takes the files after it along.
     icy_step.stale.add('m.icy')
@@ -360,7 +360,7 @@ class TestFindCurry(cytest.TestCase):
         plans.Stage(['.curry'], object())
       , plans.Stage(['.icy'], object())
       , plans.Stage(['.img'], image_step)
-      , plans.Stage(['.so'], None)
+      , plans.Stage([config.module_object_suffix()], None)
       ])
     srcdir = os.path.join(self.tmpdir.name, 'reordered')
     subdir = os.path.join(srcdir, '.curry', config.intermediate_subdir())
@@ -383,7 +383,7 @@ class TestFindCurry(cytest.TestCase):
         plan, curryfile, [], is_sourcefile=True
       )
     self.assertEqual(current(), files[3])
-    image_step.stale.add('m.so')
+    image_step.stale.add('m' + config.module_object_suffix())
     self.assertEqual(current(), files[2])
     image_step.stale.clear()
     self.assertEqual(current(), files[3])
@@ -475,7 +475,7 @@ class TestReorderedChangeTimes(cytest.TestCase):
         list(curry.eval(module.goal)), [2]
       )
     from curry.backends.cxx.toolchain import Cpp2So
-    self.assertTrue(files[-1].endswith('.so'))
+    self.assertTrue(files[-1].endswith(config.module_object_suffix()))
     with open(Cpp2So.stampfile(files[-1]), 'w') as stream:
       stream.write('0123456789abcdef\n')
     self.assertEqual(self.currentfile(), files[-2])

@@ -312,6 +312,20 @@ def linux_only(reason):
   '''
   return unittest.skipUnless(sys.platform.startswith('linux'), reason)
 
+def tool_command(command):
+  """Invoke staged Python tools with the active Python on Windows."""
+  command = list(command)
+  if sys.platform == 'win32':
+    name = os.path.basename(command[0])
+    modules = {'sprite-exec': 'curry',
+               'sprite-make': 'curry.tools.make'}
+    if name in modules:
+      return [sys.executable, '-m', modules[name]] + command[1:]
+    if name == 'python':
+      return [sys.executable] + command[1:]
+  return command
+
+
 def limit_prefix(address_space=None, timeout=None, kill_after=None):
   '''
   The command prefix that caps a child on this platform: ``prlimit --as=N``

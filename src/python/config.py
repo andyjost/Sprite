@@ -323,11 +323,17 @@ def in_conda_prefix(path):
 def user_cache_dir():
   '''
   The cache directory of the user for Sprite: ``$XDG_CACHE_HOME/sprite``, or
-  ``~/.cache/sprite``.  Nothing creates it here.
+  ``~/.cache/sprite``; on Windows, ``%LOCALAPPDATA%/sprite`` (falling
+  back to ``~/AppData/Local/sprite``). Nothing creates it here.
   '''
-  base = os.environ.get('XDG_CACHE_HOME', '').strip()
-  if not base:
-    base = os.path.join(os.path.expanduser('~'), '.cache')
+  if sys.platform == 'win32':
+    base = os.environ.get('LOCALAPPDATA', '').strip()
+    if not base:
+      base = os.path.join(os.path.expanduser('~'), 'AppData', 'Local')
+  else:
+    base = os.environ.get('XDG_CACHE_HOME', '').strip()
+    if not base:
+      base = os.path.join(os.path.expanduser('~'), '.cache')
   return os.path.join(base, 'sprite')
 
 def installation_key():

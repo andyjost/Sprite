@@ -48,7 +48,7 @@ class TestFreeThreading(cytest.TestCase):
   def test_import_build_evaluate_and_consume(self):
     self.child('''
 curry.reset(interpret='new')
-with tempfile.TemporaryDirectory() as directory:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as directory:
   filename = os.path.join(directory, 'ThreadSurface.curry')
   with open(filename, 'w') as stream:
     stream.write('module ThreadSurface where\\ninc :: Int -> Int\\ninc x = x + 1\\n')
@@ -119,7 +119,7 @@ print('ok')
   def test_two_threads_compile_and_import_the_same_module(self):
     self.child('''
 curry.reset(interpret='off')
-with tempfile.TemporaryDirectory() as directory:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as directory:
   json_module(directory, 'ThreadCompile')
   interp = cytest.raw.interp()
   # Every native metadata entry must be outside a file-production lock.
@@ -142,7 +142,7 @@ print('ok')
   def test_first_use_compiles_while_a_producer_prepares_native_imports(self):
     self.child('''
 curry.reset(interpret='off')
-with tempfile.TemporaryDirectory() as directory:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as directory:
   filename = os.path.join(directory, 'ThreadTrap.curry')
   with open(filename, 'w') as stream:
     stream.write('module ThreadTrap where\\ngoal :: Int\\ngoal = 42\\n')
@@ -185,7 +185,7 @@ print('ok')
   def test_forced_compile_preserves_a_product_under_a_reader(self):
     self.child('''
 curry.reset(interpret='off')
-with tempfile.TemporaryDirectory() as directory:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as directory:
   jsonfile = json_module(directory, 'ThreadRecompile')
   interp = cytest.raw.interp()
   plan = plans.makeplan(interp, plans.MAKE_ALL)
@@ -217,7 +217,7 @@ print('ok')
 
   def test_product_lock_has_thread_ownership(self):
     self.child('''
-with tempfile.TemporaryDirectory() as directory:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as directory:
   filename = os.path.join(directory, 'Owned.cpp')
   entered, attempted, release, second = [threading.Event() for _ in range(4)]
   def first():
@@ -241,7 +241,7 @@ print('ok')
   def test_python_import_hook_cannot_publish_an_old_session_after_reset(self):
     self.child('''
 curry.reset(interpret='new')
-with tempfile.TemporaryDirectory() as directory:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as directory:
   json_module(directory, 'ThreadHook')
   curry.path.insert(0, directory)
   from curry.interpreter.import_ import load
@@ -277,7 +277,7 @@ print('ok')
 
   def test_cache_two_processes_and_two_threads(self):
     self.child('''
-with tempfile.TemporaryDirectory() as directory:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as directory:
   root = os.path.join(directory, 'cache')
   code = """
 import curry, os, sys, threading
@@ -324,7 +324,7 @@ print('ok')
     self.child('''
 from curry.utility.proptree import proptree
 from curry.toolchain.flat2icurry import flatcurry as fc, interfaces
-with tempfile.TemporaryDirectory() as directory:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as directory:
   filename = os.path.join(directory, 'ThreadInterface.fint')
   with open(filename, 'w') as stream:
     stream.write(fc.show(fc.Prog('ThreadInterface', [], [], [], [])))

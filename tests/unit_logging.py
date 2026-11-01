@@ -165,9 +165,9 @@ assert list(curry.eval(module.main)) == [42]
     for attempt in range(2):
       if attempt:
         products = os.path.join(self.base, '.curry', curry.config.intermediate_subdir())
-        for suffix in ('.so', '.so.abi', '.cpp'):
+        for suffix in (curry.config.module_object_suffix(), curry.config.module_object_suffix() + '.abi', '.cpp'):
           os.unlink(os.path.join(products, 'LoggingProduct' + suffix))
-      proc = subprocess.run(command, capture_output=True, text=True, env=environment)
+      proc = subprocess.run(cytest.tool_command(command), timeout=120, capture_output=True, text=True, env=environment)
       self.assertEqual(proc.returncode, 0, proc.stderr)
       with open(self.log) as stream:
         text = stream.read()

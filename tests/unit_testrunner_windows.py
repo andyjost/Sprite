@@ -15,6 +15,18 @@ from unittest import mock
 
 
 class TestWindowsRunner(unittest.TestCase):
+  def test_native_tool_commands(self):
+    command = ['sprite-exec', '-g', 'main']
+    with mock.patch.object(sys, 'platform', 'win32'):
+      self.assertEqual(cytest.tool_command(command),
+          [sys.executable, '-m', 'curry', '-g', 'main'])
+      self.assertEqual(cytest.tool_command(['sprite-make', '--image', 'M']),
+          [sys.executable, '-m', 'curry.tools.make', '--image', 'M'])
+      self.assertEqual(cytest.tool_command(['python', '-m', 'curry.tools.icy']),
+          [sys.executable, '-m', 'curry.tools.icy'])
+    with mock.patch.object(sys, 'platform', 'linux'):
+      self.assertEqual(cytest.tool_command(command), command)
+
   def test_windows_interrupt_signals(self):
     signals = types.SimpleNamespace(SIGINT=2, SIGBREAK=21, SIGTERM=15)
     with mock.patch.object(sys, 'platform', 'win32'), mock.patch.object(scheduler, 'signal', signals):

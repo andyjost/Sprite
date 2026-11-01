@@ -34,8 +34,10 @@ class TestCxxRuntime(cytest.TestCase):
         self.assertIs(type(cm.exception), error)
 
   def test_native_load_error_is_public(self):
-    with self.assertRaisesRegex(curry.LoadError, 'missing.so') as cm:
-      curryrt.SharedCurryModule('missing.so')
+    with self.assertRaisesRegex(
+        curry.LoadError, r'missing\.(so|dll)|The specified module could not be found'
+      ) as cm:
+      curryrt.SharedCurryModule('missing' + config.module_object_suffix())
     self.assertIs(type(cm.exception), curry.LoadError)
 
   def testModuleCreation(self):
@@ -135,8 +137,8 @@ os._exit(1)
     '''
     env = dict(os.environ)
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx'
-    cmd = ['timeout', str(self.TIMEOUT), config.sprite_exec(), '-m', 'CxxRuntime']
-    proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    cmd = [config.sprite_exec(), '-m', 'CxxRuntime']
+    proc = subprocess.run(cytest.tool_command(cmd), timeout=self.TIMEOUT, env=env, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(proc.stdout, 'Hello from Curry\n')
 
@@ -155,9 +157,9 @@ class TestBackendOption(cytest.TestCase):
     '''
     env = dict(os.environ)
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:' + flag
-    cmd = ['timeout', str(self.TIMEOUT), config.sprite_exec(), '-b', option]
+    cmd = [config.sprite_exec(), '-b', option]
     proc = subprocess.run(
-        cmd, env=env, input=':set\n:quit\n'
+        cytest.tool_command(cmd), timeout=self.TIMEOUT, env=env, input=':set\n:quit\n'
       , capture_output=True, text=True
       )
     self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -271,7 +273,7 @@ class TestReloadAfterCompiledObject(cytest.TestCase):
     cmd = cytest.limit_prefix(self.ADDRESS_SPACE, self.TIMEOUT) + [
         config.installed_path('bin', 'sprite-make'), '--so', 'ReloadBinding'
       ]
-    proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    proc = subprocess.run(cytest.tool_command(cmd), timeout=self.TIMEOUT, env=env, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     sofile = os.path.join(
         self.tmpdir, '.curry', config.intermediate_subdir(), 'ReloadBinding.so'

@@ -260,11 +260,17 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     if config.curry_frontend() is None:
       self.skipTest('the Curry front end is not configured')
     for name in config.syslibs():
-      for suffix in ['.fcy', '.fint', '.icurry']:
-        self.assertTrue(os.path.isfile(interfacefile(name, suffix)), name + suffix)
+      # Windows ships the versioned interfaces beside ICurry; FlatCurry
+      # bodies are build inputs, not installed products there.
+      suffixes = ['.fint', '.icurry'] if os.name == 'nt' else ['.fcy', '.fint', '.icurry']
+      for suffix in suffixes:
+        path = (productfile(name, suffix) if os.name == 'nt' else
+                interfacefile(name, suffix))
+        self.assertTrue(os.path.isfile(path), name + suffix)
       # The interface is at least as new as the source it was made from.
       self.assertGreaterEqual(
-          os.stat(interfacefile(name)).st_mtime, os.stat(sourcefile(name)).st_mtime, name
+          os.stat(productfile(name, '.fint') if os.name == 'nt' else
+                  interfacefile(name)).st_mtime, os.stat(sourcefile(name)).st_mtime, name
         )
 
   @cytest.posix_only('requires POSIX directory permission bits')

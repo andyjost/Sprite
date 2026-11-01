@@ -33,7 +33,7 @@ class TestCollectorSelection(cytest.TestCase):
     '''
     from curry.backends.cxx import toolchain
     self.assertEqual(toolchain.gc_flags('wdgc', write_counters=False), [])
-    self.assertEqual(toolchain.gc_flags('mps'), ['-DSPRITE_GC_MPS'])
+    self.assertEqual(toolchain.gc_flags('mps'), [('/D' if toolchain.IS_WINDOWS else '-D') + 'SPRITE_GC_MPS'])
     self.assertEqual(toolchain.gc_flags(), toolchain.gc_flags(config.cxx_gc()))
     self.assertEqual(
         toolchain.object_digest(), toolchain.object_digest(gc=config.cxx_gc())

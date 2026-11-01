@@ -1020,6 +1020,17 @@ facilities use ``cytest.posix_only(reason)``; Windows tests can use
 ``cytest.windows_only(reason)``. Functional files are skipped with one
 notice when the PAKCS oracle is unavailable.
 
+The Windows unit tier exercises the Python API, interpreter, native DLL
+compilation, product cache, streams and test runner. This round adds two
+method marks: pthread_create fault injection requires POSIX, and
+constraint rotation is skipped for the Windows defect in resuming the
+expected alternatives after interruption inside a grouped constraint
+(unit_cxx_scheduler.TestInterruptedStep.test_rotation_inside_the_constraint).
+That scheduler defect is the only class (c) deferral in this round. Existing
+facility marks still cover POSIX signals, permissions, sessions and shell
+fixtures; these marks skip no tests on Linux or macOS.
+
+
 run_tests hands its arguments to the runner under lib/testrunner.  The
 runner starts one process per test file and backend, in a session of its
 own.  It prints one line per file as the file finishes, then a summary

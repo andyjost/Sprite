@@ -91,10 +91,10 @@ def settle():
     self.assertEqual(toolchain.gc_flags('wdgc', write_counters=False), [])
     self.assertEqual(
         toolchain.gc_flags('wdgc', write_counters=True)
-      , ['-DSPRITE_GC_WRITE_COUNTERS']
+      , [('/D' if toolchain.IS_WINDOWS else '-D') + 'SPRITE_GC_WRITE_COUNTERS']
       )
     self.assertEqual(
-        toolchain.gc_flags('mps', write_counters=True), ['-DSPRITE_GC_MPS']
+        toolchain.gc_flags('mps', write_counters=True), [('/D' if toolchain.IS_WINDOWS else '-D') + 'SPRITE_GC_MPS']
       )
     self.assertEqual(toolchain.gc_flags(), toolchain.gc_flags('wdgc', enabled))
     self.assertEqual(

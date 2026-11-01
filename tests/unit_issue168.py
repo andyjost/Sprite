@@ -60,7 +60,7 @@ class TestIssue168(cytest.TestCase):
                     curry.import_(target)
                   message = str(caught.exception)
                   self.assertIn(name, message)
-                  self.assertIn(str(source), message)
+                  self.assertIn(repr(str(source))[1:-1], message)
                   self.assertIn(str(installed), message)
               curry.path[:] = original_path
               restored = curry.import_(name)
@@ -79,7 +79,7 @@ class TestIssue168(cytest.TestCase):
       curry.path.insert(0, work)
       with self.assertRaises(ImportError) as caught:
         curry.import_('Data.List')
-      self.assertIn(str(source), str(caught.exception))
+      self.assertIn(repr(str(source))[1:-1], str(caught.exception))
       self.assertIn(config.installed_path('curry', 'Data/List.curry'),
                     str(caught.exception))
 

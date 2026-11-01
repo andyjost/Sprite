@@ -1,12 +1,12 @@
 import cytest # from ./lib; must be first
 from curry import interpreter
 from curry.exceptions import ModuleLookupError
-import pathlib, tempfile
+import pathlib, tempfile, sys
 
 class TestImporter(cytest.TestCase):
   def test_module_and_namespace(self):
     # Both import orders must preserve the parent's symbols and its child.
-    with tempfile.TemporaryDirectory() as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
       root = pathlib.Path(work)
       (root / 'Parent').mkdir()
       (root / 'Parent.curry').write_text(
@@ -30,7 +30,7 @@ class TestImporter(cytest.TestCase):
           self.assertEqual(interp.type('Parent.Child.Marker').name, 'Marker')
 
   def test_library_namesake(self):
-    with tempfile.TemporaryDirectory() as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
       source = pathlib.Path(work) / 'Prelude.curry'
       source.write_text('module Prelude where\nuserSymbol = 1\n')
       for loaded in (False, True):
@@ -46,7 +46,7 @@ class TestImporter(cytest.TestCase):
             interp.import_('Prelude')
 
   def test_ordinary_library_namesake(self):
-    with tempfile.TemporaryDirectory() as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
       directory = pathlib.Path(work) / 'Data'
       directory.mkdir()
       source = directory / 'List.curry'

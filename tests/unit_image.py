@@ -125,8 +125,8 @@ class TestImage(cytest.TestCase):
       source = os.path.join(directory, 'ImageCommand.curry')
       with open(source, 'w') as stream:
         stream.write('module ImageCommand where\nanswer = True\n')
-      subprocess.check_call([os.path.join(os.environ['SPRITE_HOME'], 'bin',
-          'sprite-make'), '--image', source])
+      subprocess.check_call(cytest.tool_command([curry.config.sprite_make(),
+          '--image', source]), timeout=120)
       self.assertEqual(image.read(image.filename(source))['name'], 'ImageCommand')
 
   def test_import_image_changes_before_compile(self):

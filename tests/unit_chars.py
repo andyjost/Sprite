@@ -171,13 +171,13 @@ class TestChars(cytest.TestCase):
     '''
     proc = cytest.run_in_subprocess(CHILD % 'putThree', timeout=120, text=False)
     self.assertEqual(proc.returncode, 0, proc.stderr)
-    self.assertEqual(proc.stdout, ('\u00e4' + EMOJI + '\n').encode('utf-8') + b'[()]\n')
+    self.assertEqual(proc.stdout, ('\u00e4' + EMOJI + '\n').encode('utf-8') + b'[()]' + os.linesep.encode())
     proc = cytest.run_in_subprocess(
         CHILD % 'getOrd', timeout=120, text=False
       , input=EMOJI.encode('utf-8') + b'rest'
       )
     self.assertEqual(proc.returncode, 0, proc.stderr)
-    self.assertEqual(proc.stdout, b'[128512]\n')
+    self.assertEqual(proc.stdout, b'[128512]' + os.linesep.encode())
 
   def test_child_streams_hold_utf8(self):
     '''
@@ -202,7 +202,7 @@ class TestChars(cytest.TestCase):
         CHILD % 'getTwoOrds', timeout=120, text=False, input=b'\xc3a'
       )
     self.assertEqual(proc.returncode, 0, proc.stderr)
-    self.assertEqual(proc.stdout, b'[[65533, 97]]\n')
+    self.assertEqual(proc.stdout, b'[[65533, 97]]' + os.linesep.encode())
 
   def test_cxx_literals(self):
     '''The C++ compiler spells a Char as a char32_t literal and a string as UTF-8.'''
