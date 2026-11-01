@@ -3,7 +3,9 @@ Implements Interpreter.stats, the statistics of a run.
 '''
 
 from .. import toolchain
-import os, sys, time
+import logging, os, sys, time
+
+logger = logging.getLogger(__name__)
 try:
   import resource
 except ImportError:  # Windows has no resource module; see _usage
@@ -197,9 +199,19 @@ def _usage():
     counters = Counters()
     counters.cb = ctypes.sizeof(counters)
     kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
-    if kernel32.K32GetProcessMemoryInfo(
-        kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb):
+    # The pseudo-handle of this process is (HANDLE) -1: declare the types, so
+    # that the handle is not truncated to a C int on the way in and out.
+    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel32.GetCurrentProcess.argtypes = []
+    query = getattr(kernel32, 'K32GetProcessMemoryInfo', None)
+    if query is None:
+      query = ctypes.WinDLL('psapi', use_last_error=True).GetProcessMemoryInfo
+    query.argtypes = [wintypes.HANDLE, ctypes.POINTER(Counters), wintypes.DWORD]
+    query.restype = wintypes.BOOL
+    if query(kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb):
       peak = counters.PeakWorkingSetSize
+    else:
+      logger.debug('GetProcessMemoryInfo failed: error %d', ctypes.get_last_error())
   return times.user + times.system, peak
 
 def peak_rss():

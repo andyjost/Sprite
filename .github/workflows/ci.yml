@@ -869,7 +869,7 @@ jobs:
           cd "$project"
           mkdir src
           cat > package.json <<'JSON'
-          {"name":"sprite-cpm-smoke","version":"0.0.1","synopsis":"Sprite package smoke test","dependencies":{"containers":">= 3.0.0, < 4.0.0"}}
+          {"name":"sprite-cpm-smoke","version":"0.0.1","author":"Sprite","synopsis":"Sprite package smoke test","dependencies":{"containers":">= 3.0.0, < 4.0.0"}}
           JSON
           timeout 600 cypm update
           timeout 600 cypm install
