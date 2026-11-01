@@ -55,3 +55,5 @@ Run ``./run`` in ``examples/02-dynamic-code-generation`` for the complete
 :ref:`encapsulated search <set-functions>`.  For command-line execution,
 start with :ref:`00 <example-00>`; for an interactive session, see
 :doc:`REPL`.
+
+See :ref:`curry-packages` to use packages from the Curry Package Manager.

@@ -218,10 +218,10 @@ class _Emitter(object):
   # The body.
   def compile(self):
     body = self.ifun.body
-    if isinstance(body, icurry.IExternal):
+    if self.ifun.is_external:
       # As the generator does for an external without a definition: a call
       # of error with the message.
-      message = 'external function %r is not defined' % body.symbolname
+      message = '%s: not implemented (no primitive in the runtime)' % self.ifun.fullname
       block = icurry.IBlock(
           [], [], icurry.IReturn(
               icurry.IFCall('Prelude.prim_error', [icurry.IString(message)])

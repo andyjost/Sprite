@@ -42,7 +42,9 @@ Python environment with::
     pip install --pre curry
 
 The ``--pre`` flag is needed while Sprite is in alpha. This installs
-``curry-frontend`` too. The wheels work with plain pip;
+``curry-frontend`` too. If you want better performance and your platform
+supports llvmlite, add the ``jit`` extra: ``pip install --pre
+"curry[jit]"``. The wheels work with plain pip;
 uv is a dependency of the installer alone. See :doc:`SoftwareCompatibility` for platform support and
 :doc:`ManualInstallation` for installation from source.
 
@@ -75,3 +77,5 @@ Vim highlights ``.curry`` files as Haskell when
    ManualInstallation
    ConfiguringSprite
    WithoutCompiler
+
+See :ref:`curry-packages` to use packages from the Curry Package Manager.

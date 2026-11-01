@@ -89,3 +89,6 @@ it does not set interpreter flags.  The docstring of ``curry.interpreter.flags``
 
 ``recursion_limit``, ``step_budget``, ``lazycompile`` and
 ``telemetry_interval`` are accepted and have no effect.
+
+``curry.path`` includes ``CURRYPATH``, local CPM sources and the installed
+library. See :ref:`curry-packages` for discovery and ``curry.cpm_path``.

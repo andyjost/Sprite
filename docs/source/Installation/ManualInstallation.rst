@@ -26,3 +26,5 @@ Building a checkout
 -------------------
 
 To build from a checkout, follow :doc:`ConfiguringSprite`.
+
+See :ref:`curry-packages` to use packages from the Curry Package Manager.

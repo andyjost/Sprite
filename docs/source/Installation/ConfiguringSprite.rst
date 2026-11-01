@@ -129,7 +129,7 @@ The scikit-build-core backend builds the same runtime, bindings and library.
 Release builds use pip build isolation. A development environment with
 scikit-build-core already installed can use ``--no-build-isolation``.
 The installed package depends on ``curry-frontend`` at run time; the
-optional extra ``curry[jit]`` adds llvmlite for the LLVM JIT. Running its
+optional extra ``"curry[jit]"`` adds llvmlite for the LLVM JIT. Running its
 shipped modules needs no front end. Compiling Curry source searches
 ``SPRITE_FRONTEND``, the package's tools directory and PATH; a missing
 front end produces an error at that compile.

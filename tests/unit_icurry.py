@@ -72,11 +72,14 @@ class ICurryTestCase(cytest.TestCase):
       del sys.modules['curry.lib.helloExternal']
     except KeyError:
       pass
-    self.assertRaisesRegex(
-        curry.CompileError
-      , "failed to resolve external function 'helloExternal.undef'"
-      , lambda: importlib.import_module('curry.lib.helloExternal')
-      )
+    M = importlib.import_module('curry.lib.helloExternal')
+    self.assertIsNotNone(M)
+    implementation = curry.inspect.getimpl(M.undef)
+    self.assertIn('external', implementation)
+    self.assertIn('not implemented', implementation)
+    with self.assertRaisesRegex(curry.EvaluationError,
+        r'helloExternal\.undef: not implemented'):
+      list(curry.eval(M.undef))
 
   def testIModuleMerge(self):
     from curry.lib import hello

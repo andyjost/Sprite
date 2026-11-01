@@ -30,6 +30,7 @@ __all__ = [
   , 'load'
   , 'modules'
   , 'path'
+  , 'cpm_path'
   , 'flags'
   , 'wait'
   , 'stats'
@@ -151,7 +152,7 @@ PyValue: TypeAlias = (
 #:                      unit; a 1-tuple is a ``ConversionError``
 #: ``list``, ``range`` and any other ``collections.abc.Sequence`` that is
 #:                      not a ``str``, ``bytes`` or ``tuple``: a Curry list,
-#:                      every element at the element type 
+#:                      every element at the element type
 #: iterator             a lazy Curry list, drawn once, on demand, shared by
 #:                      the term that holds it; an item that does not fit
 #:                      the element type is ``ConversionError`` when drawn
@@ -196,6 +197,9 @@ def wait(module: Module | None = None) -> None:
   """Wait for background compilation of module, or of every module."""
 
 modules: Mapping[str, Module]
+def cpm_path(root: str | PathLike[str]) -> list[str]:
+  """Return project and installed-package source directories from CPM metadata."""
+
 path: list[str]
 flags: Mapping[str, object]
 

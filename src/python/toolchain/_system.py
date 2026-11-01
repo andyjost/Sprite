@@ -36,9 +36,9 @@ def makeOutputDir(file_out):
 def pexec(cmd, cwd=None, with_stderr=False, env=None):
   '''
   Invokes the given command and returns its stdout as a string.  ``cwd`` is
-  the working directory of the command. ``env`` supplies the child environment
-  when given; otherwise it inherits the current environment. With
-  ``with_stderr`` the result is the pair of the stdout and the stderr texts: the warnings of a tool that
+  the working directory of the command. ``env`` supplies a child environment;
+  otherwise the process environment is copied. With ``with_stderr`` the result is
+  the pair of the stdout and the stderr texts: the warnings of a tool that
   succeeded.  A command that fails raises CompileError; the exception
   carries the command, the exit status, and both output streams as
   ``command``, ``returncode``, ``stdout``, and ``stderr``.  Its message and
