@@ -5,6 +5,10 @@ Release Notes
 0.9.0a3 (2026-11-01)
 ====================
 
+- Add the qualified-name primitive registry and the primitives of
+  ``Curry.Compiler.Distribution``, ``System.CPUTime``, ``System.Environment``
+  and ``Data.IORef``, including registered Python implementations for process
+  arguments, the program name and hostname.
 - Every module of the Curry library ships compiled. An external function
   without a primitive in the runtime raises ``not implemented`` at its call;
   before, eight modules failed at import.

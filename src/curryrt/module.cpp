@@ -77,6 +77,23 @@ namespace curryrt
     std::vector<DataType *> owned_types;
   };
 
+  void Module::register_primitive(std::string const & qualified_name,
+                                   InfoTable const * info)
+  {
+    auto dot = qualified_name.rfind('.');
+    if(dot == std::string::npos || dot == 0 || dot + 1 == qualified_name.size())
+      throw std::invalid_argument("a primitive needs a qualified name");
+    auto module = qualified_name.substr(0, dot);
+    auto name = qualified_name.substr(dot + 1);
+    auto & symbols = g_builtin_modules[module].symbols;
+    auto found = symbols.find(name);
+    if(found != symbols.end() && found->second != info)
+      throw std::invalid_argument("primitive already registered: " + qualified_name);
+    symbols[name] = info;
+    if(auto live = Module::find(module))
+      live->impl->symbols[name] = info;
+  }
+
   void Module::register_builtin_module(
       std::string const & name, TypeTable && types, SymbolTable && symbols
     )

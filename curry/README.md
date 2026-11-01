@@ -63,14 +63,13 @@ their call:
 - `System.IO.Unsafe`: `unsafePerformIO`, `spawnConstraint`, `prim_isVar`,
   `prim_identicalVar`, `prim_isGround`, `compareAnyTerm`, `prim_showAnyTerm`,
   `prim_readsAnyUnqualifiedTerm`, `showAnyExpression`.
-- `Curry.Compiler.Distribution`: `curryCompiler`, `curryCompilerMajorVersion`,
-  `curryCompilerMinorVersion`, `curryCompilerRevisionVersion`, `curryRuntime`,
-  `curryRuntimeMajorVersion`, `curryRuntimeMinorVersion`, `baseVersion`,
-  `installDir`.
-- `System.Environment`: `getArgs`, `prim_getEnviron`, `prim_setEnviron`,
-  `prim_unsetEnviron`, `getHostname`, `getProgName`, `isWindows`.
-- `Data.IORef`: `newIORef`, `prim_readIORef`, `prim_writeIORef`.
-- `System.CPUTime`: `getCPUTime`, `getElapsedTime`.
+
+The primitives of `Curry.Compiler.Distribution`, `System.CPUTime`,
+`System.Environment` and `Data.IORef` are implemented. Distribution reports
+Sprite's build version and installation prefix; CPUTime reports milliseconds.
+Environment uses native environment operations and registered Python functions
+for arguments, the program name and hostname. IORef stores lazy graph values
+in collector-visible mutable cells, displayed as `<IORef>`.
 
 `Control.Search.SetFunctions` is Sprite's facade over its native capsules.
 It shares the canonical `Control.SetFunctions.Values a = Values [a]` type.

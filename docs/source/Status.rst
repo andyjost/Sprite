@@ -25,9 +25,11 @@ Sprite provides weak encapsulation (:ref:`CurryPrimer/Semantics:Set functions`).
 
 Every module of the Curry library compiles, ships compiled and imports.
 Externals without a primitive in the runtime raise ``not implemented`` at
-their call: ``System.IO``, ``System.IO.Unsafe``,
-``Curry.Compiler.Distribution``, ``System.Environment``,
-``Data.IORef`` and ``System.CPUTime``.
+their call: ``System.IO`` and ``System.IO.Unsafe``, plus the strong-search
+operations described above. ``Curry.Compiler.Distribution``, ``System.CPUTime``,
+``System.Environment`` and ``Data.IORef`` have their primitives. Registered
+primitives use the same qualified names in native code and module images,
+whether implemented in C++ or Python.
 
 How code runs
 =============

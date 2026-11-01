@@ -339,13 +339,8 @@ class TestInspect(cytest.expression_library.ExpressionLibTestCase):
     self.assertEqual(lines[-1], '}')
     self.assertIn('rts->hnf(C, &_1, CyY5Peano3Nat);', code)
     self.assertNotIn('Peano.main', code)
-    self.assertRaisesRegex(
-        ValueError
-      , "no implementation code available for "
-        r"'Prelude.prim_showFloatLiteral': it is a built-in of the C\+\+ "
-        "runtime"
-      , lambda: inspect.getimpl(prim)
-      )
+    self.assertEqual(inspect.getimpl(prim),
+        'Prelude.prim_showFloatLiteral: registered C++ primitive')
     # A constructor has no code.
     self.assertRaisesRegex(
         ValueError, "no implementation code available for 'Peano.O'"

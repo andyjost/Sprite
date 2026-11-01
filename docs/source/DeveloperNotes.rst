@@ -725,3 +725,51 @@ The counters are per evaluation and summed over the evaluations of the
 interpreter, like ``steps``; the maxima take the largest value.  The
 benchmark harness keeps the fields of every run and tabulates them with
 ``run_benchmarks counters FILE`` (see ``tests/README``).
+
+Primitives
+==========
+
+The runtime resolves a primitive by its qualified Curry name. Register it
+before loading the module's images or compiled objects. Both the image writer
+and the C++ emitter ask ``Module::get_builtin_symbol`` for the same table;
+compiled code and images do not encode the implementation language.
+The emitter records local shape descriptors, which the loader binds by name;
+it does not require a primitive to export a mangled C++ data symbol.
+Unregistered externals continue to raise ``not implemented`` when called.
+``curry.inspect.getimpl`` identifies registered C++ and Python primitives.
+
+A C++ primitive registers an ``InfoTable`` with
+``Module::register_primitive("Module.function", &table)`` during static
+initialization. The table and its strings must live for the process. Its step
+receives ``RuntimeState *`` and ``Configuration *``. Monadic tables carry
+``F_MONADIC``; perform the effect in the step and forward the redex to
+``io(value)``. Pure steps forward to the value. IO errors carry an IOError
+node and ``ErrorKind::io`` through ``Configuration::set_error``. See
+``currylib/library.cpp`` for complete examples. Mutable references use
+``Variable::set_successor`` so collector write accounting sees their updates.
+
+Python implementations register through the backend bindings::
+
+  from curry.backends.cxx import curryrtbindings as curryrt
+  curryrt.register_primitive('Example.next', 1, lambda x: x + 1, monadic=False)
+
+Registration takes the qualified name, Curry arity, callable and monadic flag.
+Names must be qualified, arities must be between zero and 255, and duplicate
+registration is rejected. Registration owns the heap gate. Invocation attaches
+the evaluation thread to Python under the GIL, normalizes arguments through
+the runtime and converts integers (including large ones), floats, characters,
+Booleans, lists, strings and pairs. Empty lists convert to Python lists because
+there is no element type on an empty graph list. Python strings return Curry
+strings; ``None`` returns unit. Other supported results are integers, floats,
+Booleans, lists and pairs. Callables and tables stay alive for the process.
+Ordinary Python exceptions become Curry IO errors for monadic primitives and
+evaluation errors for pure primitives; KeyboardInterrupt and SystemExit pass
+through. A monadic effect runs only when its action is evaluated.
+
+Use standard C++ where a portable standard exists: filesystem, clocks,
+``std::system`` and heap-side cells. Use Python only where no such standard
+exists, including process arguments, hostname, and future sockets and command
+pipes. A future C++ implementation can register the same name without changing
+Curry code or the image format. ``System.Environment`` is the first Python
+registration user; the installation prefix is supplied from Python at runtime
+so relocated installations report their actual prefix.

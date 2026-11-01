@@ -140,6 +140,14 @@ reproducers pass.
   WARNING level; `SPRITE_FRONTEND_WARNINGS=0` silences it, and the test
   runner, the test library, the benchmark harness and the run scripts of
   the examples whose rules overlap by design set it.
+- Primitives register by qualified Curry name through
+  `Module::register_primitive` before module loading. The image writer and C++
+  emitter share this registry. Standard C++ implements portable operations;
+  `curryrt.register_primitive(name, arity, callable, monadic)` bridges to Python
+  where no C++ standard exists (arguments and hostname first). Distribution,
+  CPUTime, Environment and IORef have their primitives. IORef fields stay lazy
+  and mutate through the collector-aware successor write path. See "Primitives"
+  in the developer notes for the interface and exception rules.
 - The construction of a term from Python is typed
   (`src/python/typecheck/builder.py`): `curry.term(value, type=...)`
   converts a Python value by its type or the stated one; a call of a

@@ -6,6 +6,17 @@ if _sys.platform == 'win32':
   from .... import config as _config
   _os.add_dll_directory(_config.installed_path('lib'))
 from ._curryrtbindings import *
+from .... import config as _config
+set_install_prefix(_config.prefix())
+
+def _register_environment_primitives():
+  import socket
+  register_primitive('System.Environment.getArgs', 0, lambda: _sys.argv[1:], True)
+  register_primitive('System.Environment.getProgName', 0,
+      lambda: _sys.argv[0] if _sys.argv else '', True)
+  register_primitive('System.Environment.getHostname', 0, socket.gethostname, True)
+
+_register_environment_primitives()
 from ...generic.eval import control
 from ....interpreter import flags as _flags
 from . import fingerprint

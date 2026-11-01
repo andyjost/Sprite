@@ -6,7 +6,7 @@ A function of a module compiled by g++ is read from the generated .cpp file
 beside the shared object: its step function, from the banner that names the
 function to the next banner.  An interpreted function (flag ``interpret``)
 is the disassembly of its bytecode, with the constants the materializer kept
-when it attached the code.  A built-in of the runtime has no text.
+when it attached the code.  A built-in identifies its implementation language.
 '''
 
 from ...common import T_FUNC
@@ -30,6 +30,9 @@ def getimpl(symbol):
   if function.is_external and module is not None and \
       getHandle(module).backend_handle.get_builtin_symbol(symbol.name) is None:
     return '%s: external, not implemented (no primitive in the runtime)' % symbol.fullname
+  if module is not None and \
+      getHandle(module).backend_handle.get_builtin_symbol(symbol.name) is not None:
+    return '%s: registered %s primitive' % (symbol.fullname, curryrt.primitive_kind(info))
   if curryrt.icurry_is_interpreted(info) or curryrt.icurry_is_jit(info):
     # The JIT compiled the bytecode; the disassembly is the code it holds.
     return _bytecode_text(symbol)

@@ -1,4 +1,9 @@
 #include "heap.hpp"
+#include "curryrt/curryrt.hpp"
+#include "curryrt/bigint.hpp"
+#include "curryrt/currylib/prelude.hpp"
+#include "curryrt/currylib/library.hpp"
+#include <algorithm>
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 #include "curryrt/module.hpp"
@@ -11,6 +16,155 @@ static auto constexpr reference = py::return_value_policy::reference;
 namespace
 {
   using namespace curryrt;
+
+  struct PythonPrimitive
+  {
+    std::string name, format;
+    py::object callable;
+    InfoTable info;
+    PythonPrimitive(std::string name, index_type arity, py::object callable,
+                    bool monadic, stepfunc_type step)
+      : name(std::move(name)), format(arity, 'p'), callable(std::move(callable)),
+        info(T_FUNC, arity, sizeof(void *) * std::max<int>(arity + 1, 2),
+             F_STATIC_OBJECT | (monadic ? F_MONADIC : 0),
+             this->name.c_str(), format.c_str(), step, nullptr)
+    { info.aux = this; }
+  };
+
+  // Conversion demands the arguments using their paths from the redex.
+  // A choice propagates through hnf, including the monadic choice check.
+  tag_type to_python(RuntimeState * rts, Configuration * C, Variable value,
+                     py::object & result)
+  {
+    auto tag = rts->hnf(C, &value);
+    if(tag < T_CTOR) return tag;
+    Node * node = value.target;
+    if(is_int(*node->info))
+    {
+      auto digits = integer_string(node);
+      result = py::reinterpret_steal<py::object>(PyLong_FromString(
+          const_cast<char *>(digits.c_str()), nullptr, 10));
+    }
+    else if(is_float(*node->info)) result = py::float_(NodeU{node}.float_->value);
+    else if(is_char(*node->info))
+      result = py::reinterpret_steal<py::object>(
+          PyUnicode_FromOrdinal(NodeU{node}.char_->value));
+    else if(node->info == &True_Info || node->info == &False_Info)
+      result = py::bool_(node->info == &True_Info);
+    else if(node->info == &Unit_Info) result = py::none();
+    else if(is_list(*node->info))
+    {
+      py::list items;
+      std::string text;
+      bool chars = false, first = true;
+      while(true)
+      {
+        tag = rts->hnf(C, &value, &List_Type);
+        if(tag < T_CTOR) return tag;
+        if(value.target->info == &Nil_Info) break;
+        Variable head = value[0];
+        tag = rts->hnf(C, &head);
+        if(tag < T_CTOR) return tag;
+        if(first) { chars = is_char(*head.target->info); first = false; }
+        py::object item;
+        tag = to_python(rts, C, head, item);
+        if(tag < T_CTOR) return tag;
+        if(chars) text += item.cast<std::string>();
+        else items.append(item);
+        value = value[1];
+      }
+      result = chars ? py::object(py::str(text)) : py::object(items);
+    }
+    else if(node->info == &Pair_Info)
+    {
+      py::tuple pair(2);
+      for(int i=0; i<2; ++i)
+      {
+        py::object item;
+        tag = to_python(rts, C, value[i], item);
+        if(tag < T_CTOR) return tag;
+        pair[i] = item;
+      }
+      result = pair;
+    }
+    else throw py::type_error("primitive argument is not a scalar, list or pair");
+    return T_CTOR;
+  }
+
+  Node * from_python(py::handle value)
+  {
+    if(value.is_none()) return unit();
+    if(py::isinstance<py::bool_>(value)) return value.cast<bool>() ? true_() : false_();
+    if(py::isinstance<py::int_>(value))
+      return integer(py::str(value).cast<std::string>().c_str());
+    if(py::isinstance<py::float_>(value)) return float_(value.cast<double>());
+    if(py::isinstance<py::str>(value))
+    {
+      Node * result = nil();
+      for(Py_ssize_t i=PyUnicode_GetLength(value.ptr()); i-- > 0;)
+        result = Node::create(&Cons_Info, char_(PyUnicode_ReadChar(value.ptr(), i)), result);
+      return result;
+    }
+    if(py::isinstance<py::list>(value))
+    {
+      auto values = py::reinterpret_borrow<py::list>(value);
+      Node * result = nil();
+      for(py::ssize_t i=values.size(); i-- > 0;)
+        result = Node::create(&Cons_Info, from_python(values[i]), result);
+      return result;
+    }
+    if(py::isinstance<py::tuple>(value) && py::len(value) == 2)
+    {
+      auto pair = py::reinterpret_borrow<py::tuple>(value);
+      return Node::create(&Pair_Info, from_python(pair[0]), from_python(pair[1]));
+    }
+    throw py::type_error("primitive result is not a scalar, list, pair or None");
+  }
+
+  tag_type python_primitive_step(RuntimeState * rts, Configuration * C)
+  {
+    py::gil_scoped_acquire gil;
+    Cursor root = C->cursor();
+    auto primitive = static_cast<PythonPrimitive const *>(root->info->aux);
+    std::string error;
+    try
+    {
+      py::tuple args(root->info->arity);
+      for(index_type i=0; i<root->info->arity; ++i)
+      {
+        py::object arg;
+        auto tag = to_python(rts, C, root[i], arg);
+        if(tag < T_CTOR) return tag;
+        args[i] = arg;
+      }
+      py::object result = primitive->callable(*args);
+      Node * node = from_python(result);
+      root->forward_to(is_monadic(primitive->info) ? io(node) : node);
+      return T_FWD;
+    }
+    catch(py::error_already_set & exc)
+    {
+      if(exc.matches(PyExc_KeyboardInterrupt) || exc.matches(PyExc_SystemExit))
+        throw;
+      try
+      {
+        error = py::str(exc.type().attr("__name__")).cast<std::string>() +
+            ": " + py::str(exc.value()).cast<std::string>();
+      }
+      catch(...)
+      {
+        error = "an exception of the primitive";
+      }
+      exc.restore();
+      PyErr_Clear();
+    }
+    catch(std::exception const & exc) { error = exc.what(); }
+    if(is_monadic(primitive->info))
+      C->set_error(Node::create(ioerror_info(IO_ERROR),
+          build_curry_string(error.c_str())), "i/o error: " + error, ErrorKind::io);
+    else C->set_error(error);
+    return E_ERROR;
+  }
 
   // The Python hook of the trap step (set_trap_hook).  A pointer, never
   // destroyed: a py::object destroyed after the interpreter ended is an
@@ -63,6 +217,25 @@ namespace curryrt { namespace python
 {
   void register_module(pybind11::module_ mod)
   {
+    mod.def("is_io_ref", &is_io_ref, heap_access{});
+    mod.def("set_install_prefix", &set_install_prefix, heap_access{});
+    mod.def("primitive_kind", [](InfoTable const * info) {
+      return info->step == python_primitive_step ? "Python" : "C++";
+    }, heap_access{});
+    mod.def("register_primitive", [](std::string const & name, int arity,
+                                   py::object callable, bool monadic) {
+      if(arity < 0 || arity > 255) throw py::value_error("invalid primitive arity");
+      if(!PyCallable_Check(callable.ptr())) throw py::type_error("expected a callable");
+      auto dot = name.rfind('.');
+      if(dot == std::string::npos || !dot || dot + 1 == name.size())
+        throw py::value_error("a primitive needs a qualified name");
+      // Kept for the process; Python objects must not die after finalization.
+      auto primitive = new PythonPrimitive(name.substr(dot + 1), arity,
+          callable, monadic, python_primitive_step);
+      try { Module::register_primitive(name, &primitive->info); }
+      catch(...) { delete primitive; throw; }
+    }, py::arg("name"), py::arg("arity"), py::arg("callable"),
+       py::arg("monadic")=false, heap_access{});
     mod.def("set_trap_hook"
       , [](py::object hook)
         {

@@ -13,6 +13,10 @@
 
 namespace curryrt { namespace platform {
 
+  // Environment mutation; return zero on success, an errno value on failure.
+  int set_environment(std::string const & name, std::string const & value);
+  int unset_environment(std::string const & name);
+
   // A thread of the operating system.  ``start`` runs ``main(arg)`` on a new
   // thread whose stack reserves ``stack_size`` bytes (0: the default of the
   // platform); it returns false and sets ``error`` when the thread cannot be

@@ -152,6 +152,11 @@ class ToPython(object):
         result = self._value(value, [items], typeexpr, Values, symbol)
         result._items = tuple(items)
         return result
+      from ..backends.cxx import curryrtbindings as curryrt
+      if curryrt.is_io_ref(head):
+        result = self._value(value, [], typeexpr, symbol=symbol)
+        result._text = '<IORef>'
+        return result
       scheme = symbol.scheme
       # Function dictionaries are implementation arguments, absent from
       # the value's source application.

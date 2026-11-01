@@ -205,6 +205,12 @@ set_target_properties(sprite_tommath PROPERTIES POSITION_INDEPENDENT_CODE ON
   C_STANDARD 99 C_STANDARD_REQUIRED ON)
 target_include_directories(sprite_tommath PRIVATE extern/libtommath)
 add_library(curryrt SHARED ${runtime_sources})
+set(sprite_base_version "3.4.0")
+target_compile_definitions(curryrt PRIVATE
+  SPRITE_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+  SPRITE_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+  SPRITE_VERSION_PATCH=${PROJECT_VERSION_PATCH}
+  SPRITE_BASE_VERSION="${sprite_base_version}")
 target_include_directories(curryrt PRIVATE extern/libtommath)
 target_link_libraries(curryrt PRIVATE sprite_tommath)
 target_include_directories(curryrt PUBLIC "${CMAKE_SOURCE_DIR}/src")
@@ -323,7 +329,7 @@ endfunction()
 sprite_var(curry2icurry_tool "${CURRY2ICURRY_TOOL}")
 sprite_var(currylib_module_names "${module_names}")
 sprite_var(currylib_unsupported_modules "${unsupported}")
-sprite_var(currylib_version "3.4.0")
+sprite_var(currylib_version "${sprite_base_version}")
 sprite_var(cxx_compiler "${compiler_version} ${compiler_target}")
 sprite_var(cxx_flavor "${cxx_flavor}")
 sprite_var(cxx_gc "${GC}")

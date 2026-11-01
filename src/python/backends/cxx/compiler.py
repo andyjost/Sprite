@@ -65,7 +65,7 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # Format 17: calls inside a non-strict pattern retain their boundaries for
 # non-linear matching; an older object may have inlined those calls away.
 # Format 18: export the module record, initializer and tables for PE DLLs.
-FORMAT_VERSION = 18
+FORMAT_VERSION = 19
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure
@@ -401,9 +401,30 @@ class CxxCompiler(compiler.CompilerBase):
         , 'constructor slots of %r' % itype.fullname
         , ('&%s' % _slot(h) for h in h_ctors)
         )
+      record_type = h_type
+      if self.vIsBuiltin(itype):
+        # Runtime tables need no exported C++ data symbol. The loader binds
+        # these shape descriptors by qualified name, for either language.
+        record_type = '_descriptor_' + h_type
+        lines.append('namespace {')
+        lines.append('extern DataType const %s;' % record_type)
+        record_ctors = []
+        for ctor in itype.constructors:
+          info = self.cxxmodule.get_builtin_symbol(ctor.name)
+          descriptor = '_descriptor_' + self.vGetSymbolName(ctor, compiler.INFO_TABLE)
+          lines.append('static InfoTable const %s{%d, %d, %d, %d, %s, %s, nullptr, &%s};' % (
+              descriptor, info.tag, info.arity, alloc_size(info.arity), info.flags,
+              _dquote(ctor.name), _dquote('p' * info.arity), record_type))
+          record_ctors.append('&' + descriptor)
+        ctor_array = record_type + '_ctors'
+        lines.append('static InfoTable const * const %s[] = {%s};' % (
+            ctor_array, ', '.join(record_ctors) or 'nullptr'))
+        lines.append('DataType const %s{%s, %d, \'t\', F_STATIC_OBJECT, %s};' % (
+            record_type, ctor_array, len(record_ctors), _dquote(itype.name)))
+        lines.append('}')
       type_rows.append(
           '{&%s, %s, &%s, &%s, %s}'
-              % (type_md, ctors, h_type, _slot(h_type), ctor_slots)
+              % (type_md, ctors, record_type, _slot(h_type), ctor_slots)
         )
     types = table(
         'bom::Type const', 'types', 'types of %r' % imodule.fullname, type_rows
@@ -414,8 +435,15 @@ class CxxCompiler(compiler.CompilerBase):
       h_info = self.vGetSymbolName(ifun, compiler.INFO_TABLE)
       own.add(h_info)
       fun_md = self.internMetadata(ifun.metadata)
+      record_info = h_info
+      if self.vIsBuiltin(ifun):
+        record_info = '_descriptor_' + h_info
+        info = self.cxxmodule.get_builtin_symbol(ifun.name)
+        lines.append('static InfoTable const %s{T_FUNC, %d, %d, %d, %s, %s, nullptr, nullptr};' % (
+            record_info, info.arity, alloc_size(info.arity), info.flags,
+            _dquote(ifun.name), _dquote('p' * info.arity)))
       function_rows.append(
-          '{%s, &%s, &%s, &%s}' % (vis, fun_md, h_info, _slot(h_info))
+          '{%s, &%s, &%s, &%s}' % (vis, fun_md, record_info, _slot(h_info))
         )
     functions = table(
         'bom::Function const', 'functions'

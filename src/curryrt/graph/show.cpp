@@ -1,3 +1,4 @@
+#include "curryrt/currylib/library.hpp"
 #include "curryrt/bigint.hpp"
 #include <algorithm>
 #include <cassert>
@@ -504,6 +505,11 @@ namespace
           continue;
         }
         auto * info = cur->info;
+        if(is_io_ref(info))
+        {
+          this->os() << "<IORef>";
+          continue;
+        }
         if(info->tag == T_FREE)
         {
           xid_type vid = NodeU{cur}.free->vid;

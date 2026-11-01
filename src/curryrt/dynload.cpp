@@ -155,8 +155,8 @@ namespace
       for(unsigned i=0; i<record.n_types; ++i)
       {
         bom::Type const & type = record.types[i];
-        DataType const * bound = owner ? owner->bind_type(type.type)
-                                       : type.type;
+        DataType const * bound = Module::builtin_type(record.fullname, type.type->name);
+        if(!bound) bound = owner ? owner->bind_type(type.type) : type.type;
         *type.slot = bound;
         for(index_type j=0; j<type.type->size; ++j)
         {
@@ -167,8 +167,9 @@ namespace
       for(unsigned i=0; i<record.n_functions; ++i)
       {
         bom::Function const & function = record.functions[i];
-        *function.slot = owner ? owner->bind_infotable(function.info)
-                               : function.info;
+        auto builtin = Module::builtin_symbol(record.fullname, function.info->name);
+        *function.slot = builtin ? builtin : owner ? owner->bind_infotable(function.info)
+                                                 : function.info;
       }
       for(unsigned i=0; i<record.n_info_slots; ++i)
       {

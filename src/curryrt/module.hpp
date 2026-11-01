@@ -81,6 +81,10 @@ namespace curryrt
     // the Python objects of the old module name them.
     void retire();
 
+    // Register before loading images or compiled objects of the module.
+    static void register_primitive(std::string const & qualified_name,
+                                   InfoTable const * info);
+
     static void register_builtin_module(
         std::string const & name, TypeTable && types, SymbolTable && symbols
       );
