@@ -283,6 +283,31 @@ class TestJobs(cytest.TestCase):
     self.assertIn('interface files of the Curry front end', man)
     self.assertIn('--jobs 1', man)
 
+  def test_relay_sums_count_lines_with_either_line_ending(self):
+    '''
+    The count lines of a child (the product cache, the pre-rewrite pairs) are
+    taken out of its output and summed, whether the child ended them with LF
+    or, as on Windows, with CRLF; the other lines are relayed as they came.
+    '''
+    for eol in ['\n', '\r\n']:
+      job = make.Job('M', None)
+      job.stdout = tempfile.TemporaryFile()
+      job.stderr = tempfile.TemporaryFile()
+      job.stdout.write((
+          'sprite-make: product cache: 2 restored, 1 stored' + eol
+        + 'kept line' + eol
+        + 'sprite-make: pre-rewrite pairs: 3 translated again, 4 from the ICurry cache' + eol
+        ).encode('utf-8'))
+      job.stderr.write(('an error line' + eol).encode('utf-8'))
+      counts = {'restored': 10, 'stored': 20}
+      out, err = io.StringIO(), io.StringIO()
+      with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        make._relay(job, counts)
+      self.assertEqual(
+          counts, {'restored': 12, 'stored': 21, 'refreshed': 3, 'served': 4}, repr(eol))
+      self.assertEqual(out.getvalue(), 'kept line' + eol, repr(eol))
+      self.assertEqual(err.getvalue(), 'an error line' + eol, repr(eol))
+
   def test_child_command(self):
     '''A child runs this program on one module with the options of the parent, less --jobs.'''
     args = argparse.Namespace(
