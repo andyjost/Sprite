@@ -3,12 +3,10 @@
 Curry Semantics
 ===============
 
-This section describes the parts of the semantics of Curry that a reader
-of this document meets most often: non-determinism, free variables, and
-set functions.  The outputs shown are the values Sprite gives for the
-expressions, in the order the REPL printed them.
+This page describes nondeterminism, free variables and set functions.
+The values shown are those Sprite gives, in the order the REPL prints them.
 
-Non-Determinism
+Nondeterminism
 ---------------
 
 A Curry expression can have several values.  The simplest source of
@@ -36,17 +34,17 @@ variable.  This is call-time choice, the rule of Curry::
     let c = coin in c + c   -- 0, 2
 
 Sprite implements it with pull-tabbing: a choice is moved to the root of
-the expression step by step, and the two alternatives share every part
+the expression step by step and the two alternatives share every part
 that the choice did not touch.  The same rule applies to a parameter: a
 function called with ``coin`` sees one value of it, whatever the function
 does with the parameter.
 
-Overlapping Rules
+Overlapping rules
 .................
 
-A function whose rules overlap is non-deterministic too.  Every rule
+A function whose rules overlap is nondeterministic too.  Every rule
 that matches contributes its values.  ``insert`` places an element at
-every position of a list, and ``perm`` gives every permutation::
+every position of a list and ``perm`` gives every permutation::
 
     insert :: a -> [a] -> [a]
     insert x xs     = x : xs
@@ -57,38 +55,40 @@ every position of a list, and ``perm`` gives every permutation::
     perm (x:xs) = insert x (perm xs)
 
     perm [1,2,3]
-    -- [1, 2, 3], [2, 1, 3], [1, 3, 2], [3, 1, 2], [2, 3, 1], [3, 2, 1]
+    -- [1,2,3], [2,1,3], [1,3,2], [3,1,2], [2,3,1], [3,2,1]
 
-A rule whose guard fails, or a pattern that matches nothing, contributes
+A rule whose guard fails or a pattern that matches nothing contributes
 no value.  An expression with no value at all fails; a failure is not an
-error, and the other alternatives of a search go on.  Search in Curry is
+error and the other alternatives of a search go on.  Search in Curry is
 the evaluation of such expressions: a generator produces the candidates
-as values, and a guard removes the ones that do not fit.
+as values and a guard removes the ones that do not fit.
 
-Free Variables
+Free variables
 --------------
 
 A variable declared ``free`` has no value until the computation binds it.
 The equational constraint ``=:=`` binds a variable to make both sides
 equal::
 
-    xs ++ [3] =:= [1,2,3] where xs free   -- {xs=[1, 2]} True
+    xs ++ [3] =:= [1,2,3] where xs free   -- {xs=[1,2]} True
 
 A function applied to a free variable narrows it: the variable is
-instantiated with each constructor of its type that lets a rule match,
-one alternative per constructor.  Arithmetic and comparison on a free
-variable of a built-in type do not narrow it; the evaluation suspends
-until another part of the computation binds the variable (see
-:ref:`typed-expressions` for the same rule seen from Python).  A free
-variable must have a ``Data`` type, so a function type cannot be free.  A
+bound to each constructor of its type that lets a rule match,
+one choice per constructor. Arithmetic and ordering on a free variable
+of a built-in type suspend until another part of the computation binds
+it. An equality ``==`` a guard requires to be True binds it instead:
+Sprite, like PAKCS, treats it as ``=:=`` there.
+``f | x == 3 = x where x free`` gives 3; an ``if x == 3 then ...``
+condition suspends (:ref:`typed-expressions`). A free variable has a
+``Data`` type, so a function type cannot be free. A
 function whose rule unifies a value of a polymorphic type, as a functional
 pattern does, carries a ``Data a =>`` constraint in its signature.
 
-Functional Patterns
+Functional patterns
 ...................
 
 A functional pattern is a pattern that contains a function call.  The
-rule matches an argument that the call can produce, and the variables of
+rule matches an argument that the call can produce and the variables of
 the pattern are bound to the pieces::
 
     last' :: Data a => [a] -> a
@@ -98,17 +98,16 @@ the pattern are bound to the pieces::
 
 The match is a search over the values of the pattern: ``_ ++ [x]`` is
 narrowed until it equals the argument.  The variables a functional pattern
-binds stay narrowed in the result; the note under
-:ref:`CurryPrimer/Syntax:Pattern Matching` gives the cost of that and the
-idiom that avoids it.
+binds stay narrowed in the value; :doc:`/Status` describes the cost of
+using that value in later comparisons.
 
-Set Functions
+Set functions
 -------------
 
 A set function collects the values of a function into a set, so a program
-can ask whether a search has a solution, how many, or which is the
+can ask whether a search has a value, how many or which is the
 smallest, without leaving the program.  ``set1 f`` is the set function of
-the unary ``f``, and ``set0`` to ``set7`` cover the other arities.  The
+the unary ``f`` and ``set0`` to ``set7`` cover the other arities.  The
 module ``Control.SetFunctions`` provides them with ``sortValues``,
 ``isEmpty`` and the other operations on a set.  The prompt of the REPL
 sees the loaded module and the Prelude alone (see :ref:`repl`), so the
@@ -119,91 +118,69 @@ examples of this section are definitions of the module::
     f :: Int -> Int
     f x = x ? (x + 1)
 
-    main1 = sortValues (set1 f 1)   -- [1, 2]
+    main1 :: [Int]
+    main1 = sortValues (set1 f 1)   -- [1,2]
 
-The set function encapsulates the non-determinism of the body of ``f``:
+The set function encapsulates the nondeterminism of the body of ``f``:
 the two values of ``f 1`` are the elements of one set.  The
-non-determinism of the argument is not encapsulated.  A choice that comes
-from outside the call produces one set per alternative, and the choice is
+nondeterminism of the argument is not encapsulated.  A choice that comes
+from outside the call produces one set per alternative and the choice is
 shared with the rest of the expression, as call-time choice requires::
 
-    main2 = sortValues (set1 f (1 ? 5))                  -- [1, 2], [5, 6]
+    main2 :: [Int]
+    main2 = sortValues (set1 f (1 ? 5))                  -- [1,2], [5,6]
+    main3 :: [Int]
     main3 = sortValues (set1 id (1 ? 2))                 -- [1], [2]
-    main4 = let x = 1 ? 2 in (x, sortValues (set1 f x))  -- (1, [1, 2]), (2, [2, 3])
+    main4 :: (Int, [Int])
+    main4 = let x = 1 ? 2 in (x,sortValues (set1 f x))  -- (1,[1,2]), (2,[2,3])
 
 In the last line each value of ``x`` goes with the set computed from that
-value.  The same holds for a free variable that the argument holds.  A set
-function that starts before the variable is bound, and resumes after
-another alternative narrowed it, computes its set from the binding of its
-own alternative (the repair of issue #61).  The same holds when the
-alternatives bind the variable, with ``=:=``, ``=:<=`` or a functional
-pattern, after the set function started: the first time the set function
-reads the binding of an alternative, Sprite clones the set function for
-that alternative, so each alternative computes its own set (issue #86)::
+value. The same holds for a free variable in the argument: each binding
+of it gets its own set, whenever the binding is made.
 
-    g :: Char -> Int
-    g c = 0 ? (if c == 'a' then 1 else 2)
+A partial application's arguments and the variables a lambda captures
+count as arguments of the call, so their nondeterminism stays outside
+the set::
 
-    main7 = let (first, rest) = select (set1 g c)
-            in (first, (c =:<= 'a' ? c =:<= 'b') &> selectValue rest)
-      where c free                                -- (0, 1), (0, 2)
+    main5 :: ([Int], Int)
+    main5 = let x = 1 ? 2 in (sortValues (set1 (\y -> x + y) 10), x)
+                                                  -- ([11],1), ([12],2)
 
-A binding made before the set function started is read at the start, so
-it costs no clone.  The clone is made for each reference to the set
-function that reads the binding, so a set function that an alternative
-reads through two references is cloned twice.
+``set0 e`` encapsulates ``e`` alone. Variables it captures from the
+enclosing context stay outside the set. Thus ``let x = coin in allValues x``
+yields one set per value of ``x``, as in the paper on weakly encapsulated
+search by Christiansen, Hanus, Reck and Seidel (PPDP 2013). An expression
+without captured variables is encapsulated whole::
 
-The same holds for a choice or a free variable that the function value
-holds.  A partial application holds the arguments given so far, and a
-lambda that closes over a variable of the enclosing context holds it as an
-argument after lambda lifting; Sprite boxes those arguments as it boxes the
-arguments of the call, so their non-determinism stays outside the set
-(issue #117)::
-
-    main6 = let x = 1 ? 2 in (sortValues (set1 (\y -> x + y) 10), x)
-                                                  -- ([11], 1), ([12], 2)
-
-The same holds for the variables of the enclosing context that the
-expression of ``set0`` holds, the captured variables.  ``set0 e`` is the
-set function of the operation ``\x1 .. xk -> e`` applied to the captured
-variables ``x1 .. xk``: the compiler lifts the expression into such an
-operation (the set0 lift of the toolchain, decision D28 of 2026-10-12),
-and the captured variables are arguments of the capsule, boxed at the
-entry.  So ``let x = coin in allValues x`` of the paper on weakly
-encapsulated search (Christiansen, Hanus, Reck and Seidel, PPDP 2013)
-yields one set per alternative of ``x``, and a captured variable that
-fails is an outside failure: an alternative of the expression that
-demands it is dropped, and the set function fails when no alternative
-gives a value and none fails on its own (``main9``), as with an argument
-of ``set1`` below.  A class dictionary and a free variable of a ``where``
-clause are captured variables like any other.  An expression without
-captured variables is encapsulated whole::
-
-    main8 = let x = 0 ? 1 in sortValues (set0 (x + 1))   -- [1], [2]
-    main9 = let w = failed :: Int in sortValues (set0 (id w))  -- no value
-    main9b = let w = failed :: Int in sortValues (set0 (w ? 7))  -- [7]
-    main10 = sortValues (set0 (0 ? 1))                   -- [0, 1]
+    main6 :: [Int]
+    main6 = let x = 0 ? 1 in sortValues (set0 (x + 1))   -- [1], [2]
+    main7 :: [Int]
+    main7 = sortValues (set0 (0 ? 1))                  -- [0,1]
 
 ``captureS`` of ``Control.SetFunctions`` is the explicit way to put the
-non-determinism of an argument inside the set: ``evalS (set f `captureS`
+nondeterminism of an argument inside the set: ``evalS (set f `captureS`
 (1 ? 2))`` has one value, the set of ``f 1`` and ``f 2`` together.
 
-A function whose result is a failure has the empty set::
+A function that fails has the empty set::
 
     source :: String -> String
     source (stem ++ ".o") = stem ++ ".c"
 
-    main5 = isEmpty (set1 source "main.c")   -- True
+    main8 :: Bool
+    main8 = isEmpty (set1 source "main.c")   -- True
 
 A failure that comes from an argument is not a failure of the function.
-It drops the alternative that demands it, and the set function fails when
-no alternative gives a value and none fails on its own, as the semantics of
+It drops the alternative that demands it and the set function fails when
+no alternative gives a value and an outside failure was recorded, as the semantics of
 weakly encapsulated search prescribes: ``isEmpty (set1 id failed)`` has no
-value, and ``sortValues (set1 (\a -> a ? True) failed)`` is ``[True]``.
-An argument the function does not demand fails nothing.
+value and ``sortValues (set1 (\a -> a ? True) failed)`` is ``[True]``.
+An argument the function does not demand fails nothing. The same rule
+holds for a failing captured variable::
 
-Sprite evaluates a set function lazily: the values of the set are computed
-as the program consumes them.  Inside the set, the scheduler runs a queue
-of its own, and the rotation of the Fair Scheme covers the nested queues,
-so an alternative that diverges inside a set function does not starve the
-others.
+    main9 :: [Int]
+    main9 = let w = failed :: Int in sortValues (set0 (id w))   -- no value
+    main10 :: [Int]
+    main10 = let w = failed :: Int in sortValues (set0 (w ? 7))  -- [7]
+
+Sprite computes the values of a set as the program consumes them, and
+a choice that diverges inside a set function does not stop the others.

@@ -1,10 +1,8 @@
-.. highlight:: bash
-
-Configuring Sprite
-==================
+Building From Source
+====================
 
 Sprite uses CMake 3.24 or newer, Ninja, a C++17 compiler and Python 3.11.4
-or newer. The build uses vendored pybind11. CMake, Ninja and Python come
+or newer. The build uses the pybind11 submodule. CMake, Ninja and Python come
 from the active environment, whether conda or the system. Select a clean
 environment when another toolchain has exported compiler flags.
 
@@ -13,17 +11,42 @@ Check prerequisites without changing the machine::
     make check-prereqs
     python scripts/check-prereqs.py --doc
 
-Configure the build, then stage the traditional installation::
+.. _easy-build:
 
-    cmake -S . -B object-root/cmake -G Ninja \
-      -DPython_EXECUTABLE="$(command -v python3)" \
-      -DCMAKE_CXX_COMPILER=/usr/bin/g++ \
-      -DWITH_CURRY_FRONTEND=/path/to/pakcs-frontend
+Build, stage and test
+---------------------
+
+Initialize the two submodules the build needs::
+
+    git submodule update --init extern/pybind11 extern/libtommath
+
+Stage the installation with the thin CMake wrapper::
+
     make stage
 
-``make stage`` configures the build if needed, builds it and installs into
-``install/``. It preserves settings in ``object-root/cmake/CMakeCache.txt``.
+This configures ``object-root/cmake`` with Ninja, builds the runtime and
+bindings, prepares the Curry library and installs into ``install/``.
+It preserves the flags in ``object-root/cmake/CMakeCache.txt``.
 Use ``cmake -LAH -N object-root/cmake`` to inspect them.
+
+Extract the test products after staging, then run the tests::
+
+    make overlay
+    cd tests
+    ./run_tests --prepare-only
+    ./run_tests
+
+A plain ``make`` stages and then extracts the overlay. ``make test`` runs
+the full suite; its functional tests need PAKCS on PATH or selected with
+``-DWITH_PAKCS=PATH``. ``tests/README`` describes the overlay archives and
+the oracle.
+
+To install the prepared tree elsewhere::
+
+    cmake --install object-root/cmake --prefix /path/to/sprite
+
+``make install PREFIX=/path/to/sprite`` also builds first. See the
+:ref:`install tree layout <install-tree-layout>` for the resulting tree.
 
 The options
 -----------
@@ -53,7 +76,7 @@ Pass each setting as ``-DNAME=value``. An empty ``WITH_PAKCS`` disables the
 oracle. A build needs no front end: CMake builds the library from the
 pinned products. The front end is needed at run time for new Curry text, and
 when ``SPRITE_REBUILD_ICY`` rebuilds the pins.
-The MPS collector needs the ``extern/mps`` submodule. CMake honours ``CC``,
+The MPS collector needs the ``extern/mps`` submodule. CMake honors ``CC``,
 ``CXX``, ``CFLAGS``, ``CXXFLAGS`` and ``LDFLAGS`` on its first configuration.
 Standard CMake compiler and flag options override those defaults.
 
@@ -64,21 +87,20 @@ For a parallel developer build with ccache::
 ``make stage JOBS=4`` or ``make -j4 stage`` limits native compilation and
 the library build. An explicit ``-j`` wins over ``JOBS``.
 
-The standalone front-end package
+The standalone front end package
 --------------------------------
 
 The platform wheel ``curry-frontend`` installs the command
-``curry-frontend`` and needs no Haskell tools at run time. ``frontend.yml``
-builds the wheels and ``release-frontend.yml`` publishes them to PyPI.
+``curry-frontend`` and needs no Haskell tools at run time.
 Install the package, then configure Sprite without PAKCS::
 
-    python -m pip install curry-frontend
+    pip install curry-frontend
     cmake -S . -B object-root/cmake -G Ninja -DWITH_PAKCS= -DWITH_CURRY_FRONTEND=curry-frontend
     make stage
 
 ``WITH_CURRY_FRONTEND`` accepts a command on PATH or a path to an
 executable. With ``AUTO``, the default, the configuration takes
-``SPRITE_FRONTEND`` from the environment when it is set, and otherwise
+``SPRITE_FRONTEND`` from the environment when it is set and otherwise
 searches the directory of the selected PAKCS, the staged ``install/tools``
 and PATH for ``pakcs-frontend`` or ``curry-frontend`` of the matching
 version. Without an explicit selection, AUTO finds only the current pair. The older variable
@@ -86,34 +108,26 @@ version. Without an explicit selection, AUTO finds only the current pair. The ol
 ``tools/curry-frontend`` link points to the selected executable, a wheel's
 console script included.
 
-At run time ``SPRITE_FRONTEND`` overrides that link; it may name a command
-on PATH. If the link is absent, Sprite searches PATH for ``curry-frontend``,
-then ``pakcs-frontend``. An empty ``SPRITE_FRONTEND`` disables the front
-end. For example::
+At run time ``SPRITE_FRONTEND`` wins; an empty value disables the front
+end. Next comes the installed ``tools/curry-frontend`` link, then the
+``curry-frontend`` script beside the Python interpreter, then
+``curry-frontend`` and ``pakcs-frontend`` on PATH. For example::
 
-    export SPRITE_FRONTEND=curry-frontend
-    python -m curry.tools.icy
-
-The default pair is front end ``3.1.0`` with PAKCS ``3.10.0``. The legacy
-pair, front end ``2.0.0`` with PAKCS ``3.4.1``, remains supported through the
-same options. CMake derives the intermediate directory names and CPP
-flags from the selected front end and rejects a mismatched oracle.
-The front-end package ``3.1.0.post2`` is on PyPI. The ``.postN`` suffix
-counts packaging revisions.
+    SPRITE_FRONTEND=curry-frontend python -m curry
 
 Wheels
 ------
 
 The distribution is ``curry``; its Python package is ``curry``::
 
-    python -m pip wheel .
-    python -m pip install .
+    pip wheel .
+    pip install .
 
-The scikit-build-core backend builds the same native targets and library.
+The scikit-build-core backend builds the same runtime, bindings and library.
 Release builds use pip build isolation. A development environment with
 scikit-build-core already installed can use ``--no-build-isolation``.
-The installed package depends on ``curry-frontend`` at run time and on
-nothing else. Running its
+The installed package depends on ``curry-frontend`` at run time; the
+optional extra ``curry[jit]`` adds llvmlite for the LLVM JIT. Running its
 shipped modules needs no front end. Compiling Curry source searches
 ``SPRITE_FRONTEND``, the package's tools directory and PATH; a missing
 front end produces an error at that compile.

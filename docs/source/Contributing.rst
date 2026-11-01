@@ -15,11 +15,13 @@ Where to start
 
 - :doc:`DeveloperSetup` sets up a machine: the packages, PAKCS, a conda
   environment, CMake and ``make stage``.
+- :doc:`DeveloperNotes` holds the logging conventions, thread-safety rules,
+  checker and runtime notes.
 - ``AGENTS.md`` at the root of the repository describes the layout, the
   build, the tests and the conventions.
 - ``tests/README`` explains the test suite: the layout, the drivers, the
   oracle and the environment variables of the test library.
-- :doc:`CommandLineInterface/EnvironmentVariables` lists the variables that
+- :doc:`DevelopmentVariables` lists the variables that
   the tools and the runtime read.
 
 Conventions
@@ -31,4 +33,10 @@ Conventions
 - Before a push, run the fast tier of the unit suite from ``tests/``:
   ``./run_tests --fast``.
 - Work lands on ``master``.  A topic branch holds the progress of one
-  change until its merge and goes with the merge.
+  change until its merge and is deleted at the merge.
+
+The plan
+========
+
+The `Sprite resuscitated milestone
+<https://github.com/andyjost/Sprite/milestone/1>`_ lists the open work.

@@ -1,15 +1,14 @@
-==========================
 The Command-Line Interface
 ==========================
 
-Sprite provides a suite of tools for compiling and running Curry programs.
-This section discusses how to configure Sprite and use those tools.
+``sprite-exec`` runs a Curry program; ``sprite-make`` compiles one ahead
+of time. Pip puts both on PATH; a checkout has them under ``install/bin``.
+With pip, use the Python of the environment; from a checkout,
+``install/bin/python`` (:ref:`starting-python`). ``python -m curry``
+starts the :doc:`Curry REPL </REPL>`.
 
 .. toctree::
 
-   EnvironmentVariables
-   StartingPython
    sprite-exec
    sprite-make
-
-
+   EnvironmentVariables

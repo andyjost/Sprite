@@ -4,14 +4,10 @@ Using the API
 
 Sprite lets Python build typed Curry computations and consume their
 answers.  This guide follows the boundary from a first call to streams.
-Run the transcripts from ``examples/`` with ``install/bin`` on ``PATH``;
+Start Python in the checkout's ``examples/`` directory, as the
+:doc:`../Quickstart` describes;
 ``curry.path`` searches the lesson directories added below and the
 installed library.  :doc:`../Examples` lists every runnable lesson.
-
-Curry ``Int`` is unbounded and converts to and from Python ``int`` without
-loss. The runtime keeps signed 64-bit values inline, promotes overflowing
-arithmetic to libtommath integers, and demotes results that fit inline.
-``Char`` retains its Unicode code point range.
 
 .. _building-expressions:
 
@@ -78,6 +74,10 @@ repeatable schedule.
 Values and types
 ================
 
+Curry Int is unbounded and converts to and from Python int without loss;
+Char keeps its full code point range. Sprite reads each symbol's type
+from the interface the front end writes beside the module.
+
 Calling a symbol checks its arguments against its Curry type.
 ``curry.typeof`` returns type text; ``defaulted=True`` asks for the type
 chosen for evaluation (:ref:`goal-defaulting`).  The three recoverable
@@ -99,10 +99,10 @@ mistakes in :ref:`01 <example-01>` introduce these rules.
 Python bool, int and float become Bool, a numeric literal and Float.
 A str is always String; ``curry.Char`` spells a Char.  Lists are
 homogeneous; tuples have zero or two through fifteen components; ranges
-become lists.  Iterators enter lazily, and ``type=`` can state their element
+become lists.  Iterators enter lazily and ``type=`` can state their element
 type without consuming them.  Bytes, dictionaries, sets and None are
 refused.  Use constructors such as ``P.Nothing`` and ``P.Just(x)`` for an
-optional value.  Built-in results become Python scalars, lists and tuples;
+optional value.  Built-in values become Python scalars, lists and tuples;
 a returned Char is a ``Char`` equal to the same one-character string.
 ``curry.show`` prints Curry syntax, including nested values.
 
@@ -116,7 +116,7 @@ on both sides of the boundary, then bounded generation.  Constructors with
 arguments are classes; nullary constructors are values.  Applying a
 constructor to values builds its instance, while an application to a term
 stays a computation.  An evaluated user value is a ``Data`` with ``symbol``
-and ``args``, and it can go back into Curry.
+and ``args`` and it can go back into Curry.
 
     >>> curry.path.insert(0, '05-trees')
     >>> from curry.lib import Tree as T
@@ -149,7 +149,7 @@ Logic: choices and variables
 :ref:`07: Choices, sharing, functions <example-07>` is the Python
 companion to :ref:`00 <example-00>`.  One held term used twice shares a
 computation; two separate reads of a function create independent ones.
-Arithmetic builds terms, and ``__choice__`` is the explicit choice hook.
+Arithmetic builds terms and ``__choice__`` is the explicit choice hook.
 
     >>> curry.path.insert(0, '07-choices')
     >>> from curry.lib import Choice as C
@@ -233,7 +233,7 @@ preserved; ``len``, iteration and membership work on the finite collection.
 A choice inside the capsule contributes to its collection.  An argument
 choice outside gives a collection per alternative.  A Python-held term
 shared inside and outside ``set0`` follows weak encapsulation: whichever
-evaluation owns it first determines the result.  ``SF.set1(P.id, term)``
+evaluation owns it first decides the collection.  ``SF.set1(P.id, term)``
 puts the choice outside deliberately; a free argument narrows outside too,
 giving a set per binding.  See :doc:`../CurryPrimer/Semantics` for the full
 rules, :ref:`10: N queens <example-10>` for an application, and
@@ -265,18 +265,19 @@ defaulting, type syntax and interface errors.  For example:
 ``EvaluationError`` covers errors reached while running, including
 ``SuspensionError``, ``DivisionByZeroError``, I/O errors and nondeterminism
 inside I/O.  ``NoValueError`` and ``ManyValuesError`` describe ``one()``
-cardinality. ``IntOverflowError`` marks bounded conversions, such as a
-conversion to Char, and conversions of a non-finite Float to Int. It can
-arise during construction or a runtime step.  ``CompileError`` carries
+cardinality. ``IntOverflowError`` marks a bounded conversion that leaves its range in
+a runtime step: ``chr`` outside the code point range and ``round``,
+``truncate``, ``floor`` or ``ceiling`` of a non-finite Float. It is raised
+from ``next``.  ``CompileError`` carries
 the front end's report and source location.  Lookup, session, load and
 prerequisite errors name the operation to correct.  The complete public
 error tree is in :doc:`../Reference/curry`; callers can catch either a
-specific leaf or ``CurryError``.  A failed search remains an empty result.
+specific leaf or ``CurryError``.  A failed search raises no error; its ``Results`` is empty.
 
 A shared free variable keeps the type inferred by its first use.  Reusing
 it at an incompatible type raises ``CurryTypeError`` during construction.
 An iterator represents one homogeneous Curry list: its context fixes the
-element type, or its first item fixes it when the context leaves it open.
+element type or its first item fixes it when the context leaves it open.
 A later incompatible item raises ``ConversionError`` when it is drawn;
 ``typeof`` does not draw items.
 
@@ -286,7 +287,7 @@ Defaulting an ambiguous goal
 ----------------------------
 
 Class constraints default as in the PAKCS REPL: Num and Integral to Int,
-Fractional and Floating to Float, Monad to IO, and a lone Data to Bool.
+Fractional and Floating to Float, Monad to IO and a lone Data to Bool.
 Other ambiguous constraints raise ``DefaultingError`` and require a type.
 A held partial application has already been typed; a later application
 unifies with that type.
@@ -342,16 +343,17 @@ held terms:
     build the term again from M
 
 Text modules require ``text=`` on reload.  File modules reread their source
-when text is omitted; C++ with ``interpret='off'`` requires
-a new process, or ``reset(interpret='new')`` before import, for reload.
-``wait(M)`` waits for that module's background compilation; ``wait()`` joins
-all background compilations.  ``reset(**flags)`` starts a new session,
+when text is omitted; under ``interpret='off'`` a reload requires
+a new process or ``reset(interpret='new')`` before import.
+``wait(M)`` waits for the whole-module compile of ``M`` that the C++
+backend of the JIT runs in a child process; ``wait()`` joins all of them.
+Under LLVM there is nothing to wait for and both return at once.  ``reset(**flags)`` starts a new session,
 retains the search path, leaves Prelude registered and stales earlier
 terms, variables and modules.
 
-``save(M, path)`` writes an object for the current backend.
+``save(M, path)`` writes a shared object.
 ``load(path)`` registers it; loading the same file again returns the same
-module.  A different backend or format, or an already registered name
+module.  A file that is not a saved object or an already registered name
 from another file, raises ``LoadError``.  ``save(M, path, main=M.answer)``
 writes an executable program that loads its embedded object and prints
 that goal's answers.  Lesson 04 runs both forms in a temporary directory.
@@ -386,7 +388,7 @@ a time.  Start with a finite action before an infinite producer:
     ...   primes.close()
     [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
 
-``curry.stream`` requires C++ and an ``IO t`` goal.  Nothing runs at the
+``curry.stream`` takes an ``IO t`` goal.  Nothing runs at the
 call; each pull runs to the next yield and converts that whole value.
 After exhaustion, ``Stream.result`` holds the action's return value.
 Exhaust a stream or close it to release its paused run.  A choice in the
@@ -401,27 +403,5 @@ and named answers.
 
 .. _important-notes:
 
-Two notes
-=========
-
-[1] Type signatures are optional for goals.
-    Sprite reads the type of every function and constructor from the
-    interface that the Curry front end writes beside a module.  A goal
-    without a type signature keeps its class constraints, and Sprite
-    defaults them as the REPL of PAKCS does: ``Num`` and ``Integral`` to
-    ``Int``, ``Fractional`` and ``Floating`` to ``Float``, ``Monad`` to
-    ``IO``, a lone ``Data`` to ``Bool``.  A constraint outside that table, such as ``Enum a`` for
-    ``toEnum 65``, is an error that asks for a type annotation.
-    Expressions built in Python with ``curry.term`` and symbol calls are typed before
-    they are built; see :ref:`typed-expressions`.
-
-
-[2] The front end runs once per change.
-    Sprite relies on an external program, the Curry front end of PAKCS, to
-    convert Curry source code into FlatCurry, from which it writes an
-    intermediate representation called ICurry.  The front end is the
-    slowest step of the compilation: a fraction of a second for a small
-    module (0.7 s for ``Peano``), seconds for a large one, and nothing when
-    the files are current.  It does not affect the performance of programs
-    compiled by Sprite.  On the C++ backend a module runs interpreted at
-    once, and its compilation to native code happens in the background.
+Type signatures and front-end reuse are described under
+:ref:`goal-defaulting` and :doc:`/CompilationOptions`.

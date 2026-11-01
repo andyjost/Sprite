@@ -11,30 +11,27 @@ serves ``sprite-exec -g`` and the text goals of the Python API, so the
 three agree on every goal.
 
 To start the REPL, run ``python -m curry`` with the Python of the
-installation, or run ``sprite-exec`` without a program:
+installation or run ``sprite-exec`` without a program. From a checkout,
+use ``install/bin/python -m curry``:
 
 .. code-block:: bash
 
-    % install/bin/python -m curry
+    python -m curry
     Prelude>
 
 ``python -m curry.tools.icy`` also starts the same REPL.
 
 The prompt names the loaded module.  The Prelude is loaded at the start.
-The REPL runs on the default backend of the installation, the C++ backend,
-with the flags of ``SPRITE_INTERPRETER_FLAGS`` (see
+The REPL runs on the C++ runtime with the flags of ``SPRITE_INTERPRETER_FLAGS`` (see
 :doc:`CommandLineInterface/EnvironmentVariables`).
 
-The REPL runs in time mode by default: the scheduler
-rotates its alternatives every 10 ms of wall time, so a diverging
-alternative beside a value costs a quantum, not a count of steps.  The
-values of a non-deterministic expression may then come in a different
-order from one evaluation to the next.  To pin the order, start the REPL in
-step mode, where the schedule depends on the expression alone:
+Values of a nondeterministic expression may come in another order from
+run to run. To pin the order, start in step mode
+(:ref:`sprite-interpreter-flags`):
 
 .. code-block:: bash
 
-    % SPRITE_ROTATION=steps:65536 install/bin/python -m curry
+    SPRITE_ROTATION=steps:65536 python -m curry
 
 Run ``python -m curry.tools.icy --help`` for the commands and exit
 statuses. Interpreter flags come from the environment and may be changed
@@ -53,7 +50,7 @@ strings.
     Compiles and imports the Curry module in ``FILE`` and adds its
     directory to :data:`curry.path`.  The prompt names the module.  The
     expressions of ``:eval`` and ``:type`` see the symbols of that module
-    and of the Prelude, and nothing else: the imports of the module are
+    and of the Prelude and nothing else: the imports of the module are
     not in scope at the prompt. To use a library at the prompt, define a
     wrapper or re-export the library from the loaded module. Like
     ``curry.import_``, a second load returns the loaded module and warns
@@ -62,17 +59,16 @@ strings.
 ``:reload``
     Calls ``curry.reload`` on the current module, replacing its code in
     place. An unsuccessful reload reports its error and keeps the module
-    usable with its previous code. The C++ session can refuse replacement
-    under ``off``; ``:set interpret new`` resets the session
+    usable with its previous code. Under ``interpret:off`` the runtime can refuse replacement; ``:set interpret new`` resets the session
     in a mode that permits reload.
 
 ``:eval EXPR``
-    Compiles the expression, evaluates it, and prints each value on a line
+    Compiles the expression, evaluates it and prints each value on a line
     of its own.  Class constraints are defaulted as described below.
 
 ``:type EXPR``
     Prints the type of the expression as the front end infers it, with its
-    class context and before any defaulting: ``1+2 :: Num a => a``.
+    class context and before any defaulting: ``1 + 2 :: Num a => a``.
 
 ``:set OPTION VALUE``, ``:set [+|-]OPTION``
     Sets a session flag using the same names and validator as
@@ -88,14 +84,12 @@ strings.
 ``:quit``
     Exits with the last evaluation status (initially 0). EOF does the same.
 
-Commands may also be given on the command line.  Each command starts with
-its colon and takes the words that follow it. An error in such a command
-ends the REPL with status 1; no value ends it with status 2.  An error at the prompt prints its message
-and the loop continues.
+Commands can also be given on the command line. Each starts with its
+colon and takes the words that follow it. For example:
 
 .. code-block:: bash
 
-    % install/bin/python -m curry.tools.icy :load Goals.curry :eval main14 :quit
+    python -m curry.tools.icy :load Goals.curry :eval main14 :quit
     Just 5
 
 A session with a module
@@ -119,18 +113,18 @@ A session with a module
 Defaulting in the REPL
 ======================
 
-An expression without a type annotation keeps the class constraints the
+An expression without a type signature keeps the class constraints the
 front end inferred.  ``:type`` prints them.  ``:eval`` defaults them with
 the table of the PAKCS REPL: ``Num`` and ``Integral`` to ``Int``,
-``Fractional`` and ``Floating`` to ``Float``, ``Monad`` to ``IO``, and a
+``Fractional`` and ``Floating`` to ``Float``, ``Monad`` to ``IO`` and a
 lone ``Data`` to ``Bool`` (the whole table is under
 :ref:`goal-defaulting`).
 
 .. code-block:: text
 
-    Prelude> :type 1+2
-    1+2 :: Num a => a
-    Prelude> 1+2
+    Prelude> :type 1 + 2
+    1 + 2 :: Num a => a
+    Prelude> 1 + 2
     3
     Prelude> :type fromIntegral 3
     fromIntegral 3 :: Num a => a
@@ -138,7 +132,7 @@ lone ``Data`` to ``Bool`` (the whole table is under
     3
 
 A constraint outside the table is an error.  The message gives the sentence
-of the PAKCS REPL and the inferred type.  A type annotation in the
+of the PAKCS REPL and the inferred type.  A type signature in the
 expression resolves it.
 
 .. code-block:: text
@@ -176,16 +170,15 @@ unify share a name in the answer.
 
     Prelude> xs ++ [3] =:= [1,2,3] where xs free
     {xs=[1,2]} True
-    Prelude> x =:= y where x, y free
+    Prelude> (x :: Int) =:= y where x, y free
     {x=x, y=x} True
     Prelude> x where x free
     {x=x} x
     Prelude> :type x where x free
     x where x free :: Data a => a
 
-A comment after ``free`` keeps the variables local to the expression, so
-that form prints the value alone.  Write the trailing clause last when
-bindings should be reported.  Type annotations belong in Curry text,
+Write the trailing clause last to report bindings. To print the value
+without bindings, declare the variable in the module instead.  Type annotations belong in Curry text,
 before the trailing clause.  A type query does not add the binding tuple:
 ``:type x =:= y where x, y free`` still fails in the front end with the
 ambiguous type ``Data a => Bool``.
@@ -205,12 +198,12 @@ with ``curry.show``, except that ``IO ()`` prints no result line. A
     5
     Prelude> putStrLn "x"
     x
-    Prelude> mapM_ print [1, 2]
+    Prelude> mapM_ print [1,2]
     1
     2
 
-Errors in the REPL
-==================
+Exit statuses
+=============
 
 An error prints ``ERROR: msg`` on standard error, without a traceback.
 A compile error prints the front end's first error line without a machine
@@ -226,19 +219,7 @@ keep that status. For example:
 
 .. code-block:: bash
 
-    % install/bin/python -m curry.tools.icy :eval 'toEnum 65' :quit
+    python -m curry.tools.icy :eval 'toEnum 65' :quit
     ERROR: cannot handle the overloaded goal toEnum 65 of type Enum a => a
     Cannot handle arbitrary overloaded top-level expressions
     state the type: curry.term(goal, type='T')
-    % echo $?
-    1
-
-Limits of the REPL
-==================
-
-* The prompt sees the loaded module and the Prelude alone.  No command
-  imports another module; see ``:load`` above for the two ways around it.
-* The REPL imports one module into the prompt at a time.
-* ``:type`` keeps the variables of a trailing ``where x free`` in the
-  expression, so a type that depends on them alone is ambiguous there,
-  while ``:eval`` of the same text prints the bindings.

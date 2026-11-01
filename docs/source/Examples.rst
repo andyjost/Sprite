@@ -2,22 +2,17 @@
 Examples
 ========
 
-Stage Sprite with ``make stage``, then run ``./run`` in a numbered
-subdirectory of ``examples/``.  Each has a README, a run script and an
-``expected.out`` recording stdout.  The first run also compiles the Curry
-sources.  Scripts use the staged installation or ``SPRITE_HOME`` and the
-flags of ``SPRITE_INTERPRETER_FLAGS``.
+Clone the repository for the lessons under ``examples/``. With pip, run
+``python go.py`` in a lesson's directory; lesson 00 uses ``sprite-exec``
+on its Curry programs. ``./run`` uses a staged checkout (``make stage``)
+and matches ``expected.out``. Each lesson has a README with its scope and
+limits.
 
 Start with :doc:`Quickstart` for lessons 01 and 02 in five minutes, then
 :doc:`PythonAPI/UsingTheAPI` for the boundary in teaching order.  The tour
 below is followed by applications, an optional specialist series and the
-build-system capstone.  The README beside each script gives its scope and
-limits; ``tests/unit_examples.py`` checks the recorded output.  Each path below links to the example in the
-repository.
+build-system capstone.  Each path below links to the lesson in the repository.
 
-All examples run on the C++ runtime.  Example 03 adds ``interpret:off``
-so its internal section reads compiled code.  Example 04 saves and loads
-objects and runs a saved program.
 
 Tour: 00 to 09
 ==============
@@ -52,7 +47,8 @@ build goals with symbol calls and parse.
 ------------
 
 `examples/03-inspect <https://github.com/andyjost/Sprite/tree/master/examples/03-inspect>`_ — Read public module, symbol and type metadata before
-an explicitly internal view of compiler products.
+an explicitly internal view of compiler products. It uses ``interpret:off``
+to read compiled code.
 
 .. _example-04:
 
@@ -60,7 +56,8 @@ an explicitly internal view of compiler products.
 -----------
 
 `examples/04-static-compile <https://github.com/andyjost/Sprite/tree/master/examples/04-static-compile>`_ — Compile, reload, recognize stale terms,
-reset, save, load and wait for background compilation.
+reset, save, load and wait for background compilation. It also runs a
+saved program.
 
 .. _example-05:
 
@@ -184,7 +181,7 @@ aggregate their answers in Python.
 ----------------------------
 
 `examples/19-blocks-world-app <https://github.com/andyjost/Sprite/tree/master/examples/19-blocks-world-app>`_ — Search by iterative deepening behind a
-command line and an HTTP form, succeeding the retired Flask example.
+command line and an HTTP form.
 
 .. _example-25:
 
@@ -245,7 +242,5 @@ while Python owns timestamps and recipe execution.
 Support sources
 ===============
 
-`examples/cxx/ <https://github.com/andyjost/Sprite/tree/master/examples/cxx/>`_ contains the modules shared by 20 to 23;
-`examples/Peano.curry <https://github.com/andyjost/Sprite/blob/master/examples/Peano.curry>`_ supplies the metadata fixture of 03.  These support
-sources have no separate run script or expected-output test.  Lesson 02
-contains the Nat introduction.
+``examples/cxx/`` holds the modules shared by lessons 20 to 23;
+``examples/Peano.curry`` is the fixture of lesson 03.
