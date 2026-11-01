@@ -36,11 +36,20 @@ class TestWindowsTestLibrary(cytest.TestCase):
       self.assertEqual(cytest.limit_prefix(1024, 5), [])
 
   def test_alarm_timeout_skips_without_sigalrm(self):
+    '''Without SIGALRM the timeout context skips the test on POSIX; on
+    Windows it runs the body, since the runner's per-file timeout bounds
+    the file.'''
     import types
     with mock.patch.object(cytest, 'signal', types.SimpleNamespace()):
-      with self.assertRaisesRegex(unittest.SkipTest, 'SIGALRM'):
+      if sys.platform == 'win32':
+        ran = False
         with cytest.timeout(1):
-          self.fail('unsupported alarm ran')
+          ran = True
+        self.assertTrue(ran)
+      else:
+        with self.assertRaisesRegex(unittest.SkipTest, 'SIGALRM'):
+          with cytest.timeout(1):
+            self.fail('unsupported alarm ran')
 
 
 class TestWindowsCommand(cytest.TestCase):
