@@ -34,10 +34,16 @@ class TestDistribution(cytest.TestCase):
     with tempfile.TemporaryDirectory() as directory:
       source = Path(directory) / 'Tiny.curry'
       source.write_text('module Tiny where\nmain :: Int\nmain = 1\n')
-      for prelude in (
+      cases = [
           '',
           "llvmjit.available = lambda: False; llvmjit._reason = 'no helpers'\n",
-          "curry.import_ = lambda name: (_ for _ in ()).throw(ValueError('emitter'))\n"):
+        ]
+      if importlib.util.find_spec('llvmlite') is not None:
+        # The emitter runs only where llvmlite imports; without it the fill
+        # says so and stops before any module.
+        cases.append(
+            "curry.import_ = lambda name: (_ for _ in ()).throw(ValueError('emitter'))\n")
+      for prelude in cases:
         code = module.jit_cache_fill([str(source)])
         code = code.replace("if not llvmjit.available():", prelude + "if not llvmjit.available():")
         result = subprocess.run([sys.executable, '-c', code],
