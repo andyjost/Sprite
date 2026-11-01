@@ -13,6 +13,9 @@ Release Notes
 - Local CPM projects add their source directories and installed packages
   to ``curry.path`` after ``CURRYPATH`` and before the installed library;
   ``SPRITE_CPM_PATH=0`` disables discovery.
+- Windows: Sprite discovers Visual Studio with ``vswhere`` and captures
+  the developer environment of ``vcvars64.bat`` for clang-cl. AOT builds,
+  the C++ JIT and saved-program launchers no longer need a developer prompt.
 
 - ``curry.solve`` reports every held variable used in the goal, including
   unnamed variables under display names such as ``_a``.

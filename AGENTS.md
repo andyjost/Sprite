@@ -173,8 +173,9 @@ reproducers pass.
   environment of vcvars64; cl is experimental); the services of the
   operating system are behind `curryrt/platform.hpp`, the data symbols
   that other objects read carry `CURRYRT_DATA` (`curryrt/export.hpp`),
-  and generated code compiles to DLLs with clang-cl in a developer prompt
-  initialized by vcvars64. The library ships compiled in Windows wheels;
+  and generated code compiles to DLLs with clang-cl. Sprite finds Visual Studio
+  with vswhere and captures the developer environment of vcvars64; no
+  developer prompt is needed. The library ships compiled in Windows wheels;
   `interpret` defaults to `new` on every platform.
 - Sprite needs no GPU.
 - CMake honours `CC`, `CXX`, `CFLAGS`, `CXXFLAGS`
@@ -296,7 +297,8 @@ reproducers pass.
   `config.cxx_tool` is available, else interpreter alone with one INFO
   notice per process. Forced `llvm` and `cxx` error if unavailable;
   install the extra `"curry[jit]"` or a C++ compiler respectively (clang-cl of Visual
-  Studio in a developer prompt on Windows). LLVM compiles functions in process using llvmlite 0.50 or
+  Studio on Windows, found with vswhere and the developer environment of
+  vcvars64, so no developer prompt is needed). LLVM compiles functions in process using llvmlite 0.50 or
   newer (LLVM 22) and `lib/curryrt-helpers.bc`, built with clang through
   `WITH_CLANG`; every wheel carries it (the Linux wheel builds install
   clang in the manylinux image, and the distributions gate requires the
