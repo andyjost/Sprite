@@ -73,6 +73,16 @@ jobs:
           set "CONFIGURE_STATUS=%errorlevel%"
           type configure.log
           if not "%CONFIGURE_STATUS%"=="0" exit /b %CONFIGURE_STATUS%
+          rem Check runtime data exports before currylib links the Prelude.
+          cmake --build build --target curryrt --parallel -- -k 0 > runtime-build.log 2>&1
+          set "RUNTIME_STATUS=%errorlevel%"
+          type runtime-build.log
+          if not "%RUNTIME_STATUS%"=="0" exit /b %RUNTIME_STATUS%
+          dumpbin /nologo /EXPORTS build\stage\lib\libcurryrt.dll > runtime-exports.log 2>&1
+          set "EXPORT_STATUS=%errorlevel%"
+          type runtime-exports.log
+          if not "%EXPORT_STATUS%"=="0" exit /b %EXPORT_STATUS%
+          python -c "from pathlib import Path; names = Path('runtime-exports.log').read_text().split(); required = ['CyD7Prelude3Int', 'CyD7Prelude4Bool', 'CyD7Prelude4Char', 'CyD7Prelude5Float', 'CyD7Prelude2IO', 'CyD7Prelude4_Y_y', 'CyD7Prelude4_K_k', 'CyD7Prelude6_Y_m_y']; missing = [name for name in required if name not in names]; print('Required runtime data exports:', ', '.join(required)); assert not missing, 'Missing runtime data exports: ' + ', '.join(missing)" || exit /b 1
           cmake --build build --parallel -- -k 0 > build.log 2>&1
           set "BUILD_STATUS=%errorlevel%"
           type build.log
@@ -164,6 +174,8 @@ jobs:
           name: windows-${{ matrix.name }}-${{ github.run_attempt }}
           path: |
             configure.log
+            runtime-build.log
+            runtime-exports.log
             build.log
             build/CMakeFiles/CMakeConfigureLog.yaml
             build/CMakeCache.txt

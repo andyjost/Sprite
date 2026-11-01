@@ -40,6 +40,19 @@ class TestWindowsCommand(cytest.TestCase):
 
 
 class TestTableExports(cytest.TestCase):
+  @unittest.skipUnless(sys.platform == 'win32', 'Windows runtime exports')
+  def test_runtime_exports_builtin_datatypes(self):
+    exports = subprocess.check_output([
+        'dumpbin', '/nologo', '/exports',
+        config.installed_path('lib', 'libcurryrt.dll')], text=True)
+    print(exports)
+    names = set(exports.split())
+    for symbol in ['CyD7Prelude3Int', 'CyD7Prelude4Bool', 'CyD7Prelude4Char',
+                   'CyD7Prelude5Float', 'CyD7Prelude2IO', 'CyD7Prelude4_Y_y',
+                   'CyD7Prelude4_K_k', 'CyD7Prelude6_Y_m_y']:
+      with self.subTest(symbol=symbol):
+        self.assertIn(symbol, names)
+
   def test_first_declarations_of_defined_tables_are_exported(self):
     from curry.backends.cxx import compiler
     from curry.interpreter.loadsave import compilable_icurry
