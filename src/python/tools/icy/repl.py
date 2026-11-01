@@ -29,7 +29,6 @@ class REPL(object):
   def __new__(cls, args, **kwds):
     self = object.__new__(cls)
     curry.program_arguments = []
-    curry.program_name = 'icy'
     self.status = 0
     self.command = None
     self.args = None

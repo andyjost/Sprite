@@ -157,7 +157,11 @@ namespace
         args[i] = arg;
       }
       py::object callable = primitive->callable; // retain across replacement
-      py::object result = callable(py::cast(rts, reference).attr("interp"), *args);
+      py::object interp = py::cast(rts, reference).attr("interp");
+      if(interp.is_none())
+        throw py::value_error(
+            "no interpreter owns this evaluation; primitives need one");
+      py::object result = callable(interp, *args);
       Node * node = from_python(result);
       root->forward_to(is_monadic(primitive->info) ? io(node) : node);
       return T_FWD;
@@ -254,7 +258,9 @@ namespace curryrt { namespace python
       auto existing = Module::builtin_symbol(name.substr(0, dot), name.substr(dot + 1));
       if(existing)
       {
-        if(existing->step != python_primitive_step || existing->arity != arity ||
+        if(existing->step != python_primitive_step)
+          throw py::value_error("primitive " + name + " is registered in C++");
+        if(existing->arity != arity ||
             bool(is_monadic(*existing)) != monadic)
           throw py::value_error("primitive already registered with another shape: " + name);
         static_cast<PythonPrimitive const *>(existing->aux)->callable = callable;

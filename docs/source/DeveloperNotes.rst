@@ -361,7 +361,7 @@ use decimal conversion at the boundary to preserve every digit.
 The module image
 ================
 
-Format 4 (2026-10-31)
+Format 4 (2026-11-01)
 ---------------------
 
 A module image, ``M.img``, lives beside ``M.icy``. The translator writes it
@@ -373,8 +373,9 @@ text; inline-body and unfolding summaries still use the small JSON codec.
 The format is independent of pointer size and native byte order. Integers
 are little-endian; strings are UTF-8 with a 32-bit byte count. The prefix
 contains an eight-byte magic, a 32-bit format version and the length of a
-header. The header records the ICurry-text SHA-256, route version, inline budget,
-and each direct import's image SHA-256. The header also records sorted registered primitive names. No field records a machine path.
+header. The header records the ICurry-text SHA-256, route version, inline
+budget, and each direct import's image SHA-256. The header also records
+sorted registered primitive names. No field records a machine path.
 Sections contain imports and aliases, ordered data types and constructors,
 function declarations, bytecode and constants and translation metadata.
 Strings are length-delimited and record arrays begin with a 32-bit count.
@@ -431,12 +432,13 @@ bodies. Every library module has an executable image. An external without
 a primitive compiles to a step that raises ``not implemented``; an external
 type has no constructors.
 
-Generated C++ carries an ``INPUT`` record (source SHA-256, route and inline
-budget and sorted registered primitive names). The ABI stamp retains it in its import-provenance JSON. Both
-records are checked before pipeline-order selection, so translating a new
-image cannot make an old object current. A newer sibling image timestamp
-does not invalidate an otherwise current object. Explicitly saved objects
-outside the product tree continue to load explicitly.
+Generated C++ carries an ``INPUT`` record (source SHA-256, route, inline
+budget and sorted registered primitive names). The ABI stamp retains it in
+its import-provenance JSON. Both records are checked before pipeline-order
+selection, so translating a new image cannot make an old object current.
+A newer sibling image timestamp does not invalidate an otherwise current
+object. Explicitly saved objects outside the product tree continue to load
+explicitly.
 
 Image loading registers a shutdown barrier for the LLVM hot tier: it turns
 off new hot work and waits for any native compilation to leave the LLVM
@@ -803,5 +805,8 @@ Tool options may precede NAME or appear immediately after it.
 The first runtime argument, an unknown option, or ``--`` ends tool options.
 After NAME, only exact option names and long options with ``=VALUE`` are tool
 options; short attached values, abbreviations and combined flags are program
-arguments. The separator ``--`` is discarded. The REPL supplies no program
-arguments and uses the loaded module name, or ``icy`` before a load.
+arguments. Only the ``--`` that ends tool options is discarded; a later
+``--`` reaches the program. The REPL supplies no program arguments and uses
+the loaded module name. Before the first prompt it loads either the
+command-line module or ``Prelude``, so the initial name without a
+command-line module is ``Prelude``.

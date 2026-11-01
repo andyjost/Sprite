@@ -143,6 +143,12 @@ class StepCounter(object):
     self._rts._step_base = self._rts.steps_total
 
 
+# A directly constructed base state has no owning Python interpreter.
+RuntimeStateBase.interp = property(
+    lambda self: getattr(self, '_interp', None),
+    lambda self, interp: setattr(self, '_interp', interp))
+
+
 class RuntimeState(RuntimeStateBase):
   def __init__(self, interp, goal=None):
     self.interp = interp

@@ -147,6 +147,8 @@ echo :: [Int] -> [Int]
 echo external
 lazyList :: [Int]
 lazyList = echo [1 + 2, 4 ? 5]
+freeList :: [Int]
+freeList = echo [x] where x free
 text :: String -> String
 text external
 textLength :: String -> Int
@@ -183,6 +185,8 @@ recovered = catch brokenIO (\\_ -> return 7)
     self.assertEqual(curry.eval(R.increment(2 ** 80)).one(), 2 ** 80 + 1)
     self.assertEqual(curry.eval(R.echo([1, 2, 3])).one(), [1, 2, 3])
     self.assertEqual(sorted(curry.eval(R.lazyList)), [[3, 4], [3, 5]])
+    with self.assertRaisesRegex(curry.SuspensionError, 'Evaluation suspended'):
+      curry.eval(R.freeList).one()
     self.assertEqual(curry.eval(R.textLength('x' * 5000)).one(), 5000)
     self.assertEqual(curry.eval(R.text('abc\u00e4')).one(), 'abc\u00e4')
     self.assertEqual(curry.eval(R.text('')).one(), '')
@@ -263,6 +267,27 @@ loop n = if n == 0 then return () else getProgName >> loop (n-1)
     with self.assertRaisesRegex(ValueError, 'another shape: RegisteredPrimitives.increment'):
       curryrt.register_primitive('RegisteredPrimitives.increment', 1, increment, True)
 
+    with self.assertRaisesRegex(
+        ValueError, r'^primitive System\.CPUTime\.getCPUTime '
+        r'is registered in C\+\+$'):
+      curryrt.register_primitive('System.CPUTime.getCPUTime', 0, lambda: 0, True)
+
+  def test_bare_runtime_state(self):
+    curryrt.register_primitive('BarePrimitive.f', 0, lambda: 1)
+    M = curry.compile('module BarePrimitive where\nf :: Int\nf external\n')
+    interp = cytest.raw.interp()
+    goal = cytest.raw.expr(M.f)
+    istate = interp.backend.get_interpreter_state(interp)
+    rts = curryrt.RuntimeStateBase(
+        istate, goal, False, curryrt.NOLIMIT, 65536, 0)
+    self.assertIsNone(rts.interp)
+    try:
+      with self.assertRaisesRegex(EvaluationError,
+          'no interpreter owns this evaluation; primitives need one'):
+        rts.next()
+    finally:
+      rts.close()
+
   def test_child_arguments(self):
     code = '''import curry, json
 E = curry.import_('System.Environment')
@@ -301,6 +326,15 @@ print(json.dumps([curry.eval(E.getProgName).one(), curry.eval(E.getArgs).one()])
     curryrt.register_primitive('ReplacementPrimitive.f', 0, lambda: 4)
     M = curry.compile('module ReplacementPrimitive where\nf :: Int\nf external\n')
     self.assertEqual(curry.eval(M.f).one(), 4)
+
+  def test_registration_during_call(self):
+    def replace():
+      curryrt.register_primitive('ReentrantPrimitive.f', 0, lambda: 22)
+      return 11
+    curryrt.register_primitive('ReentrantPrimitive.f', 0, replace)
+    M = curry.compile('module ReentrantPrimitive where\nf :: Int\nf external\n')
+    self.assertEqual(curry.eval(M.f).one(), 11)
+    self.assertEqual(curry.eval(M.f).one(), 22)
 
   def test_declared_result(self):
     curryrt.register_primitive('WrongPrimitive.f', 0, lambda: 'wrong')
@@ -443,5 +477,17 @@ assert image.read(image.filename(sys.argv[1]))['registry'] == ['f']
       sys.set_int_max_str_digits(640)
       with self.assertRaisesRegex(EvaluationError, 'primitive LargePrimitive.f:.*ValueError'):
         curry.eval(M.f(10 ** 700)).one()
+    finally:
+      sys.set_int_max_str_digits(old)
+
+  def test_integer_result_limit(self):
+    curryrt.register_primitive('LargeResultPrimitive.f', 0, lambda: 10 ** 700)
+    M = curry.compile('module LargeResultPrimitive where\nf :: Int\nf external\n')
+    old = sys.get_int_max_str_digits()
+    try:
+      sys.set_int_max_str_digits(640)
+      with self.assertRaisesRegex(EvaluationError,
+          r'primitive LargeResultPrimitive\.f:.*ValueError'):
+        curry.eval(M.f).one()
     finally:
       sys.set_int_max_str_digits(old)

@@ -7,6 +7,19 @@ import tempfile
 
 
 class TestREPLArguments(cytest.TestCase):
+  def test_initial_program_name(self):
+    code = """import curry
+from curry.tools.icy.repl import REPL
+repl = REPL([])
+assert repl.module.__name__ == 'Prelude'
+E = curry.import_('System.Environment')
+assert curry.eval(E.getProgName).one() == 'Prelude'
+assert curry.eval(E.getArgs).one() == []
+"""
+    result = subprocess.run([sys.executable, '-c', code],
+        text=True, capture_output=True)
+    self.assertEqual(result.returncode, 0, result.stderr)
+
   def test_environment_through_eval(self):
     with tempfile.TemporaryDirectory() as directory:
       source = Path(directory) / 'REPLArguments.curry'
