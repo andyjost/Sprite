@@ -36,7 +36,7 @@ Release Notes
   a capsule: the shortcut that took the side of such a choice through a
   private copy of the spine is gone and the entry of a capsule no longer
   copies the state behind a set guard; the two-block search of the
-  tutorial's betterblocks solver finishes with its six solutions (#172, in review).
+  tutorial's betterblocks solver finishes with its six solutions (#172).
 - Non-linear functional patterns: the non-strict unification linearizes
   the repeated variables of a pattern and checks them by strict equality
   after the match, as PAKCS does, so ``isJust justZero`` of the PAKCS test

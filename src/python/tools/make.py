@@ -54,7 +54,12 @@ made by a child process that runs this program on that module alone;
 ``auto`` is one child per processor.  The imports of a module are made
 before the module, so no two children write the files that this program
 makes for one module (the ICurry, image, C++ and shared-object
-files).  A module whose files are current gets no child.  Before the children start, this
+files).  A module whose files are current gets no child.  The order does
+not cover the interface files of the Curry front end (``.fint``, ``.fcy``):
+the front end writes those of an import on its own when they are missing,
+so two children whose modules import one module without them write them at
+once.  Run the front-end step of such a tree (products copied without
+their interface files) with ``--jobs 1``.  Before the children start, this
 process builds the precompiled header of the C++ backend when it is
 missing, so the children find it.  The option covers the modules named on
 the command line and the modules they import.  The installation procedure
@@ -62,7 +67,8 @@ passes the job count of ``make``.
 
 The product cache.  The C++ backend keeps a copy of each shared object it
 compiles, with the generated C++ and the ABI stamp, in a cache directory
-outside the tree when ``SPRITE_PRODUCT_CACHE`` names a directory.  An entry is found by content: the digest of the
+outside the tree when ``SPRITE_PRODUCT_CACHE`` names a directory.  An entry
+is found by content: the digest of the
 ABI stamp, the text of the module and of the modules it imports, and the
 facts that shape the generated code.  A module whose entry is in the
 cache is neither generated nor compiled; its files are placed beside the
@@ -73,8 +79,21 @@ or stored a product this program prints one line with the two counts,
 given; under ``--jobs`` the counts of the children are summed.  See the
 page on environment variables.
 
-Products made before the rewrite. A module whose ICurry predates the
-rewrite step is translated again, and the run reports the count.
+Products made before the rewrite.  An ICurry file translated before the
+rewrite step existed is stale: the FlatCurry file beside the source holds
+a Boolean equality that the binding optimization replaces, or a ``set0``
+call that the set0 lift lifts, and the ICurry file lacks the result (a
+pair from an older tree or from the overlay archive of the tests).  The
+step from Curry to ICurry runs again for such a module, as for a changed
+source.  At the end of a run that made such a module again this program
+prints ``sprite-make: pre-rewrite pairs: N translated again``, unless
+``-q`` was given; under ``--jobs`` the counts of the children are summed.
+When the ICurry cache held the entry of the module (the test drivers keep
+one), the cache writes the ICurry file and the rewrite step runs over the
+FlatCurry file; the line then ends in ``, M from the ICurry cache``.  The
+modules of the Curry library are not judged; their ICurry is committed.  A
+FlatCurry file larger than 256 KB, or one that cannot be written again, is
+not judged either, with a warning.
 
 Environment Variables
 ---------------------
