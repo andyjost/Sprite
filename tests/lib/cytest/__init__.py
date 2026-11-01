@@ -292,6 +292,14 @@ def json_module(name, value):
       '"IInt","value":%(value)d}}}}}}],"aliases":[]}'
     ) % {'name': name, 'value': value}
 
+def posix_only(reason):
+  """Skip tests of POSIX facilities on Windows."""
+  return unittest.skipIf(sys.platform == 'win32', reason)
+
+def windows_only(reason):
+  """Skip tests of Windows facilities on other platforms."""
+  return unittest.skipUnless(sys.platform == 'win32', reason)
+
 def linux_only(reason):
   '''
   Skips a test on a platform other than Linux: one that reads /proc or an

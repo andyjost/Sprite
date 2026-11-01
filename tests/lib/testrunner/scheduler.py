@@ -42,8 +42,11 @@ __all__ = ['INTERRUPT_SIGNALS', 'Job', 'Scheduler', 'Watchdog', 'pick']
 # partial summary is printed, and the exit status is 130.  SIGHUP is here
 # because the children run in sessions of their own, so a closed terminal
 # would leave them running if the runner died of it.
-INTERRUPT_SIGNALS = tuple(getattr(signal, name)
-    for name in ('SIGINT', 'SIGTERM', 'SIGHUP') if hasattr(signal, name))
+def interrupt_signals():
+  names = ('SIGINT', 'SIGBREAK') if sys.platform == 'win32' else ('SIGINT', 'SIGTERM', 'SIGHUP')
+  return tuple(getattr(signal, name) for name in names if hasattr(signal, name))
+
+INTERRUPT_SIGNALS = interrupt_signals()
 
 class Job:
   '''One command with its limits and, after the run, its outcome.'''
@@ -177,13 +180,13 @@ class Watchdog(threading.Thread):
       cap = job.cap
       if cap is not None and tools and self.tool_cap is not None:
         cap = max(cap, self.tool_cap)
-      if cap is not None and rss > cap:
+      if cap is not None and rss is not None and rss > cap:
         job.kill_reason = 'memory'
         job.note = '%d MB > cap %d MB' % (round(rss / MIB), round(cap / MIB))
         if cap != job.cap:
           job.note += ' with %s running' % ', '.join(tools)
         procs.kill_session(job.pid, roots=job.members)
-      elif cap is not None and rss > job.cap and not job.note:
+      elif cap is not None and rss is not None and rss > job.cap and not job.note:
         # Over the cap of the file, within the allowance of the toolchain.
         job.note = 'over cap %d MB while %s ran' % (
             round(job.cap / MIB), ', '.join(tools)
@@ -336,7 +339,7 @@ class Scheduler:
         self.on_start(job)
 
   def start(self, job):
-    '''Starts one job in a session of its own, with its output in its log.'''
+    '''Starts one job in its platform process group, with output in its log.'''
     if job.logfile:
       os.makedirs(os.path.dirname(job.logfile), exist_ok=True)
       log = open(job.logfile, 'wb')
@@ -346,9 +349,11 @@ class Scheduler:
       stdin = None if self.inherit_stdin else subprocess.DEVNULL
       stdout = subprocess.PIPE if self.echo else log
       job.started = time.monotonic()
+      process_options = {'creationflags': getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0x200)} \
+          if sys.platform == 'win32' else {'start_new_session': True}
       job.proc = subprocess.Popen(
           job.argv, cwd=job.cwd, env=job.env, stdin=stdin, stdout=stdout
-        , stderr=subprocess.STDOUT, start_new_session=True
+        , stderr=subprocess.STDOUT, **process_options
         )
       job.pid = job.proc.pid
       if self.echo:
@@ -369,6 +374,15 @@ class Scheduler:
     finished = []
     with self.lock:
       for job in list(self.running):
+        if sys.platform == 'win32':
+          status = job.proc.wait() if block else job.proc.poll()
+          if status is None:
+            continue
+          self._finish(job, status, None)
+          self.running.remove(job)
+          self.done.append(job)
+          finished.append(job)
+          continue
         flags = 0 if block else os.WNOHANG
         try:
           pid, status, usage = os.wait4(job.pid, flags)
@@ -386,7 +400,7 @@ class Scheduler:
 
   def _finish(self, job, status, usage):
     job.duration = time.monotonic() - job.started
-    job.returncode = os.waitstatus_to_exitcode(status)
+    job.returncode = status if sys.platform == 'win32' else os.waitstatus_to_exitcode(status)
     # Popen did not reap the child; tell it the status.
     job.proc.returncode = job.returncode
     if usage is not None:

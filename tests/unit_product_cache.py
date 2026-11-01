@@ -319,6 +319,7 @@ class TestStore(ProductCacheTestCase):
       )
     self.assertEqual(_productcache.counts['restored'], 1)
 
+  @cytest.posix_only('requires hard links accepted by the file system')
   def test_restore_replaces_without_writing_into_the_old_file(self):
     '''
     An old object beside the source may be a hard link into the cache; a
@@ -342,6 +343,7 @@ class TestStore(ProductCacheTestCase):
         cytest.readfile(os.path.join(self.base, 'old-link'), 'rb'), b'old object'
       )
 
+  @cytest.posix_only('checks POSIX executable permission bits')
   def test_copy_across_file_systems(self):
     '''Without one file system the files are copied, with their mode.'''
     name = self.write_image(3)

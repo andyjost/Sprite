@@ -117,6 +117,7 @@ class SetupScriptTestCase(unittest.TestCase):
       position = found + len(part)
 
 
+@cytest.posix_only('checks executable POSIX shell scripts')
 class TestScriptText(SetupScriptTestCase):
   '''The file itself.'''
 
@@ -200,6 +201,7 @@ class TestScriptText(SetupScriptTestCase):
       )
 
 
+@cytest.posix_only('executes POSIX shell scripts or shebang fixtures')
 class TestDryRun(SetupScriptTestCase):
   '''The plan of a dry run.'''
 
@@ -491,6 +493,7 @@ esac
     self.assertIn('a real run stops at: apt: no dpkg', proc.stdout)
 
 
+@cytest.posix_only('executes POSIX shell scripts or shebang fixtures')
 class TestRealRunStops(SetupScriptTestCase):
   '''A real run stops at the apt step and runs no sudo.'''
 

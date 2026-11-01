@@ -200,6 +200,7 @@ class TestExpr(cytest.TestCase):
     self.assertEqual(id(e), id(e[0]))
     yield e, '[...]', '<: ... <[]>>'
 
+  @cytest.posix_only('uses SIGALRM to bound cyclic construction')
   @cytest.timeout(120)
   def test_shared_cycle(self):
     '''

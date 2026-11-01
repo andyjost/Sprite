@@ -112,6 +112,7 @@ class TestMeasure(unittest.TestCase):
     kwds.setdefault('cap', CAP)
     return measure.run_command([PYTHON, '-c', code], **kwds)
 
+  @cytest.posix_only('executes POSIX measurement tools and shebang fixtures')
   def test_run(self):
     run = self.run_python('import sys; print(1); sys.stderr.write("two\\n")')
     self.assertEqual(run.status, 'ok')
@@ -129,12 +130,14 @@ class TestMeasure(unittest.TestCase):
     self.assertFalse(run.perf)
     self.assertIsNone(run.instructions)
 
+  @cytest.posix_only('measurement harness requires POSIX wait4 and sessions')
   def test_failure(self):
     run = self.run_python('import sys; sys.exit("bad")')
     self.assertEqual(run.status, 'fail')
     self.assertEqual(run.returncode, 1)
     self.assertEqual(run.error, 'exit status 1: bad')
 
+  @cytest.posix_only('measurement harness requires POSIX wait4 and sessions')
   def test_timeout(self):
     run = self.run_python('import time; time.sleep(60)', timeout=1)
     self.assertEqual(run.status, 'timeout')
@@ -150,6 +153,7 @@ class TestMeasure(unittest.TestCase):
     self.assertEqual(run.status, 'fail')
     self.assertIn('MemoryError', run.error)
 
+  @cytest.posix_only('measurement harness requires POSIX wait4 and sessions')
   def test_peak_rss_from_a_fat_parent(self):
     '''
     Linux starts the memory high-water mark of a child at the resident set
@@ -170,6 +174,7 @@ class TestMeasure(unittest.TestCase):
     self.assertIn(measure.gnu_time(), run.cmd)
     del ballast
 
+  @cytest.posix_only('measurement harness requires POSIX wait4 and sessions')
   def test_descendants_are_counted(self):
     '''The CPU time and the memory of a grandchild are part of the run.'''
     inner = "t = 0\nfor i in range(4000000): t += i\nx = b'x' * %d" \
@@ -248,6 +253,7 @@ class TestMeasure(unittest.TestCase):
           source.startswith('perf stat -e instructions:u ('), source
         )
 
+  @cytest.posix_only('executes POSIX measurement tools and shebang fixtures')
   def test_run_under_perf(self):
     '''
     A run under perf counts the instructions of the command and its
@@ -2590,6 +2596,7 @@ class TestHistory(unittest.TestCase):
       )
 
 
+@cytest.posix_only('measurement harness requires POSIX wait4 and sessions')
 class TestSmoke(cytest.TestCase):
   '''
   The run command end to end on the backend of this process: Hello in the
@@ -2858,6 +2865,7 @@ class TestSmoke(cytest.TestCase):
     self.assertEqual(len(lines), 4)
 
 
+@cytest.posix_only('measurement harness requires POSIX wait4 and sessions')
 class TestApplicationsSmoke(cytest.TestCase):
   '''
   The applications suite end to end on the backend of this process: the

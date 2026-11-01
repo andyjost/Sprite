@@ -661,6 +661,7 @@ class TestRoute(cytest.TestCase):
         else:
           self.assertEqual(values(goal), expected)
 
+  @cytest.posix_only('uses SIGALRM to bound evaluation')
   @cytest.timeout(300)
   def test_send_more_money(self):
     '''

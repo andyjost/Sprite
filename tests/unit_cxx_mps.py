@@ -43,6 +43,7 @@ class TestCollectorSelection(cytest.TestCase):
       )
 
 
+@cytest.posix_only('children require prlimit and GNU timeout')
 class ChildTests(cytest.TestCase):
   '''
   The base of the MPS tests.  Every test runs a child under prlimit and

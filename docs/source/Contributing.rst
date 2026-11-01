@@ -35,6 +35,19 @@ Conventions
 - Work lands on ``master``.  A topic branch holds the progress of one
   change until its merge and is deleted at the merge.
 
+Windows tests
+=============
+
+On Windows, use ``python tests/run_tests.py --fast -j 2`` with a staged
+installation in ``SPRITE_HOME`` and its Python package on ``PYTHONPATH``.
+The runner starts process groups and uses ``taskkill /T /F`` for cleanup.
+There is no Job Object hard memory cap; one notice explains this, and
+optional ``psutil`` supplies the RSS watchdog and process names. Without it,
+memory is reported as unknown and timeouts still apply. Tests of POSIX
+facilities use ``cytest.posix_only(reason)``; Windows tests can use
+``cytest.windows_only(reason)``. Functional files are skipped with one
+notice when the PAKCS oracle is unavailable.
+
 The plan
 ========
 

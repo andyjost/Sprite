@@ -132,6 +132,7 @@ class TestExamples(cytest.TestCase):
     self.assertTrue(set(KNOWN_FAILURES) <= set(EXAMPLES))
     self.assertTrue(set(STRESS_EXCLUDED) <= set(EXAMPLES))
 
+  @cytest.posix_only('executes POSIX shell drivers')
   def run_example(self, name):
     '''
     Runs the run script of an example in a child and returns the completed

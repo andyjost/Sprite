@@ -266,6 +266,7 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
           os.stat(interfacefile(name)).st_mtime, os.stat(sourcefile(name)).st_mtime, name
         )
 
+  @cytest.posix_only('requires POSIX directory permission bits')
   def test_readonly_library(self):
     '''
     The front end compiles a program against a read-only copy of the installed

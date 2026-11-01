@@ -177,7 +177,7 @@ class TestTables(cytest.TestCase):
     per literal outside them when it loads.
     '''
     shlib = getHandle(self.M).icurry.metadata['cxx.shlib']
-    text = cytest.readfile(shlib.sofilename()[:-len('.so')] + '.cpp')
+    text = cytest.readfile(os.path.splitext(shlib.sofilename())[0] + '.cpp')
     proc = cytest.run_in_subprocess(CHILD + '''
 tables = curryrt.SMALL_INT_MAX - curryrt.SMALL_INT_MIN + 1 + curryrt.SMALL_CHAR_MAX + 1
 before = curryrt.gc_literal_count()
@@ -257,7 +257,7 @@ print('collections', collections)
     literal as the node of the module, defined once.
     '''
     shlib = getHandle(self.M).icurry.metadata['cxx.shlib']
-    text = cytest.readfile(shlib.sofilename()[:-len('.so')] + '.cpp')
+    text = cytest.readfile(os.path.splitext(shlib.sofilename())[0] + '.cpp')
     for lookup in 'int_(7)', "char_(U'a')", 'int_(0)', 'int_(1)', 'int_(1023)':
       self.assertIn(lookup, text)
     for spelled in 'int_(100000)', 'int_(1024)', 'float_(', "char_(U'\\x3bb')":

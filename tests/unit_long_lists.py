@@ -14,6 +14,7 @@ def values(*args):
   return list(curry.eval(args[0](*args[1:]) if len(args) > 1 else args[0]))
 
 class TestLongLists(cytest.TestCase):
+  @cytest.posix_only('uses SIGALRM to bound evaluation')
   @cytest.timeout(120)
   def test_length_and_sort(self):
     '''

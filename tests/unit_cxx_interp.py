@@ -1273,4 +1273,4 @@ other = 2
         self.assertEqual(list(curry.eval(M.main)), [42])
     finally:
       gc.enable()
-    self.assertFalse(os.path.exists(self.product(name, '.so')))
+    self.assertFalse(os.path.exists(self.product(name, config.module_object_suffix())))
