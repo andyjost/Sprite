@@ -1,24 +1,22 @@
-.. highlight:: bash
-
 Environment Variables
 =====================
 
-User Variables
+User variables
 --------------
 
-Sprite's behavior can be controlled by setting certain environment variables.
-The following are recognized:
+Environment variables select the behavior of Sprite. Sprite reads the
+following:
 
 ``CURRYPATH``
   A colon-separated list of paths used to search for Curry modules.  Sprite
-  silently appends to this the path to its system libraries.  A program
-  given as a file (``sprite-exec prog.curry``, ``sprite-make --so
-  prog.curry``, ``curry.import_(path)``) has its
+  silently appends to this the path to the Curry library.  A program
+  given as a file (``sprite-exec Peano.curry``, ``sprite-make --so
+  Peano.curry``, ``curry.import_(path)``) has its
   directory searched first, before the entries of CURRYPATH, as PAKCS
   searches: the modules beside the program are found without a CURRYPATH
   that names their directory.  A module given by name is searched on
   CURRYPATH alone.  A hierarchical name ``A.B`` resolves to ``A/B.curry``
-  beside an optional ``A.curry``; a user module with a system library's
+  beside an optional ``A.curry``; a user module with a library module's
   name is refused with a message naming both files.
 
 ``SPRITE_JIT_CACHE``
@@ -32,11 +30,17 @@ The following are recognized:
 
 ``SPRITE_HOME``
   The installation tree of Sprite: the directory that holds ``bin``,
-  ``curry``, ``lib``, ``python``, ``sysconfig``, and ``tools``.  The
+  ``curry``, ``include``, ``lib``, ``licenses``, ``python``, ``sysconfig`` and ``tools``.  The
   launchers under ``bin`` set it.  When it is not set, the Python package
   finds the tree from its own location, so ``import curry`` works with the
   package directory on ``PYTHONPATH``.
-  A failed system library check raises ``ImportError`` with the reason.
+  A failed library check raises ``ImportError`` with the reason.
+
+``SPRITE_FRONTEND``
+  The command or path of the Curry front end. It overrides the installed
+  tool link, the script beside Python and PATH. An empty value disables
+  the front end. :doc:`/Installation/ConfiguringSprite` gives the lookup
+  order.
 
 ``SPRITE_FRONTEND_WARNINGS``
   The Curry front end warns on overlapping rules ("Function f is
@@ -52,12 +56,12 @@ The following are recognized:
   test library and the benchmark harness set the variable to ``0``, so
   the output of a suite does not depend on which modules a run compiles;
   the run scripts of the examples whose rules overlap by design set it
-  too.  To compile a program without the warnings, say::
+  too.  To compile a program without the warnings::
 
-     SPRITE_FRONTEND_WARNINGS=0 sprite-make --so prog.curry
+     SPRITE_FRONTEND_WARNINGS=0 sprite-make --so Peano.curry
 
 ``SPRITE_GC_THRESHOLD``
-  The number of nodes at which the collector of the C++ backend runs.  The
+  The number of nodes at which the collector of the runtime runs.  The
   default is 1048576, about 30 MB of nodes in the block heap of the
   runtime.  The allocator checks the count once per run of free slots, so
   a collection comes within a few thousand nodes of the threshold.  After
@@ -68,68 +72,23 @@ The following are recognized:
   one eighth of the node threshold, with the same growth rule: a set
   function consumed only in part leaves its queue to the collector.  A
   lower value keeps the heap smaller.  A higher value runs fewer
-  collections, and it costs time on most programs, because a small heap
+  collections and it costs time on most programs, because a small heap
   stays in the cache.  The value is read when the runtime library loads.
-  To run the collector every 65536 nodes, say::
+  To run the collector every 65536 nodes::
 
-     SPRITE_GC_THRESHOLD=65536 sprite-exec prog.curry
+     SPRITE_GC_THRESHOLD=65536 sprite-exec Peano.curry
 
 ``SPRITE_GC_GROWTH``
-  The growth factor of the collector of the C++ backend: after a
+  The growth factor of the collector of the runtime: after a
   collection, the next one runs when the heap reaches this many times the
   survivors, but not before the threshold.  The default is 8.  A value of
   2 keeps the heap within twice the live nodes and runs about three times
-  as many collections.  The value must be at least 2 and is read when the
-  runtime library loads.
+  as many collections.  A value below 2 falls back to the default with a warning. The value is
+  read when the runtime library loads.
 
-  The default stays at 8 by a measurement of the memory suite of the
-  benchmarks at 8, 12 and 16 (the dated TODO entry on G8, issue #83).  The
-  factor touches a program only when the survivors of a collection exceed
-  the threshold divided by the factor (131,072 nodes at growth 8 and
-  65,536 at growth 16, with the default threshold), or when the live
-  configurations exceed one eighth of that number, since the
-  configuration threshold follows the same rule.  18 of the 29 programs
-  measured kept their collections and their nodes marked exactly at every
-  factor.  On the search programs with a live set near 300 MiB the trade
-  is proportional, as the policy makes it.  Growth 16 halves the
-  collections and the nodes marked (QueensSet9 11 to 6 collections,
-  SearchQueens 19 to 10, PermSort 9 to 5).  It cuts the seconds of the
-  collector by a quarter to a half, which is 1 to 8 percent of the CPU
-  time of those programs and 1 to 3 percent of their instructions.  It
-  costs 43 to 53 percent more peak RSS (QueensSet9 330 to 473 MiB,
-  SearchQueens 307 to 465 MiB, PermSort 314 to 481 MiB), and the bound of
-  the heap becomes sixteen times the live nodes in place of eight.  A
-  user with memory to spare buys the saving with ``SPRITE_GC_GROWTH=16``.
-  Growth 12 sits halfway on both sides of the trade.
-
-``SPRITE_GC_STRESS``
-  The stress mode of the collector of the C++ backend.  With the value
-  ``1``, the collector runs at every safepoint of the scheduler: after
-  every rewrite step of the outermost evaluation, and a nested set function
-  hands the request outward.  A node that no root reaches is then reclaimed
-  at the next step, so a missing root shows up at once, as a wrong value or
-  a crash.  Every collection of the mode also runs the heap verifier, which
-  checks every live node, its successors, and every node Python holds
-  against the block heap and stops the process when the heap is
-  inconsistent.  The mode costs a
-  collection per step.  It is meant for the test suite (see
-  ``tests/README``), not for a program.  The value ``0`` or an
-  empty value turns the mode off, which is the default; another value turns
-  it off with a warning.  The value is read when the runtime library loads.
-  To run the unit tests in stress mode, say::
-
-     SPRITE_GC_STRESS=1 ./run_tests 'unit_*.py'
-
-  A runtime built with the Memory Pool System (``make GC=mps``, an
-  experiment) reads the three variables above with another meaning:
-  ``SPRITE_GC_THRESHOLD`` runs a full collection every so many nodes in
-  addition to the collections MPS schedules itself (unset: none),
-  ``SPRITE_GC_GROWTH`` scales the configuration threshold after a full
-  collection, and ``SPRITE_GC_STRESS`` runs a full collection at every
-  safepoint, without a heap verifier.  ``SPRITE_GC_MPS_ARENA_MB`` (256),
-  ``SPRITE_GC_MPS_NURSERY_KB`` (8192), and ``SPRITE_GC_MPS_GEN1_KB`` (65536)
-  size its arena and its two generations.  See
-  ``src/curryrt/graph/gc/mps.cpp``.
+  Growth 16 halves the collections of the search programs, saves 1 to 8
+  percent of their CPU time and costs about half again as much peak memory.
+  Growth 12 sits between.
 
 ``SPRITE_GC_REPORT``
   With the value ``1``, every collection of the collector of the C++
@@ -138,7 +97,7 @@ The following are recognized:
   evaluation, the nodes before it and the survivors, the nodes marked (old
   and young apart), the seconds of its phases, the configurations pushed,
   the queues and configurations destroyed, the writes into old nodes since
-  the collection before, the threshold it set, and the configurations,
+  the collection before, the threshold it set and the configurations,
   queues, sets and blocks alive.  The fields are those of ``sprite-exec
   --stats`` (``gc_marked`` and the others, without the prefix), per
   collection instead of summed.  The value ``0`` or an empty value turns
@@ -148,66 +107,26 @@ The following are recognized:
 .. _sprite-interpreter-flags:
 
 ``SPRITE_INTERPRETER_FLAGS``
-  Overrides default flags in Sprite's Curry interpreter.  This can be set to a
-  comma-separated list of colon-separated pairs (without spaces).  An item
-  splits at its first colon, so ``rotation:time:10ms`` is one item.
+  Interpreter flags as comma-separated colon pairs, without spaces. Each
+  pair overrides its flag's default. An item splits at its first colon,
+  so ``rotation:time:10ms`` is one item. :ref:`interpreter-flags` gives the
+  defaults and :doc:`/CompilationOptions` describes execution modes.
+  To compile modules in the debug flavor::
 
-  See the :mod:`list of flags <curry.interpreter.flags>` for details, and
-  :ref:`interpreter-flags` for the table with the defaults.
+     SPRITE_INTERPRETER_FLAGS=debug:true sprite-exec Peano.curry
 
-  For example, to have Sprite generate debug code, set::
+  ``stack_limit`` defaults to 4194304 bytes on the caller's stack;
+  ``worker_stack`` defaults to a 1 GiB reservation for deep evaluations.
+  ``rotation`` defaults to ``time:10ms``. Step mode pins the order of
+  answers (:ref:`interpreter-flags`).
 
-     SPRITE_INTERPRETER_FLAGS=debug:True
-
-  Runtime execution traces require a build with ``TRACE`` enabled.  The
-  compatibility flag ``trace`` has no effect on the runtime.
-
-  The ``backend`` flag names the backend: ``cxx``, the C++ backend, the
-  only runtime of an installation.
-
-  The ``interpret`` flag defaults to ``new`` (``all`` on Windows): current
-  objects load and the rest start interpreted. ``all`` starts every module
-  interpreted, and ``off`` compiles missing objects first. Background C++
-  compilation uses ``jit:hot,jit_backend:cxx`` (see
-  :mod:`curry.interpreter.flags`).  An
-  installation without a C++ compiler uses LLVM when available, or runs
-  interpreted with one notice; see :doc:`/Installation/WithoutCompiler`.
-
-  The ``stack_limit`` flag sets the number of bytes of C stack the C++ backend
-  lets one evaluation use.  The default is 4194304.  When an alternative
-  reaches the limit, the backend unwinds to the scheduler and runs the other
-  alternatives.  A retry without progress moves the evaluation to the
-  retained worker.  ``worker_stack`` sizes its stack reservation in bytes
-  (default 1073741824, or 1 GiB); ``None`` disables escalation.  Refused
-  reservations are halved down to 64 MiB; if none works, ``StackLimitError``
-  names the attempted sizes.  An alternative that exhausts the worker too
-  is dropped, and its error follows the other values.  A limit
-  larger than the stack of the thread is clamped to that stack, less a margin
-  of 1 MiB.  Set the flag to ``None`` to disable the guard.  To raise the
-  limit, raise the stack size (``ulimit -s``) as well, and say::
-
-     SPRITE_INTERPRETER_FLAGS=stack_limit:16777216 sprite-exec prog.curry
-
-  The ``rotation`` flag selects how the C++ backend paces the rotation of
-  its queue of alternatives.  The scheduler rotates at a safepoint, after a
-  completed rewrite step, so a diverging alternative cannot starve the
-  others.  In time mode, the default (``time:10ms``), a ticker thread sets
-  one byte every quantum and the safepoint polls it; the latency of a
-  waiting alternative is bounded by the quantum whatever a step costs.  In
-  step mode (``steps:65536``) the safepoint counts the steps and rotates
-  every N of them; the schedule then depends on the program alone, so the
-  exact steps and forks of a search and the order of its values reproduce
-  between runs.  A deterministic subcomputation never rotates in either
-  mode.  In time mode two runs of a non-deterministic goal may print their
-  values in a different order; to pin the order, set step mode::
-
-     SPRITE_INTERPRETER_FLAGS=backend:cxx,rotation:steps:65536 sprite-exec prog.curry
-
-  Time mode starts its thread at the first evaluation, so a host that forks
-  after an evaluation is multi-threaded, and Python warns on ``os.fork`` in
-  such a process; the forked child starts a ticker of its own at its first
-  evaluation.  Step mode starts no thread.  ``SPRITE_ROTATION`` (below)
-  sets the same flag alone.
+``SPRITE_JIT_THRESHOLD``
+  The number of calls that makes an interpreted function hot; 100 by
+  default. With ``jit:hot`` (the default), LLVM compiles that function;
+  the C++ compiler backend starts the module's child compile when its first
+  function becomes hot. ``jit_backend:auto`` selects llvmlite, then the installation's C++
+  compiler, then the interpreter alone with one warning. Force ``llvm``
+  or ``cxx`` to require that backend; ``jit:off`` disables both tiers.
 
 ``SPRITE_LOG_FILE``
   Enable logging and append records to this path; ``-`` selects standard
@@ -226,256 +145,18 @@ The following are recognized:
   enables a file handler at ``WARNING``. At ``INFO``, Sprite reports interpreter
   flags and the installation, compiled or interpreted module loads and
   their reasons, background compile results, cache hits and misses,
-  front-end timing and warning counts, rewrite decisions, and ICurry and
+  the timing of the front end and warning counts, rewrite decisions and ICurry and
   image writes. ``DEBUG`` adds stamp differences and tool command lines.
   Existing ``CurryWarning`` notices also reach the log at ``WARNING``.
   With neither variable set, notices keep their existing display through
   ``warnings.warn`` on standard error.
 
 ``SPRITE_ROTATION``
-  The rotation mode of the C++ backend: ``time:10ms`` (time mode, the
-  default; the unit may be ``s``, ``ms``, ``us`` or ``ns``) or
-  ``steps:65536`` (step mode).  It sets the interpreter flag ``rotation``
-  (above) below ``SPRITE_INTERPRETER_FLAGS``.  The test runner, the
-  benchmark harness and the CI jobs set ``steps:65536`` through it, so
-  that the counters of a run and the outputs of the tests reproduce; a
-  value in the environment of a run wins.  An empty value counts as
-  unset.  Other text is an error when the interpreter starts.  Time mode
-  starts a thread at the first evaluation, so a host that forks after an
-  evaluation is multi-threaded (Python warns on ``os.fork``); the forked
-  child rotates with a ticker of its own.  Step mode starts no thread.  To
-  run a search goal with the order of its values pinned, say::
+  The queue rotation mode: ``time:10ms`` (default) or ``steps:65536``.
+  It sets ``rotation`` below ``SPRITE_INTERPRETER_FLAGS``; an empty value
+  is unset. The test runner and benchmark harness use step mode to pin
+  answer order and counters::
 
-     SPRITE_ROTATION=steps:65536 SPRITE_INTERPRETER_FLAGS=backend:cxx sprite-exec prog.curry
+     SPRITE_ROTATION=steps:65536 sprite-exec Peano.curry
 
-Development Variables
----------------------
-
-Additional environment variables are recognized.  These are intended for people
-developing Sprite itself.  If you plan only to compile and run Curry programs
-with Sprite, then you should not need these.
-
-``SPRITE_JIT_THRESHOLD``
-  The number of calls that makes an interpreted function hot; 100 by
-  default. With ``jit:hot`` (the default), LLVM compiles that function;
-  the C++ compiler backend starts the module's child compile when its first
-  function becomes hot. ``jit_backend:auto`` selects llvmlite, then the installation's C++
-  compiler, then the interpreter alone with one warning. Force ``llvm``
-  or ``cxx`` to require that backend; ``jit:off`` disables both tiers.
-
-``SPRITE_JIT_DUMP``
-  A directory into which the LLVM backend writes the optimized LLVM IR
-  and assembly of each batch. It has no effect on the C++ compiler backend.
-
-``SPRITE_CACHE_FILE``
-  Names the cache database, an SQLite file.  The database stores the output
-  of the Curry front end, the :ref:`Curry to ICurry
-  <Introduction/CompilationPipeline:Curry to ICurry>` step, which takes
-  seconds per module.  An entry is keyed by a digest of the module source, of
-  the sources of the modules it imports, of the front-end options, and of the
-  route from Curry to ICurry (``SPRITE_CURRY2ICURRY``) with its program and
-  flags.  The file name is not part of the key.  So the same text compiles
-  once on a machine, from any directory and, for a module compiled from a
-  string, under any module name.  A change in the text, or in an imported
-  module, misses the cache.  A new front end misses it too, and an entry
-  written by one route is never served to the other.  An error the front end
-  reports about
-  the program is cached as well; a failure of the environment is not, and
-  neither is a missing module, because the key sees the Curry path only
-  through the source files found in it.  An entry holds the ICurry of the
-  module and the two interface files the front end wrote for it (``.fint``
-  and ``.icurry``); a hit writes all three beside each other, so the types
-  of a module are at hand without a run of the front end.
-
-  A file name turns the cache on.  The empty string turns caching off.  When
-  the variable is not set, the installation decides: CMake ``ENABLE_ICURRY_CACHE=ON``
-  turns the cache on at ``$XDG_CACHE_HOME/sprite/cache.db``, or
-  ``$HOME/.cache/sprite/cache.db`` when ``XDG_CACHE_HOME`` is unset or empty.
-  This is beside the precompiled headers and worktrees in the user's cache
-  directory.  The test drivers set
-  the variable to ``tests/.cache/icurry.db``.
-
-  .. note ::
-     Outside the test drivers, caching is off by default.
-
-``SPRITE_CACHE_UPDATE``
-  Specifies Curry-source patterns whose ICurry cache entries should be
-  replaced. Patterns are globs, or regular expressions when surrounded by
-  slashes. For example, ``SPRITE_CACHE_UPDATE='*.curry'`` replaces all
-  matching entries. Changed inputs invalidate entries automatically.
-
-``SPRITE_CURRY2ICURRY``
-  Names the route from Curry to ICurry.  ``frontend`` runs the Curry front
-  end and then Sprite's own translation from FlatCurry
-  (:mod:`curry.toolchain.flat2icurry`).  ``icurry`` runs the Curry front
-  end, then the ``icurry`` program, when CMake was given
-  ``-DWITH_ICURRY=PATH``; both routes need the front end.  The default is the
-  choice made by CMake (``CURRY2ICURRY_TOOL``), else the front end.  Both
-  routes write the same files.
-
-``SPRITE_CXX_PCH_ROOT``
-  The directory under which the C++ backend keeps the precompiled form of the
-  runtime header that every generated module includes.  The default is the
-  ``include`` directory of the installation, where the compiler finds it
-  without an extra flag.  When that directory cannot be written, or when the
-  installation lies in a conda environment (a directory with a ``conda-meta``
-  entry above it), the default is a directory of the user's cache instead:
-  ``$XDG_CACHE_HOME/sprite/pch/<key>``, or ``~/.cache/sprite/pch/<key>``,
-  where the key is a digest of the real path of the installation.  So a
-  package is not written at run time.  The cache keeps one directory of
-  about 70 MB per installation and removes none of them; the directory
-  ``pch`` may be deleted at any time, and the header is built again on the
-  next compile.  Set the variable to the empty string to compile without
-  the precompiled header.  The header is built again when it is older than
-  a header the generated code includes (the include closure of
-  ``curryrt/curryrt.hpp``).  A header outside the closure never makes it stale.
-
-``SPRITE_DEBUG``
-  Enables debugging for Sprite internal errors.  The command-line tools
-  :ref:`sprite-exec` and :ref:`sprite-make` normally report unexpected errors
-  tersely.  Enabling this allows one to see the full stack trace when Sprite
-  fails.  Set this to the value ``1`` to enable debugging.
-
-``SPRITE_DISABLE_SYSLIB_CHECKS``
-  When the variable is set, Sprite skips the check of the system libraries,
-  the Prelude and the other modules of ``curry/`` in the installation.  The
-  check finds each of them on the Curry path and confirms that no file
-  earlier on the path shadows it.  Without the variable a failed library
-  check raises ``ImportError`` with the reason and the paths.
-
-``SPRITE_ENABLE_BREAKPOINT``
-  When the variable is set, ``import curry`` installs a ``breakpoint``
-  hook of Sprite's own (``sys.breakpointhook``), an interactive prompt in
-  the frame of the call, and the built-in ``pdbtrace``, which starts PDB.
-  For the development of Sprite itself.
-
-``SPRITE_FORCE_RECOMPILE_CXX``
-  When the variable is set, the C++ backend leaves the generated C++ file
-  and the shared object of a module out of the prerequisites it compares,
-  so every module is generated and compiled again whatever their times
-  say.
-
-``SPRITE_PRODUCT_CACHE``
-  The directory of the product cache of the C++ backend
-  (``curry.toolchain._productcache``).  A compile of a module stores its
-  shared object, the generated C++ and the ABI stamp there, under the
-  digest of the stamp and a key of the facts that decide the products: the
-  texts of the module (its source, its ICurry file and its image, the input
-  of the code generator) and of the modules it imports, the format of the
-  generated code and the sources of the code generator and of the ICurry
-  reader, the flags of the optimizer and the inline budget, and the route
-  from Curry to ICurry. Imported interface and ICurry digests enter the
-  provenance and cache key, so changed imports cannot serve an old entry.
-  No part of the key names a tree, and the products
-  name no path: an object names the objects of its imports by their
-  ``SONAME`` (``sprite-<module>.so.<format>``), not by path, and its record
-  names the source relative to the installation or to the object.  So an
-  entry serves every tree of one runtime: the same tree after its products
-  were removed or after an edit and its revert, and a second worktree,
-  which compiles nothing the first compiled.  ``sprite-make``, the
-  background compile of the C++ compiler backend and the prepare pass of the test
-  runner look in the cache before they compile.  A module whose entry is
-  there is neither generated nor compiled: its files are placed beside the
-  source, the object as a hard link when the two lie on one file system,
-  with a stamp for this installation.  Under the interpreter flag
-  ``interpret`` set to ``new`` nothing is placed: that mode interprets a
-  module without a current object; the jit tiers select later compilation.  Without the
-  variable, or with the empty string, the cache is off; every product is
-  then compiled in place, as before the cache existed.
-  The test runner and the worktree script name a directory of their own
-  (``tests/.cache/products``); a developer who wants one across trees
-  names it.  A module in the temporary directory of the system is never
-  cached.  The cache grows: each change to a runtime header the generated
-  code includes, to the compiler or to the flags starts a new digest
-  directory (about 42 MB for
-  the Curry library), and the toolchain removes nothing; the directory may
-  be deleted at any time.  ``sprite-make`` prints one line with the counts
-  of a run that restored or stored a product (``sprite-make: product cache:
-  43 restored, 0 stored``).  The test runner and the test library set the
-  variable to ``tests/.cache/products`` unless the environment names it,
-  and the runner prunes that cache after its prepare pass: the digest
-  directories of other runtimes go.
-
-``SPRITE_WORKTREE_ROOT``
-  The directory under which ``scripts/new-worktree.sh`` puts the install
-  and object trees of a new git worktree; the default is
-  ``~/.cache/sprite/worktrees``.
-
-``SPRITE_WORKTREE_PREPARE``
-  With the value ``1``, ``scripts/new-worktree.sh`` ends with the prepare
-  pass of the test runner on the C++ backend (``tests/run_tests
-  --prepare-only``), which compiles the shared Curry products of the test
-  pool into the new worktree and stores them in the product cache.  The
-  script never copies the compiled products of the main tree: their ABI
-  stamps name the installation of that tree.  A product cache the two
-  trees share serves the worktree the products of the main tree.
-
-Test Variables
---------------
-
-The test runner (``tests/run_tests``; section 10 of ``tests/README``) sets
-the environment of every test file: ``SPRITE_HOME``, ``SPRITE_CACHE_FILE``
-(``tests/.cache/icurry.db``), ``SPRITE_PRODUCT_CACHE``
-(``tests/.cache/products``) unless the environment names it,
-``SPRITE_INTERPRETER_FLAGS`` (the backend of the run),
-``SPRITE_ROTATION=steps:65536`` unless the environment of the run names a
-mode, and ``SPRITE_FRONTEND_WARNINGS=0`` unless the environment sets it.  Three variables address the tests themselves:
-
-``SPRITE_TEST_MAX_VMEM_KB``
-  The cap on the address space of a test process, in KiB, or
-  ``unlimited``.  The runner keeps the cap as a backstop behind its
-  memory budget (6 GB, or three times the cap of the file, whichever is
-  larger); the other drivers under ``tests/`` cap every process at 6 GiB.
-
-``SPRITE_TEST_FLAGS``
-  Interpreter flags that the CI script ``.github/scripts/run-tests.sh``
-  appends to ``SPRITE_INTERPRETER_FLAGS`` for the files of a shard; the
-  nightly job runs the suites under ``interpret:all`` and
-  ``interpret:off`` through it.
-
-``SPRITE_UPDATE_EXPECTED``
-  With the value ``1``, ``tests/unit_examples.py`` writes the output of
-  each run script of ``examples/`` to its ``expected.out`` instead of
-  comparing with it; run it once and review the diff.
-
-Build Variables
----------------
-
-These are build settings. Pass CMake options as ``-DNAME=value``; the thin
-Makefile also accepts the historical variables below. See
-:doc:`../Installation/ConfiguringSprite`.
-
-``SPRITE_REBUILD_ICY``
-  ``make stage`` derives the module image of a library module from its committed
-  ``.icy`` file and never translates the module again.  With
-  ``make stage SPRITE_REBUILD_ICY=1`` it runs the front end and the translation again
-  and writes a new ``.icy``; the committed files are pinned artifacts of
-  the front end 3.1.0 of PAKCS 3.10.0 and of ``icurry`` 3.3.0, so this is a
-  deliberate step. The legacy pair compiles its library from source and
-  does not reuse these pins.
-
-``DEBUG=1``
-  The debug flavor of the runtime: the assertions on, no optimization.
-  The C++ backend compiles the modules of an interpreter whose flag
-  ``debug`` is set in the same flavor.
-
-``TRACE=1``
-  Computation tracing in the C++ runtime (``SPRITE_TRACE_ENABLED``).
-
-``COUNTERS=1``
-  The scheduler counters of the C++ runtime (``SPRITE_SCHEDULER_COUNTERS``),
-  reported by ``sprite-exec --stats``; see :ref:`sprite-exec`.
-
-``GC=mps``
-  The Memory Pool System in place of the default collector, an experiment
-  behind a gate; the ``SPRITE_GC_*`` variables above change their meaning
-  under it.
-
-``GC_WRITE_COUNTERS=1``
-  The counters of the writes into old nodes (``SPRITE_GC_WRITE_COUNTERS``),
-  the four ``gc_old_*`` fields of ``--stats``.  They are part of the ABI
-  stamp, so a switch compiles every module again.
-
-``JOBS=N``, ``PREFIX=DIR``
-  The job count of the build and the directory of
-  ``make install``.
+Developer, test and build variables are in :doc:`/DevelopmentVariables`.

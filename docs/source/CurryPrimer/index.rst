@@ -1,19 +1,14 @@
 .. _curry-primer:
 
-============
 Curry Primer
 ============
 
-This primer provides an introduction to the type system, syntax, and
-semantics of Curry.  It assumes no prior knowledge of Functional Programming,
-Logic Programming, or Haskell.  The intention is that after reading this one
-will find the Sprite documentation comprehensible.
+This primer teaches a Python programmer enough Curry to read Sprite's
+examples and tests: syntax, types and the semantics of nondeterminism,
+free variables and set functions.
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Contents:
 
-   TypeSystem
    Syntax
+   TypeSystem
    Semantics
-

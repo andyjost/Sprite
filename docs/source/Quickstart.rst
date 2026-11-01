@@ -2,13 +2,17 @@
 Quickstart
 ==========
 
-After :doc:`Installation/Installation`, spend five minutes with lessons 01 and
-02.  With the pip install, ``python -m curry`` and ``sprite-exec`` are on
-your path; from a checkout, run ``make stage`` and put ``install/bin`` on
-``PATH``.  Either command without a program starts the :doc:`Curry REPL
-<REPL>`; with a filename, either runs that program.  Start Python from ``examples/`` for the Python API examples
-below.  For the rest of the tour, continue with :doc:`PythonAPI/UsingTheAPI`;
-:doc:`Examples` is the catalogue.
+After :doc:`Installation/Installation`, spend five minutes with lessons 01
+and 02.
+
+- Clone the repository to get ``examples/``.
+- With pip, use the Python that holds ``curry``. From a checkout, run
+  ``make stage`` and put ``install/bin`` on ``PATH``.
+- Start Python in ``examples/`` for the transcripts below.
+
+With pip, run ``python go.py`` in each lesson's directory. ``./run`` uses
+a staged checkout. Continue with :doc:`PythonAPI/UsingTheAPI` for the
+rest of the tour; :doc:`Examples` is the catalog.
 
 1. Hello, both ways
 ===================
@@ -17,8 +21,8 @@ The first lesson's small module accepts a Python value and returns one:
 
     >>> import curry
     >>> curry.path.insert(0, '01-run-with-python')
-    >>> from curry.lib import Hello
-    >>> curry.eval(Hello.greet('Python')).one()
+    >>> from curry.lib import Hello as H
+    >>> curry.eval(H.greet('Python')).one()
     'Hello, Python!'
 
 Run ``./run`` in ``examples/01-run-with-python`` for the complete

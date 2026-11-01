@@ -81,7 +81,8 @@ Where to go next
 
 For Curry researchers: Sprite uses the Curry front end of PAKCS and ships
 the ``base`` library of PAKCS 3.10.0, so most programs written for PAKCS
-run unchanged; :doc:`Status` lists what differs.  The `Curry homepage`_
+run unchanged; :doc:`CommandLineInterface/sprite-exec` runs a program, the
+:doc:`REPL <REPL>` opens a prompt and :doc:`Status` lists what differs.  The `Curry homepage`_
 has the tutorial and the report of the language, and the `live demo`_
 runs Curry in a browser.
 
@@ -102,7 +103,6 @@ runs Curry in a browser.
    CompilationOptions
    REPL
    CommandLineInterface/index
-   Introduction/Introduction
 
 .. toctree::
    :maxdepth: 1
@@ -118,14 +118,16 @@ runs Curry in a browser.
    :maxdepth: 1
    :caption: Project
 
+   ReleaseNotes
+   Support
+   Contributing
    DeveloperSetup
    DeveloperNotes
+   CompilationPipeline
+   DevelopmentVariables
    Introduction/ProjectLayout
-   Contributing
-   Support
    License
-   ReleaseNotes
-   Preface
+   Acknowledgements
 
 .. _Curry: https://www.curry-lang.org/
 .. _dissertation: https://doi.org/10.15760/etd.3564
