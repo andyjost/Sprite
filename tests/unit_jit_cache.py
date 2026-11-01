@@ -225,6 +225,116 @@ print(json.dumps(dict(ok=True)))
         str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, text=True))
 
+  def run_code(self, body):
+    code = CHILD[:CHILD.index('M = curry.import_(source)')] + body
+    return self.result(subprocess.Popen([sys.executable, '-c', code, 'all', 'hot',
+        str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, text=True))
+
+  def test_unexpected_resolver_exception_warns_once(self):
+    self.child('eager')
+    self.run_code("""
+M = curry.import_(source)
+context = llvmjit._jit.modules[M.fib.info.address]
+original = context.resolve
+def unexpected(name):
+  if name == 'Cached.fib':
+    raise AttributeError('unexpected hook failure')
+  return original(name)
+with mock.patch.object(context, 'resolve', side_effect=unexpected) as resolve, mock.patch.object(llvmjit.logger, 'warning') as warning:
+  for _ in range(2):
+    assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
+  assert llvmjit._resolve_cached(M.fib.info.address) == 0
+assert [call.args[0] for call in resolve.call_args_list].count('Cached.fib') == 1
+assert warning.call_count == 1
+assert 'Cached.fib' in context.failed
+assert not rt.icurry_is_jit(M.fib.info)
+print(json.dumps(dict(ok=True)))
+""")
+
+  def test_binding_rejects_invalid_hook_result_and_exception(self):
+    self.child('eager')
+    for result in ('None', "(_ for _ in ()).throw(AttributeError('bad hook'))"):
+      self.run_code("""
+M = curry.import_(source)
+hook = mock.Mock(side_effect=lambda address: RESULT)
+def resolve(address):
+  return hook(address) if address == M.fib.info.address else llvmjit._resolve_cached(address)
+rt.icurry_set_cache_hook(resolve)
+for _ in range(2):
+  assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
+assert hook.call_count == 1
+assert not rt.icurry_is_jit(M.fib.info)
+print(json.dumps(dict(ok=True)))
+""".replace('RESULT', result))
+
+  def test_failed_resolution_recompiled_by_hot_batch(self):
+    self.child('eager')
+    self.run_code("""
+M = curry.import_(source)
+context = llvmjit._jit.modules[M.fib.info.address]
+obj = context.object_for('Cached.fib')[1]
+with mock.patch.object(obj, 'read', side_effect=ValueError('corrupt JIT object')):
+  assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
+  assert not rt.icurry_is_jit(M.fib.info)
+  with llvmjit._lock:
+    llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib')], post=True)
+rt.icurry_apply_posted()
+assert rt.icurry_is_jit(M.fib.info)
+assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
+objects = llvmjit._read_cache(context.local, context.key)
+names = [records[0][0] for records, obj in objects]
+assert names.count('Cached.fib') == 1
+print(json.dumps(dict(ok=True)))
+""")
+    self.assertTrue(self.child()['jitted'])
+
+  def test_replacement_after_attachment_preserves_resolution_and_publication(self):
+    self.child('off')
+    self.run_code("""
+M = curry.import_(source)
+llvmjit.compile(M.fib.info, 'Cached.fib')
+print(json.dumps(dict(ok=True)))
+""")
+    publisher = CHILD[:CHILD.index('M = curry.import_(source)')] + """
+M = curry.import_(source)
+llvmjit.compile(M.message.info, 'Cached.message')
+"""
+    self.run_code("""
+import subprocess
+M = curry.import_(source)
+context = llvmjit._jit.modules[M.fib.info.address]
+old = context.index
+subprocess.run([sys.executable, '-c', PUBLISHER, 'all', 'hot', source, ''], check=True)
+assert old.stream.fileno() >= 0
+assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
+assert rt.icurry_is_jit(M.fib.info)
+assert 'Cached.fib' not in context.failed
+llvmjit.compile(M.main.info, 'Cached.main')
+objects = llvmjit._read_cache(context.local, context.key)
+assert {records[0][0] for records, obj in objects} == {'Cached.fib', 'Cached.message', 'Cached.main'}
+print(json.dumps(dict(ok=True)))
+""".replace('PUBLISHER', repr(publisher)))
+
+  def test_touched_envelope_merges_verified_functions(self):
+    self.child('eager')
+    path = self.object()
+    stat = path.stat()
+    os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 4000000000))
+    self.run_code("""
+import os
+M = curry.import_(source)
+context = llvmjit._jit.modules[M.fib.info.address]
+assert not context.cached
+llvmjit.compile(M.fib.info, 'Cached.fib')
+objects = llvmjit._read_cache(context.local, context.key)
+assert {records[0][0] for records, obj in objects} >= {'Cached.fib', 'Cached.message', 'Cached.bad', 'Cached.main'}
+assert os.stat(context.local).st_mtime_ns % 2000000000 == 0
+assert all(llvmjit._object_bytes(obj) for records, obj in objects)
+print(json.dumps(dict(ok=True)))
+""")
+    self.assertEqual(self.child('eager')['compiled'], 0)
+
   def test_stage_switch_skips_fill(self):
     import importlib.util
     root = pathlib.Path(__file__).resolve().parent.parent

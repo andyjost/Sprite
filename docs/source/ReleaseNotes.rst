@@ -9,8 +9,8 @@ Release Notes
   extra ``curry[jit]``) or the C++ compiler. ``jit`` selects ``off``,
   ``eager`` or ``hot`` (default); ``jit_backend`` selects ``auto``,
   ``llvm`` or ``cxx``. Hot swaps run at a scheduler safepoint.
-  ``interpret:tiered`` is retired; ``interpret:new`` is the default
-  on every platform and current ahead-of-time objects still load.
+  ``interpret:tiered`` is retired; ``interpret:new``
+  is the default (``all`` on Windows); current ahead-of-time objects still load.
 - The cached code of a function links at its first call, from one native
   object per function in the envelope; a start reads the index alone. CI
   fills the library's cache in one job (``SPRITE_STAGE_JIT_CACHE=0`` skips

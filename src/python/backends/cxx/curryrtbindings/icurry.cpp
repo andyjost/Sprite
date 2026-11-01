@@ -231,9 +231,24 @@ namespace
   stepfunc_type resolve_cached(InfoTable const * info)
   {
     py::gil_scoped_acquire gil;
-    auto address = (*g_cache_callback)(reinterpret_cast<std::uintptr_t>(info))
-        .cast<std::uintptr_t>();
-    return reinterpret_cast<stepfunc_type>(address);
+    try
+    {
+      auto address = (*g_cache_callback)(reinterpret_cast<std::uintptr_t>(info))
+          .cast<std::uintptr_t>();
+      return reinterpret_cast<stepfunc_type>(address);
+    }
+    catch(py::error_already_set & exc)
+    {
+      if(exc.matches(PyExc_KeyboardInterrupt) || exc.matches(PyExc_SystemExit))
+        throw;
+      exc.restore();
+      PyErr_Clear();
+    }
+    catch(py::cast_error const &)
+    {}
+    catch(std::exception const &)
+    {}
+    return nullptr;
   }
 
   void icurry_set_step_(InfoTable * info, std::uintptr_t address)

@@ -340,11 +340,11 @@ reproducers pass.
 The LLVM JIT envelope holds a list of independent per-function objects.
 Attachment reads only the index, checking key, size and mtime. A resolving
 step verifies and links one object on first call; eager mode resolves at
-load. Later hot batches append and link one object per function; cached functions are not
-re-optimized. The local JIT slot belongs to the image actually attached,
-including a private image for a foreign inline budget. A writer checks that
-the slot still holds that image before replacing another key. Only an
-unwritable attached-image directory uses
+load. Later hot batches append and link one object per function; cached
+functions are not re-optimized. The local JIT slot belongs to the image
+actually attached, including a private image for a foreign inline budget.
+A writer checks that the slot still holds that image before replacing
+another key. Only an unwritable attached-image directory uses
 `SPRITE_JIT_CACHE/<Full.Name>/<key>.jit`, with one generation per module.
 `SPRITE_STAGE_JIT_CACHE=0` skips the library fill; CI enables it in one
 default C++ shard only.

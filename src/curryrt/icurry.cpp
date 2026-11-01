@@ -414,7 +414,7 @@ namespace curryrt
   {
     if(!info || !step)
       throw std::invalid_argument("icurry_set_step: a null argument");
-    if(info->step != &icurry_step && info->step != &icurry_cached_step)
+    if(!is_interpreted_step(info->step))
       throw std::invalid_argument(
           std::string("icurry_set_step: ") + info->name + " is not interpreted"
         );
@@ -430,8 +430,7 @@ namespace curryrt
     // A table can be reused by a module compiled ahead of time or by the C++
     // compiler backend after an LLVM incarnation.
     // Such a step has no bytecode; the old membership alone is insufficient.
-    if(!info || !info->step || !info->aux || info->step == &icurry_step
-        || info->step == &icurry_cached_step)
+    if(!info || !info->step || !info->aux || is_interpreted_step(info->step))
       return false;
     std::lock_guard<std::mutex> lock(g_jit_mutex);
     return g_jit_steps.count(info) != 0;
@@ -471,8 +470,7 @@ namespace curryrt
     for(auto const & entry: posted)
     {
       // A table swapped meanwhile, or never interpreted, keeps its step.
-      if(entry.first->step != &icurry_step
-          && entry.first->step != &icurry_cached_step)
+      if(!is_interpreted_step(entry.first->step))
         continue;
       {
         std::lock_guard<std::mutex> lock(g_jit_mutex);
@@ -510,8 +508,7 @@ namespace curryrt
 
   Bytecode const * icurry_bytecode(InfoTable const * info)
   {
-    if(info && (info->step == &icurry_step || info->step == &icurry_cached_step
-        || icurry_is_jit(info)))
+    if(info && (is_interpreted_step(info->step) || icurry_is_jit(info)))
       return (Bytecode const *) info->aux;
     return nullptr;
   }

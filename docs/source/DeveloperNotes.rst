@@ -432,7 +432,12 @@ length, followed by a compact ASCII JSON index and a list of objects from
 ``TargetMachine.emit_object``. The index holds the cache key and each
 object's size, SHA-256 digest and one record of function name, exported step
 symbol and constant-slot indices. The header also records the envelope's
-size and nanosecond modification time. It carries no addresses or paths.
+size and modification time: an even whole second expressed in nanoseconds,
+which survives installation copies and FAT32's two-second resolution. A copy
+that does not preserve this time misses at attachment; a later publication
+merges same-key objects only after verifying their digests. An attached
+index pins an open POSIX file descriptor, so replacement by another process
+does not invalidate unresolved objects. It carries no addresses or paths.
 
 Each bytecode constant used by a function is an external LLVM symbol,
 named by the function's digest and the slot index. On first use the loader

@@ -294,6 +294,8 @@ class _JIT(object):
         address = context.resolve(name)
         if address:
           swap(info, address)
+        else:
+          uncached.append((info, name))
       else:
         uncached.append((info, name))
     items = uncached
@@ -430,16 +432,14 @@ def _cache_key(jit, header):
 
 class _Object:
   '''An indexed object; native bytes are read and verified only on demand.'''
-  def __init__(self, path, offset, entry, stamp):
-    self.path, self.offset, self.entry, self.stamp = path, offset, entry, stamp
+  def __init__(self, index, offset, entry):
+    self.index, self.offset, self.entry = index, offset, entry
+    self.path = index.path
 
   def read(self):
-    with open(self.path, 'rb') as stream:
-      st = os.fstat(stream.fileno())
-      if (st.st_size, st.st_mtime_ns) != self.stamp:
-        raise ValueError('JIT cache changed since attachment')
-      stream.seek(self.offset)
-      obj = stream.read(self.entry['size'])
+    # POSIX only: persistence is disabled on Windows. The open descriptor
+    # pins this generation even when another publisher replaces its path.
+    obj = os.pread(self.index.stream.fileno(), self.entry['size'], self.offset)
     if (len(obj) != self.entry['size']
         or hashlib.sha256(obj).hexdigest() != self.entry['digest']):
       raise ValueError('corrupt JIT object')
@@ -452,13 +452,13 @@ def _object_bytes(obj):
 
 class _IndexedObjects:
   '''Decoded entries, without per-function file views until they are used.'''
-  def __init__(self, path, entries, stamp):
-    self.path, self.entries, self.stamp = path, entries, stamp
+  def __init__(self, path, entries, stream):
+    self.path, self.entries, self.stream = path, entries, stream
     self.extra = []
 
   def view(self, entry):
     return (entry['functions'],
-        _Object(self.path, entry['_offset'], entry, self.stamp))
+        _Object(self, entry['_offset'], entry))
 
   def __iter__(self):
     for entry in self.entries:
@@ -472,36 +472,49 @@ class _IndexedObjects:
     self.extra.append(pair)
 
 
-def _read_cache(path, key):
-  with open(path, 'rb') as stream:
+def _read_cache(path, key, check_identity=True):
+  stream = open(path, 'rb')
+  try:
     magic, size = _CACHE_PREFIX.unpack(stream.read(_CACHE_PREFIX.size))
     if magic != _CACHE_MAGIC or size > 16 * 1024 * 1024:
       raise ValueError('invalid JIT cache header')
     index = json.loads(stream.read(size))
     st = os.fstat(stream.fileno())
-  if index['key'] != key:
-    raise ValueError('stale JIT object')
-  if (st.st_size, st.st_mtime_ns) != (index['size'], index['mtime_ns']):
-    raise ValueError('changed JIT envelope')
-  offset = _CACHE_PREFIX.size + size
-  names = set()
-  for entry in index['objects']:
-    records = entry['functions']
-    if len(records) != 1 or entry['size'] <= 0 or records[0][0] in names:
-      raise ValueError('invalid function object index')
-    names.add(records[0][0])
-    entry['_offset'] = offset
-    offset += entry['size']
-  if offset != st.st_size:
-    raise ValueError('invalid JIT payload size')
-  return _IndexedObjects(path, index['objects'], (st.st_size, st.st_mtime_ns))
-
+    if index['key'] != key:
+      raise ValueError('stale JIT object')
+    if check_identity and (st.st_size, st.st_mtime_ns) != (index['size'], index['mtime_ns']):
+      raise ValueError('changed JIT envelope')
+    offset = _CACHE_PREFIX.size + size
+    names = set()
+    for entry in index['objects']:
+      records = entry['functions']
+      if len(records) != 1 or entry['size'] <= 0 or records[0][0] in names:
+        raise ValueError('invalid function object index')
+      names.add(records[0][0])
+      entry['_offset'] = offset
+      offset += entry['size']
+    if offset != st.st_size:
+      raise ValueError('invalid JIT payload size')
+    return _IndexedObjects(path, index['objects'], stream)
+  except BaseException:
+    stream.close()
+    raise
 
 def _resolve_cached(address):
   jit = _jit
   with _lock:
     context = jit.modules.get(address)
-    return context.resolve(jit.names[address]) if context is not None else 0
+    if context is None:
+      return 0
+    name = jit.names[address]
+    if name in context.failed:
+      return 0
+    try:
+      return context.resolve(name)
+    except Exception as exc:
+      context.failed.add(name)
+      logger.warning('jit cache: function %s stays interpreted: %s', name, exc)
+      return 0
 
 
 class _CachedModule:
@@ -570,7 +583,7 @@ class _CachedModule:
 
   def load(self, jit):
     # Reuse the index and linked code across resets. Unresolved objects
-    # retain their file identity and are still verified at materialization.
+    # retain their pinned generation and are verified at materialization.
     objects = jit.object_generations.get(self.key)
     if objects is None:
       paths = [self.local]
@@ -602,35 +615,22 @@ class _CachedModule:
   def store(self):
     from ...toolchain import _productlock
     from . import image
+    # New code replaces a failed cached object of the same function. Drop
+    # duplicates before reading, since the older object may be corrupt.
+    latest = {records[0][0]: (records, obj) for records, obj in self.objects}
     try:
-      objects = [(records, _object_bytes(obj)) for records, obj in self.objects]
+      objects = [(records, _object_bytes(obj)) for records, obj in latest.values()]
     except (OSError, ValueError) as exc:
       logger.debug('jit cache: cannot preserve module %s: %s', self.name, exc)
       return
     self.objects = objects
-    # Publication changes the file identity. Preserve verified bytes for
-    # still-unresolved cached functions before replacing their envelope.
     for records, obj in objects:
       name = records[0][0]
       if name in self.cached:
         self.cached[name] = (records, obj)
     self.index = None
-    entries = [dict(functions=records, size=len(obj),
-        digest=hashlib.sha256(obj).hexdigest()) for records, obj in objects]
-    # Whole seconds also round-trip on filesystems with coarse timestamps.
-    stamp = (time.time_ns() // 1000000000) * 1000000000
-    index = dict(key=self.key, objects=entries, size=0, mtime_ns=stamp)
-    payload = b''.join(obj for _, obj in objects)
-    while True:
-      encoded = json.dumps(index, sort_keys=True, separators=(',', ':')).encode('ascii')
-      size = _CACHE_PREFIX.size + len(encoded) + len(payload)
-      if size == index['size']:
-        break
-      index['size'] = size
-    data = _CACHE_PREFIX.pack(_CACHE_MAGIC, len(encoded)) + encoded + payload
     self.jit.object_generations[self.key] = self.objects
     self.jit.module_keys[self.name] = self.key
-    names = {r[0] for records, _ in self.objects for r in records}
     for path in (self.local, self.private):
       if path is None:
         continue
@@ -646,12 +646,36 @@ class _CachedModule:
           # A process must never overwrite a slot belonging to another image.
           if path == self.local and image.read(self.path) != self.header:
             continue
+          merged = {}
           try:
-            existing = _read_cache(path, self.key)
-            if {r[0] for records, _ in existing for r in records} >= names:
-              return
+            # A copy may lose its timestamp. Recover same-key objects only
+            # after verifying their digests; attachment remains index-only.
+            existing = _read_cache(path, self.key, check_identity=False)
+            try:
+              for records, obj in existing:
+                try:
+                  merged[records[0][0]] = (records, _object_bytes(obj))
+                except (OSError, ValueError):
+                  pass
+            finally:
+              existing.stream.close()
           except (OSError, ValueError, KeyError, TypeError, IndexError, struct.error):
             pass
+          merged.update({records[0][0]: (records, obj) for records, obj in objects})
+          objects = list(merged.values())
+          entries = [dict(functions=records, size=len(obj),
+              digest=hashlib.sha256(obj).hexdigest()) for records, obj in objects]
+          # Even seconds round-trip on FAT32 as well as whole-second filesystems.
+          stamp = (time.time_ns() // 2000000000) * 2000000000
+          index = dict(key=self.key, objects=entries, size=0, mtime_ns=stamp)
+          payload = b''.join(obj for _, obj in objects)
+          while True:
+            encoded = json.dumps(index, sort_keys=True, separators=(',', ':')).encode('ascii')
+            size = _CACHE_PREFIX.size + len(encoded) + len(payload)
+            if size == index['size']:
+              break
+            index['size'] = size
+          data = _CACHE_PREFIX.pack(_CACHE_MAGIC, len(encoded)) + encoded + payload
           # Writers in this directory use the same module lock. Only remove
           # temporaries whose creating process has gone away.
           for entry in os.scandir(directory):
@@ -675,7 +699,7 @@ class _CachedModule:
             for entry in os.scandir(directory):
               if entry.name.endswith('.jit') and entry.path != path:
                 os.unlink(entry.path)
-        logger.info('jit cache: module %s, stored %d functions', self.name, len(names))
+        logger.info('jit cache: module %s, stored %d functions', self.name, len(objects))
         return
       except (OSError, ValueError) as exc:
         logger.debug('jit cache: cannot store module %s: %s', self.name, exc)

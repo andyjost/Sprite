@@ -11,6 +11,7 @@
 #include "curryrt/graph/infotable.hpp"
 #include "curryrt/graph/memory.hpp"
 #include "curryrt/graph/node.hpp"
+#include "curryrt/module.hpp"
 
 // The ICurry interpreter of the runtime.
 //
@@ -174,6 +175,14 @@ namespace curryrt
   void icurry_set_cache_hook(cache_hook_type);
   void icurry_install_cached(std::vector<InfoTable *> const &);
   tag_type icurry_cached_step(RuntimeState *, Configuration *);
+
+  // All entries that can still execute bytecode or await compiled code.
+  inline bool is_interpreted_step(stepfunc_type step)
+  {
+    return step == &icurry_step || step == &icurry_cached_step
+        || step == &trap_step;
+  }
+
 
   // The hot tier.  A step counts the calls of its bytecode; at the
   // threshold (0 turns the count off) the function joins a list, which
