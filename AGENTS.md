@@ -187,9 +187,11 @@ reproducers pass.
   `-DWITH_CURRY_FRONTEND=PATH` to select tools. `make stage` is a thin
   configure/build/install wrapper, preserving the traditional tree.
 - `make stage` builds and stages a copy under `install/`. It also compiles
-  the Curry library into the installation for the C++ runtime. The modules
-  Sprite cannot compile are listed in `unsupported` in
-  `CMakeLists.txt`; they retain ICurry and interfaces; unresolved externals prevent executable images.
+  the Curry library into the installation for the C++ runtime. Every module
+  of the Curry library compiles and ships compiled.
+  The `unsupported` list in `CMakeLists.txt` is empty; its plumbing remains
+  available. Externals without a primitive in the runtime raise
+  `not implemented` at their call.
 - The module image records its ICurry digest, route, budget and import-image
   digests. The runtime loads the image; tools read ICurry text for bodies.
 - The products under `curry/lib/**/.curry/sprite-pakcs-3.10.0/` are

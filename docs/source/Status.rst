@@ -19,14 +19,15 @@ the body are captured, choices in arguments stay outside and duplicates
 are kept. The search strategies they name are accepted and ignored:
 every search uses Sprite's scheduler and value order. ``rewriteAll`` and
 ``rewriteSome`` raise a not-implemented error.
-``Control.Search.SearchTree`` is not supported. Sprite provides weak
-encapsulation (:ref:`CurryPrimer/Semantics:Set functions`).
+``Control.Search.SearchTree`` compiles and builds its tree from ``allValues``;
+its externals have Curry alternatives under PAKCS.
+Sprite provides weak encapsulation (:ref:`CurryPrimer/Semantics:Set functions`).
 
-The following library modules import, but calling an unimplemented
-primitive fails: ``Curry.Compiler.Distribution``, ``Data.IORef``,
-``Debug.Trace``, ``System.CPUTime``, ``System.Environment``, ``System.IO``,
-``System.IO.Unsafe``, ``Test.Prop``, ``Test.Prop.Types`` and
-``Control.Search.SearchTree``.
+Every module of the Curry library compiles, ships compiled and imports.
+Externals without a primitive in the runtime raise ``not implemented`` at
+their call: ``System.IO``, ``System.IO.Unsafe``,
+``Curry.Compiler.Distribution``, ``System.Environment``,
+``Data.IORef`` and ``System.CPUTime``.
 
 How code runs
 =============

@@ -27,6 +27,13 @@ def installed_file(name, suffix):
 class TestStagedLibrary(cytest.TestCase):
   '''The products that make stage leaves in the installation.'''
 
+  def test_supported_filter(self):
+    self.assertEqual(config.unsupported_syslibs(), [])
+    self.assertEqual(config.supported_syslibs(), config.syslibs())
+    with mock.patch.object(config, 'unsupported_syslibs', return_value=['System.IO']):
+      self.assertEqual(config.supported_syslibs(),
+          [name for name in config.syslibs() if name != 'System.IO'])
+
   def test_pinned_products_match_selected_grammar(self):
     """The current stage installs runtime-route pins and their provenance."""
     pins = sorted((Path(SOURCE_ROOT) / 'curry/lib').rglob('*.icy'))

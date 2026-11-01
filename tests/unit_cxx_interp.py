@@ -334,7 +334,8 @@ class TestEmitter(cytest.TestCase):
     code = bytecode.compile_function(ifun, Resolver())
     self.assertEqual(names(code), ['MAKE_STRING', 'RET_NODE'])
     self.assertEqual(code.consts[1], 'sym:Prelude.prim_error')
-    self.assertIn('not defined', code.consts[0][1])
+    self.assertEqual(code.consts[0][1],
+        'M.f: not implemented (no primitive in the runtime)')
     ifun = icurry.IFunction('M.f', 1, body=icurry.IBuiltin())
     self.assertRaisesRegex(
         CompileError, 'built-in', bytecode.compile_function, ifun, Resolver()

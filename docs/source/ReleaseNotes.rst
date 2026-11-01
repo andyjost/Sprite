@@ -5,6 +5,10 @@ Release Notes
 0.9.0a3 (2026-11-01)
 ====================
 
+- Every module of the Curry library ships compiled. An external function
+  without a primitive in the runtime raises ``not implemented`` at its call;
+  before, eight modules failed at import.
+
 - ``curry.solve`` reports every held variable used in the goal, including
   unnamed variables under display names such as ``_a``.
 
