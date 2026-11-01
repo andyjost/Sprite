@@ -209,6 +209,8 @@ class CxxCompiler(compiler.CompilerBase):
     # retain their import attribute; other modules are bound through slots.
     if self.vIsBuiltin(iobj):
       return 'CURRYRT_DATA '
+    # An unresolved IExternal in this module has a generated error step.
+    # Only symbols owned by another module lack our export attribute.
     return '' if self.isExternal(iobj) else 'SPRITE_MODULE_EXPORT '
 
   def vEmitInfotabLink(self, isym, h_info):
@@ -279,7 +281,7 @@ class CxxCompiler(compiler.CompilerBase):
       , 'constructor table for %r' % itype.fullname
       )
     yield 'static InfoTable const * %s[] = { %s };' % (
-        h_ctortable, ', '.join('&%s' % h for h in ctor_handles)
+        h_ctortable, ', '.join('&%s' % h for h in ctor_handles) or 'nullptr'
       )
     self.symtab.make_defined(h_ctortable)
     yield 'SPRITE_MODULE_EXPORT DataType const %s { %s, %r, %r, F_STATIC_OBJECT, %s };' % (

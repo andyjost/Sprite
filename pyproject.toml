@@ -23,12 +23,13 @@ classifiers = [
   "Programming Language :: C++",
   "Operating System :: POSIX :: Linux",
   "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
 ]
 
 [project.optional-dependencies]
-# The JIT of the C++ backend (the flag jit; issue #65): LLVM through
-# llvmlite, about 60 MB per wheel.  Without it the interpreter and the
-# compiled mode run as before.
+# The LLVM backend of the JIT (the flag jit; issue #65) through llvmlite,
+# a heavy package that has no wheel for every platform; without it the
+# interpreter and the C++ compiler backend serve.
 jit = ["llvmlite>=0.50"]
 
 [project.urls]

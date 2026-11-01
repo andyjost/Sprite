@@ -523,19 +523,16 @@ class CompilerBase(abc.ABC):
       linesF.extend(self.vEmitSynthesizedStepfunc(ifun, h_stepfunc))
     else:
       try:
-        return self.compileF(ifun.body, h_stepfunc, linesF)
+        body = ifun.body
+        if ifun.is_external:
+          msg = '%s: not implemented (no primitive in the runtime)' % ifun.fullname
+          body = icurry.IBody(icurry.IReturn(icurry.IFCall(
+              'Prelude.prim_error', [icurry.IString(msg)])))
+        return self.compileF(body, h_stepfunc, linesF)
       except CompileError as e:
         raise CompileError(
             'failed to compile function %r: %s' % (ifun.fullname, e)
           )
-
-  @compileF.when(icurry.IExternal)
-  def compileF(self, iexternal, h_stepfunc, linesF):
-    msg = 'external function %r is not defined' % iexternal.symbolname
-    logger.warning(msg)
-    stmt = icurry.IReturn(icurry.IFCall('Prelude.prim_error', [msg]))
-    body = icurry.IBody(stmt)
-    self.compileF(body, h_stepfunc, linesF)
 
   @compileF.when(icurry.IBody)
   def compileF(self, ibody, h_stepfunc, linesF):

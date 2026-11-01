@@ -26,6 +26,11 @@ def script(name):
   return module
 
 
+# The Requires-Dist lines of the wheels and the sdist, in order: the front
+# end and the extra jit (llvmlite).
+REQUIREMENTS = ('curry-frontend>=3.1.0', 'llvmlite>=0.50; extra == "jit"')
+
+
 class TestDistribution(cytest.TestCase):
   def test_windows_wheel_rejects_transient_objects(self):
     repair = script('repair')
@@ -81,6 +86,7 @@ class TestDistribution(cytest.TestCase):
     self.assertTrue((ROOT / project['readme']).is_file())
     self.assertEqual(set(project['urls']), {'Homepage', 'Documentation', 'Source', 'Issues'})
     self.assertEqual(project['dependencies'], ['curry-frontend>=3.1.0'])
+    self.assertEqual(project['optional-dependencies'], {'jit': ['llvmlite>=0.50']})
     self.assertEqual(data['build-system']['requires'],
         ['scikit-build-core>=1.1', 'cmake>=3.24', 'ninja'])
     for name in project['license-files']:
@@ -114,9 +120,8 @@ class TestDistribution(cytest.TestCase):
         metadata = BytesParser().parsebytes(archive.extractfile(prefix + 'PKG-INFO').read())
         self.assertEqual(metadata['Author'], 'Andy Jost')
         self.assertIsNone(metadata['Author-email'])
-        # The extra jit (llvmlite) beside the front end the package needs.
-    self.assertEqual(metadata.get_all('Requires-Dist'),
-        ['curry-frontend>=3.1.0', 'llvmlite>=0.50; extra == "jit"'])
+        # The front end the package needs, and the extra jit (llvmlite).
+    self.assertEqual(metadata.get_all('Requires-Dist'), list(REQUIREMENTS))
     self.assertEqual(metadata.get_all('Provides-Extra'), ['jit'])
 
   def test_stage_without_frontend(self):
@@ -183,7 +188,7 @@ else:
       self.assertIn('no Curry front end found;', result.stdout)
       run(python, ROOT / 'scripts/wheels/smoke.py')
 
-  REQUIREMENTS = ('curry-frontend>=3.1.0', 'llvmlite>=0.50; extra == "jit"')
+  REQUIREMENTS = REQUIREMENTS
 
   def distributions(self, directory, requirements=REQUIREMENTS):
     '''A matrix fixture for testing the publication gate, without native code.'''
@@ -199,6 +204,8 @@ else:
         path = Path(directory) / f'curry-0.9.0a3-{py}-{abi}-{tag}.whl'
         with zipfile.ZipFile(path, 'w') as archive:
           archive.writestr('curry-0.9.0a3.dist-info/METADATA', metadata)
+          archive.writestr('curry/_sprite/lib/curryrt-helpers.bc', b'BC')
+          archive.writestr('curry/_sprite/sysconfig/jit_bitcode', 'lib/curryrt-helpers.bc\n')
         path.with_suffix(suffix).write_text('Report fixture\n')
     with tarfile.open(Path(directory) / 'curry-0.9.0a3.tar.gz', 'w:gz') as archive:
       for name in gate.SDIST_FILES:
@@ -230,8 +237,22 @@ else:
       with self.assertRaisesRegex(AssertionError, 'thirty wheels'):
         gate.check(directory, '0.9.0a3')
 
+  def test_missing_jit_bitcode(self):
+    '''A wheel without the bitcode of the JIT helpers fails the gate.'''
+    with tempfile.TemporaryDirectory() as directory:
+      gate = self.distributions(directory)
+      path = next(Path(directory).glob('*-cp312-cp312-manylinux_2_28_aarch64.whl'))
+      with zipfile.ZipFile(path) as archive:
+        entries = [(info.filename, archive.read(info.filename)) for info in archive.infolist()]
+      with zipfile.ZipFile(path, 'w') as archive:
+        for name, data in entries:
+          if name != 'curry/_sprite/lib/curryrt-helpers.bc':
+            archive.writestr(name, data)
+      with self.assertRaisesRegex(AssertionError, 'no bitcode of the JIT helpers'):
+        gate.check(directory, '0.9.0a3')
+
   def test_runtime_dependencies(self):
-    for requirements in [(), ('curry-frontend>=3.1.0', 'uv')]:
+    for requirements in [(), ('curry-frontend>=3.1.0', 'uv'), REQUIREMENTS[:1]]:
       with self.subTest(requirements=requirements):
         with tempfile.TemporaryDirectory() as directory:
           gate = self.distributions(directory, requirements=requirements)
