@@ -93,10 +93,29 @@ class Main(object):
       parser.add_argument( 'NAME', nargs='?', default=None, type=str
         , help='a Curry file name (default) or module name to run; '
                'omitted: start the Curry REPL')
+    parser.add_argument("program_arguments", nargs=argparse.REMAINDER)
     return parser
 
   def parseArgs(self, argv):
     args = self.parser.parse_args(argv)
+    # Preserve tool options immediately after NAME, before runtime arguments.
+    # An explicit -- or the first runtime argument ends tool option parsing.
+    remainder = args.program_arguments
+    prefix, destinations = [], set()
+    while remainder and remainder[0] != '--':
+      option = remainder[0].split('=', 1)[0]
+      action = self.parser._option_string_actions.get(option)
+      if action is None:
+        break
+      count = 1 if action.nargs == 0 or '=' in remainder[0] else 2
+      prefix.extend(remainder[:count])
+      remainder = remainder[count:]
+      destinations.add(action.dest)
+    if prefix:
+      options = self.parser.parse_args(prefix)
+      for destination in destinations:
+        setattr(args, destination, getattr(options, destination))
+    args.program_arguments = remainder[1:] if remainder[:1] == ['--'] else remainder
     args.goal = args.goal or None
     return args
 
@@ -139,6 +158,8 @@ class Main(object):
       module = curry.import_(
           args.NAME, path=curry.path
         )
+      curry.program_arguments = args.program_arguments
+      curry.program_name = curry.info(module).name
       if args.goal is not None:
         # A saved program may carry the scheme without an interface.
         try:

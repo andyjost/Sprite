@@ -251,6 +251,8 @@ namespace curryrt
       auto visibility = r.word();
       auto md = r.metadata(*bom);
       auto info = owner.get_builtin_symbol(name);
+      if(!info && (flags & F_BUILTIN))
+        Reader::fail(("unresolved primitive: " + owner.name + "." + name).c_str());
       if(!info) info = owner.get_infotable(name);
       if(!info && attach_code) info = owner.create_infotable(name, arity, T_FUNC, flags);
       if(!info) Reader::fail("missing summary function");

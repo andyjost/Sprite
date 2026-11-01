@@ -149,7 +149,7 @@ reproducers pass.
   `curryrt.register_primitive(name, arity, callable, monadic)` bridges to Python
   where no C++ standard exists (arguments and hostname first). Distribution,
   CPUTime, Environment and IORef have their primitives. IORef fields stay lazy
-  and mutate through the collector-aware successor write path. See "Primitives"
+  and writes go through `Variable::set_successor`. See "Primitives"
   in the developer notes for the interface and exception rules.
 - The construction of a term from Python is typed
   (`src/python/typecheck/builder.py`): `curry.term(value, type=...)`

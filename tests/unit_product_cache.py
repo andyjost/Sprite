@@ -545,7 +545,7 @@ class TestCompile(ProductCacheTestCase):
       , cytest.readfile(self.cached_file(name, '.so.abi'))
       )
     self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 1})
-    # The facts of the key name the format, the generator, the optimizer,
+    # The facts name the format, registry, generator and optimizer,
     # the budget and the route.  No fact names a tree: the installation and
     # the source directory left the key when the objects stopped naming
     # them (format 13), so a second tree is served (test_hit_in_another_tree).
@@ -553,7 +553,7 @@ class TestCompile(ProductCacheTestCase):
     heads = [fact.split()[0] for fact in facts]
     self.assertEqual(
         heads
-      , ['format', 'generator', 'optimizers', 'inline_budget', 'subdir', 'frontend']
+      , ['format', 'registry', 'generator', 'optimizers', 'inline_budget', 'subdir', 'frontend']
       )
     for fact in facts:
       self.assertNotIn(self.toolchain.installation_path(), fact)

@@ -21,8 +21,14 @@ from collections.abc import Collection, Iterable, Iterator, Mapping, Sequence
 from os import PathLike
 from typing import Any, ClassVar, Final, NamedTuple, NoReturn, TypeAlias, TypeVar, final
 
+# Runtime arguments and name; defaults are sys.argv[1:] and sys.argv[0].
+program_arguments: list[str]
+program_name: str
+
 __all__ = [
-    'import_'
+    'program_arguments'
+  , 'program_name'
+  , 'import_'
   , 'compile'
   , 'reload'
   , 'reset'

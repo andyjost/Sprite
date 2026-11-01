@@ -27,6 +27,15 @@ sharing = do r <- newIORef (1 :: Int)
              writeIORef r (x + 1)
              y <- readIORef r
              return (x,y)
+modified :: IO Int
+modified = do r <- newIORef (3 :: Int)
+              modifyIORef r (+ 4)
+              readIORef r
+freeRef :: Int -> IO Int
+freeRef n = do r <- newIORef x
+               y <- readIORef r
+               return (if y =:= n then y else failed)
+  where x free
 opaque :: IO (IORef Int)
 opaque = newIORef (error "reference field forced")
 '''
@@ -61,6 +70,7 @@ class TestPrimitives(cytest.TestCase):
         ('increment', 1, increment, False),
         ('echo', 1, lambda x: x, False),
         ('text', 1, lambda x: x, False),
+        ('character', 1, lambda x: x, False),
         ('pair', 1, lambda x: x, False),
         ('floating', 1, lambda x: x, False),
         ('boolean', 1, lambda x: x, False),
@@ -108,7 +118,7 @@ class TestPrimitives(cytest.TestCase):
     finally:
       if old is not None:
         curry.eval(E.setEnv(key, old)).one()
-    with self.assertRaises(EvaluationError):
+    with self.assertRaisesRegex(EvaluationError, 'bad=name'):
       curry.eval(E.setEnv('bad=name', 'value')).one()
     self.assertEqual(curry.eval(E.isWindows).one(), sys.platform == 'win32')
     self.assertEqual(curry.eval(E.getArgs).one(), sys.argv[1:])
@@ -120,6 +130,8 @@ class TestPrimitives(cytest.TestCase):
     M = curry.compile(REF_PROGRAM)
     self.assertEqual(sorted(curry.eval(M.main)), [40, 42])
     self.assertEqual(curry.eval(M.sharing).one(), (1, 2))
+    self.assertEqual(curry.eval(M.modified).one(), 7)
+    self.assertEqual(curry.eval(M.freeRef(7)).one(), 7)
     ref = curry.eval(M.opaque).one()
     self.assertEqual(curry.show(ref), '<IORef>')
     self.assertIn('<IORef>', str(ref._node))
@@ -134,6 +146,8 @@ echo :: [Int] -> [Int]
 echo external
 text :: String -> String
 text external
+character :: Char -> Char
+character external
 pair :: (Int, Bool) -> (Int, Bool)
 pair external
 floating :: Float -> Float
@@ -162,6 +176,8 @@ recovered = catch brokenIO (\\_ -> return 7)
     self.assertEqual(curry.eval(R.increment(2 ** 80)).one(), 2 ** 80 + 1)
     self.assertEqual(curry.eval(R.echo([1, 2, 3])).one(), [1, 2, 3])
     self.assertEqual(curry.eval(R.text('abc\u00e4')).one(), 'abc\u00e4')
+    self.assertEqual(curry.eval(R.text('')).one(), '')
+    self.assertEqual(curry.eval(R.character(curry.Char('a'))).one(), 'a')
     self.assertEqual(curry.eval(R.pair((3, True))).one(), (3, True))
     self.assertEqual(curry.eval(R.floating(1.25)).one(), 1.25)
     self.assertEqual(curry.eval(R.boolean(True)).one(), True)
@@ -217,19 +233,6 @@ loop n = if n == 0 then return () else getProgName >> loop (n-1)
 ''')
       count = 1000
       curry.eval(M.loop(1)).one()
-      class CountingArgs(list):
-        reads = 0
-        def __getitem__(self, index):
-          self.reads += 1
-          return super().__getitem__(index)
-      original = sys.argv
-      tracked = CountingArgs(original or ['primitive-test'])
-      try:
-        sys.argv = tracked
-        curry.eval(M.loop(count)).one()
-      finally:
-        sys.argv = original
-      self.assertEqual(tracked.reads, count)
       begin = time.perf_counter()
       curry.eval(M.loop(count)).one()
       elapsed = time.perf_counter() - begin
@@ -244,7 +247,7 @@ loop n = if n == 0 then return () else getProgName >> loop (n-1)
     with self.assertRaises(TypeError):
       curryrt.register_primitive('Test.bad', 0, None)
     with self.assertRaises(ValueError):
-      curryrt.register_primitive('RegisteredPrimitives.increment', 1, increment)
+      curryrt.register_primitive('RegisteredPrimitives.increment', 2, increment)
 
   def test_child_arguments(self):
     code = '''import curry, json
@@ -266,3 +269,99 @@ print(json.dumps([curry.eval(E.getProgName).one(), curry.eval(E.getArgs).one()])
             env=env, text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(sorted(map(int, result.stdout.split())), [40, 42])
+
+  def test_registration_replacement_and_late(self):
+    curry.reset()
+    curryrt.register_primitive('ReplacementPrimitive.f', 0, lambda: 1)
+    curryrt.register_primitive('ReplacementPrimitive.f', 0, lambda: 2)
+    M = curry.compile('module ReplacementPrimitive where\nf :: Int\nf external\n')
+    self.assertEqual(curry.eval(M.f).one(), 2)
+    with self.assertRaisesRegex(ValueError, 'register before the import'):
+      curryrt.register_primitive('ReplacementPrimitive.f', 0, lambda: 3)
+    curry.reset()
+    del M
+    import gc
+    gc.collect()
+    curryrt.register_primitive('ReplacementPrimitive.f', 0, lambda: 4)
+    M = curry.compile('module ReplacementPrimitive where\nf :: Int\nf external\n')
+    self.assertEqual(curry.eval(M.f).one(), 4)
+
+  def test_declared_result(self):
+    curryrt.register_primitive('WrongPrimitive.f', 0, lambda: 'wrong')
+    M = curry.compile('module WrongPrimitive where\nf :: Int\nf external\n')
+    with self.assertRaisesRegex(EvaluationError, 'declared type Int'):
+      curry.eval(M.f).one()
+
+  def test_command_arguments(self):
+    with tempfile.TemporaryDirectory() as directory:
+      source = Path(directory) / 'PrimitiveArguments.curry'
+      source.write_text('module PrimitiveArguments where\nimport System.Environment\n'
+          'main :: IO (String, [String])\n'
+          'main = do n <- getProgName; a <- getArgs; return (n,a)\n')
+      result = subprocess.run([config.sprite_exec(), str(source), 'first', 'two words'],
+          text=True, capture_output=True)
+      self.assertEqual(result.returncode, 0, result.stderr)
+      self.assertEqual(result.stdout.strip(), '("PrimitiveArguments",["first","two words"])')
+      M = curry.import_(str(source))
+      saved = str(Path(directory) / 'saved')
+      curry.save(M, saved, main='main')
+      result = subprocess.run([sys.executable, saved, 'first', 'two words'],
+          env=dict(os.environ, SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:new'),
+          text=True, capture_output=True)
+      self.assertEqual(result.returncode, 0, result.stderr)
+      self.assertEqual(result.stdout.strip(), '("PrimitiveArguments",["first","two words"])')
+
+  def test_cached_registration_missing(self):
+    with tempfile.TemporaryDirectory() as directory:
+      source = Path(directory) / 'CachedPrimitive.curry'
+      source.write_text('module CachedPrimitive where\nf :: Int\nf external\n')
+      create = """import curry, json, sys
+from curry.backends.cxx import curryrtbindings as rt, image
+from curry.objects.handle import getHandle
+curry.reset(interpret='off', jit='off')
+rt.register_primitive('CachedPrimitive.f', 0, lambda: 42)
+M = curry.import_(sys.argv[1])
+assert curry.eval(M.f).one() == 42
+from curry.backends.cxx.toolchain import input_record, Cpp2So
+assert 'registry ["f"]' in Cpp2So(curry._interpreter_).product_facts(sys.argv[1])
+assert input_record(curry._interpreter_, sys.argv[1])['registry'] == ['f']
+assert image.read(image.filename(sys.argv[1]))['registry'] == ['f']
+print(json.dumps([getHandle(M).sofilename, image.filename(sys.argv[1])]))
+"""
+      result = subprocess.run([sys.executable, '-c', create, str(source)],
+          text=True, capture_output=True)
+      self.assertEqual(result.returncode, 0, result.stderr)
+      paths = json.loads(result.stdout)
+      load = """import curry, sys
+from curry.backends.cxx import curryrtbindings as rt
+curry.reset(interpret='off', jit='off')
+curry.import_('Prelude')
+owner = rt.Module.find_or_create('CachedPrimitive')
+try:
+  if sys.argv[1] == 'image': rt.load_image(owner, sys.argv[2])
+  else: rt.SharedCurryModule(sys.argv[2])
+except Exception as error:
+  assert 'CachedPrimitive' in str(error) and 'f' in str(error), str(error)
+else:
+  raise AssertionError('unregistered primitive accepted')
+"""
+      for kind, path in zip(('object', 'image'), paths):
+        result = subprocess.run([sys.executable, '-c', load, kind, path],
+            text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+      # Normal imports must invalidate the cache and restore the external stub.
+      for mode in ('off', 'all'):
+        code = """import curry, sys
+curry.reset(interpret=sys.argv[2], jit='off')
+from curry.backends.cxx.toolchain import input_record, input_current
+record = input_record(curry._interpreter_, sys.argv[1])
+record['registry'] = ['f']
+assert not input_current(record, sys.argv[1], curry._interpreter_)
+M = curry.import_(sys.argv[1])
+try: curry.eval(M.f).one()
+except curry.EvaluationError as error: assert 'not implemented' in str(error)
+else: raise AssertionError('external primitive succeeded')
+"""
+        result = subprocess.run([sys.executable, '-c', code, str(source), mode],
+            text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)

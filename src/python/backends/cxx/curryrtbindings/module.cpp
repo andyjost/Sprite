@@ -20,7 +20,7 @@ namespace
   struct PythonPrimitive
   {
     std::string name, format;
-    py::object callable;
+    mutable py::object callable;
     InfoTable info;
     PythonPrimitive(std::string name, index_type arity, py::object callable,
                     bool monadic, stepfunc_type step)
@@ -31,13 +31,11 @@ namespace
     { info.aux = this; }
   };
 
-  // Conversion demands the arguments using their paths from the redex.
-  // A choice propagates through hnf, including the monadic choice check.
+  // Arguments are already normalized before Python acquires the GIL.
   tag_type to_python(RuntimeState * rts, Configuration * C, Variable value,
                      py::object & result)
   {
-    auto tag = rts->hnf(C, &value);
-    if(tag < T_CTOR) return tag;
+    tag_type tag = T_CTOR;
     Node * node = value.target;
     if(is_int(*node->info))
     {
@@ -59,12 +57,10 @@ namespace
       bool chars = false, first = true;
       while(true)
       {
-        tag = rts->hnf(C, &value, &List_Type);
-        if(tag < T_CTOR) return tag;
+
         if(value.target->info == &Nil_Info) break;
         Variable head = value[0];
-        tag = rts->hnf(C, &head);
-        if(tag < T_CTOR) return tag;
+
         if(first) { chars = is_char(*head.target->info); first = false; }
         py::object item;
         tag = to_python(rts, C, head, item);
@@ -93,6 +89,7 @@ namespace
 
   Node * from_python(py::handle value)
   {
+    if(py::isinstance<Node>(value)) return value.cast<Node *>();
     if(value.is_none()) return unit();
     if(py::isinstance<py::bool_>(value)) return value.cast<bool>() ? true_() : false_();
     if(py::isinstance<py::int_>(value))
@@ -123,8 +120,20 @@ namespace
 
   tag_type python_primitive_step(RuntimeState * rts, Configuration * C)
   {
-    py::gil_scoped_acquire gil;
     Cursor root = C->cursor();
+    std::vector<Variable> pending;
+    for(index_type i=root->info->arity; i-- > 0;) pending.push_back(root[i]);
+    while(!pending.empty())
+    {
+      auto value = pending.back();
+      pending.pop_back();
+      auto tag = rts->hnf(C, &value);
+      if(tag < T_CTOR) return tag;
+      if(is_list(*value.target->info) || value.target->info == &Pair_Info)
+        for(index_type i=value.target->info->arity; i-- > 0;)
+          pending.push_back(value[i]);
+    }
+    py::gil_scoped_acquire gil;
     auto primitive = static_cast<PythonPrimitive const *>(root->info->aux);
     std::string error;
     try
@@ -217,6 +226,7 @@ namespace curryrt { namespace python
 {
   void register_module(pybind11::module_ mod)
   {
+    mod.def("registered_names", &Module::registered_names, heap_access{});
     mod.def("is_io_ref", &is_io_ref, heap_access{});
     mod.def("set_install_prefix", &set_install_prefix, heap_access{});
     mod.def("primitive_kind", [](InfoTable const * info) {
@@ -229,6 +239,17 @@ namespace curryrt { namespace python
       auto dot = name.rfind('.');
       if(dot == std::string::npos || !dot || dot + 1 == name.size())
         throw py::value_error("a primitive needs a qualified name");
+      if(Module::find(name.substr(0, dot)))
+        throw py::value_error("register before the import: " + name);
+      auto existing = Module::builtin_symbol(name.substr(0, dot), name.substr(dot + 1));
+      if(existing)
+      {
+        if(existing->step != python_primitive_step || existing->arity != arity ||
+            bool(is_monadic(*existing)) != monadic)
+          throw py::value_error("primitive already registered with another shape: " + name);
+        static_cast<PythonPrimitive const *>(existing->aux)->callable = callable;
+        return;
+      }
       // Kept for the process; Python objects must not die after finalization.
       auto primitive = new PythonPrimitive(name.substr(dot + 1), arity,
           callable, monadic, python_primitive_step);

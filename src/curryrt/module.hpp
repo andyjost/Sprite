@@ -82,6 +82,7 @@ namespace curryrt
     void retire();
 
     // Register before loading images or compiled objects of the module.
+    static std::vector<std::string> registered_names(std::string const & module);
     static void register_primitive(std::string const & qualified_name,
                                    InfoTable const * info);
 

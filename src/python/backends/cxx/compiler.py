@@ -65,7 +65,7 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # Format 17: calls inside a non-strict pattern retain their boundaries for
 # non-linear matching; an older object may have inlined those calls away.
 # Format 18: export the module record, initializer and tables for PE DLLs.
-FORMAT_VERSION = 19
+FORMAT_VERSION = 20
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure
@@ -413,7 +413,7 @@ class CxxCompiler(compiler.CompilerBase):
           info = self.cxxmodule.get_builtin_symbol(ctor.name)
           descriptor = '_descriptor_' + self.vGetSymbolName(ctor, compiler.INFO_TABLE)
           lines.append('static InfoTable const %s{%d, %d, %d, %d, %s, %s, nullptr, &%s};' % (
-              descriptor, info.tag, info.arity, alloc_size(info.arity), info.flags,
+              descriptor, info.tag, info.arity, alloc_size(info.arity), info.flags | curryrt.F_BUILTIN,
               _dquote(ctor.name), _dquote('p' * info.arity), record_type))
           record_ctors.append('&' + descriptor)
         ctor_array = record_type + '_ctors'
@@ -439,9 +439,10 @@ class CxxCompiler(compiler.CompilerBase):
       if self.vIsBuiltin(ifun):
         record_info = '_descriptor_' + h_info
         info = self.cxxmodule.get_builtin_symbol(ifun.name)
-        lines.append('static InfoTable const %s{T_FUNC, %d, %d, %d, %s, %s, nullptr, nullptr};' % (
-            record_info, info.arity, alloc_size(info.arity), info.flags,
-            _dquote(ifun.name), _dquote('p' * info.arity)))
+        lines.append('static InfoTable const %s{T_FUNC, %d, %d, %d, %s, %s, +[](RuntimeState *, Configuration * C) -> tag_type { C->set_error(%s); return E_ERROR; }, nullptr};' % (
+            record_info, info.arity, alloc_size(info.arity), info.flags | curryrt.F_BUILTIN,
+            _dquote(ifun.name), _dquote('p' * info.arity),
+            _dquote(ifun.fullname + ': not implemented (no primitive in the runtime)')))
       function_rows.append(
           '{%s, &%s, &%s, &%s}' % (vis, fun_md, record_info, _slot(h_info))
         )

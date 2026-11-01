@@ -22,6 +22,9 @@ namespace curryrt
   static flag_type constexpr F_STATIC_OBJECT = 0x40; // bitwise
   static flag_type constexpr F_PINNED        = 0x80; // bitwise
 
+  static flag_type constexpr F_OPAQUE = 0x100; // bitwise
+  static flag_type constexpr F_BUILTIN = 0x200; // bitwise, function descriptor
+
   // Note: the head must remain bitwise-compatible with ValueSet.
   struct DataType
   {
@@ -45,7 +48,7 @@ namespace curryrt
     tag_type           tag;        // 16
     index_type         arity;      // 16
     index_type         alloc_size; // 16
-    flag_type          flags;      // 8
+    flag_type          flags;      // 16
     char const *       name;
     char const *       format;
     stepfunc_type      step;

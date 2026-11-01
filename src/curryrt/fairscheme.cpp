@@ -291,7 +291,7 @@ namespace curryrt
         case E_RESIDUAL:
         case E_RESTART : return tag;
         default        :
-          if(!is_partial(*scan->cursor()->info) && !is_io_ref(scan->cursor()->info))
+          if(!is_partial(*scan->cursor()->info) && !(scan->cursor()->info->flags & F_OPAQUE))
           {
             // D53: test the whole constructor cell before descending.
             // Forward chains denote the rewritten shared cell; inspect

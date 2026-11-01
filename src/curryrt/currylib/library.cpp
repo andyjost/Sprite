@@ -22,9 +22,9 @@ namespace
     return T_FWD;
   }
 
-  tag_type io_error(Configuration * C, int code)
+  tag_type io_error(Configuration * C, int code, std::string const & name = "")
   {
-    std::string message = std::strerror(code);
+    std::string message = name.empty() ? std::strerror(code) : name + ": " + std::strerror(code);
     C->set_error(Node::create(ioerror_info(IO_ERROR),
         build_curry_string(message.c_str())), "i/o error: " + message,
         ErrorKind::io);
@@ -95,11 +95,11 @@ namespace
     }
     else
       error = platform::unset_environment(name);
-    return error ? io_error(C, error) : finish(C, unit());
+    return error ? io_error(C, error, name) : finish(C, unit());
   }
 
   extern DataType const ref_type;
-  InfoTable const ref_info{T_CTOR, 1, sizeof(Node1), F_STATIC_OBJECT,
+  InfoTable const ref_info{T_CTOR, 1, sizeof(Node1), F_STATIC_OBJECT | F_OPAQUE,
       "IORef", "p", nullptr, &ref_type};
   InfoTable const * const ref_ctors[] = {&ref_info};
   DataType const ref_type{ref_ctors, 1, 't', F_STATIC_OBJECT, "IORef"};

@@ -9,11 +9,65 @@ from ._curryrtbindings import *
 from .... import config as _config
 set_install_prefix(_config.prefix())
 
+_register_primitive = register_primitive
+
+def _primitive_value(value, typeexpr, result=False):
+  from ....toolchain.flat2icurry import flatcurry as fc
+  if not isinstance(typeexpr, fc.TCons):
+    raise TypeError('primitive requires a concrete declared type')
+  name = typeexpr.name[1]
+  args = typeexpr.args
+  if name == 'IO':
+    return _primitive_value(value, args[0], result)
+  if name == 'String' or (name == '[]' and args[0] == fc.TCons(fc.prelude('Char'), [])):
+    if not result and value == []: return ''
+    valid = isinstance(value, str)
+  elif name == '[]':
+    if not isinstance(value, list):
+      raise TypeError('primitive value does not match declared list type')
+    return [_primitive_value(x, args[0], result) for x in value]
+  elif name == '(,)':
+    if not isinstance(value, tuple) or len(value) != 2:
+      raise TypeError('primitive value does not match declared pair type')
+    return tuple(_primitive_value(x, t, result) for x, t in zip(value, args))
+  elif name == '()': valid = value is None
+  elif name == 'Int': valid = type(value) is int
+  elif name == 'Float': valid = type(value) is float
+  elif name == 'Bool': valid = type(value) is bool
+  elif name == 'Char': valid = isinstance(value, str) and len(value) == 1
+  else: raise TypeError('unsupported primitive declared type: ' + name)
+  if not valid:
+    raise TypeError('primitive value does not match declared type ' + name)
+  if name == 'Char' and result:
+    import curry
+    return curry.term(curry.Char(value))._node
+  return value
+
+def register_primitive(name, arity, callable, monadic=False):
+  if not _builtins.callable(callable):
+    raise TypeError('expected a callable')
+  def typed(*values):
+    import curry
+    from ....toolchain.flat2icurry import flatcurry as fc
+    scheme = curry._interpreter_.sigtable.lookup(name, required=True)
+    typeexpr = scheme.typeexpr
+    arguments = []
+    for value in values:
+      if not isinstance(typeexpr, fc.FuncType):
+        raise TypeError('primitive arity does not match declared type')
+      arguments.append(_primitive_value(value, typeexpr.domain))
+      typeexpr = typeexpr.range
+    return _primitive_value(callable(*arguments), typeexpr, result=True)
+  _register_primitive(name, arity, typed, monadic)
+
+import builtins as _builtins
+
 def _register_environment_primitives():
   import socket
-  register_primitive('System.Environment.getArgs', 0, lambda: _sys.argv[1:], True)
+  import curry
+  register_primitive('System.Environment.getArgs', 0, lambda: curry.program_arguments, True)
   register_primitive('System.Environment.getProgName', 0,
-      lambda: _sys.argv[0] if _sys.argv else '', True)
+      lambda: curry.program_name, True)
   register_primitive('System.Environment.getHostname', 0, socket.gethostname, True)
 
 _register_environment_primitives()

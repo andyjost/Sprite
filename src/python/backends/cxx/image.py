@@ -15,7 +15,7 @@ from . import bytecode, curryrtbindings as curryrt
 
 logger = logging.getLogger(__name__)
 MAGIC = b'SPRTIMG\0'
-VERSION = 3
+VERSION = 4
 PREFIX = struct.Struct('<8sII')
 
 
@@ -46,7 +46,7 @@ def read(path):
   encoded = data[PREFIX.size:PREFIX.size + size]
   header = json.loads(encoded)
   if not isinstance(header, dict) or not all(key in header
-      for key in ('body', 'source', 'route', 'budget', 'imports', 'name')) \
+      for key in ('body', 'source', 'route', 'budget', 'imports', 'name', 'registry')) \
       or not isinstance(header['imports'], dict):
     raise ValueError('invalid module image header')
   if encoded != json.dumps(header, sort_keys=True, separators=(',', ':')).encode('ascii'):
@@ -59,8 +59,10 @@ def read(path):
 
 def _facts(interp, source, imports):
   from ...toolchain._frontend import ROUTE_VERSION
+  from . import toolchain
   return dict(source=digest(_filenames.icurryfilename(source)), route=ROUTE_VERSION,
-      budget=interp.flags['inline_budget'], imports=imports)
+      budget=interp.flags['inline_budget'], imports=imports,
+      registry=toolchain.registered_names(source))
 
 
 def writable(source):
@@ -91,7 +93,7 @@ def _check(interp, source, path, imports=None):
   header = read(path)
   # Check local facts before resolving any dependency of an old source.
   facts = _facts(interp, source, {})
-  if any(header[k] != facts[k] for k in ('source', 'route', 'budget')):
+  if any(header.get(k) != facts[k] for k in ('source', 'route', 'budget', 'registry')):
     raise ValueError('stale module image')
   if imports is not None and header['imports'] != imports:
     raise ValueError('stale module image imports')
@@ -154,7 +156,7 @@ def _summaries(interp, module, currypath=None):
       expected = _facts(interp, h.icurry.filename,
           {dep: digest(_path(interp, getHandle(interp.modules[dep]).icurry.filename))
            for dep in header['imports']})
-      if any(header[k] != value for k, value in expected.items()):
+      if any(header.get(k) != value for k, value in expected.items()):
         _import_images(interp, [name], currypath)
         path = _path(interp, h.icurry.filename)
         continue
@@ -341,7 +343,7 @@ def _write(interp, module, path, imports, builtins):
   for function in module.functions.values():
     out.text(function.name)
     out.word(function.arity)
-    out.word(function.metadata.get('all.flags', 0))
+    out.word(function.metadata.get('all.flags', 0) | (curryrt.F_BUILTIN if function.name in builtins else 0))
     out.word(not function.is_private)
     out.metadata({})
     if function.name not in builtins:

@@ -69,7 +69,7 @@ The primitives of `Curry.Compiler.Distribution`, `System.CPUTime`,
 Sprite's build version and installation prefix; CPUTime reports milliseconds.
 Environment uses native environment operations and registered Python functions
 for arguments, the program name and hostname. IORef stores lazy graph values
-in collector-visible mutable cells, displayed as `<IORef>`.
+in cells displayed as `<IORef>`; writes go through `Variable::set_successor`.
 
 `Control.Search.SetFunctions` is Sprite's facade over its native capsules.
 It shares the canonical `Control.SetFunctions.Values a = Values [a]` type.

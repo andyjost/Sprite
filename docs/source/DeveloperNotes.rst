@@ -738,9 +738,12 @@ Primitives
 ==========
 
 The runtime resolves a primitive by its qualified Curry name. Register it
-before loading the module's images or compiled objects. Both the image writer
-and the C++ emitter ask ``Module::get_builtin_symbol`` for the same table;
+before the module's images or compiled objects load.
+The image writer and C++ emitter ask ``Module::get_builtin_symbol`` for the same table;
 compiled code and images do not encode the implementation language.
+Sorted registry names are part of generated input records, product facts
+and image headers. A registry change makes these products stale.
+Loaders reject missing primitives by name.
 The emitter records local shape descriptors, which the loader binds by name;
 it does not require a primitive to export a mangled C++ data symbol.
 Unregistered externals continue to raise ``not implemented`` when called.
@@ -754,7 +757,7 @@ receives ``RuntimeState *`` and ``Configuration *``. Monadic tables carry
 ``io(value)``. Pure steps forward to the value. IO errors carry an IOError
 node and ``ErrorKind::io`` through ``Configuration::set_error``. See
 ``currylib/library.cpp`` for complete examples. Mutable references use
-``Variable::set_successor`` so collector write accounting sees their updates.
+``Variable::set_successor`` for writes.
 
 Python implementations register through the backend bindings::
 
@@ -762,14 +765,18 @@ Python implementations register through the backend bindings::
   curryrt.register_primitive('Example.next', 1, lambda x: x + 1, monadic=False)
 
 Registration takes the qualified name, Curry arity, callable and monadic flag.
-Names must be qualified, arities must be between zero and 255, and duplicate
-registration is rejected. Registration owns the heap gate. Invocation attaches
-the evaluation thread to Python under the GIL, normalizes arguments through
-the runtime and converts integers (including large ones), floats, characters,
-Booleans, lists, strings and pairs. Empty lists convert to Python lists because
-there is no element type on an empty graph list. Python strings return Curry
-strings; ``None`` returns unit. Other supported results are integers, floats,
-Booleans, lists and pairs. Callables and tables stay alive for the process.
+Names must be qualified and arities must be between zero and 255.
+Register before the module import. After reset, a matching Python registration
+replaces the callable in the same table. A different arity or flag is an error.
+The registration call holds the runtime heap gate until it returns.
+Invocation normalizes every argument before it acquires the GIL.
+Conversion uses the declared type from the module interface.
+An empty String becomes Python ``''``; an empty list becomes ``[]``.
+Results must match the declared type. ``None`` returns unit.
+Supported values are integers, floats, characters, Booleans, strings, lists
+and pairs. Callables and tables stay alive for the process.
+A callable must not block on a lock held by a thread that waits for the heap.
+An Int beyond Python's integer string limit fails in ``py::str``.
 Ordinary Python exceptions become Curry IO errors for monadic primitives and
 evaluation errors for pure primitives; KeyboardInterrupt and SystemExit pass
 through. A monadic effect runs only when its action is evaluated.
@@ -781,3 +788,13 @@ pipes. A future C++ implementation can register the same name without changing
 Curry code or the image format. ``System.Environment`` is the first Python
 registration user; the installation prefix is supplied from Python at runtime
 so relocated installations report their actual prefix.
+
+An IORef is one cell shared by the alternatives of a pull-tab.
+Reads snapshot its current pointer. ``getElapsedTime`` counts from the library
+load. ``setEnv`` changes the native environment, but does not update Python's
+``os.environ``. An environment write error names the variable.
+``curry.program_arguments`` and ``curry.program_name`` supply the runtime
+arguments and module name under sprite-exec and saved programs.
+Their Python defaults are ``sys.argv[1:]`` and ``sys.argv[0]``.
+Tool options may precede NAME or appear immediately after it.
+The first runtime argument, an unknown option, or ``--`` ends tool options.

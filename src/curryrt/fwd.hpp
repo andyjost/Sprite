@@ -37,7 +37,7 @@ namespace curryrt
   enum SubstFreevars : bool { SUBST_FREEVARS=true, PLAIN_FREEVARS=false };
   using tag_type = int16_t;
 
-  using flag_type = std::uint8_t;
+  using flag_type = std::uint16_t;
   using hash_type = std::size_t;
   using index_type = std::uint16_t;
   using memo_type = std::unordered_map<void *, Arg>;
