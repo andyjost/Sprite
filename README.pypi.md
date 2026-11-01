@@ -133,7 +133,7 @@ the program. There's nothing more to write, and nothing more to get wrong.
 The same trick applies wherever you have one direction of a relation and want
 the other. The repository has small [examples](https://andyjost.github.io/Sprite/Examples.html) of a
 [build system](https://github.com/andyjost/Sprite/tree/master/examples/24-build-system)
-whose rules also say what a changed header rebuilds, a
+whose pattern rules run both ways, a
 [package dependency solver](https://github.com/andyjost/Sprite/tree/master/examples/15-dependency-solver)
 with no search code,
 [C++ overload resolution](https://github.com/andyjost/Sprite/tree/master/examples/21-cxx-types-overloads)

@@ -10,7 +10,7 @@ Rules that overlap by design silence the front-end warning in their run
 script unless SPRITE_FRONTEND_WARNINGS is set explicitly.
 
 The tour runs from 00 to 09.  Follow it with an application, the optional
-C++ type series, or the build lesson, 24.  The Python API guide follows
+C++ type series, or the build-system capstone.  The Python API guide follows
 first calls, results, values and types, logic, encapsulated search, errors,
 session control, and I/O; the Quickstart covers 01 and 02 in five minutes.
 
@@ -130,12 +130,12 @@ Optional C++ type series: 20 to 23
     constraint.
 
 
-The build: 24
--------------
+Capstone: 24
+------------
 
 24-build-system
-    The six rules of a build, written forward, say what a changed header
-    rebuilds; Python builds and asks.
+    Query a build relation in several directions while Python owns timestamps
+    and recipe execution.
 
 Support sources
 ---------------

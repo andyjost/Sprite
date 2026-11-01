@@ -1,5 +1,5 @@
 #!/bin/bash
-# Runs the lesson in a temporary copy of project/ with the flags of
+# Runs the example in temporary copies of project/ with the flags of
 # SPRITE_INTERPRETER_FLAGS.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -12,30 +12,76 @@ here=$PWD
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-# The layout of this directory in a temporary place: links to build.py, to
-# Build.curry and to its product directory, so that Sprite translates the
-# module once, into .curry here, and copies of the C files, so that the
-# build leaves nothing behind.
-mkdir -p .curry
-ln -s "$here/build.py" "$here/Build.curry" "$here/.curry" "$work"
-mkdir "$work/project"
-cp project/*.c project/*.h "$work/project"
-cd "$work"
-
-# Runs the driver and prints its command line first.
-build() {
-  echo "% python build.py" "$@"
-  "$SPRITE_HOME/bin/python" build.py "$@"
+# A copy of the project: the sources and the headers, and links to the
+# makefiles, so that Sprite compiles each makefile once, into project/.curry.
+copy() {
+  mkdir "$work/$1"
+  cp project/*.c project/*.h "$work/$1"
+  ln -s "$here"/project/*.curry "$work/$1"
 }
 
-build                     # the build from scratch
-echo '% project/demo'
-project/demo
-build                     # nothing to do
-# A pause of one second, so that a file system with whole-second timestamps
-# sees the touched shape.h as newer than the objects.
-sleep 1
-echo '% touch project/shape.h'
-touch project/shape.h
-build shape.h             # what the change rebuilds
-build                     # the rebuild of exactly those
+# Runs make.py in a copy, prints its command line first, and reports a
+# non-zero exit status.
+make_py() {
+  echo "% python make.py $*"
+  "$SPRITE_HOME/bin/python" "$here/make.py" "$@" || echo "exit status $?"
+}
+
+# Runs the short driver in a copy, prints its command line first, and
+# reports a non-zero exit status.
+mini_py() {
+  echo "% python minimake.py $*"
+  "$SPRITE_HOME/bin/python" "$here/minimake.py" "$@" || echo "exit status $?"
+}
+
+# Runs the program of a copy, and prints its command line first.
+demo() {
+  echo "% $1/demo"
+  "$work/$1/demo"
+}
+
+copy project
+copy plot
+copy fresh
+copy incomplete
+copy short
+rm "$work/incomplete/vec.c"
+cd "$work"
+
+echo '0. the short driver: the build from scratch, then nothing to do'
+mini_py short
+demo short
+mini_py short
+echo
+echo '1. the build from scratch'
+make_py -C project
+demo project
+echo
+echo '2. build again: nothing to do'
+make_py -C project
+echo
+echo '3. touch shape.h: the inverse query, then the rebuild'
+make_py -C project --touch shape.h --affected shape.h
+echo
+echo '4. DEBUG=1: the command line replaces the assignment, and the recipes change'
+make_py -C fresh DEBUG=1 -n
+echo
+echo '5. WITH_PLOT=1: plot.o joins the library, the define, one line more'
+make_py -C plot WITH_PLOT=1
+demo plot
+echo
+echo '6. a second rule with a recipe for main.o: the ambiguity lint'
+make_py -C project -f Makefile_ambiguous.curry
+echo
+echo '7. CFLAGS defined twice: two values, two recipes, the recipe lint'
+make_py -C project -f Makefile_twice.curry
+echo
+echo '8. the compiler as a choice, CC = "gcc" ? "clang": two answers, and the command line decides'
+make_py -C project -f Makefile_toolchain.curry -n
+make_py -C fresh -f Makefile_toolchain.curry CC=clang -n
+echo
+echo '9. a rule that closes a cycle: the plan has no value'
+make_py -C fresh -f Makefile_cycle.curry -n
+echo
+echo '10. a source that is missing: no rule to make it'
+make_py -C incomplete

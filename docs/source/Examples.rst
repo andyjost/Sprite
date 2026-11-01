@@ -4,14 +4,15 @@ Examples
 
 Clone the repository for the lessons under ``examples/``. With pip, run
 ``python go.py`` in a lesson's directory; lesson 00 uses ``sprite-exec``
-on its Curry programs and lesson 24 ``python build.py``. ``./run`` uses a staged checkout (``make stage``)
+on its Curry programs and lesson 24 ``python minimake.py`` or
+``python make.py``. ``./run`` uses a staged checkout (``make stage``)
 and matches ``expected.out``. Each lesson has a README with its scope and
 limits.
 
 Start with :doc:`Quickstart` for lessons 01 and 02 in five minutes, then
 :doc:`PythonAPI/UsingTheAPI` for the boundary in teaching order.  The tour
 below is followed by applications, an optional specialist series and the
-build lesson, 24.  Each path below links to the lesson in the repository.
+build-system capstone.  Each path below links to the lesson in the repository.
 
 
 Tour: 00 to 09
@@ -237,16 +238,16 @@ within a bounded type universe.
 under an extra ordering constraint.
 
 
-The build: 24
-=============
+Capstone: 24
+============
 
 .. _example-24:
 
-24: What a change rebuilds
---------------------------
+24: A makefile in Curry
+-----------------------
 
-`examples/24-build-system <https://github.com/andyjost/Sprite/tree/master/examples/24-build-system>`_ — The six rules of a build, written forward, say
-what a changed header rebuilds; Python builds and asks.
+`examples/24-build-system <https://github.com/andyjost/Sprite/tree/master/examples/24-build-system>`_ — Query a build relation in several directions
+while Python owns timestamps and recipe execution.
 
 Support sources
 ===============
