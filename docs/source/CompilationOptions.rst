@@ -42,7 +42,8 @@ Compiled just in time
   A read-only product directory uses ``SPRITE_JIT_CACHE`` when set to a
   writable directory; otherwise compilation stays in memory. ``make stage``
   fills the library cache when llvmlite is available. Wheels exclude these
-  machine-specific objects; the first run can fill the cache.
+  machine-specific objects; a hot run fills the cache with the functions
+  that become hot, while an eager run fills the whole module.
 
 Compiled ahead of time
   ``sprite-make --so M.curry`` compiles a module to a shared object beside

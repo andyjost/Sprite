@@ -452,12 +452,13 @@ def attach(interp, source, path, header):
   module._image_owner = owner
   from .jit import backend
   jit = interp.flags.get('jit', 'off')
-  if jit != 'off' and backend(interp) == 'llvm':
+  if (jit != 'off' and interp.flags.get('interpret') != 'off'
+      and backend(interp) == 'llvm'):
     from . import llvmjit, materialize
     try:
       items = [(info, bom.fullname + '.' + info.name) for _, _, info in bom.functions
           if curryrt.icurry_is_interpreted(info) or curryrt.icurry_is_jit(info)]
-      llvmjit.attach_cache(filename(source), header, items)
+      llvmjit.attach_cache(path, header, items)
       if jit == 'hot':
         llvmjit.start_hot_tier(materialize.jit_threshold())
       else:

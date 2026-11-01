@@ -11,6 +11,8 @@ message :: String
 message = "cached literal"
 main :: (Int, String)
 main = (fib 12, message)
+bad :: Int
+bad = 1 + error "cached error"
 '''
 
 CHILD = '''
@@ -21,8 +23,8 @@ mode, tier, source, abi = sys.argv[1:]
 if abi:
   llvmjit._abi_digest = lambda: ['changed ABI']
 curry.reset(interpret=mode, jit=tier, jit_backend='llvm')
-if tier == 'off':
-  llvmjit._read_cache = mock.Mock(side_effect=AssertionError('jit:off read cache'))
+if tier == 'off' or mode == 'off':
+  llvmjit._read_cache = mock.Mock(side_effect=AssertionError('disabled cache read'))
 M = curry.import_(source)
 before = rt.icurry_is_jit(M.fib.info)
 values = [str(x) for x in curry.eval(M.main)]
@@ -98,7 +100,7 @@ class TestJITCache(cytest.TestCase):
     self.addCleanup(products.chmod, 0o755)
     self.child('eager')
     self.assertFalse((products / 'Cached.jit').exists())
-    self.assertTrue(list((self.base / 'private').rglob('Cached.jit')))
+    self.assertTrue(list((self.base / 'private' / 'Cached').glob('*.jit')))
     self.assertTrue(self.child()['jitted'])
 
   def test_no_writable_location_keeps_compilation_in_memory(self):
@@ -122,6 +124,7 @@ class TestJITCache(cytest.TestCase):
   def test_off_reads_nothing(self):
     self.child('eager')
     self.assertFalse(self.child('off')['jitted'])
+    self.assertFalse(self.child(mode='off')['jitted'])
 
   def test_cli_stats_counts_linked_functions(self):
     self.child('eager')
@@ -146,6 +149,8 @@ print(json.dumps(dict(values=[str(x) for x in curry.eval(M.main)])))
     self.result(proc)
     self.assertTrue(self.child()['jitted'])
     # A partially cached module gains another function in a later process.
+    orphan = self.object().parent / '.jit-99999999-abandoned'
+    orphan.write_bytes(b'incomplete')
     code = code.replace("llvmjit.compile(M.fib.info, 'Cached.fib')",
         "assert rt.icurry_is_jit(M.fib.info)").replace(
         "llvmjit.compile(M.message.info, 'Cached.message')",
@@ -154,6 +159,95 @@ print(json.dumps(dict(values=[str(x) for x in curry.eval(M.main)])))
         str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, text=True))
     self.assertTrue(self.child()['jitted'])
+    with self.object().open('rb') as stream:
+      _, size = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
+      index = json.loads(stream.read(size))
+    self.assertEqual([len(o['functions']) for o in index['objects']], [1, 1, 1])
+    self.assertFalse(orphan.exists())
+
+  def test_hot_batch_links_in_next_process(self):
+    self.env['SPRITE_JIT_THRESHOLD'] = '1'
+    # Keep evaluating until the real background hot loop has published fib.
+    code = CHILD[:CHILD.index('M = curry.import_(source)')] + """
+import time
+M = curry.import_(source)
+deadline = time.monotonic() + 30
+while not rt.icurry_is_jit(M.fib.info):
+  list(curry.eval(M.main))
+  assert time.monotonic() < deadline, llvmjit.statistics()
+  time.sleep(.01)
+with llvmjit._lock:
+  pass
+print(json.dumps(dict(ok=True)))
+"""
+    self.result(subprocess.Popen([sys.executable, '-c', code, 'all', 'hot',
+        str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, text=True))
+    self.assertTrue(self.child(mode='all')['jitted'])
+
+  def test_private_budget_preserves_default_slot(self):
+    self.child('eager')
+    path = self.object()
+    before = (path.stat().st_mtime_ns, path.read_bytes())
+    code = CHILD.replace("jit_backend='llvm')", "jit_backend='llvm', inline_budget=0)")
+    self.result(subprocess.Popen([sys.executable, '-c', code, 'all', 'eager',
+        str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, text=True))
+    self.assertEqual((path.stat().st_mtime_ns, path.read_bytes()), before)
+
+  def test_reattach_reuses_linked_generation(self):
+    self.child('eager')
+    code = CHILD + """
+linked = len(llvmjit._jit.generations)
+with mock.patch.object(llvmjit._jit, 'link_object',
+    side_effect=AssertionError('linked twice')):
+  curry.reset(interpret='all', jit='hot', jit_backend='llvm')
+  M = curry.import_(source)
+  assert rt.icurry_is_jit(M.fib.info)
+  assert [str(x) for x in curry.eval(M.main)] == values
+assert len(llvmjit._jit.generations) == linked
+"""
+    self.result(subprocess.Popen([sys.executable, '-c', code, 'all', 'hot',
+        str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, text=True))
+
+  def test_hierarchical_private_layout(self):
+    self.source = self.base / 'Hier' / 'Cached.curry'
+    self.source.parent.mkdir()
+    self.source.write_text(PROGRAM.replace('module Cached', 'module Hier.Cached'))
+    self.child('off')
+    products = next(self.base.rglob('Cached.img')).parent
+    products.chmod(0o555)
+    self.addCleanup(products.chmod, 0o755)
+    fallback = self.base / 'private' / 'Hier.Cached'
+    fallback.mkdir(parents=True)
+    (fallback / 'obsolete.jit').write_bytes(b'old generation')
+    self.child('eager')
+    self.assertEqual(len(list(fallback.glob('*.jit'))), 1)
+    self.assertTrue(self.child()['jitted'])
+
+  def test_cached_step_preserves_exceptions(self):
+    prime = CHILD[:CHILD.index('M = curry.import_(source)')] + """
+M = curry.import_(source)
+llvmjit.compile(M.bad.info, 'Cached.bad')
+print(json.dumps(dict(ok=True)))
+"""
+    self.result(subprocess.Popen([sys.executable, '-c', prime, 'all', 'hot',
+        str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, text=True))
+    code = CHILD + """
+# A second object must not invalidate the first object's unwind tables.
+llvmjit.compile(M.fib.info, 'Cached.fib')
+try:
+  list(curry.eval(M.bad))
+except curry.EvaluationError as exc:
+  assert 'cached error' in str(exc)
+else:
+  raise AssertionError('cached step lost its exception')
+"""
+    self.result(subprocess.Popen([sys.executable, '-c', code, 'all', 'hot',
+        str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, text=True))
 
   def test_corrupt_object_is_a_miss(self):
     self.child('eager')

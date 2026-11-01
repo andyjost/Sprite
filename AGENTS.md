@@ -336,3 +336,11 @@ reproducers pass.
   until its merge (`--no-ff`) and is deleted, local and on origin, in
   the same step.
 - Keep commits free of machine-specific paths and environment details.
+
+The LLVM JIT envelope holds a list of independent batch objects. Later hot
+batches append and link only their own object; cached functions are not
+re-optimized. The local JIT slot belongs to the image actually attached,
+including a private image for a foreign inline budget. A writer checks that
+the slot still holds that image before replacing another key. Only an
+unwritable attached-image directory uses
+`SPRITE_JIT_CACHE/<Full.Name>/<key>.jit`, with one generation per module.
