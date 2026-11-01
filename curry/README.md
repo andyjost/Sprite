@@ -50,7 +50,8 @@ compiles every library module for the C++ runtime. Images and
 native objects are build outputs, not repository pins. The installed
 library runs without a front end; compiling new Curry text needs one.
 
-Every module compiles and ships with an image and native object. These
+Every module compiles and ships with an image, plus a native object when
+the stage has a C++ compiler. These
 externals have no primitive in the runtime and raise `not implemented` at
 their call:
 

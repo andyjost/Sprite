@@ -19,6 +19,8 @@ the body are captured, choices in arguments stay outside and duplicates
 are kept. The search strategies they name are accepted and ignored:
 every search uses Sprite's scheduler and value order. ``rewriteAll`` and
 ``rewriteSome`` raise a not-implemented error.
+``Control.Search.SearchTree`` compiles and builds its tree from ``allValues``;
+its externals have Curry alternatives under PAKCS.
 Sprite provides weak encapsulation (:ref:`CurryPrimer/Semantics:Set functions`).
 
 Every module of the Curry library compiles, ships compiled and imports.

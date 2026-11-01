@@ -21,20 +21,15 @@ def getimpl(symbol):
   The code of the step function of ``symbol``, a CurryNodeInfo, as text.
   Raises ValueError when the backend has no code for it.
   '''
-  from ... import inspect, toolchain
-  function = symbol.icurry
-  module = symbol.module
-  if module is not None:
-    filename = inspect.geticurryfile(module)
-    if filename is not None:
-      complete = toolchain.loadicurry(filename)
-      toolchain.mergebuiltins(complete, symbol.interpreter.backend)
-      function = complete.functions.get(symbol.name)
-  if function is not None and function.is_external:
-    return '%s: external, not implemented (no primitive in the runtime)' % symbol.fullname
   info = symbol.info
   if info.tag != T_FUNC:
     raise _no_code(symbol)
+  from ... import inspect
+  function = inspect.geticurry(symbol)
+  module = symbol.module
+  if function.is_external and module is not None and \
+      getHandle(module).backend_handle.get_builtin_symbol(symbol.name) is None:
+    return '%s: external, not implemented (no primitive in the runtime)' % symbol.fullname
   if curryrt.icurry_is_interpreted(info) or curryrt.icurry_is_jit(info):
     # The JIT compiled the bytecode; the disassembly is the code it holds.
     return _bytecode_text(symbol)

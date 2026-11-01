@@ -2,6 +2,8 @@
 Code for merging ICurry modules.
 '''
 import logging
+
+_reported_externals = set()
 from ..exceptions import CompileError
 
 __all__ = [
@@ -129,9 +131,9 @@ def mergesymbols(tgt, src, merge_metadata=True, resolve_externals=True):
 def validatemodule(imodule):
   mergemodule(imodule) # Implemented as merge with nothing.
   count = sum(f.is_external for f in imodule.functions.values())
-  if count and not imodule.metadata.get('externals_reported', False):
+  if count and imodule.fullname not in _reported_externals:
     logging.getLogger(__name__).info(
         'module %s: %d externals without a primitive raise when called',
         imodule.fullname, count)
-    imodule.update_metadata({'externals_reported': True})
+    _reported_externals.add(imodule.fullname)
 
