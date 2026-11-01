@@ -275,7 +275,7 @@ reproducers pass.
   type parity with the PAKCS REPL (`tests/oracle` and `tests/oracle_type`);
   its goldens are committed.
 - An installation without a C++ compiler uses LLVM when llvmlite imports.
-  With neither backend it runs interpreted and logs one WARNING per process
+  With neither backend it runs interpreted and logs one INFO notice per process
   (the page "Installing and running without a C++ compiler" of the
   documentation).
 - The flag `interpret` of the C++ backend defaults to `new` everywhere. `new` loads current ahead-of-time objects and interprets the
@@ -288,12 +288,14 @@ reproducers pass.
   `eager` compiles at load, and `off` leaves them interpreted. Current AOT
   objects load under `new` and `off` whatever `jit` says. `jit_backend`
   defaults to `auto`: LLVM when llvmlite imports, else the C++ compiler backend (`cxx`) when
-  `config.cxx_tool` is available, else interpreter alone with one WARNING
+  `config.cxx_tool` is available, else interpreter alone with one INFO
   notice per process. Forced `llvm` and `cxx` error if unavailable;
-  install `curry[jit]` or a C++ compiler respectively (clang-cl of Visual
+  install the extra `"curry[jit]"` or a C++ compiler respectively (clang-cl of Visual
   Studio in a developer prompt on Windows). LLVM compiles functions in process using llvmlite 0.50 or
   newer (LLVM 22) and `lib/curryrt-helpers.bc`, built with clang through
-  `WITH_CLANG`. The C++ compiler backend compiles whole modules in a child
+  `WITH_CLANG`; every wheel carries it (the Linux wheel builds install
+  clang in the manylinux image, and the distributions gate requires the
+  file). The C++ compiler backend compiles whole modules in a child
   when their first function becomes hot; eager compilation waits at load. Its
   machinery remains
   in `curry.backends.cxx.tiered` and `src/curryrt/tiered.hpp`; private

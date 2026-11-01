@@ -57,6 +57,12 @@ def check(directory, version, tag=''):
       assert metadata.get_all('Provides-Extra') == ['jit'], metadata.get_all('Provides-Extra')
       assert 'Development Status :: 3 - Alpha' in metadata.get_all('Classifier')
       assert metadata['License-Expression'] == 'BSD-3-Clause'
+      # The bitcode of the JIT helpers: the LLVM backend needs it.
+      names = set(archive.namelist())
+      assert 'curry/_sprite/lib/curryrt-helpers.bc' in names, \
+          f'{wheel.name} has no bitcode of the JIT helpers'
+      assert archive.read('curry/_sprite/sysconfig/jit_bitcode').strip() == b'lib/curryrt-helpers.bc', \
+          f'{wheel.name} does not record the bitcode of the JIT helpers'
   assert found == expected, expected - found
   sdists = list(directory.glob('*.tar.gz'))
   assert len(sdists) == 1 and sdists[0].name == f'curry-{version}.tar.gz', sdists
@@ -66,7 +72,8 @@ def check(directory, version, tag=''):
       assert f'curry-{version}/' + name in names, name
   if tag:
     assert tag == 'v' + version, (tag, version)
-  print(f'Validated thirty wheels, manylinux_2_28, macOS and Windows, and the sdist for {version}.')
+  print(f'Validated thirty wheels, manylinux_2_28, macOS and Windows, each with the bitcode '
+        f'of the JIT helpers, and the sdist for {version}.')
 
 
 if __name__ == '__main__':
