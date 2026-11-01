@@ -168,6 +168,13 @@ namespace curryrt
   // The step function of every interpreted function.
   tag_type icurry_step(RuntimeState *, Configuration *);
 
+  // A cached step resolves on its first call, on the evaluation thread.
+  // A zero address restores interpretation. The hook takes no heap lock.
+  using cache_hook_type = stepfunc_type (*)(InfoTable const *);
+  void icurry_set_cache_hook(cache_hook_type);
+  void icurry_install_cached(std::vector<InfoTable *> const &);
+  tag_type icurry_cached_step(RuntimeState *, Configuration *);
+
   // The hot tier.  A step counts the calls of its bytecode; at the
   // threshold (0 turns the count off) the function joins a list, which
   // icurry_take_hot hands over and clears.  The JIT of the Python package

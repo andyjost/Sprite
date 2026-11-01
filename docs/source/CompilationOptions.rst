@@ -35,13 +35,15 @@ Compiled just in time
   ends is cancelled, so a short program never waits for a compiler and
   leaves no object behind; ``sprite-make --so`` writes one.
 
-  LLVM keeps completed batches in ``M.jit`` beside the module image.
-  On the next import, a current batch links and swaps its functions before
-  evaluation, under both ``interpret:new`` and ``interpret:all``. A miss
+  LLVM keeps one native object per function in ``M.jit`` beside the module
+  image. On the next import, only the index is read. Cached code links as
+  its functions run, under both ``interpret:new`` and ``interpret:all``;
+  ``jit:eager`` resolves all cached functions at load. A miss
   follows the selected eager or hot tier. ``jit:off`` reads no JIT cache.
   A read-only product directory uses ``SPRITE_JIT_CACHE`` when set to a
   writable directory; otherwise compilation stays in memory. ``make stage``
-  fills the library cache when llvmlite is available. Wheels exclude these
+  fills the library cache when llvmlite is available;
+  ``SPRITE_STAGE_JIT_CACHE=0`` skips that fill. Wheels exclude these
   machine-specific objects; a hot run fills the cache with the functions
   that become hot, while an eager run fills the whole module.
 
@@ -139,8 +141,10 @@ interpreted ...`` with the reason: no object, a stale object, the
 functions and the time; ``cxx hot: module ... compiled ... swapped``), the
 product cache's hits and misses, and the runs of the front end. LLVM also
 reports ``jit cache: module M, miss``, ``stored N functions`` and
-``linked N functions``; linked functions contribute to ``--stats``'s
-``swapped`` count.
+``indexed N functions`` at attachment and ``resolved M.f, T ms`` at first
+use. Resolved functions contribute to ``--stats``'s ``swapped`` count;
+indexing alone contributes none. A failed resolution logs once per function
+and restores its interpreter step.
 ``SPRITE_LOG_FILE`` sends the records to a file instead; child processes
 write to the same file with their process id.
 

@@ -725,26 +725,46 @@ Persistent LLVM objects
 =======================
 
 The LLVM backend writes one ``M.jit`` beside ``M.img``. Its envelope starts
-with the eight ASCII bytes ``SPRTJIT2`` and a little-endian uint32 index
+with the eight ASCII bytes ``SPRTJIT3`` and a little-endian uint32 index
 length, followed by a compact ASCII JSON index and a list of objects from
 ``TargetMachine.emit_object``. The index holds the cache key and each
-object's size, SHA-256 digest and records of function name, exported step
-symbol and constant-slot indices. It carries no addresses or paths.
+object's size, SHA-256 digest and one record of function name, exported step
+symbol and constant-slot indices. The header also records the envelope's
+size and nanosecond modification time. It carries no addresses or paths.
 
 Each bytecode constant used by a function is an external LLVM symbol,
-named by the function's digest and the slot index. At attachment the loader
+named by the function's digest and the slot index. On first use the loader
 reads the slots of the current image's bytecode and supplies their addresses
 with ``JITLibraryBuilder.import_symbol``. Runtime symbols resolve from the
 process. ORC links the object with ``add_object_img``; Unix uses JITLink
 to preserve unwind registration across independent objects. Resource
-trackers keep the code alive. Linked steps are installed before evaluation. The hot
-tier continues to post new steps at scheduler safepoints.
+trackers keep the code alive. Each object contains exactly one function,
+so resolving one step cannot materialize unrelated functions.
+
+Attachment reads only the index and checks its key, file size and mtime.
+It retains decoded entries directly, creating object views only on use.
+It installs ``icurry_cached_step`` for cached functions. On first use this
+runtime step calls a Python hook with the info-table address; the hook
+serializes with the hot tier, reads and verifies that object's digest,
+registers it with ORC and resolves its exported step. Like ``trap_step``,
+the resolving step installs the address on the evaluation thread and runs
+it on the same redex. A failure logs once and restores ``icurry_step``.
+The hot tier uses the same resolver for cached functions and posts swaps
+at scheduler safepoints; it emits no replacement object on a cache hit.
+``jit:eager`` resolves the full cached module at load; ``jit:off`` reads
+nothing. Index registration does not count as a swapped function.
 
 The content key includes the image header's body digest and module name,
 the runtime ABI digest used by generated objects, the helper bitcode digest,
 the emitter digest, the image format version, llvmlite and LLVM versions,
 CPU name and target triple. A changed key or corrupt envelope is a miss. No installation path enters the key.
-Each later hot batch appends its own object, and links only that object.
+Each later hot batch appends one object per function, and links only those
+objects. The stage fill uses the same per-function emission. Uncached
+functions share optimizer batches of at most 32 steps; each optimized clone
+retains one step and its reachable helper code for object emission. The
+hot worker prioritizes larger bytecode bodies and posts each emitted step
+immediately while the remaining objects are generated. Shutdown cancels
+unlinked hot work between LLVM phases; completed objects publish normally.
 Cached functions are never re-optimized. Reattachment reuses linked
 addresses by key; resource trackers keep each generation alive.
 
@@ -755,7 +775,9 @@ another; each remains valid. If the product directory cannot be written,
 ``SPRITE_JIT_CACHE/<Full.Name>/<key>.jit`` is tried. Without either writable
 location nothing is persisted. This is a local executable-code cache with the same
 trust requirements as generated shared objects, with one generation per module.
-A local stage fills the library cache; wheel builds and Windows skip it.
+A local stage fills the library cache; ``SPRITE_STAGE_JIT_CACHE=0`` skips
+the fill with one notice. CI enables it in one default C++ shard only.
+Wheel builds and Windows skip it.
 
 The local slot is beside the image actually attached. A private image
 uses its private directory, including for a foreign inline budget. A writer

@@ -305,7 +305,7 @@ reproducers pass.
   On Unix, LLVM caches completed module batches in `M.jit` beside `M.img`:
   relocatable constants resolve from image bytecode at link. The key covers
   the image body, runtime ABI, helpers, emitter, LLVM version and CPU.
-  Current objects swap before evaluation under `new` and `all`; `jit:off`
+  Current objects resolve on first use under `new` and `all`; `jit:off`
   reads none. Read-only products use `SPRITE_JIT_CACHE` when set and writable.
   A local stage fills the library cache when llvmlite imports; wheels and
   Windows omit persistent JIT objects.
@@ -337,10 +337,14 @@ reproducers pass.
   the same step.
 - Keep commits free of machine-specific paths and environment details.
 
-The LLVM JIT envelope holds a list of independent batch objects. Later hot
-batches append and link only their own object; cached functions are not
+The LLVM JIT envelope holds a list of independent per-function objects.
+Attachment reads only the index, checking key, size and mtime. A resolving
+step verifies and links one object on first call; eager mode resolves at
+load. Later hot batches append and link one object per function; cached functions are not
 re-optimized. The local JIT slot belongs to the image actually attached,
 including a private image for a foreign inline budget. A writer checks that
 the slot still holds that image before replacing another key. Only an
 unwritable attached-image directory uses
 `SPRITE_JIT_CACHE/<Full.Name>/<key>.jit`, with one generation per module.
+`SPRITE_STAGE_JIT_CACHE=0` skips the library fill; CI enables it in one
+default C++ shard only.

@@ -5,8 +5,11 @@ Release Notes
 0.9.0a3 (2026-10-31)
 ====================
 
+- Cached LLVM functions link on first use from independent per-function
+  objects; startup reads only the envelope index. CI fills the library JIT
+  cache in one job (``SPRITE_STAGE_JIT_CACHE=0`` skips the stage fill).
 - LLVM JIT batches persist as relocatable ``.jit`` objects beside module
-  images, link before evaluation on a warm start, and use
+  images, resolve on first use on a warm start, and use
   ``SPRITE_JIT_CACHE`` for read-only products. Local stages fill the library
   cache; wheels omit machine-specific objects. Windows persistence follows
   separately.
