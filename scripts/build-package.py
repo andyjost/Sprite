@@ -220,6 +220,12 @@ def main():
   make = [sys.executable, '-m', 'curry.tools.make']
   supported = [m for m in modules if m not in unsupported]
   run(*make, '--image', *supported)
+  # An unsupported module gets no image, but its ICurry and interfaces are
+  # installed all the same (the inspection and the oracle tests read them);
+  # a pinned build has the .icy already, a build from the front end writes it here.
+  unsupported_present = [m for m in modules if m in unsupported]
+  if unsupported_present:
+    run(*make, '--icy', *unsupported_present)
   if args.wheel:
     # A reused build directory may hold objects from an earlier local stage.
     for cached in lib.rglob('*.jit'):
