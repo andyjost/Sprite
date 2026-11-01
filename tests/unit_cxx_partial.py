@@ -11,6 +11,7 @@ without arguments, is one node per module, made when the module loads
 are in data/curry/CxxPartial.curry.
 '''
 import cytest # from ./lib; must be first
+from cytest.buildtools import runtime_test_command, runtime_test_environment
 from curry import common, config
 from curry.backends.cxx import compiler as cxx_compiler
 from curry.backends.generic.eval import evaluator
@@ -297,7 +298,7 @@ print(curryrt.gc_collections() - before)
   @cytest.skipIfInterpreted('the test reads the generated code of CxxPartial')
   def test_generated_code(self):
     shlib = getHandle(self.M).icurry.metadata['cxx.shlib']
-    text = cytest.readfile(shlib.sofilename()[:-len('.so')] + '.cpp')
+    text = cytest.readfile(os.path.splitext(shlib.sofilename())[0] + '.cpp')
     self.assertIn('// FORMAT: %d' % cxx_compiler.FORMAT_VERSION, text)
     # One shared node per function value, made at load by the initializer
     # from the bound slot of the head (issue #163).
@@ -339,11 +340,15 @@ class TestRuntime(cytest.TestCase):
         , source, '-o', exe
         , '-L%s' % libdir, '-lcurryrt', '-Wl,-rpath,%s' % libdir
         ]
+      if os.name == 'nt':
+        exe += '.exe'
+        cmd = runtime_test_command(source, exe)
       proc = subprocess.run(cmd, capture_output=True, text=True)
       self.assertEqual(proc.returncode, 0, proc.stderr)
       self.assertEqual(proc.stderr, '', 'the compiler warned')
       proc = subprocess.run(
-          ['timeout', str(TIMEOUT), exe], capture_output=True, text=True
+          [exe], timeout=TIMEOUT, capture_output=True, text=True,
+          env=runtime_test_environment()
         )
       self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
       self.assertEqual(proc.stdout, 'ok\n')

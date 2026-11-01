@@ -370,6 +370,7 @@ class TestStaleness(PreRewriteCase):
     with mock.patch.object(_curry2icurry, 'PARSE_LIMIT', size):
       self.assertTrue(_curry2icurry.translated_before_rewrite(curryfile, icy))
 
+  @cytest.posix_only('requires POSIX file and directory permission bits')
   @unittest.skipIf(
       hasattr(os, 'geteuid') and os.geteuid() == 0, 'root writes a read-only file'
     )
@@ -699,6 +700,7 @@ class TestCacheHit(PreRewriteCase):
     os.unlink(fcy)
     self.assertIsNone(_curry2icurry.rewrite_on_hit(curryfile))
 
+  @cytest.posix_only('requires POSIX directory permission bits')
   @unittest.skipIf(
       hasattr(os, 'geteuid') and os.geteuid() == 0, 'root writes a read-only directory'
     )

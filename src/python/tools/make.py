@@ -675,7 +675,8 @@ def _relay(job, counts=None):
   Writes the output of an ended child to the streams of this process.  The
   lines of the child about the product cache (cache_line) and about the
   pre-rewrite pairs (rewrite_line) are taken out and their counts are added
-  to ``counts`` when a dict is given.
+  to ``counts`` when a dict is given.  A child on Windows ends its lines
+  with CRLF, so the match strips both characters.
   '''
   for stream, out in [(job.stdout, sys.stdout), (job.stderr, sys.stderr)]:
     stream.seek(0)
@@ -685,12 +686,12 @@ def _relay(job, counts=None):
     if out is sys.stdout and counts is not None:
       lines = []
       for line in text.splitlines(keepends=True):
-        m = CACHE_LINE.match(line.rstrip('\n'))
+        m = CACHE_LINE.match(line.rstrip('\r\n'))
         if m:
           counts['restored'] += int(m.group('restored'))
           counts['stored'] += int(m.group('stored'))
           continue
-        m = REWRITE_LINE.match(line.rstrip('\n'))
+        m = REWRITE_LINE.match(line.rstrip('\r\n'))
         if m:
           counts['refreshed'] = counts.get('refreshed', 0) + int(m.group('refreshed'))
           counts['served'] = counts.get('served', 0) + int(m.group('served') or 0)

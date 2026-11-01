@@ -34,8 +34,10 @@ class TestCxxRuntime(cytest.TestCase):
         self.assertIs(type(cm.exception), error)
 
   def test_native_load_error_is_public(self):
-    with self.assertRaisesRegex(curry.LoadError, 'missing.so') as cm:
-      curryrt.SharedCurryModule('missing.so')
+    with self.assertRaisesRegex(
+        curry.LoadError, r'missing\.(so|dll)|The specified module could not be found'
+      ) as cm:
+      curryrt.SharedCurryModule('missing' + config.module_object_suffix())
     self.assertIs(type(cm.exception), curry.LoadError)
 
   def testModuleCreation(self):
@@ -135,8 +137,8 @@ os._exit(1)
     '''
     env = dict(os.environ)
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx'
-    cmd = ['timeout', str(self.TIMEOUT), config.sprite_exec(), '-m', 'CxxRuntime']
-    proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    cmd = [config.sprite_exec(), '-m', 'CxxRuntime']
+    proc = subprocess.run(cytest.tool_command(cmd), timeout=self.TIMEOUT, env=env, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(proc.stdout, 'Hello from Curry\n')
 
@@ -155,9 +157,9 @@ class TestBackendOption(cytest.TestCase):
     '''
     env = dict(os.environ)
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:' + flag
-    cmd = ['timeout', str(self.TIMEOUT), config.sprite_exec(), '-b', option]
+    cmd = [config.sprite_exec(), '-b', option]
     proc = subprocess.run(
-        cmd, env=env, input=':set\n:quit\n'
+        cytest.tool_command(cmd), timeout=self.TIMEOUT, env=env, input=':set\n:quit\n'
       , capture_output=True, text=True
       )
     self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -271,10 +273,10 @@ class TestReloadAfterCompiledObject(cytest.TestCase):
     cmd = cytest.limit_prefix(self.ADDRESS_SPACE, self.TIMEOUT) + [
         config.installed_path('bin', 'sprite-make'), '--so', 'ReloadBinding'
       ]
-    proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    proc = subprocess.run(cytest.tool_command(cmd), timeout=self.TIMEOUT, env=env, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     sofile = os.path.join(
-        self.tmpdir, '.curry', config.intermediate_subdir(), 'ReloadBinding.so'
+        self.tmpdir, '.curry', config.intermediate_subdir(), 'ReloadBinding' + config.module_object_suffix()
       )
     self.assertTrue(os.path.isfile(sofile), sofile)
 
@@ -317,8 +319,25 @@ def _symbol_of(address):
   '''
   The file of the loaded object that holds ``address`` and the name of the
   dynamic symbol at that address there, or None for each that is not
-  known (dladdr).
+  known (dladdr on POSIX, the module handle on Windows).
   '''
+  if os.name == 'nt':
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    module = ctypes.c_void_p()
+    lookup = kernel.GetModuleHandleExW
+    lookup.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
+    lookup.restype = ctypes.c_int
+    # FROM_ADDRESS | UNCHANGED_REFCOUNT: inspect the existing mapping.
+    if not lookup(0x00000004 | 0x00000002, address, ctypes.byref(module)):
+      raise ctypes.WinError(ctypes.get_last_error())
+    filename = kernel.GetModuleFileNameW
+    filename.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_uint]
+    filename.restype = ctypes.c_uint
+    buffer = ctypes.create_unicode_buffer(32768)
+    length = filename(module, buffer, len(buffer))
+    if not length or length == len(buffer):
+      raise ctypes.WinError(ctypes.get_last_error())
+    return os.path.realpath(buffer.value), None
   for lib in (None, 'libdl.so.2'):
     try:
       dladdr = ctypes.CDLL(lib).dladdr
@@ -371,7 +390,7 @@ class TestLibraryTablesInTheirObjects(cytest.TestCase):
   '''
   def test_tables(self):
     interp = cytest.raw.interp()
-    libcurryrt_path = config.curryrt_lib()
+    libcurryrt_path = config.installed_path('lib', config.curryrt_lib_name())
     libcurryrt = os.path.realpath(libcurryrt_path)
     runtime = ctypes.CDLL(libcurryrt_path)
     checked = 0

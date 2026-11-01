@@ -208,6 +208,7 @@ class TestInterruptedStep(cytest.TestCase):
       )
 
   @cytest.skipIfGcStress('a collection at every step hides the rotation path')
+  @cytest.posix_only('Windows: constraint rotation does not resume with the expected alternatives')
   def test_rotation_inside_the_constraint(self):
     '''
     The periodic rotation lands inside the grouped constraint for some

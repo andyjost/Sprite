@@ -36,6 +36,7 @@ print(json.dumps(dict(before=before, jitted=rt.icurry_is_jit(M.fib.info),
 '''
 
 
+@cytest.posix_only('persistent LLVM object caching is supported only on POSIX')
 class TestJITCache(cytest.TestCase):
   @classmethod
   def setUpClass(cls):

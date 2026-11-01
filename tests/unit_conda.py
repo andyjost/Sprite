@@ -1,5 +1,7 @@
 import cytest # from ./lib; must be first
 import sys, unittest
+if sys.platform == 'win32':
+  raise unittest.SkipTest('POSIX shell fixtures and ELF object inspection')
 if sys.platform == 'darwin':
   raise unittest.SkipTest(
       'reads ELF objects with readelf, which macOS has no form of'

@@ -80,6 +80,7 @@ assert value == 3, value
 print('ok')
 ''')
 
+  @cytest.posix_only('uses POSIX os.kill(SIGINT) delivery')
   def test_interrupt_reaches_main_thread(self):
     self.child('''
 # Preparation is complete before the signal is scheduled.
@@ -96,6 +97,7 @@ finally:
   timer.join()
 ''')
 
+  @cytest.posix_only('uses POSIX os.kill(SIGINT) delivery')
   def test_interrupt_while_waiting_for_heap(self):
     self.child('''
 started = threading.Event()
@@ -177,6 +179,7 @@ assert not errors, errors
 print('ok')
 ''')
 
+  @cytest.posix_only('uses POSIX os.kill(SIGINT) delivery')
   def test_interrupt_while_waiting_for_worker(self):
     self.child('''
 curry.reset(backend='cxx', interpret='off', stack_limit=65536)

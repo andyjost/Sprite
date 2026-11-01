@@ -247,7 +247,8 @@ class TestScheduler(SchedulerTests):
     self.assertEqual(bad.status, 'FAILED')
     self.assertEqual((bad.tests, bad.failures), (3, 2))
     self.assertTrue(bad.completed)
-    self.assertIsNotNone(good.peak)
+    if sys.platform != 'win32':
+      self.assertIsNotNone(good.peak)
     self.assertGreater(good.duration, 0)
     self.assertEqual(cli.exit_status([good]), 0)
     self.assertEqual(cli.exit_status([good, bad]), 1)
@@ -302,6 +303,7 @@ class TestScheduler(SchedulerTests):
     self.assertIsNone(job.tests)
     self.assertEqual(job.note, 'exit status 3')
 
+  @cytest.posix_only('requires POSIX signals, process sessions or sleep')
   def test_crash(self):
     job = self.pyjob(
         'crash.py', 'import os, signal; os.kill(os.getpid(), signal.SIGSEGV)'
@@ -311,6 +313,8 @@ class TestScheduler(SchedulerTests):
     self.assertEqual(job.note, 'signal %d' % signal.SIGSEGV)
     self.assertFalse(job.completed)
 
+  @unittest.skipIf(sys.platform == 'win32' and procs.psutil is None,
+                   'RSS watchdog needs psutil on Windows')
   def test_watchdog_kills_a_file_over_its_cap(self):
     code = 'import time\nblock = b"x" * (200 * 1024 * 1024)\ntime.sleep(30)\n'
     job = self.pyjob('hog.py', code, cap=64 * MIB)
@@ -371,6 +375,7 @@ class TestScheduler(SchedulerTests):
     self.assertEqual(job.status, 'killed: memory')
     self.assertEqual(job.note, '%d MB > cap 64 MB' % round(job.peak / MIB))
 
+  @cytest.posix_only('requires POSIX signals, process sessions or sleep')
   def test_timeout_kills_the_whole_session(self):
     # The child starts a grandchild in a new process group, as the timeout
     # command does, and sleeps.  The kill must reach the grandchild.
@@ -417,6 +422,7 @@ class TestScheduler(SchedulerTests):
       time.sleep(0.05)
     self.assertFalse(procs.is_alive(pid))
 
+  @cytest.posix_only('requires POSIX signals, process sessions or sleep')
   def test_kill_reaches_a_child_in_its_own_session(self):
     code = self.SETSID_CHILD % '["sleep", "60"]' + 'time.sleep(60)\n'
     job = self.pyjob('setsid.py', code, timeout=1)
@@ -424,6 +430,7 @@ class TestScheduler(SchedulerTests):
     self.assertEqual(job.status, 'killed: timeout')
     self.assertDeadSoon(self.grandchild_of(job))
 
+  @cytest.posix_only('requires POSIX signals, process sessions or sleep')
   def test_memory_of_a_child_in_its_own_session_counts(self):
     hog = '["%s", "-c", "%s"]' % (
         PYTHON, "import time; b = b'x' * (200 << 20); time.sleep(60)"
@@ -435,6 +442,7 @@ class TestScheduler(SchedulerTests):
     self.assertGreater(job.peak, 64 * MIB)
     self.assertDeadSoon(self.grandchild_of(job))
 
+  @cytest.posix_only('requires POSIX signals, process sessions or sleep')
   def test_orphan_in_its_own_session_dies_with_the_file(self):
     # The child starts a grandchild in a new session, lives long enough
     # for a poll to see it, and exits.  The grandchild loses its parent and
@@ -447,6 +455,7 @@ class TestScheduler(SchedulerTests):
     self.assertIn(grandchild, job.members)
     self.assertDeadSoon(grandchild)
 
+  @cytest.posix_only('requires POSIX signals, process sessions or sleep')
   def test_scan_walks_the_parent_links(self):
     child = subprocess.Popen(
         [ PYTHON, '-c'
@@ -505,6 +514,7 @@ class TestScheduler(SchedulerTests):
     sched = self.run_jobs(jobs, width=2, budget=4 * GIB)
     self.assertGreater(sched.wall, 1.9)
 
+  @cytest.posix_only('requires POSIX signals, process sessions or sleep')
   def test_interrupt_kills_and_reports(self):
     running = self.pyjob('long.py', 'import time; time.sleep(60)')
     waiting = self.pyjob('wait.py', 'pass')
@@ -535,6 +545,7 @@ class TestScheduler(SchedulerTests):
     for sig in INTERRUPT_SIGNALS:
       self.assertIs(signal.getsignal(sig), before[sig])
 
+  @cytest.posix_only('requires POSIX signals, process sessions or sleep')
   def test_hangup_and_term_end_the_run(self):
     for sig in (signal.SIGHUP, signal.SIGTERM):
       running = self.pyjob('long.py', 'import time; time.sleep(60)')
@@ -587,10 +598,15 @@ class TestProcs(unittest.TestCase):
 
   def test_meminfo(self):
     info = procs.meminfo()
+    if sys.platform == 'win32' and procs.psutil is None:
+      self.assertEqual(info, {})
+      self.assertIsNone(procs.mem_available())
+      return
     self.assertGreater(info['MemTotal'], 0)
     self.assertGreater(procs.mem_available(), 0)
     self.assertGreaterEqual(procs.cpu_count(), 1)
 
+  @cytest.posix_only('requires POSIX signals, process sessions or sleep')
   def test_scan_finds_this_session(self):
     sid = os.getsid(0)
     rss, pids, comms = procs.scan_sessions([sid])[sid]
@@ -1231,7 +1247,7 @@ class TestCli(unittest.TestCase):
     self.assertEqual(empty['SPRITE_ROTATION'], 'steps:65536')
     self.assertEqual(
         env['CURRYPATH']
-      , os.path.join(testrunner.TESTDIR, 'data', 'curry') + ':/extra'
+      , os.path.join(testrunner.TESTDIR, 'data', 'curry') + os.pathsep + '/extra'
       )
     # The lib directory is already on the path, under another spelling.
     self.assertEqual(env['PYTHONPATH'], testrunner.TESTDIR + '/lib/')
@@ -1337,6 +1353,7 @@ class TestCli(unittest.TestCase):
     self.assertEqual(status, 0)
     self.assertNotIn('inline budget: ', out.getvalue())
 
+  @cytest.posix_only('checks POSIX compiler wrapper and precompiled headers')
   def test_child_compiles_under_the_installation_toolchain(self):
     '''
     A child started with the environment of the runner from a shell that
@@ -1397,10 +1414,10 @@ class TestCli(unittest.TestCase):
         job.argv[-5:]
       , ['unittest', 'discover', '-v', testrunner.TESTDIR, 'unit_a.py']
       )
-    self.assertIn('/sprite/bin/python', job.argv)
+    self.assertIn(sys.executable if sys.platform == 'win32' else '/sprite/bin/python', job.argv)
     self.assertEqual(job.cap, 2000 * MIB)
     self.assertEqual(job.hint, 7)
-    self.assertEqual(job.logfile, '/logs/cxx/unit_a.py.log')
+    self.assertEqual(job.logfile, os.path.join('/logs', 'cxx', 'unit_a.py.log'))
     self.assertEqual(job.cwd, testrunner.TESTDIR)
     self.assertIs(job.env, env)
     self.assertFalse(job.exclusive)
@@ -1425,6 +1442,7 @@ class TestCli(unittest.TestCase):
     self.assertRegex(out.getvalue(), r'cxx\s+unit_runner\.py')
     self.assertNotRegex(out.getvalue(), r'py\s+unit_runner\.py')
 
+  @cytest.posix_only('executes POSIX shebang tool fixtures')
   def test_prepare_pass_is_advisory(self):
     '''
     A run with --prepare against a stand-in installation whose sprite-make
@@ -1514,6 +1532,7 @@ class TestCli(unittest.TestCase):
     self.assertEqual(status, 0)
     self.assertIn('no file selected', out.getvalue())
 
+  @cytest.posix_only('executes POSIX shebang tool fixtures')
   def test_prepare_only(self):
     '''
     --prepare-only runs the prepare pass alone and exits with its status.
@@ -1612,6 +1631,7 @@ class TestPrepare(unittest.TestCase):
     self.assertIn('data/curry/benchmarks/PokerChoice.curry', benchmarks)
     self.assertIn('data/curry/benchmarks/PokerFree.curry', benchmarks)
 
+  @cytest.posix_only('checks the POSIX prlimit command layout')
   def test_jobs(self):
     env = {'CURRYPATH': '/pool', 'PATH': '/bin'}
     jobs = prepare.jobs(
@@ -1673,7 +1693,8 @@ class TestPrepare(unittest.TestCase):
     self.assertEqual(prepare.interpret_flag('backend:cxx'), 'off')
     self.assertEqual(prepare.interpret_flag('backend:cxx,interpret:new'), 'new')
     self.assertEqual(prepare.interpret_flag(' interpret : all ,debug:1'), 'all')
-    self.assertEqual(prepare.product_suffixes('cxx'), ('.so',))
+    suffix = '.dll' if sys.platform == 'win32' else '.so'
+    self.assertEqual(prepare.product_suffixes('cxx'), (suffix,))
     for mode in 'new', 'all':
       self.assertEqual(
           prepare.product_suffixes('cxx', 'interpret:' + mode)
@@ -1685,7 +1706,7 @@ class TestPrepare(unittest.TestCase):
     pool = os.path.join(testdir, 'data', 'curry')
     products = os.path.join(pool, '.curry', 'x')
     os.makedirs(products)
-    for name in 'a.curry', 'b.curry', 'a.img', 'b.so':
+    for name in 'a.curry', 'b.curry', 'a.img', 'b' + suffix:
       with open(os.path.join(pool if name.endswith('.curry') else products, name), 'w'):
         pass
     def job(backend, flags):
@@ -1697,7 +1718,7 @@ class TestPrepare(unittest.TestCase):
     plain = job('cxx', None)
     self.assertEqual(plain.missing(), ['data/curry/a.curry'])
     self.assertEqual(
-        plain.product('data/curry/a.curry'), os.path.join(products, 'a.so')
+        plain.product('data/curry/a.curry'), os.path.join(products, 'a' + suffix)
       )
     for flags in 'backend:cxx,interpret:new', 'interpret:all':
       new = job('cxx', flags)
@@ -1731,6 +1752,7 @@ class TestPrepare(unittest.TestCase):
     self.assertIsNone(unknown.product('data/curry/a.curry'))
     self.assertIsNone(unknown.missing())
 
+  @cytest.posix_only('executes the staged POSIX Python wrapper')
   def test_prune_product_cache(self):
     '''
     After the pass the runner prunes its own product cache: the digest
@@ -1919,6 +1941,7 @@ class TestPrepare(unittest.TestCase):
         'product present'
       )
 
+  @cytest.posix_only('executes POSIX shebang tool fixtures')
   def test_preprocessor_lacking(self):
     '''
     A missing preprocessor skips the module. Other compile failures still
@@ -2054,6 +2077,7 @@ class TestPrepare(unittest.TestCase):
         '(cxx); the tests that need them report it'
       )
 
+  @cytest.posix_only('executes POSIX shebang tool fixtures')
   def test_product_subdir(self):
     tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
     self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
@@ -2068,6 +2092,7 @@ class TestPrepare(unittest.TestCase):
       self.assertIsNotNone(subdir)
       self.assertTrue(subdir.startswith('.curry/'), subdir)
 
+  @cytest.posix_only('executes POSIX shebang tool fixtures')
   def test_advisory_pass(self):
     '''
     The pass with a stand-in sprite-make over a corpus of three modules,

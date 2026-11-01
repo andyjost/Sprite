@@ -501,7 +501,7 @@ class TestPrograms(cytest.TestCase):
 
   def run_child(self, cmd, status=0, cwd=None, env=None, timeout=TIMEOUT):
     proc = subprocess.run(
-        ['timeout', str(timeout)] + cmd, capture_output=True, text=True
+        cytest.tool_command(cmd), timeout=timeout, capture_output=True, text=True
       , cwd=cwd, env=env
       )
     self.assertEqual(

@@ -1,7 +1,7 @@
 import cytest # from ./lib; must be first
 from cytest.buildtools import cmake_executable
 from curry import config, icurry
-from curry.toolchain import _frontend
+from curry.toolchain import _curry2icurry, _frontend
 import curry, glob, hashlib, os, shutil, subprocess, sys, tempfile, unittest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -260,13 +260,25 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     if config.curry_frontend() is None:
       self.skipTest('the Curry front end is not configured')
     for name in config.syslibs():
-      for suffix in ['.fcy', '.fint', '.icurry']:
-        self.assertTrue(os.path.isfile(interfacefile(name, suffix)), name + suffix)
-      # The interface is at least as new as the source it was made from.
-      self.assertGreaterEqual(
-          os.stat(interfacefile(name)).st_mtime, os.stat(sourcefile(name)).st_mtime, name
-        )
+      # Windows ships the versioned interfaces beside ICurry; FlatCurry
+      # bodies are build inputs, not installed products there.
+      suffixes = ['.fint', '.icurry'] if os.name == 'nt' else ['.fcy', '.fint', '.icurry']
+      for suffix in suffixes:
+        path = (productfile(name, suffix) if os.name == 'nt' else
+                interfacefile(name, suffix))
+        self.assertTrue(os.path.isfile(path), name + suffix)
+      if os.name == 'nt':
+        # Staged copies need not preserve the build-input timestamp order.
+        self.assertTrue(_curry2icurry.source_matches(
+            sourcefile(name), productfile(name, '.icy')), name)
+      else:
+        # The interface is at least as new as the source it was made from.
+        self.assertGreaterEqual(
+            os.stat(interfacefile(name)).st_mtime,
+            os.stat(sourcefile(name)).st_mtime, name)
 
+
+  @cytest.posix_only('requires POSIX directory permission bits')
   def test_readonly_library(self):
     '''
     The front end compiles a program against a read-only copy of the installed

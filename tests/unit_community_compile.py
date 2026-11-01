@@ -21,7 +21,7 @@ def current_only(source):
       ORIGIN: 'frontend-3.1.0/test/pass',
       'kics2-3.5.0-testsuite': 'kics2-3.5.0/testsuite'
     }.get(origin)
-  name = str(pathlib.Path(*relative.parts[1:])).replace('Goals.curry', '.curry')
+  name = pathlib.Path(*relative.parts[1:]).as_posix().replace('Goals.curry', '.curry')
   row = next((r for r in MANIFEST if r['source'] == upstream
               and r['path'] == name), None)
   if row and row['status'] == 'current-only':
@@ -61,7 +61,7 @@ def check_source(self, filename):
   with frontend_sources(source) as (local, work):
     if source.name == 'Prelude.curry':
       shutil.copyfile(source, work / source.name)
-    name = str(pathlib.Path(filename).with_suffix('')).replace('/', '.')
+    name = '.'.join(pathlib.Path(filename).with_suffix('').parts)
     code = (
         'import curry\n'
         'curry.path.insert(0, %r)\n'
@@ -75,8 +75,8 @@ def check_source(self, filename):
       self.assertNotEqual(proc.returncode, 0)
       self.assertIn("Curry module 'Prelude'", proc.stderr)
       self.assertIn('conflicts with the installed library module', proc.stderr)
-      self.assertIn(str(local), proc.stderr)
-      self.assertIn(config.installed_path('curry', 'Prelude.curry'), proc.stderr)
+      self.assertIn(repr(str(local))[1:-1], proc.stderr)
+      self.assertIn(repr(config.installed_path('curry', 'Prelude.curry'))[1:-1], proc.stderr)
       return
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     # Verify the fixture was loaded rather than an installed namesake.

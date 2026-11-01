@@ -17,6 +17,13 @@ class TestPyCompile(cytest.TestCase):
       , lambda: curry.compile('f=x')
       )
 
+  def test_crlf_diagnostic_keeps_error_text(self):
+    report = "M.curry:2:3 Error:\r\n    `x' is undefined\r\n"
+    error = curry.CompileError(report)
+    self.assertEqual(str(error), "M.curry:2:3 Error: `x' is undefined")
+    self.assertEqual((error.line, error.column), (2, 3))
+    self.assertEqual(error.report, report)
+
   def test_header_refusal_is_compile_error(self):
     with self.assertRaises(curry.CompileError):
       curry.compile('module HeaderOnly')

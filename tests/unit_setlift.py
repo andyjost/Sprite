@@ -879,6 +879,24 @@ class TestFiles(cytest.TestCase):
     self.assertEqual(_curry2icurry.rewrite_on_hit(self.curryfile), 0)
     self.assertEqual(readbytes(fcy), lifted)
 
+  def test_interface_digest_ignores_crlf(self):
+    from curry.toolchain import _interfaces
+    filename = os.path.join(self.tmpdir, 'M.fint')
+    texts = {'.fint': b'Prog "M" [] [] [] []\n',
+             '.icurry': b'interface M where {\n}\n'}
+    def write(newline):
+      for suffix, text in texts.items():
+        with open(os.path.splitext(filename)[0] + suffix, 'wb') as stream:
+          stream.write(text.replace(b'\n', newline))
+    with mock.patch.object(_interfaces, 'interface_file', return_value=filename):
+      write(b'\n')
+      expected = _interfaces.digest('M', [])
+      write(b'\r\n')
+      self.assertEqual(_interfaces.digest('M', []), expected)
+      texts['.icurry'] += b'-- changed interface\n'
+      write(b'\n')
+      self.assertNotEqual(_interfaces.digest('M', []), expected)
+
   def test_route_version(self):
     '''The lift joined the step with version 2 of the route, in the key of
     the ICurry cache.'''

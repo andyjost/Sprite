@@ -51,7 +51,7 @@ remain usable without the preprocessor; other compilation failures still
 fail the prepare pass.
 '''
 
-import os, re, shutil, subprocess
+import os, re, shutil, subprocess, sys
 from . import TESTDIR
 from .scheduler import Job
 
@@ -93,7 +93,7 @@ def prune_product_cache(sprite_home, env):
     return None
   if not os.path.isdir(root):
     return None
-  python = os.path.join(sprite_home, 'bin', 'python')
+  python = sys.executable if sys.platform == 'win32' else os.path.join(sprite_home, 'bin', 'python')
   try:
     proc = subprocess.run(
         [python, '-B', '-c', PRUNE], capture_output=True, text=True, env=env
@@ -275,6 +275,9 @@ def product_suffixes(backend, flags=None):
   '''
   if backend == 'cxx' and interpret_flag(flags) in ('new', 'all'):
     return IMAGE_PRODUCTS
+  if sys.platform == 'win32' and backend == 'cxx':
+    from curry import config
+    return (config.module_object_suffix(),)
   return (PRODUCT[backend],)
 
 def corpus_owners():
@@ -295,7 +298,7 @@ def product_subdir(sprite_home, env=None):
   make = os.path.join(sprite_home, 'bin', 'sprite-make')
   try:
     proc = subprocess.run(
-        [make, '-S'], capture_output=True, text=True, env=env, timeout=120
+        ([sys.executable, '-m', 'curry.tools.make'] if sys.platform == 'win32' else [make]) + ['-S'], capture_output=True, text=True, env=env, timeout=120
       )
   except (OSError, subprocess.TimeoutExpired):
     return None
@@ -323,7 +326,8 @@ def modules(directory, testdir=TESTDIR):
   # The product directory .curry ends with the suffix as well: only a file
   # is a module.
   return sorted(
-      os.path.join(directory, name) for name in names
+      (os.path.join(directory, name).replace('\\', '/') if sys.platform == 'win32'
+       else os.path.join(directory, name)) for name in names
           if name.endswith('.curry') and name not in EXCLUDE
           and os.path.isfile(os.path.join(path, name))
     )
@@ -336,7 +340,8 @@ def command(sprite_home, backend, files):
   run (SPRITE_FRONTEND_WARNINGS; cli.environment).
   '''
   make = os.path.join(sprite_home, 'bin', 'sprite-make')
-  return [make, '-k', TARGET[backend]] + list(files)
+  return ([sys.executable, '-m', 'curry.tools.make'] if sys.platform == 'win32'
+          else [make]) + ['-k', TARGET[backend]] + list(files)
 
 def _some(items, limit=8):
   '''The first ``limit`` of ``items``, joined, and the count of the rest.'''
@@ -592,7 +597,7 @@ def jobs(
       path.append(os.path.join(testdir, directory))
       if jobenv.get('CURRYPATH'):
         path.append(jobenv['CURRYPATH'])
-      jobenv['CURRYPATH'] = ':'.join(path)
+      jobenv['CURRYPATH'] = os.pathsep.join(path)
       label = 'prepare ' + directory
       logfile = os.path.join(
           logdir, backend, 'prepare-%s.log' % directory.replace('/', '-')

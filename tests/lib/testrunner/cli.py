@@ -157,12 +157,12 @@ def with_backend(flags, backend):
   return ','.join(['backend:' + backend] + items)
 
 def prepend_path(entry, value):
-  '''``entry`` in front of a colon-separated path, once.'''
-  parts = [part for part in (value or '').split(':') if part]
+  '''``entry`` in front of a platform-separated path, once.'''
+  parts = [part for part in (value or '').split(os.pathsep) if part]
   normal = os.path.normpath(entry)
   if any(os.path.normpath(part) == normal for part in parts):
-    return ':'.join(parts)
-  return ':'.join([entry] + parts)
+    return os.pathsep.join(parts)
+  return os.pathsep.join([entry] + parts)
 
 # The variables of a compiler toolchain that a shell may export (a conda
 # environment with a compiler package exports them all).  configure and the
@@ -265,6 +265,8 @@ def backstop_prefix(cap, setting=None):
   "unlimited"); without it the limit is the larger of BACKSTOP and
   BACKSTOP_FACTOR times ``cap``, within the hard limit of this process.
   '''
+  if sys.platform == 'win32':
+    return []
   if setting is None:
     setting = os.environ.get('SPRITE_TEST_MAX_VMEM_KB')
   if setting == 'unlimited':
@@ -284,7 +286,7 @@ def backstop_prefix(cap, setting=None):
 
 def test_job(filename, backend, sprite_home, manifest, timeout, logdir, env):
   '''The job of one test file on one backend.'''
-  python = os.path.join(sprite_home, 'bin', 'python')
+  python = sys.executable if sys.platform == 'win32' else os.path.join(sprite_home, 'bin', 'python')
   cap = manifest.cap(filename, backend)
   argv = backstop_prefix(cap) + [
       python, '-B', '-m', 'unittest', 'discover', '-v', TESTDIR, filename
@@ -322,7 +324,7 @@ def prepare_pass_jobs(args, names, backends, sprite_home):
     job.advisory = not args.prepare_only
   return jobs
 
-def select(args, backends, manifest, files=None):
+def select(args, backends, manifest, files=None, pakcs_available=True):
   '''
   The selection: a list of :class:`selection.Selected` and the notes that
   explain it.
@@ -351,6 +353,10 @@ def select(args, backends, manifest, files=None):
       item.reasons.append(
           'fast tier (below %g s or no entry; compiles no corpus)' % args.fast
         )
+  if any(item.filename.startswith('func_') for item in selected):
+    if not pakcs_available:
+      selected = [item for item in selected if not item.filename.startswith('func_')]
+      notes.append('skipping func_*.py: no PAKCS oracle configured')
   return selected, notes
 
 def budget_of(args, width):
@@ -389,7 +395,7 @@ def main(argv=None):
   args = parse_args(sys.argv[1:] if argv is None else argv)
   out = sys.stdout
   sprite_home = os.path.realpath(os.environ.get('SPRITE_HOME') or DEFAULT_SPRITE_HOME)
-  if not os.path.isfile(os.path.join(sprite_home, 'bin', 'python')):
+  if sys.platform != 'win32' and not os.path.isfile(os.path.join(sprite_home, 'bin', 'python')):
     sys.stderr.write(
         'run_tests: no installation at %s; set SPRITE_HOME or run make stage\n'
       % sprite_home
@@ -406,7 +412,9 @@ def main(argv=None):
       )
     return 2
   try:
-    selected, notes = select(args, backends, manifest, files)
+    pakcs_available = os.path.isfile(os.path.join(sprite_home, 'tools', 'pakcs')) \
+        or shutil.which('pakcs') is not None
+    selected, notes = select(args, backends, manifest, files, pakcs_available)
   except RuntimeError as exc:
     sys.stderr.write('run_tests: %s\n' % exc)
     return 2
@@ -435,10 +443,15 @@ def main(argv=None):
   if args.prepare or args.prepare_only:
     prepare_jobs = prepare_pass_jobs(args, names, backends, sprite_home)
   for line in notes:
-    out.write('changed: %s\n' % line)
+    prefix = 'run_tests' if line.startswith('skipping func_') else 'changed'
+    out.write('%s: %s\n' % (prefix, line))
   for note in [toolchain_note(os.environ), budget_note(os.environ)]:
     if note:
       out.write(note + '\n')
+  if sys.platform == 'win32':
+    out.write('Windows: no Job Object hard memory cap; optional psutil RSS '
+              'watchdog and process names, otherwise memory is unknown; '
+              'timeouts use taskkill /T /F.\n')
   if args.list:
     out.write(listing(prepare_jobs + jobs, manifest) + '\n')
     return 0

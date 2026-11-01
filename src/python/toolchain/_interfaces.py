@@ -46,7 +46,7 @@ def digest(name, searchdirs, frontend=False):
       if path.endswith('.fcy'):
         result.update(b'FlatCurry fallback\0')
       with open(path, 'rb') as stream:
-        result.update(b'present\0' + stream.read())
+        result.update(b'present\0' + stream.read().replace(b'\r\n', b'\n'))
     except FileNotFoundError:
       result.update(b'missing')
     result.update(b'\0')

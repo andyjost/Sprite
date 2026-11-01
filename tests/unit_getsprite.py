@@ -1,12 +1,15 @@
 '''The user installers and container recipes, without network access.'''
 import cytest # from ./lib; must be first
-import os, pathlib, pty, shlex, shutil, subprocess, tempfile, tomllib, unittest
+import os, pathlib, shlex, shutil, subprocess, tempfile, tomllib, unittest
+if os.name != "nt":
+  import pty
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCRIPTS = ['getsprite', 'getsprite-i']
 PYTHON = 'cpython>=3.11.4,<3.16'
 
 
+@cytest.posix_only('executes POSIX shell scripts or shebang fixtures')
 class TestGetSprite(unittest.TestCase):
   def setUp(self):
     self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='getsprite-'))

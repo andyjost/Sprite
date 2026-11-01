@@ -336,6 +336,7 @@ def warnings_by_file(text):
   of the first warning of each file.  Text of another shape is grouped
   under None.
   '''
+  text = text.replace('\r\n', '\n')
   groups = {}
   for block in re.split(r'\n\s*\n', text.strip('\n')):
     if not block.strip():

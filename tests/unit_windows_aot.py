@@ -36,11 +36,20 @@ class TestWindowsTestLibrary(cytest.TestCase):
       self.assertEqual(cytest.limit_prefix(1024, 5), [])
 
   def test_alarm_timeout_skips_without_sigalrm(self):
+    '''Without SIGALRM the timeout context skips the test on POSIX; on
+    Windows it runs the body, since the runner's per-file timeout bounds
+    the file.'''
     import types
     with mock.patch.object(cytest, 'signal', types.SimpleNamespace()):
-      with self.assertRaisesRegex(unittest.SkipTest, 'SIGALRM'):
+      if sys.platform == 'win32':
+        ran = False
         with cytest.timeout(1):
-          self.fail('unsupported alarm ran')
+          ran = True
+        self.assertTrue(ran)
+      else:
+        with self.assertRaisesRegex(unittest.SkipTest, 'SIGALRM'):
+          with cytest.timeout(1):
+            self.fail('unsupported alarm ran')
 
 
 class TestWindowsCommand(cytest.TestCase):
@@ -124,7 +133,7 @@ def dumpbin_exports(path):
 
 
 class TestTableExports(cytest.TestCase):
-  @unittest.skipUnless(sys.platform == 'win32', 'Windows runtime exports')
+  @cytest.windows_only('Windows runtime exports')
   def test_runtime_exports_builtin_datatypes(self):
     exports = dumpbin_exports(config.installed_path('lib', 'libcurryrt.dll'))
     print(exports)
@@ -206,7 +215,7 @@ class TestPublicationRetry(cytest.TestCase):
 
 
 class TestWindowsPublication(cytest.TestCase):
-  @unittest.skipUnless(sys.platform == 'win32', 'Windows replacement fast path')
+  @cytest.windows_only('Windows replacement fast path')
   def test_unmapped_object_replacement_leaves_no_generation(self):
     from curry.backends.cxx import curryrtbindings
     with mock.patch.dict(os.environ, SPRITE_TEST_WINDOWS_PUBLICATION=''), \
@@ -277,7 +286,7 @@ assert curry.eval(module.answer).one() == 42
       self.assertTrue(list(product.parent.glob(product.name + '.old-*')))
       self.assertEqual(curry.eval(module.answer).one(), 42)
 
-  @unittest.skipIf(sys.platform == 'win32', 'POSIX directory permission regression')
+  @cytest.posix_only('POSIX directory permission regression')
   def test_read_only_publication_leaves_directory_untouched(self):
     if os.geteuid() == 0:
       self.skipTest('root can write a read-only directory')
@@ -387,7 +396,7 @@ class TestPERecord(cytest.TestCase):
       self.read(self.image()[:0x210])
 
 
-@unittest.skipUnless(sys.platform == 'win32', 'Windows DLL integration')
+@cytest.windows_only('Windows DLL integration')
 class TestWindowsDLL(cytest.TestCase):
   def setUp(self):
     super().setUp()
@@ -440,7 +449,7 @@ class TestWindowsDLL(cytest.TestCase):
     self.assertEqual(curry.eval(module.answer).one(), 42)
 
 
-@unittest.skipUnless(sys.platform == 'win32', 'Windows process locks')
+@cytest.windows_only('Windows process locks')
 class TestWindowsLock(cytest.TestCase):
   def test_another_process_waits_for_the_writer(self):
     from curry.toolchain import _productlock

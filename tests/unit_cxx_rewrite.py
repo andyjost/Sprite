@@ -11,6 +11,7 @@ no longer at the forward nodes.  The programs are in
 data/curry/CxxRewrite.curry.
 '''
 import cytest # from ./lib; must be first
+from cytest.buildtools import runtime_test_command, runtime_test_environment
 from curry import common, config
 from curry.backends.generic.eval import evaluator
 from curry.objects.handle import getHandle
@@ -190,7 +191,7 @@ print(value, curryrt.gc_collections() - before)
   def test_generated_code(self):
     '''The generator applies the rule to each shape of result.'''
     shlib = getHandle(self.M).icurry.metadata['cxx.shlib']
-    text = cytest.readfile(shlib.sofilename()[:-len('.so')] + '.cpp')
+    text = cytest.readfile(os.path.splitext(shlib.sofilename())[0] + '.cpp')
     self.assertRegex(
         text, r'return _0->rewrite\(CyX10CxxRewrite4walk, _\d+\);'
       )
@@ -224,11 +225,15 @@ class TestNodeRewrite(cytest.TestCase):
         , source, '-o', exe
         , '-L%s' % libdir, '-lcurryrt', '-Wl,-rpath,%s' % libdir
         ]
+      if os.name == 'nt':
+        exe += '.exe'
+        cmd = runtime_test_command(source, exe)
       proc = subprocess.run(cmd, capture_output=True, text=True)
       self.assertEqual(proc.returncode, 0, proc.stderr)
       self.assertEqual(proc.stderr, '', 'the compiler warned')
       proc = subprocess.run(
-          ['timeout', str(TIMEOUT), exe], capture_output=True, text=True
+          [exe], timeout=TIMEOUT, capture_output=True, text=True,
+          env=runtime_test_environment()
         )
       self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
       self.assertEqual(proc.stdout, 'ok\n')
