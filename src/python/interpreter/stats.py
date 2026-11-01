@@ -239,9 +239,10 @@ def stats(interp):
         Seconds the node collector of the C++ backend spent in its
         collections.
     ``swapped``
-        The functions that the C++ compiler backend of the JIT swapped from
-        the interpreter to compiled code in this process (the interpreter
-        flags ``jit:hot,jit_backend:cxx``).
+        The functions swapped from the interpreter to compiled code in this
+        process by the C++ compiler backend or LLVM, including LLVM's emitted
+        and resolved cached functions. LLVM hot swaps may still be pending
+        until the scheduler's next safepoint.
     ``failed_compiles``
         The background compiles of the C++ compiler backend that failed in this
         process; the modules stay interpreted.

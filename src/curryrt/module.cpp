@@ -277,7 +277,7 @@ namespace curryrt
       InfoTable * info = const_cast<InfoTable *>(step.second);
       if(!info)
         continue;
-      if(info->step == &icurry_step || info->step == &trap_step)
+      if(is_interpreted_step(info->step))
       {
         auto compiled = (stepfunc_type) platform::symbol(
             shlib->handle(), step.first.c_str()
@@ -287,8 +287,7 @@ namespace curryrt
         info->step = compiled;
         info->aux = nullptr;
       }
-      if(info->step && info->step != &icurry_step
-          && info->step != &trap_step)
+      if(info->step && !is_interpreted_step(info->step))
         ++swapped;
     }
     this->link(shlib);
@@ -307,8 +306,7 @@ namespace curryrt
       // a step in flight finishes on it.
       InfoTable * live = const_cast<InfoTable *>(found);
       if(live != object && live->tag == T_FUNC && object->step
-          && (!live->step || live->step == &icurry_step
-              || live->step == &trap_step))
+          && (!live->step || is_interpreted_step(live->step)))
       {
         live->step = object->step;
         live->aux  = nullptr;
