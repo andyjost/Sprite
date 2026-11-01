@@ -57,7 +57,10 @@ class TestFlowF04(cytest.TestCase):
 
   def test_anonymous_answers(self):
     R = curry.import_('Rule')
-    self.assertEqual([str(a) for a in curry.solve(R.rule('a', curry.free()))], ['"cmd1"', '"cmd2"'])
+    v = curry.free()
+    self.assertEqual([str(a) for a in curry.solve(R.rule('a', v))],
+        ['{_a=["x"]} "cmd1"', '{_a=["y","z"]} "cmd2"'])
+    self.assertEqual([dict(a.bindings) for a in curry.solve(R.rule('a', curry.anonymous))], [{}, {}])
     self.assertEqual(list(curry.eval(R.rule('a', curry.anonymous))), ['cmd1', 'cmd2'])
     x, y = curry.eval((curry.anonymous, curry.anonymous)).one()
     self.assertIsInstance(x, curry.Var)

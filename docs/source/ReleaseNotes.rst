@@ -5,6 +5,9 @@ Release Notes
 0.9.0a3 (2026-10-31)
 ====================
 
+- ``curry.solve`` reports every held variable used in the goal, including
+  unnamed variables under display names such as ``_a``.
+
 - The JIT compiles interpreted functions through LLVM (``llvmlite``, the
   extra ``curry[jit]``) or the C++ compiler. ``jit`` selects ``off``,
   ``eager`` or ``hot`` (default); ``jit_backend`` selects ``auto``,

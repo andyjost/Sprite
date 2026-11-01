@@ -1,4 +1,4 @@
-'''The lazy results of an evaluation and its named bindings.'''
+'''The lazy results of an evaluation and its variable bindings.'''
 
 from collections.abc import Iterator, Mapping
 from typing import NamedTuple
@@ -123,10 +123,14 @@ def _key(value):
   return value
 
 class Bindings(Mapping):
-  '''An answer's bindings, in occurrence order, indexed by name or Var.'''
+  '''Bindings in occurrence order, indexed by name, display name or Var.'''
   def __init__(self, items=(), variables=()):
-    self._items = dict(items)
-    self._variables = {var: var.name for var in variables}
+    from .termshow import Context, show
+    variables = tuple(variables)
+    context = Context()
+    context.used.update(var.name for var in variables if var.name is not None)
+    self._variables = {var: show(var, context=context) for var in variables}
+    self._items = {self._variables.get(key, key): value for key, value in dict(items).items()}
 
   def __getitem__(self, key):
     from .terms import Var
@@ -146,10 +150,21 @@ class Bindings(Mapping):
   def __hash__(self):
     return hash(frozenset((name, _key(value)) for name, value in self.items()))
 
-  def __str__(self):
-    from .. import show
-    return '{%s}' % ', '.join('%s=%s' % (name, show(value))
+  def _context(self, value=()):
+    from .termshow import Context, _used_names
+    context = Context()
+    context.used.update(self._items)
+    context.used.update(_used_names((value, tuple(self.values()))))
+    context.variables.update((id(var), name) for var, name in self._variables.items())
+    return context
+
+  def _show(self, context):
+    from .termshow import show
+    return '{%s}' % ', '.join('%s=%s' % (name, show(value, context=context))
         for name, value in self.items())
+
+  def __str__(self):
+    return self._show(self._context())
 
   __repr__ = __str__
 
@@ -159,6 +174,8 @@ class Answer(NamedTuple):
   bindings: Bindings
 
   def __str__(self):
-    from .. import show
-    value = show(self.value)
-    return '%s %s' % (self.bindings, value) if self.bindings else value
+    from .termshow import show
+    context = self.bindings._context(self.value)
+    bindings = self.bindings._show(context)
+    value = show(self.value, context=context)
+    return '%s %s' % (bindings, value) if self.bindings else value

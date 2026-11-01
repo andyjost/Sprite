@@ -283,8 +283,11 @@ class TestStubEvaluation(cytest.TestCase):
 
   def test_anonymous_variables_are_not_reported(self):
     P = curry.import_('Prelude')
-    a = curry.solve(P['=:='](curry.free(), 1)).one()
-    self.assertEqual(dict(a.bindings), {})
+    self.assertEqual(dict(curry.solve(P['=:='](curry.anonymous, 1)).one().bindings), {})
+    v = curry.free()
+    a = curry.solve(P['=:='](v, 1)).one()
+    self.assertEqual(dict(a.bindings), {'_a': 1})
+    self.assertEqual(a.bindings[v], 1)
 
 
 if __name__ == '__main__':
