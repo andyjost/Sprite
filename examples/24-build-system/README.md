@@ -69,18 +69,19 @@ from curry.lib import Makefile
 
 prereqs = curry.free('prereqs')
 for recipe, bindings in curry.solve(Makefile.rule('demo', prereqs)):
-    print(bindings['prereqs'], recipe)
+    print(bindings[prereqs], recipe)
 # ['main.o', 'report.o', 'libgeom.a'] $(CC) -o $@ $^
 ```
 
 The bindings map each named variable to its value as Python data, a list
-of strings here.  The pattern rule answers the same question for an object
-file, and `stem` is solved on the way:
+of strings here, under the variable itself or its name (`bindings['prereqs']`).
+The pattern rule answers the same question for an object file, and
+`stem` is solved on the way:
 
 ```python
 prereqs = curry.free('prereqs')
 for recipe, bindings in curry.solve(Makefile.rule('vec.o', prereqs)):
-    print(bindings['prereqs'], recipe)
+    print(bindings[prereqs], recipe)
 # ['vec.c'] $(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 ```
 
@@ -88,7 +89,7 @@ The recipe is make's template.  `$@` stands for the target and `$<` for
 the first prerequisite, so the answer fills both:
 
 ```python
-print(recipe.replace('$@', 'vec.o').replace('$<', bindings['prereqs'][0]))
+print(recipe.replace('$@', 'vec.o').replace('$<', bindings[prereqs][0]))
 # $(CC) $(CPPFLAGS) $(CFLAGS) -c vec.c -o vec.o
 ```
 
@@ -152,7 +153,7 @@ import concurrent.futures, re, shlex, subprocess
 
 def rules(target):
     prereqs = curry.free('prereqs')
-    return [(bindings['prereqs'], recipe)
+    return [(bindings[prereqs], recipe)
             for recipe, bindings in curry.solve(Makefile.rule(target, prereqs))]
 ```
 

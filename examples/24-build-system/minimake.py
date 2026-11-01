@@ -19,7 +19,7 @@ def rules(target):
   '''The prerequisites and the recipe of every rule of a target: the answers
   of rule target prereqs with prereqs free.'''
   prereqs = curry.free('prereqs')
-  return [(bindings['prereqs'], recipe)
+  return [(bindings[prereqs], recipe)
           for recipe, bindings in curry.solve(Makefile.rule(target, prereqs))]
 
 def headers(source):
