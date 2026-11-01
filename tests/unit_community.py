@@ -56,7 +56,10 @@ class TestCommunityTypes(cytest.TestCase):
     entry = next(e for e in GOALS if e['module'].endswith(source.name)
                  and e['goal'] == goal)
     expected = source.with_name(source.stem + '.' + goal + '.au-gen').read_text()
-    proc, actual = sprite_results(source, goal, timeout=5)
+    # The child compiles the module under interpret:off before the goal
+    # runs; the Intel macOS runner of CI needs more than five seconds for
+    # that under load (2026-11-01), and a hang still fails at the default.
+    proc, actual = sprite_results(source, goal)
     record(entry, expected, actual)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertSameResultMultiset(actual, expected)
@@ -157,8 +160,7 @@ class TestCommunityRegressions(cytest.TestCase):
     curry.path.insert(0, str(source.parent))
     curry.import_(source.stem)
     expected = source.with_name('BetterBlocksGoals.solveSimple.au-gen').read_text()
-    proc, actual = sprite_results(source, 'solveSimple', timeout=5,
-                                  address_space=256 << 20)
+    proc, actual = sprite_results(source, 'solveSimple', address_space=256 << 20)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertSameResultMultiset(actual, expected)
 
