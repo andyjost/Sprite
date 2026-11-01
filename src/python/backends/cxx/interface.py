@@ -66,7 +66,9 @@ class IBackend(backends.IBackend):
       tiered.poll(interp)
 
   def tiered_counts(self):
-    return tiered.counts()
+    swapped, failed = tiered.counts()
+    state = llvmjit._jit
+    return swapped + (state.functions + state.linked if state else 0), failed
 
   def num_collections(self):
     return curryrtbindings.gc_collections()

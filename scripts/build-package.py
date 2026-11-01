@@ -202,6 +202,21 @@ def main():
   make = [sys.executable, '-m', 'curry.tools.make']
   supported = [m for m in modules if m not in unsupported]
   run(*make, '--image', *supported)
+  if args.wheel:
+    # A reused build directory may hold objects from an earlier local stage.
+    for cached in lib.rglob('*.jit'):
+      cached.unlink()
+  elif sys.platform != 'win32':
+    # Machine-specific objects belong to a local stage, never to a wheel.
+    run(sys.executable, '-c',
+        "import importlib.util\n"
+        "if importlib.util.find_spec('llvmlite') is None:\n"
+        "  print('llvmlite unavailable: library JIT cache not filled', flush=True)\n"
+        "else:\n"
+        "  import curry\n"
+        "  print('filling library JIT cache', flush=True)\n"
+        "  curry.reset(interpret='all', jit='eager', jit_backend='llvm')\n"
+        "  for name in " + repr(supported) + ": curry.import_(name)\n")
   # Wheel installers need not preserve file times or extraction order.
   # These existing provenance sidecars identify unchanged shipped sources.
   for path in sources:

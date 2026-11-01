@@ -455,6 +455,9 @@ def attach(interp, source, path, header):
   if jit != 'off' and backend(interp) == 'llvm':
     from . import llvmjit, materialize
     try:
+      items = [(info, bom.fullname + '.' + info.name) for _, _, info in bom.functions
+          if curryrt.icurry_is_interpreted(info) or curryrt.icurry_is_jit(info)]
+      llvmjit.attach_cache(filename(source), header, items)
       if jit == 'hot':
         llvmjit.start_hot_tier(materialize.jit_threshold())
       else:

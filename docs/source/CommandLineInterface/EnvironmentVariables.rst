@@ -246,6 +246,15 @@ Additional environment variables are recognized.  These are intended for people
 developing Sprite itself.  If you plan only to compile and run Curry programs
 with Sprite, then you should not need these.
 
+``SPRITE_JIT_CACHE``
+  A writable per-user directory for LLVM JIT objects when the module's
+  product directory is read-only. Entries live under a content key and
+  contain ``M.jit`` (the function index and native object together).
+  An unset or empty value disables this fallback. Writable product
+  directories always keep their object beside ``M.img``. ``jit:off``
+  reads and writes neither location. Objects may be deleted at any time;
+  the JIT compiles again on a miss. Windows persistence is not available.
+
 ``SPRITE_JIT_THRESHOLD``
   The number of calls that makes an interpreted function hot; 100 by
   default. With ``jit:hot`` (the default), LLVM compiles that function;
