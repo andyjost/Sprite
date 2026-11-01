@@ -178,7 +178,8 @@ class timeout(contextlib.ContextDecorator):
         ...
 
   The limit is enforced with SIGALRM, so it applies to Python code in the main
-  thread.  Code that spins inside C++ is not interrupted; run such a test in a
+  thread.  On Windows it is a no-op; the runner bounds the test file.
+  Code that spins inside C++ is not interrupted; run such a test in a
   subprocess instead.  After the limit, the timer repeats every second in case
   the first exception is swallowed.
 
@@ -193,6 +194,8 @@ class timeout(contextlib.ContextDecorator):
     raise TimeoutError('timeout after %s seconds' % self.seconds)
 
   def __enter__(self):
+    if sys.platform == 'win32':
+      return self
     if not hasattr(signal, 'SIGALRM'):
       raise unittest.SkipTest('timeout requires POSIX SIGALRM')
     self.prev_handler = signal.signal(signal.SIGALRM, self._expire)
@@ -200,6 +203,8 @@ class timeout(contextlib.ContextDecorator):
     return self
 
   def __exit__(self, *exc_info):
+    if sys.platform == 'win32':
+      return False
     signal.setitimer(signal.ITIMER_REAL, 0)
     signal.signal(signal.SIGALRM, self.prev_handler)
     return False

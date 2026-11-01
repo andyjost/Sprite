@@ -1,11 +1,10 @@
-import cytest
 '''Frontend packaging works independently of the Sprite runtime.'''
 import importlib.util
 import hashlib, json, os, pathlib, runpy, shutil, subprocess, sys, tempfile, unittest
 import sysconfig, zipfile
 
 
-@cytest.posix_only('executes POSIX shell scripts or shebang fixtures')
+@unittest.skipIf(sys.platform == 'win32', 'executes POSIX shell scripts or shebang fixtures')
 class TestFrontendWheel(unittest.TestCase):
   @unittest.skipUnless(importlib.util.find_spec('setuptools') and
       importlib.util.find_spec('wheel'), 'requires setuptools and wheel')
@@ -75,7 +74,7 @@ class TestFrontendLogs(unittest.TestCase):
             name + ' failed\n')
 
 
-@cytest.posix_only('executes POSIX shell scripts or shebang fixtures')
+@unittest.skipIf(sys.platform == 'win32', 'executes POSIX shell scripts or shebang fixtures')
 class TestFrontendLauncher(unittest.TestCase):
   def test_exec(self):
     root = pathlib.Path(__file__).resolve().parent.parent
@@ -132,7 +131,7 @@ class TestGmpLicenses(unittest.TestCase):
         copy_notices(pathlib.Path(tmp), pathlib.Path(tmp))
 
 
-@cytest.posix_only('executes POSIX shell scripts or shebang fixtures')
+@unittest.skipIf(sys.platform == 'win32', 'executes POSIX shell scripts or shebang fixtures')
 class TestFrontendLinkage(unittest.TestCase):
   @unittest.skipUnless(shutil.which('cc') and shutil.which('readelf'),
       'requires a C compiler and readelf for a real dynamic ELF')

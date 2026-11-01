@@ -276,7 +276,8 @@ def product_suffixes(backend, flags=None):
   if backend == 'cxx' and interpret_flag(flags) in ('new', 'all'):
     return IMAGE_PRODUCTS
   if sys.platform == 'win32' and backend == 'cxx':
-    return ('.dll',)
+    from curry import config
+    return (config.module_object_suffix(),)
   return (PRODUCT[backend],)
 
 def corpus_owners():

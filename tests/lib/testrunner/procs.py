@@ -286,21 +286,26 @@ def session_rss(sid):
   '''The resident set of one session, in bytes.'''
   return scan_sessions([sid])[sid][0]
 
-def kill_session(sid, sig=getattr(signal, 'SIGKILL', None), rounds=20, pause=0.05, roots=()):
+def kill_session(sid, sig=getattr(signal, 'SIGKILL', None), rounds=20, pause=0.05, roots=(), leader=None):
   '''
   Sends ``sig`` to every process of the session ``sid`` and to the process
   group of its leader, in rounds, until a scan finds no process of the
   session or ``rounds`` is reached.  A process that forks between the scan
   and the kill is caught by the next round.  ``roots`` are the pids of the
   session seen before (see scan_sessions); every pid a round finds joins
-  them.  Returns the pids that were signalled.
+  them.  On Windows, ``leader`` is the Popen object; an exited leader is
+  excluded from taskkill to avoid a recycled PID. Returns the pids that
+  were signalled.
   '''
   if sys.platform == 'win32':
-    for pid in sorted(set(roots) - {sid}) + [sid]:
+    pids = set(roots) - {sid}
+    if leader is None or leader.poll() is None:
+      pids.add(sid)
+    for pid in sorted(pids - {sid}) + ([sid] if sid in pids else []):
       subprocess.run(['taskkill', '/PID', str(pid), '/T', '/F'],
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                      check=False)
-    return sorted(set(roots) | {sid})
+    return sorted(pids)
   signalled = set()
   roots = set(roots)
   for _ in range(rounds):

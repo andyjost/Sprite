@@ -319,7 +319,6 @@ class TestStore(ProductCacheTestCase):
       )
     self.assertEqual(_productcache.counts['restored'], 1)
 
-  @cytest.posix_only('requires hard links accepted by the file system')
   def test_restore_replaces_without_writing_into_the_old_file(self):
     '''
     An old object beside the source may be a hard link into the cache; a

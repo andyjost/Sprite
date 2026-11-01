@@ -324,7 +324,7 @@ def prepare_pass_jobs(args, names, backends, sprite_home):
     job.advisory = not args.prepare_only
   return jobs
 
-def select(args, backends, manifest, files=None):
+def select(args, backends, manifest, files=None, pakcs_available=True):
   '''
   The selection: a list of :class:`selection.Selected` and the notes that
   explain it.
@@ -354,8 +354,7 @@ def select(args, backends, manifest, files=None):
           'fast tier (below %g s or no entry; compiles no corpus)' % args.fast
         )
   if any(item.filename.startswith('func_') for item in selected):
-    from cytest.oracle import pakcs_available
-    if not pakcs_available():
+    if not pakcs_available:
       selected = [item for item in selected if not item.filename.startswith('func_')]
       notes.append('skipping func_*.py: no PAKCS oracle configured')
   return selected, notes
@@ -413,7 +412,9 @@ def main(argv=None):
       )
     return 2
   try:
-    selected, notes = select(args, backends, manifest, files)
+    pakcs_available = os.path.isfile(os.path.join(sprite_home, 'tools', 'pakcs')) \
+        or shutil.which('pakcs') is not None
+    selected, notes = select(args, backends, manifest, files, pakcs_available)
   except RuntimeError as exc:
     sys.stderr.write('run_tests: %s\n' % exc)
     return 2
@@ -442,7 +443,8 @@ def main(argv=None):
   if args.prepare or args.prepare_only:
     prepare_jobs = prepare_pass_jobs(args, names, backends, sprite_home)
   for line in notes:
-    out.write('changed: %s\n' % line)
+    prefix = 'run_tests' if line.startswith('skipping func_') else 'changed'
+    out.write('%s: %s\n' % (prefix, line))
   for note in [toolchain_note(os.environ), budget_note(os.environ)]:
     if note:
       out.write(note + '\n')

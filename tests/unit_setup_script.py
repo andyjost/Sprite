@@ -117,7 +117,6 @@ class SetupScriptTestCase(unittest.TestCase):
       position = found + len(part)
 
 
-@cytest.posix_only('checks executable POSIX shell scripts')
 class TestScriptText(SetupScriptTestCase):
   '''The file itself.'''
 

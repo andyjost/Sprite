@@ -49,7 +49,7 @@ jobs:
       - name: Tools
         run: |
           set -euxo pipefail
-          python -m pip install --quiet cmake ninja scikit-build-core numpy llvmlite curry-frontend==3.1.0.post2
+          python -m pip install --quiet cmake ninja scikit-build-core numpy llvmlite psutil curry-frontend==3.1.0.post2
           cmake --version
           clang++ --version || echo "no clang++ on PATH"
           ninja --version
@@ -67,6 +67,10 @@ jobs:
           for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
           echo Visual Studio: %VSPATH%
           call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
+          echo INCLUDE=%INCLUDE%>> "%GITHUB_ENV%"
+          echo LIB=%LIB%>> "%GITHUB_ENV%"
+          echo LIBPATH=%LIBPATH%>> "%GITHUB_ENV%"
+          echo PATH=%PATH%>> "%GITHUB_ENV%"
           set "CC=${{ matrix.cc }}"
           set "CXX=${{ matrix.cc }}"
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DPython_EXECUTABLE=%pythonLocation%\python.exe -DWITH_PAKCS= -DWITH_CURRY_FRONTEND= -DWITH_ICURRY= -DWITH_CLANG=clang++ > configure.log 2>&1

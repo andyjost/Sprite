@@ -31,7 +31,9 @@ class TestWindowsRunner(unittest.TestCase):
     with mock.patch.object(sys, 'platform', 'win32'), \
          mock.patch.object(cli.shutil, 'which', side_effect=AssertionError('prlimit')):
       self.assertEqual(cli.backstop_prefix(1024, '1'), [])
-      self.assertEqual(prepare.product_suffixes('cxx', 'interpret:off'), ('.dll',))
+      from curry import config
+      with mock.patch.object(config, 'module_object_suffix', return_value='.dll'):
+        self.assertEqual(prepare.product_suffixes('cxx', 'interpret:off'), ('.dll',))
       self.assertEqual(prepare.product_suffixes('cxx', 'interpret:new'), ('.img',))
       self.assertEqual(procs.toolchain_in(['python', 'clang-cl', 'link']), ['clang-cl', 'link'])
       job = cli.test_job('unit_x.py', 'cxx', 'stage', Manifest({}), 10, 'logs', {})
@@ -62,7 +64,7 @@ class TestWindowsRunner(unittest.TestCase):
       sched.reap()
       self.assertEqual(job.returncode, 7)
       self.assertEqual(job.status, 'FAILED')
-      kill.assert_called_once_with(123, roots=set())
+      kill.assert_not_called()
 
   def test_blocking_reap(self):
     job = scheduler.Job('x', 'cxx', [], 1024, 10, None)
@@ -79,6 +81,8 @@ class TestWindowsRunner(unittest.TestCase):
   def test_unknown_memory_still_times_out(self):
     job = scheduler.Job('x', 'cxx', [], 1024, 1, None)
     job.pid, job.started = 123, 0
+    job.proc = mock.Mock()
+    job.proc.poll.return_value = None
     sched = scheduler.Scheduler([], 2048, 1)
     sched.running = [job]
     with mock.patch.object(sys, 'platform', 'win32'), \
@@ -117,6 +121,33 @@ class TestWindowsRunner(unittest.TestCase):
                      [['taskkill', '/PID', '2', '/T', '/F'],
                       ['taskkill', '/PID', '1', '/T', '/F']])
 
+  def test_exited_leader_is_not_killed(self):
+    child = mock.Mock()
+    child.poll.return_value = 0
+    with mock.patch.object(sys, 'platform', 'win32'), \
+         mock.patch.object(procs.subprocess, 'run') as run:
+      self.assertEqual(procs.kill_session(1, roots={1, 2}, leader=child), [2])
+    self.assertEqual([call.args[0] for call in run.call_args_list],
+                     [['taskkill', '/PID', '2', '/T', '/F']])
+
+  def test_windows_timeout_runs_body_without_alarm(self):
+    with mock.patch.object(sys, 'platform', 'win32'), \
+         mock.patch.object(cytest.signal, 'setitimer', create=True) as timer:
+      with cytest.timeout(1):
+        pass
+    timer.assert_not_called()
+
+  def test_oracle_selection_does_not_import_cytest(self):
+    script = """
+import sys
+from testrunner import cli
+cli.main(['--list', 'func_*.py'])
+assert 'cytest' not in sys.modules
+"""
+    import subprocess
+    result = subprocess.run([sys.executable, '-c', script], capture_output=True, text=True)
+    self.assertEqual(result.returncode, 0, result.stderr)
+
   def test_marks(self):
     for platform in ('linux', 'darwin', 'win32'):
       with self.subTest(platform=platform), mock.patch.object(sys, 'platform', platform):
@@ -127,13 +158,12 @@ class TestWindowsRunner(unittest.TestCase):
 
   def test_functional_selection_without_oracle(self):
     args = cli.parse_args([])
-    with mock.patch('cytest.oracle.pakcs_available', return_value=False):
-      selected, notes = cli.select(args, ['cxx'], Manifest({}), ['unit_x.py', 'func_x.py'])
+    selected, notes = cli.select(args, ['cxx'], Manifest({}),
+                                 ['unit_x.py', 'func_x.py'], False)
     self.assertEqual([item.filename for item in selected], ['unit_x.py'])
     self.assertEqual(len(notes), 1)
     self.assertIn('no PAKCS oracle', notes[0])
-    with mock.patch('cytest.oracle.pakcs_available', return_value=True):
-      selected, notes = cli.select(args, ['cxx'], Manifest({}), ['func_x.py'])
+    selected, notes = cli.select(args, ['cxx'], Manifest({}), ['func_x.py'], True)
     self.assertEqual([item.filename for item in selected], ['func_x.py'])
     self.assertEqual(notes, [])
 
