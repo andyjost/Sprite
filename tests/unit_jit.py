@@ -220,6 +220,40 @@ class TestSelection(cytest.TestCase):
         self.assertIn('jit: no backend, interpreter only', logs.output[0])
 
 
+class TestHelpers(cytest.TestCase):
+  def test_helpers_lose_the_attributes_of_the_compiler_target(self):
+    '''
+    The bitcode of the helpers carries the target of the clang that built it;
+    Apple's clang also asks for stack probing, which llvmlite's AArch64
+    backend rejects.  The JIT drops those attributes and keeps the rest.
+    '''
+    try:
+      import llvmlite.binding as llvm
+    except ImportError:
+      self.skipTest('llvmlite is not installed')
+    llvm.initialize_native_target()
+    llvm.initialize_native_asmprinter()
+    text = r'''
+      define internal i32 @helper(i32 %x) #0 {
+        ret i32 %x
+      }
+      attributes #0 = { alwaysinline nounwind "no-trapping-math"="true" "probe-stack"="__chkstk_darwin" "target-cpu"="apple-m1" "target-features"="+neon,+zcm,+zcz" "tune-cpu"="apple-m1" }
+    '''
+    module = llvm.parse_assembly(text)
+    module.verify()
+    stripped = llvmjit._host_helpers(llvm, module)
+    stripped.verify()
+    result = str(stripped)
+    for name in ('probe-stack', 'target-cpu', 'target-features', 'tune-cpu'):
+      self.assertNotIn(name, result)
+    self.assertIn('"no-trapping-math"="true"', result)
+    self.assertIn('alwaysinline', result)
+    self.assertEqual([f.name for f in stripped.functions], ['helper'])
+    # A module without such attributes is returned as it is.
+    plain = llvm.parse_assembly('define i32 @f(i32 %x) { ret i32 %x }')
+    self.assertIs(llvmjit._host_helpers(llvm, plain), plain)
+
+
 class TestGxx(cytest.TestCase):
   @classmethod
   def setUpClass(cls):
