@@ -21,6 +21,9 @@ Release Notes
   object per function in the envelope; a start reads the index alone. CI
   fills the library's cache in one job (``SPRITE_STAGE_JIT_CACHE=0`` skips
   the fill of a stage).
+- The LLVM cache uses smaller module-local symbols and per-function zlib
+  payloads (``SPRTJIT4``). Cached calls can resolve between hot optimizer
+  batches; pinned cache files close after resolution or image detach.
 - LLVM JIT batches persist as relocatable ``.jit`` objects beside module
   images, resolve on first use on a warm start and use
   ``SPRITE_JIT_CACHE`` for read-only products. Local stages fill the library

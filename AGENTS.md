@@ -335,14 +335,20 @@ reproducers pass.
   the same step.
 - Keep commits free of machine-specific paths and environment details.
 
-The LLVM JIT envelope holds a list of independent per-function objects.
-Attachment reads only the index, checking key, size and mtime. A resolving
-step verifies and links one object on first call; eager mode resolves at
-load. Later hot batches append and link one object per function; cached
-functions are not re-optimized. The local JIT slot belongs to the image
-actually attached, including a private image for a foreign inline budget.
-A writer checks that the slot still holds that image before replacing
-another key. Only an unwritable attached-image directory uses
+The LLVM JIT envelope (SPRTJIT4) holds independent per-function objects,
+zlib-compressed separately, with short module-local step and constant
+symbols. Older format envelopes miss. Attachment reads only the index,
+checking key, size and mtime. A resolving step verifies the compressed
+bytes, decompresses and links one object on first call; eager mode resolves
+at load. Later hot batches append and link one object per function; cached
+functions are not re-optimized. Hot and eager callers release the JIT lock
+between optimizer batches of at most 32 functions and publish once per
+module. The pinned index descriptor closes after every object is read or
+dropped, or at image-generation detach; verified bytes remain available for
+publication. The local JIT slot belongs to the image actually attached,
+including a private image for a foreign inline budget. A writer checks that
+the slot still holds that image before replacing another key. Only an
+unwritable attached-image directory uses
 `SPRITE_JIT_CACHE/<Full.Name>/<key>.jit`, with one generation per module.
 `SPRITE_STAGE_JIT_CACHE=0` skips the library fill; CI enables it in one
 default C++ shard only.
