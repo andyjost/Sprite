@@ -17,6 +17,8 @@ import time
 
 def jit_cache_fill(modules):
   '''The optional stage fill, also usable with a small library in tests.'''
+  if os.environ.get('SPRITE_STAGE_JIT_CACHE') == '0':
+    return "print('library JIT cache fill skipped: SPRITE_STAGE_JIT_CACHE=0', flush=True)\n"
   return (
       "import curry\n"
       "from curry.backends.cxx import llvmjit\n"
@@ -240,7 +242,10 @@ def main():
       cached.unlink()
   elif sys.platform != 'win32':
     # Machine-specific objects belong to a local stage, never to a wheel.
-    run(sys.executable, '-c', jit_cache_fill(supported))
+    if os.environ.get('SPRITE_STAGE_JIT_CACHE') == '0':
+      print('library JIT cache fill skipped: SPRITE_STAGE_JIT_CACHE=0', flush=True)
+    else:
+      run(sys.executable, '-c', jit_cache_fill(supported))
   # Wheel installers need not preserve file times or extraction order.
   # These existing provenance sidecars identify unchanged shipped sources.
   for path in sources:

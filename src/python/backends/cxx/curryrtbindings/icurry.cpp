@@ -224,6 +224,33 @@ namespace
     return std::move(d);
   }
 
+  // Process lifetime, like the runtime's trap callback. Avoid Python object
+  // destruction after interpreter shutdown.
+  py::object * g_cache_callback = nullptr;
+
+  stepfunc_type resolve_cached(InfoTable const * info)
+  {
+    py::gil_scoped_acquire gil;
+    try
+    {
+      auto address = (*g_cache_callback)(reinterpret_cast<std::uintptr_t>(info))
+          .cast<std::uintptr_t>();
+      return reinterpret_cast<stepfunc_type>(address);
+    }
+    catch(py::error_already_set & exc)
+    {
+      if(exc.matches(PyExc_KeyboardInterrupt) || exc.matches(PyExc_SystemExit))
+        throw;
+      exc.restore();
+      PyErr_Clear();
+    }
+    catch(py::cast_error const &)
+    {}
+    catch(std::exception const &)
+    {}
+    return nullptr;
+  }
+
   void icurry_set_step_(InfoTable * info, std::uintptr_t address)
   {
     try
@@ -276,6 +303,13 @@ namespace curryrt { namespace python
       , py::arg("nvars"), py::arg("nstack")
       , "Makes a function table made at run time an interpreted function: "
         "attaches the bytecode and the constants of its body.", curryrt::python::heap_access{});
+    mod.def("icurry_set_cache_hook", [](py::object callback) {
+      if(!g_cache_callback) g_cache_callback = new py::object;
+      *g_cache_callback = std::move(callback);
+      icurry_set_cache_hook(&resolve_cached);
+    });
+    mod.def("icurry_install_cached", &icurry_install_cached
+      , curryrt::python::heap_access{});
     mod.def("icurry_set_step", &icurry_set_step_
       , "Gives an interpreted function the step at an address: the code a JIT "
         "made from its bytecode.  The function must be interpreted at the "
@@ -309,6 +343,9 @@ namespace curryrt { namespace python
         "list; 0 turns the count off.");
     mod.def("icurry_hot_threshold", &icurry_hot_threshold
       , "The call count of the hot tier.");
+    mod.def("icurry_address"
+      , [](InfoTable const * info) { return reinterpret_cast<std::uintptr_t>(info); }
+      , "The table address, without the heap lock, for JIT callbacks.");
     mod.def("icurry_name"
       , [](InfoTable const * info) { return std::string(info && info->name ? info->name : ""); }
       , "The name of an info table, without the heap lock (the thread of the "

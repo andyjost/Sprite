@@ -175,6 +175,12 @@ These are build settings. Pass CMake options as ``-DNAME=value``; the thin
 Makefile also accepts the historical variables below. See
 :doc:`Installation/ConfiguringSprite`.
 
+``SPRITE_STAGE_JIT_CACHE``
+  Set to ``0`` to skip the fill of the library's persistent LLVM JIT cache at
+  ``make stage``. Otherwise a local stage fills it when llvmlite is available.
+  Wheels omit persistent JIT objects. CI enables the fill in one default C++
+  shard only.
+
 ``SPRITE_REBUILD_ICY``
   ``make stage`` derives the module image of a library module from its committed
   ``.icy`` file and never translates the module again.  With

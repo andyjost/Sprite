@@ -69,7 +69,7 @@ class _Variables:
   '''Resolve runtime variables to their Python identities within one run.'''
   def __init__(self, interp, source):
     self.interp = interp
-    self.source = source
+    self.source = tuple(v for v in source if not getattr(v, '_anonymous', False))
     self.foreign = {}
 
   def __call__(self, node):
@@ -164,18 +164,19 @@ def _evaluate(interp, args, kwds, raw):
 
 
 def solve(interp, goal):
-  '''Return a Results of Answer(value, bindings), reporting every named Var.'''
+  '''Return a Results of Answer(value, bindings), reporting every held Var.'''
   session = interp._session
   args = _arguments(interp, (goal,), {})
   value = args[0]
-  variables = tuple(named_vars(value).values())
-  all_vars = [v for v in walk_forms(value) if isinstance(v, Var)]
+  named_vars(value)  # Retain the duplicate-name check.
+  all_vars = tuple(dict.fromkeys(v for v in walk_forms(value) if isinstance(v, Var)))
+  variables = tuple(v for v in all_vars if not getattr(v, '_anonymous', False))
   if variables:
     bindings = ()
     for var in reversed(variables):
       bindings = (var, bindings)
     goal = goals.make_goal(interp, ((value, bindings),))
-    convert = _converter(interp, expressions.result_type(interp, goal.expr), all_vars)
+    convert = _converter(interp, expressions.result_type(interp, goal.expr), variables)
     def answers():
       values = _run(interp, goal, convert, session=session)
       try:
@@ -183,7 +184,7 @@ def solve(interp, goal):
           parts = []
           for var in variables:
             part, bindings = bindings
-            parts.append((var.name, part))
+            parts.append((var, part))
           yield Answer(result, Bindings(parts, variables))
       finally:
         values.close()

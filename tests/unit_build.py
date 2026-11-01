@@ -12,6 +12,7 @@ import tarfile
 import tempfile
 import tomllib
 import unittest
+from unittest import mock
 import zipfile
 
 
@@ -56,7 +57,8 @@ class TestDistribution(cytest.TestCase):
         cases.append(
             "curry.import_ = lambda name: (_ for _ in ()).throw(ValueError('emitter'))\n")
       for prelude in cases:
-        code = module.jit_cache_fill([str(source)])
+        with mock.patch.dict(os.environ, SPRITE_STAGE_JIT_CACHE='1'):
+          code = module.jit_cache_fill([str(source)])
         code = code.replace("if not llvmjit.available():", prelude + "if not llvmjit.available():")
         result = subprocess.run([sys.executable, '-c', code],
             text=True, capture_output=True)
@@ -147,7 +149,7 @@ class TestDistribution(cytest.TestCase):
       python.symlink_to(sys.executable)
       env = {k: v for k, v in os.environ.items()
              if not k.startswith(('SPRITE_', 'CURRY', 'PAKCS', 'PYTHONPATH'))}
-      env.update(PATH=str(bindir), LC_ALL='C.UTF-8')
+      env.update(PATH=str(bindir), LC_ALL='C.UTF-8', SPRITE_STAGE_JIT_CACHE='0')
       build, prefix = root / 'build', root / 'install'
       def run(*command):
         result = subprocess.run(['timeout', '600', *map(str, command)],
@@ -157,7 +159,9 @@ class TestDistribution(cytest.TestCase):
       run(cmake, '-S', ROOT, '-B', build, '-G', 'Ninja',
           '-DPython_EXECUTABLE=' + str(python), '-DWITH_PAKCS=',
           '-DWITH_CURRY_FRONTEND=', '-DWITH_ICURRY=', '-DJOBS=1')
-      run(cmake, '--build', build, '--parallel', '1')
+      built = run(cmake, '--build', build, '--parallel', '1')
+      if sys.platform != 'win32':
+        self.assertEqual(built.stdout.count('library JIT cache fill skipped:'), 1)
       run(cmake, '--install', build, '--prefix', prefix)
       self.assertFalse([p for p in prefix.rglob('*')
                         if '.tiered' in p.name or '.old-' in p.name])

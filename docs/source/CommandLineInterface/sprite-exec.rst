@@ -133,12 +133,12 @@ The fields are:
     Seconds the node collector spent in its collections.
 
 ``swapped``
-    The functions that the C++ compiler backend swapped from the interpreter to
-    compiled code (``jit:hot,jit_backend:cxx`` compiles a module in the
-    background after its first hot function). LLVM includes eager and
-    cache-linked functions. For the LLVM hot tier it counts posted swaps;
-    the scheduler applies them at its next safepoint, so the count can
-    include pending swaps.
+    The functions swapped from the interpreter to compiled code by the C++
+    compiler backend (``jit:hot,jit_backend:cxx`` compiles a module in the
+    background after its first hot function) or by LLVM: eager, hot and
+    resolved cached functions. For the LLVM hot tier it counts posted
+    swaps; the scheduler applies them at its next safepoint, so the count
+    can include pending swaps.
 
 ``failed_compiles``
     The background compiles of the C++ compiler backend that failed; their modules stay interpreted,

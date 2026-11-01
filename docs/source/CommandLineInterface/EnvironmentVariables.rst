@@ -22,7 +22,7 @@ following:
 ``SPRITE_JIT_CACHE``
   A writable per-user directory for LLVM JIT objects when the module's
   attached image directory is read-only. Entries live at
-  ``<Full.Name>/<key>.jit`` (the function index and batch objects together).
+  ``<Full.Name>/<key>.jit`` (the function index and one object per function).
   An unset or empty value disables this fallback. Writable image
   directories always keep their object beside ``M.img``. ``jit:off``
   reads and writes neither location. Objects may be deleted at any time;

@@ -5,16 +5,21 @@ Release Notes
 0.9.0a3 (2026-10-31)
 ====================
 
+- ``curry.solve`` reports every held variable used in the goal, including
+  unnamed variables under display names such as ``_a``.
+
 - The JIT compiles interpreted functions through LLVM (``llvmlite``, the
   extra ``curry[jit]``) or the C++ compiler. ``jit`` selects ``off``,
   ``eager`` or ``hot`` (default); ``jit_backend`` selects ``auto``,
   ``llvm`` or ``cxx``. Hot swaps run at a scheduler safepoint.
   ``interpret:tiered`` is retired; ``interpret:new`` is the default
   on every platform and current ahead-of-time objects still load.
-
-
+- The cached code of a function links at its first call, from one native
+  object per function in the envelope; a start reads the index alone. CI
+  fills the library's cache in one job (``SPRITE_STAGE_JIT_CACHE=0`` skips
+  the fill of a stage).
 - LLVM JIT batches persist as relocatable ``.jit`` objects beside module
-  images, link before evaluation on a warm start and use
+  images, resolve on first use on a warm start and use
   ``SPRITE_JIT_CACHE`` for read-only products. Local stages fill the library
   cache; wheels omit machine-specific objects. Windows persistence follows
   separately.
