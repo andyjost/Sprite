@@ -186,7 +186,7 @@ class TestSelection(cytest.TestCase):
         with mock.patch.object(jit.sys, 'platform', 'linux'):
           curry.reset(jit_backend='auto')
           self.assertEqual(jit.backend(cytest.raw.interp()), 'cxx')
-      with self.assertRaisesRegex(curry.FlagError, r'pip install curry\[jit\]'):
+      with self.assertRaisesRegex(curry.FlagError, r'needs llvmlite; pip install llvmlite'):
         curry.reset(jit_backend='llvm')
     with mock.patch.object(config, 'cxx_tool', return_value=None):
       with self.assertRaisesRegex(curry.FlagError, r'C\+\+ compiler'):
@@ -201,7 +201,7 @@ class TestSelection(cytest.TestCase):
     from curry.backends.cxx import jit
     with mock.patch.object(jit.importlib, 'import_module', return_value=mock.Mock(__version__='0.50.0')):
       with mock.patch.object(llvmjit, '_get', side_effect=llvmjit.Unavailable('missing helpers')):
-        with self.assertRaisesRegex(curry.FlagError, r'jit_backend:llvm.*missing helpers.*curry\[jit\]'):
+        with self.assertRaisesRegex(curry.FlagError, r'jit_backend:llvm.*missing helpers.*pip install llvmlite'):
           curry.reset(jit_backend='llvm')
 
   @cytest.hardreset

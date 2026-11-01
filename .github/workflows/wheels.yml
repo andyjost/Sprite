@@ -189,7 +189,11 @@ jobs:
           # serves on macOS. The wheel's dependency llvmlite comes with the
           # install of the test venv, so the smoke runs the hot tier of the
           # LLVM JIT on the wheel.
-          CIBW_BEFORE_ALL_LINUX: dnf -y install clang
+          # A mirror of the image's repositories answers empty now and then;
+          # three attempts with a clean cache between them.
+          CIBW_BEFORE_ALL_LINUX: >-
+            for i in 1 2 3; do dnf -y install clang && break; dnf clean all; sleep 30; done;
+            clang++ --version
           CIBW_ENVIRONMENT_LINUX: >-
             LC_ALL=C.UTF-8
             PIP_FIND_LINKS=/project/.wheelhouse
