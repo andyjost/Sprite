@@ -64,7 +64,7 @@ def mtimes(*filenames):
   return [os.stat(filename).st_mtime_ns for filename in filenames]
 
 def icurry_plan():
-  return plans.makeplan(None, plans.MAKE_ICURRY | plans.MAKE_IMAGE)
+  return plans.makeplan(cytest.raw.interp(), plans.MAKE_ICURRY | plans.MAKE_IMAGE)
 
 class PreRewriteCase(cytest.TestCase):
   '''The scratch directory, the cache off, and the pair of the old route.'''

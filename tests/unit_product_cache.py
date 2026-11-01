@@ -18,7 +18,7 @@ from curry.tools import make
 from curry.utility.binding import binding
 from unittest import mock
 import contextlib, curry, gc, importlib, io, itertools, json, logging, os
-import shutil, stat, tempfile, time, unittest, zlib
+import shutil, stat, tempfile, time, unittest
 
 TESTDIR = os.path.dirname(os.path.abspath(__file__))
 SCRATCH = os.path.join(TESTDIR, '.cache')
@@ -169,8 +169,8 @@ class TestKey(ProductCacheTestCase):
 
   def test_texts_in_the_chain(self):
     '''
-    The ICurry file and the JSON of a module are in its chain with the
-    source: a new JSON from the same source (another ICurry reader, a
+    The ICurry file and the module image are in its chain with the
+    source: a new image from the same source (another ICurry reader, a
     pinned ICurry file replaced) changes the key, and so does the ICurry
     file.  The source text alone does not decide.
     '''
@@ -188,21 +188,21 @@ class TestKey(ProductCacheTestCase):
         [label for label, _ in _productcache._module_texts(a)]
       , ['curry', 'icy', 'image']
       )
-    with_json = _productcache.chain_digest(a, [self.srcdir])
-    self.assertNotEqual(with_json, with_icy)
-    # The source unchanged, the JSON changed: another chain.
+    with_image = _productcache.chain_digest(a, [self.srcdir])
+    self.assertNotEqual(with_image, with_icy)
+    # The source unchanged, the image changed: another chain.
     self.write_image(2, name='A')
-    self.assertNotEqual(_productcache.chain_digest(a, [self.srcdir]), with_json)
+    self.assertNotEqual(_productcache.chain_digest(a, [self.srcdir]), with_image)
     self.assertEqual(cytest.readfile(a), 'main = 1\n')
     # The same files again give the same chain.
     self.write_image(1, name='A')
-    self.assertEqual(_productcache.chain_digest(a, [self.srcdir]), with_json)
+    self.assertEqual(_productcache.chain_digest(a, [self.srcdir]), with_image)
     self.assertEqual(_productcache.KEY_FORMAT, 4)
 
   def test_module_without_a_source(self):
     '''
     The text of a module without a source is its ICurry file, else its
-    JSON; its imports come from the JSON.  A module without any text has no
+    module image; its imports come from the image.  A module without any text has no
     key.
     '''
     name = self.write_image(1)
@@ -211,12 +211,12 @@ class TestKey(ProductCacheTestCase):
     self.assertEqual(
         sorted(_productcache.import_closure(curryfile, [])), ['Prelude']
       )
-    from_json = _productcache.chain_digest(curryfile, [])
-    self.assertRegex(from_json, r'^[0-9a-f]{64}$')
+    from_image = _productcache.chain_digest(curryfile, [])
+    self.assertRegex(from_image, r'^[0-9a-f]{64}$')
     with open(self.cached_file(name, '.icy'), 'w') as stream:
       stream.write('-- ICurry\n')
     from_icy = _productcache.chain_digest(curryfile, [])
-    self.assertNotEqual(from_icy, from_json)
+    self.assertNotEqual(from_icy, from_image)
     self.write_source(name, 'goal = 1\n')
     self.assertNotEqual(_productcache.chain_digest(curryfile, []), from_icy)
     nothing = os.path.join(self.srcdir, 'Nothing.curry')
@@ -286,15 +286,15 @@ class TestStore(ProductCacheTestCase):
         os.path.samefile(files[0], os.path.join(entry, name + '.cpp'))
       )
     # The restore into another product directory: the files, in the order
-    # of the toolchain, newer than the JSON there, the object a hard link.
+    # of the toolchain, newer than the image there, the object a hard link.
     other = os.path.join(
         self.base, 'other', '.curry', config.intermediate_subdir()
       )
     os.makedirs(other)
-    jsonfile = os.path.join(other, name + '.img')
-    shutil.copy(self.cached_file(name, '.img'), jsonfile)
+    imagefile = os.path.join(other, name + '.img')
+    shutil.copy(self.cached_file(name, '.img'), imagefile)
     later = time.time_ns() + 3 * 10 ** 9
-    os.utime(jsonfile, ns=(later, later))
+    os.utime(imagefile, ns=(later, later))
     placed = _productcache.restore(self.DIGEST, self.KEY, other, names[:2])
     self.assertEqual(placed, {n: os.path.join(other, n) for n in names[:2]})
     self.assertEqual(_productcache.counts, {'restored': 1, 'stored': 1})
@@ -304,7 +304,7 @@ class TestStore(ProductCacheTestCase):
       )
     times = [
         os.stat(path).st_mtime_ns
-        for path in [jsonfile, placed[name + '.cpp'], placed[name + '.so']]
+        for path in [imagefile, placed[name + '.cpp'], placed[name + '.so']]
       ]
     self.assertEqual(times, sorted(times))
     self.assertEqual(len(set(times)), 3)
@@ -490,7 +490,7 @@ class TestCompile(ProductCacheTestCase):
   '''
   The compile step stores its products, and the plan places them instead of
   a generation and a compile.  The modules come from hand-written
-  ICurry-JSON, so no Curry front end runs.
+  synthetic ICurry descriptions, so no Curry front end runs.
   '''
   def setUp(self):
     super().setUp()
@@ -638,11 +638,11 @@ class TestCompile(ProductCacheTestCase):
     self.assertTrue(os.path.isdir(self.entry(name)))
     self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 2})
 
-  def test_miss_on_a_changed_json(self):
+  def test_miss_on_a_changed_image(self):
     '''
-    The source unchanged and the JSON changed (a new ICurry reader, a
-    pinned ICurry file replaced): a miss, since the JSON is the input of
-    the code generator and part of the chain.  Before the JSON joined the
+    The source unchanged and the image changed (a new ICurry reader, a
+    pinned ICurry file replaced): a miss, since the image is the input of
+    the code generator and part of the chain.  Before the image joined the
     chain the old object was served, and the goal gave the old value.
     '''
     name = self.new_name()

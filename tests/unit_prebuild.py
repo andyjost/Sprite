@@ -7,7 +7,7 @@ from curry.tools import make
 from curry.utility.binding import binding
 from unittest import mock
 import curry, importlib.machinery, importlib.util, itertools, json, logging
-import os, re, runpy, shutil, subprocess, sys, tempfile, unittest, zlib
+import os, re, runpy, shutil, subprocess, sys, tempfile, unittest
 from pathlib import Path
 
 SUBDIR = os.path.join('.curry', config.intermediate_subdir())
@@ -69,8 +69,8 @@ class TestStagedLibrary(cytest.TestCase):
 
   def test_intermediates_are_staged(self):
     '''
-    Every system module has its ICurry and JSON.  The library has no
-    generated Python products.
+    Every system module has its ICurry; supported modules have module images.
+    The library has no generated Python products.
     '''
     for name in config.syslibs():
       self.assertTrue(os.path.isfile(installed_file(name, '.icy')), name)
@@ -322,7 +322,7 @@ class TestPackagedModule(JsonModuleTestCase):
     from curry.toolchain import _curry2icurry, _findcurry, _interfaces
     from curry.backends.cxx import toolchain
     # The plan is made here, under the flag the test sets: the plan of setUp
-    # ends at the JSON under interpret:all (toolchain.extend_plan_skeleton).
+    # ends at the image under interpret:all (toolchain.extend_plan_skeleton).
     self.plan = plans.makeplan(
         cytest.raw.interp(), plans.MAKE_ALL
       )
@@ -338,7 +338,7 @@ class TestPackagedModule(JsonModuleTestCase):
     _interfaces.write(icy, [self.srcdir])
     with open(icy + '.source', 'w') as stream:
       stream.write(_curry2icurry.source_digest(source))
-    # This fixture starts with JSON-only products and then supplies their
+    # This fixture starts with image-only products and then supplies their
     # packaged source. Supply the matching compiled input receipt as well.
     cpp = self.cached_file(name, '.cpp')
     record = toolchain.input_record(cytest.raw.interp(), source)
@@ -368,7 +368,7 @@ class TestPackagedModule(JsonModuleTestCase):
     prefixes; the import of the ICurry object did not, so sprite-make --so
     Data.Maybe failed with KeyError.  The step runs with the flag
     ``interpret`` off: under its default (new) the C++ backend ends the
-    plan at the JSON.
+    plan at the image.
     '''
     plan = plans.makeplan(
         cytest.raw.interp(), plans.MAKE_ALL

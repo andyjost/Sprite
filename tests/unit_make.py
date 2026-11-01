@@ -9,12 +9,23 @@ from curry.utility.binding import binding
 from curry.utility.strings import ensure_str
 from unittest import mock
 import argparse, contextlib, errno, fcntl, glob, io, itertools, json, os
-import shutil, subprocess, sys, tempfile, threading, time, unittest, zlib
+import shutil, subprocess, sys, tempfile, threading, time, unittest
 
 SUBDIR = os.path.join('.curry', config.intermediate_subdir())
 
 class TestMake(cytest.TestCase):
   '''Tests for the make-like features to generate ICurry and images.'''
+
+  def test_make_one_keeps_plans_image(self):
+    # The plan owns image validation, including accepting a compiled
+    # product whose image has a different inline budget.
+    args = argparse.Namespace(rewrite_flat=False, image=True)
+    plan = object()
+    with mock.patch.object(toolchain, 'makecurry', return_value='M.so') as build, \
+         mock.patch('curry.backends.cxx.image.ensure') as ensure:
+      make._make_one('sprite-make', plan, 'M', args, {})
+    build.assert_called_once_with(plan, 'M', config.currypath(), is_sourcefile=False)
+    ensure.assert_not_called()
 
   def test_filename_funcs(self):
     '''Checks derivation of intermediate file names.'''
@@ -22,12 +33,12 @@ class TestMake(cytest.TestCase):
     for prefix in prefixes:
       curry_file = os.path.join(prefix, 'foo.curry')
       icy_file   = os.path.join(prefix, SUBDIR, 'foo.icy')
-      json_file  = os.path.join(prefix, SUBDIR, 'foo.img')
+      image_file  = os.path.join(prefix, SUBDIR, 'foo.img')
       py_file    = os.path.join(prefix, SUBDIR, 'foo.py')
       cpp_file   = os.path.join(prefix, SUBDIR, 'foo.cpp')
       so_file    = os.path.join(prefix, SUBDIR, 'foo.so')
       files = [
-          curry_file, icy_file, json_file, py_file, cpp_file, so_file
+          curry_file, icy_file, image_file, py_file, cpp_file, so_file
         ]
       for file_ in files:
         self.assertEqual(toolchain.curryfilename(file_), curry_file)
@@ -62,13 +73,13 @@ class TestMake(cytest.TestCase):
       plan_icy = plans.makeplan(
           cytest.raw.interp(), plans.MAKE_ICURRY
         )
-      plan_json = plans.makeplan(
+      plan_image = plans.makeplan(
           cytest.raw.interp(), plans.MAKE_ICURRY | plans.MAKE_IMAGE
         )
       with tempfile.TemporaryDirectory() as tmpdir:
         shutil.copy(input_file, tmpdir)
         icy_file = os.path.join(tmpdir, SUBDIR, stem + '.icy')
-        json_file = os.path.join(tmpdir, SUBDIR, stem + '.img')
+        image_file = os.path.join(tmpdir, SUBDIR, stem + '.img')
         curry_file = os.path.join(tmpdir, filename)
         # Make .icy.
         ret = toolchain.makecurry(plan_icy, curry_file, is_sourcefile=True)
@@ -79,14 +90,14 @@ class TestMake(cytest.TestCase):
         self.assertTrue(os.path.exists(icy_file))
         self.assertTrue(ret.endswith('.icy'))
 
-        # Make .json.  Returns the JSON file name.
-        ret = toolchain.makecurry(plan_json, curry_file, is_sourcefile=True)
-        self.assertTrue(os.path.exists(json_file))
-        self.assertEqual(ret, json_file)
+        # Make .img.  Returns the module image name.
+        ret = toolchain.makecurry(plan_image, curry_file, is_sourcefile=True)
+        self.assertTrue(os.path.exists(image_file))
+        self.assertEqual(ret, image_file)
         # Repeat
-        ret = toolchain.makecurry(plan_json, curry_file, is_sourcefile=True)
-        self.assertTrue(os.path.exists(json_file))
-        self.assertEqual(ret, json_file)
+        ret = toolchain.makecurry(plan_image, curry_file, is_sourcefile=True)
+        self.assertTrue(os.path.exists(image_file))
+        self.assertEqual(ret, image_file)
 
   def test_convert_icy(self):
     from curry.backends.cxx import image
@@ -123,14 +134,14 @@ class TestMake(cytest.TestCase):
         shutil.copy(input_file, tmpdir)
         curry_file = os.path.join(tmpdir, filename)
         icy_file = os.path.join(tmpdir, SUBDIR, stem + '.icy')
-        json_file = os.path.join(tmpdir, SUBDIR, stem + '.img')
+        image_file = os.path.join(tmpdir, SUBDIR, stem + '.img')
 
         sprite_make('--image', '-t', curry_file)
         self.assertTrue(os.path.exists(icy_file))
-        self.assertTrue(os.path.exists(json_file))
-        os.unlink(json_file)
+        self.assertTrue(os.path.exists(image_file))
+        os.unlink(image_file)
         sprite_make(curry_file)
-        self.assertTrue(os.path.exists(json_file))
+        self.assertTrue(os.path.exists(image_file))
         for option in ['--json', '-j', '-z', '-c']:
           with self.assertRaises(subprocess.CalledProcessError):
             sprite_make(option, curry_file)
@@ -188,7 +199,7 @@ class TestJobs(cytest.TestCase):
     # The plan of sprite-make: an explicit compile compiles, so its
     # interpreter has the flag ``interpret`` off (make.main).  Under the
     # new default of the C++ backend the plan of an import ends at the
-    # JSON, and a module made here, which has its JSON alone, would count as
+    # image, and a module made here, which has its image alone, would count as
     # current.
     self.plan = plans.makeplan(
         interpreter.Interpreter(
@@ -205,7 +216,7 @@ class TestJobs(cytest.TestCase):
   def write_module(self, value, imports=(), name=None, text=None):
     '''
     Writes the image of a module whose goal returns ``value`` and that imports
-    the named modules after the Prelude.  ``text`` replaces the JSON (an
+    the named modules after the Prelude.  ``text`` replaces the description (an
     unreadable file, say).  Returns the module name.
     '''
     if name is None:
@@ -299,7 +310,7 @@ class TestJobs(cytest.TestCase):
   def test_imports_of(self):
     '''
     The imports of a module come from its source, with the implicit Prelude,
-    else from its JSON file; an unreadable or missing file gives none.
+    else from its module image; an unreadable or missing file gives none.
     '''
     src = os.path.join(self.tmpdir, 'Src.curry')
     with open(src, 'w') as stream:
@@ -653,7 +664,7 @@ class TestProductLock(cytest.TestCase):
     # A file system that refuses flock (ENOLCK, a network file system
     # without a lock service): no lock, and the compile runs unlocked, as
     # before the lock.  Before, the error ended the compile at its first
-    # step (here the JSON of an ICurry file, which needs no front end).
+    # step (here the image of an ICurry file, which needs no front end).
     subdir = os.path.join(self.tmpdir, SUBDIR)
     os.makedirs(subdir)
     shutil.copy(
@@ -667,7 +678,7 @@ class TestProductLock(cytest.TestCase):
         self.assertTrue(os.path.isfile(self.lock))
         self.assertNotIn(self.lock, getattr(_productlock._local, 'held', {}))
       plan = plans.makeplan(
-          None, plans.MAKE_ICURRY | plans.MAKE_IMAGE
+          cytest.raw.interp(), plans.MAKE_ICURRY | plans.MAKE_IMAGE
         )
       product = toolchain.makecurry(plan, 'hello', [self.tmpdir])
     self.assertEqual(product, os.path.join(subdir, 'hello.img'))

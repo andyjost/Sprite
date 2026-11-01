@@ -1122,7 +1122,7 @@ other = 2
     '''
     The object the plan gives, after the import changed it in place (the
     merge, the passes), is the translation on disk; an object with another
-    body, or without a JSON beside its source, is not.
+    body, or without an image beside its source, is not.
     '''
     name = self.write()
     interp = cytest.raw.interp()

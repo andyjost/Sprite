@@ -2,7 +2,7 @@ import cytest # from ./lib; must be first
 from cytest.buildtools import cmake_executable
 from curry import config, icurry
 from curry.toolchain import _frontend
-import curry, glob, hashlib, os, shutil, subprocess, sys, tempfile, unittest, zlib
+import curry, glob, hashlib, os, shutil, subprocess, sys, tempfile, unittest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 ENV = {
@@ -183,7 +183,7 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
       self.assertEqual(sha256(sourcefile(name)), digest, name)
 
   def test_pinned_products(self):
-    '''The pinned ICurry and its derived JSON are installed.'''
+    '''The pinned ICurry and its derived module image are installed.'''
     for name in config.syslibs():
       if config.frontend_version() == '3.1.0':
         source = os.path.join(ROOT, 'curry', 'lib', *name.split('.')) + '.curry'

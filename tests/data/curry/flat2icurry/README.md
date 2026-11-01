@@ -19,7 +19,7 @@ output of `curry.toolchain.flat2icurry` with them byte for byte.
 | `Sub/Deep` | a hierarchical module imported by `Classes` |
 
 To regenerate the products after a change to a module, run `sprite-make
---icy --curry2icurry icurry` and `sprite-make --json --zip` on it from this
+--icy --curry2icurry icurry` and `sprite-make --image` on it from this
 directory, with `CURRYPATH` set to this directory.  Then rebuild the overlay
 archive with `make overlay-archive` at the root.  The products must come
 from `icurry` 3.1.0, because they are the oracle of the port.  A module must

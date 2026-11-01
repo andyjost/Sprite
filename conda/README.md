@@ -53,11 +53,11 @@ Build (`build.sh`):
    orders the build steps.
 2. `make install PREFIX=$PREFIX/opt/sprite` builds the C++ runtime
    (`libcurryrt`) and the pybind11 extension module, and copies the Python
-   package, the Curry library with its committed `.icy` and `.json.z` files,
+   package, the Curry library with its committed `.icy` files and derived module images (`.img`),
    the headers, and the sysconfig files.  It then runs the front end over
    the library, which writes the FlatCurry interfaces under
    `opt/sprite/curry/.curry/pakcs-3.4.1/`, and compiles the library for the
-   C++ runtime: the ICurry and JSON of every module, and the generated C++
+   C++ runtime: the ICurry and module image (`.img`) of every supported module, and the generated C++
    and shared object of every module Sprite can compile.  The tree keeps the
    layout of a staged install.  It sits under `opt/sprite` because its `bin/`
    holds the links `python` and `coverage`, which must not replace the ones
@@ -278,7 +278,7 @@ their bytecode caches, and `sysconfig/cxx_compiler`.
 | `bin/`                           |     2 |        | the launchers `sprite-exec` and `sprite-make`              |
 | `lib/python3.14/site-packages/`  |     1 |        | `sprite.pth`                                               |
 | `opt/sprite/python/`             |   367 | 4.9 MB | the package `curry`: 183 modules, their bytecode, the extension module |
-| `opt/sprite/curry/`              |   282 |  21 MB | 22 sources with LICENSE and NOTICE; FlatCurry, interfaces, ICurry and JSON of every module; Python, bytecode, C++, shared object, and ABI stamp of the 13 compiled modules |
+| `opt/sprite/curry/`              |   282 |  21 MB | 22 sources with LICENSE and NOTICE; FlatCurry, interfaces, ICurry of every module and module images (`.img`) of supported modules; Python, bytecode, C++, shared object, and ABI stamp of the 13 compiled modules |
 | `opt/sprite/include/`            |    40 | 268 KB | the runtime headers                                        |
 | `opt/sprite/lib/`                |     1 | 708 KB | `libcurryrt.so`                                               |
 | `opt/sprite/sysconfig/`          |    17 |        | the settings Sprite reads at run time                      |

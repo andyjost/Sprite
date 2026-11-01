@@ -394,13 +394,13 @@ class TestCondaRecipe(cytest.TestCase):
       self.assertFalse(icy.exists())
       self.assertFalse(receipt.exists())
       self.assertIn('newExport', source.read_text())
-      # A stale receipt also invalidates JSON when ICurry was tidied away.
+      # A stale receipt also invalidates the module image when ICurry was tidied away.
       flat.write_text('old FlatCurry')
-      jsonfile = icy.with_suffix('.img')
-      jsonfile.write_bytes(b'old JSON')
+      imagefile = icy.with_suffix('.img')
+      imagefile.write_bytes(b'old image')
       receipt.write_text(hashlib.sha256(old_source).hexdigest())
       module.prune_receipts(root, 'pakcs-3.10.0')
-      for product in (flat, jsonfile, receipt):
+      for product in (flat, imagefile, receipt):
         self.assertFalse(product.exists())
 
   def test_overlay_in_a_shallow_clone(self):

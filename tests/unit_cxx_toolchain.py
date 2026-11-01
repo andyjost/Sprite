@@ -9,7 +9,7 @@ the installation.  The modules come from hand-written ICurry, so no
 Curry front end runs.
 
 The generated C++ carries a format stamp.  A cached file with another stamp,
-or none, is written again from the JSON file instead of being compiled
+or none, is written again from the module image instead of being compiled
 against a runtime it was not written for.
 
 Each compiled object carries an ABI stamp beside it: the digest of the
@@ -45,7 +45,7 @@ from curry.utility import curryname
 from curry.utility.binding import binding, del_
 from unittest import mock
 import contextlib, curry, gc, importlib, itertools, json, logging, os, re
-import shutil, subprocess, tempfile, time, types, unittest, zlib
+import shutil, subprocess, tempfile, time, types, unittest
 
 # A module with one goal that returns an integer.
 MODULE_JSON = (
@@ -66,7 +66,7 @@ class ToolchainTestCase(cytest.TestCase):
   def setUp(self):
     super().setUp()
     # These tests drive the compile steps.  Under the default of the flag
-    # ``interpret`` (new) the plan of an import ends at the JSON and the
+    # ``interpret`` (new) the plan of an import ends at the image and the
     # module is interpreted, so the flag is off here; tearDown restores the
     # default.  A test that reloads with flags of its own passes the flag
     # as well.  The Prelude is imported now: a new interpreter loads it on
@@ -329,7 +329,7 @@ class TestFormatStamp(ToolchainTestCase):
   '''
   The emitter stamps every generated file with its format.  A cached file
   with another stamp, or none, is not compiled; the plan starts again from
-  the JSON file.  An audit finding: a cache written before the layout of the
+  the module image.  An audit finding: a cache written before the layout of the
   static data changed was compiled against the new runtime, which then read
   the data of a literal case out of bounds.
   '''
@@ -338,7 +338,7 @@ class TestFormatStamp(ToolchainTestCase):
   MODULE = '// MODULE: Fake\n'
 
   def write_cpp(self, name, lines):
-    '''Writes a cached .cpp file for ``name``, newer than its JSON file.'''
+    '''Writes a cached .cpp file for ``name``, newer than its module image.'''
     path = self.cached_file(name, '.cpp')
     with open(path, 'w') as stream:
       stream.write('// INPUT: ' + json.dumps(toolchain.input_record(
@@ -367,7 +367,7 @@ class TestFormatStamp(ToolchainTestCase):
     self.assertFalse(cpp2so.is_stale(path))
 
   def test_other_stamp_is_regenerated(self):
-    '''A file of another format is written again from the JSON file.'''
+    '''A file of another format is written again from the module image.'''
     name = self.write_image(2)
     path = self.write_cpp(
         name, [self.IMPORTS, self.stamp(compiler.FORMAT_VERSION + 1), self.STALE]
@@ -411,7 +411,7 @@ class TestFormatStamp(ToolchainTestCase):
   def test_object_of_a_stale_file_is_dropped(self):
     '''
     The object built from a stale file goes with it, even when it is newer
-    than the runtime library.  The plan then starts from the JSON file.
+    than the runtime library.  The plan then starts from the module image.
     '''
     module = self.compile_module(5)
     name = module.__name__
@@ -1153,8 +1153,8 @@ def undefined_symbols(path):
       for line in proc.stdout.splitlines() if line.strip()
     )
 
-# The ICurry-JSON of a module with two public functions: ``goal`` returns the
-# integer ``value``, and ``uses`` calls ``callee`` with ``args`` (JSON
+# A synthetic ICurry description with two public functions: ``goal`` returns
+# the integer ``value``, and ``uses`` calls ``callee`` with ``args`` (JSON
 # expressions, comma-separated) and is never evaluated.  The call keeps a
 # symbol of the module of the callee in the object, so the object binds to
 # that module when it loads.  The linker records every import among the
@@ -1470,7 +1470,7 @@ class TestPortableObjects(ToolchainTestCase):
       , 'curry.reset()'
       , 'curry.path.insert(0, %r)' % self.srcdir
       # Without its object and its generated file the first module is
-      # interpreted from its JSON under new (with the file, new compiles
+      # interpreted from its image under new (with the file, new compiles
       # it again; section 4 of tests/README).
       , 'os.unlink(%r)' % self.cached_file(first, '.so')
       , 'os.unlink(%r)' % self.cpp2so.stampfile(self.cached_file(first, '.so'))

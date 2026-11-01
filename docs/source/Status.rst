@@ -149,7 +149,3 @@ epics are these issues:
 * #67, Phase 3: optimizer passes, native workers, ticker rotation, pointer
   tagging.
 * #87, an array IR example and the bulk boundary.
-
-Module translation writes an image directly from ICurry text; module JSON
-products and the parsed-module cache have been removed. Startup timings
-with current images exclude translation.

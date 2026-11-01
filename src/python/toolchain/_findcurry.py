@@ -128,8 +128,8 @@ def currentfile(
   Returns:
     The name of a module image file (suffix: .img), Curry source file (suffix:
     .curry), Python file (suffix: .py), C++ source (suffix: .cpp) or object
-    (suffix: .so), or directory.  The image name may have an additional .z
-    suffix.  The image file is returned if it is up-to-date, otherwise, the
+    (suffix: .so), or directory.  The image file is returned if it is
+    up-to-date, otherwise, the
     Curry file is returned if it exists.  If neither of those applies, the
     package directory name is returned, if it exists.
   '''

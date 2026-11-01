@@ -123,7 +123,7 @@ class ReadCurryDepth(cytest.TestCase):
 
 
 class EncodeJSON(cytest.TestCase):
-  '''Tests the ICurry-JSON encoder and the library caches it wrote.'''
+  '''Tests the ICurry description encoder and installed library modules.'''
 
   def test_compact_form(self):
     '''

@@ -480,11 +480,11 @@ print('missing preprocessor detected and skipped')
   def test_stale_without_interfaces(self):
     '''
     An ICurry file without the interface files beside it is made again, with
-    or without a JSON step after it; an ICurry file without a source is not.
+    or without an image step after it; an ICurry file without a source is not.
     '''
     curryfile = self.copy('hello.curry')
     icy = self.convert(curryfile)
-    full = plans.makeplan(None, plans.MAKE_ICURRY | plans.MAKE_IMAGE)
+    full = plans.makeplan(cytest.raw.interp(), plans.MAKE_ICURRY | plans.MAKE_IMAGE)
     icy_only = plans.makeplan(None, plans.MAKE_ICURRY)
     current = lambda plan: toolchain.currentfile(
         plan, curryfile, [], is_sourcefile=True

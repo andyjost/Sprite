@@ -168,7 +168,7 @@ def reload(interp, module, *, text=None):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     with open(filename, 'w', encoding='utf-8') as stream:
       stream.write(replacement)
-    plan = plans.makeplan(flags=plans.MAKE_ICURRY | plans.MAKE_IMAGE)
+    plan = plans.makeplan(flags=plans.MAKE_ICURRY)
     toolchain.makecurry(plan, filename, currypath, is_sourcefile=True)
   wait(interp)
   from ..utility.locking import native_metadata

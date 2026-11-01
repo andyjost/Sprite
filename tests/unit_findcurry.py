@@ -55,7 +55,7 @@ class TestFindCurry(cytest.TestCase):
         │   ├── a.foo
         │   └── .curry
         │       └── sprite
-        │           └── a.json
+        │           └── a.img
         ├── b
         │   ├── a
         │   │   ├── a.curry
@@ -114,23 +114,23 @@ class TestFindCurry(cytest.TestCase):
 
   def setUp(self):
     super().setUp()
-    # currentfile needs a build plan.  Searching for the ICurry-JSON file
-    # requires a plan that reaches the JSON stage.
-    self.plan = plans.makeplan(flags=plans.MAKE_ICURRY | plans.MAKE_IMAGE)
+    # currentfile needs a build plan.  Searching for the module image
+    # requires a plan that reaches the image stage.
+    self.plan = plans.makeplan(cytest.raw.interp(), flags=plans.MAKE_ICURRY | plans.MAKE_IMAGE)
     # Copy the findFile tree to a temporary directory and add the gitignored
-    # fixture a/.curry/<intermediate_subdir>/a.json, which has no a.curry.
+    # fixture a/.curry/<intermediate_subdir>/a.img, which has no a.curry.
     self.tmpdir = tempfile.TemporaryDirectory()
     self.addCleanup(self.tmpdir.cleanup)
     self.root = os.path.join(self.tmpdir.name, 'findFile')
     shutil.copytree(
         'data/findFile', self.root, ignore=shutil.ignore_patterns('.curry')
       )
-    self.jsondir_a = os.path.join(
+    self.imagedir_a = os.path.join(
         self.root, 'a', '.curry', config.intermediate_subdir()
       )
-    os.makedirs(self.jsondir_a)
-    self.json_a = os.path.join(self.jsondir_a, 'a.img')
-    cytest.write_module_image(self.json_a, cytest.json_module('a', 1))
+    os.makedirs(self.imagedir_a)
+    self.image_a = os.path.join(self.imagedir_a, 'a.img')
+    cytest.write_module_image(self.image_a, cytest.json_module('a', 1))
 
   def test_findCurry(self):
     sub = lambda *parts: os.path.join(self.root, *parts)
@@ -142,40 +142,39 @@ class TestFindCurry(cytest.TestCase):
         toolchain.currentfile(self.plan, 'a', currypath=[sub('b')])
       , sub('b', 'a.curry')
       )
-    # Under a/ there is no a.curry, but there is .curry/<subdir>/a.json.
+    # Under a/ there is no a.curry, but there is .curry/<subdir>/a.img.
     # It should be found before b/a.curry is located.
     self.assertEqual(
         toolchain.currentfile(
             self.plan, 'a', currypath=[sub(a_or_b) for a_or_b in 'ab']
           )
-      , self.json_a
+      , self.image_a
       )
 
   def test_getICurryForModule(self):
-    '''Check that the toolchain is invoked to produce ICurry-JSON files.'''
-    # If the JSON file already exists, currentfile finds it.
+    '''Check that the toolchain is invoked to produce module images.'''
+    # If the module image already exists, currentfile finds it.
     self.assertEqual(
         toolchain.currentfile(self.plan, 'a', [os.path.join(self.root, 'a')])
-      , self.json_a
+      , self.image_a
       )
 
-    # Otherwise, makecurry builds the JSON.  Work on a copy of hello.curry so
+    # Otherwise, makecurry builds the image.  Work on a copy of hello.curry so
     # that the cached build under data/curry is left alone.
     srcdir = os.path.join(self.tmpdir.name, 'hello')
     os.makedirs(srcdir)
     shutil.copy('data/curry/hello.curry', srcdir)
-    jsonfile = os.path.join(
+    imagefile = os.path.join(
         srcdir, '.curry', config.intermediate_subdir(), 'hello.img'
       )
-    goldenfile = 'data/curry/hello.json.au'
-    self.assertFalse(os.path.exists(jsonfile))
+    self.assertFalse(os.path.exists(imagefile))
     self.assertEqual(
         toolchain.makecurry(self.plan, 'hello', [srcdir], zip=False)
-      , jsonfile
+      , imagefile
       )
-    self.assertTrue(os.path.exists(jsonfile))
+    self.assertTrue(os.path.exists(imagefile))
     from curry.backends.cxx import image
-    self.assertEqual(image.read(jsonfile)['name'], 'hello')
+    self.assertEqual(image.read(imagefile)['name'], 'hello')
 
   def test_program_path(self):
     '''
@@ -304,11 +303,11 @@ class TestFindCurry(cytest.TestCase):
         return os.path.basename(filename) in self.stale
       def __call__(self, *args, **kwds):
         raise AssertionError('no step runs')
-    icy_step, json_step = Step(), Step()
+    icy_step, image_step = Step(), Step()
     plan = plans.Plan(None, 0, [
         plans.Stage(['.curry'], object())
       , plans.Stage(['.icy'], icy_step)
-      , plans.Stage(['.img'], json_step)
+      , plans.Stage(['.img'], image_step)
       , plans.Stage(['.so'], None)
       ])
     srcdir = os.path.join(self.tmpdir.name, 'refused')
@@ -330,14 +329,14 @@ class TestFindCurry(cytest.TestCase):
       )
     self.assertEqual(current(), files[3])
     # The step that made the object refuses it.
-    json_step.stale.add('m.so')
+    image_step.stale.add('m.so')
     self.assertEqual(current(), files[2])
     # A refused file takes the files after it along.
     icy_step.stale.add('m.icy')
     self.assertEqual(current(), files[0])
     icy_step.stale.clear()
     self.assertEqual(current(), files[2])
-    json_step.stale.clear()
+    image_step.stale.clear()
     self.assertEqual(current(), files[3])
     # SPRITE_FORCE_RECOMPILE_CXX leaves out the C++ files.
     with binding(os.environ, 'SPRITE_FORCE_RECOMPILE_CXX', '1'):
@@ -356,11 +355,11 @@ class TestFindCurry(cytest.TestCase):
     newest product by modification time is still the current file, a
     refused object still goes, and an edited source still wins.
     '''
-    json_step = RefusingStep()
+    image_step = RefusingStep()
     plan = plans.Plan(None, 0, [
         plans.Stage(['.curry'], object())
       , plans.Stage(['.icy'], object())
-      , plans.Stage(['.img'], json_step)
+      , plans.Stage(['.img'], image_step)
       , plans.Stage(['.so'], None)
       ])
     srcdir = os.path.join(self.tmpdir.name, 'reordered')
@@ -384,9 +383,9 @@ class TestFindCurry(cytest.TestCase):
         plan, curryfile, [], is_sourcefile=True
       )
     self.assertEqual(current(), files[3])
-    json_step.stale.add('m.so')
+    image_step.stale.add('m.so')
     self.assertEqual(current(), files[2])
-    json_step.stale.clear()
+    image_step.stale.clear()
     self.assertEqual(current(), files[3])
     # An edit writes the source: its modification time is now.
     with open(curryfile, 'w') as stream:

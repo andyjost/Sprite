@@ -94,9 +94,8 @@ namespace curryrt
     // then (tiered_file_digest).  The swap refuses the object when the file
     // differs: the child compiled the source as it was when the child ran,
     // and an object of an edited source is not the code the loaded module
-    // means (issue #110).  The .icy, not the JSON made from it: a rerun of
-    // the front end writes the same .icy for the same text, while the
-    // JSON of the child differs from the one of the import in its spacing.
+    // means (issue #110).  A rerun of the front end writes the same .icy
+    // for the same text, preserving the digest for an unchanged program.
     // Empty: no check.
     std::string icurryfile;
     std::string icurry_digest;

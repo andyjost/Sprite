@@ -201,6 +201,15 @@ class _State(object):
 
 _state = _State()
 
+def _after_fork_in_child():
+  # The parent's private products belong to the parent, including at exit.
+  _state.tmpdir = None
+  _state.private = []
+
+if hasattr(os, 'register_at_fork'):
+  os.register_at_fork(after_in_child=_after_fork_in_child)
+
+
 @native_metadata
 def _tmpdir():
   if _state.tmpdir is None:

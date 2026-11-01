@@ -274,7 +274,8 @@ def skipUnlessGcBackend(name, reason):
 
 def json_module(name, value):
   '''
-  The ICurry-JSON of a module ``name`` with one public function, ``goal``,
+  A synthetic ICurry description of a module ``name`` with one public
+  function, ``goal``,
   that returns the integer ``value``. Tests convert this in-memory fixture
   description to ICurry text and an image with ``write_module_image``; no
   Curry front end runs.  ``name`` may be dotted; the module then lives in a package.
@@ -392,6 +393,4 @@ def write_module_image(path, description, translate=True):
     stream.write(text + '\n')
   if translate:
     search = [os.path.dirname(os.path.dirname(os.path.dirname(path)))] + raw.interp().path
-    from curry.interpreter import Interpreter
-    interp = Interpreter(flags=dict(raw.interp().flags, interpret='all', jit='off'))
-    image.ensure(interp, icyfile, search)
+    image.ensure(raw.interp(), icyfile, search)

@@ -19,7 +19,7 @@ def makeplan(interp=None, flags=0):
   '''
   Make a ``Plan`` object, which describes the compilation pipeline.
 
-  If ``interp`` is None, then the plan can only go as far as building a module image.
+  If ``interp`` is None, then the plan can only go as far as building ICurry text.
 
   Args:
     interp:
@@ -31,11 +31,9 @@ def makeplan(interp=None, flags=0):
   '''
   assert not (flags &~ MAKE_ALL)
   if interp is None:
+    flags &= ~MAKE_IMAGE
     flags &= ~MAKE_TARGET_SOURCE
     flags &= ~MAKE_TARGET_OBJECT
-  if interp is None and flags & MAKE_IMAGE:
-    from ..interpreter import Interpreter
-    interp = Interpreter(flags={'backend': 'cxx', 'interpret': 'all', 'jit': 'off'})
   stages = list(_getstages(interp, flags))
   return Plan(interp, flags, stages)
 

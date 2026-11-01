@@ -346,10 +346,7 @@ def _make_one(program_name, plan, name, args, kwds):
   kwds = dict(kwds, is_sourcefile=name.endswith('.curry'))
   if args.rewrite_flat:
     _rewrite_flat(plan, name, kwds)
-  product = toolchain.makecurry(plan, name, config.currypath(), **kwds)
-  if args.image and not os.path.isdir(product):
-    from ..backends.cxx import image
-    image.ensure(plan.interp, _filenames.icurryfilename(product), config.currypath())
+  toolchain.makecurry(plan, name, config.currypath(), **kwds)
 
 def _rewrite_flat(plan, name, kwds):
   '''

@@ -191,8 +191,8 @@ class TestValues(cytest.TestCase):
 class TestHandBuilt(cytest.TestCase):
   '''
   A Variable assigned a node of each spelling, then scrutinized.  The module
-  is written as ICurry-JSON and imported by name, so it is compiled like a
-  module of the front end, and no front end runs.
+  is written as a synthetic ICurry description and imported by name, so it
+  is compiled like a module of the front end, and no front end runs.
   '''
   @classmethod
   def setUpClass(cls):

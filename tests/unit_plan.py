@@ -44,8 +44,8 @@ class TestPlan(cytest.TestCase):
         '''
       )
 
-  def test_02_json(self):
-    plan = plans.makeplan(flags=plans.MAKE_ICURRY | plans.MAKE_IMAGE)
+  def test_02_image(self):
+    plan = plans.makeplan(cytest.raw.interp(), flags=plans.MAKE_ICURRY | plans.MAKE_IMAGE)
     self.checkStr(plan,
         '''
         Build plan with 2 steps:
@@ -56,7 +56,7 @@ class TestPlan(cytest.TestCase):
             2     ['.img']                None
         '''
       )
-    plan = plans.makeplan(flags=plans.MAKE_ICURRY | plans.MAKE_IMAGE)
+    plan = plans.makeplan(cytest.raw.interp(), flags=plans.MAKE_ICURRY | plans.MAKE_IMAGE)
     self.checkStr(plan,
         '''
         Build plan with 2 steps:
@@ -71,7 +71,7 @@ class TestPlan(cytest.TestCase):
 
   def test_04_cxx(self):
     # A fresh interpreter follows the environment; under interpret:all the
-    # skeleton of the C++ backend ends at the JSON, so the plan of the
+    # skeleton of the C++ backend ends at the image, so the plan of the
     # compiled route pins the mode.
     interp = Interpreter(flags={'backend':'cxx', 'interpret':'off'})
     plan = plans.makeplan(
@@ -145,19 +145,20 @@ class TestPlan(cytest.TestCase):
       )
 
   def test_06_nointerp(self):
-    plan = plans.makeplan(flags=plans.MAKE_ALL)
+    from unittest import mock
+    with mock.patch('curry.interpreter.Interpreter', side_effect=AssertionError):
+      plan = plans.makeplan(flags=plans.MAKE_ALL)
+    self.assertIsNone(plan.interp)
+    self.assertEqual(plan.flags, plans.MAKE_ICURRY)
     self.checkStr(plan,
-        '''
-        Build plan with 2 steps:
+        """
+        Build plan with 1 step:
             Stage Suffixes                 Step
             ----- ------------------------ ----------------------------------------
             0     ['.curry']               curry2icurry
-            1     ['.icy']                 icurry2image
-            2     ['.img']                None
-        '''
+            1     ['.icy']                 None
+        """
       )
-
-
 
   def test_prune_stale(self):
     '''

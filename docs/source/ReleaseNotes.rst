@@ -5,7 +5,7 @@ Release Notes
 0.9.0a3 (2026-10-31)
 ====================
 
-* Module images replace module JSON products. Translation and C++ emission
+- Module images replace module JSON products. Translation and C++ emission
   read ICurry text; read-only directories and text modules use private images.
   ``sprite-make --image`` is the default target; the JSON options are removed.
 

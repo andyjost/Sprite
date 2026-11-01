@@ -164,7 +164,3 @@ Other systems
 The baseline record holds the CPU seconds of PAKCS on nine programs beside
 those of Sprite; ``run_benchmarks -b pakcs`` measures it.  This
 page makes no claim against other compilers.
-
-Module translation writes an image directly from ICurry text; module JSON
-products and the parsed-module cache have been removed. Startup timings
-with current images exclude translation.
