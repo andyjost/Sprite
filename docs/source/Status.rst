@@ -2,8 +2,7 @@
 Status
 ======
 
-This page says what Sprite is today, in one place.  The code wins when
-this page disagrees with it.
+This page says what Sprite is today, in one place.
 
 The front end
 =============
@@ -11,60 +10,47 @@ The front end
 Sprite translates Curry to FlatCurry with the Curry front end of PAKCS
 3.10.0, the pinned release (front end 3.1.0).  The binding optimization of PAKCS is applied
 to the FlatCurry file as PAKCS applies it.  Sprite's own port of
-``icurry`` 3.3.0 writes the ICurry.  The ``icurry`` program is an
-optional second route that must write the same bytes.  PAKCS is also the
-oracle of the functional tests. The Curry library under ``curry/lib`` is
+``icurry`` 3.3.0 writes the ICurry. The Curry library under ``curry/lib`` is
 base 3.4.0 from PAKCS 3.10.0, with Sprite's own ``Control.SetFunctions``,
-``Control.Search.SetFunctions``, and ``Sprite.Stream``. The same sources
-serve front end 2.0.0 with PAKCS
-3.4.1 and front end 3.1.0 with PAKCS 3.10.0. See
-:ref:`Introduction/CompilationPipeline:Curry to ICurry`.
+``Control.Search.SetFunctions`` and ``Sprite.Stream``.
+``Control.Search.SetFunctions``, ``Control.Search.Unsafe`` and
+``Control.Search.AllValues`` run on Sprite's set functions. Choices in
+the body are captured, choices in arguments stay outside and duplicates
+are kept. The search strategies they name are accepted and ignored:
+every search uses Sprite's scheduler and value order. ``rewriteAll`` and
+``rewriteSome`` raise a not-implemented error.
+``Control.Search.SearchTree`` is not supported. Sprite provides weak
+encapsulation (:ref:`CurryPrimer/Semantics:Set functions`).
 
-The search library
-==================
+The following library modules import, but calling an unimplemented
+primitive fails: ``Curry.Compiler.Distribution``, ``Data.IORef``,
+``Debug.Trace``, ``System.CPUTime``, ``System.Environment``, ``System.IO``,
+``System.IO.Unsafe``, ``Test.Prop``, ``Test.Prop.Types`` and
+``Control.Search.SearchTree``.
 
-``Control.Search.SetFunctions``, ``Control.Search.Unsafe``, and
-``Control.Search.AllValues`` run over the native weak capsules. The facade
-shares ``Control.SetFunctions.Values a = Values [a]`` with Sprite's extension.
-Body choices are captured, argument choices stay outside, and duplicates
-are retained. Strategies and DFS names are advisory: all use Sprite's fair
-scheduler and value order. Unsafe and AllValues upstream describe strong
-encapsulation; Sprite does not enumerate expression free variables inside.
-``rewriteAll`` and ``rewriteSome`` report not implemented when called,
-since capsules cannot suppress outside binding demands.
-``Control.Search.SearchTree`` remains unsupported, pending strong search.
+How code runs
+=============
 
-The backend
-===========
+The C++ runtime, ``libcurryrt``, runs a function interpreted, compiled just
+in time or compiled ahead of time. The JIT has two backends: LLVM through
+llvmlite and C++ through a compiler in a child process. The flags
+``interpret``, ``jit`` and ``jit_backend`` choose; :doc:`CompilationOptions`
+describes them and the supported platforms.
 
-The C++ backend is the one runtime.  Its runtime library ``libcurryrt``
-runs compiled code and interprets ICurry bytecode, including installations
-without a compiler. Windows x64 uses clang-cl of Visual Studio, in a
-developer prompt initialized by ``vcvars64.bat``, for generated DLLs and
-the C++ compiler backend of the JIT. The library ships compiled, and
-``interpret`` defaults to ``new`` everywhere. Loads map the canonical DLL;
-publication retires a mapped generation under a new name before replacement.
-Saved main programs are clang-cl executables with an embedded module and
-Python on PATH for goal evaluation; the copied runtime DLL accompanies them.
-Native execution of these changes is gated by the Windows workflow.
-See :doc:`Installation/WithoutCompiler`.
-
-The interpreter modes
-=====================
-
-A function runs interpreted, compiled just in time (LLVM through
-``llvmlite``, or the generated C++ through the C++ compiler in a child process) or
-compiled ahead of time; the flags ``interpret``, ``jit`` and
-``jit_backend`` choose, and what is installed decides what ``auto`` can
-choose.  :doc:`CompilationOptions` describes the flags, the platforms and
-how to watch the choice; the C++ compiler backend keeps the publication protocol of
-#173.
+On Windows x64 the generated modules compile to DLLs with clang-cl of
+Visual Studio in a developer prompt (``vcvars64.bat``), ahead of time and
+in the C++ tier of the JIT; the library ships compiled and ``interpret``
+defaults to ``new`` there as everywhere. A load maps the canonical DLL, and
+a publication retires a mapped DLL under a generation name before it
+replaces the canonical name. A saved program is a small native launcher
+that runs the program with Python. The Windows workflow gates the native
+run; Microsoft's cl is experimental.
 
 LLVM JIT batches persist beside module images as relocatable ``.jit``
 objects on supported Unix platforms. Current objects link before evaluation;
 ``SPRITE_JIT_CACHE`` supplies a fallback for read-only products. Local stages
 fill the library cache when llvmlite is present. Wheels omit native JIT
-objects, and Windows persistence remains future work.
+objects and Windows persistence remains future work.
 
 The typed boundary
 ==================
@@ -72,64 +58,38 @@ The typed boundary
 Sprite reads the type scheme of every symbol from the FlatCurry interface
 beside its module.  ``curry.term`` and symbol calls type expressions at construction,
 convert Python values by the expected type, supply the class
-dictionaries, and report a typing failure at construction with
-:ref:`the error catalogue <typed-errors>`.  A goal without a type signature keeps
-its class constraints, and :func:`curry.eval`, the REPL, ``sprite-exec
+dictionaries and report a typing failure at construction with
+:ref:`the error catalog <typed-errors>`.  A goal without a type signature keeps
+its class constraints and :func:`curry.eval`, the REPL, ``sprite-exec
 -g`` and ``curry.save`` default them with the table of the PAKCS REPL
 (:ref:`goal-defaulting`).  A text goal may end in ``where x free``, and
-``curry.solve`` reports the bindings with each value.  Open from the plan of epic #48: the
-schemes as metadata of the generated modules instead of the interface
-reads, the specialization of a saturated method call, and a random
-harness over the engine.
+``curry.solve`` reports the bindings with each value.
 
-The performance record
-======================
-
-The committed records are under ``tests/data/curry/benchmarks/results``,
-one JSON Lines file per suite and run.  The record of the C++ backend
-after Phase 2 of the performance program is the label
-``phase2-2026-10-04``, in the files ``phase2-2026-10-04-throughput.jsonl``
-and ``phase2-2026-10-04-memory.jsonl``: the nightly set of ten programs,
-three repetitions.  The baseline before the program is the label
-``baseline-2026-10-03`` (four suites, Sprite and PAKCS).  The current
-record is ``phase3-2026-10-10`` (the inliner, the known-constructor rule
-and the step-mode rotation; throughput and memory, with instruction
-counts), and ``apps-2026-10-06`` holds the applications suite;
-``tests/data/curry/benchmarks/results/README.md`` describes each.
-:doc:`Performance` tabulates the records and names the harness commands.
-Two measured facts.  In the memory record of that label ``Tak1`` peaks at
-68 MB with the collector and 1009 MB without it.  The rotation check of
-the scheduler costs 3 to 5 instructions per completed step over the build
-before the ticker.
+The benchmark harness and committed records are described on
+:doc:`Performance`.
 
 Known limits
 ============
 
 * Arithmetic on a free variable of a built-in type suspends the
   evaluation; ``==`` on such a variable in a required position binds it
-  through the binding optimization, and ``=:=`` always does (issue #37).
-* There is no debugger for a non-deterministic computation.  The aids are
-  ``sprite-exec --stats``, the counters of ``make COUNTERS=1``, and the
-  generated code of a function (``curry.inspect.getimpl``).
-* A name produced by a functional pattern stays narrowed, and every later
-  comparison of it resolves the narrowing again; read such a result
-  through a set function (issue #86; the note in
-  :ref:`CurryPrimer/Syntax:Pattern Matching`).
-* The hot tier of the C++ compiler backend has gaps.  A swapped module keeps
-  its registry entry for the life of the process, so a later load of the
-  same name from another directory is refused, before the object is
-  opened.  :func:`curry.load` of the object of a module whose background
-  compile runs waits for the compile; an explicit load adopts the object
-  over the live interpreted tables.  An edited source
-  is not read again in one process: the import says so, and the swap
-  refuses an object compiled from the edited file.  A program shorter
-  than its compile ends interpreted with no object written.
-* ``show`` of a ``Float`` follows PAKCS.
+  through the binding optimization and ``=:=`` always does, as in PAKCS.
+* There is no debugger for a nondeterministic computation.
+  :doc:`DevelopmentVariables` lists the trace build and runtime counters.
+* A value built by a functional pattern stays narrowed. Every later
+  comparison resolves it again. Read it through a set function
+  (``set1``, ``sortValues``) to resolve it once, as
+  :ref:`24: A makefile in Curry <example-24>` does. Issue #86 records the
+  measurements.
+* Under the C++ backend of the JIT, a module of the same name cannot be
+  reloaded from another directory in one process. An edited source is not
+  read again in one process. A program shorter than its compile ends
+  interpreted with no object written (#179).
 
 What is experimental
 ====================
 
-* The Memory Pool System collector (``make GC=mps``), behind a gate; the
+* The Memory Pool System collector (``make GC=mps``), optional, off by default; the
   default collector is the mark-and-sweep collector of the block heap.
 * The write counters of the collector (``make GC_WRITE_COUNTERS=1``) and
   the scheduler counters (``make COUNTERS=1``): instrumentation for the
@@ -139,27 +99,8 @@ What is experimental
 * The ICurry cache (``SPRITE_CACHE_FILE``): off by default outside the
   test drivers; CMake ``ENABLE_ICURRY_CACHE=ON`` turns it on (see
   :ref:`CommandLineInterface/EnvironmentVariables:Development Variables`).
-* The JIT of the C++ backend (the flag ``jit``, the extra ``curry[jit]``,
-  issue #65): the bytecode of a function to machine code through LLVM,
-  eagerly or by call count, on Linux, macOS arm64 and Windows; merged on
-  2026-10-30, hot by default.
 
 Where the plan lives
 ====================
 
-The tracker is the issue list of the repository on GitHub.  The milestone
-is number 1, "Sprite resuscitated"; its page lists the open items.  The
-epics are these issues:
-
-* #6, measurement infrastructure.
-* #11, CI and test-suite speed.
-* #14, interactive latency.
-* #19, throughput of the C++ runtime.
-* #24, memory management.
-* #28, parallel evaluation, behind a gate.
-* #30 and #82, closed: the Python backend was removed on 2026-10-24.
-* #40, developer velocity.
-* #48, the typed boundary between Python and Curry.
-* #67, Phase 3: optimizer passes, native workers, ticker rotation, pointer
-  tagging.
-* #87, an array IR example and the bulk boundary.
+:doc:`Contributing` links to the tracker and the current milestone.

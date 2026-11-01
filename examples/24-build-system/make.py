@@ -1,16 +1,15 @@
 '''
 A driver for a makefile written in Curry.
 
-The makefile is a Curry module beside the sources of a project.  Its
-variables are definitions with the uppercase names of make, CC = "cc".  The
-relation rule gives a target its inputs and its recipe, one equation per
-rule of make.  The relation depends gives a file a header it includes, one
-equation per edge.  The definition goal names the default goal.  The library
-Make.curry beside this script answers the questions of make over the two
-relations.  This driver owns the world: it substitutes the assignments of
-its command line into the makefile, reads the variables and the stamps of
-the files, runs the recipes, and prints the plan.  Nothing here names a file
-of the project or a language.
+The makefile is a Curry module beside the sources of a project.  Its variables
+are definitions with the uppercase names of make, CC = "cc".  The relation rule
+gives a target its prerequisites and its recipe, one equation per rule of make.
+The relation depends gives a file a header it includes, one equation per edge.
+The definition goal names the default goal.  The library Make.curry beside this
+script answers the questions of make over the two relations.  This driver owns
+the world: it substitutes the assignments of its command line into the
+makefile, reads the variables and the stamps of the files, runs the recipes,
+and prints the plan.  Nothing here names a file of the project or a language.
 
 Usage: python make.py [-f FILE] [-C DIR] [-j N] [-n] [--touch FILE]
                       [--affected FILE] [--trace] [GOAL] [NAME=value ...]
@@ -338,8 +337,8 @@ def make(build, dry_run, env, out):
   built, failed = build.run(plan, env, out)
   if failed:
     out('failed: ' + ' '.join(sorted(failed)))
-  # A target of the plan that never ran is one whose inputs never came up
-  # to date: a recipe that wrote no output leaves its dependents stale.
+  # A target of the plan that never ran is one whose prerequisites never came
+  # up to date: a recipe that wrote no output leaves its dependents stale.
   left = [t for t, needs, recipe in plan if t not in built + failed]
   return 2 if failed or left else 0
 

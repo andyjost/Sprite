@@ -1,3 +1,17 @@
+0. the short driver: the build from scratch, then nothing to do
+% python minimake.py short
+cc  -O2 -Wall -c main.c -o main.o
+cc  -O2 -Wall -c report.c -o report.o
+cc  -O2 -Wall -c shape.c -o shape.o
+cc  -O2 -Wall -c vec.c -o vec.o
+ar rcs libgeom.a vec.o shape.o
+cc -o demo main.o report.o libgeom.a
+% short/demo
+c = (0, 3)
+area = 6
+% python minimake.py short
+demo is up to date
+
 1. the build from scratch
 % python make.py -C project
 plan: 6 targets

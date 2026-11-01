@@ -8,7 +8,7 @@ Curry code runs the way Python code does: import it and it runs.  Nothing
 on this page needs to be configured for that.  The page is for the reader
 who wants to know what happens behind the import, how to choose between
 the interpreter, the just-in-time compiler and compilation ahead of time,
-what each platform supports, and how to watch the choice at work.
+what each platform supports and how to watch the choice at work.
 
 Three ways to run a function
 ============================
@@ -20,7 +20,7 @@ and the same answers:
 
 Interpreted
   The runtime interprets a bytecode made from the ICurry when the module
-  loads.  Nothing is compiled, and no compiler is needed.  This is how a
+  loads.  Nothing is compiled and no compiler is needed.  This is how a
   freshly written module starts.
 
 Compiled just in time
@@ -29,10 +29,10 @@ Compiled just in time
   the scheduler.  Two backends do this: LLVM, through the Python package
   ``llvmlite``, compiles single functions in the process; the C++ backend
   writes the generated C++ of a module and compiles it with the C++ compiler
-  (g++, clang++, or clang-cl on Windows) in a child process, then adopts the object.  The C++ backend compiles the
+  (g++, clang++ or clang-cl on Windows) in a child process, then adopts the object.  The C++ backend compiles the
   modules of the program; the modules of the Curry library run from the
   objects of the installation.  A compile still running when the program
-  ends is cancelled, so a short program never waits for a compiler and
+  ends is canceled, so a short program never waits for a compiler and
   leaves no object behind; ``sprite-make --so`` writes one.
 
   LLVM keeps completed batches in ``M.jit`` beside the module image.
@@ -47,23 +47,27 @@ Compiled just in time
 
 Compiled ahead of time
   ``sprite-make --so M.curry`` compiles a module to a shared object beside
-  its source, and ``make stage`` compiles the Curry library into the
+  its source and ``make stage`` compiles the Curry library into the
   installation. A current object loads under ``interpret:new`` and
   ``interpret:off``, whatever the JIT settings say. ``curry.save`` writes such an object,
   or a program around it, for use elsewhere (:doc:`PythonAPI/UsingTheAPI`).
 
 The default combines them: current objects load, everything else starts
-interpreted, and the functions that run often are compiled behind the
-scenes.
+interpreted and the functions that run often are compiled behind the
+scenes. The front end runs once per change of a module and not at all
+when its products are current.
 
 The flags
 =========
 
-Three interpreter flags select the behaviour.  Set them for a process in
-``SPRITE_INTERPRETER_FLAGS``, or for a session with ``curry.reset``
+Three interpreter flags select the behavior.  Set them for a process in
+``SPRITE_INTERPRETER_FLAGS`` or for a session with ``curry.reset``
 (:ref:`interpreter-flags`)::
 
     SPRITE_INTERPRETER_FLAGS=jit:off python -m curry Peano.curry
+
+
+For a Python session:
 
     >>> import curry
     >>> curry.reset(jit='eager', jit_backend='llvm')
@@ -73,7 +77,7 @@ Flag                 Values                 Meaning
 ===================  =====================  ================================================
 ``interpret``        ``new`` (default),     ``new`` loads current ahead-of-time objects and
                      ``all``, ``off``       interprets the rest.  ``all`` interprets every
-                                            module and opens no AOT object.
+                                            module and opens no ahead-of-time object.
                                             ``off`` compiles a module that has
                                             no current object with the C++ compiler before it runs.
 ``jit``              ``hot`` (default),     ``hot`` compiles an interpreted function after
@@ -99,10 +103,10 @@ The backends are optional.  What you install selects them:
 
 - ``pip install --pre 'curry[jit]'`` adds ``llvmlite`` and with it the
   LLVM backend, on every platform that has a wheel for it.
-- A C++ compiler on the machine (g++, clang++ from Xcode, or clang-cl
-  of Visual Studio on Windows) adds the C++
-  compiler backend and compilation ahead of time.  The installation records
-  the compiler of its build; ``sprite-make`` uses the one it finds.
+- A C++ compiler on the machine (g++, clang++ from Xcode or clang-cl of
+  Visual Studio on Windows) adds the C++ compiler backend and compilation
+  ahead of time.  A source build records its compiler at ``tools/cxx``; a
+  wheel uses ``CXX`` or ``g++`` from PATH, on Windows clang-cl or cl.
 - Neither is needed to run Curry code: :doc:`Installation/WithoutCompiler`
   describes an installation with the interpreter alone.
 
@@ -132,26 +136,22 @@ package says what it decided for each module and for the process::
 
     SPRITE_LOG_LEVEL=INFO python -m curry Peano.curry
 
-The lines name the backend chosen and why (``jit: backend llvm ...``, or
-``jit: no backend, interpreter only ...``), each module as it loads
-(``module Peano: compiled object loaded ...`` or ``module Peano:
-interpreted ...`` with the reason: no object, a stale object, the
-``interpret`` policy), the hot compiles (``jit hot: compiled ...`` with the
-functions and the time; ``cxx hot: module ... compiled ... swapped``), the
-product cache's hits and misses, and the runs of the front end. LLVM also
-reports ``jit cache: module M, miss``, ``stored N functions`` and
-``linked N functions``; linked functions contribute to ``--stats``'s
-``swapped`` count.
+The lines name the backend chosen and why: ``jit: backend llvm ...`` or
+``jit: no backend, interpreter only ...``. Each module reports how it loads:
+``module Peano: compiled object loaded ...`` or ``module Peano: interpreted
+...`` with the reason. Hot compiles report their functions and time:
+``jit hot: compiled ...`` or ``cxx hot: module ... compiled ... swapped``.
+The log also records product-cache hits, misses and runs of the front end.
+LLVM reports ``jit cache: module M, miss``, ``stored N functions`` and
+``linked N functions``; linked functions contribute to ``swapped`` in
+``--stats``.
+
 ``SPRITE_LOG_FILE`` sends the records to a file instead; child processes
 write to the same file with their process id.
 
 Other variables serve the JIT itself: ``SPRITE_JIT_THRESHOLD`` sets the
-number of calls that makes a function hot, and ``SPRITE_JIT_DUMP`` names a
+number of calls that makes a function hot and ``SPRITE_JIT_DUMP`` names a
 directory into which the LLVM backend writes the optimized IR and the
 assembly of each batch.
 
-From Python, :data:`curry.flags` shows the flags of the session, and the
-bindings of the runtime answer for a function::
-
-    >>> from curry.backends.cxx import curryrtbindings as rt
-    >>> rt.icurry_is_interpreted(M.f.info), rt.icurry_is_jit(M.f.info)
+From Python, ``curry.flags`` shows the interpreter flags of the session.

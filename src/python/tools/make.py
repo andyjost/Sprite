@@ -33,7 +33,7 @@ intermediates, retaining the ICurry text required by inspection and save.
 The ``--curry2icurry`` option names the route from Curry to ICurry.
 ``frontend`` runs the Curry front end and then the built-in translation from
 FlatCurry; ``icurry`` runs the ``icurry`` program.  The default is the
-value of SPRITE_CURRY2ICURRY, else the choice made by ``configure``, else
+value of SPRITE_CURRY2ICURRY, else the choice made by CMake (``CURRY2ICURRY_TOOL``), else
 whichever tool is installed.
 
 The ``--rewrite-flat`` option runs the step from Curry to ICurry of every
@@ -67,8 +67,8 @@ passes the job count of ``make``.
 
 The product cache.  The C++ backend keeps a copy of each shared object it
 compiles, with the generated C++ and the ABI stamp, in a cache directory
-outside the tree (``SPRITE_PRODUCT_CACHE``; by default under the cache
-directory of the user).  An entry is found by content: the digest of the
+outside the tree when ``SPRITE_PRODUCT_CACHE`` names a directory.  An entry
+is found by content: the digest of the
 ABI stamp, the text of the module and of the modules it imports, and the
 facts that shape the generated code.  A module whose entry is in the
 cache is neither generated nor compiled; its files are placed beside the
@@ -79,26 +79,21 @@ or stored a product this program prints one line with the two counts,
 given; under ``--jobs`` the counts of the children are summed.  See the
 page on environment variables.
 
-Products made before the rewrite.  The ICurry file of a module counts as
-stale when the FlatCurry file of the front end beside the source holds a
-Boolean equality the binding optimization replaces and neither file holds
-``constrEq``, or holds a ``set0`` call the set0 lift lifts and the ICurry
-file lacks the lifted function: a pair translated before the routes
-rewrote the file with that pass, from an older tree or from the overlay
-archive of the tests
-(``curry.toolchain._curry2icurry.translated_before_rewrite``).  The step
-from Curry to ICurry runs again for such a module, as for a changed
-source: the front end leaves the current file, the rewrite step rewrites
-it, and the translation follows.  At the end of a run that made such a
-module again this program prints ``sprite-make: pre-rewrite pairs: N
-translated again``, unless ``-q`` was given; under ``--jobs`` the counts
-of the children are summed.  When the ICurry cache held the entry of the
-module (the test drivers keep one), the cache writes the ICurry file, and
-the rewrite step runs over the FlatCurry file as after a translation; the
-line then ends in ``, M from the ICurry cache``.  The modules of the
-Curry library are not judged; their ICurry is committed.  A FlatCurry file
-larger than 256 KB, or one that cannot be written again, is not judged
-either, with a warning.
+Products made before the rewrite.  An ICurry file translated before the
+rewrite step existed is stale: the FlatCurry file beside the source holds
+a Boolean equality that the binding optimization replaces, or a ``set0``
+call that the set0 lift lifts, and the ICurry file lacks the result (a
+pair from an older tree or from the overlay archive of the tests).  The
+step from Curry to ICurry runs again for such a module, as for a changed
+source.  At the end of a run that made such a module again this program
+prints ``sprite-make: pre-rewrite pairs: N translated again``, unless
+``-q`` was given; under ``--jobs`` the counts of the children are summed.
+When the ICurry cache held the entry of the module (the test drivers keep
+one), the cache writes the ICurry file and the rewrite step runs over the
+FlatCurry file; the line then ends in ``, M from the ICurry cache``.  The
+modules of the Curry library are not judged; their ICurry is committed.  A
+FlatCurry file larger than 256 KB, or one that cannot be written again, is
+not judged either, with a warning.
 
 Environment Variables
 ---------------------
@@ -126,16 +121,16 @@ Environment Variables
 Examples
 --------
 
-The following converts ``A.curry`` to the ICurry file ``A.icy``.  Module A is
+The following converts ``Peano.curry`` to the ICurry file ``Peano.icy``.  Module Peano is
 found by searching CURRYPATH.  The output is placed at
-``<dir>/.curry/{intermediate_subdir}/A.icy``, where ``<dir>`` is the directory
-containing ``A.curry``::
+``<dir>/.curry/{intermediate_subdir}/Peano.icy``, where ``<dir>`` is the directory
+containing ``Peano.curry``::
 
-    % sprite-make --icy A.curry
+    sprite-make --icy Peano.curry
 
 The following creates a runtime module image::
 
-    % sprite-make --image A.curry
+    sprite-make --image Peano.curry
 
 '''.format(
     intermediate_subdir=config.intermediate_subdir()
@@ -148,7 +143,7 @@ def main(program_name, argv):
   '''
   parser = argparse.ArgumentParser(
       prog=program_name
-    , description='Make ICurry files.'
+    , description='Compile Curry modules to ICurry, images, C++ or shared objects.'
     )
   parser.add_argument(      '--curry2icurry', choices=config.CURRY2ICURRY_TOOLS, default=None, metavar='TOOL'
     , help='the route from Curry to ICurry: frontend (the Curry front end and '
