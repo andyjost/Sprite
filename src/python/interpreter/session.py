@@ -285,7 +285,9 @@ def _save_windows_program(interp, path, program, work):
 #include <fstream>
 #include <string>
 #include <vector>
-#include "curryrt/platform.hpp"
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
 std::wstring quote(wchar_t const * value)
 {
   std::wstring result = L"\"";
@@ -302,42 +304,46 @@ std::wstring quote(wchar_t const * value)
 }
 int wmain(int argc, wchar_t ** argv)
 {
-  // Also ensure the runtime import library is used by this executable.
-  auto pid = curryrt::platform::process_id();
+  auto pid = GetCurrentProcessId();
   wchar_t temp[MAX_PATH + 1];
   if(!GetTempPathW(MAX_PATH, temp)) return 1;
   auto directory = std::filesystem::path(temp) /
       (L"sprite-program-" + std::to_wstring(pid) + L"-" + std::to_wstring(GetTickCount64()));
-  std::filesystem::create_directory(directory);
+  std::error_code error;
+  if(!std::filesystem::create_directory(directory, error))
+  {
+    std::fprintf(stderr, "cannot create temporary directory: %s\n", error.message().c_str());
+    return 127;
+  }
   auto script = directory / L"main.py";
   { std::ofstream out(script, std::ios::binary); out << SCRIPT; }
   std::vector<std::wstring> quoted{quote(script.c_str())};
   for(int i = 1; i < argc; ++i) quoted.push_back(quote(argv[i]));
-  std::vector<wchar_t const *> args{L"python"};
+  std::filesystem::path python = PYTHON;
+  if(!std::filesystem::is_regular_file(python, error)) python = L"python";
+  auto executable = quote(python.c_str());
+  std::vector<wchar_t const *> args{executable.c_str()};
   for(auto const & argument: quoted) args.push_back(argument.c_str());
   args.push_back(nullptr);
-  auto status = _wspawnvp(_P_WAIT, L"python", args.data());
+  auto status = python == L"python"
+      ? _wspawnvp(_P_WAIT, python.c_str(), args.data())
+      : _wspawnv(_P_WAIT, python.c_str(), args.data());
+  if(status < 0)
+    std::fprintf(stderr, "cannot run %s: %s\n", python.u8string().c_str(), std::strerror(errno));
   std::error_code ignored;
   std::filesystem::remove_all(directory, ignored);
-  return status < 0 ? 1 : static_cast<int>(status);
+  return status < 0 ? 127 : static_cast<int>(status);
 }
 '''
   with open(source, 'w', encoding='ascii') as stream:
-    stream.write(text.replace('SCRIPT', json.dumps(program, ensure_ascii=True)))
+    stream.write(text.replace('PYTHON', 'L' + json.dumps(sys.executable, ensure_ascii=True)).replace('SCRIPT', json.dumps(program, ensure_ascii=True)))
   step = toolchain.Cpp2So(interp)
   command = list(step._compileCommand(source, path))
   command.remove('/LD')
-  command = [arg for arg in command if not arg.startswith('/IMPLIB:')]
+  command = [arg for arg in command if not arg.startswith('/IMPLIB:')
+             and arg != config.installed_path('lib', 'libcurryrt.lib')]
   try:
     _system.pexec(command)
-    runtime = config.installed_path('lib', 'libcurryrt.dll')
-    destination = os.path.join(os.path.dirname(os.path.abspath(path)), 'libcurryrt.dll')
-    same = False
-    if os.path.isfile(destination):
-      with open(runtime, 'rb') as source_stream, open(destination, 'rb') as dest_stream:
-        same = source_stream.read() == dest_stream.read()
-    if not same:
-      shutil.copyfile(runtime, destination)
   finally:
     for suffix in ('.obj', '.pdb', '.lib', '.exp'):
       try:

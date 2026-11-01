@@ -276,7 +276,7 @@ def _same_device(a, b):
   except OSError:
     return False
 
-def _place(source, target, link):
+def _place(source, target, link, publish=False):
   '''
   Puts a copy of ``source`` at ``target`` through a temporary name in the
   directory of the target and a rename.  With ``link``, the copy is a hard
@@ -301,7 +301,14 @@ def _place(source, target, link):
     if not linked:
       shutil.copyfile(source, tmp)
       shutil.copymode(source, tmp)
-    os.replace(tmp, target)
+    if publish and target.endswith(config.module_object_suffix()):
+      from ..backends.cxx import curryrtbindings
+      try:
+        curryrtbindings.publish_object(tmp, target)
+      except RuntimeError as error:
+        raise OSError(str(error)) from error
+    else:
+      os.replace(tmp, target)
 
 def _cache_locked(function):
   @functools.wraps(function)
@@ -311,7 +318,7 @@ def _cache_locked(function):
     cache_root = bound.arguments.get('cache_root') or root()
     if cache_root is None:
       return function(*args, **kwds)
-    # No imports through an interpreter and no native calls in this region.
+    # No imports through an interpreter in this region.
     with _productlock.locked(cache_root.rstrip(os.sep) + '.py'):
       return function(*args, **kwds)
   return call
@@ -368,7 +375,8 @@ def restore(digest, key, directory, names, cache_root=None):
     return None
   placed = {}
   for name in names:
-    _place(found[name], os.path.join(directory, name), link=name.endswith(LINK_SUFFIXES))
+    _place(found[name], os.path.join(directory, name),
+           link=name.endswith(LINK_SUFFIXES), publish=True)
     placed[name] = os.path.join(directory, name)
   _order(directory, [placed[name] for name in names])
   with _counts_lock:

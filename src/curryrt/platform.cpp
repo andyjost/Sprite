@@ -343,6 +343,20 @@ namespace curryrt { namespace platform {
     if(windows_publication())
     {
       cleanup_object_generations(target);
+#if defined(_WIN32)
+      char const * force = std::getenv("SPRITE_TEST_WINDOWS_PUBLICATION");
+      if(!force || std::strcmp(force, "1") != 0)
+      {
+        if(MoveFileExW(fs::u8path(source).c_str(), fs::u8path(target).c_str(),
+                       MOVEFILE_REPLACE_EXISTING)) return true;
+        DWORD status = GetLastError();
+        if(status != ERROR_ACCESS_DENIED && status != ERROR_SHARING_VIOLATION)
+        {
+          if(error) *error = std::error_code(status, std::system_category()).message();
+          return false;
+        }
+      }
+#endif
       if(fs::exists(fs::u8path(target), ec))
       {
         static std::atomic<unsigned long long> counter{0};

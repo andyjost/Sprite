@@ -171,10 +171,18 @@ def _program_path(interp, sofile):
   return _findcurry.program_path(curryfile, interp.path, is_sourcefile=True)
 
 def load_module(interp, sofile, from_plan=False, fresh=False):
-  while True:
-    module = _load_module_once(interp, sofile, from_plan, fresh)
+  from .toolchain import Cpp2So
+  for attempt in range(3):
+    before = Cpp2So.product_snapshot(sofile)
+    try:
+      module = _load_module_once(interp, sofile, from_plan, fresh)
+    except (OSError, exceptions.LoadError):
+      if attempt == 2 or before == Cpp2So.product_snapshot(sofile):
+        raise
+      continue # a producer changed the object during a failed open
     if module is not None:
       return module
+  raise exceptions.LoadError('cannot load %r: object changed repeatedly' % sofile)
 
 
 def _load_module_once(interp, sofile, from_plan, fresh):

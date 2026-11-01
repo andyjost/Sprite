@@ -881,7 +881,6 @@ boom = error "boom"
       self.test_compiled_on_first_use()
       copies = list(Path(self.tmpdir).rglob('*.tiered'))
       self.assertFalse(copies, 'first-use adoption must load the canonical file')
-      self.assertTrue(all(path.is_file() for path in copies))
 
   @cytest.hardreset
   def test_trap_without_the_compile(self):

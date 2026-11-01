@@ -404,13 +404,19 @@ namespace curryrt
 
     // POSIX dlopen caches pathname strings even after atomic replacement.
     // A distinct spelling opens the canonical inode without a link or copy.
-    // Windows publication retires the mapped name before this load.
     void * open_object(
         std::string const & sofile, std::string & loadpath, std::string * error
       )
     {
       loadpath = sofile;
-#if !defined(_WIN32)
+#if defined(_WIN32)
+      if(platform::loaded(sofile))
+      {
+        *error = "the object is mapped under this name in this process; "
+                 "the new object loads in the next process";
+        return nullptr;
+      }
+#else
       if(platform::loaded(sofile))
       {
         static std::atomic<unsigned long long> generation{0};
@@ -455,13 +461,13 @@ namespace curryrt
             FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
             FILE_ATTRIBUTE_NORMAL, nullptr);
         if(handle != INVALID_HANDLE_VALUE)
-          acquired = LockFileEx(handle, LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, &overlap);
+          acquired = LockFileEx(handle, LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY, 0, 1, 0, &overlap);
 #else
         handle = ::open(path.c_str(), O_RDWR | O_CREAT, 0666);
         if(handle >= 0)
         {
           int status;
-          do { status = flock(handle, LOCK_EX); } while(status < 0 && errno == EINTR);
+          do { status = flock(handle, LOCK_EX | LOCK_NB); } while(status < 0 && errno == EINTR);
           acquired = status == 0;
         }
 #endif

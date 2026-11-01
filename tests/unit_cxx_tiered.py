@@ -229,13 +229,27 @@ class TestRemovedDirectory(TieredTestCase):
     self.assertTrue(os.path.isfile(self.stamp(name)))
     self.assertEqual(self.py(M.total, 3), 20)
 
+  @unittest.skipIf(sys.platform == 'win32', 'POSIX flock regression')
+  def test_busy_product_lock_keeps_private_object(self):
+    import fcntl
+    name = self.write_module()
+    M = self.import_module(name)
+    lockfile = os.path.splitext(self.sofile(name))[0] + '.lock'
+    with open(lockfile, 'a+b') as lock:
+      fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+      # A blocking native lock here holds the GIL and deadlocks the test.
+      self.wait()
+      self.assertFalse(os.path.exists(self.sofile(name)))
+      self.assertFalse(os.path.exists(self.stamp(name)))
+      self.assertFalse(curryrt.icurry_is_interpreted(M.total.info))
+      self.assertEqual(self.py(M.total, 3), 20)
+
   def test_publication_with_windows_publication(self):
     from pathlib import Path
     with mock.patch.dict(os.environ, SPRITE_TEST_WINDOWS_PUBLICATION='1'):
       self.test_products_published_at_the_swap()
       copies = list(Path(self.tmpdir).rglob('*.tiered'))
       self.assertFalse(copies, 'publication must not make per-load copies')
-      self.assertTrue(all(path.is_file() for path in copies))
 
 
 class TestSwap(TieredTestCase):
@@ -426,9 +440,9 @@ class TestSwap(TieredTestCase):
   @cytest.hardreset
   def test_edited_module_swaps_to_its_new_code(self):
     # After an edit that keeps the shape of the module, a reload imports
-    # the new source: the module is interpreted, and the swap installs the
-    # new object, not the object of the first incarnation, which stays
-    # mapped under the same path.
+    # the new source. POSIX swaps to the new object; Windows keeps the
+    # new code interpreted because the first incarnation stays mapped
+    # under the canonical name.
     text = 'module %%(name)s where\nbump :: Int -> Int\nbump x = x + %d\n'
     name = self.write_module(text % 1)
     M = self.import_module(name)
@@ -445,10 +459,15 @@ class TestSwap(TieredTestCase):
     self.assertTrue(curryrt.icurry_is_interpreted(M.bump.info))
     self.assertEqual(self.py(M.bump, 1), 3)
     before = tiered.status()
-    self.wait()
+    with capture_log('curry.backends.cxx.tiered') as log:
+      self.wait()
     after = tiered.status()
-    self.assertEqual(after['swapped_modules'], before['swapped_modules'] + 1)
-    self.assertFalse(curryrt.icurry_is_interpreted(M.bump.info))
+    windows = sys.platform == 'win32'
+    if windows:
+      self.assertIn('the object is mapped under this name in this process',
+                    str(log.data[logging.WARNING]))
+    self.assertEqual(after['swapped_modules'], before['swapped_modules'] + (not windows))
+    self.assertEqual(curryrt.icurry_is_interpreted(M.bump.info), windows)
     self.assertEqual(self.py(M.bump, 1), 3)
     self.assertEqual(M.bump.info.address, address)
 

@@ -77,7 +77,18 @@ class TestWindowsCommand(cytest.TestCase):
         captured.extend(command)
         text = Path(work, 'launcher.cpp').read_text()
         self.assertIn('int wmain(', text)
+        import json
+        self.assertIn('L' + json.dumps(sys.executable, ensure_ascii=True), text)
+        self.assertIn('is_regular_file(python, error)', text)
+        self.assertIn('python = L"python"', text)
         self.assertIn('_wspawnvp(_P_WAIT', text)
+        self.assertIn('_wspawnv(_P_WAIT', text)
+        self.assertIn('auto executable = quote(python.c_str())', text)
+        self.assertIn('cannot run %s: %s', text)
+        self.assertIn('create_directory(directory, error)', text)
+        self.assertIn('cannot create temporary directory:', text)
+        self.assertIn('status < 0 ? 127', text)
+        self.assertNotIn('curryrt::', text)
         self.assertIn('remove_all(directory', text)
         self.assertNotIn('TemporaryDirectory(', text)
       program = "#!/python\nimport base64, os, tempfile\nwith tempfile.TemporaryDirectory(prefix='sprite-program-') as work:\n  pass\n"
@@ -89,9 +100,9 @@ class TestWindowsCommand(cytest.TestCase):
       self.assertNotIn('/LD', captured)
       self.assertFalse(any(flag.startswith('/IMPLIB:') for flag in captured))
       self.assertIn('/OUT:' + output, captured)
-      self.assertEqual(captured[-1], config.installed_path('lib', 'libcurryrt.lib'))
-      copy.assert_called_once_with(config.installed_path('lib', 'libcurryrt.dll'),
-                                   os.path.join(work, 'libcurryrt.dll'))
+      self.assertNotIn(config.installed_path('lib', 'libcurryrt.lib'), captured)
+      copy.assert_not_called()
+      self.assertFalse(Path(work, 'libcurryrt.dll').exists())
 
   def test_windows_flags_change_the_abi_digest(self):
     with mock.patch.object(toolchain, 'IS_WINDOWS', True), \
@@ -154,7 +165,51 @@ class TestTableExports(cytest.TestCase):
           self.assertTrue(declared - defined)
 
 
+class TestPublicationRetry(cytest.TestCase):
+  def test_failed_open_retries_only_a_changed_snapshot(self):
+    from curry.backends.cxx import loader
+    from curry import exceptions
+    failure = exceptions.LoadError('cannot open object')
+    for changed in (False, True):
+      with self.subTest(changed=changed), \
+           mock.patch.object(toolchain.Cpp2So, 'product_snapshot',
+                             side_effect=[1, 2 if changed else 1, 2]), \
+           mock.patch.object(loader, '_load_module_once',
+                             side_effect=[failure, 'loaded']) as opened:
+        if changed:
+          self.assertEqual(loader.load_module(None, 'Module.dll'), 'loaded')
+          self.assertEqual(opened.call_count, 2)
+        else:
+          with self.assertRaises(exceptions.LoadError):
+            loader.load_module(None, 'Module.dll')
+          self.assertEqual(opened.call_count, 1)
+
+  def test_retries_are_bounded(self):
+    from curry.backends.cxx import loader
+    from curry import exceptions
+    with mock.patch.object(toolchain.Cpp2So, 'product_snapshot',
+                           side_effect=range(10)), \
+         mock.patch.object(loader, '_load_module_once',
+                           side_effect=exceptions.LoadError('cannot open')) as opened:
+      with self.assertRaises(exceptions.LoadError):
+        loader.load_module(None, 'Module.dll')
+      self.assertEqual(opened.call_count, 3)
+
+
 class TestWindowsPublication(cytest.TestCase):
+  @unittest.skipUnless(sys.platform == 'win32', 'Windows replacement fast path')
+  def test_unmapped_object_replacement_leaves_no_generation(self):
+    from curry.backends.cxx import curryrtbindings
+    with mock.patch.dict(os.environ, SPRITE_TEST_WINDOWS_PUBLICATION=''), \
+         tempfile.TemporaryDirectory() as work:
+      canonical = Path(work, 'Module.dll')
+      pending = Path(work, 'pending.dll')
+      canonical.write_bytes(b'old')
+      pending.write_bytes(b'new')
+      curryrtbindings.publish_object(str(pending), str(canonical))
+      self.assertEqual(canonical.read_bytes(), b'new')
+      self.assertEqual(list(Path(work).iterdir()), [canonical])
+
   def test_loaded_canonical_product_can_be_republished(self):
     with mock.patch.dict(os.environ, SPRITE_TEST_WINDOWS_PUBLICATION='1'), \
          tempfile.TemporaryDirectory(prefix='sprite-publication-',
@@ -194,6 +249,23 @@ assert curry.eval(module.answer).one() == 42
       toolchain.Cpp2So(cytest.raw.interp())(cpp, curry.path, is_sourcefile=True)
       self.assertTrue(all(not path.exists() for path in stale))
       self.assertTrue(all(path.exists() for path in copies))
+      self.assertEqual(curry.eval(module.answer).one(), 42)
+
+  def test_cache_restore_retires_a_mapped_object(self):
+    from curry.toolchain import _productcache
+    with mock.patch.dict(os.environ, SPRITE_TEST_WINDOWS_PUBLICATION='1'), \
+         tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
+      source = Path(work, 'CachedPublication.curry')
+      source.write_text('module CachedPublication where\nanswer :: Int\nanswer = 42\n')
+      curry.reset(interpret='off', jit='off')
+      module = curry.import_(str(source))
+      product = Path(getHandle(module).sofilename)
+      cache = str(Path(work, 'cache'))
+      _productcache.store('digest', 'key', [str(product)], cache_root=cache)
+      placed = _productcache.restore('digest', 'key', str(product.parent),
+                                     [product.name], cache_root=cache)
+      self.assertEqual(placed[product.name], str(product))
+      self.assertTrue(list(product.parent.glob(product.name + '.old-*')))
       self.assertEqual(curry.eval(module.answer).one(), 42)
 
   @unittest.skipIf(sys.platform == 'win32', 'POSIX directory permission regression')
