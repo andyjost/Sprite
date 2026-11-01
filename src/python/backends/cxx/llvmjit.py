@@ -32,7 +32,7 @@ function interpreted and logs the reason once.
 from ... import config
 from . import bytecode
 from . import curryrtbindings as curryrt
-import atexit, hashlib, json, logging, os, struct, tempfile, threading, time, zlib
+import atexit, hashlib, json, logging, os, re, struct, tempfile, threading, time, zlib
 
 __all__ = [
     'Unavailable', 'available', 'compile', 'enqueue', 'flush', 'start_hot_tier'
@@ -234,6 +234,24 @@ def _get():
     return _jit
 
 
+# The function attributes of the helpers that name the compiler's target: the
+# JIT compiles for the CPU of the host (create_target_machine), and the code
+# it makes carries none, so the helpers inline into it under one target.
+# Apple's clang also marks every function for stack probing through
+# __chkstk_darwin, which LLVM's own AArch64 backend rejects ("Unsupported
+# stack probing method"); the code the JIT makes probes no stack.
+_TARGET_ATTRIBUTES = re.compile(
+    r'\s*"(probe-stack|target-cpu|target-features|tune-cpu)"="[^"]*"')
+
+def _host_helpers(llvm, module):
+  '''The helpers module without the attributes of the compiler's target.'''
+  text = str(module)
+  stripped = _TARGET_ATTRIBUTES.sub('', text)
+  if stripped == text:
+    return module
+  return llvm.parse_assembly(stripped)
+
+
 class _JIT(object):
   '''The LLVM state of the process: the target, the helpers, the ORC JIT.'''
   def __init__(self):
@@ -255,7 +273,7 @@ class _JIT(object):
         , 'initialize_native_asmparser'):
       getattr(llvm, init)()
     with open(bitcode, 'rb') as stream:
-      self.helpers = llvm.parse_bitcode(stream.read())
+      self.helpers = _host_helpers(llvm, llvm.parse_bitcode(stream.read()))
     self.helpers.verify()
     # The symbols of the runtime library, for the ORC JIT (the extension
     # loaded the library for itself; the JIT needs it in the process table).

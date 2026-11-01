@@ -29,12 +29,9 @@ class TestPyCompile(cytest.TestCase):
       , lambda: curry.compile('goal=0', name='a')
       )
 
-  def testMissingExternalConstructorDefinition(self):
-    self.assertRaisesRegex(
-        curry.CompileError
-      , r"failed to resolve external type 'Interactive_\d+\.A'"
-      , lambda: curry.compile('data A')
-      )
+  def testExternalTypeHasNoConstructors(self):
+    M = curry.compile('data A')
+    self.assertEqual(curry.info(M).types['A'].constructors, ())
 
   def testCompileStringAsModule(self):
     '''Test dynamic module compilation.'''

@@ -427,8 +427,9 @@ functions of the image. Parent and child module names are bound separately.
 
 The symbol layer currently uses the same lightweight ``IModule.fromBOM``
 declarations as compiled objects; it does not reconstruct executable ICurry
-bodies. Unsupported library modules retain their ICurry and interfaces;
-unresolved external types or functions still prevent executable images.
+bodies. Every library module has an executable image. An external without
+a primitive compiles to a step that raises ``not implemented``; an external
+type has no constructors.
 
 Generated C++ carries an ``INPUT`` record (source SHA-256, route and inline
 budget). The ABI stamp retains it in its import-provenance JSON. Both

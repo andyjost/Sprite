@@ -126,6 +126,7 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
   def test_syslibs_installed(self):
     '''Every system library module is installed as a source, and nothing else is.'''
     syslibs = config.syslibs()
+    self.assertEqual(config.supported_syslibs(), syslibs)
     self.assertEqual(syslibs[0], 'Prelude')
     self.assertEqual(syslibs[1:], sorted(syslibs[1:]))
     for name in ['Prelude', 'Control.SetFunctions', 'Numeric', 'System.IO', 'Text.Show']:
