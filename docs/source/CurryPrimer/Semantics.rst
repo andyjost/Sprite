@@ -132,7 +132,7 @@ shared with the rest of the expression, as call-time choice requires::
     main3 :: [Int]
     main3 = sortValues (set1 id (1 ? 2))                 -- [1], [2]
     main4 :: (Int, [Int])
-    main4 = let x = 1 ? 2 in (x,sortValues (set1 f x))  -- (1,[1,2]), (2,[2,3])
+    main4 = let x = 1 ? 2 in (x, sortValues (set1 f x))  -- (1,[1,2]), (2,[2,3])
 
 In the last line each value of ``x`` goes with the set computed from that
 value. The same holds for a free variable in the argument: each binding

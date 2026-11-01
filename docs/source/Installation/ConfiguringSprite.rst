@@ -68,12 +68,14 @@ Option                          Meaning and default
 ``GC_WRITE_COUNTERS``           Old-node write counters with wdgc; ``OFF``
 ``SPRITE_REBUILD_ICY``          Rebuild pinned ICurry; ``OFF``
 ``ENABLE_ICURRY_CACHE``         Enable the user ICurry cache by default; ``OFF``
-``WITH_CLANG``                  clang++ for the bitcode of the JIT helpers (experimental); ``AUTO`` finds one on PATH, empty disables
+``WITH_CLANG``                  clang++ for the bitcode of the JIT helpers; ``AUTO`` finds one on PATH, empty disables
 ``WITH_CLANG_FLAGS``            Extra flags for that clang; empty (default)
 ==============================  ============================================================================
 
-Pass each setting as ``-DNAME=value``. An empty ``WITH_PAKCS`` disables the
-oracle. A build needs no front end: CMake builds the library from the
+Pass each setting as ``-DNAME=value``. ``-DPython_EXECUTABLE=PATH`` selects
+the Python of the build and ``-DCMAKE_CXX_COMPILER=PATH`` the compiler. CMake
+rejects a PAKCS whose version does not match the selected front end. An
+empty ``WITH_PAKCS`` disables the oracle. A build needs no front end: CMake builds the library from the
 pinned products. The front end is needed at run time for new Curry text, and
 when ``SPRITE_REBUILD_ICY`` rebuilds the pins.
 The MPS collector needs the ``extern/mps`` submodule. CMake honors ``CC``,

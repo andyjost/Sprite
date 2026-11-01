@@ -100,6 +100,7 @@ memory use vary between runs. To request the line::
 
     sprite-exec --stats Peano.curry
     S (S O)
+    wall=0.169667 cpu=0.160349 steps=3 forks=0 collections=0 peak_rss=37085184 compile=0.000000 gc_seconds=0.000000 swapped=0 failed_compiles=0 gc_roots_seconds=0.000000 gc_trace_seconds=0.000000 gc_sweep_seconds=0.000000 gc_registries_seconds=0.000000 gc_marked=0 gc_marked_old=0 gc_marked_young=0 gc_configurations_pushed=0 gc_queues_destroyed=0 gc_configurations_destroyed=0 gc_old_redexes=0 gc_old_slot_writes=0 gc_old_nodes_written=0 gc_old_blocks=0
 
 The fields are:
 
@@ -144,8 +145,10 @@ The fields are:
     and the failure is logged once per module.
 
 Seconds print with six decimals. :func:`curry.stats` returns the same
-fields. A runtime with collector or scheduler counters appends fields;
-see :ref:`developer-run-statistics`.
+fields. The fields of the collector, ``gc_roots_seconds`` to
+``gc_old_blocks``, are on every line; a runtime built with ``COUNTERS=1``
+appends the scheduler counters. :ref:`developer-run-statistics` describes
+both.
 
 Profiling
 =========

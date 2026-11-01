@@ -24,8 +24,7 @@ ICurry at each start: an interpreted Prelude import took 0.039 s in
 process after warm-up and a trivial ``sprite-exec`` process took 0.142 s
 with images. These measurements exclude translation of missing or stale
 images. The stage and wheels ship library images alongside their objects;
-keep them and the default ``interpret:new``. :doc:`/Performance` describes
-the measurements.
+keep them and the default ``interpret:new``.
 
 Adding a compiler later
 -----------------------

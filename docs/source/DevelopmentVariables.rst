@@ -41,7 +41,7 @@ Compiler and runtime variables
   flags.  The file name is not part of the key.  So the same text compiles
   once on a machine, from any directory and, for a module compiled from a
   string, under any module name.  A change in the text or in an imported
-  module, misses the cache.  A new front end misses it too and an entry
+  module misses the cache.  A new front end misses it too and an entry
   written by one route is never served to the other.  An error the front end
   reports about
   the program is cached as well; a failure of the environment is not, and
@@ -92,10 +92,9 @@ Compiler and runtime variables
   ``curryrt/curryrt.hpp``).  A header outside the closure never makes it stale.
 
 ``SPRITE_DEBUG``
-  Enables debugging for Sprite internal errors.  The command-line tools
-  :ref:`sprite-exec` and :ref:`sprite-make` normally report unexpected errors
-  tersely.  Enabling this allows one to see the full stack trace when Sprite
-  fails.  Set this to the value ``1`` to enable debugging.
+  The full traceback of an internal error.  :ref:`sprite-exec` and
+  :ref:`sprite-make` report an unexpected error in one line; with the
+  value ``1`` they print the Python traceback.
 
 ``SPRITE_DISABLE_SYSLIB_CHECKS``
   When the variable is set, Sprite skips the check of the Curry library,
@@ -198,11 +197,9 @@ Makefile also accepts the historical variables below. See
   reported by ``sprite-exec --stats``; see :ref:`sprite-exec`.
 
 ``GC=mps``
-  The Memory Pool System in place of the default collector, optional and off by default; the ``SPRITE_GC_*`` variables above change their meaning
-  under it.
-
   A runtime built with the Memory Pool System (``make GC=mps``, an
-  experiment) reads the three variables above with another meaning:
+  experiment, off by default) reads the three variables above with
+  another meaning:
   ``SPRITE_GC_THRESHOLD`` runs a full collection every so many nodes in
   addition to the collections MPS schedules itself (unset: none),
   ``SPRITE_GC_GROWTH`` scales the configuration threshold after a full

@@ -25,6 +25,14 @@ serializes its process-wide heap: two evaluations still step one at a time
 per heap, while Python work outside native metadata/heap operations can run
 in parallel on a free-threaded interpreter. Curry evaluations are serialized.
 
+The bindings release the GIL while the runtime steps or waits, take it
+for Python callbacks and conversion and poll signals while they wait.  A
+deep goal starts on the caller's thread; when an unwind and a retry make
+no progress, it continues on a retained worker with a large stack
+reservation (the flag ``worker_stack``, 1 GiB by default; ``None``
+disables the escalation), and a refused reservation halves down to 64
+MiB.  ``stack_limit`` bounds the caller's stack.
+
 ``PYTHON_GIL`` belongs to the user. Package children inherit its presence or
 absence and its value. The 3.14t CI lane runs the unit suites with
 ``PYTHON_GIL=0`` and the concurrency suite again with the variable absent;
@@ -558,8 +566,9 @@ and cannot remove it.
 Run statistics
 ==============
 
-The collector and scheduler append these fields to ``sprite-exec --stats``
-and :func:`curry.stats`.
+The fields of the collector are on every line of ``sprite-exec --stats``
+and in :func:`curry.stats`; a runtime built with ``COUNTERS=1`` appends
+the scheduler counters.
 
 ``gc_roots_seconds``, ``gc_trace_seconds``, ``gc_sweep_seconds``, ``gc_registries_seconds``
     Seconds the collections of the node collector spent in each phase: the
@@ -633,7 +642,7 @@ With the counters, ``--stats`` appends these fields after
 ``shared_steps``
     Steps whose redex another configuration created.  Every node carries the
     serial number of the configuration whose step allocated it; a redex made
-    by an ancestor before a fork or by a sibling, is work that more than one
+    by an ancestor before a fork, or by a sibling, is work that more than one
     configuration reaches.  The shared-work ratio, ``shared_steps`` over
     ``steps``, bounds the work a design with one copy of the graph per
     alternative would duplicate.  A node built outside the scheduler, such as

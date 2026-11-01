@@ -27,7 +27,7 @@ is a function of the remaining ones; a call with all of them is evaluated
 by the function's rules.
 
 Function types are written in Curry with the ``->`` operator.  For example, the
-type of a unary function that takes an integer, ``Int`` and returns an integer
+type of a unary function that takes an ``Int`` and returns an ``Int``
 can be written ``Int -> Int``.  An expression that applies this to an argument
 of type ``Int`` has type ``Int``.  A binary function over integers has the type ``Int -> Int -> Int``.  Applying this to an integer produces an
 expression of type ``Int -> Int``.  This process, called `currying`, is how

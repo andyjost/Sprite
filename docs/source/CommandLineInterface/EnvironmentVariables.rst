@@ -51,7 +51,7 @@ following:
   through the log at the WARNING level, with the text of the front end;
   the other warnings of the front end stay quiet.  The value ``0`` (or
   ``off``, ``no``, ``false``) silences the warnings for the process; any
-  other value or none, leaves them on and an empty value counts as
+  other value, or none, leaves them on, and an empty value counts as
   unset.  ``sprite-make -q`` silences them as well.  The test runner, the
   test library and the benchmark harness set the variable to ``0``, so
   the output of a suite does not depend on which modules a run compiles;

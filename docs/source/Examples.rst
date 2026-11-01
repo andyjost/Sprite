@@ -4,7 +4,8 @@ Examples
 
 Clone the repository for the lessons under ``examples/``. With pip, run
 ``python go.py`` in a lesson's directory; lesson 00 uses ``sprite-exec``
-on its Curry programs. ``./run`` uses a staged checkout (``make stage``)
+on its Curry programs and lesson 24 ``python minimake.py`` or
+``python make.py``. ``./run`` uses a staged checkout (``make stage``)
 and matches ``expected.out``. Each lesson has a README with its scope and
 limits.
 

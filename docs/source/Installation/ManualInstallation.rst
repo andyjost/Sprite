@@ -11,7 +11,7 @@ development headers::
 
     pip install --pre --no-binary=curry curry
 
-Pip supplies CMake and Ninja as build requirements. The build checks the
+CMake and Ninja come from pip as build requirements. The build checks the
 shipped Curry library sources against their pinned ICurry and interfaces,
 then builds from those products without a Curry front end. The runtime
 dependency ``curry-frontend`` is installed automatically to compile new

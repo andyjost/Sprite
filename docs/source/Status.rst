@@ -12,6 +12,7 @@ Sprite translates Curry to FlatCurry with the Curry front end of PAKCS
 to the FlatCurry file as PAKCS applies it.  Sprite's own port of
 ``icurry`` 3.3.0 writes the ICurry. The Curry library under ``curry/lib`` is
 base 3.4.0 from PAKCS 3.10.0, with Sprite's own ``Control.SetFunctions``,
+``Control.Search.SetFunctions`` and ``Sprite.Stream``.
 ``Control.Search.SetFunctions``, ``Control.Search.Unsafe`` and
 ``Control.Search.AllValues`` run on Sprite's set functions. Choices in
 the body are captured, choices in arguments stay outside and duplicates

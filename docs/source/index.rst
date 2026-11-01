@@ -82,7 +82,7 @@ Where to go next
 For Curry researchers: Sprite uses the Curry front end of PAKCS and ships
 the ``base`` library of PAKCS 3.10.0, so most programs written for PAKCS
 run unchanged; :doc:`CommandLineInterface/sprite-exec` runs a program, the
-:doc:`REPL` opens a prompt and :doc:`Status` lists what differs.  The `Curry homepage`_
+:doc:`REPL <REPL>` opens a prompt and :doc:`Status` lists what differs.  The `Curry homepage`_
 has the tutorial and the report of the language, and the `live demo`_
 runs Curry in a browser.
 
