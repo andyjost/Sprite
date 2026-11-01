@@ -2,7 +2,7 @@
 Release Notes
 =============
 
-0.9.0a3 (2026-10-31)
+0.9.0a3 (2026-11-01)
 ====================
 
 - ``curry.solve`` reports every held variable used in the goal, including
