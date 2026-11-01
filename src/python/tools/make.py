@@ -24,7 +24,7 @@ be translated to a module image beside it.
 
 The targets are ``--icy`` (the translation record), ``--image`` (the
 runtime module image), ``--cxx`` (generated C++) and ``--so`` (a shared
-object). Each target implies its prerequisites. With no target option,
+object, with extension ``.dll`` on Windows). Each target implies its prerequisites. With no target option,
 the default is ``--image``. Output lives under
 ``<dir>/.curry/{intermediate_subdir}``; ``--output`` copies the final
 product to the requested path. ``--tidy`` removes newly generated

@@ -20,11 +20,13 @@ and 3.15 on these platforms:
 * macOS arm64 and macOS x86-64, with macOS 15 or newer.
 * Windows x64.
 
-Linux and macOS wheels include the compiled Curry library. A C++ compiler
-is optional at run time. Windows modules run interpreted or through the
-LLVM JIT (``pip install --pre 'curry[jit]'``); no module is compiled with a
-C++ compiler there. Both ``curry`` and ``curry-frontend`` have wheels for
-these platforms.
+The wheels include the compiled Curry library on every platform, and a
+C++ compiler is optional at run time. On Windows the runtime, the bindings
+and the compiled modules build with clang-cl of Visual Studio in a
+developer prompt (``vcvars64.bat``), ahead of time and in the hot and eager
+C++ tiers; cl is experimental; the wheels vendor the C and C++ runtime
+libraries of Visual Studio. Both ``curry`` and ``curry-frontend`` have
+wheels for these platforms.
 
 Notes on each component follow.
 

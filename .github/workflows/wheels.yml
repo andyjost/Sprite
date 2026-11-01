@@ -253,10 +253,9 @@ jobs:
   # Windows x64: cibuildwheel from pip inside the developer environment of
   # Visual Studio, which only cmd can enter (vcvars64.bat); clang-cl
   # compiles the runtime and the bindings with Ninja, as the workflow
-  # Windows does.  No generated code is compiled on Windows: the library
-  # ships its ICurry and runs interpreted, so the build needs no Curry
-  # front end, and the smoke test exercises the interpreter with the
-  # front end of the wheelhouse.  The repair vendors the C and C++ runtimes
+  # Windows does. Generated Curry modules ship as DLLs; each build logs
+  # the library compile time. The pinned library needs no Curry front end;
+  # the smoke test uses the front end from the wheelhouse.  The repair vendors the C and C++ runtimes
   # of Visual Studio with delvewheel and lists the imports of the binaries
   # (repair.py).
   wheels-windows:
@@ -301,7 +300,7 @@ jobs:
             cmake.define.WITH_ICURRY=
             cmake.define.WITH_CLANG=clang++
           CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: python {project}\scripts\wheels\repair.py {wheel} {dest_dir}
-          CIBW_TEST_COMMAND: python {project}\scripts\wheels\smoke.py --peano {project}\examples\Peano.curry
+          CIBW_TEST_COMMAND: python {project}\scripts\wheels\smoke.py --compile --peano {project}\examples\Peano.curry
         run: |
           for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
           call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1

@@ -151,7 +151,7 @@ from ...utility.locking import native_metadata
 from ..generic import compiler as generic
 from . import curryrtbindings as curryrt
 from ... import common, config
-import atexit, itertools, logging, os, shutil, tempfile, time, weakref, warnings
+import atexit, itertools, logging, os, shutil, sys, tempfile, time, weakref, warnings
 from ...exceptions import CurryWarning
 
 logger = logging.getLogger(__name__)
@@ -223,6 +223,13 @@ def _warn_once(key, message, *args):
     logger.warning(message, *args)
     warnings.warn(message % args, CurryWarning, stacklevel=2)
 
+def warn_mapped_name(name, error):
+  _warn_once(
+      ('mapped', name)
+    , 'the compiled object of module %r was not adopted; the module stays '
+      'interpreted: %s', name, error
+    )
+
 def _environment(interp, currypath=None):
   '''
   The environment of the child: the flags of a compile, and the search path
@@ -238,7 +245,7 @@ def _environment(interp, currypath=None):
         , interp.flags['inline_budget']
         )
   if currypath is not None:
-    env['CURRYPATH'] = ':'.join(curryname.makeCurryPath(currypath))
+    env['CURRYPATH'] = os.pathsep.join(curryname.makeCurryPath(currypath))
   return ['%s=%s' % item for item in env.items()]
 
 def _foreign_flags(interp):
@@ -422,7 +429,7 @@ def _record(moduleobj, sofile=None):
   imodule = getHandle(moduleobj).icurry
   filename = imodule.filename
   if sofile is None:
-    sofile = _filenames.replacesuffix(_filenames.icurryfilename(filename), '.so')
+    sofile = _filenames.replacesuffix(_filenames.icurryfilename(filename), config.module_object_suffix())
   icyfile = _filenames.icurryfilename(filename)
   if not os.path.isfile(icyfile):
     icyfile = ''
@@ -503,7 +510,8 @@ def submit(interp, moduleobj, currypath, hot=False):
   cxx = config.cxx_tool()
   if cxx is None:
     from ...exceptions import CompileError
-    raise CompileError('jit_backend:cxx needs a C++ compiler; install one')
+    raise CompileError('jit_backend:cxx needs a C++ compiler; on Windows use '
+                       'clang-cl of Visual Studio in a developer prompt initialized by vcvars64')
   # The child compiles a private copy (the module docstring, "The
   # products"): nothing is written under the source while it runs.  The
   # digest below is still the one of the ICurry file beside the original:
@@ -514,11 +522,11 @@ def submit(interp, moduleobj, currypath, hot=False):
     )
   envp = _environment(interp, currypath)
   envp.append('_SPRITE_BACKGROUND_MODULE=' + name)
-  sofile = _filenames.replacesuffix(_filenames.icurryfilename(source), '.so')
+  sofile = _filenames.replacesuffix(_filenames.icurryfilename(source), config.module_object_suffix())
   logfile = os.path.join(
       _tmpdir(), 'compile%d-%s.log' % (next(_state.counter), name)
     )
-  argv = [config.sprite_make(), '--so', '-q', source]
+  argv = [sys.executable, '-m', 'curry.tools.make', '--so', '-q', source]
   # The ICurry file of the module and its digest: the swap refuses an object
   # of another text (see the module docstring).  The record of the module
   # names the object this job writes, for the swap of its importers.
@@ -527,7 +535,7 @@ def submit(interp, moduleobj, currypath, hot=False):
   record.functions = len(steps)
   if not _foreign_flags(interp) and not _str2module.is_temporary(filename):
     record.publish = _filenames.replacesuffix(
-        _filenames.icurryfilename(filename), '.so'
+        _filenames.icurryfilename(filename), config.module_object_suffix()
       )
   if logger.isEnabledFor(logging.DEBUG):
     logger.debug('Compiling %s in the background: %s', name, ' '.join(argv))
@@ -586,7 +594,7 @@ def poll(interp=None):
     _state.pending.pop(name, None)
     if not result['ok']:
       _state.modules.pop(name, None)
-      if hot:
+      if hot and not result['error'].startswith('the object is mapped under this name'):
         output = result['output'].strip()
         logger.info('cxx hot: module %s compile failed: %s', name,
             (output or result['error']).splitlines()[0])
@@ -609,6 +617,9 @@ def poll(interp=None):
       _refresh(name, interp)
     elif result['error'] == 'the module is no longer loaded':
       logger.info('module %s: background compile not applied (%s)', name, result['error'])
+    elif result['error'].startswith('the object is mapped under this name'):
+      logger.info('module %s: background compile not applied (%s)', name, result['error'])
+      warn_mapped_name(name, result['error'])
     elif result['error'] == curryrt.TIERED_EDITED:
       logger.info('module %s: background compile not applied (%s)', name, result['error'])
       _warn_once(

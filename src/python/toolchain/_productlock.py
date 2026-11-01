@@ -4,15 +4,19 @@ File-production locks, shared by threads and processes.
 Never hold one across an interpreter import or native materialization.  Prepare
 those operations first, lock only to recheck and publish files, then release
 before consulting native state.  Each entry uses an RLock for thread ownership
-and flock for process ownership; recursion belongs to the owning thread alone.
+and a file lock for process ownership; recursion belongs to the owning thread alone.
 '''
 
 from . import _filenames
-import contextlib, logging, os, threading
+import contextlib, errno, logging, os, threading, time
 try:
   import fcntl
-except ImportError:  # Windows: no advisory lock; nothing compiles there yet
+except ImportError:
   fcntl = None
+try:
+  import msvcrt
+except ImportError:
+  msvcrt = None
 
 __all__ = ['lockfile', 'locked']
 
@@ -84,7 +88,36 @@ def locked(filename):
       yield False
       return
     if fcntl is None:
-      yield waited
+      if msvcrt is None:
+        yield waited
+        return
+      fd = _open(path)
+      if fd is None:
+        yield waited
+        return
+      try:
+        # One byte at offset zero identifies the process lock. Closing the
+        # descriptor releases it, including when the process exits early.
+        while True:
+          os.lseek(fd, 0, os.SEEK_SET)
+          try:
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+            break
+          except OSError as exc:
+            if exc.errno not in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
+              raise
+            if not waited:
+              logger.info('Waiting for another process that compiles %s (the lock %s)',
+                          os.path.basename(filename), path)
+            waited = True
+            time.sleep(0.05)
+        held[path] = fd
+        try:
+          yield waited
+        finally:
+          del held[path]
+      finally:
+        os.close(fd)
       return
     fd = _open(path)
     if fd is None:

@@ -12,8 +12,9 @@ llvmlite nor a compiler, the interpreter runs alone and logs one warning
 per process.
 
 A source build records its compiler at ``tools/cxx``. A wheel uses
-``CXX`` or ``g++`` on PATH. The runtime library, its bindings and the
-Curry front end need no compiler at run time.
+``CXX`` or ``g++`` on PATH, and on Windows clang-cl or cl of Visual Studio
+in a developer prompt (``vcvars64.bat``). The runtime library, its bindings
+and the Curry front end need no compiler at run time.
 
 The cost
 --------
@@ -29,7 +30,8 @@ keep them and the default ``interpret:new``.
 Adding a compiler later
 -----------------------
 
-Install ``g++`` or clang++. With a pip installation, the next process
-finds ``CXX`` or ``g++`` on PATH. A checkout gets its ``tools/cxx`` from
-``make stage``; ``-DWITH_CXX_POSTINSTALL=PATH`` names the compiler
+Install ``g++``, clang++ from Xcode or clang-cl from Visual Studio. With a
+pip installation, the next process finds ``CXX`` or ``g++`` on PATH. A
+checkout gets its ``tools/cxx`` from ``make stage``;
+``-DWITH_CXX_POSTINSTALL=PATH`` names the compiler
 (:doc:`ConfiguringSprite`).

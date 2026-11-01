@@ -456,7 +456,14 @@ def cxx_tool(cached=[]):
       # Traditional installs deliberately use tools/cxx to select or omit
       # the compiler. Wheels carry no builder tool links and discover one
       # in the consumer's environment instead.
-      cxx = shutil.which(os.environ.get('CXX', 'g++')) if _is_wheel_install() else None
+      candidates = [os.environ.get('CXX')] + (['clang-cl', 'cl'] if sys.platform == 'win32' else ['g++'])
+      cxx = next((found for name in candidates if name
+                  for found in [shutil.which(name)] if found), None) if _is_wheel_install() else None
+    elif sys.platform == 'win32':
+      # A Windows stage stores the compiler path, rather than copying an
+      # executable whose adjacent toolchain DLLs would be lost.
+      with open(cxx, encoding='utf-8') as stream:
+        cxx = stream.read().strip()
     cached.append(cxx)
   return cached[0]
 
@@ -560,14 +567,19 @@ def sprite_exec(cached=[]):
 def shared_library_suffix():
   '''
   The suffix of a shared library on the platform of the installed runtime:
-  '.so', or '.dylib' on macOS.  The build writes it (CMake
+  '.so', '.dylib' on macOS, or '.dll' on Windows.  The build writes it (CMake
   CMAKE_SHARED_LIBRARY_SUFFIX); an installation that names none is a Linux
-  build from before the value existed.  The objects of compiled Curry
-  modules keep the suffix .so on every platform.
+  build from before the value existed.  Module objects use .dll on Windows
+  and .so elsewhere (module_object_suffix).
   '''
   if not os.path.exists(installed_path('sysconfig', 'shared_library_suffix')):
     return '.so'
   return _shared_library_suffix().strip() or '.so'
+
+def module_object_suffix():
+  '''The module suffix: PE DLL on Windows, .so on ELF and Mach-O.'''
+  suffix = shared_library_suffix()
+  return suffix if suffix == '.dll' else '.so'
 
 def jit_bitcode():
   '''

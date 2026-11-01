@@ -41,7 +41,7 @@ it does not set interpreter flags.  The docstring of ``curry.interpreter.flags``
 
    * - ``interpret``
      - ``new``
-     - ``new`` loads current objects and interprets the rest; ``all`` interprets every module (Windows default); ``off`` compiles missing objects before running.
+     - ``new`` loads current objects and interprets the rest; ``all`` interprets every module; ``off`` compiles missing objects before running.
 
    * - ``jit``
      - ``hot``

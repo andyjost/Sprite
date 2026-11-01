@@ -28,7 +28,7 @@ def loadcurry(plan, name, currypath=None, **kwds):
       _findcurry.program_path(name, search, **kwds), **kwds))
   candidate = _findcurry.currentfile(plan, name, currypath, **kwds)
   if plan.interp.flags['interpret'] != 'off' and not os.path.isdir(candidate) \
-      and not candidate.endswith('.so'):
+      and not candidate.endswith(config.module_object_suffix()):
     icyfile = _filenames.icurryfilename(candidate)
     if os.path.isfile(icyfile) and not plan.is_stale(icyfile, imagepath):
       module = image.current(plan.interp, icyfile, imagepath)

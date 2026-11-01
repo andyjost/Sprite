@@ -69,7 +69,7 @@ The following flags are available:
     'auto' selects LLVM when llvmlite imports, else the installation's C++
     compiler, else the interpreter alone with one warning per process.
     A forced backend must be available: install curry[jit] for LLVM or a
-    C++ compiler for cxx (unavailable on Windows). LLVM compiles functions
+    C++ compiler for cxx (clang-cl in a developer prompt on Windows). LLVM compiles functions
     in process and needs the runtime helpers' bitcode. cxx compiles a
     module in a child process, synchronously for 'eager', or after its
     first hot function for 'hot'.
@@ -112,9 +112,8 @@ The following flags are available:
     interpreted by the ICurry interpreter of the runtime (curryrt/icurry.hpp)
     instead, and a module with a current object is loaded from it.  With
     'all', every module is interpreted, the Prelude included; the compiled
-    objects are not used; it is the default on Windows, where the compile of
-    generated code is not available in this release. 'new' is the default
-    elsewhere. Use jit:hot with jit_backend:cxx for background C++ compilation.
+    objects are not used. 'new' is the default on every platform. Use
+    jit:hot with jit_backend:cxx for background C++ compilation.
     The jit tiers govern functions that start interpreted in 'new' or 'all'.
 
   * ``keep_temp_files``  (True | **False** | <str>)
@@ -199,7 +198,7 @@ FLAG_INFO = {
   , 'checker'             : ( bool                , False )
   , 'debug'               : ( bool                , False )
   , 'inline_budget'       : ( int                 , 4     )
-  , 'interpret'           : ({'off', 'new', 'all'}, 'all' if sys.platform == 'win32' else 'new')
+  , 'interpret'           : ({'off', 'new', 'all'}, 'new')
   , 'jit'                 : ({'off', 'eager', 'hot'}, 'hot')
   , 'jit_backend'         : ({'auto', 'llvm', 'cxx'}, 'auto')
   , 'trace'               : ( bool                , False )

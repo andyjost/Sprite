@@ -305,7 +305,7 @@ def module_loaded(interp, moduleobj, currypath):
       reason = 'compiler is missing'
     elif h.icurry.filename:
       sofile = _filenames.replacesuffix(
-          _filenames.icurryfilename(h.icurry.filename), '.so')
+          _filenames.icurryfilename(h.icurry.filename), config.module_object_suffix())
       if os.path.isfile(sofile):
         reason = 'stale object (%s)' % toolchain.Cpp2So(interp=interp).stale_reason(
             sofile, currypath)
@@ -399,7 +399,8 @@ def compile_pending(entry):
   cxx = config.cxx_tool()
   if cxx is None:
     raise CompileError(
-        'no C++ compiler is installed at %r'
+        'no C++ compiler is installed at %r; on Windows use clang-cl of '
+        'Visual Studio in a developer prompt initialized by vcvars64'
       % config.installed_path('tools', 'cxx')
       )
   currypath = entry.currypath
@@ -491,7 +492,7 @@ def current_object(cpp2so, cppfile, text, currypath):
   neither: the module compiles.  ``currypath`` is the search path of the
   imports of the module (module_loaded).
   '''
-  sofile = _filenames.replacesuffix(cppfile, '.so')
+  sofile = _filenames.replacesuffix(cppfile, config.module_object_suffix())
   if _text_of(cppfile) == text and os.path.isfile(sofile) \
       and not cpp2so.is_stale(sofile, currypath):
     return sofile

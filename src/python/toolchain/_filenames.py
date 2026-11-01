@@ -10,7 +10,7 @@ __all__ = [
   ]
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
-KNOWN_SUFFIXES = set(['.img', '.py', '.icy', '.icy.z', '.cpp', '.so'])
+KNOWN_SUFFIXES = set(['.img', '.py', '.icy', '.icy.z', '.cpp', '.so', config.module_object_suffix()])
 
 class ImageProduct(str):
   """A private image path with its original translation input."""

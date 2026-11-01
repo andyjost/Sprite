@@ -98,6 +98,10 @@ print(repr(values))
     T = curry.import_('Tools'); g = curry.parse('xs ++ [3] =:= [1,2,3] where xs free', imports=[T])
     self.assertEqual((curry.typeof(T.freegoal), curry.typeof(g), curry.typeof(T.bound)), ('(Int, Int)', 'Bool', 'Bool'))
 
+  def test_default_interpret(self):
+    from curry.interpreter.flags import get_default_flags
+    self.assertEqual(get_default_flags()['interpret'], 'new')
+
   def test_flag_names(self):
     self.assertEqual(sorted(curry.flags), [
         'backend', 'checker', 'debug', 'inline_budget'

@@ -13,6 +13,13 @@ embedded object and prints that goal's answers.  The script runs it in a
 child process.  Both forms belong to the backend that saved them.  All
 products live in a temporary directory and are removed on exit.
 
+On Windows, saving with a main goal builds a small native launcher that
+runs the program with Python. It embeds the module and uses the saving
+interpreter and falls back to `python` on PATH when that file is gone.
+A matching Sprite installation and Python remain required. On Windows a
+parent process owns the lesson's temporary directory and removes it after
+the evaluating child exits, when the saved module is no longer mapped.
+
 Text modules can be reloaded with text=.  For a file module, omit text to
 read its source again; C++ with interpret off requires a fresh
 process, or reset(interpret='new') before importing it.  This lesson uses a

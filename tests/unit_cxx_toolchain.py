@@ -44,7 +44,7 @@ from curry.toolchain import plans, _findcurry, _interfaces, makecurry
 from curry.utility import curryname
 from curry.utility.binding import binding, del_
 from unittest import mock
-import contextlib, curry, gc, importlib, itertools, json, logging, os, re
+import contextlib, curry, gc, importlib, io, itertools, json, logging, os, re
 import shutil, subprocess, tempfile, time, types, unittest
 
 # A module with one goal that returns an integer.
@@ -118,6 +118,38 @@ class ToolchainTestCase(cytest.TestCase):
     module = self.import_module(self.write_image(value))
     self.check_value(module, value)
     return module
+
+class TestCompilerDiagnostics(ToolchainTestCase):
+  def test_failed_compiler_preserves_both_streams(self):
+    from curry.tools import make
+    stub = os.path.join(self.tmpdir, 'compiler.py')
+    with open(stub, 'w') as stream:
+      stream.write('import sys\n'
+                   'print("linker diagnostic on stdout")\n'
+                   'print("compiler diagnostic on stderr", file=sys.stderr)\n'
+                   'sys.exit(1)\n')
+    command = [sys.executable, stub]
+    with self.assertRaises(exceptions.CompileError) as cm:
+      toolchain._system.pexec(command)
+    err = cm.exception
+    self.assertEqual(err.command, command)
+    self.assertEqual(err.returncode, 1)
+    self.assertEqual(err.stdout, 'linker diagnostic on stdout\n')
+    self.assertEqual(err.stderr, 'compiler diagnostic on stderr\n')
+    for text in [str(err), err.report]:
+      self.assertIn(err.stdout.strip(), text)
+      self.assertIn(err.stderr.strip(), text)
+
+    # Exercise the actual Cpp2So failure and sprite-make's error handler.
+    name = self.write_image(1)
+    with mock.patch.object(toolchain.Cpp2So, '_compileCommand', return_value=command), \
+         binding(os.environ, 'CURRYPATH', self.srcdir):
+      with contextlib.redirect_stderr(io.StringIO()) as output:
+        with self.assertRaises(SystemExit) as cm:
+          make.main('sprite-make', ['--so', name])
+    self.assertEqual(cm.exception.code, 1)
+    self.assertIn(err.stdout.strip(), output.getvalue())
+    self.assertIn(err.stderr.strip(), output.getvalue())
 
 class TestPrecompiledHeader(ToolchainTestCase):
   def setUp(self):

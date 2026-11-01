@@ -3,6 +3,7 @@
 #include "pybind11/stl.h"
 #include "curryrt/dynload.hpp"
 #include "curryrt/image.hpp"
+#include "curryrt/platform.hpp"
 #include <memory>
 #include <string>
 
@@ -27,6 +28,12 @@ namespace curryrt { namespace python
     mod.def("load_image", &load_image, py::arg("owner"), py::arg("path"),
         py::arg("expected_header") = "", py::arg("attach_code") = true,
         curryrt::python::heap_access{});
+
+    mod.def("publish_object", [](std::string const & source, std::string const & target) {
+      std::string error;
+      if(!platform::publish_object(source, target, &error))
+        throw std::runtime_error("cannot publish object: " + error);
+    }, curryrt::python::heap_access{});
 
     // The registry entry shared by every library loaded under one module name.
     py::class_<SharedCurryModuleInfo>(mod, "SharedCurryModuleInfo")

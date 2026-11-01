@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cerrno>
@@ -13,11 +14,16 @@
 #include <sstream>
 #include <thread>
 #include <unordered_map>
-#if !defined(_WIN32)
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#else
 #include <fcntl.h>
 #include <signal.h>
 #include <spawn.h>
 #include <sys/stat.h>
+#include <sys/file.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
@@ -68,7 +74,7 @@ namespace curryrt
       TieredStatus              counts;
       bool                      thread_started = false;
       bool                      running = false;
-      long long                 child = 0;   // the process id of the running compile
+      long long                 child = 0;   // POSIX pid, or a Windows Child pointer
       // Incremented by tiered_cancel.  A job of an older generation is
       // dropped when it finishes.
       uint64_t                  generation = 0;
@@ -115,17 +121,112 @@ namespace curryrt
     }
 
 #if defined(_WIN32)
-    // Windows runs the interpreter in this release: no compile child.
-    long long spawn(
-        std::vector<std::string>, std::vector<std::string>
-      , std::string const &, std::string * error
-      )
+    // Keep the compiler and its descendants in a job: cancelling a session
+    // must also stop clang-cl and the linker started by the Python child.
+    struct Child { HANDLE process; HANDLE job; };
+
+    std::wstring widen(std::string const & text)
     {
-      *error = "the background compile is not available on Windows; the module runs interpreted";
-      return 0;
+      int size = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+                                    text.data(), int(text.size()), nullptr, 0);
+      std::wstring result(size, L'\0');
+      MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text.data(),
+                          int(text.size()), result.data(), size);
+      return result;
     }
 
-    int wait_status(long long) { return -1; }
+    // The quoting rules of the Microsoft C runtime (including trailing
+    // backslashes and embedded quotes); CreateProcess takes one command line.
+    std::wstring quote(std::string const & arg)
+    {
+      std::wstring out = L"\"";
+      unsigned slashes = 0;
+      for(auto ch: widen(arg))
+      {
+        if(ch == L'\\') { ++slashes; continue; }
+        out.append(ch == L'"' ? 2 * slashes + 1 : slashes, L'\\');
+        slashes = 0;
+        out += ch;
+      }
+      out.append(2 * slashes, L'\\');
+      return out + L"\"";
+    }
+
+    long long spawn(
+        std::vector<std::string> argv, std::vector<std::string> envp
+      , std::string const & logfile, std::string * error
+      )
+    {
+      if(argv.empty()) { *error = "an empty command"; return 0; }
+      std::wstring command;
+      for(auto const & arg: argv)
+      {
+        if(!command.empty()) command += L' ';
+        command += quote(arg);
+      }
+      // Windows requires the environment block sorted without regard to case.
+      std::vector<std::wstring> variables;
+      for(auto const & entry: envp) variables.push_back(widen(entry));
+      std::sort(variables.begin(), variables.end(), [](auto const & a, auto const & b) {
+        return _wcsicmp(a.c_str(), b.c_str()) < 0;
+      });
+      std::wstring environment;
+      for(auto const & entry: variables) { environment += entry; environment += L'\0'; }
+      environment += L'\0';
+      SECURITY_ATTRIBUTES security{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
+      HANDLE input = CreateFileW(L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                &security, OPEN_EXISTING, 0, nullptr);
+      HANDLE output = CreateFileW(logfile.empty() ? L"NUL" : widen(logfile).c_str(),
+          FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, &security,
+          OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+      HANDLE job = CreateJobObjectW(nullptr, nullptr);
+      JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
+      limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+      bool ready = input != INVALID_HANDLE_VALUE && output != INVALID_HANDLE_VALUE
+          && job && SetInformationJobObject(job, JobObjectExtendedLimitInformation,
+                                            &limits, sizeof(limits));
+      STARTUPINFOW startup{};
+      startup.cb = sizeof(startup);
+      startup.dwFlags = STARTF_USESTDHANDLES;
+      startup.hStdInput = input;
+      startup.hStdOutput = startup.hStdError = output;
+      PROCESS_INFORMATION process{};
+      bool started = ready && CreateProcessW(nullptr, command.data(), nullptr, nullptr,
+          TRUE, CREATE_SUSPENDED | CREATE_NO_WINDOW | CREATE_UNICODE_ENVIRONMENT,
+          envp.empty() ? nullptr : environment.data(), nullptr, &startup, &process);
+      DWORD failure = GetLastError();
+      if(started && !AssignProcessToJobObject(job, process.hProcess))
+      { failure = GetLastError(); TerminateProcess(process.hProcess, 1); started = false; }
+      if(started && ResumeThread(process.hThread) == DWORD(-1))
+      { failure = GetLastError(); TerminateJobObject(job, 1); started = false; }
+      if(input != INVALID_HANDLE_VALUE) CloseHandle(input);
+      if(output != INVALID_HANDLE_VALUE) CloseHandle(output);
+      if(process.hThread) CloseHandle(process.hThread);
+      if(!started)
+      {
+        if(process.hProcess) CloseHandle(process.hProcess);
+        if(job) CloseHandle(job);
+        *error = "cannot start compile (Windows error " + std::to_string(failure) + ")";
+        return 0;
+      }
+      return reinterpret_cast<long long>(new Child{process.hProcess, job});
+    }
+
+    int wait_status(long long child)
+    {
+      auto process = reinterpret_cast<Child *>(child)->process;
+      if(WaitForSingleObject(process, INFINITE) != WAIT_OBJECT_0) return -1;
+      DWORD status = 0;
+      return GetExitCodeProcess(process, &status) ? int(status) : -1;
+    }
+
+    void close_child(long long child)
+    {
+      auto ptr = reinterpret_cast<Child *>(child);
+      CloseHandle(ptr->process);
+      CloseHandle(ptr->job);
+      delete ptr;
+    }
 #else
     // Starts a command with its output appended to ``logfile`` and no input.
     // Returns the process id, or zero with ``error`` set.
@@ -221,14 +322,20 @@ namespace curryrt
       {
         std::lock_guard<std::mutex> lock(shared().mutex);
         shared().child = 0;
+#if defined(_WIN32)
+        close_child(pid);
+#endif
       }
+#if defined(_WIN32)
+      else close_child(pid);
+#endif
       return status;
     }
 
     bool file_exists(std::string const & filename)
     {
-      struct stat st;
-      return stat(filename.c_str(), &st) == 0;
+      std::error_code error;
+      return std::filesystem::exists(std::filesystem::u8path(filename), error);
     }
 
     // The table of the CRC-32 (the polynomial of zlib), made on first use.
@@ -295,49 +402,33 @@ namespace curryrt
       }
     }
 
-    // A hard link of ``path`` under a name of its own beside it, or a copy
-    // when the file system refuses the link.  Returns the empty string with
-    // ``error`` set on failure.  See the load in tiered.hpp.
-    std::string unique_link(std::string const & path, std::string * error)
-    {
-      static std::atomic<unsigned> counter{0};
-      std::string const linkpath = path + "." + std::to_string(platform::process_id())
-          + "." + std::to_string(++counter) + ".tiered";
-      std::error_code ec;
-      std::filesystem::remove(linkpath, ec);
-      ec.clear();
-      std::filesystem::create_hard_link(path, linkpath, ec);
-      if(!ec)
-        return linkpath;
-      ec.clear();
-      std::filesystem::copy_file(path, linkpath, ec);
-      if(ec)
-      {
-        *error = "cannot link or copy the object under a name of its own: "
-               + ec.message();
-        return {};
-      }
-      return linkpath;
-    }
-
-    // Opens the object ``sofile`` into the global scope; see the load in
-    // tiered.hpp.  A file at a path this process maps already is opened
-    // through a link of its own name, which ``loadpath`` names and the
-    // caller removes once the library took its own handle.  Returns the
-    // handle, or null with ``error`` set.
+    // POSIX dlopen caches pathname strings even after atomic replacement.
+    // A distinct spelling opens the canonical inode without a link or copy.
     void * open_object(
         std::string const & sofile, std::string & loadpath, std::string * error
       )
     {
       loadpath = sofile;
-      std::string linkpath;
+#if defined(_WIN32)
       if(platform::loaded(sofile))
       {
-        linkpath = unique_link(sofile, error);
-        if(linkpath.empty())
-          return nullptr;
-        loadpath = linkpath;
+        *error = "the object is mapped under this name in this process; "
+                 "the new object loads in the next process";
+        return nullptr;
       }
+#else
+      if(platform::loaded(sofile))
+      {
+        static std::atomic<unsigned long long> generation{0};
+        auto file = std::filesystem::absolute(std::filesystem::u8path(sofile));
+        std::string alias = file.parent_path().u8string() + "/";
+        // Encode the counter in separator runs between dot components.
+        // The spelling grows logarithmically, rather than one dot per load.
+        for(auto n = ++generation; n; n >>= 1)
+          alias += (n & 1) ? ".//" : "./";
+        loadpath = alias + file.filename().u8string();
+      }
+#endif
       // The first dlopen maps the object; the binding of its load, which
       // follows (SharedCurryModule), may give kept tables steps that point
       // into it.  The handle is never closed on a failure after this
@@ -347,18 +438,53 @@ namespace curryrt
       if(!raw)
       {
         *error = "cannot load the object: " + msg;
-        if(!linkpath.empty())
-        {
-          std::error_code ignored;
-          std::filesystem::remove(linkpath, ignored);
-        }
       }
       return raw;
     }
 
+    // Use the same module lock as the Python product writers.
+    struct ProductLock
+    {
+#if defined(_WIN32)
+      HANDLE handle = INVALID_HANDLE_VALUE;
+      OVERLAPPED overlap{};
+#else
+      int handle = -1;
+#endif
+      bool acquired = false;
+      explicit ProductLock(std::string const & object)
+      {
+        auto path = std::filesystem::u8path(object);
+        path.replace_extension(".lock");
+#if defined(_WIN32)
+        handle = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL, nullptr);
+        if(handle != INVALID_HANDLE_VALUE)
+          acquired = LockFileEx(handle, LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY, 0, 1, 0, &overlap);
+#else
+        handle = ::open(path.c_str(), O_RDWR | O_CREAT, 0666);
+        if(handle >= 0)
+        {
+          int status;
+          do { status = flock(handle, LOCK_EX | LOCK_NB); } while(status < 0 && errno == EINTR);
+          acquired = status == 0;
+        }
+#endif
+      }
+      ~ProductLock()
+      {
+#if defined(_WIN32)
+        if(handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
+#else
+        if(handle >= 0) close(handle);
+#endif
+      }
+    };
+
     // Publishes the products of a private compile beside the source (see
-    // TieredJob::publish): the generated file, the ABI stamp, then the
-    // object, each copied under a temporary name in the target directory
+    // TieredJob::publish): the generated file, the object, then the
+    // ABI stamp, each copied under a temporary name in the target directory
     // and renamed into place, when the source's ICurry file is the one of
     // the import and the directory exists.  Returns the path to open: the
     // published object, or the private one when nothing was published, a
@@ -381,14 +507,21 @@ namespace curryrt
         return sofile;
       auto stem = [](std::string const & path)
       {
-        return path.size() > 3 && path.compare(path.size() - 3, 3, ".so") == 0
-            ? path.substr(0, path.size() - 3) : path;
+        auto source = fs::u8path(path);
+        source.replace_extension();
+        return source.u8string();
       };
+      ProductLock lock(publish);
+      if(!lock.acquired || !file_exists(icurryfile)
+          || tiered_file_digest(icurryfile) != digest) return sofile;
+      // A failed object replacement must not leave a new stamp on old code.
+      fs::remove(fs::u8path(publish + ".abi"), ec);
+      if(ec) return sofile;
       static std::atomic<unsigned> counter{0};
       std::pair<std::string, std::string> const pairs[] = {
           {stem(sofile) + ".cpp", stem(publish) + ".cpp"}
-        , {sofile + ".abi", publish + ".abi"}
         , {sofile, publish}
+        , {sofile + ".abi", publish + ".abi"}
         };
       for(auto const & pair: pairs)
       {
@@ -400,7 +533,23 @@ namespace curryrt
                + std::to_string(platform::process_id()) + "-" + std::to_string(counter++));
         fs::copy_file(pair.first, tmp, fs::copy_options::overwrite_existing, ec);
         if(!ec)
-          fs::rename(tmp, target, ec);
+        {
+          if(pair.first == sofile)
+          {
+            std::string error;
+            if(!platform::publish_object(tmp.u8string(), target.u8string(), &error))
+              ec = std::make_error_code(std::errc::permission_denied);
+          }
+          else
+          {
+#if defined(_WIN32)
+            if(!MoveFileExW(tmp.c_str(), target.c_str(), MOVEFILE_REPLACE_EXISTING))
+              ec = std::error_code(GetLastError(), std::system_category());
+#else
+            fs::rename(tmp, target, ec);
+#endif
+          }
+        }
         if(ec)
         {
           std::error_code ignored;
@@ -458,11 +607,6 @@ namespace curryrt
       catch(std::exception const & e)
       {
         result.error = "the import " + imp.module + ": " + e.what();
-      }
-      if(loadpath != path)
-      {
-        std::error_code ignored;
-        std::filesystem::remove(loadpath, ignored);
       }
       return ok;
     }
@@ -561,11 +705,6 @@ namespace curryrt
       catch(std::exception const & e)
       {
         result.error = e.what();
-      }
-      if(loadpath != path)
-      {
-        std::error_code ignored;
-        std::filesystem::remove(loadpath, ignored);
       }
       return result;
     }
@@ -733,7 +872,10 @@ namespace curryrt
     shared().finished.clear();
     shared().results.clear();
     g_tiered_pending.store(false);
-    #if !defined(_WIN32)
+    #if defined(_WIN32)
+    if(shared().child)
+      TerminateJobObject(reinterpret_cast<Child *>(shared().child)->job, 1);
+    #else
     if(shared().child)
       kill(-(pid_t) shared().child, SIGKILL);
     #endif

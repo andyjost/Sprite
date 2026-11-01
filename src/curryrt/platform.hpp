@@ -50,6 +50,14 @@ namespace curryrt { namespace platform {
   void * symbol(void * handle, char const * name);
   bool unload(void * handle, std::string * error);
 
+  // Writers hold the product lock. Windows retires the canonical name
+  // before replacement; readers always map the canonical file directly.
+  // SPRITE_TEST_WINDOWS_PUBLICATION=1 exercises retirement on POSIX.
+  bool windows_publication();
+  void cleanup_object_generations(std::string const & path);
+  bool publish_object(std::string const & source, std::string const & target,
+                      std::string * error);
+
   // The path of the shared object that holds ``address``, or the empty
   // string when the platform cannot say (the runtime library finds itself
   // this way).

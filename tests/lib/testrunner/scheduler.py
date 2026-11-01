@@ -42,7 +42,8 @@ __all__ = ['INTERRUPT_SIGNALS', 'Job', 'Scheduler', 'Watchdog', 'pick']
 # partial summary is printed, and the exit status is 130.  SIGHUP is here
 # because the children run in sessions of their own, so a closed terminal
 # would leave them running if the runner died of it.
-INTERRUPT_SIGNALS = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+INTERRUPT_SIGNALS = tuple(getattr(signal, name)
+    for name in ('SIGINT', 'SIGTERM', 'SIGHUP') if hasattr(signal, name))
 
 class Job:
   '''One command with its limits and, after the run, its outcome.'''

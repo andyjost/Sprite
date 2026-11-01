@@ -36,7 +36,7 @@ instructions, which the count includes; python -c pass retires about 600
 million.
 '''
 
-import json, os, re, shutil, signal, subprocess, sys, tempfile, time
+import json, os, re, shutil, signal, subprocess, sys, tempfile, time, unittest
 
 __all__ = [
     'PERF_EVENT', 'PERF_SHIM', 'Run', 'TIMEOUT_STATUS', 'gnu_time'
@@ -206,6 +206,8 @@ def run_command(cmd, env=None, cwd=None, timeout=600, cap=None, perf=None):
         The path of perf to count the instructions of the command and its
         descendants with; None for no count.
   '''
+  if os.name == 'nt':
+    raise unittest.SkipTest('benchmark process accounting requires POSIX wait4')
   wrapper = ['timeout', '-k', '5', '%g' % timeout]
   rssfile = perffile = None
   if gnu_time():

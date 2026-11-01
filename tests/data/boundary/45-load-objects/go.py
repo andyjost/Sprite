@@ -34,7 +34,8 @@ print('background compiles after the import ->', status['queued'] + status['runn
 text = curry.inspect.getimpl(Obj)
 print('save: first line ->', text.splitlines()[0])
 print('save: step functions ->'
-    , sum(1 for line in text.splitlines() if line.startswith('tag_type Cy')))
+    , sum(1 for line in text.splitlines()
+          if line.startswith('tag_type Cy') and not line.endswith(';')))
 
 # Other is compiled in the background; wait for the swap.
 Other = curry.import_('Other')

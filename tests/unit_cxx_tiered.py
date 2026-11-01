@@ -229,6 +229,28 @@ class TestRemovedDirectory(TieredTestCase):
     self.assertTrue(os.path.isfile(self.stamp(name)))
     self.assertEqual(self.py(M.total, 3), 20)
 
+  @unittest.skipIf(sys.platform == 'win32', 'POSIX flock regression')
+  def test_busy_product_lock_keeps_private_object(self):
+    import fcntl
+    name = self.write_module()
+    M = self.import_module(name)
+    lockfile = os.path.splitext(self.sofile(name))[0] + '.lock'
+    with open(lockfile, 'a+b') as lock:
+      fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+      # A blocking native lock here holds the GIL and deadlocks the test.
+      self.wait()
+      self.assertFalse(os.path.exists(self.sofile(name)))
+      self.assertFalse(os.path.exists(self.stamp(name)))
+      self.assertFalse(curryrt.icurry_is_interpreted(M.total.info))
+      self.assertEqual(self.py(M.total, 3), 20)
+
+  def test_publication_with_windows_publication(self):
+    from pathlib import Path
+    with mock.patch.dict(os.environ, SPRITE_TEST_WINDOWS_PUBLICATION='1'):
+      self.test_products_published_at_the_swap()
+      copies = list(Path(self.tmpdir).rglob('*.tiered'))
+      self.assertFalse(copies, 'publication must not make per-load copies')
+
 
 class TestSwap(TieredTestCase):
   '''
@@ -418,9 +440,9 @@ class TestSwap(TieredTestCase):
   @cytest.hardreset
   def test_edited_module_swaps_to_its_new_code(self):
     # After an edit that keeps the shape of the module, a reload imports
-    # the new source: the module is interpreted, and the swap installs the
-    # new object, not the object of the first incarnation, which stays
-    # mapped under the same path.
+    # the new source. POSIX swaps to the new object; Windows keeps the
+    # new code interpreted because the first incarnation stays mapped
+    # under the canonical name.
     text = 'module %%(name)s where\nbump :: Int -> Int\nbump x = x + %d\n'
     name = self.write_module(text % 1)
     M = self.import_module(name)
@@ -437,10 +459,17 @@ class TestSwap(TieredTestCase):
     self.assertTrue(curryrt.icurry_is_interpreted(M.bump.info))
     self.assertEqual(self.py(M.bump, 1), 3)
     before = tiered.status()
-    self.wait()
+    with capture_log('curry.backends.cxx.tiered') as log:
+      self.wait()
     after = tiered.status()
-    self.assertEqual(after['swapped_modules'], before['swapped_modules'] + 1)
-    self.assertFalse(curryrt.icurry_is_interpreted(M.bump.info))
+    windows = sys.platform == 'win32'
+    if windows:
+      self.assertIn('the object is mapped under this name in this process',
+                    str(log.data[logging.WARNING]))
+      self.assertIn('was not adopted', str(log.data[logging.WARNING]))
+      self.assertNotIn('compile failed', str(log.data))
+    self.assertEqual(after['swapped_modules'], before['swapped_modules'] + (not windows))
+    self.assertEqual(curryrt.icurry_is_interpreted(M.bump.info), windows)
     self.assertEqual(self.py(M.bump, 1), 3)
     self.assertEqual(M.bump.info.address, address)
 
@@ -1019,6 +1048,48 @@ class TestLoadDuringCompile(TieredTestCase):
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     self.assertTrue(os.path.isfile(self.sofile(name)))
     return self.sofile(name)
+
+  @cytest.hardreset
+  def test_mapped_name_decline_loads_edited_image(self):
+    from curry.backends.cxx import image
+    text = 'module %%(name)s where\nanswer :: Int\nanswer = %d\n'
+    name = self.write_module(text % 1)
+    self.switch('off')
+    first = self.import_module(name)
+    self.assertEqual(self.py(first.answer), 1)
+    self.edit_module(name, text % 2)
+    self.compile_by_hand(name)
+    error = 'the object is mapped under this name in this process; use a new process'
+    with mock.patch.object(curryrt, 'tiered_adopt',
+                           return_value={'ok': False, 'error': error}) as adopt, \
+         mock.patch.object(image, 'current', return_value=None), \
+         capture_log('curry.backends.cxx.tiered') as log:
+      for _ in range(2):
+        self.switch('new')
+        second = self.import_module(name)
+        self.assertTrue(curryrt.icurry_is_interpreted(second.answer.info))
+        self.assertEqual(self.py(second.answer), 2)
+      self.assertEqual(adopt.call_count, 2)
+      self.assertEqual(len(log.data[logging.WARNING]), 1)
+      self.assertIn('was not adopted', log.data[logging.WARNING][0])
+      self.assertIn(error, log.data[logging.WARNING][0])
+      self.switch('off')
+      with self.assertRaisesRegex(curry.LoadError, 'the object is mapped'):
+        self.import_module(name)
+
+  def test_mapped_name_poll_reports_adoption_decline_once(self):
+    name = self.write_module()
+    error = 'the object is mapped under this name in this process'
+    result = dict(module=name, ok=False, error=error, output='', mapped=[])
+    with mock.patch.object(curryrt, 'tiered_poll'), \
+         mock.patch.object(curryrt, 'tiered_results', return_value=[result]), \
+         capture_log('curry.backends.cxx.tiered') as log:
+      tiered.poll()
+      tiered.poll()
+    self.assertEqual(len(log.data[logging.WARNING]), 1)
+    self.assertIn('was not adopted', log.data[logging.WARNING][0])
+    self.assertIn('not applied', str(log.data[logging.INFO]))
+    self.assertNotIn('compile failed', str(log.data))
 
   def make_stale(self, name):
     '''Changes source content, so its compiled receipt is stale.'''

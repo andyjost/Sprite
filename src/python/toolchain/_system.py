@@ -18,7 +18,7 @@ def bindCurryPath(currypath):
   Returns a context manager that temporarily binds ``currypath`` to the
   environment variable CURRYPATH.
   '''
-  value = ':'.join(curryname.makeCurryPath(currypath))
+  value = os.pathsep.join(curryname.makeCurryPath(currypath))
   token = _child_currypath.set(value)
   try:
     yield
@@ -39,8 +39,9 @@ def pexec(cmd, cwd=None, with_stderr=False):
   the working directory of the command.  With ``with_stderr`` the result is
   the pair of the stdout and the stderr texts: the warnings of a tool that
   succeeded.  A command that fails raises CompileError; the exception
-  carries the command, the exit status, and the standard error text as
-  ``command``, ``returncode``, and ``stderr``.
+  carries the command, the exit status, and both output streams as
+  ``command``, ``returncode``, ``stdout``, and ``stderr``.  Its message and
+  report include both streams, since link.exe writes diagnostics to stdout.
   '''
   env = os.environ.copy()
   path = _child_currypath.get()
@@ -64,9 +65,11 @@ def pexec(cmd, cwd=None, with_stderr=False):
     raise
 
   if retcode:
-    err = CompileError(stderr.strip() or 'the compiler rejected the input', report=stderr)
+    report = stdout + ('\n' if stdout and stderr and not stdout.endswith('\n') else '') + stderr
+    err = CompileError(report.strip() or 'the compiler rejected the input', report=report)
     err.command = list(cmd)
     err.returncode = retcode
+    err.stdout = stdout
     err.stderr = stderr
     raise err
   return (stdout, stderr) if with_stderr else stdout

@@ -12,8 +12,8 @@ Release Notes
   extra ``curry[jit]``) or the C++ compiler. ``jit`` selects ``off``,
   ``eager`` or ``hot`` (default); ``jit_backend`` selects ``auto``,
   ``llvm`` or ``cxx``. Hot swaps run at a scheduler safepoint.
-  ``interpret:tiered`` is retired; ``interpret:new``
-  is the default (``all`` on Windows); current ahead-of-time objects still load.
+  ``interpret:tiered`` is retired; ``interpret:new`` is the default
+  on every platform and current ahead-of-time objects still load.
 - The cached code of a function links at its first call, from one native
   object per function in the envelope; a start reads the index alone. CI
   fills the library's cache in one job (``SPRITE_STAGE_JIT_CACHE=0`` skips
@@ -28,9 +28,18 @@ Release Notes
   read ICurry text; read-only directories and text modules use private images.
   ``sprite-make --image`` is the default target; the JSON options are removed.
 
-- Windows: the runtime and bindings build with clang-cl. Wheels support
-  Windows x64 and CPython 3.11 to 3.15, including free-threaded 3.14t, and
-  ship the C and C++ runtime libraries of Visual Studio. The front end's
+- Windows: the runtime and the bindings build with clang-cl, and so do the
+  generated modules, as DLLs, ahead of time and in the hot and eager C++
+  tiers; ``interpret`` defaults to ``new`` on every platform. A load maps
+  the canonical DLL, so a read-only installation imports compiled modules;
+  a publication retires a mapped DLL under a generation name, and the
+  stage and the wheel gates reject such files. A saved program
+  (``curry.save(main=...)``) is a small native launcher that runs the
+  program with Python. It uses the saving interpreter,
+  falls back to ``python`` on PATH if needed and has no runtime DLL
+  dependency. Wheels support Windows x64 and CPython 3.11 to
+  3.15, including free-threaded 3.14t, and ship the compiled library and
+  the C and C++ runtime libraries of Visual Studio. The front end's
   Windows wheel, ``curry-frontend`` 3.1.0.post2, is on PyPI since
   2026-10-31.
 - A user module named like any module of the installed library is refused

@@ -210,6 +210,31 @@ first use while another producer prepares native imports. Existing
 ``unit_evaluation_lock.py`` and ``unit_issue153.py`` cover reentrant callbacks
 and the worker handoff.
 
+Windows object publication
+--------------------------
+
+A load maps the canonical object directly, in a read-only installation as
+well. Under the product lock, Windows first tries to replace the canonical
+DLL directly. On access-denied or sharing-violation errors it renames the
+existing DLL to ``<Module>.dll.old-<pid>-<counter>`` before replacing the
+canonical name. The next publication collects generations owned by exited
+processes and keeps those of live processes. An owner that cannot be opened
+(for example, access denied) conservatively counts as alive. A load creates
+no file. The regression switch ``SPRITE_TEST_WINDOWS_PUBLICATION=1`` forces
+the retirement protocol, including on POSIX; it does not change loading.
+Readers retry a failed open when the product snapshot changed, with at most
+three attempts. Tiered publication tries the product lock without blocking;
+a busy lock leaves the private object in use and the publication to the
+holder of the lock.
+A tiered reload on POSIX uses a distinct spelling of the canonical path,
+so that ``dlopen`` opens the new file instead of returning the old mapping;
+it creates no link and no copy. Windows normalizes that spelling, so a
+second adoption under an already mapped canonical name declines with a
+logged reason and the edited module stays interpreted until the next process.
+The tests cover mapped readers, collection of live and dead generations and
+read-only products. Neither a generation nor an old private ``.tiered`` copy
+may appear in a staged library or a wheel.
+
 The failure test of rule N
 ==========================
 

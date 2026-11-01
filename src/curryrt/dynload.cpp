@@ -1,4 +1,5 @@
 #include <cassert>
+#include <filesystem>
 #include "curryrt/dynload.hpp"
 #include "curryrt/exceptions.hpp"
 #include "curryrt/module.hpp"
@@ -208,8 +209,12 @@ namespace curryrt
   }
 
   SharedLib::SharedLib(std::string const & sofilename)
-    : SharedLib(sofilename, sofilename)
-  {}
+    : _handle(nullptr), _sofilename(sofilename)
+  {
+    std::string error;
+    this->_handle = platform::load(sofilename, &error);
+    if(!this->_handle) throw DynloadError(error);
+  }
 
   SharedLib::SharedLib(
       std::string const & sofilename, std::string const & loadpath

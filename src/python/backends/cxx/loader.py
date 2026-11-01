@@ -4,9 +4,9 @@ from ...objects import CurryPackage
 from ...toolchain import _filenames, _findcurry
 from ... import config, exceptions
 from . import curryrtbindings as curryrt
-from . import elf, macho
+from . import elf, macho, pe
 from ...utility.locking import native_metadata
-import hashlib, logging, os
+import hashlib, logging, os, sys
 
 logger = logging.getLogger(__name__)
 _objects = {}
@@ -49,6 +49,10 @@ def _dynamic_names(sofile):
   entries of the form of a SONAME of a compiled module.  The other entries,
   the runtime library and the system libraries, are left out.
   '''
+  with open(sofile, 'rb') as stream:
+    magic = stream.read(2)
+  if magic == b'MZ':
+    return pe.record_names(sofile)
   from . import toolchain
   dynamic = read_dynamic(sofile)
   name = None if dynamic.soname is None \
@@ -167,24 +171,32 @@ def _program_path(interp, sofile):
   return _findcurry.program_path(curryfile, interp.path, is_sourcefile=True)
 
 def load_module(interp, sofile, from_plan=False, fresh=False):
-  while True:
-    module = _load_module_once(interp, sofile, from_plan, fresh)
+  from .toolchain import Cpp2So
+  for attempt in range(3):
+    before = Cpp2So.product_snapshot(sofile)
+    try:
+      module = _load_module_once(interp, sofile, from_plan, fresh)
+    except (OSError, exceptions.LoadError):
+      if attempt == 2 or before == Cpp2So.product_snapshot(sofile):
+        raise
+      continue # a producer changed the object during a failed open
     if module is not None:
       return module
+  raise exceptions.LoadError('cannot load %r: object changed repeatedly' % sofile)
 
 
 def _load_module_once(interp, sofile, from_plan, fresh):
-  assert sofile.endswith('.so')
+  assert (fresh and not from_plan) or sofile.endswith(config.module_object_suffix())
   sofile = os.path.abspath(sofile)
   from .toolchain import Cpp2So
   before = Cpp2So.product_snapshot(sofile)
-  name, needed = _dynamic_names(sofile)
   from . import tiered
   if interp.flags['interpret'] == 'all':
     raise exceptions.LoadError(
         'cannot load %r under interpret:all: opening a compiled object '
         'replaces the live interpreted steps' % sofile
       )
+  name, needed = _dynamic_names(sofile)
   if name is not None:
     _wait_pending(interp, name, sofile)
   # The object names the objects of its imports by their SONAMEs, and the
@@ -242,6 +254,13 @@ def _open_module(interp, sofile, name, from_plan, fresh, before):
   if adopt:
     result = curryrt.tiered_adopt(name, sofile, steps)
     if not result['ok']:
+      if (result['error'].startswith('the object is mapped under this name')
+          and interp.flags['interpret'] != 'off'):
+        from . import image
+        tiered.warn_mapped_name(name, result['error'])
+        imodule = image.load(interp, _filenames.icurryfilename(sofile),
+                             _program_path(interp, sofile))
+        return interp.import_(imodule)
       raise exceptions.LoadError('cannot load %r: %s' % (sofile, result['error']))
     shlib = owner.shlib
     tiered._refresh(name, interp)

@@ -6,9 +6,8 @@ name: Windows
 # builtins of the runtime, and cl, experimental.  The job configures in the
 # developer environment of Visual Studio, builds every target with Ninja
 # past the first error so one run reports every translation unit, runs the
-# interpreter on a Prelude function, and uploads the logs.  No front end:
-# the configure takes the pinned library products, and no compile of
-# generated code: every module runs interpreted (interpret 'all').
+# interpreter, generated DLLs and C++ JIT, and uploads the logs. The
+# library uses its pinned products; curry-frontend compiles test sources.
 
 'on':
   # Every push of master and of the Windows branches runs it: the line
@@ -50,7 +49,7 @@ jobs:
       - name: Tools
         run: |
           set -euxo pipefail
-          python -m pip install --quiet cmake ninja scikit-build-core numpy llvmlite
+          python -m pip install --quiet cmake ninja scikit-build-core numpy llvmlite curry-frontend==3.1.0.post2
           cmake --version
           clang++ --version || echo "no clang++ on PATH"
           ninja --version
@@ -74,6 +73,16 @@ jobs:
           set "CONFIGURE_STATUS=%errorlevel%"
           type configure.log
           if not "%CONFIGURE_STATUS%"=="0" exit /b %CONFIGURE_STATUS%
+          rem Check runtime data exports before currylib links the Prelude.
+          cmake --build build --target curryrt --parallel -- -k 0 > runtime-build.log 2>&1
+          set "RUNTIME_STATUS=%errorlevel%"
+          type runtime-build.log
+          if not "%RUNTIME_STATUS%"=="0" exit /b %RUNTIME_STATUS%
+          dumpbin /nologo /EXPORTS build\stage\lib\libcurryrt.dll > runtime-exports.log 2>&1
+          set "EXPORT_STATUS=%errorlevel%"
+          type runtime-exports.log
+          if not "%EXPORT_STATUS%"=="0" exit /b %EXPORT_STATUS%
+          python -c "from pathlib import Path; names = Path('runtime-exports.log').read_text().split(); required = ['CyD7Prelude3Int', 'CyD7Prelude4Bool', 'CyD7Prelude4Char', 'CyD7Prelude5Float', 'CyD7Prelude2IO', 'CyD7Prelude4_Y_y', 'CyD7Prelude4_K_k', 'CyD7Prelude6_Y_m_y']; missing = [name for name in required if name not in names]; print('Required runtime data exports:', ', '.join(required)); assert not missing, 'Missing runtime data exports: ' + ', '.join(missing)" || exit /b 1
           cmake --build build --parallel -- -k 0 > build.log 2>&1
           set "BUILD_STATUS=%errorlevel%"
           type build.log
@@ -99,7 +108,7 @@ jobs:
         env:
           SPRITE_HOME: ${{ github.workspace }}\build\stage
           PYTHONPATH: ${{ github.workspace }}\build\stage\python
-          SPRITE_INTERPRETER_FLAGS: jit:hot
+          SPRITE_INTERPRETER_FLAGS: interpret:all,jit:hot,jit_backend:llvm
           SPRITE_JIT_THRESHOLD: '20'
         run: |
           set -uxo pipefail
@@ -128,6 +137,22 @@ jobs:
           print(curry.eval(Prelude.elem(999999, Prelude.enumFromTo(1, 1000000))).one())
           assert llvmjit.statistics()['hot'] > 0, 'the hot tier compiled nothing'
           EOF
+      - name: Generated DLLs and C++ compiler tiers
+        shell: cmd
+        env:
+          SPRITE_HOME: ${{ github.workspace }}\build\stage
+          PYTHONPATH: ${{ github.workspace }}\build\stage\python;${{ github.workspace }}\tests\lib
+          SPRITE_INTERPRETER_FLAGS: interpret:new,jit:off
+          SPRITE_ROTATION: steps:65536
+          SPRITE_PRODUCT_CACHE: ''
+        run: |
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
+          call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
+          python -c "import curry; print(curry.flags['interpret']); assert curry.flags['interpret'] == 'new'" || exit /b 1
+          cd tests
+          python -m unittest -v unit_windows_aot unit_cxx_tiered.TestSwap.test_edited_module_swaps_to_its_new_code unit_make.TestMake.test_sprite_make_so unit_cxx_interp.TestFirstUse.test_compiled_on_first_use unit_cxx_interp.TestFirstUse.test_pending_import_compiles_first unit_loadsave.TestRoundTrip.test_round_trip unit_loadsave.TestRoundTrip.test_cold_cache_hot_cxx unit_loadsave.TestRoundTrip.test_all_refuses_the_swap_with_a_reason unit_loadsave.TestSavedProgram unit_loadsave.TestPublicObjects.test_saved_constrained_program_prints_the_defaulted_goal unit_loadsave.TestPublicObjects.test_nonstandard_suffix_maps_the_requested_file || exit /b 1
+          cd ..\examples\04-static-compile
+          python -c "import subprocess, sys; from pathlib import Path; result = subprocess.run([sys.executable, 'go.py'], capture_output=True, text=True); print(result.stdout, end=''); print(result.stderr, end='', file=sys.stderr); assert result.returncode == 0, result.returncode; assert result.stdout.splitlines() == Path('expected.out').read_text().splitlines()[1:]" || exit /b 1
       - name: Errors by file and by kind
         if: always()
         run: |
@@ -151,6 +176,8 @@ jobs:
           name: windows-${{ matrix.name }}-${{ github.run_attempt }}
           path: |
             configure.log
+            runtime-build.log
+            runtime-exports.log
             build.log
             build/CMakeFiles/CMakeConfigureLog.yaml
             build/CMakeCache.txt

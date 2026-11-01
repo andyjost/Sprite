@@ -29,7 +29,7 @@ Compiled just in time
   the scheduler.  Two backends do this: LLVM, through the Python package
   ``llvmlite``, compiles single functions in the process; the C++ backend
   writes the generated C++ of a module and compiles it with the C++ compiler
-  (g++ or clang++) in a child process, then adopts the object.  The C++ backend compiles the
+  (g++, clang++ or clang-cl on Windows) in a child process, then adopts the object.  The C++ backend compiles the
   modules of the program; the modules of the Curry library run from the
   objects of the installation.  A compile still running when the program
   ends is canceled, so a short program never waits for a compiler and
@@ -79,8 +79,8 @@ Flag                 Values                 Meaning
 ===================  =====================  ================================================
 ``interpret``        ``new`` (default),     ``new`` loads current ahead-of-time objects and
                      ``all``, ``off``       interprets the rest.  ``all`` interprets every
-                                            module and opens no ahead-of-time object; it is the default
-                                            on Windows.  ``off`` compiles a module that has
+                                            module and opens no ahead-of-time object.
+                                            ``off`` compiles a module that has
                                             no current object with the C++ compiler before it runs.
 ``jit``              ``hot`` (default),     ``hot`` compiles an interpreted function after
                      ``eager``, ``off``     it has run ``SPRITE_JIT_THRESHOLD`` times (100).
@@ -105,9 +105,10 @@ The backends are optional.  What you install selects them:
 
 - ``pip install --pre 'curry[jit]'`` adds ``llvmlite`` and with it the
   LLVM backend, on every platform that has a wheel for it.
-- A C++ compiler on the machine (g++ or clang++ from Xcode) adds the C++
-  compiler backend and compilation ahead of time.  A source build records
-  its compiler at ``tools/cxx``; a wheel uses ``CXX`` or ``g++`` from PATH.
+- A C++ compiler on the machine (g++, clang++ from Xcode or clang-cl of
+  Visual Studio on Windows) adds the C++ compiler backend and compilation
+  ahead of time.  A source build records its compiler at ``tools/cxx``; a
+  wheel uses ``CXX`` or ``g++`` from PATH, on Windows clang-cl or cl.
 - Neither is needed to run Curry code: :doc:`Installation/WithoutCompiler`
   describes an installation with the interpreter alone.
 
@@ -118,15 +119,15 @@ Linux x86-64        yes          yes          yes         yes
 Linux aarch64       yes          yes          yes         yes
 macOS arm64         yes          yes          yes         yes
 macOS x86-64        yes          conda [1]_   yes         yes
-Windows x64         yes          yes          no [2]_     no [2]_
+Windows x64         yes          yes          yes [2]_    yes [2]_
 ==================  ===========  ===========  ==========  ======================
 
 .. [1] ``llvmlite`` ships no wheel for Intel macOS on PyPI; the conda-forge
    package provides it.  Without it, ``auto`` takes the C++ compiler.
-.. [2] No generated code is compiled on Windows: the runtime and its
-   bindings build with clang-cl, but the compile of a Curry module to an
-   object is not available there, so ``interpret`` defaults to ``all`` and
-   the LLVM backend is the compiled mode.
+.. [2] Use clang-cl of Visual Studio in a developer prompt initialized
+   by ``vcvars64.bat``. ``sprite-make --so`` writes a DLL; the library
+   ships compiled, and ``interpret`` defaults to ``new`` on every platform.
+   Microsoft cl remains experimental.
 
 Watching the choice
 ===================

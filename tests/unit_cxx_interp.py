@@ -851,7 +851,7 @@ boom = error "boom"
     h = getHandle(M)
     self.assertTrapped(M, 'double', 'main', 'boom')
     self.assertIsNone(h.icurry.metadata.get('cxx.shlib'))
-    sofile = self.product(name, '.so')
+    sofile = self.product(name, config.module_object_suffix())
     self.assertFalse(os.path.exists(sofile))
     # An expression built before the compile holds the tables the object
     # binds to (the binding of the load; curryrt/dynload.hpp).
@@ -875,6 +875,13 @@ boom = error "boom"
         EvaluationError, 'boom', lambda: list(cytest.raw.values(M.boom))
       )
 
+  def test_first_use_with_windows_publication(self):
+    from pathlib import Path
+    with mock.patch.dict(os.environ, SPRITE_TEST_WINDOWS_PUBLICATION='1'):
+      self.test_compiled_on_first_use()
+      copies = list(Path(self.tmpdir).rglob('*.tiered'))
+      self.assertFalse(copies, 'first-use adoption must load the canonical file')
+
   @cytest.hardreset
   def test_trap_without_the_compile(self):
     '''The error of the trap step, with the compile turned off.'''
@@ -889,7 +896,7 @@ boom = error "boom"
           EvaluationError, pattern, lambda: list(cytest.raw.values(M.main))
         )
       self.assertTrapped(M, 'double', 'main', 'boom')
-      self.assertFalse(os.path.exists(self.product(name, '.so')))
+      self.assertFalse(os.path.exists(self.product(name, config.module_object_suffix())))
       # The single step of the evaluator raises it too.
       self.assertRaisesRegex(
           EvaluationError, pattern, evaluator.single_step
@@ -950,7 +957,7 @@ twice x = double (double x)
     self.assertCompiled(A, 'double', 'main')
     self.assertCompiled(B, 'twice')
     for name in a, b:
-      self.assertTrue(os.path.isfile(self.product(name, '.so')), name)
+      self.assertTrue(os.path.isfile(self.product(name, config.module_object_suffix())), name)
     self.assertEqual(list(curry.eval(A.main)), [42])
 
   @cytest.hardreset
@@ -966,7 +973,7 @@ twice x = double (double x)
     self.assertTrapped(M, 'main')
     self.assertEqual(list(curry.eval(M.main)), [42])
     self.assertCompiled(M, 'double', 'main', 'boom')
-    self.assertFalse(os.path.exists(self.product(name, '.so')))
+    self.assertFalse(os.path.exists(self.product(name, config.module_object_suffix())))
     sofile = getHandle(M).sofilename
     self.assertTrue(sofile.startswith(tiered._tmpdir()), sofile)
     self.assertTrue(os.path.isfile(sofile))
@@ -1014,7 +1021,7 @@ twice x = double (double x)
     self.assertTrapped(M, 'main')
     self.assertEqual(list(curry.eval(M.main)), [42])
     self.assertCompiled(M, 'double', 'main', 'boom')
-    self.assertFalse(os.path.exists(self.product(name, '.so')))
+    self.assertFalse(os.path.exists(self.product(name, config.module_object_suffix())))
     self.assertFalse(os.path.exists(self.product(name, '.cpp')))
     sofile = getHandle(M).sofilename
     self.assertTrue(sofile.startswith(tiered._tmpdir()), sofile)
@@ -1046,7 +1053,7 @@ twice x = double (double x)
         cytest.raw.interp(), plans.MAKE_ALL
       )
     sofile = _makecurry.makecurry(plan, name, self.currypath)
-    self.assertEqual(os.path.realpath(sofile), os.path.realpath(self.product(name, '.so')))
+    self.assertEqual(os.path.realpath(sofile), os.path.realpath(self.product(name, config.module_object_suffix())))
     return sofile
 
   def cache_entry(self, name):
@@ -1056,7 +1063,7 @@ twice x = double (double x)
         os.path.join(self.tmpdir, name + '.curry'), self.currypath
       )
     return _productcache.lookup(
-        cpp2so.digest(), key, [name + '.cpp', name + '.so']
+        cpp2so.digest(), key, [name + '.cpp', name + config.module_object_suffix()]
       )
 
   def use_scratch(self):
@@ -1110,7 +1117,7 @@ other = 2
       self.assertEqual(list(curry.eval(M.main)), [2])
     self.assertEqual(len(calls), 1)
     self.assertCompiled(M, 'main', 'other')
-    for suffix in '.cpp', '.so', '.so.abi':
+    for suffix in '.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi':
       self.assertFalse(os.path.exists(self.product(name, suffix)), suffix)
     sofile = getHandle(M).sofilename
     self.assertTrue(sofile.startswith(tiered._tmpdir()), sofile)
@@ -1177,7 +1184,7 @@ other = 2
     name = self.write()
     sofile = self.object_of(name)
     self.assertIsNotNone(self.cache_entry(name))
-    for suffix in '.cpp', '.so', '.so.abi':
+    for suffix in '.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi':
       os.unlink(self.product(name, suffix))
     M = self.import_(name)
     with self.count_compiles() as calls:

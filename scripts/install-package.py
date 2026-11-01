@@ -20,7 +20,8 @@ if len(sys.argv) > 2:
   for source in image.rglob('*'):
     relative = source.relative_to(image)
     if source.is_symlink() or not source.is_file() \
-        or any(part.endswith('.gch') for part in relative.parts):
+        or any(part.endswith(('.gch', '.tiered')) or '.old-' in part
+               for part in relative.parts):
       continue
     target = prefix / relative
     if target.is_file() and target.read_bytes() == source.read_bytes():
@@ -41,7 +42,8 @@ if len(sys.argv) > 2:
     for entry in (prefix / 'tools').iterdir():
       if entry.name not in present and (entry.is_symlink() or entry.is_file()):
         entry.unlink()
-for stamp in (prefix / 'curry').rglob('*.so.abi'):
+object_suffix = '.dll' if sys.platform == 'win32' else '.so'
+for stamp in (prefix / 'curry').rglob('*' + object_suffix + '.abi'):
   lines = stamp.read_text().splitlines()
   lines[1] = str(prefix)
   text = '\n'.join(lines) + '\n'

@@ -5,7 +5,7 @@ from ..objects import CurryPackage
 from ..objects.handle import getHandle
 from ..objects.terms import check_live, check_module, ModuleInfo, Term
 from . import flags as flagmod
-import base64, os, shutil, sys, tempfile, weakref
+import base64, os, re, shutil, sys, tempfile, weakref
 from collections.abc import Mapping
 from types import MappingProxyType
 
@@ -257,11 +257,104 @@ with tempfile.TemporaryDirectory(prefix='sprite-program-') as work:
   from curry.__main__ import moduleMain
   moduleMain(__file__, module.__name__, goal=%r, goalscheme=%r)
 ''' % (sys.executable, backend, os.path.basename(product), data, goal, scheme)
-        with open(path, 'w', encoding='utf-8') as stream:
-          stream.write(program)
-        os.chmod(path, os.stat(path).st_mode | 0o111)
+        if sys.platform == 'win32':
+          _save_windows_program(interp, path, program, work)
+        else:
+          with open(path, 'w', encoding='utf-8') as stream:
+            stream.write(program)
+          os.chmod(path, os.stat(path).st_mode | 0o111)
   except (OSError, exceptions.CurryError) as error:
     raise exceptions.LoadError('cannot save %r on backend %r: %s' % (path, backend, error)) from None
+
+
+def _save_windows_program(interp, path, program, work):
+  # Keep the Python goal/defaulting protocol shared with POSIX. The native
+  # launcher owns the temporary directory so mapped DLLs are removed only
+  # after the Python child has exited.
+  import json
+  from ..backends.cxx import toolchain
+  from ..toolchain import _system
+  program = program[program.index('import base64'):]
+  program = program.replace("with tempfile.TemporaryDirectory(prefix='sprite-program-') as work:",
+                            "if True:\n  work = os.path.dirname(__file__)")
+  source = os.path.join(work, 'launcher.cpp')
+  text = r'''#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <process.h>
+#include <filesystem>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
+std::wstring quote(wchar_t const * value)
+{
+  std::wstring result = L"\"";
+  size_t slashes = 0;
+  for(wchar_t c: std::wstring(value))
+  {
+    if(c == L'\\') { ++slashes; continue; }
+    result.append(c == L'"' ? 2 * slashes + 1 : slashes, L'\\');
+    result += c;
+    slashes = 0;
+  }
+  result.append(2 * slashes, L'\\');
+  return result + L'"';
+}
+int wmain(int argc, wchar_t ** argv)
+{
+  auto pid = GetCurrentProcessId();
+  wchar_t temp[MAX_PATH + 1];
+  if(!GetTempPathW(MAX_PATH, temp)) return 1;
+  auto directory = std::filesystem::path(temp) /
+      (L"sprite-program-" + std::to_wstring(pid) + L"-" + std::to_wstring(GetTickCount64()));
+  std::error_code error;
+  if(!std::filesystem::create_directory(directory, error))
+  {
+    std::fprintf(stderr, "cannot create temporary directory: %s\n", error.message().c_str());
+    return 127;
+  }
+  auto script = directory / L"main.py";
+  { std::ofstream out(script, std::ios::binary); out << SCRIPT; }
+  std::vector<std::wstring> quoted{quote(script.c_str())};
+  for(int i = 1; i < argc; ++i) quoted.push_back(quote(argv[i]));
+  std::filesystem::path python = PYTHON;
+  if(!std::filesystem::is_regular_file(python, error)) python = L"python";
+  auto executable = quote(python.c_str());
+  std::vector<wchar_t const *> args{executable.c_str()};
+  for(auto const & argument: quoted) args.push_back(argument.c_str());
+  args.push_back(nullptr);
+  auto status = python == L"python"
+      ? _wspawnvp(_P_WAIT, python.c_str(), args.data())
+      : _wspawnv(_P_WAIT, python.c_str(), args.data());
+  if(status < 0)
+    std::fprintf(stderr, "cannot run %s: %s\n", python.u8string().c_str(), std::strerror(errno));
+  std::error_code ignored;
+  std::filesystem::remove_all(directory, ignored);
+  return status < 0 ? 127 : static_cast<int>(status);
+}
+'''
+  with open(source, 'w', encoding='ascii') as stream:
+    replacements = {
+        'PYTHON': 'L' + json.dumps(sys.executable, ensure_ascii=True),
+        'SCRIPT': json.dumps(program, ensure_ascii=True)
+      }
+    stream.write(re.sub(r'\b(PYTHON|SCRIPT)\b',
+                        lambda match: replacements[match.group()], text))
+  step = toolchain.Cpp2So(interp)
+  command = list(step._compileCommand(source, path))
+  command.remove('/LD')
+  command = [arg for arg in command if not arg.startswith('/IMPLIB:')
+             and arg != config.installed_path('lib', 'libcurryrt.lib')]
+  try:
+    _system.pexec(command)
+  finally:
+    for suffix in ('.obj', '.pdb', '.lib', '.exp'):
+      try:
+        os.unlink(path + suffix)
+      except FileNotFoundError:
+        pass
 
 
 def load(interp, path):
@@ -282,15 +375,10 @@ def load(interp, path):
       if loaded is not None and os.path.realpath(loaded) == os.path.realpath(path):
         return module
       raise ValueError('module %r is already loaded from another file' % name)
-    # Internal loaders require their backend suffix; save accepts any suffix.
-    suffix = interp.backend.object_file_extension
-    if path.endswith(suffix):
-      module = interp.load(path, fresh=True)
-    else:
-      with tempfile.TemporaryDirectory(prefix='sprite-load-') as work:
-        copy = os.path.join(work, name + suffix)
-        shutil.copyfile(path, copy)
-        module = interp.load(copy, fresh=True)
+    # Public saves accept any suffix; the record above established the format.
+    # Map the requested file directly, without a temporary DLL to delete while
+    # Windows still has it mapped. Internal plan loads keep their suffix check.
+    module = interp.backend.load_module(interp, path, fresh=True)
     setattr(module, '.load_path', path)
     metadata = getHandle(module).icurry.metadata
     if metadata.get('all.fint'):

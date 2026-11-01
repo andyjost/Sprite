@@ -1,4 +1,7 @@
 #include "curryrt/platform.hpp"
+#include <atomic>
+#include <filesystem>
+#include <cstdlib>
 #include <cerrno>
 #include <cstring>
 
@@ -13,6 +16,7 @@
 #include <pthread.h>
 #include <dlfcn.h>
 #include <unistd.h>
+#include <signal.h>
 #include <sys/resource.h>
 #include <cstdint>
 #include <cstdlib>
@@ -276,4 +280,105 @@ namespace curryrt { namespace platform {
   long long process_id() { return getpid(); }
 
 #endif
+
+  bool windows_publication()
+  {
+#if defined(_WIN32)
+    return true;
+#else
+    char const * value = std::getenv("SPRITE_TEST_WINDOWS_PUBLICATION");
+    return value && std::strcmp(value, "1") == 0;
+#endif
+  }
+
+  namespace
+  {
+    bool process_alive(long long pid)
+    {
+#if defined(_WIN32)
+      HANDLE process = OpenProcess(SYNCHRONIZE, FALSE, static_cast<DWORD>(pid));
+      if(!process) return GetLastError() != ERROR_INVALID_PARAMETER;
+      bool alive = WaitForSingleObject(process, 0) != WAIT_OBJECT_0;
+      CloseHandle(process);
+      return alive;
+#else
+      return kill(static_cast<pid_t>(pid), 0) == 0 || errno != ESRCH;
+#endif
+    }
+  }
+
+  void cleanup_object_generations(std::string const & path)
+  {
+    if(!windows_publication()) return;
+    namespace fs = std::filesystem;
+    auto file = fs::absolute(fs::u8path(path));
+    std::string prefix = file.filename().u8string() + ".old-";
+    std::error_code ec;
+    fs::directory_iterator entries(file.parent_path(), ec), end;
+    for(; !ec && entries != end; entries.increment(ec))
+    {
+      std::string name = entries->path().filename().u8string();
+      if(name.compare(0, prefix.size(), prefix) != 0) continue;
+      std::string tail = name.substr(prefix.size());
+      auto dot = tail.find('-');
+      if(dot == std::string::npos || dot + 1 == tail.size()
+          || tail.find_first_not_of("0123456789", dot + 1) != std::string::npos) continue;
+      auto digits = tail.substr(0, dot);
+      if(digits.empty() || digits.find_first_not_of("0123456789") != std::string::npos)
+        continue;
+      long long pid;
+      try { pid = std::stoll(digits); } catch(...) { continue; }
+      if(pid <= 0 || process_alive(pid)) continue;
+      std::error_code ignored;
+      fs::remove(entries->path(), ignored);
+    }
+  }
+
+  bool publish_object(std::string const & source, std::string const & target,
+                      std::string * error)
+  {
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    std::string generation;
+    if(windows_publication())
+    {
+      cleanup_object_generations(target);
+#if defined(_WIN32)
+      char const * force = std::getenv("SPRITE_TEST_WINDOWS_PUBLICATION");
+      if(!force || std::strcmp(force, "1") != 0)
+      {
+        if(MoveFileExW(fs::u8path(source).c_str(), fs::u8path(target).c_str(),
+                       MOVEFILE_REPLACE_EXISTING)) return true;
+        DWORD status = GetLastError();
+        if(status != ERROR_ACCESS_DENIED && status != ERROR_SHARING_VIOLATION)
+        {
+          if(error) *error = std::error_code(status, std::system_category()).message();
+          return false;
+        }
+      }
+#endif
+      if(fs::exists(fs::u8path(target), ec))
+      {
+        static std::atomic<unsigned long long> counter{0};
+        do {
+          generation = target + ".old-" + std::to_string(process_id())
+              + "-" + std::to_string(++counter);
+        } while(fs::exists(fs::u8path(generation), ec));
+        fs::rename(fs::u8path(target), fs::u8path(generation), ec);
+        if(ec) { if(error) *error = ec.message(); return false; }
+      }
+    }
+    fs::rename(fs::u8path(source), fs::u8path(target), ec);
+    if(ec)
+    {
+      if(error) *error = ec.message();
+      if(!generation.empty())
+      {
+        std::error_code ignored;
+        fs::rename(fs::u8path(generation), fs::u8path(target), ignored);
+      }
+      return false;
+    }
+    return true;
+  }
 }}

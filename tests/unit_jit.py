@@ -191,8 +191,9 @@ class TestSelection(cytest.TestCase):
     with mock.patch.object(config, 'cxx_tool', return_value=None):
       with self.assertRaisesRegex(curry.FlagError, r'C\+\+ compiler'):
         curry.reset(jit_backend='cxx')
-    with mock.patch.object(jit.sys, 'platform', 'win32'):
-      with self.assertRaisesRegex(curry.FlagError, 'Windows'):
+    with mock.patch.object(jit.sys, 'platform', 'win32'), \
+         mock.patch.object(config, 'cxx_tool', return_value=None):
+      with self.assertRaisesRegex(curry.FlagError, 'Windows.*clang-cl'):
         curry.reset(jit_backend='cxx')
 
   @cytest.hardreset

@@ -27,6 +27,18 @@ def script(name):
 
 
 class TestDistribution(cytest.TestCase):
+  def test_windows_wheel_rejects_transient_objects(self):
+    repair = script('repair')
+    with tempfile.TemporaryDirectory() as directory:
+      wheel = Path(directory) / 'fixture.whl'
+      for name in ('Prelude.dll.123.1.tiered', 'Prelude.dll.old-123-1'):
+        member = 'curry/_sprite/curry/.curry/products/' + name
+        with zipfile.ZipFile(wheel, 'w') as archive:
+          archive.writestr(member, b'transient')
+        with self.subTest(name=name), self.assertRaises(AssertionError) as error:
+          repair.inspect_wheel_windows(wheel)
+        self.assertIn(member, str(error.exception))
+
   def test_optional_jit_stage_fill(self):
     spec = importlib.util.spec_from_file_location('build_package',
         ROOT / 'scripts/build-package.py')
@@ -151,6 +163,8 @@ class TestDistribution(cytest.TestCase):
       if sys.platform != 'win32':
         self.assertEqual(built.stdout.count('library JIT cache fill skipped:'), 1)
       run(cmake, '--install', build, '--prefix', prefix)
+      self.assertFalse([p for p in prefix.rglob('*')
+                        if '.tiered' in p.name or '.old-' in p.name])
       env.update(SPRITE_HOME=str(prefix), PYTHONPATH=str(prefix / 'python'))
       result = run(python, '-c', '''
 import curry
