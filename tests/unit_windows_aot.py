@@ -49,6 +49,9 @@ class TestTableExports(cytest.TestCase):
         interp = cytest.raw.interp()
         target = compiler.compile(interp, compilable_icurry(
             interp, module, getHandle(module).icurry))
+        from curry.backends.generic import renderer
+        text = '\n'.join(renderer.CXX_RENDERER.renderLines(target[section])
+                         for section in target.SECTIONS)
         self.assertIn('extern SPRITE_MODULE_EXPORT bom::Module const _bom_;',
                       target['.moduledef'])
         for links, definitions in [('.infotabs.link', '.infotabs'),
@@ -66,6 +69,10 @@ class TestTableExports(cytest.TestCase):
               self.assertEqual(attribute == 'SPRITE_MODULE_EXPORT ', symbol in defined)
               if symbol not in defined:
                 self.assertIn(attribute, ['', 'CURRYRT_DATA '])
+                if not attribute:
+                  # Another module's table must never become a link-time
+                  # dependency, even in constructor arrays or BOM records.
+                  self.assertNotRegex(text, r'&\s*' + re.escape(symbol) + r'\b')
           self.assertTrue(defined <= declared)
           self.assertTrue(declared - defined)
 
