@@ -10,10 +10,14 @@ import concurrent.futures, os, re, shlex, subprocess, sys
 os.environ.setdefault('SPRITE_FRONTEND_WARNINGS', '0')  # the rules overlap by design
 import curry
 
-root = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else '.')
-os.chdir(root)
-curry.path.insert(0, root)
-from curry.lib import Makefile
+def load(directory='.'):
+  '''Imports Makefile.curry of a project directory and moves there, so that
+  the names of the makefile are the files of the current directory.'''
+  global Makefile
+  os.chdir(directory)
+  curry.path.insert(0, os.getcwd())
+  Makefile = curry.import_('Makefile')
+  return Makefile
 
 def rules(target):
   '''The prerequisites and the recipe of every rule of a target: the answers
@@ -33,15 +37,20 @@ def needs(target):
   prereqs = [p for ps, recipe in rules(target) for p in ps]
   return prereqs + sorted(set().union(*map(headers, prereqs)))
 
+def interpolate(recipe, target, prereqs, makefile=None):
+  '''The recipe with make's automatic variables filled: $@ is the target, $<
+  the first prerequisite and $^ all of them.  With the makefile, $(NAME) is
+  the value of its definition NAME; without it, $(NAME) stays as written.'''
+  if makefile is not None:
+    for name in re.findall(r'\$\((\w+)\)', recipe):
+      recipe = recipe.replace(f'$({name})', next(curry.eval(getattr(makefile, name))))
+  return (recipe.replace('$@', target).replace('$<', ' '.join(prereqs[:1]))
+                .replace('$^', ' '.join(prereqs)))
+
 def command(target):
-  '''The recipe of a target as a command: $(NAME) is a variable of the
-  makefile, $@ the target, $< the first prerequisite and $^ everything the
-  target reads.'''
-  [(prereqs, recipe)] = rules(target)
-  for name in re.findall(r'\$\((\w+)\)', recipe):
-    recipe = recipe.replace('$(%s)' % name, next(curry.eval(getattr(Makefile, name))))
-  return (recipe.replace('$@', target).replace('$<', prereqs[0])
-                .replace('$^', ' '.join(needs(target))))
+  '''The command of a target: its recipe over everything the target reads.'''
+  [(_, recipe)] = rules(target)
+  return interpolate(recipe, target, needs(target), Makefile)
 
 def stale(name):
   '''A target is stale when it is missing, when it is older than a file it
@@ -58,7 +67,7 @@ def names(target):
 
 def make(goal, jobs=4):
   '''Builds the stale targets from the goal down, wave by wave: a wave holds
-  the pending targets that read no pending target, and its recipes run at
+  the pending targets that read no pending target, and its commands run at
   once in a pool of threads.'''
   pending = [t for t in sorted(names(goal)) if rules(t) and stale(t)]
   if not pending:
@@ -74,4 +83,5 @@ def make(goal, jobs=4):
       pending = [t for t in pending if t not in wave]
 
 if __name__ == '__main__':
+  load(sys.argv[1] if len(sys.argv) > 1 else '.')
   make(sys.argv[2] if len(sys.argv) > 2 else next(curry.eval(Makefile.goal)))

@@ -51,15 +51,18 @@ the list of prerequisites and the recipe with make's `$@`, `$<`, `$^` and
 appears in the target and in the prerequisite, so the equation applies to
 any `X.o` whose prerequisite is `X.c`.  It is a functional pattern, and
 `stem` is solved, not substituted.  The guard on the second `libgeom.a`
-rule is make's `ifdef`.  Each `depends` equation is one include edge.
+rule is make's `ifdef`.  Each `depends` equation is one include edge, what
+make calls an automatic prerequisite when a compiler's `-M` output supplies
+it.
 
 ## Asking the relation
 
 `rule` is a relation, so it can be asked with any argument left unknown.
 Make asks of a target: which prerequisites does it have, and what is its
 recipe?  In Python the unknown is a free variable, the question is a call
-of `rule` over it and `curry.solve` answers with the value of the call and
-the bindings of the variable:
+of `rule` over it, and `curry.solve` yields each answer as the value of
+the call with the bindings of the variables.  Printed in make's notation,
+the answer is the rule as a makefile spells it:
 
 ```python
 import os; os.environ['SPRITE_FRONTEND_WARNINGS'] = '0'   # the rules overlap by design
@@ -69,37 +72,50 @@ from curry.lib import Makefile
 
 prereqs = curry.free('prereqs')
 for recipe, bindings in curry.solve(Makefile.rule('demo', prereqs)):
-    print(bindings[prereqs], recipe)
-# ['main.o', 'report.o', 'libgeom.a'] $(CC) -o $@ $^
+    print(f"demo: {' '.join(bindings[prereqs])}\n\t{recipe}")
+# demo: main.o report.o libgeom.a
+# 	$(CC) -o $@ $^
 ```
 
-The bindings map each named variable to its value as Python data, a list
-of strings here, under the variable itself or its name (`bindings['prereqs']`).
-The pattern rule answers the same question for an object file, and
-`stem` is solved on the way:
+The bindings are indexed by the variable, or by its name as
+`bindings['prereqs']`, and hold Python data, a list of strings here.  The
+variable serves every question.  The pattern rule answers the same one for
+an object file, and `stem` is solved on the way:
 
 ```python
-prereqs = curry.free('prereqs')
 for recipe, bindings in curry.solve(Makefile.rule('vec.o', prereqs)):
-    print(bindings[prereqs], recipe)
-# ['vec.c'] $(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+    print(f"vec.o: {' '.join(bindings[prereqs])}\n\t{recipe}")
+# vec.o: vec.c
+# 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 ```
 
-The recipe is make's template.  `$@` stands for the target and `$<` for
-the first prerequisite, so the answer fills both:
+The recipe is make's template: `$@` is the target, `$<` the first
+prerequisite, `$^` all of them and `$(NAME)` a variable of the makefile.
+`minimake.py`, beside the makefile, fills it.  Without the makefile the
+variables stay as written, which shows where the target and the answer
+enter:
 
 ```python
-print(recipe.replace('$@', 'vec.o').replace('$<', bindings[prereqs][0]))
+from minimake import interpolate
+print(interpolate(recipe, target='vec.o', prereqs=bindings[prereqs]))
 # $(CC) $(CPPFLAGS) $(CFLAGS) -c vec.c -o vec.o
 ```
 
-`$(CC)` is a variable of the makefile: a Curry definition, evaluated like
-any other value.  `CFLAGS` is a conditional definition, and its value
-follows `DEBUG`:
+A variable of the makefile is a Curry definition, which Python evaluates
+like any other value; `CFLAGS` is a conditional, and its value follows
+`DEBUG`:
 
 ```python
 print(next(curry.eval(Makefile.CC)), next(curry.eval(Makefile.CFLAGS)))
 # cc -O2 -Wall
+```
+
+With the makefile, the recipe becomes the command.  The two spaces are the
+empty `CPPFLAGS`:
+
+```python
+print(interpolate(recipe, target='vec.o', prereqs=bindings[prereqs], makefile=Makefile))
+# cc  -O2 -Wall -c vec.c -o vec.o
 ```
 
 A target with two rules gets two answers.  `libgeom.a` gets one here,
@@ -145,7 +161,7 @@ gives the values one by one, so no set function is needed there.
 ## Make in a few lines of Python
 
 Curry solves the rules; Python owns the files, the clock and the
-processes.  `minimake.py` is make in seven functions.  The rules of a
+processes.  These are the functions of `minimake.py`.  The rules of a
 target are the answers above, as data:
 
 ```python
@@ -171,16 +187,21 @@ def needs(target):
     return prereqs + sorted(set().union(*map(headers, prereqs)))
 ```
 
-The command of a target is its recipe expanded: `$(NAME)` from the
-makefile, `$@`, `$<` and `$^` from the answer:
+The command of a target is its recipe interpolated over everything the
+target reads, so `$^` names the headers too, as it does in make when the
+compiler's dependency output is in the makefile:
 
 ```python
+def interpolate(recipe, target, prereqs, makefile=None):
+    if makefile is not None:
+        for name in re.findall(r'\$\((\w+)\)', recipe):
+            recipe = recipe.replace(f'$({name})', next(curry.eval(getattr(makefile, name))))
+    return (recipe.replace('$@', target).replace('$<', ' '.join(prereqs[:1]))
+                  .replace('$^', ' '.join(prereqs)))
+
 def command(target):
-    [(prereqs, recipe)] = rules(target)
-    for name in re.findall(r'\$\((\w+)\)', recipe):
-        recipe = recipe.replace('$(%s)' % name, next(curry.eval(getattr(Makefile, name))))
-    return (recipe.replace('$@', target).replace('$<', prereqs[0])
-                  .replace('$^', ' '.join(needs(target))))
+    [(_, recipe)] = rules(target)
+    return interpolate(recipe, target, needs(target), Makefile)
 ```
 
 Whether a target is stale is a question of the clock, so Python answers
