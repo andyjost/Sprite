@@ -186,15 +186,15 @@ returned as callable ``Function`` values:
 
 .. _logic-answers:
 
-Named variables and answers
----------------------------
+Variables and answers
+---------------------
 
 :ref:`06: Variables <example-06>` shows narrowing and reading bindings.
-``free(name)`` creates a named variable; reuse the Python object to share
-it.  ``anonymous`` creates a new unnamed variable at each occurrence.
-``solve`` returns an ``Answer`` of the converted value and a ``Bindings``
-mapping, indexed by name or the original variable.  Bindings belong to
-one evaluation; the variable's static type persists.
+``solve`` returns an ``Answer`` with the value and bindings of every held
+variable used in the goal, under its name or a display name such as ``_a``.
+The mapping is indexed by that string or the original variable, in order
+of first occurrence. ``anonymous`` creates a fresh variable at each
+occurrence and is never reported.
 
     >>> x = curry.free('x', type='Int')
     >>> answer = curry.solve(P['=:='](x, 3)).one()

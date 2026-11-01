@@ -221,7 +221,10 @@ def parse(text: str, *, imports: Iterable[Module | str] = ()) -> Term:
   """Parse Curry expression text; imports makes additional modules available."""
 
 def free(name: str | None = None, *, type: str | None = None) -> Var:
-  """Create a free variable, optionally named and annotated with a Curry type."""
+  """Create a held free variable, optionally named and annotated with a Curry type.
+
+  The name serves printed answers and text goals. An unnamed variable is
+  reported by solve under a display name such as ``_a``."""
 
 @final
 class Anonymous:
@@ -387,7 +390,7 @@ class Function(Term):
 
 @final
 class Var(Term):
-  """A free variable, shared by Python identity; solve reports named bindings."""
+  """A free variable, shared by Python identity; solve reports every held variable."""
   name: str | None
   symbol: None  # type: ignore[assignment]
   args: tuple[()]  # type: ignore[assignment]
@@ -474,8 +477,8 @@ def eval(goal: Convertible) -> Results[PyValue]:
 def solve(goal: Convertible) -> Results[Answer]:
   """
   The answers of ``goal``: for each value, an ``Answer`` of the value and
-  the bindings of the named free variables of the goal (``curry.free('x')``
-  or ``where x free``), in the order of their first occurrence; an unbound
+  the bindings of every held free variable of the goal, named or unnamed,
+  in the order of their first occurrence; an unbound
   one is bound to itself, a variable bound to another unbound variable to
   that variable (PAKCS: ``{x=x, y=x} True`` for ``x =:= y``).
   ``print(answer)`` is the REPL's line.  Two different variables with one
@@ -540,14 +543,14 @@ class Results(Iterator[T]):
 @final
 class Bindings(Mapping[str, PyValue]):
   """
-  The bindings of an answer, name to value, in the order of the first
-  occurrence of the variables in the goal; indexed by name or by the
+  The bindings of an answer, name or display name to value, in the order
+  of the first occurrence of the variables in the goal; indexed by name or by the
   ``Var`` itself; hashable; prints as ``{xs=[1,2], x=3}`` and as ``{}``
   when empty.
 
-  >>> x = curry.free('x'); a = next(curry.solve(P['=:='](x, 1)))
-  >>> a.bindings['x'], a.bindings[x], str(a.bindings)
-  (1, 1, '{x=1}')
+  >>> x = curry.free(); a = next(curry.solve(P['=:='](x, 1)))
+  >>> a.bindings['_a'], a.bindings[x], str(a.bindings)
+  (1, 1, '{_a=1}')
   """
   def __getitem__(self, key: str | Var) -> PyValue: ...  # type: ignore[override]
   def __iter__(self) -> Iterator[str]: ...
@@ -557,7 +560,7 @@ class Bindings(Mapping[str, PyValue]):
 
 class Answer(NamedTuple):
   """
-  One answer of ``solve``: the value and the bindings, a 2-tuple
+  One answer of ``solve``: the value and every held variable binding, a 2-tuple
   (``value, bindings = answer``).  ``str`` is the REPL's line,
   ``{xs=[1,2]} True``, or the value alone when there are no bindings.
 

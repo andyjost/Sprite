@@ -596,7 +596,9 @@ def _convert_leaf(interp, value):
   from ..expressions import typed
   from ..typecheck.errors import ConversionError
   if value is anonymous:
-    return Var(interp)
+    var = Var(interp)
+    var._anonymous = True
+    return var
   if isinstance(value, Term):
     check_live(value)
     return value

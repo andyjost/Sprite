@@ -15,6 +15,8 @@ class Context:
   '''The names of variables and shared terms in one text.'''
   def __init__(self):
     self.variables = {}
+    self.used = set()
+    self.next_variable = 0
     self.lets = {}
     self.defining = set()
 
@@ -168,7 +170,11 @@ def _format(value):
     if value.name is not None:
       return value.name, ATOM
     if id(value) not in names:
-      names[id(value)] = '_' + alpha(len(names))
+      while '_' + alpha(ctx.next_variable) in ctx.used:
+        ctx.next_variable += 1
+      names[id(value)] = '_' + alpha(ctx.next_variable)
+      ctx.used.add(names[id(value)])
+      ctx.next_variable += 1
     return names[id(value)], ATOM
   if isinstance(value, Reference):
     return value.name, ATOM
@@ -227,8 +233,10 @@ def _format(value):
     return '<iterator>', ATOM
   return str(value), APP
 
-def show(term):
-  ctx = Context()
+def show(term, context=None):
+  ctx = context if context is not None else Context()
+  if context is not None:
+    ctx.used.update(_used_names(term))
   token = _CONTEXT.set(ctx)
   try:
     shared = _shared_reducible(term)
