@@ -44,7 +44,10 @@ class TestCpmPath(cytest.TestCase):
             'os.chdir(".."); curry.reset(); '
             'assert before == curry.path; print(json.dumps(curry.path))')
     paths = json.loads(self.child(code, SPRITE_CPM_PATH='1'))
-    self.assertEqual(paths[:5], [str(self.root / 'override')] + self.expected())
+    # The child names the working directory as the system resolves it; macOS
+    # reaches the temporary directory through a symbolic link.
+    real = lambda ps: [os.path.realpath(p) for p in ps]
+    self.assertEqual(real(paths[:5]), real([str(self.root / 'override')] + self.expected()))
     self.assertGreater(len(paths), 5)
 
   def test_switch(self):
