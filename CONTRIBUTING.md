@@ -2,9 +2,9 @@
 
 Sprite is hosted at https://github.com/andyjost/Sprite. Bug reports with a
 reproducer are the most useful contribution right now; file them on the
-[issue tracker](https://github.com/andyjost/Sprite/issues). The semantics of
-the runtime are delicate, so we don't take unsolicited pull requests: open an
-issue first, and we'll talk. The rest of this page is for work agreed that way.
+[issue tracker](https://github.com/andyjost/Sprite/issues). The runtime follows a proved strategy, and a change to it is a change to the
+proof, so we review changes before they are written and don't take
+unsolicited pull requests: open an issue first, and we'll talk. The rest of this page is for work agreed that way.
 
 ## Where to start
 
