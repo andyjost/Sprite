@@ -16,8 +16,8 @@ demands. For the logic side, you state what a desired value has to satisfy and
 leave the search to Sprite. As a result, many programs are trivial to construct
 and obviously correct.
 Sprite's evaluation strategy, the Fair Scheme, is proved sound, complete, and
-optimal, meaning it finds exactly the values of any expression, and it
-executes only the steps needed to produce them. The strategy and its proofs
+optimal; it computes all and only the values of any source expression and
+takes only needed steps, which are unavoidable. The strategy and its proofs
 are written up in a `dissertation`_ and a shorter `paper`_.
 
 Curry imports directly into Python. Your project uses it at whatever granularity
