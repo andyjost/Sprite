@@ -437,7 +437,8 @@ which survives installation copies and FAT32's two-second resolution. A copy
 that does not preserve this time misses at attachment; a later publication
 merges same-key objects only after verifying their digests. An attached
 index pins an open POSIX file descriptor, so replacement by another process
-does not invalidate unresolved objects. It carries no addresses or paths.
+does not invalidate unresolved objects. The envelope carries no addresses
+or paths.
 
 Each bytecode constant used by a function is an external LLVM symbol,
 named by the function's digest and the slot index. On first use the loader

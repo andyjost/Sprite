@@ -176,7 +176,7 @@ Makefile also accepts the historical variables below. See
 :doc:`Installation/ConfiguringSprite`.
 
 ``SPRITE_STAGE_JIT_CACHE``
-  Set to ``0`` to skip filling the library's persistent LLVM JIT cache during
+  Set to ``0`` to skip the fill of the library's persistent LLVM JIT cache at
   ``make stage``. Otherwise a local stage fills it when llvmlite is available.
   Wheels omit persistent JIT objects. CI enables the fill in one default C++
   shard only.

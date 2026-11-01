@@ -618,11 +618,14 @@ class _CachedModule:
     # New code replaces a failed cached object of the same function. Drop
     # duplicates before reading, since the older object may be corrupt.
     latest = {records[0][0]: (records, obj) for records, obj in self.objects}
-    try:
-      objects = [(records, _object_bytes(obj)) for records, obj in latest.values()]
-    except (OSError, ValueError) as exc:
-      logger.debug('jit cache: cannot preserve module %s: %s', self.name, exc)
-      return
+    # A corrupt object is dropped, not preserved: its function is compiled
+    # again when it is hot, and the publication of the others goes ahead.
+    objects = []
+    for records, obj in latest.values():
+      try:
+        objects.append((records, _object_bytes(obj)))
+      except (OSError, ValueError) as exc:
+        logger.debug('jit cache: module %s drops %s: %s', self.name, records[0][0], exc)
     self.objects = objects
     for records, obj in objects:
       name = records[0][0]
@@ -651,8 +654,11 @@ class _CachedModule:
             # A copy may lose its timestamp. Recover same-key objects only
             # after verifying their digests; attachment remains index-only.
             existing = _read_cache(path, self.key, check_identity=False)
+            ours = {records[0][0] for records, _ in objects}
             try:
               for records, obj in existing:
+                if records[0][0] in ours:
+                  continue  # held already; no second read of the same object
                 try:
                   merged[records[0][0]] = (records, _object_bytes(obj))
                 except (OSError, ValueError):
