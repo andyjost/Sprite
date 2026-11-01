@@ -415,3 +415,46 @@ and named answers.
 
 Type signatures and front-end reuse are described under
 :ref:`goal-defaulting` and :doc:`/CompilationOptions`.
+
+.. _curry-packages:
+
+Curry packages
+==============
+
+The Curry Package Manager resolves and downloads Curry packages.
+Use your own ``cypm``, configured for your PAKCS or KiCS2 installation;
+Sprite runs the installed modules. In a project with a ``package.json``
+that lists its dependencies, run::
+
+    cypm install
+    cypm exec python -m curry
+
+To run a source file instead, use::
+
+    cypm exec sprite-exec Main.curry
+
+``cypm exec`` sets ``CURRYPATH`` to the dependency source directories.
+Sprite also recognizes the local layout directly. When the working
+directory has both ``package.json`` and ``.cpm/packages/``, importing
+``curry`` adds the project's ``sourceDirs`` first, then those of each
+installed package under ``.cpm/packages/<name>-<version>/``. A missing
+``sourceDirs`` means ``["src"]``. Packages follow directory-name order;
+each package keeps its declared source-directory order. These paths follow
+``CURRYPATH`` and precede the installed library. A source directory that
+provides a module of the installed library is skipped with a warning.
+The discovery runs once
+at import and logs the packages at INFO. ``SPRITE_CPM_PATH=0`` disables it.
+Thus ``python -m curry`` works from the project root after installation,
+without ``cypm exec``.
+
+From Python, inspect or change ``curry.path``. To discover another project,
+use ``curry.cpm_path(root)``; it returns a list of source directories without
+changing the current path. For example::
+
+    import curry
+    curry.path[:0] = curry.cpm_path("another-project")
+
+This reads local metadata only. Run ``cypm install`` to resolve dependencies;
+Sprite does not download packages. Pure Curry modules run through the runtime.
+A module that needs a primitive Sprite lacks currently fails at import with
+"not implemented".

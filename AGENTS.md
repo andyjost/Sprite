@@ -140,6 +140,9 @@ reproducers pass.
   WARNING level; `SPRITE_FRONTEND_WARNINGS=0` silences it, and the test
   runner, the test library, the benchmark harness and the run scripts of
   the examples whose rules overlap by design set it.
+- The Curry path adds local CPM project and installed-package source
+  directories after `CURRYPATH` and before the installation at import;
+  `SPRITE_CPM_PATH=0` disables discovery.
 - The construction of a term from Python is typed
   (`src/python/typecheck/builder.py`): `curry.term(value, type=...)`
   converts a Python value by its type or the stated one; a call of a

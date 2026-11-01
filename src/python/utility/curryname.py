@@ -50,7 +50,7 @@ def makeCurryPath(currypath):
             % currypath
       )
   currypath = [os.path.abspath(x) for x in currypath if x]
-  return list(currypath)
+  return list(dict.fromkeys(currypath))
 
 def prefixes(name, sep='.'):
   '''
