@@ -14,6 +14,24 @@ import subprocess
 import sys
 
 
+def jit_cache_fill(modules):
+  '''The optional stage fill, also usable with a small library in tests.'''
+  return (
+      "import curry\n"
+      "from curry.backends.cxx import llvmjit\n"
+      "if not llvmjit.available():\n"
+      "  print('library JIT cache not filled: ' + str(llvmjit._reason), flush=True)\n"
+      "else:\n"
+      "  print('filling library JIT cache', flush=True)\n"
+      "  try: curry.reset(interpret='all', jit='eager', jit_backend='llvm')\n"
+      "  except Exception as exc: print('library JIT cache setup: %s' % exc, flush=True)\n"
+      "  for name in " + repr(modules) + ":\n"
+      "    try: curry.import_(name)\n"
+      "    except Exception as exc:\n"
+      "      print('library JIT cache: %s: %s' % (name, exc), flush=True)\n"
+    )
+
+
 def copy(source, target):
   target.parent.mkdir(parents=True, exist_ok=True)
   if target.is_file() and source.read_bytes() == target.read_bytes():
@@ -208,6 +226,13 @@ def main():
   unsupported_present = [m for m in modules if m in unsupported]
   if unsupported_present:
     run(*make, '--icy', *unsupported_present)
+  if args.wheel:
+    # A reused build directory may hold objects from an earlier local stage.
+    for cached in lib.rglob('*.jit'):
+      cached.unlink()
+  elif sys.platform != 'win32':
+    # Machine-specific objects belong to a local stage, never to a wheel.
+    run(sys.executable, '-c', jit_cache_fill(supported))
   # Wheel installers need not preserve file times or extraction order.
   # These existing provenance sidecars identify unchanged shipped sources.
   for path in sources:

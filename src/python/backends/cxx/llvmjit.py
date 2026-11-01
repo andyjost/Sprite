@@ -8,10 +8,11 @@ the info tables of a module and attaches the bytecode of each function
 queues each function (:func:`enqueue`), and when the module is loaded the
 backend compiles the queue (:func:`flush`): one LLVM module whose
 functions are read back from the runtime (``icurry_bytecode``, the
-constants as addresses), one function with the signature of a step each,
+constants as link-time symbols), one step function each,
 linked with the bitcode of the helpers (src/curryrt/jit/helpers.cpp,
-``lib/curryrt-helpers.bc``), optimized, compiled with the ORC JIT of LLVM,
-and the step of each table swapped to the code (``icurry_set_step``).  Every helper is inlined, so the step holds the
+``lib/curryrt-helpers.bc``), optimized, emitted as a relocatable object,
+linked with the ORC JIT, and each table swapped to the code
+(``icurry_set_step``). Every helper is inlined, so the step holds the
 inline code of the runtime headers as compiled code does: the allocation
 fast path, the reads of the successors, the rewrite of the redex.  What the
 headers declare out of line is a call into the runtime library, resolved
@@ -31,7 +32,7 @@ function interpreted and logs the reason once.
 from ... import config
 from . import bytecode
 from . import curryrtbindings as curryrt
-import atexit, logging, os, threading, time
+import atexit, hashlib, json, logging, os, struct, tempfile, threading, time
 
 __all__ = [
     'Unavailable', 'available', 'compile', 'enqueue', 'flush', 'start_hot_tier'
@@ -157,7 +158,8 @@ def _hot_loop():
         # The names through a binding without the heap lock: an attribute
         # of the table would wait for the evaluation to end.
         start = time.perf_counter()
-        jit.compile_batch([(info, curryrt.icurry_name(info)) for info in hot], post=True)
+        jit.compile_batch([(info, jit.names.get(info.address)
+            or curryrt.icurry_name(info)) for info in hot], post=True)
         logger.info('jit hot: compiled %s in %.1f ms',
             ', '.join(curryrt.icurry_name(info) for info in hot),
             1000 * (time.perf_counter() - start))
@@ -171,10 +173,11 @@ def statistics():
   '''The counts and the seconds of the JIT of this process.'''
   jit = _jit
   if jit is None:
-    return {'functions': 0, 'batches': 0, 'hot': 0, 'errors': 0, 'last_error': None, 'seconds': 0.0}
+    return {'functions': 0, 'batches': 0, 'hot': 0, 'errors': 0, 'last_error': None, 'seconds': 0.0, 'linked': 0}
   return {
       'functions': jit.functions, 'batches': jit.batches, 'hot': jit.hot
     , 'errors': jit.errors, 'last_error': jit.last_error, 'seconds': jit.seconds
+    , 'linked': jit.linked
     }
 
 def _get():
@@ -229,10 +232,19 @@ class _JIT(object):
         cpu=llvm.get_host_cpu_name(), opt=2
       )
     self.data_layout = str(self.machine.target_data)
-    self.lljit = llvm.create_lljit_compiler(self.machine)
+    # JITLink preserves unwind registration across independently linked objects.
+    self.lljit = llvm.create_lljit_compiler(
+        self.machine, use_jit_link=os.name != 'nt')
     self.sizes = curryrt.jit_sizes()
-    self.trackers = []   # the code lives as long as the process
+    self.trackers = []   # code without an image context
+    self.module_keys = {}
+    self.object_generations = {}
+    self.generations = {}  # key -> linked objects and records
+    self.names = {}        # info address -> qualified function name
     self.pending = []    # (info, name) queued for the next flush
+    self.modules = {}  # info address -> image batch, replaced on attachment
+    self.linked = 0
+    self.serial = 0
     self.functions = 0
     self.batches = 0
     self.hot = 0
@@ -247,8 +259,22 @@ class _JIT(object):
     its safepoint (the thread of the hot tier), else set at once (the
     thread that loads a module, with no evaluation of its own running).
     '''
+    # A hot queue can contain several modules. Each owns one cache entry.
+    groups = {}
+    for info, name in items:
+      context = self.modules.get(info.address)
+      groups.setdefault(id(context), (context, []))[1].append((info, name))
+    if len(groups) > 1:
+      for _, group in groups.values():
+        self.compile_batch(group, post=post)
+      return
+    context = next(iter(groups.values()))[0] if groups else None
     start = time.perf_counter()
-    batch = _Batch(self, 'jit%d' % self.batches)
+    batch = _Batch(self, 'jit%d' % self.serial)
+    self.serial += 1
+    items = [(info, name) for info, name in items if not curryrt.icurry_is_jit(info)]
+    if not items:
+      return
     symbols = []
     for info, name in items:
       bc = curryrt.icurry_bytecode(info)
@@ -283,15 +309,23 @@ class _JIT(object):
         stream.write(str(llmod))
       with open(os.path.join(dump, batch.name + '.s'), 'w') as stream:
         stream.write(self.machine.emit_assembly(llmod))
-    library = self.llvm.JITLibraryBuilder().add_ir(llmod).add_current_process()
-    for _, _, symbol in symbols:
-      library.export_symbol(symbol)
-    tracker = library.link(self.lljit, batch.name)
-    self.trackers.append(tracker)
+    records = [(name, symbol, batch.constants[symbol]) for _, name, symbol in symbols]
+    obj = self.machine.emit_object(llmod)
+    tracker = self.link_object(obj, records, batch.addresses, batch.name)
+    if context is None:
+      self.trackers.append(tracker)
+    else:
+      context.objects.append((records, obj))
+      self.generations.setdefault(context.key, []).append((tracker, records))
     swap = curryrt.icurry_post_step if post else curryrt.icurry_set_step
+    swapped = 0
     for info, name, symbol in symbols:
-      swap(info, tracker[symbol])
-    self.functions += len(symbols)
+      if not curryrt.icurry_is_jit(info):
+        swap(info, tracker[symbol])
+        swapped += 1
+    self.functions += swapped
+    if context is not None:
+      context.store()
     self.batches += 1
     end = time.perf_counter()
     self.seconds += end - start
@@ -300,6 +334,222 @@ class _JIT(object):
       , batch.name, len(symbols), 1000 * (end - start), 1000 * (t_ir - start)
       , 1000 * (t_link - t_ir), 1000 * (t_opt - t_link), 1000 * (end - t_opt)
       )
+
+
+  def link_object(self, obj, records, addresses, name):
+    library = self.llvm.JITLibraryBuilder().add_object_img(obj).add_current_process()
+    for symbol, address in addresses.items():
+      library.import_symbol(symbol, address)
+    for _, symbol, _ in records:
+      library.export_symbol(symbol)
+    return library.link(self.lljit, name)
+
+
+# A single envelope keeps the small index and the native object in one atomic
+# publication. No address or path is serialized. Objects are trusted local code,
+# like the generated shared objects beside them.
+_CACHE_MAGIC = b'SPRTJIT2'
+_CACHE_PREFIX = struct.Struct('<8sI')
+
+
+def _abi_digest():
+  from .toolchain import object_digest
+  from .image import digest
+  return [object_digest(), digest(config.jit_bitcode()), digest(__file__)]
+
+
+def _cache_key(jit, header):
+  import llvmlite
+  from .image import VERSION
+  facts = [header['name'], header['body'], _abi_digest(),
+      llvmlite.__version__, VERSION,
+      list(jit.llvm.llvm_version_info), str(jit.llvm.get_host_cpu_name()), jit.triple]
+  return hashlib.sha256(json.dumps(facts, sort_keys=True).encode('ascii')).hexdigest()
+
+
+def _read_cache(path, key):
+  with open(path, 'rb') as stream:
+    magic, size = _CACHE_PREFIX.unpack(stream.read(_CACHE_PREFIX.size))
+    if magic != _CACHE_MAGIC or size > 16 * 1024 * 1024:
+      raise ValueError('invalid JIT cache header')
+    index = json.loads(stream.read(size))
+    payload = stream.read()
+  if index['key'] != key:
+    raise ValueError('stale JIT object')
+  objects = []
+  offset = 0
+  for entry in index['objects']:
+    end = offset + entry['size']
+    obj = payload[offset:end]
+    if len(obj) != entry['size'] or hashlib.sha256(obj).hexdigest() != entry['digest']:
+      raise ValueError('corrupt JIT object')
+    objects.append((entry['functions'], obj))
+    offset = end
+  if offset != len(payload):
+    raise ValueError('trailing JIT object data')
+  return objects
+
+
+class _CachedModule:
+  '''An attached image's cache slot and independently linked batch objects.'''
+  def __init__(self, jit, path, header, items):
+    self.jit, self.header, self._key = jit, header, None
+    self.path = path
+    self.name = header['name']
+    self.items = dict((name, info) for info, name in items)
+    self.objects = []
+    self.local = os.path.splitext(path)[0] + '.jit'
+    root = os.environ.get('SPRITE_JIT_CACHE')
+    self.root = os.path.expanduser(root) if root else None
+
+  @property
+  def key(self):
+    if self._key is None:
+      self._key = _cache_key(self.jit, self.header)
+    return self._key
+
+  @property
+  def private(self):
+    return os.path.join(self.root, self.name, self.key + '.jit') if self.root else None
+
+  def _install(self, linked):
+    count = 0
+    for tracker, records in linked:
+      for name, symbol, _ in records:
+        info = self.items.get(name)
+        if info is not None and curryrt.icurry_is_interpreted(info):
+          curryrt.icurry_set_step(info, tracker[symbol])
+          count += 1
+    self.jit.linked += count
+    logger.info('jit cache: module %s, linked %d functions', self.name, count)
+
+  def load(self, jit):
+    # Reuse linked code across resets, without rereading or hashing its object.
+    if jit.generations:
+      linked = jit.generations.get(self.key)
+      if linked is not None:
+        self.objects = jit.object_generations[self.key]
+        self._install(linked)
+        return True
+    paths = [self.local]
+    if self.root and os.path.isdir(self.root):
+      paths.append(self.private)
+    for path in paths:
+      if not os.path.isfile(path):
+        continue
+      linked = []
+      try:
+        objects = _read_cache(path, self.key)
+        for records, obj in objects:
+          addresses = {}
+          for name, symbol, constants in records:
+            bc = curryrt.icurry_bytecode(self.items[name])
+            if bc is None:
+              raise ValueError('cached function has no bytecode')
+            for k in constants:
+              addresses[_constant_symbol(symbol, k)] = bc['consts'][k]
+          tracker = jit.link_object(obj, records, addresses, 'cached%d' % jit.serial)
+          jit.serial += 1
+          linked.append((tracker, records))
+        self._install(linked)
+        self.objects = objects
+        jit.generations[self.key] = linked
+        jit.object_generations[self.key] = self.objects
+        return True
+      except (OSError, ValueError, KeyError, TypeError, IndexError, struct.error, RuntimeError) as exc:
+        for tracker, _ in linked:
+          tracker.close()
+        logger.debug('jit cache: module %s: %s', self.name, exc)
+    logger.info('jit cache: module %s, miss', self.name)
+    return False
+
+  def store(self):
+    from ...toolchain import _productlock
+    from . import image
+    entries = [dict(functions=records, size=len(obj),
+        digest=hashlib.sha256(obj).hexdigest()) for records, obj in self.objects]
+    index = dict(key=self.key, objects=entries)
+    encoded = json.dumps(index, sort_keys=True, separators=(',', ':')).encode('ascii')
+    data = (_CACHE_PREFIX.pack(_CACHE_MAGIC, len(encoded)) + encoded
+        + b''.join(obj for _, obj in self.objects))
+    self.jit.object_generations[self.key] = self.objects
+    self.jit.module_keys[self.name] = self.key
+    names = {r[0] for records, _ in self.objects for r in records}
+    for path in (self.local, self.private):
+      if path is None:
+        continue
+      tmp = None
+      try:
+        directory = os.path.dirname(path)
+        os.makedirs(directory, exist_ok=True)
+        if not os.stat(directory).st_mode & 0o222:
+          continue
+        lockpath = (os.path.join(directory, 'cache.py') if path == self.private
+            else os.path.splitext(path)[0] + '.py')
+        with _productlock.locked(lockpath):
+          # A process must never overwrite a slot belonging to another image.
+          if path == self.local and image.read(self.path) != self.header:
+            continue
+          try:
+            existing = _read_cache(path, self.key)
+            if {r[0] for records, _ in existing for r in records} >= names:
+              return
+          except (OSError, ValueError, KeyError, TypeError, IndexError, struct.error):
+            pass
+          # Writers in this directory use the same module lock. Only remove
+          # temporaries whose creating process has gone away.
+          for entry in os.scandir(directory):
+            if not entry.name.startswith('.jit-'):
+              continue
+            try:
+              pid = int(entry.name.split('-')[1])
+              os.kill(pid, 0)
+            except ProcessLookupError:
+              os.unlink(entry.path)
+            except (ValueError, PermissionError):
+              pass
+          fd, tmp = tempfile.mkstemp(prefix='.jit-%d-' % os.getpid(), dir=directory)
+          with os.fdopen(fd, 'wb') as stream:
+            stream.write(data)
+          os.chmod(tmp, 0o644)
+          os.replace(tmp, path)
+          tmp = None
+          if path == self.private:
+            for entry in os.scandir(directory):
+              if entry.name.endswith('.jit') and entry.path != path:
+                os.unlink(entry.path)
+        logger.info('jit cache: module %s, stored %d functions', self.name, len(names))
+        return
+      except (OSError, ValueError) as exc:
+        logger.debug('jit cache: cannot store module %s: %s', self.name, exc)
+      finally:
+        if tmp is not None:
+          os.unlink(tmp)
+
+
+def attach_cache(path, header, items):
+  '''Register an image and link its current object before evaluation.'''
+  if os.name == 'nt':
+    return  # Persistent objects on Windows belong to the Windows lane.
+  jit = _get()
+  with _lock:
+    context = _CachedModule(jit, path, header, items)
+    for info, name in items:
+      jit.modules[info.address] = context
+      jit.names[info.address] = name
+    context.load(jit)
+    # A replaced image generation no longer owns any attached steps.
+    old = jit.module_keys.get(context.name)
+    key = context.key if context.objects else None
+    if old is not None and old != key:
+      for tracker, _ in jit.generations.pop(old, []):
+        tracker.close()
+      jit.object_generations.pop(old, None)
+    jit.module_keys[context.name] = key
+
+
+def _constant_symbol(symbol, k):
+  return '%s_const_%d' % (symbol, k)
 
 
 def _identifier(name):
@@ -353,11 +603,14 @@ class _Batch(object):
       fnty = ir.FunctionType(self.types[result], [self.types[a] for a in args])
       self.helpers[hname] = ir.Function(self.module, fnty, name=hname)
     self.count = 0
+    self.constants = {}
+    self.addresses = {}
 
   def emit(self, name, bc):
     '''Adds the step of ``name`` to the module; returns its symbol.'''
-    symbol = '%s_%d_%s' % (self.name, self.count, _identifier(name))
+    symbol = 'step_' + hashlib.sha256(name.encode('utf-8')).hexdigest()
     self.count += 1
+    self.constants[symbol] = []
     _Emitter(self, symbol, bc).emit()
     return symbol
 
@@ -385,8 +638,16 @@ class _Emitter(object):
     return self.builder.call(self.helpers[name], list(args))
 
   def const(self, k):
-    '''The constant ``k`` of the bytecode, a pointer of the process.'''
-    return self.ir.Constant(self.i64, self.consts[k]).inttoptr(self.ptr)
+    '''A link-time symbol for a constant slot of this image's bytecode.'''
+    if not self.consts[k]:
+      return self.ir.Constant(self.ptr, None)
+    symbol = _constant_symbol(self.symbol, k)
+    if symbol not in self.module.globals:
+      value = self.ir.GlobalVariable(self.module, self.i8, name=symbol)
+      value.linkage = 'external'
+      self.batch.constants[self.symbol].append(k)
+      self.batch.addresses[symbol] = self.consts[k]
+    return self.module.globals[symbol]
 
   def i32c(self, value):
     return self.ir.Constant(self.i32, value)

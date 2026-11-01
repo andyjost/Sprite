@@ -26,6 +26,26 @@ def script(name):
 
 
 class TestDistribution(cytest.TestCase):
+  def test_optional_jit_stage_fill(self):
+    spec = importlib.util.spec_from_file_location('build_package',
+        ROOT / 'scripts/build-package.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with tempfile.TemporaryDirectory() as directory:
+      source = Path(directory) / 'Tiny.curry'
+      source.write_text('module Tiny where\nmain :: Int\nmain = 1\n')
+      for prelude in (
+          '',
+          "llvmjit.available = lambda: False; llvmjit._reason = 'no helpers'\n",
+          "curry.import_ = lambda name: (_ for _ in ()).throw(ValueError('emitter'))\n"):
+        code = module.jit_cache_fill([str(source)])
+        code = code.replace("if not llvmjit.available():", prelude + "if not llvmjit.available():")
+        result = subprocess.run([sys.executable, '-c', code],
+            text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        if prelude:
+          self.assertIn('no helpers' if 'False' in prelude else 'emitter', result.stdout)
+
   def test_metadata(self):
     data = tomllib.loads((ROOT / 'pyproject.toml').read_text())
     project = data['project']

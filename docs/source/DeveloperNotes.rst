@@ -720,3 +720,45 @@ provenance. No module JSON or parsed-module cache remains. Read-only
 product directories and text modules use process-private images. A foreign
 inline budget also uses a private image. Inspection and saved C++ read the
 ICurry text and optimize it against image summaries.
+
+Persistent LLVM objects
+=======================
+
+The LLVM backend writes one ``M.jit`` beside ``M.img``. Its envelope starts
+with the eight ASCII bytes ``SPRTJIT2`` and a little-endian uint32 index
+length, followed by a compact ASCII JSON index and a list of objects from
+``TargetMachine.emit_object``. The index holds the cache key and each
+object's size, SHA-256 digest and records of function name, exported step
+symbol and constant-slot indices. It carries no addresses or paths.
+
+Each bytecode constant used by a function is an external LLVM symbol,
+named by the function's digest and the slot index. At attachment the loader
+reads the slots of the current image's bytecode and supplies their addresses
+with ``JITLibraryBuilder.import_symbol``. Runtime symbols resolve from the
+process. ORC links the object with ``add_object_img``; Unix uses JITLink
+to preserve unwind registration across independent objects. Resource
+trackers keep the code alive. Linked steps are installed before evaluation. The hot
+tier continues to post new steps at scheduler safepoints.
+
+The content key includes the image header's body digest and module name,
+the runtime ABI digest used by generated objects, the helper bitcode digest,
+the emitter digest, the image format version, llvmlite and LLVM versions,
+CPU name and target triple. A changed key or corrupt envelope is a miss. No installation path enters the key.
+Each later hot batch appends its own object, and links only that object.
+Cached functions are never re-optimized. Reattachment reuses linked
+addresses by key; resource trackers keep each generation alive.
+
+Publication holds the existing product lock and replaces a temporary file
+atomically, so concurrent readers see a whole generation. A writer preserves
+an existing current superset. Concurrent differing batches may replace one
+another; each remains valid. If the product directory cannot be written,
+``SPRITE_JIT_CACHE/<Full.Name>/<key>.jit`` is tried. Without either writable
+location nothing is persisted. This is a local executable-code cache with the same
+trust requirements as generated shared objects, with one generation per module.
+A local stage fills the library cache; wheel builds and Windows skip it.
+
+The local slot is beside the image actually attached. A private image
+uses its private directory, including for a foreign inline budget. A writer
+checks that the slot's image is still the attached image before replacing
+an entry with a different key. A writable private image directory takes
+precedence over the per-user fallback.
