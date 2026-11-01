@@ -48,6 +48,7 @@ class Unavailable(Exception):
 T_CTOR = curryrt.T_CTOR
 
 _lock = threading.Lock()
+_group_lock = threading.Lock()
 _jit = None       # the JIT of the process, made at the first compile
 _reason = None    # why the JIT is unavailable, once known
 
@@ -126,15 +127,17 @@ def _stop_hot_tier():
   # Wait for native compilation before Python destroys its LLVM context.
   global _hot_enabled
   _hot_enabled = False
-  with _lock:
-    pass
+  with _group_lock:
+    with _lock:
+      pass
 
 def _after_fork_in_child():
   # The threads of the parent do not exist in the child, and a lock that
   # one of them held at the fork would never open: the child starts with a
   # fresh lock and no hot thread, and the next start_hot_tier starts one.
-  global _lock, _hot_thread
+  global _lock, _group_lock, _hot_thread
   _lock = threading.Lock()
+  _group_lock = threading.Lock()
   _hot_thread = None
 
 if hasattr(os, "register_at_fork"):
@@ -168,6 +171,10 @@ def _hot_loop():
 
 
 def _compile_groups(jit, items, post=False):
+  with _group_lock:
+    _compile_groups_locked(jit, items, post)
+
+def _compile_groups_locked(jit, items, post):
   # Group and publish by image, but let a waiting resolver enter between
   # optimizer batches. No binding here may acquire the heap under _lock.
   with _lock:
@@ -180,22 +187,25 @@ def _compile_groups(jit, items, post=False):
       ordered.sort(key=lambda entry: sum(
           len(curryrt.icurry_bytecode(info)['code']) for info, _ in entry[1]),
           reverse=True)
-  for context, group in ordered:
-    with _lock:
-      previous = len(context.objects) if context else 0
+  for _, group in ordered:
+    dirty = set()
     for offset in range(0, len(group), 32):
       with _lock:
         if post and not _hot_enabled:
+          for context in dirty:
+            if context.dirty:
+              context.store()
           return
-        jit.compile_batch(group[offset:offset + 32], post=post, store=False)
+        context = jit.compile_batch(group[offset:offset + 32], post=post, store=False)
+        if context is not None:
+          dirty.add(context)
       # Give a resolver waiting for the GIL a chance to take the lock.
       if offset + 32 < len(group):
         time.sleep(0)
     with _lock:
-      if post and not _hot_enabled:
-        return
-      if context is not None and len(context.objects) != previous:
-        context.store()
+      for context in dirty:
+        if context.dirty:
+          context.store()
 
 
 def statistics():
@@ -357,7 +367,12 @@ class _JIT(object):
       # the code (the spike).
       os.makedirs(dump, exist_ok=True)
       with open(os.path.join(dump, batch.name + '.ll'), 'w') as stream:
-        stream.write(str(llmod))
+        text = str(llmod)
+        import re
+        for _, name, symbol in symbols:
+          text = re.sub(r'(?m)^(define [^\n]*@"?' + re.escape(symbol) + r'"?\()',
+              lambda match: '; ' + name + '\n' + match.group(0), text)
+        stream.write(text)
       with open(os.path.join(dump, batch.name + '.s'), 'w') as stream:
         stream.write(self.machine.emit_assembly(llmod))
     if post:
@@ -392,12 +407,13 @@ class _JIT(object):
         self.trackers.append(tracker)
       else:
         context.objects.append((records, obj))
+        context.dirty = True
         self.generations.setdefault(context.key, []).append((tracker, records))
       if not curryrt.icurry_is_jit(info):
         swap(info, tracker[symbol])
         swapped += 1
     self.functions += swapped
-    if context is not None and store and swapped:
+    if context is not None and store and context.dirty:
       context.store()
     self.batches += 1
     end = time.perf_counter()
@@ -407,6 +423,8 @@ class _JIT(object):
       , batch.name, len(symbols), 1000 * (end - start), 1000 * (t_ir - start)
       , 1000 * (t_link - t_ir), 1000 * (t_opt - t_link), 1000 * (end - t_opt)
       )
+
+    return context
 
 
   def link_object(self, obj, records, addresses, name):
@@ -449,21 +467,21 @@ class _Object:
   def read(self):
     # POSIX only: persistence is disabled on Windows. The open descriptor
     # pins this generation even when another publisher replaces its path.
-    if '_native' in self.entry:
-      return self.entry['_native']
     if self.entry.get('_dropped'):
       raise ValueError('dropped JIT object')
+    read = False
     try:
       obj = os.pread(self.index.stream.fileno(), self.entry['size'], self.offset)
       if (len(obj) != self.entry['size']
           or hashlib.sha256(obj).hexdigest() != self.entry['digest']):
         raise ValueError('corrupt JIT object')
-      self.entry['_native'] = zlib.decompress(obj)
-      return self.entry['_native']
+      native = zlib.decompress(obj)
+      read = True
+      return native
     except zlib.error as exc:
       raise ValueError('corrupt compressed JIT object') from exc
     finally:
-      self.index.release(self.entry)
+      self.index.release(self.entry, dropped=not read)
 
 
 
@@ -480,11 +498,11 @@ class _IndexedObjects:
     if not entries:
       self.close()
 
-  def release(self, entry):
+  def release(self, entry, dropped=True):
     if not entry.get('_released'):
       entry['_released'] = True
       self.remaining -= 1
-      if '_native' not in entry:
+      if dropped:
         entry['_dropped'] = True
       if not self.remaining:
         self.close()
@@ -549,7 +567,6 @@ def _resolve_cached(address):
       return context.resolve(name)
     except Exception as exc:
       context.failed.add(name)
-      context.release(name)
       logger.warning('jit cache: function %s stays interpreted: %s', name, exc)
       return 0
 
@@ -561,8 +578,11 @@ class _CachedModule:
     self.path = path
     self.name = header['name']
     self.items = dict((name, info) for info, name in items)
+    # The same key means the same image and the same functions outside AOT
+    # objects, so these module-local ordinals stay unique across a merge.
     self.symbols = {name: 's%x' % k for k, name in enumerate(sorted(self.items))}
     self.objects = []
+    self.dirty = False
     self.index = None
     self.cached = {}
     self.resolved = {}
@@ -585,6 +605,8 @@ class _CachedModule:
   def object_for(self, name):
     pair = self.cached[name]
     if isinstance(pair, dict):
+      if self.index is None:
+        raise ValueError('dropped JIT object')
       pair = self.index.view(pair)
       self.cached[name] = pair
     return pair
@@ -618,8 +640,6 @@ class _CachedModule:
       self.failed.add(name)
       logger.warning('jit cache: function %s stays interpreted: %s', name, exc)
       return 0
-    finally:
-      self.release(name)
 
   def release(self, name):
     if self.index is not None and name in self.cached:
@@ -670,6 +690,8 @@ class _CachedModule:
     # again when it is hot, and the publication of the others goes ahead.
     objects = []
     for records, obj in latest.values():
+      if isinstance(obj, _Object) and obj.index.stream.closed:
+        continue
       try:
         objects.append((records, _object_bytes(obj)))
       except (OSError, ValueError) as exc:
@@ -682,6 +704,7 @@ class _CachedModule:
       if name in self.cached:
         self.cached[name] = (records, obj)
     self.index = None
+    self.dirty = False
     self.jit.object_generations[self.key] = self.objects
     self.jit.module_keys[self.name] = self.key
     for path in (self.local, self.private):

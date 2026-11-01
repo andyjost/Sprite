@@ -465,8 +465,8 @@ attachment; a later publication merges same-key objects only after verifying
 their digests. An attached index pins an open POSIX file descriptor, so
 replacement by another process does not invalidate unresolved objects. The
 descriptor closes explicitly after the last object is read or dropped, or
-when its image generation is detached. Verified native bytes remain
-available for later publication. The envelope carries no addresses or paths.
+when its image generation is detached. Resolved entries retain no native
+bytes; later publication recovers same-key objects from the envelope on disk. The envelope carries no addresses or paths.
 
 Each bytecode constant used by a function is an external LLVM symbol, named
 by a short module-local function ordinal and the slot index. The index maps
@@ -504,8 +504,8 @@ take it again for one publication per module, allowing waiting cached calls
 to resolve. Each optimized clone retains one step and its reachable helper
 code for object emission. The hot worker prioritizes larger bytecode bodies
 and posts each emitted step immediately while the remaining objects are
-generated. Shutdown waits for the JIT lock and cancels unlinked hot work
-between LLVM phases and optimizer batches. Cached functions are never
+generated. Shutdown cancels unlinked hot work between LLVM phases and optimizer
+batches, and waits for the whole group to publish its completed objects. Cached functions are never
 re-optimized. Reattachment reuses linked addresses by key; resource trackers
 keep each generation alive.
 
