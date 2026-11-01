@@ -46,16 +46,30 @@ the module. The legacy pair, front end 2.0.0 with PAKCS 3.4.1, still
 requires its front end and compiles the library from source at stage time.
 
 Staging derives the module image (`.img`) from the pins and
-compiles every supported library module for the C++ runtime. Images and
+compiles every library module for the C++ runtime. Images and
 native objects are build outputs, not repository pins. The installed
 library runs without a front end; compiling new Curry text needs one.
 
-Ten modules are left out of that compile (the `unsupported` list in
-`CMakeLists.txt`): `Curry.Compiler.Distribution`, `Data.IORef`, `Debug.Trace`,
-`System.CPUTime`, `System.Environment`, `System.IO`, `System.IO.Unsafe`,
-`Test.Prop`, `Test.Prop.Types`, and `Control.Search.SearchTree`.
-Their ICurry and interfaces are installed; absent native primitives prevent
-executable module images (`.img`).
+Every module compiles and ships with an image and native object. These
+externals have no primitive in the runtime and raise `not implemented` at
+their call:
+
+- `System.IO`: `handle_eq`, `stdin`, `stdout`, `stderr`, `prim_openFile`,
+  `prim_hClose`, `prim_hFlush`, `prim_hIsEOF`, `prim_hSeek`,
+  `prim_hWaitForInput`, `prim_hWaitForInputs`, `prim_hGetChar`,
+  `prim_hPutChar`, `prim_hIsReadable`, `prim_hIsWritable`,
+  `prim_hIsTerminalDevice`.
+- `System.IO.Unsafe`: `unsafePerformIO`, `spawnConstraint`, `prim_isVar`,
+  `prim_identicalVar`, `prim_isGround`, `compareAnyTerm`, `prim_showAnyTerm`,
+  `prim_readsAnyUnqualifiedTerm`, `showAnyExpression`.
+- `Curry.Compiler.Distribution`: `curryCompiler`, `curryCompilerMajorVersion`,
+  `curryCompilerMinorVersion`, `curryCompilerRevisionVersion`, `curryRuntime`,
+  `curryRuntimeMajorVersion`, `curryRuntimeMinorVersion`, `baseVersion`,
+  `installDir`.
+- `System.Environment`: `getArgs`, `prim_getEnviron`, `prim_setEnviron`,
+  `prim_unsetEnviron`, `getHostname`, `getProgName`, `isWindows`.
+- `Data.IORef`: `newIORef`, `prim_readIORef`, `prim_writeIORef`.
+- `System.CPUTime`: `getCPUTime`, `getElapsedTime`.
 
 `Control.Search.SetFunctions` is Sprite's facade over its native capsules.
 It shares the canonical `Control.SetFunctions.Values a = Values [a]` type.

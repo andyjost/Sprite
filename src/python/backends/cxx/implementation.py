@@ -21,6 +21,17 @@ def getimpl(symbol):
   The code of the step function of ``symbol``, a CurryNodeInfo, as text.
   Raises ValueError when the backend has no code for it.
   '''
+  from ... import inspect, toolchain
+  function = symbol.icurry
+  module = symbol.module
+  if module is not None:
+    filename = inspect.geticurryfile(module)
+    if filename is not None:
+      complete = toolchain.loadicurry(filename)
+      toolchain.mergebuiltins(complete, symbol.interpreter.backend)
+      function = complete.functions.get(symbol.name)
+  if function is not None and function.is_external:
+    return '%s: external, not implemented (no primitive in the runtime)' % symbol.fullname
   info = symbol.info
   if info.tag != T_FUNC:
     raise _no_code(symbol)

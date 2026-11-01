@@ -531,9 +531,8 @@ class CompilerBase(abc.ABC):
 
   @compileF.when(icurry.IExternal)
   def compileF(self, iexternal, h_stepfunc, linesF):
-    msg = 'external function %r is not defined' % iexternal.symbolname
-    logger.warning(msg)
-    stmt = icurry.IReturn(icurry.IFCall('Prelude.prim_error', [msg]))
+    msg = '%s: not implemented (no primitive in the runtime)' % iexternal.symbolname
+    stmt = icurry.IReturn(icurry.IFCall('Prelude.prim_error', [icurry.IString(msg)]))
     body = icurry.IBody(stmt)
     self.compileF(body, h_stepfunc, linesF)
 

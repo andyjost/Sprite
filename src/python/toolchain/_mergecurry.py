@@ -1,7 +1,8 @@
 '''
 Code for merging ICurry modules.
 '''
-from ..exceptions import CompileError 
+import logging
+from ..exceptions import CompileError
 
 __all__ = [
     'copyExportedNames', 'mergebuiltins', 'mergemodule', 'mergesymbols'
@@ -83,7 +84,7 @@ def _isExternalType(itype):
   # That constructor's name is something like '_Constr#A' (for type 'A').  This
   # function detects that oddball case.
   return not itype.constructors or \
-      (len(itype.constructors) == 1 and 
+      (len(itype.constructors) == 1 and
            itype.constructors[0].name.startswith('_Constr#')
          )
 
@@ -102,14 +103,9 @@ def mergesymbols(tgt, src, merge_metadata=True, resolve_externals=True):
     resolve_externals:
         If specified, every external datatype and function in ``tgt`` is
         replaced with the corresponding object from ``src``.  If a source
-        symbol is not found, ``CompileError`` is raised.  An external datatype
+        symbol is not found, the external remains unresolved.  An external datatype
         has no constructors or is explicitly marked 'external' in the source.
         An external function is marked 'external' in the source.
-
-  Raises:
-    CompileError
-      An external symbol could not be resolved and ``resolve_externals`` was
-      supplied.
   '''
   from ..icurry import metadata
   if merge_metadata and src is not None:
@@ -119,17 +115,23 @@ def mergesymbols(tgt, src, merge_metadata=True, resolve_externals=True):
     for itype in tgt.types.values():
       if _isExternalType(itype):
         if src is None or itype.name not in src.types:
-          raise CompileError('failed to resolve external type %r' % itype.fullname)
+          itype.constructors = []
         else:
           itype.constructors = src.types[itype.name].constructors
   for ifun in tgt.functions.values():
     if ifun.is_external and resolve_externals:
       if src is None or ifun.name not in src.functions:
-        raise CompileError('failed to resolve external function %r' % ifun.fullname)
+        continue
       ifun.body = src.functions[ifun.name].body
     if merge_metadata:
       metadata.merge(ifun, src)
 
 def validatemodule(imodule):
   mergemodule(imodule) # Implemented as merge with nothing.
+  count = sum(f.is_external for f in imodule.functions.values())
+  if count and not imodule.metadata.get('externals_reported', False):
+    logging.getLogger(__name__).info(
+        'module %s: %d externals without a primitive raise when called',
+        imodule.fullname, count)
+    imodule.update_metadata({'externals_reported': True})
 
