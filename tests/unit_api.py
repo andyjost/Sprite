@@ -236,7 +236,6 @@ class TestStats(cytest.TestCase):
     self.assertGreaterEqual(stats['compile'], 0.0)
     self.assertLessEqual(stats['compile'], stats['wall'])
 
-  @cytest.posix_only('Windows: process memory counters return zero peak RSS')
   def test_peak_rss(self):
     self.assertGreater(curry.stats()['peak_rss'], 0)
     stats, _, _ = self.sprite_exec('--stats', '-m', 'mynot')

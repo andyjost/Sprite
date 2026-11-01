@@ -849,7 +849,6 @@ class TestCompile(ProductCacheTestCase):
     self.assertTrue(os.path.isfile(sofile))
     self.assertEqual(_productcache.counts['restored'], 1)
 
-  @cytest.posix_only('Windows: parallel sprite-make does not aggregate CRLF cache reports')
   def test_sprite_make_parallel_reports(self):
     first = self.write_image(12)
     second = self.write_image(13)
