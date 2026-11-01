@@ -5,6 +5,12 @@ Release Notes
 0.9.0a3 (2026-11-01)
 ====================
 
+- The front end uses ``C.UTF-8`` when the selected locale is not UTF-8,
+  so non-ASCII Curry source also compiles under C and POSIX locales.
+- Local CPM projects add their source directories and installed packages
+  to ``curry.path`` after ``CURRYPATH`` and before the installed library;
+  ``SPRITE_CPM_PATH=0`` disables discovery.
+
 - ``curry.solve`` reports every held variable used in the goal, including
   unnamed variables under display names such as ``_a``.
 

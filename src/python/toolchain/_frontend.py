@@ -245,6 +245,15 @@ def command(file_in, currypath, quiet=False):
   cmd.append(name[:-len('.curry')])
   return cmd
 
+def frontend_environment():
+  """Use UTF-8 for Haskell source input when no UTF-8 locale is selected."""
+  env = os.environ.copy()
+  locale = next((env[key] for key in ('LC_ALL', 'LC_CTYPE', 'LANG')
+                 if env.get(key)), '')
+  if 'utf8' not in locale.lower().replace('-', ''):
+    env['LC_ALL'] = 'C.UTF-8'
+  return env
+
 def curry2flat(file_in, currypath, quiet=False, rewrite=True):
   '''
   Runs the front end on ``file_in``.  Returns the name of the FlatCurry file.
@@ -270,7 +279,8 @@ def curry2flat(file_in, currypath, quiet=False, rewrite=True):
   dirs = flatcurry_dirs(file_in, currypath)
   before = _flatcurry_stamps(dirs)
   started = time.monotonic()
-  stdout, stderr = _system.pexec(cmd, cwd=moduledir, with_stderr=True)
+  stdout, stderr = _system.pexec(
+      cmd, cwd=moduledir, with_stderr=True, env=frontend_environment())
   if logger.isEnabledFor(logging.INFO):
     from ._filenames import logging_module_name
     logger.info('module %s: front end ran in %.2f s (%d warnings)',

@@ -393,11 +393,45 @@ def product_cache_dir():
 def system_curry_path():
   return os.path.join(prefix(), 'curry')
 
+def cpm_path(root):
+  """Return project and installed-package source paths from a CPM project.
+
+  This only reads the local layout; cypm resolves and installs dependencies.
+  Packages are visited in directory-name order, after the project itself.
+  """
+  import json
+  root = os.path.abspath(root)
+  packages = os.path.join(root, '.cpm', 'packages')
+  if not os.path.isfile(os.path.join(root, 'package.json')) or not os.path.isdir(packages):
+    return []
+
+  def sources(directory):
+    try:
+      with open(os.path.join(directory, 'package.json'), encoding='utf-8') as stream:
+        spec = json.load(stream)
+      dirs = spec.get('sourceDirs', ['src'])
+      if not isinstance(dirs, list) or not all(isinstance(d, str) for d in dirs):
+        raise ValueError('sourceDirs must be a list of strings')
+      return [os.path.abspath(os.path.join(directory, d)) for d in dirs]
+    except (OSError, ValueError, AttributeError) as err:
+      logger.warning('Cannot read CPM package %s: %s', directory, err)
+      return []
+
+  paths = sources(root)
+  found = []
+  for name in sorted(os.listdir(packages)):
+    directory = os.path.join(packages, name)
+    if os.path.isdir(directory) and os.path.isfile(os.path.join(directory, 'package.json')):
+      paths.extend(sources(directory))
+      found.append(name)
+  logger.info('CPM packages found: %s', ', '.join(found) or '(none)')
+  return list(dict.fromkeys(paths))
+
 @synchronized(_config_lock)
 def currypath(reset=False, cache=[]):
   '''
-  Gets the Curry path from the environment variable CURRYPATH and appends the
-  system path.
+  Gets CURRYPATH, then local CPM source directories, then the system path.
+  SPRITE_CPM_PATH=0 disables the local discovery.
 
   Args:
     reset:
@@ -412,8 +446,9 @@ def currypath(reset=False, cache=[]):
   if not cache:
     from .utility import curryname
     envpath = os.environ.get('CURRYPATH', '').split(os.pathsep)
+    cpmpath = cpm_path(os.getcwd()) if os.environ.get('SPRITE_CPM_PATH') != '0' else []
     syspath = system_curry_path().split(os.pathsep)
-    currypath = curryname.makeCurryPath(envpath + syspath)
+    currypath = curryname.makeCurryPath(envpath + cpmpath + syspath)
     cache.append(currypath)
     verify_syslibs()
   return list(cache[0])
