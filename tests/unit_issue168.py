@@ -2,13 +2,13 @@
 import cytest # from ./lib; must be first
 from curry import config
 from curry.toolchain import _filenames
-import pathlib, tempfile, unittest, zlib
+import os, pathlib, tempfile, unittest, zlib
 import curry
 
 
 class TestIssue168(cytest.TestCase):
   def test_prefix_module(self):
-    with tempfile.TemporaryDirectory() as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
       root = pathlib.Path(work)
       (root / 'A').mkdir()
       parentfile = root / 'A.curry'
@@ -60,8 +60,8 @@ class TestIssue168(cytest.TestCase):
                     curry.import_(target)
                   message = str(caught.exception)
                   self.assertIn(name, message)
-                  self.assertIn(str(source), message)
-                  self.assertIn(str(installed), message)
+                  self.assertIn(repr(str(source))[1:-1], message)
+                  self.assertIn(repr(str(installed))[1:-1], message)
               curry.path[:] = original_path
               restored = curry.import_(name)
               if loaded:
@@ -79,8 +79,9 @@ class TestIssue168(cytest.TestCase):
       curry.path.insert(0, work)
       with self.assertRaises(ImportError) as caught:
         curry.import_('Data.List')
-      self.assertIn(str(source), str(caught.exception))
-      self.assertIn(config.installed_path('curry', 'Data/List.curry'),
+      self.assertIn(repr(str(source))[1:-1], str(caught.exception))
+      self.assertIn(repr(str(pathlib.Path(config.installed_path(
+          'curry', 'Data/List.curry'))))[1:-1],
                     str(caught.exception))
 
 

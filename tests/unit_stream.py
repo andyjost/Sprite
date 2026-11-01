@@ -165,7 +165,7 @@ assert s.result == 42
       next(curry.stream(self.M.insideSet))
 
   def run_tool(self, *args, input=None):
-    proc = subprocess.run(args, input=input, capture_output=True, text=True, timeout=120)
+    proc = subprocess.run(cytest.tool_command(args), input=input, capture_output=True, text=True, timeout=120)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     return proc.stdout
 

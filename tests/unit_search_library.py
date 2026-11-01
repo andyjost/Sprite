@@ -41,7 +41,7 @@ import qualified Control.Search.AllValues as A
             icurry.readcurry.load(str(installed / (name + '.icy')))
         self.assertEqual(expected, data)
         self.assertEqual(text.fullname, 'Control.Search.' + name)
-        product = installed / (name + '.so')
+        product = installed / (name + config.module_object_suffix())
         self.assertTrue(product.is_file(), name)
 
   def test_canonical_values_and_types(self):

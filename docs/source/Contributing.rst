@@ -35,6 +35,30 @@ Conventions
 - Work lands on ``master``.  A topic branch holds the progress of one
   change until its merge and is deleted at the merge.
 
+Windows tests
+=============
+
+On Windows, use ``python tests/run_tests.py --fast -j 2`` with a staged
+installation in ``SPRITE_HOME`` and its Python package on ``PYTHONPATH``.
+The runner starts process groups and uses ``taskkill /T /F`` for cleanup.
+There is no Job Object hard memory cap; one notice explains this, and
+optional ``psutil`` supplies the RSS watchdog and process names. Without it,
+memory is reported as unknown and timeouts still apply. Tests of POSIX
+facilities use ``cytest.posix_only(reason)``; Windows tests can use
+``cytest.windows_only(reason)``. Functional files are skipped with one
+notice when the PAKCS oracle is unavailable.
+
+The Windows unit tier exercises the Python API, interpreter, native DLL
+compilation, product cache, streams and test runner. This round adds two
+method marks: pthread_create fault injection requires POSIX, and
+constraint rotation is skipped for the Windows defect in resuming the
+expected alternatives after interruption inside a grouped constraint
+(unit_cxx_scheduler.TestInterruptedStep.test_rotation_inside_the_constraint).
+That scheduler defect is the only class (c) deferral in this round. Existing
+facility marks still cover POSIX signals, permissions, sessions and shell
+fixtures; these marks skip no tests on Linux or macOS.
+
+
 The plan
 ========
 

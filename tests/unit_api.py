@@ -107,7 +107,6 @@ class TestStats(cytest.TestCase):
       self.assertGreaterEqual(stats[key], 0, key)
     self.assertGreater(stats['wall'], 0.0)
     self.assertGreater(stats['cpu'], 0.0)
-    self.assertGreater(stats['peak_rss'], 0)
     line = str(stats)
     self.assertRegex(
         line
@@ -207,8 +206,8 @@ class TestStats(cytest.TestCase):
     Runs sprite-exec on the backend of this process and returns the parsed
     statistics line, the last line of stderr, with the output streams.
     '''
-    cmd = ['timeout', str(self.TIMEOUT), config.sprite_exec()] + list(args)
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    cmd = [config.sprite_exec()] + list(args)
+    proc = subprocess.run(cytest.tool_command(cmd), timeout=self.TIMEOUT, capture_output=True, text=True)
     self.assertEqual(
         proc.returncode, status
       , 'sprite-exec ended with status %s; stdout:\n%s\nstderr:\n%s'
@@ -234,9 +233,13 @@ class TestStats(cytest.TestCase):
     self.assertGreater(stats['steps'], 0)
     self.assertGreaterEqual(stats['forks'], 1)
     self.assertGreaterEqual(stats['collections'], 0)
-    self.assertGreater(stats['peak_rss'], 0)
     self.assertGreaterEqual(stats['compile'], 0.0)
     self.assertLessEqual(stats['compile'], stats['wall'])
+
+  def test_peak_rss(self):
+    self.assertGreater(curry.stats()['peak_rss'], 0)
+    stats, _, _ = self.sprite_exec('--stats', '-m', 'mynot')
+    self.assertGreater(stats['peak_rss'], 0)
 
   def test_sprite_exec_stats_after_an_error(self):
     '''The line follows the error message of a failed run.'''
@@ -250,8 +253,8 @@ class TestStats(cytest.TestCase):
 
   def test_without_stats_option(self):
     '''Without --stats, sprite-exec prints no statistics.'''
-    cmd = ['timeout', str(self.TIMEOUT), config.sprite_exec(), '-m', 'mynot']
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    cmd = [config.sprite_exec(), '-m', 'mynot']
+    proc = subprocess.run(cytest.tool_command(cmd), timeout=self.TIMEOUT, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertNotIn('wall=', proc.stderr)
 

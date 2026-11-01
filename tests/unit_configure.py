@@ -92,6 +92,7 @@ class TestCMake(cytest.TestCase):
       self.assertNotEqual(result.returncode, 0, result.stdout)
       self.assertIn(message, result.stdout)
 
+  @cytest.posix_only('CMake probes POSIX shebang tool fixtures')
   def test_frontend_and_optional_route(self):
     result = self.configure('-DWITH_CURRY_FRONTEND=', '-DWITH_ICURRY=')
     self.assertEqual(result.returncode, 0, result.stdout)
@@ -133,6 +134,7 @@ class TestCMake(cytest.TestCase):
     self.assertNotEqual(result.returncode, 0, result.stdout)
     self.assertIn('Prelude: missing .fint', result.stdout)
 
+  @cytest.posix_only('CMake probes POSIX shebang tool fixtures')
   def test_release_pairs(self):
     """Each accepted front end selects its matching release and macro."""
     frontend = Path(self.directory.name) / 'frontend'
@@ -164,6 +166,7 @@ class TestCMake(cytest.TestCase):
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertIn('Expected PAKCS ' + release, result.stdout)
 
+  @cytest.posix_only('CMake probes POSIX shebang tool fixtures')
   def test_auto_uses_current_pair(self):
     """AUTO ignores a legacy executable beside the current tools."""
     bindir = Path(self.directory.name) / 'current-bin'
@@ -197,6 +200,7 @@ class TestCMake(cytest.TestCase):
     self.assertTrue(any(path in ninja for path in accepted), accepted)
     self.assertNotIn(str(bindir / 'pakcs-frontend'), ninja)
 
+  @cytest.posix_only('CMake probes POSIX shebang tool fixtures')
   def test_optional_icurry_probe(self):
     """The optional route must translate into the pinned product directory."""
     program = Path(self.directory.name) / 'icurry'
@@ -218,6 +222,7 @@ class TestCMake(cytest.TestCase):
     self.assertNotEqual(result.returncode, 0, result.stdout)
     self.assertIn('failed its translation probe', result.stdout)
 
+  @cytest.posix_only('CMake probes POSIX shebang tool fixtures')
   def test_icurry_version_pairs(self):
     """Reject mismatched compilers even if their product directory matches."""
     frontend = Path(self.directory.name) / 'frontend'
@@ -242,6 +247,7 @@ class TestCMake(cytest.TestCase):
             self.assertNotEqual(result.returncode, 0, result.stdout)
             self.assertIn('Expected icurry ' + expected, result.stdout)
 
+  @cytest.posix_only('CMake probes POSIX shebang tool fixtures')
   def test_ccache_launches_native_compilation(self):
     launcher = Path(self.directory.name) / 'ccache'
     launcher.write_text('#!/bin/sh\nexec "$@"\n')
@@ -254,6 +260,7 @@ class TestCMake(cytest.TestCase):
     self.assertTrue(any(str(launcher) in line and ' -c ' in line for line in commands))
 
 
+  @cytest.posix_only('CMake probes POSIX shebang tool fixtures')
   def test_frontend_selection(self):
     '''SPRITE_FRONTEND, CURRY_FRONTEND and an explicit name select the front end.'''
     bindir = Path(self.directory.name) / 'bin'
@@ -286,6 +293,7 @@ class TestCMake(cytest.TestCase):
         self.assertIn(str(expected.resolve()), ninja)
         self.assertNotIn(str(other.resolve()), ninja)
 
+  @cytest.posix_only('CMake probes POSIX shebang tool fixtures')
   def test_frontend_runtime_selection(self):
     '''Environment changes take effect; a missing staged link falls to PATH.'''
     bindir = Path(self.directory.name) / 'runtime'
@@ -322,6 +330,7 @@ class TestCMake(cytest.TestCase):
     self.assertTrue({'curryrt.dir', '_curryrtbindings.dir'} <= flagged, flagged)
 
 
+@cytest.posix_only('executes POSIX shell scripts or shebang fixtures')
 class TestWrappers(cytest.TestCase):
   def test_stage_order_and_parallelism(self):
     for args, count in [(['JOBS=3'], '3'), (['-j2', 'JOBS=4'], '2'),

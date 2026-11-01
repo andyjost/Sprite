@@ -202,6 +202,9 @@ reproducers pass.
   committed artifacts of the pinned current pair; module images stay derived.
   `make` derives images and keeps valid pins unless you set
   `SPRITE_REBUILD_ICY=1`. A changed ICurry input invalidates its image.
+- On Windows, use `python tests/run_tests.py --fast -j 2`; POSIX tests carry
+  platform marks, memory measurement needs optional psutil, no Job Object hard
+  cap is installed, and functional files skip without a PAKCS oracle.
 - `make test` runs the full suite through `tests/run_tests`, which runs
   one process per test file under a memory watchdog (section 10 of
   `tests/README`). Useful forms: `./run_tests 'unit_*.py'` for the unit

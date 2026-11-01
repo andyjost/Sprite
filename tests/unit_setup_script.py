@@ -120,6 +120,7 @@ class SetupScriptTestCase(unittest.TestCase):
 class TestScriptText(SetupScriptTestCase):
   '''The file itself.'''
 
+  @cytest.posix_only('runs the bash script')
   def test_syntax(self):
     proc = subprocess.run(
         ['bash', '-n', SCRIPT], capture_output=True, encoding='utf-8', timeout=TIMEOUT
@@ -131,6 +132,7 @@ class TestScriptText(SetupScriptTestCase):
     self.assertTrue(text.startswith('#!/bin/bash\n'))
     self.assertIn('\nset -euo pipefail\n', text)
 
+  @cytest.posix_only('runs the bash script')
   def test_help(self):
     proc = self.run_script('--help')
     self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -141,6 +143,7 @@ class TestScriptText(SetupScriptTestCase):
       ]:
       self.assertIn(option, proc.stdout)
 
+  @cytest.posix_only('runs the bash script')
   def test_usage_errors(self):
     proc = self.run_script()
     self.assertNotEqual(proc.returncode, 0)
@@ -200,6 +203,7 @@ class TestScriptText(SetupScriptTestCase):
       )
 
 
+@cytest.posix_only('executes POSIX shell scripts or shebang fixtures')
 class TestDryRun(SetupScriptTestCase):
   '''The plan of a dry run.'''
 
@@ -491,6 +495,7 @@ esac
     self.assertIn('a real run stops at: apt: no dpkg', proc.stdout)
 
 
+@cytest.posix_only('executes POSIX shell scripts or shebang fixtures')
 class TestRealRunStops(SetupScriptTestCase):
   '''A real run stops at the apt step and runs no sudo.'''
 

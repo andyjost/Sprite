@@ -558,21 +558,21 @@ class TestInterface(cytest.TestCase):
     from curry import config
     sub, front = config.intermediate_subdir(), config.frontend_subdir()
     self.assertEqual(
-        sigtable.interface_candidates('/r/Data/List.curry', 'Data.List')
-      , [ '/r/Data/.curry/%s/List.fint' % sub
-        , '/r/.curry/%s/Data/List.fint' % sub
+        sigtable.interface_candidates(os.path.abspath('/r/Data/List.curry'), 'Data.List')
+      , [ os.path.abspath('/r/Data/.curry/%s/List.fint') % sub
+        , os.path.abspath('/r/.curry/%s/Data/List.fint') % sub
         ]
       )
     self.assertEqual(
-        sigtable.interface_candidates('/r/M.curry', 'M')
-      , ['/r/.curry/%s/M.fint' % sub]
+        sigtable.interface_candidates(os.path.abspath('/r/M.curry'), 'M')
+      , [os.path.abspath('/r/.curry/%s/M.fint') % sub]
       )
-    for candidate in sigtable.interface_candidates('/r/Data/List.curry', 'Data.List'):
+    for candidate in sigtable.interface_candidates(os.path.abspath('/r/Data/List.curry'), 'Data.List'):
       self.assertNotIn(os.sep + front + os.sep, candidate)
-    self.assertEqual(sigtable.module_root('/r/A/B', 'A.B.C'), '/r')
-    self.assertEqual(sigtable.module_root('/r', 'M'), '/r')
-    self.assertEqual(sigtable.module_root('/r/X', 'A.B'), '/r/X')
-    self.assertIsNone(sigtable.find_interface('/no/such/dir/M.curry', 'M'))
+    self.assertEqual(sigtable.module_root(os.path.abspath('/r/A/B'), 'A.B.C'), os.path.abspath('/r'))
+    self.assertEqual(sigtable.module_root(os.path.abspath('/r'), 'M'), os.path.abspath('/r'))
+    self.assertEqual(sigtable.module_root(os.path.abspath('/r/X'), 'A.B'), os.path.abspath('/r/X'))
+    self.assertIsNone(sigtable.find_interface(os.path.abspath('/no/such/dir/M.curry'), 'M'))
 
 
 class TestModules(cytest.TestCase):

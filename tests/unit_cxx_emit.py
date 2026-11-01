@@ -45,7 +45,7 @@ def expected_failure_on_py(test):
 def generated_text(module):
   '''The C++ text of a compiled module.'''
   shlib = getHandle(module).icurry.metadata['cxx.shlib']
-  return cytest.readfile(shlib.sofilename()[:-len('.so')] + '.cpp')
+  return cytest.readfile(os.path.splitext(shlib.sofilename())[0] + '.cpp')
 
 def step_text(text, fullname):
   '''The body of the step function of ``fullname`` in ``text``.'''

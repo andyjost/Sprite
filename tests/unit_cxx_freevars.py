@@ -15,7 +15,7 @@ class ChildTests(cytest.TestCase):
   TIMEOUT = 300
 
   PREAMBLE = '''
-import cytest, curry, gc, os, resource, sys, weakref
+import cytest, curry, gc, os, sys, weakref
 from curry.backends.cxx import curryrtbindings as curryrt
 curry.reset(**{'backend': 'cxx'})
 M = curry.import_('CxxFreeVars')
@@ -51,6 +51,7 @@ class TestWeakTable(ChildTests):
   stays in the table while Python holds it.
   '''
 
+  @cytest.posix_only('reads peak RSS through POSIX resource')
   def test_million_narrowings_run_flat(self):
     '''
     A program that narrows a million variables in sequence runs under a
@@ -71,6 +72,7 @@ assert big[0] <= small[0] + 100, (small, big)
 assert big[1] <= 100, (small, big)
 stats = curry.stats()
 assert stats['collections'] > 10, stats
+import resource
 peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024
 print('live', small, big, 'peak_rss_mb', peak
      , 'gc_seconds', stats['gc_seconds'])

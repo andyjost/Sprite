@@ -83,6 +83,7 @@ class TestFrontendWarnings(cytest.TestCase):
         'B.curry:9:1-9:14 Warning:\n    two\n'
       )
     groups = _frontend.warnings_by_file(text)
+    self.assertEqual(_frontend.warnings_by_file(text.replace('\n', '\r\n')), groups)
     self.assertEqual([key for key, _ in groups], ['B.curry', '/x/C.curry'])
     self.assertEqual(groups[0][1].count('Warning:'), 2)
     self.assertTrue(groups[0][1].startswith('B.curry:6:1-7:7 Warning:'))
@@ -97,11 +98,11 @@ class TestFrontendWarnings(cytest.TestCase):
     records = warnings_of(log)
     self.assertEqual(len(records), 2)
     self.assertTrue(
-        records[0].startswith('the Curry front end warns on module B (/m/B.curry):\n')
+        records[0].startswith('the Curry front end warns on module B (%s):\n' % os.path.normpath('/m/B.curry'))
       )
     self.assertIn('overlapping rules', records[0])
     self.assertTrue(
-        records[1].startswith('the Curry front end warns on module C (/x/C.curry):\n')
+        records[1].startswith('the Curry front end warns on module C (%s):\n' % os.path.normpath('/x/C.curry'))
       )
     with capture_log('curry.toolchain._frontend') as log:
       _frontend.report_warnings('', '/m')
@@ -175,7 +176,7 @@ class TestFrontendWarnings(cytest.TestCase):
       environment = dict(os.environ, SPRITE_CACHE_FILE='')
       environment.update(env)
       return subprocess.run(
-          [makeprg] + list(args), env=environment, stdout=subprocess.PIPE
+          cytest.tool_command([makeprg] + list(args)), env=environment, stdout=subprocess.PIPE
         , stderr=subprocess.PIPE, text=True, timeout=300, cwd=self.tmpdir
         )
     proc = make('--icy', curryfile)

@@ -4,6 +4,7 @@ import hashlib, json, os, pathlib, runpy, shutil, subprocess, sys, tempfile, uni
 import sysconfig, zipfile
 
 
+@unittest.skipIf(sys.platform == 'win32', 'executes POSIX shell scripts or shebang fixtures')
 class TestFrontendWheel(unittest.TestCase):
   @unittest.skipUnless(importlib.util.find_spec('setuptools') and
       importlib.util.find_spec('wheel'), 'requires setuptools and wheel')
@@ -66,13 +67,14 @@ class TestFrontendLogs(unittest.TestCase):
         (logs / 'object.o').write_bytes(b'not a log')
       dest = tmp / 'artifact'
       collect(roots, dest)
-      self.assertEqual(sorted(str(p.relative_to(dest)) for p in dest.rglob('*')
+      self.assertEqual(sorted(p.relative_to(dest).as_posix() for p in dest.rglob('*')
           if p.is_file()), ['ghcup/nested/build.log', 'stack/nested/build.log'])
       for name in ('ghcup', 'stack'):
         self.assertEqual((dest / name / 'nested/build.log').read_text(),
             name + ' failed\n')
 
 
+@unittest.skipIf(sys.platform == 'win32', 'executes POSIX shell scripts or shebang fixtures')
 class TestFrontendLauncher(unittest.TestCase):
   def test_exec(self):
     root = pathlib.Path(__file__).resolve().parent.parent
@@ -129,6 +131,7 @@ class TestGmpLicenses(unittest.TestCase):
         copy_notices(pathlib.Path(tmp), pathlib.Path(tmp))
 
 
+@unittest.skipIf(sys.platform == 'win32', 'executes POSIX shell scripts or shebang fixtures')
 class TestFrontendLinkage(unittest.TestCase):
   @unittest.skipUnless(shutil.which('cc') and shutil.which('readelf'),
       'requires a C compiler and readelf for a real dynamic ELF')
@@ -211,7 +214,7 @@ class TestCurrentFrontend(unittest.TestCase):
 
   def test_versioned_references_cover_the_current_library(self):
     root = pathlib.Path(__file__).resolve().parent.parent
-    sources = {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
+    sources = {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
         for p in (root / 'curry/lib').rglob('*.curry') if p.is_file()}
     for version, pakcs, macro in [('2.0.0', '3.4.1', '304'), ('3.1.0', '3.10.0', '310')]:
       with self.subTest(version=version):

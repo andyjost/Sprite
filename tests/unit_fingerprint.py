@@ -178,7 +178,7 @@ class FingerprintTC(cytest.TestCase):
       '''Commit a random choice in a random fingerprint.'''
       fp,memory = choose_dataset(data)
       while True:
-        cid = choice(maxindex)
+        cid = np.random.randint(maxindex, dtype=np.int64)
         if cid not in memory:
           break
       lr = LEFT if np.random.random() < 0.5 else RIGHT
@@ -191,7 +191,7 @@ class FingerprintTC(cytest.TestCase):
       if not memory or np.random.random() < 0.5:
         # Test a value not already determined.
         while True:
-          cid = choice(maxindex)
+          cid = np.random.randint(maxindex, dtype=np.int64)
           if cid not in memory:
             break
         self.assertEqual(fp[cid], UNDETERMINED)

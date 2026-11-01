@@ -10,6 +10,7 @@ outside the heap of the collector for the life of the process
 allocates nothing.  The programs are in data/curry/CxxLiterals.curry.
 '''
 import cytest # from ./lib; must be first
+from cytest.buildtools import runtime_test_command, runtime_test_environment
 from curry import common, config
 from curry.backends.generic.eval import evaluator
 from curry.objects.handle import getHandle
@@ -177,7 +178,7 @@ class TestTables(cytest.TestCase):
     per literal outside them when it loads.
     '''
     shlib = getHandle(self.M).icurry.metadata['cxx.shlib']
-    text = cytest.readfile(shlib.sofilename()[:-len('.so')] + '.cpp')
+    text = cytest.readfile(os.path.splitext(shlib.sofilename())[0] + '.cpp')
     proc = cytest.run_in_subprocess(CHILD + '''
 tables = curryrt.SMALL_INT_MAX - curryrt.SMALL_INT_MIN + 1 + curryrt.SMALL_CHAR_MAX + 1
 before = curryrt.gc_literal_count()
@@ -257,7 +258,7 @@ print('collections', collections)
     literal as the node of the module, defined once.
     '''
     shlib = getHandle(self.M).icurry.metadata['cxx.shlib']
-    text = cytest.readfile(shlib.sofilename()[:-len('.so')] + '.cpp')
+    text = cytest.readfile(os.path.splitext(shlib.sofilename())[0] + '.cpp')
     for lookup in 'int_(7)', "char_(U'a')", 'int_(0)', 'int_(1)', 'int_(1023)':
       self.assertIn(lookup, text)
     for spelled in 'int_(100000)', 'int_(1024)', 'float_(', "char_(U'\\x3bb')":
@@ -302,11 +303,15 @@ class TestLiteralTables(cytest.TestCase):
         , source, '-o', exe
         , '-L%s' % libdir, '-lcurryrt', '-Wl,-rpath,%s' % libdir
         ]
+      if os.name == 'nt':
+        exe += '.exe'
+        cmd = runtime_test_command(source, exe)
       proc = subprocess.run(cmd, capture_output=True, text=True)
       self.assertEqual(proc.returncode, 0, proc.stderr)
       self.assertEqual(proc.stderr, '', 'the compiler warned')
       proc = subprocess.run(
-          ['timeout', str(TIMEOUT), exe], capture_output=True, text=True
+          [exe], timeout=TIMEOUT, capture_output=True, text=True,
+          env=runtime_test_environment()
         )
       self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
       self.assertEqual(proc.stdout, 'ok\n')

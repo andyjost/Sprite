@@ -7,6 +7,7 @@ class CompileError(CurryError):
   def __init__(self, message, report=None, line=None, column=None):
     import re
     report = message if report is None else report
+    message = message.replace('\r\n', '\n')
     match = re.search(r'(?m)^([^\n]*?\.curry):(\d+):(\d+)([^\n]*\bError:[^\n]*)', message)
     if match:
       import os

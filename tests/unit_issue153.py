@@ -14,6 +14,7 @@ def run(n):
 '''
 
 class TestIssue153(cytest.TestCase):
+  @cytest.posix_only('pthread_create fault injection')
   def test_creation_exceptions_are_refused_reservations(self):
     '''Exercise both exception paths at the POSIX thread adapter boundary.'''
     compiler = curry.config.cxx_tool()

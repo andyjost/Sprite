@@ -50,7 +50,14 @@ def cache_file(enabled=True):
   empty string, and resets the cache module.  The test starts with an empty
   cache and leaves no state behind.
   '''
-  with tempfile.TemporaryDirectory() as tmpdir:
+  with tempfile.TemporaryDirectory() as tmpdir, contextlib.ExitStack() as stack:
+    # reset invalidates cache generations; it leaves connections alive for
+    # active slots. Close every fixture connection before removing its file.
+    connect = sqlite3.connect
+    def connection(*args, **kwds):
+      return stack.enter_context(contextlib.closing(connect(*args, **kwds)))
+    if cache.sqlite3 is not None:
+      stack.enter_context(mock.patch.object(cache.sqlite3, 'connect', connection))
     value = os.path.join(tmpdir, 'cache.db') if enabled else ''
     with binding(os.environ, 'SPRITE_CACHE_FILE', value):
       cache.reset()
@@ -701,12 +708,14 @@ class TestSlot(cytest.TestCase):
     from curry.utility.binding import del_
     with tempfile.TemporaryDirectory() as home:
       with binding(os.environ, 'HOME', home), \
+           binding(os.environ, 'USERPROFILE', home), \
+           binding(os.environ, 'LOCALAPPDATA', os.path.join(home, 'AppData', 'Local')), \
            binding(os.environ, 'XDG_CACHE_HOME', del_):
         with binding(os.environ, 'SPRITE_CACHE_FILE', del_):
           cache.reset()
           try:
             default = config.default_sprite_cache_file()
-            self.assertEqual(default, os.path.join(home, '.cache', 'sprite', 'cache.db'))
+            self.assertEqual(default, os.path.join(home, 'AppData', 'Local', 'sprite', 'cache.db') if os.name == 'nt' else os.path.join(home, '.cache', 'sprite', 'cache.db'))
             if default:
               self.assertEqual(
                   cache.filename()
@@ -729,17 +738,30 @@ class TestSlot(cytest.TestCase):
         for enabled in [False, True]:
           with self.subTest(xdg=xdg, enabled=enabled), \
                binding(os.environ, 'HOME', home), \
+                   binding(os.environ, 'USERPROFILE', home), \
+               binding(os.environ, 'LOCALAPPDATA', os.path.join(home, 'AppData', 'Local')), \
                binding(os.environ, 'XDG_CACHE_HOME', xdg), \
                binding(os.environ, 'SPRITE_CACHE_FILE', del_), \
                mock.patch.object(config, 'enable_icurry_cache', return_value=enabled):
             cache.reset()
             try:
-              base = xdg if isinstance(xdg, str) and xdg else os.path.join(home, '.cache')
+              base = (os.path.join(home, 'AppData', 'Local') if os.name == 'nt' else
+                  xdg if isinstance(xdg, str) and xdg else os.path.join(home, '.cache'))
               self.assertEqual(cache.filename(), os.path.join(base, 'sprite', 'cache.db'))
               self.assertEqual(cache.icurry_cache_enabled(), enabled)
               self.assertEqual(os.listdir(home), [])
             finally:
               cache.reset()
+
+  def test_windows_cache_directory(self):
+    with tempfile.TemporaryDirectory() as home, \
+         mock.patch.object(config.sys, 'platform', 'win32'), \
+         mock.patch.dict(os.environ, {'LOCALAPPDATA': home, 'XDG_CACHE_HOME': 'ignored'}):
+      self.assertEqual(config.user_cache_dir(), os.path.join(home, 'sprite'))
+      with mock.patch.dict(os.environ, {'LOCALAPPDATA': ''}), \
+           mock.patch.object(os.path, 'expanduser', return_value=home):
+        self.assertEqual(config.user_cache_dir(),
+            os.path.join(home, 'AppData', 'Local', 'sprite'))
 
   def test_unusable_cache_file_is_a_warning(self):
     blocker = write(os.path.join(self.tmpdir, 'blocker'), '')

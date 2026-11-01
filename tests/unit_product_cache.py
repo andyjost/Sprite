@@ -69,7 +69,7 @@ class ProductCacheTestCase(cytest.TestCase):
     ):
     '''Stand-in products of a module beside its image.  Returns their paths.'''
     files = []
-    for suffix, content in [('.cpp', cpp), ('.so', so), ('.so.abi', abi)]:
+    for suffix, content in [('.cpp', cpp), (config.module_object_suffix(), so), (config.module_object_suffix() + '.abi', abi)]:
       path = self.cached_file(name, suffix)
       mode = 'wb' if isinstance(content, bytes) else 'w'
       with open(path, mode) as stream:
@@ -280,8 +280,8 @@ class TestStore(ProductCacheTestCase):
     self.assertIsNone(_productcache.lookup(self.DIGEST, 'e' * 64, names))
     # The object in the entry is a hard link of the one beside the source
     # (one file system); the generated file is a copy.
-    self.assertEqual(os.stat(os.path.join(entry, name + '.so')).st_nlink, 2)
-    self.assertTrue(os.path.samefile(files[1], os.path.join(entry, name + '.so')))
+    self.assertEqual(os.stat(os.path.join(entry, name + config.module_object_suffix())).st_nlink, 2)
+    self.assertTrue(os.path.samefile(files[1], os.path.join(entry, name + config.module_object_suffix())))
     self.assertFalse(
         os.path.samefile(files[0], os.path.join(entry, name + '.cpp'))
       )
@@ -298,20 +298,20 @@ class TestStore(ProductCacheTestCase):
     placed = _productcache.restore(self.DIGEST, self.KEY, other, names[:2])
     self.assertEqual(placed, {n: os.path.join(other, n) for n in names[:2]})
     self.assertEqual(_productcache.counts, {'restored': 1, 'stored': 1})
-    self.assertEqual(cytest.readfile(placed[name + '.so'], 'rb'), b'the object')
+    self.assertEqual(cytest.readfile(placed[name + config.module_object_suffix()], 'rb'), b'the object')
     self.assertEqual(
         cytest.readfile(placed[name + '.cpp']).splitlines()[0], '// FORMAT: 12'
       )
     times = [
         os.stat(path).st_mtime_ns
-        for path in [imagefile, placed[name + '.cpp'], placed[name + '.so']]
+        for path in [imagefile, placed[name + '.cpp'], placed[name + config.module_object_suffix()]]
       ]
     self.assertEqual(times, sorted(times))
     self.assertEqual(len(set(times)), 3)
     self.assertTrue(
-        os.path.samefile(placed[name + '.so'], os.path.join(entry, name + '.so'))
+        os.path.samefile(placed[name + config.module_object_suffix()], os.path.join(entry, name + config.module_object_suffix()))
       )
-    self.assertFalse(os.path.exists(os.path.join(other, name + '.so.abi')))
+    self.assertFalse(os.path.exists(os.path.join(other, name + config.module_object_suffix() + '.abi')))
     self.assertEqual(self.temporary_names(), [])
     # A miss restores nothing.
     self.assertIsNone(
@@ -332,7 +332,7 @@ class TestStore(ProductCacheTestCase):
         self.base, 'other', '.curry', config.intermediate_subdir()
       )
     os.makedirs(other)
-    old = os.path.join(other, name + '.so')
+    old = os.path.join(other, name + config.module_object_suffix())
     with open(old, 'wb') as stream:
       stream.write(b'old object')
     os.link(old, os.path.join(self.base, 'old-link'))
@@ -342,6 +342,7 @@ class TestStore(ProductCacheTestCase):
         cytest.readfile(os.path.join(self.base, 'old-link'), 'rb'), b'old object'
       )
 
+  @cytest.posix_only('checks POSIX executable permission bits')
   def test_copy_across_file_systems(self):
     '''Without one file system the files are copied, with their mode.'''
     name = self.write_image(3)
@@ -349,16 +350,16 @@ class TestStore(ProductCacheTestCase):
     os.chmod(files[1], 0o755)
     with mock.patch.object(_productcache, '_same_device', lambda a, b: False):
       entry = _productcache.store(self.DIGEST, self.KEY, files)
-    stored = os.path.join(entry, name + '.so')
+    stored = os.path.join(entry, name + config.module_object_suffix())
     self.assertEqual(os.stat(stored).st_nlink, 1)
     self.assertEqual(cytest.readfile(stored, 'rb'), b'object')
     self.assertTrue(os.stat(stored).st_mode & stat.S_IXUSR)
     other = os.path.join(self.base, 'other')
     os.makedirs(other)
     with mock.patch.object(_productcache, '_same_device', lambda a, b: False):
-      placed = _productcache.restore(self.DIGEST, self.KEY, other, [name + '.so'])
-    self.assertEqual(os.stat(placed[name + '.so']).st_nlink, 1)
-    self.assertTrue(os.stat(placed[name + '.so']).st_mode & stat.S_IXUSR)
+      placed = _productcache.restore(self.DIGEST, self.KEY, other, [name + config.module_object_suffix()])
+    self.assertEqual(os.stat(placed[name + config.module_object_suffix()]).st_nlink, 1)
+    self.assertTrue(os.stat(placed[name + config.module_object_suffix()]).st_mode & stat.S_IXUSR)
 
   def test_link_refused_is_a_copy(self):
     '''A file system that refuses the hard link gets a copy, and the entry is whole.'''
@@ -370,11 +371,11 @@ class TestStore(ProductCacheTestCase):
       entry = _productcache.store(self.DIGEST, self.KEY, files)
       other = os.path.join(self.base, 'other')
       os.makedirs(other)
-      placed = _productcache.restore(self.DIGEST, self.KEY, other, [name + '.so'])
-    stored = os.path.join(entry, name + '.so')
+      placed = _productcache.restore(self.DIGEST, self.KEY, other, [name + config.module_object_suffix()])
+    stored = os.path.join(entry, name + config.module_object_suffix())
     self.assertEqual(os.stat(stored).st_nlink, 1)
-    self.assertEqual(os.stat(placed[name + '.so']).st_nlink, 1)
-    self.assertEqual(cytest.readfile(placed[name + '.so'], 'rb'), b'object')
+    self.assertEqual(os.stat(placed[name + config.module_object_suffix()]).st_nlink, 1)
+    self.assertEqual(cytest.readfile(placed[name + config.module_object_suffix()], 'rb'), b'object')
     self.assertEqual(self.temporary_names(), [])
     self.assertEqual(_productcache.counts, {'restored': 1, 'stored': 1})
 
@@ -387,7 +388,7 @@ class TestStore(ProductCacheTestCase):
     self.write_products(name, so=b'second')
     self.assertEqual(_productcache.store(self.DIGEST, self.KEY, files), entry)
     self.assertEqual(
-        cytest.readfile(os.path.join(entry, name + '.so'), 'rb'), b'first'
+        cytest.readfile(os.path.join(entry, name + config.module_object_suffix()), 'rb'), b'first'
       )
     self.assertEqual(self.entries(self.DIGEST), [self.KEY])
     self.assertEqual(self.temporary_names(), [])
@@ -409,13 +410,13 @@ class TestStore(ProductCacheTestCase):
         os.makedirs(entry)
         for path in files:
           shutil.copy(path, entry)
-        with open(os.path.join(entry, name + '.so'), 'wb') as stream:
+        with open(os.path.join(entry, name + config.module_object_suffix()), 'wb') as stream:
           stream.write(b'theirs')
       return real_rename(src, dst)
     with mock.patch.object(os, 'rename', other_writer_first):
       self.assertEqual(_productcache.store(self.DIGEST, self.KEY, files), entry)
     self.assertEqual(
-        cytest.readfile(os.path.join(entry, name + '.so'), 'rb'), b'theirs'
+        cytest.readfile(os.path.join(entry, name + config.module_object_suffix()), 'rb'), b'theirs'
       )
     self.assertEqual(
         sorted(os.listdir(entry)), sorted(os.path.basename(f) for f in files)
@@ -516,7 +517,7 @@ class TestCompile(ProductCacheTestCase):
     return _findcurry.currentfile(self.plan, name, [self.srcdir])
 
   def remove_products(self, name):
-    for suffix in ['.cpp', '.so', '.so.abi']:
+    for suffix in ['.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi']:
       os.unlink(self.cached_file(name, suffix))
 
   def no_compiler(self):
@@ -534,15 +535,15 @@ class TestCompile(ProductCacheTestCase):
     '''A compile stores the generated file, the object and its stamp.'''
     name = self.write_image(1)
     sofile = makecurry(self.plan, name, [self.srcdir])
-    self.assertEqual(sofile, self.cached_file(name, '.so'))
+    self.assertEqual(sofile, self.cached_file(name, config.module_object_suffix()))
     entry = self.entry(name)
     self.assertEqual(
-        sorted(os.listdir(entry)), [name + '.cpp', name + '.so', name + '.so.abi']
+        sorted(os.listdir(entry)), [name + '.cpp', name + config.module_object_suffix(), name + config.module_object_suffix() + '.abi']
       )
-    self.assertTrue(os.path.samefile(sofile, os.path.join(entry, name + '.so')))
+    self.assertTrue(os.path.samefile(sofile, os.path.join(entry, name + config.module_object_suffix())))
     self.assertEqual(
-        cytest.readfile(os.path.join(entry, name + '.so.abi'))
-      , cytest.readfile(self.cached_file(name, '.so.abi'))
+        cytest.readfile(os.path.join(entry, name + config.module_object_suffix() + '.abi'))
+      , cytest.readfile(self.cached_file(name, config.module_object_suffix() + '.abi'))
       )
     self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 1})
     # The facts of the key name the format, the generator, the optimizer,
@@ -697,7 +698,7 @@ class TestCompile(ProductCacheTestCase):
     first = makecurry(self.plan, name, [self.srcdir])
     other = os.path.join(self.base, 'other')
     shutil.copytree(self.srcdir, other)
-    for suffix in ['.cpp', '.so', '.so.abi']:
+    for suffix in ['.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi']:
       os.unlink(os.path.join(other, '.curry', config.intermediate_subdir(), name + suffix))
     curryfile = os.path.join(other, name + '.curry')
     self.assertEqual(
@@ -716,7 +717,7 @@ class TestCompile(ProductCacheTestCase):
       sofile = makecurry(self.plan, name, [other])
     log.checkMessages(self, info='Restored %r from the product cache' % sofile)
     self.assertEqual(
-        sofile, os.path.join(other, '.curry', config.intermediate_subdir(), name + '.so')
+        sofile, os.path.join(other, '.curry', config.intermediate_subdir(), name + config.module_object_suffix())
       )
     self.assertNotEqual(sofile, first)
     # Both trees link the object of the entry (one file system here).
@@ -796,7 +797,7 @@ class TestCompile(ProductCacheTestCase):
     log.checkMessages(self, info='Compiling %r' % sofile)
     self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 2})
     self.assertFalse(
-        os.path.samefile(sofile, os.path.join(self.entry(name), name + '.so'))
+        os.path.samefile(sofile, os.path.join(self.entry(name), name + config.module_object_suffix()))
       )
 
   def test_excluded_module_is_not_cached(self):
@@ -848,6 +849,28 @@ class TestCompile(ProductCacheTestCase):
     self.assertTrue(os.path.isfile(sofile))
     self.assertEqual(_productcache.counts['restored'], 1)
 
+  def test_sprite_make_parallel_reports(self):
+    first = self.write_image(12)
+    second = self.write_image(13)
+    run = self.sprite_make_output
+    run('--so', first)
+    # The parallel run: the children print the line for the parent, which
+    # sums them and prints one line.
+    self.remove_products(first)
+    text = run('--so', '--jobs', '2', first, second)
+    self.assertEqual(text, 'sprite-make: product cache: 1 restored, 1 stored\n')
+
+  def sprite_make_output(self, *args):
+    out = io.StringIO()
+    with binding(os.environ, 'CURRYPATH', self.srcdir):
+      config.currypath(reset=True)
+      try:
+        with contextlib.redirect_stdout(out):
+          make.main('sprite-make', list(args))
+      finally:
+        config.currypath(reset=True)
+    return out.getvalue()
+
   def test_sprite_make_reports(self):
     '''
     sprite-make prints one line with the counts at the end of a run that
@@ -855,17 +878,7 @@ class TestCompile(ProductCacheTestCase):
     the children are summed into one line.
     '''
     first = self.write_image(12)
-    second = self.write_image(13)
-    def run(*args):
-      out = io.StringIO()
-      with binding(os.environ, 'CURRYPATH', self.srcdir):
-        config.currypath(reset=True)
-        try:
-          with contextlib.redirect_stdout(out):
-            make.main('sprite-make', list(args))
-        finally:
-          config.currypath(reset=True)
-      return out.getvalue()
+    run = self.sprite_make_output
     text = run('--so', first)
     self.assertEqual(text, 'sprite-make: product cache: 0 restored, 1 stored\n')
     # Current: nothing to say.
@@ -878,11 +891,6 @@ class TestCompile(ProductCacheTestCase):
         run('--so', first)
       , 'sprite-make: product cache: 1 restored, 0 stored\n'
       )
-    # The parallel run: the children print the line for the parent, which
-    # sums them and prints one line.
-    self.remove_products(first)
-    text = run('--so', '--jobs', '2', first, second)
-    self.assertEqual(text, 'sprite-make: product cache: 1 restored, 1 stored\n')
     self.assertRegex(
         make.cache_line('sprite-make', {'restored': 3, 'stored': 4})
       , make.CACHE_LINE

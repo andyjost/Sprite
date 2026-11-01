@@ -80,7 +80,7 @@ def steps():
 
 
 class TestPrivateDirectoryFork(cytest.TestCase):
-  @unittest.skipUnless(hasattr(os, 'fork'), 'requires fork')
+  @cytest.posix_only('requires os.fork')
   def test_child_exit_keeps_parent_directory(self):
     script = """
 import cytest
@@ -162,7 +162,7 @@ class TieredTestCase(cytest.TestCase):
 
   def sofile(self, name):
     return os.path.join(
-        self.tmpdir, '.curry', config.intermediate_subdir(), name + '.so'
+        self.tmpdir, '.curry', config.intermediate_subdir(), name + config.module_object_suffix()
       )
 
   def edit_module(self, name, text):
@@ -229,7 +229,7 @@ class TestRemovedDirectory(TieredTestCase):
     self.assertTrue(os.path.isfile(self.stamp(name)))
     self.assertEqual(self.py(M.total, 3), 20)
 
-  @unittest.skipIf(sys.platform == 'win32', 'POSIX flock regression')
+  @cytest.posix_only('POSIX flock regression')
   def test_busy_product_lock_keeps_private_object(self):
     import fcntl
     name = self.write_module()
@@ -936,7 +936,7 @@ class TestPrograms(cytest.TestCase):
     shutil.copy(os.path.join(BENCHMARKS, 'Fib.curry'), self.tmpdir)
     self.assertEqual(self.run_child('Fib', 'cxx', self.tmpdir), expected)
     sofile = os.path.join(
-        self.tmpdir, '.curry', config.intermediate_subdir(), 'Fib.so'
+        self.tmpdir, '.curry', config.intermediate_subdir(), 'Fib' + config.module_object_suffix()
       )
     # The program ends before its compile; the compile is cancelled, so no
     # finished object (one with its ABI stamp) is left behind.
@@ -1014,7 +1014,7 @@ subprocess.run(
     [%(make)r, '--so', %(name)r + '.curry'], check=True
   , env=dict(os.environ, CURRYPATH='.')
   )
-M2 = curry._interpreter_.load(os.path.join('.curry', %(subdir)r, %(name)r + '.so'))
+M2 = curry._interpreter_.load(os.path.join('.curry', %(subdir)r, %(name)r + curry.config.module_object_suffix()))
 print(M2 is M)
 print(next(curry.eval((M.bump)(1))))
 print('exiting normally')

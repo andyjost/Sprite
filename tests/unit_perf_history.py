@@ -374,6 +374,7 @@ class TestPage(unittest.TestCase):
     self.assertIn(BRANCH, html)
 
 
+@cytest.posix_only('executes bash scripts and POSIX git hooks')
 class TestScripts(unittest.TestCase):
   '''The scripts of the job.'''
 
@@ -565,6 +566,7 @@ class TestWorkflow(unittest.TestCase):
     self.assertIn('icurry-legacy-${{ env.PAKCS_VERSION }}-', job)
     self.assertNotIn('restore-keys: |\n            icurry-cache-', job)
 
+  @cytest.posix_only('executes the CI bash shard')
   def test_interpreter_job(self):
     '''
     The CI workflow runs the unit and functional suites under interpret:all

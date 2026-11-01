@@ -166,7 +166,8 @@ class TestBoundaryDrivers(cytest.TestCase):
             os.path.isfile(os.path.join(exdir, filename)), '%s/%s' % (name, filename)
           )
       mode = os.stat(os.path.join(exdir, 'run')).st_mode
-      self.assertTrue(mode & stat.S_IXUSR, '%s/run is not executable' % name)
+      if os.name != 'nt':
+        self.assertTrue(mode & stat.S_IXUSR, '%s/run is not executable' % name)
       go = self.text_of(name, 'go.py').splitlines()
       self.assertLess(len(go), GO_MAX_LINES, '%s/go.py has %d lines' % (name, len(go)))
       for number, line in enumerate(go, 1):
@@ -193,6 +194,7 @@ class TestBoundaryDrivers(cytest.TestCase):
     with open(os.path.join(BOUNDARY_DIR, name, filename), encoding='utf-8') as stream:
       return stream.read()
 
+  @cytest.posix_only('executes POSIX shell drivers')
   def run_driver(self, name):
     '''
     Runs the run script of a driver in a child and returns the completed

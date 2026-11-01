@@ -49,7 +49,7 @@ jobs:
       - name: Tools
         run: |
           set -euxo pipefail
-          python -m pip install --quiet cmake ninja scikit-build-core numpy llvmlite curry-frontend==3.1.0.post2
+          python -m pip install --quiet cmake ninja scikit-build-core numpy llvmlite psutil curry-frontend==3.1.0.post2
           cmake --version
           clang++ --version || echo "no clang++ on PATH"
           ninja --version
@@ -166,6 +166,14 @@ jobs:
           cd tests
           python -c "from curry.backends.cxx import msvc; c, e = msvc.discover(); assert c and e.get('INCLUDE') and e.get('LIB'), (c, sorted(e))"
           python -m unittest -v unit_windows_aot unit_make.TestMake.test_sprite_make_so
+      - name: Unit tier
+        if: ${{ !cancelled() && matrix.name == 'clang-cl' && steps.build.outcome == 'success' }}
+        env:
+          SPRITE_HOME: ${{ github.workspace }}\build\stage
+          PYTHONPATH: ${{ github.workspace }}\build\stage\python
+          SPRITE_INTERPRETER_FLAGS: interpret:new,jit:off
+          SPRITE_ROTATION: steps:65536
+        run: python tests/run_tests.py --fast -j 2
       - name: Errors by file and by kind
         if: always()
         run: |
@@ -192,6 +200,7 @@ jobs:
             runtime-build.log
             runtime-exports.log
             build.log
+            tests/.cache/runner/
             build/CMakeFiles/CMakeConfigureLog.yaml
             build/CMakeCache.txt
           if-no-files-found: warn

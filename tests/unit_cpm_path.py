@@ -81,6 +81,7 @@ class TestCpmPath(cytest.TestCase):
       with self.assertLogs('curry.config', level='DEBUG'):
         self.assertEqual(curry.cpm_path(self.root), [])
 
+  @cytest.posix_only('a removed working directory')
   def test_removed_cwd(self):
     code = ('import os, tempfile; root = tempfile.mkdtemp(); '
             'os.chdir(root); os.rmdir(root); import curry; assert curry.path')

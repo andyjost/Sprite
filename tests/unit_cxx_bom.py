@@ -92,7 +92,7 @@ class TestPlainDataBOM(cytest.TestCase):
   def test_generated_file(self):
     '''The emitter writes the record and its tables as plain data.'''
     module, shlib = self.load()
-    text = cytest.readfile(shlib.sofilename()[:-len('.so')] + '.cpp')
+    text = cytest.readfile(os.path.splitext(shlib.sofilename())[0] + '.cpp')
     self.assertIn('// FORMAT: %d\n' % compiler.FORMAT_VERSION, text)
     self.assertIn('extern SPRITE_MODULE_EXPORT bom::Module const _bom_;\n', text)
     self.assertIn(
@@ -176,22 +176,28 @@ class TestPlainDataBOM(cytest.TestCase):
 
     def build(name, body):
       src = os.path.join(tmpdir, name + '.cpp')
-      sofile = os.path.join(tmpdir, name + '.so')
+      sofile = os.path.join(tmpdir, name + config.module_object_suffix())
       with open(src, 'w') as stream:
         stream.write(
             '#include "curryrt/bom.hpp"\nusing namespace curryrt;\n'
+            '#if defined(_WIN32)\n#define SPRITE_MODULE_EXPORT __declspec(dllexport)\n'
+            '#else\n#define SPRITE_MODULE_EXPORT\n#endif\n'
             'extern "C" {\n%s\n}\n' % body
           )
       cmd = [
           cxx, '-shared', '-fPIC', '-std=c++17', '-I' + include, src
         , '-o', sofile
         ]
+      if os.name == 'nt':
+        cmd = [cxx, '/LD', '/std:c++17', '/EHsc', '/I' + include, src,
+            '/Fo' + os.path.join(tmpdir, name + '.obj'),
+            '/link', '/OUT:' + sofile]
       subprocess.run(cmd, check=True, capture_output=True, text=True)
       return sofile
 
     record = (
-        'extern bom::Module const _bom_;\n'
-        'bom::Module const _bom_ = {%s, %s, nullptr, nullptr, 0, nullptr'
+        'extern SPRITE_MODULE_EXPORT bom::Module const _bom_;\n'
+        'SPRITE_MODULE_EXPORT bom::Module const _bom_ = {%s, %s, nullptr, nullptr, 0, nullptr'
         ', nullptr, 0, nullptr, 0, nullptr, 0};'
       )
     # Native load failures use the public LoadError.

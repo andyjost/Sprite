@@ -1,5 +1,6 @@
 import cytest
 from curry.interpreter import Interpreter
+from curry import config
 from curry.toolchain import plans
 import os, string, tempfile
 
@@ -11,7 +12,7 @@ class TestPlan(cytest.TestCase):
   '''Tests the compilation plan.'''
   def checkStr(self, plan, expected):
     a = clean(str(plan))
-    b = clean(expected)
+    b = clean(expected.replace('.so', config.module_object_suffix()))
     try:
       self.assertEqual(a, b)
     except:

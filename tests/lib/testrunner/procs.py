@@ -28,8 +28,12 @@ run on swipl, and the C++ compiler and linker.  The watchdog allows a
 session more memory while one of them runs (see scheduler.Watchdog).
 '''
 
-import os, re, signal, subprocess, sys, time, unittest
+import os, re, signal, subprocess, sys, time
 from curry.utility import cpu_count
+try:
+  import psutil
+except ImportError:
+  psutil = None
 
 __all__ = [
     'TOOLS', 'cpu_count', 'kill_session', 'mem_available', 'mem_total'
@@ -79,6 +83,11 @@ def _meminfo_darwin():
 
 def meminfo(path='/proc/meminfo'):
   '''The fields of /proc/meminfo, in bytes (on macOS, see _meminfo_darwin).'''
+  if sys.platform == 'win32':
+    if psutil is None:
+      return {}
+    memory = psutil.virtual_memory()
+    return {'MemTotal': memory.total, 'MemAvailable': memory.available}
   if DARWIN and path == '/proc/meminfo':
     return _meminfo_darwin()
   fields = {}
@@ -195,6 +204,8 @@ def _session_key(table, sid):
   leader made with start_new_session), or None when the leader is gone
   (the parent links from the roots then find the members).
   '''
+  if sys.platform == 'win32':
+    return None
   if not DARWIN:
     return sid
   entry = table.get(sid)
@@ -206,6 +217,8 @@ def _table():
   its resident set in bytes, its state, and its command name.  On macOS,
   one run of ps (see _table_darwin).
   '''
+  if sys.platform == 'win32':
+    return _table_windows()
   if DARWIN:
     return _table_darwin()
   table = {}
@@ -234,6 +247,8 @@ def scan_sessions(sids, roots=None):
   scan, so a process whose parent ended stays with its session.  A zombie
   counts with a resident set of zero.
   '''
+  if sys.platform == 'win32' and psutil is None:
+    return {sid: (None, [], {}) for sid in sids}
   table = _table()
   children = {}
   for pid, entry in table.items():
@@ -264,23 +279,33 @@ def toolchain_in(comms):
   The names of the processes of the Curry toolchain among the command names
   ``comms`` (an iterable of names), sorted; empty when none runs.
   '''
-  return sorted(TOOLS.intersection(comms))
+  tools = TOOLS | {'clang-cl', 'cl', 'link', 'lld-link'} if sys.platform == 'win32' else TOOLS
+  return sorted(tools.intersection(comms))
 
 def session_rss(sid):
   '''The resident set of one session, in bytes.'''
   return scan_sessions([sid])[sid][0]
 
-def kill_session(sid, sig=getattr(signal, 'SIGKILL', None), rounds=20, pause=0.05, roots=()):
+def kill_session(sid, sig=getattr(signal, 'SIGKILL', None), rounds=20, pause=0.05, roots=(), leader=None):
   '''
   Sends ``sig`` to every process of the session ``sid`` and to the process
   group of its leader, in rounds, until a scan finds no process of the
   session or ``rounds`` is reached.  A process that forks between the scan
   and the kill is caught by the next round.  ``roots`` are the pids of the
   session seen before (see scan_sessions); every pid a round finds joins
-  them.  Returns the pids that were signalled.
+  them.  On Windows, ``leader`` is the Popen object; an exited leader is
+  excluded from taskkill to avoid a recycled PID. Returns the pids that
+  were signalled.
   '''
-  if os.name == 'nt':
-    raise unittest.SkipTest('session signalling requires POSIX')
+  if sys.platform == 'win32':
+    pids = set(roots) - {sid}
+    if leader is None or leader.poll() is None:
+      pids.add(sid)
+    for pid in sorted(pids - {sid}) + ([sid] if sid in pids else []):
+      subprocess.run(['taskkill', '/PID', str(pid), '/T', '/F'],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     check=False)
+    return sorted(pids)
   signalled = set()
   roots = set(roots)
   for _ in range(rounds):
@@ -303,6 +328,8 @@ def kill_session(sid, sig=getattr(signal, 'SIGKILL', None), rounds=20, pause=0.0
   return sorted(signalled)
 
 def _state(pid):
+  if sys.platform == 'win32':
+    return b'R' if psutil is not None and psutil.pid_exists(pid) else None
   if DARWIN:
     try:
       out = subprocess.run(
@@ -317,3 +344,20 @@ def _state(pid):
 def is_alive(pid):
   '''True when ``pid`` exists and is not a zombie.'''
   return _state(pid) not in (None, b'Z')
+
+
+def _table_windows():
+  """Optional RSS and names; Windows has parent links, not POSIX sessions."""
+  if psutil is None:
+    return {}
+  table = {}
+  for proc in psutil.process_iter(['pid', 'ppid', 'name', 'memory_info']):
+    try:
+      info = proc.info
+      memory = info['memory_info']
+      if memory is not None:
+        table[info['pid']] = (info['ppid'], None, memory.rss, b'R',
+                              (info['name'] or '').removesuffix('.exe'))
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+      pass
+  return table

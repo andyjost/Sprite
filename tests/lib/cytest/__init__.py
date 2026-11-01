@@ -178,7 +178,8 @@ class timeout(contextlib.ContextDecorator):
         ...
 
   The limit is enforced with SIGALRM, so it applies to Python code in the main
-  thread.  Code that spins inside C++ is not interrupted; run such a test in a
+  thread.  On Windows it is a no-op; the runner bounds the test file.
+  Code that spins inside C++ is not interrupted; run such a test in a
   subprocess instead.  After the limit, the timer repeats every second in case
   the first exception is swallowed.
 
@@ -193,6 +194,8 @@ class timeout(contextlib.ContextDecorator):
     raise TimeoutError('timeout after %s seconds' % self.seconds)
 
   def __enter__(self):
+    if sys.platform == 'win32':
+      return self
     if not hasattr(signal, 'SIGALRM'):
       raise unittest.SkipTest('timeout requires POSIX SIGALRM')
     self.prev_handler = signal.signal(signal.SIGALRM, self._expire)
@@ -200,6 +203,8 @@ class timeout(contextlib.ContextDecorator):
     return self
 
   def __exit__(self, *exc_info):
+    if sys.platform == 'win32':
+      return False
     signal.setitimer(signal.ITIMER_REAL, 0)
     signal.signal(signal.SIGALRM, self.prev_handler)
     return False
@@ -292,12 +297,34 @@ def json_module(name, value):
       '"IInt","value":%(value)d}}}}}}],"aliases":[]}'
     ) % {'name': name, 'value': value}
 
+def posix_only(reason):
+  """Skip tests of POSIX facilities on Windows."""
+  return unittest.skipIf(sys.platform == 'win32', reason)
+
+def windows_only(reason):
+  """Skip tests of Windows facilities on other platforms."""
+  return unittest.skipUnless(sys.platform == 'win32', reason)
+
 def linux_only(reason):
   '''
   Skips a test on a platform other than Linux: one that reads /proc or an
   ELF object, or relies on a limit another kernel does not enforce.
   '''
   return unittest.skipUnless(sys.platform.startswith('linux'), reason)
+
+def tool_command(command):
+  """Invoke staged Python tools with the active Python on Windows."""
+  command = list(command)
+  if sys.platform == 'win32':
+    name = os.path.basename(command[0])
+    modules = {'sprite-exec': 'curry',
+               'sprite-make': 'curry.tools.make'}
+    if name in modules:
+      return [sys.executable, '-m', modules[name]] + command[1:]
+    if name == 'python':
+      return [sys.executable] + command[1:]
+  return command
+
 
 def limit_prefix(address_space=None, timeout=None, kill_after=None):
   '''

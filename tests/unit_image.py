@@ -125,13 +125,13 @@ class TestImage(cytest.TestCase):
       source = os.path.join(directory, 'ImageCommand.curry')
       with open(source, 'w') as stream:
         stream.write('module ImageCommand where\nanswer = True\n')
-      subprocess.check_call([os.path.join(os.environ['SPRITE_HOME'], 'bin',
-          'sprite-make'), '--image', source])
+      subprocess.check_call(cytest.tool_command([curry.config.sprite_make(),
+          '--image', source]), timeout=120)
       self.assertEqual(image.read(image.filename(source))['name'], 'ImageCommand')
 
   def test_import_image_changes_before_compile(self):
     from curry.backends.cxx import toolchain as cxx_toolchain
-    with tempfile.TemporaryDirectory() as directory:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as directory:
       source = os.path.join(directory, 'ImageCompileRetry.curry')
       dependency = os.path.join(directory, 'ImageCompileDependency.curry')
       with open(dependency, 'w') as stream:
@@ -290,7 +290,7 @@ assert curry.eval(module.answer).one() == 42
           translated)
 
   def test_compiled_source_receipt_and_precedence(self):
-    with tempfile.TemporaryDirectory() as directory:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as directory:
       source = os.path.join(directory, 'ImagePrecedence.curry')
       def write(value):
         with open(source, 'w') as stream:
@@ -301,7 +301,6 @@ assert curry.eval(module.answer).one() == 42
       module = curry.import_(source)
       self.assertIsNotNone(getHandle(module).sofilename)
       self.assertEqual(curry.eval(module.answer).one(), 1)
-      from curry.toolchain import _filenames
       write(2)
       # Content receipts also reject objects after timestamp-preserving edits.
       os.utime(source, (1000000000, 1000000000))
@@ -316,12 +315,40 @@ assert curry.eval(module.answer).one() == 42
       module = curry.import_(source)
       self.assertIsNone(getHandle(module).sofilename)
       self.assertEqual(curry.eval(module.answer).one(), 2)
+
+  def test_current_object_outranks_a_newer_image(self):
+    '''A current object loads under interpret:new whatever the image's time says.'''
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as directory:
+      source = os.path.join(directory, 'ImageObjectWins.curry')
+      with open(source, 'w') as stream:
+        stream.write('module ImageObjectWins where\nanswer :: Int\nanswer = 2\n')
       curry.reset(backend='cxx', interpret='off', jit='off')
       module = curry.import_(source)
+      self.assertIsNotNone(getHandle(module).sofilename)
       self.assertEqual(curry.eval(module.answer).one(), 2)
-      from curry.toolchain import _filenames
       os.utime(image.filename(source), (2000000000, 2000000000))
       curry.reset(backend='cxx', interpret='new', jit='off')
+      module = curry.import_(source)
+      self.assertIsNotNone(getHandle(module).sofilename)
+      self.assertEqual(curry.eval(module.answer).one(), 2)
+
+  # Windows keeps the first object of a name mapped for the life of the
+  # process; a recompiled object loads in the next process.
+  @cytest.posix_only('a recompiled object replaces the mapped one in this process')
+  def test_recompiled_object_replaces_the_mapped_one(self):
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, 'ImageRecompiled.curry')
+      def write(value):
+        with open(source, 'w') as stream:
+          stream.write('module ImageRecompiled where\nanswer :: Int\n'
+              'answer = %d\n' % value)
+      write(1)
+      curry.reset(backend='cxx', interpret='off', jit='off')
+      module = curry.import_(source)
+      self.assertEqual(curry.eval(module.answer).one(), 1)
+      write(2)
+      os.utime(source, (1000000000, 1000000000))
+      curry.reset(backend='cxx', interpret='off', jit='off')
       module = curry.import_(source)
       self.assertIsNotNone(getHandle(module).sofilename)
       self.assertEqual(curry.eval(module.answer).one(), 2)
