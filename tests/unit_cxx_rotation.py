@@ -547,9 +547,11 @@ report(
     left at one, and no later evaluation started or woke a thread).  The
     child forbids new tasks with RLIMIT_NPROC after its imports: the user
     has more than one task already, so a clone fails with EAGAIN.  The
-    modules are interpreted (interpret:new), so no compile forks.  Where
-    the limit is not enforced (a privileged user) the thread starts and the
-    test skips.
+    modules are interpreted (interpret:new); the compile thread of the C++
+    JIT backend cannot start under the limit either, which the runtime
+    reports as a failed compile while the evaluation goes on (the test of
+    unit_jit), so the last evaluation answers.  Where the limit is not
+    enforced (a privileged user) the thread starts and the test skips.
     '''
     lines = run_child(self, TIME_MODE, '''
 import resource

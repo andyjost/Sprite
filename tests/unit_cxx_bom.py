@@ -94,9 +94,10 @@ class TestPlainDataBOM(cytest.TestCase):
     module, shlib = self.load()
     text = cytest.readfile(shlib.sofilename()[:-len('.so')] + '.cpp')
     self.assertIn('// FORMAT: %d\n' % compiler.FORMAT_VERSION, text)
-    self.assertIn('extern bom::Module const _bom_;\n', text)
+    self.assertIn('extern SPRITE_MODULE_EXPORT bom::Module const _bom_;\n', text)
     self.assertIn(
-        'bom::Module const _bom_ = {\n    /*version  */ bom::VERSION\n', text
+        'SPRITE_MODULE_EXPORT bom::Module const _bom_ = {\n    /*version  */ bom::VERSION\n'
+      , text
       )
     self.assertIn('  , /*fullname */ "CxxBom"\n', text)
     for table in [

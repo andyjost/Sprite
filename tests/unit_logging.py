@@ -28,6 +28,10 @@ class TestLogging(cytest.TestCase):
     if curry._interpreter_.flags['interpret'] == 'all':
       for name in ('Prelude', 'LoggingText'):
         self.assertIn('module %s: interpreted (policy interpret:all)' % name, text)
+    elif curry._interpreter_.flags['interpret'] == 'off':
+      # The module of the text is compiled before it runs.
+      for name in ('Prelude', 'LoggingText'):
+        self.assertIn('module %s: compiled object loaded (' % name, text)
     else:
       self.assertIn('module Prelude: compiled object loaded (', text)
       self.assertIn('module LoggingText: interpreted (no object)', text)

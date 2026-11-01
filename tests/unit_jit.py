@@ -11,7 +11,7 @@ unavailable: without llvmlite (the extra curry[jit]), or without the
 bitcode of the helpers that CMake builds when it finds clang.
 '''
 import cytest # from ./lib; must be first
-import curry, os, tempfile, unittest
+import curry, json, os, tempfile, unittest
 from curry import inspect
 from curry.backends.cxx import curryrtbindings as curryrt, llvmjit
 from unittest import mock
@@ -274,6 +274,50 @@ class TestGxx(cytest.TestCase):
     self.assertTrue(curryrt.icurry_is_interpreted(M.double.info))
     self.assertTrue(any('compile failed:' in line for line in logs.output))
     self.assertEqual(curry.eval(M.double(21)).one(), 42)
+
+  @cytest.linux_only('RLIMIT_NPROC forbids the compile thread; no counterpart on macOS')
+  def test_hot_compile_thread_failure_stays_interpreted(self):
+    '''
+    When the thread of the background compile cannot start, the compile is
+    reported as failed and the evaluation that reached the threshold goes
+    on interpreted (the nightly of 2026-11-01 raised the error of the
+    thread from the evaluation).  The child forbids new tasks with
+    RLIMIT_NPROC after a first evaluation started the worker thread of the
+    runtime; the user has more than one task already, so a clone fails
+    with EAGAIN.  Where the limit is not enforced (a privileged user) the
+    compile runs and the test skips.
+    '''
+    code = r'''
+import json, resource
+import curry
+from curry.backends.cxx import curryrtbindings as curryrt, tiered
+curry.reset(interpret='new', jit='hot', jit_backend='cxx', rotation='steps:65536', inline_budget=0)
+M = curry.compile('double :: Int -> Int\ndouble x = x + x')
+first = curry.eval(M.double(1)).one()  # the first call; the worker thread of the runtime starts
+resource.setrlimit(resource.RLIMIT_NPROC, (1, 1))
+value = curry.eval(M.double(21)).one()  # the second call reaches the threshold
+tiered.wait(120)
+tiered.poll()
+print(json.dumps({
+    'first': first, 'value': value, 'status': tiered.status()
+  , 'interpreted': curryrt.icurry_is_interpreted(M.double.info)
+  }))
+'''
+    with mock.patch.dict(os.environ, {
+        'SPRITE_JIT_THRESHOLD': '2', 'SPRITE_LOG_LEVEL': 'info'
+      , 'SPRITE_INTERPRETER_FLAGS': 'backend:cxx,interpret:new,jit:hot,jit_backend:cxx'
+        }):
+      proc = cytest.run_in_subprocess(code, 300, address_space=2 << 30)
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    line = json.loads(proc.stdout.strip().splitlines()[-1])
+    if line['status']['swapped_modules']:
+      self.skipTest('RLIMIT_NPROC is not enforced for this user')
+    self.assertEqual(line['first'], 2)
+    self.assertEqual(line['value'], 42)
+    self.assertTrue(line['interpreted'])
+    self.assertEqual(line['status']['failed_modules'], 1)
+    self.assertEqual(line['status']['queued'], 0)
+    self.assertIn('compile failed: cannot start the compile thread (', proc.stderr)
 
   @cytest.hardreset
   def test_aot_replaces_a_previous_llvm_step(self):

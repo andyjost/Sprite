@@ -1995,6 +1995,12 @@ class TestMissingCompiler(ToolchainTestCase):
       , 'from curry import config'
       , 'from curry.toolchain import _system'
       , 'config.cxx_tool = lambda cached=None: None'
+      # The JIT backend is selected when the interpreter starts: the reset
+      # selects it again without a compiler, as a process of an
+      # installation without one does (interpret:all leaves the module
+      # interpreted; no background compile is queued then).  The other
+      # flags of the environment stay.
+      , 'curry.reset(jit_backend="auto")'
       , 'def no_pexec(cmd, *args, **kwds):'
       , '  raise AssertionError("a command ran: %r" % (cmd,))'
       , '_system.pexec = no_pexec'

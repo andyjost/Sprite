@@ -13,7 +13,10 @@ Release Notes
   ``eager`` or ``hot`` (default); ``jit_backend`` selects ``auto``,
   ``llvm`` or ``cxx``. Hot swaps run at a scheduler safepoint.
   ``interpret:tiered`` is retired; ``interpret:new`` is the default
-  on every platform and current ahead-of-time objects still load.
+  on every platform and current ahead-of-time objects still load. A
+  background compile of the C++ backend whose thread cannot start (a
+  limit on the tasks of the user) is reported as a failed compile; the
+  module stays interpreted and the evaluation goes on.
 - The cached code of a function links at its first call, from one native
   object per function in the envelope; a start reads the index alone. CI
   fills the library's cache in one job (``SPRITE_STAGE_JIT_CACHE=0`` skips

@@ -12,6 +12,7 @@
 #include <fstream>
 #include <mutex>
 #include <sstream>
+#include <system_error>
 #include <thread>
 #include <unordered_map>
 #if defined(_WIN32)
@@ -393,13 +394,36 @@ namespace curryrt
       }
     }
 
-    void start_worker()
+    // Starts the worker thread once.  Returns false with ``error`` set when
+    // the thread cannot start (EAGAIN under a limit on the tasks of the
+    // user): the caller records the job as a compile that could not run,
+    // the module stays interpreted, and the evaluation that reached the
+    // threshold goes on.
+    bool start_worker(std::string * error)
     {
       if(!shared().thread_started)
       {
-        std::thread(worker).detach();
+        try
+          { std::thread(worker).detach(); }
+        catch(std::system_error const & e)
+        {
+          *error = std::string("cannot start the compile thread (") + e.what() + ")";
+          return false;
+        }
         shared().thread_started = true;
       }
+      return true;
+    }
+
+    // Called under the mutex.  Records ``job`` as a compile that could not
+    // run, for the next poll (tiered_apply_pending).
+    void fail_job(TieredJob job, std::string error)
+    {
+      shared().finished.push_back(Finished{
+          std::move(job), shared().generation, -1, 0.0, std::move(error), {}
+        });
+      g_tiered_pending.store(true);
+      g_icurry_posted.store(true, std::memory_order_release);
     }
 
     // POSIX dlopen caches pathname strings even after atomic replacement.
@@ -734,7 +758,12 @@ namespace curryrt
   void tiered_submit(TieredJob job)
   {
     std::lock_guard<std::mutex> lock(shared().mutex);
-    start_worker();
+    std::string error;
+    if(!start_worker(&error))
+    {
+      fail_job(std::move(job), std::move(error));
+      return;
+    }
     shared().queue.push_back(std::move(job));
     shared().work_cv.notify_one();
   }
@@ -756,9 +785,15 @@ namespace curryrt
     auto job = hot_jobs.find(module->second);
     if(job == hot_jobs.end())
       return;
-    start_worker();
-    shared().queue.push_back(std::move(job->second));
+    TieredJob taken = std::move(job->second);
     hot_jobs.erase(job);
+    std::string error;
+    if(!start_worker(&error))
+    {
+      fail_job(std::move(taken), std::move(error));
+      return;
+    }
+    shared().queue.push_back(std::move(taken));
     shared().work_cv.notify_one();
   }
 

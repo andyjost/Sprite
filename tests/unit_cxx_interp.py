@@ -750,19 +750,24 @@ class TestPrograms(cytest.TestCase):
   def test_stats_line_after_the_background_compiles(self):
     # sprite-exec --stats ends the background compiles (tiered.finish)
     # before it prints its line, so what finish prints precedes the line,
-    # and the line is the last one.
+    # and the line is the last one.  A small program: the test runs in
+    # this process, in the collector's stress mode too, where a benchmark
+    # takes the better part of an hour.
     from curry import __main__ as sprite_exec
     stderr = io.StringIO()
     def finish():
       sys.stderr.write('finish\n')
-    curry.path.insert(0, BENCHMARKS)
-    try:
-      with mock.patch.object(tiered, 'finish', finish), \
-           contextlib.redirect_stdout(io.StringIO()), \
-           contextlib.redirect_stderr(stderr):
-        sprite_exec.main('sprite-exec', ['--stats', '-m', 'Fib'])
-    finally:
-      curry.path.remove(BENCHMARKS)
+    with tempfile.TemporaryDirectory(prefix='sprite-stats-') as work:
+      with open(os.path.join(work, 'StatsLine.curry'), 'w') as stream:
+        stream.write('main :: Int\nmain = 6 * 7\n')
+      curry.path.insert(0, work)
+      try:
+        with mock.patch.object(tiered, 'finish', finish), \
+             contextlib.redirect_stdout(io.StringIO()), \
+             contextlib.redirect_stderr(stderr):
+          sprite_exec.main('sprite-exec', ['--stats', '-m', 'StatsLine'])
+      finally:
+        curry.path.remove(work)
     lines = stderr.getvalue().splitlines()
     self.assertTrue(lines[-1].startswith('wall='), lines)
     self.assertEqual(lines[-2], 'finish', lines)
