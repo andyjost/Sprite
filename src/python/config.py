@@ -464,10 +464,9 @@ def cxx_tool(cached=[]):
       # executable whose adjacent toolchain DLLs would be lost.
       with open(cxx, encoding='utf-8') as stream:
         cxx = stream.read().strip()
-    if sys.platform == 'win32':
+    if sys.platform == 'win32' and not cxx:
       from .backends.cxx import msvc
-      discovered, _ = msvc.discover()
-      cxx = cxx or discovered
+      cxx = msvc.compiler()
     cached.append(cxx)
   return cached[0]
 

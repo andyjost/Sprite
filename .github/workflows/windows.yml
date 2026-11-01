@@ -164,6 +164,7 @@ jobs:
         run: |
           set -euxo pipefail
           cd tests
+          python -c "from curry.backends.cxx import msvc; c, e = msvc.discover(); assert c and e.get('INCLUDE') and e.get('LIB'), (c, sorted(e))"
           python -m unittest -v unit_windows_aot unit_make.TestMake.test_sprite_make_so
       - name: Errors by file and by kind
         if: always()

@@ -236,7 +236,7 @@ def save(interp, module, path, *, main=None):
     with tempfile.TemporaryDirectory(prefix='sprite-save-') as work:
       directory = os.path.join(work, '.curry', config.intermediate_subdir())
       os.makedirs(directory)
-      from ..backends.cxx import toolchain, msvc
+      from ..backends.cxx import toolchain
       cpp = os.path.join(directory, module.__name__ + '.cpp')
       interp.save(module, cpp, module_main=False, interfaces=True)
       product = toolchain.Cpp2So(interp)(cpp, interp.path)

@@ -22,11 +22,13 @@ and 3.15 on these platforms:
 
 The wheels include the compiled Curry library on every platform, and a
 C++ compiler is optional at run time. On Windows the runtime, the bindings
-and the compiled modules build with clang-cl of Visual Studio in a
-developer prompt (``vcvars64.bat``), ahead of time and in the hot and eager
-C++ tiers; cl is experimental; the wheels vendor the C and C++ runtime
-libraries of Visual Studio. Both ``curry`` and ``curry-frontend`` have
-wheels for these platforms.
+and the compiled modules build with clang-cl, ahead of time and in the
+hot and eager C++ tiers; cl is experimental. On Windows use
+Visual Studio 2017 or newer, or its Build Tools, with the workload "Desktop
+development with C++" and the component "C++ Clang tools for Windows", or
+clang-cl on PATH. Sprite finds it itself.
+The wheels vendor the C and C++ runtime libraries of Visual Studio.
+Both ``curry`` and ``curry-frontend`` have wheels for these platforms.
 
 Notes on each component follow.
 

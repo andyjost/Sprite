@@ -22,8 +22,10 @@ def select(interp):
   if backend == 'llvm' and llvm is None:
     raise FlagError('jit_backend:llvm needs llvmlite; pip install curry[jit]')
   if backend == 'cxx' and cxx is None:
-    raise FlagError('jit_backend:cxx needs a C++ compiler; on Windows use clang-cl '
-                    'of Visual Studio; Sprite uses vswhere and vcvars64 without a developer prompt')
+    raise FlagError('jit_backend:cxx needs a C++ compiler; on Windows use Visual Studio 2017 or '
+        'newer, or its Build Tools, with the workload "Desktop development with C++" '
+        'and the component "C++ Clang tools for Windows", or clang-cl on PATH. Sprite '
+        'finds it itself.')
   if requested == 'llvm':
     from . import llvmjit
     try:

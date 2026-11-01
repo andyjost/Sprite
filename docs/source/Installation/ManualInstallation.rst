@@ -16,8 +16,10 @@ shipped Curry library sources against their pinned ICurry and interfaces,
 then builds from those products without a Curry front end. The runtime
 dependency ``curry-frontend`` is installed automatically to compile new
 Curry text. PAKCS, SWI-Prolog, Haskell and GNU make are unnecessary for
-this route. On Windows the compiler is clang-cl of Visual Studio in a
-developer prompt (``vcvars64.bat``); cl is experimental.
+this route. On Windows use Visual Studio 2017 or newer, or its Build Tools,
+with the workload "Desktop development with C++" and the component
+"C++ Clang tools for Windows", or clang-cl on PATH. Sprite finds it itself.
+Microsoft cl is experimental.
 :doc:`SoftwareCompatibility` lists the supported platforms.
 
 Building a checkout

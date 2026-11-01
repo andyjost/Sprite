@@ -1162,10 +1162,12 @@ class Cpp2So(object):
     if cxx is None:
       raise exceptions.CompileError(
           'cannot compile %r: no C++ compiler is installed at %r.  Install '
-          'one (on Windows, clang-cl of Visual Studio; Sprite discovers '
-          'its vcvars64 environment) and configure Sprite with CMake '
+          'one and configure Sprite with CMake '
           '-DWITH_CXX_POSTINSTALL=PATH, or use the '
-          'modules that make stage compiled.'
+          'modules that make stage compiled. On Windows use '
+          'Visual Studio 2017 or newer, or its Build Tools, with the workload "Desktop '
+          'development with C++" and the component "C++ Clang tools for Windows", or '
+          'clang-cl on PATH. Sprite finds it itself.'
         % (file_in, config.installed_path('tools', 'cxx'))
         )
     yield cxx

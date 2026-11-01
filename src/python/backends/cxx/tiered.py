@@ -511,8 +511,10 @@ def submit(interp, moduleobj, currypath, hot=False):
   cxx = config.cxx_tool()
   if cxx is None:
     from ...exceptions import CompileError
-    raise CompileError('jit_backend:cxx needs a C++ compiler; on Windows use '
-                       'clang-cl of Visual Studio; Sprite uses vswhere and vcvars64 without a developer prompt')
+    raise CompileError('jit_backend:cxx needs a C++ compiler; on Windows use Visual Studio 2017 or '
+        'newer, or its Build Tools, with the workload "Desktop development with C++" '
+        'and the component "C++ Clang tools for Windows", or clang-cl on PATH. Sprite '
+        'finds it itself.')
   # The child compiles a private copy (the module docstring, "The
   # products"): nothing is written under the source while it runs.  The
   # digest below is still the one of the ICurry file beside the original:
