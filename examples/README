@@ -10,7 +10,7 @@ Rules that overlap by design silence the front-end warning in their run
 script unless SPRITE_FRONTEND_WARNINGS is set explicitly.
 
 The tour runs from 00 to 09.  Follow it with an application, the optional
-C++ type series, or the build-system capstone.  The Python API guide follows
+C++ type series, or the build lesson, 24.  The Python API guide follows
 first calls, results, values and types, logic, encapsulated search, errors,
 session control, and I/O; the Quickstart covers 01 and 02 in five minutes.
 
@@ -64,8 +64,8 @@ Tour: 00 to 09
     actions.
 
 
-Applications: 10 to 19 and 25
------------------------------
+Applications: 10 to 19, 25 and 26
+---------------------------------
 
 10-queens-set-functions
     Use a set function to reject unsafe permutations and draw a solution.
@@ -106,6 +106,10 @@ Applications: 10 to 19 and 25
     Search programs by length for a Java-keyword hash beside Python brute
     force over the same space.
 
+26-ir-canonicalization
+    Ask eight rewrite rules for every normal form of an input, with the
+    rules used, then census a family of terms for the ones that split.
+
 
 Optional C++ type series: 20 to 23
 ----------------------------------
@@ -126,12 +130,12 @@ Optional C++ type series: 20 to 23
     constraint.
 
 
-Capstone: 24
-------------
+The build: 24
+-------------
 
 24-build-system
-    Query a build relation in several directions while Python owns timestamps
-    and recipe execution.
+    The six rules of a build, written forward, say what a changed header
+    rebuilds; Python builds and asks.
 
 Support sources
 ---------------

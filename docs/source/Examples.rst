@@ -4,15 +4,14 @@ Examples
 
 Clone the repository for the lessons under ``examples/``. With pip, run
 ``python go.py`` in a lesson's directory; lesson 00 uses ``sprite-exec``
-on its Curry programs and lesson 24 ``python minimake.py`` or
-``python make.py``. ``./run`` uses a staged checkout (``make stage``)
+on its Curry programs and lesson 24 ``python build.py``. ``./run`` uses a staged checkout (``make stage``)
 and matches ``expected.out``. Each lesson has a README with its scope and
 limits.
 
 Start with :doc:`Quickstart` for lessons 01 and 02 in five minutes, then
 :doc:`PythonAPI/UsingTheAPI` for the boundary in teaching order.  The tour
 below is followed by applications, an optional specialist series and the
-build-system capstone.  Each path below links to the lesson in the repository.
+build lesson, 24.  Each path below links to the lesson in the repository.
 
 
 Tour: 00 to 09
@@ -101,8 +100,8 @@ collect a multiset with a set function.
 totals from Curry I/O actions.
 
 
-Applications: 10 to 19 and 25
-=============================
+Applications: 10 to 19, 25 and 26
+=================================
 
 .. _example-10:
 
@@ -192,6 +191,15 @@ command line and an HTTP form.
 `examples/25-perfect-hash <https://github.com/andyjost/Sprite/tree/master/examples/25-perfect-hash>`_ — Search programs by length for a Java-keyword
 hash beside Python brute force over the same space.
 
+.. _example-26:
+
+26: Every normal form of a small expression IR
+----------------------------------------------
+
+`examples/26-ir-canonicalization <https://github.com/andyjost/Sprite/tree/master/examples/26-ir-canonicalization>`_ — Ask eight rewrite rules for every
+normal form of an input, with the rules used, then census a family of terms
+for the ones that split.
+
 
 Optional C++ type series: 20 to 23
 ==================================
@@ -229,16 +237,16 @@ within a bounded type universe.
 under an extra ordering constraint.
 
 
-Capstone: 24
-============
+The build: 24
+=============
 
 .. _example-24:
 
-24: A makefile in Curry
------------------------
+24: What a change rebuilds
+--------------------------
 
-`examples/24-build-system <https://github.com/andyjost/Sprite/tree/master/examples/24-build-system>`_ — Query a build relation in several directions
-while Python owns timestamps and recipe execution.
+`examples/24-build-system <https://github.com/andyjost/Sprite/tree/master/examples/24-build-system>`_ — The six rules of a build, written forward, say
+what a changed header rebuilds; Python builds and asks.
 
 Support sources
 ===============
