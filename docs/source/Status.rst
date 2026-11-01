@@ -55,6 +55,12 @@ choose.  :doc:`CompilationOptions` describes the flags, the platforms and
 how to watch the choice; the C++ compiler backend keeps the publication protocol of
 #173.
 
+LLVM JIT batches persist beside module images as relocatable ``.jit``
+objects on supported Unix platforms. Current objects link before evaluation;
+``SPRITE_JIT_CACHE`` supplies a fallback for read-only products. Local stages
+fill the library cache when llvmlite is present. Wheels omit native JIT
+objects, and Windows persistence remains future work.
+
 The typed boundary
 ==================
 

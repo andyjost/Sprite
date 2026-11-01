@@ -300,6 +300,13 @@ reproducers pass.
   snapshots and publication preserve #173. Hot swaps run at the scheduler
   safepoint. `SPRITE_JIT_DUMP` writes LLVM IR and assembly, for LLVM only.
   Backend and compilation decisions emit INFO messages on the curry logger.
+  On Unix, LLVM caches completed module batches in `M.jit` beside `M.img`:
+  relocatable constants resolve from image bytecode at link. The key covers
+  the image body, runtime ABI, helpers, emitter, LLVM version and CPU.
+  Current objects swap before evaluation under `new` and `all`; `jit:off`
+  reads none. Read-only products use `SPRITE_JIT_CACHE` when set and writable.
+  A local stage fills the library cache when llvmlite imports; wheels and
+  Windows omit persistent JIT objects.
 - The C++ backend rotates its queue of alternatives in time mode by
   default (`SPRITE_ROTATION=time:10ms`, a ticker thread, the interpreter
   flag `rotation`) and in step mode (`steps:65536`) under the test runner,
@@ -327,3 +334,11 @@ reproducers pass.
   until its merge (`--no-ff`) and is deleted, local and on origin, in
   the same step.
 - Keep commits free of machine-specific paths and environment details.
+
+The LLVM JIT envelope holds a list of independent batch objects. Later hot
+batches append and link only their own object; cached functions are not
+re-optimized. The local JIT slot belongs to the image actually attached,
+including a private image for a foreign inline budget. A writer checks that
+the slot still holds that image before replacing another key. Only an
+unwritable attached-image directory uses
+`SPRITE_JIT_CACHE/<Full.Name>/<key>.jit`, with one generation per module.

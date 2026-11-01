@@ -5,6 +5,12 @@ Release Notes
 0.9.0a3 (2026-10-31)
 ====================
 
+- LLVM JIT batches persist as relocatable ``.jit`` objects beside module
+  images, link before evaluation on a warm start, and use
+  ``SPRITE_JIT_CACHE`` for read-only products. Local stages fill the library
+  cache; wheels omit machine-specific objects. Windows persistence follows
+  separately.
+
 - Module images replace module JSON products. Translation and C++ emission
   read ICurry text; read-only directories and text modules use private images.
   ``sprite-make --image`` is the default target; the JSON options are removed.

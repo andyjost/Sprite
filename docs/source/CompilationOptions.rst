@@ -35,11 +35,21 @@ Compiled just in time
   ends is cancelled, so a short program never waits for a compiler and
   leaves no object behind; ``sprite-make --so`` writes one.
 
+  LLVM keeps completed batches in ``M.jit`` beside the module image.
+  On the next import, a current batch links and swaps its functions before
+  evaluation, under both ``interpret:new`` and ``interpret:all``. A miss
+  follows the selected eager or hot tier. ``jit:off`` reads no JIT cache.
+  A read-only product directory uses ``SPRITE_JIT_CACHE`` when set to a
+  writable directory; otherwise compilation stays in memory. ``make stage``
+  fills the library cache when llvmlite is available. Wheels exclude these
+  machine-specific objects; a hot run fills the cache with the functions
+  that become hot, while an eager run fills the whole module.
+
 Compiled ahead of time
   ``sprite-make --so M.curry`` compiles a module to a shared object beside
   its source, and ``make stage`` compiles the Curry library into the
-  installation.  A current object loads whenever the module is imported,
-  whatever the other settings say.  ``curry.save`` writes such an object,
+  installation. A current object loads under ``interpret:new`` and
+  ``interpret:off``, whatever the JIT settings say. ``curry.save`` writes such an object,
   or a program around it, for use elsewhere (:doc:`PythonAPI/UsingTheAPI`).
 
 The default combines them: current objects load, everything else starts
@@ -63,7 +73,7 @@ Flag                 Values                 Meaning
 ===================  =====================  ================================================
 ``interpret``        ``new`` (default),     ``new`` loads current ahead-of-time objects and
                      ``all``, ``off``       interprets the rest.  ``all`` interprets every
-                                            module and opens no object.
+                                            module and opens no AOT object.
                                             ``off`` compiles a module that has
                                             no current object with the C++ compiler before it runs.
 ``jit``              ``hot`` (default),     ``hot`` compiles an interpreted function after
@@ -128,11 +138,14 @@ The lines name the backend chosen and why (``jit: backend llvm ...``, or
 interpreted ...`` with the reason: no object, a stale object, the
 ``interpret`` policy), the hot compiles (``jit hot: compiled ...`` with the
 functions and the time; ``cxx hot: module ... compiled ... swapped``), the
-product cache's hits and misses, and the runs of the front end.
+product cache's hits and misses, and the runs of the front end. LLVM also
+reports ``jit cache: module M, miss``, ``stored N functions`` and
+``linked N functions``; linked functions contribute to ``--stats``'s
+``swapped`` count.
 ``SPRITE_LOG_FILE`` sends the records to a file instead; child processes
 write to the same file with their process id.
 
-Two more variables serve the JIT itself: ``SPRITE_JIT_THRESHOLD`` sets the
+Other variables serve the JIT itself: ``SPRITE_JIT_THRESHOLD`` sets the
 number of calls that makes a function hot, and ``SPRITE_JIT_DUMP`` names a
 directory into which the LLVM backend writes the optimized IR and the
 assembly of each batch.

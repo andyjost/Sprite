@@ -1,4 +1,8 @@
 #pragma once
+// Compare runtime function addresses only inside the runtime library: a
+// Windows DLL consumer can see its own import thunk instead of the function.
+// Consumers must ask a runtime predicate; stores of these addresses also
+// belong in the runtime library.
 // The data symbols of the runtime library that other objects read: the info
 // tables of the built-in types, the singletons, the allocation runs and the
 // caches of small values.  On Windows a DLL exports its functions through the

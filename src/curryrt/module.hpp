@@ -156,8 +156,7 @@ namespace curryrt
   // run time without a step, or with the trap already (then nothing
   // changes).  Throws std::invalid_argument otherwise.
   void install_trap(InfoTable *);
-  inline bool is_trapped(InfoTable const * info)
-    { return info && info->step == &trap_step; }
+  bool is_trapped(InfoTable const * info);
   // The name of the loaded module that owns a table, or the empty string.  A
   // scan of the loaded modules, for messages.
   std::string owner_of(InfoTable const *);

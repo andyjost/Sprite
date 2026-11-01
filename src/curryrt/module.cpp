@@ -604,6 +604,11 @@ namespace curryrt
     return E_ERROR;
   }
 
+  bool is_trapped(InfoTable const * info)
+  {
+    return info && info->step == &trap_step;
+  }
+
   void install_trap(InfoTable * info)
   {
     if(!info)
