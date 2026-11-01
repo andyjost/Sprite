@@ -3,38 +3,38 @@
 Curry Syntax
 ============
 
-Curry's syntax is nearly identical to Haskell's.  This section provides a very
-brief introduction that may help the unfamiliar get started.  The purpose is to
-provide enough information to understand this document, plus the tests and
-examples that come with Sprite.
+Curry's syntax is close to Haskell's. This page gives enough of it to
+read the examples and tests of Sprite.
 
-Built-in Data Types
+Built-in data types
 -------------------
 
 Curry provides the following three fundamental types:
 
-- ``Int``: Integer literals are written as one expects, e.g., ``0`` or ``1``,
+- ``Int``: An integer literal is written ``0`` or ``1``,
   though negative integers are enclosed with parentheses, as in ``(-1)``.
-  Syntactically, negative integers are simply negated positive integers.
+  Syntactically, negative integers are negated positive integers.
 
 - ``Char``: Character literals are enclosed in single quotes, as in ``'a'`` or
   ``'A'``.  Unicode and other escape sequences are recognized, as in some other
   programming languages.  So, for example, ``'\0'`` is the character with
-  numeric code zero, usually referred to a NULL.
+  numeric code zero, usually called NUL.
 
 - ``Float``: Floating-point literals are written in the customary way; ``1.0``,
-  ``1.`` or ``3.14159265``, for example.
+  ``3.14159265``, for example. A float literal has digits on both sides
+  of the point.
 
 Many other built-in types are provided by Curry.  Among these is a type ``Bool``
 with constructors ``True`` and ``False``.  Curry also provides built-in lists
-and tuples.  Lists are writen in one of two ways.  A complete list may be
-witten enclosed in square brackets, as in ``[1, 2]``.  The empty list is
+and tuples.  Lists are written in one of two ways.  A complete list may be
+written enclosed in square brackets, as in ``[1,2]``.  The empty list is
 written ``[]``.  Alternatively, a nonempty list may be written in constructor
-notation, as ``h:t``, where `h` is the `head` element and `t` is another list
+notation, as ``h : t``, where ``h`` is the head and ``t`` is another list
 called the `tail`.  Tuples are written enclosed within parentheses, as in
-``('a', 1)``.  Curry has no 1-tuple.
+``('a', 1)``.  Curry has no 1-tuple. A ``String`` is a list of ``Char``: ``"ab"`` is
+``['a','b']``.
 
-User-Defined Data Types
+User-defined data types
 -----------------------
 
 Data types are defined with the ``data`` keyword.  For example, a type
@@ -42,13 +42,12 @@ representing a string of binary digits might be written as::
 
     data Binary = O Binary | I Binary | Null
 
-``Binary`` has three `constructors`, namely ``O``, ``I``, and ``Null``.  These
-represent the binary digits 0 and 1, and the end of the string, respectively.
+``Binary`` has three `constructors`, namely ``O``, ``I`` and ``Null``.  These
+represent the binary digits 0 and 1 and the end of the string, respectively.
 ``O`` and ``I`` each take one argument of type ``Binary``, whereas ``Null``
-takes none.  Note that the self-reference makes ``Binary`` a recursive type,
-and that a binary string of any length can be written.  To create an instance,
-expressions of type ``Binary`` expressions are juxtaposed.  A few instances of
-this type are as follows: ``Null``, ``I Null``, ``I (O Null)``.
+takes none. The self-reference makes ``Binary`` a recursive type, so a
+binary string of any length is a value. A value is built by applying
+constructors: ``Null``, ``I Null``, ``I (O Null)``.
 
 Data type definitions may contain type variables, in which case the type
 defined is a polytype.  The following definition of a list type illustrates::
@@ -58,75 +57,58 @@ defined is a polytype.  The following definition of a list type illustrates::
 Constructor ``Cons`` takes two arguments, an element of type ``a`` and a tail
 of type ``List a``.  ``Nil`` terminates the list.  Like ``Binary``, ``List`` is
 a recursive type and a list of any length can be defined.  Unlike ``Binary``,
-the free type parameter allows one to build a list over any type.  A
-monomorphic (i.e., concrete) list is formed by substituting ``a`` with a
-monomorphic type.  For instance, ``List Int`` describes a list of integers,
+the type variable allows a list to hold values of any type.  A
+monomorphic list is formed by substituting ``a`` with a
+monomorphic type.  For instance, ``List Int`` describes a list of Int,
 which is monomorphic.
 
-Defined Operations
+Defined operations
 ------------------
 
-User-defined operations are written using the `=` symbol.  For example::
-
-    f = 42
-
-``f`` evaluates to the integer ``42``.  For simplicity in this primer, we can
-refer to defined operations as functions without losing much precision.
-
-Functions are often annotated with their type.  The type annotation for ``f`` can
-be written as follows::
+This primer calls defined operations functions. A function definition
+uses ``=``. A type signature states its type::
 
     f :: Int
+    f = 42
 
-This says that ``f`` evaluates to type ``Int``.
-
-Function arguments are written to the left of the `=` symbol.  Below, ``succ``
-evaluates to the integer successor of a number, ``n``::
-
-    succ n = n + 1
-
-The type annotation of this function can be written as::
+Function arguments stand to the left of ``=``. ``succ`` takes an Int and
+returns an Int::
 
     succ :: Int -> Int
+    succ n = n + 1
 
-This means ``succ`` takes an ``Int`` and returns an ``Int``.
-
-Rule Guards
+Rule guards
 ...........
 
 Functions may be made conditional by one or more Boolean expressions called
 `guards`.  Guards are separated from the left-hand side of the definition by a
-vertical bar, `|`.  The use of guards makes is possible to define functions in
+vertical bar, `|`.  The use of guards makes it possible to define functions in
 piecewise fashion.  A function for calculating the absolute value of a number,
 for instance, may be defined as follows::
 
-    abs n | n<0  = -n
+    abs :: Int -> Int
+    abs n | n < 0  = -n
           | True = n
 
-The guard expressions, ``n<0`` and ``True`` are evaluated sequentially from top
+The guard expressions, ``n < 0`` and ``True`` are evaluated sequentially from top
 to bottom and when one evaluates to true the corresponding rule is fired.
 
 
-Pattern Matching
+Pattern matching
 ................
 
-So far, each function argument has been a variable.  More generally, the
-arguments in a function definition are patterns.  A pattern is an expression
-involving variables and/or constructors.  By using multiple patterns, a
-function can be written as a set rules.  When evaluating such a function, the
-patterns are compared with the actual argument provided to determine which rule
-to fire.  (For now, we will assume that only one rule ever matches, though this
-is a simplification.)
+A pattern is an expression of variables and constructors. A function
+with several rules has a pattern per rule and its argument selects the
+matching rules (:ref:`CurryPrimer/Semantics:Overlapping rules`). The
+function ``isNull`` tells whether a ``Binary`` has any digit::
 
-To illustrate, we can write write a function ``isNull`` that indicates whether
-a ``Binary`` argument has any digits at all::
-
+    isNull :: Binary -> Bool
     isNull Null  = True
     isNull (I _) = False
     isNull (O _) = False
 
-.. note::
-   ``_`` is a placeholder for an anonymous variable.
+The pattern ``_`` is an anonymous variable: it matches anything and binds
+nothing.
 
 When ``isNull`` is called, the ``Binary`` argument is inspected and only the
 matching rule is fired.  Thus, ``isNull Null`` evaluates to ``True``, whereas
@@ -150,77 +132,49 @@ containing a pair with the supplied key.  When this rule matches, ``find``
 evaluates to the corresponding value; with two pairs under the key, it has
 two values::
 
-    find "b" [("a", 1), ("b", 2), ("c", 3)]   -- 2
-    find "b" [("a", 1), ("b", 2), ("b", 3)]   -- 2, 3
+    find "b" [("a",1),("b",2),("c",3)]   -- 2
+    find "b" [("a",1),("b",2),("b",3)]   -- 2, 3
 
 The constraint ``Data a`` is required: the match unifies the pattern with
-the argument, and the Curry front end rejects the signature without it.
+the argument and the Curry front end rejects the signature without it.
 
-.. note::
-   The variables that a functional pattern binds stay in the result.  A
-   rule such as ``source (stem ++ ".o") = stem ++ ".c"`` returns a list of
-   narrowed variables, and every later use of that name resolves them
-   again: a binding is private to one alternative of the search, so the
-   runtime copies the spine of the evaluation from its root to the variable
-   and restarts.  The cost is paid at every comparison of the name and grows
-   with the depth of the context.  Evaluating the result to normal form with
-   ``$##`` does not remove it: the normal form lives in the private copy,
-   and the next reader of the shared name starts over.  To get plain data,
-   read the result through a set function::
+What the match does is on :doc:`Semantics`; :doc:`/Status` describes
+the cost of using values that a functional pattern builds.
 
-       source :: String -> String
-       source (stem ++ ".o") = stem ++ ".c"
-
-       sourceOf :: String -> String
-       sourceOf t = case sortValues (set1 source t) of [s] -> s
-
-   The capsule of the set function resolves the variables once, and its
-   values leave it as plain data.  One name compared 200 times took 219524
-   rewrite steps through ``source``, 177745 with ``$##`` on the result,
-   and 12102 through ``sourceOf`` on the C++ backend (2026-10-30); the forks of the
-   first two grew with the comparisons and those of the third stayed at
-   the match (``tests/unit_funcpat_narrowed.py``).  The build system of
-   example 24 reads its rules this way.
-
-
-Other Constructs
+Other constructs
 ----------------
 
-Curry inherts other syntactic constructs from Haskell.  A few of these are
-discussed below (though the list is by no means exhaustive):
+Curry inherits ``let``, ``case``, ``where`` and if-then-else from Haskell.
 
 ``let`` expressions
 ...................
 
-`let` expressions introduce and bind local variables.
+A ``let`` expression introduces and binds local variables::
 
-Example::
-
-    poly n = let a=n+1 in a*a
+    poly :: Int -> Int
+    poly n = let a = n + 1 in a * a
 
 The above defines a function ``poly`` that evaluates to the polynomial expression
-``(n+1) * (n+1)``.  ``a`` is a local variable.
+``(n + 1) * (n + 1)``.  ``a`` is a local variable.
 
-Multiple bindings are permitted, as in::
+Several bindings are separated by semicolons or written one per line::
 
-    poly' n = let a=(n+1), b=(n-1) in a*b
+    poly' :: Int -> Int
+    poly' n = let a = n + 1; b = n - 1 in a * b
 
 ``case`` expressions
 .....................
 
-A `case` expression performs pattern matching in an expression context.  For
-example, another way to write ``isNull`` is as follows:
+A ``case`` expression performs pattern matching inside an expression.
+Another way to write ``isNull`` is::
 
-Example::
-
+    isNull'' :: Binary -> Bool
     isNull'' binary = case binary of
-        (O _) -> False
-        (I _) -> False
+        O _ -> False
+        I _ -> False
         Null  -> True
 
-.. note::
-   Single quotes may appear at the end of an identifier.  This is often used to
-   suggest multiple versions of an entity.
+A prime at the end of a name, as in ``isNull''``, marks a variant.
 
 ``where`` clauses
 .................
@@ -228,28 +182,28 @@ Example::
 A block of local definitions can be introduced by the ``where`` keyword.  The
 definitions are visible only to the enclosing function.
 
-Example:
+The following function returns every other element of a list. Its
+auxiliary function, ``skip``, is defined in a ``where`` clause::
 
-The following code block defines a function to return every other element of a
-list.  An auxiliary function, ``skip``, is defined in a ``where`` clause::
-
+    everyOther :: [a] -> [a]
     everyOther [] = []
-    everyOther (h:t) = h:everyOther (skip t)
+    everyOther (h:t) = h : everyOther (skip t)
         where skip [] = []
               skip (h':t') = t'
 
-If-Then-Else expressions
+If-then-else expressions
 ........................
 
 This construct is syntactic sugar for a pattern match over a Boolean
 expression.  ``abs``, for example, can be written as follows::
 
 
-    abs' n = if n<0 then (-n) else n
+    abs' :: Int -> Int
+    abs' n = if n < 0 then (-n) else n
 
-This could be written equivalently using a `case` expression as::
+The equivalent ``case`` expression is::
 
-    abs'' n = case n<0 of
+    abs'' :: Int -> Int
+    abs'' n = case n < 0 of
         True  -> (-n)
         False ->   n
-

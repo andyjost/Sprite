@@ -1,5 +1,3 @@
-.. highlight:: bash
-
 ===============
 Developer Setup
 ===============
@@ -7,11 +5,11 @@ Developer Setup
 This page sets up a machine for work on Sprite itself.  One script does the
 work: ``scripts/setup-dev-machine.sh``.  It puts every bulky product under
 one scratch prefix, builds the pinned toolchain, configures and stages
-Sprite, and runs a smoke test.  The script never runs ``sudo``.  When an apt
+Sprite and runs a smoke test.  The script never runs ``sudo``.  When an apt
 package is missing, it prints the apt command and stops.
 
-Quick start
-===========
+Run the script
+==============
 
 Clone the repository, print the plan, then run it::
 
@@ -22,10 +20,10 @@ Clone the repository, print the plan, then run it::
 
 The dry run prints every command and runs none.  The real run stops at the
 first problem.  Fix the cause, then run the same command again: a finished
-step is skipped, and CMake runs again only when its flags changed or
+step is skipped and CMake runs again only when its flags changed or
 ``--reconfigure`` asks for it.  The whole run takes under an hour on a
 current machine.  Most of that time goes to the PAKCS build, the conda
-solve, and the compilation of the Curry library for the C++ backend.
+solve and the compilation of the Curry library for the runtime.
 
 The default toolchain is PAKCS 3.10.0 with front end 3.1.0. To select
 PAKCS 3.4.1 with front end 2.0.0, using its pinned archive checksum::
@@ -33,26 +31,17 @@ PAKCS 3.4.1 with front end 2.0.0, using its pinned archive checksum::
     PAKCS_VERSION=3.4.1 scripts/setup-dev-machine.sh --prefix /path/to/scratch --dry-run
     PAKCS_VERSION=3.4.1 scripts/setup-dev-machine.sh --prefix /path/to/scratch
 
-Both pairs are supported. The standalone front-end wheels are 2.0.0.post6
-and 3.1.0.post2; this script uses the binary shipped by the selected PAKCS
-instead. CI runs the legacy Linux unit and functional shards as advisory
-``legacy-tools`` jobs.
-
-The source distribution also builds without a Curry front end or PAKCS:
-it ships every library module's current-pair ICurry, interfaces, import
-records and source receipts. CMake checks those receipts and builds the
-native library from the pins. Module images are derived during the build. Explicit
-``-DWITH_PAKCS= -DWITH_CURRY_FRONTEND= -DWITH_ICURRY=`` selects this route.
-New Curry text still needs the front end at run time; the setup script
-installs it and PAKCS for development and oracle tests. The legacy pair
-continues to compile the library from source with its front end.
+Both pairs are supported; see :doc:`Installation/SoftwareCompatibility`.
+The script uses the front end shipped by the selected PAKCS. A build
+without PAKCS or a front end uses the pinned library products; see
+:doc:`Installation/ManualInstallation`.
 
 The steps
 =========
 
 The script runs nine steps in this order.
 
-1. Machine.  Prints the OS, the cores, the memory, the swap, and the tools
+1. Machine.  Prints the OS, the cores, the memory, the swap and the tools
    it found.  ``--jobs auto`` stays ``auto``: ``make`` counts the
    processors when it starts, so no count of this machine enters
    ``CMakeCache.txt``.
@@ -91,40 +80,36 @@ The script runs nine steps in this order.
    the C++ runtime.  Then ``make overlay`` extracts the archived products of
    the test programs, after the stage so that they are newer than the
    installed library interfaces.
-8. Smoke test.  Runs one fast unit test file on the C++ backend under the
+8. Smoke test.  Runs one fast unit test file on the runtime under the
    address-space cap and the time limit of the test drivers.
-9. Next steps.  Prints the paths for the personal rules file and the runs
+9. Next steps.  Prints the paths to record and the runs
    to make next.
 
 With ``--icurry`` the script also installs ``icurry`` 3.3.0 through the
 Curry Package Manager, after step 3.  That is the optional second route
-from Curry to ICurry.  The step follows the CI script
-``.github/scripts/install-curry-toolchain.sh``.  It writes ``~/.cpmrc``
-only when the file is missing, with the CPM home under ``PREFIX/cpm``.
+from Curry to ICurry.  It writes ``~/.cpmrc``
+only when the file is missing, with the Curry Package Manager home under ``PREFIX/cpm``.
 
 The clean environment
 =====================
 
 A conda toolchain in the login shell exports ``CC``, ``CXX``, ``CFLAGS``,
-``CXXFLAGS``, ``CPPFLAGS``, and ``LDFLAGS``.  CMake honours those flags, so a build in that shell mixes two toolchains.  The
-script runs CMake, make, and the smoke test under ``env -i`` with five
+``CXXFLAGS``, ``CPPFLAGS`` and ``LDFLAGS``.  CMake honors those flags, so a build in that shell mixes two toolchains.  The
+script runs CMake, make and the smoke test under ``env -i`` with five
 variables: ``PATH=PREFIX/conda/env/bin:/usr/local/bin:/usr/bin:/bin``, ``HOME``,
-``LC_ALL=C.UTF-8``, ``TMPDIR``, and ``CCACHE_DIR=PREFIX/ccache``.  Use the
+``LC_ALL=C.UTF-8``, ``TMPDIR`` and ``CCACHE_DIR=PREFIX/ccache``.  Use the
 same command for every later build::
 
     env -i PATH=PREFIX/conda/env/bin:/usr/local/bin:/usr/bin:/bin HOME=$HOME LC_ALL=C.UTF-8 CCACHE_DIR=PREFIX/ccache make stage
 
-The runtime library, the bindings, the generated code and the C++ tests
-compile with ``-fno-strict-aliasing``: the node graph is read through the
-pointer union ``NodeU``, which the aliasing rules of C++ do not describe.
-``CXXFLAGS`` in the environment adds to the flags of the generated code
-and cannot remove it.
+``CXXFLAGS`` in the environment adds to the flags of the build and the
+generated code; it cannot remove one.
 
 ``CCACHE_DIR`` keeps the compiler cache under the prefix, not under
 ``HOME``.  With ``-DWITH_CCACHE=ccache`` the compiler of the
 installation runs ccache too, so every test and every program that
-compiles a module for the C++ backend reads the variable.  For a shell
-outside the clean environment, say once
+compiles a module for the runtime reads the variable.  For a shell
+outside the clean environment, run
 ``ccache --set-config cache_dir=PREFIX/ccache``.
 ``SPRITE_SETUP_CLEAN_PATH`` replaces the PATH of the clean environment.
 
@@ -140,7 +125,7 @@ Path                              Content
 ``PREFIX/conda/env``              the conda environment; ``bin/python`` is the
                                   Python of Sprite
 ``PREFIX/conda/pkgs``             the conda package cache
-``PREFIX/install``                the staged install, linked from the checkout
+``PREFIX/install``                the staged installation, linked from the checkout
 ``PREFIX/object-root``            the object tree, linked from the checkout
 ``PREFIX/cpm``                    the CPM home, with ``--icurry``
 ``PREFIX/ccache``                 the compiler cache (``CCACHE_DIR`` of the
@@ -179,7 +164,7 @@ Option               Meaning
 pinned versions.  A PAKCS version without a pinned hash gets its size and
 hash printed instead of a check.
 
-Every budget is a parameter: the job count, the memory cap, and the time
+Every budget is a parameter: the job count, the memory cap and the time
 limit.  The script detects the cores and the memory and prints them.  Do
 not copy a number from one machine to the next.
 
@@ -193,23 +178,23 @@ The last step prints the same list with the paths of the machine.
    after the prepare pass, so that the durations exclude it::
 
        cd tests
-       ./run_tests --prepare-only --backend cxx
-       ./run_tests -j 1 --backend cxx --update-manifest
+       ./run_tests --prepare-only
+       ./run_tests -j 1 --update-manifest
 
-   The durations and the peak memory of every test file must be measured
-   there, then committed in ``tests/manifest.json``.  See ``./run_tests -h``
+   This calibrates the runner for this machine. Commit ``tests/manifest.json``
+   only when maintaining the calibration machine.  See ``./run_tests -h``
    and section 10 of ``tests/README``.
 2. Record a baseline with the benchmark harness on a quiet machine.  The
-   records carry the deterministic columns steps, forks, and collections,
+   records carry the deterministic columns steps, forks and collections,
    which the compare command checks::
 
        cd tests
        ./run_benchmarks -b cxx --label baseline -o PREFIX/baseline.jsonl
        ./run_benchmarks counters PREFIX/baseline.jsonl
 
-3. Update the personal rules file with the new paths: the Python, the
-   PAKCS tree, icurry, the install and object trees, the conda package
-   cache, the compiler cache, and the clean environment.  Record the cores
+3. Record the new paths in your own notes: the Python, the
+   PAKCS tree, icurry, the installation and object trees, the conda package
+   cache, the compiler cache and the clean environment.  Record the cores
    and the memory.
 4. Copy ``tests/.cache/icurry.db`` from the old machine.  The cache is
    keyed by the source text, so the first suite run then compiles nothing.
@@ -217,8 +202,6 @@ The last step prints the same list with the paths of the machine.
 Notes
 =====
 
-- PAKCS, cypm, and icurry write under ``/tmp``.  A sandbox that mounts
-  ``/tmp`` read-only breaks them.
 - The Kiel mirrors of the Curry Package Manager do not answer.  The script
   writes a ``~/.cpmrc`` that names ``cpm.curry-lang.org``.
 - The script was written for Ubuntu 24.04.  On another distribution,
@@ -229,17 +212,72 @@ Notes
 Building by hand
 ================
 
-Put the environment's tools first on PATH; no absolute environment path is
-stored in source files. Keep the system C++ compiler when building in a
-conda environment::
+Without the script, build as :doc:`Installation/ConfiguringSprite` describes.
+In a conda environment keep the system compiler
+(``-DCMAKE_CXX_COMPILER=/usr/bin/g++``) and put the environment's tools
+first on PATH.
 
-    make check-prereqs
-    make stage CMAKE_ARGS="-DCMAKE_CXX_COMPILER=/usr/bin/g++ -DWITH_CCACHE=ccache"
-    make overlay
-    cd tests && ./run_tests --prepare-only --backend cxx && ./run_tests --backend cxx
+.. _starting-python:
 
-``cmake -S . -B object-root/cmake -G Ninja`` configures directly;
-``cmake --build object-root/cmake --parallel`` builds;
-``cmake --install object-root/cmake --prefix install`` stages.
-``make -C docs html`` builds the documentation after staging.
-See :doc:`Installation/ConfiguringSprite` for CMake options and wheels.
+The staged Python
+=================
+
+The staged installation has a ``python`` wrapper, ``install/bin/python``,
+that starts the Python of the build with ``curry`` importable. A pip
+installation uses the Python that installed the package. After
+``make stage``, start the wrapper::
+
+    install/bin/python
+
+A script whose first line is ``#!/path/to/sprite/bin/python`` uses the
+wrapper too.
+
+.. _sprite-invoke:
+
+``sprite-invoke`` runs a command in the installation's environment, where
+the runtime library is found. With a shell it shows that environment::
+
+    sprite-invoke $SHELL
+
+The wrapper uses ``sprite-invoke`` to start the Python selected during
+configuration, linked at ``install/tools/python``. The compiled bindings
+require that Python. To start it under gdb::
+
+    sprite-invoke gdb install/tools/python
+
+Building the documentation
+==========================
+
+The user guide of ``master`` is published at
+https://andyjost.github.io/Sprite/. To build the guide of your checkout,
+stage the package and run Sphinx through the wrapper::
+
+    make stage
+    python scripts/check-prereqs.py --doc
+    make -C docs html
+
+Install Sphinx and sphinx_rtd_theme in the build Python's environment when
+the diagnostic reports them missing. The wrapper regenerates the Reference
+from the installed package and command help from the staged tools, then
+builds HTML with warnings treated as errors. The output is
+``object-root/docs/html``. ``make docs`` builds HTML and then PDF (which also needs TeX).
+
+After removing Reference source pages, clear the old output first::
+
+    make -C docs clean
+    make -C docs html
+
+.. _spritelog-highlighting:
+
+Trace logs
+==========
+
+A runtime built with ``make stage TRACE=1`` writes computation traces.
+The trace log has its own Vim syntax, ``spritelog``. Copy
+``contrib/vim/syntax/spritelog.vim`` to ``~/.vim/syntax/`` and
+``contrib/vim/ftdetect/spritelog.vim`` to ``~/.vim/ftdetect/``. The second
+file holds one line:
+
+.. code-block:: vim
+
+    au BufRead,BufNewFile *spritelog set filetype=spritelog
