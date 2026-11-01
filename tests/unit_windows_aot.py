@@ -16,6 +16,33 @@ import unittest
 from unittest import mock
 
 
+class TestWindowsTestLibrary(cytest.TestCase):
+  def test_tty_import_without_posix_c_streams(self):
+    import ctypes
+    import runpy
+    from cytest import tty
+    with mock.patch.object(os, 'name', 'nt'), \
+         mock.patch.object(ctypes, 'CDLL', side_effect=AssertionError('POSIX libc')):
+      namespace = runpy.run_path(tty.__file__)
+    for name, args in [('close_stdin', ()), ('close_stdout', ()),
+                       ('redirect_stdin', (None,)), ('redirect_stdout', (None,))]:
+      with self.subTest(name=name), self.assertRaisesRegex(unittest.SkipTest, 'POSIX'):
+        with namespace[name](*args):
+          self.fail('unsupported C stream operation ran')
+
+  def test_windows_limit_prefix_ignores_timeout_exe(self):
+    with mock.patch.object(sys, 'platform', 'win32'), \
+         mock.patch.object(shutil, 'which', return_value='timeout.exe'):
+      self.assertEqual(cytest.limit_prefix(1024, 5), [])
+
+  def test_alarm_timeout_skips_without_sigalrm(self):
+    import types
+    with mock.patch.object(cytest, 'signal', types.SimpleNamespace()):
+      with self.assertRaisesRegex(unittest.SkipTest, 'SIGALRM'):
+        with cytest.timeout(1):
+          self.fail('unsupported alarm ran')
+
+
 class TestWindowsCommand(cytest.TestCase):
   def test_clang_cl_links_only_the_runtime(self):
     step = toolchain.Cpp2So(cytest.raw.interp())

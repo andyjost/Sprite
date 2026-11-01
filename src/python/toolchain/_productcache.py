@@ -23,8 +23,8 @@ the flavor and of the collector, so an entry serves one runtime.  The key
 is a digest of the facts that decide the generated code and the object (see
 ``product_key``): the
 module's name and its own texts (its Curry source, its ICurry file and its
-JSON, each one that exists; the JSON is the input of the code generator,
-and a new JSON from the same source, after a change to the ICurry reader or
+image, each one that exists; image summaries shape generated code,
+and a new image from the same source, after a change to the ICurry reader or
 to a pinned ICurry file, must miss), the sources of the modules it imports,
 and the facts the backend names (the format of the generated code, the
 sources of the code generator, the flags of the optimizer and the route
@@ -84,11 +84,11 @@ __all__ = [
 
 # The format of the key.  Raise it when the layout of an entry or the parts
 # of the key change; the entries of the old format are then never found.
-# Format 2 added the ICurry file and the JSON of the module to the chain.
+# Format 4 replaces the module JSON in the chain with its image.
 # Format 3 dropped the real paths of the installation and of the source
 # directory from the facts (the products name no path since format 13 of
 # the generated code), so two trees share an entry.
-KEY_FORMAT = 3
+KEY_FORMAT = 4
 
 # The suffixes of the files a store and a restore may hard-link.  The others
 # are copied: the emitter writes a generated file in place, and a link would
@@ -115,15 +115,15 @@ def enabled():
 def _module_texts(curryfile):
   '''
   The module's own texts, as pairs of a label and the bytes: its Curry
-  source, its ICurry file and its JSON, each one that exists, in that
-  order.  Empty when none of them exists.  The JSON is the input of the
-  code generator, so a JSON written again from the same source by another
+  source, its ICurry file and its image, each one that exists, in that
+  order. Empty when none of them exists. Images carry optimizer summaries,
+  so an image written again from the same source by another
   ICurry reader, or from a pinned ICurry file that was replaced, changes
   the key; the source alone would not see it.
   '''
   from . import _filenames
   candidates = [('curry', curryfile), ('icy', _filenames.icurryfilename(curryfile))]
-  candidates += [('json', name) for name in _filenames.jsonfilenames(curryfile)]
+  candidates += [('image', _filenames.replacesuffix(curryfile, '.img'))]
   texts = []
   for label, filename in candidates:
     try:
@@ -137,17 +137,21 @@ def _imports(curryfile):
   '''
   The names of the modules the module of ``curryfile`` imports: a scan of
   the source when it exists (``cache.SourceInfo``), else the imports of the
-  JSON beside the products; nothing when neither exists.
+  image beside the products; nothing when neither exists.
   '''
   from . import _filenames, _loadcurry
   if os.path.isfile(curryfile):
     return cache._sourceinfo(curryfile).imports
-  for jsonfile in _filenames.jsonfilenames(curryfile):
-    if os.path.isfile(jsonfile):
-      try:
-        return list(_loadcurry.loadjson(jsonfile).imports)
-      except Exception:
-        return []
+  imagefile = _filenames.replacesuffix(curryfile, '.img')
+  if os.path.isfile(imagefile):
+    try:
+      from ..backends.cxx import image
+      return list(image.read(imagefile)['imports'])
+    except (OSError, ValueError):
+      return []
+  icyfile = _filenames.icurryfilename(curryfile)
+  if os.path.isfile(icyfile):
+    return list(_loadcurry.loadicurry(icyfile).imports)
   return []
 
 def import_closure(curryfile, currypath=()):
@@ -155,7 +159,7 @@ def import_closure(curryfile, currypath=()):
   The modules that the module of ``curryfile`` imports, transitively, as
   Curry source files in the Curry path and in the library of the
   installation, by name: ``cache.import_closure`` for a module that may
-  lack a source (its imports then come from its JSON).  The Prelude is
+  lack a source (its imports then come from its image).  The Prelude is
   implicit.  A module without a source in either place is left out.
   '''
   curryfile = os.path.abspath(curryfile)
@@ -200,7 +204,7 @@ def excluded(curryfile):
 def chain_digest(curryfile, currypath=()):
   '''
   A digest of the source chain of a module: its own texts (see
-  ``_module_texts``: the source, the ICurry file and the JSON, each one
+  ``_module_texts``: the source, the ICurry file and the image, each one
   that exists) and the name and the text of every module it imports,
   transitively, that has a source in the Curry path (``import_closure``;
   the Prelude is implicit).  None when the module has no text.  The
@@ -375,7 +379,7 @@ def _order(directory, files):
   '''
   Sets the modification times of ``files``, in order, later than now and
   than every other file of the directory that shares a stem with the first
-  of them (the JSON and the ICurry of the module), one millisecond apart.
+  of them (the image and the ICurry of the module), one millisecond apart.
   '''
   stem = os.path.basename(files[0]).split('.')[0]
   latest = time.time_ns()

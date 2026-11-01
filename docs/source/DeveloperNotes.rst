@@ -627,7 +627,7 @@ https://github.com/libtom/libtommath and its license is in
 ``extern/libtommath/LICENSE``.
 
 Integer literals beyond the inline range are stored as decimal strings in
-ICurry JSON and constructed when the module loads. The compiler and the
+image constants and constructed when the module loads. The compiler and the
 ICurry interpreter use the same canonical runtime factory. Python values
 use decimal conversion at the boundary to preserve every digit.
 
@@ -640,12 +640,13 @@ Format 3 (2026-10-31)
 A module image, ``M.img``, lives beside ``M.icy``. The translator writes it
 atomically after merging runtime built-ins and running the six optimizer
 passes. ICurry text and its compatibility translation remain unchanged;
-JSON is still written for the tools which use it.
+No module JSON product is written or read. Tools recover bodies from ICurry
+text; inline-body and unfolding summaries still use the small JSON codec.
 
 The format is independent of pointer size and native byte order. Integers
 are little-endian; strings are UTF-8 with a 32-bit byte count. The prefix
 contains an eight-byte magic, a 32-bit format version and the length of a
-header. The header records the source SHA-256, route version, inline budget,
+header. The header records the ICurry-text SHA-256, route version, inline budget,
 and each direct import's image SHA-256. No field records a machine path.
 Sections contain imports and aliases, ordered data types and constructors,
 function declarations, bytecode and constants, and translation metadata.
@@ -699,12 +700,13 @@ functions of the image. Parent and child module names are bound separately.
 
 The symbol layer currently uses the same lightweight ``IModule.fromBOM``
 declarations as compiled objects; it does not reconstruct executable ICurry
-bodies. Unsupported library modules retain their existing JSON products.
+bodies. Unsupported library modules retain their ICurry and interfaces;
+unresolved external types or functions still prevent executable images.
 
 Generated C++ carries an ``INPUT`` record (source SHA-256, route and inline
 budget). The ABI stamp retains it in its import-provenance JSON. Both
 records are checked before pipeline-order selection, so translating a new
-image cannot make an old object current. A newer sibling JSON timestamp
+image cannot make an old object current. A newer sibling image timestamp
 does not invalidate an otherwise current object. Explicitly saved objects
 outside the product tree continue to load explicitly.
 
@@ -713,8 +715,8 @@ off new hot work and waits for any native compilation to leave the LLVM
 context before Python destroys that context. This matters when image
 loading makes short processes exit while a compile is still in flight.
 
-JSON remains a translation/tool product. Its ``.input`` sidecar holds the
-SHA-256 of the ICurry text it describes. The plan checks that receipt instead
-of comparing sibling times. A JSON-only input needs no receipt. Deriving
-JSON also refreshes its other compression form when that form exists, so
-inspection and saving an image-backed module cannot recover an older body.
+The image digest keys the compiled product cache and imported-body
+provenance. No module JSON or parsed-module cache remains. Read-only
+product directories and text modules use process-private images. A foreign
+inline budget also uses a private image. Inspection and saved C++ read the
+ICurry text and optimize it against image summaries.

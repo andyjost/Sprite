@@ -64,7 +64,7 @@ def mtimes(*filenames):
   return [os.stat(filename).st_mtime_ns for filename in filenames]
 
 def icurry_plan():
-  return plans.makeplan(None, plans.MAKE_ICURRY | plans.MAKE_JSON)
+  return plans.makeplan(cytest.raw.interp(), plans.MAKE_ICURRY | plans.MAKE_IMAGE)
 
 class PreRewriteCase(cytest.TestCase):
   '''The scratch directory, the cache off, and the pair of the old route.'''
@@ -189,7 +189,7 @@ class TestStaleness(PreRewriteCase):
     self.no_front_end()
     self.assertNotEqual(self.current(curryfile), curryfile)
     made = toolchain.makecurry(icurry_plan(), curryfile, [self.tmpdir], is_sourcefile=True)
-    self.assertTrue(made.endswith('.json'), made)
+    self.assertTrue(made.endswith('GuardA.img'), made)
     self.assertEqual(mtimes(fcy, icy), after)
     self.assertEqual(_curry2icurry.pairs_refreshed(), 1)
 

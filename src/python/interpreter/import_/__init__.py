@@ -51,7 +51,7 @@ def import_(interp, name, currypath=None, is_sourcefile=False):
     _findcurry.reject_library_shadow(modulename, name, interp)
   elif modulename in config.syslibs():
     path = curryname.makeCurryPath(interp.path if currypath is None else currypath)
-    plan = plans.makeplan(interp, plans.MAKE_ALL | plans.ZIP_JSON)
+    plan = plans.makeplan(interp, plans.MAKE_ALL)
     filename = next(_findcurry._modulefiles(plan, modulename, path), None)
     if filename is not None and not os.path.isdir(filename):
       _findcurry.reject_library_shadow(
@@ -112,7 +112,7 @@ class ImportEx(object):
   source file has.
   '''
   def __init__(self, interp, currypath):
-    self.plan = plans.makeplan(interp, plans.MAKE_ALL | plans.ZIP_JSON)
+    self.plan = plans.makeplan(interp, plans.MAKE_ALL)
     self.currypath = curryname.makeCurryPath(
         interp.path if currypath is None else currypath
       )
@@ -376,4 +376,3 @@ def _provisionalModule(interp, imodule):
     else:
       yield obj
     bind1.commit()
-

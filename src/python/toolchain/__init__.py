@@ -1,7 +1,7 @@
 '''
 Code for finding and converting Curry source.
 
-Contains functions for invoking the toolchain to build ICurry and ICurry-JSON
+Contains functions for invoking the toolchain to build ICurry and module image
 files.  The following file types are used:
 
 ::
@@ -13,23 +13,21 @@ files.  The following file types are used:
                                end writes FlatCurry; the translation to
                                ICurry is built in (flat2icurry).  The
                                icurry program is the alternative.
-  .json[.z]                    ICurry code in JSON format [compressed].
-  .py                          Curry compiled to Python.
+  .img                         Runtime module image.
   .cpp                         Curry compiled to C++.
   .so         C++ compiler     C++ Curry compiled to a shared object.
 '''
 
 from ._curry2icurry import curry2icurry
-from ._filenames import curryfilename, icurryfilename, jsonfilenames
+from ._filenames import curryfilename, icurryfilename
 from ._findcurry import currentfile
-from ._icurry2json import icurry2json
-from ._loadcurry import loadcurry, loadjson
+from ._loadcurry import loadcurry, loadicurry
 from ._makecurry import compile_seconds, makecurry
 from ._mergecurry import mergebuiltins, mergemodule, validatemodule
 from ._str2module import str2module
 
 __all__ = [
     'compile_seconds', 'currentfile', 'curry2icurry', 'curryfilename'
-  , 'icurry2json', 'icurryfilename', 'jsonfilenames', 'loadcurry', 'loadjson'
+  , 'icurryfilename', 'loadcurry', 'loadicurry'
   , 'makecurry', 'mergebuiltins', 'mergemodule'
   ]

@@ -1,19 +1,23 @@
 # Adapted from https://eli.thegreenplace.net/2015/redirecting-all-kinds-of-stdout-in-python/
 from contextlib import contextmanager
-import ctypes, io, os, sys, tempfile
+import ctypes, io, os, sys, tempfile, unittest
 
-libc = ctypes.CDLL(None)
-# glibc exports the C streams as stdin and stdout; the C library of macOS
-# as __stdinp and __stdoutp, for which stdin and stdout are macros there.
-_STDIN, _STDOUT = ('__stdinp', '__stdoutp') if sys.platform == 'darwin' \
-    else ('stdin', 'stdout')
-c_stdin = ctypes.c_void_p.in_dll(libc, _STDIN)
-c_stdout = ctypes.c_void_p.in_dll(libc, _STDOUT)
+libc = None
+if os.name != 'nt':
+  libc = ctypes.CDLL(None)
+  # glibc exports the C streams as stdin and stdout; the C library of macOS
+  # as __stdinp and __stdoutp, for which stdin and stdout are macros there.
+  _STDIN, _STDOUT = ('__stdinp', '__stdoutp') if sys.platform == 'darwin' \
+      else ('stdin', 'stdout')
+  c_stdin = ctypes.c_void_p.in_dll(libc, _STDIN)
+  c_stdout = ctypes.c_void_p.in_dll(libc, _STDOUT)
 
 CLOSE = object()
 
 @contextmanager
 def close_stdin():
+  if libc is None:
+    raise unittest.SkipTest('C stream redirection requires POSIX')
   original_stdin_fd = sys.stdin.fileno()
   saved_stdin_fd = os.dup(original_stdin_fd)
   try:
@@ -30,6 +34,8 @@ def close_stdin():
 
 @contextmanager
 def redirect_stdin(stream):
+  if libc is None:
+    raise unittest.SkipTest('C stream redirection requires POSIX')
   original_stdin_fd = sys.stdin.fileno()
 
   def _redirect_stdin(from_fd):
@@ -55,6 +61,8 @@ def redirect_stdin(stream):
 
 @contextmanager
 def close_stdout():
+  if libc is None:
+    raise unittest.SkipTest('C stream redirection requires POSIX')
   original_stdout_fd = sys.stdout.fileno()
   saved_stdout_fd = os.dup(original_stdout_fd)
   try:
@@ -71,6 +79,8 @@ def close_stdout():
 
 @contextmanager
 def redirect_stdout(stream):
+  if libc is None:
+    raise unittest.SkipTest('C stream redirection requires POSIX')
   original_stdout_fd = sys.stdout.fileno()
 
   def _redirect_stdout(to_fd):

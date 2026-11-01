@@ -73,7 +73,7 @@ class TestIssue168(cytest.TestCase):
       curry.reset(interpret='new')
       curry.import_('Data.List')
       source = pathlib.Path(work) / 'Data/List.curry'
-      product = pathlib.Path(_filenames.jsonfilenames(str(source))[1])
+      product = pathlib.Path(_filenames.replacesuffix(str(source), '.img'))
       product.parent.mkdir(parents=True)
       product.write_bytes(zlib.compress(b'{}'))
       curry.path.insert(0, work)

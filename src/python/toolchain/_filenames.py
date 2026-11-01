@@ -5,18 +5,36 @@ from .. import config
 import logging, os
 
 __all__ = [
-    'curryfilename', 'icurryfilename', 'installed_relpath', 'jsonfilenames'
+    'curryfilename', 'icurryfilename', 'installed_relpath'
   , 'replacesuffix'
   ]
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
-KNOWN_SUFFIXES = set(['.img', '.py', '.json', '.json.z', '.icy', '.icy.z', '.cpp', '.so', config.module_object_suffix()])
+KNOWN_SUFFIXES = set(['.img', '.py', '.icy', '.icy.z', '.cpp', '.so', config.module_object_suffix()])
+
+class ImageProduct(str):
+  """A private image path with its original translation input."""
+  def __new__(cls, path, icyfile):
+    result = super().__new__(cls, path)
+    result.icyfile = icyfile
+    return result
+
+
+def sourcefilename(filename):
+  """Associate a translation record with its source, including standalone ICurry."""
+  try:
+    return curryfilename(filename)
+  except ValueError:
+    return filename
+
 
 def curryfilename(filename):
   '''
-  Gets the Curry file associated with a JSON file or ICurry file.  If the input
+  Gets the Curry file associated with a module product.  If the input
   is a Curry file, it is returned.
   '''
+  if isinstance(filename, ImageProduct):
+    filename = filename.icyfile
   if filename.endswith('.z'):
     filename = filename[:-2]
   if filename.endswith('.curry'):
@@ -59,6 +77,8 @@ def installed_relpath(filename):
 
 def icurryfilename(filename):
   '''Gets the ICurry file name associated with a Curry file.'''
+  if isinstance(filename, ImageProduct):
+    return filename.icyfile
   if filename.endswith('.curry'):
     path,name = os.path.split(filename)
     return os.path.join(path, '.curry', SUBDIR, name[:-6]+'.icy')
@@ -68,20 +88,6 @@ def icurryfilename(filename):
         return filename[:-len(suffix)] + '.icy'
     else:
       raise ValueError('bad suffix for %s' % filename)
-
-def jsonfilenames(filename, suffixes=None):
-  '''Gets the JSON file name(s) associated with a Curry or ICY file.'''
-  if filename.endswith('.z'):
-    filename = filename[:-2]
-  if not filename.endswith('.icy'):
-    filename = icurryfilename(filename)
-  assert filename.endswith('.icy')
-  base = filename[:-4] + '.json'
-  return tuple(
-      name for name in [base, base + '.z']
-           if suffixes is None or
-              any(name.endswith(suffix) for suffix in suffixes)
-    )
 
 def replacesuffix(filename, suffix):
   icyname = icurryfilename(filename)

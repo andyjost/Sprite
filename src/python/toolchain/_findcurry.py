@@ -99,12 +99,12 @@ def currentfile(
   Finds a current prerequisite along the Curry build pipeline.
 
   The file returned is the newest among the Curry source file (suffix: .curry),
-  the ICurry file (suffix: .icy), the JSON file (suffix: .json or .json.z),
+  the ICurry file (suffix: .icy), the module image (suffix: .img),
   and the files of the backend (suffix: .cpp and .so), less the files
   that a step of the plan refuses (see ``Plan.prune_stale``) and the files
   made from them.  The C++ backend selects the last accepted stage in pipeline order.
   Generated C++ and objects carry source, route and budget receipts, so
-  a newer sibling JSON does not hide a current object. Other backends
+  a newer sibling image does not hide a current object. Other backends
   retain modification-time selection.
 
   Args:
@@ -126,10 +126,10 @@ def currentfile(
     ModuleLookupError: the module was not found.
 
   Returns:
-    The name of an ICurry-JSON file (suffix: .json), Curry source file (suffix:
+    The name of a module image file (suffix: .img), Curry source file (suffix:
     .curry), Python file (suffix: .py), C++ source (suffix: .cpp) or object
-    (suffix: .so), or directory.  The JSON name may have an additional .z
-    suffix.  The JSON file is returned if it is up-to-date, otherwise, the
+    (suffix: .so), or directory.  The image file is returned if it is
+    up-to-date, otherwise, the
     Curry file is returned if it exists.  If neither of those applies, the
     package directory name is returned, if it exists.
   '''
@@ -137,10 +137,10 @@ def currentfile(
   currypath = program_path(name, currypath, is_sourcefile)
   if not is_sourcefile:
     # If name is a module name, then search CURRYPATH for the source file or
-    # (possibly zipped) JSON and set it as the name.  source file and
-    # is_sourcefile=True.  It is acceptable to use a JSON file that has no
+    # (possibly zipped) image and set it as the name.  source file and
+    # is_sourcefile=True.  It is acceptable to use an image file that has no
     # corresponding source file.  This means a library could be installed as
-    # JSON only, without needing to install its source.
+    # images and ICurry records, without needing to install its Curry source.
     files = _modulefiles(plan, name, currypath)
     try:
       name = next(files)
@@ -183,7 +183,7 @@ def currentfile(
   # other runtime headers.  The age of the runtime library does not count.
   from . import plans
   if plan.interp is not None and plan.flags & plans.MAKE_TARGET_SOURCE \
-      and not source_changed:
+      and not source_changed and os.path.isfile(curryfile):
     # Refresh direct imports before judging their interfaces. Importing an
     # unchanged B must also see A's newly translated interface when A's
     # source changed but nobody has imported A yet.
@@ -229,4 +229,3 @@ def currentfile(
 def _fileNotFoundHint(name, **kwds):
   if os.path.exists(name + '.curry'):
     return 'Perhaps you meant "%s.curry"?' % name
-

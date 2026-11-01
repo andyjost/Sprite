@@ -1,5 +1,5 @@
 from .. import config
-from . import makecurry, loadjson
+from . import makecurry
 from ..objects import handle
 from ..toolchain import plans
 from ..utility import filesys

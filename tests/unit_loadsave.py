@@ -43,7 +43,7 @@ if curry.flags['jit_backend'] == 'cxx' and curry.flags['jit'] == 'hot':
   assert curryrt.icurry_is_interpreted(M.main.info)
 print([str(v) for v in curry.eval(M.main)])
 # The step reads the generated file under the product directory of the
-# source, where the import wrote the ICurry and the JSON of the module.
+# source, where the import wrote the ICurry and the image of the module.
 from curry import config
 from curry.backends.cxx import toolchain, tiered
 tiered.wait(interp=cytest.raw.interp())
@@ -190,7 +190,7 @@ print('exiting normally')
       env = dict(os.environ, CURRYPATH=directory)
       env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:off'
       cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
-          sys.executable, '-m', 'curry.tools.make', '--so', '-z', 'M'
+          sys.executable, '-m', 'curry.tools.make', '--so', 'M'
         ]
       proc = subprocess.run(
           cmd, cwd=directory, env=env, capture_output=True, text=True
@@ -308,7 +308,7 @@ print('values', [str(v) for v in curry.eval(M.main)])
     env = dict(os.environ, CURRYPATH=tmpdir)
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:off'
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
-        sys.executable, '-m', 'curry.tools.make', '--so', '-z'
+        sys.executable, '-m', 'curry.tools.make', '--so'
       , 'SaveFromObject'
       ]
     proc = subprocess.run(

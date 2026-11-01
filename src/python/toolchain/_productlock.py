@@ -52,7 +52,7 @@ if hasattr(os, 'register_at_fork'):
 def lockfile(filename):
   '''
   The lock file of the module of ``filename``, a file of its chain (the
-  source, the ICurry, the JSON, the generated file or the object):
+  source, the ICurry, the image, the generated file or the object):
   ``<Module>.lock`` in the product directory beside them.
   '''
   return _filenames.replacesuffix(filename, SUFFIX)

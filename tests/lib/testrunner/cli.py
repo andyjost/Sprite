@@ -4,7 +4,12 @@ budget, the prepare pass, the scheduler, the summary, the manifest update,
 and the exit status.
 '''
 
-import argparse, itertools, os, resource, shutil, sys
+try:
+  import resource
+except ImportError:
+  resource = None
+
+import argparse, itertools, os, shutil, sys
 from . import (
     BACKENDS, BACKSTOP, BACKSTOP_FACTOR, DEFAULT_CAP
   , DEFAULT_FAST_SECONDS, DEFAULT_JOBS, DEFAULT_MEM_FRACTION
@@ -268,6 +273,8 @@ def backstop_prefix(cap, setting=None):
     limit = int(setting) * 1024
   else:
     limit = max(BACKSTOP, BACKSTOP_FACTOR * (cap or 0))
+  if resource is None:
+    return []
   _, hard = resource.getrlimit(resource.RLIMIT_AS)
   if hard != resource.RLIM_INFINITY:
     limit = min(limit, hard)

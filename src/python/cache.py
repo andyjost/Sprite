@@ -1,5 +1,5 @@
 '''
-Implements a cache for Curry-to-ICurry and JSON-to-Python conversions.
+Implements a cache for Curry-to-ICurry conversions.
 
 This cache supplements the filesystem caching in .curry files so that
 interactive statements can also be cached.  This exists because the conversions
@@ -31,7 +31,7 @@ Environment Variables:
 from . import config
 from .utility import filesys, strings
 import glob, hashlib, logging, os, re, tempfile, time, uuid
-import pickle, threading
+import threading
 from .utility.locking import synchronized
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ __all__ = [
     'enabled', 'filename', 'icurry_cache_enabled', 'icurry_cache_key'
   , 'import_closure', 'interface_filename', 'is_program_error'
   , 'rename_in_message', 'rename_module', 'reset', 'route_version'
-  , 'write_file', 'Curry2ICurryCache', 'INTERFACE_SUFFIXES', 'ParsedJsonCache'
+  , 'write_file', 'Curry2ICurryCache', 'INTERFACE_SUFFIXES'
   ]
 
 try:
@@ -679,72 +679,3 @@ class Curry2ICurryCache(object):
         self.db.commit()
       except sqlite3.Error as err:
         logger.warning('cannot update the cache: %s', err)
-
-
-class ParsedJsonCache(object):
-  @staticmethod
-  def select(like=None):
-    db = _getdb()
-    cur = db.cursor()
-    cmd = 'SELECT jsonfile, timestamp, LENGTH(pickled) FROM parsedjson'
-    if like is None:
-      cur.execute(cmd)
-    else:
-      cmd += ' WHERE jsonfile LIKE ?'
-      cur.execute(cmd, (like,))
-    return cur.fetchall()
-
-  class Slot(object):
-    '''
-    Caches the parsing of ICurry-JSON into Python.  The pickled Python
-    representation is stored.
-    '''
-    def __init__(self, jsonfile):
-      self.db = _getdb()
-      self.icur = None
-      self.jsonfile = jsonfile
-      if self.db:
-        self.cur = self.db.cursor()
-        self.cur.execute(
-            '''
-            CREATE TABLE IF NOT EXISTS parsedjson(
-                jsonfile TEXT PRIMARY KEY, timestamp INTEGER, pickled BLOB
-              )
-            '''
-          )
-        self.db.commit()
-        self.cur.execute(
-            '''SELECT timestamp, pickled FROM parsedjson WHERE jsonfile=?'''
-          , (self.jsonfile,)
-          )
-        result = self.cur.fetchone()
-        if result:
-          ts, buf = result
-          st = os.stat(self.jsonfile)
-          if int(st.st_ctime) == ts:
-            if must_force_update(self.jsonfile):
-              logger.info('file %s is being forced to update', self.jsonfile)
-            else:
-              try:
-                self.icur = pickle.loads(bytes(buf))
-              except Exception:
-                logger.debug('cannot unpickle cached entry for %s; treating as a miss', self.jsonfile)
-                self.icur = None
-
-    def __bool__(self):
-      return self.icur is not None
-
-    def update(self, icur):
-      assert self.icur is None
-      if self.db:
-        pickled = pickle.dumps(icur, protocol=-1)
-        st = os.stat(self.jsonfile)
-        self.cur.execute(
-            '''
-            INSERT OR REPLACE INTO parsedjson(
-                jsonfile, timestamp, pickled
-              ) VALUES(?, ?, ?)
-            '''
-          , (self.jsonfile, int(st.st_ctime), sqlite3.Binary(pickled))
-          )
-        self.db.commit()

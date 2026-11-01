@@ -179,9 +179,9 @@ class TestValues(cytest.TestCase):
     is read as the front end wrote it: an import drops the bodies.
     '''
     plan = plans.makeplan(
-        None, plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON
+        None, plans.MAKE_ICURRY
       )
-    functions = toolchain.loadcurry(plan, 'CxxEmit', curry.path).functions
+    functions = toolchain.loadicurry(toolchain.makecurry(plan, 'CxxEmit', curry.path)).functions
     self.assertEqual(passthrough.plain_variables(functions['isPtr']), {1, 2})
     self.assertEqual(
         passthrough.plain_variables(functions['isPtr_CASE0']), {2}
@@ -191,8 +191,8 @@ class TestValues(cytest.TestCase):
 class TestHandBuilt(cytest.TestCase):
   '''
   A Variable assigned a node of each spelling, then scrutinized.  The module
-  is written as ICurry-JSON and imported by name, so it is compiled like a
-  module of the front end, and no front end runs.
+  is written as a synthetic ICurry description and imported by name, so it
+  is compiled like a module of the front end, and no front end runs.
   '''
   @classmethod
   def setUpClass(cls):
@@ -202,8 +202,7 @@ class TestHandBuilt(cytest.TestCase):
       )
     os.makedirs(subdir)
     text = icurry_json.dumps(hand_module())
-    with open(os.path.join(subdir, HAND + '.json.z'), 'wb') as stream:
-      stream.write(zlib.compress(text.encode('utf-8')))
+    cytest.write_module_image(os.path.join(subdir, HAND + '.img'), text)
 
   @classmethod
   def tearDownClass(cls):

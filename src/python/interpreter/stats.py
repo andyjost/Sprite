@@ -233,7 +233,7 @@ def stats(interp):
         The peak resident set size of this process, in bytes.
     ``compile``
         Seconds this process spent in the steps of the toolchain: the Curry
-        front end, the ICurry-JSON conversion, the code generator, and the
+        front end, the module image translation, the code generator, and the
         C++ compiler.  Zero when every file was current.
     ``gc_seconds``
         Seconds the node collector of the C++ backend spent in its

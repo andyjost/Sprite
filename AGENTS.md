@@ -189,15 +189,13 @@ reproducers pass.
 - `make stage` builds and stages a copy under `install/`. It also compiles
   the Curry library into the installation for the C++ runtime. The modules
   Sprite cannot compile are listed in `unsupported` in
-  `CMakeLists.txt`; they get their ICurry and JSON only.
-- Derived JSON carries a `.input` receipt naming its ICurry digest; the
-  two compression forms stay consistent when both exist.
+  `CMakeLists.txt`; they retain ICurry and interfaces; unresolved externals prevent executable images.
+- The module image records its ICurry digest, route, budget and import-image
+  digests. The runtime loads the image; tools read ICurry text for bodies.
 - The products under `curry/lib/**/.curry/sprite-pakcs-3.10.0/` are
-  committed artifacts of the pinned current pair; `.json.z` stays derived.
-  `make` derives the JSON and keeps valid pins unless you set
-  `SPRITE_REBUILD_ICY=1`. After a change to the ICurry
-  reader, regenerate the JSON: delete the `.json.z` files and run
-  `make stage`.
+  committed artifacts of the pinned current pair; module images stay derived.
+  `make` derives images and keeps valid pins unless you set
+  `SPRITE_REBUILD_ICY=1`. A changed ICurry input invalidates its image.
 - `make test` runs the full suite through `tests/run_tests`, which runs
   one process per test file under a memory watchdog (section 10 of
   `tests/README`). Useful forms: `./run_tests 'unit_*.py'` for the unit
@@ -252,10 +250,10 @@ reproducers pass.
   name source and import-image digests, the route and the inline budget.
   The C++ runtime reads the symbol records and attaches interpreter bytecode;
   The library images are products of the stage and ship in the wheel.
-  A read-only product directory falls back to JSON at import. Importers
+  A read-only product directory uses a private image at import. Importers
   rebuild stale library images privately; sprite-make may refresh them in
   a writable installation. Foreign inline budgets use private images.
-  JSON remains available to the translator and tools. See the section
+  ICurry text remains available to the translator and tools. See the section
   "The module image" in the developer notes.
 - The step that writes `M.icy` writes `M.fint` and `M.icurry` beside it, on
   a cache miss (copies of the front end's files) and on a hit (from the

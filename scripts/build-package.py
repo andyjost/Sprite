@@ -188,7 +188,7 @@ def main():
           # Package extraction can preserve older times, and .source may
           # still match: invalidate derivatives of changed pinned bytes.
           # Keep the published object until its replacement is ready.
-          for suffix in ('.json', '.json.z', '.cpp', object_suffix + '.abi'):
+          for suffix in ('.img', '.cpp', object_suffix + '.abi'):
             dest.with_suffix(suffix).unlink(missing_ok=True)
         copy(pinned, icy)
         for suffix in ('.icy.source', '.icy.imports'):
@@ -203,12 +203,13 @@ def main():
     elif rebuild:
       # A forced retranslation can change bytes without changing the source
       # digest. Remove derived products rather than trusting their stamps.
-      for suffix in ('.icy', '.json', '.json.z', '.cpp', object_suffix + '.abi'):
+      for suffix in ('.icy', '.img', '.cpp', object_suffix + '.abi'):
         dest.with_suffix(suffix).unlink(missing_ok=True)
       run(sys.executable, '-m', 'curry.tools.make', '--rewrite-flat', lib / rel,
           '-o', dest.with_suffix('.icy'))
   make = [sys.executable, '-m', 'curry.tools.make']
-  run(*make, '--json', '-zc', *modules)
+  supported = [m for m in modules if m not in unsupported]
+  run(*make, '--image', *supported)
   # Wheel installers need not preserve file times or extraction order.
   # These existing provenance sidecars identify unchanged shipped sources.
   for path in sources:
@@ -219,9 +220,9 @@ def main():
   supported = [m for m in modules if m not in unsupported]
   library_start = time.perf_counter()
   if args.cxx:
-    run(*make, '--so', '--jobs', args.jobs, '-zc', *supported)
+    run(*make, '--so', '--jobs', args.jobs, *supported)
   else:
-    # An explicitly compiler-free stage keeps ICurry, JSON and images.
+    # An explicitly compiler-free stage keeps ICurry and images.
     print('no compiler of generated code: the library is not compiled', flush=True)
   if args.wheel:
     # pip has no post-install prefix rewrite. Keep the digest and express
@@ -233,7 +234,7 @@ def main():
   library_seconds = time.perf_counter() - library_start
   (prefix / 'sysconfig/cxx_library_build_seconds').write_text('%.3f\n' % library_seconds)
   print('Curry library build: %.3f seconds' % library_seconds, flush=True)
-  expected = ['.json.z', '.img', object_suffix, object_suffix + '.abi'] if args.cxx else ['.json.z', '.img']
+  expected = ['.img', object_suffix, object_suffix + '.abi'] if args.cxx else ['.img']
   for path in sources:
     rel = path.relative_to(source / 'curry/lib')
     if '.'.join(rel.with_suffix('').parts) not in unsupported:

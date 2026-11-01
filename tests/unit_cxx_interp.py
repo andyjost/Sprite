@@ -16,7 +16,7 @@ from curry.backends.cxx import toolchain as cxx_toolchain
 from curry.backends.generic.eval import evaluator
 from curry.exceptions import CompileError, EvaluationError
 from curry.objects.handle import getHandle
-from curry.toolchain import _makecurry, _productcache, plans
+from curry.toolchain import _makecurry, _productcache, _system, plans
 from unittest import mock
 import contextlib, curry, gc, importlib, io, itertools, os, shutil, subprocess
 import sys
@@ -817,9 +817,9 @@ boom = error "boom"
   def icurry(self, name):
     '''The ICurry of the module ``name``, as the plan writes it: no object.'''
     plan = plans.makeplan(
-        None, plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON
+        None, plans.MAKE_ICURRY
       )
-    return toolchain.loadcurry(plan, name, self.currypath)
+    return toolchain.loadicurry(toolchain.makecurry(plan, name, self.currypath))
 
   def import_(self, name):
     '''Imports the module ``name`` from its ICurry object.'''
@@ -972,6 +972,26 @@ twice x = double (double x)
     self.assertTrue(os.path.isfile(sofile))
 
   @cytest.hardreset
+  def test_foreign_budget_keeps_existing_object(self):
+    '''A foreign image budget does not invalidate an accepted AOT object.'''
+    name = self.write()
+    M = curry.import_(name)
+    self.assertEqual(list(curry.eval(M.main)), [42])
+    cppfile = self.product(name, '.cpp')
+    with open(cppfile, 'rb') as stream:
+      before = stream.read()
+    M = None
+    gc.collect()
+    curry.reset(backend='cxx', interpret='off', inline_budget=0, jit='off')
+    curry.path.insert(0, self.tmpdir)
+    with mock.patch.object(cxx_toolchain.Cpp2So, '__call__',
+        side_effect=AssertionError('current object compiled again')):
+      M = curry.import_(name)
+      self.assertEqual(list(curry.eval(M.main)), [42])
+    with open(cppfile, 'rb') as stream:
+      self.assertEqual(stream.read(), before)
+
+  @cytest.hardreset
   def test_foreign_budget_compiles_into_the_process_directory(self):
     '''
     Under an inline budget other than the environment's, the translation of
@@ -1023,7 +1043,7 @@ twice x = double (double x)
   def object_of(self, name):
     '''Compiles the module ``name`` as the plan does.  Nothing is loaded.'''
     plan = plans.makeplan(
-        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL
       )
     sofile = _makecurry.makecurry(plan, name, self.currypath)
     self.assertEqual(os.path.realpath(sofile), os.path.realpath(self.product(name, config.module_object_suffix())))
@@ -1102,7 +1122,7 @@ other = 2
     '''
     The object the plan gives, after the import changed it in place (the
     merge, the passes), is the translation on disk; an object with another
-    body, or without a JSON beside its source, is not.
+    body, or without an image beside its source, is not.
     '''
     name = self.write()
     interp = cytest.raw.interp()
@@ -1115,7 +1135,7 @@ other = 2
     self.assertFalse(materialize.is_translation(interp, imodule))
     main.body = body
     self.assertTrue(materialize.is_translation(interp, imodule))
-    for suffix in '.json.z', '.json':
+    for suffix in ('.icy',):
       try:
         os.unlink(self.product(name, suffix))
       except FileNotFoundError:
@@ -1193,3 +1213,52 @@ other = 2
           EvaluationError, pattern, lambda: list(cytest.raw.values(M.main))
         )
       self.assertEqual(len(calls), 1)
+
+  @cytest.hardreset
+  def test_trapped_table_takes_the_image(self):
+    '''
+    The plan's import of an ICurry object under 'off' (the emitter's import,
+    which generates the C++) leaves the interpreter without the unlink of a
+    reset: a deletion from interp.modules, no Module::retire.  While an
+    object of that module is alive (it lives in a cycle with its
+    ModuleInfo, so until a cyclic collection), its runtime module stays
+    registered under the name with the trap steps of its tables.  An import
+    of the module under 'new' loads the image of its translation over those
+    tables (image.attach, load_image of the runtime).  The trap step is no
+    code (curryrt/module.hpp): the bytecode replaces it, as the
+    materializer replaces it on the JSON route, so the function runs
+    interpreted and no compiler runs.  The image kept the trap before, and
+    the first use compiled where the mode interprets; the ordinary build
+    hid it behind a cyclic collection, the free-threaded build did not
+    (unit_product_cache.test_interpret_new_does_not_restore).
+    '''
+    name = self.write()
+    plan = plans.makeplan(
+        cytest.raw.interp()
+      , plans.MAKE_ICURRY | plans.MAKE_IMAGE | plans.MAKE_TARGET_SOURCE
+      )
+    gc.disable()  # the module of the plan's import stays alive, as in a run without a collection
+    try:
+      toolchain.makecurry(plan, name, self.currypath)
+      old = materialize._PENDING[name].module()
+      self.assertIsNotNone(old)
+      self.assertNotIn(name, cytest.raw.interp().modules)
+      self.assertTrapped(old, 'double', 'main', 'boom')
+      info = old.main.info
+      os.unlink(self.product(name, '.cpp'))
+      curry.reset(**{'backend': 'cxx', 'interpret': 'new', 'jit': 'off'})
+      # ``old`` is alive: its runtime module keeps the trapped tables.
+      self.assertTrue(curryrt.is_trapped(info))
+      with mock.patch.object(
+          _system, 'pexec', side_effect=AssertionError('a compiler ran')
+        ):
+        M = curry.import_(name, path=self.currypath)
+        # The same table, with the bytecode of the image in place of the trap.
+        self.assertEqual(M.main.info.address, info.address)
+        self.assertFalse(curryrt.is_trapped(info))
+        self.assertTrue(info.has_step)
+        self.assertFalse(materialize.is_pending(M))
+        self.assertEqual(list(curry.eval(M.main)), [42])
+    finally:
+      gc.enable()
+    self.assertFalse(os.path.exists(self.product(name, '.so')))

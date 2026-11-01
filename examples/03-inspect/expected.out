@@ -9,5 +9,5 @@ Operator: Prelude.=:= Data a => a -> a -> Bool
 
 Internal: compiler products
 ICurry: Peano.icy
-JSON: Peano.json.z
+Image: Peano.img
 Generated code: /****** Peano.add ******/

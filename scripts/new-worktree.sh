@@ -15,12 +15,12 @@
 # .gitmodules, which needs the network and the proxy variables of the
 # shell.  Afterwards it copies the
 # products of the front end from the product directories of the test corpus
-# (the ICurry, the JSON and the interfaces), so the worktree does not run
+# (the ICurry and the interfaces), so the worktree does not run
 # the front end again.  The copies get the time of the copy, not the time
 # of the original (tar -m): the sources of the fresh checkout are newer
 # than the originals, and a copy with the old time would count as stale
-# and send every module through the front end again.  The JSON files are
-# touched after the copy, so each one is newer than its ICurry file.  The
+# and send every module through the front end again. Module images are
+# derived when needed. The
 # copy follows the stage for the reason the root Makefile gives at its
 # default goal: the front end compiles a module again when the interfaces
 # of the installed library are newer than its products.
@@ -88,6 +88,7 @@ make -C "$path" stage
 # The generated code of the runtime stays behind (see above).
 exclude=(
   --exclude='*.cpp' --exclude='*.so' --exclude='*.so.abi'
+  --exclude='*.json*'
   --exclude='*.py' --exclude='*.pyc' --exclude='__pycache__'
 )
 (
@@ -95,7 +96,6 @@ exclude=(
   find curry tests/data -type d -name .curry | while read -r dir; do
     mkdir -p "$path/$dir"
     tar -C "$dir" -cf - "${exclude[@]}" . | tar -C "$path/$dir" -xmf -
-    find "$path/$dir" -name '*.json.z' -exec touch {} +
   done
 )
 if [ "${SPRITE_WORKTREE_PREPARE:-}" = 1 ]; then

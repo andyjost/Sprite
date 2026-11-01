@@ -63,7 +63,7 @@ class TestDistribution(cytest.TestCase):
           self.assertIn(prefix + name, names)
         self.assertNotIn(prefix + 'CODEX-REPORT.md', names)
         self.assertFalse(any(n.startswith(prefix + 'curry/lib/')
-                             and n.endswith('.json.z') for n in names))
+                             and n.endswith('.img') for n in names))
         for source in (ROOT / 'curry/lib').rglob('*.curry'):
           if '.curry' in source.relative_to(ROOT / 'curry/lib').parts:
             continue

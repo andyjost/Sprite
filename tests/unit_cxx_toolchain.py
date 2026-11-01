@@ -5,11 +5,11 @@ The compile of a generated module spends most of its time on the runtime
 header, so the toolchain precompiles that header once (see
 curry.backends.cxx.toolchain.PrecompiledHeader).  These tests put the header
 under a temporary root through SPRITE_CXX_PCH_ROOT, so they touch nothing in
-the installation.  The modules come from hand-written ICurry-JSON, so no
+the installation.  The modules come from hand-written ICurry, so no
 Curry front end runs.
 
 The generated C++ carries a format stamp.  A cached file with another stamp,
-or none, is written again from the JSON file instead of being compiled
+or none, is written again from the module image instead of being compiled
 against a runtime it was not written for.
 
 Each compiled object carries an ABI stamp beside it: the digest of the
@@ -45,7 +45,7 @@ from curry.utility import curryname
 from curry.utility.binding import binding, del_
 from unittest import mock
 import contextlib, curry, gc, importlib, io, itertools, json, logging, os, re
-import shutil, subprocess, tempfile, time, types, unittest, zlib
+import shutil, subprocess, tempfile, time, types, unittest
 
 # A module with one goal that returns an integer.
 MODULE_JSON = (
@@ -58,7 +58,7 @@ MODULE_JSON = (
   )
 
 class ToolchainTestCase(cytest.TestCase):
-  '''A temporary source directory of hand-written ICurry-JSON modules.'''
+  '''A temporary source directory of hand-written ICurry modules.'''
   # The C++ runtime keeps one entry per module name, so every module compiled
   # in this process gets a new name.
   counter = itertools.count()
@@ -66,7 +66,7 @@ class ToolchainTestCase(cytest.TestCase):
   def setUp(self):
     super().setUp()
     # These tests drive the compile steps.  Under the default of the flag
-    # ``interpret`` (new) the plan of an import ends at the JSON and the
+    # ``interpret`` (new) the plan of an import ends at the image and the
     # module is interpreted, so the flag is off here; tearDown restores the
     # default.  A test that reloads with flags of its own passes the flag
     # as well.  The Prelude is imported now: a new interpreter loads it on
@@ -88,12 +88,11 @@ class ToolchainTestCase(cytest.TestCase):
     gc.collect()
     shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-  def write_json(self, value):
-    '''Writes the JSON of a module whose goal returns ``value``.  Returns its name.'''
+  def write_image(self, value):
+    '''Writes the image of a module whose goal returns ``value``.  Returns its name.'''
     name = 'ToolchainTest%d' % next(self.counter)
     text = MODULE_JSON % {'name': name, 'value': value}
-    with open(self.cached_file(name, '.json.z'), 'wb') as stream:
-      stream.write(zlib.compress(text.encode('utf-8')))
+    cytest.write_module_image(self.cached_file(name, '.img'), text)
     return name
 
   def cached_file(self, name, suffix):
@@ -116,7 +115,7 @@ class ToolchainTestCase(cytest.TestCase):
 
   def compile_module(self, value):
     '''Compiles a module whose goal returns ``value`` and checks the value.'''
-    module = self.import_module(self.write_json(value))
+    module = self.import_module(self.write_image(value))
     self.check_value(module, value)
     return module
 
@@ -142,12 +141,12 @@ class TestCompilerDiagnostics(ToolchainTestCase):
       self.assertIn(err.stderr.strip(), text)
 
     # Exercise the actual Cpp2So failure and sprite-make's error handler.
-    name = self.write_json(1)
+    name = self.write_image(1)
     with mock.patch.object(toolchain.Cpp2So, '_compileCommand', return_value=command), \
          binding(os.environ, 'CURRYPATH', self.srcdir):
       with contextlib.redirect_stderr(io.StringIO()) as output:
         with self.assertRaises(SystemExit) as cm:
-          make.main('sprite-make', ['--so', '-z', name])
+          make.main('sprite-make', ['--so', name])
     self.assertEqual(cm.exception.code, 1)
     self.assertIn(err.stdout.strip(), output.getvalue())
     self.assertIn(err.stderr.strip(), output.getvalue())
@@ -362,7 +361,7 @@ class TestFormatStamp(ToolchainTestCase):
   '''
   The emitter stamps every generated file with its format.  A cached file
   with another stamp, or none, is not compiled; the plan starts again from
-  the JSON file.  An audit finding: a cache written before the layout of the
+  the module image.  An audit finding: a cache written before the layout of the
   static data changed was compiled against the new runtime, which then read
   the data of a literal case out of bounds.
   '''
@@ -371,7 +370,7 @@ class TestFormatStamp(ToolchainTestCase):
   MODULE = '// MODULE: Fake\n'
 
   def write_cpp(self, name, lines):
-    '''Writes a cached .cpp file for ``name``, newer than its JSON file.'''
+    '''Writes a cached .cpp file for ``name``, newer than its module image.'''
     path = self.cached_file(name, '.cpp')
     with open(path, 'w') as stream:
       stream.write('// INPUT: ' + json.dumps(toolchain.input_record(
@@ -400,8 +399,8 @@ class TestFormatStamp(ToolchainTestCase):
     self.assertFalse(cpp2so.is_stale(path))
 
   def test_other_stamp_is_regenerated(self):
-    '''A file of another format is written again from the JSON file.'''
-    name = self.write_json(2)
+    '''A file of another format is written again from the module image.'''
+    name = self.write_image(2)
     path = self.write_cpp(
         name, [self.IMPORTS, self.stamp(compiler.FORMAT_VERSION + 1), self.STALE]
       )
@@ -414,7 +413,7 @@ class TestFormatStamp(ToolchainTestCase):
 
   def test_missing_stamp_is_regenerated(self):
     '''A file from before the stamp has format 1, and is written again.'''
-    name = self.write_json(3)
+    name = self.write_image(3)
     path = self.write_cpp(name, [self.IMPORTS, self.STALE])
     cpp2so = toolchain.Cpp2So(cytest.raw.interp())
     self.assertEqual(cpp2so.format_version(path), 1)
@@ -424,7 +423,7 @@ class TestFormatStamp(ToolchainTestCase):
 
   def test_current_stamp_is_compiled(self):
     '''A file with the current stamp is the prerequisite, as before.'''
-    name = self.write_json(4)
+    name = self.write_image(4)
     self.write_cpp(
         name
       , [self.IMPORTS, self.stamp(compiler.FORMAT_VERSION), self.MODULE, self.STALE]
@@ -444,16 +443,16 @@ class TestFormatStamp(ToolchainTestCase):
   def test_object_of_a_stale_file_is_dropped(self):
     '''
     The object built from a stale file goes with it, even when it is newer
-    than the runtime library.  The plan then starts from the JSON file.
+    than the runtime library.  The plan then starts from the module image.
     '''
     module = self.compile_module(5)
     name = module.__name__
-    plan = plans.makeplan(cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON)
+    plan = plans.makeplan(cytest.raw.interp(), plans.MAKE_ALL)
     prereq = _findcurry.currentfile(plan, name, [self.srcdir])
     self.assertEqual(prereq, self.cached_file(name, '.so'))
     self.write_cpp(name, [self.IMPORTS, self.stamp(1), self.STALE])
     prereq = _findcurry.currentfile(plan, name, [self.srcdir])
-    self.assertEqual(prereq, self.cached_file(name, '.json.z'))
+    self.assertEqual(prereq, self.cached_file(name, '.img'))
 
   def test_source_only_plan_refuses_a_stale_file(self):
     '''
@@ -462,19 +461,19 @@ class TestFormatStamp(ToolchainTestCase):
     written again, although no compile step is in the plan.  A current file
     is kept.
     '''
-    name = self.write_json(8)
+    name = self.write_image(8)
     path = self.write_cpp(name, [self.IMPORTS, self.stamp(1), self.STALE])
     plan = plans.makeplan(
         cytest.raw.interp()
-      , plans.MAKE_ICURRY | plans.MAKE_JSON | plans.MAKE_TARGET_SOURCE
-            | plans.ZIP_JSON
+      , plans.MAKE_ICURRY | plans.MAKE_IMAGE | plans.MAKE_TARGET_SOURCE
+
       )
     self.assertEqual(plan.suffixes[-1], '.cpp')
     self.assertTrue(plan.is_stale(path))
-    self.assertFalse(plan.is_stale(self.cached_file(name, '.json.z')))
+    self.assertFalse(plan.is_stale(self.cached_file(name, '.img')))
     self.assertEqual(
         _findcurry.currentfile(plan, name, [self.srcdir])
-      , self.cached_file(name, '.json.z')
+      , self.cached_file(name, '.img')
       )
     self.assertEqual(makecurry(plan, name, [self.srcdir]), path)
     self.assertFalse(plan.is_stale(path))
@@ -494,7 +493,7 @@ class TestFormatStamp(ToolchainTestCase):
     error instead.  Here the reader (toolchain.format_version, which both
     steps use) is made to misread every stamp.
     '''
-    name = self.write_json(6)
+    name = self.write_image(6)
     with mock.patch.object(
         toolchain, 'format_version'
       , lambda filename: compiler.FORMAT_VERSION + 1
@@ -583,7 +582,7 @@ class TestAbiStamp(ToolchainTestCase):
   def setUp(self):
     super().setUp()
     self.plan = plans.makeplan(
-        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL
       )
     self.cpp2so = toolchain.Cpp2So(cytest.raw.interp())
 
@@ -596,7 +595,7 @@ class TestAbiStamp(ToolchainTestCase):
     loading it, so that the object can be compiled again in this process.
     Returns the module name.
     '''
-    name = self.write_json(value)
+    name = self.write_image(value)
     sofile = makecurry(self.plan, name, [self.srcdir])
     self.assertEqual(sofile, self.cached_file(name, '.so'))
     return name
@@ -627,7 +626,7 @@ class TestAbiStamp(ToolchainTestCase):
     self.assertEqual(
         names, sorted(
             module.__name__ + suffix
-            for suffix in ['.json.z', '.img', '.cpp', '.lock', '.so', '.so.abi']
+            for suffix in ['.icy', '.img', '.cpp', '.lock', '.so', '.so.abi']
           )
       )
 
@@ -640,7 +639,7 @@ class TestAbiStamp(ToolchainTestCase):
     name = self.build(2)
     sofile = self.cached_file(name, '.so')
     old = os.path.getmtime(config.curryrt_lib()) - 100
-    for i, suffix in enumerate(['.json.z', '.cpp', '.so', '.so.abi']):
+    for i, suffix in enumerate(['.img', '.cpp', '.so', '.so.abi']):
       path = self.cached_file(name, suffix)
       os.utime(path, (old + i, old + i))
     self.assertLess(
@@ -1186,8 +1185,8 @@ def undefined_symbols(path):
       for line in proc.stdout.splitlines() if line.strip()
     )
 
-# The ICurry-JSON of a module with two public functions: ``goal`` returns the
-# integer ``value``, and ``uses`` calls ``callee`` with ``args`` (JSON
+# A synthetic ICurry description with two public functions: ``goal`` returns
+# the integer ``value``, and ``uses`` calls ``callee`` with ``args`` (JSON
 # expressions, comma-separated) and is never evaluated.  The call keeps a
 # symbol of the module of the callee in the object, so the object binds to
 # that module when it loads.  The linker records every import among the
@@ -1250,7 +1249,7 @@ class TestPortableObjects(ToolchainTestCase):
   def setUp(self):
     super().setUp()
     self.plan = plans.makeplan(
-        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL
       )
     self.cpp2so = toolchain.Cpp2So(cytest.raw.interp())
 
@@ -1268,8 +1267,7 @@ class TestPortableObjects(ToolchainTestCase):
       , 'callee': callee or name + '.uses'
       , 'args': ', '.join(INT_LITERAL % a for a in args)
       }
-    with open(self.cached_file(name, '.json.z'), 'wb') as stream:
-      stream.write(zlib.compress(text.encode('utf-8')))
+    cytest.write_module_image(self.cached_file(name, '.img'), text)
     return name
 
   def on_curry_path(self, directory):
@@ -1448,7 +1446,7 @@ class TestPortableObjects(ToolchainTestCase):
     shutil.copytree(self.srcdir, copy)
     subdir = os.path.join(copy, '.curry', config.intermediate_subdir())
     sofile = os.path.join(subdir, name + '.so')
-    for suffix in ['.json.z', '.cpp', '.so', '.so.abi']:
+    for suffix in ['.img', '.cpp', '.so', '.so.abi']:
       self.assertTrue(os.path.isfile(os.path.join(subdir, name + suffix)))
     # The rewrite of the manager.
     digest = self.cpp2so.digest()
@@ -1504,7 +1502,7 @@ class TestPortableObjects(ToolchainTestCase):
       , 'curry.reset()'
       , 'curry.path.insert(0, %r)' % self.srcdir
       # Without its object and its generated file the first module is
-      # interpreted from its JSON under new (with the file, new compiles
+      # interpreted from its image under new (with the file, new compiles
       # it again; section 4 of tests/README).
       , 'os.unlink(%r)' % self.cached_file(first, '.so')
       , 'os.unlink(%r)' % self.cpp2so.stampfile(self.cached_file(first, '.so'))
@@ -1717,7 +1715,7 @@ class TestFlavor(ToolchainTestCase):
   def setUp(self):
     super().setUp()
     self.plan = plans.makeplan(
-        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL
       )
     self.cpp2so = toolchain.Cpp2So(cytest.raw.interp())
 
@@ -1731,7 +1729,7 @@ class TestFlavor(ToolchainTestCase):
 
   def build(self, value):
     '''Builds the object of a module without loading it.  Returns its name.'''
-    name = self.write_json(value)
+    name = self.write_image(value)
     sofile = makecurry(self.plan, name, [self.srcdir])
     self.assertEqual(sofile, self.cached_file(name, '.so'))
     return name
@@ -1978,7 +1976,7 @@ class TestMissingCompiler(ToolchainTestCase):
   with an error that names the missing compiler.
   '''
   def test_compile_without_compiler(self):
-    name = self.write_json(12)
+    name = self.write_image(12)
     with mock.patch.object(config, 'cxx_tool', lambda cached=None: None):
       with self.assertRaises(exceptions.CompileError) as cm:
         self.import_module(name)

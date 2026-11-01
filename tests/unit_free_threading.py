@@ -30,9 +30,8 @@ def together(*functions):
 def json_module(directory, name, value=42):
   productdir = os.path.join(directory, '.curry', config.intermediate_subdir())
   os.makedirs(productdir, exist_ok=True)
-  path = os.path.join(productdir, name + '.json.z')
-  with open(path, 'wb') as stream:
-    stream.write(zlib.compress(cytest.json_module(name, value).encode()))
+  path = os.path.join(productdir, name + '.img')
+  cytest.write_module_image(path, cytest.json_module(name, value))
   return path
 '''
 
@@ -54,7 +53,7 @@ with tempfile.TemporaryDirectory() as directory:
   with open(filename, 'w') as stream:
     stream.write('module ThreadSurface where\\ninc :: Int -> Int\\ninc x = x + 1\\n')
   # Prepare only the frontend products; both threads materialize the module.
-  plan = plans.makeplan(flags=plans.MAKE_ICURRY | plans.MAKE_JSON)
+  plan = plans.makeplan(flags=plans.MAKE_ICURRY)
   curry.toolchain.makecurry(plan, filename, [directory], is_sourcefile=True)
   def work():
     module = curry.import_(pathlib.Path(filename))
@@ -147,9 +146,9 @@ with tempfile.TemporaryDirectory() as directory:
   filename = os.path.join(directory, 'ThreadTrap.curry')
   with open(filename, 'w') as stream:
     stream.write('module ThreadTrap where\\ngoal :: Int\\ngoal = 42\\n')
-  frontend = plans.makeplan(flags=plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON)
+  frontend = plans.makeplan(flags=plans.MAKE_ICURRY)
   jsonfile = curry.toolchain.makecurry(frontend, filename, [directory], is_sourcefile=True)
-  imodule = curry.toolchain.loadjson(jsonfile)
+  imodule = curry.toolchain.loadicurry(jsonfile)
   interp = cytest.raw.interp()
   module = interp.import_(imodule, currypath=[directory])
   info = getHandle(module).symbols['goal'].info
@@ -189,7 +188,7 @@ curry.reset(interpret='off')
 with tempfile.TemporaryDirectory() as directory:
   jsonfile = json_module(directory, 'ThreadRecompile')
   interp = cytest.raw.interp()
-  plan = plans.makeplan(interp, plans.MAKE_ALL | plans.ZIP_JSON)
+  plan = plans.makeplan(interp, plans.MAKE_ALL)
   sofile = curry.toolchain.makecurry(plan, 'ThreadRecompile', [directory])
   cppfile = sofile[:-3] + '.cpp'
   before = toolchain.Cpp2So.product_snapshot(sofile)

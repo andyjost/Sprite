@@ -28,7 +28,7 @@ run on swipl, and the C++ compiler and linker.  The watchdog allows a
 session more memory while one of them runs (see scheduler.Watchdog).
 '''
 
-import os, re, signal, subprocess, sys, time
+import os, re, signal, subprocess, sys, time, unittest
 from curry.utility import cpu_count
 
 __all__ = [
@@ -270,7 +270,7 @@ def session_rss(sid):
   '''The resident set of one session, in bytes.'''
   return scan_sessions([sid])[sid][0]
 
-def kill_session(sid, sig=signal.SIGKILL, rounds=20, pause=0.05, roots=()):
+def kill_session(sid, sig=getattr(signal, 'SIGKILL', None), rounds=20, pause=0.05, roots=()):
   '''
   Sends ``sig`` to every process of the session ``sid`` and to the process
   group of its leader, in rounds, until a scan finds no process of the
@@ -279,6 +279,8 @@ def kill_session(sid, sig=signal.SIGKILL, rounds=20, pause=0.05, roots=()):
   session seen before (see scan_sessions); every pid a round finds joins
   them.  Returns the pids that were signalled.
   '''
+  if os.name == 'nt':
+    raise unittest.SkipTest('session signalling requires POSIX')
   signalled = set()
   roots = set(roots)
   for _ in range(rounds):

@@ -314,13 +314,6 @@ def fwd_chain_target(arg):
     else:
       arg = after
 
-def getjsonfile(moduleobj):
-  '''Returns the file containing ICurry-JSON, if one exists, or None.'''
-  from . import toolchain
-  for filename in toolchain.jsonfilenames(moduleobj.__file__):
-    if os.path.exists(filename):
-      return filename
-
 def geticurryfile(moduleobj):
   '''Gets the ICurry file associated with a module.'''
   from . import toolchain
@@ -334,7 +327,7 @@ def geticurry(obj):
 
   A module loaded from its compiled code carries a bill of materials: an
   IModule whose functions have no body (``IModule.fromBOM``).  For such a
-  module, and for a function of it, the ICurry is read from the ICurry-JSON
+  module, and for a function of it, the ICurry is read from the ICurry text
   file beside the module, and the function is found there by name.  The
   file is read once per module object.  A module without the file gives
   the bill of materials.
@@ -365,7 +358,7 @@ def _is_placeholder(ifun):
 def _module_icurry(moduleobj):
   '''
   The ICurry of a module object.  A bill of materials is replaced by the
-  ICurry read from the ICurry-JSON file of the module, when there is one.
+  ICurry read from the ICurry text file of the module, when there is one.
   '''
   icy = getattr(moduleobj, '.icurry')
   if not isinstance(icy, icurry.IModule) or \
@@ -375,11 +368,11 @@ def _module_icurry(moduleobj):
   if complete is None:
     if getattr(moduleobj, '__file__', None) is None:
       return icy
-    jsonfile = getjsonfile(moduleobj)
-    if jsonfile is None:
+    icyfile = geticurryfile(moduleobj)
+    if icyfile is None:
       return icy
     from . import toolchain
-    complete = toolchain.loadjson(jsonfile)
+    complete = toolchain.loadicurry(icyfile)
     setattr(moduleobj, '.icurry.complete', complete)
   return complete
 
@@ -492,5 +485,3 @@ def types(moduleobj):
   from .objects.handle import getHandle
   h = getHandle(moduleobj)
   return h.types
-
-

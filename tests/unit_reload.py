@@ -253,8 +253,7 @@ class TestSwapAfterEdit(EditedSourceTestCase):
     '''
     An edit that changes no code, a comment or a touch, makes the child run
     the front end again, which writes the same ICurry.  The swap checks the
-    ICurry file, not the JSON the child writes in another spacing, so the
-    object is applied and the module runs compiled.
+    ICurry file, so the object is applied and the module runs compiled.
     '''
     from curry.backends.cxx import curryrtbindings as curryrt, tiered
     base = self.write_module(

@@ -45,8 +45,8 @@ source receipt that differs from its source is a configure error naming
 the module. The legacy pair, front end 2.0.0 with PAKCS 3.4.1, still
 requires its front end and compiles the library from source at stage time.
 
-Staging derives compressed ICurry-JSON (`.json.z`) from the pins and
-compiles every supported library module for the C++ runtime. JSON and
+Staging derives the module image (`.img`) from the pins and
+compiles every supported library module for the C++ runtime. Images and
 native objects are build outputs, not repository pins. The installed
 library runs without a front end; compiling new Curry text needs one.
 
@@ -54,7 +54,8 @@ Ten modules are left out of that compile (the `unsupported` list in
 `CMakeLists.txt`): `Curry.Compiler.Distribution`, `Data.IORef`, `Debug.Trace`,
 `System.CPUTime`, `System.Environment`, `System.IO`, `System.IO.Unsafe`,
 `Test.Prop`, `Test.Prop.Types`, and `Control.Search.SearchTree`.
-Their ICurry and JSON are installed, but their native primitives are absent.
+Their ICurry and interfaces are installed; absent native primitives prevent
+executable module images (`.img`).
 
 `Control.Search.SetFunctions` is Sprite's facade over its native capsules.
 It shares the canonical `Control.SetFunctions.Values a = Values [a]` type.
@@ -100,9 +101,9 @@ As with other source modules, an incremental stage keeps valid products.
 to ICurry: the front end plus Sprite's translation by default, or `icurry`
 with `SPRITE_CURRY2ICURRY=icurry`.
 
-After a change to the ICurry reader, rebuild the derived `.json.z` files
-as well. The JSON is derived from the ICurry, rather than translated by
-the upstream compiler.
+After a change to the ICurry reader, rebuild the module images (`.img`)
+as well. The module image is derived from the ICurry, rather than translated
+by the upstream compiler.
 
 Updating the library
 --------------------

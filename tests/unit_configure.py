@@ -53,7 +53,7 @@ class TestCMake(cytest.TestCase):
     facts = self.build / 'stage/sysconfig'
     # The eighteenth is jit_bitcode: the path of the bitcode of the JIT
     # helpers, or empty when the configure found no clang.
-    self.assertEqual(len(list(facts.iterdir())), 18)
+    self.assertEqual(len(list(facts.iterdir())), 17)
     self.assertTrue((facts / 'jit_bitcode').exists())
     for path in facts.iterdir():
       self.assertNotIn(str(self.build), path.read_text())
