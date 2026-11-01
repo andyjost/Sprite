@@ -64,6 +64,9 @@ requirements:
 {% endif %}
   run:
     - python >=3.11.4,<3.16
+    # The LLVM backend of the JIT; conda-forge has llvmlite for every
+    # platform, Intel macOS included, where PyPI has no wheel.
+    - llvmlite >=0.50
     # The front end writes FlatCurry; Sprite translates it to ICurry.  Its
     # own run dependency is gmp (libgmp), never a Sprite runtime dependency.
     # Sprite privately links the libtommath submodule. The ICurry oracle

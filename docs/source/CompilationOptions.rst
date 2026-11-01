@@ -103,8 +103,9 @@ What is installed decides
 
 The backends are optional.  What you install selects them:
 
-- ``pip install --pre 'curry[jit]'`` adds ``llvmlite`` and with it the
-  LLVM backend, on every platform that has a wheel for it.
+- ``pip install --pre curry`` brings ``llvmlite`` and with it the LLVM
+  backend, on every platform that has a wheel for it; the extra
+  ``curry[jit]`` of the earlier alphas is an alias.
 - A C++ compiler on the machine (g++, clang++ from Xcode or clang-cl of
   Visual Studio on Windows) adds the C++ compiler backend and compilation
   ahead of time.  A source build records its compiler at ``tools/cxx``; a

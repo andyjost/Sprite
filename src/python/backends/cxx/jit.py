@@ -20,7 +20,7 @@ def select(interp):
   if requested == 'auto':
     backend = 'llvm' if llvm is not None else 'cxx' if cxx else None
   if backend == 'llvm' and llvm is None:
-    raise FlagError('jit_backend:llvm needs llvmlite; pip install curry[jit]')
+    raise FlagError('jit_backend:llvm needs llvmlite; pip install llvmlite')
   if backend == 'cxx' and cxx is None:
     raise FlagError('jit_backend:cxx needs a C++ compiler; on Windows use clang-cl '
                     'of Visual Studio in a developer prompt initialized by vcvars64')
@@ -30,12 +30,12 @@ def select(interp):
       llvmjit._get()
     except llvmjit.Unavailable as exc:
       raise FlagError(
-          'jit_backend:llvm is unavailable: %s; pip install curry[jit] '
+          'jit_backend:llvm is unavailable: %s; pip install llvmlite '
           'and use an installation built with the clang JIT helpers' % exc
         ) from None
   interp._jit_backend = backend
   if backend is None:
-    reason = 'llvmlite and a C++ compiler are unavailable; pip install curry[jit] or install a C++ compiler'
+    reason = 'llvmlite and a C++ compiler are unavailable; pip install llvmlite or install a C++ compiler'
     if not _warned:
       _warned = True
       logger.warning('jit: no backend, interpreter only (%s)', reason)

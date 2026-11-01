@@ -26,6 +26,14 @@ def script(name):
   return module
 
 
+# The Requires-Dist lines of the wheels and the sdist, in order: the front
+# end, llvmlite for the LLVM backend (no wheel for Intel macOS), the alias
+# extra jit.
+REQUIREMENTS = ('curry-frontend>=3.1.0',
+                'llvmlite>=0.50; sys_platform != "darwin" or platform_machine != "x86_64"',
+                'llvmlite>=0.50; extra == "jit"')
+
+
 class TestDistribution(cytest.TestCase):
   def test_windows_wheel_rejects_transient_objects(self):
     repair = script('repair')
@@ -80,7 +88,10 @@ class TestDistribution(cytest.TestCase):
     self.assertIn('Development Status :: 3 - Alpha', project['classifiers'])
     self.assertTrue((ROOT / project['readme']).is_file())
     self.assertEqual(set(project['urls']), {'Homepage', 'Documentation', 'Source', 'Issues'})
-    self.assertEqual(project['dependencies'], ['curry-frontend>=3.1.0'])
+    self.assertEqual(project['dependencies'], [
+        'curry-frontend>=3.1.0',
+        "llvmlite>=0.50; sys_platform != 'darwin' or platform_machine != 'x86_64'"])
+    self.assertEqual(project['optional-dependencies'], {'jit': ['llvmlite>=0.50']})
     self.assertEqual(data['build-system']['requires'],
         ['scikit-build-core>=1.1', 'cmake>=3.24', 'ninja'])
     for name in project['license-files']:
@@ -114,9 +125,8 @@ class TestDistribution(cytest.TestCase):
         metadata = BytesParser().parsebytes(archive.extractfile(prefix + 'PKG-INFO').read())
         self.assertEqual(metadata['Author'], 'Andy Jost')
         self.assertIsNone(metadata['Author-email'])
-        # The extra jit (llvmlite) beside the front end the package needs.
-    self.assertEqual(metadata.get_all('Requires-Dist'),
-        ['curry-frontend>=3.1.0', 'llvmlite>=0.50; extra == "jit"'])
+        # The front end, llvmlite except on Intel macOS, and the alias extra jit.
+    self.assertEqual(metadata.get_all('Requires-Dist'), list(REQUIREMENTS))
     self.assertEqual(metadata.get_all('Provides-Extra'), ['jit'])
 
   def test_stage_without_frontend(self):
@@ -183,7 +193,7 @@ else:
       self.assertIn('no Curry front end found;', result.stdout)
       run(python, ROOT / 'scripts/wheels/smoke.py')
 
-  REQUIREMENTS = ('curry-frontend>=3.1.0', 'llvmlite>=0.50; extra == "jit"')
+  REQUIREMENTS = REQUIREMENTS
 
   def distributions(self, directory, requirements=REQUIREMENTS):
     '''A matrix fixture for testing the publication gate, without native code.'''
@@ -247,7 +257,7 @@ else:
         gate.check(directory, '0.9.0a3')
 
   def test_runtime_dependencies(self):
-    for requirements in [(), ('curry-frontend>=3.1.0', 'uv')]:
+    for requirements in [(), ('curry-frontend>=3.1.0', 'uv'), REQUIREMENTS[:2]]:
       with self.subTest(requirements=requirements):
         with tempfile.TemporaryDirectory() as directory:
           gate = self.distributions(directory, requirements=requirements)

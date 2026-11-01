@@ -290,7 +290,8 @@ reproducers pass.
   defaults to `auto`: LLVM when llvmlite imports, else the C++ compiler backend (`cxx`) when
   `config.cxx_tool` is available, else interpreter alone with one WARNING
   notice per process. Forced `llvm` and `cxx` error if unavailable;
-  install `curry[jit]` or a C++ compiler respectively (clang-cl of Visual
+  install llvmlite (a dependency of the wheels except on Intel macOS; `pip
+  install llvmlite` beside a source build) or a C++ compiler respectively (clang-cl of Visual
   Studio in a developer prompt on Windows). LLVM compiles functions in process using llvmlite 0.50 or
   newer (LLVM 22) and `lib/curryrt-helpers.bc`, built with clang through
   `WITH_CLANG`; every wheel carries it (the Linux wheel builds install

@@ -4,9 +4,10 @@ Installing and Running Without a C++ Compiler
 =============================================
 
 Sprite runs every Curry program without a C++ compiler. The C++ runtime
-interprets a module without a current object; ``pip install --pre
-'curry[jit]'`` adds LLVM compilation of hot functions in process. LLVM
-needs the installation's ``lib/curryrt-helpers.bc``, built with clang.
+interprets a module without a current object, and ``llvmlite``, a
+dependency of the package wherever it has a wheel, compiles hot functions
+in process through LLVM. LLVM needs the installation's
+``lib/curryrt-helpers.bc``, built with clang; every wheel carries it.
 :doc:`/CompilationOptions` describes the modes and flags. With neither
 llvmlite nor a compiler, the interpreter runs alone and logs one warning
 per process.

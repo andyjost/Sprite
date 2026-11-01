@@ -7,7 +7,7 @@ interpreter and on the JIT, over every kind of opcode: the cases on
 constructors and on literals of each kind (Int, big Int, Char, Float), the
 nondeterminism of ?, a recursive let, a partial application, a failure, a
 free variable and a string literal.  The file skips where the JIT is
-unavailable: without llvmlite (the extra curry[jit]), or without the
+unavailable: without llvmlite (a dependency of the wheels), or without the
 bitcode of the helpers that CMake builds when it finds clang.
 '''
 import cytest # from ./lib; must be first
