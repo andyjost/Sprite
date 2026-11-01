@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise shipped compiled code, and optionally a newly loaded Curry source."""
 import argparse
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -16,7 +17,10 @@ def main():
   import curry
   from curry.lib import Prelude
   from curry.backends.cxx.toolchain import Cpp2So
-  assert curry.flags['interpret'] == 'new', curry.flags
+  if 'SPRITE_INTERPRETER_FLAGS' not in os.environ:
+    # The default of every platform; the workflow runs this script again
+    # with interpret:off after it compiled the program.
+    assert curry.flags['interpret'] == 'new', curry.flags
   assert curry.config.cxx_compiler(), 'Missing build compiler record'
   prelude = Path(curry.config.prefix()) / 'curry/.curry' / curry.config.intermediate_subdir() / ('Prelude' + curry.config.module_object_suffix())
   assert prelude.is_file(), prelude
