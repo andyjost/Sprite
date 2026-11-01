@@ -2,13 +2,13 @@
 import cytest # from ./lib; must be first
 from curry import config
 from curry.toolchain import _filenames
-import pathlib, tempfile, unittest, zlib
+import os, pathlib, tempfile, unittest, zlib
 import curry
 
 
 class TestIssue168(cytest.TestCase):
   def test_prefix_module(self):
-    with tempfile.TemporaryDirectory() as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
       root = pathlib.Path(work)
       (root / 'A').mkdir()
       parentfile = root / 'A.curry'

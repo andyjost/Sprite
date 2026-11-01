@@ -139,6 +139,8 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
 print('ok')
 ''')
 
+  # Windows links the runtime import library without calling _sofilename.
+  @cytest.posix_only('native import preparation while linking dependency objects')
   def test_first_use_compiles_while_a_producer_prepares_native_imports(self):
     self.child('''
 curry.reset(interpret='off')

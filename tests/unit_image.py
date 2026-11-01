@@ -290,7 +290,7 @@ assert curry.eval(module.answer).one() == 42
           translated)
 
   def test_compiled_source_receipt_and_precedence(self):
-    with tempfile.TemporaryDirectory() as directory:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as directory:
       source = os.path.join(directory, 'ImagePrecedence.curry')
       def write(value):
         with open(source, 'w') as stream:

@@ -34,6 +34,7 @@ class TestFrontendLocale(cytest.TestCase):
     env['LANG'] = 'C'
     # Keep Python's startup locale coercion from masking the front-end fix.
     env['PYTHONCOERCECLOCALE'] = '0'
+    env['PYTHONIOENCODING'] = 'utf-8'
     code = ('import sys; sys.path.insert(0, %r); ' %
             os.path.dirname(os.path.dirname(curry.__file__))) + (
             'import os; assert not os.environ.get("LC_ALL"); '
