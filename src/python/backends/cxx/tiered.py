@@ -238,7 +238,8 @@ def _environment(interp, currypath=None):
   budget other than the one the environment names compiles a private copy
   of the source (see the module docstring and submit).
   '''
-  env = dict(os.environ)
+  from . import msvc
+  env = msvc.environment()
   env['SPRITE_INTERPRETER_FLAGS'] = \
       'backend:cxx,interpret:off,debug:%s,inline_budget:%d' % (
           'true' if interp.flags['debug'] else 'false'
@@ -510,8 +511,10 @@ def submit(interp, moduleobj, currypath, hot=False):
   cxx = config.cxx_tool()
   if cxx is None:
     from ...exceptions import CompileError
-    raise CompileError('jit_backend:cxx needs a C++ compiler; on Windows use '
-                       'clang-cl of Visual Studio in a developer prompt initialized by vcvars64')
+    raise CompileError('jit_backend:cxx needs a C++ compiler; on Windows use Visual Studio 2017 or '
+        'newer, or its Build Tools, with the workload "Desktop development with C++" '
+        'and the component "C++ Clang tools for Windows", or clang-cl on PATH. Sprite '
+        'finds it itself.')
   # The child compiles a private copy (the module docstring, "The
   # products"): nothing is written under the source while it runs.  The
   # digest below is still the one of the ICurry file beside the original:

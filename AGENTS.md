@@ -140,6 +140,9 @@ reproducers pass.
   WARNING level; `SPRITE_FRONTEND_WARNINGS=0` silences it, and the test
   runner, the test library, the benchmark harness and the run scripts of
   the examples whose rules overlap by design set it.
+- The Curry path adds local CPM project and installed-package source
+  directories after `CURRYPATH` and before the installation at import;
+  `SPRITE_CPM_PATH=0` disables discovery.
 - Primitives register by qualified Curry name through
   `Module::register_primitive` before module loading. The image writer and C++
   emitter share this registry. Standard C++ implements portable operations;
@@ -178,8 +181,9 @@ reproducers pass.
   environment of vcvars64; cl is experimental); the services of the
   operating system are behind `curryrt/platform.hpp`, the data symbols
   that other objects read carry `CURRYRT_DATA` (`curryrt/export.hpp`),
-  and generated code compiles to DLLs with clang-cl in a developer prompt
-  initialized by vcvars64. The library ships compiled in Windows wheels;
+  and generated code compiles to DLLs with clang-cl. Sprite finds Visual Studio
+  with vswhere and captures the developer environment of vcvars64; no
+  developer prompt is needed. The library ships compiled in Windows wheels;
   `interpret` defaults to `new` on every platform.
 - Sprite needs no GPU.
 - CMake honours `CC`, `CXX`, `CFLAGS`, `CXXFLAGS`
@@ -301,7 +305,8 @@ reproducers pass.
   `config.cxx_tool` is available, else interpreter alone with one INFO
   notice per process. Forced `llvm` and `cxx` error if unavailable;
   install the extra `"curry[jit]"` or a C++ compiler respectively (clang-cl of Visual
-  Studio in a developer prompt on Windows). LLVM compiles functions in process using llvmlite 0.50 or
+  Studio on Windows, found with vswhere and the developer environment of
+  vcvars64, so no developer prompt is needed). LLVM compiles functions in process using llvmlite 0.50 or
   newer (LLVM 22) and `lib/curryrt-helpers.bc`, built with clang through
   `WITH_CLANG`; every wheel carries it (the Linux wheel builds install
   clang in the manylinux image, and the distributions gate requires the
@@ -347,14 +352,20 @@ reproducers pass.
   the same step.
 - Keep commits free of machine-specific paths and environment details.
 
-The LLVM JIT envelope holds a list of independent per-function objects.
-Attachment reads only the index, checking key, size and mtime. A resolving
-step verifies and links one object on first call; eager mode resolves at
-load. Later hot batches append and link one object per function; cached
-functions are not re-optimized. The local JIT slot belongs to the image
-actually attached, including a private image for a foreign inline budget.
-A writer checks that the slot still holds that image before replacing
-another key. Only an unwritable attached-image directory uses
+The LLVM JIT envelope (SPRTJIT4) holds independent per-function objects,
+zlib-compressed separately, with short module-local step and constant
+symbols. Older format envelopes miss. Attachment reads only the index,
+checking key, size and mtime. A resolving step verifies the compressed
+bytes, decompresses and links one object on first call; eager mode resolves
+at load. Later hot batches append and link one object per function; cached
+functions are not re-optimized. Hot and eager callers release the JIT lock
+between optimizer batches of at most 32 functions and publish once per
+module. The pinned index descriptor closes after every object is read or
+dropped, or at image-generation detach; verified bytes remain available for
+publication. The local JIT slot belongs to the image actually attached,
+including a private image for a foreign inline budget. A writer checks that
+the slot still holds that image before replacing another key. Only an
+unwritable attached-image directory uses
 `SPRITE_JIT_CACHE/<Full.Name>/<key>.jit`, with one generation per module.
 `SPRITE_STAGE_JIT_CACHE=0` skips the library fill; CI enables it in one
 default C++ shard only.

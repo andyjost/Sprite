@@ -102,6 +102,10 @@ def load(path):
 
 modules = _session.Modules(_interpreter_)
 
+def cpm_path(root):
+  """Return source directories of a local CPM project and its packages."""
+  return _config.cpm_path(root)
+
 path = _interpreter_.path
 
 def reset(**flags):
@@ -201,6 +205,7 @@ __all__ = [
   , 'load'
   , 'modules'
   , 'path'
+  , 'cpm_path'
   , 'flags'
   , 'wait'
   , 'stats'

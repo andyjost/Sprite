@@ -32,7 +32,7 @@ function interpreted and logs the reason once.
 from ... import config
 from . import bytecode
 from . import curryrtbindings as curryrt
-import atexit, hashlib, json, logging, os, re, struct, tempfile, threading, time
+import atexit, hashlib, json, logging, os, re, struct, tempfile, threading, time, zlib
 
 __all__ = [
     'Unavailable', 'available', 'compile', 'enqueue', 'flush', 'start_hot_tier'
@@ -48,6 +48,7 @@ class Unavailable(Exception):
 T_CTOR = curryrt.T_CTOR
 
 _lock = threading.Lock()
+_group_lock = threading.Lock()
 _jit = None       # the JIT of the process, made at the first compile
 _reason = None    # why the JIT is unavailable, once known
 
@@ -90,12 +91,12 @@ def flush():
     return
   with _lock:
     pending, jit.pending = jit.pending, []
-    if pending:
-      start = time.perf_counter()
-      jit.compile_batch(pending)
-      name = pending[0][1].rsplit('.', 1)[0]
-      logger.info('jit eager: module %s, %d functions, %.1f ms',
-          name, len(pending), 1000 * (time.perf_counter() - start))
+  if pending:
+    start = time.perf_counter()
+    _compile_groups(jit, pending)
+    name = pending[0][1].rsplit('.', 1)[0]
+    logger.info('jit eager: module %s, %d functions, %.1f ms',
+        name, len(pending), 1000 * (time.perf_counter() - start))
   # The swaps the hot tier posted since the last evaluation.
   curryrt.icurry_apply_posted()
 
@@ -126,15 +127,17 @@ def _stop_hot_tier():
   # Wait for native compilation before Python destroys its LLVM context.
   global _hot_enabled
   _hot_enabled = False
-  with _lock:
-    pass
+  with _group_lock:
+    with _lock:
+      pass
 
 def _after_fork_in_child():
   # The threads of the parent do not exist in the child, and a lock that
   # one of them held at the fork would never open: the child starts with a
   # fresh lock and no hot thread, and the next start_hot_tier starts one.
-  global _lock, _hot_thread
+  global _lock, _group_lock, _hot_thread
   _lock = threading.Lock()
+  _group_lock = threading.Lock()
   _hot_thread = None
 
 if hasattr(os, "register_at_fork"):
@@ -150,25 +153,60 @@ def _hot_loop():
     if not hot:
       time.sleep(0.005)
       continue
-    with _lock:
+    try:
+      # These bindings read tables without acquiring the heap lock.
+      start = time.perf_counter()
+      _compile_groups(jit, [(info, jit.names.get(curryrt.icurry_address(info))
+          or curryrt.icurry_name(info)) for info in hot], post=True)
       if not _hot_enabled:
         continue
-      try:
-        # The names through a binding without the heap lock: an attribute
-        # of the table would wait for the evaluation to end.
-        start = time.perf_counter()
-        jit.compile_batch([(info, jit.names.get(curryrt.icurry_address(info))
-            or curryrt.icurry_name(info)) for info in hot], post=True)
-        if not _hot_enabled:
-          continue
-        logger.info('jit hot: compiled %s in %.1f ms',
-            ', '.join(curryrt.icurry_name(info) for info in hot),
-            1000 * (time.perf_counter() - start))
-        jit.hot += len(hot)
-      except Exception as exc:
-        jit.errors += 1
-        jit.last_error = '%s: %s' % (type(exc).__name__, exc)
-        logger.exception('The hot tier of the JIT failed; the functions stay interpreted')
+      logger.info('jit hot: compiled %s in %.1f ms',
+          ', '.join(curryrt.icurry_name(info) for info in hot),
+          1000 * (time.perf_counter() - start))
+      jit.hot += len(hot)
+    except Exception as exc:
+      jit.errors += 1
+      jit.last_error = '%s: %s' % (type(exc).__name__, exc)
+      logger.exception('The hot tier of the JIT failed; the functions stay interpreted')
+
+
+def _compile_groups(jit, items, post=False):
+  with _group_lock:
+    _compile_groups_locked(jit, items, post)
+
+def _compile_groups_locked(jit, items, post):
+  # Group and publish by image, but let a waiting resolver enter between
+  # optimizer batches. No binding here may acquire the heap under _lock.
+  with _lock:
+    groups = {}
+    for info, name in items:
+      context = jit.modules.get(curryrt.icurry_address(info))
+      groups.setdefault(id(context), (context, []))[1].append((info, name))
+    ordered = list(groups.values())
+    if post:
+      ordered.sort(key=lambda entry: sum(
+          len(curryrt.icurry_bytecode(info)['code']) for info, _ in entry[1]),
+          reverse=True)
+  for _, group in ordered:
+    dirty = set()
+    for offset in range(0, len(group), 32):
+      with _lock:
+        if post and not _hot_enabled:
+          for context in dirty:
+            if context.dirty:
+              context.store()
+          return
+        context = jit.compile_batch(group[offset:offset + 32], post=post, store=False)
+        if context is not None:
+          dirty.add(context)
+      # Give a resolver waiting for the GIL a chance to take the lock.
+      if offset + 32 < len(group):
+        time.sleep(0)
+    with _lock:
+      for context in dirty:
+        if context.dirty:
+          context.store()
+
 
 def statistics():
   '''The counts and the seconds of the JIT of this process.'''
@@ -281,28 +319,10 @@ class _JIT(object):
     '''
     if post and not _hot_enabled:
       return
-    # Bound the IR copied while extracting individual objects. Publish once
-    # per module even when eager loading spans several optimizer batches.
-    groups = {}
-    for info, name in items:
-      context = self.modules.get(curryrt.icurry_address(info))
-      groups.setdefault(id(context), (context, []))[1].append((info, name))
-    if len(groups) > 1 or len(items) > 32:
-      ordered = list(groups.values())
-      if post:
-        ordered.sort(key=lambda entry: sum(
-            len(curryrt.icurry_bytecode(info)['code']) for info, _ in entry[1]),
-            reverse=True)
-      for context, group in ordered:
-        previous = len(context.objects) if context else 0
-        for offset in range(0, len(group), 32):
-          self.compile_batch(group[offset:offset + 32], post=post, store=False)
-        if store and context is not None and len(context.objects) != previous:
-          context.store()
-      return
     if not items:
       return
-    context = next(iter(groups.values()))[0]
+    # Callers bound the optimizer batch to one image and at most 32 steps.
+    context = self.modules.get(curryrt.icurry_address(items[0][0]))
     swap = curryrt.icurry_post_step if post else curryrt.icurry_set_step
     uncached = []
     for info, name in items:
@@ -333,7 +353,7 @@ class _JIT(object):
         raise ValueError('%s is not an interpreted function' % name)
       if curryrt.icurry_is_jit(info):
         continue   # queued twice, or compiled by an earlier flush
-      symbol = batch.emit(name, bc)
+      symbol = batch.emit(name, bc, context.symbols[name] if context else None)
       costs[symbol] = len(bc['code'])
       symbols.append((info, name, symbol))
     if not symbols:
@@ -365,7 +385,12 @@ class _JIT(object):
       # the code (the spike).
       os.makedirs(dump, exist_ok=True)
       with open(os.path.join(dump, batch.name + '.ll'), 'w') as stream:
-        stream.write(str(llmod))
+        text = str(llmod)
+        import re
+        for _, name, symbol in symbols:
+          text = re.sub(r'(?m)^(define [^\n]*@"?' + re.escape(symbol) + r'"?\()',
+              lambda match: '; ' + name + '\n' + match.group(0), text)
+        stream.write(text)
       with open(os.path.join(dump, batch.name + '.s'), 'w') as stream:
         stream.write(self.machine.emit_assembly(llmod))
     if post:
@@ -400,12 +425,13 @@ class _JIT(object):
         self.trackers.append(tracker)
       else:
         context.objects.append((records, obj))
+        context.dirty = True
         self.generations.setdefault(context.key, []).append((tracker, records))
       if not curryrt.icurry_is_jit(info):
         swap(info, tracker[symbol])
         swapped += 1
     self.functions += swapped
-    if context is not None and store and swapped:
+    if context is not None and store and context.dirty:
       context.store()
     self.batches += 1
     end = time.perf_counter()
@@ -415,6 +441,8 @@ class _JIT(object):
       , batch.name, len(symbols), 1000 * (end - start), 1000 * (t_ir - start)
       , 1000 * (t_link - t_ir), 1000 * (t_opt - t_link), 1000 * (end - t_opt)
       )
+
+    return context
 
 
   def link_object(self, obj, records, addresses, name):
@@ -429,7 +457,7 @@ class _JIT(object):
 # A single envelope keeps the small index and the native object in one atomic
 # publication. No address or path is serialized. Objects are trusted local code,
 # like the generated shared objects beside them.
-_CACHE_MAGIC = b'SPRTJIT3'
+_CACHE_MAGIC = b'SPRTJIT4'
 _CACHE_PREFIX = struct.Struct('<8sI')
 
 
@@ -457,11 +485,22 @@ class _Object:
   def read(self):
     # POSIX only: persistence is disabled on Windows. The open descriptor
     # pins this generation even when another publisher replaces its path.
-    obj = os.pread(self.index.stream.fileno(), self.entry['size'], self.offset)
-    if (len(obj) != self.entry['size']
-        or hashlib.sha256(obj).hexdigest() != self.entry['digest']):
-      raise ValueError('corrupt JIT object')
-    return obj
+    if self.entry.get('_dropped'):
+      raise ValueError('dropped JIT object')
+    read = False
+    try:
+      obj = os.pread(self.index.stream.fileno(), self.entry['size'], self.offset)
+      if (len(obj) != self.entry['size']
+          or hashlib.sha256(obj).hexdigest() != self.entry['digest']):
+        raise ValueError('corrupt JIT object')
+      native = zlib.decompress(obj)
+      read = True
+      return native
+    except zlib.error as exc:
+      raise ValueError('corrupt compressed JIT object') from exc
+    finally:
+      self.index.release(self.entry, dropped=not read)
+
 
 
 def _object_bytes(obj):
@@ -473,6 +512,21 @@ class _IndexedObjects:
   def __init__(self, path, entries, stream):
     self.path, self.entries, self.stream = path, entries, stream
     self.extra = []
+    self.remaining = len(entries)
+    if not entries:
+      self.close()
+
+  def release(self, entry, dropped=True):
+    if not entry.get('_released'):
+      entry['_released'] = True
+      self.remaining -= 1
+      if dropped:
+        entry['_dropped'] = True
+      if not self.remaining:
+        self.close()
+
+  def close(self):
+    self.stream.close()
 
   def view(self, entry):
     return (entry['functions'],
@@ -522,7 +576,7 @@ def _resolve_cached(address):
   jit = _jit
   with _lock:
     context = jit.modules.get(address)
-    if context is None:
+    if context is None or curryrt.icurry_is_jit(context.items[jit.names[address]]):
       return 0
     name = jit.names[address]
     if name in context.failed:
@@ -542,7 +596,11 @@ class _CachedModule:
     self.path = path
     self.name = header['name']
     self.items = dict((name, info) for info, name in items)
+    # The same key means the same image and the same functions outside AOT
+    # objects, so these module-local ordinals stay unique across a merge.
+    self.symbols = {name: 's%x' % k for k, name in enumerate(sorted(self.items))}
     self.objects = []
+    self.dirty = False
     self.index = None
     self.cached = {}
     self.resolved = {}
@@ -565,6 +623,8 @@ class _CachedModule:
   def object_for(self, name):
     pair = self.cached[name]
     if isinstance(pair, dict):
+      if self.index is None:
+        raise ValueError('dropped JIT object')
       pair = self.index.view(pair)
       self.cached[name] = pair
     return pair
@@ -598,6 +658,14 @@ class _CachedModule:
       self.failed.add(name)
       logger.warning('jit cache: function %s stays interpreted: %s', name, exc)
       return 0
+
+  def release(self, name):
+    if self.index is not None and name in self.cached:
+      pair = self.cached[name]
+      if isinstance(pair, dict):
+        self.index.release(pair)
+      elif isinstance(pair[1], _Object):
+        self.index.release(pair[1].entry)
 
   def load(self, jit):
     # Reuse the index and linked code across resets. Unresolved objects
@@ -640,16 +708,21 @@ class _CachedModule:
     # again when it is hot, and the publication of the others goes ahead.
     objects = []
     for records, obj in latest.values():
+      if isinstance(obj, _Object) and obj.index.stream.closed:
+        continue
       try:
         objects.append((records, _object_bytes(obj)))
       except (OSError, ValueError) as exc:
         logger.debug('jit cache: module %s drops %s: %s', self.name, records[0][0], exc)
+    if self.index is not None:
+      self.index.close()
     self.objects = objects
     for records, obj in objects:
       name = records[0][0]
       if name in self.cached:
         self.cached[name] = (records, obj)
     self.index = None
+    self.dirty = False
     self.jit.object_generations[self.key] = self.objects
     self.jit.module_keys[self.name] = self.key
     for path in (self.local, self.private):
@@ -687,12 +760,13 @@ class _CachedModule:
             pass
           merged.update({records[0][0]: (records, obj) for records, obj in objects})
           objects = list(merged.values())
+          packed = [(records, zlib.compress(obj)) for records, obj in objects]
           entries = [dict(functions=records, size=len(obj),
-              digest=hashlib.sha256(obj).hexdigest()) for records, obj in objects]
+              digest=hashlib.sha256(obj).hexdigest()) for records, obj in packed]
           # Even seconds round-trip on FAT32 as well as whole-second filesystems.
           stamp = (time.time_ns() // 2000000000) * 2000000000
           index = dict(key=self.key, objects=entries, size=0, mtime_ns=stamp)
-          payload = b''.join(obj for _, obj in objects)
+          payload = b''.join(obj for _, obj in packed)
           while True:
             encoded = json.dumps(index, sort_keys=True, separators=(',', ':')).encode('ascii')
             size = _CACHE_PREFIX.size + len(encoded) + len(payload)
@@ -749,7 +823,9 @@ def attach_cache(path, header, items):
     if old is not None and old != key:
       for tracker, _ in jit.generations.pop(old, []):
         tracker.close()
-      jit.object_generations.pop(old, None)
+      detached = jit.object_generations.pop(old, None)
+      if isinstance(detached, _IndexedObjects):
+        detached.close()
     jit.module_keys[context.name] = key
   # Installing entries takes the heap lock. Never wait for the heap while
   # holding the JIT lock: an evaluation may be waiting in a resolver.
@@ -759,11 +835,7 @@ def attach_cache(path, header, items):
 
 
 def _constant_symbol(symbol, k):
-  return '%s_const_%d' % (symbol, k)
-
-
-def _identifier(name):
-  return ''.join(c if c.isalnum() else '_' for c in name)
+  return '%s_%x' % (symbol, k)
 
 
 # The helpers of src/curryrt/jit/helpers.cpp: name, result, arguments.
@@ -816,9 +888,9 @@ class _Batch(object):
     self.constants = {}
     self.addresses = {}
 
-  def emit(self, name, bc):
+  def emit(self, name, bc, symbol=None):
     '''Adds the step of ``name`` to the module; returns its symbol.'''
-    symbol = 'step_' + hashlib.sha256(name.encode('utf-8')).hexdigest()
+    symbol = symbol or '%ss%x' % (self.name, self.count)
     self.count += 1
     self.constants[symbol] = []
     _Emitter(self, symbol, bc).emit()

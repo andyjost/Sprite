@@ -44,7 +44,7 @@ cache holds them.  See Cpp2So.restore, Cpp2So.store and
 curry.toolchain._productcache.
 '''
 from ..generic.toolchain import ICurry2TargetSource
-from . import compiler
+from . import compiler, msvc
 from ... import cache, config, exceptions
 from ...objects.handle import getHandle
 from ...utility import curryname, filesys
@@ -1162,10 +1162,12 @@ class Cpp2So(object):
     if cxx is None:
       raise exceptions.CompileError(
           'cannot compile %r: no C++ compiler is installed at %r.  Install '
-          'one (on Windows, clang-cl of Visual Studio in a developer prompt '
-          'initialized by vcvars64) and configure Sprite with CMake '
+          'one and configure Sprite with CMake '
           '-DWITH_CXX_POSTINSTALL=PATH, or use the '
-          'modules that make stage compiled.'
+          'modules that make stage compiled. On Windows use '
+          'Visual Studio 2017 or newer, or its Build Tools, with the workload "Desktop '
+          'development with C++" and the component "C++ Clang tools for Windows", or '
+          'clang-cl on PATH. Sprite finds it itself.'
         % (file_in, config.installed_path('tools', 'cxx'))
         )
     yield cxx
@@ -1276,7 +1278,7 @@ class Cpp2So(object):
         if logger.isEnabledFor(logging.DEBUG):
           logger.debug('Command: %s', ' '.join(cmd))
         compile_start = time.monotonic()
-        _system.pexec(cmd)
+        _system.pexec(cmd, env=msvc.environment())
         logger.info('Compiled %r in %.3f s', file_out, time.monotonic() - compile_start)
         # Invalidate the old stamp only for publication. Never unlink the
         # live object while a reader may open it; rename the complete one.
