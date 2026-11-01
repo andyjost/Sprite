@@ -221,10 +221,11 @@ def parse(text: str, *, imports: Iterable[Module | str] = ()) -> Term:
   """Parse Curry expression text; imports makes additional modules available."""
 
 def free(name: str | None = None, *, type: str | None = None) -> Var:
-  """Create a held free variable, optionally named and annotated with a Curry type.
+  """Create a free variable, optionally named and annotated with a Curry type.
 
-  The name serves printed answers and text goals. An unnamed variable is
-  reported by solve under a display name such as ``_a``."""
+  ``solve`` reports a variable that the program holds and uses in a goal:
+  a named one under its name, which the printed answer and text goals use,
+  an unnamed one under a display name such as ``_a``."""
 
 @final
 class Anonymous:
@@ -478,9 +479,9 @@ def solve(goal: Convertible) -> Results[Answer]:
   """
   The answers of ``goal``: for each value, an ``Answer`` of the value and
   the bindings of every held free variable of the goal, named or unnamed,
-  in the order of their first occurrence; an unbound
-  one is bound to itself, a variable bound to another unbound variable to
-  that variable (PAKCS: ``{x=x, y=x} True`` for ``x =:= y``).
+  in the order of their first occurrence; an unbound one is bound to
+  itself, a variable bound to another unbound variable to that variable
+  (PAKCS: ``{x=x, y=x} True`` for ``x =:= y``).
   ``print(answer)`` is the REPL's line.  Two different variables with one
   name raise ``CurryTypeError`` at the call.
 
@@ -544,9 +545,9 @@ class Results(Iterator[T]):
 class Bindings(Mapping[str, PyValue]):
   """
   The bindings of an answer, name or display name to value, in the order
-  of the first occurrence of the variables in the goal; indexed by name or by the
-  ``Var`` itself; hashable; prints as ``{xs=[1,2], x=3}`` and as ``{}``
-  when empty.
+  of the first occurrence of the variables in the goal; indexed by that
+  string or by the ``Var`` itself; hashable; prints as ``{xs=[1,2], x=3}``
+  and as ``{}`` when empty.
 
   >>> x = curry.free(); a = next(curry.solve(P['=:='](x, 1)))
   >>> a.bindings['_a'], a.bindings[x], str(a.bindings)
@@ -560,8 +561,8 @@ class Bindings(Mapping[str, PyValue]):
 
 class Answer(NamedTuple):
   """
-  One answer of ``solve``: the value and every held variable binding, a 2-tuple
-  (``value, bindings = answer``).  ``str`` is the REPL's line,
+  One answer of ``solve``: the value and the bindings of the held variables,
+  a 2-tuple (``value, bindings = answer``).  ``str`` is the REPL's line,
   ``{xs=[1,2]} True``, or the value alone when there are no bindings.
 
   >>> a = next(curry.solve(curry.parse('xs ++ [3] =:= [1,2,3] where xs free')))

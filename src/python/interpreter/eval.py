@@ -176,7 +176,7 @@ def solve(interp, goal):
     for var in reversed(variables):
       bindings = (var, bindings)
     goal = goals.make_goal(interp, ((value, bindings),))
-    convert = _converter(interp, expressions.result_type(interp, goal.expr), all_vars)
+    convert = _converter(interp, expressions.result_type(interp, goal.expr), variables)
     def answers():
       values = _run(interp, goal, convert, session=session)
       try:

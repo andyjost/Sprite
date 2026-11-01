@@ -190,11 +190,14 @@ Variables and answers
 ---------------------
 
 :ref:`06: Variables <example-06>` shows narrowing and reading bindings.
-``solve`` returns an ``Answer`` with the value and bindings of every held
-variable used in the goal, under its name or a display name such as ``_a``.
-The mapping is indexed by that string or the original variable, in order
-of first occurrence. ``anonymous`` creates a fresh variable at each
-occurrence and is never reported.
+``free(name)`` creates a variable; reuse the Python object to share it.
+``solve`` returns an ``Answer``: the value and the binding of every
+variable that the program holds and uses in the goal, named or not, under
+its name or a display name such as ``_a``. The ``Bindings`` mapping is
+indexed by that string or by the variable itself, in the order of first
+occurrence. ``anonymous`` creates a fresh variable at each occurrence and
+is never reported. A binding belongs to one evaluation; the variable's
+static type persists.
 
     >>> x = curry.free('x', type='Int')
     >>> answer = curry.solve(P['=:='](x, 3)).one()

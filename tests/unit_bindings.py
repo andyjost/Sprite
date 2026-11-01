@@ -39,12 +39,27 @@ class TestBindings(cytest.TestCase):
     self.assertEqual(str(answer), '(_a,_b)')
 
   def test_distinct_unbound_binding_values(self):
+    P = curry.import_('Prelude')
+    x, y = curry.free(), curry.free()
+    self.assertEqual(str(curry.solve(P['=:='](x, y)).one()),
+        '{_a=_a, _b=_a} True')
     x, y = curry.free('x'), curry.free('y')
     a, b = curry.free(), curry.free()
     bindings = curry.Bindings([('x', a), ('y', b)], [x, y])
     self.assertEqual(str(bindings), '{x=_a, y=_b}')
     self.assertEqual(str(curry.Answer((b, a), bindings)),
         '{x=_a, y=_b} (_b,_a)')
+
+  def test_shared_terms_in_constructed_answer(self):
+    P = curry.import_('Prelude')
+    x, y, a = curry.free('x'), curry.free('y'), curry.free()
+    term = P.id(a)
+    bindings = curry.Bindings([('x', (term, term)), ('y', term)], [x, y])
+    self.assertEqual(str(bindings),
+        '{x=let x1 = id _a in (x1,x1), y=id _a}')
+    answer = curry.Answer(term, bindings)
+    self.assertEqual(str(answer),
+        '{x=let x1 = id _a in (x1,x1), y=id _a} id _a')
 
   def test_text_and_anonymous(self):
     P = curry.import_('Prelude')

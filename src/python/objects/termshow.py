@@ -237,6 +237,8 @@ def show(term, context=None):
   ctx = context if context is not None else Context()
   if context is not None:
     ctx.used.update(_used_names(term))
+    lets, defining = ctx.lets, ctx.defining
+    ctx.lets, ctx.defining = {}, set()
   token = _CONTEXT.set(ctx)
   try:
     shared = _shared_reducible(term)
@@ -258,6 +260,8 @@ def show(term, context=None):
     return '(%s)' % text if kind == NEG else text
   finally:
     _CONTEXT.reset(token)
+    if context is not None:
+      ctx.lets, ctx.defining = lets, defining
 
 
 def alpha(n):
