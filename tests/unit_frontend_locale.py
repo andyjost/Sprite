@@ -10,14 +10,22 @@ class TestFrontendLocale(cytest.TestCase):
   def test_environment(self):
     for locale in ('C', 'POSIX', '', 'en_US.ISO8859-1'):
       with mock.patch.dict(os.environ, {'LANG': locale}, clear=True):
-        self.assertEqual(_frontend.frontend_environment()['LC_ALL'], 'C.UTF-8')
+        self.assertEqual(_frontend.frontend_environment()['LC_ALL'],
+                         'UTF-8' if sys.platform == 'darwin' else 'C.UTF-8')
         self.assertNotIn('LC_ALL', os.environ)
     for key in ('LANG', 'LC_CTYPE', 'LC_ALL'):
       env = {'LANG': 'C', key: 'en_US.UTF-8'}
       with mock.patch.dict(os.environ, env, clear=True):
         self.assertEqual(_frontend.frontend_environment(), env)
     with mock.patch.dict(os.environ, {'LC_ALL': 'C', 'LANG': 'C.UTF-8'}, clear=True):
-      self.assertEqual(_frontend.frontend_environment()['LC_ALL'], 'C.UTF-8')
+      self.assertEqual(_frontend.frontend_environment()['LC_ALL'],
+                         'UTF-8' if sys.platform == 'darwin' else 'C.UTF-8')
+
+  def test_platform_fallback(self):
+    for platform, expected in (('darwin', 'UTF-8'), ('linux', 'C.UTF-8')):
+      with mock.patch.object(_frontend.sys, 'platform', platform):
+        with mock.patch.dict(os.environ, {'LANG': 'C'}, clear=True):
+          self.assertEqual(_frontend.frontend_environment()['LC_ALL'], expected)
 
   def test_clean_child(self):
     if config.curry_frontend() is None:

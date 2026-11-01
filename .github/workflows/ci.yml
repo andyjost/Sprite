@@ -839,6 +839,9 @@ jobs:
             -DWITH_ICURRY=""
           make stage
           make -C docs html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: object-root/docs/html
       - name: Run containers through the Curry Package Manager
         run: |
           export PATH="$PWD/install/bin:$HOME/pakcs-$PAKCS_VERSION/bin:$PATH"
@@ -849,18 +852,24 @@ jobs:
           PACKAGETARFILESURL=https://cpm.curry-lang.org/PACKAGES
           CPMRC
           fi
+          # CPM 3.3.0's index reader recurses without the sqlite3 command.
+          command -v sqlite3
+          # SWI-Prolog 9 inherits the saved state's 1 GB stack limit.
+          # Raise it in the launch headers without rebuilding the cache.
+          for state in src/pakcs currytools/cpm/src/CPM.Main currytools/optimize/BindingOpt; do
+            header="$HOME/pakcs-$PAKCS_VERSION/$state"
+            sed -i "/^exec / { /set_prolog_flag(stack_limit,/! s/ -x / -g 'set_prolog_flag(stack_limit,34359738368)' -x /; }" "$header"
+          done
           project=$(mktemp -d)
           cd "$project"
           mkdir src
           cat > package.json <<'JSON'
           {"name":"sprite-cpm-smoke","version":"0.0.1","synopsis":"Sprite package smoke test","dependencies":{"containers":">= 3.0.0, < 4.0.0"}}
           JSON
-          cypm install
-          SPRITE_CPM_PATH=0 cypm exec "python -c 'import curry; M = curry.import_(\"Data.Map\"); print(curry.eval(M.size(M.empty)).one())'"
+          timeout 600 cypm update
+          timeout 600 cypm install
+          SPRITE_CPM_PATH=0 timeout 600 cypm exec "python -c 'import curry; M = curry.import_(\"Data.Map\"); print(curry.eval(M.size(M.empty)).one())'"
           env -u CURRYPATH python -c 'import curry; M = curry.import_("Data.Map"); print(curry.eval(M.size(M.empty)).one())'
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: object-root/docs/html
 
   deploy-docs:
     name: deploy docs

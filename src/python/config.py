@@ -412,14 +412,29 @@ def cpm_path(root):
       dirs = spec.get('sourceDirs', ['src'])
       if not isinstance(dirs, list) or not all(isinstance(d, str) for d in dirs):
         raise ValueError('sourceDirs must be a list of strings')
-      return [os.path.abspath(os.path.join(directory, d)) for d in dirs]
+      paths = []
+      for source in dirs:
+        path = os.path.abspath(os.path.join(directory, source))
+        for module in syslibs():
+          if os.path.isfile(os.path.join(path, module.replace('.', os.sep) + '.curry')):
+            logger.warning('package %s provides %s, which the installation supplies',
+                           spec.get('name', os.path.basename(directory)), module)
+            break
+        else:
+          paths.append(path)
+      return paths
     except (OSError, ValueError, AttributeError) as err:
       logger.warning('Cannot read CPM package %s: %s', directory, err)
       return []
 
+  try:
+    names = sorted(os.listdir(packages))
+  except OSError as err:
+    logger.debug('Cannot list CPM packages: %s', err)
+    return []
   paths = sources(root)
   found = []
-  for name in sorted(os.listdir(packages)):
+  for name in names:
     directory = os.path.join(packages, name)
     if os.path.isdir(directory) and os.path.isfile(os.path.join(directory, 'package.json')):
       paths.extend(sources(directory))
@@ -446,9 +461,14 @@ def currypath(reset=False, cache=[]):
   if not cache:
     from .utility import curryname
     envpath = os.environ.get('CURRYPATH', '').split(os.pathsep)
-    cpmpath = cpm_path(os.getcwd()) if os.environ.get('SPRITE_CPM_PATH') != '0' else []
+    cpmpath = []
+    if os.environ.get('SPRITE_CPM_PATH') != '0':
+      try:
+        cpmpath = cpm_path(os.getcwd())
+      except OSError as err:
+        logger.debug('Cannot discover CPM packages: %s', err)
     syspath = system_curry_path().split(os.pathsep)
-    currypath = curryname.makeCurryPath(envpath + cpmpath + syspath)
+    currypath = curryname.makeCurryPath(list(dict.fromkeys(envpath + cpmpath + syspath)))
     cache.append(currypath)
     verify_syslibs()
   return list(cache[0])

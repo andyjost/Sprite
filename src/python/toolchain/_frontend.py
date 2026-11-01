@@ -84,7 +84,7 @@ from . import _preprocessor, _system, flat2icurry
 from ..exceptions import CompileError, CurryWarning
 import warnings
 from ..utility import curryname
-import logging, os, re, shlex, time
+import logging, os, re, shlex, sys, time
 
 __all__ = [
     'QUIET_FLAGS', 'ROUTE_VERSION', 'WARNINGS_VARIABLE', 'WARNING_FLAGS'
@@ -251,7 +251,8 @@ def frontend_environment():
   locale = next((env[key] for key in ('LC_ALL', 'LC_CTYPE', 'LANG')
                  if env.get(key)), '')
   if 'utf8' not in locale.lower().replace('-', ''):
-    env['LC_ALL'] = 'C.UTF-8'
+    # CPython uses UTF-8 on Darwin, where C.UTF-8 is unavailable.
+    env['LC_ALL'] = 'UTF-8' if sys.platform == 'darwin' else 'C.UTF-8'
   return env
 
 def curry2flat(file_in, currypath, quiet=False, rewrite=True):

@@ -19,15 +19,16 @@ class TestCpmContainers(cytest.TestCase):
         installed = subprocess.run([cypm, 'install'], cwd=root, text=True,
                                    capture_output=True, timeout=180)
       except subprocess.TimeoutExpired:
-        self.skipTest('cypm install timed out; the network may be unavailable')
+        self.fail('cypm install timed out after 180 seconds')
       if installed.returncode:
-        # Only network failures skip; configuration or package errors fail.
+        # Transport failures and an uninitialized index can skip.
         output = installed.stdout + installed.stderr
+        if 'not initialized' in output.lower():
+          self.skipTest('the CPM index is not initialized; run cypm update')
         if any(word in output.lower() for word in (
-            'could not resolve', 'unable to access', 'network is unreachable',
+            'could not resolve', 'network is unreachable',
             'connection timed out', 'failed to connect', 'connection refused',
-            'temporary failure in name resolution', 'could not download',
-            'failed to download')):
+            'temporary failure in name resolution')):
           self.skipTest('the package network is unavailable')
         self.fail(output)
       code = ('import curry; M = curry.import_("Data.Map"); '

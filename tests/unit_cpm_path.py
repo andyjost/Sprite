@@ -1,5 +1,7 @@
 import cytest # from ./lib; must be first
 import curry
+from curry import config
+from unittest import mock
 import json, os, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
@@ -22,7 +24,7 @@ class TestCpmPath(cytest.TestCase):
     with self.assertLogs('curry.config', level='INFO') as log:
       self.assertEqual(curry.cpm_path(self.root), self.expected())
     self.assertEqual(curry.path, before)
-    self.assertIn('alpha-1.0.0, beta-1.0.0', '\n'.join(log.output))
+    self.assertIn('alpha-1.0.0, beta-1.0.0, setfunctions-1.0.0', '\n'.join(log.output))
 
   def test_no_project(self):
     (self.root / 'package.json').unlink()
@@ -61,3 +63,32 @@ class TestCpmPath(cytest.TestCase):
     with self.assertLogs('curry.config', level='WARNING'):
       paths = curry.cpm_path(self.root)
     self.assertEqual(paths, self.expected()[2:])
+
+  def test_installed_library_collision(self):
+    with self.assertLogs('curry.config', level='WARNING') as log:
+      self.assertEqual(curry.cpm_path(self.root), self.expected())
+    self.assertIn('package setfunctions provides Control.SetFunctions, '
+                  'which the installation supplies', '\n'.join(log.output))
+    paths = json.loads(self.child('import curry, json; print(json.dumps(curry.path))',
+                                 SPRITE_CPM_PATH='1'))
+    self.assertNotIn(str(self.root / '.cpm/packages/setfunctions-1.0.0/src'), paths)
+
+  def test_unreadable_packages(self):
+    with mock.patch.object(config.os, 'listdir', side_effect=PermissionError('denied')):
+      with self.assertLogs('curry.config', level='DEBUG'):
+        self.assertEqual(curry.cpm_path(self.root), [])
+
+  def test_removed_cwd(self):
+    code = ('import os, tempfile; root = tempfile.mkdtemp(); '
+            'os.chdir(root); os.rmdir(root); import curry; assert curry.path')
+    self.child(code, SPRITE_CPM_PATH='1')
+
+  def test_duplicate_paths(self):
+    env = dict(os.environ, CURRYPATH=os.pathsep.join(self.expected()),
+               SPRITE_CPM_PATH='1')
+    child = subprocess.run([sys.executable, '-c',
+        'import curry, json; print(json.dumps(curry.path))'],
+        cwd=self.root, env=env, text=True, capture_output=True, check=True)
+    paths = json.loads(child.stdout)
+    self.assertEqual(paths[:4], self.expected())
+    self.assertEqual(len(paths), len(set(paths)))

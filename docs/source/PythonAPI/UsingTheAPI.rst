@@ -440,9 +440,11 @@ directory has both ``package.json`` and ``.cpm/packages/``, importing
 installed package under ``.cpm/packages/<name>-<version>/``. A missing
 ``sourceDirs`` means ``["src"]``. Packages follow directory-name order;
 each package keeps its declared source-directory order. These paths follow
-``CURRYPATH`` and precede the installed library. The discovery runs once
+``CURRYPATH`` and precede the installed library. A source directory that
+provides a module of the installed library is skipped with a warning.
+The discovery runs once
 at import and logs the packages at INFO. ``SPRITE_CPM_PATH=0`` disables it.
-Thus ``python -m curry`` works from the project directory after installation,
+Thus ``python -m curry`` works from the project root after installation,
 without ``cypm exec``.
 
 From Python, inspect or change ``curry.path``. To discover another project,
