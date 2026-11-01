@@ -27,6 +27,13 @@ make_py() {
   "$SPRITE_HOME/bin/python" "$here/make.py" "$@" || echo "exit status $?"
 }
 
+# Runs the short driver in a copy, prints its command line first, and
+# reports a non-zero exit status.
+mini_py() {
+  echo "% python minimake.py $*"
+  "$SPRITE_HOME/bin/python" "$here/minimake.py" "$@" || echo "exit status $?"
+}
+
 # Runs the program of a copy, and prints its command line first.
 demo() {
   echo "% $1/demo"
@@ -37,9 +44,15 @@ copy project
 copy plot
 copy fresh
 copy incomplete
+copy short
 rm "$work/incomplete/vec.c"
 cd "$work"
 
+echo '0. the short driver: the build from scratch, then nothing to do'
+mini_py short
+demo short
+mini_py short
+echo
 echo '1. the build from scratch'
 make_py -C project
 demo project
