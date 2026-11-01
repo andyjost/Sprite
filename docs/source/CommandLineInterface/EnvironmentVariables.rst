@@ -165,7 +165,7 @@ The following are recognized:
   The ``backend`` flag names the backend: ``cxx``, the C++ backend, the
   only runtime of an installation.
 
-  The ``interpret`` flag defaults to ``new`` (``all`` on Windows): current
+  The ``interpret`` flag defaults to ``new`` on every platform: current
   objects load and the rest start interpreted. ``all`` starts every module
   interpreted, and ``off`` compiles missing objects first. Background C++
   compilation uses ``jit:hot,jit_backend:cxx`` (see

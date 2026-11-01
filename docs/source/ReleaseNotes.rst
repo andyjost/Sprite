@@ -22,7 +22,12 @@ Release Notes
   x64, CPython 3.11 to 3.15 with the free-threaded 3.14t, which vendor the
   C and C++ runtimes of Visual Studio; the front end's Windows wheel is
   built and gated by the same workflow and ships as ``curry-frontend``
-  3.1.0.post2, on PyPI since 2026-10-31.
+  3.1.0.post2, on PyPI since 2026-10-31. Loads map canonical DLLs without
+  per-load files, so read-only installations can import compiled modules.
+  Publication retires mapped generations; stage and wheel gates reject them.
+  Saved main programs are clang-cl executables, with an embedded module,
+  Python on PATH for goal evaluation and the runtime DLL beside the program.
+  The Windows workflow gates native execution and lesson 04.
 - A user module named like any module of the installed library is refused
   at import with a message that names both files (#168); the fix of a
   lifted non-linear functional pattern that answered where the oracles

@@ -267,6 +267,7 @@ def inspect_wheel_windows(wheel, vendored=None):
   report = []
   with tempfile.TemporaryDirectory() as directory, zipfile.ZipFile(wheel) as archive:
     names = archive.namelist()
+    assert not any('.tiered' in n or '.old-' in n for n in names), names
     assert names.count('curry/_sprite/lib/libcurryrt.dll') == 1, names
     seconds = archive.read('curry/_sprite/sysconfig/cxx_library_build_seconds').decode('ascii').strip()
     report.append('Curry library build: %s seconds' % seconds)

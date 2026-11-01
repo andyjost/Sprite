@@ -184,7 +184,7 @@ FLAVOR_FLAGS = {
 # GNU ld.  The flags below follow the linker; the generated code is the same.
 IS_DARWIN = sys.platform == 'darwin'
 IS_WINDOWS = sys.platform == 'win32'
-MSVC_FLAGS = ['/std:c++17', '/EHsc', '/MD', '/bigobj',
+MSVC_FLAGS = ['/std:c++17', '/EHsc', '/bigobj',
               '/D_CRT_SECURE_NO_WARNINGS', '/clang:-fno-strict-aliasing']
 
 # The flags of the release flavor that are notions of ELF: the procedure
@@ -225,7 +225,7 @@ def flavor_flags(flavor):
   (ELF_ONLY_FLAGS).
   '''
   if IS_WINDOWS:
-    return ['/O2', '/DNDEBUG'] if flavor == 'release' else ['/Od', '/Zi']
+    return ['/MD', '/O2', '/DNDEBUG'] if flavor == 'release' else ['/MDd', '/D_DEBUG', '/Od', '/Zi']
   flags = list(FLAVOR_FLAGS[flavor])
   if IS_DARWIN:
     flags = [flag for flag in flags if flag not in ELF_ONLY_FLAGS]
@@ -1173,6 +1173,8 @@ class Cpp2So(object):
       yield '/LD'
       yield from self._cxxflags()
       yield '/Fo' + file_out + '.obj'
+      if self.flavor == 'debug':
+        yield '/Fd' + file_out + '.pdb'
       yield file_in
       yield '/link'
       yield '/OUT:' + file_out
@@ -1279,16 +1281,19 @@ class Cpp2So(object):
         # Invalidate the old stamp only for publication. Never unlink the
         # live object while a reader may open it; rename the complete one.
         self.remove_stamp(file_out)
-        os.replace(tmp, file_out)
         from . import curryrtbindings
-        curryrtbindings.cleanup_object_copies(file_out)
+        try:
+          curryrtbindings.publish_object(tmp, file_out)
+        except RuntimeError as error:
+          raise exceptions.CompileError(
+              'cannot publish %r: %s' % (file_out, error)) from None
         self.write_stamp(file_out, provenance, source_record(cpp))
         with open(file_in, 'rb') as stream:
           if stream.read() == source:
             self.store(file_in, file_out, currypath)
       return file_out
     finally:
-      for path in (tmp, cpp, tmp + '.obj', tmp + '.lib', tmp + '.exp'):
+      for path in (tmp, cpp, tmp + '.obj', tmp + '.lib', tmp + '.exp', tmp + '.pdb'):
         try:
           os.unlink(path)
         except FileNotFoundError:

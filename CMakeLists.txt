@@ -429,11 +429,12 @@ if(SKBUILD)
     PATTERN __pycache__ EXCLUDE)
   foreach(dir lib include sysconfig curry)
     install(DIRECTORY "${image}/${dir}" DESTINATION curry/_sprite
-      PATTERN "*.gch" EXCLUDE PATTERN __pycache__ EXCLUDE)
+      PATTERN "*.gch" EXCLUDE PATTERN "*.tiered" EXCLUDE
+      PATTERN "*.old-*" EXCLUDE PATTERN __pycache__ EXCLUDE)
   endforeach()
 else()
   install(DIRECTORY "${image}/" DESTINATION . USE_SOURCE_PERMISSIONS
-    PATTERN "*.gch" EXCLUDE)
+    PATTERN "*.gch" EXCLUDE PATTERN "*.tiered" EXCLUDE PATTERN "*.old-*" EXCLUDE)
   install(CODE "
     execute_process(COMMAND \"${Python_EXECUTABLE}\" \"${CMAKE_SOURCE_DIR}/scripts/install-package.py\"
       \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}\" \"${image}\" COMMAND_ERROR_IS_FATAL ANY)

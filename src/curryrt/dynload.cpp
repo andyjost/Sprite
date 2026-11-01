@@ -212,18 +212,7 @@ namespace curryrt
     : _handle(nullptr), _sofilename(sofilename)
   {
     std::string error;
-    auto path = platform::object_load_path(sofilename, &error);
-    if(path.empty()) throw DynloadError(error);
-    this->_handle = platform::load(path, &error);
-    if(path != sofilename)
-    {
-      if(this->_handle) platform::release_object_path(path);
-      else
-      {
-        std::error_code ignored;
-        std::filesystem::remove(std::filesystem::u8path(path), ignored);
-      }
-    }
+    this->_handle = platform::load(sofilename, &error);
     if(!this->_handle) throw DynloadError(error);
   }
 

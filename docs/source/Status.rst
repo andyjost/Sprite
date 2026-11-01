@@ -42,7 +42,12 @@ runs compiled code and interprets ICurry bytecode, including installations
 without a compiler. Windows x64 uses clang-cl of Visual Studio, in a
 developer prompt initialized by ``vcvars64.bat``, for generated DLLs and
 the C++ compiler backend of the JIT. The library ships compiled, and
-``interpret`` defaults to ``new`` everywhere. See :doc:`Installation/WithoutCompiler`.
+``interpret`` defaults to ``new`` everywhere. Loads map the canonical DLL;
+publication retires a mapped generation under a new name before replacement.
+Saved main programs are clang-cl executables with an embedded module and
+Python on PATH for goal evaluation; the copied runtime DLL accompanies them.
+Native execution of these changes is gated by the Windows workflow.
+See :doc:`Installation/WithoutCompiler`.
 
 The interpreter modes
 =====================

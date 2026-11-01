@@ -50,14 +50,13 @@ namespace curryrt { namespace platform {
   void * symbol(void * handle, char const * name);
   bool unload(void * handle, std::string * error);
 
-  // Windows maps only private names, leaving canonical products replaceable.
-  // SPRITE_TEST_WINDOWS_OBJECT_COPIES=1 exercises this policy on POSIX.
-  bool private_object_copies();
-  std::string object_load_path(std::string const & path, std::string * error,
-                               bool fresh = false);
-  void release_object_path(std::string const & path);
-  // Remove private names owned by exited processes; keep live readers.
-  void cleanup_object_copies(std::string const & path);
+  // Writers hold the product lock. Windows retires the canonical name
+  // before replacement; readers always map the canonical file directly.
+  // SPRITE_TEST_WINDOWS_PUBLICATION=1 exercises retirement on POSIX.
+  bool windows_publication();
+  void cleanup_object_generations(std::string const & path);
+  bool publish_object(std::string const & source, std::string const & target,
+                      std::string * error);
 
   // The path of the shared object that holds ``address``, or the empty
   // string when the platform cannot say (the runtime library finds itself

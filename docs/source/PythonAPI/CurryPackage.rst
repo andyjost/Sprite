@@ -52,7 +52,7 @@ Flag                         Default                What it changes
 ===========================  =====================  ========================================================
 ``backend``                  ``'cxx'`` [1]_         The backend: ``'cxx'``, the C++ backend.
 ``interpret``                ``'new'``              ``'new'`` loads current objects and interprets the rest;
-                                                    ``'all'`` interprets every module (Windows default);
+                                                    ``'all'`` interprets every module;
                                                     ``'off'`` compiles missing objects before running.
 ``jit``                      ``'hot'``              Interpreted functions compile at load (``'eager'``),
                                                     after the hot threshold (``'hot'``), or stay

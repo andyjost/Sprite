@@ -58,6 +58,41 @@ class TestWindowsCommand(cytest.TestCase):
       self.assertEqual(command[-1], config.installed_path('lib', 'libcurryrt.lib'))
       self.assertFalse(any('soname' in flag or 'entry' in flag for flag in command))
 
+  def test_debug_uses_debug_crt_and_private_pdb(self):
+    step = toolchain.Cpp2So(cytest.raw.interp())
+    with mock.patch.object(toolchain, 'IS_WINDOWS', True), \
+         mock.patch.object(type(step), 'flavor', new_callable=mock.PropertyMock, return_value='debug'), \
+         mock.patch.object(config, 'cxx_tool', return_value='clang-cl'):
+      command = list(step._compileCommand('Module.cpp', 'Module.dll'))
+      for flag in ['/MDd', '/D_DEBUG', '/Zi', '/FdModule.dll.pdb']:
+        self.assertIn(flag, command)
+      self.assertNotIn('/MD', command)
+
+  def test_saved_program_is_linked_as_an_executable(self):
+    from curry.interpreter import session
+    with tempfile.TemporaryDirectory() as work:
+      output = os.path.join(work, 'saved.exe')
+      captured = []
+      def compile(command):
+        captured.extend(command)
+        text = Path(work, 'launcher.cpp').read_text()
+        self.assertIn('int wmain(', text)
+        self.assertIn('_wspawnvp(_P_WAIT', text)
+        self.assertIn('remove_all(directory', text)
+        self.assertNotIn('TemporaryDirectory(', text)
+      program = "#!/python\nimport base64, os, tempfile\nwith tempfile.TemporaryDirectory(prefix='sprite-program-') as work:\n  pass\n"
+      with mock.patch.object(toolchain, 'IS_WINDOWS', True), \
+           mock.patch.object(config, 'cxx_tool', return_value='clang-cl'), \
+           mock.patch('curry.toolchain._system.pexec', side_effect=compile), \
+           mock.patch.object(shutil, 'copyfile') as copy:
+        session._save_windows_program(cytest.raw.interp(), output, program, work)
+      self.assertNotIn('/LD', captured)
+      self.assertFalse(any(flag.startswith('/IMPLIB:') for flag in captured))
+      self.assertIn('/OUT:' + output, captured)
+      self.assertEqual(captured[-1], config.installed_path('lib', 'libcurryrt.lib'))
+      copy.assert_called_once_with(config.installed_path('lib', 'libcurryrt.dll'),
+                                   os.path.join(work, 'libcurryrt.dll'))
+
   def test_windows_flags_change_the_abi_digest(self):
     with mock.patch.object(toolchain, 'IS_WINDOWS', True), \
          mock.patch.object(toolchain, 'runtime_digest', return_value='headers'):
@@ -119,21 +154,24 @@ class TestTableExports(cytest.TestCase):
           self.assertTrue(declared - defined)
 
 
-class TestPrivateObjectCopies(cytest.TestCase):
+class TestWindowsPublication(cytest.TestCase):
   def test_loaded_canonical_product_can_be_republished(self):
-    with mock.patch.dict(os.environ, SPRITE_TEST_WINDOWS_OBJECT_COPIES='1'), \
-         tempfile.TemporaryDirectory(prefix='sprite-object-copies-',
+    with mock.patch.dict(os.environ, SPRITE_TEST_WINDOWS_PUBLICATION='1'), \
+         tempfile.TemporaryDirectory(prefix='sprite-publication-',
                                      ignore_cleanup_errors=True) as work:
-      source = Path(work) / 'PrivateObjectCopies.curry'
-      source.write_text('module PrivateObjectCopies where\nanswer :: Int\nanswer = 42\n')
+      source = Path(work) / 'WindowsPublication.curry'
+      source.write_text('module WindowsPublication where\nanswer :: Int\nanswer = 42\n')
       curry.reset(interpret='off', jit='off')
       module = curry.import_(str(source))
       self.assertEqual(curry.eval(module.answer).one(), 42)
       product = Path(getHandle(module).sofilename)
-      copies = list(product.parent.glob(product.name + '.*.tiered'))
-      self.assertTrue(copies, 'normal AOT import must map a private name')
+      copies = list(product.parent.glob(product.name + '.old-*'))
+      self.assertFalse(copies, 'loading must not write beside the canonical file')
+      toolchain.Cpp2So(cytest.raw.interp())(str(product.with_suffix('.cpp')), curry.path, is_sourcefile=True)
+      copies = list(product.parent.glob(product.name + '.old-*'))
+      self.assertTrue(copies)
       # A second process maps this generation and then publishes again.
-      # Its private names become stale only after it exits.
+      # Its retired generation becomes collectable only after it exits.
       script = """
 import curry, sys
 from curry.backends.cxx import toolchain
@@ -148,15 +186,60 @@ assert curry.eval(module.answer).one() == 42
       child = subprocess.run([sys.executable, '-c', script, str(source)],
                              capture_output=True, text=True, timeout=120)
       self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
-      stale = [p for p in product.parent.glob(product.name + '.*.tiered')
+      stale = [p for p in product.parent.glob(product.name + '.old-*')
                if p not in copies]
-      self.assertTrue(stale, 'the child must leave its mapped private copy')
+      self.assertTrue(stale, 'the child must leave its retired generation')
       # Publication cleans dead owners without removing live readers.
       cpp = str(product.with_suffix('.cpp'))
       toolchain.Cpp2So(cytest.raw.interp())(cpp, curry.path, is_sourcefile=True)
       self.assertTrue(all(not path.exists() for path in stale))
       self.assertTrue(all(path.exists() for path in copies))
       self.assertEqual(curry.eval(module.answer).one(), 42)
+
+  @unittest.skipIf(sys.platform == 'win32', 'POSIX directory permission regression')
+  def test_read_only_publication_leaves_directory_untouched(self):
+    if os.geteuid() == 0:
+      self.skipTest('root can write a read-only directory')
+    from curry.backends.cxx import curryrtbindings
+    with tempfile.TemporaryDirectory() as work, \
+         mock.patch.dict(os.environ, SPRITE_TEST_WINDOWS_PUBLICATION='1'):
+      directory = Path(work) / 'products'
+      directory.mkdir()
+      canonical = directory / 'Module.so'
+      canonical.write_bytes(b'current')
+      pending = Path(work) / 'pending.so'
+      pending.write_bytes(b'new')
+      directory.chmod(0o555)
+      try:
+        with self.assertRaisesRegex(RuntimeError, 'cannot publish object'):
+          curryrtbindings.publish_object(str(pending), str(canonical))
+        self.assertEqual(list(directory.iterdir()), [canonical])
+        self.assertEqual(canonical.read_bytes(), b'current')
+        self.assertEqual(pending.read_bytes(), b'new')
+      finally:
+        directory.chmod(0o755)
+
+  def test_read_only_import_does_not_write_products(self):
+    with tempfile.TemporaryDirectory(prefix='sprite-read-only-',
+                                     ignore_cleanup_errors=True) as work:
+      source = Path(work) / 'ReadOnlyObject.curry'
+      source.write_text('module ReadOnlyObject where\nanswer :: Int\nanswer = 42\n')
+      curry.reset(interpret='off', jit='off')
+      module = curry.import_(str(source))
+      product = Path(getHandle(module).sofilename)
+      directory = product.parent
+      before = {p.name: p.read_bytes() for p in directory.iterdir() if p.is_file()}
+      mode = directory.stat().st_mode
+      directory.chmod(0o555)
+      try:
+        script = "import curry, sys; curry.reset(interpret='new', jit='off'); m = curry.import_(sys.argv[1]); assert curry.eval(m.answer).one() == 42"
+        child = subprocess.run([sys.executable, '-c', script, str(source)],
+                               capture_output=True, text=True, timeout=120)
+        self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+        after = {p.name: p.read_bytes() for p in directory.iterdir() if p.is_file()}
+        self.assertEqual(after, before)
+      finally:
+        directory.chmod(mode)
 
 
 class TestPERecord(cytest.TestCase):

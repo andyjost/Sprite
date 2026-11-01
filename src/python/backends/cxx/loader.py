@@ -178,7 +178,7 @@ def load_module(interp, sofile, from_plan=False, fresh=False):
 
 
 def _load_module_once(interp, sofile, from_plan, fresh):
-  assert sofile.endswith(config.module_object_suffix())
+  assert (fresh and not from_plan) or sofile.endswith(config.module_object_suffix())
   sofile = os.path.abspath(sofile)
   from .toolchain import Cpp2So
   before = Cpp2So.product_snapshot(sofile)

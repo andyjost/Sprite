@@ -1,6 +1,14 @@
 import os
 import subprocess
 import tempfile
+import sys
+
+# The parent removes products only after the Windows child releases its DLLs.
+if sys.platform == 'win32' and len(sys.argv) == 1:
+  with tempfile.TemporaryDirectory() as directory:
+    subprocess.run([sys.executable, __file__, directory], check=True)
+  raise SystemExit(0)
+
 import curry
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -18,7 +26,9 @@ try:
 except curry.StaleError as error:
   print(type(error).__name__, error)
 print(curry.eval(M.answer).one())
-with tempfile.TemporaryDirectory() as work:
+from contextlib import nullcontext
+with (nullcontext(sys.argv[1]) if sys.platform == 'win32'
+      else tempfile.TemporaryDirectory()) as work:
   product = os.path.join(work, 'Session.object')
   program = os.path.join(work, 'answer.exe')
   curry.save(M, product)

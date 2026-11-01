@@ -1281,3 +1281,16 @@ Module images record the digest of their ICurry input, route, inline budget
 and imported images. The runtime loads images; inspection and save read
 ICurry text. Pinned overlay archives are unchanged, but extraction ignores
 module JSON entries and the oracle comparisons still use ICurry text.
+
+Windows object publication
+--------------------------
+
+Loads map the canonical object directly, including in read-only installations.
+Under the product lock, Windows publication renames an existing DLL to
+<Module>.dll.old-<pid>-<counter> before replacing its canonical name.
+The next publication collects generations owned by exited processes and
+keeps those of live processes. Loads create no files. The regression switch
+SPRITE_TEST_WINDOWS_PUBLICATION=1 forces this publication protocol on POSIX;
+it does not change loading. Tests cover mapped readers, live/dead generation
+collection and read-only products. Neither generations nor old private
+.tiered copies may appear in a staged library or Windows wheel.

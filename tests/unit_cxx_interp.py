@@ -875,12 +875,12 @@ boom = error "boom"
         EvaluationError, 'boom', lambda: list(cytest.raw.values(M.boom))
       )
 
-  def test_first_use_with_windows_object_copies(self):
+  def test_first_use_with_windows_publication(self):
     from pathlib import Path
-    with mock.patch.dict(os.environ, SPRITE_TEST_WINDOWS_OBJECT_COPIES='1'):
+    with mock.patch.dict(os.environ, SPRITE_TEST_WINDOWS_PUBLICATION='1'):
       self.test_compiled_on_first_use()
       copies = list(Path(self.tmpdir).rglob('*.tiered'))
-      self.assertTrue(copies, 'first-use adoption must map a private name')
+      self.assertFalse(copies, 'first-use adoption must load the canonical file')
       self.assertTrue(all(path.is_file() for path in copies))
 
   @cytest.hardreset

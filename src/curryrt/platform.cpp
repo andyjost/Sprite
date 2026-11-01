@@ -281,12 +281,12 @@ namespace curryrt { namespace platform {
 
 #endif
 
-  bool private_object_copies()
+  bool windows_publication()
   {
 #if defined(_WIN32)
     return true;
 #else
-    char const * value = std::getenv("SPRITE_TEST_WINDOWS_OBJECT_COPIES");
+    char const * value = std::getenv("SPRITE_TEST_WINDOWS_PUBLICATION");
     return value && std::strcmp(value, "1") == 0;
 #endif
   }
@@ -307,12 +307,12 @@ namespace curryrt { namespace platform {
     }
   }
 
-  void cleanup_object_copies(std::string const & path)
+  void cleanup_object_generations(std::string const & path)
   {
-    if(!private_object_copies()) return;
+    if(!windows_publication()) return;
     namespace fs = std::filesystem;
-    auto file = fs::u8path(path);
-    std::string prefix = file.filename().u8string() + ".";
+    auto file = fs::absolute(fs::u8path(path));
+    std::string prefix = file.filename().u8string() + ".old-";
     std::error_code ec;
     fs::directory_iterator entries(file.parent_path(), ec), end;
     for(; !ec && entries != end; entries.increment(ec))
@@ -320,9 +320,9 @@ namespace curryrt { namespace platform {
       std::string name = entries->path().filename().u8string();
       if(name.compare(0, prefix.size(), prefix) != 0) continue;
       std::string tail = name.substr(prefix.size());
-      auto dot = tail.find('.');
-      if(dot == std::string::npos || tail.size() < 7
-          || tail.substr(tail.size() - 7) != ".tiered") continue;
+      auto dot = tail.find('-');
+      if(dot == std::string::npos || dot + 1 == tail.size()
+          || tail.find_first_not_of("0123456789", dot + 1) != std::string::npos) continue;
       auto digits = tail.substr(0, dot);
       if(digits.empty() || digits.find_first_not_of("0123456789") != std::string::npos)
         continue;
@@ -334,35 +334,37 @@ namespace curryrt { namespace platform {
     }
   }
 
-  std::string object_load_path(std::string const & path, std::string * error, bool fresh)
+  bool publish_object(std::string const & source, std::string const & target,
+                      std::string * error)
   {
-    if(!private_object_copies() && !fresh) return path;
     namespace fs = std::filesystem;
-    static std::atomic<unsigned long long> counter{0};
-    // Never reuse a name, even if an earlier process had the same PID.
-    for(;;)
+    std::error_code ec;
+    std::string generation;
+    if(windows_publication())
     {
-      std::string copy = path + "." + std::to_string(process_id())
-          + "." + std::to_string(++counter) + ".tiered";
-      std::error_code ec;
-      fs::create_hard_link(fs::u8path(path), fs::u8path(copy), ec);
-      if(!ec) return copy;
-      if(ec == std::errc::file_exists) continue;
-      ec.clear();
-      fs::copy_file(fs::u8path(path), fs::u8path(copy), ec);
-      if(!ec) return copy;
-      if(ec == std::errc::file_exists) continue;
-      if(error) *error = "cannot link or copy the object under a private name: " + ec.message();
-      return {};
+      cleanup_object_generations(target);
+      if(fs::exists(fs::u8path(target), ec))
+      {
+        static std::atomic<unsigned long long> counter{0};
+        do {
+          generation = target + ".old-" + std::to_string(process_id())
+              + "-" + std::to_string(++counter);
+        } while(fs::exists(fs::u8path(generation), ec));
+        fs::rename(fs::u8path(target), fs::u8path(generation), ec);
+        if(ec) { if(error) *error = ec.message(); return false; }
+      }
     }
-  }
-
-  void release_object_path(std::string const & path)
-  {
-    // Windows cannot delete a mapped copy. Publication in a later process
-    // collects it after its owner exits. POSIX unlinks its temporary links.
-    if(private_object_copies()) return;
-    std::error_code ignored;
-    std::filesystem::remove(std::filesystem::u8path(path), ignored);
+    fs::rename(fs::u8path(source), fs::u8path(target), ec);
+    if(ec)
+    {
+      if(error) *error = ec.message();
+      if(!generation.empty())
+      {
+        std::error_code ignored;
+        fs::rename(fs::u8path(generation), fs::u8path(target), ignored);
+      }
+      return false;
+    }
+    return true;
   }
 }}

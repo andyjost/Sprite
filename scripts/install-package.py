@@ -20,7 +20,8 @@ if len(sys.argv) > 2:
   for source in image.rglob('*'):
     relative = source.relative_to(image)
     if source.is_symlink() or not source.is_file() \
-        or any(part.endswith('.gch') for part in relative.parts):
+        or any(part.endswith(('.gch', '.tiered')) or '.old-' in part
+               for part in relative.parts):
       continue
     target = prefix / relative
     if target.is_file() and target.read_bytes() == source.read_bytes():

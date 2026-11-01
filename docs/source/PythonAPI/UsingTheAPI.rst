@@ -356,6 +356,12 @@ from another file, raises ``LoadError``.  ``save(M, path, main=M.answer)``
 writes an executable program that loads its embedded object and prints
 that goal's answers.  Lesson 04 runs both forms in a temporary directory.
 
+On Windows, ``curry.save(..., main=...)`` builds a clang-cl executable.
+It embeds the module and runs the shared goal/defaulting protocol with Python
+on PATH. It needs a matching Sprite installation. The runtime DLL is copied
+beside the executable and must accompany it.
+
+
 .. _io-streams:
 
 I/O and streams

@@ -762,3 +762,18 @@ uses its private directory, including for a foreign inline budget. A writer
 checks that the slot's image is still the attached image before replacing
 an entry with a different key. A writable private image directory takes
 precedence over the per-user fallback.
+
+Windows object publication
+--------------------------
+
+Loads map the canonical object directly, including in read-only installations.
+Under the product lock, Windows publication renames an existing DLL to
+<Module>.dll.old-<pid>-<counter> before replacing its canonical name.
+The next publication collects generations owned by exited processes and
+keeps those of live processes. Loads create no files. The regression switch
+SPRITE_TEST_WINDOWS_PUBLICATION=1 forces this publication protocol on POSIX;
+it does not change loading. POSIX tiered reloads use a distinct pathname
+spelling of the canonical file to bypass dlopen's cache of an older pathname;
+this creates no link or copy. Tests cover mapped readers, live/dead generation
+collection and read-only products. Neither generations nor old private
+.tiered copies may appear in a staged library or Windows wheel.

@@ -2,6 +2,7 @@
 import cytest # from ./lib; must be first
 
 from curry import config
+from curry.objects.handle import getHandle
 import curry, logging, os, shutil, subprocess, sys, unittest
 import tempfile
 from unittest import mock
@@ -374,6 +375,19 @@ print([str(v) for v in curry.eval(M2.main)])
 
 
 class TestPublicObjects(cytest.TestCase):
+  @cytest.skipUnlessObjectsLoad('curry.load opens a saved module with any suffix')
+  def test_nonstandard_suffix_maps_the_requested_file(self):
+    module = curry.compile('answer :: Int\nanswer = 42', name='SavedSuffix')
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
+      product = os.path.join(work, 'SavedSuffix.object')
+      curry.save(module, product)
+      curry.reset()
+      with mock.patch('shutil.copyfile', side_effect=AssertionError('per-load copy')):
+        loaded = curry.load(product)
+      self.assertEqual(curry.eval(loaded.answer).one(), 42)
+      self.assertEqual(os.path.realpath(getHandle(loaded).sofilename),
+                       os.path.realpath(product))
+
   @cytest.skipUnlessObjectsLoad('curry.load opens a compiled object')
   def test_loaded_object_keeps_its_typed_interface(self):
     module = curry.compile('f :: Int -> Int\nf x = x + 1', name='SavedTyped')
@@ -394,7 +408,6 @@ class TestPublicObjects(cytest.TestCase):
       self.assertIs(SavedTyped, loaded)
 
   @cytest.skipUnlessObjectsLoad('a saved program loads its object')
-  @((unittest.expectedFailure) if sys.platform == 'win32' else (lambda test: test))
   def test_saved_constrained_program_prints_the_defaulted_goal(self):
     module = curry.compile('main = Just 5', name='SavedConstrained')
     with tempfile.TemporaryDirectory() as work:

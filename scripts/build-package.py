@@ -255,6 +255,11 @@ def main():
   else:
     # An explicitly compiler-free stage keeps ICurry and images.
     print('no compiler of generated code: the library is not compiled', flush=True)
+  # All compiler children have exited. Retired library generations and
+  # obsolete per-load copies are build debris, never installation products.
+  for pattern in ('*.old-*', '*.tiered'):
+    for retired in lib.rglob(pattern):
+      retired.unlink()
   if args.wheel:
     # pip has no post-install prefix rewrite. Keep the digest and express
     # its installation provenance relative to the stamp's own directory.

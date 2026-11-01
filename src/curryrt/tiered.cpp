@@ -23,6 +23,7 @@
 #include <signal.h>
 #include <spawn.h>
 #include <sys/stat.h>
+#include <sys/file.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
@@ -401,14 +402,27 @@ namespace curryrt
       }
     }
 
-    // Open a fresh generation when already mapped; Windows always uses a
-    // private name so publication never replaces a mapped canonical file.
+    // POSIX dlopen caches pathname strings even after atomic replacement.
+    // A distinct spelling opens the canonical inode without a link or copy.
+    // Windows publication retires the mapped name before this load.
     void * open_object(
         std::string const & sofile, std::string & loadpath, std::string * error
       )
     {
-      loadpath = platform::object_load_path(sofile, error, platform::loaded(sofile));
-      if(loadpath.empty()) return nullptr;
+      loadpath = sofile;
+#if !defined(_WIN32)
+      if(platform::loaded(sofile))
+      {
+        static std::atomic<unsigned long long> generation{0};
+        auto file = std::filesystem::absolute(std::filesystem::u8path(sofile));
+        std::string alias = file.parent_path().u8string() + "/";
+        // Encode the counter in separator runs between dot components.
+        // The spelling grows logarithmically, rather than one dot per load.
+        for(auto n = ++generation; n; n >>= 1)
+          alias += (n & 1) ? ".//" : "./";
+        loadpath = alias + file.filename().u8string();
+      }
+#endif
       // The first dlopen maps the object; the binding of its load, which
       // follows (SharedCurryModule), may give kept tables steps that point
       // into it.  The handle is never closed on a failure after this
@@ -418,18 +432,53 @@ namespace curryrt
       if(!raw)
       {
         *error = "cannot load the object: " + msg;
-        if(loadpath != sofile)
-        {
-          std::error_code ignored;
-          std::filesystem::remove(std::filesystem::u8path(loadpath), ignored);
-        }
       }
       return raw;
     }
 
+    // Use the same module lock as the Python product writers.
+    struct ProductLock
+    {
+#if defined(_WIN32)
+      HANDLE handle = INVALID_HANDLE_VALUE;
+      OVERLAPPED overlap{};
+#else
+      int handle = -1;
+#endif
+      bool acquired = false;
+      explicit ProductLock(std::string const & object)
+      {
+        auto path = std::filesystem::u8path(object);
+        path.replace_extension(".lock");
+#if defined(_WIN32)
+        handle = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL, nullptr);
+        if(handle != INVALID_HANDLE_VALUE)
+          acquired = LockFileEx(handle, LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, &overlap);
+#else
+        handle = ::open(path.c_str(), O_RDWR | O_CREAT, 0666);
+        if(handle >= 0)
+        {
+          int status;
+          do { status = flock(handle, LOCK_EX); } while(status < 0 && errno == EINTR);
+          acquired = status == 0;
+        }
+#endif
+      }
+      ~ProductLock()
+      {
+#if defined(_WIN32)
+        if(handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
+#else
+        if(handle >= 0) close(handle);
+#endif
+      }
+    };
+
     // Publishes the products of a private compile beside the source (see
-    // TieredJob::publish): the generated file, the ABI stamp, then the
-    // object, each copied under a temporary name in the target directory
+    // TieredJob::publish): the generated file, the object, then the
+    // ABI stamp, each copied under a temporary name in the target directory
     // and renamed into place, when the source's ICurry file is the one of
     // the import and the directory exists.  Returns the path to open: the
     // published object, or the private one when nothing was published, a
@@ -456,11 +505,17 @@ namespace curryrt
         source.replace_extension();
         return source.u8string();
       };
+      ProductLock lock(publish);
+      if(!lock.acquired || !file_exists(icurryfile)
+          || tiered_file_digest(icurryfile) != digest) return sofile;
+      // A failed object replacement must not leave a new stamp on old code.
+      fs::remove(fs::u8path(publish + ".abi"), ec);
+      if(ec) return sofile;
       static std::atomic<unsigned> counter{0};
       std::pair<std::string, std::string> const pairs[] = {
           {stem(sofile) + ".cpp", stem(publish) + ".cpp"}
-        , {sofile + ".abi", publish + ".abi"}
         , {sofile, publish}
+        , {sofile + ".abi", publish + ".abi"}
         };
       for(auto const & pair: pairs)
       {
@@ -472,7 +527,23 @@ namespace curryrt
                + std::to_string(platform::process_id()) + "-" + std::to_string(counter++));
         fs::copy_file(pair.first, tmp, fs::copy_options::overwrite_existing, ec);
         if(!ec)
-          fs::rename(tmp, target, ec);
+        {
+          if(pair.first == sofile)
+          {
+            std::string error;
+            if(!platform::publish_object(tmp.u8string(), target.u8string(), &error))
+              ec = std::make_error_code(std::errc::permission_denied);
+          }
+          else
+          {
+#if defined(_WIN32)
+            if(!MoveFileExW(tmp.c_str(), target.c_str(), MOVEFILE_REPLACE_EXISTING))
+              ec = std::error_code(GetLastError(), std::system_category());
+#else
+            fs::rename(tmp, target, ec);
+#endif
+          }
+        }
         if(ec)
         {
           std::error_code ignored;
@@ -480,7 +551,6 @@ namespace curryrt
           return sofile;
         }
       }
-      platform::cleanup_object_copies(publish);
       return publish;
     }
 
@@ -531,10 +601,6 @@ namespace curryrt
       catch(std::exception const & e)
       {
         result.error = "the import " + imp.module + ": " + e.what();
-      }
-      if(loadpath != path)
-      {
-        platform::release_object_path(loadpath);
       }
       return ok;
     }
@@ -633,10 +699,6 @@ namespace curryrt
       catch(std::exception const & e)
       {
         result.error = e.what();
-      }
-      if(loadpath != path)
-      {
-        platform::release_object_path(loadpath);
       }
       return result;
     }

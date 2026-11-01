@@ -229,12 +229,12 @@ class TestRemovedDirectory(TieredTestCase):
     self.assertTrue(os.path.isfile(self.stamp(name)))
     self.assertEqual(self.py(M.total, 3), 20)
 
-  def test_publication_with_windows_object_copies(self):
+  def test_publication_with_windows_publication(self):
     from pathlib import Path
-    with mock.patch.dict(os.environ, SPRITE_TEST_WINDOWS_OBJECT_COPIES='1'):
+    with mock.patch.dict(os.environ, SPRITE_TEST_WINDOWS_PUBLICATION='1'):
       self.test_products_published_at_the_swap()
       copies = list(Path(self.tmpdir).rglob('*.tiered'))
-      self.assertTrue(copies, 'tiered publication must map a private name')
+      self.assertFalse(copies, 'publication must not make per-load copies')
       self.assertTrue(all(path.is_file() for path in copies))
 
 
