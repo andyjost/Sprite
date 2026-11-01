@@ -875,6 +875,14 @@ boom = error "boom"
         EvaluationError, 'boom', lambda: list(cytest.raw.values(M.boom))
       )
 
+  def test_first_use_with_windows_object_copies(self):
+    from pathlib import Path
+    with mock.patch.dict(os.environ, SPRITE_TEST_WINDOWS_OBJECT_COPIES='1'):
+      self.test_compiled_on_first_use()
+      copies = list(Path(self.tmpdir).rglob('*.tiered'))
+      self.assertTrue(copies, 'first-use adoption must map a private name')
+      self.assertTrue(all(path.is_file() for path in copies))
+
   @cytest.hardreset
   def test_trap_without_the_compile(self):
     '''The error of the trap step, with the compile turned off.'''

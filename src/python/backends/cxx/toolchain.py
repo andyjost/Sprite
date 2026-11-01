@@ -1280,6 +1280,8 @@ class Cpp2So(object):
         # live object while a reader may open it; rename the complete one.
         self.remove_stamp(file_out)
         os.replace(tmp, file_out)
+        from . import curryrtbindings
+        curryrtbindings.cleanup_object_copies(file_out)
         self.write_stamp(file_out, provenance, source_record(cpp))
         with open(file_in, 'rb') as stream:
           if stream.read() == source:

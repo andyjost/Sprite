@@ -401,49 +401,14 @@ namespace curryrt
       }
     }
 
-    // A hard link of ``path`` under a name of its own beside it, or a copy
-    // when the file system refuses the link.  Returns the empty string with
-    // ``error`` set on failure.  See the load in tiered.hpp.
-    std::string unique_link(std::string const & path, std::string * error)
-    {
-      static std::atomic<unsigned> counter{0};
-      std::string const linkpath = path + "." + std::to_string(platform::process_id())
-          + "." + std::to_string(++counter) + ".tiered";
-      std::error_code ec;
-      std::filesystem::remove(linkpath, ec);
-      ec.clear();
-      std::filesystem::create_hard_link(path, linkpath, ec);
-      if(!ec)
-        return linkpath;
-      ec.clear();
-      std::filesystem::copy_file(path, linkpath, ec);
-      if(ec)
-      {
-        *error = "cannot link or copy the object under a name of its own: "
-               + ec.message();
-        return {};
-      }
-      return linkpath;
-    }
-
-    // Opens the object ``sofile`` into the global scope; see the load in
-    // tiered.hpp.  A file at a path this process maps already is opened
-    // through a link of its own name, which ``loadpath`` names and the
-    // caller removes once the library took its own handle.  Returns the
-    // handle, or null with ``error`` set.
+    // Open a fresh generation when already mapped; Windows always uses a
+    // private name so publication never replaces a mapped canonical file.
     void * open_object(
         std::string const & sofile, std::string & loadpath, std::string * error
       )
     {
-      loadpath = sofile;
-      std::string linkpath;
-      if(platform::loaded(sofile))
-      {
-        linkpath = unique_link(sofile, error);
-        if(linkpath.empty())
-          return nullptr;
-        loadpath = linkpath;
-      }
+      loadpath = platform::object_load_path(sofile, error, platform::loaded(sofile));
+      if(loadpath.empty()) return nullptr;
       // The first dlopen maps the object; the binding of its load, which
       // follows (SharedCurryModule), may give kept tables steps that point
       // into it.  The handle is never closed on a failure after this
@@ -453,10 +418,10 @@ namespace curryrt
       if(!raw)
       {
         *error = "cannot load the object: " + msg;
-        if(!linkpath.empty())
+        if(loadpath != sofile)
         {
           std::error_code ignored;
-          std::filesystem::remove(linkpath, ignored);
+          std::filesystem::remove(std::filesystem::u8path(loadpath), ignored);
         }
       }
       return raw;
@@ -515,6 +480,7 @@ namespace curryrt
           return sofile;
         }
       }
+      platform::cleanup_object_copies(publish);
       return publish;
     }
 
@@ -568,8 +534,7 @@ namespace curryrt
       }
       if(loadpath != path)
       {
-        std::error_code ignored;
-        std::filesystem::remove(loadpath, ignored);
+        platform::release_object_path(loadpath);
       }
       return ok;
     }
@@ -671,8 +636,7 @@ namespace curryrt
       }
       if(loadpath != path)
       {
-        std::error_code ignored;
-        std::filesystem::remove(loadpath, ignored);
+        platform::release_object_path(loadpath);
       }
       return result;
     }

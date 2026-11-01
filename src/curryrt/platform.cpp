@@ -1,4 +1,7 @@
 #include "curryrt/platform.hpp"
+#include <atomic>
+#include <filesystem>
+#include <cstdlib>
 #include <cerrno>
 #include <cstring>
 
@@ -13,6 +16,7 @@
 #include <pthread.h>
 #include <dlfcn.h>
 #include <unistd.h>
+#include <signal.h>
 #include <sys/resource.h>
 #include <cstdint>
 #include <cstdlib>
@@ -276,4 +280,89 @@ namespace curryrt { namespace platform {
   long long process_id() { return getpid(); }
 
 #endif
+
+  bool private_object_copies()
+  {
+#if defined(_WIN32)
+    return true;
+#else
+    char const * value = std::getenv("SPRITE_TEST_WINDOWS_OBJECT_COPIES");
+    return value && std::strcmp(value, "1") == 0;
+#endif
+  }
+
+  namespace
+  {
+    bool process_alive(long long pid)
+    {
+#if defined(_WIN32)
+      HANDLE process = OpenProcess(SYNCHRONIZE, FALSE, static_cast<DWORD>(pid));
+      if(!process) return GetLastError() != ERROR_INVALID_PARAMETER;
+      bool alive = WaitForSingleObject(process, 0) != WAIT_OBJECT_0;
+      CloseHandle(process);
+      return alive;
+#else
+      return kill(static_cast<pid_t>(pid), 0) == 0 || errno != ESRCH;
+#endif
+    }
+  }
+
+  void cleanup_object_copies(std::string const & path)
+  {
+    if(!private_object_copies()) return;
+    namespace fs = std::filesystem;
+    auto file = fs::u8path(path);
+    std::string prefix = file.filename().u8string() + ".";
+    std::error_code ec;
+    fs::directory_iterator entries(file.parent_path(), ec), end;
+    for(; !ec && entries != end; entries.increment(ec))
+    {
+      std::string name = entries->path().filename().u8string();
+      if(name.compare(0, prefix.size(), prefix) != 0) continue;
+      std::string tail = name.substr(prefix.size());
+      auto dot = tail.find('.');
+      if(dot == std::string::npos || tail.size() < 7
+          || tail.substr(tail.size() - 7) != ".tiered") continue;
+      auto digits = tail.substr(0, dot);
+      if(digits.empty() || digits.find_first_not_of("0123456789") != std::string::npos)
+        continue;
+      long long pid;
+      try { pid = std::stoll(digits); } catch(...) { continue; }
+      if(pid <= 0 || process_alive(pid)) continue;
+      std::error_code ignored;
+      fs::remove(entries->path(), ignored);
+    }
+  }
+
+  std::string object_load_path(std::string const & path, std::string * error, bool fresh)
+  {
+    if(!private_object_copies() && !fresh) return path;
+    namespace fs = std::filesystem;
+    static std::atomic<unsigned long long> counter{0};
+    // Never reuse a name, even if an earlier process had the same PID.
+    for(;;)
+    {
+      std::string copy = path + "." + std::to_string(process_id())
+          + "." + std::to_string(++counter) + ".tiered";
+      std::error_code ec;
+      fs::create_hard_link(fs::u8path(path), fs::u8path(copy), ec);
+      if(!ec) return copy;
+      if(ec == std::errc::file_exists) continue;
+      ec.clear();
+      fs::copy_file(fs::u8path(path), fs::u8path(copy), ec);
+      if(!ec) return copy;
+      if(ec == std::errc::file_exists) continue;
+      if(error) *error = "cannot link or copy the object under a private name: " + ec.message();
+      return {};
+    }
+  }
+
+  void release_object_path(std::string const & path)
+  {
+    // Windows cannot delete a mapped copy. Publication in a later process
+    // collects it after its owner exits. POSIX unlinks its temporary links.
+    if(private_object_copies()) return;
+    std::error_code ignored;
+    std::filesystem::remove(std::filesystem::u8path(path), ignored);
+  }
 }}

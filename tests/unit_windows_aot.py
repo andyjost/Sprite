@@ -85,7 +85,9 @@ class TestTableExports(cytest.TestCase):
     from curry.interpreter.loadsave import compilable_icurry
     for name in ['CxxBom', 'Prelude']:
       with self.subTest(module=name):
-        module = curry.import_(name)
+        # Direct unittest runs do not inherit run_tests' fixture CURRYPATH.
+        source = Path(__file__).parent / 'data' / 'curry' / 'CxxBom.curry'
+        module = curry.import_(str(source) if name == 'CxxBom' else name)
         interp = cytest.raw.interp()
         target = compiler.compile(interp, compilable_icurry(
             interp, module, getHandle(module).icurry))
@@ -115,6 +117,46 @@ class TestTableExports(cytest.TestCase):
                   self.assertNotRegex(text, r'&\s*' + re.escape(symbol) + r'\b')
           self.assertTrue(defined <= declared)
           self.assertTrue(declared - defined)
+
+
+class TestPrivateObjectCopies(cytest.TestCase):
+  def test_loaded_canonical_product_can_be_republished(self):
+    with mock.patch.dict(os.environ, SPRITE_TEST_WINDOWS_OBJECT_COPIES='1'), \
+         tempfile.TemporaryDirectory(prefix='sprite-object-copies-',
+                                     ignore_cleanup_errors=True) as work:
+      source = Path(work) / 'PrivateObjectCopies.curry'
+      source.write_text('module PrivateObjectCopies where\nanswer :: Int\nanswer = 42\n')
+      curry.reset(interpret='off', jit='off')
+      module = curry.import_(str(source))
+      self.assertEqual(curry.eval(module.answer).one(), 42)
+      product = Path(getHandle(module).sofilename)
+      copies = list(product.parent.glob(product.name + '.*.tiered'))
+      self.assertTrue(copies, 'normal AOT import must map a private name')
+      # A second process maps this generation and then publishes again.
+      # Its private names become stale only after it exits.
+      script = """
+import curry, sys
+from curry.backends.cxx import toolchain
+from curry.toolchain import _filenames
+curry.reset(interpret='off', jit='off')
+module = curry.import_(sys.argv[1])
+cpp = _filenames.replacesuffix(sys.argv[1], '.cpp')
+step = toolchain.Cpp2So(curry._interpreter_)
+step(cpp, curry.path, is_sourcefile=True)
+assert curry.eval(module.answer).one() == 42
+"""
+      child = subprocess.run([sys.executable, '-c', script, str(source)],
+                             capture_output=True, text=True, timeout=120)
+      self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+      stale = [p for p in product.parent.glob(product.name + '.*.tiered')
+               if p not in copies]
+      self.assertTrue(stale, 'the child must leave its mapped private copy')
+      # Publication cleans dead owners without removing live readers.
+      cpp = str(product.with_suffix('.cpp'))
+      toolchain.Cpp2So(cytest.raw.interp())(cpp, curry.path, is_sourcefile=True)
+      self.assertTrue(all(not path.exists() for path in stale))
+      self.assertTrue(all(path.exists() for path in copies))
+      self.assertEqual(curry.eval(module.answer).one(), 42)
 
 
 class TestPERecord(cytest.TestCase):

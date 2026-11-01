@@ -3,6 +3,7 @@
 #include "pybind11/stl.h"
 #include "curryrt/dynload.hpp"
 #include "curryrt/image.hpp"
+#include "curryrt/platform.hpp"
 #include <memory>
 #include <string>
 
@@ -26,6 +27,9 @@ namespace curryrt { namespace python
 
     mod.def("load_image", &load_image, py::arg("owner"), py::arg("path"),
         py::arg("expected_header") = "", py::arg("attach_code") = true,
+        curryrt::python::heap_access{});
+
+    mod.def("cleanup_object_copies", &platform::cleanup_object_copies,
         curryrt::python::heap_access{});
 
     // The registry entry shared by every library loaded under one module name.
