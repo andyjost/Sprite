@@ -143,12 +143,11 @@ the other. The repository has small [examples](https://andyjost.github.io/Sprite
 [build system](examples/24-build-system)
 whose pattern rules run both ways, a
 [package dependency solver](examples/15-dependency-solver)
-with no search code,
+with no search code, and
 [C++ overload resolution](examples/21-cxx-types-overloads)
-that can also tell you which argument types pick a given overload, and a
-[canonicalizer for a small expression IR](examples/26-ir-canonicalization)
-whose eight rules, asked for the normal form of an input, return every normal
-form any rewrite order reaches, with the rules that got there.
+that can also tell you which argument types pick a given overload. We think
+compiler IR, where passes are rewrite rules over a term graph, is another
+natural fit.
 
 ## Installation
 
@@ -178,7 +177,7 @@ The [documentation](https://andyjost.github.io/Sprite/) has a
 Python programmers, the [Python API](https://andyjost.github.io/Sprite/PythonAPI/index.html),
 the [REPL](https://andyjost.github.io/Sprite/REPL.html), and a
 [Status](https://andyjost.github.io/Sprite/Status.html) page that says what
-works today. The twenty-seven [examples](https://andyjost.github.io/Sprite/Examples.html)
+works today. The twenty-six [examples](https://andyjost.github.io/Sprite/Examples.html)
 each come with a README, a run script, and recorded output. The Fair Scheme
 and its proofs are written up in a
 [dissertation](https://doi.org/10.15760/etd.3564)

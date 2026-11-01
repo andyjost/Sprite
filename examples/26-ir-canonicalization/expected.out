@@ -1,9 +1,0 @@
-% python go.py
-reassoc      x * 6
-twice        (x * 3) + (x * 3)
-True
-2 * (2 * x): (x + x) + (x + x) or x * 4
-2 * (3 * x): (x * 3) + (x * 3) or x * 6
-2 * (x * 2): (x + x) + (x + x) or x * 4
-56 of 1,179 terms have more than one normal form; the most is 2
-0 of 1,179 terms have more than one normal form; the most is 1

@@ -64,8 +64,8 @@ Tour: 00 to 09
     actions.
 
 
-Applications: 10 to 19, 25 and 26
----------------------------------
+Applications: 10 to 19 and 25
+-----------------------------
 
 10-queens-set-functions
     Use a set function to reject unsafe permutations and draw a solution.
@@ -105,10 +105,6 @@ Applications: 10 to 19, 25 and 26
 25-perfect-hash
     Search programs by length for a Java-keyword hash beside Python brute
     force over the same space.
-
-26-ir-canonicalization
-    Ask eight rewrite rules for every normal form of an input, with the
-    rules used, then census a family of terms for the ones that split.
 
 
 Optional C++ type series: 20 to 23

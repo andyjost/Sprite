@@ -101,8 +101,8 @@ collect a multiset with a set function.
 totals from Curry I/O actions.
 
 
-Applications: 10 to 19, 25 and 26
-=================================
+Applications: 10 to 19 and 25
+=============================
 
 .. _example-10:
 
@@ -191,16 +191,6 @@ command line and an HTTP form.
 
 `examples/25-perfect-hash <https://github.com/andyjost/Sprite/tree/master/examples/25-perfect-hash>`_ — Search programs by length for a Java-keyword
 hash beside Python brute force over the same space.
-
-.. _example-26:
-
-26: Every normal form of a small expression IR
-----------------------------------------------
-
-`examples/26-ir-canonicalization <https://github.com/andyjost/Sprite/tree/master/examples/26-ir-canonicalization>`_ — Ask eight rewrite rules for every
-normal form of an input, with the rules used, then census a family of terms
-for the ones that split.
-
 
 Optional C++ type series: 20 to 23
 ==================================
