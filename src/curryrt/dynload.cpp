@@ -169,7 +169,8 @@ namespace
         bom::Function const & function = record.functions[i];
         auto builtin = Module::builtin_symbol(record.fullname, function.info->name);
         if(!builtin && (function.info->flags & F_BUILTIN))
-          unresolved("primitive", record.fullname, function.info->name);
+          throw DynloadError(std::string("primitive ") + record.fullname + "." +
+              function.info->name + " is not registered in this runtime");
         *function.slot = builtin ? builtin : owner ? owner->bind_infotable(function.info)
                                                  : function.info;
       }

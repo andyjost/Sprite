@@ -205,7 +205,7 @@ reproducers pass.
   available. Externals without a primitive in the runtime raise
   `not implemented` at their call.
 - The module image records its ICurry digest, route, budget and import-image
-  digests. The runtime loads the image; tools read ICurry text for bodies.
+  digests. The header also records sorted registered primitive names. The runtime loads the image; tools read ICurry text for bodies.
 - The products under `curry/lib/**/.curry/sprite-pakcs-3.10.0/` are
   committed artifacts of the pinned current pair; module images stay derived.
   `make` derives images and keeps valid pins unless you set
@@ -265,6 +265,7 @@ reproducers pass.
   by SONAME, so an entry serves every tree with the same stamp.
 - Module images (`M.img`) live beside the ICurry products. Their headers
   name source and import-image digests, the route and the inline budget.
+  The headers also name sorted registered primitives.
   The C++ runtime reads the symbol records and attaches interpreter bytecode;
   The library images are products of the stage and ship in the wheel.
   A read-only product directory uses a private image at import. Importers

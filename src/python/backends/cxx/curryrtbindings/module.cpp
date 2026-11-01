@@ -19,7 +19,7 @@ namespace
 
   struct PythonPrimitive
   {
-    std::string name, format;
+    std::string name, qualified_name, format;
     mutable py::object callable;
     InfoTable info;
     PythonPrimitive(std::string name, index_type arity, py::object callable,
@@ -32,16 +32,17 @@ namespace
   };
 
   // Arguments are already normalized before Python acquires the GIL.
-  tag_type to_python(RuntimeState * rts, Configuration * C, Variable value,
+  tag_type to_python(RuntimeState * rts, Configuration * C, Cursor value,
                      py::object & result)
   {
     tag_type tag = T_CTOR;
-    Node * node = value.target;
+    Node * node = value;
     if(is_int(*node->info))
     {
       auto digits = integer_string(node);
       result = py::reinterpret_steal<py::object>(PyLong_FromString(
           const_cast<char *>(digits.c_str()), nullptr, 10));
+      if(!result) throw py::error_already_set();
     }
     else if(is_float(*node->info)) result = py::float_(NodeU{node}.float_->value);
     else if(is_char(*node->info))
@@ -58,16 +59,16 @@ namespace
       while(true)
       {
 
-        if(value.target->info == &Nil_Info) break;
-        Variable head = value[0];
+        if(value->info == &Nil_Info) break;
+        Cursor head = value[0].target;
 
-        if(first) { chars = is_char(*head.target->info); first = false; }
+        if(first) { chars = is_char(*head->info); first = false; }
         py::object item;
         tag = to_python(rts, C, head, item);
         if(tag < T_CTOR) return tag;
         if(chars) text += item.cast<std::string>();
         else items.append(item);
-        value = value[1];
+        value = value[1].target;
       }
       result = chars ? py::object(py::str(text)) : py::object(items);
     }
@@ -77,7 +78,7 @@ namespace
       for(int i=0; i<2; ++i)
       {
         py::object item;
-        tag = to_python(rts, C, value[i], item);
+        tag = to_python(rts, C, value[i].target, item);
         if(tag < T_CTOR) return tag;
         pair[i] = item;
       }
@@ -121,17 +122,26 @@ namespace
   tag_type python_primitive_step(RuntimeState * rts, Configuration * C)
   {
     Cursor root = C->cursor();
-    std::vector<Variable> pending;
-    for(index_type i=root->info->arity; i-- > 0;) pending.push_back(root[i]);
+    // Keep one path and extend it in place; copying a Variable per list
+    // cell would copy every prefix of the list's path.
+    struct Frame { Cursor cursor; index_type next, end; size_t path, guards; };
+    std::vector<Frame> pending{{root, 0, root->info->arity, 0, 0}};
+    Variable value;
     while(!pending.empty())
     {
-      auto value = pending.back();
-      pending.pop_back();
+      auto & frame = pending.back();
+      if(frame.next == frame.end) { pending.pop_back(); continue; }
+      value.realpath.resize(frame.path);
+      value.guards.resize(frame.guards);
+      auto child = frame.cursor[frame.next++];
+      value.target = child.target;
+      value.realpath.append(child.realpath.begin(), child.realpath.end());
+      value.guards.append(child.guards.begin(), child.guards.end());
       auto tag = rts->hnf(C, &value);
       if(tag < T_CTOR) return tag;
       if(is_list(*value.target->info) || value.target->info == &Pair_Info)
-        for(index_type i=value.target->info->arity; i-- > 0;)
-          pending.push_back(value[i]);
+        pending.push_back({value.target, 0, value.target->info->arity,
+                           value.realpath.size(), value.guards.size()});
     }
     py::gil_scoped_acquire gil;
     auto primitive = static_cast<PythonPrimitive const *>(root->info->aux);
@@ -142,11 +152,12 @@ namespace
       for(index_type i=0; i<root->info->arity; ++i)
       {
         py::object arg;
-        auto tag = to_python(rts, C, root[i], arg);
+        auto tag = to_python(rts, C, root[i].target, arg);
         if(tag < T_CTOR) return tag;
         args[i] = arg;
       }
-      py::object result = primitive->callable(*args);
+      py::object callable = primitive->callable; // retain across replacement
+      py::object result = callable(py::cast(rts, reference).attr("interp"), *args);
       Node * node = from_python(result);
       root->forward_to(is_monadic(primitive->info) ? io(node) : node);
       return T_FWD;
@@ -168,6 +179,7 @@ namespace
       PyErr_Clear();
     }
     catch(std::exception const & exc) { error = exc.what(); }
+    error = "primitive " + primitive->qualified_name + ": " + error;
     if(is_monadic(primitive->info))
       C->set_error(Node::create(ioerror_info(IO_ERROR),
           build_curry_string(error.c_str())), "i/o error: " + error, ErrorKind::io);
@@ -239,8 +251,6 @@ namespace curryrt { namespace python
       auto dot = name.rfind('.');
       if(dot == std::string::npos || !dot || dot + 1 == name.size())
         throw py::value_error("a primitive needs a qualified name");
-      if(Module::find(name.substr(0, dot)))
-        throw py::value_error("register before the import: " + name);
       auto existing = Module::builtin_symbol(name.substr(0, dot), name.substr(dot + 1));
       if(existing)
       {
@@ -250,9 +260,12 @@ namespace curryrt { namespace python
         static_cast<PythonPrimitive const *>(existing->aux)->callable = callable;
         return;
       }
+      if(Module::find(name.substr(0, dot)))
+        throw py::value_error("new primitive; register before the import: " + name);
       // Kept for the process; Python objects must not die after finalization.
       auto primitive = new PythonPrimitive(name.substr(dot + 1), arity,
           callable, monadic, python_primitive_step);
+      primitive->qualified_name = name;
       try { Module::register_primitive(name, &primitive->info); }
       catch(...) { delete primitive; throw; }
     }, py::arg("name"), py::arg("arity"), py::arg("callable"),

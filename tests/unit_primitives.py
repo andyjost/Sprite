@@ -70,7 +70,8 @@ class TestPrimitives(cytest.TestCase):
         ('increment', 1, increment, False),
         ('echo', 1, lambda x: x, False),
         ('text', 1, lambda x: x, False),
-        ('character', 1, lambda x: x, False),
+        ('textLength', 1, lambda s: len(s) if isinstance(s, str) else -1, False),
+        ('character', 0, lambda: 'a', False),
         ('pair', 1, lambda x: x, False),
         ('floating', 1, lambda x: x, False),
         ('boolean', 1, lambda x: x, False),
@@ -144,10 +145,16 @@ increment :: Int -> Int
 increment external
 echo :: [Int] -> [Int]
 echo external
+lazyList :: [Int]
+lazyList = echo [1 + 2, 4 ? 5]
 text :: String -> String
 text external
-character :: Char -> Char
+textLength :: String -> Int
+textLength external
+character :: Char
 character external
+characterCode :: Int
+characterCode = ord character
 pair :: (Int, Bool) -> (Int, Bool)
 pair external
 floating :: Float -> Float
@@ -175,9 +182,14 @@ recovered = catch brokenIO (\\_ -> return 7)
 ''')
     self.assertEqual(curry.eval(R.increment(2 ** 80)).one(), 2 ** 80 + 1)
     self.assertEqual(curry.eval(R.echo([1, 2, 3])).one(), [1, 2, 3])
+    self.assertEqual(sorted(curry.eval(R.lazyList)), [[3, 4], [3, 5]])
+    self.assertEqual(curry.eval(R.textLength('x' * 5000)).one(), 5000)
     self.assertEqual(curry.eval(R.text('abc\u00e4')).one(), 'abc\u00e4')
     self.assertEqual(curry.eval(R.text('')).one(), '')
-    self.assertEqual(curry.eval(R.character(curry.Char('a'))).one(), 'a')
+    self.assertEqual(curry.eval(R.textLength('')).one(), 0)
+    self.assertEqual(curry.eval(R.character).one(), 'a')
+    self.assertIsInstance(curry.eval(R.character).one(), curry.Char)
+    self.assertEqual(curry.eval(R.characterCode).one(), 97)
     self.assertEqual(curry.eval(R.pair((3, True))).one(), (3, True))
     self.assertEqual(curry.eval(R.floating(1.25)).one(), 1.25)
     self.assertEqual(curry.eval(R.boolean(True)).one(), True)
@@ -224,7 +236,7 @@ recovered = catch brokenIO (\\_ -> return 7)
 
   @cytest.with_flags(jit='off')
   def test_python_call_cost_in_curry(self):
-    for mode in ('off', 'all'):
+    for mode in ('off', 'new', 'all'):
       curry.reset(interpret=mode, jit='off')
       M = curry.compile('''
 import System.Environment
@@ -246,8 +258,10 @@ loop n = if n == 0 then return () else getProgName >> loop (n-1)
       curryrt.register_primitive('Test.bad', -1, lambda: 1)
     with self.assertRaises(TypeError):
       curryrt.register_primitive('Test.bad', 0, None)
-    with self.assertRaises(ValueError):
+    with self.assertRaisesRegex(ValueError, 'another shape: RegisteredPrimitives.increment'):
       curryrt.register_primitive('RegisteredPrimitives.increment', 2, increment)
+    with self.assertRaisesRegex(ValueError, 'another shape: RegisteredPrimitives.increment'):
+      curryrt.register_primitive('RegisteredPrimitives.increment', 1, increment, True)
 
   def test_child_arguments(self):
     code = '''import curry, json
@@ -263,7 +277,7 @@ print(json.dumps([curry.eval(E.getProgName).one(), curry.eval(E.getArgs).one()])
     with tempfile.TemporaryDirectory() as directory:
       source = Path(directory) / 'PrimitiveRefs.curry'
       source.write_text(REF_PROGRAM)
-      for mode in ('off', 'all'):
+      for mode in ('off', 'new', 'all'):
         env = dict(os.environ, SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:' + mode)
         result = subprocess.run([config.sprite_exec(), str(source)],
             env=env, text=True, capture_output=True)
@@ -276,12 +290,14 @@ print(json.dumps([curry.eval(E.getProgName).one(), curry.eval(E.getArgs).one()])
     curryrt.register_primitive('ReplacementPrimitive.f', 0, lambda: 2)
     M = curry.compile('module ReplacementPrimitive where\nf :: Int\nf external\n')
     self.assertEqual(curry.eval(M.f).one(), 2)
-    with self.assertRaisesRegex(ValueError, 'register before the import'):
-      curryrt.register_primitive('ReplacementPrimitive.f', 0, lambda: 3)
+    curryrt.register_primitive('ReplacementPrimitive.f', 0, lambda: 3)
+    self.assertEqual(curry.eval(M.f).one(), 3)
+    with self.assertRaisesRegex(ValueError, 'new primitive; register before the import'):
+      curryrt.register_primitive('ReplacementPrimitive.newName', 0, lambda: 3)
+    for arity, monadic in ((1, False), (0, True)):
+      with self.assertRaisesRegex(ValueError, 'another shape: ReplacementPrimitive.f'):
+        curryrt.register_primitive('ReplacementPrimitive.f', arity, lambda: 0, monadic)
     curry.reset()
-    del M
-    import gc
-    gc.collect()
     curryrt.register_primitive('ReplacementPrimitive.f', 0, lambda: 4)
     M = curry.compile('module ReplacementPrimitive where\nf :: Int\nf external\n')
     self.assertEqual(curry.eval(M.f).one(), 4)
@@ -302,6 +318,14 @@ print(json.dumps([curry.eval(E.getProgName).one(), curry.eval(E.getArgs).one()])
           text=True, capture_output=True)
       self.assertEqual(result.returncode, 0, result.stderr)
       self.assertEqual(result.stdout.strip(), '("PrimitiveArguments",["first","two words"])')
+      for arguments in (['--', '-g'], ['-gfoo'], ['--go=main'], ['-ip'],
+                        ['first', '--', '-g']):
+        result = subprocess.run([config.sprite_exec(), str(source)] + arguments,
+            text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        expected = arguments[1:] if arguments[0] == '--' else arguments
+        self.assertEqual(result.stdout.strip(),
+            '("PrimitiveArguments",[' + ','.join(json.dumps(x) for x in expected) + '])')
       M = curry.import_(str(source))
       saved = str(Path(directory) / 'saved')
       curry.save(M, saved, main='main')
@@ -341,7 +365,7 @@ try:
   if sys.argv[1] == 'image': rt.load_image(owner, sys.argv[2])
   else: rt.SharedCurryModule(sys.argv[2])
 except Exception as error:
-  assert 'CachedPrimitive' in str(error) and 'f' in str(error), str(error)
+  assert 'primitive CachedPrimitive.f is not registered in this runtime' in str(error), str(error)
 else:
   raise AssertionError('unregistered primitive accepted')
 """
@@ -350,7 +374,10 @@ else:
             text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
       # Normal imports must invalidate the cache and restore the external stub.
-      for mode in ('off', 'all'):
+      for mode in ('off', 'new', 'all'):
+        result = subprocess.run([sys.executable, '-c', create, str(source)],
+            text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
         code = """import curry, sys
 curry.reset(interpret=sys.argv[2], jit='off')
 from curry.backends.cxx.toolchain import input_record, input_current
@@ -365,3 +392,56 @@ else: raise AssertionError('external primitive succeeded')
         result = subprocess.run([sys.executable, '-c', code, str(source), mode],
             text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
+
+      for mode in ('off', 'new', 'all'):
+        build = """import curry, sys
+curry.reset(interpret='off', jit='off')
+M = curry.import_(sys.argv[1])
+from curry.backends.cxx.toolchain import input_record
+assert input_record(curry._interpreter_, sys.argv[1])['registry'] == []
+"""
+        result = subprocess.run([sys.executable, '-c', build, str(source)],
+            text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        code = """import curry, sys
+from curry.backends.cxx import curryrtbindings as rt
+curry.reset(interpret=sys.argv[2], jit='off')
+from curry.backends.cxx import image
+from curry.backends.cxx.toolchain import input_current
+record = image.read(image.filename(sys.argv[1]))
+assert record['registry'] == []
+rt.register_primitive('CachedPrimitive.f', 0, lambda: 42)
+assert not input_current(record, sys.argv[1], curry._interpreter_)
+M = curry.import_(sys.argv[1])
+assert curry.eval(M.f).one() == 42
+assert image.read(image.filename(sys.argv[1]))['registry'] == ['f']
+"""
+        result = subprocess.run([sys.executable, '-c', code, str(source), mode],
+            text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+  def test_private_interpreter(self):
+    from curry.interpreter import Interpreter
+    interp = Interpreter(flags={'backend': 'cxx', 'interpret': 'all'})
+    curryrt.register_primitive('PrivatePrimitive.f', 0, lambda: 'p')
+    M = interp.compile('module PrivatePrimitive where\nf :: Char\nf external\n')
+    self.assertNotIn('PrivatePrimitive', curry._interpreter_.modules)
+    self.assertEqual(interp.eval(M.f).one(), 'p')
+
+  def test_qualified_boundary_types(self):
+    from curry.toolchain.flat2icurry import flatcurry as fc
+    for name, value in [('Int', 1), ('Float', 1.0), ('Bool', True),
+                        ('Char', 'a'), ('()', None), ('IO', None), ('String', '')]:
+      with self.assertRaisesRegex(TypeError, 'unsupported primitive declared type'):
+        curryrt._primitive_value(value, fc.TCons(('UserTypes', name), []))
+
+  def test_integer_argument_limit(self):
+    curryrt.register_primitive('LargePrimitive.f', 1, lambda n: 0)
+    M = curry.compile('module LargePrimitive where\nf :: Int -> Int\nf external\n')
+    old = sys.get_int_max_str_digits()
+    try:
+      sys.set_int_max_str_digits(640)
+      with self.assertRaisesRegex(EvaluationError, 'primitive LargePrimitive.f:.*ValueError'):
+        curry.eval(M.f(10 ** 700)).one()
+    finally:
+      sys.set_int_max_str_digits(old)

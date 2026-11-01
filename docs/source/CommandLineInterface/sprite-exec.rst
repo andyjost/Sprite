@@ -20,6 +20,14 @@ option; ``-g ''`` loads the module and evaluates nothing::
     sprite-exec Peano.curry -g O
     O
 
+Arguments after NAME reach ``System.Environment.getArgs``; ``getProgName``
+returns the module name. Tool options may immediately follow NAME. The first
+program argument, unknown option or ``--`` ends tool options; ``--`` itself
+is discarded. After NAME, tool options require exact names (long options
+may use ``=VALUE``). Short attached values such as ``-gfoo``, abbreviations
+and combined flags become program arguments. Use ``sprite-exec Prog -- -g``
+to pass ``-g`` as the first program argument.
+
 The expression sees the loaded module and Prelude. For example,
 ``sprite-exec Peano.curry -g 'O ? S O'`` prints two answers. A trailing
 ``where x free`` reports bindings, as in the :doc:`REPL </REPL>`.

@@ -93,16 +93,24 @@ class Main(object):
       parser.add_argument( 'NAME', nargs='?', default=None, type=str
         , help='a Curry file name (default) or module name to run; '
                'omitted: start the Curry REPL')
-    parser.add_argument("program_arguments", nargs=argparse.REMAINDER)
+    parser.add_argument("program_arguments", nargs=argparse.REMAINDER,
+        metavar="ARG", help="arguments passed to the Curry program")
     return parser
 
   def parseArgs(self, argv):
-    args = self.parser.parse_args(argv)
+    # argparse consumes -- directly after NAME before forming REMAINDER.
+    # Split it first so it cannot expose program arguments as tool options.
+    boundary = argv.index('--') if '--' in argv else None
+    args = self.parser.parse_args(argv if boundary is None else argv[:boundary])
+    separated = boundary is not None
+    if separated and 'n' in self.ARGUMENTS and args.NAME is None:
+      args = self.parser.parse_args(argv)
+      separated = False
     # Preserve tool options immediately after NAME, before runtime arguments.
     # An explicit -- or the first runtime argument ends tool option parsing.
     remainder = args.program_arguments
     prefix, destinations = [], set()
-    while remainder and remainder[0] != '--':
+    while remainder and remainder[0] != '--' and not (boundary is not None and not separated):
       option = remainder[0].split('=', 1)[0]
       action = self.parser._option_string_actions.get(option)
       if action is None:
@@ -116,6 +124,10 @@ class Main(object):
       for destination in destinations:
         setattr(args, destination, getattr(options, destination))
     args.program_arguments = remainder[1:] if remainder[:1] == ['--'] else remainder
+    if separated:
+      if remainder:
+        args.program_arguments.append('--')
+      args.program_arguments.extend(argv[boundary + 1:])
     args.goal = args.goal or None
     return args
 

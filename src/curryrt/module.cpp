@@ -103,12 +103,15 @@ namespace curryrt
       throw std::invalid_argument("a primitive needs a qualified name");
     auto module = qualified_name.substr(0, dot);
     auto name = qualified_name.substr(dot + 1);
-    if(Module::find(module))
-      throw std::invalid_argument("register before the import: " + qualified_name);
     auto & symbols = builtin_modules()[module].symbols;
     auto found = symbols.find(name);
-    if(found != symbols.end() && found->second != info)
-      throw std::invalid_argument("primitive already registered: " + qualified_name);
+    if(found != symbols.end())
+    {
+      if(found->second == info) return;
+      throw std::invalid_argument("primitive already registered with another table: " + qualified_name);
+    }
+    if(Module::find(module))
+      throw std::invalid_argument("new primitive; register before the import: " + qualified_name);
     symbols[name] = info;
 
   }

@@ -65,6 +65,8 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # Format 17: calls inside a non-strict pattern retain their boundaries for
 # non-linear matching; an older object may have inlined those calls away.
 # Format 18: export the module record, initializer and tables for PE DLLs.
+# Format 19: registry receipts and named not-implemented descriptors.
+# Format 20: info table flags use 16 bits for independent builtin and opaque bits.
 FORMAT_VERSION = 20
 
 # The runtime headers every generated file includes, as vEmitHeader writes

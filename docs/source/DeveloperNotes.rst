@@ -361,7 +361,7 @@ use decimal conversion at the boundary to preserve every digit.
 The module image
 ================
 
-Format 3 (2026-10-31)
+Format 4 (2026-10-31)
 ---------------------
 
 A module image, ``M.img``, lives beside ``M.icy``. The translator writes it
@@ -374,7 +374,7 @@ The format is independent of pointer size and native byte order. Integers
 are little-endian; strings are UTF-8 with a 32-bit byte count. The prefix
 contains an eight-byte magic, a 32-bit format version and the length of a
 header. The header records the ICurry-text SHA-256, route version, inline budget,
-and each direct import's image SHA-256. No field records a machine path.
+and each direct import's image SHA-256. The header also records sorted registered primitive names. No field records a machine path.
 Sections contain imports and aliases, ordered data types and constructors,
 function declarations, bytecode and constants and translation metadata.
 Strings are length-delimited and record arrays begin with a 32-bit count.
@@ -405,7 +405,7 @@ records with names, arities, visibility, flags and constructor order. The
 of record fields and synonyms.
 
 Currency is determined by content: source, route, budget and imported image
-digests must agree. A malformed or old image is diagnosed and regenerated
+digests must agree. Sorted registered primitive names must also agree. A malformed or old image is diagnosed and regenerated
 through translation. A current compiled object takes precedence over a
 current image under ``interpret:new`` and ``interpret:off``; sibling product
 modification times do not decide that precedence. ``interpret:all`` uses
@@ -432,7 +432,7 @@ a primitive compiles to a step that raises ``not implemented``; an external
 type has no constructors.
 
 Generated C++ carries an ``INPUT`` record (source SHA-256, route and inline
-budget). The ABI stamp retains it in its import-provenance JSON. Both
+budget and sorted registered primitive names). The ABI stamp retains it in its import-provenance JSON. Both
 records are checked before pipeline-order selection, so translating a new
 image cannot make an old object current. A newer sibling image timestamp
 does not invalidate an otherwise current object. Explicitly saved objects
@@ -766,17 +766,20 @@ Python implementations register through the backend bindings::
 
 Registration takes the qualified name, Curry arity, callable and monadic flag.
 Names must be qualified and arities must be between zero and 255.
-Register before the module import. After reset, a matching Python registration
-replaces the callable in the same table. A different arity or flag is an error.
+Register new names before the module import. A matching Python registration
+replaces the callable in the same table, including while loaded or after reset
+with module handles alive. A different arity or flag is an error.
 The registration call holds the runtime heap gate until it returns.
 Invocation normalizes every argument before it acquires the GIL.
-Conversion uses the declared type from the module interface.
+Conversion reads the declared type from the evaluating interpreter's signature
+table and module interface, including for private interpreters.
 An empty String becomes Python ``''``; an empty list becomes ``[]``.
 Results must match the declared type. ``None`` returns unit.
 Supported values are integers, floats, characters, Booleans, strings, lists
 and pairs. Callables and tables stay alive for the process.
 A callable must not block on a lock held by a thread that waits for the heap.
-An Int beyond Python's integer string limit fails in ``py::str``.
+An Int argument or result beyond Python's integer string limit raises an
+evaluation error that names the primitive.
 Ordinary Python exceptions become Curry IO errors for monadic primitives and
 evaluation errors for pure primitives; KeyboardInterrupt and SystemExit pass
 through. A monadic effect runs only when its action is evaluated.
@@ -798,3 +801,7 @@ arguments and module name under sprite-exec and saved programs.
 Their Python defaults are ``sys.argv[1:]`` and ``sys.argv[0]``.
 Tool options may precede NAME or appear immediately after it.
 The first runtime argument, an unknown option, or ``--`` ends tool options.
+After NAME, only exact option names and long options with ``=VALUE`` are tool
+options; short attached values, abbreviations and combined flags are program
+arguments. The separator ``--`` is discarded. The REPL supplies no program
+arguments and uses the loaded module name, or ``icy`` before a load.
