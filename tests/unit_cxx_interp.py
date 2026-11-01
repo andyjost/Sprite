@@ -817,9 +817,9 @@ boom = error "boom"
   def icurry(self, name):
     '''The ICurry of the module ``name``, as the plan writes it: no object.'''
     plan = plans.makeplan(
-        None, plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON
+        None, plans.MAKE_ICURRY
       )
-    return toolchain.loadcurry(plan, name, self.currypath)
+    return toolchain.loadicurry(toolchain.makecurry(plan, name, self.currypath))
 
   def import_(self, name):
     '''Imports the module ``name`` from its ICurry object.'''
@@ -972,6 +972,26 @@ twice x = double (double x)
     self.assertTrue(os.path.isfile(sofile))
 
   @cytest.hardreset
+  def test_foreign_budget_keeps_existing_object(self):
+    '''A foreign image budget does not invalidate an accepted AOT object.'''
+    name = self.write()
+    M = curry.import_(name)
+    self.assertEqual(list(curry.eval(M.main)), [42])
+    cppfile = self.product(name, '.cpp')
+    with open(cppfile, 'rb') as stream:
+      before = stream.read()
+    M = None
+    gc.collect()
+    curry.reset(backend='cxx', interpret='off', inline_budget=0, jit='off')
+    curry.path.insert(0, self.tmpdir)
+    with mock.patch.object(cxx_toolchain.Cpp2So, '__call__',
+        side_effect=AssertionError('current object compiled again')):
+      M = curry.import_(name)
+      self.assertEqual(list(curry.eval(M.main)), [42])
+    with open(cppfile, 'rb') as stream:
+      self.assertEqual(stream.read(), before)
+
+  @cytest.hardreset
   def test_foreign_budget_compiles_into_the_process_directory(self):
     '''
     Under an inline budget other than the environment's, the translation of
@@ -1023,7 +1043,7 @@ twice x = double (double x)
   def object_of(self, name):
     '''Compiles the module ``name`` as the plan does.  Nothing is loaded.'''
     plan = plans.makeplan(
-        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL
       )
     sofile = _makecurry.makecurry(plan, name, self.currypath)
     self.assertEqual(os.path.realpath(sofile), os.path.realpath(self.product(name, '.so')))
@@ -1102,7 +1122,7 @@ other = 2
     '''
     The object the plan gives, after the import changed it in place (the
     merge, the passes), is the translation on disk; an object with another
-    body, or without a JSON beside its source, is not.
+    body, or without an image beside its source, is not.
     '''
     name = self.write()
     interp = cytest.raw.interp()
@@ -1115,7 +1135,7 @@ other = 2
     self.assertFalse(materialize.is_translation(interp, imodule))
     main.body = body
     self.assertTrue(materialize.is_translation(interp, imodule))
-    for suffix in '.json.z', '.json':
+    for suffix in ('.icy',):
       try:
         os.unlink(self.product(name, suffix))
       except FileNotFoundError:

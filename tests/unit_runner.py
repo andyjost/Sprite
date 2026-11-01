@@ -1629,12 +1629,12 @@ class TestPrepare(unittest.TestCase):
     # Without -q: the line of sprite-make about the product cache must
     # reach the log (cache_counts).
     self.assertEqual(
-        kiel.argv[:7]
-      , ['prlimit', '--as=1', '/sprite/bin/sprite-make', '-k', '-c', '-z', '--so']
+        kiel.argv[:5]
+      , ['prlimit', '--as=1', '/sprite/bin/sprite-make', '-k', '--so']
       )
     self.assertNotIn('-q', kiel.argv)
     self.assertTrue(
-        all(name.startswith('data/curry/kiel/') for name in kiel.argv[7:])
+        all(name.startswith('data/curry/kiel/') for name in kiel.argv[5:])
       )
     self.assertEqual(kiel.env['CURRYPATH'], ':'.join([
         os.path.join(testrunner.TESTDIR, 'data/curry/kiel/lib')
@@ -1644,7 +1644,7 @@ class TestPrepare(unittest.TestCase):
     self.assertEqual(kiel.logfile, '/logs/cxx/prepare-data-curry-kiel.log')
     # The modules of the job and their products, per backend.
     self.assertEqual(kiel.directory, 'data/curry/kiel')
-    self.assertEqual(kiel.modules, kiel.argv[7:])
+    self.assertEqual(kiel.modules, kiel.argv[5:])
     self.assertIn('data/curry/kiel/UseConc1.curry', kiel.modules)
     self.assertEqual(
         kiel.product('data/curry/kiel/UseConc1.curry')
@@ -1677,7 +1677,7 @@ class TestPrepare(unittest.TestCase):
     for mode in 'new', 'all':
       self.assertEqual(
           prepare.product_suffixes('cxx', 'interpret:' + mode)
-        , prepare.JSON_PRODUCTS
+        , prepare.IMAGE_PRODUCTS
         )
     tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
     self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
@@ -1685,7 +1685,7 @@ class TestPrepare(unittest.TestCase):
     pool = os.path.join(testdir, 'data', 'curry')
     products = os.path.join(pool, '.curry', 'x')
     os.makedirs(products)
-    for name in 'a.curry', 'b.curry', 'a.json.z', 'b.so':
+    for name in 'a.curry', 'b.curry', 'a.img', 'b.so':
       with open(os.path.join(pool if name.endswith('.curry') else products, name), 'w'):
         pass
     def job(backend, flags):
@@ -1705,10 +1705,10 @@ class TestPrepare(unittest.TestCase):
       self.assertEqual(new.missing(), ['data/curry/b.curry'], flags)
       self.assertEqual(
           new.products('data/curry/a.curry')
-        , [os.path.join(products, 'a.json.z'), os.path.join(products, 'a.json')]
+        , [os.path.join(products, 'a.img')]
         )
       self.assertEqual(
-          new.product('data/curry/a.curry'), os.path.join(products, 'a.json.z')
+          new.product('data/curry/a.curry'), os.path.join(products, 'a.img')
         )
     # The environment that cli.main gives the job carries the flags of the
     # run; the former runtime is not concerned.
@@ -1970,7 +1970,7 @@ class TestPrepare(unittest.TestCase):
     self.assertFalse(prepare.preprocessor_failed(other, 'currypp'))
     self.assertFalse(prepare.preprocessor_failed('', 'currypp'))
     # The products the archive supplies, and the object of the other module.
-    for name in 'plain.so', 'poker.icy', 'poker.json.z':
+    for name in 'plain.so', 'poker.icy', 'poker.img':
       open(os.path.join(products, name), 'w').close()
     # A PATH with a stand-in currypp, and one without.
     bindir = os.path.join(tmpdir, 'bin')

@@ -1,110 +1,48 @@
-from ..icurry import json as icurry_json, types as icurry_types
-from .. import cache, config, exceptions
+from ..icurry import readcurry, types as icurry_types
+from .. import config
 from . import _filenames, _findcurry, _makecurry
 from ..utility import formatDocstring
-import logging, os, zlib
+import logging, os
 
-__all__ = ['json_beside', 'loadcurry', 'loadjson']
-
+__all__ = ['loadcurry', 'loadicurry']
 logger = logging.getLogger(__name__)
+
+
+def loadicurry(filename):
+  """Read the translation record into the Python ICurry model."""
+  filename = _filenames.icurryfilename(filename)
+  try:
+    module = readcurry.load(filename)
+  except (AttributeError, TypeError) as exc:
+    raise ValueError('invalid ICurry text: %s' % filename) from exc
+  module.filename = _filenames.sourcefilename(filename)
+  return module
+
 
 @formatDocstring(config.python_package_name())
 def loadcurry(plan, name, currypath=None, **kwds):
-  '''
-  Builds (if necessary) and loads the named module.
-
-  Args:
-    plan:
-        The compile plan.
-    name:
-        The source file, module, or package name.
-    currypath:
-        A sequence of paths to search (i.e., CURRYPATH split on ':').  By
-        default, ``{0}.path`` is used.
-    is_sourcefile:
-        If true, the name arguments is interpreted as a source file.
-        Otherwise, it is interpreted as a module name.
-
-  Raises:
-    ModuleLookupError: the module was not found.
-
-  Returns:
-    A Python object containing the ICurry for the given name.
-  '''
-  imagepath = None
-  if plan.interp is not None and plan.interp.backend.backend_name == 'cxx' \
-      and plan.interp.flags['interpret'] != 'off':
-    imagepath = _findcurry.import_path(plan.interp, _findcurry.imports_path(
-        _findcurry.program_path(name, currypath or plan.interp.path, **kwds), **kwds))
-    from ..backends.cxx import image
-    candidate = _findcurry.currentfile(plan, name, currypath, **kwds)
-    if not os.path.isdir(candidate) and not candidate.endswith('.so') \
-        and image.writable(_filenames.curryfilename(candidate)):
-      module = image.current(plan.interp, _filenames.curryfilename(candidate), imagepath)
+  """Build and load a module, attaching interpreted code from its image."""
+  from ..backends.cxx import image
+  search = currypath or plan.interp.path
+  imagepath = _findcurry.import_path(plan.interp, _findcurry.imports_path(
+      _findcurry.program_path(name, search, **kwds), **kwds))
+  candidate = _findcurry.currentfile(plan, name, currypath, **kwds)
+  if plan.interp.flags['interpret'] != 'off' and not os.path.isdir(candidate) \
+      and not candidate.endswith('.so'):
+    icyfile = _filenames.icurryfilename(candidate)
+    if os.path.isfile(icyfile) and not plan.is_stale(icyfile, imagepath):
+      module = image.current(plan.interp, icyfile, imagepath)
       if module is not None:
         return module
-  filename = _makecurry.makecurry(plan, name, currypath, **kwds)
+      if not image.writable(icyfile):
+        return image.load(plan.interp, icyfile, imagepath)
+  filename = _makecurry.makecurry(plan, name, currypath,
+      **dict(kwds, image_importing=True))
   logger.debug('Found module %s at %s', name, filename)
   if os.path.isdir(filename):
     package = icurry_types.IPackage(name)
     package.filename = filename
     return package
-  elif filename.endswith('.json') or filename.endswith('.json.z'):
-    if plan.interp is not None and plan.interp.backend.backend_name == 'cxx' \
-        and plan.interp.flags['interpret'] != 'off':
-      from ..backends.cxx import image
-      if image.writable(_filenames.curryfilename(filename)):
-        return image.load(plan.interp, filename, imagepath)
-      logger.info('module %s: product directory is read-only; loading JSON', name)
-    return loadjson(filename)
-  elif filename.endswith('.cpp'):
-    # The plan ended at a generated file (Cpp2So.ends_plan of the C++
-    # backend, under the hot tier of the C++ compiler backend): attach the
-    # image emitted alongside the generated source.
-    from ..backends.cxx import image
-    return image.load(plan.interp, json_beside(filename), imagepath)
-  else:
-    # The plan's own route: the object is the current product of an import,
-    # not a file the user named (loader.load_module of the C++ backend).
-    return plan.interp.load(filename, from_plan=True)
-
-def json_beside(filename):
-  '''
-  The ICurry-JSON file beside a generated file (.cpp, .py): the zipped one
-  when it exists, else the plain one, else None.
-  '''
-  stem = os.path.splitext(filename)[0]
-  for suffix in '.json.z', '.json':
-    candidate = stem + suffix
-    if os.path.isfile(candidate):
-      return candidate
-  return None
-
-def loadjson(jsonfile):
-  '''
-  Reads an ICurry-JSON file and returns the ICurry.  The file
-  must contain one Curry module.
-  '''
-  assert os.path.exists(jsonfile)
-  assert jsonfile.endswith('.json') or jsonfile.endswith('.json.z')
-  if config.enable_parsed_json_cache():
-    cached = cache.ParsedJsonCache.Slot(jsonfile)
-  else:
-    cached = None
-  if cached:
-    logger.info('module %s: parsed JSON cache hit (%s)', cached.icur.fullname, jsonfile)
-    return cached.icur
-  if jsonfile.endswith('.z'):
-    with open(jsonfile, 'rb') as istream:
-      json = istream.read()
-    json = zlib.decompress(json)
-  else:
-    with open(jsonfile) as istream:
-      json = istream.read()
-  icur = icurry_json.loads(json)
-  icur.filename = _filenames.curryfilename(jsonfile)
-  logger.info('module %s: parsed JSON read (%s)', icur.fullname, jsonfile)
-  if cached is not None:
-    cached.update(icur)
-  return icur
-
+  if filename.endswith(('.img', '.icy', '.cpp')):
+    return image.load(plan.interp, _filenames.icurryfilename(candidate), imagepath)
+  return plan.interp.load(filename, from_plan=True)

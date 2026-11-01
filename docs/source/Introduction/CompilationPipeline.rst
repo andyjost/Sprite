@@ -208,32 +208,32 @@ translation; a file older than the source, of another version of it, is
 left to the next run of the front end.  The test drivers turn the cache on.
 
 
-ICurry to JSON
---------------
+ICurry to a module image
+------------------------
 
-``.icy`` files are formatted using a subset of Curry.  To facilitate their use
-in other programming environments, which may not have a Curry parser, Sprite
-converts them to `JSON`_.  This conversion is handled by a pure-Python parser
-that implements a sufficient subset of Curry.
+The ICurry reader parses ``M.icy`` into the Python model in
+:mod:`curry.icurry`. The translator merges built-ins, validates the model,
+runs the optimizer passes using import summaries from images, and writes
+``M.img``. The runtime attaches its declarations and bytecode directly.
+The ICurry text remains the translation record and the oracle comparison
+format. The typed boundary retains ``.fint`` and ``.icurry``.
 
-To compensate for the space inefficiency of JSON, Sprite writes the JSON in a
-compact form and compresses it with `zlib`_.  The compact form has no space
-after a comma or a colon, and it escapes every character outside ASCII.
-Compressed ICurry-JSON files use suffix ``.json.z``.
+The products in pipeline order are:
 
+============== ==============================================
+Product        Purpose
+============== ==============================================
+``M.curry``    Source
+``M.icy``      ICurry translation record
+``M.img``      Runtime bytecode and import summaries
+``M.cpp``      Optional generated C++
+``M.so``       Optional compiled object, with ``M.so.abi``
+============== ==============================================
 
-JSON to Sprite IR
------------------
-
-Sprite's in-memory IR closely reflects `ICurry`.  This is implemented in Python
-under :mod:`curry.icurry`.  That module also provides functions to load ICurry
-from JSON or native ICurry, and to dump ICurry into a human-readable format or
-as JSON.
-
-The in-memory representation is suitable for viewing and transforming ICurry.
-Using the Python API, one can inspect ICurry interactively from Python or
-manipulate it from Python scripts.
-
+A read-only product directory and a module compiled from text use private
+images in the process's temporary storage. The C++ emitter reads the
+ICurry text and import-image summaries. Inspection and saving recover
+function bodies from the ICurry text.
 
 Sprite IR to Target IR
 ----------------------
@@ -294,8 +294,6 @@ see :doc:`/Installation/WithoutCompiler`.
 
 .. _FlatCurry: https://cpm.curry-lang.org/pkgs/flatcurry.html
 .. _PAKCS manual: https://www.curry-lang.org/pakcs/Manual.pdf
-.. _JSON: https://www.json.org/
-.. _zlib: https://zlib.net/
 .. _ICurry package: https://cpm.curry-lang.org/pkgs/icurry.html
 .. _Curry Package Manager: https://www.curry-lang.org/tools/cpm/
 
@@ -307,10 +305,5 @@ optimizer passes. The native runtime loads its symbol declarations and
 bytecode directly. Source, route, inline budget and imported-image digests
 validate an image; a miss translates again. ``interpret:all`` uses images,
 and ``interpret:new`` prefers a current compiled object. The translator
-and inspection tools retain ICurry and JSON, while the typed boundary
+and inspection tools retain ICurry text, while the typed boundary
 retains ``.fint`` and ``.icurry``. See :doc:`../DeveloperNotes` for the format.
-
-Derived JSON records its ICurry digest in a ``.input`` sidecar. If plain
-and compressed JSON both exist, translation refreshes both. This keeps
-inspection and saving consistent with image loading without choosing
-products by sibling modification times.

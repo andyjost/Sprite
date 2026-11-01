@@ -218,7 +218,7 @@ The following are recognized:
   flags and the installation, compiled or interpreted module loads and
   their reasons, background compile results, cache hits and misses,
   front-end timing and warning counts, rewrite decisions, and ICurry and
-  JSON writes. ``DEBUG`` adds stamp differences and tool command lines.
+  image writes. ``DEBUG`` adds stamp differences and tool command lines.
   Existing ``CurryWarning`` notices also reach the log at ``WARNING``.
   With neither variable set, notices keep their existing display through
   ``warnings.warn`` on standard error.
@@ -284,32 +284,16 @@ with Sprite, then you should not need these.
   ``$HOME/.cache/sprite/cache.db`` when ``XDG_CACHE_HOME`` is unset or empty.
   This is beside the precompiled headers and worktrees in the user's cache
   directory.  The test drivers set
-  the variable to ``tests/.cache/icurry.db``.  The database can also hold
-  Sprite's
-  :ref:`in-memory IR <Introduction/CompilationPipeline:JSON to Sprite IR>` of
-  a JSON file (``ENABLE_PARSED_JSON_CACHE``).
+  the variable to ``tests/.cache/icurry.db``.
 
   .. note ::
      Outside the test drivers, caching is off by default.
 
 ``SPRITE_CACHE_UPDATE``
-  Specifies cache entries to update.  An entry of the ICurry cache is replaced
-  on its own when its inputs change.  An update can still be needed for the
-  parsed-JSON cache, or when a tool behind the front end changes without a
-  change to the ``icurry`` program itself.  It is fine to simply delete the
-  cache file in that case, but this method provides a more conservative
-  option.
-
-  Files matching the given pattern are updated in the cache database.  For
-  the ICurry cache the pattern is compared with the name of the Curry source
-  file, for the parsed-JSON cache with the name of the JSON file.  The pattern
-  is interpreted as a glob unless it begins and ends with '/', as in
-  ``/pattern/``, in which case it is considered a regular expression.
-
-  Example:
-
-      To update all compressed JSON files, set
-      ``SPRITE_CACHE_UPDATE='*.json.z'`` in the environment.
+  Specifies Curry-source patterns whose ICurry cache entries should be
+  replaced. Patterns are globs, or regular expressions when surrounded by
+  slashes. For example, ``SPRITE_CACHE_UPDATE='*.curry'`` replaces all
+  matching entries. Changed inputs invalidate entries automatically.
 
 ``SPRITE_CURRY2ICURRY``
   Names the route from Curry to ICurry.  ``frontend`` runs the Curry front
@@ -367,7 +351,7 @@ with Sprite, then you should not need these.
   (``curry.toolchain._productcache``).  A compile of a module stores its
   shared object, the generated C++ and the ABI stamp there, under the
   digest of the stamp and a key of the facts that decide the products: the
-  texts of the module (its source, its ICurry file and its JSON, the input
+  texts of the module (its source, its ICurry file and its image, the input
   of the code generator) and of the modules it imports, the format of the
   generated code and the sources of the code generator and of the ICurry
   reader, the flags of the optimizer and the inline budget, and the route
@@ -453,7 +437,7 @@ Makefile also accepts the historical variables below. See
 :doc:`../Installation/ConfiguringSprite`.
 
 ``SPRITE_REBUILD_ICY``
-  ``make stage`` derives the JSON of a library module from its committed
+  ``make stage`` derives the module image of a library module from its committed
   ``.icy`` file and never translates the module again.  With
   ``make stage SPRITE_REBUILD_ICY=1`` it runs the front end and the translation again
   and writes a new ``.icy``; the committed files are pinned artifacts of

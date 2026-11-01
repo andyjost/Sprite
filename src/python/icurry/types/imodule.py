@@ -26,7 +26,7 @@ class IModule(IContainer):
     IContainer.__init__(self, fullname, **kwds)
     # Duplicates are dropped and the order of the source is kept.  A set
     # would order the names by their hashes, which change with the hash seed
-    # of the process, and the JSON cache of the module with them.
+    # of the process, and the module image with them.
     self.imports = tuple(dict.fromkeys(str(x) for x in imports))
     self.types = _makeSymboltable(self, types)
     self.functions = _makeSymboltable(self, functions)

@@ -156,8 +156,6 @@ def default_sprite_cache_file():
 
 # Whether to enable caching (by default).
 enable_icurry_cache       = _Variable('enable_icurry_cache', type=bool)
-# Whether to cache parsed JSON.  The stored objects are pickled Python.
-enable_parsed_json_cache  = _Variable('enable_parsed_json_cache', type=bool)
 # The name of the subdirectory of .curry in which to place Sprite files
 # (by default sprite-pakcs-3.10.0).
 intermediate_subdir       = _Variable('intermediate_subdir')
@@ -598,4 +596,3 @@ def curryrt_lib(cached=[]):
     assert os.path.exists(path)
     cached.append(path)
   return cached[0]
-

@@ -136,7 +136,7 @@ def archive_products(root, subdir='pakcs-3.10.0', prefix=None):
       str(p.relative_to(root)): p
       for p in (root / 'tests').rglob('*') if p.is_file() and '.curry' in p.parts
       and any(part in (subdir, 'sprite-' + subdir) for part in p.parts)
-      and any(p.name.endswith(s) for s in ['.fcy', '.fint', '.icurry', '.icy', '.icy.imports', '.icy.source', '.json.z'])
+      and any(p.name.endswith(s) for s in ['.fcy', '.fint', '.icurry', '.icy', '.icy.imports', '.icy.source'])
     }
   missing = [name for name, path in sorted(products.items())
              if name.endswith('.icy')
@@ -158,7 +158,7 @@ def archive_products(root, subdir='pakcs-3.10.0', prefix=None):
     libroot = library.parent.parent
     for path in libroot.rglob('*'):
       if path.is_file() and 'sprite-' + subdir in path.parts \
-          and any(path.name.endswith(s) for s in ('.icy', '.json.z', '.fint', '.icurry')):
+          and any(path.name.endswith(s) for s in ('.icy', '.fint', '.icurry')):
         products['curry/lib/' + str(path.relative_to(libroot))] = path
   return sorted(products.items())
 
@@ -193,7 +193,7 @@ def main():
     if archive.exists():
       with tarfile.open(archive) as stream:
         for member in stream:
-          if not member.name.startswith('tests/'):
+          if not member.name.startswith('tests/') or '.json' in Path(member.name).suffixes:
             continue
           stream.extract(member, args.root, filter='data')
           path = args.root / member.name

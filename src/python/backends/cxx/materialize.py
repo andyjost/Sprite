@@ -22,13 +22,13 @@ slots to the tables of the module (the binding in curryrt/dynload.hpp), and
 swaps the steps (curryrt.tiered_adopt); then the step
 runs compiled.  So a user who asked for compiled code gets it, and the
 plan's own import of an ICurry object, which only generates code
-(Json2TargetSource), compiles nothing.
+(ICurry2TargetSource), compiles nothing.
 
 Where the products go (``compile_pending``).  The products beside a source
 and the entries of the product cache belong to the translation of the
 texts on disk: a later import of the module by name loads them.  So the
 C++ goes beside the source, and the object into the product cache, only
-when the object in hand is that translation (``is_translation``: the JSON
+when the object in hand is that translation (``is_translation``: the ICurry text
 beside the source, read again and taken through the merge and the passes
 of an import, has the structure of the object).  There a current object
 whose generated file has the same text is adopted without a compile, and
@@ -55,7 +55,7 @@ from ...objects import handle
 from ...toolchain import _filenames, _productlock
 from ...utility import visitation
 from ...utility.locking import native_metadata
-import logging, os, time, weakref, zlib
+import logging, os, time, weakref
 
 logger = logging.getLogger(__name__)
 
@@ -382,7 +382,7 @@ def compile_pending(entry):
   steps (curryrt.tiered_adopt).  Raises CompileError when a step fails; the
   module then stays trapped.
   '''
-  from . import tiered, toolchain
+  from . import image, tiered, toolchain
   interp = entry.interp()
   moduleobj = entry.module()
   if interp is None or moduleobj is None:
@@ -411,13 +411,17 @@ def compile_pending(entry):
   # name made again takes them back.
   M.keep_tables()
   tiered._register_binding(moduleobj)
+  # ICurry-object imports may have compiled without ever needing an image.
+  # Establish their summaries before save records the import provenance;
+  # is_translation below can otherwise create an image after that snapshot.
+  image._import_images(interp, imodule.imports, currypath)
   text = interp.save(moduleobj, None, module_main=False)
   cpp2so = toolchain.Cpp2So(interp)
   # The products go beside the source when the optimizer flags are the
   # environment's and the object in hand is the translation on disk: a
   # budget of the process alone shapes code the ABI stamp does not tell
   # apart (tiered._foreign_flags; issue #116).  The cheap test comes first:
-  # is_translation reads the JSON again and runs the passes.
+  # is_translation reads the ICurry text again and runs the passes.
   cppfile = None
   if not tiered._foreign_flags(interp) and is_translation(interp, imodule):
     cppfile = product_file(imodule)
@@ -461,37 +465,20 @@ def compile_pending(entry):
     )
 
 def is_translation(interp, imodule):
-  '''
-  Tells whether the ICurry object ``imodule`` is the translation of its
-  source as it stands on disk.  The JSON beside the source is read again
-  (the file, not the parsed cache) and taken through the merge and the
-  passes of an import; the object is the translation when the two have one
-  structure (icurry.json.dumps, which leaves the metadata out).  False for
-  an object without a source file or without a JSON beside it.  The
-  products beside a source and the product cache belong to that
-  translation, so the products of any other object stay out of both.
-  '''
-  from ...icurry import json as icurry_json
+  """Compare a Python-built module with the current translation on disk."""
   from ...toolchain import _loadcurry, _mergecurry
+  from . import image
   filename = imodule.filename
   if not filename or not filename.endswith('.curry'):
     return False
-  jsonfile = _loadcurry.json_beside(_filenames.replacesuffix(filename, '.cpp'))
-  if jsonfile is None:
-    return False
   try:
-    with open(jsonfile, 'rb') as stream:
-      data = stream.read()
-    if jsonfile.endswith('.z'):
-      data = zlib.decompress(data)
-    fresh = icurry_json.loads(data)
-  except (OSError, ValueError, zlib.error) as exc:
-    logger.debug('cannot read %r (%s)', jsonfile, exc)
+    fresh = _loadcurry.loadicurry(filename)
+  except (OSError, ValueError) as exc:
+    logger.debug('cannot read %r (%s)', filename, exc)
     return False
-  fresh.filename = filename
   _mergecurry.mergebuiltins(fresh, interp.backend)
-  interp.optimize(fresh)
-  return icurry_json.dumps(fresh) == icurry_json.dumps(imodule)
+  image.optimize(interp, fresh)
+  return fresh == imodule
 
 def current_object(cpp2so, cppfile, text, currypath):
   '''

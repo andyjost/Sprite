@@ -18,7 +18,8 @@ print('Operator:', M['=:='].symbol.fullname, M['=:='].symbol.signature)
 print('\nInternal: compiler products')
 from curry import inspect
 print('ICurry:', os.path.basename(inspect.geticurryfile(Peano)))
-print('JSON:', os.path.basename(inspect.getjsonfile(Peano)))
+imagefile = os.path.splitext(inspect.geticurryfile(Peano))[0] + '.img'
+print('Image:', os.path.basename(imagefile))
 code = inspect.getimpl(Peano.add)
 print('Generated code:', code.splitlines()[0].strip())
 print(code, file=sys.stderr)

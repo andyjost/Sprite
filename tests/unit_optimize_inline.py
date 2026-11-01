@@ -31,7 +31,7 @@ from curry import config, icurry, toolchain
 from curry.icurry import analysis, types
 from curry.interpreter import optimize
 from curry.toolchain import plans
-from curry.toolchain._loadcurry import loadjson
+from curry.toolchain._loadcurry import loadicurry
 from unit_optimize import ModuleTestCase, call, function, ifcalls
 from unit_optimize_applies import applies, known_applies
 import curry, os
@@ -1071,9 +1071,9 @@ class TestPrelude(cytest.TestCase):
   def prelude_json(self):
     jsonfile = os.path.join(
         config.system_curry_path(), '.curry', config.intermediate_subdir()
-      , 'Prelude.json.z'
+      , 'Prelude.img'
       )
-    return loadjson(jsonfile)
+    return loadicurry(jsonfile)
 
   def test_installed_prelude(self):
     '''
@@ -1162,7 +1162,7 @@ class TestBenchmarkShapes(cytest.TestCase):
         os.path.join(os.path.dirname(__file__), 'data', 'curry', 'benchmarks')
       ]
     plan = plans.makeplan(
-        None, plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON
+        None, plans.MAKE_ICURRY
       )
     interp = cytest.raw.interp()
     interp.prelude
@@ -1170,7 +1170,7 @@ class TestBenchmarkShapes(cytest.TestCase):
       optimize.saturate_applies(interp, ifun, imodule)
       optimize.inline_calls(interp, ifun, imodule)
       optimize.inline_aliases(interp, ifun, imodule)
-    imodule = toolchain.loadcurry(plan, 'Queens10', currypath)
+    imodule = toolchain.loadicurry(toolchain.makecurry(plan, 'Queens10', currypath))
     safe = imodule.functions['safe']
     passes(safe, imodule)
     calls = ifcalls(safe)
@@ -1178,7 +1178,7 @@ class TestBenchmarkShapes(cytest.TestCase):
     self.assertEqual(calls.count('Prelude.eqInt'), 3)
     self.assertFalse([c for c in calls if '_def#' in c or '_inst#' in c])
     self.assertFalse(applies(safe))
-    imodule = toolchain.loadcurry(plan, 'Primes', currypath)
+    imodule = toolchain.loadicurry(toolchain.makecurry(plan, 'Primes', currypath))
     isdivs = imodule.functions['isdivs']
     passes(isdivs, imodule)
     self.assertEqual(

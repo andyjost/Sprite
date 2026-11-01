@@ -11,7 +11,7 @@ from curry import common, config, inspect
 from curry.backends.cxx import compiler, curryrtbindings as curryrt, tiered
 from curry.objects.handle import getHandle
 from curry.utility.binding import binding
-import curry, gc, itertools, logging, os, shutil, subprocess, tempfile
+import curry, gc, itertools, logging, os, shutil, subprocess, sys, tempfile
 import unittest
 from unittest import mock
 
@@ -77,6 +77,34 @@ viaCall = s 1 2
 def steps():
   '''The rewrite steps taken by the evaluations of the interpreter.'''
   return cytest.raw.interp()._evaluation_totals.steps
+
+
+class TestPrivateDirectoryFork(cytest.TestCase):
+  @unittest.skipUnless(hasattr(os, 'fork'), 'requires fork')
+  def test_child_exit_keeps_parent_directory(self):
+    script = """
+import cytest
+from curry.backends.cxx import tiered
+import os, sys
+parent = tiered._tmpdir()
+tiered._state.private.append(parent)
+pid = os.fork()
+if pid == 0:
+  assert tiered._state.tmpdir is None
+  assert tiered._state.private == []
+  child = tiered._tmpdir()
+  assert child != parent
+  sys.exit(0)
+_, status = os.waitpid(pid, 0)
+assert os.waitstatus_to_exitcode(status) == 0
+assert os.path.isdir(parent)
+assert tiered._state.private == [parent]
+"""
+    child = subprocess.run([sys.executable, '-c', script],
+        capture_output=True, text=True, timeout=TIMEOUT)
+    self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+
 class TieredTestCase(cytest.TestCase):
   '''A temporary source directory with one fresh module per import.'''
   counter = itertools.count()
@@ -371,7 +399,7 @@ class TestSwap(TieredTestCase):
     M = None
     self.switch('cxx')
     # The object exists now, so a plain import loads it compiled.  Remove
-    # it: the module is interpreted again, from the JSON beside the
+    # it: the module is interpreted again, from the image beside the
     # generated file, and the compile starts from that file.  The tables of
     # the first incarnation serve; no warning is logged.
     os.unlink(self.sofile(name))
@@ -835,7 +863,7 @@ class TestPolicy(TieredTestCase):
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:hot,jit_backend:cxx'
     env['CURRYPATH'] = self.tmpdir
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
-        config.installed_path('bin', 'sprite-make'), '--so', '-z', name
+        config.installed_path('bin', 'sprite-make'), '--so', name
       ]
     proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
@@ -884,8 +912,8 @@ class TestPrograms(cytest.TestCase):
     # The program ends before its compile; the compile is cancelled, so no
     # finished object (one with its ABI stamp) is left behind.
     self.assertFalse(os.path.exists(sofile + '.abi'))
-    # The run was interpreted from the JSON.
-    self.assertTrue(os.path.exists(sofile[:-3] + '.json.z'))
+    # The run was interpreted from the image.
+    self.assertTrue(os.path.exists(sofile[:-3] + '.img'))
 
   def test_failed_compile_is_logged(self):
     # A compile that fails during the evaluation of a program is reported
@@ -985,7 +1013,7 @@ class TestLoadDuringCompile(TieredTestCase):
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:hot,jit_backend:cxx'
     env['CURRYPATH'] = self.tmpdir
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
-        config.installed_path('bin', 'sprite-make'), '--so', '-z', name
+        config.installed_path('bin', 'sprite-make'), '--so', name
       ]
     proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)

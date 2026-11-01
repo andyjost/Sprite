@@ -5,6 +5,10 @@ Release Notes
 0.9.0a3 (2026-10-31)
 ====================
 
+- Module images replace module JSON products. Translation and C++ emission
+  read ICurry text; read-only directories and text modules use private images.
+  ``sprite-make --image`` is the default target; the JSON options are removed.
+
 - Windows: the runtime and the bindings build with clang-cl on
   windows-2025 and every module runs interpreted there; wheels for Windows
   x64, CPython 3.11 to 3.15 with the free-threaded 3.14t, which vendor the

@@ -3,7 +3,7 @@ from ... import cache
 from ...objects import CurryPackage
 from ...utility import binding, filesys
 
-class Json2TargetSource(object):
+class ICurry2TargetSource(object):
   manages_product_lock = True
   def __init__(self, interp):
     self.interp = interp
@@ -13,7 +13,7 @@ class Json2TargetSource(object):
 
   @_system.updateCheck
   def __call__(self, file_in, currypath, **ignored):
-    icurry = _loadcurry.loadjson(file_in)
+    icurry = _loadcurry.loadicurry(file_in)
     _findcurry.reject_library_shadow(icurry.fullname, icurry.filename, self.interp)
     # Dependencies are real imports. Only the bootstrap module stays in a
     # private registry; dropping its imports would lose source-relative scope.
@@ -21,10 +21,9 @@ class Json2TargetSource(object):
     self.interp.import_(icurry.imports,
         currypath=_findcurry.import_path(self.interp, imports))
     with self.interp._private_modules():
-      return self._generate(file_in, currypath, **ignored)
+      return self._generate(file_in, currypath, icurry, **ignored)
 
-  def _generate(self, file_in, currypath, **ignored):
-    icurry = _loadcurry.loadjson(file_in)
+  def _generate(self, file_in, currypath, icurry, **ignored):
     # The importer creates parent namespaces without loading their modules:
     # a parent module may itself import this child (issue #168).
     # The module is imported only to bootstrap the call to 'save'.  Remove it
@@ -63,4 +62,3 @@ class Json2TargetSource(object):
     assert icurry.fullname not in self.interp.modules or isinstance(
         self.interp.modules[icurry.fullname], CurryPackage)
     return file_out
-

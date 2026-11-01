@@ -1,5 +1,5 @@
 '''
-The build steps of the C++ backend: ICurry-JSON to C++, and C++ to a shared
+The build steps of the C++ backend: ICurry text to C++, and C++ to a shared
 object.
 
 The C++ compiler is the slow step.  Every generated module includes
@@ -24,8 +24,8 @@ digest of the closure and of the flags, and the installation as text, beside
 each shared object (the ABI stamp, <module>.so.abi) and compiles the module
 again when the installation gives another digest or another path.
 See runtime_digest, object_digest, and Cpp2So.is_stale.  A generated .cpp
-file carries a format stamp; Json2Cpp, which writes the file, refuses one of
-another format.  See Json2Cpp.is_stale.
+file carries a format stamp; ICurry2Cpp, which writes the file, refuses one of
+another format.  See ICurry2Cpp.is_stale.
 Generated C++ and ABI stamps also name imported interfaces and ICurry
 bodies; changed imports invalidate the generated file and the object.
 
@@ -43,7 +43,7 @@ cached products of a module instead of generating and compiling it when the
 cache holds them.  See Cpp2So.restore, Cpp2So.store and
 curry.toolchain._productcache.
 '''
-from ..generic.toolchain import Json2TargetSource
+from ..generic.toolchain import ICurry2TargetSource
 from . import compiler
 from ... import cache, config, exceptions
 from ...objects.handle import getHandle
@@ -358,8 +358,8 @@ def module_of_soname(name):
 # generated code: the emitter and its helpers in this directory, the generic
 # emitter, the optimizer with its analyses, which rewrite the ICurry before
 # the emitter reads it, and the readers of the ICurry on the way from the
-# .icy file to the emitter (the ICurry types and their JSON reader, the
-# loader and the JSON writer of the toolchain).  A directory stands for its
+# .icy file to the emitter (the ICurry types and their text reader, the
+# loader and the image writer of the toolchain).  A directory stands for its
 # Python files.  They are part of the key of the product cache (see
 # Cpp2So.product_facts): the format stamp of a generated file names its
 # layout, which changes less often than the code, and the cache must not
@@ -374,7 +374,7 @@ GENERATOR_SOURCES = [
   , os.path.join('icurry')
   , os.path.join('icurry', 'analysis')
   , os.path.join('icurry', 'types')
-  , os.path.join('toolchain', '_icurry2json.py')
+  , os.path.join('toolchain', '_icurry2image.py')
   , os.path.join('toolchain', '_loadcurry.py')
   ]
 
@@ -408,11 +408,11 @@ def generator_digest():
 def extend_plan_skeleton(interp, skeleton):
   assert interp is not None
   if interp.flags['interpret'] == 'all':
-    # Every module is interpreted from its JSON (see Json2Cpp.ends_plan).
+    # Every module is interpreted from its image (see ICurry2Cpp.ends_plan).
     # The plan ends there, so a compiled object is never looked for.
     return
   flag, suffixes, _ = skeleton[-1]
-  skeleton[-1] = flag, suffixes, Json2Cpp(interp)
+  skeleton[-1] = flag, suffixes, ICurry2Cpp(interp)
   skeleton.append((plans.MAKE_TARGET_OBJECT, ['.cpp'], Cpp2So(interp)))
   skeleton.append((plans.UNCONDITIONAL, ['.so'] , None))
 
@@ -485,29 +485,29 @@ def source_is_stale(file_in, currypath=None, interp=None):
       _interfaces.objects_current(source_interfaces(file_in),
           _interfaces.search_path(file_in, currypath))
 
-class Json2Cpp(Json2TargetSource):
-  NAME = 'json2cpp'
+class ICurry2Cpp(ICurry2TargetSource):
+  NAME = 'icurry2cpp'
   SUFFIX = '.cpp'
 
   def ends_plan(self, filename):
     '''
-    Tells whether the plan ends at ``filename``, a JSON file this step would
+    Tells whether the plan ends at ``filename``, an image file this step would
     compile.  Under the interpreter flag ``interpret`` set to 'new', a
-    module that reached the JSON stage without a compiled object is
+    module that reached the image stage without a compiled object is
     interpreted by the runtime (curryrt/icurry.hpp; see materialize.py), so
     this step and the C++ compiler do not run for it. The jit flags may
     compile its interpreted functions after loading (see tiered.py).  A module with a current object never reaches this
     step: the object is the newest file.
     '''
     return self.interp.flags['interpret'] == 'new' \
-        and filename.endswith(('.json', '.json.z'))
+        and filename.endswith(('.img',))
 
   def is_stale(self, filename, currypath=None):
     '''
     Tells whether a .cpp file this step wrote is unusable (source_is_stale).
     The plan asks this step when the file ends the plan (sprite-make --cxx);
     with a compile step after it, Cpp2So asks the same question.  The plan
-    asks about the JSON input of this step as well, which is never refused.
+    asks about the image input of this step as well, which is never refused.
     '''
     if not filename.endswith('.cpp'):
       return False
@@ -728,12 +728,12 @@ class Cpp2So(object):
     Tells whether the plan ends at ``filename``, a generated .cpp file this
     step would compile.  Under the interpreter flag ``interpret`` set to
     'new', a module with a generated file and no object (a background
-    compile that was cancelled) is interpreted from the JSON beside the
-    file, which loadcurry reads. The jit flags select any later compile.  Without the JSON the plan goes on.
+    compile that was cancelled) is interpreted from the image beside the
+    file, which loadcurry reads. The jit flags select any later compile.  Without the image the plan goes on.
     '''
     return self.interp.flags['interpret'] == 'new' \
         and filename.endswith('.cpp') \
-        and _loadcurry.json_beside(filename) is not None
+        and os.path.isfile(_filenames.icurryfilename(filename))
 
   @property
   def flavor(self):
@@ -1037,11 +1037,11 @@ class Cpp2So(object):
     the search path ``currypath``, or None: no file of the module is found
     (a module compiled from text), no object lies beside its products, or
     the ABI stamp of the object is not this installation's
-    (stamp_is_current).  The plan of the lookup ends at the JSON under
+    (stamp_is_current).  The plan of the lookup ends at the image under
     'all' (extend_plan_skeleton), so the object is found by its name beside
     the current product, not through the plan.
     '''
-    plan = plans.makeplan(self.interp, plans.MAKE_ALL | plans.ZIP_JSON)
+    plan = plans.makeplan(self.interp, plans.MAKE_ALL)
     if currypath is None:
       # A module given by name: its imports are searched on the path of
       # the interpreter (_findcurry.import_path).
@@ -1184,9 +1184,11 @@ class Cpp2So(object):
     imports = _findcurry.imports_path(currypath, **ignored)
     if self.is_stale(file_in):
       if self.format_version(file_in) == compiler.FORMAT_VERSION:
-        raise exceptions.CompileError(
+        error = exceptions.CompileError(
             'the imported interfaces of %r changed after code generation; '
             'run sprite-make again' % file_in)
+        error.retry_pipeline = True
+        raise error
       # The emitter wrote this file, or the plan accepted it.  If its stamp
       # does not read back, every process would write and compile every
       # module again.  Stop here instead.
@@ -1331,7 +1333,7 @@ class Cpp2So(object):
 
   def restore(self, file_in, currypath, **kwds):
     '''
-    Places the cached products of the module of ``file_in``, a current JSON
+    Places the cached products of the module of ``file_in``, a current image
     or generated file of the module, beside it: the generated file, the
     object, and a stamp for this installation.  Returns the object, or None
     when the cache is off or holds no entry, when the module is excluded
@@ -1342,14 +1344,14 @@ class Cpp2So(object):
     which finds it current once the import has its object, but the module
     is not loaded from it now.  Nothing is placed under the interpreter
     flag ``interpret`` set to 'new' either: that mode interprets a module
-    without a current object and never compiles it (Json2Cpp.ends_plan),
+    without a current object and never compiles it (ICurry2Cpp.ends_plan),
     and a cached object would make the module compiled after all.  The
     placement counts on the compile clock.  ``currypath`` is the search
     path of the module; ``kwds`` are the keywords of the plan, whose
     ``is_sourcefile`` tells whether the imports are searched on it
     (_findcurry.imports_path).
     '''
-    if not file_in.endswith(('.json', '.json.z', '.cpp')):
+    if not file_in.endswith(('.img', '.cpp')):
       return None
     if not _productcache.enabled() or config.force_recompile_cxx():
       return None

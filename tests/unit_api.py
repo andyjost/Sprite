@@ -180,8 +180,8 @@ class TestStats(cytest.TestCase):
   def test_compile_time(self):
     '''
     The compile field is the time spent in the steps of the toolchain.  A
-    hand-written ICurry-JSON module costs the code generator, and on the C++
-    backend the compiler; an import that finds every file current costs
+    hand-written ICurry description costs the code generator, and on the
+    C++ backend the compiler; an import that finds every file current costs
     nothing.  Under the default of the flag ``interpret`` (new) the C++
     backend interprets the module and no step runs, so the flag is off.
     '''
@@ -189,10 +189,8 @@ class TestStats(cytest.TestCase):
     self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
     subdir = os.path.join(tmpdir, '.curry', config.intermediate_subdir())
     os.makedirs(subdir)
-    with open(os.path.join(subdir, self.MODULE + '.json.z'), 'wb') as stream:
-      stream.write(
-          zlib.compress(cytest.json_module(self.MODULE, 3).encode('utf-8'))
-        )
+    cytest.write_module_image(os.path.join(subdir, self.MODULE + '.img'),
+        cytest.json_module(self.MODULE, 3))
     before = curry.stats()['compile']
     module = curry.import_(self.MODULE, path=[tmpdir] + curry.path)
     after = curry.stats()['compile']

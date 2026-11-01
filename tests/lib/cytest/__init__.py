@@ -274,10 +274,11 @@ def skipUnlessGcBackend(name, reason):
 
 def json_module(name, value):
   '''
-  The ICurry-JSON of a module ``name`` with one public function, ``goal``,
-  that returns the integer ``value``.  A toolchain test writes it to a
-  ``.json.z`` file of its own and builds from there, so no Curry front end
-  runs.  ``name`` may be dotted; the module then lives in a package.
+  A synthetic ICurry description of a module ``name`` with one public
+  function, ``goal``,
+  that returns the integer ``value``. Tests convert this in-memory fixture
+  description to ICurry text and an image with ``write_module_image``; no
+  Curry front end runs.  ``name`` may be dotted; the module then lives in a package.
   '''
   return (
       '{"__class__":"IProg","name":"%(name)s","imports":["Prelude"],"types":[]'
@@ -343,3 +344,53 @@ def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
   env = dict(os.environ, PYTHONIOENCODING='utf-8')
   return subprocess.run(cmd, capture_output=True, text=text, env=env, **kwds)
 
+
+
+def write_module_image(path, description, translate=True):
+  """Write a synthetic translation and its image without a front end."""
+  import json
+  from curry.backends.cxx import image
+  from curry.toolchain import _loadcurry
+  def render(value):
+    if isinstance(value, list):
+      return '[' + ','.join(map(render, value)) + ']'
+    if not isinstance(value, dict):
+      return json.dumps(value)
+    value = dict(value)
+    cls = value.pop('__class__')
+    if cls == 'IType':
+      cls = 'IDataType'
+    if cls == 'IDataType':
+      module, _, name = value['name'].rpartition('.')
+      qname = '(' + json.dumps(module) + ',' + json.dumps(name) + ',0)'
+      ctors = []
+      for ctor in value['constructors']:
+        cm, _, cn = ctor['name'].rpartition('.')
+        ctors.append('((' + json.dumps(cm) + ',' + json.dumps(cn) + ',0),'
+            + str(ctor['arity']) + ')')
+      return '(IDataType ' + qname + ' [' + ','.join(ctors) + '])'
+    if cls == 'IProg':
+      value.pop('aliases', None)
+    if cls == 'IFunction' and value.get('needed') is None:
+      value['needed'] = []
+    if cls in ('IFunction', 'IFCall', 'ICCall', 'IFPCall', 'ICPCall', 'IConsBranch', 'ICall'):
+      module, _, name = value['name'].rpartition('.')
+      value['name'] = (module, name)
+    args = []
+    for v in value.values():
+      if isinstance(v, tuple):
+        args.append('(' + json.dumps(v[0]) + ',' + json.dumps(v[1]) + ',0)')
+      else:
+        args.append(render(v))
+    return '(' + cls + (' ' + ' '.join(args) if args else '') + ')'
+  try:
+    text = render(json.loads(description))
+  except ValueError:
+    text = description
+    translate = False
+  icyfile = path[:-4] + '.icy'
+  with open(icyfile, 'w') as stream:
+    stream.write(text + '\n')
+  if translate:
+    search = [os.path.dirname(os.path.dirname(os.path.dirname(path)))] + raw.interp().path
+    image.ensure(raw.interp(), icyfile, search)

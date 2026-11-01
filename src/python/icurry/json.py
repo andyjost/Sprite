@@ -91,8 +91,8 @@ class Encoder(json.JSONEncoder):
   Encodes ICurry as JSON.
 
   The compact form, the default, has no space after a comma or a colon.  Both
-  forms escape every character outside ASCII.  The toolchain writes the
-  compact form into the ``.json.z`` caches.
+  forms escape every character outside ASCII. Image summaries use the
+  compact form for inline bodies and unfoldings.
   '''
   def __init__(self, compact=True, **kwds):
     if compact:
@@ -213,4 +213,3 @@ def dump(icurry, file, compact=True):
       ostream.write(dumps(icurry, compact))
   else:
     file.write(dumps(icurry, compact))
-

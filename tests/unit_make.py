@@ -9,12 +9,23 @@ from curry.utility.binding import binding
 from curry.utility.strings import ensure_str
 from unittest import mock
 import argparse, contextlib, errno, fcntl, glob, io, itertools, json, os
-import shutil, subprocess, sys, tempfile, threading, time, unittest, zlib
+import shutil, subprocess, sys, tempfile, threading, time, unittest
 
 SUBDIR = os.path.join('.curry', config.intermediate_subdir())
 
 class TestMake(cytest.TestCase):
-  '''Tests for the make-like features to generate ICurry and JSON.'''
+  '''Tests for the make-like features to generate ICurry and images.'''
+
+  def test_make_one_keeps_plans_image(self):
+    # The plan owns image validation, including accepting a compiled
+    # product whose image has a different inline budget.
+    args = argparse.Namespace(rewrite_flat=False, image=True)
+    plan = object()
+    with mock.patch.object(toolchain, 'makecurry', return_value='M.so') as build, \
+         mock.patch('curry.backends.cxx.image.ensure') as ensure:
+      make._make_one('sprite-make', plan, 'M', args, {})
+    build.assert_called_once_with(plan, 'M', config.currypath(), is_sourcefile=False)
+    ensure.assert_not_called()
 
   def test_filename_funcs(self):
     '''Checks derivation of intermediate file names.'''
@@ -22,21 +33,18 @@ class TestMake(cytest.TestCase):
     for prefix in prefixes:
       curry_file = os.path.join(prefix, 'foo.curry')
       icy_file   = os.path.join(prefix, SUBDIR, 'foo.icy')
-      json_file  = os.path.join(prefix, SUBDIR, 'foo.json')
-      jsonz_file = os.path.join(prefix, SUBDIR, 'foo.json.z')
+      image_file  = os.path.join(prefix, SUBDIR, 'foo.img')
       py_file    = os.path.join(prefix, SUBDIR, 'foo.py')
       cpp_file   = os.path.join(prefix, SUBDIR, 'foo.cpp')
       so_file    = os.path.join(prefix, SUBDIR, 'foo.so')
       files = [
-          curry_file, icy_file, json_file, jsonz_file, py_file, cpp_file, so_file
+          curry_file, icy_file, image_file, py_file, cpp_file, so_file
         ]
-      json_files = [json_file, jsonz_file]
       for file_ in files:
         self.assertEqual(toolchain.curryfilename(file_), curry_file)
         self.assertEqual(toolchain.icurryfilename(file_), icy_file)
-        self.assertEqual(set(toolchain.jsonfilenames(file_)), set(json_files))
 
-  def test_make_icurry_and_json(self):
+  def test_make_icurry_and_image(self):
     '''Test the conversion from .curry to .icy.'''
     for input_file in glob.glob('data/importer/*.curry'):
       dirname, filename = os.path.split(input_file)
@@ -53,43 +61,9 @@ class TestMake(cytest.TestCase):
         ret = toolchain.curry2icurry(curry_file, currypath=[], quiet=True)
         self.assertEqual(ret, file_out)
 
-        # Build .json.
-        ret = toolchain.icurry2json(curry_file, currypath=[], compact=False, zip=False)
-        json_file = os.path.join(tmpdir, SUBDIR, stem + '.json')
-        self.assertTrue(os.path.exists(json_file))
-        self.assertEqual(ret, json_file)
-        shutil.move(json_file, json_file + '.nocompact')
-
-        # Build compacted .json.
-        self.assertFalse(os.path.exists(json_file))
-        ret = toolchain.icurry2json(curry_file, currypath=[], compact=True, zip=False)
-        self.assertTrue(os.path.exists(json_file))
-        self.assertEqual(ret, json_file)
-        self.assertLess(
-            os.stat(json_file).st_size
-          , os.stat(json_file + '.nocompact').st_size
-          )
-        # Both forms end with a newline and decode to the same module.  The
-        # compact form is the text of the encoder.
-        compact = cytest.readfile(json_file)
-        spaced = cytest.readfile(json_file + '.nocompact')
-        self.assertTrue(compact.endswith('}\n'))
-        self.assertTrue(spaced.endswith('}\n'))
-        self.assertIn('": ', spaced)
-        self.assertEqual(icurry.json.loads(compact), icurry.json.loads(spaced))
-        self.assertEqual(
-            compact, icurry.json.dumps(icurry.readcurry.load(file_out)) + '\n'
-          )
-        shutil.move(json_file, json_file + '.nozip')
-
-        # Build compacted, compressed .json.
-        ret = toolchain.icurry2json(curry_file, currypath=[], compact=True, zip=True)
-        self.assertTrue(os.path.exists(json_file + '.z'))
-        self.assertEqual(ret, json_file + '.z')
-        self.assertLess(
-            os.stat(json_file + '.z').st_size
-          , os.stat(json_file + '.nozip').st_size
-          )
+        from curry.backends.cxx import image
+        product, _ = image.ensure(cytest.raw.interp(), file_out, [tmpdir])
+        self.assertEqual(image.read(product)['name'], stem)
 
   def test_makecurry(self):
     '''Test the makecurry function.'''
@@ -99,13 +73,13 @@ class TestMake(cytest.TestCase):
       plan_icy = plans.makeplan(
           cytest.raw.interp(), plans.MAKE_ICURRY
         )
-      plan_json = plans.makeplan(
-          cytest.raw.interp(), plans.MAKE_ICURRY | plans.MAKE_JSON
+      plan_image = plans.makeplan(
+          cytest.raw.interp(), plans.MAKE_ICURRY | plans.MAKE_IMAGE
         )
       with tempfile.TemporaryDirectory() as tmpdir:
         shutil.copy(input_file, tmpdir)
         icy_file = os.path.join(tmpdir, SUBDIR, stem + '.icy')
-        json_file = os.path.join(tmpdir, SUBDIR, stem + '.json')
+        image_file = os.path.join(tmpdir, SUBDIR, stem + '.img')
         curry_file = os.path.join(tmpdir, filename)
         # Make .icy.
         ret = toolchain.makecurry(plan_icy, curry_file, is_sourcefile=True)
@@ -116,46 +90,26 @@ class TestMake(cytest.TestCase):
         self.assertTrue(os.path.exists(icy_file))
         self.assertTrue(ret.endswith('.icy'))
 
-        # Make .json.  Returns the JSON file name.
-        ret = toolchain.makecurry(plan_json, curry_file, is_sourcefile=True)
-        self.assertTrue(os.path.exists(json_file))
-        self.assertEqual(ret, json_file)
+        # Make .img.  Returns the module image name.
+        ret = toolchain.makecurry(plan_image, curry_file, is_sourcefile=True)
+        self.assertTrue(os.path.exists(image_file))
+        self.assertEqual(ret, image_file)
         # Repeat
-        ret = toolchain.makecurry(plan_json, curry_file, is_sourcefile=True)
-        self.assertTrue(os.path.exists(json_file))
-        self.assertEqual(ret, json_file)
+        ret = toolchain.makecurry(plan_image, curry_file, is_sourcefile=True)
+        self.assertTrue(os.path.exists(image_file))
+        self.assertEqual(ret, image_file)
 
-  def test_sprite_make_icy(self):
-    '''
-    Test the conversion of a committed ICurry file to JSON.  The Curry library
-    ships its ICurry files beside the sources, and make derives the JSON from
-    them without icurry.
-    '''
-    from curry import icurry
-    makeprg = os.path.join(os.environ['SPRITE_HOME'], 'bin', 'sprite-make')
-    def sprite_make(*args):
-      return ensure_str(subprocess.check_output((makeprg,) + args))
-    icy_src = os.path.join('data', 'curry', SUBDIR, 'hello.icy')
-    with tempfile.TemporaryDirectory() as tmpdir:
-      icy_file = os.path.join(tmpdir, 'hello.icy')
-      shutil.copy(icy_src, icy_file)
-      sprite_make('--json', '-zc', icy_file)
-      jsonz_file = os.path.join(tmpdir, 'hello.json.z')
-      self.assertTrue(os.path.exists(jsonz_file))
-      with open(jsonz_file, 'rb') as istream:
-        import zlib
-        imodule = icurry.json.loads(zlib.decompress(istream.read()))
-      self.assertEqual(imodule, icurry.readcurry.load(icy_file))
-      # The output option copies the JSON.
-      copy = os.path.join(tmpdir, 'copy.json.z')
-      sprite_make('--json', '-zc', '-o', copy, icy_file)
-      with open(copy, 'rb') as a, open(jsonz_file, 'rb') as b:
-        self.assertEqual(a.read(), b.read())
-      # Only JSON can be made from an ICurry file.
-      with self.assertRaises(subprocess.CalledProcessError):
-        subprocess.check_output(
-            [makeprg, '--icy', icy_file], stderr=subprocess.DEVNULL
-          )
+  def test_convert_icy(self):
+    from curry.backends.cxx import image
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, 'hello.curry')
+      shutil.copy('data/curry/hello.curry', source)
+      icy = toolchain.curry2icurry(source, [])
+      standalone = os.path.join(directory, 'hello.icy')
+      shutil.copy(icy, standalone)
+      icy = standalone
+      make.main('sprite-make', ['--image', icy])
+      self.assertEqual(image.read(icy[:-4] + '.img')['name'], 'hello')
 
   def test_sprite_make(self):
     '''Test the sprite-make program.'''
@@ -180,47 +134,23 @@ class TestMake(cytest.TestCase):
         shutil.copy(input_file, tmpdir)
         curry_file = os.path.join(tmpdir, filename)
         icy_file = os.path.join(tmpdir, SUBDIR, stem + '.icy')
-        json_file = os.path.join(tmpdir, SUBDIR, stem + '.json')
+        image_file = os.path.join(tmpdir, SUBDIR, stem + '.img')
 
-        # Make .json and remove .icy.
-        sprite_make('--json', '-t', curry_file)
-        self.assertFalse(os.path.exists(icy_file))
-        self.assertTrue(os.path.exists(json_file))
-        os.unlink(json_file)
-
-        # Make .icy.
-        sprite_make('--icy', curry_file)
+        sprite_make('--image', '-t', curry_file)
         self.assertTrue(os.path.exists(icy_file))
-        self.assertFalse(os.path.exists(json_file))
-
-        # Make .json and keep .icy.
-        sprite_make('--json', curry_file)
-        self.assertTrue(os.path.exists(icy_file))
-        self.assertTrue(os.path.exists(json_file))
-
-        # Make .json.z.  Tidy will not remove the .icy.
-        sprite_make('--json', '-zt', curry_file)
-        self.assertTrue(os.path.exists(icy_file))
-        self.assertTrue(os.path.exists(json_file + '.z'))
-        os.unlink(icy_file)
-        os.unlink(json_file)
-        shutil.move(json_file + '.z', json_file + '.z.nocompact')
-
-        # Make .json.z with all options.
-        sprite_make('--json', '-czt', curry_file)
-        self.assertFalse(os.path.exists(icy_file))
-        self.assertFalse(os.path.exists(json_file))
-        self.assertTrue(os.path.exists(json_file + '.z'))
-        self.assertLess(
-            os.stat(json_file + '.z').st_size
-          , os.stat(json_file + '.z.nocompact').st_size
-          )
+        self.assertTrue(os.path.exists(image_file))
+        os.unlink(image_file)
+        sprite_make(curry_file)
+        self.assertTrue(os.path.exists(image_file))
+        for option in ['--json', '-j', '-z', '-c']:
+          with self.assertRaises(subprocess.CalledProcessError):
+            sprite_make(option, curry_file)
 
   def test_sprite_make_so(self):
     '''
     --so runs the plan of the C++ backend to the shared object, and implies
     --cxx.  A second run compiles nothing.  The removed --py option is refused.
-    The module comes from hand-written ICurry-JSON, so no front end runs.
+    The module comes from hand-written ICurry, so no front end runs.
     '''
     if config.cxx_tool() is None:
       self.skipTest('no C++ compiler is installed')
@@ -228,10 +158,9 @@ class TestMake(cytest.TestCase):
     with tempfile.TemporaryDirectory() as tmpdir:
       subdir = os.path.join(tmpdir, SUBDIR)
       os.makedirs(subdir)
-      with open(os.path.join(subdir, name + '.json.z'), 'wb') as stream:
-        stream.write(zlib.compress(cytest.json_module(name, 5).encode('utf-8')))
+      cytest.write_module_image(os.path.join(subdir, name + '.img'), cytest.json_module(name, 5))
       with binding(os.environ, 'CURRYPATH', tmpdir):
-        make.main('sprite-make', ['--so', '-z', name])
+        make.main('sprite-make', ['--so', name])
         for suffix in ['.cpp', '.so', '.so.abi']:
           self.assertTrue(
               os.path.isfile(os.path.join(subdir, name + suffix)), suffix
@@ -240,7 +169,7 @@ class TestMake(cytest.TestCase):
         with mock.patch.object(
             _system, 'pexec', side_effect=AssertionError('a compiler ran')
           ):
-          make.main('sprite-make', ['--so', '-z', name])
+          make.main('sprite-make', ['--so', name])
         with contextlib.redirect_stderr(io.StringIO()) as stderr:
           with self.assertRaises(SystemExit):
             make.main('sprite-make', ['--so', '--py', name])
@@ -250,7 +179,7 @@ class TestJobs(cytest.TestCase):
   '''
   The --jobs option: the modules are made by child processes, the imports of
   a module before the module, and a module whose files are current gets no
-  child.  The modules come from hand-written ICurry-JSON, so no Curry front
+  child.  The modules come from hand-written ICurry, so no Curry front
   end runs.  The target is the one of the backend under test.
   '''
   # The C++ runtime keeps one entry per module name, so every module built in
@@ -270,7 +199,7 @@ class TestJobs(cytest.TestCase):
     # The plan of sprite-make: an explicit compile compiles, so its
     # interpreter has the flag ``interpret`` off (make.main).  Under the
     # new default of the C++ backend the plan of an import ends at the
-    # JSON, and a module made here, which has its JSON alone, would count as
+    # image, and a module made here, which has its image alone, would count as
     # current.
     self.plan = plans.makeplan(
         interpreter.Interpreter(
@@ -278,7 +207,7 @@ class TestJobs(cytest.TestCase):
                 {'backend': curry.flags['backend'], 'interpret': 'off'}
               )
           )
-      , plans.MAKE_ALL | plans.ZIP_JSON
+      , plans.MAKE_ALL
       )
 
   def new_name(self):
@@ -286,8 +215,8 @@ class TestJobs(cytest.TestCase):
 
   def write_module(self, value, imports=(), name=None, text=None):
     '''
-    Writes the JSON of a module whose goal returns ``value`` and that imports
-    the named modules after the Prelude.  ``text`` replaces the JSON (an
+    Writes the image of a module whose goal returns ``value`` and that imports
+    the named modules after the Prelude.  ``text`` replaces the description (an
     unreadable file, say).  Returns the module name.
     '''
     if name is None:
@@ -297,8 +226,7 @@ class TestJobs(cytest.TestCase):
           '"imports":["Prelude"]'
         , '"imports":%s' % json.dumps(['Prelude'] + list(imports))
         )
-    with open(os.path.join(self.subdir, name + '.json.z'), 'wb') as stream:
-      stream.write(zlib.compress(text.encode('utf-8')))
+    cytest.write_module_image(os.path.join(self.subdir, name + '.img'), text, translate=False)
     return name
 
   def product(self, name):
@@ -337,7 +265,7 @@ class TestJobs(cytest.TestCase):
       self.assertIsNone(make.parse_jobs(text), text)
     with contextlib.redirect_stderr(io.StringIO()) as stderr:
       with self.assertRaises(SystemExit) as cm:
-        make.main('sprite-make', ['--json', '--jobs', '0', 'Prelude'])
+        make.main('sprite-make', ['--image', '--jobs', '0', 'Prelude'])
     self.assertEqual(cm.exception.code, 1)
     self.assertIn('--jobs should be a count or auto', stderr.getvalue())
     man = ensure_str(subprocess.check_output([
@@ -352,8 +280,8 @@ class TestJobs(cytest.TestCase):
   def test_child_command(self):
     '''A child runs this program on one module with the options of the parent, less --jobs.'''
     args = argparse.Namespace(
-        compact=True, cxx=True, so=True, icy=True, json=True, keep_going=True
-      , quiet=True, tidy=False, zip=True, curry2icurry='frontend'
+        cxx=True, so=True, icy=True, image=True, keep_going=True
+      , quiet=True, tidy=False, curry2icurry='frontend'
       , goal=None
       )
     cmd = make.child_command(args, make.Job('Data.Maybe', '/x/Data/Maybe.curry'))
@@ -361,8 +289,8 @@ class TestJobs(cytest.TestCase):
         cmd[:3], [sys.executable, '-m', config.python_package_name() + '.tools.make']
       )
     self.assertEqual(cmd[-1], 'Data.Maybe')
-    for flag in [ '--compact', '--cxx', '--so', '--icy', '--json', '--keep-going'
-                , '--quiet', '--zip' ]:
+    for flag in [ '--cxx', '--so', '--icy', '--image', '--keep-going'
+                , '--quiet' ]:
       self.assertIn(flag, cmd)
     for flag in ['--tidy', '--py', '--jobs', '--goal']:
       self.assertNotIn(flag, cmd)
@@ -382,7 +310,7 @@ class TestJobs(cytest.TestCase):
   def test_imports_of(self):
     '''
     The imports of a module come from its source, with the implicit Prelude,
-    else from its JSON file; an unreadable or missing file gives none.
+    else from its module image; an unreadable or missing file gives none.
     '''
     src = os.path.join(self.tmpdir, 'Src.curry')
     with open(src, 'w') as stream:
@@ -420,7 +348,7 @@ class TestJobs(cytest.TestCase):
     graph = make.JobGraph(self.plan, currypath)
     job, currentfile = graph.add(a)
     self.assertEqual(job.arg, a)
-    self.assertEqual(currentfile, os.path.join(self.subdir, a + '.json.z'))
+    self.assertEqual(currentfile, os.path.join(self.subdir, a + '.icy'))
     self.assertEqual([j.arg for j in graph.jobs], [c, b, a])
     jobs = {j.arg: j for j in graph.jobs}
     self.assertEqual(jobs[c].imports, [])
@@ -428,7 +356,7 @@ class TestJobs(cytest.TestCase):
     self.assertEqual(jobs[a].imports, [jobs[b], jobs[c]])
     # The Prelude is current, so the closure of a module that imports it alone
     # is the module itself.  A second add of a visited module adds nothing.
-    self.assertEqual(graph.add(c), (jobs[c], os.path.join(self.subdir, c + '.json.z')))
+    self.assertEqual(graph.add(c), (jobs[c], os.path.join(self.subdir, c + '.icy')))
     self.assertEqual(len(graph.jobs), 3)
     # The Prelude of the installation is current: no job, and no edge.
     graph = make.JobGraph(self.plan, currypath)
@@ -447,20 +375,19 @@ class TestJobs(cytest.TestCase):
   def test_image_plan_of_complete_library_imports_nothing(self):
     from curry.backends.cxx import image
     plan = plans.makeplan(self.plan.interp,
-        plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON)
+        plans.MAKE_ICURRY | plans.MAKE_IMAGE)
     graph = make.JobGraph(plan, config.currypath())
     with mock.patch.object(plan.interp, 'import_',
         side_effect=AssertionError('planner imported a module')):
-      for name in config.syslibs():
+      for name in config.supported_syslibs():
         graph.add(name)
     self.assertEqual(graph.jobs, [])
     # A read-only installation does not queue missing images for repair.
     graph = make.JobGraph(plan, config.currypath())
-    with mock.patch.object(image, 'writable', return_value=False), \
-        mock.patch.object(image, 'read', side_effect=AssertionError('read-only image check')):
+    with mock.patch.object(image, 'writable', return_value=False):
       graph.add('Prelude')
     self.assertEqual(graph.jobs, [])
-    self.assertEqual(self.sprite_make('--json', '-zc', '--jobs', '3', 'Prelude'), [])
+    self.assertEqual(self.sprite_make('--image', '--jobs', '3', 'Prelude'), [])
 
   def test_imports_are_made_first(self):
     '''
@@ -471,16 +398,15 @@ class TestJobs(cytest.TestCase):
     c = self.write_module(1)
     b = self.write_module(2, imports=[c])
     a = self.write_module(3, imports=[b, c])
-    commands = self.sprite_make(self.target, '-z', '-c', '--jobs', '3', a)
+    commands = self.sprite_make(self.target, '--jobs', '3', a)
     self.assertEqual([cmd[-1] for cmd in commands], [c, b, a])
     for cmd in commands:
       self.assertIn(self.target, cmd)
-      self.assertIn('--zip', cmd)
-      self.assertIn('--compact', cmd)
+      self.assertNotIn('--zip', cmd)
       self.assertNotIn('--jobs', cmd)
     for name in [a, b, c]:
       self.assertTrue(os.path.isfile(self.product(name)), name)
-    self.assertEqual(self.sprite_make(self.target, '-z', '--jobs', '3', a, b, c), [])
+    self.assertEqual(self.sprite_make(self.target, '--jobs', '3', a, b, c), [])
     # The imports of a module are found through the path of the interpreter.
     curry.path.insert(0, self.tmpdir)
     self.addCleanup(
@@ -503,7 +429,7 @@ class TestJobs(cytest.TestCase):
       return proc
     with self.currypath():
       with mock.patch.object(subprocess, 'Popen', counting_popen):
-        make.main('sprite-make', [self.target, '-z', '--jobs', '2'] + names)
+        make.main('sprite-make', [self.target, '--jobs', '2'] + names)
     self.assertEqual(len(running), 4)
     self.assertLessEqual(max(peak), 2)
     for name in names:
@@ -515,8 +441,8 @@ class TestJobs(cytest.TestCase):
     b = self.write_module(8)
     with self.currypath():
       with mock.patch.object(make, 'run_jobs', side_effect=AssertionError('a child started')):
-        make.main('sprite-make', [self.target, '-z', a])
-        make.main('sprite-make', [self.target, '-z', '--jobs', '1', b])
+        make.main('sprite-make', [self.target, a])
+        make.main('sprite-make', [self.target, '--jobs', '1', b])
     self.assertTrue(os.path.isfile(self.product(a)))
     self.assertTrue(os.path.isfile(self.product(b)))
 
@@ -530,7 +456,7 @@ class TestJobs(cytest.TestCase):
     z = self.write_module(2)
     with contextlib.redirect_stderr(io.StringIO()) as stderr:
       with self.assertRaises(SystemExit) as cm:
-        self.sprite_make(self.target, '-z', '-k', '--jobs', '3', x, y, z)
+        self.sprite_make(self.target, '-k', '--jobs', '3', x, y, z)
     self.assertEqual(cm.exception.code, 1)
     self.assertIn('%s was not made because an import failed' % y, stderr.getvalue())
     self.assertFalse(os.path.exists(self.product(y)))
@@ -538,7 +464,7 @@ class TestJobs(cytest.TestCase):
     w = self.write_module(3, imports=[x])
     with contextlib.redirect_stderr(io.StringIO()) as stderr:
       with self.assertRaises(SystemExit) as cm:
-        self.sprite_make(self.target, '-z', '--jobs', '3', x, w)
+        self.sprite_make(self.target, '--jobs', '3', x, w)
     self.assertEqual(cm.exception.code, 1)
     self.assertIn('sprite-make:', stderr.getvalue())
     self.assertFalse(os.path.exists(self.product(w)))
@@ -551,7 +477,7 @@ class TestJobs(cytest.TestCase):
     b = self.write_module(5)
     a = self.write_module(6, imports=[b])
     out = os.path.join(self.tmpdir, 'out' + self.suffix)
-    commands = self.sprite_make(self.target, '-z', '--jobs', '2', '-o', out, a)
+    commands = self.sprite_make(self.target, '--jobs', '2', '-o', out, a)
     self.assertEqual([cmd[-1] for cmd in commands], [b])
     self.assertTrue(os.path.isfile(out))
     self.assertTrue(os.path.isfile(self.product(a)))
@@ -568,7 +494,7 @@ class TestJobs(cytest.TestCase):
         with self.currypath():
           with contextlib.redirect_stderr(io.StringIO()) as stderr:
             with self.assertRaises(SystemExit) as cm:
-              make.main('sprite-make', [self.target, '-z'] + extra + [a])
+              make.main('sprite-make', [self.target] + extra + [a])
       self.assertEqual(cm.exception.code, 1, extra)
       self.assertEqual(stderr.getvalue(), 'sprite-make: no plan today\n', extra)
     self.assertFalse(os.path.exists(self.product(a)))
@@ -601,7 +527,7 @@ class TestJobs(cytest.TestCase):
     with binding(os.environ, 'SPRITE_CXX_PCH_ROOT', root), self.currypath():
       with mock.patch.object(cxx_toolchain.PrecompiledHeader, 'build', counting_build):
         with mock.patch.object(subprocess, 'Popen', observing_popen):
-          make.main('sprite-make', ['--so', '-z', '--jobs', '3'] + names)
+          make.main('sprite-make', ['--so', '--jobs', '3'] + names)
     self.assertEqual(len(builds), 1, builds)
     member = os.path.basename(builds[0])
     self.assertTrue(os.path.isfile(os.path.join(gchdir, member)))
@@ -612,7 +538,7 @@ class TestJobs(cytest.TestCase):
     b = self.write_module(12)
     with binding(os.environ, 'SPRITE_CXX_PCH_ROOT', root), self.currypath():
       with mock.patch.object(cxx_toolchain.PrecompiledHeader, 'build', counting_build):
-        make.main('sprite-make', ['--so', '-z', '--jobs', '2', b])
+        make.main('sprite-make', ['--so', '--jobs', '2', b])
     self.assertEqual(len(builds), 1)
     self.assertTrue(os.path.isfile(self.product(b)))
     # With the header disabled nothing is built and nothing is yielded.
@@ -666,7 +592,7 @@ class TestProductLock(cytest.TestCase):
     for filename in [
         self.curryfile
       , os.path.join(subdir, self.name + '.icy')
-      , os.path.join(subdir, self.name + '.json.z')
+      , os.path.join(subdir, self.name + '.img')
       , os.path.join(subdir, self.name + '.cpp')
       , os.path.join(subdir, self.name + '.so')
       ]:
@@ -738,7 +664,7 @@ class TestProductLock(cytest.TestCase):
     # A file system that refuses flock (ENOLCK, a network file system
     # without a lock service): no lock, and the compile runs unlocked, as
     # before the lock.  Before, the error ended the compile at its first
-    # step (here the JSON of an ICurry file, which needs no front end).
+    # step (here the image of an ICurry file, which needs no front end).
     subdir = os.path.join(self.tmpdir, SUBDIR)
     os.makedirs(subdir)
     shutil.copy(
@@ -752,10 +678,10 @@ class TestProductLock(cytest.TestCase):
         self.assertTrue(os.path.isfile(self.lock))
         self.assertNotIn(self.lock, getattr(_productlock._local, 'held', {}))
       plan = plans.makeplan(
-          None, plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON
+          cytest.raw.interp(), plans.MAKE_ICURRY | plans.MAKE_IMAGE
         )
       product = toolchain.makecurry(plan, 'hello', [self.tmpdir])
-    self.assertEqual(product, os.path.join(subdir, 'hello.json.z'))
+    self.assertEqual(product, os.path.join(subdir, 'hello.img'))
     self.assertTrue(os.path.isfile(product))
     self.assertTrue(os.path.isfile(lock))
     self.assertFalse(self.held())
@@ -778,8 +704,7 @@ class TestProductLock(cytest.TestCase):
     from curry.backends.cxx.toolchain import Cpp2So
     subdir = os.path.join(self.tmpdir, SUBDIR)
     os.makedirs(subdir)
-    with open(os.path.join(subdir, self.name + '.json.z'), 'wb') as stream:
-      stream.write(zlib.compress(cytest.json_module(self.name, 7).encode('utf-8')))
+    cytest.write_module_image(os.path.join(subdir, self.name + '.img'), cytest.json_module(self.name, 7))
     env = dict(
         os.environ, CURRYPATH=self.tmpdir
       , SPRITE_PRODUCT_CACHE=''
@@ -793,7 +718,7 @@ for record in log.output:
   print(record, file=sys.stderr)
 """
     cmd = cytest.limit_prefix(2 << 30, self.TIMEOUT) + [
-        sys.executable, '-c', code, '--so', '-z', self.name
+        sys.executable, '-c', code, '--so', self.name
       ]
     with _productlock.locked(self.curryfile):
       children = [

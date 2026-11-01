@@ -98,7 +98,7 @@ def is_current(icyfile, currypath=()):
   if recorded is None:
     return False
   try:
-    # --tidy can remove ICurry while retaining JSON, objects and provenance.
+    # The import record can outlive a missing translation record.
     if os.path.isfile(icyfile) and set(recorded) != set(imports(icyfile)):
       return False
   except (OSError, ValueError):
@@ -108,8 +108,8 @@ def is_current(icyfile, currypath=()):
 def object_snapshot(names, searchdirs):
   '''Code generation also reads imported bodies for inlining and aliases.
 
-  Conservatively digest the entire imported ICurry, including private
-  symbols. JSON-only installations use the corresponding JSON instead.
+  Digest the imported image, whose summaries include private symbols,
+  together with the typed interfaces.
   '''
   result = {}
   for name in sorted(set(names)):
@@ -119,7 +119,7 @@ def object_snapshot(names, searchdirs):
       stem = os.path.join(directory, *parts[:-1], '.curry',
           config.intermediate_subdir(), parts[-1])
       found = False
-      for suffix in ('.icy', '.json.z', '.json'):
+      for suffix in ('.img',):
         try:
           with open(stem + suffix, 'rb') as stream:
             value.update(suffix.encode('ascii') + b'\0' + stream.read())

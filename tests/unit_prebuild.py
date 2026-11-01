@@ -7,7 +7,7 @@ from curry.tools import make
 from curry.utility.binding import binding
 from unittest import mock
 import curry, importlib.machinery, importlib.util, itertools, json, logging
-import os, re, runpy, shutil, subprocess, sys, tempfile, unittest, zlib
+import os, re, runpy, shutil, subprocess, sys, tempfile, unittest
 from pathlib import Path
 
 SUBDIR = os.path.join('.curry', config.intermediate_subdir())
@@ -60,26 +60,22 @@ class TestStagedLibrary(cytest.TestCase):
       result = f2i.showterm(f2i.translate_file(str(flat), finder, icurry_compat=False))
       self.assertEqual(result.encode(), expected.read_bytes(), str(rel))
 
-  def test_pinned_json_is_derived_from_icurry(self):
-    """Regenerating ICurry must replace JSON from an earlier route too."""
-    if config.frontend_version() != '3.1.0':
-      self.skipTest('the shipped pins belong to the current pair')
-    from curry.icurry import readcurry, json as icurry_json
-    for pinned in sorted((Path(SOURCE_ROOT) / 'curry/lib').rglob('*.icy')):
-      rel = pinned.relative_to(Path(SOURCE_ROOT) / 'curry/lib')
-      name = '.'.join((*rel.parts[:-3], rel.stem))
-      expected = (icurry_json.dumps(readcurry.load(str(pinned))) + '\n').encode()
-      self.assertEqual(zlib.decompress(Path(installed_file(name, '.json.z')).read_bytes()),
-          expected, str(pinned.relative_to(SOURCE_ROOT)))
+  def test_pinned_image_is_derived_from_icurry(self):
+    from curry.backends.cxx import image
+    for name in config.syslibs():
+      if name not in config.unsupported_syslibs():
+        path = installed_file(name, '.img')
+        self.assertEqual(image.read(path)['source'], image.digest(installed_file(name, '.icy')))
 
   def test_intermediates_are_staged(self):
     '''
-    Every system module has its ICurry and JSON.  The library has no
-    generated Python products.
+    Every system module has its ICurry; supported modules have module images.
+    The library has no generated Python products.
     '''
     for name in config.syslibs():
       self.assertTrue(os.path.isfile(installed_file(name, '.icy')), name)
-      self.assertTrue(os.path.isfile(installed_file(name, '.json.z')), name)
+      if name not in config.unsupported_syslibs():
+        self.assertTrue(os.path.isfile(installed_file(name, '.img')), name)
     supported = config.supported_syslibs()
     self.assertEqual(supported[0], 'Prelude')
     self.assertFalse(set(supported) & set(config.unsupported_syslibs()))
@@ -261,7 +257,7 @@ class TestDefaultToolsPrebuild(unittest.TestCase):
 
 
 class JsonModuleTestCase(cytest.TestCase):
-  '''A temporary source directory of hand-written ICurry-JSON modules.'''
+  '''A temporary source directory of hand-written ICurry modules.'''
   # The C++ runtime keeps one entry per module name, so every module built in
   # this process gets a new name.
   counter = itertools.count()
@@ -273,7 +269,7 @@ class JsonModuleTestCase(cytest.TestCase):
     self.subdir = os.path.join(self.srcdir, SUBDIR)
     os.makedirs(self.subdir)
     self.plan = plans.makeplan(
-        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL
       )
 
   def tearDown(self):
@@ -281,19 +277,18 @@ class JsonModuleTestCase(cytest.TestCase):
     os.chmod(self.subdir, 0o700)
     shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-  def write_json(self, value, package=None):
+  def write_image(self, value, package=None):
     '''
-    Writes the JSON of a module whose goal returns ``value``, inside
+    Writes the image of a module whose goal returns ``value``, inside
     ``package`` if one is named.  Returns the full name of the module.
     '''
     name = 'PrebuildTest%d' % next(self.counter)
     if package is not None:
       name = package + '.' + name
-    path = self.cached_file(name, '.json.z')
+    path = self.cached_file(name, '.img')
     os.makedirs(os.path.dirname(path), exist_ok=True)
     text = cytest.json_module(name, value)
-    with open(path, 'wb') as stream:
-      stream.write(zlib.compress(text.encode('utf-8')))
+    cytest.write_module_image(path, text)
     return name
 
   def cached_file(self, name, suffix):
@@ -306,7 +301,7 @@ class JsonModuleTestCase(cytest.TestCase):
     Builds the target file of a module whose goal returns ``value`` without
     loading the module.  Returns the module name.
     '''
-    name = self.write_json(value)
+    name = self.write_image(value)
     suffix = cytest.raw.interp().backend.object_file_extension
     target = makecurry(self.plan, name, [self.srcdir])
     self.assertEqual(target, self.cached_file(name, suffix))
@@ -324,12 +319,12 @@ class TestPackagedModule(JsonModuleTestCase):
   @cytest.with_flags(interpret='off')
   def test_packaged_products_ignore_extraction_order(self):
     """pip's extraction times do not force an unchanged library to compile."""
-    from curry.toolchain import _curry2icurry, _findcurry, _interfaces, _icurry2json
+    from curry.toolchain import _curry2icurry, _findcurry, _interfaces
     from curry.backends.cxx import toolchain
     # The plan is made here, under the flag the test sets: the plan of setUp
-    # ends at the JSON under interpret:all (toolchain.extend_plan_skeleton).
+    # ends at the image under interpret:all (toolchain.extend_plan_skeleton).
     self.plan = plans.makeplan(
-        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL
       )
     name = self.build(6)
     target = self.cached_file(name, cytest.raw.interp().backend.object_file_extension)
@@ -337,16 +332,13 @@ class TestPackagedModule(JsonModuleTestCase):
     with open(source, 'w') as stream:
       stream.write('main :: Int\nmain = 6\n')
     icy = self.cached_file(name, '.icy')
-    for suffix in ['.icy', '.fint', '.icurry']:
+    for suffix in ['.fint', '.icurry']:
       with open(self.cached_file(name, suffix), 'w') as stream:
         stream.write('')
-    with open(icy, 'w') as stream:
-      stream.write('(IProg "%s" [] [] [])' % name)
     _interfaces.write(icy, [self.srcdir])
-    _icurry2json.write_receipt(self.cached_file(name, '.json.z'), icy)
     with open(icy + '.source', 'w') as stream:
       stream.write(_curry2icurry.source_digest(source))
-    # This fixture starts with JSON-only products and then supplies their
+    # This fixture starts with image-only products and then supplies their
     # packaged source. Supply the matching compiled input receipt as well.
     cpp = self.cached_file(name, '.cpp')
     record = toolchain.input_record(cytest.raw.interp(), source)
@@ -360,7 +352,7 @@ class TestPackagedModule(JsonModuleTestCase):
     os.utime(source, (future, future))
     def current():
       return _findcurry.currentfile(self.plan, source, [self.srcdir], is_sourcefile=True)
-    with mock.patch.object(config, 'system_curry_path', return_value=self.srcdir):
+    with mock.patch.object(_curry2icurry, 'in_system_library', return_value=True):
       self.assertEqual(current(), target)
       with open(source, 'a') as stream:
         stream.write('-- changed\n')
@@ -376,13 +368,13 @@ class TestPackagedModule(JsonModuleTestCase):
     prefixes; the import of the ICurry object did not, so sprite-make --so
     Data.Maybe failed with KeyError.  The step runs with the flag
     ``interpret`` off: under its default (new) the C++ backend ends the
-    plan at the JSON.
+    plan at the image.
     '''
     plan = plans.makeplan(
-        cytest.raw.interp(), plans.MAKE_ALL | plans.ZIP_JSON
+        cytest.raw.interp(), plans.MAKE_ALL
       )
     package = 'PrebuildPkg%d' % next(self.counter)
-    name = self.write_json(6, package=package)
+    name = self.write_image(6, package=package)
     suffix = cytest.raw.interp().backend.object_file_extension
     target = makecurry(plan, name, [self.srcdir])
     self.assertEqual(target, self.cached_file(name, suffix))
