@@ -157,6 +157,7 @@ jobs:
           python -m unittest -v unit_windows_aot unit_cxx_tiered.TestSwap.test_edited_module_swaps_to_its_new_code unit_make.TestMake.test_sprite_make_so unit_cxx_interp.TestFirstUse.test_compiled_on_first_use unit_cxx_interp.TestFirstUse.test_pending_import_compiles_first unit_loadsave.TestRoundTrip.test_round_trip unit_loadsave.TestRoundTrip.test_cold_cache_hot_cxx unit_loadsave.TestRoundTrip.test_all_refuses_the_swap_with_a_reason unit_loadsave.TestSavedProgram unit_loadsave.TestPublicObjects.test_saved_constrained_program_prints_the_defaulted_goal unit_loadsave.TestPublicObjects.test_nonstandard_suffix_maps_the_requested_file || exit /b 1
           cd ..\examples\04-static-compile
           python -c "import subprocess, sys; from pathlib import Path; result = subprocess.run([sys.executable, 'go.py'], capture_output=True, text=True); print(result.stdout, end=''); print(result.stderr, end='', file=sys.stderr); assert result.returncode == 0, result.returncode; assert result.stdout.splitlines() == Path('expected.out').read_text().splitlines()[1:]" || exit /b 1
+<<<<<<< HEAD
       - name: Unit tier
         if: ${{ !cancelled() && matrix.name == 'clang-cl' && steps.build.outcome == 'success' }}
         env:
@@ -165,6 +166,21 @@ jobs:
           SPRITE_INTERPRETER_FLAGS: interpret:new,jit:off
           SPRITE_ROTATION: steps:65536
         run: python tests/run_tests.py --fast -j 2
+=======
+      - name: C++ compiler discovery from a plain shell
+        env:
+          SPRITE_HOME: ${{ github.workspace }}\build\stage
+          PYTHONPATH: ${{ github.workspace }}\build\stage\python;${{ github.workspace }}\tests\lib
+          SPRITE_INTERPRETER_FLAGS: interpret:new,jit:off
+          SPRITE_LOG_LEVEL: INFO
+          SPRITE_ROTATION: steps:65536
+          SPRITE_PRODUCT_CACHE: ''
+        run: |
+          set -euxo pipefail
+          cd tests
+          python -c "from curry.backends.cxx import msvc; c, e = msvc.discover(); assert c and e.get('INCLUDE') and e.get('LIB'), (c, sorted(e))"
+          python -m unittest -v unit_windows_aot unit_make.TestMake.test_sprite_make_so
+>>>>>>> master
       - name: Errors by file and by kind
         if: always()
         run: |

@@ -399,8 +399,10 @@ def compile_pending(entry):
   cxx = config.cxx_tool()
   if cxx is None:
     raise CompileError(
-        'no C++ compiler is installed at %r; on Windows use clang-cl of '
-        'Visual Studio in a developer prompt initialized by vcvars64'
+        'no C++ compiler is installed at %r; on Windows use Visual Studio 2017 or '
+        'newer, or its Build Tools, with the workload "Desktop development with C++" '
+        'and the component "C++ Clang tools for Windows", or clang-cl on PATH. Sprite '
+        'finds it itself.'
       % config.installed_path('tools', 'cxx')
       )
   currypath = entry.currypath

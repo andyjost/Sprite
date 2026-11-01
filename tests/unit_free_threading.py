@@ -190,12 +190,12 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
   interp = cytest.raw.interp()
   plan = plans.makeplan(interp, plans.MAKE_ALL)
   sofile = curry.toolchain.makecurry(plan, 'ThreadRecompile', [directory])
-  cppfile = sofile[:-3] + '.cpp'
+  cppfile = os.path.splitext(sofile)[0] + '.cpp'
   before = toolchain.Cpp2So.product_snapshot(sofile)
   compiling, read = threading.Event(), threading.Event()
   real_pexec = _system.pexec
   def pexec(cmd, *args, **kwds):
-    if '-shared' in cmd and cppfile not in cmd and any('.compile-' in x for x in cmd):
+    if ('-shared' in cmd or '/LD' in cmd) and cppfile not in cmd and any('.compile-' in x for x in cmd):
       compiling.set()
       assert read.wait(20)
     return real_pexec(cmd, *args, **kwds)

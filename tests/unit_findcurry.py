@@ -65,7 +65,9 @@ class TestFindCurry(cytest.TestCase):
             ├── a
             └── c.curry
     '''
-    ff = filesys.findfiles
+    def ff(*args, **kwds):
+      return (path.replace(os.sep, '/')
+              for path in filesys.findfiles(*args, **kwds))
     self.assertEqual(
         list(ff(
             names=['a.curry']

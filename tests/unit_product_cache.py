@@ -849,6 +849,29 @@ class TestCompile(ProductCacheTestCase):
     self.assertTrue(os.path.isfile(sofile))
     self.assertEqual(_productcache.counts['restored'], 1)
 
+  @cytest.posix_only('Windows: parallel sprite-make does not aggregate CRLF cache reports')
+  def test_sprite_make_parallel_reports(self):
+    first = self.write_image(12)
+    second = self.write_image(13)
+    run = self.sprite_make_output
+    run('--so', first)
+    # The parallel run: the children print the line for the parent, which
+    # sums them and prints one line.
+    self.remove_products(first)
+    text = run('--so', '--jobs', '2', first, second)
+    self.assertEqual(text, 'sprite-make: product cache: 1 restored, 1 stored\n')
+
+  def sprite_make_output(self, *args):
+    out = io.StringIO()
+    with binding(os.environ, 'CURRYPATH', self.srcdir):
+      config.currypath(reset=True)
+      try:
+        with contextlib.redirect_stdout(out):
+          make.main('sprite-make', list(args))
+      finally:
+        config.currypath(reset=True)
+    return out.getvalue()
+
   def test_sprite_make_reports(self):
     '''
     sprite-make prints one line with the counts at the end of a run that
@@ -856,17 +879,7 @@ class TestCompile(ProductCacheTestCase):
     the children are summed into one line.
     '''
     first = self.write_image(12)
-    second = self.write_image(13)
-    def run(*args):
-      out = io.StringIO()
-      with binding(os.environ, 'CURRYPATH', self.srcdir):
-        config.currypath(reset=True)
-        try:
-          with contextlib.redirect_stdout(out):
-            make.main('sprite-make', list(args))
-        finally:
-          config.currypath(reset=True)
-      return out.getvalue()
+    run = self.sprite_make_output
     text = run('--so', first)
     self.assertEqual(text, 'sprite-make: product cache: 0 restored, 1 stored\n')
     # Current: nothing to say.
@@ -879,11 +892,6 @@ class TestCompile(ProductCacheTestCase):
         run('--so', first)
       , 'sprite-make: product cache: 1 restored, 0 stored\n'
       )
-    # The parallel run: the children print the line for the parent, which
-    # sums them and prints one line.
-    self.remove_products(first)
-    text = run('--so', '--jobs', '2', first, second)
-    self.assertEqual(text, 'sprite-make: product cache: 1 restored, 1 stored\n')
     self.assertRegex(
         make.cache_line('sprite-make', {'restored': 3, 'stored': 4})
       , make.CACHE_LINE

@@ -8,6 +8,14 @@ Release Notes
 - Every module of the Curry library ships compiled. An external function
   without a primitive in the runtime raises ``not implemented`` at its call;
   before, eight modules failed at import.
+- The front end uses ``C.UTF-8`` when the selected locale is not UTF-8,
+  so non-ASCII Curry source also compiles under C and POSIX locales.
+- Local CPM projects add their source directories and installed packages
+  to ``curry.path`` after ``CURRYPATH`` and before the installed library;
+  ``SPRITE_CPM_PATH=0`` disables discovery.
+- Windows: Sprite discovers Visual Studio with ``vswhere`` and captures
+  the developer environment of ``vcvars64.bat`` for clang-cl. AOT builds,
+  the C++ JIT and saved-program launchers no longer need a developer prompt.
 
 - ``curry.solve`` reports every held variable used in the goal, including
   unnamed variables under display names such as ``_a``.
@@ -28,6 +36,9 @@ Release Notes
   object per function in the envelope; a start reads the index alone. CI
   fills the library's cache in one job (``SPRITE_STAGE_JIT_CACHE=0`` skips
   the fill of a stage).
+- The LLVM cache uses smaller module-local symbols and per-function zlib
+  payloads (``SPRTJIT4``). Cached calls can resolve between hot optimizer
+  batches; pinned cache files close after resolution or image detach.
 - LLVM JIT batches persist as relocatable ``.jit`` objects beside module
   images, resolve on first use on a warm start and use
   ``SPRITE_JIT_CACHE`` for read-only products. Local stages fill the library

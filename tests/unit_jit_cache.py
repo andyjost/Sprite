@@ -1,7 +1,7 @@
 '''Persistent LLVM objects: fresh-process relocation, keys and publication.'''
 import cytest # from ./lib; must be first
 import curry
-from curry.backends.cxx import llvmjit
+from curry.backends.cxx import elf, llvmjit
 import json, os, pathlib, subprocess, sys, tempfile, unittest
 from unittest import mock
 
@@ -134,10 +134,10 @@ print(json.dumps(dict(ok=True)))
       _, size = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
       index = json.loads(stream.read(size))
     objects = llvmjit._read_cache(path, index['key'])
-    symbols = [records[0][1].encode('ascii') for records, _ in objects]
+    symbols = [records[0][1] for records, _ in objects]
     for records, obj in objects:
-      native = obj.read()
-      own = records[0][1].encode('ascii')
+      native = elf.read_symbols(obj.read())
+      own = records[0][1]
       self.assertIn(own, native)
       for other in symbols:
         if other != own:
@@ -335,6 +335,250 @@ assert all(llvmjit._object_bytes(obj) for records, obj in objects)
 print(json.dumps(dict(ok=True)))
 """)
     self.assertEqual(self.child('eager')['compiled'], 0)
+
+  def test_resolver_runs_between_hot_sub_batches(self):
+    self.child('eager')
+    self.run_code("""
+import threading, time
+M = curry.import_(source)
+jit = llvmjit._jit
+started, resolved = threading.Event(), threading.Event()
+sizes = []
+def slow(items, **kwargs):
+  sizes.append(len(items))
+  if len(sizes) == 1:
+    started.set()
+    time.sleep(.1)
+  else:
+    assert resolved.wait(2), 'resolver blocked by the whole hot group'
+def worker():
+  llvmjit._compile_groups(jit, [(M.bad.info, 'Cached.bad')] * 64, post=True)
+with mock.patch.object(jit, 'compile_batch', side_effect=slow):
+  thread = threading.Thread(target=worker)
+  thread.start()
+  assert started.wait(2)
+  start = time.perf_counter()
+  assert llvmjit._resolve_cached(M.fib.info.address)
+  elapsed = time.perf_counter() - start
+  resolved.set()
+  thread.join(5)
+  assert not thread.is_alive()
+assert sizes == [32, 32], sizes
+assert elapsed < 1, elapsed
+print(json.dumps(dict(ok=True, wait_ms=elapsed * 1000)))
+""")
+
+  def test_sub_batches_publish_once_per_module(self):
+    context = mock.Mock(objects=[])
+    jit = mock.Mock(modules={1: context})
+    def compiled(items, **kwargs):
+      self.assertTrue(llvmjit._lock.locked())
+      self.assertLessEqual(len(items), 32)
+      self.assertFalse(kwargs['store'])
+      context.objects.append(items)
+      context.dirty = True
+      return context
+    jit.compile_batch.side_effect = compiled
+    with mock.patch.object(llvmjit.curryrt, 'icurry_address', return_value=1):
+      llvmjit._compile_groups(jit, [(1, 'M.f')] * 64)
+    self.assertEqual(jit.compile_batch.call_count, 2)
+    context.store.assert_called_once_with()
+
+  def test_shutdown_publishes_completed_sub_batch(self):
+    self.child('off')
+    self.run_code("""
+import threading, time
+M = curry.import_(source)
+jit = llvmjit._jit
+context = jit.modules[M.fib.info.address]
+compile_batch = jit.compile_batch
+second, stopped = threading.Event(), threading.Event()
+calls = []
+def fake(items, **kwargs):
+  calls.append(len(items))
+  if len(calls) == 1:
+    return compile_batch([(M.fib.info, 'Cached.fib')], **kwargs)
+  second.set()
+  deadline = time.monotonic() + 5
+  while llvmjit._hot_enabled:
+    assert time.monotonic() < deadline
+    time.sleep(.001)
+  assert not stopped.is_set(), 'shutdown returned before publication'
+def stop():
+  assert second.wait(5)
+  llvmjit._stop_hot_tier()
+  stopped.set()
+thread = threading.Thread(target=stop)
+thread.start()
+with mock.patch.object(jit, 'compile_batch', side_effect=fake):
+  llvmjit._compile_groups(jit, [(M.bad.info, 'Cached.bad')] * 64, post=True)
+thread.join(5)
+assert stopped.is_set()
+assert calls == [32, 32]
+objects = llvmjit._read_cache(context.local, context.key)
+assert [records[0][0] for records, obj in objects] == ['Cached.fib']
+assert all(obj.read() for records, obj in objects)
+print(json.dumps(dict(ok=True)))
+""")
+    self.assertTrue(self.child()['jitted'])
+
+  def test_sub_batches_publish_actual_contexts_after_reattach(self):
+    old, new = mock.Mock(dirty=False), mock.Mock(dirty=False)
+    jit = mock.Mock(modules={1: old})
+    def compiled(items, **kwargs):
+      context = jit.modules[1]
+      context.dirty = True
+      if context is old:
+        # An interleaved compile can store and shrink the object list.
+        old.objects = []
+        jit.modules[1] = new
+      return context
+    jit.compile_batch.side_effect = compiled
+    with mock.patch.object(llvmjit.curryrt, 'icurry_address', return_value=1):
+      llvmjit._compile_groups(jit, [(1, 'M.f')] * 64)
+    old.store.assert_called_once_with()
+    new.store.assert_called_once_with()
+
+  def test_failure_before_read_preserves_object(self):
+    self.child('eager')
+    self.run_code("""
+M = curry.import_(source)
+context = llvmjit._jit.modules[M.fib.info.address]
+entry = context.cached['Cached.fib']
+with mock.patch.object(rt, 'icurry_bytecode', return_value=None):
+  assert context.resolve('Cached.fib') == 0
+assert not entry.get('_released')
+assert not entry.get('_dropped')
+context.failed.clear()
+bc = rt.icurry_bytecode(M.fib.info)
+with mock.patch.object(rt, 'icurry_bytecode', return_value=dict(bc, consts={})):
+  assert context.resolve('Cached.fib') == 0
+assert not entry.get('_released')
+assert not entry.get('_dropped')
+assert context.object_for('Cached.fib')[1].read()
+print(json.dumps(dict(ok=True)))
+""")
+
+  def test_dropped_entry_after_store_recompiles(self):
+    self.child('eager')
+    self.run_code("""
+M = curry.import_(source)
+context = llvmjit._jit.modules[M.fib.info.address]
+context.release('Cached.fib')
+context.store()
+assert context.index is None
+assert context.resolve('Cached.fib') == 0
+with llvmjit._lock:
+  llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib')], post=True)
+rt.icurry_apply_posted()
+assert rt.icurry_is_jit(M.fib.info)
+print(json.dumps(dict(ok=True)))
+""")
+
+  def test_ir_dump_identifies_qualified_functions(self):
+    dump = self.base / 'dump'
+    self.env['SPRITE_JIT_DUMP'] = str(dump)
+    self.child('eager')
+    text = '\n'.join(path.read_text() for path in dump.glob('*.ll'))
+    self.assertRegex(text, r'; Cached\.fib\ndefine [^\n]*@"?s[0-9a-f]+"?\(')
+
+  def test_resolver_skips_step_already_compiled_by_worker(self):
+    self.child('eager')
+    self.run_code("""
+M = curry.import_(source)
+llvmjit.compile(M.fib.info, 'Cached.fib')
+context = llvmjit._jit.modules[M.fib.info.address]
+with mock.patch.object(context, 'resolve', side_effect=AssertionError('resolved twice')):
+  assert llvmjit._resolve_cached(M.fib.info.address) == 0
+print(json.dumps(dict(ok=True)))
+""")
+
+  def test_index_closes_after_last_resolution_and_can_publish(self):
+    self.child('eager')
+    self.run_code("""
+M = curry.import_(source)
+context = llvmjit._jit.modules[M.fib.info.address]
+index = context.index
+assert not index.stream.closed
+for name in context.cached:
+  assert context.resolve(name)
+assert index.stream.closed
+assert all('_native' not in entry for entry in index.entries)
+context.store()
+objects = llvmjit._read_cache(context.local, context.key)
+assert len(objects) == len(context.cached)
+assert all(llvmjit._object_bytes(obj) for _, obj in objects)
+assert objects.stream.closed
+print(json.dumps(dict(ok=True)))
+""")
+
+  def test_detach_closes_unresolved_index(self):
+    self.child('eager')
+    self.run_code("""
+M = curry.import_(source)
+jit = llvmjit._jit
+context = jit.modules[M.fib.info.address]
+index = context.index
+view = context.object_for('Cached.bad')[1]
+assert view.index is index
+assert not view.index.stream.closed
+header = dict(context.header, body='changed')
+with mock.patch.object(llvmjit._CachedModule, 'load', return_value=False):
+  llvmjit.attach_cache(context.path, header,
+      [(info, name) for name, info in context.items.items()])
+assert index.stream.closed
+assert context.resolve('Cached.bad') == 0
+assert 'Cached.bad' in context.failed
+with llvmjit._lock:
+  jit.compile_batch([(M.bad.info, 'Cached.bad')], post=True)
+rt.icurry_apply_posted()
+assert rt.icurry_is_jit(M.bad.info)
+print(json.dumps(dict(ok=True)))
+""")
+
+  def test_failed_objects_release_descriptor(self):
+    self.child('eager')
+    self.run_code("""
+M = curry.import_(source)
+context = llvmjit._jit.modules[M.fib.info.address]
+index = context.index
+with mock.patch.object(llvmjit.os, 'pread', return_value=b'bad payload'):
+  for name in context.cached:
+    assert context.resolve(name) == 0
+assert index.stream.closed
+context.store()
+assert not context.objects
+print(json.dumps(dict(ok=True)))
+""")
+
+  def test_invalid_compressed_payload_releases_descriptor(self):
+    import hashlib
+    payload = b'not a zlib stream'
+    stream = tempfile.TemporaryFile()
+    self.addCleanup(stream.close)
+    stream.write(payload)
+    stream.flush()
+    entry = dict(functions=[['F.f', 's0', []]], _offset=0,
+        size=len(payload), digest=hashlib.sha256(payload).hexdigest())
+    index = llvmjit._IndexedObjects('unused', [entry], stream)
+    with self.assertRaisesRegex(ValueError, 'compressed'):
+      index.view(entry)[1].read()
+    self.assertTrue(stream.closed)
+
+  def test_short_symbols_are_unique(self):
+    self.child('eager')
+    with self.object().open('rb') as stream:
+      _, size = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
+      index = json.loads(stream.read(size))
+    symbols = [entry['functions'][0][1] for entry in index['objects']]
+    self.assertEqual(len(set(symbols)), len(symbols))
+    self.assertTrue(all(len(symbol) <= 4 for symbol in symbols))
+
+  def test_old_format_is_a_miss(self):
+    self.child('eager')
+    with self.object().open('r+b') as stream:
+      stream.write(b'SPRTJIT3')
+    self.assertFalse(self.child()['jitted'])
 
   def test_stage_switch_skips_fill(self):
     import importlib.util

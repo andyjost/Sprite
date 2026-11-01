@@ -77,3 +77,5 @@ Vim highlights ``.curry`` files as Haskell when
    ManualInstallation
    ConfiguringSprite
    WithoutCompiler
+
+See :ref:`curry-packages` to use packages from the Curry Package Manager.

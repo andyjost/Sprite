@@ -276,7 +276,7 @@ class TestReloadAfterCompiledObject(cytest.TestCase):
     proc = subprocess.run(cytest.tool_command(cmd), timeout=self.TIMEOUT, env=env, capture_output=True, text=True)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     sofile = os.path.join(
-        self.tmpdir, '.curry', config.intermediate_subdir(), 'ReloadBinding.so'
+        self.tmpdir, '.curry', config.intermediate_subdir(), 'ReloadBinding' + config.module_object_suffix()
       )
     self.assertTrue(os.path.isfile(sofile), sofile)
 

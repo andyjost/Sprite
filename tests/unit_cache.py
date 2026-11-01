@@ -50,7 +50,14 @@ def cache_file(enabled=True):
   empty string, and resets the cache module.  The test starts with an empty
   cache and leaves no state behind.
   '''
-  with tempfile.TemporaryDirectory() as tmpdir:
+  with tempfile.TemporaryDirectory() as tmpdir, contextlib.ExitStack() as stack:
+    # reset invalidates cache generations; it leaves connections alive for
+    # active slots. Close every fixture connection before removing its file.
+    connect = sqlite3.connect
+    def connection(*args, **kwds):
+      return stack.enter_context(contextlib.closing(connect(*args, **kwds)))
+    if cache.sqlite3 is not None:
+      stack.enter_context(mock.patch.object(cache.sqlite3, 'connect', connection))
     value = os.path.join(tmpdir, 'cache.db') if enabled else ''
     with binding(os.environ, 'SPRITE_CACHE_FILE', value):
       cache.reset()

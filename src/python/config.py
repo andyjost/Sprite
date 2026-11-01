@@ -399,11 +399,60 @@ def product_cache_dir():
 def system_curry_path():
   return os.path.join(prefix(), 'curry')
 
+def cpm_path(root):
+  """Return project and installed-package source paths from a CPM project.
+
+  This only reads the local layout; cypm resolves and installs dependencies.
+  Packages are visited in directory-name order, after the project itself.
+  """
+  import json
+  root = os.path.abspath(root)
+  packages = os.path.join(root, '.cpm', 'packages')
+  if not os.path.isfile(os.path.join(root, 'package.json')) or not os.path.isdir(packages):
+    return []
+
+  def sources(directory):
+    try:
+      with open(os.path.join(directory, 'package.json'), encoding='utf-8') as stream:
+        spec = json.load(stream)
+      dirs = spec.get('sourceDirs', ['src'])
+      if not isinstance(dirs, list) or not all(isinstance(d, str) for d in dirs):
+        raise ValueError('sourceDirs must be a list of strings')
+      paths = []
+      for source in dirs:
+        path = os.path.abspath(os.path.join(directory, source))
+        for module in syslibs():
+          if os.path.isfile(os.path.join(path, module.replace('.', os.sep) + '.curry')):
+            logger.warning('package %s provides %s, which the installation supplies',
+                           spec.get('name', os.path.basename(directory)), module)
+            break
+        else:
+          paths.append(path)
+      return paths
+    except (OSError, ValueError, AttributeError) as err:
+      logger.warning('Cannot read CPM package %s: %s', directory, err)
+      return []
+
+  try:
+    names = sorted(os.listdir(packages))
+  except OSError as err:
+    logger.debug('Cannot list CPM packages: %s', err)
+    return []
+  paths = sources(root)
+  found = []
+  for name in names:
+    directory = os.path.join(packages, name)
+    if os.path.isdir(directory) and os.path.isfile(os.path.join(directory, 'package.json')):
+      paths.extend(sources(directory))
+      found.append(name)
+  logger.info('CPM packages found: %s', ', '.join(found) or '(none)')
+  return list(dict.fromkeys(paths))
+
 @synchronized(_config_lock)
 def currypath(reset=False, cache=[]):
   '''
-  Gets the Curry path from the environment variable CURRYPATH and appends the
-  system path.
+  Gets CURRYPATH, then local CPM source directories, then the system path.
+  SPRITE_CPM_PATH=0 disables the local discovery.
 
   Args:
     reset:
@@ -418,8 +467,14 @@ def currypath(reset=False, cache=[]):
   if not cache:
     from .utility import curryname
     envpath = os.environ.get('CURRYPATH', '').split(os.pathsep)
+    cpmpath = []
+    if os.environ.get('SPRITE_CPM_PATH') != '0':
+      try:
+        cpmpath = cpm_path(os.getcwd())
+      except OSError as err:
+        logger.debug('Cannot discover CPM packages: %s', err)
     syspath = system_curry_path().split(os.pathsep)
-    currypath = curryname.makeCurryPath(envpath + syspath)
+    currypath = curryname.makeCurryPath(list(dict.fromkeys(envpath + cpmpath + syspath)))
     cache.append(currypath)
     verify_syslibs()
   return list(cache[0])
@@ -459,8 +514,8 @@ def cxx_tool(cached=[]):
   if not cached:
     cxx = installed_path('tools', 'cxx')
     if not os.path.exists(cxx):
-      # Traditional installs deliberately use tools/cxx to select or omit
-      # the compiler. Wheels carry no builder tool links and discover one
+      # Traditional installs use tools/cxx to select the compiler. Windows
+      # can also discover Visual Studio when no compiler was configured. Wheels carry no builder tool links and discover one
       # in the consumer's environment instead.
       candidates = [os.environ.get('CXX')] + (['clang-cl', 'cl'] if sys.platform == 'win32' else ['g++'])
       cxx = next((found for name in candidates if name
@@ -470,6 +525,9 @@ def cxx_tool(cached=[]):
       # executable whose adjacent toolchain DLLs would be lost.
       with open(cxx, encoding='utf-8') as stream:
         cxx = stream.read().strip()
+    if sys.platform == 'win32' and not cxx:
+      from .backends.cxx import msvc
+      cxx = msvc.compiler()
     cached.append(cxx)
   return cached[0]
 

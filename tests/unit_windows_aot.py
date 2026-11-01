@@ -2,7 +2,7 @@
 import cytest  # from ./lib; must be first
 import curry
 from curry import config
-from curry.backends.cxx import toolchain
+from curry.backends.cxx import msvc, toolchain
 from curry.objects.handle import getHandle
 from pathlib import Path
 import os
@@ -82,7 +82,8 @@ class TestWindowsCommand(cytest.TestCase):
     with tempfile.TemporaryDirectory() as work:
       output = os.path.join(work, 'saved.exe')
       captured = []
-      def compile(command):
+      def compile(command, env=None):
+        self.assertIsNotNone(env)
         captured.extend(command)
         text = Path(work, 'launcher.cpp').read_text()
         self.assertIn('int wmain(', text)
@@ -122,12 +123,19 @@ class TestWindowsCommand(cytest.TestCase):
         self.assertNotEqual(toolchain.object_digest(), before)
 
 
+def dumpbin_exports(path):
+  '''The export table of a DLL as dumpbin prints it.  dumpbin lives in the
+  compiler's directory, on PATH only in the developer environment, which
+  the discovery of Visual Studio captures; a plain shell finds it there.'''
+  env = msvc.environment()
+  tool = shutil.which('dumpbin', path=env.get('PATH')) or 'dumpbin'
+  return subprocess.check_output([tool, '/nologo', '/exports', str(path)], text=True, env=env)
+
+
 class TestTableExports(cytest.TestCase):
   @cytest.windows_only('Windows runtime exports')
   def test_runtime_exports_builtin_datatypes(self):
-    exports = subprocess.check_output([
-        'dumpbin', '/nologo', '/exports',
-        config.installed_path('lib', 'libcurryrt.dll')], text=True)
+    exports = dumpbin_exports(config.installed_path('lib', 'libcurryrt.dll'))
     print(exports)
     names = set(exports.split())
     for symbol in ['CyD7Prelude3Int', 'CyD7Prelude4Bool', 'CyD7Prelude4Char',
@@ -409,7 +417,7 @@ class TestWindowsDLL(cytest.TestCase):
     source = self.work / 'CxxBom.curry'
     shutil.copy(Path(__file__).parent / 'data/curry/CxxBom.curry', source)
     product = self.make(source)
-    exports = subprocess.check_output(['dumpbin', '/nologo', '/exports', str(product)], text=True)
+    exports = dumpbin_exports(product)
     print(exports)
     for symbol in ['_bom_', '_sprite_init_', 'CyI', 'CyD', 'CyF']:
       self.assertIn(symbol, exports)

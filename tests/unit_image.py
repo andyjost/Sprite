@@ -131,7 +131,7 @@ class TestImage(cytest.TestCase):
 
   def test_import_image_changes_before_compile(self):
     from curry.backends.cxx import toolchain as cxx_toolchain
-    with tempfile.TemporaryDirectory() as directory:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as directory:
       source = os.path.join(directory, 'ImageCompileRetry.curry')
       dependency = os.path.join(directory, 'ImageCompileDependency.curry')
       with open(dependency, 'w') as stream:

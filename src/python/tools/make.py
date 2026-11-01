@@ -553,7 +553,8 @@ def child_command(args, job):
 
 def child_environment():
   '''The environment of a child: this package in front of PYTHONPATH.'''
-  env = dict(os.environ)
+  from ..backends.cxx import msvc
+  env = msvc.environment()
   root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
   path = env.get('PYTHONPATH', '')
   env['PYTHONPATH'] = root + (os.pathsep + path if path else '')
