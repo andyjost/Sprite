@@ -1217,7 +1217,7 @@ other = 2
   @cytest.hardreset
   def test_trapped_table_takes_the_image(self):
     '''
-    The plan's import of an ICurry object under 'off' (Json2TargetSource,
+    The plan's import of an ICurry object under 'off' (the emitter's import,
     which generates the C++) leaves the interpreter without the unlink of a
     reset: a deletion from interp.modules, no Module::retire.  While an
     object of that module is alive (it lives in a cycle with its
@@ -1235,8 +1235,7 @@ other = 2
     name = self.write()
     plan = plans.makeplan(
         cytest.raw.interp()
-      , plans.MAKE_ICURRY | plans.MAKE_JSON | plans.ZIP_JSON
-          | plans.MAKE_TARGET_SOURCE
+      , plans.MAKE_ICURRY | plans.MAKE_IMAGE | plans.MAKE_TARGET_SOURCE
       )
     gc.disable()  # the module of the plan's import stays alive, as in a run without a collection
     try:
