@@ -59,14 +59,35 @@ class TestWindowsRunner(unittest.TestCase):
   def test_windows_traceback_deadline(self):
     with mock.patch.object(sys, 'platform', 'win32'):
       job = cli.test_job('unit_x.py', 'cxx', 'stage', Manifest({}), 600, 'logs', {})
-      self.assertIn('dump_traceback_later(570)', job.argv[3])
-      self.assertEqual(job.argv[-5:],
-          ['unittest', 'discover', '-v', cli.TESTDIR, 'unit_x.py'])
+      self.assertIn('windows_unittest(600)', job.argv[3])
+      self.assertEqual(job.argv[-4:],
+          ['discover', '-v', cli.TESTDIR, 'unit_x.py'])
       job = cli.test_job('unit_primitives_io.py', 'cxx', 'stage', Manifest({}),
                          600, 'logs', {})
-      self.assertIn('-f', job.argv)
+      self.assertNotIn('-f', job.argv)
       job = cli.test_job('unit_x.py', 'cxx', 'stage', Manifest({}), None, 'logs', {})
-      self.assertNotIn('-c', job.argv)
+      self.assertIn('windows_unittest(None)', job.argv[3])
+
+  def test_windows_reports_both_tracebacks_before_summary(self):
+    with tempfile.TemporaryDirectory() as directory:
+      Path(directory, 'unit_probe.py').write_text(
+          'import unittest\n'
+          'class TestProbe(unittest.TestCase):\n'
+          '  def test_a(self): self.fail("first failure")\n'
+          '  def test_b(self): raise ValueError("second error")\n')
+      with mock.patch.object(sys, 'platform', 'win32'), \
+           mock.patch.object(cli, 'TESTDIR', directory):
+        job = cli.test_job('unit_probe.py', 'cxx', 'stage', Manifest({}),
+                           None, 'logs', {})
+      child = subprocess.run(job.argv, capture_output=True, text=True, timeout=10)
+      self.assertEqual(child.returncode, 1, child.stderr)
+      before_summary = child.stderr.split('Ran 2 tests')[0]
+      self.assertIn('AssertionError: first failure', before_summary)
+      self.assertIn('ValueError: second error', before_summary)
+      self.assertLess(before_summary.index('AssertionError: first failure'),
+                      before_summary.index('test_b ('))
+      self.assertEqual(before_summary.count('Traceback (most recent call last):'), 4)
+      self.assertIn('FAILED (failures=1, errors=1)', child.stderr)
 
   def test_traceback_launcher_runs_discovery(self):
     with tempfile.TemporaryDirectory() as directory:
@@ -358,10 +379,45 @@ class TestWindowsRunner(unittest.TestCase):
             procs.start_windows(child)
           self.assertIs(raised.exception.__cause__, error)
           child.kill.assert_called_once_with()
-          child.wait.assert_called_once_with()
+          child.wait.assert_called_once_with(timeout=10)
           fake.Process.return_value.kill.assert_not_called()
           if not refused:
             job.close.assert_called_once_with()
+          self.assertNotIn(1, procs._WINDOWS)
+
+  def test_failed_resume_and_cleanup_errors_are_bounded_and_reported(self):
+    for has_job, job_errors in ((False, False), (True, False), (True, True)):
+      with self.subTest(has_job=has_job, job_errors=job_errors):
+        child = mock.Mock(pid=1)
+        job = mock.Mock()
+        calls = mock.Mock()
+        calls.attach_mock(job, 'job')
+        calls.attach_mock(child, 'child')
+        child.kill.side_effect = OSError('kill refused')
+        child.wait.side_effect = subprocess.TimeoutExpired('leader', 10)
+        if job_errors:
+          job.terminate.side_effect = OSError('terminate refused')
+          job.close.side_effect = OSError('close refused')
+        fake = mock.Mock()
+        resume_error = RuntimeError('resume refused')
+        fake.Process.return_value.resume.side_effect = resume_error
+        with mock.patch.object(procs, 'WindowsJob', return_value=job,
+                               side_effect=None if has_job else OSError('no job')), \
+             mock.patch.object(procs, 'psutil', fake), \
+             mock.patch.object(sys, 'stdout', io.StringIO()), \
+             mock.patch.dict(procs._WINDOWS, {}, clear=True):
+          with self.assertRaises(OSError) as raised:
+            procs.start_windows(child)
+          self.assertIs(raised.exception.__cause__, resume_error)
+          expected = [mock.call.child.kill(), mock.call.child.wait(timeout=10)]
+          if has_job:
+            expected = [mock.call.job.terminate(), mock.call.job.close()] + expected
+          if job_errors:
+            self.assertIn('terminate refused', str(raised.exception))
+            self.assertIn('close refused', str(raised.exception))
+          self.assertEqual(calls.mock_calls, expected)
+          self.assertIn('kill refused', str(raised.exception))
+          self.assertIn('TimeoutExpired', str(raised.exception))
           self.assertNotIn(1, procs._WINDOWS)
 
   def test_failed_warning_write_still_resumes_leader(self):

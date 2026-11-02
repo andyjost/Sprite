@@ -20,19 +20,75 @@ class TestPrimitivesIO(cytest.TestCase):
   def run_child(self, command, timeout=120, **kwargs):
     # Unused stdin must be closed: a compiler or child must not wait on the
     # test runner's inherited pipe. communicate drains both output pipes.
-    if 'input' not in kwargs:
+    data = kwargs.pop('input', None)
+    check = kwargs.pop('check', False)
+    if data is None:
       kwargs.setdefault('stdin', subprocess.DEVNULL)
+    else:
+      kwargs['stdin'] = subprocess.PIPE
+    if kwargs.pop('capture_output', False):
+      kwargs['stdout'] = kwargs['stderr'] = subprocess.PIPE
+    child = subprocess.Popen(command, close_fds=True, **kwargs)
     try:
-      return subprocess.run(command, timeout=timeout, close_fds=True, **kwargs)
+      stdout, stderr = child.communicate(input=data, timeout=timeout)
     except subprocess.TimeoutExpired as error:
+      child.kill()
+      try:
+        stdout, stderr = child.communicate(timeout=10)
+      except subprocess.TimeoutExpired as drain_error:
+        stdout = drain_error.stdout or error.stdout
+        stderr = drain_error.stderr or error.stderr
+        # A descendant can retain the pipes. Do not close a Windows pipe
+        # while communicate's reader thread is blocked on it.
+        child.wait(timeout=10)
       self.fail('child timed out: %r\nstdout: %r\nstderr: %r' %
-                (command, error.stdout, error.stderr))
+                (command, stdout, stderr))
+    result = subprocess.CompletedProcess(command, child.returncode, stdout, stderr)
+    if check:
+      result.check_returncode()
+    return result
 
   def test_child_timeout_reports_output(self):
     script = "import time; print('child started', flush=True); time.sleep(60)"
     with self.assertRaisesRegex(AssertionError, 'child started'):
       self.run_child([sys.executable, '-c', script], timeout=1,
                      capture_output=True, text=True)
+
+  def test_child_timeout_with_descendant_holding_output(self):
+    with tempfile.TemporaryDirectory() as directory:
+      stop = Path(directory) / 'stop'
+      descendant = (
+          'import pathlib, sys, time\n'
+          'print("descendant started", flush=True)\n'
+          'while not pathlib.Path(sys.argv[1]).exists(): time.sleep(.05)\n')
+      script = (
+          'import subprocess, sys, time\n'
+          'subprocess.Popen([sys.executable, "-c", sys.argv[1], sys.argv[2]])\n'
+          'time.sleep(60)\n')
+      popen = subprocess.Popen
+      children = []
+      def launch(*args, **kwargs):
+        child = popen(*args, **kwargs)
+        children.append(child)
+        return child
+      try:
+        start = time.monotonic()
+        with unittest.mock.patch.object(subprocess, 'Popen', side_effect=launch):
+          with self.assertRaisesRegex(AssertionError, 'child timed out') as raised:
+            self.run_child([sys.executable, '-c', script, descendant, str(stop)],
+                           timeout=1, capture_output=True, text=True)
+        if sys.platform != 'win32':
+          self.assertIn('descendant started', str(raised.exception))
+        self.assertLess(time.monotonic() - start, 15)
+        self.assertIsNotNone(children[0].returncode)
+      finally:
+        stop.touch()
+        # EOF confirms that the descendant released its inherited output.
+        for child in children:
+          if child.poll() is None:
+            child.kill()
+          stdout, _ = child.communicate(timeout=10)
+          self.assertIn('descendant started', stdout)
 
   def module(self):
     curry.path.insert(0, str(SOURCE))

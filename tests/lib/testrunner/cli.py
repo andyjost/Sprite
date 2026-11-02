@@ -10,6 +10,7 @@ except ImportError:
   resource = None
 
 import argparse, itertools, os, shutil, sys
+import unittest
 from . import (
     BACKENDS, BACKSTOP, BACKSTOP_FACTOR, DEFAULT_CAP
   , DEFAULT_FAST_SECONDS, DEFAULT_JOBS, DEFAULT_MEM_FRACTION
@@ -284,21 +285,38 @@ def backstop_prefix(cap, setting=None):
     return []
   return ['prlimit', '--as=%d' % limit]
 
+class ImmediateResult(unittest.TextTestResult):
+  '''Expose tracebacks before the next test while retaining unittest totals.'''
+  def startTest(self, test):
+    self._error_start = len(self.errors)
+    self._failure_start = len(self.failures)
+    super().startTest(test)
+
+  def stopTest(self, test):
+    super().stopTest(test)
+    self.printErrorList('ERROR', self.errors[self._error_start:])
+    self.printErrorList('FAIL', self.failures[self._failure_start:])
+    self.stream.flush()
+
+
+def windows_unittest(timeout):
+  if timeout is not None:
+    import faulthandler
+    faulthandler.dump_traceback_later(max(1, timeout - 30))
+  unittest.main(module=None, testRunner=unittest.TextTestRunner(
+      resultclass=ImmediateResult))
+
+
 def test_job(filename, backend, sprite_home, manifest, timeout, logdir, env):
   '''The job of one test file on one backend.'''
   python = sys.executable if sys.platform == 'win32' else os.path.join(sprite_home, 'bin', 'python')
   cap = manifest.cap(filename, backend)
   launch = [python, '-B', '-m', 'unittest']
-  if sys.platform == 'win32' and timeout is not None:
+  if sys.platform == 'win32':
     launch = [python, '-B', '-c',
-        'import faulthandler, runpy, sys; sys.argv.pop(0); '
-        'faulthandler.dump_traceback_later(%r); '
-        'runpy.run_module("unittest", run_name="__main__")' % max(1, timeout - 30),
-        'unittest']
+        'from testrunner.cli import windows_unittest; windows_unittest(%r)'
+        % timeout]
   options = ['discover', '-v', TESTDIR, filename]
-  if filename == 'unit_primitives_io.py':
-    # Print the first error's traceback before a later test can hang.
-    options.insert(1, '-f')
   argv = backstop_prefix(cap) + launch + options
   return Job(
       filename, backend, argv, cap=cap, timeout=timeout

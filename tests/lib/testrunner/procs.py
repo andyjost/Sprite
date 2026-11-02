@@ -427,15 +427,20 @@ def start_windows(process):
       if status < 0:
         raise OSError('NtResumeProcess failed: %d' % status)
   except BaseException as error:
-    # Every unsuccessful start releases the leader and its job.
-    try:
+    # Close containment before waiting, even if another cleanup step fails.
+    failures = []
+    def cleanup(action, operation):
       try:
-        process.kill()
-      finally:
-        process.wait()
-    finally:
-      close_windows(process.pid)
-    raise OSError('Windows process start failed') from error
+        operation()
+      except BaseException as cleanup_error:
+        failures.append('%s: %r' % (action, cleanup_error))
+    if state['job'] is not None:
+      cleanup('terminate job', state['job'].terminate)
+    cleanup('close job', lambda: close_windows(process.pid))
+    cleanup('kill leader', process.kill)
+    cleanup('wait for leader', lambda: process.wait(timeout=10))
+    detail = '; cleanup errors: ' + '; '.join(failures) if failures else ''
+    raise OSError('Windows process start failed' + detail) from error
 
 
 def close_windows(sid):
