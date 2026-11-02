@@ -304,7 +304,7 @@ print(json.dumps([curry.eval(E.getProgName).one(), curry.eval(E.getArgs).one()])
       source.write_text(REF_PROGRAM)
       for mode in ('off', 'new', 'all'):
         env = dict(os.environ, SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:' + mode)
-        result = subprocess.run([config.sprite_exec(), str(source)],
+        result = subprocess.run(cytest.tool_command([config.sprite_exec(), str(source)]),
             env=env, text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(sorted(map(int, result.stdout.split())), [40, 42])
@@ -348,13 +348,13 @@ print(json.dumps([curry.eval(E.getProgName).one(), curry.eval(E.getArgs).one()])
       source.write_text('module PrimitiveArguments where\nimport System.Environment\n'
           'main :: IO (String, [String])\n'
           'main = do n <- getProgName; a <- getArgs; return (n,a)\n')
-      result = subprocess.run([config.sprite_exec(), str(source), 'first', 'two words'],
+      result = subprocess.run(cytest.tool_command([config.sprite_exec(), str(source), 'first', 'two words']),
           text=True, capture_output=True)
       self.assertEqual(result.returncode, 0, result.stderr)
       self.assertEqual(result.stdout.strip(), '("PrimitiveArguments",["first","two words"])')
       for arguments in (['--', '-g'], ['-gfoo'], ['--go=main'], ['-ip'],
                         ['first', '--', '-g']):
-        result = subprocess.run([config.sprite_exec(), str(source)] + arguments,
+        result = subprocess.run(cytest.tool_command([config.sprite_exec(), str(source)] + arguments),
             text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         expected = arguments[1:] if arguments[0] == '--' else arguments
