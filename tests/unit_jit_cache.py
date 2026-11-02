@@ -417,9 +417,13 @@ assert 'Cached.fib' not in context.failed
 llvmjit.compile(M.main.info, 'Cached.main')
 objects = llvmjit._read_cache(context.local, context.key)
 names = {records[0][0] for records, obj in objects}
-assert names == expected, (names, expected)
 objects.close()
-assert not os.path.exists(context.private)
+if os.path.exists(context.private):
+  # A refused replacement leaves the complete publication in the union.
+  objects = llvmjit._read_cache(context.private, context.key)
+  names.update(records[0][0] for records, obj in objects)
+  objects.close()
+assert names == expected, (names, expected)
 print(json.dumps(dict(names=sorted(names))))
 """.replace('PUBLISHER', repr(traced_code(publisher, 50))).replace('PROBE', repr(traced_code(
         CHILD[:CHILD.index('M = curry.import_(source)')] + """
@@ -440,8 +444,10 @@ M = curry.import_(source)
 context = llvmjit._jit.modules[M.fib.info.address]
 names = set(context.cached)
 assert names == set(EXPECTED), names
-assert '144' in str(list(curry.eval(M.main))[0])
+with mock.patch.object(llvmjit._Batch, 'emit', side_effect=AssertionError('cache hit compiled')):
+  assert '144' in str(list(curry.eval(M.main))[0])
 assert rt.icurry_is_jit(M.main.info)
+assert llvmjit.statistics()['functions'] == 0
 print(json.dumps(dict(ok=True)))
 """.replace('EXPECTED', repr(published['names'])))
 
@@ -463,6 +469,12 @@ print(json.dumps(dict(ok=True)))
 """)
 
   def test_load_retries_local_when_merge_removes_private_between_reads(self):
+    self.check_load_during_merge()
+
+  def test_load_unions_private_when_merge_is_refused_between_reads(self):
+    self.check_load_during_merge(blocked=True)
+
+  def check_load_during_merge(self, blocked=False):
     self.seed_private_duplicate()
     self.run_code("""
 M = curry.import_(source)
@@ -472,28 +484,57 @@ jit.object_generations.pop(writer.key)
 reader = llvmjit._CachedModule(jit, writer.path, writer.header,
     [(info, name) for name, info in writer.items.items()])
 read = llvmjit._read_cache
+replace = llvmjit.os.replace
+def publish(src, dst):
+  if BLOCKED and dst == reader.local:
+    raise PermissionError('open destination')
+  return replace(src, dst)
 reads = []
 def interleaved(path, *args, **kwargs):
   reads.append(path)
   if path == reader.private:
     assert reads == [reader.local, reader.private]
     # Publish after the reader pins old local, before it opens private.
-    with mock.patch.object(llvmjit, '_read_cache', read):
+    with mock.patch.object(llvmjit, '_read_cache', read), \
+        mock.patch.object(llvmjit.os, 'replace', side_effect=publish):
       writer.store()
-    assert not os.path.exists(reader.private)
+    # Linux replaces the pinned local file and removes private, forcing the
+    # local re-read. Windows normally refuses replacement and keeps private;
+    # the forced-refusal variant exercises that union branch on Linux too.
+    if BLOCKED:
+      assert os.path.exists(reader.private)
+    elif os.name != 'nt':
+      assert not os.path.exists(reader.private)
   found = read(path, *args, **kwargs)
   if reads == [reader.local]:
     assert {records[0][0] for records, _ in found} == {'Cached.fib'}
   return found
 with mock.patch.object(llvmjit, '_read_cache', side_effect=interleaved):
   assert reader.load(jit)
-assert reads == [reader.local, reader.private, reader.local], reads
+if os.path.exists(reader.private):
+  assert reads == [reader.local, reader.private], reads
+  local = read(reader.local, reader.key)
+  private = read(reader.private, reader.key)
+  try:
+    assert {records[0][0] for records, _ in local} == {'Cached.fib'}
+    assert {records[0][0] for records, _ in private} == {'Cached.fib', 'Cached.message'}
+  finally:
+    local.close()
+    private.close()
+else:
+  assert reads == [reader.local, reader.private, reader.local], reads
+  local = read(reader.local, reader.key)
+  try:
+    assert {records[0][0] for records, _ in local} == {'Cached.fib', 'Cached.message'}
+  finally:
+    local.close()
 assert set(reader.cached) == {'Cached.fib', 'Cached.message'}
 with mock.patch.object(llvmjit._Batch, 'emit', side_effect=AssertionError('cache hit compiled')):
-  assert reader.resolve('Cached.message')
+  for name in reader.cached:
+    assert reader.resolve(name)
 assert llvmjit.statistics()['functions'] == 0
 print(json.dumps(dict(ok=True)))
-""")
+""".replace('BLOCKED', repr(blocked)))
 
   def test_corrupt_local_duplicate_resolves_from_private_without_compiling(self):
     self.seed_private_duplicate()
