@@ -4,7 +4,7 @@
 Never install this script or use its output as a user's package index.
 """
 import argparse
-from contextlib import nullcontext
+from contextlib import closing, nullcontext
 import json
 import os
 import re
@@ -18,9 +18,12 @@ def overlay(source, destination):
   if source == destination or source in destination.parents:
     raise ValueError('the overlay must be separate from the original index')
   shutil.copytree(source, destination, dirs_exist_ok=True)
+  if not (source / 'REPOSITORY_CACHE.db').exists():
+    (destination / 'REPOSITORY_CACHE.db').unlink(missing_ok=True)
   validate_cache(destination)
   count = patch(destination)
   patch_cache(destination)
+  create_cache(destination)
   return count
 
 
@@ -123,6 +126,65 @@ def patch_cache(root):
   for path in root.glob('REPOSITORY_CACHE*'):
     if path != database:
       path.unlink()
+
+
+def sql_string(value):
+  if not isinstance(value, str) or not value.isascii():
+    raise ValueError('unsupported repository string')
+  return json.dumps(value, ensure_ascii=True)[1:-1]
+
+
+def string_term(value):
+  return sql_string('"' + sql_string(value) + '"')
+
+
+def list_term(values):
+  return '[' + ','.join(values) + ']'
+
+
+def package_row(data):
+  """Encode the fields used by CPM.Repository.CacheDB.newEntry."""
+  def constraints(field, constructor):
+    return list_term('(' + constructor + ' ' + string_term(name) + ' ' +
+                     constraint_term(value) + ')'
+                     for name, value in data.get(field, {}).items())
+
+  executables = ([data['executable']] if 'executable' in data else []) + data.get('executables', [])
+  executable = 'Nothing'
+  if executables:
+    first = executables[0]
+    options = list_term('(' + string_term(name) + ',' + string_term(value) + ')'
+                        for name, value in first.get('options', {}).items())
+    executable = ('(Just (PackageExecutable ' + string_term(first['name']) + ' ' +
+                  string_term(first.get('main', 'Main')) + ' ' + options + '))')
+  return (data['name'], version_term(data['version']),
+          constraints('dependencies', 'Dependency'),
+          constraints('compilerCompatibility', 'CompilerCompatibility'),
+          sql_string(data.get('synopsis', '')),
+          *(list_term(map(string_term, data.get(field, [])))
+            for field in ('category', 'sourceDirs', 'exportedModules')),
+          executable)
+
+
+def create_cache(root):
+  """Avoid CPM 3.3's recursive JSON reader for indexes without a database."""
+  database = root / 'REPOSITORY_CACHE.db'
+  if database.exists():
+    return
+  rows = [package_row(json.loads(path.read_text(), strict=False))
+          for path in sorted(root.rglob('package.json'))]
+  try:
+    with closing(sqlite3.connect(database)) as connection, connection:
+      columns = ', '.join(name + ' ' + kind +
+          (' PRIMARY KEY' if primary else '') + (' NOT NULL' if required else '')
+          for name, kind, required, primary in SCHEMA)
+      connection.execute('CREATE TABLE IndexEntry (' + columns + ')')
+      connection.executemany('INSERT INTO IndexEntry VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                             ((key, *row) for key, row in enumerate(rows, 1)))
+      validate_cache(root, connection)
+  except Exception:
+    database.unlink(missing_ok=True)
+    raise
 
 
 def patch(root):

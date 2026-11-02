@@ -30,7 +30,8 @@ class TestPrivateLaunchers(cytest.TestCase):
                               ('other', {'kics2': '>= 3.0.0'}), ('empty', {})]:
         directory = source / name
         directory.mkdir()
-        (directory / 'package.json').write_text(json.dumps({'compilerCompatibility': compilers}))
+        (directory / 'package.json').write_text(json.dumps({
+            'name': name, 'version': '1.0.0', 'compilerCompatibility': compilers}))
       (source / 'REPOSITORY_CACHE_SMALL').write_text('stale')
       self.assertEqual(module.overlay(source, target), 1)
       self.assertEqual(json.loads((target / 'pakcs/package.json').read_text())[
@@ -39,6 +40,15 @@ class TestPrivateLaunchers(cytest.TestCase):
       self.assertEqual((target / 'other/package.json').read_bytes(),
                        (source / 'other/package.json').read_bytes())
       self.assertFalse((target / 'REPOSITORY_CACHE_SMALL').exists())
+      self.assertFalse((source / 'REPOSITORY_CACHE.db').exists())
+      module.validate_cache(target)
+      with sqlite3.connect(target / 'REPOSITORY_CACHE.db') as database:
+        self.assertEqual(database.execute('SELECT COUNT(*) FROM IndexEntry').fetchone(), (3,))
+        self.assertEqual(database.execute('SELECT Dependencies, Category, SourceDirs, '
+            'ExportedModules, ExecutableSpec FROM IndexEntry WHERE Name = ?',
+            ('pakcs',)).fetchone(), ('[]', '[]', '[]', '[]', 'Nothing'))
+      self.assertEqual(module.overlay(source, target), 1)
+      module.validate_cache(target)
       with mock.patch.dict(os.environ, HOME=work):
         self.assertEqual(module.patch_downloads([source]), 1)
       self.assertIn('sprite', (source / 'pakcs/package.json').read_text())
@@ -111,6 +121,38 @@ class TestPrivateLaunchers(cytest.TestCase):
             (original[:-1] + ',' + r'(CompilerCompatibility \"sprite\" [])]',))
       with self.assertRaisesRegex(ValueError, 'unexpected Sprite compatibility'):
         module.patch_cache(target)
+
+  def test_overlay_builds_database(self):
+    spec = importlib.util.spec_from_file_location('overlay', ROOT / 'scripts/cpm-test-overlay.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with tempfile.TemporaryDirectory() as work:
+      source, target = Path(work) / 'index', Path(work) / 'overlay'
+      package = source / 'example/1.2.3'
+      package.mkdir(parents=True)
+      (package / 'package.json').write_text(json.dumps({
+          'name': 'example', 'version': '1.2.3', 'synopsis': 'Example package',
+          'dependencies': {'base': '>= 3.0.0, < 4.0.0'},
+          'compilerCompatibility': {'pakcs': '>= 3.0.0'},
+          'category': ['Test'], 'sourceDirs': ['src'], 'exportedModules': ['Example'],
+          'executable': {'name': 'example', 'options': {'pakcs': ':set v0'}}}))
+      module.overlay(source, target)
+      module.validate_cache(target)
+      with sqlite3.connect(target / 'REPOSITORY_CACHE.db') as database:
+        row = database.execute('SELECT Name, Version, Dependencies, Synopsis, Category, '
+            'SourceDirs, ExportedModules, ExecutableSpec FROM IndexEntry').fetchone()
+      self.assertEqual(row, ('example', '(1,2,3,Nothing)',
+          r'[(Dependency \"base\" [[(VGte (3,0,0,Nothing)),(VLt (4,0,0,Nothing))]])]',
+          'Example package', r'[\"Test\"]', r'[\"src\"]', r'[\"Example\"]',
+          r'(Just (PackageExecutable \"example\" \"Main\" [(\"pakcs\",\":set v0\")]))'))
+      # SQL values encode a Curry string; term strings add another layer.
+      special = 'a "quoted" value\\with\na newline'
+      self.assertEqual(json.loads('"' + module.sql_string(special) + '"'), special)
+      self.assertEqual(json.loads(json.loads('"' + module.string_term(special) + '"')), special)
+      shutil.copytree(package, source / 'duplicate/1.2.3')
+      with self.assertRaisesRegex(ValueError, 'duplicate repository package/version'):
+        module.overlay(source, target)
+      self.assertFalse((target / 'REPOSITORY_CACHE.db').exists())
 
   def test_ci_guard_only_error(self):
     workflow = (ROOT / '.github/workflows/ci.yml').read_text()
