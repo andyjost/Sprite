@@ -473,7 +473,9 @@ assert getattr(curry._interpreter_.modules[parent], local) is module
             self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
             run = subprocess.run([str(program)], capture_output=True,
                                  text=True, timeout=TIMEOUT,
-                                 env=dict(os.environ, CURRYPATH=work))
+                                 env=dict(os.environ, CURRYPATH=work,
+                                     SPRITE_INTERPRETER_FLAGS=
+                                         'backend:cxx,interpret:new,jit:off'))
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
             self.assertEqual(run.stdout, 'True\n', run.stderr)
 

@@ -900,9 +900,9 @@ class TestFiles(cytest.TestCase):
   def test_route_version(self):
     '''The lift joined the step with version 2 of the route, in the key of
     the ICurry cache.'''
-    # 8: hierarchical modules resolve imports from the hierarchy root.
-    self.assertEqual(_frontend.ROUTE_VERSION, 8)
-    self.assertEqual(cache.route_version(), 8)
+    # 9: primitive implementations remain opaque to optimization.
+    self.assertEqual(_frontend.ROUTE_VERSION, 9)
+    self.assertEqual(cache.route_version(), 9)
     self.assertIn('setlift.py', cache.REWRITE_SOURCES)
     key = lambda: cache.icurry_cache_key(self.curryfile, [self.tmpdir], (), 'frontend')
     now = key()

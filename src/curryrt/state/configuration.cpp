@@ -89,6 +89,11 @@ namespace curryrt
     return error;
   }
 
+  void Configuration::set_error(char const * msg, ErrorKind kind)
+  {
+    this->set_error(std::string(msg), kind);
+  }
+
   void Configuration::set_error(std::string const & msg, ErrorKind kind)
   {
     assert(!this->error.first && this->error.second.empty());

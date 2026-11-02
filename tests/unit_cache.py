@@ -827,13 +827,20 @@ class TestCompile(cytest.TestCase):
       def evaluate():
         interp = Interpreter(flags={'interpret': 'all', 'jit': 'off'})
         interp.path[:0] = path
-        module = interp.import_('Parent.Leaf')
-        return list(interp.eval(module.value))
+        try:
+          module = interp.import_('Parent.Leaf')
+          return list(interp.eval(module.value))
+        finally:
+          # Retire live steps before another interpreter imports these names.
+          # Collection of the interpreter's cycles need not happen at return.
+          interp.reset()
       self.assertEqual(evaluate(), [True])
       key = cache.icurry_cache_key(source, path)
       # Keep the old interfaces in place when computing the next key. The
       # dependency's new source must suffice to invalidate the cached entry.
+      stamp = os.stat(dependency)
       write(dependency, 'module Leaf where\nvalue :: Int\nvalue = 42\n')
+      os.utime(dependency, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
       self.assertNotEqual(cache.icurry_cache_key(source, path), key)
       self.assertEqual(evaluate(), [42])
 
