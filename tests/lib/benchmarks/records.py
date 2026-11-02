@@ -80,7 +80,12 @@ variant such as the state of a cache.  The fields, in order:
                  (null for an unknown budget). Samples also retain the probe's
                  object and stamp identities, without paths. All repetitions
                  share one untimed probe, checked after the final repetition.
-                 meta.aot_provenance identifies this protocol;
+                 With no warm-up the probe follows measurement, and products
+                 changed since measurement began have unknown budgets.
+                 meta.aot_provenance is untimed-probe, or fresh-products for
+                 compile items: their temporary products use the requested
+                 budget and have no persistent identity to check; shared
+                 dependencies still use checked receipts.
                  meta.aot_adoption_possible marks routes that can adopt other
                  objects during measurement. meta.aot_probe_warnings records
                  object replacements detected by the final identity check.

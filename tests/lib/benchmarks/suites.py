@@ -751,7 +751,7 @@ class ModuleCompileItem(CacheVariant, Item):
     shutil.copy(os.path.join(CURRYDIR, source), tmpdir)
     cmd = [self.settings.sprite_exec, '--stats', '-g', '', source]
     env = self.settings.environment(
-        self.backend, SPRITE_CACHE_FILE=self.cache_file()
+        self.backend, SPRITE_CACHE_FILE=self.cache_file(), TMPDIR=tmpdir
       )
     return cmd, env, tmpdir
 
@@ -767,7 +767,7 @@ class ExpressionItem(CacheVariant, Item):
     tmpdir = self.make_tmpdir()
     cmd = [self.settings.python, PROBE] + list(EXPRESSION)
     env = self.settings.environment(
-        self.backend, SPRITE_CACHE_FILE=self.cache_file()
+        self.backend, SPRITE_CACHE_FILE=self.cache_file(), TMPDIR=tmpdir
       )
     return cmd, env, tmpdir
 

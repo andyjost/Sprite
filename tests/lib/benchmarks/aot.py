@@ -4,7 +4,7 @@ Images can be regenerated without replacing an AOT object. Its ABI stamp's
 input receipt, copied from the generated C++, records the object's budget.
 Never substitute the current image or interpreter budget for that receipt.
 '''
-import atexit, json, os, runpy, sys
+import json, os, runpy, sys
 
 
 def object_budget(path):
@@ -63,8 +63,11 @@ def mapped_identity(path, generation):
   loader = sys.modules.get('curry.backends.cxx.loader')
   for loaded, digest in (loader._objects.values() if loader else []):
     if loaded == path:
-      with open(path, 'rb') as stream:
-        return hashlib.sha256(stream.read()).hexdigest() == digest
+      try:
+        with open(path, 'rb') as stream:
+          return hashlib.sha256(stream.read()).hexdigest() == digest
+      except OSError:
+        return False
   return False
 
 
@@ -88,7 +91,7 @@ def write_report(filename):
     json.dump(objects, stream, sort_keys=True)
 
 
-def checked_budgets(probe):
+def checked_budgets(probe, since=None):
   if probe is None:
     return None, []
   budgets, warnings = {}, []
@@ -96,9 +99,18 @@ def checked_budgets(probe):
     changed = (obj['identity'] is None or
         identity(obj['path']) != obj['identity'] or
         identity(obj['path'] + '.abi') != obj['stamp_identity'])
+    if since is not None:
+      # A postmeasurement probe cannot certify a generation made during
+      # measurement (or by the probe itself). Check stamps as well as objects.
+      for path in (obj['path'], obj['path'] + '.abi'):
+        try:
+          changed |= os.stat(path).st_ctime_ns >= since
+        except OSError:
+          pass
     budgets[name] = None if changed else obj['budget']
     if changed:
-      warnings.append('%s: AOT object generation changed after probe; budget unknown' % name)
+      warnings.append('%s: AOT object generation changed %s; budget unknown' %
+          (name, 'during measurement or probe' if since is not None else 'after probe'))
   return budgets, warnings
 
 
@@ -110,7 +122,14 @@ def adoption_possible(mode):
 
 def main():
   filename, kind, *args = sys.argv[1:]
-  atexit.register(write_report, filename)
+  try:
+    execute(kind, args)
+  finally:
+    # Report before temporary-module atexit cleanup removes fresh objects.
+    write_report(filename)
+
+
+def execute(kind, args):
   sys.argv = args
   if kind == 'module':
     sys.argv = ['sprite-exec'] + args

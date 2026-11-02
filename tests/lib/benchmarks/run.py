@@ -14,7 +14,7 @@ program past the limit costs one timeout, not one per repetition; the
 record holds that sample.
 '''
 
-import argparse, os, shutil, sys, tempfile
+import argparse, os, shutil, sys, tempfile, time
 from . import BACKENDS, CURRYDIR, DEFAULT_SPRITE_HOME, OPPONENTS, ROOTDIR
 from . import SUITES
 from . import aot, measure, records, suites
@@ -225,12 +225,24 @@ def measure_item(item, repeat, perf):
     if sample['status'] == 'timeout':
       return [sample]
   probe = None
-  if getattr(item, 'backend', None) == 'cxx':
+  fresh = {}
+  def probe_item():
+    nonlocal probe
     cmd, env, cwd = item.command()
     try:
       probe = item.settings.probe(cmd, env, cwd)
+      if isinstance(item, suites.CacheVariant) and probe is not None:
+        # These objects are rebuilt in a different empty directory per run.
+        for name, obj in list(probe.items()):
+          if os.path.commonpath([os.path.abspath(obj['path']), cwd]) == cwd:
+            fresh[name] = item.requested_inline_budget
+            del probe[name]
     finally:
       item.cleanup()
+  cxx = getattr(item, 'backend', None) == 'cxx'
+  if cxx and item.warmup():
+    probe_item()
+  started = time.time_ns()
   samples = []
   for _ in range(repeat):
     samples.append(item.measure())
@@ -238,8 +250,13 @@ def measure_item(item, repeat, perf):
       break
   if perf and all(s['status'] == 'ok' for s in samples):
     samples.append(item.measure(perf=True))
-  if getattr(item, 'backend', None) == 'cxx':
-    budgets, warnings = aot.checked_budgets(probe)
+  if cxx:
+    if not item.warmup():
+      probe_item()
+    budgets, warnings = aot.checked_budgets(probe,
+        since=started if not item.warmup() else None)
+    if budgets is not None:
+      budgets.update(fresh)
     # Keep paths private to the identity check; records carry no local paths.
     for sample in samples:
       sample['aot_inline_budgets'] = budgets
@@ -332,6 +349,7 @@ def main(argv=None):
             ('SPRITE_INTERPRETER_FLAGS', 'SPRITE_ROTATION') if k in mode_env}
         item_meta['mode'] = settings.mode(mode_env) if item.backend == 'cxx' else {
             'flags': None, 'backend': item.backend, 'llvmlite': None}
+        item.requested_inline_budget = (item_meta['mode'].get('flags') or {}).get('inline_budget')
         reason = item.unavailable()
         if reason:
           preprocessor = 'needs the preprocessor ' in reason
@@ -358,7 +376,8 @@ def main(argv=None):
               s.get('aot_inline_budgets') for s in samples]
           item_meta['aot_probe_warnings'] = getattr(item, 'aot_probe_warnings', [])
           item_meta['aot_adoption_possible'] = aot.adoption_possible(item_meta['mode'])
-          item_meta['aot_provenance'] = 'untimed-probe'
+          item_meta['aot_provenance'] = ('fresh-products'
+              if isinstance(item, suites.CacheVariant) else 'untimed-probe')
           budget_messages = aot.record_messages(record)
           record['warnings'].extend(budget_messages)
           if args.strict_inline_budget and budget_messages:

@@ -301,20 +301,47 @@ class TestPerformanceRecord(unittest.TestCase):
 
   def test_probe_once_and_check_after_measurements(self):
     from benchmarks import aot
-    settings = suites.Settings('install', warmup=0)
-    item = suites.CommandItem('python', 'cxx', settings)
-    events = []
-    sample = dict(status='ok')
-    with mock.patch.object(settings, 'probe', side_effect=lambda *a:
-             events.append('probe') or {}), \
-         mock.patch.object(item, 'measure', side_effect=lambda **k:
-             events.append('measure') or dict(sample)), \
-         mock.patch.object(aot, 'checked_budgets', side_effect=lambda p:
-             events.append('check') or ({'Example': None}, ['changed'])):
-      samples = harness.measure_item(item, 2, True)
-    self.assertEqual(events, ['probe', 'measure', 'measure', 'measure', 'check'])
-    self.assertEqual(samples[-1]['aot_inline_budgets'], {'Example': None})
-    self.assertEqual(item.aot_probe_warnings, ['changed'])
+    for warmup in (0, 1):
+      settings = suites.Settings('install', warmup=warmup)
+      item = suites.CommandItem('python', 'cxx', settings)
+      events = []
+      with mock.patch.object(settings, 'probe', side_effect=lambda *a:
+               events.append('probe') or {}), \
+           mock.patch.object(item, 'measure', side_effect=lambda **k:
+               events.append('measure') or dict(status='ok')), \
+           mock.patch.object(aot, 'checked_budgets', side_effect=lambda p, **k:
+               events.append('check') or ({'Example': None}, ['changed'])) as check:
+        samples = harness.measure_item(item, 2, True)
+      expected = (['measure', 'probe', 'measure', 'measure', 'measure', 'check']
+          if warmup else ['measure', 'measure', 'measure', 'probe', 'check'])
+      self.assertEqual(events, expected)
+      self.assertEqual(check.call_args.kwargs['since'] is None, bool(warmup))
+      self.assertEqual(samples[-1]['aot_inline_budgets'], {'Example': None})
+      self.assertEqual(item.aot_probe_warnings, ['changed'])
+
+  def test_postmeasurement_probe_refuses_new_or_replaced_products(self):
+    from benchmarks import aot
+    import time
+    with tempfile.TemporaryDirectory() as directory:
+      path = os.path.join(directory, 'Example.so')
+      for change in ('none', 'create', 'replace', 'stamp'):
+        with open(path, 'w') as stream:
+          stream.write('old')
+        started = time.time_ns()
+        if change == 'create':
+          os.unlink(path)
+        if change in ('create', 'replace'):
+          with open(path + '.new', 'w') as stream:
+            stream.write('new')
+          os.replace(path + '.new', path)
+        if change == 'stamp':
+          with open(path + '.abi', 'w') as stream:
+            stream.write('new receipt')
+        probe = {'Example': dict(path=path, identity=aot.identity(path),
+            stamp_identity=aot.identity(path + '.abi'), budget=4)}
+        budgets, warnings = aot.checked_budgets(probe, since=started)
+        self.assertEqual(budgets, {'Example': 4 if change == 'none' else None})
+        self.assertEqual(bool(warnings), change != 'none')
 
   def test_runtime_registry_includes_tiered_object(self):
     from benchmarks import aot
