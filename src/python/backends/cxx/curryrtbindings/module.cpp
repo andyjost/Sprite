@@ -242,6 +242,15 @@ namespace curryrt { namespace python
 {
   void register_module(pybind11::module_ mod)
   {
+    mod.def("set_stream_hook", [](py::object callable) {
+      auto retained = new py::object(std::move(callable));
+      set_stream_hook([retained](int stream, std::string const & operation,
+                                std::string const & text, long long value) {
+        py::gil_scoped_acquire gil;
+        return (*retained)(stream, operation, text, value).cast<std::string>();
+      });
+    }, heap_access{});
+    mod.def("is_handle", &is_handle, heap_access{});
     mod.def("registered_names", &Module::registered_names, heap_access{});
     mod.def("is_io_ref", &is_io_ref, heap_access{});
     mod.def("set_install_prefix", &set_install_prefix, heap_access{});

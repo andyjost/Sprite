@@ -140,6 +140,22 @@ class ToPython(object):
         return value
       from ..typecheck.builder import _partial_parts
       head, stored = _partial_parts(value) if value.info.is_partial else (value.info, value.successors)
+      from ..backends.cxx import curryrtbindings as curryrt
+      if curryrt.is_handle(head):
+        # Handle is external data: it has no public constructor symbol.
+        from ..objects.terms import Term
+        result = object.__new__(Term)
+        result._interp = self.interp
+        result._session = self.interp._session
+        result._node = value
+        result._form = value
+        result.symbol = None
+        result._args = ()
+        result._free_vars = {}
+        result._text = '<Handle>'
+        result._typeexpr = result._annotation = fc.TCons(('System.IO', 'Handle'), [])
+        result._signature = result._defaulted = 'Handle'
+        return result
       symbol = self._symbol(head)
       if symbol is None:
         return value

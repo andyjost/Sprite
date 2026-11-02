@@ -810,3 +810,37 @@ arguments. Only the ``--`` that ends tool options is discarded; a later
 the loaded module name. Before the first prompt it loads either the
 command-line module or ``Prelude``, so the initial name without a
 command-line module is ``Prelude``.
+
+
+Handles and package primitives
+------------------------------
+
+``System.IO.Handle`` is an opaque runtime constructor with an unboxed pointer
+payload. Graph copies share its node. The collector owns the file stream and
+closes it when its last reachable handle dies; explicit close releases the
+stream immediately, preserving identity. Repeated close succeeds, as in PAKCS;
+other operations on closed files raise a Curry IO error. Native files use
+binary streams and UTF-8 code points; seek offsets count bytes. The pinned
+``IOMode`` provides read, write and append, with no read-write mode.
+
+Standard handles have stable identity and resolve Python's current ``sys.stdin``,
+``sys.stdout`` or ``sys.stderr`` at every operation. The binding acquires the
+GIL for host operations. Prelude ``getChar`` and ``putChar`` use that same hook,
+so Python prints and Curry output share buffering, encoding and order even
+when a stream is replaced by ``StringIO``. Flushing and closing affect the
+current Python object. Input EOF probes retain one character of lookahead;
+replacing the stream discards it. Terminal checks and readiness have no
+portable C++ interface and use the Python host, including Windows console and
+pipe readiness. Regular file handles are immediately ready, including at EOF.
+
+CPM modules resolve by qualified name just like library modules. All twelve
+``System.Directory`` externals use ``std::filesystem``; modification times are
+``Data.Time.CTime`` values in POSIX seconds. Directory listings include ``.``
+and ``..`` and preserve filesystem iteration order. ``System.Process`` uses
+``std::system`` (decoded shell exit status) and ``std::this_thread::sleep_for``.
+PID uses Python's ``os.getpid``. ``exitWith`` raises Python ``SystemExit``;
+API callers may catch it, while command-line launchers terminate with that
+status. This avoids terminating an embedding Python process with ``std::exit``.
+The test fixtures include the packages' source and licenses and their
+``filepath`` and ``time`` dependencies; these packages are not bundled into
+the installed standard library.

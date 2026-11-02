@@ -513,6 +513,8 @@ def _graph_key(root, variables=None):
       key.append(('variable', variables[node.id()]))
     elif inspect.isa_freevar(node):
       key.append(('variable', node.id()))
+    elif curryrt.is_handle(node.info):
+      key.append(('Handle', node.successor(0)))
     elif curryrt.is_io_ref(node.info):
       key.append(('IORef', node.id()))
     elif node.id() in seen:

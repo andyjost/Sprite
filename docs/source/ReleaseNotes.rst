@@ -5,6 +5,9 @@ Release Notes
 0.9.0a3 (2026-11-01)
 ====================
 
+- Implement ``System.IO`` handles and current Python standard streams,
+  enabling ``Debug.Trace.traceIO``, plus primitives for the CPM packages ``directory``
+  and ``process``. ``exitWith`` raises catchable ``SystemExit`` in the API.
 - Add the qualified-name primitive registry and the primitives of
   ``Curry.Compiler.Distribution``, ``System.CPUTime``, ``System.Environment``
   and ``Data.IORef``, including registered Python implementations for process

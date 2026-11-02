@@ -148,7 +148,9 @@ reproducers pass.
   emitter share this registry. Standard C++ implements portable operations;
   `curryrt.register_primitive(name, arity, callable, monadic)` bridges to Python
   where no C++ standard exists (arguments and hostname first). Distribution,
-  CPUTime, Environment and IORef have their primitives. IORef fields stay lazy
+  CPUTime, Environment, IORef and System.IO have their primitives, as do the
+  CPM modules System.Directory and System.Process. Remaining unsupported
+  externals include System.IO.Unsafe and strong-search operations. IORef fields stay lazy
   and writes go through `Variable::set_successor`. See "Primitives"
   in the developer notes for the interface and exception rules.
 - The construction of a term from Python is typed

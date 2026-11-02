@@ -55,18 +55,19 @@ the stage has a C++ compiler. These
 externals have no primitive in the runtime and raise `not implemented` at
 their call:
 
-- `System.IO`: `handle_eq`, `stdin`, `stdout`, `stderr`, `prim_openFile`,
-  `prim_hClose`, `prim_hFlush`, `prim_hIsEOF`, `prim_hSeek`,
-  `prim_hWaitForInput`, `prim_hWaitForInputs`, `prim_hGetChar`,
-  `prim_hPutChar`, `prim_hIsReadable`, `prim_hIsWritable`,
-  `prim_hIsTerminalDevice`.
 - `System.IO.Unsafe`: `unsafePerformIO`, `spawnConstraint`, `prim_isVar`,
   `prim_identicalVar`, `prim_isGround`, `compareAnyTerm`, `prim_showAnyTerm`,
   `prim_readsAnyUnqualifiedTerm`, `showAnyExpression`.
 
 The primitives of `Curry.Compiler.Distribution`, `System.CPUTime`,
-`System.Environment` and `Data.IORef` are implemented. Distribution reports
-Sprite's build version and installation prefix; CPUTime reports milliseconds.
+`System.Environment`, `Data.IORef` and `System.IO` are implemented.
+System.IO owns UTF-8 file handles; standard handles use Python's current
+standard streams, including redirected streams. `Debug.Trace.traceIO` works
+through these handles; pure `trace` still needs
+`System.IO.Unsafe.unsafePerformIO`. The CPM packages `directory` and `process`
+resolve their externals through the same registry (the packages are installed
+separately). Distribution reports Sprite's build version and installation
+prefix; CPUTime reports milliseconds.
 Environment uses native environment operations and registered Python functions
 for arguments, the program name and hostname. IORef stores lazy graph values
 in cells displayed as `<IORef>`; writes go through `Variable::set_successor`.

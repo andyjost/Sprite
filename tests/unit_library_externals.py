@@ -19,8 +19,11 @@ class TestLibraryExternals(cytest.TestCase):
     D = curry.import_('Curry.Compiler.Distribution')
     self.assertEqual(curry.eval(D.curryCompiler).one(), 'sprite')
     self.assertIn('C++ primitive', inspect.getimpl(D.curryCompiler))
-    with self.assertRaisesRegex(EvaluationError, r'System.IO.*not implemented'):
+    with self.assertRaisesRegex(EvaluationError,
+        r'System.IO.Unsafe.unsafePerformIO.*not implemented'):
       list(curry.eval(curry.parse('trace "x" (1 :: Int)', imports=['Debug.Trace'])))
+    self.assertEqual(len(list(curry.eval(curry.parse(
+        'traceIO "x"', imports=['Debug.Trace'])))), 1)
     IO = curry.import_('System.IO')
     self.assertEqual(curry.info(IO).types['Handle'].constructors, ())
     self.assertEqual(curry.typeof(IO.stdin), 'Handle')
