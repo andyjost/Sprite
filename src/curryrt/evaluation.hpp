@@ -1,5 +1,6 @@
 #pragma once
 #include <cstddef>
+#include <cstdint>
 #include <thread>
 
 namespace curryrt
@@ -15,6 +16,26 @@ namespace curryrt
   void heap_handoff(std::thread::id);
   struct HeapStatus { size_t entries, waits, handoffs; };
   HeapStatus heap_status();
+
+  // Allocate an action while its owner is constructed, before finalization.
+  // dispose transfers ownership, and never waits for the heap. apply runs
+  // under the heap, without the pending-list mutex. A stale action must not
+  // dereference any address borrowed from the old heap.
+  uint64_t heap_generation();
+  struct PendingHeapAction
+  {
+    PendingHeapAction() : generation(heap_generation()) {}
+    virtual ~PendingHeapAction() = default;
+    virtual void apply(bool current) noexcept = 0;
+    uint64_t generation;
+    PendingHeapAction * next = nullptr;
+  };
+  void heap_dispose(PendingHeapAction *) noexcept;
+  size_t heap_pending_count();
+  void heap_drain() noexcept; // caller owns the heap
+  // Call after draining and before releasing a heap that is being replaced.
+  // Interpreter reset retains the process-wide node heap and does not call it.
+  void heap_retire_generation() noexcept;
 
   struct HeapScope
   {

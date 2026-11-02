@@ -34,6 +34,7 @@ class IBackend(backends.IBackend):
       curryrtbindings.icurry_set_hot_threshold(0)
       curryrtbindings.icurry_take_hot()
       curryrtbindings.icurry_apply_posted()
+    curryrtbindings._curryrtbindings._heap_drain()
     jit.select(interp)
     interp._jit_selection = interp.flags['jit_backend']
     interp._its = curryrtbindings.InterpreterState()
