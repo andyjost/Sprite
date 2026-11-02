@@ -324,13 +324,20 @@ reproducers pass.
   snapshots and publication preserve #173. Hot swaps run at the scheduler
   safepoint. `SPRITE_JIT_DUMP` writes LLVM IR and assembly, for LLVM only.
   Backend and compilation decisions emit INFO messages on the curry logger.
-  On Unix, LLVM caches completed module batches in `M.jit` beside `M.img`:
+  LLVM caches completed module batches in `M.jit` beside `M.img`:
   relocatable constants resolve from image bytecode at link. The key covers
   the image body, runtime ABI, helpers, emitter, LLVM version and CPU.
   Current objects resolve on first use under `new` and `all`; `jit:off`
   reads none. Read-only products use `SPRITE_JIT_CACHE` when set and writable.
-  A local stage fills the library cache when llvmlite imports; wheels and
-  Windows omit persistent JIT objects.
+  A local stage fills the library cache when llvmlite imports; wheels omit
+  persistent JIT objects. Windows stages skip the library fill, but user runs
+  persist their objects. Windows readers share delete access and serialize
+  positioned reads on the pinned generation. A refused local replacement
+  publishes privately when `SPRITE_JIT_CACHE` is set and writable. Loading
+  takes the same-key union of local and private objects; a later successful
+  local publication merges them and removes the private generation. With
+  `SPRITE_JIT_CACHE` unset, a refused replacement leaves the old file intact
+  and new objects remain available only in the running process.
 - The C++ backend rotates its queue of alternatives in time mode by
   default (`SPRITE_ROTATION=time:10ms`, a ticker thread, the interpreter
   flag `rotation`) and in step mode (`steps:65536`) under the test runner,
@@ -371,8 +378,12 @@ module. The pinned index descriptor closes after every object is read or
 dropped, or at image-generation detach; verified bytes remain available for
 publication. The local JIT slot belongs to the image actually attached,
 including a private image for a foreign inline budget. A writer checks that
-the slot still holds that image before replacing another key. Only an
-unwritable attached-image directory uses
-`SPRITE_JIT_CACHE/<Full.Name>/<key>.jit`, with one generation per module.
+the slot still holds that image before replacing another key. An unwritable
+attached-image directory, a changed image or a refused local replacement uses
+`SPRITE_JIT_CACHE/<Full.Name>/<key>.jit` when set and writable, with one
+generation per module. Loading takes the same-key union from both locations.
+A successful local publication merges private objects and removes that private
+generation. With `SPRITE_JIT_CACHE` unset, failed local publication leaves the
+old envelope intact; new objects remain only in the running process.
 `SPRITE_STAGE_JIT_CACHE=0` skips the library fill; CI enables it in one
 default C++ shard only.

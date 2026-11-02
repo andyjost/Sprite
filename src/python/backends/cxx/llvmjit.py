@@ -32,7 +32,7 @@ function interpreted and logs the reason once.
 from ... import config
 from . import bytecode
 from . import curryrtbindings as curryrt
-import atexit, hashlib, json, logging, os, re, struct, tempfile, threading, time, zlib
+import atexit, contextlib, hashlib, json, logging, os, re, struct, tempfile, threading, time, zlib
 
 __all__ = [
     'Unavailable', 'available', 'compile', 'enqueue', 'flush', 'start_hot_tier'
@@ -476,6 +476,70 @@ def _cache_key(jit, header):
   return hashlib.sha256(json.dumps(facts, sort_keys=True).encode('ascii')).hexdigest()
 
 
+def _open_cache(path):
+  '''Pin a generation while allowing publishers to replace its name.'''
+  if os.name != 'nt':
+    return open(path, 'rb', buffering=0)
+  import ctypes
+  from ctypes import wintypes
+  import msvcrt
+  kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+  create = kernel.CreateFileW
+  create.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+      wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+  create.restype = wintypes.HANDLE
+  close = kernel.CloseHandle
+  close.argtypes, close.restype = [wintypes.HANDLE], wintypes.BOOL
+  # GENERIC_READ; FILE_SHARE_READ | WRITE | DELETE; OPEN_EXISTING.
+  # Write sharing also permits corruption tests and metadata-only opens.
+  handle = create(os.fsdecode(path), 0x80000000, 0x7, None, 3, 0, None)
+  if handle == ctypes.c_void_p(-1).value:
+    raise ctypes.WinError(ctypes.get_last_error())
+  try:
+    fd = msvcrt.open_osfhandle(handle, os.O_RDONLY | os.O_BINARY)
+  except BaseException:
+    close(handle)
+    raise
+  try:
+    # Index reads must not prefetch payload bytes: verify the file's current
+    # bytes when an object is resolved, even after an in-place overwrite.
+    return os.fdopen(fd, 'rb', buffering=0)
+  except BaseException:
+    os.close(fd)
+    raise
+
+
+def _process_alive(pid):
+  # Match the AOT generation collector: uncertainty keeps the temporary.
+  if pid <= 0:
+    return True
+  if os.name != 'nt':
+    try:
+      os.kill(pid, 0)
+    except ProcessLookupError:
+      return False
+    except PermissionError:
+      pass
+    return True
+  import ctypes
+  from ctypes import wintypes
+  kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+  opened = kernel.OpenProcess
+  opened.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+  opened.restype = wintypes.HANDLE
+  wait = kernel.WaitForSingleObject
+  wait.argtypes, wait.restype = [wintypes.HANDLE, wintypes.DWORD], wintypes.DWORD
+  close = kernel.CloseHandle
+  close.argtypes, close.restype = [wintypes.HANDLE], wintypes.BOOL
+  handle = opened(0x100000, False, pid)  # SYNCHRONIZE
+  if not handle:
+    return ctypes.get_last_error() != 87  # ERROR_INVALID_PARAMETER
+  try:
+    return wait(handle, 0) != 0  # WAIT_OBJECT_0 means exited
+  finally:
+    close(handle)
+
+
 class _Object:
   '''An indexed object; native bytes are read and verified only on demand.'''
   def __init__(self, index, offset, entry):
@@ -483,17 +547,33 @@ class _Object:
     self.path = index.path
 
   def read(self):
-    # POSIX only: persistence is disabled on Windows. The open descriptor
-    # pins this generation even when another publisher replaces its path.
+    fallback = self.entry.get('_fallback')
+    try:
+      native = self._read()
+    except (OSError, ValueError):
+      if fallback is None:
+        raise
+      return fallback.read()
+    if fallback is not None:
+      fallback.index.release(fallback.entry)
+      del self.entry['_fallback']
+    return native
+
+  def _read(self):
+    # The open descriptor pins this generation across path replacement.
     if self.entry.get('_dropped'):
       raise ValueError('dropped JIT object')
+    if '_native' in self.entry:
+      return self.entry['_native']
     read = False
     try:
-      obj = os.pread(self.index.stream.fileno(), self.entry['size'], self.offset)
+      obj = self.index.read_at(self.offset, self.entry['size'])
       if (len(obj) != self.entry['size']
           or hashlib.sha256(obj).hexdigest() != self.entry['digest']):
         raise ValueError('corrupt JIT object')
       native = zlib.decompress(obj)
+      # Publication must not depend on this generation still owning its path.
+      self.entry['_native'] = native
       read = True
       return native
     except zlib.error as exc:
@@ -511,7 +591,9 @@ class _IndexedObjects:
   '''Decoded entries, without per-function file views until they are used.'''
   def __init__(self, path, entries, stream):
     self.path, self.entries, self.stream = path, entries, stream
+    self.read_lock = threading.RLock()
     self.extra = []
+    self.others = []
     self.remaining = len(entries)
     if not entries:
       self.close()
@@ -523,10 +605,24 @@ class _IndexedObjects:
       if dropped:
         entry['_dropped'] = True
       if not self.remaining:
-        self.close()
+        with self.read_lock:
+          self.stream.close()
 
   def close(self):
-    self.stream.close()
+    with self.read_lock:
+      self.stream.close()
+    for other in self.others:
+      other.close()
+
+  def read_at(self, offset, size):
+    with self.read_lock:
+      pread = getattr(os, 'pread', None)
+      if pread is not None:
+        return pread(self.stream.fileno(), size, offset)
+      # A synchronous Windows handle has one file position. Serialize seek
+      # and read (and close) so callers observe independent positioned reads.
+      self.stream.seek(offset)
+      return self.stream.read(size)
 
   def view(self, entry):
     return (entry['functions'],
@@ -545,7 +641,7 @@ class _IndexedObjects:
 
 
 def _read_cache(path, key, check_identity=True):
-  stream = open(path, 'rb')
+  stream = _open_cache(path)
   try:
     magic, size = _CACHE_PREFIX.unpack(stream.read(_CACHE_PREFIX.size))
     if magic != _CACHE_MAGIC or size > 16 * 1024 * 1024:
@@ -664,8 +760,15 @@ class _CachedModule:
       pair = self.cached[name]
       if isinstance(pair, dict):
         self.index.release(pair)
+        entry = pair
       elif isinstance(pair[1], _Object):
-        self.index.release(pair[1].entry)
+        pair[1].index.release(pair[1].entry)
+        entry = pair[1].entry
+      else:
+        return
+      fallback = entry.pop('_fallback', None)
+      if fallback is not None:
+        fallback.index.release(fallback.entry)
 
   def load(self, jit):
     # Reuse the index and linked code across resets. Unresolved objects
@@ -677,10 +780,30 @@ class _CachedModule:
         paths.append(self.private)
       for path in paths:
         try:
-          objects = _read_cache(path, self.key)
-          break
+          found = _read_cache(path, self.key)
+          if objects is None:
+            objects = found
+          else:
+            names = {records[0][0]: obj for records, obj in objects}
+            objects.others.append(found)
+            for records, obj in found:
+              if records[0][0] in names:
+                names[records[0][0]].entry['_fallback'] = obj
+              else:
+                objects.append((records, obj))
         except (OSError, ValueError, KeyError, TypeError, IndexError, struct.error) as exc:
           logger.debug('jit cache: module %s: %s', self.name, exc)
+          if path == self.private:
+            # A merge may replace local and remove private between our reads.
+            # Retry local once to pick up the objects that moved there.
+            try:
+              found = _read_cache(self.local, self.key)
+            except (OSError, ValueError, KeyError, TypeError, IndexError, struct.error):
+              pass
+            else:
+              if objects is not None:
+                objects.close()
+              objects = found
     if objects is None:
       logger.info('jit cache: module %s, miss', self.name)
       return False
@@ -708,8 +831,6 @@ class _CachedModule:
     # again when it is hot, and the publication of the others goes ahead.
     objects = []
     for records, obj in latest.values():
-      if isinstance(obj, _Object) and obj.index.stream.closed:
-        continue
       try:
         objects.append((records, _object_bytes(obj)))
       except (OSError, ValueError) as exc:
@@ -736,28 +857,37 @@ class _CachedModule:
           continue
         lockpath = (os.path.join(directory, 'cache.py') if path == self.private
             else os.path.splitext(path)[0] + '.py')
-        with _productlock.locked(lockpath):
+        with contextlib.ExitStack() as locks:
+          locks.enter_context(_productlock.locked(lockpath))
+          # Local writers take the private lock second, so a fallback writer
+          # cannot publish between our merge and removal of that generation.
+          if path == self.local and self.private:
+            locks.enter_context(_productlock.locked(
+                os.path.join(os.path.dirname(self.private), 'cache.py')))
           # A process must never overwrite a slot belonging to another image.
           if path == self.local and image.read(self.path) != self.header:
             continue
           merged = {}
-          try:
-            # A copy may lose its timestamp. Recover same-key objects only
-            # after verifying their digests; attachment remains index-only.
-            existing = _read_cache(path, self.key, check_identity=False)
-            ours = {records[0][0] for records, _ in objects}
+          sources = [path]
+          if path == self.local and self.private:
+            sources.append(self.private)
+          for source in sources:
             try:
-              for records, obj in existing:
-                if records[0][0] in ours:
-                  continue  # held already; no second read of the same object
-                try:
-                  merged[records[0][0]] = (records, _object_bytes(obj))
-                except (OSError, ValueError):
-                  pass
-            finally:
-              existing.stream.close()
-          except (OSError, ValueError, KeyError, TypeError, IndexError, struct.error):
-            pass
+              # Copies may lose timestamps; verify every recovered object.
+              existing = _read_cache(source, self.key, check_identity=False)
+              ours = {records[0][0] for records, _ in objects}
+              try:
+                for records, obj in existing:
+                  if records[0][0] in ours or records[0][0] in merged:
+                    continue
+                  try:
+                    merged[records[0][0]] = (records, _object_bytes(obj))
+                  except (OSError, ValueError):
+                    pass
+              finally:
+                existing.close()
+            except (OSError, ValueError, KeyError, TypeError, IndexError, struct.error):
+              pass
           merged.update({records[0][0]: (records, obj) for records, obj in objects})
           objects = list(merged.values())
           packed = [(records, zlib.compress(obj)) for records, obj in objects]
@@ -781,9 +911,8 @@ class _CachedModule:
               continue
             try:
               pid = int(entry.name.split('-')[1])
-              os.kill(pid, 0)
-            except ProcessLookupError:
-              os.unlink(entry.path)
+              if not _process_alive(pid):
+                os.unlink(entry.path)
             except (ValueError, PermissionError):
               pass
           fd, tmp = tempfile.mkstemp(prefix='.jit-%d-' % os.getpid(), dir=directory)
@@ -793,6 +922,17 @@ class _CachedModule:
           os.chmod(tmp, 0o644)
           os.replace(tmp, path)
           tmp = None
+          # Pin the published generation before another writer can replace it.
+          # The attached objects no longer need retained native payloads.
+          published = _read_cache(path, self.key)
+          self.objects = self.index = published
+          self.cached = {entry['functions'][0][0]: entry for entry in published.entries}
+          self.jit.object_generations[self.key] = published
+          if path == self.local and self.private:
+            try:
+              os.unlink(self.private)
+            except FileNotFoundError:
+              pass
           if path == self.private:
             for entry in os.scandir(directory):
               if entry.name.endswith('.jit') and entry.path != path:
@@ -808,8 +948,6 @@ class _CachedModule:
 
 def attach_cache(path, header, items):
   '''Register an image and its cache index without reading native bytes.'''
-  if os.name == 'nt':
-    return  # Persistent objects on Windows belong to the Windows lane.
   jit = _get()
   with _lock:
     context = _CachedModule(jit, path, header, items)
