@@ -25,13 +25,23 @@ Sprite provides weak encapsulation (:ref:`CurryPrimer/Semantics:Set functions`).
 
 Every module of the Curry library compiles, ships compiled and imports.
 Externals without a primitive in the runtime raise ``not implemented`` at
-their call: ``System.IO.Unsafe``, plus the strong-search
-operations described above. ``Curry.Compiler.Distribution``, ``System.CPUTime``,
-``System.Environment``, ``Data.IORef`` and ``System.IO`` have their primitives.
-``Debug.Trace.traceIO`` uses the current Python standard error stream; pure
-``trace`` still needs ``System.IO.Unsafe.unsafePerformIO``. The CPM
-packages ``directory`` and ``process`` have registered primitives too. Registered
-primitives use the same qualified names in native code and module images,
+their call: the strong-search
+operations described above, which await an owner decision.
+``Curry.Compiler.Distribution``, ``System.CPUTime``, ``System.Environment``,
+``Data.IORef``, ``System.IO`` and ``System.IO.Unsafe`` have their primitives.
+``Debug.Trace.traceIO`` uses the current Python standard error stream, and
+pure ``trace`` runs through ``System.IO.Unsafe.unsafePerformIO``. The CPM
+packages ``directory`` and ``process`` have registered primitives too.
+``spawnConstraint`` uses the suspension rule of ``&``: it demands the
+constraint first, runs the value expression when the constraint suspends,
+and releases a value only after the constraint is True.
+The unsafe variable observations use the evaluating configuration's bindings.
+``compareAnyTerm`` orders variables before functions before data; variables
+use internal group identifiers, partial functions use their qualified head
+names and supplied arguments, and data use constructor declaration order
+and lexicographic fields (numeric values compare numerically).
+The library README describes the read/show syntax and ordering details.
+Registered primitives use the same qualified names in native code and module images,
 whether implemented in C++ or Python.
 
 How code runs

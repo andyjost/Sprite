@@ -8,6 +8,12 @@ Release Notes
 - Implement ``System.IO`` handles and current Python standard streams,
   enabling ``Debug.Trace.traceIO``, plus primitives for the CPM packages ``directory``
   and ``process``. ``exitWith`` raises catchable ``SystemExit`` in the API.
+- Reuse typed Python terms, copy their graphs for evaluation, and format
+  goal text on demand. Warm CPU measurements reduce a small interpreted
+  call from 402 to about 270 microseconds and lesson 21's overload call
+  from 18.3 to about 4.3 milliseconds. Nested ``Just`` construction is
+  linear (#181): a depth-128 chain falls from 2.93 seconds to about
+  9 milliseconds.
 - Convert ground results in the C++ bindings, preserving Python value types
   and representations. Measured CPU conversion time falls from 7.39 ms to
   11.4 us for 1000 Ints and from 2.18 ms to 2.11 us for a 300-character
@@ -18,6 +24,10 @@ Release Notes
   ``Curry.Compiler.Distribution``, ``System.CPUTime``, ``System.Environment``
   and ``Data.IORef``, including registered Python implementations for process
   arguments, the program name and hostname.
+- Implement the nine ``System.IO.Unsafe`` primitives, including
+  configuration-sensitive variable observations, arbitrary term read/show,
+  and ``spawnConstraint`` with the suspension rule of ``&``. Strong-search
+  operations still await an owner decision.
 - Every module of the Curry library ships compiled. An external function
   without a primitive in the runtime raises ``not implemented`` at its call;
   before, eight modules failed at import.
@@ -61,6 +71,11 @@ Release Notes
 - Module images replace module JSON products. Translation and C++ emission
   read ICurry text; read-only directories and text modules use private images.
   ``sprite-make --image`` is the default target; the JSON options are removed.
+- Image preparation constructs imported optimizer declarations on demand.
+  In a local three-run comparison, warm compile CPU medians fell from
+  0.302 to 0.282 s for Fib, 0.357 to 0.340 s for QueensSet, and 0.307 to
+  0.264 s for an expression (about 5 to 14 percent); image bodies and
+  optimization remain enabled.
 
 - Windows: the runtime and the bindings build with clang-cl, and so do the
   generated modules, as DLLs, ahead of time and in the hot and eager C++
