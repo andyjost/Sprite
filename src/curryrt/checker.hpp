@@ -373,5 +373,6 @@ namespace curryrt
     char litkind = 0;
     std::map<uint64_t, std::unique_ptr<CheckerTree>> branches;
     std::map<std::string, std::unique_ptr<CheckerTree>> bigbranches;
+    std::unique_ptr<CheckerTree> fallback;
   };
 }

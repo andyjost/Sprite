@@ -47,6 +47,14 @@ reservation (the flag ``worker_stack``, 1 GiB by default; ``None``
 disables the escalation), and a refused reservation halves down to 64
 MiB.  ``stack_limit`` bounds the caller's stack.
 
+The platform probes the caller's stack floor once per thread and caches even
+an unavailable result. POSIX cache entries also carry the process ID, so a
+forked child probes again. On Linux each entry also checks the soft stack
+limit with getrlimit and re-probes when it changes, because the main thread's
+floor follows that limit. Each runtime entry reads this cache before applying
+the existing stack-limit clamp and safety margin; worker reservations keep
+their separate accounting.
+
 ``PYTHON_GIL`` belongs to the user. Package children inherit its presence or
 absence and its value. The 3.14t CI lane runs the unit suites with
 ``PYTHON_GIL=0`` and the concurrency suite again with the variable absent;
@@ -334,6 +342,48 @@ compiled and interpreted and provokes one violation per check through
 ``curryrtbindings.checker_debug_*``.
 ``curryrtbindings.checker_counts`` reports the event counts.
 
+The ICurry optimizer
+====================
+
+Optimization runs after translation, before C++ or bytecode generation;
+the translator's ICurry oracle text is unchanged. Small expressions and
+known-constructor selectors are inlined under the rules in
+``icurry/analysis/inlining.py``.
+
+A class default at a closed instance dictionary can expand beyond the
+ordinary expression budget, up to the case limit. A closed instance thunk
+has no captured value arguments and stays visible across repeated uses.
+Both method and superclass selectors then resolve to the implementation.
+Conditional helpers that still carry a known dictionary get a local
+specialization with that dictionary substituted. Unknown dictionary
+parameters retain runtime dispatch. The same rule resolves Int, Char and
+Float defaults, without changing the Prelude. Data arguments still follow
+the inliner's sharing rule, and conditional method bodies retain their
+lazy branches. Compiled import summaries retain the original bodies.
+
+The literal-switch pass recovers an ``ICaseLit`` from equality tests on one
+variable followed by lifted Boolean cases. C++ and LLVM dispatch on the
+unboxed value; the interpreter uses one ``CASE_LIT`` instruction. The
+original equality chain is retained in a final ``ILitBranch`` with no
+literal. A head-normal-form probe evaluates function calls but leaves choices,
+free variables, guards and constraints in place. Nonliteral heads enter the
+original chain, preserving its choice graph and answer order. Guards already
+crossed by argument indexing also select this fallback. Private copies
+of the lifted helpers keep that chain available without switch recovery.
+Ordinary ICurry literal cases retain their narrowing behavior. Big Int
+literals keep arbitrary-precision comparison, and a big value falls through
+a switch whose literals all fit in a machine word.
+
+Switch recovery requires a successor path from the redex. Locally built
+nodes and free variables use one dispatch helper that supplies such a path,
+capturing references so that it preserves sharing.
+
+Image version 10 encodes fallback, rigidity and the literal probe in bits
+7, 8 and 9 of the ``CASE_LIT`` kind word. Bit 7 adds a literal-miss target;
+bit 9 adds a separate final target for nonliteral heads. Generated C++ format 26 invalidates older optimization
+products. These versions also invalidate cached LLVM code through its
+existing image and runtime keys.
+
 The depth bounds of the toolchain
 =================================
 
@@ -372,14 +422,29 @@ image constants and constructed when the module loads. The compiler and the
 ICurry interpreter use the same canonical runtime factory. Python values
 use decimal conversion at the boundary to preserve every digit.
 
+Constraint classes
+==================
+
+The union-find parent table is sparse: an absent identifier denotes a
+singleton, and unions create entries for their roots. Weighted union and
+path halving retain the previous representative rules, including the
+historical doubling of a root's weight on a repeated equality. That weight
+affects later root choices and must not be replaced by class cardinality.
+A fork shares its constraint store until the first write,
+which copies only the participating identifiers and preserves spare capacity
+in the endpoint log. Storage no longer follows the process-wide identifier
+counter. The log contains the endpoints of real unions in insertion order;
+every member of a non-singleton class occurs in it, so the collector and
+invariant checker still visit all retained free variables.
+
 The module image
 ================
 
-Format 4 (2026-11-01)
----------------------
+Format 12 (2026-11-01)
+----------------------
 
 A module image, ``M.img``, lives beside ``M.icy``. The translator writes it
-atomically after merging runtime built-ins and running the six optimizer
+atomically after merging runtime built-ins and running the optimizer
 passes. ICurry text and its compatibility translation remain unchanged;
 No module JSON product is written or read. Tools recover bodies from ICurry
 text; inline-body and unfolding summaries still use the small JSON codec.
@@ -399,8 +464,13 @@ Function bytecode uses the interpreter's existing 32-bit code units and
 frame sizes. Constants have explicit tags: symbol, constructor data type,
 integer (decimal text, including large integers), character (code point),
 float (IEEE binary64), string, argument-free partial application or literal
-case value set. Symbol and type references carry qualified names, never
-addresses. The native reader creates all local tables before resolving
+case value set. ``CASE_LIT`` records its variable, value-set constant,
+kind flags and a table of literal/target entries. Kind bit 8 selects rigid
+normalization. Bit 9 selects a literal probe, with two final destinations:
+bit 7's literal-miss destination, then the original equality graph for a
+nonliteral or guarded head. Each table entry uses two 32-bit words for the
+literal and one for its bytecode target. Symbol and type references carry
+qualified names, never addresses. The native reader creates all local tables before resolving
 constants against those tables and imported runtime modules. Built-ins use
 the runtime's existing tables. Attachment uses ``icurry_attach``; the JIT
 continues to obtain code and bound constants through ``icurry_bytecode``.
@@ -425,6 +495,12 @@ through translation. A current compiled object takes precedence over a
 current image under ``interpret:new`` and ``interpret:off``; sibling product
 modification times do not decide that precedence. ``interpret:all`` uses
 images. Modules compiled from text use the same writer and native reader.
+
+Type flags include ``F_DICTIONARY`` for names beginning with ``_Dict#``.
+The runtime tests this bit when head-normalizing a class selector. Generated
+C++ tables carry the same bit (generated-code format 27); data type flags
+use 16 bits, as info table flags do.
+Binding compiled code to a type kept across a reset preserves all these bits.
 
 The eight-byte magic is ``SPRTIMG`` followed by a zero byte. The header is
 ASCII JSON, with its length in the prefix; its ``body`` field is the SHA-256
@@ -870,7 +946,7 @@ own source, with their source definitions and arities checked. These bind
 directly so strict application cannot normalize shared terms before the
 configuration-sensitive observation. A shadowing user module keeps its bodies.
 Native record version 3 rejects older objects even on explicit load; generated
-code uses format 25 and images use version 8. ICurry uses
+code uses format 28 and images use version 12. ICurry uses
 ``Prelude.(?)`` as a compiler intrinsic to lower nondeterministic rules. All twelve
 ``System.Directory`` externals use ``std::filesystem``; modification times are
 ``Data.Time.CTime`` values in POSIX seconds. Directory listings include ``.``

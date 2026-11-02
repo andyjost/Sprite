@@ -156,13 +156,12 @@ namespace curryrt
     // is ``stack_limit`` (from the flag) clamped to the stack of the thread
     // less STACK_MARGIN on the caller, or the worker reservation less its
     // margin and existing frames; ``stack_floor`` is the lowest address of
-    // the caller stack,
-    // cached for the thread of the last entry.  NOLIMIT disables the guard.
+    // the caller stack, read from the platform cache at each entry.
+    // NOLIMIT disables the guard.
     size_t                 stack_limit;
     size_t                 stack_room = NOLIMIT;
     char const *           stack_base = nullptr;
     char const *           stack_floor = nullptr;
-    std::thread::id        stack_thread;
     // Control handed between nested schedulers.  A nested procD that must
     // yield to an enclosing queue stores E_UNWIND, E_ROTATE, or E_GC here
     // and returns no value; allValues_step returns the status to the
@@ -222,7 +221,7 @@ namespace curryrt
     // the non-determinism error instead.  See nondet_monad_error.
     tag_type hnf(
         Configuration *, Variable * inductive, void const * guides=nullptr
-      , bool monadic=false
+      , bool monadic=false, bool literal_probe=false
       );
     tag_type hnf_or_free(
         Configuration *, Variable * inductive, void const * guides=nullptr

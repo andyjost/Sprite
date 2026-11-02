@@ -16,7 +16,7 @@ from . import bytecode, curryrtbindings as curryrt
 
 logger = logging.getLogger(__name__)
 MAGIC = b'SPRTIMG\0'
-VERSION = 8
+VERSION = 12
 PREFIX = struct.Struct('<8sII')
 
 
@@ -358,7 +358,10 @@ def _write(interp, module, path, imports, builtins):
   out.word(len(module.types))
   for datatype in module.types.values():
     out.text(datatype.name)
-    out.word(datatype.metadata.get('all.flags', 0))
+    flags = datatype.metadata.get('all.flags', 0)
+    if datatype.name.startswith('_Dict#'):
+      flags |= curryrt.F_DICTIONARY
+    out.word(flags)
     out.metadata(datatype.metadata)
     out.word(len(datatype.constructors))
     for ctor in datatype.constructors:

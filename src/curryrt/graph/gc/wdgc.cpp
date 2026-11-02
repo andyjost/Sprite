@@ -439,6 +439,8 @@ namespace curryrt
       for(xid_type vid: C->residuals)
         push_freevar(stack, vid);
       UnionFind const * constraints = C->strict_constraints.get();
+      // Real union endpoints include every member of every non-singleton
+      // class, including roots kept in the sparse parent table.
       if(constraints != g_last_constraints)
       {
         g_last_constraints = constraints;

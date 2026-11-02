@@ -41,8 +41,12 @@ namespace curryrt
     {
       auto const & data = C->strict_constraints->data;
       size_t hops = 0;
-      while(i < data.size() && data[i].parent != i && ++hops < 1000000)
-        i = data[i].parent;
+      auto item = data.find(i);
+      while(item != data.end() && item->second.parent != i && ++hops < 1000000)
+      {
+        i = item->second.parent;
+        item = data.find(i);
+      }
       return i;
     }
 
@@ -471,10 +475,11 @@ namespace curryrt
           }
           case OP_CASE_LIT:
           {
-            uint32_t const v = op[1], count = op[4];
+            bool const has_default = op[3] & 128;
+            uint32_t const v = op[1], count = op[4] - (has_default ? 1 : 0) - ((op[3] & 512) ? 1 : 0);
             tree->kind = CheckerTree::CASE;
             tree->literal = true;
-            tree->litkind = (char) op[3];
+            tree->litkind = (char) (op[3] & 127);
             if(var_ok(v) && env.known[v])
             {
               tree->position_known = true;
@@ -486,7 +491,7 @@ namespace curryrt
               uint64_t const value = uint64_t(entry[0]) | (uint64_t(entry[1]) << 32);
               if(entry[2] < n)
               {
-                if(op[3] == 'p')
+                if((op[3] & 127) == 'p')
                 {
                   Node * literal = (Node *) bc.consts[value];
                   if(is_bigint(literal))
@@ -498,6 +503,8 @@ namespace curryrt
                   tree->branches[value] = build_tree(bc, entry[2], env, depth + 1);
               }
             }
+            if(has_default && entry[2] < n)
+              tree->fallback = build_tree(bc, entry[2], env, depth + 1);
             return tree;
           }
           default:
@@ -748,12 +755,16 @@ namespace curryrt
       os << "groups (member, root): [";
       bool first = true;
       auto const & data = cfg->strict_constraints->data;
-      for(size_t i = 0; i < data.size(); ++i)
-        if(data[i].parent != i)
-        {
-          os << (first ? "" : ", ") << '(' << i << ", " << group_root(cfg, i) << ')';
-          first = false;
-        }
+      std::vector<xid_type> ids;
+      for(auto const & item: data)
+        if(item.second.parent != item.first)
+          ids.push_back(item.first);
+      std::sort(ids.begin(), ids.end());
+      for(xid_type i: ids)
+      {
+        os << (first ? "" : ", ") << '(' << i << ", " << group_root(cfg, i) << ')';
+        first = false;
+      }
       os << ']';
       lines.push_back(os.str());
     }
@@ -2827,6 +2838,7 @@ namespace curryrt
         auto found = node->branches.find(key);
         if(found != node->branches.end()) branch = found->second.get();
       }
+      if(!branch) branch = node->fallback.get();
       if(!branch)
         this->violation(
             "B2", "hnf"
@@ -2889,6 +2901,7 @@ namespace curryrt
         auto found = node->branches.find(key);
         if(found != node->branches.end()) branch = found->second.get();
       }
+      if(!branch) branch = node->fallback.get();
       if(!branch)
       {
         if(node->literal)

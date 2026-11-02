@@ -420,7 +420,7 @@ namespace curryrt
     DataType * type = const_cast<DataType *>(kept->second);
     kept_module->second.erase(kept);
     InfoTable const ** ctor_list = const_cast<InfoTable const **>(type->ctors);
-    type->flags = char(object->flags & ~F_STATIC_OBJECT);
+    type->flags = object->flags & ~F_STATIC_OBJECT;
     for(index_type j=0; j<object->size; ++j)
     {
       InfoTable const * ctor = object->ctors[j];
@@ -516,6 +516,8 @@ namespace curryrt
     )
   {
     assert(!this->get_type(name));
+    if(name.compare(0, 6, "_Dict#") == 0)
+      flags |= F_DICTIONARY;
     // A kept type with the same number of constructors is taken back (see
     // clear).
     auto kept_module = g_kept_types.find(this->name);

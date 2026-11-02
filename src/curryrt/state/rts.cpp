@@ -64,7 +64,7 @@ namespace curryrt
   // entry: the configured limit, clamped to the stack below the frame less
   // STACK_MARGIN.  The clamp keeps the guard effective when the flag names a
   // limit larger than the stack; without it, the process would overflow the
-  // stack and crash.  The floor is cached for the thread of the last entry.
+  // stack and crash.  The platform caches the floor per thread and process.
   // Linux has an exact pthread probe, macOS its stack-address API, and
   // other POSIX hosts fall back to RLIMIT_STACK with the safety margin.
   // The worker knows its reservation and subtracts the frames already in
@@ -82,12 +82,7 @@ namespace curryrt
       this->stack_room = evaluation_worker_room(base);
       return;
     }
-    auto const thread = std::this_thread::get_id();
-    if(this->stack_thread != thread)
-    {
-      this->stack_floor = stack_floor_of_this_thread();
-      this->stack_thread = thread;
-    }
+    this->stack_floor = stack_floor_of_this_thread();
     size_t room = this->stack_limit;
     std::uintptr_t const top = (std::uintptr_t) base;
     std::uintptr_t const floor = (std::uintptr_t) this->stack_floor;

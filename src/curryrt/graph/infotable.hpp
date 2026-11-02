@@ -24,6 +24,7 @@ namespace curryrt
 
   static flag_type constexpr F_OPAQUE = 0x100; // bitwise
   static flag_type constexpr F_BUILTIN = 0x200; // bitwise, function descriptor
+  static flag_type constexpr F_DICTIONARY = 0x400; // bitwise, data type
 
   // Note: the head must remain bitwise-compatible with ValueSet.
   struct DataType
@@ -31,7 +32,7 @@ namespace curryrt
     InfoTable const * const * ctors;
     index_type size;
     char kind = 't';
-    char flags = NO_FLAGS;
+    flag_type flags = NO_FLAGS;
     char const * name = nullptr;
   };
 

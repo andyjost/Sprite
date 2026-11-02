@@ -112,12 +112,15 @@ def disassemble(code, consts=None):
       pc += 4 + ntab
     elif name == 'CASE_LIT':
       count = code[pc + 4]
-      kind = chr(code[pc + 3])
+      kind = chr(code[pc + 3] & 127)
       entries = []
       for i in range(count):
         lo, hi, target = code[pc + 5 + 3 * i: pc + 8 + 3 * i]
         bits = lo | (hi << 32)
-        value = _show_const(consts, bits) if kind == 'p' else _show_value(kind, bits)
+        defaults = (1 if code[pc + 3] & 128 else 0) + (1 if code[pc + 3] & 512 else 0)
+        value = ('nonliteral' if code[pc + 3] & 512 and i == count - 1 else
+                 'default' if i >= count - defaults else
+                 _show_const(consts, bits) if kind == 'p' else _show_value(kind, bits))
         entries.append('%s:%d' % (value, target))
       yield '%4d %s v%d %s %s [%s]' % (
           pc, name, code[pc + 1], _show_const(consts, code[pc + 2]), kind
@@ -481,7 +484,9 @@ class _Emitter(object):
     if not icase.branches:
       raise CompileError('case without branches in %r' % self.ifun.fullname)
     v = self.var(icase.vid)
-    lits = [branch.lit for branch in icase.branches]
+    branches = [b for b in icase.branches if b.lit is not None]
+    defaults = [b for b in icase.branches if b.lit is None]
+    lits = [branch.lit for branch in branches]
     if all(isinstance(lit, icurry.IInt) for lit in lits):
       kind = 'i'
       from .compiler import _check_int_literal
@@ -510,8 +515,14 @@ class _Emitter(object):
     entries = []
     for value in bits:
       entries.extend([value & 0xffffffff, value >> 32, NO_BRANCH])
-    self.emit('CASE_LIT', v, k, ord(kind), len(lits), *entries)
-    for i, branch in enumerate(icase.branches):
+    # Bit 7 marks a final fallback entry; bit 8 keeps an equality-derived
+    # case rigid (no literal-set narrowing of a free variable). Bit 9
+    # adds a separate final target for nonliteral heads of the probe.
+    flags = ord(kind) | (128 if defaults else 0) | (256 if icase.rigid else 0) | (512 if icase.rigid == 2 else 0)
+    for _ in defaults:
+      entries.extend([0, 0, NO_BRANCH])
+    self.emit('CASE_LIT', v, k, flags, len(lits) + len(defaults), *entries)
+    for i, branch in enumerate(branches + defaults):
       self.out.code[start + 5 + 3 * i + 2] = len(self.out.code)
       self.stmt(branch.block)
 

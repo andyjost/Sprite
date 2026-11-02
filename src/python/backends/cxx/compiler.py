@@ -67,12 +67,15 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # Format 18: export the module record, initializer and tables for PE DLLs.
 # Format 19: registry receipts and named not-implemented descriptors.
 # Format 20: info table flags use 16 bits for independent builtin and opaque bits.
-# Format 21: only external declarations select registered primitives.
-# Format 22: preserve the intrinsic used to lower nondeterministic rules.
-# Format 23: the unused ifVar descriptor matches its three-argument declaration.
-# Format 24: classify local references from the compiled declarations.
-# Format 25: native record version 3 and library wrapper binding exceptions.
-FORMAT_VERSION = 25
+# Format 24: closed dictionary specialization and recovered literal switches.
+# Format 26: literal probes retain the original equality graph for nonliterals.
+# Formats 21-23 were intermediate versions of these passes, never published.
+# Format 27: data type flags use 16 bits and mark class dictionaries (the
+# dictionary flag of the runtime, numbered above every intermediate format).
+# Format 28: only external declarations select registered primitives, with
+# the library's named wrapper exceptions; the native record version is 3
+# (the primitives branch used 21 to 25 for these steps, never published).
+FORMAT_VERSION = 28
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure
@@ -299,9 +302,10 @@ class CxxCompiler(compiler.CompilerBase):
         h_ctortable, ', '.join('&%s' % h for h in ctor_handles) or 'nullptr'
       )
     self.symtab.make_defined(h_ctortable)
-    yield 'SPRITE_MODULE_EXPORT DataType const %s { %s, %r, %r, F_STATIC_OBJECT, %s };' % (
+    flags = 'F_STATIC_OBJECT | F_DICTIONARY' if itype.name.startswith('_Dict#') else 'F_STATIC_OBJECT'
+    yield 'SPRITE_MODULE_EXPORT DataType const %s { %s, %r, %r, %s, %s };' % (
         h_datatype, h_ctortable, len(itype.constructors), 't'
-      , _dquote(itype.name)
+      , flags, _dquote(itype.name)
       )
     yield ''
 
@@ -637,36 +641,49 @@ class CxxCompiler(compiler.CompilerBase):
     yield switchbody
 
   def vEmit_compileS_ICaseLit(self, icase, h_sel, h_values):
-    yield 'auto tag = rts->hnf(C, &%s, &%s);' % (h_sel, h_values)
-    yield 'if(tag < T_CTOR) return tag;'
-    assert icase.branches
-    br = icase.branches[0]
+    guide = 'nullptr' if icase.rigid else '&%s' % h_values
+    probe = icase.rigid == 2
+    yield 'auto tag = rts->hnf(C, &%s, %s, false, %s);' % (h_sel, guide, 'true' if probe else 'false')
+    if probe:
+      yield 'if(tag <= E_RESTART) return tag;'
+      yield 'if(tag < T_CTOR)'
+      yield list(self.compileS(icase.branches[-1].block))
+    else:
+      yield 'if(tag < T_CTOR) return tag;'
+    branches = [b for b in icase.branches if b.lit is not None]
+    defaults = [b for b in icase.branches if b.lit is None]
+    fallback = (list(self.compileS(defaults[0].block)) if defaults
+                else ['return _0->make_failure();'])
+    assert branches
+    br = branches[0]
     if isinstance(br.lit, icurry.IInt) and any(
-        not INT_MIN <= b.lit.value <= INT_MAX for b in icase.branches):
-      for branch in icase.branches:
+        not INT_MIN <= b.lit.value <= INT_MAX for b in branches):
+      for branch in branches:
         literal = self.compileE(branch.lit, primary=True)
         yield 'if(integer_compare(%s.target, %s) == 0)' % (h_sel, literal)
         yield list(self.compileS(branch.block))
-      yield 'return _0->make_failure();'
+      yield from fallback
     elif isinstance(br.lit, icurry.IFloat):
       yield 'auto switch_value = NodeU{%s.target}.float_->value;' % h_sel
-      for branch in icase.branches:
+      for branch in branches:
         yield 'if(switch_value == %r)' % branch.lit.value
         yield list(self.compileS(branch.block))
-      yield 'else return _0->make_failure();'
+      yield from fallback
     else:
       if isinstance(br.lit, icurry.IChar):
         yield 'switch(NodeU{%s.target}.char_->value)' % h_sel
       elif isinstance(br.lit, icurry.IInt):
-        yield 'if(is_bigint(%s.target)) return _0->make_failure();' % h_sel
+        yield 'if(is_bigint(%s.target))' % h_sel
+        yield fallback
         yield 'switch(NodeU{%s.target}.int_->value)' % h_sel
       else:
         raise CompileError('bad switch type: %r' % type(br.lit))
       switchbody = []
-      for branch in icase.branches:
+      for branch in branches:
         switchbody.append('case %s:' % _cxxshow(branch.lit.value, use_char=True))
         switchbody.append(list(self.compileS(branch.block)))
-      switchbody.append('default: return _0->make_failure();')
+      switchbody.append('default:')
+      switchbody.append(fallback)
       yield switchbody
 
   def vEmit_compileE_IVar(self, ivar):
@@ -963,4 +980,3 @@ def _generate_main(target_object, goal):
   yield '  std::cout << "Entry for %r" << std::endl;' % target_object.unitname
   yield '  std::exit(0);'
   yield '}'
-
