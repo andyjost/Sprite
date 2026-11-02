@@ -64,6 +64,28 @@ class TestImporter(cytest.TestCase):
             self.assertEqual(module.__name__, name)
             self.assertEqual(list(interp.eval(module.value)), [True])
 
+  def test_commented_headers_and_mismatched_place(self):
+    headers = (
+        '{-\nmodule Example where\n{- nested -}\n-}\nmodule Parent.Leaf where'
+      , 'module {- comment -} Parent.Leaf where'
+      , '{-# OPTIONS_FRONTEND -Wno-missing-signatures #-}\nmodule Parent.Leaf where'
+      )
+    for header, place in [(header, 'Parent') for header in headers] + [
+        ('module Parent.Leaf where', 'Other')]:
+      with self.subTest(header=header, place=place):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+          root = pathlib.Path(work)
+          source = root / place / 'Leaf.curry'
+          source.parent.mkdir()
+          source.write_text(header + '\nimport Helper\nvalue :: Bool\nvalue = Helper.value\n')
+          helper_root = root if place == 'Parent' else source.parent
+          (helper_root / 'Helper.curry').write_text(
+              'module Helper where\nvalue :: Bool\nvalue = True\n')
+          interp = interpreter.Interpreter(flags={'interpret': 'all', 'jit': 'off'})
+          module = interp.import_(str(source), is_sourcefile=True)
+          self.assertEqual(module.__name__, 'Parent.Leaf')
+          self.assertEqual(list(interp.eval(module.value)), [True])
+
   def test_hierarchy_root_precedes_sibling_directory(self):
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
       root = pathlib.Path(work)

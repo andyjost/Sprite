@@ -216,6 +216,27 @@ class TestFindCurry(cytest.TestCase):
           , [root, other]
           )
 
+  def test_header_reader(self):
+    from curry.toolchain import _filenames, _frontend, _curry2icurry
+    from unittest import mock
+    source = os.path.join(self.tmpdir.name, 'Parent', 'Leaf.curry')
+    os.makedirs(os.path.dirname(source))
+    for prefix in (
+        '-- module Example where\n'
+      , '{- module Example where {- nested -} -}\n'
+      , '{-# module Example where #-}\n'
+      , '"escaped \\" module Example where"\n'
+      ):
+      with self.subTest(prefix=prefix):
+        with open(source, 'w') as stream:
+          stream.write(prefix + 'module {- comment -} Parent.Leaf where\n')
+        self.assertEqual(_filenames.module_name(source), 'Parent.Leaf')
+        self.assertEqual(_filenames.logging_module_name(source), 'Parent.Leaf')
+        self.assertEqual(_frontend.source_root(source), self.tmpdir.name)
+        with mock.patch.object(config, 'icurry_tool', return_value='icurry'):
+          converter = _curry2icurry.Curry2ICurryConverter(curry2icurry='icurry')
+          self.assertEqual(converter.command(source, source + '.icy', [])[-1], 'Parent.Leaf')
+
   def test_program_path(self):
     '''
     The search path of a program given as a file names its directory

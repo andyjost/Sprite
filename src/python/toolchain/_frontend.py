@@ -147,11 +147,15 @@ def frontend_warnings():
 
 def source_root(file_in):
   '''The source directory with one component removed per module qualifier.'''
-  from ._filenames import logging_module_name
+  from ._filenames import module_name
   directory = os.path.dirname(os.path.abspath(file_in))
-  for _ in range(logging_module_name(file_in).count('.')):
-    directory = os.path.dirname(directory)
-  return directory
+  root = directory
+  for qualifier in reversed(module_name(file_in).split('.')[:-1]):
+    if os.path.basename(root) != qualifier:
+      # PAKCS accepts a physical source path outside its declared hierarchy.
+      return directory
+    root = os.path.dirname(root)
+  return root
 
 def searchdirs(file_in, currypath):
   '''
