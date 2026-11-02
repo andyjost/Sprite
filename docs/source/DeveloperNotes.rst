@@ -359,7 +359,8 @@ unboxed value; the interpreter uses one ``CASE_LIT`` instruction. The
 original equality chain is retained in a final ``ILitBranch`` with no
 literal. A head-normal-form probe evaluates function calls but leaves choices,
 free variables, guards and constraints in place. Nonliteral heads enter the
-original chain, preserving its choice graph and answer order. Private copies
+original chain, preserving its choice graph and answer order. Guards already
+crossed by argument indexing also select this fallback. Private copies
 of the lifted helpers keep that chain available without switch recovery.
 Ordinary ICurry literal cases retain their narrowing behavior. Big Int
 literals keep arbitrary-precision comparison, and a big value falls through
@@ -416,8 +417,8 @@ use decimal conversion at the boundary to preserve every digit.
 The module image
 ================
 
-Format 4 (2026-11-01)
----------------------
+Format 10 (2026-11-01)
+----------------------
 
 A module image, ``M.img``, lives beside ``M.icy``. The translator writes it
 atomically after merging runtime built-ins and running the optimizer
@@ -440,8 +441,13 @@ Function bytecode uses the interpreter's existing 32-bit code units and
 frame sizes. Constants have explicit tags: symbol, constructor data type,
 integer (decimal text, including large integers), character (code point),
 float (IEEE binary64), string, argument-free partial application or literal
-case value set. Symbol and type references carry qualified names, never
-addresses. The native reader creates all local tables before resolving
+case value set. ``CASE_LIT`` records its variable, value-set constant,
+kind flags and a table of literal/target entries. Kind bit 8 selects rigid
+normalization. Bit 9 selects a literal probe, with two final destinations:
+bit 7's literal-miss destination, then the original equality graph for a
+nonliteral or guarded head. Each table entry uses two 32-bit words for the
+literal and one for its bytecode target. Symbol and type references carry
+qualified names, never addresses. The native reader creates all local tables before resolving
 constants against those tables and imported runtime modules. Built-ins use
 the runtime's existing tables. Attachment uses ``icurry_attach``; the JIT
 continues to obtain code and bound constants through ``icurry_bytecode``.

@@ -383,6 +383,10 @@ namespace curryrt
     // there.  The flag covers a strict application of a monadic function,
     // whose argument is evaluated by ($!) on behalf of that function.
     monadic = monadic || is_monadic(*_0->info);
+    // Indexing may already have crossed a guard before the probe starts.
+    // Keep its original equality graph, as for a guard returned by a step.
+    if(literal_probe && !inductive->guards.empty())
+      return T_SETGRD;
     tag_type tag = inspect::tag_of(inductive->target);
     while(true)
     {

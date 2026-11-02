@@ -5,6 +5,7 @@ from curry.icurry import types
 from unit_optimize import ModuleTestCase, function, ifcalls
 from curry.icurry.analysis.literals import literal_switches
 import curry, importlib.util, itertools, unittest
+from unittest import mock
 
 
 SOURCE = '''
@@ -120,6 +121,9 @@ class TestPerfcomp(ModuleTestCase):
                            [[10], [11]] + [[]] * (len(inputs) - 2))
         self.assertEqual([curry.eval(module.hugeCase(x)).one()
                           for x in [2**64, 0, 1, 2**80]], [10, 11, 12, 12])
+        from curry.expressions import _setgrd
+        guarded = cytest.raw.expr(_setgrd(7, 0))
+        self.assertEqual(list(curry.eval(cytest.raw.expr(module.intCase, guarded))), [10])
         with self.assertRaises(curry.SuspensionError):
           list(curry.eval(module.intRigid))
         self.assertTrue(curry.eval(module.floatGreater(float('nan'), 0.0)).one())
@@ -180,6 +184,53 @@ freeGraph = x =:= floatGraph &> x where x free
         text = generated_text(modules[1])
         self.assertIn('false, true)', text)
         self.assertIn('switch(NodeU{', text)
+
+  @cytest.hardreset
+  def test_probe_fallback_entries(self):
+    from curry.backends.cxx import curryrtbindings as curryrt
+    from curry.expressions import _setgrd
+    from curry.interpreter import optimize
+    modes = [dict(interpret='off', jit='off'), dict(interpret='all', jit='off')]
+    if importlib.util.find_spec('llvmlite') is not None:
+      modes.append(dict(interpret='all', jit='eager', jit_backend='llvm'))
+    for flags in modes:
+      with self.subTest(flags=flags):
+        self.reload(**flags)
+        curry.import_('Prelude')
+        name = self.write('ProbeEntries', """
+intCase :: Int -> Int
+intCase x = case x of 0 -> 10; 1 -> 11; _ -> 12
+fallbackEntry :: Int
+fallbackEntry external
+""")
+        entries = []
+        marker = name + '.fallbackEntry'
+        curryrt.register_primitive(marker, 0, lambda: entries.append(1) or 99)
+        recover = optimize.literal_switches
+        def counted(ifun, modules, imodule):
+          recover(ifun, modules, imodule)
+          if ifun.fullname == name + '.intCase':
+            switch = ifun.body.block.stmt
+            self.assertIsInstance(switch, types.ICaseLit)
+            self.assertEqual(switch.rigid, 2)
+            # Count entry to the actual recovered fallback, before its chain.
+            switch.branches[-1].block.stmt = types.IReturn(types.IFCall(marker, []))
+        with mock.patch.object(optimize, 'literal_switches', side_effect=counted):
+          module = self.import_(name)
+        prelude = curry.import_('Prelude')
+        for value, expected in [(0, 10), (1, 11), (2, 12), (2**80, 12)]:
+          self.assertEqual(list(curry.eval(cytest.raw.expr(module.intCase, value))),
+                           [expected])
+        computed = cytest.raw.expr(prelude.plusInt, 0, 0)
+        self.assertEqual(list(curry.eval(cytest.raw.expr(module.intCase, computed))), [10])
+        self.assertEqual(len(entries), 0)
+        # The guard exists before Variable::index reads the switch argument.
+        guarded = cytest.raw.expr(_setgrd(7, 0))
+        self.assertEqual(list(curry.eval(cytest.raw.expr(module.intCase, guarded))), [99])
+        self.assertEqual(len(entries), 1)
+        choice = cytest.raw.expr(cytest.raw.choice(0, 1))
+        self.assertEqual(list(curry.eval(cytest.raw.expr(module.intCase, choice))), [99])
+        self.assertEqual(len(entries), 2)
 
   def test_all_primitive_instances(self):
     for typename in ('Int', 'Char', 'Float'):
