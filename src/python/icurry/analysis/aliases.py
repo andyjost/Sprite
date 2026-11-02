@@ -16,7 +16,7 @@ from .. import types
 
 __all__ = [
     'ALIAS_KEY', 'alias_target', 'alias_target_of_body', 'lookup_function'
-  , 'resolve_alias'
+  , 'lookup_module', 'resolve_alias'
   ]
 
 # The metadata key that names the direct target of an alias function.  A
@@ -77,19 +77,45 @@ def lookup_function(symbolname, modules):
   Interpreter.modules does.  Returns None when the module is not loaded or
   has no such function.
   '''
+  obj, name = _symbol_module(symbolname, modules)
+  return obj.functions.get(name) if obj is not None else None
+
+def lookup_module(modulename, modules):
+  """Find a loaded module by its full registry name, then by namespace."""
+  obj = modules.get(modulename)
+  obj = getattr(obj, '.icurry', obj)
+  if isinstance(obj, types.IModule):
+    return obj
+  obj = modules
+  for part in modulename.split('.'):
+    try:
+      obj = obj[part]
+    except (KeyError, TypeError):
+      return None
+    obj = getattr(obj, '.icurry', obj)
+  return obj if isinstance(obj, types.IModule) else None
+
+def _symbol_module(symbolname, modules):
+  # Prefer the longest registered module prefix. Local symbol names can
+  # contain dots, so keep the remaining suffix intact.
   parts = symbolname.split('.')
+  for i in range(len(parts) - 1, 0, -1):
+    obj = modules.get('.'.join(parts[:i]))
+    obj = getattr(obj, '.icurry', obj)
+    if isinstance(obj, types.IModule):
+      return obj, '.'.join(parts[i:])
   obj = modules
   i = 0
   while not isinstance(obj, types.IModule):
     if i == len(parts):
-      return None
+      return None, None
     try:
       obj = obj[parts[i]]
     except (KeyError, TypeError):
-      return None
+      return None, None
     obj = getattr(obj, '.icurry', obj)
     i += 1
-  return obj.functions.get('.'.join(parts[i:]))
+  return obj, '.'.join(parts[i:])
 
 def resolve_alias(symbolname, modules, nargs):
   '''
