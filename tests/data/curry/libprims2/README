@@ -1,0 +1,13 @@
+Primitive package fixtures
+
+System/Directory.curry and TestDirectory.curry are from the directory CPM
+package. System/Process.curry is from process. System/FilePath.curry and
+Data/Time.curry are the filepath and time dependencies distributed with
+PAKCS 3.10.0's CPM vendor tree. The corresponding LICENSE files are beside
+these fixtures. Sources are unchanged apart from trailing whitespace and generic filepath
+comment examples, whose home-directory paths are replaced by neutral paths.
+
+PrimitiveIO.curry is Sprite's integration fixture. The unit runner adapts
+only TestDirectory's Test.Prop.returns to IO Bool, because the standard
+library's returns is a CurryCheck placeholder. The upstream test actions
+and expected results are retained.

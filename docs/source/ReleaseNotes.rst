@@ -5,6 +5,27 @@ Release Notes
 0.9.0a3 (2026-11-01)
 ====================
 
+- Implement ``System.IO`` handles and current Python standard streams,
+  enabling ``Debug.Trace.traceIO``, plus primitives for the CPM packages ``directory``
+  and ``process``. ``exitWith`` raises catchable ``SystemExit`` in the API.
+- Cache the C-stack floor once per thread, probing again after a fork.
+  In local measurements the direct evaluation entry falls from 172 to 1.2
+  microseconds with compiled code and from 914 to 1.4 microseconds with LLVM.
+- Mark dictionary types once and test a flag during head normalization.
+  With the stack-floor cache also enabled, compiled Fib uses about 4% less
+  CPU time (0.0800 to 0.0771 seconds).
+- Store union-find parents sparsely, omit repeated pairs from its collector
+  log and preserve spare log capacity at a fork. Mergesort uses 0.31 CPU
+  seconds per evaluation instead of 0.80 (2.6 times faster); large copies
+  over 12 evaluations fall from 70.1 GB to 0.46 GB. Steps, forks and value
+  order are unchanged.
+- Resolve class defaults at known instance dictionaries during compilation.
+  Fib30 with ``<`` drops from 65,285,178 to 18,529,949 steps and from
+  1.0524 to 0.3238 CPU seconds (3.3 times faster, medians of five runs).
+- Recover Int and Char literal cases as one dispatch on the unboxed value,
+  preserving the original equality graph for nonliteral scrutinees.
+  Literal-case Fib30 drops from 16,473,032 to 6,731,342 steps and from
+  0.2512 to 0.1226 CPU seconds (2.0 times faster, medians of five runs).
 - Reuse typed Python terms, copy their graphs for evaluation, and format
   goal text on demand. Warm CPU measurements reduce a small interpreted
   call from 402 to about 270 microseconds and lesson 21's overload call

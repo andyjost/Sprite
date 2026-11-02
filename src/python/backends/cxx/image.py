@@ -16,7 +16,7 @@ from . import bytecode, curryrtbindings as curryrt
 
 logger = logging.getLogger(__name__)
 MAGIC = b'SPRTIMG\0'
-VERSION = 4
+VERSION = 12
 PREFIX = struct.Struct('<8sII')
 
 
@@ -331,9 +331,10 @@ def write(interp, module, currypath=None, path=None, imports=None):
       path = _private_path(interp, module.filename)
   if imports is None:
     imports = _import_images(interp, module.imports, currypath)
+  from .materialize import function_primitive
   native = curryrt.Module.find_or_create(module.fullname)
   builtins = {f.name for f in module.functions.values()
-      if native.get_builtin_symbol(f.name) is not None}
+      if function_primitive(native, f, module) is not None}
   with _productlock.locked(path):
     try:
       _check(interp, module.filename, path, imports)
@@ -357,7 +358,10 @@ def _write(interp, module, path, imports, builtins):
   out.word(len(module.types))
   for datatype in module.types.values():
     out.text(datatype.name)
-    out.word(datatype.metadata.get('all.flags', 0))
+    flags = datatype.metadata.get('all.flags', 0)
+    if datatype.name.startswith('_Dict#'):
+      flags |= curryrt.F_DICTIONARY
+    out.word(flags)
     out.metadata(datatype.metadata)
     out.word(len(datatype.constructors))
     for ctor in datatype.constructors:
@@ -425,9 +429,10 @@ def ensure(interp, icyfile, currypath=None, importing=False):
   summaries = _summaries(interp, raw, currypath)
   imports.update({getHandle(dep).fullname:
       digest(_path(interp, getHandle(dep).icurry.filename)) for dep, _ in summaries})
+  from .materialize import function_primitive
   native = curryrt.Module.find_or_create(raw.fullname)
   builtins = {f.name for f in raw.functions.values()
-      if native.get_builtin_symbol(f.name) is not None}
+      if function_primitive(native, f, raw) is not None}
   # Imports and native summary reads precede the file lock. Only this
   # module's passes, bytecode emission and publication need serialization.
   with _productlock.locked(path):

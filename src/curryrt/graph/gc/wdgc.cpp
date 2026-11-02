@@ -1,4 +1,5 @@
 #include "curryrt/bigint.hpp"
+#include "curryrt/currylib/library.hpp"
 // The collector: mark and sweep over the block heap of gc/blockheap.cpp.
 // There are no generations and nothing is moved.
 //
@@ -348,6 +349,17 @@ namespace curryrt
 
   static std::vector<Node *> & g_bigints = *new std::vector<Node *>();
   void gc_register_bigint(Node * node) { g_bigints.push_back(node); }
+  static std::vector<Node *> & g_handles = *new std::vector<Node *>();
+  void gc_register_handle(Node * node) { g_handles.push_back(node); }
+  static void sweep_handles()
+  {
+    size_t kept = 0;
+    for(Node * node: g_handles)
+      if(heap_marked(node)) g_handles[kept++] = node;
+      else release_handle(node);
+    g_handles.resize(kept);
+  }
+
   static void sweep_bigints()
   {
     size_t kept = 0;
@@ -427,6 +439,8 @@ namespace curryrt
       for(xid_type vid: C->residuals)
         push_freevar(stack, vid);
       UnionFind const * constraints = C->strict_constraints.get();
+      // Real union endpoints include every member of every non-singleton
+      // class, including roots kept in the sparse parent table.
       if(constraints != g_last_constraints)
       {
         g_last_constraints = constraints;
@@ -772,6 +786,7 @@ namespace curryrt
     sweep_freevar_tables();
     sweep_generators();
     sweep_bigints();
+    sweep_handles();
     g_last.registries_seconds += seconds_since(tables_start);
     if(g_verifying)
     {

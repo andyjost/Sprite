@@ -2,7 +2,7 @@
 Inlines calls of small functions, and calls of a single-case function on a
 known constructor.
 
-Two rules of the optimizer rewrite a saturated call in place (see
+The optimizer rewrites a saturated call in place (see
 curry.interpreter.optimize.inline_calls):
 
   * A call of a non-recursive function whose body is an expression of at
@@ -17,6 +17,15 @@ curry.interpreter.optimize.inline_calls):
     the branch (CaseBody).  The fields of the constructor take the places of
     the pattern variables.
 
+  * A class default applied to a closed instance dictionary is expanded
+    up to CASE_LIMIT, independently of the small-expression budget.  A
+    closed instance thunk has no captured arguments; copying this static
+    function value cannot copy a choice.  It remains visible when used
+    twice, so both method and superclass selectors resolve.  When a
+    conditional helper carries the dictionary past a dynamic case, a
+    module-local specialization substitutes the dictionary in that helper
+    and rewrites its branches.  An unknown dictionary keeps runtime dispatch.
+
 The sharing rule.  Every substitution of an expression for a variable keeps
 the expression built once, as the call would have built it: an argument, a
 field, the whole constructor, or a local that is used more than once is
@@ -26,7 +35,7 @@ one that is not used is dropped.  Call-time choice demands it: ``g (0 ? 1)``
 with ``g x = (x, x)`` yields ``(0, 0)`` and ``(1, 1)``, never ``(0, 1)``.  When
 a body binds two variables to one parameter or to one field, their uses count
 together, since both name one argument.  A variable, a literal, and a static
-string are written at every use.  A free
+string, and a closed instance thunk, are written at every use.  A free
 variable of the body becomes a fresh free variable of the caller's block: one
 per inlined call, as one per call before.  A choice in the body is one choice
 per call site, as one call per site.
@@ -83,8 +92,9 @@ __all__ = [
 INLINE_KEY = 'all.inline_body'
 
 # The largest expression body recorded in the metadata, in nodes built; the
-# default budget of the pass is 4.  An importer with a larger budget reaches
-# the bodies of a compiled module up to this size.
+# default budget of the pass is 4. An importer with a larger budget reaches
+# ordinary expression bodies up to this size. Class defaults are recorded
+# up to CASE_LIMIT for specialization at a known dictionary.
 RECORD_LIMIT = 8
 
 # The largest branch of a single-case body that is inlined or recorded, in
@@ -97,6 +107,11 @@ CASE_LIMIT = 32
 MAX_DEPTH = 16
 
 _REFERENCES = (types.IVar, types.ILit, types.IString)
+
+def constant_dictionary(expr):
+  '''A closed instance dictionary thunk, with no captured value arguments.'''
+  return (type(expr) is types.IFPCall and expr.missing == 1
+      and not expr.exprs and '._inst#' in expr.symbolname)
 
 # The walks over an expression are iterative, on a stack or on the
 # trampoline: a literal list of thousands of elements is a nest of cons
@@ -478,13 +493,14 @@ def recordable(ifun, modules):
   '''
   Whether the body of ``ifun`` is one that a module records for its
   importers: it has a shape, it is not recursive, and it is within the
-  limit (RECORD_LIMIT for an expression body, CASE_LIMIT for the largest
-  branch of a single-case body).
+  limit (RECORD_LIMIT for an ordinary expression body, CASE_LIMIT for a
+  class default or the largest branch of a single-case body).
   '''
   shape = inline_shape(ifun)
   if shape is None:
     return False
-  limit = RECORD_LIMIT if isinstance(shape, ExpressionBody) else CASE_LIMIT
+  limit = (RECORD_LIMIT if isinstance(shape, ExpressionBody)
+           and not ifun.name.startswith('_def#') else CASE_LIMIT)
   return shape.size <= limit and not is_recursive(ifun, modules)
 
 def recorded_functions(imodule, modules):
@@ -559,13 +575,16 @@ class Inliner(object):
   off.  ``symbols`` collects the symbol names that the copied bodies name,
   so the caller can join the imports of the module.
   '''
-  def __init__(self, modules, budget, depth=MAX_DEPTH):
+  def __init__(self, modules, budget, depth=MAX_DEPTH, specialize=None):
     self.modules = modules
     self.budget = budget
     self.depth = depth
     self.symbols = set()
     self.count = 0
     self.nextvid = 0
+    self.specialize = specialize
+    self.constants = {}
+    self.dictionary_context = 0
 
   def rewrite(self, ifun):
     '''
@@ -582,6 +601,7 @@ class Inliner(object):
       return 0
     self.count = 0
     self.nextvid = _max_vid(block) + 1
+    self.dictionary_context = int(ifun.metadata.get('all.dictionary_specialization', False))
     self.block(block)
     return self.count
 
@@ -592,6 +612,7 @@ class Inliner(object):
 
   # Statements.
   def block(self, block):
+    outer_constants = self.constants.copy()
     vardecls = list(block.vardecls)
     assigns = []
     for assign in block.assigns:
@@ -602,6 +623,8 @@ class Inliner(object):
         vardecls.extend(pending.decls)
         assigns.extend(pending.assigns)
       assigns.append(assign)
+      if isinstance(assign, types.IVarAssign) and constant_dictionary(assign.expr):
+        self.constants[assign.vid] = assign.expr
     stmt = block.stmt
     if isinstance(stmt, types.IReturn):
       if isinstance(stmt.expr, (types.ICall, types.IOr)):
@@ -614,6 +637,7 @@ class Inliner(object):
         self.block(branch.block)
     block.vardecls = tuple(vardecls)
     block.assigns = tuple(assigns)
+    self.constants = outer_constants
 
   # Expressions.
   def expr(self, expr, pending, depth):
@@ -627,6 +651,8 @@ class Inliner(object):
 
   def _expr(self, expr, pending, depth):
     '''The walk of ``expr``: a generator over the nested calls and choices.'''
+    if type(expr) is types.IVar and expr.vid in self.constants:
+      return copy.deepcopy(self.constants[expr.vid])
     if isinstance(expr, types.ICall):
       exprs = []
       # A functional pattern is inspected before its calls are evaluated.
@@ -673,15 +699,23 @@ class Inliner(object):
     if shape is None:
       return None
     if isinstance(shape, ExpressionBody):
-      if shape.size > self.budget:
+      known_default = ifun.name.startswith('_def#') and any(
+          constant_dictionary(arg) for arg in expr.exprs)
+      if shape.size > self.budget and not (known_default and shape.size <= CASE_LIMIT):
         return None
       if is_recursive(ifun, self.modules):
         return None
       self.count += 1
-      return self.instantiate(shape, expr.exprs, pending, depth)
+      self.dictionary_context += int(known_default)
+      try:
+        return self.instantiate(shape, expr.exprs, pending, depth)
+      finally:
+        self.dictionary_context -= int(known_default)
     else:
       arg = expr.exprs[shape.index]
       if type(arg) is not types.ICCall:
+        if self.specialize is not None:
+          return self.specialize(ifun, shape, expr, bool(self.dictionary_context))
         return None
       branch = shape.branches.get(arg.symbolname)
       if branch is None or len(arg.exprs) != branch.arity:
@@ -703,7 +737,7 @@ class Inliner(object):
     the variables together.  A local that gets a variable is rewritten
     first (``rewrite``); an argument was rewritten already.
     '''
-    if isinstance(expr, _REFERENCES) or uses <= 1:
+    if isinstance(expr, _REFERENCES) or constant_dictionary(expr) or uses <= 1:
       image = expr
     else:
       if rewrite:
@@ -805,7 +839,7 @@ def _fresh_ref(expr):
   '''
   if isinstance(expr, types.IVar):
     return types.IVar(expr.vid)
-  if isinstance(expr, _REFERENCES):
+  if isinstance(expr, _REFERENCES) or constant_dictionary(expr):
     return copy.deepcopy(expr)
   return expr
 

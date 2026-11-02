@@ -925,7 +925,7 @@ _HELPERS = {
   , 'jit_store_var': ('v', 'ppp'), 'jit_set_succ': ('v', 'pip')
   , 'jit_exempt': ('t', 'p'), 'jit_ret_ref': ('t', 'pp')
   , 'jit_ret_node': ('t', 'pppi'), 'jit_ret_string': ('t', 'pp')
-  , 'jit_hnf': ('t', 'pppp'), 'jit_var_target': ('p', 'p')
+  , 'jit_literal_probe': ('t', 'ppp'), 'jit_hnf': ('t', 'pppp'), 'jit_var_target': ('p', 'p')
   , 'jit_is_bigint': ('i', 'p'), 'jit_int_value': ('q', 'p')
   , 'jit_char_value': ('i', 'p'), 'jit_float_value': ('d', 'p')
   , 'jit_integer_compare': ('i', 'pp')
@@ -1207,7 +1207,17 @@ class _Emitter(object):
       assert not stack
       v, k, kind, n = ops[0], ops[1], ops[2], ops[3]
       entries = [tuple(ops[4 + 3 * i:7 + 3 * i]) for i in range(n)]
-      tag = self.call('jit_hnf', self.rts, self.C, self.vars[v], self.const(k))
+      guide = self.ir.Constant(self.ptr, None) if kind & 256 else self.const(k)
+      if kind & 512:
+        tag = self.call('jit_literal_probe', self.rts, self.C, self.vars[v])
+        nonliteral = b.and_(
+            b.icmp_signed('>', tag, self.ir.Constant(self.i16, -10)),
+            b.icmp_signed('<', tag, self.ir.Constant(self.i16, T_CTOR)))
+        dispatch = self.fn.append_basic_block('literal_probe')
+        b.cbranch(nonliteral, self.blocks[entries[-1][2]], dispatch)
+        b.position_at_end(dispatch)
+      else:
+        tag = self.call('jit_hnf', self.rts, self.C, self.vars[v], guide)
       is_status = b.icmp_signed('<', tag, self.ir.Constant(self.i16, T_CTOR))
       status = self.fn.append_basic_block('ret_status')
       value_block = self.fn.append_basic_block('value')
@@ -1217,18 +1227,25 @@ class _Emitter(object):
       b.position_at_end(value_block)
       node = self.call('jit_var_target', self.vars[v])
       fail = self.fn.append_basic_block('no_branch')
-      kind = chr(kind)
+      if kind & 512:
+        entries.pop()  # The probe's nonliteral target is separate from a miss.
+      if kind & 128:
+        default_target = entries.pop()[2]
+        fallback = self.blocks[default_target]
+      else:
+        fallback = fail
+      kind = chr(kind & 127)
       if kind in 'ic':
         if kind == 'i':
           big = self.call('jit_is_bigint', node)
           is_big = b.icmp_unsigned('!=', big, self.i32c(0))
           small = self.fn.append_basic_block('small')
-          b.cbranch(is_big, fail, small)
+          b.cbranch(is_big, fallback, small)
           b.position_at_end(small)
           value = self.call('jit_int_value', node)
         else:
           value = b.zext(self.call('jit_char_value', node), self.i64)
-        switch = b.switch(value, fail)
+        switch = b.switch(value, fallback)
         for lo, hi, target in entries:
           switch.add_case(self.ir.Constant(self.i64, (lo | (hi << 32))), self.blocks[target])
       elif kind == 'f':
@@ -1240,7 +1257,7 @@ class _Emitter(object):
           miss = self.fn.append_basic_block('miss')
           b.cbranch(hit, self.blocks[target], miss)
           b.position_at_end(miss)
-        b.branch(fail)
+        b.branch(fallback)
       elif kind == 'p':
         for lo, hi, target in entries:
           other = self.const(lo | (hi << 32))
@@ -1248,7 +1265,7 @@ class _Emitter(object):
           miss = self.fn.append_basic_block('miss')
           b.cbranch(same, self.blocks[target], miss)
           b.position_at_end(miss)
-        b.branch(fail)
+        b.branch(fallback)
       else:
         raise ValueError('a literal case of kind %r' % kind)
       b.position_at_end(fail)

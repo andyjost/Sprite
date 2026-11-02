@@ -36,7 +36,7 @@ namespace curryrt { namespace platform {
   void at_fork(void (*prepare)(), void (*parent)(), void (*child)());
 
   // The lowest address of the stack of the calling thread, or nullptr when
-  // the platform cannot say.
+  // the platform cannot say. Cached per thread, reprobed in a forked child.
   char const * stack_floor_of_this_thread();
 
   // Aligned allocation and its release; the pair belongs together.

@@ -200,10 +200,9 @@ class RuntimeState(RuntimeStateBase):
     '''
     Generates the values of the goal.
 
-    The Curry program writes to the C standard output, and Python writes to
-    ``sys.stdout``.  Both buffers share one file descriptor.  Python's buffer
-    is flushed before the scheduler runs, and the C buffer when the scheduler
-    returns (see the ``next`` binding), so the output keeps its order.
+    Curry character IO uses the current Python standard streams through
+    the host hook below. Flushing before the scheduler also orders buffered
+    Python output before native child-process output.
 
     The step limit of the stepper (``stepcounter``) ends the evaluation with
     E_TERMINATE, the flow-control exception of the generic evaluator.
@@ -223,3 +222,216 @@ def _flush_stdout():
   except (AttributeError, OSError, ValueError):
     pass
 
+
+# One character of lookahead per current Python standard stream. Replacing a
+# stream drops its old lookahead. File handles use native binary UTF-8 streams.
+_stream_lookahead = [None, None, None]
+_stream_recovered = [None, None, None]
+
+def _read_standard_char(stream, index):
+  from collections import deque
+  recovered = _stream_recovered[index]
+  if recovered is not None and recovered[0] is stream and (recovered[1] or recovered[2]):
+    char = recovered[1].popleft() if recovered[1] else ''
+  else:
+    _stream_recovered[index] = None
+    try:
+      char = stream.read(1)
+    except UnicodeDecodeError as error:
+      # A strict TextIOWrapper has consumed this byte chunk but produced no
+      # characters. Retain its replacement-decoded content without changing
+      # the caller's stream encoding or error policy.
+      chars = deque(error.object.decode(error.encoding, 'replace'))
+      char = chars.popleft() if chars else ''
+      # An incomplete sequence is diagnosed only when the decoder sees
+      # EOF. Do not ask it to finalize that same pending prefix again.
+      eof = error.reason in ('unexpected end of data', 'truncated data',
+                             'incomplete multibyte sequence')
+      _stream_recovered[index] = (stream, chars, eof)
+  # Curry characters are Unicode scalar values. Python's surrogateescape
+  # represents malformed input bytes with surrogates, which become U+FFFD.
+  return '\ufffd' if char and 0xd800 <= ord(char) <= 0xdfff else char
+
+def _windows_nonblocking_pipe(descriptor):
+  # Python 3.11 lacks the Windows os.get_blocking/set_blocking interface.
+  import ctypes
+  import msvcrt
+  kernel = ctypes.windll.kernel32
+  handle = ctypes.c_void_p(msvcrt.get_osfhandle(descriptor))
+  mode = ctypes.c_ulong()
+  if not kernel.GetNamedPipeHandleStateW(handle, ctypes.byref(mode),
+                                        None, None, None, None, 0):
+    return None
+  nonblocking = ctypes.c_ulong(mode.value | 1)  # PIPE_NOWAIT
+  if not kernel.SetNamedPipeHandleState(handle, ctypes.byref(nonblocking), None, None):
+    raise ctypes.WinError(kernel.GetLastError())
+  def restore():
+    if not kernel.SetNamedPipeHandleState(handle, ctypes.byref(mode), None, None):
+      raise ctypes.WinError(kernel.GetLastError())
+  return restore
+
+
+def _peek_standard_char(stream, index, nonblocking=False):
+  pending = _stream_lookahead[index]
+  if pending is not None and pending[0] is stream:
+    return pending
+  try:
+    position = stream.tell()
+  except (OSError, ValueError, AttributeError):
+    position = None
+  restore = None
+  descriptor = None
+  raw = None
+  readinto = None
+  if nonblocking:
+    try:
+      descriptor = stream.fileno()
+      blocking = _os.get_blocking(descriptor)
+      _os.set_blocking(descriptor, False)
+      restore = lambda: _os.set_blocking(descriptor, blocking)
+    except AttributeError:
+      if descriptor is None or sys.platform != 'win32': return None
+      restore = _windows_nonblocking_pipe(descriptor)
+      if restore is None: return None
+    except (OSError, ValueError):
+      return None
+  original_readinto = None
+  patched = False
+  try:
+    if nonblocking:
+      # BufferedReader.read1 maps a raw None (would block) to b'', which a
+      # TextIOWrapper's incremental decoder treats as final EOF. Preserve the
+      # distinction at the byte boundary, leaving partial bytes in that decoder
+      # until another read supplies the rest. Already decoded text stays visible.
+      raw = getattr(getattr(stream, 'buffer', None), 'raw', None)
+      if raw is not None:
+        readinto = raw.readinto
+        original_readinto = vars(raw).get('readinto')
+        def read_available(buffer):
+          count = readinto(buffer)
+          if count is None:
+            raise BlockingIOError('no input available')
+          return count
+        raw.readinto = read_available
+        patched = True
+    char = _read_standard_char(stream, index)
+    # An empty nonblocking read need not mean EOF. The descriptor probe
+    # below distinguishes no input from EOF without caching this result.
+    if nonblocking and not char:
+      return None
+    pending = (stream, char, position)
+    _stream_lookahead[index] = pending
+    return pending
+  except (BlockingIOError, TypeError):
+    if not nonblocking:
+      raise
+    return None
+  except OSError as error:
+    # Older Windows raw readers report an empty nonblocking pipe this way.
+    if nonblocking and getattr(error, 'winerror', None) == 232:
+      return None
+    raise
+  finally:
+    if patched:
+      if original_readinto is None:
+        del raw.readinto
+      else:
+        raw.readinto = original_readinto
+    if restore is not None:
+      restore()
+
+
+def _standard_stream(index, operation, text, value):
+  import io
+  import select
+  import time
+  streams = (sys.stdin, sys.stdout, sys.stderr)
+  stream = streams[index]
+  if operation == 'waits':
+    selected = [streams[int(i)] for i in text]
+    if not selected:
+      if value > 0: time.sleep(value / 1000)
+      return '-1'
+    for i, item in enumerate(selected):
+      pending = _stream_lookahead[int(text[i])]
+      recovered = _stream_recovered[int(text[i])]
+      if item.closed: raise ValueError('stream does not exist (closed handle)')
+      if not item.readable(): raise ValueError('stream is not readable')
+      if pending is not None and pending[0] is item: return str(i)
+      if recovered is not None and recovered[0] is item and recovered[1]: return str(i)
+      if isinstance(item, io.StringIO): return str(i)
+      # A text wrapper may already hold decoded input although its descriptor
+      # is empty. Probe the same reader without blocking, retaining the char.
+      if _peek_standard_char(item, int(text[i]), nonblocking=True) is not None:
+        return str(i)
+      import stat
+      if stat.S_ISREG(_os.fstat(item.fileno()).st_mode): return str(i)
+    if sys.platform == 'win32':
+      # select on Windows supports sockets only; console and pipes use msvcrt
+      # and PeekNamedPipe, through Python's platform libraries.
+      import ctypes
+      import msvcrt
+      deadline = None if value < 0 else time.monotonic() + value / 1000
+      while True:
+        for i, item in enumerate(selected):
+          if item.isatty():
+            if msvcrt.kbhit(): return str(i)
+          else:
+            available = ctypes.c_ulong()
+            ok = ctypes.windll.kernel32.PeekNamedPipe(
+                ctypes.c_void_p(msvcrt.get_osfhandle(item.fileno())),
+                None, 0, None, ctypes.byref(available), None)
+            if ok and available.value: return str(i)
+            if not ok:
+              error = ctypes.windll.kernel32.GetLastError()
+              if error == 109: return str(i)
+              raise ctypes.WinError(error)
+        if deadline is not None and time.monotonic() >= deadline: return '-1'
+        time.sleep(.001)
+    ready, _, _ = select.select(selected, [], [], None if value < 0 else value / 1000)
+    return str(next((i for i, item in enumerate(selected) if item in ready), -1))
+  if operation == 'prim_hClose':
+    if not stream.closed: stream.close()
+    _stream_lookahead[index] = None
+    _stream_recovered[index] = None
+    return ''
+  if stream.closed: raise ValueError('stream does not exist (closed handle)')
+  pending = _stream_lookahead[index]
+  if pending is not None and pending[0] is not stream:
+    _stream_lookahead[index] = pending = None
+  if operation == 'prim_hPutChar': stream.write(text)
+  elif operation == 'prim_hFlush': stream.flush()
+  elif operation == 'prim_hIsReadable': return '1' if stream.readable() else '0'
+  elif operation == 'prim_hIsWritable': return '1' if stream.writable() else '0'
+  elif operation == 'prim_hIsTerminalDevice': return '1' if stream.isatty() else '0'
+  elif operation == 'prim_hWaitForInput':
+    return '1' if _standard_stream(index, 'waits', str(index), value) == '0' else '0'
+  elif operation == 'prim_hIsEOF':
+    if pending is None:
+      pending = _peek_standard_char(stream, index)
+    return '1' if pending[1] == '' else '0'
+  elif operation == 'prim_hGetChar':
+    if pending is not None:
+      _stream_lookahead[index] = None
+      return pending[1]
+    return _read_standard_char(stream, index)
+  elif operation == 'prim_hSeek':
+    if int(text) == 1 and pending is not None and pending[2] is not None:
+      # Text positions are opaque cookies, not byte or character counts.
+      stream.seek(pending[2])
+    stream.seek(value, int(text))
+    _stream_lookahead[index] = None
+    _stream_recovered[index] = None
+  else: raise ValueError('unknown standard stream operation: ' + operation)
+  return ''
+
+set_stream_hook(_standard_stream)
+import atexit as _atexit
+_atexit.register(shutdown_handles)
+
+def _exit_with(code):
+  shutdown_handles()
+  raise SystemExit(code)
+
+register_primitive('System.Process.getPID', 0, _os.getpid, True)
+register_primitive('System.Process.prim_exitWith', 1, _exit_with, True)
