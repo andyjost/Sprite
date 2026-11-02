@@ -4,7 +4,7 @@ import cytest # from ./lib; must be first
 from curry import config
 from curry.objects.handle import getHandle
 import curry, logging, os, shutil, subprocess, sys, unittest
-import tempfile
+import pathlib, tempfile
 from unittest import mock
 from cytest.logging import capture_log
 
@@ -375,6 +375,63 @@ print([str(v) for v in curry.eval(M2.main)])
 
 
 class TestPublicObjects(cytest.TestCase):
+  @unittest.skipIf(config.cxx_tool() is None,
+                   'a saved program needs the C++ compiler')
+  def test_saved_child_of_module_or_namespace(self):
+    cases = (
+        ('Family.Child', {
+            'Family': 'answer :: Bool\nanswer = True\n',
+            'Family.Child': 'import Family\nmain :: IO ()\n'
+                            'main = print Family.answer\n'}),
+        ('A.B.C', {
+            'A': 'answer :: Bool\nanswer = True\n',
+            'A.B': 'import A\nanswer :: Bool\nanswer = A.answer\n',
+            'A.B.C': 'import A.B\nmain :: IO ()\n'
+                     'main = print A.B.answer\n'}),
+        ('P.Q', {'P.Q': 'main :: IO ()\nmain = print True\n'}),
+      )
+    code = r'''
+import curry
+from curry.objects.handle import getHandle
+from pathlib import Path
+curry.reset(**%(flags)r)
+curry.path.insert(0, %(work)r)
+module = curry.import_(Path(%(source)r))
+assert (getHandle(module).sofilename is None) == (curry.flags['interpret'] == 'all')
+curry.save(module, Path(%(program)r), main='main')
+assert curry.modules[module.__name__] is module
+parent, _, local = module.__name__.rpartition('.')
+assert getattr(curry._interpreter_.modules[parent], local) is module
+'''
+    for name, sources in cases:
+      for flags in ({'jit': 'off'}, {'interpret': 'all', 'jit': 'off'}):
+        with self.subTest(name=name, flags=flags):
+          with tempfile.TemporaryDirectory() as work:
+            root = pathlib.Path(work)
+            for fullname, body in sources.items():
+              source = root / (fullname.replace('.', '/') + '.curry')
+              source.parent.mkdir(parents=True, exist_ok=True)
+              source.write_text('module %s where\n%s' % (fullname, body))
+            source = root / (name.replace('.', '/') + '.curry')
+            program = root / 'program.exe'
+            # Saving links the objects of the imports. Prepare those and
+            # the child, so the default mode saves a loaded object too.
+            env = dict(os.environ, CURRYPATH=work,
+                       SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:off,jit:off')
+            build = subprocess.run(
+                [sys.executable, '-m', 'curry.tools.make', '--so', str(source)],
+                env=env, capture_output=True, text=True, timeout=TIMEOUT)
+            self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+            proc = cytest.run_in_subprocess(code % dict(
+                flags=flags, work=work, source=str(source), program=str(program)),
+                TIMEOUT)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            run = subprocess.run([str(program)], capture_output=True,
+                                 text=True, timeout=TIMEOUT,
+                                 env=dict(os.environ, CURRYPATH=work))
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            self.assertEqual(run.stdout, 'True\n', run.stderr)
+
   @cytest.skipUnlessObjectsLoad('curry.load opens a saved module with any suffix')
   def test_nonstandard_suffix_maps_the_requested_file(self):
     module = curry.compile('answer :: Int\nanswer = 42', name='SavedSuffix')

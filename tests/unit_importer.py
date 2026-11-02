@@ -1,9 +1,35 @@
 import cytest # from ./lib; must be first
 from curry import interpreter
 from curry.exceptions import ModuleLookupError
+from curry.objects.handle import getHandle
 import pathlib, tempfile, sys
 
 class TestImporter(cytest.TestCase):
+  def test_unlink_child_of_module_or_namespace(self):
+    for prefix_module in (False, True):
+      with self.subTest(prefix_module=prefix_module):
+        with tempfile.TemporaryDirectory() as work:
+          root = pathlib.Path(work)
+          (root / 'Parent').mkdir()
+          (root / 'Parent/Child.curry').write_text(
+              'module Parent.Child where\nanswer :: Bool\nanswer = True\n')
+          if prefix_module:
+            # An empty module must survive removal of its last child.
+            (root / 'Parent.curry').write_text('module Parent where\n')
+          interp = interpreter.Interpreter(flags={'interpret': 'all', 'jit': 'off'})
+          interp.path.insert(0, work)
+          parent = interp.import_('Parent')
+          child = interp.import_('Parent.Child')
+          self.assertIs(parent.Child, child)
+          getHandle(child).unlink(interp)
+          self.assertNotIn('Parent.Child', interp.modules)
+          self.assertFalse(hasattr(parent, 'Child'))
+          if prefix_module:
+            self.assertIs(interp.modules['Parent'], parent)
+          else:
+            self.assertNotIn('Parent', interp.modules)
+            self.assertNotIn('Child', getHandle(parent).icurry)
+
   def test_directory_does_not_hide_module(self):
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
       root = pathlib.Path(work)

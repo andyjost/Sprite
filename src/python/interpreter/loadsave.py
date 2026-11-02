@@ -197,13 +197,15 @@ def compilable_icurry(interp, cymodule, icy):
 def _standing_in(interp, cymodule, imodule):
   '''
   Binds ``imodule`` under the name of ``cymodule`` among the loaded modules
-  of ``interp``, and in the ICurry of its package, for the duration of the
-  block; the loaded module is restored on exit.
+  of ``interp``, and in the ICurry of its namespace package, if any, for
+  the duration of the block; the loaded module is restored on exit.
   '''
   h = handle.getHandle(cymodule)
   with binding(interp.modules, h.fullname, imodule):
     pkg = h.package(interp)
-    if pkg is None:
+    # A prefix may be a module too. Only namespace packages keep child
+    # ICurry entries; module prefixes use the full-name registry above.
+    if pkg is None or not pkg.is_package:
       yield
     else:
       with binding(pkg.icurry, h.name, imodule):
