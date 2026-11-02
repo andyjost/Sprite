@@ -269,9 +269,11 @@ print('missing preprocessor detected and skipped')
     actual = (self.compatible(classes, [root]) if config.frontend_version() == '3.1.0'
               else readbytes(out))
     self.assertEqual(actual, readbytes(classes_icy))
-    # Compiled by itself, the hierarchical module keeps its own directory.
+    # Sprite's products stay beside the source; front-end files use the root.
     out = self.convert(deep, [root])
     self.assertEqual(out, os.path.join(root, 'Sub', SUBDIR, 'Deep.icy'))
+    self.assertEqual(_frontend.flatcurryfile(deep),
+        os.path.join(root, FE_SUBDIR, 'Sub', 'Deep.fcy'))
     self.assertEqual(readbytes(out), readbytes(deep_icy))
 
   def test_typed_root(self):

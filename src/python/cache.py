@@ -272,16 +272,15 @@ def import_closure(curryfile, currypath=()):
   '''
   Finds the modules that ``curryfile`` imports, transitively, as Curry source
   files in the Curry path.  The Prelude is implicit.  A module without a source
-  file in the path or installed library is left out. The directory of
-  ``curryfile`` is searched first.
+  file in the path or installed library is left out. The hierarchy root of
+  ``curryfile`` is searched first, just as in the front-end invocation.
 
   Returns:
     A dict from module name to ``SourceInfo``.
   '''
   curryfile = os.path.abspath(curryfile)
-  searchpaths = [os.path.dirname(curryfile)]
-  searchpaths += [os.path.abspath(p) for p in currypath if p]
-  searchpaths.append(os.path.abspath(config.system_curry_path()))
+  from .toolchain import _frontend
+  searchpaths = _frontend.searchdirs(curryfile, currypath)
   closure = {}
   pending = ['Prelude'] + _sourceinfo(curryfile).imports
   seen = set()
