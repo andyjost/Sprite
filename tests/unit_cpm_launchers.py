@@ -136,6 +136,27 @@ class TestPrivateLaunchers(cytest.TestCase):
               env=dict(os.environ, HOME=home), capture_output=True)
           self.assertEqual(result.returncode == 0, accepted)
 
+  def test_ci_memory_sampler(self):
+    workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+    start = workflow.index("          (\n            trap 'exit 0' TERM")
+    end = workflow.index('\n          exit "$status"', start)
+    script = workflow[start:end] + '\nexit "$status"\n'
+    with tempfile.TemporaryDirectory() as work:
+      work = Path(work)
+      log = work / '.cache/runner/cxx/unit_cpm_repl.py.log'
+      log.parent.mkdir(parents=True)
+      log.write_text('test failure details\n')
+      runner = work / 'run_tests'
+      for status in (0, 7):
+        with self.subTest(status=status):
+          runner.write_text('#!/bin/sh\nsleep 0.1\nexit ' + str(status) + '\n')
+          runner.chmod(0o755)
+          result = subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', script],
+              cwd=work, capture_output=True, text=True, timeout=15)
+          self.assertEqual(result.returncode, status, result.stdout + result.stderr)
+          self.assertIn('RSS', result.stdout)
+          self.assertEqual('test failure details' in result.stdout.splitlines(), status != 0)
+
   def test_survey_classification(self):
     spec = importlib.util.spec_from_file_location('survey', ROOT / 'scripts/cpm-index-run.py')
     survey = importlib.util.module_from_spec(spec)

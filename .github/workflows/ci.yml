@@ -904,7 +904,27 @@ jobs:
           env -u CURRYPATH python -c 'import curry; M = curry.import_("Data.Map"); print(curry.eval(M.size(M.empty)).one())'
           # The property test retains its expected failure at the library guard.
           cd "$GITHUB_WORKSPACE/tests"
-          ./run_tests -j 1 unit_cpm_repl.py
+          (
+            trap 'exit 0' TERM
+            while :; do
+              ps -eo pid,ppid,rss,etimes,args --sort=-rss | head -11 | cut -c 1-240 || true
+              sleep 2
+            done
+          ) &
+          sampler=$!
+          stop_sampler() {
+            kill "$sampler" 2>/dev/null || true
+            wait "$sampler" 2>/dev/null || true
+          }
+          trap stop_sampler EXIT
+          status=0
+          ./run_tests -j 1 unit_cpm_repl.py || status=$?
+          stop_sampler
+          trap - EXIT
+          if [ "$status" -ne 0 ]; then
+            cat .cache/runner/cxx/unit_cpm_repl.py.log || true
+          fi
+          exit "$status"
 
   deploy-docs:
     name: deploy docs
