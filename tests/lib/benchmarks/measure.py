@@ -355,13 +355,13 @@ def parse_time(stdout):
 def parse_pakcs(stdout):
   '''
   The run time and the elapsed time that PAKCS prints with ``:set +time``,
-  in seconds, as the pair (cpu, wall); None when absent.
+  in seconds, as (user CPU, user plus system CPU); None when absent.
   '''
   found = PAKCS_PATTERN.findall(stdout)
   if not found:
     return None
-  cpu, wall = found[-1]
-  return int(cpu) / 1000.0, int(wall) / 1000.0
+  user_cpu, cpu = found[-1]
+  return int(user_cpu) / 1000.0, int(cpu) / 1000.0
 
 
 def parse_json(stdout):

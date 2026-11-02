@@ -31,6 +31,8 @@ from ..utility.locking import native_metadata
 from .. import backends, exceptions, inspect
 from ..common import T_FUNC
 from ..objects import CurryNodeInfo
+from ..objects import terms as surface
+from ..objects.results import Results
 from ..objects.handle import getHandle
 from ..toolchain.flat2icurry import flatcurry as fc
 from ..utility import strings
@@ -38,7 +40,7 @@ from . import engine, errors, terms
 from .engine import (
     App, Free, Iter, Known, List, Lit, Problem, Spec, Tuple, Typed, describe
   )
-from .instances import DATA_CLASS
+from .instances import DATA_CLASS, Pred
 from .sigtable import INST_PREFIX, Scheme, show_type
 from .terms import Rigid, Var, tcons, whnf
 import collections.abc, itertools, numbers, weakref
@@ -58,6 +60,14 @@ VALUE_WALK_CAP = 100000
 BOOL, INT, FLOAT, CHAR = (fc.prelude(n) for n in ('Bool', 'Int', 'Float', 'Char'))
 LIST = fc.prelude('[]')
 GENERATOR_NODE = '_biGenerator'
+
+class Held(App):
+  '''A typed term's scheme, with its graph shared until evaluation.'''
+  __slots__ = ('term',)
+
+  def __init__(self, term):
+    App.__init__(self, term._scheme)
+    self.term = term
 
 # The specs of the builder
 # ========================
@@ -295,7 +305,7 @@ class TypedBuilder:
   (:meth:`specs`), types them (:class:`TypedProblem`) and makes the nodes
   (:meth:`materialize`).
   '''
-  def __init__(self, interp, target=None):
+  def __init__(self, interp, target=None, reuse_terms=False):
     from .. import expressions
     self.X = expressions
     self.interp = interp
@@ -313,6 +323,9 @@ class TypedBuilder:
     self._term_specs = {}
     self._term_counts = {}
     self._function_nodes = {}
+    self._specialized = False
+    self.reuse_terms = reuse_terms
+    self._held = False
 
   # The untyped builder, for the parts without a type.
   @property
@@ -365,23 +378,23 @@ class TypedBuilder:
     :class:`Group`.
     '''
     X = self.X
-    from ..objects.terms import named_vars
     anchors = dict(anchors)
-    named_vars((args, tuple(anchors.values())))
+    surface.named_vars((args, tuple(anchors.values())))
     # Every keyword anchor is declared before any value is converted, so
     # that an anchor may refer to one that comes later.
     for name in anchors:
       self._declare_anchor(name)
     forms = [X.anchor(value, name=name) for name, value in anchors.items()]
     forms.append(self._form(args))
-    from ..objects.terms import Term, LetForm
+    Term, LetForm = surface.Term, surface.LetForm
     pending = [] if getattr(self, '_precounted', False) else list(forms)
     while pending:
       value = pending.pop()
       if isinstance(value, Term):
         key = id(value)
         self._term_counts[key] = self._term_counts.get(key, 0) + 1
-        if self._term_counts[key] == 1:
+        if self._term_counts[key] == 1 and not (
+            self.reuse_terms and getattr(value, '_typeexpr', None) is not None):
           pending.append(value._form)
       elif isinstance(value, LetForm):
         pending.extend((value.body, *value.bindings.values()))
@@ -416,10 +429,8 @@ class TypedBuilder:
     head = args[0]
     from ..objects.classes import constructor_term
     head = constructor_term(head)
-    from ..objects.terms import Term
-    if isinstance(head, Term) and head.symbol is not None:
-      from ..objects.terms import check_term
-      check_term(head)
+    if isinstance(head, surface.Term) and head.symbol is not None:
+      surface.check_term(head)
       return [head.symbol._info, *head._args, *args[1:]]
     if isinstance(head, (CurryNodeInfo, backends.InfoTable)):
       return list(args)
@@ -433,14 +444,14 @@ class TypedBuilder:
     from ..objects.classes import constructor_term
     arg = constructor_term(arg)
     X = self.X
-    from ..objects.results import Results
     if isinstance(arg, Results):
       from .errors import ConversionError
       raise ConversionError('cannot convert Results to a Curry list: write list(results)')
-    from ..objects.terms import Term, Function, ValueList, Var as TermVar, Reference, LetForm, IteratorSource
+    Term, Function, ValueList, TermVar, Reference, LetForm, IteratorSource = (
+        surface.Term, surface.Function, surface.ValueList, surface.Var,
+        surface.Reference, surface.LetForm, surface.IteratorSource)
     if isinstance(arg, Term):
-      from ..objects.terms import check_term
-      check_term(arg)
+      surface.check_term(arg)
     if isinstance(arg, TermVar):
       return self.spec_of(arg._marker)
     if isinstance(arg, Function):
@@ -457,6 +468,7 @@ class TypedBuilder:
           ) from None
     if isinstance(arg, LetForm):
       nested = TypedBuilder(self.interp)
+      nested.reuse_terms = self.reuse_terms
       nested._precounted = True
       nested._term_counts = self._term_counts
       nested._term_specs = self._term_specs
@@ -467,6 +479,22 @@ class TypedBuilder:
     if isinstance(arg, Term):
       if isinstance(arg._form, collections.abc.Iterator):
         return Raw(arg._node, walk=True), ()
+      if self.reuse_terms and getattr(arg, '_typeexpr', None) is not None \
+          and getattr(arg, '_scheme', None) is not None:
+        self._held = True
+        if self._term_counts.get(id(arg), 0) < 2:
+          return Held(arg), ()
+        key = self._term_specs.get(id(arg))
+        if key is not None:
+          return Ref(key), ()
+        key = self._term_specs[id(arg)] = Var()
+        self.anchors[key] = None
+        spec = Wrap('anchor', key)
+        spec.items[0] = Held(arg)
+        return spec, ()
+      if self.reuse_terms and getattr(arg, '_typeexpr', None) is not None:
+        self._held = True
+        return Known(arg._typeexpr, arg._node), ()
       form = arg._form if arg._annotation is None else X.typed(arg._form, arg._annotation)
       if self._term_counts.get(id(arg), 0) < 2:
         return self.spec_of(form)
@@ -506,8 +534,7 @@ class TypedBuilder:
       if arg:
         head = constructor_term(arg[0])
         if isinstance(head, Term) and head.symbol is not None and not head._args:
-          from ..objects.terms import check_term
-          check_term(head)
+          surface.check_term(head)
           return self._application(head.symbol._info, arg[1:])
         if isinstance(head, CurryNodeInfo):
           return self._application(head, arg[1:])
@@ -680,8 +707,7 @@ class TypedBuilder:
     '''Types a spec tree, builds its node and records the result type.'''
     problem = TypedProblem(self, root, exprtype)
     problem.solve()
-    from ..objects.terms import fix_variable_types
-    fix_variable_types(problem)
+    surface.fix_variable_types(problem)
     # Low-level free markers share a runtime node too.  Keep its concrete
     # type across builds, just as the public Var does.
     for spec in problem.frees:
@@ -724,6 +750,17 @@ class TypedBuilder:
   def finish(self, problem, spec, args, target):
     '''The node of a spec whose children are the nodes ``args``.'''
     make = self._mknode
+    if isinstance(spec, Held):
+      term = spec.term
+      typeexpr = problem.type_of(spec)
+      if typeexpr == term._typeexpr:
+        return self._forward(getattr(term, '_typed_node', term._node), target)
+      # A context can specialize a literal differently from its first
+      # default (Just 1 can subsequently be used at Maybe Float).
+      self._specialized = True
+      nested = TypedBuilder(self.interp, reuse_terms=True)
+      node = nested.run(nested.specs((term._form,)), typeexpr)
+      return self._forward(node, target)
     if isinstance(spec, App):
       return self._app_node(problem, spec, args, target)
     if isinstance(spec, Lit):
@@ -892,15 +929,17 @@ class TypedBuilder:
     items = cursor(self.interp, spec.payload, elemtype, problem.location(spec))
     return self._mknode(self.prelude._biGenerator, items, target=target)
 
-  def _copy_function(self, root):
+  def _copy_function(self, root, variables=()):
     '''A fresh captured graph, with replayable iterator cursors.'''
     copies = self._function_nodes
+    shared = {node.id() for var in variables
+        if (node := var._marker._shared(self.interp)) is not None}
     pending = [root]
     while pending:
       node = pending.pop()
       if node.id() in copies:
         continue
-      if inspect.isa_freevar(node):
+      if node.id() in shared or inspect.isa_freevar(node):
         copies[node.id()] = node
       elif node.info.name == GENERATOR_NODE and IteratorCursor.of_node(node) is not None:
         cursor = IteratorCursor.of_node(node).fork()
@@ -914,7 +953,7 @@ class TypedBuilder:
       if node.id() in seen:
         continue
       seen.add(node.id())
-      if inspect.isa_freevar(node):
+      if node.id() in shared or inspect.isa_freevar(node):
         continue
       copy = copies[node.id()]
       for index, child in enumerate(node.successors):
@@ -1090,6 +1129,32 @@ class TypedProblem(Problem):
     return var
 
   def _enter(self, spec, expected):
+    if isinstance(spec, Held):
+      scheme = spec.scheme = spec.term._scheme
+      mapping, kinds = {}, dict(scheme.typevars)
+      spec.type = terms.instantiate(scheme.typeexpr, mapping, kinds)
+      spec.preds = [Pred(p.classname,
+          terms.instantiate(p.typeexpr, mapping, kinds), spec, None, i)
+          for i, p in enumerate(scheme.context)]
+      for pred in spec.preds:
+        self._attach(pred)
+      self.apps.append(spec)
+      self._env_vars.extend(terms.instantiate(t, mapping, kinds)
+          for t in spec.term._environment_types)
+      for typeexpr in spec.term._iterator_types:
+        iterator = Iter()
+        iterator.elem = Var()
+        self._unify(iterator.elem, terms.instantiate(typeexpr, mapping, kinds), spec)
+        self.iters.append(iterator)
+      for marker, typeexpr in spec.term._variable_types:
+        free = Free(marker)
+        free.parent = spec.parent
+        free.index = spec.index
+        self._enter_free(free, terms.instantiate(typeexpr, mapping, kinds))
+        if marker.exprtype is not None:
+          self._expect(free, self._parse(marker.exprtype))
+      self._expect(spec, expected)
+      return ()
     if isinstance(spec, Raw):
       entry = recorded(self.interp, spec.payload) if spec.walk else None
       if spec.walk and (entry is not None or not isinstance(spec.parent, Typed)):
@@ -1314,9 +1379,16 @@ def build(interp, args, anchors, exprtype=None, target=None):
             interp.backend.fundamental_symbols.Fwd, arg, target=target
           )
       return arg
-  builder = TypedBuilder(interp, target=target)
+  builder = TypedBuilder(interp, target=target, reuse_terms=True)
   root = builder.specs(args, anchors)
-  return builder.run(root, exprtype)
+  try:
+    return builder.run(root, exprtype)
+  except exceptions.CurryTypeError:
+    if not builder._held:
+      raise
+    builder = TypedBuilder(interp, target=target)
+    builder.reuse_terms = False
+    return builder.run(builder.specs(args, anchors), exprtype)
 
 class Description:
   '''
