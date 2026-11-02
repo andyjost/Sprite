@@ -128,6 +128,8 @@ print(json.dumps(dict(ok=True)))
         stderr=subprocess.PIPE, text=True))
 
   def test_each_native_object_contains_only_its_step(self):
+    if sys.platform == 'darwin':
+      self.skipTest('the native objects of macOS are Mach-O; the reader reads ELF')
     self.child('eager')
     path = self.object()
     with path.open('rb') as stream:
