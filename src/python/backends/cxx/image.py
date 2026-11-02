@@ -1,5 +1,6 @@
 '''Portable, content-validated module images. See DeveloperNotes.rst.'''
 import contextlib
+import collections.abc
 import hashlib
 import json
 import logging
@@ -128,10 +129,37 @@ def _import_images(interp, names, currypath):
   return result
 
 
+class _SummaryFunctions(collections.abc.Mapping):
+  '''Materialize only the declarations the importing optimizer looks up.'''
+  def __init__(self, fullname, functions):
+    self.fullname = fullname
+    self.records = {info.name: (vis, md, info) for vis, md, info in functions}
+    self.loaded = {}
+
+  def __len__(self):
+    return len(self.records)
+
+  def __iter__(self):
+    return iter(self.records)
+
+  def __getitem__(self, name):
+    if name not in self.loaded:
+      record = self.records[name]
+      module = icurry.IModule.fromBOM(self.fullname, (), (), [record],
+          'cxx.material')
+      self.loaded[name] = module.functions[name]
+    return self.loaded[name]
+
+
 def _from_bom(bom, source):
-  return icurry.IModule.fromBOM(bom.fullname, bom.imports, bom.types,
-      bom.functions, 'cxx.material', filename=source, aliases=bom.aliases,
+  module = icurry.IModule.fromBOM(bom.fullname, bom.imports, bom.types,
+      (), 'cxx.material', filename=source, aliases=bom.aliases,
       metadata=dict(bom.metadata, **{'cxx.is_merged': True}))
+  module.functions = _SummaryFunctions(bom.fullname, bom.functions)
+  # BOM declarations have exempt bodies: their call graph has no edges.
+  # Recorded inline bodies already passed the recursion check at translation.
+  module._inline_recursive = frozenset()
+  return module
 
 
 def _summaries(interp, module, currypath=None):

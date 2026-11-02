@@ -111,7 +111,7 @@ class Scheme:
   '''
   __slots__ = (
       'modulename', 'name', 'typevars', 'context', 'typeexpr', 'arity'
-    , 'ndicts', 'flat_typeexpr', 'is_constructor'
+    , 'ndicts', 'flat_typeexpr', 'is_constructor', '_text'
     )
 
   def __init__(
@@ -127,6 +127,7 @@ class Scheme:
     self.ndicts = ndicts
     self.flat_typeexpr = flat_typeexpr
     self.is_constructor = is_constructor
+    self._text = None
 
   @property
   def fullname(self):
@@ -141,7 +142,9 @@ class Scheme:
     return max(self.arity - self.ndicts, 0)
 
   def __str__(self):
-    return show_scheme(self)
+    if self._text is None:
+      self._text = show_scheme(self)
+    return self._text
 
   def __repr__(self):
     return '<Scheme %s :: %s>' % (self.fullname, self)

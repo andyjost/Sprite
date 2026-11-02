@@ -12,6 +12,18 @@ Release Notes
   preserving the original equality graph for nonliteral scrutinees.
   Literal-case Fib30 drops from 16,473,032 to 6,731,342 steps and from
   0.2512 to 0.1226 CPU seconds (2.0 times faster, medians of five runs).
+- Reuse typed Python terms, copy their graphs for evaluation, and format
+  goal text on demand. Warm CPU measurements reduce a small interpreted
+  call from 402 to about 270 microseconds and lesson 21's overload call
+  from 18.3 to about 4.3 milliseconds. Nested ``Just`` construction is
+  linear (#181): a depth-128 chain falls from 2.93 seconds to about
+  9 milliseconds.
+- Convert ground results in the C++ bindings, preserving Python value types
+  and representations. Measured CPU conversion time falls from 7.39 ms to
+  11.4 us for 1000 Ints and from 2.18 ms to 2.11 us for a 300-character
+  String; lesson 24's complete query falls from 978 us to 635 us.
+  Cached expression-symbol tables also remove converter-construction growth
+  after repeated parses.
 - Add the qualified-name primitive registry and the primitives of
   ``Curry.Compiler.Distribution``, ``System.CPUTime``, ``System.Environment``
   and ``Data.IORef``, including registered Python implementations for process
@@ -59,6 +71,11 @@ Release Notes
 - Module images replace module JSON products. Translation and C++ emission
   read ICurry text; read-only directories and text modules use private images.
   ``sprite-make --image`` is the default target; the JSON options are removed.
+- Image preparation constructs imported optimizer declarations on demand.
+  In a local three-run comparison, warm compile CPU medians fell from
+  0.302 to 0.282 s for Fib, 0.357 to 0.340 s for QueensSet, and 0.307 to
+  0.264 s for an expression (about 5 to 14 percent); image bodies and
+  optimization remain enabled.
 
 - Windows: the runtime and the bindings build with clang-cl, and so do the
   generated modules, as DLLs, ahead of time and in the hot and eager C++
