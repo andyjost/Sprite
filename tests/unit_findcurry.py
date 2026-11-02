@@ -178,6 +178,115 @@ class TestFindCurry(cytest.TestCase):
     from curry.backends.cxx import image
     self.assertEqual(image.read(imagefile)['name'], 'hello')
 
+  def test_namespace_follows_all_module_files(self):
+    from curry.toolchain import _findcurry
+    early = os.path.join(self.tmpdir.name, 'early')
+    late = os.path.join(self.tmpdir.name, 'late')
+    namespace = os.path.join(early, 'Parent')
+    source = os.path.join(late, 'Parent.curry')
+    os.makedirs(namespace)
+    os.makedirs(late)
+    with open(source, 'w') as stream:
+      stream.write('module Parent where\n')
+    self.assertEqual(
+        list(_findcurry._modulefiles(self.plan, 'Parent', iter([early, late])))
+      , [source, namespace + os.sep]
+      )
+    self.assertEqual(toolchain.currentfile(self.plan, 'Parent', [early, late]), source)
+    os.unlink(source)
+    self.assertEqual(
+        toolchain.currentfile(self.plan, 'Parent', [early, late])
+      , namespace + os.sep
+      )
+
+  def test_hierarchy_search_root(self):
+    from curry.toolchain import _findcurry, _frontend
+    for name in ('Leaf', 'Parent.Leaf', 'Parent.Middle.Leaf'):
+      with self.subTest(name=name):
+        root = os.path.join(self.tmpdir.name, name)
+        source = os.path.join(root, name.replace('.', os.sep) + '.curry')
+        os.makedirs(os.path.dirname(source))
+        with open(source, 'w') as stream:
+          stream.write('module %s where\n' % name)
+        other = os.path.join(self.tmpdir.name, 'deps')
+        self.assertEqual(_frontend.searchdirs(source, [other, root]),
+                         [root, other, config.system_curry_path()])
+        self.assertEqual(
+            _findcurry.program_path(source, [other], is_sourcefile=True)
+          , [root, other]
+          )
+
+  def test_header_reader(self):
+    from curry.toolchain import _filenames, _frontend, _curry2icurry
+    from unittest import mock
+    source = os.path.join(self.tmpdir.name, 'Parent', 'Leaf.curry')
+    os.makedirs(os.path.dirname(source))
+    for prefix in (
+        '-- module Example where\n'
+      , '{- module Example where {- nested -} -}\n'
+      , '{-# module Example where #-}\n'
+      , '"escaped \\" module Example where"\n'
+      ):
+      with self.subTest(prefix=prefix):
+        with open(source, 'w') as stream:
+          stream.write(prefix + 'module {- comment -} Parent.Leaf where\n')
+        self.assertEqual(_filenames.module_name(source), 'Parent.Leaf')
+        self.assertEqual(_filenames.logging_module_name(source), 'Parent.Leaf')
+        self.assertEqual(_frontend.source_root(source), self.tmpdir.name)
+        with mock.patch.object(config, 'icurry_tool', return_value='icurry'):
+          converter = _curry2icurry.Curry2ICurryConverter(curry2icurry='icurry')
+          self.assertEqual(converter.command(source, source + '.icy', [])[-1], 'Parent.Leaf')
+
+  def test_character_literals_in_header_prefix(self):
+    from curry.toolchain import _filenames
+    source = os.path.join(self.tmpdir.name, 'Leaf.curry')
+    for literal in ("'x'", "'\"'", r"'\''", r"'\n'", r"'\x41'"):
+      with self.subTest(literal=literal):
+        with open(source, 'w') as stream:
+          stream.write('{-# LANGUAGE CPP #-}\n#define QUOTE %s\n'
+                       'module Parent.Leaf where\n' % literal)
+        self.assertEqual(_filenames.module_name(source), 'Parent.Leaf')
+    self.assertEqual(
+        list(_filenames._header_tokens("x' foldl' 'x' '\"' module Parent.Leaf where"))
+      , ["x'", "foldl'", 'module', 'Parent.Leaf', 'where']
+      )
+
+  def test_operator_aware_line_comments(self):
+    from curry.toolchain import _filenames
+    source = os.path.join(self.tmpdir.name, 'Leaf.curry')
+    for operator in ('-->', '--|', '-->--', '+--'):
+      with self.subTest(operator=operator):
+        with open(source, 'w') as stream:
+          stream.write(operator + ' module Parent.Leaf where\n')
+        self.assertEqual(_filenames.module_name(source), 'Parent.Leaf')
+    for comment in ('--', '---', '----'):
+      with self.subTest(comment=comment):
+        with open(source, 'w') as stream:
+          stream.write(comment + ' module Example where\nmodule Parent.Leaf where\n')
+        self.assertEqual(_filenames.module_name(source), 'Parent.Leaf')
+
+  def test_misplaced_filename_uses_source_directory(self):
+    from curry import cache
+    from curry.toolchain import _filenames, _frontend, _curry2icurry, _productcache
+    from unittest import mock
+    directory = os.path.join(self.tmpdir.name, 'Parent')
+    os.makedirs(directory)
+    source = os.path.join(directory, 'Other.curry')
+    with open(source, 'w') as stream:
+      stream.write('module Parent.Leaf where\nimport Helper\nvalue = Helper.value\n')
+    for root, value in ((self.tmpdir.name, 'False'), (directory, 'True')):
+      with open(os.path.join(root, 'Helper.curry'), 'w') as stream:
+        stream.write('module Helper where\nvalue = %s\n' % value)
+    self.assertEqual(_filenames.module_name(source), 'Parent.Leaf')
+    self.assertEqual(_frontend.source_root(source), directory)
+    self.assertEqual(_frontend.command(source, [self.tmpdir.name])[-1], 'Other')
+    for closure in (cache.import_closure, _productcache.import_closure):
+      self.assertEqual(closure(source, [self.tmpdir.name])['Helper'].path,
+                       os.path.join(directory, 'Helper.curry'))
+    with mock.patch.object(config, 'icurry_tool', return_value='icurry'):
+      converter = _curry2icurry.Curry2ICurryConverter(curry2icurry='icurry')
+      self.assertEqual(converter.command(source, source + '.icy', [])[-1], 'Other')
+
   def test_program_path(self):
     '''
     The search path of a program given as a file names its directory

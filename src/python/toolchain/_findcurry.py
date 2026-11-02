@@ -32,7 +32,7 @@ def _installed_library_file(filename):
   return path == root or path.startswith(root + os.sep)
 
 def _modulefiles(plan, name, currypath):
-  '''Candidates in path order; a namespace follows its module files.'''
+  '''Files in path order, then namespace directories from the whole path.'''
   curryname.validateModulename(name)
   parts = name.split('.')
   package_path, local = os.sep.join(parts[:-1]), parts[-1]
@@ -41,13 +41,19 @@ def _modulefiles(plan, name, currypath):
           for suffix in reversed(plan.suffixes[1:])
     ]
   names += [os.path.join(package_path, local + '.curry')]
-  names += [os.path.join(package_path, local, '')]
-  return filesys.findfiles(currypath, names)
+  currypath = list(currypath)
+  for filename in filesys.findfiles(currypath, names):
+    if os.path.isfile(filename):
+      yield filename
+  for directory in filesys.findfiles(
+      currypath, [os.path.join(package_path, local, '')]):
+    if os.path.isdir(directory):
+      yield directory
 
 def program_path(name, currypath, is_sourcefile=False, **ignored):
   '''
   The search path of a program.  For a module given as a source file
-  (``is_sourcefile``), the directory of the file comes first, then the
+  (``is_sourcefile``), the root of the module hierarchy comes first, then the
   entries of ``currypath``, as PAKCS searches: the imports of the program
   are found beside it without a CURRYPATH that names its directory.  For a
   module given by name the path is ``currypath`` as a list.  The tools
@@ -57,7 +63,8 @@ def program_path(name, currypath, is_sourcefile=False, **ignored):
   '''
   currypath = list(currypath)
   if is_sourcefile:
-    directory = os.path.dirname(os.path.abspath(name))
+    from . import _frontend
+    directory = _frontend.source_root(name)
     currypath = [directory] + [
         entry for entry in currypath if os.path.abspath(entry) != directory
       ]
