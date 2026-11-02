@@ -55,7 +55,7 @@ applications
 import csv, fnmatch, glob, hashlib, json, os, platform, shutil, subprocess, sys, tempfile
 from . import APPDIR, BACKENDS, CURRYDIR, DISSERTATION, HERE, NIGHTLY
 from . import OPPONENTS, SPLITDIR, SUITES
-from . import counterparts, measure, records
+from . import aot, counterparts, measure, records
 
 PAKCS_NIGHTLY = ('Hello', 'Peano', 'PaliFunPats')
 
@@ -370,6 +370,24 @@ class Settings:
       , perf=self.perf if perf else None
       )
 
+  def probe(self, cmd, env, cwd):
+    """Run the program once outside all measured repetitions."""
+    fd, report = tempfile.mkstemp(prefix='benchmark-aot-', suffix='.json')
+    os.close(fd)
+    kind = 'module' if cmd[0] == self.sprite_exec else 'python'
+    try:
+      result = measure.run_command(
+          [self.python, aot.__file__, report, kind] + cmd[1:],
+          env=env, cwd=cwd, timeout=self.timeout, cap=self.cap)
+      if result.status == 'ok':
+        with open(report) as stream:
+          return json.load(stream)
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+      pass
+    finally:
+      os.unlink(report)
+    return None
+
   def mode(self, env):
     '''Resolve flags and the selected JIT in the measured Python environment.'''
     code = '''import json, sys
@@ -377,7 +395,7 @@ import curry
 from curry.backends.cxx import jit
 i = curry._interpreter_
 print(json.dumps(dict(flags={k: i.flags[k] for k in
-    ('interpret', 'jit', 'jit_backend', 'rotation')},
+    ('interpret', 'jit', 'jit_backend', 'rotation', 'inline_budget')},
     backend=jit.backend(i), execution='aot' if i.flags['interpret'] == 'off' else i.flags['interpret'], llvmlite='llvmlite' in sys.modules)))
 '''
     proc = subprocess.run([self.python, '-c', code], env=env,
@@ -490,8 +508,9 @@ class Item:
       except ValueError as exc:
         sample = records.sample(run)
         sample.update(status='fail', error=str(exc))
-        return sample
-      return records.sample(run, fields)
+      else:
+        sample = records.sample(run, fields)
+      return sample
     finally:
       self.cleanup()
 
@@ -732,7 +751,7 @@ class ModuleCompileItem(CacheVariant, Item):
     shutil.copy(os.path.join(CURRYDIR, source), tmpdir)
     cmd = [self.settings.sprite_exec, '--stats', '-g', '', source]
     env = self.settings.environment(
-        self.backend, SPRITE_CACHE_FILE=self.cache_file()
+        self.backend, SPRITE_CACHE_FILE=self.cache_file(), TMPDIR=tmpdir
       )
     return cmd, env, tmpdir
 
@@ -748,7 +767,7 @@ class ExpressionItem(CacheVariant, Item):
     tmpdir = self.make_tmpdir()
     cmd = [self.settings.python, PROBE] + list(EXPRESSION)
     env = self.settings.environment(
-        self.backend, SPRITE_CACHE_FILE=self.cache_file()
+        self.backend, SPRITE_CACHE_FILE=self.cache_file(), TMPDIR=tmpdir
       )
     return cmd, env, tmpdir
 

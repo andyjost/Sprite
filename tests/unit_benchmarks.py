@@ -2604,6 +2604,14 @@ class TestSmoke(cytest.TestCase):
   def setUp(self):
     self.tmpdir = tempfile.mkdtemp(prefix='sprite-benchmarks-test-')
     self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
+    private_tmp = os.path.join(self.tmpdir, 'tmp')
+    os.mkdir(private_tmp)
+    env = mock.patch.dict(os.environ, TMPDIR=private_tmp)
+    env.start()
+    self.addCleanup(env.stop)
+    tempdir = mock.patch.object(tempfile, 'tempdir', private_tmp)
+    tempdir.start()
+    self.addCleanup(tempdir.stop)
 
   def harness(self, *args):
     '''
@@ -2792,7 +2800,8 @@ class TestSmoke(cytest.TestCase):
     filename = self.filename('compile.jsonl')
     status, log = self.harness(
         '-s', 'compile', '--variant', 'warm', 'Hello', 'expression'
-      , '-o', filename
+      , '-o', filename, '--strict-inline-budget'
+      , '-e', 'SPRITE_INTERPRETER_FLAGS=interpret:off'
       )
     self.assertEqual(status, 0, log)
     hello, expression = records.read(filename)
@@ -2817,8 +2826,27 @@ class TestSmoke(cytest.TestCase):
       , ['compile', 'first_value', 'import', 'prelude', 'stats', 'value']
       )
     self.assertEqual(probe['stats']['steps'], expression['steps'])
+    for record in (hello, expression):
+      self.assertEqual(record['meta']['aot_provenance'], 'fresh-products')
+      self.assertFalse(record['meta']['aot_probe_warnings'])
+    with contextlib.redirect_stdout(io.StringIO()):
+      self.assertEqual(compare.main([filename, filename]), 0)
     # The working directory of the harness is gone.
     self.assertEqual(self.workdirs(), before)
+
+  def test_compile_cold_budget(self):
+    filename = self.filename('cold.jsonl')
+    status, log = self.harness('-s', 'compile', '--variant', 'cold',
+        'Hello', 'expression', '-w', '0', '--no-perf', '-o', filename,
+        '--strict-inline-budget', '-e', 'SPRITE_INTERPRETER_FLAGS=interpret:off')
+    self.assertEqual(status, 0, log)
+    for record in records.read(filename):
+      self.assertEqual(record['warmup'], 0)
+      self.assertEqual(record['meta']['aot_provenance'], 'fresh-products')
+      self.assertFalse(record['meta']['aot_probe_warnings'])
+    with contextlib.redirect_stdout(io.StringIO()):
+      self.assertEqual(compare.main([filename, filename]), 0)
+    self.assertEqual(self.workdirs(), [])
 
   def test_split_suite(self):
     '''

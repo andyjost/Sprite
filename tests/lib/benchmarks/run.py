@@ -17,7 +17,7 @@ record holds that sample.
 import argparse, os, shutil, sys, tempfile
 from . import BACKENDS, CURRYDIR, DEFAULT_SPRITE_HOME, OPPONENTS, ROOTDIR
 from . import SUITES
-from . import measure, records, suites
+from . import aot, measure, records, suites
 
 __all__ = ['main', 'parse_args', 'parse_cap']
 
@@ -143,6 +143,8 @@ def parse_args(argv):
            'the import suite, or the applications at the sizes of the job; '
            'a PROGRAM pattern then selects among them'
     )
+  parser.add_argument('--strict-inline-budget', action='store_true',
+      help='fail a run when a loaded AOT budget differs or is unknown')
   args = parser.parse_args(argv)
   if args.backend is None:
     args.backend = suites.backends_for_suite(args.suite)
@@ -222,6 +224,25 @@ def measure_item(item, repeat, perf):
     sample = item.measure()
     if sample['status'] == 'timeout':
       return [sample]
+  probe = None
+  fresh = {}
+  def probe_item():
+    nonlocal probe
+    cmd, env, cwd = item.command()
+    try:
+      probe = item.settings.probe(cmd, env, cwd)
+      if isinstance(item, suites.CacheVariant) and probe is not None:
+        # These objects are rebuilt in a different empty directory per run.
+        for name, obj in list(probe.items()):
+          if os.path.commonpath([os.path.abspath(obj['path']), cwd]) == cwd:
+            fresh[name] = item.requested_inline_budget
+            del probe[name]
+    finally:
+      item.cleanup()
+  cxx = getattr(item, 'backend', None) == 'cxx'
+  if cxx and item.warmup():
+    probe_item()
+  started = aot.measurement_mark() if cxx and not item.warmup() else None
   samples = []
   for _ in range(repeat):
     samples.append(item.measure())
@@ -229,6 +250,20 @@ def measure_item(item, repeat, perf):
       break
   if perf and all(s['status'] == 'ok' for s in samples):
     samples.append(item.measure(perf=True))
+  if cxx:
+    if not item.warmup():
+      probe_item()
+    budgets, warnings = aot.checked_budgets(probe,
+        since=started if not item.warmup() else None)
+    if budgets is not None:
+      budgets.update(fresh)
+    # Keep paths private to the identity check; records carry no local paths.
+    for sample in samples:
+      sample['aot_inline_budgets'] = budgets
+      sample['aot_object_identities'] = None if probe is None else {
+          name: {k: v for k, v in obj.items() if k in ('identity', 'stamp_identity')}
+          for name, obj in probe.items()}
+    item.aot_probe_warnings = warnings
   return samples
 
 
@@ -314,6 +349,7 @@ def main(argv=None):
             ('SPRITE_INTERPRETER_FLAGS', 'SPRITE_ROTATION') if k in mode_env}
         item_meta['mode'] = settings.mode(mode_env) if item.backend == 'cxx' else {
             'flags': None, 'backend': item.backend, 'llvmlite': None}
+        item.requested_inline_budget = (item_meta['mode'].get('flags') or {}).get('inline_budget')
         reason = item.unavailable()
         if reason:
           preprocessor = 'needs the preprocessor ' in reason
@@ -333,6 +369,19 @@ def main(argv=None):
             item.suite, item.program, item.backend, item.variant, samples
           , item_meta, label=settings.label, warmup=item.warmup(), commit=commit
           )
+        if item.backend == 'cxx':
+          item_meta['requested_inline_budget'] = (
+              item_meta['mode'].get('flags', {}).get('inline_budget'))
+          item_meta['aot_inline_budgets'] = [
+              s.get('aot_inline_budgets') for s in samples]
+          item_meta['aot_probe_warnings'] = getattr(item, 'aot_probe_warnings', [])
+          item_meta['aot_adoption_possible'] = aot.adoption_possible(item_meta['mode'])
+          item_meta['aot_provenance'] = ('fresh-products'
+              if isinstance(item, suites.CacheVariant) else 'untimed-probe')
+          budget_messages = aot.record_messages(record)
+          record['warnings'].extend(budget_messages)
+          if args.strict_inline_budget and budget_messages:
+            record.update(status='fail', error='AOT inline budget check failed')
         completed.append(record)
         pending.append(record)
         records.add_ratios(completed)
