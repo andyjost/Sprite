@@ -1,5 +1,6 @@
 from ...common import F_MONADIC
 from .. import types, visit
+from .aliases import lookup_function
 import sys
 
 __all__ = ['set_monadic_metadata']
@@ -45,13 +46,7 @@ def _lookupfunction(symbolname, modules):
   # Prelude.putStr is monadic before creating its symbol (which would have
   # set_monadic_metadata=True set).  interp.symbol cannot, of course, be used
   # before the symbol tables are generated.
-  obj = modules
-  parts = iter(symbolname.split('.'))
-  while not isinstance(obj, types.IModule):
-    part = next(parts)
-    obj = obj[part]
-    obj = getattr(obj, '.icurry', obj)
-  return obj.functions.get('.'.join(parts), None)
+  return lookup_function(symbolname, modules)
 
 def _checkmonadic(iobj, modules, **kwds):
   if isinstance(iobj, types.ICall):
