@@ -150,12 +150,16 @@ if _spec is not None:
     yield env, directory
 
 
-def signal_example_stacks(directory):
-  """Signal only published registrations; exited descendants are harmless."""
+def signal_example_stacks(directory, group):
+  """Signal only published registrations still in the example's group."""
   for name in os.listdir(directory):
     if name.endswith('.log') and name[:-4].isdigit():
       try:
-        os.kill(int(name[:-4]), signal.SIGUSR1)
+        pid = int(name[:-4])
+        # A descendant that starts its own session gets no signal and no dump.
+        if os.getpgid(pid) == group:
+          # An exec before handler setup is acceptable: timeout ends this tree.
+          os.kill(pid, signal.SIGUSR1)
       except ProcessLookupError:
         pass
 
@@ -164,7 +168,13 @@ def communicate_example(proc, directory):
   try:
     return proc.communicate(timeout=max(0.01, TIMEOUT - DUMP_LEAD_TIME))
   except subprocess.TimeoutExpired:
-    signal_example_stacks(directory)
+    try:
+      # timeout has started by now and put itself and its tree in its own group.
+      group = os.getpgid(proc.pid)
+    except ProcessLookupError:
+      pass
+    else:
+      signal_example_stacks(directory, group)
     # Keep draining pipes while allowing dumps to finish. The external timeout
     # retains responsibility for the original deadline and process-tree kill.
     try:
@@ -349,6 +359,40 @@ def function_of(relpath, name):
 
 
 class TestExampleDiagnostics(cytest.TestCase):
+  @cytest.posix_only('needs POSIX process groups and signals')
+  def test_registration_outside_example_group_is_not_signalled(self):
+    prefix = cytest.limit_prefix(ADDRESS_SPACE, 8, 1)
+    if not any(os.path.basename(part) in ('timeout', 'gtimeout') for part in prefix):
+      self.skipTest('needs the coreutils timeout command')
+    with example_diagnostics(os.environ) as (env, directory):
+      example = subprocess.Popen(
+          prefix + [sys.executable, '-c',
+                    'import os, time; print(os.getpgrp(), flush=True); time.sleep(60)']
+        , env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+      try:
+        # The child's output proves timeout has established its group.
+        self.assertEqual(int(example.stdout.readline()), example.pid)
+        group = os.getpgid(example.pid)
+        self.assertEqual(group, example.pid)
+        outside = subprocess.Popen(['sleep', '60'])
+        try:
+          self.assertNotEqual(os.getpgid(outside.pid), group)
+          with open(os.path.join(directory, '%d.log' % outside.pid), 'w'):
+            pass
+          with mock.patch.object(os, 'kill', wraps=os.kill) as kill:
+            signal_example_stacks(directory, group)
+          self.assertTrue(kill.called)
+          self.assertNotIn(mock.call(outside.pid, signal.SIGUSR1), kill.call_args_list)
+          self.assertIsNone(outside.poll())
+        finally:
+          outside.terminate()
+          outside.wait()
+      finally:
+        if example.poll() is None:
+          example.terminate()
+        example.communicate()
+
   @cytest.posix_only('executes a POSIX shell driver')
   def test_stalled_descendants_appear_in_failure(self):
     prefix = cytest.limit_prefix(timeout=8)
