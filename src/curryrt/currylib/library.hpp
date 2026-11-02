@@ -1,11 +1,15 @@
 #pragma once
 #include <string>
 #include <functional>
+#include <exception>
 #include "curryrt/fwd.hpp"
 
 namespace curryrt
 {
   bool is_handle(InfoTable const * info);
+  // Host control flow must bypass native IO error handlers.
+  struct stream_control { std::exception_ptr cause; };
+  void shutdown_handles();
   void release_handle(Node * node);
   void gc_register_handle(Node * node);
   // The Python host supplies current standard streams; files stay in C++.

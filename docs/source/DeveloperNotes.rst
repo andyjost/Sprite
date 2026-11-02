@@ -832,7 +832,9 @@ Handles and package primitives
 ``System.IO.Handle`` is an opaque runtime constructor with an unboxed pointer
 payload. Graph copies share its node. The collector owns the file stream and
 closes it when its last reachable handle dies; explicit close releases the
-stream immediately, preserving identity. Repeated close succeeds, as in PAKCS;
+stream immediately, preserving identity. A shutdown registry shared by both
+collectors closes all remaining files at normal process exit and before
+``exitWith`` raises; closing and finalization use the same idempotent close. Repeated close succeeds, as in PAKCS;
 other operations on closed files raise a Curry IO error. Native files use
 binary streams and UTF-8 code points; seek offsets count bytes. The pinned
 ``IOMode`` provides read, write and append, with no read-write mode.
@@ -842,12 +844,20 @@ Standard handles have stable identity and resolve Python's current ``sys.stdin``
 GIL for host operations. Prelude ``getChar`` and ``putChar`` use that same hook,
 so Python prints and Curry output share buffering, encoding and order even
 when a stream is replaced by ``StringIO``. Flushing and closing affect the
-current Python object. Input EOF probes retain one character of lookahead;
-replacing the stream discards it. Terminal checks and readiness have no
+current Python object. Input EOF probes retain one character and its text
+position cookie; relative seeks restore that logical position first.
+Readiness probes the same Python reader without blocking before checking the
+descriptor, so decoded text in Python's buffer remains visible. Replacing the
+stream discards its lookahead. Windows regular files are always ready; failed
+pipe probes other than a closed pipe report an error. Python ``SystemExit``
+and ``KeyboardInterrupt`` pass through the binding boundary. Terminal checks and readiness have no
 portable C++ interface and use the Python host, including Windows console and
 pipe readiness. Regular file handles are immediately ready, including at EOF.
 
-CPM modules resolve by qualified name just like library modules. All twelve
+CPM modules resolve by qualified name just like library modules. A registered
+primitive replaces only an external declaration with matching arity; ordinary
+Curry definitions keep their bodies on every execution route. ICurry uses
+``Prelude.(?)`` as a compiler intrinsic to lower nondeterministic rules. All twelve
 ``System.Directory`` externals use ``std::filesystem``; modification times are
 ``Data.Time.CTime`` values in POSIX seconds. Directory listings include ``.``
 and ``..`` and preserve filesystem iteration order. ``System.Process`` uses

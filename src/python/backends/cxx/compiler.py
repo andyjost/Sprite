@@ -67,7 +67,11 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # Format 18: export the module record, initializer and tables for PE DLLs.
 # Format 19: registry receipts and named not-implemented descriptors.
 # Format 20: info table flags use 16 bits for independent builtin and opaque bits.
-FORMAT_VERSION = 20
+# Format 21: only external declarations select registered primitives.
+# Format 22: preserve the intrinsic used to lower nondeterministic rules.
+# Format 23: the unused ifVar descriptor matches its three-argument declaration.
+# Format 24: classify local references from the compiled declarations.
+FORMAT_VERSION = 24
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure
@@ -157,7 +161,15 @@ class CxxCompiler(compiler.CompilerBase):
 
   def vIsBuiltin(self, iobj):
     if self.cxxmodule is not None:
-      if isinstance(iobj, (icurry.IFunction, icurry.IConstructor)):
+      if isinstance(iobj, icurry.IFunction):
+        if iobj.modulename != self.iroot.modulename:
+          return False
+        # References can carry a loaded module's summary body. Classify all
+        # references to our functions from the declarations we are compiling.
+        declaration = self.iroot.functions.get(iobj.name, iobj)
+        from .materialize import function_primitive
+        return function_primitive(self.cxxmodule, declaration) is not None
+      if isinstance(iobj, icurry.IConstructor):
         return self.cxxmodule.get_builtin_symbol(iobj.name) is not None
       elif isinstance(iobj, icurry.IDataType):
         return self.cxxmodule.get_builtin_type(iobj.name) is not None

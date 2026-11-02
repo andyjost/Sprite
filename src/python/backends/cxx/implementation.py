@@ -31,7 +31,7 @@ def getimpl(symbol):
       getHandle(module).backend_handle.get_builtin_symbol(symbol.name) is None:
     return '%s: external, not implemented (no primitive in the runtime)' % symbol.fullname
   if module is not None and \
-      getHandle(module).backend_handle.get_builtin_symbol(symbol.name) is not None:
+      materialize.function_primitive(getHandle(module).backend_handle, function) is not None:
     return '%s: registered %s primitive' % (symbol.fullname, curryrt.primitive_kind(info))
   if curryrt.icurry_is_interpreted(info) or curryrt.icurry_is_jit(info):
     # The JIT compiled the bytecode; the disassembly is the code it holds.

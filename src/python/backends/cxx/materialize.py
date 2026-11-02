@@ -91,6 +91,22 @@ def materialize(interp, iobj, moduleobj):
   materializer = Materializer(interp, moduleobj)
   return materializer.materialize(iobj)
 
+def function_primitive(native, function):
+  # ICurry lowers nondeterministic rules to Prelude.(?), including its own
+  # source rules. This compiler intrinsic must not recursively call itself.
+  intrinsic = function.fullname == 'Prelude.?'
+  if not (function.is_external or function.is_builtin or intrinsic):
+    return None
+  info = native.get_builtin_symbol(function.name)
+  if info is not None and info.arity != function.arity:
+    # A merged builtin with a different shape is still an unresolved external.
+    # In particular, old unsupported Prelude descriptors can have stale arities.
+    if function.is_builtin:
+      function.body = icurry.IExternal(function.fullname)
+    return None
+  return info
+
+
 class Materializer(object):
   def __init__(self, interp, moduleobj):
     self.interp = interp
@@ -157,9 +173,9 @@ class Materializer(object):
 
   @materializeEx.when(icurry.IFunction)
   def materializeEx(self, ifun):
-    info = self.M.get_builtin_symbol(ifun.name)
+    info = function_primitive(self.M, ifun)
     if info is not None and info.tag == T_FUNC:
-      return info
+      return self.M.bind_builtin_symbol(ifun.name, ifun.arity)
     info = self.M.get_infotable(ifun.name)
     if info is None:
       info = self.create_function(ifun)

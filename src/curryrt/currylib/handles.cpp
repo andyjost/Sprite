@@ -9,6 +9,8 @@
 #include <cstring>
 #include <memory>
 #include <stdexcept>
+#include <cstdlib>
+#include <unordered_set>
 
 using namespace curryrt;
 namespace
@@ -19,7 +21,21 @@ namespace
     int standard = -1;
     bool readable = false, writable = false, closed = false;
     std::fstream file;
+    void close()
+    {
+      if(!closed) { file.close(); closed = true; }
+    }
   };
+  auto & open_handles()
+  {
+    static auto handles = new std::unordered_set<Handle *>;
+    return *handles;
+  }
+  struct ShutdownRegistration
+  {
+    ShutdownRegistration() { std::atexit(shutdown_handles); }
+  };
+  ShutdownRegistration const shutdown_registration;
   extern DataType const handle_type;
   InfoTable const handle_info{T_CTOR, 1, sizeof(Node1), F_STATIC_OBJECT | F_OPAQUE,
       "Handle", "x", nullptr, &handle_type};
@@ -76,6 +92,7 @@ namespace
         if(!h->file) throw std::runtime_error(path + ": " + std::strerror(errno));
         Node * node = Node::create(&handle_info, h.get());
         gc_register_handle(node);
+        open_handles().insert(h.get());
         h.release();
         return finish(C, node);
       }
@@ -135,7 +152,7 @@ namespace
       // PAKCS deliberately ignores a second close.
       if(op == "prim_hClose")
       {
-        if(!h->closed) { h->file.close(); h->closed = true; }
+        h->close();
         return finish(C, unit());
       }
       if(h->closed) throw std::runtime_error("stream does not exist (closed handle)");
@@ -221,7 +238,16 @@ namespace curryrt
   void release_handle(Node * node)
   {
     auto h = handle(node);
-    if(h->standard < 0) delete h;
+    if(h->standard < 0)
+    {
+      open_handles().erase(h);
+      h->close();
+      delete h;
+    }
+  }
+  void shutdown_handles()
+  {
+    for(auto h: open_handles()) h->close();
   }
   void set_stream_hook(stream_hook hook) { host() = std::move(hook); }
   std::string standard_stream(int stream, std::string const & operation,

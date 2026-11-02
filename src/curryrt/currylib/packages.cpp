@@ -72,7 +72,7 @@ namespace
       }
       else if(op == "prim_removeDirectory" || op == "prim_removeFile")
       {
-        bool directory = fs::is_directory(path(0));
+        bool directory = fs::is_directory(fs::symlink_status(path(0)));
         if(directory != (op == "prim_removeDirectory"))
           throw std::system_error(std::make_error_code(directory ?
               std::errc::is_a_directory : std::errc::not_a_directory));
@@ -80,7 +80,7 @@ namespace
       }
       else if(op == "prim_renameFile" || op == "prim_renameDirectory")
       {
-        bool directory = fs::is_directory(path(0));
+        bool directory = fs::is_directory(fs::symlink_status(path(0)));
         if(directory != (op == "prim_renameDirectory"))
           throw std::system_error(std::make_error_code(directory ?
               std::errc::is_a_directory : std::errc::not_a_directory));

@@ -252,6 +252,70 @@ def _read_standard_char(stream, index):
   # represents malformed input bytes with surrogates, which become U+FFFD.
   return '\ufffd' if char and 0xd800 <= ord(char) <= 0xdfff else char
 
+def _windows_nonblocking_pipe(descriptor):
+  # Python 3.11 lacks the Windows os.get_blocking/set_blocking interface.
+  import ctypes
+  import msvcrt
+  kernel = ctypes.windll.kernel32
+  handle = ctypes.c_void_p(msvcrt.get_osfhandle(descriptor))
+  mode = ctypes.c_ulong()
+  if not kernel.GetNamedPipeHandleStateW(handle, ctypes.byref(mode),
+                                        None, None, None, None, 0):
+    return None
+  nonblocking = ctypes.c_ulong(mode.value | 1)  # PIPE_NOWAIT
+  if not kernel.SetNamedPipeHandleState(handle, ctypes.byref(nonblocking), None, None):
+    raise ctypes.WinError(kernel.GetLastError())
+  def restore():
+    if not kernel.SetNamedPipeHandleState(handle, ctypes.byref(mode), None, None):
+      raise ctypes.WinError(kernel.GetLastError())
+  return restore
+
+
+def _peek_standard_char(stream, index, nonblocking=False):
+  pending = _stream_lookahead[index]
+  if pending is not None and pending[0] is stream:
+    return pending
+  try:
+    position = stream.tell()
+  except (OSError, ValueError, AttributeError):
+    position = None
+  restore = None
+  descriptor = None
+  if nonblocking:
+    try:
+      descriptor = stream.fileno()
+      blocking = _os.get_blocking(descriptor)
+      _os.set_blocking(descriptor, False)
+      restore = lambda: _os.set_blocking(descriptor, blocking)
+    except AttributeError:
+      if descriptor is None or sys.platform != 'win32': return None
+      restore = _windows_nonblocking_pipe(descriptor)
+      if restore is None: return None
+    except (OSError, ValueError):
+      return None
+  try:
+    char = _read_standard_char(stream, index)
+    # An empty nonblocking read need not mean EOF. The descriptor probe
+    # below distinguishes no input from EOF without caching this result.
+    if nonblocking and not char:
+      return None
+    pending = (stream, char, position)
+    _stream_lookahead[index] = pending
+    return pending
+  except (BlockingIOError, TypeError):
+    if not nonblocking:
+      raise
+    return None
+  except OSError as error:
+    # Older Windows raw readers report an empty nonblocking pipe this way.
+    if nonblocking and getattr(error, 'winerror', None) == 232:
+      return None
+    raise
+  finally:
+    if restore is not None:
+      restore()
+
+
 def _standard_stream(index, operation, text, value):
   import io
   import select
@@ -271,6 +335,12 @@ def _standard_stream(index, operation, text, value):
       if pending is not None and pending[0] is item: return str(i)
       if recovered is not None and recovered[0] is item and recovered[1]: return str(i)
       if isinstance(item, io.StringIO): return str(i)
+      # A text wrapper may already hold decoded input although its descriptor
+      # is empty. Probe the same reader without blocking, retaining the char.
+      if _peek_standard_char(item, int(text[i]), nonblocking=True) is not None:
+        return str(i)
+      import stat
+      if stat.S_ISREG(_os.fstat(item.fileno()).st_mode): return str(i)
     if sys.platform == 'win32':
       # select on Windows supports sockets only; console and pipes use msvcrt
       # and PeekNamedPipe, through Python's platform libraries.
@@ -287,7 +357,10 @@ def _standard_stream(index, operation, text, value):
                 ctypes.c_void_p(msvcrt.get_osfhandle(item.fileno())),
                 None, 0, None, ctypes.byref(available), None)
             if ok and available.value: return str(i)
-            if not ok and ctypes.windll.kernel32.GetLastError() == 109: return str(i)
+            if not ok:
+              error = ctypes.windll.kernel32.GetLastError()
+              if error == 109: return str(i)
+              raise ctypes.WinError(error)
         if deadline is not None and time.monotonic() >= deadline: return '-1'
         time.sleep(.001)
     ready, _, _ = select.select(selected, [], [], None if value < 0 else value / 1000)
@@ -310,8 +383,7 @@ def _standard_stream(index, operation, text, value):
     return '1' if _standard_stream(index, 'waits', str(index), value) == '0' else '0'
   elif operation == 'prim_hIsEOF':
     if pending is None:
-      pending = (stream, _read_standard_char(stream, index))
-      _stream_lookahead[index] = pending
+      pending = _peek_standard_char(stream, index)
     return '1' if pending[1] == '' else '0'
   elif operation == 'prim_hGetChar':
     if pending is not None:
@@ -319,6 +391,9 @@ def _standard_stream(index, operation, text, value):
       return pending[1]
     return _read_standard_char(stream, index)
   elif operation == 'prim_hSeek':
+    if int(text) == 1 and pending is not None and pending[2] is not None:
+      # Text positions are opaque cookies, not byte or character counts.
+      stream.seek(pending[2])
     stream.seek(value, int(text))
     _stream_lookahead[index] = None
     _stream_recovered[index] = None
@@ -326,8 +401,11 @@ def _standard_stream(index, operation, text, value):
   return ''
 
 set_stream_hook(_standard_stream)
+import atexit as _atexit
+_atexit.register(shutdown_handles)
 
 def _exit_with(code):
+  shutdown_handles()
   raise SystemExit(code)
 
 register_primitive('System.Process.getPID', 0, _os.getpid, True)

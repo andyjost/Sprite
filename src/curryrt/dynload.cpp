@@ -167,7 +167,11 @@ namespace
       for(unsigned i=0; i<record.n_functions; ++i)
       {
         bom::Function const & function = record.functions[i];
-        auto builtin = Module::builtin_symbol(record.fullname, function.info->name);
+        auto builtin = (function.info->flags & F_BUILTIN) ?
+            (owner ? owner->bind_builtin_symbol(function.info->name, function.info->arity) :
+                     Module::builtin_symbol(record.fullname, function.info->name)) : nullptr;
+        if(builtin && builtin->arity != function.info->arity)
+          throw DynloadError("primitive arity does not match external");
         if(!builtin && (function.info->flags & F_BUILTIN))
           throw DynloadError(std::string("primitive ") + record.fullname + "." +
               function.info->name + " is not registered in this runtime");
@@ -181,7 +185,10 @@ namespace
         if(auto module = Module::find(slot.module))
           info = module->get_infotable(slot.name);
         if(!info)
-          info = Module::builtin_symbol(slot.module, slot.name);
+        {
+          auto builtin = Module::builtin_symbol(slot.module, slot.name);
+          if(builtin && builtin->tag != T_FUNC) info = builtin;
+        }
         if(!info)
           this->unresolved("symbol", slot.module, slot.name);
         *slot.slot = info;
