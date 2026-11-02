@@ -547,6 +547,19 @@ class _Object:
     self.path = index.path
 
   def read(self):
+    fallback = self.entry.get('_fallback')
+    try:
+      native = self._read()
+    except (OSError, ValueError):
+      if fallback is None:
+        raise
+      return fallback.read()
+    if fallback is not None:
+      fallback.index.release(fallback.entry)
+      del self.entry['_fallback']
+    return native
+
+  def _read(self):
     # The open descriptor pins this generation across path replacement.
     if self.entry.get('_dropped'):
       raise ValueError('dropped JIT object')
@@ -747,8 +760,15 @@ class _CachedModule:
       pair = self.cached[name]
       if isinstance(pair, dict):
         self.index.release(pair)
+        entry = pair
       elif isinstance(pair[1], _Object):
         pair[1].index.release(pair[1].entry)
+        entry = pair[1].entry
+      else:
+        return
+      fallback = entry.pop('_fallback', None)
+      if fallback is not None:
+        fallback.index.release(fallback.entry)
 
   def load(self, jit):
     # Reuse the index and linked code across resets. Unresolved objects
@@ -764,15 +784,26 @@ class _CachedModule:
           if objects is None:
             objects = found
           else:
-            names = {records[0][0] for records, _ in objects}
+            names = {records[0][0]: obj for records, obj in objects}
             objects.others.append(found)
             for records, obj in found:
               if records[0][0] in names:
-                found.release(obj.entry)
+                names[records[0][0]].entry['_fallback'] = obj
               else:
                 objects.append((records, obj))
         except (OSError, ValueError, KeyError, TypeError, IndexError, struct.error) as exc:
           logger.debug('jit cache: module %s: %s', self.name, exc)
+          if path == self.private:
+            # A merge may replace local and remove private between our reads.
+            # Retry local once to pick up the objects that moved there.
+            try:
+              found = _read_cache(self.local, self.key)
+            except (OSError, ValueError, KeyError, TypeError, IndexError, struct.error):
+              pass
+            else:
+              if objects is not None:
+                objects.close()
+              objects = found
     if objects is None:
       logger.info('jit cache: module %s, miss', self.name)
       return False
@@ -891,6 +922,12 @@ class _CachedModule:
           os.chmod(tmp, 0o644)
           os.replace(tmp, path)
           tmp = None
+          # Pin the published generation before another writer can replace it.
+          # The attached objects no longer need retained native payloads.
+          published = _read_cache(path, self.key)
+          self.objects = self.index = published
+          self.cached = {entry['functions'][0][0]: entry for entry in published.entries}
+          self.jit.object_generations[self.key] = published
           if path == self.local and self.private:
             try:
               os.unlink(self.private)

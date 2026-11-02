@@ -445,6 +445,85 @@ assert rt.icurry_is_jit(M.main.info)
 print(json.dumps(dict(ok=True)))
 """.replace('EXPECTED', repr(published['names'])))
 
+  def seed_private_duplicate(self):
+    self.child('off')
+    self.run_code("""
+M = curry.import_(source)
+llvmjit.compile(M.fib.info, 'Cached.fib')
+context = llvmjit._jit.modules[M.fib.info.address]
+replace = llvmjit.os.replace
+def blocked_local(src, dst):
+  if dst == context.local:
+    raise PermissionError('open destination')
+  return replace(src, dst)
+with mock.patch.object(llvmjit.os, 'replace', side_effect=blocked_local):
+  llvmjit.compile(M.message.info, 'Cached.message')
+assert os.path.exists(context.private)
+print(json.dumps(dict(ok=True)))
+""")
+
+  def test_load_retries_local_when_merge_removes_private_between_reads(self):
+    self.seed_private_duplicate()
+    self.run_code("""
+M = curry.import_(source)
+jit = llvmjit._jit
+writer = jit.modules[M.fib.info.address]
+jit.object_generations.pop(writer.key)
+reader = llvmjit._CachedModule(jit, writer.path, writer.header,
+    [(info, name) for name, info in writer.items.items()])
+read = llvmjit._read_cache
+reads = []
+def interleaved(path, *args, **kwargs):
+  reads.append(path)
+  if path == reader.private:
+    assert reads == [reader.local, reader.private]
+    # Publish after the reader pins old local, before it opens private.
+    with mock.patch.object(llvmjit, '_read_cache', read):
+      writer.store()
+    assert not os.path.exists(reader.private)
+  found = read(path, *args, **kwargs)
+  if reads == [reader.local]:
+    assert {records[0][0] for records, _ in found} == {'Cached.fib'}
+  return found
+with mock.patch.object(llvmjit, '_read_cache', side_effect=interleaved):
+  assert reader.load(jit)
+assert reads == [reader.local, reader.private, reader.local], reads
+assert set(reader.cached) == {'Cached.fib', 'Cached.message'}
+with mock.patch.object(llvmjit._Batch, 'emit', side_effect=AssertionError('cache hit compiled')):
+  assert reader.resolve('Cached.message')
+assert llvmjit.statistics()['functions'] == 0
+print(json.dumps(dict(ok=True)))
+""")
+
+  def test_corrupt_local_duplicate_resolves_from_private_without_compiling(self):
+    self.seed_private_duplicate()
+    path = self.object()
+    stamp = path.stat().st_mtime_ns
+    with path.open('r+b') as stream:
+      _, size = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
+      entries = json.loads(stream.read(size))['objects']
+      self.assertEqual(entries[0]['functions'][0][0], 'Cached.fib')
+      offset = stream.tell()
+      byte = stream.read(1)
+      stream.seek(offset)
+      stream.write(bytes([byte[0] ^ 255]))
+    os.utime(path, ns=(stamp, stamp))
+    self.run_code("""
+M = curry.import_(source)
+context = llvmjit._jit.modules[M.fib.info.address]
+obj = context.object_for('Cached.fib')[1]
+fallback = obj.entry['_fallback']
+assert not obj.entry.get('_native')
+assert not fallback.entry.get('_native')
+with mock.patch.object(llvmjit._Batch, 'emit', side_effect=AssertionError('cache hit compiled')):
+  assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
+assert obj.entry.get('_dropped')
+assert fallback.entry.get('_native')
+assert rt.icurry_is_jit(M.fib.info)
+assert llvmjit.statistics()['functions'] == 0
+print(json.dumps(dict(ok=True)))
+""")
+
   def test_touched_envelope_merges_verified_functions(self):
     self.child('eager')
     path = self.object()
@@ -472,10 +551,17 @@ M = curry.import_(source)
 context = llvmjit._jit.modules[M.fib.info.address]
 path = pathlib.Path(context.local)
 before = path.read_bytes()
+for name in context.cached:
+  assert context.resolve(name)
+assert all(entry.get('_native') for entry in context.index.entries)
 context.root = None
 with mock.patch.object(llvmjit.os, 'replace', side_effect=PermissionError('sharing violation')):
   context.store()
 assert path.read_bytes() == before
+assert context.index is None
+assert all(isinstance(obj, bytes) and obj for _, obj in context.objects)
+assert context.objects is llvmjit._jit.object_generations[context.key]
+assert all(isinstance(obj, bytes) for _, obj in context.cached.values())
 assert not list(path.parent.glob('.jit-*'))
 objects = llvmjit._read_cache(path, context.key)
 assert all(obj.read() for records, obj in objects)
@@ -670,9 +756,11 @@ print(json.dumps(dict(ok=True)))
 M = curry.import_(source)
 context = llvmjit._jit.modules[M.fib.info.address]
 context.release('Cached.fib')
+# Prevent publication from recovering the explicitly dropped object on disk.
+with open(context.local, 'r+b') as stream:
+  stream.write(b'invalid!')
 context.store()
-assert context.index is None
-assert context.resolve('Cached.fib') == 0
+assert 'Cached.fib' not in context.cached
 with llvmjit._lock:
   llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib')], post=True)
 rt.icurry_apply_posted()
@@ -710,6 +798,12 @@ for name in context.cached:
 assert index.stream.closed
 assert all(entry.get('_native') for entry in index.entries)
 context.store()
+assert context.index is not index
+assert context.objects is context.index
+assert context.objects is llvmjit._jit.object_generations[context.key]
+assert all('_native' not in entry for entry in context.index.entries)
+assert all(context.object_for(name)[1].index is context.index for name in context.cached)
+assert all('_native' not in obj.entry for _, obj in context.cached.values())
 objects = llvmjit._read_cache(context.local, context.key)
 assert len(objects) == len(context.cached)
 assert all(llvmjit._object_bytes(obj) for _, obj in objects)
@@ -798,8 +892,8 @@ index = context.index
 with mock.patch.object(llvmjit._IndexedObjects, 'read_at', return_value=b'bad payload'):
   for name in context.cached:
     assert context.resolve(name) == 0
+  context.store()
 assert index.stream.closed
-context.store()
 assert not context.objects
 print(json.dumps(dict(ok=True)))
 """)
