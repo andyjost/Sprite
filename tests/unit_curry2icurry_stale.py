@@ -463,9 +463,9 @@ class TestCacheKey(PreRewriteCase):
     route alone: the version is in the key of the ICurry cache alone, the
     product cache digests the ICurry text itself.
     '''
-    # Version 9 keeps primitive implementations opaque to optimization.
-    self.assertEqual(_frontend.ROUTE_VERSION, 9)
-    self.assertEqual(cache.route_version(), 9)
+    # Version 10 preserves captured variables at weak rewrite calls.
+    self.assertEqual(_frontend.ROUTE_VERSION, 10)
+    self.assertEqual(cache.route_version(), 10)
     curryfile = self.write('GuardK', guard('GuardK'))
     key = lambda: cache.icurry_cache_key(curryfile, [self.tmpdir], (), 'frontend')
     digest = cache.frontend_digest('frontend')

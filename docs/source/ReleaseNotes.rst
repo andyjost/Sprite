@@ -2,6 +2,14 @@
 Release Notes
 =============
 
+Unreleased
+==========
+
+- Implement ``Control.Search.Unsafe.rewriteAll`` and ``rewriteSome`` through
+  Sprite's weak native capsules. Outside-variable demands propagate to the
+  enclosing search, unlike PAKCS's rejection of outside bindings.
+  ``rewriteSome`` consumes only the first answer.
+
 0.9.0a3 (2026-11-01)
 ====================
 
@@ -44,8 +52,7 @@ Release Notes
   arguments, the program name and hostname.
 - Implement the nine ``System.IO.Unsafe`` primitives, including
   configuration-sensitive variable observations, arbitrary term read/show,
-  and ``spawnConstraint`` with the suspension rule of ``&``. Strong-search
-  operations still await an owner decision.
+  and ``spawnConstraint`` with the suspension rule of ``&``.
 - Every module of the Curry library ships compiled. An external function
   without a primitive in the runtime raises ``not implemented`` at its call;
   before, eight modules failed at import.
