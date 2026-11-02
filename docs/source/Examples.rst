@@ -192,7 +192,6 @@ command line and an HTTP form.
 `examples/25-perfect-hash <https://github.com/andyjost/Sprite/tree/master/examples/25-perfect-hash>`_ — Search programs by length for a Java-keyword
 hash beside Python brute force over the same space.
 
-
 Optional C++ type series: 20 to 23
 ==================================
 

@@ -17,24 +17,28 @@ Sprite is an implementation of the multi-paradigm programming language
 [Curry](https://www.curry-lang.org/), embedded in Python. It seamlessly
 integrates features of functional programming (algebraic data types, pattern
 matching, strong typing, type inference, lazy evaluation) and logic programming
-(nondeterminism, logic variables, search) into your Python project without
-adding heavy dependencies. The functional side rests on a powerful and efficient
-term rewriting engine: a program is a set of rewrite rules, applied lazily and
-only as far as a result demands. For the logic side, you state what a desired
-value has to satisfy and leave the search to Sprite. As a result, many programs
-are trivial to construct and obviously correct. Sprite's evaluation strategy,
-the Fair Scheme, is proved sound, complete, and optimal, meaning it finds
-exactly the values of any expression, and it executes only the steps needed to
-produce them.
+(nondeterminism, logic variables, search) into your Python project. It depends
+on one small package, the Curry front end; the optional LLVM JIT is a separate
+extra you add when you want it. The functional side rests on a powerful and
+efficient term rewriting engine: a program is a set of rewrite rules, applied
+lazily and only as far as a result demands. For the logic side, you state what a
+desired value has to satisfy and leave the search to Sprite. As a result, many
+programs are trivial to construct and obviously correct. Sprite's evaluation
+strategy, the Fair Scheme, is proved sound, complete, and optimal; it computes
+all and only the values of any source expression and takes only needed steps,
+which are unavoidable.
 
 Curry imports directly into Python. Your project uses it at whatever granularity
 it chooses, freely mixing imperative, functional, and logic styles. In other
 words, you always get to use the best tool exactly where it makes sense.
 
-Curry code runs the way Python code does: import it and it runs, with no build
-step and no compiler. For speed, the same code compiles to native machine code,
-just in time as the program runs or ahead of time into an object you can
-[embed in an application](https://andyjost.github.io/Sprite/PythonAPI/UsingTheAPI.html).
+Curry code runs the way Python code does: import it and it runs. The import
+translates the module once, with the front end that comes in the package, and
+caches the result beside the source; no C++ compiler is needed. For speed, the
+same code compiles to native machine code, just in time as the program runs
+(the `jit` extra) or ahead of time into an object you can
+[embed in an application](https://andyjost.github.io/Sprite/PythonAPI/UsingTheAPI.html)
+(a C++ compiler on your machine).
 
 Sprite is in alpha. Install it with `pip install --pre curry`. Try it and [tell
 us what breaks](https://github.com/andyjost/Sprite/issues).
@@ -56,8 +60,10 @@ render (And p q) = "(" ++ render p ++ " & " ++ render q ++ ")"
 render (Or p q) = "(" ++ render p ++ " | " ++ render q ++ ")"
 ```
 
-So far this is ordinary Haskell code. Save it next to your Python code, then
-import it, construct a formula, and render it as a string:
+So far this is an ordinary functional program: a data type with five
+constructors and a function defined by one equation per case, in the syntax
+Haskell made familiar. Save it next to your Python code, then import it,
+construct a formula, and render it as a string:
 
 ```python
 import curry
@@ -184,8 +190,9 @@ Questions and bug reports go to the
 
 Bug reports with a reproducer are the most useful contribution right now, and
 we welcome them on the [issue tracker](https://github.com/andyjost/Sprite/issues).
-The semantics of the runtime are delicate, so we don't take unsolicited pull
-requests; if you want to work on something, open an issue first and we'll
+The runtime follows a proved strategy, and a change to it is a change to the
+proof, so we review changes before they are written and don't take unsolicited
+pull requests; if you want to work on something, open an issue first and we'll
 talk. [CONTRIBUTING.md](CONTRIBUTING.md) has the setup and the conventions.
 
 ## License
