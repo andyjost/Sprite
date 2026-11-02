@@ -4,6 +4,7 @@ from curry import config
 import importlib.util
 from pathlib import Path
 import shutil
+import signal
 import sqlite3
 import subprocess
 import sys
@@ -136,6 +137,7 @@ class TestPrivateLaunchers(cytest.TestCase):
               env=dict(os.environ, HOME=home), capture_output=True)
           self.assertEqual(result.returncode == 0, accepted)
 
+  @cytest.linux_only('The Ubuntu workflow sampler uses Linux ps options.')
   def test_ci_memory_sampler(self):
     workflow = (ROOT / '.github/workflows/ci.yml').read_text()
     start = workflow.index("          (\n            trap 'exit 0' TERM")
@@ -156,6 +158,27 @@ class TestPrivateLaunchers(cytest.TestCase):
           self.assertEqual(result.returncode, status, result.stdout + result.stderr)
           self.assertIn('RSS', result.stdout)
           self.assertEqual('test failure details' in result.stdout.splitlines(), status != 0)
+
+      with self.subTest(early_exit=True):
+        trap_end = script.index('\n', script.index('trap stop_sampler EXIT'))
+        early_exit = script[:trap_end] + '\nprintf "%s\\n" "$sampler" > sampler.pid\nsleep 0.1\nexit 9\n'
+        process = subprocess.Popen(['bash', '-e', '-o', 'pipefail', '-c', early_exit],
+            cwd=work, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, start_new_session=True)
+        try:
+          # The sampler inherits these pipes, so EOF also bounds its lifetime.
+          stdout, stderr = process.communicate(timeout=15)
+          self.assertEqual(process.returncode, 9, stdout + stderr)
+          sampler = int((work / 'sampler.pid').read_text())
+          with self.assertRaises(ProcessLookupError):
+            os.kill(sampler, 0)
+        finally:
+          # Also clean up if a broken EXIT trap leaves the sampler alive.
+          try:
+            os.killpg(process.pid, signal.SIGKILL)
+          except ProcessLookupError:
+            pass
+          process.communicate()
 
   def test_survey_classification(self):
     spec = importlib.util.spec_from_file_location('survey', ROOT / 'scripts/cpm-index-run.py')
