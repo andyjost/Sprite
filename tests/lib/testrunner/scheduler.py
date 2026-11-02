@@ -186,7 +186,7 @@ class Watchdog(threading.Thread):
         if cap != job.cap:
           job.note += ' with %s running' % ', '.join(tools)
         procs.kill_session(job.pid, roots=job.members, **(
-            {'leader': job.proc} if sys.platform == 'win32' else {}))
+            {'leader': job.proc, 'reason': job.kill_reason or 'cleanup'} if sys.platform == 'win32' else {}))
       elif cap is not None and rss is not None and rss > job.cap and not job.note:
         # Over the cap of the file, within the allowance of the toolchain.
         job.note = 'over cap %d MB while %s ran' % (
@@ -196,7 +196,7 @@ class Watchdog(threading.Thread):
         job.kill_reason = 'timeout'
         job.note = 'after %g s' % job.timeout
         procs.kill_session(job.pid, roots=job.members, **(
-            {'leader': job.proc} if sys.platform == 'win32' else {}))
+            {'leader': job.proc, 'reason': job.kill_reason or 'cleanup'} if sys.platform == 'win32' else {}))
 
 
 class Scheduler:
@@ -358,6 +358,8 @@ class Scheduler:
         , stderr=subprocess.STDOUT, **process_options
         )
       job.pid = job.proc.pid
+      if sys.platform == 'win32':
+        procs.start_windows(job.proc)
       if self.echo:
         job._pump = threading.Thread(
             target=_pump, args=(job.proc.stdout, log), daemon=True
@@ -409,9 +411,11 @@ class Scheduler:
       job.record_peak(usage.ru_maxrss * 1024)
     # Whatever the leader left behind in its session goes now, so the next
     # job finds the machine as it was and the log pipe closes.
-    if sys.platform != 'win32' or job.members:
+    if sys.platform != 'win32' or job.members or job.pid in procs._WINDOWS:
       procs.kill_session(job.pid, roots=job.members, **(
-            {'leader': job.proc} if sys.platform == 'win32' else {}))
+            {'leader': job.proc, 'reason': job.kill_reason or 'cleanup'} if sys.platform == 'win32' else {}))
+    if sys.platform == 'win32':
+      procs.close_windows(job.pid)
     if job._pump is not None:
       job._pump.join(timeout=5)
     job.finished = True
@@ -439,7 +443,7 @@ class Scheduler:
         if job.kill_reason is None:
           job.kill_reason = reason
         procs.kill_session(job.pid, roots=job.members, **(
-            {'leader': job.proc} if sys.platform == 'win32' else {}))
+            {'leader': job.proc, 'reason': job.kill_reason or 'cleanup'} if sys.platform == 'win32' else {}))
       for job in self.pending:
         job.status = 'not run'
 

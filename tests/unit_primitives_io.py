@@ -504,7 +504,7 @@ else:
     with tempfile.TemporaryDirectory() as tmp:
       saved = str(Path(tmp) / 'saved')
       curry.save(M, saved, main='main')
-      child = subprocess.run([sys.executable, saved],
+      child = subprocess.run(([saved] if sys.platform == 'win32' else [sys.executable, saved]),
           env=dict(os.environ, CURRYPATH=str(SOURCE),
               SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:off'),
           capture_output=True, text=True)

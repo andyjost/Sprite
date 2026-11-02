@@ -7,6 +7,10 @@ from unittest import mock
 
 
 class TestPerformanceRecord(unittest.TestCase):
+  def test_windows_settings_use_running_interpreter(self):
+    with mock.patch.object(suites.sys, 'platform', 'win32'):
+      self.assertEqual(suites.Settings('install').python, suites.sys.executable)
+
   def test_counterparts(self):
     import sys
     previous = sys.getrecursionlimit()
