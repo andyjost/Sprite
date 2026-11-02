@@ -479,7 +479,7 @@ def _cache_key(jit, header):
 def _open_cache(path):
   '''Pin a generation while allowing publishers to replace its name.'''
   if os.name != 'nt':
-    return open(path, 'rb')
+    return open(path, 'rb', buffering=0)
   import ctypes
   from ctypes import wintypes
   import msvcrt
@@ -501,7 +501,9 @@ def _open_cache(path):
     close(handle)
     raise
   try:
-    return os.fdopen(fd, 'rb')
+    # Index reads must not prefetch payload bytes: verify the file's current
+    # bytes when an object is resolved, even after an in-place overwrite.
+    return os.fdopen(fd, 'rb', buffering=0)
   except BaseException:
     os.close(fd)
     raise

@@ -68,17 +68,39 @@ class TestJITCache(cytest.TestCase):
   def command(self, tier='hot', abi='', mode='new'):
     return [sys.executable, '-c', CHILD, mode, tier, str(self.source), abi]
 
-  def result(self, process):
-    out, err = process.communicate(timeout=120)
+  def start(self, *args, **kwargs):
+    process = subprocess.Popen(*args, **kwargs)
+    self.addCleanup(self.stop, process)
+    return process
+
+  @staticmethod
+  def stop(process):
+    if process.poll() is None:
+      process.kill()
+    process.communicate(timeout=30)
+
+  def result(self, process, timeout=120):
+    try:
+      out, err = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+      self.stop(process)
+      raise
     self.assertEqual(process.returncode, 0, out + err)
     return json.loads(out.splitlines()[-1])
 
   def child(self, tier='hot', abi='', mode='new'):
-    return self.result(subprocess.Popen(self.command(tier, abi, mode),
+    return self.result(self.start(self.command(tier, abi, mode),
         env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
 
   def object(self):
     return next(self.base.rglob('Cached.jit'))
+
+  def test_child_timeout_reaps_process(self):
+    process = self.start([sys.executable, '-c', 'import time; time.sleep(60)'],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    with self.assertRaises(subprocess.TimeoutExpired):
+      self.result(process, timeout=.05)
+    self.assertIsNotNone(process.poll())
 
   def test_warm_start_values_steps_and_stats(self):
     interpreted = self.child('off')
@@ -112,7 +134,7 @@ assert not rt.icurry_is_jit(M.fib.info)
 assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
 print(json.dumps(dict(ok=True)))
 """
-    self.result(subprocess.Popen([sys.executable, '-c', code, 'all', 'hot',
+    self.result(self.start([sys.executable, '-c', code, 'all', 'hot',
         str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, text=True))
 
@@ -135,7 +157,7 @@ assert not rt.icurry_is_jit(M.fib.info)
 assert llvmjit.statistics()['functions'] == 0
 print(json.dumps(dict(ok=True)))
 """
-    self.result(subprocess.Popen([sys.executable, '-c', code, 'all', 'hot',
+    self.result(self.start([sys.executable, '-c', code, 'all', 'hot',
         str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, text=True))
 
@@ -192,7 +214,7 @@ assert 'Cached.fib' in context.failed
 assert read.call_count == 1
 print(json.dumps(dict(ok=True)))
 """
-    self.result(subprocess.Popen([sys.executable, '-c', code, 'all', 'hot',
+    self.result(self.start([sys.executable, '-c', code, 'all', 'hot',
         str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, text=True))
 
@@ -215,7 +237,7 @@ assert not rt.icurry_is_jit(M.fib.info)
 assert rt.icurry_is_jit(M.message.info)
 print(json.dumps(dict(ok=True)))
 """
-    self.result(subprocess.Popen([sys.executable, '-c', code, 'all', 'hot',
+    self.result(self.start([sys.executable, '-c', code, 'all', 'hot',
         str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, text=True))
 
@@ -240,13 +262,13 @@ assert rt.icurry_is_jit(M.fib.info)
 assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
 print(json.dumps(dict(ok=True)))
 """
-    self.result(subprocess.Popen([sys.executable, '-c', code, 'all', 'hot',
+    self.result(self.start([sys.executable, '-c', code, 'all', 'hot',
         str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, text=True))
 
   def run_code(self, body):
     code = CHILD[:CHILD.index('M = curry.import_(source)')] + body
-    return self.result(subprocess.Popen([sys.executable, '-c', code, 'all', 'hot',
+    return self.result(self.start([sys.executable, '-c', code, 'all', 'hot',
         str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, text=True))
 
@@ -324,7 +346,7 @@ import subprocess
 M = curry.import_(source)
 context = llvmjit._jit.modules[M.fib.info.address]
 old = context.index
-subprocess.run([sys.executable, '-c', PUBLISHER, 'all', 'hot', source, ''], check=True)
+subprocess.run([sys.executable, '-c', PUBLISHER, 'all', 'hot', source, ''], check=True, timeout=60)
 assert old.stream.fileno() >= 0
 assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
 assert rt.icurry_is_jit(M.fib.info)
@@ -403,12 +425,45 @@ print(json.dumps(dict(ok=True)))
     with self.assertRaises(ValueError):
       index.read_at(0, 1)
 
+  def test_small_payload_overwritten_after_attachment_is_corrupt(self):
+    import hashlib, zlib
+    path = self.base / 'small.jit'
+    payload = zlib.compress(b'original object')
+    entry = dict(functions=[['F.f', 's0', []]], size=len(payload),
+        digest=hashlib.sha256(payload).hexdigest())
+    stamp = 2000000000
+    header = dict(key='small', objects=[entry], size=0, mtime_ns=stamp)
+    while True:
+      encoded = json.dumps(header).encode('ascii')
+      size = llvmjit._CACHE_PREFIX.size + len(encoded) + len(payload)
+      if header['size'] == size:
+        break
+      header['size'] = size
+    data = llvmjit._CACHE_PREFIX.pack(llvmjit._CACHE_MAGIC, len(encoded)) + encoded + payload
+    # Keep the entire envelope inside a buffered reader's initial prefetch.
+    self.assertLess(len(data), 4096)
+    for pread in (getattr(os, 'pread', None), None):
+      with self.subTest(pread=pread is not None):
+        path.write_bytes(data)
+        os.utime(path, ns=(stamp, stamp))
+        objects = llvmjit._read_cache(path, 'small')
+        self.addCleanup(objects.close)
+        obj = next(iter(objects))[1]
+        with path.open('r+b', buffering=0) as writer:
+          writer.seek(obj.offset)
+          writer.write(bytes([payload[0] ^ 1]))
+        os.utime(path, ns=(stamp, stamp))
+        with mock.patch.object(llvmjit.os, 'pread', pread, create=True):
+          with self.assertRaisesRegex(ValueError, 'corrupt JIT object'):
+            obj.read()
+        self.assertTrue(objects.stream.closed)
+
   def test_generation_open_errors_and_process_liveness(self):
     with self.assertRaises(OSError):
       llvmjit._open_cache(self.base / 'missing.jit')
     self.assertTrue(llvmjit._process_alive(os.getpid()))
     self.assertTrue(llvmjit._process_alive(0))
-    process = subprocess.Popen([sys.executable, '-c', 'pass'])
+    process = self.start([sys.executable, '-c', 'pass'])
     process.wait(timeout=30)
     self.assertFalse(llvmjit._process_alive(process.pid))
 
@@ -666,7 +721,7 @@ print(json.dumps(dict(ok=True)))
     with mock.patch.dict(os.environ, SPRITE_STAGE_JIT_CACHE='0'):
       code = module.jit_cache_fill(['Missing'])
     result = subprocess.run([sys.executable, '-c', code],
-        capture_output=True, text=True)
+        capture_output=True, text=True, timeout=30)
     self.assertEqual(result.returncode, 0, result.stderr)
     self.assertEqual(result.stdout.count('fill skipped'), 1)
     self.assertNotIn('import curry', code)
@@ -712,7 +767,7 @@ print(json.dumps(dict(ok=True)))
 
   def test_two_processes_share_one_object(self):
     self.child('off')  # Prepare front-end products before concurrent writers.
-    processes = [subprocess.Popen(self.command('eager'), env=self.env,
+    processes = [self.start(self.command('eager'), env=self.env,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) for _ in range(2)]
     results = [self.result(p) for p in processes]
     self.assertEqual(results[0]['values'], results[1]['values'])
@@ -727,8 +782,9 @@ print(json.dumps(dict(ok=True)))
   def test_cli_stats_counts_linked_functions(self):
     self.child('eager')
     env = dict(self.env, SPRITE_INTERPRETER_FLAGS='interpret:all,jit:hot,jit_backend:llvm')
-    proc = subprocess.run([curry.config.installed_path('bin', 'sprite-exec'),
-        '--stats', str(self.source)], env=env, capture_output=True, text=True, timeout=120)
+    proc = subprocess.run(cytest.tool_command([
+        curry.config.installed_path('bin', 'sprite-exec'),
+        '--stats', str(self.source)]), env=env, capture_output=True, text=True, timeout=120)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     stats = dict(field.split('=', 1) for field in proc.stderr.splitlines()[-1].split())
     self.assertGreater(int(stats['swapped']), 0)
@@ -743,7 +799,7 @@ print(json.dumps(dict(values=[str(x) for x in curry.eval(M.main)])))
 list(curry.eval(M.message))
 assert rt.icurry_is_jit(M.message.info)
 """
-    proc = subprocess.Popen([sys.executable, '-c', code, 'new', 'hot',
+    proc = self.start([sys.executable, '-c', code, 'new', 'hot',
         str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, text=True)
     self.result(proc)
@@ -757,7 +813,7 @@ assert rt.icurry_is_jit(M.message.info)
         "list(curry.eval(M.fib(12))); assert rt.icurry_is_jit(M.fib.info)").replace(
         "llvmjit.compile(M.message.info, 'Cached.message')",
         "llvmjit.compile(M.main.info, 'Cached.main')")
-    self.result(subprocess.Popen([sys.executable, '-c', code, 'new', 'hot',
+    self.result(self.start([sys.executable, '-c', code, 'new', 'hot',
         str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, text=True))
     self.assertTrue(self.child()['jitted'])
@@ -783,7 +839,7 @@ with llvmjit._lock:
   pass
 print(json.dumps(dict(ok=True)))
 """
-    self.result(subprocess.Popen([sys.executable, '-c', code, 'all', 'hot',
+    self.result(self.start([sys.executable, '-c', code, 'all', 'hot',
         str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, text=True))
     self.assertTrue(self.child(mode='all')['jitted'])
@@ -793,7 +849,7 @@ print(json.dumps(dict(ok=True)))
     path = self.object()
     before = (path.stat().st_mtime_ns, path.read_bytes())
     code = CHILD.replace("jit_backend='llvm')", "jit_backend='llvm', inline_budget=0)")
-    self.result(subprocess.Popen([sys.executable, '-c', code, 'all', 'eager',
+    self.result(self.start([sys.executable, '-c', code, 'all', 'eager',
         str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, text=True))
     self.assertEqual((path.stat().st_mtime_ns, path.read_bytes()), before)
@@ -810,7 +866,7 @@ with mock.patch.object(llvmjit._jit, 'link_object',
   assert [str(x) for x in curry.eval(M.main)] == values
 assert len(llvmjit._jit.generations) == linked
 """
-    self.result(subprocess.Popen([sys.executable, '-c', code, 'all', 'hot',
+    self.result(self.start([sys.executable, '-c', code, 'all', 'hot',
         str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, text=True))
 
@@ -837,7 +893,7 @@ M = curry.import_(source)
 llvmjit.compile(M.bad.info, 'Cached.bad')
 print(json.dumps(dict(ok=True)))
 """
-    self.result(subprocess.Popen([sys.executable, '-c', prime, 'all', 'hot',
+    self.result(self.start([sys.executable, '-c', prime, 'all', 'hot',
         str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, text=True))
     code = CHILD + """
@@ -850,7 +906,7 @@ except curry.EvaluationError as exc:
 else:
   raise AssertionError('cached step lost its exception')
 """
-    self.result(subprocess.Popen([sys.executable, '-c', code, 'all', 'hot',
+    self.result(self.start([sys.executable, '-c', code, 'all', 'hot',
         str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, text=True))
 
