@@ -178,6 +178,44 @@ class TestFindCurry(cytest.TestCase):
     from curry.backends.cxx import image
     self.assertEqual(image.read(imagefile)['name'], 'hello')
 
+  def test_namespace_follows_all_module_files(self):
+    from curry.toolchain import _findcurry
+    early = os.path.join(self.tmpdir.name, 'early')
+    late = os.path.join(self.tmpdir.name, 'late')
+    namespace = os.path.join(early, 'Parent')
+    source = os.path.join(late, 'Parent.curry')
+    os.makedirs(namespace)
+    os.makedirs(late)
+    with open(source, 'w') as stream:
+      stream.write('module Parent where\n')
+    self.assertEqual(
+        list(_findcurry._modulefiles(self.plan, 'Parent', iter([early, late])))
+      , [source, namespace + os.sep]
+      )
+    self.assertEqual(toolchain.currentfile(self.plan, 'Parent', [early, late]), source)
+    os.unlink(source)
+    self.assertEqual(
+        toolchain.currentfile(self.plan, 'Parent', [early, late])
+      , namespace + os.sep
+      )
+
+  def test_hierarchy_search_root(self):
+    from curry.toolchain import _findcurry, _frontend
+    for name in ('Leaf', 'Parent.Leaf', 'Parent.Middle.Leaf'):
+      with self.subTest(name=name):
+        root = os.path.join(self.tmpdir.name, name)
+        source = os.path.join(root, name.replace('.', os.sep) + '.curry')
+        os.makedirs(os.path.dirname(source))
+        with open(source, 'w') as stream:
+          stream.write('module %s where\n' % name)
+        other = os.path.join(self.tmpdir.name, 'deps')
+        self.assertEqual(_frontend.searchdirs(source, [other, root]),
+                         [root, other, config.system_curry_path()])
+        self.assertEqual(
+            _findcurry.program_path(source, [other], is_sourcefile=True)
+          , [root, other]
+          )
+
   def test_program_path(self):
     '''
     The search path of a program given as a file names its directory

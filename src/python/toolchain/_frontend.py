@@ -3,15 +3,16 @@ The route from Curry to ICurry through the Curry front end.
 
 The front end translates a module and its imports to FlatCurry.  For a
 module ``M`` it writes ``M.fcy``, the interface ``M.fint``, and ``M.icurry``
-under ``.curry/<subdir>/`` beside the source, where ``<subdir>`` names the
-front end (see :func:`config.frontend_subdir`).  The same run writes the
-interfaces of the imports beside their sources.  Then
+under ``.curry/<subdir>/`` at the hierarchy root, where ``<subdir>`` names the
+front end (see :func:`config.frontend_subdir`).  Qualified names supply the
+subdirectories below that product directory. The same run writes the
+interfaces of the imports under their hierarchy roots. Then
 :mod:`curry.toolchain.flat2icurry` translates the FlatCurry to ICurry.  The
 ``icurry`` program runs the same front end, so its run leaves the same files
 (see :func:`interfacefile`).
 
-The command runs in the directory of the module and names the module by its
-file name, as ``icurry`` does, so the output lands in the same places.
+The command runs at the hierarchy root and names the source relative to
+that root, so a hierarchical source's own directory cannot shadow imports.
 
 Between the two steps the rewrite step of the routes
 (:func:`curry.toolchain.flat2icurry.rewrite_file`) rewrites ``M.fcy`` in
@@ -90,7 +91,7 @@ __all__ = [
     'QUIET_FLAGS', 'ROUTE_VERSION', 'WARNINGS_VARIABLE', 'WARNING_FLAGS'
   , 'command', 'curry2flat', 'curry2icurry', 'flat2icy', 'flatcurry_dirs'
   , 'flatcurryfile', 'frontend_warnings', 'interfacefile'
-  , 'optimize_flatcurry', 'report_warnings', 'searchdirs'
+  , 'optimize_flatcurry', 'report_warnings', 'searchdirs', 'source_root'
   , 'warnings_by_file', 'written_flatcurry'
   ]
 logger = logging.getLogger(__name__)
@@ -116,7 +117,9 @@ logger = logging.getLogger(__name__)
 #   7: 2026-10-30, the community corpus resolves Test.Prop to the installed
 #      library, not to the compile-only module of community/support (#168);
 #      products made with the support module name other arities.
-ROUTE_VERSION = 7
+#   8: hierarchical modules search from their hierarchy root; an import
+#      can resolve to a different module than a sibling of the source.
+ROUTE_VERSION = 8
 
 # The options that silence the front end.  They are the ones icurry passes in
 # quiet mode.
@@ -142,14 +145,21 @@ def frontend_warnings():
   value = os.environ.get(WARNINGS_VARIABLE, '')
   return value.strip().lower() not in WARNINGS_OFF
 
+def source_root(file_in):
+  '''The source directory with one component removed per module qualifier.'''
+  from ._filenames import logging_module_name
+  directory = os.path.dirname(os.path.abspath(file_in))
+  for _ in range(logging_module_name(file_in).count('.')):
+    directory = os.path.dirname(directory)
+  return directory
+
 def searchdirs(file_in, currypath):
   '''
   The directories in which the front end and the translation look for
-  modules: the directory of ``file_in``, the Curry path, and the system
+  modules: the hierarchy root of ``file_in``, the Curry path, and the system
   library, without repeats.
   '''
-  moduledir = os.path.dirname(os.path.abspath(file_in))
-  dirs = [moduledir] + curryname.makeCurryPath(currypath)
+  dirs = [source_root(file_in)] + curryname.makeCurryPath(currypath)
   dirs.append(config.system_curry_path())
   seen = set()
   unique = []
@@ -161,10 +171,11 @@ def searchdirs(file_in, currypath):
 
 def flatcurryfile(file_in):
   '''The FlatCurry file that the front end writes for ``file_in``.'''
-  path, name = os.path.split(os.path.abspath(file_in))
+  root = source_root(file_in)
+  name = os.path.relpath(os.path.abspath(file_in), root)
   assert name.endswith('.curry')
   return os.path.join(
-      path, '.curry', config.frontend_subdir(), name[:-len('.curry')] + '.fcy'
+      root, '.curry', config.frontend_subdir(), name[:-len('.curry')] + '.fcy'
     )
 
 def interfacefile(file_in, suffix):
@@ -218,8 +229,8 @@ def written_flatcurry(before, after):
 def command(file_in, currypath, quiet=False):
   '''
   The front-end command line for the Curry file ``file_in``.  The output
-  directory is relative, so it is resolved against the directory of each
-  module the front end compiles.  A front end that is not configured raises
+  directory is relative, so it is resolved against the hierarchy root of
+  each module the front end compiles. A front end that is not configured raises
   ``CompileError``; both routes need it (see ``_curry2icurry``).  A quiet
   command, and every command while SPRITE_FRONTEND_WARNINGS says off, has
   QUIET_FLAGS; the other commands have WARNING_FLAGS.
@@ -229,7 +240,7 @@ def command(file_in, currypath, quiet=False):
         'no Curry front end found; set SPRITE_FRONTEND or put '
         'pakcs-frontend on PATH'
       )
-  name = os.path.basename(file_in)
+  name = os.path.relpath(os.path.abspath(file_in), source_root(file_in))
   assert name.endswith('.curry')
   cmd = [
       config.curry_frontend(), '--flat'
@@ -276,7 +287,7 @@ def curry2flat(file_in, currypath, quiet=False, rewrite=True):
   cmd = command(file_in, currypath, quiet)
   if logger.isEnabledFor(logging.DEBUG):
     logger.debug('Command: %s', ' '.join(cmd))
-  moduledir = os.path.dirname(os.path.abspath(file_in))
+  moduledir = source_root(file_in)
   dirs = flatcurry_dirs(file_in, currypath)
   before = _flatcurry_stamps(dirs)
   started = time.monotonic()

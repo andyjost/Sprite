@@ -452,7 +452,7 @@ class Curry2ICurryConverter(object):
               _frontend.curry2flat(file_in, currypath, self.quiet)
               if logger.isEnabledFor(logging.DEBUG):
                 logger.debug('Command: %s', ' '.join(cmd))
-              _system.pexec(cmd)
+              _system.pexec(cmd, cwd=_frontend.source_root(file_in))
             else:
               _frontend.curry2icurry(file_in, file_out, currypath, self.quiet)
             if logger.isEnabledFor(logging.INFO):
@@ -519,7 +519,10 @@ class Curry2ICurryConverter(object):
       cmd = [icurry] + list(self.OPTIONS)
       if self.quiet:
         cmd.append('-q')
-      cmd += ['-o', file_out, file_in]
+      # A physical hierarchical file makes icurry switch to its leaf
+      # directory. Resolve the qualified name from the hierarchy root,
+      # where the rewritten front-end products already live.
+      cmd += ['-o', os.path.abspath(file_out), _filenames.logging_module_name(file_in)]
       return cmd
     else:
       return _frontend.command(file_in, currypath, self.quiet)
