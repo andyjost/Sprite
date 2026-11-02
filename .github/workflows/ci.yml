@@ -875,6 +875,11 @@ jobs:
           timeout 600 cypm install
           SPRITE_CPM_PATH=0 timeout 600 cypm exec "python -c 'import curry; M = curry.import_(\"Data.Map\"); print(curry.eval(M.size(M.empty)).one())'"
           env -u CURRYPATH python -c 'import curry; M = curry.import_("Data.Map"); print(curry.eval(M.size(M.empty)).one())'
+          # The local properties assert the actual system is Sprite. Until
+          # CurryCheck supports Sprite, its known integration failure is tracked
+          # by expectedFailure rather than accepting CPM's compile-only fallback.
+          cd "$GITHUB_WORKSPACE/tests"
+          ./run_tests -j 1 unit_cpm_repl.py
 
   deploy-docs:
     name: deploy docs

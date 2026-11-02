@@ -55,8 +55,8 @@ reproducers pass.
   `builder.py` as the typed construction behind `curry.term` and the
   calls of a symbol over it, and `serialize.py` as the printer of a
   description as Curry text.
-  `src/python/tools/icy/` is the REPL: `python -m curry.tools.icy`, with
-  `:load`, `:reload`, `:eval`, `:type`, `:set` and `:quit`.
+  `src/python/tools/repl/` is the REPL: `python -m curry.tools.repl`, with
+  `:load`, `:reload`, `:eval`, `:type`, `:set`, `:save` and `:quit`.
 - `src/curryrt/`: the C++ runtime library.
 - `curry/`: the Curry library. `curry/lib/` holds a copy of the library of
   the pinned PAKCS, Sprite's own `Control.SetFunctions`, the license of the
@@ -238,7 +238,7 @@ reproducers pass.
 - `make -C docs html` builds the documentation into `object-root/docs/html`.
   It needs a staged install: the Reference pages are generated from the
   installed package, and the command-line pages from the installed tools.
-  `docs/source/REPL.rst` describes the REPL (`python -m curry.tools.icy`).
+  `docs/source/REPL.rst` describes the REPL (`python -m curry.tools.repl`).
 - `make stage CMAKE_ARGS=-DWITH_CCACHE=ccache` enables compiler caching.
   `JOBS=auto` is the default; `make stage JOBS=1` is serial. `make -jN stage`
   overrides the count for one run. CMake `GC=wdgc` (default) or `mps`,

@@ -8,7 +8,7 @@ exit status 2
 exit status 1
 % sprite-exec Tools.curry
 3
-% python -m curry.tools.icy < commands
+% python -m curry.tools.repl < commands
 Prelude> Tools> 0
 1
 Tools> {ins=["x"]} "cmd1"

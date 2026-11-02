@@ -201,7 +201,7 @@ else:
 
   def test_repl_prints_yields(self):
     output = self.run_tool(str(Path(config.sprite_exec()).with_name('python')),
-        '-m', 'curry.tools.icy', input=':load StreamChannel\n:eval custom\n:quit\n')
+        '-m', 'curry.tools.repl', input=':load StreamChannel\n:eval custom\n:quit\n')
     self.assertIn('boxed:7\n', output)
     self.assertNotIn('()\n', output)
 

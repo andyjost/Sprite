@@ -422,16 +422,23 @@ Curry packages
 ==============
 
 The Curry Package Manager resolves and downloads Curry packages.
-Use your own ``cypm``, configured for your PAKCS or KiCS2 installation;
-Sprite runs the installed modules. In a project with a ``package.json``
+Use your own ``cypm``. Set ``CURRY_BIN=/path/to/install/bin/sprite`` in
+``.cpmrc``, or pass ``cypm -d CURRYBIN=/path/to/install/bin/sprite`` on each
+command, to select Sprite as the Curry system. The version probe reports
+``sprite``; packages with compiler constraints must explicitly allow it. In a project with a ``package.json``
 that lists its dependencies, run::
 
     cypm install
-    cypm exec python -m curry
+    cypm exec sprite
 
 To run a source file instead, use::
 
     cypm exec sprite-exec Main.curry
+
+``cypm test`` runs the package's declared test suites. It needs CurryCheck;
+without it CPM only compiles the modules. CurryCheck invokes the Curry system
+that compiled CurryCheck, so installing a PAKCS CurryCheck does not test Sprite.
+Its current source invokes that system's ``bin/curry`` without an override.
 
 ``cypm exec`` sets ``CURRYPATH`` to the dependency source directories.
 Sprite also recognizes the local layout directly. When the working

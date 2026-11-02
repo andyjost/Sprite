@@ -10,8 +10,8 @@ It prints each converted answer with ``curry.show``.  The same route
 serves ``sprite-exec -g`` and the text goals of the Python API, so the
 three agree on every goal.
 
-To start the REPL, run ``python -m curry`` with the Python of the
-installation or run ``sprite-exec`` without a program. From a checkout,
+To start the REPL, run ``sprite`` or ``python -m curry`` with the Python of
+the installation. ``sprite-exec`` without a program also starts it. From a checkout,
 use ``install/bin/python -m curry``:
 
 .. code-block:: bash
@@ -19,7 +19,57 @@ use ``install/bin/python -m curry``:
     python -m curry
     Prelude>
 
-``python -m curry.tools.icy`` also starts the same REPL.
+``python -m curry.tools.repl`` also starts the same REPL.
+
+Command line
+------------
+
+Commands may follow the executable. They run without a banner or prompt;
+execution stops at the first error. Arguments after ``--`` are available
+through ``System.Environment.getArgs``::
+
+    sprite --nocypm --noreadline :set v0 :load Main :eval main :quit -- one two
+    python -m curry :load Main :save :quit
+    ./Main -- one two
+
+``:save`` writes an executable with the loaded module's name in the current
+directory. Its default main expression is ``main``; ``:save EXPR`` chooses
+another expression. The executable uses the installed Sprite runtime.
+``sprite --compiler-name --numeric-version --base-version`` prints the system
+name, its three-part version, and its base library version on separate lines.
+Each probe also works separately.
+
+These PAKCS options are accepted in addition to Sprite's session flags:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 72
+
+   * - Option
+     - Meaning in Sprite
+   * - ``--nocypm``
+     - Accepted; Sprite does not invoke CPM at startup. CPM supplies CURRYPATH.
+   * - ``--noreadline``
+     - Accepted; no readline initialization is required.
+   * - ``-q``
+     - Accepted; command-line execution has no startup banner.
+   * - ``:set v0`` through ``:set v4``
+     - Record session verbosity. Results and errors print at every level.
+       Compilation progress is controlled by Sprite's logging settings.
+   * - ``:set -time``, ``:set +time``
+     - Record the setting; PAKCS timing output is omitted.
+   * - ``:set parser -Wnone``
+     - Accepted; no additional parser warning output is requested.
+   * - ``:set rts -T``
+     - Accepted; GHC runtime statistics do not apply to Sprite.
+   * - ``:set path "PATH"``
+     - Prepend the search path to the session's Curry path.
+   * - ``:set args ARGS``
+     - Set the program arguments, using shell quoting.
+
+Unknown options are errors. Successful commands exit 0, errors and suspended
+computations exit 1, and evaluation without a value exits 2. At the interactive
+prompt, errors keep the session open; ``:quit`` returns the last status.
 
 The prompt names the loaded module.  The Prelude is loaded at the start.
 The REPL runs on the C++ runtime with the flags of ``SPRITE_INTERPRETER_FLAGS`` (see
@@ -33,7 +83,7 @@ run to run. To pin the order, start in step mode
 
     SPRITE_ROTATION=steps:65536 python -m curry
 
-Run ``python -m curry.tools.icy --help`` for the commands and exit
+Run ``python -m curry.tools.repl --help`` for the commands and exit
 statuses. Interpreter flags come from the environment and may be changed
 with ``:set``.
 
@@ -89,7 +139,7 @@ colon and takes the words that follow it. For example:
 
 .. code-block:: bash
 
-    python -m curry.tools.icy :load Goals.curry :eval main14 :quit
+    python -m curry.tools.repl :load Goals.curry :eval main14 :quit
     Just 5
 
 A session with a module
@@ -219,7 +269,7 @@ keep that status. For example:
 
 .. code-block:: bash
 
-    python -m curry.tools.icy :eval 'toEnum 65' :quit
+    python -m curry.tools.repl :eval 'toEnum 65' :quit
     ERROR: cannot handle the overloaded goal toEnum 65 of type Enum a => a
     Cannot handle arbitrary overloaded top-level expressions
     state the type: curry.term(goal, type='T')

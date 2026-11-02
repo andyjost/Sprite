@@ -5,6 +5,10 @@ Release Notes
 0.9.0a3 (2026-11-01)
 ====================
 
+- The ``sprite`` command starts the REPL and accepts CPM command lines,
+  version probes, program arguments and ``:save``. The REPL module is
+  now ``curry.tools.repl``.
+
 - Add the qualified-name primitive registry and the primitives of
   ``Curry.Compiler.Distribution``, ``System.CPUTime``, ``System.Environment``
   and ``Data.IORef``, including registered Python implementations for process

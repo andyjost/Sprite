@@ -30,6 +30,8 @@ class REPL(object):
     self = object.__new__(cls)
     curry.program_arguments = []
     self.status = 0
+    self.verbosity = 1
+    self.pakcs_options = {}
     self.command = None
     self.args = None
     self.module = None
@@ -48,6 +50,11 @@ class REPL(object):
     Command-line arguments are processed, and an exception is raised if any of
     them fail.
     '''
+    if '--' in args:
+      boundary = args.index('--')
+      curry.program_arguments = args[boundary + 1:]
+      args = args[:boundary]
+    self.batch = bool(args)
     args = args[::-1]
     illegal = []
     cmds = []
@@ -87,7 +94,7 @@ class REPL(object):
       command, *tail = line.split(maxsplit=1)
       self.command = resolve(command, commands.COMMANDS, 'command')
       text = tail[0] if tail else ''
-      self.args = [text] if self.command in (':eval', ':type', ':load') and text else text.split()
+      self.args = [text] if self.command in (':eval', ':type', ':load', ':save') and text else text.split()
     else:
       self.command = ':eval'
       self.args = [line]

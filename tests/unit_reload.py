@@ -11,7 +11,7 @@ stays interpreted.  Both backends run the tests of the warning.
 import cytest # from ./lib; must be first
 from cytest.logging import capture_log
 from curry.interpreter import import_ as importer
-from curry.tools.icy import commands, repl
+from curry.tools.repl import commands, repl
 import curry, itertools, logging, os, shutil, tempfile, unittest
 from unittest import mock
 
