@@ -7,7 +7,7 @@
 # applications.jsonl (the two applications at the sizes of the nightly job
 # on the C++ backend against resolvelib and the plain-Python ranking, three
 # repetitions; the clang opponent runs on request only).  The harness caps
-# and times every run.  The status is 1 when a run failed or timed out; a
+# and times every run. The PAKCS subset has a 60-second per-run limit.  The status is 1 when a run failed or timed out; a
 # slow run is not a failure.  See tests/README, section 9.
 # Usage: run-perf.sh OUTDIR [LABEL]
 # Environment: REPEAT (repetitions of the throughput suite, default 3),
@@ -40,11 +40,21 @@ suite() {
 }
 for name in $SUITES; do
   case $name in
-    throughput) suite throughput -b cxx -r "$REPEAT" ;;
+    throughput) suite throughput -b cxx -b python -b pakcs -r "$REPEAT" ;;
     compile) suite compile -b cxx -r 3 ;;
     import) suite import -b cxx -r 5 ;;
     applications) suite applications -b cxx -b resolvelib -b python -r 3 ;;
     *) echo "::error::no suite $name in the nightly job"; status=1 ;;
   esac
 done
+if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+  {
+    echo '## Performance records'
+    echo
+    echo '```text'
+    PYTHONPATH="$PWD/lib${PYTHONPATH:+:$PYTHONPATH}" ../install/bin/python -m benchmarks history \
+        "$out/summary" "$out"/*.jsonl
+    echo '```'
+  } >> "$GITHUB_STEP_SUMMARY"
+fi
 exit $status

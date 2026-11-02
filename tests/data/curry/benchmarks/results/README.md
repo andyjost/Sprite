@@ -8,6 +8,59 @@ schema 1: they have no instructions column, and their meta names the
 machine cpu and cpus.  The harness reads them; a comparison by
 instructions needs a newer baseline.
 
+## Nightly comparisons and mode
+
+The throughput suite accepts -b python for the checked counterparts in
+tests/lib/benchmarks/counterparts.py: Tak1, Queens10, Primes, Peano, Palindrome,
+Qsortlet, Quicksort, Hamming, Psort and TakPeano. They use the Curry input and corresponding algorithms, rather than
+Python's library sort. Before recording timings, an unmeasured Sprite run
+checks the result against the same reference value as the Python child.
+A mismatch produces a failed record. Samples store scalar values or a
+length and SHA-256 digest for list results, keeping the history compact. Peano compares the number of unary
+constructors. Only implemented counterparts run on -b python; an omitted
+counterpart is not a zero-second result. The lazy spine-only and relational
+programs have no direct strict Python comparison in this set.
+
+Throughput always pins interpret:off, including when inherited flags ask
+for another mode. meta.env contains the effective SPRITE_INTERPRETER_FLAGS
+and SPRITE_ROTATION; meta.mode contains resolved flags (interpret, jit,
+jit_backend, rotation), the selected JIT backend, execution (aot for these
+throughput runs), and llvmlite (whether it imported). A selected JIT backend
+is recorded even when ahead-of-time execution does not use it. Other
+backends record their name and null flags/llvmlite. Old records without
+mode or ratios still load and render.
+
+Throughput records carry optional ratios on the cxx record. The python
+ratio divides Sprite evaluation wall seconds by Python evaluation wall
+seconds. The pakcs ratio uses evaluation CPU seconds (user plus system)
+on both sides: process_time for Sprite, PAKCS's "elapsed" field for PAKCS.
+These are stored as eval_cpu, never as eval_wall. Each measured clock is
+explicit in eval_cpu_clock (cpu_user_system) or eval_wall_clock (wall),
+on samples and records. Ratios require matching known clocks and a nonzero
+denominator; old records without clock fields remain readable.
+
+Both sides exclude loading and compilation. For Hello, Peano and PaliFunPats,
+Sprite uses a timed evaluation probe without formatting. Peano evaluates
+the length of its unary result on both sides, returning a small Int; the
+other two already have small results. PAKCS's timer includes printing this
+small value, so formatting cost is bounded rather than scaling with the
+unary result. Values above 1 mean Sprite took longer; the summary names
+the clock. The chart's table also shows ratios and mode.
+
+PAKCS uses :set +time with a timeout of at most 60 seconds. Its failed
+records remain in the output and are advisory; only failed Sprite runs
+fail the harness. The nightly's subset is Hello, Peano and PaliFunPats,
+avoiding Queens10 and Primes. The nightly adds these and the Python
+counterpart goals to the original fixed set.
+
+The history summary emits WARNING when cpu, wall, eval_wall or compile
+seconds move by a factor of at least two in either direction against the
+previous record, with equal known steps, forks and collections. It names the item,
+metric, both values and both commits. Missing counters and failed records
+are not evidence of unchanged work. Warnings are advisory and never fail
+the job. A dispatch with publish:false still writes ratios and mode in its
+records and step summary; the publishing step compares against history.
+
 ## baseline-2026-10-03
 
 The baseline of the performance program, taken on a quiet 12-core x86-64

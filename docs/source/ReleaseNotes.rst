@@ -64,6 +64,11 @@ Release Notes
 - Module images replace module JSON products. Translation and C++ emission
   read ICurry text; read-only directories and text modules use private images.
   ``sprite-make --image`` is the default target; the JSON options are removed.
+- Image preparation constructs imported optimizer declarations on demand.
+  In a local three-run comparison, warm compile CPU medians fell from
+  0.302 to 0.282 s for Fib, 0.357 to 0.340 s for QueensSet, and 0.307 to
+  0.264 s for an expression (about 5 to 14 percent); image bodies and
+  optimization remain enabled.
 
 - Windows: the runtime and the bindings build with clang-cl, and so do the
   generated modules, as DLLs, ahead of time and in the hot and eager C++
