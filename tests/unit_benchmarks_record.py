@@ -1,8 +1,8 @@
 '''The performance record's comparisons, mode, and advisory warnings.'''
 import cytest
-from benchmarks import counterparts, history, records, suites
+from benchmarks import counterparts, history, records, suites, run as harness
 from unit_perf_history import make_record
-import io, os, tempfile, types, unittest
+import contextlib, io, os, tempfile, types, unittest
 from unittest import mock
 
 
@@ -55,6 +55,7 @@ class TestPerformanceRecord(unittest.TestCase):
     p = make_record('Tak1', 1)
     p['backend'] = 'python'
     c['eval_wall'], p['eval_wall'] = 2, 1
+    c['eval_wall_clock'] = p['eval_wall_clock'] = 'wall'
     records.add_ratios([c, p])
     self.assertEqual(c['ratios'], {'python': 2})
     other = make_record('Tak1', 3)
@@ -80,6 +81,8 @@ class TestPerformanceRecord(unittest.TestCase):
 
   def test_warnings(self):
     old, new = make_record('Tak1', 1), make_record('Tak1', 2)
+    self.assertEqual(history.timing_warnings(old, new), [])
+    old['collections'] = new['collections'] = 0
     old['commit'], new['commit'] = 'before', 'after'
     text = '\n'.join(history.timing_warnings(old, new))
     for word in ('WARNING', 'Tak1', 'before', 'after', '1 s', '2 s'):
@@ -100,6 +103,61 @@ class TestPerformanceRecord(unittest.TestCase):
     new['forks'] = None
     self.assertEqual(history.timing_warnings(old, new), [])
     self.assertEqual(history.timing_warnings(None, new), [])
+
+  def test_pakcs_cpu_clock(self):
+    settings = suites.Settings('install', pakcs='pakcs')
+    sprite = suites.SpriteExecItem('Peano', 'cxx', settings)
+    pakcs = suites.PakcsItem('Peano', 'pakcs', settings)
+    self.assertIn(suites.comparison_goal('Peano'), sprite.command()[0])
+    self.assertIn(suites.comparison_goal('Peano'), pakcs.command()[0])
+    c = sprite.parse(types.SimpleNamespace(
+        stdout='{"eval_cpu": 2, "eval_wall": 3}', stderr=''))
+    p = pakcs.parse(types.SimpleNamespace(
+        stdout='Execution time: 500 msec. / elapsed: 1000 msec.'))
+    recs = []
+    for backend, fields in [('cxx', c), ('pakcs', p)]:
+      sample = records.sample(types.SimpleNamespace(status='ok', returncode=0,
+          error=None, wall=4, cpu=3, peak_rss=1, instructions=None, perf=False), fields)
+      recs.append(records.summarize('throughput', 'Peano', backend, None, [sample], {}))
+    for record in recs:
+      self.assertEqual(record['eval_cpu_clock'], 'cpu_user_system')
+    self.assertIsNone(recs[1]['eval_wall'])
+    records.add_ratios(recs)
+    self.assertEqual(recs[0]['ratios']['pakcs'], 2)
+    for clock in ('wall', None):
+      for record in recs:
+        record.pop('ratios', None)
+      recs[1]['eval_cpu_clock'] = clock
+      records.add_ratios(recs)
+      self.assertNotIn('ratios', recs[0])
+
+  def test_pakcs_timeout_is_advisory(self):
+    settings = suites.Settings('install', pakcs='pakcs', warmup=0)
+    items = [suites.SpriteExecItem('Peano', 'cxx', settings),
+             suites.PakcsItem('Peano', 'pakcs', settings)]
+    good = records.sample(types.SimpleNamespace(status='ok', returncode=0,
+        error=None, wall=1, cpu=1, peak_rss=1, instructions=None, perf=False))
+    timeout = dict(good, status='timeout', error='timed out')
+    for sprite_status, expected in [('ok', 0), ('fail', 1)]:
+      output = io.StringIO()
+      with mock.patch.object(suites, 'build', return_value=items), \
+           mock.patch.object(suites.Settings, 'metadata', return_value={
+               'cpu_model': None, 'cores': None, 'mem_gb': None}), \
+           mock.patch.object(suites.Settings, 'mode', return_value={}), \
+           mock.patch.object(suites.Item, 'unavailable', return_value=None), \
+           mock.patch.object(harness.os, 'access', return_value=True), \
+           mock.patch.object(records, 'commit', return_value='review'), \
+           mock.patch.object(harness, 'measure_item', side_effect=[
+               [dict(good, status=sprite_status)], [timeout]]), \
+           contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+        status = harness.main(['Peano', '-b', 'cxx', '-b', 'pakcs',
+            '--pakcs', 'pakcs', '--no-perf', '-r', '1', '-w', '0'])
+      self.assertEqual(status, expected)
+      import json
+      written = [json.loads(line) for line in output.getvalue().splitlines()]
+      self.assertEqual(written[1]['backend'], 'pakcs')
+      self.assertEqual(written[1]['status'], 'timeout')
+      self.assertEqual(written[1]['error'], 'timed out')
 
   def test_throughput_pinned_and_mode(self):
     from benchmarks import DEFAULT_SPRITE_HOME

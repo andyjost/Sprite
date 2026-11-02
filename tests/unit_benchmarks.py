@@ -992,7 +992,8 @@ class TestSuites(unittest.TestCase):
     output = '42\nExecution time: 12 msec. / elapsed: 15 msec.\n'
     self.assertEqual(
         item.parse(FakeRun(stdout=output))
-      , {'eval_cpu': 0.012, 'eval_wall': 0.015}
+      , {'eval_cpu': 0.015, 'eval_cpu_clock': 'cpu_user_system',
+         'extra': {'eval_user_cpu': 0.012}}
       )
     self.assertEqual(item.parse(FakeRun()), {})
     item = suites.ModuleCompileItem(
@@ -2656,7 +2657,9 @@ class TestSmoke(cytest.TestCase):
     self.assertGreaterEqual(first['collections'], 0)
     self.assertEqual(first['compile'], 0.0)
     self.assertGreaterEqual(first['eval_wall'], 0.0)
-    self.assertIsNone(first['eval_cpu'])
+    self.assertGreaterEqual(first['eval_cpu'], 0.0)
+    self.assertEqual(first['eval_cpu_clock'], 'cpu_user_system')
+    self.assertEqual(first['eval_wall_clock'], 'wall')
     self.assertGreater(first['wall'], 0.0)
     self.assertGreater(first['cpu'], 0.0)
     self.assertGreater(first['peak_rss'], 10 * 1024 ** 2)

@@ -59,6 +59,12 @@ from . import counterparts, measure, records
 
 PAKCS_NIGHTLY = ('Hello', 'Peano', 'PaliFunPats')
 
+
+def comparison_goal(program):
+  # Reduce the unary result before either evaluator prints a value.
+  return ('let count O = 0; count (S n) = 1 + count n in count main :: Int'
+          if program == 'Peano' else 'main')
+
 __all__ = [
     'APPLICATIONS', 'COLLECTOR_OFF', 'SUITE_BACKENDS', 'DEFAULT_REPEAT'
   , 'DEPENDENCY_CASES', 'DEPENDENCY_SIZES', 'EXPRESSION', 'IMPORT_ITEMS'
@@ -521,10 +527,21 @@ class SpriteExecItem(Item):
       env['SPRITE_INTERPRETER_FLAGS'] = ','.join(
           [f for f in flags.split(',') if f and not f.startswith('interpret:')]
           + ['interpret:off'])
+    if self.suite == 'throughput' and self.program in PAKCS_NIGHTLY:
+      cmd = [self.settings.python, PROBE, '--throughput', self.module,
+             comparison_goal(self.program)]
     return cmd, env, CURRYDIR
 
   def parse(self, run):
-    fields = {'eval_wall': measure.parse_time(run.stdout)}
+    if self.suite == 'throughput' and self.program in PAKCS_NIGHTLY:
+      fields = measure.parse_json(run.stdout)
+      if fields is None:
+        raise ValueError('Sprite evaluation reported no timing')
+      fields.update(eval_wall_clock='wall', eval_cpu_clock='cpu_user_system')
+    else:
+      fields = {'eval_wall': measure.parse_time(run.stdout)}
+      if fields['eval_wall'] is not None:
+        fields['eval_wall_clock'] = 'wall'
     fields.update(stats_fields(run))
     return fields
 
@@ -532,7 +549,10 @@ class SpriteExecItem(Item):
     if self.suite != 'throughput' or self.program not in counterparts.PROGRAMS:
       return None
     cmd, env, cwd = self.command()
-    cmd.remove('-t')
+    if '-t' not in cmd:
+      cmd = [self.settings.sprite_exec, '--stats', '-m', self.module]
+    else:
+      cmd.remove('-t')
     run = self.settings.run(cmd, env, cwd)
     sample = records.sample(run)
     if run.status == 'ok':
@@ -562,17 +582,17 @@ class PythonItem(Item):
         'value_count': len(value), 'value_digest': hashlib.sha256(
             json.dumps(value, separators=(',', ':')).encode('ascii')).hexdigest()}
     return dict(eval_cpu=probe['eval_cpu'], eval_wall=probe['eval_wall'],
-        extra=extra)
+        eval_cpu_clock='cpu_user_system', eval_wall_clock='wall', extra=extra)
 
 
 class PakcsItem(Item):
-  '''PAKCS loads the module and evaluates main with ``:set +time``.'''
+  '''PAKCS evaluates the comparison goal with ``:set +time``.'''
   suite = 'throughput'
 
   def command(self):
     cmd = [
         self.settings.pakcs, ':set', '+time', ':l', self.program, ':eval'
-      , 'main', ':q'
+      , comparison_goal(self.program), ':q'
       ]
     env = self.settings.environment('pakcs', CURRYPATH=CURRYDIR)
     return cmd, env, CURRYDIR
@@ -581,8 +601,9 @@ class PakcsItem(Item):
     times = measure.parse_pakcs(run.stdout)
     if times is None:
       return {}
-    cpu, wall = times
-    return {'eval_cpu': cpu, 'eval_wall': wall}
+    user_cpu, cpu = times
+    return {'eval_cpu': cpu, 'eval_cpu_clock': 'cpu_user_system',
+            'extra': {'eval_user_cpu': user_cpu}}
 
 
 class CommunityItem(SpriteExecItem):

@@ -427,6 +427,7 @@ class TestScripts(unittest.TestCase):
     os.symlink(sys.executable, os.path.join(bindir, 'python'))
     first, opponent = make_record('Tak1', 2), make_record('Tak1', 1)
     first['eval_wall'], opponent['eval_wall'] = 2, 1
+    first['eval_wall_clock'] = opponent['eval_wall_clock'] = 'wall'
     opponent['backend'] = 'python'
     fixture = os.path.join(root, 'fixture.jsonl')
     with open(fixture, 'w') as stream:

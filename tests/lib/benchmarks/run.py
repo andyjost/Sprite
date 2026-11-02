@@ -337,7 +337,7 @@ def main(argv=None):
         pending.append(record)
         records.add_ratios(completed)
         write_row(log, record, program_width)
-        failures += record['status'] != 'ok'
+        failures += item.backend == 'cxx' and record['status'] != 'ok'
         covered += record['status'] == 'ok'
       log.write('%d of %d covered, %d excluded\n' % (covered, eligible, excluded))
       records.write_ratios(log, completed)

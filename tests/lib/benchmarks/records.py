@@ -36,9 +36,13 @@ variant such as the state of a cache.  The fields, in order:
                  resident set of the harness itself (see measure.py);
                  meta.rss_source tells which.
     eval_wall    Median wall seconds of the evaluation alone: the -t time of
-                 sprite-exec, the elapsed time of PAKCS, or the time to the
+                 sprite-exec, a timed evaluation probe, or the time to the
                  first value of an expression.
-    eval_cpu     Median run time that PAKCS reports; None for Sprite.
+    eval_cpu     Median evaluation CPU seconds (user plus system) for the
+                 timed Sprite probe, Python, and PAKCS's "elapsed" field.
+    eval_wall_clock, eval_cpu_clock
+                 Optional explicit clock names: wall and cpu_user_system.
+                 Ratios require matching, known clocks on both records.
     compile      Median seconds spent compiling: the compile field of
                  sprite-exec --stats, or the time of curry.compile.
     steps        Rewrite steps, from --stats; the same in every repetition,
@@ -52,7 +56,7 @@ variant such as the state of a cache.  The fields, in order:
                  perf is not available, when the repetition under perf
                  failed, or when its counters differ from the measured
                  ones; meta.instructions_source and the warnings tell why.
-    ratios       Optional map of Curry/opponent evaluation wall-time ratios
+    ratios       Optional map of Curry/opponent evaluation time ratios
                  for throughput. Values above 1 mean Curry took longer.
     samples      The numbers of each repetition, in order: the measured
                  repetitions, then the repetitions under perf, which carry
@@ -197,6 +201,10 @@ def summarize(
     else:
       record[name] = None
       warnings.append('%s differs between repetitions: %s' % (name, values))
+  for field in ('eval_wall_clock', 'eval_cpu_clock'):
+    clocks = {s.get(field) for s in good}
+    if len(clocks) == 1 and None not in clocks:
+      record[field] = clocks.pop()
   record['instructions'] = _instructions(under_perf, good, warnings)
   record['samples'] = samples
   record['warnings'] = warnings
@@ -252,7 +260,7 @@ def key(record):
 
 
 def add_ratios(recs):
-  '''Pair evaluation wall times from this run; startup is excluded on both sides.'''
+  '''Pair evaluation times only when both records explicitly name the same clock.'''
   def identity(r):
     return (r['suite'], r['program'], r['variant'], r.get('commit'), r.get('label'))
   sprite = {identity(r): r for r in recs
@@ -261,8 +269,12 @@ def add_ratios(recs):
     if r['suite'] != 'throughput' or r['backend'] not in ('python', 'pakcs'):
       continue
     c = sprite.get(identity(r))
-    if c and r['status'] == 'ok' and r.get('eval_wall') and c.get('eval_wall') is not None:
-      ratio = c['eval_wall'] / r['eval_wall']
+    metric = 'eval_cpu' if r['backend'] == 'pakcs' else 'eval_wall'
+    clock = metric + '_clock'
+    if (c and r['status'] == 'ok' and r.get(metric)
+        and c.get(metric) is not None and c.get(clock) is not None
+        and c.get(clock) == r.get(clock)):
+      ratio = c[metric] / r[metric]
       c.setdefault('ratios', {})[r['backend']] = ratio
       r.setdefault('ratios', {})['curry_to_' + r['backend']] = ratio
 
@@ -272,8 +284,9 @@ def write_ratios(stream, recs):
   for r in recs:
     if r['backend'] == 'cxx':
       for opponent, ratio in r.get('ratios', {}).items():
-        stream.write('%s Curry / %s: %.3fx (evaluation wall seconds)\n'
-            % (r['program'], opponent, ratio))
+        stream.write('%s Curry / %s: %.3fx (evaluation %s seconds)\n'
+            % (r['program'], opponent, ratio,
+               'CPU user + system' if opponent == 'pakcs' else 'wall'))
 
 
 def program_width(records):

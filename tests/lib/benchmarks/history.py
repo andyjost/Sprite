@@ -135,9 +135,7 @@ def timing_warnings(old, new):
   if not old or old['status'] != 'ok' or new['status'] != 'ok':
     return []
   if any(old.get(k) is None or old.get(k) != new.get(k)
-         for k in ('steps', 'forks')):
-    return []
-  if old.get('collections') != new.get('collections'):
+         for k in ('steps', 'forks', 'collections')):
     return []
   warnings = []
   for metric in ('cpu', 'wall', 'eval_wall', 'compile'):
