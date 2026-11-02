@@ -28,6 +28,10 @@ Release Notes
   ``Curry.Compiler.Distribution``, ``System.CPUTime``, ``System.Environment``
   and ``Data.IORef``, including registered Python implementations for process
   arguments, the program name and hostname.
+- Implement the nine ``System.IO.Unsafe`` primitives, including
+  configuration-sensitive variable observations, arbitrary term read/show,
+  and ``spawnConstraint`` with the suspension rule of ``&``. Strong-search
+  operations still await an owner decision.
 - Every module of the Curry library ships compiled. An external function
   without a primitive in the runtime raises ``not implemented`` at its call;
   before, eight modules failed at import.
