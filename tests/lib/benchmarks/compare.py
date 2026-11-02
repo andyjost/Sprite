@@ -319,12 +319,13 @@ def main(argv=None):
   try:
     old_recs = records.read(args.old)
     new_recs = records.read(args.new)
-    problems = sorted({m for r in old_recs + new_recs for m in aot.record_messages(r)})
+    old, new = latest(old_recs), latest(new_recs)
+    problems = sorted({m for r in list(old.values()) + list(new.values())
+        for m in aot.record_messages(r)})
     if problems:
       raise ValueError('AOT inline budget check failed: ' + '; '.join(problems))
   except (OSError, ValueError) as exc:
     sys.exit('compare: %s' % exc)
-  old, new = latest(old_recs), latest(new_recs)
   program_width = records.program_width(old_recs + new_recs)
   if args.deterministic:
     counters, tolerance = DETERMINISTIC_COUNTERS, args.threshold
@@ -342,6 +343,10 @@ def main(argv=None):
   out = sys.stdout
   out.write('old: %s\n' % describe(old_recs))
   out.write('new: %s\n' % describe(new_recs))
+  if any(r.get('meta', {}).get('aot_adoption_possible')
+      for r in list(old.values()) + list(new.values())):
+    out.write('note: background C++ object adoption was possible; '
+        'AOT budgets describe the untimed probe only\n')
   if machines_differ(old_recs, new_recs):
     if args.deterministic:
       out.write(

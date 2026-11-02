@@ -76,8 +76,14 @@ variant such as the state of a cache.  The fields, in order:
                  llvmlite (whether the import succeeded). Old records may
                  omit mode and ratios. meta.requested_inline_budget is the
                  resolved request. meta.aot_inline_budgets contains one map
-                 of loaded module names to object budgets per sample (null
-                 for an unknown budget). Each sample keeps its own map too.
+                 of probe module names to checked object budgets per sample
+                 (null for an unknown budget). Samples also retain the probe's
+                 object and stamp identities, without paths. All repetitions
+                 share one untimed probe, checked after the final repetition.
+                 meta.aot_provenance identifies this protocol;
+                 meta.aot_adoption_possible marks routes that can adopt other
+                 objects during measurement. meta.aot_probe_warnings records
+                 object replacements detected by the final identity check.
                  The object's ABI input receipt supplies these budgets;
                  a regenerated image need not describe an older AOT object.
 

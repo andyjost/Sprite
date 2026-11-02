@@ -224,6 +224,13 @@ def measure_item(item, repeat, perf):
     sample = item.measure()
     if sample['status'] == 'timeout':
       return [sample]
+  probe = None
+  if getattr(item, 'backend', None) == 'cxx':
+    cmd, env, cwd = item.command()
+    try:
+      probe = item.settings.probe(cmd, env, cwd)
+    finally:
+      item.cleanup()
   samples = []
   for _ in range(repeat):
     samples.append(item.measure())
@@ -231,6 +238,15 @@ def measure_item(item, repeat, perf):
       break
   if perf and all(s['status'] == 'ok' for s in samples):
     samples.append(item.measure(perf=True))
+  if getattr(item, 'backend', None) == 'cxx':
+    budgets, warnings = aot.checked_budgets(probe)
+    # Keep paths private to the identity check; records carry no local paths.
+    for sample in samples:
+      sample['aot_inline_budgets'] = budgets
+      sample['aot_object_identities'] = None if probe is None else {
+          name: {k: v for k, v in obj.items() if k in ('identity', 'stamp_identity')}
+          for name, obj in probe.items()}
+    item.aot_probe_warnings = warnings
   return samples
 
 
@@ -340,6 +356,9 @@ def main(argv=None):
               item_meta['mode'].get('flags', {}).get('inline_budget'))
           item_meta['aot_inline_budgets'] = [
               s.get('aot_inline_budgets') for s in samples]
+          item_meta['aot_probe_warnings'] = getattr(item, 'aot_probe_warnings', [])
+          item_meta['aot_adoption_possible'] = aot.adoption_possible(item_meta['mode'])
+          item_meta['aot_provenance'] = 'untimed-probe'
           budget_messages = aot.record_messages(record)
           record['warnings'].extend(budget_messages)
           if args.strict_inline_budget and budget_messages:

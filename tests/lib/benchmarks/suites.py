@@ -364,31 +364,29 @@ class Settings:
 
   def run(self, cmd, env, cwd, perf=False):
     '''Runs one command; under perf when ``perf`` is set and perf is known.'''
-    report = None
-    original = cmd
-    if (cmd[0] in (self.python, self.sprite_exec)
-        and 'backend:cxx' in env.get('SPRITE_INTERPRETER_FLAGS', '')):
-      fd, report = tempfile.mkstemp(prefix='benchmark-aot-', suffix='.json')
-      os.close(fd)
-      kind = 'module' if cmd[0] == self.sprite_exec else 'python'
-      cmd = [self.python, aot.__file__, report, kind] + cmd[1:]
+    return measure.run_command(
+        cmd, env=env, cwd=cwd, timeout=min(self.timeout, 60)
+          if cmd[0] == self.pakcs else self.timeout, cap=self.cap
+      , perf=self.perf if perf else None
+      )
+
+  def probe(self, cmd, env, cwd):
+    """Run the program once outside all measured repetitions."""
+    fd, report = tempfile.mkstemp(prefix='benchmark-aot-', suffix='.json')
+    os.close(fd)
+    kind = 'module' if cmd[0] == self.sprite_exec else 'python'
     try:
-      run = measure.run_command(
-          cmd, env=env, cwd=cwd, timeout=min(self.timeout, 60)
-            if original[0] == self.pakcs else self.timeout, cap=self.cap
-        , perf=self.perf if perf else None
-        )
-      run.aot_inline_budgets = None
-      if report:
-        try:
-          with open(report) as stream:
-            run.aot_inline_budgets = json.load(stream)
-        except (OSError, ValueError):
-          pass # A killed child cannot finish its provenance report.
-      return run
+      result = measure.run_command(
+          [self.python, aot.__file__, report, kind] + cmd[1:],
+          env=env, cwd=cwd, timeout=self.timeout, cap=self.cap)
+      if result.status == 'ok':
+        with open(report) as stream:
+          return json.load(stream)
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+      pass
     finally:
-      if report:
-        os.unlink(report)
+      os.unlink(report)
+    return None
 
   def mode(self, env):
     '''Resolve flags and the selected JIT in the measured Python environment.'''
@@ -512,8 +510,6 @@ class Item:
         sample.update(status='fail', error=str(exc))
       else:
         sample = records.sample(run, fields)
-      if getattr(run, 'aot_inline_budgets', None) is not None:
-        sample['aot_inline_budgets'] = run.aot_inline_budgets
       return sample
     finally:
       self.cleanup()

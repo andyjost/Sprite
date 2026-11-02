@@ -215,7 +215,8 @@ class TestPerformanceRecord(unittest.TestCase):
     sample = records.sample(types.SimpleNamespace(status='ok', returncode=0,
         error=None, wall=1, cpu=1, peak_rss=1, instructions=None, perf=False))
     sample['aot_inline_budgets'] = {'Prelude': 0, 'Tak1': 4}
-    for strict, expected in [(False, 0), (True, 1)]:
+    for strict, expected, budget in [(False, 0, 0), (True, 1, 0), (True, 1, None)]:
+      sample['aot_inline_budgets']['Prelude'] = budget
       output, log = io.StringIO(), io.StringIO()
       with mock.patch.object(suites.Settings, 'metadata', return_value={
                'cpu_model': None, 'cores': None, 'mem_gb': None}), \
@@ -248,16 +249,123 @@ class TestPerformanceRecord(unittest.TestCase):
     from benchmarks import aot
     settings = suites.Settings(config.prefix(), env={
         'SPRITE_INTERPRETER_FLAGS': 'interpret:off,inline_budget:4'})
-    result = settings.run([settings.python, '-c',
+    result = settings.probe([settings.python, '-c',
         "import curry; curry.import_('Prelude')"], settings.environment('cxx'), '.')
-    self.assertEqual(result.status, 'ok', result.stderr)
-    self.assertIn('Prelude', result.aot_inline_budgets)
+    self.assertIsNotNone(result)
+    self.assertIn('Prelude', result)
     from curry.toolchain import _filenames
     source = config.installed_path('curry', 'Prelude.curry')
     path = _filenames.icurryfilename(source)
     object_path = os.path.splitext(path)[0] + config.module_object_suffix()
-    self.assertEqual(result.aot_inline_budgets['Prelude'], aot.object_budget(object_path))
-    baseline = settings.run([settings.python, '-c', 'pass'],
+    self.assertEqual(result['Prelude']['budget'], aot.object_budget(object_path))
+    baseline = settings.probe([settings.python, '-c', 'pass'],
         settings.environment('cxx'), '.')
-    self.assertEqual(baseline.status, 'ok', baseline.stderr)
-    self.assertEqual(baseline.aot_inline_budgets, {})
+    self.assertEqual(baseline, {})
+
+
+  def test_measured_commands_are_unwrapped(self):
+    settings = suites.Settings('install')
+    items = [suites.CommandItem(name, 'cxx', settings)
+        for name in ('python', 'import', 'prelude')]
+    items.append(suites.SpriteExecItem('Hello', 'cxx', settings))
+    for item in items:
+      cmd, env, cwd = item.command()
+      with mock.patch.object(suites.measure, 'run_command') as measured:
+        settings.run(cmd, env, cwd)
+      self.assertEqual(measured.call_args.args, (cmd,))
+      self.assertEqual(measured.call_args.kwargs['env'], env)
+    self.assertEqual(items[0].command()[0], [settings.python, '-c', 'pass'])
+    self.assertEqual(items[-1].command()[0],
+        [settings.python, suites.PROBE, '--throughput', 'Hello', 'main'])
+
+  def test_probe_generation_replacement(self):
+    from benchmarks import aot
+    with tempfile.TemporaryDirectory() as directory:
+      path = os.path.join(directory, 'Example.so')
+      with open(path, 'w') as stream:
+        stream.write('old')
+      probe = {'Example': dict(path=path, identity=aot.identity(path),
+          stamp_identity=None, budget=4)}
+      self.assertEqual(aot.checked_budgets(probe), ({'Example': 4}, []))
+      replacement = path + '.new'
+      with open(replacement, 'w') as stream:
+        stream.write('new')
+      os.replace(replacement, path)
+      budgets, warnings = aot.checked_budgets(probe)
+      self.assertEqual(budgets, {'Example': None})
+      self.assertIn('generation changed', warnings[0])
+      record = make_record('Example', 1)
+      record['meta'].update(requested_inline_budget=4,
+          aot_inline_budgets=[budgets], aot_probe_warnings=warnings)
+      self.assertTrue(aot.record_messages(record))
+
+  def test_probe_once_and_check_after_measurements(self):
+    from benchmarks import aot
+    settings = suites.Settings('install', warmup=0)
+    item = suites.CommandItem('python', 'cxx', settings)
+    events = []
+    sample = dict(status='ok')
+    with mock.patch.object(settings, 'probe', side_effect=lambda *a:
+             events.append('probe') or {}), \
+         mock.patch.object(item, 'measure', side_effect=lambda **k:
+             events.append('measure') or dict(sample)), \
+         mock.patch.object(aot, 'checked_budgets', side_effect=lambda p:
+             events.append('check') or ({'Example': None}, ['changed'])):
+      samples = harness.measure_item(item, 2, True)
+    self.assertEqual(events, ['probe', 'measure', 'measure', 'measure', 'check'])
+    self.assertEqual(samples[-1]['aot_inline_budgets'], {'Example': None})
+    self.assertEqual(item.aot_probe_warnings, ['changed'])
+
+  def test_runtime_registry_includes_tiered_object(self):
+    from benchmarks import aot
+    import json, sys
+    runtime = types.SimpleNamespace(Module=types.SimpleNamespace(
+        getall=lambda: {'Adopted': object()}),
+        SharedCurryModule=types.SimpleNamespace(find_sofilename=lambda name: 'object.so'))
+    with tempfile.TemporaryDirectory() as directory:
+      report = os.path.join(directory, 'probe.json')
+      with mock.patch.dict(sys.modules, {'curry.backends.cxx.curryrtbindings': runtime}), \
+           mock.patch.object(aot, 'identity', return_value=[1, 2, 3, 4]), \
+           mock.patch.object(aot, 'mapped_identity', return_value=True), \
+           mock.patch.object(aot, 'object_budget', return_value=0):
+        aot.write_report(report)
+      with open(report) as stream:
+        self.assertEqual(json.load(stream)['Adopted']['budget'], 0)
+    for jit in ('hot', 'eager'):
+      self.assertTrue(aot.adoption_possible(dict(backend='cxx',
+          flags=dict(jit=jit, interpret='new'))))
+    self.assertFalse(aot.adoption_possible(dict(backend='llvm',
+        flags=dict(jit='hot', interpret='new'))))
+
+  def test_compare_ignores_superseded_mismatch(self):
+    from benchmarks import compare
+    bad, good = make_record('Tak1', 1), make_record('Tak1', 1)
+    bad['meta'].update(requested_inline_budget=4, aot_inline_budgets=[{'Prelude': 0}])
+    good['meta'].update(requested_inline_budget=4, aot_inline_budgets=[{'Prelude': 4}],
+        aot_adoption_possible=True)
+    with tempfile.TemporaryDirectory() as directory:
+      path = os.path.join(directory, 'records.jsonl')
+      with open(path, 'w') as stream:
+        records.write(stream, bad)
+        records.write(stream, good)
+      output = io.StringIO()
+      with contextlib.redirect_stdout(output):
+        self.assertEqual(compare.main([path, path]), 0)
+      self.assertIn('adoption was possible', output.getvalue())
+
+
+  def test_probe_refuses_replaced_mapped_generation(self):
+    from benchmarks import aot
+    import json, sys
+    runtime = types.SimpleNamespace(Module=types.SimpleNamespace(
+        getall=lambda: {'Example': object()}),
+        SharedCurryModule=types.SimpleNamespace(find_sofilename=lambda name: 'object.so'))
+    with tempfile.TemporaryDirectory() as directory:
+      report = os.path.join(directory, 'probe.json')
+      with mock.patch.dict(sys.modules, {'curry.backends.cxx.curryrtbindings': runtime}), \
+           mock.patch.object(aot, 'identity', return_value=[1, 2, 3, 4]), \
+           mock.patch.object(aot, 'mapped_identity', return_value=False), \
+           mock.patch.object(aot, 'object_budget', return_value=4):
+        aot.write_report(report)
+      with open(report) as stream:
+        self.assertIsNone(json.load(stream)['Example']['budget'])
