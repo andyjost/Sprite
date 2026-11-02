@@ -4,6 +4,20 @@ Developer Notes
 
 This page holds the facts a developer of Sprite needs and a user does not.
 
+Value conversion
+================
+
+Results first use the bindings' native converter for normal-form Ints
+(including big integers), Floats, Chars, Bools, lists, tuples and unit.
+An explicit stack traverses these values while holding the GIL and runtime
+heap gate. Static element types preserve the ``[Char]`` to ``str`` rule,
+including empty Strings; without a known element type, only a nonempty list
+of Chars becomes a String. Unsupported subterms, including user constructors,
+functions, free variables and partial lists, use the Python ``ToPython``
+converter. ``ToPython(native=False)`` forces that reference path for parity
+tests. Expression-symbol tables are shared within a session and invalidated
+when a module is loaded, reloaded or parsed, and at reset.
+
 Logging
 ========
 

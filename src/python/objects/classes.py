@@ -31,6 +31,12 @@ class _ConstructorMeta(type):
       term = term(*args)
     elif cls.symbol.arity:
       return term()
+    if args and all(isinstance(arg, Data) for arg in args) \
+        and getattr(term, '_typeexpr', None) is not None and term._reused_nodes:
+      result = object.__new__(cls)
+      result.__dict__.update(term.__dict__)
+      result._value_args = tuple(args)
+      return result
     if len(args) == cls.symbol.arity and _values(args):
       # Literal conversion can contain fromInt or fromRational. Let the
       # evaluator reduce those before converting the constructor's fields.
@@ -51,7 +57,11 @@ class _ConstructorMeta(type):
   def __str__(cls): return str(constructor_term(cls))
   def __repr__(cls): return repr(constructor_term(cls))
   def __hash__(cls): return hash(constructor_term(cls))
-  def __eq__(cls, other): return constructor_term(cls) == constructor_term(other)
+  def __eq__(cls, other):
+    # Type comparisons (including ABC caches) do not compare Curry values.
+    if not isinstance(other, (Term, _ConstructorMeta)):
+      return False
+    return constructor_term(cls) == constructor_term(other)
   def __bool__(cls): return bool(constructor_term(cls))
 
 

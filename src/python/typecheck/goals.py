@@ -183,13 +183,32 @@ def make_goal(interp, args, exprtype=None, anchors=None):
   ``interp.expr`` supplies the dictionaries of a symbol applied to
   arguments, and types a lone symbol under ``exprtype``.
   '''
-  from ..objects.terms import Term, check_refs, named_vars
+  from ..objects.terms import Term, Var, check_refs, named_vars, walk_forms
+  from . import builder
   from .errors import ConversionError
   if len(args) == 1 and isinstance(args[0], str):
     raise ConversionError('a str goal needs curry.parse(text) for code or curry.term(text) for a String')
   if not anchors:
     check_refs(args)
   named_vars(args)
+  held = [value for value in walk_forms((args, tuple((anchors or {}).values())))
+      if isinstance(value, Term)]
+  variables = tuple(v for v in held if isinstance(v, Var))
+  def fresh(expr, scheme=None, typeexpr=None):
+    if held:
+      entry = builder.recorded(interp, expr)
+      expr = builder.TypedBuilder(interp)._copy_function(expr, variables)
+      if typeexpr is not None:
+        builder.record_of(interp).put(expr, scheme, typeexpr)
+      elif entry is not None:
+        builder.record_of(interp).put(expr, *entry)
+    return Goal(expr)
+  if len(args) == 1 and not anchors and exprtype is None:
+    value = args[0]
+    if isinstance(value, Term) and value._defaulted is not None \
+        and getattr(value, '_typeexpr', None) is not None:
+      return fresh(getattr(value, '_typed_node', value._node),
+          getattr(value, '_scheme', None), value._typeexpr)
   if args and isinstance(args[0], Term):
     head = args[0]
     if head.symbol is not None and not head._args:
@@ -206,7 +225,7 @@ def make_goal(interp, args, exprtype=None, anchors=None):
       if expr is not None:
         return Goal(expr)
   try:
-    return Goal(interp.expr(*args, exprtype=exprtype, **anchors))
+    return fresh(interp.expr(*args, exprtype=exprtype, **anchors))
   except DefaultingError as error:
     if len(args) != 1 or not isinstance(args[0], Term):
       raise
