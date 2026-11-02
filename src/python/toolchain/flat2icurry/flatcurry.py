@@ -13,7 +13,7 @@ from .errors import Flat2ICurryError
 from .terms import Char, Term, constructor, showhaskell
 from ...utility import readcurry as rc
 from ...utility.trampoline import trampoline
-import os
+import os, sys, time
 
 __all__ = [
     'Prog', 'Type', 'TypeSyn', 'TypeNew', 'Cons', 'NewCons'
@@ -144,7 +144,23 @@ def write(prog, filename):
   tmpname = filename + '.tmp%d' % os.getpid()
   with open(tmpname, 'w', encoding='utf-8', newline='') as ostream:
     ostream.write(text)
-  os.replace(tmpname, filename)
+  try:
+    if sys.platform != 'win32':
+      os.replace(tmpname, filename)
+    else:
+      # Readers without FILE_SHARE_DELETE temporarily prevent replacement.
+      deadline = time.monotonic() + 5.0
+      while True:
+        try:
+          os.replace(tmpname, filename)
+          break
+        except OSError as exc:
+          if exc.winerror not in (5, 32, 33) or time.monotonic() >= deadline:
+            raise
+          time.sleep(0.01)
+  finally:
+    if os.path.exists(tmpname):
+      os.unlink(tmpname)
 
 def decode(rcdata):
   '''

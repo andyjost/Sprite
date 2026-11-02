@@ -110,6 +110,19 @@ def _library_primitive_wrapper(function, module):
   except OSError:
     return False
 
+def externalize_primitive_wrappers(module):
+  from ...utility.proptree import proptree
+  # Analysis must see the implementation that materialization will select.
+  # Inlining the library's strictness wrapper would force variables before
+  # the configuration-sensitive primitive gets to observe them.
+  for function in module.functions.values():
+    if _library_primitive_wrapper(function, module):
+      function.body = icurry.IExternal(function.fullname)
+      function._inline_shape = None
+      function._metadata = proptree({
+          key: value for key, value in function.metadata._asdict.items()
+          if key not in ('all.inline_body', 'all.alias_target', 'all.unfolding')})
+
 def function_primitive(native, function, module=None):
   # ICurry lowers nondeterministic rules to Prelude.(?), including its own
   # source rules. This compiler intrinsic must not recursively call itself.

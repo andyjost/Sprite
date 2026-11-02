@@ -121,6 +121,7 @@ namespace curryrt
     void clear_error();
     std::pair<Node *, std::string> pop_error();
     void set_error(std::string const &, ErrorKind=ErrorKind::evaluation);
+    void set_error(char const *, ErrorKind=ErrorKind::evaluation);
     void set_error(Node *, std::string const &, ErrorKind=ErrorKind::io, std::string const & filename={});
     void raise_error();
 
