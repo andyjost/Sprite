@@ -39,7 +39,7 @@ class Results(Iterator):
       return next(self._values)
     except SuspensionError:
       self._close()
-      raise SuspensionError('Evaluation suspended: ' + self._text) from None
+      raise SuspensionError('Evaluation suspended: %s' % self._text) from None
     except BaseException:
       self._close()
       raise
