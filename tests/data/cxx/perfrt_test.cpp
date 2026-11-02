@@ -4,7 +4,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <thread>
-#if defined(__linux__)
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#elif defined(__linux__) || defined(__APPLE__)
 #include <pthread.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
@@ -13,9 +17,20 @@
 using namespace curryrt;
 #define CHECK(c) do { if(!(c)) { std::printf("failed: %s at %d\n", #c, __LINE__); std::exit(1); } } while(0)
 
-#if defined(__linux__)
+#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
 static char const * probe()
 {
+#if defined(_WIN32)
+  ULONG_PTR low = 0, high = 0;
+  GetCurrentThreadStackLimits(&low, &high);
+  CHECK(low != 0 && high > low);
+  return reinterpret_cast<char const *>(low);
+#elif defined(__APPLE__)
+  auto top = static_cast<char const *>(pthread_get_stackaddr_np(pthread_self()));
+  auto size = pthread_get_stacksize_np(pthread_self());
+  CHECK(top != nullptr && size != 0);
+  return top - size;
+#else
   pthread_attr_t attr;
   CHECK(pthread_getattr_np(pthread_self(), &attr) == 0);
   void * address = nullptr;
@@ -23,6 +38,7 @@ static char const * probe()
   CHECK(pthread_attr_getstack(&attr, &address, &size) == 0);
   pthread_attr_destroy(&attr);
   return static_cast<char const *>(address);
+#endif
 }
 #endif
 
@@ -30,15 +46,28 @@ static void floor_tests()
 {
   auto floor = platform::stack_floor_of_this_thread();
   CHECK(floor == platform::stack_floor_of_this_thread());
-#if defined(__linux__)
+#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
   CHECK(floor == probe());
 #endif
   std::thread worker([floor] {
     auto own = platform::stack_floor_of_this_thread();
     CHECK(own == platform::stack_floor_of_this_thread());
-#if defined(__linux__)
+#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
     CHECK(own == probe());
     CHECK(own != floor);
+#endif
+#if defined(__linux__) || defined(__APPLE__)
+    // Fork with the worker's TLS already warm, then compare independently.
+    pid_t child = fork();
+    CHECK(child >= 0);
+    if(child == 0)
+    {
+      CHECK(platform::stack_floor_of_this_thread() == probe());
+      _exit(0);
+    }
+    int status = 0;
+    CHECK(waitpid(child, &status, 0) == child);
+    CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0);
 #endif
   });
   worker.join();

@@ -49,7 +49,9 @@ MiB.  ``stack_limit`` bounds the caller's stack.
 
 The platform probes the caller's stack floor once per thread and caches even
 an unavailable result. POSIX cache entries also carry the process ID, so a
-forked child probes again. Each runtime entry reads this cache before applying
+forked child probes again. On Linux each entry also checks the soft stack
+limit with getrlimit and re-probes when it changes, because the main thread's
+floor follows that limit. Each runtime entry reads this cache before applying
 the existing stack-limit clamp and safety margin; worker reservations keep
 their separate accounting.
 

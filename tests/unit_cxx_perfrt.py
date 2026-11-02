@@ -5,7 +5,7 @@ from curry import config
 from curry.backends.cxx import curryrtbindings as rt
 from curry.objects.handle import getHandle
 from cytest.buildtools import runtime_test_command, runtime_test_environment
-import os, subprocess, tempfile, unittest
+import os, subprocess, sys, tempfile, unittest
 from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -13,6 +13,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 class TestRuntimeBookkeeping(cytest.TestCase):
   @unittest.skipIf(config.cxx_tool() is None, 'no C++ compiler is installed')
   def test_native(self):
+    self.run_native()
+
+  @unittest.skipUnless(sys.platform == 'darwin', 'macOS stack API')
+  @unittest.skipIf(config.cxx_tool() is None, 'no C++ compiler is installed')
+  def test_macos_floor_matches_pthread_stack_api(self):
+    self.run_native()
+
+  @unittest.skipUnless(sys.platform == 'win32', 'Windows stack API')
+  @unittest.skipIf(config.cxx_tool() is None, 'no C++ compiler is installed')
+  def test_windows_floor_matches_stack_limits_api(self):
+    self.run_native()
+
+  def run_native(self):
     source = os.path.join(HERE, 'data', 'cxx', 'perfrt_test.cpp')
     with tempfile.TemporaryDirectory() as directory:
       target = os.path.join(directory, 'perfrt_test')
@@ -66,6 +79,83 @@ if hasattr(os, 'fork'):
   assert os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0, status
 print('ok')
 '''
+    result = cytest.run_in_subprocess(code, 60, address_space=2 << 30)
+    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+    self.assertEqual(result.stdout.splitlines(), ['ok'])
+
+  @unittest.skipUnless(sys.platform == 'linux', 'Linux soft stack limit')
+  def test_guard_after_lowering_soft_stack_limit(self):
+    self.run_floor_guard("""
+import resource
+_, hard = resource.getrlimit(resource.RLIMIT_STACK)
+resource.setrlimit(resource.RLIMIT_STACK, (8 << 20, hard))
+assert curry.eval(M.deep(10)).one() == 10
+resource.setrlimit(resource.RLIMIT_STACK, (2 << 20, hard))
+evaluate()
+""")
+
+  @unittest.skipUnless(sys.platform in ('linux', 'darwin', 'win32'),
+      'no independent stack API on this platform')
+  def test_guard_on_small_thread_stack(self):
+    self.run_floor_guard("""
+# Leave room above the runtime's 1 MiB safety margin.
+threading.stack_size(2 << 20)
+errors = []
+def worker():
+  try:
+    evaluate()
+    evaluate()
+  except BaseException as error:
+    errors.append(error)
+thread = threading.Thread(target=worker)
+thread.start()
+thread.join()
+assert not errors, errors
+""")
+
+  @unittest.skipUnless(sys.platform in ('linux', 'darwin') and hasattr(os, 'fork'),
+      'requires fork and a pthread stack API')
+  def test_guard_after_fork_from_evaluating_thread(self):
+    self.run_floor_guard("""
+# Leave room above the runtime's 1 MiB safety margin.
+threading.stack_size(2 << 20)
+errors = []
+def worker():
+  try:
+    evaluate()
+    child = os.fork()
+    if child == 0:
+      try:
+        evaluate()
+      except BaseException:
+        os._exit(1)
+      os._exit(0)
+    _, status = os.waitpid(child, 0)
+    assert os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0, status
+    evaluate()
+  except BaseException as error:
+    errors.append(error)
+thread = threading.Thread(target=worker)
+thread.start()
+thread.join()
+assert not errors, errors
+""")
+
+  def run_floor_guard(self, body):
+    curry.import_('StackGuard')
+    code = r'''
+import curry, os, threading
+curry.reset(backend='cxx', stack_limit=1 << 40, worker_stack=None, jit='off')
+M = curry.import_('StackGuard')
+def evaluate():
+  assert curry.eval(M.deep(10)).one() == 10
+  try:
+    curry.eval(M.deep(100000)).one()
+  except curry.EvaluationError as error:
+    assert 'stack limit of ' in str(error), str(error)
+  else:
+    raise AssertionError('deep evaluation did not reach its stack guard')
+''' + body + "\nprint('ok')\n"
     result = cytest.run_in_subprocess(code, 60, address_space=2 << 30)
     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
     self.assertEqual(result.stdout.splitlines(), ['ok'])

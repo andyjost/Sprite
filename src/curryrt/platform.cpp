@@ -260,7 +260,18 @@ namespace curryrt { namespace platform {
     static thread_local long long process = 0;
     static thread_local char const * floor = nullptr;
     auto const current = process_id();
-    if(process != current)
+    bool stale = process != current;
+#if defined(__linux__)
+    // The main thread's pthread floor follows the soft stack limit. Check
+    // every entry, including after a worker becomes the sole thread at fork.
+    // Checking all threads avoids a separate main-thread identity cache.
+    static thread_local rlim_t soft_limit = RLIM_INFINITY;
+    struct rlimit limit;
+    bool const have_limit = getrlimit(RLIMIT_STACK, &limit) == 0;
+    stale = stale || !have_limit || soft_limit != limit.rlim_cur;
+    if(have_limit) soft_limit = limit.rlim_cur;
+#endif
+    if(stale)
     {
       floor = probe_stack_floor();
       process = current;
