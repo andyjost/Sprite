@@ -876,6 +876,45 @@ a host name (meta: cpu_model, cores, mem_gb in GiB, Python, compiler, front
 end).  The fields are documented in lib/benchmarks/records.py.  Records of
 the first format (schema 1) load and compare; they have no instructions.
 
+
+The throughput suite accepts -b python for the checked counterparts in
+lib/benchmarks/counterparts.py: Tak1, Queens10, Primes, Peano, Palindrome,
+Qsortlet, Quicksort, Hamming, Psort and TakPeano. They use the Curry input and corresponding algorithms, rather than
+Python's library sort. Before recording timings, an unmeasured Sprite run
+checks the result against the same reference value as the Python child.
+A mismatch produces a failed record. Samples store scalar values or a
+length and SHA-256 digest for list results, keeping the history compact. Peano compares the number of unary
+constructors. Only implemented counterparts run on -b python; an omitted
+counterpart is not a zero-second result. The lazy spine-only and relational
+programs have no direct strict Python comparison in this set.
+
+Throughput always pins interpret:off, including when inherited flags ask
+for another mode. meta.env contains the effective SPRITE_INTERPRETER_FLAGS
+and SPRITE_ROTATION; meta.mode contains resolved flags (interpret, jit,
+jit_backend, rotation), the selected JIT backend, execution (aot for these
+throughput runs), and llvmlite (whether it imported). A selected JIT backend
+is recorded even when ahead-of-time execution does not use it. Other
+backends record their name and null flags/llvmlite. Old records without
+mode or ratios still load and render.
+
+Throughput records carry optional ratios: on the cxx record, python and
+pakcs are Curry evaluation wall seconds divided by the opponent's evaluation
+wall seconds. Values above 1 mean Curry took longer. Both sides exclude
+process startup and compilation; the summary names this timing basis.
+Ratios with a zero or missing denominator are omitted. The chart's table
+also shows ratios and mode. PAKCS uses :set +time under a timeout of at most 60 seconds;
+the nightly's small subset is Hello, Peano and PaliFunPats, avoiding the
+long-running goals of Queens10 and Primes. The nightly adds these and the
+Python counterpart goals to the original fixed set.
+
+The history summary emits WARNING when cpu, wall, eval_wall or compile
+seconds move by a factor of at least two in either direction against the
+previous record, with equal known steps and forks and unchanged collections. It names the item,
+metric, both values and both commits. Missing counters and failed records
+are not evidence of unchanged work. Warnings are advisory and never fail
+the job. A dispatch with publish:false still writes ratios and mode in its
+records and step summary; the publishing step compares against history.
+
 The instructions are the user-space instructions that the child process and
 its descendants retire, counted by perf (perf stat -e instructions:u).  The
 count does not depend on the load of the machine: on a loaded machine two

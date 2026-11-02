@@ -52,6 +52,8 @@ variant such as the state of a cache.  The fields, in order:
                  perf is not available, when the repetition under perf
                  failed, or when its counters differ from the measured
                  ones; meta.instructions_source and the warnings tell why.
+    ratios       Optional map of Curry/opponent evaluation wall-time ratios
+                 for throughput. Values above 1 mean Curry took longer.
     samples      The numbers of each repetition, in order: the measured
                  repetitions, then the repetitions under perf, which carry
                  "perf": true.  The wall and CPU seconds of a repetition
@@ -64,7 +66,11 @@ variant such as the state of a cache.  The fields, in order:
                  and mem_gb (GiB, one decimal), without a host name.
                  rss_source and instructions_source tell how the peak
                  resident set and the instructions were measured, or why
-                 they were not.
+                 they were not. meta.env records the effective interpreter
+                 flags and rotation. meta.mode holds resolved flags, backend
+                 (selected JIT), execution (aot for interpret:off), and
+                 llvmlite (whether the import succeeded). Old records may
+                 omit mode and ratios.
 
 The medians cover the successful measured repetitions only.  A median of an
 even number of values is the mean of the middle two.
@@ -79,8 +85,8 @@ from . import BACKENDS, OPPONENTS, SUITES
 
 __all__ = [
     'ADDED', 'COUNTERS', 'FIELDS', 'MEDIANS', 'SCHEMA', 'SCHEMAS', 'STATUSES'
-  , 'commit', 'cpu_model', 'exclusion', 'key', 'machine', 'median', 'memory_gb', 'now'
-  , 'program_width', 'read', 'sample', 'summarize', 'upgrade', 'validate', 'write'
+  , 'add_ratios', 'commit', 'cpu_model', 'exclusion', 'key', 'machine', 'median', 'memory_gb', 'now'
+  , 'program_width', 'read', 'sample', 'summarize', 'upgrade', 'validate', 'write', 'write_ratios'
   ]
 
 SCHEMA = 2
@@ -243,6 +249,31 @@ def key(record):
   return (
       record['suite'], record['program'], record['backend'], record['variant']
     )
+
+
+def add_ratios(recs):
+  '''Pair evaluation wall times from this run; startup is excluded on both sides.'''
+  def identity(r):
+    return (r['suite'], r['program'], r['variant'], r.get('commit'), r.get('label'))
+  sprite = {identity(r): r for r in recs
+      if r['backend'] == 'cxx' and r['status'] == 'ok'}
+  for r in recs:
+    if r['suite'] != 'throughput' or r['backend'] not in ('python', 'pakcs'):
+      continue
+    c = sprite.get(identity(r))
+    if c and r['status'] == 'ok' and r.get('eval_wall') and c.get('eval_wall') is not None:
+      ratio = c['eval_wall'] / r['eval_wall']
+      c.setdefault('ratios', {})[r['backend']] = ratio
+      r.setdefault('ratios', {})['curry_to_' + r['backend']] = ratio
+
+
+def write_ratios(stream, recs):
+  add_ratios(recs)
+  for r in recs:
+    if r['backend'] == 'cxx':
+      for opponent, ratio in r.get('ratios', {}).items():
+        stream.write('%s Curry / %s: %.3fx (evaluation wall seconds)\n'
+            % (r['program'], opponent, ratio))
 
 
 def program_width(records):

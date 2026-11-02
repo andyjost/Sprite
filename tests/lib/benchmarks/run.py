@@ -79,7 +79,8 @@ def parse_args(argv):
       '-b', '--backend', action='append', choices=BACKENDS + OPPONENTS
     , default=None
     , help='backend to measure; repeat for several; resolvelib, python and '
-           'clang are the opponents of the applications suite [default: '
+           'clang are the opponents of the applications suite; python also '
+           'runs checked throughput counterparts [default: '
            'cxx; in the applications suite cxx, resolvelib, python]'
     )
   parser.add_argument(
@@ -213,6 +214,10 @@ def measure_item(item, repeat, perf):
   item: a warm-up that timed out is the one sample, and no repetition
   follows a measured one that timed out.
   '''
+  validate = getattr(item, 'validate_counterpart', None)
+  invalid = validate() if validate else None
+  if invalid is not None:
+    return [invalid]
   for _ in range(item.warmup()):
     sample = item.measure()
     if sample['status'] == 'timeout':
@@ -287,8 +292,28 @@ def main(argv=None):
     log.write(columns % HEADINGS + '\n')
     failures = 0
     covered = excluded = eligible = 0
+    completed = []
+    pending = []
+    def flush_program():
+      records.add_ratios(pending)
+      for record in pending:
+        records.write(out, record)
+      out.flush()
+      pending.clear()
     try:
       for item in items:
+        if pending and pending[0]['program'] != item.program:
+          flush_program()
+        item_meta = dict(meta)
+        if item.backend == 'pakcs':
+          item_meta['timeout'] = min(settings.timeout, 60)
+        # Use the command's actual environment, including suite overrides.
+        _, mode_env, _ = item.command()
+        item.cleanup()
+        item_meta['env'] = {k: mode_env[k] for k in
+            ('SPRITE_INTERPRETER_FLAGS', 'SPRITE_ROTATION') if k in mode_env}
+        item_meta['mode'] = settings.mode(mode_env) if item.backend == 'cxx' else {
+            'flags': None, 'backend': item.backend, 'llvmlite': None}
         reason = item.unavailable()
         if reason:
           preprocessor = 'needs the preprocessor ' in reason
@@ -297,25 +322,27 @@ def main(argv=None):
           if preprocessor:
             record = records.exclusion(
                 item.suite, item.program, item.backend, item.variant, reason,
-                meta, label=settings.label, commit=commit
+                item_meta, label=settings.label, commit=commit
               )
-            records.write(out, record)
-            out.flush()
+            pending.append(record)
             excluded += 1
           continue
         eligible += 1
         samples = measure_item(item, args.repeat, perf)
         record = records.summarize(
             item.suite, item.program, item.backend, item.variant, samples
-          , meta, label=settings.label, warmup=item.warmup(), commit=commit
+          , item_meta, label=settings.label, warmup=item.warmup(), commit=commit
           )
-        records.write(out, record)
-        out.flush()
+        completed.append(record)
+        pending.append(record)
+        records.add_ratios(completed)
         write_row(log, record, program_width)
         failures += record['status'] != 'ok'
         covered += record['status'] == 'ok'
       log.write('%d of %d covered, %d excluded\n' % (covered, eligible, excluded))
+      records.write_ratios(log, completed)
     finally:
+      flush_program()
       if out is not sys.stdout:
         out.close()
   finally:

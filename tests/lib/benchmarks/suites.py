@@ -52,10 +52,12 @@ applications
     opponent that is not installed is skipped with a message.
 '''
 
-import csv, fnmatch, glob, os, platform, shutil, subprocess, tempfile
+import csv, fnmatch, glob, hashlib, json, os, platform, shutil, subprocess, tempfile
 from . import APPDIR, BACKENDS, CURRYDIR, DISSERTATION, HERE, NIGHTLY
 from . import OPPONENTS, SPLITDIR, SUITES
-from . import measure, records
+from . import counterparts, measure, records
+
+PAKCS_NIGHTLY = ('Hello', 'Peano', 'PaliFunPats')
 
 __all__ = [
     'APPLICATIONS', 'COLLECTOR_OFF', 'SUITE_BACKENDS', 'DEFAULT_REPEAT'
@@ -219,6 +221,8 @@ def nightly_items(suite):
     return list(APPLICATIONS)
   programs = all_programs()
   names = [p for p in NIGHTLY if p in programs]
+  if suite == 'throughput':
+    names = list(dict.fromkeys(names + list(PAKCS_NIGHTLY) + list(counterparts.PROGRAMS)))
   if suite == 'compile':
     names.append('expression')
   return names
@@ -355,9 +359,26 @@ class Settings:
   def run(self, cmd, env, cwd, perf=False):
     '''Runs one command; under perf when ``perf`` is set and perf is known.'''
     return measure.run_command(
-        cmd, env=env, cwd=cwd, timeout=self.timeout, cap=self.cap
+        cmd, env=env, cwd=cwd, timeout=min(self.timeout, 60)
+          if cmd[0] == self.pakcs else self.timeout, cap=self.cap
       , perf=self.perf if perf else None
       )
+
+  def mode(self, env):
+    '''Resolve flags and the selected JIT in the measured Python environment.'''
+    code = '''import json, sys
+import curry
+from curry.backends.cxx import jit
+i = curry._interpreter_
+print(json.dumps(dict(flags={k: i.flags[k] for k in
+    ('interpret', 'jit', 'jit_backend', 'rotation')},
+    backend=jit.backend(i), execution='aot' if i.flags['interpret'] == 'off' else i.flags['interpret'], llvmlite='llvmlite' in sys.modules)))
+'''
+    proc = subprocess.run([self.python, '-c', code], env=env,
+        capture_output=True, text=True, timeout=60)
+    if proc.returncode:
+      raise ValueError('cannot determine benchmark mode: ' + proc.stderr.strip())
+    return json.loads(proc.stdout)
 
   def metadata(self):
     '''
@@ -382,7 +403,8 @@ class Settings:
       , 'instructions_source': self.instructions_source
       , 'timeout': self.timeout
       , 'cap': self.cap
-      , 'env': self.env
+      , 'env': {k: v for k, v in self.environment('cxx').items()
+          if k in ('SPRITE_INTERPRETER_FLAGS', 'SPRITE_ROTATION')}
       }
 
   @staticmethod
@@ -457,7 +479,13 @@ class Item:
     cmd, env, cwd = self.command()
     try:
       run = self.settings.run(cmd, env, cwd, perf=perf)
-      return records.sample(run, self.parse(run))
+      try:
+        fields = self.parse(run) if run.status == 'ok' else {}
+      except ValueError as exc:
+        sample = records.sample(run)
+        sample.update(status='fail', error=str(exc))
+        return sample
+      return records.sample(run, fields)
     finally:
       self.cleanup()
 
@@ -488,12 +516,53 @@ class SpriteExecItem(Item):
     env = self.settings.environment(
         self.backend, CURRYPATH=CURRYDIR, **self.extra_env
       )
+    if self.suite == 'throughput':
+      flags = env.get('SPRITE_INTERPRETER_FLAGS', '')
+      env['SPRITE_INTERPRETER_FLAGS'] = ','.join(
+          [f for f in flags.split(',') if f and not f.startswith('interpret:')]
+          + ['interpret:off'])
     return cmd, env, CURRYDIR
 
   def parse(self, run):
     fields = {'eval_wall': measure.parse_time(run.stdout)}
     fields.update(stats_fields(run))
     return fields
+
+  def validate_counterpart(self):
+    if self.suite != 'throughput' or self.program not in counterparts.PROGRAMS:
+      return None
+    cmd, env, cwd = self.command()
+    cmd.remove('-t')
+    run = self.settings.run(cmd, env, cwd)
+    sample = records.sample(run)
+    if run.status == 'ok':
+      try:
+        counterparts.check(self.program, counterparts.curry_value(self.program, run.stdout))
+      except ValueError as exc:
+        sample.update(status='fail', error=str(exc))
+      else:
+        return None
+    return sample
+
+
+class PythonItem(Item):
+  suite = 'throughput'
+
+  def command(self):
+    return ([self.settings.python, counterparts.__file__, self.program],
+        self.settings.environment('python'), CURRYDIR)
+
+  def parse(self, run):
+    probe = measure.parse_json(run.stdout)
+    if probe is None:
+      raise ValueError('Python counterpart reported no value')
+    counterparts.check(self.program, probe['value'])
+    value = probe['value']
+    extra = {'value': value} if not isinstance(value, list) else {
+        'value_count': len(value), 'value_digest': hashlib.sha256(
+            json.dumps(value, separators=(',', ':')).encode('ascii')).hexdigest()}
+    return dict(eval_cpu=probe['eval_cpu'], eval_wall=probe['eval_wall'],
+        extra=extra)
 
 
 class PakcsItem(Item):
@@ -772,7 +841,8 @@ def build(suite, programs, backends, settings, workdir, nightly=False):
   for backend in backends:
     if backend not in BACKENDS + OPPONENTS:
       raise ValueError('no backend %r' % backend)
-    if backend in OPPONENTS and suite != 'applications':
+    if backend in OPPONENTS and suite != 'applications' and not (
+        suite == 'throughput' and backend == 'python'):
       raise ValueError(
           'the %s backend is available in the applications suite only'
           % backend
@@ -807,7 +877,11 @@ def build(suite, programs, backends, settings, workdir, nightly=False):
       continue
     for backend in backends:
       if suite == 'throughput':
-        cls = PakcsItem if backend == 'pakcs' else SpriteExecItem
+        if backend == 'python' and program not in counterparts.PROGRAMS:
+          continue
+        if nightly and backend == 'pakcs' and program not in PAKCS_NIGHTLY:
+          continue
+        cls = PythonItem if backend == 'python' else PakcsItem if backend == 'pakcs' else SpriteExecItem
         items.append(cls(program, backend, settings))
       elif suite == 'community':
         items.append(CommunityItem(program, backend, settings))

@@ -724,7 +724,9 @@ class TestSuites(unittest.TestCase):
     programs = suites.all_programs()
     for name in NIGHTLY:
       self.assertIn(name, programs)
-    self.assertEqual(suites.nightly_items('throughput'), list(NIGHTLY))
+    throughput = list(dict.fromkeys(list(NIGHTLY) + list(suites.PAKCS_NIGHTLY)
+        + list(suites.counterparts.PROGRAMS)))
+    self.assertEqual(suites.nightly_items('throughput'), throughput)
     self.assertEqual(suites.nightly_items('memory'), list(NIGHTLY))
     self.assertEqual(
         suites.nightly_items('compile'), list(NIGHTLY) + ['expression']
@@ -732,7 +734,7 @@ class TestSuites(unittest.TestCase):
     self.assertEqual(suites.nightly_items('import'), list(suites.IMPORT_ITEMS))
     self.assertEqual(suites.nightly_items('split'), suites.split_programs())
     self.assertEqual(
-        suites.select('throughput', [], nightly=True), list(NIGHTLY)
+        suites.select('throughput', [], nightly=True), throughput
       )
     self.assertEqual(
         suites.select('compile', ['Q*'], nightly=True)
@@ -742,9 +744,9 @@ class TestSuites(unittest.TestCase):
         suites.select('import', ['h*'], nightly=True), ['hello']
       )
     with self.assertRaisesRegex(
-        ValueError, "no program of the throughput suite matches 'Hello'"
+        ValueError, "no program of the throughput suite matches 'Missing'"
       ):
-      suites.select('throughput', ['Hello'], nightly=True)
+      suites.select('throughput', ['Missing'], nightly=True)
     # Without the flag nothing changes.
     self.assertEqual(suites.select('throughput', []), list(DISSERTATION))
 
@@ -885,6 +887,7 @@ class TestSuites(unittest.TestCase):
     self.assertIsNone(whole.part)
     cmd, env, cwd = whole.command()
     reference = suites.SpriteExecItem('QueensSet', 'cxx', self.settings)
+    reference.suite = 'split'
     self.assertEqual((cmd, env, cwd), reference.command())
     part = items[5]
     self.assertEqual(part.variant, '4/2')
@@ -1218,7 +1221,7 @@ class TestApplications(unittest.TestCase):
     # An opponent outside its suite, and PAKCS inside it.
     with self.assertRaisesRegex(ValueError, 'applications suite only'):
       suites.build(
-          'throughput', ['Fib'], ['python'], self.settings, self.workdir
+          'throughput', ['Fib'], ['clang'], self.settings, self.workdir
         )
     with self.assertRaisesRegex(ValueError, 'throughput suite only'):
       self.build(['overloads'], ['pakcs'])
@@ -2675,7 +2678,8 @@ class TestSmoke(cytest.TestCase):
     self.assertNotIn('cpus', meta)
     self.assertEqual(meta['cap'], CAP)
     self.assertEqual(meta['timeout'], TIMEOUT)
-    self.assertEqual(meta['env'], {})
+    self.assertIn('interpret:off', meta['env']['SPRITE_INTERPRETER_FLAGS'])
+    self.assertEqual(meta['mode']['flags']['interpret'], 'off')
     self.assertEqual(meta['rss_source'], measure.rss_source())
     self.assertEqual(
         meta['instructions_source'], measure.instructions_source()
