@@ -7,6 +7,10 @@ from unittest import mock
 
 
 class TestPerformanceRecord(unittest.TestCase):
+  def test_windows_settings_use_running_interpreter(self):
+    with mock.patch.object(suites.sys, 'platform', 'win32'):
+      self.assertEqual(suites.Settings('install').python, suites.sys.executable)
+
   def test_counterparts(self):
     import sys
     previous = sys.getrecursionlimit()
@@ -160,11 +164,12 @@ class TestPerformanceRecord(unittest.TestCase):
       self.assertEqual(written[1]['error'], 'timed out')
 
   def test_throughput_pinned_and_mode(self):
-    from benchmarks import DEFAULT_SPRITE_HOME
-    settings = suites.Settings(DEFAULT_SPRITE_HOME,
+    from curry import config
+    settings = suites.Settings(config.prefix(),
         env={'SPRITE_INTERPRETER_FLAGS': 'interpret:all,jit:off'})
     item = suites.SpriteExecItem('Tak1', 'cxx', settings)
     _, env, _ = item.command()
+    self.assertEqual(env['SPRITE_HOME'], os.path.abspath(config.prefix()))
     self.assertIn('interpret:off', env['SPRITE_INTERPRETER_FLAGS'])
     self.assertNotIn('interpret:all', env['SPRITE_INTERPRETER_FLAGS'])
     mode = settings.mode(env)

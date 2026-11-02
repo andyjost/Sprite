@@ -167,13 +167,14 @@ jobs:
           python -c "from curry.backends.cxx import msvc; c, e = msvc.discover(); assert c and e.get('INCLUDE') and e.get('LIB'), (c, sorted(e))"
           python -m unittest -v unit_windows_aot unit_make.TestMake.test_sprite_make_so
       - name: Unit tier
+        timeout-minutes: 35
         if: ${{ !cancelled() && matrix.name == 'clang-cl' && steps.build.outcome == 'success' }}
         env:
           SPRITE_HOME: ${{ github.workspace }}\build\stage
           PYTHONPATH: ${{ github.workspace }}\build\stage\python
           SPRITE_INTERPRETER_FLAGS: interpret:new,jit:off
           SPRITE_ROTATION: steps:65536
-        run: python tests/run_tests.py --fast -j 2
+        run: python tests/run_tests.py --fast -j 2 --timeout 600
       - name: Errors by file and by kind
         if: always()
         run: |
