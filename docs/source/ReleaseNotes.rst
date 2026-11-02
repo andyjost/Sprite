@@ -8,6 +8,12 @@ Release Notes
 - Implement ``System.IO`` handles and current Python standard streams,
   enabling ``Debug.Trace.traceIO``, plus primitives for the CPM packages ``directory``
   and ``process``. ``exitWith`` raises catchable ``SystemExit`` in the API.
+- Convert ground results in the C++ bindings, preserving Python value types
+  and representations. Measured CPU conversion time falls from 7.39 ms to
+  11.4 us for 1000 Ints and from 2.18 ms to 2.11 us for a 300-character
+  String; lesson 24's complete query falls from 978 us to 635 us.
+  Cached expression-symbol tables also remove converter-construction growth
+  after repeated parses.
 - Add the qualified-name primitive registry and the primitives of
   ``Curry.Compiler.Distribution``, ``System.CPUTime``, ``System.Environment``
   and ``Data.IORef``, including registered Python implementations for process

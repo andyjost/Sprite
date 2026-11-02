@@ -101,6 +101,7 @@ def compile_expression(
   with interp._state_lock:
     interp.modules.pop(icur.name, None)
     interp._expression_modules.append(moduleobj)
+    interp._conversion_symbols = None
   return getattr(moduleobj, '.symbols')[COMPILED_NAME], freevars, moduleobj
 
 def expression_scheme(interp, string, imports=None):
