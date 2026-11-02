@@ -3,8 +3,10 @@ import curry
 from curry.backends.cxx import curryrtbindings as curryrt
 from curry.exceptions import EvaluationError
 import math
+import queue
 import subprocess
 import sys
+import threading
 
 
 PROGRAM = r'''
@@ -254,7 +256,7 @@ else:
         self.assertEqual(result.stdout.strip(), 'suspended')
 
   def test_divergent_constraint(self):
-    # Compile before timing: the timeout measures evaluation alone.
+    # Wait for the import before timing: it may need to compile a stale object.
     M = curry.compile(PROGRAM)
     for mode in ('off', 'all'):
       code = '''import curry, sys
@@ -265,10 +267,19 @@ print(curry.eval(M.divergent).one(), flush=True)
 '''
       process = subprocess.Popen([sys.executable, '-c', code, M.__file__, mode],
           text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      ready = queue.Queue()
+      reader = threading.Thread(target=lambda: ready.put(process.stdout.readline()))
+      reader.start()
       try:
-        with self.assertRaises(subprocess.TimeoutExpired) as timeout:
+        try:
+          line = ready.get(timeout=120)
+        except queue.Empty:
+          self.fail('child did not become ready within 120 seconds')
+        self.assertEqual(line, 'ready\n')
+        reader.join()
+        with self.assertRaises(subprocess.TimeoutExpired):
           process.communicate(timeout=3)
-        self.assertIn(b'ready', timeout.exception.stdout)
       finally:
         process.kill()
+        reader.join()
         process.communicate()
