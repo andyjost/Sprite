@@ -81,11 +81,7 @@ COMPILE_ON_FIRST_USE = True
 
 def _static(obj):
   '''Whether a table or type belongs to a compiled object.'''
-  flags = obj.flags
-  if isinstance(flags, str):
-    # The flags of a DataType are a char.
-    flags = ord(flags)
-  return bool(flags & F_STATIC_OBJECT)
+  return bool(obj.flags & F_STATIC_OBJECT)
 
 def materialize(interp, iobj, moduleobj):
   materializer = Materializer(interp, moduleobj)

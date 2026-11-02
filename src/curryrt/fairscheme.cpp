@@ -457,7 +457,7 @@ namespace curryrt
             if(values->kind == 't')
             {
               auto const * type = static_cast<DataType const *>(guides);
-              if(type->name && std::strncmp(type->name, "_Dict#", 6) == 0
+              if((type->flags & F_DICTIONARY)
                   && inductive->target->info->type != type)
                 throw EvaluationError("ill-typed application: unexpected constructor type");
             }

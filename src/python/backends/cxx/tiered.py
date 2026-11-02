@@ -310,11 +310,7 @@ def _runtime(info):
   '''Whether a table or type was made at run time.'''
   if info is None:
     return False
-  flags = info.flags
-  if isinstance(flags, str):
-    # The flags of a DataType are a char.
-    flags = ord(flags)
-  return not (flags & common.F_STATIC_OBJECT)
+  return not (info.flags & common.F_STATIC_OBJECT)
 
 @native_metadata
 def _register_binding(moduleobj):

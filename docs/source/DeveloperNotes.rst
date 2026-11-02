@@ -47,6 +47,14 @@ reservation (the flag ``worker_stack``, 1 GiB by default; ``None``
 disables the escalation), and a refused reservation halves down to 64
 MiB.  ``stack_limit`` bounds the caller's stack.
 
+The platform probes the caller's stack floor once per thread and caches even
+an unavailable result. POSIX cache entries also carry the process ID, so a
+forked child probes again. On Linux each entry also checks the soft stack
+limit with getrlimit and re-probes when it changes, because the main thread's
+floor follows that limit. Each runtime entry reads this cache before applying
+the existing stack-limit clamp and safety margin; worker reservations keep
+their separate accounting.
+
 ``PYTHON_GIL`` belongs to the user. Package children inherit its presence or
 absence and its value. The 3.14t CI lane runs the unit suites with
 ``PYTHON_GIL=0`` and the concurrency suite again with the variable absent;
@@ -414,10 +422,25 @@ image constants and constructed when the module loads. The compiler and the
 ICurry interpreter use the same canonical runtime factory. Python values
 use decimal conversion at the boundary to preserve every digit.
 
+Constraint classes
+==================
+
+The union-find parent table is sparse: an absent identifier denotes a
+singleton, and unions create entries for their roots. Weighted union and
+path halving retain the previous representative rules, including the
+historical doubling of a root's weight on a repeated equality. That weight
+affects later root choices and must not be replaced by class cardinality.
+A fork shares its constraint store until the first write,
+which copies only the participating identifiers and preserves spare capacity
+in the endpoint log. Storage no longer follows the process-wide identifier
+counter. The log contains the endpoints of real unions in insertion order;
+every member of a non-singleton class occurs in it, so the collector and
+invariant checker still visit all retained free variables.
+
 The module image
 ================
 
-Format 10 (2026-11-01)
+Format 11 (2026-11-01)
 ----------------------
 
 A module image, ``M.img``, lives beside ``M.icy``. The translator writes it
@@ -472,6 +495,12 @@ through translation. A current compiled object takes precedence over a
 current image under ``interpret:new`` and ``interpret:off``; sibling product
 modification times do not decide that precedence. ``interpret:all`` uses
 images. Modules compiled from text use the same writer and native reader.
+
+Type flags include ``F_DICTIONARY`` for names beginning with ``_Dict#``.
+The runtime tests this bit when head-normalizing a class selector. Generated
+C++ tables carry the same bit (generated-code format 21); data type flags
+use 16 bits, as info table flags do.
+Binding compiled code to a type kept across a reset preserves all these bits.
 
 The eight-byte magic is ``SPRTIMG`` followed by a zero byte. The header is
 ASCII JSON, with its length in the prefix; its ``body`` field is the SHA-256
