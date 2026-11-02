@@ -49,11 +49,19 @@ class TestPrivateLaunchers(cytest.TestCase):
     spec = importlib.util.spec_from_file_location('survey', ROOT / 'scripts/cpm-index-run.py')
     survey = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(survey)
+    self.assertEqual(survey.property_results('No tests, just compiling'),
+                     ('not run', 'not run'))
+    self.assertEqual(survey.property_results(
+        'p:\n OK, passed 100 tests.\nq: OK\nr failed\nFalsified by first test.'),
+        (2, 1))
     self.assertTrue(survey.fits('>= 3.0.0, < 4.0.0'))
     self.assertTrue(survey.fits('^ 3.2.0'))
     self.assertFalse(survey.fits('>= 4.0.0'))
     self.assertEqual(survey.classify('all properties passed', 0), 'pass')
     self.assertEqual(survey.classify('', 124), 'timeout')
+    self.assertTrue(survey.classify(
+        "Curry module 'Test.Prop' conflicts with the installed library module",
+        1).startswith('guard:'))
     self.assertTrue(survey.classify('No tests, just compiling', 0).startswith('Sprite error:'))
     self.assertIn('Expected module for XML, but found FlatCurry.XML',
         survey.classify('ERROR: Error:\n Expected module for XML, but found FlatCurry.XML', 1))

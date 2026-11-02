@@ -35,6 +35,10 @@ def fits(text, base=(3, 4, 0)):
 def classify(output, code):
   if code == 124:
     return 'timeout'
+  if 'conflicts with the installed library module' in output or 'is shadowed by a file from the CURRYPATH' in output:
+    return 'guard: ' + next(line.strip() for line in output.splitlines()
+        if 'conflicts with the installed library module' in line
+        or 'is shadowed by a file from the CURRYPATH' in line)
   if not code:
     if 'No tests, just compiling' in output:
       return 'Sprite error: CurryCheck unavailable; compilation only'
@@ -52,6 +56,16 @@ def classify(output, code):
   lines = [line.strip() for line in output.splitlines()
            if any(t in line for t in ('Error', 'ERROR', 'CRITICAL', 'Exception', 'error:', 'Expected module for'))]
   return 'Sprite error: ' + (' '.join(lines[-3:]) or 'cypm status %d' % code)[-1000:]
+
+
+def property_results(output):
+  """Count completed property reports, not individual generated test cases."""
+  passed = re.findall(r'(?m)^.+:\n (?:Passed all available tests:|OK, passed)', output)
+  passed += re.findall(r'(?m)^.+: OK$', output)
+  failed = re.findall(r'(?m)^.+(?: failed|: FAILED!|: EXECUTION FAILURE:.*|: FAILURE:.*)$', output)
+  if not passed and not failed:
+    return 'not run', 'not run'
+  return len(passed), len(failed)
 
 
 def main():
@@ -96,9 +110,12 @@ def main():
     started = time.monotonic()
     outputs = []
     status = 'pass'
+    measurements = {}
+    properties = ('not run', 'not run')
     stages = [('checkout', ['checkout', name, ver, '-o', str(directory)], Path.cwd()),
               ('install', ['install'], directory), ('test', ['test'], directory)]
     for stage, arguments, cwd in stages:
+      stage_started = time.monotonic()
       while True:
         remaining = max(1, int(1800 - (time.monotonic() - started)))
         result = subprocess.run(['timeout', str(remaining), 'prlimit', '--as=8000000000',
@@ -118,6 +135,9 @@ def main():
           continue
         current = classify(output, result.returncode)
         break
+      measurements[stage] = (round(time.monotonic() - stage_started, 1), current)
+      if stage == 'test':
+        properties = property_results(output)
       if current != 'pass':
         if status == 'pass':
           status = current
@@ -125,10 +145,18 @@ def main():
           break
     seconds = round(time.monotonic() - started, 1)
     (args.work / (name + '.log')).write_text('\n'.join(outputs), encoding='ascii', errors='backslashreplace')
-    rows.append([name, ver, status, seconds])
+    rows.append([name, ver, status, seconds,
+                 *measurements.get('install', ('', 'not run')),
+                 *measurements.get('test', ('', 'not run')),
+                 ('SPRITE_DISABLE_SYSLIB_CHECKS=' + os.environ['SPRITE_DISABLE_SYSLIB_CHECKS']
+                  if 'SPRITE_DISABLE_SYSLIB_CHECKS' in os.environ else ''),
+                 *properties])
     with args.csv.open('w') as stream:
       writer = csv.writer(stream)
-      writer.writerow(['package', 'version', 'result', 'seconds'])
+      writer.writerow(['package', 'version', 'result', 'seconds',
+                       'install_seconds', 'install_outcome', 'test_seconds',
+                       'test_outcome', 'syslib_check_setting', 'properties_passed',
+                       'properties_failed'])
       writer.writerows(rows)
     print(name, ver, status, seconds, flush=True)
 

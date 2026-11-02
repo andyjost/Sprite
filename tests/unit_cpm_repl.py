@@ -22,8 +22,8 @@ ROOT = Path(__file__).resolve().parent.parent
 
 @unittest.skipUnless(CYPM, 'cypm is absent')
 class TestCPMREPL(cytest.TestCase):
-  # CurryCheck's dependency graph hits the namespace/module import bug.
-  # See tests/data/cpm/repro_namespace/reproduce.py and the Round 3 report.
+  # CurryCheck's EasyCheck dependency hits the reserved library-name guard.
+  # See tests/data/cpm/repro_library/reproduce.py and the Round 4 report.
   @unittest.expectedFailure
   def test_local_properties(self):
     build = (ROOT / 'object-root').resolve().parent
