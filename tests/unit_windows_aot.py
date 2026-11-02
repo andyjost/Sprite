@@ -360,7 +360,7 @@ class TestPERecord(cytest.TestCase):
     put('<I', address(0x1044), 0x1050)
     put('<H', address(0x1048), 0)
     text(0x1050, '_bom_')
-    put('<I4xQQQI', address(0x1100), 2, base + 0x1180, 0, base + 0x11c0, 2)
+    put('<I4xQQQI', address(0x1100), 3, base + 0x1180, 0, base + 0x11c0, 2)
     text(0x1180, 'Test.Module')
     put('<QQ', address(0x11c0), base + 0x1200, base + 0x1210)
     text(0x1200, 'Prelude')
@@ -389,9 +389,10 @@ class TestPERecord(cytest.TestCase):
   def test_invalid_record_is_refused(self):
     import struct
     data = self.image()
-    struct.pack_into('<I', data, 0x300, 99)
-    with self.assertRaisesRegex(ValueError, 'record version'):
-      self.read(data)
+    for version in (2, 99):
+      struct.pack_into('<I', data, 0x300, version)
+      with self.assertRaisesRegex(ValueError, 'record version'):
+        self.read(data)
     with self.assertRaises(ValueError):
       self.read(self.image()[:0x210])
 

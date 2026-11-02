@@ -51,25 +51,51 @@ native objects are build outputs, not repository pins. The installed
 library runs without a front end; compiling new Curry text needs one.
 
 Every module compiles and ships with an image, plus a native object when
-the stage has a C++ compiler. These
-externals have no primitive in the runtime and raise `not implemented` at
-their call:
-
-- `System.IO`: `handle_eq`, `stdin`, `stdout`, `stderr`, `prim_openFile`,
-  `prim_hClose`, `prim_hFlush`, `prim_hIsEOF`, `prim_hSeek`,
-  `prim_hWaitForInput`, `prim_hWaitForInputs`, `prim_hGetChar`,
-  `prim_hPutChar`, `prim_hIsReadable`, `prim_hIsWritable`,
-  `prim_hIsTerminalDevice`.
-- `System.IO.Unsafe`: `unsafePerformIO`, `spawnConstraint`, `prim_isVar`,
-  `prim_identicalVar`, `prim_isGround`, `compareAnyTerm`, `prim_showAnyTerm`,
-  `prim_readsAnyUnqualifiedTerm`, `showAnyExpression`.
+the stage has a C++ compiler. Strong-search operations described below remain
+unsupported and raise `not implemented` at their call.
 
 The primitives of `Curry.Compiler.Distribution`, `System.CPUTime`,
-`System.Environment` and `Data.IORef` are implemented. Distribution reports
-Sprite's build version and installation prefix; CPUTime reports milliseconds.
+`System.Environment`, `Data.IORef` and `System.IO` are implemented.
+System.IO owns UTF-8 file handles; standard handles use Python's current
+standard streams, including redirected streams. `Debug.Trace.traceIO` works
+through these handles; pure `trace` runs through
+`System.IO.Unsafe.unsafePerformIO`. The CPM packages `directory` and `process`
+resolve their externals through the same registry (the packages are installed
+separately). Distribution reports Sprite's build version and installation
+prefix; CPUTime reports milliseconds.
 Environment uses native environment operations and registered Python functions
 for arguments, the program name and hostname. IORef stores lazy graph values
 in cells displayed as `<IORef>`; writes go through `Variable::set_successor`.
+
+`System.IO.Unsafe` has all nine primitives. `unsafePerformIO` runs an action
+when its shared expression is evaluated. `spawnConstraint c x` evaluates `c`
+first, evaluates `x` when `c` suspends, and returns `x` only after `c` is
+`True`. A false constraint fails; a diverging constraint need not let `x`
+run. This uses the suspension rule of Sprite's `&`.
+
+`isVar`, `identicalVar`, and `isGround` observe the bindings of the evaluating
+configuration. Their results can differ between alternatives of one search.
+`compareAnyTerm` evaluates demanded expressions and orders unbound variables
+before partial functions, and partial functions before data. Variables use
+internal configuration group identifiers. Functions compare by qualified
+head name, missing argument count and supplied arguments. Data of one type
+compare by constructor declaration order and then lexicographically by
+fields; integers (including large integers), characters and finite floats
+compare by value. NaN compares after all other floats; NaNs compare equal
+to each other, as do signed zeros. Different data types compare by qualified
+type name.
+The variable order is internal and is not stable between evaluations.
+
+`showAnyTerm` normalizes its term, retaining free variables named `_a`, `_b`,
+and so on, as `curry.show` does. `showAnyExpression` prints the expression
+without reducing its functions, resolving configuration bindings. Both use
+unqualified constructor names and Curry list, tuple and string notation.
+`readsAnyUnqualifiedTerm` reads that data syntax, including prefix constructor
+applications (with bare or parenthesized symbolic heads), numeric and
+character literals, lists, tuples and repeated variable names. It resolves constructors in the supplied modules in order;
+those modules must already be imported. It returns one term and the unused
+suffix, or `[]` on invalid syntax. Function expressions and cyclic display
+abbreviations are not readable data terms.
 
 `Control.Search.SetFunctions` is Sprite's facade over its native capsules.
 It shares the canonical `Control.SetFunctions.Values a = Values [a]` type.

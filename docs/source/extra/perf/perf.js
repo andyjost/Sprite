@@ -483,6 +483,20 @@ function tableHtml(suite, seriesList, metric, backends) {
     var ratio = sm.ratio == null
         ? '-' : sm.ratio.toFixed(2) + ' ' + verdictOf(sm.ratio);
     var status = a.point.status + (a.point.error ? ': ' + a.point.error : '');
+    if (a.point.mode && a.point.mode.flags) {
+      status += '; interpret:' + a.point.mode.flags.interpret
+        + ', jit:' + a.point.mode.flags.jit
+        + ', jit_backend:' + (a.point.mode.backend || 'none');
+      if (a.point.mode.execution) {
+        status += ', execution:' + a.point.mode.execution;
+      }
+    }
+    if (s.backend === 'cxx' && a.point.ratios) {
+      Object.keys(a.point.ratios).forEach(function (opponent) {
+        status += '; Curry / ' + opponent + ': '
+          + a.point.ratios[opponent].toFixed(3) + 'x';
+      });
+    }
     out.push(
         '<tr><td>' + esc(titleOf(s, backends)) + '</td><td>'
       + esc(formatDate(a.point.date)) + '</td><td><code>'

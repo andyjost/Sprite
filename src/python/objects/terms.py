@@ -1,6 +1,9 @@
 '''Typed Curry terms and the metadata of their names.'''
 
-import threading
+import threading, types
+from ..typecheck.defaulting import DefaultingError
+from ..typecheck.errors import ConversionError, MismatchError, ExprTypeMismatchError
+from ..exceptions import StaleError
 from ..utility.locking import synchronized
 
 
@@ -11,7 +14,11 @@ import re
 from dataclasses import dataclass
 
 from ..common import T_CTOR
+from .. import exceptions
+from ..typecheck import builder
+from ..toolchain.flat2icurry import flatcurry as fc
 from . import CurryNodeInfo
+from .results import Results
 
 _RAW_ACCESS = ContextVar('curry_raw_symbols', default=False)
 
@@ -114,6 +121,7 @@ class ModuleInfo:
     self._types = _Types()
     self._classes = {}
     self._fields = {}
+    self._terms = {}
     self._cache_lock = threading.RLock()
 
   name = property(lambda self: self._module.__name__)
@@ -184,8 +192,29 @@ class Term:
   '''A typed Curry expression held by Python.'''
   __match_args__ = ('symbol', 'args')
 
+  @property
+  def _signature(self):
+    value = self._signature_value
+    if callable(value):
+      value = self._signature_value = value()
+    return value
+
+  @_signature.setter
+  def _signature(self, value):
+    self._signature_value = value
+
+  @property
+  def _defaulted(self):
+    value = self._defaulted_value
+    if callable(value):
+      value = self._defaulted_value = value()
+    return value
+
+  @_defaulted.setter
+  def _defaulted(self, value):
+    self._defaulted_value = value
+
   def __init__(self, interp, form, symbol=None, args=(), annotation=None):
-    from ..typecheck import builder
     check_live(form)
     self._interp = interp
     self._session = interp._session
@@ -193,27 +222,53 @@ class Term:
     self.symbol = symbol
     self._args = tuple(args)
     self._annotation = annotation
+    self._dependencies = dependencies(form)
+    self._held_vars = tuple(dict.fromkeys(v for v in walk_forms(form) if isinstance(v, Var)))
     self._free_vars = named_vars(form)
-    if has_refs(form):
+    self._has_refs = has_refs(form)
+    if self._has_refs:
       self._node = None
       self._signature = '?'
       self._defaulted = None
       return
+    if annotation is None and symbol is not None and len(args) == 1 \
+        and isinstance(args[0], Term) and self._unary_wrapper(args[0]):
+      return
     with raw_symbols():
-      if isinstance(form, CurryNodeInfo) and annotation is None:
+      if isinstance(form, CurryNodeInfo) and annotation is None \
+          and (form.scheme is None or not form.scheme.context):
         partial = interp.backend.fundamental_symbols.PartApplic if form.info.arity else None
         self._node = interp.backend.make_node(form, partial_info=partial)
         self._spec = None
         self._signature = '?' if form.signature is None else unqualify(form.signature)
         self._defaulted = None
+        if form.scheme is not None:
+          original = form.scheme
+          self._scheme = builder.Scheme('<expr>', 'expression', original.typevars,
+              (), original.typeexpr, 0, 0)
+          self._display_scheme = original
+          self._typeexpr = original.typeexpr
+          self._variable_types = ()
+          self._environment_types = ()
+          self._iterator_types = ()
+          self._defaulted = lambda t=self._typeexpr: unqualify(builder.show_type(t))
+          self._reused_nodes = True
         self.__doc__ = '%s :: %s' % (symbol.fullname, symbol.signature)
         return
-      b = builder.TypedBuilder(interp)
+      b = builder.TypedBuilder(interp, reuse_terms=True)
       self._spec = b.specs((form,))
-      from ..typecheck.defaulting import DefaultingError
-      from ..typecheck.errors import ConversionError, MismatchError, ExprTypeMismatchError
       try:
-        problem = builder.TypedProblem(b, self._spec, annotation)
+        try:
+          problem = builder.TypedProblem(b, self._spec, annotation)
+        except exceptions.CurryTypeError:
+          if not b._held:
+            raise
+          # Diagnose from the original form so nested argument positions
+          # and the established exception sentences remain unchanged.
+          b = builder.TypedBuilder(interp)
+          b.reuse_terms = False
+          self._spec = b.specs((form,))
+          problem = builder.TypedProblem(b, self._spec, annotation)
       except ExprTypeMismatchError as err:
         if annotation is not None:
           raise
@@ -229,6 +284,18 @@ class Term:
           ) from None
       fix_variable_types(problem)
       self._signature = signature(problem)
+      self._display_scheme = problem.display_scheme
+      if not problem.frees and not problem._env_vars:
+        self._scheme, naming = problem.scheme, None
+      else:
+        self._scheme, naming = problem._make_scheme()
+      self._variable_types = tuple((spec.payload,
+          builder.terms.zonk(spec.type, naming, problem.arity)) for spec in problem.frees)
+      self._environment_types = tuple(builder.terms.zonk(t, naming, problem.arity)
+          for t in problem._env_vars)
+      self._iterator_types = tuple(builder.terms.zonk(spec.elem, naming, problem.arity)
+          for spec in problem.iters)
+      self._typeexpr = None
       self._ambiguous = getattr(problem, 'ambiguous', None)
       try:
         problem.solve()
@@ -239,10 +306,56 @@ class Term:
       else:
         fix_variable_types(problem)
         self._node = b.materialize(problem)
-        self._defaulted = unqualify(builder.show_type(problem.typeexpr))
-        builder.record_of(interp).put(self._node, problem.scheme, problem.typeexpr)
+        self._typeexpr = problem.typeexpr
+        self._defaulted = unqualify(builder.show_type(self._typeexpr))
+        builder.record_of(interp).put(self._node, problem.scheme, self._typeexpr)
+      self._reused_nodes = not b._specialized
+      if isinstance(form, CurryNodeInfo) and annotation is None:
+        # The raw-expression door exposes the unapplied symbol. Keep its
+        # defaulted graph separately for the typed construction/eval path.
+        self._typed_node = self._node
+        partial = interp.backend.fundamental_symbols.PartApplic if form.info.arity else None
+        self._node = interp.backend.make_node(form, partial_info=partial)
     if symbol is not None:
       self.__doc__ = '%s :: %s' % (symbol.fullname, symbol.signature)
+
+  def _unary_wrapper(self, child):
+    '''Extend a -> T a by one node and one persistent type constructor.
+
+    No inference or traversal of the child's type is needed for this
+    substitution. Type text is rendered only when the public API asks.
+    '''
+    if getattr(child, '_typeexpr', None) is None or getattr(child, '_scheme', None) is None:
+      return False
+    info = self.symbol._info
+    scheme = info.scheme
+    if info.info.tag < T_CTOR or info.info.arity != 1 or scheme is None or scheme.context:
+      return False
+    t = scheme.typeexpr
+    if not isinstance(t, fc.FuncType) or not isinstance(t.domain, fc.TVar) \
+        or not isinstance(t.range, fc.TCons) or t.range.args != [t.domain]:
+      return False
+    if isinstance(self._interp.sigtable.type_decl('%s.%s' % t.range.name), fc.TypeNew):
+      return False
+    wrap = lambda value: fc.TCons(t.range.name, [value])
+    original = child._scheme
+    self._scheme = builder.Scheme('<expr>', 'expression', original.typevars,
+        original.context, wrap(original.typeexpr), 0, len(original.context))
+    display = child._display_scheme
+    self._display_scheme = builder.Scheme('<expr>', 'expression', display.typevars,
+        display.context, wrap(display.typeexpr), 0, len(display.context))
+    self._typeexpr = wrap(child._typeexpr)
+    self._variable_types = child._variable_types
+    self._environment_types = child._environment_types
+    self._iterator_types = child._iterator_types
+    self._spec = None
+    self._node = self._interp.backend.make_node(info, getattr(child, '_typed_node', child._node))
+    self._signature = lambda scheme=self._display_scheme: unqualify(str(scheme))
+    self._defaulted = lambda typeexpr=self._typeexpr: unqualify(builder.show_type(typeexpr))
+    self._reused_nodes = True
+    builder.record_of(self._interp).put(self._node, self._scheme, self._typeexpr)
+    self.__doc__ = '%s :: %s' % (self.symbol.fullname, self.symbol.signature)
+    return True
 
   free_vars = property(lambda self: dict(self._free_vars))
 
@@ -258,7 +371,6 @@ class Term:
     return ()
 
   def _from_node(self, node):
-    from ..typecheck import builder
     result = object.__new__(Term)
     result._interp = self._interp
     result._session = self._session
@@ -275,17 +387,33 @@ class Term:
 
   @classmethod
   def from_symbol(cls, info, module):
-    metadata = getattr(module, '.info')._symbols
-    sym = metadata.get(info.name)
-    if sym is None or sym._info is not info:
-      sym = metadata[info.name] = Symbol(info, module)
-    return cls(getattr(module, '.interp'), info, sym)
+    metadata = getattr(module, '.info')
+    with metadata._cache_lock:
+      held = metadata._terms.get(info.name)
+      version = getattr(module, '.version')
+      if held is None or held.symbol._info is not info or held.symbol._version is not version:
+        sym = metadata._symbols.get(info.name)
+        if sym is None or sym._info is not info:
+          sym = metadata._symbols[info.name] = Symbol(info, module)
+        held = cls(getattr(module, '.interp'), info, sym)
+        scheme = info.scheme
+        arity = info.info.arity if scheme is None else scheme.source_arity
+        held._fresh_computation = info.info.tag < T_CTOR and arity == 0
+        metadata._terms[info.name] = held
+      # Accesses have distinct Python identities. A nullary function also
+      # needs a fresh computation; holding one access gives call-time sharing.
+      result = object.__new__(cls)
+      result.__dict__.update(held.__dict__)
+      if held._fresh_computation:
+        result._node = held._node.copy()
+        if hasattr(held, '_typed_node'):
+          result._typed_node = held._typed_node.copy()
+      return result
 
   def __call__(self, *args):
     check_live(self)
     if not args:
       raise TypeError('a call needs at least one argument; %s alone is the term %s' % (self, self))
-    from ..typecheck.errors import ConversionError, MismatchError
     values = []
     for index, arg in enumerate(args, len(self._args) + 1):
       try:
@@ -328,7 +456,6 @@ class Term:
     return choice(self._interp, other, self)
 
   def _op(self, name, left, right):
-    from ..typecheck.errors import ConversionError
     try:
       _convert(self._interp, left)
       _convert(self._interp, right)
@@ -359,13 +486,14 @@ class Term:
     return self._infix(op, other, True)
 
   def _infix(self, op, other, reflected):
-    from ..typecheck.errors import ConversionError
     modules = [self._interp.prelude]
     for value in walk_forms((self, other)):
-      if isinstance(value, Term) and value.symbol is not None:
-        module = value.symbol.module
-        if module not in modules:
-          modules.append(module)
+      if isinstance(value, Term):
+        held = ([value.symbol.module] if value.symbol is not None else [])
+        held.extend(module for module, version in getattr(value, '_dependencies', ()))
+        for module in held:
+          if module not in modules:
+            modules.append(module)
     for module in modules:
       if op in getattr(module, '.symbols'):
         try:
@@ -513,6 +641,8 @@ def _graph_key(root, variables=None):
       key.append(('variable', variables[node.id()]))
     elif inspect.isa_freevar(node):
       key.append(('variable', node.id()))
+    elif curryrt.is_handle(node.info):
+      key.append(('Handle', node.successor(0)))
     elif curryrt.is_io_ref(node.info):
       key.append(('IORef', node.id()))
     elif node.id() in seen:
@@ -540,7 +670,6 @@ def _has_term(value):
 
 
 def _conversion_error(error, value):
-  from ..typecheck.errors import ConversionError
   from ..typecheck.sigtable import show_type
   expected = show_type(error.expected) if error.expected is not None else None
   if expected is None:
@@ -578,7 +707,6 @@ def _convert(interp, value):
     if finish:
       target[index] = tuple(value)
     elif isinstance(value, (tuple, Sequence)) and not isinstance(value, (str, bytes)):
-      from ..typecheck.errors import ConversionError
       if isinstance(value, tuple) and (len(value) == 1 or len(value) > 15):
         raise ConversionError('a Curry tuple has zero or 2 to 15 components')
       converted = ValueList([None] * len(value))
@@ -597,7 +725,6 @@ def _convert_leaf(interp, value):
   from .classes import constructor_term
   value = constructor_term(value)
   from ..expressions import typed
-  from ..typecheck.errors import ConversionError
   if value is anonymous:
     var = Var(interp)
     var._anonymous = True
@@ -605,10 +732,8 @@ def _convert_leaf(interp, value):
   if isinstance(value, Term):
     check_live(value)
     return value
-  from .results import Results
   if isinstance(value, Results):
     raise ConversionError('cannot convert Results to a Curry list: write list(results)')
-  import types
   choice_type = getattr(types, 'ChoiceType', ())
   if isinstance(value, choice_type):
     return choice(interp, value.lhs, value.rhs)
@@ -673,7 +798,6 @@ class Var(Term):
     self._signature = 'Data a => a' if type is None else type
     self._defaulted = None
     if type is not None:
-      from ..typecheck import builder
       with raw_symbols():
         b = builder.TypedBuilder(interp)
         builder.TypedProblem(b, b.specs((self,)))
@@ -722,6 +846,8 @@ def walk_forms(root):
       seen.add(id(value))
       if hasattr(value, '_text'):
         stack.extend(reversed(list(value.free_vars.values())))
+      elif hasattr(value, '_held_vars') and not getattr(value, '_has_refs', False):
+        stack.extend(reversed(value._held_vars))
       else:
         stack.append(value._form)
     elif isinstance(value, (list, tuple)):
@@ -746,7 +872,6 @@ def named_vars(root):
 
 
 def check_module(module):
-  from ..exceptions import StaleError
   interp = getattr(module, '.interp')
   name = module.__name__
   if getattr(module, '.session') is not interp._session:
@@ -756,7 +881,6 @@ def check_module(module):
 
 
 def check_term(value):
-  from ..exceptions import StaleError
   if value._session is not value._interp._session:
     name = value.symbol.module.__name__ if value.symbol is not None else None
     rebuild = 'build it again' if name is None else 'build it again from %s' % name
@@ -768,6 +892,29 @@ def check_term(value):
       name = value.symbol.module.__name__
       raise StaleError('the term of module %s was built before curry.reload(%s); build it again from %s'
           % (name, name, name))
+  for module, version in getattr(value, '_dependencies', ()):
+    check_module(module)
+    if version is not getattr(module, '.version'):
+      name = module.__name__
+      raise StaleError('the term of module %s was built before curry.reload(%s); build it again from %s'
+          % (name, name, name))
+
+
+def dependencies(root):
+  '''The distinct module generations a form holds, including its children.'''
+  found = {}
+  for value in walk_forms(root):
+    if isinstance(value, Term):
+      entries = list(getattr(value, '_dependencies', ()))
+      if value.symbol is not None:
+        entries.append((value.symbol.module, value.symbol._version))
+    elif isinstance(value, CurryNodeInfo) and value.module is not None:
+      entries = [(value.module, getattr(value.module, '.version'))]
+    else:
+      continue
+    for module, version in entries:
+      found[id(module), id(version)] = (module, version)
+  return tuple(found.values())
 
 
 def check_live(root):
@@ -793,7 +940,11 @@ def has_refs(root):
     if isinstance(value, Term):
       if id(value) not in seen:
         seen.add(id(value))
-        stack.append(value._form)
+        if hasattr(value, '_has_refs'):
+          if value._has_refs:
+            return True
+        else:
+          stack.append(value._form)
     elif isinstance(value, (list, tuple)):
       stack.extend(value)
     elif isinstance(value, typed):
@@ -823,7 +974,6 @@ def fix_variable_types(problem):
           previous = marker.exprtype
           if previous is not None and not isinstance(previous, str):
             from ..typecheck.unify import unify, UnifyError
-            from ..typecheck.errors import MismatchError
             old = terms.instantiate(previous, {})
             new = terms.instantiate(inferred, {})
             try:
@@ -840,6 +990,10 @@ def fix_variable_types(problem):
 
 def signature(problem):
   """Include Data for polymorphic free variables, as a free declaration does."""
+  if not problem.frees:
+    scheme, _ = problem._undefaulted()
+    problem.scheme = problem.display_scheme = scheme
+    return unqualify(str(scheme))
   from ..typecheck.instances import DATA_CLASS, Pred, NoInstance
   from ..typecheck import terms
   from ..toolchain.flat2icurry import flatcurry as fc
@@ -870,6 +1024,7 @@ def signature(problem):
         seen.add(key)
         predicates.append(pred)
   scheme, _ = problem._make_scheme(predicates)
+  problem.display_scheme = scheme
   return unqualify(str(scheme))
 
 

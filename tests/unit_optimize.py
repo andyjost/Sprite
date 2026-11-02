@@ -331,8 +331,12 @@ class TestInlineAliases(ModuleTestCase):
         , '%s.withCase' % name, '%s.swapped' % name
         ]
       )
-    # The comparison of g is an alias of eqInt.
-    self.assertIn('Prelude.eqInt', ifcalls(functions['g']))
+    # Literal heads dispatch directly; other heads keep the equality graph.
+    switch = functions['g'].body.block.stmt
+    self.assertIsInstance(switch, types.ICaseLit)
+    self.assertEqual(switch.rigid, 2)
+    self.assertIn('Prelude.eqInt', ifcalls(switch.branches[-1]))
+    self.assertNotIn('Prelude.eqInt', ifcalls(switch.branches[0]))
 
   def test_partial_application_keeps_the_alias(self):
     '''Only a saturated call changes.  A partial application keeps its head.'''

@@ -317,13 +317,19 @@ namespace curryrt
         {
           assert(sp == 0);
           Variable & var = vars[op[1]];
-          tag_type const tag = rts->hnf(C, &var, K[op[2]]);
+          tag_type const tag = rts->hnf(C, &var, op[3] & 256 ? nullptr : K[op[2]], false, op[3] & 512);
+          if((op[3] & 512) && tag > E_RESTART && tag < T_CTOR)
+          {
+            pc = op[5 + 3 * (op[4] - 1) + 2];
+            break;
+          }
           if(tag < T_CTOR)
             return tag;
           Node * const node = *var.target;
-          uint32_t const n = op[4];
+          bool const has_default = op[3] & 128;
+          uint32_t const n = op[4] - (has_default ? 1 : 0) - ((op[3] & 512) ? 1 : 0);
           uint32_t const * entry = op + 5;
-          switch(op[3])
+          switch(op[3] & 127)
           {
             case 'p':
             {
@@ -364,6 +370,11 @@ namespace curryrt
             }
             default:
               assert(false);
+          }
+          if(has_default)
+          {
+            pc = op[5 + 3 * n + 2];
+            break;
           }
           return _0->make_failure();
         found:

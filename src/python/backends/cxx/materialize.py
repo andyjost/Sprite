@@ -81,15 +81,51 @@ COMPILE_ON_FIRST_USE = True
 
 def _static(obj):
   '''Whether a table or type belongs to a compiled object.'''
-  flags = obj.flags
-  if isinstance(flags, str):
-    # The flags of a DataType are a char.
-    flags = ord(flags)
-  return bool(flags & F_STATIC_OBJECT)
+  return bool(obj.flags & F_STATIC_OBJECT)
 
 def materialize(interp, iobj, moduleobj):
   materializer = Materializer(interp, moduleobj)
   return materializer.materialize(iobj)
+
+# These library wrappers must observe a configuration before $!/$!! can
+# normalize shared graph nodes. No other ordinary definition is replaceable.
+LIBRARY_PRIMITIVE_WRAPPERS = {
+    'System.IO.Unsafe.isVar': (2, 'isVar v = prim_isVar $! v'),
+    'System.IO.Unsafe.identicalVar': (3, 'identicalVar x y = (prim_identicalVar $! y) $! x'),
+    'System.IO.Unsafe.isGround': (2, 'isGround v = prim_isGround $!! v'),
+    'System.IO.Unsafe.showAnyTerm': (1, 'showAnyTerm x = prim_showAnyTerm $!! x'),
+}
+
+def _library_primitive_wrapper(function, module):
+  expected = LIBRARY_PRIMITIVE_WRAPPERS.get(function.fullname)
+  if expected is None or module is None or function.arity != expected[0]:
+    return False
+  source = os.path.join(config.system_curry_path(),
+      *function.modulename.split('.')) + '.curry'
+  try:
+    if not module.filename or not os.path.samefile(module.filename, source):
+      return False
+    with open(source, encoding='utf-8') as stream:
+      return expected[1] in stream.read().splitlines()
+  except OSError:
+    return False
+
+def function_primitive(native, function, module=None):
+  # ICurry lowers nondeterministic rules to Prelude.(?), including its own
+  # source rules. This compiler intrinsic must not recursively call itself.
+  intrinsic = function.fullname == 'Prelude.?'
+  if not (function.is_external or function.is_builtin or intrinsic or
+          _library_primitive_wrapper(function, module)):
+    return None
+  info = native.get_builtin_symbol(function.name)
+  if info is not None and info.arity != function.arity:
+    # A merged builtin with a different shape is still an unresolved external.
+    # In particular, old unsupported Prelude descriptors can have stale arities.
+    if function.is_builtin:
+      function.body = icurry.IExternal(function.fullname)
+    return None
+  return info
+
 
 class Materializer(object):
   def __init__(self, interp, moduleobj):
@@ -157,9 +193,9 @@ class Materializer(object):
 
   @materializeEx.when(icurry.IFunction)
   def materializeEx(self, ifun):
-    info = self.M.get_builtin_symbol(ifun.name)
+    info = function_primitive(self.M, ifun, self.imodule)
     if info is not None and info.tag == T_FUNC:
-      return info
+      return self.M.bind_builtin_symbol(ifun.name, ifun.arity)
     info = self.M.get_infotable(ifun.name)
     if info is None:
       info = self.create_function(ifun)

@@ -9,10 +9,47 @@ Release Notes
   version probes, program arguments and ``:save``. The REPL module is
   now ``curry.tools.repl``.
 
+- Implement ``System.IO`` handles and current Python standard streams,
+  enabling ``Debug.Trace.traceIO``, plus primitives for the CPM packages ``directory``
+  and ``process``. ``exitWith`` raises catchable ``SystemExit`` in the API.
+- Cache the C-stack floor once per thread, probing again after a fork.
+  In local measurements the direct evaluation entry falls from 172 to 1.2
+  microseconds with compiled code and from 914 to 1.4 microseconds with LLVM.
+- Mark dictionary types once and test a flag during head normalization.
+  With the stack-floor cache also enabled, compiled Fib uses about 4% less
+  CPU time (0.0800 to 0.0771 seconds).
+- Store union-find parents sparsely, omit repeated pairs from its collector
+  log and preserve spare log capacity at a fork. Mergesort uses 0.31 CPU
+  seconds per evaluation instead of 0.80 (2.6 times faster); large copies
+  over 12 evaluations fall from 70.1 GB to 0.46 GB. Steps, forks and value
+  order are unchanged.
+- Resolve class defaults at known instance dictionaries during compilation.
+  Fib30 with ``<`` drops from 65,285,178 to 18,529,949 steps and from
+  1.0524 to 0.3238 CPU seconds (3.3 times faster, medians of five runs).
+- Recover Int and Char literal cases as one dispatch on the unboxed value,
+  preserving the original equality graph for nonliteral scrutinees.
+  Literal-case Fib30 drops from 16,473,032 to 6,731,342 steps and from
+  0.2512 to 0.1226 CPU seconds (2.0 times faster, medians of five runs).
+- Reuse typed Python terms, copy their graphs for evaluation, and format
+  goal text on demand. Warm CPU measurements reduce a small interpreted
+  call from 402 to about 270 microseconds and lesson 21's overload call
+  from 18.3 to about 4.3 milliseconds. Nested ``Just`` construction is
+  linear (#181): a depth-128 chain falls from 2.93 seconds to about
+  9 milliseconds.
+- Convert ground results in the C++ bindings, preserving Python value types
+  and representations. Measured CPU conversion time falls from 7.39 ms to
+  11.4 us for 1000 Ints and from 2.18 ms to 2.11 us for a 300-character
+  String; lesson 24's complete query falls from 978 us to 635 us.
+  Cached expression-symbol tables also remove converter-construction growth
+  after repeated parses.
 - Add the qualified-name primitive registry and the primitives of
   ``Curry.Compiler.Distribution``, ``System.CPUTime``, ``System.Environment``
   and ``Data.IORef``, including registered Python implementations for process
   arguments, the program name and hostname.
+- Implement the nine ``System.IO.Unsafe`` primitives, including
+  configuration-sensitive variable observations, arbitrary term read/show,
+  and ``spawnConstraint`` with the suspension rule of ``&``. Strong-search
+  operations still await an owner decision.
 - Every module of the Curry library ships compiled. An external function
   without a primitive in the runtime raises ``not implemented`` at its call;
   before, eight modules failed at import.
@@ -56,6 +93,11 @@ Release Notes
 - Module images replace module JSON products. Translation and C++ emission
   read ICurry text; read-only directories and text modules use private images.
   ``sprite-make --image`` is the default target; the JSON options are removed.
+- Image preparation constructs imported optimizer declarations on demand.
+  In a local three-run comparison, warm compile CPU medians fell from
+  0.302 to 0.282 s for Fib, 0.357 to 0.340 s for QueensSet, and 0.307 to
+  0.264 s for an expression (about 5 to 14 percent); image bodies and
+  optimization remain enabled.
 
 - Windows: the runtime and the bindings build with clang-cl, and so do the
   generated modules, as DLLs, ahead of time and in the hot and eager C++

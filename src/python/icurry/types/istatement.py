@@ -145,7 +145,14 @@ class ICase(IObject):
       )
 
 class ICaseCons(ICase): pass
-class ICaseLit(ICase): pass
+class ICaseLit(ICase):
+  def __init__(self, vid, branches, rigid=False, **kwds):
+    ICase.__init__(self, vid, branches, **kwds)
+    # Numeric in descriptions too: synthetic ICurry writers can render the
+    # flag without adding JSON Boolean tokens to the Curry grammar.
+    # 2 probes literal heads without pulling choices into the switch.
+    self.rigid = int(rigid)
+  _fields_ = 'vid', 'branches', 'rigid'
 
 class IConsBranch(IObject):
   @translateKwds({'name': 'symbolname'})
@@ -174,7 +181,7 @@ class ILitBranch(IObject):
   def children(self):
     return self.lit, self.block
   def __str__(self):
-    return '%s ->%s' % (self.lit, wrapblock(self.block))
+    return '%s ->%s' % ('_' if self.lit is None else self.lit, wrapblock(self.block))
   def __repr__(self):
     return 'ILitBranch(lit=%r, block=%r)' % (self.lit, self.block)
 

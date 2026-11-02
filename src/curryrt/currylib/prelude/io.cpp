@@ -3,6 +3,7 @@
 #include <cstring>
 #include "curryrt/curryrt.hpp"
 #include "curryrt/currylib/prelude.hpp"
+#include "curryrt/currylib/library.hpp"
 #include "curryrt/dynload.hpp"
 #include "curryrt/exceptions.hpp"
 #include "curryrt/module.hpp"
@@ -106,38 +107,18 @@ namespace curryrt
   {
     Cursor _0 = C->cursor();
     assert(_0->info->alloc_size >= IO_Info.alloc_size);
-    auto lead = std::getchar();
-    if(lead == EOF)
+    try
     {
-      Node * replacement = _make_io_error("EOF");
-      std::clearerr(stdin);
-      _0->forward_to(replacement);
+      auto text = standard_stream(0, "prim_hGetChar");
+      if(text.empty()) throw std::runtime_error("EOF");
+      char const * p = text.data();
+      _0->forward_to(io(char_(utf8_decode(p, p + text.size()))));
       return T_FWD;
     }
-    else
+    catch(std::exception const & exc)
     {
-      char buf[MAX_UTF8_LENGTH];
-      buf[0] = (char) lead;
-      size_t n = 1;
-      size_t const length = utf8_sequence_length((unsigned char) lead);
-      for(; n < length; ++n)
-      {
-        auto byte = std::getchar();
-        if(byte == EOF)
-          break;
-        if((byte & 0xC0) != 0x80)
-        {
-          std::ungetc(byte, stdin);
-          break;
-        }
-        buf[n] = (char) byte;
-      }
-      char const * p = &buf[0];
-      unboxed_char_type const ch = utf8_decode(p, &buf[0] + n);
-      assert(_0->info->alloc_size == IO_Info.alloc_size);
-      _0->info = &IO_Info;
-      ((IONode *) _0.arg->node)->value = char_(ch);
-      return T_CTOR;
+      _0->forward_to(_make_io_error("EOF"));
+      return T_FWD;
     }
   }
 
@@ -174,19 +155,16 @@ namespace curryrt
     // The character is written as UTF-8.
     char buf[MAX_UTF8_LENGTH];
     size_t const n = utf8_encode(buf, NodeU{_1.target}.char_->value);
-    if(std::fwrite(buf, 1, n, stdout) != n)
+    try
     {
-      Node * replacement = _make_io_error("EOF");
-      std::clearerr(stdout);
-      _0->forward_to(replacement);
+      standard_stream(1, "prim_hPutChar", std::string(buf, n));
+      _0->forward_to(io(unit()));
       return T_FWD;
     }
-    else
+    catch(std::exception const & exc)
     {
-      assert(_0->info->alloc_size == IO_Info.alloc_size);
-      _0->info = &IO_Info;
-      ((IONode *) _0.arg->node)->value = unit();
-      return T_CTOR;
+      _0->forward_to(_make_io_error("EOF"));
+      return T_FWD;
     }
   }
 

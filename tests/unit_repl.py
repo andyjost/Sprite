@@ -28,7 +28,7 @@ assert curry.eval(E.getArgs).one() == []
       source.write_text('module REPLArguments where\nimport System.Environment\n'
           'args :: IO [String]\nargs = getArgs\nname :: IO String\nname = getProgName\n')
       commands = ':load %s\n:eval args\n:eval name\n:quit\n' % source
-      result = subprocess.run([config.sprite_exec()], input=commands,
+      result = subprocess.run(cytest.tool_command([config.sprite_exec()]), input=commands,
           text=True, capture_output=True)
       self.assertEqual(result.returncode, 0, result.stderr)
       self.assertIn('> []', result.stdout)
@@ -139,7 +139,7 @@ assert curry.eval(E.getArgs).one() == []
     commands = [[config.installed_path('bin', 'sprite')],
         [sys.executable, '-m', 'curry'], [config.sprite_exec()]]
     for command in commands:
-      result = subprocess.run(command + [':set', 'v0', ':eval', 'True', ':quit'],
+      result = subprocess.run(cytest.tool_command(command + [':set', 'v0', ':eval', 'True', ':quit']),
           text=True, capture_output=True, timeout=120)
       self.assertEqual((result.returncode, result.stdout, result.stderr),
           (0, 'True\n', ''))
@@ -162,7 +162,7 @@ assert curry.eval(E.getArgs).one() == []
       source = Path(directory) / 'OpaqueArguments.curry'
       source.write_text('module OpaqueArguments where\nimport System.Environment\n'
           'main :: IO ()\nmain = getArgs >>= mapM_ putStrLn\n')
-      result = subprocess.run([config.sprite_exec(), str(source), '--',
-          ':quit', '--numeric-version'], text=True, capture_output=True, timeout=120)
+      result = subprocess.run(cytest.tool_command([config.sprite_exec(), str(source), '--',
+          ':quit', '--numeric-version']), text=True, capture_output=True, timeout=120)
       self.assertEqual((result.returncode, result.stdout, result.stderr),
           (0, ':quit\n--numeric-version\n', ''))

@@ -117,7 +117,7 @@ FUNCTIONS = [
     , ('timesInt'              , 2, {}                      )
     # Unused PAKCS functions.
     , ('failure'               , 2, {}                      )
-    , ('ifVar'                 , 2, {}                      )
+    , ('ifVar'                 , 3, {}                      )
     , ('letrec'                , 2, {}                      )
     , ('prim_readFileContents' , 2, {}                      )
     , ('unifEqLinear'          , 2, {}                      )

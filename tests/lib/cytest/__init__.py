@@ -317,7 +317,7 @@ def tool_command(command):
   command = list(command)
   if sys.platform == 'win32':
     name = os.path.basename(command[0])
-    modules = {'sprite-exec': 'curry',
+    modules = {'sprite-exec': 'curry', 'sprite': 'curry',
                'sprite-make': 'curry.tools.make'}
     if name in modules:
       return [sys.executable, '-m', modules[name]] + command[1:]

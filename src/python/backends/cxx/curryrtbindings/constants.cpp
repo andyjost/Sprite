@@ -35,6 +35,7 @@ namespace curryrt { namespace python
     mod.attr("F_STATIC_OBJECT") = (int) F_STATIC_OBJECT;
     mod.attr("F_OPAQUE")        = (int) F_OPAQUE;
     mod.attr("F_BUILTIN")       = (int) F_BUILTIN;
+    mod.attr("F_DICTIONARY")    = (int) F_DICTIONARY;
     mod.attr("F_PINNED")        = (int) F_PINNED;
 
     // The bounds of the shared literal nodes (see builtins.hpp).  The

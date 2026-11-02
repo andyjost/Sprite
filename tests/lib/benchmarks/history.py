@@ -122,7 +122,32 @@ def _suite_order(suite):
 
 def point(record):
   '''The point of a record: POINT_FIELDS and nothing else.'''
-  return {name: record[name] for name in POINT_FIELDS}
+  result = {name: record[name] for name in POINT_FIELDS}
+  if 'ratios' in record:
+    result['ratios'] = record['ratios']
+  if 'mode' in record.get('meta', {}):
+    result['mode'] = record['meta']['mode']
+  return result
+
+
+def timing_warnings(old, new):
+  '''Twofold moves in seconds with equal known search counters are advisory.'''
+  if not old or old['status'] != 'ok' or new['status'] != 'ok':
+    return []
+  if any(old.get(k) is None or old.get(k) != new.get(k)
+         for k in ('steps', 'forks', 'collections')):
+    return []
+  warnings = []
+  for metric in ('cpu', 'wall', 'eval_wall', 'compile'):
+    before, after = old.get(metric), new.get(metric)
+    if before is None or after is None or min(before, after) <= 0:
+      continue
+    if max(before, after) / min(before, after) >= 2:
+      warnings.append('WARNING %s/%s [%s, %s] %s: %.6g s (%s) -> %.6g s (%s); '
+          'counters unchanged' % (new['suite'], new['program'],
+          new['backend'], new['variant'] or '-', metric, before,
+          old.get('commit'), after, new.get('commit')))
+  return warnings
 
 
 def points(recs):
@@ -199,6 +224,10 @@ def report(stream, previous, recs, title, metric, threshold):
   stream.write(COLUMNS % HEADINGS + '\n')
   for row in rows:
     write_row(stream, row, metric)
+  for r in recs:
+    for warning in timing_warnings(previous.get(records.key(r)), r):
+      stream.write(warning + '\n')
+  records.write_ratios(stream, recs)
   counts, line = summary(rows, metric, threshold)
   stream.write(line + '\n')
   stream.flush()

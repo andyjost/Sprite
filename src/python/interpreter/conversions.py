@@ -54,22 +54,53 @@ def _is_known(typeexpr):
   '''Whether a type is a constructor type; a variable decides nothing.'''
   return isinstance(typeexpr, (fc.TCons, fc.FuncType))
 
+def _native_list_type(typeexpr):
+  elem = _element_type(typeexpr)
+  return elem, 2 if _is_char(elem) else 0 if _is_known(elem) else 1
+
+def _expression_symbols(interp):
+  if interp is None:
+    return {}
+  while True:
+    with interp._state_lock:
+      table = getattr(interp, '_conversion_symbols', None)
+      if table is not None:
+        return table
+      modules = tuple(interp._expression_modules)
+      session = interp._session
+    # Reading an info table may wait for the heap. Do it outside the lock.
+    table = {id(symbol.info): symbol
+        for module in modules
+        for symbol in getattr(module, '.symbols').values()}
+    with interp._state_lock:
+      if session is interp._session and modules == tuple(interp._expression_modules):
+        if interp._conversion_symbols is None:
+          interp._conversion_symbols = table
+        return interp._conversion_symbols
+
 class ToPython(object):
-  def __init__(self, convert_freevars=True, variable=None, interp=None):
+  def __init__(self, convert_freevars=True, variable=None, interp=None, native=True):
     self.convert_freevars = convert_freevars
     self.variable = variable
     self.interp = interp
-    self.expression_symbols = {} if interp is None else {
-        id(symbol.info): symbol
-          for module in interp._expression_modules
-          for symbol in getattr(module, '.symbols').values()
-      }
+    self.native = native
+    self.expression_symbols = _expression_symbols(interp)
 
   def _symbol(self, info):
     from ..typecheck.builder import symbol_map
     return self.expression_symbols.get(id(info)) or symbol_map(self.interp).get(id(info))
   def __call__(self, value, convert_strings=True, typeexpr=None):
     '''Convert one value.'''
+    value = getattr(value, 'target', value)
+    if self.native and isinstance(value, backends.Node):
+      from ..backends.cxx import curryrtbindings as curryrt
+      from ..objects.terms import Char
+      return curryrt.convert_value(value, self._python, Char,
+          _native_list_type, _component_types, convert_strings, typeexpr)
+    return self._python(value, convert_strings, typeexpr)
+
+  def _python(self, value, convert_strings=True, typeexpr=None):
+    '''The reference conversion, also used for unsupported native subterms.'''
     stack = [self._steps(value, convert_strings, typeexpr)]
     result, ready = None, False
     while stack:
@@ -140,6 +171,22 @@ class ToPython(object):
         return value
       from ..typecheck.builder import _partial_parts
       head, stored = _partial_parts(value) if value.info.is_partial else (value.info, value.successors)
+      from ..backends.cxx import curryrtbindings as curryrt
+      if curryrt.is_handle(head):
+        # Handle is external data: it has no public constructor symbol.
+        from ..objects.terms import Term
+        result = object.__new__(Term)
+        result._interp = self.interp
+        result._session = self.interp._session
+        result._node = value
+        result._form = value
+        result.symbol = None
+        result._args = ()
+        result._free_vars = {}
+        result._text = '<Handle>'
+        result._typeexpr = result._annotation = fc.TCons(('System.IO', 'Handle'), [])
+        result._signature = result._defaulted = 'Handle'
+        return result
       symbol = self._symbol(head)
       if symbol is None:
         return value

@@ -250,7 +250,8 @@ class TestStepMode(cytest.TestCase):
   # that the old deferred rule made (2112920, 511384).
   # Non-linear matching (issues #165 and #169) keeps calls in functional
   # patterns and linearizes their constructor results. The extra steps
-  # move the rotation points; countQueens still returns 92.
+  # move the rotation points; countQueens still returns 92. These pins use
+  # the staged library compiled with the default inline budget of four.
   COUNT_QUEENS_COUNTERS = (2199184, 471438)
 
   def check_count_queens(self):

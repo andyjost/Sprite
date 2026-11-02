@@ -17,6 +17,40 @@ class TestImage(cytest.TestCase):
   def setUp(self):
     curry.reset(backend='cxx', interpret='all', jit='off')
 
+  def test_summary_declarations_are_lazy(self):
+    module = curry.import_('Prelude')
+    raw = getHandle(module).icurry
+    path = image.filename(raw.filename)
+    bom = curryrt.load_image(getHandle(module).backend_handle, path,
+        json.dumps(image.read(path), sort_keys=True, separators=(',', ':')),
+        attach_code=False)
+    summary = image._from_bom(bom, raw.filename)
+    self.assertEqual(summary.functions.loaded, {})
+    from curry.icurry.analysis.inlining import recursive_functions
+    self.assertEqual(recursive_functions(summary), frozenset())
+    self.assertEqual(summary.functions.loaded, {})
+    function = summary.functions['not']
+    self.assertEqual(function.fullname, 'Prelude.not')
+    self.assertIs(summary.functions['not'], function)
+    self.assertEqual(list(summary.functions.loaded), ['not'])
+    self.assertEqual(function.metadata['all.inline_body'],
+        raw.functions['not'].metadata['all.inline_body'])
+
+  def test_current_compile_writes_no_products(self):
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, 'ImageWarmCompile.curry')
+      with open(source, 'w') as stream:
+        stream.write('module ImageWarmCompile where\nanswer :: Int\nanswer = 42\n')
+      module = curry.import_(source)
+      icyfile = toolchain.icurryfilename(source)
+      with mock.patch.object(image.cache, 'write_file',
+          side_effect=AssertionError('current compile rewrote a product')) as writes:
+        image.ensure(curry._interpreter_, icyfile)
+        plan = toolchain.plans.makeplan(curry._interpreter_, toolchain.plans.MAKE_ICURRY
+            | toolchain.plans.MAKE_IMAGE)
+        toolchain.makecurry(plan, source, curry.path, is_sourcefile=True)
+      self.assertEqual(writes.call_count, 0)
+
   def test_prelude(self):
     module = curry.import_('Prelude')
     path = image.filename(getHandle(module).icurry.filename)

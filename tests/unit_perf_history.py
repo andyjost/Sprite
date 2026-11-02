@@ -102,6 +102,15 @@ class TestPage(unittest.TestCase):
     self.tmpdir = tempfile.mkdtemp(prefix='sprite-perf-test-')
     self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
 
+  def test_mode_and_counterpart_ratio(self):
+    point = make_point('Tak1', '2026-11-01T05:00:00Z', 1)
+    point['ratios'] = {'python': 5.25}
+    point['mode'] = {'flags': {'interpret': 'off', 'jit': 'hot'}, 'backend': 'cxx'}
+    html = self.render([point], metric='default', range='all',
+        now='2026-11-02T00:00:00Z')['html']
+    self.assertIn('Curry / python: 5.250x', html)
+    self.assertIn('interpret:off, jit:hot, jit_backend:cxx', html)
+
   def node(self, script, *args):
     proc = subprocess.run(
         [NODE] + list(script) + list(args), capture_output=True, text=True
@@ -403,6 +412,41 @@ class TestScripts(unittest.TestCase):
       self.assertIn('suite %s' % suite, text)
     self.assertIn('--nightly', text)
     self.assertIn('-b cxx', text)
+
+  def test_unpublished_summary(self):
+    '''The run script writes comparisons without invoking the publisher.'''
+    root = os.path.join(self.tmpdir, 'work')
+    scripts = os.path.join(root, '.github', 'scripts')
+    os.makedirs(scripts)
+    shutil.copy(RUN_PERF, scripts)
+    package = os.path.join(root, 'tests', 'lib', 'benchmarks')
+    shutil.copytree(os.path.join(ROOTDIR, 'tests', 'lib', 'benchmarks'),
+        package, ignore=shutil.ignore_patterns('__pycache__'))
+    bindir = os.path.join(root, 'install', 'bin')
+    os.makedirs(bindir)
+    os.symlink(sys.executable, os.path.join(bindir, 'python'))
+    first, opponent = make_record('Tak1', 2), make_record('Tak1', 1)
+    first['eval_wall'], opponent['eval_wall'] = 2, 1
+    first['eval_wall_clock'] = opponent['eval_wall_clock'] = 'wall'
+    opponent['backend'] = 'python'
+    fixture = os.path.join(root, 'fixture.jsonl')
+    with open(fixture, 'w') as stream:
+      records.write(stream, first)
+      records.write(stream, opponent)
+    harness = os.path.join(root, 'tests', 'run_benchmarks')
+    with open(harness, 'w') as stream:
+      stream.write('#!/bin/bash\nwhile [ "$1" != "-o" ]; do shift; done\n'
+          'cp "$PERF_FIXTURE" "$2"\n')
+    os.chmod(harness, 0o755)
+    summary = os.path.join(root, 'summary.md')
+    env = dict(os.environ, SUITES='throughput', PERF_FIXTURE=fixture,
+        GITHUB_STEP_SUMMARY=summary)
+    proc = subprocess.run(['bash', os.path.join(scripts, 'run-perf.sh'),
+        os.path.join(root, 'out')], env=env, capture_output=True, text=True,
+        timeout=TIMEOUT)
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    self.assertIn('Curry / python: 2.000x', read(summary))
+    self.assertIn('```text', read(summary))
 
   def git(self, *args, **kwds):
     proc = subprocess.run(
