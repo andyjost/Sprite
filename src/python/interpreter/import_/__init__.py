@@ -253,6 +253,7 @@ class ImportEx(object):
         if isinstance(registry[parent], objects.CurryPackage):
           getattr(registry[parent], '.icurry')[local] = imodule
       registry[imodule.fullname] = moduleobj
+      self.interp._conversion_symbols = None
     return moduleobj
 
 

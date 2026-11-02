@@ -177,6 +177,7 @@ class Interpreter(object):
     self.stderr = sys.stderr
     self.automodules = config.syslibs()
     self._expression_modules = [] # see compile.py
+    self._conversion_symbols = None
     self._unlink_modules()
     prelude = self.modules.pop('Prelude', None)
     if prelude is not None:
