@@ -406,7 +406,10 @@ context = llvmjit._jit.modules[M.fib.info.address]
 old = context.index
 publisher = subprocess.run([sys.executable, '-c', PUBLISHER, 'all', 'hot', source, ''],
     check=True, timeout=60, stdout=subprocess.PIPE, text=True)
-expected = set(json.loads(publisher.stdout.splitlines()[-1])['names']) | {'Cached.main'}
+expected = {'Cached.fib', 'Cached.message', 'Cached.main'}
+# A fresh loader must see the fallback even while the older local file exists.
+probe = subprocess.run([sys.executable, '-c', PROBE, 'all', 'hot', source, ''],
+    check=True, timeout=30, stdout=subprocess.PIPE, text=True)
 assert old.stream.fileno() >= 0
 assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
 assert rt.icurry_is_jit(M.fib.info)
@@ -416,8 +419,17 @@ objects = llvmjit._read_cache(context.local, context.key)
 names = {records[0][0] for records, obj in objects}
 assert names == expected, (names, expected)
 objects.close()
+assert not os.path.exists(context.private)
 print(json.dumps(dict(names=sorted(names))))
-""".replace('PUBLISHER', repr(traced_code(publisher, 50))))
+""".replace('PUBLISHER', repr(traced_code(publisher, 50))).replace('PROBE', repr(traced_code(
+        CHILD[:CHILD.index('M = curry.import_(source)')] + """
+M = curry.import_(source)
+with mock.patch.object(llvmjit._Batch, 'emit', side_effect=AssertionError('cache hit compiled')):
+  assert [str(x) for x in curry.eval(M.message)] == ['cached literal']
+assert rt.icurry_is_jit(M.message.info)
+assert llvmjit.statistics()['functions'] == 0
+print(json.dumps(dict(ok=True)))
+""", 20))))
     # A third process must see the publication made while the first reader
     # held the old generation, plus the first reader's newly added function.
     warm = self.child()
@@ -696,12 +708,60 @@ assert not index.stream.closed
 for name in context.cached:
   assert context.resolve(name)
 assert index.stream.closed
-assert all('_native' not in entry for entry in index.entries)
+assert all(entry.get('_native') for entry in index.entries)
 context.store()
 objects = llvmjit._read_cache(context.local, context.key)
 assert len(objects) == len(context.cached)
 assert all(llvmjit._object_bytes(obj) for _, obj in objects)
 assert objects.stream.closed
+print(json.dumps(dict(ok=True)))
+""")
+
+  def test_closed_index_preserves_verified_objects_after_image_replacement(self):
+    self.child('off')
+    self.run_code("""
+M = curry.import_(source)
+llvmjit.compile(M.fib.info, 'Cached.fib')
+print(json.dumps(dict(ok=True)))
+""")
+    publisher = CHILD[:CHILD.index('M = curry.import_(source)')] + """
+from pathlib import Path
+path = Path(source)
+path.write_text(path.read_text().replace('cached literal', 'changed literal'))
+M = curry.import_(source)
+llvmjit.compile(M.message.info, 'Cached.message')
+print(json.dumps(dict(ok=True)))
+"""
+    self.run_code("""
+import subprocess
+from curry.backends.cxx import image
+M = curry.import_(source)
+context = llvmjit._jit.modules[M.fib.info.address]
+for name in context.cached:
+  assert context.resolve(name)
+assert context.index.stream.closed
+subprocess.run([sys.executable, '-c', PUBLISHER, 'all', 'hot', source, ''],
+    check=True, timeout=60, stdout=subprocess.PIPE, text=True)
+assert image.read(context.path) != context.header
+local = open(context.local, 'rb').read()
+llvmjit.compile(M.main.info, 'Cached.main')
+assert open(context.local, 'rb').read() == local
+objects = llvmjit._read_cache(context.private, context.key)
+assert {records[0][0] for records, _ in objects} == {'Cached.fib', 'Cached.main'}
+assert all(llvmjit._object_bytes(obj) for _, obj in objects)
+assert objects.stream.closed
+print(json.dumps(dict(ok=True)))
+""".replace('PUBLISHER', repr(traced_code(publisher, 50))))
+    self.source.write_text(PROGRAM)
+    self.run_code("""
+M = curry.import_(source)
+context = llvmjit._jit.modules[M.fib.info.address]
+with mock.patch.object(llvmjit._Batch, 'emit', side_effect=AssertionError('cache hit compiled')):
+  assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
+  assert '144' in str(list(curry.eval(M.main))[0])
+assert rt.icurry_is_jit(M.fib.info)
+assert rt.icurry_is_jit(M.main.info)
+assert llvmjit.statistics()['functions'] == 0
 print(json.dumps(dict(ok=True)))
 """)
 

@@ -32,7 +32,7 @@ function interpreted and logs the reason once.
 from ... import config
 from . import bytecode
 from . import curryrtbindings as curryrt
-import atexit, hashlib, json, logging, os, re, struct, tempfile, threading, time, zlib
+import atexit, contextlib, hashlib, json, logging, os, re, struct, tempfile, threading, time, zlib
 
 __all__ = [
     'Unavailable', 'available', 'compile', 'enqueue', 'flush', 'start_hot_tier'
@@ -550,6 +550,8 @@ class _Object:
     # The open descriptor pins this generation across path replacement.
     if self.entry.get('_dropped'):
       raise ValueError('dropped JIT object')
+    if '_native' in self.entry:
+      return self.entry['_native']
     read = False
     try:
       obj = self.index.read_at(self.offset, self.entry['size'])
@@ -557,6 +559,8 @@ class _Object:
           or hashlib.sha256(obj).hexdigest() != self.entry['digest']):
         raise ValueError('corrupt JIT object')
       native = zlib.decompress(obj)
+      # Publication must not depend on this generation still owning its path.
+      self.entry['_native'] = native
       read = True
       return native
     except zlib.error as exc:
@@ -576,6 +580,7 @@ class _IndexedObjects:
     self.path, self.entries, self.stream = path, entries, stream
     self.read_lock = threading.RLock()
     self.extra = []
+    self.others = []
     self.remaining = len(entries)
     if not entries:
       self.close()
@@ -587,11 +592,14 @@ class _IndexedObjects:
       if dropped:
         entry['_dropped'] = True
       if not self.remaining:
-        self.close()
+        with self.read_lock:
+          self.stream.close()
 
   def close(self):
     with self.read_lock:
       self.stream.close()
+    for other in self.others:
+      other.close()
 
   def read_at(self, offset, size):
     with self.read_lock:
@@ -740,7 +748,7 @@ class _CachedModule:
       if isinstance(pair, dict):
         self.index.release(pair)
       elif isinstance(pair[1], _Object):
-        self.index.release(pair[1].entry)
+        pair[1].index.release(pair[1].entry)
 
   def load(self, jit):
     # Reuse the index and linked code across resets. Unresolved objects
@@ -752,8 +760,17 @@ class _CachedModule:
         paths.append(self.private)
       for path in paths:
         try:
-          objects = _read_cache(path, self.key)
-          break
+          found = _read_cache(path, self.key)
+          if objects is None:
+            objects = found
+          else:
+            names = {records[0][0] for records, _ in objects}
+            objects.others.append(found)
+            for records, obj in found:
+              if records[0][0] in names:
+                found.release(obj.entry)
+              else:
+                objects.append((records, obj))
         except (OSError, ValueError, KeyError, TypeError, IndexError, struct.error) as exc:
           logger.debug('jit cache: module %s: %s', self.name, exc)
     if objects is None:
@@ -783,8 +800,6 @@ class _CachedModule:
     # again when it is hot, and the publication of the others goes ahead.
     objects = []
     for records, obj in latest.values():
-      if isinstance(obj, _Object) and obj.index.stream.closed:
-        continue
       try:
         objects.append((records, _object_bytes(obj)))
       except (OSError, ValueError) as exc:
@@ -811,28 +826,37 @@ class _CachedModule:
           continue
         lockpath = (os.path.join(directory, 'cache.py') if path == self.private
             else os.path.splitext(path)[0] + '.py')
-        with _productlock.locked(lockpath):
+        with contextlib.ExitStack() as locks:
+          locks.enter_context(_productlock.locked(lockpath))
+          # Local writers take the private lock second, so a fallback writer
+          # cannot publish between our merge and removal of that generation.
+          if path == self.local and self.private:
+            locks.enter_context(_productlock.locked(
+                os.path.join(os.path.dirname(self.private), 'cache.py')))
           # A process must never overwrite a slot belonging to another image.
           if path == self.local and image.read(self.path) != self.header:
             continue
           merged = {}
-          try:
-            # A copy may lose its timestamp. Recover same-key objects only
-            # after verifying their digests; attachment remains index-only.
-            existing = _read_cache(path, self.key, check_identity=False)
-            ours = {records[0][0] for records, _ in objects}
+          sources = [path]
+          if path == self.local and self.private:
+            sources.append(self.private)
+          for source in sources:
             try:
-              for records, obj in existing:
-                if records[0][0] in ours:
-                  continue  # held already; no second read of the same object
-                try:
-                  merged[records[0][0]] = (records, _object_bytes(obj))
-                except (OSError, ValueError):
-                  pass
-            finally:
-              existing.stream.close()
-          except (OSError, ValueError, KeyError, TypeError, IndexError, struct.error):
-            pass
+              # Copies may lose timestamps; verify every recovered object.
+              existing = _read_cache(source, self.key, check_identity=False)
+              ours = {records[0][0] for records, _ in objects}
+              try:
+                for records, obj in existing:
+                  if records[0][0] in ours or records[0][0] in merged:
+                    continue
+                  try:
+                    merged[records[0][0]] = (records, _object_bytes(obj))
+                  except (OSError, ValueError):
+                    pass
+              finally:
+                existing.close()
+            except (OSError, ValueError, KeyError, TypeError, IndexError, struct.error):
+              pass
           merged.update({records[0][0]: (records, obj) for records, obj in objects})
           objects = list(merged.values())
           packed = [(records, zlib.compress(obj)) for records, obj in objects]
@@ -867,6 +891,11 @@ class _CachedModule:
           os.chmod(tmp, 0o644)
           os.replace(tmp, path)
           tmp = None
+          if path == self.local and self.private:
+            try:
+              os.unlink(self.private)
+            except FileNotFoundError:
+              pass
           if path == self.private:
             for entry in os.scandir(directory):
               if entry.name.endswith('.jit') and entry.path != path:
