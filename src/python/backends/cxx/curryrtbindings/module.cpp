@@ -4,11 +4,14 @@
 #include "curryrt/currylib/prelude.hpp"
 #include "curryrt/currylib/library.hpp"
 #include <algorithm>
+#include <cstring>
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 #include "curryrt/module.hpp"
 #include "curryrt/state/rts.hpp"
+#include "curryrt/utf8.hpp"
 #include <string>
+#include <vector>
 
 namespace py = pybind11;
 static auto constexpr reference = py::return_value_policy::reference;
@@ -16,6 +19,145 @@ static auto constexpr reference = py::return_value_policy::reference;
 namespace
 {
   using namespace curryrt;
+
+  Node * conversion_target(Node * node)
+  {
+    while(node->info->tag == T_FWD) node = NodeU{node}.fwd->target;
+    return node;
+  }
+
+  Py_UCS4 conversion_char(Node * node)
+  {
+    auto cp = NodeU{node}.char_->value;
+    // Match the node successor caster, including unchecked prim_chr values.
+    return cp > MAX_CODE_POINT ? REPLACEMENT_CHAR : cp;
+  }
+
+  // No runtime evaluation or graph allocation here. The binding keeps the
+  // heap gate and GIL, and its Node argument roots the graph across callbacks.
+  // Frames avoid using the C++ call stack for deeply nested normal forms.
+  py::object convert_value(Node * node, py::function fallback, py::object char_type,
+      py::function list_type, py::function component_types,
+      bool strings, py::object type)
+  {
+    py::gil_scoped_acquire gil;
+    struct Frame
+    {
+      std::vector<Node *> children;
+      py::object types;
+      py::list items;
+      bool tuple, join;
+      size_t next = 0;
+    };
+    std::vector<Frame> stack;
+    py::object result;
+    while(true)
+    {
+      node = conversion_target(node);
+      auto info = node->info;
+      if(is_int(*info))
+      {
+        if(!is_bigint(node)) result = py::int_(NodeU{node}.int_->value);
+        else
+        {
+          auto digits = integer_string(node);
+          // Preserve unbounded Ints even with Python's decimal digit limit.
+          if(digits.size() > 500)
+            result = py::module_::import("curry.utility.strings").attr("parse_int")(digits);
+          else
+          {
+            result = py::reinterpret_steal<py::object>(PyLong_FromString(
+                const_cast<char *>(digits.c_str()), nullptr, 10));
+            if(!result) throw py::error_already_set();
+          }
+        }
+      }
+      else if(is_float(*info)) result = py::float_(NodeU{node}.float_->value);
+      else if(is_char(*info))
+      {
+        auto text = py::reinterpret_steal<py::object>(
+            PyUnicode_FromOrdinal(conversion_char(node)));
+        if(!text) throw py::error_already_set();
+        result = char_type(text);
+      }
+      else if(info == &True_Info || info == &False_Info)
+        result = py::bool_(info == &True_Info);
+      else if(is_list(*info))
+      {
+        auto policy = list_type(type).cast<py::tuple>();
+        py::object elemtype = policy[0];
+        int mode = policy[1].cast<int>();
+        std::vector<Node *> children;
+        std::vector<Py_UCS4> chars;
+        bool all_chars = true;
+        Node * tail = node;
+        while(tail->info == &Cons_Info)
+        {
+          auto head = conversion_target(tail->successors()[0].node);
+          children.push_back(head);
+          if(is_char(*head->info)) chars.push_back(conversion_char(head));
+          else all_chars = false;
+          tail = conversion_target(tail->successors()[1].node);
+        }
+        if(tail->info != &Nil_Info)
+          result = fallback(py::cast(node, reference), strings, type);
+        else if(strings && all_chars && (mode == 2 || (mode == 1 && !children.empty())))
+        {
+          result = py::reinterpret_steal<py::object>(PyUnicode_FromKindAndData(
+              PyUnicode_4BYTE_KIND, chars.data(), chars.size()));
+          if(!result) throw py::error_already_set();
+        }
+        else if(children.empty()) result = py::list();
+        else
+        {
+          node = children.front();
+          stack.push_back({std::move(children), elemtype, py::list(), false,
+                           strings && mode == 2});
+          type = elemtype;
+          continue;
+        }
+      }
+      else if(is_tuple(*info) || (info->name[0] == '(' &&
+          std::string(info->name).find_first_not_of(',', 1) == std::strlen(info->name) - 1 &&
+          info->name[std::strlen(info->name) - 1] == ')'))
+      {
+        std::vector<Node *> children;
+        for(index_type i = 0; i < info->arity; ++i)
+          children.push_back(node->successors()[i].node);
+        if(children.empty()) result = py::tuple();
+        else
+        {
+          auto types = component_types(type, children.size());
+          node = children.front();
+          type = types[py::int_(0)];
+          stack.push_back({std::move(children), types, py::list(), true, false});
+          continue;
+        }
+      }
+      else result = fallback(py::cast(node, reference), strings, type);
+
+      while(!stack.empty())
+      {
+        auto & frame = stack.back();
+        frame.items.append(result);
+        if(++frame.next < frame.children.size())
+        {
+          node = frame.children[frame.next];
+          type = frame.tuple ? frame.types[py::int_(frame.next)] : frame.types;
+          break;
+        }
+        result = frame.tuple ? py::object(py::tuple(frame.items)) : py::object(frame.items);
+        if(frame.join)
+        {
+          bool text = true;
+          for(auto item: frame.items) text = text && PyUnicode_Check(item.ptr());
+          if(text) result = py::str("").attr("join")(frame.items);
+        }
+        stack.pop_back();
+      }
+      if(stack.empty()) return result;
+    }
+  }
 
   struct PythonPrimitive
   {
@@ -242,6 +384,7 @@ namespace curryrt { namespace python
 {
   void register_module(pybind11::module_ mod)
   {
+    mod.def("convert_value", &convert_value, heap_access{});
     mod.def("registered_names", &Module::registered_names, heap_access{});
     mod.def("is_io_ref", &is_io_ref, heap_access{});
     mod.def("set_install_prefix", &set_install_prefix, heap_access{});
