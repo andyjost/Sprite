@@ -288,8 +288,16 @@ def test_job(filename, backend, sprite_home, manifest, timeout, logdir, env):
   '''The job of one test file on one backend.'''
   python = sys.executable if sys.platform == 'win32' else os.path.join(sprite_home, 'bin', 'python')
   cap = manifest.cap(filename, backend)
-  argv = backstop_prefix(cap) + [
-      python, '-B', '-m', 'unittest', 'discover', '-v', TESTDIR, filename
+  entry = ['-m']
+  if sys.platform == 'win32':
+    # stderr is the per-file log. Repeat so a long file retains recent stacks;
+    # a shorter user-supplied bound still gets a dump before the watchdog kills.
+    delay = min(300, timeout * 0.8) if timeout else 300
+    entry = ['-c', 'import faulthandler, runpy, sys; '
+        'faulthandler.dump_traceback_later(%r, repeat=True); '
+        'sys.argv.pop(0); runpy.run_module("unittest", run_name="__main__")' % delay]
+  argv = backstop_prefix(cap) + [python, '-B'] + entry + [
+      'unittest', 'discover', '-v', TESTDIR, filename
     ]
   return Job(
       filename, backend, argv, cap=cap, timeout=timeout

@@ -2,7 +2,7 @@
 import cytest # from ./lib; must be first
 import curry
 from curry.backends.cxx import elf, llvmjit
-import json, os, pathlib, subprocess, sys, tempfile, unittest
+import contextlib, io, json, os, pathlib, subprocess, sys, tempfile, unittest
 from unittest import mock
 
 PROGRAM = '''module Cached where
@@ -49,6 +49,13 @@ print(json.dumps(dict(before=before, jitted=rt.icurry_is_jit(M.fib.info),
 '''
 
 
+def traced_code(code, delay=100):
+  # The parent's usual bound is 120 s. Arm before importing the runtime so
+  # import, evaluation, publication and interpreter shutdown all leave stacks.
+  return ('import faulthandler; faulthandler.dump_traceback_later(%r, repeat=True)\n'
+          % delay) + code
+
+
 class TestJITCache(cytest.TestCase):
   @classmethod
   def setUpClass(cls):
@@ -68,8 +75,20 @@ class TestJITCache(cytest.TestCase):
   def command(self, tier='hot', abi='', mode='new'):
     return [sys.executable, '-c', CHILD, mode, tier, str(self.source), abi]
 
-  def start(self, *args, **kwargs):
-    process = subprocess.Popen(*args, **kwargs)
+  def start(self, command, *, dump_after=100, **kwargs):
+    command = list(command)
+    if command[:2] == [sys.executable, '-c']:
+      command[2] = traced_code(command[2], dump_after)
+    elif command[:2] == [sys.executable, '-m']:
+      module = command[2]
+      code = 'import runpy, sys; sys.argv[0] = %r; runpy.run_module(%r, run_name="__main__")' % (module, module)
+      command = [sys.executable, '-c', traced_code(code, dump_after)] + command[3:]
+    else:
+      raise ValueError('expected a Python -c or -m child')
+    kwargs.setdefault('stdout', subprocess.PIPE)
+    kwargs.setdefault('stderr', subprocess.PIPE)
+    kwargs.setdefault('text', True)
+    process = subprocess.Popen(command, **kwargs)
     self.addCleanup(self.stop, process)
     return process
 
@@ -77,15 +96,21 @@ class TestJITCache(cytest.TestCase):
   def stop(process):
     if process.poll() is None:
       process.kill()
-    process.communicate(timeout=30)
+    return process.communicate(timeout=30)
 
-  def result(self, process, timeout=120):
+  def output(self, process, timeout=120):
     try:
       out, err = process.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
-      self.stop(process)
+    except subprocess.TimeoutExpired as exc:
+      out, err = self.stop(process)
+      print('Timed out child %d stderr:\n%s' % (process.pid, err), file=sys.stderr, flush=True)
+      exc.output, exc.stderr = out, err
       raise
     self.assertEqual(process.returncode, 0, out + err)
+    return out, err
+
+  def result(self, process, timeout=120):
+    out, err = self.output(process, timeout)
     return json.loads(out.splitlines()[-1])
 
   def child(self, tier='hot', abi='', mode='new'):
@@ -97,9 +122,12 @@ class TestJITCache(cytest.TestCase):
 
   def test_child_timeout_reaps_process(self):
     process = self.start([sys.executable, '-c', 'import time; time.sleep(60)'],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    with self.assertRaises(subprocess.TimeoutExpired):
-      self.result(process, timeout=.05)
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, dump_after=.1)
+    with contextlib.redirect_stderr(io.StringIO()) as log:
+      with self.assertRaises(subprocess.TimeoutExpired) as caught:
+        self.result(process, timeout=3)
+    self.assertIn('Timeout (', log.getvalue())
+    self.assertIn('<module>', caught.exception.stderr)
     self.assertIsNotNone(process.poll())
 
   def test_warm_start_values_steps_and_stats(self):
@@ -356,7 +384,7 @@ objects = llvmjit._read_cache(context.local, context.key)
 assert {records[0][0] for records, obj in objects} == {'Cached.fib', 'Cached.message', 'Cached.main'}
 objects.close()
 print(json.dumps(dict(ok=True)))
-""".replace('PUBLISHER', repr(publisher)))
+""".replace('PUBLISHER', repr(traced_code(publisher, 50))))
     # A third process must see the publication made while the first reader
     # still held the old generation, including its newly added function.
     warm = self.child()
@@ -463,8 +491,8 @@ print(json.dumps(dict(ok=True)))
       llvmjit._open_cache(self.base / 'missing.jit')
     self.assertTrue(llvmjit._process_alive(os.getpid()))
     self.assertTrue(llvmjit._process_alive(0))
-    process = self.start([sys.executable, '-c', 'pass'])
-    process.wait(timeout=30)
+    process = self.start([sys.executable, '-c', 'pass'], dump_after=20)
+    self.output(process, timeout=30)
     self.assertFalse(llvmjit._process_alive(process.pid))
 
   def test_resolver_runs_between_hot_sub_batches(self):
@@ -720,10 +748,9 @@ print(json.dumps(dict(ok=True)))
     spec.loader.exec_module(module)
     with mock.patch.dict(os.environ, SPRITE_STAGE_JIT_CACHE='0'):
       code = module.jit_cache_fill(['Missing'])
-    result = subprocess.run([sys.executable, '-c', code],
-        capture_output=True, text=True, timeout=30)
-    self.assertEqual(result.returncode, 0, result.stderr)
-    self.assertEqual(result.stdout.count('fill skipped'), 1)
+    process = self.start([sys.executable, '-c', code], dump_after=20)
+    out, err = self.output(process, timeout=30)
+    self.assertEqual(out.count('fill skipped'), 1)
     self.assertNotIn('import curry', code)
 
   def test_image_change_misses(self):
@@ -782,11 +809,12 @@ print(json.dumps(dict(ok=True)))
   def test_cli_stats_counts_linked_functions(self):
     self.child('eager')
     env = dict(self.env, SPRITE_INTERPRETER_FLAGS='interpret:all,jit:hot,jit_backend:llvm')
-    proc = subprocess.run(cytest.tool_command([
-        curry.config.installed_path('bin', 'sprite-exec'),
-        '--stats', str(self.source)]), env=env, capture_output=True, text=True, timeout=120)
-    self.assertEqual(proc.returncode, 0, proc.stderr)
-    stats = dict(field.split('=', 1) for field in proc.stderr.splitlines()[-1].split())
+    # sprite-exec delegates to this module; enter it through Python so the
+    # watchdog is armed before its imports on both platforms.
+    proc = self.start([sys.executable, '-m', 'curry',
+        '--stats', str(self.source)], env=env)
+    out, err = self.output(proc)
+    stats = dict(field.split('=', 1) for field in err.splitlines()[-1].split())
     self.assertGreater(int(stats['swapped']), 0)
 
   def test_later_batches_keep_earlier_functions(self):

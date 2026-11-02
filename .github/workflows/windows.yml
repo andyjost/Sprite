@@ -167,21 +167,23 @@ jobs:
           python -c "from curry.backends.cxx import msvc; c, e = msvc.discover(); assert c and e.get('INCLUDE') and e.get('LIB'), (c, sorted(e))"
           python -m unittest -v unit_windows_aot unit_make.TestMake.test_sprite_make_so
       - name: Unit tier
+        timeout-minutes: 20
         if: ${{ !cancelled() && matrix.name == 'clang-cl' && steps.build.outcome == 'success' }}
         env:
           SPRITE_HOME: ${{ github.workspace }}\build\stage
           PYTHONPATH: ${{ github.workspace }}\build\stage\python
           SPRITE_INTERPRETER_FLAGS: interpret:new,jit:off
           SPRITE_ROTATION: steps:65536
-        run: python tests/run_tests.py --fast -j 2
+        run: python tests/run_tests.py --fast -j 2 --timeout 360
       - name: Persistent LLVM cache
+        timeout-minutes: 10
         if: ${{ !cancelled() && matrix.name == 'clang-cl' && steps.build.outcome == 'success' }}
         env:
           SPRITE_HOME: ${{ github.workspace }}\build\stage
           PYTHONPATH: ${{ github.workspace }}\build\stage\python
           SPRITE_INTERPRETER_FLAGS: interpret:new,jit:off
           SPRITE_ROTATION: steps:65536
-        run: python tests/run_tests.py -j 1 unit_jit_cache.py
+        run: python tests/run_tests.py -j 1 --timeout 480 --logdir .cache/jit-cache-runner unit_jit_cache.py
       - name: Errors by file and by kind
         if: always()
         run: |
@@ -208,7 +210,9 @@ jobs:
             runtime-build.log
             runtime-exports.log
             build.log
-            tests/.cache/runner/
+            tests/.cache/runner/cxx/*.log
+            tests/.cache/jit-cache-runner/
             build/CMakeFiles/CMakeConfigureLog.yaml
             build/CMakeCache.txt
+          include-hidden-files: true
           if-no-files-found: warn

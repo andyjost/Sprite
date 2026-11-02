@@ -5,6 +5,7 @@ from testrunner.manifest import Manifest
 import importlib.util
 import io
 import os
+import subprocess
 from pathlib import Path
 import sys
 import tempfile
@@ -53,6 +54,22 @@ class TestWindowsRunner(unittest.TestCase):
       self.assertEqual(job.argv[0], sys.executable)
       self.assertEqual(prepare.command('stage', 'cxx', ['M.curry'])[:3],
                        [sys.executable, '-m', 'curry.tools.make'])
+
+  def test_windows_test_process_dumps_stacks(self):
+    with tempfile.TemporaryDirectory() as directory:
+      Path(directory, 'unit_sleep.py').write_text(
+          'import time, unittest\n'
+          'class TestSleep(unittest.TestCase):\n'
+          '  def test_sleep(self): time.sleep(.5)\n')
+      with mock.patch.object(sys, 'platform', 'win32'), \
+           mock.patch.object(cli, 'TESTDIR', directory):
+        job = cli.test_job('unit_sleep.py', 'cxx', 'stage', Manifest({}),
+                           .25, directory, {})
+      result = subprocess.run(job.argv, capture_output=True, text=True, timeout=10)
+    self.assertEqual(result.returncode, 0, result.stderr)
+    self.assertIn('Timeout (', result.stderr)
+    self.assertIn('test_sleep', result.stderr)
+    self.assertIn('OK', result.stderr)
 
   def test_path_separator(self):
     with mock.patch.object(os, 'pathsep', ';'):
