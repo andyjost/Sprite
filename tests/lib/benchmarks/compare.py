@@ -314,10 +314,14 @@ def summary(rows, metric, threshold, deterministic=False):
 
 
 def main(argv=None):
+  from . import aot
   args = parse_args(sys.argv[1:] if argv is None else argv)
   try:
     old_recs = records.read(args.old)
     new_recs = records.read(args.new)
+    problems = sorted({m for r in old_recs + new_recs for m in aot.record_messages(r)})
+    if problems:
+      raise ValueError('AOT inline budget check failed: ' + '; '.join(problems))
   except (OSError, ValueError) as exc:
     sys.exit('compare: %s' % exc)
   old, new = latest(old_recs), latest(new_recs)

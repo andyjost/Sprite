@@ -17,7 +17,7 @@ record holds that sample.
 import argparse, os, shutil, sys, tempfile
 from . import BACKENDS, CURRYDIR, DEFAULT_SPRITE_HOME, OPPONENTS, ROOTDIR
 from . import SUITES
-from . import measure, records, suites
+from . import aot, measure, records, suites
 
 __all__ = ['main', 'parse_args', 'parse_cap']
 
@@ -143,6 +143,8 @@ def parse_args(argv):
            'the import suite, or the applications at the sizes of the job; '
            'a PROGRAM pattern then selects among them'
     )
+  parser.add_argument('--strict-inline-budget', action='store_true',
+      help='fail a run when a loaded AOT budget differs or is unknown')
   args = parser.parse_args(argv)
   if args.backend is None:
     args.backend = suites.backends_for_suite(args.suite)
@@ -333,6 +335,15 @@ def main(argv=None):
             item.suite, item.program, item.backend, item.variant, samples
           , item_meta, label=settings.label, warmup=item.warmup(), commit=commit
           )
+        if item.backend == 'cxx':
+          item_meta['requested_inline_budget'] = (
+              item_meta['mode'].get('flags', {}).get('inline_budget'))
+          item_meta['aot_inline_budgets'] = [
+              s.get('aot_inline_budgets') for s in samples]
+          budget_messages = aot.record_messages(record)
+          record['warnings'].extend(budget_messages)
+          if args.strict_inline_budget and budget_messages:
+            record.update(status='fail', error='AOT inline budget check failed')
         completed.append(record)
         pending.append(record)
         records.add_ratios(completed)

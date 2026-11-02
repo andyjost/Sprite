@@ -192,3 +192,72 @@ class TestPerformanceRecord(unittest.TestCase):
     with mock.patch.object(suites.measure, 'run_command') as run:
       settings.run(['pakcs'], {}, '.')
     self.assertEqual(run.call_args.kwargs['timeout'], 60)
+
+  def test_aot_budget_receipt_and_warning(self):
+    from benchmarks import aot
+    from curry.backends.cxx.toolchain import Cpp2So
+    with mock.patch.object(Cpp2So, '_read_stamp_records',
+        return_value=(None, None, None, {'budget': 0})):
+      self.assertEqual(aot.object_budget('unused.so'), 0)
+    with mock.patch.object(Cpp2So, '_read_stamp_records',
+        return_value=(None, None, None, None)):
+      self.assertIsNone(aot.object_budget('unused.so'))
+    self.assertEqual(aot.messages(4, {'Prelude': 4}), [])
+    warning, = aot.messages(4, {'Prelude': 0})
+    for word in ('Prelude', 'budget 0', 'requested 4', 'sprite-make --so',
+                 'inline_budget:4', 'rm -f'):
+      self.assertIn(word, warning)
+    self.assertIn('unknown', aot.messages(4, {'Prelude': None})[0])
+
+  def test_aot_budget_record_strict_and_compare(self):
+    from benchmarks import compare
+    import json
+    sample = records.sample(types.SimpleNamespace(status='ok', returncode=0,
+        error=None, wall=1, cpu=1, peak_rss=1, instructions=None, perf=False))
+    sample['aot_inline_budgets'] = {'Prelude': 0, 'Tak1': 4}
+    for strict, expected in [(False, 0), (True, 1)]:
+      output, log = io.StringIO(), io.StringIO()
+      with mock.patch.object(suites.Settings, 'metadata', return_value={
+               'cpu_model': None, 'cores': None, 'mem_gb': None}), \
+           mock.patch.object(suites.Settings, 'mode', return_value={
+               'flags': {'inline_budget': 4}}), \
+           mock.patch.object(suites.Item, 'unavailable', return_value=None), \
+           mock.patch.object(harness.os, 'access', return_value=True), \
+           mock.patch.object(records, 'commit', return_value='review'), \
+           mock.patch.object(harness, 'measure_item', return_value=[sample]), \
+           contextlib.redirect_stdout(output), contextlib.redirect_stderr(log):
+        status = harness.main(['Tak1', '--no-perf', '-r', '1', '-w', '0'] +
+            (['--strict-inline-budget'] if strict else []))
+      self.assertEqual(status, expected)
+      record = json.loads(output.getvalue())
+      self.assertEqual(record['meta']['requested_inline_budget'], 4)
+      self.assertEqual(record['meta']['aot_inline_budgets'], [sample['aot_inline_budgets']])
+      self.assertEqual(log.getvalue().count('warning: Prelude:'), 1)
+      with tempfile.TemporaryDirectory() as directory:
+        history.append(directory, [record])
+        saved, = history.read_history(directory)
+        self.assertEqual(saved['meta'], record['meta'])
+        self.assertEqual(history.point(saved)['aot_inline_budgets'],
+            [sample['aot_inline_budgets']])
+        filename = history.record_file(directory, 'throughput')
+        with self.assertRaisesRegex(SystemExit, 'AOT inline budget check failed'):
+          compare.main([filename, filename])
+
+  def test_aot_child_reports_loaded_objects(self):
+    from curry import config
+    from benchmarks import aot
+    settings = suites.Settings(config.prefix(), env={
+        'SPRITE_INTERPRETER_FLAGS': 'interpret:off,inline_budget:4'})
+    result = settings.run([settings.python, '-c',
+        "import curry; curry.import_('Prelude')"], settings.environment('cxx'), '.')
+    self.assertEqual(result.status, 'ok', result.stderr)
+    self.assertIn('Prelude', result.aot_inline_budgets)
+    from curry.toolchain import _filenames
+    source = config.installed_path('curry', 'Prelude.curry')
+    path = _filenames.icurryfilename(source)
+    object_path = os.path.splitext(path)[0] + config.module_object_suffix()
+    self.assertEqual(result.aot_inline_budgets['Prelude'], aot.object_budget(object_path))
+    baseline = settings.run([settings.python, '-c', 'pass'],
+        settings.environment('cxx'), '.')
+    self.assertEqual(baseline.status, 'ok', baseline.stderr)
+    self.assertEqual(baseline.aot_inline_budgets, {})

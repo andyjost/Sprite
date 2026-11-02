@@ -74,7 +74,12 @@ variant such as the state of a cache.  The fields, in order:
                  flags and rotation. meta.mode holds resolved flags, backend
                  (selected JIT), execution (aot for interpret:off), and
                  llvmlite (whether the import succeeded). Old records may
-                 omit mode and ratios.
+                 omit mode and ratios. meta.requested_inline_budget is the
+                 resolved request. meta.aot_inline_budgets contains one map
+                 of loaded module names to object budgets per sample (null
+                 for an unknown budget). Each sample keeps its own map too.
+                 The object's ABI input receipt supplies these budgets;
+                 a regenerated image need not describe an older AOT object.
 
 The medians cover the successful measured repetitions only.  A median of an
 even number of values is the mean of the middle two.

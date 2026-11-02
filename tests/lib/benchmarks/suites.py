@@ -55,7 +55,7 @@ applications
 import csv, fnmatch, glob, hashlib, json, os, platform, shutil, subprocess, sys, tempfile
 from . import APPDIR, BACKENDS, CURRYDIR, DISSERTATION, HERE, NIGHTLY
 from . import OPPONENTS, SPLITDIR, SUITES
-from . import counterparts, measure, records
+from . import aot, counterparts, measure, records
 
 PAKCS_NIGHTLY = ('Hello', 'Peano', 'PaliFunPats')
 
@@ -364,11 +364,31 @@ class Settings:
 
   def run(self, cmd, env, cwd, perf=False):
     '''Runs one command; under perf when ``perf`` is set and perf is known.'''
-    return measure.run_command(
-        cmd, env=env, cwd=cwd, timeout=min(self.timeout, 60)
-          if cmd[0] == self.pakcs else self.timeout, cap=self.cap
-      , perf=self.perf if perf else None
-      )
+    report = None
+    original = cmd
+    if (cmd[0] in (self.python, self.sprite_exec)
+        and 'backend:cxx' in env.get('SPRITE_INTERPRETER_FLAGS', '')):
+      fd, report = tempfile.mkstemp(prefix='benchmark-aot-', suffix='.json')
+      os.close(fd)
+      kind = 'module' if cmd[0] == self.sprite_exec else 'python'
+      cmd = [self.python, aot.__file__, report, kind] + cmd[1:]
+    try:
+      run = measure.run_command(
+          cmd, env=env, cwd=cwd, timeout=min(self.timeout, 60)
+            if original[0] == self.pakcs else self.timeout, cap=self.cap
+        , perf=self.perf if perf else None
+        )
+      run.aot_inline_budgets = None
+      if report:
+        try:
+          with open(report) as stream:
+            run.aot_inline_budgets = json.load(stream)
+        except (OSError, ValueError):
+          pass # A killed child cannot finish its provenance report.
+      return run
+    finally:
+      if report:
+        os.unlink(report)
 
   def mode(self, env):
     '''Resolve flags and the selected JIT in the measured Python environment.'''
@@ -377,7 +397,7 @@ import curry
 from curry.backends.cxx import jit
 i = curry._interpreter_
 print(json.dumps(dict(flags={k: i.flags[k] for k in
-    ('interpret', 'jit', 'jit_backend', 'rotation')},
+    ('interpret', 'jit', 'jit_backend', 'rotation', 'inline_budget')},
     backend=jit.backend(i), execution='aot' if i.flags['interpret'] == 'off' else i.flags['interpret'], llvmlite='llvmlite' in sys.modules)))
 '''
     proc = subprocess.run([self.python, '-c', code], env=env,
@@ -490,8 +510,11 @@ class Item:
       except ValueError as exc:
         sample = records.sample(run)
         sample.update(status='fail', error=str(exc))
-        return sample
-      return records.sample(run, fields)
+      else:
+        sample = records.sample(run, fields)
+      if getattr(run, 'aot_inline_budgets', None) is not None:
+        sample['aot_inline_budgets'] = run.aot_inline_budgets
+      return sample
     finally:
       self.cleanup()
 
