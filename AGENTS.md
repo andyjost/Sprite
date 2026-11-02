@@ -143,6 +143,14 @@ reproducers pass.
 - The Curry path adds local CPM project and installed-package source
   directories after `CURRYPATH` and before the installation at import;
   `SPRITE_CPM_PATH=0` disables discovery.
+- Primitives register by qualified Curry name through
+  `Module::register_primitive` before module loading. The image writer and C++
+  emitter share this registry. Standard C++ implements portable operations;
+  `curryrt.register_primitive(name, arity, callable, monadic)` bridges to Python
+  where no C++ standard exists (arguments and hostname first). Distribution,
+  CPUTime, Environment and IORef have their primitives. IORef fields stay lazy
+  and writes go through `Variable::set_successor`. See "Primitives"
+  in the developer notes for the interface and exception rules.
 - The construction of a term from Python is typed
   (`src/python/typecheck/builder.py`): `curry.term(value, type=...)`
   converts a Python value by its type or the stated one; a call of a
@@ -197,7 +205,8 @@ reproducers pass.
   available. Externals without a primitive in the runtime raise
   `not implemented` at their call.
 - The module image records its ICurry digest, route, budget and import-image
-  digests. The runtime loads the image; tools read ICurry text for bodies.
+  digests. The header also records sorted registered primitive names. The
+  runtime loads the image; tools read ICurry text for bodies.
 - The products under `curry/lib/**/.curry/sprite-pakcs-3.10.0/` are
   committed artifacts of the pinned current pair; module images stay derived.
   `make` derives images and keeps valid pins unless you set
@@ -257,6 +266,7 @@ reproducers pass.
   by SONAME, so an entry serves every tree with the same stamp.
 - Module images (`M.img`) live beside the ICurry products. Their headers
   name source and import-image digests, the route and the inline budget.
+  The headers also name sorted registered primitives.
   The C++ runtime reads the symbol records and attaches interpreter bytecode;
   The library images are products of the stage and ship in the wheel.
   A read-only product directory uses a private image at import. Importers

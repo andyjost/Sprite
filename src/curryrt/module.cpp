@@ -23,8 +23,16 @@ namespace
     SymbolTable symbols;
   };
 
-  std::unordered_map<std::string, std::weak_ptr<Module>> g_modules;
-  std::unordered_map<std::string, BuiltinModuleData> g_builtin_modules;
+  auto & modules()
+  {
+    static auto * value = new std::unordered_map<std::string, std::weak_ptr<Module>>;
+    return *value;
+  }
+  auto & builtin_modules()
+  {
+    static auto * value = new std::unordered_map<std::string, BuiltinModuleData>;
+    return *value;
+  }
 
   // The tables and types kept when a module with interpreted functions was
   // cleared (Module::clear), by module name and symbol name.  A module of the
@@ -77,20 +85,51 @@ namespace curryrt
     std::vector<DataType *> owned_types;
   };
 
+  std::vector<std::string> Module::registered_names(std::string const & module)
+  {
+    std::vector<std::string> names;
+    auto found = builtin_modules().find(module);
+    if(found != builtin_modules().end())
+      for(auto const & item: found->second.symbols) names.push_back(item.first);
+    std::sort(names.begin(), names.end());
+    return names;
+  }
+
+  void Module::register_primitive(std::string const & qualified_name,
+                                   InfoTable const * info)
+  {
+    auto dot = qualified_name.rfind('.');
+    if(dot == std::string::npos || dot == 0 || dot + 1 == qualified_name.size())
+      throw std::invalid_argument("a primitive needs a qualified name");
+    auto module = qualified_name.substr(0, dot);
+    auto name = qualified_name.substr(dot + 1);
+    auto & symbols = builtin_modules()[module].symbols;
+    auto found = symbols.find(name);
+    if(found != symbols.end())
+    {
+      if(found->second == info) return;
+      throw std::invalid_argument("primitive already registered with another table: " + qualified_name);
+    }
+    if(Module::find(module))
+      throw std::invalid_argument("new primitive; register before the import: " + qualified_name);
+    symbols[name] = info;
+
+  }
+
   void Module::register_builtin_module(
       std::string const & name, TypeTable && types, SymbolTable && symbols
     )
   {
-    assert(g_builtin_modules.count(name) == 0);
+    assert(builtin_modules().count(name) == 0);
     BuiltinModuleData data{std::move(types), std::move(symbols)};
-    auto rv = g_builtin_modules.try_emplace(name, std::move(data));
+    auto rv = builtin_modules().try_emplace(name, std::move(data));
     (void) rv;
     assert(rv.second);
   }
 
   std::shared_ptr<Module> Module::find_or_create(std::string name)
   {
-    auto & slot = g_modules[name];
+    auto & slot = modules()[name];
     if(auto handle = slot.lock())
       return handle;
     auto handle = std::make_shared<Module>(name);
@@ -100,8 +139,8 @@ namespace curryrt
 
   std::shared_ptr<Module> Module::find(std::string const & name)
   {
-    auto p = g_modules.find(name);
-    if(p == g_modules.end())
+    auto p = modules().find(name);
+    if(p == modules().end())
       return nullptr;
     return p->second.lock();
   }
@@ -117,7 +156,7 @@ namespace curryrt
   std::map<std::string, std::shared_ptr<Module>> Module::getall()
   {
     std::map<std::string, std::shared_ptr<Module>> out;
-    for(auto && item: g_modules)
+    for(auto && item: modules())
     {
       if(auto p = item.second.lock())
         out[item.first] = p;
@@ -231,8 +270,8 @@ namespace curryrt
 
   void Module::seed_builtins()
   {
-    auto bi = g_builtin_modules.find(this->name);
-    if(bi != g_builtin_modules.end())
+    auto bi = builtin_modules().find(this->name);
+    if(bi != builtin_modules().end())
     {
       this->impl->types = bi->second.types;
       this->impl->symbols = bi->second.symbols;
@@ -535,8 +574,8 @@ namespace curryrt
       std::string const & modulename, std::string const & name
     )
   {
-    auto bi = g_builtin_modules.find(modulename);
-    if(bi == g_builtin_modules.end())
+    auto bi = builtin_modules().find(modulename);
+    if(bi == builtin_modules().end())
       return nullptr;
     auto p = bi->second.symbols.find(name);
     return (p != bi->second.symbols.end()) ? p->second : nullptr;
@@ -546,8 +585,8 @@ namespace curryrt
       std::string const & modulename, std::string const & name
     )
   {
-    auto bi = g_builtin_modules.find(modulename);
-    if(bi == g_builtin_modules.end())
+    auto bi = builtin_modules().find(modulename);
+    if(bi == builtin_modules().end())
       return nullptr;
     auto p = bi->second.types.find(name);
     return (p != bi->second.types.end()) ? p->second : nullptr;

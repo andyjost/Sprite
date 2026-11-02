@@ -28,6 +28,7 @@ class REPL(object):
   '''A Curry read-eval-print loop.'''
   def __new__(cls, args, **kwds):
     self = object.__new__(cls)
+    curry.program_arguments = []
     self.status = 0
     self.command = None
     self.args = None

@@ -24,6 +24,7 @@ def load(repl, arg):
   :load does.  Sets ``repl.module`` and ``repl.loaded``.
   '''
   repl.module = curry.import_(arg)
+  curry.program_name = curry.info(repl.module).name
   repl.loaded = arg
   repl.loaded_name = repl.module.__name__
   filename = curry.info(repl.module).file

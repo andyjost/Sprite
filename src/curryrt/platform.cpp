@@ -24,6 +24,25 @@
 
 namespace curryrt { namespace platform {
 
+  int set_environment(std::string const & name, std::string const & value)
+  {
+#if defined(_WIN32)
+    return _putenv_s(name.c_str(), value.c_str());
+#else
+    return setenv(name.c_str(), value.c_str(), 1) == 0 ? 0 : errno;
+#endif
+  }
+
+  int unset_environment(std::string const & name)
+  {
+#if defined(_WIN32)
+    return _putenv_s(name.c_str(), "");
+#else
+    return unsetenv(name.c_str()) == 0 ? 0 : errno;
+#endif
+  }
+
+
 #if defined(_WIN32)
 
   namespace

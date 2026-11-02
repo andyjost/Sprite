@@ -447,6 +447,11 @@ def import_search_path(interp, filename, currypath=None):
   path = _findcurry.import_path(interp, currypath)
   return _interfaces.search_path(filename, interp.path if path is None else path)
 
+def registered_names(source):
+  if source is None: return []
+  from . import curryrtbindings as curryrt
+  return curryrt.registered_names(_filenames.logging_module_name(source))
+
 def input_record(interp, source):
   from ...toolchain._frontend import ROUTE_VERSION
   try:
@@ -454,7 +459,7 @@ def input_record(interp, source):
       recorded = stream.read().strip()
   except (OSError, ValueError, AttributeError):
     recorded = None
-  return dict(source=recorded,
+  return dict(source=recorded, registry=registered_names(source),
       route=ROUTE_VERSION, budget=interp.flags['inline_budget'])
 
 def source_record(filename):
@@ -477,7 +482,8 @@ def input_current(record, filename, interp=None):
   from ...toolchain._frontend import ROUTE_VERSION
   from . import image
   digest = image.digest(source)
-  return record.get('route') == ROUTE_VERSION \
+  return record.get('registry') == registered_names(source) \
+      and record.get('route') == ROUTE_VERSION \
       and (digest is None or record.get('source') == digest)
 
 def source_is_stale(file_in, currypath=None, interp=None):
@@ -1330,8 +1336,8 @@ class Cpp2So(object):
     generated code (compiler.FORMAT_VERSION) and the digest of the sources
     of the code generator (generator_digest); the keys of the optimizer
     passes and the inline budget of the interpreter, which shape the code;
-    and the intermediate directory and the route from Curry to ICurry
-    (cache.frontend_digest), which decide the ICurry of a source.  No fact
+    the sorted registered names of the module; and the intermediate directory
+    and route from Curry to ICurry (cache.frontend_digest), which decide the ICurry of a source.  No fact
     names a tree: the products name no path since format 13 (the SONAMEs
     and the record), so an entry serves every tree of one runtime, and a
     second worktree compiles nothing the first compiled.  Before format 13
@@ -1343,6 +1349,7 @@ class Cpp2So(object):
     flags = self.interp.flags
     return [
         'format %d' % compiler.FORMAT_VERSION
+      , 'registry ' + json.dumps(registered_names(curryfile))
       , 'generator ' + generator_digest()
       , 'optimizers ' + ' '.join(key for key, _ in optimize.default_optimizers)
       , 'inline_budget %d' % flags['inline_budget']

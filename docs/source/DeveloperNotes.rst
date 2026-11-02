@@ -361,7 +361,7 @@ use decimal conversion at the boundary to preserve every digit.
 The module image
 ================
 
-Format 3 (2026-10-31)
+Format 4 (2026-11-01)
 ---------------------
 
 A module image, ``M.img``, lives beside ``M.icy``. The translator writes it
@@ -373,8 +373,9 @@ text; inline-body and unfolding summaries still use the small JSON codec.
 The format is independent of pointer size and native byte order. Integers
 are little-endian; strings are UTF-8 with a 32-bit byte count. The prefix
 contains an eight-byte magic, a 32-bit format version and the length of a
-header. The header records the ICurry-text SHA-256, route version, inline budget,
-and each direct import's image SHA-256. No field records a machine path.
+header. The header records the ICurry-text SHA-256, route version, inline
+budget, and each direct import's image SHA-256. The header also records
+sorted registered primitive names. No field records a machine path.
 Sections contain imports and aliases, ordered data types and constructors,
 function declarations, bytecode and constants and translation metadata.
 Strings are length-delimited and record arrays begin with a 32-bit count.
@@ -405,7 +406,7 @@ records with names, arities, visibility, flags and constructor order. The
 of record fields and synonyms.
 
 Currency is determined by content: source, route, budget and imported image
-digests must agree. A malformed or old image is diagnosed and regenerated
+digests must agree. Sorted registered primitive names must also agree. A malformed or old image is diagnosed and regenerated
 through translation. A current compiled object takes precedence over a
 current image under ``interpret:new`` and ``interpret:off``; sibling product
 modification times do not decide that precedence. ``interpret:all`` uses
@@ -431,12 +432,13 @@ bodies. Every library module has an executable image. An external without
 a primitive compiles to a step that raises ``not implemented``; an external
 type has no constructors.
 
-Generated C++ carries an ``INPUT`` record (source SHA-256, route and inline
-budget). The ABI stamp retains it in its import-provenance JSON. Both
-records are checked before pipeline-order selection, so translating a new
-image cannot make an old object current. A newer sibling image timestamp
-does not invalidate an otherwise current object. Explicitly saved objects
-outside the product tree continue to load explicitly.
+Generated C++ carries an ``INPUT`` record (source SHA-256, route, inline
+budget and sorted registered primitive names). The ABI stamp retains it in
+its import-provenance JSON. Both records are checked before pipeline-order
+selection, so translating a new image cannot make an old object current.
+A newer sibling image timestamp does not invalidate an otherwise current
+object. Explicitly saved objects outside the product tree continue to load
+explicitly.
 
 Image loading registers a shutdown barrier for the LLVM hot tier: it turns
 off new hot work and waits for any native compilation to leave the LLVM
@@ -733,3 +735,78 @@ The counters are per evaluation and summed over the evaluations of the
 interpreter, like ``steps``; the maxima take the largest value.  The
 benchmark harness keeps the fields of every run and tabulates them with
 ``run_benchmarks counters FILE`` (see ``tests/README``).
+
+Primitives
+==========
+
+The runtime resolves a primitive by its qualified Curry name. Register it
+before the module's images or compiled objects load.
+The image writer and C++ emitter ask ``Module::get_builtin_symbol`` for the same table;
+compiled code and images do not encode the implementation language.
+Sorted registry names are part of generated input records, product facts
+and image headers. A registry change makes these products stale.
+Loaders reject missing primitives by name.
+The emitter records local shape descriptors, which the loader binds by name;
+it does not require a primitive to export a mangled C++ data symbol.
+Unregistered externals continue to raise ``not implemented`` when called.
+``curry.inspect.getimpl`` identifies registered C++ and Python primitives.
+
+A C++ primitive registers an ``InfoTable`` with
+``Module::register_primitive("Module.function", &table)`` during static
+initialization. The table and its strings must live for the process. Its step
+receives ``RuntimeState *`` and ``Configuration *``. Monadic tables carry
+``F_MONADIC``; perform the effect in the step and forward the redex to
+``io(value)``. Pure steps forward to the value. IO errors carry an IOError
+node and ``ErrorKind::io`` through ``Configuration::set_error``. See
+``currylib/library.cpp`` for complete examples. Mutable references use
+``Variable::set_successor`` for writes.
+
+Python implementations register through the backend bindings::
+
+  from curry.backends.cxx import curryrtbindings as curryrt
+  curryrt.register_primitive('Example.next', 1, lambda x: x + 1, monadic=False)
+
+Registration takes the qualified name, Curry arity, callable and monadic flag.
+Names must be qualified and arities must be between zero and 255.
+Register new names before the module import. A matching Python registration
+replaces the callable in the same table, including while loaded or after reset
+with module handles alive. A different arity or flag is an error.
+The registration call holds the runtime heap gate until it returns.
+Invocation normalizes every argument before it acquires the GIL.
+Conversion reads the declared type from the evaluating interpreter's signature
+table and module interface, including for private interpreters.
+An empty String becomes Python ``''``; an empty list becomes ``[]``.
+Results must match the declared type. ``None`` returns unit.
+Supported values are integers, floats, characters, Booleans, strings, lists
+and pairs. Callables and tables stay alive for the process.
+A callable must not block on a lock held by a thread that waits for the heap.
+An Int argument or result beyond Python's integer string limit raises an
+evaluation error that names the primitive.
+Ordinary Python exceptions become Curry IO errors for monadic primitives and
+evaluation errors for pure primitives; KeyboardInterrupt and SystemExit pass
+through. A monadic effect runs only when its action is evaluated.
+
+Use standard C++ where a portable standard exists: filesystem, clocks,
+``std::system`` and heap-side cells. Use Python only where no such standard
+exists, including process arguments, hostname, and future sockets and command
+pipes. A future C++ implementation can register the same name without changing
+Curry code or the image format. ``System.Environment`` is the first Python
+registration user; the installation prefix is supplied from Python at runtime
+so relocated installations report their actual prefix.
+
+An IORef is one cell shared by the alternatives of a pull-tab.
+Reads snapshot its current pointer. ``getElapsedTime`` counts from the library
+load. ``setEnv`` changes the native environment, but does not update Python's
+``os.environ``. An environment write error names the variable.
+``curry.program_arguments`` and ``curry.program_name`` supply the runtime
+arguments and module name under sprite-exec and saved programs.
+Their Python defaults are ``sys.argv[1:]`` and ``sys.argv[0]``.
+Tool options may precede NAME or appear immediately after it.
+The first runtime argument, an unknown option, or ``--`` ends tool options.
+After NAME, only exact option names and long options with ``=VALUE`` are tool
+options; short attached values, abbreviations and combined flags are program
+arguments. Only the ``--`` that ends tool options is discarded; a later
+``--`` reaches the program. The REPL supplies no program arguments and uses
+the loaded module name. Before the first prompt it loads either the
+command-line module or ``Prelude``, so the initial name without a
+command-line module is ``Prelude``.

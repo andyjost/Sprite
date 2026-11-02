@@ -498,6 +498,7 @@ def variable_nodes(term):
 
 def _graph_key(root, variables=None):
   from .. import backends, inspect
+  from ..backends.cxx import curryrtbindings as curryrt
   seen = {}
   key = []
   pending = [root]
@@ -512,6 +513,8 @@ def _graph_key(root, variables=None):
       key.append(('variable', variables[node.id()]))
     elif inspect.isa_freevar(node):
       key.append(('variable', node.id()))
+    elif curryrt.is_io_ref(node.info):
+      key.append(('IORef', node.id()))
     elif node.id() in seen:
       key.append(('ref', seen[node.id()]))
     else:

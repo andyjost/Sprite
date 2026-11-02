@@ -31,6 +31,16 @@ if not os.access(os.environ['SPRITE_HOME'], os.R_OK):
   raise ImportError('SPRITE_HOME is not readable')
 del os
 
+import sys as _sys
+#: :meta hide-value:
+#:
+#: Arguments supplied to the Curry program; defaults to Python command arguments.
+program_arguments = _sys.argv[1:]
+#: :meta hide-value:
+#:
+#: Curry program name; defaults to the Python invocation name.
+program_name = _sys.argv[0] if _sys.argv else ""
+
 from .exceptions import (
     CurryError, CompileError, NotConstructorError, ModuleLookupError
   , SymbolLookupError, TypeLookupError, CurryIndexError, CurryTypeError
@@ -197,7 +207,9 @@ def show(value):
 
 
 __all__ = [
-    'import_'
+    'program_arguments'
+  , 'program_name'
+  , 'import_'
   , 'compile'
   , 'reload'
   , 'reset'

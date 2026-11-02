@@ -103,8 +103,9 @@ def currentfile(
   and the files of the backend (suffix: .cpp and .so), less the files
   that a step of the plan refuses (see ``Plan.prune_stale``) and the files
   made from them.  The C++ backend selects the last accepted stage in pipeline order.
-  Generated C++ and objects carry source, route and budget receipts, so
-  a newer sibling image does not hide a current object. Other backends
+  Generated C++ and objects carry receipts for source, route, budget and
+  sorted registered primitive names.
+  A newer sibling image does not hide a current object. Other backends
   retain modification-time selection.
 
   Args:

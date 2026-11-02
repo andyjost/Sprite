@@ -6,6 +6,70 @@ if _sys.platform == 'win32':
   from .... import config as _config
   _os.add_dll_directory(_config.installed_path('lib'))
 from ._curryrtbindings import *
+from .... import config as _config
+set_install_prefix(_config.prefix())
+
+_register_primitive = register_primitive
+
+def _primitive_value(value, typeexpr, result=False, interp=None):
+  from ....toolchain.flat2icurry import flatcurry as fc
+  if not isinstance(typeexpr, fc.TCons):
+    raise TypeError('primitive requires a concrete declared type')
+  name = typeexpr.name
+  args = typeexpr.args
+  if name == fc.prelude('IO'):
+    return _primitive_value(value, args[0], result, interp)
+  if name == fc.prelude('String') or (name == fc.prelude('[]') and args[0] == fc.TCons(fc.prelude('Char'), [])):
+    if not result and value == []: return ''
+    valid = isinstance(value, str)
+  elif name == fc.prelude('[]'):
+    if not isinstance(value, list):
+      raise TypeError('primitive value does not match declared list type')
+    return [_primitive_value(x, args[0], result, interp) for x in value]
+  elif name == fc.prelude('(,)'):
+    if not isinstance(value, tuple) or len(value) != 2:
+      raise TypeError('primitive value does not match declared pair type')
+    return tuple(_primitive_value(x, t, result, interp) for x, t in zip(value, args))
+  elif name == fc.prelude('()'): valid = value is None
+  elif name == fc.prelude('Int'): valid = type(value) is int
+  elif name == fc.prelude('Float'): valid = type(value) is float
+  elif name == fc.prelude('Bool'): valid = type(value) is bool
+  elif name == fc.prelude('Char'): valid = isinstance(value, str) and len(value) == 1
+  else: raise TypeError('unsupported primitive declared type: ' + '.'.join(name))
+  if not valid:
+    raise TypeError('primitive value does not match declared type ' + name[1])
+  if name == fc.prelude('Char') and result:
+    from ....objects.terms import Char, term
+    return term(interp, Char(value))._node
+  return value
+
+def register_primitive(name, arity, callable, monadic=False):
+  if not _builtins.callable(callable):
+    raise TypeError('expected a callable')
+  def typed(interp, *values):
+    from ....toolchain.flat2icurry import flatcurry as fc
+    scheme = interp.sigtable.lookup(name, required=True)
+    typeexpr = scheme.typeexpr
+    arguments = []
+    for value in values:
+      if not isinstance(typeexpr, fc.FuncType):
+        raise TypeError('primitive arity does not match declared type')
+      arguments.append(_primitive_value(value, typeexpr.domain, interp=interp))
+      typeexpr = typeexpr.range
+    return _primitive_value(callable(*arguments), typeexpr, result=True, interp=interp)
+  _register_primitive(name, arity, typed, monadic)
+
+import builtins as _builtins
+
+def _register_environment_primitives():
+  import socket
+  import curry
+  register_primitive('System.Environment.getArgs', 0, lambda: curry.program_arguments, True)
+  register_primitive('System.Environment.getProgName', 0,
+      lambda: curry.program_name, True)
+  register_primitive('System.Environment.getHostname', 0, socket.gethostname, True)
+
+_register_environment_primitives()
 from ...generic.eval import control
 from ....interpreter import flags as _flags
 from . import fingerprint
@@ -77,6 +141,12 @@ class StepCounter(object):
 
   def reset_global(self):
     self._rts._step_base = self._rts.steps_total
+
+
+# A directly constructed base state has no owning Python interpreter.
+RuntimeStateBase.interp = property(
+    lambda self: getattr(self, '_interp', None),
+    lambda self, interp: setattr(self, '_interp', interp))
 
 
 class RuntimeState(RuntimeStateBase):

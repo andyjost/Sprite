@@ -17,12 +17,8 @@ class TestLibraryExternals(cytest.TestCase):
       with self.subTest(module=name):
         self.assertIsNotNone(curry.import_(name))
     D = curry.import_('Curry.Compiler.Distribution')
-    with self.assertRaisesRegex(EvaluationError,
-        r'Curry.Compiler.Distribution.curryCompiler: not implemented'):
-      list(curry.eval(D.curryCompiler))
-    implementation = inspect.getimpl(D.curryCompiler)
-    self.assertIn('external', implementation)
-    self.assertIn('not implemented', implementation)
+    self.assertEqual(curry.eval(D.curryCompiler).one(), 'sprite')
+    self.assertIn('C++ primitive', inspect.getimpl(D.curryCompiler))
     with self.assertRaisesRegex(EvaluationError, r'System.IO.*not implemented'):
       list(curry.eval(curry.parse('trace "x" (1 :: Int)', imports=['Debug.Trace'])))
     IO = curry.import_('System.IO')
