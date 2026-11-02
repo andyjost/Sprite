@@ -4,8 +4,10 @@
 Never install this script or use its output as a user's package index.
 """
 import argparse
+from contextlib import nullcontext
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import sqlite3
@@ -16,34 +18,111 @@ def overlay(source, destination):
   if source == destination or source in destination.parents:
     raise ValueError('the overlay must be separate from the original index')
   shutil.copytree(source, destination, dirs_exist_ok=True)
+  validate_cache(destination)
   count = patch(destination)
   patch_cache(destination)
   return count
 
 
+# Only CPM 3.3's escaped ReadShowTerm encoding and numeric versions are
+# supported. Reject other encodings instead of guessing how to rewrite them.
+QUOTE = r'\"'
+SCHEMA = [
+    ('Key', 'INTEGER', 0, 1), ('Name', 'string', 1, 0),
+    ('Version', 'string', 1, 0), ('Dependencies', 'string', 0, 0),
+    ('CompilerCompatibility', 'string', 0, 0), ('Synopsis', 'string', 0, 0),
+    ('Category', 'string', 0, 0), ('SourceDirs', 'string', 0, 0),
+    ('ExportedModules', 'string', 0, 0), ('ExecutableSpec', 'string', 0, 0)]
+
+
+def version_term(version):
+  if not isinstance(version, str) or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version):
+    raise ValueError('unsupported repository version')
+  return '(' + ','.join(str(int(n)) for n in version.split('.')) + ',Nothing)'
+
+
+def constraint_term(constraint):
+  operators = {'>=': 'VGte', '>': 'VGt', '<=': 'VLte', '<': 'VLt', '=': 'VExact'}
+  alternatives = []
+  for alternative in constraint.split('||'):
+    terms = []
+    for part in alternative.split(','):
+      match = re.fullmatch(r'\s*(>=|<=|>|<|=)\s*([0-9]+\.[0-9]+\.[0-9]+)\s*', part)
+      if match is None:
+        raise ValueError('unsupported compiler constraint')
+      op, version = match.groups()
+      terms.append('(' + operators[op] + ' ' + version_term(version) + ')')
+    alternatives.append('[' + ','.join(terms) + ']')
+  return '[' + ','.join(alternatives) + ']'
+
+
+def compatibility_terms(text):
+  if not isinstance(text, str):
+    raise ValueError('unsupported repository compatibility encoding')
+  pattern = (r'\(CompilerCompatibility ' + re.escape(QUOTE) +
+             r'([a-z][a-z0-9-]*)' + re.escape(QUOTE) + r' (\[.*?\])\)')
+  matches = list(re.finditer(pattern, text))
+  if '[' + ','.join(m.group(0) for m in matches) + ']' != text:
+    raise ValueError('unsupported repository compatibility encoding')
+  result = {m[1]: m[2] for m in matches}
+  if len(result) != len(matches):
+    raise ValueError('duplicate repository compiler')
+  return result
+
+
+def cache_rows(connection):
+  schema = connection.execute('PRAGMA table_info(IndexEntry)').fetchall()
+  if [(r[1], r[2], r[3], r[5]) for r in schema] != SCHEMA:
+    raise ValueError('unsupported repository cache schema')
+  return connection.execute(
+      'SELECT Key, Name, Version, CompilerCompatibility FROM IndexEntry').fetchall()
+
+
+def validate_cache(root, connection=None):
+  database = root / 'REPOSITORY_CACHE.db'
+  if not database.exists():
+    return
+  specifications = {}
+  for path in root.rglob('package.json'):
+    data = json.loads(path.read_text(), strict=False)
+    identity = (data['name'], version_term(data['version']))
+    if identity in specifications:
+      raise ValueError('duplicate repository package/version')
+    specifications[identity] = {
+        name: constraint_term(value)
+        for name, value in data.get('compilerCompatibility', {}).items()}
+  with (sqlite3.connect(database) if connection is None else nullcontext(connection)) as connection:
+    seen = set()
+    for _, name, version, text in cache_rows(connection):
+      identity = (name, version)
+      if identity in seen or identity not in specifications:
+        raise ValueError('repository package/version mismatch')
+      seen.add(identity)
+      if compatibility_terms(text) != specifications[identity]:
+        raise ValueError('repository compatibility mismatch')
+    if seen != specifications.keys():
+      raise ValueError('repository package/version mismatch')
+
+
 def patch_cache(root):
   """Keep CPM on its indexed path with the overlay's compatibility data."""
   database = root / 'REPOSITORY_CACHE.db'
+  if database.exists():
+    entry = '(CompilerCompatibility ' + QUOTE + 'sprite' + QUOTE + ' [[(VGte (0,9,0,Nothing))]])'
+    with sqlite3.connect(database) as connection:
+      for key, _, _, compatibility in cache_rows(connection):
+        compilers = compatibility_terms(compatibility)
+        if 'sprite' in compilers and compilers['sprite'] != constraint_term('>= 0.9.0'):
+          raise ValueError('unexpected Sprite compatibility in repository cache')
+        if 'pakcs' in compilers and 'sprite' not in compilers:
+          compatibility = compatibility[:-1] + ',' + entry + ']'
+          connection.execute(
+              'UPDATE IndexEntry SET CompilerCompatibility = ? WHERE Key = ?',
+              (compatibility, key))
+      validate_cache(root, connection)
   for path in root.glob('REPOSITORY_CACHE*'):
     if path != database:
       path.unlink()
-  if not database.exists():
-    return
-  # CPM stores escaped ReadShowTerm text, rather than JSON, in this column.
-  entry = r'(CompilerCompatibility \"sprite\" [[(VGte (0,9,0,Nothing))]])'
-  with sqlite3.connect(database) as connection:
-    rows = connection.execute('SELECT Key, CompilerCompatibility FROM IndexEntry')
-    for key, compatibility in list(rows):
-      if r'\"pakcs\"' not in compatibility:
-        continue
-      if r'\"sprite\"' in compatibility:
-        if entry not in compatibility:
-          raise ValueError('unexpected Sprite compatibility in repository cache')
-      else:
-        compatibility = compatibility[:-1] + ',' + entry + ']'
-        connection.execute(
-            'UPDATE IndexEntry SET CompilerCompatibility = ? WHERE Key = ?',
-            (compatibility, key))
 
 
 def patch(root):

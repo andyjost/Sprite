@@ -54,11 +54,22 @@ class TestPrivateLaunchers(cytest.TestCase):
       source, target = Path(work) / 'index', Path(work) / 'overlay'
       source.mkdir()
       original = r'[(CompilerCompatibility \"pakcs\" [[(VGte (3,0,0,Nothing))]])]'
-      other = r'[(CompilerCompatibility \"kics2\" [])]'
+      other = r'[(CompilerCompatibility \"kics2\" [[(VGte (0,0,0,Nothing))]])]'
       with sqlite3.connect(source / 'REPOSITORY_CACHE.db') as database:
-        database.execute('CREATE TABLE IndexEntry (Key INTEGER, CompilerCompatibility TEXT)')
-        database.executemany('INSERT INTO IndexEntry VALUES (?, ?)',
-                             [(1, original), (2, other)])
+        database.execute('CREATE TABLE IndexEntry ('
+            'Key INTEGER PRIMARY KEY, Name string NOT NULL, Version string NOT NULL, '
+            'Dependencies string, CompilerCompatibility string, Synopsis string, '
+            'Category string, SourceDirs string, ExportedModules string, ExecutableSpec string)')
+        database.executemany('INSERT INTO IndexEntry (Key, Name, Version, CompilerCompatibility) '
+                             'VALUES (?, ?, ?, ?)',
+                             [(1, 'first', '(1,0,0,Nothing)', original),
+                              (2, 'second', '(1,0,0,Nothing)', other)])
+      for name, compilers in [('first', {'pakcs': '>= 3.0.0'}),
+                               ('second', {'kics2': '>= 0.0.0'})]:
+        directory = source / name / '1.0.0'
+        directory.mkdir(parents=True)
+        (directory / 'package.json').write_text(json.dumps({
+            'name': name, 'version': '1.0.0', 'compilerCompatibility': compilers}))
       module.overlay(source, target)
       module.patch_cache(target)
       with sqlite3.connect(target / 'REPOSITORY_CACHE.db') as database:
@@ -68,11 +79,62 @@ class TestPrivateLaunchers(cytest.TestCase):
       with sqlite3.connect(source / 'REPOSITORY_CACHE.db') as database:
         self.assertEqual(database.execute(
             'SELECT CompilerCompatibility FROM IndexEntry WHERE Key = 1').fetchone(), (original,))
+      for label, sql, parameters, message in [
+          ('ordinary quotes', 'UPDATE IndexEntry SET CompilerCompatibility = ? WHERE Key = 1',
+           (original.replace(chr(92) + '"', '"'),), 'encoding'),
+          ('malformed term', 'UPDATE IndexEntry SET CompilerCompatibility = ? WHERE Key = 1',
+           (original + 'junk',), 'encoding'),
+          ('constraint mismatch', 'UPDATE IndexEntry SET CompilerCompatibility = ? WHERE Key = 1',
+           (original.replace('(3,0,0,Nothing)', '(4,0,0,Nothing)'),), 'compatibility mismatch'),
+          ('version mismatch', "UPDATE IndexEntry SET Version = '(2,0,0,Nothing)' WHERE Key = 1",
+           (), 'package/version mismatch'),
+          ('missing row', 'DELETE FROM IndexEntry WHERE Key = 1', (), 'package/version mismatch'),
+          ('duplicate row', 'UPDATE IndexEntry SET Name = \'first\' WHERE Key = 2',
+           (), 'package/version mismatch'),
+          ('schema', 'ALTER TABLE IndexEntry RENAME COLUMN Name TO Other', (), 'schema')]:
+        with self.subTest(label=label):
+          with sqlite3.connect(source / 'REPOSITORY_CACHE.db') as database:
+            database.execute(sql, parameters)
+            database.commit()
+          try:
+            with self.assertRaisesRegex(ValueError, message):
+              module.overlay(source, Path(work) / label)
+          finally:
+            # Restore the source fixture for the next independent case.
+            shutil.copy2(target / 'REPOSITORY_CACHE.db', source / 'REPOSITORY_CACHE.db')
+            with sqlite3.connect(source / 'REPOSITORY_CACHE.db') as database:
+              database.execute('UPDATE IndexEntry SET CompilerCompatibility = ? WHERE Key = 1',
+                               (original,))
       with sqlite3.connect(target / 'REPOSITORY_CACHE.db') as database:
         database.execute('UPDATE IndexEntry SET CompilerCompatibility = ? WHERE Key = 1',
             (original[:-1] + ',' + r'(CompilerCompatibility \"sprite\" [])]',))
       with self.assertRaisesRegex(ValueError, 'unexpected Sprite compatibility'):
         module.patch_cache(target)
+
+  def test_ci_guard_only_error(self):
+    workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+    start = workflow.index('            errors=$(')
+    end = workflow.index('\n            echo "::notice::', start)
+    check = workflow[start:end]
+    guard = ("ERROR: Curry module 'Test.Prop' from 'Prop.curry' conflicts with "
+             "the installed library module 'Prop.curry'.; searched curry.path")
+    with tempfile.TemporaryDirectory() as home:
+      for log, accepted in [
+          ('INFO  Compiling...\n' + guard + '\n', True),
+          (guard + '\nERROR: another failure\n', False),
+          ('ERROR: another failure\n' + guard + '\n', False),
+          (guard + '\nCRITICAL another failure\n', False),
+          (guard + '\n\x1b[31mERROR: another failure\x1b[0m\n', False),
+          (guard + '\nfile.curry:1:1:Error: another failure\n', False),
+          (guard + '\nfile.curry:1:1 Error: another failure\n', False),
+          (guard + '\nTraceback (most recent call last):\n', False),
+          (guard + '\n' + guard + '\n', False),
+          ('INFO  Compiling...\n', False)]:
+        with self.subTest(log=log):
+          (Path(home) / 'currycheck-install.log').write_text(log)
+          result = subprocess.run(['bash', '-e', '-c', check],
+              env=dict(os.environ, HOME=home), capture_output=True)
+          self.assertEqual(result.returncode == 0, accepted)
 
   def test_survey_classification(self):
     spec = importlib.util.spec_from_file_location('survey', ROOT / 'scripts/cpm-index-run.py')

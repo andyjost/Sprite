@@ -895,7 +895,8 @@ jobs:
             status=$?
             cat "$HOME/currycheck-install.log"
             test "$status" -eq 1
-            grep -Fx "ERROR: Curry module 'Test.Prop' from 'Prop.curry' conflicts with the installed library module 'Prop.curry'.; searched curry.path" "$HOME/currycheck-install.log"
+            errors=$(sed -E 's/\x1b\[[0-9;]*[mK]//g' "$HOME/currycheck-install.log" | grep -Ei '(^|[^[:alnum:]_])(error|critical|fatal)(:|[[:space:]])|Traceback \(most recent call last\)')
+            test "$errors" = "ERROR: Curry module 'Test.Prop' from 'Prop.curry' conflicts with the installed library module 'Prop.curry'.; searched curry.path"
             echo "::notice::CurryCheck installation reached the known Test.Prop guard (unit_cpm_repl expected failure)."
           fi
           timeout 600 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" install
