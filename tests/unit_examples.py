@@ -20,7 +20,8 @@ once per backend that the example declares, and review the diff.  The file
 must come out the same on every backend of the example.
 '''
 import cytest # from ./lib; must be first
-import ast, curry, importlib.util, os, subprocess, sys, time, unittest
+from unittest import mock
+import ast, contextlib, curry, importlib.util, os, subprocess, sys, tempfile, time, unittest
 
 EXAMPLES_DIR = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'examples')
@@ -104,6 +105,41 @@ STRESS_EXCLUDED = {
 # its expected.out.
 KNOWN_FAILURES = {}
 
+@contextlib.contextmanager
+def example_diagnostics(env, delay):
+  """Schedule stacks in Python descendants before the process tree is killed."""
+  with tempfile.TemporaryDirectory(prefix='example-stacks-') as directory:
+    # A startup hook reaches Python processes launched by shell drivers too.
+    # Use one deadline so a child started late still dumps before the kill.
+    with open(os.path.join(directory, 'sitecustomize.py'), 'w') as stream:
+      stream.write(
+          'import faulthandler, os, time\n'
+          '_example_dump = open(os.path.join(os.environ["SPRITE_EXAMPLE_DUMP_DIR"], '
+          'str(os.getpid()) + ".log"), "w")\n'
+          'faulthandler.dump_traceback_later(max(0.01, '
+          'float(os.environ["SPRITE_EXAMPLE_DUMP_AT"]) - time.monotonic()), '
+          'file=_example_dump)\n'
+        )
+    env = dict(env, SPRITE_EXAMPLE_DUMP_AT=str(time.monotonic() + delay),
+               SPRITE_EXAMPLE_DUMP_DIR=directory)
+    env['PYTHONPATH'] = os.pathsep.join(filter(None, [
+        directory, env.get('PYTHONPATH', '')
+      ]))
+    yield env, directory
+
+
+def example_stacks(directory):
+  """Read even the dumps of descendants whose parents captured their stderr."""
+  stacks = []
+  for name in sorted(os.listdir(directory)):
+    if name.endswith('.log'):
+      with open(os.path.join(directory, name), encoding='utf-8', errors='replace') as stream:
+        text = stream.read()
+      if text:
+        stacks.append('Python process %s:\n%s' % (name[:-4], text))
+  return '\n'.join(stacks)
+
+
 class TestExamples(cytest.TestCase):
   '''Runs the run script of every example in a child and checks its stdout.'''
 
@@ -167,10 +203,12 @@ class TestExamples(cytest.TestCase):
     env.pop('PYTHONPATH', None)
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT, KILL_AFTER) + ['bash', './run']
     start = time.time()
-    proc = subprocess.run(
-        cmd, cwd=exdir, env=env, capture_output=True
-      , encoding='utf-8', errors='replace'
-      )
+    with example_diagnostics(env, max(0.01, TIMEOUT - 30)) as (env, directory):
+      proc = subprocess.run(
+          cmd, cwd=exdir, env=env, capture_output=True
+        , encoding='utf-8', errors='replace'
+        )
+      stacks = example_stacks(directory)
     elapsed = time.time() - start
     self.times[name] = elapsed
     # timeout exits with 124 when SIGTERM ends the child.  When the child
@@ -179,7 +217,8 @@ class TestExamples(cytest.TestCase):
     timed_out = proc.returncode == cytest.TIMEOUT_STATUS or (
         proc.returncode == KILLED_STATUS and elapsed >= TIMEOUT
       )
-    self.assertFalse(timed_out, '%s did not finish in %d s' % (name, TIMEOUT))
+    self.assertFalse(timed_out, '%s did not finish in %d s\n%s'
+                     % (name, TIMEOUT, proc.stderr + '\n' + stacks))
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.procs[name] = proc
     return proc
@@ -246,6 +285,38 @@ def function_of(relpath, name):
       exec(compile(ast.Module(body=[node], type_ignores=[]), path, 'exec'), namespace)
       return namespace[name]
   raise AssertionError('%s defines no function %s' % (relpath, name))
+
+
+class TestExampleDiagnostics(cytest.TestCase):
+  @cytest.posix_only('executes a POSIX shell driver')
+  def test_stalled_descendants_appear_in_failure(self):
+    prefix = cytest.limit_prefix(timeout=2)
+    if not any(os.path.basename(part) in ('timeout', 'gtimeout') for part in prefix):
+      self.skipTest('needs the coreutils timeout command')
+    with tempfile.TemporaryDirectory(prefix='example-timeout-test-') as directory:
+      exdir = os.path.join(directory, 'stalled')
+      os.mkdir(exdir)
+      with open(os.path.join(exdir, 'run'), 'w') as stream:
+        stream.write(
+            'echo "driver stderr" >&2\n'
+            '"$EXAMPLE_TEST_PYTHON" -c \'import time; time.sleep(60)\' 2>/dev/null &\n'
+            '"$EXAMPLE_TEST_PYTHON" -c \'import time; time.sleep(60)\' 2>/dev/null &\n'
+            'wait\n'
+          )
+      case = TestExamples()
+      case.times, case.procs = {}, {}
+      # Both children discard stderr. Their independent dump files must still
+      # reach the assertion that reports the timeout of the whole shell tree.
+      with mock.patch.multiple(sys.modules[__name__], EXAMPLES_DIR=directory,
+                               TIMEOUT=2, KILL_AFTER=1), \
+           mock.patch.dict(os.environ, EXAMPLE_TEST_PYTHON=sys.executable):
+        with self.assertRaisesRegex(AssertionError, 'did not finish in 2 s') as caught:
+          case.run_example('stalled')
+    message = str(caught.exception)
+    self.assertIn('driver stderr', message)
+    self.assertEqual(message.count('Python process '), 2)
+    self.assertEqual(message.count('Timeout ('), 2)
+    self.assertEqual(message.count('File "<string>", line 1 in <module>'), 2)
 
 
 class TestBuildSystemDriver(cytest.TestCase):
