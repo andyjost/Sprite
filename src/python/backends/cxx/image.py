@@ -15,7 +15,7 @@ from . import bytecode, curryrtbindings as curryrt
 
 logger = logging.getLogger(__name__)
 MAGIC = b'SPRTIMG\0'
-VERSION = 4
+VERSION = 10
 PREFIX = struct.Struct('<8sII')
 
 

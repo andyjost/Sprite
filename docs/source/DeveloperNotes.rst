@@ -320,6 +320,47 @@ compiled and interpreted and provokes one violation per check through
 ``curryrtbindings.checker_debug_*``.
 ``curryrtbindings.checker_counts`` reports the event counts.
 
+The ICurry optimizer
+====================
+
+Optimization runs after translation, before C++ or bytecode generation;
+the translator's ICurry oracle text is unchanged. Small expressions and
+known-constructor selectors are inlined under the rules in
+``icurry/analysis/inlining.py``.
+
+A class default at a closed instance dictionary can expand beyond the
+ordinary expression budget, up to the case limit. A closed instance thunk
+has no captured value arguments and stays visible across repeated uses.
+Both method and superclass selectors then resolve to the implementation.
+Conditional helpers that still carry a known dictionary get a local
+specialization with that dictionary substituted. Unknown dictionary
+parameters retain runtime dispatch. The same rule resolves Int, Char and
+Float defaults, without changing the Prelude. Data arguments still follow
+the inliner's sharing rule, and conditional method bodies retain their
+lazy branches. Compiled import summaries retain the original bodies.
+
+The literal-switch pass recovers an ``ICaseLit`` from equality tests on one
+variable followed by lifted Boolean cases. C++ and LLVM dispatch on the
+unboxed value; the interpreter uses one ``CASE_LIT`` instruction. The
+original equality chain is retained in a final ``ILitBranch`` with no
+literal. A head-normal-form probe evaluates function calls but leaves choices,
+free variables, guards and constraints in place. Nonliteral heads enter the
+original chain, preserving its choice graph and answer order. Private copies
+of the lifted helpers keep that chain available without switch recovery.
+Ordinary ICurry literal cases retain their narrowing behavior. Big Int
+literals keep arbitrary-precision comparison, and a big value falls through
+a switch whose literals all fit in a machine word.
+
+Switch recovery requires a successor path from the redex. Locally built
+nodes and free variables use one dispatch helper that supplies such a path,
+capturing references so that it preserves sharing.
+
+Image version 10 encodes fallback, rigidity and the literal probe in bits
+7, 8 and 9 of the ``CASE_LIT`` kind word. Bit 7 adds a literal-miss target;
+bit 9 adds a separate final target for nonliteral heads. Generated C++ format 26 invalidates older optimization
+products. These versions also invalidate cached LLVM code through its
+existing image and runtime keys.
+
 The depth bounds of the toolchain
 =================================
 
@@ -365,7 +406,7 @@ Format 4 (2026-11-01)
 ---------------------
 
 A module image, ``M.img``, lives beside ``M.icy``. The translator writes it
-atomically after merging runtime built-ins and running the six optimizer
+atomically after merging runtime built-ins and running the optimizer
 passes. ICurry text and its compatibility translation remain unchanged;
 No module JSON product is written or read. Tools recover bodies from ICurry
 text; inline-body and unfolding summaries still use the small JSON codec.

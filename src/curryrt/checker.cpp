@@ -471,10 +471,11 @@ namespace curryrt
           }
           case OP_CASE_LIT:
           {
-            uint32_t const v = op[1], count = op[4];
+            bool const has_default = op[3] & 128;
+            uint32_t const v = op[1], count = op[4] - (has_default ? 1 : 0) - ((op[3] & 512) ? 1 : 0);
             tree->kind = CheckerTree::CASE;
             tree->literal = true;
-            tree->litkind = (char) op[3];
+            tree->litkind = (char) (op[3] & 127);
             if(var_ok(v) && env.known[v])
             {
               tree->position_known = true;
@@ -486,7 +487,7 @@ namespace curryrt
               uint64_t const value = uint64_t(entry[0]) | (uint64_t(entry[1]) << 32);
               if(entry[2] < n)
               {
-                if(op[3] == 'p')
+                if((op[3] & 127) == 'p')
                 {
                   Node * literal = (Node *) bc.consts[value];
                   if(is_bigint(literal))
@@ -498,6 +499,8 @@ namespace curryrt
                   tree->branches[value] = build_tree(bc, entry[2], env, depth + 1);
               }
             }
+            if(has_default && entry[2] < n)
+              tree->fallback = build_tree(bc, entry[2], env, depth + 1);
             return tree;
           }
           default:
@@ -2827,6 +2830,7 @@ namespace curryrt
         auto found = node->branches.find(key);
         if(found != node->branches.end()) branch = found->second.get();
       }
+      if(!branch) branch = node->fallback.get();
       if(!branch)
         this->violation(
             "B2", "hnf"
@@ -2889,6 +2893,7 @@ namespace curryrt
         auto found = node->branches.find(key);
         if(found != node->branches.end()) branch = found->second.get();
       }
+      if(!branch) branch = node->fallback.get();
       if(!branch)
       {
         if(node->literal)

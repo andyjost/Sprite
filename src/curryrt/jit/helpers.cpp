@@ -111,6 +111,8 @@ JIT_HELPER tag_type jit_hnf(
     RuntimeState * rts, Configuration * C, Variable * v, void const * typeinfo
   )
   { return rts->hnf(C, v, typeinfo); }
+JIT_HELPER tag_type jit_literal_probe(RuntimeState * rts, Configuration * C, Variable * v)
+  { return rts->hnf(C, v, nullptr, false, true); }
 JIT_HELPER Node * jit_var_target(Variable const * v) { return *v->target; }
 JIT_HELPER int32_t jit_is_bigint(Node const * node) { return is_bigint(node); }
 JIT_HELPER int64_t jit_int_value(Node * node) { return NodeU{node}.int_->value; }

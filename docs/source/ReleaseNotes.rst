@@ -5,6 +5,13 @@ Release Notes
 0.9.0a3 (2026-11-01)
 ====================
 
+- Resolve class defaults at known instance dictionaries during compilation.
+  Fib30 with ``<`` drops from 65,285,178 to 18,529,949 steps and from
+  1.0524 to 0.3238 CPU seconds (3.3 times faster, medians of five runs).
+- Recover Int and Char literal cases as one dispatch on the unboxed value,
+  preserving the original equality graph for nonliteral scrutinees.
+  Literal-case Fib30 drops from 16,473,032 to 6,731,342 steps and from
+  0.2512 to 0.1226 CPU seconds (2.0 times faster, medians of five runs).
 - Add the qualified-name primitive registry and the primitives of
   ``Curry.Compiler.Distribution``, ``System.CPUTime``, ``System.Environment``
   and ``Data.IORef``, including registered Python implementations for process

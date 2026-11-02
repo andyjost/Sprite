@@ -623,7 +623,7 @@ class CompilerBase(abc.ABC):
   @compileS.when(icurry.ICaseLit)
   def compileS(self, icase):
     h_sel = self.compileE(icase.var)
-    values = tuple(branch.lit.value for branch in icase.branches)
+    values = tuple(branch.lit.value for branch in icase.branches if branch.lit is not None)
     h_values = self.internValueSetLiteral(values)
     return self.vEmit_compileS_ICaseLit(icase, h_sel, h_values)
 

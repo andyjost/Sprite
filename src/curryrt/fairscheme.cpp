@@ -1,6 +1,7 @@
 #include "curryrt/currylib/library.hpp"
 #include "curryrt/icurry.hpp"
 #include "curryrt/builtins.hpp"
+#include "curryrt/bigint.hpp"
 #include "curryrt/checker.hpp"
 #include "curryrt/exceptions.hpp"
 #include "curryrt/graph/indexing.hpp"
@@ -369,7 +370,7 @@ namespace curryrt
 
   tag_type RuntimeState::hnf(
       Configuration * C, Variable * inductive, void const * guides
-    , bool monadic
+    , bool monadic, bool literal_probe
     )
   {
     Cursor _0 = C->cursor();
@@ -385,6 +386,18 @@ namespace curryrt
     tag_type tag = inspect::tag_of(inductive->target);
     while(true)
     {
+      if(literal_probe && tag != T_FUNC && tag != T_FWD)
+      {
+        // Leave nonliteral heads at their original position in the graph.
+        if(tag >= T_CTOR)
+        {
+          auto info = inductive->target->info;
+          if(info != &Int_Info && info != &Char_Info && info != &Float_Info
+              && !is_bigint(*inductive->target))
+            return T_FREE;
+        }
+        return tag;
+      }
       switch(tag)
       {
         // The step at the inductive position rewrote it to a guarded

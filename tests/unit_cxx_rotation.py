@@ -250,8 +250,9 @@ class TestStepMode(cytest.TestCase):
   # that the old deferred rule made (2112920, 511384).
   # Non-linear matching (issues #165 and #169) keeps calls in functional
   # patterns and linearizes their constructor results. The extra steps
-  # move the rotation points; countQueens still returns 92.
-  COUNT_QUEENS_COUNTERS = (2199184, 471438)
+  # move the rotation points; countQueens still returns 92. The literal
+  # switches and compile-time class defaults of 2026-11-01 move them again.
+  COUNT_QUEENS_COUNTERS = (2265906, 471593)
 
   def check_count_queens(self):
     '''countQueens 8 under the cadence of 65536 steps.'''
@@ -276,14 +277,15 @@ class TestStepMode(cytest.TestCase):
     T4 entry of the TODO), when the inliner landed (the O2 and O3 entry:
     fewer steps, so the rotations fall elsewhere and the forks move with
     them), and with the failure rule of the set functions (the entries of
-    2026-10-10, 2026-10-12 and D45; COUNT_QUEENS_COUNTERS).  psort 8 ends
+    2026-10-10, 2026-10-12 and D45; COUNT_QUEENS_COUNTERS), and with the literal
+    switches and the class defaults resolved at compile time (2026-11-01).  psort 8 ends
     within one period.  The stress mode of the collector checks psort 8
     and skips countQueens 8.
     '''
     G = curry.import_('CxxGc')
     values, steps, forks = self.steps_and_forks(G.psort, 8)
     self.assertEqual(values, [[1, 2, 3, 4, 5, 6, 7, 8]])
-    self.assertEqual((steps, forks), (16929, 1636))
+    self.assertEqual((steps, forks), (17091, 1636))
     self.check_count_queens()
 
   @cytest.with_flags(rotation=STEP_MODE)
