@@ -96,15 +96,16 @@ def replacesuffix(filename, suffix):
 
 
 def _header_tokens(text):
-  """Read identifiers outside comments and strings, including nested pragmas."""
+  """Read identifiers outside comments and literals, including nested pragmas."""
   import re
   identifier = re.compile(r"[A-Za-z_][A-Za-z_0-9']*(?:\.[A-Za-z_][A-Za-z_0-9']*)*")
+  character = re.compile(
+      r"'(?:[^'\\\r\n]|\\(?:[0-9]+|x[0-9A-Fa-f]+|o[0-7]+|[A-Za-z]+|[^\r\n]))'"
+    )
+  symbol = re.compile(r'[!#$%&*+./<=>?@\\^|:~-]+')
   pos = 0
   while pos < len(text):
-    if text.startswith('--', pos):
-      end = text.find('\n', pos)
-      pos = len(text) if end < 0 else end + 1
-    elif text.startswith('{-', pos):
+    if text.startswith('{-', pos):
       depth = 1
       pos += 2
       while pos < len(text) and depth:
@@ -116,6 +117,8 @@ def _header_tokens(text):
           pos += 2
         else:
           pos += 1
+    elif text[pos] == "'" and (match := character.match(text, pos)):
+      pos = match.end()
     elif text[pos] == '"':
       pos += 1
       while pos < len(text):
@@ -125,6 +128,13 @@ def _header_tokens(text):
           pos += 1
         elif char == '"':
           break
+    elif match := symbol.match(text, pos):
+      operator = match.group()
+      if operator.startswith('--') and not operator.strip('-'):
+        end = text.find('\n', pos)
+        pos = len(text) if end < 0 else end + 1
+      else:
+        pos = match.end()
     else:
       match = identifier.match(text, pos)
       if match:

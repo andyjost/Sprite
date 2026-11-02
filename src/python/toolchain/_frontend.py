@@ -146,15 +146,17 @@ def frontend_warnings():
   return value.strip().lower() not in WARNINGS_OFF
 
 def source_root(file_in):
-  '''The source directory with one component removed per module qualifier.'''
+  '''The declared hierarchy root, or the directory of a misplaced source.'''
   from ._filenames import module_name
-  directory = os.path.dirname(os.path.abspath(file_in))
+  source = os.path.abspath(file_in)
+  directory = os.path.dirname(source)
+  parts = module_name(file_in).split('.')
   root = directory
-  for qualifier in reversed(module_name(file_in).split('.')[:-1]):
-    if os.path.basename(root) != qualifier:
-      # PAKCS accepts a physical source path outside its declared hierarchy.
-      return directory
+  for _ in parts[:-1]:
     root = os.path.dirname(root)
+  if os.path.relpath(source, root) != os.path.join(*parts) + '.curry':
+    # PAKCS accepts a physical source path outside its declared hierarchy.
+    return directory
   return root
 
 def searchdirs(file_in, currypath):

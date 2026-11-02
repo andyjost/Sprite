@@ -522,10 +522,8 @@ class Curry2ICurryConverter(object):
       # A physical hierarchical file makes icurry switch to its leaf
       # directory. Resolve the qualified name from the hierarchy root,
       # where the rewritten front-end products already live.
-      name = _filenames.module_name(file_in)
       relative = os.path.relpath(os.path.abspath(file_in), _frontend.source_root(file_in))
-      if relative[:-len('.curry')].replace(os.sep, '.') != name:
-        name = os.path.basename(file_in)[:-len('.curry')]
+      name = relative[:-len('.curry')].replace(os.sep, '.')
       cmd += ['-o', os.path.abspath(file_out), name]
       return cmd
     else:

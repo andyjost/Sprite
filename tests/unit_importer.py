@@ -101,6 +101,23 @@ class TestImporter(cytest.TestCase):
       module = interp.import_('Parent.Leaf')
       self.assertEqual(list(interp.eval(module.value)), [True])
 
+  def test_misplaced_filename_prefers_sibling_helper(self):
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+      root = pathlib.Path(work)
+      (root / 'Parent').mkdir()
+      source = root / 'Parent/Other.curry'
+      source.write_text(
+          'module Parent.Leaf where\nimport Helper\n'
+          'value :: Bool\nvalue = Helper.value\n')
+      for directory, value in ((root, 'False'), (source.parent, 'True')):
+        (directory / 'Helper.curry').write_text(
+            'module Helper where\nvalue :: Bool\nvalue = %s\n' % value)
+      interp = interpreter.Interpreter(flags={'interpret': 'all', 'jit': 'off'})
+      interp.path.insert(0, work)
+      module = interp.import_(str(source), is_sourcefile=True)
+      self.assertEqual(module.__name__, 'Parent.Leaf')
+      self.assertEqual(list(interp.eval(module.value)), [True])
+
   def test_module_and_namespace(self):
     # Both import orders must preserve the parent's symbols and its child.
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
