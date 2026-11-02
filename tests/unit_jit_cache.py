@@ -17,10 +17,23 @@ bad = 1 + error "cached error"
 '''
 
 CHILD = '''
-import curry, json, sys
+import curry, json, os, sys
 from curry.backends.cxx import curryrtbindings as rt, llvmjit
 from unittest import mock
 mode, tier, source, abi = sys.argv[1:]
+# Windows chmod cannot make a directory unwritable. Exercise the store's
+# permission branch there with the same mode bits used by the POSIX tests.
+readonly = os.environ.get('SPRITE_TEST_JIT_READONLY')
+if readonly:
+  stat = os.stat
+  def readonly_stat(path, *args, **kwargs):
+    result = stat(path, *args, **kwargs)
+    if os.path.normcase(os.fspath(path)) == os.path.normcase(readonly):
+      fields = list(result)
+      fields[0] &= ~0o222
+      return os.stat_result(fields)
+    return result
+  os.stat = readonly_stat
 if abi:
   llvmjit._abi_digest = lambda: ['changed ABI']
 curry.reset(interpret=mode, jit=tier, jit_backend='llvm')
@@ -36,11 +49,10 @@ print(json.dumps(dict(before=before, jitted=rt.icurry_is_jit(M.fib.info),
 '''
 
 
-@cytest.posix_only('persistent LLVM object caching is supported only on POSIX')
 class TestJITCache(cytest.TestCase):
   @classmethod
   def setUpClass(cls):
-    if os.name == 'nt' or not llvmjit.available():
+    if not llvmjit.available():
       raise unittest.SkipTest('persistent LLVM objects need a supported JIT')
 
   def setUp(self):
@@ -138,7 +150,11 @@ print(json.dumps(dict(ok=True)))
     objects = llvmjit._read_cache(path, index['key'])
     symbols = [records[0][1] for records, _ in objects]
     for records, obj in objects:
-      native = elf.read_symbols(obj.read())
+      data = obj.read()
+      if not data.startswith(b'\x7fELF'):
+        objects.close()
+        self.skipTest('the symbol reader reads ELF, not COFF; fresh-process linking is tested separately')
+      native = elf.read_symbols(data)
       own = records[0][1]
       self.assertIn(own, native)
       for other in symbols:
@@ -316,8 +332,22 @@ assert 'Cached.fib' not in context.failed
 llvmjit.compile(M.main.info, 'Cached.main')
 objects = llvmjit._read_cache(context.local, context.key)
 assert {records[0][0] for records, obj in objects} == {'Cached.fib', 'Cached.message', 'Cached.main'}
+objects.close()
 print(json.dumps(dict(ok=True)))
 """.replace('PUBLISHER', repr(publisher)))
+    # A third process must see the publication made while the first reader
+    # still held the old generation, including its newly added function.
+    warm = self.child()
+    self.assertTrue(warm['jitted'])
+    self.assertEqual(warm['compiled'], 0)
+    self.run_code("""
+M = curry.import_(source)
+context = llvmjit._jit.modules[M.fib.info.address]
+assert set(context.cached) == {'Cached.fib', 'Cached.message', 'Cached.main'}
+assert '144' in str(list(curry.eval(M.main))[0])
+assert rt.icurry_is_jit(M.main.info)
+print(json.dumps(dict(ok=True)))
+""")
 
   def test_touched_envelope_merges_verified_functions(self):
     self.child('eager')
@@ -337,6 +367,50 @@ assert all(llvmjit._object_bytes(obj) for records, obj in objects)
 print(json.dumps(dict(ok=True)))
 """)
     self.assertEqual(self.child('eager')['compiled'], 0)
+
+  def test_failed_publication_preserves_attached_generation(self):
+    self.child('eager')
+    self.run_code("""
+import pathlib
+M = curry.import_(source)
+context = llvmjit._jit.modules[M.fib.info.address]
+path = pathlib.Path(context.local)
+before = path.read_bytes()
+context.root = None
+with mock.patch.object(llvmjit.os, 'replace', side_effect=PermissionError('sharing violation')):
+  context.store()
+assert path.read_bytes() == before
+assert not list(path.parent.glob('.jit-*'))
+objects = llvmjit._read_cache(path, context.key)
+assert all(obj.read() for records, obj in objects)
+assert objects.stream.closed
+print(json.dumps(dict(ok=True)))
+""")
+    self.assertEqual(self.child('eager')['compiled'], 0)
+
+  def test_positioned_read_without_pread(self):
+    from concurrent.futures import ThreadPoolExecutor
+    stream = tempfile.TemporaryFile()
+    stream.write(bytes(range(256)) * 4)
+    stream.flush()
+    index = llvmjit._IndexedObjects('unused', [{}], stream)
+    self.addCleanup(index.close)
+    with mock.patch.object(llvmjit.os, 'pread', None, create=True):
+      with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(lambda offset: index.read_at(offset, 32), range(256)))
+    self.assertEqual(results, [(bytes(range(256)) * 4)[i:i + 32] for i in range(256)])
+    index.close()
+    with self.assertRaises(ValueError):
+      index.read_at(0, 1)
+
+  def test_generation_open_errors_and_process_liveness(self):
+    with self.assertRaises(OSError):
+      llvmjit._open_cache(self.base / 'missing.jit')
+    self.assertTrue(llvmjit._process_alive(os.getpid()))
+    self.assertTrue(llvmjit._process_alive(0))
+    process = subprocess.Popen([sys.executable, '-c', 'pass'])
+    process.wait(timeout=30)
+    self.assertFalse(llvmjit._process_alive(process.pid))
 
   def test_resolver_runs_between_hot_sub_batches(self):
     self.child('eager')
@@ -544,7 +618,7 @@ print(json.dumps(dict(ok=True)))
 M = curry.import_(source)
 context = llvmjit._jit.modules[M.fib.info.address]
 index = context.index
-with mock.patch.object(llvmjit.os, 'pread', return_value=b'bad payload'):
+with mock.patch.object(llvmjit._IndexedObjects, 'read_at', return_value=b'bad payload'):
   for name in context.cached:
     assert context.resolve(name) == 0
 assert index.stream.closed
@@ -618,6 +692,8 @@ print(json.dumps(dict(ok=True)))
     products = next(self.base.rglob('Cached.img')).parent
     products.chmod(0o555)
     self.addCleanup(products.chmod, 0o755)
+    if os.name == 'nt':
+      self.env['SPRITE_TEST_JIT_READONLY'] = str(products)
     self.child('eager')
     self.assertFalse((products / 'Cached.jit').exists())
     self.assertTrue(list((self.base / 'private' / 'Cached').glob('*.jit')))
@@ -628,6 +704,8 @@ print(json.dumps(dict(ok=True)))
     products = next(self.base.rglob('Cached.img')).parent
     products.chmod(0o555)
     self.addCleanup(products.chmod, 0o755)
+    if os.name == 'nt':
+      self.env['SPRITE_TEST_JIT_READONLY'] = str(products)
     self.env['SPRITE_JIT_CACHE'] = ''
     self.assertTrue(self.child('eager')['jitted'])
     self.assertFalse(list(self.base.rglob('Cached.jit')))
@@ -673,6 +751,8 @@ assert rt.icurry_is_jit(M.message.info)
     # A partially cached module gains another function in a later process.
     orphan = self.object().parent / '.jit-99999999-abandoned'
     orphan.write_bytes(b'incomplete')
+    live = self.object().parent / ('.jit-%d-live' % os.getpid())
+    live.write_bytes(b'in progress')
     code = code.replace("llvmjit.compile(M.fib.info, 'Cached.fib')",
         "list(curry.eval(M.fib(12))); assert rt.icurry_is_jit(M.fib.info)").replace(
         "llvmjit.compile(M.message.info, 'Cached.message')",
@@ -686,6 +766,7 @@ assert rt.icurry_is_jit(M.message.info)
       index = json.loads(stream.read(size))
     self.assertEqual([len(o['functions']) for o in index['objects']], [1, 1, 1])
     self.assertFalse(orphan.exists())
+    self.assertTrue(live.exists())
 
   def test_hot_batch_links_in_next_process(self):
     self.env['SPRITE_JIT_THRESHOLD'] = '1'
@@ -741,6 +822,8 @@ assert len(llvmjit._jit.generations) == linked
     products = next(self.base.rglob('Cached.img')).parent
     products.chmod(0o555)
     self.addCleanup(products.chmod, 0o755)
+    if os.name == 'nt':
+      self.env['SPRITE_TEST_JIT_READONLY'] = str(products)
     fallback = self.base / 'private' / 'Hier.Cached'
     fallback.mkdir(parents=True)
     (fallback / 'obsolete.jit').write_bytes(b'old generation')

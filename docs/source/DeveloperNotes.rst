@@ -465,7 +465,7 @@ also records the envelope's size and modification time: an even whole second
 expressed in nanoseconds, which survives installation copies and FAT32's
 two-second resolution. A copy that does not preserve this time misses at
 attachment; a later publication merges same-key objects only after verifying
-their digests. An attached index pins an open POSIX file descriptor, so
+their digests. An attached index pins an open file descriptor, so
 replacement by another process does not invalidate unresolved objects. The
 descriptor closes explicitly after the last object is read or dropped, or
 when its image generation is detached. Resolved entries retain no native
@@ -480,6 +480,10 @@ from the process. ORC links the object with ``add_object_img``; Unix uses
 JITLink to preserve unwind registration across independent objects. Resource
 trackers keep the code alive. Each object contains exactly one function, so
 resolving one step cannot materialize unrelated functions.
+The Windows helper build currently selects ``windows-msvc-elf``; its target
+machine therefore emits ELF objects too. Persistence stores the emitted bytes
+unchanged and uses the same linker and bytecode constant imports as a cold JIT
+batch.
 
 Attachment reads only the index and checks its key, file size and mtime. It
 retains decoded entries directly, creating object views only on use. It
@@ -514,7 +518,16 @@ keep each generation alive.
 
 Publication holds the existing product lock and replaces a temporary file
 atomically, so concurrent readers see a whole generation. A writer preserves
-an existing current superset. Concurrent differing batches may replace one
+an existing current superset. On Windows, ``CreateFileW`` opens readers with
+read, write and delete sharing, and ``msvcrt.open_osfhandle`` transfers the
+handle to the pinned stream. A per-index lock serializes seek/read and close
+where ``pread`` is unavailable. Readers therefore keep the old generation
+while ``os.replace`` publishes the new one under the product lock. Unlike
+mapped AOT DLLs, these handles allow deletion, so no retirement name is
+needed. A failed replacement leaves the old envelope valid and removes the
+temporary. Temporary-file collection checks process liveness with
+``OpenProcess`` and a zero-time wait on Windows; an uncertain owner is kept.
+Concurrent differing batches may replace one
 another; each remains valid. If the product directory cannot be written,
 ``SPRITE_JIT_CACHE/<Full.Name>/<key>.jit`` is tried. Without either writable
 location nothing is persisted. This is a local executable-code cache with the same

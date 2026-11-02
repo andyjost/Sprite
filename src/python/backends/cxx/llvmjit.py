@@ -476,6 +476,68 @@ def _cache_key(jit, header):
   return hashlib.sha256(json.dumps(facts, sort_keys=True).encode('ascii')).hexdigest()
 
 
+def _open_cache(path):
+  '''Pin a generation while allowing publishers to replace its name.'''
+  if os.name != 'nt':
+    return open(path, 'rb')
+  import ctypes
+  from ctypes import wintypes
+  import msvcrt
+  kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+  create = kernel.CreateFileW
+  create.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+      wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+  create.restype = wintypes.HANDLE
+  close = kernel.CloseHandle
+  close.argtypes, close.restype = [wintypes.HANDLE], wintypes.BOOL
+  # GENERIC_READ; FILE_SHARE_READ | WRITE | DELETE; OPEN_EXISTING.
+  # Write sharing also permits corruption tests and metadata-only opens.
+  handle = create(os.fsdecode(path), 0x80000000, 0x7, None, 3, 0, None)
+  if handle == ctypes.c_void_p(-1).value:
+    raise ctypes.WinError(ctypes.get_last_error())
+  try:
+    fd = msvcrt.open_osfhandle(handle, os.O_RDONLY | os.O_BINARY)
+  except BaseException:
+    close(handle)
+    raise
+  try:
+    return os.fdopen(fd, 'rb')
+  except BaseException:
+    os.close(fd)
+    raise
+
+
+def _process_alive(pid):
+  # Match the AOT generation collector: uncertainty keeps the temporary.
+  if pid <= 0:
+    return True
+  if os.name != 'nt':
+    try:
+      os.kill(pid, 0)
+    except ProcessLookupError:
+      return False
+    except PermissionError:
+      pass
+    return True
+  import ctypes
+  from ctypes import wintypes
+  kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+  opened = kernel.OpenProcess
+  opened.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+  opened.restype = wintypes.HANDLE
+  wait = kernel.WaitForSingleObject
+  wait.argtypes, wait.restype = [wintypes.HANDLE, wintypes.DWORD], wintypes.DWORD
+  close = kernel.CloseHandle
+  close.argtypes, close.restype = [wintypes.HANDLE], wintypes.BOOL
+  handle = opened(0x100000, False, pid)  # SYNCHRONIZE
+  if not handle:
+    return ctypes.get_last_error() != 87  # ERROR_INVALID_PARAMETER
+  try:
+    return wait(handle, 0) != 0  # WAIT_OBJECT_0 means exited
+  finally:
+    close(handle)
+
+
 class _Object:
   '''An indexed object; native bytes are read and verified only on demand.'''
   def __init__(self, index, offset, entry):
@@ -483,13 +545,12 @@ class _Object:
     self.path = index.path
 
   def read(self):
-    # POSIX only: persistence is disabled on Windows. The open descriptor
-    # pins this generation even when another publisher replaces its path.
+    # The open descriptor pins this generation across path replacement.
     if self.entry.get('_dropped'):
       raise ValueError('dropped JIT object')
     read = False
     try:
-      obj = os.pread(self.index.stream.fileno(), self.entry['size'], self.offset)
+      obj = self.index.read_at(self.offset, self.entry['size'])
       if (len(obj) != self.entry['size']
           or hashlib.sha256(obj).hexdigest() != self.entry['digest']):
         raise ValueError('corrupt JIT object')
@@ -511,6 +572,7 @@ class _IndexedObjects:
   '''Decoded entries, without per-function file views until they are used.'''
   def __init__(self, path, entries, stream):
     self.path, self.entries, self.stream = path, entries, stream
+    self.read_lock = threading.RLock()
     self.extra = []
     self.remaining = len(entries)
     if not entries:
@@ -526,7 +588,18 @@ class _IndexedObjects:
         self.close()
 
   def close(self):
-    self.stream.close()
+    with self.read_lock:
+      self.stream.close()
+
+  def read_at(self, offset, size):
+    with self.read_lock:
+      pread = getattr(os, 'pread', None)
+      if pread is not None:
+        return pread(self.stream.fileno(), size, offset)
+      # A synchronous Windows handle has one file position. Serialize seek
+      # and read (and close) so callers observe independent positioned reads.
+      self.stream.seek(offset)
+      return self.stream.read(size)
 
   def view(self, entry):
     return (entry['functions'],
@@ -545,7 +618,7 @@ class _IndexedObjects:
 
 
 def _read_cache(path, key, check_identity=True):
-  stream = open(path, 'rb')
+  stream = _open_cache(path)
   try:
     magic, size = _CACHE_PREFIX.unpack(stream.read(_CACHE_PREFIX.size))
     if magic != _CACHE_MAGIC or size > 16 * 1024 * 1024:
@@ -781,9 +854,8 @@ class _CachedModule:
               continue
             try:
               pid = int(entry.name.split('-')[1])
-              os.kill(pid, 0)
-            except ProcessLookupError:
-              os.unlink(entry.path)
+              if not _process_alive(pid):
+                os.unlink(entry.path)
             except (ValueError, PermissionError):
               pass
           fd, tmp = tempfile.mkstemp(prefix='.jit-%d-' % os.getpid(), dir=directory)
@@ -808,8 +880,6 @@ class _CachedModule:
 
 def attach_cache(path, header, items):
   '''Register an image and its cache index without reading native bytes.'''
-  if os.name == 'nt':
-    return  # Persistent objects on Windows belong to the Windows lane.
   jit = _get()
   with _lock:
     context = _CachedModule(jit, path, header, items)

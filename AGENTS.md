@@ -322,13 +322,15 @@ reproducers pass.
   snapshots and publication preserve #173. Hot swaps run at the scheduler
   safepoint. `SPRITE_JIT_DUMP` writes LLVM IR and assembly, for LLVM only.
   Backend and compilation decisions emit INFO messages on the curry logger.
-  On Unix, LLVM caches completed module batches in `M.jit` beside `M.img`:
+  LLVM caches completed module batches in `M.jit` beside `M.img`:
   relocatable constants resolve from image bytecode at link. The key covers
   the image body, runtime ABI, helpers, emitter, LLVM version and CPU.
   Current objects resolve on first use under `new` and `all`; `jit:off`
   reads none. Read-only products use `SPRITE_JIT_CACHE` when set and writable.
-  A local stage fills the library cache when llvmlite imports; wheels and
-  Windows omit persistent JIT objects.
+  A local stage fills the library cache when llvmlite imports; wheels omit
+  persistent JIT objects. Windows stages skip the library fill, but user runs
+  persist their objects. Windows readers share delete access and serialize
+  positioned reads on the pinned generation so publication can replace it.
 - The C++ backend rotates its queue of alternatives in time mode by
   default (`SPRITE_ROTATION=time:10ms`, a ticker thread, the interpreter
   flag `rotation`) and in step mode (`steps:65536`) under the test runner,
