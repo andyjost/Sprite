@@ -4,6 +4,7 @@ from curry import config
 import importlib.util
 from pathlib import Path
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -44,6 +45,34 @@ class TestPrivateLaunchers(cytest.TestCase):
       with mock.patch.dict(os.environ, HOME=str(target)):
         with self.assertRaises(ValueError):
           self.assertEqual(module.patch_downloads([source]), 1)
+
+  def test_overlay_database(self):
+    spec = importlib.util.spec_from_file_location('overlay', ROOT / 'scripts/cpm-test-overlay.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with tempfile.TemporaryDirectory() as work:
+      source, target = Path(work) / 'index', Path(work) / 'overlay'
+      source.mkdir()
+      original = r'[(CompilerCompatibility \"pakcs\" [[(VGte (3,0,0,Nothing))]])]'
+      other = r'[(CompilerCompatibility \"kics2\" [])]'
+      with sqlite3.connect(source / 'REPOSITORY_CACHE.db') as database:
+        database.execute('CREATE TABLE IndexEntry (Key INTEGER, CompilerCompatibility TEXT)')
+        database.executemany('INSERT INTO IndexEntry VALUES (?, ?)',
+                             [(1, original), (2, other)])
+      module.overlay(source, target)
+      module.patch_cache(target)
+      with sqlite3.connect(target / 'REPOSITORY_CACHE.db') as database:
+        rows = database.execute('SELECT CompilerCompatibility FROM IndexEntry ORDER BY Key').fetchall()
+      self.assertEqual(rows, [(original[:-1] + ',' +
+          r'(CompilerCompatibility \"sprite\" [[(VGte (0,9,0,Nothing))]])]',), (other,)])
+      with sqlite3.connect(source / 'REPOSITORY_CACHE.db') as database:
+        self.assertEqual(database.execute(
+            'SELECT CompilerCompatibility FROM IndexEntry WHERE Key = 1').fetchone(), (original,))
+      with sqlite3.connect(target / 'REPOSITORY_CACHE.db') as database:
+        database.execute('UPDATE IndexEntry SET CompilerCompatibility = ? WHERE Key = 1',
+            (original[:-1] + ',' + r'(CompilerCompatibility \"sprite\" [])]',))
+      with self.assertRaisesRegex(ValueError, 'unexpected Sprite compatibility'):
+        module.patch_cache(target)
 
   def test_survey_classification(self):
     spec = importlib.util.spec_from_file_location('survey', ROOT / 'scripts/cpm-index-run.py')

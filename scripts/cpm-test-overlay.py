@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import sqlite3
 
 
 def overlay(source, destination):
@@ -16,10 +17,33 @@ def overlay(source, destination):
     raise ValueError('the overlay must be separate from the original index')
   shutil.copytree(source, destination, dirs_exist_ok=True)
   count = patch(destination)
-  # CPM's optional repository cache contains the original compatibility data.
-  for path in destination.glob('REPOSITORY_CACHE*'):
-    path.unlink()
+  patch_cache(destination)
   return count
+
+
+def patch_cache(root):
+  """Keep CPM on its indexed path with the overlay's compatibility data."""
+  database = root / 'REPOSITORY_CACHE.db'
+  for path in root.glob('REPOSITORY_CACHE*'):
+    if path != database:
+      path.unlink()
+  if not database.exists():
+    return
+  # CPM stores escaped ReadShowTerm text, rather than JSON, in this column.
+  entry = r'(CompilerCompatibility \"sprite\" [[(VGte (0,9,0,Nothing))]])'
+  with sqlite3.connect(database) as connection:
+    rows = connection.execute('SELECT Key, CompilerCompatibility FROM IndexEntry')
+    for key, compatibility in list(rows):
+      if r'\"pakcs\"' not in compatibility:
+        continue
+      if r'\"sprite\"' in compatibility:
+        if entry not in compatibility:
+          raise ValueError('unexpected Sprite compatibility in repository cache')
+      else:
+        compatibility = compatibility[:-1] + ',' + entry + ']'
+        connection.execute(
+            'UPDATE IndexEntry SET CompilerCompatibility = ? WHERE Key = ?',
+            (compatibility, key))
 
 
 def patch(root):
