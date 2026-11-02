@@ -216,7 +216,7 @@ M = curry.import_('Mergesort', path=[%r] + curry.path)
 before = curry.stats()
 assert list(curry.eval(M.main)) == [True]
 after = curry.stats()
-assert after['steps'] - before['steps'] == 61313
+assert after['steps'] - before['steps'] == 57880  # 61313 before class defaults resolved at compile time
 assert after['forks'] - before['forks'] == 1129
 print('ok')
 ''' % directory
