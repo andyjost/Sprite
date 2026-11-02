@@ -71,6 +71,7 @@ class Handle(object):
     return self.icurry.packagename
 
   def package(self, interp):
+    '''The parent namespace, which may itself be a module.'''
     pkg = interp.modules.get(self.packagename(), None)
     if pkg:
       return Handle(pkg)
@@ -215,7 +216,8 @@ class Handle(object):
     pkg = self.package(interp)
 
     if pkg is not None:
-      del pkg.icurry[self.name]
+      if pkg.is_package:
+        del pkg.icurry[self.name]
       del pkg[self.name]
-      if not keep_package and not pkg:
+      if pkg.is_package and not keep_package and not pkg:
         pkg.unlink(interp)
