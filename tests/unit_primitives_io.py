@@ -494,9 +494,9 @@ else:
             input='x', capture_output=True, text=True)
         self.assertEqual(child.returncode, 0, child.stderr)
         self.assertEqual(child.stdout.strip(), expected)
-      child = subprocess.run([sys.executable, '-m', 'curry.tools.icy',
-          ':load', str(SOURCE / 'PrimitiveIO.curry')], env=env,
-          input=':eval exitTest\n', capture_output=True, text=True)
+      child = subprocess.run([sys.executable, '-m', 'curry.tools.repl'], env=env,
+          input=':load ' + str(SOURCE / 'PrimitiveIO.curry') + '\n:eval exitTest\n',
+          capture_output=True, text=True)
       self.assertEqual(child.returncode, 23, child.stderr)
     curry.reset(interpret='off')
     curry.path.insert(0, str(SOURCE))

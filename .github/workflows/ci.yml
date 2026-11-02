@@ -849,7 +849,11 @@ jobs:
           path: object-root/docs/html
       - name: Run containers through the Curry Package Manager
         run: |
-          export PATH="$PWD/install/bin:$HOME/pakcs-$PAKCS_VERSION/bin:$PATH"
+          pakcs_home="$HOME/pakcs-$PAKCS_VERSION"
+          export HOME="$RUNNER_TEMP/sprite-cpm-home"
+          mkdir -p "$HOME"
+          export LC_ALL=C.UTF-8
+          export PATH="$PWD/install/bin:$pakcs_home/bin:$PATH"
           export PYTHONPATH="$PWD/install/python${PYTHONPATH:+:$PYTHONPATH}"
           if [ ! -f "$HOME/.cpmrc" ]; then
             cat > "$HOME/.cpmrc" <<'CPMRC'
@@ -862,7 +866,7 @@ jobs:
           # SWI-Prolog 9 inherits the saved state's 1 GB stack limit.
           # Raise it in the launch headers without rebuilding the cache.
           for state in src/pakcs currytools/cpm/src/CPM.Main currytools/optimize/BindingOpt; do
-            header="$HOME/pakcs-$PAKCS_VERSION/$state"
+            header="$pakcs_home/$state"
             sed -i "/^exec / { /set_prolog_flag(stack_limit,/! s/ -x / -g 'set_prolog_flag(stack_limit,34359738368)' -x /; }" "$header"
           done
           project=$(mktemp -d)
@@ -872,12 +876,18 @@ jobs:
           {"name":"sprite-cpm-smoke","version":"0.0.1","author":"Sprite","synopsis":"Sprite package smoke test","dependencies":{"containers":">= 3.0.0, < 4.0.0"}}
           JSON
           timeout 600 cypm update
-          timeout 600 cypm install
-          SPRITE_CPM_PATH=0 timeout 600 cypm exec "python -c 'import curry; M = curry.import_(\"Data.Map\"); print(curry.eval(M.size(M.empty)).one())'"
+          timeout 1800 cypm -d CURRYBIN="$pakcs_home/bin/pakcs" install currypp
+          export PATH="$HOME/.cpm/bin:$PATH"
+          python "$GITHUB_WORKSPACE/scripts/cpm-test-overlay.py" "$HOME/.cpm/index" "$HOME/sprite-index"
+          export CPM_TEST_HOME="$HOME"
+          export SPRITE_DISABLE_SYSLIB_CHECKS=1
+          timeout 1800 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" checkout currycheck -o "$HOME/currycheck-download"
+          python "$GITHUB_WORKSPACE/scripts/cpm-test-overlay.py" "$HOME/.cpm/index" "$HOME/sprite-index" --packages "$HOME/.cpm/packages"
+          timeout 1800 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" install currycheck
+          timeout 600 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" install
+          SPRITE_CPM_PATH=0 timeout 600 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" exec "python -c 'import curry; M = curry.import_(\"Data.Map\"); print(curry.eval(M.size(M.empty)).one())'"
           env -u CURRYPATH python -c 'import curry; M = curry.import_("Data.Map"); print(curry.eval(M.size(M.empty)).one())'
-          # The local properties assert the actual system is Sprite. Until
-          # CurryCheck supports Sprite, its known integration failure is tracked
-          # by expectedFailure rather than accepting CPM's compile-only fallback.
+          # The local properties assert that CurryCheck executes on Sprite.
           cd "$GITHUB_WORKSPACE/tests"
           ./run_tests -j 1 unit_cpm_repl.py
 

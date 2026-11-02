@@ -57,6 +57,9 @@ reproducers pass.
   description as Curry text.
   `src/python/tools/repl/` is the REPL: `python -m curry.tools.repl`, with
   `:load`, `:reload`, `:eval`, `:type`, `:set`, `:save` and `:quit`.
+  Private `bin/curry`, `bin/cleancurry` and `bin/sprite-frontend`
+  launchers serve CurryCheck;
+  `scripts/cpm-test-overlay.py` makes a test-only CPM index copy.
 - `src/curryrt/`: the C++ runtime library.
 - `curry/`: the Curry library. `curry/lib/` holds a copy of the library of
   the pinned PAKCS, Sprite's own `Control.SetFunctions`, the license of the

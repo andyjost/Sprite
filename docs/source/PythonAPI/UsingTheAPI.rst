@@ -438,7 +438,47 @@ To run a source file instead, use::
 ``cypm test`` runs the package's declared test suites. It needs CurryCheck;
 without it CPM only compiles the modules. CurryCheck invokes the Curry system
 that compiled CurryCheck, so installing a PAKCS CurryCheck does not test Sprite.
-Its current source invokes that system's ``bin/curry`` without an override.
+Sprite supplies private ``bin/curry`` and ``bin/cleancurry`` launchers in the
+installation (also in the wheel's resources); these add no commands to PATH.
+Build CurryCheck with ``cypm -d CURRYBIN=sprite install currycheck``.
+
+The package index currently omits Sprite from compiler compatibility lists,
+including base, so CPM refuses packages under Sprite until the index lists it.
+For testing only, use a scratch CPM home and copy the downloaded index::
+
+    export HOME="$(mktemp -d)"
+    cypm update
+    cypm -d CURRYBIN=pakcs install currypp
+    export PATH="$HOME/.cpm/bin:$PATH"
+    export SPRITE_DISABLE_SYSLIB_CHECKS=1
+    python scripts/cpm-test-overlay.py "$HOME/.cpm/index" "$HOME/sprite-index"
+    cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN=sprite checkout currycheck -o "$HOME/currycheck-download"
+    python scripts/cpm-test-overlay.py "$HOME/.cpm/index" "$HOME/sprite-index" --packages "$HOME/.cpm/packages"
+    cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN=sprite install currycheck
+
+From the package directory, invoke its declared suites with::
+
+    cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN=sprite test
+
+The current CurryCheck source contains a quoted preprocessor pragma that
+Sprite's preprocessor-presence check recognizes as active. Keep ``currypp``
+available during installation; this check needs a separate toolchain fix.
+The preprocessor may be built with PAKCS; CurryCheck must be built with Sprite.
+
+EasyCheck supplies its own ``Test.Prop`` interface. For this test run,
+``SPRITE_DISABLE_SYSLIB_CHECKS=1`` permits startup with this duplicate
+interface on the path; installed library module names remain reserved.
+
+CurryCheck installation currently also encounters a Sprite importer error
+when an earlier package namespace directory hides a later module of the
+same name. The local property test tracks this failure; compile-only CPM
+fallback does not demonstrate property execution.
+
+The script adds ``"sprite": ">= 0.9.0"`` to every compatibility list that
+names PAKCS. CPM also reads metadata from downloaded packages; ``--packages``
+applies the same change to those scratch copies after checkout. It preserves
+the original index. Neither this script nor its
+overlay is installed for users. Sprite still identifies itself as ``sprite``.
 
 ``cypm exec`` sets ``CURRYPATH`` to the dependency source directories.
 Sprite also recognizes the local layout directly. When the working

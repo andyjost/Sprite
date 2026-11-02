@@ -188,6 +188,18 @@ else:
       self.assertIn('no Curry front end found;', result.stdout)
       run(python, ROOT / 'scripts/wheels/smoke.py')
 
+      # Exercise the actual CMake wheel install layout with the same image.
+      # The private launchers are resources, not wheel console entry points.
+      wheel = root / 'wheel'
+      run(cmake, '-S', ROOT, '-B', build, '-DSKBUILD=ON')
+      run(cmake, '--install', build, '--prefix', wheel)
+      resources = wheel / 'curry/_sprite'
+      for name in ('curry', 'cleancurry', 'sprite-frontend'):
+        self.assertTrue((resources / 'bin' / name).is_file(), name)
+      env.update(SPRITE_HOME=str(resources), PYTHONPATH=str(wheel))
+      result = run(python, resources / 'bin/curry', '--compiler-name')
+      self.assertEqual(result.stdout, 'sprite\n')
+
   REQUIREMENTS = REQUIREMENTS
 
   def distributions(self, directory, requirements=REQUIREMENTS):
