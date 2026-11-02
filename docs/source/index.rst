@@ -98,6 +98,7 @@ runs Curry in a browser.
 
    Installation/Installation
    Quickstart
+   CurryInTenMinutes
    Examples
    CurryPrimer/index
 
