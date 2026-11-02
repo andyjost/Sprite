@@ -359,6 +359,12 @@ print(json.dumps(dict(ok=True)))
     self.assertTrue(self.child()['jitted'])
 
   def test_replacement_after_attachment_preserves_resolution_and_publication(self):
+    self.check_replacement_after_attachment()
+
+  def test_blocked_replacement_after_attachment_uses_private_publication(self):
+    self.check_replacement_after_attachment(blocked=True)
+
+  def check_replacement_after_attachment(self, blocked=False):
     self.child('off')
     self.run_code("""
 M = curry.import_(source)
@@ -368,36 +374,64 @@ print(json.dumps(dict(ok=True)))
     publisher = CHILD[:CHILD.index('M = curry.import_(source)')] + """
 M = curry.import_(source)
 llvmjit.compile(M.message.info, 'Cached.message')
+context = llvmjit._jit.modules[M.message.info.address]
+objects = llvmjit._read_cache(context.local, context.key)
+names = {records[0][0] for records, obj in objects}
+objects.close()
+assert names in ({'Cached.fib'}, {'Cached.fib', 'Cached.message'}), names
+if 'Cached.message' not in names:
+  # Replacing an open destination can fail on Windows despite delete sharing.
+  # The writer must then have published to its private-cache fallback.
+  objects = llvmjit._read_cache(context.private, context.key)
+  private_names = {records[0][0] for records, obj in objects}
+  objects.close()
+  assert private_names == {'Cached.fib', 'Cached.message'}, private_names
+print(json.dumps(dict(names=sorted(names))))
 """
-    self.run_code("""
+    if blocked:
+      publisher = publisher.replace("llvmjit.compile(M.message.info, 'Cached.message')", """
+context = llvmjit._jit.modules[M.message.info.address]
+replace = llvmjit.os.replace
+def replace_unpinned(src, dst):
+  if dst == context.local:
+    raise PermissionError('open destination')
+  return replace(src, dst)
+with mock.patch.object(llvmjit.os, 'replace', replace_unpinned):
+  llvmjit.compile(M.message.info, 'Cached.message')
+""")
+    published = self.run_code("""
 import subprocess
 M = curry.import_(source)
 context = llvmjit._jit.modules[M.fib.info.address]
 old = context.index
-subprocess.run([sys.executable, '-c', PUBLISHER, 'all', 'hot', source, ''], check=True, timeout=60)
+publisher = subprocess.run([sys.executable, '-c', PUBLISHER, 'all', 'hot', source, ''],
+    check=True, timeout=60, stdout=subprocess.PIPE, text=True)
+expected = set(json.loads(publisher.stdout.splitlines()[-1])['names']) | {'Cached.main'}
 assert old.stream.fileno() >= 0
 assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
 assert rt.icurry_is_jit(M.fib.info)
 assert 'Cached.fib' not in context.failed
 llvmjit.compile(M.main.info, 'Cached.main')
 objects = llvmjit._read_cache(context.local, context.key)
-assert {records[0][0] for records, obj in objects} == {'Cached.fib', 'Cached.message', 'Cached.main'}
+names = {records[0][0] for records, obj in objects}
+assert names == expected, (names, expected)
 objects.close()
-print(json.dumps(dict(ok=True)))
+print(json.dumps(dict(names=sorted(names))))
 """.replace('PUBLISHER', repr(traced_code(publisher, 50))))
     # A third process must see the publication made while the first reader
-    # still held the old generation, including its newly added function.
+    # held the old generation, plus the first reader's newly added function.
     warm = self.child()
     self.assertTrue(warm['jitted'])
     self.assertEqual(warm['compiled'], 0)
     self.run_code("""
 M = curry.import_(source)
 context = llvmjit._jit.modules[M.fib.info.address]
-assert set(context.cached) == {'Cached.fib', 'Cached.message', 'Cached.main'}
+names = set(context.cached)
+assert names == set(EXPECTED), names
 assert '144' in str(list(curry.eval(M.main))[0])
 assert rt.icurry_is_jit(M.main.info)
 print(json.dumps(dict(ok=True)))
-""")
+""".replace('EXPECTED', repr(published['names'])))
 
   def test_touched_envelope_merges_verified_functions(self):
     self.child('eager')
