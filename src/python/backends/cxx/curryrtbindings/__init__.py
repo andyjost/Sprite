@@ -281,6 +281,8 @@ def _peek_standard_char(stream, index, nonblocking=False):
     position = None
   restore = None
   descriptor = None
+  raw = None
+  readinto = None
   if nonblocking:
     try:
       descriptor = stream.fileno()
@@ -293,7 +295,25 @@ def _peek_standard_char(stream, index, nonblocking=False):
       if restore is None: return None
     except (OSError, ValueError):
       return None
+  original_readinto = None
+  patched = False
   try:
+    if nonblocking:
+      # BufferedReader.read1 maps a raw None (would block) to b'', which a
+      # TextIOWrapper's incremental decoder treats as final EOF. Preserve the
+      # distinction at the byte boundary, leaving partial bytes in that decoder
+      # until another read supplies the rest. Already decoded text stays visible.
+      raw = getattr(getattr(stream, 'buffer', None), 'raw', None)
+      if raw is not None:
+        readinto = raw.readinto
+        original_readinto = vars(raw).get('readinto')
+        def read_available(buffer):
+          count = readinto(buffer)
+          if count is None:
+            raise BlockingIOError('no input available')
+          return count
+        raw.readinto = read_available
+        patched = True
     char = _read_standard_char(stream, index)
     # An empty nonblocking read need not mean EOF. The descriptor probe
     # below distinguishes no input from EOF without caching this result.
@@ -312,6 +332,11 @@ def _peek_standard_char(stream, index, nonblocking=False):
       return None
     raise
   finally:
+    if patched:
+      if original_readinto is None:
+        del raw.readinto
+      else:
+        raw.readinto = original_readinto
     if restore is not None:
       restore()
 

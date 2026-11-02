@@ -11,6 +11,9 @@
 #include <stdexcept>
 #include <cstdlib>
 #include <unordered_set>
+#include <mutex>
+#include <thread>
+#include <future>
 
 using namespace curryrt;
 namespace
@@ -26,6 +29,14 @@ namespace
       if(!closed) { file.close(); closed = true; }
     }
   };
+  // Never acquire the heap or call the host while holding this mutex.
+  // It serializes both registry lifetime and every native file operation.
+  // Recursive acquisition permits finalization during a node allocation.
+  auto & handle_mutex()
+  {
+    static auto mutex = new std::recursive_mutex;
+    return *mutex;
+  }
   auto & open_handles()
   {
     static auto handles = new std::unordered_set<Handle *>;
@@ -70,6 +81,7 @@ namespace
     }
     try
     {
+      std::unique_lock<std::recursive_mutex> lock(handle_mutex());
       if(op == "stdin" || op == "stdout" || op == "stderr")
       {
         auto & h = standard_handle(op == "stdin" ? 0 : op == "stdout" ? 1 : 2);
@@ -117,6 +129,7 @@ namespace
           if(h->standard < 0) return finish(C, int_(i));
           streams += char('0' + h->standard);
         }
+        lock.unlock();
         return finish(C, int_(std::stoll(standard_stream(0, "waits", streams, timeout))));
       }
       auto h = handle(root[0].target);
@@ -136,7 +149,9 @@ namespace
           value = NodeU{root[2].target}.int_->value;
         }
         if(op == "prim_hWaitForInput") value = NodeU{root[1].target}.int_->value;
-        auto result = standard_stream(h->standard, op, text, value);
+        int standard = h->standard;
+        lock.unlock();
+        auto result = standard_stream(standard, op, text, value);
         if(op == "prim_hGetChar")
         {
           if(result.empty()) throw std::runtime_error("EOF");
@@ -209,6 +224,25 @@ namespace
       return E_ERROR;
     }
   }
+  void release(Handle * h)
+  {
+    std::lock_guard<std::recursive_mutex> lock(handle_mutex());
+    if(h->standard < 0)
+    {
+      open_handles().erase(h);
+      h->close();
+      delete h;
+    }
+  }
+  void shutdown(std::function<void()> const & visit = {})
+  {
+    std::lock_guard<std::recursive_mutex> lock(handle_mutex());
+    for(auto h: open_handles())
+    {
+      if(visit) visit();
+      h->close();
+    }
+  }
   int register_handles()
   {
     Module::register_builtin_module("System.IO", {{"Handle", &handle_type}},
@@ -237,17 +271,42 @@ namespace curryrt
   bool is_handle(InfoTable const * info) { return info == &handle_info; }
   void release_handle(Node * node)
   {
-    auto h = handle(node);
-    if(h->standard < 0)
-    {
-      open_handles().erase(h);
-      h->close();
-      delete h;
-    }
+    release(handle(node));
   }
-  void shutdown_handles()
+  void shutdown_handles() { shutdown(); }
+  bool test_handle_shutdown_race()
   {
-    for(auto h: open_handles()) h->close();
+    // A native-only hook pauses the walk while release attempts the same
+    // mutex. No Python callback, GIL, or heap access participates in the walk.
+    auto h = new Handle;
+    {
+      std::lock_guard<std::recursive_mutex> lock(handle_mutex());
+      open_handles().insert(h);
+    }
+    std::promise<void> visiting, attempted, resume;
+    auto ready = visiting.get_future();
+    auto trying = attempted.get_future();
+    auto proceed = resume.get_future();
+    bool blocked = false;
+    std::thread walker([&] {
+      bool first = true;
+      shutdown([&] {
+        if(first) { first = false; visiting.set_value(); proceed.wait(); }
+      });
+    });
+    ready.wait();
+    std::thread collector([&] {
+      // try_lock proves exclusion deterministically while the hook is held.
+      blocked = !handle_mutex().try_lock();
+      if(!blocked) handle_mutex().unlock();
+      attempted.set_value();
+      release(h);
+    });
+    trying.wait();
+    resume.set_value();
+    walker.join();
+    collector.join();
+    return blocked;
   }
   void set_stream_hook(stream_hook hook) { host() = std::move(hook); }
   std::string standard_stream(int stream, std::string const & operation,

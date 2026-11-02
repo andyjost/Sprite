@@ -72,7 +72,7 @@ def record_names(filename):
   # bom::Module's header on x64: unsigned, padding, three pointers,
   # unsigned. All its names and import pointers have static initializers.
   version, fullname, filename_ptr, imports, count = at('<I4xQQQI', record)
-  if version != 2:
+  if version != 3:
     raise ValueError('unsupported Curry module record version %d' % version)
   if count:
     offset(imports - base, count * 8)

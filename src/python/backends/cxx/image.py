@@ -16,7 +16,7 @@ from . import bytecode, curryrtbindings as curryrt
 
 logger = logging.getLogger(__name__)
 MAGIC = b'SPRTIMG\0'
-VERSION = 7
+VERSION = 8
 PREFIX = struct.Struct('<8sII')
 
 
@@ -334,7 +334,7 @@ def write(interp, module, currypath=None, path=None, imports=None):
   from .materialize import function_primitive
   native = curryrt.Module.find_or_create(module.fullname)
   builtins = {f.name for f in module.functions.values()
-      if function_primitive(native, f) is not None}
+      if function_primitive(native, f, module) is not None}
   with _productlock.locked(path):
     try:
       _check(interp, module.filename, path, imports)
@@ -429,7 +429,7 @@ def ensure(interp, icyfile, currypath=None, importing=False):
   from .materialize import function_primitive
   native = curryrt.Module.find_or_create(raw.fullname)
   builtins = {f.name for f in raw.functions.values()
-      if function_primitive(native, f) is not None}
+      if function_primitive(native, f, raw) is not None}
   # Imports and native summary reads precede the file lock. Only this
   # module's passes, bytecode emission and publication need serialization.
   with _productlock.locked(path):

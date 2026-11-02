@@ -71,7 +71,8 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # Format 22: preserve the intrinsic used to lower nondeterministic rules.
 # Format 23: the unused ifVar descriptor matches its three-argument declaration.
 # Format 24: classify local references from the compiled declarations.
-FORMAT_VERSION = 24
+# Format 25: native record version 3 and library wrapper binding exceptions.
+FORMAT_VERSION = 25
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure
@@ -168,7 +169,7 @@ class CxxCompiler(compiler.CompilerBase):
         # references to our functions from the declarations we are compiling.
         declaration = self.iroot.functions.get(iobj.name, iobj)
         from .materialize import function_primitive
-        return function_primitive(self.cxxmodule, declaration) is not None
+        return function_primitive(self.cxxmodule, declaration, self.iroot) is not None
       if isinstance(iobj, icurry.IConstructor):
         return self.cxxmodule.get_builtin_symbol(iobj.name) is not None
       elif isinstance(iobj, icurry.IDataType):

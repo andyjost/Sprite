@@ -51,24 +51,14 @@ native objects are build outputs, not repository pins. The installed
 library runs without a front end; compiling new Curry text needs one.
 
 Every module compiles and ships with an image, plus a native object when
-the stage has a C++ compiler. These
-externals have no primitive in the runtime and raise `not implemented` at
-their call:
-
-- `System.IO`: `handle_eq`, `stdin`, `stdout`, `stderr`, `prim_openFile`,
-  `prim_hClose`, `prim_hFlush`, `prim_hIsEOF`, `prim_hSeek`,
-  `prim_hWaitForInput`, `prim_hWaitForInputs`, `prim_hGetChar`,
-  `prim_hPutChar`, `prim_hIsReadable`, `prim_hIsWritable`,
-  `prim_hIsTerminalDevice`.
-- `System.IO.Unsafe`: `unsafePerformIO`, `spawnConstraint`, `prim_isVar`,
-  `prim_identicalVar`, `prim_isGround`, `compareAnyTerm`, `prim_showAnyTerm`,
-  `prim_readsAnyUnqualifiedTerm`, `showAnyExpression`.
+the stage has a C++ compiler. Strong-search operations described below remain
+unsupported and raise `not implemented` at their call.
 
 The primitives of `Curry.Compiler.Distribution`, `System.CPUTime`,
 `System.Environment`, `Data.IORef` and `System.IO` are implemented.
 System.IO owns UTF-8 file handles; standard handles use Python's current
 standard streams, including redirected streams. `Debug.Trace.traceIO` works
-through these handles; pure `trace` still needs
+through these handles; pure `trace` runs through
 `System.IO.Unsafe.unsafePerformIO`. The CPM packages `directory` and `process`
 resolve their externals through the same registry (the packages are installed
 separately). Distribution reports Sprite's build version and installation

@@ -402,6 +402,7 @@ namespace curryrt { namespace python
         catch(py::error_already_set & exc) { exc.restore(); }
       }
     });
+    mod.def("_test_handle_shutdown_race", &test_handle_shutdown_race, heap_access{});
     mod.def("shutdown_handles", &shutdown_handles, heap_access{});
     mod.def("set_stream_hook", [](py::object callable) {
       auto retained = new py::object(std::move(callable));

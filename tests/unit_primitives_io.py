@@ -180,6 +180,96 @@ class TestPrimitivesIO(cytest.TestCase):
         self.assertEqual(curry.eval(IO.hGetChar(IO.stdin)).one(), 'b')
         self.assertTrue(curry.eval(IO.hWaitForInput(IO.stdin, -1)).one())
 
+  def check_split_utf8_readiness(self):
+    self.module()
+    IO = curry.import_('System.IO')
+    for prefix, suffix, expected in ((b'\xc3', b'\xa9b', '\u00e9'),
+                                     (b'\xc2', b'\xa9b', '\u00a9'),
+                                     (b'\xf0\x9f', b'\x98\x80b', '\U0001f600')):
+      reader, writer = os.pipe()
+      with os.fdopen(reader, 'r', encoding='utf-8', errors='strict') as stream, \
+           os.fdopen(writer, 'wb', buffering=0) as output, \
+           unittest.mock.patch('sys.stdin', stream):
+        output.write(prefix)
+        for repeat in range(2):
+          self.assertFalse(curry.eval(IO.hReady(IO.stdin)).one())
+        output.write(suffix)
+        self.assertTrue(curry.eval(IO.hReady(IO.stdin)).one())
+        self.assertEqual(curry.eval(IO.hGetChar(IO.stdin)).one(), expected)
+        self.assertEqual(curry.eval(IO.hGetChar(IO.stdin)).one(), 'b')
+        self.assertFalse(curry.eval(IO.hReady(IO.stdin)).one())
+        output.close()
+        self.assertTrue(curry.eval(IO.hIsEOF(IO.stdin)).one())
+
+  @cytest.with_flags(interpret='off')
+  def test_split_utf8_readiness_compiled(self):
+    self.check_split_utf8_readiness()
+
+  @cytest.with_flags(interpret='all')
+  def test_split_utf8_readiness_interpreted(self):
+    self.check_split_utf8_readiness()
+
+  def test_native_shutdown_release_race(self):
+    from curry.backends.cxx.curryrtbindings import _curryrtbindings
+    self.assertTrue(_curryrtbindings._test_handle_shutdown_race())
+    IO = curry.import_('System.IO')
+    with tempfile.TemporaryDirectory() as tmp:
+      path = str(Path(tmp) / 'shutdown')
+      h = curry.eval(IO.openFile(path, IO.WriteMode)).one()
+      curry.eval(IO.hPutChar(h, curry.Char('x'))).one()
+      curryrt.shutdown_handles()
+      self.assertEqual(Path(path).read_bytes(), b'x')
+      for operation in (IO.hFlush, IO.hIsWritable):
+        with self.assertRaisesRegex(curry.CurryIOError, 'closed'):
+          curry.eval(operation(h)).one()
+      curry.eval(IO.hClose(h)).one()
+
+  @cytest.with_flags(interpret='off')
+  def test_explicit_load_rejects_old_primitive_object(self):
+    cxx = config.cxx_tool()
+    if cxx is None:
+      self.skipTest('no C++ compiler is installed')
+    with tempfile.TemporaryDirectory() as tmp:
+      source = Path(tmp) / 'OldDirectory.cpp'
+      target = str(Path(tmp) / ('OldDirectory' + config.module_object_suffix()))
+      source.write_text(
+          '#include "curryrt/bom.hpp"\nusing namespace curryrt;\n'
+          '#if defined(_WIN32)\n#define EXPORT __declspec(dllexport)\n'
+          '#else\n#define EXPORT\n#endif\n'
+          'extern "C" {\nextern EXPORT bom::Module const _bom_;\n'
+          'EXPORT bom::Module const _bom_ = {2, "System.Directory", nullptr, '
+          'nullptr, 0, nullptr, nullptr, 0, nullptr, 0, nullptr, 0};\n}\n')
+      include = str(Path(config.installed_path('include')).resolve())
+      command = [cxx, '-shared', '-fPIC', '-std=c++17', '-I' + include,
+                 str(source), '-o', target]
+      from curry.backends.cxx.toolchain import soname
+      if sys.platform == 'darwin':
+        command.append('-Wl,-install_name,' + soname('System.Directory', 20))
+      elif os.name != 'nt':
+        command.append('-Wl,-soname,' + soname('System.Directory', 20))
+      if os.name == 'nt':
+        command = [cxx, '/LD', '/std:c++17', '/EHsc', '/I' + include,
+                   str(source), '/Fo' + str(Path(tmp) / 'OldDirectory.obj'),
+                   '/link', '/OUT:' + target]
+      subprocess.run(command, check=True, capture_output=True, text=True)
+      # Format 20 used record version 2. Rejection precedes any slot binding.
+      # A fresh process has no previously mapped module with this name.
+      script = """
+import curry, sys
+try:
+  curry.load(sys.argv[1])
+except curry.LoadError as error:
+  assert 'version 2' in str(error), str(error)
+else:
+  raise AssertionError('explicit loading accepted an old-format object')
+"""
+      child = subprocess.run([sys.executable, '-c', script, target],
+          capture_output=True, text=True, env=dict(os.environ,
+              SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:off,jit:off'))
+      self.assertEqual(child.returncode, 0, child.stderr)
+      with self.assertRaisesRegex(curry.LoadError, 'layout version 2'):
+        curryrt.SharedCurryModule(target)
+
   @unittest.skipUnless(sys.platform == 'win32', 'Windows pipe probe')
   def test_windows_pipe_probe_error(self):
     import ctypes
@@ -287,6 +377,40 @@ assert curry.eval(M.getCurrentDirectory).one() == 'sentinel'
           'getCurrentDirectory :: IO String\n'
           'getCurrentDirectory = return "sentinel"\n')
       # A second import in a fresh process also exercises the persisted image.
+      cases = [('off', 'off', 'auto'), ('all', 'off', 'auto'), ('all', 'eager', 'auto')]
+      if config.cxx_tool():
+        cases.append(('all', 'eager', 'cxx'))
+      for mode, jit, backend in cases:
+        for repeat in range(2):
+          child = subprocess.run([sys.executable, '-c', script, tmp],
+              capture_output=True, text=True, env=dict(os.environ,
+                  SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:%s,jit:%s,jit_backend:%s'
+                      % (mode, jit, backend)))
+          self.assertEqual(child.returncode, 0, child.stderr)
+
+  def test_shadowing_unsafe_wrappers(self):
+    script = """
+import curry
+import sys
+# Bypass only the outer reserved-name guard to test primitive selection.
+from curry.toolchain import _findcurry
+_findcurry.reject_library_shadow = lambda *args: None
+curry.path.insert(0, sys.argv[1])
+M = curry.import_('System.IO.Unsafe')
+assert curry.eval(M.isVar(0)).one() is True
+assert curry.eval(M.identicalVar(0, 1)).one() is True
+assert curry.eval(M.isGround(0)).one() is False
+assert curry.eval(M.showAnyTerm(0)).one() == 'sentinel'
+"""
+    with tempfile.TemporaryDirectory() as tmp:
+      source = Path(tmp) / 'System' / 'IO'
+      source.mkdir(parents=True)
+      (source / 'Unsafe.curry').write_text(
+          'module System.IO.Unsafe where\n'
+          'isVar :: Data a => a -> Bool\nisVar _ = True\n'
+          'identicalVar :: Data a => a -> a -> Bool\nidenticalVar _ _ = True\n'
+          'isGround :: Data a => a -> Bool\nisGround _ = False\n'
+          'showAnyTerm :: _ -> String\nshowAnyTerm _ = "sentinel"\n')
       cases = [('off', 'off', 'auto'), ('all', 'off', 'auto'), ('all', 'eager', 'auto')]
       if config.cxx_tool():
         cases.append(('all', 'eager', 'cxx'))

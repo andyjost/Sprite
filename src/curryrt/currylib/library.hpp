@@ -10,6 +10,7 @@ namespace curryrt
   // Host control flow must bypass native IO error handlers.
   struct stream_control { std::exception_ptr cause; };
   void shutdown_handles();
+  bool test_handle_shutdown_race();
   void release_handle(Node * node);
   void gc_register_handle(Node * node);
   // The Python host supplies current standard streams; files stay in C++.
