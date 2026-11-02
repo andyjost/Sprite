@@ -407,29 +407,35 @@ def start_windows(process):
   state = {'job': None, 'leader': process}
   _WINDOWS[process.pid] = state
   try:
-    state['job'] = WindowsJob(process)
-  except OSError:
-    print('Windows: pid=%d has no job; its descendants are not tracked.'
-          % process.pid, flush=True)
-  finally:
     try:
-      # Popen closes the primary thread handle, so resume the whole process.
-      if psutil is not None:
-        psutil.Process(process.pid).resume()
-      else:
-        import ctypes as c
-        from ctypes import wintypes as w
-        resume = c.WinDLL('ntdll').NtResumeProcess
-        resume.argtypes, resume.restype = [w.HANDLE], c.c_int32
-        status = resume(int(process._handle))
-        if status < 0:
-          raise OSError('NtResumeProcess failed: %d' % status)
+      state['job'] = WindowsJob(process)
     except OSError:
-      # A failed resume must not leave a suspended leader behind.
-      process.kill()
-      process.wait()
+      try:
+        print('Windows: pid=%d has no job; its descendants are not tracked.'
+              % process.pid, flush=True)
+      except OSError:
+        pass
+    # Popen closes the primary thread handle, so resume the whole process.
+    if psutil is not None:
+      psutil.Process(process.pid).resume()
+    else:
+      import ctypes as c
+      from ctypes import wintypes as w
+      resume = c.WinDLL('ntdll').NtResumeProcess
+      resume.argtypes, resume.restype = [w.HANDLE], c.c_int32
+      status = resume(int(process._handle))
+      if status < 0:
+        raise OSError('NtResumeProcess failed: %d' % status)
+  except BaseException as error:
+    # Every unsuccessful start releases the leader and its job.
+    try:
+      try:
+        process.kill()
+      finally:
+        process.wait()
+    finally:
       close_windows(process.pid)
-      raise
+    raise OSError('Windows process start failed') from error
 
 
 def close_windows(sid):

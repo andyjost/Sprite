@@ -307,19 +307,49 @@ class TestWindowsRunner(unittest.TestCase):
             kernel.CloseHandle.assert_called_once_with(handle)
 
   def test_failed_resume_reaps_suspended_leader(self):
+    if procs.psutil is not None:
+      AccessDenied = procs.psutil.AccessDenied
+    else:
+      class AccessDenied(Exception):
+        pass
+    for refused in (False, True):
+      with self.subTest(refused=refused):
+        child = mock.Mock(pid=1)
+        fake = mock.Mock()
+        error = AccessDenied()
+        fake.Process.return_value.resume.side_effect = error
+        job = mock.Mock()
+        with mock.patch.object(procs, 'WindowsJob',
+                               side_effect=OSError('refused') if refused else None,
+                               return_value=job), \
+             mock.patch.object(procs, 'psutil', fake), \
+             mock.patch.object(sys, 'stdout', io.StringIO()), \
+             mock.patch.dict(procs._WINDOWS, {}, clear=True):
+          with self.assertRaises(OSError) as raised:
+            procs.start_windows(child)
+          self.assertIs(raised.exception.__cause__, error)
+          child.kill.assert_called_once_with()
+          child.wait.assert_called_once_with()
+          fake.Process.return_value.kill.assert_not_called()
+          if not refused:
+            job.close.assert_called_once_with()
+          self.assertNotIn(1, procs._WINDOWS)
+
+  def test_failed_warning_write_still_resumes_leader(self):
     child = mock.Mock(pid=1)
     fake = mock.Mock()
-    fake.Process.return_value.resume.side_effect = OSError('resume failed')
-    job = mock.Mock()
-    with mock.patch.object(procs, 'WindowsJob', return_value=job), \
+    output = mock.Mock()
+    output.write.side_effect = BrokenPipeError('closed')
+    with mock.patch.object(procs, 'WindowsJob', side_effect=OSError('refused')), \
          mock.patch.object(procs, 'psutil', fake), \
+         mock.patch.object(sys, 'stdout', output), \
          mock.patch.dict(procs._WINDOWS, {}, clear=True):
-      with self.assertRaises(OSError):
-        procs.start_windows(child)
-      child.kill.assert_called_once_with()
-      child.wait.assert_called_once_with()
-      job.close.assert_called_once_with()
-      self.assertNotIn(1, procs._WINDOWS)
+      procs.start_windows(child)
+      output.write.assert_called()
+      fake.Process.return_value.resume.assert_called_once_with()
+      self.assertIs(procs._WINDOWS[1]['leader'], child)
+      child.kill.assert_not_called()
+      procs.close_windows(1)
 
   def test_windows_timeout_runs_body_without_alarm(self):
     with mock.patch.object(sys, 'platform', 'win32'), \
