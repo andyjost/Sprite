@@ -163,12 +163,8 @@ def import_closure(curryfile, currypath=()):
   implicit.  A module without a source in either place is left out.
   '''
   curryfile = os.path.abspath(curryfile)
-  searchpaths = [os.path.dirname(curryfile)]
-  searchpaths += [os.path.abspath(p) for p in currypath if p]
-  # The library of the installation is always on the path of a compile
-  # (config.currypath appends it), so the key sees the Prelude and the other
-  # library modules whatever path the caller gives.
-  searchpaths.append(os.path.abspath(config.system_curry_path()))
+  from . import _frontend
+  searchpaths = _frontend.searchdirs(curryfile, currypath)
   closure = {}
   pending = ['Prelude'] + list(_imports(curryfile))
   seen = set()

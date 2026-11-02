@@ -218,7 +218,7 @@ def _table():
   one run of ps (see _table_darwin).
   '''
   if sys.platform == 'win32':
-    return _table_windows()
+    return {}
   if DARWIN:
     return _table_darwin()
   table = {}
@@ -247,8 +247,8 @@ def scan_sessions(sids, roots=None):
   scan, so a process whose parent ended stays with its session.  A zombie
   counts with a resident set of zero.
   '''
-  if sys.platform == 'win32' and psutil is None:
-    return {sid: (None, [], {}) for sid in sids}
+  if sys.platform == 'win32':
+    return {sid: _scan_windows(sid) for sid in sids}
   table = _table()
   children = {}
   for pid, entry in table.items():
@@ -286,26 +286,18 @@ def session_rss(sid):
   '''The resident set of one session, in bytes.'''
   return scan_sessions([sid])[sid][0]
 
-def kill_session(sid, sig=getattr(signal, 'SIGKILL', None), rounds=20, pause=0.05, roots=(), leader=None):
+def kill_session(sid, sig=getattr(signal, 'SIGKILL', None), rounds=20, pause=0.05, roots=(), leader=None, reason="cleanup"):
   '''
   Sends ``sig`` to every process of the session ``sid`` and to the process
   group of its leader, in rounds, until a scan finds no process of the
   session or ``rounds`` is reached.  A process that forks between the scan
   and the kill is caught by the next round.  ``roots`` are the pids of the
   session seen before (see scan_sessions); every pid a round finds joins
-  them.  On Windows, ``leader`` is the Popen object; an exited leader is
-  excluded from taskkill to avoid a recycled PID. Returns the pids that
-  were signalled.
+  them.  On Windows, a kernel job owns the processes; without a job, only
+  the retained leader handle is killed. Returns the pids that were signalled.
   '''
   if sys.platform == 'win32':
-    pids = set(roots) - {sid}
-    if leader is None or leader.poll() is None:
-      pids.add(sid)
-    for pid in sorted(pids - {sid}) + ([sid] if sid in pids else []):
-      subprocess.run(['taskkill', '/PID', str(pid), '/T', '/F'],
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                     check=False)
-    return sorted(pids)
+    return _kill_windows(sid, reason, leader)
   signalled = set()
   roots = set(roots)
   for _ in range(rounds):
@@ -346,18 +338,150 @@ def is_alive(pid):
   return _state(pid) not in (None, b'Z')
 
 
-def _table_windows():
-  """Optional RSS and names; Windows has parent links, not POSIX sessions."""
-  if psutil is None:
-    return {}
-  table = {}
-  for proc in psutil.process_iter(['pid', 'ppid', 'name', 'memory_info']):
+# Keep job and leader handles until the scheduler finishes the file.
+_WINDOWS = {}
+
+class WindowsJob:
+  """Kernel job ownership; loaded lazily so POSIX can import this module."""
+  def __init__(self, process):
+    import ctypes as c
+    from ctypes import wintypes as w
+    self.c = c
+    self.kernel = c.WinDLL('kernel32', use_last_error=True)
+    signatures = {
+        'CreateJobObjectW': ([w.LPVOID, w.LPCWSTR], w.HANDLE),
+        'SetInformationJobObject': ([w.HANDLE, c.c_int, w.LPVOID, c.c_uint32], c.c_int32),
+        'AssignProcessToJobObject': ([w.HANDLE, w.HANDLE], c.c_int32),
+        'QueryInformationJobObject': ([w.HANDLE, c.c_int, w.LPVOID, c.c_uint32, w.LPVOID], c.c_int32),
+        'TerminateJobObject': ([w.HANDLE, c.c_uint32], c.c_int32),
+        'CloseHandle': ([w.HANDLE], c.c_int32)}
+    for name, (args, result) in signatures.items():
+      fn = getattr(self.kernel, name)
+      fn.argtypes, fn.restype = args, result
+    class Limits(c.Structure):
+      _fields_ = [('process_time', c.c_int64), ('job_time', c.c_int64),
+                  ('flags', c.c_uint32), ('minimum', c.c_size_t),
+                  ('maximum', c.c_size_t), ('active', c.c_uint32),
+                  ('affinity', c.c_size_t), ('priority', c.c_uint32),
+                  ('scheduling', c.c_uint32)]
+    class IOCounts(c.Structure):
+      _fields_ = [(name, c.c_uint64) for name in (
+          'reads', 'writes', 'other', 'read_bytes', 'write_bytes', 'other_bytes')]
+    class ExtendedLimits(c.Structure):
+      _fields_ = [('basic', Limits), ('io', IOCounts),
+                  ('process_memory', c.c_size_t), ('job_memory', c.c_size_t),
+                  ('peak_process', c.c_size_t), ('peak_job', c.c_size_t)]
+    self.handle = self.kernel.CreateJobObjectW(None, None)
+    if not self.handle:
+      raise c.WinError(c.get_last_error())
+    limits = ExtendedLimits()
+    limits.basic.flags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    if not self.kernel.SetInformationJobObject(self.handle, 9, c.byref(limits), c.sizeof(limits)) or not self.kernel.AssignProcessToJobObject(self.handle, int(process._handle)):
+      error = c.get_last_error()
+      self.close()
+      raise c.WinError(error)
+
+  def members(self):
+    c = self.c
+    size = 256
+    while True:
+      buffer = c.create_string_buffer(size)
+      if self.kernel.QueryInformationJobObject(self.handle, 3, buffer, size, None):
+        count = c.c_uint32.from_buffer(buffer, 4).value
+        return list((c.c_size_t * count).from_buffer(buffer, 8))
+      if c.get_last_error() != 234:  # ERROR_MORE_DATA
+        raise c.WinError(c.get_last_error())
+      size *= 2
+
+  def terminate(self):
+    if not self.kernel.TerminateJobObject(self.handle, 1):
+      raise self.c.WinError(self.c.get_last_error())
+
+  def close(self):
+    if self.handle:
+      self.kernel.CloseHandle(self.handle)
+      self.handle = None
+
+
+def start_windows(process):
+  state = {'job': None, 'leader': process}
+  _WINDOWS[process.pid] = state
+  try:
     try:
-      info = proc.info
-      memory = info['memory_info']
-      if memory is not None:
-        table[info['pid']] = (info['ppid'], None, memory.rss, b'R',
-                              (info['name'] or '').removesuffix('.exe'))
-    except (psutil.NoSuchProcess, psutil.AccessDenied):
-      pass
-  return table
+      state['job'] = WindowsJob(process)
+    except OSError:
+      try:
+        print('Windows: pid=%d has no job; its descendants are not tracked.'
+              % process.pid, flush=True)
+      except OSError:
+        pass
+    # Popen closes the primary thread handle, so resume the whole process.
+    if psutil is not None:
+      psutil.Process(process.pid).resume()
+    else:
+      import ctypes as c
+      from ctypes import wintypes as w
+      resume = c.WinDLL('ntdll').NtResumeProcess
+      resume.argtypes, resume.restype = [w.HANDLE], c.c_int32
+      status = resume(int(process._handle))
+      if status < 0:
+        raise OSError('NtResumeProcess failed: %d' % status)
+  except BaseException as error:
+    # Close containment before waiting, even if another cleanup step fails.
+    failures = []
+    def cleanup(action, operation):
+      try:
+        operation()
+      except BaseException as cleanup_error:
+        failures.append('%s: %r' % (action, cleanup_error))
+    if state['job'] is not None:
+      cleanup('terminate job', state['job'].terminate)
+    cleanup('close job', lambda: close_windows(process.pid))
+    cleanup('kill leader', process.kill)
+    cleanup('wait for leader', lambda: process.wait(timeout=10))
+    detail = '; cleanup errors: ' + '; '.join(failures) if failures else ''
+    raise OSError('Windows process start failed' + detail) from error
+
+
+def close_windows(sid):
+  state = _WINDOWS.pop(sid, None)
+  if state and state['job']:
+    state['job'].close()
+
+
+def _scan_windows(sid):
+  state = _WINDOWS.get(sid)
+  if not state:
+    return None, [], {}
+  job = state['job']
+  leader = state['leader'] if job is None else None
+  pids = job.members() if job else ([sid] if leader.poll() is None else [])
+  table = {pid: (None, 'unknown') for pid in pids}
+  if psutil is not None:
+    for pid in pids:
+      try:
+        proc = psutil.Process(pid)
+        table[pid] = (proc.memory_info().rss, proc.name().removesuffix('.exe'))
+      except (psutil.NoSuchProcess, psutil.AccessDenied):
+        pass
+  rss = None if any(rss is None for rss, _ in table.values()) else sum(
+      rss for rss, _ in table.values())
+  return rss, sorted(table), {pid: name for pid, (_, name) in table.items()}
+
+
+def _kill_windows(sid, reason, leader=None):
+  state = _WINDOWS.get(sid)
+  if not state:
+    return []
+  if state['job'] is None:
+    leader = state['leader']
+    if leader.poll() is None:
+      print('kill pid=%d name=leader reason=%s' % (sid, reason), flush=True)
+      leader.kill()
+      return [sid]
+    return []
+  _, pids, names = _scan_windows(sid)
+  for pid in pids:
+    print('kill pid=%d name=%s reason=%s' % (pid, names[pid], reason), flush=True)
+  state['job'].terminate()
+  return pids

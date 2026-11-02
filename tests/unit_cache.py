@@ -3,7 +3,7 @@ from cytest.logging import capture_log
 from import_blocker import with_import_blocked
 import curry
 from curry import cache, config, toolchain
-from curry.toolchain import _curry2icurry, _filenames, _frontend, _interfaces, _system
+from curry.toolchain import _curry2icurry, _filenames, _frontend, _interfaces, _productcache, _system
 from curry.utility.binding import binding
 from unittest import mock
 import contextlib, importlib, json, os, re, shutil, sqlite3, tempfile
@@ -370,6 +370,27 @@ class TestKey(cytest.TestCase):
     write(module, 'f :: Int -> [Int]\nf x = [x, x]\n')
     key2 = self.key('two/sprite__expression_1.curry', text, currypath=[dyn])
     self.assertNotEqual(key1, key2)
+
+  def test_hierarchical_dependency_keys(self):
+    source = write(os.path.join(self.tmpdir, 'src', 'Parent', 'Leaf.curry'),
+        'module Parent.Leaf where\nimport Leaf\nvalue = Leaf.value\n')
+    dependency = write(os.path.join(self.tmpdir, 'deps', 'Leaf.curry'),
+        'module Leaf where\nvalue = True\n')
+    # The hierarchy root precedes the supplied path, including transitively.
+    write(os.path.join(self.tmpdir, 'src', 'Helper.curry'),
+        'module Helper where\nvalue = True\n')
+    write(dependency, 'module Leaf where\nimport Helper\nvalue = Helper.value\n')
+    path = [os.path.join(self.tmpdir, 'deps')]
+    for closure in (cache.import_closure, _productcache.import_closure):
+      imports = closure(source, path)
+      self.assertEqual(imports['Leaf'].path, dependency)
+      self.assertEqual(imports['Helper'].path,
+          os.path.join(self.tmpdir, 'src', 'Helper.curry'))
+    key = cache.icurry_cache_key(source, path)
+    chain = _productcache.chain_digest(source, path)
+    write(dependency, 'module Leaf where\nvalue = False\n')
+    self.assertNotEqual(cache.icurry_cache_key(source, path), key)
+    self.assertNotEqual(_productcache.chain_digest(source, path), chain)
 
   def test_import_scan(self):
     info = cache.SourceInfo('M.curry', (
@@ -792,6 +813,30 @@ class TestSlot(cytest.TestCase):
 
 class TestCompile(cytest.TestCase):
   '''The cache under curry.compile and the toolchain, with the front end.'''
+
+  def test_hierarchical_import_after_dependency_edit(self):
+    from curry.interpreter import Interpreter
+    with tempfile.TemporaryDirectory() as root:
+      source = write(os.path.join(root, 'src', 'Parent', 'Leaf.curry'),
+          'module Parent.Leaf where\nimport Leaf\nvalue = Leaf.value\n')
+      dependency = write(os.path.join(root, 'deps', 'Leaf.curry'),
+          'module Leaf where\nvalue :: Bool\nvalue = True\n')
+      path = [os.path.join(root, 'src'), os.path.join(root, 'deps')]
+      self.assertTrue(cache.icurry_cache_enabled())
+      self.assertTrue(_curry2icurry.Curry2ICurryConverter().use_cache)
+      def evaluate():
+        interp = Interpreter(flags={'interpret': 'all', 'jit': 'off'})
+        interp.path[:0] = path
+        module = interp.import_('Parent.Leaf')
+        return list(interp.eval(module.value))
+      self.assertEqual(evaluate(), [True])
+      key = cache.icurry_cache_key(source, path)
+      # Keep the old interfaces in place when computing the next key. The
+      # dependency's new source must suffice to invalidate the cached entry.
+      write(dependency, 'module Leaf where\nvalue :: Int\nvalue = 42\n')
+      self.assertNotEqual(cache.icurry_cache_key(source, path), key)
+      self.assertEqual(evaluate(), [42])
+
 
   def test_anonymous_module(self):
     '''

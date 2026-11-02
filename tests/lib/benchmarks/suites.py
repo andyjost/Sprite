@@ -52,7 +52,7 @@ applications
     opponent that is not installed is skipped with a message.
 '''
 
-import csv, fnmatch, glob, hashlib, json, os, platform, shutil, subprocess, tempfile
+import csv, fnmatch, glob, hashlib, json, os, platform, shutil, subprocess, sys, tempfile
 from . import APPDIR, BACKENDS, CURRYDIR, DISSERTATION, HERE, NIGHTLY
 from . import OPPONENTS, SPLITDIR, SUITES
 from . import counterparts, measure, records
@@ -311,7 +311,7 @@ class Settings:
 
   @property
   def python(self):
-    return os.path.join(self.sprite_home, 'bin', 'python')
+    return sys.executable if sys.platform == 'win32' else os.path.join(self.sprite_home, 'bin', 'python')
 
   def environment(self, backend, **extra):
     '''

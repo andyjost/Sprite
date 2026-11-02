@@ -171,13 +171,20 @@ class TestChars(cytest.TestCase):
     '''
     proc = cytest.run_in_subprocess(CHILD % 'putThree', timeout=120, text=False)
     self.assertEqual(proc.returncode, 0, proc.stderr)
-    self.assertEqual(proc.stdout, ('\u00e4' + EMOJI + '\n').encode('utf-8') + b'[()]' + os.linesep.encode())
+    self.assertEqual(proc.stdout, ('\u00e4' + EMOJI + os.linesep).encode('utf-8') + b'[()]' + os.linesep.encode())
     proc = cytest.run_in_subprocess(
         CHILD % 'getOrd', timeout=120, text=False
       , input=EMOJI.encode('utf-8') + b'rest'
       )
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(proc.stdout, b'[128512]' + os.linesep.encode())
+
+  @unittest.skipUnless(os.name == 'nt', 'Windows text standard input')
+  def test_getChar_crlf(self):
+    proc = cytest.run_in_subprocess(
+        CHILD % 'getTwoOrds', timeout=120, text=False, input=b'\r\nx')
+    self.assertEqual(proc.returncode, 0, proc.stderr)
+    self.assertEqual(proc.stdout, b'[[10, 120]]' + os.linesep.encode())
 
   def test_child_streams_hold_utf8(self):
     '''

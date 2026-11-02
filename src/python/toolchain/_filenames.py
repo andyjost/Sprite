@@ -95,19 +95,72 @@ def replacesuffix(filename, suffix):
   return icyname[:-4] + suffix
 
 
-def logging_module_name(filename):
-  """The declared module name, or the product's basename when source is absent."""
+def _header_tokens(text):
+  """Read identifiers outside comments and literals, including nested pragmas."""
   import re
+  identifier = re.compile(r"[A-Za-z_][A-Za-z_0-9']*(?:\.[A-Za-z_][A-Za-z_0-9']*)*")
+  character = re.compile(
+      r"'(?:[^'\\\r\n]|\\(?:[0-9]+|x[0-9A-Fa-f]+|o[0-7]+|[A-Za-z]+|[^\r\n]))'"
+    )
+  symbol = re.compile(r'[!#$%&*+./<=>?@\\^|:~-]+')
+  pos = 0
+  while pos < len(text):
+    if text.startswith('{-', pos):
+      depth = 1
+      pos += 2
+      while pos < len(text) and depth:
+        if text.startswith('{-', pos):
+          depth += 1
+          pos += 2
+        elif text.startswith('-}', pos):
+          depth -= 1
+          pos += 2
+        else:
+          pos += 1
+    elif text[pos] == "'" and (match := character.match(text, pos)):
+      pos = match.end()
+    elif text[pos] == '"':
+      pos += 1
+      while pos < len(text):
+        char = text[pos]
+        pos += 1
+        if char == '\\':
+          pos += 1
+        elif char == '"':
+          break
+    elif match := symbol.match(text, pos):
+      operator = match.group()
+      if operator.startswith('--') and not operator.strip('-'):
+        end = text.find('\n', pos)
+        pos = len(text) if end < 0 else end + 1
+      else:
+        pos = match.end()
+    else:
+      match = identifier.match(text, pos)
+      if match:
+        yield match.group()
+        pos += len(match.group())
+      else:
+        pos += 1
+
+
+def module_name(filename):
+  """The comment-aware declared name, falling back to the source basename."""
   try:
     source = curryfilename(filename)
   except ValueError:
     return os.path.splitext(os.path.basename(filename.removesuffix('.z')))[0]
   try:
     with open(source, encoding='utf-8') as stream:
-      text = stream.read()
-    match = re.search(r'^\s*module\s+([\w.]+)\b', text, re.MULTILINE)
-    if match:
-      return match.group(1)
+      tokens = iter(_header_tokens(stream.read()))
+      for token in tokens:
+        if token == 'module':
+          return next(tokens, os.path.basename(source)[:-len('.curry')])
   except (OSError, UnicodeError):
     pass
   return os.path.basename(source)[:-len('.curry')]
+
+
+def logging_module_name(filename):
+  """The declared module name, or the product's basename when source is absent."""
+  return module_name(filename)
