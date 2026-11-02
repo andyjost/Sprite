@@ -63,6 +63,8 @@ namespace curryrt
     // as the module that kept them did.  The object must be linked to the
     // module after the binding (adopt, or link), so that it stays mapped
     // while the tables hold its steps.
+    // Called only after the loader has validated an external declaration.
+    InfoTable const * bind_builtin_symbol(std::string const &, index_type arity);
     InfoTable const * bind_infotable(InfoTable const * object);
     DataType const * bind_type(DataType const * object);
     // The compiled object linked to this module, or null.

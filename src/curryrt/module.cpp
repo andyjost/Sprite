@@ -12,6 +12,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <unordered_map>
+#include <unordered_set>
 
 using namespace curryrt;
 
@@ -22,6 +23,12 @@ namespace
     TypeTable   types;
     SymbolTable symbols;
   };
+
+  auto & primitive_names()
+  {
+    static auto value = new std::unordered_set<std::string>;
+    return *value;
+  }
 
   auto & modules()
   {
@@ -113,6 +120,7 @@ namespace curryrt
     if(Module::find(module))
       throw std::invalid_argument("new primitive; register before the import: " + qualified_name);
     symbols[name] = info;
+    primitive_names().insert(qualified_name);
 
   }
 
@@ -274,7 +282,11 @@ namespace curryrt
     if(bi != builtin_modules().end())
     {
       this->impl->types = bi->second.types;
-      this->impl->symbols = bi->second.symbols;
+      // Registered functions need a matching external declaration before
+      // they enter the loaded module. Intrinsics and constructors stay seeded.
+      for(auto const & symbol: bi->second.symbols)
+        if(!primitive_names().count(this->name + "." + symbol.first))
+          this->impl->symbols.insert(symbol);
     }
   }
 
@@ -565,6 +577,16 @@ namespace curryrt
   DataType const * Module::get_builtin_type(std::string const & name) const
   {
     return Module::builtin_type(this->name, name);
+  }
+
+  InfoTable const * Module::bind_builtin_symbol(std::string const & name,
+                                                index_type arity)
+  {
+    auto info = this->get_builtin_symbol(name);
+    if(info && info->arity != arity)
+      throw std::invalid_argument("primitive arity does not match external");
+    if(info) this->impl->symbols[name] = info;
+    return info;
   }
 
   InfoTable const * Module::get_builtin_symbol(std::string const & name) const

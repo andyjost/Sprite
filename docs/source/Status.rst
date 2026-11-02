@@ -25,10 +25,13 @@ Sprite provides weak encapsulation (:ref:`CurryPrimer/Semantics:Set functions`).
 
 Every module of the Curry library compiles, ships compiled and imports.
 Externals without a primitive in the runtime raise ``not implemented`` at
-their call: ``System.IO``, plus the strong-search
-operations described above. ``Curry.Compiler.Distribution``, ``System.CPUTime``,
-``System.Environment``, ``Data.IORef`` and ``System.IO.Unsafe`` have their primitives.
-The strong-search operations await an owner decision.
+their call: the strong-search
+operations described above, which await an owner decision.
+``Curry.Compiler.Distribution``, ``System.CPUTime``, ``System.Environment``,
+``Data.IORef``, ``System.IO`` and ``System.IO.Unsafe`` have their primitives.
+``Debug.Trace.traceIO`` uses the current Python standard error stream, and
+pure ``trace`` runs through ``System.IO.Unsafe.unsafePerformIO``. The CPM
+packages ``directory`` and ``process`` have registered primitives too.
 ``spawnConstraint`` uses the suspension rule of ``&``: it demands the
 constraint first, runs the value expression when the constraint suspends,
 and releases a value only after the constraint is True.

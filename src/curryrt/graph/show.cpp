@@ -505,6 +505,11 @@ namespace
           continue;
         }
         auto * info = cur->info;
+        if(is_handle(info))
+        {
+          this->os() << "<Handle>";
+          continue;
+        }
         if(is_io_ref(info))
         {
           this->os() << "<IORef>";

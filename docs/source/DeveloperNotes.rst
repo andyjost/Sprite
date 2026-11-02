@@ -440,7 +440,7 @@ invariant checker still visit all retained free variables.
 The module image
 ================
 
-Format 11 (2026-11-01)
+Format 12 (2026-11-01)
 ----------------------
 
 A module image, ``M.img``, lives beside ``M.icy``. The translator writes it
@@ -498,7 +498,7 @@ images. Modules compiled from text use the same writer and native reader.
 
 Type flags include ``F_DICTIONARY`` for names beginning with ``_Dict#``.
 The runtime tests this bit when head-normalizing a class selector. Generated
-C++ tables carry the same bit (generated-code format 21); data type flags
+C++ tables carry the same bit (generated-code format 27); data type flags
 use 16 bits, as info table flags do.
 Binding compiled code to a type kept across a reset preserves all these bits.
 
@@ -900,3 +900,61 @@ arguments. Only the ``--`` that ends tool options is discarded; a later
 the loaded module name. Before the first prompt it loads either the
 command-line module or ``Prelude``, so the initial name without a
 command-line module is ``Prelude``.
+
+
+Handles and package primitives
+------------------------------
+
+``System.IO.Handle`` is an opaque runtime constructor with an unboxed pointer
+payload. Graph copies share its node. The collector owns the file stream and
+closes it when its last reachable handle dies; explicit close releases the
+stream immediately, preserving identity. A shutdown registry shared by both
+collectors closes all remaining files at normal process exit and before
+``exitWith`` raises; closing and finalization use the same idempotent close.
+A private mutex serializes registry lifetime and native file state, including
+all file operations and shutdown. Its holders never acquire the heap or call
+Python. Standard-stream callbacks run after releasing it, preserving the
+heap/GIL lock order. Repeated close succeeds, as in PAKCS;
+other operations on closed files raise a Curry IO error. Native files use
+binary streams and UTF-8 code points; seek offsets count bytes. The pinned
+``IOMode`` provides read, write and append, with no read-write mode.
+
+Standard handles have stable identity and resolve Python's current ``sys.stdin``,
+``sys.stdout`` or ``sys.stderr`` at every operation. The binding acquires the
+GIL for host operations. Prelude ``getChar`` and ``putChar`` use that same hook,
+so Python prints and Curry output share buffering, encoding and order even
+when a stream is replaced by ``StringIO``. Flushing and closing affect the
+current Python object. Input EOF probes retain one character and its text
+position cookie; relative seeks restore that logical position first.
+Readiness probes the same Python reader without blocking before checking the
+descriptor, so decoded text in Python's buffer remains visible. At the raw
+byte boundary a would-block result raises ``BlockingIOError`` instead of
+becoming an empty byte string: the text wrapper's incremental decoder retains
+partial sequences and finalizes only at actual EOF. Replacing the
+stream discards its lookahead. Windows regular files are always ready; failed
+pipe probes other than a closed pipe report an error. Python ``SystemExit``
+and ``KeyboardInterrupt`` pass through the binding boundary. Terminal checks and readiness have no
+portable C++ interface and use the Python host, including Windows console and
+pipe readiness. Regular file handles are immediately ready, including at EOF.
+
+CPM modules resolve by qualified name just like library modules. A registered
+primitive replaces only an external declaration with matching arity; ordinary
+Curry definitions keep their bodies on every execution route. The named
+``LIBRARY_PRIMITIVE_WRAPPERS`` exceptions cover only ``System.IO.Unsafe.isVar``,
+``identicalVar``, ``isGround`` and ``showAnyTerm`` from the installed library's
+own source, with their source definitions and arities checked. These bind
+directly so strict application cannot normalize shared terms before the
+configuration-sensitive observation. A shadowing user module keeps its bodies.
+Native record version 3 rejects older objects even on explicit load; generated
+code uses format 28 and images use version 12. ICurry uses
+``Prelude.(?)`` as a compiler intrinsic to lower nondeterministic rules. All twelve
+``System.Directory`` externals use ``std::filesystem``; modification times are
+``Data.Time.CTime`` values in POSIX seconds. Directory listings include ``.``
+and ``..`` and preserve filesystem iteration order. ``System.Process`` uses
+``std::system`` (decoded shell exit status) and ``std::this_thread::sleep_for``.
+PID uses Python's ``os.getpid``. ``exitWith`` raises Python ``SystemExit``;
+API callers may catch it, while command-line launchers terminate with that
+status. This avoids terminating an embedding Python process with ``std::exit``.
+The test fixtures include the packages' source and licenses and their
+``filepath`` and ``time`` dependencies; these packages are not bundled into
+the installed standard library.

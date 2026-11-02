@@ -72,7 +72,10 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # Formats 21-23 were intermediate versions of these passes, never published.
 # Format 27: data type flags use 16 bits and mark class dictionaries (the
 # dictionary flag of the runtime, numbered above every intermediate format).
-FORMAT_VERSION = 27
+# Format 28: only external declarations select registered primitives, with
+# the library's named wrapper exceptions; the native record version is 3
+# (the primitives branch used 21 to 25 for these steps, never published).
+FORMAT_VERSION = 28
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure
@@ -162,7 +165,15 @@ class CxxCompiler(compiler.CompilerBase):
 
   def vIsBuiltin(self, iobj):
     if self.cxxmodule is not None:
-      if isinstance(iobj, (icurry.IFunction, icurry.IConstructor)):
+      if isinstance(iobj, icurry.IFunction):
+        if iobj.modulename != self.iroot.modulename:
+          return False
+        # References can carry a loaded module's summary body. Classify all
+        # references to our functions from the declarations we are compiling.
+        declaration = self.iroot.functions.get(iobj.name, iobj)
+        from .materialize import function_primitive
+        return function_primitive(self.cxxmodule, declaration, self.iroot) is not None
+      if isinstance(iobj, icurry.IConstructor):
         return self.cxxmodule.get_builtin_symbol(iobj.name) is not None
       elif isinstance(iobj, icurry.IDataType):
         return self.cxxmodule.get_builtin_type(iobj.name) is not None

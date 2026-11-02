@@ -394,6 +394,31 @@ namespace curryrt { namespace python
 {
   void register_module(pybind11::module_ mod)
   {
+    py::register_local_exception_translator([](std::exception_ptr error) {
+      try { if(error) std::rethrow_exception(error); }
+      catch(stream_control const & control)
+      {
+        try { std::rethrow_exception(control.cause); }
+        catch(py::error_already_set & exc) { exc.restore(); }
+      }
+    });
+    mod.def("_test_handle_shutdown_race", &test_handle_shutdown_race, heap_access{});
+    mod.def("shutdown_handles", &shutdown_handles, heap_access{});
+    mod.def("set_stream_hook", [](py::object callable) {
+      auto retained = new py::object(std::move(callable));
+      set_stream_hook([retained](int stream, std::string const & operation,
+                                std::string const & text, long long value) {
+        py::gil_scoped_acquire gil;
+        try { return (*retained)(stream, operation, text, value).cast<std::string>(); }
+        catch(py::error_already_set & exc)
+        {
+          if(exc.matches(PyExc_KeyboardInterrupt) || exc.matches(PyExc_SystemExit))
+            throw stream_control{std::current_exception()};
+          throw;
+        }
+      });
+    }, heap_access{});
+    mod.def("is_handle", &is_handle, heap_access{});
     mod.def("convert_value", &convert_value, heap_access{});
     mod.def("registered_names", &Module::registered_names, heap_access{});
     mod.def("is_io_ref", &is_io_ref, heap_access{});
@@ -455,6 +480,7 @@ namespace curryrt { namespace python
       .def("create_type", &Module::create_type, reference, curryrt::python::heap_access{})
       .def("get_infotable", &Module::get_infotable, reference, curryrt::python::heap_access{})
       .def("get_type", &Module::get_type, reference, curryrt::python::heap_access{})
+      .def("bind_builtin_symbol", &Module::bind_builtin_symbol, reference, curryrt::python::heap_access{})
       .def("get_builtin_symbol", &Module::get_builtin_symbol, reference, curryrt::python::heap_access{})
       .def("get_builtin_type", &Module::get_builtin_type, reference, curryrt::python::heap_access{})
       .def("link", &Module::link, curryrt::python::heap_access{})

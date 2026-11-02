@@ -5,6 +5,9 @@ Release Notes
 0.9.0a3 (2026-11-01)
 ====================
 
+- Implement ``System.IO`` handles and current Python standard streams,
+  enabling ``Debug.Trace.traceIO``, plus primitives for the CPM packages ``directory``
+  and ``process``. ``exitWith`` raises catchable ``SystemExit`` in the API.
 - Cache the C-stack floor once per thread, probing again after a fork.
   In local measurements the direct evaluation entry falls from 172 to 1.2
   microseconds with compiled code and from 914 to 1.4 microseconds with LLVM.

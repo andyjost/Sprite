@@ -84,7 +84,11 @@ namespace
       auto module = text();
       auto name = text();
       auto info = Module::find_symbol(module, name);
-      if(!info) info = Module::builtin_symbol(module, name);
+      if(!info)
+      {
+        auto builtin = Module::builtin_symbol(module, name);
+        if(builtin && builtin->tag != T_FUNC) info = builtin;
+      }
       if(!info) throw std::invalid_argument(
           "invalid module image: unresolved symbol " + module + "." + name);
       return info;
@@ -250,7 +254,8 @@ namespace curryrt
       auto flags = r.word();
       auto visibility = r.word();
       auto md = r.metadata(*bom);
-      auto info = owner.get_builtin_symbol(name);
+      auto info = (flags & F_BUILTIN) ? owner.bind_builtin_symbol(name, arity) : nullptr;
+      if(info && info->arity != arity) Reader::fail("primitive arity does not match external");
       if(!info && (flags & F_BUILTIN))
         Reader::fail(("primitive " + owner.name + "." + name + " is not registered in this runtime").c_str());
       if(!info) info = owner.get_infotable(name);
