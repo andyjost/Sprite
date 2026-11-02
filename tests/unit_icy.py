@@ -30,7 +30,7 @@ assert curry.eval(E.getArgs).one() == []
           ([sys.executable, '-m', 'curry.tools.icy', ':load', str(source)],
            ':eval args\n:eval name\n:quit\n'),
           ([config.sprite_exec()], commands)):
-        result = subprocess.run(command, input=inputs, text=True, capture_output=True)
+        result = subprocess.run(cytest.tool_command(command), input=inputs, text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('> []', result.stdout)
         self.assertIn('> "REPLArguments"', result.stdout)

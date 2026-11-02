@@ -100,10 +100,11 @@ class App(Spec):
     )
 
   def __init__(self, symbol, *args):
-    from ..objects.terms import Term
-    if isinstance(symbol, Term) and symbol.symbol is not None:
-      args = (*symbol._args, *args)
-      symbol = symbol.symbol._info
+    if not isinstance(symbol, (CurryNodeInfo, str, Scheme)):
+      from ..objects.terms import Term
+      if isinstance(symbol, Term) and symbol.symbol is not None:
+        args = (*symbol._args, *args)
+        symbol = symbol.symbol._info
     Spec.__init__(self)
     self.symbol = symbol
     self.args = [spec_of(arg) for arg in args]
@@ -828,7 +829,8 @@ class Problem:
     '''
     if self.solved:
       return self
-    self.scheme, _ = self._undefaulted()
+    if self.scheme is None:
+      self.scheme, _ = self._undefaulted()
     self._apply_table()
     for app in self.apps:
       self._current = app

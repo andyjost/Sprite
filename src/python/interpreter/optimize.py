@@ -7,14 +7,16 @@ backend generates code.  A module loaded from its compiled form carries the
 keys of the passes that ran on it in its metadata and is not optimized again.
 '''
 from ..icurry import analysis, types, visit
+from ..icurry.analysis.inlining import constant_dictionary, _shape_calls
+from ..icurry.analysis.literals import literal_switches
 from .. import common, inspect, utility
 from ..utility.trampoline import trampoline
-import sys
+import copy, sys
 
 __all__ = ['inline_aliases', 'inline_calls', 'optimize', 'saturate_applies']
 
 # Each optimizer is called once per function of the module, as
-# optimizer(interp, ifun, imodule), in this order.  inline_aliases runs last.
+# optimizer(interp, ifun, imodule), in this order. Literal recovery runs last.
 # The monadic analysis then sees the call graph as the front end wrote it.
 # saturate_applies runs before inline_aliases: a chain it collapses into a
 # saturated call of an alias is then a call of the target.  inline_calls runs
@@ -40,6 +42,9 @@ default_optimizers = [
   , ('%s.opt.inline_aliases'
         , lambda interp, ifun, imodule: inline_aliases(interp, ifun, imodule)
         )
+  , ('%s.opt.literal_switches'
+        , lambda interp, ifun, imodule: literal_switches(ifun, interp.modules, imodule)
+        )
   ]
 
 # The flag that sets the budget of inline_calls, and the budget when an
@@ -55,9 +60,43 @@ def optimize(interp, imodule, optimizers=default_optimizers):
     for optstem, optimizer in optimizers:
       optkey = optstem % interp.backend.backend_name
       if not imodule.metadata.get(optkey, False):
-        for ifun in imodule.functions.values():
+        if optstem.endswith('.literal_switches'):
+          # Take these after inlining and alias resolution, before any
+          # helper is turned into a switch. Callers then see one generation.
+          imodule._literal_bodies = {
+              f.fullname: copy.deepcopy(f.body.block)
+              for f in imodule.functions.values()
+              if f.is_private and '_COMPLEXCASE' in f.name
+              and isinstance(getattr(f.body, 'block', None), types.IBlock)
+            }
+          # Preserve the equality graph for the runtime probe's slow path.
+          originals = {f.fullname: f for f in imodule.functions.values()
+                       if f.fullname in imodule._literal_bodies}
+          names = {name: imodule.fullname + '._litfallback%d' % i
+                   for i, name in enumerate(originals)}
+          def redirect(obj):
+            if isinstance(obj, types.ICall) and obj.symbolname in names:
+              obj.symbolname = names[obj.symbolname]
+          for name, original in originals.items():
+            clone = copy.deepcopy(original)
+            clone.fullname = names[name]
+            visit.visit(redirect, clone.body)
+            imodule.functions[clone.name] = clone
+          imodule._literal_fallbacks = names
+        index = 0
+        functions = list(imodule.functions.values())
+        # Dictionary specialization may append a local function.  It gets
+        # this pass too, and all the following passes.
+        while index < len(functions):
+          ifun = functions[index]
           optimizer(interp, ifun, imodule)
+          if len(imodule.functions) > len(functions):
+            functions.extend(list(imodule.functions.values())[len(functions):])
+          index += 1
         imodule.update_metadata({optkey: True})
+        if hasattr(imodule, '_literal_bodies'):
+          del imodule._literal_bodies
+          del imodule._literal_fallbacks
 
 def replace_static_strings(ifun):
   '''
@@ -185,6 +224,12 @@ def inline_calls(interp, ifun, imodule, modules=None, budget=None):
   Replace a call of a small function by its body, and a call of a
   single-case function on a known constructor by the branch.
 
+  A class default at a closed instance dictionary uses CASE_LIMIT instead
+  of the expression budget. Conditional helpers get local specializations
+  with the dictionary substituted; the inliner then resolves their method
+  and superclass selectors. Helpers reached inside that static default
+  context are specialized as well, keeping the lazy case branches local.
+
   The rules are in analysis.inlining.  A saturated call of a non-recursive
   function whose body is an expression of at most ``budget`` nodes (the flag
   ``inline_budget``; 4 by default; 0 turns the pass off) is replaced by the
@@ -229,7 +274,38 @@ def inline_calls(interp, ifun, imodule, modules=None, budget=None):
     modules = interp.modules
   if budget is None:
     budget = interp.flags.get(INLINE_BUDGET_FLAG, DEFAULT_INLINE_BUDGET)
-  inliner = analysis.Inliner(modules, budget)
+  def specialize(callee, shape, call, context):
+    if not callee.name.startswith('_def#'):
+      return None
+    fixed = {i: arg for i, arg in enumerate(call.exprs)
+             if constant_dictionary(arg)}
+    if not fixed and not context:
+      return None
+    cache = getattr(imodule, '_dictionary_specializations', None)
+    if cache is None:
+      cache = imodule._dictionary_specializations = {}
+    key = (callee.fullname, tuple((i, arg.symbolname) for i, arg in fixed.items()))
+    name = cache.get(key)
+    if name is None:
+      stem = '_dictspec%d' % len(cache)
+      while stem in imodule.functions:
+        stem += '_'
+      name = imodule.fullname + '.' + stem
+      body = copy.deepcopy(shape.body)
+      for assign in body.block.assigns:
+        expr = assign.expr
+        if (isinstance(expr, types.IVarAccess) and expr.vid == 0
+            and len(expr.path) == 1 and expr.path[0] in fixed):
+          assign.expr = copy.deepcopy(fixed[expr.path[0]])
+      clone = types.IFunction(name, callee.arity, types.PRIVATE,
+          callee.needed, body, modulename=imodule.fullname)
+      clone.update_metadata({'all.flags': callee.metadata.get('all.flags', 0),
+                             'all.dictionary_specialization': True})
+      cache[key] = name
+      imodule.functions[stem] = clone
+      join_imports(imodule, _shape_calls(shape), modules)
+    return types.IFCall(name, call.exprs)
+  inliner = analysis.Inliner(modules, budget, specialize=specialize)
   if analysis.alias_target_of_body(ifun) is None:
     inliner.rewrite(ifun)
     if inliner.symbols:

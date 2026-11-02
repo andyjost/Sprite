@@ -35,6 +35,7 @@ class TestWindowsRunner(unittest.TestCase):
   def test_windows_notice_once(self):
     with tempfile.TemporaryDirectory() as directory, \
          mock.patch.object(sys, 'platform', 'win32'), \
+         mock.patch.object(cli.shutil, 'which', return_value=None), \
          mock.patch.object(sys, 'stdout', io.StringIO()) as out:
       self.assertEqual(cli.main(['--list', '--fast', '--logdir', directory]), 0)
     self.assertEqual(out.getvalue().count('no Job Object hard memory cap'), 1)
