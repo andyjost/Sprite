@@ -70,6 +70,12 @@ def _lazy_text(value):
     # The raw door lends the graph to the runtime. Preserve its head name
     # before the graph is rewritten; no term rendering is involved.
     return value.info.name
+  if _legacy_description(value, (
+      backends.Node, Description, expressions.free, expressions.ref,
+      expressions.typed, expressions.cons, expressions.unboxed, expressions.fwd,
+      expressions.choice, expressions.anchor)):
+    # Legacy descriptions can lend nested raw graphs to the runtime too.
+    return _text(value)
   return _LazyText(lambda: _text(value))
 
 

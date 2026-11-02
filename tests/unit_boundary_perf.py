@@ -99,6 +99,40 @@ class TestBoundaryReuse(cytest.TestCase):
     self.assertIs(answer.bindings[x], x)
     self.assertIs(answer.value.args[0].args[0], x)
 
+  def test_newtype_wrappers_erase_a_held_child(self):
+    identity = curry.import_('Data.Functor.Identity')
+    user = curry.compile('newtype Wrap a = Wrap a')
+    child = curry.term(5)
+    for constructor in (identity.Identity, user.Wrap):
+      with self.subTest(constructor=constructor):
+        held = constructor(child)
+        # The ordinary builder is the pre-optimization construction route.
+        with patch.object(Term, '_unary_wrapper', return_value=False):
+          baseline = constructor(child)
+        self.assertEqual(curry.typeof(held), curry.typeof(baseline))
+        self.assertEqual(_graph_key(held._node), _graph_key(baseline._node))
+        self.assertEqual(curry.eval(held).one(), 5)
+        self.assertEqual(curry.eval(baseline).one(), 5)
+
+  def test_infix_finds_a_module_only_held_in_an_argument(self):
+    module = curry.compile('one :: Int\none = 1\n(<+>) :: Int -> Int -> Int\nx <+> y = x + y')
+    held = self.P.id(module.one)
+    result = held.__infix__('<+>', held)
+    self.assertIsNot(result, NotImplemented)
+    self.assertEqual(curry.eval(result).one(), 2)
+
+  def test_nested_raw_goal_keeps_its_original_error_text(self):
+    interp = cytest.raw.interp()
+    with curry.objects.terms.raw_symbols():
+      node = interp.expr(interp.symbol('Prelude.+'), 1, 2)
+      description = [interp.symbol('Prelude.id'), node]
+    expected = 'No value found: %s' % description
+    results = interp.eval(description)
+    self.assertEqual(next(results), 3)
+    with self.assertRaises(curry.NoValueError) as caught:
+      results.one()
+    self.assertEqual(str(caught.exception), expected)
+
   def test_iterator_source_is_consumed_once_across_evaluations(self):
     consumed = []
     def source():

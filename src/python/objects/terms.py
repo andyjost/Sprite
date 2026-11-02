@@ -335,6 +335,8 @@ class Term:
     if not isinstance(t, fc.FuncType) or not isinstance(t.domain, fc.TVar) \
         or not isinstance(t.range, fc.TCons) or t.range.args != [t.domain]:
       return False
+    if isinstance(self._interp.sigtable.type_decl('%s.%s' % t.range.name), fc.TypeNew):
+      return False
     wrap = lambda value: fc.TCons(t.range.name, [value])
     original = child._scheme
     self._scheme = builder.Scheme('<expr>', 'expression', original.typevars,
@@ -486,10 +488,12 @@ class Term:
   def _infix(self, op, other, reflected):
     modules = [self._interp.prelude]
     for value in walk_forms((self, other)):
-      if isinstance(value, Term) and value.symbol is not None:
-        module = value.symbol.module
-        if module not in modules:
-          modules.append(module)
+      if isinstance(value, Term):
+        held = ([value.symbol.module] if value.symbol is not None else [])
+        held.extend(module for module, version in getattr(value, '_dependencies', ()))
+        for module in held:
+          if module not in modules:
+            modules.append(module)
     for module in modules:
       if op in getattr(module, '.symbols'):
         try:
