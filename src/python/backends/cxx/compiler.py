@@ -67,7 +67,8 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # Format 18: export the module record, initializer and tables for PE DLLs.
 # Format 19: registry receipts and named not-implemented descriptors.
 # Format 20: info table flags use 16 bits for independent builtin and opaque bits.
-FORMAT_VERSION = 20
+# Format 21: data type flags use 16 bits and mark class dictionaries.
+FORMAT_VERSION = 21
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure
@@ -286,9 +287,10 @@ class CxxCompiler(compiler.CompilerBase):
         h_ctortable, ', '.join('&%s' % h for h in ctor_handles) or 'nullptr'
       )
     self.symtab.make_defined(h_ctortable)
-    yield 'SPRITE_MODULE_EXPORT DataType const %s { %s, %r, %r, F_STATIC_OBJECT, %s };' % (
+    flags = 'F_STATIC_OBJECT | F_DICTIONARY' if itype.name.startswith('_Dict#') else 'F_STATIC_OBJECT'
+    yield 'SPRITE_MODULE_EXPORT DataType const %s { %s, %r, %r, %s, %s };' % (
         h_datatype, h_ctortable, len(itype.constructors), 't'
-      , _dquote(itype.name)
+      , flags, _dquote(itype.name)
       )
     yield ''
 

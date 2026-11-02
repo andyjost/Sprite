@@ -123,9 +123,12 @@ namespace curryrt { namespace platform {
 
   char const * stack_floor_of_this_thread()
   {
-    ULONG_PTR low = 0, high = 0;
-    GetCurrentThreadStackLimits(&low, &high);
-    return reinterpret_cast<char const *>(low);
+    static thread_local char const * const floor = [] {
+      ULONG_PTR low = 0, high = 0;
+      GetCurrentThreadStackLimits(&low, &high);
+      return reinterpret_cast<char const *>(low);
+    }();
+    return floor;
   }
 
   void * aligned_allocate(size_t alignment, size_t size) { return _aligned_malloc(size, alignment); }
@@ -223,7 +226,7 @@ namespace curryrt { namespace platform {
     pthread_atfork(prepare, parent, child);
   }
 
-  char const * stack_floor_of_this_thread()
+  static char const * probe_stack_floor()
   {
     #if defined(__linux__)
     pthread_attr_t attr;
@@ -249,6 +252,20 @@ namespace curryrt { namespace platform {
         return (char const *) (here - limit.rlim_cur);
     }
     return nullptr;
+  }
+
+  char const * stack_floor_of_this_thread()
+  {
+    // A child inherits the caller's TLS, but must probe its own reservation.
+    static thread_local long long process = 0;
+    static thread_local char const * floor = nullptr;
+    auto const current = process_id();
+    if(process != current)
+    {
+      floor = probe_stack_floor();
+      process = current;
+    }
+    return floor;
   }
 
   void * aligned_allocate(size_t alignment, size_t size) { return std::aligned_alloc(alignment, size); }

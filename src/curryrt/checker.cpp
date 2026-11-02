@@ -41,8 +41,12 @@ namespace curryrt
     {
       auto const & data = C->strict_constraints->data;
       size_t hops = 0;
-      while(i < data.size() && data[i].parent != i && ++hops < 1000000)
-        i = data[i].parent;
+      auto item = data.find(i);
+      while(item != data.end() && item->second.parent != i && ++hops < 1000000)
+      {
+        i = item->second.parent;
+        item = data.find(i);
+      }
       return i;
     }
 
@@ -748,12 +752,16 @@ namespace curryrt
       os << "groups (member, root): [";
       bool first = true;
       auto const & data = cfg->strict_constraints->data;
-      for(size_t i = 0; i < data.size(); ++i)
-        if(data[i].parent != i)
-        {
-          os << (first ? "" : ", ") << '(' << i << ", " << group_root(cfg, i) << ')';
-          first = false;
-        }
+      std::vector<xid_type> ids;
+      for(auto const & item: data)
+        if(item.second.parent != item.first)
+          ids.push_back(item.first);
+      std::sort(ids.begin(), ids.end());
+      for(xid_type i: ids)
+      {
+        os << (first ? "" : ", ") << '(' << i << ", " << group_root(cfg, i) << ')';
+        first = false;
+      }
       os << ']';
       lines.push_back(os.str());
     }

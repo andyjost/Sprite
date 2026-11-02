@@ -5,6 +5,18 @@ Release Notes
 0.9.0a3 (2026-11-01)
 ====================
 
+- Cache the C-stack floor once per thread, probing again after a fork.
+  In local measurements the direct evaluation entry falls from 172 to 1.2
+  microseconds with compiled code and from 914 to 1.4 microseconds with LLVM.
+- Mark dictionary types once and test a flag during head normalization.
+  With the stack-floor cache also enabled, compiled Fib uses about 4% less
+  CPU time (0.0800 to 0.0771 seconds).
+- Store union-find parents sparsely, omit repeated pairs from its collector
+  log and preserve spare log capacity at a fork. Mergesort uses 0.31 CPU
+  seconds per evaluation instead of 0.80 (2.6 times faster); large copies
+  over 12 evaluations fall from 70.1 GB to 0.46 GB. Steps, forks and value
+  order are unchanged.
+
 - Add the qualified-name primitive registry and the primitives of
   ``Curry.Compiler.Distribution``, ``System.CPUTime``, ``System.Environment``
   and ``Data.IORef``, including registered Python implementations for process
