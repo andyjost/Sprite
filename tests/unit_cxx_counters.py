@@ -380,10 +380,11 @@ class TestCounters(cytest.TestCase):
   def test_sprite_exec(self):
     '''sprite-exec --stats prints the counters after the seven fields.'''
     cmd = [
-        'timeout', str(TIMEOUT), config.sprite_exec(), '--stats', '-m'
+        config.sprite_exec(), '--stats', '-m'
       , 'CxxCounters', '-g', 'coinNot'
       ]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    proc = subprocess.run(cytest.tool_command(cmd), capture_output=True, text=True,
+        timeout=TIMEOUT)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     self.assertEqual(sorted(proc.stdout.split()), ['False', 'True'])
     line = proc.stderr.splitlines()[-1]
