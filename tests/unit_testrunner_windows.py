@@ -5,6 +5,7 @@ from testrunner.manifest import Manifest
 import importlib.util
 import io
 import os
+import subprocess
 from pathlib import Path
 import sys
 import tempfile
@@ -54,6 +55,34 @@ class TestWindowsRunner(unittest.TestCase):
       self.assertEqual(job.argv[0], sys.executable)
       self.assertEqual(prepare.command('stage', 'cxx', ['M.curry'])[:3],
                        [sys.executable, '-m', 'curry.tools.make'])
+
+  def test_windows_traceback_deadline(self):
+    with mock.patch.object(sys, 'platform', 'win32'):
+      job = cli.test_job('unit_x.py', 'cxx', 'stage', Manifest({}), 600, 'logs', {})
+      self.assertIn('dump_traceback_later(570)', job.argv[3])
+      self.assertEqual(job.argv[-5:],
+          ['unittest', 'discover', '-v', cli.TESTDIR, 'unit_x.py'])
+      job = cli.test_job('unit_primitives_io.py', 'cxx', 'stage', Manifest({}),
+                         600, 'logs', {})
+      self.assertIn('-f', job.argv)
+      job = cli.test_job('unit_x.py', 'cxx', 'stage', Manifest({}), None, 'logs', {})
+      self.assertNotIn('-c', job.argv)
+
+  def test_traceback_launcher_runs_discovery(self):
+    with tempfile.TemporaryDirectory() as directory:
+      Path(directory, 'unit_probe.py').write_text(
+          'import time, unittest\n'
+          'class TestProbe(unittest.TestCase):\n'
+          '  def test_wait(self): time.sleep(1.5)\n')
+      with mock.patch.object(sys, 'platform', 'win32'), \
+           mock.patch.object(cli, 'TESTDIR', directory):
+        job = cli.test_job('unit_probe.py', 'cxx', 'stage', Manifest({}),
+                           31, 'logs', {})
+      child = subprocess.run(job.argv, capture_output=True, text=True, timeout=10)
+      self.assertEqual(child.returncode, 0, child.stderr)
+      self.assertIn('Timeout (0:00:01)', child.stderr)
+      self.assertIn('test_wait', child.stderr)
+      self.assertIn('Ran 1 test', child.stderr)
 
   def test_path_separator(self):
     with mock.patch.object(os, 'pathsep', ';'):

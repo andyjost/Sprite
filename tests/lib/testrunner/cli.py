@@ -288,9 +288,18 @@ def test_job(filename, backend, sprite_home, manifest, timeout, logdir, env):
   '''The job of one test file on one backend.'''
   python = sys.executable if sys.platform == 'win32' else os.path.join(sprite_home, 'bin', 'python')
   cap = manifest.cap(filename, backend)
-  argv = backstop_prefix(cap) + [
-      python, '-B', '-m', 'unittest', 'discover', '-v', TESTDIR, filename
-    ]
+  launch = [python, '-B', '-m', 'unittest']
+  if sys.platform == 'win32' and timeout is not None:
+    launch = [python, '-B', '-c',
+        'import faulthandler, runpy, sys; sys.argv.pop(0); '
+        'faulthandler.dump_traceback_later(%r); '
+        'runpy.run_module("unittest", run_name="__main__")' % max(1, timeout - 30),
+        'unittest']
+  options = ['discover', '-v', TESTDIR, filename]
+  if filename == 'unit_primitives_io.py':
+    # Print the first error's traceback before a later test can hang.
+    options.insert(1, '-f')
+  argv = backstop_prefix(cap) + launch + options
   return Job(
       filename, backend, argv, cap=cap, timeout=timeout
     , logfile=os.path.join(logdir, backend, filename + '.log'), cwd=TESTDIR
