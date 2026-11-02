@@ -222,7 +222,7 @@ namespace curryrt
     // the non-determinism error instead.  See nondet_monad_error.
     tag_type hnf(
         Configuration *, Variable * inductive, void const * guides=nullptr
-      , bool monadic=false
+      , bool monadic=false, bool literal_probe=false
       );
     tag_type hnf_or_free(
         Configuration *, Variable * inductive, void const * guides=nullptr
