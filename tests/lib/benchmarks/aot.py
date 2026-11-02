@@ -4,7 +4,13 @@ Images can be regenerated without replacing an AOT object. Its ABI stamp's
 input receipt, copied from the generated C++, records the object's budget.
 Never substitute the current image or interpreter budget for that receipt.
 '''
-import json, os, runpy, sys
+import json, os, runpy, sys, tempfile
+
+
+def measurement_mark(directory=None):
+  # Use the same coarse filesystem clock as the product change-time check.
+  with tempfile.TemporaryFile(dir=directory) as marker:
+    return os.fstat(marker.fileno()).st_ctime_ns
 
 
 def object_budget(path):

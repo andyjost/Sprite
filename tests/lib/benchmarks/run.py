@@ -14,7 +14,7 @@ program past the limit costs one timeout, not one per repetition; the
 record holds that sample.
 '''
 
-import argparse, os, shutil, sys, tempfile, time
+import argparse, os, shutil, sys, tempfile
 from . import BACKENDS, CURRYDIR, DEFAULT_SPRITE_HOME, OPPONENTS, ROOTDIR
 from . import SUITES
 from . import aot, measure, records, suites
@@ -242,7 +242,7 @@ def measure_item(item, repeat, perf):
   cxx = getattr(item, 'backend', None) == 'cxx'
   if cxx and item.warmup():
     probe_item()
-  started = time.time_ns()
+  started = aot.measurement_mark() if cxx and not item.warmup() else None
   samples = []
   for _ in range(repeat):
     samples.append(item.measure())

@@ -321,13 +321,12 @@ class TestPerformanceRecord(unittest.TestCase):
 
   def test_postmeasurement_probe_refuses_new_or_replaced_products(self):
     from benchmarks import aot
-    import time
     with tempfile.TemporaryDirectory() as directory:
       path = os.path.join(directory, 'Example.so')
-      for change in ('none', 'create', 'replace', 'stamp'):
+      for change in ('create', 'replace', 'stamp'):
         with open(path, 'w') as stream:
           stream.write('old')
-        started = time.time_ns()
+        started = aot.measurement_mark(directory)
         if change == 'create':
           os.unlink(path)
         if change in ('create', 'replace'):
@@ -340,8 +339,24 @@ class TestPerformanceRecord(unittest.TestCase):
         probe = {'Example': dict(path=path, identity=aot.identity(path),
             stamp_identity=aot.identity(path + '.abi'), budget=4)}
         budgets, warnings = aot.checked_budgets(probe, since=started)
-        self.assertEqual(budgets, {'Example': 4 if change == 'none' else None})
-        self.assertEqual(bool(warnings), change != 'none')
+        self.assertEqual(budgets, {'Example': None})
+        self.assertTrue(warnings)
+
+  def test_postmeasurement_probe_coarse_clock(self):
+    from benchmarks import aot
+    generation = [1, 2, 3, 4]
+    probe = {'Example': dict(path='Example.so', identity=generation,
+        stamp_identity=generation, budget=4)}
+    for changed_path in ('Example.so', 'Example.so.abi'):
+      for timestamp in (99, 100):
+        with self.subTest(path=changed_path, timestamp=timestamp), \
+             mock.patch.object(aot, 'identity', return_value=generation), \
+             mock.patch.object(aot.os, 'stat', side_effect=lambda path:
+                 types.SimpleNamespace(st_ctime_ns=
+                     timestamp if path == changed_path else 99)):
+          budgets, warnings = aot.checked_budgets(probe, since=100)
+        self.assertEqual(budgets, {'Example': 4 if timestamp < 100 else None})
+        self.assertEqual(bool(warnings), timestamp == 100)
 
   def test_runtime_registry_includes_tiered_object(self):
     from benchmarks import aot
