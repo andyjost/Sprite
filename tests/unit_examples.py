@@ -21,7 +21,7 @@ must come out the same on every backend of the example.
 '''
 import cytest # from ./lib; must be first
 from unittest import mock
-import ast, contextlib, curry, importlib.util, os, subprocess, sys, tempfile, time, unittest
+import ast, contextlib, curry, importlib.util, os, signal, subprocess, sys, tempfile, time, unittest
 
 EXAMPLES_DIR = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'examples')
@@ -30,6 +30,8 @@ ADDRESS_SPACE = 2 * 1024 ** 3  # bytes; the Curry front end peaks near 1 GB
 TIMEOUT = 120                  # seconds for the compile and the run of one example
 KILL_AFTER = 10                # seconds from SIGTERM to SIGKILL in the timeout command
 KILLED_STATUS = 128 + 9        # the status of timeout when its SIGKILL fires
+DUMP_LEAD_TIME = 30            # seconds before the example time limit
+STACK_TEXT_LIMIT = 256 * 1024  # aggregate bytes collected from dump files
 
 # The runnable examples.
 EXAMPLES = [
@@ -113,12 +115,26 @@ def example_diagnostics(env, delay):
     # Use one deadline so a child started late still dumps before the kill.
     with open(os.path.join(directory, 'sitecustomize.py'), 'w') as stream:
       stream.write(
-          'import faulthandler, os, time\n'
+          'import faulthandler, importlib.machinery, importlib.util, os, sys, time\n'
           '_example_dump = open(os.path.join(os.environ["SPRITE_EXAMPLE_DUMP_DIR"], '
           'str(os.getpid()) + ".log"), "w")\n'
-          'faulthandler.dump_traceback_later(max(0.01, '
+          'def _example_arm():\n'
+          '    faulthandler.dump_traceback_later(max(0.01, '
           'float(os.environ["SPRITE_EXAMPLE_DUMP_AT"]) - time.monotonic()), '
           'file=_example_dump)\n'
+          '_example_arm()\n'
+          'if hasattr(os, "register_at_fork"):\n'
+          '    # Cancel before fork: cancellation in the child also deadlocks.\n'
+          '    os.register_at_fork(before=faulthandler.cancel_dump_traceback_later, '
+          'after_in_parent=_example_arm)\n'
+          '# Delegate with the original name, including for self-imports.\n'
+          '_hook_dir = os.path.realpath(os.path.dirname(__file__))\n'
+          '_paths = [p for p in sys.path if os.path.realpath(p) != _hook_dir]\n'
+          '_spec = importlib.machinery.PathFinder.find_spec("sitecustomize", _paths)\n'
+          'if _spec is not None:\n'
+          '    _module = importlib.util.module_from_spec(_spec)\n'
+          '    sys.modules["sitecustomize"] = _module\n'
+          '    _spec.loader.exec_module(_module)\n'
         )
     env = dict(env, SPRITE_EXAMPLE_DUMP_AT=str(time.monotonic() + delay),
                SPRITE_EXAMPLE_DUMP_DIR=directory)
@@ -131,13 +147,27 @@ def example_diagnostics(env, delay):
 def example_stacks(directory):
   """Read even the dumps of descendants whose parents captured their stderr."""
   stacks = []
+  remaining = STACK_TEXT_LIMIT
+  omitted = 0
   for name in sorted(os.listdir(directory)):
     if name.endswith('.log'):
-      with open(os.path.join(directory, name), encoding='utf-8', errors='replace') as stream:
-        text = stream.read()
-      if text:
-        stacks.append('Python process %s:\n%s' % (name[:-4], text))
-  return '\n'.join(stacks)
+      with open(os.path.join(directory, name), 'rb') as stream:
+        size = os.fstat(stream.fileno()).st_size
+        if not size:
+          continue
+        header = ('Python process %s:\n' % name[:-4]).encode('utf-8')
+        if stacks:
+          header = b'\n' + header
+        prefix = header[:remaining]
+        remaining -= len(prefix)
+        text = stream.read(min(size, remaining))
+        remaining -= len(text)
+        omitted += len(header) - len(prefix) + size - len(text)
+        stacks.append(prefix + text)
+  result = b''.join(stacks).decode('utf-8', errors='replace')
+  if omitted:
+    result += '\n[Python stacks truncated: %d bytes omitted]\n' % omitted
+  return result
 
 
 class TestExamples(cytest.TestCase):
@@ -203,7 +233,7 @@ class TestExamples(cytest.TestCase):
     env.pop('PYTHONPATH', None)
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT, KILL_AFTER) + ['bash', './run']
     start = time.time()
-    with example_diagnostics(env, max(0.01, TIMEOUT - 30)) as (env, directory):
+    with example_diagnostics(env, max(0.01, TIMEOUT - DUMP_LEAD_TIME)) as (env, directory):
       proc = subprocess.run(
           cmd, cwd=exdir, env=env, capture_output=True
         , encoding='utf-8', errors='replace'
@@ -290,7 +320,7 @@ def function_of(relpath, name):
 class TestExampleDiagnostics(cytest.TestCase):
   @cytest.posix_only('executes a POSIX shell driver')
   def test_stalled_descendants_appear_in_failure(self):
-    prefix = cytest.limit_prefix(timeout=2)
+    prefix = cytest.limit_prefix(timeout=8)
     if not any(os.path.basename(part) in ('timeout', 'gtimeout') for part in prefix):
       self.skipTest('needs the coreutils timeout command')
     with tempfile.TemporaryDirectory(prefix='example-timeout-test-') as directory:
@@ -308,15 +338,72 @@ class TestExampleDiagnostics(cytest.TestCase):
       # Both children discard stderr. Their independent dump files must still
       # reach the assertion that reports the timeout of the whole shell tree.
       with mock.patch.multiple(sys.modules[__name__], EXAMPLES_DIR=directory,
-                               TIMEOUT=2, KILL_AFTER=1), \
+                               TIMEOUT=8, DUMP_LEAD_TIME=3, KILL_AFTER=1), \
            mock.patch.dict(os.environ, EXAMPLE_TEST_PYTHON=sys.executable):
-        with self.assertRaisesRegex(AssertionError, 'did not finish in 2 s') as caught:
+        with self.assertRaisesRegex(AssertionError, 'did not finish in 8 s') as caught:
           case.run_example('stalled')
     message = str(caught.exception)
     self.assertIn('driver stderr', message)
     self.assertEqual(message.count('Python process '), 2)
     self.assertEqual(message.count('Timeout ('), 2)
-    self.assertEqual(message.count('File "<string>", line 1 in <module>'), 2)
+    # Five seconds allow startup under load. Accept startup frames too: the
+    # scheduler can pause a child's main thread while its watchdog runs.
+    self.assertEqual(message.count('most recent call first'), 2)
+
+  def test_existing_sitecustomize(self):
+    with tempfile.TemporaryDirectory(prefix='example-site-test-') as directory:
+      with open(os.path.join(directory, 'sitecustomize.py'), 'w') as stream:
+        stream.write('import sitecustomize\nsitecustomize.example_ready = "customized"\n')
+      env = dict(os.environ, PYTHONPATH=directory)
+      with example_diagnostics(env, 30) as (env, _):
+        proc = subprocess.run(
+            [sys.executable, '-c',
+             'import sitecustomize; print(sitecustomize.example_ready)']
+          , env=env, capture_output=True, text=True, timeout=15
+          )
+      self.assertEqual(proc.returncode, 0, proc.stderr)
+      self.assertEqual(proc.stdout, 'customized\n')
+
+  @unittest.skipUnless(hasattr(os, 'fork'), 'needs fork without exec')
+  def test_fork_normal_exit(self):
+    # The parent must reap a normally finalizing child on either side of the
+    # dump deadline. Kill and reap the whole session if a regression hangs.
+    for pause in (0, 1.5):
+      with self.subTest(pause=pause), example_diagnostics(os.environ, 0.5) as (env, _):
+        code = (
+            'import os, time\n'
+            'pid = os.fork()\n'
+            'if pid == 0:\n'
+            '    time.sleep(%r)\n'
+            'else:\n'
+            '    _, status = os.waitpid(pid, 0)\n'
+            '    assert status == 0, status\n'
+            '    print("reaped")\n'
+          ) % pause
+        proc = subprocess.Popen(
+            [sys.executable, '-c', code], env=env, start_new_session=True
+          , stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+          )
+        try:
+          stdout, stderr = proc.communicate(timeout=10)
+        finally:
+          if proc.poll() is None:
+            os.killpg(proc.pid, signal.SIGKILL)
+          proc.communicate()
+        self.assertEqual(proc.returncode, 0, stderr)
+        self.assertEqual(stdout, 'reaped\n')
+
+  def test_stack_collection_is_bounded(self):
+    with tempfile.TemporaryDirectory(prefix='example-stack-limit-') as directory:
+      for name in ('1.log', '2.log'):
+        with open(os.path.join(directory, name), 'wb') as stream:
+          stream.write(b'x' * STACK_TEXT_LIMIT)
+      text = example_stacks(directory)
+    headers = len('Python process 1:\n') + len('\nPython process 2:\n')
+    omitted = STACK_TEXT_LIMIT + headers
+    marker = '\n[Python stacks truncated: %d bytes omitted]\n' % omitted
+    self.assertEqual(len(text), STACK_TEXT_LIMIT + len(marker))
+    self.assertTrue(text.endswith(marker))
 
 
 class TestBuildSystemDriver(cytest.TestCase):
