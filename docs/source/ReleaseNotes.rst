@@ -5,6 +5,18 @@ Release Notes
 0.9.0a3 (2026-11-01)
 ====================
 
+- Reuse typed Python terms, copy their graphs for evaluation, and format
+  goal text on demand. Warm CPU measurements reduce a small interpreted
+  call from 402 to about 270 microseconds and lesson 21's overload call
+  from 18.3 to about 4.3 milliseconds. Nested ``Just`` construction is
+  linear (#181): a depth-128 chain falls from 2.93 seconds to about
+  9 milliseconds.
+- Convert ground results in the C++ bindings, preserving Python value types
+  and representations. Measured CPU conversion time falls from 7.39 ms to
+  11.4 us for 1000 Ints and from 2.18 ms to 2.11 us for a 300-character
+  String; lesson 24's complete query falls from 978 us to 635 us.
+  Cached expression-symbol tables also remove converter-construction growth
+  after repeated parses.
 - Add the qualified-name primitive registry and the primitives of
   ``Curry.Compiler.Distribution``, ``System.CPUTime``, ``System.Environment``
   and ``Data.IORef``, including registered Python implementations for process
