@@ -415,3 +415,34 @@ class TestPublicObjects(cytest.TestCase):
       curry.save(module, program, main=module.main)
       run = subprocess.run([program], check=True, capture_output=True, text=True)
       self.assertEqual(run.stdout, 'Just 5\n')
+
+
+class TestRelocatedProgram(cytest.TestCase):
+  @cytest.skipUnlessObjectsLoad('a saved program loads bundled objects')
+  def test_public_save_carries_transitive_imports(self):
+    from pathlib import Path
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      source, binary, run = (root / name for name in ('source', 'bin', 'run'))
+      for path in (source, binary, run):
+        path.mkdir()
+      (source / 'Leaf.curry').write_text(
+          'module Leaf where\nanswer :: Int\nanswer = 42\n')
+      (source / 'Helper.curry').write_text(
+          'module Helper where\nimport Leaf\nvalue :: Int\nvalue = answer\n')
+      (source / 'Main.curry').write_text(
+          'module Main where\nimport Helper\nmain :: Int\nmain = value\n')
+      curry.path.insert(0, str(source))
+      self.addCleanup(curry.path.remove, str(source))
+      module = curry.import_(source / 'Main.curry')
+      program = source / 'saved'
+      curry.save(module, program, main='main')
+      moved = binary / 'moved'
+      shutil.move(program, moved)
+      shutil.rmtree(source)
+      env = dict(os.environ)
+      env.pop('CURRYPATH', None)
+      result = subprocess.run([str(moved)], cwd=run, env=env,
+          capture_output=True, text=True, timeout=TIMEOUT)
+      self.assertEqual(result.returncode, 0, result.stderr)
+      self.assertEqual(result.stdout, '42\n')

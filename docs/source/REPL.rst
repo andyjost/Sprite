@@ -33,11 +33,16 @@ through ``System.Environment.getArgs``::
     ./Main -- one two
 
 ``:save`` writes an executable with the loaded module's name in the current
-directory. Its default main expression is ``main``; ``:save EXPR`` chooses
+directory. It carries the compiled objects of its non-library imports, so
+it can be moved and run from another directory without ``CURRYPATH`` or
+the original sources. Library modules still come from the Sprite installation.
+``getProgName`` returns the executable's basename, including after a rename.
+Its default main expression is ``main``; ``:save EXPR`` chooses
 another expression. The executable uses the installed Sprite runtime.
 ``sprite --compiler-name --numeric-version --base-version`` prints the system
 name, its three-part version, and its base library version on separate lines.
-Each probe also works separately.
+Each probe also works separately and together with startup options such as
+``--nocypm`` and ``--noreadline``.
 
 These PAKCS options are accepted in addition to Sprite's session flags:
 

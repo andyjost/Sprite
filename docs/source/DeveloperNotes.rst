@@ -799,7 +799,8 @@ Reads snapshot its current pointer. ``getElapsedTime`` counts from the library
 load. ``setEnv`` changes the native environment, but does not update Python's
 ``os.environ``. An environment write error names the variable.
 ``curry.program_arguments`` and ``curry.program_name`` supply the runtime
-arguments and module name under sprite-exec and saved programs.
+arguments and program name. Under sprite-exec the name is the module name;
+a saved executable uses its current basename.
 Their Python defaults are ``sys.argv[1:]`` and ``sys.argv[0]``.
 Tool options may precede NAME or appear immediately after it.
 The first runtime argument, an unknown option, or ``--`` ends tool options.
@@ -810,3 +811,19 @@ arguments. Only the ``--`` that ends tool options is discarded; a later
 the loaded module name. Before the first prompt it loads either the
 command-line module or ``Prelude``, so the initial name without a
 command-line module is ``Prelude``.
+
+
+Saved executable dependencies
+=============================
+
+``curry.save(module, path, main=...)`` embeds an ordered sequence of
+base64-encoded shared objects in its Python launcher, rather than only the
+main module's object. The sequence contains the transitive imports outside
+``config.syslibs()``, with dependencies before their users, and the main
+module last. Each object carries its typed interfaces. At execution the
+launcher extracts and loads the objects in that order in a temporary
+directory. Library imports resolve from the installation. No source or
+product search path from the saving session is needed. The Windows native
+launcher carries the same Python payload. Existing saved executables retain
+their original payload; save them again to include their dependencies.
+Saving without ``main`` still writes one module object for ``curry.load``.

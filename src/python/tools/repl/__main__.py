@@ -23,21 +23,25 @@ IO () prints no result. At the prompt errors keep the session;
 def main(args):
   args = list(args)
   probes = ('--compiler-name', '--numeric-version', '--base-version')
-  if args and all(arg in probes for arg in args):
+  requested = []
+  while args:
+    if args[0] in probes:
+      requested.append(args.pop(0))
+    elif args[0] in ('--nocypm', '--noreadline', '-q'):
+      # CPM supplies CURRYPATH; there is no startup banner to disable.
+      args.pop(0)
+    else:
+      break
+  if requested:
     import curry
     distribution = curry.import_('Curry.Compiler.Distribution')
     version = '.'.join(str(curry.eval(distribution[name]).one()) for name in
         ('curryCompilerMajorVersion', 'curryCompilerMinorVersion',
          'curryCompilerRevisionVersion'))
     values = dict(zip(probes, ('sprite', version, curry.config.currylib_version())))
-    for arg in args:
+    for arg in requested:
       print(values[arg])
     return
-  while args and args[0] in ('--nocypm', '--noreadline', '-q'):
-    # CPM already supplies CURRYPATH. Sprite has no recursive CPM call,
-    # readline initialization, or startup banner to disable.
-    args.pop(0)
-
   if args in (['-h'], ['--help']):
     print(HELP, end='')
     return

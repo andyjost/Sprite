@@ -1,6 +1,8 @@
 import cytest # from ./lib; must be first
 from curry import config
 from pathlib import Path
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -46,6 +48,47 @@ assert curry.eval(E.getArgs).one() == []
     for option, expected in zip(('--compiler-name', '--numeric-version', '--base-version'),
         (name, version, base)):
       self.assertEqual(self.run_sprite(option).stdout, expected + '\n')
+
+  def test_version_probes_with_startup_options(self):
+    for args in [('--nocypm', '--compiler-name'),
+        ('--compiler-name', '--noreadline', '--numeric-version', '-q',
+         '--base-version')]:
+      result = self.run_sprite(*args)
+      self.assertEqual(result.returncode, 0, result.stderr)
+      self.assertEqual(result.stdout.splitlines()[0], 'sprite')
+      self.assertEqual(len(result.stdout.splitlines()),
+          sum(arg.startswith(('--compiler', '--numeric', '--base')) for arg in args))
+
+  def test_saved_program_moves_with_dependencies_and_name(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      source, binary, run = (root / name for name in ('source', 'bin', 'run'))
+      for path in (source, binary, run):
+        path.mkdir()
+      (source / 'Helper.curry').write_text(
+          'module Helper where\nanswer :: Int\nanswer = 42\n')
+      (source / 'Main.curry').write_text(
+          'module Main where\nimport Helper\nimport System.Environment\n'
+          'main :: IO ()\nmain = print answer >> (getProgName >>= putStrLn)\n')
+      for expression in ([], ['main >> putStrLn "expression"']):
+        result = self.run_sprite(':set', 'path', str(source),
+            ':load', 'Main', ':save', *expression,
+            ':quit', cwd=source)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        program = binary / 'installed-main'
+        shutil.move(str(source / 'Main'), program)
+        hidden = root / 'hidden'
+        source.rename(hidden)
+        try:
+          env = dict(os.environ)
+          env.pop('CURRYPATH', None)
+          result = subprocess.run([str(program)], cwd=run, env=env,
+              text=True, capture_output=True, timeout=120)
+          self.assertEqual(result.returncode, 0, result.stderr)
+          self.assertEqual(result.stdout, '42\ninstalled-main\n' +
+              ('expression\n' if expression else ''))
+        finally:
+          hidden.rename(source)
 
   def test_quiet_batch_options(self):
     for verbosity in range(5):

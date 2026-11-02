@@ -367,7 +367,7 @@ print(json.dumps([curry.eval(E.getProgName).one(), curry.eval(E.getArgs).one()])
           env=dict(os.environ, SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:new'),
           text=True, capture_output=True)
       self.assertEqual(result.returncode, 0, result.stderr)
-      self.assertEqual(result.stdout.strip(), '("PrimitiveArguments",["first","two words"])')
+      self.assertEqual(result.stdout.strip(), '("saved",["first","two words"])')
 
   def test_cached_registration_missing(self):
     with tempfile.TemporaryDirectory() as directory:

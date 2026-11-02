@@ -171,7 +171,8 @@ class Main(object):
           args.NAME, path=curry.path
         )
       curry.program_arguments = args.program_arguments
-      curry.program_name = curry.info(module).name
+      curry.program_name = (self.program_name if isinstance(self, SavedMain)
+                            else curry.info(module).name)
       if args.goal is not None:
         # A saved program may carry the scheme without an interface.
         try:

@@ -237,26 +237,54 @@ def save(interp, module, path, *, main=None):
       directory = os.path.join(work, '.curry', config.intermediate_subdir())
       os.makedirs(directory)
       from ..backends.cxx import toolchain
-      cpp = os.path.join(directory, module.__name__ + '.cpp')
-      interp.save(module, cpp, module_main=False, interfaces=True)
-      product = toolchain.Cpp2So(interp)(cpp, interp.path)
+      objects = {}
+      class SavedCpp2So(toolchain.Cpp2So):
+        def _sofilename(self, name, currypath=None):
+          if name in objects:
+            return objects[name]
+          return super()._sofilename(name, currypath)
+
+      def compile_module(current):
+        cpp = os.path.join(directory, current.__name__ + '.cpp')
+        interp.save(current, cpp, module_main=False, interfaces=True)
+        product = SavedCpp2So(interp)(cpp, interp.path)
+        objects[current.__name__] = product
+        return product
+
       if main is None:
-        shutil.copyfile(product, path)
+        shutil.copyfile(compile_module(module), path)
       else:
-        with open(product, 'rb') as stream:
-          data = base64.b64encode(stream.read()).decode('ascii')
+        # Keep imports before their users: the dynamic linker needs their
+        # SONAMEs mapped before it opens an object that refers to them.
+        products = []
+        visited = set(config.syslibs())
+        def collect(current):
+          name = current.__name__
+          if name in visited:
+            return
+          visited.add(name)
+          for dependency in getHandle(current).icurry.imports:
+            collect(interp.import_(dependency))
+          product = compile_module(current)
+          with open(product, 'rb') as stream:
+            data = base64.b64encode(stream.read()).decode('ascii')
+          products.append((os.path.basename(product), data))
+        # A library module can itself be the requested main module.
+        visited.discard(module.__name__)
+        collect(module)
         program = '''#!%s
 import base64, os, tempfile
 import curry
 curry.reset(backend=%r)
 with tempfile.TemporaryDirectory(prefix='sprite-program-') as work:
-  path = os.path.join(work, %r)
-  with open(path, 'wb') as stream:
-    stream.write(base64.b64decode(%r))
-  module = curry.load(path)
+  for filename, data in %r:
+    path = os.path.join(work, filename)
+    with open(path, 'wb') as stream:
+      stream.write(base64.b64decode(data))
+    module = curry.load(path)
   from curry.__main__ import moduleMain
   moduleMain(__file__, module.__name__, goal=%r, goalscheme=%r)
-''' % (sys.executable, backend, os.path.basename(product), data, goal, scheme)
+''' % (sys.executable, backend, products, goal, scheme)
         if sys.platform == 'win32':
           _save_windows_program(interp, path, program, work)
         else:
@@ -315,7 +343,7 @@ int wmain(int argc, wchar_t ** argv)
     std::fprintf(stderr, "cannot create temporary directory: %s\n", error.message().c_str());
     return 127;
   }
-  auto script = directory / L"main.py";
+  auto script = directory / std::filesystem::path(argv[0]).filename();
   { std::ofstream out(script, std::ios::binary); out << SCRIPT; }
   std::vector<std::wstring> quoted{quote(script.c_str())};
   for(int i = 1; i < argc; ++i) quoted.push_back(quote(argv[i]));
