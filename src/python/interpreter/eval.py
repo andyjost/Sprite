@@ -9,6 +9,10 @@ from ..toolchain.flat2icurry import flatcurry as fc
 from ..typecheck import goals
 from ..typecheck.builder import _follow
 from ..typecheck.builder import Description
+from ..typecheck.engine import _LazyText
+from ..exceptions import (
+    CurryFileNotFoundError, CurryIOError, CurryTypeError, StackLimitError, StaleError
+  )
 
 IO = fc.prelude('IO')
 
@@ -59,6 +63,16 @@ def _text(value):
     return '<term>'
 
 
+def _lazy_text(value):
+  if isinstance(value, goals.Goal):
+    return value.text or _lazy_text(value.expr)
+  if isinstance(value, backends.Node):
+    # The raw door lends the graph to the runtime. Preserve its head name
+    # before the graph is rewritten; no term rendering is involved.
+    return value.info.name
+  return _LazyText(lambda: _text(value))
+
+
 def _under_io(typeexpr):
   if isinstance(typeexpr, fc.TCons) and typeexpr.name == IO and len(typeexpr.args) == 1:
     return typeexpr.args[0]
@@ -94,7 +108,6 @@ def _converter(interp, typeexpr, variables):
 
 def _live_values(interp, session, values):
   """Check the session on both sides of every deferred native step."""
-  from ..exceptions import StaleError
   while True:
     if session is not interp._session:
       raise StaleError('the interpreter was reset while consuming results')
@@ -113,7 +126,6 @@ def _run(interp, goal, convert, answer=False, session=None):
   if session is None:
     session = interp._session
   if interp._session is not session:
-    from ..exceptions import StaleError
     raise StaleError('the interpreter was reset before consuming the results')
   # Creating a runtime state can inspect the root. Defer it until next().
   interp.backend.before_evaluation(interp)
@@ -125,19 +137,16 @@ def _run(interp, goal, convert, answer=False, session=None):
         value = convert(interp, value)
       yield Answer(value, bindings) if answer else value
   except FileNotFoundError as error:
-    from ..exceptions import CurryFileNotFoundError
     if isinstance(error, CurryFileNotFoundError):
       raise
     exc = CurryFileNotFoundError('i/o error: %s: %s' % (error.strerror, error.filename))
     exc.filename = error.filename
     raise exc from None
   except OSError as error:
-    from ..exceptions import CurryIOError
     if isinstance(error, CurryIOError):
       raise
     raise CurryIOError('i/o error: %s' % error.strerror) from None
   except RecursionError as error:
-    from ..exceptions import StackLimitError
     raise StackLimitError(str(error)) from None
   finally:
     values.close()
@@ -158,7 +167,7 @@ def _evaluate(interp, args, kwds, raw):
   args = _arguments(interp, args, kwds)
   variables = [v for v in walk_forms(args) if isinstance(v, Var)]
   goal = goals.make_goal(interp, args, exprtype=kwds.pop('exprtype', None), anchors=kwds)
-  text = goal.text or _text(args[0])
+  text = goal.text or _lazy_text(args[0])
   convert = None if raw else _converter(interp, expressions.result_type(interp, goal.expr), variables)
   return Results(_run(interp, goal, convert, session=session), text)
 
@@ -193,7 +202,7 @@ def solve(interp, goal):
     goal = goals.make_goal(interp, args)
     convert = _converter(interp, expressions.result_type(interp, goal.expr), all_vars)
     values = _run(interp, goal, convert, answer=True, session=session)
-  return Results(values, str(value))
+  return Results(values, _lazy_text(value))
 
 
 def _yield_type(interp, printer):
@@ -229,16 +238,16 @@ def stream(interp, action):
     goal = goals.make_goal(interp, args, exprtype='IO a')
     typeexpr = expressions.result_type(interp, goal.expr)
   if not isinstance(typeexpr, fc.TCons) or typeexpr.name != IO:
-    from ..exceptions import CurryTypeError
     raise CurryTypeError('curry.stream needs an IO action; use curry.eval for a pure goal')
   # Normalize the action on behalf of a monadic function. This applies the
   # ordinary I/O choice rule at the root too, and to the action's result.
-  goal._expr = interp.expr(interp.symbol('Prelude.$!!'),
-      interp.symbol('Prelude.returnIO'), goal.expr)
+  make = interp.backend.make_node
+  return_io = make(interp.symbol('Prelude.returnIO'),
+      partial_info=interp.backend.fundamental_symbols.PartApplic)
+  goal._expr = make(interp.symbol('Prelude.$!!'), return_io, goal.expr)
   convert = conversions.ToPython(variable=_Variables(interp, variables), interp=interp)
   def run():
     if interp._session is not session:
-      from ..exceptions import StaleError
       raise StaleError('the interpreter was reset before consuming the stream')
     interp.backend.before_evaluation(interp)
     expr, goal._expr = goal._expr, None

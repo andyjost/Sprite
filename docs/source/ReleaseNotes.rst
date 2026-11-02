@@ -5,6 +5,12 @@ Release Notes
 0.9.0a3 (2026-11-01)
 ====================
 
+- Reuse typed Python terms, copy their graphs for evaluation, and format
+  goal text on demand. Warm CPU measurements reduce a small interpreted
+  call from 402 to about 270 microseconds and lesson 21's overload call
+  from 18.3 to about 4.3 milliseconds. Nested ``Just`` construction is
+  linear (#181): a depth-128 chain falls from 2.93 seconds to about
+  9 milliseconds.
 - Add the qualified-name primitive registry and the primitives of
   ``Curry.Compiler.Distribution``, ``System.CPUTime``, ``System.Environment``
   and ``Data.IORef``, including registered Python implementations for process
