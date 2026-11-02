@@ -39,6 +39,7 @@ class TestWindowsRunner(unittest.TestCase):
          mock.patch.object(sys, 'stdout', io.StringIO()) as out:
       self.assertEqual(cli.main(['--list', '--fast', '--logdir', directory]), 0)
     self.assertEqual(out.getvalue().count('no Job Object hard memory cap'), 1)
+    self.assertIn('cleanup terminates the Job Object, or only the leader without a job.', out.getvalue())
 
   def test_no_prlimit_and_native_python(self):
     with mock.patch.object(sys, 'platform', 'win32'), \
@@ -70,7 +71,7 @@ class TestWindowsRunner(unittest.TestCase):
          mock.patch.object(procs, 'start_windows'):
       sched.start(job)
       options = popen.call_args.kwargs
-      self.assertEqual(options['creationflags'], 0x200)
+      self.assertEqual(options['creationflags'], 0x204)
       self.assertNotIn('start_new_session', options)
       sched.running.append(job)
       sched.reap()
@@ -101,7 +102,7 @@ class TestWindowsRunner(unittest.TestCase):
     sched.running = [job]
     with mock.patch.object(sys, 'platform', 'win32'), \
          mock.patch.object(procs, 'psutil', None), \
-         mock.patch.dict(procs._WINDOWS, {123: {'job': None}}, clear=True), \
+         mock.patch.dict(procs._WINDOWS, {123: {'job': None, 'leader': job.proc}}, clear=True), \
          mock.patch.object(procs.subprocess, 'run') as run:
       self.assertEqual(procs.meminfo(), {})
       self.assertFalse(procs.is_alive(123))
@@ -111,24 +112,31 @@ class TestWindowsRunner(unittest.TestCase):
     run.assert_not_called()
     job.proc.kill.assert_called_once_with()
 
-  def test_fallback_rejects_old_children_and_recycled_members(self):
-    def entry(parent, born, name='python'):
-      return (parent, None, 10, b'R', name, born)
-    state = {'job': None, 'born': 100, 'identities': {1: 100}}
-    table = {1: entry(0, 100), 2: entry(1, 101), 3: entry(2, 50)}
+  def test_no_job_reads_and_kills_only_leader(self):
+    leader = mock.Mock(pid=1)
+    leader.poll.return_value = None
     fake = mock.Mock()
     fake.NoSuchProcess = ProcessLookupError
     fake.AccessDenied = PermissionError
+    fake.Process.return_value.memory_info.return_value.rss = 10
+    fake.Process.return_value.name.return_value = 'python.exe'
+    state = {'job': None, 'leader': leader}
     with mock.patch.object(sys, 'platform', 'win32'), \
          mock.patch.dict(procs._WINDOWS, {1: state}, clear=True), \
-         mock.patch.object(procs, 'psutil', fake), \
-         mock.patch.object(procs, '_table_windows', side_effect=lambda: table):
-      self.assertEqual(procs.scan_sessions([1])[1][1], [1, 2])
-      table[2] = entry(0, 200, 'unrelated')
-      self.assertEqual(procs.scan_sessions([1], roots={1: [1, 2]})[1][1], [1])
-      fake.Process.return_value.create_time.return_value = 100
-      self.assertEqual(procs.kill_session(1), [1])
+         mock.patch.object(procs, 'psutil', fake):
+      # Stale iterator entries and recycled parent IDs cannot admit children.
+      fake.process_iter.side_effect = AssertionError('process discovery')
+      self.assertEqual(procs.scan_sessions([1], roots={1: [2, 3]})[1],
+                       (10, [1], {1: 'python'}))
       fake.Process.assert_called_once_with(1)
+      fake.Process.side_effect = PermissionError
+      self.assertEqual(procs.scan_sessions([1])[1], (None, [1], {1: 'unknown'}))
+      self.assertEqual(procs.kill_session(1), [1])
+      leader.kill.assert_called_once_with()
+      fake.Process.return_value.kill.assert_not_called()
+      leader.poll.return_value = 0
+      self.assertEqual(procs.scan_sessions([1])[1], (0, [], {}))
+      self.assertEqual(procs.kill_session(1), [])
 
   def test_job_members_and_termination(self):
     job = mock.Mock()
@@ -138,55 +146,180 @@ class TestWindowsRunner(unittest.TestCase):
     fake.AccessDenied = PermissionError
     fake.Process.return_value.memory_info.return_value.rss = 42
     fake.Process.return_value.name.return_value = 'child.exe'
-    state = {'job': job, 'born': 100, 'identities': {1: 100}}
+    state = {'job': job}
     with mock.patch.object(sys, 'platform', 'win32'), \
          mock.patch.dict(procs._WINDOWS, {1: state}, clear=True), \
-         mock.patch.object(procs, 'psutil', fake), \
-         mock.patch.object(procs, '_table_windows', side_effect=AssertionError('parent walk')):
+         mock.patch.object(procs, 'psutil', fake):
       self.assertEqual(procs.scan_sessions([1])[1], (42, [2], {2: 'child'}))
       self.assertEqual(procs.kill_session(1, reason='timeout'), [2])
       job.terminate.assert_called_once_with()
       procs.close_windows(1)
       job.close.assert_called_once_with()
 
-  def test_kernel_job_calls(self):
-    import ctypes
+  def kernel_stub(self, failure=None):
+    import ctypes as c
+    from ctypes import wintypes as w
     kernel = mock.Mock()
-    kernel.CreateJobObjectW.return_value = 77
-    kernel.SetInformationJobObject.return_value = True
-    kernel.AssignProcessToJobObject.return_value = True
-    kernel.TerminateJobObject.return_value = True
-    def query(handle, kind, buffer, size, returned):
-      self.assertEqual((handle, kind), (77, 3))
-      ctypes.c_uint32.from_buffer(buffer, 4).value = 1
-      ctypes.c_size_t.from_buffer(buffer, 8).value = 123
+    handle = 2**40 + 77
+    signatures = {
+        'CreateJobObjectW': ([w.LPVOID, w.LPCWSTR], w.HANDLE),
+        'SetInformationJobObject': ([w.HANDLE, c.c_int, w.LPVOID, c.c_uint32], c.c_int32),
+        'AssignProcessToJobObject': ([w.HANDLE, w.HANDLE], c.c_int32),
+        'QueryInformationJobObject': ([w.HANDLE, c.c_int, w.LPVOID, c.c_uint32, w.LPVOID], c.c_int32),
+        'TerminateJobObject': ([w.HANDLE, c.c_uint32], c.c_int32),
+        'CloseHandle': ([w.HANDLE], c.c_int32)}
+    def call(name, args):
+      fn = getattr(kernel, name)
+      self.assertEqual(fn.argtypes, signatures[name][0])
+      self.assertIs(fn.restype, signatures[name][1])
+      if name == 'CreateJobObjectW':
+        self.assertEqual(c.sizeof(fn.restype), 8)
+        return 0 if failure == name else fn.restype(handle).value
+      self.assertEqual(args[0], handle)
+      if name == 'SetInformationJobObject':
+        limits = args[2]._obj
+        # Windows SDK winnt.h: JOBOBJECT_BASIC_LIMIT_INFORMATION,
+        # IO_COUNTERS and JOBOBJECT_EXTENDED_LIMIT_INFORMATION (x64).
+        self.assertEqual(c.sizeof(limits), 144)
+        self.assertEqual(c.sizeof(limits.basic), 64)
+        self.assertEqual(c.sizeof(limits.io), 48)
+        self.assertEqual([getattr(type(limits.io), f).offset for f in
+                          ('reads', 'writes', 'other', 'read_bytes', 'write_bytes', 'other_bytes')],
+                         [0, 8, 16, 24, 32, 40])
+        for field, offset in [('basic', 0), ('io', 64), ('process_memory', 112),
+                              ('job_memory', 120), ('peak_process', 128), ('peak_job', 136)]:
+          self.assertEqual(getattr(type(limits), field).offset, offset)
+        for field, offset in [('process_time', 0), ('job_time', 8), ('flags', 16),
+                              ('minimum', 24), ('maximum', 32), ('active', 40),
+                              ('affinity', 48), ('priority', 56), ('scheduling', 60)]:
+          self.assertEqual(getattr(type(limits.basic), field).offset, offset)
+        self.assertEqual(limits.basic.flags, 0x2000)
+        self.assertEqual(args[1], 9)
+        self.assertEqual(args[3], 144)
+      if name == 'AssignProcessToJobObject':
+        self.assertEqual(args[1], 2**40 + 99)
+      return name != failure
+    for name in signatures:
+      getattr(kernel, name).side_effect = lambda *args, name=name: call(name, args)
+    return kernel, handle
+
+  def test_kernel_job_calls(self):
+    import ctypes as c
+    kernel, handle = self.kernel_stub()
+    sizes = []
+    def query(*args):
+      # Check declarations as well as exercising ERROR_MORE_DATA.
+      kernel.QueryInformationJobObject.side_effect = None
+      self.assertEqual(kernel.QueryInformationJobObject.argtypes,
+          [c.c_void_p, c.c_int, c.c_void_p, c.c_uint32, c.c_void_p])
+      self.assertIs(kernel.QueryInformationJobObject.restype, c.c_int32)
+      kernel.QueryInformationJobObject.side_effect = query
+      h, kind, buffer, size, returned = args
+      self.assertEqual((h, kind, returned), (handle, 3, None))
+      sizes.append(size)
+      if len(sizes) == 1:
+        return False
+      # Windows SDK winnt.h: JOBOBJECT_BASIC_PROCESS_ID_LIST on x64
+      # has size 16, DWORD counts at 0 and 4, ULONG_PTR list at 8.
+      class IdList(c.Structure):
+        _fields_ = [('assigned', c.c_uint32), ('count', c.c_uint32),
+                    ('ids', c.c_size_t * 1)]
+      self.assertEqual(c.sizeof(IdList), 16)
+      self.assertEqual([getattr(IdList, f).offset for f in ('assigned', 'count', 'ids')], [0, 4, 8])
+      c.c_uint32.from_buffer(buffer, 0).value = 40
+      c.c_uint32.from_buffer(buffer, 4).value = 40
+      (c.c_size_t * 40).from_buffer(buffer, 8)[:] = list(range(100, 140))
       return True
     kernel.QueryInformationJobObject.side_effect = query
-    with mock.patch.object(ctypes, 'WinDLL', return_value=kernel, create=True):
-      job = procs.WindowsJob(types.SimpleNamespace(_handle=99))
-      args = kernel.SetInformationJobObject.call_args.args
-      self.assertEqual(args[:2], (77, 9))
-      self.assertEqual(args[2]._obj.basic.flags, 0x2000)
-      kernel.AssignProcessToJobObject.assert_called_once_with(77, 99)
-      self.assertEqual(job.members(), [123])
+    with mock.patch.object(c, 'WinDLL', return_value=kernel, create=True), \
+         mock.patch.object(c, 'get_last_error', return_value=234, create=True):
+      job = procs.WindowsJob(types.SimpleNamespace(_handle=2**40 + 99))
+      self.assertEqual(job.members(), list(range(100, 140)))
+      self.assertEqual(sizes, [256, 512])
       job.terminate()
-      kernel.TerminateJobObject.assert_called_once_with(77, 1)
       job.close()
       job.close()
-      kernel.CloseHandle.assert_called_once_with(77)
+      kernel.CloseHandle.assert_called_once_with(handle)
 
-  def test_job_assignment_failure_uses_fallback(self):
+  def test_constructor_failures_close_once(self):
+    import ctypes as c
+    for failure in ('CreateJobObjectW', 'SetInformationJobObject', 'AssignProcessToJobObject'):
+      with self.subTest(failure=failure):
+        kernel, handle = self.kernel_stub(failure)
+        with mock.patch.object(c, 'WinDLL', return_value=kernel, create=True), \
+             mock.patch.object(c, 'get_last_error', return_value=5, create=True), \
+             mock.patch.object(c, 'WinError', side_effect=lambda code: OSError(code, 'refused'), create=True):
+          with self.assertRaises(OSError):
+            procs.WindowsJob(types.SimpleNamespace(_handle=2**40 + 99))
+        if failure == 'CreateJobObjectW':
+          kernel.CloseHandle.assert_not_called()
+        else:
+          kernel.CloseHandle.assert_called_once_with(handle)
+        if failure != 'AssignProcessToJobObject':
+          kernel.AssignProcessToJobObject.assert_not_called()
+
+  def test_suspended_assign_resume_and_refusal(self):
+    import ctypes as c
+    for refused in (False, True):
+      for with_psutil in (False, True):
+        with self.subTest(refused=refused, psutil=with_psutil):
+          kernel, handle = self.kernel_stub('AssignProcessToJobObject' if refused else None)
+          events = []
+          assign = kernel.AssignProcessToJobObject.side_effect
+          def assignment(*args):
+            events.append('assign')
+            return assign(*args)
+          kernel.AssignProcessToJobObject.side_effect = assignment
+          child = mock.Mock(pid=1, _handle=2**40 + 99)
+          child.poll.return_value = None
+          fake = mock.Mock()
+          fake.Process.return_value.resume.side_effect = lambda: events.append('resume')
+          ntdll = mock.Mock()
+          ntdll.NtResumeProcess.side_effect = lambda h: events.append('resume') or 0
+          def launch(*args, **kwargs):
+            self.assertTrue(kwargs['creationflags'] & 0x4)
+            events.append('suspend')
+            return child
+          def dll(name, **kwargs):
+            return kernel if name == 'kernel32' else ntdll
+          with mock.patch.object(sys, 'platform', 'win32'), \
+               mock.patch.object(c, 'WinDLL', side_effect=dll, create=True), \
+               mock.patch.object(c, 'get_last_error', return_value=5, create=True), \
+               mock.patch.object(c, 'WinError', side_effect=lambda code: OSError(code, 'refused'), create=True), \
+               mock.patch.object(procs, 'psutil', fake if with_psutil else None), \
+               mock.patch.object(scheduler.subprocess, 'Popen', side_effect=launch), \
+               mock.patch.dict(procs._WINDOWS, {}, clear=True), \
+               mock.patch.object(sys, 'stdout', io.StringIO()) as output:
+            job = scheduler.Job('x', 'cxx', ['python'], 1024, 10, None)
+            scheduler.Scheduler([], 2048, 1).start(job)
+            self.assertEqual(events, ['suspend', 'assign', 'resume'])
+            if not with_psutil:
+              from ctypes import wintypes as w
+              self.assertEqual(ntdll.NtResumeProcess.argtypes, [w.HANDLE])
+              self.assertIs(ntdll.NtResumeProcess.restype, c.c_int32)
+              ntdll.NtResumeProcess.assert_called_once_with(2**40 + 99)
+            if refused:
+              self.assertEqual(output.getvalue().count('descendants are not tracked'), 1)
+              self.assertEqual(procs.kill_session(1), [1])
+              child.kill.assert_called_once_with()
+              fake.Process.return_value.kill.assert_not_called()
+            procs.close_windows(1)
+            kernel.CloseHandle.assert_called_once_with(handle)
+
+  def test_failed_resume_reaps_suspended_leader(self):
+    child = mock.Mock(pid=1)
     fake = mock.Mock()
-    fake.NoSuchProcess = ProcessLookupError
-    fake.AccessDenied = PermissionError
-    fake.Process.return_value.create_time.return_value = 100
-    with mock.patch.object(procs, 'WindowsJob', side_effect=OSError('refused')), \
+    fake.Process.return_value.resume.side_effect = OSError('resume failed')
+    job = mock.Mock()
+    with mock.patch.object(procs, 'WindowsJob', return_value=job), \
          mock.patch.object(procs, 'psutil', fake), \
          mock.patch.dict(procs._WINDOWS, {}, clear=True):
-      procs.start_windows(mock.Mock(pid=1))
-      self.assertIsNone(procs._WINDOWS[1]['job'])
-      self.assertEqual(procs._WINDOWS[1]['identities'], {1: 100})
-      procs.close_windows(1)
+      with self.assertRaises(OSError):
+        procs.start_windows(child)
+      child.kill.assert_called_once_with()
+      child.wait.assert_called_once_with()
+      job.close.assert_called_once_with()
+      self.assertNotIn(1, procs._WINDOWS)
 
   def test_windows_timeout_runs_body_without_alarm(self):
     with mock.patch.object(sys, 'platform', 'win32'), \

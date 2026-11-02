@@ -351,7 +351,7 @@ class Scheduler:
       stdin = None if self.inherit_stdin else subprocess.DEVNULL
       stdout = subprocess.PIPE if self.echo else log
       job.started = time.monotonic()
-      process_options = {'creationflags': getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0x200)} \
+      process_options = {'creationflags': (getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0x200) | 0x4)} \
           if sys.platform == 'win32' else {'start_new_session': True}
       job.proc = subprocess.Popen(
           job.argv, cwd=job.cwd, env=job.env, stdin=stdin, stdout=stdout

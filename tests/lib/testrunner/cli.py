@@ -451,7 +451,7 @@ def main(argv=None):
   if sys.platform == 'win32':
     out.write('Windows: no Job Object hard memory cap; optional psutil RSS '
               'watchdog and process names, otherwise memory is unknown; '
-              'timeouts use taskkill /T /F.\n')
+              'cleanup terminates the Job Object, or only the leader without a job.\n')
   if args.list:
     out.write(listing(prepare_jobs + jobs, manifest) + '\n')
     return 0
