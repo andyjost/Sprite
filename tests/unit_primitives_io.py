@@ -17,6 +17,79 @@ from curry.backends.cxx import curryrtbindings as curryrt
 SOURCE = Path('data/curry/libprims2').resolve()
 
 class TestPrimitivesIO(cytest.TestCase):
+  def run_child(self, command, timeout=120, **kwargs):
+    # Unused stdin must be closed: a compiler or child must not wait on the
+    # test runner's inherited pipe. communicate drains both output pipes.
+    data = kwargs.pop('input', None)
+    check = kwargs.pop('check', False)
+    if data is None:
+      kwargs.setdefault('stdin', subprocess.DEVNULL)
+    else:
+      kwargs['stdin'] = subprocess.PIPE
+    if kwargs.pop('capture_output', False):
+      kwargs['stdout'] = kwargs['stderr'] = subprocess.PIPE
+    child = subprocess.Popen(command, close_fds=True, **kwargs)
+    try:
+      stdout, stderr = child.communicate(input=data, timeout=timeout)
+    except subprocess.TimeoutExpired as error:
+      child.kill()
+      try:
+        stdout, stderr = child.communicate(timeout=10)
+      except subprocess.TimeoutExpired as drain_error:
+        stdout = drain_error.stdout or error.stdout
+        stderr = drain_error.stderr or error.stderr
+        # A descendant can retain the pipes. Do not close a Windows pipe
+        # while communicate's reader thread is blocked on it.
+        child.wait(timeout=10)
+      self.fail('child timed out: %r\nstdout: %r\nstderr: %r' %
+                (command, stdout, stderr))
+    result = subprocess.CompletedProcess(command, child.returncode, stdout, stderr)
+    if check:
+      result.check_returncode()
+    return result
+
+  def test_child_timeout_reports_output(self):
+    script = "import time; print('child started', flush=True); time.sleep(60)"
+    with self.assertRaisesRegex(AssertionError, 'child started'):
+      self.run_child([sys.executable, '-c', script], timeout=1,
+                     capture_output=True, text=True)
+
+  def test_child_timeout_with_descendant_holding_output(self):
+    with tempfile.TemporaryDirectory() as directory:
+      stop = Path(directory) / 'stop'
+      descendant = (
+          'import pathlib, sys, time\n'
+          'print("descendant started", flush=True)\n'
+          'while not pathlib.Path(sys.argv[1]).exists(): time.sleep(.05)\n')
+      script = (
+          'import subprocess, sys, time\n'
+          'subprocess.Popen([sys.executable, "-c", sys.argv[1], sys.argv[2]])\n'
+          'time.sleep(60)\n')
+      popen = subprocess.Popen
+      children = []
+      def launch(*args, **kwargs):
+        child = popen(*args, **kwargs)
+        children.append(child)
+        return child
+      try:
+        start = time.monotonic()
+        with unittest.mock.patch.object(subprocess, 'Popen', side_effect=launch):
+          with self.assertRaisesRegex(AssertionError, 'child timed out') as raised:
+            self.run_child([sys.executable, '-c', script, descendant, str(stop)],
+                           timeout=1, capture_output=True, text=True)
+        if sys.platform != 'win32':
+          self.assertIn('descendant started', str(raised.exception))
+        self.assertLess(time.monotonic() - start, 15)
+        self.assertIsNotNone(children[0].returncode)
+      finally:
+        stop.touch()
+        # EOF confirms that the descendant released its inherited output.
+        for child in children:
+          if child.poll() is None:
+            child.kill()
+          stdout, _ = child.communicate(timeout=10)
+          self.assertIn('descendant started', stdout)
+
   def module(self):
     curry.path.insert(0, str(SOURCE))
     return curry.import_('PrimitiveIO')
@@ -251,7 +324,7 @@ class TestPrimitivesIO(cytest.TestCase):
         command = [cxx, '/LD', '/std:c++17', '/EHsc', '/I' + include,
                    str(source), '/Fo' + str(Path(tmp) / 'OldDirectory.obj'),
                    '/link', '/OUT:' + target]
-      subprocess.run(command, check=True, capture_output=True, text=True)
+      self.run_child(command, check=True, capture_output=True, text=True)
       # Format 20 used record version 2. Rejection precedes any slot binding.
       # A fresh process has no previously mapped module with this name.
       script = """
@@ -263,7 +336,7 @@ except curry.LoadError as error:
 else:
   raise AssertionError('explicit loading accepted an old-format object')
 """
-      child = subprocess.run([sys.executable, '-c', script, target],
+      child = self.run_child([sys.executable, '-c', script, target],
           capture_output=True, text=True, env=dict(os.environ,
               SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:off,jit:off'))
       self.assertEqual(child.returncode, 0, child.stderr)
@@ -335,7 +408,7 @@ if sys.argv[2] == 'exit':
       for mode in ('off', 'all'):
         for kind in ('normal', 'exit'):
           path = Path(tmp) / (mode + kind)
-          child = subprocess.run([sys.executable, '-c', script, str(path), kind,
+          child = self.run_child([sys.executable, '-c', script, str(path), kind,
                                   str(SOURCE)], capture_output=True, text=True,
               env=dict(os.environ, SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:' + mode))
           self.assertEqual(child.returncode, 23 if kind == 'exit' else 0, child.stderr)
@@ -382,7 +455,7 @@ assert curry.eval(M.getCurrentDirectory).one() == 'sentinel'
         cases.append(('all', 'eager', 'cxx'))
       for mode, jit, backend in cases:
         for repeat in range(2):
-          child = subprocess.run([sys.executable, '-c', script, tmp],
+          child = self.run_child([sys.executable, '-c', script, tmp],
               capture_output=True, text=True, env=dict(os.environ,
                   SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:%s,jit:%s,jit_backend:%s'
                       % (mode, jit, backend)))
@@ -416,7 +489,7 @@ assert curry.eval(M.showAnyTerm(0)).one() == 'sentinel'
         cases.append(('all', 'eager', 'cxx'))
       for mode, jit, backend in cases:
         for repeat in range(2):
-          child = subprocess.run([sys.executable, '-c', script, tmp],
+          child = self.run_child([sys.executable, '-c', script, tmp],
               capture_output=True, text=True, env=dict(os.environ,
                   SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:%s,jit:%s,jit_backend:%s'
                       % (mode, jit, backend)))
@@ -445,7 +518,7 @@ else:
           'getCurrentDirectory external\n')
       for mode in ('off', 'all'):
         for repeat in range(2):
-          child = subprocess.run([sys.executable, '-c', script, tmp],
+          child = self.run_child([sys.executable, '-c', script, tmp],
               capture_output=True, text=True, env=dict(os.environ,
                   SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:' + mode))
           self.assertEqual(child.returncode, 0, child.stderr)
@@ -481,20 +554,20 @@ else:
     for mode in ('off', 'all'):
       env = dict(os.environ, CURRYPATH=str(SOURCE),
           SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:' + mode)
-      tool = str(Path(config.prefix()) / 'bin' / 'sprite-exec')
-      child = subprocess.run([tool, '-g', 'exitTest', 'PrimitiveIO'], env=env,
+      tool = [sys.executable, '-m', 'curry']
+      child = self.run_child(tool + ['-g', 'exitTest', 'PrimitiveIO'], env=env,
           capture_output=True, text=True)
       self.assertEqual(child.returncode, 23, child.stderr)
-      child = subprocess.run([tool, '-g', 'pipeTerminal', 'PrimitiveIO'], env=env,
+      child = self.run_child(tool + ['-g', 'pipeTerminal', 'PrimitiveIO'], env=env,
           input='', capture_output=True, text=True)
       self.assertEqual(child.returncode, 0, child.stderr)
       self.assertIn('False', child.stdout)
       for goal, expected in (('pipeReady', 'True'), ('pipeReadyIndex', '0')):
-        child = subprocess.run([tool, '-g', goal, 'PrimitiveIO'], env=env,
+        child = self.run_child(tool + ['-g', goal, 'PrimitiveIO'], env=env,
             input='x', capture_output=True, text=True)
         self.assertEqual(child.returncode, 0, child.stderr)
         self.assertEqual(child.stdout.strip(), expected)
-      child = subprocess.run([sys.executable, '-m', 'curry.tools.repl'], env=env,
+      child = self.run_child([sys.executable, '-m', 'curry.tools.repl'], env=env,
           input=':load ' + str(SOURCE / 'PrimitiveIO.curry') + '\n:eval exitTest\n',
           capture_output=True, text=True)
       self.assertEqual(child.returncode, 23, child.stderr)
@@ -504,7 +577,7 @@ else:
     with tempfile.TemporaryDirectory() as tmp:
       saved = str(Path(tmp) / 'saved')
       curry.save(M, saved, main='main')
-      child = subprocess.run([sys.executable, saved],
+      child = self.run_child(([saved] if sys.platform == 'win32' else [sys.executable, saved]),
           env=dict(os.environ, CURRYPATH=str(SOURCE),
               SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:off'),
           capture_output=True, text=True)

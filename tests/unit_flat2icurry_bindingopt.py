@@ -426,6 +426,46 @@ class TestRewrite(cytest.TestCase):
     with open(filename, 'rb') as istream:
       return istream.read(), os.stat(filename).st_mtime_ns
 
+  @unittest.skipUnless(sys.platform == 'win32', 'Windows file sharing modes')
+  def test_rewrite_waits_for_reader(self):
+    import concurrent.futures
+    import ctypes
+    from ctypes import wintypes
+    import threading
+    from unittest import mock
+    fcy = self.fresh_flatcurry('sendMoreMoney')
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    create = kernel.CreateFileW
+    create.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                       wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD,
+                       wintypes.HANDLE]
+    create.restype = wintypes.HANDLE
+    close = kernel.CloseHandle
+    close.argtypes = [wintypes.HANDLE]
+    close.restype = wintypes.BOOL
+    # Allow reads and writes, but withhold FILE_SHARE_DELETE.
+    handle = create(fcy, 0x80000000, 3, None, 3, 0, None)
+    self.assertNotEqual(handle, wintypes.HANDLE(-1).value)
+    blocked = threading.Event()
+    replace = os.replace
+    def observed_replace(*args):
+      try:
+        return replace(*args)
+      except PermissionError:
+        blocked.set()
+        raise
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+      with mock.patch.object(fc.os, 'replace', observed_replace):
+        future = pool.submit(f2i.rewrite_file, fcy)
+        try:
+          self.assertTrue(blocked.wait(3), 'rewrite did not encounter the reader')
+          self.assertFalse(future.done())
+        finally:
+          close(handle)
+        self.assertEqual(future.result(timeout=6), (15, 0))
+    self.assertEqual(self.snapshot(fcy)[0].count(b'constrEq'), 15)
+    self.assertEqual(f2i.rewrite_file(fcy), (0, 0))
+
   def test_optimize_file(self):
     '''
     The file is written again when an equality was replaced: the optimized

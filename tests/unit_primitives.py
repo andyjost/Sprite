@@ -363,7 +363,7 @@ print(json.dumps([curry.eval(E.getProgName).one(), curry.eval(E.getArgs).one()])
       M = curry.import_(str(source))
       saved = str(Path(directory) / 'saved')
       curry.save(M, saved, main='main')
-      result = subprocess.run([sys.executable, saved, 'first', 'two words'],
+      result = subprocess.run(([saved] if sys.platform == 'win32' else [sys.executable, saved]) + ['first', 'two words'],
           env=dict(os.environ, SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:new'),
           text=True, capture_output=True)
       self.assertEqual(result.returncode, 0, result.stderr)

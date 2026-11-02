@@ -26,7 +26,7 @@ pass keeps it.
 '''
 from .. import json as icurry_json
 from .. import types
-from .aliases import lookup_function, resolve_alias
+from .aliases import _symbol_module, lookup_function, resolve_alias
 import copy
 
 __all__ = [
@@ -97,19 +97,9 @@ def lookup_constructor(symbolname, modules):
   loaded modules, as lookup_function finds a function.  Returns None when
   the module is not loaded or has no such constructor.
   '''
-  parts = symbolname.split('.')
-  obj = modules
-  i = 0
-  while not isinstance(obj, types.IModule):
-    if i == len(parts):
-      return None
-    try:
-      obj = obj[parts[i]]
-    except (KeyError, TypeError):
-      return None
-    obj = getattr(obj, '.icurry', obj)
-    i += 1
-  name = '.'.join(parts[i:])
+  obj, name = _symbol_module(symbolname, modules)
+  if obj is None:
+    return None
   for itype in obj.types.values():
     for ictor in itype.constructors:
       if ictor.name == name:

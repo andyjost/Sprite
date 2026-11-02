@@ -10,6 +10,7 @@ except ImportError:
   resource = None
 
 import argparse, itertools, os, shutil, sys
+import unittest
 from . import (
     BACKENDS, BACKSTOP, BACKSTOP_FACTOR, DEFAULT_CAP
   , DEFAULT_FAST_SECONDS, DEFAULT_JOBS, DEFAULT_MEM_FRACTION
@@ -284,13 +285,39 @@ def backstop_prefix(cap, setting=None):
     return []
   return ['prlimit', '--as=%d' % limit]
 
+class ImmediateResult(unittest.TextTestResult):
+  '''Expose tracebacks before the next test while retaining unittest totals.'''
+  def startTest(self, test):
+    self._error_start = len(self.errors)
+    self._failure_start = len(self.failures)
+    super().startTest(test)
+
+  def stopTest(self, test):
+    super().stopTest(test)
+    self.printErrorList('ERROR', self.errors[self._error_start:])
+    self.printErrorList('FAIL', self.failures[self._failure_start:])
+    self.stream.flush()
+
+
+def windows_unittest(timeout):
+  if timeout is not None:
+    import faulthandler
+    faulthandler.dump_traceback_later(max(1, timeout - 30))
+  unittest.main(module=None, testRunner=unittest.TextTestRunner(
+      resultclass=ImmediateResult))
+
+
 def test_job(filename, backend, sprite_home, manifest, timeout, logdir, env):
   '''The job of one test file on one backend.'''
   python = sys.executable if sys.platform == 'win32' else os.path.join(sprite_home, 'bin', 'python')
   cap = manifest.cap(filename, backend)
-  argv = backstop_prefix(cap) + [
-      python, '-B', '-m', 'unittest', 'discover', '-v', TESTDIR, filename
-    ]
+  launch = [python, '-B', '-m', 'unittest']
+  if sys.platform == 'win32':
+    launch = [python, '-B', '-c',
+        'from testrunner.cli import windows_unittest; windows_unittest(%r)'
+        % timeout]
+  options = ['discover', '-v', TESTDIR, filename]
+  argv = backstop_prefix(cap) + launch + options
   return Job(
       filename, backend, argv, cap=cap, timeout=timeout
     , logfile=os.path.join(logdir, backend, filename + '.log'), cwd=TESTDIR
@@ -451,7 +478,7 @@ def main(argv=None):
   if sys.platform == 'win32':
     out.write('Windows: no Job Object hard memory cap; optional psutil RSS '
               'watchdog and process names, otherwise memory is unknown; '
-              'timeouts use taskkill /T /F.\n')
+              'cleanup terminates the Job Object, or only the leader without a job.\n')
   if args.list:
     out.write(listing(prepare_jobs + jobs, manifest) + '\n')
     return 0

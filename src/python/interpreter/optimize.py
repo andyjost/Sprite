@@ -56,6 +56,8 @@ DEFAULT_INLINE_BUDGET = 4
 APPLY = analysis.APPLY
 
 def optimize(interp, imodule, optimizers=default_optimizers):
+  from ..backends.cxx.materialize import externalize_primitive_wrappers
+  externalize_primitive_wrappers(imodule)
   with utility.maxrecursion():
     for optstem, optimizer in optimizers:
       optkey = optstem % interp.backend.backend_name

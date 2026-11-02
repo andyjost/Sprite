@@ -119,7 +119,8 @@ logger = logging.getLogger(__name__)
 #      products made with the support module name other arities.
 #   8: hierarchical modules search from their hierarchy root; an import
 #      can resolve to a different module than a sibling of the source.
-ROUTE_VERSION = 8
+#   9: primitive wrappers remain opaque to optimization.
+ROUTE_VERSION = 9
 
 # The options that silence the front end.  They are the ones icurry passes in
 # quiet mode.

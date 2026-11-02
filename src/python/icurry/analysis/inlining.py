@@ -75,7 +75,7 @@ the apply of the runtime.
 '''
 from .. import json as icurry_json
 from .. import types
-from .aliases import lookup_function, resolve_alias
+from .aliases import lookup_function, lookup_module, resolve_alias
 from .partials import APPLY, is_apply, saturate
 from ...utility.trampoline import trampoline
 import copy
@@ -359,20 +359,6 @@ def inline_shape(ifun):
         shape = body_shape(body, ifun.arity)
   ifun._inline_shape = shape
   return shape
-
-def lookup_module(modulename, modules):
-  '''
-  Finds the IModule named ``modulename`` among the loaded modules, as
-  lookup_function finds a function, or None.
-  '''
-  obj = modules
-  for part in modulename.split('.'):
-    try:
-      obj = obj[part]
-    except (KeyError, TypeError):
-      return None
-    obj = getattr(obj, '.icurry', obj)
-  return obj if isinstance(obj, types.IModule) else None
 
 def recursive_functions(imodule):
   '''

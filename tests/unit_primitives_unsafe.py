@@ -7,6 +7,11 @@ import queue
 import subprocess
 import sys
 import threading
+from curry import config, icurry
+from curry.icurry import analysis
+from curry.backends.cxx.materialize import externalize_primitive_wrappers
+from curry.toolchain._loadcurry import loadicurry
+import os
 
 
 PROGRAM = r'''
@@ -153,6 +158,23 @@ moduleFilter = null (readsAnyUnqualifiedTerm ["Prelude"] "Leaf 1")
 
 
 class TestUnsafePrimitives(cytest.TestCase):
+  def test_primitive_wrappers_are_opaque(self):
+    module = loadicurry(os.path.join(config.system_curry_path(),
+        'System', 'IO', 'Unsafe.curry'))
+    self.assertIsNotNone(analysis.inline_shape(module.functions['isVar']))
+    module.functions['isVar'].update_metadata({
+        analysis.INLINE_KEY: icurry.json.dumps(module.functions['isVar'].body)})
+    externalize_primitive_wrappers(module)
+    for name in ('isVar', 'identicalVar', 'isGround', 'showAnyTerm'):
+      with self.subTest(name=name):
+        function = module.functions[name]
+        self.assertIsInstance(function.body, icurry.IExternal)
+        self.assertIsNone(analysis.alias_target_of_body(function))
+        for key in (analysis.INLINE_KEY, analysis.ALIAS_KEY, analysis.UNFOLDING_KEY):
+          self.assertNotIn(key, function.metadata)
+        # A shape may have been inspected before primitive selection.
+        self.assertIsNone(analysis.inline_shape(function))
+
   def check_primitives(self):
     M = curry.compile(PROGRAM)
     self.assertEqual(curry.eval(M.variables).one(), (True, True, False, False, True))

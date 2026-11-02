@@ -91,8 +91,10 @@ Release Notes
 - LLVM JIT batches persist as relocatable ``.jit`` objects beside module
   images, resolve on first use on a warm start and use
   ``SPRITE_JIT_CACHE`` for read-only products. Local stages fill the library
-  cache; wheels omit machine-specific objects. Windows persistence follows
-  separately.
+  cache; wheels omit machine-specific objects.
+- Windows: the LLVM JIT persists per-function native objects and links them
+  on first use in later runs. Readers pin the old cache generation while
+  another process publishes its replacement.
 
 - Module images replace module JSON products. Translation and C++ emission
   read ICurry text; read-only directories and text modules use private images.
