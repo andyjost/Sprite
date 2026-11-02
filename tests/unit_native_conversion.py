@@ -29,6 +29,8 @@ class TestNativeConversion(cytest.TestCase):
     self.assertEqual(repr(actual), repr(expected))
     if isinstance(expected, float) and math.isnan(expected):
       self.assertTrue(math.isnan(actual))
+    elif isinstance(expected, curry.backends.Node):
+      self.assertIs(actual, expected)
     elif isinstance(expected, (list, tuple)):
       self.assertEqual(len(actual), len(expected))
       for a, b in zip(actual, expected):
@@ -37,11 +39,11 @@ class TestNativeConversion(cytest.TestCase):
       self.assertEqual(actual, expected)
 
   def test_ground_corpus(self):
-    values = [0, -1, 2**63 - 1, 2**64, -(2**200),
+    values = [0, -1, 2**63 - 1, 2**64, -(2**200), 10**600, -(10**600),
         0.0, -0.0, 1e308, float('inf'), float('nan'),
         curry.Char('\u03bb'), curry.Char('\U0001f642'), '', 'a\n"b\'c',
         [], [1, 2, -3], [[1], [], [2, 3]], ['', 'hello'], (), True, False]
-    values += [tuple(range(n)) for n in range(2, 8)]
+    values += [tuple(range(n)) for n in range(2, 16)]
     values += [(1, '', ['a', 'b']), [curry.Char('a'), curry.Char('b')]]
     for value in values:
       with self.subTest(value=repr(value)):
@@ -128,6 +130,47 @@ class TestNativeConversion(cytest.TestCase):
       value, zero = value
       self.assertEqual(zero, 0)
     self.assertEqual(value, 1)
+
+  def test_collecting_fallback(self):
+    from curry.backends.cxx import curryrtbindings as rt
+    # Only the enclosing graph retains pending children when the callback runs.
+    node = cytest.raw.expr((cytest.raw.fail, [(i, 'text') for i in range(100)]))
+    reference = conversions.ToPython(native=False)
+    expected = reference(node)
+    convert = conversions.ToPython()
+    def collecting(value, strings, typeexpr):
+      # Allocation and nested conversion are permitted while MPS is clamped.
+      self.assertEqual(conversions.ToPython()(cytest.raw.expr([1, 2])), [1, 2])
+      rt.gc_collect()
+      return reference(value, strings, typeexpr)
+    for _ in range(3):
+      with mock.patch.object(convert, '_python', side_effect=collecting) as fallback:
+        self.same(convert(node), expected)
+        self.assertEqual(fallback.call_count, 1)
+      rt.gc_collect()
+
+  def test_forward_parity(self):
+    fwd, ref = cytest.raw.fwd, cytest.raw.ref
+    forwarded = cytest.raw.expr(fwd(1))
+    cycle = cytest.raw.expr(ref('a'), a=ref('a'))
+    for node, expected in (
+        (forwarded, forwarded),
+        (cytest.raw.expr((forwarded, 2)), (forwarded, 2)),
+        (cytest.raw.expr([forwarded]), [1]),
+        (cytest.raw.expr([fwd(fwd(1))]), [1]),
+        (cytest.raw.expr(cytest.raw.cons(1, fwd([2]))), [1, 2]),
+        (cycle, cycle)):
+      for native in (False, True):
+        with self.subTest(node=repr(node), native=native):
+          self.same(conversions.ToPython(native=native)(node), expected)
+
+  def test_cyclic_list_forward_chain(self):
+    ref = cytest.raw.ref
+    cycle = cytest.raw.expr(ref('a'), a=ref('a'))
+    for node in (cytest.raw.expr([cycle]),
+                 cytest.raw.expr(cytest.raw.cons(1, cycle))):
+      with self.assertRaisesRegex(ValueError, 'cyclic forward chain'):
+        conversions.ToPython()(node)
 
 
 if __name__ == '__main__':

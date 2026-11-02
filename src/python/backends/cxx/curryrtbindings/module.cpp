@@ -3,6 +3,7 @@
 #include "curryrt/bigint.hpp"
 #include "curryrt/currylib/prelude.hpp"
 #include "curryrt/currylib/library.hpp"
+#include "curryrt/graph/memory.hpp"
 #include <algorithm>
 #include <cstring>
 #include "pybind11/pybind11.h"
@@ -22,7 +23,16 @@ namespace
 
   Node * conversion_target(Node * node)
   {
-    while(node->info->tag == T_FWD) node = NodeU{node}.fwd->target;
+    Node * slow = node;
+    bool advance = false;
+    while(node->info->tag == T_FWD)
+    {
+      node = NodeU{node}.fwd->target;
+      if(advance) slow = NodeU{slow}.fwd->target;
+      advance = !advance;
+      if(node == slow)
+        throw py::value_error("cyclic forward chain in list conversion");
+    }
     return node;
   }
 
@@ -33,14 +43,15 @@ namespace
     return cp > MAX_CODE_POINT ? REPLACEMENT_CHAR : cp;
   }
 
-  // No runtime evaluation or graph allocation here. The binding keeps the
-  // heap gate and GIL, and its Node argument roots the graph across callbacks.
+  // Callbacks may allocate and request collection. Keep pending child addresses
+  // stable as well as the rooted input graph while holding the heap gate and GIL.
   // Frames avoid using the C++ call stack for deeply nested normal forms.
   py::object convert_value(Node * node, py::function fallback, py::object char_type,
       py::function list_type, py::function component_types,
       bool strings, py::object type)
   {
     py::gil_scoped_acquire gil;
+    GcClamp clamp;
     struct Frame
     {
       std::vector<Node *> children;
@@ -53,7 +64,6 @@ namespace
     py::object result;
     while(true)
     {
-      node = conversion_target(node);
       auto info = node->info;
       if(is_int(*info))
       {
