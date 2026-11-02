@@ -1,5 +1,7 @@
 import cytest # from ./lib; must be first
 import curry
+from curry.backends.cxx import curryrtbindings as curryrt
+from curry.exceptions import EvaluationError
 import math
 import subprocess
 import sys
@@ -9,6 +11,7 @@ PROGRAM = r'''
 module UnsafePrimitives where
 import System.IO.Unsafe
 import Data.IORef
+import Control.SetFunctions
 
 data Tree = Leaf Int | Fork Tree Tree
 data Operator = Int :*: Int
@@ -62,10 +65,18 @@ counter = unsafePerformIO (do
         return (n+1))
   let y = x + x
   return (y + unsafePerformIO (readIORef r)))
+failedAction :: Int
+failedAction = unsafePerformIO (failed :: IO Int)
+raisingAction :: Int
+raisingAction = unsafePerformIO (error "unsafe action raised" :: IO Int)
 
 suspended :: Int
 suspended = spawnConstraint (x == 7) (if x =:= 7 then x else failed)
   where x free
+unboundSuspension :: Int
+unboundSuspension = spawnConstraint (x == 7) x where x free
+setSuspension :: [Int]
+setSuspension = sortValues (set0 (spawnConstraint (x == 7) x)) where x free
 nestedSuspension :: [Int]
 nestedSuspension = spawnConstraint (x == 7) [if x =:= 7 then x else failed]
   where x free
@@ -111,6 +122,12 @@ unicodeRoundTrip = readAnyUnqualifiedTerm ["Prelude"]
                     (showAnyTerm [chr 228,'1',chr 0,'2'])
 readFloat :: String -> Float
 readFloat = readAnyUnqualifiedTerm ["Prelude"]
+readChar :: String -> [(Char,String)]
+readChar = readsAnyUnqualifiedTerm ["Prelude"]
+readInt :: String -> [(Int,String)]
+readInt = readsAnyUnqualifiedTerm ["Prelude"]
+readWholeInt :: String -> Int
+readWholeInt = readAnyUnqualifiedTerm ["Prelude"]
 roundTripVariables :: Bool
 roundTripVariables = case readsAnyUnqualifiedTerm ["Prelude"] "(_a,_a) tail" of
                        [((x,y),s)] -> identicalVar (x::Int) y && s == " tail"
@@ -155,6 +172,9 @@ class TestUnsafePrimitives(cytest.TestCase):
                                 (-0.0, 0.0, 'EQ')):
       self.assertEqual(curry.show(curry.eval(U.compareAnyTerm(lhs, rhs)).one()), expected)
     self.assertEqual(curry.eval(M.counter).one(), 3)
+    self.assertEqual(list(curry.eval(M.failedAction)), [])
+    with self.assertRaisesRegex(EvaluationError, 'unsafe action raised'):
+      curry.eval(M.raisingAction).one()
     self.assertEqual(curry.eval(M.suspended).one(), 7)
     self.assertEqual(curry.eval(M.nestedSuspension).one(), [7])
     self.assertEqual(list(curry.eval(M.falseConstraint)), [])
@@ -175,6 +195,15 @@ class TestUnsafePrimitives(cytest.TestCase):
     self.assertEqual(curry.eval(M.roundTripList).one(), [1, 2, 3])
     self.assertEqual(curry.eval(M.roundTripString).one(), 'a\n"\\')
     self.assertEqual(curry.eval(M.unicodeRoundTrip).one(), '\u00e41\x002')
+    for text in ("'a '", "'a\t'", "'ab'", "'a", "''", "'\\n '"):
+      self.assertEqual(list(curry.eval(M.readChar(text)).one()), [], repr(text))
+    for text, expected in (("'a' tail", [('a', ' tail')]),
+                           ("' '", [(' ', '')]), ("'\\n'", [('\n', '')])):
+      self.assertEqual(curry.eval(M.readChar(text)).one(), expected)
+    for suffix in ('\x00junk', '\x00', ' \x00junk'):
+      self.assertEqual(curry.eval(M.readInt('1' + suffix)).one(), [(1, suffix)])
+      with self.assertRaisesRegex(EvaluationError, 'unmatched string after term'):
+        curry.eval(M.readWholeInt('1' + suffix)).one()
     self.assertTrue(math.isnan(curry.eval(M.readFloat('NaN')).one()))
     for text, expected in (('Infinity', float('inf')),
                            ('-Infinity', -float('inf')), ('(-1.25e-5)', -1.25e-5)):
@@ -192,6 +221,37 @@ class TestUnsafePrimitives(cytest.TestCase):
   @cytest.with_flags(interpret='all', jit='off')
   def test_interpreted(self):
     self.check_primitives()
+
+  @cytest.hardreset
+  def test_jit_io(self):
+    curry.reset(interpret='new', jit='eager', jit_backend='cxx', inline_budget=0)
+    with self.assertLogs('curry.backends.cxx.tiered', level='INFO') as logs:
+      M = curry.compile(PROGRAM)
+    self.assertTrue(any('jit eager: module' in line for line in logs.output))
+    self.assertFalse(curryrt.icurry_is_interpreted(M.counter.info))
+    self.assertEqual(curry.eval(M.counter).one(), 3)
+    self.assertEqual(list(curry.eval(M.failedAction)), [])
+    with self.assertRaisesRegex(EvaluationError, 'unsafe action raised'):
+      curry.eval(M.raisingAction).one()
+
+  def test_unbound_constraint(self):
+    M = curry.compile(PROGRAM)
+    code = '''import curry, sys
+curry.reset(interpret=sys.argv[2], jit='off')
+M = curry.import_(sys.argv[1])
+try:
+  list(curry.eval(M[sys.argv[3]]))
+except curry.SuspensionError:
+  print('suspended', flush=True)
+else:
+  raise AssertionError('expected suspension')
+'''
+    for mode in ('off', 'all'):
+      for name in ('unboundSuspension', 'setSuspension'):
+        result = subprocess.run([sys.executable, '-c', code, M.__file__, mode, name],
+            text=True, capture_output=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), 'suspended')
 
   def test_divergent_constraint(self):
     # Compile before timing: the timeout measures evaluation alone.

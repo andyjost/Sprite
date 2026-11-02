@@ -178,7 +178,12 @@ namespace
       }
       bool ground = true;
       std::unordered_set<Node *> seen;
+      // Inspecting a free value removes its residual from the active set.
+      // Keep the constraint's demands until both sides have suspended.
+      Residuals constraint_residuals;
+      C->residuals.swap(constraint_residuals);
       tag = inspect_term(rts, C, C->cursor()[1], true, ground, seen);
+      C->residuals.merge(constraint_residuals);
       if(tag != E_RESIDUAL && tag < T_CTOR)
       {
         C->residuals.swap(saved);
@@ -496,7 +501,10 @@ namespace
       }
       else if(take('\''))
       {
-        auto value = character(); need('\''); node = char_(value);
+        auto value = character();
+        if(pos == text.size() || text[pos++] != '\'')
+          throw std::invalid_argument("character closing quote");
+        node = char_(value);
       }
       else if(text.compare(pos, 9, "-Infinity") == 0)
       {
@@ -580,8 +588,16 @@ namespace
     try
     {
       Node * value = reader.term();
-      auto tail = reader.text.substr(reader.pos);
-      return finish(C, cons(pair(value, build_curry_string(tail.c_str())), Nil), false);
+      Node * suffix = Nil;
+      Node ** tail = &suffix;
+      char const * begin = reader.text.data() + reader.pos;
+      char const * end = reader.text.data() + reader.text.size();
+      while(begin != end)
+      {
+        *tail = cons(char_(utf8_decode(begin, end)), Nil);
+        tail = &NodeU{*tail}.cons->tail;
+      }
+      return finish(C, cons(pair(value, suffix), Nil), false);
     }
     catch(std::invalid_argument const &) { return finish(C, Nil, false); }
     catch(std::out_of_range const &) { return finish(C, Nil, false); }
