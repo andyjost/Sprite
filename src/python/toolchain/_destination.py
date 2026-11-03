@@ -42,7 +42,7 @@ def select(filename, products=(), force=False):
   return _filenames.replacesuffix(copy, os.path.splitext(filename)[1])
 
 
-def interfaces(source, currypath):
+def interfaces(source, currypath, dependencies=None):
   """Resolve interface prerequisites, including their interface imports."""
   from . import _interfaces
   from ..utility import curryname
@@ -86,6 +86,8 @@ def interfaces(source, currypath):
         interface = canonical(interface)
         products.append(interface)
         if dependency is not None:
+          if dependencies is not None:
+            dependencies.append(dependency)
           pending.append(dependency)
         elif interface.endswith('.fint'):
           dependency = interface[:-5] + '.icy'

@@ -13,6 +13,11 @@ interfaces of the imports under their hierarchy roots. Then
 
 The command runs at the hierarchy root and names the source relative to
 that root, so a hierarchical source's own directory cannot shadow imports.
+Private translations search private generations newest first and replace
+installed source roots with a temporary interface-only view. Dependencies
+requiring private destinations are elaborated before the requested module;
+the external front end can never rebuild an installed source through that
+view. In-place translations keep the ordinary search path.
 
 Between the two steps the rewrite step of the routes
 (:func:`curry.toolchain.flat2icurry.rewrite_file`) rewrites ``M.fcy`` in
@@ -233,7 +238,7 @@ def written_flatcurry(before, after):
       path for path, stamp in after.items() if before.get(path) != stamp
     )
 
-def command(file_in, currypath, quiet=False):
+def command(file_in, currypath, quiet=False, search=None, library=None):
   '''
   The front-end command line for the Curry file ``file_in``.  The output
   directory is relative, so it is resolved against the hierarchy root of
@@ -258,7 +263,9 @@ def command(file_in, currypath, quiet=False):
   else:
     cmd.extend(WARNING_FLAGS)
   cmd.extend(shlex.split(config.frontend_flags()))
-  for dirname in searchdirs(file_in, currypath):
+  if library is not None:
+    cmd.extend(['-P', library])
+  for dirname in searchdirs(file_in, currypath) if search is None else search:
     cmd.extend(['-i', dirname])
   cmd.append(name[:-len('.curry')])
   return cmd
@@ -274,6 +281,48 @@ def frontend_environment():
   return env
 
 def curry2flat(file_in, currypath, quiet=False, rewrite=True):
+  """Translate privately against private generations and source-free interfaces.
+
+  Installed dependencies with outside prerequisites are elaborated first,
+  following the same destination rule as the requested module. In-place
+  translations retain the ordinary search path.
+  """
+  from . import _destination, _findcurry
+  from ._interfaceview import interface_view
+  from ..backends.cxx import tiered
+  original = _destination.canonical(file_in)
+  selected = _destination.select(original,
+      _destination.interfaces(original, currypath))
+  private = (selected != original or any(
+      selected.startswith(root + os.sep)
+      for root in tiered._state.private))
+  if not private:
+    return _run_frontend(selected, currypath, quiet, rewrite)
+  with interface_view(os.path.join('.curry', config.frontend_subdir())) as library:
+    def search():
+      return list(dict.fromkeys(list(reversed(tiered._state.private)) + [
+          directory for directory in searchdirs(selected, currypath)
+          if not _findcurry._installed_library_file(directory)] + [library]))
+
+    seen = {original, selected}
+    def prepare(source):
+      dependencies = []
+      _destination.interfaces(source, currypath, dependencies)
+      for dependency in dependencies:
+        if dependency in seen:
+          continue
+        seen.add(dependency)
+        prepare(dependency)
+        products = _destination.interfaces(dependency, currypath)
+        if _destination.needs_private(dependency, products):
+          copy = _destination.select(dependency, products)
+          _run_frontend(copy, currypath, quiet, rewrite, search(), library)
+    prepare(original)
+    return _run_frontend(selected, currypath, quiet, rewrite, search(), library)
+
+
+def _run_frontend(file_in, currypath, quiet=False, rewrite=True,
+                  search=None, library=None):
   '''
   Runs the front end on ``file_in``.  Returns the name of the FlatCurry file.
   A failure of the front end raises ``CompileError`` with its messages; the
@@ -288,17 +337,16 @@ def curry2flat(file_in, currypath, quiet=False, rewrite=True):
   be read is reported and left; the module's own file raises.  A caller
   that needs the text of the front end passes ``rewrite=False``.
   '''
-  from . import _destination
-  file_in = _destination.select(file_in,
-      _destination.interfaces(file_in, currypath))
   reason = _preprocessor.missing(file_in)
   if reason:
     raise CompileError(reason)
-  cmd = command(file_in, currypath, quiet)
+  cmd = command(file_in, currypath, quiet, search, library)
   if logger.isEnabledFor(logging.DEBUG):
     logger.debug('Command: %s', ' '.join(cmd))
   moduledir = source_root(file_in)
-  dirs = flatcurry_dirs(file_in, currypath)
+  dirs = (flatcurry_dirs(file_in, currypath) if search is None else
+          [os.path.join(directory, '.curry', config.frontend_subdir())
+           for directory in search])
   before = _flatcurry_stamps(dirs)
   started = time.monotonic()
   stdout, stderr = _system.pexec(

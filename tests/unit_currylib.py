@@ -363,6 +363,14 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     self._explicit_make_replaced_import_is_private(
         '--image', transitive=True, direct_icy=True)
 
+  def test_transitive_rewrite_is_private(self):
+    self._explicit_make_replaced_import_is_private(
+        '--rewrite-flat', transitive=True)
+
+  def test_transitive_import_stale_translation_is_private(self):
+    self._explicit_make_replaced_import_is_private(
+        '--import', transitive=True)
+
   def test_installed_icy_spellings(self):
     for spelling in ('relative', 'symlink'):
       for replaced in (False, True):
@@ -439,6 +447,9 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
       for readonly in (False, True):
         with self.subTest(readonly=readonly):
           try:
+            if route == '--import':
+              for suffix in ('.icy', '.icy.source'):
+                Path(productfile('Data.List', suffix)).unlink()
             if missing_object:
               Path(productfile(module, config.module_object_suffix())).unlink()
             expected_files = snapshot(str(root))
@@ -459,7 +470,22 @@ from pathlib import Path
 from curry.tools import make
 from curry.backends.cxx import tiered, image
 from curry.objects.handle import getHandle
-curry.reset(interpret='off' if %r else 'new', jit='off')
+from curry.toolchain import _frontend
+original_command = _frontend.command
+def checked_command(*args, **kwargs):
+  cmd = original_command(*args, **kwargs)
+  if '-P' in cmd:
+    library = cmd[cmd.index('-P') + 1]
+    paths = [cmd[i + 1] for i, value in enumerate(cmd[:-1]) if value == '-i']
+    private = list(reversed(tiered._state.private))
+    assert paths[:len(private)] == private, paths
+    assert not any(path.startswith(curry.config.installed_path('curry')) for path in paths)
+    assert not any(path.is_file() for path in Path(library).rglob('*.curry'))
+    assert list(Path(library).rglob('*.fint'))
+  return cmd
+_frontend.command = checked_command
+curry.reset(interpret='all' if %r == '--import' else
+            ('off' if %r else 'new'), jit='off')
 argument = %r
 absolute = argument
 spelling = %r
@@ -482,7 +508,11 @@ if %r:
   answer = curry.show(curry.eval(curry.parse('readNat "1"', imports=[module])).one())
   assert answer == '[(2,"")]', answer
 else:
-  make.main('sprite-make', [%r, argument])
+  route = %r
+  if route == '--import':
+    curry.import_('System.Console.GetOpt')
+  else:
+    make.main('sprite-make', [route, argument])
   if spelling != 'absolute':
     actual_path, actual_header = image.ensure(curry._interpreter_, argument, curry.path)
     assert actual_path == expected_path, (actual_path, expected_path)
@@ -492,12 +522,17 @@ if %r:
   products = list(Path(tiered._state.tmpdir).rglob(%r))
   assert products, 'private product missing'
 if %r:
+  if route == '--rewrite-flat':
+    assert list(Path(tiered._state.tmpdir).rglob('List.fcy')), 'private dependency missing'
+  elif route == '--import':
+    assert list(Path(tiered._state.tmpdir).rglob('List.icy')), 'private translation missing'
   module = curry.import_('System.Console.GetOpt')
   path = image._path(curry._interpreter_, getHandle(module).icurry.filename)
   assert not path.startswith(curry.config.installed_path('curry')), path
-""" % (directory, missing_object, argument, spelling, work,
+""" % (directory, route, missing_object, argument, spelling, work,
            missing_object, route, replaced,
-           module.split('.')[-1] + ('.img' if route == '--image' else '.icy'),
+           module.split('.')[-1] + ('.img' if route == '--image' else
+               '.fcy' if route == '--rewrite-flat' else '.icy'),
            transitive)
             child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
             self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
