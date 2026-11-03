@@ -6,7 +6,10 @@ import json
 from pathlib import Path
 import re
 import shutil
+import sys
 import tarfile
+import time
+from urllib.error import URLError
 from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parent
@@ -22,8 +25,17 @@ SOURCES = {
 
 def download(url, path):
   print('Fetching ' + url, flush=True)
-  with urlopen(url, timeout=120) as response, path.open('wb') as dest:
-    shutil.copyfileobj(response, dest)
+  for attempt in range(1, 4):
+    try:
+      with path.open('wb') as dest, urlopen(url, timeout=120) as response:
+        shutil.copyfileobj(response, dest)
+      break
+    except (URLError, TimeoutError, ConnectionError) as error:
+      print('Download attempt %d/3 failed: %s' % (attempt, error),
+          file=sys.stderr, flush=True)
+      if attempt == 3:
+        raise
+      time.sleep(15)
   digest = hashlib.sha256(path.read_bytes()).hexdigest()
   print(digest + '  ' + path.name, flush=True)
   path.with_suffix(path.suffix + '.sha256').write_text(digest + '  ' + path.name + '\n')

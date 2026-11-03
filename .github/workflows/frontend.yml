@@ -53,13 +53,13 @@ jobs:
             image: quay.io/pypa/manylinux_2_28_x86_64
             ghc: '9.8.4'
             version: '3.1.0'
-            experimental: true
+            experimental: false
           - name: aarch64
             runner: ubuntu-24.04-arm
             image: quay.io/pypa/manylinux_2_28_aarch64
             ghc: '9.8.4'
             version: '3.1.0'
-            experimental: true
+            experimental: false
     defaults:
       run:
         shell: bash
@@ -94,11 +94,11 @@ jobs:
           uname -a
           cat /etc/os-release
           python --version
-          dnf install -y gcc gcc-c++ make binutils curl pkgconf-pkg-config \
+          bash frontend/retry.sh dnf install -y gcc gcc-c++ make binutils curl pkgconf-pkg-config \
             patch gmp-devel glibc-devel zlib-devel \
             ncurses-devel ncurses-compat-libs numactl-libs patchelf file xz
           rpm -q glibc glibc-devel gmp gmp-devel
-          python -m pip install --verbose 'setuptools>=68' wheel auditwheel numpy cmake ninja scikit-build-core
+          bash frontend/retry.sh python -m pip install --verbose 'setuptools>=68' wheel auditwheel numpy cmake ninja scikit-build-core
           python -m pip list
           gcc --version
           ldd --version
@@ -131,16 +131,16 @@ jobs:
           curl --fail --location --retry 3 https://get-ghcup.haskell.org \
             --output frontend-work/ghcup-bootstrap.sh
           sha256sum frontend-work/ghcup-bootstrap.sh
-          bash frontend-work/ghcup-bootstrap.sh
+          bash frontend/retry.sh bash frontend-work/ghcup-bootstrap.sh
           export PATH="$GHCUP_INSTALL_BASE_PREFIX/.ghcup/bin:$PATH"
           echo "$GHCUP_INSTALL_BASE_PREFIX/.ghcup/bin" >> "$GITHUB_PATH"
           ghcup --version
-          ghcup --verbose install ghc "$EXPECTED_GHC"
+          bash frontend/retry.sh ghcup --verbose install ghc "$EXPECTED_GHC"
           ghcup set ghc "$EXPECTED_GHC"
-          ghcup --verbose install cabal 3.10.3.0
+          bash frontend/retry.sh ghcup --verbose install cabal 3.10.3.0
           ghcup set cabal 3.10.3.0
           if [ "$(uname -m)" = x86_64 ] || [ "$FRONTEND_VERSION" = 3.1.0 ]; then
-            ghcup --verbose install stack 2.15.7
+            bash frontend/retry.sh ghcup --verbose install stack 2.15.7
             ghcup set stack 2.15.7
             stack --version
           fi
@@ -157,8 +157,8 @@ jobs:
           set -euxo pipefail
           bash frontend/build.sh frontend-work/fetch/source frontend-work/build "$FRONTEND_VERSION" \
             2>&1 | tee frontend-work/logs/build.log
-      # Packaging is independent of the parity outcome. An experimental
-      # wheel is useful even when the compiler differs; it is never released.
+      # Keep packaging evidence even if a later parity gate fails.
+      # Release wheels require a successful run, including parity.
       - name: Bundle the executable and build a platform wheel
         id: wheel
         if: ${{ !cancelled() && steps.compile.outcome == 'success' }}
@@ -255,7 +255,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          # Keep 3.1.0 out of wheels.yml's default frontend-* selection.
+          # The distributions workflow selects the 3.1.0 artifacts by prefix.
           name: ${{ matrix.version == '2.0.0' && 'frontend' || 'curry-frontend' }}-${{ matrix.version }}-${{ matrix.name }}-${{ github.run_attempt }}
           if-no-files-found: warn
           include-hidden-files: true
@@ -303,11 +303,11 @@ jobs:
           - name: macos-arm64
             runner: macos-15
             version: '3.1.0'
-            experimental: true
+            experimental: false
           - name: macos-x86_64
             runner: macos-15-intel
             version: '3.1.0'
-            experimental: true
+            experimental: false
     defaults:
       run:
         shell: bash
@@ -343,12 +343,12 @@ jobs:
           sw_vers
           xcode-select -p
           python --version
-          brew install gmp coreutils make
+          bash frontend/retry.sh brew install gmp coreutils make
           echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
           echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
           brew --prefix gmp
           ls -l "$(brew --prefix gmp)/lib"
-          python -m pip install --verbose 'setuptools>=68' wheel numpy cmake ninja scikit-build-core
+          bash frontend/retry.sh python -m pip install --verbose 'setuptools>=68' wheel numpy cmake ninja scikit-build-core
           python -m pip list
           cc --version
           ld -v
@@ -376,16 +376,16 @@ jobs:
           curl --fail --location --retry 3 https://get-ghcup.haskell.org \
             --output frontend-work/ghcup-bootstrap.sh
           shasum -a 256 frontend-work/ghcup-bootstrap.sh
-          bash frontend-work/ghcup-bootstrap.sh
+          bash frontend/retry.sh bash frontend-work/ghcup-bootstrap.sh
           export PATH="$GHCUP_INSTALL_BASE_PREFIX/.ghcup/bin:$PATH"
           echo "$GHCUP_INSTALL_BASE_PREFIX/.ghcup/bin" >> "$GITHUB_PATH"
           ghcup --version
-          ghcup --verbose install ghc "$GHC_VERSION"
+          bash frontend/retry.sh ghcup --verbose install ghc "$GHC_VERSION"
           ghcup set ghc "$GHC_VERSION"
-          ghcup --verbose install cabal "$CABAL_VERSION"
+          bash frontend/retry.sh ghcup --verbose install cabal "$CABAL_VERSION"
           ghcup set cabal "$CABAL_VERSION"
           if [ "$FRONTEND_VERSION" = 3.1.0 ]; then
-            ghcup --verbose install stack "$STACK_VERSION"
+            bash frontend/retry.sh ghcup --verbose install stack "$STACK_VERSION"
             ghcup set stack "$STACK_VERSION"
             stack --version
           fi
@@ -515,7 +515,7 @@ jobs:
   windows:
     name: build (3.1.0, windows-x86_64)
     runs-on: windows-2025
-    continue-on-error: true
+    continue-on-error: false
     timeout-minutes: 180
     defaults:
       run:
@@ -543,7 +543,7 @@ jobs:
           exec > >(tee frontend-work/logs/runner.log) 2>&1
           uname -a
           python --version
-          python -m pip install --verbose 'setuptools>=68' wheel
+          bash frontend/retry.sh python -m pip install --verbose 'setuptools>=68' wheel
           command -v ghcup && ghcup --version || echo 'ghcup is not on the runner'
       - name: Fetch and inspect source, separately from compilation
         id: fetch
@@ -570,11 +570,11 @@ jobs:
             export PATH="/c/ghcup/bin:$PATH"
           fi
           ghcup --version
-          ghcup install ghc "$GHC_VERSION"
+          bash frontend/retry.sh ghcup install ghc "$GHC_VERSION"
           ghcup set ghc "$GHC_VERSION"
-          ghcup install cabal "$CABAL_VERSION"
+          bash frontend/retry.sh ghcup install cabal "$CABAL_VERSION"
           ghcup set cabal "$CABAL_VERSION"
-          ghcup install stack "$STACK_VERSION"
+          bash frontend/retry.sh ghcup install stack "$STACK_VERSION"
           ghcup set stack "$STACK_VERSION"
           bindir=$(cygpath -u "$(ghcup whereis bindir)")
           export PATH="$bindir:$PATH"
@@ -643,7 +643,7 @@ jobs:
         run: |
           for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
           call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
-          python -m pip install --quiet cmake ninja || exit /b 1
+          python -m pip install --retries 3 --quiet cmake ninja || exit /b 1
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DPython_EXECUTABLE=%pythonLocation%\python.exe -DWITH_PAKCS= -DWITH_ICURRY= -DWITH_CURRY_FRONTEND=%GITHUB_WORKSPACE%\frontend-work\build\curry-frontend.exe > frontend-work\logs\cmake.log 2>&1 || (type frontend-work\logs\cmake.log & exit /b 1)
           cmake --build build --parallel > frontend-work\logs\stage.log 2>&1 || (type frontend-work\logs\stage.log & exit /b 1)
           dir build\stage
