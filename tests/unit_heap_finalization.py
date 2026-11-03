@@ -191,8 +191,12 @@ fib n = if n < 2 then n else fib (n-1) + fib (n-2)
 ''')
       self.child('''
 import sys
-curry.reset(interpret='all', jit='eager', jit_backend='llvm')
+# Attach the images without eagerly compiling a cold Prelude. Only fib
+# needs a persistent object for the resolver in the next child.
+curry.reset(interpret='all', jit='hot', jit_backend='llvm')
+rt.icurry_set_hot_threshold(1000000000)
 M = curry.import_(sys.argv[1])
+llvmjit.compile(M.fib.info, 'FinalizationCache.fib')
 assert rt.icurry_is_jit(M.fib.info)
 ''', str(source))
       self.child('''
