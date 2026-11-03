@@ -355,6 +355,10 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     self.assertTrue(fcyfile.startswith(tmpdir))
     self.assertEqual(snapshot(copy), before)
 
+  def test_explicit_icy_image_replaced_import_is_private(self):
+    self._explicit_make_replaced_import_is_private(
+        '--image', generalized=False, direct_icy=True)
+
   def test_explicit_image_replaced_import_is_private(self):
     self._explicit_make_replaced_import_is_private('--image', generalized=False)
 
@@ -364,7 +368,8 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
   def test_explicit_make_replaced_import_is_private(self):
     self._explicit_make_replaced_import_is_private('--icy')
 
-  def _explicit_make_replaced_import_is_private(self, route, generalized=True):
+  def _explicit_make_replaced_import_is_private(self, route, generalized=True,
+                                                     direct_icy=False):
     # This file runs exclusively: restore every installed byte and mode even
     # when an unfixed builder writes replacement-dependent products there.
     from pathlib import Path
@@ -422,12 +427,13 @@ import curry
 from pathlib import Path
 from curry.tools import make
 from curry.backends.cxx import tiered
-make.main('sprite-make', [%r, 'Numeric'])
+make.main('sprite-make', [%r, %r])
 assert tiered._state.tmpdir is not None, 'no private translation'
 products = list(Path(tiered._state.tmpdir).rglob(%r))
 assert products, 'private translation missing'
 assert all(not str(p).startswith(curry.config.installed_path('curry')) for p in products)
 """ % (str(source.parent.parent), route,
+           productfile('Numeric', '.icy') if direct_icy else 'Numeric',
            'Numeric.img' if route == '--image' else 'Numeric.icy')
             child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
             self.assertEqual(child.returncode, 0, child.stdout + child.stderr)

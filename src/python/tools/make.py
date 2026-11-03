@@ -334,9 +334,20 @@ def report_rewrites(program_name, args, counts):
 def _make_one(program_name, plan, name, args, kwds):
   '''Makes one named module, source file, or ICurry file in this process.'''
   if name.endswith('.icy'):
-    # A committed ICurry file.  The image is written beside it, so the Curry
-    # library can be rebuilt without icurry.
-    _convert_icy(program_name, name, args)
+    from ..toolchain import _makecurry
+    currypath = config.currypath()
+    effective = _findcurry.import_path(plan.interp, currypath)
+    selected = name
+    if _findcurry._installed_library_file(name):
+      selected = _makecurry.translation_source(
+          plan, name, effective if effective is not None else plan.interp.path,
+          all_stages=True)
+    if selected != name:
+      toolchain.makecurry(plan, selected, currypath,
+          **dict(kwds, is_sourcefile=True))
+    else:
+      # Standalone ICurry need not have a Curry source or interfaces.
+      _convert_icy(program_name, name, args)
     return
   kwds = dict(kwds, is_sourcefile=name.endswith('.curry'))
   if args.rewrite_flat:

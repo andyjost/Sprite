@@ -113,6 +113,8 @@ def makecurry(plan, name, currypath=None, **kwds):
       pipeline.currentfile = _findcurry.currentfile(
           plan, name, currypath, **kwds
         )
+      if os.path.isdir(pipeline.currentfile):
+        return pipeline.currentfile
       effective = _findcurry.import_path(plan.interp,
           _findcurry.imports_path(currypath, **kwds)) if plan.interp else None
       selected = translation_source(plan, pipeline.currentfile,
