@@ -5,6 +5,8 @@ Release Notes
 0.9.0a3 (2026-11-01)
 ====================
 
+- Implement the two ``ReadShowTerm`` primitives of CPM ``read-legacy`` for
+  PAKCS prefix serialization and reading FlatCurry data files.
 - Implement ``System.IO`` handles and current Python standard streams,
   enabling ``Debug.Trace.traceIO``, plus primitives for the CPM packages ``directory``
   and ``process``. ``exitWith`` raises catchable ``SystemExit`` in the API.

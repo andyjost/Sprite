@@ -957,6 +957,16 @@ and ``KeyboardInterrupt`` pass through the binding boundary. Terminal checks and
 portable C++ interface and use the Python host, including Windows console and
 pipe readiness. Regular file handles are immediately ready, including at EOF.
 
+``ReadShowTerm`` from CPM ``read-legacy`` uses pure C++ primitives to print
+and read ground data in PAKCS prefix notation. Constructor names are
+unqualified; applications are parenthesized, and lists and tuples use compact
+comma separators. The reader tries the supplied module prefixes in order,
+using only loaded constructor tables, and returns one value with the unparsed
+tail or an empty list on malformed input. Unknown constructors and unloaded
+modules raise evaluation errors. The private printer requires normal form;
+free variables, partial applications, opaque payloads and cycles raise errors.
+These packages remain optional; the primitives do not load their modules.
+
 CPM modules resolve by qualified name just like library modules. A registered
 primitive replaces only an external declaration with matching arity; ordinary
 Curry definitions keep their bodies on every execution route. The named
