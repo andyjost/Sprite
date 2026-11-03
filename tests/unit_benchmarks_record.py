@@ -500,6 +500,46 @@ class TestPerformanceRecord(unittest.TestCase):
         self.assertEqual(samples[0]['aot_inline_budgets'],
             {'Dep': 4 if enabled else None})
 
+  def test_cold_probe_symlink_parent_search_root(self):
+    from benchmarks import aot
+    with tempfile.TemporaryDirectory() as directory:
+      base = os.path.join(directory, 'base')
+      elsewhere = os.path.join(directory, 'elsewhere')
+      os.mkdir(base)
+      os.makedirs(os.path.join(elsewhere, 'child'))
+      os.mkdir(os.path.join(elsewhere, 'products'))
+      try:
+        os.symlink(os.path.join('..', 'elsewhere', 'child'),
+            os.path.join(base, 'bridge'), target_is_directory=True)
+      except (OSError, NotImplementedError):
+        self.skipTest('directory symlinks are not permitted')
+      root = os.path.join(base, 'bridge', '..', 'products')
+      path = os.path.join(root, 'Example.so')
+      for filename in (path, path + '.abi'):
+        with open(filename, 'w') as stream:
+          stream.write('old')
+      settings = suites.Settings(base, warmup=0)
+      item = suites.CommandItem('python', 'cxx', settings)
+      probe = {'Example': dict(path=path, identity=aot.identity(path),
+          stamp_identity=aot.identity(path + '.abi'), budget=4)}
+      mark = aot.measurement_mark(directory) + 1000000000
+      # Exercise absolute and relative search roots without changing cwd.
+      searches = [root]
+      try:
+        searches.append(os.path.join(os.path.relpath(base), 'bridge', '..', 'products'))
+      except ValueError: # The temporary directory may be on another drive.
+        pass
+      for search in searches:
+        with self.subTest(search=search), \
+             mock.patch.object(aot, 'measurement_mark', return_value=mark), \
+             mock.patch.object(item, 'command', return_value=([],
+                 {'CURRYPATH': search, 'SPRITE_CPM_PATH': '0'}, os.getcwd())), \
+             mock.patch.object(item, 'measure', return_value=dict(status='ok')), \
+             mock.patch.object(settings, 'probe', return_value=probe):
+          samples = harness.measure_item(item, 1, False)
+          self.assertEqual(samples[0]['aot_inline_budgets'], {'Example': 4})
+          self.assertFalse(item.aot_probe_warnings)
+
   def test_windows_canonical_key_prefixes(self):
     from benchmarks import aot
     import ntpath

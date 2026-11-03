@@ -72,6 +72,11 @@ def canonical_path(path):
   return path_key(os.path.realpath(path))
 
 
+def absolute_spelling(path):
+  # abspath would collapse a symlink followed by '..' before resolving it.
+  return path if os.path.isabs(path) else os.path.join(os.getcwd(), path)
+
+
 class Snapshot(dict):
   def __init__(self):
     super().__init__()
@@ -82,7 +87,7 @@ class Snapshot(dict):
   def follow(self, path):
     # Include root ancestors and links in link targets, even when directory
     # deduplication later prevents a second walk through an alias.
-    pending = [os.path.abspath(path)]
+    pending = [absolute_spelling(path)]
     while pending:
       current = pending.pop()
       if current in self.followed:
@@ -95,7 +100,7 @@ class Snapshot(dict):
         try:
           target = os.readlink(current)
           self.symlinks[current] = (target, canonical_path(current))
-          pending.append(os.path.abspath(os.path.join(parent, target)))
+          pending.append(absolute_spelling(os.path.join(parent, target)))
         except OSError:
           self.symlinks[current] = (None, None)
 
@@ -119,7 +124,7 @@ def snapshot(directories):
           path = os.path.join(root, filename)
           for candidate in (path, path + '.abi'):
             products.follow(candidate)
-            products.paths[os.path.abspath(candidate)] = canonical_path(candidate)
+            products.paths[absolute_spelling(candidate)] = canonical_path(candidate)
           products[canonical_path(path)] = dict(identity=identity(path),
               stamp_identity=identity(path + '.abi'))
   return products
