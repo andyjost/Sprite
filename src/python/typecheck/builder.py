@@ -249,27 +249,33 @@ class TypeRecord:
   '''
   def __init__(self):
     self._entries = {}
+    self._pending_removals = []
     self._lock = threading.Lock()
+
+  def _purge(self):
+    while self._pending_removals:
+      key, ref = self._pending_removals.pop()
+      entry = self._entries.get(key)
+      if entry is not None and entry[0] is ref:
+        del self._entries[key]
 
   def put(self, node, scheme, typeexpr):
     key = node.id()
-    entries = self._entries
-    def forget(ref, key=key, entries=entries):
-      with self._lock:
-        entry = entries.get(key)
-        if entry is not None and entry[0] is ref:
-          del entries[key]
+    def forget(ref):
+      self._pending_removals.append((key, ref))
     try:
       ref = weakref.ref(node, forget)
     except TypeError:
       return
     with self._lock:
-      entries[key] = (ref, scheme, typeexpr)
+      self._purge()
+      self._entries[key] = (ref, scheme, typeexpr)
 
   def get(self, node):
     '''The pair of the scheme and the type of a recorded node, or None.'''
     key = node.id() # resolve native identity before taking the record lock
     with self._lock:
+      self._purge()
       entry = self._entries.get(key)
     if entry is None or entry[0]() is not node:
       return None
@@ -277,6 +283,7 @@ class TypeRecord:
 
   def __len__(self):
     with self._lock:
+      self._purge()
       return len(self._entries)
 
 def record_of(interp):
@@ -984,7 +991,8 @@ class TypedBuilder:
 class IteratorCursor:
   '''One evaluation's position in a held Python iterator.'''
   _live = {}
-  _live_lock = threading.RLock()
+  _pending_removals = []
+  _live_lock = threading.Lock()
 
   def __init__(self, interp, source, elemtype, where, index=0):
     self.interp, self.source = interp, source
@@ -994,11 +1002,17 @@ class IteratorCursor:
     key = id(self)
     cls = type(self)
     def forget(ref):
-      with cls._live_lock:
-        if cls._live.get(key) is ref:
-          cls._live.pop(key)
+      cls._pending_removals.append((key, ref))
     with self._live_lock:
+      self._purge()
       self._live[key] = weakref.ref(self, forget)
+
+  @classmethod
+  def _purge(cls):
+    while cls._pending_removals:
+      key, ref = cls._pending_removals.pop()
+      if cls._live.get(key) is ref:
+        del cls._live[key]
 
   @classmethod
   def of_node(cls, node):
@@ -1008,6 +1022,7 @@ class IteratorCursor:
     if isinstance(payload, cls):
       return payload
     with cls._live_lock:
+      cls._purge()
       ref = cls._live.get(payload)
     return None if ref is None else ref()
 
