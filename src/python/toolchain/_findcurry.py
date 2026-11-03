@@ -98,7 +98,8 @@ def loaded_source(name, interp=None):
 class LoadedGeneration:
   source_info: object
   texts: dict
-  source: object
+  source: object # real-path identity
+  source_spelling: object # loaded source spelling, for sibling products
   image: object
   imports: tuple
   name: str
@@ -106,8 +107,8 @@ class LoadedGeneration:
   digests: dict
 
   def product_digest(self, kind):
-    stem = os.path.splitext(_filenames.icurryfilename(self.source)
-        if self.source else self.object)[0] if self.source or self.object else None
+    stem = os.path.splitext(_filenames.icurryfilename(self.source_spelling)
+        if self.source_spelling else self.object)[0] if self.source_spelling or self.object else None
     if kind == 'image':
       path = self.image
     elif kind in ('object', 'cpp', 'stamp'):
@@ -185,10 +186,10 @@ def capture_generation(module, interp):
   objectfile = handle.sofilename
   if not raw.filename and not objectfile:
     return
-  sourcefile = _filenames.sourcefilename(raw.filename) if raw.filename else None
+  sourcefile = os.path.abspath(_filenames.sourcefilename(raw.filename)) if raw.filename else None
   source = os.path.realpath(sourcefile) if sourcefile else None
   # Source identity follows symlinks; products belong to the spelling loaded.
-  stem = Path(_filenames.icurryfilename(raw.filename) if sourcefile else objectfile).with_suffix('')
+  stem = Path(_filenames.icurryfilename(sourcefile) if sourcefile else objectfile).with_suffix('')
   texts = {}
   for suffix in ('.fint', '.icurry', '.icy.imports', '.icy.source'):
     path = Path(str(stem) + suffix)
@@ -213,7 +214,7 @@ def capture_generation(module, interp):
   from ..backends.cxx import image
   provenance = getattr(raw, '_attached_image', None)
   if provenance is None and source is not None:
-    candidate = os.path.splitext(objectfile)[0] + '.img' if objectfile else image.filename(source)
+    candidate = os.path.splitext(objectfile)[0] + '.img' if objectfile else image.filename(sourcefile)
     provenance = candidate if os.path.isfile(candidate) else None
   products = [str(stem) + '.icy', str(stem) + '.img', provenance]
   diskobject = objectfile or str(stem) + config.module_object_suffix()
@@ -224,7 +225,7 @@ def capture_generation(module, interp):
       for suffix, data in texts.items())
   imports = tuple((name, loaded_generation(name, interp)) for name in raw.imports)
   raw._loaded_generation = LoadedGeneration(
-      info, texts, source, provenance, imports, raw.fullname, objectfile, digests)
+      info, texts, source, sourcefile, provenance, imports, raw.fullname, objectfile, digests)
 
 
 def module_path(name, search):

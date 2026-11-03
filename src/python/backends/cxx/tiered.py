@@ -248,13 +248,14 @@ def _private_copy(imodule):
   a compile-job directory. Return the private source and dependency search
   directories. Importing a module itself creates no files here.
   '''
-  filename = os.path.abspath(imodule.filename)
+  generation = getattr(imodule, '_loaded_generation', None)
+  filename = os.path.abspath(generation.source_spelling
+      if generation is not None and generation.source_spelling else imodule.filename)
   relpath = imodule.fullname.replace('.', os.sep) + '.curry'
   if filename.endswith(os.sep + relpath):
     root = filename[:-len(relpath) - 1]
   else:
     root, relpath = os.path.split(filename)
-  generation = getattr(imodule, '_loaded_generation', None)
   pending = [generation] if generation is not None else []
   seen = set()
   closure = []
@@ -267,7 +268,7 @@ def _private_copy(imodule):
     seen.add(id(item))
     closure.append(item)
     if item.source:
-      stem = _filenames.icurryfilename(item.source)[:-4]
+      stem = _filenames.icurryfilename(item.source_spelling)[:-4]
       verify_product(item, stem + '.icy')
       if item.source_info is not None and digest(item.source) != item.source_info.digest:
         raise ValueError('the products of module %s changed since it was loaded; reload it' % item.name)
@@ -314,7 +315,7 @@ def _private_copy(imodule):
     if item.source and os.path.isfile(item.source):
       shutil.copy2(item.source, target)
       os.chmod(target, 0o644)
-    stem = _filenames.icurryfilename(item.source)[:-4] if item.source else None
+    stem = _filenames.icurryfilename(item.source_spelling)[:-4] if item.source else None
     output = _filenames.icurryfilename(target)[:-4]
     os.makedirs(os.path.dirname(output), exist_ok=True)
     for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source', '.img',

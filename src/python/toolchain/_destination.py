@@ -98,7 +98,7 @@ def interfaces(source, currypath, dependencies=None):
             continue
           visited.add(id(item))
           products.append(item.image if item.image else
-                          item.object or item.image or item.source)
+                          item.object or item.image or item.source_spelling)
           captured.extend(dep for _, dep in item.imports if dep is not None)
         continue
       interface = None
@@ -141,7 +141,7 @@ def images(interp, names):
     generation = getattr(raw, '_loaded_generation', None)
     if generation is not None:
       products.append(generation.image if generation.image else
-                      generation.object or generation.image or generation.source)
+                      generation.object or generation.image or generation.source_spelling)
     elif raw.filename:
       products.append(image._path(interp, raw.filename))
   return products

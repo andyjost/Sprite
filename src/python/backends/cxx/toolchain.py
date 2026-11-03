@@ -1109,7 +1109,7 @@ class Cpp2So(object):
     if h.sofilename is not None:
       return h.sofilename
     generation = getattr(h.icurry, '_loaded_generation', None)
-    source = generation.source if generation is not None else h.icurry.filename
+    source = generation.source_spelling if generation is not None else h.icurry.filename
     return _filenames.replacesuffix(source, config.module_object_suffix()) if source else None
 
   def _dependencies(self, file_in, currypath=None):

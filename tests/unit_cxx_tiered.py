@@ -177,6 +177,82 @@ tiered.finish()
     self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
     print(child.stdout.strip())
 
+  def test_source_symlink_compiles_and_saves(self):
+    for mode in ('eager', 'hot'):
+      with self.subTest(mode=mode), tempfile.TemporaryDirectory() as work:
+        source = os.path.join(work, 'source')
+        alias = os.path.join(work, 'alias')
+        os.mkdir(source)
+        os.mkdir(alias)
+        real = os.path.join(source, 'FreshAlias.curry')
+        link = os.path.join(alias, 'FreshAlias.curry')
+        with open(real, 'w') as stream:
+          stream.write('module FreshAlias where\nf :: Int -> Int\nf x = x + 1\n')
+        try:
+          os.symlink(real, link)
+        except (OSError, NotImplementedError) as exc:
+          self.skipTest('source-file symlinks unavailable: %s' % exc)
+        with open(os.path.join(alias, 'AliasImporter.curry'), 'w') as stream:
+          stream.write('module AliasImporter where\nimport FreshAlias\n'
+                       'main :: Int\nmain = f 41\n')
+        code = r"""
+import curry, os, subprocess
+from curry.backends.cxx import tiered, curryrtbindings as curryrt, image
+from curry.objects.handle import getHandle
+from curry.toolchain import _findcurry, _filenames
+from curry.interpreter import Interpreter
+root = %r
+os.environ['SPRITE_CACHE_FILE'] = ''
+os.environ['SPRITE_JIT_THRESHOLD'] = '1'
+flags = dict(interpret='all', jit=%r, jit_backend='cxx')
+curry.reset(**flags)
+interp = curry._interpreter_
+alias = os.path.join(root, 'alias', 'FreshAlias.curry')
+real = os.path.join(root, 'source', 'FreshAlias.curry')
+leaf = curry.import_(alias)
+generation = _findcurry.loaded_generation('FreshAlias', interp)
+assert generation.source == os.path.realpath(real)
+assert not os.path.exists(_filenames.icurryfilename(real))
+assert interp.eval(leaf.f(41)).one() == 42
+assert tiered.wait(120, interp=interp)
+assert not curryrt.icurry_is_interpreted(leaf.f.info)
+# A second interpreter owns a separate record for the same real source.
+other = Interpreter(flags=flags)
+second = other.import_(real, is_sourcefile=True)
+second_generation = _findcurry.loaded_generation('FreshAlias', other)
+assert second_generation is not generation
+assert second_generation.source == generation.source
+assert other.eval(second.f(41)).one() == 42
+assert tiered.wait(120, interp=other)
+assert not curryrt.icurry_is_interpreted(leaf.f.info)
+assert not curryrt.icurry_is_interpreted(second.f.info)
+assert generation.source_spelling == alias
+assert second_generation.source_spelling == real
+assert generation.product_digest('.icy') == image.digest(_filenames.icurryfilename(alias))
+module = interp.import_(os.path.join(root, 'alias', 'AliasImporter.curry'), is_sourcefile=True)
+# Inspect the compile job's dependency view, then exercise actual compilation.
+copy, roots = tiered._private_copy(getHandle(module).icurry)
+view = _filenames.icurryfilename(os.path.join(roots[0], 'FreshAlias.curry'))
+for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source'):
+  original = _filenames.icurryfilename(alias)[:-4] + suffix
+  with open(view[:-4] + suffix, 'rb') as stream:
+    with open(original, 'rb') as expected:
+      assert stream.read() == expected.read(), suffix
+assert interp.eval(module.main).one() == 42
+assert tiered.wait(120, interp=interp)
+assert not curryrt.icurry_is_interpreted(module.main.info)
+program = os.path.join(root, 'saved.exe')
+curry.save(module, program, main='main')
+run = subprocess.run([program], capture_output=True, text=True, timeout=120)
+assert run.returncode == 0, run.stdout + run.stderr
+assert run.stdout == '42\n', run.stdout
+assert _findcurry.loaded_generation('FreshAlias', interp) is generation
+assert _findcurry.loaded_generation('FreshAlias', other) is second_generation
+tiered.finish()
+""" % (work, mode)
+        child = cytest.run_in_subprocess(code, timeout=360, address_space=3 << 30)
+        self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
   def test_reordered_path_keeps_loaded_leaf(self):
     with tempfile.TemporaryDirectory() as work:
       for answer in (1, 2):
