@@ -399,6 +399,26 @@ class TestPrivateLaunchers(cytest.TestCase):
       self.assertEqual(args[5:-2], ['--flat', 'Main'])
       self.assertEqual(args[-2:], ['-i', args[4]])
 
+  def test_frontend_cross_drive_output(self):
+    with tempfile.TemporaryDirectory() as work:
+      output = str(Path(work) / 'output')
+      def frontend_call(arguments):
+        library = Path(arguments[arguments.index('-P') + 1])
+        nested = library.joinpath(*Path(output).parts[1:], 'Prelude.fint')
+        self.assertTrue(nested.is_file())
+        self.assertTrue((library / 'Prelude.fint').is_file())
+        return 0
+      for options in (['-o', output], ['--outdir=' + output]):
+        with self.subTest(options=options), \
+             mock.patch.object(config, 'curry_frontend', return_value='frontend'), \
+             mock.patch.object(sys, 'argv', ['sprite-frontend', *options, 'Main']), \
+             mock.patch.object(sys, 'path', list(sys.path)), \
+             mock.patch('os.path.relpath', side_effect=ValueError('different drives')), \
+             mock.patch('subprocess.call', side_effect=frontend_call) as call:
+          with self.assertRaises(SystemExit):
+            runpy.run_path(str(ROOT / 'src/export/bin/sprite-frontend.script'), run_name='__main__')
+          self.assertEqual(call.call_args.args[0][-len(options)-3:-2], [*options, 'Main'])
+
   def test_frontend_library_interfaces(self):
     if config.curry_frontend() is None:
       self.skipTest('Curry front end is absent')

@@ -27,12 +27,18 @@ for index, argument in enumerate(arguments):
   if argument in ('-o', '--outdir') and index + 1 < len(arguments):
     outdir = Path(arguments[index + 1])
     if outdir.is_absolute():
-      outdir = Path(os.path.relpath(outdir))
+      try:
+        outdir = Path(os.path.relpath(outdir))
+      except ValueError:
+        pass
       arguments[index + 1] = str(outdir)
   elif argument.startswith('--outdir='):
     outdir = Path(argument.split('=', 1)[1])
     if outdir.is_absolute():
-      outdir = Path(os.path.relpath(outdir))
+      try:
+        outdir = Path(os.path.relpath(outdir))
+      except ValueError:
+        pass
       arguments[index] = '--outdir=' + str(outdir)
   elif argument in ('--no-outdir', '--no-subdir'):
     outdir = Path('.')
@@ -51,7 +57,7 @@ with tempfile.TemporaryDirectory(prefix='sprite-frontend-') as work:
       product = source.with_suffix(source.suffix + suffix)
       if product.is_file():
         shutil.copyfile(product, str(target) + suffix)
-        nested = library.joinpath(str(outdir).lstrip('/\\'), *parts)
+        nested = library.joinpath(*(outdir.parts[1:] if outdir.anchor else outdir.parts), *parts)
         if nested != target:
           nested.parent.mkdir(parents=True, exist_ok=True)
           shutil.copyfile(product, str(nested) + suffix)

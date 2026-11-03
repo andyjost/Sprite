@@ -13,9 +13,22 @@ def reserved_module_names():
   from ..backends.cxx import curryrtbindings as curryrt
   return curryrt.builtin_module_names()
 
+# Exact private source paths retain the installed origin of loader snapshots.
+_snapshot_origins = {}
+
+def record_snapshot(filename, origin):
+  assert _installed_library_file(origin)
+  _snapshot_origins[os.path.realpath(filename)] = origin
+
 def reject_library_shadow(modulename, filename, interp):
   if interp is None or modulename not in reserved_module_names() \
       or _installed_library_file(filename):
+    return
+  try:
+    origin = _snapshot_origins.get(os.path.realpath(_filenames.curryfilename(filename)))
+  except ValueError:
+    origin = None
+  if origin and modulename == _filenames.module_name(origin):
     return
   libraryfile = config.installed_path(
       'curry', modulename.replace('.', os.sep) + '.curry')

@@ -31,16 +31,29 @@ def loadcurry(plan, name, currypath=None, **kwds):
       and _findcurry._installed_library_file(candidate):
     icyfile = _filenames.icurryfilename(candidate)
     effective = plan.interp.path if imagepath is None else imagepath
-    if (os.path.isfile(icyfile) or os.path.isfile(icyfile + _interfaces.SUFFIX)) \
-        and _curry2icurry.icurry_is_stale(icyfile, effective):
+    with open(candidate, encoding='utf-8') as stream:
+      tokens = list(_filenames._header_tokens(stream.read()))
+    imports = [tokens[i + 1] for i, token in enumerate(tokens[:-1])
+               if token == 'import']
+    outside = any(not _findcurry._installed_library_file(path)
+        for dep in imports
+        for path in list(_findcurry._modulefiles(plan, dep, effective))[:1])
+    directory = os.path.dirname(icyfile)
+    while not os.path.exists(directory):
+      directory = os.path.dirname(directory)
+    writable = os.access(directory, os.W_OK) and bool(os.stat(directory).st_mode & 0o222)
+    if (not os.path.isfile(icyfile) or
+        _curry2icurry.icurry_is_stale(icyfile, effective)) and (outside or not writable):
       # Translation depends on this interpreter's interfaces. Remake the
       # installed source in a private snapshot, including its interfaces.
       from ..backends.cxx import tiered
       raw = icurry_types.IModule(_filenames.module_name(candidate), [], [], [],
                                  filename=candidate)
       copy, _ = tiered._private_copy(raw)
+      _findcurry.record_snapshot(copy, candidate)
       return loadcurry(plan, copy, effective, is_sourcefile=True)
   if plan.interp.flags['interpret'] == 'off' and not os.path.isdir(candidate) \
+      and os.path.isfile(_filenames.icurryfilename(candidate)) \
       and not candidate.endswith(config.module_object_suffix()) \
       and os.path.isfile(_filenames.replacesuffix(
           _filenames.icurryfilename(candidate), config.module_object_suffix())) \

@@ -143,6 +143,37 @@ print('Numeric translated privately and evaluated')
         self.assertIn('translated privately and evaluated', child.stdout)
         self.assertEqual(products(installed('Numeric')), before)
 
+  def test_reserved_importer_snapshot(self):
+    for mode in ('new', 'all', 'off'):
+      with self.subTest(mode=mode), tempfile.TemporaryDirectory() as work:
+        source = Path(work) / 'Data/List.curry'
+        source.parent.mkdir()
+        text = installed('Data.List').read_text()
+        text = text.replace(') where', ', roundEight) where', 1)
+        source.write_text(text + '\nroundEight :: Bool\nroundEight = True\n')
+        before = products(installed('Control.SetFunctions'))
+        code = """
+import curry
+curry.reset(interpret=%r, jit='off')
+curry.path.insert(0, %r)
+s = curry.import_('Control.SetFunctions')
+assert list(curry.eval(s.values2list(s.set0(curry.term(True))))) == [[True]]
+from pathlib import Path
+import shutil
+outside = Path(curry.path[0]) / 'Control/SetFunctions.curry'
+outside.parent.mkdir(exist_ok=True)
+shutil.copyfile(curry.config.installed_path('curry', 'Control/SetFunctions.curry'), outside)
+try:
+  curry.import_(outside)
+except ImportError as error:
+  assert 'runtime implements' in str(error)
+else:
+  raise AssertionError('user copy accepted')
+""" % (mode, work)
+        child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
+        self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+        self.assertEqual(products(installed('Control.SetFunctions')), before)
+
   def test_renamed_library_objects(self):
     for name in ('System.IO', 'Data.Char'):
       with self.subTest(name=name), tempfile.TemporaryDirectory() as work:

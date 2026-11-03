@@ -44,16 +44,26 @@ def import_(interp, name, *, path=None):
   isfile = isfile or name.endswith(('.curry', '.lcurry')) or os.sep in name \
       or bool(os.altsep and os.altsep in name)
   if isfile and not name.endswith('.curry'):
-    modulename = os.path.splitext(os.path.basename(name))[0]
-    if modulename in interp.modules:
-      from .import_ import warn_edited
-      module = interp.modules[modulename]
-      warn_edited(module)
-      return module
     try:
       text = _source_text(name)
     except OSError as error:
       raise exceptions.ModuleLookupError('%s; searched curry.path' % error) from None
+    from ..toolchain import _filenames, _findcurry
+    tokens = iter(_filenames._header_tokens(text))
+    modulename = os.path.splitext(os.path.basename(name))[0]
+    for token in tokens:
+      if token == 'module':
+        modulename = next(tokens, modulename)
+        break
+    _findcurry.reject_library_shadow(modulename, name, interp)
+    if modulename in interp.modules:
+      from .import_ import warn_edited, warn_other_file
+      module = interp.modules[modulename]
+      warn_edited(module)
+      source = getattr(module, '.source_file', None)
+      if source is None or os.path.realpath(source) != os.path.realpath(name):
+        warn_other_file(module, name)
+      return module
     search = [os.path.dirname(os.path.abspath(name))] + list(
         interp.path if path is None else path)
     with interp._using_path(search):

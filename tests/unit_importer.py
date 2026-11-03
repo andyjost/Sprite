@@ -5,6 +5,29 @@ from curry.objects.handle import getHandle
 import pathlib, tempfile, sys
 
 class TestImporter(cytest.TestCase):
+  def test_literate_source_identity(self):
+    import curry
+    with tempfile.TemporaryDirectory() as work:
+      root = pathlib.Path(work)
+      reserved = root / 'Prelude.lcurry'
+      reserved.write_text('> module Prelude where\n')
+      with self.assertRaisesRegex(ModuleLookupError, 'runtime implements'):
+        curry.import_(reserved)
+      reserved.unlink()
+      first = root / 'Different.lcurry'
+      first.write_text('> module LiterateRoundEight where\n> import Prelude\n> answer :: Bool\n> answer = True\n')
+      module = curry.import_(first)
+      self.assertEqual(module.__name__, 'LiterateRoundEight')
+      import warnings
+      with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        self.assertIs(curry.import_(first), module)
+      self.assertEqual(caught, [])
+      other = root / 'Other.lcurry'
+      other.write_text(first.read_text())
+      with self.assertWarnsRegex(Warning, 'other file'):
+        self.assertIs(curry.import_(other), module)
+
   def test_unlink_child_of_module_or_namespace(self):
     for prefix_module in (False, True):
       with self.subTest(prefix_module=prefix_module):

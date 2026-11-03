@@ -33,9 +33,11 @@ through ``System.Environment.getArgs``::
     ./Main -- one two
 
 ``:save`` writes an executable with the loaded module's name in the current
-directory. It carries the compiled objects of its non-library imports, so
-it can be moved and run from another directory without ``CURRYPATH`` or
-the original sources. Library modules still come from the Sprite installation.
+directory. It carries compiled objects for imports that have no usable installed
+object, including replacement library modules and stale library importers.
+Imports with usable installed objects come from the Sprite installation.
+The executable can be moved and run from another directory without
+``CURRYPATH`` or the original sources.
 ``getProgName`` returns the executable's basename, including after a rename.
 Its default main expression is ``main``; ``:save EXPR`` chooses
 another expression. The executable uses the installed Sprite runtime.

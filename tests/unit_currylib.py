@@ -77,6 +77,49 @@ def chmod_tree(root, dirmode, filemode):
 class TestCurryLib(cytest.TestCase):
   '''Tests for the Curry library installed from curry/lib.'''
 
+  def test_missing_installed_translation(self):
+    from pathlib import Path
+    from curry.toolchain import _filenames
+    from unit_reserved_modules import installed, products
+    import re
+    for mode in ('new', 'all', 'off'):
+      for readonly in (False, True):
+        if readonly and os.name == 'nt':
+          continue
+        with self.subTest(mode=mode, readonly=readonly), tempfile.TemporaryDirectory() as work:
+          if not readonly:
+            source = Path(work) / 'Data/Char.curry'
+            source.parent.mkdir()
+            text = installed('Data.Char').read_text().replace(
+                'digitToInt      :: Char -> Int', 'digitToInt      :: Num a => Char -> a')
+            text = re.sub(r"=  (ord c - ord '[0Aa]'(?: \+ 10)?)", r'=  fromInt (\1)', text)
+            source.write_text(text)
+          icy = Path(_filenames.icurryfilename(str(installed('Numeric'))))
+          saved = {p: p.read_bytes() for p in (icy, Path(str(icy) + '.imports'))}
+          permissions = icy.parent.stat().st_mode
+          try:
+            for p in saved:
+              p.unlink()
+            before = products(installed('Numeric'))
+            if readonly:
+              icy.parent.chmod(permissions & ~0o222)
+            code = """
+import curry, os
+from curry.objects.handle import getHandle
+curry.reset(interpret=%r, jit='off')
+curry.path.insert(0, %r)
+m = curry.import_('Numeric')
+assert not os.path.realpath(getHandle(m).icurry.filename).startswith(os.path.realpath(curry.config.installed_path('curry')) + os.sep)
+assert curry.show(curry.eval(m.readNat(curry.term('1'))).one()) == '[(1,"")]'
+""" % (mode, work)
+            child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
+            self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+            self.assertEqual(products(installed('Numeric')), before)
+          finally:
+            icy.parent.chmod(permissions)
+            for p, data in saved.items():
+              p.write_bytes(data)
+
   def library_goal(self, imports, declarations):
     module = curry.compile(imports + '\n' + declarations)
     return list(curry.eval(module['goal']))
