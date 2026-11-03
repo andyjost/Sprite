@@ -153,7 +153,7 @@ reproducers pass.
   emitter share this registry. Standard C++ implements portable operations;
   `curryrt.register_primitive(name, arity, callable, monadic)` bridges to Python
   where no C++ standard exists (arguments and hostname first). Distribution,
-  CPUTime, Environment, IORef and System.IO have their primitives, as do the
+  CPUTime, Environment, IORef, ReadShowTerm and System.IO have their primitives, as do the
   CPM modules System.Directory and System.Process. System.IO.Unsafe also has
   its primitives. The rewrite operations of Control.Search.Unsafe use weak
   native capsules, propagating outside-variable demands instead of rejecting
