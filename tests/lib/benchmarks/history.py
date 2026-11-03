@@ -127,6 +127,10 @@ def point(record):
     result['ratios'] = record['ratios']
   if 'mode' in record.get('meta', {}):
     result['mode'] = record['meta']['mode']
+  for field in ('requested_inline_budget', 'aot_inline_budgets', 'aot_provenance',
+                'aot_adoption_possible', 'aot_probe_warnings'):
+    if field in record.get('meta', {}):
+      result[field] = record['meta'][field]
   return result
 
 

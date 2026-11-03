@@ -74,7 +74,23 @@ variant such as the state of a cache.  The fields, in order:
                  flags and rotation. meta.mode holds resolved flags, backend
                  (selected JIT), execution (aot for interpret:off), and
                  llvmlite (whether the import succeeded). Old records may
-                 omit mode and ratios.
+                 omit mode and ratios. meta.requested_inline_budget is the
+                 resolved request. meta.aot_inline_budgets contains one map
+                 of probe module names to checked object budgets per sample
+                 (null for an unknown budget). Samples also retain the probe's
+                 object and stamp identities, without paths. All repetitions
+                 share one untimed probe, checked after the final repetition.
+                 With no warm-up the probe follows measurement, and products
+                 changed since measurement began have unknown budgets.
+                 meta.aot_provenance is untimed-probe, or fresh-products for
+                 compile items: their temporary products use the requested
+                 budget and have no persistent identity to check; shared
+                 dependencies still use checked receipts.
+                 meta.aot_adoption_possible marks routes that can adopt other
+                 objects during measurement. meta.aot_probe_warnings records
+                 object replacements detected by the final identity check.
+                 The object's ABI input receipt supplies these budgets;
+                 a regenerated image need not describe an older AOT object.
 
 The medians cover the successful measured repetitions only.  A median of an
 even number of values is the mean of the middle two.
