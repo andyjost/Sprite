@@ -642,9 +642,9 @@ class TestModules(cytest.TestCase):
 
   def test_dynamic_module(self):
     '''
-    A module compiled from text finds its interface in its own directory.
-    Without the file, the symbols have no scheme, and the typed path gets
-    the error that names the module and raw_expr.
+    A module compiled from text keeps its generation's interface and typing
+    after source-side interfaces are removed and the signature cache cleared.
+    An object loaded without interfaces still reports the typed-path error.
     '''
     interp = cytest.raw.interp()
     M = compile_without_cache(
@@ -655,7 +655,16 @@ class TestModules(cytest.TestCase):
       )
     tmpd = Handle(M).icurry.metadata['all.tmpd']
     path = interp.sigtable.interface_filename(M)
-    self.assertTrue(path.startswith(tmpd + os.sep), path)
+    from curry.backends.cxx import tiered
+    from pathlib import Path
+    generation = Handle(M).icurry._loaded_generation
+    self.assertTrue(os.path.isfile(path))
+    self.assertEqual(path, generation.interface_stem + '.fint')
+    self.assertTrue(Path(path).is_relative_to(tiered._tmpdir()), path)
+    self.assertFalse(Path(path).is_relative_to(tmpd), path)
+    source_interface = sigtable.find_interface(M.__file__, M.__name__)
+    self.assertIsNotNone(source_interface)
+    self.assertEqual(Path(path).read_bytes(), Path(source_interface).read_bytes())
     self.assertEqual(M.f.signature, 'Int -> Int')
     self.assertEqual(M.g.signature, 'Num a => Maybe a')
     self.assertEqual(M.T.signature, 'a -> Bool -> T a')
@@ -664,16 +673,46 @@ class TestModules(cytest.TestCase):
       if os.path.isfile(candidate):
         os.remove(candidate)
     interp.sigtable.clear()
-    self.assertIsNone(interp.sigtable.interface(M))
-    self.assertIsNone(M.f.signature)
-    self.assertIsNone(M.f.scheme)
-    name = M.__name__
-    with self.assertRaisesRegex(
-        curry.CurryTypeError
-      , r'^no type for %s\.f: no FlatCurry interface found; recompile %s or '
-        r'use raw_expr$' % (name, name)
-      ):
-      interp.sigtable.lookup(M.f, required=True)
+    self.assertIsNotNone(interp.sigtable.interface(M))
+    self.assertEqual(M.f.signature, 'Int -> Int')
+    self.assertIsNotNone(M.f.scheme)
+    code = r'''
+import curry
+import shutil
+import tempfile
+from pathlib import Path
+from curry.backends.cxx import toolchain
+from curry.objects.handle import Handle
+with tempfile.TemporaryDirectory() as work:
+  root = Path(work)
+  source = root / 'X.curry'
+  source.write_text('module X where\nf :: Int -> Int\nf x = x + 1\n')
+  module = curry.import_(source)
+  saved = root / 'saved'
+  saved.mkdir()
+  cpp = Path(curry.inspect.geticurryfile(module)).with_suffix('.cpp')
+  curry._interpreter_.save(module, str(cpp), module_main=False, interfaces=False)
+  obj = toolchain.Cpp2So(curry._interpreter_)(str(cpp), curry.path)
+  product = saved / Path(obj).name
+  shutil.copyfile(obj, product)
+  shutil.copyfile(cpp, saved / cpp.name)
+  curry.reset()
+  module = curry.load(product)
+  assert Handle(module).icurry.filename is None
+  table = curry._interpreter_.sigtable
+  assert table.interface(module) is None
+  assert module.f.signature is None
+  assert module.f.scheme is None
+  try:
+    table.lookup(module.f, required=True)
+  except curry.CurryTypeError as error:
+    assert str(error) == ('no type for X.f: no FlatCurry interface found; '
+                          'recompile X or use raw_expr'), str(error)
+  else:
+    raise AssertionError('required lookup accepted a module without an interface')
+'''
+    child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
+    self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
   def test_reset(self):
     '''Interpreter.reset clears the table.'''
