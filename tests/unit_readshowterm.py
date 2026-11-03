@@ -7,6 +7,11 @@ import time
 from unittest.mock import patch
 import curry
 
+# A 256 KiB calling-thread stack holds at most 8192 measured 32-byte
+# recursive frames.  This depth exceeds that by eight times (four times
+# even with 16-byte frames), independently of the platform's main stack.
+DEEP_DEPTH = 65536
+
 SOURCE = Path('data/curry/readlegacy').resolve()
 
 # PAKCS 3.10.0, read-legacy 3.0.0, LC_ALL=C.UTF-8:
@@ -75,6 +80,16 @@ def primitive(name, *args):
   return curry.inspect.fwd_chain_target(root)
 
 
+def run_deep_case(case):
+  # single_step calls the primitive on this thread, outside evaluation workers.
+  # Bound its stack so a recursive regression fails at a predictable depth.
+  import threading
+  from concurrent.futures import ThreadPoolExecutor
+  threading.stack_size(256 << 10)
+  with ThreadPoolExecutor(max_workers=1) as executor:
+    executor.submit(case).result()
+
+
 def deep_printer_case():
   curry.path.insert(0, str(SOURCE))
   M = curry.import_('ReadLegacy')
@@ -82,18 +97,18 @@ def deep_printer_case():
   leaf = cytest.raw.expr(M.Leaf)
   one = cytest.raw.expr(1)
   value = leaf
-  for _ in range(100000):
+  for _ in range(DEEP_DEPTH):
     value = cytest.raw.expr(M.Branch, one, value, leaf)
   printed = primitive('prim_showTerm', value)
   assert cytest.raw.interp().topython(printed) == (
-      '(Branch 1 ' * 100000 + 'Leaf' + ' Leaf)' * 100000)
+      '(Branch 1 ' * DEEP_DEPTH + 'Leaf' + ' Leaf)' * DEEP_DEPTH)
   print('deep tree build/show %.3f s' % (time.perf_counter() - start), flush=True)
 
 
-def deep_cases():
+def deep_cases(case):
   curry.path.insert(0, str(SOURCE))
   M = curry.import_('ReadLegacy')
-  depth = 100000
+  depth = DEEP_DEPTH
 
   def read(text):
     result = primitive('prim_readsUnqualifiedTerm', ['ReadLegacy', 'Prelude'], text)
@@ -107,41 +122,45 @@ def deep_cases():
   def show(value):
     return cytest.raw.interp().topython(primitive('prim_showTerm', value))
 
-  start = time.perf_counter()
-  value = read('(' * depth + '0' + ')' * depth)
-  assert cytest.raw.interp().topython(value) == 0
-  assert show(value) == '0'
-  print('deep parentheses %.3f s' % (time.perf_counter() - start), flush=True)
-
-  start = time.perf_counter()
-  text = '(Branch 1 ' * depth + 'Leaf' + ' Leaf)' * depth
-  value = read(text)
-  # Compare every field without a recursive host-language conversion/equality.
-  cursor = value
-  for _ in range(depth):
-    assert cursor.info.name == 'Branch'
-    number, cursor, leaf = cursor.successors
-    assert cytest.raw.interp().topython(number) == 1
-    assert leaf.info.name == 'Leaf'
-  assert cursor.info.name == 'Leaf'
-  print('deep tree read/compare %.3f s' % (time.perf_counter() - start), flush=True)
-  start = time.perf_counter()
-  printed = show(value)
-  assert printed == text
-  reread = read(printed)
-  assert show(reread) == text
-  print('deep tree show/read/show %.3f s' % (time.perf_counter() - start), flush=True)
-
-  start = time.perf_counter()
-  value = read('(1:' * depth + '[]' + ')' * depth)
-  cursor = value
-  for _ in range(depth):
-    assert cursor.info.name == ':'
-    head, cursor = cursor.successors
-    assert cytest.raw.interp().topython(head) == 1
-  assert cursor.info.name == '[]'
-  assert show(value) == '[' + ','.join(['1'] * depth) + ']'
-  print('deep cons read/compare/show %.3f s' % (time.perf_counter() - start), flush=True)
+  if case == 'parentheses':
+    start = time.perf_counter()
+    value = read('(' * depth + '0' + ')' * depth)
+    assert cytest.raw.interp().topython(value) == 0
+    assert show(value) == '0'
+    print('deep parentheses %.3f s' % (time.perf_counter() - start), flush=True)
+  if case == 'tree':
+    start = time.perf_counter()
+    text = '(Branch 1 ' * depth + 'Leaf' + ' Leaf)' * depth
+    value = read(text)
+    # Compare every field without a recursive host-language conversion/equality.
+    cursor = value
+    for _ in range(depth):
+      assert cursor.info.name == 'Branch'
+      number, cursor, leaf = cursor.successors
+      assert cytest.raw.interp().topython(number) == 1
+      assert leaf.info.name == 'Leaf'
+    assert cursor.info.name == 'Leaf'
+    print('deep tree read/compare %.3f s' % (time.perf_counter() - start), flush=True)
+  if case == 'roundtrip':
+    start = time.perf_counter()
+    text = '(Branch 1 ' * depth + 'Leaf' + ' Leaf)' * depth
+    value = read(text)
+    printed = show(value)
+    assert printed == text
+    reread = read(printed)
+    assert show(reread) == text
+    print('deep tree show/read/show %.3f s' % (time.perf_counter() - start), flush=True)
+  if case == 'cons':
+    start = time.perf_counter()
+    value = read('(1:' * depth + '[]' + ')' * depth)
+    cursor = value
+    for _ in range(depth):
+      assert cursor.info.name == ':'
+      head, cursor = cursor.successors
+      assert cytest.raw.interp().topython(head) == 1
+    assert cursor.info.name == '[]'
+    assert show(value) == '[' + ','.join(['1'] * depth) + ']'
+    print('deep cons read/compare/show %.3f s' % (time.perf_counter() - start), flush=True)
 
 
 class TestReadShowTerm(cytest.TestCase):
@@ -186,16 +205,20 @@ class TestReadShowTerm(cytest.TestCase):
 
   def test_deep_terms(self):
     self.module()
-    child = cytest.run_in_subprocess(
-        'from unit_readshowterm import deep_cases; deep_cases()', 180,
-        address_space=4 << 30)
-    self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
-    print(child.stdout, end='')
+    for case in ('parentheses', 'tree', 'roundtrip', 'cons'):
+      with self.subTest(case=case):
+        child = cytest.run_in_subprocess(
+            'from unit_readshowterm import deep_cases, run_deep_case; '
+            'run_deep_case(lambda: deep_cases(%r))' % case, 180,
+            address_space=4 << 30)
+        self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+        print(child.stdout, end='')
 
   def test_deep_printer(self):
     self.module()
     child = cytest.run_in_subprocess(
-        'from unit_readshowterm import deep_printer_case; deep_printer_case()',
+        'from unit_readshowterm import deep_printer_case, run_deep_case; '
+        'run_deep_case(deep_printer_case)',
         180, address_space=4 << 30)
     self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
     print(child.stdout, end='')
