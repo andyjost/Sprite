@@ -59,16 +59,56 @@ def identity(path):
     return None
 
 
+def path_key(path, path_module=os.path):
+  if path_module.sep == '\\':
+    if path[:8].lower() == '\\\\?\\unc\\':
+      path = '\\\\' + path[8:]
+    elif path.startswith('\\\\?\\'):
+      path = path[4:]
+  return path_module.normcase(path)
+
+
 def canonical_path(path):
-  return os.path.normcase(os.path.realpath(path))
+  return path_key(os.path.realpath(path))
+
+
+class Snapshot(dict):
+  def __init__(self):
+    super().__init__()
+    self.symlinks = {}
+    self.paths = {}
+    self.followed = set()
+
+  def follow(self, path):
+    # Include root ancestors and links in link targets, even when directory
+    # deduplication later prevents a second walk through an alias.
+    pending = [os.path.abspath(path)]
+    while pending:
+      current = pending.pop()
+      if current in self.followed:
+        continue
+      self.followed.add(current)
+      parent = os.path.dirname(current)
+      if parent != current:
+        pending.append(parent)
+      if os.path.islink(current):
+        try:
+          target = os.readlink(current)
+          self.symlinks[current] = (target, canonical_path(current))
+          pending.append(os.path.abspath(os.path.join(parent, target)))
+        except OSError:
+          self.symlinks[current] = (None, None)
 
 
 def snapshot(directories):
   # A cold command can choose its imports dynamically. Record all candidate
   # objects, without loading modules or running the command before timing.
-  products, visited = {}, set()
+  products, visited = Snapshot(), set()
   for directory in directories:
+    products.follow(directory)
     for root, dirs, files in os.walk(directory, followlinks=True):
+      for name in dirs:
+        products.follow(os.path.join(root, name))
       canonical = canonical_path(root)
       if canonical in visited:
         dirs[:] = []
@@ -77,9 +117,29 @@ def snapshot(directories):
       for filename in files:
         if filename.endswith(('.so', '.dll', '.dylib')):
           path = os.path.join(root, filename)
+          for candidate in (path, path + '.abi'):
+            products.follow(candidate)
+            products.paths[os.path.abspath(candidate)] = canonical_path(candidate)
           products[canonical_path(path)] = dict(identity=identity(path),
               stamp_identity=identity(path + '.abi'))
   return products
+
+
+def binding_changes(before):
+  warnings = []
+  for path, (target, resolved) in getattr(before, 'symlinks', {}).items():
+    try:
+      current = os.readlink(path)
+    except OSError:
+      current = None
+    if current != target or canonical_path(path) != resolved:
+      warnings.append('AOT symlink binding changed: %s (%r -> %r); '
+          'all item budgets unknown' % (path, target, current))
+  for path, resolved in getattr(before, 'paths', {}).items():
+    if canonical_path(path) != resolved:
+      warnings.append('AOT product path binding changed: %s; '
+          'all item budgets unknown' % path)
+  return warnings
 
 
 def mapped_identity(path, generation):
@@ -120,6 +180,8 @@ def write_report(filename):
       if (before != identity(path) or stamp != identity(path + '.abi')
           or not mapped_identity(path, before)):
         budget = None
+      # Preserve the runtime's spelling: it may be lexical or canonical.
+      # The parent checks canonical identities and saved lexical bindings.
       objects[name] = dict(path=path, identity=before,
           stamp_identity=stamp, budget=budget)
   with open(filename, 'w', encoding='ascii') as stream:
@@ -129,7 +191,10 @@ def write_report(filename):
 def checked_budgets(probe, since=None, before=None):
   if probe is None:
     return None, []
-  budgets, warnings = {}, []
+  warnings = binding_changes(before)
+  if warnings:
+    return {name: None for name in probe}, warnings
+  budgets = {}
   for name, obj in probe.items():
     changed = (obj['identity'] is None or
         identity(obj['path']) != obj['identity'] or

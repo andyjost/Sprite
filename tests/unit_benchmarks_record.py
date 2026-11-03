@@ -436,6 +436,111 @@ class TestPerformanceRecord(unittest.TestCase):
           expected = 4 if change == 'unchanged' else None
           self.assertEqual(samples[0]['aot_inline_budgets'], {'Example': expected})
 
+  def test_cold_probe_retargeted_directory_symlink(self):
+    from benchmarks import aot
+    with tempfile.TemporaryDirectory() as directory:
+      for name in ('A', 'B'):
+        os.mkdir(os.path.join(directory, name))
+        path = os.path.join(directory, name, 'Example.so')
+        for filename in (path, path + '.abi'):
+          with open(filename, 'w') as stream:
+            stream.write(name)
+          os.utime(filename, ns=(1, 1))
+      alias = os.path.join(directory, 'active')
+      try:
+        os.symlink('A', alias, target_is_directory=True)
+      except (OSError, NotImplementedError):
+        self.skipTest('directory symlinks are not permitted')
+      for canonical in (False, True):
+        with self.subTest(canonical=canonical):
+          os.unlink(alias)
+          os.symlink('A', alias, target_is_directory=True)
+          settings = suites.Settings(directory, warmup=0)
+          item = suites.CommandItem('python', 'cxx', settings)
+          def probe(*args):
+            os.unlink(alias)
+            os.symlink('B', alias, target_is_directory=True)
+            path = os.path.join(alias, 'Example.so')
+            if canonical:
+              path = os.path.realpath(path)
+            return {'Example': dict(path=path, identity=aot.identity(path),
+                stamp_identity=aot.identity(path + '.abi'), budget=4)}
+          with mock.patch.object(item, 'command', return_value=([], {}, alias)), \
+               mock.patch.object(item, 'measure', return_value=dict(status='ok')), \
+               mock.patch.object(settings, 'probe', side_effect=probe):
+            samples = harness.measure_item(item, 2, False)
+          self.assertEqual(samples[0]['aot_inline_budgets'], {'Example': None})
+          self.assertTrue(any('symlink' in w and 'active' in w
+              for w in item.aot_probe_warnings))
+
+  def test_cold_probe_external_cpm_sources(self):
+    from benchmarks import aot
+    with tempfile.TemporaryDirectory() as directory:
+      project = os.path.join(directory, 'project')
+      external = os.path.join(directory, 'external')
+      os.makedirs(os.path.join(project, '.cpm', 'packages'))
+      os.mkdir(external)
+      with open(os.path.join(project, 'package.json'), 'w') as stream:
+        stream.write('{"name":"fixture","sourceDirs":["../external"]}')
+      path = os.path.join(external, 'Dep.so')
+      with open(path, 'w') as stream:
+        stream.write('old')
+      os.utime(path, ns=(1, 1))
+      for enabled in (True, False):
+        settings = suites.Settings(project, warmup=0)
+        item = suites.CommandItem('python', 'cxx', settings)
+        env = {'SPRITE_CPM_PATH': '1' if enabled else '0'}
+        probe = {'Dep': dict(path=path, identity=aot.identity(path),
+            stamp_identity=None, budget=4)}
+        with self.subTest(enabled=enabled), \
+             mock.patch.object(item, 'command', return_value=([], env, project)), \
+             mock.patch.object(item, 'measure', return_value=dict(status='ok')), \
+             mock.patch.object(settings, 'probe', return_value=probe):
+          samples = harness.measure_item(item, 1, False)
+        self.assertEqual(samples[0]['aot_inline_budgets'],
+            {'Dep': 4 if enabled else None})
+
+  def test_windows_canonical_key_prefixes(self):
+    from benchmarks import aot
+    import ntpath
+    for ordinary, extended in (
+        (r'C:\bench\M.dll', r'\\?\C:\bench\M.dll'),
+        (r'\\server\share\M.dll', r'\\?\UNC\server\share\M.dll')):
+      self.assertEqual(aot.path_key(ordinary, ntpath),
+          aot.path_key(extended, ntpath))
+
+  @unittest.skipUnless(os.name == 'nt', 'Windows realpath prefixes')
+  def test_windows_canonical_realpath_prefix(self):
+    from benchmarks import aot
+    with tempfile.TemporaryDirectory() as directory:
+      path = os.path.join(directory, 'Example.dll')
+      with open(path, 'w') as stream:
+        stream.write('old')
+      self.assertEqual(aot.canonical_path(path),
+          aot.canonical_path('\\\\?\\' + os.path.abspath(path)))
+
+  def test_replacement_with_real_measurement_mark(self):
+    from benchmarks import aot
+    for platform in ('linux', 'win32'):
+      with self.subTest(platform=platform), \
+           tempfile.TemporaryDirectory() as directory, \
+           mock.patch.object(aot.sys, 'platform', platform):
+        path = os.path.join(directory, 'Example.so')
+        with open(path, 'w') as stream:
+          stream.write('old')
+        os.utime(path, ns=(1, 1))
+        before = aot.snapshot([directory])
+        mark = aot.measurement_mark(directory)
+        shutil.copyfile(path, path + '.new')
+        os.utime(path + '.new', ns=(1, 1))
+        os.replace(path + '.new', path)
+        probe = {'Example': dict(path=path, identity=aot.identity(path),
+            stamp_identity=None, budget=4)}
+        timed, _ = aot.checked_budgets(probe, since=mark)
+        self.assertEqual(timed, {'Example': 4 if platform == 'win32' else None})
+        checked, _ = aot.checked_budgets(probe, since=mark, before=before)
+        self.assertEqual(checked, {'Example': None})
+
   def test_compile_probe_real_directory_symlink(self):
     from benchmarks import aot
     with tempfile.TemporaryDirectory() as directory:
