@@ -9,7 +9,10 @@ import curry
 
 # A 256 KiB calling-thread stack holds at most 8192 measured 32-byte
 # recursive frames.  This depth exceeds that by eight times (four times
-# even with 16-byte frames), independently of the platform's main stack.
+# even with 16-byte frames).  The bound holds where the requested size is
+# the thread's whole stack (Linux, macOS); Windows CPython only commits it
+# and keeps the executable's larger reservation, so there the deep cases
+# check the results but not the explicit stacks.
 DEEP_DEPTH = 65536
 
 SOURCE = Path('data/curry/readlegacy').resolve()
@@ -82,7 +85,7 @@ def primitive(name, *args):
 
 def run_deep_case(case):
   # single_step calls the primitive on this thread, outside evaluation workers.
-  # Bound its stack so a recursive regression fails at a predictable depth.
+  # Bound its stack (on POSIX) so a recursive regression fails at a known depth.
   import threading
   from concurrent.futures import ThreadPoolExecutor
   threading.stack_size(256 << 10)
