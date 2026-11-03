@@ -965,6 +965,8 @@ using only loaded constructor tables, and returns one value with the unparsed
 tail or an empty list on malformed input. Unknown constructors and unloaded
 modules raise evaluation errors. The private printer requires normal form;
 free variables, partial applications, opaque payloads and cycles raise errors.
+The reader and printer use explicit stacks for nested data. Strings are
+printed from guard-transparent character values with PAKCS escapes.
 These packages remain optional; the primitives do not load their modules.
 
 CPM modules resolve by qualified name just like library modules. A registered

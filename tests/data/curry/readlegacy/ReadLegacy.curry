@@ -1,6 +1,7 @@
 module ReadLegacy where
 import ReadShowTerm
 import Data.Char (chr)
+import Control.SetFunctions (set1, sortValues)
 
 data Tree = Leaf | Branch Int Tree Tree deriving Eq
 data Record = Record { count :: Int, label :: String } deriving Eq
@@ -79,3 +80,8 @@ charSamples :: [String]
 charSamples = map showTerm (map chr charCodes)
 charRoundTrips :: [String] -> Bool
 charRoundTrips ss = map (readUnqualifiedTerm prefixes) ss == map chr charCodes
+
+setStrings :: [String]
+setStrings = sortValues (set1 id "a\"b\\c\n")
+setTailStrings :: [String]
+setTailStrings = sortValues (set1 tail "xa\"b\\c\n")

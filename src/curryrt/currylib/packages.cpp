@@ -125,81 +125,102 @@ namespace
     std::unordered_set<Node *> path;
     std::string print(Node * raw)
     {
-      auto node = data_node(raw);
-      auto info = node->info;
-      if(!path.insert(node).second)
-        throw std::runtime_error("ReadShowTerm.showTerm: cyclic term");
-      struct Pop
+      // Reverse-order actions append to one buffer and keep ancestry for cycles.
+      struct Work { Node * node; std::string text; bool leave = false; };
+      std::vector<Work> work{{raw, ""}};
+      std::string output;
+      while(!work.empty())
       {
-        std::unordered_set<Node *> & path;
-        Node * node;
-        ~Pop() { path.erase(node); }
-      } pop{path, node};
-      if(info->tag == T_FREE)
-        throw std::runtime_error("ReadShowTerm.showTerm: free variable");
-      if(is_partial(*info))
-        throw std::runtime_error("ReadShowTerm.showTerm: partial application");
-      if(info->tag < T_CTOR)
-        throw std::runtime_error("ReadShowTerm.showTerm: argument is not in normal form");
-      if(is_int(*info) || is_float(*info) || is_char(*info))
-      {
-        if(is_float(*info) && !std::isfinite(NodeU{node}.float_->value))
-          throw std::runtime_error("ReadShowTerm.showTerm: non-finite Float");
-        auto text = node->str();
-        // Prolog's N>=0 includes negative zero.
-        if(is_float(*info) && NodeU{node}.float_->value == 0 && text == "(-0.0)")
-          return "-0.0";
-        return text;
-      }
-      if(info->type == &Unit_Type) return "()";
-      if(info->type == &List_Type)
-      {
-        std::vector<Node *> elements;
-        std::unordered_set<Node *> spine;
-        auto tail = node;
-        bool string = true;
-        while(tail->info->type == &List_Type && tail->info->tag == T_CONS)
+        auto item = std::move(work.back()); work.pop_back();
+        if(item.leave) { path.erase(item.node); continue; }
+        if(!item.node) { output += item.text; continue; }
+        auto node = data_node(item.node);
+        auto info = node->info;
+        if(!path.insert(node).second)
+          throw std::runtime_error("ReadShowTerm.showTerm: cyclic term");
+        work.push_back({node, "", true});
+        if(info->tag == T_FREE)
+          throw std::runtime_error("ReadShowTerm.showTerm: free variable");
+        if(is_partial(*info))
+          throw std::runtime_error("ReadShowTerm.showTerm: partial application");
+        if(info->tag < T_CTOR)
+          throw std::runtime_error("ReadShowTerm.showTerm: argument is not in normal form");
+        if(is_int(*info) || is_float(*info) || is_char(*info))
         {
-          if(!spine.insert(tail).second)
-            throw std::runtime_error("ReadShowTerm.showTerm: cyclic list");
-          auto head = data_node(NodeU{tail}.cons->head);
-          string = string && is_char(*head->info);
-          elements.push_back(head);
-          tail = data_node(NodeU{tail}.cons->tail);
+          if(is_float(*info) && !std::isfinite(NodeU{node}.float_->value))
+            throw std::runtime_error("ReadShowTerm.showTerm: non-finite Float");
+          auto text = node->str();
+          // Prolog's N>=0 includes negative zero.
+          if(is_float(*info) && NodeU{node}.float_->value == 0 && text == "(-0.0)")
+            text = "-0.0";
+          output += text; continue;
         }
-        if(tail->info->type != &List_Type || tail->info->tag != T_NIL)
-          throw std::runtime_error("ReadShowTerm.showTerm: incomplete list");
-        if(elements.empty()) return "[]";
-        if(string) return node->str();
-        std::string text = "[";
-        for(auto element: elements)
+        if(info->type == &Unit_Type) { output += "()"; continue; }
+        if(info->type == &List_Type)
         {
-          if(text.size() > 1) text += ',';
-          text += print(element);
+          std::vector<Node *> elements;
+          std::unordered_set<Node *> spine;
+          auto tail = node;
+          bool string = true;
+          while(tail->info->type == &List_Type && tail->info->tag == T_CONS)
+          {
+            if(!spine.insert(tail).second)
+              throw std::runtime_error("ReadShowTerm.showTerm: cyclic list");
+            auto head = data_node(NodeU{tail}.cons->head);
+            string = string && is_char(*head->info);
+            elements.push_back(head);
+            tail = data_node(NodeU{tail}.cons->tail);
+          }
+          if(tail->info->type != &List_Type || tail->info->tag != T_NIL)
+            throw std::runtime_error("ReadShowTerm.showTerm: incomplete list");
+          if(elements.empty()) { output += "[]"; continue; }
+          if(string)
+          {
+            output += '"';
+            for(auto element: elements)
+            {
+              auto c = NodeU{element}.char_->value;
+              if(c >= 7 && c <= 13) { output += '\\'; output += "abtnvfr"[c-7]; }
+              else if(c == 34 || c == 92) { output += '\\'; output += char(c); }
+              else if(c < 32 || c > 126)
+              {
+                output += '\\';
+                if(c < 10) output += '0';
+                output += std::to_string(c);
+              }
+              else output += char(c);
+            }
+            output += '"'; continue;
+          }
+          output += '[';
+          work.push_back({nullptr, "]"});
+          for(size_t i = elements.size(); i-- > 0;)
+          {
+            work.push_back({elements[i], ""});
+            if(i) work.push_back({nullptr, ","});
+          }
+          continue;
         }
-        return text + ']';
+        std::string name = info->name;
+        // Tables normally store unqualified names.
+        auto dot = name.rfind('.');
+        if(dot != std::string::npos && !name.empty() &&
+            ((name[0] >= 'A' && name[0] <= 'Z') || (name[0] >= 'a' && name[0] <= 'z')))
+          name.erase(0, dot + 1);
+        bool tuple = name.size() >= 3 && name.front() == '(' && name[1] == ',';
+        // PAKCS tests the qualified atom for isId before dropping its module.
+        // Thus even an unqualified operator name is printed without brackets.
+        output += tuple ? "(" : (info->arity ? "(" + name : name);
+        if(info->arity) work.push_back({nullptr, ")"});
+        for(index_type i = info->arity; i-- > 0;)
+        {
+          if(info->format[i] != 'p')
+            throw std::runtime_error("ReadShowTerm.showTerm: opaque constructor " + name);
+          work.push_back({node->successor_node(i), ""});
+          if(!tuple || i) work.push_back({nullptr, tuple ? "," : " "});
+        }
       }
-      std::string name = info->name;
-      // Tables normally store unqualified names.
-      auto dot = name.rfind('.');
-      if(dot != std::string::npos && !name.empty() &&
-          ((name[0] >= 'A' && name[0] <= 'Z') || (name[0] >= 'a' && name[0] <= 'z')))
-        name.erase(0, dot + 1);
-      bool tuple = name.size() >= 3 && name.front() == '(' && name[1] == ',';
-      // PAKCS tests the qualified atom for isId before dropping its module.
-      // Thus even an unqualified operator name is printed without brackets.
-      std::string text = tuple ? "(" : name;
-      if(info->arity && !tuple) text = "(" + text;
-      for(index_type i = 0; i < info->arity; ++i)
-      {
-        if(!tuple) text += ' ';
-        else if(i) text += ',';
-        if(info->format[i] != 'p')
-          throw std::runtime_error("ReadShowTerm.showTerm: opaque constructor " + name);
-        text += print(node->successor_node(i));
-      }
-      if(info->arity) text += ')';
-      return text;
+      return output;
     }
   };
 
@@ -311,109 +332,128 @@ namespace
     }
     Node * term(bool application = true)
     {
-      space();
-      if(pos == input.size()) throw TermParseFailure{};
-      if(take('['))
+      // Frames resume the grammar after a child, without native recursion.
+      enum Kind { List, Paren, Tuple, Cons, App, Operator };
+      struct Frame { Kind kind; std::string name; std::vector<Arg> args; };
+      std::vector<Frame> frames;
+      Node * value = nullptr;
+      for(;;)
       {
-        if(take(']')) return nil();
-        std::vector<Node *> elements;
-        do { elements.push_back(term()); space(); } while(take(','));
-        need(']');
-        Node * list = nil();
-        for(auto i = elements.rbegin(); i != elements.rend(); ++i) list = cons(*i, list);
-        return list;
-      }
-      if(take('\'')) { auto c = character(); need('\''); return char_(c); }
-      if(take('"'))
-      {
-        std::vector<unsigned> chars;
-        while(peek() != '"') chars.push_back(character());
-        need('"');
-        Node * string = nil();
-        for(auto i = chars.rbegin(); i != chars.rend(); ++i) string = cons(char_(*i), string);
-        return string;
-      }
-      if(take('('))
-      {
-        if(take(')')) return unit();
-        // An operator constructor is itself parenthesized inside its application.
-        size_t saved = pos;
-        if(take('(') && opchar(peek()))
+        if(value)
         {
-          std::string name;
-          while(opchar(peek())) name += char(input[pos++]);
-          if(take(')'))
+          if(frames.empty()) return value;
+          auto & frame = frames.back();
+          frame.args.push_back(value);
+          value = nullptr;
+          space();
+          if(frame.kind == Paren)
           {
-            space();
-            std::vector<Arg> args;
-            while(!endargs()) { args.push_back(term(false)); space(); }
-            need(')');
-            return construct(name, args);
+            if(take(',')) { frame.kind = Tuple; application = true; continue; }
+            if(take(':')) { frame.kind = Cons; application = true; continue; }
+            need(')'); value = frame.args.front().node;
           }
-        }
-        pos = saved;
-        auto first = term(); space();
-        if(take(','))
-        {
-          std::vector<Arg> args{first};
-          do { args.push_back(term()); space(); } while(take(','));
-          need(')');
-          auto ctor = package_constructor("Prelude", "(" + std::string(args.size()-1, ',') + ")");
-          if(!ctor) throw std::runtime_error("ReadShowTerm: tuple constructor is not loaded");
-          return Node::create(ctor, args.data());
-        }
-        if(take(':'))
-        {
-          std::vector<Node *> heads{first};
-          Node * tail;
-          for(;;)
+          else if(frame.kind == List || frame.kind == Tuple)
           {
-            tail = term(); space();
-            if(!take(':')) break;
-            heads.push_back(tail);
+            if(take(',')) { application = true; continue; }
+            need(frame.kind == List ? ']' : ')');
+            if(frame.kind == List)
+            {
+              value = nil();
+              for(auto i = frame.args.rbegin(); i != frame.args.rend(); ++i)
+                value = cons(i->node, value);
+            }
+            else
+            {
+              auto ctor = package_constructor("Prelude", "(" + std::string(frame.args.size()-1, ',') + ")");
+              if(!ctor) throw std::runtime_error("ReadShowTerm: tuple constructor is not loaded");
+              value = Node::create(ctor, frame.args.data());
+            }
           }
-          need(')');
-          for(auto i = heads.rbegin(); i != heads.rend(); ++i) tail = cons(*i, tail);
-          return tail;
+          else if(frame.kind == Cons)
+          {
+            if(take(':')) { application = true; continue; }
+            need(')'); value = frame.args.back().node;
+            for(size_t i = frame.args.size()-1; i-- > 0;) value = cons(frame.args[i].node, value);
+          }
+          else
+          {
+            if(!endargs()) { application = false; continue; }
+            if(frame.kind == Operator) need(')');
+            value = construct(frame.name, frame.args);
+          }
+          frames.pop_back();
+          continue;
         }
-        need(')'); return first;
-      }
-      if(digit(peek()) || (peek() == '-' && pos+1 < input.size() && digit(input[pos+1])))
-      {
-        std::string text;
-        if(take('-')) text += '-';
-        while(digit(peek())) text += char(input[pos++]);
-        bool floating = false;
-        if(peek() == '.' && pos+1 < input.size() && digit(input[pos+1]))
+        space();
+        if(pos == input.size()) throw TermParseFailure{};
+        if(take('['))
         {
-          floating = true; text += char(input[pos++]);
+          if(take(']')) { value = nil(); continue; }
+          frames.push_back({List, "", {}}); application = true; continue;
+        }
+        if(take('\'')) { auto c = character(); need('\''); value = char_(c); continue; }
+        if(take('"'))
+        {
+          std::vector<unsigned> chars;
+          while(peek() != '"') chars.push_back(character());
+          need('"'); value = nil();
+          for(auto i = chars.rbegin(); i != chars.rend(); ++i) value = cons(char_(*i), value);
+          continue;
+        }
+        if(take('('))
+        {
+          if(take(')')) { value = unit(); continue; }
+          size_t saved = pos;
+          if(take('(') && opchar(peek()))
+          {
+            std::string name;
+            while(opchar(peek())) name += char(input[pos++]);
+            if(take(')'))
+            {
+              space();
+              if(endargs()) { need(')'); value = construct(name, {}); continue; }
+              frames.push_back({Operator, name, {}}); application = false; continue;
+            }
+          }
+          pos = saved;
+          frames.push_back({Paren, "", {}}); application = true; continue;
+        }
+        if(digit(peek()) || (peek() == '-' && pos+1 < input.size() && digit(input[pos+1])))
+        {
+          std::string text;
+          if(take('-')) text += '-';
           while(digit(peek())) text += char(input[pos++]);
-          if(peek() == 'e' || peek() == 'E')
+          bool floating = false;
+          if(peek() == '.' && pos+1 < input.size() && digit(input[pos+1]))
           {
-            text += char(input[pos++]);
-            if(peek() == '+' || peek() == '-') text += char(input[pos++]);
-            if(!digit(peek())) throw TermParseFailure{};
+            floating = true; text += char(input[pos++]);
             while(digit(peek())) text += char(input[pos++]);
+            if(peek() == 'e' || peek() == 'E')
+            {
+              text += char(input[pos++]);
+              if(peek() == '+' || peek() == '-') text += char(input[pos++]);
+              if(!digit(peek())) throw TermParseFailure{};
+              while(digit(peek())) text += char(input[pos++]);
+            }
           }
+          // numberconst skips ASCII blanks, but leaves other whitespace in the tail.
+          while(take(' ')) {}
+          if(!floating) { value = integer(text.c_str()); continue; }
+          std::istringstream stream(text); stream.imbue(std::locale::classic());
+          double number; stream >> number;
+          if(stream.fail() || !std::isfinite(number)) throw TermParseFailure{};
+          value = float_(number); continue;
         }
-        // numberconst skips ASCII blanks, but leaves other whitespace in the tail.
-        while(take(' ')) {}
-        if(!floating) return integer(text.c_str());
-        std::istringstream stream(text); stream.imbue(std::locale::classic());
-        double value; stream >> value;
-        if(stream.fail() || !std::isfinite(value)) throw TermParseFailure{};
-        return float_(value);
+        bool alpha = letter(peek());
+        if(!alpha && !opchar(peek())) throw TermParseFailure{};
+        std::string name;
+        if(alpha) { while(idchar(peek())) name += char(input[pos++]); }
+        else { while(opchar(peek())) name += char(input[pos++]); }
+        space();
+        if(application && !endargs())
+        { frames.push_back({App, name, {}}); application = false; continue; }
+        value = construct(name, {});
       }
-      bool alpha = letter(peek());
-      if(!alpha && !opchar(peek())) throw TermParseFailure{};
-      std::string name;
-      if(alpha) { while(idchar(peek())) name += char(input[pos++]); }
-      else { while(opchar(peek())) name += char(input[pos++]); }
-      space();
-      std::vector<Arg> args;
-      if(application)
-        while(!endargs()) { args.push_back(term(false)); space(); }
-      return construct(name, args);
     }
   };
 

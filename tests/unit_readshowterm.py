@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import shutil
 import tempfile
+import time
 from unittest.mock import patch
 import curry
 
@@ -65,6 +66,84 @@ CHAR_GOLDENS = [
     "'\\128512'",
 ]
 
+def primitive(name, *args):
+  # Step the private binding directly so normalization cannot remove guards.
+  from curry.backends.generic.eval import evaluator
+  R = curry.import_('ReadShowTerm')
+  root = cytest.raw.expr(R[name], *args)
+  evaluator.single_step(cytest.raw.interp(), root)
+  return curry.inspect.fwd_chain_target(root)
+
+
+def deep_printer_case():
+  curry.path.insert(0, str(SOURCE))
+  M = curry.import_('ReadLegacy')
+  start = time.perf_counter()
+  leaf = cytest.raw.expr(M.Leaf)
+  one = cytest.raw.expr(1)
+  value = leaf
+  for _ in range(100000):
+    value = cytest.raw.expr(M.Branch, one, value, leaf)
+  printed = primitive('prim_showTerm', value)
+  assert cytest.raw.interp().topython(printed) == (
+      '(Branch 1 ' * 100000 + 'Leaf' + ' Leaf)' * 100000)
+  print('deep tree build/show %.3f s' % (time.perf_counter() - start), flush=True)
+
+
+def deep_cases():
+  curry.path.insert(0, str(SOURCE))
+  M = curry.import_('ReadLegacy')
+  depth = 100000
+
+  def read(text):
+    result = primitive('prim_readsUnqualifiedTerm', ['ReadLegacy', 'Prelude'], text)
+    assert result.info.name == ':'
+    pair, end = result.successors
+    assert end.info.name == '[]'
+    value, rest = pair.successors
+    assert rest.info.name == '[]'
+    return value
+
+  def show(value):
+    return cytest.raw.interp().topython(primitive('prim_showTerm', value))
+
+  start = time.perf_counter()
+  value = read('(' * depth + '0' + ')' * depth)
+  assert cytest.raw.interp().topython(value) == 0
+  assert show(value) == '0'
+  print('deep parentheses %.3f s' % (time.perf_counter() - start), flush=True)
+
+  start = time.perf_counter()
+  text = '(Branch 1 ' * depth + 'Leaf' + ' Leaf)' * depth
+  value = read(text)
+  # Compare every field without a recursive host-language conversion/equality.
+  cursor = value
+  for _ in range(depth):
+    assert cursor.info.name == 'Branch'
+    number, cursor, leaf = cursor.successors
+    assert cytest.raw.interp().topython(number) == 1
+    assert leaf.info.name == 'Leaf'
+  assert cursor.info.name == 'Leaf'
+  print('deep tree read/compare %.3f s' % (time.perf_counter() - start), flush=True)
+  start = time.perf_counter()
+  printed = show(value)
+  assert printed == text
+  reread = read(printed)
+  assert show(reread) == text
+  print('deep tree show/read/show %.3f s' % (time.perf_counter() - start), flush=True)
+
+  start = time.perf_counter()
+  value = read('(1:' * depth + '[]' + ')' * depth)
+  cursor = value
+  for _ in range(depth):
+    assert cursor.info.name == ':'
+    head, cursor = cursor.successors
+    assert cytest.raw.interp().topython(head) == 1
+  assert cursor.info.name == '[]'
+  assert show(value) == '[' + ','.join(['1'] * depth) + ']'
+  print('deep cons read/compare/show %.3f s' % (time.perf_counter() - start), flush=True)
+
+
 class TestReadShowTerm(cytest.TestCase):
   def module(self):
     curry.path.insert(0, str(SOURCE))
@@ -104,6 +183,59 @@ class TestReadShowTerm(cytest.TestCase):
     curry.import_('ReadLegacyOther')
     self.assertEqual(curry.eval(M.readTree(['ReadLegacyOther', 'ReadLegacy'], 'Leaf')).one(), [])
     self.assertEqual(len(curry.eval(M.readTree(['ReadLegacy', 'ReadLegacyOther'], 'Leaf')).one()), 1)
+
+  def test_deep_terms(self):
+    self.module()
+    child = cytest.run_in_subprocess(
+        'from unit_readshowterm import deep_cases; deep_cases()', 180,
+        address_space=4 << 30)
+    self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+    print(child.stdout, end='')
+
+  def test_deep_printer(self):
+    self.module()
+    child = cytest.run_in_subprocess(
+        'from unit_readshowterm import deep_printer_case; deep_printer_case()',
+        180, address_space=4 << 30)
+    self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+    print(child.stdout, end='')
+
+  def test_set_function_strings(self):
+    M = self.module()
+    R = curry.import_('ReadShowTerm')
+    for goal in (M.setStrings, M.setTailStrings):
+      result = cytest.raw.values(cytest.raw.expr(goal)).one()
+      # Record whether these Curry-level constructions retain a guard in NF.
+      pending, guards = [result], 0
+      while pending:
+        node = pending.pop()
+        if not isinstance(node, curry.backends.Node):
+          continue
+        guards += node.info.name == '_SetGuard'
+        pending.extend(node.successors)
+      print('set-function string normal-form guards:', guards)
+      self.assertEqual(cytest.raw.interp().topython(result), ['a"b\\c\n'])
+      string = result.successors[0]
+      shown = cytest.raw.values(cytest.raw.expr(R.showTerm, string, typed=True)).one()
+      self.assertEqual(cytest.raw.interp().topython(shown), GOLDENS[12])
+
+  def test_guarded_strings(self):
+    from curry.expressions import _setgrd, cons, nil
+    self.module()
+    chars = [0, 1, 7, 8, 9, 10, 11, 12, 13, 31, 34, 39, 92, 127, 228, 955, 128512]
+    plain = cytest.raw.expr(''.join(map(chr, chars)))
+    expected = cytest.raw.interp().topython(primitive('prim_showTerm', plain))
+    for guarded_heads, guarded_tails in [(True, False), (False, True), (True, True)]:
+      value = cytest.raw.expr(nil)
+      for code in reversed(chars):
+        head = cytest.raw.expr(curry.Char(chr(code)))
+        if guarded_heads:
+          head = cytest.raw.expr(_setgrd(0, head))
+        if guarded_tails:
+          value = cytest.raw.expr(_setgrd(0, value))
+        value = cytest.raw.expr(cons(head, value))
+      actual = primitive('prim_showTerm', value)
+      self.assertEqual(cytest.raw.interp().topython(actual), expected)
 
   def test_flatcurry_file(self):
     # Supply the optional CPM packages directory; the ordinary suite is self-contained.
