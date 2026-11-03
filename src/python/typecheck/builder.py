@@ -249,7 +249,8 @@ class TypeRecord:
   '''
   def __init__(self):
     self._entries = {}
-    self._lock = threading.Lock()
+    # Collection can invoke another forget callback inside this lock.
+    self._lock = threading.RLock()
 
   def put(self, node, scheme, typeexpr):
     key = node.id()

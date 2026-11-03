@@ -51,7 +51,8 @@ class EvaluationTotals(object):
     self._forks = 0
     self._scheduler = None
     self._running_refs = {}
-    self._lock = threading.Lock()
+    # A collection inside a snapshot can forget a running state.
+    self._lock = threading.RLock()
     self._version = 0
 
   @property

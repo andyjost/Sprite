@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 # this process.  Tiered execution leaves such a module interpreted (see
 # backends.cxx.tiered).
 _TEMPORARY_DIRS = set()
-_dirs_lock = threading.Lock()
+# A collection while copying the directory set can run _rmdir.
+_dirs_lock = threading.RLock()
 
 def is_temporary(filename):
   '''Tells whether ``filename`` lies in a directory str2module made.'''
