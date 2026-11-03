@@ -117,8 +117,9 @@ def module_root(fcyfile, modname):
 def local_type_interfaces(filename, prog, searchdirs=()):
   '''Imports for type annotations synthesized by the typed-local rewrites.
 
-  Old files need no annotation inference. Search both front-end interfaces
-  and the versioned copies restored beside cached ICurry products.
+  Old files need no annotation inference. A supplied path preserves the
+  translation's front-end roots and order. Standalone rewrites also search
+  the versioned copies restored beside cached ICurry products.
   '''
   from ... import config
   location = product_path(filename)
@@ -126,6 +127,8 @@ def local_type_interfaces(filename, prog, searchdirs=()):
       or config.frontend_version() != '3.1.0':
     return []
   finder = InterfaceFinder(
-      [module_root(filename, prog.name)] + list(searchdirs) + config.currypath()
-    , [location[1], config.intermediate_subdir()])
+      list(searchdirs) if searchdirs else
+      [module_root(filename, prog.name)] + config.currypath()
+    , [location[1]] if searchdirs else
+      [location[1], config.intermediate_subdir()])
   return [finder.find(name) for name in prog.imports]

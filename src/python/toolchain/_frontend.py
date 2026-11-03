@@ -359,9 +359,10 @@ def _run_frontend(file_in, currypath, quiet=False, rewrite=True,
   if logger.isEnabledFor(logging.DEBUG):
     logger.debug('Command: %s', ' '.join(cmd))
   moduledir = source_root(file_in)
+  roots = searchdirs(file_in, currypath) if search is None else search
   dirs = (flatcurry_dirs(file_in, currypath) if search is None else
           [os.path.join(directory, '.curry', config.frontend_subdir())
-           for directory in search])
+           for directory in roots])
   before = _flatcurry_stamps(dirs)
   started = time.monotonic()
   stdout, stderr = _system.pexec(
@@ -378,13 +379,13 @@ def _run_frontend(file_in, currypath, quiet=False, rewrite=True,
   if not os.path.isfile(fcyfile):
     raise CompileError('the front end did not write %s' % fcyfile)
   if rewrite:
-    optimize_flatcurry(fcyfile, dirs)
+    optimize_flatcurry(fcyfile, roots)
     own = os.path.realpath(fcyfile)
     for written in written_flatcurry(before, _flatcurry_stamps(dirs)):
       if os.path.realpath(written) == own:
         continue
       try:
-        optimize_flatcurry(written, dirs)
+        optimize_flatcurry(written, roots)
       except Exception as err:
         logger.warning(
             'cannot rewrite %s, which the front end wrote for an import of '
@@ -468,5 +469,9 @@ def curry2icurry(file_in, file_out, currypath, quiet=False):
   Converts the Curry file ``file_in`` to the ICurry file ``file_out``: the
   front end, the rewrite step over its FlatCurry files, and the translation.
   '''
-  fcyfile = curry2flat(file_in, currypath, quiet)
-  flat2icy(fcyfile, file_out, searchdirs(file_in, currypath))
+  with protected_translation(file_in, currypath, quiet) as context:
+    selected, search, library = context
+    fcyfile = _run_frontend(selected, currypath, quiet,
+                            search=search, library=library)
+    roots = searchdirs(selected, currypath) if search is None else search
+    flat2icy(fcyfile, file_out, roots)

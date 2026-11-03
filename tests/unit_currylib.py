@@ -355,6 +355,14 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     self.assertTrue(fcyfile.startswith(tmpdir))
     self.assertEqual(snapshot(copy), before)
 
+  def test_builtin_missing_prerequisite_rewrite(self):
+    self._explicit_make_replaced_import_is_private(
+        '--rewrite-flat', transitive=True, missing_frontend=True)
+
+  def test_builtin_missing_prerequisite_import(self):
+    self._explicit_make_replaced_import_is_private(
+        '--import', transitive=True, missing_frontend=True)
+
   def test_user_rewrite_replaced_import_is_private(self):
     self._explicit_make_replaced_import_is_private(
         '--rewrite-flat', transitive=True, user=True)
@@ -533,7 +541,8 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
                                                      missing_object=False,
                                                      transitive=False,
                                                      spelling='absolute',
-                                                     replaced=True, user=False):
+                                                     replaced=True, user=False,
+                                                     missing_frontend=False):
     # This file runs exclusively: restore every installed byte and mode even
     # when an unfixed builder writes replacement-dependent products there.
     from pathlib import Path
@@ -583,9 +592,24 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
       for readonly in (False, True):
         with self.subTest(readonly=readonly):
           try:
-            if route == '--import' and not user:
+            if route == '--import' and not user and not missing_frontend:
               for suffix in ('.icy', '.icy.source'):
                 Path(productfile('Data.List', suffix)).unlink()
+            if missing_frontend:
+              if route == '--import':
+                for suffix in ('.icy', '.icy.source'):
+                  path = Path(productfile(module, suffix))
+                  if path.exists():
+                    path.unlink()
+              for suffix in ('.fint', '.fcy'):
+                paths = [Path(interfacefile('Data.List', suffix)),
+                         root / 'Data/.curry' / config.frontend_subdir() /
+                         ('List' + suffix)]
+                for path in paths:
+                  if path.exists():
+                    path.unlink()
+              self.assertTrue(Path(productfile('Data.List', '.fint')).is_file())
+              self.assertTrue(Path(productfile('Data.List', '.icy')).is_file())
             if missing_object:
               Path(productfile(module, config.module_object_suffix())).unlink()
             expected_files = snapshot(str(root))
@@ -608,18 +632,54 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
 import os
 os.environ['SPRITE_CACHE_FILE'] = ''
 os.environ['CURRYPATH'] = %r
+missing_frontend = %r
+if missing_frontend:
+  os.environ['SPRITE_CURRY2ICURRY'] = 'frontend'
 import curry
 from pathlib import Path
 from curry.tools import make
 from curry.backends.cxx import tiered, image
 from curry.objects.handle import getHandle
 from curry.toolchain import _frontend
+from curry.toolchain import flat2icurry
+original_translate = flat2icurry.translate_file
+read_list = []
+frontend_paths = {}
+from contextlib import contextmanager
+from curry.toolchain import _interfaceview
+original_view = _interfaceview.interface_view
+live_views = set()
+@contextmanager
+def checked_view(outdir):
+  with original_view(outdir) as library:
+    live_views.add(library)
+    try:
+      yield library
+    finally:
+      live_views.remove(library)
+if missing_frontend:
+  _interfaceview.interface_view = checked_view
+def checked_translate(fcyfile, finder, *args, **kwargs):
+  if missing_frontend and fcyfile.endswith(os.path.join('System', 'Console', 'GetOpt.fcy')):
+    path = finder.filename('Data.List')
+    paths, library = frontend_paths[fcyfile]
+    assert finder.searchdirs == paths, (finder.searchdirs, paths)
+    assert library in live_views, 'interface view closed before translation'
+    assert tiered._state.tmpdir and path.startswith(tiered._state.tmpdir + os.sep), path
+    assert Path(path).name == 'List.fint', path
+    assert Path(path).with_suffix('.fcy').is_file(), path
+    assert path in [_frontend.interfacefile(str(p), '.fint')
+                    for p in Path(tiered._state.tmpdir).rglob('List.curry')], path
+    read_list.append(path)
+  return original_translate(fcyfile, finder, *args, **kwargs)
+flat2icurry.translate_file = checked_translate
 original_command = _frontend.command
 def checked_command(*args, **kwargs):
   cmd = original_command(*args, **kwargs)
   if '-P' in cmd:
     library = cmd[cmd.index('-P') + 1]
     paths = [cmd[i + 1] for i, value in enumerate(cmd[:-1]) if value == '-i']
+    frontend_paths[_frontend.flatcurryfile(args[0])] = paths, library
     private = tiered._state.private
     assert all(path in private for path in paths
                if path != library and tiered._state.tmpdir
@@ -684,7 +744,9 @@ if %r:
   module = curry.import_('System.Console.GetOpt')
   path = image._path(curry._interpreter_, getHandle(module).icurry.filename)
   assert not path.startswith(curry.config.installed_path('curry')), path
-""" % (directory, route, missing_object, argument, spelling, work,
+if missing_frontend:
+  assert read_list, 'GetOpt did not read its private List interface'
+""" % (directory, missing_frontend, route, missing_object, argument, spelling, work,
            missing_object, route, user, user, replaced,
            module.split('.')[-1] + ('.img' if route == '--image' else
                '.fcy' if route == '--rewrite-flat' else '.icy'),
