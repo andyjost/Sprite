@@ -26,7 +26,7 @@ import qualified Control.Search.AllValues as A
     root = pathlib.Path(__file__).resolve().parents[1] / 'curry/lib/Control/Search'
     hashes = {
         'SetFunctions': 'af4ef5477442efe5a5dad820a8e6b1446fff36db56bf8d332110e92e7251af33',
-        'Unsafe': 'abefc2ffa46b599e73ed812c9491856d9a2f5a5085b6869832cda4512f75256b',
+        'Unsafe': '3affe3327c380811f3ce18a17f66aa559377404964102f5a1b8c4ba8139743e4',
         'AllValues': '7e8843179c950b6a793c5d33d26cc8513bf60fd5b3313b162ca0efe201989512',
       }
     for name, digest in hashes.items():
@@ -65,7 +65,7 @@ import qualified Control.Search.AllValues as A
         if name != 'printValues':
           self.assertEqual(len(list(curry.eval(expression))), 1)
     for name in ('allValues', 'allValuesDFS', 'oneValue', 'oneValueDFS',
-                 'someValue', 'isFail'):
+                 'someValue', 'isFail', 'rewriteAll', 'rewriteSome'):
       with self.subTest(name=name):
         expression = curry.term(self.unsafe[name](7))
         self.assertTrue(curry.typeof(expression))
@@ -212,13 +212,6 @@ goal = do
   return (a,b,c,d,e)
 '''), [([7,7], [8], self.P.Just(9), self.P.Nothing, [2])])
 
-  def test_rewriting_not_implemented_at_call(self):
-    for name in ('rewriteAll', 'rewriteSome'):
-      symbol = self.unsafe[name]
-      expression = curry.term(symbol(1))
-      self.assertTrue(str(curry.typeof(expression)))
-      with self.assertRaisesRegex(curry.EvaluationError, 'not implemented'):
-        list(curry.eval(expression))
 
 
 class TestNativeCapsuleFinding(cytest.TestCase):

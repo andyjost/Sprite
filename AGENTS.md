@@ -154,8 +154,10 @@ reproducers pass.
   `curryrt.register_primitive(name, arity, callable, monadic)` bridges to Python
   where no C++ standard exists (arguments and hostname first). Distribution,
   CPUTime, Environment, IORef and System.IO have their primitives, as do the
-  CPM modules System.Directory and System.Process. System.IO.Unsafe also has its primitives. Remaining unsupported
-  externals include strong-search operations. IORef fields stay lazy
+  CPM modules System.Directory and System.Process. System.IO.Unsafe also has
+  its primitives. The rewrite operations of Control.Search.Unsafe use weak
+  native capsules, propagating outside-variable demands instead of rejecting
+  them. IORef fields stay lazy
   and writes go through `Variable::set_successor`. See "Primitives"
   in the developer notes for the interface and exception rules.
 - The construction of a term from Python is typed

@@ -101,7 +101,8 @@ SEARCH_WRAPPERS = {
     ('Control.Search.Unsafe', name): kind
     for name, kind in [('allValues', 'list'), ('allValuesDFS', 'list'),
                        ('oneValue', 'maybe'), ('oneValueDFS', 'maybe'),
-                       ('someValue', 'some'), ('isFail', 'fail')]
+                       ('someValue', 'some'), ('isFail', 'fail'),
+                       ('rewriteAll', 'list'), ('rewriteSome', 'maybe')]
   }
 SEARCH_WRAPPERS.update({
     ('Control.Search.AllValues', name): kind
