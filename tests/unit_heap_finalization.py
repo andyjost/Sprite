@@ -29,12 +29,27 @@ def cycle():
   values = [term, state, rts, module]
   values.append(values)
 
+# Own the wrappers on their collecting thread: free-threaded Python can
+# otherwise hand their last decrefs back to the creating thread.
+def cycle_collector():
+  ready = threading.Event()
+  collect = threading.Event()
+  def worker():
+    cycle()
+    ready.set()
+    assert collect.wait(10)
+    gc.collect()
+  thread = threading.Thread(target=lambda: checked(worker))
+  thread.start()
+  assert ready.wait(10)
+  return thread, collect
+
 # Waits use events only; no sleep establishes the lock interleaving.
 def collect_under_jit_lock(action):
-  cycle()
   locked = threading.Event()
   heap = threading.Event()
   def collect():
+    cycle()
     with llvmjit._lock:
       locked.set()
       assert heap.wait(10)
@@ -82,12 +97,11 @@ assert list(curry.eval(curry.term(7))) == [7]
     self.child('''
 roots = rt.gc_num_roots()
 queues = rt.gc_queue_count()
-cycle()
+thread, collect = cycle_collector()
 assert rt.gc_queue_count() == queues + 1
 # A worker must finish collecting while the main thread still owns the heap.
 def transaction():
-  thread = threading.Thread(target=lambda: checked(gc.collect))
-  thread.start()
+  collect.set()
   finish(thread)
   assert native._heap_pending_count() >= 4
 native._metadata_call(transaction)
@@ -96,6 +110,22 @@ assert native._heap_pending_count() >= 4
 assert rt.gc_queue_count() == queues
 assert rt.gc_num_roots() == roots
 assert native._heap_pending_count() == 0
+''')
+
+  def test_finalization_on_heap_owner(self):
+    self.child('''
+roots = rt.gc_num_roots()
+queues = rt.gc_queue_count()
+cycle()
+assert rt.gc_queue_count() == queues + 1
+def transaction():
+  # Finalizers on the heap owner must acquire recursively and clean up now.
+  with llvmjit._lock:
+    gc.collect()
+  assert native._heap_pending_count() == 0
+  assert rt.gc_queue_count() == queues
+  assert rt.gc_num_roots() == roots
+native._metadata_call(transaction)
 ''')
 
   def test_reset_drains_and_discards_stale_removal(self):
@@ -122,10 +152,9 @@ assert '987654321' in str(node)
 
   def test_shutdown_drains_before_late_finalizers(self):
     self.child('''
-cycle()
+thread, collect = cycle_collector()
 def transaction():
-  thread = threading.Thread(target=lambda: checked(gc.collect))
-  thread.start()
+  collect.set()
   finish(thread)
   assert native._heap_pending_count() >= 4
   rt._shutdown_native()
@@ -143,10 +172,9 @@ def after_shutdown():
     os._exit(91)
 atexit.register(after_shutdown)
 atexit.register(rt._shutdown_native)
-cycle()
+thread, collect = cycle_collector()
 def leave_pending():
-  thread = threading.Thread(target=lambda: checked(gc.collect))
-  thread.start()
+  collect.set()
   finish(thread)
   assert native._heap_pending_count() >= 4
 native._metadata_call(leave_pending)
@@ -180,7 +208,6 @@ jit = llvmjit._jit
 batch = jit.compile_batch
 locked = threading.Event()
 heap = threading.Event()
-cycle()
 def collecting_batch(*args, **kwds):
   assert llvmjit._lock.locked()
   locked.set()
@@ -188,6 +215,7 @@ def collecting_batch(*args, **kwds):
   gc.collect()
   return batch(*args, **kwds)
 def compile_hot():
+  cycle()
   info = Hot.hot.info
   llvmjit._compile_groups(jit, [(info, jit.names[rt.icurry_address(info)])], post=True)
 with mock.patch.object(jit, 'compile_batch', side_effect=collecting_batch):
