@@ -355,6 +355,22 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     self.assertTrue(fcyfile.startswith(tmpdir))
     self.assertEqual(snapshot(copy), before)
 
+  def test_missing_object_replaced_import_is_private(self):
+    self._explicit_make_replaced_import_is_private(
+        '--image', generalized=False, missing_object=True)
+
+  def test_transitive_explicit_image_is_private(self):
+    self._explicit_make_replaced_import_is_private(
+        '--image', transitive=True, direct_icy=True)
+
+  def test_installed_icy_spellings(self):
+    for spelling in ('relative', 'symlink'):
+      for replaced in (False, True):
+        with self.subTest(spelling=spelling, replaced=replaced):
+          self._explicit_make_replaced_import_is_private(
+              '--image', generalized=False, direct_icy=True,
+              spelling=spelling, replaced=replaced)
+
   def test_explicit_icy_image_replaced_import_is_private(self):
     self._explicit_make_replaced_import_is_private(
         '--image', generalized=False, direct_icy=True)
@@ -369,7 +385,11 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     self._explicit_make_replaced_import_is_private('--icy')
 
   def _explicit_make_replaced_import_is_private(self, route, generalized=True,
-                                                     direct_icy=False):
+                                                     direct_icy=False,
+                                                     missing_object=False,
+                                                     transitive=False,
+                                                     spelling='absolute',
+                                                     replaced=True):
     # This file runs exclusively: restore every installed byte and mode even
     # when an unfixed builder writes replacement-dependent products there.
     from pathlib import Path
@@ -377,10 +397,9 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     with tempfile.TemporaryDirectory() as work:
       backup = Path(work) / 'backup'
       shutil.copytree(root, backup)
-      before = snapshot(str(root))
-      before_bytes = {p.relative_to(root): p.read_bytes()
-                      for p in root.rglob('*') if p.is_file()}
-      source = Path(work) / 'replacement/Data/Char.curry'
+      module = 'System.Console.GetOpt' if transitive else 'Numeric'
+      dependency = 'Data.Maybe' if transitive else 'Data.Char'
+      source = Path(work) / ('replacement/' + dependency.replace('.', '/') + '.curry')
       source.parent.mkdir(parents=True)
       text = Path(sourcefile('Data.Char')).read_text()
       text = text.replace('digitToInt      :: Char -> Int',
@@ -391,6 +410,9 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
         text = Path(sourcefile('Data.Char')).read_text()
         text = re.sub(r"=  (ord c - ord '[0Aa]'(?: \+ 10)?)", r'=  (\1) + 1', text)
       self.assertNotEqual(text, Path(sourcefile('Data.Char')).read_text())
+      if transitive:
+        text = Path(sourcefile(dependency)).read_text().replace(
+            'listToMaybe (a : _) = Just a', 'listToMaybe (a : _) = Nothing')
       source.write_text(text)
       def restore():
         for entry in [root] + list(root.rglob('*')):
@@ -417,29 +439,71 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
       for readonly in (False, True):
         with self.subTest(readonly=readonly):
           try:
+            if missing_object:
+              Path(productfile(module, config.module_object_suffix())).unlink()
+            expected_files = snapshot(str(root))
+            expected_bytes = {p.relative_to(root): p.read_bytes()
+                              for p in root.rglob('*') if p.is_file()}
             if readonly:
               for entry in [root] + list(root.rglob('*')):
                 entry.chmod(entry.stat().st_mode & ~0o222)
+            argument = productfile(module, '.icy') if direct_icy else module
+            directory = str(source.parent.parent) if replaced else ''
+            if transitive:
+              directory = str(Path(work) / 'replacement')
             code = r"""
 import os
 os.environ['CURRYPATH'] = %r
 import curry
 from pathlib import Path
 from curry.tools import make
-from curry.backends.cxx import tiered
-make.main('sprite-make', [%r, %r])
-assert tiered._state.tmpdir is not None, 'no private translation'
-products = list(Path(tiered._state.tmpdir).rglob(%r))
-assert products, 'private translation missing'
-assert all(not str(p).startswith(curry.config.installed_path('curry')) for p in products)
-""" % (str(source.parent.parent), route,
-           productfile('Numeric', '.icy') if direct_icy else 'Numeric',
-           'Numeric.img' if route == '--image' else 'Numeric.icy')
+from curry.backends.cxx import tiered, image
+from curry.objects.handle import getHandle
+curry.reset(interpret='off' if %r else 'new', jit='off')
+argument = %r
+absolute = argument
+spelling = %r
+if spelling == 'relative':
+  os.chdir(os.path.dirname(argument))
+  argument = os.path.basename(argument)
+elif spelling == 'symlink':
+  link = Path(%r) / 'Numeric.icy'
+  if link.is_symlink():
+    link.unlink()
+  link.symlink_to(argument)
+  argument = str(link)
+if spelling != 'absolute':
+  expected_path, expected_header = image.ensure(curry._interpreter_, absolute, curry.path)
+if %r:
+  module = curry.import_('Numeric')
+  handle = getHandle(module)
+  assert handle.sofilename and not handle.sofilename.startswith(curry.config.installed_path('curry'))
+  assert Path(handle.sofilename).with_suffix('.cpp').is_file()
+  answer = curry.show(curry.eval(curry.parse('readNat "1"', imports=[module])).one())
+  assert answer == '[(2,"")]', answer
+else:
+  make.main('sprite-make', [%r, argument])
+  if spelling != 'absolute':
+    actual_path, actual_header = image.ensure(curry._interpreter_, argument, curry.path)
+    assert actual_path == expected_path, (actual_path, expected_path)
+    assert actual_header == expected_header
+if %r:
+  assert tiered._state.tmpdir is not None, 'no private generation'
+  products = list(Path(tiered._state.tmpdir).rglob(%r))
+  assert products, 'private product missing'
+if %r:
+  module = curry.import_('System.Console.GetOpt')
+  path = image._path(curry._interpreter_, getHandle(module).icurry.filename)
+  assert not path.startswith(curry.config.installed_path('curry')), path
+""" % (directory, missing_object, argument, spelling, work,
+           missing_object, route, replaced,
+           module.split('.')[-1] + ('.img' if route == '--image' else '.icy'),
+           transitive)
             child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
             self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
-            self.assertEqual(snapshot(str(root)), before)
+            self.assertEqual(snapshot(str(root)), expected_files)
             self.assertEqual({p.relative_to(root): p.read_bytes()
-                              for p in root.rglob('*') if p.is_file()}, before_bytes)
+                              for p in root.rglob('*') if p.is_file()}, expected_bytes)
           finally:
             restore()
 

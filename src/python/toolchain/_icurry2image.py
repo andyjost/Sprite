@@ -19,7 +19,11 @@ class ICurry2Image:
         _findcurry.import_path(self.interp,
             _findcurry.imports_path(currypath, **kwds)),
         importing=kwds.get('image_importing', False))
-    return _filenames.ImageProduct(path, file_in)
+    import os
+    selected = _filenames.icurryfilename(path)
+    return _filenames.ImageProduct(path,
+        selected if os.path.isfile(selected) else file_in,
+        original_icyfile=file_in)
 
   def is_stale(self, filename, currypath=None):
     if not filename.endswith('.img'):

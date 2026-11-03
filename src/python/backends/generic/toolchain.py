@@ -13,6 +13,8 @@ class ICurry2TargetSource(object):
 
   @_system.updateCheck
   def __call__(self, file_in, currypath, **ignored):
+    from ...toolchain import _destination
+    file_in = _destination.canonical(file_in)
     icurry = _loadcurry.loadicurry(file_in)
     _findcurry.reject_library_shadow(icurry.fullname, icurry.filename, self.interp)
     # Dependencies are real imports. Only the bootstrap module stays in a
@@ -20,6 +22,11 @@ class ICurry2TargetSource(object):
     imports = _findcurry.imports_path(currypath, **ignored)
     self.interp.import_(icurry.imports,
         currypath=_findcurry.import_path(self.interp, imports))
+    selected = _destination.select(file_in,
+        _destination.images(self.interp, icurry.imports))
+    if selected != file_in:
+      file_in = selected
+      icurry = _loadcurry.loadicurry(file_in)
     with self.interp._private_modules():
       return self._generate(file_in, currypath, icurry, **ignored)
 
@@ -37,6 +44,12 @@ class ICurry2TargetSource(object):
       toolchain.validatemodule(icurry)
       image.optimize(self.interp, icurry,
           _findcurry.imports_path(currypath, **ignored))
+    from ...toolchain import _destination
+    selected = _destination.select(file_in,
+        _destination.images(self.interp, icurry.imports))
+    if selected != file_in:
+      file_in = selected
+      icurry.filename = _filenames.sourcefilename(selected)
     with binding.binding(self.interp.modules, icurry.fullname, binding.del_):
       # The imports of a program given as a file are searched on the path
       # of the step, which names its directory first; those of a module

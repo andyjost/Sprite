@@ -334,20 +334,8 @@ def report_rewrites(program_name, args, counts):
 def _make_one(program_name, plan, name, args, kwds):
   '''Makes one named module, source file, or ICurry file in this process.'''
   if name.endswith('.icy'):
-    from ..toolchain import _makecurry
-    currypath = config.currypath()
-    effective = _findcurry.import_path(plan.interp, currypath)
-    selected = name
-    if _findcurry._installed_library_file(name):
-      selected = _makecurry.translation_source(
-          plan, name, effective if effective is not None else plan.interp.path,
-          all_stages=True)
-    if selected != name:
-      toolchain.makecurry(plan, selected, currypath,
-          **dict(kwds, is_sourcefile=True))
-    else:
-      # Standalone ICurry need not have a Curry source or interfaces.
-      _convert_icy(program_name, name, args)
+    # Standalone ICurry need not have a Curry source or interfaces.
+    _convert_icy(program_name, name, args)
     return
   kwds = dict(kwds, is_sourcefile=name.endswith('.curry'))
   if args.rewrite_flat:
@@ -369,14 +357,9 @@ def _rewrite_flat(plan, name, kwds):
     raise exceptions.CompileError(
         '--rewrite-flat needs the Curry source of %s.' % name
       )
-  from ..toolchain import _makecurry
-  effective = _findcurry.import_path(plan.interp,
-      _findcurry.imports_path(currypath, **kwds)) if plan.interp else currypath
-  curryfile = _makecurry.translation_source(
-      plan, curryfile, effective if effective is not None else plan.interp.path,
-      all_stages=True)
-  toolchain.curry2icurry(curryfile, currypath, **dict(kwds, use_cache=False))
-  return curryfile
+  icyfile = toolchain.curry2icurry(
+      curryfile, currypath, **dict(kwds, use_cache=False))
+  return _filenames.curryfilename(icyfile)
 
 def _convert_icy(program_name, name, args):
   '''
@@ -385,13 +368,19 @@ def _convert_icy(program_name, name, args):
   '''
   from .. import _interpreter_
   from ..backends.cxx import image
+  from ..toolchain import _destination
+  name = _destination.canonical(name)
   if args.icy and not (args.image or args.cxx):
     product = name
   else:
     product, _ = image.ensure(_interpreter_, name, config.currypath())
   if args.cxx:
     from ..backends.cxx.toolchain import ICurry2Cpp, Cpp2So
-    product = ICurry2Cpp(_interpreter_)(product, config.currypath())
+    product = ICurry2Cpp(_interpreter_)(
+        _filenames.ImageProduct(product,
+            _filenames.icurryfilename(product)
+            if os.path.isfile(_filenames.icurryfilename(product)) else name),
+        config.currypath())
     if args.so:
       product = Cpp2So(_interpreter_)(product, config.currypath())
   if args.output and os.path.abspath(args.output) != os.path.abspath(product):

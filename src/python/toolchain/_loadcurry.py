@@ -28,22 +28,6 @@ def loadcurry(plan, name, currypath=None, **kwds):
       _findcurry.program_path(name, search, **kwds), **kwds))
   candidate = _findcurry.currentfile(plan, name, currypath, **kwds)
   effective = plan.interp.path if imagepath is None else imagepath
-  selected = _makecurry.translation_source(plan, candidate, effective)
-  if selected != candidate:
-    return loadcurry(plan, selected, effective, is_sourcefile=True)
-  if plan.interp.flags['interpret'] == 'off' and not os.path.isdir(candidate) \
-      and os.path.isfile(_filenames.icurryfilename(candidate)) \
-      and not candidate.endswith(config.module_object_suffix()) \
-      and os.path.isfile(_filenames.replacesuffix(
-          _filenames.icurryfilename(candidate), config.module_object_suffix())) \
-      and _findcurry._installed_library_file(_filenames.curryfilename(candidate)) \
-      and _filenames.module_name(candidate) not in _findcurry.reserved_module_names():
-    # A library importer can be stale for this interpreter's path alone.
-    # Compile its snapshot without changing the installation's products.
-    from ..backends.cxx import tiered
-    raw = loadicurry(_filenames.icurryfilename(candidate))
-    copy, _ = tiered._private_copy(raw)
-    return loadcurry(plan, copy, search, is_sourcefile=True)
   if plan.interp.flags['interpret'] != 'off' and not os.path.isdir(candidate) \
       and not candidate.endswith(config.module_object_suffix()):
     icyfile = _filenames.icurryfilename(candidate)
@@ -61,5 +45,8 @@ def loadcurry(plan, name, currypath=None, **kwds):
     package.filename = filename
     return package
   if filename.endswith(('.img', '.icy', '.cpp')):
-    return image.load(plan.interp, _filenames.icurryfilename(candidate), imagepath)
+    translation = (filename.original_icyfile
+        if isinstance(filename, _filenames.ImageProduct)
+        else _filenames.icurryfilename(filename))
+    return image.load(plan.interp, translation, imagepath)
   return plan.interp.load(filename, from_plan=True)

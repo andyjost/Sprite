@@ -11,7 +11,7 @@ from ... import cache, exceptions, icurry
 from ...objects.handle import getHandle
 from ...utility.binding import binding
 from ...utility.strings import int_text
-from ...toolchain import _filenames, _loadcurry, _productlock
+from ...toolchain import _filenames, _loadcurry, _productlock, _destination
 from . import bytecode, curryrtbindings as curryrt
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ def digest(filename):
 
 
 def filename(source):
-  return _filenames.replacesuffix(source, '.img') if source else None
+  return _filenames.replacesuffix(_destination.canonical(source), '.img') if source else None
 
 
 def read(path):
@@ -59,6 +59,7 @@ def read(path):
 
 
 def _facts(interp, source, imports):
+  source = _destination.canonical(source)
   from ...toolchain._frontend import ROUTE_VERSION
   from . import toolchain
   return dict(source=digest(_filenames.icurryfilename(source)), route=ROUTE_VERSION,
@@ -69,15 +70,21 @@ def _facts(interp, source, imports):
 def writable(source):
   if not source:
     return False
-  path = os.path.abspath(os.path.dirname(filename(source)))
-  while not os.path.exists(path):
-    path = os.path.dirname(path)
-  return os.access(path, os.W_OK)
+  return _destination.writable(filename(source))
 
 
 def _private_path(interp, source):
   from . import tiered
-  source = _filenames.sourcefilename(source)
+  source = _filenames.sourcefilename(_destination.canonical(source))
+  from ...toolchain import _findcurry
+  if _findcurry._installed_library_file(source):
+    generations = interp.__dict__.setdefault('_product_generations', {})
+    key = (source, digest(_filenames.icurryfilename(source)),
+           interp.flags['inline_budget'])
+    if key not in generations or not _findcurry.is_loader_snapshot(
+        _filenames.module_name(source), generations[key]):
+      generations[key] = _destination.select(source, force=True)
+    return filename(generations[key])
   key = '%s:%s' % (os.path.realpath(source), interp.flags['inline_budget'])
   return os.path.join(tiered._tmpdir(), hashlib.sha256(key.encode()).hexdigest() + '.img')
 
@@ -86,6 +93,17 @@ def _path(interp, source):
   if not source:
     return None
   from . import tiered
+  from ...toolchain import _findcurry
+  if _findcurry._installed_library_file(source):
+    key = (_filenames.sourcefilename(_destination.canonical(source)),
+           digest(_filenames.icurryfilename(source)), interp.flags['inline_budget'])
+    generation = getattr(interp, '_product_generations', {}).get(key)
+    if generation is not None and not _findcurry.is_loader_snapshot(
+        _filenames.module_name(source), generation):
+      interp._product_generations.pop(key, None)
+      generation = None
+    if generation is None and not tiered._foreign_flags(interp):
+      return filename(_destination.canonical(source))
   private = _private_path(interp, source)
   return private if tiered._foreign_flags(interp) or os.path.isfile(private) else filename(source)
 
@@ -324,13 +342,11 @@ class Resolver:
 def write(interp, module, currypath=None, path=None, imports=None):
   if not module.filename:
     return None
-  if path is None:
-    from ...toolchain._curry2icurry import in_system_library
-    path = _path(interp, module.filename)
-    if in_system_library(module.filename) or not writable(module.filename):
-      path = _private_path(interp, module.filename)
   if imports is None:
     imports = _import_images(interp, module.imports, currypath)
+  if path is None:
+    path = _path(interp, module.filename)
+  path = _publication_path(interp, module.filename, path, imports)
   from .materialize import function_primitive
   native = curryrt.Module.find_or_create(module.fullname)
   builtins = {f.name for f in module.functions.values()
@@ -403,8 +419,29 @@ def _write(interp, module, path, imports, builtins):
   return path
 
 
+def _publication_path(interp, source, path, imports):
+  source = _destination.canonical(source)
+  from . import tiered
+  if _destination.needs_private(_filenames.icurryfilename(source),
+      _destination.images(interp, imports)) or not writable(source) \
+      or tiered._foreign_flags(interp):
+    return _private_path(interp, source)
+  return path
+
+
 def ensure(interp, icyfile, currypath=None, importing=False):
+  icyfile = _destination.canonical(icyfile)
   source = _filenames.sourcefilename(icyfile)
+  from ...toolchain import _findcurry, _interfaces, _curry2icurry
+  if _findcurry._installed_library_file(icyfile) and os.path.isfile(source):
+    # Explicit ICurry inputs enter at this writer too. Resolve imports before
+    # testing the translation receipt, just as the normal build plan does.
+    interp.import_(_interfaces.imports(icyfile), currypath=currypath)
+    search = _findcurry.import_path(interp, currypath)
+    search = interp.path if search is None else search
+    if _curry2icurry.icurry_is_stale(icyfile, search):
+      selected = _curry2icurry.curry2icurry(source, search)
+      return ensure(interp, selected, currypath, importing=importing)
   path = _path(interp, source)
   if not importing:
     from . import tiered
@@ -413,14 +450,12 @@ def ensure(interp, icyfile, currypath=None, importing=False):
   try:
     header = _check(interp, source, path)
     imports = _import_images(interp, header['imports'], currypath)
+    path = _publication_path(interp, source, path, imports)
     return path, _check(interp, source, path, imports)
   except (OSError, ValueError, KeyError, exceptions.CurryError) as exc:
     log = logger.warning if os.path.isfile(path) and str(exc) != 'stale module image' else logger.info
     log('module image %s: %s: %s; translating again', path, type(exc).__name__, exc)
   from ... import toolchain
-  from ...toolchain._curry2icurry import in_system_library
-  if not writable(source) or (importing and in_system_library(source)):
-    path = _private_path(interp, source)
   raw = _loadcurry.loadicurry(icyfile)
   interp.import_(raw.imports, currypath=currypath)
   imports = _import_images(interp, raw.imports, currypath)
@@ -433,6 +468,7 @@ def ensure(interp, icyfile, currypath=None, importing=False):
   native = curryrt.Module.find_or_create(raw.fullname)
   builtins = {f.name for f in raw.functions.values()
       if function_primitive(native, f, raw) is not None}
+  path = _publication_path(interp, source, path, imports)
   # Imports and native summary reads precede the file lock. Only this
   # module's passes, bytecode emission and publication need serialization.
   with _productlock.locked(path):

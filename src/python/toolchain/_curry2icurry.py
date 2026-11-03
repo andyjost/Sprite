@@ -33,6 +33,8 @@ def curry2icurry(curryfile, currypath, **kwds):
   '''
   return Curry2ICurryConverter(**kwds).convert(curryfile, currypath)
 
+curry2icurry.manages_product_lock = True
+
 # The spelling, in a FlatCurry or ICurry text, of the constraint the binding
 # optimization writes, and of the Boolean equalities it replaces: the class
 # methods of the Prelude and the instance methods of any module
@@ -409,6 +411,14 @@ class Curry2ICurryConverter(object):
 
   @_system.updateCheck
   def convert(self, file_in, currypath):
+    from . import _destination
+    file_in = _destination.select(file_in,
+        _destination.interfaces(file_in, currypath))
+    from . import _productlock
+    with _productlock.locked(file_in):
+      return self._convert(file_in, currypath)
+
+  def _convert(self, file_in, currypath):
     digest = source_digest(file_in)
     currypath = curryname.makeCurryPath(currypath)
     # Both translators read the interfaces selected by the front end,

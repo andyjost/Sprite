@@ -13,10 +13,11 @@ SUBDIR = config.intermediate_subdir()
 KNOWN_SUFFIXES = set(['.img', '.py', '.icy', '.icy.z', '.cpp', '.so', config.module_object_suffix()])
 
 class ImageProduct(str):
-  """A private image path with its original translation input."""
-  def __new__(cls, path, icyfile):
+  """An image with its generation input and the translation used to load it."""
+  def __new__(cls, path, icyfile, original_icyfile=None):
     result = super().__new__(cls, path)
     result.icyfile = icyfile
+    result.original_icyfile = original_icyfile or icyfile
     return result
 
 

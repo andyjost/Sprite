@@ -276,7 +276,7 @@ def _private_copy(imodule):
   compiles the copy, so its generated file and its object land in the
   private directory (see the module docstring).
   '''
-  filename = os.path.abspath(imodule.filename)
+  filename = os.path.realpath(imodule.filename)
   relpath = imodule.fullname.replace('.', os.sep) + '.curry'
   if filename.endswith(os.sep + relpath):
     root = filename[:-len(relpath) - 1]

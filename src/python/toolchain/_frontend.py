@@ -288,6 +288,9 @@ def curry2flat(file_in, currypath, quiet=False, rewrite=True):
   be read is reported and left; the module's own file raises.  A caller
   that needs the text of the front end passes ``rewrite=False``.
   '''
+  from . import _destination
+  file_in = _destination.select(file_in,
+      _destination.interfaces(file_in, currypath))
   reason = _preprocessor.missing(file_in)
   if reason:
     raise CompileError(reason)

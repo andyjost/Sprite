@@ -1217,6 +1217,20 @@ class Cpp2So(object):
 
   @_system.updateCheck
   def __call__(self, file_in, currypath, **ignored):
+    from ...toolchain import _destination
+    file_in = _destination.canonical(file_in)
+    names = self._importedModules(file_in)
+    self.interp.import_(names,
+        currypath=_findcurry.import_path(self.interp,
+            _findcurry.imports_path(currypath, **ignored)))
+    imports = _findcurry.imports_path(currypath, **ignored)
+    products = _destination.images(self.interp, names)
+    products.extend(self._dependencies(file_in, imports))
+    selected = _destination.select(file_in, products)
+    if selected != file_in:
+      # Regenerate C++ from the selected translation before compiling it.
+      file_in = ICurry2Cpp(self.interp)(
+          _filenames.icurryfilename(selected), currypath, **ignored)
     # The imports of a program given as a file are searched on its path;
     # those of a module given by name on the path of the interpreter.
     imports = _findcurry.imports_path(currypath, **ignored)
@@ -1404,6 +1418,20 @@ class Cpp2So(object):
     if self.interp.flags['interpret'] == 'new':
       return None
     if _productcache.excluded(_filenames.curryfilename(file_in)):
+      return None
+    from ...toolchain import _destination
+    names = _interfaces.imports(_filenames.icurryfilename(file_in))
+    self.interp.import_(names,
+        currypath=_findcurry.import_path(self.interp,
+            _findcurry.imports_path(currypath, **kwds)))
+    products = _destination.images(self.interp, names)
+    if not IS_WINDOWS:
+      try:
+        products.extend(self._sofilename(name,
+            _findcurry.imports_path(currypath, **kwds)) for name in names)
+      except exceptions.PrerequisiteError:
+        return None
+    if _destination.needs_private(file_in, products):
       return None
     digest = self.digest()
     if digest is None:
