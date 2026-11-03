@@ -807,8 +807,9 @@ namespace curryrt { namespace python
       ;
 
     // No heap_access: tests inspect pending finalization while another
-    // thread owns the heap. The queue mutex protects this count alone.
+    // thread owns the heap. Each query takes only its bookkeeping mutex.
     mod.def("_heap_pending_count", &heap_pending_count);
+    mod.def("_test_heap_waits", [] { return heap_status().waits; });
     // Private controls for deterministic fork/drain regression tests.
     mod.def("_test_completion", [](bool retire)
       {

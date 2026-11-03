@@ -318,10 +318,17 @@ namespace curryrt
 
   namespace
   {
-    void drain_pending(bool complete) noexcept
+    // The observer is instantiated only by the completion test. Ordinary
+    // calls use an empty lambda, with no test flag load or branch.
+    template<class BeforeWait>
+    void drain_pending(bool complete, BeforeWait before_wait) noexcept
     {
       if(draining) return;
-      if(complete) drain_fence_ptr()->lock();
+      if(complete)
+      {
+        before_wait();
+        drain_fence_ptr()->lock();
+      }
       else if(!drain_fence_ptr()->try_lock()) return;
       draining = true;
       struct Guard
@@ -359,6 +366,16 @@ namespace curryrt
         }
       }
     }
+
+    void drain_pending(bool complete) noexcept
+    { drain_pending(complete, [] {}); }
+
+    template<class BeforeWait>
+    void retire_generation(BeforeWait before_wait) noexcept
+    {
+      drain_pending(true, before_wait);
+      ++pending().generation;
+    }
   }
 
   void heap_drain() noexcept { drain_pending(true); }
@@ -366,14 +383,22 @@ namespace curryrt
   bool heap_test_completion(bool retire)
   {
     HeapScope heap(false);
-    std::atomic<bool> held{false}, returned{false};
+    std::atomic<bool> held{false}, waiting{false};
+    bool timed_out = false;
     std::thread blocker([&]
     {
       drain_fence_ptr()->lock();
       held = true;
-      auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
-      while(!returned && std::chrono::steady_clock::now() < end)
+      auto end = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+      while(!waiting)
+      {
+        if(std::chrono::steady_clock::now() >= end)
+        {
+          timed_out = true;
+          break;
+        }
         std::this_thread::yield();
+      }
       drain_fence_ptr()->unlock();
     });
     while(!held) std::this_thread::yield();
@@ -386,13 +411,15 @@ namespace curryrt
     };
     std::thread enqueue([&] { heap_dispose(new Action(current)); });
     enqueue.join();
-    if(retire) heap_retire_generation();
-    else heap_drain();
+    // The holder cannot release before this exact completion path reaches
+    // its blocking lock. A try-only drain never acknowledges the wait.
+    auto before_wait = [&] { waiting = true; };
+    if(retire) retire_generation(before_wait);
+    else drain_pending(true, before_wait);
     bool complete = heap_pending_count() == 0 && current;
-    returned = true;
     blocker.join();
     heap_drain();
-    return complete && current;
+    return !timed_out && waiting && complete && current;
   }
 
   bool heap_test_child_fence()
@@ -501,8 +528,7 @@ namespace curryrt
 
   void heap_retire_generation() noexcept
   {
-    heap_drain();
-    ++pending().generation;
+    retire_generation([] {});
   }
 
   void heap_unlock()

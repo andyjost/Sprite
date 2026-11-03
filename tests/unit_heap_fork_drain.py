@@ -96,3 +96,56 @@ class TestHeapForkDrain(cytest.TestCase):
   @unittest.skipUnless(hasattr(os, 'fork'), 'requires os.fork')
   def test_child_drain_fence(self):
     self.check_native_hook('_test_child_fence()')
+
+  def test_completion_polls_signals(self):
+    code = r'''
+import cytest, curry, _thread, threading, time
+from curry.backends.cxx import curryrtbindings as rt
+native = rt._curryrtbindings
+native._heap_drain()
+held = threading.Event()
+interrupted = threading.Event()
+released = threading.Event()
+errors = []
+waits = native._test_heap_waits()
+def owner():
+  def transaction():
+    held.set()
+    deadline = time.monotonic() + 10
+    while native._test_heap_waits() == waits:
+      assert time.monotonic() < deadline, 'drain never waited for heap'
+      time.sleep(0.001)
+    # Send only after the main thread has entered the native heap wait.
+    _thread.interrupt_main()
+    assert interrupted.wait(10), 'drain did not poll while heap was held'
+  try:
+    native._metadata_call(transaction)
+  except BaseException as error:
+    errors.append(error)
+  finally:
+    released.set()
+thread = threading.Thread(target=owner)
+thread.start()
+try:
+  assert held.wait(10)
+  try:
+    native._heap_drain()
+  except KeyboardInterrupt:
+    assert not released.is_set(), 'interrupt arrived only after heap release'
+  else:
+    raise AssertionError('drain ignored interrupt')
+finally:
+  interrupted.set()
+  thread.join(15)
+assert not thread.is_alive(), 'heap owner did not finish'
+assert not errors, errors
+# Another thread must acquire after the exceptional binding exit, too.
+probe = threading.Thread(target=native._heap_drain)
+probe.start()
+probe.join(10)
+assert not probe.is_alive(), 'exception leaked heap ownership'
+native._heap_drain()
+'''
+    result = subprocess.run([sys.executable, '-c', code],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=45)
+    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

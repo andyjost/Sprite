@@ -47,7 +47,7 @@ PYBIND11_MODULE(_curryrtbindings, mod, pybind11::mod_gil_not_used())
   mod.def("_heap_drain", []
     {
       pybind11::gil_scoped_release release;
-      curryrt::HeapScope heap(false);
+      curryrt::HeapScope heap;
       curryrt::heap_drain();
     });
   curryrt::set_host_poll(&python_poll);
