@@ -23,6 +23,58 @@ def installed(name):
 
 
 class TestReservedModules(cytest.TestCase):
+  def test_loaded_in_place_edit(self):
+    for mode in ('new', 'all'):
+      for generalized in (False, True):
+        with self.subTest(mode=mode, generalized=generalized), tempfile.TemporaryDirectory() as work:
+          source = Path(work) / 'Data/Char.curry'
+          source.parent.mkdir()
+          original = installed('Data.Char').read_text()
+          source.write_text(original)
+          edited = original.replace("ord c - ord '0'", "ord c - ord '0' + 1")
+          if generalized:
+            edited = original.replace('digitToInt      :: Char -> Int',
+                'digitToInt      :: Num a => Char -> a')
+            edited = re.sub(r"=  (ord c - ord '[0Aa]'(?: \+ 10)?)", r'=  fromInt (\1)', edited)
+          code = r"""
+import curry, os, warnings
+from pathlib import Path
+from curry import cache
+from curry.toolchain import _findcurry, _productcache
+curry.reset(interpret=%r, jit='off')
+curry.path.insert(0, %r)
+source = Path(%r)
+module = curry.import_(source)
+probe = source.parent.parent / 'Probe.curry'
+probe.write_text("module Probe where\nimport Data.Char\ngoal :: Int\ngoal = digitToInt '1'\n")
+with _findcurry.resolving(curry._interpreter_):
+    before = [f(str(probe), curry.path)['Data.Char'].digest
+              for f in (cache.import_closure, _productcache.import_closure)]
+source.write_text(%r)
+os.utime(source, None)
+with warnings.catch_warnings(record=True) as caught:
+    warnings.simplefilter('always')
+    assert curry.import_(source) is module
+assert any('changed after the import' in str(w.message) for w in caught)
+with _findcurry.resolving(curry._interpreter_):
+    after = [f(str(probe), curry.path)['Data.Char'].digest
+             for f in (cache.import_closure, _productcache.import_closure)]
+assert before == after, (before, after)
+assert list(curry.eval(curry.import_(probe).goal)) == [1]
+if %r == 'new':
+    curry.reload(module)
+else:
+    curry.reset(interpret='all', jit='off')
+nextprobe = probe.with_name('ProbeAfter.curry')
+nextprobe.write_text(probe.read_text().replace('module Probe ', 'module ProbeAfter '))
+assert list(curry.eval(curry.import_(nextprobe).goal)) == [%d]
+""" % (mode, work, str(source), edited, mode, 1 if generalized else 2)
+          child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
+          self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+          fresh = "import curry; curry.reset(interpret=%r, jit='off'); curry.path.insert(0, %r); assert list(curry.eval(curry.import_('Probe').goal)) == [%d]" % (mode, work, 1 if generalized else 2)
+          child = cytest.run_in_subprocess(fresh, timeout=120, address_space=3 << 30)
+          self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
   def test_reserved(self):
     names = curryrtbindings.builtin_module_names()
     print('Reserved module names: ' + ', '.join(names))

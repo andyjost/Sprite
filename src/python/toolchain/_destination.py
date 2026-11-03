@@ -68,6 +68,11 @@ def interfaces(source, currypath, dependencies=None):
       except OSError:
         names = []
     for name in names:
+      generation = _findcurry.loaded_generation(name)
+      if generation is not None:
+        # Destination provenance belongs to the generation, not today's path.
+        products.append(_filenames.replacesuffix(generation.source, '.fint'))
+        continue
       interface = None
       dependency = None
       for directory in _findcurry.module_path(name, search):

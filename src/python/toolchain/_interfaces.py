@@ -28,6 +28,10 @@ def search_path(filename, currypath=()):
 
 def interface_file(name, searchdirs, frontend=False):
   '''Prefer the versioned copies that travel with ICurry, as typing does.'''
+  from ._findcurry import loaded_generation
+  generation = loaded_generation(name)
+  if generation is not None:
+    return generation.interface_stem + '.fint' if '.fint' in generation.texts else None
   subdirs = [config.intermediate_subdir(), config.frontend_subdir()]
   from ._findcurry import loaded_source, module_path
   if frontend and loaded_source(name) is None:
@@ -40,7 +44,12 @@ def interface_file(name, searchdirs, frontend=False):
 
 def digest(name, searchdirs, frontend=False):
   '''SHA-256 of the two labelled interface texts; None if neither exists.'''
-  filename = interface_file(name, searchdirs, frontend)
+  from ._findcurry import loaded_generation
+  generation = loaded_generation(name)
+  if generation is not None and not any(
+      suffix in generation.texts for suffix in cache.INTERFACE_SUFFIXES):
+    return None
+  filename = interface_file(name, searchdirs, frontend) if generation is None else name + '.fint'
   if filename is None:
     return None
   stem = os.path.splitext(filename)[0]
@@ -51,8 +60,14 @@ def digest(name, searchdirs, frontend=False):
       path = filename if suffix == '.fint' else stem + suffix
       if path.endswith('.fcy'):
         result.update(b'FlatCurry fallback\0')
-      with open(path, 'rb') as stream:
-        result.update(b'present\0' + stream.read().replace(b'\r\n', b'\n'))
+      if generation is not None:
+        data = generation.texts.get(suffix)
+        if data is None:
+          raise FileNotFoundError(path)
+      else:
+        with open(path, 'rb') as stream:
+          data = stream.read()
+      result.update(b'present\0' + data.replace(b'\r\n', b'\n'))
     except FileNotFoundError:
       result.update(b'missing')
     result.update(b'\0')

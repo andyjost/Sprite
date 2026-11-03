@@ -233,6 +233,7 @@ class ImportEx(object):
           for name in getHandle(existing).icurry:
             setattr(moduleobj, name, getattr(existing, name))
         record_source(moduleobj)
+        _findcurry.capture_generation(moduleobj)
         load.loadSymbols(self.interp, imodule, moduleobj)
         from ...objects.classes import build_classes
         build_classes(self.interp, moduleobj)

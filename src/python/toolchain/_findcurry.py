@@ -6,6 +6,7 @@ from ..utility import curryname, filesys, formatDocstring
 import logging, os
 from contextvars import ContextVar
 from contextlib import contextmanager
+from collections import namedtuple
 
 __all__ = ['currentfile', 'import_path', 'imports_path', 'program_path']
 logger = logging.getLogger(__name__)
@@ -91,6 +92,48 @@ def loaded_source(name, interp=None):
     if filename:
       return _filenames.sourcefilename(filename)
   return None
+
+
+LoadedGeneration = namedtuple(
+    'LoadedGeneration', 'source_info texts source interface_stem')
+
+
+def loaded_generation(name):
+  from ..objects.handle import getHandle
+  interp = _translation_interp.get()
+  module = getattr(interp, 'modules', {}).get(name)
+  return getattr(getHandle(module).icurry, '_loaded_generation', None) if module is not None else None
+
+
+def capture_generation(module):
+  """Pin source provenance and interfaces before publishing a loaded module."""
+  from pathlib import Path
+  from .. import cache
+  from ..objects.handle import getHandle
+  raw = getHandle(module).icurry
+  if not raw.filename:
+    return
+  source = os.path.realpath(_filenames.sourcefilename(raw.filename))
+  stem = Path(_filenames.icurryfilename(source)).with_suffix('')
+  texts = {}
+  for suffix in ('.fint', '.icurry', '.icy.imports', '.icy.source'):
+    path = Path(str(stem) + suffix)
+    try:
+      texts[suffix] = path.read_bytes()
+    except OSError:
+      pass
+  try:
+    info = cache._sourceinfo(source)
+  except OSError:
+    info = None
+  from ..backends.cxx import tiered
+  directory = Path(tiered._tmpdir()) / ('loaded%d' % next(tiered._state.counter))
+  interface = directory.joinpath(*raw.fullname.split('.'))
+  interface.parent.mkdir(parents=True, exist_ok=True)
+  for suffix in ('.fint', '.icurry'):
+    if suffix in texts:
+      Path(str(interface) + suffix).write_bytes(texts[suffix])
+  raw._loaded_generation = LoadedGeneration(info, texts, source, str(interface))
 
 
 def module_path(name, search):

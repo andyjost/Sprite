@@ -681,7 +681,13 @@ def checked_command(*args, **kwargs):
     paths = [cmd[i + 1] for i, value in enumerate(cmd[:-1]) if value == '-i']
     frontend_paths[_frontend.flatcurryfile(args[0])] = paths, library
     private = tiered._state.private
-    assert all(path in private for path in paths
+    views = {entry[1] for entry in _interfaceview._views.values()}
+    loaded_views = [path for path in paths if path in views and path != library]
+    assert all(not any(p.is_file() for p in Path(path).rglob('*.curry'))
+               for path in loaded_views)
+    if loaded_views:
+      assert paths[0] in loaded_views, paths
+    assert all(path in private or path in loaded_views for path in paths
                if path != library and tiered._state.tmpdir
                and path.startswith(tiered._state.tmpdir + os.sep)), paths
     assert not any(path.startswith(curry.config.installed_path('curry')) for path in paths)

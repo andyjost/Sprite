@@ -173,6 +173,14 @@ def import_closure(curryfile, currypath=()):
     if name in seen:
       continue
     seen.add(name)
+    from ._findcurry import loaded_generation
+    generation = loaded_generation(name)
+    if generation is not None:
+      info = generation.source_info
+      if info is not None:
+        closure[name] = info
+        pending.extend(info.imports)
+      continue
     relpath = name.replace('.', os.sep) + '.curry'
     from ._findcurry import module_path
     for found in filesys.findfiles(module_path(name, searchpaths), relpath):
