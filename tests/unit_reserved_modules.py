@@ -23,13 +23,23 @@ def installed(name):
 
 
 class TestReservedModules(cytest.TestCase):
+  @cytest.posix_only('Windows cannot replace or restore a mapped DLL')
   def test_saved_dependency_object_changed(self):
     self._saved_dependency_object_changed(False)
 
+  @cytest.posix_only('Windows cannot replace or restore a mapped DLL')
   def test_saved_adopted_dependency_object_changed(self):
     self._saved_dependency_object_changed(True)
 
-  def _saved_dependency_object_changed(self, background):
+  def test_saved_dependency_stamp_changed(self):
+    # Windows replaces the unmapped ABI stamp instead of the loaded DLL.
+    self._saved_dependency_object_changed(False, stamp=True)
+
+  def test_saved_adopted_dependency_stamp_changed(self):
+    # The adopted object's ABI stamp is also an unmapped link input.
+    self._saved_dependency_object_changed(True, stamp=True)
+
+  def _saved_dependency_object_changed(self, background, stamp=False):
     with tempfile.TemporaryDirectory() as work:
       root = Path(work)
       for number in (1, 2):
@@ -48,6 +58,7 @@ import curry, os, shutil, subprocess, sys
 from pathlib import Path
 from curry.backends.cxx import tiered, toolchain, curryrtbindings as curryrt
 from curry.objects.handle import getHandle
+from curry.toolchain import _findcurry
 root = Path(%r)
 curry.reset(interpret='new', jit='off', inline_budget=0)
 curry.path.insert(0, str(root / '1'))
@@ -64,39 +75,59 @@ if background:
     curry._interpreter_.flags['jit'] = 'off'
     assert getHandle(leaf).sofilename
 obj = Path(getHandle(leaf).sofilename)
+stamp = %r
+product = Path(str(obj) + '.abi') if stamp else obj
 replacement = next((root / '2').rglob('Leaf' + obj.suffix))
-original = obj.read_bytes()
+original = product.read_bytes()
 try:
-    temporary = obj.with_name(obj.name + '.replacement')
-    shutil.copyfile(replacement, temporary)
-    os.replace(temporary, obj)
+    temporary = product.with_name(product.name + '.replacement')
+    if stamp:
+        temporary.write_bytes(original + b'\n')
+    else:
+        shutil.copyfile(replacement, temporary)
+    os.replace(temporary, product)
     message = 'the products of module Leaf changed since it was loaded; reload it'
     step = toolchain.Cpp2So(curry._interpreter_)
-    for read in (lambda: curry.save(probe, root / 'Probe.so'),
-                 lambda: step._object_on_disk('Leaf', curry.path),
-                 lambda: step.stamp_is_current(str(obj)),
-                 lambda: tiered._private_copy(getHandle(probe).icurry)):
+    # Save and loaded-object lookup read the object directly. The stamp
+    # subcase checks readers that consume the stamp as a link input.
+    readers = [('stamp freshness', lambda: step.stamp_is_current(str(obj))),
+               ('private copy', lambda: tiered._private_copy(getHandle(probe).icurry))]
+    if stamp:
+        readers.append(('stamp records', lambda: step._read_stamp_records(str(obj))))
+    else:
+        readers.extend([
+            ('save', lambda: curry.save(probe, root / 'Probe.so')),
+            ('object lookup', lambda: step._object_on_disk('Leaf', curry.path))])
+    for name, read in readers:
         try:
-            read()
+            with _findcurry.resolving(curry._interpreter_):
+                read()
         except ValueError as exc:
             assert str(exc) == message, str(exc)
         else:
-            raise AssertionError('changed object accepted')
-    # A reset admits the replacement while all other products stay unchanged.
-    curry.reset(interpret='new', jit='off', inline_budget=0)
-    curry.path.insert(0, str(root / ('2' if background else '1')))
-    probe = curry.import_('Probe')
-    curry.save(probe, root / 'Probe.so')
-    run = "import curry; curry.reset(interpret='new', jit='off', inline_budget=0); curry.path.insert(0, %%r); module = curry.load(%%r); print(curry.eval(module.goal).one())" %% (str(root / ('2' if background else '1')), str(root / 'Probe.so'))
-    result = subprocess.run([sys.executable, '-c', run], capture_output=True, text=True, timeout=30)
-    assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == '3', result.stdout
+            raise AssertionError(name + ': changed link input accepted')
+    if not stamp:
+        # A reset admits the replacement while all other products stay unchanged.
+        curry.reset(interpret='new', jit='off', inline_budget=0)
+        curry.path.insert(0, str(root / ('2' if background else '1')))
+        probe = curry.import_('Probe')
+        curry.save(probe, root / 'Probe.so')
+        run = "import curry; curry.reset(interpret='new', jit='off', inline_budget=0); curry.path.insert(0, %%r); module = curry.load(%%r); print(curry.eval(module.goal).one())" %% (str(root / ('2' if background else '1')), str(root / 'Probe.so'))
+        result = subprocess.run([sys.executable, '-c', run], capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == '3', result.stdout
 finally:
-    temporary = obj.with_name(obj.name + '.restore')
-    temporary.write_bytes(original)
-    os.replace(temporary, obj)
-    tiered.finish()
-""" % (work, background)
+    try:
+        temporary = product.with_name(product.name + '.restore')
+        temporary.write_bytes(original)
+        os.replace(temporary, product)
+        if stamp:
+            # Check before finish removes an adopted object's private files.
+            assert step.stamp_is_current(str(obj))
+            curry.save(probe, root / 'Probe.so')
+    finally:
+        tiered.finish()
+""" % (work, background, stamp)
       child = cytest.run_in_subprocess(code, timeout=240, address_space=3 << 30)
       self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
@@ -128,15 +159,21 @@ checks = [(cpp, [lambda: step._moduleName(str(cpp)),
                  lambda: step._importedModules(str(cpp)),
                  lambda: toolchain.format_version(str(cpp)),
                  lambda: toolchain.source_interfaces(str(cpp)),
-                 lambda: toolchain.source_record(str(cpp))]),
+                 lambda: toolchain.source_record(str(cpp)),
+                 lambda: curry.inspect.getimpl(leaf.f)]),
           (stamp, [lambda: step._read_stamp_records(str(obj)),
                    lambda: step.read_stamp(str(obj)),
-                   lambda: step.read_import_stamp(str(obj))]),
+                   lambda: step.read_import_stamp(str(obj)),
+                   lambda: _findcurry.currentfile(plan, str(source), curry.path, is_sourcefile=True),
+                   lambda: _productcache.store('test', 'stamp', [str(stamp)], str(root / 'cache'))]),
           (Path(generation.image), [lambda: image.read(generation.image),
-              lambda: image.ensure(curry._interpreter_, str(source))]),
-          (obj, [lambda: loader.needed_modules(str(obj)),
-                 lambda: _findcurry.currentfile(plan, str(source), curry.path, is_sourcefile=True),
-                 lambda: _productcache.store('test', 'key', [str(obj)], str(root / 'cache'))])]
+              lambda: image.ensure(curry._interpreter_, str(source))])]
+# Windows replaces generated C++ for inspection and the ABI stamp for
+# link inputs above; a mapped DLL cannot be replaced or restored.
+if sys.platform != 'win32':
+    checks.append((obj, [lambda: loader.needed_modules(str(obj)),
+                        lambda: _findcurry.currentfile(plan, str(source), curry.path, is_sourcefile=True),
+                        lambda: _productcache.store('test', 'key', [str(obj)], str(root / 'cache'))]))
 for path, readers in checks:
     original = path.read_bytes()
     try:
@@ -155,21 +192,31 @@ for path, readers in checks:
         temporary = path.with_name(path.name + '.restore')
         temporary.write_bytes(original)
         os.replace(temporary, path)
+# Cached objects may be hard links to the mapped file. Windows replaces
+# only the cached ABI stamp; POSIX also retains the cached-object case.
 with _findcurry.resolving(curry._interpreter_):
-    cache = root / 'cache'
-    entry = Path(_productcache.store('test', 'restore', [str(obj)], str(cache)))
-    cached = entry / obj.name
-    temporary = cached.with_name(cached.name + '.replacement')
-    temporary.write_bytes(cached.read_bytes() + b'\n')
-    os.replace(temporary, cached)
-    before = obj.read_bytes()
-    try:
-        _productcache.restore('test', 'restore', str(obj.parent), [obj.name], str(cache))
-    except ValueError as exc:
-        assert str(exc) == message, str(exc)
-    else:
-        raise AssertionError('changed cached object accepted')
-    assert obj.read_bytes() == before
+    for product in ((stamp,) if sys.platform == 'win32' else (obj, stamp)):
+        cache = root / 'cache'
+        key = 'restore' + product.suffix
+        entry = Path(_productcache.store('test', key, [str(product)], str(cache)))
+        cached = entry / product.name
+        original = cached.read_bytes()
+        before = product.read_bytes()
+        try:
+            temporary = cached.with_name(cached.name + '.replacement')
+            temporary.write_bytes(original + b'\n')
+            os.replace(temporary, cached)
+            try:
+                _productcache.restore('test', key, str(product.parent), [product.name], str(cache))
+            except ValueError as exc:
+                assert str(exc) == message, str(exc)
+            else:
+                raise AssertionError('changed cached product accepted')
+            assert product.read_bytes() == before
+        finally:
+            temporary = cached.with_name(cached.name + '.restore')
+            temporary.write_bytes(original)
+            os.replace(temporary, cached)
 """ % work
       child = cytest.run_in_subprocess(code, timeout=240, address_space=3 << 30)
       self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
@@ -252,14 +299,19 @@ root = Path(%r)
 module = curry.load(root / 'Frozen.so')
 assert getHandle(module).icurry.filename is None
 before = curry.inspect.getimpl(module.f)
-(root / 'Frozen.cpp').write_text('// replaced after the load\n')
+cpp = root / 'Frozen.cpp'
+original = cpp.read_bytes()
 try:
-    curry.inspect.getimpl(module.f)
-except ValueError as exc:
-    assert str(exc) == 'the products of module Frozen changed since it was loaded; reload it', str(exc)
-else:
-    raise AssertionError('changed generated code accepted')
-assert list(curry.eval(module.f(1))) == [2]
+    cpp.write_text('// replaced after the load\n')
+    try:
+        curry.inspect.getimpl(module.f)
+    except ValueError as exc:
+        assert str(exc) == 'the products of module Frozen changed since it was loaded; reload it', str(exc)
+    else:
+        raise AssertionError('changed generated code accepted')
+    assert list(curry.eval(module.f(1))) == [2]
+finally:
+    cpp.write_bytes(original)
 """ % work
       child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
       self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
@@ -722,26 +774,32 @@ child = subprocess.run([sys.executable, '-c',
     capture_output=True, text=True, timeout=120)
 # Replace the source at the exact trusted pathname, rather than editing it
 # through a new path. All product guards must revoke its exemption too.
-replacement = source.with_suffix('.new')
-replacement.write_text('module Control.SetFunctions where\nuserValue = True\n')
-os.replace(replacement, source)
-curry.reset(interpret='new', jit='off')
-for target in (str(source), _filenames.icurryfilename(str(source)),
-               _filenames.replacesuffix(str(source), '.cpp'),
-               _filenames.replacesuffix(str(source), '.img'),
-               _filenames.replacesuffix(str(source), curry.config.module_object_suffix())):
+original = source.read_bytes()
+try:
+  replacement = source.with_suffix('.new')
+  replacement.write_text('module Control.SetFunctions where\nuserValue = True\n')
+  os.replace(replacement, source)
+  curry.reset(interpret='new', jit='off')
+  for target in (str(source), _filenames.icurryfilename(str(source)),
+                 _filenames.replacesuffix(str(source), '.cpp'),
+                 _filenames.replacesuffix(str(source), '.img'),
+                 _filenames.replacesuffix(str(source), curry.config.module_object_suffix())):
+    try:
+      _findcurry.reject_library_shadow('Control.SetFunctions', target, curry._interpreter_)
+    except ImportError as error:
+      assert 'runtime implements' in str(error), error
+    else:
+      raise AssertionError('modified snapshot accepted: ' + target)
   try:
-    _findcurry.reject_library_shadow('Control.SetFunctions', target, curry._interpreter_)
+    curry.import_(source)
   except ImportError as error:
     assert 'runtime implements' in str(error), error
   else:
-    raise AssertionError('modified snapshot accepted: ' + target)
-try:
-  curry.import_(source)
-except ImportError as error:
-  assert 'runtime implements' in str(error), error
-else:
-  raise AssertionError('replaced snapshot imported')
+    raise AssertionError('replaced snapshot imported')
+finally:
+  replacement = source.with_suffix('.restore')
+  replacement.write_bytes(original)
+  os.replace(replacement, source)
 assert child.returncode == 0, child.stdout + child.stderr
 """ % work
       child = cytest.run_in_subprocess(code, timeout=240, address_space=3 << 30)
