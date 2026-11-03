@@ -13,6 +13,10 @@
 #include <sstream>
 #include <stdexcept>
 #include <system_error>
+#ifndef _WIN32
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
 
 namespace curryrt
 {
@@ -29,6 +33,7 @@ namespace curryrt
       HeapStatus counts{0, 0, 0};
     };
     Gate *& gate_ptr() { static auto * p = new Gate; return p; }
+    void drain_pending(bool complete) noexcept;
     void before_fork();
     void parent_after_fork();
     void child_after_fork();
@@ -54,8 +59,8 @@ namespace curryrt
     Pending & pending() { static auto * p = new Pending; return *p; }
     // A drain owns this fence through its last apply/delete. Prepare takes
     // it before either short-lived mutex: apply may recursively take the heap.
-    // Drains only try it, preserving nonblocking finalization while prepare
-    // holds it. Actions are native-only and never acquire the GIL; prepare
+    // Acquisition drains only try it; completion drains wait without either
+    // bookkeeping mutex. Actions are native-only and never acquire the GIL; prepare
     // must not enter Python's host wait after Python has prepared its fork.
     std::recursive_mutex *& drain_fence_ptr()
     { static auto * p = new std::recursive_mutex; return p; }
@@ -114,6 +119,8 @@ namespace curryrt
       // Retain it, just like the old gate, rather than destroying waiters.
       drain_fence_ptr()->unlock();
       drain_fence_ptr() = new std::recursive_mutex;
+      // The surviving drain owns the replacement until its guard exits.
+      if(draining) drain_fence_ptr()->lock();
       pending().mutex.unlock();
       Gate * old = gate_ptr();
       Gate * fresh = new Gate;
@@ -266,7 +273,7 @@ namespace curryrt
     g.owner = self;
     ++g.depth;
     lock.unlock();
-    heap_drain();
+    drain_pending(false);
     return true;
   }
 
@@ -289,7 +296,7 @@ namespace curryrt
       g.owner = self;
       ++g.depth;
       lock.unlock();
-      heap_drain();
+      drain_pending(false);
     }
   }
 
@@ -309,38 +316,132 @@ namespace curryrt
     return p.count;
   }
 
-  void heap_drain() noexcept
+  namespace
   {
-    if(draining) return;
-    std::unique_lock<std::recursive_mutex> fence(*drain_fence_ptr(), std::try_to_lock);
-    if(!fence.owns_lock()) return; // prepare owns the fence; leave work queued
-    draining = true;
-    auto & p = pending();
-    for(;;)
+    void drain_pending(bool complete) noexcept
     {
-      PendingHeapAction * actions;
+      if(draining) return;
+      if(complete) drain_fence_ptr()->lock();
+      else if(!drain_fence_ptr()->try_lock()) return;
+      draining = true;
+      struct Guard
       {
-        std::lock_guard<std::mutex> lock(p.mutex);
-        actions = p.head;
-        p.head = nullptr;
-        p.count = 0;
-      }
-      if(!actions) break;
-      if(test_pause.load())
+        ~Guard()
+        {
+          draining = false;
+          // A fork inside apply replaces the fence on this surviving thread.
+          drain_fence_ptr()->unlock();
+        }
+      } guard;
+      auto & p = pending();
+      for(;;)
       {
-        test_paused = true;
-        while(test_pause.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        test_paused = false;
-      }
-      while(actions)
-      {
-        auto * action = actions;
-        actions = action->next;
-        action->apply(action->generation == heap_generation());
-        delete action;
+        PendingHeapAction * actions;
+        {
+          std::lock_guard<std::mutex> lock(p.mutex);
+          actions = p.head;
+          p.head = nullptr;
+          p.count = 0;
+        }
+        if(!actions) break;
+        if(test_pause.load())
+        {
+          test_paused = true;
+          while(test_pause.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+          test_paused = false;
+        }
+        while(actions)
+        {
+          auto * action = actions;
+          actions = action->next;
+          action->apply(action->generation == heap_generation());
+          delete action;
+        }
       }
     }
-    draining = false;
+  }
+
+  void heap_drain() noexcept { drain_pending(true); }
+
+  bool heap_test_completion(bool retire)
+  {
+    HeapScope heap(false);
+    std::atomic<bool> held{false}, returned{false};
+    std::thread blocker([&]
+    {
+      drain_fence_ptr()->lock();
+      held = true;
+      auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+      while(!returned && std::chrono::steady_clock::now() < end)
+        std::this_thread::yield();
+      drain_fence_ptr()->unlock();
+    });
+    while(!held) std::this_thread::yield();
+    std::atomic<bool> current{false};
+    struct Action : PendingHeapAction
+    {
+      std::atomic<bool> & current;
+      explicit Action(std::atomic<bool> & c) : current(c) {}
+      void apply(bool value) noexcept override { current = value; }
+    };
+    std::thread enqueue([&] { heap_dispose(new Action(current)); });
+    enqueue.join();
+    if(retire) heap_retire_generation();
+    else heap_drain();
+    bool complete = heap_pending_count() == 0 && current;
+    returned = true;
+    blocker.join();
+    heap_drain();
+    return complete && current;
+  }
+
+  bool heap_test_child_fence()
+  {
+#ifndef _WIN32
+    HeapScope heap(false);
+    bool covered = false;
+    pid_t child = -1;
+    struct Action : PendingHeapAction
+    {
+      bool & covered;
+      pid_t & child;
+      Action(bool & c, pid_t & p) : covered(c), child(p) {}
+      void apply(bool) noexcept override
+      {
+        child = fork();
+        if(child != 0) return;
+        // Only native code runs in this child; no Python reattachment.
+        alarm(10);
+        std::thread probe([&]
+        {
+          covered = !drain_fence_ptr()->try_lock();
+          if(!covered) drain_fence_ptr()->unlock();
+        });
+        probe.join();
+      }
+    };
+    std::thread enqueue([&] { heap_dispose(new Action(covered, child)); });
+    enqueue.join();
+    heap_drain();
+    if(child == 0)
+    {
+      bool released = false;
+      std::thread probe([&]
+      {
+        released = drain_fence_ptr()->try_lock();
+        if(released) drain_fence_ptr()->unlock();
+      });
+      probe.join();
+      _exit(covered && released ? 0 : 1);
+    }
+    if(child < 0) return false;
+    int status;
+    pid_t result;
+    do { result = waitpid(child, &status, 0); } while(result < 0 && errno == EINTR);
+    return result == child && WIFEXITED(status) && WEXITSTATUS(status) == 0;
+#else
+    return false;
+#endif
   }
 
   void heap_test_pause_drain()

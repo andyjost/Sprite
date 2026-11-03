@@ -810,6 +810,16 @@ namespace curryrt { namespace python
     // thread owns the heap. The queue mutex protects this count alone.
     mod.def("_heap_pending_count", &heap_pending_count);
     // Private controls for deterministic fork/drain regression tests.
+    mod.def("_test_completion", [](bool retire)
+      {
+        py::gil_scoped_release release;
+        return heap_test_completion(retire);
+      });
+    mod.def("_test_child_fence", []
+      {
+        py::gil_scoped_release release;
+        return heap_test_child_fence();
+      });
     mod.def("_test_run_drain", []
       {
         py::gil_scoped_release release;

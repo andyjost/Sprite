@@ -1,4 +1,4 @@
-'''A fork waits for detached heap cleanup while the forker holds the GIL (#188).'''
+'''Fork fences protect detached cleanup and completion drains (#188).'''
 import cytest # from ./lib; must be first
 import os, subprocess, sys, unittest
 
@@ -78,3 +78,21 @@ class TestHeapForkDrain(cytest.TestCase):
     except subprocess.TimeoutExpired as error:
       self.fail('fork/drain child timed out and was reaped: %s' % error.stderr)
     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+  def check_native_hook(self, expression):
+    code = ('import cytest, curry; '
+            'from curry.backends.cxx import curryrtbindings as rt; '
+            'assert rt._curryrtbindings.' + expression)
+    result = subprocess.run([sys.executable, '-c', code],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=30)
+    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+  def test_completion_drain(self):
+    self.check_native_hook('_test_completion(False)')
+
+  def test_retirement_drain(self):
+    self.check_native_hook('_test_completion(True)')
+
+  @unittest.skipUnless(hasattr(os, 'fork'), 'requires os.fork')
+  def test_child_drain_fence(self):
+    self.check_native_hook('_test_child_fence()')
