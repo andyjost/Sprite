@@ -174,6 +174,99 @@ else:
         self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
         self.assertEqual(products(installed('Control.SetFunctions')), before)
 
+  def test_snapshot_trust_after_reset_and_replacement(self):
+    with tempfile.TemporaryDirectory() as work:
+      source = Path(work) / 'Data/List.curry'
+      source.parent.mkdir()
+      source.write_text(installed('Data.List').read_text().replace(
+          ') where', ', roundNine) where', 1) +
+          '\nroundNine :: Bool\nroundNine = True\n')
+      code = r"""
+import curry, os, subprocess, sys
+from pathlib import Path
+from curry.toolchain import _findcurry, _filenames
+curry.reset(interpret='new', jit='off')
+curry.path.insert(0, %r)
+module = curry.import_('Control.SetFunctions')
+from curry.objects.terms import ModuleInfo
+source = Path(ModuleInfo(module).file)
+assert not _findcurry._installed_library_file(str(source))
+curry.reset(interpret='new', jit='off')
+module = curry.import_(source)
+assert list(curry.eval(module.values2list(module.set0(curry.term(True))))) == [[True]]
+child = subprocess.run([sys.executable, '-c',
+    "import curry; curry.reset(jit='off'); m = curry.import_(" + repr(str(source)) +
+    "); assert list(curry.eval(m.values2list(m.set0(curry.term(True))))) == [[True]]"],
+    capture_output=True, text=True, timeout=120)
+# Replace the source at the exact trusted pathname, rather than editing it
+# through a new path. All product guards must revoke its exemption too.
+replacement = source.with_suffix('.new')
+replacement.write_text('module Control.SetFunctions where\nuserValue = True\n')
+os.replace(replacement, source)
+curry.reset(interpret='new', jit='off')
+for target in (str(source), _filenames.icurryfilename(str(source)),
+               _filenames.replacesuffix(str(source), '.cpp'),
+               _filenames.replacesuffix(str(source), '.img'),
+               _filenames.replacesuffix(str(source), curry.config.module_object_suffix())):
+  try:
+    _findcurry.reject_library_shadow('Control.SetFunctions', target, curry._interpreter_)
+  except ImportError as error:
+    assert 'runtime implements' in str(error), error
+  else:
+    raise AssertionError('modified snapshot accepted: ' + target)
+try:
+  curry.import_(source)
+except ImportError as error:
+  assert 'runtime implements' in str(error), error
+else:
+  raise AssertionError('replaced snapshot imported')
+assert child.returncode == 0, child.stdout + child.stderr
+""" % work
+      child = cytest.run_in_subprocess(code, timeout=240, address_space=3 << 30)
+      self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+  def test_saved_reserved_snapshot(self):
+    with tempfile.TemporaryDirectory() as work:
+      source = Path(work) / 'Data/List.curry'
+      source.parent.mkdir()
+      source.write_text(installed('Data.List').read_text().replace(
+          ') where', ', roundNine) where', 1) +
+          '\nroundNine :: Bool\nroundNine = True\n')
+      code = r'''
+import ast, base64, curry, os, subprocess, sys, tempfile
+from pathlib import Path
+curry.reset(interpret='new', jit='off')
+curry.path.insert(0, %r)
+s = curry.import_('Control.SetFunctions')
+module = curry.compile('main = values2list (set0 True)', imports=[s])
+expected = curry.show(curry.eval(module.main).one())
+program = Path(%r) / 'saved'
+curry.save(module, program, main='main')
+env = dict(os.environ, CURRYPATH='', SPRITE_CPM_PATH='0')
+with tempfile.TemporaryDirectory() as elsewhere:
+  result = subprocess.run([sys.executable, str(program)], cwd=elsewhere,
+      env=env, capture_output=True, text=True, timeout=120)
+  assert result.returncode == 0, result.stdout + result.stderr
+  assert result.stdout.strip() == expected, (result.stdout, expected)
+  # Extract the very same bundled reserved object for the public-load check.
+  tree = ast.parse(program.read_text())
+  payload = next(node.iter for node in ast.walk(tree) if isinstance(node, ast.For))
+  for filename, data in ast.literal_eval(payload):
+    if filename == 'Control.SetFunctions' + curry.config.module_object_suffix():
+      outside = Path(elsewhere) / filename
+      outside.write_bytes(base64.b64decode(data))
+      result = subprocess.run([sys.executable, '-c',
+          'import curry; curry.load(' + repr(str(outside)) + ')'],
+          cwd=elsewhere, env=env, capture_output=True, text=True, timeout=120)
+      assert result.returncode != 0, result.stdout
+      assert 'runtime implements' in result.stderr, result.stderr
+      break
+  else:
+    raise AssertionError('reserved snapshot missing from saved payload')
+''' % (work, work)
+      child = cytest.run_in_subprocess(code, timeout=240, address_space=3 << 30)
+      self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
   def test_renamed_library_objects(self):
     for name in ('System.IO', 'Data.Char'):
       with self.subTest(name=name), tempfile.TemporaryDirectory() as work:

@@ -112,7 +112,8 @@ class ImportEx(object):
   of a plan give the module of a program, has its imports searched as a
   source file has.
   '''
-  def __init__(self, interp, currypath):
+  def __init__(self, interp, currypath, _saved_payload=False):
+    self._saved_payload = _saved_payload
     self.plan = plans.makeplan(interp, plans.MAKE_ALL)
     self.currypath = curryname.makeCurryPath(
         interp.path if currypath is None else currypath
@@ -193,7 +194,7 @@ class ImportEx(object):
   @__call__.when(icurry.IModule)
   def __call__(self, imodule, tail=[]):
     session = self.interp._session
-    if imodule.filename:
+    if imodule.filename and not self._saved_payload:
       _findcurry.reject_library_shadow(
           imodule.fullname, imodule.filename, self.interp)
     parents = list(curryname.prefixes(imodule.fullname))[:-1]

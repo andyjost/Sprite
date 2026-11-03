@@ -41,6 +41,35 @@ def compile_seconds():
   '''
   return compile_clock.seconds
 
+def translation_source(plan, candidate, effective):
+  """Choose the destination before any installed translation is rebuilt."""
+  from . import _curry2icurry
+  from ..icurry import types as icurry_types
+  if not os.path.isdir(candidate) and candidate.endswith('.curry') \
+      and _findcurry._installed_library_file(candidate):
+    icyfile = _filenames.icurryfilename(candidate)
+    with open(candidate, encoding='utf-8') as stream:
+      tokens = list(_filenames._header_tokens(stream.read()))
+    imports = [tokens[i + 1] for i, token in enumerate(tokens[:-1])
+               if token == 'import']
+    outside = any(not _findcurry._installed_library_file(path)
+        for dep in imports
+        for path in list(_findcurry._modulefiles(plan, dep, effective))[:1])
+    directory = os.path.dirname(icyfile)
+    while not os.path.exists(directory):
+      directory = os.path.dirname(directory)
+    writable = os.access(directory, os.W_OK) and bool(os.stat(directory).st_mode & 0o222)
+    if (not os.path.isfile(icyfile) or
+        _curry2icurry.icurry_is_stale(icyfile, effective)) and (outside or not writable):
+      # Translation depends on this interpreter's interfaces. Remake the
+      # installed source in a private snapshot, including its interfaces.
+      from ..backends.cxx import tiered
+      raw = icurry_types.IModule(_filenames.module_name(candidate), [], [], [],
+                                 filename=candidate)
+      copy, _ = tiered._private_copy(raw)
+      return copy
+  return candidate
+
 @formatDocstring(config.python_package_name())
 def makecurry(plan, name, currypath=None, **kwds):
   '''
@@ -79,6 +108,15 @@ def makecurry(plan, name, currypath=None, **kwds):
       pipeline.currentfile = _findcurry.currentfile(
           plan, name, currypath, **kwds
         )
+      effective = _findcurry.import_path(plan.interp,
+          _findcurry.imports_path(currypath, **kwds)) if plan.interp else None
+      selected = translation_source(plan, pipeline.currentfile,
+          effective if effective is not None else currypath)
+      if selected != pipeline.currentfile:
+        name = selected
+        kwds['is_sourcefile'] = True
+        currypath = _findcurry.program_path(name, currypath, **kwds)
+        pipeline.currentfile = selected
       try:
         if not os.path.isdir(pipeline.currentfile):
           Maker(plan, pipeline, name, currypath, kwds).make()

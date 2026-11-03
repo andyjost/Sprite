@@ -170,12 +170,12 @@ def _program_path(interp, sofile):
     return None
   return _findcurry.program_path(curryfile, interp.path, is_sourcefile=True)
 
-def load_module(interp, sofile, from_plan=False, fresh=False):
+def load_module(interp, sofile, from_plan=False, fresh=False, _saved_payload=False):
   from .toolchain import Cpp2So
   for attempt in range(3):
     before = Cpp2So.product_snapshot(sofile)
     try:
-      module = _load_module_once(interp, sofile, from_plan, fresh)
+      module = _load_module_once(interp, sofile, from_plan, fresh, _saved_payload)
     except (OSError, exceptions.LoadError):
       if attempt == 2 or before == Cpp2So.product_snapshot(sofile):
         raise
@@ -185,7 +185,7 @@ def load_module(interp, sofile, from_plan=False, fresh=False):
   raise exceptions.LoadError('cannot load %r: object changed repeatedly' % sofile)
 
 
-def _load_module_once(interp, sofile, from_plan, fresh):
+def _load_module_once(interp, sofile, from_plan, fresh, _saved_payload):
   assert (fresh and not from_plan) or sofile.endswith(config.module_object_suffix())
   sofile = os.path.abspath(sofile)
   from .toolchain import Cpp2So
@@ -219,15 +219,15 @@ def _load_module_once(interp, sofile, from_plan, fresh):
         )
   if before != Cpp2So.product_snapshot(sofile):
     return None # a producer published while dependencies were imported
-  return _open_module(interp, sofile, name, from_plan, fresh, before)
+  return _open_module(interp, sofile, name, from_plan, fresh, before, _saved_payload)
 
 @native_metadata
-def _open_module(interp, sofile, name, from_plan, fresh, before):
+def _open_module(interp, sofile, name, from_plan, fresh, before, _saved_payload):
   from . import tiered
   from .toolchain import Cpp2So
   if before != Cpp2So.product_snapshot(sofile):
     return None
-  if name is not None:
+  if name is not None and not _saved_payload:
     _findcurry.reject_library_shadow(name, sofile, interp)
   previous = None if name is None else curryrt.SharedCurryModule.find_sofilename(name)
   module = interp.modules.get(name)
@@ -294,6 +294,6 @@ def _open_module(interp, sofile, name, from_plan, fresh, before):
     , aliases   = bom.aliases
     , metadata  = metadata
     )
-  result = interp.import_(imodule)
+  result = interp.import_(imodule, _saved_payload=_saved_payload)
   logger.info('module %s: compiled object loaded (%s)', imodule.fullname, sofile)
   return result

@@ -292,13 +292,14 @@ def save(interp, module, path, *, main=None):
         program = '''#!%s
 import base64, os, tempfile
 import curry
+from curry.interpreter.session import _load_saved
 curry.reset(backend=%r)
 with tempfile.TemporaryDirectory(prefix='sprite-program-') as work:
   for filename, data in %r:
     path = os.path.join(work, filename)
     with open(path, 'wb') as stream:
       stream.write(base64.b64decode(data))
-    module = curry.load(path)
+    module = _load_saved(curry._interpreter_, path)
   from curry.__main__ import moduleMain
   moduleMain(__file__, module.__name__, goal=%r, goalscheme=%r)
 ''' % (sys.executable, backend, products, goal, scheme)
@@ -403,17 +404,31 @@ int wmain(int argc, wchar_t ** argv)
 
 
 def load(interp, path):
+  return _load_object(interp, path)
+
+
+def _load_saved(interp, path):
+  """Load one object from the saving session's collected payload."""
+  return _load_object(interp, path, _saved_payload=True)
+
+
+def _load_object(interp, path, _saved_payload=False):
   path = os.path.abspath(os.fspath(path))
   backend = interp.flags['backend']
   try:
+    from ..toolchain import _findcurry
     for module in interp.modules.copy().values():
       loaded = getattr(module, '.load_path', None) or getHandle(module).sofilename
       if loaded is not None and os.path.realpath(loaded) == os.path.realpath(path):
+        if not _saved_payload:
+          _findcurry.reject_library_shadow(module.__name__, path, interp)
         return module
     from ..backends.cxx.loader import _dynamic_names
     name, _ = _dynamic_names(path)
     if name is None:
       raise ValueError('no Curry module record')
+    if not _saved_payload:
+      _findcurry.reject_library_shadow(name, path, interp)
     if name in interp.modules and not isinstance(interp.modules[name], CurryPackage):
       module = interp.modules[name]
       loaded = getattr(module, '.load_path', None) or getHandle(module).sofilename
@@ -423,7 +438,8 @@ def load(interp, path):
     # Public saves accept any suffix; the record above established the format.
     # Map the requested file directly, without a temporary DLL to delete while
     # Windows still has it mapped. Internal plan loads keep their suffix check.
-    module = interp.backend.load_module(interp, path, fresh=True)
+    module = interp.backend.load_module(interp, path, fresh=True,
+        _saved_payload=_saved_payload)
     setattr(module, '.load_path', path)
     metadata = getHandle(module).icurry.metadata
     if metadata.get('all.fint'):

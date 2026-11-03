@@ -355,6 +355,70 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     self.assertTrue(fcyfile.startswith(tmpdir))
     self.assertEqual(snapshot(copy), before)
 
+  def test_explicit_make_replaced_import_is_private(self):
+    # This file runs exclusively: restore every installed byte and mode even
+    # when an unfixed builder writes replacement-dependent products there.
+    from pathlib import Path
+    root = Path(config.installed_path('curry'))
+    with tempfile.TemporaryDirectory() as work:
+      backup = Path(work) / 'backup'
+      shutil.copytree(root, backup)
+      before = snapshot(str(root))
+      source = Path(work) / 'replacement/Data/Char.curry'
+      source.parent.mkdir(parents=True)
+      text = Path(sourcefile('Data.Char')).read_text()
+      text = text.replace('digitToInt      :: Char -> Int',
+                          'digitToInt      :: Num a => Char -> a')
+      import re
+      text = re.sub(r"=  (ord c - ord '[0Aa]'(?: \+ 10)?)", r'=  fromInt (\1)', text)
+      source.write_text(text)
+      def restore():
+        for entry in [root] + list(root.rglob('*')):
+          entry.chmod(entry.stat().st_mode | 0o700)
+        for entry in sorted(root.rglob('*'), reverse=True):
+          if not (backup / entry.relative_to(root)).exists():
+            if entry.is_dir():
+              entry.rmdir()
+            else:
+              entry.unlink()
+        for saved in backup.rglob('*'):
+          destination = root / saved.relative_to(backup)
+          if saved.is_dir():
+            destination.mkdir(exist_ok=True)
+          else:
+            if not destination.exists() or destination.read_bytes() != saved.read_bytes():
+              shutil.copyfile(saved, destination)
+            shutil.copystat(saved, destination)
+        for saved in sorted(backup.rglob('*'), reverse=True):
+          if saved.is_dir():
+            shutil.copystat(saved, root / saved.relative_to(backup))
+        shutil.copystat(backup, root)
+
+      for readonly in (False, True):
+        with self.subTest(readonly=readonly):
+          try:
+            if readonly:
+              for entry in [root] + list(root.rglob('*')):
+                entry.chmod(entry.stat().st_mode & ~0o222)
+            code = r"""
+import os
+os.environ['CURRYPATH'] = %r
+import curry
+from pathlib import Path
+from curry.tools import make
+from curry.backends.cxx import tiered
+make.main('sprite-make', ['--icy', 'Numeric'])
+assert tiered._state.tmpdir is not None, 'no private translation'
+products = list(Path(tiered._state.tmpdir).rglob('Numeric.icy'))
+assert products, 'private translation missing'
+assert all(not str(p).startswith(curry.config.installed_path('curry')) for p in products)
+""" % str(source.parent.parent)
+            child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
+            self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+            self.assertEqual(snapshot(str(root)), before)
+          finally:
+            restore()
+
   def test_install_interfaces(self):
     """CMake installs the interfaces and pinned products of its build image."""
     build = os.environ.get('SPRITE_TEST_BUILD_DIR', os.path.join(ROOT, 'object-root', 'cmake'))

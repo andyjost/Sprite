@@ -13,22 +13,31 @@ def reserved_module_names():
   from ..backends.cxx import curryrtbindings as curryrt
   return curryrt.builtin_module_names()
 
-# Exact private source paths retain the installed origin of loader snapshots.
-_snapshot_origins = {}
-
-def record_snapshot(filename, origin):
-  assert _installed_library_file(origin)
-  _snapshot_origins[os.path.realpath(filename)] = origin
+def is_loader_snapshot(modulename, filename):
+  """Authenticate a private source copy, including in another process."""
+  import tempfile
+  from pathlib import Path
+  try:
+    source = Path(os.path.realpath(_filenames.curryfilename(filename)))
+    relative = source.relative_to(os.path.realpath(tempfile.gettempdir()))
+    parts = relative.parts
+    if len(parts) < 3 or not parts[0].startswith('sprite-tiered-') \
+        or not parts[1].startswith('private') or not parts[1][7:].isdigit():
+      return False
+    if Path(*parts[2:]) != Path(*modulename.split('.')).with_suffix('.curry'):
+      return False
+    installed = Path(config.installed_path(
+        'curry', modulename.replace('.', os.sep) + '.curry'))
+    return _filenames.module_name(str(source)) == modulename \
+        and source.read_bytes() == installed.read_bytes()
+  except (OSError, ValueError):
+    return False
 
 def reject_library_shadow(modulename, filename, interp):
   if interp is None or modulename not in reserved_module_names() \
       or _installed_library_file(filename):
     return
-  try:
-    origin = _snapshot_origins.get(os.path.realpath(_filenames.curryfilename(filename)))
-  except ValueError:
-    origin = None
-  if origin and modulename == _filenames.module_name(origin):
+  if is_loader_snapshot(modulename, filename):
     return
   libraryfile = config.installed_path(
       'curry', modulename.replace('.', os.sep) + '.curry')
@@ -215,7 +224,7 @@ def currentfile(
   # from it: a .cpp file of another format, or a .so file compiled against
   # other runtime headers.  The age of the runtime library does not count.
   from . import plans
-  if plan.interp is not None and plan.flags & plans.MAKE_TARGET_SOURCE \
+  if plan.interp is not None and plan.flags & plans.MAKE_ICURRY \
       and not source_changed and os.path.isfile(curryfile):
     # Refresh direct imports before judging their interfaces. Importing an
     # unchanged B must also see A's newly translated interface when A's
@@ -225,8 +234,16 @@ def currentfile(
           list(_interfaces.read(icyfile + _interfaces.SUFFIX) or {})
     except (OSError, ValueError):
       names = [] # the normal reader diagnoses a malformed ICurry file
-    plan.interp.import_(names, currypath=import_path(plan.interp,
-        imports_path(currypath, is_sourcefile)))
+    if not plan.flags & plans.MAKE_TARGET_SOURCE:
+      # An ICurry-only build must refresh replacement interfaces too, but
+      # planning a complete installed library must not load its modules.
+      search = plan.interp.path if effective is None else effective
+      names = [dep for dep in names
+          for path in list(_modulefiles(plan, dep, search))[:1]
+          if not _installed_library_file(path)]
+    if names:
+      plan.interp.import_(names, currypath=import_path(plan.interp,
+          imports_path(currypath, is_sourcefile)))
     if os.path.isfile(curryfile) and not os.path.isfile(icyfile) \
         and not _interfaces.is_current(icyfile, effective):
       filelist = [curryfile]
