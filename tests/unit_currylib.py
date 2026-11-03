@@ -546,7 +546,7 @@ assert curry.show(curry.eval(module.listToMaybe(curry.term([1]))).one()) == 'Jus
       self.assertIn('-P', actual)
       paths = [actual[i + 1] for i, item in enumerate(actual[:-1]) if item == '-i']
       self.assertNotIn(config.system_curry_path(), paths)
-      self.assertEqual(paths[0], work)
+      self.assertEqual(os.path.realpath(paths[0]), os.path.realpath(work))
       self.assertEqual(paths[-1], actual[actual.index('-P') + 1])
 
   def test_missing_object_replaced_import_is_private(self):

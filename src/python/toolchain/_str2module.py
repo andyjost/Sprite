@@ -17,10 +17,10 @@ _dirs_lock = threading.Lock()
 
 def is_temporary(filename):
   '''Tells whether ``filename`` lies in a directory str2module made.'''
-  filename = os.path.abspath(filename)
+  filename = os.path.realpath(filename)
   with _dirs_lock:
     directories = tuple(_TEMPORARY_DIRS)
-  return any(filename.startswith(directory + os.sep)
+  return any(filename.startswith(os.path.realpath(directory) + os.sep)
       for directory in directories)
 
 @formatDocstring(config.python_package_name())
@@ -97,4 +97,4 @@ def _rmdir(moduledir):
   logger.debug('Removing Curry module directory: %r', moduledir)
   with _dirs_lock:
     _TEMPORARY_DIRS.discard(moduledir)
-  shutil.rmtree(moduledir)
+  shutil.rmtree(moduledir, ignore_errors=os.name == 'nt')

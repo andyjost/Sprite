@@ -45,6 +45,29 @@ class RefusingStep(object):
   def __call__(self, *args, **kwds):
     raise AssertionError('no step runs')
 
+class TestPathSpelling(cytest.TestCase):
+  def test_found_spelling_and_real_identity(self):
+    from curry.interpreter import Interpreter
+    from curry.objects.handle import getHandle
+    with tempfile.TemporaryDirectory() as work:
+      directory = os.path.join(work, 'source')
+      alias = os.path.join(work, 'alias')
+      os.mkdir(directory)
+      try:
+        os.symlink(directory, alias, target_is_directory=True)
+      except OSError as exc:
+        self.skipTest('directory symlinks unavailable: %s' % exc)
+      source = os.path.join(alias, 'SpelledSource.curry')
+      with open(source, 'w') as stream:
+        stream.write('module SpelledSource where\nanswer :: Int\nanswer = 1\n')
+      interp = Interpreter(flags={'interpret': 'all', 'jit': 'off'})
+      module = interp.import_(source, is_sourcefile=True)
+      self.assertEqual(module.__file__, source)
+      self.assertEqual(getHandle(module).icurry._loaded_generation.source,
+                       os.path.realpath(source))
+      self.assertIs(interp.import_(os.path.realpath(source), is_sourcefile=True), module)
+
+
 class TestFindCurry(cytest.TestCase):
   def test_findFile(self):
     '''

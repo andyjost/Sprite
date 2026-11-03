@@ -525,6 +525,7 @@ namespace curryrt
       namespace fs = std::filesystem;
       std::error_code ec;
       fs::path directory = fs::path(publish).parent_path();
+      if(platform::loaded(publish)) return sofile;
       if(icurryfile.empty() || !file_exists(icurryfile)
           || !fs::is_directory(directory, ec)
           || tiered_file_digest(icurryfile) != digest)
@@ -670,6 +671,21 @@ namespace curryrt
         result.error = "the compile exited with status "
                      + std::to_string(done.status);
         return result;
+      }
+      if(!job.fingerprints.empty())
+      {
+        for(auto const & expected: job.fingerprints)
+        {
+          auto split = expected.find('\n');
+          std::ifstream stamp(expected.substr(0, split));
+          std::string line, record;
+          while(std::getline(stamp, line)) record = line;
+          if(split == std::string::npos || record.find(expected.substr(split + 1)) == std::string::npos)
+          {
+            result.error = "the compiled dependency fingerprints differ from the loaded closure";
+            return result;
+          }
+        }
       }
       // The products go beside the source now, when the source is still
       // there (publish_products), whatever comes of the swap below: the

@@ -105,6 +105,116 @@ assert tiered._state.private == [parent]
     self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
 
+class TestLoadedDependencyView(cytest.TestCase):
+  def test_adoption_refuses_wrong_dependency_stamp(self):
+    code = r"""
+import curry, logging, os, sys, tempfile
+from curry.backends.cxx import tiered, curryrtbindings as curryrt
+from cytest.logging import capture_log
+curry.reset(interpret='all', jit='off')
+module = curry.compile('answer :: Int\nanswer = 1\n', name='StampMismatch')
+with tempfile.TemporaryDirectory() as root:
+  obj = os.path.join(root, 'unused' + curry.config.module_object_suffix())
+  stamp = obj + '.abi'
+  with open(stamp, 'w') as stream:
+    stream.write('abi\ninstallation\n{"imports": {"Prelude": "wrong"}}\n')
+  tiered.curryrt.tiered_submit('StampMismatch', [sys.executable, '-c', 'pass'],
+      tiered._environment(curry._interpreter_), os.path.join(root, 'job.log'),
+      obj, '', [], '', '', [], [stamp + '\n"Prelude": "expected"'])
+  assert curryrt.tiered_wait(30)
+  with capture_log('curry.backends.cxx.tiered') as log:
+    results = tiered.poll(curry._interpreter_)
+  assert len(results) == 1, results
+  assert not results[0]['ok'], results
+  assert 'fingerprints differ' in results[0]['error'], results
+  assert curryrt.icurry_is_interpreted(module.answer.info)
+  assert len(log.data[logging.INFO]) == 1, log.data
+  assert not log.data[logging.WARNING], log.data
+tiered.finish()
+"""
+    child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
+    self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+  def test_probe_view_storage(self):
+    code = r"""
+import curry, os, stat, tempfile
+from curry.backends.cxx import tiered
+from curry.objects.handle import getHandle
+curry.reset(interpret='new', jit='off')
+with tempfile.TemporaryDirectory() as root:
+  source = os.path.join(root, 'StorageProbe.curry')
+  with open(source, 'w') as stream:
+    stream.write('module StorageProbe where\nanswer :: Int\nanswer = 1\n')
+  module = curry.import_(source)
+  copied, roots = tiered._private_copy(getHandle(module).icurry)
+  files = [os.stat(os.path.join(directory, name))
+      for directory, _, names in os.walk(roots[0]) for name in names]
+  linked = [item for item in files if item.st_nlink > 1]
+  prelude = getHandle(curry.modules['Prelude']).icurry._loaded_generation.source
+  product = curry.toolchain.icurryfilename(prelude)
+  try:
+    os.link(product, os.path.join(root, 'link-probe'))
+  except OSError as exc:
+    print('Probe view link attempt: errno %d' % exc.errno, flush=True)
+  else:
+    print('Probe view link attempt: supported', flush=True)
+  with tempfile.TemporaryDirectory(dir='.') as build_root:
+    original = os.path.join(build_root, 'original')
+    with open(original, 'wb') as stream:
+      stream.write(b'link probe')
+    try:
+      os.link(original, os.path.join(build_root, 'linked'))
+    except OSError as exc:
+      print('Build file system link attempt: errno %d' % exc.errno, flush=True)
+    else:
+      print('Build file system link attempt: supported', flush=True)
+  print('Probe view: %d files, %d logical bytes, %d linked files, %d copied bytes' %
+      (len(files), sum(item.st_size for item in files), len(linked),
+       sum(item.st_size for item in files if item.st_nlink == 1)), flush=True)
+tiered.finish()
+"""
+    child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
+    self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+    print(child.stdout.strip())
+
+  def test_reordered_path_keeps_loaded_leaf(self):
+    with tempfile.TemporaryDirectory() as work:
+      for answer in (1, 2):
+        directory = os.path.join(work, str(answer))
+        os.mkdir(directory)
+        source = os.path.join(directory, 'Leaf.curry')
+        with open(source, 'w') as stream:
+          stream.write('module Leaf where\nanswer :: Int\nanswer = %d\n' % answer)
+        code = "import curry; curry.reset(interpret='off', jit='off'); curry.import_(%r)" % source
+        child = cytest.run_in_subprocess(code, timeout=180, address_space=3 << 30)
+        self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+      probe = os.path.join(work, 'Probe.curry')
+      with open(probe, 'w') as stream:
+        stream.write('module Probe where\nimport Leaf\ngoal :: (Int,Int)\ngoal = (answer,answer)\n')
+      for mode in ('eager', 'hot'):
+        code = r"""
+import curry, os
+from curry.backends.cxx import tiered, curryrtbindings as curryrt
+from curry.objects.handle import getHandle
+root = %r
+os.environ['SPRITE_JIT_THRESHOLD'] = '1'
+curry.reset(interpret='new', jit=%r, jit_backend='cxx')
+curry.path.insert(0, os.path.join(root, '1'))
+leaf = curry.import_('Leaf')
+assert curry.eval(leaf.answer).one() == 1
+curry.path.insert(0, os.path.join(root, '2'))
+probe = curry.import_(os.path.join(root, 'Probe.curry'))
+assert curry.show(curry.eval(probe.goal).one()) == '(1,1)'
+assert tiered.wait(120, interp=curry._interpreter_)
+assert not curryrt.icurry_is_interpreted(probe.goal.info)
+assert curry.show(curry.eval(probe.goal).one()) == '(1,1)'
+assert curry.eval(leaf.answer).one() == 1
+tiered.finish()
+""" % (work, mode)
+        child = cytest.run_in_subprocess(code, timeout=240, address_space=3 << 30)
+        self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+
 class TieredTestCase(cytest.TestCase):
   '''A temporary source directory with one fresh module per import.'''
   counter = itertools.count()
@@ -440,9 +550,8 @@ class TestSwap(TieredTestCase):
   @cytest.hardreset
   def test_edited_module_swaps_to_its_new_code(self):
     # After an edit that keeps the shape of the module, a reload imports
-    # the new source. POSIX swaps to the new object; Windows keeps the
-    # new code interpreted because the first incarnation stays mapped
-    # under the canonical name.
+    # the new source. A loaded canonical object keeps its file; the new
+    # compile is adopted from its private generation.
     text = 'module %%(name)s where\nbump :: Int -> Int\nbump x = x + %d\n'
     name = self.write_module(text % 1)
     M = self.import_module(name)
@@ -462,14 +571,8 @@ class TestSwap(TieredTestCase):
     with capture_log('curry.backends.cxx.tiered') as log:
       self.wait()
     after = tiered.status()
-    windows = sys.platform == 'win32'
-    if windows:
-      self.assertIn('the object is mapped under this name in this process',
-                    str(log.data[logging.WARNING]))
-      self.assertIn('was not adopted', str(log.data[logging.WARNING]))
-      self.assertNotIn('compile failed', str(log.data))
-    self.assertEqual(after['swapped_modules'], before['swapped_modules'] + (not windows))
-    self.assertEqual(curryrt.icurry_is_interpreted(M.bump.info), windows)
+    self.assertEqual(after['swapped_modules'], before['swapped_modules'] + 1)
+    self.assertFalse(curryrt.icurry_is_interpreted(M.bump.info))
     self.assertEqual(self.py(M.bump, 1), 3)
     self.assertEqual(M.bump.info.address, address)
 
@@ -856,12 +959,9 @@ class TestPolicy(TieredTestCase):
     self.assertEqual(self.py(N.viaCall), 3)
     self.assertEqual(steps() - n0, direct)
 
-  def test_private_copies_newest_first(self):
+  def test_private_copies_have_independent_views(self):
     '''
-    The search path of a child lists the private directories newest first,
-    so the copy of the live module shadows an older copy of the same name
-    (a reload after an edit that kept the shape of the module), then the
-    root of the original.
+    Each child searches its own view, then the original root.
     '''
     import types
     root = tempfile.mkdtemp(dir=self.tmpdir)
@@ -881,9 +981,9 @@ class TestPolicy(TieredTestCase):
     self.assertEqual(os.path.dirname(copy1), dir1)
     self.assertEqual(os.path.dirname(copy3), dir3)
     self.assertTrue(os.path.isfile(copy3))
-    self.assertEqual(dirs1, list(reversed(before)) + [root])
-    self.assertEqual(dirs2, [dir1] + list(reversed(before)) + [root])
-    self.assertEqual(dirs3, [dir2, dir1] + list(reversed(before)) + [root])
+    self.assertEqual(dirs1, [dir1, root])
+    self.assertEqual(dirs2, [dir2, root])
+    self.assertEqual(dirs3, [dir3, root])
 
   def test_sprite_make_compiles(self):
     # An explicit compile writes the object under the flag.

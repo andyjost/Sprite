@@ -114,6 +114,8 @@ namespace curryrt
       std::string publish; // as the job's, for the object of the import
     };
     std::vector<Import> imports;
+    // Canonical JSON entries of the loaded direct dependency fingerprints.
+    std::vector<std::string> fingerprints;
     // The functions to swap: the name of the function in its module, the
     // symbol of its step function in the object, and the table the
     // interpreter made.

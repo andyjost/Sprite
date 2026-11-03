@@ -199,6 +199,15 @@ def _load_module_once(interp, sofile, from_plan, fresh, _saved_payload):
   name, needed = _dynamic_names(sofile)
   if name is not None:
     _wait_pending(interp, name, sofile)
+    record = tiered._state.records.get(name)
+    module = interp.modules.get(name)
+    if record is not None and record.module() is module and module is not None \
+        and record.publish and os.path.realpath(record.publish) == os.path.realpath(sofile) \
+        and getHandle(module).sofilename is not None:
+      # A completed job may retain a mapped canonical file and adopt its
+      # private generation. A load of its publication destination takes
+      # that same completed adoption, whether this call waited or not.
+      return module
   # The object names the objects of its imports by their SONAMEs, and the
   # dynamic linker satisfies such a name with an object of that name this
   # process has mapped: no search path leads to the file.  So the imports
@@ -235,8 +244,11 @@ def _open_module(interp, sofile, name, from_plan, fresh, before, _saved_payload)
     module = None # a namespace has no interpreted module to replace
   with open(sofile, 'rb') as stream:
     digest = hashlib.sha256(stream.read()).hexdigest()
+  loaded = _objects.get(name)
+  unchanged = loaded is not None and os.path.realpath(loaded[0]) == os.path.realpath(sofile) \
+      and loaded[1] == digest
   replace = previous is not None and module is None \
-      and (from_plan or fresh) and _objects.get(name) != (sofile, digest)
+      and (from_plan or fresh) and not unchanged
   if name is not None and not replace:
     registered = curryrt.SharedCurryModule.find_sofilename(name)
     if registered is not None:

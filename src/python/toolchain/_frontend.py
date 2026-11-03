@@ -299,7 +299,7 @@ def protected_translation(file_in, currypath, quiet=False, rewrite=True):
   """Resolve only this translation's private prerequisites and interface view."""
   from . import _destination, _findcurry
   from ._interfaceview import interface_view, loaded_interface_view
-  original = _destination.canonical(file_in)
+  original = os.path.abspath(file_in)
   selected = _destination.select(original,
       _destination.interfaces(original, currypath))
   if selected == original and _findcurry._installed_library_file(selected) \

@@ -77,6 +77,14 @@ def writable(source):
   return _destination.writable(filename(source))
 
 
+_attached_paths = set()
+_image_generations = {}
+
+
+def _generation_key(interp, source):
+  return os.path.realpath(_filenames.sourcefilename(source)), interp.flags['inline_budget']
+
+
 def _private_path(interp, source):
   from . import tiered
   source = _filenames.sourcefilename(_destination.canonical(source))
@@ -101,6 +109,9 @@ def _path(interp, source):
   generation = _findcurry.generation_for_source(source, interp)
   if generation is not None and generation.image is not None:
     return generation.image
+  replacement = _image_generations.get(_generation_key(interp, source))
+  if replacement is not None and os.path.isfile(replacement):
+    return replacement
   if _findcurry._installed_library_file(source):
     key = (_filenames.sourcefilename(_destination.canonical(source)),
            digest(_filenames.icurryfilename(source)), interp.flags['inline_budget'])
@@ -348,6 +359,10 @@ def write(interp, module, currypath=None, path=None, imports=None):
 
 
 def _write(interp, module, path, imports, builtins):
+  if os.path.realpath(path) in _attached_paths:
+    selected = _destination.select(module.filename, force=True)
+    path = filename(selected)
+    _image_generations[_generation_key(interp, module.filename)] = path
   out = Encoder()
   out.text(module.fullname)
   out.word(len(module.imports))
@@ -445,7 +460,8 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
   path = _path(interp, source)
   if not importing:
     from . import tiered
-    if not tiered._foreign_flags(interp):
+    if not tiered._foreign_flags(interp) and \
+        _generation_key(interp, source) not in _image_generations:
       path = filename(source)
   try:
     header = _check(interp, source, path)
@@ -480,7 +496,7 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
       pass
     optimize(interp, raw, currypath, summaries=summaries)
     imports = {name: imports[name] for name in raw.imports}
-    _write(interp, raw, path, imports, builtins)
+    path = _write(interp, raw, path, imports, builtins)
     return path, _check(interp, source, path, imports)
 
 
@@ -529,6 +545,7 @@ def attach(interp, source, path, header):
   # Material tables live in the runtime module, whose lifetime must cover
   # symbol construction and publication by the importer.
   module._image_owner = owner
+  _attached_paths.add(os.path.realpath(path))
   module._attached_image = path
   from .jit import backend
   jit = interp.flags.get('jit', 'off')

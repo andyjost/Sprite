@@ -149,9 +149,17 @@ def capture_generation(module, interp):
     key = {'.fint': 'all.fint', '.icurry': 'all.interface'}.get(suffix)
     embedded = raw.metadata.get(key) if key else None
     try:
-      texts[suffix] = embedded.encode('utf-8') if embedded is not None else path.read_bytes()
+      data = path.read_bytes()
     except OSError:
-      pass
+      data = None
+    if embedded is not None:
+      encoded = embedded.encode('utf-8')
+      # Text metadata has universal newlines; retain the matching physical
+      # spelling so later byte verification also works for CRLF products.
+      texts[suffix] = data if data is not None and \
+          data.replace(b'\r\n', b'\n') == encoded.replace(b'\r\n', b'\n') else encoded
+    elif data is not None:
+      texts[suffix] = data
   try:
     info = cache._sourceinfo(source) if source else None
   except OSError:

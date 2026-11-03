@@ -615,7 +615,7 @@ program = Path(%r) / 'saved'
 curry.save(module, program, main='main')
 env = dict(os.environ, CURRYPATH='', SPRITE_CPM_PATH='0')
 with tempfile.TemporaryDirectory() as elsewhere:
-  result = subprocess.run([sys.executable, str(program)], cwd=elsewhere,
+  result = subprocess.run(([str(program)] if sys.platform == 'win32' else [sys.executable, str(program)]), cwd=elsewhere,
       env=env, capture_output=True, text=True, timeout=120)
   assert result.returncode == 0, result.stdout + result.stderr
   assert result.stdout.strip() == expected, (result.stdout, expected)
@@ -715,7 +715,7 @@ shutil.rmtree(program.parent / 'Data')
 shutil.rmtree(program.parent / '.curry')
 (program.parent / 'Probe.curry').unlink()
 env = dict(os.environ, CURRYPATH='', SPRITE_CPM_PATH='0')
-result = subprocess.run([sys.executable, str(program)], env=env,
+result = subprocess.run(([str(program)] if sys.platform == 'win32' else [sys.executable, str(program)]), env=env,
     capture_output=True, text=True, timeout=120)
 assert result.returncode == 0, result.stdout + result.stderr
 assert result.stdout.strip() == expected, (result.stdout, expected)
@@ -741,7 +741,7 @@ with tempfile.TemporaryDirectory() as work:
   module = curry.import_('Test.Prop')
   program = Path(work) / 'saved'
   curry.save(module, program, main='userValue')
-  result = subprocess.run([sys.executable, str(program)], capture_output=True, text=True)
+  result = subprocess.run(([str(program)] if sys.platform == 'win32' else [sys.executable, str(program)]), capture_output=True, text=True)
   assert result.returncode == 0, result.stderr
   assert result.stdout.strip() == 'True', result.stdout
 ''', timeout=120, address_space=3 << 30)

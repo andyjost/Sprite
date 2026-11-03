@@ -1,14 +1,20 @@
 """Publication destinations shared by installed-module product writers."""
 import os
 from . import _filenames, _findcurry
+from .. import config
 
 
 def canonical(filename):
+  """Normalize a product spelling; use realpath separately for identity."""
   if isinstance(filename, _filenames.ImageProduct):
-    return _filenames.ImageProduct(os.path.realpath(filename),
-                                  os.path.realpath(filename.icyfile),
-                                  os.path.realpath(filename.original_icyfile))
-  return os.path.realpath(filename)
+    return _filenames.ImageProduct(os.path.abspath(filename),
+                                  os.path.abspath(filename.icyfile),
+                                  os.path.abspath(filename.original_icyfile))
+  if not filename.endswith('.curry') and os.path.islink(filename):
+    # A standalone product alias has no source layout of its own. Resolve
+    # it before deriving sibling products, preserving ordinary source paths.
+    return os.path.realpath(filename)
+  return os.path.abspath(filename)
 
 
 def writable(filename):
@@ -30,12 +36,25 @@ def needs_private(filename, products):
 def select(filename, products=(), force=False):
   """Return a source generation; later writers inherit its destination."""
   filename = canonical(filename)
+  from ..backends.cxx import tiered, image, curryrtbindings as curryrt
+  source = _filenames.sourcefilename(filename)
+  private = tiered._state.tmpdir
+  if private and os.path.realpath(source).startswith(os.path.realpath(private) + os.sep):
+    name = _filenames.module_name(source)
+    mapped = curryrt.SharedCurryModule.find_sofilename(name)
+    objectfile = _filenames.replacesuffix(source, config.module_object_suffix())
+    if os.path.realpath(image.filename(source)) in image._attached_paths or \
+        (mapped is not None and os.path.realpath(mapped) == os.path.realpath(objectfile)):
+      # Every writer follows a new source destination, including interfaces
+      # and ABI stamps; an attached private generation is never replaced.
+      force = True
   if not force and not needs_private(filename, products):
     return filename
-  from ..backends.cxx import tiered
   from ..icurry.types import IModule
-  source = _filenames.sourcefilename(filename)
   raw = IModule(_filenames.module_name(source), [], [], [], filename=source)
+  generation = _findcurry.generation_for_source(source)
+  if generation is not None:
+    raw._loaded_generation = generation
   copy, _ = tiered._private_copy(raw)
   if filename.endswith('.curry'):
     return copy

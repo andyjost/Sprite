@@ -2,12 +2,12 @@ import cytest # from ./lib; must be first
 from curry import interpreter
 from curry.exceptions import ModuleLookupError
 from curry.objects.handle import getHandle
-import pathlib, tempfile, sys
+import os, pathlib, tempfile, sys
 
 class TestImporter(cytest.TestCase):
   def test_literate_source_identity(self):
     import curry
-    with tempfile.TemporaryDirectory() as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
       root = pathlib.Path(work)
       reserved = root / 'Prelude.lcurry'
       reserved.write_text('> module Prelude where\n')
@@ -31,7 +31,7 @@ class TestImporter(cytest.TestCase):
   def test_unlink_child_of_module_or_namespace(self):
     for prefix_module in (False, True):
       with self.subTest(prefix_module=prefix_module):
-        with tempfile.TemporaryDirectory() as work:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
           root = pathlib.Path(work)
           (root / 'Parent').mkdir()
           (root / 'Parent/Child.curry').write_text(
@@ -54,7 +54,7 @@ class TestImporter(cytest.TestCase):
             self.assertNotIn('Child', getHandle(parent).icurry)
 
   def test_directory_does_not_hide_module(self):
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
       root = pathlib.Path(work)
       (root / 'early/Parent').mkdir(parents=True)
       (root / 'late').mkdir()
@@ -79,7 +79,7 @@ class TestImporter(cytest.TestCase):
           self.assertIs(parent.Child, child)
 
   def test_directory_does_not_hide_library_module(self):
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
       directory = pathlib.Path(work) / 'System/IO'
       directory.mkdir(parents=True)
       (directory / 'Child.curry').write_text(
@@ -95,7 +95,7 @@ class TestImporter(cytest.TestCase):
     for by_path in (False, True):
       for name in ('Leaf', 'Parent.Leaf', 'Parent.Middle.Leaf'):
         with self.subTest(by_path=by_path, name=name):
-          with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+          with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
             root = pathlib.Path(work)
             source = root / 'src' / (name.replace('.', '/') + '.curry')
             source.parent.mkdir(parents=True)
@@ -122,7 +122,7 @@ class TestImporter(cytest.TestCase):
     for header, place in [(header, 'Parent') for header in headers] + [
         ('module Parent.Leaf where', 'Other')]:
       with self.subTest(header=header, place=place):
-        with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
           root = pathlib.Path(work)
           source = root / place / 'Leaf.curry'
           source.parent.mkdir()
@@ -136,7 +136,7 @@ class TestImporter(cytest.TestCase):
           self.assertEqual(list(interp.eval(module.value)), [True])
 
   def test_hierarchy_root_precedes_sibling_directory(self):
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
       root = pathlib.Path(work)
       (root / 'Parent').mkdir()
       (root / 'Parent/Leaf.curry').write_text(
@@ -151,7 +151,7 @@ class TestImporter(cytest.TestCase):
       self.assertEqual(list(interp.eval(module.value)), [True])
 
   def test_misplaced_filename_prefers_sibling_helper(self):
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
       root = pathlib.Path(work)
       (root / 'Parent').mkdir()
       source = root / 'Parent/Other.curry'
@@ -169,7 +169,7 @@ class TestImporter(cytest.TestCase):
 
   def test_module_and_namespace(self):
     # Both import orders must preserve the parent's symbols and its child.
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
       root = pathlib.Path(work)
       (root / 'Parent').mkdir()
       (root / 'Parent.curry').write_text(
@@ -193,7 +193,7 @@ class TestImporter(cytest.TestCase):
           self.assertEqual(interp.type('Parent.Child.Marker').name, 'Marker')
 
   def test_library_namesake(self):
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
       source = pathlib.Path(work) / 'Prelude.curry'
       source.write_text('module Prelude where\nuserSymbol = 1\n')
       for loaded in (False, True):
@@ -214,9 +214,9 @@ class TestImporter(cytest.TestCase):
         code = r'''
 import curry
 from pathlib import Path
-import tempfile
+import os, tempfile
 curry.reset(interpret=%r, jit='off')
-with tempfile.TemporaryDirectory() as work:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
   source = Path(work) / 'Data/List.curry'
   source.parent.mkdir()
   source.write_text('module Data.List where\nuserValue :: Bool\nuserValue = True\n')

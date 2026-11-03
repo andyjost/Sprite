@@ -250,9 +250,11 @@ a busy lock leaves the private object in use and the publication to the
 holder of the lock.
 A tiered reload on POSIX uses a distinct spelling of the canonical path,
 so that ``dlopen`` opens the new file instead of returning the old mapping;
-it creates no link and no copy. Windows normalizes that spelling, so a
-second adoption under an already mapped canonical name declines with a
-logged reason and the edited module stays interpreted until the next process.
+it creates no link and no copy. Windows normalizes that spelling. An
+unchanged DLL rejoins its existing registry entry on reload. A background
+compile never publishes over a mapped canonical object: it adopts its
+new private generation instead. Attached images also retain their files;
+a replacement image uses a fresh private source generation.
 The tests cover mapped readers, collection of live and dead generations and
 read-only products. Neither a generation nor an old private ``.tiered`` copy
 may appear in a staged library or a wheel.

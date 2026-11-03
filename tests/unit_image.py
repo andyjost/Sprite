@@ -94,6 +94,7 @@ class TestImage(cytest.TestCase):
             stream.write(data)
         module = curry.import_(source)
         self.assertEqual(curry.eval(module.answer).one(), 42)
+        path = image._path(curry._interpreter_, source)
         self.assertEqual(image.read(path)['source'], image.digest(toolchain.icurryfilename(source)))
       curry.reset(backend='cxx', interpret='all', jit='off')
       with mock.patch('curry.toolchain._loadcurry.loadicurry',
@@ -120,6 +121,7 @@ class TestImage(cytest.TestCase):
       curry.reset(backend='cxx', interpret='all', jit='off')
       module = curry.import_(source)
       self.assertEqual(curry.eval(module.answer).one(), 43)
+      path = image._path(curry._interpreter_, source)
       self.assertNotEqual(image.digest(path), first)
       curry.reset(backend='cxx', interpret='all', jit='off', inline_budget=0)
       module = curry.import_(source)
@@ -228,7 +230,7 @@ class TestImage(cytest.TestCase):
       curry.reset(backend='cxx', interpret='all', jit='off')
       module = curry.import_(source)
       self.assertEqual(curry.eval(module.answer).one(), 42)
-      self.assertNotIn('ImageVanishedHelper', image.read(image.filename(source))['imports'])
+      self.assertNotIn('ImageVanishedHelper', image.read(image._path(curry._interpreter_, source))['imports'])
 
   def test_foreign_budget_never_publishes(self):
     prelude = curry.import_('Prelude')

@@ -73,10 +73,9 @@ Curry library (config.syslibs) are not compiled either: their objects come
 with the installation (make stage), and the swap maps the object of such an
 import for its importers (above), so a library module an interpreter runs
 (interpret:all, or a stale object) runs compiled once an importer swaps.  A
-private copy of a library source would be refused by the namesake check of
-the child (issue #168), and the copy on the search path of the children
-that followed it shadowed the library for them, so every compile of the
-process failed.
+library source in a dependency view must pass the loader-snapshot
+namesake check (issue #168), which authenticates the declared name and
+installed source bytes. A dependency view belongs to one job.
 
 The check of the swap.  The child compiles the source as it is when the
 child runs.  An edit of the source between the import and the compile would
@@ -95,8 +94,13 @@ opening the object.  prepare_adoption checks the source before the load.
 
 The products. Before a job is submitted, _private_copy verifies disk inputs
 against the loaded generation, including its imports. A mismatch skips the
-job with one INFO message. The child compiles in its job directory. The
-swap publishes the generated file, object and ABI stamp beside an outside
+job with one INFO message. The child compiles in its job directory, whose
+first search root is a verified view of every loaded import in the captured closure. Products are
+hard-linked where possible and copied otherwise. Unloaded names retain
+ordinary path resolution. Before publication or adoption, the native swap
+checks every dependency fingerprint in the child ABI stamps against that
+closure. A mismatch leaves the module interpreted with one INFO message.
+The swap publishes the generated file, object and ABI stamp beside an outside
 source only when its ICurry digest still matches; otherwise it uses the
 private object. Foreign optimizer flags always keep products private.
 
@@ -126,7 +130,7 @@ from ...utility.locking import native_metadata
 from ..generic import compiler as generic
 from . import curryrtbindings as curryrt
 from ... import common, config
-import atexit, itertools, logging, os, shutil, sys, tempfile, time, weakref, warnings
+import atexit, json, itertools, logging, os, shutil, sys, tempfile, time, weakref, warnings
 from ...exceptions import CurryWarning
 
 logger = logging.getLogger(__name__)
@@ -253,6 +257,7 @@ def _private_copy(imodule):
   generation = getattr(imodule, '_loaded_generation', None)
   pending = [generation] if generation is not None else []
   seen = set()
+  closure = []
   from ...toolchain._findcurry import verify_product
   from .image import digest
   while pending:
@@ -260,6 +265,7 @@ def _private_copy(imodule):
     if id(item) in seen:
       continue
     seen.add(id(item))
+    closure.append(item)
     if item.source:
       stem = _filenames.icurryfilename(item.source)[:-4]
       verify_product(item, stem + '.icy', '.icy')
@@ -285,15 +291,53 @@ def _private_copy(imodule):
   os.makedirs(os.path.dirname(copy), exist_ok=True)
   if os.path.isfile(filename):
     shutil.copy2(filename, copy)
+    os.chmod(copy, 0o644)
   stem = _filenames.icurryfilename(filename)[:-len('.icy')]
-  products = [stem + suffix
+  products = [(generation.image if generation is not None and generation.image else stem + suffix)
+      if suffix == '.img' else stem + suffix
       for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source', '.img')]
   productdir = os.path.dirname(_filenames.icurryfilename(copy))
   os.makedirs(productdir, exist_ok=True)
   for product in products:
     if os.path.isfile(product):
-      shutil.copy2(product, os.path.join(productdir, os.path.basename(product)))
-  searchdirs = list(reversed(_state.private)) + [root]
+      destination = os.path.join(productdir, os.path.basename(stem) + '.img'
+          if product.endswith('.img') else os.path.basename(product))
+      shutil.copy2(product, destination)
+      os.chmod(destination, 0o644)
+  # Each job owns its resolver view. Never search another job's target
+  # before a captured loaded dependency.
+  for item in closure:
+    if item is generation:
+      continue
+    target = os.path.join(directory, *item.name.split('.')) + '.curry'
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    if item.source and os.path.isfile(item.source):
+      shutil.copy2(item.source, target)
+      os.chmod(target, 0o644)
+    stem = _filenames.icurryfilename(item.source)[:-4] if item.source else None
+    output = _filenames.icurryfilename(target)[:-4]
+    os.makedirs(os.path.dirname(output), exist_ok=True)
+    for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source', '.img',
+                   '.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi'):
+      if suffix in ('.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi') \
+          and not item.object:
+        continue # only reuse objects actually loaded and verified above
+      if suffix == '.img':
+        product = item.image
+      elif suffix == config.module_object_suffix() and item.object:
+        product = item.object
+      elif suffix == config.module_object_suffix() + '.abi' and item.object:
+        product = item.object + '.abi'
+      elif suffix == '.cpp' and item.object:
+        product = os.path.splitext(item.object)[0] + '.cpp'
+      else:
+        product = stem + suffix if stem else None
+      if product and os.path.isfile(product):
+        try:
+          os.link(product, output + suffix)
+        except OSError:
+          shutil.copyfile(product, output + suffix)
+  searchdirs = [directory, root]
   _state.private.append(directory)
   return copy, searchdirs
 
@@ -398,6 +442,8 @@ def module_loaded(interp, moduleobj, currypath):
     start = time.monotonic()
     wait(interp=interp)
     if getHandle(moduleobj).backend_handle.shlib is None:
+      if getattr(_state.records.get(moduleobj.__name__), 'dependency_mismatch', False):
+        return False
       from ...exceptions import CompileError
       raise CompileError('cxx eager: module %s compile failed' % moduleobj.__name__)
     n = _state.records[moduleobj.__name__].functions
@@ -537,9 +583,38 @@ def submit(interp, moduleobj, currypath, hot=False):
   if logger.isEnabledFor(logging.DEBUG):
     logger.debug('Compiling %s in the background: %s', name, ' '.join(argv))
   dispatch = curryrt.cxx_arm if hot else curryrt.tiered_submit
+  from ...toolchain import _interfaces, _findcurry
+  expected = []
+  with _findcurry.resolving(interp):
+    pending = [(getattr(imodule, '_loaded_generation', None), sofile)]
+    seen = set()
+    while pending:
+      generation, objectfile = pending.pop()
+      if generation is None or id(generation) in seen:
+        continue
+      seen.add(id(generation))
+      fingerprints = _interfaces.object_snapshot(
+          [depname for depname, _ in generation.imports], currypath)
+      expected.extend(objectfile + '.abi' + '\n' + json.dumps(key) + ': ' + json.dumps(value)
+          for key, value in sorted(fingerprints.items()))
+      for depname, dep in generation.imports:
+        if dep is not None and dep.source:
+          # The first search directory is this job's view.
+          dep_source = os.path.join(searchdirs[0], *depname.split('.')) + '.curry'
+          pending.append((dep, _filenames.replacesuffix(
+              _filenames.icurryfilename(dep_source), config.module_object_suffix())))
+  imports = []
+  for depname, objectfile, icyfile, digest, publish in _import_objects(interp, imodule):
+    # A cold import can be compiled by this child before its own job runs.
+    # Adoption must use the object produced in this job's dependency view.
+    dep_source = os.path.join(searchdirs[0], *depname.split('.')) + '.curry'
+    if os.path.isfile(dep_source):
+      objectfile = _filenames.replacesuffix(
+          _filenames.icurryfilename(dep_source), config.module_object_suffix())
+    imports.append((depname, objectfile, icyfile, digest, publish))
   dispatch(
       name, argv, envp, logfile, sofile, record.publish or '', steps
-    , record.icyfile, record.digest, _import_objects(interp, imodule)
+    , record.icyfile, record.digest, imports, expected
     )
   _state.pending[name] = sofile
   _state.modules[name] = weakref.ref(moduleobj)
@@ -597,7 +672,8 @@ def poll(interp=None):
     _state.pending.pop(name, None)
     if not result['ok']:
       _state.modules.pop(name, None)
-      if hot and not result['error'].startswith('the object is mapped under this name'):
+      if hot and not result['error'].startswith(('the object is mapped under this name',
+          'the compiled dependency fingerprints')):
         output = result['output'].strip()
         logger.info('cxx hot: module %s compile failed: %s', name,
             (output or result['error']).splitlines()[0])
@@ -618,6 +694,10 @@ def poll(interp=None):
         logger.info('cxx hot: module %s compiled in %.2f s, swapped',
             name, result['seconds'])
       _refresh(name, interp)
+    elif result['error'].startswith('the compiled dependency fingerprints'):
+      if record is not None:
+        record.dependency_mismatch = True
+      logger.info('module %s: skipping background adoption (%s)', name, result['error'])
     elif result['error'] == 'the module is no longer loaded':
       logger.info('module %s: background compile not applied (%s)', name, result['error'])
     elif result['error'].startswith('the object is mapped under this name'):

@@ -46,10 +46,10 @@ import curry
 from curry import config
 from curry.toolchain import _filenames
 from pathlib import Path
-import tempfile
+import os, tempfile
 curry.reset(interpret=%r, jit='off')
 name = %r
-with tempfile.TemporaryDirectory() as work:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
   source = Path(work) / (name.replace('.', '/') + '.curry')
   source.parent.mkdir(parents=True, exist_ok=True)
   source.write_text('module %%s where\nuserValue :: Bool\nuserValue = True\n' %% name)
@@ -78,7 +78,7 @@ with tempfile.TemporaryDirectory() as work:
             self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
   def test_loaded_library_with_product_only_namesake(self):
-    with tempfile.TemporaryDirectory() as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
       curry.reset(interpret='new')
       library = curry.import_('Data.List')
       source = pathlib.Path(work) / 'Data/List.curry'

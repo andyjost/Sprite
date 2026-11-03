@@ -826,7 +826,7 @@ class TestFiles(cytest.TestCase):
     self.assertTrue(_curry2icurry.translated_before_rewrite(self.curryfile, icy))
     self.assertTrue(_curry2icurry.icurry_is_stale(icy))
     self.assertIn(os.path.abspath(icy), _curry2icurry.stale_pairs)
-    self.assertEqual(self.convert(), icy)
+    self.assertEqual(os.path.realpath(self.convert()), os.path.realpath(icy))
     for name in lifted_names():
       self.assertIn(quoted(name), readbytes(fcy), name)
       self.assertIn(quoted(name), readbytes(icy), name)

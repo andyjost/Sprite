@@ -128,7 +128,10 @@ assert curry.eval(E.getArgs).one() == []
             ':quit', cwd=directory)
         self.assertEqual(result.returncode, 0, result.stderr)
         program = Path(directory) / 'SavedArguments'
-        self.assertTrue(program.stat().st_mode & 0o111)
+        if os.name == 'nt':
+          self.assertEqual(program.read_bytes()[:2], b'MZ')
+        else:
+          self.assertTrue(program.stat().st_mode & 0o111)
         result = subprocess.run([str(program), '--', 'one', '-q', 'two words'],
             text=True, capture_output=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stderr)

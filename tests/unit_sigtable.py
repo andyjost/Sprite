@@ -671,11 +671,11 @@ class TestModules(cytest.TestCase):
     code = r'''
 import curry
 import shutil
-import tempfile
+import os, tempfile
 from pathlib import Path
 from curry.backends.cxx import toolchain
 from curry.objects.handle import Handle
-with tempfile.TemporaryDirectory() as work:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
   root = Path(work)
   source = root / 'X.curry'
   source.write_text('module X where\nf :: Int -> Int\nf x = x + 1\n')

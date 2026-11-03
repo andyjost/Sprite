@@ -12,7 +12,7 @@ import tempfile
 import tomllib
 import json
 import io
-from contextlib import redirect_stderr
+from contextlib import closing, redirect_stderr
 import runpy
 import os
 from unittest import mock
@@ -44,7 +44,7 @@ class TestPrivateLaunchers(cytest.TestCase):
       self.assertFalse((target / 'REPOSITORY_CACHE_SMALL').exists())
       self.assertFalse((source / 'REPOSITORY_CACHE.db').exists())
       module.validate_cache(target)
-      with sqlite3.connect(target / 'REPOSITORY_CACHE.db') as database:
+      with closing(sqlite3.connect(target / 'REPOSITORY_CACHE.db')) as database, database:
         self.assertEqual(database.execute('SELECT COUNT(*) FROM IndexEntry').fetchone(), (3,))
         self.assertEqual(database.execute('SELECT Dependencies, Category, SourceDirs, '
             'ExportedModules, ExecutableSpec FROM IndexEntry WHERE Name = ?',
@@ -68,7 +68,7 @@ class TestPrivateLaunchers(cytest.TestCase):
       source.mkdir()
       original = r'[(CompilerCompatibility \"pakcs\" [[(VGte (3,0,0,Nothing))]])]'
       other = r'[(CompilerCompatibility \"kics2\" [[(VGte (0,0,0,Nothing))]])]'
-      with sqlite3.connect(source / 'REPOSITORY_CACHE.db') as database:
+      with closing(sqlite3.connect(source / 'REPOSITORY_CACHE.db')) as database, database:
         database.execute('CREATE TABLE IndexEntry ('
             'Key INTEGER PRIMARY KEY, Name string NOT NULL, Version string NOT NULL, '
             'Dependencies string, CompilerCompatibility string, Synopsis string, '
@@ -85,11 +85,11 @@ class TestPrivateLaunchers(cytest.TestCase):
         (directory / 'package.json').write_text(json.dumps({
             'name': name, 'version': '1.0.0', 'compilerCompatibility': compilers}))
       module.overlay(source, target)
-      with sqlite3.connect(target / 'REPOSITORY_CACHE.db') as database:
+      with closing(sqlite3.connect(target / 'REPOSITORY_CACHE.db')) as database, database:
         rows = database.execute('SELECT CompilerCompatibility FROM IndexEntry ORDER BY Key').fetchall()
       self.assertEqual(rows, [(original[:-1] + ',' +
           r'(CompilerCompatibility \"sprite\" [[(VGte (0,9,0,Nothing))]])]',), (other,)])
-      with sqlite3.connect(source / 'REPOSITORY_CACHE.db') as database:
+      with closing(sqlite3.connect(source / 'REPOSITORY_CACHE.db')) as database, database:
         self.assertEqual(database.execute(
             'SELECT CompilerCompatibility FROM IndexEntry WHERE Key = 1').fetchone(), (original,))
       for label, sql, parameters, message in [
@@ -106,7 +106,7 @@ class TestPrivateLaunchers(cytest.TestCase):
            (), 'package/version mismatch'),
           ('schema', 'ALTER TABLE IndexEntry RENAME COLUMN Name TO Other', (), 'schema')]:
         with self.subTest(label=label):
-          with sqlite3.connect(source / 'REPOSITORY_CACHE.db') as database:
+          with closing(sqlite3.connect(source / 'REPOSITORY_CACHE.db')) as database, database:
             database.execute(sql, parameters)
             database.commit()
           try:
@@ -115,7 +115,7 @@ class TestPrivateLaunchers(cytest.TestCase):
           finally:
             # Restore the source fixture for the next independent case.
             shutil.copy2(target / 'REPOSITORY_CACHE.db', source / 'REPOSITORY_CACHE.db')
-            with sqlite3.connect(source / 'REPOSITORY_CACHE.db') as database:
+            with closing(sqlite3.connect(source / 'REPOSITORY_CACHE.db')) as database, database:
               database.execute('UPDATE IndexEntry SET CompilerCompatibility = ? WHERE Key = 1',
                                (original,))
 
@@ -135,7 +135,7 @@ class TestPrivateLaunchers(cytest.TestCase):
           'executable': {'name': 'example', 'options': {'pakcs': ':set v0'}}}))
       module.overlay(source, target)
       module.validate_cache(target)
-      with sqlite3.connect(target / 'REPOSITORY_CACHE.db') as database:
+      with closing(sqlite3.connect(target / 'REPOSITORY_CACHE.db')) as database, database:
         row = database.execute('SELECT Name, Version, Dependencies, Synopsis, Category, '
             'SourceDirs, ExportedModules, ExecutableSpec FROM IndexEntry').fetchone()
       self.assertEqual(row, ('example', '(1,2,3,Nothing)',
@@ -162,7 +162,7 @@ class TestPrivateLaunchers(cytest.TestCase):
           '"compilerCompatibility":{"pakcs":">= 3.0.0","pakcs":"< 4.0.0"},'
           '"executable":{"name":"example","options":{"pakcs":"-O","pakcs":"-v"}}}')
       module['create_cache'](root)
-      with sqlite3.connect(root / 'REPOSITORY_CACHE.db') as connection:
+      with closing(sqlite3.connect(root / 'REPOSITORY_CACHE.db')) as connection, connection:
         deps, compilers, executable = connection.execute(
             'SELECT Dependencies, CompilerCompatibility, ExecutableSpec FROM IndexEntry').fetchone()
       self.assertEqual(deps, '[' + ','.join(
@@ -199,7 +199,7 @@ class TestPrivateLaunchers(cytest.TestCase):
       for column in ('Dependencies', 'Synopsis', 'Category', 'SourceDirs',
                      'ExportedModules', 'ExecutableSpec'):
         with self.subTest(column=column):
-          with sqlite3.connect(database) as connection:
+          with closing(sqlite3.connect(database)) as connection, connection:
             connection.execute('UPDATE IndexEntry SET ' + column + " = 'wrong'")
           with self.assertRaisesRegex(ValueError, 'field mismatch: ' + column):
             module['validate_cache'](root)
@@ -217,7 +217,7 @@ class TestPrivateLaunchers(cytest.TestCase):
         with redirect_stderr(io.StringIO()):
           module['create_cache'](root, replace=True)
           module['validate_cache'](root)
-        with sqlite3.connect(database) as connection:
+        with closing(sqlite3.connect(database)) as connection, connection:
           row = connection.execute('SELECT Synopsis, ExecutableSpec FROM IndexEntry').fetchone()
         self.assertIn('kept', row[0 if key == 'synopsis' else 1])
         with tempfile.TemporaryDirectory() as destination:
@@ -255,6 +255,7 @@ class TestPrivateLaunchers(cytest.TestCase):
       self.assertEqual(publish.call_count, 1)
       module['validate_cache'](root)
 
+  @cytest.posix_only('the shell fragment belongs to the POSIX CI workflow')
   def test_ci_install_requires_success(self):
     workflow = (ROOT / '.github/workflows/ci.yml').read_text()
     start = workflow.index('          timeout 1800 cypm', workflow.index('--packages'))
@@ -471,11 +472,11 @@ class TestPrivateLaunchers(cytest.TestCase):
     # same launchers must bootstrap without the staged python directory.
     with tempfile.TemporaryDirectory() as work:
       package = Path(work) / 'curry'
-      shutil.copytree(ROOT / 'install/python/curry', package, symlinks=True)
+      shutil.copytree(Path(config.installed_path('python/curry')), package, symlinks=True)
       resources = package / '_sprite'
       resources.mkdir(exist_ok=True)
       for name in ('lib', 'sysconfig', 'curry', 'include', 'tools'):
-        (resources / name).symlink_to((ROOT / 'install' / name).resolve(), target_is_directory=True)
+        (resources / name).symlink_to(Path(config.installed_path(name)).resolve(), target_is_directory=True)
       (resources / 'bin').mkdir(exist_ok=True)
       for name in ('curry', 'cleancurry', 'sprite-frontend'):
         target = resources / 'bin' / name
