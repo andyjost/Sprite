@@ -894,6 +894,8 @@ jobs:
           SPRITE_CPM_PATH=0 timeout 600 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" exec "python -c 'import curry; M = curry.import_(\"Data.Map\"); print(curry.eval(M.size(M.empty)).one())'"
           env -u CURRYPATH python -c 'import curry; M = curry.import_("Data.Map"); print(curry.eval(M.size(M.empty)).one())'
           cd "$GITHUB_WORKSPACE/tests"
+          test -x "$CPM_TEST_HOME/.cpm/bin/curry-check"
+          command -v sqlite3
           (
             trap 'exit 0' TERM
             while :; do

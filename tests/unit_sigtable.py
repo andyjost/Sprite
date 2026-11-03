@@ -578,6 +578,37 @@ class TestInterface(cytest.TestCase):
 class TestModules(cytest.TestCase):
   '''A test module, a dynamic module, and the reset.'''
 
+  def test_fresh_symlink_import_without_cache(self):
+    code = r'''
+import os
+os.environ['SPRITE_CACHE_FILE'] = ''
+import tempfile
+from pathlib import Path
+import curry
+with tempfile.TemporaryDirectory() as work:
+  root = Path(work)
+  original = root / 'source'
+  alias = root / 'alias'
+  original.mkdir()
+  alias.mkdir()
+  source = original / 'FreshAlias.curry'
+  source.write_text('module FreshAlias where\nf :: Int -> Int\nf x = x + 1\n')
+  link = alias / source.name
+  try:
+    link.symlink_to(source)
+  except OSError:
+    import sys
+    sys.exit(77)
+  module = curry.import_(link)
+  assert module.f.signature == 'Int -> Int', module.f.signature
+  assert curry.show(curry.eval(module.f(41)).one()) == '42'
+  assert not list(original.rglob('*.fint'))
+'''
+    child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
+    if child.returncode == 77:
+      self.skipTest('source symlinks are unavailable')
+    self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
   def test_test_module(self):
     '''The module SigTable under tests/data/curry.'''
     M = curry.import_('SigTable')

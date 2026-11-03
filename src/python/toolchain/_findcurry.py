@@ -185,8 +185,10 @@ def capture_generation(module, interp):
   objectfile = handle.sofilename
   if not raw.filename and not objectfile:
     return
-  source = os.path.realpath(_filenames.sourcefilename(raw.filename)) if raw.filename else None
-  stem = Path(_filenames.icurryfilename(source) if source else objectfile).with_suffix('')
+  sourcefile = _filenames.sourcefilename(raw.filename) if raw.filename else None
+  source = os.path.realpath(sourcefile) if sourcefile else None
+  # Source identity follows symlinks; products belong to the spelling loaded.
+  stem = Path(_filenames.icurryfilename(raw.filename) if sourcefile else objectfile).with_suffix('')
   texts = {}
   for suffix in ('.fint', '.icurry', '.icy.imports', '.icy.source'):
     path = Path(str(stem) + suffix)

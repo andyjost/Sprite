@@ -681,6 +681,7 @@ assert curry.show(curry.eval(module.listToMaybe(curry.term([1]))).one()) == 'Jus
             code = r"""
 import os
 os.environ['SPRITE_CACHE_FILE'] = ''
+os.environ['SPRITE_DEBUG'] = '1'
 os.environ['CURRYPATH'] = %r
 missing_frontend = %r
 if missing_frontend:
@@ -733,7 +734,8 @@ def checked_command(*args, **kwargs):
     private = tiered._state.private
     views = {entry[1] for entry in _interfaceview._views.values()}
     loaded_views = [path for path in paths if path in views and path != library]
-    assert all(not any(p.is_file() for p in Path(path).rglob('*.curry'))
+    external = %r
+    assert all(any(p.is_file() for p in Path(path).rglob('*.curry')) == external
                for path in loaded_views)
     if loaded_views:
       assert paths[0] in loaded_views, paths
@@ -741,7 +743,7 @@ def checked_command(*args, **kwargs):
                if path != library and tiered._state.tmpdir
                and path.startswith(tiered._state.tmpdir + os.sep)), paths
     assert not any(path.startswith(curry.config.installed_path('curry')) for path in paths)
-    assert not any(path.is_file() for path in Path(library).rglob('*.curry'))
+    assert any(path.is_file() for path in Path(library).rglob('*.curry')) == external
     assert list(Path(library).rglob('*.fint'))
   return cmd
 _frontend.command = checked_command
@@ -802,7 +804,7 @@ if %r:
   assert not path.startswith(curry.config.installed_path('curry')), path
 if missing_frontend:
   assert read_list, 'GetOpt did not read its private List interface'
-""" % (directory, missing_frontend, route, missing_object, argument, spelling, work,
+""" % (directory, missing_frontend, route == '--external', route, missing_object, argument, spelling, work,
            missing_object, route, user, user, replaced,
            module.split('.')[-1] + ('.img' if route == '--image' else
                '.fcy' if route == '--rewrite-flat' else '.icy'),
