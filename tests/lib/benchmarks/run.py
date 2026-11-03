@@ -233,8 +233,15 @@ def measure_item(item, repeat, perf):
       probe = item.settings.probe(cmd, env, cwd)
       if isinstance(item, suites.CacheVariant) and probe is not None:
         # These objects are rebuilt in a different empty directory per run.
+        # macOS may report the canonical path of an aliased temp directory.
+        workdir = os.path.normcase(os.path.realpath(cwd))
         for name, obj in list(probe.items()):
-          if os.path.commonpath([os.path.abspath(obj['path']), cwd]) == cwd:
+          path = os.path.normcase(os.path.realpath(obj['path']))
+          try:
+            local = os.path.commonpath([path, workdir]) == workdir
+          except ValueError: # Different drives on Windows.
+            local = False
+          if local:
             fresh[name] = item.requested_inline_budget
             del probe[name]
     finally:
