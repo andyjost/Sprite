@@ -51,15 +51,26 @@ class EvaluationTotals(object):
     self._forks = 0
     self._scheduler = None
     self._running_refs = {}
-    # A collection inside a snapshot can forget a running state.
-    self._lock = threading.RLock()
+    # Callbacks only append; owner sections purge before using the map.
+    self._pending_removals = []
+    self._lock = threading.Lock()
     self._version = 0
+
+  def _purge(self):
+    # Called only under _lock, before a traversal starts. Never replace the
+    # pending list: callbacks in other threads may be appending to it.
+    while self._pending_removals:
+      key, ref = self._pending_removals.pop()
+      if self._running_refs.get(key) is ref:
+        del self._running_refs[key]
+        self._version += 1
 
   @property
   def _running(self):
     # Keep the inspection view used by diagnostics; resolve weakrefs only
     # after releasing the metadata lock, just as the counter snapshots do.
     with self._lock:
+      self._purge()
       refs = tuple(self._running_refs.values())
     return tuple(rts for ref in refs if (rts := ref()) is not None)
 
@@ -84,6 +95,7 @@ class EvaluationTotals(object):
   def _snapshot(self):
     while True:
       with self._lock:
+        self._purge()
         version = self._version
         steps, forks = self._steps, self._forks
         refs = tuple(self._running_refs.values())
@@ -96,6 +108,7 @@ class EvaluationTotals(object):
         if counters is not None:
           total = merge_counters(total, counters)
       with self._lock:
+        self._purge()
         if version == self._version:
           return steps, forks, total
 
@@ -108,6 +121,7 @@ class EvaluationTotals(object):
     forks = rts.forks_total
     counters = rts.scheduler_counters()
     with self._lock:
+      self._purge()
       self._running_refs.pop(id(rts), None)
       self._steps += steps
       self._forks += forks
@@ -123,11 +137,9 @@ class EvaluationTotals(object):
     '''
     key = id(rts)
     def forget(ref):
-      with self._lock:
-        if self._running_refs.get(key) is ref:
-          self._running_refs.pop(key)
-          self._version += 1
+      self._pending_removals.append((key, ref))
     with self._lock:
+      self._purge()
       self._running_refs[key] = weakref.ref(rts, forget)
       self._version += 1
     try:
