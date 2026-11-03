@@ -13,11 +13,11 @@ interfaces of the imports under their hierarchy roots. Then
 
 The command runs at the hierarchy root and names the source relative to
 that root, so a hierarchical source's own directory cannot shadow imports.
-Private translations search private generations newest first and replace
-installed source roots with a temporary interface-only view. Dependencies
+Translations outside the installation search private generations newest first
+and replace installed source roots with a temporary interface-only view. Dependencies
 requiring private destinations are elaborated before the requested module;
 the external front end can never rebuild an installed source through that
-view. In-place translations keep the ordinary search path.
+view. In-place installed translations keep the ordinary search path.
 
 Between the two steps the rewrite step of the routes
 (:func:`curry.toolchain.flat2icurry.rewrite_file`) rewrites ``M.fcy`` in
@@ -281,11 +281,11 @@ def frontend_environment():
   return env
 
 def curry2flat(file_in, currypath, quiet=False, rewrite=True):
-  """Translate privately against private generations and source-free interfaces.
+  """Hide installed sources unless translating in place in the installation.
 
   Installed dependencies with outside prerequisites are elaborated first,
-  following the same destination rule as the requested module. In-place
-  translations retain the ordinary search path.
+  following the same destination rule as the requested module. User products
+  stay beside their source; in-place installed translations keep their path.
   """
   from . import _destination, _findcurry
   from ._interfaceview import interface_view
@@ -296,7 +296,7 @@ def curry2flat(file_in, currypath, quiet=False, rewrite=True):
   private = (selected != original or any(
       selected.startswith(root + os.sep)
       for root in tiered._state.private))
-  if not private:
+  if not private and _findcurry._installed_library_file(selected):
     return _run_frontend(selected, currypath, quiet, rewrite)
   with interface_view(os.path.join('.curry', config.frontend_subdir())) as library:
     def search():

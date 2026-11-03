@@ -23,9 +23,9 @@ def interface_view(outdir):
       for suffix in ('.fint', '.icurry'):
         product = source.with_suffix(source.suffix + suffix)
         if product.is_file():
-          shutil.copyfile(product, str(target) + suffix)
+          shutil.copy2(product, str(target) + suffix)
           nested = library.joinpath(*(outdir.parts[1:] if outdir.anchor else outdir.parts), *parts)
           if nested != target:
             nested.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(product, str(nested) + suffix)
+            shutil.copy2(product, str(nested) + suffix)
     yield str(library)

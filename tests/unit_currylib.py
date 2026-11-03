@@ -355,6 +355,53 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     self.assertTrue(fcyfile.startswith(tmpdir))
     self.assertEqual(snapshot(copy), before)
 
+  def test_user_rewrite_replaced_import_is_private(self):
+    self._explicit_make_replaced_import_is_private(
+        '--rewrite-flat', transitive=True, user=True)
+
+  def test_user_import_replaced_import_is_private(self):
+    self._explicit_make_replaced_import_is_private(
+        '--import', transitive=True, user=True)
+
+  def test_user_frontend_command(self):
+    from unittest.mock import patch
+    from curry.toolchain import _system
+    import time
+    with tempfile.TemporaryDirectory() as work:
+      program = os.path.join(work, 'Probe.curry')
+      with open(program, 'w') as stream:
+        stream.write('module Probe where\nimport System.Console.GetOpt\ngoal = True\n')
+      ordinary = _frontend.command(program, [], quiet=True)
+      execute = _system.pexec
+      commands = []
+      def checked(cmd, **kwargs):
+        commands.append(cmd)
+        return execute(cmd, **kwargs)
+      started = time.monotonic()
+      with patch.object(_system, 'pexec', checked):
+        result = _frontend.curry2flat(program, [], quiet=True)
+      print('Warm user translation: %.6f s' % (time.monotonic() - started))
+      self.assertTrue(os.path.isfile(result))
+      self.assertEqual(len(commands), 1)
+      actual = commands[0]
+      def without_paths(cmd):
+        result = []
+        skip = False
+        for item in cmd:
+          if skip:
+            skip = False
+          elif item in ('-i', '-P'):
+            skip = True
+          else:
+            result.append(item)
+        return result
+      self.assertEqual(without_paths(actual), without_paths(ordinary))
+      self.assertIn('-P', actual)
+      paths = [actual[i + 1] for i, item in enumerate(actual[:-1]) if item == '-i']
+      self.assertNotIn(config.system_curry_path(), paths)
+      self.assertEqual(paths[0], work)
+      self.assertEqual(paths[-1], actual[actual.index('-P') + 1])
+
   def test_missing_object_replaced_import_is_private(self):
     self._explicit_make_replaced_import_is_private(
         '--image', generalized=False, missing_object=True)
@@ -397,7 +444,7 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
                                                      missing_object=False,
                                                      transitive=False,
                                                      spelling='absolute',
-                                                     replaced=True):
+                                                     replaced=True, user=False):
     # This file runs exclusively: restore every installed byte and mode even
     # when an unfixed builder writes replacement-dependent products there.
     from pathlib import Path
@@ -447,7 +494,7 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
       for readonly in (False, True):
         with self.subTest(readonly=readonly):
           try:
-            if route == '--import':
+            if route == '--import' and not user:
               for suffix in ('.icy', '.icy.source'):
                 Path(productfile('Data.List', suffix)).unlink()
             if missing_object:
@@ -462,8 +509,15 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
             directory = str(source.parent.parent) if replaced else ''
             if transitive:
               directory = str(Path(work) / 'replacement')
+            if user:
+              userdir = Path(work) / ('user-readonly' if readonly else 'user-writable')
+              userdir.mkdir()
+              probe = userdir / 'Probe.curry'
+              probe.write_text('module Probe where\nimport System.Console.GetOpt\ngoal = True\n')
+              argument = str(probe)
             code = r"""
 import os
+os.environ['SPRITE_CACHE_FILE'] = ''
 os.environ['CURRYPATH'] = %r
 import curry
 from pathlib import Path
@@ -510,13 +564,22 @@ if %r:
 else:
   route = %r
   if route == '--import':
-    curry.import_('System.Console.GetOpt')
+    if %r:
+      curry.path.insert(0, str(Path(argument).parent))
+      curry.import_('Probe')
+    else:
+      curry.import_('System.Console.GetOpt')
   else:
     make.main('sprite-make', [route, argument])
   if spelling != 'absolute':
     actual_path, actual_header = image.ensure(curry._interpreter_, argument, curry.path)
     assert actual_path == expected_path, (actual_path, expected_path)
     assert actual_header == expected_header
+if %r:
+  assert Path(_frontend.flatcurryfile(argument)).is_file(), 'user FlatCurry missing'
+  if route == '--import':
+    from curry.toolchain import _filenames
+    assert Path(_filenames.icurryfilename(argument)).is_file(), 'user ICurry missing'
 if %r:
   assert tiered._state.tmpdir is not None, 'no private generation'
   products = list(Path(tiered._state.tmpdir).rglob(%r))
@@ -530,7 +593,7 @@ if %r:
   path = image._path(curry._interpreter_, getHandle(module).icurry.filename)
   assert not path.startswith(curry.config.installed_path('curry')), path
 """ % (directory, route, missing_object, argument, spelling, work,
-           missing_object, route, replaced,
+           missing_object, route, user, user, replaced,
            module.split('.')[-1] + ('.img' if route == '--image' else
                '.fcy' if route == '--rewrite-flat' else '.icy'),
            transitive)
