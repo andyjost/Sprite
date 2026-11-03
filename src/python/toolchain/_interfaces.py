@@ -19,6 +19,11 @@ def search_path(filename, currypath=()):
     filename = _filenames.curryfilename(filename)
   except ValueError:
     pass
+  from ._findcurry import _installed_library_file
+  if _installed_library_file(filename):
+    from ..utility import curryname
+    return curryname.makeCurryPath(list(currypath or ()) +
+                                  config.system_curry_path().split(os.pathsep))
   return _frontend.searchdirs(filename, currypath or ())
 
 def interface_file(name, searchdirs, frontend=False):

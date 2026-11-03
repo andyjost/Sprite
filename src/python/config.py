@@ -493,12 +493,6 @@ def verify_syslibs():
     if not found or not any(found[-1].startswith(p) for p in syspath):
       message = ['System library %r was not found in the CURRYPATH' % name,
                  'The CURRYPATH is %r' % os.pathsep.join(cypath)]
-    elif not any(found[0].startswith(p) for p in syspath):
-      message = [
-          'System library %r is shadowed by a file from the CURRYPATH.' % name,
-          'The CURRYPATH is %r' % os.pathsep.join(cypath),
-          'The system %r is %r' % (name, found[-1]),
-          '%r was found at %r' % (name, found[0])]
     else:
       continue
     message.append('Set SPRITE_DISABLE_SYSLIB_CHECKS to ignore')

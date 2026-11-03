@@ -11,19 +11,21 @@ import re
 from pathlib import Path
 import shutil
 import sqlite3
+import tempfile
 
 
 def overlay(source, destination):
   source, destination = Path(source).resolve(), Path(destination).resolve()
   if source == destination or source in destination.parents:
     raise ValueError('the overlay must be separate from the original index')
-  shutil.copytree(source, destination, dirs_exist_ok=True)
-  if not (source / 'REPOSITORY_CACHE.db').exists():
-    (destination / 'REPOSITORY_CACHE.db').unlink(missing_ok=True)
-  validate_cache(destination)
+  validate_cache(source)
+  shutil.copytree(source, destination, dirs_exist_ok=True,
+                  ignore=shutil.ignore_patterns('REPOSITORY_CACHE*'))
   count = patch(destination)
-  patch_cache(destination)
-  create_cache(destination)
+  create_cache(destination, replace=True)
+  for path in destination.glob('REPOSITORY_CACHE*'):
+    if path.name != 'REPOSITORY_CACHE.db':
+      path.unlink()
   return count
 
 
@@ -38,6 +40,19 @@ SCHEMA = [
     ('ExportedModules', 'string', 0, 0), ('ExecutableSpec', 'string', 0, 0)]
 
 
+def unique_object(pairs):
+  result = {}
+  for key, value in pairs:
+    if key in result:
+      raise ValueError('duplicate JSON key: ' + key)
+    result[key] = value
+  return result
+
+
+def read_package(path):
+  return json.loads(path.read_text(), strict=False, object_pairs_hook=unique_object)
+
+
 def version_term(version):
   if not isinstance(version, str) or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version):
     raise ValueError('unsupported repository version')
@@ -45,12 +60,12 @@ def version_term(version):
 
 
 def constraint_term(constraint):
-  operators = {'>=': 'VGte', '>': 'VGt', '<=': 'VLte', '<': 'VLt', '=': 'VExact'}
+  operators = {'>=': 'VGte', '>': 'VGt', '<=': 'VLte', '<': 'VLt', '=': 'VExact', '^': 'VMajCompatible'}
   alternatives = []
   for alternative in constraint.split('||'):
     terms = []
     for part in alternative.split(','):
-      match = re.fullmatch(r'\s*(>=|<=|>|<|=)\s*([0-9]+\.[0-9]+\.[0-9]+)\s*', part)
+      match = re.fullmatch(r'\s*(>=|<=|>|<|=|\^)\s*([0-9]+\.[0-9]+\.[0-9]+)\s*', part)
       if match is None:
         raise ValueError('unsupported compiler constraint')
       op, version = match.groups()
@@ -78,31 +93,33 @@ def cache_rows(connection):
   if [(r[1], r[2], r[3], r[5]) for r in schema] != SCHEMA:
     raise ValueError('unsupported repository cache schema')
   return connection.execute(
-      'SELECT Key, Name, Version, CompilerCompatibility FROM IndexEntry').fetchall()
+      'SELECT * FROM IndexEntry').fetchall()
 
 
 def validate_cache(root, connection=None):
   database = root / 'REPOSITORY_CACHE.db'
-  if not database.exists():
+  if connection is None and not database.exists():
     return
   specifications = {}
   for path in root.rglob('package.json'):
-    data = json.loads(path.read_text(), strict=False)
+    data = read_package(path)
     identity = (data['name'], version_term(data['version']))
     if identity in specifications:
       raise ValueError('duplicate repository package/version')
-    specifications[identity] = {
-        name: constraint_term(value)
-        for name, value in data.get('compilerCompatibility', {}).items()}
-  with (sqlite3.connect(database) if connection is None else nullcontext(connection)) as connection:
+    specifications[identity] = package_row(data)
+  with (closing(sqlite3.connect(database)) if connection is None else nullcontext(connection)) as connection:
     seen = set()
-    for _, name, version, text in cache_rows(connection):
+    for _, name, version, *fields in cache_rows(connection):
       identity = (name, version)
       if identity in seen or identity not in specifications:
         raise ValueError('repository package/version mismatch')
       seen.add(identity)
-      if compatibility_terms(text) != specifications[identity]:
+      expected = specifications[identity]
+      if compatibility_terms(fields[1]) != compatibility_terms(expected[3]):
         raise ValueError('repository compatibility mismatch')
+      for column, actual, wanted in zip([c[0] for c in SCHEMA][3:], fields, expected[2:]):
+        if column != 'CompilerCompatibility' and actual != wanted:
+          raise ValueError('repository field mismatch: ' + column)
     if seen != specifications.keys():
       raise ValueError('repository package/version mismatch')
 
@@ -112,8 +129,8 @@ def patch_cache(root):
   database = root / 'REPOSITORY_CACHE.db'
   if database.exists():
     entry = '(CompilerCompatibility ' + QUOTE + 'sprite' + QUOTE + ' [[(VGte (0,9,0,Nothing))]])'
-    with sqlite3.connect(database) as connection:
-      for key, _, _, compatibility in cache_rows(connection):
+    with closing(sqlite3.connect(database)) as connection, connection:
+      for key, _, _, _, compatibility, *_ in cache_rows(connection):
         compilers = compatibility_terms(compatibility)
         if 'sprite' in compilers and compilers['sprite'] != constraint_term('>= 0.9.0'):
           raise ValueError('unexpected Sprite compatibility in repository cache')
@@ -129,9 +146,14 @@ def patch_cache(root):
 
 
 def sql_string(value):
-  if not isinstance(value, str) or not value.isascii():
+  """The body of a Curry string, read by CDBI (not a JSON string)."""
+  if not isinstance(value, str):
     raise ValueError('unsupported repository string')
-  return json.dumps(value, ensure_ascii=True)[1:-1]
+  escapes = {'"': r'\"', '\\': r'\\', '\a': r'\a', '\b': r'\b',
+             '\f': r'\f', '\n': r'\n', '\r': r'\r', '\t': r'\t', '\v': r'\v'}
+  if any((ord(c) < 32 or ord(c) == 127) and c not in escapes for c in value):
+    raise ValueError('unsupported repository control character')
+  return ''.join(escapes.get(c, c) for c in value)
 
 
 def string_term(value):
@@ -166,15 +188,18 @@ def package_row(data):
           executable)
 
 
-def create_cache(root):
+def create_cache(root, replace=False):
   """Avoid CPM 3.3's recursive JSON reader for indexes without a database."""
   database = root / 'REPOSITORY_CACHE.db'
-  if database.exists():
+  if database.exists() and not replace:
     return
-  rows = [package_row(json.loads(path.read_text(), strict=False))
+  rows = [package_row(read_package(path))
           for path in sorted(root.rglob('package.json'))]
+  descriptor, temporary = tempfile.mkstemp(prefix='.repository-', suffix='.db', dir=root)
+  os.close(descriptor)
+  temporary = Path(temporary)
   try:
-    with closing(sqlite3.connect(database)) as connection, connection:
+    with closing(sqlite3.connect(temporary)) as connection, connection:
       columns = ', '.join(name + ' ' + kind +
           (' PRIMARY KEY' if primary else '') + (' NOT NULL' if required else '')
           for name, kind, required, primary in SCHEMA)
@@ -182,16 +207,16 @@ def create_cache(root):
       connection.executemany('INSERT INTO IndexEntry VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                              ((key, *row) for key, row in enumerate(rows, 1)))
       validate_cache(root, connection)
-  except Exception:
-    database.unlink(missing_ok=True)
-    raise
+    os.replace(temporary, database)
+  finally:
+    temporary.unlink(missing_ok=True)
 
 
 def patch(root):
   """Apply the overlay to metadata in a private index or downloaded copies."""
   count = 0
   for path in Path(root).rglob('package.json'):
-    data = json.loads(path.read_text(), strict=False)
+    data = read_package(path)
     compilers = data.get('compilerCompatibility', {})
     if 'pakcs' in compilers and compilers.get('sprite') != '>= 0.9.0':
       compilers['sprite'] = '>= 0.9.0'

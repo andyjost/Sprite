@@ -420,6 +420,7 @@ namespace curryrt { namespace python
     }, heap_access{});
     mod.def("is_handle", &is_handle, heap_access{});
     mod.def("convert_value", &convert_value, heap_access{});
+    mod.def("builtin_module_names", &Module::builtin_module_names, heap_access{});
     mod.def("registered_names", &Module::registered_names, heap_access{});
     mod.def("is_io_ref", &is_io_ref, heap_access{});
     mod.def("set_install_prefix", &set_install_prefix, heap_access{});

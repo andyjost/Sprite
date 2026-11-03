@@ -9,16 +9,21 @@ __all__ = ['currentfile', 'import_path', 'imports_path', 'program_path']
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
 
+def reserved_module_names():
+  from ..backends.cxx import curryrtbindings as curryrt
+  return curryrt.builtin_module_names()
+
 def reject_library_shadow(modulename, filename, interp):
-  # Library names are reserved regardless of which modules are already
-  # loaded: the runtime registry and native implementations use those names.
-  if interp is None or modulename not in config.syslibs() \
+  if filename is not None and os.path.isfile(filename):
+    modulename = _filenames.module_name(filename)
+  if interp is None or modulename not in reserved_module_names() \
       or _installed_library_file(filename):
     return
   libraryfile = config.installed_path(
       'curry', modulename.replace('.', os.sep) + '.curry')
   raise ModuleLookupError(
-      "Curry module %r from %r conflicts with the installed library module %r."
+      "Curry module %r from %r has the name of a module the runtime implements; "
+      "the installed module %r cannot be replaced."
       % (modulename, os.path.abspath(filename), libraryfile)
     )
 

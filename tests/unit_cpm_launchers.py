@@ -75,6 +75,7 @@ class TestPrivateLaunchers(cytest.TestCase):
                              'VALUES (?, ?, ?, ?)',
                              [(1, 'first', '(1,0,0,Nothing)', original),
                               (2, 'second', '(1,0,0,Nothing)', other)])
+        database.execute("UPDATE IndexEntry SET Dependencies = '[]', Synopsis = '', Category = '[]', SourceDirs = '[]', ExportedModules = '[]', ExecutableSpec = 'Nothing'")
       for name, compilers in [('first', {'pakcs': '>= 3.0.0'}),
                                ('second', {'kics2': '>= 0.0.0'})]:
         directory = source / name / '1.0.0'
@@ -146,38 +147,87 @@ class TestPrivateLaunchers(cytest.TestCase):
           'Example package', r'[\"Test\"]', r'[\"src\"]', r'[\"Example\"]',
           r'(Just (PackageExecutable \"example\" \"Main\" [(\"pakcs\",\":set v0\")]))'))
       # SQL values encode a Curry string; term strings add another layer.
-      special = 'a "quoted" value\\with\na newline'
+      special = 'a "quoted" value\\with a slash'
       self.assertEqual(json.loads('"' + module.sql_string(special) + '"'), special)
       self.assertEqual(json.loads(json.loads('"' + module.string_term(special) + '"')), special)
+      before = (target / 'REPOSITORY_CACHE.db').read_bytes()
       shutil.copytree(package, source / 'duplicate/1.2.3')
       with self.assertRaisesRegex(ValueError, 'duplicate repository package/version'):
         module.overlay(source, target)
-      self.assertFalse((target / 'REPOSITORY_CACHE.db').exists())
+      self.assertEqual((target / 'REPOSITORY_CACHE.db').read_bytes(), before)
 
-  def test_ci_guard_only_error(self):
+  def test_overlay_carried_fixes(self):
+    module = runpy.run_path(str(ROOT / 'scripts/cpm-test-overlay.py'))
+    with tempfile.TemporaryDirectory() as work:
+      root = Path(work)
+      package = root / 'package.json'
+      data = {'name': 'example', 'version': '1.0.0',
+              'dependencies': {'base': '>= 3.0.0'}, 'synopsis': 'example',
+              'category': ['Test'], 'sourceDirs': ['src'],
+              'exportedModules': ['Example'], 'executable': {'name': 'example'}}
+      package.write_text(json.dumps(data))
+      module['create_cache'](root)
+      database = root / 'REPOSITORY_CACHE.db'
+      before = database.read_bytes()
+      self.assertEqual(module['constraint_term']('^ 1.0.0'),
+                       '[[(VMajCompatible (1,0,0,Nothing))]]')
+      for column in ('Dependencies', 'Synopsis', 'Category', 'SourceDirs',
+                     'ExportedModules', 'ExecutableSpec'):
+        with self.subTest(column=column):
+          with sqlite3.connect(database) as connection:
+            connection.execute('UPDATE IndexEntry SET ' + column + " = 'wrong'")
+          with self.assertRaisesRegex(ValueError, 'field mismatch: ' + column):
+            module['validate_cache'](root)
+          database.write_bytes(before)
+      for text in ('{"name":"a","name":"b"}',
+                   '{"compilerCompatibility":{"pakcs":"a","pakcs":"b"}}'):
+        package.write_text(text)
+        with self.assertRaisesRegex(ValueError, 'duplicate JSON key'):
+          module['patch'](root)
+      for field in ('synopsis', 'category', 'sourceDirs', 'exportedModules'):
+        for control in ('\x00', '\x01', '\x7f'):
+          bad = dict(data, **{field: control if field == 'synopsis' else [control]})
+          with self.assertRaisesRegex(ValueError, 'control character'):
+            module['package_row'](bad)
+      self.assertEqual(module['sql_string']('\a\b\f\n\r\t\v'), r'\a\b\f\n\r\t\v')
+      # CDBI reads these two escaping layers with Curry read.
+      import curry
+      for value in ('line\nnext', '\a\b\f\r\t\v', chr(233)):
+        expression = 'read "' + module['string_term'](value) + '" :: String'
+        self.assertEqual(curry.eval(curry.parse(expression)).one(), value)
+      package.write_text(json.dumps(data))
+      # Failure during validation must leave the previously usable database intact.
+      with mock.patch('sqlite3.connect', side_effect=RuntimeError('injected failure')):
+        with self.assertRaisesRegex(RuntimeError, 'injected failure'):
+          module['create_cache'](root, replace=True)
+      self.assertEqual(database.read_bytes(), before)
+      with mock.patch.dict(module['create_cache'].__globals__,
+                           validate_cache=mock.Mock(side_effect=ValueError('invalid replacement'))):
+        with self.assertRaisesRegex(ValueError, 'invalid replacement'):
+          module['create_cache'](root, replace=True)
+      self.assertEqual(database.read_bytes(), before)
+      self.assertEqual(list(root.glob('.repository-*')), [])
+      with mock.patch('os.replace', wraps=os.replace) as publish:
+        module['create_cache'](root, replace=True)
+      self.assertEqual(publish.call_count, 1)
+      module['validate_cache'](root)
+
+  def test_ci_install_requires_success(self):
     workflow = (ROOT / '.github/workflows/ci.yml').read_text()
-    start = workflow.index('            errors=$(')
-    end = workflow.index('\n            echo "::notice::', start)
-    check = workflow[start:end]
-    guard = ("ERROR: Curry module 'Test.Prop' from 'Prop.curry' conflicts with "
-             "the installed library module 'Prop.curry'.; searched curry.path")
-    with tempfile.TemporaryDirectory() as home:
-      for log, accepted in [
-          ('INFO  Compiling...\n' + guard + '\n', True),
-          (guard + '\nERROR: another failure\n', False),
-          ('ERROR: another failure\n' + guard + '\n', False),
-          (guard + '\nCRITICAL another failure\n', False),
-          (guard + '\n\x1b[31mERROR: another failure\x1b[0m\n', False),
-          (guard + '\nfile.curry:1:1:Error: another failure\n', False),
-          (guard + '\nfile.curry:1:1 Error: another failure\n', False),
-          (guard + '\nTraceback (most recent call last):\n', False),
-          (guard + '\n' + guard + '\n', False),
-          ('INFO  Compiling...\n', False)]:
-        with self.subTest(log=log):
-          (Path(home) / 'currycheck-install.log').write_text(log)
-          result = subprocess.run(['bash', '-e', '-c', check],
-              env=dict(os.environ, HOME=home), capture_output=True)
-          self.assertEqual(result.returncode == 0, accepted)
+    start = workflow.index('          timeout 1800 cypm', workflow.index('--packages'))
+    end = workflow.index('          timeout 600 cypm', start)
+    script = workflow[start:end]
+    with tempfile.TemporaryDirectory() as work:
+      root = Path(work)
+      command = root / 'cypm'
+      for status in (0, 1, 7):
+        command.write_text('#!/bin/sh\necho install-details\nexit %d\n' % status)
+        command.chmod(0o755)
+        result = subprocess.run(['bash', '-e', '-c', script], capture_output=True,
+            text=True, env=dict(os.environ, HOME=work, GITHUB_WORKSPACE=str(ROOT),
+                                PATH=work + os.pathsep + os.environ['PATH']))
+        self.assertEqual(result.returncode, status, result.stdout + result.stderr)
+        self.assertIn('install-details', result.stdout)
 
   @cytest.linux_only('The Ubuntu workflow sampler uses Linux ps options.')
   def test_ci_memory_sampler(self):
@@ -236,9 +286,6 @@ class TestPrivateLaunchers(cytest.TestCase):
     self.assertFalse(survey.fits('>= 4.0.0'))
     self.assertEqual(survey.classify('all properties passed', 0), 'pass')
     self.assertEqual(survey.classify('', 124), 'timeout')
-    self.assertTrue(survey.classify(
-        "Curry module 'Test.Prop' conflicts with the installed library module",
-        1).startswith('guard:'))
     self.assertTrue(survey.classify('No tests, just compiling', 0).startswith('Sprite error:'))
     self.assertIn('Expected module for XML, but found FlatCurry.XML',
         survey.classify('ERROR: Error:\n Expected module for XML, but found FlatCurry.XML', 1))
@@ -303,7 +350,35 @@ class TestPrivateLaunchers(cytest.TestCase):
       with self.assertRaises(SystemExit) as result:
         runpy.run_path(str(ROOT / 'src/export/bin/sprite-frontend.script'), run_name='__main__')
       self.assertEqual(result.exception.code, 7)
-      call.assert_called_once_with(['frontend', '--extended', '-D__PAKCS__=310', '--flat', 'Main'])
+      call.assert_called_once()
+      args = call.call_args.args[0]
+      self.assertEqual(args[:4], ['frontend', '--extended', '-D__PAKCS__=310', '-P'])
+      self.assertEqual(args[5:-2], ['--flat', 'Main'])
+      self.assertEqual(args[-2:], ['-i', args[4]])
+
+  def test_frontend_library_interfaces(self):
+    if config.curry_frontend() is None:
+      self.skipTest('Curry front end is absent')
+    with tempfile.TemporaryDirectory() as work:
+      root = Path(work)
+      (root / 'Probe.curry').write_text(
+          "module Probe where\nimport Data.Char\nvalue = digitToInt '1'\n")
+      result = subprocess.run([sys.executable, str(ROOT / 'src/export/bin/sprite-frontend.script'),
+          '--acy', '-o', '.curry/sprite-0.9.0', 'Probe'], cwd=root,
+          env=dict(os.environ, LC_ALL='C.UTF-8'), capture_output=True, text=True)
+      self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+      self.assertTrue((root / '.curry/sprite-0.9.0/Probe.acy').is_file())
+      # Caller paths precede the pinned interface fallback.
+      override = root / 'override/Data/Char.curry'
+      override.parent.mkdir(parents=True)
+      override.write_text('module Data.Char where\nmarker :: Bool\nmarker = True\n')
+      (root / 'Probe.curry').write_text(
+          'module Probe where\nimport Data.Char\nvalue = marker\n')
+      result = subprocess.run([sys.executable, str(ROOT / 'src/export/bin/sprite-frontend.script'),
+          '--acy', '-f', '-i', str(root / 'override'),
+          '-o', '.curry/sprite-0.9.0', 'Probe'], cwd=root,
+          env=dict(os.environ, LC_ALL='C.UTF-8'), capture_output=True, text=True)
+      self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
   def test_staged_launchers(self):
     self.exercise(Path(config.installed_path()))

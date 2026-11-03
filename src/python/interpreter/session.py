@@ -257,12 +257,17 @@ def save(interp, module, path, *, main=None):
         # Keep imports before their users: the dynamic linker needs their
         # SONAMEs mapped before it opens an object that refers to them.
         products = []
-        visited = set(config.syslibs())
+        visited = set()
         def collect(current):
           name = current.__name__
           if name in visited:
             return
           visited.add(name)
+          from ..toolchain._findcurry import _installed_library_file
+          source = getHandle(current).icurry.filename
+          if name != module.__name__ and source and _installed_library_file(source) \
+              and SavedCpp2So(interp)._object_on_disk(name, interp.path) is not None:
+            return
           for dependency in getHandle(current).icurry.imports:
             collect(interp.import_(dependency))
           product = compile_module(current)
@@ -397,7 +402,7 @@ def load(interp, path):
     name, _ = _dynamic_names(path)
     if name is None:
       raise ValueError('no Curry module record')
-    if name in interp.modules:
+    if name in interp.modules and not isinstance(interp.modules[name], CurryPackage):
       module = interp.modules[name]
       loaded = getattr(module, '.load_path', None) or getHandle(module).sofilename
       if loaded is not None and os.path.realpath(loaded) == os.path.realpath(path):

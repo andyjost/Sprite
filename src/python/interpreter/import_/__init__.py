@@ -46,10 +46,11 @@ def import_(interp, arg, currypath=None, is_sourcefile=False):
 # Import a module or package by name.
 @import_.when(str)
 def import_(interp, name, currypath=None, is_sourcefile=False):
-  modulename = curryname.getModuleName(name, is_sourcefile)
+  modulename = (_filenames.module_name(name) if is_sourcefile else
+                curryname.getModuleName(name, False))
   if is_sourcefile:
     _findcurry.reject_library_shadow(modulename, name, interp)
-  elif modulename in config.syslibs():
+  elif modulename in _findcurry.reserved_module_names():
     path = curryname.makeCurryPath(interp.path if currypath is None else currypath)
     plan = plans.makeplan(interp, plans.MAKE_ALL)
     filename = next(_findcurry._modulefiles(plan, modulename, path), None)

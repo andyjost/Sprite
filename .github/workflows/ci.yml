@@ -888,21 +888,11 @@ jobs:
           export SPRITE_DISABLE_SYSLIB_CHECKS=1
           timeout 1800 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" checkout currycheck -o "$HOME/currycheck-download"
           python "$GITHUB_WORKSPACE/scripts/cpm-test-overlay.py" "$HOME/.cpm/index" "$HOME/sprite-index" --packages "$HOME/.cpm/packages"
-          # Match unit_cpm_repl's expected failure until the library guard is resolved.
-          if timeout 1800 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" install currycheck > "$HOME/currycheck-install.log" 2>&1; then
-            cat "$HOME/currycheck-install.log"
-          else
-            status=$?
-            cat "$HOME/currycheck-install.log"
-            test "$status" -eq 1
-            errors=$(sed -E 's/\x1b\[[0-9;]*[mK]//g' "$HOME/currycheck-install.log" | grep -Ei '(^|[^[:alnum:]_])(error|critical|fatal)(:|[[:space:]])|Traceback \(most recent call last\)')
-            test "$errors" = "ERROR: Curry module 'Test.Prop' from 'Prop.curry' conflicts with the installed library module 'Prop.curry'.; searched curry.path"
-            echo "::notice::CurryCheck installation reached the known Test.Prop guard (unit_cpm_repl expected failure)."
-          fi
+          timeout 1800 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" install currycheck > "$HOME/currycheck-install.log" 2>&1 || { status=$?; cat "$HOME/currycheck-install.log"; exit "$status"; }
+          cat "$HOME/currycheck-install.log"
           timeout 600 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" install
           SPRITE_CPM_PATH=0 timeout 600 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" exec "python -c 'import curry; M = curry.import_(\"Data.Map\"); print(curry.eval(M.size(M.empty)).one())'"
           env -u CURRYPATH python -c 'import curry; M = curry.import_("Data.Map"); print(curry.eval(M.size(M.empty)).one())'
-          # The property test retains its expected failure at the library guard.
           cd "$GITHUB_WORKSPACE/tests"
           (
             trap 'exit 0' TERM

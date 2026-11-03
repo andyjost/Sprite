@@ -5,10 +5,11 @@ Release Notes
 0.9.0a3 (2026-11-01)
 ====================
 
+- Library modules follow Curry path order; only runtime builtin module names
+  are reserved, allowing CurryCheck's EasyCheck dependency to load.
 - Private ``curry``, ``cleancurry`` and ``sprite-frontend`` launchers provide
   the installation paths used by CurryCheck. A test-only CPM index overlay
-  permits compatibility testing; CurryCheck execution remains blocked by
-  namespace/module imports.
+  permits compatibility testing.
 - The ``sprite`` command starts the REPL and accepts CPM command lines,
   version probes, program arguments and ``:save``. The REPL module is
   now ``curry.tools.repl``.

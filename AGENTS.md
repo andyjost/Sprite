@@ -146,6 +146,8 @@ reproducers pass.
 - The Curry path adds local CPM project and installed-package source
   directories after `CURRYPATH` and before the installation at import;
   `SPRITE_CPM_PATH=0` disables discovery.
+  Modules follow path order and keep loaded names; only runtime builtin names
+  are reserved, and stale importers are rebuilt for replaced library modules.
 - Primitives register by qualified Curry name through
   `Module::register_primitive` before module loading. The image writer and C++
   emitter share this registry. Standard C++ implements portable operations;

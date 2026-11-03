@@ -376,7 +376,7 @@
         "failures": 0,
         "measured_on_cores": 24,
         "measured_on_mem_gb": 123,
-        "peak_rss_mb": 2069,
+        "peak_rss_mb": 434,
         "tests": 1
       }
     },

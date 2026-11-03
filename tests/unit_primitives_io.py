@@ -465,9 +465,6 @@ assert curry.eval(M.getCurrentDirectory).one() == 'sentinel'
     script = """
 import curry
 import sys
-# Bypass only the outer reserved-name guard to test primitive selection.
-from curry.toolchain import _findcurry
-_findcurry.reject_library_shadow = lambda *args: None
 curry.path.insert(0, sys.argv[1])
 M = curry.import_('System.IO.Unsafe')
 assert curry.eval(M.isVar(0)).one() is True

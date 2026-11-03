@@ -465,14 +465,11 @@ Sprite's preprocessor-presence check recognizes as active. Keep ``currypp``
 available during installation; this check needs a separate toolchain fix.
 The preprocessor may be built with PAKCS; CurryCheck must be built with Sprite.
 
-EasyCheck supplies its own ``Test.Prop`` interface. For this test run,
-``SPRITE_DISABLE_SYSLIB_CHECKS=1`` permits startup with this duplicate
-interface on the path; installed library module names remain reserved.
-
-CurryCheck installation currently also encounters a Sprite importer error
-when an earlier package namespace directory hides a later module of the
-same name. The local property test tracks this failure; compile-only CPM
-fallback does not demonstrate property execution.
+EasyCheck supplies its own ``Test.Prop`` interface, which follows the same
+path rules as other ordinary library modules. The local property test checks
+that CPM runs CurryCheck; compile-only fallback does not demonstrate property
+execution. Property analysis currently needs the unimplemented runtime external
+``ReadShowTerm.prim_readsUnqualifiedTerm``.
 
 The script adds ``"sprite": ">= 0.9.0"`` to every compatibility list that
 names PAKCS. CPM also reads metadata from downloaded packages; ``--packages``
@@ -493,6 +490,15 @@ The discovery runs once
 at import and logs the packages at INFO. ``SPRITE_CPM_PATH=0`` disables it.
 Thus ``python -m curry`` works from the project root after installation,
 without ``cypm exec``.
+
+The first file on the Curry path defines a module, including a library module.
+A loaded module keeps its name until reset or reload; another import returns
+it, warning if an explicitly named file differs.
+Names implemented by the runtime are reserved: an outside file with such a
+name is refused with a message naming both files.
+A replacement must export what the library's importers use.
+Products compiled against another version of an import are rebuilt, privately
+when their directory is not writable.
 
 From Python, inspect or change ``curry.path``. To discover another project,
 use ``curry.cpm_path(root)``; it returns a list of source directories without

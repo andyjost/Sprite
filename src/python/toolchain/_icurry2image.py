@@ -38,9 +38,9 @@ class ICurry2Image:
         keys += ('budget',)
       if any(header.get(key) != facts[key] for key in keys):
         return True
-      from . import _interfaces
       import os
-      search = _interfaces.search_path(_filenames.curryfilename(filename), currypath)
+      from ..backends.cxx.toolchain import import_search_path
+      search = import_search_path(self.interp, filename, currypath)
       for name, expected in header['imports'].items():
         parts = name.split('.')
         paths = (os.path.join(directory, *parts[:-1], '.curry',

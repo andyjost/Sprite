@@ -27,16 +27,14 @@ class TestIssue174(cytest.TestCase):
         pass
       path = os.pathsep.join([directory, curry.config.system_curry_path()])
       proc = self.child(CURRYPATH=path)
-      self.assertEqual(proc.returncode, 1, proc.stderr)
-      self.assertEqual(proc.stdout, '')
-      self.assertIn("ImportError: System library 'Prelude.curry' is shadowed", proc.stderr)
-      self.assertIn('The CURRYPATH is', proc.stderr)
-      self.assertIn(repr(directory)[1:-1], proc.stderr)
-      self.assertIn('SPRITE_DISABLE_SYSLIB_CHECKS', proc.stderr)
-      proc = self.child(CURRYPATH=path, SPRITE_DISABLE_SYSLIB_CHECKS='1')
       self.assertEqual(proc.returncode, 0, proc.stderr)
-      self.assertEqual(proc.stdout, '')
-      self.assertEqual(proc.stderr, '')
+      for disabled in ({}, {'SPRITE_DISABLE_SYSLIB_CHECKS': '1'}):
+        proc = self.child("import curry; curry.import_('Prelude')", CURRYPATH=path, **disabled)
+        self.assertEqual(proc.returncode, 1, proc.stderr)
+        self.assertIn("Curry module 'Prelude'", proc.stderr)
+        self.assertIn('runtime implements', proc.stderr)
+        self.assertIn(repr(directory)[1:-1], proc.stderr)
+        self.assertIn('installed module', proc.stderr)
 
   def test_missing_system_library(self):
     # Keep the installation intact: simulate no match, or only a user copy.

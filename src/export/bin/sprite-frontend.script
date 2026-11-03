@@ -3,6 +3,8 @@
 from pathlib import Path
 import os
 import subprocess
+import shutil
+import tempfile
 import sys
 
 prefix = Path(__file__).resolve().parent.parent
@@ -15,4 +17,35 @@ from curry import config
 frontend = config.curry_frontend()
 if not frontend:
   sys.exit('no Curry front end found; set SPRITE_FRONTEND or put pakcs-frontend on PATH')
-sys.exit(subprocess.call([frontend, *config.frontend_flags().split(), *sys.argv[1:]]))
+# frontend-exec requests its compiler-named output directory. Its library
+# lookup must still see the interfaces pinned for Sprite's selected front end.
+# An interface-only view also keeps the front end from compiling library
+# sources into the installation for a different output directory.
+outdir = Path('.curry')
+arguments = sys.argv[1:]
+for index, argument in enumerate(arguments):
+  if argument in ('-o', '--outdir') and index + 1 < len(arguments):
+    outdir = Path(arguments[index + 1])
+  elif argument.startswith('--outdir='):
+    outdir = Path(argument.split('=', 1)[1])
+  elif argument in ('--no-outdir', '--no-subdir'):
+    outdir = Path('.')
+with tempfile.TemporaryDirectory(prefix='sprite-frontend-') as work:
+  library = Path(work)
+  for name in config.syslibs():
+    parts = name.split('.')
+    source = Path(config.installed_path('curry')).joinpath(*parts[:-1],
+        '.curry', config.intermediate_subdir(), parts[-1])
+    target = library.joinpath(*parts)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    for suffix in ('.fint', '.icurry'):
+      product = source.with_suffix(source.suffix + suffix)
+      if product.is_file():
+        shutil.copyfile(product, str(target) + suffix)
+        if not outdir.is_absolute() and '..' not in outdir.parts:
+          nested = library.joinpath(outdir, *parts)
+          if nested != target:
+            nested.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(product, str(nested) + suffix)
+  sys.exit(subprocess.call([frontend, *config.frontend_flags().split(),
+                            '-P', str(library), *arguments, '-i', str(library)]))

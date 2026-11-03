@@ -180,28 +180,34 @@ class TestImporter(cytest.TestCase):
         interp.path.insert(0, work)
         with self.subTest(loaded=loaded):
           with self.assertRaisesRegex(ModuleLookupError,
-              "Curry module 'Prelude'.*conflicts with the installed library module"):
+              "Curry module 'Prelude'.*has the name of a module the runtime implements"):
             interp.import_(str(source), is_sourcefile=True)
-          with self.assertRaisesRegex(ModuleLookupError, 'conflicts with the installed library'):
+          with self.assertRaisesRegex(ModuleLookupError, 'has the name of a module the runtime implements'):
             interp.import_('Prelude')
 
   def test_ordinary_library_namesake(self):
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
-      directory = pathlib.Path(work) / 'Data'
-      directory.mkdir()
-      source = directory / 'List.curry'
-      source.write_text('module Data.List where\nuserValue :: Bool\nuserValue = True\n')
-      for interpret in ('off', 'all'):
-        for loaded in (False, True):
-          interp = interpreter.Interpreter(flags={'interpret': interpret})
-          if loaded:
-            interp.import_('Data.List')
-          interp.path.insert(0, work)
-          for name, isfile in (('Data.List', False), (str(source), True)):
-            with self.subTest(interpret=interpret, loaded=loaded, isfile=isfile):
-              with self.assertRaisesRegex(ModuleLookupError,
-                  "Curry module 'Data.List'.*conflicts with the installed library module"):
-                interp.import_(name, is_sourcefile=isfile)
+    for mode in ('off', 'all'):
+      for loaded in (False, True):
+        code = r'''
+import curry
+from pathlib import Path
+import tempfile
+curry.reset(interpret=%r, jit='off')
+with tempfile.TemporaryDirectory() as work:
+  source = Path(work) / 'Data/List.curry'
+  source.parent.mkdir()
+  source.write_text('module Data.List where\nuserValue :: Bool\nuserValue = True\n')
+  library = curry.import_('Data.List') if %r else None
+  curry.path.insert(0, work)
+  for target in ('Data.List', source):
+    module = curry.import_(target)
+    if library is not None:
+      assert module is library
+    else:
+      assert list(curry.eval(module.userValue)) == [True]
+''' % (mode, loaded)
+        child = cytest.run_in_subprocess(code, timeout=60, address_space=2 << 30)
+        self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
   def test_automodules(self):
     interp = interpreter.Interpreter()

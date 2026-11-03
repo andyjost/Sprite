@@ -35,10 +35,6 @@ def fits(text, base=(3, 4, 0)):
 def classify(output, code):
   if code == 124:
     return 'timeout'
-  if 'conflicts with the installed library module' in output or 'is shadowed by a file from the CURRYPATH' in output:
-    return 'guard: ' + next(line.strip() for line in output.splitlines()
-        if 'conflicts with the installed library module' in line
-        or 'is shadowed by a file from the CURRYPATH' in line)
   if not code:
     if 'No tests, just compiling' in output:
       return 'Sprite error: CurryCheck unavailable; compilation only'
