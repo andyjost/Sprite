@@ -7,10 +7,16 @@ Never substitute the current image or interpreter budget for that receipt.
 import json, os, runpy, sys, tempfile
 
 
+def change_time(st):
+  # Windows ctime is creation time and can survive replacement. Use the
+  # write clock there, together with the object and stamp identity checks.
+  return st.st_mtime_ns if sys.platform == 'win32' else st.st_ctime_ns
+
+
 def measurement_mark(directory=None):
   # Use the same coarse filesystem clock as the product change-time check.
   with tempfile.TemporaryFile(dir=directory) as marker:
-    return os.fstat(marker.fileno()).st_ctime_ns
+    return change_time(os.fstat(marker.fileno()))
 
 
 def object_budget(path):
@@ -110,7 +116,7 @@ def checked_budgets(probe, since=None):
       # measurement (or by the probe itself). Check stamps as well as objects.
       for path in (obj['path'], obj['path'] + '.abi'):
         try:
-          changed |= os.stat(path).st_ctime_ns >= since
+          changed |= change_time(os.stat(path)) >= since
         except OSError:
           pass
     budgets[name] = None if changed else obj['budget']
