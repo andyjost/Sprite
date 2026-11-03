@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 import shutil
 import sqlite3
+import sys
 import tempfile
 
 
@@ -40,17 +41,24 @@ SCHEMA = [
     ('ExportedModules', 'string', 0, 0), ('ExecutableSpec', 'string', 0, 0)]
 
 
-def unique_object(pairs):
-  result = {}
-  for key, value in pairs:
-    if key in result:
-      raise ValueError('duplicate JSON key: ' + key)
-    result[key] = value
-  return result
+def read_package(path, warn=True):
+  duplicates = set()
 
+  def first_object(pairs):
+    result = {}
+    for key, value in pairs:
+      if key in result:
+        duplicates.add(key)
+      else:
+        result[key] = value
+    return result
 
-def read_package(path):
-  return json.loads(path.read_text(), strict=False, object_pairs_hook=unique_object)
+  data = json.loads(path.read_text(), strict=False, object_pairs_hook=first_object)
+  if warn:
+    for key in sorted(duplicates):
+      print('package.json of %s-%s: duplicate key %s, the first value kept' %
+            (data['name'], data['version'], key), file=sys.stderr)
+  return data
 
 
 def version_term(version):
@@ -102,7 +110,7 @@ def validate_cache(root, connection=None):
     return
   specifications = {}
   for path in root.rglob('package.json'):
-    data = read_package(path)
+    data = read_package(path, warn=False)
     identity = (data['name'], version_term(data['version']))
     if identity in specifications:
       raise ValueError('duplicate repository package/version')
@@ -122,27 +130,6 @@ def validate_cache(root, connection=None):
           raise ValueError('repository field mismatch: ' + column)
     if seen != specifications.keys():
       raise ValueError('repository package/version mismatch')
-
-
-def patch_cache(root):
-  """Keep CPM on its indexed path with the overlay's compatibility data."""
-  database = root / 'REPOSITORY_CACHE.db'
-  if database.exists():
-    entry = '(CompilerCompatibility ' + QUOTE + 'sprite' + QUOTE + ' [[(VGte (0,9,0,Nothing))]])'
-    with closing(sqlite3.connect(database)) as connection, connection:
-      for key, _, _, _, compatibility, *_ in cache_rows(connection):
-        compilers = compatibility_terms(compatibility)
-        if 'sprite' in compilers and compilers['sprite'] != constraint_term('>= 0.9.0'):
-          raise ValueError('unexpected Sprite compatibility in repository cache')
-        if 'pakcs' in compilers and 'sprite' not in compilers:
-          compatibility = compatibility[:-1] + ',' + entry + ']'
-          connection.execute(
-              'UPDATE IndexEntry SET CompilerCompatibility = ? WHERE Key = ?',
-              (compatibility, key))
-      validate_cache(root, connection)
-  for path in root.glob('REPOSITORY_CACHE*'):
-    if path != database:
-      path.unlink()
 
 
 def sql_string(value):
@@ -193,7 +180,7 @@ def create_cache(root, replace=False):
   database = root / 'REPOSITORY_CACHE.db'
   if database.exists() and not replace:
     return
-  rows = [package_row(read_package(path))
+  rows = [package_row(read_package(path, warn=False))
           for path in sorted(root.rglob('package.json'))]
   descriptor, temporary = tempfile.mkstemp(prefix='.repository-', suffix='.db', dir=root)
   os.close(descriptor)

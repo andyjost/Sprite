@@ -17,7 +17,8 @@ class TestCpmPath(cytest.TestCase):
   def expected(self):
     return [str(self.root / p) for p in (
         'app', 'extra', '.cpm/packages/alpha-1.0.0/lib',
-        '.cpm/packages/beta-1.0.0/src')]
+        '.cpm/packages/beta-1.0.0/src',
+        '.cpm/packages/setfunctions-1.0.0/src')]
 
   def test_sources(self):
     before = list(curry.path)
@@ -47,8 +48,8 @@ class TestCpmPath(cytest.TestCase):
     # The child names the working directory as the system resolves it; macOS
     # reaches the temporary directory through a symbolic link.
     real = lambda ps: [os.path.realpath(p) for p in ps]
-    self.assertEqual(real(paths[:5]), real([str(self.root / 'override')] + self.expected()))
-    self.assertGreater(len(paths), 5)
+    self.assertEqual(real(paths[:6]), real([str(self.root / 'override')] + self.expected()))
+    self.assertGreater(len(paths), 6)
 
   def test_switch(self):
     paths = json.loads(self.child('import curry, json; print(json.dumps(curry.path))',
@@ -68,13 +69,28 @@ class TestCpmPath(cytest.TestCase):
     self.assertEqual(paths, self.expected()[2:])
 
   def test_installed_library_collision(self):
-    with self.assertLogs('curry.config', level='WARNING') as log:
-      self.assertEqual(curry.cpm_path(self.root), self.expected())
-    self.assertIn('package setfunctions provides Control.SetFunctions, '
-                  'which the installation supplies', '\n'.join(log.output))
+    self.assertEqual(curry.cpm_path(self.root), self.expected())
     paths = json.loads(self.child('import curry, json; print(json.dumps(curry.path))',
                                  SPRITE_CPM_PATH='1'))
-    self.assertNotIn(str(self.root / '.cpm/packages/setfunctions-1.0.0/src'), paths)
+    self.assertIn(self.expected()[-1], paths)
+
+  def test_discovered_library_copy(self):
+    source = Path(self.expected()[2]) / 'Data/Char.curry'
+    source.parent.mkdir(parents=True)
+    shutil.copyfile(config.installed_path('curry', 'Data/Char.curry'), source)
+    output = self.child('import curry; M = curry.import_("Data.Char"); '
+                        'print(M.__file__)', SPRITE_CPM_PATH='1')
+    self.assertEqual(Path(output.strip()).resolve(), source.resolve())
+
+  def test_discovered_reserved_copy(self):
+    source = Path(self.expected()[2]) / 'Prelude.curry'
+    shutil.copyfile(config.installed_path('curry', 'Prelude.curry'), source)
+    code = ('import curry; assert %r in curry.path; '
+            'curry.import_("Prelude")') % str(source.parent)
+    with self.assertRaises(subprocess.CalledProcessError) as caught:
+      self.child(code, SPRITE_CPM_PATH='1')
+    self.assertIn('has the name of a module the runtime implements', caught.exception.stderr)
+    self.assertIn('cannot be replaced', caught.exception.stderr)
 
   def test_unreadable_packages(self):
     with mock.patch.object(config.os, 'listdir', side_effect=PermissionError('denied')):
@@ -94,5 +110,5 @@ class TestCpmPath(cytest.TestCase):
         'import curry, json; print(json.dumps(curry.path))'],
         cwd=self.root, env=env, text=True, capture_output=True, check=True)
     paths = json.loads(child.stdout)
-    self.assertEqual(paths[:4], self.expected())
+    self.assertEqual(paths[:5], self.expected())
     self.assertEqual(len(paths), len(set(paths)))

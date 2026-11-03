@@ -11,6 +11,8 @@ import sys
 import tempfile
 import tomllib
 import json
+import io
+from contextlib import redirect_stderr
 import runpy
 import os
 from unittest import mock
@@ -83,7 +85,6 @@ class TestPrivateLaunchers(cytest.TestCase):
         (directory / 'package.json').write_text(json.dumps({
             'name': name, 'version': '1.0.0', 'compilerCompatibility': compilers}))
       module.overlay(source, target)
-      module.patch_cache(target)
       with sqlite3.connect(target / 'REPOSITORY_CACHE.db') as database:
         rows = database.execute('SELECT CompilerCompatibility FROM IndexEntry ORDER BY Key').fetchall()
       self.assertEqual(rows, [(original[:-1] + ',' +
@@ -117,11 +118,6 @@ class TestPrivateLaunchers(cytest.TestCase):
             with sqlite3.connect(source / 'REPOSITORY_CACHE.db') as database:
               database.execute('UPDATE IndexEntry SET CompilerCompatibility = ? WHERE Key = 1',
                                (original,))
-      with sqlite3.connect(target / 'REPOSITORY_CACHE.db') as database:
-        database.execute('UPDATE IndexEntry SET CompilerCompatibility = ? WHERE Key = 1',
-            (original[:-1] + ',' + r'(CompilerCompatibility \"sprite\" [])]',))
-      with self.assertRaisesRegex(ValueError, 'unexpected Sprite compatibility'):
-        module.patch_cache(target)
 
   def test_overlay_builds_database(self):
     spec = importlib.util.spec_from_file_location('overlay', ROOT / 'scripts/cpm-test-overlay.py')
@@ -179,11 +175,29 @@ class TestPrivateLaunchers(cytest.TestCase):
           with self.assertRaisesRegex(ValueError, 'field mismatch: ' + column):
             module['validate_cache'](root)
           database.write_bytes(before)
-      for text in ('{"name":"a","name":"b"}',
-                   '{"compilerCompatibility":{"pakcs":"a","pakcs":"b"}}'):
-        package.write_text(text)
-        with self.assertRaisesRegex(ValueError, 'duplicate JSON key'):
-          module['patch'](root)
+      for extra, key, value in (
+          ('"synopsis":"kept","synopsis":"lost"', 'synopsis', 'kept'),
+          ('"executable":{"name":"kept","name":"lost"}', 'name', {'name': 'kept'})):
+        package.write_text('{"name":"example","version":"1.0.0",' + extra + '}')
+        warning = io.StringIO()
+        with redirect_stderr(warning):
+          kept = module['read_package'](package)
+        self.assertEqual(kept['synopsis' if key == 'synopsis' else 'executable'], value)
+        self.assertEqual(warning.getvalue(),
+            'package.json of example-1.0.0: duplicate key %s, the first value kept\n' % key)
+        with redirect_stderr(io.StringIO()):
+          module['create_cache'](root, replace=True)
+          module['validate_cache'](root)
+        with sqlite3.connect(database) as connection:
+          row = connection.execute('SELECT Synopsis, ExecutableSpec FROM IndexEntry').fetchone()
+        self.assertIn('kept', row[0 if key == 'synopsis' else 1])
+        with tempfile.TemporaryDirectory() as destination:
+          warning = io.StringIO()
+          with redirect_stderr(warning):
+            module['overlay'](root, Path(destination) / 'index')
+          self.assertEqual(warning.getvalue(),
+              'package.json of example-1.0.0: duplicate key %s, the first value kept\n' % key)
+      database.write_bytes(before)
       for field in ('synopsis', 'category', 'sourceDirs', 'exportedModules'):
         for control in ('\x00', '\x01', '\x7f'):
           bad = dict(data, **{field: control if field == 'synopsis' else [control]})
