@@ -1077,7 +1077,7 @@ class Cpp2So(object):
     '''
     generation = _findcurry.loaded_generation(modulename, self.interp)
     if generation is not None and generation.object:
-      return _findcurry.verify_product(generation, generation.object, 'object')
+      return _findcurry.verify_product(generation, generation.object)
     plan = plans.makeplan(self.interp, plans.MAKE_ALL)
     if currypath is None:
       # A module given by name: its imports are searched on the path of
@@ -1098,12 +1098,8 @@ class Cpp2So(object):
       )
     if os.path.isfile(sofile) and self.stamp_is_current(sofile):
       _findcurry.verify_loaded_product(sofile, self.interp)
-      if generation is not None and generation.digests.get('object') is None:
-        from .image import digest
-        generation.object = sofile
-        generation.digests.update(object=digest(sofile),
-            cpp=digest(os.path.splitext(sofile)[0] + '.cpp'),
-            stamp=digest(sofile + '.abi'))
+      if generation is not None and generation.product_digest('object') is None:
+        generation.acquire_object(sofile)
       return sofile
     return None
 

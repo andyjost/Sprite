@@ -128,8 +128,8 @@ def _module_texts(curryfile):
                   ('image', _filenames.replacesuffix(curryfile, '.img'))]
   else:
     values = [('curry', generation.source_info.digest if generation.source_info else None),
-              ('icy', generation.digests.get('.icy')),
-              ('image', generation.digests.get('image'))]
+              ('icy', generation.product_digest('.icy')),
+              ('image', generation.product_digest('image'))]
     return [(label, value) for label, value in values if value is not None]
   texts = []
   for label, filename in candidates:

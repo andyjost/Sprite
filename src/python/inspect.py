@@ -321,7 +321,7 @@ def geticurryfile(moduleobj):
   filename = toolchain.icurryfilename(moduleobj.__file__)
   if generation is not None:
     from .toolchain._findcurry import verify_product
-    verify_product(generation, filename, '.icy')
+    verify_product(generation, filename)
   if os.path.exists(filename):
     return filename
 

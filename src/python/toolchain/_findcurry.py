@@ -105,6 +105,29 @@ class LoadedGeneration:
   object: object
   digests: dict
 
+  def product_digest(self, kind):
+    stem = os.path.splitext(_filenames.icurryfilename(self.source)
+        if self.source else self.object)[0] if self.source or self.object else None
+    if kind == 'image':
+      path = self.image
+    elif kind in ('object', 'cpp', 'stamp'):
+      path = self.object or (stem + config.module_object_suffix() if stem else None)
+      if path is None:
+        return None
+      if kind == 'cpp':
+        path = os.path.splitext(path)[0] + '.cpp'
+      elif kind == 'stamp':
+        path += '.abi'
+    else:
+      path = stem + kind if stem else None
+    return self.digests.get(os.path.realpath(path)) if path else None
+
+  def acquire_object(self, path):
+    from ..backends.cxx.image import digest
+    self.object = path
+    for product in (path, os.path.splitext(path)[0] + '.cpp', path + '.abi'):
+      self.digests[os.path.realpath(product)] = digest(product)
+
 
 def loaded_generation(name, interp=None):
   from ..objects.handle import getHandle
@@ -131,9 +154,9 @@ def generation_for_source(source, interp=None):
   return None
 
 
-def verify_product(generation, filename, key):
+def verify_product(generation, filename, identity=None):
   from ..backends.cxx.image import digest
-  if digest(filename) != generation.digests.get(key):
+  if digest(filename) != generation.digests.get(os.path.realpath(filename if identity is None else identity)):
     raise ValueError('the products of module %s changed since it was loaded; reload it'
         % generation.name)
   return filename
@@ -141,38 +164,14 @@ def verify_product(generation, filename, key):
 
 def verify_loaded_product(filename, interp=None, identity=None):
   """Check a disk input against the generation owned by this interpreter."""
-  from ..backends.cxx.image import digest
   interp = _translation_interp.get() if interp is None else interp
   path = os.path.realpath(filename if identity is None else identity)
   for name in tuple(getattr(interp, 'modules', {})):
     generation = loaded_generation(name, interp)
     if generation is None:
       continue
-    paths = {}
-    if generation.source:
-      stem = os.path.splitext(_filenames.icurryfilename(generation.source))[0]
-      paths.update((os.path.realpath(stem + suffix), suffix)
-          for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source'))
-      paths[os.path.realpath(stem + '.cpp')] = 'cpp'
-      paths[os.path.realpath(stem + config.module_object_suffix())] = 'object'
-      paths[os.path.realpath(stem + config.module_object_suffix() + '.abi')] = 'stamp'
-    if generation.image:
-      paths[os.path.realpath(generation.image)] = 'image'
-    if generation.object:
-      paths[os.path.realpath(generation.object)] = 'object'
-      paths[os.path.realpath(generation.object + '.abi')] = 'stamp'
-      paths[os.path.realpath(os.path.splitext(generation.object)[0] + '.cpp')] = 'cpp'
-    key = paths.get(path)
-    if key is None:
-      continue
-    if key in generation.texts:
-      import hashlib
-      expected = hashlib.sha256(generation.texts[key]).hexdigest()
-      if digest(filename) != expected:
-        raise ValueError('the products of module %s changed since it was loaded; reload it'
-            % generation.name)
-    elif generation.digests.get(key) is not None:
-      verify_product(generation, filename, key)
+    if generation.digests.get(path) is not None:
+      verify_product(generation, filename, identity=path)
   return filename
 
 
@@ -214,14 +213,13 @@ def capture_generation(module, interp):
   if provenance is None and source is not None:
     candidate = os.path.splitext(objectfile)[0] + '.img' if objectfile else image.filename(source)
     provenance = candidate if os.path.isfile(candidate) else None
-  digests = {suffix: image.digest(str(stem) + suffix) for suffix in ('.icy',)}
-  digests['image'] = image.digest(provenance)
+  products = [str(stem) + '.icy', str(stem) + '.img', provenance]
   diskobject = objectfile or str(stem) + config.module_object_suffix()
-  if diskobject:
-    digests['object'] = image.digest(diskobject)
-    cppfile = os.path.splitext(diskobject)[0] + '.cpp'
-    digests['cpp'] = image.digest(cppfile)
-    digests['stamp'] = image.digest(diskobject + '.abi')
+  products.extend((diskobject, os.path.splitext(diskobject)[0] + '.cpp', diskobject + '.abi'))
+  digests = {os.path.realpath(path): image.digest(path) for path in products if path}
+  import hashlib
+  digests.update((os.path.realpath(str(stem) + suffix), hashlib.sha256(data).hexdigest())
+      for suffix, data in texts.items())
   imports = tuple((name, loaded_generation(name, interp)) for name in raw.imports)
   raw._loaded_generation = LoadedGeneration(
       info, texts, source, provenance, imports, raw.fullname, objectfile, digests)

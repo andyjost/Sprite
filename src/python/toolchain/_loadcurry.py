@@ -14,7 +14,7 @@ def loadicurry(filename):
   source = _filenames.sourcefilename(filename)
   generation = _findcurry.generation_for_source(source)
   if generation is not None:
-    _findcurry.verify_product(generation, filename, '.icy')
+    _findcurry.verify_product(generation, filename)
   try:
     module = readcurry.load(filename)
   except (AttributeError, TypeError) as exc:

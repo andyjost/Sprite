@@ -22,8 +22,8 @@ ROOT = Path(__file__).resolve().parent.parent
 
 @unittest.skipUnless(CYPM, 'cypm is absent')
 class TestCPMREPL(cytest.TestCase):
-  # CurryCheck installs; analysis still needs the legacy polymorphic term reader.
-  @unittest.expectedFailure
+  # CurryCheck requires the external sqlite3 database interface.
+  @((unittest.expectedFailure) if shutil.which('sqlite3') is None else (lambda test: test))
   def test_local_properties(self):
     build = (ROOT / 'object-root').resolve().parent
     home = Path(os.environ.get('CPM_TEST_HOME', str(build / 'cpmhome')))

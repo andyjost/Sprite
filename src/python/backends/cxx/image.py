@@ -66,7 +66,7 @@ def _facts(interp, source, imports):
   from . import toolchain
   from ...toolchain import _findcurry
   generation = _findcurry.generation_for_source(source, interp)
-  icy_digest = generation.digests['.icy'] if generation is not None else digest(
+  icy_digest = generation.product_digest('.icy') if generation is not None else digest(
       _filenames.icurryfilename(source))
   return dict(source=icy_digest, route=ROUTE_VERSION,
       budget=interp.flags['inline_budget'], imports=imports,
@@ -110,7 +110,7 @@ def _path(interp, source):
   from ...toolchain import _findcurry
   generation = _findcurry.generation_for_source(source, interp)
   if generation is not None and generation.image is not None:
-    return _findcurry.verify_product(generation, generation.image, 'image')
+    return _findcurry.verify_product(generation, generation.image)
   replacement = _image_generations.get(_generation_key(interp, source))
   if replacement is not None and os.path.isfile(replacement):
     return replacement
@@ -133,8 +133,8 @@ def _path(interp, source):
 
 def generation_digest(generation):
   """Identity of the implementation retained by the loaded module."""
-  return (generation.digests.get('image') or generation.digests.get('object')
-      or generation.digests.get('.icy'))
+  return (generation.product_digest('image') or generation.product_digest('object')
+      or generation.product_digest('.icy'))
 
 
 def _check(interp, source, path, imports=None):
@@ -440,7 +440,7 @@ def ensure(interp, icyfile, currypath=None, importing=False):
     generation = _findcurry.generation_for_source(icyfile, interp)
     if generation is not None and generation.image is None:
       generation.image = result[0]
-      generation.digests['image'] = digest(result[0])
+      generation.digests[os.path.realpath(result[0])] = digest(result[0])
     return result
 
 
@@ -452,7 +452,7 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
   if generation is not None:
     path = generation.image
     if path is not None:
-      _findcurry.verify_product(generation, path, 'image')
+      _findcurry.verify_product(generation, path)
       imports = {name: generation_digest(dep) if dep is not None else None
           for name, dep in generation.imports}
       return path, dict(_facts(interp, source, imports), name=generation.name)

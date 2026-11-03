@@ -44,9 +44,9 @@ def getimpl(symbol):
   cppfile = os.path.splitext(sofile)[0] + '.cpp'
   if generation is not None:
     from ...toolchain._findcurry import verify_product
-    verify_product(generation, cppfile, 'cpp')
-    if generation.digests.get('cpp') is None:
-      verify_product(generation, sofile + '.abi', 'stamp')
+    verify_product(generation, cppfile)
+    if generation.product_digest('cpp') is None:
+      verify_product(generation, sofile + '.abi')
   if not os.path.exists(cppfile):
     raise _no_code(symbol, 'the generated file %s does not exist' % cppfile)
   text = _function_text(cppfile, symbol.fullname)

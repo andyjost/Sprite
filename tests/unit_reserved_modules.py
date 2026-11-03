@@ -771,7 +771,10 @@ with tempfile.TemporaryDirectory() as elsewhere:
   assert result.returncode == 0, result.stdout + result.stderr
   assert result.stdout.strip() == expected, (result.stdout, expected)
   # Extract the very same bundled reserved object for the public-load check.
-  tree = ast.parse(program.read_text())
+  data = program.read_bytes()
+  if data.startswith(b'MZ'):
+    data = data[data.index(b'import base64, os, tempfile'):].split(b'\0', 1)[0]
+  tree = ast.parse(data.decode('utf-8'))
   payload = next(node.iter for node in ast.walk(tree) if isinstance(node, ast.For))
   for filename, data in ast.literal_eval(payload):
     if filename == 'Control.SetFunctions' + curry.config.module_object_suffix():

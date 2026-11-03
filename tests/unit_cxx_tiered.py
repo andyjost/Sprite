@@ -900,6 +900,31 @@ class TestPolicy(TieredTestCase):
     self.assertEqual(code, M.area.getimpl())
 
   @cytest.hardreset
+  def test_original_cpp_after_private_adoption(self):
+    name = self.write_module(BUDGET_MODULE)
+    env = dict(os.environ, CURRYPATH=self.tmpdir,
+        SPRITE_INTERPRETER_FLAGS='backend:cxx,inline_budget:4')
+    result = subprocess.run([config.installed_path('bin', 'sprite-make'), '--so', name],
+        env=env, capture_output=True, text=True, timeout=120)
+    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+    original = os.path.splitext(self.sofile(name))[0] + '.cpp'
+    code = """
+import curry, os
+from curry.backends.cxx import tiered
+from curry.backends.cxx.toolchain import Cpp2So
+from curry.objects.handle import getHandle
+curry.reset(interpret='all', jit='eager', jit_backend='cxx', inline_budget=0)
+curry.path.insert(0, %r)
+module = curry.import_(%r)
+tiered.wait(120)
+tiered.poll(curry._interpreter_)
+assert os.path.realpath(getHandle(module).sofilename) != os.path.realpath(%r)
+assert Cpp2So(curry._interpreter_).format_version(%r) is not None
+""" % (self.tmpdir, name, self.sofile(name), original)
+    child = cytest.run_in_subprocess(code, timeout=240, address_space=3 << 30)
+    self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+  @cytest.hardreset
   def test_foreign_budget_compiles_a_private_copy(self):
     '''
     A process whose inline budget is not the environment's compiles a

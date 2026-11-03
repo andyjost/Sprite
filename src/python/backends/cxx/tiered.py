@@ -268,7 +268,7 @@ def _private_copy(imodule):
     closure.append(item)
     if item.source:
       stem = _filenames.icurryfilename(item.source)[:-4]
-      verify_product(item, stem + '.icy', '.icy')
+      verify_product(item, stem + '.icy')
       if item.source_info is not None and digest(item.source) != item.source_info.digest:
         raise ValueError('the products of module %s changed since it was loaded; reload it' % item.name)
       for suffix, data in item.texts.items():
@@ -280,11 +280,11 @@ def _private_copy(imodule):
         if current != data:
           raise ValueError('the products of module %s changed since it was loaded; reload it' % item.name)
     if item.image:
-      verify_product(item, item.image, 'image')
+      verify_product(item, item.image)
     if item.object:
-      verify_product(item, item.object, 'object')
-      verify_product(item, os.path.splitext(item.object)[0] + '.cpp', 'cpp')
-      verify_product(item, item.object + '.abi', 'stamp')
+      verify_product(item, item.object)
+      verify_product(item, os.path.splitext(item.object)[0] + '.cpp')
+      verify_product(item, item.object + '.abi')
     pending.extend(dep for _, dep in item.imports if dep is not None)
   directory = os.path.join(_tmpdir(), 'private%d' % next(_state.counter))
   copy = os.path.join(directory, relpath)
@@ -647,11 +647,7 @@ def _refresh(name, interp=None):
       h.icurry.update_metadata({'cxx.shlib': shlib})
       generation = getattr(h.icurry, '_loaded_generation', None)
       if generation is not None:
-        from .image import digest
-        path = shlib.sofilename()
-        generation.object = path
-        generation.digests.update(object=digest(path), cpp=digest(os.path.splitext(path)[0] + '.cpp'),
-            stamp=digest(path + '.abi'))
+        generation.acquire_object(shlib.sofilename())
     # The record names the object the module runs from now, published or
     # private, for the swap of its importers.
     if shlib is not None and record is not None and record.module() is moduleobj:

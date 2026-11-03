@@ -31,9 +31,11 @@ class ICurry2Image:
     from ..backends.cxx import image
     from ._findcurry import verify_loaded_product
     verify_loaded_product(filename, self.interp)
+    from ._findcurry import loaded_generation
     try:
       source = _filenames.icurryfilename(filename)
       header = image.read(filename)
+      imports = header['imports']
       facts = image._facts(self.interp, source, {})
       # A current compiled product is accepted regardless of inline budget.
       # A foreign image budget must not prune that later product and cause
@@ -47,13 +49,18 @@ class ICurry2Image:
       import os
       from ..backends.cxx.toolchain import import_search_path
       search = import_search_path(self.interp, filename, currypath)
-      for name, expected in header['imports'].items():
-        parts = name.split('.')
-        paths = (os.path.join(directory, *parts[:-1], '.curry',
-            _filenames.SUBDIR, parts[-1] + '.img') for directory in search)
-        actual = next((path for path in paths if os.path.isfile(path)), None)
-        if image.digest(actual) != expected:
-          return True
-      return False
     except (OSError, ValueError, KeyError):
       return True
+    for name, expected in imports.items():
+      generation = loaded_generation(name, self.interp)
+      if generation is not None:
+        if image.generation_digest(generation) != expected:
+          return True
+        continue
+      parts = name.split('.')
+      paths = (os.path.join(directory, *parts[:-1], '.curry',
+        _filenames.SUBDIR, parts[-1] + '.img') for directory in search)
+      actual = next((path for path in paths if os.path.isfile(path)), None)
+      if image.digest(actual) != expected:
+        return True
+    return False

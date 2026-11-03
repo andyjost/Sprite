@@ -908,7 +908,8 @@ jobs:
           }
           trap stop_sampler EXIT
           status=0
-          ./run_tests -j 1 unit_cpm_repl.py || status=$?
+          export SPRITE_TEST_CPM_PACKAGES="$HOME/.cpm/apps_sprite_0.9.0/currycheck/.cpm/packages"
+          ./run_tests -j 1 unit_cpm_repl.py unit_readshowterm.py || status=$?
           stop_sampler
           trap - EXIT
           if [ "$status" -ne 0 ]; then

@@ -54,6 +54,29 @@ class TestImage(cytest.TestCase):
         toolchain.makecurry(plan, source, curry.path, is_sourcefile=True)
       self.assertEqual(writes.call_count, 0)
 
+  def test_staleness_uses_loaded_import_digest(self):
+    from curry.toolchain._icurry2image import ICurry2Image
+    with tempfile.TemporaryDirectory() as directory:
+      leaf = os.path.join(directory, 'ImageReceiptLeaf.curry')
+      probe = os.path.join(directory, 'ImageReceiptProbe.curry')
+      with open(leaf, 'w') as stream:
+        stream.write('module ImageReceiptLeaf where\nanswer :: Int\nanswer = 1\n')
+      module = curry.import_(leaf)
+      with open(leaf, 'w') as stream:
+        stream.write('module ImageReceiptLeaf where\nanswer :: Int\nanswer = 2\n')
+      with open(probe, 'w') as stream:
+        stream.write('module ImageReceiptProbe where\nimport ImageReceiptLeaf\nvalue :: Int\nvalue = answer\n')
+      code = "import curry; curry.reset(interpret='all', jit='off'); curry.path.insert(0, %r); curry.import_(%r)" % (directory, probe)
+      result = subprocess.run([sys.executable, '-c', code], capture_output=True,
+          text=True, timeout=120)
+      self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+      step = ICurry2Image(curry._interpreter_)
+      search = [directory] + list(curry.path)
+      with mock.patch('curry.toolchain._findcurry.loaded_generation', return_value=None):
+        self.assertFalse(step.is_stale(image.filename(probe), search))
+      self.assertTrue(step.is_stale(image.filename(probe), search))
+      self.assertEqual(curry.eval(module.answer).one(), 1)
+
   def test_prelude(self):
     module = curry.import_('Prelude')
     path = image.filename(getHandle(module).icurry.filename)
