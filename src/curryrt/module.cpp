@@ -49,12 +49,13 @@ namespace
   // a reload of the interpreter: the bytecode of other modules, the Python
   // objects and the slots of the compiled objects (curryrt/dynload.hpp) name
   // the tables by address.
-  std::unordered_map<std::string, SymbolTable> g_kept_symbols;
-  std::unordered_map<std::string, TypeTable> g_kept_types;
+  // Retain the stores for module finalizers after library static teardown.
+  auto & g_kept_symbols = *new std::unordered_map<std::string, SymbolTable>;
+  auto & g_kept_types = *new std::unordered_map<std::string, TypeTable>;
   // The compiled objects of the modules whose tables were kept: the kept
   // tables hold their steps and their names, so an object bound to them
   // stays loaded for the life of the process.
-  std::vector<std::shared_ptr<SharedCurryModule>> g_kept_libraries;
+  auto & g_kept_libraries = *new std::vector<std::shared_ptr<SharedCurryModule>>;
 
   // The kept table of a symbol with the given shape, taken out of the kept
   // store, or null.  See Module::clear.
@@ -140,7 +141,21 @@ namespace curryrt
     auto & slot = modules()[name];
     if(auto handle = slot.lock())
       return handle;
-    auto handle = std::make_shared<Module>(name);
+    struct Removal : PendingHeapAction
+    {
+      Module * value = nullptr;
+      void apply(bool) noexcept override { delete value; }
+    };
+    auto removal = std::make_unique<Removal>();
+    auto * object = new Module(name);
+    // The last shared owner may be a Python cycle collected under the JIT
+    // lock. Keep the entire module alive until its heap-side cleanup can run.
+    auto handle = std::shared_ptr<Module>(object,
+        [action = removal.release()](Module * value) noexcept
+        {
+          action->value = value;
+          heap_dispose(action);
+        });
     slot = handle;
     return handle;
   }

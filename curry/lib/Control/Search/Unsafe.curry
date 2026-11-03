@@ -54,12 +54,15 @@ isFail e = case oneValue e of
   Nothing -> True
   Just _ -> False
 
--- Rewriting must discard computations requiring bindings of outside
--- variables. Native capsules instead propagate those demands outside;
--- they cannot implement this operation. Report not implemented at call time.
+-- Weak rewriting uses the same native capsule as allValues. Unlike PAKCS,
+-- outside-variable demands escape: rewriteAll (not x), for an outside free
+-- Bool x, gives [False] with x=True and [True] with x=False.
 rewriteAll :: a -> [a]
-rewriteAll external
+rewriteAll e = allValues e
 
--- The same limitation applies when only the first rewrite is requested.
+-- Weak rewriting takes only the first capsule value, without demanding its
+-- tail. Unlike PAKCS, outside-variable demands escape: rewriteSome (not x),
+-- for an outside free Bool x, gives Just False with x=True and Just True
+-- with x=False.
 rewriteSome :: a -> Maybe a
-rewriteSome external
+rewriteSome e = oneValue e

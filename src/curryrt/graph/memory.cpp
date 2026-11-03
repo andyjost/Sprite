@@ -71,7 +71,8 @@ namespace curryrt
     return size;
   }
 
-  static std::set<RuntimeState *> g_rtslist;
+  // Retain this registry too: deferred states can outlive static teardown.
+  static std::set<RuntimeState *> & g_rtslist = *new std::set<RuntimeState *>();
   bool g_gc_collect = false;
 
   // The nodes Python holds, with the number of registrations of each.  The

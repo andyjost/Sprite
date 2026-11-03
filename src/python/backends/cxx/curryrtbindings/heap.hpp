@@ -20,10 +20,17 @@ namespace curryrt { namespace python
   };
   template<class T> struct HeapDeleter
   {
-    void operator()(T * p) const
+    struct Removal : PendingHeapAction
     {
-      HeapAccessScope lock(false);
-      delete p;
+      T * value = nullptr;
+      void apply(bool) noexcept override { delete value; }
+    };
+    // Preallocate so finalization cannot fail while allocating a queue entry.
+    std::unique_ptr<Removal> removal = std::make_unique<Removal>();
+    void operator()(T * p)
+    {
+      removal->value = p;
+      heap_dispose(removal.release());
     }
   };
   template<class T> using HeapOwned = std::unique_ptr<T, HeapDeleter<T>>;

@@ -871,6 +871,28 @@ node and ``ErrorKind::io`` through ``Configuration::set_error``. See
 ``currylib/library.cpp`` for complete examples. Mutable references use
 ``Variable::set_successor`` for writes.
 
+The search adapters ``Control.Search.Unsafe.rewriteAll`` and ``rewriteSome``
+are Curry definitions over ``allValues`` and ``oneValue``. They reuse
+``Control.SetFunctions.exprS``, ``evalS`` and the native value stream; no new
+primitive is needed. The capsule-lifting pass recognizes their calls just
+as it recognizes ``allValues`` and ``oneValue``, preserving captured
+variables at the caller. ``rewriteSome`` demands only the first stream cell.
+These are weak capsules: an outside choice ``x = 0 ? 1`` gives
+``(x, rewriteAll (x+10))`` as ``(0,[10])`` and ``(1,[11])``.
+For an outside free Boolean ``x``, ``rewriteAll (not x)`` gives ``[False]``
+with ``x=True`` and ``[True]`` with ``x=False``. ``rewriteSome (not x)`` gives
+``Just False`` with ``x=True`` and ``Just True`` with ``x=False``.
+The demand escapes to the outside configurations. PAKCS instead rejects
+rewrites that bind or identify outside variables: these calls give ``[]``
+and ``Nothing`` respectively. These adapters do not provide strong
+encapsulation or copy the outside search.
+
+After changing library Curry sources, run ``make stage`` with
+``SPRITE_REBUILD_ICY=1`` to translate with the pinned front end, then refresh
+the source module's committed ``.icy``, ``.fint``, ``.icurry``,
+``.icy.imports`` and ``.icy.source`` from the stage. Images and compiled
+objects remain derived products.
+
 Python implementations register through the backend bindings::
 
   from curry.backends.cxx import curryrtbindings as curryrt
@@ -990,3 +1012,56 @@ status. This avoids terminating an embedding Python process with ``std::exit``.
 The test fixtures include the packages' source and licenses and their
 ``filepath`` and ``time`` dependencies; these packages are not bundled into
 the installed standard library.
+
+
+Deferred native finalization
+============================
+
+The process-wide heap gate also protects native root and state lifetimes.
+Python finalization can run on the LLVM hot-compile thread while it holds
+its JIT lock. A finalizer must never wait for the heap: reset and cached
+function resolution may already own the heap while waiting for that lock.
+``RootHolder``, ``HeapDeleter`` and the shared module deleter transfer a
+preallocated ``PendingHeapAction`` to ``heap_dispose``. If the thread owns
+the heap, or can acquire it immediately, removal runs immediately. Otherwise
+the action goes on a list guarded by a separate small mutex. That mutex is
+released before any heap acquisition or wait, and before running an action.
+
+Every successful heap acquisition, including recursive acquisitions and wait
+completion, drains the list before the caller's work. A drain detaches the
+list under its mutex and executes it under the heap alone. It repeats until
+the list is empty; recursive acquisition during a drain does not start
+another drain. Reset explicitly drains inside its heap transaction, after
+waiting for JIT compilation. Fork handlers protect the pending list as well
+as the gate so the child inherits no locked pending-list mutex.
+
+A queued root removal retains its registration, conservatively keeping the
+node and its reachable graph alive until the drain. A queued state or module
+deletion owns the entire native state; its collector registration, queues,
+configurations and module tables remain valid until deletion under the heap.
+The registered interpreter and runtime state destructors acquire the heap
+recursively only after their binding holder has acquired it without waiting
+or deferred the whole deletion. No pending entry borrows storage from a
+destroyed wrapper. State actions own native allocations independent of the
+node heap; their deletion unregisters and releases those allocations without
+reading nodes.
+
+Each action records the monotonic ``heap_generation()`` at construction.
+Root removals store an opaque integer address and convert it back to a node
+pointer only when their generation still matches. An old-generation removal
+is discarded without applying it to an address in a new heap. A heap
+replacement must call ``heap_retire_generation`` while owning the gate,
+before freeing the old heap: it drains existing actions and advances the
+generation, so later arrivals from old holders are stale. Interpreter reset
+currently replaces interpreter state, not the process-wide node heap; it
+drains but does not advance the heap generation. Terms that survive a reset
+must keep their roots in that retained heap.
+
+At Python shutdown the hot tier first quiesces compilation, then the native
+shutdown hook drains pending actions and closes handles. The current node
+heap is retained until process exit; its gate, pending list, root map and
+state/queue registries and kept module tables remain available for late
+Python finalizers. If a future runtime frees the heap explicitly, it must
+retire its generation under the gate before freeing it. Pending actions
+never dereference an old heap address after retirement. No image or
+persistent-cache format is changed by this lifetime protocol.
