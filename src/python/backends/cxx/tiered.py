@@ -649,7 +649,8 @@ def _refresh(name, interp=None):
       if generation is not None:
         from .image import digest
         path = shlib.sofilename()
-        generation.digests.update(cpp=digest(os.path.splitext(path)[0] + '.cpp'),
+        generation.object = path
+        generation.digests.update(object=digest(path), cpp=digest(os.path.splitext(path)[0] + '.cpp'),
             stamp=digest(path + '.abi'))
     # The record names the object the module runs from now, published or
     # private, for the swap of its importers.

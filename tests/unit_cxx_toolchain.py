@@ -463,8 +463,8 @@ class TestFormatStamp(ToolchainTestCase):
     prereq = _findcurry.currentfile(plan, name, [self.srcdir])
     self.assertEqual(prereq, self.cached_file(name, '.so'))
     self.write_cpp(name, [self.IMPORTS, self.stamp(1), self.STALE])
-    prereq = _findcurry.currentfile(plan, name, [self.srcdir])
-    self.assertEqual(prereq, self.cached_file(name, '.img'))
+    with self.assertRaisesRegex(ValueError, 'changed since it was loaded; reload it'):
+      _findcurry.currentfile(plan, name, [self.srcdir])
 
   def test_source_only_plan_refuses_a_stale_file(self):
     '''

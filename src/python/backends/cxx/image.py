@@ -35,6 +35,8 @@ def filename(source):
 
 
 def read(path):
+  from ...toolchain._findcurry import verify_loaded_product
+  verify_loaded_product(path)
   with open(path, 'rb') as stream:
     data = stream.read()
   if len(data) < PREFIX.size:
@@ -108,7 +110,7 @@ def _path(interp, source):
   from ...toolchain import _findcurry
   generation = _findcurry.generation_for_source(source, interp)
   if generation is not None and generation.image is not None:
-    return generation.image
+    return _findcurry.verify_product(generation, generation.image, 'image')
   replacement = _image_generations.get(_generation_key(interp, source))
   if replacement is not None and os.path.isfile(replacement):
     return replacement
@@ -434,7 +436,12 @@ def _publication_path(interp, source, path, imports):
 def ensure(interp, icyfile, currypath=None, importing=False):
   from ...toolchain import _findcurry
   with _findcurry.resolving(interp):
-    return _ensure(interp, icyfile, currypath, importing)
+    result = _ensure(interp, icyfile, currypath, importing)
+    generation = _findcurry.generation_for_source(icyfile, interp)
+    if generation is not None and generation.image is None:
+      generation.image = result[0]
+      generation.digests['image'] = digest(result[0])
+    return result
 
 
 def _ensure(interp, icyfile, currypath=None, importing=False):
@@ -445,6 +452,7 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
   if generation is not None:
     path = generation.image
     if path is not None:
+      _findcurry.verify_product(generation, path, 'image')
       imports = {name: generation_digest(dep) if dep is not None else None
           for name, dep in generation.imports}
       return path, dict(_facts(interp, source, imports), name=generation.name)

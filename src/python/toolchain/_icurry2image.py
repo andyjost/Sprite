@@ -29,6 +29,8 @@ class ICurry2Image:
     if not filename.endswith('.img'):
       return False
     from ..backends.cxx import image
+    from ._findcurry import verify_loaded_product
+    verify_loaded_product(filename, self.interp)
     try:
       source = _filenames.icurryfilename(filename)
       header = image.read(filename)

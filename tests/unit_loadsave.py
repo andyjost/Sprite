@@ -54,7 +54,16 @@ cppfile = os.path.join(
 curry._interpreter_.save(M, cppfile, module_main=False)
 saved = toolchain.Cpp2So(cytest.raw.interp())(cppfile, curry.path)
 print(os.path.splitext(saved)[1])
-M2 = curry._interpreter_.load(saved)
+if curry.flags['interpret'] == 'off':
+  try:
+    curry._interpreter_.load(saved)
+  except ValueError as exc:
+    assert str(exc) == 'the products of module SaveLoadFresh changed since it was loaded; reload it', str(exc)
+  else:
+    raise AssertionError('replaced loaded object accepted')
+  M2 = M
+else:
+  M2 = curry._interpreter_.load(saved)
 print(M2 is M, [str(v) for v in curry.eval(M2.main)])
 curry.reset()
 M3 = curry._interpreter_.load(saved)
@@ -106,7 +115,7 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
         "check=True, capture_output=True, text=True)\n"
         "saved = os.path.splitext(cppfile)[0] + config.module_object_suffix()"
       )
-    code = code[:code.index('M2 = curry._interpreter_.load(saved)')] + r'''
+    code = code[:code.index("if curry.flags['interpret'] == 'off':")] + r'''
 from curry.backends.cxx import curryrtbindings as curryrt
 try:
   curry._interpreter_.load(saved)

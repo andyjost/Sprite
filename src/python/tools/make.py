@@ -384,6 +384,7 @@ def _convert_icy(program_name, name, args):
     if args.so:
       product = Cpp2So(_interpreter_)(product, config.currypath())
   if args.output and os.path.abspath(args.output) != os.path.abspath(product):
+    _findcurry.verify_loaded_product(product, _interpreter_)
     shutil.copy(product, args.output)
 
 KEYWORDS = {

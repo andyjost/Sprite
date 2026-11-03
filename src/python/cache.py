@@ -422,6 +422,8 @@ def write_file(filename, content):
 
 def _read_interface(filename):
   '''The text of an interface file, or None when it is missing or empty.'''
+  from .toolchain._findcurry import verify_loaded_product
+  verify_loaded_product(filename)
   try:
     with open(filename, encoding='utf-8') as stream:
       text = stream.read()
@@ -650,6 +652,8 @@ class Curry2ICurryCache(object):
       assert not self.found
       if self.db is None or self.key is None:
         return
+      from .toolchain._findcurry import verify_loaded_product
+      verify_loaded_product(self.file_out)
       with open(self.file_out, encoding='utf-8') as stream:
         text = stream.read()
       name = icurry_modulename(text)

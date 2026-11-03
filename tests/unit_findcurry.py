@@ -612,5 +612,9 @@ class TestReorderedChangeTimes(cytest.TestCase):
     self.assertTrue(files[-1].endswith(config.module_object_suffix()))
     with open(Cpp2So.stampfile(files[-1]), 'w') as stream:
       stream.write('0123456789abcdef\n')
+    with self.assertRaisesRegex(ValueError, 'changed since it was loaded; reload it'):
+      self.currentfile()
+    curry.reset(interpret='off')
+    self.plan = plans.makeplan(cytest.raw.interp(), plans.MAKE_ALL)
     self.assertEqual(self.currentfile(), files[-2])
     self.assertTrue(files[-2].endswith('.cpp'))

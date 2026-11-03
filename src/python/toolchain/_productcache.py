@@ -361,6 +361,8 @@ def store(digest, key, files, cache_root=None):
   os.mkdir(tmpdir, 0o777)
   try:
     for path in files:
+      from ._findcurry import verify_loaded_product
+      verify_loaded_product(path)
       _place(
           path, os.path.join(tmpdir, os.path.basename(path))
         , link=path.endswith(LINK_SUFFIXES)
@@ -394,6 +396,10 @@ def restore(digest, key, directory, names, cache_root=None):
   if found is None:
     return None
   placed = {}
+  for name in names:
+    from ._findcurry import verify_loaded_product
+    verify_loaded_product(os.path.join(directory, name))
+    verify_loaded_product(found[name], identity=os.path.join(directory, name))
   for name in names:
     _place(found[name], os.path.join(directory, name),
            link=name.endswith(LINK_SUFFIXES), publish=True)

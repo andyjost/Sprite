@@ -23,6 +23,157 @@ def installed(name):
 
 
 class TestReservedModules(cytest.TestCase):
+  def test_saved_dependency_object_changed(self):
+    self._saved_dependency_object_changed(False)
+
+  def test_saved_adopted_dependency_object_changed(self):
+    self._saved_dependency_object_changed(True)
+
+  def _saved_dependency_object_changed(self, background):
+    with tempfile.TemporaryDirectory() as work:
+      root = Path(work)
+      for number in (1, 2):
+        directory = root / str(number)
+        directory.mkdir()
+        (directory / 'Leaf.curry').write_text(
+            'module Leaf where\nf :: Int -> Int\nf x = x + %d\n' % number)
+        (directory / 'Probe.curry').write_text(
+            'module Probe where\nimport Leaf\ngoal :: Int\ngoal = f 1\n')
+        if number == 2 or not background:
+          code = "import curry; curry.reset(interpret='off', jit='off', inline_budget=0); curry.path.insert(0, %r); curry.import_('Probe')" % str(directory)
+          child = cytest.run_in_subprocess(code, timeout=180, address_space=3 << 30)
+          self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+      code = r"""
+import curry, os, shutil, subprocess, sys
+from pathlib import Path
+from curry.backends.cxx import tiered, toolchain, curryrtbindings as curryrt
+from curry.objects.handle import getHandle
+root = Path(%r)
+curry.reset(interpret='new', jit='off', inline_budget=0)
+curry.path.insert(0, str(root / '1'))
+leaf = curry.import_('Leaf')
+probe = curry.import_('Probe')
+background = %r
+if background:
+    curry._interpreter_.flags['jit_backend'] = 'cxx'
+    curry._interpreter_.flags['jit'] = 'hot'
+    from unittest import mock
+    with mock.patch.object(curryrt, 'cxx_arm', side_effect=curryrt.tiered_submit):
+        assert tiered.submit(curry._interpreter_, leaf, curry.path)
+    assert tiered.wait(120, interp=curry._interpreter_)
+    curry._interpreter_.flags['jit'] = 'off'
+    assert getHandle(leaf).sofilename
+obj = Path(getHandle(leaf).sofilename)
+replacement = next((root / '2').rglob('Leaf' + obj.suffix))
+original = obj.read_bytes()
+try:
+    temporary = obj.with_name(obj.name + '.replacement')
+    shutil.copyfile(replacement, temporary)
+    os.replace(temporary, obj)
+    message = 'the products of module Leaf changed since it was loaded; reload it'
+    step = toolchain.Cpp2So(curry._interpreter_)
+    for read in (lambda: curry.save(probe, root / 'Probe.so'),
+                 lambda: step._object_on_disk('Leaf', curry.path),
+                 lambda: step.stamp_is_current(str(obj)),
+                 lambda: tiered._private_copy(getHandle(probe).icurry)):
+        try:
+            read()
+        except ValueError as exc:
+            assert str(exc) == message, str(exc)
+        else:
+            raise AssertionError('changed object accepted')
+    # A reset admits the replacement while all other products stay unchanged.
+    curry.reset(interpret='new', jit='off', inline_budget=0)
+    curry.path.insert(0, str(root / ('2' if background else '1')))
+    probe = curry.import_('Probe')
+    curry.save(probe, root / 'Probe.so')
+    run = "import curry; curry.reset(interpret='new', jit='off', inline_budget=0); curry.path.insert(0, %%r); module = curry.load(%%r); print(curry.eval(module.goal).one())" %% (str(root / ('2' if background else '1')), str(root / 'Probe.so'))
+    result = subprocess.run([sys.executable, '-c', run], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == '3', result.stdout
+finally:
+    temporary = obj.with_name(obj.name + '.restore')
+    temporary.write_bytes(original)
+    os.replace(temporary, obj)
+    tiered.finish()
+""" % (work, background)
+      child = cytest.run_in_subprocess(code, timeout=240, address_space=3 << 30)
+      self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+  def test_loaded_product_readers(self):
+    with tempfile.TemporaryDirectory() as work:
+      code = r"""
+import curry, os, subprocess, sys
+from pathlib import Path
+from curry.backends.cxx import toolchain, image, loader
+from curry.toolchain import _findcurry, _productcache, plans
+from curry.objects.handle import getHandle
+root = Path(%r)
+source = root / 'Leaf.curry'
+source.write_text('module Leaf where\nf :: Int -> Int\nf x = x + 1\n')
+child = subprocess.run([sys.executable, '-c',
+    "import curry; curry.reset(interpret='off', jit='off'); curry.import_(%%r)" %% str(source)],
+    capture_output=True, text=True, timeout=120)
+assert child.returncode == 0, child.stdout + child.stderr
+curry.reset(interpret='new', jit='off')
+leaf = curry.import_(source)
+generation = getHandle(leaf).icurry._loaded_generation
+obj = Path(getHandle(leaf).sofilename)
+cpp = obj.with_suffix('.cpp')
+stamp = Path(str(obj) + '.abi')
+step = toolchain.Cpp2So(curry._interpreter_)
+message = 'the products of module Leaf changed since it was loaded; reload it'
+plan = plans.makeplan(curry._interpreter_, plans.MAKE_ALL)
+checks = [(cpp, [lambda: step._moduleName(str(cpp)),
+                 lambda: step._importedModules(str(cpp)),
+                 lambda: toolchain.format_version(str(cpp)),
+                 lambda: toolchain.source_interfaces(str(cpp)),
+                 lambda: toolchain.source_record(str(cpp))]),
+          (stamp, [lambda: step._read_stamp_records(str(obj)),
+                   lambda: step.read_stamp(str(obj)),
+                   lambda: step.read_import_stamp(str(obj))]),
+          (Path(generation.image), [lambda: image.read(generation.image),
+              lambda: image.ensure(curry._interpreter_, str(source))]),
+          (obj, [lambda: loader.needed_modules(str(obj)),
+                 lambda: _findcurry.currentfile(plan, str(source), curry.path, is_sourcefile=True),
+                 lambda: _productcache.store('test', 'key', [str(obj)], str(root / 'cache'))])]
+for path, readers in checks:
+    original = path.read_bytes()
+    try:
+        temporary = path.with_name(path.name + '.replacement')
+        temporary.write_bytes(original + b'\n')
+        os.replace(temporary, path)
+        for read in readers:
+            with _findcurry.resolving(curry._interpreter_):
+                try:
+                    read()
+                except ValueError as exc:
+                    assert str(exc) == message, str(exc)
+                else:
+                    raise AssertionError('changed product accepted: ' + str(path.suffix))
+    finally:
+        temporary = path.with_name(path.name + '.restore')
+        temporary.write_bytes(original)
+        os.replace(temporary, path)
+with _findcurry.resolving(curry._interpreter_):
+    cache = root / 'cache'
+    entry = Path(_productcache.store('test', 'restore', [str(obj)], str(cache)))
+    cached = entry / obj.name
+    temporary = cached.with_name(cached.name + '.replacement')
+    temporary.write_bytes(cached.read_bytes() + b'\n')
+    os.replace(temporary, cached)
+    before = obj.read_bytes()
+    try:
+        _productcache.restore('test', 'restore', str(obj.parent), [obj.name], str(cache))
+    except ValueError as exc:
+        assert str(exc) == message, str(exc)
+    else:
+        raise AssertionError('changed cached object accepted')
+    assert obj.read_bytes() == before
+""" % work
+      child = cytest.run_in_subprocess(code, timeout=240, address_space=3 << 30)
+      self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
   def test_loaded_in_place_edit(self):
     for mode in ('new', 'all'):
       for generalized in (False, True):

@@ -190,6 +190,7 @@ class ToolchainContext(object):
     if excty is None:
       # Move the file if "output" was specified.
       if self.copy_required:
+        _findcurry.verify_loaded_product(self.currentfile)
         shutil.copy(self.currentfile, self.output)
         if self.currentfile not in self.intermediates:
           self.intermediates.append(self.currentfile)

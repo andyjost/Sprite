@@ -6,7 +6,7 @@ from ..utility import curryname, filesys, formatDocstring
 import logging, os
 from contextvars import ContextVar
 from contextlib import contextmanager
-from collections import namedtuple
+from dataclasses import dataclass
 
 __all__ = ['currentfile', 'import_path', 'imports_path', 'program_path']
 logger = logging.getLogger(__name__)
@@ -94,8 +94,16 @@ def loaded_source(name, interp=None):
   return None
 
 
-LoadedGeneration = namedtuple(
-    'LoadedGeneration', 'source_info texts source image imports name object digests')
+@dataclass
+class LoadedGeneration:
+  source_info: object
+  texts: dict
+  source: object
+  image: object
+  imports: tuple
+  name: str
+  object: object
+  digests: dict
 
 
 def loaded_generation(name, interp=None):
@@ -128,6 +136,43 @@ def verify_product(generation, filename, key):
   if digest(filename) != generation.digests.get(key):
     raise ValueError('the products of module %s changed since it was loaded; reload it'
         % generation.name)
+  return filename
+
+
+def verify_loaded_product(filename, interp=None, identity=None):
+  """Check a disk input against the generation owned by this interpreter."""
+  from ..backends.cxx.image import digest
+  interp = _translation_interp.get() if interp is None else interp
+  path = os.path.realpath(filename if identity is None else identity)
+  for name in tuple(getattr(interp, 'modules', {})):
+    generation = loaded_generation(name, interp)
+    if generation is None:
+      continue
+    paths = {}
+    if generation.source:
+      stem = os.path.splitext(_filenames.icurryfilename(generation.source))[0]
+      paths.update((os.path.realpath(stem + suffix), suffix)
+          for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source'))
+      paths[os.path.realpath(stem + '.cpp')] = 'cpp'
+      paths[os.path.realpath(stem + config.module_object_suffix())] = 'object'
+      paths[os.path.realpath(stem + config.module_object_suffix() + '.abi')] = 'stamp'
+    if generation.image:
+      paths[os.path.realpath(generation.image)] = 'image'
+    if generation.object:
+      paths[os.path.realpath(generation.object)] = 'object'
+      paths[os.path.realpath(generation.object + '.abi')] = 'stamp'
+      paths[os.path.realpath(os.path.splitext(generation.object)[0] + '.cpp')] = 'cpp'
+    key = paths.get(path)
+    if key is None:
+      continue
+    if key in generation.texts:
+      import hashlib
+      expected = hashlib.sha256(generation.texts[key]).hexdigest()
+      if digest(filename) != expected:
+        raise ValueError('the products of module %s changed since it was loaded; reload it'
+            % generation.name)
+    elif generation.digests.get(key) is not None:
+      verify_product(generation, filename, key)
   return filename
 
 
@@ -171,11 +216,12 @@ def capture_generation(module, interp):
     provenance = candidate if os.path.isfile(candidate) else None
   digests = {suffix: image.digest(str(stem) + suffix) for suffix in ('.icy',)}
   digests['image'] = image.digest(provenance)
-  if objectfile:
-    digests['object'] = image.digest(objectfile)
-    cppfile = os.path.splitext(objectfile)[0] + '.cpp'
+  diskobject = objectfile or str(stem) + config.module_object_suffix()
+  if diskobject:
+    digests['object'] = image.digest(diskobject)
+    cppfile = os.path.splitext(diskobject)[0] + '.cpp'
     digests['cpp'] = image.digest(cppfile)
-    digests['stamp'] = image.digest(objectfile + '.abi')
+    digests['stamp'] = image.digest(diskobject + '.abi')
   imports = tuple((name, loaded_generation(name, interp)) for name in raw.imports)
   raw._loaded_generation = LoadedGeneration(
       info, texts, source, provenance, imports, raw.fullname, objectfile, digests)
@@ -388,6 +434,8 @@ def currentfile(
     if os.path.isfile(curryfile) and not os.path.isfile(icyfile) \
         and not _interfaces.is_current(icyfile, effective):
       filelist = [curryfile]
+  for product in filelist:
+    verify_loaded_product(product, plan.interp)
   filelist = plan.prune_stale(filelist, effective)
   if _curry2icurry.in_system_library(curryfile) and _curry2icurry.source_matches(
       curryfile, _filenames.icurryfilename(curryfile)):

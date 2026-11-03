@@ -31,6 +31,7 @@ def read_dynamic(sofile):
   Raises:
     ValueError: the file is of neither format, or malformed.
   '''
+  _findcurry.verify_loaded_product(sofile)
   with open(sofile, 'rb') as stream:
     magic = stream.read(4)
   if magic == b'\x7fELF':
@@ -49,6 +50,7 @@ def _dynamic_names(sofile):
   entries of the form of a SONAME of a compiled module.  The other entries,
   the runtime library and the system libraries, are left out.
   '''
+  _findcurry.verify_loaded_product(sofile)
   with open(sofile, 'rb') as stream:
     magic = stream.read(2)
   if magic == b'MZ':
@@ -171,6 +173,8 @@ def _program_path(interp, sofile):
   return _findcurry.program_path(curryfile, interp.path, is_sourcefile=True)
 
 def load_module(interp, sofile, from_plan=False, fresh=False, _saved_payload=False):
+  _findcurry.verify_loaded_product(sofile, interp)
+  _findcurry.verify_loaded_product(sofile + ".abi", interp)
   from .toolchain import Cpp2So
   for attempt in range(3):
     before = Cpp2So.product_snapshot(sofile)
@@ -242,6 +246,7 @@ def _open_module(interp, sofile, name, from_plan, fresh, before, _saved_payload)
   module = interp.modules.get(name)
   if isinstance(module, CurryPackage):
     module = None # a namespace has no interpreted module to replace
+  _findcurry.verify_loaded_product(sofile)
   with open(sofile, 'rb') as stream:
     digest = hashlib.sha256(stream.read()).hexdigest()
   loaded = _objects.get(name)

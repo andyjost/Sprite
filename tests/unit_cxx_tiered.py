@@ -1112,9 +1112,13 @@ curry._interpreter_.save(M, %(name)r + '.cpp', module_main=False)
 # as a session at the keyboard may run it.
 subprocess.run(
     [%(make)r, '--so', %(name)r + '.curry'], check=True
-  , env=dict(os.environ, CURRYPATH='.')
+  , env=dict(os.environ, CURRYPATH='.'), capture_output=True, text=True
   )
-M2 = curry._interpreter_.load(os.path.join('.curry', %(subdir)r, %(name)r + curry.config.module_object_suffix()))
+try:
+  M2 = curry._interpreter_.load(os.path.join('.curry', %(subdir)r, %(name)r + curry.config.module_object_suffix()))
+except ValueError as exc:
+  assert str(exc) == 'the products of module %%s changed since it was loaded; reload it' %% %(name)r, str(exc)
+  M2 = M
 print(M2 is M)
 print(next(curry.eval((M.bump)(1))))
 print('exiting normally')

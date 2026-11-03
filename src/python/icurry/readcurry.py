@@ -61,6 +61,8 @@ def loads(rcdata, decoder=Decoder()):
 def load(file, decoder=Decoder()):
   '''Load ICurry from an .icy file.'''
   if isinstance(file, str):
+    from ..toolchain._findcurry import verify_loaded_product
+    verify_loaded_product(file)
     with open(file, 'r', encoding='utf-8') as istream:
       text = istream.read()
   else:
