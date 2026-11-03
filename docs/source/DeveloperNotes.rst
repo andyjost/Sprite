@@ -871,6 +871,28 @@ node and ``ErrorKind::io`` through ``Configuration::set_error``. See
 ``currylib/library.cpp`` for complete examples. Mutable references use
 ``Variable::set_successor`` for writes.
 
+The search adapters ``Control.Search.Unsafe.rewriteAll`` and ``rewriteSome``
+are Curry definitions over ``allValues`` and ``oneValue``. They reuse
+``Control.SetFunctions.exprS``, ``evalS`` and the native value stream; no new
+primitive is needed. The capsule-lifting pass recognizes their calls just
+as it recognizes ``allValues`` and ``oneValue``, preserving captured
+variables at the caller. ``rewriteSome`` demands only the first stream cell.
+These are weak capsules: an outside choice ``x = 0 ? 1`` gives
+``(x, rewriteAll (x+10))`` as ``(0,[10])`` and ``(1,[11])``.
+For an outside free Boolean ``x``, ``rewriteAll (not x)`` gives ``[False]``
+with ``x=True`` and ``[True]`` with ``x=False``. ``rewriteSome (not x)`` gives
+``Just False`` with ``x=True`` and ``Just True`` with ``x=False``.
+The demand escapes to the outside configurations. PAKCS instead rejects
+rewrites that bind or identify outside variables: these calls give ``[]``
+and ``Nothing`` respectively. These adapters do not provide strong
+encapsulation or copy the outside search.
+
+After changing library Curry sources, run ``make stage`` with
+``SPRITE_REBUILD_ICY=1`` to translate with the pinned front end, then refresh
+the source module's committed ``.icy``, ``.fint``, ``.icurry``,
+``.icy.imports`` and ``.icy.source`` from the stage. Images and compiled
+objects remain derived products.
+
 Python implementations register through the backend bindings::
 
   from curry.backends.cxx import curryrtbindings as curryrt

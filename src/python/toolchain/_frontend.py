@@ -120,7 +120,8 @@ logger = logging.getLogger(__name__)
 #   8: hierarchical modules search from their hierarchy root; an import
 #      can resolve to a different module than a sibling of the source.
 #   9: primitive wrappers remain opaque to optimization.
-ROUTE_VERSION = 9
+#  10: weak rewrite observers preserve captured variables at the caller.
+ROUTE_VERSION = 10
 
 # The options that silence the front end.  They are the ones icurry passes in
 # quiet mode.

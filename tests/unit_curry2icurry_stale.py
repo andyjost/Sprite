@@ -19,7 +19,7 @@ the cache served, and the prepare pass of the test runner reads the line
 import cytest # from ./lib; must be first
 from curry import cache, config, toolchain
 from curry.toolchain import _curry2icurry, _frontend, _interfaces, _system, plans
-from curry.toolchain.flat2icurry import bindingopt as bo
+from curry.toolchain.flat2icurry import bindingopt as bo, setlift
 from curry.utility import filesys
 import curry, os, shutil, sqlite3, subprocess, sys, tempfile, time, unittest
 from unittest import mock
@@ -159,6 +159,47 @@ class PreRewriteCase(cytest.TestCase):
 
 class TestStaleness(PreRewriteCase):
   '''The rule on the pairs a tree may hold.'''
+
+  def test_every_capsule_entry_passes_the_spelling_check(self):
+    for name in setlift.CAPSULE_ENTRIES:
+      with self.subTest(name=name):
+        data = ('("%s","%s")' % name).encode('ascii')
+        self.assertEqual(_curry2icurry._needs_rewrite(data), (False, True))
+    self.assertEqual(_curry2icurry._needs_rewrite(b'plain'), (False, False))
+
+  def test_pre_rewrite_observers_are_refreshed_on_import(self):
+    for mode in ('all', 'off'):
+      for operation, expected in (('rewriteAll', ['[10]', '[11]']),
+                                  ('rewriteSome', ['Just 10', 'Just 11'])):
+        with self.subTest(mode=mode, operation=operation):
+          name = 'Upgrade' + operation + mode
+          source = self.write(name, 'module %s where\n'
+              'import Control.Search.Unsafe\n'
+              'main :: %s\n'
+              'main = let x = 0 ? 1 in %s (x+10)\n' %
+              (name, '[Int]' if operation == 'rewriteAll' else 'Maybe Int',
+               operation))
+          fcy, icy = self.pre_rewrite_pair(source)
+          before = readbytes(icy)
+          self.assertNotIn(b'_SET0', before)
+          self.assertEqual(readbytes(icy + '.source').decode('ascii'),
+                           _curry2icurry.source_digest(source))
+          self.assertTrue(_interfaces.is_current(icy, [self.tmpdir]))
+          self.assertTrue(_curry2icurry.icurry_is_stale(icy, [self.tmpdir]))
+          code = ('import curry\n'
+              'from curry.toolchain import _curry2icurry as route\n'
+              'curry.reset(interpret=%r, jit="off")\n'
+              'route.reset_counts()\n'
+              'm = curry.import_(%r, path=[%r])\n'
+              'assert sorted(curry.show(v) for v in curry.eval(m.main)) == %r\n'
+              'assert route.pairs_refreshed() == 1\n' %
+              (mode, name, self.tmpdir, expected))
+          proc = cytest.run_in_subprocess(code, timeout=90, address_space=2 << 30)
+          self.assertEqual(proc.returncode, 0, proc.stderr)
+          self.assertNotEqual(readbytes(icy), before)
+          self.assertIn(b'_SET0', readbytes(icy))
+          self.assertIn(b'_SET0', readbytes(fcy))
+          self.assertFalse(_curry2icurry.icurry_is_stale(icy, [self.tmpdir]))
 
   def test_pre_rewrite_pair_is_stale(self):
     '''
@@ -463,9 +504,9 @@ class TestCacheKey(PreRewriteCase):
     route alone: the version is in the key of the ICurry cache alone, the
     product cache digests the ICurry text itself.
     '''
-    # Version 9 keeps primitive implementations opaque to optimization.
-    self.assertEqual(_frontend.ROUTE_VERSION, 9)
-    self.assertEqual(cache.route_version(), 9)
+    # Version 10 preserves captured variables at weak rewrite calls.
+    self.assertEqual(_frontend.ROUTE_VERSION, 10)
+    self.assertEqual(cache.route_version(), 10)
     curryfile = self.write('GuardK', guard('GuardK'))
     key = lambda: cache.icurry_cache_key(curryfile, [self.tmpdir], (), 'frontend')
     digest = cache.frontend_digest('frontend')

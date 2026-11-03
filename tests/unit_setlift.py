@@ -901,8 +901,8 @@ class TestFiles(cytest.TestCase):
     '''The lift joined the step with version 2 of the route, in the key of
     the ICurry cache.'''
     # 9: primitive implementations remain opaque to optimization.
-    self.assertEqual(_frontend.ROUTE_VERSION, 9)
-    self.assertEqual(cache.route_version(), 9)
+    self.assertEqual(_frontend.ROUTE_VERSION, 10)
+    self.assertEqual(cache.route_version(), 10)
     self.assertIn('setlift.py', cache.REWRITE_SOURCES)
     key = lambda: cache.icurry_cache_key(self.curryfile, [self.tmpdir], (), 'frontend')
     now = key()

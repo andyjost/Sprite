@@ -110,9 +110,6 @@ class IBackend(backends.IBackend):
     elif modulename == 'Control.Search.SetFunctions':
       from ..generic.currylib import setfunctions
       return setfunctions.SearchSetFunctionsSpecification()
-    elif modulename == 'Control.Search.Unsafe':
-      from ..generic.currylib import setfunctions
-      return setfunctions.SearchUnsafeSpecification()
     elif modulename == 'Sprite.Stream':
       from ..generic.currylib import stream
       return stream.StreamSpecification()

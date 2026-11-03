@@ -5,7 +5,7 @@ from .. import cache, config
 from ..exceptions import CompileError
 from . import _filenames, _frontend, _interfaces, _preprocessor, _system
 from . import flat2icurry
-from .flat2icurry import flatcurry
+from .flat2icurry import flatcurry, setlift
 from ..utility import curryname, filesys
 import hashlib, logging, os, re
 
@@ -37,15 +37,18 @@ def curry2icurry(curryfile, currypath, **kwds):
 # optimization writes, and of the Boolean equalities it replaces: the class
 # methods of the Prelude and the instance methods of any module
 # (bindingopt.is_equality_name).  A FlatCurry file without such a name has
-# nothing the pass would replace.  SET0_NAME is the spelling of set0, the
-# function the set0 lift lifts (setlift): a FlatCurry file without it has
-# nothing the lift would lift.
+# nothing the pass would replace.  CAPSULE_NAMES contains the spellings of
+# every entry the set0 lift handles, derived from its entry table.
 CONSTR_EQ = b'("Prelude","constrEq"'
 EQUALITY_NAME = re.compile(
     rb'\("Prelude","(?:==|===|/=|/==)"\)'
     rb'|_impl#(?:==#Prelude\.Eq|===#Prelude\.Data|/=#Prelude\.Eq)#'
   )
 SET0_NAME = b'("Control.SetFunctions","set0")'
+CAPSULE_NAMES = tuple(
+    ('("%s","%s")' % name).encode('utf-8')
+    for name in sorted(setlift.CAPSULE_ENTRIES)
+  )
 
 # The largest FlatCurry file the check parses, in bytes.  The parse costs
 # about 0.3 ms per KB, so a file at the limit costs about 80 ms.  A larger
@@ -136,10 +139,10 @@ def _needs_rewrite(data):
   Which passes of the rewrite step the FlatCurry text ``data`` may need,
   by its spelling alone: the binding optimization when the text has an
   equality name and no ``constrEq`` (a file with ``constrEq`` was
-  rewritten by it), the set0 lift when the text names ``set0``.
+  rewritten by it), the set0 lift when the text names any of its capsule entries.
   '''
   equalities = CONSTR_EQ not in data and EQUALITY_NAME.search(data) is not None
-  calls = SET0_NAME in data
+  calls = any(name in data for name in CAPSULE_NAMES)
   return equalities, calls
 
 def _writable(fcyfile):
@@ -153,7 +156,7 @@ def rewrite_on_hit(curryfile):
   the FlatCurry file of the front end beside ``curryfile`` after a hit of
   the ICurry cache, as a translation does (``_frontend.curry2flat``), so
   the file agrees with the ICurry file the cache wrote.  The cost is a
-  read, and a parse when the text has an equality name or names ``set0``;
+  read, and a parse when the text names an equality or a capsule entry;
   the file is written again only when a pass changes the program, else it
   keeps its bytes and its time.
 
@@ -175,7 +178,7 @@ def rewrite_on_hit(curryfile):
   try:
     with open(fcyfile, 'rb') as stream:
       data = stream.read()
-    if EQUALITY_NAME.search(data) is None and SET0_NAME not in data:
+    if EQUALITY_NAME.search(data) is None and not _needs_rewrite(data)[1]:
       return 0
     return sum(_frontend.optimize_flatcurry(fcyfile))
   except Exception as err:
@@ -202,7 +205,7 @@ def translated_before_rewrite(curryfile, icyfile):
   the file of the front end (``_frontend.flatcurryfile``) holds a Boolean
   equality the pass would replace, and neither it nor the ICurry file
   holds ``constrEq``.  The set0 lift: the file holds a saturated call of
-  ``set0`` whose argument has captured variables, which the pass would
+  a capsule entry whose expression has captured variables, which the pass would
   lift, and the ICurry file lacks the function the lift would make.  Such
   a pair comes from a tree made before the routes rewrote the file with
   that pass, from the overlay archive of the tests, or from a copy of
@@ -212,8 +215,8 @@ def translated_before_rewrite(curryfile, icyfile):
   the set functions boxes them.
 
   The check is cheap on an import.  The FlatCurry file is read: a file
-  without an equality name and without ``set0`` has nothing to rewrite,
-  and a file with ``constrEq`` and without ``set0`` was rewritten, so both
+  without an equality name or a capsule entry has nothing to rewrite,
+  and a file with ``constrEq`` and no capsule entry was rewritten, so both
   answer at once (a fraction of a millisecond).  Else the step runs over
   the text in memory and counts (a parse: about 0.3 ms per KB, 1 ms for
   the median module of the test corpus, 10 ms for one of 28 KB; the
