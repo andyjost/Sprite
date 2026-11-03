@@ -1,15 +1,15 @@
 '''Weak rewriting shares the caller boundary of allValues, in both routes.'''
 import cytest # from ./lib; must be first
 import json
+import tempfile
 import unittest
 
 
 PROBE = r'''
-import curry, json, os, tempfile
+import curry, json, os
 curry.reset(interpret=MODE, jit='off')
-helper_dir = tempfile.TemporaryDirectory()
-curry.path.insert(0, helper_dir.name)
-with open(os.path.join(helper_dir.name, 'RewriteHelpers.curry'), 'w') as stream:
+curry.path.insert(0, HELPER_DIR)
+with open(os.path.join(HELPER_DIR, 'RewriteHelpers.curry'), 'w') as stream:
  stream.write("""
 module RewriteHelpers where
 import Control.Search.Unsafe
@@ -22,7 +22,7 @@ referenceAll x = allValues (x+10)
 referenceSome :: Int -> Maybe Int
 referenceSome x = oneValue (x+10)
 """)
-with open(os.path.join(helper_dir.name, 'RewriteProbe.curry'), 'w') as stream:
+with open(os.path.join(HELPER_DIR, 'RewriteProbe.curry'), 'w') as stream:
  stream.write("""
 module RewriteProbe where
 import RewriteHelpers
@@ -84,15 +84,16 @@ for name in ('choice','choiceAll','choiceSome','empty','insideFailure','freeAll'
              'surroundAll','surroundAllRef','surroundSome','surroundSomeRef'):
  print(json.dumps([name, sorted(curry.show(v) for v in curry.eval(M[name]))]),
        flush=True)
-helper_dir.cleanup()
 '''
 
 
 class TestWeakRewriting(cytest.TestCase):
   def check_route(self, mode):
     # Isolate module generations and bound divergence if the tail is demanded.
-    proc = cytest.run_in_subprocess('MODE = %r\n' % mode + PROBE,
-                                   timeout=90, address_space=2 << 30)
+    # The child must exit before Windows can remove its loaded module DLLs.
+    with tempfile.TemporaryDirectory() as helper_dir:
+      code = 'MODE = %r\nHELPER_DIR = %r\n' % (mode, helper_dir) + PROBE
+      proc = cytest.run_in_subprocess(code, timeout=90, address_space=2 << 30)
     self.assertEqual(proc.returncode, 0, proc.stderr)
     actual = dict(json.loads(line) for line in proc.stdout.splitlines())
     # Partial applications expose no argument to the lift, just as allValues
