@@ -102,11 +102,146 @@ module = curry.load(root / 'Frozen.so')
 assert getHandle(module).icurry.filename is None
 before = curry.inspect.getimpl(module.f)
 (root / 'Frozen.cpp').write_text('// replaced after the load\n')
-assert curry.inspect.getimpl(module.f) == before
+try:
+    curry.inspect.getimpl(module.f)
+except ValueError as exc:
+    assert str(exc) == 'the products of module Frozen changed since it was loaded; reload it', str(exc)
+else:
+    raise AssertionError('changed generated code accepted')
 assert list(curry.eval(module.f(1))) == [2]
 """ % work
       child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
       self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+  def test_import_has_no_snapshot_files(self):
+    self._import_and_finish(True)
+
+  def test_loaded_module_survives_finish(self):
+    self._import_and_finish(False)
+
+  def _import_and_finish(self, check_files):
+    with tempfile.TemporaryDirectory() as work:
+      code = r"""
+import curry, tempfile, subprocess, sys
+from pathlib import Path
+from curry.backends.cxx import tiered
+from curry import __main__
+curry.reset(interpret='all', jit='off')
+root = Path(%r)
+curry.path.insert(0, str(root))
+(root / 'Leaf.curry').write_text('module Leaf where\nf :: Int -> Int\nf x = x + 1\n')
+(root / 'Probe.curry').write_text('module Probe where\nimport Leaf\ngoal = f 1\n')
+child = subprocess.run([sys.executable, '-c',
+    "import curry; curry.reset(interpret='all', jit='off'); curry.path.insert(0, %%r); curry.import_('Data.List'); curry.import_('Probe')" %% str(root)],
+    capture_output=True, text=True, timeout=90)
+assert child.returncode == 0, child.stdout + child.stderr
+from unittest import mock
+with mock.patch.object(tempfile, 'mkdtemp', wraps=tempfile.mkdtemp) as created:
+    leaf = curry.import_('Leaf')
+    curry.import_('Data.List')
+    probe = curry.import_('Probe')
+if %r:
+    assert tiered._state.tmpdir is None, tiered._state.tmpdir
+    assert created.call_count == 0, created.mock_calls
+assert list(curry.eval(probe.goal)) == [2]
+tiered.finish()
+(root / 'Other.curry').write_text('module Other where\nmain = putStrLn "ok"\n')
+__main__.main('sprite', ['--stats', str(root / 'Other.curry')])
+curry._interpreter_.sigtable.clear()
+assert leaf.f.signature == 'Int -> Int'
+(root / 'Fresh.curry').write_text('module Fresh where\nimport Leaf\ngoal = f 2\n')
+assert list(curry.eval(curry.import_('Fresh').goal)) == [3]
+""" % (work, check_files)
+      child = cytest.run_in_subprocess(code, timeout=180, address_space=3 << 30)
+      self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+  def test_changed_icurry_refused(self):
+    with tempfile.TemporaryDirectory() as work:
+      code = r"""
+import curry, subprocess, sys
+from pathlib import Path
+from curry.backends.cxx import tiered
+from curry.objects.handle import getHandle
+from curry.interpreter.loadsave import compilable_icurry
+curry.reset(interpret='all', jit='off')
+root = Path(%r)
+curry.path.insert(0, str(root))
+source = root / 'Leaf.curry'
+source.write_text('module Leaf where\nf :: Int -> Int\nf x = x + 1\n')
+leaf = curry.import_('Leaf')
+(root / 'Probe.curry').write_text('module Probe where\nimport Leaf\ngoal = f 1\n')
+probe = curry.import_('Probe')
+source.write_text('module Leaf where\nf :: Int -> Int\nf x = x + 2\n')
+child = subprocess.run([sys.executable, '-c',
+    "import curry; curry.reset(interpret='all', jit='off'); curry.path.insert(0, %%r); curry.import_('Leaf')" %% str(root)],
+    capture_output=True, text=True, timeout=90)
+assert child.returncode == 0, child.stdout + child.stderr
+message = 'the products of module Leaf changed since it was loaded; reload it'
+for read in (lambda: curry.inspect.geticurryfile(leaf),
+             lambda: curry.inspect.geticurry(leaf),
+             lambda: compilable_icurry(curry._interpreter_, leaf, getHandle(leaf).icurry)):
+    try:
+        read()
+    except ValueError as exc:
+        assert str(exc) == message, str(exc)
+    else:
+        raise AssertionError('changed ICurry accepted')
+import logging
+messages = []
+class Capture(logging.Handler):
+    def emit(self, record):
+        messages.append(record.getMessage())
+logger = logging.getLogger('curry.backends.cxx.tiered')
+handler = Capture()
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+try:
+    curry._interpreter_.flags['jit_backend'] = 'cxx'
+    curry._interpreter_.flags['jit'] = 'hot'
+    assert not tiered.submit(curry._interpreter_, probe, None)
+    curry._interpreter_.flags['jit'] = 'off'
+finally:
+    logger.removeHandler(handler)
+assert sum(message in line for line in messages) == 1, messages
+assert list(curry.eval(probe.goal)) == [2]
+""" % work
+      child = cytest.run_in_subprocess(code, timeout=180, address_space=3 << 30)
+      self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+  def test_source_free_import_fingerprint(self):
+    with tempfile.TemporaryDirectory() as work:
+      root = Path(work)
+      for answer in (1, 2):
+        directory = root / str(answer)
+        directory.mkdir()
+        code = r"""
+import curry
+from pathlib import Path
+curry.reset(interpret='all', jit='off')
+root = Path(%r)
+source = root / 'Leaf.curry'
+source.write_text('module Leaf where\nanswer :: Int\nanswer = %%d\n' %% %d)
+leaf = curry.import_(source)
+curry.save(leaf, root / 'Leaf.so')
+""" % (str(directory), answer)
+        child = cytest.run_in_subprocess(code, timeout=180, address_space=3 << 30)
+        self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+      (root / 'Probe.curry').write_text(
+          'module Probe where\nimport Leaf\ngoal :: (Int,Int)\ngoal = (answer,answer)\n')
+      for mode in ('new', 'all'):
+        for answer in (1, 2):
+          code = r"""
+import curry
+from pathlib import Path
+curry.reset(interpret='new', jit='off')
+root = Path(%r)
+curry.load(root / str(%d) / 'Leaf.so')
+curry._interpreter_.flags['interpret'] = %r
+curry.path.insert(0, str(root))
+assert curry.show(curry.eval(curry.import_('Probe').goal).one()) == %r
+""" % (work, answer, mode, '(%d,%d)' % (answer, answer))
+          child = cytest.run_in_subprocess(code, timeout=180, address_space=3 << 30)
+          self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
   def test_loaded_optimizer_generation(self):
     self._loaded_optimizer_or_signature(False)
@@ -149,13 +284,8 @@ for name in ('Prelude', 'Leaf'):
     # Import generations are shared references, not recursively owned copies.
     seen.update(id(dep) for _, dep in generation.imports if dep is not None)
     memory = size(generation) + size(vars(generation.source_info))
-    files = {p.suffix: p.stat().st_size for p in Path(generation.product_stem).parent.iterdir()
-             if p.is_file()}
-    files['image'] = Path(generation.image_input).stat().st_size if generation.image_input else 0
     print('generation bytes', name, memory,
-          'source string', sys.getsizeof(getattr(raw, '_source_text', '')),
-          'interfaces', sum(len(generation.texts.get(suffix, b'')) for suffix in ('.fint', '.icurry')),
-          json.dumps(files, sort_keys=True))
+          'interfaces', sum(len(generation.texts.get(suffix, b'')) for suffix in ('.fint', '.icurry')))
 source.write_text('module Leaf where\n' + %r)
 child = subprocess.run([sys.executable, '-c',
     "import curry; curry.reset(interpret='all', jit='off'); curry.path.insert(0, %%r); curry.import_('Leaf')" %% str(source.parent)],

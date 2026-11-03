@@ -179,7 +179,7 @@ def rewrite_on_hit(curryfile):
   if not os.path.isfile(fcyfile) or filesys.newer(curryfile, fcyfile):
     return None
   try:
-    with open(_findcurry.product_input(fcyfile), 'rb') as stream:
+    with open(fcyfile, 'rb') as stream:
       data = stream.read()
     if EQUALITY_NAME.search(data) is None and not _needs_rewrite(data)[1]:
       return 0
@@ -251,7 +251,7 @@ def translated_before_rewrite(curryfile, icyfile):
   if filesys.newer(curryfile, fcyfile):
     return False
   try:
-    with open(_findcurry.product_input(fcyfile), 'rb') as stream:
+    with open(fcyfile, 'rb') as stream:
       data = stream.read()
   except OSError:
     return False
@@ -279,7 +279,7 @@ def translated_before_rewrite(curryfile, icyfile):
   if not (equalities or calls):
     return False
   try:
-    with open(_findcurry.product_input(icyfile), 'rb') as stream:
+    with open(icyfile, 'rb') as stream:
       icy = stream.read()
   except OSError:
     return False
@@ -306,8 +306,11 @@ def source_digest(filename):
 
 def source_matches(curryfile, icyfile):
   """Whether the product records exactly the current Curry source text."""
+  generation = _findcurry.generation_for_source(curryfile)
+  if generation is not None:
+    return True
   try:
-    with open(_findcurry.product_input(icyfile + '.source'), encoding='ascii') as stream:
+    with open(icyfile + '.source', encoding='ascii') as stream:
       recorded = stream.read().strip()
     return recorded == source_digest(curryfile)
   except OSError:
@@ -334,6 +337,8 @@ def icurry_is_stale(filename, currypath=None):
   search path ``currypath`` selects the imported interfaces recorded in
   ``M.icy.imports``; a missing record or a changed interface is stale too.
   '''
+  if _findcurry.generation_for_source(filename) is not None:
+    return False
   if not filename.endswith('.icy'):
     return False
   try:

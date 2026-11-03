@@ -345,6 +345,7 @@ held terms:
     ...   print('build the term again from M')
     build the term again from M
 
+Loaded modules are served from memory until reload or reset.
 Text modules require ``text=`` on reload.  File modules reread their source
 when text is omitted; under ``interpret='off'`` a reload requires
 a new process or ``reset(interpret='new')`` before import.

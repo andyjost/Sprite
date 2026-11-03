@@ -114,7 +114,7 @@ def enabled():
 
 def _module_texts(curryfile):
   '''
-  The module's own texts, as pairs of a label and the bytes: its Curry
+  The module's own digests, as pairs of a label and a digest: its Curry
   source, its ICurry file and its image, each one that exists, in that
   order. Empty when none of them exists. Images carry optimizer summaries,
   so an image written again from the same source by another
@@ -127,16 +127,17 @@ def _module_texts(curryfile):
     candidates = [('curry', curryfile), ('icy', _filenames.icurryfilename(curryfile)),
                   ('image', _filenames.replacesuffix(curryfile, '.img'))]
   else:
-    candidates = [('curry', _filenames.sourcefilename(generation.product_stem + '.icy')),
-                  ('icy', generation.product_stem + '.icy'),
-                  ('image', generation.image_input)]
+    values = [('curry', generation.source_info.digest if generation.source_info else None),
+              ('icy', generation.digests.get('.icy')),
+              ('image', generation.digests.get('image'))]
+    return [(label, value) for label, value in values if value is not None]
   texts = []
   for label, filename in candidates:
     if filename is None:
       continue
     try:
       with open(filename, 'rb') as stream:
-        texts.append((label, stream.read()))
+        texts.append((label, hashlib.sha256(stream.read()).hexdigest()))
     except FileNotFoundError:
       continue
   return texts
@@ -188,8 +189,11 @@ def import_closure(curryfile, currypath=()):
     generation = loaded_generation(name)
     if generation is not None:
       info = generation.source_info
-      if info is not None:
-        closure[name] = info
+      if info is None:
+        from ..backends.cxx.image import generation_digest
+        info = cache.SourceInfo(generation.object or generation.image, b'')
+        info.digest = generation_digest(generation)
+      closure[name] = info
       pending.extend(dep for dep, _ in generation.imports)
       continue
     relpath = name.replace('.', os.sep) + '.curry'
@@ -233,7 +237,7 @@ def chain_digest(curryfile, currypath=()):
   for label, text in texts:
     hasher.update(label.encode('utf-8'))
     hasher.update(b'\0')
-    hasher.update(hashlib.sha256(text).hexdigest().encode('utf-8'))
+    hasher.update(text.encode('ascii'))
     hasher.update(b'\0')
   for name, info in sorted(import_closure(curryfile, currypath).items()):
     hasher.update(name.encode('utf-8'))

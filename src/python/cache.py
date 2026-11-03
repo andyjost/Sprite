@@ -299,8 +299,11 @@ def import_closure(curryfile, currypath=()):
     generation = loaded_generation(name)
     if generation is not None:
       info = generation.source_info
-      if info is not None:
-        closure[name] = info
+      if info is None:
+        from .backends.cxx.image import generation_digest
+        info = SourceInfo(generation.object or generation.image, b'')
+        info.digest = generation_digest(generation)
+      closure[name] = info
       pending.extend(dep for dep, _ in generation.imports)
       continue
     relpath = name.replace('.', os.sep) + '.curry'

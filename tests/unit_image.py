@@ -45,7 +45,10 @@ class TestImage(cytest.TestCase):
       icyfile = toolchain.icurryfilename(source)
       with mock.patch.object(image.cache, 'write_file',
           side_effect=AssertionError('current compile rewrote a product')) as writes:
-        image.ensure(curry._interpreter_, icyfile)
+        with mock.patch.object(image, 'read', side_effect=AssertionError('loaded image reopened')):
+          image.ensure(curry._interpreter_, icyfile)
+          self.assertIs(image.load(curry._interpreter_, icyfile), getHandle(module).icurry)
+          self.assertIs(image.current(curry._interpreter_, source), getHandle(module).icurry)
         plan = toolchain.plans.makeplan(curry._interpreter_, toolchain.plans.MAKE_ICURRY
             | toolchain.plans.MAKE_IMAGE)
         toolchain.makecurry(plan, source, curry.path, is_sourcefile=True)
@@ -205,7 +208,7 @@ class TestImage(cytest.TestCase):
       self.assertIsNone(image.filename(raw.filename))
       self.assertIsNone(image.write(curry._interpreter_, raw))
       self.assertEqual(image._import_images(curry._interpreter_, [raw.fullname], None),
-          {raw.fullname: None})
+          {raw.fullname: image.generation_digest(raw._loaded_generation)})
       importer = icurry.IModule('ImageNoFileImporter', [raw.fullname], {}, {})
       image.optimize(curry._interpreter_, importer)
 
@@ -409,7 +412,7 @@ assert curry.eval(module.answer).one() == 42
     self.assertEqual(curry.eval(module.answer).one(), 42)
     self.assertIn("'I', 42", inspect.getimpl(module.answer))
 
-  def test_translation_reads_aot_import_image(self):
+  def test_translation_uses_loaded_aot_summaries(self):
     curry.reset(backend='cxx', interpret='new', jit='off')
     prelude = curry.import_('Prelude')
     self.assertIsNotNone(getHandle(prelude).sofilename)
@@ -423,7 +426,7 @@ assert curry.eval(module.answer).one() == 42
         mock.patch.object(image._loadcurry, 'loadicurry', side_effect=own_json):
       module = curry.compile('answer :: Int\nanswer = id 42\n')
     self.assertEqual(curry.eval(module.answer).one(), 42)
-    self.assertTrue(any(call.kwargs.get('attach_code') is False
+    self.assertFalse(any(call.kwargs.get('attach_code') is False
         for call in reader.call_args_list))
     self.assertIsNotNone(getHandle(prelude).sofilename)
 

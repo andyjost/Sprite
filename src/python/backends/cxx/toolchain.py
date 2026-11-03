@@ -456,10 +456,11 @@ def input_record(interp, source):
   from ...toolchain._frontend import ROUTE_VERSION
   generation = _findcurry.generation_for_source(source, interp) if source else None
   try:
-    receipt = generation.product_stem + '.icy.source' if generation is not None else \
-        _filenames.icurryfilename(source) + '.source'
-    with open(receipt, encoding='ascii') as stream:
-      recorded = stream.read().strip()
+    if generation is not None:
+      recorded = generation.texts.get('.icy.source', b'').decode('ascii').strip() or None
+    else:
+      with open(_filenames.icurryfilename(source) + '.source', encoding='ascii') as stream:
+        recorded = stream.read().strip()
   except (OSError, ValueError, AttributeError):
     recorded = None
   return dict(source=recorded, registry=registered_names(source),
@@ -1041,11 +1042,6 @@ class Cpp2So(object):
     module = self.interp.import_(modulename, currypath=imports)
     h = getHandle(module)
     sofilename = h.sofilename
-    generation = getattr(h.icurry, '_loaded_generation', None)
-    if sofilename is not None and generation is not None and sofilename == generation.object:
-      pinned = generation.product_stem + config.module_object_suffix()
-      if os.path.isfile(pinned):
-        return pinned
     if sofilename is None:
       sofilename = self._object_on_disk(modulename, imports)
     if sofilename is None:
@@ -1065,40 +1061,8 @@ class Cpp2So(object):
     the current product, not through the plan.
     '''
     generation = _findcurry.loaded_generation(modulename, self.interp)
-    if generation is not None:
-      pinned = generation.product_stem + config.module_object_suffix()
-      if generation.source is None:
-        return pinned if os.path.isfile(pinned) else None
-      # The linker reads the generation, while these disk comparisons only
-      # decide whether a reusable installed dependency still exists.
-      original = _filenames.replacesuffix(generation.source, config.module_object_suffix())
-      from . import image
-      if image.digest(generation.image_input) != image.digest(generation.image):
-        return None
-      if os.path.isfile(pinned) and image.digest(pinned) == image.digest(original) \
-          and self.stamp_is_current(pinned):
-        return pinned
-      # A make plan can produce an object after loading its generation.
-      # Accept that candidate only against the captured source and imports,
-      # then pin a separate link input without replacing captured files.
-      if not os.path.isfile(original) or not self.stamp_is_current(original):
-        return None
-      record = self._read_stamp_records(original)[3]
-      if generation.source_info is not None and \
-          record.get('source') != generation.source_info.digest:
-        return None
-      from . import tiered
-      import shutil
-      directory = os.path.join(tiered._tmpdir(),
-          'link%d' % next(tiered._state.counter))
-      target = os.path.join(directory, '.curry', config.intermediate_subdir(),
-          modulename.split('.')[-1] + config.module_object_suffix())
-      os.makedirs(os.path.dirname(target), exist_ok=True)
-      for suffix in (config.module_object_suffix(), config.module_object_suffix() + '.abi', '.cpp'):
-        candidate = _filenames.replacesuffix(original, suffix)
-        if os.path.isfile(candidate):
-          shutil.copyfile(candidate, _filenames.replacesuffix(target, suffix))
-      return target
+    if generation is not None and generation.object:
+      return generation.object
     plan = plans.makeplan(self.interp, plans.MAKE_ALL)
     if currypath is None:
       # A module given by name: its imports are searched on the path of

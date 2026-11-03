@@ -437,6 +437,27 @@ counter. The log contains the endpoints of real unions in insertion order;
 every member of a non-singleton class occurs in it, so the collector and
 invariant checker still visit all retained free variables.
 
+Loaded modules and their files
+==============================
+
+An interpreter serves a loaded module from memory until reload or reset.
+It retains the interface bytes, loaded ICurry and runtime image, source
+provenance and product digests read at load, and references to its imports.
+Loading creates no product snapshots. Optimizer summaries and import
+fingerprints use the loaded declarations and recorded digests, including
+the object digest for a source-free object.
+
+Editing or rebuilding a loaded module's files without reload or reset is
+outside the module rules; behavior in that process is undefined. The next
+reload, reset or process reads the changed files. Three guarantees still
+hold: the installation is never written, inlining uses the loaded bodies,
+and tools that need product files verify their digests against the load
+record. Inspection and saved-program reconstruction refuse changed products
+with an error naming the module and asking for reload. Background compilation
+skips a module with changed inputs, logs one INFO message and leaves it
+interpreted. Only compile jobs create files in the background compiler's
+temporary root.
+
 The module image
 ================
 

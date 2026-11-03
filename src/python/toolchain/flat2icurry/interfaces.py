@@ -20,13 +20,16 @@ SUFFIXES = ('.fint', '.fcy')
 
 _LOADED = {}
 
-def load_interface(filename):
+def load_interface(filename, data=None):
   '''Reads a FlatCurry file.  Files are cached by name, size, and time.'''
-  st = os.stat(filename)
-  key = (filename, st.st_size, st.st_mtime_ns)
+  if data is None:
+    st = os.stat(filename)
+    key = (filename, st.st_size, st.st_mtime_ns)
+  else:
+    key = (filename, data)
   prog = _LOADED.get(key)
   if prog is None:
-    candidate = fc.load(filename)
+    candidate = fc.load(filename) if data is None else fc.read(data.decode('utf-8'))
     with _loaded_lock:
       prog = _LOADED.setdefault(key, candidate)
   return prog
@@ -76,7 +79,11 @@ class InterfaceFinder:
     '''The FlatCurry interface of ``modname``.'''
     prog = self.progs.get(modname)
     if prog is None:
-      prog = self.progs[modname] = load_interface(self.filename(modname))
+      from .._findcurry import loaded_generation
+      generation = loaded_generation(modname)
+      data = generation.texts.get('.fint') if generation is not None else None
+      prog = self.progs[modname] = load_interface(modname + '.fint', data) if data is not None else \
+          load_interface(self.filename(modname))
     return prog
 
 def product_path(filename):

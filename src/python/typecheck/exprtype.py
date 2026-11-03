@@ -85,16 +85,26 @@ def synonyms_of(interp, modulename):
   iface = interp.sigtable.interface(modulename)
   if iface is None:
     return {}
-  path = icurry_filename(iface.path)
-  try:
-    st = os.stat(path)
-  except OSError:
+  from ..toolchain._findcurry import loaded_generation
+  generation = loaded_generation(modulename, interp)
+  data = generation.texts.get('.icurry') if generation is not None else None
+  if generation is not None and data is None:
     return {}
-  key = (path, st.st_size, st.st_mtime_ns)
+  path = icurry_filename(iface.path)
+  if data is None:
+    try:
+      st = os.stat(path)
+    except OSError:
+      return {}
+    key = (path, st.st_size, st.st_mtime_ns)
+  else:
+    key = (modulename, data)
   found = _SYNONYMS.get(key)
   if found is None:
-    with open(path, 'r', encoding='utf-8') as istream:
-      text = istream.read()
+    if data is None:
+      with open(path, 'rb') as istream:
+        data = istream.read()
+    text = data.decode('utf-8')
     found = {}
     for m in _SYNONYM.finditer(text):
       found[m.group('name')] = Synonym(

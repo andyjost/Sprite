@@ -60,11 +60,15 @@ class Symbol:
     interface = interp.sigtable.interface(self.module.__name__)
     if interface is None:
       return None
-    try:
-      with open(exprtype.icurry_filename(interface.path), encoding='utf-8') as stream:
-        text = stream.read()
-    except OSError:
-      return None
+    generation = getattr(getattr(self.module, '.icurry'), '_loaded_generation', None)
+    if generation is not None:
+      text = generation.texts.get('.icurry', b'').decode('utf-8')
+    else:
+      try:
+        with open(exprtype.icurry_filename(interface.path), encoding='utf-8') as stream:
+          text = stream.read()
+      except OSError:
+        return None
     for assoc, prec, names in re.findall(
         r'^(infixl|infixr|infix)\s+(\d+)\s+(.+?);\s*$', text, re.M
       ):

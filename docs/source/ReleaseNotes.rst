@@ -5,6 +5,9 @@ Release Notes
 Unreleased
 ==========
 
+- Serve loaded modules from memory until reload or reset, without product
+  snapshots; product-file readers verify the digests recorded at load.
+
 - Implement ``Control.Search.Unsafe.rewriteAll`` and ``rewriteSome`` through
   Sprite's weak native capsules. Outside-variable demands propagate to the
   enclosing search, unlike PAKCS's rejection of outside bindings.

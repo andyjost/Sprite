@@ -114,6 +114,7 @@ strings.
     once per edit. Use ``:reload`` to read an edited source again.
 
 ``:reload``
+    Loaded modules are served from memory until reload or reset.
     Calls ``curry.reload`` on the current module, replacing its code in
     place. An unsuccessful reload reports its error and keeps the module
     usable with its previous code. Under ``interpret:off`` the runtime can refuse replacement; ``:set interpret new`` resets the session

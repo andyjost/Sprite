@@ -78,7 +78,7 @@ def interfaces(source, currypath, dependencies=None):
           if id(item) in visited:
             continue
           visited.add(id(item))
-          products.append(item.image if item.image_input else
+          products.append(item.image if item.image else
                           item.object or item.image or item.source)
           captured.extend(dep for _, dep in item.imports if dep is not None)
         continue
@@ -121,7 +121,7 @@ def images(interp, names):
     raw = getHandle(interp.modules[name]).icurry
     generation = getattr(raw, '_loaded_generation', None)
     if generation is not None:
-      products.append(generation.image if generation.image_input else
+      products.append(generation.image if generation.image else
                       generation.object or generation.image or generation.source)
     elif raw.filename:
       products.append(image._path(interp, raw.filename))

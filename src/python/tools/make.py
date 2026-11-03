@@ -469,7 +469,8 @@ def imports_of(curryfile, interp=None):
 
 def is_done(plan, currentfile, currypath=None):
   '''Tells whether ``currentfile`` ends ``plan``, so that nothing is to be made.'''
-  if plan.flags & plans.MAKE_IMAGE and not os.path.isdir(currentfile) \
+  if _findcurry.generation_for_source(currentfile, plan.interp) is None \
+      and plan.flags & plans.MAKE_IMAGE and not os.path.isdir(currentfile) \
       and _filenames.logging_module_name(currentfile) not in config.unsupported_syslibs():
     from ..backends.cxx import image
     if image.writable(_filenames.curryfilename(currentfile)):
@@ -481,9 +482,8 @@ def is_done(plan, currentfile, currypath=None):
         imports = {}
         for name in header['imports']:
           generation = _findcurry.loaded_generation(name, plan.interp)
-          path = image.generation_input(generation) if generation is not None else \
-              image.filename(_findcurry.currentfile(plan, name, search))
-          imports[name] = image.digest(path)
+          imports[name] = image.generation_digest(generation) if generation is not None else \
+              image.digest(image.filename(_findcurry.currentfile(plan, name, search)))
         image._check(plan.interp, source, image.filename(currentfile), imports)
       except (OSError, ValueError, KeyError, exceptions.CurryError):
         return False

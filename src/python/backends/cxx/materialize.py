@@ -510,6 +510,10 @@ def compile_pending(entry):
   shlib = M.shlib
   if shlib is not None and imodule.metadata.get('cxx.shlib') is None:
     imodule.update_metadata({'cxx.shlib': shlib})
+    generation = getattr(imodule, '_loaded_generation', None)
+    if generation is not None:
+      generation.digests.update(cpp=image.digest(os.path.splitext(sofile)[0] + '.cpp'),
+          stamp=image.digest(sofile + '.abi'))
   logger.info(
       'Compiled %s on its first use in %.2f s; %d function%s swapped'
     , name, time.monotonic() - t0, result['swapped']

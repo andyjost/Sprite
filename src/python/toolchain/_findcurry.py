@@ -95,7 +95,7 @@ def loaded_source(name, interp=None):
 
 
 LoadedGeneration = namedtuple(
-    'LoadedGeneration', 'source_info texts source interface_stem image imports product_stem image_input name object')
+    'LoadedGeneration', 'source_info texts source image imports name object digests')
 
 
 def loaded_generation(name, interp=None):
@@ -109,6 +109,8 @@ def loaded_generation(name, interp=None):
 
 def generation_for_source(source, interp=None):
   """Find a captured source by identity without reopening its header."""
+  if source is None:
+    return None
   interp = _translation_interp.get() if interp is None else interp
   for suffix in ('.imports', '.source', '.abi'):
     if source.endswith(suffix):
@@ -121,34 +123,11 @@ def generation_for_source(source, interp=None):
   return None
 
 
-def product_input(filename):
-  """Resolve an original product spelling to its loaded immutable input."""
-  from . import _frontend
-  interp = _translation_interp.get()
-  path = os.path.realpath(filename)
-  for name in tuple(getattr(interp, 'modules', {})):
-    generation = loaded_generation(name, interp)
-    if generation is None:
-      continue
-    if generation.source is None:
-      if generation.object:
-        original = os.path.splitext(generation.object)[0]
-        for suffix in ('.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi'):
-          if path == original + suffix:
-            return generation.product_stem + suffix
-      continue
-    stem = _filenames.icurryfilename(generation.source)[:-4]
-    for suffix in ('.icy', '.cpp', '.icy.imports', '.icy.source',
-                   config.module_object_suffix(), config.module_object_suffix() + '.abi'):
-      if path == stem + suffix:
-        return generation.product_stem + suffix
-    for suffix in ('.fint', '.icurry'):
-      if path in (stem + suffix, _frontend.interfacefile(generation.source, suffix)):
-        return generation.interface_stem + suffix
-    if path == _frontend.flatcurryfile(generation.source):
-      return generation.product_stem + '.fcy'
-    if path == generation.image or path == stem + '.img':
-      return generation.image_input or generation.product_stem + '.img'
+def verify_product(generation, filename, key):
+  from ..backends.cxx.image import digest
+  if digest(filename) != generation.digests.get(key):
+    raise ValueError('the products of module %s changed since it was loaded; reload it'
+        % generation.name)
   return filename
 
 
@@ -177,43 +156,21 @@ def capture_generation(module, interp):
     info = cache._sourceinfo(source) if source else None
   except OSError:
     info = None
-  from ..backends.cxx import tiered
-  directory = Path(tiered._tmpdir()) / ('loaded%d' % next(tiered._state.counter))
-  interface = directory.joinpath(*raw.fullname.split('.'))
-  interface.parent.mkdir(parents=True, exist_ok=True)
-  for suffix in ('.fint', '.icurry'):
-    if suffix in texts:
-      Path(str(interface) + suffix).write_bytes(texts[suffix])
-  # Mutable publication slots cannot serve as a loaded module's input.
-  # Keep file-backed snapshots out of the Python heap.
   from ..backends.cxx import image
-  import shutil
-  product_stem = str(directory / '.curry' / SUBDIR / raw.fullname.split('.')[-1])
-  Path(product_stem).parent.mkdir(parents=True, exist_ok=True)
-  source_text = getattr(raw, '_source_text', None)
-  if source_text is not None:
-    Path(_filenames.sourcefilename(product_stem + '.icy')).write_text(
-        source_text, encoding='utf-8')
-  from . import _frontend
-  flat = _frontend.flatcurryfile(source) if source else None
-  if flat and os.path.isfile(flat):
-    shutil.copyfile(flat, product_stem + '.fcy')
   provenance = getattr(raw, '_attached_image', None)
   if provenance is None and source is not None:
-    provenance = image._path(interp, source)
-  for suffix in ('.icy', '.cpp', '.icy.imports', '.icy.source',
-                 config.module_object_suffix(), config.module_object_suffix() + '.abi'):
-    object_product = suffix in ('.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi')
-    original = os.path.splitext(objectfile)[0] + suffix if objectfile and object_product else str(stem) + suffix
-    if os.path.isfile(original):
-      shutil.copyfile(original, product_stem + suffix)
-  pinned_image = getattr(raw, '_attached_image_input', None)
-  if pinned_image is None and provenance and os.path.isfile(provenance):
-    pinned_image = product_stem + '.img'
-    shutil.copyfile(provenance, pinned_image)
+    candidate = os.path.splitext(objectfile)[0] + '.img' if objectfile else image.filename(source)
+    provenance = candidate if os.path.isfile(candidate) else None
+  digests = {suffix: image.digest(str(stem) + suffix) for suffix in ('.icy',)}
+  digests['image'] = image.digest(provenance)
+  if objectfile:
+    digests['object'] = image.digest(objectfile)
+    cppfile = os.path.splitext(objectfile)[0] + '.cpp'
+    digests['cpp'] = image.digest(cppfile)
+    digests['stamp'] = image.digest(objectfile + '.abi')
   imports = tuple((name, loaded_generation(name, interp)) for name in raw.imports)
   raw._loaded_generation = LoadedGeneration(
-      info, texts, source, str(interface), provenance, imports, product_stem, pinned_image, raw.fullname, getHandle(module).sofilename)
+      info, texts, source, provenance, imports, raw.fullname, objectfile, digests)
 
 
 def module_path(name, search):

@@ -124,8 +124,7 @@ def read(text):
 
 def load(filename):
   '''Reads a FlatCurry program (or interface) from a file.'''
-  from .._findcurry import product_input
-  with open(product_input(filename), 'r', encoding='utf-8') as istream:
+  with open(filename, 'r', encoding='utf-8') as istream:
     return read(istream.read())
 
 def show(prog):

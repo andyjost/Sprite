@@ -25,8 +25,8 @@ _PRELUDE = []
 
 def prelude_prog():
   if not _PRELUDE:
-    path = cytest.raw.interp().sigtable.interface_filename('Prelude')
-    _PRELUDE.append(fc.load(path))
+    iface = cytest.raw.interp().sigtable.interface('Prelude')
+    _PRELUDE.append(fc.read(iface.data.decode('utf-8')))
   return _PRELUDE[0]
 
 def interface_entries(prog):
@@ -201,7 +201,7 @@ class TestSchemes(cytest.TestCase):
       iface = interp.sigtable.interface(module)
       self.assertIsNotNone(iface, modname)
       self.assertEqual(iface.name, modname)
-      self.assertTrue(os.path.isfile(iface.path))
+      self.assertTrue(iface.data)
       self.assertEqual(
           iface.path, interp.sigtable.interface_filename(modname)
         )
@@ -469,10 +469,10 @@ class TestInstances(cytest.TestCase):
 class TestInterface(cytest.TestCase):
   '''The index over one interface file.'''
 
-  def check_against_full_parse(self, path):
+  def check_against_full_parse(self, iface):
     '''Every entry of the index decodes to the entry of a full parse.'''
-    prog = fc.load(path)
-    iface = sigtable.Interface(path)
+    prog = fc.read(iface.data.decode('utf-8'))
+    iface = sigtable.Interface(iface.path, data=iface.data)
     self.assertEqual(iface.name, prog.name)
     self.assertEqual(iface.imports, tuple(prog.imports))
     funcs, types, ctors = interface_entries(prog)
@@ -495,7 +495,7 @@ class TestInterface(cytest.TestCase):
     interp = cytest.raw.interp()
     for modname in 'Data.Maybe', 'Data.List', 'SigTable':
       curry.import_(modname)
-      self.check_against_full_parse(interp.sigtable.interface_filename(modname))
+      self.check_against_full_parse(interp.sigtable.interface(modname))
 
   def test_prelude_names(self):
     '''The index of the Prelude finds every entry of the full parse.'''
@@ -516,9 +516,9 @@ class TestInterface(cytest.TestCase):
     numbers go to the log and to the issue; nothing is asserted about them.
     '''
     interp = cytest.raw.interp()
-    path = interp.sigtable.interface_filename('Prelude')
+    retained = interp.sigtable.interface('Prelude')
     t0 = time.perf_counter()
-    iface = sigtable.Interface(path)
+    iface = sigtable.Interface(retained.path, data=retained.data)
     t1 = time.perf_counter()
     scheme = iface.scheme('+')
     t2 = time.perf_counter()
@@ -655,16 +655,8 @@ class TestModules(cytest.TestCase):
       )
     tmpd = Handle(M).icurry.metadata['all.tmpd']
     path = interp.sigtable.interface_filename(M)
-    from curry.backends.cxx import tiered
     from pathlib import Path
-    generation = Handle(M).icurry._loaded_generation
-    self.assertTrue(os.path.isfile(path))
-    self.assertEqual(path, generation.interface_stem + '.fint')
-    self.assertTrue(Path(path).is_relative_to(tiered._tmpdir()), path)
-    self.assertFalse(Path(path).is_relative_to(tmpd), path)
-    source_interface = sigtable.find_interface(M.__file__, M.__name__)
-    self.assertIsNotNone(source_interface)
-    self.assertEqual(Path(path).read_bytes(), Path(source_interface).read_bytes())
+    self.assertEqual(path, M.__name__ + '.fint')
     self.assertEqual(M.f.signature, 'Int -> Int')
     self.assertEqual(M.g.signature, 'Num a => Maybe a')
     self.assertEqual(M.T.signature, 'a -> Bool -> T a')

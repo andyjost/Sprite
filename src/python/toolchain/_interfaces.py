@@ -31,7 +31,7 @@ def interface_file(name, searchdirs, frontend=False):
   from ._findcurry import loaded_generation
   generation = loaded_generation(name)
   if generation is not None:
-    return generation.interface_stem + '.fint' if '.fint' in generation.texts else None
+    return generation.name + '.fint' if '.fint' in generation.texts else None
   subdirs = [config.intermediate_subdir(), config.frontend_subdir()]
   from ._findcurry import loaded_source, module_path
   if frontend and loaded_source(name) is None:
@@ -149,22 +149,24 @@ def object_snapshot(names, searchdirs):
     source = loaded_source(name)
     if generation is not None:
       from ..backends.cxx import image
-      paths = [image.generation_input(generation)]
+      value.update(image.generation_digest(generation).encode('ascii'))
+      result[name] = value.hexdigest()
+      continue
     elif source is not None:
       from ..backends.cxx import image
-      paths = [image._read_path(_translation_interp.get(), source)]
+      paths = [image._path(_translation_interp.get(), source)]
     else:
       parts = name.split('.')
       paths = [os.path.join(directory, *parts[:-1], '.curry',
-          config.intermediate_subdir(), parts[-1] + '.img')
+          config.intermediate_subdir(), parts[-1] + suffix)
+          for suffix in ('.img', '.icy')
           for directory in module_path(name, searchdirs)]
     for path in paths:
       if path is None:
         continue
       try:
         with open(path, 'rb') as stream:
-          label = b'.icy\0' if path.endswith('.icy') else b'.img\0' if path.endswith('.img') else b'.object\0'
-          value.update(label + stream.read())
+          value.update(hashlib.sha256(stream.read()).hexdigest().encode('ascii'))
         break
       except FileNotFoundError:
         pass

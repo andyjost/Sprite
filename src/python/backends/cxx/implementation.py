@@ -41,9 +41,12 @@ def getimpl(symbol):
   if sofile is None:
     raise _no_code(symbol, 'its module has no compiled object')
   generation = getattr(getHandle(moduleobj).icurry, '_loaded_generation', None)
-  cppfile = generation.product_stem + '.cpp' \
-      if generation is not None and sofile == generation.object else \
-      os.path.splitext(sofile)[0] + '.cpp'
+  cppfile = os.path.splitext(sofile)[0] + '.cpp'
+  if generation is not None:
+    from ...toolchain._findcurry import verify_product
+    verify_product(generation, cppfile, 'cpp')
+    if generation.digests.get('cpp') is None:
+      verify_product(generation, sofile + '.abi', 'stamp')
   if not os.path.exists(cppfile):
     raise _no_code(symbol, 'the generated file %s does not exist' % cppfile)
   text = _function_text(cppfile, symbol.fullname)
