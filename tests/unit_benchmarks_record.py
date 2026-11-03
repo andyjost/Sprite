@@ -347,16 +347,80 @@ class TestPerformanceRecord(unittest.TestCase):
     generation = [1, 2, 3, 4]
     probe = {'Example': dict(path='Example.so', identity=generation,
         stamp_identity=generation, budget=4)}
-    for changed_path in ('Example.so', 'Example.so.abi'):
-      for timestamp in (99, 100):
-        with self.subTest(path=changed_path, timestamp=timestamp), \
+    for platform in ('linux', 'darwin', 'win32'):
+      for changed_path in ('Example.so', 'Example.so.abi'):
+        for timestamp in (99, 100, 101):
+          with self.subTest(platform=platform, path=changed_path,
+                   timestamp=timestamp), \
+             mock.patch.object(aot.sys, 'platform', platform), \
              mock.patch.object(aot, 'identity', return_value=generation), \
              mock.patch.object(aot.os, 'stat', side_effect=lambda path:
-                 types.SimpleNamespace(st_ctime_ns=
-                     timestamp if path == changed_path else 99)):
-          budgets, warnings = aot.checked_budgets(probe, since=100)
-        self.assertEqual(budgets, {'Example': 4 if timestamp < 100 else None})
-        self.assertEqual(bool(warnings), timestamp == 100)
+                 types.SimpleNamespace(
+                     st_ctime_ns=1 if platform == 'win32' else (
+                         timestamp if path == changed_path else 99),
+                     st_mtime_ns=(timestamp if path == changed_path else 99)
+                         if platform == 'win32' else 1)):
+            budgets, warnings = aot.checked_budgets(probe, since=100)
+          self.assertEqual(budgets, {'Example': 4 if timestamp < 100 else None})
+          self.assertEqual(bool(warnings), timestamp >= 100)
+
+  def test_measurement_mark_uses_platform_change_clock(self):
+    from benchmarks import aot
+    for platform in ('linux', 'darwin', 'win32'):
+      with self.subTest(platform=platform), \
+           mock.patch.object(aot.sys, 'platform', platform), \
+           mock.patch.object(aot.os, 'fstat', return_value=
+               types.SimpleNamespace(st_ctime_ns=10, st_mtime_ns=20)):
+        self.assertEqual(aot.measurement_mark(),
+            20 if platform == 'win32' else 10)
+
+  def test_windows_replacement_with_preserved_timestamps(self):
+    from benchmarks import aot
+    generation = [1, 2, 3, 90]
+    probe = {'Example': dict(path='Example.dll', identity=generation,
+        stamp_identity=generation, budget=4)}
+    for changed_path in ('Example.dll', 'Example.dll.abi'):
+      def stat(path):
+        return types.SimpleNamespace(st_dev=1,
+            st_ino=5 if path == changed_path else 2, st_size=3,
+            st_mtime_ns=90, st_ctime_ns=1)
+      with self.subTest(path=changed_path), \
+           mock.patch.object(aot.sys, 'platform', 'win32'), \
+           mock.patch.object(aot.os, 'stat', side_effect=stat):
+        budgets, warnings = aot.checked_budgets(probe, since=100)
+      self.assertEqual(budgets, {'Example': None})
+      self.assertTrue(warnings)
+
+  def test_compile_probe_canonical_temporary_directory(self):
+    from benchmarks import aot
+    # Model macOS's temporary-directory alias without requiring symlinks.
+    with tempfile.TemporaryDirectory() as directory:
+      alias = os.path.join(directory, 'alias')
+      physical = os.path.join(directory, 'physical')
+      realpath = os.path.realpath
+      for variant in ('warm', 'cold'):
+        settings = suites.Settings('install')
+        item = suites.ModuleCompileItem('Hello', 'cxx', settings,
+            variant, directory)
+        item.requested_inline_budget = 4
+        def obj(path):
+          return dict(path=path, identity=None, stamp_identity=None, budget=None)
+        probe = {
+            'Hello': obj(os.path.join(physical, 'Hello.so')),
+            'External': obj(os.path.join(physical + '-other', 'External.so'))}
+        with self.subTest(variant=variant), \
+             mock.patch.object(aot.sys, 'platform', 'darwin'), \
+             mock.patch.object(harness.os.path, 'realpath', side_effect=
+                 lambda path: realpath(physical if path == alias else path)), \
+             mock.patch.object(item, 'command', return_value=([], {}, alias)), \
+             mock.patch.object(item, 'measure', return_value=dict(status='ok')), \
+             mock.patch.object(settings, 'probe', return_value=probe):
+          samples = harness.measure_item(item, 2, True)
+        self.assertEqual(samples[-1]['aot_inline_budgets'],
+            {'Hello': 4, 'External': None})
+        self.assertNotIn('Hello', samples[-1]['aot_object_identities'])
+        self.assertEqual(len(item.aot_probe_warnings), 1)
+        self.assertIn('External', item.aot_probe_warnings[0])
 
   def test_runtime_registry_includes_tiered_object(self):
     from benchmarks import aot
