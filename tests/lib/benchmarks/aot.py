@@ -59,6 +59,29 @@ def identity(path):
     return None
 
 
+def canonical_path(path):
+  return os.path.normcase(os.path.realpath(path))
+
+
+def snapshot(directories):
+  # A cold command can choose its imports dynamically. Record all candidate
+  # objects, without loading modules or running the command before timing.
+  products, visited = {}, set()
+  for directory in directories:
+    for root, dirs, files in os.walk(directory, followlinks=True):
+      canonical = canonical_path(root)
+      if canonical in visited:
+        dirs[:] = []
+        continue
+      visited.add(canonical)
+      for filename in files:
+        if filename.endswith(('.so', '.dll', '.dylib')):
+          path = os.path.join(root, filename)
+          products[canonical_path(path)] = dict(identity=identity(path),
+              stamp_identity=identity(path + '.abi'))
+  return products
+
+
 def mapped_identity(path, generation):
   # Linux exposes the identity of the mapped file even after replacement.
   if sys.platform.startswith('linux') and generation is not None:
@@ -103,7 +126,7 @@ def write_report(filename):
     json.dump(objects, stream, sort_keys=True)
 
 
-def checked_budgets(probe, since=None):
+def checked_budgets(probe, since=None, before=None):
   if probe is None:
     return None, []
   budgets, warnings = {}, []
@@ -111,6 +134,11 @@ def checked_budgets(probe, since=None):
     changed = (obj['identity'] is None or
         identity(obj['path']) != obj['identity'] or
         identity(obj['path'] + '.abi') != obj['stamp_identity'])
+    if before is not None:
+      baseline = before.get(canonical_path(obj['path']))
+      changed |= (baseline is None or
+          baseline['identity'] != obj['identity'] or
+          baseline['stamp_identity'] != obj['stamp_identity'])
     if since is not None:
       # A postmeasurement probe cannot certify a generation made during
       # measurement (or by the probe itself). Check stamps as well as objects.

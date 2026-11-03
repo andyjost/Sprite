@@ -2,7 +2,7 @@
 import cytest
 from benchmarks import counterparts, history, records, suites, run as harness
 from unit_perf_history import make_record
-import contextlib, io, os, tempfile, types, unittest
+import contextlib, io, os, shutil, tempfile, types, unittest
 from unittest import mock
 
 
@@ -307,14 +307,18 @@ class TestPerformanceRecord(unittest.TestCase):
       events = []
       with mock.patch.object(settings, 'probe', side_effect=lambda *a:
                events.append('probe') or {}), \
+           mock.patch.object(aot, 'snapshot', side_effect=lambda *a:
+               events.append('snapshot') or {}) as snapshot, \
            mock.patch.object(item, 'measure', side_effect=lambda **k:
                events.append('measure') or dict(status='ok')), \
            mock.patch.object(aot, 'checked_budgets', side_effect=lambda p, **k:
                events.append('check') or ({'Example': None}, ['changed'])) as check:
         samples = harness.measure_item(item, 2, True)
       expected = (['measure', 'probe', 'measure', 'measure', 'measure', 'check']
-          if warmup else ['measure', 'measure', 'measure', 'probe', 'check'])
+          if warmup else ['snapshot', 'measure', 'measure', 'measure', 'probe', 'check'])
       self.assertEqual(events, expected)
+      self.assertEqual(snapshot.call_count, 0 if warmup else 1)
+      self.assertEqual(check.call_args.kwargs['before'], None if warmup else {})
       self.assertEqual(check.call_args.kwargs['since'] is None, bool(warmup))
       self.assertEqual(samples[-1]['aot_inline_budgets'], {'Example': None})
       self.assertEqual(item.aot_probe_warnings, ['changed'])
@@ -390,6 +394,79 @@ class TestPerformanceRecord(unittest.TestCase):
         budgets, warnings = aot.checked_budgets(probe, since=100)
       self.assertEqual(budgets, {'Example': None})
       self.assertTrue(warnings)
+
+  def test_cold_probe_replacement_with_old_write_time(self):
+    from benchmarks import aot
+    for platform in ('linux', 'darwin', 'win32'):
+      for change in ('object', 'stamp', 'new', 'unchanged'):
+        with self.subTest(platform=platform, change=change), \
+             tempfile.TemporaryDirectory() as directory:
+          path = os.path.join(directory, 'Example.so')
+          for filename in (path, path + '.abi'):
+            with open(filename, 'w') as stream:
+              stream.write('old')
+            os.utime(filename, ns=(1, 1))
+          settings = suites.Settings(directory, warmup=0)
+          item = suites.CommandItem('python', 'cxx', settings)
+          def probe(*args):
+            if change != 'unchanged':
+              target = path + '.abi' if change == 'stamp' else path
+              shutil.copyfile(target, target + '.new')
+              os.utime(target + '.new', ns=(1, 1))
+              os.replace(target + '.new', target)
+            return {'Example': dict(path=path, identity=aot.identity(path),
+                stamp_identity=aot.identity(path + '.abi'), budget=4)}
+          def measure(**kwargs):
+            if change == 'new':
+              # A product absent from the initial snapshot, made by the run.
+              with open(path, 'w') as stream:
+                stream.write('old')
+              os.utime(path, ns=(1, 1))
+            return dict(status='ok')
+          if change == 'new':
+            os.unlink(path)
+          # Separate the clocks to test identities even on coarse filesystems.
+          mark = aot.measurement_mark(directory) + 1000000000
+          with mock.patch.object(aot.sys, 'platform', platform), \
+               mock.patch.object(aot, 'measurement_mark', return_value=mark), \
+               mock.patch.object(item, 'command', return_value=([], {}, directory)), \
+               mock.patch.object(item, 'measure', side_effect=measure), \
+               mock.patch.object(settings, 'probe', side_effect=probe):
+            samples = harness.measure_item(item, 2, False)
+          expected = 4 if change == 'unchanged' else None
+          self.assertEqual(samples[0]['aot_inline_budgets'], {'Example': expected})
+
+  def test_compile_probe_real_directory_symlink(self):
+    from benchmarks import aot
+    with tempfile.TemporaryDirectory() as directory:
+      physical = os.path.join(directory, 'physical')
+      alias = os.path.join(directory, 'alias')
+      os.mkdir(physical)
+      try:
+        os.symlink(physical, alias, target_is_directory=True)
+      except (OSError, NotImplementedError):
+        self.skipTest('directory symlinks are not permitted')
+      path = os.path.join(physical, 'Import.so')
+      for filename in (path, path + '.abi'):
+        with open(filename, 'w') as stream:
+          stream.write('old')
+      before = aot.snapshot([alias])
+      imported = {'Import': dict(path=path, identity=aot.identity(path),
+          stamp_identity=aot.identity(path + '.abi'), budget=4)}
+      self.assertEqual(aot.checked_budgets(imported, before=before),
+          ({'Import': 4}, []))
+      for variant in ('warm', 'cold'):
+        settings = suites.Settings('install')
+        item = suites.ModuleCompileItem('Hello', 'cxx', settings, variant, directory)
+        item.requested_inline_budget = 4
+        probe = {'Hello': dict(path=os.path.join(physical, 'Hello.so'),
+            identity=None, stamp_identity=None, budget=None)}
+        with mock.patch.object(item, 'command', return_value=([], {}, alias)), \
+             mock.patch.object(item, 'measure', return_value=dict(status='ok')), \
+             mock.patch.object(settings, 'probe', return_value=probe):
+          samples = harness.measure_item(item, 2, False)
+        self.assertEqual(samples[0]['aot_inline_budgets'], {'Hello': 4})
+        self.assertEqual(samples[0]['aot_object_identities'], {})
 
   def test_compile_probe_canonical_temporary_directory(self):
     from benchmarks import aot

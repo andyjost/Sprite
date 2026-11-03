@@ -249,6 +249,18 @@ def measure_item(item, repeat, perf):
   cxx = getattr(item, 'backend', None) == 'cxx'
   if cxx and item.warmup():
     probe_item()
+  before = None
+  if cxx and not item.warmup():
+    _, env, cwd = item.command()
+    try:
+      # Include application sources as well as the command's search path:
+      # application children add their example directory at runtime.
+      directories = [ROOTDIR, item.settings.sprite_home, cwd]
+      directories.extend(os.path.join(cwd, path)
+          for path in env.get('CURRYPATH', '').split(os.pathsep) if path)
+      before = aot.snapshot(directories)
+    finally:
+      item.cleanup()
   started = aot.measurement_mark() if cxx and not item.warmup() else None
   samples = []
   for _ in range(repeat):
@@ -261,7 +273,7 @@ def measure_item(item, repeat, perf):
     if not item.warmup():
       probe_item()
     budgets, warnings = aot.checked_budgets(probe,
-        since=started if not item.warmup() else None)
+        since=started if not item.warmup() else None, before=before)
     if budgets is not None:
       budgets.update(fresh)
     # Keep paths private to the identity check; records carry no local paths.
