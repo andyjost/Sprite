@@ -787,7 +787,15 @@ class SignatureTable:
     self._modules = {}
     self._instances = {}
     self._unsupported_classes = {}
-    self._lock = threading.RLock()
+    self._pending_removals = []
+    self._lock = threading.Lock()
+
+  def _purge(self):
+    while self._pending_removals:
+      key, ref = self._pending_removals.pop()
+      found = self._modules.get(key)
+      if found is not None and found[0] is ref:
+        del self._modules[key]
 
   @property
   def interp(self):
@@ -796,6 +804,7 @@ class SignatureTable:
   def clear(self):
     '''Forgets every interface, scheme and instance.'''
     with self._lock:
+      self._purge()
       self._modules.clear()
       self._instances.clear()
       self._unsupported_classes.clear()
@@ -804,7 +813,9 @@ class SignatureTable:
   def modules(self):
     '''The names of the modules whose interface the table has found.'''
     with self._lock:
-      modules = [(ref(), entry) for ref, entry in self._modules.values()]
+      self._purge()
+      refs = tuple(self._modules.values())
+    modules = [(ref(), entry) for ref, entry in refs]
     return [
         module.__name__ for module, entry in modules
                         if module is not None and entry.interface is not None
@@ -824,17 +835,16 @@ class SignatureTable:
     module = self._module(module)
     key = id(module)
     with self._lock:
+      self._purge()
       found = self._modules.get(key)
       entry = None if found is None or found[0]() is not module else found[1]
     if entry is None:
       candidate = _ModuleEntry(self._find(module))
       def forget(ref):
-        with self._lock:
-          found = self._modules.get(key)
-          if found is not None and found[0] is ref:
-            del self._modules[key]
+        self._pending_removals.append((key, ref))
       ref = weakref.ref(module, forget)
       with self._lock:
+        self._purge()
         found = self._modules.setdefault(key, (ref, candidate))
         entry = found[1]
     return entry
@@ -929,6 +939,7 @@ class SignatureTable:
     is_constructor = symbol.info.tag >= T_CTOR
     key = name, is_constructor
     with self._lock:
+      self._purge()
       if key not in entry.schemes:
         iface = entry.interface
         scheme = None if iface is None else iface.scheme(name, is_constructor)
@@ -978,6 +989,7 @@ class SignatureTable:
     entries = [(name, self._entry(module))
         for name, module in self.interp.modules.copy().items()]
     with self._lock:
+      self._purge()
       return self._instance_map(entries)
 
   def _instance_map(self, entries):

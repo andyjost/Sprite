@@ -13,13 +13,29 @@ logger = logging.getLogger(__name__)
 # this process.  Tiered execution leaves such a module interpreted (see
 # backends.cxx.tiered).
 _TEMPORARY_DIRS = set()
+# Finalizers append only. Purge before traversing, and log after unlocking.
+_pending_removals = []
 _dirs_lock = threading.Lock()
+
+def _purge_dirs():
+  removed = []
+  while _pending_removals:
+    directory = _pending_removals.pop()
+    _TEMPORARY_DIRS.discard(directory)
+    removed.append(directory)
+  return removed
+
+def _log_removals(directories):
+  for directory in directories:
+    logger.debug('Removing Curry module directory: %r', directory)
 
 def is_temporary(filename):
   '''Tells whether ``filename`` lies in a directory str2module made.'''
   filename = os.path.realpath(filename)
   with _dirs_lock:
+    removed = _purge_dirs()
     directories = tuple(_TEMPORARY_DIRS)
+  _log_removals(removed)
   return any(filename.startswith(os.path.realpath(directory) + os.sep)
       for directory in directories)
 
@@ -66,7 +82,9 @@ def str2module(
   moduledir = tempfile.mkdtemp(prefix='sprite-', dir=parentdir)
   logger.debug('Created directory %r for a dynamic Curry module', moduledir)
   with _dirs_lock:
+    removed = _purge_dirs()
     _TEMPORARY_DIRS.add(moduledir)
+  _log_removals(removed)
   try:
     curryfile = os.path.join(moduledir, modulename.replace('.', os.sep) + '.curry')
     os.makedirs(os.path.dirname(curryfile), exist_ok=True)
@@ -94,7 +112,7 @@ def str2module(
     raise
 
 def _rmdir(moduledir):
-  logger.debug('Removing Curry module directory: %r', moduledir)
-  with _dirs_lock:
-    _TEMPORARY_DIRS.discard(moduledir)
+  # Even an enclosing registry section must never enter logging here:
+  # a logging handler may call is_temporary while holding its own lock.
+  _pending_removals.append(moduledir)
   shutil.rmtree(moduledir, ignore_errors=os.name == 'nt')
