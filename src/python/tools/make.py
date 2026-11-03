@@ -340,7 +340,8 @@ def _make_one(program_name, plan, name, args, kwds):
     return
   kwds = dict(kwds, is_sourcefile=name.endswith('.curry'))
   if args.rewrite_flat:
-    _rewrite_flat(plan, name, kwds)
+    name = _rewrite_flat(plan, name, kwds)
+    kwds['is_sourcefile'] = True
   toolchain.makecurry(plan, name, config.currypath(), **kwds)
 
 def _rewrite_flat(plan, name, kwds):
@@ -357,7 +358,14 @@ def _rewrite_flat(plan, name, kwds):
     raise exceptions.CompileError(
         '--rewrite-flat needs the Curry source of %s.' % name
       )
+  from ..toolchain import _makecurry
+  effective = _findcurry.import_path(plan.interp,
+      _findcurry.imports_path(currypath, **kwds)) if plan.interp else currypath
+  curryfile = _makecurry.translation_source(
+      plan, curryfile, effective if effective is not None else plan.interp.path,
+      all_stages=True)
   toolchain.curry2icurry(curryfile, currypath, **dict(kwds, use_cache=False))
+  return curryfile
 
 def _convert_icy(program_name, name, args):
   '''

@@ -355,7 +355,16 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     self.assertTrue(fcyfile.startswith(tmpdir))
     self.assertEqual(snapshot(copy), before)
 
+  def test_explicit_image_replaced_import_is_private(self):
+    self._explicit_make_replaced_import_is_private('--image', generalized=False)
+
+  def test_explicit_rewrite_replaced_import_is_private(self):
+    self._explicit_make_replaced_import_is_private('--rewrite-flat')
+
   def test_explicit_make_replaced_import_is_private(self):
+    self._explicit_make_replaced_import_is_private('--icy')
+
+  def _explicit_make_replaced_import_is_private(self, route, generalized=True):
     # This file runs exclusively: restore every installed byte and mode even
     # when an unfixed builder writes replacement-dependent products there.
     from pathlib import Path
@@ -364,6 +373,8 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
       backup = Path(work) / 'backup'
       shutil.copytree(root, backup)
       before = snapshot(str(root))
+      before_bytes = {p.relative_to(root): p.read_bytes()
+                      for p in root.rglob('*') if p.is_file()}
       source = Path(work) / 'replacement/Data/Char.curry'
       source.parent.mkdir(parents=True)
       text = Path(sourcefile('Data.Char')).read_text()
@@ -371,6 +382,10 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
                           'digitToInt      :: Num a => Char -> a')
       import re
       text = re.sub(r"=  (ord c - ord '[0Aa]'(?: \+ 10)?)", r'=  fromInt (\1)', text)
+      if not generalized:
+        text = Path(sourcefile('Data.Char')).read_text()
+        text = re.sub(r"=  (ord c - ord '[0Aa]'(?: \+ 10)?)", r'=  (\1) + 1', text)
+      self.assertNotEqual(text, Path(sourcefile('Data.Char')).read_text())
       source.write_text(text)
       def restore():
         for entry in [root] + list(root.rglob('*')):
@@ -407,15 +422,18 @@ import curry
 from pathlib import Path
 from curry.tools import make
 from curry.backends.cxx import tiered
-make.main('sprite-make', ['--icy', 'Numeric'])
+make.main('sprite-make', [%r, 'Numeric'])
 assert tiered._state.tmpdir is not None, 'no private translation'
-products = list(Path(tiered._state.tmpdir).rglob('Numeric.icy'))
+products = list(Path(tiered._state.tmpdir).rglob(%r))
 assert products, 'private translation missing'
 assert all(not str(p).startswith(curry.config.installed_path('curry')) for p in products)
-""" % str(source.parent.parent)
+""" % (str(source.parent.parent), route,
+           'Numeric.img' if route == '--image' else 'Numeric.icy')
             child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
             self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
             self.assertEqual(snapshot(str(root)), before)
+            self.assertEqual({p.relative_to(root): p.read_bytes()
+                              for p in root.rglob('*') if p.is_file()}, before_bytes)
           finally:
             restore()
 
