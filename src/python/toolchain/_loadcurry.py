@@ -1,6 +1,6 @@
 from ..icurry import readcurry, types as icurry_types
 from .. import config
-from . import _filenames, _findcurry, _makecurry
+from . import _curry2icurry, _filenames, _findcurry, _interfaces, _makecurry
 from ..utility import formatDocstring
 import logging, os
 
@@ -27,6 +27,19 @@ def loadcurry(plan, name, currypath=None, **kwds):
   imagepath = _findcurry.import_path(plan.interp, _findcurry.imports_path(
       _findcurry.program_path(name, search, **kwds), **kwds))
   candidate = _findcurry.currentfile(plan, name, currypath, **kwds)
+  if not os.path.isdir(candidate) and candidate.endswith('.curry') \
+      and _findcurry._installed_library_file(candidate):
+    icyfile = _filenames.icurryfilename(candidate)
+    effective = plan.interp.path if imagepath is None else imagepath
+    if (os.path.isfile(icyfile) or os.path.isfile(icyfile + _interfaces.SUFFIX)) \
+        and _curry2icurry.icurry_is_stale(icyfile, effective):
+      # Translation depends on this interpreter's interfaces. Remake the
+      # installed source in a private snapshot, including its interfaces.
+      from ..backends.cxx import tiered
+      raw = icurry_types.IModule(_filenames.module_name(candidate), [], [], [],
+                                 filename=candidate)
+      copy, _ = tiered._private_copy(raw)
+      return loadcurry(plan, copy, effective, is_sourcefile=True)
   if plan.interp.flags['interpret'] == 'off' and not os.path.isdir(candidate) \
       and not candidate.endswith(config.module_object_suffix()) \
       and os.path.isfile(_filenames.replacesuffix(

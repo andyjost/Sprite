@@ -14,8 +14,6 @@ def reserved_module_names():
   return curryrt.builtin_module_names()
 
 def reject_library_shadow(modulename, filename, interp):
-  if filename is not None and os.path.isfile(filename):
-    modulename = _filenames.module_name(filename)
   if interp is None or modulename not in reserved_module_names() \
       or _installed_library_file(filename):
     return
@@ -146,8 +144,15 @@ def currentfile(
     Curry file is returned if it exists.  If neither of those applies, the
     package directory name is returned, if it exists.
   '''
-  modulename = curryname.getModuleName(name, is_sourcefile)
+  modulename = (_filenames.module_name(name) if is_sourcefile else
+                curryname.getModuleName(name, False))
   currypath = program_path(name, currypath, is_sourcefile)
+  # ICurry provenance needs the same effective import path as images and
+  # objects, including imports by name whose imports_path is None.
+  effective = import_path(plan.interp, imports_path(currypath, is_sourcefile)) \
+      if plan.interp is not None else imports_path(currypath, is_sourcefile)
+  if effective is None and plan.interp is not None:
+    effective = plan.interp.path
   if not is_sourcefile:
     # If name is a module name, then search CURRYPATH for the source file or
     # (possibly zipped) image and set it as the name.  source file and
@@ -173,6 +178,8 @@ def currentfile(
   if not curryfile.endswith('.curry'):
     raise ModuleLookupError('expected .curry extension in %r' % curryfile)
   curryfile = os.path.abspath(curryfile)
+  if os.path.isfile(curryfile):
+    modulename = _filenames.module_name(curryfile)
   reject_library_shadow(modulename, curryfile, plan.interp)
   filelist = plan.filelist(curryfile)
   from . import _curry2icurry, _interfaces
@@ -182,7 +189,7 @@ def currentfile(
   if plan.stages[0].step is _curry2icurry.curry2icurry \
       and (source_changed or (
           os.path.isfile(curryfile) and not os.path.isfile(icyfile)
-          and not _interfaces.is_current(icyfile, currypath))):
+          and not _interfaces.is_current(icyfile, effective))):
     # Check even when tidy removed the ICurry prerequisite.
     filelist = [curryfile]
   # Force recompile, if requested.
@@ -208,11 +215,9 @@ def currentfile(
     plan.interp.import_(names, currypath=import_path(plan.interp,
         imports_path(currypath, is_sourcefile)))
     if os.path.isfile(curryfile) and not os.path.isfile(icyfile) \
-        and not _interfaces.is_current(icyfile, currypath):
+        and not _interfaces.is_current(icyfile, effective):
       filelist = [curryfile]
-  filelist = plan.prune_stale(
-      filelist, imports_path(currypath, is_sourcefile)
-    )
+  filelist = plan.prune_stale(filelist, effective)
   if _curry2icurry.in_system_library(curryfile) and _curry2icurry.source_matches(
       curryfile, _filenames.icurryfilename(curryfile)):
     # pip extracts sources after .curry products and resets their times.

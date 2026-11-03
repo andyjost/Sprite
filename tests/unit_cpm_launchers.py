@@ -152,6 +152,35 @@ class TestPrivateLaunchers(cytest.TestCase):
         module.overlay(source, target)
       self.assertEqual((target / 'REPOSITORY_CACHE.db').read_bytes(), before)
 
+  def test_overlay_preserves_mapped_pairs(self):
+    module = runpy.run_path(str(ROOT / 'scripts/cpm-test-overlay.py'))
+    with tempfile.TemporaryDirectory() as work:
+      root = Path(work)
+      (root / 'package.json').write_text(
+          '{"name":"example","version":"1.0.0",'
+          '"dependencies":{"base":">= 3.0.0","base":"< 4.0.0"},'
+          '"compilerCompatibility":{"pakcs":">= 3.0.0","pakcs":"< 4.0.0"},'
+          '"executable":{"name":"example","options":{"pakcs":"-O","pakcs":"-v"}}}')
+      module['create_cache'](root)
+      with sqlite3.connect(root / 'REPOSITORY_CACHE.db') as connection:
+        deps, compilers, executable = connection.execute(
+            'SELECT Dependencies, CompilerCompatibility, ExecutableSpec FROM IndexEntry').fetchone()
+      self.assertEqual(deps, '[' + ','.join(
+          '(Dependency ' + module['string_term']('base') + ' ' +
+          module['constraint_term'](value) + ')' for value in ('>= 3.0.0', '< 4.0.0')) + ']')
+      self.assertEqual(compilers.count('CompilerCompatibility'), 2)
+      self.assertIn('-O', executable)
+      self.assertIn('-v', executable)
+      # This is also a supplied CPM database: both entries must validate.
+      module['validate_cache'](root)
+      destination = root.parent / (root.name + '-overlay')
+      try:
+        module['overlay'](root, destination)
+        module['validate_cache'](destination)
+        self.assertEqual((destination / 'package.json').read_text().count('"base"'), 2)
+      finally:
+        shutil.rmtree(destination, ignore_errors=True)
+
   def test_overlay_carried_fixes(self):
     module = runpy.run_path(str(ROOT / 'scripts/cpm-test-overlay.py'))
     with tempfile.TemporaryDirectory() as work:
@@ -382,6 +411,15 @@ class TestPrivateLaunchers(cytest.TestCase):
           env=dict(os.environ, LC_ALL='C.UTF-8'), capture_output=True, text=True)
       self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
       self.assertTrue((root / '.curry/sprite-0.9.0/Probe.acy').is_file())
+      for output in ('a/../out', str(root / 'absolute')):
+        with self.subTest(output=output):
+          (root / 'a').mkdir(exist_ok=True)
+          result = subprocess.run([sys.executable,
+              str(ROOT / 'src/export/bin/sprite-frontend.script'),
+              '--acy', '-f', '-o', output, 'Probe'], cwd=root,
+              env=dict(os.environ, LC_ALL='C.UTF-8'), capture_output=True, text=True)
+          self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+          self.assertTrue((root / output / 'Probe.acy').is_file())
       # Caller paths precede the pinned interface fallback.
       override = root / 'override/Data/Char.curry'
       override.parent.mkdir(parents=True)

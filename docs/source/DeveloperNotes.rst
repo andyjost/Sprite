@@ -928,11 +928,14 @@ Saved executable dependencies
 
 ``curry.save(module, path, main=...)`` embeds an ordered sequence of
 base64-encoded shared objects in its Python launcher, rather than only the
-main module's object. The sequence contains the transitive imports outside
-``config.syslibs()``, with dependencies before their users, and the main
-module last. Each object carries its typed interfaces. At execution the
+main module's object. The collector traverses transitive imports before
+checking whether an installed object is usable in the saving interpreter:
+its stamp must be current and its live dependencies must all have objects.
+The sequence includes replacement and stale library modules, with dependencies
+before their users and the main module last. Each object carries its typed interfaces. At execution the
 launcher extracts and loads the objects in that order in a temporary
-directory. Library imports resolve from the installation. No source or
+directory. Only imports with usable installed objects resolve from the
+installation. No source or
 product search path from the saving session is needed. The Windows native
 launcher carries the same Python payload. Existing saved executables retain
 their original payload; save them again to include their dependencies.

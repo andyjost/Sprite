@@ -265,11 +265,13 @@ def save(interp, module, path, *, main=None):
           visited.add(name)
           from ..toolchain._findcurry import _installed_library_file
           source = getHandle(current).icurry.filename
-          if name != module.__name__ and source and _installed_library_file(source) \
-              and SavedCpp2So(interp)._object_on_disk(name, interp.path) is not None:
-            return
           for dependency in getHandle(current).icurry.imports:
             collect(interp.import_(dependency))
+          if name != module.__name__ and source and _installed_library_file(source):
+            step = SavedCpp2So(interp)
+            product = step._object_on_disk(name, interp.path)
+            if product is not None and not step.import_lacks_an_object(product, interp.path):
+              return
           product = compile_module(current)
           with open(product, 'rb') as stream:
             data = base64.b64encode(stream.read()).decode('ascii')

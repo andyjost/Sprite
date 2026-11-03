@@ -41,19 +41,44 @@ SCHEMA = [
     ('ExportedModules', 'string', 0, 0), ('ExecutableSpec', 'string', 0, 0)]
 
 
+class ObjectPairs(dict):
+  """JSON association list with CPM's first-occurrence named lookup."""
+  def __init__(self, pairs):
+    self.pairs = list(pairs)
+    for key, value in pairs:
+      if key not in self:
+        dict.__setitem__(self, key, value)
+
+  def items(self):
+    return iter(self.pairs)
+
+  def __setitem__(self, key, value):
+    for index, (name, _) in enumerate(self.pairs):
+      if name == key:
+        self.pairs[index] = (key, value)
+        break
+    else:
+      self.pairs.append((key, value))
+    dict.__setitem__(self, key, value)
+
+
 def read_package(path, warn=True):
+  data = json.loads(path.read_text(), strict=False, object_pairs_hook=ObjectPairs)
   duplicates = set()
 
-  def first_object(pairs):
-    result = {}
-    for key, value in pairs:
-      if key in result:
-        duplicates.add(key)
-      else:
-        result[key] = value
-    return result
+  def named_fields(value, mapped=False):
+    if isinstance(value, ObjectPairs):
+      seen = set()
+      for key, child in value.items():
+        if key in seen and not mapped:
+          duplicates.add(key)
+        seen.add(key)
+        named_fields(child, key in ('dependencies', 'compilerCompatibility', 'options'))
+    elif isinstance(value, list):
+      for child in value:
+        named_fields(child)
 
-  data = json.loads(path.read_text(), strict=False, object_pairs_hook=first_object)
+  named_fields(data)
   if warn:
     for key in sorted(duplicates):
       print('package.json of %s-%s: duplicate key %s, the first value kept' %
@@ -90,10 +115,7 @@ def compatibility_terms(text):
   matches = list(re.finditer(pattern, text))
   if '[' + ','.join(m.group(0) for m in matches) + ']' != text:
     raise ValueError('unsupported repository compatibility encoding')
-  result = {m[1]: m[2] for m in matches}
-  if len(result) != len(matches):
-    raise ValueError('duplicate repository compiler')
-  return result
+  return [(m[1], m[2]) for m in matches]
 
 
 def cache_rows(connection):

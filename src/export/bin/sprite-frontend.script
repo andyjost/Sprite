@@ -26,12 +26,21 @@ arguments = sys.argv[1:]
 for index, argument in enumerate(arguments):
   if argument in ('-o', '--outdir') and index + 1 < len(arguments):
     outdir = Path(arguments[index + 1])
+    if outdir.is_absolute():
+      outdir = Path(os.path.relpath(outdir))
+      arguments[index + 1] = str(outdir)
   elif argument.startswith('--outdir='):
     outdir = Path(argument.split('=', 1)[1])
+    if outdir.is_absolute():
+      outdir = Path(os.path.relpath(outdir))
+      arguments[index] = '--outdir=' + str(outdir)
   elif argument in ('--no-outdir', '--no-subdir'):
     outdir = Path('.')
 with tempfile.TemporaryDirectory(prefix='sprite-frontend-') as work:
-  library = Path(work)
+  # Leave enough parents inside the temporary tree for every '..'. The
+  # front end applies the output directory to interface paths as well.
+  library = Path(work).joinpath('interfaces', *(['parent'] * outdir.parts.count('..')))
+  library.mkdir(parents=True)
   for name in config.syslibs():
     parts = name.split('.')
     source = Path(config.installed_path('curry')).joinpath(*parts[:-1],
@@ -42,10 +51,9 @@ with tempfile.TemporaryDirectory(prefix='sprite-frontend-') as work:
       product = source.with_suffix(source.suffix + suffix)
       if product.is_file():
         shutil.copyfile(product, str(target) + suffix)
-        if not outdir.is_absolute() and '..' not in outdir.parts:
-          nested = library.joinpath(outdir, *parts)
-          if nested != target:
-            nested.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(product, str(nested) + suffix)
+        nested = library.joinpath(str(outdir).lstrip('/\\'), *parts)
+        if nested != target:
+          nested.parent.mkdir(parents=True, exist_ok=True)
+          shutil.copyfile(product, str(nested) + suffix)
   sys.exit(subprocess.call([frontend, *config.frontend_flags().split(),
                             '-P', str(library), *arguments, '-i', str(library)]))
