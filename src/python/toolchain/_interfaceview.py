@@ -1,4 +1,4 @@
-"""Source-free library interfaces for external front-end commands."""
+"""Private library interfaces for front-end and translator commands."""
 from contextlib import contextmanager
 from pathlib import Path
 import hashlib
@@ -10,24 +10,24 @@ from .. import config
 _views = {}
 
 
-def interface_view(outdir):
-  return _view(outdir, loaded_only=False)
+def interface_view(outdir, sources=False):
+  return _view(outdir, loaded_only=False, sources=sources)
 
 
 @contextmanager
-def loaded_interface_view(outdir, search):
+def loaded_interface_view(outdir, search, sources=False):
   from ._findcurry import _translation_interp, loaded_generation
   interp = _translation_interp.get()
   if not any(loaded_generation(name) is not None
              for name in getattr(interp, 'modules', {})):
     yield None
     return
-  with _view(outdir, loaded_only=True) as library:
+  with _view(outdir, loaded_only=True, sources=sources) as library:
     yield library
 
 
 @contextmanager
-def _view(outdir, loaded_only):
+def _view(outdir, loaded_only, sources=False):
   outdir = Path(outdir)
   from ..backends.cxx import tiered
   products = []
@@ -39,6 +39,19 @@ def _view(outdir, loaded_only):
   for name in sorted(names):
     parts = name.split('.')
     generation = loaded_generation(name)
+    if sources:
+      # Legacy FlatCurry.Files searches all source roots before looking for
+      # interfaces. A private source anchors its lookup at these interfaces
+      # instead of the external translator's own installed library.
+      sourcefile = (generation.source if generation is not None else
+                    loaded_source(name) or config.installed_path('curry',
+                        os.path.join(*parts) + '.curry'))
+      if sourcefile and Path(sourcefile).is_file():
+        data = Path(sourcefile).read_bytes()
+        if generation is not None and generation.source_info is not None and \
+            hashlib.sha256(data).hexdigest() != generation.source_info.digest:
+          raise ValueError('the source of module %s changed since it was loaded; reload it' % name)
+        products.append((name, '.curry', data, 0, hashlib.sha256(data).digest()))
     if generation is not None:
       for suffix in ('.fint', '.icurry'):
         data = generation.texts.get(suffix)
@@ -77,6 +90,9 @@ def _view(outdir, loaded_only):
       Path(str(target) + suffix).write_bytes(product)
     else:
       shutil.copy2(product, str(target) + suffix)
+    if suffix == '.curry':
+      os.utime(str(target) + suffix, (0, 0))
+      continue
     nested = library.joinpath(*(outdir.parts[1:] if outdir.anchor else outdir.parts), *parts)
     if nested != target:
       nested.parent.mkdir(parents=True, exist_ok=True)

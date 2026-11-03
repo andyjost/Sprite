@@ -248,7 +248,7 @@ def _private_copy(imodule):
   a compile-job directory. Return the private source and dependency search
   directories. Importing a module itself creates no files here.
   '''
-  filename = os.path.realpath(imodule.filename)
+  filename = os.path.abspath(imodule.filename)
   relpath = imodule.fullname.replace('.', os.sep) + '.curry'
   if filename.endswith(os.sep + relpath):
     root = filename[:-len(relpath) - 1]

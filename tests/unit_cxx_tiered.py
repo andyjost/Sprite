@@ -990,6 +990,10 @@ assert Cpp2So(curry._interpreter_).format_version(%r) is not None
     '''
     import types
     root = tempfile.mkdtemp(dir=self.tmpdir)
+    if os.name == 'posix':
+      alias = root + '-alias'
+      os.symlink(root, alias)
+      root = alias
     source = os.path.join(root, 'PrivateOrder.curry')
     with open(source, 'w') as stream:
       stream.write('f :: Int\nf = 1\n')

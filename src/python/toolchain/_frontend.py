@@ -14,7 +14,9 @@ interfaces of the imports under their hierarchy roots. Then
 The command runs at the hierarchy root and names the source relative to
 that root, so a hierarchical source's own directory cannot shadow imports.
 Translations outside the installation search private generations newest first
-and replace installed source roots with a temporary interface-only view. Dependencies
+and replace installed source roots with a temporary interface-only view. The
+external translator's source-first reader also gets private source copies.
+Dependencies
 requiring private destinations are elaborated before the requested module;
 the external front end can never rebuild an installed source through that
 view. In-place installed translations keep the ordinary search path.
@@ -295,7 +297,7 @@ def curry2flat(file_in, currypath, quiet=False, rewrite=True):
 
 
 @contextmanager
-def protected_translation(file_in, currypath, quiet=False, rewrite=True):
+def protected_translation(file_in, currypath, quiet=False, rewrite=True, external=False):
   """Resolve only this translation's private prerequisites and interface view."""
   from . import _destination, _findcurry
   from ._interfaceview import interface_view, loaded_interface_view
@@ -307,8 +309,9 @@ def protected_translation(file_in, currypath, quiet=False, rewrite=True):
     yield selected, None, None
     return
   outdir = os.path.join('.curry', config.frontend_subdir())
-  with interface_view(outdir) as library, \
-      loaded_interface_view(outdir, searchdirs(selected, currypath)) as loaded:
+  view = interface_view(outdir, sources=True) if external else interface_view(outdir)
+  with view as library, \
+      loaded_interface_view(outdir, searchdirs(selected, currypath), sources=external) as loaded:
     roots = []
     def include(source):
       root = source_root(source)

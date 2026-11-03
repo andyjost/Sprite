@@ -76,9 +76,22 @@ class TestCurry2ICurry(cytest.TestCase):
       self.assertTrue(Path(library).is_dir())
       self.assertTrue(list(Path(library).rglob('*.fint')))
       self.assertNotIn(config.system_curry_path(), paths)
-      # Exercise the protected interfaces with another actual front-end call,
-      # as the external translator does before reading FlatCurry.
-      execute(frontend, cwd=kwargs['cwd'], with_stderr=True, env=kwargs['env'])
+      # Legacy FlatCurry.Files searches for source before interfaces, then
+      # invokes the front end without Sprite's -P option for that source.
+      # Exercise that lookup and call, including Prelude from the shipped
+      # library rather than the translator's older library.
+      for name in ('Prelude', 'System.Console.GetOpt'):
+        relative = Path(*name.split('.'))
+        found = next(Path(root) for root in paths
+                     if (Path(root) / relative.with_suffix('.curry')).is_file())
+        self.assertEqual(found, Path(library))
+        interface = found / FE_SUBDIR / relative.with_suffix('.fint')
+        expected = interface.read_bytes()
+        legacy = _frontend.command(str(found / relative.with_suffix('.curry')),
+                                   paths, quiet=True)
+        self.assertNotIn('-P', legacy)
+        execute(legacy, cwd=str(found), with_stderr=True, env=kwargs['env'])
+        self.assertEqual(interface.read_bytes(), expected)
       _frontend.flat2icy(_frontend.flatcurryfile(str(source)),
                          cmd[cmd.index('-o') + 1], paths)
       return mock.Mock(communicate=lambda: ('', ''), wait=lambda: 0)

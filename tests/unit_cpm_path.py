@@ -72,7 +72,8 @@ class TestCpmPath(cytest.TestCase):
     self.assertEqual(curry.cpm_path(self.root), self.expected())
     paths = json.loads(self.child('import curry, json; print(json.dumps(curry.path))',
                                  SPRITE_CPM_PATH='1'))
-    self.assertIn(self.expected()[-1], paths)
+    self.assertIn(os.path.realpath(self.expected()[-1]),
+                  [os.path.realpath(path) for path in paths])
 
   def test_discovered_library_copy(self):
     source = Path(self.expected()[2]) / 'Data/Char.curry'
@@ -85,8 +86,8 @@ class TestCpmPath(cytest.TestCase):
   def test_discovered_reserved_copy(self):
     source = Path(self.expected()[2]) / 'Prelude.curry'
     shutil.copyfile(config.installed_path('curry', 'Prelude.curry'), source)
-    code = ('import curry; assert %r in curry.path; '
-            'curry.import_("Prelude")') % str(source.parent)
+    code = ('import curry, os; assert %r in [os.path.realpath(p) for p in curry.path]; '
+            'curry.import_("Prelude")') % os.path.realpath(source.parent)
     with self.assertRaises(subprocess.CalledProcessError) as caught:
       self.child(code, SPRITE_CPM_PATH='1')
     self.assertIn('has the name of a module the runtime implements', caught.exception.stderr)

@@ -469,7 +469,7 @@ class Curry2ICurryConverter(object):
           with filesys.remove_file_on_error(file_out):
             if self.tool == 'icurry':
               with _frontend.protected_translation(
-                  file_in, currypath, self.quiet) as (selected, search, library):
+                  file_in, currypath, self.quiet, external=True) as (selected, search, library):
                 _frontend._run_frontend(selected, currypath, self.quiet,
                                         search=search, library=library)
                 protected = search or _frontend.searchdirs(selected, currypath)

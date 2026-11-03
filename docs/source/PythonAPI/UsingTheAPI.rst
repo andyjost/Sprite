@@ -467,10 +467,9 @@ available during installation; this check needs a separate toolchain fix.
 The preprocessor may be built with PAKCS; CurryCheck must be built with Sprite.
 
 EasyCheck supplies its own ``Test.Prop`` interface, which follows the same
-path rules as other ordinary library modules. The local property test checks
-that CPM runs CurryCheck; compile-only fallback does not demonstrate property
-execution. Property analysis currently needs the unimplemented runtime external
-``ReadShowTerm.prim_readsUnqualifiedTerm``.
+path rules as other ordinary library modules. CurryCheck runs on Sprite.
+The local prerequisite for property execution is the ``sqlite3`` program
+that CurryCheck needs.
 
 The script adds ``"sprite": ">= 0.9.0"`` to every compatibility list that
 names PAKCS. CPM also reads metadata from downloaded packages; ``--packages``
