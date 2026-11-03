@@ -95,35 +95,86 @@ def loaded_source(name, interp=None):
 
 
 LoadedGeneration = namedtuple(
-    'LoadedGeneration', 'source_info texts source interface_stem')
+    'LoadedGeneration', 'source_info texts source interface_stem image imports product_stem image_input name object')
 
 
-def loaded_generation(name):
+def loaded_generation(name, interp=None):
   from ..objects.handle import getHandle
-  interp = _translation_interp.get()
+  interp = _translation_interp.get() if interp is None else interp
   module = getattr(interp, 'modules', {}).get(name)
-  return getattr(getHandle(module).icurry, '_loaded_generation', None) if module is not None else None
+  from ..objects import CurryModule
+  return getattr(getHandle(module).icurry, '_loaded_generation', None) \
+      if isinstance(module, CurryModule) else None
 
 
-def capture_generation(module):
+def generation_for_source(source, interp=None):
+  """Find a captured source by identity without reopening its header."""
+  interp = _translation_interp.get() if interp is None else interp
+  for suffix in ('.imports', '.source', '.abi'):
+    if source.endswith(suffix):
+      source = source[:-len(suffix)]
+  source = os.path.realpath(_filenames.sourcefilename(source))
+  for name in tuple(getattr(interp, 'modules', {})):
+    generation = loaded_generation(name, interp)
+    if generation is not None and generation.source == source:
+      return generation
+  return None
+
+
+def product_input(filename):
+  """Resolve an original product spelling to its loaded immutable input."""
+  from . import _frontend
+  interp = _translation_interp.get()
+  path = os.path.realpath(filename)
+  for name in tuple(getattr(interp, 'modules', {})):
+    generation = loaded_generation(name, interp)
+    if generation is None:
+      continue
+    if generation.source is None:
+      if generation.object:
+        original = os.path.splitext(generation.object)[0]
+        for suffix in ('.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi'):
+          if path == original + suffix:
+            return generation.product_stem + suffix
+      continue
+    stem = _filenames.icurryfilename(generation.source)[:-4]
+    for suffix in ('.icy', '.cpp', '.icy.imports', '.icy.source',
+                   config.module_object_suffix(), config.module_object_suffix() + '.abi'):
+      if path == stem + suffix:
+        return generation.product_stem + suffix
+    for suffix in ('.fint', '.icurry'):
+      if path in (stem + suffix, _frontend.interfacefile(generation.source, suffix)):
+        return generation.interface_stem + suffix
+    if path == _frontend.flatcurryfile(generation.source):
+      return generation.product_stem + '.fcy'
+    if path == generation.image or path == stem + '.img':
+      return generation.image_input or generation.product_stem + '.img'
+  return filename
+
+
+def capture_generation(module, interp):
   """Pin source provenance and interfaces before publishing a loaded module."""
   from pathlib import Path
   from .. import cache
   from ..objects.handle import getHandle
-  raw = getHandle(module).icurry
-  if not raw.filename:
+  handle = getHandle(module)
+  raw = handle.icurry
+  objectfile = handle.sofilename
+  if not raw.filename and not objectfile:
     return
-  source = os.path.realpath(_filenames.sourcefilename(raw.filename))
-  stem = Path(_filenames.icurryfilename(source)).with_suffix('')
+  source = os.path.realpath(_filenames.sourcefilename(raw.filename)) if raw.filename else None
+  stem = Path(_filenames.icurryfilename(source) if source else objectfile).with_suffix('')
   texts = {}
   for suffix in ('.fint', '.icurry', '.icy.imports', '.icy.source'):
     path = Path(str(stem) + suffix)
+    key = {'.fint': 'all.fint', '.icurry': 'all.interface'}.get(suffix)
+    embedded = raw.metadata.get(key) if key else None
     try:
-      texts[suffix] = path.read_bytes()
+      texts[suffix] = embedded.encode('utf-8') if embedded is not None else path.read_bytes()
     except OSError:
       pass
   try:
-    info = cache._sourceinfo(source)
+    info = cache._sourceinfo(source) if source else None
   except OSError:
     info = None
   from ..backends.cxx import tiered
@@ -133,7 +184,36 @@ def capture_generation(module):
   for suffix in ('.fint', '.icurry'):
     if suffix in texts:
       Path(str(interface) + suffix).write_bytes(texts[suffix])
-  raw._loaded_generation = LoadedGeneration(info, texts, source, str(interface))
+  # Mutable publication slots cannot serve as a loaded module's input.
+  # Keep file-backed snapshots out of the Python heap.
+  from ..backends.cxx import image
+  import shutil
+  product_stem = str(directory / '.curry' / SUBDIR / raw.fullname.split('.')[-1])
+  Path(product_stem).parent.mkdir(parents=True, exist_ok=True)
+  source_text = getattr(raw, '_source_text', None)
+  if source_text is not None:
+    Path(_filenames.sourcefilename(product_stem + '.icy')).write_text(
+        source_text, encoding='utf-8')
+  from . import _frontend
+  flat = _frontend.flatcurryfile(source) if source else None
+  if flat and os.path.isfile(flat):
+    shutil.copyfile(flat, product_stem + '.fcy')
+  provenance = getattr(raw, '_attached_image', None)
+  if provenance is None and source is not None:
+    provenance = image._path(interp, source)
+  for suffix in ('.icy', '.cpp', '.icy.imports', '.icy.source',
+                 config.module_object_suffix(), config.module_object_suffix() + '.abi'):
+    object_product = suffix in ('.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi')
+    original = os.path.splitext(objectfile)[0] + suffix if objectfile and object_product else str(stem) + suffix
+    if os.path.isfile(original):
+      shutil.copyfile(original, product_stem + suffix)
+  pinned_image = getattr(raw, '_attached_image_input', None)
+  if pinned_image is None and provenance and os.path.isfile(provenance):
+    pinned_image = product_stem + '.img'
+    shutil.copyfile(provenance, pinned_image)
+  imports = tuple((name, loaded_generation(name, interp)) for name in raw.imports)
+  raw._loaded_generation = LoadedGeneration(
+      info, texts, source, str(interface), provenance, imports, product_stem, pinned_image, raw.fullname, getHandle(module).sofilename)
 
 
 def module_path(name, search):

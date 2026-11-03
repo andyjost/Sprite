@@ -110,7 +110,10 @@ def _record_fields(module):
   if text is None:
     path = getattr(module, '.interface_file', None)
     if path is None and icy.filename is not None:
-      path = find_interface(icy.filename, module.__name__)
+      generation = getattr(icy, '_loaded_generation', None)
+      path = (generation.interface_stem + '.fint'
+          if '.fint' in generation.texts else None) if generation is not None \
+          else find_interface(icy.filename, module.__name__)
     if path is None:
       return {}
     try:

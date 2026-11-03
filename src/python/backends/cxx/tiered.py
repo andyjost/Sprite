@@ -285,23 +285,53 @@ def _private_copy(imodule):
   directory = os.path.join(_tmpdir(), 'private%d' % next(_state.counter))
   copy = os.path.join(directory, relpath)
   os.makedirs(os.path.dirname(copy), exist_ok=True)
-  # A module without a source file (one built by hand from its ICurry) gets
-  # its products alone; the child then fails as it did on the original.
-  if os.path.isfile(filename):
-    shutil.copy2(filename, copy)
-  stem = _filenames.icurryfilename(filename)[:-len('.icy')]
-  products = [
-      stem + suffix
-      for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source')
-    ]
-  products.append(_filenames.replacesuffix(filename, '.img'))
-  productdir = os.path.dirname(_filenames.icurryfilename(copy))
-  os.makedirs(productdir, exist_ok=True)
-  for product in products:
-    if os.path.isfile(product):
-      shutil.copy2(
-          product, os.path.join(productdir, os.path.basename(product))
-        )
+  generation = getattr(imodule, '_loaded_generation', None)
+  if generation is not None:
+    pending = [(imodule.fullname, generation)]
+    seen = set()
+    while pending:
+      name, item = pending.pop()
+      if name in seen:
+        continue
+      seen.add(name)
+      record = _state.records.get(name)
+      recorded_path = record.sofile if record is not None else None
+      if recorded_path is not None and not isinstance(recorded_path, (str, bytes, os.PathLike)):
+        recorded_path = recorded_path.sofilename()
+      if name != imodule.fullname and record is not None \
+          and recorded_path is not None \
+          and os.path.realpath(recorded_path).startswith(os.path.realpath(_tmpdir()) + os.sep) \
+          and record.module() is not None \
+          and getattr(getHandle(record.module()).icurry, '_loaded_generation', None) is item:
+        # Its existing compile job owns this immutable source generation.
+        # Keep its object identity on the importer's link line.
+        continue
+      target = os.path.join(directory, name.replace('.', os.sep) + '.curry')
+      os.makedirs(os.path.dirname(target), exist_ok=True)
+      source = _filenames.sourcefilename(item.product_stem + '.icy')
+      if os.path.isfile(source):
+        shutil.copy2(source, target)
+      destination = _filenames.icurryfilename(target)[:-4]
+      os.makedirs(os.path.dirname(destination), exist_ok=True)
+      for suffix in ('.icy', '.icy.imports', '.icy.source', '.fint', '.icurry', '.img',
+                     '.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi'):
+        product = (item.interface_stem + suffix if suffix in ('.fint', '.icurry') else
+            item.image_input if suffix == '.img' else item.product_stem + suffix)
+        if product and os.path.isfile(product):
+          shutil.copy2(product, destination + suffix)
+      pending.extend((name, dep) for name, dep in item.imports if dep is not None)
+  else:
+    # Before publication, the loader still owns the target disk inputs.
+    if os.path.isfile(filename):
+      shutil.copy2(filename, copy)
+    stem = _filenames.icurryfilename(filename)[:-len('.icy')]
+    products = [stem + suffix
+        for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source', '.img')]
+    productdir = os.path.dirname(_filenames.icurryfilename(copy))
+    os.makedirs(productdir, exist_ok=True)
+    for product in products:
+      if os.path.isfile(product):
+        shutil.copy2(product, os.path.join(productdir, os.path.basename(product)))
   searchdirs = list(reversed(_state.private)) + [root]
   _state.private.append(directory)
   return copy, searchdirs

@@ -75,6 +75,116 @@ assert list(curry.eval(curry.import_(nextprobe).goal)) == [%d]
           child = cytest.run_in_subprocess(fresh, timeout=120, address_space=3 << 30)
           self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
+  def test_source_free_object_keeps_generated_code(self):
+    with tempfile.TemporaryDirectory() as work:
+      code = r"""
+import curry
+import shutil
+from pathlib import Path
+from curry.backends.cxx import toolchain
+source = Path(%r) / 'Frozen.curry'
+source.write_text('module Frozen where\nf :: Int -> Int\nf x = x + 1\n')
+module = curry.import_(source)
+cpp = Path(curry.inspect.geticurryfile(module)).with_suffix('.cpp')
+curry._interpreter_.save(module, str(cpp), module_main=False, interfaces=True)
+obj = toolchain.Cpp2So(curry._interpreter_)(str(cpp), curry.path)
+shutil.copyfile(cpp, source.with_suffix('.cpp'))
+shutil.copyfile(obj, source.with_suffix('.so'))
+""" % work
+      child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
+      self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+      code = r"""
+import curry
+from pathlib import Path
+from curry.objects.handle import getHandle
+root = Path(%r)
+module = curry.load(root / 'Frozen.so')
+assert getHandle(module).icurry.filename is None
+before = curry.inspect.getimpl(module.f)
+(root / 'Frozen.cpp').write_text('// replaced after the load\n')
+assert curry.inspect.getimpl(module.f) == before
+assert list(curry.eval(module.f(1))) == [2]
+""" % work
+      child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
+      self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+  def test_loaded_optimizer_generation(self):
+    self._loaded_optimizer_or_signature(False)
+
+  def test_loaded_lazy_signature_generation(self):
+    self._loaded_optimizer_or_signature(True)
+
+  def _loaded_optimizer_or_signature(self, typed):
+    for mode in ('new', 'all'):
+      with self.subTest(mode=mode, typed=typed), tempfile.TemporaryDirectory() as work:
+        source = Path(work) / 'Leaf.curry'
+        old = ('f :: Int -> Int\nf x = x\n' if typed else
+               'answer :: Int\nanswer = 1\n')
+        new = ('f :: Bool -> Bool\nf x = x\n' if typed else
+               'answer :: Int\nanswer = 2\n')
+        source.write_text('module Leaf where\n' + old)
+        code = r"""
+import curry, subprocess, sys
+from pathlib import Path
+curry.reset(interpret=%r, jit='off')
+curry.path.insert(0, %r)
+source = Path(%r)
+leaf = curry.import_('Leaf')
+from curry.objects.handle import getHandle
+import json
+for name in ('Prelude', 'Leaf'):
+    raw = getHandle(curry.modules[name]).icurry
+    generation = raw._loaded_generation
+    seen = set()
+    def size(value):
+        if id(value) in seen:
+            return 0
+        seen.add(id(value))
+        total = sys.getsizeof(value)
+        if isinstance(value, dict):
+            return total + sum(size(k) + size(v) for k, v in value.items())
+        if isinstance(value, (tuple, list)):
+            return total + sum(size(v) for v in value)
+        return total
+    # Import generations are shared references, not recursively owned copies.
+    seen.update(id(dep) for _, dep in generation.imports if dep is not None)
+    memory = size(generation) + size(vars(generation.source_info))
+    files = {p.suffix: p.stat().st_size for p in Path(generation.product_stem).parent.iterdir()
+             if p.is_file()}
+    files['image'] = Path(generation.image_input).stat().st_size if generation.image_input else 0
+    print('generation bytes', name, memory,
+          'source string', sys.getsizeof(getattr(raw, '_source_text', '')),
+          'interfaces', sum(len(generation.texts.get(suffix, b'')) for suffix in ('.fint', '.icurry')),
+          json.dumps(files, sort_keys=True))
+source.write_text('module Leaf where\n' + %r)
+child = subprocess.run([sys.executable, '-c',
+    "import curry; curry.reset(interpret='all', jit='off'); curry.path.insert(0, %%r); curry.import_('Leaf')" %% str(source.parent)],
+    capture_output=True, text=True, timeout=90)
+assert child.returncode == 0, child.stdout + child.stderr
+if %r:
+    assert str(curry.typeof(leaf.f)) == 'Int -> Int', curry.typeof(leaf.f)
+    assert list(curry.eval(leaf.f(1))) == [1]
+else:
+    probe = source.with_name('Probe.curry')
+    probe.write_text('module Probe where\nimport Leaf\ngoal :: (Int,Int)\ngoal = (answer,answer)\n')
+    assert curry.show(curry.eval(curry.import_(probe).goal).one()) == '(1,1)'
+if %r == 'new':
+    curry.reload(leaf)
+else:
+    curry.reset(interpret='all', jit='off')
+leaf = curry.import_('Leaf')
+if %r:
+    assert str(curry.typeof(leaf.f)) == 'Bool -> Bool', curry.typeof(leaf.f)
+    assert list(curry.eval(leaf.f(True))) == [True]
+else:
+    probe = source.with_name('After.curry')
+    probe.write_text('module After where\nimport Leaf\ngoal :: (Int,Int)\ngoal = (answer,answer)\n')
+    assert curry.show(curry.eval(curry.import_(probe).goal).one()) == '(2,2)'
+""" % (mode, work, str(source), new, typed, mode, typed)
+        child = cytest.run_in_subprocess(code, timeout=240, address_space=3 << 30)
+        self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+        print(child.stdout.strip())
+
   def test_reserved(self):
     names = curryrtbindings.builtin_module_names()
     print('Reserved module names: ' + ', '.join(names))

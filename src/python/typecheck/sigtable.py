@@ -847,14 +847,18 @@ class SignatureTable:
     if embedded is not None:
       return Interface.load(embedded)
     filename = handle.icurry.filename
-    if filename is None:
+    generation = getattr(handle.icurry, '_loaded_generation', None)
+    if filename is None and generation is None:
       logger.debug('module %s has no source file', module.__name__)
       return None
-    path = find_interface(filename, handle.fullname)
+    if generation is None:
+      path = find_interface(filename, handle.fullname)
+    else:
+      path = generation.interface_stem + '.fint' if '.fint' in generation.texts else None
     if path is None:
       logger.debug(
           'no FlatCurry interface for module %s; tried %s'
-        , module.__name__, ', '.join(interface_candidates(filename, handle.fullname))
+        , module.__name__, ', '.join(interface_candidates(filename, handle.fullname) if filename else ())
         )
       return None
     iface = Interface.load(path)

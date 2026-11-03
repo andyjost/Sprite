@@ -181,10 +181,16 @@ class SourceInfo(object):
 @synchronized(_memo_lock)
 def _sourceinfo(path):
   '''
-  Reads ``path`` and returns its ``SourceInfo``.  The file is read every time:
+  Reads ``path`` and returns its ``SourceInfo``. An unloaded file is read every time:
   a digest costs well under a millisecond, and file time stamps are too coarse
   to tell a rewrite of the same size apart.
   '''
+  from .toolchain._findcurry import generation_for_source
+  generation = generation_for_source(path)
+  if generation is not None:
+    if generation.source_info is None:
+      raise FileNotFoundError(path)
+    return generation.source_info
   with open(path, 'rb') as stream:
     data = stream.read()
   return SourceInfo(path, data)
@@ -295,7 +301,7 @@ def import_closure(curryfile, currypath=()):
       info = generation.source_info
       if info is not None:
         closure[name] = info
-        pending.extend(info.imports)
+      pending.extend(dep for dep, _ in generation.imports)
       continue
     relpath = name.replace('.', os.sep) + '.curry'
     from .toolchain._findcurry import module_path

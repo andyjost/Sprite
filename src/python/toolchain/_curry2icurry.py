@@ -1,3 +1,4 @@
+from . import _findcurry
 import threading
 from ..utility.locking import synchronized
 _rewrite_lock = threading.RLock()
@@ -178,7 +179,7 @@ def rewrite_on_hit(curryfile):
   if not os.path.isfile(fcyfile) or filesys.newer(curryfile, fcyfile):
     return None
   try:
-    with open(fcyfile, 'rb') as stream:
+    with open(_findcurry.product_input(fcyfile), 'rb') as stream:
       data = stream.read()
     if EQUALITY_NAME.search(data) is None and not _needs_rewrite(data)[1]:
       return 0
@@ -250,7 +251,7 @@ def translated_before_rewrite(curryfile, icyfile):
   if filesys.newer(curryfile, fcyfile):
     return False
   try:
-    with open(fcyfile, 'rb') as stream:
+    with open(_findcurry.product_input(fcyfile), 'rb') as stream:
       data = stream.read()
   except OSError:
     return False
@@ -278,7 +279,7 @@ def translated_before_rewrite(curryfile, icyfile):
   if not (equalities or calls):
     return False
   try:
-    with open(icyfile, 'rb') as stream:
+    with open(_findcurry.product_input(icyfile), 'rb') as stream:
       icy = stream.read()
   except OSError:
     return False
@@ -306,7 +307,7 @@ def source_digest(filename):
 def source_matches(curryfile, icyfile):
   """Whether the product records exactly the current Curry source text."""
   try:
-    with open(icyfile + '.source', encoding='ascii') as stream:
+    with open(_findcurry.product_input(icyfile + '.source'), encoding='ascii') as stream:
       recorded = stream.read().strip()
     return recorded == source_digest(curryfile)
   except OSError:

@@ -121,11 +121,19 @@ def _module_texts(curryfile):
   ICurry reader, or from a pinned ICurry file that was replaced, changes
   the key; the source alone would not see it.
   '''
-  from . import _filenames
-  candidates = [('curry', curryfile), ('icy', _filenames.icurryfilename(curryfile))]
-  candidates += [('image', _filenames.replacesuffix(curryfile, '.img'))]
+  from . import _filenames, _findcurry
+  generation = _findcurry.generation_for_source(curryfile)
+  if generation is None:
+    candidates = [('curry', curryfile), ('icy', _filenames.icurryfilename(curryfile)),
+                  ('image', _filenames.replacesuffix(curryfile, '.img'))]
+  else:
+    candidates = [('curry', _filenames.sourcefilename(generation.product_stem + '.icy')),
+                  ('icy', generation.product_stem + '.icy'),
+                  ('image', generation.image_input)]
   texts = []
   for label, filename in candidates:
+    if filename is None:
+      continue
     try:
       with open(filename, 'rb') as stream:
         texts.append((label, stream.read()))
@@ -139,7 +147,10 @@ def _imports(curryfile):
   the source when it exists (``cache.SourceInfo``), else the imports of the
   image beside the products; nothing when neither exists.
   '''
-  from . import _filenames, _loadcurry
+  from . import _filenames, _loadcurry, _findcurry
+  generation = _findcurry.generation_for_source(curryfile)
+  if generation is not None:
+    return [name for name, _ in generation.imports]
   if os.path.isfile(curryfile):
     return cache._sourceinfo(curryfile).imports
   imagefile = _filenames.replacesuffix(curryfile, '.img')
@@ -179,7 +190,7 @@ def import_closure(curryfile, currypath=()):
       info = generation.source_info
       if info is not None:
         closure[name] = info
-        pending.extend(info.imports)
+      pending.extend(dep for dep, _ in generation.imports)
       continue
     relpath = name.replace('.', os.sep) + '.curry'
     from ._findcurry import module_path

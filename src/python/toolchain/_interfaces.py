@@ -75,6 +75,10 @@ def digest(name, searchdirs, frontend=False):
 
 def imports(icyfile):
   '''Read only the ICurry header, without parsing bodies or importing code.'''
+  from ._findcurry import generation_for_source
+  generation = generation_for_source(icyfile)
+  if generation is not None:
+    return [name for name, _ in generation.imports]
   with open(icyfile, encoding='utf-8') as stream:
     text = stream.read()
   match = _HEADER.match(text)
@@ -101,6 +105,11 @@ def decode(text):
   return None
 
 def read(filename):
+  from ._findcurry import generation_for_source
+  generation = generation_for_source(filename)
+  if generation is not None:
+    text = generation.texts.get('.icy.imports')
+    return decode(text.decode('utf-8')) if text is not None else None
   try:
     with open(filename, encoding='utf-8') as stream:
       return decode(stream.read())
@@ -135,20 +144,27 @@ def object_snapshot(names, searchdirs):
   result = {}
   for name in sorted(set(names)):
     value = hashlib.sha256((digest(name, searchdirs) or 'missing').encode('ascii'))
-    from ._findcurry import module_path, loaded_source, _translation_interp
+    from ._findcurry import module_path, loaded_generation, loaded_source, _translation_interp
+    generation = loaded_generation(name)
     source = loaded_source(name)
-    if source is not None:
-      from . import _destination
-      paths = _destination.images(_translation_interp.get(), [name])
+    if generation is not None:
+      from ..backends.cxx import image
+      paths = [image.generation_input(generation)]
+    elif source is not None:
+      from ..backends.cxx import image
+      paths = [image._read_path(_translation_interp.get(), source)]
     else:
       parts = name.split('.')
       paths = [os.path.join(directory, *parts[:-1], '.curry',
           config.intermediate_subdir(), parts[-1] + '.img')
           for directory in module_path(name, searchdirs)]
     for path in paths:
+      if path is None:
+        continue
       try:
         with open(path, 'rb') as stream:
-          value.update(b'.img\0' + stream.read())
+          label = b'.icy\0' if path.endswith('.icy') else b'.img\0' if path.endswith('.img') else b'.object\0'
+          value.update(label + stream.read())
         break
       except FileNotFoundError:
         pass

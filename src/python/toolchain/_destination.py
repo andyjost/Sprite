@@ -71,7 +71,16 @@ def interfaces(source, currypath, dependencies=None):
       generation = _findcurry.loaded_generation(name)
       if generation is not None:
         # Destination provenance belongs to the generation, not today's path.
-        products.append(_filenames.replacesuffix(generation.source, '.fint'))
+        captured = [generation]
+        visited = set()
+        while captured:
+          item = captured.pop()
+          if id(item) in visited:
+            continue
+          visited.add(id(item))
+          products.append(item.image if item.image_input else
+                          item.object or item.image or item.source)
+          captured.extend(dep for _, dep in item.imports if dep is not None)
         continue
       interface = None
       dependency = None
@@ -105,6 +114,15 @@ def images(interp, names):
   """The actual resolved images, rather than their installation spellings."""
   from ..backends.cxx import image
   from ..objects.handle import getHandle
-  return [image._path(interp, getHandle(interp.modules[name]).icurry.filename)
-          for name in names
-          if name in interp.modules and getHandle(interp.modules[name]).icurry.filename]
+  products = []
+  for name in names:
+    if name not in interp.modules:
+      continue
+    raw = getHandle(interp.modules[name]).icurry
+    generation = getattr(raw, '_loaded_generation', None)
+    if generation is not None:
+      products.append(generation.image if generation.image_input else
+                      generation.object or generation.image or generation.source)
+    elif raw.filename:
+      products.append(image._path(interp, raw.filename))
+  return products

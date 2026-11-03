@@ -317,7 +317,9 @@ def fwd_chain_target(arg):
 def geticurryfile(moduleobj):
   '''Gets the ICurry file associated with a module.'''
   from . import toolchain
-  filename = toolchain.icurryfilename(moduleobj.__file__)
+  generation = getattr(getattr(moduleobj, '.icurry', None), '_loaded_generation', None)
+  filename = generation.product_stem + '.icy' if generation is not None else \
+      toolchain.icurryfilename(moduleobj.__file__)
   if os.path.exists(filename):
     return filename
 
@@ -373,6 +375,7 @@ def _module_icurry(moduleobj):
       return icy
     from . import toolchain
     complete = toolchain.loadicurry(icyfile)
+    complete.filename = icy.filename
     setattr(moduleobj, '.icurry.complete', complete)
   return complete
 

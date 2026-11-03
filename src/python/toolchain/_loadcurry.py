@@ -11,11 +11,15 @@ logger = logging.getLogger(__name__)
 def loadicurry(filename):
   """Read the translation record into the Python ICurry model."""
   filename = _filenames.icurryfilename(filename)
+  source = _filenames.sourcefilename(filename)
+  generation = _findcurry.generation_for_source(source)
+  if generation is not None:
+    filename = generation.product_stem + '.icy'
   try:
     module = readcurry.load(filename)
   except (AttributeError, TypeError) as exc:
     raise ValueError('invalid ICurry text: %s' % filename) from exc
-  module.filename = _filenames.sourcefilename(filename)
+  module.filename = source
   return module
 
 

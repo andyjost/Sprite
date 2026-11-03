@@ -423,6 +423,56 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
           with _interfaceview.interface_view(outdir) as third:
             self.assertNotEqual(second, third)
 
+  def test_loaded_private_import_closure_destination(self):
+    from pathlib import Path
+    from curry.toolchain import _filenames
+    for mode in ('new', 'all'):
+      with self.subTest(mode=mode), tempfile.TemporaryDirectory() as work:
+        root = Path(work)
+        maybe = root / 'Data/Maybe.curry'
+        maybe.parent.mkdir()
+        maybe.write_text(Path(sourcefile('Data.Maybe')).read_text().replace(
+            'listToMaybe (a : _) = Just a', 'listToMaybe (a : _) = Nothing'))
+        target = Path(_filenames.icurryfilename(sourcefile('System.Console.GetOpt')))
+        removed = [target, Path(str(target) + '.imports')]
+        library = Path(config.installed_path('curry'))
+        before = {p: p.read_bytes() for p in library.rglob('*') if p.is_file()}
+        try:
+          for p in removed:
+            p.unlink(missing_ok=True)
+          expected = {p: p.read_bytes() for p in library.rglob('*') if p.is_file()}
+          code = r"""
+import curry, os
+from curry.backends.cxx import image
+from curry.objects.handle import getHandle
+curry.reset(interpret=%r, jit='off')
+curry.path.insert(0, %r)
+lists = curry.import_('Data.List')
+raw = getHandle(lists).icurry
+generation = raw._loaded_generation
+assert generation.source.startswith(curry.config.installed_path('curry')), generation.source
+assert not generation.image.startswith(curry.config.installed_path('curry')), generation.image
+module = curry.import_('System.Console.GetOpt')
+raw = getHandle(module).icurry
+assert not raw.filename.startswith(curry.config.installed_path('curry')), raw.filename
+assert not raw._loaded_generation.image.startswith(curry.config.installed_path('curry'))
+curry.reset(interpret=%r, jit='off')
+curry.path.remove(%r)
+module = curry.import_('Data.Maybe')
+assert curry.show(curry.eval(module.listToMaybe(curry.term([1]))).one()) == 'Just 1'
+""" % (mode, work, mode, work)
+          child = cytest.run_in_subprocess(code, timeout=180, address_space=3 << 30)
+          self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+          self.assertEqual({p: p.read_bytes() for p in library.rglob('*') if p.is_file()}, expected)
+        finally:
+          # Restore the complete installation even if a writer regresses.
+          for p in library.rglob('*'):
+            if p.is_file() and p not in before:
+              p.unlink()
+          for p, data in before.items():
+            if not p.exists() or p.read_bytes() != data:
+              p.write_bytes(data)
+
   def test_later_explicit_list_replacement(self):
     from pathlib import Path
     from curry.backends.cxx import tiered

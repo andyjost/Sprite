@@ -454,8 +454,11 @@ def registered_names(source):
 
 def input_record(interp, source):
   from ...toolchain._frontend import ROUTE_VERSION
+  generation = _findcurry.generation_for_source(source, interp) if source else None
   try:
-    with open(_filenames.icurryfilename(source) + '.source', encoding='ascii') as stream:
+    receipt = generation.product_stem + '.icy.source' if generation is not None else \
+        _filenames.icurryfilename(source) + '.source'
+    with open(receipt, encoding='ascii') as stream:
       recorded = stream.read().strip()
   except (OSError, ValueError, AttributeError):
     recorded = None
@@ -1038,6 +1041,11 @@ class Cpp2So(object):
     module = self.interp.import_(modulename, currypath=imports)
     h = getHandle(module)
     sofilename = h.sofilename
+    generation = getattr(h.icurry, '_loaded_generation', None)
+    if sofilename is not None and generation is not None and sofilename == generation.object:
+      pinned = generation.product_stem + config.module_object_suffix()
+      if os.path.isfile(pinned):
+        return pinned
     if sofilename is None:
       sofilename = self._object_on_disk(modulename, imports)
     if sofilename is None:
@@ -1056,6 +1064,41 @@ class Cpp2So(object):
     'all' (extend_plan_skeleton), so the object is found by its name beside
     the current product, not through the plan.
     '''
+    generation = _findcurry.loaded_generation(modulename, self.interp)
+    if generation is not None:
+      pinned = generation.product_stem + config.module_object_suffix()
+      if generation.source is None:
+        return pinned if os.path.isfile(pinned) else None
+      # The linker reads the generation, while these disk comparisons only
+      # decide whether a reusable installed dependency still exists.
+      original = _filenames.replacesuffix(generation.source, config.module_object_suffix())
+      from . import image
+      if image.digest(generation.image_input) != image.digest(generation.image):
+        return None
+      if os.path.isfile(pinned) and image.digest(pinned) == image.digest(original) \
+          and self.stamp_is_current(pinned):
+        return pinned
+      # A make plan can produce an object after loading its generation.
+      # Accept that candidate only against the captured source and imports,
+      # then pin a separate link input without replacing captured files.
+      if not os.path.isfile(original) or not self.stamp_is_current(original):
+        return None
+      record = self._read_stamp_records(original)[3]
+      if generation.source_info is not None and \
+          record.get('source') != generation.source_info.digest:
+        return None
+      from . import tiered
+      import shutil
+      directory = os.path.join(tiered._tmpdir(),
+          'link%d' % next(tiered._state.counter))
+      target = os.path.join(directory, '.curry', config.intermediate_subdir(),
+          modulename.split('.')[-1] + config.module_object_suffix())
+      os.makedirs(os.path.dirname(target), exist_ok=True)
+      for suffix in (config.module_object_suffix(), config.module_object_suffix() + '.abi', '.cpp'):
+        candidate = _filenames.replacesuffix(original, suffix)
+        if os.path.isfile(candidate):
+          shutil.copyfile(candidate, _filenames.replacesuffix(target, suffix))
+      return target
     plan = plans.makeplan(self.interp, plans.MAKE_ALL)
     if currypath is None:
       # A module given by name: its imports are searched on the path of
@@ -1077,6 +1120,15 @@ class Cpp2So(object):
     if os.path.isfile(sofile) and self.stamp_is_current(sofile):
       return sofile
     return None
+
+  def _object_provenance(self, name):
+    """Destination identity of a link input, independent of its snapshot."""
+    h = getHandle(self.interp.modules[name])
+    if h.sofilename is not None:
+      return h.sofilename
+    generation = getattr(h.icurry, '_loaded_generation', None)
+    source = generation.source if generation is not None else h.icurry.filename
+    return _filenames.replacesuffix(source, config.module_object_suffix()) if source else None
 
   def _dependencies(self, file_in, currypath=None):
     '''
@@ -1229,7 +1281,10 @@ class Cpp2So(object):
             _findcurry.imports_path(currypath, **ignored)))
     imports = _findcurry.imports_path(currypath, **ignored)
     products = _destination.images(self.interp, names)
-    products.extend(self._dependencies(file_in, imports))
+    if not IS_WINDOWS:
+      for name in names:
+        self._sofilename(name, imports)
+        products.append(self._object_provenance(name))
     selected = _destination.select(file_in, products)
     if selected != file_in:
       # Regenerate C++ from the selected translation before compiling it.
@@ -1432,8 +1487,9 @@ class Cpp2So(object):
     products = _destination.images(self.interp, names)
     if not IS_WINDOWS:
       try:
-        products.extend(self._sofilename(name,
-            _findcurry.imports_path(currypath, **kwds)) for name in names)
+        for name in names:
+          self._sofilename(name, _findcurry.imports_path(currypath, **kwds))
+          products.append(self._object_provenance(name))
       except exceptions.PrerequisiteError:
         return None
     if _destination.needs_private(file_in, products):

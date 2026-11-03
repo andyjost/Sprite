@@ -62,7 +62,15 @@ def _facts(interp, source, imports):
   source = _destination.canonical(source)
   from ...toolchain._frontend import ROUTE_VERSION
   from . import toolchain
-  return dict(source=digest(_filenames.icurryfilename(source)), route=ROUTE_VERSION,
+  from ...toolchain import _findcurry
+  generation = _findcurry.generation_for_source(source, interp)
+  if generation is not None and generation.image_input:
+    header = read(generation.image_input)
+    return dict((key, imports if key == 'imports' else header[key])
+        for key in ('source', 'route', 'budget', 'imports', 'registry'))
+  icyfile = generation.product_stem + '.icy' if generation is not None else \
+      _filenames.icurryfilename(source)
+  return dict(source=digest(icyfile), route=ROUTE_VERSION,
       budget=interp.flags['inline_budget'], imports=imports,
       registry=toolchain.registered_names(source))
 
@@ -94,6 +102,9 @@ def _path(interp, source):
     return None
   from . import tiered
   from ...toolchain import _findcurry
+  generation = _findcurry.generation_for_source(source, interp)
+  if generation is not None:
+    return generation.image
   if _findcurry._installed_library_file(source):
     key = (_filenames.sourcefilename(_destination.canonical(source)),
            digest(_filenames.icurryfilename(source)), interp.flags['inline_budget'])
@@ -106,6 +117,26 @@ def _path(interp, source):
       return filename(_destination.canonical(source))
   private = _private_path(interp, source)
   return private if tiered._foreign_flags(interp) or os.path.isfile(private) else filename(source)
+
+
+def _read_path(interp, source):
+  """Immutable input path, separate from the publication provenance."""
+  from ...toolchain import _findcurry
+  generation = _findcurry.generation_for_source(source, interp) if source else None
+  if generation is not None:
+    return generation.image_input
+  return _path(interp, source)
+
+
+def generation_input(generation):
+  """The immutable product that identifies a loaded implementation."""
+  if generation.image_input:
+    return generation.image_input
+  if generation.object:
+    from ... import config
+    return generation.product_stem + config.module_object_suffix()
+  path = generation.product_stem + '.icy'
+  return path if os.path.isfile(path) else None
 
 
 def _check(interp, source, path, imports=None):
@@ -127,10 +158,14 @@ def _import_images(interp, names, currypath):
     if not h.icurry.filename:
       result[name] = None
       continue
-    path = _path(interp, h.icurry.filename)
+    generation = getattr(h.icurry, '_loaded_generation', None)
+    if generation is not None:
+      result[name] = digest(generation_input(generation))
+      continue
+    path = _read_path(interp, h.icurry.filename)
     try:
       header = _check(interp, h.icurry.filename, path)
-      imports = {dep: digest(_path(interp, getHandle(interp.modules[dep]).icurry.filename))
+      imports = {dep: digest(_read_path(interp, getHandle(interp.modules[dep]).icurry.filename))
           if getHandle(interp.modules[dep]).icurry.filename else None
           for dep in header['imports']}
       _check(interp, h.icurry.filename, path, imports)
@@ -196,15 +231,28 @@ def _summaries(interp, module, currypath=None):
     h = getHandle(dep)
     if not h.icurry.filename:
       continue
-    path = _path(interp, h.icurry.filename)
+    generation = getattr(h.icurry, '_loaded_generation', None)
+    if generation is not None:
+      path = _read_path(interp, h.icurry.filename)
+      if path is None:
+        summaries.append((dep, h.icurry))
+      else:
+        header = read(path)
+        bom = curryrt.load_image(h.backend_handle, path,
+            json.dumps(header, sort_keys=True, separators=(',', ':')),
+            attach_code=False)
+        summaries.append((dep, _from_bom(bom, h.icurry.filename)))
+      pending.extend(name for name, _ in generation.imports)
+      continue
+    path = _read_path(interp, h.icurry.filename)
     while True:
       header = read(path)
       expected = _facts(interp, h.icurry.filename,
-          {dep: digest(_path(interp, getHandle(interp.modules[dep]).icurry.filename))
+          {dep: digest(_read_path(interp, getHandle(interp.modules[dep]).icurry.filename))
            for dep in header['imports']})
       if any(header.get(k) != value for k, value in expected.items()):
         _import_images(interp, [name], currypath)
-        path = _path(interp, h.icurry.filename)
+        path = _read_path(interp, h.icurry.filename)
         continue
       try:
         bom = curryrt.load_image(h.backend_handle, path,
@@ -439,6 +487,11 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
   icyfile = _destination.canonical(icyfile)
   source = _filenames.sourcefilename(icyfile)
   from ...toolchain import _findcurry, _interfaces, _curry2icurry
+  generation = _findcurry.generation_for_source(source, interp)
+  if generation is not None:
+    path = _read_path(interp, source)
+    if path is not None:
+      return path, read(path)
   if _findcurry._installed_library_file(icyfile) and os.path.isfile(source):
     # Explicit ICurry inputs enter at this writer too. Resolve imports before
     # testing the translation receipt, just as the normal build plan does.
@@ -468,8 +521,8 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
   toolchain.mergebuiltins(raw, interp.backend)
   toolchain.validatemodule(raw)
   summaries = _summaries(interp, raw, currypath)
-  imports.update({getHandle(dep).fullname:
-      digest(_path(interp, getHandle(dep).icurry.filename)) for dep, _ in summaries})
+  imports.update(_import_images(interp,
+      [getHandle(dep).fullname for dep, _ in summaries], currypath))
   from .materialize import function_primitive
   native = curryrt.Module.find_or_create(raw.fullname)
   builtins = {f.name for f in raw.functions.values()
@@ -520,13 +573,22 @@ def current(interp, source, currypath=None):
 
 
 def attach(interp, source, path, header):
+  # Attach from the same immutable file that later supplies summaries.
+  # A publisher may replace the original slot immediately after this copy.
+  from . import tiered
+  import shutil
+  snapshot = os.path.join(tiered._tmpdir(),
+      'attached%d.img' % next(tiered._state.counter))
+  shutil.copyfile(path, snapshot)
   owner = curryrt.Module.find_or_create(header['name'])
-  bom = curryrt.load_image(owner, path,
+  bom = curryrt.load_image(owner, snapshot,
       json.dumps(header, sort_keys=True, separators=(',', ':')))
   module = _from_bom(bom, source)
   # Material tables live in the runtime module, whose lifetime must cover
   # symbol construction and publication by the importer.
   module._image_owner = owner
+  module._attached_image = path
+  module._attached_image_input = snapshot
   from .jit import backend
   jit = interp.flags.get('jit', 'off')
   if (jit != 'off' and interp.flags.get('interpret') != 'off'

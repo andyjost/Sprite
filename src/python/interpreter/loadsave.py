@@ -180,6 +180,7 @@ def compilable_icurry(interp, cymodule, icy):
       )
   logger.info('Reading the ICurry of %s from %s', icy.fullname, icyfile)
   complete = toolchain.loadicurry(icyfile)
+  complete.filename = icy.filename
   toolchain.mergebuiltins(complete, interp.backend)
   toolchain.validatemodule(complete)
   # The passes read the module under its name among the loaded modules

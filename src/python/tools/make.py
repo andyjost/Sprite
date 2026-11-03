@@ -441,14 +441,17 @@ class Job(object):
   def __repr__(self):
     return 'Job(%r)' % self.arg
 
-def imports_of(curryfile):
+def imports_of(curryfile, interp=None):
   '''
   The names of the modules that the module of ``curryfile`` imports, the
   Prelude among them.  The names come from the source when it exists (a scan
   of the import declarations; see curry.cache.SourceInfo), else from the
   image file beside the products.  Nothing when neither exists.
   '''
-  if os.path.isfile(curryfile):
+  generation = _findcurry.generation_for_source(curryfile, interp)
+  if generation is not None:
+    names = [name for name, _ in generation.imports]
+  elif os.path.isfile(curryfile):
     with open(curryfile, 'rb') as stream:
       names = cache.SourceInfo(curryfile, stream.read()).imports
   else:
@@ -475,8 +478,12 @@ def is_done(plan, currentfile, currypath=None):
         header = image._check(plan.interp, source, image.filename(currentfile))
         search = _findcurry.program_path(source,
             config.currypath() if currypath is None else currypath, is_sourcefile=True)
-        imports = {name: image.digest(image.filename(_findcurry.currentfile(
-            plan, name, search))) for name in header['imports']}
+        imports = {}
+        for name in header['imports']:
+          generation = _findcurry.loaded_generation(name, plan.interp)
+          path = image.generation_input(generation) if generation is not None else \
+              image.filename(_findcurry.currentfile(plan, name, search))
+          imports[name] = image.digest(path)
         image._check(plan.interp, source, image.filename(currentfile), imports)
       except (OSError, ValueError, KeyError, exceptions.CurryError):
         return False
@@ -525,7 +532,7 @@ class JobGraph(object):
     self._own[curryfile] = None
     self._deps[curryfile] = []
     waits = []
-    for name in imports_of(curryfile):
+    for name in imports_of(curryfile, self.plan.interp):
       try:
         imported = _findcurry.currentfile(self.plan, name, currypath)
       except (exceptions.ModuleLookupError, exceptions.PrerequisiteError):

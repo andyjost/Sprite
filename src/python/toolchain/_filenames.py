@@ -151,6 +151,10 @@ def module_name(filename):
     source = curryfilename(filename)
   except ValueError:
     return os.path.splitext(os.path.basename(filename.removesuffix('.z')))[0]
+  from ._findcurry import generation_for_source
+  generation = generation_for_source(source)
+  if generation is not None:
+    return generation.name
   try:
     with open(source, encoding='utf-8') as stream:
       tokens = iter(_header_tokens(stream.read()))

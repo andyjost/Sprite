@@ -40,7 +40,10 @@ def getimpl(symbol):
   sofile = None if moduleobj is None else getHandle(moduleobj).sofilename
   if sofile is None:
     raise _no_code(symbol, 'its module has no compiled object')
-  cppfile = os.path.splitext(sofile)[0] + '.cpp'
+  generation = getattr(getHandle(moduleobj).icurry, '_loaded_generation', None)
+  cppfile = generation.product_stem + '.cpp' \
+      if generation is not None and sofile == generation.object else \
+      os.path.splitext(sofile)[0] + '.cpp'
   if not os.path.exists(cppfile):
     raise _no_code(symbol, 'the generated file %s does not exist' % cppfile)
   text = _function_text(cppfile, symbol.fullname)
