@@ -1,4 +1,5 @@
 #include "curryrt/evaluation.hpp"
+#include "curryrt/evaluation_test.hpp"
 #include "curryrt/exceptions.hpp"
 #include "curryrt/state/rts.hpp"
 #include <algorithm>
@@ -51,19 +52,37 @@ namespace curryrt
     };
     // Retained for finalizers that run after library static destruction.
     Pending & pending() { static auto * p = new Pending; return *p; }
+    // A drain owns this fence through its last apply/delete. Prepare takes
+    // it before either short-lived mutex: apply may recursively take the heap.
+    // Drains only try it, preserving nonblocking finalization while prepare
+    // holds it. Actions are native-only and never acquire the GIL; prepare
+    // must not enter Python's host wait after Python has prepared its fork.
+    std::recursive_mutex *& drain_fence_ptr()
+    { static auto * p = new std::recursive_mutex; return p; }
+    std::atomic<host_wait_type> wait_hook{nullptr};
+    std::atomic<bool> test_pause{false}, test_paused{false};
+    std::atomic<bool> test_preparing{false}, test_resumer_ready{false};
+    std::atomic<size_t> test_applied{0};
     void before_fork()
     {
+      auto * fence = drain_fence_ptr();
+      if(!fence->try_lock())
+      {
+        test_preparing = true;
+        fence->lock();
+      }
       gate_ptr()->mutex.lock();
       pending().mutex.lock();
+      test_preparing = true;
     }
     void parent_after_fork()
     {
       pending().mutex.unlock();
       gate_ptr()->mutex.unlock();
+      drain_fence_ptr()->unlock();
     }
     thread_local bool draining = false;
     std::atomic<host_poll_type> poll_hook{nullptr};
-    std::atomic<host_wait_type> wait_hook{nullptr};
     thread_local bool is_worker = false;
     thread_local size_t reserved_room = 0;
     thread_local char const * worker_base = nullptr;
@@ -91,6 +110,10 @@ namespace curryrt
       // As with the ticker, the parent's parked thread does not survive
       // fork.  Keep recursion belonging to the surviving thread and leak
       // the old synchronization objects, which may have vanished waiters.
+      // Other prepare callers may have been waiting on the old fence.
+      // Retain it, just like the old gate, rather than destroying waiters.
+      drain_fence_ptr()->unlock();
+      drain_fence_ptr() = new std::recursive_mutex;
       pending().mutex.unlock();
       Gate * old = gate_ptr();
       Gate * fresh = new Gate;
@@ -289,6 +312,8 @@ namespace curryrt
   void heap_drain() noexcept
   {
     if(draining) return;
+    std::unique_lock<std::recursive_mutex> fence(*drain_fence_ptr(), std::try_to_lock);
+    if(!fence.owns_lock()) return; // prepare owns the fence; leave work queued
     draining = true;
     auto & p = pending();
     for(;;)
@@ -301,6 +326,12 @@ namespace curryrt
         p.count = 0;
       }
       if(!actions) break;
+      if(test_pause.load())
+      {
+        test_paused = true;
+        while(test_pause.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        test_paused = false;
+      }
       while(actions)
       {
         auto * action = actions;
@@ -310,6 +341,43 @@ namespace curryrt
       }
     }
     draining = false;
+  }
+
+  void heap_test_pause_drain()
+  {
+    test_applied = 0;
+    test_preparing = false;
+    test_resumer_ready = false;
+    test_pause = true;
+  }
+  void heap_test_resume_drain() { test_pause = false; }
+  void heap_test_resume_at_fork()
+  {
+    test_resumer_ready = true;
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    while(!test_preparing.load())
+    {
+      if(std::chrono::steady_clock::now() > deadline)
+        throw std::runtime_error("fork prepare handshake timed out");
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    heap_test_resume_drain();
+  }
+  bool heap_test_resumer_ready() { return test_resumer_ready.load(); }
+  bool heap_test_drain_paused() { return test_paused.load(); }
+  size_t heap_test_applied() { return test_applied.load(); }
+  void heap_test_dispose()
+  {
+    struct Action : PendingHeapAction
+    {
+      void apply(bool) noexcept override
+      {
+        // Match the recursive acquisition in state/module removals.
+        HeapScope heap(false);
+        ++test_applied;
+      }
+    };
+    heap_dispose(new Action);
   }
 
   void heap_dispose(PendingHeapAction * action) noexcept
