@@ -54,6 +54,41 @@ class TestCurry2ICurry(cytest.TestCase):
     self.tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
     self.addCleanup(shutil.rmtree, self.tmpdir, True)
 
+  def test_external_translator_protected_path(self):
+    from pathlib import Path
+    from curry.toolchain import _system
+    source = Path(self.tmpdir) / 'Probe.curry'
+    source.write_text('module Probe where\nimport System.Console.GetOpt\ngoal = True\n')
+    execute = _system.pexec
+    frontends = []
+    popen = _system.sp.Popen
+    def checked(cmd, **kwargs):
+      if cmd[0] != 'test-icurry':
+        frontends.append(cmd)
+      return execute(cmd, **kwargs)
+    def child(cmd, **kwargs):
+      if cmd[0] != 'test-icurry':
+        return popen(cmd, **kwargs)
+      frontend = frontends[-1]
+      library = frontend[frontend.index('-P') + 1]
+      paths = [frontend[i + 1] for i, value in enumerate(frontend[:-1]) if value == '-i']
+      self.assertEqual(kwargs['env']['CURRYPATH'].split(os.pathsep), paths)
+      self.assertTrue(Path(library).is_dir())
+      self.assertTrue(list(Path(library).rglob('*.fint')))
+      self.assertNotIn(config.system_curry_path(), paths)
+      # Exercise the protected interfaces with another actual front-end call,
+      # as the external translator does before reading FlatCurry.
+      execute(frontend, cwd=kwargs['cwd'], with_stderr=True, env=kwargs['env'])
+      _frontend.flat2icy(_frontend.flatcurryfile(str(source)),
+                         cmd[cmd.index('-o') + 1], paths)
+      return mock.Mock(communicate=lambda: ('', ''), wait=lambda: 0)
+    with mock.patch.object(config, 'icurry_tool', return_value='test-icurry'), \
+         mock.patch.object(_system, 'pexec', checked), \
+         mock.patch.object(_system.sp, 'Popen', child):
+      builder = _curry2icurry.Curry2ICurryConverter(curry2icurry='icurry', use_cache=False)
+      result = builder.convert(str(source), [])
+    self.assertTrue(Path(result).is_file())
+
   def test_missing_preprocessor(self):
     source = os.path.join(self.tmpdir, 'NeedsCPP.curry')
     with open(source, 'w') as stream:

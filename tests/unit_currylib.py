@@ -363,6 +363,95 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     self._explicit_make_replaced_import_is_private(
         '--import', transitive=True, user=True)
 
+  def test_interface_view_reuse_and_invalidation(self):
+    from pathlib import Path
+    from unittest.mock import patch
+    from curry.toolchain import _interfaceview
+    from contextlib import contextmanager
+    import time
+    outdir = os.path.join('.curry', config.frontend_subdir())
+    _interfaceview._views.clear()
+    copy = shutil.copy2
+    with tempfile.TemporaryDirectory() as work:
+      for number in (1, 2):
+        program = Path(work) / ('View%d.curry' % number)
+        program.write_text('module View%d where\ngoal = True\n' % number)
+        elapsed = []
+        original_view = _interfaceview.interface_view
+        @contextmanager
+        def measured(outdir):
+          started = time.monotonic()
+          with original_view(outdir) as library:
+            elapsed.append(time.monotonic() - started)
+            yield library
+        with patch.object(_interfaceview, 'interface_view', measured), \
+             patch.object(_interfaceview.shutil, 'copy2', wraps=copy) as copies:
+          _frontend.curry2flat(str(program), [], quiet=True)
+        print('Interface view translation %d: %d copies, %.6f s' %
+              (number, copies.call_count, elapsed[0]))
+        if number == 1:
+          self.assertGreater(copies.call_count, 0)
+        else:
+          self.assertEqual(copies.call_count, 0)
+      fake = Path(work) / 'library/.curry' / config.intermediate_subdir()
+      fake.mkdir(parents=True)
+      product = fake / 'Probe.fint'
+      product.write_text('first')
+      installed_path = config.installed_path
+      def installed(*parts):
+        return str(Path(work) / 'library') if parts == ('curry',) else installed_path(*parts)
+      with patch.object(config, 'syslibs', return_value=['Probe']), \
+           patch.object(config, 'installed_path', installed):
+        with _interfaceview.interface_view(outdir) as first:
+          before = product.stat()
+          self.assertEqual((Path(first) / 'Probe.fint').stat().st_mtime_ns,
+                           before.st_mtime_ns)
+          product.write_text('other')
+          os.utime(product, ns=(before.st_atime_ns, before.st_mtime_ns))
+          with _interfaceview.interface_view(outdir) as second:
+            self.assertNotEqual(first, second)
+            self.assertEqual((Path(second) / 'Probe.fint').read_text(), 'other')
+          os.utime(product, ns=(before.st_atime_ns, before.st_mtime_ns + 1000000))
+          with _interfaceview.interface_view(outdir) as third:
+            self.assertNotEqual(second, third)
+
+  def test_later_explicit_list_replacement(self):
+    from pathlib import Path
+    from curry.backends.cxx import tiered
+    for reset in (False, True):
+      with self.subTest(reset=reset), tempfile.TemporaryDirectory() as work:
+        root = Path(work)
+        maybe = root / 'first/Data/Maybe.curry'
+        maybe.parent.mkdir(parents=True)
+        maybe.write_text(Path(sourcefile('Data.Maybe')).read_text().replace(
+            'listToMaybe (a : _) = Just a', 'listToMaybe (a : _) = Nothing'))
+        first = root / 'user/First.curry'
+        first.parent.mkdir()
+        first.write_text('module First where\nimport System.Console.GetOpt\ngoal = True\n')
+        _frontend.curry2flat(str(first), [str(root / 'first')], quiet=True)
+        self.assertTrue(list(Path(tiered._state.tmpdir).rglob('List.curry')))
+        if reset:
+          curry.reset()
+        replacement = root / 'second/Data/List.curry'
+        replacement.parent.mkdir(parents=True)
+        text = Path(sourcefile('Data.List')).read_text()
+        # Add the export to the existing explicit export list.
+        start = text.index('module Data.List')
+        export = text.index('(', start)
+        text = text[:export + 1] + 'sentinel, ' + text[export + 1:]
+        replacement.write_text(text + '\nsentinel :: Int\nsentinel = 42\n')
+        second = root / 'other/Second.curry'
+        second.parent.mkdir()
+        second.write_text('module Second where\nimport Data.List (sentinel)\ngoal = sentinel\n')
+        result = _frontend.curry2flat(str(second), [str(root / 'second')], quiet=True)
+        self.assertTrue(Path(result).is_file())
+
+  def test_external_user_import_is_private(self):
+    if config.icurry_tool() is None:
+      self.skipTest('external icurry is not configured')
+    self._explicit_make_replaced_import_is_private(
+        '--external', transitive=True, user=True)
+
   def test_user_frontend_command(self):
     from unittest.mock import patch
     from curry.toolchain import _system
@@ -531,8 +620,10 @@ def checked_command(*args, **kwargs):
   if '-P' in cmd:
     library = cmd[cmd.index('-P') + 1]
     paths = [cmd[i + 1] for i, value in enumerate(cmd[:-1]) if value == '-i']
-    private = list(reversed(tiered._state.private))
-    assert paths[:len(private)] == private, paths
+    private = tiered._state.private
+    assert all(path in private for path in paths
+               if path != library and tiered._state.tmpdir
+               and path.startswith(tiered._state.tmpdir + os.sep)), paths
     assert not any(path.startswith(curry.config.installed_path('curry')) for path in paths)
     assert not any(path.is_file() for path in Path(library).rglob('*.curry'))
     assert list(Path(library).rglob('*.fint'))
@@ -570,7 +661,8 @@ else:
     else:
       curry.import_('System.Console.GetOpt')
   else:
-    make.main('sprite-make', [route, argument])
+    make.main('sprite-make', (['--icy', '--curry2icurry', 'icurry', argument]
+        if route == '--external' else [route, argument]))
   if spelling != 'absolute':
     actual_path, actual_header = image.ensure(curry._interpreter_, argument, curry.path)
     assert actual_path == expected_path, (actual_path, expected_path)

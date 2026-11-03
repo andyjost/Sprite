@@ -88,6 +88,7 @@ mode; on-disk checks distinguish the two translations.
 from .. import config
 from . import _preprocessor, _system, flat2icurry
 from ..exceptions import CompileError, CurryWarning
+from contextlib import contextmanager
 import warnings
 from ..utility import curryname
 import logging, os, re, shlex, sys, time
@@ -288,20 +289,32 @@ def curry2flat(file_in, currypath, quiet=False, rewrite=True):
   following the same destination rule as the requested module. User products
   stay beside their source; in-place installed translations keep their path.
   """
+  with protected_translation(file_in, currypath, quiet, rewrite) as context:
+    selected, search, library = context
+    return _run_frontend(selected, currypath, quiet, rewrite, search, library)
+
+
+@contextmanager
+def protected_translation(file_in, currypath, quiet=False, rewrite=True):
+  """Resolve only this translation's private prerequisites and interface view."""
   from . import _destination, _findcurry
   from ._interfaceview import interface_view
-  from ..backends.cxx import tiered
   original = _destination.canonical(file_in)
   selected = _destination.select(original,
       _destination.interfaces(original, currypath))
-  private = (selected != original or any(
-      selected.startswith(root + os.sep)
-      for root in tiered._state.private))
-  if not private and _findcurry._installed_library_file(selected):
-    return _run_frontend(selected, currypath, quiet, rewrite)
+  if selected == original and _findcurry._installed_library_file(selected):
+    yield selected, None, None
+    return
   with interface_view(os.path.join('.curry', config.frontend_subdir())) as library:
+    roots = []
+    def include(source):
+      root = source_root(source)
+      if root not in roots:
+        roots.append(root)
+    if selected != original:
+      include(selected)
     def search():
-      return list(dict.fromkeys(list(reversed(tiered._state.private)) + [
+      return list(dict.fromkeys(roots + [
           directory for directory in searchdirs(selected, currypath)
           if not _findcurry._installed_library_file(directory)] + [library]))
 
@@ -317,9 +330,10 @@ def curry2flat(file_in, currypath, quiet=False, rewrite=True):
         products = _destination.interfaces(dependency, currypath)
         if _destination.needs_private(dependency, products):
           copy = _destination.select(dependency, products)
+          include(copy)
           _run_frontend(copy, currypath, quiet, rewrite, search(), library)
     prepare(original)
-    return _run_frontend(selected, currypath, quiet, rewrite, search(), library)
+    yield selected, search(), library
 
 
 def _run_frontend(file_in, currypath, quiet=False, rewrite=True,

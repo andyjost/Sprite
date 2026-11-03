@@ -462,10 +462,16 @@ class Curry2ICurryConverter(object):
         try:
           with filesys.remove_file_on_error(file_out):
             if self.tool == 'icurry':
-              _frontend.curry2flat(file_in, currypath, self.quiet)
-              if logger.isEnabledFor(logging.DEBUG):
-                logger.debug('Command: %s', ' '.join(cmd))
-              _system.pexec(cmd, cwd=_frontend.source_root(file_in))
+              with _frontend.protected_translation(
+                  file_in, currypath, self.quiet) as (selected, search, library):
+                _frontend._run_frontend(selected, currypath, self.quiet,
+                                        search=search, library=library)
+                protected = search or _frontend.searchdirs(selected, currypath)
+                with _system.bindCurryPath(protected):
+                  if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug('Command: %s', ' '.join(cmd))
+                  _system.pexec(cmd, cwd=_frontend.source_root(selected),
+                                env=_frontend.frontend_environment())
             else:
               _frontend.curry2icurry(file_in, file_out, currypath, self.quiet)
             if logger.isEnabledFor(logging.INFO):
