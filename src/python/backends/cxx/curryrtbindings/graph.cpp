@@ -202,19 +202,34 @@ namespace
   };
 
   // The holder of a Node wrapper.  The node is a root of the collector for
-  // as long as the wrapper lives.  pybind11 constructs one holder per
+  // as long as the wrapper lives, and until any deferred removal drains.
+  // pybind11 constructs one holder per
   // wrapper (always_construct_holder), and one wrapper per node address.
   template<typename T>
   struct RootHolder
   {
+    struct Removal : PendingHeapAction
+    {
+      explicit Removal(T * node) : address(reinterpret_cast<uintptr_t>(node)) {}
+      uintptr_t address;
+      void apply(bool current) noexcept override
+        { if(current) gc_remove_root(reinterpret_cast<T *>(address)); }
+    };
     explicit RootHolder(T * node) : node(node)
-      { if(node) { curryrt::python::HeapAccessScope lock(false); gc_add_root(node); } }
-    RootHolder(RootHolder const & other) : node(other.node)
-      { if(node) { curryrt::python::HeapAccessScope lock(false); gc_add_root(node); } }
+    {
+      if(node)
+      {
+        curryrt::python::HeapAccessScope lock(false);
+        removal = std::make_unique<Removal>(node);
+        gc_add_root(node);
+      }
+    }
+    RootHolder(RootHolder const & other) : RootHolder(other.node) {}
     RootHolder & operator=(RootHolder const &) = delete;
-    ~RootHolder() { if(node) { curryrt::python::HeapAccessScope lock(false); gc_remove_root(node); } }
+    ~RootHolder() { if(removal) heap_dispose(removal.release()); }
     T * get() const { return node; }
     T * node;
+    std::unique_ptr<Removal> removal;
   };
 
   // Runs a collection on behalf of Python.  Returns the number of nodes
@@ -790,6 +805,15 @@ namespace curryrt { namespace python
         , curryrt::python::heap_access{})
       ;
 
+    // No heap_access: tests inspect pending finalization while another
+    // thread owns the heap. The queue mutex protects this count alone.
+    mod.def("_heap_pending_count", &heap_pending_count);
+    mod.def("_test_defer_stale_root", [](Node * node)
+      {
+        auto * action = new RootHolder<Node>::Removal(node);
+        --action->generation;
+        heap_dispose(action);
+      });
     mod.def("_heap_status", []
       {
         auto counts = heap_status();

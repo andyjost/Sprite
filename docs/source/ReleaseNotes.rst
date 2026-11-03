@@ -22,6 +22,9 @@ Unreleased
   version probes, program arguments and ``:save``. The REPL module is
   now ``curry.tools.repl``.
 
+- Fix a deadlock between LLVM hot compilation and reset or cached function
+  resolution by deferring native root and state destruction when the heap
+  is busy (#182).
 - Implement ``System.IO`` handles and current Python standard streams,
   enabling ``Debug.Trace.traceIO``, plus primitives for the CPM packages ``directory``
   and ``process``. ``exitWith`` raises catchable ``SystemExit`` in the API.

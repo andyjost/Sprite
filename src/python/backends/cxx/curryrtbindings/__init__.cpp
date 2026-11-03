@@ -44,6 +44,7 @@ PYBIND11_MODULE(_curryrtbindings, mod, pybind11::mod_gil_not_used())
   // acquiring a Python mutex before a heap wait. Never used for stepping.
   mod.def("_metadata_call", [](pybind11::function action) { return action(); },
       curryrt::python::heap_access());
+  mod.def("_heap_drain", &curryrt::heap_drain, curryrt::python::heap_access());
   curryrt::set_host_poll(&python_poll);
   curryrt::set_host_wait(&python_wait);
   curryrt::python::register_checker(mod);

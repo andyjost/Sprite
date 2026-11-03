@@ -28,8 +28,8 @@ namespace curryrt
       HeapStatus counts{0, 0, 0};
     };
     Gate *& gate_ptr() { static auto * p = new Gate; return p; }
-    void before_fork() { gate_ptr()->mutex.lock(); }
-    void parent_after_fork() { gate_ptr()->mutex.unlock(); }
+    void before_fork();
+    void parent_after_fork();
     void child_after_fork();
     Gate & gate()
     {
@@ -42,6 +42,26 @@ namespace curryrt
       (void) registered;
       return *gate_ptr();
     }
+    struct Pending
+    {
+      std::mutex mutex;
+      PendingHeapAction * head = nullptr;
+      size_t count = 0;
+      std::atomic<uint64_t> generation{1};
+    };
+    // Retained for finalizers that run after library static destruction.
+    Pending & pending() { static auto * p = new Pending; return *p; }
+    void before_fork()
+    {
+      gate_ptr()->mutex.lock();
+      pending().mutex.lock();
+    }
+    void parent_after_fork()
+    {
+      pending().mutex.unlock();
+      gate_ptr()->mutex.unlock();
+    }
+    thread_local bool draining = false;
     std::atomic<host_poll_type> poll_hook{nullptr};
     std::atomic<host_wait_type> wait_hook{nullptr};
     thread_local bool is_worker = false;
@@ -71,6 +91,7 @@ namespace curryrt
       // As with the ticker, the parent's parked thread does not survive
       // fork.  Keep recursion belonging to the surviving thread and leak
       // the old synchronization objects, which may have vanished waiters.
+      pending().mutex.unlock();
       Gate * old = gate_ptr();
       Gate * fresh = new Gate;
       if(old->owner == std::this_thread::get_id())
@@ -215,12 +236,14 @@ namespace curryrt
   bool heap_try_lock()
   {
     auto & g = gate();
-    std::lock_guard<std::mutex> lock(g.mutex);
+    std::unique_lock<std::mutex> lock(g.mutex);
     auto const self = std::this_thread::get_id();
     if(g.depth && g.owner != self) { ++g.counts.waits; return false; }
     if(!g.depth) ++g.counts.entries;
     g.owner = self;
     ++g.depth;
+    lock.unlock();
+    heap_drain();
     return true;
   }
 
@@ -242,6 +265,8 @@ namespace curryrt
       if(!g.depth) ++g.counts.entries;
       g.owner = self;
       ++g.depth;
+      lock.unlock();
+      heap_drain();
     }
   }
 
@@ -250,6 +275,65 @@ namespace curryrt
     if(heap_try_lock()) return;
     if(auto wait = wait_hook.load()) wait(&wait_for_heap, &poll);
     else wait_for_heap(&poll);
+  }
+
+  uint64_t heap_generation() { return pending().generation.load(); }
+
+  size_t heap_pending_count()
+  {
+    auto & p = pending();
+    std::lock_guard<std::mutex> lock(p.mutex);
+    return p.count;
+  }
+
+  void heap_drain() noexcept
+  {
+    if(draining) return;
+    draining = true;
+    auto & p = pending();
+    for(;;)
+    {
+      PendingHeapAction * actions;
+      {
+        std::lock_guard<std::mutex> lock(p.mutex);
+        actions = p.head;
+        p.head = nullptr;
+        p.count = 0;
+      }
+      if(!actions) break;
+      while(actions)
+      {
+        auto * action = actions;
+        actions = action->next;
+        action->apply(action->generation == heap_generation());
+        delete action;
+      }
+    }
+    draining = false;
+  }
+
+  void heap_dispose(PendingHeapAction * action) noexcept
+  {
+    if(heap_try_lock())
+    {
+      action->apply(action->generation == heap_generation());
+      delete action;
+      heap_unlock();
+      return;
+    }
+    // No heap acquisition is attempted with this mutex held. The action
+    // owns its storage; a state is still registered until apply deletes it.
+    auto & p = pending();
+    std::lock_guard<std::mutex> lock(p.mutex);
+    action->next = p.head;
+    p.head = action;
+    ++p.count;
+  }
+
+  void heap_retire_generation() noexcept
+  {
+    heap_drain();
+    ++pending().generation;
   }
 
   void heap_unlock()
