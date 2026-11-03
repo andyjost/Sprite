@@ -676,23 +676,7 @@ extern "C"
   extern InfoTable const CyI7Control6Search12SetFunctions4set5 = set5_Info;
   extern InfoTable const CyI7Control6Search12SetFunctions4set6 = set6_Info;
   extern InfoTable const CyI7Control6Search12SetFunctions4set7 = set7_Info;
-  // Rewriting without outside-variable binding has no capsule equivalent.
-  extern InfoTable const CyI7Control6Search6Unsafe10rewriteAll {
-      T_FUNC, 1, sizeof(Node1), F_STATIC_OBJECT, "rewriteAll", "p"
-    , [](RuntimeState *, Configuration * C) -> tag_type {
-        C->set_error("Control.Search.Unsafe.rewriteAll: not implemented "
-                     "(native capsules cannot suppress outside bindings)");
-        return E_ERROR;
-      }, nullptr
-    };
-  extern InfoTable const CyI7Control6Search6Unsafe11rewriteSome {
-      T_FUNC, 1, sizeof(Node1), F_STATIC_OBJECT, "rewriteSome", "p"
-    , [](RuntimeState *, Configuration * C) -> tag_type {
-        C->set_error("Control.Search.Unsafe.rewriteSome: not implemented "
-                     "(native capsules cannot suppress outside bindings)");
-        return E_ERROR;
-      }, nullptr
-    };
+
 }
 
 static int register_setfunction_builtins()
@@ -741,12 +725,6 @@ static int register_setfunction_builtins()
       , {"set5", &CyI7Control6Search12SetFunctions4set5}
       , {"set6", &CyI7Control6Search12SetFunctions4set6}
       , {"set7", &CyI7Control6Search12SetFunctions4set7}
-      }
-    );
-  Module::register_builtin_module(
-      "Control.Search.Unsafe", {}
-    , { {"rewriteAll", &CyI7Control6Search6Unsafe10rewriteAll}
-      , {"rewriteSome", &CyI7Control6Search6Unsafe11rewriteSome}
       }
     );
   return 0;
