@@ -430,6 +430,12 @@ def _publication_path(interp, source, path, imports):
 
 
 def ensure(interp, icyfile, currypath=None, importing=False):
+  from ...toolchain import _findcurry
+  with _findcurry.resolving(interp):
+    return _ensure(interp, icyfile, currypath, importing)
+
+
+def _ensure(interp, icyfile, currypath=None, importing=False):
   icyfile = _destination.canonical(icyfile)
   source = _filenames.sourcefilename(icyfile)
   from ...toolchain import _findcurry, _interfaces, _curry2icurry

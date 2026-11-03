@@ -70,7 +70,7 @@ def interfaces(source, currypath, dependencies=None):
     for name in names:
       interface = None
       dependency = None
-      for directory in search:
+      for directory in _findcurry.module_path(name, search):
         candidate = os.path.join(directory, *name.split('.')) + '.curry'
         interface = _interfaces.interface_file(name, [directory])
         if os.path.isfile(candidate):

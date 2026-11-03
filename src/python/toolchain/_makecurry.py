@@ -74,7 +74,8 @@ def makecurry(plan, name, currypath=None, **kwds):
   currypath = _findcurry.program_path(name, currypath, **kwds)
   do_tidy = kwds.pop('tidy', False)
   output = kwds.pop('output', None)
-  with ToolchainContext(tidy=do_tidy, output=output) as pipeline:
+  with _findcurry.resolving(plan.interp), \
+      ToolchainContext(tidy=do_tidy, output=output) as pipeline:
     for attempt in range(3):
       pipeline.currentfile = _findcurry.currentfile(
           plan, name, currypath, **kwds

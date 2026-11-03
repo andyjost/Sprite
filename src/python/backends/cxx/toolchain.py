@@ -513,6 +513,7 @@ class ICurry2Cpp(ICurry2TargetSource):
     return self.interp.flags['interpret'] == 'new' \
         and filename.endswith(('.img',))
 
+  @_findcurry.with_resolution
   def is_stale(self, filename, currypath=None):
     '''
     Tells whether a .cpp file this step wrote is unusable (source_is_stale).
@@ -777,6 +778,7 @@ class Cpp2So(object):
       digests.add(object_digest('debug'))
     return digests
 
+  @_findcurry.with_resolution
   def is_stale(self, filename, currypath=None):
     '''
     Tells whether a cached file of this step is unusable.  The plan then
@@ -808,6 +810,7 @@ class Cpp2So(object):
           or not self.stamp_is_current(filename, currypath)
     return source_is_stale(filename, import_search_path(self.interp, filename, currypath), self.interp)
 
+  @_findcurry.with_resolution
   def stale_reason(self, sofile, currypath=None):
     '''Explain an interpreted import without changing the plan's decisions.'''
     source = _filenames.curryfilename(sofile)
@@ -827,6 +830,7 @@ class Cpp2So(object):
       return "an import's interface"
     return 'the ABI stamp'
 
+  @_findcurry.with_resolution
   def stamp_is_current(self, sofile, currypath=None):
     '''
     Tells whether the ABI stamp of ``sofile`` holds a digest this step
@@ -1371,6 +1375,7 @@ class Cpp2So(object):
       , 'frontend ' + cache.frontend_digest()
       ]
 
+  @_findcurry.with_resolution
   def product_key(self, filename, currypath):
     '''
     The key of the product cache for the module of ``filename``, a file of

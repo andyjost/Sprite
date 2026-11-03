@@ -143,6 +143,85 @@ print('Numeric translated privately and evaluated')
         self.assertIn('translated privately and evaluated', child.stdout)
         self.assertEqual(products(installed('Numeric')), before)
 
+  def test_loaded_dependency_translation(self):
+    for generalized in (False, True):
+      with tempfile.TemporaryDirectory() as work:
+        source = Path(work) / 'Data/Char.curry'
+        source.parent.mkdir()
+        text = installed('Data.Char').read_text()
+        if generalized:
+          text = text.replace('digitToInt      :: Char -> Int',
+                              'digitToInt      :: Num a => Char -> a')
+          text = re.sub(r"=  (ord c - ord '[0Aa]'(?: \+ 10)?)",
+                        r'=  fromInt (\1)', text)
+        else:
+          text = text.replace("ord c - ord '0'", "ord c - ord '0' + 1")
+        source.write_text(text)
+        library = Path(config.installed_path('curry'))
+        def snapshot():
+          return {str(path.relative_to(library)):
+                  hashlib.sha256(path.read_bytes()).hexdigest()
+                  for path in library.rglob('*') if path.is_file()}
+        before = snapshot()
+        child = cytest.run_in_subprocess(
+            "import curry; curry.path.insert(0, %r); curry.import_('Data.Char')"
+            % work, timeout=120, address_space=3 << 30)
+        self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+        for mode in ('new', 'all'):
+          for copy_first in (False, True):
+            with self.subTest(generalized=generalized, mode=mode,
+                              copy_first=copy_first):
+              code = r"""
+import curry, os, logging
+from curry.objects.handle import getHandle
+from curry.backends.cxx import image
+from curry import cache
+from curry.toolchain import _findcurry, _filenames, _interfaces, _productcache
+logging.basicConfig(level=logging.WARNING)
+curry.reset(interpret=%r, jit='off')
+root = %r
+copy_first = %r
+if copy_first:
+  curry.path.insert(0, root)
+char = curry.import_('Data.Char')
+if copy_first:
+  curry.path.remove(root)
+else:
+  curry.path.insert(0, root)
+assert curry.import_(os.path.join(root, 'Data', 'Char.curry')) is char
+module = curry.import_('Numeric')
+with _findcurry.resolving(curry._interpreter_):
+  filename = getHandle(module).icurry.filename
+  assert _interfaces.is_current(_filenames.icurryfilename(filename), curry.path)
+  loaded = os.path.realpath(getHandle(char).icurry.filename)
+  for closure in (cache.import_closure, _productcache.import_closure):
+    assert os.path.realpath(closure(filename, curry.path)['Data.Char'].path) == loaded
+assert curry.show(curry.eval(module.readNat(curry.term('1'))).one()) == %r
+path = image._path(curry._interpreter_, getHandle(module).icurry.filename)
+private = not os.path.realpath(path).startswith(
+    os.path.realpath(curry.config.installed_path('curry')) + os.sep)
+assert private == copy_first, path
+print('loaded: ' + ('private' if private else 'installed'))
+if root not in curry.path:
+  curry.path.insert(0, root)
+curry.reset(interpret=%r, jit='off')
+module = curry.import_('Numeric')
+assert curry.show(curry.eval(module.readNat(curry.term('1'))).one()) == %r
+path = image._path(curry._interpreter_, getHandle(module).icurry.filename)
+assert not os.path.realpath(path).startswith(
+    os.path.realpath(curry.config.installed_path('curry')) + os.sep), path
+print('reset: private')
+""" % (mode, work, copy_first,
+       '[(2,"")]' if copy_first and not generalized else '[(1,"")]',
+       mode, '[(1,"")]' if generalized else '[(2,"")]')
+              child = cytest.run_in_subprocess(code, timeout=120,
+                                               address_space=3 << 30)
+              self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+              self.assertIn('reset: private', child.stdout)
+              if not copy_first:
+                self.assertIn('loaded already', child.stderr)
+        self.assertEqual(snapshot(), before)
+
   def test_reserved_importer_snapshot(self):
     for mode in ('new', 'all', 'off'):
       with self.subTest(mode=mode), tempfile.TemporaryDirectory() as work:
@@ -317,9 +396,9 @@ for name in ('Data.List', 'System.Console.GetOpt'):
 expected = curry.show(curry.eval(module.main).one())
 assert expected.startswith('([],'), expected
 program = Path(%r) / 'saved'
-# A direct-import-only receipt can match the installed Data.List image
-# even though this session uses its private image. Model that receipt in
-# memory: the current pinned object's extra summary also names Data.Maybe.
+# Model an old direct-import-only receipt in memory. Freshness must compare
+# it with this session's loaded private Data.List image, so the installed
+# object is already rejected before the missing-object guard runs.
 from curry.backends.cxx.toolchain import Cpp2So
 from curry.toolchain import _filenames
 from unittest import mock
@@ -336,7 +415,7 @@ with (mock.patch.object(Cpp2So, '_read_stamp_records', classmethod(direct_record
       if direct_only else contextlib.nullcontext()):
   step = Cpp2So(curry._interpreter_)
   if direct_only:
-    assert step._object_on_disk('System.Console.GetOpt', curry.path) == product
+    assert step._object_on_disk('System.Console.GetOpt', curry.path) is None
   assert step.import_lacks_an_object(product)
   curry.save(module, program, main='main')
 # The executable must carry its session without the original source tree.

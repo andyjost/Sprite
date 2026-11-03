@@ -4,6 +4,8 @@ from . import _filenames
 from ..tools.utility import make_exception
 from ..utility import curryname, filesys, formatDocstring
 import logging, os
+from contextvars import ContextVar
+from contextlib import contextmanager
 
 __all__ = ['currentfile', 'import_path', 'imports_path', 'program_path']
 logger = logging.getLogger(__name__)
@@ -56,8 +58,58 @@ def _installed_library_file(filename):
   path = os.path.realpath(filename)
   return path == root or path.startswith(root + os.sep)
 
+# Translation and execution share loaded names for the duration of a plan.
+_translation_interp = ContextVar('translation_interp', default=None)
+
+
+@contextmanager
+def resolving(interp):
+  token = _translation_interp.set(interp)
+  try:
+    yield
+  finally:
+    _translation_interp.reset(token)
+
+
+def with_resolution(function):
+  from functools import wraps
+  @wraps(function)
+  def wrapped(plan, *args, **kwds):
+    with resolving(getattr(plan, 'interp', plan)):
+      return function(plan, *args, **kwds)
+  return wrapped
+
+
+def loaded_source(name, interp=None):
+  from ..objects import CurryPackage
+  from ..objects.handle import getHandle
+  interp = _translation_interp.get() if interp is None else interp
+  module = getattr(interp, 'modules', {}).get(name)
+  if module is not None and not isinstance(module, CurryPackage):
+    raw = getattr(getHandle(module), 'icurry', None)
+    filename = getattr(raw, 'filename', None)
+    if filename:
+      return _filenames.sourcefilename(filename)
+  return None
+
+
+def module_path(name, search):
+  """Resolve a loaded generation first, otherwise preserve path order."""
+  source = loaded_source(name)
+  if source is None:
+    return search
+  from ._frontend import source_root
+  return [source_root(source)]
+
+
 def _modulefiles(plan, name, currypath):
   '''Files in path order, then namespace directories from the whole path.'''
+  source = loaded_source(name, plan.interp)
+  if source is not None and name not in reserved_module_names():
+    for filename in reversed(plan.filelist(source)):
+      if os.path.isfile(filename):
+        yield filename
+    return
   curryname.validateModulename(name)
   parts = name.split('.')
   package_path, local = os.sep.join(parts[:-1]), parts[-1]
@@ -123,6 +175,7 @@ def import_path(interp, currypath):
       path.append(entry)
   return path
 
+@with_resolution
 @formatDocstring(config.python_package_name())
 def currentfile(
     plan, name, currypath, is_sourcefile=False, **ignored

@@ -174,7 +174,8 @@ def import_closure(curryfile, currypath=()):
       continue
     seen.add(name)
     relpath = name.replace('.', os.sep) + '.curry'
-    for found in filesys.findfiles(searchpaths, relpath):
+    from ._findcurry import module_path
+    for found in filesys.findfiles(module_path(name, searchpaths), relpath):
       found = os.path.abspath(found)
       if found != curryfile:
         info = cache._sourceinfo(found)

@@ -29,9 +29,10 @@ def search_path(filename, currypath=()):
 def interface_file(name, searchdirs, frontend=False):
   '''Prefer the versioned copies that travel with ICurry, as typing does.'''
   subdirs = [config.intermediate_subdir(), config.frontend_subdir()]
-  if frontend:
+  from ._findcurry import loaded_source, module_path
+  if frontend and loaded_source(name) is None:
     subdirs.reverse()
-  finder = InterfaceFinder(searchdirs, subdirs)
+  finder = InterfaceFinder(module_path(name, searchdirs), subdirs)
   try:
     return finder.filename(name)
   except Flat2ICurryError:
@@ -119,21 +120,23 @@ def object_snapshot(names, searchdirs):
   result = {}
   for name in sorted(set(names)):
     value = hashlib.sha256((digest(name, searchdirs) or 'missing').encode('ascii'))
-    parts = name.split('.')
-    for directory in searchdirs:
-      stem = os.path.join(directory, *parts[:-1], '.curry',
-          config.intermediate_subdir(), parts[-1])
-      found = False
-      for suffix in ('.img',):
-        try:
-          with open(stem + suffix, 'rb') as stream:
-            value.update(suffix.encode('ascii') + b'\0' + stream.read())
-          found = True
-          break
-        except FileNotFoundError:
-          pass
-      if found:
+    from ._findcurry import module_path, loaded_source, _translation_interp
+    source = loaded_source(name)
+    if source is not None:
+      from . import _destination
+      paths = _destination.images(_translation_interp.get(), [name])
+    else:
+      parts = name.split('.')
+      paths = [os.path.join(directory, *parts[:-1], '.curry',
+          config.intermediate_subdir(), parts[-1] + '.img')
+          for directory in module_path(name, searchdirs)]
+    for path in paths:
+      try:
+        with open(path, 'rb') as stream:
+          value.update(b'.img\0' + stream.read())
         break
+      except FileNotFoundError:
+        pass
     result[name] = value.hexdigest()
   return result
 

@@ -298,14 +298,17 @@ def curry2flat(file_in, currypath, quiet=False, rewrite=True):
 def protected_translation(file_in, currypath, quiet=False, rewrite=True):
   """Resolve only this translation's private prerequisites and interface view."""
   from . import _destination, _findcurry
-  from ._interfaceview import interface_view
+  from ._interfaceview import interface_view, loaded_interface_view
   original = _destination.canonical(file_in)
   selected = _destination.select(original,
       _destination.interfaces(original, currypath))
-  if selected == original and _findcurry._installed_library_file(selected):
+  if selected == original and _findcurry._installed_library_file(selected) \
+      and _findcurry._translation_interp.get() is None:
     yield selected, None, None
     return
-  with interface_view(os.path.join('.curry', config.frontend_subdir())) as library:
+  outdir = os.path.join('.curry', config.frontend_subdir())
+  with interface_view(outdir) as library, \
+      loaded_interface_view(outdir, searchdirs(selected, currypath)) as loaded:
     roots = []
     def include(source):
       root = source_root(source)
@@ -314,7 +317,7 @@ def protected_translation(file_in, currypath, quiet=False, rewrite=True):
     if selected != original:
       include(selected)
     def search():
-      return list(dict.fromkeys(roots + [
+      return list(dict.fromkeys(([loaded] if loaded else []) + roots + [
           directory for directory in searchdirs(selected, currypath)
           if not _findcurry._installed_library_file(directory)] + [library]))
 

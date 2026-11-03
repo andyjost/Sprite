@@ -19,6 +19,7 @@ def loadicurry(filename):
   return module
 
 
+@_findcurry.with_resolution
 @formatDocstring(config.python_package_name())
 def loadcurry(plan, name, currypath=None, **kwds):
   """Build and load a module, attaching interpreted code from its image."""

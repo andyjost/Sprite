@@ -1470,7 +1470,9 @@ class TestPortableObjects(ToolchainTestCase):
     with open(self.cpp2so.stampfile(sofile), 'w') as stream:
       stream.write(text.replace(build_prefix, toolchain.installation_path()))
     self.assertFalse(self.cpp2so.is_stale(sofile))
-    self.assertEqual(_findcurry.currentfile(self.plan, name, [copy]), sofile)
+    # This interpreter retains the original generation under the loaded name.
+    self.assertEqual(_findcurry.currentfile(self.plan, name, [copy]),
+                     self.cached_file(name, '.so'))
     # The import in a child: the runtime of this process holds the library
     # of the module under its first path.
     before = os.stat(sofile).st_mtime_ns
