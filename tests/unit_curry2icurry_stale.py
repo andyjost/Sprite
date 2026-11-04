@@ -690,6 +690,40 @@ class TestCacheHit(PreRewriteCase):
     self.assertEqual(_curry2icurry.rewrite_on_hit(curryfile), 0)
     self.assertEqual(readbytes(fcy), rewritten)
 
+  def test_hit_lifts_each_observer(self):
+    '''A current-route cache hit lifts the restored pre-rewrite observers.'''
+    self.set_cache_file(os.path.join(self.tmpdir, 'cache', 'icurry.db'))
+    cases = []
+    for operation, result_type in (('rewriteAll', '[Int]'),
+                                   ('rewriteSome', 'Maybe Int')):
+      name = 'Hit' + operation
+      curryfile = self.write(name, 'module %s where\n'
+          'import Control.Search.Unsafe\n'
+          'main :: %s\n'
+          'main = let x = 0 ? 1 in %s (x+10)\n' %
+          (name, result_type, operation))
+      icy = self.convert(curryfile, use_cache=True)
+      fcy = _frontend.flatcurryfile(curryfile)
+      rewritten = (readbytes(fcy), readbytes(icy))
+      for text in rewritten:
+        self.assertIn(b'_SET0', text)
+      self.pre_rewrite_pair(curryfile)
+      self.assertNotIn(b'_SET0', readbytes(fcy))
+      self.assertNotIn(b'_SET0', readbytes(icy))
+      self.assertTrue(_curry2icurry.icurry_is_stale(icy, [self.tmpdir]))
+      cases.append((operation, curryfile, fcy, icy, rewritten))
+    for operation, curryfile, fcy, icy, rewritten in cases:
+      with self.subTest(operation=operation):
+        _curry2icurry.reset_counts()
+        self.assertTrue(_curry2icurry.icurry_is_stale(icy, [self.tmpdir]))
+        self.hit(curryfile, icy)
+        self.assertIn(b'_SET0', readbytes(fcy))
+        self.assertEqual((readbytes(fcy), readbytes(icy)), rewritten)
+        self.assertFalse(_curry2icurry.icurry_is_stale(icy, [self.tmpdir]))
+        self.assertEqual(self.current(curryfile), icy)
+        self.assertEqual(_curry2icurry.pairs_refreshed(), 0)
+        self.assertEqual(_curry2icurry.pairs_served(), 1)
+
   def test_hit_touches_no_file_without_a_required_equality(self):
     '''
     A hit on a module whose FlatCurry file needs no rewrite leaves the
