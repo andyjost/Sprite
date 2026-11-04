@@ -190,24 +190,27 @@ fib :: Int -> Int
 fib n = if n < 2 then n else fib (n-1) + fib (n-2)
 ''')
       self.child('''
-import sys
+import os, sys
 # Attach the images without eagerly compiling a cold Prelude. Only fib
 # needs a persistent object for the resolver in the next child.
+os.environ['SPRITE_JIT_THRESHOLD'] = '1000000000'
 curry.reset(interpret='all', jit='hot', jit_backend='llvm')
-rt.icurry_set_hot_threshold(1000000000)
 M = curry.import_(sys.argv[1])
+assert rt.icurry_hot_threshold() == 1000000000
 llvmjit.compile(M.fib.info, 'FinalizationCache.fib')
 assert rt.icurry_is_jit(M.fib.info)
 ''', str(source))
       self.child('''
-import sys
+import os, sys
 from unittest import mock
-curry.reset(interpret='all', jit='hot', jit_backend='llvm')
 # Prevent the real hot thread from racing the event-controlled compile.
-rt.icurry_set_hot_threshold(1000000000)
+os.environ['SPRITE_JIT_THRESHOLD'] = '1000000000'
+curry.reset(interpret='all', jit='hot', jit_backend='llvm')
 M = curry.import_(sys.argv[1])
+assert rt.icurry_hot_threshold() == 1000000000
 assert not rt.icurry_is_jit(M.fib.info)
 Hot = curry.compile('hot :: Int -> Int\\nhot n = n + 1\\n')
+assert rt.icurry_hot_threshold() == 1000000000
 jit = llvmjit._jit
 batch = jit.compile_batch
 locked = threading.Event()
