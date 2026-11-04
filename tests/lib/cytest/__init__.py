@@ -31,11 +31,13 @@ import builtins
 import contextlib
 import functools
 import gc
+import io
 import os
 import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import unittest
 import warnings
 
@@ -212,8 +214,6 @@ class timeout(contextlib.ContextDecorator):
 
 # The exit status of the ``timeout`` command when the time limit expires.
 TIMEOUT_STATUS = 124
-# Escaped descendants may keep the captured pipes open after the group kill.
-TIMEOUT_DRAIN_SECONDS = 2
 
 _RLIMIT_BOOTSTRAP = '''import os, resource, sys, types
 limit = int(os.environ.pop("SPRITE_TEST_CHILD_LIMIT"))
@@ -375,9 +375,9 @@ def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
   The child runs under the ``timeout`` command, which kills it after
   ``timeout`` seconds (exit status TIMEOUT_STATUS).  ``address_space`` caps
   its virtual memory in bytes through ``prlimit`` or Linux RLIMIT_AS.
-  Without a timeout tool, a timed communicate kills the process group and
-  drains output for at most TIMEOUT_DRAIN_SECONDS. A descendant that leaves
-  the group is not killed.
+  Without a timeout tool, a timed wait kills the process group and captures
+  output in temporary files. A descendant that leaves the group is not killed
+  and cannot hold up capture by keeping an output stream open.
   The child inherits the environment and the working directory, so SPRITE_INTERPRETER_FLAGS selects
   the backend and CURRYPATH finds the test modules.  PYTHONIOENCODING is set
   to UTF-8, so the standard streams of a Python-backend child hold UTF-8 under
@@ -410,15 +410,29 @@ def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
   windows = sys.platform == 'win32'
   options = ({'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | 0x4}
              if windows else {'start_new_session': True})
-  with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                        stdin=subprocess.PIPE if input is not None else None,
-                        text=text, env=env, **options) as proc:
+  with contextlib.ExitStack() as stack:
+    stdout_file = stack.enter_context(tempfile.TemporaryFile())
+    stderr_file = stack.enter_context(tempfile.TemporaryFile())
+    stdin_file = None
+    if input is not None:
+      stdin_file = stack.enter_context(tempfile.TemporaryFile())
+      if text:
+        writer = io.TextIOWrapper(stdin_file, write_through=True)
+        try:
+          writer.write(input)
+          writer.flush()
+        finally:
+          writer.detach()
+      else:
+        stdin_file.write(input)
+      stdin_file.seek(0)
+    proc = subprocess.Popen(cmd, stdout=stdout_file, stderr=stderr_file,
+                            stdin=stdin_file, text=text, env=env, **options)
     try:
       if windows:
         procs.start_windows(proc)
       try:
-        stdout, stderr = proc.communicate(input=input, timeout=timeout)
-        status = proc.returncode
+        status = proc.wait(timeout=timeout)
       except subprocess.TimeoutExpired:
         if windows:
           procs.kill_session(proc.pid, leader=proc, reason='timeout')
@@ -427,21 +441,19 @@ def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
             os.killpg(proc.pid, signal.SIGKILL)
           except ProcessLookupError:
             pass
-        try:
-          stdout, stderr = proc.communicate(timeout=TIMEOUT_DRAIN_SECONDS)
-        except subprocess.TimeoutExpired as expired:
-          # A retry's exception includes all bytes read by both communicate
-          # calls; concatenating the first exception would duplicate output.
-          stdout, stderr = expired.stdout or b'', expired.stderr or b''
-          for pipe in (proc.stdout, proc.stderr):
-            pipe.close()
-          if text:
-            def decode(data):
-              value = data.decode('utf-8', errors='replace')
-              return value.replace('\r\n', '\n').replace('\r', '\n')
-            stdout, stderr = decode(stdout), decode(stderr)
+        proc.wait(timeout=2)
         status = TIMEOUT_STATUS
-      return subprocess.CompletedProcess(cmd, status, stdout, stderr)
+      def read(stream):
+        stream.seek(0)
+        data = stream.read()
+        if text:
+          # Popen selects the same locale/UTF-8 encoding as the tool path.
+          # TextIOWrapper defaults to strict errors and universal newlines.
+          with io.TextIOWrapper(io.BytesIO(data), encoding=proc.encoding) as reader:
+            return reader.read()
+        return data
+      return subprocess.CompletedProcess(cmd, status,
+                                         read(stdout_file), read(stderr_file))
     finally:
       if windows:
         procs.close_windows(proc.pid)

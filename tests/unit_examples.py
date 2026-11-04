@@ -499,12 +499,12 @@ class TestExampleDiagnostics(cytest.TestCase):
         , stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
       try:
-        stdout, stderr = proc.communicate(timeout=10)
+        stdout, stderr = proc.communicate(timeout=3)
         stacks = example_stacks(directory)
       finally:
         if proc.poll() is None:
           os.killpg(proc.pid, signal.SIGKILL)
-        proc.communicate()
+        proc.communicate(timeout=1)
       self.assertEqual(proc.returncode, 0, stderr)
       return stdout, stacks
 

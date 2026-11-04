@@ -31,40 +31,90 @@ class TestChildLimits(unittest.TestCase):
 
   @unittest.skipUnless(hasattr(os, 'setsid') and hasattr(os, 'fork'), 'needs POSIX sessions')
   def test_timeout_with_escaped_session(self):
-    with tempfile.TemporaryDirectory() as directory:
-      path = os.path.join(directory, 'escaped.pid')
-      code = ('import os, sys, time\n'
-              'if os.fork() == 0:\n'
-              '    os.setsid()\n'
-              '    with open(%r, "w") as stream: stream.write(str(os.getpid()))\n'
-              '    print("ready", flush=True)\n'
-              '    print("error", file=sys.stderr, flush=True)\n'
-              '    time.sleep(1.3)\n'
-              '    print("draining", flush=True)\n'
-              '    time.sleep(60)\n'
-              'else: time.sleep(60)\n') % path
-      def cleanup():
+    for text in (True, False):
+      with self.subTest(text=text), tempfile.TemporaryDirectory() as directory:
+        path = os.path.join(directory, 'escaped.pid')
+        release = os.path.join(directory, 'release')
+        written = os.path.join(directory, 'written')
+        code = ('import os, time\n'
+                'r, w = os.pipe()\n'
+                'if os.fork() == 0:\n'
+                '    with open(%r, "w") as stream: stream.write(str(os.getpid()))\n'
+                '    os.setsid()\n'
+                '    os.write(w, b"r")\n'
+                '    while not os.path.exists(%r): time.sleep(0.01)\n'
+                '    os.write(1, b"after\\r\\n")\n'
+                '    with open(%r, "w"): pass\n'
+                '    time.sleep(60)\n'
+                'else:\n'
+                '    os.read(r, 1)\n'
+                '    os.write(1, b"ready\\r\\n")\n'
+                '    os.write(2, b"error\\r")\n'
+                '    time.sleep(60)\n') % (path, release, written)
+        def cleanup():
+          try:
+            with open(path) as stream:
+              os.kill(int(stream.read()), signal.SIGKILL)
+          except (FileNotFoundError, ProcessLookupError):
+            pass
+        killpg = os.killpg
+        def kill_and_release(pid, sig):
+          killpg(pid, sig)
+          # Order the escaped writer after the kill and before the leader reap.
+          with open(release, 'w'):
+            pass
+          deadline = time.monotonic() + 1
+          while not os.path.exists(written) and time.monotonic() < deadline:
+            time.sleep(0.01)
+          self.assertTrue(os.path.exists(written), 'escaped writer did not respond')
+        guard = threading.Timer(4, cleanup)
+        guard.start()
+        start = time.monotonic()
         try:
-          with open(path) as stream:
-            os.kill(int(stream.read()), signal.SIGKILL)
-        except (FileNotFoundError, ProcessLookupError):
-          pass
-      # Bound this regression even with the old, unbounded drain.
-      guard = threading.Timer(6, cleanup)
-      guard.start()
+          with self.hidden('timeout', 'gtimeout'), \
+               mock.patch.object(cytest.os, 'killpg', side_effect=kill_and_release):
+            proc = cytest.run_in_subprocess(code, 1, text=text)
+          self.assertLess(time.monotonic() - start, 3)
+          self.assertEqual(proc.returncode, cytest.TIMEOUT_STATUS)
+          self.assertEqual(proc.stdout, 'ready\nafter\n' if text else b'ready\r\nafter\r\n')
+          self.assertEqual(proc.stderr, 'error\n' if text else b'error\r')
+        finally:
+          guard.cancel()
+          guard.join()
+          cleanup()
+
+  def test_timeout_with_inherited_stdout(self):
+    with tempfile.TemporaryDirectory() as directory:
+      path = os.path.join(directory, 'grandchild.pid')
+      grandchild = ('import os, time\n'
+                    'with open(%r, "w") as stream: stream.write(str(os.getpid()))\n'
+                    'time.sleep(4)\n') % path
+      code = ('import os, subprocess, sys, time\n'
+              'child = subprocess.Popen([sys.executable, "-c", %r])\n'
+              'deadline = time.monotonic() + 0.5\n'
+              'while not os.path.exists(%r) and time.monotonic() < deadline: time.sleep(0.01)\n'
+              'assert os.path.exists(%r)\n'
+              'os.write(1, b"ready\\n")\n'
+              'time.sleep(4)\n') % (grandchild, path, path)
       start = time.monotonic()
       try:
         with self.hidden('timeout', 'gtimeout'):
           proc = cytest.run_in_subprocess(code, 1)
-        elapsed = time.monotonic() - start
-        self.assertLess(elapsed, 1 + cytest.TIMEOUT_DRAIN_SECONDS + 1)
+        self.assertLess(time.monotonic() - start, 3)
         self.assertEqual(proc.returncode, cytest.TIMEOUT_STATUS)
-        self.assertEqual(proc.stdout, 'ready\ndraining\n')
-        self.assertEqual(proc.stderr, 'error\n')
+        self.assertEqual(proc.stdout, 'ready\n')
+        self.assertEqual(proc.stderr, '')
       finally:
-        guard.cancel()
-        guard.join()
-        cleanup()
+        try:
+          with open(path) as stream:
+            pid = int(stream.read())
+          if sys.platform == 'win32':
+            subprocess.run(['taskkill', '/F', '/PID', str(pid)],
+                           capture_output=True, timeout=2)
+          else:
+            os.kill(pid, signal.SIGKILL)
+        except (FileNotFoundError, ProcessLookupError):
+          pass
 
   @unittest.skipUnless(hasattr(os, 'fork'), 'needs fork')
   def test_timeout_kills_grandchild(self):
@@ -116,6 +166,19 @@ class TestChildLimits(unittest.TestCase):
     self.assertNotEqual(proc.returncode, 0)
     self.assertIn('File "<string>", line 2, in <module>', proc.stderr)
     self.assertIn('RuntimeError: line two', proc.stderr)
+
+  def test_file_capture_matches_tool(self):
+    code = ('import sys; data = sys.stdin.buffer.read(); '
+            'sys.stdout.buffer.write(data); sys.stderr.buffer.write(data)')
+    for text in (True, False):
+      data = 'caf\u00e9\r\nline\rend\n' if text else b'\xff\r\nline\rend\n'
+      expected = subprocess.run([sys.executable, '-c', code], input=data,
+                                capture_output=True, text=text)
+      with self.hidden('timeout', 'gtimeout'):
+        actual = cytest.run_in_subprocess(code, 2, input=data, text=text)
+      self.assertEqual(actual.returncode, expected.returncode)
+      self.assertEqual(actual.stdout, expected.stdout)
+      self.assertEqual(actual.stderr, expected.stderr)
 
   @unittest.skipUnless(sys.platform != 'win32' and
       (shutil.which('timeout') or shutil.which('gtimeout')), 'GNU timeout')
