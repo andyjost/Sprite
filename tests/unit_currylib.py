@@ -724,6 +724,18 @@ def checked_translate(fcyfile, finder, *args, **kwargs):
     read_list.append(path)
   return original_translate(fcyfile, finder, *args, **kwargs)
 flat2icurry.translate_file = checked_translate
+original_protected_translation = _frontend.protected_translation
+translation_routes = []
+command_routes = []
+@contextmanager
+def checked_protected_translation(file_in, currypath, quiet=False, rewrite=True, external=False):
+  translation_routes.append(external)
+  try:
+    with original_protected_translation(file_in, currypath, quiet, rewrite, external) as context:
+      yield context
+  finally:
+    translation_routes.pop()
+_frontend.protected_translation = checked_protected_translation
 original_command = _frontend.command
 def checked_command(*args, **kwargs):
   cmd = original_command(*args, **kwargs)
@@ -734,7 +746,8 @@ def checked_command(*args, **kwargs):
     private = tiered._state.private
     views = {entry[1] for entry in _interfaceview._views.values()}
     loaded_views = [path for path in paths if path in views and path != library]
-    external = %r
+    external = translation_routes[-1]
+    command_routes.append(external)
     assert all(any(p.is_file() for p in Path(path).rglob('*.curry')) == external
                for path in loaded_views)
     if loaded_views:
@@ -804,11 +817,12 @@ if %r:
   assert not path.startswith(curry.config.installed_path('curry')), path
 if missing_frontend:
   assert read_list, 'GetOpt did not read its private List interface'
-""" % (directory, missing_frontend, route == '--external', route, missing_object, argument, spelling, work,
+assert any(command_routes) == %r, command_routes
+""" % (directory, missing_frontend, route, missing_object, argument, spelling, work,
            missing_object, route, user, user, replaced,
            module.split('.')[-1] + ('.img' if route == '--image' else
                '.fcy' if route == '--rewrite-flat' else '.icy'),
-           transitive)
+           transitive, route == '--external')
             child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
             self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
             self.assertEqual(snapshot(str(root)), expected_files)
