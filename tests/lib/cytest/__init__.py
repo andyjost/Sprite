@@ -212,6 +212,17 @@ class timeout(contextlib.ContextDecorator):
 
 # The exit status of the ``timeout`` command when the time limit expires.
 TIMEOUT_STATUS = 124
+# Escaped descendants may keep the captured pipes open after the group kill.
+TIMEOUT_DRAIN_SECONDS = 2
+
+_RLIMIT_BOOTSTRAP = '''import os, resource, sys, types
+limit = int(os.environ.pop("SPRITE_TEST_CHILD_LIMIT"))
+code = os.environ.pop("SPRITE_TEST_CHILD_CODE")
+resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+main = types.ModuleType("__main__")
+sys.modules["__main__"] = main
+exec(compile(code, "<string>", "exec", dont_inherit=True), main.__dict__)
+'''
 
 # True when the collector of the C++ backend runs at every safepoint
 # (SPRITE_GC_STRESS=1; see src/curryrt/graph/gc/wdgc.cpp and section 4 of
@@ -364,7 +375,9 @@ def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
   The child runs under the ``timeout`` command, which kills it after
   ``timeout`` seconds (exit status TIMEOUT_STATUS).  ``address_space`` caps
   its virtual memory in bytes through ``prlimit`` or Linux RLIMIT_AS.
-  Without a timeout tool, a timed communicate kills the process tree.
+  Without a timeout tool, a timed communicate kills the process group and
+  drains output for at most TIMEOUT_DRAIN_SECONDS. A descendant that leaves
+  the group is not killed.
   The child inherits the environment and the working directory, so SPRITE_INTERPRETER_FLAGS selects
   the backend and CURRYPATH finds the test modules.  PYTHONIOENCODING is set
   to UTF-8, so the standard streams of a Python-backend child hold UTF-8 under
@@ -375,19 +388,21 @@ def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
   manager cannot stop such a test, and a crash would end the test runner.
   '''
   global _address_space_warning
+  env = dict(os.environ, PYTHONIOENCODING='utf-8')
   prefix = limit_prefix(address_space, timeout)
   external_timeout = any(name in prefix for name in ('timeout', 'gtimeout'))
   if address_space is not None and 'prlimit' not in prefix:
     if sys.platform.startswith('linux'):
       # Execute in the child, avoiding preexec_fn in a threaded parent.
-      code = ('import resource; resource.setrlimit(resource.RLIMIT_AS, '
-              '(%d, %d))\n' % (address_space, address_space)) + code
+      # Keep argv, future imports and caller traceback line numbers intact.
+      env.update(SPRITE_TEST_CHILD_CODE=code,
+                 SPRITE_TEST_CHILD_LIMIT=str(address_space))
+      code = _RLIMIT_BOOTSTRAP
     elif not _address_space_warning:
       _address_space_warning = True
       warnings.warn('test child address-space cap is unavailable on this platform',
                     RuntimeWarning, stacklevel=2)
   cmd = prefix + [sys.executable, '-B', '-c', code]
-  env = dict(os.environ, PYTHONIOENCODING='utf-8')
   if external_timeout:
     kwds = {} if input is None else {'input': input}
     return subprocess.run(cmd, capture_output=True, text=text, env=env, **kwds)
@@ -412,7 +427,19 @@ def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
             os.killpg(proc.pid, signal.SIGKILL)
           except ProcessLookupError:
             pass
-        stdout, stderr = proc.communicate()
+        try:
+          stdout, stderr = proc.communicate(timeout=TIMEOUT_DRAIN_SECONDS)
+        except subprocess.TimeoutExpired as expired:
+          # A retry's exception includes all bytes read by both communicate
+          # calls; concatenating the first exception would duplicate output.
+          stdout, stderr = expired.stdout or b'', expired.stderr or b''
+          for pipe in (proc.stdout, proc.stderr):
+            pipe.close()
+          if text:
+            def decode(data):
+              value = data.decode('utf-8', errors='replace')
+              return value.replace('\r\n', '\n').replace('\r', '\n')
+            stdout, stderr = decode(stdout), decode(stderr)
         status = TIMEOUT_STATUS
       return subprocess.CompletedProcess(cmd, status, stdout, stderr)
     finally:

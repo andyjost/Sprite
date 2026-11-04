@@ -124,8 +124,11 @@ if os.name == "posix" and not hasattr(sys, "_sprite_example_dump"):
         # Integer descriptors avoid buffered-file locks inherited at fork.
         path = os.path.join(_directory, str(os.getpid()) + ".log")
         fd = os.open(path + ".pending", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        # On macOS, replacing SIGUSR1 after startup still loses the dump.
-        faulthandler.register(%d, file=fd, all_threads=True, chain=%r)
+        # Replacing SIGUSR1 after startup still loses the dump.
+        dump_signal = int(os.environ.get("SPRITE_EXAMPLE_DUMP_SIGNAL", %d))
+        previous = signal.getsignal(dump_signal)
+        chain = previous not in (signal.SIG_DFL, signal.SIG_IGN)
+        faulthandler.register(dump_signal, file=fd, all_threads=True, chain=chain)
         old = getattr(sys, "_sprite_example_dump", None)
         sys._sprite_example_dump = fd
         if old is not None:
@@ -142,7 +145,7 @@ if _spec is not None:
     _module = importlib.util.module_from_spec(_spec)
     sys.modules["sitecustomize"] = _module
     _spec.loader.exec_module(_module)
-''' % (DUMP_SIGNAL, not hasattr(signal, 'SIGRTMIN')))
+''' % DUMP_SIGNAL)
     env = dict(env, SPRITE_EXAMPLE_DUMP_DIR=directory,
                SPRITE_EXAMPLE_HOOK_PATHS=os.pathsep.join(filter(None, [
                    os.path.realpath(directory), env.get('SPRITE_EXAMPLE_HOOK_PATHS', '')
@@ -162,7 +165,7 @@ def signal_example_stacks(directory, group):
         # A descendant that starts its own session gets no signal and no dump.
         if os.getpgid(pid) == group:
           # An exec before handler setup is acceptable: timeout ends this tree.
-          os.kill(pid, DUMP_SIGNAL)
+          os.kill(pid, int(os.environ.get("SPRITE_EXAMPLE_DUMP_SIGNAL", DUMP_SIGNAL)))
       except ProcessLookupError:
         pass
 
@@ -384,6 +387,33 @@ class TestExampleDiagnostics(cytest.TestCase):
         stdout, _ = proc.communicate()
       self.assertNotIn('application', stdout)
 
+  @cytest.posix_only('needs POSIX dump signals')
+  def test_sigusr1_without_handler_survives(self):
+    with mock.patch.dict(os.environ, SPRITE_EXAMPLE_DUMP_SIGNAL=str(signal.SIGUSR1)):
+      stdout, stacks = self.run_fork_case(
+          'import os, signal\n'
+          'os.kill(os.getpid(), signal.SIGUSR1)\n'
+          'print("survived")\n')
+    self.assertEqual(stdout, 'survived\n')
+    self.assertIn('most recent call first', stacks)
+
+  @unittest.skipUnless(hasattr(os, 'fork'), 'needs fork without exec')
+  def test_sigusr1_chains_existing_handler(self):
+    # Unregister in the parent, install the application handler, then let the
+    # hook's at-fork callback register over it in the child.
+    with mock.patch.dict(os.environ, SPRITE_EXAMPLE_DUMP_SIGNAL=str(signal.SIGUSR1)):
+      stdout, stacks = self.run_fork_case(
+          'import faulthandler, os, signal\n'
+          'faulthandler.unregister(signal.SIGUSR1)\n'
+          'signal.signal(signal.SIGUSR1, lambda *args: print("application", flush=True))\n'
+          'pid = os.fork()\n'
+          'if pid == 0:\n'
+          '    os.kill(os.getpid(), signal.SIGUSR1)\n'
+          '    os._exit(0)\n'
+          'assert os.waitpid(pid, 0)[1] == 0\n')
+    self.assertEqual(stdout, 'application\n')
+    self.assertIn('most recent call first', stacks)
+
   @cytest.posix_only('needs POSIX process groups and signals')
   def test_registration_outside_example_group_is_not_signalled(self):
     prefix = cytest.limit_prefix(ADDRESS_SPACE, 8, 1)
@@ -427,9 +457,6 @@ class TestExampleDiagnostics(cytest.TestCase):
       exdir = os.path.join(directory, 'stalled')
       os.mkdir(exdir)
       with open(os.path.join(exdir, 'run'), 'w') as stream:
-        if not hasattr(signal, 'SIGRTMIN'):
-          # Preserve a harmless prior disposition for the chained dump hook.
-          stream.write("trap '' USR1\n")
         stream.write(
             'echo "driver stderr" >&2\n'
             '"$EXAMPLE_TEST_PYTHON" -c \'import time; time.sleep(60)\' 2>/dev/null &\n'
@@ -466,13 +493,6 @@ class TestExampleDiagnostics(cytest.TestCase):
       self.assertEqual(proc.stdout, 'customized\n')
 
   def run_fork_case(self, code):
-    if not hasattr(signal, 'SIGRTMIN'):
-      # Chaining SIG_DFL would terminate these successful fork probes. Install
-      # a prior application handler and register the hook over it instead.
-      code = ('import faulthandler, signal, sitecustomize\n'
-              'faulthandler.unregister(%d)\n'
-              'signal.signal(%d, lambda *args: None)\n'
-              'sitecustomize._example_register()\n' % (DUMP_SIGNAL, DUMP_SIGNAL)) + code
     with example_diagnostics(os.environ) as (env, directory):
       proc = subprocess.Popen(
           [sys.executable, '-c', code], env=env, start_new_session=True
