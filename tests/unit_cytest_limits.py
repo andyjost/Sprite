@@ -10,6 +10,11 @@ import threading
 import unittest
 from unittest import mock
 
+# CPython 3.14 mimalloc reserves 1 GiB arenas on 64-bit systems.
+MEMORY_CAP = 2 << 30
+SMALL_ALLOCATION = 'x = bytearray(1 << 20); print(len(x))'
+LARGE_ALLOCATION = 'x = bytearray(4 << 30)'
+
 
 class TestChildLimits(unittest.TestCase):
   def hidden(self, *names):
@@ -139,29 +144,48 @@ class TestChildLimits(unittest.TestCase):
   @unittest.skipUnless(sys.platform.startswith('linux'), 'Linux RLIMIT_AS')
   def test_memory_without_prlimit(self):
     with self.hidden('prlimit'):
-      small = cytest.run_in_subprocess('x = bytearray(1 << 20); print(len(x))', 2,
-                                       address_space=128 << 20)
-      large = cytest.run_in_subprocess('x = bytearray(256 << 20)', 2,
-                                       address_space=128 << 20)
+      small = cytest.run_in_subprocess(SMALL_ALLOCATION, 2,
+                                       address_space=MEMORY_CAP)
+      large = cytest.run_in_subprocess(LARGE_ALLOCATION, 2,
+                                       address_space=MEMORY_CAP)
     self.assertEqual(small.returncode, 0, small.stderr)
     self.assertNotEqual(large.returncode, 0)
     self.assertIn('MemoryError', large.stderr)
 
+  @unittest.skipUnless(sys.platform.startswith('linux') and shutil.which('prlimit'),
+                       'Linux prlimit')
+  def test_memory_launcher_matches_prlimit(self):
+    for code in (SMALL_ALLOCATION, LARGE_ALLOCATION):
+      with self.subTest(code=code):
+        expected = cytest.run_in_subprocess(code, 2, address_space=MEMORY_CAP)
+        with self.hidden('prlimit'):
+          actual = cytest.run_in_subprocess(code, 2, address_space=MEMORY_CAP)
+        self.assertIn('prlimit', expected.args)
+        self.assertNotIn('prlimit', actual.args)
+        self.assertEqual(actual.returncode, expected.returncode)
+        self.assertEqual(actual.stdout, expected.stdout)
+        self.assertEqual(actual.stderr, expected.stderr)
+        if code == SMALL_ALLOCATION:
+          self.assertEqual(actual.returncode, 0, actual.stderr)
+          self.assertEqual(actual.stdout, '1048576\n')
+        else:
+          self.assertNotEqual(actual.returncode, 0)
+          self.assertIn('MemoryError', actual.stderr)
+
   @unittest.skipUnless(sys.platform.startswith('linux'), 'Linux RLIMIT_AS')
-  def test_memory_bootstrap_preserves_code(self):
+  def test_memory_launcher_preserves_code(self):
     code = ('from __future__ import annotations\n'
             'import sys; assert sys.argv == ["-c"]; raise RuntimeError("line two")')
     with self.hidden('prlimit'):
-      proc = cytest.run_in_subprocess(code, 2, address_space=128 << 20)
+      proc = cytest.run_in_subprocess(code, 2, address_space=MEMORY_CAP)
       success = cytest.run_in_subprocess(
           'from __future__ import annotations\n'
           'def f(x: Undefined): pass\n'
           'assert f.__annotations__ == {"x": "Undefined"}\n'
           'assert __name__ == "__main__"\n'
           'assert "resource" not in globals()\n'
-          'assert "SPRITE_TEST_CHILD_CODE" not in __import__("os").environ\n'
-          'assert "SPRITE_TEST_CHILD_LIMIT" not in __import__("os").environ\n'
-          'assert __import__("__main__").f is f', 2, address_space=128 << 20)
+          'assert not any(k.startswith("SPRITE_TEST_CHILD_") for k in __import__("os").environ)\n'
+          'assert __import__("__main__").f is f', 2, address_space=MEMORY_CAP)
     self.assertEqual(success.returncode, 0, success.stderr)
     self.assertNotEqual(proc.returncode, 0)
     self.assertIn('File "<string>", line 2, in <module>', proc.stderr)

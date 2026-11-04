@@ -215,13 +215,10 @@ class timeout(contextlib.ContextDecorator):
 # The exit status of the ``timeout`` command when the time limit expires.
 TIMEOUT_STATUS = 124
 
-_RLIMIT_BOOTSTRAP = '''import os, resource, sys, types
-limit = int(os.environ.pop("SPRITE_TEST_CHILD_LIMIT"))
-code = os.environ.pop("SPRITE_TEST_CHILD_CODE")
+_RLIMIT_LAUNCHER = '''import os, resource, sys
+limit = int(sys.argv[1])
 resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
-main = types.ModuleType("__main__")
-sys.modules["__main__"] = main
-exec(compile(code, "<string>", "exec", dont_inherit=True), main.__dict__)
+os.execv(sys.argv[2], sys.argv[2:])
 '''
 
 # True when the collector of the C++ backend runs at every safepoint
@@ -391,18 +388,18 @@ def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
   env = dict(os.environ, PYTHONIOENCODING='utf-8')
   prefix = limit_prefix(address_space, timeout)
   external_timeout = any(name in prefix for name in ('timeout', 'gtimeout'))
+  child = [sys.executable, '-B', '-c', code]
   if address_space is not None and 'prlimit' not in prefix:
     if sys.platform.startswith('linux'):
-      # Execute in the child, avoiding preexec_fn in a threaded parent.
-      # Keep argv, future imports and caller traceback line numbers intact.
-      env.update(SPRITE_TEST_CHILD_CODE=code,
-                 SPRITE_TEST_CHILD_LIMIT=str(address_space))
-      code = _RLIMIT_BOOTSTRAP
+      # Apply the cap before interpreter startup, including arena reservations.
+      # exec preserves the PID for the timeout tool and process-group cleanup.
+      child = [sys.executable, '-B', '-c', _RLIMIT_LAUNCHER,
+               str(address_space)] + child
     elif not _address_space_warning:
       _address_space_warning = True
       warnings.warn('test child address-space cap is unavailable on this platform',
                     RuntimeWarning, stacklevel=2)
-  cmd = prefix + [sys.executable, '-B', '-c', code]
+  cmd = prefix + child
   if external_timeout:
     kwds = {} if input is None else {'input': input}
     return subprocess.run(cmd, capture_output=True, text=text, env=env, **kwds)
