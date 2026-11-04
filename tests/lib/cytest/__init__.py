@@ -31,12 +31,15 @@ import builtins
 import contextlib
 import functools
 import gc
+import io
 import os
 import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import unittest
+import warnings
 
 @contextlib.contextmanager
 def trap():
@@ -212,6 +215,12 @@ class timeout(contextlib.ContextDecorator):
 # The exit status of the ``timeout`` command when the time limit expires.
 TIMEOUT_STATUS = 124
 
+_RLIMIT_LAUNCHER = '''import os, resource, sys
+limit = int(sys.argv[1])
+resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+os.execv(sys.argv[2], sys.argv[2:])
+'''
+
 # True when the collector of the C++ backend runs at every safepoint
 # (SPRITE_GC_STRESS=1; see src/curryrt/graph/gc/wdgc.cpp and section 4 of
 # README).  A test whose child grows a large live heap, recurses deeply, or
@@ -351,6 +360,8 @@ def limit_prefix(address_space=None, timeout=None, kill_after=None):
         break
   return prefix
 
+_address_space_warning = False
+
 def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
   '''
   Runs Python ``code`` in a fresh interpreter and returns the
@@ -360,9 +371,11 @@ def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
 
   The child runs under the ``timeout`` command, which kills it after
   ``timeout`` seconds (exit status TIMEOUT_STATUS).  ``address_space`` caps
-  its virtual memory in bytes through ``prlimit``, where the platform has it
-  (see limit_prefix).  The child inherits the
-  environment and the working directory, so SPRITE_INTERPRETER_FLAGS selects
+  its virtual memory in bytes through ``prlimit`` or Linux RLIMIT_AS.
+  Without a timeout tool, a timed wait kills the process group and captures
+  output in temporary files. A descendant that leaves the group is not killed
+  and cannot hold up capture by keeping an output stream open.
+  The child inherits the environment and the working directory, so SPRITE_INTERPRETER_FLAGS selects
   the backend and CURRYPATH finds the test modules.  PYTHONIOENCODING is set
   to UTF-8, so the standard streams of a Python-backend child hold UTF-8 under
   any locale, as those of a C++-backend child do.
@@ -371,12 +384,77 @@ def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
   SIGALRM does not interrupt the C++ scheduler, so the ``timeout`` context
   manager cannot stop such a test, and a crash would end the test runner.
   '''
-  cmd = limit_prefix(address_space, timeout) + [sys.executable, '-B', '-c', code]
-  kwds = {} if input is None else {'input': input}
-  if sys.platform == 'win32':
-    kwds['timeout'] = timeout
+  global _address_space_warning
   env = dict(os.environ, PYTHONIOENCODING='utf-8')
-  return subprocess.run(cmd, capture_output=True, text=text, env=env, **kwds)
+  prefix = limit_prefix(address_space, timeout)
+  external_timeout = any(name in prefix for name in ('timeout', 'gtimeout'))
+  child = [sys.executable, '-B', '-c', code]
+  if address_space is not None and 'prlimit' not in prefix:
+    if sys.platform.startswith('linux'):
+      # Apply the cap before interpreter startup, including arena reservations.
+      # exec preserves the PID for the timeout tool and process-group cleanup.
+      child = [sys.executable, '-B', '-c', _RLIMIT_LAUNCHER,
+               str(address_space)] + child
+    elif not _address_space_warning:
+      _address_space_warning = True
+      warnings.warn('test child address-space cap is unavailable on this platform',
+                    RuntimeWarning, stacklevel=2)
+  cmd = prefix + child
+  if external_timeout:
+    kwds = {} if input is None else {'input': input}
+    return subprocess.run(cmd, capture_output=True, text=text, env=env, **kwds)
+  from testrunner import procs
+  windows = sys.platform == 'win32'
+  options = ({'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | 0x4}
+             if windows else {'start_new_session': True})
+  with contextlib.ExitStack() as stack:
+    stdout_file = stack.enter_context(tempfile.TemporaryFile())
+    stderr_file = stack.enter_context(tempfile.TemporaryFile())
+    stdin_file = None
+    if input is not None:
+      stdin_file = stack.enter_context(tempfile.TemporaryFile())
+      if text:
+        writer = io.TextIOWrapper(stdin_file, write_through=True)
+        try:
+          writer.write(input)
+          writer.flush()
+        finally:
+          writer.detach()
+      else:
+        stdin_file.write(input)
+      stdin_file.seek(0)
+    proc = subprocess.Popen(cmd, stdout=stdout_file, stderr=stderr_file,
+                            stdin=stdin_file, text=text, env=env, **options)
+    try:
+      if windows:
+        procs.start_windows(proc)
+      try:
+        status = proc.wait(timeout=timeout)
+      except subprocess.TimeoutExpired:
+        if windows:
+          procs.kill_session(proc.pid, leader=proc, reason='timeout')
+        else:
+          try:
+            os.killpg(proc.pid, signal.SIGKILL)
+          except ProcessLookupError:
+            pass
+        proc.wait(timeout=2)
+        status = TIMEOUT_STATUS
+      def read(stream):
+        stream.seek(0)
+        data = stream.read()
+        if text:
+          # Popen selects the same locale/UTF-8 encoding as the tool path.
+          # TextIOWrapper defaults to strict errors and universal newlines.
+          with io.TextIOWrapper(io.BytesIO(data), encoding=proc.encoding) as reader:
+            return reader.read()
+        return data
+      return subprocess.CompletedProcess(cmd, status,
+                                         read(stdout_file), read(stderr_file))
+    finally:
+      if windows:
+        procs.close_windows(proc.pid)
+
 
 
 
