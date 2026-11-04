@@ -31,6 +31,8 @@ TIMEOUT = 120                  # seconds for the compile and the run of one exam
 KILL_AFTER = 10                # seconds from SIGTERM to SIGKILL in the timeout command
 KILLED_STATUS = 128 + 9        # the status of timeout when its SIGKILL fires
 DUMP_LEAD_TIME = 30            # seconds before the example time limit
+# A private real-time signal leaves application SIGUSR1 handlers alone on Linux.
+DUMP_SIGNAL = signal.SIGRTMIN + 3 if hasattr(signal, 'SIGRTMIN') else getattr(signal, 'SIGUSR1', None)
 STACK_TEXT_LIMIT = 256 * 1024  # aggregate bytes collected from dump files
 
 # The runnable examples.
@@ -122,12 +124,13 @@ if os.name == "posix" and not hasattr(sys, "_sprite_example_dump"):
         # Integer descriptors avoid buffered-file locks inherited at fork.
         path = os.path.join(_directory, str(os.getpid()) + ".log")
         fd = os.open(path + ".pending", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        faulthandler.register(signal.SIGUSR1, file=fd, all_threads=True)
+        # On macOS, replacing SIGUSR1 after startup still loses the dump.
+        faulthandler.register(%d, file=fd, all_threads=True, chain=%r)
         old = getattr(sys, "_sprite_example_dump", None)
         sys._sprite_example_dump = fd
         if old is not None:
             os.close(old)
-        # Publish only after SIGUSR1 is safe to send.
+        # Publish only after the dump signal is safe to send.
         os.replace(path + ".pending", path)
     _example_register()
     os.register_at_fork(after_in_child=_example_register)
@@ -139,7 +142,7 @@ if _spec is not None:
     _module = importlib.util.module_from_spec(_spec)
     sys.modules["sitecustomize"] = _module
     _spec.loader.exec_module(_module)
-''')
+''' % (DUMP_SIGNAL, not hasattr(signal, 'SIGRTMIN')))
     env = dict(env, SPRITE_EXAMPLE_DUMP_DIR=directory,
                SPRITE_EXAMPLE_HOOK_PATHS=os.pathsep.join(filter(None, [
                    os.path.realpath(directory), env.get('SPRITE_EXAMPLE_HOOK_PATHS', '')
@@ -159,7 +162,7 @@ def signal_example_stacks(directory, group):
         # A descendant that starts its own session gets no signal and no dump.
         if os.getpgid(pid) == group:
           # An exec before handler setup is acceptable: timeout ends this tree.
-          os.kill(pid, signal.SIGUSR1)
+          os.kill(pid, DUMP_SIGNAL)
       except ProcessLookupError:
         pass
 
@@ -359,6 +362,28 @@ def function_of(relpath, name):
 
 
 class TestExampleDiagnostics(cytest.TestCase):
+  @unittest.skipUnless(sys.platform.startswith('linux'), 'Linux real-time signals')
+  def test_application_sigusr1_handler_keeps_dump(self):
+    with example_diagnostics(os.environ) as (env, directory):
+      proc = subprocess.Popen(
+          [sys.executable, '-c',
+           'import signal, time; '
+           'signal.signal(signal.SIGUSR1, lambda *args: print("application", flush=True)); '
+           'print("ready", flush=True); time.sleep(4)'],
+          env=env, start_new_session=True, stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE, text=True)
+      try:
+        self.assertEqual(proc.stdout.readline(), 'ready\n')
+        signal_example_stacks(directory, proc.pid)
+        deadline = time.monotonic() + 2
+        while not example_stacks(directory) and time.monotonic() < deadline:
+          time.sleep(0.01)
+        self.assertIn('most recent call first', example_stacks(directory))
+      finally:
+        os.killpg(proc.pid, signal.SIGKILL)
+        stdout, _ = proc.communicate()
+      self.assertNotIn('application', stdout)
+
   @cytest.posix_only('needs POSIX process groups and signals')
   def test_registration_outside_example_group_is_not_signalled(self):
     prefix = cytest.limit_prefix(ADDRESS_SPACE, 8, 1)
@@ -383,7 +408,7 @@ class TestExampleDiagnostics(cytest.TestCase):
           with mock.patch.object(os, 'kill', wraps=os.kill) as kill:
             signal_example_stacks(directory, group)
           self.assertTrue(kill.called)
-          self.assertNotIn(mock.call(outside.pid, signal.SIGUSR1), kill.call_args_list)
+          self.assertNotIn(mock.call(outside.pid, DUMP_SIGNAL), kill.call_args_list)
           self.assertIsNone(outside.poll())
         finally:
           outside.terminate()
@@ -402,6 +427,9 @@ class TestExampleDiagnostics(cytest.TestCase):
       exdir = os.path.join(directory, 'stalled')
       os.mkdir(exdir)
       with open(os.path.join(exdir, 'run'), 'w') as stream:
+        if not hasattr(signal, 'SIGRTMIN'):
+          # Preserve a harmless prior disposition for the chained dump hook.
+          stream.write("trap '' USR1\n")
         stream.write(
             'echo "driver stderr" >&2\n'
             '"$EXAMPLE_TEST_PYTHON" -c \'import time; time.sleep(60)\' 2>/dev/null &\n'
@@ -438,6 +466,13 @@ class TestExampleDiagnostics(cytest.TestCase):
       self.assertEqual(proc.stdout, 'customized\n')
 
   def run_fork_case(self, code):
+    if not hasattr(signal, 'SIGRTMIN'):
+      # Chaining SIG_DFL would terminate these successful fork probes. Install
+      # a prior application handler and register the hook over it instead.
+      code = ('import faulthandler, signal, sitecustomize\n'
+              'faulthandler.unregister(%d)\n'
+              'signal.signal(%d, lambda *args: None)\n'
+              'sitecustomize._example_register()\n' % (DUMP_SIGNAL, DUMP_SIGNAL)) + code
     with example_diagnostics(os.environ) as (env, directory):
       proc = subprocess.Popen(
           [sys.executable, '-c', code], env=env, start_new_session=True
@@ -458,13 +493,13 @@ class TestExampleDiagnostics(cytest.TestCase):
     for after_signal in (False, True):
       code = (
           'import os, signal\n'
-          'if %r: os.kill(os.getpid(), signal.SIGUSR1)\n'
+          'if %r: os.kill(os.getpid(), %d)\n'
           'pid = os.fork()\n'
-          'if pid == 0 and %r: os.kill(os.getpid(), signal.SIGUSR1)\n'
+          'if pid == 0 and %r: os.kill(os.getpid(), %d)\n'
           'if pid != 0:\n'
           '    assert os.waitpid(pid, 0)[1] == 0\n'
           '    print("reaped")\n'
-        ) % (after_signal, after_signal)
+        ) % (after_signal, DUMP_SIGNAL, after_signal, DUMP_SIGNAL)
       stdout, _ = self.run_fork_case(code)
       self.assertEqual(stdout, 'reaped\n')
 
@@ -502,14 +537,14 @@ class TestExampleDiagnostics(cytest.TestCase):
         'else:\n'
         '    import time\n'
         '    os.read(ready_r, 1)\n'
-        '    os.kill(pid, signal.SIGUSR1)\n'
+        '    os.kill(pid, %d)\n'
         '    path = os.path.join(os.environ["SPRITE_EXAMPLE_DUMP_DIR"], str(pid) + ".log")\n'
         '    while os.stat(path).st_size == 0: time.sleep(0.01)\n'
         '    os.write(w, b"x")\n'
         '    assert os.waitpid(pid, 0)[1] == 0\n'
         '    print(pid)\n'
       )
-    stdout, stacks = self.run_fork_case(code)
+    stdout, stacks = self.run_fork_case(code % DUMP_SIGNAL)
     self.assertIn('Python process %s:' % stdout.strip(), stacks)
     self.assertIn('in blocked_child', stacks)
 

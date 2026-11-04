@@ -37,6 +37,7 @@ import signal
 import subprocess
 import sys
 import unittest
+import warnings
 
 @contextlib.contextmanager
 def trap():
@@ -351,6 +352,8 @@ def limit_prefix(address_space=None, timeout=None, kill_after=None):
         break
   return prefix
 
+_address_space_warning = False
+
 def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
   '''
   Runs Python ``code`` in a fresh interpreter and returns the
@@ -360,9 +363,9 @@ def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
 
   The child runs under the ``timeout`` command, which kills it after
   ``timeout`` seconds (exit status TIMEOUT_STATUS).  ``address_space`` caps
-  its virtual memory in bytes through ``prlimit``, where the platform has it
-  (see limit_prefix).  The child inherits the
-  environment and the working directory, so SPRITE_INTERPRETER_FLAGS selects
+  its virtual memory in bytes through ``prlimit`` or Linux RLIMIT_AS.
+  Without a timeout tool, a timed communicate kills the process tree.
+  The child inherits the environment and the working directory, so SPRITE_INTERPRETER_FLAGS selects
   the backend and CURRYPATH finds the test modules.  PYTHONIOENCODING is set
   to UTF-8, so the standard streams of a Python-backend child hold UTF-8 under
   any locale, as those of a C++-backend child do.
@@ -371,12 +374,51 @@ def run_in_subprocess(code, timeout, address_space=None, input=None, text=True):
   SIGALRM does not interrupt the C++ scheduler, so the ``timeout`` context
   manager cannot stop such a test, and a crash would end the test runner.
   '''
-  cmd = limit_prefix(address_space, timeout) + [sys.executable, '-B', '-c', code]
-  kwds = {} if input is None else {'input': input}
-  if sys.platform == 'win32':
-    kwds['timeout'] = timeout
+  global _address_space_warning
+  prefix = limit_prefix(address_space, timeout)
+  external_timeout = any(name in prefix for name in ('timeout', 'gtimeout'))
+  if address_space is not None and 'prlimit' not in prefix:
+    if sys.platform.startswith('linux'):
+      # Execute in the child, avoiding preexec_fn in a threaded parent.
+      code = ('import resource; resource.setrlimit(resource.RLIMIT_AS, '
+              '(%d, %d))\n' % (address_space, address_space)) + code
+    elif not _address_space_warning:
+      _address_space_warning = True
+      warnings.warn('test child address-space cap is unavailable on this platform',
+                    RuntimeWarning, stacklevel=2)
+  cmd = prefix + [sys.executable, '-B', '-c', code]
   env = dict(os.environ, PYTHONIOENCODING='utf-8')
-  return subprocess.run(cmd, capture_output=True, text=text, env=env, **kwds)
+  if external_timeout:
+    kwds = {} if input is None else {'input': input}
+    return subprocess.run(cmd, capture_output=True, text=text, env=env, **kwds)
+  from testrunner import procs
+  windows = sys.platform == 'win32'
+  options = ({'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | 0x4}
+             if windows else {'start_new_session': True})
+  with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                        stdin=subprocess.PIPE if input is not None else None,
+                        text=text, env=env, **options) as proc:
+    try:
+      if windows:
+        procs.start_windows(proc)
+      try:
+        stdout, stderr = proc.communicate(input=input, timeout=timeout)
+        status = proc.returncode
+      except subprocess.TimeoutExpired:
+        if windows:
+          procs.kill_session(proc.pid, leader=proc, reason='timeout')
+        else:
+          try:
+            os.killpg(proc.pid, signal.SIGKILL)
+          except ProcessLookupError:
+            pass
+        stdout, stderr = proc.communicate()
+        status = TIMEOUT_STATUS
+      return subprocess.CompletedProcess(cmd, status, stdout, stderr)
+    finally:
+      if windows:
+        procs.close_windows(proc.pid)
+
 
 
 
