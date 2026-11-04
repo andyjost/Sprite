@@ -500,6 +500,9 @@ class TestPerformanceRecord(unittest.TestCase):
         self.assertEqual(samples[0]['aot_inline_budgets'],
             {'Dep': 4 if enabled else None})
 
+  # Win32 collapses '..' in the text of a path before it follows a link, so
+  # a '..' after a link never leaves through it there.
+  @unittest.skipIf(os.name == 'nt', "'..' after a symlink is lexical on Windows")
   def test_cold_probe_symlink_parent_search_root(self):
     from benchmarks import aot
     with tempfile.TemporaryDirectory() as directory:
