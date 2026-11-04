@@ -97,23 +97,17 @@ jobs:
             python - <<'PY'
           from pathlib import Path
           import shutil
-          wheels = list(Path('frontend-artifacts').glob('*/dist/curry_frontend-*.whl'))
+          wheels = list(Path('frontend-artifacts').glob('*/dist/curry_frontend-3.1.0.post*-py3-none-*.whl'))
           def tagged(p, prefix, arch):
               tags = p.stem.rsplit('-', 1)[-1].split('.')
               return any(t.startswith(prefix) and t.endswith('_' + arch) for t in tags)
-          # The two manylinux wheels are required; the macOS wheels are kept
-          # when the run has them (the front-end workflow builds 3.1.0 on
-          # macOS since 2026-10-26, issue #162; a run from before has none,
-          # and the macOS smoke test then takes the front end from PyPI).
-          for prefix, arch, required in (
-                  ('manylinux_2_28', 'x86_64', True), ('manylinux_2_28', 'aarch64', True)
-                , ('macosx', 'arm64', False), ('macosx', 'x86_64', False)
-                , ('win', 'amd64', False)):
+          # Every supported release platform must come from this run.
+          for prefix, arch in (
+                  ('manylinux_2_28', 'x86_64'), ('manylinux_2_28', 'aarch64')
+                , ('macosx', 'arm64'), ('macosx', 'x86_64')
+                , ('win', 'amd64')):
               matches = [p for p in wheels if tagged(p, prefix, arch)]
-              assert matches or not required, (prefix, arch)
-              if not matches:
-                  print('No wheel for', prefix, arch)
-                  continue
+              assert matches, (prefix, arch)
               # A rerun keeps earlier attempt artifacts on the same run.
               matches.sort(key=lambda p: int(p.parents[1].name.rsplit('-', 1)[1]))
               print('Selected', matches[-1])
@@ -232,8 +226,8 @@ jobs:
         # The environment is not activated on purpose: python -m curry finds
         # the front end beside its interpreter. Then the compiler of Xcode
         # compiles Peano, as the user's g++ does in the Linux smoke test.
-        # The front end 3.1.0 comes from the wheelhouse, or from PyPI when
-        # the front-end run has no macOS wheels.
+        # The front end 3.1.0 comes from the complete wheelhouse, or from
+        # PyPI when frontend_source selects it.
         run: |
           set -euxo pipefail
           sw_vers
