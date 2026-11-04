@@ -1,4 +1,5 @@
 #include "curryrt/bigint.hpp"
+#include "curryrt/evaluation_test.hpp"
 #include "heap.hpp"
 #include <cassert>
 #include <cstdint>
@@ -806,8 +807,36 @@ namespace curryrt { namespace python
       ;
 
     // No heap_access: tests inspect pending finalization while another
-    // thread owns the heap. The queue mutex protects this count alone.
+    // thread owns the heap. Each query takes only its bookkeeping mutex.
     mod.def("_heap_pending_count", &heap_pending_count);
+    mod.def("_test_heap_waits", [] { return heap_status().waits; });
+    // Private controls for deterministic fork/drain regression tests.
+    mod.def("_test_completion", [](bool retire)
+      {
+        py::gil_scoped_release release;
+        return heap_test_completion(retire);
+      });
+    mod.def("_test_child_fence", []
+      {
+        py::gil_scoped_release release;
+        return heap_test_child_fence();
+      });
+    mod.def("_test_run_drain", []
+      {
+        py::gil_scoped_release release;
+        HeapScope heap(false);
+      });
+    mod.def("_test_resume_at_fork", []
+      {
+        py::gil_scoped_release release;
+        heap_test_resume_at_fork();
+      });
+    mod.def("_test_pause_drain", &heap_test_pause_drain);
+    mod.def("_test_resume_drain", &heap_test_resume_drain);
+    mod.def("_test_drain_paused", &heap_test_drain_paused);
+    mod.def("_test_resumer_ready", &heap_test_resumer_ready);
+    mod.def("_test_dispose", &heap_test_dispose);
+    mod.def("_test_applied", &heap_test_applied);
     mod.def("_test_defer_stale_root", [](Node * node)
       {
         auto * action = new RootHolder<Node>::Removal(node);
