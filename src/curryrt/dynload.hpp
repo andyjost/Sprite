@@ -120,13 +120,16 @@ namespace curryrt
     SharedCurryModule(
         std::string const & sofilename, std::string const & loadpath
       );
+    SharedCurryModule(std::string const & sofilename, ModuleRegistry const &);
+    SharedCurryModule(std::string const & sofilename, std::string const & loadpath,
+                      ModuleRegistry const &);
     SharedCurryModuleInfo const * info() const;
     ModuleBOM const * bom() const;
 
     static SharedCurryModuleInfo const * find(char const * module_fullname);
     static InfoTable const * symbol(char const * module_fullname, char const * symbolname);
   private:
-    void init(bool fresh);
+    void init(bool fresh, ModuleRegistry const &);
     std::shared_ptr<SharedCurryModuleInfo const> _info;
   };
 }

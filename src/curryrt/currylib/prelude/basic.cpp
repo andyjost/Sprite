@@ -41,7 +41,7 @@ static tag_type error2_step(RuntimeState * rts, Configuration * C)
   if(tag < T_CTOR) return tag;
 
   C->set_error(_1.target, extract_string(_2.target),
-      _1.target->info == ioerror_info(NONDET_ERROR) ? ErrorKind::nondet : ErrorKind::io);
+      _1.target->info == ioerror_info(rts, NONDET_ERROR) ? ErrorKind::nondet : ErrorKind::io);
 
   Node * replacement = io(unit());
   _0->forward_to(replacement);

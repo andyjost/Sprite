@@ -25,7 +25,7 @@ def cycle():
   term = curry.term(123456789)
   state = rt.InterpreterState()
   rts = rt.RuntimeStateBase(state, term._node, False, rt.NOLIMIT, 65536, 0)
-  module = rt.Module.find_or_create('FinalizationOrphan')
+  module = rt.Module.find_or_create(curry._interpreter_._its, 'FinalizationOrphan')
   values = [term, state, rts, module]
   values.append(values)
 
@@ -196,7 +196,7 @@ import os, sys
 os.environ['SPRITE_JIT_THRESHOLD'] = '1000000000'
 curry.reset(interpret='all', jit='hot', jit_backend='llvm')
 M = curry.import_(sys.argv[1])
-assert rt.icurry_hot_threshold() == 1000000000
+assert rt.icurry_hot_threshold(curry._interpreter_._its) == 1000000000
 llvmjit.compile(M.fib.info, 'FinalizationCache.fib')
 assert rt.icurry_is_jit(M.fib.info)
 ''', str(source))
@@ -207,10 +207,10 @@ from unittest import mock
 os.environ['SPRITE_JIT_THRESHOLD'] = '1000000000'
 curry.reset(interpret='all', jit='hot', jit_backend='llvm')
 M = curry.import_(sys.argv[1])
-assert rt.icurry_hot_threshold() == 1000000000
+assert rt.icurry_hot_threshold(curry._interpreter_._its) == 1000000000
 assert not rt.icurry_is_jit(M.fib.info)
 Hot = curry.compile('hot :: Int -> Int\\nhot n = n + 1\\n')
-assert rt.icurry_hot_threshold() == 1000000000
+assert rt.icurry_hot_threshold(curry._interpreter_._its) == 1000000000
 jit = llvmjit._jit
 batch = jit.compile_batch
 locked = threading.Event()
@@ -224,7 +224,8 @@ def collecting_batch(*args, **kwds):
 def compile_hot():
   cycle()
   info = Hot.hot.info
-  llvmjit._compile_groups(jit, [(info, jit.names[rt.icurry_address(info)])], post=True)
+  llvmjit._compile_groups(jit, [(info, jit.names[rt.icurry_address(info)])], post=True,
+      work={rt.icurry_address(info): rt.icurry_work(info)})
 with mock.patch.object(jit, 'compile_batch', side_effect=collecting_batch):
   thread = threading.Thread(target=lambda: checked(compile_hot))
   thread.start()

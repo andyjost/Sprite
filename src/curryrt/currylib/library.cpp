@@ -31,10 +31,10 @@ namespace
     return T_FWD;
   }
 
-  tag_type io_error(Configuration * C, int code, std::string const & name = "")
+  tag_type io_error(RuntimeState * rts, Configuration * C, int code, std::string const & name = "")
   {
     std::string message = name.empty() ? std::strerror(code) : name + ": " + std::strerror(code);
-    C->set_error(Node::create(ioerror_info(IO_ERROR),
+    C->set_error(Node::create(ioerror_info(rts, IO_ERROR),
         build_curry_string(message.c_str())), "i/o error: " + message,
         ErrorKind::io);
     return E_ERROR;
@@ -81,7 +81,7 @@ namespace
 #endif
   }
 
-  tag_type environment(RuntimeState *, Configuration * C)
+  tag_type environment(RuntimeState * rts, Configuration * C)
   {
     Cursor root = C->cursor();
     // The Curry wrappers normalize the complete strings before this step.
@@ -104,7 +104,7 @@ namespace
     }
     else
       error = platform::unset_environment(name);
-    return error ? io_error(C, error, name) : finish(C, unit());
+    return error ? io_error(rts, C, error, name) : finish(C, unit());
   }
 
   extern DataType const ref_type;
@@ -369,7 +369,7 @@ namespace
     int result = 0;
     auto tag = compare_terms(rts, C, C->cursor()[0], C->cursor()[1], result);
     if(tag < T_CTOR) return tag;
-    return observed(C, Node::create(Module::find_symbol("Prelude",
+    return observed(C, Node::create(Module::find_symbol(rts->istate.modules, "Prelude",
         result < 0 ? "LT" : result > 0 ? "GT" : "EQ")));
   }
 
@@ -433,7 +433,7 @@ namespace
       InfoTable const * info = nullptr;
       for(auto const & module: modules)
       {
-        info = Module::find_symbol(module, name);
+        info = Module::find_symbol(rts->istate.modules, module, name);
         if(info && info->tag >= T_CTOR) break;
         info = nullptr;
       }
@@ -481,7 +481,7 @@ namespace
             std::vector<Arg> args{node};
             do { args.emplace_back(term()); } while(take(','));
             std::string name = "(" + std::string(args.size()-1, ',') + ")";
-            auto info = Module::find_symbol("Prelude", name);
+            auto info = Module::find_symbol(rts->istate.modules, "Prelude", name);
             if(!info) throw std::invalid_argument("tuple");
             node = Node::create(info, args.data());
           }

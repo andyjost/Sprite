@@ -439,15 +439,19 @@ class TestValues(cytest.TestCase):
       , '[3, 2, 1]'
       ]))
     self.assertEqual(self.value(expected, 'chars'), ['"az\\955\\n"'])
+    compiled_prelude = None
     for mode in 'new', 'all':
       M = None
       M = switch(mode)
       interpreted = curryrt.icurry_is_interpreted(M.fact.info)
       self.assertEqual(interpreted, mode == 'all', mode)
-      self.assertEqual(
-          curryrt.icurry_is_interpreted(curry.import_('Prelude')['map'].info)
-        , mode == 'all', mode
-        )
+      prelude_info = curry.import_('Prelude')['map'].info
+      self.assertEqual(curryrt.icurry_is_interpreted(prelude_info), mode == 'all')
+      if mode == 'new':
+        compiled_prelude = prelude_info
+      else:
+        self.assertIsNot(prelude_info, compiled_prelude)
+        self.assertFalse(curryrt.icurry_is_interpreted(compiled_prelude))
       if mode == 'all':
         self.assertEqual(self.values(M), expected)
 
@@ -557,29 +561,28 @@ main = double (CxxInterp.fact 3)
 
   @cytest.hardreset
   def test_all(self):
-    M = switch('all')
-    self.assertIsNone(getHandle(M).icurry.metadata.get('cxx.shlib'))
-    self.assertTrue(curryrt.icurry_is_interpreted(M.fact.info))
-    prelude = curry.import_('Prelude')
-    self.assertIsNone(getHandle(prelude).icurry.metadata.get('cxx.shlib'))
-    self.assertTrue(curryrt.icurry_is_interpreted(prelude.map.info))
-    self.assertTrue(curryrt.icurry_is_interpreted(prelude.length.info))
-    # A built-in keeps the step of the runtime.
-    self.assertFalse(
-        curryrt.icurry_is_interpreted(curry.import_('Prelude')['plusInt'].info)
-      )
-    self.assertFalse(
-        curryrt.icurry_is_interpreted(curry.import_('Prelude')['apply'].info)
-      )
-    # Set functions.
-    setf = curry.import_('Control.SetFunctions')
-    self.assertFalse(curryrt.icurry_is_interpreted(setf.set1.info))
-    self.assertTrue(curryrt.icurry_is_interpreted(setf.sortValues.info))
-    self.assertGreater(curryrt.icurry_count(), 1000)
-    self.assertEqual(
-        list(curry.eval(cytest.raw.expr(prelude.length, [1, 2, 3], typed=True)))
-      , [3]
-      )
+    # Isolate the compiled objects and interpreted tables created by this fixture.
+    child = cytest.run_in_subprocess(r'''
+import curry
+from curry.backends.cxx import curryrtbindings as rt
+from curry.objects.handle import getHandle
+curry.reset(backend='cxx', interpret='all', jit='off')
+module = curry.import_('CxxInterp')
+assert getHandle(module).icurry.metadata.get('cxx.shlib') is None
+assert rt.icurry_is_interpreted(module.fact.info)
+prelude = curry.import_('Prelude')
+assert getHandle(prelude).icurry.metadata.get('cxx.shlib') is None
+assert rt.icurry_is_interpreted(prelude.map.info)
+assert rt.icurry_is_interpreted(prelude.length.info)
+assert not rt.icurry_is_interpreted(prelude['plusInt'].info)
+assert not rt.icurry_is_interpreted(prelude['apply'].info)
+setf = curry.import_('Control.SetFunctions')
+assert not rt.icurry_is_interpreted(setf.set1.info)
+assert rt.icurry_is_interpreted(setf.sortValues.info)
+assert rt.icurry_count() > 1000
+assert curry.eval(prelude.length([1, 2, 3])).one() == 3
+''', timeout=TIMEOUT, address_space=ADDRESS_SPACE)
+    self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
   @cytest.hardreset
   def test_attach_refusals(self):
@@ -588,6 +591,7 @@ main = double (CxxInterp.fact 3)
     # A built-in: a static table.
     self.assertRaisesRegex(
         ValueError, 'static', curryrt.icurry_attach
+      , getHandle(curry.import_('Prelude')).backend_handle
       , curry.import_('Prelude')['plusInt'].info, code, [], 0, 0, 0
       )
     # A compiled function: the table of the object, or, when an earlier
@@ -595,29 +599,29 @@ main = double (CxxInterp.fact 3)
     # taken back with the step of the object at the load (issue #163).
     self.assertRaisesRegex(
         ValueError, 'static|has a step', curryrt.icurry_attach
-      , M.fact.info, code, [], 0, 0, 0
+      , getHandle(M).backend_handle, M.fact.info, code, [], 0, 0, 0
       )
     # A constructor.
     self.assertRaisesRegex(
         ValueError, 'not a function', curryrt.icurry_attach
-      , M.Circle.info, code, [], 0, 0, 0
+      , getHandle(M).backend_handle, M.Circle.info, code, [], 0, 0, 0
       )
     # A function interpreted already.
     M = None
     M = switch('all')
     self.assertRaisesRegex(
         ValueError, 'has a step', curryrt.icurry_attach
-      , M.fact.info, code, [], 0, 0, 0
+      , getHandle(M).backend_handle, M.fact.info, code, [], 0, 0, 0
       )
     # A bad constant.
     info = getHandle(M).backend_handle.create_infotable(
         'fresh', 1, common.T_FUNC, 0
       )
     self.assertRaisesRegex(
-        TypeError, 'constant', curryrt.icurry_attach, info, code, [1], 0, 0, 0
+        TypeError, 'constant', curryrt.icurry_attach, getHandle(M).backend_handle, info, code, [1], 0, 0, 0
       )
     self.assertRaisesRegex(
-        ValueError, 'kind', curryrt.icurry_attach, info, code, [('X', 1)], 0, 0, 0
+        ValueError, 'kind', curryrt.icurry_attach, getHandle(M).backend_handle, info, code, [('X', 1)], 0, 0, 0
       )
     self.assertFalse(curryrt.icurry_is_interpreted(info))
     # The flag is read back.
@@ -1253,7 +1257,7 @@ other = 2
     gc.disable()  # the module of the plan's import stays alive, as in a run without a collection
     try:
       toolchain.makecurry(plan, name, self.currypath)
-      old = materialize._PENDING[name].module()
+      old = materialize._PENDING[(cytest.raw.interp()._its.registry_id, name)].module()
       self.assertIsNotNone(old)
       self.assertNotIn(name, cytest.raw.interp().modules)
       self.assertTrapped(old, 'double', 'main', 'boom')

@@ -177,7 +177,7 @@ namespace curryrt
   tag_type RuntimeState::nondet_monad_error(Configuration * C)
   {
     Node * value = Node::create(
-        ioerror_info(NONDET_ERROR), cstring(NONDET_MONAD_ERROR_TEXT)
+        ioerror_info(this, NONDET_ERROR), cstring(NONDET_MONAD_ERROR_TEXT)
       );
     C->set_error(value, NONDET_MONAD_ERROR_TEXT, ErrorKind::nondet);
     return E_ERROR;
