@@ -234,9 +234,9 @@ def measure_item(item, repeat, perf):
       if isinstance(item, suites.CacheVariant) and probe is not None:
         # These objects are rebuilt in a different empty directory per run.
         # macOS may report the canonical path of an aliased temp directory.
-        workdir = os.path.normcase(os.path.realpath(cwd))
+        workdir = aot.canonical_path(cwd)
         for name, obj in list(probe.items()):
-          path = os.path.normcase(os.path.realpath(obj['path']))
+          path = aot.canonical_path(obj['path'])
           try:
             local = os.path.commonpath([path, workdir]) == workdir
           except ValueError: # Different drives on Windows.
@@ -249,6 +249,21 @@ def measure_item(item, repeat, perf):
   cxx = getattr(item, 'backend', None) == 'cxx'
   if cxx and item.warmup():
     probe_item()
+  before = None
+  if cxx and not item.warmup():
+    _, env, cwd = item.command()
+    try:
+      # Include application sources as well as the command's search path:
+      # application children add their example directory at runtime.
+      directories = [ROOTDIR, item.settings.sprite_home, cwd]
+      directories.extend(os.path.join(cwd, path)
+          for path in env.get('CURRYPATH', '').split(os.pathsep) if path)
+      if env.get('SPRITE_CPM_PATH') != '0':
+        from curry.config import cpm_path
+        directories.extend(cpm_path(cwd))
+      before = aot.snapshot(directories)
+    finally:
+      item.cleanup()
   started = aot.measurement_mark() if cxx and not item.warmup() else None
   samples = []
   for _ in range(repeat):
@@ -261,9 +276,13 @@ def measure_item(item, repeat, perf):
     if not item.warmup():
       probe_item()
     budgets, warnings = aot.checked_budgets(probe,
-        since=started if not item.warmup() else None)
+        since=started if not item.warmup() else None, before=before)
     if budgets is not None:
       budgets.update(fresh)
+      binding_warnings = aot.binding_changes(before)
+      if binding_warnings:
+        budgets = {name: None for name in budgets}
+        warnings = sorted(set(warnings + binding_warnings))
     # Keep paths private to the identity check; records carry no local paths.
     for sample in samples:
       sample['aot_inline_budgets'] = budgets
