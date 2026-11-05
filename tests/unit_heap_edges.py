@@ -230,6 +230,11 @@ print('ok')
 ''')
 
   def test_imported_constructor_tags_precede_image_lock(self):
+    """Use a guarded hook in place of the unguarded native tag descriptor.
+
+    A baseline timeout shows the inversion with that hook, not a deadlock of
+    the unchanged baseline descriptor, whose property heap guard is ineffective.
+    """
     self.child('''
 import os, tempfile
 from curry.backends.cxx import image
@@ -290,6 +295,11 @@ print('ok')
 
   @cytest.posix_only('advisory process-lock contention')
   def test_jit_publication_contention_logging_can_reenter(self):
+    """Exercise deferred publication logging through the messages API.
+
+    The unchanged baseline rejects store(messages=...) before contention;
+    that API failure alone is not evidence of a baseline deadlock.
+    """
     self.child('''
 import os, tempfile
 from curry.toolchain import _productlock

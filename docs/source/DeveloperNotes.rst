@@ -215,8 +215,8 @@ file identity/stamp afterward, retrying if a producer replaced it. Restore
 similarly releases file locks before consulting interpreter/native state. Cache
 entries are immutable and first-producer-wins; a separate thread/process lock
 pins store/restore/prune operations. Lock order there is module product lock,
-then cache-root lock. No cache-root lock leads to an interpreter import or
-native heap entry. An external deletion of an entire cache is handled as a
+then cache-root lock. Cache-root file operations do not directly import
+interpreter modules or enter the native heap. An external deletion of an entire cache is handled as a
 miss/I/O failure, as before.
 
 The trap hook already holds the heap and may take a product lock. These
@@ -228,19 +228,20 @@ preparation and job waits are kept outside those transactions. Evaluation
 itself is never enclosed in a Python mutex or a metadata transaction. The
 large-stack worker therefore requires no Python lock ownership transfer.
 
-LLVM compilation, cache attachment and cached-function resolution collect log
-messages under their existing locks. Nested product-lock contention, stamp,
-compiler and cache diagnostics join the same message list. The outer holder
-emits after releasing the product locks, the JIT lock and the compilation-group
-lock, including on exceptional exits. Logging handlers may reenter Sprite; even
-a same-thread handler must not run inside either lock. The Python binding that
+JIT compilation, cached-function resolution, cache indexing and publication
+collect log records under their existing locks. The product-lock helper's own
+diagnostics and the C++ object compiler, stamp and product-cache diagnostics
+join the enclosing message list. The outer holder emits after releasing its
+product and JIT locks, including on exceptional exits. The Python binding that
 applies posted LLVM steps takes the heap gate before changing a step pointer.
-Compiler-facing table reads still need coordination with all native table
-writers; they are not certified by this lock-order fix.
-The constructor-tag regression explicitly guards its descriptor hook. Pybind's
-property helpers apply attributes after creating getters, so the custom
-``heap_access`` precall policy on those properties needs a separate binding
-audit; these tests do not certify every metadata property access.
+
+Open items: front-end conversion and the ICurry cache still log under a product
+lock (#194). Property bindings do not apply the custom ``heap_access`` precall
+guard because pybind11 constructs getters before processing their attributes
+(#195); the constructor-tag test substitutes an explicitly guarded descriptor
+hook. The ``icurry_is_jit`` race with native step/aux writers also remains open
+(#196); guarding posted swaps alone does not synchronize those readers and
+writers.
 
 ``tests/unit_heap_edges.py`` forces symbol-cache/heap and product-lock/heap
 inversions, abandoned-result/stream collection under the JIT lock, and a
