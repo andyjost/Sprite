@@ -58,6 +58,12 @@ class ProductCacheTestCase(cytest.TestCase):
     if name is None:
       name = self.new_name()
     cytest.write_module_image(self.cached_file(name, '.img'), cytest.json_module(name, value))
+    from curry.toolchain import _curry2icurry
+    source = os.path.join(self.srcdir, name + '.curry')
+    icyfile = self.cached_file(name, '.icy')
+    if os.path.isfile(source) and all(os.path.isfile(path) for path in (
+        self.cached_file(name, '.fint'), self.cached_file(name, '.icurry'), icyfile + '.imports')):
+      _curry2icurry.write_source_receipt(icyfile, _curry2icurry.source_digest(source))
     return name
 
   def cached_file(self, name, suffix):
@@ -197,7 +203,7 @@ class TestKey(ProductCacheTestCase):
     # The same files again give the same chain.
     self.write_image(1, name='A')
     self.assertEqual(_productcache.chain_digest(a, [self.srcdir]), with_image)
-    self.assertEqual(_productcache.KEY_FORMAT, 4)
+    self.assertEqual(_productcache.KEY_FORMAT, 5)
 
   def test_module_without_a_source(self):
     '''
@@ -267,7 +273,7 @@ class TestStore(ProductCacheTestCase):
     entry = _productcache.store(self.DIGEST, self.KEY, files)
     self.assertEqual(entry, _productcache.entry_dir(self.DIGEST, self.KEY))
     self.assertEqual(entry, os.path.join(self.root, self.DIGEST, self.KEY))
-    self.assertEqual(sorted(os.listdir(entry)), sorted(names))
+    self.assertEqual(sorted(os.listdir(entry)), sorted(names + [_productcache.MANIFEST]))
     self.assertEqual(self.temporary_names(), [])
     self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 1})
     found = _productcache.lookup(self.DIGEST, self.KEY, names)
@@ -286,7 +292,7 @@ class TestStore(ProductCacheTestCase):
         os.path.samefile(files[0], os.path.join(entry, name + '.cpp'))
       )
     # The restore into another product directory: the files, in the order
-    # of the toolchain, newer than the image there, the object a hard link.
+    # of the toolchain; timestamps stay unchanged, the object a hard link.
     other = os.path.join(
         self.base, 'other', '.curry', config.intermediate_subdir()
       )
@@ -295,6 +301,7 @@ class TestStore(ProductCacheTestCase):
     shutil.copy(self.cached_file(name, '.img'), imagefile)
     later = time.time_ns() + 3 * 10 ** 9
     os.utime(imagefile, ns=(later, later))
+    cached_times = [os.stat(os.path.join(entry, n)).st_mtime_ns for n in names[:2]]
     placed = _productcache.restore(self.DIGEST, self.KEY, other, names[:2])
     self.assertEqual(placed, {n: os.path.join(other, n) for n in names[:2]})
     self.assertEqual(_productcache.counts, {'restored': 1, 'stored': 1})
@@ -306,8 +313,8 @@ class TestStore(ProductCacheTestCase):
         os.stat(path).st_mtime_ns
         for path in [imagefile, placed[name + '.cpp'], placed[name + config.module_object_suffix()]]
       ]
-    self.assertEqual(times, sorted(times))
-    self.assertEqual(len(set(times)), 3)
+    self.assertEqual(times[1:], cached_times)
+    self.assertGreater(times[0], max(times[1:]))
     self.assertTrue(
         os.path.samefile(placed[name + config.module_object_suffix()], os.path.join(entry, name + config.module_object_suffix()))
       )
@@ -538,7 +545,7 @@ class TestCompile(ProductCacheTestCase):
     self.assertEqual(sofile, self.cached_file(name, config.module_object_suffix()))
     entry = self.entry(name)
     self.assertEqual(
-        sorted(os.listdir(entry)), [name + '.cpp', name + config.module_object_suffix(), name + config.module_object_suffix() + '.abi']
+        sorted(os.listdir(entry)), sorted([name + '.cpp', name + config.module_object_suffix(), name + config.module_object_suffix() + '.abi', _productcache.MANIFEST])
       )
     self.assertTrue(os.path.samefile(sofile, os.path.join(entry, name + config.module_object_suffix())))
     self.assertEqual(
@@ -583,13 +590,16 @@ class TestCompile(ProductCacheTestCase):
   def test_second_make_restores(self):
     '''
     The products removed, a second make places them from the cache: no
-    generation, no compile.  The stamp names this installation, the object
-    is the newest file of the module, and the module runs from it.  The
+    generation, no compile. The stamp names this installation, and a valid
+    object outranks a newer image without changing cached timestamps. The
     restore counts on the compile clock.
     '''
     name = self.write_image(2)
     sofile = makecurry(self.plan, name, [self.srcdir])
     self.remove_products(name)
+    imagefile = self.cached_file(name, '.img')
+    future = time.time_ns() + 3 * 10 ** 9
+    os.utime(imagefile, ns=(future, future))
     self.assertEqual(self.prerequisite(name), self.cached_file(name, '.img'))
     before = curry.stats()['compile']
     with self.no_compiler(), capture_log('curry.backends.cxx.toolchain') as log:
@@ -603,6 +613,7 @@ class TestCompile(ProductCacheTestCase):
       , (self.cpp2so.digest(), self.toolchain.installation_path())
       )
     self.assertFalse(self.cpp2so.is_stale(sofile))
+    self.assertLess(os.stat(sofile).st_mtime_ns, os.stat(imagefile).st_mtime_ns)
     self.assertEqual(self.prerequisite(name), sofile)
     self.assertEqual(os.stat(sofile).st_nlink, 2)
     module = curry.import_(name, path=[self.srcdir] + curry.path)

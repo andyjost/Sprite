@@ -8,6 +8,7 @@ without a receipt.
 import argparse
 import gzip
 import hashlib
+import json
 import os
 from pathlib import Path
 import shutil
@@ -76,6 +77,23 @@ def prune_source(root, source, subdir=None):
     parent = parent.parent
 
 
+def receipt_matches(source, receipt):
+  try:
+    text = receipt.read_text(encoding='ascii').strip()
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    if text == digest:
+      return True
+    record = json.loads(text)
+    icy = Path(str(receipt)[:-len('.source')])
+    paths = {'.icy': icy, '.imports': Path(str(icy) + '.imports'),
+             '.fint': icy.with_suffix('.fint'), '.icurry': icy.with_suffix('.icurry')}
+    return record['version'] == 1 and record['source'] == digest and \
+        record['products'] == {suffix: hashlib.sha256(path.read_bytes()).hexdigest()
+                               for suffix, path in paths.items()}
+  except (OSError, UnicodeError, ValueError, KeyError, TypeError):
+    return False
+
+
 def prune_receipts(root, subdir):
   # A newer packing commit does not prove that every archived product was
   # refreshed. Keep the source digest recorded with the product authoritative.
@@ -98,8 +116,7 @@ def prune_receipts(root, subdir):
         relative = source.relative_to(directory).with_suffix('.icy.source')
         receipt = directory / '.curry' / ('sprite-' + subdir) / relative
         if receipt.is_file():
-          digest = hashlib.sha256(source.read_bytes()).hexdigest()
-          if receipt.read_text().strip() != digest:
+          if not receipt_matches(source, receipt):
             stale.add(source.relative_to(root))
         directory = directory.parent
   for source in sorted(stale):
