@@ -869,6 +869,9 @@ namespace curryrt { namespace python
     mod.def("_test_resumer_ready", &heap_test_resumer_ready);
     mod.def("_test_dispose", &heap_test_dispose);
     mod.def("_test_applied", &heap_test_applied);
+    mod.def("_test_pause_worker_startup", &worker_test_pause_startup);
+    mod.def("_test_resume_worker_startup", &worker_test_resume_startup);
+    mod.def("_test_worker_startup_paused", &worker_test_startup_paused);
     mod.def("_test_defer_stale_root", [](Node * node)
       {
         auto * action = new RootHolder<Node>::Removal(node);

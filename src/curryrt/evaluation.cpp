@@ -134,6 +134,7 @@ namespace curryrt
       std::string attempts;
     };
     Worker * retained_worker = nullptr; // guarded by the heap lock
+    std::atomic<bool> test_pause_worker_startup{false}, test_worker_startup_paused{false};
 
     void child_after_fork()
     {
@@ -173,6 +174,13 @@ namespace curryrt
       is_worker = true;
       char base;
       worker_base = &base;
+      if(test_pause_worker_startup.load())
+      {
+        test_worker_startup_paused = true;
+        while(test_pause_worker_startup.load())
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        test_worker_startup_paused = false;
+      }
       std::unique_lock<std::mutex> lock(w.mutex);
       w.id = std::this_thread::get_id();
       w.ready = true;
@@ -255,6 +263,7 @@ namespace curryrt
         delete retained_worker;
         retained_worker = nullptr;
       }
+      auto const owner = platform::process_id();
       std::ostringstream attempts;
       std::string refusal;
       for(size_t size = requested; ; size /= 2)
@@ -288,6 +297,14 @@ namespace curryrt
               if(!interrupted)
                 try { host_poll(); }
                 catch(...) { interrupted = std::current_exception(); }
+              if(owner != platform::process_id())
+              {
+                // The worker vanished at fork. Leave its synchronization
+                // intact and disarm the surrounding join/delete cleanup.
+                (void) w.release();
+                started = false;
+                throw ForkError();
+              }
               lock.lock();
             }
             if(interrupted) std::rethrow_exception(interrupted);
@@ -596,6 +613,9 @@ namespace curryrt
     test_resumer_ready = false;
     test_pause = true;
   }
+  void worker_test_pause_startup() { test_pause_worker_startup = true; }
+  void worker_test_resume_startup() { test_pause_worker_startup = false; }
+  bool worker_test_startup_paused() { return test_worker_startup_paused.load(); }
   void heap_test_resume_drain() { test_pause = false; }
   void heap_test_resume_at_fork()
   {

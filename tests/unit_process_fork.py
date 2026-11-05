@@ -426,6 +426,50 @@ curry.reset(jit='off')
 assert curry.eval(curry.term(7)).one() == 7
 ''')
 
+  def test_signal_fork_during_worker_startup(self):
+    self.run_case(r'''
+from curry.backends.generic.eval.evaluator import Evaluator
+curry.reset(interpret='all', jit='off', stack_limit=65536, worker_stack=64 << 20)
+module = curry.import_('StackGuard')
+parent = os.getpid()
+children, received = [], []
+def handler(signum, frame):
+  assert native._test_worker_startup_paused(), 'worker published readiness'
+  received.append(signum)
+  pid = os.fork()
+  if pid:
+    children.append(pid)
+    native._test_resume_worker_startup()
+signal.signal(signal.SIGUSR1, handler)
+def send_signal():
+  until(native._test_worker_startup_paused)
+  os.kill(parent, signal.SIGUSR1)
+native._test_pause_worker_startup()
+sender = threading.Thread(target=send_signal)
+sender.start()
+try:
+  ev = Evaluator(cytest.raw.interp(),
+      cytest.raw.expr(module.deep, 3000, typed=True))
+  try:
+    answers = [cytest.raw.interp().topython(value) for value in ev.evaluate()]
+  except curry.ForkError as error:
+    assert os.getpid() != parent, 'parent received ForkError'
+    assert 'Sprite was busy when the process forked' in str(error), str(error)
+    os._exit(0)
+  if os.getpid() != parent:
+    os._exit(2) # The interrupted child must raise ForkError.
+finally:
+  if os.getpid() == parent:
+    native._test_resume_worker_startup()
+    sender.join(10)
+    for pid in children:
+      wait_child(pid)
+assert not sender.is_alive(), 'signal sender did not finish'
+assert received == [signal.SIGUSR1] and len(children) == 1, (received, children)
+assert ev.rts._escalated and answers == [3000], answers
+assert curry.eval(curry.term(7)).one() == 7
+''')
+
   def test_worker_callback_fork_ends_with_error(self):
     self.worker_callback_fork(full_pipe=False)
 
