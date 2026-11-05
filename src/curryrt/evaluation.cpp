@@ -18,6 +18,7 @@
 #include <stdexcept>
 #include <system_error>
 #ifndef _WIN32
+#include <signal.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
@@ -187,6 +188,19 @@ namespace curryrt
           // to receive an exception here. Report the boundary error without
           // stdio locks or exit handlers, then end the child process.
 #ifndef _WIN32
+          // This child is about to exit. Bound even a blocked diagnostic
+          // write, without changing stderr's parent-shared file flags.
+          // Replace and unblock any inherited alarm before attempting I/O.
+          struct sigaction action{};
+          action.sa_handler = [](int) { std::_Exit(EXIT_FAILURE); };
+          sigemptyset(&action.sa_mask);
+          sigset_t alarms;
+          sigemptyset(&alarms);
+          sigaddset(&alarms, SIGALRM);
+          if(sigaction(SIGALRM, &action, nullptr) != 0
+              || sigprocmask(SIG_UNBLOCK, &alarms, nullptr) != 0)
+            std::_Exit(EXIT_FAILURE);
+          alarm(1);
           ForkError const boundary_error;
           auto const message = boundary_error.what();
           auto report = [](char const * text, size_t size)

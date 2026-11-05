@@ -190,7 +190,8 @@ namespace curryrt
 
 
   // The hot tier.  A step counts the calls of its bytecode; at the
-  // threshold (0 turns the count off) the function joins a list, which
+  // threshold (0 turns the count off) an armed C++ job starts; otherwise
+  // an LLVM-enabled interpreter lets the function join a list, which
   // icurry_take_hot hands over and clears.  The JIT of the Python package
   // reads the list from a thread of its own, compiles the functions, and
   // swaps their steps while the evaluation runs (backends/cxx/llvmjit.py).
@@ -207,7 +208,7 @@ namespace curryrt
   };
   ICurryWork icurry_work(InfoTable *);
   void icurry_invalidate(InterpreterState &);
-  void icurry_set_hot_threshold(InterpreterState &, uint32_t);
+  void icurry_set_hot_threshold(InterpreterState &, uint32_t, bool llvm=true);
   uint32_t icurry_hot_threshold(InterpreterState const &);
   std::vector<ICurryWork> icurry_take_hot();
   void icurry_finish_hot(std::vector<ICurryWork> const &);

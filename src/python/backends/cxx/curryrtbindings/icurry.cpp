@@ -356,8 +356,10 @@ namespace curryrt { namespace python
       , "Finishes hot-request activity after compilation or discard."
       , curryrt::python::fork_access{});
     mod.def("icurry_set_hot_threshold", &icurry_set_hot_threshold
-      , "Sets the call count at which an interpreted function joins the hot "
-        "list; 0 turns the count off.", curryrt::python::fork_access{});
+      , py::arg("state"), py::arg("threshold"), py::arg("llvm")=true
+      , "Sets the hot call count; 0 turns it off. With llvm=False, only armed "
+        "C++ jobs are dispatched and no LLVM request is queued."
+      , curryrt::python::fork_access{});
     mod.def("icurry_hot_threshold", &icurry_hot_threshold
       , "The call count of the hot tier.", curryrt::python::fork_access{});
     mod.def("icurry_address"

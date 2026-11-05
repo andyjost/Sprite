@@ -19,8 +19,8 @@ running JIT work or native handle operation in any thread; an idle child starts 
 workers and synchronization state without cleaning up the parent's resources.
 A child forked while Sprite is busy raises ``curry.exceptions.ForkError`` on
 later Sprite calls and when a callback returns into the interrupted evaluation;
-if that callback runs on the large-stack worker, the child reports the error to
-standard error and exits with status 1.
+if that callback runs on the large-stack worker, the child attempts a bounded
+report to standard error and exits with status 1.
 
 .. _interpreter-flags:
 

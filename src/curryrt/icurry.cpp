@@ -105,8 +105,8 @@ namespace curryrt
       throw std::invalid_argument("icurry_work: table has no owned bytecode");
     return {info, bc, bc->owner, bc->generation, {}};
   }
-  void icurry_set_hot_threshold(InterpreterState & state, uint32_t threshold)
-    { state.hot_threshold = threshold; }
+  void icurry_set_hot_threshold(InterpreterState & state, uint32_t threshold, bool llvm)
+    { state.hot_threshold = threshold; state.llvm_hot = llvm; }
   uint32_t icurry_hot_threshold(InterpreterState const & state)
     { return state.hot_threshold; }
   std::vector<ICurryWork> icurry_take_hot()
@@ -132,7 +132,9 @@ namespace curryrt
     {
       if(++bc->calls == threshold)
       {
-        if(!cxx_hot(_0->info))
+        // A C++ backend can deliberately leave a function unarmed. Only
+        // LLVM interpreters have a consumer for the per-function queue.
+        if(!cxx_hot(_0->info) && rts->istate.llvm_hot)
         {
           auto work = icurry_work(const_cast<InfoTable *>(_0->info));
           work.activity = std::make_shared<ForkWork>();

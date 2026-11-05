@@ -309,6 +309,49 @@ assert curry.eval(curry.term(7)).one() == 7
 ''')
 
   def test_worker_callback_fork_ends_with_error(self):
+    self.worker_callback_fork(full_pipe=False)
+
+  def test_worker_callback_fork_with_full_stderr_exits(self):
+    self.worker_callback_fork(full_pipe=True)
+
+  def worker_callback_fork(self, full_pipe):
+    setup = r'''
+# Fill stderr before the fork and restore blocking mode on its shared open
+# file description. The parent must not drain it until the child is reaped.
+os.set_blocking(error_w, False)
+filled = 0
+while True:
+  try:
+    filled += os.write(error_w, b'x' * 4096)
+  except BlockingIOError:
+    break
+# Fill any remainder smaller than an atomic chunk as well.
+while True:
+  try:
+    filled += os.write(error_w, b'x')
+  except BlockingIOError:
+    break
+os.set_blocking(error_w, True)
+assert filled > 0
+# A bounded report must also handle an inherited ignored, blocked alarm.
+signal.signal(signal.SIGALRM, signal.SIG_IGN)
+signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})
+''' if full_pipe else ''
+    check = r'''
+  assert os.get_blocking(error_w), 'child changed the shared descriptor flags'
+  os.close(error_w)
+  error = b''
+  while True:
+    chunk = os.read(error_r, 4096)
+    if not chunk:
+      break
+    error += chunk
+  assert error[:filled] == b'x' * filled, len(error)
+''' if full_pipe else r'''
+  os.close(error_w)
+  error = os.read(error_r, 4096).decode()
+  assert 'ForkError: Sprite was busy when the process forked' in error, error
+'''
     self.run_case(r'''
 from curry.backends.generic.eval.evaluator import Evaluator
 curry.reset(interpret='all', jit='off', stack_limit=65536, worker_stack=64 << 20)
@@ -318,6 +361,7 @@ caller = threading.get_ident()
 parent = os.getpid()
 children = []
 error_r, error_w = os.pipe()
+''' + setup + r'''
 def values():
   # The strict first operand exhausts the caller's stack before head demands us.
   assert ev.rts._escalated, 'callback ran before escalation'
@@ -336,12 +380,10 @@ answers = [cytest.raw.interp().topython(value) for value in ev.evaluate()]
 assert os.getpid() == parent, 'worker child continued evaluation'
 assert answers == [3042], answers
 assert len(children) == 1
-os.close(error_w)
 try:
   # No Python evaluation caller survives in this child: terminate with the error.
   wait_child(children[0], exitcode=1)
-  error = os.read(error_r, 4096).decode()
-  assert 'ForkError: Sprite was busy when the process forked' in error, error
+''' + check + r'''
 finally:
   os.close(error_r)
 assert curry.eval(curry.term(7)).one() == 7
@@ -430,6 +472,27 @@ for threshold in (1, 2):
   rt.tiered_poll()
   assert not rt.icurry_take_hot(), 'C++ request also queued for LLVM'
   fork_check(lambda: curry.eval(curry.term(7)).one())
+''')
+
+  def test_unowned_cxx_library_hot_request_is_idle(self):
+    self.run_case(r'''
+os.environ['SPRITE_JIT_THRESHOLD'] = '2'
+curry.reset(interpret='all', jit='hot', jit_backend='cxx', inline_budget=0)
+prelude = curry.import_('Prelude')
+assert rt.icurry_is_interpreted(prelude.length.info)
+assert rt.icurry_hot_threshold(curry._interpreter_._its) == 2
+# Prelude is deliberately unarmed by the C++ backend. Its recursive length
+# crosses the threshold without an LLVM consumer running in this process.
+assert llvmjit._hot_thread is None
+assert curry.eval(prelude.length(list(range(8)))).one() == 8
+assert tiered.wait(timeout=30, interp=curry._interpreter_)
+assert rt.icurry_is_interpreted(prelude.length.info)
+def child():
+  assert curry.eval(curry.term(42)).one() == 42
+  assert curry.eval(prelude.length(list(range(8)))).one() == 8
+fork_check(child)
+assert not rt.icurry_take_hot(), 'unowned C++ library request queued for LLVM'
+assert curry.eval(curry.term(7)).one() == 7
 ''')
 
   @unittest.skipUnless(llvmjit.available(), 'requires the LLVM JIT')
