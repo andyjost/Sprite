@@ -167,6 +167,7 @@ frontend_subdir           = _Variable('frontend_subdir')
 frontend_flags            = _Variable('frontend_flags')
 # The default front end is 3.1.0; the legacy 2.0.0 remains supported.
 frontend_version          = _Variable('frontend_version')
+analysis_subdir           = _Variable('analysis_subdir')
 # The route from Curry to ICurry chosen at configuration time: 'frontend' or
 # 'icurry'.  Empty when CMake left the choice open.
 default_curry2icurry_tool = _Variable('curry2icurry_tool')
@@ -397,7 +398,7 @@ def product_cache_dir():
 # The path to system Curry files, such as the Prelude.  This is appended to
 # whatever the user might supply via the CURRYPATH environment variable.
 def system_curry_path():
-  return os.path.join(prefix(), 'curry')
+  return os.path.join(prefix(), 'curry', 'lib')
 
 def cpm_path(root):
   """Return project and installed-package source paths from a CPM project.

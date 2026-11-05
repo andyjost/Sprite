@@ -356,7 +356,7 @@ class TestPrivateLaunchers(cytest.TestCase):
       foreign.mkdir()
       (foreign / 'Main.fcy').write_text('foreign')
       def run(name, *args):
-        launcher = prefix / 'bin' / name
+        launcher = prefix / 'curry/bin' / name
         self.assertTrue(launcher.is_file(), launcher)
         env = {k: v for k, v in os.environ.items()
                if k not in ('SPRITE_HOME', 'PYTHONPATH')}
@@ -368,7 +368,7 @@ class TestPrivateLaunchers(cytest.TestCase):
       self.assertEqual(run('curry', '--compiler-name'), 'sprite\n')
       self.assertEqual(run('curry', ':eval', '1+1', ':quit').strip(), '2')
       # frontend-exec derives this private name from curryCompiler.
-      self.assertTrue((prefix / 'bin/sprite-frontend').is_file())
+      self.assertTrue((prefix / 'curry/bin/sprite-frontend').is_file())
       run('cleancurry', 'Main.curry')
       self.assertEqual([p.name for p in product.iterdir()], ['Other.icy'])
       self.assertFalse((frontend_product / 'Main.fcy').exists())
@@ -456,12 +456,34 @@ class TestPrivateLaunchers(cytest.TestCase):
   def test_staged_launchers(self):
     self.exercise(Path(config.installed_path()))
 
+  def test_shipped_library_frontend_without_compiler(self):
+    library = Path(config.system_curry_path())
+    products = list((library / '.curry' / config.analysis_subdir()).rglob('*'))
+    before = {p: (p.stat().st_mtime_ns, p.read_bytes()) for p in products if p.is_file()}
+    with tempfile.TemporaryDirectory() as directory:
+      env = dict(os.environ, SPRITE_FRONTEND='')
+      command = [sys.executable, config.installed_path('curry', 'bin', 'sprite-frontend'),
+                 '--flat', '--acy', '-i', str(library),
+                 '-o', '.curry/' + config.analysis_subdir(), '--no-verb',
+                 'Prelude', 'Data.List']
+      result = subprocess.run(command, cwd=directory, env=env, capture_output=True, text=True)
+      self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+      # A user module with the same name must reach the front end instead.
+      (Path(directory) / 'Data').mkdir()
+      (Path(directory) / 'Data/List.curry').write_text('module Data.List where\nx = 1\n')
+      for options in ([], ['-f'], ['--uacy']):
+        result = subprocess.run(command + options, cwd=directory, env=env,
+                                capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('no Curry front end found', result.stderr)
+    self.assertEqual(before, {p: (p.stat().st_mtime_ns, p.read_bytes()) for p in before})
+
   def test_stage_uses_configured_python(self):
     alternate = shutil.which('python3', path=os.defpath)
     if alternate is None or Path(alternate).resolve() == Path(sys.executable).resolve():
       self.skipTest('no different Python is available')
     env = {k: v for k, v in os.environ.items() if k not in ('SPRITE_HOME', 'PYTHONPATH')}
-    result = subprocess.run([alternate, config.installed_path('bin', 'curry'),
+    result = subprocess.run([alternate, config.installed_path('curry', 'bin', 'curry'),
                              '--compiler-name'], env=env, capture_output=True,
                             text=True, timeout=60)
     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -475,11 +497,12 @@ class TestPrivateLaunchers(cytest.TestCase):
       shutil.copytree(Path(config.installed_path('python/curry')), package, symlinks=True)
       resources = package / '_sprite'
       resources.mkdir(exist_ok=True)
-      for name in ('lib', 'sysconfig', 'curry', 'include', 'tools'):
+      for name in ('lib', 'sysconfig', 'include', 'tools'):
         (resources / name).symlink_to(Path(config.installed_path(name)).resolve(), target_is_directory=True)
-      (resources / 'bin').mkdir(exist_ok=True)
-      for name in ('curry', 'cleancurry', 'sprite-frontend'):
-        target = resources / 'bin' / name
+      (resources / 'curry/bin').mkdir(parents=True)
+      (resources / 'curry/lib').symlink_to(Path(config.system_curry_path()).resolve(), target_is_directory=True)
+      for name in ('curry', 'cleancurry', 'sprite-frontend', 'cypm'):
+        target = resources / 'curry/bin' / name
         shutil.copy2(ROOT / 'src/export/bin' / (name + '.script'), target)
         target.chmod(0o755)
       self.exercise(resources)

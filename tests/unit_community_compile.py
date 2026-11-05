@@ -76,7 +76,7 @@ def check_source(self, filename):
       self.assertIn("Curry module 'Prelude'", proc.stderr)
       self.assertIn('has the name of a module the runtime implements', proc.stderr)
       self.assertIn(repr(str(local))[1:-1], proc.stderr)
-      self.assertIn(repr(config.installed_path('curry', 'Prelude.curry'))[1:-1], proc.stderr)
+      self.assertIn(repr(config.installed_path('curry', 'lib', 'Prelude.curry'))[1:-1], proc.stderr)
       return
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     # Verify the fixture was loaded rather than an installed namesake.

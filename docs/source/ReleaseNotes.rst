@@ -5,6 +5,11 @@ Release Notes
 Unreleased
 ==========
 
+- Make ``Distribution.installDir`` a Curry home at ``<root>/curry`` (#214):
+  move library sources and products to ``curry/lib`` and the private tool
+  launchers to ``curry/bin``; ship FlatCurry and AbstractCurry library analyses
+  for stock CPM readers. Native libraries remain in ``<root>/lib``.
+
 - Give each interpreter its own runtime module registry; share static runtime
   builtin tables and loaded compiled objects across resets (#184).
   Interpreted reserved importers keep their interpreter's dependencies; compiled

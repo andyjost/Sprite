@@ -149,12 +149,13 @@ def main():
       target.unlink()
   compiler_tool(prefix, args.cxx, args.ccache)
   for path in (source / 'src/export/bin').glob('*.script'):
-    target = prefix / 'bin' / path.stem
+    private = path.stem in ('curry', 'cleancurry', 'sprite-frontend', 'cypm')
+    target = prefix / ('curry/bin' if private else 'bin') / path.stem
     copy(path, target)
     target.chmod(0o755)
   for name in ['python', 'pakcs', 'coverage']:
     link('sprite-invoke', prefix / 'bin' / name)
-  lib = prefix / 'curry'
+  lib = prefix / 'curry/lib'
   sources = sorted((source / 'curry/lib').rglob('*.curry'))
   sources = [p for p in sources if '.curry' not in p.parts]
   for path in sources + [source / 'curry/lib' / n for n in ['LICENSE', 'NOTICE']]:
@@ -182,6 +183,20 @@ def main():
   if needs_interfaces and args.frontend:
     run(args.frontend, '--flat', '-o', flat, '--no-verb', '--no-warn',
         '--no-overlap-warn', *frontend_flags, '-i', '.', *modules)
+  analysis = lib / '.curry' / setting('analysis_subdir')
+  if args.frontend:
+    # Keep stock reader products separate from the FlatCurry that Sprite
+    # rewrites. The front end writes hierarchical modules below this root.
+    run(args.frontend, '--flat', '--acy', '-o', analysis, '--no-verb',
+        '--no-warn', '--no-overlap-warn', *frontend_flags, '-i', '.', *modules)
+  else:
+    for path in sources:
+      if library_pins.problem(path):
+        raise RuntimeError('%s: %s' % (path.name, library_pins.problem(path)))
+      rel = path.relative_to(source / 'curry/lib')
+      for suffix in ('.fcy', '.fint', '.acy'):
+        copy(library_pins.product(path).with_suffix(suffix),
+             analysis / rel.with_suffix(suffix))
   for path in sources:
     rel = path.relative_to(source / 'curry/lib')
     dest = lib / rel.parent / '.curry' / intermediate_subdir / rel.stem

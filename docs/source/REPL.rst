@@ -282,12 +282,16 @@ keep that status. For example:
     Cannot handle arbitrary overloaded top-level expressions
     state the type: curry.term(goal, type='T')
 
-CurryCheck uses the private ``bin/curry`` launcher of the Sprite installation
-as this same REPL, and ``bin/cleancurry`` to remove Sprite products of named
+CurryCheck uses the private ``curry/bin/curry`` launcher of the Sprite installation
+as this same REPL, and ``curry/bin/cleancurry`` to remove Sprite products of named
 modules. With no module arguments, ``cleancurry`` removes Sprite products in
 the current directory. Products of other Curry compilers are preserved.
 These launchers are installation resources, not wheel console scripts.
 
 The ``frontend-exec`` dependency of CurryCheck also derives
-``bin/sprite-frontend`` from the compiler name. This private adapter forwards
+``curry/bin/sprite-frontend`` from the compiler name. This private adapter forwards
 to Sprite's configured Curry front end with its normal compatibility flags.
+Ordinary library requests for FlatCurry and AbstractCurry use the shipped
+analysis products, including when no front end is available or the
+installation is read-only. Source overrides and special front-end options
+use the configured front end.

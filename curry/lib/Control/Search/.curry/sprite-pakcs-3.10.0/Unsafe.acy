@@ -1,0 +1,16 @@
+{- AbstractCurry 3.0 -}
+CurryProg "Control.Search.Unsafe"
+["Control.SetFunctions"]
+Nothing
+ []
+ []
+ []
+ [CFunc ("Control.Search.Unsafe","allValues") 1 Public (CQualType (CContext []) (CFuncType (CTVar (0,"a")) (CTApply (CTCons ("Prelude","[]")) (CTVar (0,"a"))))) [CRule [CPVar (0,"e")] (CSimpleRhs (CApply (CSymbol ("Control.SetFunctions","valuesOf")) (CApply (CSymbol ("Control.SetFunctions","evalS")) (CApply (CSymbol ("Control.SetFunctions","exprS")) (CVar (0,"e"))))) [])],
+  CFunc ("Control.Search.Unsafe","allValuesDFS") 1 Public (CQualType (CContext []) (CFuncType (CTVar (0,"a")) (CTApply (CTCons ("Prelude","[]")) (CTVar (0,"a"))))) [CRule [CPVar (0,"e")] (CSimpleRhs (CApply (CSymbol ("Control.Search.Unsafe","allValues")) (CVar (0,"e"))) [])],
+  CFunc ("Control.Search.Unsafe","oneValue") 1 Public (CQualType (CContext []) (CFuncType (CTVar (0,"a")) (CTApply (CTCons ("Prelude","Maybe")) (CTVar (0,"a"))))) [CRule [CPVar (0,"e")] (CSimpleRhs (CApply (CSymbol ("","first")) (CApply (CSymbol ("Control.Search.Unsafe","allValues")) (CVar (0,"e")))) [CLocalFunc (CFunc ("","first") 1 Private (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTVar (1,"a"))) (CTApply (CTCons ("Prelude","Maybe")) (CTVar (1,"a"))))) [CRule [CPComb ("Prelude","[]") []] (CSimpleRhs (CSymbol ("Prelude","Nothing")) []),CRule [CPComb ("Prelude",":") [CPVar (1,"x"),CPVar (2,"_")]] (CSimpleRhs (CApply (CSymbol ("Prelude","Just")) (CVar (1,"x"))) [])])])],
+  CFunc ("Control.Search.Unsafe","oneValueDFS") 1 Public (CQualType (CContext []) (CFuncType (CTVar (0,"a")) (CTApply (CTCons ("Prelude","Maybe")) (CTVar (0,"a"))))) [CRule [CPVar (0,"e")] (CSimpleRhs (CApply (CSymbol ("Control.Search.Unsafe","oneValue")) (CVar (0,"e"))) [])],
+  CFunc ("Control.Search.Unsafe","someValue") 1 Public (CQualType (CContext []) (CFuncType (CTVar (0,"a")) (CTVar (0,"a")))) [CRule [CPVar (0,"e")] (CSimpleRhs (CCase CRigid (CApply (CSymbol ("Control.Search.Unsafe","oneValue")) (CVar (0,"e"))) [(CPComb ("Prelude","Nothing") [],CSimpleRhs (CSymbol ("Prelude","failed")) []),(CPComb ("Prelude","Just") [CPVar (1,"x")],CSimpleRhs (CVar (1,"x")) [])]) [])],
+  CFunc ("Control.Search.Unsafe","isFail") 1 Public (CQualType (CContext []) (CFuncType (CTVar (0,"a")) (CTCons ("Prelude","Bool")))) [CRule [CPVar (0,"e")] (CSimpleRhs (CCase CRigid (CApply (CSymbol ("Control.Search.Unsafe","oneValue")) (CVar (0,"e"))) [(CPComb ("Prelude","Nothing") [],CSimpleRhs (CSymbol ("Prelude","True")) []),(CPComb ("Prelude","Just") [CPVar (1,"_")],CSimpleRhs (CSymbol ("Prelude","False")) [])]) [])],
+  CFunc ("Control.Search.Unsafe","rewriteAll") 1 Public (CQualType (CContext []) (CFuncType (CTVar (0,"a")) (CTApply (CTCons ("Prelude","[]")) (CTVar (0,"a"))))) [CRule [CPVar (0,"e")] (CSimpleRhs (CApply (CSymbol ("Control.Search.Unsafe","allValues")) (CVar (0,"e"))) [])],
+  CFunc ("Control.Search.Unsafe","rewriteSome") 1 Public (CQualType (CContext []) (CFuncType (CTVar (0,"a")) (CTApply (CTCons ("Prelude","Maybe")) (CTVar (0,"a"))))) [CRule [CPVar (0,"e")] (CSimpleRhs (CApply (CSymbol ("Control.Search.Unsafe","oneValue")) (CVar (0,"e"))) [])]]
+ []

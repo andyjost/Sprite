@@ -220,7 +220,7 @@ class TestStagedLibrary(cytest.TestCase):
         result = subprocess.run(command, text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
       stage()
-      products = [prefix / 'curry' / SUBDIR / ('B' + suffix)
+      products = [prefix / 'curry/lib' / SUBDIR / ('B' + suffix)
           for suffix in ('.icy', '.cpp', '.so', '.so.abi')]
       self.assertTrue(all(p.is_file() for p in products))
       # Establish an unchanged pinned B, as in an incremental library stage.
@@ -228,6 +228,9 @@ class TestStagedLibrary(cytest.TestCase):
       pinned.parent.mkdir(parents=True, exist_ok=True)
       for suffix in ('.icy', '.fint', '.icurry', '.icy.source', '.icy.imports'):
         shutil.copy2(products[0].with_suffix(suffix), pinned.with_suffix(suffix))
+      for suffix in ('.fcy', '.acy'):
+        shutil.copy2(prefix / 'curry/lib/.curry' / config.analysis_subdir() /
+                     ('B' + suffix), pinned.with_suffix(suffix))
       stage()
       before = [p.stat().st_mtime_ns for p in products]
       text = (lib / 'B.curry').read_bytes()

@@ -147,6 +147,6 @@ warm=$(mktemp -d)
 } > "$warm/Warm.curry"
 "$SPRITE_HOME/bin/sprite-make" --icy "$warm/Warm.curry"
 subdir=$(cat "$SPRITE_HOME/sysconfig/frontend_subdir")
-test -s "$SPRITE_HOME/curry/.curry/$subdir/Prelude.fcy"
-test -s "$SPRITE_HOME/curry/.curry/$subdir/Prelude.fint"
+test -s "$SPRITE_HOME/curry/lib/.curry/$subdir/Prelude.fcy"
+test -s "$SPRITE_HOME/curry/lib/.curry/$subdir/Prelude.fint"
 rm -rf "$warm"

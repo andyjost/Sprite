@@ -19,7 +19,7 @@ def products(source):
 
 
 def installed(name):
-  return Path(config.installed_path('curry', name.replace('.', '/') + '.curry'))
+  return Path(config.installed_path('curry', 'lib', name.replace('.', '/') + '.curry'))
 
 
 class TestReservedModules(cytest.TestCase):
@@ -597,7 +597,7 @@ module = curry.import_('Numeric')
 print(curry.show(curry.eval(module.readNat(curry.term('1'))).one()))
 source = handle.getHandle(module).icurry.filename
 path = image._path(curry._interpreter_, source)
-assert not __import__('os').path.realpath(path).startswith(__import__('os').path.realpath(curry.config.installed_path('curry')) + __import__('os').sep), path
+assert not __import__('os').path.realpath(path).startswith(__import__('os').path.realpath(curry.config.installed_path('curry', 'lib')) + __import__('os').sep), path
 assert __import__('os').path.isfile(path)
 print('private image')
 ''' % (mode, work)
@@ -629,7 +629,7 @@ curry.reset(interpret=%r, jit='off')
 curry.path.insert(0, %r)
 module = curry.import_('Numeric')
 source = getHandle(module).icurry.filename
-assert not os.path.realpath(source).startswith(os.path.realpath(curry.config.installed_path('curry')) + os.sep), source
+assert not os.path.realpath(source).startswith(os.path.realpath(curry.config.installed_path('curry', 'lib')) + os.sep), source
 assert _interfaces.is_current(_filenames.icurryfilename(source), curry.path)
 assert curry.show(curry.eval(module.readNat(curry.term('1'))).one()) == '[(1,"")]'
 print('Numeric translated privately and evaluated')
@@ -653,7 +653,7 @@ print('Numeric translated privately and evaluated')
         else:
           text = text.replace("ord c - ord '0'", "ord c - ord '0' + 1")
         source.write_text(text)
-        library = Path(config.installed_path('curry'))
+        library = Path(config.installed_path('curry', 'lib'))
         def snapshot():
           return {str(path.relative_to(library)):
                   hashlib.sha256(path.read_bytes()).hexdigest()
@@ -695,7 +695,7 @@ with _findcurry.resolving(curry._interpreter_):
 assert curry.show(curry.eval(module.readNat(curry.term('1'))).one()) == %r
 path = image._path(curry._interpreter_, getHandle(module).icurry.filename)
 private = not os.path.realpath(path).startswith(
-    os.path.realpath(curry.config.installed_path('curry')) + os.sep)
+    os.path.realpath(curry.config.installed_path('curry', 'lib')) + os.sep)
 assert private == copy_first, path
 print('loaded: ' + ('private' if private else 'installed'))
 if root not in curry.path:
@@ -705,7 +705,7 @@ module = curry.import_('Numeric')
 assert curry.show(curry.eval(module.readNat(curry.term('1'))).one()) == %r
 path = image._path(curry._interpreter_, getHandle(module).icurry.filename)
 assert not os.path.realpath(path).startswith(
-    os.path.realpath(curry.config.installed_path('curry')) + os.sep), path
+    os.path.realpath(curry.config.installed_path('curry', 'lib')) + os.sep), path
 print('reset: private')
 """ % (mode, work, copy_first,
        '[(2,"")]' if copy_first and not generalized else '[(1,"")]',
@@ -737,7 +737,7 @@ from pathlib import Path
 import shutil
 outside = Path(curry.path[0]) / 'Control/SetFunctions.curry'
 outside.parent.mkdir(exist_ok=True)
-shutil.copyfile(curry.config.installed_path('curry', 'Control/SetFunctions.curry'), outside)
+shutil.copyfile(curry.config.installed_path('curry', 'lib', 'Control/SetFunctions.curry'), outside)
 try:
   curry.import_(outside)
 except ImportError as error:

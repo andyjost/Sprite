@@ -1,0 +1,12 @@
+{- AbstractCurry 3.0 -}
+CurryProg "Test.Prop.Types"
+[]
+Nothing
+ []
+ []
+ [CType ("Test.Prop.Types","PropIO") Public [] [CCons ("Test.Prop.Types","PropIO") Public [CFuncType (CTCons ("Prelude","Bool")) (CFuncType (CTCons ("Prelude","String")) (CTApply (CTCons ("Prelude","IO")) (CTApply (CTCons ("Prelude","Maybe")) (CTCons ("Prelude","String")))))]] [],
+  CType ("Test.Prop.Types","Prop") Public [] [CCons ("Test.Prop.Types","Prop") Public [CTApply (CTCons ("Prelude","[]")) (CTCons ("Test.Prop.Types","Test"))]] [],
+  CType ("Test.Prop.Types","Test") Public [] [CCons ("Test.Prop.Types","Test") Public [CTCons ("Test.Prop.Types","Result"),CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","String")),CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","String"))]] [],
+  CType ("Test.Prop.Types","Result") Public [] [CCons ("Test.Prop.Types","Undef") Public [],CCons ("Test.Prop.Types","Ok") Public [],CCons ("Test.Prop.Types","Falsified") Public [CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","String"))],CCons ("Test.Prop.Types","Ambigious") Public [CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Bool")),CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","String"))]] []]
+ []
+ []

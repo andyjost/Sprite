@@ -59,8 +59,8 @@ reproducers pass.
   description as Curry text.
   `src/python/tools/repl/` is the REPL: `python -m curry.tools.repl`, with
   `:load`, `:reload`, `:eval`, `:type`, `:set`, `:save` and `:quit`.
-  Private `bin/curry`, `bin/cleancurry` and `bin/sprite-frontend`
-  launchers serve CurryCheck;
+  Private `curry/bin/curry`, `curry/bin/cleancurry`,
+  `curry/bin/sprite-frontend` and `curry/bin/cypm` launchers serve CPM tools;
   `scripts/cpm-test-overlay.py` makes a test-only CPM index copy.
 - `src/curryrt/`: the C++ runtime library.
 - `curry/`: the Curry library. `curry/lib/` holds a copy of the library of
@@ -91,7 +91,7 @@ reproducers pass.
   The selected pair names the intermediate directories and the PAKCS CPP
   macro (310 by default, 304 for the legacy pair). Every library module
   ships pinned `.icy`, `.fint`, `.icurry`,
-  `.icy.imports` and `.icy.source` products for front end 3.1.0, so a build
+  `.icy.imports`, `.icy.source`, `.fcy` and `.acy` products for front end 3.1.0, so a build
   without a front end uses them after checking source receipts; the legacy
   pair compiles the library afresh at stage time. The reader accepts both
   FlatCurry grammars.
@@ -213,7 +213,13 @@ reproducers pass.
   `-DWITH_CURRY_FRONTEND=PATH` to select tools. `make stage` is a thin
   configure/build/install wrapper, preserving the traditional tree.
 - `make stage` builds and stages a copy under `install/`. It also compiles
-  the Curry library into the installation for the C++ runtime. Every module
+  the Curry library into `install/curry/lib/` for the C++ runtime.
+  `Distribution.installDir` names `install/curry/`, whose `bin/` holds the
+  private launchers; public commands stay in `install/bin/` and native
+  libraries in `install/lib/`. Wheels use the same layout under
+  `curry/_sprite/`. Stock readers use the staged `.fcy`, `.fint` and `.acy`
+  products in `curry/lib/.curry/sprite-<version>/`; Sprite keeps its own
+  products beside their sources as before. Every module
   of the Curry library compiles and ships compiled.
   The `unsupported` list in `CMakeLists.txt` is empty; its plumbing remains
   available. Externals without a primitive in the runtime raise

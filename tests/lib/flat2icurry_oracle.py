@@ -90,7 +90,7 @@ def system_curry_path():
   '''The installed Curry library, when SPRITE_HOME is set.'''
   home = os.environ.get('SPRITE_HOME')
   if home:
-    return [os.path.join(home, 'curry')]
+    return [os.path.join(home, 'curry', 'lib')]
   return []
 
 def make_finder(fcyfile, prog, importdirs=(), subdirs=None):

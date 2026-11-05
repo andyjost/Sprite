@@ -1,0 +1,19 @@
+{- AbstractCurry 3.0 -}
+CurryProg "System.Environment"
+[]
+Nothing
+ []
+ []
+ []
+ [CFunc ("System.Environment","getArgs") 0 Public (CQualType (CContext []) (CTApply (CTCons ("Prelude","IO")) (CTApply (CTCons ("Prelude","[]")) (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char")))))) [],
+  CFunc ("System.Environment","getEnv") 1 Public (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CTApply (CTCons ("Prelude","IO")) (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char")))))) [CRule [CPVar (0,"evar")] (CSimpleRhs (CApply (CApply (CSymbol ("Prelude","$##")) (CSymbol ("System.Environment","prim_getEnviron"))) (CVar (0,"evar"))) [])],
+  CFunc ("System.Environment","prim_getEnviron") 1 Private (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CTApply (CTCons ("Prelude","IO")) (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char")))))) [],
+  CFunc ("System.Environment","setEnv") 2 Public (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CTApply (CTCons ("Prelude","IO")) (CTCons ("Prelude","()")))))) [CRule [CPVar (0,"evar"),CPVar (1,"val")] (CSimpleRhs (CApply (CApply (CSymbol ("Prelude","$##")) (CApply (CApply (CSymbol ("Prelude","$##")) (CSymbol ("System.Environment","prim_setEnviron"))) (CVar (0,"evar")))) (CVar (1,"val"))) [])],
+  CFunc ("System.Environment","prim_setEnviron") 2 Private (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CTApply (CTCons ("Prelude","IO")) (CTCons ("Prelude","()")))))) [],
+  CFunc ("System.Environment","unsetEnv") 1 Public (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CTApply (CTCons ("Prelude","IO")) (CTCons ("Prelude","()"))))) [CRule [CPVar (0,"evar")] (CSimpleRhs (CApply (CApply (CSymbol ("Prelude","$##")) (CSymbol ("System.Environment","prim_unsetEnviron"))) (CVar (0,"evar"))) [])],
+  CFunc ("System.Environment","prim_unsetEnviron") 1 Private (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CTApply (CTCons ("Prelude","IO")) (CTCons ("Prelude","()"))))) [],
+  CFunc ("System.Environment","getHostname") 0 Public (CQualType (CContext []) (CTApply (CTCons ("Prelude","IO")) (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))))) [],
+  CFunc ("System.Environment","getProgName") 0 Public (CQualType (CContext []) (CTApply (CTCons ("Prelude","IO")) (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))))) [],
+  CFunc ("System.Environment","isPosix") 0 Public (CQualType (CContext []) (CTCons ("Prelude","Bool"))) [CRule [] (CSimpleRhs (CApply (CSymbol ("Prelude","not")) (CSymbol ("System.Environment","isWindows"))) [])],
+  CFunc ("System.Environment","isWindows") 0 Public (CQualType (CContext []) (CTCons ("Prelude","Bool"))) []]
+ []
