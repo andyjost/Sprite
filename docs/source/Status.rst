@@ -61,7 +61,7 @@ replaces the canonical name. A saved program is a small native launcher
 that runs the program with Python. It uses the saving interpreter,
 falls back to ``python`` on PATH if needed and has no runtime DLL
 dependency. The Windows workflow gates the native
-run; Microsoft's cl is experimental.
+run with clang-cl; Microsoft cl is not supported.
 Sprite finds Visual Studio itself; no developer prompt is needed.
 
 LLVM JIT batches persist beside module images as relocatable ``.jit``

@@ -15,6 +15,9 @@ Unreleased
   front-end and ICurry-cache diagnostics until locks release, retain ownership
   through thread creation, and refuse worker stack sizes the Windows thread
   API cannot represent before trying smaller reservations.
+- Stop selecting Microsoft ``cl`` from PATH on Windows; it is not
+  supported. Use clang-cl (the Visual Studio component "C++ Clang tools
+  for Windows").
 - Give each interpreter its own runtime module registry; share static runtime
   builtin tables and loaded compiled objects across resets (#184).
   Interpreted reserved importers keep their interpreter's dependencies; compiled

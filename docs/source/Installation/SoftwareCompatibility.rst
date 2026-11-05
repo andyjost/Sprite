@@ -23,7 +23,7 @@ and 3.15 on these platforms:
 The wheels include the compiled Curry library on every platform, and a
 C++ compiler is optional at run time. On Windows the runtime, the bindings
 and the compiled modules build with clang-cl, ahead of time and in the
-hot and eager C++ tiers; cl is experimental. On Windows use
+hot and eager C++ tiers; Microsoft cl is not supported. On Windows use
 Visual Studio 2017 or newer, or its Build Tools, with the workload "Desktop
 development with C++" and the component "C++ Clang tools for Windows", or
 clang-cl on PATH. Sprite finds it itself.
