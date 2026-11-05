@@ -2044,6 +2044,17 @@ class TestPrepare(unittest.TestCase):
     self.assertEqual(job(nowhere, shell, 'incomplete').status, 'ok')
     diagnostic = 'poker.curry needs the preprocessor currypp, which is not on PATH.'
     self.assertEqual(job(nowhere, diagnostic).status, 'ok')
+    # With poker's product absent as well, a refusal beside another failure
+    # keeps the failure, in both forms of the refusal.
+    for log in (
+        'sprite-make: ' + diagnostic + '\ng++: not found\n',
+        shell + other,
+      ):
+      with self.subTest(log=log):
+        kept = job(nowhere, log)
+        self.assertEqual(kept.lacking, {'data/curry/smap/poker.curry': 'currypp'})
+        self.assertEqual(kept.status, 'FAILED')
+        self.assertEqual(cli.exit_status([kept]), 1)
     # A refused module whose stale products are present: sprite-make checks
     # the PATH before the front end runs and leaves the old files. The log
     # holds nothing but the refusal, so the module is skipped; any other

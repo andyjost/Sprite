@@ -239,6 +239,20 @@ PREPROCESSOR_FAILURE = re.compile(
     r'|needs the preprocessor (?P<named>\S+), which is not on PATH'
   )
 
+# The lines of the report of the front end on a preprocessor it could not
+# run, as sprite-make copies them into the log: the command it ran, an empty
+# line, "Error:", and the exit of the preprocessor; the "not found" line of
+# the shell names the tool, which must be one the job lacks.
+FRONTEND_FAILURE_LINE = re.compile(
+    r'^\S+: (while running .*:|Error:|Preprocessor exited with exit code \d+)$'
+    r'|^\S+:\s*$'
+  )
+NOT_FOUND_LINE = re.compile(r'(?P<tool>[^\s/:]+): not found$')
+
+def _unprefixed(line):
+  '''``line`` without the "program: " prefix sprite-make gives its lines.'''
+  return re.sub(r'^\S+: ', '', line, count=1)
+
 def preprocessor_failed(text, tool):
   '''
   True when the output ``text`` of sprite-make shows that the front end
@@ -452,34 +466,69 @@ class PrepareJob(Job):
         found[module] = tool
     return found
 
-  def refused_tools(self, text):
+  def refusal_lines(self):
     '''
-    The modules whose source names a preprocessor the PATH lacks and whose
-    refusal by sprite-make the log ``text`` holds, when the text holds
-    nothing but such refusals, blank lines and the count lines of
-    sprite-make (CACHE_LINE, REWRITE_LINE); otherwise empty.  A refused
-    module keeps its stale products, so missing() does not name it.  A
-    dict of module to tool, in the order of ``modules``.
+    The refusal sprite-make prints for each module of the job whose source
+    names a preprocessor the PATH lacks, without the program prefix of the
+    line: message to (module, tool).
     '''
     from curry.toolchain import _preprocessor
-    lines = [line for line in text.splitlines() if line.strip()]
     path = (self.env or os.environ).get('PATH')
-    refusals = {}
+    found = {}
     for module in self.modules:
       tool = self.tool_lacking(module)
       if tool is not None:
         message = _preprocessor.missing(os.path.join(self.testdir, module), path=path)
         if message:
-          refusals['sprite-make: ' + message] = (module, tool)
-    found = {}
-    for line in lines:
-      if line in refusals:
-        module, tool = refusals[line]
-        found[module] = tool
-      elif not (CACHE_LINE.fullmatch(line) or REWRITE_LINE.fullmatch(line)):
-        return {}
-    found = {module: found[module] for module in self.modules if module in found}
+          found[message] = (module, tool)
     return found
+
+  def other_lines(self, text, refusals, tools):
+    '''
+    The non-blank lines of the log ``text`` that are none of these: a
+    refusal (a key of ``refusals``, with or without the program prefix), a
+    count line of sprite-make (CACHE_LINE, REWRITE_LINE), or a line of the
+    report of the front end on a preprocessor in ``tools`` that it could
+    not run (FRONTEND_FAILURE_LINE, NOT_FOUND_LINE).  A job turns from a
+    failure into skipped modules only when this list is empty, so no other
+    failure hides behind a refusal.
+    '''
+    others = []
+    for line in text.splitlines():
+      line = line.rstrip('\r')
+      if not line.strip():
+        continue
+      if line in refusals or _unprefixed(line) in refusals:
+        continue
+      if CACHE_LINE.fullmatch(line) or REWRITE_LINE.fullmatch(line) \
+          or FRONTEND_FAILURE_LINE.fullmatch(line):
+        continue
+      match = NOT_FOUND_LINE.search(line)
+      if match and match.group('tool') in tools:
+        continue
+      others.append(line)
+    return others
+
+  def refused_tools(self, text):
+    '''
+    The modules whose source names a preprocessor the PATH lacks and whose
+    refusal by sprite-make the log ``text`` holds, when the text holds no
+    other line (other_lines); otherwise empty.  A refused module keeps its
+    stale products, so missing() does not name it.  A dict of module to
+    tool, in the order of ``modules``.
+    '''
+    refusals = self.refusal_lines()
+    tools = set(tool for _, tool in refusals.values())
+    if self.other_lines(text, refusals, tools):
+      return {}
+    found = {}
+    for line in text.splitlines():
+      line = line.rstrip('\r')
+      entry = refusals.get(line) or refusals.get(_unprefixed(line))
+      if entry:
+        module, tool = entry
+        found[module] = tool
+    return {module: found[module] for module in self.modules if module in found}
 
   def product(self, module):
     '''The usual product of ``module``: the first of ``products``, or None.'''
@@ -542,7 +591,10 @@ class PrepareJob(Job):
               len(missing), len(self.modules), _names(missing)
             ))
           self.lacking = self.lacking_tools(missing, text)
-          skipped = len(self.lacking) == len(missing)
+          # The whole log is read: a refusal beside another failure keeps
+          # the failure (other_lines).
+          skipped = len(self.lacking) == len(missing) and not self.other_lines(
+              text, self.refusal_lines(), set(self.lacking.values()))
         else:
           # Every product file is present, yet the run did not end well:
           # sprite-make refused a module whose preprocessor the PATH lacks
