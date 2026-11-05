@@ -187,6 +187,7 @@ class TestStagedLibrary(cytest.TestCase):
         self.assertEqual(env['SPRITE_HOME'], '/stage')
         self.assertEqual(env['PYTHONPATH'], expected)
         self.assertEqual(env['SPRITE_PRODUCT_CACHE'], '/products')
+        self.assertEqual(env['SPRITE_STAGE_LIBRARY'], '1')
         for name in ['CURRYPATH', 'CXXFLAGS', 'SPRITE_INTERPRETER_FLAGS']:
           self.assertNotIn(name, env)
 
@@ -212,14 +213,22 @@ class TestStagedLibrary(cytest.TestCase):
       (lib / 'B.curry').write_text('module B where\nimport A\nmain :: Int\nmain = f\n')
       (prefix / 'sysconfig/currylib_module_names').write_text('Prelude A B\n')
       (prefix / 'sysconfig/currylib_unsupported_modules').write_text('')
+      # Start with no library products, including in the build's own prefix.
+      # An incremental stage can hide private publication of missing objects.
+      shutil.rmtree(prefix / 'curry')
       command = ['timeout', '180', sys.executable,
           str(Path(SOURCE_ROOT) / 'scripts/build-package.py'),
-          '--source', str(source), '--prefix', str(prefix), '--jobs', '1',
+          '--source', str(source), '--prefix', str(prefix), '--jobs', '2',
           '--frontend', config.curry_frontend(), '--cxx', config.cxx_tool()]
       def stage():
         result = subprocess.run(command, text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
       stage()
+      for name in ('Prelude', 'A', 'B'):
+        for suffix in ('.img', '.cpp', config.module_object_suffix(),
+                       config.module_object_suffix() + '.abi'):
+          self.assertTrue((prefix / 'curry' / SUBDIR / (name + suffix)).is_file(),
+              name + suffix)
       products = [prefix / 'curry' / SUBDIR / ('B' + suffix)
           for suffix in ('.icy', '.cpp', '.so', '.so.abi')]
       self.assertTrue(all(p.is_file() for p in products))

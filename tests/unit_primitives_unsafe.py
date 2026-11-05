@@ -158,6 +158,29 @@ moduleFilter = null (readsAnyUnqualifiedTerm ["Prelude"] "Leaf 1")
 
 
 class TestUnsafePrimitives(cytest.TestCase):
+  def test_compiled_private_wrappers(self):
+    '''A verified private library copy keeps configuration-sensitive primitives.'''
+    code = '''
+import curry, os
+from curry.backends.cxx import tiered
+from curry.objects.handle import getHandle
+from curry.toolchain import _findcurry, _filenames
+curry.reset(interpret='all', jit='off')
+module = curry.import_('System.IO.Unsafe')
+with _findcurry.loader_inputs(interp=curry._interpreter_):
+  source, search = tiered._private_copy(getHandle(module).icurry)
+  os.unlink(_filenames.replacesuffix(source, '.img'))
+  curry.reset(interpret='off', jit='off')
+  curry.path[:0] = search[:1]
+  module = curry.import_(source)
+  assert getHandle(module).sofilename is not None
+  probe = curry.compile(%r)
+  actual = sorted(curry.eval(probe.generatedBranches))
+  assert actual == [(0, False), (1, False), (2, True)], actual
+''' % PROGRAM
+    result = cytest.run_in_subprocess(code, timeout=180)
+    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
   def test_primitive_wrappers_are_opaque(self):
     module = loadicurry(os.path.join(config.system_curry_path(),
         'System', 'IO', 'Unsafe.curry'))
@@ -174,6 +197,29 @@ class TestUnsafePrimitives(cytest.TestCase):
           self.assertNotIn(key, function.metadata)
         # A shape may have been inspected before primitive selection.
         self.assertIsNone(analysis.inline_shape(function))
+
+  def test_private_wrapper_provenance(self):
+    from curry.backends.cxx import tiered
+    from curry.toolchain import _findcurry
+    raw = loadicurry(os.path.join(config.system_curry_path(),
+        'System', 'IO', 'Unsafe.curry'))
+    with _findcurry.loader_inputs():
+      source, _ = tiered._private_copy(raw)
+      copied = loadicurry(source)
+      externalize_primitive_wrappers(copied)
+      self.assertIsInstance(copied.functions['isVar'].body, icurry.IExternal)
+      with open(source, 'rb') as stream:
+        original = stream.read()
+      with open(source, 'a') as stream:
+        stream.write('-- changed copy\n')
+      changed = loadicurry(source)
+      externalize_primitive_wrappers(changed)
+      self.assertNotIsInstance(changed.functions['isVar'].body, icurry.IExternal)
+      with open(source, 'wb') as stream:
+        stream.write(original)
+    untrusted = loadicurry(source)
+    externalize_primitive_wrappers(untrusted)
+    self.assertNotIsInstance(untrusted.functions['isVar'].body, icurry.IExternal)
 
   def check_primitives(self):
     M = curry.compile(PROGRAM)

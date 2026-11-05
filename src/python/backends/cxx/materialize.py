@@ -103,7 +103,11 @@ def _library_primitive_wrapper(function, module):
   source = os.path.join(config.system_curry_path(),
       *function.modulename.split('.')) + '.curry'
   try:
-    if not module.filename or not os.path.samefile(module.filename, source):
+    from ...toolchain import _findcurry
+    generation = getattr(module, '_loaded_generation', None)
+    if not module.filename or not (os.path.samefile(module.filename, source) or
+        _findcurry.is_loader_snapshot(function.modulename, module.filename,
+            records=generation.inputs if generation is not None else None)):
       return False
     with open(source, encoding='utf-8') as stream:
       return expected[1] in stream.read().splitlines()

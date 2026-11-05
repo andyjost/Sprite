@@ -31,11 +31,18 @@ _importing = ContextVar('product_importing', default=False)
 
 @contextmanager
 def publication(importing):
-  token = _importing.set(importing)
+  # The stage builds the installation, including dependencies imported by
+  # its compiler. Runtime importers retain their private destinations.
+  token = _importing.set(importing and not staging())
   try:
     yield
   finally:
     _importing.reset(token)
+
+
+def staging():
+  """The installation builder's sanitized child environment owns this flag."""
+  return os.environ.get('SPRITE_STAGE_LIBRARY') == '1'
 
 
 def needs_private(filename, products):

@@ -106,7 +106,7 @@ def build_environment(prefix):
       p for p in [str(Path(prefix) / 'python'), os.environ.get('PYTHONPATH', '')]
         if p)
   env.update(SPRITE_HOME=str(prefix), PYTHONPATH=pythonpath,
-             SPRITE_FRONTEND_WARNINGS='0')
+             SPRITE_FRONTEND_WARNINGS='0', SPRITE_STAGE_LIBRARY='1')
   return env
 
 
@@ -275,16 +275,14 @@ def main():
   library_seconds = time.perf_counter() - library_start
   (prefix / 'sysconfig/cxx_library_build_seconds').write_text('%.3f\n' % library_seconds)
   print('Curry library build: %.3f seconds' % library_seconds, flush=True)
-  expected = ['.img', object_suffix, object_suffix + '.abi'] if args.cxx else ['.img']
+  expected = ['.img', '.cpp', object_suffix, object_suffix + '.abi'] if args.cxx else ['.img']
   for path in sources:
     rel = path.relative_to(source / 'curry/lib')
     if '.'.join(rel.with_suffix('').parts) not in unsupported:
-      product = lib / rel.parent / '.curry' / intermediate_subdir / (rel.stem + '.img')
-      if not product.is_file():
-        raise RuntimeError('prebuild did not write image for ' + str(rel))
-  for suffix in expected:
-    if not (lib / '.curry' / intermediate_subdir / ('Prelude' + suffix)).is_file():
-      raise RuntimeError('prebuild did not write Prelude' + suffix)
+      for suffix in expected:
+        product = lib / rel.parent / '.curry' / intermediate_subdir / (rel.stem + suffix)
+        if not product.is_file():
+          raise RuntimeError('prebuild did not write %s for %s' % (suffix, rel))
 
 
 if __name__ == '__main__':

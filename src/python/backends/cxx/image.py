@@ -16,7 +16,8 @@ from . import bytecode, curryrtbindings as curryrt
 
 logger = logging.getLogger(__name__)
 MAGIC = b'SPRTIMG\0'
-VERSION = 12
+# Version 13 invalidates summaries that inlined private primitive wrappers.
+VERSION = 13
 PREFIX = struct.Struct('<8sII')
 
 class _InputChanged(Exception):
@@ -443,7 +444,8 @@ def _publication_path(interp, source, path, imports, importing=False):
   from ...toolchain import _findcurry
   source = _destination.canonical(source)
   from . import tiered
-  if (importing and _findcurry._installed_library_file(source)) or \
+  if (importing and not _destination.staging() and
+      _findcurry._installed_library_file(source)) or \
       _destination.needs_private(_filenames.icurryfilename(source),
       _destination.images(interp, imports)) or not writable(source) \
       or tiered._foreign_flags(interp):

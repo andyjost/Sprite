@@ -25,6 +25,37 @@ class TestModuleReview(cytest.TestCase):
     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
     return result
 
+  def test_object_receipt_refuses_old_or_foreign_abi_without_cpp(self):
+    from curry.backends.cxx import compiler, toolchain
+    from unittest import mock
+    self.source('codegen', 'OldCodegen', 'answer :: Int\nanswer = 42')
+    self.child('''
+      import curry, os
+      curry.reset(interpret='off', jit='off')
+      curry.import_(os.path.join(root, 'codegen', 'OldCodegen.curry'))
+    ''')
+    directory = self.root / 'codegen/.curry' / config.intermediate_subdir()
+    (directory / 'OldCodegen.cpp').unlink()
+    stamp = directory / ('OldCodegen' + config.module_object_suffix() + '.abi')
+    original = stamp.read_text().splitlines()
+    with mock.patch.object(compiler, 'FORMAT_VERSION', compiler.FORMAT_VERSION - 1):
+      old_digest = toolchain.object_digest()
+    self.assertNotEqual(old_digest, original[0])
+    for digest, prefix in ((old_digest, original[1]),
+                           (original[0], str(self.root / 'foreign-installation'))):
+      with self.subTest(digest=digest, prefix=prefix):
+        lines = list(original)
+        lines[:2] = [digest, prefix]
+        stamp.write_text('\n'.join(lines) + '\n')
+        self.child('''
+          import curry, os
+          from curry.objects.handle import getHandle
+          curry.reset(interpret='new', jit='off')
+          module = curry.import_(os.path.join(root, 'codegen', 'OldCodegen.curry'))
+          assert getHandle(module).sofilename is None
+          assert curry.eval(module.answer).one() == 42
+        ''')
+
   def test_01_saved_dependency_provenance(self):
     for directory, value in [('old', 1), ('new', 2)]:
       self.source(directory, 'Leaf', 'answer :: Int\nanswer = %d' % value)
