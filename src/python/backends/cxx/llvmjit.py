@@ -736,6 +736,8 @@ def _resolve_cached(address):
       if context is None or curryrt.icurry_is_jit(context.items[jit.names[address]]):
         return 0
       name = jit.names[address]
+      if not curryrt.icurry_work(context.items[name]).valid:
+        return 0
       if name in context.failed:
         return 0
       try:

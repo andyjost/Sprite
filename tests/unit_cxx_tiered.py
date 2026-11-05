@@ -418,7 +418,7 @@ class TestRemovedDirectory(TieredTestCase):
   def test_adoption_keeps_private_generation(self):
     name = self.write_module()
     M = self.import_module(name)
-    private = tiered._state.records[name].sofile
+    private = tiered._state.records[tiered._key(cytest.raw.interp(), name)].sofile
     self.wait()
     self.assertTrue(os.path.isfile(self.sofile(name)))
     self.assertEqual(getHandle(M).sofilename, private,

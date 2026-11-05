@@ -229,11 +229,14 @@ PRODUCT = {'cxx': '.so'}
 # C++ toolchain). The bytecode and summaries share one product.
 IMAGE_PRODUCTS = ('.img',)
 
-# What the log holds when the front end could not run the preprocessor:
-# the message of the shell ("currypp: not found") or the line of the
-# front end ("Preprocessor exited with exit code 127").
+# What the log holds when the preprocessor could not run: the message of
+# the shell ("currypp: not found"), the line of the front end
+# ("Preprocessor exited with exit code 127"), or the line of sprite-make,
+# which checks the PATH before the front end runs ("M.curry needs the
+# preprocessor currypp, which is not on PATH.").
 PREPROCESSOR_FAILURE = re.compile(
     r'(?P<tool>\S+): not found|Preprocessor exited with exit code'
+    r'|needs the preprocessor (?P<named>\S+), which is not on PATH'
   )
 
 def preprocessor_failed(text, tool):
@@ -242,7 +245,7 @@ def preprocessor_failed(text, tool):
   could not run the preprocessor ``tool`` (PREPROCESSOR_FAILURE).
   '''
   for match in PREPROCESSOR_FAILURE.finditer(text):
-    if match.group('tool') in (None, tool):
+    if (match.group('tool') or match.group('named')) in (None, tool):
       return True
   return False
 
@@ -382,9 +385,11 @@ class PrepareJob(Job):
     # them.
     self.refreshed = None
     self.served = None
-    # Of the modules without a product after a run that did not end well,
+    # After a run that did not end well: of the modules without a product,
     # those whose preprocessor the PATH lacks and the front end could not
-    # run (lacking_tools): module to tool.
+    # run (lacking_tools), or the modules sprite-make refused for such a
+    # preprocessor while their stale products stayed (refused_tools):
+    # module to tool.
     self.lacking = {}
 
   @property
@@ -447,6 +452,33 @@ class PrepareJob(Job):
         found[module] = tool
     return found
 
+  def refused_tools(self, text):
+    '''
+    The modules whose source names a preprocessor the PATH lacks and whose
+    refusal by sprite-make the log ``text`` holds, when the text holds
+    nothing but such refusals, blank lines and the count lines of
+    sprite-make (CACHE_LINE, REWRITE_LINE); otherwise empty.  A refused
+    module keeps its stale products, so missing() does not name it.  A
+    dict of module to tool, in the order of ``modules``.
+    '''
+    from curry.toolchain import _preprocessor
+    lines = [line for line in text.splitlines() if line.strip()]
+    if not lines or not all(
+        PREPROCESSOR_FAILURE.search(line) or CACHE_LINE.match(line)
+        or REWRITE_LINE.match(line) for line in lines
+      ):
+      return {}
+    path = (self.env or os.environ).get('PATH')
+    found = {}
+    for module in self.modules:
+      tool = self.tool_lacking(module)
+      if tool is None:
+        continue
+      message = _preprocessor.missing(os.path.join(self.testdir, module), path=path)
+      if message and message in text:
+        found[module] = tool
+    return found
+
   def product(self, module):
     '''The usual product of ``module``: the first of ``products``, or None.'''
     products = self.products(module)
@@ -501,26 +533,36 @@ class PrepareJob(Job):
       missing = self.missing()
       if missing is None:
         details.append('see the log')
-      elif missing:
-        details.append('%d of %d modules without a product: %s' % (
-            len(missing), len(self.modules), _names(missing)
-          ))
-        self.lacking = self.lacking_tools(missing, self.log_text())
-        if len(self.lacking) == len(missing):
+      else:
+        text = self.log_text()
+        if missing:
+          details.append('%d of %d modules without a product: %s' % (
+              len(missing), len(self.modules), _names(missing)
+            ))
+          self.lacking = self.lacking_tools(missing, text)
+          skipped = len(self.lacking) == len(missing)
+        else:
+          # Every product file is present, yet the run did not end well:
+          # sprite-make refused a module whose preprocessor the PATH lacks
+          # before the front end ran, and its stale products stayed. The
+          # log then holds nothing but such refusals (refused_tools).
+          self.lacking = self.refused_tools(text)
+          skipped = bool(self.lacking)
+        if skipped:
           self.status = 'ok'
           self.returncode = 0
           self.note = None
           details = ['%d module%s skipped' % (
-              len(missing), '' if len(missing) == 1 else 's'
+              len(self.lacking), '' if len(self.lacking) == 1 else 's'
             )]
+        elif not missing:
+          details.append('every product is present')
         for tool in sorted(set(self.lacking.values())):
           names = [m for m, t in self.lacking.items() if t == tool]
           details.append(
               '%s need%s the preprocessor %s, which is not on PATH.' % (
                   _names(names), 's' if len(names) == 1 else '', tool
                 ))
-      else:
-        details.append('every product is present')
     if details:
       detail = '; '.join(details)
       self.note = '%s; %s' % (self.note, detail) if self.note else detail

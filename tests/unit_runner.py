@@ -2044,6 +2044,24 @@ class TestPrepare(unittest.TestCase):
     self.assertEqual(job(nowhere, shell, 'incomplete').status, 'ok')
     diagnostic = 'poker.curry needs the preprocessor currypp, which is not on PATH.'
     self.assertEqual(job(nowhere, diagnostic).status, 'ok')
+    # A refused module whose stale products are present: sprite-make checks
+    # the PATH before the front end runs and leaves the old files. The log
+    # holds nothing but the refusal, so the module is skipped; any other
+    # line keeps the failure.
+    open(os.path.join(products, 'poker.so'), 'w').close()
+    refused = job(nowhere, 'sprite-make: ' + diagnostic + '\n')
+    self.assertEqual(refused.lacking, {'data/curry/smap/poker.curry': 'currypp'})
+    self.assertEqual(refused.status, 'ok')
+    self.assertEqual(
+        refused.note
+      , '1 module skipped; poker.curry needs the preprocessor currypp, '
+        'which is not on PATH.'
+      )
+    mixed = job(nowhere, 'sprite-make: ' + diagnostic + '\n' + other)
+    self.assertEqual(mixed.lacking, {})
+    self.assertEqual(mixed.status, 'FAILED')
+    self.assertEqual(mixed.note, 'exit status 1; every product is present')
+    os.remove(os.path.join(products, 'poker.so'))
     # A failure after the ICurry step is not blamed on the tool.
     plain = job(nowhere, other)
     self.assertEqual(plain.lacking, {})

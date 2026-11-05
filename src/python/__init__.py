@@ -201,7 +201,7 @@ def reload(module, *, text=None):
   """Reload a module, dropping its interpreter's queued and posted hot work.
 
   Still-loaded interpreted functions become hot again after the threshold's
-  count of calls.
+  count of calls. A module belonging to another interpreter is refused.
   """
   return _session.reload(_interpreter_, module, text=text)
 

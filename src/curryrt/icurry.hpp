@@ -216,11 +216,11 @@ namespace curryrt
   size_t icurry_apply_posted();
 
   // Gives an interpreted function the step ``step``: the code a JIT made from
-  // its bytecode (backends/cxx/llvmjit.py).  The bytecode stays in aux, so
-  // the disassembler and a later JIT read it; icurry_bytecode answers null
-  // for the function, since its step is not the interpreter any more.
+  // its bytecode (backends/cxx/llvmjit.py). The bytecode stays in aux.
+  // This is the only LLVM install point. Returns false for ownerless or
+  // retired bytecode, leaving the interpreted entry unchanged.
   // ``info`` must be interpreted at the call (std::invalid_argument).
-  void icurry_set_step(InfoTable * info, stepfunc_type step);
+  bool icurry_set_step(InfoTable * info, stepfunc_type step);
 
   // Makes ``info`` an interpreted function: its step becomes icurry_step and
   // its bytecode ``code``, which lives as long as the process.  ``info`` must

@@ -422,13 +422,13 @@ namespace curryrt
     // and run it on the same redex. The hot worker only posts swaps.
     if(info->step == &icurry_cached_step)
     {
-      if(step) icurry_set_step(info, step);
-      else info->step = &icurry_step;
+      if(!step || !icurry_set_step(info, step))
+        info->step = &icurry_step;
     }
     return info->step(rts, C);
   }
 
-  void icurry_set_step(InfoTable * info, stepfunc_type step)
+  bool icurry_set_step(InfoTable * info, stepfunc_type step)
   {
     if(!info || !step)
       throw std::invalid_argument("icurry_set_step: a null argument");
@@ -436,11 +436,17 @@ namespace curryrt
       throw std::invalid_argument(
           std::string("icurry_set_step: ") + info->name + " is not interpreted"
         );
+    auto bc = icurry_bytecode(info);
+    // Only the attachment's owner can authorize an LLVM installation.
+    // Ownerless bytecode cannot establish that its table is still live.
+    if(!bc || !bc->owner || bc->generation != bc->owner->generation.load())
+      return false;
     {
       std::lock_guard<std::mutex> lock(g_jit_mutex);
       g_jit_steps.insert(info);
     }
     info->step = step;
+    return true;
   }
 
   bool icurry_is_jit(InfoTable const * info)
@@ -506,12 +512,8 @@ namespace curryrt
       // A table swapped meanwhile, or never interpreted, keeps its step.
       if(!entry.first.valid() || !is_interpreted_step(entry.first.info->step))
         continue;
-      {
-        std::lock_guard<std::mutex> lock(g_jit_mutex);
-        g_jit_steps.insert(entry.first.info);
-      }
-      entry.first.info->step = entry.second;
-      ++applied;
+      if(icurry_set_step(entry.first.info, entry.second))
+        ++applied;
     }
     return applied;
   }

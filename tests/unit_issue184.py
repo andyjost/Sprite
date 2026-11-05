@@ -250,6 +250,109 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
     assert first.eval(again.f(10)).one() == 12
 ''')
 
+  def test_llvm_cached_lazy_cross_interpreter_after_reset(self):
+    try:
+      import llvmlite
+    except ImportError:
+      self.skipTest('llvmlite is unavailable')
+    self.run_child(r'''
+import os, sys, tempfile
+from pathlib import Path
+os.environ['SPRITE_JIT_THRESHOLD'] = '1000000000'
+from curry.interpreter import Interpreter
+from curry.backends.cxx import curryrtbindings as rt, llvmjit
+flags = {'interpret': 'all', 'jit': 'hot', 'jit_backend': 'llvm', 'inline_budget': 0}
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    os.environ['SPRITE_JIT_CACHE'] = str(Path(work) / 'cache')
+    source = Path(work) / 'RetiredCached.curry'
+    source.write_text('module RetiredCached where\nf :: Int -> Int\nf n = 17\n')
+    fill = Interpreter(flags=flags)
+    fill.path.insert(0, work)
+    m = fill.import_('RetiredCached')
+    llvmjit.compile(m.f.info, 'RetiredCached.f')
+    filled = llvmjit._jit.modules[rt.icurry_address(m.f.info)]
+    assert Path(filled.local).is_file() or Path(filled.private).is_file(), 'cache was not populated'
+    tracker, records = llvmjit._jit.generations[filled.runtime_key][-1]
+    native_step = tracker[records[0][1]]
+    first, second = Interpreter(flags=flags), Interpreter(flags=flags)
+    first.path.insert(0, work)
+    m = first.import_('RetiredCached')
+    info = m.f.info
+    context = llvmjit._jit.modules[rt.icurry_address(info)]
+    assert 'RetiredCached.f' in context.cached
+    assert 'RetiredCached.f' not in context.resolved
+    results = second.eval(m.f(0))
+    first.reset()
+    before = llvmjit.statistics().copy()
+    assert results.one() == 17
+    assert not rt.icurry_is_jit(info), 'retired cached table was swapped'
+    assert 'RetiredCached.f' not in context.resolved, 'retired object was resolved'
+    assert llvmjit.statistics() == before, (before, llvmjit.statistics())
+    # A caller that bypasses the resolver still cannot install on this table.
+    assert rt.icurry_set_step(info, native_step) is False
+    assert not rt.icurry_is_jit(info)
+''')
+
+  def test_reload_refuses_another_interpreters_module(self):
+    try:
+      import llvmlite
+    except ImportError:
+      self.skipTest('llvmlite is unavailable')
+    self.run_child(r'''
+import os, threading, time
+os.environ['SPRITE_JIT_THRESHOLD'] = '2'
+import curry
+from curry.interpreter import Interpreter, session
+from curry.utility.locking import native_metadata
+from curry.backends.cxx import curryrtbindings as rt, llvmjit
+flags = {'interpret': 'all', 'jit': 'hot', 'jit_backend': 'llvm', 'inline_budget': 0}
+first, second = Interpreter(flags=flags), Interpreter(flags=flags)
+curry._interpreter_ = second
+entered, release, done = threading.Event(), threading.Event(), threading.Event()
+original = llvmjit._compile_groups_locked
+def held(*args, **kw):
+    entered.set()
+    assert release.wait(30)
+    try:
+        return original(*args, **kw)
+    finally:
+        done.set()
+llvmjit._compile_groups_locked = held
+a = first.compile('f :: Int -> Int\nf n = 11\n', modulename='ForeignReload')
+b = second.compile('f :: Int -> Int\nf n = 22\n', modulename='ForeignReload')
+info = a.f.info
+for _ in range(2):
+    assert first.eval(a.f(0)).one() == 11
+assert entered.wait(30)
+tokens = [rt.icurry_work(m.f.info) for m in (a, b)]
+try:
+    for reload in (curry.reload, lambda m, **kw: session.reload(second, m, **kw),
+                   lambda m, **kw: native_metadata(session._replace_module)(
+                       second, m, None, kw['text'], ())):
+        try:
+            reload(a, text='g :: Int\ng = 33\n')
+        except curry.exceptions.StaleError as error:
+            assert 'another interpreter' in str(error), str(error)
+        else:
+            raise AssertionError('foreign module reload was accepted')
+        assert all(token.valid for token in tokens), 'reload mutated a generation'
+        assert first.modules['ForeignReload'] is a
+        assert second.modules['ForeignReload'] is b
+        assert first.eval(a.f(0)).one() == 11
+        assert second.eval(b.f(0)).one() == 22
+finally:
+    release.set()
+assert done.wait(30)
+deadline = time.monotonic() + 30
+while not rt.icurry_is_jit(info):
+    rt.icurry_apply_posted()
+    assert time.monotonic() < deadline, llvmjit.statistics()
+    time.sleep(.005)
+assert first.eval(a.f(0)).one() == 11
+assert second.modules['ForeignReload'] is b
+assert second.eval(b.f(0)).one() == 22
+''')
+
   def test_llvm_reload_rearms_loaded_functions(self):
     self._llvm_reload_rearms(False)
 
@@ -261,7 +364,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
       import llvmlite
     except ImportError:
       self.skipTest('llvmlite is unavailable')
-    output = self.run_child(r'''
+    self.run_child(r'''
 import os, sys, tempfile, threading, time
 from pathlib import Path
 os.environ['SPRITE_JIT_THRESHOLD'] = '4'
@@ -280,10 +383,6 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
     first.path.insert(0, work)
     if second is not first:
         second.path.insert(0, work)
-    prelude = getHandle(first.prelude)
-    names = set(prelude.symbols) | set(rt.registered_names('Prelude'))
-    count = sum(prelude.backend_handle.get_infotable(name) is not None for name in names)
-    print('Prelude tables visited:', count)
     m = first.import_('ReloadRearmM')
     n = second.import_('ReloadRearmN')
     def call(function, value, count):
@@ -322,7 +421,6 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
     swapped(n.k)
     assert second.eval(n.g(0)).one() == 17
 ''' % other)
-    print(output, end='')
 
   def test_llvm_reset_discards_taken_work(self):
     self._llvm_reset_work(False)

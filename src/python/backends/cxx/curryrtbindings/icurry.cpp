@@ -252,11 +252,11 @@ namespace
     return nullptr;
   }
 
-  void icurry_set_step_(InfoTable * info, std::uintptr_t address)
+  bool icurry_set_step_(InfoTable * info, std::uintptr_t address)
   {
     try
     {
-      icurry_set_step(info, reinterpret_cast<stepfunc_type>(address));
+      return icurry_set_step(info, reinterpret_cast<stepfunc_type>(address));
     }
     catch(std::invalid_argument const & e)
     {
@@ -313,9 +313,9 @@ namespace curryrt { namespace python
       , curryrt::python::heap_access{});
     mod.def("icurry_set_step", &icurry_set_step_
       , "Gives an interpreted function the step at an address: the code a JIT "
-        "made from its bytecode.  The function must be interpreted at the "
-        "call.  No heap lock: the hot tier swaps a step while an evaluation "
-        "runs, and the evaluation reads the pointer at each call.");
+        "made from its bytecode. The function must be interpreted at the "
+        "call. Returns false when its attachment is retired or ownerless. "
+        "The caller provides the existing installation synchronization.");
     mod.def("icurry_post_step", &icurry_post_step_
       , "Posts the step at an address for an interpreted function: a "
         "scheduler applies it at the head of its loop, or "

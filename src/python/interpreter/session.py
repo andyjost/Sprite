@@ -149,6 +149,7 @@ def reset(interp, **flags):
 
 def reload(interp, module, *, text=None):
   check_module(module)
+  _check_reload_owner(interp, module)
   source = getattr(module, '.source_file', None) or ModuleInfo(module).file
   if text is None and source is None:
     raise exceptions.LoadError('cannot reload text module %r without text; use curry.reload(module, text=...)' % module.__name__)
@@ -185,8 +186,14 @@ def reload(interp, module, *, text=None):
   return native_metadata(_replace_module)(interp, module, source, text, imports)
 
 
+def _check_reload_owner(interp, module):
+  if getattr(getHandle(module).obj, '.interp') is not interp:
+    raise exceptions.StaleError('module %s belongs to another interpreter' % module.__name__)
+
+
 def _replace_module(interp, module, source, text, imports):
   check_module(module)
+  _check_reload_owner(interp, module)
   name = module.__name__
   old = module.__dict__.copy()
   from ..backends.cxx import llvmjit

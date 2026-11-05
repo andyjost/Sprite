@@ -164,6 +164,7 @@ llvmjit.logger.addHandler(handler)
 llvmjit.logger.setLevel(logging.INFO)
 with mock.patch.object(llvmjit, '_jit', jit), \\
      mock.patch.object(native, 'icurry_is_jit', return_value=False), \\
+     mock.patch.object(native, 'icurry_work', return_value=types.SimpleNamespace(valid=True)), \\
      mock.patch.object(native, 'icurry_apply_posted', return_value=0):
   assert llvmjit._resolve_cached(1) == 123
   context.resolved.clear()
