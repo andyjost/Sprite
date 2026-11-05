@@ -479,7 +479,7 @@ def source_record(filename):
     pass
   return None
 
-def input_current(record, filename, interp=None):
+def input_current(record, filename, interp=None, registry=None):
   try:
     source = _filenames.curryfilename(filename)
   except ValueError:
@@ -489,7 +489,7 @@ def input_current(record, filename, interp=None):
   from ...toolchain._frontend import ROUTE_VERSION
   from . import image
   digest = image.digest(source)
-  return record.get('registry') == registered_names(source) \
+  return record.get('registry') == (registered_names(source) if registry is None else registry) \
       and record.get('route') == ROUTE_VERSION \
       and (digest is None or record.get('source') == digest)
 
@@ -839,7 +839,7 @@ class Cpp2So(object):
     return 'the ABI stamp'
 
   @_findcurry.with_resolution
-  def stamp_is_current(self, sofile, currypath=None):
+  def stamp_is_current(self, sofile, currypath=None, registry=None):
     '''
     Tells whether the ABI stamp of ``sofile`` holds a digest this step
     accepts and names this installation.  The paths are compared as real
@@ -852,7 +852,7 @@ class Cpp2So(object):
     _findcurry.verify_loaded_product(self.stampfile(sofile), self.interp)
     accepted = self.accepted_digests()
     digest, path, recorded, record = self._read_stamp_records(sofile)
-    if not input_current(record, sofile, self.interp):
+    if not input_current(record, sofile, self.interp, registry):
       return False
     if (accepted and digest not in accepted) or path is None:
       logger.debug('ABI stamp %s: digest=%r accepted=%r installation=%r',
@@ -1327,6 +1327,11 @@ class Cpp2So(object):
     try:
       cache.write_file(cpp, source)
       cmd = list(self._compileCommand(cpp, tmp, imports))
+      try:
+        curryfile = _filenames.curryfilename(file_in)
+      except ValueError:
+        curryfile = None # An explicitly saved object has no source product tree.
+      registry = registered_names(curryfile)
       with _productlock.locked(file_in) as waited:
         # A producer that published while we prepared or waited wins, even
         # during a forced rebuild.  The stamp is checked without an import.
@@ -1336,7 +1341,7 @@ class Cpp2So(object):
         # its text (issue #138; unit_issue138.py under interpret:off).
         another_won = before != self.product_snapshot(file_out)
         if another_won and os.path.isfile(file_out) \
-            and self.stamp_is_current(file_out):
+            and self.stamp_is_current(file_out, registry=registry):
           return file_out
         logger.info('Compiling %r', file_out)
         if logger.isEnabledFor(logging.DEBUG):
@@ -1357,7 +1362,7 @@ class Cpp2So(object):
         _findcurry.verify_loaded_product(file_in)
         with open(file_in, 'rb') as stream:
           if stream.read() == source:
-            self.store(file_in, file_out, currypath)
+            self.store(file_in, file_out, currypath, registry=registry)
       return file_out
     finally:
       for path in (tmp, cpp, tmp + '.obj', tmp + '.lib', tmp + '.exp', tmp + '.pdb'):
@@ -1387,7 +1392,7 @@ class Cpp2So(object):
 
   PRODUCT_SUFFIXES = ('.cpp', config.module_object_suffix())
 
-  def product_facts(self, curryfile):
+  def product_facts(self, curryfile, registry=None):
     '''
     The facts, as strings, that decide the generated code and the object of
     a module beyond its source chain: the key of the product cache digests
@@ -1408,7 +1413,7 @@ class Cpp2So(object):
     flags = self.interp.flags
     return [
         'format %d' % compiler.FORMAT_VERSION
-      , 'registry ' + json.dumps(registered_names(curryfile))
+      , 'registry ' + json.dumps(registered_names(curryfile) if registry is None else registry)
       , 'generator ' + generator_digest()
       , 'optimizers ' + ' '.join(key for key, _ in optimize.default_optimizers)
       , 'inline_budget %d' % flags['inline_budget']
@@ -1417,7 +1422,7 @@ class Cpp2So(object):
       ]
 
   @_findcurry.with_resolution
-  def product_key(self, filename, currypath):
+  def product_key(self, filename, currypath, registry=None):
     '''
     The key of the product cache for the module of ``filename``, a file of
     its chain (see _productcache.product_key), or None when the module has
@@ -1431,7 +1436,7 @@ class Cpp2So(object):
     if os.path.basename(curryfile) != 'Prelude.curry':
       names.add('Prelude')
     return _productcache.product_key(
-        curryfile, currypath, self.product_facts(curryfile) + [
+        curryfile, currypath, self.product_facts(curryfile, registry) + [
             _interfaces.encode(_interfaces.object_snapshot(
                 names,
                 _interfaces.search_path(curryfile, currypath)))]
@@ -1530,7 +1535,7 @@ class Cpp2So(object):
     return sofile
 
   @_findcurry.with_resolution
-  def store(self, cppfile, sofile, currypath):
+  def store(self, cppfile, sofile, currypath, registry=None):
     '''
     Stores the products of a compile in the product cache: the generated
     file, the object and its stamp.  Nothing when the cache is off.  A
@@ -1544,7 +1549,7 @@ class Cpp2So(object):
     if digest is None:
       return
     try:
-      key = self.product_key(cppfile, currypath)
+      key = self.product_key(cppfile, currypath, registry=registry)
       if key is None:
         return
       _productcache.store(digest, key, [cppfile, sofile, self.stampfile(sofile)])

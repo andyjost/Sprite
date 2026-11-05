@@ -5,6 +5,10 @@ Release Notes
 Unreleased
 ==========
 
+- Release symbol-cache, JIT and product locks before native heap waits or
+  logging callbacks; finalize abandoned results from saved evaluation counts
+  and apply posted LLVM steps under the heap gate.
+
 - Serve loaded modules from memory until reload or reset, without product
   snapshots; product-file readers verify the digests recorded at load.
 - Library modules follow Curry path order; only runtime builtin module names

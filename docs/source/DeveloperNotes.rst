@@ -158,7 +158,7 @@ Audit of shared state
 
    * - Module wrappers and constructor classes
      - ``objects/terms.py; classes.py``
-     - ModuleInfo cache locks cover Python-only wrapper construction. Classes/fields finish before module publication and are immutable for that version. Reload prepares complete replacements and updates owner references before publication. Raw-symbol selection remains a ContextVar.
+     - ModuleInfo cache locks cover cache inspection and version-checked publication. Native term construction and nullary computation copies run after releasing the lock. Classes/fields finish before module publication and are immutable for that version. Reload prepares complete replacements and updates owner references before publication. Raw-symbol selection remains a ContextVar.
 
    * - Shared free variables and iterator payloads
      - ``expressions.py; typecheck/builder.py; objects/terms.py``
@@ -170,7 +170,7 @@ Audit of shared state
 
    * - Evaluation statistics
      - ``backends/generic/eval/evaluator.py; interpreter/stats.py``
-     - A totals lock covers Python counters/weak registry and its version. Native counter reads happen outside the lock; version changes retry the snapshot. Direct single_step accounting remains supported. Returned stats are private snapshots, not a global pause of all activity.
+     - A totals lock covers Python counters/weak registry and its version. Native counter reads happen outside the lock; version changes retry the snapshot. Value consumption snapshots counts before each yield and after completion or error, so generator closure publishes saved Python counts without entering the heap. Direct single_step accounting remains supported. Returned stats are private snapshots, not a global pause of all activity.
 
    * - Compilation time, warnings and parser caches
      - ``toolchain/_makecurry.py; _curry2icurry.py; flat2icurry/interfaces.py; backends/cxx/toolchain.py``
@@ -194,8 +194,10 @@ File publication and lock order
 First use remains lazy: a trapped function compiles when it is first called,
 and unused functions do not move compilation failures earlier. There is no
 product-lock-to-heap edge. Importing dependencies, materializing native
-symbols, rendering source and preparing the linker command precede the
-file-production lock. The lock covers only producing/rechecking/publishing
+symbols, snapshotting registered primitive names for image, stamp and cache checks,
+rendering source and preparing the linker command precede the
+file-production lock. Locked image checks, ABI checks and cache stores use
+those snapshots rather than reading the native registry again. The lock covers only producing/rechecking/publishing
 files. A producer writes a unique temporary name and publishes by rename;
 another producer that finds a current published product takes it. Failed
 compilation retains the previous published object and stamp. Publication
@@ -223,6 +225,18 @@ publication. Dependency preparation and job waits are kept outside those
 transactions. Evaluation itself is never enclosed in a Python mutex or a
 metadata transaction. The large-stack worker therefore requires no Python
 lock ownership transfer.
+
+LLVM compilation, cache attachment and cached-function resolution collect
+log messages under their existing locks and emit them after releasing both
+the JIT lock and the compilation-group lock. Logging handlers may reenter
+Sprite; even a same-thread handler must not run inside either lock.
+The Python binding that applies posted LLVM steps takes the heap gate before
+changing a step pointer. Compiler-facing table reads still need coordination
+with all native table writers; they are not certified by this lock-order fix.
+
+``tests/unit_heap_edges.py`` forces symbol-cache/heap and product-lock/heap
+inversions, abandoned-result collection under the JIT lock, and a logging
+handler that reenters evaluation.
 
 Regression coverage is in ``tests/unit_free_threading.py``: complete module
 publication, concurrent imports/builds/consumption, cross-thread reset and
@@ -1063,6 +1077,11 @@ The process-wide heap gate also protects native root and state lifetimes.
 Python finalization can run on the LLVM hot-compile thread while it holds
 its JIT lock. A finalizer must never wait for the heap: reset and cached
 function resolution may already own the heap while waiting for that lock.
+A started result generator saves its native evaluation counters before each
+yield. Closure, including cyclic collection, adds only this Python snapshot
+to the totals; it never reads native counters from its finalization path.
+Normal exhaustion and evaluation errors refresh the snapshot before closing,
+including the work since the last yielded value.
 ``RootHolder``, ``HeapDeleter`` and the shared module deleter transfer a
 preallocated ``PendingHeapAction`` to ``heap_dispose``. If the thread owns
 the heap, or can acquire it immediately, removal runs immediately. Otherwise

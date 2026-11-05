@@ -60,7 +60,7 @@ def read(path):
   return header
 
 
-def _facts(interp, source, imports):
+def _facts(interp, source, imports, registry=None):
   source = _destination.canonical(source)
   from ...toolchain._frontend import ROUTE_VERSION
   from . import toolchain
@@ -70,7 +70,7 @@ def _facts(interp, source, imports):
       _filenames.icurryfilename(source))
   return dict(source=icy_digest, route=ROUTE_VERSION,
       budget=interp.flags['inline_budget'], imports=imports,
-      registry=toolchain.registered_names(source))
+      registry=toolchain.registered_names(source) if registry is None else registry)
 
 
 def writable(source):
@@ -137,10 +137,10 @@ def generation_digest(generation):
       or generation.product_digest('.icy'))
 
 
-def _check(interp, source, path, imports=None):
+def _check(interp, source, path, imports=None, registry=None):
   header = read(path)
   # Check local facts before resolving any dependency of an old source.
-  facts = _facts(interp, source, {})
+  facts = _facts(interp, source, {}, registry)
   if any(header.get(k) != facts[k] for k in ('source', 'route', 'budget', 'registry')):
     raise ValueError('stale module image')
   if imports is not None and header['imports'] != imports:
@@ -351,16 +351,18 @@ def write(interp, module, currypath=None, path=None, imports=None):
   native = curryrt.Module.find_or_create(module.fullname)
   builtins = {f.name for f in module.functions.values()
       if function_primitive(native, f, module) is not None}
+  from .toolchain import registered_names
+  registry = registered_names(module.filename)
   with _productlock.locked(path):
     try:
-      _check(interp, module.filename, path, imports)
+      _check(interp, module.filename, path, imports, registry)
       return path
     except (OSError, ValueError, KeyError, exceptions.CurryError):
       pass
-    return _write(interp, module, path, imports, builtins)
+    return _write(interp, module, path, imports, builtins, registry)
 
 
-def _write(interp, module, path, imports, builtins):
+def _write(interp, module, path, imports, builtins, registry):
   if os.path.realpath(path) in _attached_paths:
     selected = _destination.select(module.filename, force=True)
     path = filename(selected)
@@ -414,7 +416,7 @@ def _write(interp, module, path, imports, builtins):
   out.word(len(module.functions))
   for function in module.functions.values():
     out.metadata(function.metadata)
-  header = _facts(interp, module.filename, imports)
+  header = _facts(interp, module.filename, imports, registry)
   header['name'] = module.fullname
   header['body'] = hashlib.sha256(out.data).hexdigest()
   header = json.dumps(header, sort_keys=True, separators=(',', ':')).encode('ascii')
@@ -495,17 +497,19 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
   path = _publication_path(interp, source, path, imports)
   # Imports and native summary reads precede the file lock. Only this
   # module's passes, bytecode emission and publication need serialization.
+  from .toolchain import registered_names
+  registry = registered_names(source)
   with _productlock.locked(path):
     try:
-      header = _check(interp, source, path)
+      header = _check(interp, source, path, registry=registry)
       return path, _check(interp, source, path,
-          {name: imports[name] for name in header['imports']})
+          {name: imports[name] for name in header['imports']}, registry)
     except (OSError, ValueError, KeyError, exceptions.CurryError):
       pass
     optimize(interp, raw, currypath, summaries=summaries)
     imports = {name: imports[name] for name in raw.imports}
-    path = _write(interp, raw, path, imports, builtins)
-    return path, _check(interp, source, path, imports)
+    path = _write(interp, raw, path, imports, builtins, registry)
+    return path, _check(interp, source, path, imports, registry)
 
 
 def load(interp, icyfile, currypath=None):

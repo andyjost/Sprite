@@ -120,6 +120,9 @@ class EvaluationTotals(object):
     steps = rts.steps_total
     forks = rts.forks_total
     counters = rts.scheduler_counters()
+    self._add_counts(rts, steps, forks, counters)
+
+  def _add_counts(self, rts, steps, forks, counters):
     with self._lock:
       self._purge()
       self._running_refs.pop(id(rts), None)
@@ -142,10 +145,28 @@ class EvaluationTotals(object):
       self._purge()
       self._running_refs[key] = weakref.ref(rts, forget)
       self._version += 1
+    # Snapshot while consuming, before suspending at a yield. Closing a
+    # suspended generator (including cyclic GC) must not enter the heap.
+    counts = (0, 0, None)
+    def snapshot():
+      return rts.steps_total, rts.forks_total, rts.scheduler_counters()
     try:
-      yield from values
+      try:
+        for value in values:
+          counts = snapshot()
+          yield value
+      except GeneratorExit:
+        raise
+      except BaseException:
+        counts = snapshot()
+        raise
+      else:
+        counts = snapshot()
     finally:
-      self.add(rts)
+      self._add_counts(rts, *counts)
+      close = getattr(values, 'close', None)
+      if close is not None:
+        close()
 
 class Evaluator(object):
   '''Manages the evaluation of a Curry expression.'''
