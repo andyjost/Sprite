@@ -2,17 +2,17 @@ name: Windows
 
 # The runtime, its Python bindings and the staged package built on Windows
 # (the portability memo of 2026-10-18, step 4; the owner's go of 2026-10-29).
-# Two compilers: clang-cl, the compiler of the port, which knows the GNU
-# builtins of the runtime, and cl, experimental.  The job configures in the
-# developer environment of Visual Studio, builds every target with Ninja
-# past the first error so one run reports every translation unit, runs the
+# The compiler is clang-cl, which knows the GNU builtins of the runtime;
+# Microsoft cl is not supported.  The job configures in the developer
+# environment of Visual Studio, builds every target with Ninja past the
+# first error so one run reports every translation unit, runs the
 # interpreter, generated DLLs and C++ JIT, and uploads the logs. The
 # library uses its pinned products; curry-frontend compiles test sources.
 
 'on':
   # Every push of master and of the Windows branches runs it: the line
   # endings of the checkout and the attributes matter as much as the
-  # sources.  The clang-cl job is the port's gate; cl is experimental.
+  # sources.  The clang-cl job is the port's gate.
   push:
     branches: [master, wt/windows, 'wt/windows-*']
   workflow_dispatch:
@@ -22,20 +22,9 @@ permissions:
 
 jobs:
   build:
-    name: runtime (${{ matrix.name }})
+    name: runtime (clang-cl)
     runs-on: windows-2025
-    continue-on-error: ${{ matrix.experimental }}
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: clang-cl
-            cc: clang-cl
-            experimental: false
-          - name: msvc
-            cc: cl
-            experimental: true
     defaults:
       run:
         shell: bash
@@ -58,7 +47,7 @@ jobs:
           clang-cl --version || echo "no clang-cl on PATH"
       # The developer environment of Visual Studio (INCLUDE, LIB, PATH) comes
       # from vcvars64.bat, which only cmd can call; Ninja then builds with the
-      # compiler of the matrix and keeps going past errors, so one run
+      # clang-cl compiler and keeps going past errors, so one run
       # reports every translation unit.
       - name: Configure and build in the developer environment
         id: build
@@ -67,8 +56,8 @@ jobs:
           for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
           echo Visual Studio: %VSPATH%
           call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
-          set "CC=${{ matrix.cc }}"
-          set "CXX=${{ matrix.cc }}"
+          set "CC=clang-cl"
+          set "CXX=clang-cl"
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DPython_EXECUTABLE=%pythonLocation%\python.exe -DWITH_PAKCS= -DWITH_CURRY_FRONTEND= -DWITH_ICURRY= -DWITH_CLANG=clang++ > configure.log 2>&1
           set "CONFIGURE_STATUS=%errorlevel%"
           type configure.log
@@ -168,7 +157,7 @@ jobs:
           python -m unittest -v unit_windows_aot unit_make.TestMake.test_sprite_make_so
       - name: Unit tier
         timeout-minutes: 35
-        if: ${{ !cancelled() && matrix.name == 'clang-cl' && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         env:
           SPRITE_HOME: ${{ github.workspace }}\build\stage
           PYTHONPATH: ${{ github.workspace }}\build\stage\python
@@ -177,7 +166,7 @@ jobs:
         run: python tests/run_tests.py --fast -j 2 --timeout 600
       - name: Persistent LLVM cache
         timeout-minutes: 10
-        if: ${{ !cancelled() && matrix.name == 'clang-cl' && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         env:
           SPRITE_HOME: ${{ github.workspace }}\build\stage
           PYTHONPATH: ${{ github.workspace }}\build\stage\python
@@ -204,7 +193,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: windows-${{ matrix.name }}-${{ github.run_attempt }}
+          name: windows-clang-cl-${{ github.run_attempt }}
           path: |
             configure.log
             runtime-build.log
