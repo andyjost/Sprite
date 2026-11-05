@@ -111,7 +111,6 @@ namespace curryrt { inline namespace
         RuntimeState * rts, Configuration * C, Variable * var, bool monadic
       )
     {
-    redo:
       // hnf first: it handles a choice, a failure, or a constraint at the
       // root of the argument.  procN pull-tabs a choice to the root of its
       // scan, which must not be the choice itself.
@@ -127,8 +126,8 @@ namespace curryrt { inline namespace
       }
       if(tag < T_CTOR)
         return tag;
-      // Keep the scan rooted at the argument: a replacement there updates
-      // var's slot before a restart.  Only failure belongs to the redex.
+      // Keep pull-tabs and constraint lifts rooted at the argument.
+      // Only failure belongs to the redex.
       Cursor redex = C->cursor();
       C->scan.push(var);
       tag = rts->procN(C, var->target);
@@ -139,8 +138,9 @@ namespace curryrt { inline namespace
           rts->checker->normalization_failure(C, redex);
         return redex->make_failure();
       }
-      if(tag == E_RESTART)
-        goto redo;
+      // E_RESTART can replace the whole configuration root when a nested
+      // step reads a binding.  Hand it outward: var and redex still refer
+      // to the old graph, so only a new step may normalize the argument.
       return tag;
     };
     return _applyspecial(rts, C, normalize);

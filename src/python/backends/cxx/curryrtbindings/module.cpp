@@ -337,7 +337,7 @@ namespace
     catch(std::exception const & exc) { error = exc.what(); }
     error = "primitive " + primitive->qualified_name + ": " + error;
     if(is_monadic(primitive->info))
-      C->set_error(Node::create(ioerror_info(IO_ERROR),
+      C->set_error(Node::create(ioerror_info(rts, IO_ERROR),
           build_curry_string(error.c_str())), "i/o error: " + error, ErrorKind::io);
     else C->set_error(error);
     return E_ERROR;
@@ -445,7 +445,7 @@ namespace curryrt { namespace python
         static_cast<PythonPrimitive const *>(existing->aux)->callable = callable;
         return;
       }
-      if(Module::find(name.substr(0, dot)))
+      if(Module::find(process_registry(), name.substr(0, dot)))
         throw py::value_error("new primitive; register before the import: " + name);
       // Kept for the process; Python objects must not die after finalization.
       auto primitive = new PythonPrimitive(name.substr(dot + 1), arity,
@@ -484,10 +484,15 @@ namespace curryrt { namespace python
       .def("bind_builtin_symbol", &Module::bind_builtin_symbol, reference, curryrt::python::heap_access{})
       .def("get_builtin_symbol", &Module::get_builtin_symbol, reference, curryrt::python::heap_access{})
       .def("get_builtin_type", &Module::get_builtin_type, reference, curryrt::python::heap_access{})
+      .def_property_readonly("shared", &Module::shared, curryrt::python::heap_access{})
       .def("link", &Module::link, curryrt::python::heap_access{})
       .def("keep_tables", &Module::keep_tables
         , "Keeps the tables made at run time for the life of the process.", curryrt::python::heap_access{})
-      .def("retire", &Module::retire
+      .def("retire", [](Module & module, InterpreterState & state)
+        {
+          if(!module.shared()) module.retire();
+          state.modules.storage->modules.erase(module.name);
+        }
         , "Hands the tables made at run time to the kept store and clears "
           "the module, so a module of the same name made later takes them "
           "back without their steps (issue #114).", curryrt::python::heap_access{})
@@ -495,8 +500,17 @@ namespace curryrt { namespace python
       .def_property_readonly("shlib", &Module::shlib
         , "The compiled object linked to the module, or None.", curryrt::python::heap_access{})
       .def_readonly("name", &Module::name, curryrt::python::heap_access{})
-      .def_static("find_or_create", &Module::find_or_create, curryrt::python::heap_access{})
-      .def_static("getall", &Module::getall, curryrt::python::heap_access{})
+      .def_static("find_or_create", [](InterpreterState & state, std::string name,
+          bool compiled, bool runtime_tables)
+        {
+          auto module = Module::find_or_create(
+              compiled ? process_registry() : state.modules, name, runtime_tables && !compiled);
+          if(compiled) state.modules.storage->modules[name] = module;
+          return module;
+        }, py::arg("state"), py::arg("name"), py::arg("compiled") = false,
+        py::arg("runtime_tables") = false, curryrt::python::heap_access{})
+      .def_static("getall", [](InterpreterState * state)
+        { return Module::getall(state ? state->modules : process_registry()); }, py::arg("state") = nullptr, curryrt::python::heap_access{})
       ;
   }
 }}

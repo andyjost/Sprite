@@ -566,6 +566,16 @@ variables grant no stage authorization: the former ``SPRITE_STAGE_LIBRARY``
 setting is ignored. Runtime imports, the REPL and saved programs keep private
 library destinations, as do compiler imports without the stage option.
 
+Each interpreter owns the registry of tables made at run time, including
+interpreted images and LLVM code. Static builtin tables and loaded compiled
+objects use the process registry. Interpreted modules belong to their
+interpreter, including reserved importers and Prelude under ``interpret=all``.
+Lookup checks the interpreter's selected modules before the process registry.
+Reset retires that interpreter's runtime tables and preserves loaded objects.
+Reload drops that interpreter's queued and posted LLVM hot work, refreshes
+the attachment generation of still-loaded interpreted functions, and resets
+their bytecode call counters; already compiled LLVM steps keep their code.
+
 The module image
 ================
 

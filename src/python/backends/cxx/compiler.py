@@ -76,6 +76,8 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # the library's named wrapper exceptions; the native record version is 3
 # (the primitives branch used 21 to 25 for these steps, never published).
 # Format 29: verified private library copies keep native wrapper semantics.
+# Master also used 29 for local ELF binding, preventing another generation's
+# table constructors from overwriting an earlier object's exported data.
 # Format 30: installed-origin provenance and explicit stage authorization.
 # Format 31: effective wrapper authorization in translation input receipts.
 FORMAT_VERSION = 31
@@ -143,7 +145,7 @@ class CxxCompiler(compiler.CompilerBase):
 
   def __init__(self, interp, iroot):
     super(CxxCompiler, self).__init__(interp, iroot)
-    self.cxxmodule = curryrt.Module.find_or_create(iroot.modulename) \
+    self.cxxmodule = curryrt.Module.find_or_create(interp._its, iroot.modulename) \
         if isinstance(iroot, icurry.IModule) \
         else None
     # The size of the block of the redex of the step under compilation, and
@@ -210,6 +212,8 @@ class CxxCompiler(compiler.CompilerBase):
     yield ''
     yield '#if defined(_WIN32)'
     yield '#define SPRITE_MODULE_EXPORT __declspec(dllexport)'
+    yield '#elif defined(__ELF__)'
+    yield '#define SPRITE_MODULE_EXPORT __attribute__((visibility("protected")))'
     yield '#else'
     yield '#define SPRITE_MODULE_EXPORT'
     yield '#endif'

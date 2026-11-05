@@ -120,6 +120,9 @@ namespace curryrt
 
   struct Bytecode
   {
+    // The registry and generation at this attachment of the bytecode.
+    std::shared_ptr<ModuleRegistry::Storage> owner;
+    size_t generation = 0;
     std::vector<uint32_t>     code;
     std::vector<void const *> consts;
     uint32_t                  nregs = 0;
@@ -189,9 +192,19 @@ namespace curryrt
   // icurry_take_hot hands over and clears.  The JIT of the Python package
   // reads the list from a thread of its own, compiles the functions, and
   // swaps their steps while the evaluation runs (backends/cxx/llvmjit.py).
-  void icurry_set_hot_threshold(uint32_t);
-  uint32_t icurry_hot_threshold();
-  std::vector<InfoTable *> icurry_take_hot();
+  struct ICurryWork
+  {
+    InfoTable * info;
+    Bytecode const * bytecode;
+    std::shared_ptr<ModuleRegistry::Storage> owner;
+    size_t generation;
+    bool valid() const { return owner->generation.load() == generation; }
+  };
+  ICurryWork icurry_work(InfoTable *);
+  void icurry_invalidate(InterpreterState &);
+  void icurry_set_hot_threshold(InterpreterState &, uint32_t);
+  uint32_t icurry_hot_threshold(InterpreterState const &);
+  std::vector<ICurryWork> icurry_take_hot();
 
   // The posted swaps of the hot tier.  The thread of the JIT posts a step for
   // a table (icurry_post_step); a scheduler applies the posted swaps at the
@@ -200,21 +213,21 @@ namespace curryrt
   // evaluation.  g_icurry_posted is the flag the scheduler reads per
   // iteration; icurry_apply_posted returns the count applied.
   extern CURRYRT_DATA std::atomic<bool> g_icurry_posted;
-  void icurry_post_step(InfoTable *, stepfunc_type);
+  void icurry_post_step(ICurryWork const &, stepfunc_type);
   size_t icurry_apply_posted();
 
   // Gives an interpreted function the step ``step``: the code a JIT made from
-  // its bytecode (backends/cxx/llvmjit.py).  The bytecode stays in aux, so
-  // the disassembler and a later JIT read it; icurry_bytecode answers null
-  // for the function, since its step is not the interpreter any more.
+  // its bytecode (backends/cxx/llvmjit.py). The bytecode stays in aux.
+  // This is the only LLVM install point. Returns false for ownerless or
+  // retired or replaced bytecode, leaving the current entry unchanged.
   // ``info`` must be interpreted at the call (std::invalid_argument).
-  void icurry_set_step(InfoTable * info, stepfunc_type step);
+  bool icurry_set_step(InfoTable * info, stepfunc_type step, ICurryWork const & work);
 
   // Makes ``info`` an interpreted function: its step becomes icurry_step and
   // its bytecode ``code``, which lives as long as the process.  ``info`` must
   // be a function table made at run time (Module::create_infotable) without a
   // step.  Throws std::invalid_argument otherwise.
-  void icurry_attach(InfoTable *, std::unique_ptr<Bytecode> code);
+  void icurry_attach(ModuleRegistry const &, InfoTable *, std::unique_ptr<Bytecode> code);
 
   // Whether the step of ``info`` is one the JIT made (icurry_set_step).
   bool icurry_is_jit(InfoTable const *);

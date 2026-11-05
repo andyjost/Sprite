@@ -26,18 +26,20 @@ class IBackend(backends.IBackend):
     return interp._its
 
   def init_interpreter_state(self, interp):
-    # A new interpreter and a reset unload the modules whose compiles run in
-    # the background.
-    tiered.cancel()
-    with llvmjit._lock:
-      llvmjit._hot_enabled = False
-      curryrtbindings.icurry_set_hot_threshold(0)
-      curryrtbindings.icurry_take_hot()
+    if getattr(interp, '_its', None) is not None:
+      tiered.cancel(interp)
+    # Apply completed swaps before kept tables are reused by the new session,
+    # outside the JIT lock: the apply may wait for the heap.
     curryrtbindings.icurry_apply_posted()
     curryrtbindings._curryrtbindings._heap_drain()
     jit.select(interp)
     interp._jit_selection = interp.flags['jit_backend']
+    previous = getattr(interp, '_its', None)
     interp._its = curryrtbindings.InterpreterState()
+    if previous is not None:
+      interp._its.inherit_registry(previous)
+    curryrtbindings.icurry_set_hot_threshold(interp._its,
+        materialize.jit_threshold() if interp.flags['jit'] == 'hot' else 0)
 
   def module_loaded(self, interp, moduleobj, currypath):
     materialize.module_loaded(interp, moduleobj, currypath)
@@ -55,7 +57,7 @@ class IBackend(backends.IBackend):
     if M is not None:
       if M.shlib is not None:
         _retired_libraries.append(M.shlib)
-      M.retire()
+      M.retire(interp._its)
 
   def before_evaluation(self, interp):
     if tiered.enabled(interp):
@@ -88,8 +90,11 @@ class IBackend(backends.IBackend):
 
   def find_or_create_internal_module(self, moduleobj):
     h = getHandle(moduleobj)
-    M = curryrtbindings.Module.find_or_create(h.fullname)
-    M.link(h.icurry.metadata.get('cxx.shlib'))
+    shlib = h.icurry.metadata.get('cxx.shlib')
+    M = curryrtbindings.Module.find_or_create(
+        getattr(moduleobj, '.interp')._its, h.fullname,
+        compiled=shlib is not None, runtime_tables=shlib is None)
+    M.link(shlib)
     return M
 
   @property

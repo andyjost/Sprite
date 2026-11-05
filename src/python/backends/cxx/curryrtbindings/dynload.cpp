@@ -3,6 +3,7 @@
 #include "pybind11/stl.h"
 #include "curryrt/dynload.hpp"
 #include "curryrt/image.hpp"
+#include "curryrt/state/rts.hpp"
 #include "curryrt/platform.hpp"
 #include <memory>
 #include <string>
@@ -25,8 +26,12 @@ namespace curryrt { namespace python
 		  .def_readonly("functions", &ModuleBOM::functions, curryrt::python::heap_access{})
 			;
 
-    mod.def("load_image", &load_image, py::arg("owner"), py::arg("path"),
+    mod.def("load_image", [](Module & owner, std::string const & path,
+        std::string const & header, bool attach, InterpreterState * state)
+        { return load_image(owner, path, header, attach, state ? &state->modules : nullptr); },
+        py::arg("owner"), py::arg("path"),
         py::arg("expected_header") = "", py::arg("attach_code") = true,
+        py::arg("state") = nullptr,
         curryrt::python::heap_access{});
 
     // File publication does not access runtime heap state.
@@ -44,6 +49,9 @@ namespace curryrt { namespace python
 
     py::class_<SharedCurryModule, std::shared_ptr<SharedCurryModule>>(mod, "SharedCurryModule")
       .def(py::init<std::string const &>(), curryrt::python::heap_access{})
+      .def(py::init([](std::string const & filename, InterpreterState & state)
+        { return std::make_shared<SharedCurryModule>(filename, state.modules); }),
+        curryrt::python::heap_access{})
 			.def_property_readonly("bom", &SharedCurryModule::bom, reference_internal, curryrt::python::heap_access{})
 			.def_property_readonly("info", &SharedCurryModule::info, reference_internal, curryrt::python::heap_access{})
 			.def("sofilename", &SharedCurryModule::sofilename, reference, curryrt::python::heap_access{})

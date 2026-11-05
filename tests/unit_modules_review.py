@@ -6,6 +6,21 @@ from pathlib import Path
 import os, shutil, subprocess, sys, tempfile, textwrap
 
 
+def installed_library(directory):
+  """Classify a simulated installation through any spelling of its root."""
+  from unittest import mock
+  from curry.toolchain import _findcurry
+  original = _findcurry._installed_library_file
+  root = os.path.normcase(os.path.realpath(directory))
+  def installed(path):
+    if not path:
+      return False
+    path = os.path.normcase(os.path.realpath(path))
+    # Keep the fixture root available as an explicit front-end import path.
+    return path.startswith(root + os.sep) or original(path)
+  return mock.patch.object(_findcurry, '_installed_library_file', installed)
+
+
 class TestModuleReview(cytest.TestCase):
   def setUp(self):
     super().setUp()
@@ -370,23 +385,37 @@ generatedBranches = (if x then (0,p) else (1,p)) ? (2,p)
     Path(_filenames.replacesuffix(str(source), '.img')).unlink()
     self.child('''
       import curry, os
-      from unittest import mock
+      from unit_modules_review import installed_library
       from curry.toolchain import _findcurry, _filenames
       from curry.backends.cxx import image
       from curry.objects.handle import getHandle
       curry.reset(interpret='new', jit='off')
       source = os.path.join(root, 'library', 'ReviewLibrary.curry')
-      original = _findcurry._installed_library_file
-      def installed(path):
-        return bool(path) and (os.path.realpath(path).startswith(
-            os.path.join(root, 'library') + os.sep) or original(path))
-      with mock.patch.object(_findcurry, '_installed_library_file', installed):
+      with installed_library(os.path.join(root, 'library')):
+        assert _findcurry._installed_library_file(source), source
         module = curry.import_(source)
         path = image._path(curry._interpreter_, getHandle(module).icurry.filename)
-        assert not path.startswith(os.path.join(root, 'library') + os.sep), path
+        assert not _findcurry._installed_library_file(path), path
       assert not os.path.exists(image.filename(source))
       assert curry.eval(module.answer).one() == 1
     ''')
+
+  def test_04_importers_through_installation_alias(self):
+    from unittest import mock
+    from curry.toolchain import _findcurry
+    alias = self.root / 'alias'
+    try:
+      alias.symlink_to(self.root, target_is_directory=True)
+    except (OSError, NotImplementedError):
+      self.skipTest('directory symbolic links are unavailable')
+    with mock.patch.object(config, 'installed_path', return_value=str(alias / 'library')):
+      self.assertTrue(_findcurry._installed_library_file(
+          str(self.root / 'library' / 'ReviewLibrary.curry')))
+    self.root = alias
+    for test in (self.test_04_importer_keeps_writable_installation,
+                 self.test_04_importer_translation_and_object_are_private):
+      with self.subTest(test=test.__name__):
+        test()
 
   def test_04_explicit_writer_keeps_writable_installation(self):
     source = self.library_layout()
@@ -394,16 +423,12 @@ generatedBranches = (if x then (0,p) else (1,p)) ? (2,p)
     Path(_filenames.replacesuffix(str(source), '.img')).unlink()
     self.child('''
       import curry, os
-      from unittest import mock
+      from unit_modules_review import installed_library
       from curry.toolchain import _findcurry, _filenames, _curry2icurry
       from curry.backends.cxx import image, toolchain
       curry.reset(interpret='new', jit='off')
       source = os.path.join(root, 'library', 'ReviewLibrary.curry')
-      original = _findcurry._installed_library_file
-      def installed(path):
-        return bool(path) and (os.path.realpath(path).startswith(
-            os.path.join(root, 'library') + os.sep) or original(path))
-      with mock.patch.object(_findcurry, '_installed_library_file', installed):
+      with installed_library(os.path.join(root, 'library')):
         icy = _curry2icurry.curry2icurry(source, curry.path, use_cache=False)
         assert icy == _filenames.icurryfilename(source)
         path, _ = image.ensure(curry._interpreter_, icy, curry.path)
@@ -411,24 +436,19 @@ generatedBranches = (if x then (0,p) else (1,p)) ? (2,p)
         cpp = toolchain.ICurry2Cpp(curry._interpreter_)(path, curry.path)
         product = toolchain.Cpp2So(curry._interpreter_)(cpp, curry.path)
         assert os.path.isfile(product)
-        assert product.startswith(os.path.join(root, 'library') + os.sep)
+        assert _findcurry._installed_library_file(product), product
     ''')
 
   def test_05_writable_installed_llvm_slot(self):
     self.library_layout()
     self.child('''
       import curry, os
-      from unittest import mock
+      from unit_modules_review import installed_library
       from curry.backends.cxx import llvmjit, image
-      from curry.toolchain import _findcurry
       if llvmjit.available():
         curry.reset(interpret='all', jit='eager', jit_backend='llvm')
         source = os.path.join(root, 'library', 'ReviewLibrary.curry')
-        original = _findcurry._installed_library_file
-        def installed(path):
-          return bool(path) and (os.path.realpath(path).startswith(
-              os.path.join(root, 'library') + os.sep) or original(path))
-        with mock.patch.object(_findcurry, '_installed_library_file', installed):
+        with installed_library(os.path.join(root, 'library')):
           module = curry.import_(source)
           assert curry.eval(module.answer).one() == 1
         assert os.path.isfile(os.path.splitext(image.filename(source))[0] + '.jit')
@@ -460,7 +480,7 @@ generatedBranches = (if x then (0,p) else (1,p)) ? (2,p)
     self.child('''
       import curry, hashlib, os
       from pathlib import Path
-      from unittest import mock
+      from unit_modules_review import installed_library
       from curry.toolchain import _findcurry
       from curry.objects.handle import getHandle
       source = os.path.join(root, 'library', 'ReviewLibrary.curry')
@@ -469,15 +489,14 @@ generatedBranches = (if x then (0,p) else (1,p)) ? (2,p)
         return {str(p.relative_to(directory)): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in directory.rglob('*') if p.is_file()}
       before = products()
-      original = _findcurry._installed_library_file
-      def installed(path):
-        return bool(path) and (os.path.realpath(path).startswith(
-            str(directory) + os.sep) or original(path))
       curry.reset(interpret='off', jit='off')
-      with mock.patch.object(_findcurry, '_installed_library_file', installed):
+      with installed_library(directory):
+        assert _findcurry._installed_library_file(source), source
         module = curry.import_(source)
         assert curry.eval(module.answer).one() == 1
-        assert not getHandle(module).sofilename.startswith(str(directory) + os.sep)
+        product = getHandle(module).sofilename
+        assert product is not None, 'module has no compiled object'
+        assert not _findcurry._installed_library_file(product), product
       assert products() == before, 'importer wrote installed products'
     ''')
 
@@ -556,18 +575,13 @@ generatedBranches = (if x then (0,p) else (1,p)) ? (2,p)
     self.source('library', 'Main', 'import Leaf\nanswer :: Int\nanswer = Leaf.answer')
     self.child('''
       import curry, os
-      from unittest import mock
-      from curry.toolchain import _findcurry
+      from unit_modules_review import installed_library
       from curry.tools import make
       from curry.backends.cxx import image
       directory = os.path.join(root, 'library')
       os.environ['CURRYPATH'] = directory
       curry.config.currypath(reset=True)
-      original = _findcurry._installed_library_file
-      def installed(path):
-        return bool(path) and (os.path.realpath(path).startswith(
-            directory + os.sep) or original(path))
-      with mock.patch.object(_findcurry, '_installed_library_file', installed):
+      with installed_library(directory):
         make.main('sprite-make', ['--image', 'Main', 'Leaf'])
       for name in ('Main', 'Leaf'):
         assert os.path.isfile(image.filename(os.path.join(directory, name + '.curry'))), name

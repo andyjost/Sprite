@@ -258,7 +258,7 @@ class Materializer(object):
       , len(code.code), len(code.consts)
       )
     curryrt.icurry_attach(
-        info, code.code, code.consts, code.nregs, code.nvars, code.nstack
+        self.M, info, code.code, code.consts, code.nregs, code.nvars, code.nstack
       )
     BYTECODE[ifun.fullname] = code
     if self.jit:
@@ -269,7 +269,7 @@ class Materializer(object):
       from . import llvmjit
       try:
         if self.jit == 'hot':
-          llvmjit.start_hot_tier(jit_threshold())
+          llvmjit.start_hot_tier(self.interp._its, jit_threshold())
         else:
           llvmjit.enqueue(info, ifun.fullname)
       except llvmjit.Unavailable as exc:
@@ -285,7 +285,7 @@ class Materializer(object):
     compile on first use (see the module docstring).
     '''
     curryrt.install_trap(info)
-    name = self.imodule.fullname
+    name = (self.interp._its.registry_id, self.imodule.fullname)
     entry = _PENDING.get(name)
     if entry is None or entry.module() is not self.moduleobj:
       _PENDING[name] = Pending(self.interp, self.moduleobj)
@@ -350,7 +350,7 @@ class Pending(object):
     moduleobj = self.module()
     return None if moduleobj is None else moduleobj.__name__
 
-# The pending modules by full name.  A module of a name made again replaces
+# The pending modules by registry identity and full name.  A module of a name made again replaces
 # the entry; an entry whose module is gone is dropped when it is met.
 _PENDING = {}
 
@@ -378,14 +378,14 @@ def module_loaded(interp, moduleobj, currypath):
         reason = 'stale object (%s)' % toolchain.Cpp2So(interp=interp).stale_reason(
             sofile, currypath)
     logger.info('module %s: interpreted (%s)', h.icurry.fullname, reason)
-  entry = _PENDING.get(moduleobj.__name__)
+  entry = _PENDING.get((getattr(moduleobj, '.interp')._its.registry_id, moduleobj.__name__))
   if entry is not None and entry.module() is moduleobj:
     entry.currypath = list(currypath)
 
 @native_metadata
 def is_pending(moduleobj):
   '''Tells whether ``moduleobj`` waits for its compile on first use.'''
-  entry = _PENDING.get(moduleobj.__name__)
+  entry = _PENDING.get((getattr(moduleobj, '.interp')._its.registry_id, moduleobj.__name__))
   return entry is not None and entry.module() is moduleobj \
       and not entry.compiled
 
@@ -460,7 +460,7 @@ def compile_pending(entry):
   M = h.backend_handle
   name = imodule.fullname
   for depname in imodule.imports:
-    dep = _PENDING.get(depname)
+    dep = _PENDING.get((interp._its.registry_id, depname))
     if dep is not None and not dep.compiled \
         and dep.module() is interp.modules.get(depname):
       compile_pending(dep)
@@ -502,7 +502,7 @@ def compile_pending(entry):
     if sofile is not None:
       logger.info('Adopting the object of %s on its first use: %s', name, sofile)
   else:
-    cppfile = process_file(imodule)
+    cppfile = process_file(interp, imodule)
   if sofile is None:
     # Save text atomically under the file lock, then release it before
     # Cpp2So prepares its dependencies through the interpreter. It owns the
@@ -518,7 +518,7 @@ def compile_pending(entry):
           ifun.name, generic.mangle(ifun.splitname(), generic.STEP_FUNCTION)
         , info
         ))
-  result = curryrt.tiered_adopt(name, sofile, steps)
+  result = curryrt.tiered_adopt(interp._its, name, sofile, steps)
   if not result['ok']:
     output = result['output'].strip()
     raise CompileError(
@@ -601,7 +601,7 @@ def product_file(imodule):
         return cppfile
   return None
 
-def process_file(imodule):
+def process_file(interp, imodule):
   '''
   The generated file of the module in the directory of the process
   (tiered._tmpdir), in the layout of a product directory, which the
@@ -610,7 +610,7 @@ def process_file(imodule):
   '''
   from . import tiered
   directory = os.path.join(
-      tiered._tmpdir(), 'firstuse', imodule.fullname, '.curry'
+      tiered._tmpdir(), 'firstuse', str(interp._its.registry_id), imodule.fullname, '.curry'
     , config.intermediate_subdir()
     )
   os.makedirs(directory, exist_ok=True)

@@ -524,7 +524,8 @@ class Curry2ICurryConverter(object):
         try:
           return self._convert(file_in, currypath)
         except _InputsChanged:
-          logger.info('inputs changed during ICurry conversion; retrying')
+          _productlock.log(logger, logging.INFO,
+              'inputs changed during ICurry conversion; retrying')
 
   def _convert(self, file_in, currypath):
     digest = source_digest(file_in)

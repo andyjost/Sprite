@@ -115,10 +115,9 @@ applied at a safepoint are logged by the next poll: before and after an
 evaluation, by wait, and at the exit of the process.  Interpreter.stats
 reports the functions swapped and the compiles that failed.
 
-Cancel.  A reset, a reload, and the exit of the process (finish, which
-sprite-exec --stats calls before its line of statistics) drop the queue and
-kill the running compile, so no compiler outlives the interpreter and a short
-program never waits for one.  The object of a program that ends before its
+Cancel. A reset or reload cancels the owning interpreter's jobs. Process
+shutdown (finish, which sprite-exec --stats calls before its line of statistics)
+cancels every job, so a short program never waits for compilation.  The object of a program that ends before its
 compile is not written; sprite-make --so writes it.
 '''
 
@@ -170,14 +169,21 @@ class _State(object):
   '''The state of the process: the bindings and the logged failures.'''
   def __init__(self):
     self.tmpdir = None
-    self.bindings = set() # the names of the modules whose tables the interpreter made
-    self.pending = {}    # module name -> the object of a compile not applied
-    self.modules = {}    # module name -> a weak reference to its module object
-    self.records = {}    # module name -> _Record
+    self.bindings = set() # (registry identity, module name) for runtime tables
+    self.pending = {}    # (registry identity, module name) -> the object of a compile not applied
+    self.modules = {}    # (registry identity, module name) -> a weak reference to its module object
+    self.records = {}    # (registry identity, module name) -> _Record
     self.warned = set()  # the keys of the messages logged once
     self.counter = itertools.count()
 
 _state = _State()
+
+def _key(interp, name):
+  return (interp._its.registry_id, name)
+
+def _module_key(moduleobj):
+  return _key(getattr(moduleobj, '.interp'), moduleobj.__name__)
+
 
 def _after_fork_in_child():
   # The parent's private products belong to the parent, including at exit.
@@ -392,7 +398,7 @@ def _register_binding(moduleobj):
     if _runtime(M.get_infotable(ifun.name)):
       made = True
   if made:
-    _state.bindings.add(imodule.fullname)
+    _state.bindings.add(_module_key(moduleobj))
   return made
 
 @native_metadata
@@ -411,7 +417,7 @@ def prepare_adoption(interp, name):
     h = getHandle(module)
     h.backend_handle.keep_tables()
     _register_binding(module)
-  record = _state.records.get(name)
+  record = _state.records.get(_key(interp, name))
   if record is not None and record.module() is module and module is not None \
       and record.icyfile \
       and curryrt.tiered_file_digest(record.icyfile) != record.digest:
@@ -460,17 +466,17 @@ def module_loaded(interp, moduleobj, currypath):
   _record(moduleobj)
   _register_binding(moduleobj)
   from .materialize import jit_threshold
-  curryrt.icurry_set_hot_threshold(jit_threshold() if interp.flags['jit'] == 'hot' else 0)
+  curryrt.icurry_set_hot_threshold(interp._its, jit_threshold() if interp.flags['jit'] == 'hot' else 0)
   queued = submit(interp, moduleobj, currypath, hot=interp.flags['jit'] == 'hot')
   if queued and interp.flags['jit'] == 'eager':
     start = time.monotonic()
     wait(interp=interp)
     if getHandle(moduleobj).backend_handle.shlib is None:
-      if getattr(_state.records.get(moduleobj.__name__), 'dependency_mismatch', False):
+      if getattr(_state.records.get(_module_key(moduleobj)), 'dependency_mismatch', False):
         return False
       from ...exceptions import CompileError
       raise CompileError('cxx eager: module %s compile failed' % moduleobj.__name__)
-    n = _state.records[moduleobj.__name__].functions
+    n = _state.records[_module_key(moduleobj)].functions
     logger.info('jit eager: module %s, %d functions, %.1f ms',
         moduleobj.__name__, n, 1000 * (time.monotonic() - start))
   return queued
@@ -493,7 +499,7 @@ def _record(moduleobj, sofile=None):
     icyfile = ''
   digest = '' if not icyfile else curryrt.tiered_file_digest(icyfile)
   record = _Record(moduleobj, sofile, icyfile, digest)
-  _state.records[imodule.fullname] = record
+  _state.records[_module_key(moduleobj)] = record
   return record
 
 @native_metadata
@@ -522,7 +528,7 @@ def _import_objects(interp, imodule):
       return
     for depname in h.icurry.imports:
       visit(depname)
-    record = _state.records.get(name)
+    record = _state.records.get(_key(interp, name))
     if record is not None and record.module() is moduleobj:
       out.append((
           name, record.sofile, record.icyfile, record.digest
@@ -582,7 +588,7 @@ def submit(interp, moduleobj, currypath, hot=False):
   try:
     source, searchdirs = _private_copy(imodule)
   except ValueError as exc:
-    key = ('changed-products', name)
+    key = (interp._its.registry_id, 'changed-products', name)
     if key not in _state.warned:
       _state.warned.add(key)
       logger.info('%s; skipping background compilation', exc)
@@ -643,30 +649,31 @@ def submit(interp, moduleobj, currypath, hot=False):
           _filenames.icurryfilename(dep_source), config.module_object_suffix())
     imports.append((depname, objectfile, icyfile, digest, publish))
   dispatch(
-      name, argv, envp, logfile, sofile, record.publish or '', steps
+      interp._its, name, argv, envp, logfile, sofile, record.publish or '', steps
     , record.icyfile, record.digest, imports, expected
     )
-  _state.pending[name] = sofile
-  _state.modules[name] = weakref.ref(moduleobj)
+  _state.pending[_key(interp, name)] = sofile
+  _state.modules[_key(interp, name)] = weakref.ref(moduleobj)
   return True
 
 @native_metadata
-def _refresh(name, interp=None):
+def _refresh(name, interp=None, registry_id=None):
   '''
   Records the object of a swapped module in its ICurry (cxx.shlib), so the
   handle of the module names it (sofilename) and inspect.getimpl reads the
   compiled code from the generated file beside it.  The module is the one
   the job was submitted for, whichever thread polls and whether or not an
   interpreter was given (issue #115: a poll without one left the ICurry
-  without the object); the module of that name in ``interp``, when it is
-  another object, learns of it too.
+  without the object). The result's registry selects the owner even when
+  another interpreter polls.
   '''
-  ref = _state.modules.pop(name, None)
+  key = (registry_id, name) if registry_id is not None else _key(interp, name)
+  ref = _state.modules.pop(key, None)
   candidates = [] if ref is None else [ref()]
-  record = _state.records.get(name)
+  record = _state.records.get(key)
   if record is not None:
     candidates.append(record.module())
-  if interp is not None:
+  if interp is not None and interp._its.registry_id == key[0]:
     candidates.append(interp.modules.get(name))
   for moduleobj in candidates:
     if moduleobj is None or isinstance(moduleobj, CurryPackage):
@@ -694,11 +701,12 @@ def poll(interp=None):
   results = curryrt.tiered_results()
   for result in results:
     name = result['module']
-    record = _state.records.get(name)
+    key = (result['registry_id'], name)
+    record = _state.records.get(key)
     hot = record is not None and getattr(record, 'hot', False)
-    _state.pending.pop(name, None)
+    _state.pending.pop(key, None)
     if not result['ok']:
-      _state.modules.pop(name, None)
+      _state.modules.pop(key, None)
       if hot and not result['error'].startswith(('the object is mapped under this name',
           'the compiled dependency fingerprints')):
         output = result['output'].strip()
@@ -713,14 +721,14 @@ def poll(interp=None):
           'Mapped the object of %s, an import of %s, in the background'
         , imported, name
         )
-      _refresh(imported, interp)
+      _refresh(imported, interp, result['registry_id'])
     if result['ok']:
       logger.info('module %s: background compile finished in %.2f s, swapped',
           name, result['seconds'])
       if hot:
         logger.info('cxx hot: module %s compiled in %.2f s, swapped',
             name, result['seconds'])
-      _refresh(name, interp)
+      _refresh(name, interp, result['registry_id'])
     elif result['error'].startswith('the compiled dependency fingerprints'):
       if record is not None:
         record.dependency_mismatch = True
@@ -733,7 +741,7 @@ def poll(interp=None):
     elif result['error'] == curryrt.TIERED_EDITED:
       logger.info('module %s: background compile not applied (%s)', name, result['error'])
       _warn_once(
-          ('edited', name)
+          (key, 'edited')
         , 'the background compile of module %r is not applied: its source '
           'changed after the import, and the swap never changes what a '
           'loaded module means; the module stays interpreted in this '
@@ -747,7 +755,7 @@ def poll(interp=None):
                   if 'error:' in line.lower() or line.startswith('sprite-make:')),
                  result['error'].splitlines()[0]))
       _warn_once(
-          ('failed', name)
+          (key, 'failed')
         , 'the background compile of module %r failed; the module stays '
           'interpreted: %s%s'
         , name, result['error']
@@ -774,16 +782,19 @@ def wait(timeout=None, interp=None):
       return False
 
 @native_metadata
-def pending(name):
+def pending(name, interp=None):
   '''
   Tells whether a background compile of module ``name`` is queued, running,
   or finished and not yet applied.
   '''
-  return name in _state.pending
+  return _key(interp, name) in _state.pending if interp is not None else any(
+      key[1] == name for key in _state.pending)
 
 @native_metadata
-def _drop_pending(name):
-  _state.pending.pop(name, None)
+def _drop_pending(name, interp=None):
+  for key in list(_state.pending):
+    if key[1] == name and (interp is None or key[0] == interp._its.registry_id):
+      _state.pending.pop(key, None)
 
 def wait_for(name, timeout=None, interp=None):
   '''
@@ -793,7 +804,7 @@ def wait_for(name, timeout=None, interp=None):
   pending.
   '''
   deadline = None if timeout is None else time.monotonic() + timeout
-  while pending(name):
+  while pending(name, interp):
     if deadline is None:
       slice_ = 0.25
     else:
@@ -803,19 +814,20 @@ def wait_for(name, timeout=None, interp=None):
     if idle:
       # Nothing is queued or running, and the poll applied what finished:
       # a record left here is stale.
-      _drop_pending(name)
+      _drop_pending(name, interp)
     elif deadline is not None and time.monotonic() >= deadline:
       return False
   return True
 
 @native_metadata
-def has_binding(name):
+def has_binding(name, interp=None):
   '''
   Tells whether the interpreter made a table of module ``name`` in this
   process: the module runs, or ran, interpreted, and an object loaded under
   the name binds to those tables (see the module docstring).
   '''
-  return name in _state.bindings
+  return _key(interp, name) in _state.bindings if interp is not None else any(
+      key[1] == name for key in _state.bindings)
 
 @native_metadata
 def status():
@@ -837,11 +849,15 @@ def counts():
   return s['swapped_functions'], s['failed_modules']
 
 @native_metadata
-def cancel():
-  '''Drops the queued compiles and kills the running one.'''
-  curryrt.tiered_cancel()
-  _state.pending.clear()
-  _state.modules.clear()
+def cancel(interp=None):
+  '''Cancel the owner's compiles, or all compiles at process shutdown.'''
+  if interp is not None and not hasattr(interp, '_its'):
+    return
+  curryrt.tiered_cancel(None if interp is None else interp._its)
+  for entries in (_state.pending, _state.modules):
+    for key in list(entries):
+      if interp is None or key[0] == interp._its.registry_id:
+        del entries[key]
 
 def finish():
   '''

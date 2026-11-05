@@ -14,6 +14,15 @@ Unreleased
   are no longer supported because the front end runs in an empty directory
   to preserve module path order; use absolute paths or preprocessors on PATH.
   The front end reports relative paths it cannot find.
+- Give each interpreter its own runtime module registry; share static runtime
+  builtin tables and loaded compiled objects across resets (#184).
+  Interpreted reserved importers keep their interpreter's dependencies; compiled
+  slots, C++ hot jobs and first-use compilation preserve the selected registry.
+  Two constructor classes compare by identity. The work of the LLVM hot tier
+  belongs to the interpreter that made it: a reset or a reload drops that
+  interpreter's queued and posted work, a reload rearms the functions that
+  stay loaded, a step is installed only for the attachment it was compiled
+  for, and ``curry.reload`` refuses a module of another interpreter.
 - Validate reusable products by content and publish complete generations:
   protect cache and JIT mappings, ICurry receipts, image inputs, exported
   files, precompiled headers and tiered adoption; require publication locks.

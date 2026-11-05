@@ -394,7 +394,7 @@ print(json.dumps([getHandle(M).sofilename, image.filename(sys.argv[1])]))
 from curry.backends.cxx import curryrtbindings as rt
 curry.reset(interpret='off', jit='off')
 curry.import_('Prelude')
-owner = rt.Module.find_or_create('CachedPrimitive')
+owner = rt.Module.find_or_create(curry._interpreter_._its, 'CachedPrimitive')
 try:
   if sys.argv[1] == 'image': rt.load_image(owner, sys.argv[2])
   else: rt.SharedCurryModule(sys.argv[2])

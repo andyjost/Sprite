@@ -18,6 +18,7 @@ namespace curryrt
   struct Fingerprint;
   struct InfoTable;
   struct InterpreterState;
+  struct ModuleRegistry;
   struct Node;
   struct PartApplicNode;
   struct Queue;
