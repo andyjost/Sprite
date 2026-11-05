@@ -569,7 +569,7 @@ library destinations, as do compiler imports without the stage option.
 The module image
 ================
 
-Format 14 (2026-11-05)
+Format 15 (2026-11-05)
 ----------------------
 
 A module image, ``M.img``, lives beside ``M.icy``. The translator writes it
@@ -583,7 +583,11 @@ are little-endian; strings are UTF-8 with a 32-bit byte count. The prefix
 contains an eight-byte magic, a 32-bit format version and the length of a
 header. The header records the ICurry-text SHA-256, route version, inline
 budget, and each direct import's image SHA-256. The header also records
-sorted registered primitive names. No field records a machine path.
+sorted registered primitive names and the effectively authorized library
+wrapper names. Changing a source between an installed-source hard link and
+an ordinary copy invalidates its image even when its bytes are identical.
+Generated C++ input receipts and ABI stamps record the same wrapper names;
+the compiled-product cache key includes them too. No field records a machine path.
 Sections contain imports and aliases, ordered data types and constructors,
 function declarations, bytecode and constants and translation metadata.
 Strings are length-delimited and record arrays begin with a 32-bit count.
@@ -1162,7 +1166,7 @@ own source, with their source definitions and arities checked. These bind
 directly so strict application cannot normalize shared terms before the
 configuration-sensitive observation. A shadowing user module keeps its bodies.
 Native record version 3 rejects older objects even on explicit load; generated
-code uses format 30 and images use version 14. ICurry uses
+code uses format 31 and images use version 15. ICurry uses
 ``Prelude.(?)`` as a compiler intrinsic to lower nondeterministic rules. All twelve
 ``System.Directory`` externals use ``std::filesystem``; modification times are
 ``Data.Time.CTime`` values in POSIX seconds. Directory listings include ``.``

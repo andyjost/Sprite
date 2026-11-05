@@ -96,23 +96,38 @@ LIBRARY_PRIMITIVE_WRAPPERS = {
     'System.IO.Unsafe.showAnyTerm': (1, 'showAnyTerm x = prim_showAnyTerm $!! x'),
 }
 
+def primitive_wrapper_names(filename, interp=None, generation=None):
+  """Effective wrapper authorization, shared by selection and freshness."""
+  if not filename:
+    return []
+  from ...toolchain import _findcurry
+  filename = _filenames.sourcefilename(filename)
+  if generation is None:
+    generation = _findcurry.generation_for_source(filename, interp)
+  name = generation.name if generation is not None else _filenames.module_name(filename)
+  candidates = {fullname: expected[1]
+      for fullname, expected in LIBRARY_PRIMITIVE_WRAPPERS.items()
+      if fullname.rpartition('.')[0] == name}
+  if not candidates:
+    return []
+  source = os.path.join(config.system_curry_path(), *name.split('.')) + '.curry'
+  try:
+    if not (os.path.samefile(filename, source) or
+        _findcurry.is_loader_snapshot(name, filename,
+            records=generation.inputs if generation is not None else None)):
+      return []
+    with open(source, encoding='utf-8') as stream:
+      lines = stream.read().splitlines()
+    return sorted(fullname for fullname, definition in candidates.items()
+        if definition in lines)
+  except OSError:
+    return []
+
 def _library_primitive_wrapper(function, module):
   expected = LIBRARY_PRIMITIVE_WRAPPERS.get(function.fullname)
-  if expected is None or module is None or function.arity != expected[0]:
-    return False
-  source = os.path.join(config.system_curry_path(),
-      *function.modulename.split('.')) + '.curry'
-  try:
-    from ...toolchain import _findcurry
-    generation = getattr(module, '_loaded_generation', None)
-    if not module.filename or not (os.path.samefile(module.filename, source) or
-        _findcurry.is_loader_snapshot(function.modulename, module.filename,
-            records=generation.inputs if generation is not None else None)):
-      return False
-    with open(source, encoding='utf-8') as stream:
-      return expected[1] in stream.read().splitlines()
-  except OSError:
-    return False
+  return expected is not None and module is not None and function.arity == expected[0] \
+      and function.fullname in primitive_wrapper_names(module.filename,
+          generation=getattr(module, '_loaded_generation', None))
 
 def externalize_primitive_wrappers(module):
   from ...utility.proptree import proptree

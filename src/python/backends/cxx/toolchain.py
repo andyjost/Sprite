@@ -457,6 +457,7 @@ def registered_names(source):
 def input_record(interp, source):
   from ...toolchain._frontend import ROUTE_VERSION
   from ...toolchain._curry2icurry import receipt_source
+  from .materialize import primitive_wrapper_names
   generation = _findcurry.generation_for_source(source, interp) if source else None
   try:
     if generation is not None:
@@ -467,6 +468,7 @@ def input_record(interp, source):
   except (OSError, ValueError, AttributeError):
     recorded = None
   return dict(source=recorded, registry=registered_names(source),
+      wrappers=primitive_wrapper_names(source, interp, generation),
       route=ROUTE_VERSION, budget=interp.flags['inline_budget'])
 
 def source_record(filename):
@@ -489,8 +491,11 @@ def input_current(record, filename, interp=None, registry=None):
     return False
   from ...toolchain._frontend import ROUTE_VERSION
   from . import image
+  from .materialize import primitive_wrapper_names
   digest = image.digest(source)
+  # Source-free generated inputs may omit empty wrapper authorization.
   return record.get('registry') == (registered_names(source) if registry is None else registry) \
+      and record.get('wrappers', [] if digest is None else None) == primitive_wrapper_names(source, interp) \
       and record.get('route') == ROUTE_VERSION \
       and (digest is None or record.get('source') == digest)
 
@@ -1491,6 +1496,7 @@ class Cpp2So(object):
     its chain (see _productcache.product_key), or None when the module has
     no text to digest.
     '''
+    from .materialize import primitive_wrapper_names
     curryfile = _filenames.curryfilename(filename)
     path = _findcurry.import_path(self.interp, currypath)
     currypath = self.interp.path if path is None else path
@@ -1500,6 +1506,7 @@ class Cpp2So(object):
       names.add('Prelude')
     return _productcache.product_key(
         curryfile, currypath, (self.product_facts(curryfile, registry) if facts is None else facts) + [
+            'wrappers ' + json.dumps(primitive_wrapper_names(curryfile, self.interp)),
             _interfaces.encode(_interfaces.object_snapshot(
                 names,
                 _interfaces.search_path(curryfile, currypath)))]

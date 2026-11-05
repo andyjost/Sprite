@@ -282,7 +282,10 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
       shutil.copy2(product, saved)
       os.remove(product)
     self.assertFalse(os.path.exists(productfile('Numeric', '.icy')))
-    Numeric = curry.import_('Numeric')
+    from unittest.mock import patch
+    # Exercise the private front-end output, rather than a translation cache hit.
+    with patch.dict(os.environ, SPRITE_CACHE_FILE=''):
+      Numeric = curry.import_('Numeric')
     self.assertEqual(next(curry.eval((Numeric.readHex)('ffz'))), [(255, 'z')])
     self.assertFalse(os.path.exists(productfile('Numeric', '.icy')))
     from curry.objects.handle import getHandle
@@ -293,12 +296,17 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     with open(rebuiltfile, 'rb') as rebuilt:
       with open(os.path.join(saved, 'Numeric.icy'), 'rb') as staged:
         self.assertEqual(rebuilt.read(), staged.read())
+    # Derive the output from the private source, preserving its drive and
+    # platform separators. Windows does not install FlatCurry bodies.
+    private_fcy = _frontend.flatcurryfile(_filenames.curryfilename(rebuiltfile))
+    self.assertTrue(os.path.isfile(private_fcy), private_fcy)
     # The import leaves the installed FlatCurry file of the module in place:
     # the front end reads it for every program, and a cache hit would not
     # make it again (the staleness rule of #164 forces the elaboration of a
     # module whose imports changed by removing that file, never for a module
     # of the shipped library).
-    self.assertTrue(os.path.isfile(interfacefile('Numeric', '.fcy')))
+    if os.name != 'nt':
+      self.assertTrue(os.path.isfile(interfacefile('Numeric', '.fcy')))
 
   def test_interfaces_installed(self):
     '''

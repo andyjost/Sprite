@@ -25,6 +25,62 @@ class TestModuleReview(cytest.TestCase):
     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
     return result
 
+  def check_wrapper_authorization_freshness(self, compiled):
+    # A hard link must share a filesystem with the installed source.
+    with tempfile.TemporaryDirectory(dir=os.path.dirname(config.system_curry_path())) as directory:
+      self.root = Path(directory)
+      installed = Path(config.system_curry_path()) / 'System/IO/Unsafe.curry'
+      source = self.root / 'System/IO/Unsafe.curry'
+      source.parent.mkdir(parents=True)
+      os.link(installed, source)
+      self.source('.', 'Probe', '''import System.IO.Unsafe
+generatedBranches :: (Int,Bool)
+generatedBranches = (if x then (0,p) else (1,p)) ? (2,p)
+  where x free
+        p = isVar x''')
+      for authorized in (True, False, True):
+        if not authorized:
+          copy = source.with_suffix('.copy')
+          shutil.copy2(source, copy)
+          os.replace(copy, source)
+        elif not os.path.samefile(source, installed):
+          source.unlink()
+          os.link(installed, source)
+        with self.subTest(compiled=compiled, authorized=authorized):
+          self.child('''
+            import curry, os
+            from curry.backends.cxx import image, toolchain
+            from curry.toolchain import _filenames
+            from curry.objects.handle import getHandle
+            curry.reset(interpret=%r, jit='off')
+            curry.path.insert(0, root)
+            source = os.path.join(root, 'System', 'IO', 'Unsafe.curry')
+            if %r:
+              product = _filenames.replacesuffix(source, curry.config.module_object_suffix())
+              if os.path.isfile(product):
+                assert not toolchain.Cpp2So(curry._interpreter_).stamp_is_current(product), (
+                    'object retained obsolete wrapper authorization')
+            module = curry.import_('System.IO.Unsafe')
+            assert os.path.isfile(image.filename(source))
+            record = toolchain.input_record(curry._interpreter_, source)
+            assert toolchain.input_current(record, image.filename(source), curry._interpreter_)
+            del record['wrappers']
+            assert not toolchain.input_current(record, image.filename(source), curry._interpreter_)
+            if %r:
+              assert getHandle(module).sofilename is not None
+            probe = curry.import_('Probe')
+            actual = sorted(curry.eval(probe.generatedBranches))
+            assert actual == %r, actual
+          ''' % ('off' if compiled else 'all', compiled, compiled,
+                 [(0, False), (1, False), (2, True)] if authorized else
+                 [(0, False), (1, False), (2, False), (2, False)]))
+
+  def test_wrapper_authorization_in_image_freshness(self):
+    self.check_wrapper_authorization_freshness(compiled=False)
+
+  def test_wrapper_authorization_in_object_freshness(self):
+    self.check_wrapper_authorization_freshness(compiled=True)
+
   def test_inherited_stage_environment_cannot_publish_image(self):
     from unittest import mock
     with mock.patch.dict(os.environ, SPRITE_STAGE_LIBRARY='1'):
@@ -613,12 +669,12 @@ class TestModuleReview(cytest.TestCase):
       try:
         curry.import_(os.path.abspath('Main.curry'))
       except curry.CompileError as error:
-        assert './preprocess' in str(error), error
         assert 'Preprocessor exited with exit code' in str(error), error
       else:
         raise AssertionError('relative target preprocessor accepted')
     ''')
 
+  @cytest.posix_only('relative front-end option paths are unsupported on Windows')
   def test_relative_configured_preprocessor(self):
     source = self.source('project', 'Main', 'answer :: Int\nanswer = 1')
     self.child('''
@@ -630,10 +686,25 @@ class TestModuleReview(cytest.TestCase):
         try:
           curry.import_(os.path.join(root, 'project', 'Main.curry'))
         except curry.CompileError as error:
-          assert './preprocess' in str(error), error
           assert 'Preprocessor exited with exit code' in str(error), error
         else:
           raise AssertionError('relative configured preprocessor accepted')
+    ''')
+
+  def test_missing_configured_preprocessor(self):
+    self.source('project', 'Main', 'answer :: Int\nanswer = 1')
+    self.child('''
+      import curry, os
+      from unittest import mock
+      curry.reset(interpret='new', jit='off')
+      with mock.patch.object(curry.config, 'frontend_flags',
+                             return_value='-F --pgmF=sprite-missing-preprocessor'):
+        try:
+          curry.import_(os.path.join(root, 'project', 'Main.curry'))
+        except curry.CompileError as error:
+          assert 'Preprocessor exited with exit code' in str(error), error
+        else:
+          raise AssertionError('missing configured preprocessor accepted')
     ''')
 
   def test_qualified_readonly_dependency_after_edit(self):

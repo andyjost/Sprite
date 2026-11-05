@@ -16,8 +16,8 @@ from . import bytecode, curryrtbindings as curryrt
 
 logger = logging.getLogger(__name__)
 MAGIC = b'SPRTIMG\0'
-# Version 13 invalidates summaries that inlined private primitive wrappers.
-VERSION = 14
+# Version 15 records effective library wrapper authorization in freshness facts.
+VERSION = 15
 PREFIX = struct.Struct('<8sII')
 
 class _InputChanged(Exception):
@@ -53,7 +53,7 @@ def read(path):
   encoded = data[PREFIX.size:PREFIX.size + size]
   header = json.loads(encoded)
   if not isinstance(header, dict) or not all(key in header
-      for key in ('body', 'source', 'route', 'budget', 'imports', 'name', 'registry')) \
+      for key in ('body', 'source', 'route', 'budget', 'imports', 'name', 'registry', 'wrappers')) \
       or not isinstance(header['imports'], dict):
     raise ValueError('invalid module image header')
   if encoded != json.dumps(header, sort_keys=True, separators=(',', ':')).encode('ascii'):
@@ -68,12 +68,14 @@ def _facts(interp, source, imports, registry=None):
   source = _destination.canonical(source)
   from ...toolchain._frontend import ROUTE_VERSION
   from . import toolchain
+  from .materialize import primitive_wrapper_names
   from ...toolchain import _findcurry
   generation = _findcurry.generation_for_source(source, interp)
   icy_digest = generation.product_digest('.icy') if generation is not None else digest(
       _filenames.icurryfilename(source))
   return dict(source=icy_digest, route=ROUTE_VERSION,
       budget=interp.flags['inline_budget'], imports=imports,
+      wrappers=primitive_wrapper_names(source, interp, generation),
       registry=toolchain.registered_names(source) if registry is None else registry)
 
 
@@ -141,7 +143,7 @@ def _check(interp, source, path, imports=None, registry=None):
   header = read(path)
   # Check local facts before resolving any dependency of an old source.
   facts = _facts(interp, source, {}, registry)
-  if any(header.get(k) != facts[k] for k in ('source', 'route', 'budget', 'registry')):
+  if any(header.get(k) != facts[k] for k in ('source', 'route', 'budget', 'registry', 'wrappers')):
     raise ValueError('stale module image')
   if imports is not None and header['imports'] != imports:
     raise ValueError('stale module image imports')
