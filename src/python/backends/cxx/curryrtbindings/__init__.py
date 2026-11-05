@@ -258,7 +258,9 @@ def _reap_commands():
     for process in list(_command_pending):
       try:
         if process.poll() is not None:
+          _signal_command(process, kill=True)
           if sys.platform == 'win32':
+            process._command_job.close()
             process._handle.Close()
           _command_pending.discard(process)
           _command_processes.discard(process)
@@ -270,7 +272,7 @@ def _reap_commands():
 def _retire_command(token):
   with _command_lock:
     process = _command_owners.pop(token, None)
-    if process is not None and process not in _command_owners.values():
+    if process in _command_processes and process not in _command_owners.values():
       _command_pending.add(process)
   _reap_commands()
 
@@ -423,7 +425,29 @@ def _standard_stream(index, operation, text, value):
     _reap_commands()
     process = subprocess.Popen(text, shell=True, stdin=subprocess.PIPE,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE if operation == 'exec' else None, text=True,
-        encoding='utf-8', errors='replace', bufsize=1)
+        encoding='utf-8', errors='replace', bufsize=1,
+        start_new_session=sys.platform != 'win32',
+        creationflags=0x4 if sys.platform == 'win32' else 0)
+    if sys.platform == 'win32':
+      from ....utility.windowsjob import WindowsJob
+      try:
+        process._command_job = WindowsJob(process)
+        # Popen closes the suspended primary thread's handle.
+        import ctypes
+        from ctypes import wintypes
+        resume = ctypes.WinDLL('ntdll').NtResumeProcess
+        resume.argtypes, resume.restype = [wintypes.HANDLE], ctypes.c_int32
+        if resume(int(process._handle)) < 0:
+          raise OSError('cannot resume command')
+      except BaseException:
+        job = getattr(process, '_command_job', None)
+        if job is not None: job.close()
+        process.kill()
+        process.wait(timeout=1)
+        for stream in (process.stdin, process.stdout, process.stderr):
+          if stream is not None: stream.close()
+        process._handle.Close()
+        raise
     with _command_lock:
       _command_processes.add(process)
     ids = []
@@ -529,6 +553,31 @@ def _standard_stream(index, operation, text, value):
 
 set_stream_hook(_standard_stream)
 import atexit as _atexit
+def _signal_command(process, kill=False):
+  if sys.platform == 'win32':
+    process._command_job.terminate()
+  else:
+    import signal
+    try:
+      _os.killpg(process.pid, signal.SIGKILL if kill else signal.SIGTERM)
+    except ProcessLookupError:
+      pass
+
+
+def _discard_command_stream(stream):
+  # Closing FileIO first discards buffered output, even if termination failed.
+  # No flush may wait for a command that is no longer consuming its input.
+  if isinstance(stream, _CommandStream):
+    _discard_command_stream(stream.writer)
+    _discard_command_stream(stream.reader)
+    return
+  raw = getattr(getattr(stream, 'buffer', None), 'raw', None)
+  if raw is not None:
+    raw.close()
+  try: stream.close()
+  except (OSError, ValueError): pass
+
+
 def _shutdown_native():
   # The hot tier registers later, so it quiesces before this drain. The heap
   # and its root registries remain alive for late Python finalizers.
@@ -537,15 +586,18 @@ def _shutdown_native():
   # Never hold the registry lock while waiting, and never start a thread.
   for process in processes:
     try:
+      try: _signal_command(process)
+      except Exception: pass
+      try: process.wait(timeout=1)
+      except Exception: pass
+      # The shell can exit before its children, including SIGTERM-ignoring
+      # children. Kill the group even when the leader has already exited.
+      try: _signal_command(process, kill=True)
+      except Exception: pass
       if process.poll() is None:
-        try: process.terminate()
-        except Exception: pass
-        try: process.wait(timeout=1)
-        except Exception:
-          try: process.kill()
-          except Exception: pass
-          process.wait(timeout=1)
+        process.wait(timeout=1)
       if sys.platform == 'win32':
+        process._command_job.close()
         process._handle.Close()
       with _command_lock:
         _command_processes.discard(process)
@@ -553,8 +605,9 @@ def _shutdown_native():
     except Exception:
       # A failed child must not prevent bounded cleanup of later children.
       pass
-  # Stop children before closing buffered writers: a child that never reads
-  # must not leave close blocked flushing a full pipe.
+  for stream in list(_command_streams.values()):
+    try: _discard_command_stream(stream)
+    except Exception: pass
   _curryrtbindings._heap_drain()
   shutdown_handles()
   for token in list(_command_streams):

@@ -817,7 +817,7 @@
       "failure_class": "Sprite error",
       "failure_set": [
         "test: class: Sprite error",
-        "test: diagnostic: curry.exceptions.ModuleLookupError: Curry module 'Prelude' from '<path> has the name of a module the runtime implements; the installed module '<path> cannot be replaced."
+        "test: diagnostic: curry.exceptions.ModuleLookupError: Curry module 'Prelude' from 'Prelude.curry' has the name of a module the runtime implements; the installed module 'Prelude.curry' cannot be replaced."
       ]
     },
     "bindata": {
@@ -970,8 +970,8 @@
       "failure_class": "front-end error",
       "failure_set": [
         "test: class: front-end error",
+        "test: diagnostic: Dynamic.curry:<location> Error: Interface for module AllSolutions not found | <location> | import AllSolutions | <location>",
         "test: diagnostic: STATIC ERRORS IN PROGRAMS:",
-        "test: diagnostic: module TestDatabase: <path>:<location> Error: Interface for module AllSolutions not found | <location> | import AllSolutions | <location>",
         "test: diagnostic: module TestDatabase: Module 'TestDatabase': incorrect source program: ERROR: user error: Illegal source program"
       ]
     },
@@ -984,7 +984,6 @@
       "failure_class": "test failure",
       "failure_set": [
         "test: class: test failure",
-        "test: diagnostic: i/o error: BrokenPipeError: [Errno 32] Broken pipe",
         "test: diagnostic: i/o error: unexpected token EOF",
         "test: diagnostic: testb1 (module Simple): EXECUTION FAILURE:",
         "test: diagnostic: testb2 (module Simple): EXECUTION FAILURE:"
@@ -1304,7 +1303,7 @@
       "failure_class": "Sprite error",
       "failure_set": [
         "test: class: Sprite error",
-        "test: diagnostic: curry.exceptions.LoadError: cannot load '<path> on backend 'cxx': Curry module 'Control.SetFunctions' from '<path> has the name of a module the runtime implements; the installed module '<path> cannot be replaced."
+        "test: diagnostic: curry.exceptions.LoadError: cannot load '<path> on backend 'cxx': Curry module 'Control.SetFunctions' from 'SetFunctions.curry' has the name of a module the runtime implements; the installed module 'SetFunctions.curry' cannot be replaced."
       ]
     },
     "spicey": {
@@ -1405,12 +1404,12 @@
       "failure_class": "front-end error",
       "failure_set": [
         "test: class: front-end error",
+        "test: diagnostic: Base.curry:<location> Error: Interface for module Char not found | <location> | import Char ( isAlphaNum, isSpace ) | <location>",
+        "test: diagnostic: Base.curry:<location> Error: Interface for module ReadNumeric not found | <location> | import ReadNumeric ( readNat, readHex ) | <location>",
+        "test: diagnostic: Base.curry:<location> Error: Interface for module System not found | <location> | import System ( getEnviron ) | <location>",
+        "test: diagnostic: Base.curry:<location> Error: Interface for module Time not found | <location> | import Time ( CalendarTime(..), ClockTime, toTimeString, toUTCTime ) | <location>",
         "test: diagnostic: STATIC ERRORS IN PROGRAMS:",
         "test: diagnostic: module WUI: Module 'WUI': incorrect source program: ERROR: user error: Illegal source program",
-        "test: diagnostic: module WUIjs: <path>:<location> Error: Interface for module Char not found | <location> | import Char ( isAlphaNum, isSpace ) | <location>",
-        "test: diagnostic: module WUIjs: <path>:<location> Error: Interface for module ReadNumeric not found | <location> | import ReadNumeric ( readNat, readHex ) | <location>",
-        "test: diagnostic: module WUIjs: <path>:<location> Error: Interface for module System not found | <location> | import System ( getEnviron ) | <location>",
-        "test: diagnostic: module WUIjs: <path>:<location> Error: Interface for module Time not found | <location> | import Time ( CalendarTime(..), ClockTime, toTimeString, toUTCTime ) | <location>",
         "test: diagnostic: module WUIjs: Module 'WUIjs': incorrect source program: ERROR: user error: Illegal source program"
       ]
     },

@@ -1092,9 +1092,12 @@ Each launch and handle close polls pending children without blocking; there
 is no reaper thread. A child that exits while the interpreter is idle is
 reaped at the next launch, handle close or shutdown. After a fork, the child
 clears inherited process ownership and replaces the registry lock. Shutdown
-terminates remaining children, waits up to one second, then kills and waits
-up to one more second per child before closing open handles. Stopping children
-first prevents buffered writers from blocking while flushing a full pipe.
+terminates each command's POSIX process group or Windows Job Object, waits
+up to one second, then kills the group and waits up to one more second per
+child. Commands start in separate POSIX sessions; Windows commands start
+suspended until assigned to the shared Job Object implementation. Shutdown
+closes raw pipe ends before buffered wrappers, discarding unflushed command
+input so a full pipe cannot block cleanup even if termination fails.
 Waits run outside the registry lock and cleanup failures are isolated per
 child. Reaping also closes the Windows process handle.
 

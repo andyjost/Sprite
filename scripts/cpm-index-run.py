@@ -138,10 +138,10 @@ def normalize_failure(text):
   text = re.sub(r'\x1b\[[0-9;]*m', '', text)
   text = re.sub(r' ?\d+\x08+', '', text).replace('\x08', '')
   text = re.sub(r'\(module ([^,]+), line \d+\)', r'(module \1)', text)
-  text = re.sub(r'\b(?:TEST|MAIN)\d+\b', '<generated>', text)
   text = re.sub(r'0x[0-9a-fA-F]+', '<address>', text)
-  text = re.sub(r'(?:[A-Za-z]:[\\/]|/)(?:[^\s:]+[\\/])*([^\s:]+\.curry)',
-                r'<path>\1', text)
+  text = re.sub(r'(?:<(?:scratch|worktree|path)>)*(?:[A-Za-z]:[\\/]|/)?'
+                r'(?:[\w.-][^\s:<>/\\]*[\\/])*([\w.-][^\s:<>/\\]*\.curry)', r'\1', text)
+  text = re.sub(r'\b(?:TEST|MAIN)\d+\b', '<generated>', text)
   text = re.sub(r'(?<![:/\w])/(?:[^\s:]+/)+[^\s:]*', '<path>', text)
   text = re.sub(r'\b[A-Za-z]:\\(?:[^\s:]+\\)*[^\s:]*', '<path>', text)
   text = re.sub(r'(?:<scratch>|<worktree>)(?:<path>)?', '<path>', text)

@@ -199,6 +199,25 @@ class TestCPMIndex(cytest.TestCase):
     self.assertEqual(survey.normalize_failure('/build/Sample.curry:10:7 Error:'),
                      survey.normalize_failure(r'C:\build\Sample.curry:99:2 Error:'))
 
+  def test_sanitized_and_live_source_paths_have_identical_members(self):
+    forms = ['/build/package/src/Nested/Sample.curry',
+             '<scratch>/package/src/Nested/Sample.curry',
+             '<path>Sample.curry', '<scratch><path>Sample.curry',
+             '<worktree>/src/Nested/Sample.curry', 'src/Nested/Sample.curry',
+             r'C:\build\package\Sample.curry']
+    for filename in ('Sample', 'TEST123', 'MAIN42'):
+      expected = survey.failure_set('test', filename + '.curry:10:7 Error: Unexpected token')
+      normalized = 'Sample' if filename == 'Sample' else '<generated>'
+      for form in forms:
+        path = form.replace('Sample', filename)
+        with self.subTest(path=path):
+          output = "Analyzing module 'Nested.Sample'\n" + path + ':10:7 Error: Unexpected token'
+          self.assertEqual(survey.failure_set('test', output), expected)
+          for quote in ("'", '"'):
+            self.assertEqual(
+                survey.normalize_failure('Source file ' + quote + path + quote + ' not found'),
+                'Source file ' + quote + normalized + '.curry' + quote + ' not found')
+
   def test_acquisition_retries_with_healthy_index_and_reports_infrastructure(self):
     url = 'https://example.org/package.tar.gz'
     failed = mock.Mock(returncode=22, stdout=url, stderr='curl: (22) HTTP error')

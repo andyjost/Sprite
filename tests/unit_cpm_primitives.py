@@ -100,9 +100,7 @@ run command = do
     broken, stubborn, healthy = mock.Mock(), mock.Mock(), mock.Mock()
     broken.poll.side_effect = RuntimeError('cannot inspect child')
     stubborn.poll.return_value = None
-    stubborn.terminate.side_effect = OSError('terminate failed')
-    stubborn.kill.side_effect = OSError('kill failed')
-    healthy.poll.return_value = None
+    healthy.poll.return_value = 0
     def wait(timeout):
       self.assertEqual(timeout, 1)
       self.assertFalse(b._command_lock._is_owned())
@@ -112,48 +110,94 @@ run command = do
       raise subprocess.TimeoutExpired('child', timeout)
     stubborn.wait.side_effect = timeout_wait
     processes = {broken, stubborn, healthy}
+    def signal_child(process, kill=False):
+      if process is stubborn: raise OSError('signal failed')
     with mock.patch.object(b, '_command_processes', processes), \
          mock.patch.object(b, '_command_pending', processes.copy()), \
          mock.patch.object(b, '_command_streams', {}), \
+         mock.patch.object(b, '_signal_command', side_effect=signal_child) as signal_command, \
          mock.patch.object(b, 'shutdown_handles'), \
          mock.patch.object(b._curryrtbindings, '_heap_drain'):
       b._shutdown_native()
-      healthy.terminate.assert_called_once()
+      signal_command.assert_any_call(healthy)
       healthy.wait.assert_called_once_with(timeout=1)
-      stubborn.kill.assert_called_once()
+      signal_command.assert_any_call(stubborn, kill=True)
       self.assertEqual(stubborn.wait.call_count, 2)
       self.assertNotIn(healthy, processes)
 
+  def test_windows_command_is_assigned_before_resume_and_terminated_as_job(self):
+    from curry.backends.cxx import curryrtbindings as b
+    from curry.utility import windowsjob
+    from unittest import mock
+    import io
+    kernel, job, process = mock.Mock(), mock.Mock(), mock.Mock()
+    process.stdin, process.stdout, process.stderr = (io.StringIO() for _ in range(3))
+    process.poll.return_value = 0
+    process._handle = mock.Mock()
+    process._handle.__int__ = lambda self: 42
+    def resume(handle):
+      self.assertIs(process._command_job, job)
+      return 0
+    kernel.NtResumeProcess.side_effect = resume
+    with mock.patch.object(sys, 'platform', 'win32'), \
+         mock.patch('ctypes.WinDLL', return_value=kernel, create=True), \
+         mock.patch.object(windowsjob, 'WindowsJob', return_value=job) as make_job, \
+         mock.patch.object(subprocess, 'Popen', return_value=process) as launch, \
+         mock.patch.object(b, '_command_processes', set()), \
+         mock.patch.object(b, '_command_pending', set()), \
+         mock.patch.object(b, '_command_owners', {}), \
+         mock.patch.object(b, '_command_streams', {}), \
+         mock.patch.object(b, 'shutdown_handles'), \
+         mock.patch.object(b._curryrtbindings, '_heap_drain'):
+      b._standard_stream(0, 'exec', 'command', 0)
+      self.assertEqual(launch.call_args.kwargs['creationflags'], 0x4)
+      make_job.assert_called_once_with(process)
+      kernel.NtResumeProcess.assert_called_once_with(42)
+      b._shutdown_native()
+      self.assertEqual(job.terminate.call_count, 2)
+      job.close.assert_called_once_with()
+      self.assertFalse(b._command_processes)
+      self.assertFalse(b._command_pending)
+      process._handle.Close.assert_called_once_with()
+      self.assertTrue(process.stdin.closed)
+
   def _run_lifecycle_subprocess(self, script, timeout):
     # Kill the whole group on regression, including children ignoring SIGTERM.
-    import signal
     process = subprocess.Popen([sys.executable, '-c', script],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
         start_new_session=True)
     try:
       stdout, stderr = process.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
-      os.killpg(process.pid, signal.SIGKILL)
+      from testrunner import procs
+      procs.kill_session(process.pid, reason='timeout')
       stdout, stderr = process.communicate(timeout=2)
       self.fail('command lifecycle timed out: ' + stdout + stderr)
     self.assertEqual(process.returncode, 0, stdout + stderr)
     return stdout
 
-  @cytest.posix_only('uses POSIX signals and exec')
+  @cytest.posix_only('uses POSIX signals and shell children')
   def test_shutdown_bounds_termination_and_closes_open_handles(self):
     started = time.monotonic()
     output = self._run_lifecycle_subprocess('''
 import atexit, os, shlex, sys
+if sys.platform.startswith('linux'):
+  import ctypes
+  assert ctypes.CDLL(None).prctl(36, 1, 0, 0, 0) == 0
 def verify():
   assert all(s.closed for s in streams)
   assert not b._command_processes
   assert not b._command_streams
   assert all(p.returncode is not None for p in processes)
+  if sys.platform.startswith('linux'):
+    while True:
+      try: os.waitpid(-1, 0)
+      except ChildProcessError: break
   print('shutdown complete')
 atexit.register(verify)
 from curry.backends.cxx import curryrtbindings as b
 script = "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); print('ready', flush=True); time.sleep(60)"
-command = 'exec ' + shlex.quote(sys.executable) + ' -c ' + shlex.quote(script)
+command = shlex.quote(sys.executable) + ' -c ' + shlex.quote(script) + '; :'
 for operation in ('exec', 'connect'):
   tokens = list(map(int, b._standard_stream(0, operation, command, 0).split()))
   reader = tokens[1] if operation == 'exec' else tokens[0]
@@ -175,6 +219,128 @@ processes = list(b._command_processes)
 ''', timeout=8)
     self.assertIn('shutdown complete', output)
     self.assertLess(time.monotonic() - started, 7)
+
+  @cytest.posix_only('uses POSIX full pipes and shell children')
+  def test_exit_with_discards_open_command_input(self):
+    output = self._run_lifecycle_subprocess('''
+import atexit, os, sys, time
+from pathlib import Path
+if sys.platform.startswith('linux'):
+  import ctypes
+  assert ctypes.CDLL(None).prctl(36, 1, 0, 0, 0) == 0
+def verify():
+  assert time.monotonic() - started < 3
+  assert all(s.closed for s in streams)
+  assert not b._command_processes
+  if sys.platform.startswith('linux'):
+    while True:
+      try: os.waitpid(-1, 0)
+      except ChildProcessError: break
+  print('exitWith complete')
+atexit.register(verify)
+import curry
+from curry.backends.cxx import curryrtbindings as b
+curry.path.insert(0, str(Path('data/curry/cpm_index').resolve()))
+module = curry.compile("import System.IO\\nimport System.IOExts\\nlaunch :: String -> IO (Handle,Handle,Handle)\\nlaunch = execCmd\\n")
+handles = curry.eval(module.launch('sleep 600; :')).one()
+process, = b._command_processes
+writer = process.stdin
+os.set_blocking(writer.fileno(), False)
+try:
+  while True: os.write(writer.fileno(), b'x' * 4096)
+except BlockingIOError:
+  pass
+os.set_blocking(writer.fileno(), True)
+writer.write('buffered input')
+streams = list(b._command_streams.values())
+started = time.monotonic()
+b._exit_with(0)
+''', timeout=15)
+    self.assertIn('exitWith complete', output)
+
+  @cytest.posix_only('uses POSIX process groups and shell children')
+  def test_shutdown_kills_shell_descendants_with_full_pipe(self):
+    output = self._run_lifecycle_subprocess('''
+import os, sys, time
+from curry.backends.cxx import curryrtbindings as b
+# Adopt orphaned grandchildren on Linux so this test reaps them as well.
+if sys.platform.startswith('linux'):
+  import ctypes
+  assert ctypes.CDLL(None).prctl(36, 1, 0, 0, 0) == 0
+for operation in ('exec', 'connect'):
+  command = 'sleep 600 & child=$!; echo $child; wait $child; :'
+  tokens = list(map(int, b._standard_stream(0, operation, command, 0).split()))
+  reader = b._command_streams[tokens[1] if operation == 'exec' else tokens[0]]
+  child = int(reader.readline())
+  writer = b._command_streams[tokens[0]]
+  if operation == 'connect': writer = writer.writer
+  os.set_blocking(writer.fileno(), False)
+  try:
+    while True: os.write(writer.fileno(), b'x' * 4096)
+  except BlockingIOError:
+    pass
+  os.set_blocking(writer.fileno(), True)
+  writer.write('buffered input')
+  started = time.monotonic()
+  b._shutdown_native()
+  assert time.monotonic() - started < 3
+  if sys.platform.startswith('linux'):
+    os.waitpid(child, 0)
+  deadline = time.monotonic() + 2
+  while True:
+    try: os.kill(child, 0)
+    except ProcessLookupError: break
+    assert time.monotonic() < deadline, 'surviving descendant'
+    time.sleep(.01)
+# Exercise the review's foreground shell command literally as well.
+b._standard_stream(0, 'connect', 'sleep 600; :', 0)
+b._shutdown_native()
+if sys.platform.startswith('linux'):
+  while True:
+    try: os.waitpid(-1, 0)
+    except ChildProcessError: break
+print('descendants reaped')
+''', timeout=8)
+    self.assertIn('descendants reaped', output)
+
+  @cytest.posix_only('uses POSIX full pipes and signals')
+  def test_shutdown_discards_buffer_even_when_termination_fails(self):
+    output = self._run_lifecycle_subprocess('''
+import os, signal, sys, time
+from unittest import mock
+from curry.backends.cxx import curryrtbindings as b
+if sys.platform.startswith('linux'):
+  import ctypes
+  assert ctypes.CDLL(None).prctl(36, 1, 0, 0, 0) == 0
+tokens = list(map(int, b._standard_stream(0, 'exec', 'sleep 600; :', 0).split()))
+process, = b._command_processes
+assert os.getpgid(process.pid) == process.pid
+writer = b._command_streams[tokens[0]]
+os.set_blocking(writer.fileno(), False)
+try:
+  while True: os.write(writer.fileno(), b'x' * 4096)
+except BlockingIOError:
+  pass
+os.set_blocking(writer.fileno(), True)
+writer.write('unflushed input')
+try:
+  with mock.patch.object(b, '_signal_command', side_effect=OSError('refused')):
+    started = time.monotonic()
+    b._shutdown_native()
+    assert time.monotonic() - started < 3
+    assert writer.closed
+    assert not b._command_streams
+finally:
+  os.killpg(process.pid, signal.SIGKILL)
+  process.wait(timeout=1)
+  if sys.platform.startswith('linux'):
+    while True:
+      try: os.waitpid(-1, 0)
+      except ChildProcessError: break
+b._shutdown_native()
+print('buffer discarded')
+''', timeout=6)
+    self.assertIn('buffer discarded', output)
 
   @cytest.posix_only('uses fork and POSIX command quoting')
   def test_fork_resets_command_ownership_and_lock(self):
