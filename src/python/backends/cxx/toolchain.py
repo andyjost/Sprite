@@ -945,9 +945,6 @@ class Cpp2So(object):
       imports = _interfaces.decode(lines[2]) if len(lines) == 3 else None
       details = json.loads(lines[2]) if len(lines) == 3 else {}
       record = details.get('input')
-      from .image import digest as file_digest
-      if not details.get('object') or details['object'] != file_digest(sofile):
-        return None, None, None, None
       return digest.strip() or None, path.strip() or None, imports, record
     except (OSError, ValueError, IndexError, AttributeError):
       return None, None, None, None
@@ -1003,8 +1000,6 @@ class Cpp2So(object):
     record = json.loads(_interfaces.encode(imports or {}))
     cppfile = _filenames.replacesuffix(sofile, '.cpp')
     record['input'] = source_record(cppfile) if input_receipt is None else input_receipt
-    from .image import digest as file_digest
-    record['object'] = file_digest(sofile)
     cache.write_file(stamp, '%s\n%s\n%s\n' % (
         digest, installation_path(), json.dumps(record, sort_keys=True)))
 

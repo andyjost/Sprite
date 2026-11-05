@@ -168,7 +168,10 @@ class SourceInfo(object):
     self.digest = hashlib.sha256(data).hexdigest()
     text = data.decode('utf-8', errors='replace')
     from .toolchain._filenames import _header_tokens
-    tokens = iter(_header_tokens(text))
+    # Textual occurrences bound the number of import tokens. Comments and
+    # literals can only overestimate it, so stopping at zero is safe.
+    remaining = text.count('import')
+    tokens = iter(_header_tokens(text)) if remaining else iter(())
     imports = []
     for token in tokens:
       if token == 'import':
@@ -177,6 +180,9 @@ class SourceInfo(object):
           name = next(tokens, None)
         if name is not None:
           imports.append(name)
+        remaining -= 1
+        if not remaining:
+          break
     self.imports = list(dict.fromkeys(imports))
 
 @synchronized(_memo_lock)

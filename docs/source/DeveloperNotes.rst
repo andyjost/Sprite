@@ -201,9 +201,8 @@ another producer that finds a current published product takes it. Failed
 compilation retains the previous published object and stamp. Publication
 invalidates the old stamp, renames the completed object, then publishes its
 new stamp; a missing stamp makes the object stale.
-Restoring a cached object follows the same order. Its ABI receipt also hashes
-the object bytes. Exporting a product with ``sprite-make -o`` copies to a
-unique sibling and publishes by rename, including the Windows object
+Restoring a cached object follows the same order. Exporting a product with
+``sprite-make -o`` copies to a unique sibling and publishes by rename, including the Windows object
 publication operation for native objects. An exported canonical object loses
 its old stamp before replacement and must be certified by a subsequent build.
 The ICurry sidecar, generated C++ and ABI stamp record imported interface
@@ -228,12 +227,17 @@ of the Curry source digest and the digests of ICurry, both interfaces and
 the import receipt. A producer removes the previous completion receipt
 before replacing any member and publishes the new receipt last. A reader
 rejects a missing receipt or any mismatched member, including after a source
-revert. Pinned installed-library products retain their existing receipts;
-verified pins copied into private compile jobs receive a local completion manifest.
-The ICurry cache snapshots source and dependency contents before compilation
-and refuses storage if any existing input changed; only previously missing
-interfaces may enter the resulting key. Import scanning shares the
-comment-aware header tokenizer, including comments between import tokens.
+revert. Within one load, readers reuse completion checks while the device,
+inode, size and modification time of every input stay unchanged; that memo
+is discarded when the load ends. Pinned installed-library products retain their
+existing receipts; verified pins copied into private compile jobs receive a local
+completion manifest.
+The ICurry cache keys a compile by the source and dependency inputs before
+and after it, refusing storage when an existing input differs; only previously
+missing interfaces may enter the resulting key. An edit reverted while the
+compile runs is outside the rules, like editing a loaded module without reload.
+Import scanning shares the comment-aware header tokenizer, including comments
+between import tokens.
 
 The trap hook already holds the heap and may take a product lock. The
 reverse order does not exist. Python interpreter/cache/counter mutexes are

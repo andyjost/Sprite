@@ -1,6 +1,6 @@
 from ..icurry import readcurry, types as icurry_types
 from .. import config
-from . import _filenames, _findcurry, _makecurry
+from . import _filenames, _findcurry, _makecurry, _curry2icurry
 from ..utility import formatDocstring
 import hashlib, io, logging, os
 
@@ -27,6 +27,7 @@ def loadicurry(filename):
   return module
 
 
+@_curry2icurry.with_completion_checks
 @_findcurry.with_resolution
 @formatDocstring(config.python_package_name())
 def loadcurry(plan, name, currypath=None, **kwds):

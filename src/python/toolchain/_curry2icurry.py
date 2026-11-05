@@ -1,5 +1,7 @@
 from . import _findcurry
 import threading
+from contextvars import ContextVar
+from functools import wraps
 from ..utility.locking import synchronized
 _rewrite_lock = threading.RLock()
 from .. import cache, config
@@ -334,15 +336,58 @@ def receipt_source(text):
     return text.strip()
 
 
+# Completion checks belong to one load, including its nested dependency loads.
+_load_completions = ContextVar('load_completions', default=None)
+
+
+def with_completion_checks(function):
+  @wraps(function)
+  def wrapped(*args, **kwds):
+    if _load_completions.get() is not None:
+      return function(*args, **kwds)
+    token = _load_completions.set({})
+    try:
+      return function(*args, **kwds)
+    finally:
+      _load_completions.reset(token)
+  return wrapped
+
+
+def _completion_identity(paths):
+  try:
+    return tuple((st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns)
+        for st in map(os.stat, paths))
+  except OSError:
+    return None
+
+
 def source_matches(curryfile, icyfile):
   """Whether the product records exactly the current Curry source text."""
   generation = _findcurry.generation_for_source(curryfile)
   if generation is not None:
     return True
+  checks = _load_completions.get()
+  library = in_system_library(curryfile)
+  paths = (curryfile, icyfile + '.source')
+  if not library:
+    paths += (icyfile, icyfile + '.imports') + tuple(
+        cache.interface_filename(icyfile, suffix) for suffix in cache.INTERFACE_SUFFIXES)
+  identity = _completion_identity(paths) if checks is not None else None
+  key = (curryfile, icyfile, library)
+  if identity is not None and key in checks and checks[key][0] == identity:
+    return checks[key][1]
+  result = _source_matches(curryfile, icyfile, library)
+  # Never reuse a check if a writer changed a member while it was read.
+  if identity is not None and _completion_identity(paths) == identity:
+    checks[key] = identity, result
+  return result
+
+
+def _source_matches(curryfile, icyfile, library):
   try:
     with open(icyfile + '.source', encoding='ascii') as stream:
       text = stream.read()
-    if in_system_library(curryfile):
+    if library:
       return receipt_source(text) == source_digest(curryfile)
     recorded = json.loads(text)
     return recorded['version'] == 1 \

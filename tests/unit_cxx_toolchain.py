@@ -113,8 +113,6 @@ class ToolchainTestCase(cytest.TestCase):
     cppfile = sofile[:-3] + '.cpp'
     record = json.loads(_interfaces.encode(toolchain.source_interfaces(cppfile)))
     record['input'] = toolchain.source_record(cppfile)
-    from curry.backends.cxx.image import digest
-    record['object'] = digest(sofile)
     return json.dumps(record, sort_keys=True) + '\n'
 
   def compile_module(self, value):

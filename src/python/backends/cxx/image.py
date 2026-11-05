@@ -507,7 +507,15 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
   path = _publication_path(interp, source, path, imports)
   # Imports and native summary reads precede the file lock. Only this
   # module's passes, bytecode emission and publication need serialization.
-  with _productlock.locked(path):
+  with contextlib.ExitStack() as locks:
+    try:
+      locks.enter_context(_productlock.locked(path))
+    except OSError:
+      private = _private_path(interp, source)
+      if path == private:
+        raise
+      path = private
+      locks.enter_context(_productlock.locked(path))
     if raw._source_digest != digest(icyfile):
       raise _InputChanged('ICurry changed after parsing')
     try:

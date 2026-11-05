@@ -511,6 +511,34 @@ class TestSlot(cytest.TestCase):
     self.assertFalse(_curry2icurry.source_matches(first.file_in, first.file_out),
         'old receipt certified mixed publication')
 
+  def test_completion_checks_are_local_to_load_and_follow_identity(self):
+    slot = self.slot('M')
+    self.convert(slot, self.products('M'))
+    self.assertTrue(self.slot('M'))
+    check = _curry2icurry._source_matches
+    @_curry2icurry.with_completion_checks
+    def load():
+      self.assertTrue(_curry2icurry.source_matches(slot.file_in, slot.file_out))
+      self.assertTrue(_curry2icurry.source_matches(slot.file_in, slot.file_out))
+    with mock.patch.object(_curry2icurry, '_source_matches', wraps=check) as checks:
+      load()
+      self.assertEqual(checks.call_count, 1)
+      load()
+      self.assertEqual(checks.call_count, 2, 'a later load reused completion')
+      @_curry2icurry.with_completion_checks
+      def changed_load():
+        self.assertTrue(_curry2icurry.source_matches(slot.file_in, slot.file_out))
+        with open(slot.file_out, 'rb') as stream:
+          original = stream.read()
+        # Atomic replacement invalidates even a same-size, same-time member.
+        stamp = os.stat(slot.file_out)
+        cache.write_file(slot.file_out, b'X' + original[1:])
+        os.utime(slot.file_out, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+        self.assertFalse(_curry2icurry.source_matches(slot.file_in, slot.file_out))
+      changed_load()
+      self.assertEqual(checks.call_count, 4)
+    self.assertIsNone(_curry2icurry._load_completions.get())
+
   def test_completion_receipt_checks_every_member(self):
     slot = self.slot('M')
     self.convert(slot, self.products('M'))

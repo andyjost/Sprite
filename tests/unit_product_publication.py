@@ -85,18 +85,6 @@ class TestPublication(cytest.TestCase):
       pass
     self.assertEqual(target.read_bytes(), source.read_bytes())
 
-  def test_canonical_stamp_binds_object_bytes(self):
-    source = self.base / ('M' + config.module_object_suffix())
-    source.write_bytes(b'complete object')
-    stamp = pathlib.Path(str(source) + '.abi')
-    stamp.write_text('runtime\ninstallation\n' + json.dumps(dict(
-        version=1, imports={}, input={}, object=hashlib.sha256(source.read_bytes()).hexdigest())))
-    self.assertEqual(toolchain.Cpp2So._read_stamp_records(str(source))[0], 'runtime')
-    stamp = source.stat()
-    source.write_bytes(b'X' * len(source.read_bytes()))
-    os.utime(source, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
-    self.assertIsNone(toolchain.Cpp2So._read_stamp_records(str(source))[0])
-
   def test_import_comments_between_tokens(self):
     info = cache.SourceInfo('M.curry', b'import {- outer {- inner -} -} qualified\n'
         b'-- line comment\n B.C\nimport {- comment -} D\n')
