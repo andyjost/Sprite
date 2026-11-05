@@ -47,8 +47,9 @@ namespace curryrt
 
   namespace
   {
-    std::unordered_map<InfoTable const *, std::string> hot_modules;
-    std::unordered_map<std::string, TieredJob> hot_jobs;
+    using JobKey = std::pair<size_t, std::string>;
+    std::unordered_map<InfoTable const *, JobKey> hot_modules;
+    std::map<JobKey, TieredJob> hot_jobs;
 
     struct Finished
     {
@@ -75,6 +76,7 @@ namespace curryrt
       TieredStatus              counts;
       bool                      thread_started = false;
       bool                      running = false;
+      size_t                    running_registry = 0;
       long long                 child = 0;   // POSIX pid, or a Windows Child pointer
       // Incremented by tiered_cancel.  A job of an older generation is
       // dropped when it finishes.
@@ -368,6 +370,7 @@ namespace curryrt
           job = std::move(shared().queue.front());
           shared().queue.pop_front();
           shared().running = true;
+          shared().running_registry = job.registry.storage->id;
           generation = shared().generation;
         }
         Finished done{std::move(job), generation, -1, 0.0, {}, {}};
@@ -587,6 +590,35 @@ namespace curryrt
       return sofile;
     }
 
+    // Publish the binding owner before dlopen, restoring the old name if
+    // the loader refuses the file before any slots can have been bound.
+    struct Publication
+    {
+      std::shared_ptr<Module> module;
+      std::shared_ptr<Module> previous;
+      ModuleRegistry origin;
+      bool mapped = false;
+      explicit Publication(std::shared_ptr<Module> module)
+        : module(module), origin(module ? module->registry : process_registry())
+      {
+        if(module)
+        {
+          previous = Module::find(process_registry(), module->name);
+          module->publish();
+        }
+      }
+      ~Publication()
+      {
+        if(module && !mapped && origin.storage != process_registry().storage)
+        {
+          module->registry = origin;
+          auto & entries = process_registry().storage->modules;
+          if(previous) entries[module->name] = previous;
+          else entries.erase(module->name);
+        }
+      }
+    };
+
     // Maps the object of an import of a job (see the imports in
     // tiered.hpp), unless the import has one: it was loaded from its
     // object, swapped, or mapped by an earlier swap.  Nothing when the
@@ -595,9 +627,9 @@ namespace curryrt
     // (none is expected) gets its object mapped all the same, and the
     // handle stays open, so that the object stays mapped.  Returns false
     // with the error of ``result`` set.
-    bool map_import(TieredJob::Import const & imp, TieredResult & result)
+    bool map_import(ModuleRegistry const & registry, TieredJob::Import const & imp, TieredResult & result)
     {
-      auto module = Module::find(imp.module);
+      auto module = Module::find(registry, imp.module);
       if(module && module->shlib())
         return true;
       if(!file_exists(imp.sofile))
@@ -613,7 +645,9 @@ namespace curryrt
           imp.sofile, imp.publish, imp.icurryfile, imp.icurry_digest
         );
       std::string loadpath;
+      Publication publication(module);
       void * raw = open_object(path, loadpath, &result.error);
+      publication.mapped = raw != nullptr;
       if(!raw)
       {
         result.error = "the import " + imp.module + ": " + result.error;
@@ -624,7 +658,7 @@ namespace curryrt
       {
         if(module)
         {
-          auto shlib = std::make_shared<SharedCurryModule>(path, loadpath);
+          auto shlib = std::make_shared<SharedCurryModule>(path, loadpath, registry);
           module->adopt(shlib, {});
           platform::unload(raw, nullptr);
         }
@@ -643,6 +677,7 @@ namespace curryrt
     {
       TieredJob & job = done.job;
       TieredResult result;
+      result.registry_id = job.registry.storage->id;
       result.module = job.module;
       result.sofile = job.sofile;
       result.in_evaluation = in_evaluation;
@@ -653,7 +688,7 @@ namespace curryrt
         result.error = done.error;
         return result;
       }
-      auto module = Module::find(job.module);
+      auto module = Module::find(job.registry, job.module);
       if(!module)
       {
         result.error = "the module is no longer loaded";
@@ -708,7 +743,7 @@ namespace curryrt
       }
       // The objects of the imports first; see tiered.hpp.
       for(auto const & imp: job.imports)
-        if(!map_import(imp, result))
+        if(!map_import(job.registry, imp, result))
           return result;
       std::vector<std::pair<std::string, InfoTable const *>> steps;
       for(auto const & step: job.steps)
@@ -733,12 +768,14 @@ namespace curryrt
       // The load; see tiered.hpp.  On success the library owns the object
       // and the handle is released.
       std::string loadpath;
+      Publication publication(module);
       void * raw = open_object(path, loadpath, &result.error);
+      publication.mapped = raw != nullptr;
       if(!raw)
         return result;
       try
       {
-        auto shlib = std::make_shared<SharedCurryModule>(path, loadpath);
+        auto shlib = std::make_shared<SharedCurryModule>(path, loadpath, job.registry);
         result.swapped = module->adopt(shlib, steps);
         result.ok = true;
         platform::unload(raw, nullptr);
@@ -788,9 +825,10 @@ namespace curryrt
   void cxx_arm(TieredJob job)
   {
     std::lock_guard<std::mutex> lock(shared().mutex);
+    JobKey key{job.registry.storage->id, job.module};
     for(auto const & step: job.steps)
-      hot_modules[step.info] = job.module;
-    hot_jobs[job.module] = std::move(job);
+      hot_modules[step.info] = key;
+    hot_jobs[key] = std::move(job);
   }
 
   void cxx_hot(InfoTable const * info)
@@ -834,6 +872,7 @@ namespace curryrt
       }
       catch(...)
       {
+        result.registry_id = done.job.registry.storage->id;
         result.module = done.job.module;
         result.error = "an unexpected error";
       }
@@ -862,7 +901,8 @@ namespace curryrt
     }
     catch(...)
     {
-      result.module = done.job.module;
+      result.registry_id = done.job.registry.storage->id;
+        result.module = done.job.module;
       result.error = "an unexpected error";
     }
     std::lock_guard<std::mutex> lock(shared().mutex);
@@ -908,28 +948,47 @@ namespace curryrt
     return shared().idle_cv.wait_until(lock, deadline, idle);
   }
 
-  void tiered_cancel()
+  void tiered_cancel(ModuleRegistry const * registry)
   {
     std::lock_guard<std::mutex> lock(shared().mutex);
-    ++shared().generation;
-    for(auto const & job: shared().queue)
-      if(!job.logfile.empty())
+    auto owns = [&](TieredJob const & job)
+      { return !registry || job.registry.storage == registry->storage; };
+    for(auto it = hot_modules.begin(); it != hot_modules.end();)
+      if(!registry || it->second.first == registry->storage->id)
+        it = hot_modules.erase(it);
+      else ++it;
+    for(auto it = hot_jobs.begin(); it != hot_jobs.end();)
+      if(owns(it->second)) it = hot_jobs.erase(it);
+      else ++it;
+    auto & queue = shared().queue;
+    queue.erase(std::remove_if(queue.begin(), queue.end(), [&](TieredJob const & job)
       {
-        std::error_code ignored;
-        std::filesystem::remove(job.logfile, ignored);
-      }
-    hot_modules.clear();
-    hot_jobs.clear();
-    shared().queue.clear();
-    shared().finished.clear();
-    shared().results.clear();
-    g_tiered_pending.store(false);
-    #if defined(_WIN32)
-    if(shared().child)
-      TerminateJobObject(reinterpret_cast<Child *>(shared().child)->job, 1);
-    #else
-    if(shared().child)
-      kill(-(pid_t) shared().child, SIGKILL);
-    #endif
+        if(!owns(job)) return false;
+        if(!job.logfile.empty())
+        {
+          std::error_code ignored;
+          std::filesystem::remove(job.logfile, ignored);
+        }
+        return true;
+      }), queue.end());
+    auto & finished = shared().finished;
+    finished.erase(std::remove_if(finished.begin(), finished.end(),
+        [&](Finished const & done) { return owns(done.job); }), finished.end());
+    auto & results = shared().results;
+    results.erase(std::remove_if(results.begin(), results.end(),
+        [&](TieredResult const & result)
+          { return !registry || result.registry_id == registry->storage->id; }), results.end());
+    g_tiered_pending.store(!finished.empty());
+    if(!registry || (shared().running && shared().running_registry == registry->storage->id))
+    {
+      ++shared().generation;
+      #if defined(_WIN32)
+      if(shared().child)
+        TerminateJobObject(reinterpret_cast<Child *>(shared().child)->job, 1);
+      #else
+      if(shared().child)
+        kill(-(pid_t) shared().child, SIGKILL);
+      #endif
+    }
   }
 }

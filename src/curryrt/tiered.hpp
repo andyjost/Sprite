@@ -1,5 +1,6 @@
 #pragma once
 #include "curryrt/export.hpp"
+#include "curryrt/module.hpp"
 #include <atomic>
 #include <string>
 #include <vector>
@@ -73,6 +74,7 @@ namespace curryrt
 {
   struct TieredJob
   {
+    ModuleRegistry registry;
     // The full name of the module.
     std::string module;
     // The command that compiles the module, the environment of the command
@@ -130,6 +132,7 @@ namespace curryrt
 
   struct TieredResult
   {
+    size_t registry_id = 0;
     std::string module;
     std::string sofile;
     // The object was loaded and the steps were swapped.
@@ -200,7 +203,7 @@ namespace curryrt
 
   // Drops the queued jobs, kills the running child process, and drops the
   // finished jobs not yet applied and the results not yet taken.
-  void tiered_cancel();
+  void tiered_cancel(ModuleRegistry const * registry = nullptr);
 
   // Set by the worker when a job finished; cleared by tiered_apply_pending.
   // The scheduler checks the shared g_icurry_posted flag at its JIT safepoint.

@@ -17,17 +17,17 @@ namespace fs = std::filesystem;
 namespace
 {
   // Keep package constructor lookups together for the per-interpreter registry.
-  InfoTable const * package_constructor(std::string const & module, std::string const & name)
+  InfoTable const * package_constructor(RuntimeState * rts, std::string const & module, std::string const & name)
   {
-    if(!Module::find(module))
+    if(!Module::find(rts->istate.modules, module))
       throw std::runtime_error("Package primitive: module " + module + " is not loaded");
     // An empty name validates a prefix without selecting a constructor.
     if(name.empty()) return nullptr;
-    auto info = Module::find_symbol(module, name);
+    auto info = Module::find_symbol(rts->istate.modules, module, name);
     return info && info->tag >= T_CTOR && !is_partial(*info) ? info : nullptr;
   }
 
-  tag_type step(RuntimeState *, Configuration * C)
+  tag_type step(RuntimeState * rts, Configuration * C)
   {
     Cursor root = C->cursor();
     std::string op = root->info->name;
@@ -66,7 +66,7 @@ namespace
         auto now = decltype(stamp)::clock::now();
         auto system = std::chrono::system_clock::now() + (stamp - now);
         auto seconds = std::chrono::duration_cast<std::chrono::seconds>(system.time_since_epoch()).count();
-        auto ctor = package_constructor("Data.Time", "CTime");
+        auto ctor = package_constructor(rts, "Data.Time", "CTime");
         if(!ctor) throw std::runtime_error("Data.Time.CTime is not loaded");
         result = Node::create(ctor, int_(seconds));
       }
@@ -107,7 +107,7 @@ namespace
     }
     catch(std::exception const & exc)
     {
-      C->set_error(Node::create(ioerror_info(IO_ERROR), build_curry_string(exc.what())),
+      C->set_error(Node::create(ioerror_info(rts, IO_ERROR), build_curry_string(exc.what())),
           std::string("i/o error: ") + exc.what(), ErrorKind::io);
       return E_ERROR;
     }
@@ -228,17 +228,18 @@ namespace
 
   struct TermReader
   {
+    RuntimeState * rts;
     std::vector<std::string> prefixes;
     std::vector<unsigned> input;
     std::vector<Node *> tails;
     size_t pos = 0;
-    explicit TermReader(Node * modules, Node * string)
+    explicit TermReader(RuntimeState * rts, Node * modules, Node * string) : rts(rts)
     {
       for(auto list = data_node(modules); list->info->tag == T_CONS;
           list = data_node(NodeU{list}.cons->tail))
       {
         auto prefix = extract_string(NodeU{list}.cons->head);
-        package_constructor(prefix, "");
+        package_constructor(rts, prefix, "");
         prefixes.push_back(prefix);
       }
       auto list = data_node(string);
@@ -313,7 +314,7 @@ namespace
     {
       InfoTable const * ctor = nullptr;
       for(auto const & prefix: prefixes)
-        if((ctor = package_constructor(prefix, name))) break;
+        if((ctor = package_constructor(rts, prefix, name))) break;
       if(!ctor)
       {
         std::string modules;
@@ -364,7 +365,7 @@ namespace
             }
             else
             {
-              auto ctor = package_constructor("Prelude", "(" + std::string(frame.args.size()-1, ',') + ")");
+              auto ctor = package_constructor(rts, "Prelude", "(" + std::string(frame.args.size()-1, ',') + ")");
               if(!ctor) throw std::runtime_error("ReadShowTerm: tuple constructor is not loaded");
               value = Node::create(ctor, frame.args.data());
             }
@@ -457,7 +458,7 @@ namespace
     }
   };
 
-  tag_type readshow_step(RuntimeState *, Configuration * C)
+  tag_type readshow_step(RuntimeState * rts, Configuration * C)
   {
     Cursor root = C->cursor();
     // Local vectors and the printer's cycle set contain heap pointers.
@@ -472,7 +473,7 @@ namespace
       }
       else
       {
-        TermReader reader(root[0].target, root[1].target);
+        TermReader reader(rts, root[0].target, root[1].target);
         try
         {
           auto value = reader.term();

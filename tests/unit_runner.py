@@ -2044,6 +2044,59 @@ class TestPrepare(unittest.TestCase):
     self.assertEqual(job(nowhere, shell, 'incomplete').status, 'ok')
     diagnostic = 'poker.curry needs the preprocessor currypp, which is not on PATH.'
     self.assertEqual(job(nowhere, diagnostic).status, 'ok')
+    # A line of the front end's report on its own (an empty error report,
+    # the header of another command, an orphan "Error:" or exit line), or a
+    # report whose "not found" names another tool, is another failure.
+    orphans = (
+        'sprite-make: \nsprite-make: ' + diagnostic + '\n',
+        'sprite-make: while running g++ plain.cpp:\nsprite-make: ' + diagnostic + '\n',
+        'sprite-make: Error:\nsprite-make: ' + diagnostic + '\n',
+        'sprite-make: Preprocessor exited with exit code 1\nsprite-make: ' + diagnostic + '\n',
+        shell.replace('currypp: not found', 'g++: not found'),
+      )
+    for log in orphans:
+      with self.subTest(log=log, product='absent'):
+        self.assertEqual(job(nowhere, log).status, 'FAILED')
+    # A refusal or a count line with trailing blanks is still one.
+    self.assertEqual(job(nowhere, 'sprite-make: ' + diagnostic + '  \n').status, 'ok')
+    # With poker's product absent as well, a refusal beside another failure
+    # keeps the failure, in both forms of the refusal.
+    for log in (
+        'sprite-make: ' + diagnostic + '\ng++: not found\n',
+        shell + other,
+      ):
+      with self.subTest(log=log):
+        kept = job(nowhere, log)
+        self.assertEqual(kept.lacking, {'data/curry/smap/poker.curry': 'currypp'})
+        self.assertEqual(kept.status, 'FAILED')
+        self.assertEqual(cli.exit_status([kept]), 1)
+    # A refused module whose stale products are present: sprite-make checks
+    # the PATH before the front end runs and leaves the old files. The log
+    # holds nothing but the refusal, so the module is skipped; any other
+    # line keeps the failure.
+    open(os.path.join(products, 'poker.so'), 'w').close()
+    refused = job(nowhere, 'sprite-make: ' + diagnostic + '\n')
+    self.assertEqual(refused.lacking, {'data/curry/smap/poker.curry': 'currypp'})
+    self.assertEqual(refused.status, 'ok')
+    self.assertEqual(
+        refused.note
+      , '1 module skipped; poker.curry needs the preprocessor currypp, '
+        'which is not on PATH.'
+      )
+    mixed = job(nowhere, 'sprite-make: ' + diagnostic + '\n' + other)
+    self.assertEqual(mixed.lacking, {})
+    self.assertEqual(mixed.status, 'FAILED')
+    self.assertEqual(mixed.note, 'exit status 1; every product is present')
+    for log in orphans:
+      with self.subTest(log=log, product='stale'):
+        self.assertEqual(job(nowhere, log).status, 'FAILED')
+    for log in (
+        'sprite-make: ' + diagnostic + '\ng++: not found\n',
+        'unrelated sprite-make: ' + diagnostic + ' unrelated\n',
+      ):
+      with self.subTest(log=log):
+        self.assertEqual(job(nowhere, log).status, 'FAILED')
+    os.remove(os.path.join(products, 'poker.so'))
     # A failure after the ICurry step is not blamed on the tool.
     plain = job(nowhere, other)
     self.assertEqual(plain.lacking, {})

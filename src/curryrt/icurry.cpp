@@ -5,6 +5,7 @@
 #include <alloca.h>
 #endif
 #include <cassert>
+#include <algorithm>
 #include <cstring>
 #include <atomic>
 #include <mutex>
@@ -93,18 +94,24 @@ namespace curryrt
 
   namespace
   {
-    std::atomic<uint32_t> g_hot_threshold{0};
     std::mutex g_hot_mutex;
-    std::vector<InfoTable *> g_hot;
+    std::vector<ICurryWork> g_hot;
   }
 
-  void icurry_set_hot_threshold(uint32_t threshold)
-    { g_hot_threshold.store(threshold, std::memory_order_relaxed); }
-  uint32_t icurry_hot_threshold()
-    { return g_hot_threshold.load(std::memory_order_relaxed); }
-  std::vector<InfoTable *> icurry_take_hot()
+  ICurryWork icurry_work(InfoTable * info)
   {
-    std::vector<InfoTable *> hot;
+    auto bc = icurry_bytecode(info);
+    if(!bc || !bc->owner)
+      throw std::invalid_argument("icurry_work: table has no owned bytecode");
+    return {info, bc, bc->owner, bc->generation};
+  }
+  void icurry_set_hot_threshold(InterpreterState & state, uint32_t threshold)
+    { state.hot_threshold = threshold; }
+  uint32_t icurry_hot_threshold(InterpreterState const & state)
+    { return state.hot_threshold; }
+  std::vector<ICurryWork> icurry_take_hot()
+  {
+    std::vector<ICurryWork> hot;
     std::lock_guard<std::mutex> lock(g_hot_mutex);
     hot.swap(g_hot);
     return hot;
@@ -115,13 +122,13 @@ namespace curryrt
     Cursor const _0 = C->cursor();
     Bytecode const * bc = (Bytecode const *) _0->info->aux;
     assert(bc);
-    if(uint32_t const threshold = g_hot_threshold.load(std::memory_order_relaxed))
+    if(uint32_t const threshold = rts->istate.hot_threshold)
     {
       if(++bc->calls == threshold)
       {
         cxx_hot(_0->info);
         std::lock_guard<std::mutex> lock(g_hot_mutex);
-        g_hot.push_back(const_cast<InfoTable *>(_0->info));
+        g_hot.push_back(icurry_work(const_cast<InfoTable *>(_0->info)));
       }
     }
     uint32_t const * const code = bc->code.data();
@@ -410,21 +417,29 @@ namespace curryrt
   tag_type icurry_cached_step(RuntimeState * rts, Configuration * C)
   {
     auto info = const_cast<InfoTable *>(C->cursor()->info);
+    auto work = icurry_work(info);
     auto step = g_cache_hook ? g_cache_hook(info) : nullptr;
-    // Like trap_step, replace the current entry on the evaluation thread
-    // and run it on the same redex. The hot worker only posts swaps.
-    if(info->step == &icurry_cached_step)
+    // The callback may reload and reuse this table. Install only the result
+    // made for our attachment, then run the table's current entry.
+    if(step && info->step == &icurry_cached_step)
+      icurry_set_step(info, step, work);
+    if(info->step == &icurry_cached_step && icurry_bytecode(info) == work.bytecode)
     {
-      if(step) icurry_set_step(info, step);
-      else info->step = &icurry_step;
+      if(work.valid())
+        info->step = &icurry_step;
+      return icurry_step(rts, C);
     }
     return info->step(rts, C);
   }
 
-  void icurry_set_step(InfoTable * info, stepfunc_type step)
+  bool icurry_set_step(InfoTable * info, stepfunc_type step, ICurryWork const & work)
   {
     if(!info || !step)
       throw std::invalid_argument("icurry_set_step: a null argument");
+    // Validate the work's original attachment before inspecting its step:
+    // a replacement may already have installed its own compiled entry.
+    if(!work.valid() || work.info != info || icurry_bytecode(info) != work.bytecode)
+      return false;
     if(!is_interpreted_step(info->step))
       throw std::invalid_argument(
           std::string("icurry_set_step: ") + info->name + " is not interpreted"
@@ -434,6 +449,7 @@ namespace curryrt
       g_jit_steps.insert(info);
     }
     info->step = step;
+    return true;
   }
 
   bool icurry_is_jit(InfoTable const * info)
@@ -450,23 +466,39 @@ namespace curryrt
   namespace
   {
     std::mutex g_posted_mutex;
-    std::vector<std::pair<InfoTable *, stepfunc_type>> g_posted;
+    std::vector<std::pair<ICurryWork, stepfunc_type>> g_posted;
+  }
+
+  void icurry_invalidate(InterpreterState & state)
+  {
+    // Reset owns the heap and the Python JIT lock before retiring tables.
+    auto owner = state.modules.storage;
+    ++owner->generation;
+    {
+      std::lock_guard<std::mutex> lock(g_hot_mutex);
+      g_hot.erase(std::remove_if(g_hot.begin(), g_hot.end(),
+          [&](ICurryWork const & work) { return work.owner == owner; }), g_hot.end());
+    }
+    std::lock_guard<std::mutex> lock(g_posted_mutex);
+    g_posted.erase(std::remove_if(g_posted.begin(), g_posted.end(),
+        [&](auto const & entry) { return entry.first.owner == owner; }), g_posted.end());
   }
 
   std::atomic<bool> g_icurry_posted{false};
 
-  void icurry_post_step(InfoTable * info, stepfunc_type step)
+  void icurry_post_step(ICurryWork const & work, stepfunc_type step)
   {
-    if(!info || !step)
+    if(!work.info || !step)
       throw std::invalid_argument("icurry_post_step: a null argument");
     std::lock_guard<std::mutex> lock(g_posted_mutex);
-    g_posted.emplace_back(info, step);
+    if(!work.valid()) return;
+    g_posted.emplace_back(work, step);
     g_icurry_posted.store(true, std::memory_order_release);
   }
 
   size_t icurry_apply_posted()
   {
-    std::vector<std::pair<InfoTable *, stepfunc_type>> posted;
+    std::vector<std::pair<ICurryWork, stepfunc_type>> posted;
     {
       std::lock_guard<std::mutex> lock(g_posted_mutex);
       posted.swap(g_posted);
@@ -481,19 +513,15 @@ namespace curryrt
     for(auto const & entry: posted)
     {
       // A table swapped meanwhile, or never interpreted, keeps its step.
-      if(!is_interpreted_step(entry.first->step))
+      if(!entry.first.valid() || !is_interpreted_step(entry.first.info->step))
         continue;
-      {
-        std::lock_guard<std::mutex> lock(g_jit_mutex);
-        g_jit_steps.insert(entry.first);
-      }
-      entry.first->step = entry.second;
-      ++applied;
+      if(icurry_set_step(entry.first.info, entry.second, entry.first))
+        ++applied;
     }
     return applied;
   }
 
-  void icurry_attach(InfoTable * info, std::unique_ptr<Bytecode> code)
+  void icurry_attach(ModuleRegistry const & owner, InfoTable * info, std::unique_ptr<Bytecode> code)
   {
     if(!info || !code)
       throw std::invalid_argument("icurry_attach: a null argument");
@@ -512,6 +540,8 @@ namespace curryrt
       throw std::invalid_argument(
           std::string("icurry_attach: ") + info->name + " has a step already"
         );
+    code->owner = owner.storage;
+    code->generation = owner.storage->generation.load();
     info->aux = code.get();
     info->step = &icurry_step;
     g_functions.push_back(std::move(code));

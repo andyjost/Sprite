@@ -356,7 +356,7 @@ namespace curryrt
   std::string extract_string(Node *);
   Node * build_curry_string(char const *);
   enum IOErrorKind { IO_ERROR, USER_ERROR, FAIL_ERROR, NONDET_ERROR };
-  InfoTable const * ioerror_info(IOErrorKind);
+  InfoTable const * ioerror_info(RuntimeState *, IOErrorKind);
   // The text of the error for a choice in a monadic action.  The Python
   // backend raises NondetMonadError with the same text.
   inline constexpr char NONDET_MONAD_ERROR_TEXT[] =

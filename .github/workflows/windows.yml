@@ -120,7 +120,7 @@ jobs:
           from curry.lib import Prelude
           from curry.backends.cxx import curryrtbindings, llvmjit, materialize
           print('available:', llvmjit.available(), 'flag:', curry.flags['jit'], 'threshold:', materialize.jit_threshold())
-          print('threads:', [t.name for t in threading.enumerate()], 'runtime threshold:', curryrtbindings.icurry_hot_threshold())
+          print('threads:', [t.name for t in threading.enumerate()], 'runtime threshold:', curryrtbindings.icurry_hot_threshold(curry._interpreter_._its))
           import llvmlite.binding as llvm
           print('triples: default', llvm.get_default_triple(), 'process', llvm.get_process_triple(), 'bitcode', llvmjit._jit.triple, 'layout', llvmjit._jit.data_layout)
           t0 = time.perf_counter()
@@ -133,7 +133,7 @@ jobs:
           while llvmjit.statistics()['hot'] == 0 and time.monotonic() < deadline:
             time.sleep(0.05)
           print(llvmjit.statistics())
-          print('threads:', [t.name for t in threading.enumerate()], 'runtime threshold:', curryrtbindings.icurry_hot_threshold(), 'hot list:', len(curryrtbindings.icurry_take_hot()))
+          print('threads:', [t.name for t in threading.enumerate()], 'runtime threshold:', curryrtbindings.icurry_hot_threshold(curry._interpreter_._its), 'hot list:', len(curryrtbindings.icurry_take_hot()))
           print(curry.eval(Prelude.elem(999999, Prelude.enumFromTo(1, 1000000))).one())
           assert llvmjit.statistics()['hot'] > 0, 'the hot tier compiled nothing'
           EOF

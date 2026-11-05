@@ -10,6 +10,7 @@
 #include "curryrt/graph/infotable.hpp"
 #include "curryrt/graph/node.hpp"
 #include "curryrt/icurry.hpp"
+#include "curryrt/state/rts.hpp"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 
@@ -180,7 +181,7 @@ namespace
   }
 
   void icurry_attach_(
-      InfoTable * info, std::vector<uint32_t> code, py::sequence consts
+      Module & owner, InfoTable * info, std::vector<uint32_t> code, py::sequence consts
     , uint32_t nregs, uint32_t nvars, uint32_t nstack
     )
   {
@@ -195,7 +196,7 @@ namespace
       bc->consts.push_back(make_constant(*bc, item));
     try
     {
-      icurry_attach(info, std::move(bc));
+      icurry_attach(owner.registry, info, std::move(bc));
     }
     catch(std::invalid_argument const & e)
     {
@@ -251,11 +252,11 @@ namespace
     return nullptr;
   }
 
-  void icurry_set_step_(InfoTable * info, std::uintptr_t address)
+  bool icurry_set_step_(InfoTable * info, std::uintptr_t address, ICurryWork const & work)
   {
     try
     {
-      icurry_set_step(info, reinterpret_cast<stepfunc_type>(address));
+      return icurry_set_step(info, reinterpret_cast<stepfunc_type>(address), work);
     }
     catch(std::invalid_argument const & e)
     {
@@ -263,11 +264,11 @@ namespace
     }
   }
 
-  void icurry_post_step_(InfoTable * info, std::uintptr_t address)
+  void icurry_post_step_(ICurryWork const & work, std::uintptr_t address)
   {
     try
     {
-      icurry_post_step(info, reinterpret_cast<stepfunc_type>(address));
+      icurry_post_step(work, reinterpret_cast<stepfunc_type>(address));
     }
     catch(std::invalid_argument const & e)
     {
@@ -299,7 +300,7 @@ namespace curryrt { namespace python
   void register_icurry(pybind11::module_ mod)
   {
     mod.def("icurry_attach", &icurry_attach_
-      , py::arg("info"), py::arg("code"), py::arg("consts"), py::arg("nregs")
+      , py::arg("owner"), py::arg("info"), py::arg("code"), py::arg("consts"), py::arg("nregs")
       , py::arg("nvars"), py::arg("nstack")
       , "Makes a function table made at run time an interpreted function: "
         "attaches the bytecode and the constants of its body.", curryrt::python::heap_access{});
@@ -312,9 +313,9 @@ namespace curryrt { namespace python
       , curryrt::python::heap_access{});
     mod.def("icurry_set_step", &icurry_set_step_
       , "Gives an interpreted function the step at an address: the code a JIT "
-        "made from its bytecode.  The function must be interpreted at the "
-        "call.  No heap lock: the hot tier swaps a step while an evaluation "
-        "runs, and the evaluation reads the pointer at each call.");
+        "made from the bytecode recorded by the supplied work ticket. "
+        "Returns false for retired work or a different table or bytecode. "
+        "The caller provides the existing installation synchronization.");
     mod.def("icurry_post_step", &icurry_post_step_
       , "Posts the step at an address for an interpreted function: a "
         "scheduler applies it at the head of its loop, or "
@@ -334,6 +335,17 @@ namespace curryrt { namespace python
     // tier calls them while an evaluation owns the lock.  They read a table
     // and the lists of the interpreter, under their own mutexes, and write
     // one step pointer.
+    py::class_<ICurryWork>(mod, "ICurryWork")
+      .def_property_readonly("info", [](ICurryWork const & work) { return work.info; },
+          py::return_value_policy::reference)
+      .def_property_readonly("owner", [](ICurryWork const & work) { return work.owner->id; })
+      .def_readonly("generation", &ICurryWork::generation)
+      .def_property_readonly("valid", &ICurryWork::valid);
+    mod.def("icurry_work", &icurry_work);
+    mod.def("icurry_invalidate", &icurry_invalidate);
+    // The reload caller already owns the heap before taking LLVM's lock.
+    mod.def("icurry_refresh", [](InterpreterState & state, std::string const & excluded)
+        { state.modules.refresh(excluded); });
     mod.def("icurry_take_hot", &icurry_take_hot
       , "The interpreted functions whose call count reached the threshold of "
         "the hot tier since the last call; the list is cleared."

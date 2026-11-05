@@ -51,6 +51,7 @@ _lock = threading.Lock()
 _group_lock = threading.Lock()
 _jit = None       # the JIT of the process, made at the first compile
 _reason = None    # why the JIT is unavailable, once known
+BATCH_SIZE = 32
 
 def available():
   '''Whether the JIT can compile in this process.'''
@@ -70,7 +71,8 @@ def compile(info, name):
   messages = []
   try:
     with _lock:
-      jit.compile_batch([(info, name)], messages=messages)
+      work = {curryrt.icurry_address(info): curryrt.icurry_work(info)}
+      jit.compile_batch([(info, name)], work=work, messages=messages)
   finally:
     _emit_messages(messages)
 
@@ -82,7 +84,7 @@ def enqueue(info, name):
   '''
   jit = _get()
   with _lock:
-    jit.pending.append((info, name))
+    jit.pending.append((curryrt.icurry_work(info), name))
 
 def flush():
   '''
@@ -97,7 +99,8 @@ def flush():
     pending, jit.pending = jit.pending, []
   if pending:
     start = time.perf_counter()
-    _compile_groups(jit, pending)
+    work = {curryrt.icurry_address(ticket.info): ticket for ticket, _ in pending}
+    _compile_groups(jit, [(ticket.info, name) for ticket, name in pending], work=work)
     name = pending[0][1].rsplit('.', 1)[0]
     logger.info('jit eager: module %s, %d functions, %.1f ms',
         name, len(pending), 1000 * (time.perf_counter() - start))
@@ -107,7 +110,7 @@ def flush():
 _hot_thread = None
 _hot_enabled = False
 
-def start_hot_tier(threshold):
+def start_hot_tier(state, threshold):
   '''
   Starts the hot tier once: the runtime counts the calls of every
   interpreted function, and a thread of this process compiles the functions
@@ -120,7 +123,7 @@ def start_hot_tier(threshold):
   _hot_enabled = True
   _get()
   with _lock:
-    curryrt.icurry_set_hot_threshold(int(threshold))
+    curryrt.icurry_set_hot_threshold(state, int(threshold))
     if _hot_thread is not None:
       return
     _hot_thread = threading.Thread(target=_hot_loop, name='curry-jit', daemon=True)
@@ -160,14 +163,15 @@ def _hot_loop():
     try:
       # These bindings read tables without acquiring the heap lock.
       start = time.perf_counter()
-      _compile_groups(jit, [(info, jit.names.get(curryrt.icurry_address(info))
-          or curryrt.icurry_name(info)) for info in hot], post=True)
-      if not _hot_enabled:
+      work = {curryrt.icurry_address(ticket.info): ticket for ticket in hot}
+      # Names and bytecode are read only after checking the session under _lock.
+      compiled = _compile_groups(jit, [(ticket.info, None) for ticket in hot], post=True, work=work)
+      if not compiled:
         continue
       logger.info('jit hot: compiled %s in %.1f ms',
-          ', '.join(curryrt.icurry_name(info) for info in hot),
+          ', '.join(compiled),
           1000 * (time.perf_counter() - start))
-      jit.hot += len(hot)
+      jit.hot += len(compiled)
     except Exception as exc:
       jit.errors += 1
       jit.last_error = '%s: %s' % (type(exc).__name__, exc)
@@ -179,20 +183,41 @@ def _emit_messages(messages):
   _productlock.emit_messages(messages, logger)
 
 
-def _compile_groups(jit, items, post=False):
+def _compile_groups(jit, items, post=False, work=None):
   messages = []
   try:
     with _group_lock:
-      _compile_groups_locked(jit, items, post, messages)
+      return _compile_groups_locked(jit, items, post, messages, work)
   finally:
     _emit_messages(messages)
 
-def _compile_groups_locked(jit, items, post, messages):
+def _valid(info, work):
+  return work is None or work[curryrt.icurry_address(info)].valid
+
+def invalidate(state):
+  # Reset calls this before retirement, while holding the native metadata lock.
+  with _lock:
+    curryrt.icurry_invalidate(state)
+    if _jit is not None:
+      _jit.pending = [(ticket, name) for ticket, name in _jit.pending if ticket.valid]
+  # Keep the barrier for other owners' valid posted swaps, outside the JIT
+  # lock: the apply may wait for the heap.
+  curryrt.icurry_apply_posted()
+
+def refresh(state, excluded):
+  # Reload owns the heap before entering; this binding never waits for it.
+  with _lock:
+    curryrt.icurry_refresh(state, excluded)
+
+def _compile_groups_locked(jit, items, post, messages, work=None):
   # Group and publish by image, but let a waiting resolver enter between
   # optimizer batches. No binding here may acquire the heap under _lock.
   with _lock:
     groups = {}
     for info, name in items:
+      if not _valid(info, work):
+        continue
+      name = name or jit.names.get(curryrt.icurry_address(info)) or curryrt.icurry_name(info)
       context = jit.modules.get(curryrt.icurry_address(info))
       groups.setdefault(id(context), (context, []))[1].append((info, name))
     ordered = list(groups.values())
@@ -200,29 +225,43 @@ def _compile_groups_locked(jit, items, post, messages):
       ordered.sort(key=lambda entry: sum(
           len(curryrt.icurry_bytecode(info)['code']) for info, _ in entry[1]),
           reverse=True)
+  compiled = []
   for _, group in ordered:
     dirty = set()
-    for offset in range(0, len(group), 32):
+    for offset in range(0, len(group), BATCH_SIZE):
       with _lock:
         if post and not _hot_enabled:
           for context in dirty:
-            if context.dirty:
+            if context.dirty and any(_valid(info, work) for info, _ in group):
               context.store(messages=messages)
-          return
-        context = jit.compile_batch(group[offset:offset + 32], post=post, store=False, messages=messages)
+          return compiled
+        batch = [(info, name) for info, name in group[offset:offset + BATCH_SIZE]
+            if _valid(info, work)]
+        if not batch:
+          continue
+        context = jit.compile_batch(batch, post=post, store=False, work=work,
+            messages=messages, compiled=compiled)
         if context is not None:
           dirty.add(context)
       # Give a resolver waiting for the GIL a chance to take the lock.
-      if offset + 32 < len(group):
+      if offset + BATCH_SIZE < len(group):
         time.sleep(0)
     with _lock:
       for context in dirty:
-        if context.dirty:
+        if context.dirty and any(_valid(info, work) for info, _ in group):
           context.store(messages=messages)
+  return compiled
 
 
 def statistics():
-  '''The counts and the seconds of the JIT of this process.'''
+  '''The counts and the seconds of the JIT of this process.
+
+  ``functions`` counts newly compiled steps accepted for direct installation
+  or posted as hot work.
+  ``hot`` counts posted work, not swaps applied by the scheduler. The native
+  ``icurry_apply_posted`` return value counts the installations it accepts.
+  ``linked`` counts cached objects resolved, including refused installations.
+  '''
   jit = _jit
   if jit is None:
     return {'functions': 0, 'batches': 0, 'hot': 0, 'errors': 0, 'last_error': None, 'seconds': 0.0, 'linked': 0}
@@ -323,7 +362,7 @@ class _JIT(object):
     self.seconds = 0.0
     curryrt.icurry_set_cache_hook(_resolve_cached)
 
-  def compile_batch(self, items, post=False, store=True, messages=None):
+  def compile_batch(self, items, post=False, store=True, work=None, messages=None, compiled=None):
     '''
     Optimizes ``items`` together, emits one object per function and swaps their
     steps; with ``post`` the swaps are posted for a scheduler to apply at
@@ -336,9 +375,18 @@ class _JIT(object):
       return
     if not items:
       return
+    if work is None:
+      work = {curryrt.icurry_address(info): curryrt.icurry_work(info) for info, _ in items}
     # Callers bound the optimizer batch to one image and at most 32 steps.
     context = self.modules.get(curryrt.icurry_address(items[0][0]))
-    swap = curryrt.icurry_post_step if post else curryrt.icurry_set_step
+    def swap(info, address):
+      if not _valid(info, work):
+        return False
+      ticket = work[curryrt.icurry_address(info)]
+      if post:
+        curryrt.icurry_post_step(ticket, address)
+        return True
+      return curryrt.icurry_set_step(info, address, ticket)
     uncached = []
     for info, name in items:
       if curryrt.icurry_is_jit(info):
@@ -363,6 +411,8 @@ class _JIT(object):
     symbols = []
     costs = {}
     for info, name in items:
+      if not _valid(info, work):
+        continue
       bc = curryrt.icurry_bytecode(info)
       if bc is None:
         raise ValueError('%s is not an interpreted function' % name)
@@ -441,10 +491,11 @@ class _JIT(object):
       else:
         context.objects.append((records, obj))
         context.dirty = True
-        self.generations.setdefault(context.key, []).append((tracker, records))
-      if not curryrt.icurry_is_jit(info):
-        swap(info, tracker[symbol])
+        self.generations.setdefault(context.runtime_key, []).append((tracker, records))
+      if not curryrt.icurry_is_jit(info) and swap(info, tracker[symbol]):
         swapped += 1
+        if compiled is not None:
+          compiled.append(name)
     self.functions += swapped
     if context is not None and store and context.dirty:
       context.store(messages=messages)
@@ -695,6 +746,8 @@ def _resolve_cached(address):
       if context is None or curryrt.icurry_is_jit(context.items[jit.names[address]]):
         return 0
       name = jit.names[address]
+      if not curryrt.icurry_work(context.items[name]).valid:
+        return 0
       if name in context.failed:
         return 0
       try:
@@ -715,6 +768,9 @@ class _CachedModule:
     self.path = path
     self.name = header['name']
     self.items = dict((name, info) for info, name in items)
+    # Native code binds constants to these tables. Identical cached bytes
+    # can be linked only within the same table owner, including across reset.
+    self.slot = tuple(sorted(curryrt.icurry_address(info) for info in self.items.values()))
     # The same key means the same image and the same functions outside AOT
     # objects, so these module-local ordinals stay unique across a merge.
     self.symbols = {name: 's%x' % k for k, name in enumerate(sorted(self.items))}
@@ -734,6 +790,10 @@ class _CachedModule:
     if self._key is None:
       self._key = _cache_key(self.jit, self.header)
     return self._key
+
+  @property
+  def runtime_key(self):
+    return self.slot, self.key
 
   @property
   def private(self):
@@ -770,7 +830,7 @@ class _CachedModule:
         library = 'cached%d' % self.jit.serial
         self.jit.serial += 1
         tracker = self.jit.link_object(native, records, addresses, library)
-        self.jit.generations.setdefault(self.key, []).append((tracker, records))
+        self.jit.generations.setdefault(self.runtime_key, []).append((tracker, records))
         self.resolved[name] = (tracker, symbol)
       tracker, symbol = self.resolved[name]
       if name not in self.counted:
@@ -804,7 +864,7 @@ class _CachedModule:
       messages = []
     # Reuse the index and linked code across resets. Unresolved objects
     # retain their pinned generation and are verified at materialization.
-    objects = jit.object_generations.get(self.key)
+    objects = jit.object_generations.get(self.runtime_key)
     if objects is None:
       paths = [self.local]
       if self.root and os.path.isdir(self.root):
@@ -845,10 +905,10 @@ class _CachedModule:
       self.cached.update({pair[0][0][0]: pair for pair in objects.extra})
     else:
       self.cached = {pair[0][0][0]: pair for pair in objects}
-    for tracker, records in jit.generations.get(self.key, []):
+    for tracker, records in jit.generations.get(self.runtime_key, []):
       name, symbol, _ = records[0]
       self.resolved[name] = (tracker, symbol)
-    jit.object_generations[self.key] = objects
+    jit.object_generations[self.runtime_key] = objects
     messages.append((logging.INFO, 'jit cache: module %s, indexed %d functions', (self.name, len(self.cached))))
     return True
 
@@ -877,8 +937,8 @@ class _CachedModule:
         self.cached[name] = (records, obj)
     self.index = None
     self.dirty = False
-    self.jit.object_generations[self.key] = self.objects
-    self.jit.module_keys[self.name] = self.key
+    self.jit.object_generations[self.runtime_key] = self.objects
+    self.jit.module_keys[self.slot] = self.runtime_key
     for path in (self.local, self.private):
       if path is None:
         continue
@@ -961,7 +1021,7 @@ class _CachedModule:
           published = _read_cache(path, self.key)
           self.objects = self.index = published
           self.cached = {entry['functions'][0][0]: entry for entry in published.entries}
-          self.jit.object_generations[self.key] = published
+          self.jit.object_generations[self.runtime_key] = published
           if path == self.local and self.private:
             try:
               os.unlink(self.private)
@@ -992,15 +1052,15 @@ def attach_cache(path, header, items):
         jit.names[curryrt.icurry_address(info)] = name
       context.load(jit, messages=messages)
       # A replaced image generation no longer owns any attached steps.
-      old = jit.module_keys.get(context.name)
-      key = context.key if context.objects else None
+      old = jit.module_keys.get(context.slot)
+      key = context.runtime_key if context.objects else None
       if old is not None and old != key:
         for tracker, _ in jit.generations.pop(old, []):
           tracker.close()
         detached = jit.object_generations.pop(old, None)
         if isinstance(detached, _IndexedObjects):
           detached.close()
-      jit.module_keys[context.name] = key
+      jit.module_keys[context.slot] = key
   finally:
     _emit_messages(messages)
   # Installing entries takes the heap lock. Never wait for the heap while
