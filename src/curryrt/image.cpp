@@ -291,7 +291,7 @@ namespace curryrt
       // while an object of it was alive keeps its trap into an import under
       // interpret:new, and its first use compiles where it must interpret.
       if(!bc->code.empty() && (!info->step || is_trapped(info)))
-        icurry_attach(const_cast<InfoTable *>(info), std::move(bc));
+        icurry_attach(owner.registry, const_cast<InfoTable *>(info), std::move(bc));
     }
     if(r.word() != bom->functions.size()) Reader::fail("wrong summary count");
     for(auto & function: bom->functions)

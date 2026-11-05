@@ -591,6 +591,7 @@ assert curry.eval(prelude.length([1, 2, 3])).one() == 3
     # A built-in: a static table.
     self.assertRaisesRegex(
         ValueError, 'static', curryrt.icurry_attach
+      , getHandle(curry.import_('Prelude')).backend_handle
       , curry.import_('Prelude')['plusInt'].info, code, [], 0, 0, 0
       )
     # A compiled function: the table of the object, or, when an earlier
@@ -598,29 +599,29 @@ assert curry.eval(prelude.length([1, 2, 3])).one() == 3
     # taken back with the step of the object at the load (issue #163).
     self.assertRaisesRegex(
         ValueError, 'static|has a step', curryrt.icurry_attach
-      , M.fact.info, code, [], 0, 0, 0
+      , getHandle(M).backend_handle, M.fact.info, code, [], 0, 0, 0
       )
     # A constructor.
     self.assertRaisesRegex(
         ValueError, 'not a function', curryrt.icurry_attach
-      , M.Circle.info, code, [], 0, 0, 0
+      , getHandle(M).backend_handle, M.Circle.info, code, [], 0, 0, 0
       )
     # A function interpreted already.
     M = None
     M = switch('all')
     self.assertRaisesRegex(
         ValueError, 'has a step', curryrt.icurry_attach
-      , M.fact.info, code, [], 0, 0, 0
+      , getHandle(M).backend_handle, M.fact.info, code, [], 0, 0, 0
       )
     # A bad constant.
     info = getHandle(M).backend_handle.create_infotable(
         'fresh', 1, common.T_FUNC, 0
       )
     self.assertRaisesRegex(
-        TypeError, 'constant', curryrt.icurry_attach, info, code, [1], 0, 0, 0
+        TypeError, 'constant', curryrt.icurry_attach, getHandle(M).backend_handle, info, code, [1], 0, 0, 0
       )
     self.assertRaisesRegex(
-        ValueError, 'kind', curryrt.icurry_attach, info, code, [('X', 1)], 0, 0, 0
+        ValueError, 'kind', curryrt.icurry_attach, getHandle(M).backend_handle, info, code, [('X', 1)], 0, 0, 0
       )
     self.assertFalse(curryrt.icurry_is_interpreted(info))
     # The flag is read back.

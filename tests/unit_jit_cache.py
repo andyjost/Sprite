@@ -63,7 +63,8 @@ class TestJITCache(cytest.TestCase):
       raise unittest.SkipTest('persistent LLVM objects need a supported JIT')
 
   def setUp(self):
-    self.work = tempfile.TemporaryDirectory(prefix='sprite-jit-cache-')
+    self.work = tempfile.TemporaryDirectory(
+        prefix='sprite-jit-cache-', ignore_cleanup_errors=sys.platform == 'win32')
     self.addCleanup(self.work.cleanup)
     self.base = pathlib.Path(self.work.name)
     self.source = self.base / 'Cached.curry'
@@ -179,7 +180,7 @@ with llvmjit._lock:
   try:
     with mock.patch.object(llvmjit._jit.llvm, 'parse_assembly', side_effect=stopping), mock.patch.object(llvmjit._jit, 'link_object', side_effect=AssertionError('shutdown work linked')):
       llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib')], post=True,
-      work={rt.icurry_address(info): rt.icurry_work(curry._interpreter_._its, info)
+      work={rt.icurry_address(info): rt.icurry_work(info)
             for info in (M.fib.info,)})
   finally:
     llvmjit._hot_enabled = True
@@ -284,7 +285,7 @@ def checked(obj):
 with mock.patch.object(llvmjit._Object, 'read', checked), mock.patch.object(llvmjit._Batch, 'emit', side_effect=AssertionError('cache hit compiled')):
   with llvmjit._lock:
     llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib'), (M.message.info, 'Cached.message')], post=True,
-      work={rt.icurry_address(info): rt.icurry_work(curry._interpreter_._its, info)
+      work={rt.icurry_address(info): rt.icurry_work(info)
             for info in (M.fib.info, M.message.info,)})
   before = llvmjit.statistics()['linked']
   assert llvmjit._resolve_cached(M.fib.info.address)
@@ -352,7 +353,7 @@ with mock.patch.object(obj, 'read', side_effect=ValueError('corrupt JIT object')
   assert not rt.icurry_is_jit(M.fib.info)
   with llvmjit._lock:
     llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib')], post=True,
-      work={rt.icurry_address(info): rt.icurry_work(curry._interpreter_._its, info)
+      work={rt.icurry_address(info): rt.icurry_work(info)
             for info in (M.fib.info,)})
 rt.icurry_apply_posted()
 assert rt.icurry_is_jit(M.fib.info)
@@ -691,7 +692,7 @@ def slow(items, **kwargs):
     assert resolved.wait(2), 'resolver blocked by the whole hot group'
 def worker():
   llvmjit._compile_groups(jit, [(M.bad.info, 'Cached.bad')] * 64, post=True,
-      work={rt.icurry_address(info): rt.icurry_work(curry._interpreter_._its, info)
+      work={rt.icurry_address(info): rt.icurry_work(info)
             for info in (M.bad.info, M.fib.info)})
 with mock.patch.object(jit, 'compile_batch', side_effect=slow):
   thread = threading.Thread(target=worker)
@@ -752,7 +753,7 @@ thread = threading.Thread(target=stop)
 thread.start()
 with mock.patch.object(jit, 'compile_batch', side_effect=fake):
   llvmjit._compile_groups(jit, [(M.bad.info, 'Cached.bad')] * 64, post=True,
-      work={rt.icurry_address(info): rt.icurry_work(curry._interpreter_._its, info)
+      work={rt.icurry_address(info): rt.icurry_work(info)
             for info in (M.bad.info, M.fib.info)})
 thread.join(5)
 assert stopped.is_set()
@@ -763,6 +764,27 @@ assert all(obj.read() for records, obj in objects)
 print(json.dumps(dict(ok=True)))
 """)
     self.assertTrue(self.child()['jitted'])
+
+  def test_shutdown_drops_reset_sub_batch(self):
+    self.child('off')
+    self.run_code("""
+M = curry.import_(source)
+jit = llvmjit._jit
+context = jit.modules[M.fib.info.address]
+items = [(M.fib.info, 'Cached.fib'), (M.bad.info, 'Cached.bad')]
+work = {rt.icurry_address(info): rt.icurry_work(info)
+        for info, name in items}
+def reset_and_stop(seconds):
+  assert seconds == 0
+  curry.reset()
+  llvmjit._hot_enabled = False
+with mock.patch.object(llvmjit, 'BATCH_SIZE', 1), \
+     mock.patch.object(llvmjit.time, 'sleep', side_effect=reset_and_stop), \
+     mock.patch.object(context, 'store') as store:
+  llvmjit._compile_groups(jit, items, post=True, work=work)
+store.assert_not_called()
+print(json.dumps(dict(ok=True)))
+""")
 
   def test_sub_batches_publish_actual_contexts_after_reattach(self):
     old, new = mock.Mock(dirty=False), mock.Mock(dirty=False)
@@ -814,7 +836,7 @@ context.store()
 assert 'Cached.fib' not in context.cached
 with llvmjit._lock:
   llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib')], post=True,
-      work={rt.icurry_address(info): rt.icurry_work(curry._interpreter_._its, info)
+      work={rt.icurry_address(info): rt.icurry_work(info)
             for info in (M.fib.info,)})
 rt.icurry_apply_posted()
 assert rt.icurry_is_jit(M.fib.info)
@@ -931,7 +953,7 @@ assert context.resolve('Cached.bad') == 0
 assert 'Cached.bad' in context.failed
 with llvmjit._lock:
   jit.compile_batch([(M.bad.info, 'Cached.bad')], post=True,
-      work={rt.icurry_address(info): rt.icurry_work(curry._interpreter_._its, info)
+      work={rt.icurry_address(info): rt.icurry_work(info)
             for info in (M.bad.info,)})
 rt.icurry_apply_posted()
 assert rt.icurry_is_jit(M.bad.info)

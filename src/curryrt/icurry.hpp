@@ -120,6 +120,8 @@ namespace curryrt
 
   struct Bytecode
   {
+    // The registry of the module whose table received this bytecode.
+    std::shared_ptr<ModuleRegistry::Storage> owner;
     std::vector<uint32_t>     code;
     std::vector<void const *> consts;
     uint32_t                  nregs = 0;
@@ -196,7 +198,7 @@ namespace curryrt
     size_t generation;
     bool valid() const { return owner->generation.load() == generation; }
   };
-  ICurryWork icurry_work(InterpreterState &, InfoTable *);
+  ICurryWork icurry_work(InfoTable *);
   void icurry_invalidate(InterpreterState &);
   void icurry_set_hot_threshold(InterpreterState &, uint32_t);
   uint32_t icurry_hot_threshold(InterpreterState const &);
@@ -223,7 +225,7 @@ namespace curryrt
   // its bytecode ``code``, which lives as long as the process.  ``info`` must
   // be a function table made at run time (Module::create_infotable) without a
   // step.  Throws std::invalid_argument otherwise.
-  void icurry_attach(InfoTable *, std::unique_ptr<Bytecode> code);
+  void icurry_attach(ModuleRegistry const &, InfoTable *, std::unique_ptr<Bytecode> code);
 
   // Whether the step of ``info`` is one the JIT made (icurry_set_step).
   bool icurry_is_jit(InfoTable const *);

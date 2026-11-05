@@ -75,7 +75,7 @@ def compile(info, name):
   finally:
     _emit_messages(messages)
 
-def enqueue(info, name, state):
+def enqueue(info, name):
   '''
   Queues the interpreted function of ``info`` for the next :func:`flush`.
   The function runs interpreted until then.  Raises Unavailable when the
@@ -83,7 +83,7 @@ def enqueue(info, name, state):
   '''
   jit = _get()
   with _lock:
-    jit.pending.append((curryrt.icurry_work(state, info), name))
+    jit.pending.append((curryrt.icurry_work(info), name))
 
 def flush():
   '''
@@ -164,13 +164,13 @@ def _hot_loop():
       start = time.perf_counter()
       work = {curryrt.icurry_address(ticket.info): ticket for ticket in hot}
       # Names and bytecode are read only after checking the session under _lock.
-      _compile_groups(jit, [(ticket.info, None) for ticket in hot], post=True, work=work)
-      if not _hot_enabled:
+      compiled = _compile_groups(jit, [(ticket.info, None) for ticket in hot], post=True, work=work)
+      if not compiled:
         continue
       logger.info('jit hot: compiled %s in %.1f ms',
-          ', '.join(str(ticket.owner) for ticket in hot),
+          ', '.join(compiled),
           1000 * (time.perf_counter() - start))
-      jit.hot += len(hot)
+      jit.hot += len(compiled)
     except Exception as exc:
       jit.errors += 1
       jit.last_error = '%s: %s' % (type(exc).__name__, exc)
@@ -186,7 +186,7 @@ def _compile_groups(jit, items, post=False, work=None):
   messages = []
   try:
     with _group_lock:
-      _compile_groups_locked(jit, items, post, messages, work)
+      return _compile_groups_locked(jit, items, post, messages, work)
   finally:
     _emit_messages(messages)
 
@@ -219,21 +219,22 @@ def _compile_groups_locked(jit, items, post, messages, work=None):
       ordered.sort(key=lambda entry: sum(
           len(curryrt.icurry_bytecode(info)['code']) for info, _ in entry[1]),
           reverse=True)
+  compiled = []
   for _, group in ordered:
     dirty = set()
     for offset in range(0, len(group), BATCH_SIZE):
       with _lock:
         if post and not _hot_enabled:
           for context in dirty:
-            if context.dirty:
+            if context.dirty and any(_valid(info, work) for info, _ in group):
               context.store(messages=messages)
-          return
+          return compiled
         batch = [(info, name) for info, name in group[offset:offset + BATCH_SIZE]
             if _valid(info, work)]
         if not batch:
           continue
         context = jit.compile_batch(batch, post=post, store=False, work=work,
-            messages=messages)
+            messages=messages, compiled=compiled)
         if context is not None:
           dirty.add(context)
       # Give a resolver waiting for the GIL a chance to take the lock.
@@ -243,6 +244,7 @@ def _compile_groups_locked(jit, items, post, messages, work=None):
       for context in dirty:
         if context.dirty and any(_valid(info, work) for info, _ in group):
           context.store(messages=messages)
+  return compiled
 
 
 def statistics():
@@ -347,7 +349,7 @@ class _JIT(object):
     self.seconds = 0.0
     curryrt.icurry_set_cache_hook(_resolve_cached)
 
-  def compile_batch(self, items, post=False, store=True, work=None, messages=None):
+  def compile_batch(self, items, post=False, store=True, work=None, messages=None, compiled=None):
     '''
     Optimizes ``items`` together, emits one object per function and swaps their
     steps; with ``post`` the swaps are posted for a scheduler to apply at
@@ -477,6 +479,8 @@ class _JIT(object):
       if not curryrt.icurry_is_jit(info):
         swap(info, tracker[symbol])
         swapped += 1
+        if compiled is not None:
+          compiled.append(name)
     self.functions += swapped
     if context is not None and store and context.dirty:
       context.store(messages=messages)

@@ -98,9 +98,12 @@ namespace curryrt
     std::vector<ICurryWork> g_hot;
   }
 
-  ICurryWork icurry_work(InterpreterState & state, InfoTable * info)
+  ICurryWork icurry_work(InfoTable * info)
   {
-    auto owner = state.modules.storage;
+    auto bc = icurry_bytecode(info);
+    if(!bc || !bc->owner)
+      throw std::invalid_argument("icurry_work: table has no owned bytecode");
+    auto owner = bc->owner;
     return {info, owner, owner->generation.load()};
   }
   void icurry_set_hot_threshold(InterpreterState & state, uint32_t threshold)
@@ -126,7 +129,7 @@ namespace curryrt
       {
         cxx_hot(_0->info);
         std::lock_guard<std::mutex> lock(g_hot_mutex);
-        g_hot.push_back(icurry_work(rts->istate, const_cast<InfoTable *>(_0->info)));
+        g_hot.push_back(icurry_work(const_cast<InfoTable *>(_0->info)));
       }
     }
     uint32_t const * const code = bc->code.data();
@@ -514,7 +517,7 @@ namespace curryrt
     return applied;
   }
 
-  void icurry_attach(InfoTable * info, std::unique_ptr<Bytecode> code)
+  void icurry_attach(ModuleRegistry const & owner, InfoTable * info, std::unique_ptr<Bytecode> code)
   {
     if(!info || !code)
       throw std::invalid_argument("icurry_attach: a null argument");
@@ -533,6 +536,7 @@ namespace curryrt
       throw std::invalid_argument(
           std::string("icurry_attach: ") + info->name + " has a step already"
         );
+    code->owner = owner.storage;
     info->aux = code.get();
     info->step = &icurry_step;
     g_functions.push_back(std::move(code));

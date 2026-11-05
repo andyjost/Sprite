@@ -181,7 +181,7 @@ namespace
   }
 
   void icurry_attach_(
-      InfoTable * info, std::vector<uint32_t> code, py::sequence consts
+      Module & owner, InfoTable * info, std::vector<uint32_t> code, py::sequence consts
     , uint32_t nregs, uint32_t nvars, uint32_t nstack
     )
   {
@@ -196,7 +196,7 @@ namespace
       bc->consts.push_back(make_constant(*bc, item));
     try
     {
-      icurry_attach(info, std::move(bc));
+      icurry_attach(owner.registry, info, std::move(bc));
     }
     catch(std::invalid_argument const & e)
     {
@@ -300,7 +300,7 @@ namespace curryrt { namespace python
   void register_icurry(pybind11::module_ mod)
   {
     mod.def("icurry_attach", &icurry_attach_
-      , py::arg("info"), py::arg("code"), py::arg("consts"), py::arg("nregs")
+      , py::arg("owner"), py::arg("info"), py::arg("code"), py::arg("consts"), py::arg("nregs")
       , py::arg("nvars"), py::arg("nstack")
       , "Makes a function table made at run time an interpreted function: "
         "attaches the bytecode and the constants of its body.", curryrt::python::heap_access{});

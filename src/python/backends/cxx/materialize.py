@@ -239,7 +239,7 @@ class Materializer(object):
       , len(code.code), len(code.consts)
       )
     curryrt.icurry_attach(
-        info, code.code, code.consts, code.nregs, code.nvars, code.nstack
+        self.M, info, code.code, code.consts, code.nregs, code.nvars, code.nstack
       )
     BYTECODE[ifun.fullname] = code
     if self.jit:
@@ -252,7 +252,7 @@ class Materializer(object):
         if self.jit == 'hot':
           llvmjit.start_hot_tier(self.interp._its, jit_threshold())
         else:
-          llvmjit.enqueue(info, ifun.fullname, self.interp._its)
+          llvmjit.enqueue(info, ifun.fullname)
       except llvmjit.Unavailable as exc:
         global _JIT_WARNED
         if not _JIT_WARNED:

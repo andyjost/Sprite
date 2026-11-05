@@ -590,7 +590,7 @@ def attach(interp, source, path, header):
       else:
         for _, _, info in bom.functions:
           if curryrt.icurry_bytecode(info) is not None:
-            llvmjit.enqueue(info, bom.fullname + '.' + info.name, interp._its)
+            llvmjit.enqueue(info, bom.fullname + '.' + info.name)
     except llvmjit.Unavailable as exc:
       if not materialize._JIT_WARNED:
         materialize._JIT_WARNED = True

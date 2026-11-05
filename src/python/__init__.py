@@ -58,13 +58,20 @@ from .interpreter import flags as _flags
 if '_interpreter_' in globals():
   from .backends.cxx import tiered as _tiered
   _tiered.cancel(_interpreter_)
-  _interpreter_._session = object()
-  _interpreter_._expression_modules = []
-  _interpreter_._unlink_modules()
-  _old_prelude = _interpreter_.modules.pop('Prelude', None)
-  if _old_prelude is not None:
-    _interpreter_.backend.module_unlinked(_interpreter_, _old_prelude)
-  del _old_prelude
+  from .backends.cxx import llvmjit as _llvmjit
+  from .utility.locking import native_metadata as _native_metadata
+  @_native_metadata
+  def _retire_previous():
+    if getattr(_interpreter_, '_its', None) is not None:
+      _llvmjit.invalidate(_interpreter_._its)
+    _interpreter_._session = object()
+    _interpreter_._expression_modules = []
+    _interpreter_._unlink_modules()
+    old_prelude = _interpreter_.modules.pop('Prelude', None)
+    if old_prelude is not None:
+      _interpreter_.backend.module_unlinked(_interpreter_, old_prelude)
+  _retire_previous()
+  del _retire_previous
 try:
   _interpreter_ = interpreter.Interpreter(flags=globals().pop('_reload_flags', _flags.getflags()))
 except FlagError:

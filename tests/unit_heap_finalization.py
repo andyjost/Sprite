@@ -225,7 +225,7 @@ def compile_hot():
   cycle()
   info = Hot.hot.info
   llvmjit._compile_groups(jit, [(info, jit.names[rt.icurry_address(info)])], post=True,
-      work={rt.icurry_address(info): rt.icurry_work(curry._interpreter_._its, info)})
+      work={rt.icurry_address(info): rt.icurry_work(info)})
 with mock.patch.object(jit, 'compile_batch', side_effect=collecting_batch):
   thread = threading.Thread(target=lambda: checked(compile_hot))
   thread.start()

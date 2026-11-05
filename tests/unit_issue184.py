@@ -256,7 +256,16 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
   def test_llvm_reset_interrupts_batches(self):
     self._llvm_reset_work(True)
 
-  def _llvm_reset_work(self, between):
+  def test_llvm_cross_interpreter_reset_discards_taken_work(self):
+    self._llvm_reset_work(False, cross=True)
+
+  def test_llvm_hard_reset_discards_taken_work(self):
+    self._llvm_reset_work(False, hard=True)
+
+  def test_llvm_internal_hard_reset_discards_taken_work(self):
+    self._llvm_reset_work(False, hard='helper')
+
+  def _llvm_reset_work(self, between, cross=False, hard=False):
     try:
       import llvmlite
     except ImportError:
@@ -265,13 +274,26 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
 import os, sys, tempfile, threading, time
 from pathlib import Path
 os.environ['SPRITE_JIT_THRESHOLD'] = '2'
+import curry, importlib, logging
 from curry.interpreter import Interpreter
 from curry.backends.cxx import curryrtbindings as rt, llvmjit
 flags = {'interpret': 'all', 'jit': 'hot', 'jit_backend': 'llvm', 'inline_budget': 0}
 first, second = Interpreter(flags=flags), Interpreter(flags=flags)
+cross, hard = %r, %r
+if hard:
+    curry._interpreter_ = first
 entered, release, done = threading.Event(), threading.Event(), threading.Event()
 between = %r
 llvmjit.BATCH_SIZE = 2
+logs = []
+logged = threading.Event()
+class Capture(logging.Handler):
+    def emit(self, record):
+        logs.append(record.getMessage())
+        if logs[-1].startswith('jit hot: compiled ') and 'SurvivingHot.f' in logs[-1]:
+            logged.set()
+llvmjit.logger.addHandler(Capture())
+llvmjit.logger.setLevel(logging.INFO)
 ready, take = threading.Event(), threading.Event()
 take_hot = rt.icurry_take_hot
 def gated_take():
@@ -319,7 +341,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
     with llvmjit._group_lock:
         for i in range(33):
             for _ in range(2):
-                assert first.eval(getattr(a, 'f%%d' %% i)(0)).one() == 11
+                assert (second if cross else first).eval(getattr(a, 'f%%d' %% i)(0)).one() == 11
         for _ in range(2):
             assert second.eval(b.f(0)).one() == 22
     take.set()
@@ -329,8 +351,19 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
         assert first.eval(a.f33(0)).one() == 11
     owner = first._its.registry_id
     try:
-        first.reset()
-        assert all(ticket.owner != owner for ticket in rt.icurry_take_hot())
+        if hard:
+            if hard == 'helper':
+                from curry.interpreter import reload as hard_reload
+                hard_reload('curry', flags)
+            else:
+                curry._reload_flags = flags
+                importlib.reload(curry)
+            first = curry._interpreter_
+            first.path.insert(0, work)
+        else:
+            first.reset()
+        remaining = rt.icurry_take_hot()
+        assert all(ticket.owner != owner for ticket in remaining)
         write(33)
         again = first.import_('RetiredHot')
     finally:
@@ -346,7 +379,10 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
     assert len(compiled) == (2 if between else 0), ('stale batches compiled', len(compiled))
     assert first.eval(again.f0(0)).one() == 33
     assert second.eval(b.f(0)).one() == 22
-''' % between)
+    assert logged.wait(30), logs
+    if not between:
+        assert not any('jit hot: compiled RetiredHot.' in line for line in logs), logs
+''' % (cross, hard, between))
 
   def test_eager_reset_preserves_other_cxx_hot_threshold(self):
     self.run_child(r'''
