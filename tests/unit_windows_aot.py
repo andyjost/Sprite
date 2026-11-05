@@ -263,8 +263,11 @@ assert curry.eval(module.answer).one() == 42
                if p not in copies]
       self.assertTrue(stale, 'the child must leave its retired generation')
       # Publication cleans dead owners without removing live readers.
-      cpp = str(product.with_suffix('.cpp'))
-      toolchain.Cpp2So(cytest.raw.interp())(cpp, curry.path, is_sourcefile=True)
+      # A fresh producer reads the child's receipt. The original loaded
+      # generation must not reread files another process has replaced.
+      collector = subprocess.run([sys.executable, '-c', script, str(source)],
+                                 capture_output=True, text=True, timeout=120)
+      self.assertEqual(collector.returncode, 0, collector.stdout + collector.stderr)
       self.assertTrue(all(not path.exists() for path in stale))
       self.assertTrue(all(path.exists() for path in copies))
       self.assertEqual(curry.eval(module.answer).one(), 42)

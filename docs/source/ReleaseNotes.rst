@@ -5,6 +5,9 @@ Release Notes
 Unreleased
 ==========
 
+- Validate reusable products by content and publish complete generations:
+  protect cache and JIT mappings, ICurry receipts, image inputs, exported
+  files, precompiled headers and tiered adoption; require publication locks.
 - Move symbol construction and image runtime snapshots before cache/product
   locking; defer JIT compilation, resolution, cache indexing and publication
   logs, the product-lock helper's own diagnostics, and C++ object compiler,
@@ -108,7 +111,7 @@ Unreleased
   fills the library's cache in one job (``SPRITE_STAGE_JIT_CACHE=0`` skips
   the fill of a stage).
 - The LLVM cache uses smaller module-local symbols and per-function zlib
-  payloads (``SPRTJIT4``). Cached calls can resolve between hot optimizer
+  payloads (``SPRTJIT5``). Cached calls can resolve between hot optimizer
   batches; pinned cache files close after resolution or image detach.
 - LLVM JIT batches persist as relocatable ``.jit`` objects beside module
   images, resolve on first use on a warm start and use

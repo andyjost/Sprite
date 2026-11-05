@@ -107,12 +107,13 @@ try:
         else:
             raise AssertionError(name + ': changed link input accepted')
     if not stamp:
-        # A reset admits the replacement while all other products stay unchanged.
+        # A reset admits a complete replacement generation. The isolated
+        # object copy in the first tree still has the old content receipt.
         curry.reset(interpret='new', jit='off', inline_budget=0)
-        curry.path.insert(0, str(root / ('2' if background else '1')))
+        curry.path.insert(0, str(root / '2'))
         probe = curry.import_('Probe')
         curry.save(probe, root / 'Probe.so')
-        run = "import curry; curry.reset(interpret='new', jit='off', inline_budget=0); curry.path.insert(0, %%r); module = curry.load(%%r); print(curry.eval(module.goal).one())" %% (str(root / ('2' if background else '1')), str(root / 'Probe.so'))
+        run = "import curry; curry.reset(interpret='new', jit='off', inline_budget=0); curry.path.insert(0, %%r); module = curry.load(%%r); print(curry.eval(module.goal).one())" %% (str(root / '2'), str(root / 'Probe.so'))
         result = subprocess.run([sys.executable, '-c', run], capture_output=True, text=True, timeout=30)
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() == '3', result.stdout
